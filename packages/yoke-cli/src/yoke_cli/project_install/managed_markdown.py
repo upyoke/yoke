@@ -30,15 +30,11 @@ from yoke_cli.project_install.files import (
     sha256_text,
 )
 
-MANAGED_BLOCK_BEGIN = "<!-- BEGIN YOKE MANAGED BLOCK -->"
-MANAGED_BLOCK_END = "<!-- END YOKE MANAGED BLOCK -->"
-# Human-facing guidance rendered as the first line inside every block. Kept out
-# of the marker strings themselves so block detection stays an exact-string
-# search regardless of how the guidance is later reworded.
-_MANAGED_BLOCK_NOTE = (
-    "<!-- Managed by `yoke project install`. Everything between the BEGIN and "
-    "END markers is overwritten on refresh — do not edit it here. Your own "
-    "content outside the markers is always preserved. -->"
+from yoke_contracts.project_contract.managed_block import (
+    MANAGED_BLOCK_BEGIN,
+    MANAGED_BLOCK_END,
+    block_span as _block_span,
+    render_block,
 )
 
 
@@ -65,26 +61,6 @@ def assert_safe_managed_markdown_paths(paths) -> None:
                 "blocks must be repo-relative '.md' files outside .yoke/ and must "
                 "not name hook settings files"
             )
-
-
-def render_block(content: str) -> str:
-    """Wrap block content in the begin/end markers plus the do-not-edit note."""
-    body = content.strip("\n")
-    return (
-        f"{MANAGED_BLOCK_BEGIN}\n{_MANAGED_BLOCK_NOTE}\n{body}\n"
-        f"{MANAGED_BLOCK_END}"
-    )
-
-
-def _block_span(text: str) -> Optional[Tuple[int, int]]:
-    """Return (start, end) offsets of the managed block, or None if absent."""
-    start = text.find(MANAGED_BLOCK_BEGIN)
-    if start == -1:
-        return None
-    end = text.find(MANAGED_BLOCK_END, start)
-    if end == -1:
-        return None
-    return start, end + len(MANAGED_BLOCK_END)
 
 
 def plan_markdown_block(current: Optional[str], block: str) -> Tuple[str, str]:

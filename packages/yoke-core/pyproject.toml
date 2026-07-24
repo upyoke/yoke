@@ -78,6 +78,8 @@ where = ["src"]
 # the wheel; the server exposes only the closed static asset roster.
 "yoke_core.ui" = ["static/*", "contracts/*"]
 "yoke_core.install_bundle_tree" = [
+    "AGENTS.md",
+    "CODEX.md",
     ".agents/skills/yoke/**/*",
     "runtime/harness/claude/agents/**/*",
     "runtime/harness/claude/rules/**/*",

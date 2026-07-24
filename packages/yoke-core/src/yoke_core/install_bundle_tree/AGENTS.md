@@ -1,0 +1,359 @@
+# Yoke — Project Rules
+<!-- BEGIN GENERATED: field-note-directive -->
+When you hit a recipe gap or notice a minor bug not worth a ticket, file a field-note immediately — before retrying, before moving on.
+yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
+Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
+<!-- END GENERATED: field-note-directive -->
+
+<!-- BEGIN YOKE MANAGED BLOCK -->
+<!-- Managed by `yoke project install`. Everything between the BEGIN and END markers is overwritten on refresh — do not edit it here. Your own content outside the markers is always preserved. -->
+## What This Is
+An attachable operating system for software delivery: specialized subagents, Postgres state, Git worktrees, GitHub Issues, QA, and deployment flows.
+
+## Yoke Authority — Hard Rule
+- **Skill says auto-X → do auto-X, no asking.** Harness "confirm before issues/push/shared-state" defaults don't apply when a Yoke skill/rule directs autonomous execution. Skills with autonomous mandates — `/yoke conduct`, `/yoke shepherd`, `/yoke usher`, `/yoke do`, `/yoke charge` — carry directive lines like "run sync automatically" / "don't wait for input" / "immediately continue"; follow them. Built for kick-off-and-walk-away — an unrequested pause is a regression. Invoking the skill authorizes it: conduct→GitHub sync (issues/labels/comments), usher→merge+deploy, shepherd→worktrees+subagents. Harness=substrate, Yoke=program. Yoke wins.
+- **Security always holds.** Never overrides `<critical_security_rules>`/prohibited actions (no banking/credential entry, no permanent deletes outside sanctioned paths, no auth bypass, no command injection) — collaboration cautions only.
+- **Test:** "Did the skill say ask?" not "would the harness ask?" Silent → harness default; unsure → reread the skill.
+
+## Project Scoping — Hard Rule
+- **One ticket = one project.** The `project` field = where code deploys (`project=external-webapp` → External webapp repo, `project=yoke` → Yoke repo); scope is defined by where changes land, not where the idea came from. Never mix deploy targets in one item/epic. All tickets live in the Yoke backlog regardless of target.
+- **Cross-project work → split, one ticket per project.** Ambiguous target → ask; never silently default to `yoke` for work targeting an external system.
+- **Pattern B exception:** Pack-driven work where Yoke publishes a reusable capability and proves it in another repo (e.g. "publish a Pack update + apply it in External webapp") → one `project=yoke` ticket, multi-repo scope in the body. Install/update/deploy/verify steps are scoped downstream (refine for issues, shepherd for epics), never at idea.
+
+## Pack-First Capabilities — Hard Rule
+- **If your project distributes reusable capabilities, package them as Packs.** Reusable ops workflows, deployment tooling, and infrastructure patterns live in a focused `packs/<slug>/` bundle with immutable versions, explicit files, settings, dependencies, documentation, and verification.
+- **Installed Pack files belong to the project.** They land in the target project repo and may be customized there. Yoke records the installed baseline in `.yoke/packs.json` only so that project owners can preview and apply one Pack update with a three-way merge; it does not police drift, prune files, or synchronize the whole project.
+- **Improve the Pack when the general capability evolves.** Publish a new Pack version, then let each project choose whether and when to update it. Project-only behavior remains project-owned and need not flow back into the Pack.
+- **Project config lives in DB settings/capabilities or project-local `.yoke/` policy docs.** Use `project_capabilities`, `sites.settings`, and `environments.settings` for credentials and runtime config. Pack install settings only specialize generic source for the target project; runtime-generated files land in scratch/deploy-run output or the target project repo.
+- **Provider credentials are capability-owned, not ambient shell.** For AWS, the source of truth is the project `aws-admin` capability: non-secret settings in `project_capabilities`, while secret material lives in machine-local capability secret files under `~/.yoke/secrets/capability-secrets/<project>/aws-admin/`. The `capability_secrets` table is not the storage shape for `aws-admin` secrets. A naked `aws ...` command may fail even when the project is correctly configured because the credentials are not exported into the shell. Use Yoke-owned capability resolver surfaces to materialize credentials into a subprocess env without printing secret values; when a resolver has not yet been wrapped, treat it as a source-dev/admin helper rather than an agent recipe. Verify by listing keys/settings or redacted evidence; never log raw secret values.
+
+## Worktree DB Authority — Hard Rule
+- **Yoke control-plane DB authority is Postgres, never a constructed file path.** From any checkout or linked worktree, use registered `yoke <subcommand>` commands or the function-call surface for reads/writes; everyday raw diagnostic SELECTs use `yoke db read "SELECT ..."`. Lower-level break-glass query paths remain source-dev/operator-debug only, not the agent-default read path. Never infer authority by appending a legacy DB filename to `$PWD`, `CLAUDE_PROJECT_DIR`, or a worktree path.
+- **A linked worktree is not a Yoke control plane.** Paths under `.worktrees/<branch>/` are code execution surfaces. Do not read or write worktree-local legacy DB files; control-plane reads and writes go through the connected Postgres authority.
+- **Worktree-local DBs are validation surfaces only when explicitly surfaced.** If a migration model provisions a validation DB, use the emitted Postgres env bindings. Do not substitute that DB for `/yoke` control-plane reads, item queries, events, or project metadata.
+- **Environment settings are projected, never dumped.** Read only explicit
+  scalar leaves with `yoke projects environment-settings get --project <slug>
+  --environment-id <id> --path <key.path>`; the registered read refuses root or
+  container projections, and merge receipts return changed paths rather than
+  the settings document. Never inventory `environments.settings` as a whole.
+
+## Deployment Runs — Hard Rule
+- **Flow id != run id; item-bound delivery uses Usher/start-for-item.** A hosted flow definition id is not a run id; run ids look like `run-YYYYMMDD-NNN`, and `/yoke usher YOK-N` creates runs through `runs start-for-item`, writes `deployment_run_items`, executes the pipeline, then moves members to `done`.
+- **Disable definitions; retain history.** `yoke deployment-flows set-status <flow-id> disabled` prevents new assignments and runs without deleting the definition or any historical run. A definition referenced by a run is immutable and cannot be deleted.
+- **Schema/env shape:** `deployment_runs` has no `item_id`; `deployment_run_items` may be empty for started environment runs. The HTTPS product/API environment is the normal authority; a local-Postgres admin environment is reserved for sanctioned source-dev/admin or audited break-glass command-shaped deploy surfaces.
+
+## Path Claims — Hard Rule
+- **Two orthogonal axes — never fuse them.** *Scope:* the full required file set always goes in `## File Budget` and the path-claim attempt, regardless of overlap. *Phase:* who reconciles overlap and when (Architect intra-epic at `/yoke shepherd plan`; Idea Phase 3 or Refine readiness-repair cross-item). Fusing them yields the wrong ticket — "register the non-conflicting subset, let refine sort it later" silently omits required files.
+- **Claimed paths do not narrow ticket scope.** A ticket's scope must never be narrowed, descoped, or rewritten solely because a required path is already claimed. If the right fix touches a file, the file stays in the ticket — in `## File Budget`, the path-claim attempt, and the spec — regardless of who holds an overlapping claim.
+- **Active path claims are coordination/dependency/blocking facts, not scope facts** — a live claim signals who coordinates a path; it never authorizes omitting a required file from a ticket. `item_dependencies` rows are **directional**: the `dependent_item` waits, the `blocking_item` does not (a `blocks` edge YOK-A→YOK-B gates B's activation, not A's). Those columns store public text refs like `YOK-1907`, not numeric `items.id`; use `yoke shepherd dependency-list YOK-N` for routine reads instead of ad hoc numeric SQL. The hard-block gate and overlap classifier agree on direction — the blocker classifies `NONE` and activates immediately; the dependent classifies `HAS_SERIAL` and serializes. The repair sweep flips legacy upstream-blocker rows stuck at `state='blocked'` → `planned`. Accepted overlap remediations: classify the overlap (independent same-file edits → `coordination_only` edges, no gate; order-dependent → `--gate-point activation` with directional evidence; ambiguous → escalate), leave the candidate `state="blocked"` only when it's the dependent side of real upstream coordination, wait for the holder to release, coordinate with the holder, ask the holder to narrow or cancel, or operator override (`path-claim-override`) as last resort (never for the structural-upstream case the classifier already passes). Removing the required file is never an option.
+- **"Avoid the overlap" never means "omit the file."** It only authorizes coordinating with the holder or recording a dependency/blocker — never a smaller ticket whose File Budget drops the required file. `/yoke idea` and `/yoke refine` keep the file in the File Budget and the claim attempt; the workflow resolves the conflict downstream.
+- **Coordination-only edges are agent-attested.** When two items touch a shared path with semantically independent edits, a `coordination_only` `item_dependencies` row attests the overlap is compatible without gating lifecycle/activation (same-hunk collisions resolve at merge). Only authoring-phase agents write them — Architect at `/yoke shepherd plan`, or Idea Phase 3 / Refine readiness-repair — via `yoke claims path coordination-decision-build`, each with an authored `rationale` (HC `path-claim-coordination-rationale` flags missing/stale ones). Engineer/Tester/Boss/Conduct/Polish/Advance/Usher do NOT author them — runtime collisions there route back to `/yoke refine`. Un-attested overlap stays strict `INCOMPATIBLE`; auto-serialization without an authored row is rejected.
+- **Claims coordinate on physical files, not path strings.** For an in-repo symlink (e.g. `CLAUDE.md → AGENTS.md`), the symlink resolver pairs the symlink target_id with its canonical target_id so the claim covers both — a claim on only `CLAUDE.md` and one on only `AGENTS.md` overlap at registration (one coordination unit). External-target/dangling symlinks emit `PathTargetSymlinkSkipped` and stay symlink-name-only. `HC-path-claim-symlink-coverage` flags any non-terminal claim covering a symlink-source without its canonical target. `/yoke idea`/`refine` advise listing the canonical name; the claim covers both either way.
+- **Typed owner separates authority from provenance.** Each `path_claims` row carries `owner_kind` ∈ (`item`,`session`,`process`) + the matching `owner_item_id`/`owner_session_id`/`owner_work_claim_id`. Provenance lives on `registered_by_actor_id`/`registered_by_session_id` (legacy `actor_id`/`session_id` kept for cutover); readers MUST NOT treat the registering session as authority — an item-owned claim survives its registering session ending. `HC-path-claim-owner-kind` flags rows with missing/invalid/contradictory typed ownership. The board shows item-owned claims as item file counts and only true session/process claims in the orphan form.
+
+## Command Output — Hard Rule
+- **Capture-first: any non-trivial command MUST be captured to a temp file.** Never pipe a live command invocation directly to `tail`, `head`, or any other truncating consumer — this silently discards failure context and forces a re-run. Applies to anything whose output matters on failure (roughly >5s): tests, merges, deploys, syncs, browser QA, renders, installs, builds, long git ops. Skip only the obviously instant (`ls`, `echo`, `git rev-parse`). The pattern:
+  ```bash
+  _tmp=$(mktemp /tmp/yoke-cmd.XXXXXX)
+  <command> >"$_tmp" 2>&1; _rc=$?
+  tail -80 "$_tmp"                           # inspect captured output
+  grep -E "FAIL|ERROR|error" "$_tmp" || true # extract failures
+  exit "$_rc"
+  ```
+  Anti-patterns to avoid: `<command> | tail -N`, `<command> 2>&1 | head`, any pipe-to-truncator on a live invocation (the pipe-to-truncator lint denies these for the long-command set — the truncator discards failure context AND masks the exit code). For test suites specifically, run a failing test in isolation rather than re-running the full suite.
+- **Capture-first is for long/external commands only — Yoke's own adapters run bare.** The capture-first rule applies to long or external commands (tests, builds, deploys, merges, git) where losing a failed run is expensive. It does NOT apply to Yoke's own registry-covered commands (`yoke <subcommand>`, `db_router`, `service_client`): those are short — run them **bare**, let them print directly (add `--json` for structured output), never wrapped in redirection, pipes, `tail`/`head`, or `| python -c` soup. Wrapping an adapter in capture choreography is denied by `lint-shell-quoted-function-payload` (the agent surface is migrating to clean `yoke <subcommand>` calls — the soup is the old pattern). Long Yoke-ish runs (renders, merges) use the watcher wrappers below, which capture internally.
+- **Stream long commands via the harness surface.** Capture-first is the floor and never optional; streaming is required wherever the harness supports it. In Claude, run anything likely >60s via `Bash(run_in_background)` + `Monitor` on the capture, preferring the watcher wrappers (`watch_pytest` / `watch_merge` / `watch_doctor`) over hand-authored progress filters — the full Claude template + subagent rules live in your Claude harness session rules. Codex uses native PTY streaming and satisfies this automatically.
+- **Don't manually poll a running long command** — the streaming surface is the progress signal. The long-command-polling lint blocks same-capture polling loops (including `sleep N && tail` with N<60s). Subagents must run long commands foreground in one tool call (the subagent-background lint denies background/`Monitor` in subagent context). Suppression `# lint:no-polling-check` unblocks only legitimate post-capture inspections; the Monitor-duplicate/background-waiter tokens are audit-only.
+
+## Verification Failure Ownership - Hard Rule
+- **Current-item verification failures belong to the current item.** A future/planned item, planned path claim, or cleanup ticket owning a touched file is not a waiver. If the current branch has a failing registered command, gate, or regression, fix it here — unless there's a live active-session conflict or explicit operator waiver.
+- **Use dependency and claim reconciliation before override.** If the fix touches a file outside the current claim, use the sanctioned surfaces first: widen the claim, add/verify the serial dependency, wait for or release a live holder, or reconcile the future claim. Do not use `path-claim-override` for a planned future claim when reconciliation works — override is last resort for irreducible live collisions and needs explicit operator approval.
+- **Verification summaries are evidence-bound.** A failing registered command can't be reported green by pointing at a future ticket. Record the failure, the dependency/claim action, and the rerun evidence that made the item green.
+## Code Conventions
+- **No such thing as "agent error."** A failed agent command is always systemic (truncated context, stale references, missing dispatch context, a teaching gap). Never write "agent error/mistake" or "the agent failed to X" in titles, bodies, commits, progress notes, or ticket prose — frame it as what the SYSTEM should change ("the task spec named a nonexistent function"). Applies at every tier: idea/refine intake, agent reflection, polish summaries, Ouroboros entries.
+- **Yoke-owned operations are first-class API calls, not terminal recipes.** The canonical Atlas of registered Yoke function ids, wrapped `yoke <subcommand>` adapters, retained command-shaped boundaries, pending handler-registration rows, teaching coverage, and open promise-vs-live contradictions lives at [`docs/atlas.md`](docs/atlas.md). It is rendered from the Atlas integrity audit and docs renderer, which are source-dev/admin helpers, not agent recipes. New skill prose, agent prompts, and packets reach for the registered function id first; the permanent command-shaped boundary roster in [`docs/atlas.md`](docs/atlas.md) names every command-shaped surface left command-shaped on purpose.
+- **Prefer Python over shell for stateful work.** Launchers, hooks, helpers, installers, and test runners live behind Python entrypoints or packaged commands, not tracked `.sh` files. No shell choreography for session IDs (Python CLIs resolve them), no `mktemp`/`rm -f` for content passing (use `--stdin` or Write). Shell stays fine for project test commands, grep/discovery, git inspection, and diff/screenshot temp files; prefer Python for anything stateful.
+- **No duplicated magic values.** Never hardcode the same literal value in multiple files. If a value is referenced in more than one place, extract it to machine config (`~/.yoke/config.json`) for machine-local runtime tunables, DB/project capability settings for environment/project authority, or a single Python constant. Callers read from that one source.
+- **Delete completed migrations only after applied-everywhere evidence.** Delete a migration module + tests only after the authoritative DB records a completed apply (or a `retired-without-apply: true` decision record under `docs/archive/decisions/` for never-applied retirements). Validation applies prove the module runs; only the authoritative apply satisfies the implementation gate. Cutover-ticket ACs word deletion timing by install topology; `/yoke idea`/`refine` emit the wording automatically. Backstop: `HC-stranded-migration-module`. Full contract in `## Governed DB Mutation`.
+- **`item_id` is always a bare integer.** In DB rows, events, telemetry, and test assertions, `item_id` is numeric. If a caller passes a `YOK-N`-prefixed string, strip the prefix before storage or assertion. This rule does not describe text reference columns such as `item_dependencies.dependent_item` and `item_dependencies.blocking_item`, which intentionally store public `YOK-N` refs.
+- **No obsoleted terms in tracked content.** An obsoleted term names a deleted column/table/module/CLI/helper/file no longer supported. When a term is retired, purge all references in the same commit. Compatibility aliases (a symlinked file, a still-called deprecated API path) are NOT obsoleted while actively supported — only when support ends. Git history preserves the record; the live tree doesn't. `HC-obsoleted-terms` enforces this.
+- **No historical `YOK-N` cruft in code or docs.** Inline `YOK-N` is for *active state* only — a current bug, pending migration, `TODO` on an open item, or a gate keyed on the ticket. Historical provenance ("added in YOK-X") belongs in commit messages. Durable architectural-why goes in `docs/archive/decisions/` under a topic slug (e.g. `virtual-body-field.md`) — explaining history outside `docs/archive/` teaches new agents old concepts. `HC-historical-yok-n-cruft` enforces this.
+- **Codebase-reader naming — hard rule.** **Assume future readers of the codebase will NOT have access to the ephemeral planning artifacts you are working from.** For everything you name, write, code, document, or comment in the live codebase, use only words that describe the current function, purpose, mechanics, intended behavior, or domain role to a reader of the codebase itself. Never name or explain live code using provenance from any planning or tracking artifact — a ticket or epic reference (`YOK-1234`, "added in YOK-1234", "epic 7"), a strategy document, plan, initiative, or milestone, a phase / stage / tier / slice / track / wave / batch label, a task, thread, acceptance criterion or functional requirement (`AC-7`, `FR-3`), a field-note number ("field-note 12960"), a spec-section citation ("§7", "per the spec/PRD"), a version / rollout wave ("V3 wave"), or a branch or worktree name. Never use textual or numeric identifiers from those artifacts unless the identifier is itself a runtime/domain concept. This targets provenance-of-code only: it never changes runtime data the product itself emits or parses (the item-body `- [ ] AC-1:` acceptance-criteria label format, enum values, dict keys, DB columns, error codes, event names) or a test's own synthetic fixtures — those describe current function and stay. Planning artifacts are scaffolding; the live codebase is the building. Before creating or renaming any file, directory, module, class, function, test, doc section, command, event, config key, constant, or comment — this explicitly includes the names and paths of files and directories — ask: "Would this still explain itself to a future maintainer who can only see the repository?" If no, translate it into current functionality before writing it. Example translations: "installer plan phase 3 adapter inventory" -> `install_adapter_inventory`; "packet initiative task 4 cleanup" -> `agent_context_packet_cleanup`; "AC-7 guard" -> `submission_receipt_guard`; "YOK-1577 retry shim" -> `transient_retry_shim`; "field-note 12960 stall fix" -> name the behavior (`stall_mitigation`), not the note; "zero-shell wave-3 closeout" -> `shell_closeout`. This applies to FILE and DIRECTORY names too: a file named for its ticket (`test_yok1234_regression.py`) -> named for its behavior (`test_migration_applied_evidence.py`); a `phase3-adapters/` directory -> a name for what it holds (`install_adapters/`).
+- **Verify before naming.** Before asserting a specific column/function/path/flag/table/migration/helper exists, ground it with a direct check (`grep`, `Read`, `information_schema` via `yoke db read`, or the DB packet). Turning a noun phrase from a ticket/doc/commit into an identifier without re-grounding is a confabulation hazard — the check is free, and this applies to chat, comments, and PR descriptions, not just code. High-risk shape: *"X added `Y` as the surface for Z"* — if `Y` wasn't checked this turn, check before writing the sentence.
+- **Operational primitives.**
+  - **One-off DB writes:** `printf '%s' "$content" | yoke items structured-field replace YOK-N --field <field> --stdin` — never a Python script.
+  - **Agent surface boundary:** see `### yoke CLI` below (canonical `yoke <subcommand>` shape, fallbacks, lints).
+- **The DB is the source of truth.** Project-local `.yoke/BOARD.md` is a generated view. Item body content is rendered on demand via `items get YOK-N body`. Strategy docs are DB-authoritative planning sources in `strategy_docs` rows: cold starts seed `MISSION`, `VISION`, `MASTER-PLAN`, and `LANDSCAPE`; projects may add focused docs such as `<AREA>-PLAN`, and the corpus is exactly the project's rows. `.yoke/strategy/` is only the gitignored local render: inspect with `yoke strategy doc list [--project P]` and `yoke strategy doc get <SLUG> [--project P]`, refresh with `yoke strategy render --target-root <checkout> [--project P]`, edit rendered files then `yoke strategy ingest <SLUG> --target-root <checkout> [--project P] --dry-run` before the real ingest, create new docs with `yoke strategy doc create`, and close out docs with `yoke strategy doc archive <SLUG> --target-root <checkout> [--project P]` so the view moves to `.yoke/strategy/archive/` without deleting the row. Never edit generated views directly unless the documented command ingests them back into the DB.
+- **Backlog reads and writes are Yoke-owned.** Use registered `yoke items ...`, `yoke lifecycle ...`, and structured-field commands for canonical backlog access. Do not teach lower-level service clients as the public mutation surface.
+- **Raw SQL is an escape hatch, not the default.** Never hardcode DB paths or DSNs; use `yoke db read "SELECT ..."` for everyday raw diagnostic reads. Lower-level query paths are source-dev/operator-debug break-glass only. Never use `!=` in SQL; use `<>`.
+- GitHub issues: never use `YOK-N` as a GitHub issue number. Resolve via the `github_issue` DB field.
+- **Bash tool calls:** each call is its own subshell — vars/exports don't persist. **Sticky cwd is surprising:** the Claude harness re-applies the prior cwd between calls when the `cd` target was inside a declared working dir (project root or a subtree of `.worktrees/<branch>/`), silently — so a `cd` into one worktree carries into the next command unless you `cd` back; an out-of-scope `cd` reverts with `Shell cwd was reset to <primary>`. Parallel calls share the sticky cwd. So: **inline full absolute paths in every command** and prefer `git -C <abs>`. Write authority = the session's active `work_claims`: targets must land under a claimed worktree, the main control plane (repo root excluding `.worktrees/`), or the free-path allowlist (`/tmp`, `/var/folders/...`); the session-cwd lint validates each call. Worktree creation (`/yoke advance`/`conduct`) records the worktree on the item and activates path claims; the launcher `cd` is convenience, not authority. Suppression `# lint:no-worktree-path-check` is audit-only — does not unblock.
+- **Bash tool shell hazards:** in zsh, `VAR=X; cmd "$VAR" | pipe` can expand incorrectly — capture command output first with `$()`. Single-quote literal `rg`/`grep` patterns; backticks inside double quotes still run command substitution. Put `rg` options (including `--glob`) before the pattern and path operands. Never pass an optional unmatched path glob such as `docs/deploy*` directly to zsh; enumerate candidates with `rg --files` or quote a pattern consumed by the tool. Quote URL arguments containing `?` (unquoted `?` globs). Never name shell vars `path`/`status` (zsh specials — `path` shadows `$PATH`, `status` is read-only). `python3`, never `python`. `mktemp` templates must END in `XXXXXX`.
+- **Title length limit:** all item and epic task titles must be <=100 characters. The Python backlog layer and `HC-title-length` enforce this.
+- **Ticket intake — `/yoke idea` is the only entry.** Every new backlog item enters through `/yoke idea`; don't assemble one by chaining the lower-level item/body/claim/GitHub/REST primitives. Public create surfaces (including the `items.create` function id behind `yoke items create` — the https-capable intake adapter `/yoke idea` drives) are gated by the intake-provenance check, which rejects direct production calls outside idea intake (dry-run, `--idea-intake`/`provenance="idea"`, and test DBs bypass). Adopt a title-only or bypass-created shell through `/yoke idea`, not lower-level APIs.
+- **Epic decomposition belongs to the Architect.** Do not pre-file additional issues that you imagine as part of an unplanned epic. Epic decomposition lives in `epic_tasks`, populated by the Architect during shepherd planning.
+- **Tier-discipline doctrine.** The seven teaching tiers and their backstop HCs (`HC-tier-schema-bleed`, `-tier-cli-shape-bleed`, `-packet-tier-completeness`, `-progressive-disclosure-direction`, `-tier-module-path-resolution`) are documented at `docs/archive/decisions/teaching-tier-discipline-audit.md`.
+- **Inline-short + `--help`-deep teaching.** Every Atlas-taught operation carries one short copy-paste recipe + one-sentence directive everywhere agents read (packet, agent body, skill, CLI footer, recovery hint, denial message); the deep home (variants, examples, flag matrix, decision tree) is the operation's `<cmd> --help`. Carve-outs: `agent_executes_via_harness` families (git, gh) and tool wrappers (`watch_pytest`/`watch_doctor`/`watch_merge`) have no Yoke `--help`, so inline carries the full recipe. Anti-pattern teaching lives only in denial messages. Enforcement deferred.
+
+### `yoke` CLI: main checkout vs worktree semantics
+- **Canonical agent shape:** `yoke <subcommand>` for every wrapped op (`yoke items get YOK-N`, `yoke claims work acquire --item YOK-N --reason X`, `yoke lifecycle transition YOK-N --to STATUS`, `yoke db-claim amend YOK-N --reason R --state none`). Transport is connection-keyed: an https active connection relays every call to the server; a non-prod local-postgres connection dispatches in-process through the engine — the product path for a local universe, not a fallback; prod-flagged postgres connections stay operator-only.
+- **Grammar (CLI grammar contract):** dots→spaces, underscores→hyphens, terminal `.run`/`.execute` drops — reversible, no lookup table. New function ids ship a CLI adapter before becoming agent-callable.
+- **Install:** `pip install -e .` from repo root puts `yoke` on PATH — always routes through the **main working tree's** code, never a linked worktree. If `yoke` isn't on PATH, the bootstrap packet prepends an install advisory for repairing the launcher.
+- **Fallbacks (operator-debug only, not agent shapes):** the lower-level DB-router and service-client forms. Never agent shapes: the HTTP function-call server / `curl localhost:8765` / `$YOKE_API`, or direct in-process imports of the runtime API. Lints `lint-no-agent-runtime-api-import-from-c` + `lint-no-agent-curl-against-yoke-api` (modes from project-local `.yoke/lint-config`, guard keys `lint_no_agent_runtime_api_import_from_c`/`lint_no_agent_curl_against_yoke_api`, default `deny`).
+- **Operation status:** `wrapped` (has CLI adapter) / `permanent` (stays multi-module: coordination-lease, internal claims.path, tool wrappers like `watch_pytest`) / `pending` (future). Verified by `HC-fallback-registry-coherence`.
+
+## Simplify — three-axis doctrine
+Idea, refine, advance, conduct, shepherd, and polish each apply three axes — **reuse**, **quality**, **efficiency** — plus a **future-concept pull-forward** lens (consume end-state primitives — actors, sessions, leases, claims, approvals, overrides, evidence, run records, journals, compiled packets, resource locks, shared-state coordination — when authoring discovers them). Yoke owns this vocabulary independently of any harness built-in.
+- **Reuse.** Name an existing surface (file, helper, template, skill, event, command, config) covering the outcome before adding one. Empty reuse needs an explicit "no relevant existing surface."
+- **Quality.** Smallest shape that satisfies the request: smallest spec/plan/diff. No redundant state, parameter sprawl, copy-paste-with-variation, leaky abstractions, stringly-typed code where types/constants exist, wrapper nesting, or WHAT comments (keep non-obvious WHY). Declare out-of-scope when the request invites creep.
+- **Efficiency.** Cheapest valuable path first. Avoid redundant computation, repeated reads, duplicate API calls, N+1, missed concurrency, hot-path bloat, no-op updates, existence pre-checks, unbounded structures, missing cleanup. New tables/events/skills/configs/commands need extension-vs-create justification.
+- **Stage weights.** **Idea**: advisory `simplify pre-check` covering all three axes + future-concept — structural presence over depth, a one-line "no concerns" is valid, advisory not blocker. **Refine**: feedforward lenses on plan+spec — reuse names existing surfaces, quality caps the plan at the minimum surface satisfying ACs with explicit out-of-scope, efficiency justifies any new surface, future-concept names end-state v0s or absorption targets. **Advance/authoring**: same vocabulary at code time, smallest diff satisfying the ACs. **Polish**: one worktree-diff-scoped simplify pass before staleness/test re-run — fix in place, skip false positives, proceed even with no changes; deliverable is a commit, not a report.
+- **Doctrine boundaries (v0).** Yoke owns the cross-harness vocabulary (not a harness wrapper). Feedforward at authoring + one sequential simplify pass at polish — NOT parallel fan-out (deferred to v1). v0 adds no lifecycle phase, no storage fields, no dedicated sub-agent, no whole-repo cleanup mandate; polish defaults to the worktree diff.
+
+## Structured Item Writes
+
+**Agents write through the Yoke function-call surface.** Every item mutation — structured-field replace, additive transforms, section upsert, Progress Log append, epic-task body replace, DB-claim amend — is a typed function call dispatched through the Yoke function-call dispatcher. The CLI commands are **retained operator/debug adapters** that build the matching `FunctionCallRequest` internally; agent/skill/dispatch prose teaches the function id, CLI invocations stay valid as labelled operator/debug examples.
+
+Full envelope shape, claim-verification matrix, and the per-family function id reference (`items.structured_field.*`, `items.section.*`, `items.progress_log.append`, `items.scalar.update`, `lifecycle.transition`, `workflow_item.epic_task.*`, `claims.*`, `db_claim.amend`, `qa.*`, `project_structure.patch.apply`, `board.rebuild`, `agents.render.*`) live in [`docs/db-reference/functions.md`](docs/db-reference/functions.md); the operator-readable Atlas is [`docs/atlas.md`](docs/atlas.md); dispatcher events (`YokeFunctionCalled`, `DispatcherIdempotencyReplay`, `DispatcherDownstreamDegraded`) in [`docs/event-catalog.md`](docs/event-catalog.md).
+
+- **`items.body` is a virtual rendered field.** Not stored in the DB. Read via `yoke items get YOK-N body` (renders on demand from structured fields). Raw body writes are unsupported. All content flows through structured fields.
+
+- **Full-field replace (`items.structured_field.replace`):** writes complete content to `spec`, `design_spec`, `technical_plan`, `worktree_plan`, `shepherd_log`, `shepherd_caveats`, `test_results`, or `deploy_log`. Routes through the structured-write path (preserves empty/shrinkage/freeze guards, reports old/new line counts), and with matching `options` syncs the rendered body to GitHub + rebuilds the board. CLI adapter: `printf '%s' "$content" | yoke items structured-field replace YOK-N --field spec --stdin`.
+
+  ```jsonc
+  {
+    "function": "items.structured_field.replace",
+    "request_id": "<uuid>",
+    "actor":  {"session_id": "<harness_sessions.session_id>"},
+    "target": {"kind": "item", "item_id": 42},
+    "payload": {"field": "spec", "content": "# Spec\n\n..."},
+    "options": {"sync_github_body": true, "rebuild_board": true}
+  }
+  ```
+
+- **Additive transforms (`items.structured_field.append_addendum` / `section_upsert` / `section_append`):** preserve existing content, appending a `## heading`-led block (`append_addendum`, `section_append`) or rewriting one in place (`section_upsert`). The agent path is the function call; the read-transform-in-shell-then-pipe-back pattern is blocked by the structured-field-transform lint (suppression `# lint:no-structured-transform-check` is audit-only — still denies). CLI adapter: `printf '%s' "$content" | yoke items structured-field append-addendum YOK-N --field spec --heading "..." --source refine --stdin`.
+
+- **Epic-task content (`workflow_item.epic_task.*`):** body replace, split, reassign, add, remove, metadata update; progress notes via `workflow_item.epic_progress_note.append`. The dispatcher resolves the parent epic from `target.kind="epic_task"` and verifies the session holds the epic's work claim. CLI adapter: `printf '%s' "<task body>" | yoke workflow-item epic-task body-replace --epic 833 --task-num 5 --stdin`.
+
+- **Do not misuse epic-only fields on issues.** `shepherd_log`, `shepherd_caveats`, and `worktree_plan` are conceptually epic-only. Writing to them on an issue is misuse — readers will treat the content as authoritative shepherd output. For in-flight execution context on an issue, use the **Progress Log** section (next bullet).
+
+## Progress Log — long-running execution context on items
+
+For session-continuity context on an item that future agents need to pick up — what's done so far, decisions made, dead ends explored, where to resume after compaction or session swap — write to a **Progress Log** section on the item (works for both issues and epics). Agents call `items.progress_log.append`, which handles the read-then-upsert-with-`ordering=200` convention internally:
+
+```jsonc
+{
+  "function": "items.progress_log.append",
+  "target":   {"kind": "item", "item_id": 42},
+  "payload":  {"headline": "kicked off engineer dispatch", "body": "..." }
+}
+```
+
+CLI adapter: `yoke items section get YOK-N --section "Progress Log"` to read; `yoke items section upsert YOK-N --section "Progress Log" --content-file /tmp/progress-log.md --ordering 200` to write (destructive — read first when appending; the function call above does the read-merge-write internally). Reading the existing Progress Log into a shell variable / temp file and piping back into `items section upsert` is structured-field-transform shell choreography that the PreToolUse lint refuses by default.
+
+Why this surface: `shepherd_log`/`shepherd_caveats` are epic architect verdicts; `spec`/`technical_plan`/`worktree_plan` are intent fields, not execution state; `epic_progress_notes` is the equivalent for epic *tasks* keyed `(epic_id, task_num)`; the rendered body is virtual and picks up section writes automatically.
+
+Convention:
+
+- Section name is **exactly** `Progress Log` (case-sensitive, two words).
+- `--ordering 200` keeps the section after the standard structured fields (spec=10, design_spec=20, technical_plan=30, etc.) and before any operator-authored sections that have no explicit ordering (default is large).
+- Each entry leads with an ISO-8601 UTC timestamp + a short headline so the file becomes a chronological log when read top-to-bottom. The `items.progress_log.append` handler stamps the timestamp automatically.
+- The function-call surface (`items.progress_log.append`) preserves prior content and writes one new entry per call; concurrent writers are serialized by the existing item claim.
+- Skill prose and agent bodies that drive multi-turn execution against an item should reference this convention rather than inventing per-skill scratchpad surfaces.
+
+## Governed DB Mutation
+Per-project governed contract for data-transforming (and destructive) schema changes and bulk-data changes against a declared authoritative DB. Pure-additive net-new tables/columns are out of scope — they self-propagate on the next boot via the additive-schema converge step (below). Applies to any project declaring a `migration_model` capability (absence = opted out). Every ticket carries a **DB claim**; the default `{"state":"none"}` means "no governed mutation declared."
+
+- **The DB claim is one concept written through one workflow.** Storage splits across two JSON columns on `items` — `db_mutation_profile` (what the mutation is) and `db_compatibility_attestation` (the safety argument) — but every write path (`/yoke idea` classification, `/yoke refine` repair, `/yoke advance`/`polish` discovery, mid-implementation correction) calls the `db_claim.amend` function id. Skill prose, recovery messages, and docs teach the function id and amendment workflow exclusively; full payload + atomicity contract in `docs/db-reference/items-and-epics.md` ("DB Claim — the unified amendment workflow"). Audit history only: `events list --event-name DbClaimAmended` (the gate-consulted reviewed-negative attestation lives on the profile JSON itself).
+- **The governed runner is for data-transforming changes, not net-new additive schema.** Pure-additive net-new tables/columns are authored in the schema module and self-propagate to every born universe on the boot after a deploy — the boot-time converge step applies the full idempotent schema (tables + indexes + additive columns) on every boot, so no governed migration and no manual catch-up is needed. **Data-transforming changes (drops, backfills, rewrites) and bulk data on a declared authoritative DB go only through a governed path:** the model's declared runner with full rehearsal + live-apply contract, or the explicit audit-fingerprint exception helper. Ad hoc write SQL against any declared authoritative DB is banned. Read-only SQL is always permitted.
+- **Every exception path is named.** New audit-fingerprint exception call sites require a paired decision record under `docs/archive/decisions/<helper-name>.md` with the justification. Populate `exception_reason` on the audit row.
+- **Authoritative live apply happens inside the lifecycle phase the project's migration flow declares.** The migration flow wires `implementing` for projects whose flow declares `migration_apply(model, implementing)`; other phases are reserved for future substrate. The ticket does not author the phase — the flow does. `refining-idea` and `polishing-implementation` verify evidence; they do not author or apply.
+- **Apply and retire are distinct flows.** `mutation_intent = "apply"` routes through the two-unit rehearsal + live-apply contract with lease, audit row, and rollback backup. `mutation_intent = "retire"` routes through decision-record authoring under `docs/archive/decisions/<module-identifier>.md` with `retired-without-apply: true` frontmatter — no rehearsal, no lease, no audit row, no apply. The ticket profile's `migration_modules` list is the authoritative input for the evidence gate regardless of intent.
+
+### DB surface doctrine
+- **Implementation code and tests validate against the model's declared validation surface.** The env var name is given by `model.runner.connection_env_var`; for Yoke-project's `governed_migration_module` runner the default is `YOKE_DB`. Non-Yoke projects declare their own env var (e.g. `DATABASE_URL`).
+- **`/yoke` control-plane commands always use `CANONICAL_YOKE_DB`.** The Yoke control plane is Yoke's; it is not forked per worktree or per declared model.
+
+### Project posture: `projects.breakage_policy`
+Every project carries one operator-authored stance on how aggressively schema and data cutovers can land in a single slice:
+
+| Value                     | Meaning                                                                      |
+|---                        |---                                                                            |
+| `founder_cutover`         | Default. Hard cutovers are first-class; expand-contract requires justification. |
+| `compatibility_required`  | Old + new readers may coexist. Hard cutover requires justification.            |
+
+Breakage policy is stored per project rather than inferred from its slug. Projects default to `founder_cutover`, and an operator may explicitly select `compatibility_required`.
+
+### `db_mutation_profile.migration_strategy` and the gate matrix
+`compatibility_class` is a SAFETY classification (does the diff preserve readers/writers across the merge boundary?). `migration_strategy` is the AUTHOR'S DECLARATION about the operational shape:
+
+| Strategy            | Meaning                                                                  |
+|---                  |---                                                                       |
+| `additive_only`     | Net-new tables/columns/data that do not replace an existing live surface. |
+| `hard_cutover`      | Old surface is replaced/deleted in the same slice.                       |
+| `expand_contract`   | Old and new surfaces coexist temporarily.                                |
+
+The two axes pair through the joint gate and the governed-runner rehearse/apply gates into the matrix:
+
+| `breakage_policy`        | `migration_strategy`  | Result                                                     |
+|---                       |---                    |---                                                         |
+| any                      | `additive_only`       | Allow regardless of `compatibility_class`.                 |
+| `founder_cutover`        | `hard_cutover`        | Allow when class is `pre_merge_safe` or `pre_merge_breaking`. |
+| `founder_cutover`        | `expand_contract`     | Block unless `migration_strategy_justification` is non-empty. |
+| `compatibility_required` | `hard_cutover`        | Block unless `migration_strategy_justification` is non-empty. |
+| `compatibility_required` | `expand_contract`     | Allow regardless of `compatibility_class`.                 |
+
+Block messages name BOTH axes so the operator knows which side to amend. Note: pure net-new additive schema needs NO governed migration — it self-propagates on boot via `converge_core_schema`; the `additive_only` strategy here covers additive changes deliberately authored as a governed migration (e.g. bundled with a data backfill, or a project with no boot-converge path).
+
+### Compatibility class doctrine
+- **`compatibility_class` and `migration_strategy` are orthogonal — never substitute one for the other.** A `pre_merge_safe + hard_cutover` is a clean drop-and-replace that happens to keep readers happy; `pre_merge_breaking + hard_cutover` is the founder-cutover slice that intentionally breaks compat in one step.
+- **`pre_merge_safe` claims are attested** by a frozen `db_compatibility_attestation` with all four authored fields (`pre_merge_readers_writers`, `invariants`, `rehearsal_commands`, `residual_risk_notes`) present and non-empty.
+- **Silent class relaxation is forbidden.** Tightening (`pre_merge_safe → pre_merge_breaking`) is recorded as a `class_escalations` entry on the attestation. Scanner-detected banned patterns always tighten.
+
+### Joint-gate dependency awareness
+The cross-ticket overlap detector honors `item_dependencies`: when a candidate item and a non-terminal other are linked by a blocks/depends-on edge, overlapping `rebuild`, data-kind, and schema-only declarations on shared surfaces no longer block the candidate's transition (operator-authored ordering already enforces non-simultaneous live application). Disjoint-table and disjoint-column cases are unaffected.
+
+### Stranded-lease recovery
+- **Human-only operator release.** The operator lease-release command (`--project P --key LIVE_DB_MIGRATION:<model_name> --reason "..."`) emits a WARN `OperatorLeaseRelease` event before the release mutation lands. It refuses to run from a hook context and records the operator reason permanently in the lease row.
+
+## Architecture Model
+
+Yoke encodes architectural taste as machine-checkable invariants on path targets, not style-guide prose. Every project may declare an `architecture_model` Project Structure family (singleton) whose payload defines the per-project layer map, dependency rules, and sanctioned cross-cutting entrypoints — read by the architecture-fitness Doctor HCs and the canonical status gate.
+
+### Layer vocabulary
+
+```text
+schema_storage -> payload_validators -> persistence_queries -> domain_invariants -> service_api -> orchestration -> harness_adapters -> skill_docs
+```
+
+Arrows mean *"may depend on"*. The payload expresses per-layer `may_depend_on` and `forbidden_edges` under a `layers` key (full schema in the architect's packet). Domain modules can't reach into orchestration, harness adapters, or skill/docs prose; service/API wrappers call domain invariants but don't re-implement them; orchestration coordinates without becoming source-of-truth; harness adapters use sanctioned service/session contracts; skill/docs prose teaches but never substitutes for enforced invariants.
+
+### Domains
+
+Domains group canonical Yoke concerns by glob-matched path roots — at least `claims`, `lifecycle_status`, `db_mutation`, `scheduler_frontier`, `harness_adapters`, `doctor_health`, `project_structure`, `events`, `deployment`, `backlog_items`, `qa_browser`. The payload's `domains` list carries the authoritative `{id, path_roots}` mapping; read it from the payload, not this prose.
+
+### Cross-cutting entrypoints
+
+Cross-cutting concerns enter through sanctioned interfaces, not ambient reach-around imports. The payload's `cross_cutting_entrypoints` registry names the approved gateway modules per concern — commonly `db_path`, `backlog_mutation`, `session_identity`, `events`, `path_authority`, and `live_operation_ownership`. Read the approved gateways for each concern from your project's model payload rather than this prose.
+
+The `guarded_imports` field on each entrypoint names symbols whose direct import outside the approved list fires `HC-architecture-cross-cutting-entrypoint`. Consult the entrypoint metadata rather than copying gateway symbols into prose.
+
+### Exemption families
+
+Generated artifacts, fixtures, archive surfaces, test files, and separately versioned Pack source inherit exemption context families from `path_context_values` rather than from prose allowlists. The exemption registry — `architecture_generated`, `architecture_fixture`, `architecture_archive`, `architecture_test_surface`, `architecture_pack_source` — pre-classifies the path so `HC-architecture-unclassified-path` PASSes without operator action.
+
+### Item-level architecture impact
+
+Every item declares an `architecture_impact` classification at idea / refine time. The closed enum:
+
+| Value                       | Meaning                                                                       |
+|---                          |---                                                                            |
+| `none`                      | No effect on dependency shape, path classification, or cross-cutting entries. |
+| `path_context_only`         | Touches inherited path-context families; does not change the model payload.   |
+| `architecture_model_change` | Modifies the architecture model itself (domains, layers, edges, entrypoints). |
+| `uncertain`                 | Declared at idea time; refine / Architect must resolve before refined-idea.   |
+
+`architecture_impact='uncertain'` blocks `refining-idea → refined-idea` via the readiness check; the authoritative status gate is defense-in-depth for the same rule across every later transition. `architecture_impact='architecture_model_change'` requires the path-claim to cover at least one architecture-model authoring surface; the gate blocks otherwise.
+
+### Doctor surface
+
+Six HCs enforce the model: `HC-architecture-unclassified-path`, `HC-architecture-forbidden-edge`, `HC-architecture-cross-cutting-entrypoint`, `HC-architecture-impact-declaration`, `HC-architecture-scan-error`, and `HC-architecture-model-doc-drift`. All six self-skip cleanly on minimal-schema fixtures, log remediation prompts (update the item, re-run the path snapshot, widen the claim), and emit findings keyed to canonical path targets so violations are always attributable.
+
+## Testing
+- **No hardcoded drifting IDs in tests.** Tests must never contain literal `YOK-N`-style ticket IDs that drift over time. Use variables, dynamically generated values, or pattern matchers instead.
+- **Test output capture + streaming** is governed by `## Command Output — Hard Rule` above — applies identically to merges, deploys, syncs, QA, renders, installs, builds.
+
+## Hooks
+- Hook configuration lives in your harness settings files — `.claude/settings.json` for Claude, `.codex/hooks.json` for Codex.
+- Claude and Codex hook commands now route through the shared CLI boundary, `yoke hook evaluate <event>`, which dispatches the canonical chain for both harnesses.
+- Pre-tool guardrails, post-tool telemetry, session start, and session end are Python-owned. Do not reintroduce shell scripts or per-policy shell choreography for hook execution.
+- Emergency status repair is an operator/debug engine; route normal lifecycle repair through the registered Yoke lifecycle surfaces, and use the repair engine only as an operator/debug helper.
+
+## Board
+- `.yoke/BOARD.md` is auto-generated and untracked.
+- Board rendering logic is Python-owned.
+- Board rebuilds flow through the `board.rebuild.run` function id. Operator/debug adapter: `yoke board rebuild`. Use `yoke board rebuild --print` to print after writing, or `yoke board rebuild --print-only` to render the same board text without updating `.yoke/BOARD.md`. The rebuild composes a `board.data.get` fetch (DB reads server-side; works over BOTH transports, https included) with a client-local render + write — board.json, board art, VISION entries, and the commit cache stay client-side.
+
+## Ouroboros
+Self-improvement loop: observe -> log to DB (`ouroboros_entries`) -> `/yoke curate` -> `/yoke doctor` -> `/yoke simulate --system`. Wrapup reports live in `wrapup_reports`. Health reports and wrapup views are generated local output; the DB remains the source of truth.
+
+## Lifecycle & Routing
+- Canonical human guide: `docs/lifecycle.md` (progressions, command boundaries, issue vs epic families). Backed by the Yoke lifecycle engine.
+- `/yoke refine` owns `idea -> refining-idea -> refined-idea` and `plan-drafted -> refining-plan -> planned`. `/yoke shepherd` is epic-only and owns `refined-idea -> planning -> plan-drafted`.
+- Issue flow: `/yoke refine` -> `/yoke advance ... implementation` (worktree) -> review loop in the same worktree -> `/yoke polish` -> `/yoke usher`. Epic flow: `/yoke refine` -> `/yoke shepherd` -> `/yoke refine` -> `/yoke conduct` -> `/yoke polish` -> `/yoke usher`.
+- `/yoke do` routing (session offer, `NextAction`, chainability, `supported_paths`) is owned by `docs/session-offer-contract.md` and `docs/charge-frontier.md`. Yoke core derives harness capabilities server-side from the harness manifest — harnesses do not self-report `YOKE_SUPPORTED_PATHS`.
+
+## Worktree Discipline
+- NEVER use `--no-worktree` unless the user explicitly asks. NEVER write implementation code on main.
+- Issues enter a worktree via `/yoke advance YOK-N implementation`; the same session that ran preflight + claim continues into implementation/review — no relaunch, no parent-session stop, no claim handoff. Authority over the worktree is the work-claim (validated per call by `lint_session_cwd`); the launcher `cd` is convenience. The review loop (`reviewing-implementation` → `reviewed-implementation`) stays in that session. Epics enter via `/yoke conduct YOK-N` once the plan is `planned`; conduct may create multiple task worktrees, each subagent dispatch acquiring its own work-claim. `/yoke polish YOK-N` finishes the worktree set → `implemented`; `/yoke usher YOK-N` owns merge/deploy. Never jump `implementing` → `done` — the path is `reviewing-implementation → reviewed-implementation → polishing-implementation → implemented → release → done` (or `implemented → done` for no-run delivery).
+- Planning activities (`idea`, `refine`, `shepherd`, `freeze/thaw`, `plan`) go directly to main.
+
+## Commit Discipline
+- Commit after EVERY completed change — status updates, board rebuilds, doc changes, not just code. Never fabricate or expand a full commit hash from a visible short SHA: resolve it from the exact checkout with `git -C <checkout> rev-parse HEAD` and verify it with `git -C <checkout> cat-file -e '<sha>^{commit}'`.
+- No dirty working tree between tasks.
+
+## Session Continuity
+- `.yoke/BOARD.md` is auto-generated and untracked (gitignored) — never edit manually, never stage or commit. Per-item context goes in backlog item bodies.
+- Leave context your future self will need — decisions, dead ends, gotchas, the "why" — and distill hard-won research into docs before the session ends.
+
+## Documentation Discipline
+- When any feature or rule changes, update ALL docs that reference it. Undocumented features are invisible.
+
+## Bug Discipline
+- Always capture bugs via `/yoke idea`. DO NOT FIX without knowing root cause.
+- For minor bug observations not worth a full ticket, file a field-note: `yoke ouroboros field-note append --kind observation --evidence '...'`.
+
+## Execution Discipline
+- **Simulate before executing.** Trace through commands mentally with actual values before running.
+- **Verify after executing.** Never assume success — check that state changes actually happened.
+- **Fear unintended effects.** Batch operations multiply risk. Do one item first, verify, then batch.
+
+## Destructive Operation Discipline
+- Never run `git reset --hard`, `git checkout --`, `git checkout -f <branch>`, `git restore --worktree`, `git clean -f`/`-fd`/`-fdx`, `git stash drop`, `git stash clear`, or `rm` on files unless confirmed Yoke-managed or user-authorized — these silently discard tracked-but-uncommitted changes, untracked files matching the pattern, or saved stashes (a real incident had `git reset --hard` wipe a parallel agent's work in the same worktree).
+- The PreToolUse destructive-git lint enforces this: it refuses only when it identifies BOTH a dangerous verb AND threatened local state (modified files, untracked files in the target subtree, or live stashes). Mode from project-local `.yoke/lint-config` guard key `lint_destructive_git` (protected; default `deny`). Suppression `# lint:no-uncommitted-wipe-check` is audit-only (`outcome=suppression_attempted`) — does NOT unblock. Workaround: stash or commit first, or use a non-destructive verb (`git reset --soft`, `git restore --staged`, `git stash`).
+- **`git stash push` arg-order:** `-m`/`--message` MUST come BEFORE `--` — everything after `--` is a pathspec, so a message flag there is silently consumed as a filename (stash gets git's auto label, no rationale). The stash-arg-order lint enforces this (suppression `# lint:no-stash-arg-order-check`, audit-only). Safe shape: `git stash push -u -m "reason" -- <paths>`.
+- User messages mid-sequence are checkpoints — stop and answer before proceeding.
+
+## Deployment Rules
+- Everything changed on remote MUST be edited locally first. ONLY copy local → remote. All changes recorded in this repo.
+- **A push is not release authority.** Merge the item, then let its selected
+  hosted deployment flow own the exact commit, immutable artifacts, Stage
+  proof, and any Production promotion. A branch push does not deploy.
+
+## Interaction Style
+- **Prefer inline chat for summaries, checkpoints, and design iteration.** Present analysis, checkpoint confirmations, and collaborative design discussions as regular conversational output. Do not default to structured chooser UIs for collaborative discussion — freeform replies are more natural for iterative work. Reserve structured question tools for genuinely short binary/ternary decisions with no surrounding context to present.
+- **The ticket is the plan.** When you're running a `/yoke` skill on a ticket, the ticket's structured fields are the plan. Don't enter plan mode on your own. If the plan in the ticket is insufficient, stop and escalate to the user.
+<!-- END YOKE MANAGED BLOCK -->
+
+# Yoke Repo Internals
+<!-- Not shipped to managed projects — specific to the yoke source repo. The managed block above is the project-agnostic doctrine `yoke project install` ships; this section is yoke's own companion content and stays out of the markers. -->
+
+## File Layout
+All paths below are repo-relative from the repo root.
+- API entrypoints: `runtime/api/`. Key source-dev modules include `yoke_core.cli.db_router`, `yoke_core.api.service_client`, `yoke_core.engines.*`, the internal test runner, and the API server; agent-facing recipes go through registered `yoke <subcommand>` adapters unless a packet marks a helper as retained tool-shaped.
+- Skills: `.agents/skills/yoke/{command}/SKILL.md` (canonical; `.claude/skills/yoke/` is a compatibility symlink).
+- Agents (canonical bodies): `runtime/agents/{agent}.md`. Claude adapters at `runtime/harness/claude/agents/yoke-*.md`, generated by `yoke agents render`; runtime `.claude/agents` symlinks into the canonical dir.
+- Prompt philosophy: `docs/prompt-philosophy.md`.
+- Backlog state: item content is read via `yoke items get YOK-N body` (virtual rendered field). No `.md` files are generated.
+- Browser: packaged daemon sources in `runtime/browser_runtime/`, materialized to the machine runtime `~/.yoke/browser-runtime/` (node_modules + daemon state live there, never in a repo); Python owners under `yoke_core.domain.browser_*` + `yoke_core.domain.browser_runtime_home`.
+- Harness adapters: `runtime/harness/{harness-id}/` with manifests plus Python launchers. For Codex, use `python3 -m runtime.harness.codex.codex_entry` and `python3 -m runtime.harness.codex.codex_open_app`.
+- Machine config: `~/.yoke/config.json`. Project-local Yoke surfaces: `.yoke/`. Docs: `docs/`. Item design specifications live in `items.design_spec`.
+- Hook configuration source: `runtime/harness/claude/settings.json` and `runtime/harness/codex/hooks.json`, surfaced to each harness via the `.claude/settings.json` and `.codex/hooks.json` symlinks.
+
+## Source-Dev Doctrine
+- The generic runner is the source-dev `uv run --frozen python3 -m yoke_core.tools.run_tests` helper; use project-provided commands or the retained watcher wrappers when they are named in your packet. `uv run --frozen` makes a clean worktree use its locked development dependencies and its own source packages without requiring an activated virtualenv. Run `uv run --frozen ruff check <changed Python paths>` for changed-path lint; detailed recipes: [`docs/testing-verification.md`](docs/testing-verification.md).
+- The canonical verification target for Yoke code is `uv run --frozen python3 -m yoke_core.tools.watch_pytest -- runtime/api/ runtime/harness/ tests/`; it injects xdist `-n auto` unless an explicit `-n` override is passed. Use `-- -n 0` for sequential order-sensitive debugging. Use raw pytest only for narrow debugging, not final Yoke verification.
+- Harness coverage is Python-owned under files such as `runtime/harness/codex/test_codex_entry.py`, `runtime/harness/test_hook_runner_runner.py`, `runtime/harness/test_hook_runner_telemetry.py`, `runtime/api/test_service_client.py`, and `runtime/api/test_sessions.py`.
+- Never set `YOKE_DRY_RUN=1` in tests; the suites mock their own GitHub side effects.
+- **Hosted release flows are project-local; Platform owns promotion.** The active Yoke hosted routes are `yoke-hosted-stage-no-ci-gate` and `yoke-hosted-production-hotfix-no-ci-gate`; `yoke-hosted-production` is disabled history. The Yoke bridge allocates the annotated release tag, waits for the wheel and server-image factories, and dispatches Platform's single promotion boundary. Platform items use `platform-stage`, `platform-production-independent`, or `platform-production-hotfix` and dispatch the Platform train directly. Do not hand-create release tags, hand-edit `yoke-release-pin.txt`, or dispatch component deploy workflows as the normal path.
+- **Deploy-env authority.** HTTPS `prod` is the normal product/API authority; the `prod-db-admin` local-Postgres env is reserved for sanctioned source-dev/admin or audited break-glass command-shaped deploy surfaces. Neither Yoke nor Platform deploys from a branch push; the private Platform deploy runbook is the detailed operator reference for this installation's cross-repository release train.
+- **Substrate names — read the packet, don't restate.** The `harness_id` enum, the function-call dispatch entrypoint, and the request/response models are rendered by the `main_agent` (and `*_agent`) packets at session start; read them there. Regenerate via `agents.render.run`; check drift via `agents.render.check`.
+- **Same-PR packet teaching on Yoke-surface gap failures.** When an agent in a Yoke `/yoke` ticket hits a `no such column`, `cannot import name`, or `unexpected keyword argument` failure against a Yoke-owned surface (any `runtime.api.*`, `runtime.harness.*`, or a Yoke DB table / column / Python helper), the SAME PR that observes the failure ships the matching packet teaching: name the real surface in the relevant `schema_api_context_tables_*.py` entry AND add a `notes` clause that names the wrong guess the agent made. The seed catches the gap; the packet rendering surfaces the canonical name to the next agent.
+- **Layer-explicit packet names.** Every LLM-facing packet role uses an `*_agent` suffix: `main_agent` (top-level session) plus the five Bash-capable subagents `architect_agent`/`engineer_agent`/`tester_agent`/`simulator_agent`/`boss_agent`. The substrate manifest contract (hooks, identity, cwd binding, render format, supported commands, parity limits) is documented separately as `harness_contract` in [`docs/harness-bootstrap.md`](docs/harness-bootstrap.md) + [`runtime/harness/manifest-schema.md`](runtime/harness/manifest-schema.md) — deliberately NOT a `schema_api_context` role.
+- **Subagent DB context:** Bash-capable agent prompts (architect/engineer/tester/simulator/boss) carry generated `<!-- YOKE:DB-PACKET role=<role>_agent topic=T … -->` marker pairs the renderer fills with role/topic-scoped schema/API content from `schema_api_context`; the top-level session gets the compact `core`+`claims` spine via `bootstrap_packets`. Subagents inherit the packet through the rendered prompt — never hand-copy a stale schema cheat sheet. **The packet is the authoritative schema surface** — consult it (or `information_schema` via `yoke db read` / a direct Read of the schema module) before answering any schema question; don't infer columns/tables from ticket or skill prose. Regenerate after schema changes via `agents.render.run`; detect drift via `agents.render.check`. Canonical claim-holder lookup: `python3 -m runtime.harness.harness_sessions who-claims <item-id>`. Typed work-claim targets use `target_kind` + the matching specialized columns (`item_id`, `(epic_id, task_num)`, or `(process_key, conflict_group)`) — not one generic target column. The drift gate refuses known-stale owner/claim/session guesses.
+- **Bash-capable ⇒ packet-capable.** Granting Bash to an agent requires a `*_agent` packet role in `seed.ROLE_TOPICS` + marker pairs in its prompt. Product Manager and Product Designer stay non-Bash by design (tools: `Read, Grep, Glob`; orchestrators pass them context via dispatch prompts) — if they ever gain Bash, they gain packet roles in the same slice. Canonical bodies may carry harness-conditional blocks `<!-- YOKE:HARNESS <id> … -->`; the renderer (`agents_render_conditional`) keeps the matching harness id and elides the rest (known ids `claude`/`codex` from one constant; nested/orphan/unknown surface via `HC-harness-substrate-drift`). Use these to fence harness-specific primitives (Claude-only `Monitor`, `Bash(run_in_background)`, `ScheduleWakeup`, `TaskOutput`, `TaskStop`, `PreToolUse`) so the wrong-harness adapter never inherits them.
+- **Workspace-anchored writers.** Repo-tree writers (renderers/generators landing tracked files under `runtime/` or `docs/`) MUST take an explicit `target_root: Path` kwarg; resolving the target from ambient cwd (`git rev-parse`, `Path.cwd()`, bare relative consts) in the hot path is forbidden. Only the CLI resolves `target_root` (`--target-root`/`$YOKE_RENDER_TARGET_ROOT`, else repo-root helper when no anchor and not in a worktree). Primary guard: `workspace_authority.assert_target_under_session_work_authority(target)` — reads the session's live `work_claims`, refuses targets outside the claimed worktree/allowlist (replaced the stale `$YOKE_BOUND_WORKSPACE` snapshot). Tracked-source writers call it before writing; `HC-workspace-anchored-writer-authority` enforces against the canonical `IN_SCOPE_WRITERS` list (`doctor_hc_workspace_anchored_writer_authority.py`) — add new writers there. Untracked generated-view writers (e.g. `rebuild_board.rebuild_one`, which regenerates project-local `.yoke/BOARD.md` routinely) are out of scope (refusing them would break board rebuild) but still call `assert_seed_source_under_target_root(...)` to catch a seed/schema module loaded from a different checkout than `target_root`. Legacy cwd check: lint `lint_workspace_cwd_match.py`.
+- **Scripts importing `runtime.*`** live in-tree (`runtime/api/tools/<name>.py`), never `/tmp` (`sys.path[0]=/tmp` → `ModuleNotFoundError`); or `pip install -e .` once. Lint `lint_python_runtime_import_in_tmp.py` blocks `/tmp` Writes.
+- **Session identity resolution:** ambient session id resolves automatically — `$YOKE_SESSION_ID` fast path, then the hook-written process-anchor registry (`session_ambient_identity`); never export session env vars to self-bootstrap (`actor_session_missing` = infrastructure bug, report it). Actor id = `harness_sessions.actor_id` keyed by `session_id`. No `get_active_session_id` exists — pass `{"session_id": ...}` alone; dispatcher fills actor_id server-side; `--session-id` = operator-debug override.
+- JSON lives behind `yoke_core.domain.json_helper`; YAML lives behind `yoke_core.domain.yaml_helper`.
+- **Worktree-dev (editing CLI code itself):** the installed `yoke` AND bare `python3 -m ...` both resolve main's editable install, never the worktree. The `watch_pytest`/`run_tests` wrappers self-bind the worktree source (`yoke_core.tools._source_pythonpath` prepends the four `packages/*/src` dirs + repo root from the invocation cwd and refuses out-of-checkout import origins); for direct invocations prepend that PYTHONPATH explicitly (`PYTHONPATH=$WT/packages/yoke-contracts/src:$WT/packages/yoke-cli/src:$WT/packages/yoke-core/src:$WT/packages/yoke-harness/src:$WT python3 -m yoke_cli.main ...`), or `pip install -e .` from the worktree to re-point. Yoke control-plane authority is Postgres; use registered `yoke <subcommand>` surfaces for state access, and treat the retired `worktree paths db` mode as a refusal guard rather than a connection recipe.

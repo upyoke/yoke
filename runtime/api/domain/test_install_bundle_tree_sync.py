@@ -22,11 +22,13 @@ def _no_session(monkeypatch):
 
 
 def _seed_sources(root: Path) -> None:
-    """Create the four canonical source dirs, each with one file."""
+    """Create the canonical source dirs (one file each) and root source files."""
     for rel in sync_mod.INSTALL_BUNDLE_SOURCE_DIRS:
         d = root / rel
         d.mkdir(parents=True, exist_ok=True)
         (d / "content.md").write_text(f"# {rel}\n", encoding="utf-8")
+    for rel in sync_mod.INSTALL_BUNDLE_SOURCE_FILES:
+        (root / rel).write_text(f"# {rel}\n", encoding="utf-8")
 
 
 def test_sync_materializes_a_byte_exact_tree_from_empty(tmp_path) -> None:
@@ -35,7 +37,10 @@ def test_sync_materializes_a_byte_exact_tree_from_empty(tmp_path) -> None:
     report = sync(target_root=tmp_path)
 
     assert report["removed"] == []
-    assert len(report["written"]) == len(sync_mod.INSTALL_BUNDLE_SOURCE_DIRS)
+    assert len(report["written"]) == (
+        len(sync_mod.INSTALL_BUNDLE_SOURCE_DIRS)
+        + len(sync_mod.INSTALL_BUNDLE_SOURCE_FILES)
+    )
     # A second sync is a no-op — idempotent.
     again = sync(target_root=tmp_path)
     assert again == {"written": [], "removed": []}
@@ -147,4 +152,24 @@ def test_missing_source_dir_raises(tmp_path) -> None:
     shutil.rmtree(tmp_path / sync_mod.INSTALL_BUNDLE_SOURCE_DIRS[0])
 
     with pytest.raises(InstallBundleTreeError, match="source dir is missing"):
+        sync(target_root=tmp_path)
+
+
+def test_root_source_files_are_snapshotted_and_guarded(tmp_path) -> None:
+    _seed_sources(tmp_path)
+    sync(target_root=tmp_path)
+    file_rel = sync_mod.INSTALL_BUNDLE_SOURCE_FILES[0]
+    packed = tmp_path / sync_mod.PACKAGED_TREE_REL / file_rel
+    assert packed.is_file()
+    # Content drift on a packaged root file is reported and repaired.
+    packed.write_text("tampered\n", encoding="utf-8")
+    assert any(
+        "content drift" in d and file_rel in d
+        for d in detect_drift(target_root=tmp_path)
+    )
+    sync(target_root=tmp_path)
+    assert detect_drift(target_root=tmp_path) == []
+    # A missing source root file raises, like a missing source dir.
+    (tmp_path / file_rel).unlink()
+    with pytest.raises(InstallBundleTreeError, match="source file is missing"):
         sync(target_root=tmp_path)

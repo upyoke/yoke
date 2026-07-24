@@ -25,10 +25,8 @@ The bundle carries:
   because every entry routes through ``yoke hook evaluate <event>``.
 * **Project contract files** — the seed-if-missing ``.yoke`` contract
   (``project_contract_files``), rendered by
-  :mod:`yoke_core.domain.project_contract` from the owning recognizers.
-  Shipped separately from ``files`` because the install policy differs:
-  the bundle is authority for ``files``, while contract files are
-  project-owned the moment they are seeded.
+  :mod:`yoke_core.domain.project_contract`. Shipped separately from ``files``
+  because contract files are project-owned the moment they are seeded.
 
 Determinism: files are sorted by bundle path and no timestamps are embedded.
 """
@@ -353,6 +351,7 @@ def build_bundle(project_id: int, conn) -> Dict[str, Any]:
     policy_capabilities = ensure_default_policy_capabilities(conn, project_id)
     conn.commit()
     root = server_tree_root()
+    from yoke_core.domain.install_bundle_managed import managed_bundle_keys
     files: List[Dict[str, str]] = []
     files.extend(_skill_files(root))
     files.extend(_agent_files(root))
@@ -368,6 +367,7 @@ def build_bundle(project_id: int, conn) -> Dict[str, Any]:
         "strategy_files": _strategy_files(project_id, display_name, conn),
         "project_policy_capabilities": policy_capabilities,
         "hooks": _hooks_block(),
+        **managed_bundle_keys(root),
     }
 
 

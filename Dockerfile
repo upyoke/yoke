@@ -80,6 +80,8 @@ COPY .agents /srv/yoke-tree/.agents
 COPY runtime/harness/claude/agents /srv/yoke-tree/runtime/harness/claude/agents
 COPY runtime/harness/claude/rules /srv/yoke-tree/runtime/harness/claude/rules
 COPY runtime/harness/codex/agents /srv/yoke-tree/runtime/harness/codex/agents
+COPY AGENTS.md /srv/yoke-tree/AGENTS.md
+COPY CODEX.md /srv/yoke-tree/CODEX.md
 
 COPY --from=builder /wheels /wheels
 

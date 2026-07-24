@@ -46,6 +46,7 @@ from yoke_core.domain.install_bundle import (
     INSTALL_BUNDLE_SOURCE_DIRS,
     is_bundle_junk_path,
 )
+from yoke_core.domain.install_bundle_managed import INSTALL_BUNDLE_SOURCE_FILES
 from yoke_core.domain.workspace_authority import (
     assert_target_under_session_work_authority,
 )
@@ -107,11 +108,11 @@ def _stray_packaged_files(packaged: Path) -> List[str]:
     unnoticed.
     """
     prefixes = tuple(f"{rel}/" for rel in INSTALL_BUNDLE_SOURCE_DIRS)
+    allowed = set(PACKAGED_TREE_ALLOWED_EXTRAS) | set(INSTALL_BUNDLE_SOURCE_FILES)
     return [
         rel
         for rel in _relative_files(packaged)
-        if not rel.startswith(prefixes)
-        and rel not in PACKAGED_TREE_ALLOWED_EXTRAS
+        if not rel.startswith(prefixes) and rel not in allowed
     ]
 
 
@@ -139,6 +140,17 @@ def detect_drift(*, target_root: Path) -> List[str]:
         for name in sorted(source_set & packed_set):
             if (packed / name).read_bytes() != (source / name).read_bytes():
                 drift.append(f"content drift: {rel}/{name}")
+    for rel in INSTALL_BUNDLE_SOURCE_FILES:
+        source_file = repo / rel
+        packed_file = packaged / rel
+        if not source_file.is_file():
+            drift.append(f"missing source file: {rel}")
+            continue
+        if not packed_file.is_file():
+            drift.append(f"missing packaged file: {rel}")
+            continue
+        if packed_file.read_bytes() != source_file.read_bytes():
+            drift.append(f"content drift: {rel}")
     for stray in _stray_packaged_files(packaged):
         drift.append(f"stray packaged file (outside declared source dirs): {stray}")
     return drift
@@ -185,6 +197,23 @@ def sync(*, target_root: Path, dry_run: bool = False) -> Dict[str, List[str]]:
                 tmp = dst.with_suffix(dst.suffix + ".tmp")
                 tmp.write_bytes(data)
                 os.replace(str(tmp), str(dst))
+    for rel in INSTALL_BUNDLE_SOURCE_FILES:
+        source_file = repo / rel
+        if not source_file.is_file():
+            raise InstallBundleTreeError(
+                f"install-bundle source file is missing: {source_file}"
+            )
+        data = source_file.read_bytes()
+        dst = packaged / rel
+        if dst.is_file() and dst.read_bytes() == data:
+            continue
+        written.append(rel)
+        if not dry_run:
+            assert_target_under_session_work_authority(dst)
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            tmp = dst.with_suffix(dst.suffix + ".tmp")
+            tmp.write_bytes(data)
+            os.replace(str(tmp), str(dst))
     for stray in _stray_packaged_files(packaged):
         removed.append(stray)
         if not dry_run:
@@ -260,6 +289,7 @@ def run_cli(argv: Optional[Sequence[str]] = None) -> int:
 
 __all__ = [
     "INSTALL_BUNDLE_SOURCE_DIRS",
+    "INSTALL_BUNDLE_SOURCE_FILES",
     "PACKAGED_TREE_REL",
     "InstallBundleTreeError",
     "detect_drift",
