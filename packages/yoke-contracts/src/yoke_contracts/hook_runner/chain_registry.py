@@ -54,8 +54,10 @@ _LIFECYCLE_EVENTS: frozenset[str] = frozenset({
 # then skips the engine entirely), and the engine-side composer reads it as
 # its own authoritative gate.
 #
-# SessionStart looks like the natural home and is not: the harness discards
-# its stdout, and the payload there carries no reliable session identity.
+# UserPromptSubmit rather than SessionStart because it is the one event both
+# harness hook configs carry AND the event the in-repo renderer already uses
+# to deliver orientation for the Claude family; matching it keeps the client
+# path on one convention instead of inventing a second.
 SESSION_ORIENTATION_EVENT = "UserPromptSubmit"
 
 
