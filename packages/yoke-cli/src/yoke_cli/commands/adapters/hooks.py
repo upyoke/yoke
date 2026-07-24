@@ -14,6 +14,9 @@ import sys
 from typing import List
 
 from yoke_contracts.field_note_text import FOOTER as _FIELD_NOTE_FOOTER
+from yoke_contracts.hook_runner.chain_registry import (
+    SESSION_ORIENTATION_EVENT,
+)
 from yoke_cli.commands._helpers import parse_or_usage_error
 
 
@@ -77,10 +80,22 @@ def hook_evaluate(args: List[str]) -> int:
             connection = resolve_https_connection()
         except TransportError as exc:
             # Half-configured https: other CLI surfaces fail loudly, but a
-            # hook must never block the harness on transport config.
+            # hook must never block the harness on transport config. Resolved
+            # before stdin so this path returns without consuming it.
             return degrade_to_noop(parsed.event_name, str(exc))
+
+        # Read stdin once: the relay, the orientation composer, and the
+        # local-universe lifecycle all need the same payload, and a hook
+        # process gets exactly one shot at it.
+        stdin_data = sys.stdin.read()
+        extra_context = _session_orientation(parsed.event_name, stdin_data)
         if connection is not None:
-            return relay_hook_event(parsed.event_name, connection)
+            return relay_hook_event(
+                parsed.event_name,
+                connection,
+                stdin_data=stdin_data,
+                extra_context=extra_context,
+            )
 
         # No https connection. Run the client-local lint subset for the
         # verdict (unchanged), then — only on a bound local-postgres universe
@@ -88,14 +103,41 @@ def hook_evaluate(args: List[str]) -> int:
         # lifecycle (register/heartbeat/end) against it. Fail-open: a
         # lifecycle failure never affects the hook decision, and a machine
         # with no engine / no universe stays lint-only.
-        stdin_data = sys.stdin.read()
         exit_code = evaluate_hook_event(
-            parsed.event_name, stdin_data=stdin_data,
+            parsed.event_name,
+            stdin_data=stdin_data,
+            extra_context=extra_context,
         )
         _drive_local_universe_lifecycle(parsed.event_name, stdin_data)
         return exit_code
 
     return evaluate_hook_event(parsed.event_name, dry_run=parsed.dry_run)
+
+
+def _session_orientation(event_name: str, stdin_data: str) -> str:
+    """Compose this machine's session orientation, or ``""``.
+
+    Reaches the engine-side composer (bundled with the core wheel) through
+    the sanctioned dynamic-import lane, for the same reason the local
+    universe lifecycle does: the client cannot take static authority over
+    engine modules before the transport decision. Absent engine -> no
+    orientation; never raises, because a hook must not break its agent.
+
+    The event check comes first so every other event — including the hot
+    PreToolUse path that fires on every tool call — returns without
+    touching the engine at all."""
+    import importlib
+
+    if event_name != SESSION_ORIENTATION_EVENT:
+        return ""
+    try:
+        module = importlib.import_module("yoke_core.domain.session_orientation")
+    except Exception:
+        return ""
+    try:
+        return module.orientation_for_hook(event_name, stdin_data) or ""
+    except Exception:
+        return ""
 
 
 def _drive_local_universe_lifecycle(event_name: str, stdin_data: str) -> None:

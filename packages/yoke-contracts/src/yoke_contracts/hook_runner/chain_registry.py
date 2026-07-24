@@ -47,6 +47,17 @@ _LIFECYCLE_EVENTS: frozenset[str] = frozenset({
     "Notification",
 })
 
+# The one event on which a client composes session orientation. Lives in the
+# shared package because two sides must agree without importing each other:
+# the hook CLI adapter reads it to know whether this event can produce
+# orientation at all (every other event, including the hot PreToolUse path,
+# then skips the engine entirely), and the engine-side composer reads it as
+# its own authoritative gate.
+#
+# SessionStart looks like the natural home and is not: the harness discards
+# its stdout, and the payload there carries no reliable session identity.
+SESSION_ORIENTATION_EVENT = "UserPromptSubmit"
+
 
 def chain_for(event_name: str, matcher: str | None = None) -> list[str]:
     """Return the ordered policy module list for ``(event_name, matcher)``.
