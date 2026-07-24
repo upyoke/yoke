@@ -140,6 +140,9 @@ def test_onboard_yes_reuses_existing_machine_and_project_state(
 
     assert actions == [
         "project-refresh-scaffold",
+        "project-install-agent-rules",
+        "project-install-tool-permissions",
+        "project-install-git-hooks",
         "project-write-board-art",
         "project-github-auth-choice",
     ]

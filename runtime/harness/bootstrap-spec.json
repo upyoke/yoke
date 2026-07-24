@@ -2,8 +2,8 @@
   "required_files": [
     "AGENTS.md",
     "docs/OVERVIEW.md",
-    "docs/commands.md",
-    "docs/lifecycle.md",
+    ".yoke/docs/commands.md",
+    ".yoke/docs/lifecycle.md",
     "docs/harness-bootstrap.md",
     "docs/prompt-philosophy.md"
   ],

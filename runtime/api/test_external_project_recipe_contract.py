@@ -23,9 +23,23 @@ def _teaching_files() -> list[Path]:
         REPO / "runtime" / "harness" / "codex" / "agents",
         REPO / "packages" / "yoke-core" / "src" / "yoke_core" / "install_bundle_tree",
     ]
+    # Shipped reference docs under the install bundle's .yoke/docs tree are
+    # operator-facing reference material: they legitimately document the
+    # operator-debug break-glass surfaces (db_router / service_client /
+    # runtime.api) instead of instructing agents to run them. The clean-room
+    # contract guards the imperative teaching surfaces (skills, agent prompts,
+    # rules, packets), so the reference-doc subtree is excluded from the scan.
+    reference_docs = (
+        REPO / "packages" / "yoke-core" / "src" / "yoke_core"
+        / "install_bundle_tree" / ".yoke" / "docs"
+    )
     files: list[Path] = []
     for root in roots:
-        files.extend(path for path in root.rglob("*") if path.is_file())
+        files.extend(
+            path
+            for path in root.rglob("*")
+            if path.is_file() and reference_docs not in path.parents
+        )
     files.extend(
         (REPO / "packages" / "yoke-core" / "src" / "yoke_core" / "domain").glob(
             "schema_api_context*.py"

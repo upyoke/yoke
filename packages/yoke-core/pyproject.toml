@@ -89,4 +89,5 @@ where = ["src"]
     # and .github/workflows need explicit hidden-component patterns.
     "packs/**/.*",
     "packs/**/.*/**/*",
+    ".yoke/docs/**/*",
 ]

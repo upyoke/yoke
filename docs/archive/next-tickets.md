@@ -64,7 +64,7 @@ Do not broaden this ticket into the full stale re-approval / idempotency design 
 **When:** Now
 
 **Problem**
-Live conduct/runtime surfaces still branch on retired terms like `in_progress`, `completed`, `merged`, and `validation`. `rebuild-board.sh` and `yoke/api/main.py` still normalize retired aliases in current behavior. `doctor.sh` and the new truth tests allow or require those compatibility sites. Separately, `status-lifecycle.sh` includes `release` in `STATUS_TASK_ALL`, while `yoke/docs/qa-platform.md` says epic tasks do not independently enter `release`.
+Live conduct/runtime surfaces still branch on retired terms like `in_progress`, `completed`, `merged`, and `validation`. `rebuild-board.sh` and `yoke/api/main.py` still normalize retired aliases in current behavior. `doctor.sh` and the new truth tests allow or require those compatibility sites. Separately, `status-lifecycle.sh` includes `release` in `STATUS_TASK_ALL`, while `yoke/.yoke/docs/qa-platform.md` says epic tasks do not independently enter `release`.
 
 **Evidence**
 - `.claude/skills/yoke/conduct/single-item.md`
@@ -76,7 +76,7 @@ Live conduct/runtime surfaces still branch on retired terms like `in_progress`, 
 - `.claude/skills/yoke/scripts/doctor.sh`
 - `.claude/skills/yoke/scripts/tests/test-status-lifecycle.sh`
 - `.claude/skills/yoke/scripts/tests/test-canonical-truth-drift.sh`
-- `yoke/docs/qa-platform.md`
+- `yoke/.yoke/docs/qa-platform.md`
 
 **Root cause**
 `YOK-1113` froze the canonical vocabulary, but registry, docs, tests, and live surfaces were not reconciled as one sweep.
@@ -103,7 +103,7 @@ During the `YOK-1113` conduct session, validate transitions failed because no `q
 - `.claude/skills/yoke/conduct/batch-flow.md`
 - `.claude/skills/yoke/conduct/dispatch-context.md`
 - `.claude/skills/yoke/scripts/yoke-db.sh qa`
-- `yoke/docs/qa-platform.md`
+- `yoke/.yoke/docs/qa-platform.md`
 
 **Root cause**
 QA gating exists, but conduct does not own requirement seeding, run recording, and parent-gate satisfaction for epic work.

@@ -123,5 +123,5 @@ Codex Stop fires at the end of every assistant turn. It is a turn-boundary clean
 - [Harness Bootstrap Contract](../../docs/harness-bootstrap.md) -- neutral startup expectations for all harnesses
 - [Harness Adapter Template](../../docs/harness-adapter-template.md) -- five-part template with manifest schema
 - [Harness Substrate](../../docs/harness-substrate.md) -- universal-source + per-harness-renderer model, session cwd binding, path-claim enforcement boundary
-- [Session Offer Contract](../../docs/session-offer-contract.md) -- how offers consume harness identity
+- [Session Offer Contract](../../.yoke/docs/session-offer-contract.md) -- how offers consume harness identity
 - [Hook Parity Map](../../docs/hook-parity-map.md) -- three-tier hook classification across harnesses

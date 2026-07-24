@@ -319,7 +319,7 @@ class TestArchivedDocNoActiveStubs:
 
 def test_no_recipe_residue_patterns_in_active_md_docs():
     """Active markdown docs must contain zero banned residue patterns.
-    Allowlist: docs/archive/**, docs/db-reference/**, and
+    Allowlist: docs/archive/**, .yoke/docs/db-reference/**, and
     ``runtime/api/**/test_fixtures/**`` (intentional regression fixtures).
     """
     findings: list[str] = []
@@ -328,12 +328,12 @@ def test_no_recipe_residue_patterns_in_active_md_docs():
             re.escape(pat), extensions=(".md",), exclude_archive=True,
         )
         for hit in hits:
-            if "docs/db-reference/" in hit or "/test_fixtures/" in hit:
+            if ".yoke/docs/db-reference/" in hit or "/test_fixtures/" in hit:
                 continue
             findings.append(f"[{pat}] {hit}")
     assert not findings, (
         "Active markdown contains banned terminal-soup recipe patterns "
         "from RECIPE_RESIDUE_PATTERNS (YOK-1665). Allowed surfaces: "
-        "docs/archive/**, docs/db-reference/**, "
+        "docs/archive/**, .yoke/docs/db-reference/**, "
         "runtime/api/**/test_fixtures/**.\n" + "\n".join(findings[:20])
     )

@@ -18,11 +18,8 @@ The bundle carries:
   (``.claude/rules/`` from ``runtime/harness/claude/rules``) that the
   lifecycle skills assume are installed.
 * **Hooks** — the exact ``hooks`` subtrees a project's ``.claude/settings.json``
-  and ``.codex/hooks.json`` need. Source of truth is
-  :mod:`yoke_core.domain.agents_render_hooks` (the same renderer that owns
-  the committed ``runtime/harness/claude/settings.json`` and
-  ``runtime/harness/codex/hooks.json``); project hooks ARE the same chain
-  because every entry routes through ``yoke hook evaluate <event>``.
+  and ``.codex/hooks.json`` need, rendered from the canonical hook chain that
+  the committed harness settings files also use (``yoke hook evaluate``).
 * **Project contract files** — the seed-if-missing ``.yoke`` contract
   (``project_contract_files``), rendered by
   :mod:`yoke_core.domain.project_contract`. Shipped separately from ``files``
@@ -48,6 +45,7 @@ SKILLS_SOURCE = ".agents/skills/yoke"
 CLAUDE_AGENTS_SOURCE = "runtime/harness/claude/agents"
 CODEX_AGENTS_SOURCE = "runtime/harness/codex/agents"
 CLAUDE_RULES_SOURCE = "runtime/harness/claude/rules"
+DOCS_SOURCE = ".yoke/docs"
 # Pack source uses the same :func:`server_tree_root` resolver, so product
 # wheels package it alongside the install-bundle sources.
 
@@ -63,6 +61,7 @@ INSTALL_BUNDLE_SOURCE_DIRS = (
     CLAUDE_RULES_SOURCE,
     CODEX_AGENTS_SOURCE,
     PACKS_SOURCE,
+    DOCS_SOURCE,
 )
 
 # Machine-generated cache droppings excluded from every bundle enumeration.
@@ -351,11 +350,12 @@ def build_bundle(project_id: int, conn) -> Dict[str, Any]:
     policy_capabilities = ensure_default_policy_capabilities(conn, project_id)
     conn.commit()
     root = server_tree_root()
-    from yoke_core.domain.install_bundle_managed import managed_bundle_keys
+    from yoke_core.domain import install_bundle_managed as _managed
     files: List[Dict[str, str]] = []
     files.extend(_skill_files(root))
     files.extend(_agent_files(root))
     files.extend(_rules_files(root))
+    files.extend(_managed.docs_bundle_files(root))
     files.sort(key=lambda entry: entry["path"])
     return {
         "bundle_schema": BUNDLE_SCHEMA,
@@ -367,7 +367,7 @@ def build_bundle(project_id: int, conn) -> Dict[str, Any]:
         "strategy_files": _strategy_files(project_id, display_name, conn),
         "project_policy_capabilities": policy_capabilities,
         "hooks": _hooks_block(),
-        **managed_bundle_keys(root),
+        **_managed.managed_bundle_keys(root),
     }
 
 

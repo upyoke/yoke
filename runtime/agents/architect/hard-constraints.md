@@ -85,10 +85,8 @@ When creating a documentation task, review **every** file below and include any 
 
 - `README.md` — project overview, feature descriptions, command reference, directory structure, FAQ
 - `AGENTS.md` — project rules, file layout, command counts (the `CLAUDE.md` symlink points here)
-- `docs/OVERVIEW.md` — architecture overview, design decisions, file counts
-- `docs/commands.md` — command reference
-- `docs/agents.md` — agent descriptions and patterns
+- `.yoke/docs/commands.md` — command reference
 - `.agents/skills/yoke/SKILL.md` — root command router
-- Any other docs referenced in the project's `AGENTS.md`
+- Any other docs referenced in the project's `AGENTS.md` (e.g. an architecture overview or agent-patterns doc)
 
 Missing even one file (especially README.md) means the feature is invisible to users who read that file. The Tester can only verify ACs that exist — if a doc file isn't listed, it won't be checked.

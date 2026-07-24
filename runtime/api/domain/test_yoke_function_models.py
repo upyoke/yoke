@@ -153,11 +153,11 @@ class TestFunctionErrorFieldNoteFooter(unittest.TestCase):
         err = FunctionError(
             code="payload_invalid",
             message="bad payload",
-            recovery_hint="See docs/db-reference/functions.md.",
+            recovery_hint="See .yoke/docs/db-reference/functions.md.",
         )
         # Original guidance preserved; footer appended with a blank-line
         # separator so the operator-facing render reads cleanly.
-        self.assertTrue(err.recovery_hint.startswith("See docs/db-reference/functions.md."))
+        self.assertTrue(err.recovery_hint.startswith("See .yoke/docs/db-reference/functions.md."))
         self.assertTrue(err.recovery_hint.endswith(FIELD_NOTE_FOOTER))
         self.assertIn("\n\n", err.recovery_hint)
 

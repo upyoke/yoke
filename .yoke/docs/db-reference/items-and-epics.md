@@ -62,7 +62,7 @@ python3 -m yoke_core.cli.db_router sections upsert 42 "Goals" --content-file /tm
 python3 -m yoke_core.domain.item_field_transform section-upsert --item YOK-N --section "Goals" --body-file /tmp/g.md --ordering 100 --source operator
 ```
 
-> **Blocked is a flag on items.** Columns `items.blocked INTEGER DEFAULT 0` and `items.blocked_reason TEXT` carry the operator-set block; lifecycle status is preserved across block/unblock; legacy `status='blocked'` lifecycle position is retired (`HC-blocked-status-drift` flags any survivor). Operators use `/yoke block YOK-N "<reason>"` / `/yoke unblock YOK-N`. Epic-task `blocked` is unchanged. The view column `item_progress_view.blocked_reason` is `pipeline_blocked_reason`. Full architectural-why: [`docs/archive/decisions/blocked-flag-retirement.md`](../archive/decisions/blocked-flag-retirement.md).
+> **Blocked is a flag on items.** Columns `items.blocked INTEGER DEFAULT 0` and `items.blocked_reason TEXT` carry the operator-set block; lifecycle status is preserved across block/unblock; legacy `status='blocked'` lifecycle position is retired (`HC-blocked-status-drift` flags any survivor). Operators use `/yoke block YOK-N "<reason>"` / `/yoke unblock YOK-N`. Epic-task `blocked` is unchanged. The view column `item_progress_view.blocked_reason` is `pipeline_blocked_reason`. Full architectural-why (yoke source repo): `docs/archive/decisions/blocked-flag-retirement.md`.
 
 ### DB Claim — the unified amendment workflow
 

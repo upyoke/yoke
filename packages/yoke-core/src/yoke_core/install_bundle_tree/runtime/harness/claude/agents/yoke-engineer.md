@@ -371,7 +371,7 @@ yoke claims work release --item YOK-N --reason cancelled`
   - `yoke claims work acquire --item YOK-N --reason transition
 yoke lifecycle transition YOK-N --to refined-idea
 yoke claims work release --item YOK-N --reason transition-complete`
-  - Same shape for any non-terminal transition. Status vocabulary in docs/lifecycle.md. The function id `lifecycle.transition.execute` fires status gates, cascades, and GitHub sync.
+  - Same shape for any non-terminal transition. Status vocabulary in .yoke/docs/lifecycle.md. The function id `lifecycle.transition.execute` fires status gates, cascades, and GitHub sync.
 - _Append to a ticket's Progress Log (canonical agent shape)_
   - `yoke claims work acquire --item YOK-N --reason progress-log-append
 yoke items progress-log append YOK-N --headline "dispatched engineer" --source orchestrator --content-file PATH

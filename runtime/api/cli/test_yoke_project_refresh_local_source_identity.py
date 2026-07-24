@@ -6,7 +6,7 @@ import subprocess
 from pathlib import Path
 
 from yoke_cli.main import main as cli_main
-from yoke_cli.project_install import git_hooks as git_hooks_layer
+from yoke_cli.project_install import managed_git_hooks
 from yoke_core.tools import source_project_bundle
 
 
@@ -79,11 +79,16 @@ def test_source_bundle_versions_selected_git_hook_content(monkeypatch) -> None:
         project_id=50,
         project_slug="git-hook-source",
     )
-    selected = git_hooks_layer.PRE_COMMIT_SHIM.replace(
+    selected = managed_git_hooks.PRE_COMMIT_SHIM.replace(
         "# Hard-fails",
         "# selected source behavior\n# Hard-fails",
     )
-    monkeypatch.setattr(git_hooks_layer, "PRE_COMMIT_SHIM", selected)
+    # ``managed_git_hooks`` is the single source of truth for shim content:
+    # ``managed_git_hook_specs`` (which the source bundle serializes) reads the
+    # ``_SHIM_BY_HOOK`` mapping built at import, and the ``git_hooks`` module
+    # only re-exports these names. Patch the mapping so a source dev's selected
+    # pre-commit shim reaches the built bundle.
+    monkeypatch.setitem(managed_git_hooks._SHIM_BY_HOOK, "pre-commit", selected)
 
     refreshed = source_project_bundle.build_source_bundle(
         REPO_ROOT,

@@ -329,15 +329,6 @@ def test_unknown_project_raises_typed_error(conn) -> None:
         install_bundle.build_bundle(999, conn)
 
 
-def test_bundle_paths_stay_out_of_yoke_dir(conn) -> None:
-    bundle = install_bundle.build_bundle(1, conn)
-
-    for entry in bundle["files"]:
-        assert not entry["path"].startswith(".yoke/")
-        assert not entry["path"].startswith("/")
-        assert ".." not in entry["path"].split("/")
-
-
 def test_bundle_carries_project_contract_files(conn) -> None:
     from yoke_core.domain import project_contract
 

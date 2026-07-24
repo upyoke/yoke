@@ -138,7 +138,7 @@ def test_build_coordination_context_shared_path_metadata(env):
     _seed_item_with_spec(env["db_path"], 220, "B", "b")
     parent = _seed_path_target(conn, path_string="docs", kind="directory")
     _seed_path_target(
-        conn, path_string="docs/lifecycle.md",
+        conn, path_string=".yoke/docs/lifecycle.md",
         kind="file", parent_target_id=parent,
     )
     _seed_path_target(conn, path_string="AGENTS.md")
@@ -148,20 +148,20 @@ def test_build_coordination_context_shared_path_metadata(env):
         conn,
         candidate_item_id=120,
         conflicting_claim_id=claim_id,
-        shared_paths=["AGENTS.md", "docs/lifecycle.md", "no/such/path"],
+        shared_paths=["AGENTS.md", ".yoke/docs/lifecycle.md", "no/such/path"],
     )
 
     md = ctx["shared_path_metadata"]
     assert len(md) == 3
     assert {entry["path"] for entry in md} == {
-        "AGENTS.md", "docs/lifecycle.md", "no/such/path",
+        "AGENTS.md", ".yoke/docs/lifecycle.md", "no/such/path",
     }
     for entry in md:
         assert set(entry.keys()) == {"path", "kind", "lineage_depth"}
     unknown_entry = next(e for e in md if e["path"] == "no/such/path")
     assert unknown_entry["kind"] == "unknown"
     assert unknown_entry["lineage_depth"] == 0
-    nested = next(e for e in md if e["path"] == "docs/lifecycle.md")
+    nested = next(e for e in md if e["path"] == ".yoke/docs/lifecycle.md")
     assert nested["lineage_depth"] >= 1
     assert nested["kind"] == "file"
 
@@ -207,12 +207,12 @@ def test_suggested_commands_rationale_distinguishes_independence_from_directiona
     conn = env["conn"]
     _seed_item_with_spec(env["db_path"], 131, "Cand", "c")
     _seed_item_with_spec(env["db_path"], 231, "Other", "o")
-    _seed_path_target(conn, path_string="docs/lifecycle.md")
+    _seed_path_target(conn, path_string=".yoke/docs/lifecycle.md")
     claim_id = _seed_claim(conn, item_id=231)
     ctx = pccd.build_coordination_context(
         conn, candidate_item_id=131,
         conflicting_claim_id=claim_id,
-        shared_paths=["docs/lifecycle.md"],
+        shared_paths=[".yoke/docs/lifecycle.md"],
     )
     cmds = ctx["suggested_commands"]
     coord_cmd = next(c for c in cmds if "--gate-point coordination_only" in c)
@@ -220,10 +220,10 @@ def test_suggested_commands_rationale_distinguishes_independence_from_directiona
         c for c in cmds if "--gate-point activation" in c
         and "fact:merged" in c)
     for token in ("decision=coordination_only", "independence_evidence",
-                  "docs/lifecycle.md", f"conflicting_claim_id={claim_id}"):
+                  ".yoke/docs/lifecycle.md", f"conflicting_claim_id={claim_id}"):
         assert token in coord_cmd
     for token in ("decision=directional", "why_order_matters",
-                  "docs/lifecycle.md", f"conflicting_claim_id={claim_id}"):
+                  ".yoke/docs/lifecycle.md", f"conflicting_claim_id={claim_id}"):
         assert token in activation_cmd
     checklist = ctx["rationale_checklist"]
     assert isinstance(checklist, list) and len(checklist) >= 4

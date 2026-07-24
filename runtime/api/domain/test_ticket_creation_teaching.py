@@ -98,14 +98,14 @@ def test_agents_md_carries_ticket_intake_rule() -> None:
     body = (_repo_root() / "AGENTS.md").read_text(encoding="utf-8")
     assert "Ticket intake" in body
     assert "/yoke idea" in body
-    assert "ticket_intake_provenance" in body
+    assert "intake-provenance check" in body
 
 
 def test_codex_md_carries_ticket_intake_rule() -> None:
     body = (_repo_root() / "CODEX.md").read_text(encoding="utf-8")
     assert "Ticket intake" in body
     assert "/yoke idea" in body
-    assert "ticket_intake_provenance" in body
+    assert "intake-provenance check" in body
 
 
 # ---------------------------------------------------------------------------

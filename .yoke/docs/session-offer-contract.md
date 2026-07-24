@@ -256,13 +256,13 @@ SessionOffer.session_id ──> NextAction.correlation_id
 
 ## 5. Event Shapes
 
-The session-offer loop always emits the core lineage events: `HarnessSessionOffered` (offer received), `NextActionChosen` (decision returned), and `ChainStepCompleted` (chain step recorded). It also emits audit/evidence events when it skips stale or blocked candidates, leaves useful chain budget unused, or applies an explicit chain-end override. All conform to the envelope structure documented in `event-contract.md`. Per-event field tables, context fields, and emission points live in [session-offer-contract/event-shapes.md](session-offer-contract/event-shapes.md).
+The session-offer loop always emits the core lineage events: `HarnessSessionOffered` (offer received), `NextActionChosen` (decision returned), and `ChainStepCompleted` (chain step recorded). It also emits audit/evidence events when it skips stale or blocked candidates, leaves useful chain budget unused, or applies an explicit chain-end override. All conform to the envelope structure documented in `event-contract.md`. Per-event field tables, context fields, and emission points live in the yoke source-repo doc `docs/session-offer-contract/event-shapes.md`.
 
 ---
 
 ## 6. Action-Specific Context Payloads
 
-`NextAction.context` carries action-specific data — `resume`, `charge`, `feed`, `strategize`, `wait`, and `escalate` (with sub-shapes for unsupported-path, blocker-driven, and lane-mismatch escalations). Per-action JSON examples, scheduler.next_step routing, session-shutdown guards (`CHAIN_PENDING`, `ACTIVE_CLAIM`), offer-time claim reconciliation, and the legacy stranded-claim audit query live in [session-offer-contract/action-payloads.md](session-offer-contract/action-payloads.md).
+`NextAction.context` carries action-specific data — `resume`, `charge`, `feed`, `strategize`, `wait`, and `escalate` (with sub-shapes for unsupported-path, blocker-driven, and lane-mismatch escalations). Per-action JSON examples, scheduler.next_step routing, session-shutdown guards (`CHAIN_PENDING`, `ACTIVE_CLAIM`), offer-time claim reconciliation, and the legacy stranded-claim audit query live in the yoke source-repo doc `docs/session-offer-contract/action-payloads.md`.
 
 ---
 

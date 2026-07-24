@@ -9,7 +9,7 @@ same canonical pattern list so the two surfaces cannot drift.
 Allowlist (per the spec's `## Cleanup and Removal`):
 
 * ``docs/archive/**`` — historical decision records and removed surfaces.
-* ``docs/db-reference/**`` — operator CLI reference with sanctioned adapter
+* ``.yoke/docs/db-reference/**`` — operator CLI reference with sanctioned adapter
   examples.
 * ``runtime/api/**/test_*.py`` — test fixtures including the deliberate
   regression-guard fixture exercised by ``test_fixture_residue_is_detected``.
@@ -46,7 +46,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 
 _PATH_ALLOWLIST: Tuple[str, ...] = (
     "docs/archive/",
-    "docs/db-reference/",
+    ".yoke/docs/db-reference/",
 )
 
 _TEST_FILE_RE = re.compile(r"runtime/api/.*test_.*\.py$")
@@ -169,7 +169,7 @@ def test_no_recipe_residue_in_live_guidance() -> None:
         "file:line, the matched pattern, and a short snippet. The "
         "function-call surface (yoke_function_dispatch + adapter "
         "--json) replaces these shapes. Allowlisted surfaces are "
-        "docs/archive/**, docs/db-reference/**, and "
+        "docs/archive/**, .yoke/docs/db-reference/**, and "
         "runtime/api/**/test_*.py.\n\n"
         + "\n".join(
             f"  {rel}:{lineno}: [{pat}] {snippet}"

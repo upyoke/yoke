@@ -196,7 +196,7 @@ The declared payload combines profile and attestation fields in one
 flat object; `migration_strategy` is required when
 `mutation_intent="apply"`, and `pre_merge_readers_writers[].role` is
 only `reader` or `writer` (schema-changing migration modules use
-`writer`). See [docs/db-reference.md](../../../../docs/db-reference.md).
+`writer`). See [.yoke/docs/db-reference.md](../../../../.yoke/docs/db-reference.md).
 Once the amendment lands, retry the `lifecycle.transition.execute` call.
 Operator/debug adapter: `yoke db-claim amend`
 constructs the same `db_claim.amend` request envelope.

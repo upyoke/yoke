@@ -81,7 +81,7 @@ REMEDIATION_API_FIRST: str = (
 # in live guidance surfaces (.agents/skills/yoke/**, runtime/agents/**,
 # runtime/harness/{claude,codex}/agents/**, docs/**, AGENTS.md, CLAUDE.md,
 # CODEX.md) and FAILs when one appears outside the allowlist
-# (docs/archive/**, docs/db-reference/**, runtime/api/**/test_*.py).
+# (docs/archive/**, .yoke/docs/db-reference/**, runtime/api/**/test_*.py).
 #
 # These cover the historical terminal-soup recipe shapes the Yoke-functions
 # epic retires:

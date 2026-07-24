@@ -32,7 +32,7 @@ yoke db-claim amend \
     --payload -  # stream the unified DB claim payload on stdin
 ```
 
-The handler demultiplexes the claim payload into the `db_mutation_profile` and `db_compatibility_attestation` columns atomically and writes a `DbClaimAmended` event; see [docs/db-reference.md](../../../../docs/db-reference.md) for the unified shape. The advance to `implemented` runs the prose-vs-claim gate (`GATE_DB_CLAIM_PROSE_MISMATCH`) plus the polish evidence gate, both of which would block the transition with a stale negative claim.
+The handler demultiplexes the claim payload into the `db_mutation_profile` and `db_compatibility_attestation` columns atomically and writes a `DbClaimAmended` event; see [.yoke/docs/db-reference.md](../../../../.yoke/docs/db-reference.md) for the unified shape. The advance to `implemented` runs the prose-vs-claim gate (`GATE_DB_CLAIM_PROSE_MISMATCH`) plus the polish evidence gate, both of which would block the transition with a stale negative claim.
 
 Function-call equivalent (for dispatch-surface callers — `db-claim-amend` builds this envelope internally):
 

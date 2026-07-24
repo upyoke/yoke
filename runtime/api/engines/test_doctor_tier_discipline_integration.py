@@ -181,7 +181,7 @@ _CLI_CASES = [
     ),
     (
         "drifted_claim_list_subcommand",
-        "docs/commands.md", 2,
+        ".yoke/docs/commands.md", 2,
         "    python3 -m yoke_core.api.service_client claim-list --item YOK-1674\n",
         {
             ("yoke_core.api.service_client", "claim-list"): (1, "no such subcommand"),
@@ -212,7 +212,7 @@ _CLI_CASES = [
     ),
     (
         "confabulated_subcommand",
-        "docs/commands.md", 2,
+        ".yoke/docs/commands.md", 2,
         "    python3 -m yoke_core.engines.nonexistent-cmd --help\n",
         # Module regex stops at `-`; both subcommand-split and parent-help
         # fallback lookups must err to surface the confabulation.
@@ -239,7 +239,7 @@ def test_cli_shape_bleed_cases(
 
 
 def test_module_path_resolution_confabulated_module(tmp_path, monkeypatch, conn):
-    rel = "docs/lifecycle.md"
+    rel = ".yoke/docs/lifecycle.md"
     _materialize(
         tmp_path,
         {rel: "See `yoke_core.domain.yoke_function_envelope` for the request shape.\n"},

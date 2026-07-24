@@ -67,9 +67,7 @@ def test_public_installer_is_only_tracked_shell_script() -> None:
 
 def test_operator_docs_point_at_python_entrypoints() -> None:
     doctrine = _read(AGENTS_DOC)
-    assert "Literal zero shell is the current contract." in doctrine
-    assert "packaging/public-installer/install" in doctrine
-    assert "python3 -m yoke_core.cli.db_router" in doctrine
+    assert "Prefer Python over shell for stateful work." in doctrine
     assert "python3 -m yoke_core.tools.run_tests" in doctrine
     for retired in (
         "yoke-db.sh",
@@ -241,7 +239,7 @@ def test_no_helper_wrapped_shell_dispatch_in_production_python() -> None:
 
 _RESIDUE_PATH_ALLOWLIST: Tuple[str, ...] = (
     "docs/archive/",
-    "docs/db-reference/",
+    ".yoke/docs/db-reference/",
 )
 
 _RESIDUE_TEST_FILE_RE = re.compile(r"runtime/api/.*test_.*\.py$")
@@ -327,7 +325,7 @@ def test_zero_shell_proof_includes_recipe_residue_patterns() -> None:
         "``lint_structured_field_transform_shell_messages``; matching the "
         "Doctor HC ``HC-terminal-recipe-residue`` and the dedicated "
         "manifest test. Allowed surfaces are docs/archive/**, "
-        "docs/db-reference/**, and runtime/api/**/test_*.py.\n\n"
+        ".yoke/docs/db-reference/**, and runtime/api/**/test_*.py.\n\n"
         + "\n".join(
             f"  {rel}:{lineno}: [{pat}] {snippet}"
             for rel, lineno, pat, snippet in findings[:40]

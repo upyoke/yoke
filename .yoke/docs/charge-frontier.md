@@ -204,7 +204,7 @@ python3 -m yoke_core.api.service_client charge-frontier \
  --wip-cap 5
 ```
 
-Outputs the same JSON structure as the REST endpoint. The service client resolves the canonical Yoke DB from main-repo and worktree contexts. This is the retained operator/debug adapter for the `GET /v1/charge/frontier` route; agents reading the frontier in-process call the typed dataclass return from `yoke_core.domain.frontier.compute_frontier` directly. Yoke control-plane mutations (claim acquire/release, item structured-field writes, lifecycle transitions, DB-claim amendments) route through the function-call surface — see [`docs/db-reference/functions.md`](db-reference/functions.md) and the operator-readable [`docs/atlas.md`](atlas.md). External tooling (git, pytest, package managers, `rg` / `grep`) stays command-shaped under the permanent-boundary classification.
+Outputs the same JSON structure as the REST endpoint. The service client resolves the canonical Yoke DB from main-repo and worktree contexts. This is the retained operator/debug adapter for the `GET /v1/charge/frontier` route; agents reading the frontier in-process call the typed dataclass return from `yoke_core.domain.frontier.compute_frontier` directly. Yoke control-plane mutations (claim acquire/release, item structured-field writes, lifecycle transitions, DB-claim amendments) route through the function-call surface — see [`.yoke/docs/db-reference/functions.md`](db-reference/functions.md) and the operator-readable Atlas — the yoke source-repo doc `docs/atlas.md`. External tooling (git, pytest, package managers, `rg` / `grep`) stays command-shaped under the permanent-boundary classification.
 
 ### Domain Function
 
@@ -311,6 +311,6 @@ Restricts conduct-eligible items to 3 concurrent WIP slots.
 ## Related Documentation
 
 - [commands.md](commands.md) -- full command reference
-- [OVERVIEW.md](OVERVIEW.md) -- architecture overview with frontier-based flow
+- `docs/OVERVIEW.md` (yoke source repo) -- architecture overview with frontier-based flow
 - [db-reference.md](db-reference.md) -- database schema (items, item_dependencies tables)
 - [structured-logging-standard.md](structured-logging-standard.md) -- event envelope format

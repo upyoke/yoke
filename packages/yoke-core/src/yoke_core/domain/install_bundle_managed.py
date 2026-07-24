@@ -12,10 +12,14 @@ source for the shipped agnostic doctrine.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from yoke_contracts.project_contract.managed_block import extract_block_body
-from yoke_core.domain.install_bundle import InstallBundleError, _read_text
+from yoke_core.domain.install_bundle import (
+    DOCS_SOURCE,
+    InstallBundleError,
+    _read_text,
+)
 
 # Repo-root FILES (not dirs) every server tree and the packaged snapshot carry
 # alongside the source dirs; ``build_bundle`` extracts each file's managed
@@ -70,6 +74,33 @@ def _managed_block_body(path: Path) -> str:
             f"doctrine source carries no Yoke managed block: {path}"
         )
     return body
+
+
+def docs_bundle_files(root: Path) -> List[Dict[str, str]]:
+    """The universal Yoke docs, shipped as yoke-authoritative ``files`` entries.
+
+    A managed project's skills/agents reference ``.yoke/docs/...``; shipping the
+    relocated universal docs there (overwrite-on-refresh, pruned like every
+    other authored bundle file) makes those references resolve.
+    """
+    from yoke_core.domain.install_bundle import is_bundle_junk_path
+
+    source = root / DOCS_SOURCE
+    if not source.is_dir():
+        raise InstallBundleError(
+            f"docs source dir is missing from the server tree: {source}"
+        )
+    entries: List[Dict[str, str]] = []
+    for path in sorted(
+        p for p in source.rglob("*")
+        if p.is_file() and not is_bundle_junk_path(p)
+    ):
+        content = _read_text(path)
+        if content is None:
+            raise InstallBundleError(f"docs source is missing or non-text: {path}")
+        rel = path.relative_to(source).as_posix()
+        entries.append({"path": f"{DOCS_SOURCE}/{rel}", "content": content})
+    return entries
 
 
 def _claude_settings_permissions() -> Dict[str, Any]:

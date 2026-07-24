@@ -100,7 +100,7 @@ The caller may also include inline artifact content for convenience, but you MUS
 
 2. **Read strategic context.** If `.yoke/strategy/VISION.md` exists, read it for project mission and strategic alignment. If it does not exist, skip this step — do not fail.
 
-3. **Read the DB reference** at `docs/db-reference.md` for schema context if evaluating plans that touch the DB.
+3. **Read the DB reference** at `.yoke/docs/db-reference.md` for schema context if evaluating plans that touch the DB.
 
 4. **Exploration discipline (turn-budget awareness).** You have a limited turn budget. Everything you need to evaluate is in the item body you read in step 1. Do NOT explore the broader codebase — do not read referenced scripts, implementation files, or DB schemas beyond what is already quoted in the item body and `db-reference.md`.
 

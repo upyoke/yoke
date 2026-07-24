@@ -63,7 +63,7 @@ Items are read via `yoke items get YOK-N <field>`. The `body` field is a virtual
 - `updated` — ISO timestamp, updated on every field change
 - `merged_at` — ISO timestamp, automatically populated by `yoke_core.engines.done_transition` when the item transitions to `done` (set to current UTC timestamp if null). Not overwritten if already set (e.g., by the merge pipeline). Tracks when the item's code was finalized on main.
 
-**Item-level dependencies** are stored in the `item_dependencies` table (not as an item field). Every row is a canonical blocker with `gate_point` (`activation`, `integration`, or `closure`) and `satisfaction` (`status:done`, `status:implemented`, or `fact:merged`). Each row carries a `rationale` (human-readable) and `evidence_json` (structured provenance). A shared dependency-planning kernel (`dependency_planning.py`) evaluates gates and plans candidate sets for all consumers. Transition and dispatch gates call the hard-block gate or the dependency-planning service commands. See `docs/db-reference.md` for the full schema.
+**Item-level dependencies** are stored in the `item_dependencies` table (not as an item field). Every row is a canonical blocker with `gate_point` (`activation`, `integration`, or `closure`) and `satisfaction` (`status:done`, `status:implemented`, or `fact:merged`). Each row carries a `rationale` (human-readable) and `evidence_json` (structured provenance). A shared dependency-planning kernel (`dependency_planning.py`) evaluates gates and plans candidate sets for all consumers. Transition and dispatch gates call the hard-block gate or the dependency-planning service commands. See `.yoke/docs/db-reference.md` for the full schema.
 
 ### Counter Mechanics
 
@@ -97,7 +97,7 @@ When a backlog item flows through the Yoke pipeline, these status transitions ha
 | Approval granted | `/yoke approve YOK-N` | remains `release` | Run's `current_stage` advanced |
 | Deployment complete | Usher completes all stages + blocking QA satisfied | → `done` | Run status set to `succeeded` |
 
-**Deployment flow architecture:** Post-merge deployment is managed by the Usher skill via deployment runs (`deployment_runs` table). Each run references a `deployment_flow`. Item-bound runs operate on one or more items through `deployment_run_items`; environment-level Yoke deploys may intentionally operate on zero items. Stage authority lives on the run (`current_stage`), not on individual items. See `docs/db-reference.md` for the `deployment_runs`, `deployment_run_items`, `deployment_run_qa`, `deployment_flows`, `sites`, `environments`, and `project_capabilities` table schemas.
+**Deployment flow architecture:** Post-merge deployment is managed by the Usher skill via deployment runs (`deployment_runs` table). Each run references a `deployment_flow`. Item-bound runs operate on one or more items through `deployment_run_items`; environment-level Yoke deploys may intentionally operate on zero items. Stage authority lives on the run (`current_stage`), not on individual items. See `.yoke/docs/db-reference.md` for the `deployment_runs`, `deployment_run_items`, `deployment_run_qa`, `deployment_flows`, `sites`, `environments`, and `project_capabilities` table schemas.
 
 Specs, plans, and review artifacts live in structured item fields (`spec`, `technical_plan`, `worktree_plan`, `shepherd_log`, `test_results`, etc.). `items.body` is a virtual rendered field assembled on demand from these structured fields — not stored in the DB, not a write target.
 

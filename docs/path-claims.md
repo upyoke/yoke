@@ -13,7 +13,7 @@ the path-claim API; this doc explains how to use it.
 
 ## Operator surfaces
 
-Agents author path-claim mutations through the Yoke function-call surface — the `claims.path.register`, `claims.path.widen`, `claims.path.release`, `claims.path.amend`, and `claims.path.override` function ids (see [`docs/db-reference/functions.md`](db-reference/functions.md)). Operator-facing reads use `yoke claims path get`, `yoke claims path list`, and `yoke path-claims conflicts list`.
+Agents author path-claim mutations through the Yoke function-call surface — the `claims.path.register`, `claims.path.widen`, `claims.path.release`, `claims.path.amend`, and `claims.path.override` function ids (see [`.yoke/docs/db-reference/functions.md`](db-reference/functions.md)). Operator-facing reads use `yoke claims path get`, `yoke claims path list`, and `yoke path-claims conflicts list`.
 
 Use the wrapped `yoke` adapters for everyday register / read / widen operations:
 

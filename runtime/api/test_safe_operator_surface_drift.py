@@ -1,7 +1,7 @@
 """Drift lock: the typed safe-operator-surface registry vs. the docs.
 
 The 19-command Tier 1 operator surface is enumerated in three markdown
-locations (docs/harness-bootstrap.md, docs/commands.md, the help SKILL.md),
+locations (docs/harness-bootstrap.md, .yoke/docs/commands.md, the help SKILL.md),
 plus the per-harness compat statement in CODEX.md. The typed source of truth
 is :data:`yoke_core.domain.harness_capability_registry.SAFE_OPERATOR_SURFACE`.
 
@@ -34,6 +34,8 @@ def _repo_root() -> Path:
 
 REPO = _repo_root()
 DOCS = REPO / "docs"
+# Universal docs shipped to managed projects now live under .yoke/docs.
+YOKE_DOCS = REPO / ".yoke" / "docs"
 
 
 def _read(path: Path) -> str:
@@ -51,10 +53,10 @@ def test_harness_bootstrap_lists_full_safe_surface():
 
 
 def test_commands_md_lists_full_safe_surface():
-    text = _read(DOCS / "commands.md")
+    text = _read(YOKE_DOCS / "commands.md")
     for command in safe_operator_surface():
         assert command.entrypoint in text, (
-            f"docs/commands.md missing safe-surface entrypoint "
+            f".yoke/docs/commands.md missing safe-surface entrypoint "
             f"{command.entrypoint!r}"
         )
 
@@ -73,7 +75,7 @@ def test_board_art_terminal_helper_is_listed_in_human_help_surfaces():
     surfaces = (
         REPO / ".agents" / "skills" / "yoke" / "SKILL.md",
         REPO / ".agents" / "skills" / "yoke" / "help" / "SKILL.md",
-        DOCS / "commands.md",
+        YOKE_DOCS / "commands.md",
     )
     for path in surfaces:
         text = _read(path)

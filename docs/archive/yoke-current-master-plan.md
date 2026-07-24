@@ -2288,7 +2288,7 @@ Already fully specced in Part 12. Summary: new flowchart, Usher section, 8 agent
 
 **Dependency:** YOK-498 must ship first (adds the 4 missing agents). This task adds only Usher.
 
-### yoke/docs/commands.md
+### yoke/.yoke/docs/commands.md
 **Current:** Missing usher, approve. `/yoke deploy` description is stale.
 
 **Changes needed:**
@@ -2298,7 +2298,7 @@ Already fully specced in Part 12. Summary: new flowchart, Usher section, 8 agent
 - Update `/yoke deploy` entry: rewrite as `/yoke usher YOK-N --from-stage {stage}` redirect note
 - Add `/yoke project` command entry (new from A-1)
 
-### yoke/docs/db-reference.md
+### yoke/.yoke/docs/db-reference.md
 **Current:** 1,165 lines. Authoritative DB schema reference — agents read this to avoid hallucinating SQL. Currently missing all new tables and columns. This is the highest-risk stale doc in the system.
 
 **Changes needed (all additive unless noted):**

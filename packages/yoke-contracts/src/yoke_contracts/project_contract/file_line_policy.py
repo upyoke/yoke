@@ -45,6 +45,11 @@ GENERATED_PATH_GLOBS: tuple[str, ...] = (
     # Upstream layout: where Yoke's own repo authors the same content.
     "runtime/harness/claude/agents/yoke-*.md",
     "runtime/harness/codex/agents/yoke-*.toml",
+    # Shipped reference docs — authored in the Yoke repo, installer-rendered
+    # into managed projects at the same path. Long reference material (schema
+    # catalogs, command references), not authored code, so exempt from the
+    # authored-file line limit everywhere.
+    ".yoke/docs/**",
 )
 
 # Rendered strategy views are untracked local renders (gitignored via the

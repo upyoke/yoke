@@ -134,7 +134,7 @@ These are internal implementation mechanisms. A harness must never invoke these 
 **Examples of raw Python entrypoints (never invoke directly from a harness):**
 
 - Direct item creation through the db-router internals -- use `/yoke idea` instead.
-- Direct item updates through the db-router internals -- use the `items.structured_field.replace` / `items.scalar.update` function ids (see [`docs/db-reference/functions.md`](db-reference/functions.md)) or the wrapped operator surface where one exists.
+- Direct item updates through the db-router internals -- use the `items.structured_field.replace` / `items.scalar.update` function ids (see [`.yoke/docs/db-reference/functions.md`](db-reference/functions.md)) or the wrapped operator surface where one exists.
 - `python3 -m yoke_core.cli.db_router query` -- source-dev/operator-debug raw SQL break-glass; everyday diagnostics use `yoke db read`
 - Direct epic db-router operations -- operator/debug adapters for the `workflow_item.epic_task.*` and `workflow_item.epic_progress_note.append` function family.
 - `yoke_core.domain.emit_event` -- internal event emitter module.

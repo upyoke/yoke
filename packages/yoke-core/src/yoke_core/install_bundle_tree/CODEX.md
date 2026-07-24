@@ -72,9 +72,9 @@ These are consumed by `/yoke do` to construct the session offer with correct har
 
 ## Yoke function-call surface
 
-Yoke control-plane writes (item structured fields, sections, epic-task amendment, DB-claim amendment, claim mutation, QA writes) route through the Yoke function-call surface. Agents call typed function ids (`items.structured_field.replace`, `items.structured_field.append_addendum`, `items.progress_log.append`, `workflow_item.epic_task.body_replace`, `db_claim.amend`, `claims.work.acquire`, etc.); the CLI adapters (`yoke items structured-field replace`, `yoke items structured-field append-addendum`, `yoke items section upsert`, `yoke workflow-item epic-task body-replace`, `yoke db-claim amend`, `yoke claims work acquire`, etc.) construct the matching `FunctionCallRequest` and dispatch through the same registry. See [`docs/db-reference/functions.md`](docs/db-reference/functions.md) for the envelope and per-family reference, [`docs/atlas.md`](docs/atlas.md) for the operator-readable Atlas of every `yoke` subcommand + permanent boundary + pending row, and [`docs/event-catalog.md`](docs/event-catalog.md) for the `YokeFunctionCalled` / `DispatcherIdempotencyReplay` / `DispatcherDownstreamDegraded` envelope schemas.
+Yoke control-plane writes (item structured fields, sections, epic-task amendment, DB-claim amendment, claim mutation, QA writes) route through the Yoke function-call surface. Agents call typed function ids (`items.structured_field.replace`, `items.structured_field.append_addendum`, `items.progress_log.append`, `workflow_item.epic_task.body_replace`, `db_claim.amend`, `claims.work.acquire`, etc.); the CLI adapters (`yoke items structured-field replace`, `yoke items structured-field append-addendum`, `yoke items section upsert`, `yoke workflow-item epic-task body-replace`, `yoke db-claim amend`, `yoke claims work acquire`, etc.) construct the matching `FunctionCallRequest` and dispatch through the same registry. See [`.yoke/docs/db-reference/functions.md`](.yoke/docs/db-reference/functions.md) for the envelope, the per-family reference, and the `YokeFunctionCalled` / `DispatcherIdempotencyReplay` / `DispatcherDownstreamDegraded` dispatcher-event schemas.
 
-External tooling (git, pytest, package managers, `rg` / `grep`) stays command-shaped under the permanent-boundary classification documented in [`docs/atlas.md`](docs/atlas.md). Yoke-owned control-plane reads, writes, and checks are function-shaped.
+External tooling (git, pytest, package managers, `rg` / `grep`) stays command-shaped under the permanent-boundary classification. Yoke-owned control-plane reads, writes, and checks are function-shaped.
 
 ## What Codex does NOT own
 
@@ -89,15 +89,15 @@ Codex hooks (when available) are optional enhancements that improve ergonomics a
 
 ## Lifecycle & Routing
 
-The canonical lifecycle guide is [docs/lifecycle.md](docs/lifecycle.md). It defines the issue and epic progressions, the command boundaries for `refine` / `shepherd` / `advance` / `conduct` / `polish` / `usher`, and how review loops operate inside a worktree. Read it once at bootstrap and treat it as the source of truth for "which command moves which status" before guessing from derivative docs.
+The canonical lifecycle guide is [.yoke/docs/lifecycle.md](.yoke/docs/lifecycle.md). It defines the issue and epic progressions, the command boundaries for `refine` / `shepherd` / `advance` / `conduct` / `polish` / `usher`, and how review loops operate inside a worktree. Read it once at bootstrap and treat it as the source of truth for "which command moves which status" before guessing from derivative docs.
 
-Routing for `/yoke do` (session offer, `NextAction` directives, chainability, supported-path derivation) lives in [docs/session-offer-contract.md](docs/session-offer-contract.md) and [docs/charge-frontier.md](docs/charge-frontier.md). Yoke core derives Codex's supported-path set server-side from the shared registry plus any manifest limitations; the adapter does not self-report capabilities via `YOKE_SUPPORTED_PATHS`.
+Routing for `/yoke do` (session offer, `NextAction` directives, chainability, supported-path derivation) lives in [.yoke/docs/session-offer-contract.md](.yoke/docs/session-offer-contract.md) and [.yoke/docs/charge-frontier.md](.yoke/docs/charge-frontier.md). Yoke core derives Codex's supported-path set server-side from the shared registry plus any manifest limitations; the adapter does not self-report capabilities via `YOKE_SUPPORTED_PATHS`.
 
 ## Related docs
 
-- [Lifecycle & Command Boundaries](docs/lifecycle.md) -- canonical human lifecycle guide
-- [Session-Offer Contract](docs/session-offer-contract.md) -- `/yoke do` request/response shape
-- [Charge Frontier](docs/charge-frontier.md) -- frontier computation and status-to-adapter map
+- [Lifecycle & Command Boundaries](.yoke/docs/lifecycle.md) -- canonical human lifecycle guide
+- [Session-Offer Contract](.yoke/docs/session-offer-contract.md) -- `/yoke do` request/response shape
+- [Charge Frontier](.yoke/docs/charge-frontier.md) -- frontier computation and status-to-adapter map
 - [Harness Bootstrap Contract](docs/harness-bootstrap.md) -- neutral startup expectations
 - [Harness Adapter Template](docs/harness-adapter-template.md) -- five-part adapter template
 <!-- END YOKE MANAGED BLOCK -->

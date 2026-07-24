@@ -44,6 +44,8 @@ def _repo_root() -> Path:
 
 REPO = _repo_root()
 DOCS = REPO / "docs"
+# Universal docs shipped to managed projects now live under .yoke/docs.
+YOKE_DOCS = REPO / ".yoke" / "docs"
 HARNESS = REPO / "runtime" / "harness"
 
 
@@ -96,7 +98,7 @@ def harness_bootstrap_md() -> str:
 
 @pytest.fixture(scope="module")
 def lifecycle_md() -> str:
-    return _read(DOCS / "lifecycle.md")
+    return _read(YOKE_DOCS / "lifecycle.md")
 
 
 @pytest.fixture(scope="module")
@@ -311,7 +313,7 @@ class TestLifecycleDocsAlignWithManifest:
 
     def test_lifecycle_md_names_advance_implementation_entry(self, lifecycle_md):
         assert "/yoke advance YOK-N implementation" in lifecycle_md, (
-            "docs/lifecycle.md must continue to name "
+            ".yoke/docs/lifecycle.md must continue to name "
             "/yoke advance YOK-N implementation as the issue implementation entry"
         )
 
@@ -321,7 +323,7 @@ class TestLifecycleDocsAlignWithManifest:
             lifecycle_md,
             re.DOTALL,
         )
-        assert match, "docs/lifecycle.md missing '## Command Boundary Summary'"
+        assert match, ".yoke/docs/lifecycle.md missing '## Command Boundary Summary'"
         section = match.group(1)
         assert "/yoke advance" in section, (
             "lifecycle.md Command Boundary Summary must list /yoke advance"

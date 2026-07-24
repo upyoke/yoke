@@ -198,7 +198,7 @@ Other `workflow_item.epic_task.*` share the same target shape:
 
 Routes both the `db_mutation_profile` and `db_compatibility_attestation`
 columns through one atomic write. The `claim` dict is the unified payload
-documented in `docs/db-reference/items-and-epics.md`.
+documented in `.yoke/docs/db-reference/items-and-epics.md`.
 
 ```json
 {

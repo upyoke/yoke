@@ -24,8 +24,8 @@ at doctor time rather than waiting for the next agent failure.
 |---:|-------------------------------------------------------------------|------------------------------------------------------------------|
 | 0    | `AGENTS.md`, `runtime/harness/claude/rules/session.md`, `docs/prompt-philosophy.md` | Substrate disciplines, auto-loaded into every session prompt.    |
 | 1    | Rendered `schema_api_context` packets (in-memory)                 | Canonical structural truth: tables, columns, CLI shapes, enums. |
-| 2    | `docs/OVERVIEW.md`, `docs/lifecycle.md`, `docs/commands.md`, etc. | Orientation docs, read on demand.                                |
-| 3    | `docs/function-inventory.md`, `docs/event-catalog.md`, `docs/db-reference.md`, `docs/db-reference/*.md`, `docs/state-management.md`, `docs/charge-frontier.md` | Reference catalogs every cross-reference points at.              |
+| 2    | `docs/OVERVIEW.md`, `.yoke/docs/lifecycle.md`, `.yoke/docs/commands.md`, etc. | Orientation docs, read on demand.                                |
+| 3    | `docs/function-inventory.md`, `docs/event-catalog.md`, `.yoke/docs/db-reference.md`, `.yoke/docs/db-reference/*.md`, `docs/state-management.md`, `.yoke/docs/charge-frontier.md` | Reference catalogs every cross-reference points at.              |
 | 4    | `runtime/agents/*.md`                                             | Canonical agent bodies; harness adapters derive from these.      |
 | 5    | `.agents/skills/yoke/*/SKILL.md`                                | Skill prose, the workflow teaching surface.                      |
 | 6    | `.agents/skills/yoke/*/<subdoc>.md`                             | Per-skill subdocs cited via progressive disclosure.              |

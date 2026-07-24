@@ -53,7 +53,7 @@ Read the canonical core first:
 - `yoke/README.md`
 - `yoke/BOARD.md`
 - `yoke/docs/OVERVIEW.md`
-- `yoke/docs/db-reference.md`
+- `yoke/.yoke/docs/db-reference.md`
 - the current master plan document if one exists
 - any especially central docs in `yoke/docs/` that appear to define the current architecture or operator surface
 

@@ -112,3 +112,34 @@ def test_bundle_ships_managed_markdown_and_permissions(conn) -> None:
     perms = bundle["claude_settings_permissions"]
     assert perms["allow"] == list(CLAUDE_PERMISSIONS["allow"])
     assert perms["auto_memory_enabled"] is False
+
+
+def test_bundle_files_stay_out_of_yoke_dir_except_docs(conn) -> None:
+    bundle = install_bundle.build_bundle(1, conn)
+    for entry in bundle["files"]:
+        p = entry["path"]
+        # Docs are the one yoke-authoritative .yoke/ subtree; all else stays out.
+        assert p.startswith(".yoke/docs/") or not p.startswith(".yoke/")
+        assert not p.startswith("/")
+        assert ".." not in p.split("/")
+
+
+def test_bundle_ships_universal_docs(conn) -> None:
+    from yoke_core.domain.install_bundle_managed import DOCS_SOURCE
+
+    bundle = install_bundle.build_bundle(1, conn)
+    by_path = {e["path"]: e["content"] for e in bundle["files"]}
+    # The relocated universal docs ship at .yoke/docs/ so installed skills and
+    # agents resolve their references; a sampling must be present, non-empty.
+    for rel in (
+        "commands.md", "lifecycle.md", "db-reference.md",
+        "db-reference/functions.md", "qa-platform/success-policy-schema.md",
+    ):
+        path = f"{DOCS_SOURCE}/{rel}"
+        assert path in by_path, f"bundle missing shipped doc {path}"
+        assert by_path[path].strip()
+    # Every shipped doc byte-matches the server tree's .yoke/docs/ source.
+    root = install_bundle.server_tree_root()
+    for path, content in by_path.items():
+        if path.startswith(f"{DOCS_SOURCE}/"):
+            assert content == (root / path).read_text("utf-8")

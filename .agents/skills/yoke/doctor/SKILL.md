@@ -127,7 +127,7 @@ Do not leave the `DOCTOR` claim active after any post-claim stop.
    owning item has no active cleanup authority, refreshing the exact branch and
    target refs, proving ancestry, and using a leased delete. Ambiguous or
    concurrently updated refs are preserved for a later retry.
- - **Stale local worktree/branch warnings** are reported with remediation text, but manual cleanup must still prove the worktree is clean and the branch tip is an ancestor of the intended base. Use `docs/source-dev-worktree-cleanup.md`; `git branch -d` checks the current checkout's `HEAD`, not an arbitrary stage/main base.
+ - **Stale local worktree/branch warnings** are reported with remediation text, but manual cleanup must still prove the worktree is clean and the branch tip is an ancestor of the intended base; `git branch -d` checks the current checkout's `HEAD`, not an arbitrary stage/main base.
  - **Wrong-repo GitHub issues** (migrates issues between repos when the project's `github_repo` capability has moved).
  - **Orphaned temp files / scratch directories** (`rebuild-board.*`, `sync-to-github.*`).
 

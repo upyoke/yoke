@@ -57,7 +57,7 @@ Copy-paste recipe:
 
 **When to fire:** Reading a doc, skill, or packet during unrelated work surfaced a stale or wrong reference. Not in current scope, not worth a ticket.
 
-**Example evidence:** docs/lifecycle.md still references `polish-implementation`; the live status name is `polishing-implementation`.
+**Example evidence:** .yoke/docs/lifecycle.md still references `polish-implementation`; the live status name is `polishing-implementation`.
 
 ### Orphan row or stale state noticed during unrelated work (`--kind observation`)
 

@@ -78,7 +78,7 @@ def test_doctor_hc_discovery_empty_when_no_python_paths(tmp_path: Path) -> None:
         task_num=1,
         file_budget_paths=_file_budget_paths(
             "runtime/agents/architect.md",
-            "docs/lifecycle.md",
+            ".yoke/docs/lifecycle.md",
         ),
         repo_root=root,
     )

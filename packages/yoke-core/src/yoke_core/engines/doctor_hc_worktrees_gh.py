@@ -100,7 +100,7 @@ def hc_orphaned_gh_issues(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     # Iterate every project with a configured github_repo. Backlog-only
     # projects are out of scope: their backlog is DB-only by design, so
     # their repo's issue tracker is never expected to mirror the backlog
-    # (docs/github-sync.md, "Backlog-only semantics").
+    # (.yoke/docs/github-sync.md, "Backlog-only semantics").
     all_issues: set = set()
     auth_failures: List[str] = []
     sync_disabled_notes: List[str] = []
@@ -199,7 +199,7 @@ def hc_gh_orphan_detection(conn, args: DoctorArgs, rec: RecordCollector) -> None
     # Iterate every project with a configured github_repo. Backlog-only
     # projects are out of scope: their backlog never mirrors to their
     # repo's issue tracker, so a [YOK-]-prefixed issue there is not a
-    # sync orphan (docs/github-sync.md, "Backlog-only semantics").
+    # sync orphan (.yoke/docs/github-sync.md, "Backlog-only semantics").
     all_gh_issues: List[dict] = []
     auth_failures: List[str] = []
     search_failures: List[str] = []
