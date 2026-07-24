@@ -17,6 +17,7 @@ from typing import Optional
 from yoke_contracts.project_contract.file_line_policy import (
     DEFAULT_LIMIT,
     default_exception_globs,
+    generated_path_globs,
     resolve_file_line_policy,
     tracked_generated_views,
 )
@@ -35,7 +36,7 @@ EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 LIMIT = DEFAULT_LIMIT
 
 # Built-in exceptions are shared with the source-dev checker. Project-local
-# additions live in .yoke/file-line-exceptions and are resolved per repo_root.
+# additions live in .yoke/project.config and are resolved per repo_root.
 TEMPORARY_EXCEPTIONS: tuple[str, ...] = default_exception_globs()
 ARCHIVE_EXCEPTIONS = ("docs/archive/**",)
 VENDORED_PREFIXES = ("node_modules/", "vendor/")
@@ -52,10 +53,7 @@ GENERATED_SENTINELS = frozenset({
     ".yoke/BOARD.md.ts",
     *tracked_generated_views(),
 })
-GENERATED_PATH_PATTERNS = (
-    "runtime/harness/claude/agents/yoke-*.md",
-    "runtime/harness/codex/agents/yoke-*.toml",
-)
+GENERATED_PATH_PATTERNS = generated_path_globs()
 DATA_ASSET_PATHS = frozenset({".yoke/board-art"})
 
 

@@ -17,6 +17,7 @@ from yoke_cli.project_install.files import (
     ProjectInstallError,
     assert_safe_bundle_paths,
 )
+from yoke_cli.project_install.managed_git_hooks import GIT_HOOK_NAMES
 from yoke_contracts.project_contract.install_policy import (
     FORBIDDEN_CONTRACT_RELATIVE_PATHS,
 )
@@ -200,7 +201,7 @@ def validate_manifest(manifest: Any, *, source: str = "install manifest") -> Non
     assert_safe_bundle_paths(files)
     _assert_safe_prior_contract_paths(contracts)
     _assert_safe_prior_strategy_paths(strategies)
-    allowed_git_hooks = {".git/hooks/pre-commit", ".git/hooks/post-commit"}
+    allowed_git_hooks = {f".git/hooks/{name}" for name in GIT_HOOK_NAMES}
     if set(git_hook_hashes) - allowed_git_hooks:
         raise ProjectInstallError(
             f"{source} git_hook_hashes names an unknown managed hook path"
@@ -208,7 +209,7 @@ def validate_manifest(manifest: Any, *, source: str = "install manifest") -> Non
     named_git_hooks = manifest.get("git_hooks", [])
     if (
         not isinstance(named_git_hooks, list)
-        or not all(name in ("pre-commit", "post-commit") for name in named_git_hooks)
+        or not all(name in GIT_HOOK_NAMES for name in named_git_hooks)
     ):
         raise ProjectInstallError(
             f"{source} git_hooks must contain only managed hook names"

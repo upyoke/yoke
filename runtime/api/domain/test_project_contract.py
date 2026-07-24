@@ -25,7 +25,7 @@ from yoke_contracts.project_contract.board_art import (
 EXPECTED_CONTRACT_PATHS = {
     ".yoke/.gitignore",
     ".yoke/README.md",
-    ".yoke/file-line-exceptions",
+    ".yoke/project.config",
     ".yoke/lint-config",
     ".yoke/labels",
     ".yoke/board.json",
@@ -191,7 +191,7 @@ def test_readme_maps_where_settings_live() -> None:
     assert "## Where settings live" in body
     # Repo-owned families.
     for token in (
-        "file-line-exceptions",
+        "project.config",
         "board.json",
         "deployment-flows.json",
         "packs.json",
@@ -202,7 +202,6 @@ def test_readme_maps_where_settings_live() -> None:
         assert token in body, token
     assert "ordinary project-owned source" in body
     assert "not classified as drift" in body
-    assert "project.config" not in body
     # DB-owned families each name their read/write command.
     for token in (
         "project-policy",
@@ -220,12 +219,13 @@ def test_readme_maps_where_settings_live() -> None:
         assert token in body, token
 
 
-def test_file_line_exceptions_seed_explains_policy() -> None:
-    body = _entries()[".yoke/file-line-exceptions"]["content"]
-    assert "one repo-relative glob per line" in body.lower()
+def test_project_config_seed_explains_policy() -> None:
+    body = _entries()[".yoke/project.config"]["content"]
+    assert "file_line_limit=350" in body
+    assert "file_line_exception=" in body
     assert "Blank lines and lines starting with #" in body
-    assert "Do not use this to avoid splitting normal source code" in body
-    assert "# docs/generated-reference/**" in body
+    assert "Do not use this to avoid splitting normal source" in body
+    assert "# file_line_exception=docs/generated-reference/**" in body
 
 
 def test_runbooks_are_fill_me_in_scaffolds() -> None:
@@ -254,7 +254,7 @@ def test_scaffolds_are_parameterized_by_display_name() -> None:
     assert one[".yoke/board-art"] != other[".yoke/board-art"]
     # Recognizer-generated config does not vary by project name.
     for rel in (
-        ".yoke/file-line-exceptions",
+        ".yoke/project.config",
         ".yoke/lint-config",
         ".yoke/labels",
         ".yoke/board.json",

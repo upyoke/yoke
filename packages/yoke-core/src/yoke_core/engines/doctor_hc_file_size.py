@@ -2,7 +2,9 @@
 
 Reports authored violations as FAIL, temporary exceptions over limit
 as WARN, and exclusion counts as informational context. The default limit
-is 350; project-local policy can set ``file_line_limit`` and exception globs.
+is 350; ``.yoke/project.config`` carries both the ``file_line_limit`` key
+and the ``file_line_exception`` globs — the same checked-in policy the
+pre-commit hook reads, so this check and the hook always agree.
 """
 
 from __future__ import annotations

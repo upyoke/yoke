@@ -236,7 +236,11 @@ class TestSourceLinkContractAndManifest:
         manifest = _manifest(checkout)
         assert manifest[MODE_KEY] == MODE_SOURCE_LINK
         assert manifest["symlinks"] == dict(source_link.DEV_SYMLINKS)
-        assert manifest["git_hooks"] == ["pre-commit", "post-commit"]
+        assert manifest["git_hooks"] == [
+            "pre-commit",
+            "post-commit",
+            "pre-merge-commit",
+        ]
         assert manifest["manifest_schema"] == MANIFEST_SCHEMA
         assert report[MODE_KEY] == MODE_SOURCE_LINK
         assert report["source"] == "in-checkout"

@@ -56,12 +56,21 @@ def installer_managed_paths(repo_root: pathlib.Path) -> frozenset[str]:
 def is_install_bundle_generated_path(
     path: str, repo_root: pathlib.Path
 ) -> bool:
-    """Whether ``path`` is rendered by install or mirrors bundle sources."""
+    """Whether ``path`` mirrors packaged bundle sources in the committed tree.
+
+    Deliberately answered from the path alone. ``.yoke/install-manifest.json``
+    records what *this machine's* install placed, is gitignored, and does not
+    exist in a fresh clone or on a CI runner — so consulting it here made the
+    same commit classify generated on an installed checkout and authored
+    everywhere else. Provenance of a committed file must come from the commit;
+    downstream install layouts are declared in
+    ``file_line_policy.GENERATED_PATH_GLOBS``.
+    """
+    del repo_root
     posix_path = path.replace("\\", "/")
     packaged_prefix = PACKAGED_INSTALL_BUNDLE_TREE_REL + "/"
     return (
-        posix_path in installer_managed_paths(repo_root)
-        or posix_path == PACKAGED_INSTALL_BUNDLE_TREE_REL
+        posix_path == PACKAGED_INSTALL_BUNDLE_TREE_REL
         or posix_path.startswith(packaged_prefix)
     )
 

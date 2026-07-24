@@ -219,7 +219,7 @@ def _bundle() -> dict[str, Any]:
         ],
         "project_contract_files": [
             {
-                "path": ".yoke/file-line-exceptions",
+                "path": ".yoke/project.config",
                 "content": "# exceptions\n",
                 "install_policy": "seed_if_missing",
                 "category": "project_policy",
@@ -263,7 +263,7 @@ def _assert_installed_project_layer(checkout: Path) -> None:
         ".git/hooks/pre-commit",
         ".git/hooks/post-commit",
         ".yoke/install-manifest.json",
-        ".yoke/file-line-exceptions",
+        ".yoke/project.config",
     } <= installed
     # The engine reaches machines through the wheel channel, never as source
     # trees copied into a managed project checkout.

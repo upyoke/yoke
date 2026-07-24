@@ -5,7 +5,6 @@ from __future__ import annotations
 import io
 import pathlib
 import subprocess
-import sys
 import unittest
 from unittest import mock
 
@@ -185,8 +184,8 @@ class TestRunAgainstFixtureRepo(unittest.TestCase):
     def test_run_passes_when_only_temporary_exception_grows(self) -> None:
         # Growth in a TEMPORARY_EXCEPTION path warns only; rc=0.
         _commit_file(
-            self.repo, ".yoke/file-line-exceptions",
-            "data/fixtures/*.md\n", message="exceptions",
+            self.repo, ".yoke/project.config",
+            "file_line_exception=data/fixtures/*.md\n", message="exceptions",
         )
         _commit_file(
             self.repo, "data/fixtures/corpus.md", _make_lines(200), message="seed"

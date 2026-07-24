@@ -33,6 +33,9 @@ from yoke_cli.commands.adapters.project_snapshot import (
 from yoke_cli.project_install import files as files_layer
 from yoke_cli.project_install import git_hooks as git_hooks_layer
 from yoke_cli.project_install.bundle_apply import apply_bundle
+from yoke_cli.project_install.file_line_config_migration import (
+    migrate_file_line_exceptions,
+)
 from yoke_cli.project_install.preflight import preflight_apply
 from yoke_cli.project_install import source_dev
 from yoke_cli.project_install.deployment_flows import (
@@ -101,6 +104,8 @@ def install(
         root, resolved_id, config_path, explicit_given
     )
     report = apply_bundle(root, bundle, operation=operation, source=source)
+    # Runs after apply so the seeded .yoke/project.config exists to move into.
+    report["file_line_config_migration"] = migrate_file_line_exceptions(root)
     report["deployment_flows"] = sync_project_flow_declarations_for_write(
         repo_root=root,
         project=str(bundle["project_slug"]),

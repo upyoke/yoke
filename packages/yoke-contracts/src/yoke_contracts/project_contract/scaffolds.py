@@ -9,19 +9,27 @@ the files project-owned the moment they land.
 
 from __future__ import annotations
 
-def render_file_line_exceptions(display_name: str) -> str:
-    return """# Project file-line exceptions.
+def render_project_config(display_name: str) -> str:
+    del display_name  # policy text carries no project-specific content
+    return """# Project config (key=value).
 #
-# `yoke check file-line` enforces the authored-file line limit from the
-# DB-backed project-policy capability (`file_line_limit`, default 350).
-# Add one repo-relative glob per line for files that are intentionally
-# unsplittable or non-authored data.
+# The on-disk home for project settings that must be readable without a
+# database or a network — anything a git hook, a fresh clone, or an
+# offline check needs. It rides the repo, so a pulled commit can change
+# the project's stance. Shared behavior that only server-side code reads
+# stays in the `project-policy` capability in the database.
 #
-# Blank lines and lines starting with # are ignored. Use forward slashes.
-# Do not use this to avoid splitting normal source code.
+# Blank lines and lines starting with # are ignored. A trailing `# ...`
+# after a value is documentation, not part of the value.
 #
-# Example:
-# docs/generated-reference/**
+# Authored-file line limit, enforced by the pre-commit hook and
+# `yoke check file-line`. Unset means 350.
+# file_line_limit=350
+#
+# Files exempt from that limit: intentionally unsplittable artifacts or
+# non-authored data. Repeat the key, one repo-relative glob per line, and
+# use forward slashes. Do not use this to avoid splitting normal source.
+# file_line_exception=docs/generated-reference/**
 """
 
 
@@ -122,7 +130,7 @@ surfaces are unavailable.
 __all__ = [
     "render_deploy_checklist",
     "render_deploy_runbook",
-    "render_file_line_exceptions",
+    "render_project_config",
     "render_recovery_runbook",
     "render_test_inventory",
 ]
