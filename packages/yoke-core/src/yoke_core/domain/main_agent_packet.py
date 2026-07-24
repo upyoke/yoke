@@ -194,6 +194,33 @@ def _render_packet_body() -> str:
         return _render_failure_banner(exc)
 
 
+def render_main_agent_section() -> str:
+    """Return heading + prefix + packet body, with no machine-local advisories.
+
+    The install bundle composes this into the managed doctrine block, so it is
+    rendered on the SERVER: the install and interpreter advisories probe
+    whichever machine runs the renderer, and the server's PATH says nothing
+    about the operator's. Those advisories belong only to the render paths that
+    already run on the operator's own machine.
+
+    Returns ``""`` on any render failure rather than the failure banner the
+    orientation paths use. A banner shipped into a managed project's rules file
+    would be permanent, unreadable to the operator who could act on it, and
+    would falsely mark the block as carrying a packet; leaving the block
+    packet-free instead routes delivery to that project's own session hooks,
+    where the failure is both visible and actionable.
+    """
+    try:
+        from yoke_core.domain.schema_api_context import render_role_packet
+
+        body = render_role_packet(MAIN_AGENT_ROLE).rstrip()
+    except Exception:
+        return ""
+    if not body:
+        return ""
+    return "\n".join([f"{_MAIN_AGENT_HEADING}:", _MAIN_AGENT_PREFIX, "", body])
+
+
 def render_main_agent_block() -> str:
     """Return the compact orientation block for the ``main_agent`` packet.
 

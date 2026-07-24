@@ -14,12 +14,16 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, List
 
-from yoke_contracts.project_contract.managed_block import extract_block_body
+from yoke_contracts.project_contract.managed_block import (
+    MAIN_AGENT_PACKET_MARKER,
+    extract_block_body,
+)
 from yoke_core.domain.install_bundle import (
     DOCS_SOURCE,
     InstallBundleError,
     _read_text,
 )
+from yoke_core.domain.main_agent_packet import render_main_agent_section
 
 # Repo-root FILES (not dirs) every server tree and the packaged snapshot carry
 # alongside the source dirs; ``build_bundle`` extracts each file's managed
@@ -50,7 +54,7 @@ def _managed_markdown(root: Path) -> Dict[str, Any]:
     """
     return {
         "blocks": {
-            "doctrine": _managed_block_body(root / _DOCTRINE_SOURCE),
+            "doctrine": _doctrine_block(root),
             "codex_shell": _managed_block_body(root / _CODEX_SHELL_SOURCE),
         },
         "targets": [
@@ -59,6 +63,26 @@ def _managed_markdown(root: Path) -> Dict[str, Any]:
             {"path": "CODEX.md", "block": "codex_shell"},
         ],
     }
+
+
+def _doctrine_block(root: Path) -> str:
+    """The authored doctrine body plus the generated main-agent packet.
+
+    A managed project's harness auto-loads its rules files, so composing the
+    packet into the doctrine block is what gives that project's top-level
+    session the same live schema/API truth a Yoke checkout renders at startup.
+    Nothing else in a managed project is both auto-loaded and Yoke-owned.
+
+    The packet is generated, so it is deliberately absent from the authored
+    doctrine files this block is extracted from — Yoke's own sessions render it
+    at startup instead. The marker line separates the two regions and lets the
+    project's session hooks tell whether the block already carries a packet.
+    """
+    body = _managed_block_body(root / _DOCTRINE_SOURCE)
+    packet = render_main_agent_section()
+    if not packet:
+        return body
+    return f"{body}\n\n{MAIN_AGENT_PACKET_MARKER}\n{packet}"
 
 
 def _managed_block_body(path: Path) -> str:

@@ -105,13 +105,61 @@ def test_bundle_ships_managed_markdown_and_permissions(conn) -> None:
         assert body and MANAGED_BLOCK_BEGIN not in body
     root = install_bundle.server_tree_root()
     agents_text = (root / "AGENTS.md").read_text("utf-8")
-    assert mm["blocks"]["doctrine"] == extract_block_body(agents_text)
-    # Re-rendering the shipped body reproduces the source file's exact block.
-    assert render_block(mm["blocks"]["doctrine"]) in agents_text
+    authored = extract_block_body(agents_text)
+    # The doctrine block leads with this repo's own authored block body...
+    assert mm["blocks"]["doctrine"].startswith(authored)
+    # ...and re-rendering that authored region reproduces the source file's block.
+    assert render_block(authored) in agents_text
+    codex_text = (root / "CODEX.md").read_text("utf-8")
+    assert mm["blocks"]["codex_shell"] == extract_block_body(codex_text)
 
     perms = bundle["claude_settings_permissions"]
     assert perms["allow"] == list(CLAUDE_PERMISSIONS["allow"])
     assert perms["auto_memory_enabled"] is False
+
+
+def test_doctrine_block_carries_the_generated_main_agent_packet(conn) -> None:
+    # A managed project auto-loads its rules files and nothing else Yoke owns,
+    # so the doctrine block is the only place a static packet reaches that
+    # project's top-level session. Without it the session has no schema/API
+    # truth and confabulates table and column names.
+    from yoke_contracts.project_contract.managed_block import (
+        MAIN_AGENT_PACKET_MARKER,
+        carries_main_agent_packet,
+    )
+    from yoke_core.domain.schema_api_context import render_role_packet
+
+    doctrine = install_bundle.build_bundle(1, conn)["managed_markdown"]["blocks"][
+        "doctrine"
+    ]
+
+    assert carries_main_agent_packet(doctrine)
+    packet_region = doctrine.split(MAIN_AGENT_PACKET_MARKER, 1)[1]
+    assert render_role_packet("main_agent").rstrip() in packet_region
+    # The packet is generated on the server, so machine-local advisories about
+    # the server's own PATH and interpreter must not ride along to the client.
+    assert "Yoke CLI not on PATH" not in doctrine
+
+
+def test_doctrine_block_omits_the_packet_when_the_render_degrades(
+    conn, monkeypatch,
+) -> None:
+    # A degraded render must leave the block packet-free rather than ship a
+    # failure banner into a project's rules file: absent marker means the
+    # project's own hooks deliver the packet, on the machine that can act on it.
+    from yoke_contracts.project_contract.managed_block import (
+        carries_main_agent_packet,
+    )
+
+    monkeypatch.setattr(
+        install_bundle_managed, "render_main_agent_section", lambda: "",
+    )
+    doctrine = install_bundle.build_bundle(1, conn)["managed_markdown"]["blocks"][
+        "doctrine"
+    ]
+
+    assert doctrine
+    assert not carries_main_agent_packet(doctrine)
 
 
 def test_bundle_files_stay_out_of_yoke_dir_except_docs(conn) -> None:

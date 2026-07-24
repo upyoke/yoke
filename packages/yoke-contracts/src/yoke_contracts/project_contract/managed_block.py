@@ -22,6 +22,11 @@ from typing import Optional, Tuple
 
 MANAGED_BLOCK_BEGIN = "<!-- BEGIN YOKE MANAGED BLOCK -->"
 MANAGED_BLOCK_END = "<!-- END YOKE MANAGED BLOCK -->"
+# Marks where the generated main-agent packet begins inside a managed block.
+# The bundle appends the packet under this marker; a managed project's session
+# hooks read the marker to decide whether the rules file already supplies the
+# packet or whether they must deliver it themselves.
+MAIN_AGENT_PACKET_MARKER = "<!-- YOKE MAIN-AGENT PACKET -->"
 # Human-facing guidance rendered as the first line inside every block. Kept out
 # of the marker strings themselves so block detection stays an exact-string
 # search regardless of how the guidance is later reworded.
@@ -74,11 +79,25 @@ def extract_block_body(text: str) -> Optional[str]:
     return "\n".join(lines).strip("\n")
 
 
+def carries_main_agent_packet(text: str) -> bool:
+    """True when *text* already carries the generated main-agent packet.
+
+    The install bundle composes the packet into the managed block, so a
+    managed project's auto-loaded rules file normally supplies it to every
+    session at no cost. A project installed before the packet shipped — or one
+    whose server-side render degraded — has no marker, and its session hooks
+    deliver the packet themselves rather than leaving the session without one.
+    """
+    return MAIN_AGENT_PACKET_MARKER in text
+
+
 __all__ = [
+    "MAIN_AGENT_PACKET_MARKER",
     "MANAGED_BLOCK_BEGIN",
     "MANAGED_BLOCK_END",
     "MANAGED_BLOCK_NOTE",
     "block_span",
+    "carries_main_agent_packet",
     "extract_block_body",
     "render_block",
 ]
