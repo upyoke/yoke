@@ -12,7 +12,7 @@ this file explains intent.
 | Focused pytest | `python3 -m pytest <targeted files>` | Fast verification for touched Python modules. |
 | Domain pytest | `python3 -m pytest runtime/api/domain/...` | Domain behavior, schema, gates, claims, and handlers. |
 | Tool pytest | `python3 -m pytest runtime/api/tools/...` | CLI/tooling behavior, watchers, renderers, and install helpers. |
-| Codex harness pytest | `python3 -m pytest runtime/harness/codex/test_codex_entry.py` | Codex harness launcher bootstrap and command routing. |
+| Codex harness pytest | `python3 -m pytest runtime/harness/codex/` | Codex harness hook payload, model resolution, and lifecycle. |
 | Full local suite | `python3 -m pytest` | Broad Postgres-backed regression proof. |
 | Render/check tools | `agents.render.check`, `atlas_render_docs --check`, related checks | Generated packet/docs drift detection. |
 

@@ -238,7 +238,7 @@ wrapped product CLI exists for this harness bootstrap resolver yet.
 | Caller | What to do |
 |--------|-----------|
 | Codex native skill loader | Let Codex scan `.agents/skills` directly; use `SKILL.md` frontmatter as the shared metadata source. |
-| Wrapper-only harness bootstrap (e.g. `codex_entry bootstrap`) | Invoke the resolver to confirm the canonical tree exists before delegating to `/yoke` commands. |
+| Wrapper-only harness bootstrap (no hooks available) | Invoke the resolver to confirm the canonical tree exists before delegating to `/yoke` commands. |
 | Thin docs that list available skills | Derive the list from `skill-list` instead of hardcoding, so the doc never drifts from the repo. |
 | Operator shell commands composing a skill path | Call `skill-path` rather than concatenating `.agents/skills/yoke/<name>/SKILL.md` by hand. |
 | Claude Code's native Skill tool | Continue to use the harness-owned loader; this contract is for repo-local wrapper discovery, not Claude Code's built-in skill surface. |

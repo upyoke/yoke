@@ -7,126 +7,49 @@ Last updated: 2026-05-29 (Step 14 split into runnable schema, protocol-schema, a
 ## Prerequisites
 
 - Codex CLI installed (any build with Bash tool support for wrapper-only)
-- For hook-enhanced mode: Codex >= 0.118.0-alpha.2 and launch via `python3 -m runtime.harness.codex.codex_open_app` (or equivalent `codex app <repo>`)
+- For hook-enhanced mode: Codex >= 0.118.0-alpha.2, launched with `codex app <repo>`
 - Yoke repo checked out at a known-good state
 - Connected Postgres authority available (at least one backlog item for routing tests)
 
 ## Mode 1: Wrapper-Only
 
-Wrapper-only mode uses `python3 -m runtime.harness.codex.codex_entry` as the entry point. No hooks required. This is the safe default that works on any Codex build.
+Wrapper-only mode is any Codex build without hook support: no session hooks
+fire, so all correctness comes from Yoke core and the agent reaches Yoke
+through the `yoke` CLI and the `/yoke` prompt commands. There is no separate
+entry launcher — Codex loads the repo's own rules files, and the startup
+reads are rendered on demand.
 
-### Step 1: Bootstrap
+### Step 1: Bootstrap orientation
 
 ```sh
-python3 -m runtime.harness.codex.codex_entry bootstrap
+python3 -m runtime.harness.bootstrap render-full --spec runtime/harness/bootstrap-spec.json --root .
 ```
 
 **Verify:**
 - [ ] Output includes `=== AGENTS.md ===` section
-- [ ] Output includes `=== CODEX.md ===` section
 - [ ] Output includes `=== harness-bootstrap.md ===` section
-- [ ] Output includes `=== Recent commits ===` with git log
-- [ ] Output ends with `YOKE_EXECUTOR=codex`
-- [ ] Output ends with `Supported paths: shepherd, refine, advance, polish, usher`
+- [ ] Output includes the `main_agent` packet block
 
-### Step 2: Help
+### Step 2: Identity resolution without hooks
 
 ```sh
-python3 -m runtime.harness.codex.codex_entry help
+yoke sessions whoami
 ```
 
 **Verify:**
-- [ ] Shows `YOKE_EXECUTOR=codex`
-- [ ] Shows `YOKE_PROVIDER=openai`
-- [ ] Shows `YOKE_MODEL=...` (resolved when running inside Codex Desktop)
-- [ ] Does NOT show `YOKE_SUPPORTED_PATHS` (capabilities derived server-side)
-- [ ] Lists bootstrap, env, idea, do, refine, advance, polish, usher, help commands
+- [ ] Reports `executor: codex` when run inside Codex
+- [ ] Does NOT report `YOKE_SUPPORTED_PATHS` (capabilities derived server-side)
 
-### Step 3: Sourceable exports
+### Step 3: Operator entrypoints
 
-```sh
-python3 -m runtime.harness.codex.codex_entry env
-```
+Wrapper-only mode routes every operation through the prompt-level `/yoke`
+commands and the `yoke` CLI; there is no launcher indirection to verify.
 
 **Verify:**
-- [ ] Output is a shell-export block
-- [ ] Output exports `YOKE_EXECUTOR=codex`
-- [ ] Output exports `YOKE_PROVIDER=openai`
-- [ ] Output exports `YOKE_MODEL=...` (resolved when runtime metadata is available)
-- [ ] Output does NOT export `YOKE_SUPPORTED_PATHS` (capabilities derived server-side)
-
-The launcher itself cannot mutate the parent prompt runtime after it exits. Use the printed identity values directly, or `eval "$(python3 -m runtime.harness.codex.codex_entry env)"` for shell-managed wrappers.
-
-### Step 4: Idea routing
-
-```sh
-python3 -m runtime.harness.codex.codex_entry idea "Test smoke idea"
-```
-
-**Verify:**
-- [ ] Output shows `/yoke idea Test smoke idea` instruction
-- [ ] Output shows environment variables set correctly
-- [ ] No errors or crashes
-
-### Step 4b: Advance routing
-
-```sh
-python3 -m runtime.harness.codex.codex_entry advance YOK-N implementation
-```
-
-**Verify:**
-- [ ] Output shows `/yoke advance YOK-{N} implementation` instruction
-- [ ] Output explains that advance creates or re-enters the implementation worktree
-- [ ] No claims, status transitions, or worktree operations occur
-- [ ] No errors or crashes
-
-### Step 4c: Refine routing
-
-```sh
-python3 -m runtime.harness.codex.codex_entry refine YOK-N
-```
-
-**Verify:**
-- [ ] Output shows `/yoke refine YOK-N` instruction
-- [ ] Output explains that refine is a standalone entrypoint
-- [ ] No errors or crashes
-
-### Step 4d: Polish routing
-
-```sh
-python3 -m runtime.harness.codex.codex_entry polish YOK-N
-```
-
-**Verify:**
-- [ ] Output shows `/yoke polish YOK-N` instruction
-- [ ] Output explains that polish uses the item's recorded worktree
-- [ ] No errors or crashes
-
-### Step 4e: Usher routing
-
-```sh
-python3 -m runtime.harness.codex.codex_entry usher YOK-N --dry-run
-```
-
-**Verify:**
-- [ ] Output shows `/yoke usher YOK-N --dry-run` instruction
-- [ ] Output explains that the wrapper is guidance-only
-- [ ] No claims, status transitions, merge operations, or deployment operations occur
-- [ ] No errors or crashes
-
-### Step 5: Do routing
-
-```sh
-python3 -m runtime.harness.codex.codex_entry do
-```
-
-**Verify:**
-- [ ] Output shows `/yoke do` instruction
-- [ ] Output shows `executor: codex`
-- [ ] Output shows `provider: openai`
-- [ ] Output shows `model: ...`
-- [ ] Output shows `supported_paths: shepherd, refine, advance, polish, usher`
-- [ ] Output mentions downstream path fallback behavior
+- [ ] `/yoke idea "Test smoke idea"` files an idea
+- [ ] `/yoke do` returns a session offer
+- [ ] `/yoke refine YOK-N`, `/yoke advance YOK-N implementation`,
+      `/yoke polish YOK-N`, and `/yoke usher YOK-N --dry-run` each route
 
 ### Step 6: Decision engine path validation
 
@@ -311,7 +234,6 @@ The following test scripts validate the matrix programmatically:
 | `runtime/harness/test_bootstrap.py` | Neutral bootstrap spec/helper: ordering, doctrine rendering, drift guard |
 | `runtime/api/test_service_client_sessions_offer.py` | Decision engine: shared-registry supported paths and session-offer behavior |
 | `runtime/api/test_capability_consistency.py` | Shared registry, Codex manifest limitations, and CODEX.md capability drift guards |
-| `runtime/harness/codex/test_codex_entry.py` | Entry launcher: env vars, manifest, bootstrap, routing, autodetect |
 | `runtime/harness/test_hook_runner.py` | Shared hook runner: dispatch, identity, lifecycle, graceful degradation |
 | `runtime/harness/test_hook_runner_runner.py` | Hook runner chain execution: per-event sub-handler ordering and fanout |
 | `runtime/harness/test_hook_runner_telemetry.py` | Hook runner telemetry: tool-call denial events, latency, payload shaping |
@@ -324,7 +246,6 @@ Run them:
 python3 -m pytest runtime/harness/test_bootstrap.py
 python3 -m pytest runtime/api/test_service_client_sessions_offer.py
 python3 -m pytest runtime/api/test_capability_consistency.py
-python3 -m pytest runtime/harness/codex/test_codex_entry.py
 python3 -m pytest runtime/harness/test_hook_runner.py
 python3 -m pytest runtime/harness/test_hook_runner_runner.py
 python3 -m pytest runtime/harness/test_hook_runner_telemetry.py

@@ -80,17 +80,16 @@ def test_operator_docs_point_at_python_entrypoints() -> None:
         assert retired not in doctrine
 
     codex = _read(CODEX_DOC)
-    assert "python3 -m runtime.harness.codex.codex_entry bootstrap" in codex
+    assert "python3 -m runtime.harness.bootstrap render-full" in codex
 
     hook_parity = _read(HOOK_PARITY_DOC)
-    assert "python3 -m runtime.harness.codex.codex_entry bootstrap" in hook_parity
+    assert "python3 -m runtime.harness.bootstrap render-full" in hook_parity
     assert "git-root-stable" not in hook_parity
     assert "PYTHONPATH=\"$(git rev-parse --show-toplevel)" not in hook_parity
     assert "yoke hook evaluate PreToolUse" in hook_parity
     assert "yoke hook evaluate UserPromptSubmit" in hook_parity
 
     test_inventory = _read(TEST_INVENTORY_DOC)
-    assert "python3 -m pytest runtime/harness/codex/test_codex_entry.py" in test_inventory
     assert "test-codex-entry.sh" not in test_inventory
     assert "test-codex-hooks.sh" not in test_inventory
     assert "test-harness-routing.sh" not in test_inventory

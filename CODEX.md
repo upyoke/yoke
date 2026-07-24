@@ -105,31 +105,31 @@ Routing for `/yoke do` (session offer, `NextAction` directives, chainability, su
 # Yoke Repo Internals (Codex)
 <!-- Not shipped to managed projects — specific to the yoke source repo. The managed block above is the project-agnostic Codex shell `yoke project install` ships; the wrappers and source paths below are yoke-source-dev plumbing. -->
 
-## Bootstrap wrappers (yoke source dev)
+## Bootstrap render (yoke source dev)
 
-The always-works wrapper prints the full bootstrap for a Codex session without relying on hook injection:
-
-```sh
-python3 -m runtime.harness.codex.codex_entry bootstrap
-```
-
-This loads `CODEX.md` as the Codex-specific shell, the neutral startup reads defined by `runtime/harness/bootstrap-spec.json`, the shared prompt doctrine and startup command output required by the [Harness Bootstrap Contract](docs/harness-bootstrap.md), and the generated `main_agent` packet block injected by `yoke_core.domain.main_agent_packet`.
-
-For a source-controlled app launcher:
+Hooks inject orientation at session start. To print the full bootstrap
+without relying on hook injection:
 
 ```sh
-python3 -m runtime.harness.codex.codex_open_app
+python3 -m runtime.harness.bootstrap render-full --spec runtime/harness/bootstrap-spec.json --root .
 ```
 
-That opens Codex Desktop on this repo using the app-bundled Codex binary when needed. The wrapper-only path above is always sufficient.
+That loads `CODEX.md` as the Codex-specific shell, the neutral startup reads
+defined by `runtime/harness/bootstrap-spec.json`, the shared prompt doctrine
+and startup command output required by the [Harness Bootstrap
+Contract](docs/harness-bootstrap.md), and the generated `main_agent` packet
+block injected by `yoke_core.domain.main_agent_packet`.
 
-If you need sourceable identity exports for a shell-managed wrapper:
+Codex Desktop opens this repo directly:
 
 ```sh
-eval "$(python3 -m runtime.harness.codex.codex_entry env)"
+codex app .
 ```
 
-The launcher can print or export the identity contract, but it cannot retroactively mutate the parent prompt runtime after it exits.
+Session identity comes from the hook pack: `.codex/hooks.json` sets
+`YOKE_EXECUTOR` and `YOKE_PROVIDER` on every hook invocation, and the model
+and entrypoint resolve from the Codex runtime. Nothing needs to be exported
+into the shell by hand.
 
 ## Skill resolver (yoke source dev)
 

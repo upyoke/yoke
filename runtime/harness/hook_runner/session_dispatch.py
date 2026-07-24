@@ -153,7 +153,8 @@ def _render_codex_orientation(
     lines.extend([
         "Safe commands: " + compact_entrypoint_display(),
         "Downstream paths: " + ", ".join(shared_downstream_paths()) + " (derived from shared registry)",
-        "Full bootstrap: python3 -m runtime.harness.codex.codex_entry bootstrap",
+        "Full bootstrap: python3 -m runtime.harness.bootstrap render-full "
+        "--spec runtime/harness/bootstrap-spec.json --root " + root,
     ])
     return "\n".join(lines) + "\n"
 
@@ -191,7 +192,7 @@ def _render_codex_reminder(
         "",
         "Downstream paths: " + ", ".join(shared_downstream_paths()) + " (from shared registry)",
         "",
-        "Prefer python3 -m runtime.harness.codex.codex_entry or /yoke commands.",
+        "Prefer /yoke commands and the yoke CLI.",
         "Do not call internal scripts directly unless instructed.",
     ])
     return "\n".join(lines) + "\n"
