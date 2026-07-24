@@ -179,26 +179,23 @@ CORE_COMMANDS: list[dict] = [
     },
     {
         "topic": "core",
-        "purpose": "Inspect Atlas: function ids, yoke CLI, contradictions",
+        "purpose": "Find the registered surface for a Yoke operation",
         "recipe": (
-            "python3 -m yoke_core.tools.atlas_render_docs check\n"
+            "yoke --help\n"
             "yoke ouroboros field-note append --kind new "
             "--evidence 'Missing CLI adapter for <function_id>'"
         ),
         "notes": (
-            "The Atlas (`docs/atlas.md`) is the operator-readable view "
-            "of every agent-facing surface: function ids registered, "
-            "`yoke` CLI subcommands wrapped, permanent command-shaped "
-            "boundaries, pending handler-registration roster, teaching "
-            "coverage, and live promise-vs-live contradictions. It is "
-            "rendered from `atlas_integrity_audit` (a read-only "
-            "operator-debug tool surface — not function-call backed). "
+            "Every Yoke-owned operation is a registered function id with a "
+            "`yoke <subcommand>` adapter. The per-family function id "
+            "reference is `.yoke/docs/db-reference/functions.md`; each "
+            "adapter's own `--help` is the deep surface for its variants, "
+            "flag matrix, and decision tree. A few families (git, gh, and "
+            "the watcher wrappers) stay command-shaped on purpose. "
             "**When you hit a recipe gap (missing adapter, wrong recipe, "
             "unclear help), fire `yoke ouroboros field-note append` "
             "immediately — before retrying, before moving on.** "
-            "Canonical long-form reference: "
-            "`runtime/agents/_shared/ouroboros-field-note.md`; "
-            "run `yoke ouroboros field-note append --help` for the "
+            "Run `yoke ouroboros field-note append --help` for the "
             "worked failure modes and decision tree. Agents reach "
             "Yoke via the CLI; "
             "direct runtime.api imports from `python3 -c` are "
