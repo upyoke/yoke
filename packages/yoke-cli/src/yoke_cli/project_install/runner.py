@@ -36,6 +36,9 @@ from yoke_cli.project_install.bundle_apply import apply_bundle
 from yoke_cli.project_install.file_line_config_migration import (
     migrate_file_line_exceptions,
 )
+from yoke_cli.project_install.hooks_path_check import (
+    collect_hooks_path_warnings,
+)
 from yoke_cli.project_install.preflight import preflight_apply
 from yoke_cli.project_install import source_dev
 from yoke_cli.project_install.deployment_flows import (
@@ -104,6 +107,13 @@ def install(
         root, resolved_id, config_path, explicit_given
     )
     report = apply_bundle(root, bundle, operation=operation, source=source)
+    # A clean copy install can still be shadowed at commit time: a
+    # core.hooksPath override sends git elsewhere, or a missing `yoke`
+    # launcher leaves the shims unable to exec. Surface both loudly.
+    if resolved_mode == MODE_COPY:
+        report.setdefault("warnings", []).extend(
+            collect_hooks_path_warnings(root)
+        )
     # Runs after apply so the seeded .yoke/project.config exists to move into.
     report["file_line_config_migration"] = migrate_file_line_exceptions(root)
     report["deployment_flows"] = sync_project_flow_declarations_for_write(
