@@ -17,7 +17,7 @@ Wrapper-only mode is any Codex build without hook support: no session hooks
 fire, so all correctness comes from Yoke core and the agent reaches Yoke
 through the `yoke` CLI and the `/yoke` prompt commands. There is no separate
 entry launcher — Codex loads the repo's own rules files, and the startup
-reads are rendered on demand.
+reads render on demand.
 
 ### Step 1: Bootstrap orientation
 
@@ -27,29 +27,35 @@ python3 -m runtime.harness.bootstrap render-full --spec runtime/harness/bootstra
 
 **Verify:**
 - [ ] Output includes `=== AGENTS.md ===` section
+- [ ] Output includes `=== CODEX.md ===` section
 - [ ] Output includes `=== harness-bootstrap.md ===` section
-- [ ] Output includes the `main_agent` packet block
+- [ ] Output includes the generated `main_agent` packet block
 
-### Step 2: Identity resolution without hooks
+### Step 2: Capability set
+
+Supported paths: shepherd, refine, advance, polish, usher — derived
+server-side from the shared registry plus the manifest's declared
+limitations. Harnesses do not self-report them.
 
 ```sh
-yoke sessions whoami
+/yoke do
 ```
 
 **Verify:**
-- [ ] Reports `executor: codex` when run inside Codex
-- [ ] Does NOT report `YOKE_SUPPORTED_PATHS` (capabilities derived server-side)
+- [ ] Session offer reports `supported_paths: shepherd, refine, advance, polish, usher`
+- [ ] Session offer reports `executor: codex` and `provider: openai`
+- [ ] Downstream paths outside the derived set fall back truthfully
 
 ### Step 3: Operator entrypoints
 
 Wrapper-only mode routes every operation through the prompt-level `/yoke`
-commands and the `yoke` CLI; there is no launcher indirection to verify.
+commands; there is no launcher indirection to verify.
 
 **Verify:**
 - [ ] `/yoke idea "Test smoke idea"` files an idea
-- [ ] `/yoke do` returns a session offer
-- [ ] `/yoke refine YOK-N`, `/yoke advance YOK-N implementation`,
-      `/yoke polish YOK-N`, and `/yoke usher YOK-N --dry-run` each route
+- [ ] `/yoke advance YOK-{N} implementation` creates or re-enters the worktree
+- [ ] `/yoke refine YOK-N`, `/yoke polish YOK-N`, and
+      `/yoke usher YOK-N --dry-run` each route
 
 ### Step 6: Decision engine path validation
 

@@ -22,36 +22,51 @@ class ImportEdge:
     rationale: str = ""
 
 
+# Source files whose module-level assignments carry the boundary facts. Both
+# are read for both symbols, so moving either declaration between them — as
+# happens when one file approaches the authored-file line limit — does not
+# silently drop the classifications and leave every edge unclassified.
+_BOUNDARY_FACT_SOURCES = (
+    ("runtime", "api", "test_installer_package_boundaries.py"),
+    ("runtime", "api", "dynamic_authority_import_allowlist.py"),
+)
+
+
 def load_boundary_facts(
     root: Path | None,
 ) -> tuple[frozenset[str], dict[tuple[str, str], tuple[str, str]]]:
-    """Load import roots and sanctioned dynamic edges from the guard test."""
-    if root is None:
-        return _ENGINE_IMPORT_BOUNDARY_ROOTS, {}
-    path = root / "runtime" / "api" / "test_installer_package_boundaries.py"
-    if not path.is_file():
-        return _ENGINE_IMPORT_BOUNDARY_ROOTS, {}
-    try:
-        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-    except (OSError, SyntaxError, UnicodeDecodeError):
-        return _ENGINE_IMPORT_BOUNDARY_ROOTS, {}
+    """Load import roots and sanctioned dynamic edges from the guard sources."""
     boundary_roots = _ENGINE_IMPORT_BOUNDARY_ROOTS
     dynamic: dict[tuple[str, str], tuple[str, str]] = {}
-    for node in tree.body:
-        if not isinstance(node, ast.Assign):
+    if root is None:
+        return boundary_roots, dynamic
+    for parts in _BOUNDARY_FACT_SOURCES:
+        path = root.joinpath(*parts)
+        if not path.is_file():
             continue
-        names = {target.id for target in node.targets if isinstance(target, ast.Name)}
         try:
-            value = ast.literal_eval(node.value)
-        except (TypeError, ValueError):
+            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        except (OSError, SyntaxError, UnicodeDecodeError):
             continue
-        if "ENGINE_IMPORT_BOUNDARY_ROOTS" in names:
-            boundary_roots = frozenset(str(item) for item in value)
-        if "ALLOWED_DYNAMIC_AUTHORITY_IMPORTS" in names:
-            dynamic = {
-                (str(rel), str(module)): (str(kind), str(reason))
-                for (rel, module), (kind, reason) in value.items()
+        for node in tree.body:
+            if not isinstance(node, ast.Assign):
+                continue
+            names = {
+                target.id for target in node.targets if isinstance(target, ast.Name)
             }
+            try:
+                value = ast.literal_eval(node.value)
+            except (TypeError, ValueError):
+                continue
+            if "ENGINE_IMPORT_BOUNDARY_ROOTS" in names:
+                boundary_roots = frozenset(str(item) for item in value)
+            if "ALLOWED_DYNAMIC_AUTHORITY_IMPORTS" in names:
+                dynamic.update(
+                    {
+                        (str(rel), str(module)): (str(kind), str(reason))
+                        for (rel, module), (kind, reason) in value.items()
+                    }
+                )
     return boundary_roots, dynamic
 
 

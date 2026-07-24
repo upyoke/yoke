@@ -46,7 +46,12 @@ def test_no_https_runs_lint_subset_then_drives_lifecycle(monkeypatch) -> None:
     assert rc == 0
     assert hook_main.call_count == 1
     assert hook_main.call_args.args == ("PreToolUse",)
-    assert hook_main.call_args.kwargs == {"stdin_data": '{"session_id": "s1"}'}
+    # PreToolUse is not the orientation event, so no orientation is composed
+    # and the engine is never reached for it.
+    assert hook_main.call_args.kwargs == {
+        "stdin_data": '{"session_id": "s1"}',
+        "extra_context": "",
+    }
     assert lifecycle_calls == [("PreToolUse", '{"session_id": "s1"}')]
 
 
