@@ -113,7 +113,7 @@ The always-works wrapper prints the full bootstrap for a Codex session without r
 python3 -m runtime.harness.codex.codex_entry bootstrap
 ```
 
-This loads `CODEX.md` as the Codex-specific shell, the neutral startup reads defined by `runtime/harness/bootstrap-spec.json`, the shared prompt doctrine and startup command output required by the [Harness Bootstrap Contract](docs/harness-bootstrap.md), and the generated `main_agent` packet block injected by `runtime.harness.bootstrap_packets`.
+This loads `CODEX.md` as the Codex-specific shell, the neutral startup reads defined by `runtime/harness/bootstrap-spec.json`, the shared prompt doctrine and startup command output required by the [Harness Bootstrap Contract](docs/harness-bootstrap.md), and the generated `main_agent` packet block injected by `yoke_core.domain.main_agent_packet`.
 
 For a source-controlled app launcher:
 

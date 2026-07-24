@@ -1,16 +1,16 @@
-"""Bootstrap packet renderers — compact main-session DB/API teaching.
+"""``main_agent`` packet renderers — compact main-session DB/API teaching.
 
-Sibling helper for :mod:`runtime.harness.bootstrap`. Owns the rendering
-of the layer-explicit ``main_agent`` packet that sits between
-``schema_api_context`` (LLM-facing schema/API truth) and
+Owns the rendering of the layer-explicit ``main_agent`` packet that sits
+between ``schema_api_context`` (LLM-facing schema/API truth) and
 ``harness_contract`` (substrate manifest truth).
 
-Lives in its own module so the bootstrap orchestrator (``bootstrap.py``)
-stays under its file-line budget while still injecting freshly generated
-schema/API context into Claude / Codex startup orientation. Keeps the
-packet generated, not hand-copied prose: one source of truth for what
-the main session sees about live tables, claim shape, and wrapper
-commands.
+Lives in the shipped core package because three surfaces need it and the
+packet must be identical in all three: the source-repo startup renderer,
+the install bundle (which composes the packet into the managed doctrine
+block every managed project auto-loads), and the client-side session
+orientation a managed project's hooks render. Keeps the packet generated,
+not hand-copied prose: one source of truth for what the main session sees
+about live tables, claim shape, and wrapper commands.
 
 Public surface:
 
@@ -40,16 +40,19 @@ MAIN_AGENT_ROLE = "main_agent"
 
 # Canonical 3-line install advisory rendered at the top of the
 # ``main_agent`` packet when ``yoke`` is not resolvable on PATH. The
-# line literals are part of the bootstrap contract (see Thread A epic
-# 1830) — operator must be able to copy line 2 verbatim. Renders to
-# empty when ``yoke`` is on PATH so installed sessions see no noise.
+# operator must be able to copy line 2 verbatim, so the literals stay
+# self-contained: the packet ships into managed projects, where a
+# pointer at a Yoke source-repo doc would name a file that is not there.
+# Renders empty when ``yoke`` is on PATH so installed sessions see no noise.
 INSTALL_ADVISORY_HEADING = (
     "Yoke CLI not on PATH — install with one command:"
 )
 INSTALL_ADVISORY_COMMAND = (
     "    python3 -m yoke_core.tools.install_yoke_launcher"
 )
-INSTALL_ADVISORY_POINTER = "(see docs/local-setup.md for variants)"
+INSTALL_ADVISORY_POINTER = (
+    "(add --help to that command for the install variants)"
+)
 
 # Stable orientation-block heading. Both the compact and full variants
 # share the same heading so operators see one name regardless of where

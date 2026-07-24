@@ -27,8 +27,8 @@ import uuid
 from pathlib import Path
 from unittest import mock
 
-import runtime.harness.bootstrap_packets as bootstrap_packets
-from runtime.harness.bootstrap_packets import (
+import yoke_core.domain.main_agent_packet as main_agent_packet
+from yoke_core.domain.main_agent_packet import (
     INSTALL_ADVISORY_COMMAND,
     INSTALL_ADVISORY_HEADING,
     INSTALL_ADVISORY_POINTER,
@@ -259,7 +259,7 @@ class TestCodexReminderInstallAdvisory(unittest.TestCase):
     def test_reminder_renders_advisory_when_orientation_suppressed(self) -> None:
         """SESSION_MARKER unarmed + yoke missing → reminder owns the advisory."""
 
-        with mock.patch.object(bootstrap_packets.shutil, "which", return_value=None):
+        with mock.patch.object(main_agent_packet.shutil, "which", return_value=None):
             output = self._render()
         # Advisory leads the reminder so the operator sees it before the
         # command catalog, matching the bootstrap-compact contract.
@@ -301,7 +301,7 @@ class TestCodexReminderInstallAdvisory(unittest.TestCase):
         ), mock.patch(
             "runtime.harness.hook_runner.telemetry.emit_harness_session_sent_first_user_prompt_submit",
         ), mock.patch.object(
-            bootstrap_packets.shutil,
+            main_agent_packet.shutil,
             "which",
             return_value=None,
         ):
@@ -318,7 +318,7 @@ class TestCodexReminderInstallAdvisory(unittest.TestCase):
         """SESSION_MARKER armed (orientation fired) → reminder must NOT duplicate it."""
 
         self._arm_session_marker()
-        with mock.patch.object(bootstrap_packets.shutil, "which", return_value=None):
+        with mock.patch.object(main_agent_packet.shutil, "which", return_value=None):
             output = self._render()
         self.assertNotIn(INSTALL_ADVISORY_HEADING, output)
         self.assertNotIn(INSTALL_ADVISORY_COMMAND, output)
@@ -329,7 +329,7 @@ class TestCodexReminderInstallAdvisory(unittest.TestCase):
 
         # Even with orientation suppressed, an installed session must stay quiet.
         with mock.patch.object(
-            bootstrap_packets.shutil, "which", return_value="/usr/local/bin/yoke",
+            main_agent_packet.shutil, "which", return_value="/usr/local/bin/yoke",
         ):
             output = self._render()
         self.assertNotIn(INSTALL_ADVISORY_HEADING, output)

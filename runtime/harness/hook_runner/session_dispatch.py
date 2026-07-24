@@ -161,7 +161,7 @@ def _render_codex_reminder(
     session_id: str, root: str, registration_failed: str, model: str, entrypoint: Optional[str],
 ) -> str:
     from yoke_core.domain.harness_capability_registry import prompt_reminder_lines, shared_downstream_paths
-    from runtime.harness.bootstrap_packets import render_install_advisory_block
+    from yoke_core.domain.main_agent_packet import render_install_advisory_block
     from runtime.harness.codex.codex_hooks_payload import session_marker_path
 
     lines: list[str] = []

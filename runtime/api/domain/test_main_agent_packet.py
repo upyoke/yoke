@@ -4,7 +4,7 @@ Lives in its own sibling test module File Budget so
 ``test_bootstrap.py`` does not press the file-line cap. Verifies that:
 
 - The ``main_agent`` packet is rendered through the shared
-  ``runtime.harness.bootstrap_packets`` helper (compact + full).
+  ``yoke_core.domain.main_agent_packet`` helper (compact + full).
 - Bootstrap compact / full orientation injects the ``main_agent`` packet
   via the same shared bootstrap path that Codex and Claude startup
   surfaces consume — no hand-copied prose in either rendered orientation.
@@ -25,7 +25,7 @@ import pytest
 from yoke_core.domain import schema_api_context
 from yoke_core.tools import python_interpreter_probe
 from runtime.harness.bootstrap import load_spec, render_compact, render_full
-from runtime.harness.bootstrap_packets import (
+from yoke_core.domain.main_agent_packet import (
     INSTALL_ADVISORY_COMMAND,
     INSTALL_ADVISORY_HEADING,
     INSTALL_ADVISORY_POINTER,
@@ -159,7 +159,7 @@ def test_append_helpers_no_op_when_packet_unavailable(monkeypatch) -> None:
     checkout, broken bootstrap state), the append helpers must be a no-op so the
     bootstrap path stays fail-open."""
 
-    import runtime.harness.bootstrap_packets as bp
+    import yoke_core.domain.main_agent_packet as bp
 
     monkeypatch.setattr(bp, "_render_packet_body", lambda: "")
     lines: list = []
@@ -176,7 +176,7 @@ def test_render_install_advisory_block_empty_when_yoke_on_path(
     """When ``shutil.which("yoke")`` resolves, the advisory is empty so
     installed sessions see no noise."""
 
-    import runtime.harness.bootstrap_packets as bp
+    import yoke_core.domain.main_agent_packet as bp
 
     monkeypatch.setattr(bp.shutil, "which", lambda _name: "/usr/local/bin/yoke")
     assert render_install_advisory_block() == ""
@@ -189,7 +189,7 @@ def test_render_install_advisory_block_three_lines_when_missing(
     the canonical 3-line block: heading, indented install command, and
     docs pointer."""
 
-    import runtime.harness.bootstrap_packets as bp
+    import yoke_core.domain.main_agent_packet as bp
 
     monkeypatch.setattr(bp.shutil, "which", lambda _name: None)
     block = render_install_advisory_block()
@@ -210,7 +210,7 @@ def test_main_agent_block_prepends_advisory_when_yoke_missing(
     """The compact ``main_agent`` block prepends the install advisory
     above the packet heading when ``yoke`` is not on PATH."""
 
-    import runtime.harness.bootstrap_packets as bp
+    import yoke_core.domain.main_agent_packet as bp
 
     monkeypatch.setattr(bp.shutil, "which", lambda _name: None)
     block = render_main_agent_block()
@@ -228,7 +228,7 @@ def test_main_agent_block_omits_advisory_when_yoke_on_path(
     ``yoke`` resolves on PATH — installed sessions see only the packet
     heading and body."""
 
-    import runtime.harness.bootstrap_packets as bp
+    import yoke_core.domain.main_agent_packet as bp
 
     monkeypatch.setattr(bp.shutil, "which", lambda _name: "/usr/local/bin/yoke")
     block = render_main_agent_block()
@@ -244,7 +244,7 @@ def test_main_agent_block_full_prepends_advisory_when_yoke_missing(
     """The full ``main_agent`` block prepends the install advisory above
     the ``=== ... ===`` heading when ``yoke`` is not on PATH."""
 
-    import runtime.harness.bootstrap_packets as bp
+    import yoke_core.domain.main_agent_packet as bp
 
     monkeypatch.setattr(bp.shutil, "which", lambda _name: None)
     block = render_main_agent_block_full()
@@ -322,7 +322,7 @@ def test_compact_omits_interpreter_advisory_when_probe_ok(monkeypatch) -> None:
 
 def test_install_advisory_preserved_when_interpreter_fires(monkeypatch) -> None:
     """AC-8: both advisories may render; interpreter leads."""
-    import runtime.harness.bootstrap_packets as bp
+    import yoke_core.domain.main_agent_packet as bp
 
     monkeypatch.setattr(python_interpreter_probe, "probe", lambda: _BAD)
     monkeypatch.setattr(bp.shutil, "which", lambda _name: None)
