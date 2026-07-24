@@ -78,7 +78,7 @@ def validate_success_policy(
                 f"{prefix}Every step must have an action "
                 "(navigate, assert, screenshot, click, type, wait, scroll)."
             ),
-            f"{prefix}See: docs/browser-scenario-schema.md",
+            f"{prefix}See: .yoke/docs/browser-scenario-schema.md",
         ]
     return []
 
@@ -103,5 +103,5 @@ def _shape_errors(prefix: str, qa_kind: str, got: str) -> list[str]:
         ),
         f"{prefix}Expected: {BROWSER_SUCCESS_POLICY_SHAPE}",
         f"{prefix}Got: {got}",
-        f"{prefix}See: docs/browser-scenario-schema.md",
+        f"{prefix}See: .yoke/docs/browser-scenario-schema.md",
     ]

@@ -39,9 +39,7 @@ The agent adapter directories are populated by the substrate renderer (`python3 
 The Codex/bootstrap cluster is now Pythonized end-to-end. Entry and hook surfaces route through:
 
 - `runtime.harness.bootstrap`
-- `runtime.harness.codex.codex_entry`
 - `runtime.harness.codex.codex_model`
-- `runtime.harness.codex.codex_open_app`
 - `runtime.harness.hook_runner` (shared dispatch entrypoint for both Claude Code and Codex)
 
 ## Required adapter parts
@@ -51,7 +49,7 @@ Every adapter implements the six parts defined in the [Harness Adapter Template]
 1. **Bootstrap Loader** -- loads the [Harness Bootstrap Contract](../../docs/harness-bootstrap.md) startup reads
 2. **Capability Manifest** -- `manifest.json` declaring identity, affordances, and substrate limitations
 3. **Session-Offer Builder** -- translates identity plus shared registry support into `/yoke do` session-offer parameters
-4. **Route Wrapper** -- harness-specific entry launcher (e.g. `python3 -m runtime.harness.codex.codex_entry`) providing bootstrap/identity guidance for shared operator commands
+4. **Route Wrapper** -- the harness-native skill or prompt surface that hands operator commands to `/yoke` (the repo-local `.agents/skills/yoke` tree both harnesses read)
 5. **Smoke-Test Matrix** -- tests for wrapper-only and hook-enhanced modes
 6. **Agent Adapter Renderer Pass** -- a renderer pass under `python3 -m yoke_core.domain.agents_render` that fans the canonical bodies at `runtime/agents/{agent}.md` into the harness's native adapter shape (`.md` for Claude, `.toml` for Codex, …). Skill phase files dispatch agents through shared dispatch descriptors that name the agent by descriptor; the harness adapter handles the harness-native call. See [`docs/harness-substrate.md`](../../docs/harness-substrate.md).
 
@@ -123,5 +121,5 @@ Codex Stop fires at the end of every assistant turn. It is a turn-boundary clean
 - [Harness Bootstrap Contract](../../docs/harness-bootstrap.md) -- neutral startup expectations for all harnesses
 - [Harness Adapter Template](../../docs/harness-adapter-template.md) -- five-part template with manifest schema
 - [Harness Substrate](../../docs/harness-substrate.md) -- universal-source + per-harness-renderer model, session cwd binding, path-claim enforcement boundary
-- [Session Offer Contract](../../docs/session-offer-contract.md) -- how offers consume harness identity
+- [Session Offer Contract](../../.yoke/docs/session-offer-contract.md) -- how offers consume harness identity
 - [Hook Parity Map](../../docs/hook-parity-map.md) -- three-tier hook classification across harnesses

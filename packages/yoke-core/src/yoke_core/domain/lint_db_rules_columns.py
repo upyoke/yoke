@@ -103,7 +103,7 @@ if "# lint:no-column-check" not in command_stripped:
                         "permissionDecisionReason": (
                             "BLOCKED: Wrong column name in SQL query.\n"
                             "  Table %s%s%s has no column %s%s%s — use %s%s%s instead.\n"
-                            "  See docs/db-reference.md § Common column mistakes to avoid in raw SQL."
+                            "  See .yoke/docs/db-reference.md § Common column mistakes to avoid in raw SQL."
                         ) % (
                             chr(39), _tbl, chr(39),
                             chr(39), _wrong, chr(39),

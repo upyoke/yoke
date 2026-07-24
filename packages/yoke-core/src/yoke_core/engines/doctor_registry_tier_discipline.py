@@ -34,8 +34,8 @@ TIER_GLOBS: dict[int, tuple[str, ...]] = {
     # Tier 2 — orientation docs, read on demand.
     2: (
         "docs/OVERVIEW.md",
-        "docs/lifecycle.md",
-        "docs/commands.md",
+        ".yoke/docs/lifecycle.md",
+        ".yoke/docs/commands.md",
         "docs/harness-substrate.md",
         "docs/harness-bootstrap.md",
     ),
@@ -82,10 +82,10 @@ TIER_1_GLOBS: tuple[str, ...] = ()
 TIER_3_GLOBS: tuple[str, ...] = (
     "docs/atlas.md",
     "docs/event-catalog.md",
-    "docs/db-reference.md",
-    "docs/db-reference/*.md",
+    ".yoke/docs/db-reference.md",
+    ".yoke/docs/db-reference/*.md",
     "docs/state-management.md",
-    "docs/charge-frontier.md",
+    ".yoke/docs/charge-frontier.md",
 )
 
 
@@ -159,7 +159,7 @@ def is_cross_reference_line(line: str) -> bool:
 # mirrors COORDINATION_HEALTH_CHECKS / ARCHITECTURE_HEALTH_CHECKS. HC
 # functions are imported via PEP-562 module `__getattr__` to avoid the
 # circular-import path (each HC module imports the constants above).
-from yoke_core.engines.doctor_registry_types import HealthCheck
+from yoke_core.engines.doctor_registry_types import HealthCheck  # noqa: E402
 
 
 _TIER_DISCIPLINE_HEALTH_CHECKS: Optional[List[HealthCheck]] = None

@@ -134,7 +134,7 @@ def test_check_b_mid_prose_doctor_passes(tmp_path, monkeypatch, conn):
 
 
 def test_check_b_anti_pattern_marker_passes(tmp_path, monkeypatch, conn):
-    rel = "docs/lifecycle.md"
+    rel = ".yoke/docs/lifecycle.md"
     body = "Anti-pattern: $ python3 -m yoke_core.engines.doctor\n"
     _setup(tmp_path, monkeypatch, {rel: body}, {rel: 2})
 
@@ -161,7 +161,7 @@ def test_anchored_regex_positive_fixture_emits_two_findings(
     tmp_path, monkeypatch, conn
 ):
     """`$ ...doctor` AND `> ...doctor` on separate lines emits two findings."""
-    rel = "docs/commands.md"
+    rel = ".yoke/docs/commands.md"
     body = (
         "Examples:\n\n"
         "$ python3 -m yoke_core.engines.doctor\n"
@@ -186,7 +186,7 @@ def test_check_c_confabulated_subcommand_emits_check_a_finding(
     tmp_path, monkeypatch, conn
 ):
     """Subcommand --help fails AND sub NOT listed in parent --help: Check A."""
-    rel = "docs/commands.md"
+    rel = ".yoke/docs/commands.md"
     body = "    python3 -m runtime.api.foo nonexistent-cmd --bar baz\n"
     _setup(
         tmp_path,
@@ -209,7 +209,7 @@ def test_check_c_listed_but_broken_help_emits_stale_help_finding(
     tmp_path, monkeypatch, conn
 ):
     """Subcommand --help fails AND sub IS listed in parent --help: Check C."""
-    rel = "docs/commands.md"
+    rel = ".yoke/docs/commands.md"
     body = "    python3 -m runtime.api.foo real-cmd --bar baz\n"
     _setup(
         tmp_path,
@@ -231,7 +231,7 @@ def test_check_c_listed_but_broken_help_emits_stale_help_finding(
 # --- Surface pass-through negatives ----------------------------------------
 def test_gh_cli_surface_passes(tmp_path, monkeypatch, conn):
     """`gh issue list` is not a `python3 -m` invocation — Stage 1 filters it."""
-    rel = "docs/commands.md"
+    rel = ".yoke/docs/commands.md"
     body = "Run `gh issue list --state open` to see open issues.\n"
     _setup(tmp_path, monkeypatch, {rel: body}, {rel: 2})
     assert _run(conn).results[0].result == "PASS"

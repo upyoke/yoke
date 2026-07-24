@@ -67,9 +67,7 @@ def test_public_installer_is_only_tracked_shell_script() -> None:
 
 def test_operator_docs_point_at_python_entrypoints() -> None:
     doctrine = _read(AGENTS_DOC)
-    assert "Literal zero shell is the current contract." in doctrine
-    assert "packaging/public-installer/install" in doctrine
-    assert "python3 -m yoke_core.cli.db_router" in doctrine
+    assert "Prefer Python over shell for stateful work." in doctrine
     assert "python3 -m yoke_core.tools.run_tests" in doctrine
     for retired in (
         "yoke-db.sh",
@@ -82,17 +80,16 @@ def test_operator_docs_point_at_python_entrypoints() -> None:
         assert retired not in doctrine
 
     codex = _read(CODEX_DOC)
-    assert "python3 -m runtime.harness.codex.codex_entry bootstrap" in codex
+    assert "python3 -m runtime.harness.bootstrap render-full" in codex
 
     hook_parity = _read(HOOK_PARITY_DOC)
-    assert "python3 -m runtime.harness.codex.codex_entry bootstrap" in hook_parity
+    assert "python3 -m runtime.harness.bootstrap render-full" in hook_parity
     assert "git-root-stable" not in hook_parity
     assert "PYTHONPATH=\"$(git rev-parse --show-toplevel)" not in hook_parity
     assert "yoke hook evaluate PreToolUse" in hook_parity
     assert "yoke hook evaluate UserPromptSubmit" in hook_parity
 
     test_inventory = _read(TEST_INVENTORY_DOC)
-    assert "python3 -m pytest runtime/harness/codex/test_codex_entry.py" in test_inventory
     assert "test-codex-entry.sh" not in test_inventory
     assert "test-codex-hooks.sh" not in test_inventory
     assert "test-harness-routing.sh" not in test_inventory
@@ -241,7 +238,7 @@ def test_no_helper_wrapped_shell_dispatch_in_production_python() -> None:
 
 _RESIDUE_PATH_ALLOWLIST: Tuple[str, ...] = (
     "docs/archive/",
-    "docs/db-reference/",
+    ".yoke/docs/db-reference/",
 )
 
 _RESIDUE_TEST_FILE_RE = re.compile(r"runtime/api/.*test_.*\.py$")
@@ -327,7 +324,7 @@ def test_zero_shell_proof_includes_recipe_residue_patterns() -> None:
         "``lint_structured_field_transform_shell_messages``; matching the "
         "Doctor HC ``HC-terminal-recipe-residue`` and the dedicated "
         "manifest test. Allowed surfaces are docs/archive/**, "
-        "docs/db-reference/**, and runtime/api/**/test_*.py.\n\n"
+        ".yoke/docs/db-reference/**, and runtime/api/**/test_*.py.\n\n"
         + "\n".join(
             f"  {rel}:{lineno}: [{pat}] {snippet}"
             for rel, lineno, pat, snippet in findings[:40]

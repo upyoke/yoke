@@ -9,6 +9,10 @@ from yoke_cli.config import project_worktrees_ignore
 from yoke_cli.project_install import files as files_layer
 from yoke_cli.project_install import git_hooks as git_hooks_layer
 from yoke_cli.project_install import hooks as hooks_layer
+from yoke_cli.project_install import managed_markdown as managed_markdown_layer
+from yoke_cli.project_install import (
+    settings_permissions as settings_permissions_layer,
+)
 from yoke_cli.project_install import strategy as strategy_layer
 
 
@@ -33,11 +37,19 @@ def preflight_apply(
     files_layer.assert_safe_contract_paths(entry["path"] for entry in contracts)
     strategy_layer.assert_safe_strategy_paths(entry["path"] for entry in strategies)
 
+    managed_markdown = bundle.get("managed_markdown")
+    managed_markdown_targets = (
+        [entry["path"]
+         for entry in managed_markdown_layer.resolve_targets(managed_markdown)]
+        if managed_markdown
+        else []
+    )
     write_targets = [
         *(entry["path"] for entry in bundle_files),
         *(entry["path"] for entry in contracts),
         *strategy_layer.strategy_mutation_paths(strategies),
         *hooks_layer.SETTINGS_FILE_BY_HOOKS_KEY.values(),
+        *managed_markdown_targets,
         files_layer.MANIFEST_REL,
         ".gitignore",
     ]
@@ -71,12 +83,22 @@ def preflight_apply(
     git_hook_preview = git_hooks_layer.preview_git_hooks(
         repo_root, git_hook_specs, owned_git_hook_hashes,
     )
+    managed_markdown_preview = managed_markdown_layer.preview_managed_markdown(
+        repo_root, managed_markdown,
+    )
+    settings_permissions_preview = (
+        settings_permissions_layer.preview_settings_permissions(
+            repo_root, bundle.get("claude_settings_permissions"),
+        )
+    )
     worktrees_ignore = project_worktrees_ignore.report(repo_root, apply=False)
     return {
         "hook_plans": hook_plans,
         "git_hook_specs": git_hook_specs,
         "git_hook_preview": git_hook_preview,
         "owned_git_hook_hashes": owned_git_hook_hashes,
+        "managed_markdown_preview": managed_markdown_preview,
+        "settings_permissions_preview": settings_permissions_preview,
         "worktrees_ignore": worktrees_ignore,
     }
 

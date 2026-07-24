@@ -74,7 +74,7 @@ def test_hook_parity_map_matches_codex_shared_registry_summary():
 
 def test_command_references_dual_classify_advance():
     for rel_path in (
-        "docs/commands.md",
+        ".yoke/docs/commands.md",
         ".agents/skills/yoke/SKILL.md",
         ".agents/skills/yoke/help/SKILL.md",
     ):

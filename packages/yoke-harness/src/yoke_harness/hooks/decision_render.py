@@ -52,4 +52,20 @@ def merge_allow_stdout(first: str, second: str, event_name: str) -> str:
     return f"{first}{second}"
 
 
-__all__ = ["HOOK_SPECIFIC_OUTPUT_KEY", "merge_allow_stdout"]
+def render_context_stdout(context: str, event_name: str) -> str:
+    """Wrap plain context text in the harness additional-context envelope.
+
+    The caller passes a plain string rather than anything typed: this
+    package renders the harness wire shape and must not import the engine
+    that composes the text.
+    """
+    if not context or not context.strip():
+        return ""
+    return _render_additional_context_envelope([context], event_name)
+
+
+__all__ = [
+    "HOOK_SPECIFIC_OUTPUT_KEY",
+    "merge_allow_stdout",
+    "render_context_stdout",
+]

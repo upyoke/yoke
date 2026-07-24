@@ -3,7 +3,7 @@
 Covers ``db_claim.amend`` — apply a unified DB-claim amendment
 atomically. The unified payload (``db_mutation_profile`` +
 ``db_compatibility_attestation`` fields in one dict) is documented in
-``docs/db-reference/items-and-epics.md`` under "DB Claim — the unified
+``.yoke/docs/db-reference/items-and-epics.md`` under "DB Claim — the unified
 amendment workflow."
 
 The CLI mirrors the operator/debug adapter
@@ -63,7 +63,8 @@ def db_claim_amend(args: List[str]) -> int:
         "--state", choices=("none",), default=None,
         help='Convenience alias for --payload \'{"state":"none"}\'.',
     )
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, DB_CLAIM_AMEND_USAGE)
     if parsed is None:
         return 2

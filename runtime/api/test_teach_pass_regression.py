@@ -227,10 +227,10 @@ def test_no_bare_doctor_invocation_in_packet(body: str) -> None:
 
 def test_authored_qa_docs_teach_canonical_yoke_surfaces() -> None:
     paths = (
-        _REPO / "docs" / "commands.md",
-        _REPO / "docs" / "browser-scenario-schema.md",
+        _REPO / ".yoke" / "docs" / "commands.md",
+        _REPO / ".yoke" / "docs" / "browser-scenario-schema.md",
         _REPO / "docs" / "browser-substrate" / "scenario-orchestration.md",
-        _REPO / "docs" / "db-reference" / "qa-and-sessions.md",
+        _REPO / ".yoke" / "docs" / "db-reference" / "qa-and-sessions.md",
         _REPO / ".agents" / "skills" / "yoke" / "advance" / "browser-qa.md",
     )
     text = "\n".join(path.read_text(encoding="utf-8") for path in paths)
@@ -275,7 +275,7 @@ def test_authored_claim_docs_teach_canonical_conflicts_surface(body: str) -> Non
 
 def test_db_claim_docs_teach_required_apply_strategy_and_role_enum() -> None:
     paths = (
-        _REPO / "docs" / "db-reference" / "items-and-epics.md",
+        _REPO / ".yoke" / "docs" / "db-reference" / "items-and-epics.md",
         _REPO / ".agents" / "skills" / "yoke" / "idea"
         / "body-and-sync-functions.md",
         _REPO / ".agents" / "skills" / "yoke" / "refine"

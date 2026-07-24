@@ -2,7 +2,7 @@
 
 A ``backlog_only`` project keeps its backlog in the Yoke DB only: after
 the documented sync-off -> repo-flip cutover its ``github_issue`` refs
-stay historical (docs/github-sync.md). The wrong-repo and GitHub-orphan
+stay historical (.yoke/docs/github-sync.md). The wrong-repo and GitHub-orphan
 HCs must treat such projects as out-of-scope — no REST scan, no WARN
 flood over the whole backlog — while still recording a mode-language
 note in the HC detail.

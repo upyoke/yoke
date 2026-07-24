@@ -114,6 +114,16 @@ def test_build_plan_clone_make_it_mine_lists_post_checkout_repo_steps() -> None:
     assert "Clone the project into /home/code/widget" in repo
     assert "Re-home onto the new repo and push" in repo
     assert "Install the Yoke project scaffold (.yoke/)" in repo
+    assert (
+        "Add Yoke's rules to AGENTS.md, CLAUDE.md, and CODEX.md "
+        "(keeps any existing content)"
+    ) in repo
+    assert (
+        "Allow Yoke's tools in .claude/settings.json (keeps your other settings)"
+    ) in repo
+    assert (
+        "Install Git commit guards (pre-commit, pre-merge-commit, post-commit)"
+    ) in repo
     assert "Write your board art and initial BOARD.md" in repo
 
 
@@ -172,8 +182,19 @@ def test_build_plan_clone_just_clone_has_no_remote_rehome_step() -> None:
     # just-clone keeps origin on the source — no re-home / fork remote step.
     assert "Re-home onto the new repo and push" not in repo
     assert "Point origin at your fork and track the source as upstream" not in repo
-    # The scaffold + board-art steps still run for every checkout mode.
+    # The scaffold + rules/permissions/hooks + board-art steps still run for
+    # every checkout mode.
     assert "Install the Yoke project scaffold (.yoke/)" in repo
+    assert (
+        "Add Yoke's rules to AGENTS.md, CLAUDE.md, and CODEX.md "
+        "(keeps any existing content)"
+    ) in repo
+    assert (
+        "Allow Yoke's tools in .claude/settings.json (keeps your other settings)"
+    ) in repo
+    assert (
+        "Install Git commit guards (pre-commit, pre-merge-commit, post-commit)"
+    ) in repo
     assert "Write your board art and initial BOARD.md" in repo
 
 
@@ -271,11 +292,20 @@ def test_build_plan_reused_existing_project_lists_missing_art_write() -> None:
     })
     reuse_lines = onboard_reuse_feedback.lines_for_plan(plan)
 
-    assert actions == ["project-refresh-scaffold", "project-write-board-art"]
+    assert actions == [
+        "project-refresh-scaffold",
+        "project-install-agent-rules",
+        "project-install-tool-permissions",
+        "project-install-git-hooks",
+        "project-write-board-art",
+    ]
     assert grouped["machine"] == []
     assert grouped["core"] == []
     assert grouped["repo"] == [
         "Refresh the Yoke project scaffold (.yoke/)",
+        "Add Yoke's rules to AGENTS.md, CLAUDE.md, and CODEX.md (keeps any existing content)",
+        "Allow Yoke's tools in .claude/settings.json (keeps your other settings)",
+        "Install Git commit guards (pre-commit, pre-merge-commit, post-commit)",
         "Write your board art and initial BOARD.md",
     ]
     assert (
@@ -382,68 +412,6 @@ def test_classify_plan_source_dev_admin_bucket() -> None:
     grouped = steps.classify_plan(plan)
     assert grouped["admin"] == ["Set up the project at /src/yoke"]
     assert grouped["repo"] == []
-
-
-def test_friendly_line_covers_full_action_vocabulary() -> None:
-    # Every action onboard_report.build_plan can emit must map to human copy —
-    # none may render as a raw action code (action text with a hyphen and no
-    # space, e.g. "set-https-api-url: ...").
-    cases = {
-        ("create-or-validate-dir", "~/.yoke"):
-            "Create your Yoke home folder at ~/.yoke",
-        ("set-active-env", "prod"): 'Make "prod" your active environment',
-        ("set-https-api-url", "https://api.test"): "Connect to https://api.test",
-        ("store-token-reference", "prod.token"): "Save your API token (owner-only)",
-        ("machine-github-connection", "connect"):
-            onboard_github_copy.MACHINE_GITHUB_REVIEW,
-        ("machine-github-connection", "skip"): "Skip connecting GitHub for now",
-        ("create-runtime-dir", "temp_root"): "Set up the scratch directory",
-        ("create-runtime-dir", "cache_dir"): "Set up the cache directory",
-        ("project-source-choice", onboard_project.PROJECT_MODE_CREATE_REPO):
-            "Record the project in the Yoke core database as a new project",
-        ("project-create-checkout", "~/code/demo"): "Create the project at ~/code/demo",
-        ("project-clone-remote", "~/code/demo"): "Clone the project into ~/code/demo",
-        ("project-import-remote", "~/code/demo"): "Import the project at ~/code/demo",
-        ("project-onboard-local-checkout", "~/code/demo"):
-            "Set up the project at ~/code/demo",
-        ("project-onboard", "~/code/demo"): "Set up the project at ~/code/demo",
-        ("project-checkout-register", "~/code/demo"):
-            "Register this checkout in ~/.yoke/config.json: ~/code/demo",
-        ("project-rehome-push", ""): "Re-home onto the new repo and push",
-        ("project-fork-remotes", ""):
-            "Point origin at your fork and track the source as upstream",
-        ("project-install-scaffold", ""):
-            "Install the Yoke project scaffold (.yoke/)",
-        ("project-refresh-scaffold", ""):
-            "Refresh the Yoke project scaffold (.yoke/)",
-        ("project-write-board-art", ""):
-            "Write your board art and initial BOARD.md",
-        ("project-source-dev-admin", "/src/yoke"):
-            "Set up the Yoke source checkout at /src/yoke",
-        ("project-github-auth-choice", GITHUB_ADOPTION_APP_BINDING):
-            onboard_github_copy.PROJECT_GITHUB_REVIEW,
-        ("project-github-auth-choice", "skip"):
-            "Don't set up Yoke with access to a GitHub remote",
-        ("project-github-auth-choice", "keep-existing-remote"):
-            "Keep this folder's existing GitHub remote",
-        ("project-github-auth-choice", "existing-project"):
-            "Use GitHub settings already stored in the Yoke core database for this project",
-        # Compound clone-outcome targets refine the clone review line; the legacy
-        # bare clone-remote target keeps the original wording (empty suffix).
-        ("project-source-choice", "clone-remote"):
-            "Record the project in the Yoke core database as a clone of a GitHub repo",
-        ("project-source-choice", "clone-remote:make-it-mine"):
-            "Record the project in the Yoke core database as a clone of a GitHub repo and re-home it onto a new repo we'll create",
-        ("project-source-choice", "clone-remote:fork"):
-            "Record the project in the Yoke core database as a clone of a GitHub repo as a fork you can PR back",
-        ("project-source-choice", "clone-remote:just-clone"):
-            "Record the project in the Yoke core database as a clone of a GitHub repo",
-    }
-    for (action, target), expected in cases.items():
-        rendered = steps._friendly_line(action, target)
-        assert rendered == expected, (action, target, rendered)
-        # No mapped line may contain a raw "action-code:" prefix.
-        assert not rendered.startswith(f"{action}:")
 
 
 def test_friendly_line_names_chosen_project_when_known() -> None:

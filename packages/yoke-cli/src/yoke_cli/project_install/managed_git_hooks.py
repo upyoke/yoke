@@ -6,6 +6,15 @@ from typing import Any, List
 
 from yoke_contracts.api_urls import DISTRIBUTION_PROD_URL
 
+# The three marker strings are single-sourced in yoke-contracts so yoke-core's
+# doctor gate-liveness check can recognize an installed shim without importing
+# yoke-cli. Re-exported here so this module's public API is unchanged.
+from yoke_contracts.git_hook_markers import (
+    POST_COMMIT_MARKER,
+    PRE_COMMIT_MARKER,
+    PRE_MERGE_COMMIT_MARKER,
+)
+
 GIT_HOOK_NAMES = ("pre-commit", "post-commit", "pre-merge-commit")
 
 # Reinstall hint printed when a hooked commit runs on a machine whose `yoke`
@@ -13,7 +22,6 @@ GIT_HOOK_NAMES = ("pre-commit", "post-commit", "pre-merge-commit")
 # machine installed from another channel reruns its own installer command.
 INSTALL_COMMAND_HINT = f"curl -fsSL {DISTRIBUTION_PROD_URL}/install | bash"
 
-PRE_COMMIT_MARKER = "yoke-pre-commit"
 PRE_COMMIT_SHIM = (
     "#!/bin/sh\n"
     f"# {PRE_COMMIT_MARKER} hook installed by `yoke project install`\n"
@@ -31,7 +39,6 @@ PRE_COMMIT_SHIM = (
     'exec yoke git pre-commit "$@"\n'
 )
 
-POST_COMMIT_MARKER = "yoke-post-commit"
 POST_COMMIT_SHIM = (
     "#!/bin/sh\n"
     f"# {POST_COMMIT_MARKER} hook installed by `yoke project install`\n"
@@ -50,7 +57,6 @@ POST_COMMIT_SHIM = (
     'exec yoke git post-commit "$@"\n'
 )
 
-PRE_MERGE_COMMIT_MARKER = "yoke-pre-merge-commit"
 PRE_MERGE_COMMIT_SHIM = (
     "#!/bin/sh\n"
     f"# {PRE_MERGE_COMMIT_MARKER} hook installed by `yoke project install`\n"

@@ -190,6 +190,9 @@ FINISH_PLAN_FULL = {
             {"action": "project-onboard", "target": "my-project"},
             {"action": "project-create-checkout", "target": "~/code/my-project"},
             {"action": "project-install-scaffold", "target": ""},
+            {"action": "project-install-agent-rules", "target": ""},
+            {"action": "project-install-tool-permissions", "target": ""},
+            {"action": "project-install-git-hooks", "target": ""},
             {"action": "project-write-board-art", "target": ""},
         ]
     },

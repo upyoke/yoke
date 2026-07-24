@@ -153,7 +153,8 @@ def _render_codex_orientation(
     lines.extend([
         "Safe commands: " + compact_entrypoint_display(),
         "Downstream paths: " + ", ".join(shared_downstream_paths()) + " (derived from shared registry)",
-        "Full bootstrap: python3 -m runtime.harness.codex.codex_entry bootstrap",
+        "Full bootstrap: python3 -m runtime.harness.bootstrap render-full "
+        "--spec runtime/harness/bootstrap-spec.json --root " + root,
     ])
     return "\n".join(lines) + "\n"
 
@@ -161,7 +162,7 @@ def _render_codex_reminder(
     session_id: str, root: str, registration_failed: str, model: str, entrypoint: Optional[str],
 ) -> str:
     from yoke_core.domain.harness_capability_registry import prompt_reminder_lines, shared_downstream_paths
-    from runtime.harness.bootstrap_packets import render_install_advisory_block
+    from yoke_core.domain.main_agent_packet import render_install_advisory_block
     from runtime.harness.codex.codex_hooks_payload import session_marker_path
 
     lines: list[str] = []
@@ -191,7 +192,7 @@ def _render_codex_reminder(
         "",
         "Downstream paths: " + ", ".join(shared_downstream_paths()) + " (from shared registry)",
         "",
-        "Prefer python3 -m runtime.harness.codex.codex_entry or /yoke commands.",
+        "Prefer /yoke commands and the yoke CLI.",
         "Do not call internal scripts directly unless instructed.",
     ])
     return "\n".join(lines) + "\n"

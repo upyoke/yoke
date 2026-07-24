@@ -9,9 +9,9 @@ clients directly and never hardcode a DB path or DSN.
 
 Quickstart for session operators: `AGENTS.md` § Code Conventions, § Structured Item Writes, and § Governed DB Mutation. Update those sections when this file changes.
 
-The operator-readable Atlas of the Yoke agent-facing surfaces (registered function ids, wrapped `yoke <subcommand>` adapters, permanent boundaries, pending handler-registration rows, live contradictions) lives at [`docs/atlas.md`](atlas.md). Mutation operations against the DB should reach for a registered function id first; CLI wrappers are operator/debug adapters over the same dispatched request.
+The operator-readable Atlas of the Yoke agent-facing surfaces (registered function ids, wrapped `yoke <subcommand>` adapters, permanent boundaries, pending handler-registration rows, live contradictions) lives in the yoke source-repo doc `docs/atlas.md`. Mutation operations against the DB should reach for a registered function id first; CLI wrappers are operator/debug adapters over the same dispatched request.
 
-This file is the **entry point**: it covers entry points, the bootstrap contract, the retired-schema registry, the domain catalog, timestamp discipline, query-time SQL clock helpers, JSON-payload columns, and common pitfalls. Per-table schema bodies, the qa CLI reference, the body write path, and the status lifecycle live in topic files under [docs/db-reference/](db-reference/).
+This file is the **entry point**: it covers entry points, the bootstrap contract, the retired-schema registry, the domain catalog, timestamp discipline, query-time SQL clock helpers, JSON-payload columns, and common pitfalls. Per-table schema bodies, the qa CLI reference, the body write path, and the status lifecycle live in topic files under [.yoke/docs/db-reference/](db-reference/).
 
 ## Common column mistakes to avoid in raw SQL
 
@@ -64,7 +64,7 @@ When this reference changes (a new column, a renamed table, a new wrapper comman
 - [events-and-deployments.md](db-reference/events-and-deployments.md) — `events`, `severity_config`, `event_registry`, `deployment_runs`, `deployment_run_items`, `deployment_run_qa`, `deployment_preview_environments`, `ephemeral_environments`. Includes the branch-naming contract.
 - [qa-cli-and-body-write.md](db-reference/qa-cli-and-body-write.md) — qa domain CLI subcommand reference, the structured-field body write path, error propagation, project-aware GitHub sync, canonical write pattern.
 - [status-lifecycle.md](db-reference/status-lifecycle.md) — issue/epic item progressions, epic-task lifecycle, valid transitions, parent-status auto-derivation, board progress, merge pre-flight, auto-unblock, dispatch.
-- [functions.md](db-reference/functions.md) — Yoke function-call surface: envelope, registry, claim-verification matrix, and the function ids that own structured-field writes, epic-task amendment, lifecycle transitions, claim mutation, QA writes, and orchestration. The operator-readable Atlas of those surfaces lives at [docs/atlas.md](atlas.md).
+- [functions.md](db-reference/functions.md) — Yoke function-call surface: envelope, registry, claim-verification matrix, and the function ids that own structured-field writes, epic-task amendment, lifecycle transitions, claim mutation, QA writes, and orchestration. The operator-readable Atlas of those surfaces is the yoke source-repo doc `docs/atlas.md`.
 
 ## Entry points
 
@@ -304,8 +304,8 @@ Some `TEXT` columns carry JSON payloads. These columns are `TEXT` today and beco
 | `events` | `envelope` | full event envelope JSON; readers route JSON-field reads through `yoke_core.domain.sql_json.json_get` |
 | `events` | `anomaly_flags` | array payload per `docs/event-contract.md` (today a comma-separated string; migrates to JSON array on cutover) |
 | `items` | `browser_qa_metadata` | validated JSON object per `yoke_core.domain.browser_qa_metadata.validate_json_string` |
-| `qa_runs` | `raw_result` | JSON-encoded tool output per `docs/qa-platform.md` |
-| `qa_artifacts` | `metadata` | JSON metadata envelope per `docs/qa-platform.md` |
+| `qa_runs` | `raw_result` | JSON-encoded tool output per `.yoke/docs/qa-platform.md` |
+| `qa_artifacts` | `metadata` | JSON metadata envelope per `.yoke/docs/qa-platform.md` |
 | `deployment_flows` | `stages` | JSON array of stage objects |
 
 These columns are annotated `-- → JSONB on Postgres` at their declaration site in the schema blocks in the topic files.
@@ -324,7 +324,7 @@ Postgres target for markdown/plain-text columns: `TEXT` (or `VARCHAR(N)` for bou
 - Function is `query_item`, NOT `_query_item`
 - SQL operators: use `<>` not `!=`.
 - Prefer registered `yoke ...` readers over raw SQL in shell scripts for single-item operations.
-- **Structured fields:** Pipeline stages write to structured DB fields (`spec`, `shepherd_log`, `shepherd_caveats`, `design_spec`, `technical_plan`, `worktree_plan`, …) through the Yoke function-call surface: agents call function ids such as `items.structured_field.replace`, `items.structured_field.append_addendum`, `items.structured_field.section_upsert`, `items.structured_field.section_append`, `items.section.upsert`, and `items.progress_log.append`. The CLI commands (`yoke items structured-field replace`, `yoke items structured-field append-addendum`, `yoke items structured-field section-upsert`, `yoke items structured-field section-append`, and `yoke items section upsert`) build the matching `FunctionCallRequest` and dispatch through the same registry. The body is a generated view assembled by `yoke_core.domain.render_body`. Never use ad-hoc sed chains or awk on body content. Full payload shapes, claim-verification rules, and event emissions live in [db-reference/functions.md](db-reference/functions.md); the operator-readable Atlas of registered surfaces lives at [atlas.md](atlas.md).
+- **Structured fields:** Pipeline stages write to structured DB fields (`spec`, `shepherd_log`, `shepherd_caveats`, `design_spec`, `technical_plan`, `worktree_plan`, …) through the Yoke function-call surface: agents call function ids such as `items.structured_field.replace`, `items.structured_field.append_addendum`, `items.structured_field.section_upsert`, `items.structured_field.section_append`, `items.section.upsert`, and `items.progress_log.append`. The CLI commands (`yoke items structured-field replace`, `yoke items structured-field append-addendum`, `yoke items structured-field section-upsert`, `yoke items structured-field section-append`, and `yoke items section upsert`) build the matching `FunctionCallRequest` and dispatch through the same registry. The body is a generated view assembled by `yoke_core.domain.render_body`. Never use ad-hoc sed chains or awk on body content. Full payload shapes, claim-verification rules, and event emissions live in [db-reference/functions.md](db-reference/functions.md); the operator-readable Atlas of registered surfaces is the yoke source-repo doc `docs/atlas.md`.
 - **Structured-field transforms (agent path):** Two operations, one envelope each. Full-field rewrites call `items.structured_field.replace` with the complete intended content. Additive transforms (preserve existing content, append a `## heading`-led block) call `items.structured_field.append_addendum` / `section_upsert` / `section_append`. The handler reads through canonical DB routing, applies an idempotent transform, writes via the existing guarded structured-write path (preserving empty/shrinkage/freeze guards), and re-reads to verify. Reading a structured field with `items get`, redirecting through a temp file or shell variable for transformation, and piping back into `items update --stdin` is blocked by `yoke_core.domain.lint_structured_field_transform_shell`. Bypass: `# lint:no-structured-transform-check` (audited).
 - For bulk reads in shell scripts, use `yoke db read --json` or a registered read adapter rather than raw database clients.
 - `frozen` is INTEGER in DB (0/1) but `query_item` maps it to "true"/"false"

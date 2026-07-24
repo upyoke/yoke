@@ -75,7 +75,7 @@ def test_preview_reports_changes_without_target_writes(
     assert report["server_state_writes"] is False
     assert report["snapshot_sync"]["status"] == "skipped"
     assert report["files_would_write"]
-    assert report["git_hooks_would_install_or_update"] == 2
+    assert report["git_hooks_would_install_or_update"] == 3
     assert report["worktrees_ignore"]["would_add"] is True
     assert _project_tree(target) == before
     assert not (target / ".yoke/install-manifest.json").exists()

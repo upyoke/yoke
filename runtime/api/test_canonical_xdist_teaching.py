@@ -35,7 +35,7 @@ def test_readiness_repair_verification_uses_watcher() -> None:
 
 
 def test_db_reference_rehearsal_commands_use_watcher() -> None:
-    text = _read(REPO / "docs" / "db-reference" / "items-and-epics.md")
+    text = _read(REPO / ".yoke" / "docs" / "db-reference" / "items-and-epics.md")
     assert (
         '"rehearsal_commands": '
         '["python3 -m yoke_core.tools.watch_pytest -- runtime/api/"]'

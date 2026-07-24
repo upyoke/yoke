@@ -22,7 +22,7 @@ two layered checks:
 Allowlist (per the spec's `Watch Out For`):
 
 * ``docs/archive/**`` — historical decision records and removed surfaces.
-* ``docs/db-reference/**`` — operator CLI reference with sanctioned adapter
+* ``.yoke/docs/db-reference/**`` — operator CLI reference with sanctioned adapter
   examples.
 * ``runtime/api/**/test_*.py`` — test fixtures including regression-guard
   fixtures.
@@ -64,7 +64,7 @@ _HC_DESC = "Retired terminal-soup recipes in live guidance surfaces"
 
 _PATH_ALLOWLIST: Tuple[str, ...] = (
     "docs/archive/",
-    "docs/db-reference/",
+    ".yoke/docs/db-reference/",
 )
 
 # Test files under runtime/api/** that intentionally inject recipe residue
@@ -150,7 +150,7 @@ def hc_terminal_recipe_residue(
             "match. The function-call surface "
             "(``yoke_function_dispatch`` + the adapter ``--json`` flag) "
             "replaces these shapes. Allowlisted surfaces remain "
-            "docs/archive/**, docs/db-reference/**, and "
+            "docs/archive/**, .yoke/docs/db-reference/**, and "
             "runtime/api/**/test_*.py.\n\n"
             + "\n".join(findings[:40]),
         )

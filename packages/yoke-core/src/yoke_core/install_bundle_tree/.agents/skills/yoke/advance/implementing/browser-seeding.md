@@ -6,7 +6,7 @@ Browser-specific QA requirement seeding. Called from `qa-seeding.md` after AC-de
 
 ---
 
-Seeded scenarios use the **executor vocabulary** from `docs/browser-scenario-schema.md`: field names `route` (not `url`), `target` (not `selector`), and screenshot steps include `"capture": true`.
+Seeded scenarios use the **executor vocabulary** from `.yoke/docs/browser-scenario-schema.md`: field names `route` (not `url`), `target` (not `selector`), and screenshot steps include `"capture": true`.
 
 The seeding path reads `browser_qa_metadata` directly. There is no regex classifier on the execution path: `/yoke idea` writes a validated metadata object at creation time and `/yoke refine` keeps it honest, so the structured field is the authoritative source for `browser_testable`, `visual_outcome`, `browser_routes`, and `browser_timing_hints_ms`. Non-browser items hold the explicit negative-default object; their metadata read produces an empty scenario list and the seeding step self-exits quietly.
 

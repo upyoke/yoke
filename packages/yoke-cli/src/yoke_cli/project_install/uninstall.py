@@ -16,6 +16,10 @@ from yoke_cli.config import project_worktrees_ignore
 from yoke_cli.project_install import files as files_layer
 from yoke_cli.project_install import git_hooks as git_hooks_layer
 from yoke_cli.project_install import hooks as hooks_layer
+from yoke_cli.project_install import managed_markdown as managed_markdown_layer
+from yoke_cli.project_install import (
+    settings_permissions as settings_permissions_layer,
+)
 from yoke_cli.project_install.files import (
     DISCARDED_PRIOR_CONTRACT_RECORDS_KEY,
     DISCARDED_PRIOR_STRATEGY_RECORDS_KEY,
@@ -60,6 +64,7 @@ def uninstall(
             *dict(manifest.get("git_hook_hashes", {})),
             *list(manifest.get("created_settings_files", [])),
             *dict(manifest.get("hook_entries", {})),
+            *dict(manifest.get("managed_markdown", {})),
             *(f".git/hooks/{name}" for name in git_hooks_layer.GIT_HOOK_NAMES),
             files_layer.MANIFEST_REL,
         ],
@@ -90,6 +95,17 @@ def uninstall(
         )
     )
     warnings.extend(contract_warnings)
+    # Strip the managed permissions region and Markdown blocks first. Removing
+    # our permissions keys before the hook de-merge below lets the de-merge's
+    # "delete when only an empty hooks block remains" check fire correctly.
+    settings_permissions_removed = (
+        settings_permissions_layer.remove_settings_permissions(
+            root, manifest.get("settings_permissions"),
+        )
+    )
+    managed_markdown_removed = managed_markdown_layer.remove_managed_markdown(
+        root, manifest.get("managed_markdown"),
+    )
     created = set(manifest.get("created_settings_files") or [])
     hooks_removed: Dict[str, List[Dict[str, Any]]] = {}
     settings_deleted: List[str] = []
@@ -144,6 +160,11 @@ def uninstall(
         "strategy_files_preserved": strategy_preserved,
         "hooks_removed": hooks_removed,
         "git_hooks_removed": git_hooks_removed,
+        "settings_permissions_removed": settings_permissions_removed,
+        "managed_markdown_removed_files": managed_markdown_removed["removed_files"],
+        "managed_markdown_stripped_blocks": (
+            managed_markdown_removed["stripped_blocks"]
+        ),
         "worktrees_ignore": worktrees_ignore,
         "settings_files_deleted": settings_deleted,
         "manifest_removed": True,

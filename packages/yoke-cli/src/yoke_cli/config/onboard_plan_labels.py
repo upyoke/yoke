@@ -81,6 +81,18 @@ def friendly_line(action: str, target: str, project_name: str = "") -> str:
         return "Install the Yoke project scaffold (.yoke/)"
     if action == "project-refresh-scaffold":
         return "Refresh the Yoke project scaffold (.yoke/)"
+    if action == "project-install-agent-rules":
+        return (
+            "Add Yoke's rules to AGENTS.md, CLAUDE.md, and CODEX.md "
+            "(keeps any existing content)"
+        )
+    if action == "project-install-tool-permissions":
+        return (
+            "Allow Yoke's tools in .claude/settings.json "
+            "(keeps your other settings)"
+        )
+    if action == "project-install-git-hooks":
+        return "Install Git commit guards (pre-commit, pre-merge-commit, post-commit)"
     if action == "project-write-board-art":
         return "Write your board art and initial BOARD.md"
     if action == "project-source-dev-admin":

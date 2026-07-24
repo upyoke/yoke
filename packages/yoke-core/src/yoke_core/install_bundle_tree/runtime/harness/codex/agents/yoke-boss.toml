@@ -102,10 +102,10 @@ yoke items structured-field section-upsert YOK-N --section "Acceptance Criteria"
 - _Amend DB-mutation claim on an item_
   - `yoke db-claim amend YOK-N --reason TEXT (--state none | --payload JSON | --payload-file PATH | --stdin)`
   - `--reason TEXT` is always required. Pick exactly one shape: `--state none` (convenience shortcut for the negative-default claim), `--payload <JSON>`, `--payload-file PATH`, or `--stdin`.
-- _Inspect Atlas: function ids, yoke CLI, contradictions_
-  - `python3 -m yoke_core.tools.atlas_render_docs check
+- _Find the registered surface for a Yoke operation_
+  - `yoke --help
 yoke ouroboros field-note append --kind new --evidence 'Missing CLI adapter for <function_id>'`
-  - The Atlas (`docs/atlas.md`) is the operator-readable view of every agent-facing surface: function ids registered, `yoke` CLI subcommands wrapped, permanent command-shaped boundaries, pending handler-registration roster, teaching coverage, and live promise-vs-live contradictions. It is rendered from `atlas_integrity_audit` (a read-only operator-debug tool surface — not function-call backed). **When you hit a recipe gap (missing adapter, wrong recipe, unclear help), fire `yoke ouroboros field-note append` immediately — before retrying, before moving on.** Canonical long-form reference: `runtime/agents/_shared/ouroboros-field-note.md`; run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree. Agents reach Yoke via the CLI; direct runtime.api imports from `python3 -c` are operator-debug surfaces only.
+  - Every Yoke-owned operation is a registered function id with a `yoke <subcommand>` adapter. The per-family function id reference is `.yoke/docs/db-reference/functions.md`; each adapter's own `--help` is the deep surface for its variants, flag matrix, and decision tree. A few families (git, gh, and the watcher wrappers) stay command-shaped on purpose. **When you hit a recipe gap (missing adapter, wrong recipe, unclear help), fire `yoke ouroboros field-note append` immediately — before retrying, before moving on.** Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree. Agents reach Yoke via the CLI; direct runtime.api imports from `python3 -c` are operator-debug surfaces only.
 - _Inspect the selected Yoke control-plane authority_
   - `yoke db read "SELECT 1"`
   - Read-only diagnostic SQL over the selected authority. Prefer registered `yoke <subcommand>` readers where they answer the question; use the source-dev/operator-debug `db_router query` fallback only for break-glass work inside a Yoke checkout. Never use ad-hoc imports — never `python -c "from yoke_core.domain.worktree import get_db_path"`. The retired `worktree paths db` mode is a guard that refuses root SQLite authority, not a connection recipe.
@@ -160,16 +160,16 @@ yoke claims work release --item YOK-N --reason cancelled`
   - `yoke claims work acquire --item YOK-N --reason transition
 yoke lifecycle transition YOK-N --to refined-idea
 yoke claims work release --item YOK-N --reason transition-complete`
-  - Same shape for any non-terminal transition. Status vocabulary in docs/lifecycle.md. The function id `lifecycle.transition.execute` fires status gates, cascades, and GitHub sync.
+  - Same shape for any non-terminal transition. Status vocabulary in .yoke/docs/lifecycle.md. The function id `lifecycle.transition.execute` fires status gates, cascades, and GitHub sync.
 - _Append to a ticket's Progress Log (canonical agent shape)_
   - `yoke claims work acquire --item YOK-N --reason progress-log-append
 yoke items progress-log append YOK-N --headline "dispatched engineer" --source orchestrator --content-file PATH
 yoke claims work release --item YOK-N --reason progress-log-append-complete`
   - Write PATH with the entry body first. Dispatches items.progress_log.append, which read-merge-writes the Progress Log section atomically and stamps the timestamp.
 - _Find or request the CLI adapter for a function id_
-  - `python3 -m yoke_core.tools.atlas_render_docs check
+  - `yoke <family> --help
 yoke ouroboros field-note append --kind new --evidence 'Missing CLI adapter for items.foo.bar; agent surface boundary forbids HTTP/direct runtime import shapes'`
-  - The Atlas (`docs/atlas.md`) shows registered function ids, wrapped `yoke <subcommand>` adapters, permanent boundaries, and pending handler-registration rows. `atlas_render_docs` and `atlas_integrity_audit` are operator-debug tool surfaces (not function-call backed) — they stay multi-module. **When you hit a recipe gap, fire `yoke ouroboros field-note append` immediately — before retrying, before moving on.** Canonical long-form reference: `runtime/agents/_shared/ouroboros-field-note.md`; run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree. Do not start the function-call HTTP server or call the dispatcher from an ad-hoc Python one-liner to work around a missing adapter.
+  - `.yoke/docs/db-reference/functions.md` lists the registered function ids per family, and the matching `yoke <subcommand> --help` carries that adapter's variants and flag matrix. The CLI grammar is reversible — dots become spaces, underscores become hyphens, a terminal `.run`/`.execute` drops — so a function id predicts its adapter name. **When you hit a recipe gap, fire `yoke ouroboros field-note append` immediately — before retrying, before moving on.** Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree. Do not start the function-call HTTP server or call the dispatcher from an ad-hoc Python one-liner to work around a missing adapter.
 - _Session lifecycle — heartbeat / checkpoint / mode-switch / surrender-claims_
   - `yoke claims work release --all-mine`
   - Session heartbeat/checkpoint/touch/offer remain pending wrapper surfaces and are harness/orchestrator responsibilities, not agent recipes. The harness owns session lifecycle — Stop / SessionEnd hooks run the hook-runner cleanup helper; subagents never terminate sessions themselves. `yoke claims work release --all-mine` is the agent-shaped primitive for surrendering work without terminating the session; the pre-tool lint `lint_no_agent_session_end` refuses agent-dispatched shutdown-helper invocations.
@@ -183,7 +183,7 @@ git -C $(git rev-parse --show-toplevel)/.worktrees/YOK-N rev-parse HEAD`
 - _Field-note channel: log a failed/new/unclear recipe or observation_
   - `yoke ouroboros field-note append --kind failed --evidence 'R-CL-03 path-claim-narrow recipe used --remove; actual flag is --drop-paths'
 yoke ouroboros field-note append --kind new --evidence 'missing recipe: claim widen examples omit --item' --correlation-id polish-run-2026-05-20`
-  - **When you hit a recipe gap, fire `yoke ouroboros field-note append` immediately — before retrying, before moving on.** Kind: failed (recipe ran, wrong result), new (recipe missing), unclear (recipe present, unclear purpose). Canonical long-form reference: `runtime/agents/_shared/ouroboros-field-note.md`; run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree. Surfaces in /yoke curate via OuroborosFieldNoteAppended events.
+  - **When you hit a recipe gap, fire `yoke ouroboros field-note append` immediately — before retrying, before moving on.** Kind: failed (recipe ran, wrong result), new (recipe missing), unclear (recipe present, unclear purpose). Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree. Surfaces in /yoke curate via OuroborosFieldNoteAppended events.
 - _Current session_id / actor_id from a script_
   - `echo "$YOKE_SESSION_ID" ; yoke db read "SELECT actor_id FROM harness_sessions WHERE session_id='$YOKE_SESSION_ID'"`
   - `$YOKE_SESSION_ID` is the fast path; when it is unset, ambient identity still resolves automatically (hook-written process-anchor registry, walked by every `yoke` CLI / dispatch call) — do NOT export session env vars to self-bootstrap, and treat `actor_session_missing` as an infrastructure bug to report. No `get_active_session_id` helper exists. The function-call surface resolves actor_id server-side from session_id — agents do not need to look it up themselves before dispatch. The actor_id SQL above is a diagnostic read, not a dispatch prerequisite; `db_router query` is only the source-dev/operator-debug fallback. `--session-id` flags are operator-debug overrides, recorded as `session_override`.
@@ -422,7 +422,7 @@ The caller may also include inline artifact content for convenience, but you MUS
 
 2. **Read strategic context.** If `.yoke/strategy/VISION.md` exists, read it for project mission and strategic alignment. If it does not exist, skip this step — do not fail.
 
-3. **Read the DB reference** at `docs/db-reference.md` for schema context if evaluating plans that touch the DB.
+3. **Read the DB reference** at `.yoke/docs/db-reference.md` for schema context if evaluating plans that touch the DB.
 
 4. **Exploration discipline (turn-budget awareness).** You have a limited turn budget. Everything you need to evaluate is in the item body you read in step 1. Do NOT explore the broader codebase — do not read referenced scripts, implementation files, or DB schemas beyond what is already quoted in the item body and `db-reference.md`.
 

@@ -1060,7 +1060,7 @@ Key behavior:
 ### yoke-db.sh qa *(thin launcher → Python domain module, YOK-833)*
 **Input:** `<subcommand> [args]`
 **Also accessible via:** `yoke-db.sh qa <subcommand>`
-**Purpose:** Thin launcher delegating to `runtime.api.domain.qa` (YOK-1246 task 005). All domain logic (QA requirements, runs, artifacts, verdicts, success policies) lives in the Python module. This file exists solely to preserve the `sh "$SCRIPT_DIR/yoke-db.sh" qa` calling convention. Manages `qa_requirements`, `qa_runs`, and `qa_artifacts` tables. Full documentation: `yoke/docs/qa-platform.md`.
+**Purpose:** Thin launcher delegating to `runtime.api.domain.qa` (YOK-1246 task 005). All domain logic (QA requirements, runs, artifacts, verdicts, success policies) lives in the Python module. This file exists solely to preserve the `sh "$SCRIPT_DIR/yoke-db.sh" qa` calling convention. Manages `qa_requirements`, `qa_runs`, and `qa_artifacts` tables. Full documentation: `yoke/.yoke/docs/qa-platform.md`.
 
 Subcommands:
 - `init` — Create QA tables and indexes (idempotent; also created by `schema-db.sh init`).

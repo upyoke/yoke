@@ -18,7 +18,7 @@ content to that repo's issue tracker. Flipping a project's
 ``github_repo`` to a different repo MUST be preceded by flipping this
 switch to ``backlog_only`` when the backlog is not meant to appear in
 the new repo — otherwise the first sync after the flip would mass-create
-the backlog as issues there (see ``docs/github-sync.md``).
+the backlog as issues there (see ``.yoke/docs/github-sync.md``).
 
 New projects default to ``backlog_only``. The column is added by the
 idempotent schema-init migrations. This reader tolerates a pre-migration

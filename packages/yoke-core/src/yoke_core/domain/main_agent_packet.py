@@ -1,16 +1,16 @@
-"""Bootstrap packet renderers — compact main-session DB/API teaching.
+"""``main_agent`` packet renderers — compact main-session DB/API teaching.
 
-Sibling helper for :mod:`runtime.harness.bootstrap`. Owns the rendering
-of the layer-explicit ``main_agent`` packet that sits between
-``schema_api_context`` (LLM-facing schema/API truth) and
+Owns the rendering of the layer-explicit ``main_agent`` packet that sits
+between ``schema_api_context`` (LLM-facing schema/API truth) and
 ``harness_contract`` (substrate manifest truth).
 
-Lives in its own module so the bootstrap orchestrator (``bootstrap.py``)
-stays under its file-line budget while still injecting freshly generated
-schema/API context into Claude / Codex startup orientation. Keeps the
-packet generated, not hand-copied prose: one source of truth for what
-the main session sees about live tables, claim shape, and wrapper
-commands.
+Lives in the shipped core package because three surfaces need it and the
+packet must be identical in all three: the source-repo startup renderer,
+the install bundle (which composes the packet into the managed doctrine
+block every managed project auto-loads), and the client-side session
+orientation a managed project's hooks render. Keeps the packet generated,
+not hand-copied prose: one source of truth for what the main session sees
+about live tables, claim shape, and wrapper commands.
 
 Public surface:
 
@@ -40,16 +40,19 @@ MAIN_AGENT_ROLE = "main_agent"
 
 # Canonical 3-line install advisory rendered at the top of the
 # ``main_agent`` packet when ``yoke`` is not resolvable on PATH. The
-# line literals are part of the bootstrap contract (see Thread A epic
-# 1830) — operator must be able to copy line 2 verbatim. Renders to
-# empty when ``yoke`` is on PATH so installed sessions see no noise.
+# operator must be able to copy line 2 verbatim, so the literals stay
+# self-contained: the packet ships into managed projects, where a
+# pointer at a Yoke source-repo doc would name a file that is not there.
+# Renders empty when ``yoke`` is on PATH so installed sessions see no noise.
 INSTALL_ADVISORY_HEADING = (
     "Yoke CLI not on PATH — install with one command:"
 )
 INSTALL_ADVISORY_COMMAND = (
     "    python3 -m yoke_core.tools.install_yoke_launcher"
 )
-INSTALL_ADVISORY_POINTER = "(see docs/local-setup.md for variants)"
+INSTALL_ADVISORY_POINTER = (
+    "(add --help to that command for the install variants)"
+)
 
 # Stable orientation-block heading. Both the compact and full variants
 # share the same heading so operators see one name regardless of where
@@ -189,6 +192,33 @@ def _render_packet_body() -> str:
         return render_role_packet(MAIN_AGENT_ROLE).rstrip()
     except Exception as exc:
         return _render_failure_banner(exc)
+
+
+def render_main_agent_section() -> str:
+    """Return heading + prefix + packet body, with no machine-local advisories.
+
+    The install bundle composes this into the managed doctrine block, so it is
+    rendered on the SERVER: the install and interpreter advisories probe
+    whichever machine runs the renderer, and the server's PATH says nothing
+    about the operator's. Those advisories belong only to the render paths that
+    already run on the operator's own machine.
+
+    Returns ``""`` on any render failure rather than the failure banner the
+    orientation paths use. A banner shipped into a managed project's rules file
+    would be permanent, unreadable to the operator who could act on it, and
+    would falsely mark the block as carrying a packet; leaving the block
+    packet-free instead routes delivery to that project's own session hooks,
+    where the failure is both visible and actionable.
+    """
+    try:
+        from yoke_core.domain.schema_api_context import render_role_packet
+
+        body = render_role_packet(MAIN_AGENT_ROLE).rstrip()
+    except Exception:
+        return ""
+    if not body:
+        return ""
+    return "\n".join([f"{_MAIN_AGENT_HEADING}:", _MAIN_AGENT_PREFIX, "", body])
 
 
 def render_main_agent_block() -> str:

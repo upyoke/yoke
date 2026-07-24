@@ -65,8 +65,8 @@ These are reachable from multiple points and are not part of the normal forward 
 > routes them to WAIT. The doctor health checks `HC-blocked-status-drift`
 > and `HC-blocked-flag-consistency` surface any row that still carries
 > the legacy lifecycle position. **Epic-task** `blocked` semantics stay
-> as a status. Full architectural-why:
-> [`docs/archive/decisions/blocked-flag-retirement.md`](archive/decisions/blocked-flag-retirement.md).
+> as a status. Full architectural-why (yoke source repo):
+> `docs/archive/decisions/blocked-flag-retirement.md`.
 
 ## Canonical Epic Task Progression
 

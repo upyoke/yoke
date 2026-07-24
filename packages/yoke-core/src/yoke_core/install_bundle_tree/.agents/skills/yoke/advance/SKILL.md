@@ -5,7 +5,7 @@ argument-hint: "{YOK-N} [status]"
 ---
 
 # Sub-skill called by conduct, usher, do/loop, and routed dispatch.
-# The `implementation` form (`/yoke advance YOK-N implementation`) is also operator-facing — it is the issue implementation entry per docs/lifecycle.md and is advertised in every Yoke-owned harness manifest. Other advance targets remain internal-only.
+# The `implementation` form (`/yoke advance YOK-N implementation`) is also operator-facing — it is the issue implementation entry per .yoke/docs/lifecycle.md and is advertised in every Yoke-owned harness manifest. Other advance targets remain internal-only.
 
 # /yoke advance {YOK-N} [status]
 

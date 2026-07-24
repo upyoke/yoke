@@ -48,8 +48,8 @@ def test_hook_and_operator_boundaries_keep_their_own_dispositions():
     assert hook.disposition == inventory.HOOK_LOCAL_SUBSET
     assert hook.transport_branch == "hook-local-or-https-relay"
     assert {(edge.target, edge.classification) for edge in hook.import_edges} == {
-        ("runtime.harness.hook_runner.local_universe_lifecycle",
-         "local_universe_dispatch"),
+        ("runtime.harness.hook_runner.local_universe_lifecycle", "local_universe_dispatch"),
+        ("yoke_core.domain.session_orientation", "client_local_diagnostics"),
     }
 
     lease = rows[

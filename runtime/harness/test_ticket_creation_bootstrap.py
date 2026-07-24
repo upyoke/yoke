@@ -1,7 +1,7 @@
 """Bootstrap-orientation teaching tests for idea-only ticket intake.
 
 The compact and full ``main_agent`` blocks injected by
-:mod:`runtime.harness.bootstrap_packets` must surface the
+:mod:`yoke_core.domain.main_agent_packet` must surface the
 ``/yoke idea`` ticket-intake rule so the top-level Yoke session
 sees it the moment orientation renders, before any lower-level item /
 body / claim / REST recipe shows up.
@@ -9,7 +9,7 @@ body / claim / REST recipe shows up.
 
 from __future__ import annotations
 
-from runtime.harness.bootstrap_packets import (
+from yoke_core.domain.main_agent_packet import (
     render_main_agent_block,
     render_main_agent_block_full,
 )

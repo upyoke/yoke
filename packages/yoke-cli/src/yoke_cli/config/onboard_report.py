@@ -207,6 +207,13 @@ def _post_checkout_steps(
     * ``project-install-scaffold`` — the four scaffold modes run
       ``install_runner.install``, which lays down the ``.yoke/`` operating
       layer.
+    * ``project-install-agent-rules`` / ``project-install-tool-permissions`` /
+      ``project-install-git-hooks`` — the same scaffold install (and refresh)
+      writes the Yoke rules blocks into ``AGENTS.md`` / ``CLAUDE.md`` /
+      ``CODEX.md``, unions the managed tool-permission region into
+      ``.claude/settings.json``, and installs the git commit-guard hooks, so the
+      review names each file operation instead of hiding it behind the scaffold
+      line.
     * ``project-write-board-art`` — checkouts without project-local board art
       finish by writing the finalized art and rebuilding the initial
       ``BOARD.md``.
@@ -231,6 +238,13 @@ def _post_checkout_steps(
             ),
             "target": "",
         })
+        # The scaffold install (and refresh) also writes the Yoke rules blocks,
+        # the managed tool-permission region, and the git commit-guard hooks.
+        # Name each so the review screen's repo group is explicit about the
+        # files it touches instead of folding them into the one scaffold line.
+        steps.append({"action": "project-install-agent-rules", "target": ""})
+        steps.append({"action": "project-install-tool-permissions", "target": ""})
+        steps.append({"action": "project-install-git-hooks", "target": ""})
         if _needs_board_art(project_inputs):
             steps.append({"action": "project-write-board-art", "target": ""})
     return steps

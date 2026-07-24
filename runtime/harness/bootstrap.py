@@ -31,7 +31,10 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from runtime.harness.bootstrap_packets import append_main_agent_compact, append_main_agent_full
+from yoke_core.domain.main_agent_packet import (
+    append_main_agent_compact,
+    append_main_agent_full,
+)
 
 
 # Canonical repo-relative location of the Yoke skill tree. ``.claude/skills/yoke``

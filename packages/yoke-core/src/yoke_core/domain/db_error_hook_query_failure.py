@@ -103,8 +103,8 @@ def _schema_hint_message(kind: str, name: str) -> str:
         "- The generated packet and its drift tests reject the known stale "
         "session-owner, claim-session, item-claim, and generic target-column "
         "guesses that do not exist in Yoke's schema.\n"
-        "- Full reference: docs/db-reference/ (start at "
-        "docs/db-reference.md)."
+        "- Full reference: .yoke/docs/db-reference/ (start at "
+        ".yoke/docs/db-reference.md)."
     )
 
 

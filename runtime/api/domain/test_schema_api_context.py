@@ -112,15 +112,15 @@ def test_core_packet_teaches_cli_structured_field_replace() -> None:
 def test_core_packet_teaches_lifecycle_status_and_inventory_surface() -> None:
     """The core packet teaches the canonical ``yoke lifecycle
     transition`` shape plus the function id, and routes registry
-    inspection through the inventory CLI rather than a direct
-    runtime.api import."""
+    inspection through the shipped function reference rather than a
+    direct runtime.api import."""
 
     body = sac.render_topic_packet("core")
     assert "yoke lifecycle transition YOK-N --to refined-idea" in body
     assert "lifecycle.transition.execute" in body
     assert "function=lifecycle.transition target" not in body
     assert "--stdin < PATH" in body
-    assert "atlas_render_docs check" in body
+    assert ".yoke/docs/db-reference/functions.md" in body
     assert 'python3 -c "\nfrom runtime.api' not in body
 
 

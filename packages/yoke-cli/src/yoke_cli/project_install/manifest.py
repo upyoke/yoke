@@ -233,6 +233,19 @@ def validate_manifest(manifest: Any, *, source: str = "install manifest") -> Non
                 f"{source} hook_entries names unknown settings path {settings_rel!r}"
             )
         _validate_hook_records(records, source=source, settings_rel=settings_rel)
+    managed_markdown = manifest.get("managed_markdown", {})
+    if not isinstance(managed_markdown, dict):
+        raise ProjectInstallError(f"{source} managed_markdown must be an object")
+    for rel, record in managed_markdown.items():
+        if not isinstance(rel, str) or not rel or not isinstance(record, dict):
+            raise ProjectInstallError(
+                f"{source} managed_markdown contains an invalid entry"
+            )
+    settings_permissions = manifest.get("settings_permissions", {})
+    if not isinstance(settings_permissions, dict):
+        raise ProjectInstallError(
+            f"{source} settings_permissions must be an object"
+        )
     mode = manifest.get(MODE_KEY, MODE_COPY)
     if mode not in (MODE_COPY, MODE_SOURCE_LINK):
         raise ProjectInstallError(f"{source} has unknown mode {mode!r}")

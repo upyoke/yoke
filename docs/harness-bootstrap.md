@@ -39,7 +39,7 @@ The mechanism does not matter. The content does. A harness that has loaded all r
 
 ### Generated `main_agent` packet
 
-The shared bootstrap render path (`runtime.harness.bootstrap.render_compact` and `render_full`) injects the layer-explicit `main_agent` packet block via [`runtime.harness.bootstrap_packets`](../runtime/harness/bootstrap_packets.py). The block is generated, never hand-copied: the body comes from `yoke_core.domain.schema_api_context.render_role_packet("main_agent")` and stays in lockstep with subagent packets via the schema/API-context drift check.
+The shared bootstrap render path (`runtime.harness.bootstrap.render_compact` and `render_full`) injects the layer-explicit `main_agent` packet block via [`yoke_core.domain.main_agent_packet`](../packages/yoke-core/src/yoke_core/domain/main_agent_packet.py). The block is generated, never hand-copied: the body comes from `yoke_core.domain.schema_api_context.render_role_packet("main_agent")` and stays in lockstep with subagent packets via the schema/API-context drift check.
 
 The injection means the top-level Yoke session sees the same compact `core` + `claims` spine the read-only subagents (`architect_agent`, `simulator_agent`, `boss_agent`) see, alongside the file-reads list and Critical Runtime Invariants block. Harnesses that consume the shared bootstrap render path (via `runtime.harness.hook_runner` for both Codex and Claude Code) inherit the packet automatically.
 
@@ -49,7 +49,7 @@ If the schema/API context generator is unavailable (fresh checkout, broken boots
 
 Yoke packet vocabulary is layer-explicit and does not mix LLM-facing schema/API context with the substrate manifest contract. Two layer names matter for harness adapters and operator docs:
 
-- **LLM-facing packet layer** — `main_agent`, `architect_agent`, `engineer_agent`, `tester_agent`, `simulator_agent`, `boss_agent`. These are the role keys in `yoke_core.domain.schema_api_context_seed.ROLE_TOPICS`. The renderer expands marker pairs in canonical agent prompts (`runtime/agents/<role>.md`) using these names; the bootstrap path injects the `main_agent` block via `runtime.harness.bootstrap_packets`.
+- **LLM-facing packet layer** — `main_agent`, `architect_agent`, `engineer_agent`, `tester_agent`, `simulator_agent`, `boss_agent`. These are the role keys in `yoke_core.domain.schema_api_context_seed.ROLE_TOPICS`. The renderer expands marker pairs in canonical agent prompts (`runtime/agents/<role>.md`) using these names; the bootstrap path injects the `main_agent` block via `yoke_core.domain.main_agent_packet`.
 - **Substrate contract layer** — `harness_contract`. This name covers manifest- and bootstrap-derived substrate capability truth: hooks, env / session identity, cwd binding, adapter render format, supported commands, disabled paths, known parity limits. It lives in this file (`docs/harness-bootstrap.md`) and in the per-harness manifest schema documented at [`runtime/harness/manifest-schema.md`](../runtime/harness/manifest-schema.md). `harness_contract` is deliberately NOT a `schema_api_context` role; the renderer does not produce a packet body for it.
 
 The two layers are kept separate so an LLM packet referring to `harness_contract` content (or vice versa) is structurally invalid. Adding a new harness adapter means writing or updating the harness's `manifest.json` and `manifest-schema.md` entry under `harness_contract`, not adding a new `schema_api_context` role.
@@ -134,7 +134,7 @@ These are internal implementation mechanisms. A harness must never invoke these 
 **Examples of raw Python entrypoints (never invoke directly from a harness):**
 
 - Direct item creation through the db-router internals -- use `/yoke idea` instead.
-- Direct item updates through the db-router internals -- use the `items.structured_field.replace` / `items.scalar.update` function ids (see [`docs/db-reference/functions.md`](db-reference/functions.md)) or the wrapped operator surface where one exists.
+- Direct item updates through the db-router internals -- use the `items.structured_field.replace` / `items.scalar.update` function ids (see [`.yoke/docs/db-reference/functions.md`](db-reference/functions.md)) or the wrapped operator surface where one exists.
 - `python3 -m yoke_core.cli.db_router query` -- source-dev/operator-debug raw SQL break-glass; everyday diagnostics use `yoke db read`
 - Direct epic db-router operations -- operator/debug adapters for the `workflow_item.epic_task.*` and `workflow_item.epic_progress_note.append` function family.
 - `yoke_core.domain.emit_event` -- internal event emitter module.
@@ -238,7 +238,7 @@ wrapped product CLI exists for this harness bootstrap resolver yet.
 | Caller | What to do |
 |--------|-----------|
 | Codex native skill loader | Let Codex scan `.agents/skills` directly; use `SKILL.md` frontmatter as the shared metadata source. |
-| Wrapper-only harness bootstrap (e.g. `codex_entry bootstrap`) | Invoke the resolver to confirm the canonical tree exists before delegating to `/yoke` commands. |
+| Wrapper-only harness bootstrap (no hooks available) | Invoke the resolver to confirm the canonical tree exists before delegating to `/yoke` commands. |
 | Thin docs that list available skills | Derive the list from `skill-list` instead of hardcoding, so the doc never drifts from the repo. |
 | Operator shell commands composing a skill path | Call `skill-path` rather than concatenating `.agents/skills/yoke/<name>/SKILL.md` by hand. |
 | Claude Code's native Skill tool | Continue to use the harness-owned loader; this contract is for repo-local wrapper discovery, not Claude Code's built-in skill surface. |

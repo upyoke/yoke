@@ -7,7 +7,7 @@ names are code references, not command recipes.
 
 Cross-link back from [qa-platform.md](../qa-platform.md) for the four-layer
 model, table schemas, success-policy types, and gating semantics that this CLI
-reads and writes. See [`docs/db-reference/functions.md`](../db-reference/functions.md)
+reads and writes. See [`.yoke/docs/db-reference/functions.md`](../db-reference/functions.md)
 for the function-call envelope and [`docs/atlas.md`](../atlas.md) for the
 operator-readable Atlas of registered surfaces.
 

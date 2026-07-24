@@ -16,7 +16,7 @@ Behaviors in this tier work in any harness, including wrapper-only mode with zer
 
 | Behavior | Mechanism | Harness requirement |
 |----------|-----------|---------------------|
-| Bootstrap orientation (startup reads) | `python3 -m runtime.harness.codex.codex_entry bootstrap` or harness-native config | Bash tool only |
+| Bootstrap orientation (startup reads) | `python3 -m runtime.harness.bootstrap render-full` or harness-native config | Bash tool only |
 | Session identity declaration | Environment variables (`YOKE_EXECUTOR`, `YOKE_PROVIDER`, `YOKE_MODEL`) | Bash tool only |
 | Canonical telemetry (`HarnessSessionOffered`, `NextActionChosen`) | Yoke core session-offer path (`packages/yoke-core/src/yoke_core/domain/sessions.py`) | None (core-owned) |
 | Route wrapper (command invocation) | Entry launcher delegates to `/yoke` operator commands | Bash tool only |

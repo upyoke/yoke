@@ -210,7 +210,7 @@ def validate(payload: Any) -> Dict[str, Any]:
                 f"rely on the migration module's invariants() hook for "
                 f"semantic correctness (e.g. asserting post-apply residue=0 "
                 f"and all severities canonical). See "
-                f"docs/db-reference/items-and-epics.md '## DB Claim — the "
+                f".yoke/docs/db-reference/items-and-epics.md '## DB Claim — the "
                 f"unified amendment workflow' for the canonical amend payload shape."
             )
 

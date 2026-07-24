@@ -176,6 +176,6 @@ When generating .md files from the DB (`generate-backlog-md.sh`), fields are alw
 5. `created`, `updated`, `source`
 6. `merged_at` (only when non-NULL)
 
-**Item-level dependencies** are stored in the `item_dependencies` table (not in the items table). See `yoke/docs/db-reference.md` for the `item_dependencies` schema. Dependencies with `dependency_type = 'hard-block'` block dispatch until the blocking item reaches `done`.
+**Item-level dependencies** are stored in the `item_dependencies` table (not in the items table). See `yoke/.yoke/docs/db-reference.md` for the `item_dependencies` schema. Dependencies with `dependency_type = 'hard-block'` block dispatch until the blocking item reaches `done`.
 
 This canonical order ensures round-trip fidelity: `migrate-to-sqlite.sh` followed by `generate-backlog-md.sh` produces byte-identical output for normalized files.

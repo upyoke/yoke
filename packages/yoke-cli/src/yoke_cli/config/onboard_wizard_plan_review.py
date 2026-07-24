@@ -46,6 +46,8 @@ _REPO_ACTIONS = {
     "project-import-remote", "project-onboard-local-checkout",
     "project-rehome-push", "project-fork-remotes",
     "project-install-scaffold", "project-refresh-scaffold",
+    "project-install-agent-rules", "project-install-tool-permissions",
+    "project-install-git-hooks",
     "project-write-board-art",
 }
 _CORE_ACTIONS = {

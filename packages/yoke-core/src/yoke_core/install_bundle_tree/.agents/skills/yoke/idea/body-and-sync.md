@@ -168,7 +168,7 @@ After the body has been written and verified (step 8 complete), classify and per
 
    > Spec declares governed DB vocabulary (`{triggers}`). Pick one:
    >
-   > 1. **Real governed mutation, declare now** (Bucket 1) — gather model, mutation intent, migration module slug, compatibility class, and (for `pre_merge_safe`) the four authored attestation fields. Dispatch `db_claim.amend` with the unified declared `claim` payload (see [docs/db-reference.md](../../../../docs/db-reference.md)).
+   > 1. **Real governed mutation, declare now** (Bucket 1) — gather model, mutation intent, migration module slug, compatibility class, and (for `pre_merge_safe`) the four authored attestation fields. Dispatch `db_claim.amend` with the unified declared `claim` payload (see [.yoke/docs/db-reference.md](../../../../.yoke/docs/db-reference.md)).
    > 2. **Real governed mutation, blocker for refine** (Bucket 2) — append a `DB Claim Blocker (idea-time)` section via `items.structured_field.section_upsert` listing known + missing facts. Do NOT call `db-claim-amend`; do NOT dispatch `db_claim.amend` — the implicit `{"state":"none"}` default plus the missing event signals `/yoke refine` to block at `GATE_DB_CLAIM_PROSE_MISMATCH` until a declared payload lands.
    > 3. **Meta-ticket about DB governance** (Bucket 3) — the ticket cites DB vocabulary but its own deliverables do not mutate any governed authoritative DB (skill prose, gate composition, prose-classifier patterns, audit-trail vocabulary). Dispatch `db_claim.amend` with `payload.claim = {state: "none"}` and `payload.reason = "idea: ticket discusses DB governance vocabulary but performs no governed DB mutation; reviewed-none"`. The literal `; reviewed-none` suffix is the canonical signal — do not paraphrase.
 

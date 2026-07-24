@@ -71,7 +71,7 @@ OPERATIONAL_COMMANDS: list[dict] = [
         ),
         "notes": (
             "Same shape for any non-terminal transition. Status "
-            "vocabulary in docs/lifecycle.md. The function id "
+            "vocabulary in .yoke/docs/lifecycle.md. The function id "
             "`lifecycle.transition.execute` fires status gates, "
             "cascades, and GitHub sync."
         ),
@@ -98,22 +98,22 @@ OPERATIONAL_COMMANDS: list[dict] = [
         "topic": "core",
         "purpose": "Find or request the CLI adapter for a function id",
         "recipe": (
-            "python3 -m yoke_core.tools.atlas_render_docs check\n"
+            "yoke <family> --help\n"
             "yoke ouroboros field-note append --kind new "
             "--evidence "
             "'Missing CLI adapter for items.foo.bar; agent surface "
             "boundary forbids HTTP/direct runtime import shapes'"
         ),
         "notes": (
-            "The Atlas (`docs/atlas.md`) shows registered function ids, "
-            "wrapped `yoke <subcommand>` adapters, permanent boundaries, "
-            "and pending handler-registration rows. `atlas_render_docs` "
-            "and `atlas_integrity_audit` are operator-debug tool "
-            "surfaces (not function-call backed) — they stay multi-module. "
+            "`.yoke/docs/db-reference/functions.md` lists the registered "
+            "function ids per family, and the matching `yoke <subcommand> "
+            "--help` carries that adapter's variants and flag matrix. The "
+            "CLI grammar is reversible — dots become spaces, underscores "
+            "become hyphens, a terminal `.run`/`.execute` drops — so a "
+            "function id predicts its adapter name. "
             "**When you hit a recipe gap, fire `yoke ouroboros "
             "field-note append` immediately — before retrying, before "
-            "moving on.** Canonical long-form reference: "
-            "`runtime/agents/_shared/ouroboros-field-note.md`; run "
+            "moving on.** Run "
             "`yoke ouroboros field-note append --help` for the "
             "worked failure modes and decision tree. Do not start the "
             "function-call HTTP "
@@ -191,8 +191,7 @@ OPERATIONAL_COMMANDS: list[dict] = [
             "field-note append` immediately — before retrying, before "
             "moving on.** Kind: failed (recipe ran, wrong result), new "
             "(recipe missing), unclear (recipe present, unclear "
-            "purpose). Canonical long-form reference: "
-            "`runtime/agents/_shared/ouroboros-field-note.md`; run "
+            "purpose). Run "
             "`yoke ouroboros field-note append --help` for the "
             "worked failure modes and decision tree. Surfaces in "
             "/yoke curate via OuroborosFieldNoteAppended events."

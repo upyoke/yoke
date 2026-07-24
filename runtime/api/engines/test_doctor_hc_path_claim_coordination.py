@@ -148,7 +148,7 @@ def test_fail_for_lineage_overlap_after_released_upstream(conn):
     parent, child = 9100, 9101
     upstream, survivor, blocked_id = 501, 502, 503
     _seed_target(conn, target_id=parent, path="docs")
-    _seed_target(conn, target_id=child, path="docs/lifecycle.md", parent_target_id=parent)
+    _seed_target(conn, target_id=child, path=".yoke/docs/lifecycle.md", parent_target_id=parent)
     _seed_claim(conn, claim_id=upstream, state="released", target_id=child)
     _seed_claim(conn, claim_id=survivor, state="active", target_id=parent)
     _seed_claim(

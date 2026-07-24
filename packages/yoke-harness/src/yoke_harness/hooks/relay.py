@@ -20,7 +20,10 @@ from yoke_cli.transport.response_limits import SMALL_JSON_RESPONSE_LIMIT_BYTES
 from yoke_contracts.hook_runner import lint_policy
 
 from yoke_harness.hooks.deadline import start_hook_deadline
-from yoke_harness.hooks.decision_render import merge_allow_stdout
+from yoke_harness.hooks.decision_render import (
+    merge_allow_stdout,
+    render_context_stdout,
+)
 from yoke_harness.hooks.identity import (
     detect_executor,
     is_codex,
@@ -93,15 +96,37 @@ def _codex_capture(event_name: str, stdin_data: str, executor: str) -> None:
         return
 
 
+def _with_extra_context(
+    stdout: str, extra_context: Optional[str], event_name: str,
+) -> str:
+    """Merge caller-supplied context into an ALLOW-path stdout.
+
+    Only ever called on paths that already decided to allow: a deny's
+    stdout is the block message the harness shows the agent, and appending
+    orientation to it would bury the reason the call was refused.
+    """
+    if not extra_context:
+        return stdout
+    rendered = render_context_stdout(extra_context, event_name)
+    if not rendered:
+        return stdout
+    return merge_allow_stdout(stdout, rendered, event_name)
+
+
 def evaluate_hook_event(
-    event_name: str, *, dry_run: bool = False, stdin_data: Optional[str] = None,
+    event_name: str,
+    *,
+    dry_run: bool = False,
+    stdin_data: Optional[str] = None,
+    extra_context: Optional[str] = None,
 ) -> int:
     """Evaluate the installed product-local hook subset only.
 
     ``stdin_data`` lets the caller supply the already-read payload (the CLI
     adapter reads stdin once so it can also drive the local-universe session
     lifecycle from the same payload); when ``None`` the payload is read from
-    stdin as before.
+    stdin as before. ``extra_context`` is client-composed text (session
+    orientation) merged into the allow-path stdout.
     """
     if stdin_data is None:
         stdin_data = sys.stdin.read()
@@ -123,15 +148,32 @@ def evaluate_hook_event(
         deadline,
         lint_config_snapshot=policy_snapshot,
     )
-    if local.stdout:
-        sys.stdout.write(local.stdout)
+    stdout = local.stdout
+    if not local.denied:
+        stdout = _with_extra_context(stdout, extra_context, event_name)
+    if stdout:
+        sys.stdout.write(stdout)
     return local.exit_code
 
 
-def relay_hook_event(event_name: str, connection: HttpsConnection) -> int:
-    """Evaluate one hook event across the client/server relay split."""
+def relay_hook_event(
+    event_name: str,
+    connection: HttpsConnection,
+    *,
+    stdin_data: Optional[str] = None,
+    extra_context: Optional[str] = None,
+) -> int:
+    """Evaluate one hook event across the client/server relay split.
+
+    ``stdin_data`` lets the caller supply the already-read payload, and
+    ``extra_context`` carries client-composed text (session orientation)
+    into the allow-path stdout. Both exist because the server cannot see
+    this machine: over https it skips the orientation policy entirely, so
+    the client is the only side that can produce it.
+    """
     deadline = start_hook_deadline()
-    stdin_data = sys.stdin.read()
+    if stdin_data is None:
+        stdin_data = sys.stdin.read()
     payload = _parse_payload(stdin_data)
     policy_snapshot = _client_lint_config_snapshot(payload)
     _record_client_anchor(payload)
@@ -152,6 +194,11 @@ def relay_hook_event(event_name: str, connection: HttpsConnection) -> int:
         if local.stdout:
             sys.stdout.write(local.stdout)
         return local.exit_code
+
+    # The client half already allowed, so orientation rides along from here
+    # on — including down every degrade path, so an unreachable server
+    # costs the session its policy verdict but never its orientation.
+    allow_stdout = _with_extra_context(local.stdout, extra_context, event_name)
 
     identity = relay_identity_payload(event_name, payload, executor)
     payload_extra = dict(local.payload_extra or {})
@@ -196,20 +243,20 @@ def relay_hook_event(event_name: str, connection: HttpsConnection) -> int:
         return degrade_to_noop(
             event_name,
             f"HTTP {exc.status} from {safe_diagnostic_text(url)}",
-            preserved_stdout=local.stdout,
+            preserved_stdout=allow_stdout,
         )
     except BoundedJsonHttpError as exc:
         return degrade_to_noop(
             event_name,
             f"{safe_diagnostic_text(url)} unreachable or timed out: {exc}",
-            preserved_stdout=local.stdout,
+            preserved_stdout=allow_stdout,
         )
 
     if not isinstance(response, dict):
         return degrade_to_noop(
             event_name,
             "response body is not an object",
-            preserved_stdout=local.stdout,
+            preserved_stdout=allow_stdout,
         )
     stdout = response.get("stdout")
     exit_code = response.get("exit_code")
@@ -222,14 +269,14 @@ def relay_hook_event(event_name: str, connection: HttpsConnection) -> int:
         return degrade_to_noop(
             event_name,
             "response body is not the hook contract",
-            preserved_stdout=local.stdout,
+            preserved_stdout=allow_stdout,
         )
     if outcome == "denied":
         if stdout:
             sys.stdout.write(stdout)
         return exit_code
 
-    merged = merge_allow_stdout(local.stdout, stdout, event_name)
+    merged = merge_allow_stdout(allow_stdout, stdout, event_name)
     if merged:
         sys.stdout.write(merged)
     return exit_code

@@ -237,7 +237,7 @@ class TestClaimsPath(_ClaimsHandlerSuite):
         denial = (
             "BLOCKED: path-claim register overlap on item YOK-1665.\n"
             "  conflicting claims:\n"
-            "    claim 300: docs/db-reference/functions.md"
+            "    claim 300: .yoke/docs/db-reference/functions.md"
         )
         with self._hold_item_claim(), patch(
             "yoke_core.domain.db_helpers.connect", return_value=mock_conn,
@@ -259,7 +259,7 @@ class TestClaimsPath(_ClaimsHandlerSuite):
                 payload={
                     "item_id": 1665,
                     "integration_target": "main",
-                    "paths": ["docs/db-reference/functions.md"],
+                    "paths": [".yoke/docs/db-reference/functions.md"],
                     "allow_planned": True,
                 },
                 actor_id=None,
@@ -269,7 +269,7 @@ class TestClaimsPath(_ClaimsHandlerSuite):
         self.assertEqual(resp.error.code, "register_failed")
         self.assertIn("BLOCKED: path-claim register overlap", resp.error.message)
         self.assertIn("claim 300", resp.error.message)
-        self.assertIn("docs/db-reference/functions.md", resp.error.message)
+        self.assertIn(".yoke/docs/db-reference/functions.md", resp.error.message)
         render_denial.assert_called_once()
 
     def test_widen_routes_to_amend_widen(self):

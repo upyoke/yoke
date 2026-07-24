@@ -1,9 +1,10 @@
 """Git hook shims for ``yoke project install`` (both strategies).
 
 Owns the ``.git/hooks/pre-commit`` shim (product-safe local file-line
-gate) and the ``post-commit`` shim (product-safe committed-tree snapshot
-sync through ``yoke project snapshot sync --hook --head-only``). Both
-shims exec the machine-installed
+gate), the ``pre-merge-commit`` shim (same staged-file gate for merge
+commits, which never fire ``pre-commit``), and the ``post-commit`` shim
+(product-safe committed-tree snapshot sync through ``yoke project
+snapshot sync --hook --head-only``). The shims exec the machine-installed
 ``yoke`` launcher — ``yoke git pre-commit`` / ``yoke git
 post-commit`` (:mod:`yoke_cli.commands.git_hook`) — so
 hooked commits work without a Yoke checkout importable by the
@@ -36,46 +37,21 @@ from yoke_cli.project_install.managed_git_hooks import (
     POST_COMMIT_SHIM,
     PRE_COMMIT_MARKER,
     PRE_COMMIT_SHIM,
+    PRE_MERGE_COMMIT_MARKER,
+    PRE_MERGE_COMMIT_SHIM,
     assert_pre_commit_runtime_available,
-    is_managed_git_hook as _is_managed_git_hook,
+    git_hook_specs_from_bundle,
+    is_managed_git_hook,
+    managed_git_hook_specs,
     validate_git_hook_specs,
 )
 
-
-def is_managed_git_hook(content: str, hook_name: str) -> bool:
-    """Recognize selected facade shims plus enumerated historical bytes."""
-    expected = PRE_COMMIT_SHIM if hook_name == "pre-commit" else POST_COMMIT_SHIM
-    return content == expected or _is_managed_git_hook(content, hook_name)
-
-
-def managed_git_hook_specs() -> List[dict[str, str]]:
-    """Build specs from the compatibility module's selected shim values."""
-    return [
-        {
-            "name": "pre-commit",
-            "marker": PRE_COMMIT_MARKER,
-            "content": PRE_COMMIT_SHIM,
-        },
-        {
-            "name": "post-commit",
-            "marker": POST_COMMIT_MARKER,
-            "content": POST_COMMIT_SHIM,
-        },
-    ]
-
-
-def git_hook_specs_from_bundle(bundle: dict[str, object]) -> List[dict[str, str]]:
-    """Select source-carried specs or facade-selected packaged shims."""
-    raw = bundle.get("managed_git_hooks")
-    if raw is None:
-        return managed_git_hook_specs()
-    try:
-        return validate_git_hook_specs(raw)
-    except ValueError as exc:
-        from yoke_cli.project_install.files import ProjectInstallError
-
-        raise ProjectInstallError(str(exc)) from exc
-
+# The full managed set (pre-commit, post-commit, pre-merge-commit), its
+# ownership recognizer, and the bundle-spec selector all live in
+# :mod:`managed_git_hooks` — the single source of truth. This module used to
+# shadow them with a pre/post-commit-only pair, which silently dropped the
+# pre-merge-commit shim from every install; it now re-exports the canonical
+# functions so all three hooks land and the manifest count is truthful.
 
 
 @dataclass
@@ -316,6 +292,8 @@ __all__ = [
     "PRE_COMMIT_SHIM",
     "POST_COMMIT_MARKER",
     "POST_COMMIT_SHIM",
+    "PRE_MERGE_COMMIT_MARKER",
+    "PRE_MERGE_COMMIT_SHIM",
     "BootstrapResult",
     "assert_pre_commit_runtime_available",
     "install_git_hook",

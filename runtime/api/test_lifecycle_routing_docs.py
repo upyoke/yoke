@@ -36,6 +36,8 @@ def _repo_root() -> Path:
 
 REPO = _repo_root()
 DOCS = REPO / "docs"
+# Universal docs shipped to managed projects now live under .yoke/docs.
+YOKE_DOCS = REPO / ".yoke" / "docs"
 
 
 def _read(path: Path) -> str:
@@ -49,7 +51,7 @@ def _read(path: Path) -> str:
 
 
 class TestBootstrapSpec:
-    """AC-1: bootstrap must load yoke/docs/lifecycle.md."""
+    """AC-1: bootstrap must load yoke/.yoke/docs/lifecycle.md."""
 
     @pytest.fixture
     def spec(self) -> dict:
@@ -58,17 +60,17 @@ class TestBootstrapSpec:
 
     def test_required_files_includes_lifecycle(self, spec):
         required = spec.get("required_files", [])
-        assert "docs/lifecycle.md" in required, (
-            "bootstrap-spec.json must include yoke/docs/lifecycle.md in required_files"
+        assert ".yoke/docs/lifecycle.md" in required, (
+            "bootstrap-spec.json must include yoke/.yoke/docs/lifecycle.md in required_files"
         )
 
     def test_lifecycle_loaded_after_commands(self, spec):
         """lifecycle.md should follow commands.md so readers get command
         vocabulary before the lifecycle tables that use it."""
         required = spec.get("required_files", [])
-        assert "docs/commands.md" in required
-        assert required.index("docs/lifecycle.md") > required.index(
-            "docs/commands.md"
+        assert ".yoke/docs/commands.md" in required
+        assert required.index(".yoke/docs/lifecycle.md") > required.index(
+            ".yoke/docs/commands.md"
         )
 
 
@@ -82,7 +84,7 @@ class TestLifecycleDoc:
 
     @pytest.fixture
     def text(self) -> str:
-        return _read(DOCS / "lifecycle.md")
+        return _read(YOKE_DOCS / "lifecycle.md")
 
     def test_has_issue_command_family(self, text):
         assert "Issue command family" in text or "issue command family" in text.lower()
@@ -131,7 +133,7 @@ class TestCommandsDoc:
 
     @pytest.fixture
     def text(self) -> str:
-        return _read(DOCS / "commands.md")
+        return _read(YOKE_DOCS / "commands.md")
 
     def test_refine_advances_status(self, text):
         """Refine must no longer be described as 'does not advance status'."""

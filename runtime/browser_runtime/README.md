@@ -197,4 +197,4 @@ PYTHONPATH=. python3 -m pytest runtime/api/domain/test_browser_client.py \
 ## Documentation
 
 - Full substrate docs: `docs/browser-substrate.md`
-- Scenario schema: `docs/browser-scenario-schema.md`
+- Scenario schema: `.yoke/docs/browser-scenario-schema.md`

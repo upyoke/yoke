@@ -9,6 +9,10 @@ from yoke_cli.config import project_worktrees_ignore
 from yoke_cli.project_install import files as files_layer
 from yoke_cli.project_install import git_hooks as git_hooks_layer
 from yoke_cli.project_install import hooks as hooks_layer
+from yoke_cli.project_install import managed_markdown as managed_markdown_layer
+from yoke_cli.project_install import (
+    settings_permissions as settings_permissions_layer,
+)
 from yoke_cli.project_install import strategy as strategy_layer
 from yoke_cli.project_install.files import (
     DISCARDED_PRIOR_CONTRACT_RECORDS_KEY,
@@ -35,6 +39,8 @@ _MANIFEST_OWNED_KEYS = frozenset(
         "git_hook_hashes",
         "worktrees_ignore_added",
         "worktrees_ignore_created_file",
+        "managed_markdown",
+        "settings_permissions",
         DISCARDED_PRIOR_CONTRACT_RECORDS_KEY,
         DISCARDED_PRIOR_STRATEGY_RECORDS_KEY,
     }
@@ -167,6 +173,23 @@ def apply_bundle(
         or worktrees_ignore.get("created_file")
     )
 
+    # Yoke-managed Markdown blocks (AGENTS.md / CLAUDE.md / CODEX.md) and the
+    # .claude/settings.json permissions region. Both run after the hook
+    # reconcile above so the settings file already exists; both own only their
+    # marked region and preserve operator content around it.
+    managed_markdown_records, managed_markdown_report = (
+        managed_markdown_layer.apply_managed_markdown(
+            repo_root,
+            bundle.get("managed_markdown"),
+            old_manifest.get("managed_markdown"),
+        )
+    )
+    settings_permissions_record, settings_permissions_report = (
+        settings_permissions_layer.apply_settings_permissions(
+            repo_root, bundle.get("claude_settings_permissions"),
+        )
+    )
+
     # Carry unknown top-level manifest keys forward: a field written by a
     # newer CLI must survive this version's whole-object rewrite (the
     # contract_files key was demonstrably dropped this way by older CLIs).
@@ -190,6 +213,8 @@ def apply_bundle(
             "git_hook_hashes": git_hook_hashes,
             "worktrees_ignore_added": worktrees_ignore_added,
             "worktrees_ignore_created_file": worktrees_ignore_created_file,
+            "managed_markdown": managed_markdown_records,
+            "settings_permissions": settings_permissions_record,
         }
     )
     manifest_file = files_layer.write_manifest(repo_root, manifest)
@@ -227,6 +252,9 @@ def apply_bundle(
         "git_hooks_installed_or_updated": (git_hooks.installed + git_hooks.updated),
         "git_hook_actions": git_hooks.actions,
         "worktrees_ignore": worktrees_ignore,
+        "managed_markdown_actions": managed_markdown_report["actions"],
+        "managed_markdown_written": managed_markdown_report["written"],
+        "settings_permissions_actions": settings_permissions_report["actions"],
         "created_settings_files": sorted(created_settings),
         "manifest": str(manifest_file),
         "machine_config_newly_registered": False,

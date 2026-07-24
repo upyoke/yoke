@@ -18,7 +18,7 @@ idea → refining-idea → refined-idea → planning → plan-drafted → refini
 
 An item can also be set to `cancelled`, `stopped`, or `failed` at any point.
 
-> Item-level `blocked` is not a lifecycle status. Use the orthogonal `items.blocked` flag (set via `/yoke block YOK-N "<reason>"`, cleared via `/yoke unblock YOK-N`) — the flag preserves the lifecycle status. Epic-task `status='blocked'` semantics use the lifecycle status. Full architectural-why: [`docs/archive/decisions/blocked-flag-retirement.md`](../archive/decisions/blocked-flag-retirement.md).
+> Item-level `blocked` is not a lifecycle status. Use the orthogonal `items.blocked` flag (set via `/yoke block YOK-N "<reason>"`, cleared via `/yoke unblock YOK-N`) — the flag preserves the lifecycle status. Epic-task `status='blocked'` semantics use the lifecycle status. Full architectural-why (yoke source repo): `docs/archive/decisions/blocked-flag-retirement.md`.
 
 | Status | Description | Board Placement |
 |--------|-------------|-----------------|

@@ -155,7 +155,7 @@ def assert_file_targets_plannable(
 
 
 def assert_safe_bundle_paths(paths: Iterable[str]) -> None:
-    """Refuse bundle paths that could escape or corrupt the repo contract."""
+    """Refuse bundle paths that escape/corrupt the repo; `.yoke/docs/` excepted."""
     for raw in paths:
         path = Path(raw)
         bad = (
@@ -163,14 +163,14 @@ def assert_safe_bundle_paths(paths: Iterable[str]) -> None:
             or path.is_absolute()
             or ".." in path.parts
             or raw in HOOK_MERGE_TARGETS
-            or path.parts[0] == ".yoke"
+            or (path.parts[0] == ".yoke" and path.parts[:2] != (".yoke", "docs"))
         )
         if bad:
             raise ProjectInstallError(
                 f"bundle names an unsafe path {raw!r}: paths must be "
                 "repo-relative, must not traverse '..', must not land under "
-                ".yoke/, and hook config flows through the bundle's hooks "
-                "subtrees rather than literal settings files"
+                ".yoke/ (except .yoke/docs/), and hook config flows through the "
+                "bundle's hooks subtrees rather than literal settings files"
             )
 
 

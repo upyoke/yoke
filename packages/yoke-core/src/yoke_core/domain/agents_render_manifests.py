@@ -72,7 +72,7 @@ CODEX_MANIFEST: dict = {
     "bootstrap": {
         "spec_path": "runtime/harness/bootstrap-spec.json",
         "mechanisms": [
-            "wrapper_command",
+            "harness_native_config",
             "optional_session_start_hook",
         ],
     },

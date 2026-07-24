@@ -12,9 +12,9 @@ surface (`qa.requirement.add`, `qa.requirement.add_batch`,
 `qa.screenshot_evidence.satisfy`). The public `yoke qa ...` commands in
 [qa-platform/cli-reference.md](qa-platform/cli-reference.md) are the retained
 operator/debug adapters that dispatch the matching function ids. See
-[docs/db-reference/functions.md](db-reference/functions.md) for the envelope
-and [docs/atlas.md](atlas.md) for the operator-readable Atlas of registered
-surfaces.
+[.yoke/docs/db-reference/functions.md](db-reference/functions.md) for the envelope
+and, for the operator-readable Atlas of registered
+surfaces, the yoke source-repo doc `docs/atlas.md`.
 
 ## Four-Layer Model
 

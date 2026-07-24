@@ -2,7 +2,7 @@
 
 The Yoke function-call surface is the **agent-facing** mutation surface for the Yoke control plane. Agents call typed function ids through one envelope shape; the dispatcher routes to a handler, verifies the calling session's claim, writes through the canonical domain owner, and emits structured events. Shell-quoted JSON payloads are not the operator path: the `python3 -m yoke_core.cli.db_router ...` and `python3 -m yoke_core.api.service_client ...` CLI commands remain as **retained operator/debug adapters** that build a typed `FunctionCallRequest` internally and dispatch through the same registry.
 
-This file is the per-family function reference. The operator-readable Atlas (one row per `yoke` subcommand with function id + help status, plus the permanent / pending rosters and live promise-vs-live contradictions) lives at [`docs/atlas.md`](../atlas.md). Cross-link back from [db-reference.md](../db-reference.md) for the entry-point CLI, the domain catalog, and the structured-field discipline.
+This file is the per-family function reference. The operator-readable Atlas (one row per `yoke` subcommand with function id + help status, plus the permanent / pending rosters and live promise-vs-live contradictions) lives in the yoke source-repo doc `docs/atlas.md`. Cross-link back from [db-reference.md](../db-reference.md) for the entry-point CLI, the domain catalog, and the structured-field discipline.
 
 ## Envelope
 
@@ -45,7 +45,7 @@ Every function call accepts and returns the same envelope shape, defined in `pac
 }
 ```
 
-The dispatcher always emits `YokeFunctionCalled`. Repeated calls with the same `(function, request_id)` emit `DispatcherIdempotencyReplay` and return the cached response verbatim. The dedup store is the `function_call_ledger` table (exact `request_id` match, written alongside the emission; rows expire after the replay TTL via the events retention prune) — events stay telemetry; the ledger owns the replay decision. Partial-state failures (the primary write succeeded but a downstream sync degraded) return HTTP 207 with `success=true`, `warnings=[...]`, and a `DispatcherDownstreamDegraded` row in `events`. See [`docs/event-catalog.md`](../event-catalog.md) for the envelope schemas.
+The dispatcher always emits `YokeFunctionCalled`. Repeated calls with the same `(function, request_id)` emit `DispatcherIdempotencyReplay` and return the cached response verbatim. The dedup store is the `function_call_ledger` table (exact `request_id` match, written alongside the emission; rows expire after the replay TTL via the events retention prune) — events stay telemetry; the ledger owns the replay decision. Partial-state failures (the primary write succeeded but a downstream sync degraded) return HTTP 207 with `success=true`, `warnings=[...]`, and a `DispatcherDownstreamDegraded` row in `events`. See the yoke source-repo doc `docs/event-catalog.md` for the envelope schemas.
 
 ### Actor identity binding (transport-symmetric)
 
@@ -249,7 +249,7 @@ Replaces every hand-authored `python3 -m yoke_core.domain.epic task-update-body 
 
 ## Adapter status
 
-The CLI surfaces (`db_router items update`, `service_client db-claim-amend`, `item_field_transform`, `epic task-update-body`, etc.) remain **live** adapters — they construct a `FunctionCallRequest` internally and dispatch through the same registry. The adapter status (`live`, `deprecated`, `retired`, or `internal`) is recorded per registry entry and surfaced in [`docs/atlas.md`](../atlas.md). An `internal` function is a typed service-to-service boundary without a retained operator CLI adapter, so it is excluded from CLI-adapter parity. That adapter classification does not authorize access; the function's authorization scope and guardrails enforce who may dispatch it. Skill prose, packet prose, and agent docs reference the function id; operator/debug invocations of the CLI adapter remain valid and clearly labelled.
+The CLI surfaces (`db_router items update`, `service_client db-claim-amend`, `item_field_transform`, `epic task-update-body`, etc.) remain **live** adapters — they construct a `FunctionCallRequest` internally and dispatch through the same registry. The adapter status (`live`, `deprecated`, `retired`, or `internal`) is recorded per registry entry and surfaced in the yoke source-repo doc `docs/atlas.md`. An `internal` function is a typed service-to-service boundary without a retained operator CLI adapter, so it is excluded from CLI-adapter parity. That adapter classification does not authorize access; the function's authorization scope and guardrails enforce who may dispatch it. Skill prose, packet prose, and agent docs reference the function id; operator/debug invocations of the CLI adapter remain valid and clearly labelled.
 
 ## Authoring conventions
 
@@ -260,8 +260,8 @@ The CLI surfaces (`db_router items update`, `service_client db-claim-amend`, `it
 
 ## Cross-links
 
-- [`docs/event-catalog.md`](../event-catalog.md) — `YokeFunctionCalled`, `DispatcherIdempotencyReplay`, `DispatcherDownstreamDegraded` envelope schemas.
-- [`docs/atlas.md`](../atlas.md) — operator-readable Atlas of the agent-facing surfaces.
+- `docs/event-catalog.md` (a yoke source-repo doc) — `YokeFunctionCalled`, `DispatcherIdempotencyReplay`, `DispatcherDownstreamDegraded` envelope schemas.
+- `docs/atlas.md` (a yoke source-repo doc) — operator-readable Atlas of the agent-facing surfaces.
 - [items-and-epics.md § DB Claim — unified amendment workflow](items-and-epics.md) — the `db_claim.amend` payload shape.
 - `packages/yoke-contracts/src/yoke_contracts/api/function_call.py` — Pydantic envelope models.
 - `packages/yoke-core/src/yoke_core/domain/yoke_function_dispatch.py` — dispatcher entry point.
