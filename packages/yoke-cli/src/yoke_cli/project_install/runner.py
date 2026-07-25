@@ -33,6 +33,9 @@ from yoke_cli.commands.adapters.project_snapshot import (
 from yoke_cli.project_install import files as files_layer
 from yoke_cli.project_install import git_hooks as git_hooks_layer
 from yoke_cli.project_install.bundle_apply import apply_bundle
+from yoke_cli.project_install.file_line_managed_exceptions import (
+    ensure_managed_file_line_exceptions,
+)
 from yoke_cli.project_install.file_line_config_migration import (
     migrate_file_line_exceptions,
 )
@@ -116,6 +119,12 @@ def install(
         )
     # Runs after apply so the seeded .yoke/project.config exists to move into.
     report["file_line_config_migration"] = migrate_file_line_exceptions(root)
+    # The install writes the managed rules files AND the gate that measures
+    # them, so it also owns exempting them — otherwise a project's first
+    # commit fails on the install's own output.
+    report["file_line_managed_exceptions"] = ensure_managed_file_line_exceptions(
+        root, _managed_markdown_paths(bundle),
+    )
     report["deployment_flows"] = sync_project_flow_declarations_for_write(
         repo_root=root,
         project=str(bundle["project_slug"]),
@@ -161,6 +170,29 @@ def _resolve_project_id(
         "will register the checkout mapping in machine config), or run "
         "`yoke project register` first"
     )
+
+
+def _managed_markdown_paths(bundle: dict) -> list[str]:
+    """Repo-relative paths of the rules files this bundle manages.
+
+    Read from the bundle rather than hardcoded so the exemption set tracks
+    whatever the server declares as managed-markdown targets. A bundle from
+    an older server carries no targets and yields nothing to exempt.
+    """
+    managed = bundle.get("managed_markdown")
+    if not isinstance(managed, dict):
+        return []
+    targets = managed.get("targets")
+    if not isinstance(targets, list):
+        return []
+    paths: list[str] = []
+    for target in targets:
+        if not isinstance(target, dict):
+            continue
+        rel = target.get("path")
+        if isinstance(rel, str) and rel:
+            paths.append(rel)
+    return paths
 
 
 def _register_in_machine_config(
