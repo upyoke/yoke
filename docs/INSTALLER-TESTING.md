@@ -936,6 +936,13 @@ mkdir -p "$CAMPAIGN_ROOT/screenshots/$ASSIGNMENT_ID/$SCENARIO_ID" \
 ssh "$MAC_SSH_HOST" 'caffeinate -u -t 1 || true'
 ```
 
+First decide which surface you are testing, because it changes the next two
+commands. The steps below preinstall and then launch the wizard binary, which
+covers every wizard screen but ends the shim early — nothing the installer prints
+*after* the wizard can be captured. If the post-onboard hand-off is in scope, skip
+straight to [Capturing The Shim Hand-Off Visually](#capturing-the-shim-hand-off-visually)
+and launch the full installer instead.
+
 Install or reinstall from the target channel before opening the wizard. For a
 stage publish smoke, install from the stage public installer and skip automatic
 onboarding so the visual run starts from a clean Terminal.app command:
