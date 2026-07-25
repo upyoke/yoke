@@ -319,6 +319,8 @@ Screen Recording.
 | `MAC-008` | test Mac | Stage + prod credentials | Env switching works without reinstalling project |
 | `MAC-009` | test Mac | Develop Yoke into a fresh `~/code/yoke` | Post-apply: real clone, source-link symlinks, git hooks, and `git push --dry-run` authenticates |
 | `MAC-010` | test Mac | PATH repair writes both startup files | Fresh login shell and one-shot SSH command both resolve `yoke` |
+| `MAC-011` | test Mac | Full `curl \| bash` in Terminal.app, wizard left by `Quit` | Shim hand-off block is the last screen and names reload, harness, and `/yoke onboard` in that order |
+| `MAC-012` | test Mac | Re-run the installer from a fresh login shell after PATH repair | Hand-off drops the reload step; harness step is numbered 1 |
 
 ### Wave 13: Open Source Mode Closing Regression
 
@@ -969,6 +971,35 @@ cat /tmp/yoke-installer-window-id
 REMOTE
 ```
 
+#### Capturing The Shim Hand-Off Visually
+
+The launch above starts `yoke onboard` directly, so the public installer shim is
+no longer running by the time the wizard exits. Anything the shim prints after
+the wizard — the post-onboard hand-off block, which clears the wizard's display
+and is the last thing a real user sees — cannot appear in that flow. When the
+hand-off block is what you are testing, launch the full installer in the window
+instead of the wizard binary, and drop the `--yes --no-onboard` preinstall step so
+the shim owns the whole run:
+
+```bash
+do script "printf '\\033c'; curl -fsSL https://api.stage.upyoke.com/install | bash" in wizardTab
+```
+
+Everything else in this mode is unchanged: same window bounds, same System Events
+key codes, same region-screenshot helper. Two extra notes for this variant:
+
+- The wizard has to run all the way to a successful Apply. Quitting sets the
+  wizard's exit code to 130 — the `^c` binding and the `Quit` rows share one
+  action — and the shim runs the wizard as `run_prompt_command … || fail`, so any
+  nonzero exit aborts the shim before the hand-off block and prints `Yoke onboard
+  did not finish` instead. There is no shortcut to this screen: reaching it means
+  completing onboarding. The `This machine` destination is the cheapest complete
+  path, because local birth needs no hosted credential.
+- The block's first step is conditional. It is dropped when the calling shell
+  already resolved the tool bin dir, so a cold-start run and a re-run from a
+  fresh login shell (one that has since sourced the written startup file) render
+  different step counts. Capture both; that difference is the behavior under test.
+
 Drive the wizard the way a user would. Use System Events key codes against the
 front Terminal window. If macOS blocks System Events with an Accessibility prompt,
 grant Terminal.app access under System Settings -> Privacy & Security ->
@@ -1299,20 +1330,26 @@ rm -f "$HOME/.local/bin/yoke" "$HOME/.local/bin/uv" "$HOME/.local/bin/uvx" \
 if [ -x /opt/homebrew/bin/brew ] && /opt/homebrew/bin/brew list --versions uv >/dev/null 2>&1; then
   /opt/homebrew/bin/brew uninstall uv
 fi
-for file in "$HOME/.zprofile" "$HOME/.zshenv" "$HOME/.zshrc" "$HOME/.bash_profile" "$HOME/.bashrc" "$HOME/.profile"; do
+for file in "$HOME/.zprofile" "$HOME/.zshenv" "$HOME/.zshrc" "$HOME/.zlogin" \
+            "$HOME/.bash_profile" "$HOME/.bashrc" "$HOME/.profile"; do
   [ -e "$file" ] || continue
   tmp="${file}.tmp.$$"
-  /usr/bin/awk '/BEGIN YOKE MANAGED PATH/ {skip=1; next} /END YOKE MANAGED PATH/ {skip=0; next} /uv was installed/ {next} /\. "\$HOME\/\.local\/bin\/env"/ {next} /source "\$HOME\/\.local\/bin\/env"/ {next} !skip {print}' "$file" > "$tmp"
+  /usr/bin/awk '/BEGIN YOKE MANAGED PATH/ {skip=1; next} /END YOKE MANAGED PATH/ {skip=0; next} /uv was installed/ {next} /\. "\$HOME\/\.local\/bin\/env"/ {next} /source "\$HOME\/\.local\/bin\/env"/ {next} skip {next} /\.local\/bin/ && /PATH/ {next} {print}' "$file" > "$tmp"
   mv "$tmp" "$file"
 done
 echo "YOKE_MAC_WIPE_OK"
 ```
 
-Verify the wipe:
+The last two filter rules matter. A hand-written `export PATH=".../.local/bin:..."` left behind by an earlier campaign is not inside a managed block, so a managed-block-only filter preserves it and every login shell keeps resolving the tool bin dir. `.zshrc` is the usual home for that line, and `.zlogin` was missing from the file list entirely.
+
+Verify the wipe. Check the *directory*, not just the binaries — the binaries are gone either way, so a `command -v` sweep passes on a host whose PATH still carries the tool bin dir, and installer behavior that branches on that (the post-onboard hand-off) then silently tests the wrong case:
 
 ```bash
 /bin/zsh -lic 'command -v yoke || echo yoke-not-found; command -v uv || echo uv-not-found; command -v uvx || echo uvx-not-found'
 /bin/zsh -c 'command -v yoke || echo ssh-yoke-not-found'
+/bin/zsh -lic 'printf "%s\n" "$PATH"' | tr ':' '\n' \
+  | grep -x "$HOME/.local/bin" && echo "DIRTY: tool bin dir still on PATH" \
+  || echo "clean: tool bin dir absent"
 ```
 
 Mac evidence belongs in the operator-approved campaign root and should be
