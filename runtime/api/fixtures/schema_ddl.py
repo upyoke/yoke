@@ -42,6 +42,10 @@ def _schema_ddl() -> str:
             PROJECT_PACK_REPORT_ENTRIES_TABLE_SQL,
             PROJECT_PACK_REPORTS_TABLE_SQL,
         )
+        from yoke_core.domain.ui_preferences_schema import (
+            ACTOR_UI_PREFERENCES_CREATE_SQL,
+            OVERVIEW_ACTIVATION_FACTS_CREATE_SQL,
+        )
         from yoke_core.domain.workflow_schema import WORKFLOW_TABLES_SQL
 
         onboarding_rows_without_fk = (
@@ -58,6 +62,10 @@ def _schema_ddl() -> str:
             " REFERENCES projects(id) ON DELETE CASCADE",
             "",
         )
+        ui_preferences_without_fk = ACTOR_UI_PREFERENCES_CREATE_SQL.replace(
+            " REFERENCES actors(id)",
+            "",
+        )
         composed = (
             WORKFLOW_TABLES_SQL + ";" + _ITEMS_DDL
             + _EPIC_QA_DDL + _RUNTIME_DDL + _STRATEGY_DDL
@@ -66,6 +74,8 @@ def _schema_ddl() -> str:
             + pack_entries_without_fk + ";"
             + PROJECT_ONBOARDING_RUNS_CREATE_SQL + ";"
             + onboarding_rows_without_fk + ";"
+            + ui_preferences_without_fk + ";"
+            + OVERVIEW_ACTIVATION_FACTS_CREATE_SQL + ";"
             + _MERGE_LOCKS_DDL
         )
         globals()["SCHEMA_DDL"] = composed

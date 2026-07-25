@@ -45,6 +45,7 @@ from yoke_core.domain.strategy_docs_schema import (
     STRATEGY_DOC_REVISIONS_CREATE_TABLE_SQL,
     STRATEGY_DOCS_CREATE_TABLE_SQL,
 )
+from yoke_core.domain.ui_preferences_schema import create_ui_preference_tables
 from yoke_core.domain.workflow_schema import ensure_workflow_schema
 from yoke_core.domain.workflow_registry import converge_builtin_workflows
 
@@ -72,6 +73,8 @@ def converge_core_schema(conn) -> None:
     """
     create_core_tables(conn)
     create_actor_identity_tables(conn)
+    # actor_ui_preferences FKs into actors, so this follows the identity step.
+    create_ui_preference_tables(conn)
     ensure_event_schema(conn)
     create_work_claim_active_uniques(conn)
     apply_harness_session_columns(conn)
