@@ -31,7 +31,7 @@ NOW = datetime(2026, 5, 8, 12, 0, 0, tzinfo=timezone.utc)
 _CORE_SCHEMA = """
 CREATE TABLE projects (id INTEGER PRIMARY KEY, slug TEXT UNIQUE, name TEXT, public_item_prefix TEXT DEFAULT 'YOK');
 CREATE TABLE items (id INTEGER PRIMARY KEY, title TEXT NOT NULL,
-    type TEXT DEFAULT 'issue', status TEXT DEFAULT 'idea',
+    status TEXT DEFAULT 'idea',
     project_id INTEGER DEFAULT 1, project_sequence INTEGER NOT NULL, worktree TEXT, spec TEXT);
 CREATE TABLE work_claims (id INTEGER PRIMARY KEY, session_id TEXT,
     target_kind TEXT, item_id INTEGER, claim_type TEXT,
@@ -52,6 +52,11 @@ def _apply_core_schema() -> None:
     conn = db_backend.connect()
     try:
         execute_schema_script(conn, _CORE_SCHEMA)
+        from yoke_core.domain.workflow_registry import converge_builtin_workflows
+        from yoke_core.domain.workflow_schema import ensure_workflow_schema
+
+        ensure_workflow_schema(conn)
+        converge_builtin_workflows(conn)
         conn.execute("INSERT INTO projects (id, slug, name, public_item_prefix) VALUES (1, 'yoke', 'Yoke', 'YOK')")
         conn.commit()
     finally:
@@ -68,21 +73,20 @@ def _conn(db_path: str):
     return connect_test_db(db_path)
 
 
-def _p(conn) -> str:
-    return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
 def _add_item(conn, item_id, **kwargs) -> None:
-    p = _p(conn)
-    cols = {"title": "Test", "type": "issue", "status": "implementing",
+    p = "%s"
+    cols = {"title": "Test", "workflow_id": "issue", "status": "implementing",
             "project_id": 1, "project_sequence": item_id, "worktree": None, "spec": None}
     cols.update(kwargs)
-    fields = ("title", "type", "status", "project_id", "project_sequence", "worktree", "spec")
+    from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
+
+    _, version_id = resolve_current_workflow_pin(conn, cols["workflow_id"])
+    fields = ("title", "status", "project_id", "project_sequence", "worktree", "spec")
     conn.execute(
-        "INSERT INTO items(id, title, type, status, project_id, "
-        "project_sequence, worktree, spec)"
-        f" VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p})",
-        (item_id, *(cols[f] for f in fields)),
+        "INSERT INTO items(id, title, status, project_id, "
+        "project_sequence, worktree, spec, workflow_id, workflow_version_id)"
+        f" VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p})",
+        (item_id, *(cols[f] for f in fields), cols["workflow_id"], version_id),
     )
     conn.commit()
 

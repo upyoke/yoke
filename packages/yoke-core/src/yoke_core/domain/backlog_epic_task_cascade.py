@@ -7,7 +7,8 @@ from __future__ import annotations
 import sys
 from typing import Any, TextIO
 
-from yoke_core.domain.backlog_queries import _query_item_field
+from yoke_core.domain.workflow_behavior import generates_task_graph
+from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 
 
 def _cascade_epic_tasks(
@@ -22,8 +23,7 @@ def _cascade_epic_tasks(
     Calls ``epic.cascade_task_status`` in-process through the canonical
     domain helper.
     """
-    item_type = _query_item_field(conn, item_id, "type")
-    if item_type != "epic":
+    if not generates_task_graph(load_item_workflow_runtime(conn, item_id)):
         return
 
     from yoke_core.domain import epic as epic_domain

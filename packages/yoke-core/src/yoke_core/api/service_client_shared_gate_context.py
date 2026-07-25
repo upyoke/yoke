@@ -139,7 +139,12 @@ def _load_gate_context(
     )
 
     if target_status is not None:
-        if item_dict["type"] == "epic":
+        from yoke_core.domain.workflow_behavior import generates_task_graph
+        from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
+
+        if generates_task_graph(
+            load_item_workflow_runtime(conn, int(item_dict["id"]))
+        ):
             task_count_row = conn.execute(
                 "SELECT COUNT(*) as cnt FROM epic_tasks WHERE epic_id = %s",
                 (item_dict["id"],),

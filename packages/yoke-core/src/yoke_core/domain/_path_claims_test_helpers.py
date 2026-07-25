@@ -67,6 +67,11 @@ def _apply_path_claim_schema() -> None:
     c = db_backend.connect()
     try:
         create_core_tables(c)
+        from yoke_core.domain.workflow_registry import converge_builtin_workflows
+        from yoke_core.domain.workflow_schema import ensure_workflow_schema
+
+        ensure_workflow_schema(c)
+        converge_builtin_workflows(c)
         c.commit()
     finally:
         c.close()

@@ -180,7 +180,8 @@ def _load_migration_module(modules_dir: Path, identifier: str) -> ModuleType:
 def _load_item(conn: Any, item_id: int) -> Dict[str, Any]:
     p = _placeholder(conn)
     row = conn.execute(
-        "SELECT i.id, i.type, i.status, p.slug AS project, i.project_id, "
+        "SELECT i.id, i.workflow_id, i.workflow_version_id, i.status, "
+        "p.slug AS project, i.project_id, "
         "i.db_mutation_profile, "
         "i.db_compatibility_attestation "
         "FROM items i JOIN projects p ON p.id = i.project_id "

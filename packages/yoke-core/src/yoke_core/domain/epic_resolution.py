@@ -6,7 +6,7 @@ orchestration, mutations, and the CLI surface.
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import List
 
 from yoke_core.domain.db_helpers import query_one, query_rows, query_scalar
 from yoke_core.domain.epic_parsing import (
@@ -301,8 +301,7 @@ def orphan_check(conn) -> str:
         """SELECT DISTINCT et.epic_id as epic_id, 'YOK-' || et.epic_id as item_ref
            FROM epic_tasks et
            JOIN items i ON i.id = et.epic_id
-           WHERE i.type = 'epic'
-             AND (i.technical_plan IS NULL OR TRIM(i.technical_plan) = '')
+           WHERE i.technical_plan IS NULL OR TRIM(i.technical_plan) = ''
            ORDER BY et.epic_id ASC""",
     )
     return "\n".join(r["item_ref"] for r in rows)

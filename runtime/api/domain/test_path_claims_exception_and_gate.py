@@ -9,7 +9,6 @@ from __future__ import annotations
 import pytest
 
 from yoke_core.domain._path_claims_test_helpers import (
-    conn,  # noqa: F401
     local_human,
     seed_target,
 )
@@ -36,7 +35,7 @@ def _seed_item(
     *,
     item_id: int,
     status: str = "implementing",
-    item_type: str = "issue",
+    workflow_id: str = "issue",
     project: str = "yoke",
 ) -> None:
     row = conn.execute(
@@ -57,14 +56,25 @@ def _seed_item(
         )
     else:
         project_id = int(row[0])
+    from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
+
+    _, version_id = resolve_current_workflow_pin(conn, workflow_id)
     conn.execute(
         "INSERT INTO items "
-        "(id, project_id, project_sequence, status, type, title, created_at, "
-        "updated_at, source) "
-        "VALUES (%s, %s, %s, %s, %s, 'test', "
+        "(id, project_id, project_sequence, status, type, workflow_id, "
+        "workflow_version_id, title, created_at, updated_at, source) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, 'test', "
         "'2026-05-01T00:00:00Z', '2026-05-01T00:00:00Z', '1') "
         "ON CONFLICT(id) DO NOTHING",
-        (item_id, project_id, item_id, status, item_type),
+        (
+            item_id,
+            project_id,
+            item_id,
+            status,
+            workflow_id,
+            workflow_id,
+            version_id,
+        ),
     )
 
 
