@@ -152,14 +152,14 @@ class TestBoardConfig:
         config_file.write_text(
             "dashboard_weather=false\n"
             "dashboard_velocity_meter=true\n"
-            "dashboard_types=1\n"
+            "dashboard_workflows=1\n"
             "dashboard_age=yes\n"
             "dashboard_badges=no\n"
         )
         cfg = parse_config(str(config_file))
         assert cfg.dashboard_weather is False
         assert cfg.dashboard_velocity_meter is True
-        assert cfg.dashboard_types is True
+        assert cfg.dashboard_workflows is True
         assert cfg.dashboard_age is True
         assert cfg.dashboard_badges is False
 

@@ -1,4 +1,4 @@
-"""Badge-family widgets: age heatmap + type badges + achievement badges.
+"""Badge-family widgets: age heatmap + workflow badges + achievement badges.
 
 Owns the age heatmap palette, the proportional cell allocator, and the
 achievement-streak helper.
@@ -20,7 +20,7 @@ from yoke_contracts.board.widgets_activity import _active_day_set, _project_filt
 # ---------------------------------------------------------------------------
 
 _CLOCK = E.BADGE_CLOCK
-_TAG = E.BADGE_TYPE
+_TAG = E.BADGE_WORKFLOW
 _MEDAL = E.BADGE_MILESTONE
 _TARGET = E.BADGE_STREAK
 _SHIELD = E.BADGE_ZERO_BUGS
@@ -134,22 +134,26 @@ def _allocate_proportional(
 
 
 # ---------------------------------------------------------------------------
-# Type badges
+# Workflow badges
 # ---------------------------------------------------------------------------
 
 
-def render_type_badges(db: BoardDBLike, config: BoardConfig, scope: str) -> Optional[str]:
-    """Render type distribution badges.
+def render_workflow_badges(
+    db: BoardDBLike,
+    config: BoardConfig,
+    scope: str,
+) -> Optional[str]:
+    """Render workflow distribution badges.
 
     Returns ``None`` if there are no active (non-done, non-frozen) items.
     """
     pf = _project_filter(scope)
     sql = (
-        "SELECT type, COUNT(*) AS cnt FROM items"
+        "SELECT workflow_id, COUNT(*) AS cnt FROM items"
         " WHERE status NOT IN ('done','cancelled')"
         "  AND (frozen IS NULL OR frozen <> 1)"
         f"  {pf}"
-        " GROUP BY type ORDER BY COUNT(*) DESC"
+        " GROUP BY workflow_id ORDER BY COUNT(*) DESC"
     )
     rows = db.query_quiet(sql)
     if not rows:
@@ -157,10 +161,10 @@ def render_type_badges(db: BoardDBLike, config: BoardConfig, scope: str) -> Opti
 
     parts = []
     for row in rows:
-        t = row[0]
-        if not t:
+        workflow_id = row[0]
+        if not workflow_id:
             continue
-        parts.append(f"{t}:{int(row[1])}")
+        parts.append(f"{workflow_id}:{int(row[1])}")
 
     if not parts:
         return None

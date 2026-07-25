@@ -105,40 +105,38 @@ class TestTransitionParity:
             )
             assert result.returncode == 1
 
-    def test_item_type_issue_parity(self, parity_env):
-        """CLI --item-type issue matches domain item_type='issue'."""
+    def test_issue_workflow_parity(self, parity_env):
+        """CLI issue selection matches the built-in workflow runtime."""
         db_path = parity_env["db_path"]
+        from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
+        workflow = builtin_workflow_runtime("issue")
 
         # planning is in epic progression but not issue progression
-        assert not lifecycle.is_forward_transition(
-            "refined-idea", "planning", item_type="issue"
-        ), "Domain should reject refined-idea->planning for issue"
+        assert not workflow.is_forward_transition("refined-idea", "planning")
         result = _run_service_client(
             db_path, "validate-transition", "refined-idea", "planning",
-            "--item-type", "issue",
+            "--workflow", "issue",
         )
         assert result.returncode == 1, "CLI should reject refined-idea->planning for issue"
 
         # refined-idea -> implementing is valid for issues
-        assert lifecycle.is_forward_transition(
-            "refined-idea", "implementing", item_type="issue"
-        )
+        assert workflow.is_forward_transition("refined-idea", "implementing")
         result = _run_service_client(
             db_path, "validate-transition", "refined-idea", "implementing",
-            "--item-type", "issue",
+            "--workflow", "issue",
         )
         assert result.returncode == 0, "CLI should accept refined-idea->implementing for issue"
 
-    def test_item_type_epic_parity(self, parity_env):
-        """CLI --item-type epic matches domain item_type='epic'."""
+    def test_epic_workflow_parity(self, parity_env):
+        """CLI epic selection matches the built-in workflow runtime."""
         db_path = parity_env["db_path"]
+        from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
+        workflow = builtin_workflow_runtime("epic")
 
-        assert lifecycle.is_forward_transition(
-            "refined-idea", "planning", item_type="epic"
-        )
+        assert workflow.is_forward_transition("refined-idea", "planning")
         result = _run_service_client(
             db_path, "validate-transition", "refined-idea", "planning",
-            "--item-type", "epic",
+            "--workflow", "epic",
         )
         assert result.returncode == 0, "CLI should accept refined-idea->planning for epic"
 

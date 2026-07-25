@@ -10,7 +10,6 @@ from yoke_contracts.project_contract.board_art.config import (
     ArtConfig,
     ArtVariant,
     resolve_letter_bounds,
-    BLACK,
     C_BLOCKED,
     C_DONE,
     C_IDEA,
@@ -20,7 +19,6 @@ from yoke_contracts.project_contract.board_art.config import (
     C_REFINED,
     C_RELEASE,
     C_REVIEWING,
-    WHITE,
 )
 from yoke_contracts.board.art_progress import _fill_progress
 from yoke_contracts.board.art_rainbow import _apply_rainbow

@@ -142,19 +142,19 @@ class TestStatusToBoardBucket:
 
     def test_epic_refined_idea_maps_to_planning(self):
         """AC-1: epic + refined-idea -> planning."""
-        assert status_to_board_bucket("refined-idea", item_type="epic") == "planning"
+        assert status_to_board_bucket("refined-idea", workflow_id="epic") == "planning"
 
     def test_issue_refined_idea_maps_to_refined(self):
         """AC-2: issue + refined-idea -> refined."""
-        assert status_to_board_bucket("refined-idea", item_type="issue") == "refined"
+        assert status_to_board_bucket("refined-idea", workflow_id="issue") == "refined"
 
     def test_epic_reviewing_implementation_maps_to_implementing(self):
         """AC-5: epic + reviewing-implementation -> implementing."""
-        assert status_to_board_bucket("reviewing-implementation", item_type="epic") == "implementing"
+        assert status_to_board_bucket("reviewing-implementation", workflow_id="epic") == "implementing"
 
     def test_issue_reviewing_implementation_maps_to_reviewing(self):
         """Issue + reviewing-implementation -> reviewing (default)."""
-        assert status_to_board_bucket("reviewing-implementation", item_type="issue") == "reviewing"
+        assert status_to_board_bucket("reviewing-implementation", workflow_id="issue") == "reviewing"
 
     def test_no_item_type_legacy_active_is_unknown(self):
         """AC-8: legacy active status no longer has a compatibility mapping."""
@@ -162,8 +162,8 @@ class TestStatusToBoardBucket:
 
     def test_epic_active_no_override(self):
         """Epic + legacy active has no compatibility override."""
-        assert status_to_board_bucket("active", item_type="epic") == UNKNOWN_BUCKET
+        assert status_to_board_bucket("active", workflow_id="epic") == UNKNOWN_BUCKET
 
     def test_issue_implementing_no_override(self):
         """Issue + implementing has no type-aware override, uses standard mapping."""
-        assert status_to_board_bucket("implementing", item_type="issue") == "implementing"
+        assert status_to_board_bucket("implementing", workflow_id="issue") == "implementing"

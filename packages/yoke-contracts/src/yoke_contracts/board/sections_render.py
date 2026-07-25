@@ -183,7 +183,7 @@ def task_expanded_count(
     """
     count = len(items)
     for item in items:
-        if item.type == "epic" and item.epic_id is not None:
+        if item.workflow_id == "epic" and item.epic_id is not None:
             tc = epic_task_counts.get(item.epic_id, 0)
             if tc > 0:
                 count += tc - 1  # replace 1 epic with N tasks
@@ -243,7 +243,7 @@ def render_section(
     id_header = "ID".ljust(max_id_width)
     id_sep = "-" * max_id_width + "--"
     lines.append(
-        f"| {id_header} | Status | Project | Priority | Type | Progress | Title |"
+        f"| {id_header} | Status | Project | Priority | Workflow | Progress | Title |"
     )
     lines.append(f"|{id_sep}|--------|---------|----------|------|----------|-------|")
 
@@ -252,11 +252,11 @@ def render_section(
         rstat_emoji = status_emoji(item.status, celebration)
         lines.append(
             f"| {rid_padded} | {rstat_emoji} | {item.project} | "
-            f"{item.priority} | {item.type} | {item.progress} | {item.title} |"
+            f"{item.priority} | {item.workflow_id} | {item.progress} | {item.title} |"
         )
 
         # Expand epic tasks as sub-rows
-        if item.type == "epic" and item.epic_id is not None:
+        if item.workflow_id == "epic" and item.epic_id is not None:
             if epic_task_rows_by_epic is None:
                 sub_rows = epic_task_rows(db, item.epic_id, rid_padded, celebration)
             else:

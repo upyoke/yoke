@@ -27,7 +27,7 @@ class TestFrontierCounts:
         insert_item(test_db, 2, status="implementing")
         insert_item(test_db, 3, status="idea")
         insert_item(test_db, 4, status="blocked")
-        insert_item(test_db, 5, status="reviewing-implementation", type="issue")
+        insert_item(test_db, 5, status="reviewing-implementation", workflow_id="issue")
         insert_item(test_db, 6, status="planned")
         result = frontier_counts(test_db, "yoke")
         assert result["done"] == 1
@@ -46,7 +46,7 @@ class TestFrontierCounts:
         assert result["total"] == 1
 
     def test_task_expanded(self, test_db):
-        insert_item(test_db, 10, status="implementing", type="epic")
+        insert_item(test_db, 10, status="implementing", workflow_id="epic")
         insert_task(test_db, 10, 1, "T1", "done")
         insert_task(test_db, 10, 2, "T2", "implementing")
         result = frontier_counts(test_db, "yoke")
@@ -80,73 +80,73 @@ class TestFrontierCounts:
 
     def test_pipeline_statuses_count_as_refined(self, test_db):
         insert_item(test_db, 1, status="planned")
-        insert_item(test_db, 2, status="refined-idea", type="issue")
+        insert_item(test_db, 2, status="refined-idea", workflow_id="issue")
         insert_item(test_db, 3, status="planned")
         result = frontier_counts(test_db, "yoke")
         assert result["refined"] == 3
 
     def test_planning_counts_as_planning(self, test_db):
-        """Epic-workflow-type planning status counts in planning bucket."""
+        """Epic workflow planning status counts in planning bucket."""
         insert_item(test_db, 1, status="planning")
         result = frontier_counts(test_db, "yoke")
         assert result["planning"] == 1
 
     def test_plan_drafted_counts_as_planning(self, test_db):
-        """Epic-workflow-type plan-drafted status counts in planning bucket."""
+        """Epic workflow plan-drafted status counts in planning bucket."""
         insert_item(test_db, 1, status="plan-drafted")
         result = frontier_counts(test_db, "yoke")
         assert result["planning"] == 1
 
     def test_refining_plan_counts_as_planning(self, test_db):
-        """Epic-workflow-type refining-plan status counts in planning bucket."""
+        """Epic workflow refining-plan status counts in planning bucket."""
         insert_item(test_db, 1, status="refining-plan")
         result = frontier_counts(test_db, "yoke")
         assert result["planning"] == 1
 
     def test_refining_idea_counts_as_planning(self, test_db):
-        """Issue-workflow-type refining-idea still counts in planning bucket."""
+        """Issue workflow refining-idea still counts in planning bucket."""
         insert_item(test_db, 1, status="refining-idea")
         result = frontier_counts(test_db, "yoke")
         assert result["planning"] == 1
 
     def test_epic_refined_idea_counts_as_planning(self, test_db):
         """Epic refined-idea uses the planning bucket in aggregate counts."""
-        insert_item(test_db, 1, status="refined-idea", type="epic")
+        insert_item(test_db, 1, status="refined-idea", workflow_id="epic")
         result = frontier_counts(test_db, "yoke")
         assert result["planning"] == 1
         assert result["refined"] == 0
 
     def test_issue_refined_idea_counts_as_refined(self, test_db):
         """Issue refined-idea stays in the refined bucket in aggregate counts."""
-        insert_item(test_db, 1, status="refined-idea", type="issue")
+        insert_item(test_db, 1, status="refined-idea", workflow_id="issue")
         result = frontier_counts(test_db, "yoke")
         assert result["refined"] == 1
         assert result["planning"] == 0
 
     def test_epic_reviewing_implementation_counts_as_implementing(self, test_db):
         """Epic reviewing-implementation stays in implementing aggregate counts."""
-        insert_item(test_db, 1, status="reviewing-implementation", type="epic")
+        insert_item(test_db, 1, status="reviewing-implementation", workflow_id="epic")
         result = frontier_counts(test_db, "yoke")
         assert result["implementing"] == 1
         assert result["reviewing"] == 0
 
     def test_issue_reviewing_implementation_counts_as_reviewing(self, test_db):
         """Issue reviewing-implementation stays in reviewing aggregate counts."""
-        insert_item(test_db, 1, status="reviewing-implementation", type="issue")
+        insert_item(test_db, 1, status="reviewing-implementation", workflow_id="issue")
         result = frontier_counts(test_db, "yoke")
         assert result["reviewing"] == 1
         assert result["implementing"] == 0
 
     def test_epic_reviewed_implementation_counts_as_reviewing(self, test_db):
         """Epic reviewed-implementation stays in reviewing aggregate counts."""
-        insert_item(test_db, 1, status="reviewed-implementation", type="epic")
+        insert_item(test_db, 1, status="reviewed-implementation", workflow_id="epic")
         result = frontier_counts(test_db, "yoke")
         assert result["reviewing"] == 1
         assert result["implementing"] == 0
 
     def test_issue_reviewed_implementation_counts_as_reviewing(self, test_db):
         """Issue reviewed-implementation stays in reviewing aggregate counts."""
-        insert_item(test_db, 1, status="reviewed-implementation", type="issue")
+        insert_item(test_db, 1, status="reviewed-implementation", workflow_id="issue")
         result = frontier_counts(test_db, "yoke")
         assert result["reviewing"] == 1
         assert result["implementing"] == 0

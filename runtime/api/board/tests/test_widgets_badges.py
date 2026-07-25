@@ -18,7 +18,7 @@ from yoke_contracts.board.widgets import (
     _streak_tier,
     render_achievement_badges,
     render_age_heatmap,
-    render_type_badges,
+    render_workflow_badges,
     render_velocity_meter,
     render_weather,
 )
@@ -189,8 +189,8 @@ class TestDeterministicOutput:
     def test_type_badges_deterministic(self, test_db_path):
         self._setup_db(test_db_path)
         with BoardDB(test_db_path) as db:
-            r1 = render_type_badges(db, BoardConfig(), "yoke")
-            r2 = render_type_badges(db, BoardConfig(), "yoke")
+            r1 = render_workflow_badges(db, BoardConfig(), "yoke")
+            r2 = render_workflow_badges(db, BoardConfig(), "yoke")
         assert r1 == r2
 
     def test_age_heatmap_deterministic(self, test_db_path):

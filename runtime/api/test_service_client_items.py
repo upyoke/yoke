@@ -54,6 +54,12 @@ def _seed_items_and_flow() -> None:
     apply_inline_ddl(_ITEMS_DDL)
     conn = db_backend.connect()
     try:
+        from yoke_core.domain import workflow_registry, workflow_schema
+
+        workflow_schema.ensure_workflow_schema(conn)
+        workflow_registry.converge_builtin_workflows(conn)
+        workflow_pin = workflow_registry.resolve_current_workflow_pin(conn, "issue")
+        workflow_id, workflow_version_id = workflow_pin
         stages_json = json.dumps([
             {"name": "merged", "executor": "auto"},
             {"name": "approve-deploy", "executor": "human-approval"},
@@ -71,11 +77,16 @@ def _seed_items_and_flow() -> None:
         )
         for item_id, title, status, priority, project_id, project_sequence, frozen in _SEED_ITEMS:
             conn.execute(
-                """INSERT INTO items (id, title, type, status, priority, project_id,
-                                      project_sequence,
+                """INSERT INTO items (
+                                      id, title, workflow_id, workflow_version_id,
+                                      status, priority, project_id, project_sequence,
                                       created_at, updated_at, source, frozen)
-                   VALUES (%s, %s, 'issue', %s, %s, %s, %s, '2026-01-01', '2026-01-01', 'user', %s)""",
-                (item_id, title, status, priority, project_id, project_sequence, frozen),
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s,
+                           '2026-01-01', '2026-01-01', 'user', %s)""",
+                (
+                    item_id, title, workflow_id, workflow_version_id,
+                    status, priority, project_id, project_sequence, frozen,
+                ),
             )
         conn.commit()
     finally:
@@ -174,7 +185,7 @@ class TestActiveQueue:
         assert result.returncode == 0
         lines = [line for line in result.stdout.strip().split("\n") if line]
         assert len(lines) > 0
-        # Default fields: id,title,status,priority,type,project
+        # Default fields: id,title,status,priority,workflow_id,project
         assert len(lines[0].split("|")) == 6
 
 
@@ -231,40 +242,44 @@ class TestValidateTransition:
         result = _run_client(["validate-transition", "implementing", "blocked"])
         assert result.returncode == 1, "blocked is exceptional, not in progression"
 
-    def test_item_type_issue_forward(self):
-        result = _run_client(["validate-transition", "refined-idea", "implementing", "--item-type", "issue"])
+    def test_issue_workflow_forward(self):
+        result = _run_client(["validate-transition", "refined-idea", "implementing", "--workflow", "issue"])
         assert result.returncode == 0, "refined-idea->implementing is forward for issues"
 
-    def test_item_type_issue_rejects_epic_only_status(self):
+    def test_issue_workflow_rejects_epic_only_stage(self):
         # planning is in the epic progression but not the issue progression
-        result = _run_client(["validate-transition", "refined-idea", "planning", "--item-type", "issue"])
+        result = _run_client(["validate-transition", "refined-idea", "planning", "--workflow", "issue"])
         assert result.returncode == 1, "planning is not in the issue progression"
 
-    def test_item_type_epic_accepts_planning(self):
-        result = _run_client(["validate-transition", "refined-idea", "planning", "--item-type", "epic"])
+    def test_epic_workflow_accepts_planning(self):
+        result = _run_client(["validate-transition", "refined-idea", "planning", "--workflow", "epic"])
         assert result.returncode == 0, "refined-idea->planning is forward for epics"
 
-    def test_item_type_omitted_preserves_default(self):
-        # Without --item-type, should use epic/default progression (planning is valid)
+    def test_workflow_omitted_preserves_default(self):
+        # Without --workflow, the compatibility validator defaults to epic.
         result = _run_client(["validate-transition", "refined-idea", "planning"])
         assert result.returncode == 0, "default (no flag) should accept planning"
 
-    def test_item_type_flag_actually_forwarded(self):
-        """Prove the CLI forwards item_type by using a case where issue and epic differ."""
+    def test_workflow_flag_is_resolved(self):
+        """The CLI resolves the selected workflow before validating."""
         from unittest.mock import patch
-        from yoke_core.domain import lifecycle
         from yoke_core.api import service_client
+        from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
 
         calls = []
-        original = lifecycle.is_forward_transition
 
-        def spy(from_s, to_s, *, item_type=None):
-            calls.append(item_type)
-            return original(from_s, to_s, item_type=item_type)
+        def spy(workflow_id):
+            calls.append(workflow_id)
+            return builtin_workflow_runtime(workflow_id)
 
-        with patch.object(lifecycle, "is_forward_transition", side_effect=spy):
-            service_client.cmd_validate_transition(["idea", "refining-idea", "--item-type", "issue"])
-        assert calls == ["issue"], f"Expected item_type='issue' forwarded, got {calls}"
+        with patch(
+            "yoke_core.domain.workflow_runtime.builtin_workflow_runtime",
+            side_effect=spy,
+        ):
+            service_client.cmd_validate_transition(
+                ["idea", "refining-idea", "--workflow", "issue"],
+            )
+        assert calls == ["issue"]
 
     def test_unknown_argument_returns_2(self):
         result = _run_client(["validate-transition", "idea", "refining-idea", "--bad-flag"])

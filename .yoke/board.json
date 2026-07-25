@@ -14,7 +14,7 @@
   "art_weight_mixed": 20,
   "art_weight_frontier": 20,
   "dashboard_velocity": true,
-  "dashboard_types": true,
+  "dashboard_workflows": true,
   "dashboard_age": true,
   "dashboard_badges": true,
   "dashboard_sessions_scope": "",

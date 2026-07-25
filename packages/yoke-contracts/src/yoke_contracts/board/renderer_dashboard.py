@@ -14,7 +14,7 @@ from yoke_contracts.board.sections import task_expanded_count
 from yoke_contracts.board.widgets import (
     render_achievement_badges,
     render_age_heatmap,
-    render_type_badges,
+    render_workflow_badges,
     render_velocity_meter,
     render_velocity_sparkline,
     render_weather,
@@ -35,7 +35,7 @@ def render_dashboard(
     1. Weather (if enabled)
     2. Row 1: velocity sparkline | achievement badges
     3. Velocity meter (if enabled)
-    4. Row 2: age heatmap | type badges
+    4. Row 2: age heatmap | workflow badges
     """
     lines: List[str] = []
 
@@ -71,16 +71,16 @@ def render_dashboard(
             lines.append("")
             lines.extend(meter_lines)
 
-    # Row 2: age heatmap | type badges
+    # Row 2: age heatmap | workflow badges
     age = None
     if config.dashboard_age:
         age = render_age_heatmap(db, config, scope)
 
-    types = None
-    if config.dashboard_types:
-        types = render_type_badges(db, config, scope)
+    workflows = None
+    if config.dashboard_workflows:
+        workflows = render_workflow_badges(db, config, scope)
 
-    row2 = _combine_row(age, types)
+    row2 = _combine_row(age, workflows)
     if row2:
         lines.append("")
         lines.append(row2)

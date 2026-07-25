@@ -17,14 +17,14 @@ from yoke_contracts.board.widgets_activity import (  # noqa: F401
     render_weather,
 )
 
-# Type, age, and achievement badges
+# Workflow, age, and achievement badges
 from yoke_contracts.board.widgets_badges import (  # noqa: F401
     _allocate_proportional,
     _compute_achievement_streak,
     _streak_tier,
     render_achievement_badges,
     render_age_heatmap,
-    render_type_badges,
+    render_workflow_badges,
 )
 
 # Git velocity meter

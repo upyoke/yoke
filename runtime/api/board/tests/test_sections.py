@@ -59,7 +59,7 @@ class TestStatusEmoji:
         assert status_emoji("blocked") == "⛔ blocked"
 
     def test_issue_family_statuses(self):
-        """Issue-workflow-type statuses have emoji prefixes."""
+        """Issue workflow statuses have emoji prefixes."""
         issue_statuses = [
             "refining-idea", "refined-idea", "implementing",
             "reviewing-implementation", "reviewed-implementation",
@@ -241,7 +241,7 @@ class TestPrecomputeEpicStats:
         assert result == {}
 
     def test_with_tasks(self, test_db):
-        insert_item(test_db, 10, type="epic")
+        insert_item(test_db, 10, workflow_id="epic")
         insert_task(test_db, 10, 1, "T1", "done")
         insert_task(test_db, 10, 2, "T2", "implementing")
         insert_task(test_db, 10, 3, "T3", "blocked")
@@ -251,7 +251,7 @@ class TestPrecomputeEpicStats:
         assert result[10].progress == "1/3 (33%)"
 
     def test_all_done(self, test_db):
-        insert_item(test_db, 20, type="epic")
+        insert_item(test_db, 20, workflow_id="epic")
         insert_task(test_db, 20, 1, "T1", "done")
         insert_task(test_db, 20, 2, "T2", "reviewed-implementation")
         result = precompute_epic_stats(test_db, "yoke")
@@ -259,8 +259,8 @@ class TestPrecomputeEpicStats:
         assert result[20].progress == "2/2 (100%)"
 
     def test_multiple_epics_batched(self, test_db):
-        insert_item(test_db, 30, type="epic")
-        insert_item(test_db, 31, type="epic")
+        insert_item(test_db, 30, workflow_id="epic")
+        insert_item(test_db, 31, workflow_id="epic")
         insert_task(test_db, 30, 1, "T1", "done")
         insert_task(test_db, 31, 1, "T1", "implementing")
         insert_task(test_db, 31, 2, "T2", "implementing")
@@ -277,7 +277,7 @@ class TestPrecomputeEpicTaskCounts:
         assert result == {}
 
     def test_with_tasks(self, test_db):
-        insert_item(test_db, 10, type="epic")
+        insert_item(test_db, 10, workflow_id="epic")
         insert_task(test_db, 10, 1, "T1", "done")
         insert_task(test_db, 10, 2, "T2", "implementing")
         insert_task(test_db, 10, 3, "T3", "blocked")
@@ -313,7 +313,7 @@ class TestRenderSection:
         assert "critical" in lines[4]
 
     def test_section_with_epic_subrows(self, test_db):
-        insert_item(test_db, 200, type="epic", status="implementing")
+        insert_item(test_db, 200, workflow_id="epic", status="implementing")
         insert_task(test_db, 200, 1, "Sub task 1", "done")
         insert_task(test_db, 200, 2, "Sub task 2", "implementing")
 
@@ -330,7 +330,7 @@ class TestRenderSection:
         assert "002:" in corner_lines[1]
 
     def test_task_expanded_count_in_heading(self, test_db):
-        insert_item(test_db, 300, type="epic", status="implementing")
+        insert_item(test_db, 300, workflow_id="epic", status="implementing")
         insert_task(test_db, 300, 1, "T1", "done")
         insert_task(test_db, 300, 2, "T2", "implementing")
         insert_task(test_db, 300, 3, "T3", "blocked")

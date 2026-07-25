@@ -41,11 +41,11 @@ def cmd_backlog_list_cli(args: list[str]) -> int:
 
     where_clause, params = queries.build_where_clause(filt)
     sql = (
-        "SELECT id, title, type, status, priority "
+        "SELECT id, title, workflow_id, status, priority "
         f"FROM items {where_clause} ORDER BY id"
     )
 
-    print(f"{'ID':<8} {'Title':<50} {'Type':<8} {'Status':<14} {'Priority':<8}")
+    print(f"{'ID':<8} {'Title':<50} {'Workflow':<12} {'Status':<14} {'Priority':<8}")
     print(f"{'------':<8} {'------------------------------------------------':<50} {'------':<8} {'------------':<14} {'------':<8}")
 
     conn = _get_db_readonly()
@@ -56,7 +56,7 @@ def cmd_backlog_list_cli(args: list[str]) -> int:
             display_title = (row["title"] or "")[:50]
             print(
                 f"{display_id:<8} {display_title:<50} "
-                f"{row['type']:<8} {row['status']:<14} {row['priority']:<8}"
+                f"{row['workflow_id']:<12} {row['status']:<14} {row['priority']:<8}"
             )
         return 0
     finally:

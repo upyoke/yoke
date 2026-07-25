@@ -29,19 +29,24 @@ from yoke_core.domain.actor_project_visibility import (
 )
 
 
-_DEFAULT_LIST_FIELDS = ("id", "title", "status", "priority", "type", "source")
+_DEFAULT_LIST_FIELDS = (
+    "id", "title", "status", "priority", "workflow_id", "source",
+)
 
 
 class ItemsListRequest(BaseModel):
     status: Optional[str] = None
     priority: Optional[str] = None
-    type: Optional[str] = None
+    workflow: Optional[str] = None
     frozen: Optional[bool] = None
     blocked: Optional[bool] = None
     project: Optional[str] = None
     fields: List[str] = Field(
         default_factory=list,
-        description="Column projection. Empty -> id,title,status,priority,type,source.",
+        description=(
+            "Column projection. Empty -> "
+            "id,title,status,priority,workflow_id,source."
+        ),
     )
     limit: Optional[int] = Field(default=None, ge=1, le=1000)
 
@@ -137,7 +142,7 @@ def handle_items_list(request: FunctionCallRequest) -> HandlerOutcome:
     filt = queries.ItemFilter(
         status=payload.get("status") or None,
         priority=payload.get("priority") or None,
-        item_type=payload.get("type") or None,
+        workflow=payload.get("workflow") or None,
         frozen=_opt_bool("frozen"),
         blocked=_opt_bool("blocked"),
         project=None,

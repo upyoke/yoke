@@ -32,7 +32,7 @@ def insert_zen_items(db_path: str, items: list) -> None:
 def insert_item(db: BoardDB, item_id: int, **kwargs) -> None:
     defaults = {
         "title": f"Item {item_id}",
-        "type": "issue",
+        "workflow_id": "issue",
         "status": "idea",
         "priority": "medium",
         "frozen": 0,
@@ -43,13 +43,13 @@ def insert_item(db: BoardDB, item_id: int, **kwargs) -> None:
     }
     defaults.update(kwargs)
     db.execute(
-        "INSERT INTO items (id, title, type, status, priority, frozen,"
+        "INSERT INTO items (id, title, workflow_id, status, priority, frozen,"
         " worktree, project_id, project_sequence, updated_at, created_at)"
         " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
         (
             item_id,
             defaults["title"],
-            defaults["type"],
+            defaults["workflow_id"],
             defaults["status"],
             defaults["priority"],
             defaults["frozen"],
@@ -65,14 +65,14 @@ def insert_item(db: BoardDB, item_id: int, **kwargs) -> None:
 
 def insert_item_raw(db_path: str, items: list) -> None:
     conn = connect_test_db(db_path)
-    for item_id, title, status, item_type, project, frozen, created_at, updated_at in items:
+    for item_id, title, status, workflow_id, project, frozen, created_at, updated_at in items:
         conn.execute(
             "INSERT INTO items "
-            "(id, title, status, type, project_id, project_sequence, "
+            "(id, title, status, workflow_id, project_id, project_sequence, "
             "frozen, created_at, updated_at)"
             " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
             (
-                item_id, title, status, item_type, project_id(project),
+                item_id, title, status, workflow_id, project_id(project),
                 item_id, frozen, created_at, updated_at,
             ),
         )

@@ -1,4 +1,4 @@
-"""Render tests for board widgets — weather, velocity sparkline, age heatmap, type badges.
+"""Render tests for board widgets — weather, velocity sparkline, age heatmap, workflow badges.
 
 Companion to ``test_widgets.py``. Covers the fixture-DB-driven render
 helpers that surface in the board header.
@@ -11,7 +11,7 @@ from yoke_contracts.board.config import BoardConfig
 from yoke_core.board.db import BoardDB
 from yoke_contracts.board.widgets import (
     render_age_heatmap,
-    render_type_badges,
+    render_workflow_badges,
     render_velocity_sparkline,
     render_weather,
 )
@@ -231,14 +231,14 @@ class TestRenderAgeHeatmap:
 
 
 # ---------------------------------------------------------------------------
-# render_type_badges
+# render_workflow_badges
 # ---------------------------------------------------------------------------
 
 
-class TestRenderTypeBadges:
+class TestRenderWorkflowBadges:
     def test_no_items(self, test_db_path):
         with BoardDB(test_db_path) as db:
-            result = render_type_badges(db, BoardConfig(), "yoke")
+            result = render_workflow_badges(db, BoardConfig(), "yoke")
         assert result is None
 
     def test_with_items(self, test_db_path):
@@ -249,7 +249,7 @@ class TestRenderTypeBadges:
             (3, "c", "implementing", "issue", "yoke", 0, now, now),
         ])
         with BoardDB(test_db_path) as db:
-            result = render_type_badges(db, BoardConfig(), "yoke")
+            result = render_workflow_badges(db, BoardConfig(), "yoke")
         assert result is not None
         assert "issue:2" in result
         assert "epic:1" in result
@@ -261,6 +261,6 @@ class TestRenderTypeBadges:
             (2, "b", "implementing", "issue", "externalwebapp", 0, now, now),
         ])
         with BoardDB(test_db_path) as db:
-            result = render_type_badges(db, BoardConfig(), "externalwebapp")
+            result = render_workflow_badges(db, BoardConfig(), "externalwebapp")
         assert result is not None
         assert "issue:1" in result

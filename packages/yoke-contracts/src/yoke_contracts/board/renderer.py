@@ -217,6 +217,6 @@ def _count_expected_tasks(db, scope: str) -> int:
     result = db.scalar(
         "SELECT COUNT(*) FROM epic_tasks et"
         " JOIN items i ON et.epic_id = i.id"
-        f" WHERE i.type = 'epic'{pf}"
+        f" WHERE i.workflow_id = 'epic'{pf}"
     )
     return result or 0

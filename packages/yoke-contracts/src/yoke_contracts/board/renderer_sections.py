@@ -95,7 +95,7 @@ def _count_rendered_epic_tasks(
 ) -> int:
     total = 0
     for item in items:
-        if item.type == "epic" and item.epic_id is not None:
+        if item.workflow_id == "epic" and item.epic_id is not None:
             total += len(epic_task_rows_by_epic.get(item.epic_id, ()))
     return total
 

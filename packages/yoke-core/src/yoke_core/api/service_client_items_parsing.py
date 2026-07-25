@@ -19,10 +19,12 @@ from yoke_core.api.service_client_shared import queries
 
 # Canonical field list -- "body" is a virtual rendered field
 _QI_ALL_FIELDS = {
-    "id", "title", "type", "status", "priority", "flow", "rework_count",
+    "id", "title", "workflow_id", "workflow_version_id", "status",
+    "priority", "flow", "rework_count",
     "frozen", "blocked", "blocked_reason",
     "github_issue", "deployed_to", "worktree", "body",
     "merged_at", "created_at", "updated_at", "source", "project",
+    "project_id", "project_sequence",
     "deployment_flow", "deploy_stage", "spec", "design_spec",
     "technical_plan", "worktree_plan", "shepherd_log", "shepherd_caveats",
     "test_results", "deploy_log", "browser_qa_metadata",
@@ -33,7 +35,7 @@ _QI_ALL_FIELDS = {
 # "body" is virtual -- rendered on demand, not stored in DB
 _QI_VIRTUAL_FIELDS = {"body"}
 
-_QI_DEFAULT_FIELDS = "id,title,status,priority,type,source"
+_QI_DEFAULT_FIELDS = "id,title,status,priority,workflow_id,source"
 
 _QI_LARGE_TEXT_FIELDS = {
     "body", "spec", "design_spec", "technical_plan", "worktree_plan",
@@ -90,7 +92,7 @@ def _parse_item_filters(
     """
     status = None
     priority = None
-    item_type = None
+    workflow = None
     frozen: bool | None = None
     blocked: bool | None = None
     project = None
@@ -105,8 +107,8 @@ def _parse_item_filters(
         elif args[i] == "--priority" and i + 1 < len(args):
             priority = args[i + 1]
             i += 2
-        elif args[i] == "--type" and i + 1 < len(args):
-            item_type = args[i + 1]
+        elif args[i] == "--workflow" and i + 1 < len(args):
+            workflow = args[i + 1]
             i += 2
         elif args[i] in ("--frozen", "--blocked") and i + 1 < len(args):
             val = args[i + 1]
@@ -148,7 +150,7 @@ def _parse_item_filters(
     filt = queries.ItemFilter(
         status=status,
         priority=priority,
-        item_type=item_type,
+        workflow=workflow,
         frozen=frozen,
         blocked=blocked,
         project=project,

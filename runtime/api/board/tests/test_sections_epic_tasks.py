@@ -12,8 +12,8 @@ from runtime.api.board.tests.conftest import insert_item, insert_task
 
 class TestPrecomputeEpicTaskRows:
     def test_batches_rows_by_scope(self, test_db):
-        insert_item(test_db, 40, type="epic", project="yoke")
-        insert_item(test_db, 41, type="epic", project="externalwebapp")
+        insert_item(test_db, 40, workflow_id="epic", project="yoke")
+        insert_item(test_db, 41, workflow_id="epic", project="externalwebapp")
         insert_task(test_db, 40, 1, "Yoke first", "done")
         insert_task(test_db, 40, 2, "Yoke second", "implementing")
         insert_task(test_db, 41, 1, "ExternalWebapp first", "done")
@@ -28,8 +28,8 @@ class TestPrecomputeEpicTaskRows:
         }
 
     def test_all_scope_includes_all_projects(self, test_db):
-        insert_item(test_db, 50, type="epic", project="yoke")
-        insert_item(test_db, 51, type="epic", project="externalwebapp")
+        insert_item(test_db, 50, workflow_id="epic", project="yoke")
+        insert_item(test_db, 51, workflow_id="epic", project="externalwebapp")
         insert_task(test_db, 50, 1, "Yoke first", "done")
         insert_task(test_db, 51, 1, "ExternalWebapp first", "done")
 

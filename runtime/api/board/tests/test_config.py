@@ -137,14 +137,14 @@ class TestParseConfig:
         cfg_file.write_text(textwrap.dedent("""\
             dashboard_velocity=false
             dashboard_weather=yes
-            dashboard_types=1
+            dashboard_workflows=1
             dashboard_age=0
             dashboard_badges=true
         """))
         cfg = parse_config(str(cfg_file))
         assert cfg.dashboard_velocity is False
         assert cfg.dashboard_weather is True
-        assert cfg.dashboard_types is True
+        assert cfg.dashboard_workflows is True
         assert cfg.dashboard_age is False
         assert cfg.dashboard_badges is True
 

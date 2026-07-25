@@ -17,7 +17,7 @@ class BoardConfig:
     # -- dashboard widget toggles (true = show) --------------------------------
     dashboard_velocity: bool = True
     dashboard_weather: bool = True
-    dashboard_types: bool = True
+    dashboard_workflows: bool = True
     dashboard_age: bool = True
     dashboard_badges: bool = True
     dashboard_recent_sessions: bool = True
@@ -72,7 +72,7 @@ class BoardConfig:
 _BOOL_KEYS = {
     "dashboard_velocity",
     "dashboard_weather",
-    "dashboard_types",
+    "dashboard_workflows",
     "dashboard_age",
     "dashboard_badges",
     "dashboard_recent_sessions",

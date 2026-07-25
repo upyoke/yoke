@@ -215,7 +215,7 @@ class TestCLIPreview:
         )
         conn.execute(
             "INSERT INTO items "
-            "(id, title, status, type, project_id, project_sequence, created_at, updated_at) "
+            "(id, title, status, workflow_id, project_id, project_sequence, created_at, updated_at) "
             "VALUES (%s, %s, %s, %s, 1, %s, %s, %s)",
             (99, "Board renderer", "done", "issue", 99, "2025-03-10", "2025-03-10"),
         )

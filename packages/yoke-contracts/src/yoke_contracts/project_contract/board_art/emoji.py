@@ -26,7 +26,7 @@ Allocation registry (canonical owner per glyph; reassignments noted):
     🤖 claude-code · 🍎 claude-desktop · 🪟 claude-vscode · 📟 claude-cli
     📕 codex · 💻 codex-desktop · 🪄 codex-vscode · 📠 codex-cli
   Badges (widgets_badges):
-    🔖 type · 🏅 milestone · 🎯 streak · 🛟 zero-bugs · 📭 inbox-zero · 🕐 age
+    🔖 workflow · 🏅 milestone · 🎯 streak · 🛟 zero-bugs · 📭 inbox-zero · 🕐 age
   Velocity meter (widgets_velocity_meter):
     📊 activity · 💾 code · 📦 delivery · 🧭 strategy
   Session section headers: 🟢 Active Harness Sessions · 🔴 Recent Harness Sessions
@@ -83,7 +83,7 @@ STATUS_EMOJI: Dict[str, str] = {
 # ---------------------------------------------------------------------------
 
 BADGE_CLOCK = "\U0001f550"        # 🕐 age-heatmap label
-BADGE_TYPE = "🔖"                 # 🔖 type badges
+BADGE_WORKFLOW = "🔖"             # 🔖 workflow badges
 BADGE_MILESTONE = "\U0001f3c5"    # 🏅 milestone achievement
 BADGE_STREAK = "\U0001f3af"       # 🎯 streak achievement
 BADGE_ZERO_BUGS = "🛟"            # 🛟 zero-bugs achievement

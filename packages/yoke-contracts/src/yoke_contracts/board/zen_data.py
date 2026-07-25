@@ -105,10 +105,10 @@ def _zen_query_projects(db: BoardDBLike, scope: str = "all") -> List[Tuple[str, 
 def _zen_query_items(
     db: BoardDBLike, project: str, window_start: str
 ) -> List[Tuple]:
-    """Done items in scope: ``(id, title, created_at, type)``."""
+    """Done items in scope: ``(id, title, created_at, workflow_id)``."""
     project_id = _zen_project_id(db, project)
     return db.query(
-        "SELECT id, title, created_at, type "
+        "SELECT id, title, created_at, workflow_id "
         "FROM items "
         "WHERE project_id = %s AND status = 'done' AND created_at >= %s "
         "ORDER BY created_at",

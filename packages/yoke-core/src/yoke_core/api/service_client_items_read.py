@@ -22,6 +22,7 @@ from yoke_core.api.service_client_items_parsing import (
     _resolve_item_ref,
 )
 from yoke_core.domain.project_identity import item_project_join_select
+from yoke_core.domain.items_constants import CANONICAL_COLUMNS, _DB_COLUMNS
 
 
 def _view_exists(conn, view_name: str) -> bool:
@@ -130,9 +131,7 @@ def cmd_item_row(args: list[str]) -> int:
 
     Output: pipe-delimited full row in canonical column order matching
     the canonical row order expected by item-row callers:
-    id|title|type|status|priority|flow|rework_count|frozen|
-    github_issue|deployed_to|worktree|body|merged_at|created_at|updated_at|
-    source|project|deployment_flow|deploy_stage
+    The order is defined by ``items_constants.CANONICAL_COLUMNS``.
     Exit 0 on found, 1 on not found.
     """
     if len(args) < 1:
@@ -144,15 +143,7 @@ def cmd_item_row(args: list[str]) -> int:
         return 2
 
     # Canonical field order -- "body" is virtual
-    _ROW_DB_FIELDS = [
-        "id", "title", "type", "status", "priority", "flow",
-        "rework_count", "frozen", "github_issue",
-        "deployed_to", "worktree", "merged_at",
-        "created_at", "updated_at", "source", "project",
-        "deployment_flow", "deploy_stage",
-    ]
-    _BODY_INSERT_INDEX = 11  # body goes after worktree in output
-    select_cols, needs_project = item_project_join_select(_ROW_DB_FIELDS)
+    select_cols, needs_project = item_project_join_select(list(_DB_COLUMNS))
     join = " JOIN projects p ON p.id = i.project_id" if needs_project else ""
     sql = f"SELECT {select_cols} FROM items i{join} WHERE i.id = %s"
 
@@ -169,7 +160,10 @@ def cmd_item_row(args: list[str]) -> int:
         rendered_body = build_body(conn, int(item_id)) or ""
         values = list(str(v) for v in row)
         # Insert rendered body at the expected position
-        values.insert(_BODY_INSERT_INDEX, rendered_body.replace("\n", "\\n"))
+        values.insert(
+            CANONICAL_COLUMNS.index("body"),
+            rendered_body.replace("\n", "\\n"),
+        )
         print("|".join(values))
         return 0
     finally:

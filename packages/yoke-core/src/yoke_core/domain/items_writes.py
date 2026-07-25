@@ -35,7 +35,7 @@ from yoke_core.domain.project_identity import (
 def insert_item(
     item_id: int,
     title: Optional[str] = None,
-    item_type: Optional[str] = "issue",
+    workflow: Optional[str] = "issue",
     status: Optional[str] = "idea",
     priority: Optional[str] = "medium",
     flow: Optional[str] = None,
@@ -73,20 +73,30 @@ def insert_item(
     try:
         project_identity = resolve_project(conn, project)
         assert project_identity is not None
+        from yoke_core.domain.workflow_registry import (
+            resolve_current_workflow_pin,
+        )
+
+        workflow_id, workflow_version_id = resolve_current_workflow_pin(
+            conn,
+            workflow or "issue",
+        )
         if project_sequence is None:
             project_sequence = allocate_project_sequence(conn, project_identity.id)
         conn.execute(
             """
             INSERT INTO items (
-                id, title, type, status, priority, flow,
+                id, title, workflow_id, workflow_version_id,
+                status, priority, flow,
                 rework_count, frozen, blocked, blocked_reason,
                 github_issue, deployed_to, worktree,
                 created_at, updated_at, source,
                 project_id, project_sequence, deployment_flow
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
-                item_id, title, item_type, status, priority, flow,
+                item_id, title, workflow_id, workflow_version_id,
+                status, priority, flow,
                 rework_count, frozen, blocked, blocked_reason,
                 github_issue, deployed_to, worktree,
                 created_at, updated_at, source,

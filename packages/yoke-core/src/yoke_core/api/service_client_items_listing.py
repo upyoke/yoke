@@ -28,10 +28,10 @@ def cmd_active_queue(args: list[str]) -> int:
 
     Delegates frozen/lifecycle/exclusion semantics to the domain layer.
     Output: pipe-delimited rows, one per item, with requested fields.
-    Default fields: id|title|status|priority|type|project
+    Default fields: id|title|status|priority|workflow_id|project
     """
     project = None
-    fields = "id,title,status,priority,type,project"
+    fields = "id,title,status,priority,workflow_id,project"
 
     i = 0
     while i < len(args):
@@ -68,11 +68,11 @@ def cmd_active_queue(args: list[str]) -> int:
 def cmd_item_list(args: list[str]) -> int:
     """List items with optional filters.
 
-    Usage: item-list [--status S] [--priority S] [--type S] [--frozen 0|1]
+    Usage: item-list [--status S] [--priority S] [--workflow W] [--frozen 0|1]
                      [--project P] [--fields "f1,f2,..."] [--limit N]
 
     Output: pipe-delimited rows, one per line.
-    Default fields: id,title,status,priority,type,source
+    Default fields: id,title,status,priority,workflow_id,source
     Exit 0 on results, 1 on empty.
     """
     parsed = _parse_item_filters(args, allow_limit=True)
@@ -142,7 +142,7 @@ def cmd_item_list(args: list[str]) -> int:
 def cmd_item_count(args: list[str]) -> int:
     """Count items with optional filters.
 
-    Usage: item-count [--status S] [--priority S] [--type S] [--frozen 0|1]
+    Usage: item-count [--status S] [--priority S] [--workflow W] [--frozen 0|1]
                       [--project P]
 
     Output: single integer.

@@ -35,20 +35,20 @@ def cmd_item_next_id(args: list[str]) -> int:
 def cmd_classify_status(args: list[str]) -> int:
     """Map a status to its board bucket.
 
-    Usage: classify-status <status> [--frozen 0|1] [--has-active-run 0|1] [--item-type TYPE]
+    Usage: classify-status <status> [--frozen 0|1] [--has-active-run 0|1] [--workflow WORKFLOW]
 
     Delegates to the domain board.status_to_board_bucket().
     Prints the bucket name to stdout.
     """
     if len(args) < 1:
-        print("Usage: classify-status <status> [--frozen 0|1] [--has-active-run 0|1] [--item-type TYPE]",
+        print("Usage: classify-status <status> [--frozen 0|1] [--has-active-run 0|1] [--workflow WORKFLOW]",
               file=sys.stderr)
         return 2
 
     status = args[0]
     frozen_value = None
     has_active_run = False
-    item_type = None
+    workflow_id = None
 
     i = 1
     while i < len(args):
@@ -58,8 +58,8 @@ def cmd_classify_status(args: list[str]) -> int:
         elif args[i] == "--has-active-run" and i + 1 < len(args):
             has_active_run = args[i + 1] in ("1", "true", "True")
             i += 2
-        elif args[i] == "--item-type" and i + 1 < len(args):
-            item_type = args[i + 1]
+        elif args[i] == "--workflow" and i + 1 < len(args):
+            workflow_id = args[i + 1]
             i += 2
         else:
             print(f"Unknown argument: {args[i]}", file=sys.stderr)
@@ -69,7 +69,7 @@ def cmd_classify_status(args: list[str]) -> int:
         status=status,
         frozen_value=frozen_value,
         has_active_run=has_active_run,
-        item_type=item_type,
+        workflow_id=workflow_id,
     )
     print(bucket)
     return 0
@@ -96,28 +96,35 @@ def cmd_validate_status(args: list[str]) -> int:
 def cmd_validate_transition(args: list[str]) -> int:
     """Validate that a status transition is a forward progression step.
 
-    Usage: validate-transition <from-status> <to-status> [--item-type TYPE]
+    Usage: validate-transition <from-status> <to-status> [--workflow WORKFLOW]
     Exit 0 if forward, exit 1 if not.
-    When --item-type is omitted, uses epic/default progression.
+    When --workflow is omitted, uses the built-in epic workflow.
     """
     if len(args) < 2:
-        print("Usage: validate-transition <from-status> <to-status> [--item-type TYPE]", file=sys.stderr)
+        print("Usage: validate-transition <from-status> <to-status> [--workflow WORKFLOW]", file=sys.stderr)
         return 2
 
     from_status = args[0]
     to_status = args[1]
-    item_type = None
+    workflow_id = "epic"
 
     i = 2
     while i < len(args):
-        if args[i] == "--item-type" and i + 1 < len(args):
-            item_type = args[i + 1]
+        if args[i] == "--workflow" and i + 1 < len(args):
+            workflow_id = args[i + 1]
             i += 2
         else:
             print(f"Unknown argument: {args[i]}", file=sys.stderr)
             return 2
 
-    if lifecycle.is_forward_transition(from_status, to_status, item_type=item_type):
+    from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
+
+    try:
+        workflow = builtin_workflow_runtime(workflow_id)
+    except KeyError:
+        print(f"unknown workflow: {workflow_id}", file=sys.stderr)
+        return 1
+    if workflow.is_forward_transition(from_status, to_status):
         print("forward")
         return 0
     else:

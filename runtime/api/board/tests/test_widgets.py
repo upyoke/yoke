@@ -3,7 +3,7 @@
 Companion files split off by topic:
 
 - ``test_widgets_activity.py`` — rollup-sourced lifetime-activity + streak
-- ``test_widgets_renders.py`` — weather, velocity sparkline, age heatmap, type badges
+- ``test_widgets_renders.py`` — weather, velocity sparkline, age heatmap, workflow badges
 - ``test_widgets_badges.py`` — achievement badges, velocity meter, deterministic output
 
 This file holds the pure-function unit tests: sparkline construction,

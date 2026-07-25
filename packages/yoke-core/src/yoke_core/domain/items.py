@@ -19,7 +19,7 @@ Subcommands:
     update <id> <field> <value>
     update-multi <id> field1=val1 ...
     update-structured <id> <field> (--body-file <path> | --stdin) [--force] [--source S]
-    list [--status S] [--type T] [--priority P]
+    list [--status S] [--workflow W] [--priority P]
 
 Exit codes: 0 success, 1 error/not-found, 2 usage error.
 """
@@ -98,7 +98,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p_ins = sub.add_parser("insert", help="Insert a new item")
     p_ins.add_argument("--id", type=int, required=True, help="Item ID")
     p_ins.add_argument("--title", default=None)
-    p_ins.add_argument("--type", dest="item_type", default=None)
+    p_ins.add_argument("--workflow", default=None)
     p_ins.add_argument("--status", default=None)
     p_ins.add_argument("--priority", default=None)
     p_ins.add_argument("--flow", default=None)
@@ -137,10 +137,10 @@ def _build_parser() -> argparse.ArgumentParser:
     p_struct.add_argument("--force", action="store_true", help="Bypass shrinkage guard")
     p_struct.add_argument("--source", default="", help="Source name for tracking")
 
-    # list [--status S] [--type T] [--priority P]
+    # list [--status S] [--workflow W] [--priority P]
     p_list = sub.add_parser("list", help="Filtered item list")
     p_list.add_argument("--status", default=None)
-    p_list.add_argument("--type", dest="item_type", default=None)
+    p_list.add_argument("--workflow", default=None)
     p_list.add_argument("--priority", default=None)
 
     return parser
@@ -176,7 +176,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             # Build kwargs, omitting None values so function defaults apply
             kwargs: Dict[str, Any] = {"item_id": args.id}
             _cli_field_map = {
-                "title": args.title, "item_type": args.item_type,
+                "title": args.title, "workflow": args.workflow,
                 "status": args.status, "priority": args.priority,
                 "flow": args.flow, "rework_count": args.rework_count,
                 "frozen": args.frozen,
@@ -240,7 +240,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         elif args.command == "list":
             result = query_items_list(
                 status=args.status,
-                item_type=args.item_type,
+                workflow=args.workflow,
                 priority=args.priority,
             )
             if result:

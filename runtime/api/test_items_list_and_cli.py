@@ -40,7 +40,7 @@ def db_with_item(db_path):
     insert_item(
         item_id=1,
         title="Test item",
-        item_type="issue",
+        workflow="issue",
         status="idea",
         priority="medium",
         source="user",
@@ -71,10 +71,10 @@ class TestQueryItemsList:
         assert len(lines) == 1
         assert "Implementing" in lines[0]
 
-    def test_filter_by_type(self, db_path):
-        insert_item(item_id=1, title="Epic", item_type="epic", status="idea", db_path=db_path)
-        insert_item(item_id=2, title="Issue", item_type="issue", status="idea", db_path=db_path)
-        result = query_items_list(item_type="epic", db_path=db_path)
+    def test_filter_by_workflow(self, db_path):
+        insert_item(item_id=1, title="Epic", workflow="epic", status="idea", db_path=db_path)
+        insert_item(item_id=2, title="Issue", workflow="issue", status="idea", db_path=db_path)
+        result = query_items_list(workflow="epic", db_path=db_path)
         lines = result.strip().split("\n")
         assert len(lines) == 1
         assert "Epic" in lines[0]
@@ -168,7 +168,7 @@ class TestCLIMain:
         monkeypatch.setenv("YOKE_DB", db_path)
         rc = main([
             "insert", "--id", "50", "--title", "CLI insert",
-            "--status", "idea", "--type", "issue",
+            "--status", "idea", "--workflow", "issue",
         ])
         assert rc == 0
         assert query_item(50, "title", db_path=db_path) == "CLI insert"

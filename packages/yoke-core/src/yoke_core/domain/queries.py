@@ -23,10 +23,9 @@ module.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from dataclasses import dataclass
+from typing import Any, List, Optional, Sequence, Tuple
 
-from .lifecycle import TERMINAL, is_valid_item_status
 
 # Item flag predicates moved to the shipped yoke_contracts.item_flags tier
 # (so the board render ships core-free); re-exported for queries' callers.
@@ -91,7 +90,7 @@ class ItemFilter:
 
     status: Optional[str] = None
     priority: Optional[str] = None
-    item_type: Optional[str] = None
+    workflow: Optional[str] = None
     frozen: Optional[bool] = None
     blocked: Optional[bool] = None
     project: Optional[str] = None
@@ -141,9 +140,9 @@ def build_where_clause(
         conditions.append(f"{pfx}priority = %s")
         params.append(filt.priority)
 
-    if filt.item_type is not None:
-        conditions.append(f"{pfx}type = %s")
-        params.append(filt.item_type)
+    if filt.workflow is not None:
+        conditions.append(f"{pfx}workflow_id = %s")
+        params.append(filt.workflow)
 
     if filt.frozen is not None:
         conditions.append(sql_frozen_filter(filt.frozen, col=f"{pfx}frozen"))

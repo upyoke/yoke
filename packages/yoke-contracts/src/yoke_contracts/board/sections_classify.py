@@ -60,7 +60,7 @@ class ItemRow(NamedTuple):
     rank: int
     id: str  # Public item ref, e.g. "YOK-N".
     title: str
-    type: str
+    workflow_id: str
     priority: str
     status: str
     progress: str
@@ -227,7 +227,7 @@ def classify_items(
     SELECT
         i.id,
         REPLACE(i.title, '|', '∣'),
-        COALESCE(i.type, 'issue'),
+        i.workflow_id,
         COALESCE(i.status, 'idea'),
         COALESCE(i.priority, 'medium'),
         CASE WHEN i.frozen = 1 THEN 1 ELSE 0 END,
@@ -252,7 +252,7 @@ def classify_items(
         (
             item_id_raw,
             title,
-            item_type,
+            workflow_id,
             status,
             priority,
             frozen_int,
@@ -272,7 +272,9 @@ def classify_items(
             item_id=int(item_id_raw),
         )
 
-        eff_epic: Optional[int] = int(numid) if item_type == "epic" else None
+        eff_epic: Optional[int] = (
+            int(numid) if workflow_id == "epic" else None
+        )
 
         # Compute progress — use precomputed stats when available
         if eff_epic is not None and epic_stats is not None:
@@ -289,7 +291,7 @@ def classify_items(
             rank=rank,
             id=yok_id,
             title=title,
-            type=item_type,
+            workflow_id=workflow_id,
             priority=priority,
             status=status,
             progress=progress,
@@ -304,7 +306,7 @@ def classify_items(
             status,
             frozen_value=frozen_int,
             blocked_value=blocked_int,
-            item_type=item_type,
+            workflow_id=workflow_id,
         )
         section = _BUCKET_TO_SECTION.get(bucket, "unknown")
         sections[section].append(item_row)

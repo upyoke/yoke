@@ -31,7 +31,6 @@ from runtime.api.fixtures.workflow_pins import (
 def _now() -> str:
     return iso8601_now()
 
-
 def _placeholder(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
@@ -74,7 +73,7 @@ def insert_item(
     *,
     id: int = 1,
     title: str = "Test item",
-    type: str = "issue",
+    workflow_id: str = "issue",
     status: str = "idea",
     priority: str = "medium",
     project: str = "yoke",
@@ -86,15 +85,17 @@ def insert_item(
     ts = created_at or _now()
     uts = updated_at or ts
     extra = dict(kwargs)
+    schema_workflow_id = str(extra.pop("type", workflow_id))
     cols = {
         "id": id,
         "title": title,
-        "type": type,
         "status": status,
         "priority": priority,
         "created_at": ts,
         "updated_at": uts,
     }
+    if _table_has_column(conn, "items", "type"):
+        cols["type"] = schema_workflow_id
     if _table_has_column(conn, "items", "project_id"):
         cols["project_id"] = extra.pop("project_id", _ensure_project_id(conn, project, ts=ts))
         cols["project_sequence"] = extra.pop("project_sequence", id)
@@ -105,11 +106,13 @@ def insert_item(
         and "workflow_id" not in extra
         and "workflow_version_id" not in extra
     ):
-        pin = current_workflow_pin_if_available(conn, type)
+        pin = current_workflow_pin_if_available(conn, schema_workflow_id)
         if pin is not None:
-            workflow_id, workflow_version_id = pin
-            cols["workflow_id"] = workflow_id
+            pinned_workflow_id, workflow_version_id = pin
+            cols["workflow_id"] = pinned_workflow_id
             cols["workflow_version_id"] = workflow_version_id
+        else:
+            cols["workflow_id"] = schema_workflow_id
     cols.update(extra)
     col_names = ", ".join(cols.keys())
     p = _placeholder(conn)

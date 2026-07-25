@@ -64,6 +64,7 @@ def get_board(
                 status=d["status"],
                 frozen_value=d.get("frozen"),
                 has_active_run=bool(d.get("has_active_run")),
+                workflow_id=d.get("workflow_id"),
             ))
 
         projection = board.project_board(

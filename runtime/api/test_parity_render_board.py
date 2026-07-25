@@ -147,7 +147,7 @@ class TestBoardProjectionParity:
         conn = connect_test_db(db_path)
         conn.execute(
             """INSERT INTO items
-               (id, title, type, status, priority, project_id, project_sequence,
+               (id, title, workflow_id, status, priority, project_id, project_sequence,
                 created_at, updated_at, source, frozen)
                VALUES (10, 'ExternalWebapp implementing item', 'issue', 'implementing', 'medium', 2, 2,
                        '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z', 'user', 0)"""

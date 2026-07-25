@@ -80,7 +80,7 @@ def query_item_row(
     item_id: int,
     db_path: Optional[str] = None,
 ) -> Optional[str]:
-    """Get full pipe-delimited row in canonical column order (19 columns).
+    """Get full pipe-delimited row in canonical column order (22 columns).
 
     Body newlines are escaped as literal ``\\n`` (matching shell behaviour).
     Returns ``None`` if item not found.
@@ -107,14 +107,14 @@ def query_item_row(
 
 def query_items_list(
     status: Optional[str] = None,
-    item_type: Optional[str] = None,
+    workflow: Optional[str] = None,
     priority: Optional[str] = None,
     db_path: Optional[str] = None,
 ) -> str:
     """Filtered list query returning pipe-delimited rows.
 
     Returns rows ordered by ``id ASC``, one per line. Uses the shorter
-    15-column format (matching shell ``query_items_list``): columns through
+    16-column format: columns through
     ``updated_at``, body newlines escaped as literal ``\\n``.
 
     Returns empty string if no rows match.
@@ -125,9 +125,9 @@ def query_items_list(
     if status is not None:
         conditions.append("status = %s")
         params.append(status)
-    if item_type is not None:
-        conditions.append("type = %s")
-        params.append(item_type)
+    if workflow is not None:
+        conditions.append("workflow_id = %s")
+        params.append(workflow)
     if priority is not None:
         conditions.append("priority = %s")
         params.append(priority)
@@ -136,7 +136,7 @@ def query_items_list(
     if conditions:
         where = "WHERE " + " AND ".join(conditions)
 
-    # Build SELECT matching shell's 15-column list output
+    # Build SELECT matching the public 16-column list output.
     _list_db_cols = tuple(c for c in LIST_COLUMNS if c != "body")
     select_cols, needs_project = item_project_join_select(list(_list_db_cols))
     join = " JOIN projects p ON p.id = i.project_id" if needs_project else ""

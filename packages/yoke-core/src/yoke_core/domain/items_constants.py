@@ -21,7 +21,8 @@ DEFAULT_ITEM_ACTOR_ID = "2"
 # Canonical column order for pipe-delimited row output.
 # "body" is a virtual field rendered on demand.
 CANONICAL_COLUMNS = (
-    "id", "title", "type", "status", "priority", "flow",
+    "id", "title", "workflow_id", "workflow_version_id",
+    "status", "priority", "flow",
     "rework_count", "frozen", "github_issue", "deployed_to", "worktree",
     "body", "merged_at", "created_at", "updated_at", "source",
     "project", "project_id", "project_sequence", "deployment_flow", "deploy_stage",
@@ -30,9 +31,10 @@ CANONICAL_COLUMNS = (
 # DB-only columns (body excluded — it's virtual).
 _DB_COLUMNS = tuple(c for c in CANONICAL_COLUMNS if c != "body")
 
-# Columns used in the shorter ``list`` output (15 columns, matching shell).
+# Columns used in the shorter ``list`` output (16 columns).
 LIST_COLUMNS = (
-    "id", "title", "type", "status", "priority", "flow",
+    "id", "title", "workflow_id", "workflow_version_id",
+    "status", "priority", "flow",
     "rework_count", "frozen", "github_issue", "deployed_to", "worktree",
     "body", "merged_at", "created_at", "updated_at",
 )

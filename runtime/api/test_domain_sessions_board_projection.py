@@ -15,15 +15,15 @@ from yoke_core.domain.board import (
 class TestItemForBoard:
     """Test ItemForBoard dataclass (task 005)."""
 
-    def test_item_type_default_none(self):
-        """AC-9: ItemForBoard has optional item_type field (default None)."""
+    def test_workflow_id_default_none(self):
         ifb = ItemForBoard(item={"id": 1}, status="implementing")
-        assert ifb.item_type is None
+        assert ifb.workflow_id is None
 
-    def test_item_type_set(self):
-        """AC-9: ItemForBoard accepts item_type."""
-        ifb = ItemForBoard(item={"id": 1}, status="implementing", item_type="epic")
-        assert ifb.item_type == "epic"
+    def test_workflow_id_set(self):
+        ifb = ItemForBoard(
+            item={"id": 1}, status="implementing", workflow_id="epic",
+        )
+        assert ifb.workflow_id == "epic"
 
 
 class TestBoardProjection:
@@ -48,14 +48,14 @@ class TestProjectBoard:
         status: str,
         frozen: int = 0,
         has_active_run: bool = False,
-        item_type: str | None = None,
+        workflow_id: str | None = None,
     ) -> ItemForBoard:
         return ItemForBoard(
             item={"id": item_id, "status": status},
             status=status,
             frozen_value=frozen,
             has_active_run=has_active_run,
-            item_type=item_type,
+            workflow_id=workflow_id,
         )
 
     def test_basic_grouping(self):
@@ -149,11 +149,10 @@ class TestProjectBoard:
         """Board columns should match BOARD_COLUMN_ORDER from lifecycle module."""
         assert BOARD_COLUMNS == BOARD_COLUMN_ORDER
 
-    def test_type_aware_epic_refined_idea_goes_to_planning(self):
-        """AC-10: project_board passes item_type to status_to_board_bucket."""
+    def test_epic_workflow_refined_idea_goes_to_planning(self):
         items = [
-            self._make_item(1, "refined-idea", item_type="epic"),
-            self._make_item(2, "refined-idea", item_type="issue"),
+            self._make_item(1, "refined-idea", workflow_id="epic"),
+            self._make_item(2, "refined-idea", workflow_id="issue"),
         ]
         board = project_board(items)
         # epic refined-idea -> planning bucket
@@ -166,16 +165,15 @@ class TestProjectBoard:
     def test_type_aware_epic_planning_goes_to_planning(self):
         """Epic with planning status goes to planning bucket."""
         items = [
-            self._make_item(1, "planning", item_type="epic"),
+            self._make_item(1, "planning", workflow_id="epic"),
         ]
         board = project_board(items)
         assert len(board.columns["planning"]) == 1
 
-    def test_type_aware_epic_reviewing_impl_goes_to_implementing(self):
-        """AC-10: epic reviewing-implementation -> implementing, issue -> reviewing."""
+    def test_epic_workflow_reviewing_impl_goes_to_implementing(self):
         items = [
-            self._make_item(1, "reviewing-implementation", item_type="epic"),
-            self._make_item(2, "reviewing-implementation", item_type="issue"),
+            self._make_item(1, "reviewing-implementation", workflow_id="epic"),
+            self._make_item(2, "reviewing-implementation", workflow_id="issue"),
         ]
         board = project_board(items)
         assert len(board.columns["implementing"]) == 1

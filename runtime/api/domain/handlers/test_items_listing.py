@@ -79,7 +79,7 @@ class TestItemsList:
         assert outcome.result_payload["count"] == 1
         assert rows[0]["title"] == "Done thing"
         assert set(rows[0].keys()) == {
-            "id", "title", "status", "priority", "type", "source",
+            "id", "title", "status", "priority", "workflow_id", "source",
         }
 
     def test_fields_projection_and_limit(self, test_db):

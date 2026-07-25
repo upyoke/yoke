@@ -41,7 +41,7 @@ def db_with_item(db_path):
     insert_item(
         item_id=1,
         title="Test item",
-        item_type="issue",
+        workflow="issue",
         status="idea",
         priority="medium",
         source="user",
@@ -79,7 +79,7 @@ class TestQueryItem:
 
     def test_frozen_zero_maps_to_false(self, db_path):
         """frozen=0 should return 'false'."""
-        insert_item(item_id=3, title="Not frozen", item_type="issue",
+        insert_item(item_id=3, title="Not frozen", workflow="issue",
                     status="idea", priority="medium", frozen=0,
                     created_at="2026-01-01T00:00:00Z",
                     updated_at="2026-01-01T00:00:00Z", db_path=db_path)
@@ -128,7 +128,7 @@ class TestInsertItem:
         insert_item(
             item_id=10,
             title="New item",
-            item_type="issue",
+            workflow="issue",
             status="idea",
             priority="high",
             source="test",

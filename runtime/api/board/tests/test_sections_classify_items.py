@@ -143,7 +143,7 @@ class TestClassifyItems:
         assert ids == ["YOK-2", "YOK-3", "YOK-1"]
 
     def test_epic_progress_computed(self, test_db):
-        insert_item(test_db, 100, status="implementing", type="epic")
+        insert_item(test_db, 100, status="implementing", workflow_id="epic")
         insert_task(test_db, 100, 1, "T1", "done")
         insert_task(test_db, 100, 2, "T2", "implementing")
         result = classify_items(test_db, "yoke")
@@ -153,7 +153,7 @@ class TestClassifyItems:
 
     def test_epic_progress_with_precomputed_stats(self, test_db):
         """classify_items uses precomputed epic_stats when provided."""
-        insert_item(test_db, 100, status="implementing", type="epic")
+        insert_item(test_db, 100, status="implementing", workflow_id="epic")
         insert_task(test_db, 100, 1, "T1", "done")
         insert_task(test_db, 100, 2, "T2", "implementing")
         stats = precompute_epic_stats(test_db, "yoke")
@@ -230,56 +230,56 @@ class TestClassifyItems:
 
     def test_epic_refined_idea_goes_to_pipeline(self, test_db):
         """AC-11: epic refined-idea -> planning bucket -> pipeline section."""
-        insert_item(test_db, 1, status="refined-idea", type="epic")
+        insert_item(test_db, 1, status="refined-idea", workflow_id="epic")
         result = classify_items(test_db, "yoke")
         pipeline_ids = {r.id for r in result["pipeline"]}
         assert "YOK-1" in pipeline_ids
 
     def test_issue_refined_idea_goes_to_pipeline(self, test_db):
         """Issue refined-idea -> refined bucket -> pipeline section."""
-        insert_item(test_db, 1, status="refined-idea", type="issue")
+        insert_item(test_db, 1, status="refined-idea", workflow_id="issue")
         result = classify_items(test_db, "yoke")
         pipeline_ids = {r.id for r in result["pipeline"]}
         assert "YOK-1" in pipeline_ids
 
     def test_epic_planning_goes_to_pipeline(self, test_db):
         """Epic planning -> planning bucket -> pipeline section."""
-        insert_item(test_db, 1, status="planning", type="epic")
+        insert_item(test_db, 1, status="planning", workflow_id="epic")
         result = classify_items(test_db, "yoke")
         pipeline_ids = {r.id for r in result["pipeline"]}
         assert "YOK-1" in pipeline_ids
 
     def test_epic_plan_drafted_goes_to_pipeline(self, test_db):
         """Epic plan-drafted -> planning bucket -> pipeline section."""
-        insert_item(test_db, 1, status="plan-drafted", type="epic")
+        insert_item(test_db, 1, status="plan-drafted", workflow_id="epic")
         result = classify_items(test_db, "yoke")
         pipeline_ids = {r.id for r in result["pipeline"]}
         assert "YOK-1" in pipeline_ids
 
     def test_epic_reviewing_implementation_goes_to_active(self, test_db):
         """AC-11: epic reviewing-implementation -> implementing bucket -> active section."""
-        insert_item(test_db, 1, status="reviewing-implementation", type="epic")
+        insert_item(test_db, 1, status="reviewing-implementation", workflow_id="epic")
         result = classify_items(test_db, "yoke")
         active_ids = {r.id for r in result["active"]}
         assert "YOK-1" in active_ids
 
     def test_issue_reviewing_implementation_goes_to_active(self, test_db):
         """Issue reviewing-implementation -> reviewing bucket -> active section."""
-        insert_item(test_db, 1, status="reviewing-implementation", type="issue")
+        insert_item(test_db, 1, status="reviewing-implementation", workflow_id="issue")
         result = classify_items(test_db, "yoke")
         active_ids = {r.id for r in result["active"]}
         assert "YOK-1" in active_ids
 
     def test_epic_reviewed_implementation_goes_to_active(self, test_db):
         """Epic reviewed-implementation -> reviewing bucket -> active section."""
-        insert_item(test_db, 1, status="reviewed-implementation", type="epic")
+        insert_item(test_db, 1, status="reviewed-implementation", workflow_id="epic")
         result = classify_items(test_db, "yoke")
         active_ids = {r.id for r in result["active"]}
         assert "YOK-1" in active_ids
 
     def test_issue_reviewed_implementation_goes_to_active(self, test_db):
         """Issue reviewed-implementation -> reviewing bucket -> active section."""
-        insert_item(test_db, 1, status="reviewed-implementation", type="issue")
+        insert_item(test_db, 1, status="reviewed-implementation", workflow_id="issue")
         result = classify_items(test_db, "yoke")
         active_ids = {r.id for r in result["active"]}
         assert "YOK-1" in active_ids

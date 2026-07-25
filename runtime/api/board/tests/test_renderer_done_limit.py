@@ -16,7 +16,7 @@ def test_done_section_limit_caps_old_done_rows(populated_db, tmp_path):
     for item_id, title, seq, updated_at in rows:
         conn.execute(
             "INSERT INTO items "
-            "(id, title, type, priority, status, project_id, "
+            "(id, title, workflow_id, priority, status, project_id, "
             "project_sequence, updated_at, created_at)"
             " VALUES (%s, %s, 'issue', 'low', 'done', 1, %s, %s, %s)",
             (item_id, title, seq, updated_at, updated_at),
@@ -27,7 +27,7 @@ def test_done_section_limit_caps_old_done_rows(populated_db, tmp_path):
     cfg.write_text(
         "dashboard_velocity=false\n"
         "dashboard_weather=false\n"
-        "dashboard_types=false\n"
+        "dashboard_workflows=false\n"
         "dashboard_age=false\n"
         "dashboard_badges=false\n"
         "dashboard_recent_sessions=false\n"

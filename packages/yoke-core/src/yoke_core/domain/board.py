@@ -31,7 +31,7 @@ Status-to-bucket mapping rules (in priority order):
     idea                    -> idea  (backlog bucket)
     unknown                 -> unknown
 
-Type-aware overrides (when ``item_type`` is provided):
+Workflow-aware overrides (when ``workflow_id`` is provided):
     epic + refined-idea        -> planning (issue default: refined)
     epic + reviewing-implementation -> implementing (issue default: reviewing)
 
@@ -58,7 +58,7 @@ from yoke_contracts.board.status import (  # noqa: F401
     FROZEN_BUCKET,
     UNKNOWN_BUCKET,
     _STATUS_TO_BUCKET,
-    _TYPE_AWARE_OVERRIDES,
+    _WORKFLOW_AWARE_OVERRIDES,
     status_to_board_bucket,
 )
 
@@ -134,7 +134,7 @@ class ItemForBoard:
     frozen_value: Any = None
     blocked_value: Any = None
     has_active_run: bool = False
-    item_type: Optional[str] = None
+    workflow_id: Optional[str] = None
 
 
 def project_board(
@@ -167,7 +167,7 @@ def project_board(
             status=item_data.status,
             frozen_value=item_data.frozen_value,
             has_active_run=item_data.has_active_run,
-            item_type=item_data.item_type,
+            workflow_id=item_data.workflow_id,
             blocked_value=item_data.blocked_value,
         )
 

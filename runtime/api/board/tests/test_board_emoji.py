@@ -72,7 +72,7 @@ class TestCentralizedConstants:
         import yoke_contracts.board.widgets_badges as B
 
         assert (B._TAG, B._SHIELD, B._MAILBOX, B._MEDAL, B._TARGET, B._CLOCK) == (
-            E.BADGE_TYPE, E.BADGE_ZERO_BUGS, E.BADGE_INBOX_ZERO,
+            E.BADGE_WORKFLOW, E.BADGE_ZERO_BUGS, E.BADGE_INBOX_ZERO,
             E.BADGE_MILESTONE, E.BADGE_STREAK, E.BADGE_CLOCK,
         )
         assert (

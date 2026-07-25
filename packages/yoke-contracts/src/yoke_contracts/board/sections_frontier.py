@@ -64,7 +64,7 @@ def frontier_counts(
             WHEN tc.task_status IN ({_tts_in}) THEN tc.task_status
             WHEN tc.task_status IS NOT NULL THEN i.status
             ELSE i.status END AS eff_status,
-        i.type AS item_type,
+        i.workflow_id,
         CASE WHEN i.blocked = 1 THEN 1 ELSE 0 END AS is_blocked_flag,
         COALESCE(tc.cnt, 1) AS weight
         FROM items i LEFT JOIN task_counts tc ON tc.epic_id = i.id
@@ -73,21 +73,21 @@ def frontier_counts(
     SELECT
         COALESCE(SUM(CASE WHEN eff_status = 'done' THEN weight ELSE 0 END), 0),
         COALESCE(SUM(CASE WHEN is_blocked_flag = 0 AND eff_status = 'implementing'
-                           OR (is_blocked_flag = 0 AND eff_status = 'reviewing-implementation' AND item_type = 'epic')
+                           OR (is_blocked_flag = 0 AND eff_status = 'reviewing-implementation' AND workflow_id = 'epic')
                           THEN weight ELSE 0 END), 0),
         COALESCE(SUM(CASE WHEN is_blocked_flag = 1
                            OR eff_status IN ('blocked','stopped','failed')
                           THEN weight ELSE 0 END), 0),
         COALESCE(SUM(CASE WHEN is_blocked_flag = 0 AND (eff_status IN ('reviewed-implementation','polishing-implementation')
-                           OR (eff_status = 'reviewing-implementation' AND item_type <> 'epic'))
+                           OR (eff_status = 'reviewing-implementation' AND workflow_id <> 'epic'))
                           THEN weight ELSE 0 END), 0),
         COALESCE(SUM(CASE WHEN is_blocked_flag = 0 AND eff_status = 'release' THEN weight ELSE 0 END), 0),
         COALESCE(SUM(CASE WHEN is_blocked_flag = 0 AND eff_status = 'implemented' THEN weight ELSE 0 END), 0),
-        COALESCE(SUM(CASE WHEN is_blocked_flag = 0 AND eff_status IN ('planned','refined-idea') AND item_type <> 'epic'
+        COALESCE(SUM(CASE WHEN is_blocked_flag = 0 AND eff_status IN ('planned','refined-idea') AND workflow_id <> 'epic'
                           THEN weight ELSE 0 END), 0),
         COALESCE(SUM(CASE WHEN is_blocked_flag = 0 AND eff_status = 'idea' THEN weight ELSE 0 END), 0),
         COALESCE(SUM(CASE WHEN is_blocked_flag = 0 AND (eff_status IN ('refining-idea','planning','plan-drafted','refining-plan')
-                           OR (eff_status = 'refined-idea' AND item_type = 'epic'))
+                           OR (eff_status = 'refined-idea' AND workflow_id = 'epic'))
                           THEN weight ELSE 0 END), 0),
         COALESCE(SUM(weight), 0)
     FROM item_or_task
