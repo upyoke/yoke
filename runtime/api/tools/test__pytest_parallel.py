@@ -142,6 +142,57 @@ class TestApplyPostgresXdistAutoEnv:
         assert calls == ["prepare"]
         assert "YOKE_PG_CLUSTER_ROOT" not in _pytest_parallel.os.environ
 
+    def test_prunes_when_pg_dsn_is_absent(self, monkeypatch):
+        """The real local shape: YOKE_PG_DSN is NOT set in the parent process.
+
+        The suite's conftest binds it to the test cluster at import time,
+        inside the pytest process, long after this parent-process decision.
+        Treating absence as "not the test cluster" skipped the prune on every
+        ordinary local run and let orphaned databases accumulate until cloning
+        a template stalled every xdist worker behind the maintenance lock.
+        """
+        from yoke_core.tools import pg_testcluster
+
+        calls = []
+        monkeypatch.setattr(
+            pg_testcluster,
+            "dsn",
+            lambda: "host=/tmp/yoke-pgtest-cluster/sock user=yoketest",
+        )
+        monkeypatch.setattr(
+            pg_testcluster,
+            "prepare_for_pytest",
+            lambda: calls.append("prepare") or 0,
+        )
+
+        apply_postgres_xdist_auto_env(["-n", "auto"], {})
+
+        assert calls == ["prepare"]
+
+    def test_skips_prune_for_a_different_cluster(self, monkeypatch):
+        # An explicit DSN naming another cluster is the one reason to skip:
+        # pruning there would touch a cluster this run does not own.
+        from yoke_core.tools import pg_testcluster
+
+        calls = []
+        monkeypatch.setattr(
+            pg_testcluster,
+            "dsn",
+            lambda: "host=/tmp/yoke-pgtest-cluster/sock user=yoketest",
+        )
+        monkeypatch.setattr(
+            pg_testcluster,
+            "prepare_for_pytest",
+            lambda: calls.append("prepare") or 0,
+        )
+
+        apply_postgres_xdist_auto_env(
+            ["-n", "auto"],
+            {"YOKE_PG_DSN": "host=/somewhere/else/sock user=someone"},
+        )
+
+        assert calls == []
+
     def test_operator_auto_worker_override_wins(self):
         env = apply_postgres_xdist_auto_env(
             ["-n", "auto"],

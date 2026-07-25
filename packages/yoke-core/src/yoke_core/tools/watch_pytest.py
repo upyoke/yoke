@@ -53,6 +53,7 @@ from __future__ import annotations
 import argparse
 import os
 import re
+import time
 import sys
 from pathlib import Path
 from typing import Sequence
@@ -69,6 +70,7 @@ from yoke_core.tools._pytest_parallel import (
     apply_parallel_default,
     split_no_parallel,
 )
+from yoke_core.tools import _watch_pytest_wall_clock
 from yoke_core.tools._watch_throttle import Classification, LineClass
 
 WRAPPER_MODULE = "yoke_core.tools.watch_pytest"
@@ -297,7 +299,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         sys.stdout.write(warning)
         sys.stdout.flush()
 
-    return _watch_runner.run_watcher(
+    started = time.monotonic()
+    exit_code = _watch_runner.run_watcher(
         argv=_pytest_argv(pytest_args),
         classifier=classify_pytest_line,
         raw_capture=raw_path,
@@ -305,6 +308,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         kind=KIND,
         env=pytest_env,
     )
+    _watch_pytest_wall_clock.report(time.monotonic() - started, raw_path)
+    return exit_code
 
 
 if __name__ == "__main__":  # pragma: no cover — exercised via subprocess
