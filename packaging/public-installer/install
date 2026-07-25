@@ -27,6 +27,11 @@ command_stdin="${YOKE_INSTALL_COMMAND_STDIN:-/dev/null}"
 command_shell="${YOKE_INSTALL_COMMAND_SHELL:-/bin/sh}"
 uv_installer_url="${YOKE_UV_INSTALLER_URL:-https://astral.sh/uv/install.sh}"
 onboard_launched=0
+# PATH as the calling shell handed it to us. The installer prepends the tool bin
+# dir to its own PATH before anything else runs, so this snapshot is the only
+# remaining evidence of whether that shell could already resolve yoke — which is
+# what decides whether the hand-off has to tell the user to reload it.
+inherited_path="${PATH:-}"
 
 # Resolver sources are installer-owned.  Remove ambient index, find-links,
 # constraint, override, and requirement inputs before either the bootstrap
@@ -297,34 +302,62 @@ source_command_for_current_shell() {
   esac
 }
 
-# Final hand-off CTA. The single thing the user must do — source their startup
-# file to use Yoke in THIS terminal — is set off in a brand-green bar block in
-# rich terminals and an ASCII bar block in GNU Screen/dumb terminals.
+# True when the shell that invoked the installer already resolved the tool bin
+# dir, so the terminal the user is returned to can run yoke as-is and the reload
+# step is noise. Tested against the entry snapshot because our own PATH was
+# rewritten before this point.
+inherited_shell_has_bin_dir() {
+  [ -n "${uv_bin_dir:-}" ] || return 1
+  case ":${inherited_path}:" in
+    *":${uv_bin_dir}:"*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# Bar prefix for the hand-off block's body lines, mirroring gutter(): brand-green
+# ▌ in rich terminals, ASCII | in GNU Screen/dumb ones. Trailing space included.
+handoff_bar() {
+  if plain_glyphs; then
+    printf '  | '
+  else
+    printf '  %s▌%s ' "$(c_brand)" "$(sgr_reset)"
+  fi
+}
+
+# Final hand-off CTA, and the last thing on screen — this clears the wizard's
+# display, so every step still standing between the user and a working harness
+# has to be here, in dependency order. The reload leads: the terminal the wizard
+# exits into still carries the pre-install PATH, and a harness launched from it
+# inherits that PATH and cannot find yoke. It is dropped when the calling shell
+# already resolved the bin dir, which makes it noise. Should the wizard ever
+# draw its own hand-off screen, gate this block off rather than let both render.
 print_path_guidance_after_onboard() {
   [ "$onboard_launched" -eq 1 ] || return 0
-  source_cmd=$(source_command_for_current_shell)
   if [ -t 1 ]; then
     printf '\033[0m\033[?25h\033[2J\033[H'
   fi
   if plain_glyphs; then
     printf '\nYoke installation complete.\n\n'
-    printf '  | Run now to use Yoke in this terminal:\n'
-    printf '  |\n'
-    printf '  |     %s\n' "$source_cmd"
-    printf '  |\n'
-    printf '  | New terminal windows already have it.\n'
-    return 0
+  else
+    printf '\n%s☀%s Yoke installation complete.\n\n' "$(c_amber)" "$(sgr_reset)"
   fi
-  printf '\n%s☀%s Yoke installation complete.\n\n' "$(c_amber)" "$(sgr_reset)"
-  printf '  %s▌%s %sRun now to use Yoke in this terminal:%s\n' \
-    "$(c_brand)" "$(sgr_reset)" "$(c_text)" "$(sgr_reset)"
-  printf '  %s▌%s\n' "$(c_brand)" "$(sgr_reset)"
-  printf '  %s▌%s     %s%s%s%s\n' \
-    "$(c_brand)" "$(sgr_reset)" "$(c_bright)$(c_bold)" "$source_cmd" \
-    "$(sgr_reset)" "$(sgr_reset)"
-  printf '  %s▌%s\n' "$(c_brand)" "$(sgr_reset)"
-  printf '  %s▌%s %sNew terminal windows already have it.%s\n' \
-    "$(c_brand)" "$(sgr_reset)" "$(c_dim)" "$(sgr_reset)"
+  printf '%s%sNext: make it execution-ready.%s\n' \
+    "$(handoff_bar)" "$(c_text)" "$(sgr_reset)"
+  printf '%s\n' "$(handoff_bar)"
+  handoff_step=1
+  if ! inherited_shell_has_bin_dir; then
+    printf '%s  %s  %s%s%s\n' "$(handoff_bar)" "$handoff_step" \
+      "$(c_bright)$(c_bold)" "$(source_command_for_current_shell)" "$(sgr_reset)"
+    printf '%s     %s(this terminal only; new windows already have it)%s\n' \
+      "$(handoff_bar)" "$(c_dim)" "$(sgr_reset)"
+    handoff_step=$((handoff_step + 1))
+  fi
+  printf '%s  %s  %sopen Claude Code or Codex in your project folder%s\n' \
+    "$(handoff_bar)" "$handoff_step" "$(c_text)" "$(sgr_reset)"
+  handoff_step=$((handoff_step + 1))
+  printf '%s  %s  %srun %s%s/yoke onboard%s\n' \
+    "$(handoff_bar)" "$handoff_step" "$(c_text)" \
+    "$(c_bright)" "$(c_bold)" "$(sgr_reset)"
 }
 
 # On a successful interactive install, hand straight off into the onboarding

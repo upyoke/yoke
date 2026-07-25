@@ -91,8 +91,21 @@ def test_interactive_success_launches_onboard_by_absolute_path(tmp_path: Path) -
     assert launched_path.endswith("/yoke")
     assert logged.endswith("onboard --post-install")
     assert "☀ Starting Yoke onboard…" in result.stdout
-    assert "New terminal windows already have it." in result.stdout
-    assert f'source "{tmp_path}/.zprofile"' in result.stdout
+    assert "Next: make it execution-ready." in result.stdout
+    assert "(this terminal only; new windows already have it)" in result.stdout
+    assert f'1  source "{tmp_path}/.zprofile"' in result.stdout
+    assert "2  open Claude Code or Codex in your project folder" in result.stdout
+    assert "3  run /yoke onboard" in result.stdout
+    # The reload is a prerequisite of the harness step, so it has to come first;
+    # a harness opened before it inherits the pre-install PATH and cannot find
+    # yoke. This block is also the last thing on screen, so nothing downstream
+    # can restate the order.
+    assert result.stdout.index(f'source "{tmp_path}/.zprofile"') < result.stdout.index(
+        "open Claude Code or Codex"
+    )
+    assert result.stdout.index("open Claude Code or Codex") < result.stdout.index(
+        "run /yoke onboard"
+    )
 
 
 def test_screen_mode_success_guidance_uses_ascii_glyphs(tmp_path: Path) -> None:
@@ -120,8 +133,9 @@ def test_screen_mode_success_guidance_uses_ascii_glyphs(tmp_path: Path) -> None:
     assert result.returncode == 0
     assert "* Starting Yoke onboard..." in result.stdout
     assert "Yoke installation complete." in result.stdout
-    assert "  | Run now to use Yoke in this terminal:" in result.stdout
-    assert f'  |     source "{tmp_path}/.zprofile"' in result.stdout
+    assert "  | Next: make it execution-ready." in result.stdout
+    assert f'  |   1  source "{tmp_path}/.zprofile"' in result.stdout
+    assert "  |   3  run /yoke onboard" in result.stdout
     assert "☀" not in result.stdout
     assert "▌" not in result.stdout
     assert "…" not in result.stdout
@@ -131,8 +145,47 @@ def test_successful_interactive_onboard_prints_path_guidance_contract() -> None:
     text = INSTALL_SHIM_PATH.read_text(encoding="utf-8")
 
     assert "print_path_guidance_after_onboard" in text
-    assert "Run now to use Yoke in this terminal:" in text
+    assert "Next: make it execution-ready." in text
+    assert "/yoke onboard" in text
     assert 'exec "$shell_path" -l' not in text
+
+
+def test_handoff_omits_reload_step_when_calling_shell_already_resolves_yoke(
+    tmp_path: Path,
+) -> None:
+    # A shell that already has the tool bin dir needs no reload, so the block
+    # drops that step and the harness step becomes 1. The installer prepends the
+    # dir to its own PATH before anything runs, so this can only be decided from
+    # the PATH snapshot taken at entry.
+    bin_dir = _bin(tmp_path)
+    write_uv_stub(bin_dir, install_py_body=FAKE_INSTALL_PY)
+    tool_bin_dir = tmp_path / ".local" / "bin"
+    tool_bin_dir.mkdir(parents=True)
+    prompt_in = tmp_path / "prompt-in"
+    prompt_out = tmp_path / "prompt-out"
+    prompt_in.write_text("y\n", encoding="utf-8")
+    prompt_out.write_text("", encoding="utf-8")
+    write_executable(bin_dir / "yoke", "#!/bin/sh\nexit 0\n")
+
+    result = run_shim(
+        bin_dir,
+        args=(),
+        env_extra={
+            "HOME": str(tmp_path),
+            "SHELL": "/bin/zsh",
+            "TERM": "xterm-256color",
+            "PATH": ":".join([str(bin_dir), str(tool_bin_dir), "/usr/bin", "/bin"]),
+            "YOKE_INSTALL_PROMPT_IN": str(prompt_in),
+            "YOKE_INSTALL_PROMPT_OUT": str(prompt_out),
+        },
+    )
+
+    assert result.returncode == 0
+    assert "Next: make it execution-ready." in result.stdout
+    assert f'source "{tmp_path}/.zprofile"' not in result.stdout
+    assert "this terminal only" not in result.stdout
+    assert "1  open Claude Code or Codex in your project folder" in result.stdout
+    assert "2  run /yoke onboard" in result.stdout
 
 
 def test_shim_never_invokes_onboard_project() -> None:
