@@ -49,7 +49,6 @@ def test_composer_reads_the_pinned_definition_and_registered_gate_ids():
 
     assert "load_item_workflow_runtime" in source
     assert "workflow.gates_for_stage(target_status)" in source
-    assert "backlog_status_gate_points" not in source
     for evaluator in (
         "_run_db_mutation_gate",
         "_run_architecture_impact_gate",

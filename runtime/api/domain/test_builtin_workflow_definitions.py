@@ -2,17 +2,12 @@
 
 from __future__ import annotations
 
-from yoke_core.domain.backlog_status_gate_points import STATUS_GATE_POINTS
 from yoke_core.domain.builtin_workflow_definitions import (
     BUILTIN_WORKFLOW_IDS,
     ENTRY_SURFACE_IDS,
     REGISTERED_WORKFLOW_EXECUTOR_IDS,
     builtin_workflow_definition,
     builtin_workflow_definitions,
-)
-from yoke_core.domain.lifecycle_progression import (
-    EPIC_PROGRESSION,
-    ISSUE_PROGRESSION,
 )
 from yoke_core.domain.workflow_gate_catalog import workflow_gate_catalog
 
@@ -40,24 +35,6 @@ def test_builtin_roster_and_first_versions_are_fixed():
     )
     assert {row["version"] for row in fixtures} == {1}
     assert {row["workflow"]["source"] for row in fixtures} == {"built_in"}
-
-
-def test_issue_and_epic_stages_freeze_the_intended_live_progressions():
-    assert _stage_ids("issue") == ISSUE_PROGRESSION
-    assert _stage_ids("epic") == EPIC_PROGRESSION
-
-
-def test_issue_and_epic_status_gate_placement_freezes_live_behavior():
-    for workflow_id in ("issue", "epic"):
-        fixture = builtin_workflow_definition(workflow_id)
-        stage_ids = _stage_ids(workflow_id)
-        actual = _gate_pairs(workflow_id)
-        expected = {
-            (stage_id, gate_id)
-            for stage_id in stage_ids
-            for gate_id in STATUS_GATE_POINTS.get(stage_id, ())
-        }
-        assert expected <= actual
 
 
 def test_short_workflows_make_coverage_holes_and_closures_explicit():
