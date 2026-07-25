@@ -37,7 +37,10 @@ from runtime.api.test_dependency_schema import (
     PROJECTS_SCHEMA,
 )
 from yoke_core.api.main import app, get_db_path, get_db_readonly, get_db_readwrite
-from yoke_core.domain.strategy_docs import STRATEGY_DOCS_CREATE_TABLE_SQL
+from yoke_core.domain.strategy_docs_schema import (
+    STRATEGY_DOC_REVISIONS_CREATE_TABLE_SQL,
+    STRATEGY_DOCS_CREATE_TABLE_SQL,
+)
 
 
 def _p(conn) -> str:
@@ -177,6 +180,8 @@ def _apply_schema_and_seed_on_conn(conn) -> None:
         + QA_REQUIREMENTS_SCHEMA
         + QA_RUNS_SCHEMA
         + STRATEGY_DOCS_CREATE_TABLE_SQL
+        + ";\n"
+        + STRATEGY_DOC_REVISIONS_CREATE_TABLE_SQL
         + ";\n",
     )
 

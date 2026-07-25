@@ -136,18 +136,17 @@ _DUMPED_BY_RE = re.compile(r"^;\s+Dumped by pg_dump version:\s+(.+)$", re.M)
 # trusted schema owns every object and column; this manifest names only
 # previously shipped, lossless schema evolutions that the loader may bridge.
 # Any unlisted table or column drift remains a compatibility error.
-_ARCHIVE_OMITTABLE_TARGET_TABLES = frozenset({"capability_secrets"})
-_ARCHIVE_OMITTABLE_TARGET_SEQUENCES = frozenset({"capability_secrets_id_seq"})
+_ARCHIVE_OMITTABLE_TARGET_TABLES = frozenset(
+    {"capability_secrets", "strategy_doc_revisions"})
+_ARCHIVE_OMITTABLE_TARGET_SEQUENCES = frozenset(
+    {"capability_secrets_id_seq", "strategy_doc_revisions_id_seq"})
 _ARCHIVE_FORBIDDEN_TABLE_DATA = frozenset({"capability_secrets"})
 _ARCHIVE_FORBIDDEN_SEQUENCE_DATA = frozenset({"capability_secrets_id_seq"})
 _ARCHIVE_OMITTABLE_TARGET_COLUMNS = {
     "project_github_repo_bindings": frozenset(
-        {"last_sync_at", "last_sync_outcome", "last_sync_error"}
-    ),
+        {"last_sync_at", "last_sync_outcome", "last_sync_error"}),
 }
-_ARCHIVE_COLUMN_RENAMES = {
-    ("qa_artifacts", "storage_path"): "artifact_handle",
-}
+_ARCHIVE_COLUMN_RENAMES = {("qa_artifacts", "storage_path"): "artifact_handle"}
 
 # A freshly born universe has identity, role, permission, and bootstrap event
 # rows.  These tables represent user-created work; any row makes the hosted
@@ -177,6 +176,7 @@ USER_CONTENT_TABLES: tuple[str, ...] = (
     "qa_requirements",
     "qa_runs",
     "strategy_docs",
+    "strategy_doc_revisions",
     "strategy_checkpoints",
     "strategize_landed_carry",
     "deployment_runs",

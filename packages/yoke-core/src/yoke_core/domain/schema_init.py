@@ -41,7 +41,10 @@ from yoke_core.domain.schema_init_work_claim_indexes import (
     create_work_claim_active_uniques,
 )
 from yoke_core.domain.schema_migrations import _ensure_qa_runs_verdict_trigger
-from yoke_core.domain.strategy_docs import STRATEGY_DOCS_CREATE_TABLE_SQL
+from yoke_core.domain.strategy_docs_schema import (
+    STRATEGY_DOC_REVISIONS_CREATE_TABLE_SQL,
+    STRATEGY_DOCS_CREATE_TABLE_SQL,
+)
 
 
 def converge_core_schema(conn) -> None:
@@ -83,6 +86,7 @@ def converge_core_schema(conn) -> None:
     # migration; fresh envs get the table from the same DDL constant
     # the strategy domain owns.
     conn.execute(STRATEGY_DOCS_CREATE_TABLE_SQL)
+    conn.execute(STRATEGY_DOC_REVISIONS_CREATE_TABLE_SQL)
     apply_additive_schema(conn)
     converge_pack_catalog(conn)
     # Built-in deployment flows are executable configuration, not birth-only

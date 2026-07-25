@@ -45,6 +45,7 @@ from yoke_core.domain.strategy_docs_header import (
     content_sha256,
     parse_file_text,
 )
+from yoke_core.domain.strategy_docs_schema import record_doc_revision
 
 
 @dataclass(frozen=True)
@@ -248,6 +249,11 @@ def execute_ingest(
                 )
             )
             continue
+        record_doc_revision(
+            conn, project_id, plan.slug, plan.file_body,
+            source_operation="ingest", actor_id=actor_id,
+            created_at=new_updated_at,
+        )
         conn.commit()
         results.append(
             _doc_report(

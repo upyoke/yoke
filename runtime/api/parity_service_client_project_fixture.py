@@ -6,13 +6,18 @@ import json
 from typing import Any
 
 from runtime.api.test_dependency_schema import ITEMS_SCHEMA, PROJECTS_SCHEMA
-from yoke_core.domain.strategy_docs import STRATEGY_DOCS_CREATE_TABLE_SQL
+from yoke_core.domain.strategy_docs_schema import (
+    STRATEGY_DOC_REVISIONS_CREATE_TABLE_SQL,
+    STRATEGY_DOCS_CREATE_TABLE_SQL,
+)
 
 
 SERVICE_CLIENT_PARITY_SCHEMA = (
     PROJECTS_SCHEMA
     + ITEMS_SCHEMA
     + STRATEGY_DOCS_CREATE_TABLE_SQL
+    + ";\n"
+    + STRATEGY_DOC_REVISIONS_CREATE_TABLE_SQL
     + ";\n"
     + """
     CREATE TABLE deployment_flows (

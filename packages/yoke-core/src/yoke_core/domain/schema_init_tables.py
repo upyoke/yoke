@@ -22,7 +22,10 @@ from yoke_core.domain.github_workflow_dispatch_intents import (
 )
 from yoke_core.domain.items_constants import DEFAULT_ITEM_ACTOR_ID
 from yoke_core.domain.projects_restart_schema import _projects_table_sql
-from yoke_core.domain.strategy_docs import STRATEGY_DOCS_CREATE_TABLE_SQL
+from yoke_core.domain.strategy_docs_schema import (
+    STRATEGY_DOC_REVISIONS_CREATE_TABLE_SQL,
+    STRATEGY_DOCS_CREATE_TABLE_SQL,
+)
 
 
 def create_core_tables(conn: Any) -> None:
@@ -131,6 +134,9 @@ def create_core_tables(conn: Any) -> None:
         -- per-project strategy-doc authority; rendered views live at each
         -- project's .yoke/strategy/ (yoke_core.domain.strategy_docs).
         {STRATEGY_DOCS_CREATE_TABLE_SQL};
+        -- append-only per-doc content snapshots for every strategy-doc
+        -- content write (yoke_core.domain.strategy_docs_schema).
+        {STRATEGY_DOC_REVISIONS_CREATE_TABLE_SQL};
         -- dispatcher idempotency dedup store (function_call_ledger.py DDL).
         {FUNCTION_CALL_LEDGER_CREATE_SQL};
         -- pre-POST GitHub workflow dispatch intent and exact run identity.

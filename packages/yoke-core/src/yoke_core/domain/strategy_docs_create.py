@@ -17,6 +17,7 @@ from yoke_core.domain.strategy_docs import (
     _require_valid_slug,
     next_updated_at,
 )
+from yoke_core.domain.strategy_docs_schema import record_doc_revision
 
 
 class DuplicateStrategyDocError(ValueError):
@@ -54,6 +55,10 @@ def create_doc(
         "(project_id, slug, content, updated_at, updated_by_actor_id) "
         "VALUES (%s, %s, %s, %s, %s)",
         (project_id, slug, content, updated_at, actor_id),
+    )
+    record_doc_revision(
+        conn, project_id, slug, content,
+        source_operation="create", actor_id=actor_id, created_at=updated_at,
     )
     conn.commit()
     return {
