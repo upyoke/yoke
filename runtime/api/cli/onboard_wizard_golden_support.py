@@ -219,6 +219,31 @@ def make_app(*, post_install: bool = False, env_name: str = "prod",
         )
 
 
+# A fixed number of pauses cannot prove the UI stopped changing — it only
+# spends a fixed budget hoping it did. Under CI load one more frame can still
+# be pending, and the export then captures a half-settled screen: an extra
+# style rule for an element rendered without its final colour, and clip
+# dimensions from a viewport that had not finished scrolling. Capturing until
+# two consecutive exports agree makes "settled" an observation rather than a
+# guess, so the gate fails on real drift instead of on runner speed.
+_SETTLE_ATTEMPTS = 8
+
+
+async def _stable_screenshot(pilot: Any, app: OnboardWizardApp, title: str) -> str:
+    """Export the screen once it stops changing between consecutive frames."""
+    previous = app.export_screenshot(title=title)
+    for _ in range(_SETTLE_ATTEMPTS):
+        await pilot.pause()
+        current = app.export_screenshot(title=title)
+        if current == previous:
+            return current
+        previous = current
+    # Still moving after the budget: return the newest frame and let the
+    # golden comparison report the difference rather than silently passing a
+    # frame nobody looked at.
+    return previous
+
+
 def render(app: OnboardWizardApp,
            drive: Callable[[OnboardWizardApp, Any], Awaitable[None]],
            *, title: str) -> str:
@@ -249,7 +274,7 @@ def render(app: OnboardWizardApp,
                     immediate=True,
                 )
                 await pilot.pause()
-            return app.export_screenshot(title=title)
+            return await _stable_screenshot(pilot, app, title)
 
     with golden_color_env():
         return asyncio.run(scenario())
