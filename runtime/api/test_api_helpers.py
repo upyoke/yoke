@@ -28,6 +28,9 @@ from fastapi.testclient import TestClient
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from runtime.api.auth_test_helpers import mint_api_auth_context
+from runtime.api.api_workflow_test_helpers import (
+    install_workflow_registry_and_pin_items,
+)
 from yoke_core.domain import db_backend
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
@@ -224,6 +227,7 @@ def _apply_schema_and_seed_on_conn(conn) -> None:
            VALUES (5, 'Cancelled item', 'issue', 'cancelled', 'low', 1, 5,
                    '2026-03-01T00:00:00Z', '2026-03-06T00:00:00Z', 'user', NULL)"""
     )
+    install_workflow_registry_and_pin_items(conn)
 
     # Seed deployment flow with a human-approval stage
     _test_flow_stages = json.dumps([

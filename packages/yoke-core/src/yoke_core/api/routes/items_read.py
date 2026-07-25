@@ -12,7 +12,11 @@ from fastapi import Query
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRouter
 
-from yoke_core.domain import lifecycle, queries
+from yoke_core.domain import queries
+from yoke_core.domain.workflow_stage_vocabulary import (
+    published_workflow_stage_ids,
+)
+from yoke_core.domain.workflow_runtime import ENGINE_EXCEPTIONAL_STAGE_IDS
 
 # Module-level import so test patches against ``yoke_core.api.main.*`` take effect.
 import yoke_core.api.main as _main
@@ -30,14 +34,6 @@ def list_items(
     exclude_frozen: bool = Query(False, description="Exclude frozen items"),
 ) -> _main.ItemListResponse | JSONResponse:
     """List backlog items, optionally filtered by status, project, and queue criteria."""
-    if status is not None and not lifecycle.is_valid_item_status(status):
-        return _main._error_response(
-            400,
-            "VALIDATION_ERROR",
-            f"Invalid status value '{status}'. "
-            f"Must be one of: {', '.join(lifecycle.ALL_ITEM_STATUSES)}",
-        )
-
     item_filter = queries.ItemFilter(
         status=status,
         project=project,
@@ -58,6 +54,17 @@ def list_items(
 
     conn = _main.get_db_readonly()
     try:
+        valid_stages = (
+            set(published_workflow_stage_ids(conn))
+            | ENGINE_EXCEPTIONAL_STAGE_IDS
+        )
+        if status is not None and status not in valid_stages:
+            return _main._error_response(
+                400,
+                "VALIDATION_ERROR",
+                f"Invalid status value '{status}'. "
+                f"Must be one of: {', '.join(sorted(valid_stages))}",
+            )
         rows = conn.execute(sql, params).fetchall()
         items = [_main._row_to_item(r, include_body=False) for r in rows]
         return _main.ItemListResponse(items=items, count=len(items))

@@ -89,7 +89,7 @@ def seed_service_client_parity_data(conn: Any) -> None:
             "approve-deploy", "parity-flow", 0,
         ),
         (5, "Cancelled item", "issue", "cancelled", "low", "yoke", 4, None, None, 0),
-        (6, "Frozen item", "issue", "planned", "medium", "yoke", 5, None, None, 1),
+        (6, "Frozen item", "epic", "planned", "medium", "yoke", 5, None, None, 1),
         (
             7, "Reviewing item", "issue", "reviewing-implementation", "high",
             "yoke", 6, None, None, 0,

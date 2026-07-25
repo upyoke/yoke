@@ -2,7 +2,7 @@
 
 This module owns the Python domain logic for projecting items into board
 display buckets and computing board statistics. Board ordering is sourced
-from ``yoke_core.domain.lifecycle.BOARD_COLUMN_ORDER``.
+from the client-tier board contract.
 
 Board color palette (cool-to-warm-to-green arc):
     idea(purple) planning(indigo) refined(blue) implementing(yellow)
@@ -49,11 +49,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence
 
-from .lifecycle import BOARD_COLUMN_ORDER
-
 # Status -> board-bucket vocabulary moved to the shipped yoke_contracts.board
 # tier so the board render ships core-free; re-exported here for existing callers.
 from yoke_contracts.board.status import (  # noqa: F401
+    BOARD_BUCKET_ORDER,
     BLOCKED_BUCKET,
     FROZEN_BUCKET,
     UNKNOWN_BUCKET,
@@ -67,7 +66,7 @@ from yoke_contracts.board.status import (  # noqa: F401
 # ---------------------------------------------------------------------------
 
 # Re-export for convenience
-BOARD_COLUMNS = BOARD_COLUMN_ORDER
+BOARD_COLUMNS = BOARD_BUCKET_ORDER
 
 
 

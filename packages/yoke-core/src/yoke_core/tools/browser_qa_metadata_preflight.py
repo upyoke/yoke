@@ -26,47 +26,41 @@ from yoke_core.domain.browser_qa_metadata import (
     validate_json_string,
 )
 from yoke_core.domain.db_helpers import connect, query_rows
-from yoke_core.domain.lifecycle import (
-    EXCEPTIONAL,
-    TERMINAL_FAILURE,
-    TERMINAL_SUCCESS,
+from yoke_core.domain.workflow_runtime import (
+    ENGINE_TERMINAL_STAGE_IDS,
+    workflow_runtime_from_row,
 )
 
 
-def _terminal_statuses() -> List[str]:
-    """Statuses that exempt an item from the metadata requirement.
-
-    Terminal success ``done``, terminal failure ``stopped``/``failed``, and
-    the pre-lifecycle ``cancelled`` state all belong here — those items are
-    either shipped or stopped, and the classifier delete does not affect
-    them. ``blocked`` is deliberately NOT exempt: blocked items may
-    eventually be unblocked and re-enter the seeding path.
-    """
-    return sorted({*TERMINAL_SUCCESS, *TERMINAL_FAILURE, "cancelled"})
-
-
-def _non_terminal_where(col: str = "status") -> tuple[str, tuple]:
-    terminals = _terminal_statuses()
-    placeholders = ",".join(["%s"] * len(terminals))
-    return f"{col} NOT IN ({placeholders})", tuple(terminals)
+_ENGINE_METADATA_EXEMPT_STAGE_IDS = ENGINE_TERMINAL_STAGE_IDS | {"failed"}
 
 
 def find_unset_rows(db_path: Optional[str] = None) -> List[dict]:
     """Return the list of non-terminal items with missing/invalid metadata."""
     conn = connect(db_path)
     try:
-        where, params = _non_terminal_where()
         rows = query_rows(
             conn,
-            f"SELECT id, status, title, COALESCE(browser_qa_metadata, '') AS metadata "
-            f"FROM items WHERE {where} ORDER BY id",
-            params,
+            "SELECT i.id, i.status, i.title, "
+            "COALESCE(i.browser_qa_metadata, '') AS metadata, "
+            "i.workflow_id, i.workflow_version_id, v.version, "
+            "v.definition_json, v.definition_digest "
+            "FROM items i "
+            "LEFT JOIN workflow_versions v ON v.id = i.workflow_version_id "
+            "ORDER BY i.id",
         )
     finally:
         conn.close()
 
     unset: List[dict] = []
     for row in rows:
+        status = str(row["status"])
+        workflow = workflow_runtime_from_row(row)
+        if (
+            status in workflow.terminal_stage_ids
+            or status in _ENGINE_METADATA_EXEMPT_STAGE_IDS
+        ):
+            continue
         raw = row["metadata"]
         if raw is None or raw == "" or raw == "null":
             unset.append({
@@ -122,11 +116,6 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     )
     print(_format_findings(findings), file=sys.stderr)
     return 1
-
-
-# Expose the exceptional-state constant so callers can extend the exemption list.
-_EXCEPTIONAL_REFERENCE = EXCEPTIONAL
-
 
 if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(main())

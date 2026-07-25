@@ -21,11 +21,10 @@ from typing import List
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.idea_body_completeness import is_idea_body_incomplete
-from yoke_core.domain.lifecycle import (
-    ALL_ITEM_STATUSES,
-    ALL_TASK_STATUSES,
-    EXCEPTIONAL,
+from yoke_core.domain.item_workflow_validation import (
+    invalid_item_workflow_stages,
 )
+from yoke_core.domain.lifecycle import ALL_TASK_STATUSES
 
 import yoke_core.engines.doctor_report as _base
 
@@ -48,24 +47,19 @@ def hc_frontmatter_schema(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     pipeline authority lives in ``items.deployment_flow`` and is checked by
     ``HC-invalid-item-flows``.
     """
-    valid_types = {"epic", "issue"}
     valid_priorities = {"high", "medium", "low"}
-    valid_statuses = set(ALL_ITEM_STATUSES) | EXCEPTIONAL
     valid_flows = VALID_FRONTMATTER_FLOWS
 
-    issues: List[str] = []
+    issues = [
+        f"- YOK-{item_id}: invalid workflow stage '{stage}' ({reason})"
+        for item_id, stage, reason in invalid_item_workflow_stages(conn)
+    ]
     rows = query_rows(
         conn,
-        "SELECT id, type, status, priority, github_issue, flow, rework_count FROM items",
+        "SELECT id, priority, github_issue, flow, rework_count FROM items",
     )
     for row in rows:
         yok_id = f"YOK-{row['id']}"
-        t = row["type"]
-        if t and t not in valid_types:
-            issues.append(f"- {yok_id}: invalid type '{t}' (expected: {' '.join(sorted(valid_types))})")
-        s = row["status"]
-        if s and s not in valid_statuses:
-            issues.append(f"- {yok_id}: invalid status '{s}' (expected: {' '.join(sorted(valid_statuses))})")
         p = row["priority"]
         if p and p not in valid_priorities:
             issues.append(f"- {yok_id}: invalid priority '{p}' (expected: {' '.join(sorted(valid_priorities))})")
@@ -280,7 +274,7 @@ def hc_epic_validation(conn, args: DoctorArgs, rec: RecordCollector) -> None:
             issues.append(f"- {epic_id}: duplicate task numbers detected")
         # Check for invalid task statuses
         for t in tasks:
-            if t["status"] and t["status"] not in ALL_TASK_STATUSES and t["status"] not in EXCEPTIONAL:
+            if t["status"] and t["status"] not in ALL_TASK_STATUSES:
                 issues.append(f"- {epic_id} task {t['task_num']}: invalid status '{t['status']}'")
 
     if issues:

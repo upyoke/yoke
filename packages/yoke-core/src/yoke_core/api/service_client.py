@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# ruff: noqa: E402
 """Yoke service client — thin CLI adapter for shell access to the domain layer.
 
 This module provides a command-line interface that shell scripts and SKILL.md
@@ -138,7 +139,6 @@ from yoke_core.api.service_client_shared import (  # noqa: F401
     emit_post_decision_telemetry,
     evaluate_item_gate,
     get_max_chain_steps,
-    lifecycle,
     load_routing_config,
     mutations,
     normalize_claim_item_id,

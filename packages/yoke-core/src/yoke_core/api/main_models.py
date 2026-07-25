@@ -7,9 +7,6 @@ projections, and the request bodies for ``POST /v1/items``, ``PATCH
 /v1/items/{id}``, ``POST /v1/items/{id}/approve``, and
 ``POST /v1/items/{id}/capability``.
 
-The lifecycle constants ``VALID_STATUSES`` and ``BOARD_COLUMN_ORDER``
-are sourced from :mod:`yoke_core.domain.lifecycle` and surfaced here
-for the canonical ``yoke_core.api.main`` public surface.
 """
 
 from __future__ import annotations
@@ -22,21 +19,7 @@ from yoke_contracts.github_app_public import (
     GitHubAppAdvertisement,
     GitHubAppUnavailable,
 )
-from yoke_core.domain import lifecycle
 from yoke_core.domain.items_constants import DEFAULT_ITEM_ACTOR_ID
-
-
-# ---------------------------------------------------------------------------
-# Lifecycle constants — re-exported from the domain layer
-# ---------------------------------------------------------------------------
-
-# Canonical delivery lifecycle statuses.
-# Delegate to domain.lifecycle.ALL_ITEM_STATUSES (source of truth).
-VALID_STATUSES = list(lifecycle.ALL_ITEM_STATUSES)
-
-# Canonical board column display order.
-# Delegate to domain.lifecycle.BOARD_COLUMN_ORDER (source of truth).
-BOARD_COLUMN_ORDER = list(lifecycle.BOARD_COLUMN_ORDER)
 
 
 # ---------------------------------------------------------------------------

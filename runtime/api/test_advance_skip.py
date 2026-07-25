@@ -1,3 +1,4 @@
+# ruff: noqa: F811
 """Skip-polish behavior, bypass scoping, events, claims, and CLI coverage."""
 
 from __future__ import annotations
@@ -201,12 +202,16 @@ class TestSkipPolishRejection:
 class TestAllowlistGuard:
     def test_polish_allowlist_excludes_pre_impl(self):
         """The skip-polish allowlist must not overlap with pre-impl statuses."""
-        from yoke_core.domain import lifecycle_progression
+        from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
 
-        overlap = (
-            advance_skip._POLISH_TRANSIT_ALLOWED
-            & lifecycle_progression.PRE_IMPLEMENTATION_STATUSES
-        )
+        workflows = tuple(map(builtin_workflow_runtime, ("issue", "epic")))
+        pre_implementation = {
+            stage
+            for workflow in workflows
+            for stage in workflow.stage_ids
+            if workflow.is_before_implementation(stage)
+        }
+        overlap = advance_skip._POLISH_TRANSIT_ALLOWED & pre_implementation
         assert overlap == frozenset()
 
     def test_refine_allowlist_only_targets(self):

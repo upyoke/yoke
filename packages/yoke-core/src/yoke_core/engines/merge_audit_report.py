@@ -8,7 +8,7 @@ from typing import List, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import connect, query_rows, query_one, query_scalar
-from yoke_core.domain.lifecycle import sql_terminal_success_list
+from yoke_core.domain.lifecycle import sql_task_terminal_success_list
 
 
 # One row per distinct worktree branch for an epic, ordered by the earliest
@@ -66,7 +66,7 @@ def generate_report(epic_filter: Optional[int] = None) -> str:
     lines.append("")
 
     # Terminal success statuses for SQL
-    terminal_success_sql = sql_terminal_success_list()
+    terminal_success_sql = sql_task_terminal_success_list()
 
 
     if epic_filter is not None:
@@ -97,7 +97,6 @@ def generate_report(epic_filter: Optional[int] = None) -> str:
         if item_row is None:
             continue
 
-        item_id = item_row["id"]
         item_title = item_row["title"]
         item_status = item_row["status"]
 

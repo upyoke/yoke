@@ -102,6 +102,6 @@ class TestListItems:
             conn.commit()
             conn.close()
             message = _startup_error_for_db(db_path)
-            assert "retired statuses" in message
+            assert "invalid workflow pins or stages" in message
             assert "YOK-99=merged" in message
-            assert "zero-legacy DB convergence" in message
+            assert "Repair the item workflow pins" in message

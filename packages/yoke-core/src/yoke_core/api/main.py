@@ -11,8 +11,7 @@ app itself is built by :func:`yoke_core.api.app_factory.create_app`.
 
 The implementation is split across responsibility-named siblings:
 
-* :mod:`yoke_core.api.main_models` — Pydantic request/response models +
-  the ``VALID_STATUSES`` / ``BOARD_COLUMN_ORDER`` lifecycle constants.
+* :mod:`yoke_core.api.main_models` — Pydantic request/response models.
 * :mod:`yoke_core.api.main_db` — legacy DB path-token resolution plus
   Postgres authority connection factories.
 * :mod:`yoke_core.api.main_route_adapters` — row-to-response conversion,
@@ -32,13 +31,11 @@ from __future__ import annotations
 import subprocess  # noqa: F401
 
 # ---------------------------------------------------------------------------
-# Sibling re-exports — Pydantic models + lifecycle constants
+# Sibling re-exports — Pydantic models
 # ---------------------------------------------------------------------------
 
 from yoke_core.api.main_models import (  # noqa: F401
-    BOARD_COLUMN_ORDER,
     VALID_PRIORITIES,
-    VALID_STATUSES,
     ApproveRequest,
     ApproveResponse,
     BoardResponse,
@@ -168,6 +165,9 @@ from yoke_core.api.routing_config import (  # noqa: F401
 )
 from yoke_core.api.service_client import _resolve_deploy_envs  # noqa: F401
 from yoke_core.domain.strategy_docs import STRATEGY_DOCS_TABLE
+from yoke_core.domain.item_workflow_validation import (
+    invalid_item_workflow_stages,
+)
 
 # ---------------------------------------------------------------------------
 # Startup gate — kept inline so monkey-patches against
@@ -205,19 +205,16 @@ def _ensure_db_initialized() -> None:
                 "`python3 -m yoke_core.domain.schema init` before "
                 "starting the API."
             )
-        _VALID = tuple(VALID_STATUSES)
-        p = "%s" if db_backend.connection_is_postgres(conn) else "?"
-        placeholders = ",".join(p for _ in _VALID)
-        cur = conn.execute(
-            f"SELECT id, status FROM items WHERE status NOT IN ({placeholders})",
-            _VALID,
-        )
-        bad_rows = cur.fetchall()
+        bad_rows = invalid_item_workflow_stages(conn)
         if bad_rows:
-            details = ", ".join(f"YOK-{r[0]}={r[1]}" for r in bad_rows[:10])
+            details = ", ".join(
+                f"YOK-{item_id}={stage}"
+                for item_id, stage, _reason in bad_rows[:10]
+            )
             raise RuntimeError(
-                f"{len(bad_rows)} items have retired statuses ({details}). "
-                "Run the zero-legacy DB convergence tool before starting the API."
+                f"{len(bad_rows)} items have invalid workflow pins or stages "
+                f"({details}). Repair the item workflow pins before starting "
+                "the API."
             )
     finally:
         conn.close()
@@ -227,7 +224,7 @@ def _ensure_db_initialized() -> None:
 # App creation via factory + slim entry point
 # ---------------------------------------------------------------------------
 
-from yoke_core.api.app_factory import create_app
+from yoke_core.api.app_factory import create_app  # noqa: E402
 
 app = create_app()
 

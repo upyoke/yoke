@@ -11,9 +11,13 @@ import sys
 
 from yoke_core.domain import db_backend
 from yoke_core.api.service_client_shared import (
+    _get_db_readonly,
     board,
-    lifecycle,
 )
+from yoke_core.domain.workflow_stage_vocabulary import (
+    published_workflow_stage_ids,
+)
+from yoke_core.domain.workflow_runtime import ENGINE_EXCEPTIONAL_STAGE_IDS
 
 
 def cmd_item_next_id(args: list[str]) -> int:
@@ -85,7 +89,15 @@ def cmd_validate_status(args: list[str]) -> int:
         print("Usage: validate-status <status>", file=sys.stderr)
         return 2
 
-    if lifecycle.is_valid_item_status(args[0]):
+    conn = _get_db_readonly()
+    try:
+        valid_stages = (
+            set(published_workflow_stage_ids(conn))
+            | ENGINE_EXCEPTIONAL_STAGE_IDS
+        )
+    finally:
+        conn.close()
+    if args[0] in valid_stages:
         print("valid")
         return 0
     else:

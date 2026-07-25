@@ -31,7 +31,7 @@ class TestBoard:
     def test_board_columns_structure(self, client):
         resp = client.get("/v1/board")
         data = resp.json()
-        # Board should have columns matching canonical BOARD_COLUMN_ORDER
+        # Board should have columns matching the client board contract.
         expected_columns = [
             "idea", "planning", "refined", "implementing", "blocked",
             "reviewing", "implemented", "release", "done",
@@ -86,17 +86,24 @@ class TestDomainDelegation:
     """Verify that API endpoints actually delegate to domain layer modules
     and that domain constants are the source of truth for API constants."""
 
-    def test_valid_statuses_sourced_from_domain(self):
-        """VALID_STATUSES in main.py matches domain.lifecycle.ALL_ITEM_STATUSES."""
-        from yoke_core.api.main import VALID_STATUSES
-        from yoke_core.domain.lifecycle import ALL_ITEM_STATUSES
-        assert VALID_STATUSES == list(ALL_ITEM_STATUSES)
+    def test_published_workflows_supply_api_stage_vocabulary(self, test_db):
+        from yoke_core.domain.workflow_stage_vocabulary import (
+            published_workflow_stage_ids,
+        )
 
-    def test_board_column_order_sourced_from_domain(self):
-        """BOARD_COLUMN_ORDER in main.py matches domain.lifecycle.BOARD_COLUMN_ORDER."""
-        from yoke_core.api.main import BOARD_COLUMN_ORDER
-        from yoke_core.domain.lifecycle import BOARD_COLUMN_ORDER as DOMAIN_BCO
-        assert BOARD_COLUMN_ORDER == list(DOMAIN_BCO)
+        conn = connect_test_db(test_db["db_path"])
+        try:
+            stages = published_workflow_stage_ids(conn)
+        finally:
+            conn.close()
+        assert "implementing" in stages
+        assert "planning" in stages
+
+    def test_board_column_order_sourced_from_contract(self):
+        from yoke_contracts.board.status import BOARD_BUCKET_ORDER
+        from yoke_core.domain.board import BOARD_COLUMNS
+
+        assert BOARD_COLUMNS == BOARD_BUCKET_ORDER
 
     def test_board_uses_domain_bucket_mapping(self, client, test_db):
         """Board groups items by domain bucket rules, not inline status match.

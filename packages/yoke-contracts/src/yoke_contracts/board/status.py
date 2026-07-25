@@ -18,6 +18,17 @@ FROZEN_BUCKET = "frozen"
 BLOCKED_BUCKET = "blocked"
 # The "unknown" bucket — items with unrecognized statuses.
 UNKNOWN_BUCKET = "unknown"
+BOARD_BUCKET_ORDER = (
+    "idea",
+    "planning",
+    "refined",
+    "implementing",
+    "blocked",
+    "reviewing",
+    "implemented",
+    "release",
+    "done",
+)
 
 # Direct status-to-bucket map for items (no task context, no active-run check).
 _STATUS_TO_BUCKET: Dict[str, str] = {

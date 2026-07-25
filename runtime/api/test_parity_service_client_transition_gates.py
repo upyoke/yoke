@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from yoke_core.domain import lifecycle
+from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
 
 # ``_run_service_client`` is the (backend-agnostic) subprocess helper; it copies
 # os.environ at call time, so it inherits the per-test ``YOKE_PG_DSN`` repointed
@@ -42,6 +42,7 @@ class TestTransitionParity:
     def test_forward_transitions_accepted(self, parity_env):
         """Forward transitions should be accepted by both surfaces."""
         db_path = parity_env["db_path"]
+        workflow = builtin_workflow_runtime("epic")
 
         forward_cases = [
             ("idea", "refining-idea"),
@@ -57,7 +58,7 @@ class TestTransitionParity:
         ]
         for from_s, to_s in forward_cases:
             # Domain
-            assert lifecycle.is_forward_transition(from_s, to_s), (
+            assert workflow.is_forward_transition(from_s, to_s), (
                 f"Domain should accept {from_s} -> {to_s}"
             )
             # CLI
@@ -71,6 +72,7 @@ class TestTransitionParity:
     def test_backward_transitions_rejected(self, parity_env):
         """Backward transitions should be rejected by both surfaces."""
         db_path = parity_env["db_path"]
+        workflow = builtin_workflow_runtime("epic")
 
         backward_cases = [
             ("done", "planning"),
@@ -79,7 +81,7 @@ class TestTransitionParity:
         ]
         for from_s, to_s in backward_cases:
             # Domain
-            assert not lifecycle.is_forward_transition(from_s, to_s), (
+            assert not workflow.is_forward_transition(from_s, to_s), (
                 f"Domain should reject {from_s} -> {to_s}"
             )
             # CLI
@@ -93,13 +95,14 @@ class TestTransitionParity:
     def test_exceptional_transitions_not_forward(self, parity_env):
         """Transitions involving exceptional statuses are not forward moves."""
         db_path = parity_env["db_path"]
+        workflow = builtin_workflow_runtime("epic")
 
         cases = [
             ("planning", "blocked"),
             ("blocked", "planning"),
         ]
         for from_s, to_s in cases:
-            assert not lifecycle.is_forward_transition(from_s, to_s)
+            assert not workflow.is_forward_transition(from_s, to_s)
             result = _run_service_client(
                 db_path, "validate-transition", from_s, to_s,
             )
@@ -108,7 +111,6 @@ class TestTransitionParity:
     def test_issue_workflow_parity(self, parity_env):
         """CLI issue selection matches the built-in workflow runtime."""
         db_path = parity_env["db_path"]
-        from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
         workflow = builtin_workflow_runtime("issue")
 
         # planning is in epic progression but not issue progression
@@ -130,7 +132,6 @@ class TestTransitionParity:
     def test_epic_workflow_parity(self, parity_env):
         """CLI epic selection matches the built-in workflow runtime."""
         db_path = parity_env["db_path"]
-        from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
         workflow = builtin_workflow_runtime("epic")
 
         assert workflow.is_forward_transition("refined-idea", "planning")

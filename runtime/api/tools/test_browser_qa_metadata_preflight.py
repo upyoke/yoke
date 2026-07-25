@@ -8,7 +8,6 @@ import pytest
 
 from yoke_core.domain.browser_qa_metadata import (
     NEGATIVE_DEFAULT_JSON,
-    canonical_json,
 )
 from yoke_core.domain.items import insert_item, update_structured_field
 from runtime.api.fixtures.file_test_db import (
@@ -26,7 +25,7 @@ def _seed_item(db_path, *, item_id, status, title="Item"):
     insert_item(
         item_id=item_id,
         title=title,
-        item_type="issue",
+        workflow="issue",
         status=status,
         priority="medium",
         source="user",

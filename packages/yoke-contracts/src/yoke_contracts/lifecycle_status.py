@@ -2,7 +2,7 @@
 
 The set of statuses that count as terminal success for a workflow task.
 Hosted in yoke_contracts so the board render ships core-free;
-``yoke_core.domain.lifecycle_predicates`` re-exports it for its callers.
+``yoke_core.domain.task_lifecycle`` re-exports it for its callers.
 """
 
 from __future__ import annotations

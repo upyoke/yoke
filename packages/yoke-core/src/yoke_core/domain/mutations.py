@@ -23,8 +23,6 @@ live in mutation_fields.py and are re-exported here for backward compatibility.
 
 from __future__ import annotations
 
-from . import mutations_update as _mutations_update
-from .lifecycle import is_forward_transition
 from .mutation_fields import (
     DONE_CLEANUP_FIELDS, REWORK_SOURCE_STATUSES, SUPPORTED_UPDATE_FIELDS,
     TITLE_MAX_LENGTH, VALID_PRIORITIES, ApprovalResult,
@@ -37,8 +35,7 @@ from .mutations_update import prepare_update as _prepare_update
 
 
 def prepare_update(*args, **kwargs):
-    """Forward to the canonical update owner, preserving monkeypatch hooks."""
-    _mutations_update.is_forward_transition = is_forward_transition
+    """Forward to the canonical workflow-aware update owner."""
     return _prepare_update(*args, **kwargs)
 
 __all__ = [
@@ -57,7 +54,6 @@ __all__ = [
     "validate_frozen",
     "validate_priority",
     "validate_title",
-    "is_forward_transition",
     "prepare_approval",
     "prepare_create",
     "prepare_update",

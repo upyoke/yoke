@@ -20,8 +20,8 @@ class TestImportStructure:
         from yoke_core.domain import runs as rn
 
         # Spot check: each module has its key exports
-        assert hasattr(lc, "ItemStatus")
-        assert hasattr(lc, "ALL_ITEM_STATUSES")
+        assert hasattr(lc, "TaskStatus")
+        assert hasattr(lc, "ALL_TASK_STATUSES")
         assert hasattr(ap, "HaltState")
         assert hasattr(ap, "resolve_approval")
         assert hasattr(bd, "status_to_board_bucket")

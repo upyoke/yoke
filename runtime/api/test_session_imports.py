@@ -12,7 +12,6 @@ import json
 import os
 import sys
 
-import pytest
 from runtime.api.test_constants import TEST_MODEL_ID
 
 # Ensure the repo root is importable
@@ -47,7 +46,7 @@ class TestImportHygiene:
 
     def test_lifecycle_importable(self):
         from yoke_core.domain import lifecycle
-        assert hasattr(lifecycle, "ItemStatus")
+        assert hasattr(lifecycle, "TaskStatus")
 
     def test_approval_importable(self):
         from yoke_core.domain import approval

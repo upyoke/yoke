@@ -1,3 +1,4 @@
+# ruff: noqa: F811
 """Smoke tests and residual API tests for yoke_core.api.main.
 
 Item CRUD tests -> test_api_items_*
@@ -63,7 +64,10 @@ class TestErrorEnvelope:
         assert data["error"]["code"] == "VALIDATION_ERROR"
 
     def test_422_envelope(self, client):
-        resp = client.post("/v1/items", json={"title": "", "type": "issue"})
+        resp = client.post(
+            "/v1/items",
+            json={"title": "", "workflow": "issue"},
+        )
         data = resp.json()
         assert "error" in data
         assert data["error"]["code"] == "VALIDATION_ERROR"
@@ -81,19 +85,33 @@ class TestErrorEnvelope:
 
 
 class TestCanonicalVocabulary:
-    """Verify API constants match the canonical delivery lifecycle registry."""
+    """Verify API vocabulary comes from workflow and board registries."""
+
+    @staticmethod
+    def _stage_ids():
+        from yoke_core.domain.builtin_workflow_definitions import (
+            builtin_workflow_definitions,
+        )
+        from yoke_core.domain.workflow_runtime import (
+            ENGINE_EXCEPTIONAL_STAGE_IDS,
+        )
+
+        stages = {
+            str(stage["id"])
+            for fixture in builtin_workflow_definitions()
+            for stage in fixture["definition"]["stages"]
+        }
+        return stages | ENGINE_EXCEPTIONAL_STAGE_IDS
 
     def test_valid_statuses_no_retired_terms(self):
-        """AC-1: VALID_STATUSES must not contain retired terms."""
-        from yoke_core.api.main import VALID_STATUSES
-        assert "merged" not in VALID_STATUSES
-        assert "qa" not in VALID_STATUSES
-        assert "validation" not in VALID_STATUSES
-        assert "in_release" not in VALID_STATUSES
+        stages = self._stage_ids()
+        assert "merged" not in stages
+        assert "qa" not in stages
+        assert "validation" not in stages
+        assert "in_release" not in stages
 
     def test_valid_statuses_includes_canonical_terms(self):
-        """AC-2: VALID_STATUSES must include all canonical delivery statuses."""
-        from yoke_core.api.main import VALID_STATUSES
+        stages = self._stage_ids()
         for status in [
             "refined-idea",
             "implementing",
@@ -105,19 +123,19 @@ class TestCanonicalVocabulary:
             "stopped",
             "failed",
         ]:
-            assert status in VALID_STATUSES, f"Missing canonical status: {status}"
+            assert status in stages, f"Missing workflow stage: {status}"
 
     def test_board_column_order_no_retired_terms(self):
-        """AC-7: Board columns must not include retired terms."""
-        from yoke_core.api.main import BOARD_COLUMN_ORDER
-        assert "merged" not in BOARD_COLUMN_ORDER
-        assert "qa" not in BOARD_COLUMN_ORDER
+        from yoke_core.domain.board import BOARD_COLUMNS
+
+        assert "merged" not in BOARD_COLUMNS
+        assert "qa" not in BOARD_COLUMNS
 
     def test_board_column_order_matches_canonical(self):
-        """AC-7: Board column order matches STATUS_BOARD_ORDER."""
-        from yoke_core.api.main import BOARD_COLUMN_ORDER
+        from yoke_core.domain.board import BOARD_COLUMNS
+
         expected = ["idea", "planning", "refined", "implementing", "blocked", "reviewing", "implemented", "release", "done"]
-        assert BOARD_COLUMN_ORDER == expected
+        assert list(BOARD_COLUMNS) == expected
 
 
 # ---------------------------------------------------------------------------

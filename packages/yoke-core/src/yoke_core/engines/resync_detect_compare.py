@@ -6,7 +6,7 @@ import re
 from typing import Any, Dict, List, Tuple
 
 from yoke_core.domain.actors import ActorError, actor_label_or_passthrough
-from yoke_core.domain.lifecycle_predicates import TASK_TERMINAL_SUCCESS
+from yoke_core.domain.task_lifecycle import TASK_TERMINAL_SUCCESS
 from yoke_core.engines.resync_detect_compact_mirror import (
     COMPACT_MIRROR_FOOTER,  # noqa: F401 — re-exported for callers
     matches_compact_mirror as _matches_compact_mirror,

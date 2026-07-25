@@ -12,7 +12,10 @@ import sys
 # Ensure the repo root is importable
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
-from yoke_core.domain import lifecycle
+from yoke_core.domain.builtin_workflow_definitions import (
+    builtin_workflow_definitions,
+)
+from yoke_core.domain.workflow_runtime import ENGINE_EXCEPTIONAL_STAGE_IDS
 
 # parity_env is the backend-aware render-parity fixture: ONE per-test database
 # backs BOTH the in-process FastAPI client and the service_client subprocess,
@@ -126,7 +129,12 @@ class TestStatusFilterParity:
         db_path = parity_env["db_path"]
         client = parity_env["client"]
 
-        for status in lifecycle.ALL_ITEM_STATUSES:
+        valid_stages = {
+            str(stage["id"])
+            for fixture in builtin_workflow_definitions()
+            for stage in fixture["definition"]["stages"]
+        } | ENGINE_EXCEPTIONAL_STAGE_IDS
+        for status in valid_stages:
             # API accepts it
             resp = client.get("/v1/items", params={"status": status})
             assert resp.status_code == 200, f"API rejected valid status '{status}'"

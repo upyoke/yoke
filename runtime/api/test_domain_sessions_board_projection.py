@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from yoke_core.domain.lifecycle import BOARD_COLUMN_ORDER
+from yoke_contracts.board.status import BOARD_BUCKET_ORDER
 
 from yoke_core.domain.board import (
     BOARD_COLUMNS,
@@ -145,9 +145,8 @@ class TestProjectBoard:
         board = project_board(items)
         assert board.stats.total == 0  # unknown items excluded
 
-    def test_board_columns_match_lifecycle(self):
-        """Board columns should match BOARD_COLUMN_ORDER from lifecycle module."""
-        assert BOARD_COLUMNS == BOARD_COLUMN_ORDER
+    def test_board_columns_match_contract(self):
+        assert BOARD_COLUMNS == BOARD_BUCKET_ORDER
 
     def test_epic_workflow_refined_idea_goes_to_planning(self):
         items = [
