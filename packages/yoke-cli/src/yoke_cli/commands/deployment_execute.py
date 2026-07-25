@@ -22,7 +22,7 @@ from yoke_contracts.machine_config.schema import (
 
 AdapterFn = Callable[[List[str]], int]
 DEPLOYMENT_RUNS_EXECUTE_USAGE = (
-    "yoke --env ENV-db-admin deployment-runs execute RUN-ID "
+    "yoke --env CONTROL-PLANE-ENV-db-admin deployment-runs execute RUN-ID "
     "[--timeout MIN] [--from-stage STAGE] [--fresh] "
     "[--product-repo-path PATH] [--image-tag TAG]"
 )
@@ -37,7 +37,14 @@ def deployment_runs_execute(args: List[str]) -> int:
             "executes) and resumes failed ones (--from-stage). The project "
             "checkout is resolved from the machine-config projects mapping "
             "for the active env; a stale mapping fails the lineage preflight "
-            "with the resolved path named."
+            "with the resolved path named.\n\n"
+            "--env names the CONTROL-PLANE env holding the run row, not the "
+            "environment being deployed to. The target env is fixed on the "
+            "run at create time (--target-env). One control plane usually "
+            "serves every target, so a stage-targeted run and a "
+            "production-targeted run are both driven through the same "
+            "<control-plane>-db-admin env; the run output names both as "
+            "release_control_plane=... target_env=..."
         )
         return 0
     active_env = os.environ.get(ENV_OVERRIDE, "").strip()

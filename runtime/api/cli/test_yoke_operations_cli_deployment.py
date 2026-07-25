@@ -294,7 +294,12 @@ def test_deployment_run_execute_help_does_not_require_admin_env() -> None:
         _stub_ok, "deployment-runs", "execute", "--help",
     )
     assert rc == 0
-    assert out.startswith("usage: yoke --env ENV-db-admin")
+    assert out.startswith("usage: yoke --env CONTROL-PLANE-ENV-db-admin")
+    # The -db-admin suffix reads as if it tracks the environment being
+    # deployed to; help has to say which axis it actually names, or an
+    # operator reaches for a <target>-db-admin env that need not exist.
+    assert "not the environment being deployed to" in out
+    assert "--target-env" in out
     assert err == ""
 
 
