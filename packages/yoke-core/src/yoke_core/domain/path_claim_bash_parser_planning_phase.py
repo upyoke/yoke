@@ -32,8 +32,8 @@ from pathlib import Path
 from typing import Any, List, Optional
 
 from yoke_core.domain import db_backend, project_scratch_dir
-from yoke_core.domain.lifecycle_progression import PRE_IMPLEMENTATION_STATUSES
 from yoke_core.domain.path_claim_bash_parser import Mutation
+from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 
 
 # Retained for callers that import the public marker. Runtime roots are
@@ -110,12 +110,12 @@ def is_planning_scratch_path(target_path: str) -> bool:
     return False
 
 
-def _session_item_status(
+def _session_item_stage(
     session_id: str,
     *,
     conn: Optional[Any] = None,
-) -> Optional[str]:
-    """Return the lifecycle status of the session's current item, or None.
+) -> Optional[tuple[int, str]]:
+    """Return the session's current item id and stage, or None.
 
     When ``conn`` is omitted, opens a fresh connection via the shared
     ``db_helpers.connect()`` helper. The helper's return value may be a
@@ -125,7 +125,7 @@ def _session_item_status(
     if not session_id:
         return None
     if conn is not None:
-        return _query_status(conn, session_id)
+        return _query_item_stage(conn, session_id)
     try:
         from yoke_core.domain import db_helpers
     except ImportError:
@@ -137,11 +137,11 @@ def _session_item_status(
     if hasattr(opened, "__enter__"):
         try:
             with opened as inner:
-                return _query_status(inner, session_id)
+                return _query_item_stage(inner, session_id)
         except Exception:
             return None
     try:
-        return _query_status(opened, session_id)
+        return _query_item_stage(opened, session_id)
     finally:
         try:
             opened.close()
@@ -149,11 +149,14 @@ def _session_item_status(
             pass
 
 
-def _query_status(conn: Any, session_id: str) -> Optional[str]:
+def _query_item_stage(
+    conn: Any,
+    session_id: str,
+) -> Optional[tuple[int, str]]:
     try:
         p = "%s" if db_backend.connection_is_postgres(conn) else "?"
         row = conn.execute(
-            "SELECT i.status FROM harness_sessions hs "
+            "SELECT i.id, i.status FROM harness_sessions hs "
             "JOIN items i ON i.id = hs.current_item_id "
             f"WHERE hs.session_id = {p} LIMIT 1",
             (session_id,),
@@ -164,7 +167,9 @@ def _query_status(conn: Any, session_id: str) -> Optional[str]:
         return None
     if row is None:
         return None
-    return str(row[0] if not hasattr(row, "keys") else row["status"])
+    if hasattr(row, "keys"):
+        return int(row["id"]), str(row["status"])
+    return int(row[0]), str(row[1])
 
 
 def session_is_planning_phase(
@@ -175,17 +180,47 @@ def session_is_planning_phase(
     """Return True when the session's current item is pre-implementation.
 
     Returns False (no widening) when the session id is empty, the
-    session has no current item, the DB lookup fails, or the status is
-    not in :data:`PRE_IMPLEMENTATION_STATUSES`. Failing closed here is
+    session has no current item, the DB lookup fails, or the pinned workflow
+    does not place the current stage before implementation. Failing closed is
     intentional — the carve-out must be opt-in via a verifiable signal,
     not the absence of one.
     """
     if not session_id:
         return False
-    status = _session_item_status(session_id, conn=conn)
-    if not status:
+    if conn is not None:
+        item_stage = _session_item_stage(session_id, conn=conn)
+        if item_stage is None:
+            return False
+        item_id, stage_id = item_stage
+        try:
+            return load_item_workflow_runtime(
+                conn,
+                item_id,
+            ).is_before_implementation(stage_id)
+        except Exception:
+            return False
+    item_stage = _session_item_stage(session_id)
+    if item_stage is None:
         return False
-    return status in PRE_IMPLEMENTATION_STATUSES
+    try:
+        from yoke_core.domain import db_helpers
+
+        opened = db_helpers.connect()
+        if hasattr(opened, "__enter__"):
+            with opened as inner:
+                return load_item_workflow_runtime(
+                    inner,
+                    item_stage[0],
+                ).is_before_implementation(item_stage[1])
+        try:
+            return load_item_workflow_runtime(
+                opened,
+                item_stage[0],
+            ).is_before_implementation(item_stage[1])
+        finally:
+            opened.close()
+    except Exception:
+        return False
 
 
 def drop_planning_scratch_mutations(

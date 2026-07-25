@@ -15,6 +15,12 @@ REGISTERED_WORKFLOW_EXECUTOR_IDS = frozenset({
     "shepherd",
     "usher",
 })
+IMPLEMENTATION_WORKFLOW_EXECUTOR_IDS = frozenset({
+    "advance",
+    "blitz",
+    "conduct",
+    "dash",
+})
 ENTRY_SURFACE_IDS = frozenset({
     "cli",
     "harness_skill",
@@ -98,6 +104,7 @@ def definition_fixture(
 
 __all__ = [
     "ENTRY_SURFACE_IDS",
+    "IMPLEMENTATION_WORKFLOW_EXECUTOR_IDS",
     "REGISTERED_WORKFLOW_EXECUTOR_IDS",
     "WORKFLOW_DEFINITION_SCHEMA_VERSION",
     "definition_fixture",

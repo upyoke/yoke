@@ -13,6 +13,13 @@ from typing import Any
 
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
+from yoke_core.domain.builtin_workflow_definitions import (
+    builtin_workflow_definition,
+)
+from yoke_core.domain.workflow_registry import (
+    canonical_definition_json,
+    definition_digest,
+)
 from yoke_core.engines import doctor_hc_session_cwd_binding as hc_module
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
@@ -32,7 +39,12 @@ def _make_pre_impl_conn() -> Any:
         """
         CREATE TABLE items (
             id INTEGER PRIMARY KEY, status TEXT, worktree TEXT,
-            project_id INTEGER DEFAULT 1
+            project_id INTEGER DEFAULT 1, workflow_id TEXT,
+            workflow_version_id INTEGER
+        );
+        CREATE TABLE workflow_versions (
+            id INTEGER PRIMARY KEY, workflow_id TEXT, version INTEGER,
+            definition_json TEXT, definition_digest TEXT
         );
         CREATE TABLE work_claims (
             id INTEGER PRIMARY KEY, session_id TEXT, target_kind TEXT,
@@ -49,12 +61,41 @@ def _make_pre_impl_conn() -> Any:
 
 
 def _add_pre_impl_claim(
-    conn, *, session_id, item_id, status, claimed_at,
+    conn,
+    *,
+    session_id,
+    item_id,
+    status,
+    claimed_at,
+    workflow_id="issue",
 ):
+    fixture = builtin_workflow_definition(workflow_id)
+    definition = fixture["definition"]
+    workflow_version_id = {"issue": 1, "epic": 2}[workflow_id]
     conn.execute(
-        "INSERT INTO items (id, status, worktree, project_id) "
-        "VALUES (%s, %s, %s, 1)",
-        (item_id, status, f"YOK-{item_id}"),
+        "INSERT INTO workflow_versions "
+        "(id, workflow_id, version, definition_json, definition_digest) "
+        "VALUES (%s, %s, %s, %s, %s) "
+        "ON CONFLICT (id) DO NOTHING",
+        (
+            workflow_version_id,
+            workflow_id,
+            int(fixture["version"]),
+            canonical_definition_json(definition),
+            definition_digest(definition),
+        ),
+    )
+    conn.execute(
+        "INSERT INTO items "
+        "(id, status, worktree, project_id, workflow_id, workflow_version_id) "
+        "VALUES (%s, %s, %s, 1, %s, %s)",
+        (
+            item_id,
+            status,
+            f"YOK-{item_id}",
+            workflow_id,
+            workflow_version_id,
+        ),
     )
     conn.execute(
         "INSERT INTO work_claims "

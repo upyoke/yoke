@@ -23,7 +23,10 @@ from yoke_core.domain.path_claim_bash_guard_planning_phase_test_helpers import (
     RETIRED_DISPATCH_ROOT,
     _dispatch_target,
     _seed,
-    widener_db,
+)
+
+pytest_plugins = (
+    "runtime.api.domain.path_claim_bash_guard_planning_phase_fixture",
 )
 
 
@@ -63,16 +66,34 @@ def test_planning_scratch_roots_published(widener_db):
 
 # ---- Lifecycle gate ----
 
-@pytest.mark.parametrize("status,expected", [
-    ("idea", True), ("refining-idea", True), ("refined-idea", True),
-    ("planning", True), ("plan-drafted", True), ("refining-plan", True),
-    ("planned", True),
-    ("implementing", False), ("reviewing-implementation", False),
-    ("polishing-implementation", False), ("implemented", False), ("done", False),
+@pytest.mark.parametrize("workflow_id,status,expected", [
+    ("issue", "idea", True),
+    ("issue", "refining-idea", True),
+    ("issue", "refined-idea", True),
+    ("epic", "planning", True),
+    ("epic", "plan-drafted", True),
+    ("epic", "refining-plan", True),
+    ("epic", "planned", True),
+    ("issue", "implementing", False),
+    ("issue", "reviewing-implementation", False),
+    ("issue", "polishing-implementation", False),
+    ("issue", "implemented", False),
+    ("issue", "done", False),
 ])
-def test_session_is_planning_phase_matrix(widener_db, status, expected):
-    sid = f"sess-{status}"
-    _seed(widener_db, session_id=sid, item_id=hash(status) % 10000, status=status)
+def test_session_is_planning_phase_matrix(
+    widener_db,
+    workflow_id,
+    status,
+    expected,
+):
+    sid = f"sess-{workflow_id}-{status}"
+    _seed(
+        widener_db,
+        session_id=sid,
+        item_id=hash(sid) % 10000,
+        status=status,
+        workflow_id=workflow_id,
+    )
     assert session_is_planning_phase(session_id=sid) is expected
 
 
@@ -133,7 +154,13 @@ def test_filter_no_session_id_no_widening(widener_db):
 
 def test_filter_env_var_fallback(widener_db, monkeypatch):
     sid = "sess-env"
-    _seed(widener_db, session_id=sid, item_id=7, status="planning")
+    _seed(
+        widener_db,
+        session_id=sid,
+        item_id=7,
+        status="planning",
+        workflow_id="epic",
+    )
     monkeypatch.setenv("YOKE_SESSION_ID", sid)
     muts = [Mutation(verb="redirect",
                      target_path=_dispatch_target(item_id=7))]

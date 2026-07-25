@@ -32,6 +32,7 @@ def seed_item(
     branch: "str | None",
     project: str = "yoke",
     status: str = "implementing",
+    workflow_id: str = "issue",
 ) -> None:
     insert_item(
         conn,
@@ -39,6 +40,7 @@ def seed_item(
         worktree=branch,
         project_id=project_id(project),
         status=status,
+        workflow_id=workflow_id,
     )
 
 

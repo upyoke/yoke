@@ -37,9 +37,23 @@ def repo(tmp_path, monkeypatch):
     return repo_path
 
 
-def _seed(conn, repo_path, *, item_id, status, branch="YOK-9001"):
+def _seed(
+    conn,
+    repo_path,
+    *,
+    item_id,
+    status,
+    branch="YOK-9001",
+    workflow_id="issue",
+):
     del repo_path
-    seed_item(conn, item_id=item_id, branch=branch, status=status)
+    seed_item(
+        conn,
+        item_id=item_id,
+        branch=branch,
+        status=status,
+        workflow_id=workflow_id,
+    )
     seed_item_claim(conn, "sid-1", item_id)
 
 
@@ -114,13 +128,32 @@ class TestPreImplementingDenied:
         assert emitted["mode"] == "deny"
 
     @pytest.mark.parametrize(
-        "status", ["idea", "refining-idea", "planning",
-                   "plan-drafted", "refining-plan", "planned"],
+        "workflow_id,status",
+        [
+            ("issue", "idea"),
+            ("issue", "refining-idea"),
+            ("epic", "planning"),
+            ("epic", "plan-drafted"),
+            ("epic", "refining-plan"),
+            ("epic", "planned"),
+        ],
     )
     def test_every_pre_implementing_status_denies(
-        self, conn, repo, deny_mode, silenced_emit, status,
+        self,
+        conn,
+        repo,
+        deny_mode,
+        silenced_emit,
+        workflow_id,
+        status,
     ):
-        _seed(conn, repo, item_id=9001, status=status)
+        _seed(
+            conn,
+            repo,
+            item_id=9001,
+            status=status,
+            workflow_id=workflow_id,
+        )
         wt = repo / ".worktrees" / "YOK-9001"
         wt.mkdir(parents=True)
         target = wt / "any.py"

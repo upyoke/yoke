@@ -14,6 +14,9 @@ from yoke_core.domain.workflow_registry import (
     WorkflowRegistryError,
     definition_digest,
 )
+from yoke_core.domain.workflow_definition_builders import (
+    IMPLEMENTATION_WORKFLOW_EXECUTOR_IDS,
+)
 
 ENGINE_TERMINAL_STAGE_IDS = frozenset({"cancelled", "stopped"})
 ENGINE_WAIT_STAGE_IDS = frozenset({"blocked", "failed"})
@@ -87,6 +90,20 @@ class WorkflowRuntime:
         after = self.stage_index(to_stage_id)
         return before is not None and after is not None and after > before
 
+    def has_reached_stage(
+        self,
+        current_stage_id: str,
+        target_stage_id: str,
+    ) -> bool:
+        """Whether the current ordered stage is at or beyond a target."""
+        current = self.stage_index(current_stage_id)
+        target = self.stage_index(target_stage_id)
+        return (
+            current is not None
+            and target is not None
+            and current >= target
+        )
+
     def gates_for_stage(
         self,
         stage_id: str,
@@ -142,6 +159,30 @@ class WorkflowRuntime:
             ):
                 return True
         return False
+
+    def implementation_has_started(self, stage_id: str) -> bool:
+        """Whether an implementation executor has begun its bound segment."""
+        return self.executor_has_started(
+            stage_id,
+            IMPLEMENTATION_WORKFLOW_EXECUTOR_IDS,
+        )
+
+    def is_before_implementation(self, stage_id: str) -> bool:
+        """Whether a definition stage precedes its implementation segment."""
+        position = self.stage_index(stage_id)
+        if position is None:
+            return False
+        starts = []
+        for binding in self.definition["executor_bindings"]:
+            if (
+                str(binding["executor_id"])
+                not in IMPLEMENTATION_WORKFLOW_EXECUTOR_IDS
+            ):
+                continue
+            start = self.stage_index(str(binding["from_stage_id"]))
+            if start is not None:
+                starts.append(start)
+        return bool(starts) and position <= min(starts)
 
     def requires_item_path_claim_probe(self, stage_id: str) -> bool:
         """Whether leaving *stage_id* activates an item-level path claim."""

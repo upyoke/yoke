@@ -49,6 +49,10 @@ from yoke_core.domain.session_claimed_worktrees import (
     ClaimedWorktree,
     claimed_worktrees,
 )
+from yoke_core.domain.workflow_runtime import (
+    WorkflowRuntime,
+    load_item_workflow_runtime,
+)
 
 
 SCOPE_FAILURE_CLASS = "scope_mismatch"
@@ -118,7 +122,8 @@ def validate_targets(
             # only to this branch. Control-plane and free-path targets stay
             # status-agnostic by design.
             status = _lookup_item_status(conn, worktree_match.item_id)
-            if is_pre_implementing_status(status):
+            workflow = _lookup_item_workflow(conn, worktree_match.item_id)
+            if is_pre_implementing_status(workflow, status):
                 return ValidationVerdict(
                     allow=False,
                     offending_target=_resolve_for_display(raw),
@@ -227,6 +232,17 @@ def _lookup_item_status(
     if isinstance(value, str):
         return value
     return None
+
+
+def _lookup_item_workflow(
+    conn: Any,
+    item_id: int,
+) -> Optional[WorkflowRuntime]:
+    """Return the item's verified workflow pin or fail open on lookup errors."""
+    try:
+        return load_item_workflow_runtime(conn, int(item_id))
+    except Exception:
+        return None
 
 
 __all__ = [

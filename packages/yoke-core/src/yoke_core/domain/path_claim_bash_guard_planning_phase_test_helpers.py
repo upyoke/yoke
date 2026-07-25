@@ -6,7 +6,6 @@ import pytest
 
 from yoke_core.domain import project_scratch_dir as scratch
 from yoke_core.domain.schema_init_apply import execute_schema_script
-from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 
 
 PROJECT_REPO_ROOT = "/opt/yoke-test"
@@ -48,8 +47,14 @@ def _apply_widener_schema() -> None:
         execute_schema_script(
             conn,
             "CREATE TABLE IF NOT EXISTS items(id INTEGER PRIMARY KEY,"
-            " type TEXT NOT NULL, status TEXT NOT NULL,"
+            " workflow_id TEXT NOT NULL,"
+            " workflow_version_id INTEGER NOT NULL,"
+            " status TEXT NOT NULL,"
             " worktree TEXT, project_id INTEGER, project_sequence INTEGER);"
+            "CREATE TABLE IF NOT EXISTS workflow_versions("
+            " id INTEGER PRIMARY KEY, workflow_id TEXT NOT NULL,"
+            " version INTEGER NOT NULL, definition_json TEXT NOT NULL,"
+            " definition_digest TEXT NOT NULL);"
             "CREATE TABLE IF NOT EXISTS harness_sessions("
             " session_id TEXT PRIMARY KEY, current_item_id INTEGER);"
         )
@@ -64,16 +69,62 @@ def _placeholder(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def _seed(conn, *, session_id, item_id, status, item_type="issue"):
+def _seed(
+    conn,
+    *,
+    session_id,
+    item_id,
+    status,
+    workflow_id="issue",
+):
+    from yoke_core.domain.builtin_workflow_definitions import (
+        builtin_workflow_definition,
+    )
+    from yoke_core.domain.workflow_registry import (
+        canonical_definition_json,
+        definition_digest,
+    )
+
     p = _placeholder(conn)
+    fixture = builtin_workflow_definition(workflow_id)
+    definition = fixture["definition"]
+    workflow_version_id = {
+        "issue": 1,
+        "epic": 2,
+        "blitz": 3,
+        "dash": 4,
+    }[workflow_id]
     conn.execute(
-        "INSERT INTO items(id,type,status,worktree,project_id,project_sequence)"
-        f" VALUES ({p},{p},{p},NULL,1,{p}) "
+        "INSERT INTO workflow_versions("
+        "id,workflow_id,version,definition_json,definition_digest)"
+        f" VALUES ({p},{p},{p},{p},{p}) "
+        "ON CONFLICT (id) DO NOTHING",
+        (
+            workflow_version_id,
+            workflow_id,
+            int(fixture["version"]),
+            canonical_definition_json(definition),
+            definition_digest(definition),
+        ),
+    )
+    conn.execute(
+        "INSERT INTO items("
+        "id,workflow_id,workflow_version_id,status,worktree,"
+        "project_id,project_sequence)"
+        f" VALUES ({p},{p},{p},{p},NULL,1,{p}) "
         "ON CONFLICT (id) DO UPDATE SET "
-        "type=excluded.type, status=excluded.status, "
+        "workflow_id=excluded.workflow_id, "
+        "workflow_version_id=excluded.workflow_version_id, "
+        "status=excluded.status, "
         "worktree=excluded.worktree, project_id=excluded.project_id, "
         "project_sequence=excluded.project_sequence",
-        (item_id, item_type, status, item_id),
+        (
+            item_id,
+            workflow_id,
+            workflow_version_id,
+            status,
+            item_id,
+        ),
     )
     conn.execute(
         "INSERT INTO harness_sessions(session_id,current_item_id)"
@@ -83,15 +134,3 @@ def _seed(conn, *, session_id, item_id, status, item_type="issue"):
         (session_id, item_id),
     )
     conn.commit()
-
-
-@pytest.fixture
-def widener_db(tmp_path, monkeypatch):
-    with init_test_db(tmp_path, apply_schema=_apply_widener_schema) as db_path:
-        conn = connect_test_db(db_path)
-        try:
-            _configure_scratch(monkeypatch)
-            monkeypatch.delenv("YOKE_SESSION_ID", raising=False)
-            yield conn
-        finally:
-            conn.close()

@@ -25,6 +25,7 @@ from runtime.api.fixtures.pg_testdb import (
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 from yoke_core.domain import db_backend, lint_session_cwd_status
 from yoke_core.domain.lint_session_cwd_validate import validate_targets
+from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
 
 
 # The pre-status authority shape: no ``items.status`` column. The
@@ -108,26 +109,43 @@ class TestValidatorFailOpen:
 
 
 class TestStatusHelperFunctions:
-    def test_is_pre_implementing_status_recognises_canonical_set(self):
-        for status in (
-            "idea", "refining-idea", "refined-idea",
-            "planning", "plan-drafted", "refining-plan", "planned",
+    def test_is_pre_implementing_status_reads_the_workflow_binding(self):
+        issue = builtin_workflow_runtime("issue")
+        epic = builtin_workflow_runtime("epic")
+
+        for workflow, status in (
+            (issue, "idea"),
+            (issue, "refining-idea"),
+            (issue, "refined-idea"),
+            (epic, "planning"),
+            (epic, "plan-drafted"),
+            (epic, "refining-plan"),
+            (epic, "planned"),
         ):
-            assert lint_session_cwd_status.is_pre_implementing_status(status)
+            assert lint_session_cwd_status.is_pre_implementing_status(
+                workflow,
+                status,
+            )
 
     def test_is_pre_implementing_status_rejects_implementing_class(self):
+        issue = builtin_workflow_runtime("issue")
         for status in (
             "implementing", "reviewing-implementation",
             "reviewed-implementation", "polishing-implementation",
             "implemented", "release", "done",
         ):
             assert not lint_session_cwd_status.is_pre_implementing_status(
+                issue,
                 status
             )
 
     def test_is_pre_implementing_status_handles_none(self):
         assert (
-            lint_session_cwd_status.is_pre_implementing_status(None) is False
+            lint_session_cwd_status.is_pre_implementing_status(
+                None,
+                None,
+            )
+            is False
         )
 
     def test_read_mode_falls_back_to_default_when_workspace_missing(

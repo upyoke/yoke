@@ -26,10 +26,11 @@ from .project_identity import resolve_project_slug
 from .project_scope import normalize_project_scope
 from .queries import is_blocked, is_frozen
 from .runtime_settings import get_seconds
+from .workflow_definition_builders import (
+    IMPLEMENTATION_WORKFLOW_EXECUTOR_IDS,
+)
 from .workflow_runtime import workflow_runtime_from_row
 from .workflow_runtime import ENGINE_WAIT_STAGE_IDS
-
-_WIP_EXECUTOR_IDS = frozenset({"advance", "blitz", "conduct", "dash"})
 
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
@@ -129,7 +130,10 @@ def compute_frontier(
         stage_index = workflow.stage_index(status)
         if (
             not is_frozen(item["frozen"])
-            and workflow.executor_has_started(status, _WIP_EXECUTOR_IDS)
+            and workflow.executor_has_started(
+                status,
+                IMPLEMENTATION_WORKFLOW_EXECUTOR_IDS,
+            )
         ):
             wip_active += 1
 

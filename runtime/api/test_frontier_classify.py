@@ -78,3 +78,33 @@ def test_executor_active_state_comes_from_binding_boundaries():
     assert issue.executor_has_started(
         "reviewed-implementation", implementation_executors,
     ) is False
+
+
+@pytest.mark.parametrize(
+    "workflow_id,before,active",
+    [
+        ("issue", "refined-idea", "implementing"),
+        ("epic", "planned", "implementing"),
+        ("blitz", "refined-idea", "implementing"),
+        ("dash", "idea", "implementing"),
+    ],
+)
+def test_implementation_boundary_comes_from_registered_executor_bindings(
+    workflow_id,
+    before,
+    active,
+):
+    workflow = builtin_workflow_runtime(workflow_id)
+
+    assert workflow.is_before_implementation(before) is True
+    assert workflow.implementation_has_started(before) is False
+    assert workflow.is_before_implementation(active) is False
+    assert workflow.implementation_has_started(active) is True
+
+
+def test_reached_stage_uses_the_pinned_order_and_rejects_missing_stages():
+    workflow = builtin_workflow_runtime("issue")
+
+    assert workflow.has_reached_stage("release", "implemented") is True
+    assert workflow.has_reached_stage("refined-idea", "implemented") is False
+    assert workflow.has_reached_stage("planning", "implemented") is False

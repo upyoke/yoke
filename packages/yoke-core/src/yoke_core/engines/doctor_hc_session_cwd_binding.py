@@ -26,10 +26,10 @@ from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.lifecycle_progression import PRE_IMPLEMENTATION_STATUSES
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.lint_session_cwd_emit import emit_health_check_failed
 from yoke_core.domain.lint_session_cwd_validate import validate_targets
+from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 
 import yoke_core.engines.doctor_report as _base
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
@@ -191,10 +191,6 @@ _PRE_IMPL_MIN_AGE_SECONDS = 30 * 60
 _PRE_IMPL_MIN_TOOL_CALLS = 10
 
 
-def _pre_implementing_status_list() -> tuple[str, ...]:
-    return tuple(sorted(PRE_IMPLEMENTATION_STATUSES))
-
-
 def hc_session_pre_implementing_activity(
     conn, args: DoctorArgs, rec: RecordCollector
 ) -> None:
@@ -217,25 +213,21 @@ def hc_session_pre_implementing_activity(
                    "items table missing — nothing to check")
         return
 
-    statuses = _pre_implementing_status_list()
     p = _p(conn)
-    placeholders = ",".join([p] * len(statuses))
     cutoff = (
         datetime.now(timezone.utc)
         - timedelta(seconds=int(_PRE_IMPL_MIN_AGE_SECONDS))
     ).strftime("%Y-%m-%dT%H:%M:%SZ")
-    params = (*statuses, cutoff)
     try:
         rows = query_rows(
             conn,
             "SELECT wc.session_id, wc.item_id, wc.claimed_at, i.status "
             "FROM work_claims wc JOIN items i ON i.id = wc.item_id "
             "WHERE wc.released_at IS NULL "
-            f"AND i.status IN ({placeholders}) "
             "AND wc.claimed_at IS NOT NULL "
             f"AND wc.claimed_at <= {p} "
             "ORDER BY wc.claimed_at",
-            params,
+            (cutoff,),
         )
     except db_backend.operational_error_types(conn):
         _rollback_quietly(conn)
@@ -250,6 +242,12 @@ def hc_session_pre_implementing_activity(
         claimed_at = row["claimed_at"] if isinstance(row, dict) else row[2]
         status = row["status"] if isinstance(row, dict) else row[3]
         if not session_id or not claimed_at:
+            continue
+        try:
+            workflow = load_item_workflow_runtime(conn, int(item_id))
+        except Exception:
+            continue
+        if not workflow.is_before_implementation(str(status)):
             continue
         try:
             tool_count_rows = query_rows(

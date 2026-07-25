@@ -6,8 +6,7 @@ in a pre-implementing status. A session can hold a work claim before
 lint would happily accept every Edit/Write into ``.worktrees/<branch>/``
 even though the lifecycle never crossed into ``implementing``. The set
 of pre-implementing statuses is the canonical
-``lifecycle_progression.PRE_IMPLEMENTATION_STATUSES`` — re-import rather
-than copy.
+the item's pinned workflow executor bindings.
 
 Mode is pinned by the machine config key ``lint_session_cwd_status_mode``
 (``warn`` records audit only; ``deny`` blocks). Suppression token
@@ -21,7 +20,7 @@ import os
 import subprocess
 from typing import Optional
 
-from yoke_core.domain.lifecycle_progression import PRE_IMPLEMENTATION_STATUSES
+from yoke_core.domain.workflow_runtime import WorkflowRuntime
 
 
 CONFIG_KEY_MODE = "lint_session_cwd_status_mode"
@@ -31,15 +30,18 @@ SUPPRESSION_TOKEN = "# lint:no-pre-implementing-status-check"
 FAILURE_CLASS = "pre_implementing_status"
 
 
-def is_pre_implementing_status(status: Optional[str]) -> bool:
-    """Return True when ``status`` is in the pre-implementing set.
+def is_pre_implementing_status(
+    workflow: Optional[WorkflowRuntime],
+    status: Optional[str],
+) -> bool:
+    """Return True when the pin places ``status`` before implementation.
 
     Empty / None inputs return False — an unresolvable status must
     not trigger the gate (fail-open on lookup failure).
     """
-    if not status:
+    if workflow is None or not status:
         return False
-    return status in PRE_IMPLEMENTATION_STATUSES
+    return workflow.is_before_implementation(status)
 
 
 def _toplevel() -> str:
