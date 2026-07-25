@@ -38,7 +38,9 @@ _YOKE_ITEM_REF = f"YOK-{_ITEM_NUM}"
 def _make_step(item_id: str, rank: int) -> ScheduledStep:
     return ScheduledStep(
         item_id=item_id,
-        item_type="issue",
+        workflow_id="issue",
+        workflow_version_id=1,
+        workflow_version=1,
         status="refined-idea",
         title=f"{item_id} title",
         priority="medium",

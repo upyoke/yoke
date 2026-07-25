@@ -1,18 +1,11 @@
-"""Session offer endpoint — POST /v1/sessions/offer.
-
-Returns a NextAction directive after computing frontier state, claiming work,
-and (optionally) reconciling drift. Tests patch
-``yoke_core.api.main.{decide_next_action, _build_frontier_state, ...}`` so this
-module reaches those bindings via ``_main.X`` attribute lookup at call time.
-"""
+"""Session offer endpoint — POST /v1/sessions/offer."""
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Optional
 
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRouter
-from pydantic import BaseModel, Field
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.sessions import (
@@ -56,6 +49,7 @@ from yoke_core.domain.session_decision_process_gate import (
     merge_skip_memory_with_policy,
     record_disabled_process_skip,
 )
+from yoke_core.api.routes.session_offer_models import SessionOfferRequest
 
 router = APIRouter()
 
@@ -63,21 +57,6 @@ router = APIRouter()
 def _main_api():
     import yoke_core.api.main as main
     return main
-
-
-class SessionOfferRequest(BaseModel):
-    """Request body for POST /v1/sessions/offer."""
-
-    session_id: str
-    executor: str
-    provider: str
-    model: str
-    capabilities: Optional[List[str]] = None
-    workspace: str
-    execution_lane: Optional[str] = None
-    step: int = Field(default=1, ge=1)
-    supported_paths: Optional[List[str]] = None
-    project_scope: Optional[List[Union[str, int]]] = None
 
 
 @router.post("/sessions/offer")
@@ -192,7 +171,9 @@ def api_session_offer(req: SessionOfferRequest) -> JSONResponse:
                     epic_id=c.get("epic_id"),
                     task_num=c.get("task_num"),
                     status=claim_ctx.get("status"),
-                    item_type=claim_ctx.get("item_type"),
+                    workflow_id=claim_ctx.get("workflow_id"),
+                    workflow_version_id=claim_ctx.get("workflow_version_id"),
+                    workflow_version=claim_ctx.get("workflow_version"),
                     required_path=claim_ctx.get("required_path"),
                 ))
             last_step: Optional[Dict[str, Any]] = None

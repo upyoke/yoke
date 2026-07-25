@@ -106,7 +106,7 @@ def _charge_frontier(item_id, *, status="refined-idea", next_step="advance"):
         runnable_items=[f"YOK-{item_id}"],
         selected_item=f"YOK-{item_id}",
         scheduler_context={
-            "status": status, "next_step": next_step, "item_type": "issue",
+            "status": status, "next_step": next_step, "workflow_id": "issue",
         },
         sml_coherent=True,
     )
@@ -225,7 +225,7 @@ class TestResumeFreshness:
         claim = ClaimedWork(
             item_id="4101",
             status="implementing",
-            item_type="issue",
+            workflow_id="issue",
             required_path="advance",
         )
         result = decide_resume_action(
@@ -248,7 +248,7 @@ class TestResumeFreshness:
         claim = ClaimedWork(
             item_id="4102",
             status="implementing",
-            item_type="issue",
+            workflow_id="issue",
             required_path="advance",
         )
         result = decide_resume_action(
@@ -321,7 +321,7 @@ class TestChargeDispatchContextGuard:
             runnable_items=["YOK-5003"], selected_item="YOK-5003",
             scheduler_context={
                 "selected_item": "YOK-9999", "next_step": "advance",
-                "status": "refined-idea", "item_type": "issue",
+                "status": "refined-idea", "workflow_id": "issue",
             },
             sml_coherent=True,
         )

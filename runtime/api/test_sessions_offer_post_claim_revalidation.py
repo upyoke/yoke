@@ -220,7 +220,8 @@ class TestPostClaimSchedulePinning(_ReleaseGapDbCase):
         )
 
         step_other = ScheduledStep(
-            item_id="YOK-9998", item_type="issue", status="refined-idea",
+            item_id="YOK-9998", workflow_id="issue",
+            workflow_version_id=1, workflow_version=1, status="refined-idea",
             title="Other", priority="medium",
             next_step=NextStep.ADVANCE, rank=0,
             claim_state=ClaimState.UNCLAIMED, adapter="conduct",
@@ -249,13 +250,15 @@ class TestPostClaimSchedulePinning(_ReleaseGapDbCase):
         )
 
         step_a = ScheduledStep(
-            item_id="YOK-9998", item_type="issue", status="refined-idea",
+            item_id="YOK-9998", workflow_id="issue",
+            workflow_version_id=1, workflow_version=1, status="refined-idea",
             title="A", priority="medium",
             next_step=NextStep.ADVANCE, rank=0,
             claim_state=ClaimState.UNCLAIMED, adapter="conduct",
         )
         step_b = ScheduledStep(
-            item_id="YOK-9999", item_type="issue", status="refined-idea",
+            item_id="YOK-9999", workflow_id="issue",
+            workflow_version_id=1, workflow_version=1, status="refined-idea",
             title="B", priority="medium",
             next_step=NextStep.ADVANCE, rank=1,
             claim_state=ClaimState.UNCLAIMED, adapter="conduct",

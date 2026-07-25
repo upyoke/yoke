@@ -121,7 +121,9 @@ def decide_resume_action(
                 epic_id=claim.epic_id,
                 task_num=claim.task_num,
                 status=verdict.current_status,
-                item_type=claim.item_type,
+                workflow_id=claim.workflow_id,
+                workflow_version_id=claim.workflow_version_id,
+                workflow_version=claim.workflow_version,
                 required_path=required_path,
             )
 

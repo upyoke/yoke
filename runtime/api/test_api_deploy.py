@@ -81,7 +81,8 @@ class TestChargeFrontierEndpoint:
         item = data["runnable"][0]
         expected_fields = {
             "item_id", "title", "status", "priority", "project",
-            "item_type", "adapter", "blocked_by", "blocked_reasons",
+            "workflow_id", "workflow_version_id", "workflow_version",
+            "stage_index", "adapter", "blocked_by", "blocked_reasons",
             "unblocks_count", "downstream_depth", "created_at",
         }
         assert set(item.keys()) == expected_fields
@@ -143,7 +144,8 @@ class TestChargeScheduleEndpoint:
         assert len(data["ranked_steps"]) > 0
         step = data["ranked_steps"][0]
         expected_fields = {
-            "item_id", "item_type", "status", "title", "priority",
+            "item_id", "workflow_id", "workflow_version_id",
+            "workflow_version", "status", "title", "priority",
             "next_step", "rank", "claim_state", "gate_evaluations",
             "explanation", "adapter", "blocked_by", "blocked_reasons",
             "unblocks_count", "downstream_depth", "created_at",

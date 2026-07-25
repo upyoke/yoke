@@ -38,7 +38,9 @@ class TestBuildFrontierStateDriftReview:
 
         step = ScheduledStep(
             item_id=f"YOK-{1000}",
-            item_type="issue",
+            workflow_id="issue",
+            workflow_version_id=1,
+            workflow_version=1,
             status="idea",
             title="Needs refinement",
             priority="medium",

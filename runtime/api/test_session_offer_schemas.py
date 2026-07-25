@@ -154,6 +154,11 @@ def _apply_session_offer_schema() -> None:
             ITEM_DEPENDENCIES_SCHEMA,
             ACTORS_SCHEMA,
         )
+        from yoke_core.domain.workflow_registry import converge_builtin_workflows
+        from yoke_core.domain.workflow_schema import ensure_workflow_schema
+
+        ensure_workflow_schema(conn)
+        converge_builtin_workflows(conn)
 
         # Seed items: one runnable issue, one done (terminal), one blocked
         conn.execute(
@@ -182,6 +187,15 @@ def _apply_session_offer_schema() -> None:
             """INSERT INTO item_dependencies
                (dependent_item, blocking_item, gate_point, satisfaction, source, rationale, created_at)
                VALUES ('YOK-12', 'YOK-10', 'activation', 'status:done', 'shepherd', 'YOK-12 depends on YOK-10', '2026-03-01T00:00:00Z')"""
+        )
+        from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
+
+        workflow_id, workflow_version_id = resolve_current_workflow_pin(
+            conn, "issue",
+        )
+        conn.execute(
+            "UPDATE items SET workflow_id = %s, workflow_version_id = %s",
+            (workflow_id, workflow_version_id),
         )
         conn.commit()
     finally:

@@ -59,7 +59,7 @@ def _frontier_with_step(next_step: str) -> FrontierState:
         selected_item="YOK-10",
         scheduler_context={
             "next_step": next_step,
-            "item_type": "issue",
+            "workflow_id": "issue",
             "status": "reviewed-implementation",
             "title": "Test",
             "rank": 0,

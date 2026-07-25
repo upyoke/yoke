@@ -119,7 +119,7 @@ class TestSessionOffer:
         assert ctx["scheduler"]["status"] == "refined-idea"
         # The scheduler carries the raw frontier adapter for diagnostics,
         # but session-offer dispatches from next_step.
-        assert ctx["scheduler"]["adapter"] == "conduct"
+        assert ctx["scheduler"]["adapter"] == "advance"
         # should NOT be in runnable (blocked by parent (activation gate))
         assert "YOK-12" not in ctx["runnable_items"]
 
@@ -150,11 +150,20 @@ class TestSessionOffer:
             conn.execute(
                 """INSERT INTO items
                    (id, title, type, status, priority, project_id, project_sequence,
-                    created_at, updated_at, source, frozen)
+                    created_at, updated_at, source, frozen,
+                    workflow_id, workflow_version_id)
                    VALUES (30, 'Live-claimed implementing', 'issue',
                            'implementing', 'medium', 1, 30,
-                           {p}, {p}, 'user', 0)""".format(p=p),
-                (now_iso, now_iso),
+                           {p}, {p}, 'user', 0, {p}, {p})""".format(p=p),
+                (
+                    now_iso,
+                    now_iso,
+                    "issue",
+                    conn.execute(
+                        "SELECT current_version_id FROM workflows "
+                        "WHERE id = 'issue'"
+                    ).fetchone()[0],
+                ),
             )
             conn.execute(
                 f"""INSERT INTO harness_sessions

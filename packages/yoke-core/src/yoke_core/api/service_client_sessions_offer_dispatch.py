@@ -81,7 +81,9 @@ def dispatch_decision_engine(
                     epic_id=claim.get("epic_id"),
                     task_num=claim.get("task_num"),
                     status=claim_ctx.get("status"),
-                    item_type=claim_ctx.get("item_type"),
+                    workflow_id=claim_ctx.get("workflow_id"),
+                    workflow_version_id=claim_ctx.get("workflow_version_id"),
+                    workflow_version=claim_ctx.get("workflow_version"),
                     required_path=claim_ctx.get("required_path"),
                 )
             )

@@ -212,21 +212,20 @@ def _resolve_resume_dispatch(
             "dispatch_source": "resume-status-mapping",
         }
 
-    resolved_type = "issue"
     resolved_status = status or ""
+    item_num: Optional[int] = None
     if item_id:
         try:
             item_num = int(str(item_id).replace("YOK-", ""))
         except ValueError:
-            item_num = None
+            pass
         if item_num is not None:
             p = _p(conn)
             row = conn.execute(
-                f"SELECT type, status FROM items WHERE id = {p}",
+                f"SELECT status FROM items WHERE id = {p}",
                 (item_num,),
             ).fetchone()
             if row is not None:
-                resolved_type = row["type"] or resolved_type
                 resolved_status = row["status"] or resolved_status
 
     if not resolved_status:
@@ -235,9 +234,17 @@ def _resolve_resume_dispatch(
     try:
         from .frontier import classify_next_action
         from .scheduler import _compute_next_step
+        from .workflow_runtime import load_item_workflow_runtime
 
-        adapter = classify_next_action(resolved_status, item_type=resolved_type)
-        step = _compute_next_step(resolved_type, resolved_status, adapter)
+        if item_num is None:
+            return {"dispatch_source": "resume-status-mapping"}
+        workflow = load_item_workflow_runtime(conn, item_num)
+        adapter = classify_next_action(workflow, resolved_status)
+        step = _compute_next_step(
+            workflow.workflow_id,
+            resolved_status,
+            adapter,
+        )
         return {
             "adapter": _NEXT_STEP_TO_PATH.get(step.next_step.value, step.next_step.value),
             "dispatch_source": "resume-status-mapping",

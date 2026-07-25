@@ -145,7 +145,7 @@ class TestSessionOfferCharge:
         scheduler = data["context"]["scheduler"]
         assert scheduler["next_step"] == "advance"
         assert scheduler["status"] == "refined-idea"
-        assert scheduler["adapter"] == "conduct"
+        assert scheduler["adapter"] == "advance"
 
     def _now_iso(self) -> str:
         from datetime import datetime, timezone
@@ -251,7 +251,9 @@ class TestSessionOfferCharge:
         steps = [
             ScheduledStep(
                 item_id=item_id,
-                item_type="issue",
+                workflow_id="issue",
+                workflow_version_id=1,
+                workflow_version=1,
                 status="implementing",
                 title=item_id,
                 priority="medium",

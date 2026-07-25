@@ -102,6 +102,15 @@ def _seed_frontier_conn(conn) -> None:
                    '2026-03-01T00:00:00Z', '2026-03-09T00:00:00Z', 'user')"""
     )
 
+    from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
+
+    workflow_id, workflow_version_id = resolve_current_workflow_pin(
+        conn, "issue",
+    )
+    conn.execute(
+        "UPDATE items SET workflow_id = %s, workflow_version_id = %s",
+        (workflow_id, workflow_version_id),
+    )
     conn.commit()
 
 

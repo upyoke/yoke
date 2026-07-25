@@ -59,7 +59,9 @@ def build_frontier_state_from_schedule(
         ss = selected_step
         scheduler_ctx = {
             "next_step": ss.next_step.value if hasattr(ss.next_step, "value") else str(ss.next_step),
-            "item_type": ss.item_type,
+            "workflow_id": ss.workflow_id,
+            "workflow_version_id": ss.workflow_version_id,
+            "workflow_version": ss.workflow_version,
             "status": ss.status,
             "title": ss.title,
             "rank": ss.rank,

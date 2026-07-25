@@ -28,7 +28,9 @@ def _step(
 ) -> ScheduledStep:
     return ScheduledStep(
         item_id=item_id,
-        item_type="issue",
+        workflow_id="issue",
+        workflow_version_id=1,
+        workflow_version=1,
         status="reviewed-implementation",
         title=f"Item {item_id}",
         priority="high",

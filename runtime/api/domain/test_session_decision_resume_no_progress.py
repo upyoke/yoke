@@ -80,7 +80,7 @@ def test_healthy_lifecycle_handoff_returns_resume() -> None:
     claim = ClaimedWork(
         item_id="YOK-1813",
         status="implemented",
-        item_type="issue",
+        workflow_id="issue",
         required_path="usher",
     )
 
@@ -112,7 +112,7 @@ def test_genuinely_stuck_returns_escalate() -> None:
     claim = ClaimedWork(
         item_id="YOK-9001",
         status="refining-idea",
-        item_type="issue",
+        workflow_id="issue",
         required_path="refine",
     )
 
@@ -146,7 +146,7 @@ def test_backfill_missing_pre_status_falls_back_to_same_state() -> None:
     claim = ClaimedWork(
         item_id="YOK-9002",
         status="implemented",
-        item_type="issue",
+        workflow_id="issue",
         required_path="usher",
     )
 
@@ -225,7 +225,7 @@ def test_writer_reader_bridge_round_trip_yields_resume(test_db) -> None:
     claim = ClaimedWork(
         item_id="YOK-1813",
         status="implemented",
-        item_type="issue",
+        workflow_id="issue",
         required_path="usher",
     )
 
@@ -261,7 +261,7 @@ def test_different_item_on_prior_step_returns_resume() -> None:
     claim = ClaimedWork(
         item_id="YOK-9101",
         status="implementing",
-        item_type="issue",
+        workflow_id="issue",
         required_path="advance",
     )
 

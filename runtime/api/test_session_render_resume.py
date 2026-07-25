@@ -44,7 +44,7 @@ class TestResumeCompatibilityValidation:
         claims = [ClaimedWork(
             item_id=TEST_ITEM_REF,
             status="reviewed-implementation",
-            item_type="issue",
+            workflow_id="issue",
             required_path="polish",
         )]
         result = decide_next_action(offer, frontier, claims)
@@ -60,7 +60,7 @@ class TestResumeCompatibilityValidation:
         claims = [ClaimedWork(
             item_id=TEST_ITEM_REF,
             status="reviewed-implementation",
-            item_type="issue",
+            workflow_id="issue",
             required_path="polish",
         )]
         result = decide_next_action(
@@ -84,7 +84,7 @@ class TestResumeCompatibilityValidation:
         claims = [ClaimedWork(
             item_id=TEST_ITEM_REF,
             status="reviewed-implementation",
-            item_type="issue",
+            workflow_id="issue",
             required_path="polish",
         )]
         result = decide_next_action(
@@ -105,7 +105,7 @@ class TestResumeCompatibilityValidation:
         claims = [ClaimedWork(
             item_id=TEST_ITEM_REF,
             status="implementing",
-            item_type="issue",
+            workflow_id="issue",
             required_path="advance",
         )]
         result = decide_next_action(
@@ -148,7 +148,7 @@ class TestResumeNoProgressDetection:
         claims = [ClaimedWork(
             item_id=TEST_ITEM_REF,
             status="reviewed-implementation",
-            item_type="issue",
+            workflow_id="issue",
             required_path="polish",
         )]
         result = decide_next_action(offer, frontier, claims)
@@ -172,7 +172,7 @@ class TestResumeNoProgressDetection:
         claims = [ClaimedWork(
             item_id=TEST_ITEM_REF,
             status="reviewing-implementation",
-            item_type="issue",
+            workflow_id="issue",
             required_path="advance",
         )]
         result = decide_next_action(offer, frontier, claims)
@@ -195,7 +195,7 @@ class TestResumeNoProgressDetection:
         claims = [ClaimedWork(
             item_id=TEST_ITEM_REF,
             status="reviewed-implementation",
-            item_type="issue",
+            workflow_id="issue",
             required_path="polish",
         )]
         result = decide_next_action(offer, frontier, claims)
@@ -216,7 +216,7 @@ class TestResumeNoProgressDetection:
         claims = [ClaimedWork(
             item_id=TEST_ITEM_REF,
             status="implementing",
-            item_type="issue",
+            workflow_id="issue",
             required_path="advance",
         )]
         result = decide_next_action(offer, frontier, claims)
@@ -236,7 +236,7 @@ class TestResumeNoProgressDetection:
         claims = [ClaimedWork(
             item_id=TEST_ITEM_REF,
             status="implementing",
-            item_type="issue",
+            workflow_id="issue",
             required_path="advance",
         )]
         result = decide_next_action(offer, frontier, claims)
@@ -275,7 +275,7 @@ class TestStaticCwdSubstrateNoChainBurnRegression:
         claims = [ClaimedWork(
             item_id=TEST_ITEM_REF,
             status="implementing",
-            item_type="issue",
+            workflow_id="issue",
             required_path="advance",
         )]
         result = decide_next_action(offer, frontier, claims)
@@ -302,7 +302,7 @@ class TestStaticCwdSubstrateNoChainBurnRegression:
         claims = [ClaimedWork(
             item_id=TEST_ITEM_REF,
             status="reviewing-implementation",
-            item_type="issue",
+            workflow_id="issue",
             required_path="advance",
         )]
         result = decide_next_action(offer, frontier, claims)

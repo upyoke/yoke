@@ -76,6 +76,11 @@ def apply_release_gap_schema() -> None:
             + EVENTS_SCHEMA
             + PATH_CLAIMS_SCHEMA,
         )
+        from yoke_core.domain.workflow_registry import converge_builtin_workflows
+        from yoke_core.domain.workflow_schema import ensure_workflow_schema
+
+        ensure_workflow_schema(conn)
+        converge_builtin_workflows(conn)
         conn.commit()
     finally:
         conn.close()
@@ -88,15 +93,19 @@ def make_db(path: str):
 
 def seed_item(conn: Any) -> None:
     """Insert the synthetic routed item in a frontier-runnable status."""
+    from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
+
     spec = "# Routed item under test\n\nSynthetic fixture row."
+    workflow_id, workflow_version_id = resolve_current_workflow_pin(conn, "issue")
     p = _p(conn)
     conn.execute(
         "INSERT INTO items (id, title, type, status, priority, project_id, "
-        "project_sequence, created_at, updated_at, source, frozen, spec) "
+        "project_sequence, created_at, updated_at, source, frozen, spec, "
+        "workflow_id, workflow_version_id) "
         f"VALUES ({p}, {p}, 'issue', 'refined-idea', 'high', 1, "
-        f"{p}, {p}, {p}, 'user', 0, {p})",
+        f"{p}, {p}, {p}, 'user', 0, {p}, {p}, {p})",
         (SYNTHETIC_ITEM_ID, "Routed item under test", SYNTHETIC_ITEM_ID,
-         _SEED_TS, _SEED_TS, spec),
+         _SEED_TS, _SEED_TS, spec, workflow_id, workflow_version_id),
     )
     conn.commit()
 

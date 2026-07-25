@@ -323,6 +323,8 @@ _NEXT_STEP_TO_PATH: Dict[str, str] = {
     "shepherd": "shepherd",
     "conduct": "conduct",
     "advance": "advance",
+    "blitz": "blitz",
+    "dash": "dash",
     "polish": "polish",
     "usher": "usher",
 }

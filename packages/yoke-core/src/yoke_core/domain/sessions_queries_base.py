@@ -9,6 +9,7 @@ from . import db_backend
 from .scheduler_types import is_assignable_claim_state
 from .session_decision_lane_gate import evaluate_lane_gate
 from .sessions_analytics import _NEXT_STEP_TO_PATH
+from .workflow_runtime import WorkflowRuntime, load_item_workflow_runtime
 
 
 def _p(conn: Any) -> str:
@@ -76,23 +77,22 @@ def _required_path_for_step(step: Any) -> Optional[str]:
 # ---------------------------------------------------------------------------
 
 
-def derive_required_path(item_type: str, status: str) -> Optional[str]:
+def derive_required_path(
+    workflow: WorkflowRuntime,
+    status: str,
+) -> Optional[str]:
     """Derive the canonical downstream path for claimed work.
 
-    Uses the scheduler's ``_compute_next_step`` routing truth — the same
-    status/type -> next_step mapping that charge already relies on.
+    Uses the scheduler's definition-selected routing truth.
 
     Returns the canonical path name (e.g., ``advance``, ``polish``,
     ``usher``) or ``None`` if the mapping cannot be resolved.
     """
+    from .frontier_classify import classify_next_action
     from .scheduler import _compute_next_step
-    from .frontier import AdapterCategory, _STATUS_ADAPTER_MAP
 
-    adapter = AdapterCategory.WAIT
-    if status in _STATUS_ADAPTER_MAP:
-        adapter = _STATUS_ADAPTER_MAP[status]
-
-    result = _compute_next_step(item_type, status, adapter)
+    adapter = classify_next_action(workflow, status)
+    result = _compute_next_step(workflow.workflow_id, status, adapter)
     ns = result.next_step
     if hasattr(ns, "value"):
         ns = ns.value
@@ -102,12 +102,12 @@ def derive_required_path(item_type: str, status: str) -> Optional[str]:
 def resolve_claimed_work_context(
     conn: Any,
     claim: Dict[str, Any],
-) -> Dict[str, Optional[str]]:
+) -> Dict[str, Any]:
     """Resolve current routing metadata for a raw claim row."""
     item_id = claim.get("item_id")
     epic_id = claim.get("epic_id")
     task_num = claim.get("task_num")
-    item_type: Optional[str] = None
+    workflow: Optional[WorkflowRuntime] = None
     status: Optional[str] = claim.get("status")
     required_path: Optional[str] = claim.get("required_path")
 
@@ -123,21 +123,23 @@ def resolve_claimed_work_context(
     if lookup_id is not None:
         p = _p(conn)
         row = conn.execute(
-            f"SELECT type, status FROM items WHERE id = {p}",
+            f"SELECT status FROM items WHERE id = {p}",
             (lookup_id,),
         ).fetchone()
         if row is not None:
-            item_type = row["type"] or item_type
             status = row["status"] or status
+            workflow = load_item_workflow_runtime(conn, lookup_id)
 
     # Active epic-task claims always resume through conduct.
     if epic_id is not None and task_num is not None and not item_id:
         required_path = required_path or "conduct"
-    elif required_path is None and item_type and status:
-        required_path = derive_required_path(item_type, status)
+    elif required_path is None and workflow is not None and status:
+        required_path = derive_required_path(workflow, status)
 
     return {
-        "item_type": item_type,
+        "workflow_id": workflow.workflow_id if workflow else None,
+        "workflow_version_id": workflow.workflow_version_id if workflow else None,
+        "workflow_version": workflow.version if workflow else None,
         "status": status,
         "required_path": required_path,
     }

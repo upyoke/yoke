@@ -49,7 +49,10 @@ def _frontier_item_to_dict(fi: FrontierItem) -> dict:
         "status": fi.status,
         "priority": fi.priority,
         "project": fi.project,
-        "item_type": fi.item_type,
+        "workflow_id": fi.workflow_id,
+        "workflow_version_id": fi.workflow_version_id,
+        "workflow_version": fi.workflow_version,
+        "stage_index": fi.stage_index,
         "adapter": fi.adapter.value if isinstance(fi.adapter, AdapterCategory) else fi.adapter,
         "blocked_by": fi.blocked_by,
         "blocked_reasons": fi.blocked_reasons,
@@ -135,7 +138,9 @@ def _scheduled_step_to_dict(step) -> dict:
     """Convert a ScheduledStep to a JSON-serializable dict."""
     return {
         "item_id": step.item_id,
-        "item_type": step.item_type,
+        "workflow_id": step.workflow_id,
+        "workflow_version_id": step.workflow_version_id,
+        "workflow_version": step.workflow_version,
         "status": step.status,
         "title": step.title,
         "priority": step.priority,
@@ -188,7 +193,7 @@ def cmd_charge_schedule(args: list[str]) -> int:
     Usage: charge-schedule [--project P] [--wip-cap N]
 
     Calls compute_schedule() directly (direct DB access, not via HTTP).
-    Returns the full scheduler result with type-aware next-step routing,
+    Returns the full scheduler result with definition-selected routing,
     SML state, and deterministic ranking. Without ``--wip-cap`` the cap
     resolves from project-policy for single-project scopes, else 5.
     """

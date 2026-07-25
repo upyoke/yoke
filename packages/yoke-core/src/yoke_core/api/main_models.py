@@ -154,7 +154,10 @@ class FrontierItemModel(BaseModel):
     status: str
     priority: str
     project: str
-    item_type: str
+    workflow_id: str
+    workflow_version_id: int
+    workflow_version: int
+    stage_index: int
     adapter: str
     blocked_by: List[str] = Field(default_factory=list)
     blocked_reasons: List[str] = Field(default_factory=list)
@@ -200,7 +203,9 @@ class ScheduledStepModel(BaseModel):
     """Pydantic model for a scheduled step."""
 
     item_id: str
-    item_type: str
+    workflow_id: str
+    workflow_version_id: int
+    workflow_version: int
     status: str
     title: str
     priority: str

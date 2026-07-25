@@ -182,7 +182,9 @@ class TestSessionOfferNoWork:
         steps = [
             ScheduledStep(
                 item_id="YOK-10",
-                item_type="issue",
+                workflow_id="issue",
+                workflow_version_id=1,
+                workflow_version=1,
                 status="refined-idea",
                 title="blocked",
                 priority="high",
@@ -192,7 +194,9 @@ class TestSessionOfferNoWork:
             ),
             ScheduledStep(
                 item_id="YOK-13",
-                item_type="issue",
+                workflow_id="issue",
+                workflow_version_id=1,
+                workflow_version=1,
                 status="refined-idea",
                 title="unblocked",
                 priority="high",
@@ -223,7 +227,7 @@ class TestSessionOfferNoWork:
         assert filtered.runnable_items == ["YOK-13"]
         assert filtered.selected_item == "YOK-13"
         assert filtered.scheduler_context["next_step"] == "advance"
-        assert filtered.scheduler_context["item_type"] == "issue"
+        assert filtered.scheduler_context["workflow_id"] == "issue"
 
 
 class TestNoWorkWaitContextHelper:

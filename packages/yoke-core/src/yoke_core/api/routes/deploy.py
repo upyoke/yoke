@@ -49,7 +49,10 @@ def _frontier_item_to_model(fi: FrontierItem) -> _main.FrontierItemModel:
         status=fi.status,
         priority=fi.priority,
         project=fi.project,
-        item_type=fi.item_type,
+        workflow_id=fi.workflow_id,
+        workflow_version_id=fi.workflow_version_id,
+        workflow_version=fi.workflow_version,
+        stage_index=fi.stage_index,
         adapter=fi.adapter.value if isinstance(fi.adapter, AdapterCategory) else fi.adapter,
         blocked_by=fi.blocked_by,
         blocked_reasons=fi.blocked_reasons,
@@ -85,7 +88,9 @@ def _scheduled_step_to_model(step) -> _main.ScheduledStepModel:
         ))
     return _main.ScheduledStepModel(
         item_id=step.item_id,
-        item_type=step.item_type,
+        workflow_id=step.workflow_id,
+        workflow_version_id=step.workflow_version_id,
+        workflow_version=step.workflow_version,
         status=step.status,
         title=step.title,
         priority=step.priority,

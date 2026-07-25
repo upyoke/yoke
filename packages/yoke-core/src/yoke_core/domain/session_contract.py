@@ -234,8 +234,9 @@ class ClaimedWork:
         epic_id: Epic ID for epic-task claims.
         task_num: Task number within the epic.
         status: Current canonical status of the claimed work.
-        item_type: ``issue`` or ``epic`` — needed for type-aware routing.
-            Populated by the service layer.
+        workflow_id: Stable identity of the item's pinned workflow.
+        workflow_version_id: Immutable workflow-version row id.
+        workflow_version: Human-readable immutable version number.
         required_path: Canonical downstream path derived from scheduler
             routing truth.  ``None`` when the path could
             not be derived (backward compat).
@@ -245,7 +246,9 @@ class ClaimedWork:
     epic_id: Optional[int] = None
     task_num: Optional[int] = None
     status: Optional[str] = None
-    item_type: Optional[str] = None
+    workflow_id: Optional[str] = None
+    workflow_version_id: Optional[int] = None
+    workflow_version: Optional[int] = None
     required_path: Optional[str] = None
 
 

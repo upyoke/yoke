@@ -47,7 +47,9 @@ def _make_step(item_id, rank, claim_state, next_step_value="advance"):
     }
     return ScheduledStep(
         item_id=item_id,
-        item_type="issue",
+        workflow_id="issue",
+        workflow_version_id=1,
+        workflow_version=1,
         status="refined-idea",
         title=f"{item_id} title",
         priority="high",
@@ -86,7 +88,7 @@ class TestFrontierPromotion:
         assert filtered.runnable_items == ["YOK-B"]
         assert filtered.selected_item == "YOK-B"
         assert filtered.scheduler_context["next_step"] == "advance"
-        assert filtered.scheduler_context["item_type"] == "issue"
+        assert filtered.scheduler_context["workflow_id"] == "issue"
         assert filtered.scheduler_context["rank"] == 1
 
     def test_all_ranked_steps_filtered_keeps_selected_none(self):
