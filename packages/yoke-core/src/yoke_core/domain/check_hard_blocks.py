@@ -23,21 +23,12 @@ from typing import List, Optional, Tuple
 
 from yoke_core.domain import db_backend
 from yoke_core.domain import db_helpers
-from yoke_core.domain.lifecycle import ISSUE_PROGRESSION
+from yoke_core.domain.dependencies import evaluate_satisfaction
+from yoke_core.domain.dependency_workflow_context import (
+    workflow_from_joined_values,
+)
 from yoke_core.domain.path_claims_dependency_resolver import _strip_sun_prefix
 from yoke_core.domain.project_checkout_locations import checkout_for_project
-
-
-# Statuses at or past ``implemented`` in the delivery progression.
-# Derived from lifecycle.ISSUE_PROGRESSION so this set stays in sync with
-# lifecycle evolution.
-_AT_OR_PAST_IMPLEMENTED: frozenset[str] = frozenset(
-    ISSUE_PROGRESSION[ISSUE_PROGRESSION.index("implemented"):]
-)
-# Statuses where the branch is known to be merged (post-release).
-_MERGED_STATUSES: frozenset[str] = frozenset(
-    ISSUE_PROGRESSION[ISSUE_PROGRESSION.index("release"):]
-)
 
 
 def _normalize_item_id(raw: str) -> Optional[int]:
@@ -93,8 +84,11 @@ def _query_item(conn, item_id: int) -> Optional[dict]:
     p = "%s" if db_backend.connection_is_postgres(conn) else "?"
     row = db_helpers.query_one(
         conn,
-        "SELECT i.status, i.title, i.worktree, p.slug AS project, i.merged_at "
+        "SELECT i.status, i.title, i.worktree, p.slug AS project, i.merged_at, "
+        "i.workflow_id, i.workflow_version_id, wv.version, "
+        "wv.definition_json, wv.definition_digest "
         "FROM items i LEFT JOIN projects p ON p.id = i.project_id "
+        "LEFT JOIN workflow_versions wv ON wv.id = i.workflow_version_id "
         f"WHERE i.id = {p}",
         (item_id,),
     )
@@ -106,6 +100,13 @@ def _query_item(conn, item_id: int) -> Optional[dict]:
         "worktree": row["worktree"],
         "project": row["project"],
         "merged_at": row["merged_at"],
+        "workflow": workflow_from_joined_values(
+            row["workflow_id"],
+            row["workflow_version_id"],
+            row["version"],
+            row["definition_json"],
+            row["definition_digest"],
+        ),
     }
 
 
@@ -147,23 +148,20 @@ def _branch_is_merged(repo: str, branch: str, base: str = "main") -> bool:
 
 def _is_satisfied(satisfaction: str, item: dict, conn) -> bool:
     status = item.get("status") or ""
-    if satisfaction == "status:done":
-        return status == "done"
-    if satisfaction == "status:implemented":
-        return status in _AT_OR_PAST_IMPLEMENTED
+    merged = True if item.get("merged_at") else None
     if satisfaction == "fact:merged":
-        # Prefer the canonical merge fact when available. sqlite returns
-        # real None for NULL, so a truthy check is sufficient here.
-        if item.get("merged_at"):
-            return True
         worktree = item.get("worktree")
-        if worktree:
+        if merged is None and worktree:
             repo = _query_project_repo_path(conn, item.get("project")) or _git_root()
             if repo and _branch_is_merged(repo, worktree):
-                return True
-        return status in _MERGED_STATUSES
-    # Unknown satisfaction — fail-safe unsatisfied
-    return False
+                merged = True
+    return evaluate_satisfaction(
+        satisfaction,
+        status,
+        item.get("worktree"),
+        blocking_merged=merged,
+        workflow=item.get("workflow"),
+    ).satisfied
 
 
 def evaluate_blockers(

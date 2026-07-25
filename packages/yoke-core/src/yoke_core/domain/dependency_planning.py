@@ -22,15 +22,11 @@ here for stability.
 
 from __future__ import annotations
 
-import logging
 from typing import Any, Dict, List, Optional, Tuple
 
 from . import db_backend
 from .dependencies import (
-    DependencyEdge,
     GatePoint,
-    GateResult,
-    Satisfaction,
     evaluate_satisfaction,
 )
 from .dependency_planning_results import (
@@ -39,6 +35,8 @@ from .dependency_planning_results import (
     ItemGateEvaluation,
     PlanResult,
 )
+from .dependency_planning_telemetry import emit_batch_gate_evaluated
+from .dependency_workflow_context import workflow_from_joined_values
 
 
 # --- SQL queries ---
@@ -52,9 +50,12 @@ def _item_deps_sql(conn: Any) -> str:
     return f"""
 SELECT d.id, d.dependent_item, d.blocking_item, d.gate_point, d.satisfaction,
        d.rationale, bi.status AS blocking_status,
-       bi.worktree AS blocking_worktree, bi.merged_at AS blocking_merged_at
+       bi.worktree AS blocking_worktree, bi.merged_at AS blocking_merged_at,
+       bi.workflow_id, bi.workflow_version_id, wv.version,
+       wv.definition_json, wv.definition_digest
 FROM item_dependencies d
 LEFT JOIN items bi ON bi.id = CAST(REPLACE(d.blocking_item, 'YOK-', '') AS INTEGER)
+LEFT JOIN workflow_versions wv ON wv.id = bi.workflow_version_id
 WHERE d.dependent_item = {p} AND d.gate_point = {p}
 """
 
@@ -64,9 +65,12 @@ def _batch_deps_sql(conn: Any) -> str:
     return f"""
 SELECT d.dependent_item, d.blocking_item, d.gate_point, d.satisfaction,
        d.rationale, bi.status AS blocking_status,
-       bi.worktree AS blocking_worktree, bi.merged_at AS blocking_merged_at
+       bi.worktree AS blocking_worktree, bi.merged_at AS blocking_merged_at,
+       bi.workflow_id, bi.workflow_version_id, wv.version,
+       wv.definition_json, wv.definition_digest
 FROM item_dependencies d
 LEFT JOIN items bi ON bi.id = CAST(REPLACE(d.blocking_item, 'YOK-', '') AS INTEGER)
+LEFT JOIN workflow_versions wv ON wv.id = bi.workflow_version_id
 WHERE d.gate_point = {p}
 """
 
@@ -103,6 +107,11 @@ def evaluate_item_gate(
             blk_status,
             blk_worktree,
             blk_merged_at,
+            workflow_id,
+            workflow_version_id,
+            workflow_version,
+            definition_json,
+            definition_digest,
         ) = row
 
         merge_fact = True if blk_merged_at else None
@@ -111,6 +120,13 @@ def evaluate_item_gate(
             blk_status,
             blk_worktree,
             blocking_merged=merge_fact,
+            workflow=workflow_from_joined_values(
+                workflow_id,
+                workflow_version_id,
+                workflow_version,
+                definition_json,
+                definition_digest,
+            ),
         )
 
         if not result.satisfied:
@@ -169,6 +185,11 @@ def evaluate_batch_gates(
             blk_status,
             blk_worktree,
             blk_merged_at,
+            workflow_id,
+            workflow_version_id,
+            workflow_version,
+            definition_json,
+            definition_digest,
         ) = row
 
         merge_fact = True if blk_merged_at else None
@@ -177,6 +198,13 @@ def evaluate_batch_gates(
             blk_status,
             blk_worktree,
             blocking_merged=merge_fact,
+            workflow=workflow_from_joined_values(
+                workflow_id,
+                workflow_version_id,
+                workflow_version,
+                definition_json,
+                definition_digest,
+            ),
         )
 
         if not result.satisfied:
@@ -192,7 +220,7 @@ def evaluate_batch_gates(
 
     # Emit DependencyGateEvaluated batch summary
     if emit_events:
-        _emit_batch_gate_evaluated(
+        emit_batch_gate_evaluated(
             gate_point,
             total_rows,
             blocks,
@@ -303,52 +331,3 @@ def plan_candidate_set(
         has_cycle=len(cycle_items) > 0,
         cycle_items=cycle_items,
     )
-
-
-# --- Telemetry: DependencyGateEvaluated ---
-
-_logger = logging.getLogger(__name__)
-
-
-def _emit_batch_gate_evaluated(
-    gate_point: str,
-    total_rows: int,
-    blocks: Dict[str, List[BlockerDetail]],
-    *,
-    session_id: Optional[str] = None,
-    project: Optional[str] = None,
-) -> None:
-    """Emit a batch summary event for dependency gate evaluation."""
-    try:
-        from .events import emit_event
-
-        unsatisfied_count = sum(len(v) for v in blocks.values())
-        unsatisfied_summary = []
-        for dep_item, details in blocks.items():
-            for d in details:
-                unsatisfied_summary.append({
-                    "item_id": dep_item,
-                    "blocking_item": d.blocking_item,
-                    "gate_point": d.gate_point,
-                    "satisfaction": d.satisfaction,
-                    "reason": d.reason,
-                    "rationale": d.rationale,
-                })
-
-        emit_event(
-            "DependencyGateEvaluated",
-            event_kind="workflow",
-            event_type="dependency_gate",
-            source_type="backend",
-            session_id=session_id or "",
-            project=project or "yoke",
-            context={
-                "gate_point": gate_point,
-                "total_rows_evaluated": total_rows,
-                "unsatisfied_count": unsatisfied_count,
-                "blocked_item_count": len(blocks),
-                "unsatisfied_summary": unsatisfied_summary[:20],
-            },
-        )
-    except Exception as exc:
-        _logger.debug("DependencyGateEvaluated emission failed: %s", exc)

@@ -21,7 +21,7 @@ Live dependency rows are canonical blockers; gate timing is expressed by
 ``gate_point`` and clearance is expressed by ``satisfaction``.
 
 The type vocabulary (``GatePoint``, ``Satisfaction``, ``GateResult``,
-``DependencyEdge``, and the private status sets) lives in the sibling
+and ``DependencyEdge``) lives in the sibling
 module :mod:`yoke_core.domain.dependency_types` and is re-exported
 here for the stable public dependency API.
 
@@ -39,9 +39,11 @@ from yoke_core.domain.dependency_types import (  # noqa: F401 — re-export publ
     GatePoint,
     GateResult,
     Satisfaction,
-    _DONE_STATUSES,
-    _IMPLEMENTED_STATUSES,
 )
+from yoke_core.domain.dependency_workflow_context import (
+    workflow_from_joined_values,
+)
+from yoke_core.domain.workflow_runtime import WorkflowRuntime
 
 
 def _p(conn: Any) -> str:
@@ -58,6 +60,8 @@ def evaluate_satisfaction(
     blocking_status: Optional[str],
     blocking_worktree: Optional[str] = None,
     blocking_merged: Optional[bool] = None,
+    *,
+    workflow: Optional[WorkflowRuntime] = None,
 ) -> GateResult:
     """Evaluate whether a satisfaction condition holds for a blocking item.
 
@@ -74,8 +78,14 @@ def evaluate_satisfaction(
     Returns:
         A ``GateResult`` indicating whether the condition is met and why.
     """
+    if workflow is None or blocking_status is None:
+        return GateResult(
+            False,
+            "Blocking item has no verifiable workflow-version pin.",
+        )
+
     if satisfaction == Satisfaction.STATUS_DONE.value:
-        if blocking_status in _DONE_STATUSES:
+        if workflow.satisfies_stage_milestone(blocking_status, "done"):
             return GateResult(True, "Blocking item has reached done.")
         return GateResult(
             False,
@@ -83,7 +93,10 @@ def evaluate_satisfaction(
         )
 
     if satisfaction == Satisfaction.STATUS_IMPLEMENTED.value:
-        if blocking_status in _IMPLEMENTED_STATUSES:
+        if workflow.satisfies_stage_milestone(
+            blocking_status,
+            "implemented",
+        ):
             return GateResult(True, "Blocking item has reached implemented or later.")
         return GateResult(
             False,
@@ -99,9 +112,7 @@ def evaluate_satisfaction(
                 False,
                 f"Blocking item's branch{branch_desc} is not yet merged to main.",
             )
-        # blocking_merged is None -- caller did not check; fall back to
-        # status-based heuristic: release or done implies merge happened.
-        if blocking_status in ("release", "done"):
+        if workflow.stage_implies_merge(blocking_status):
             return GateResult(
                 True,
                 f"Blocking item status is '{blocking_status}' (merge inferred).",
@@ -132,9 +143,15 @@ SELECT
     d.rationale,
     bi.status AS blocking_status,
     bi.worktree AS blocking_worktree,
-    bi.merged_at AS blocking_merged_at
+    bi.merged_at AS blocking_merged_at,
+    bi.workflow_id,
+    bi.workflow_version_id,
+    wv.version,
+    wv.definition_json,
+    wv.definition_digest
 FROM item_dependencies d
 LEFT JOIN items bi ON bi.id = CAST(REPLACE(d.blocking_item, 'YOK-', '') AS INTEGER)
+LEFT JOIN workflow_versions wv ON wv.id = bi.workflow_version_id
 WHERE d.dependent_item = {p}
   AND d.gate_point = {p}
 """
@@ -176,6 +193,11 @@ def query_unsatisfied_at_gate(
             blk_status,
             blk_worktree,
             blk_merged_at,
+            workflow_id,
+            workflow_version_id,
+            workflow_version,
+            definition_json,
+            definition_digest,
         ) = row
         edge = DependencyEdge(
             dep_id=dep_id,
@@ -193,6 +215,13 @@ def query_unsatisfied_at_gate(
             blk_status,
             blk_worktree,
             blocking_merged=merge_fact,
+            workflow=workflow_from_joined_values(
+                workflow_id,
+                workflow_version_id,
+                workflow_version,
+                definition_json,
+                definition_digest,
+            ),
         )
         if not result.satisfied:
             results.append((edge, result))
@@ -212,9 +241,15 @@ SELECT
     d.satisfaction,
     bi.status AS blocking_status,
     bi.worktree AS blocking_worktree,
-    bi.merged_at AS blocking_merged_at
+    bi.merged_at AS blocking_merged_at,
+    bi.workflow_id,
+    bi.workflow_version_id,
+    wv.version,
+    wv.definition_json,
+    wv.definition_digest
 FROM item_dependencies d
 LEFT JOIN items bi ON bi.id = CAST(REPLACE(d.blocking_item, 'YOK-', '') AS INTEGER)
+LEFT JOIN workflow_versions wv ON wv.id = bi.workflow_version_id
 WHERE d.gate_point = {p}
 """
 
@@ -235,13 +270,34 @@ def query_frontier_blocks(
     cursor.execute(_FRONTIER_BLOCKS_SQL.format(p=_p(conn)), (gate_point,))
 
     blocks: dict[str, list[tuple[str, str, str, str]]] = {}
-    for dep_item, blk_item, gp, sat, blk_status, blk_worktree, blk_merged_at in cursor.fetchall():
+    for row in cursor.fetchall():
+        (
+            dep_item,
+            blk_item,
+            gp,
+            sat,
+            blk_status,
+            blk_worktree,
+            blk_merged_at,
+            workflow_id,
+            workflow_version_id,
+            workflow_version,
+            definition_json,
+            definition_digest,
+        ) = row
         merge_fact = True if blk_merged_at else None
         result = evaluate_satisfaction(
             sat,
             blk_status,
             blk_worktree,
             blocking_merged=merge_fact,
+            workflow=workflow_from_joined_values(
+                workflow_id,
+                workflow_version_id,
+                workflow_version,
+                definition_json,
+                definition_digest,
+            ),
         )
         if not result.satisfied:
             blocks.setdefault(dep_item, []).append(

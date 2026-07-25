@@ -1,9 +1,8 @@
 """Canonical type vocabulary for the Yoke dependency model.
 
 This module is the canonical home for the dependency model's value
-types: gate-point and satisfaction enums, the ``GateResult`` and
-``DependencyEdge`` namedtuples, and the private status sets used by
-``evaluate_satisfaction`` in :mod:`yoke_core.domain.dependencies`.
+types: gate-point and satisfaction enums plus the ``GateResult`` and
+``DependencyEdge`` namedtuples.
 
 ``yoke_core.domain.dependencies`` and the package-level
 ``yoke_core.domain`` re-export these names so callers can import the
@@ -120,17 +119,6 @@ class DependencyEdge(NamedTuple):
     rationale: str
     blocking_status: Optional[str]
     blocking_worktree: Optional[str]
-
-
-# ---------------------------------------------------------------------------
-# Private status sets used by evaluate_satisfaction
-# ---------------------------------------------------------------------------
-
-# Statuses that satisfy ``status:done``
-_DONE_STATUSES = frozenset({"done"})
-
-# Statuses that satisfy ``status:implemented``.
-_IMPLEMENTED_STATUSES = frozenset({"implemented", "release", "done"})
 
 
 # ---------------------------------------------------------------------------

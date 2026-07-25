@@ -10,58 +10,16 @@ from unittest import mock
 
 import pytest
 
+from runtime.api.domain.check_hard_blocks_test_helpers import (
+    apply_hard_block_schema,
+)
 from yoke_core.domain import check_hard_blocks as mod
 from yoke_core.domain import db_backend
-from yoke_core.domain.schema_init_apply import execute_schema_script
+from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 
 TEST_ITEM_ID = 42
 TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"
-
-
-_SCHEMA = """
-CREATE TABLE items (
-    id INTEGER PRIMARY KEY,
-    title TEXT NOT NULL,
-    type TEXT NOT NULL DEFAULT 'issue',
-    status TEXT NOT NULL DEFAULT 'idea',
-    priority TEXT NOT NULL DEFAULT 'medium',
-    worktree TEXT,
-    project_id INTEGER NOT NULL DEFAULT 1,
-    project_sequence INTEGER NOT NULL,
-    merged_at TEXT
-);
-CREATE TABLE item_dependencies (
-    id INTEGER PRIMARY KEY,
-    dependent_item TEXT NOT NULL,
-    blocking_item TEXT NOT NULL,
-    gate_point TEXT NOT NULL,
-    satisfaction TEXT NOT NULL
-);
-CREATE TABLE projects (
-    id INTEGER PRIMARY KEY,
-    slug TEXT NOT NULL UNIQUE,
-    name TEXT NOT NULL DEFAULT ''
-);
-INSERT INTO projects (id, slug, name)
-VALUES (1, 'yoke', 'Yoke')
-ON CONFLICT(id) DO NOTHING;
-"""
-
-
-def _apply_schema() -> None:
-    """Build the local 3-table schema against the backend-resolved test DB.
-
-    Zero-arg ``apply_schema`` strategy for :func:`init_test_db`: resolves its
-    connection through the backend factory and executes the schema one native
-    statement at a time.
-    """
-    conn = db_backend.connect()
-    try:
-        execute_schema_script(conn, _SCHEMA)
-        conn.commit()
-    finally:
-        conn.close()
 
 
 def _p(conn) -> str:
@@ -79,54 +37,65 @@ class TestNormalizeId(unittest.TestCase):
         self.assertIsNone(mod._normalize_item_id(""))
 
 
-class TestSatisfiedSetsFromLifecycle(unittest.TestCase):
-    """Ensure the status sets are derived from the lifecycle module."""
-
-    def test_at_or_past_implemented_contains_expected(self) -> None:
-        for status in ("implemented", "release", "done"):
-            self.assertIn(status, mod._AT_OR_PAST_IMPLEMENTED)
-        for status in ("idea", "implementing", "reviewing-implementation"):
-            self.assertNotIn(status, mod._AT_OR_PAST_IMPLEMENTED)
-
-    def test_merged_statuses_contains_expected(self) -> None:
-        for status in ("release", "done"):
-            self.assertIn(status, mod._MERGED_STATUSES)
-        for status in ("implemented", "reviewed-implementation"):
-            self.assertNotIn(status, mod._MERGED_STATUSES)
-
-
 class TestIsSatisfied(unittest.TestCase):
+    def setUp(self) -> None:
+        self.workflow = builtin_workflow_runtime("issue")
+
+    def _item(self, status: str, **extra) -> dict:
+        return {"status": status, "workflow": self.workflow, **extra}
+
     def test_status_done(self) -> None:
-        self.assertTrue(mod._is_satisfied("status:done", {"status": "done"}, None))
+        self.assertTrue(
+            mod._is_satisfied("status:done", self._item("done"), None)
+        )
         self.assertFalse(
-            mod._is_satisfied("status:done", {"status": "implemented"}, None)
+            mod._is_satisfied(
+                "status:done",
+                self._item("implemented"),
+                None,
+            )
         )
 
     def test_status_implemented(self) -> None:
         for status in ("implemented", "release", "done"):
             self.assertTrue(
-                mod._is_satisfied("status:implemented", {"status": status}, None)
+                mod._is_satisfied(
+                    "status:implemented",
+                    self._item(status),
+                    None,
+                )
             )
         self.assertFalse(
             mod._is_satisfied(
-                "status:implemented", {"status": "implementing"}, None
+                "status:implemented",
+                self._item("implementing"),
+                None,
             )
         )
 
     def test_fact_merged_via_merged_at(self) -> None:
-        item = {"status": "implemented", "merged_at": "2026-01-01T00:00:00Z"}
+        item = self._item(
+            "implemented",
+            merged_at="2026-01-01T00:00:00Z",
+        )
         self.assertTrue(mod._is_satisfied("fact:merged", item, None))
 
     def test_fact_merged_via_release_status(self) -> None:
-        item = {"status": "release", "merged_at": None, "worktree": None}
+        item = self._item("release", merged_at=None, worktree=None)
         self.assertTrue(mod._is_satisfied("fact:merged", item, None))
 
     def test_fact_merged_unmet(self) -> None:
-        item = {"status": "implementing", "merged_at": None, "worktree": None}
+        item = self._item("implementing", merged_at=None, worktree=None)
         self.assertFalse(mod._is_satisfied("fact:merged", item, None))
 
     def test_unknown_satisfaction_fails_safe(self) -> None:
-        self.assertFalse(mod._is_satisfied("some-other", {"status": "done"}, None))
+        self.assertFalse(
+            mod._is_satisfied(
+                "some-other",
+                self._item("done"),
+                None,
+            )
+        )
 
 
 class TestEvaluateBlockers(unittest.TestCase):
@@ -139,7 +108,10 @@ class TestEvaluateBlockers(unittest.TestCase):
         # the insert helpers (connect_test_db(db_path)) hit the same database;
         # on Postgres the binding is inert and the repointed YOKE_PG_DSN that
         # init_test_db keeps active for the context selects the per-test DB.
-        with init_test_db(tmp_path, apply_schema=_apply_schema) as db_path:
+        with init_test_db(
+            tmp_path,
+            apply_schema=apply_hard_block_schema,
+        ) as db_path:
             self.db_path = db_path
             with mock.patch.dict(
                 os.environ, {"YOKE_DB": db_path}, clear=False
@@ -158,9 +130,9 @@ class TestEvaluateBlockers(unittest.TestCase):
         conn = connect_test_db(self.db_path)
         p = _p(conn)
         conn.execute(
-            "INSERT INTO items (id, title, type, status, priority, worktree, "
+            "INSERT INTO items (id, title, status, priority, worktree, "
             "project_id, project_sequence, merged_at) "
-            f"VALUES ({p}, {p}, 'issue', {p}, 'medium', {p}, {p}, {p}, {p})",
+            f"VALUES ({p}, {p}, {p}, 'medium', {p}, {p}, {p}, {p})",
             (item_id, title, status, worktree, project_id, item_id, merged_at),
         )
         conn.commit()

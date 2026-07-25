@@ -22,18 +22,22 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from runtime.api.test_dependency_schema import create_dependency_test_db
 from yoke_core.domain.dependencies import (
-    DependencyEdge,
     GatePoint,
-    GateResult,
     Satisfaction,
-    evaluate_satisfaction,
+    evaluate_satisfaction as _evaluate_satisfaction,
     query_frontier_blocks,
     query_unsatisfied_at_gate,
 )
+from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
 
 
 TEST_ITEM_ID = 4242
 TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"
+TEST_WORKFLOW = builtin_workflow_runtime("issue")
+
+
+def evaluate_satisfaction(*args, **kwargs):
+    return _evaluate_satisfaction(*args, workflow=TEST_WORKFLOW, **kwargs)
 
 
 # ---------------------------------------------------------------------------

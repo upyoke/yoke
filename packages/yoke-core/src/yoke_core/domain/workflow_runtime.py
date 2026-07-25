@@ -201,6 +201,27 @@ class WorkflowRuntime:
             and position == len(self.stage_ids) - 2
         )
 
+    def satisfies_stage_milestone(
+        self,
+        current_stage_id: str,
+        milestone_stage_id: str,
+    ) -> bool:
+        """Whether a stage reached a named milestone or the terminal stage."""
+        if milestone_stage_id in self.stage_ids:
+            return self.has_reached_stage(current_stage_id, milestone_stage_id)
+        return current_stage_id in self.terminal_stage_ids
+
+    def stage_implies_merge(self, stage_id: str) -> bool:
+        """Whether delivery policy makes merge completion implicit."""
+        if stage_id in self.terminal_stage_ids:
+            return True
+        position = self.stage_index(stage_id)
+        return (
+            self.policies["delivery"] == "release_stage"
+            and position is not None
+            and position >= len(self.stage_ids) - 2
+        )
+
     def requires_item_path_claim_probe(self, stage_id: str) -> bool:
         """Whether leaving *stage_id* activates an item-level path claim."""
         from yoke_core.domain.workflow_gate_catalog import (
