@@ -11,10 +11,7 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.project_seed_test_helpers import SEED_PROJECT_IDS
 from yoke_core.domain.schema_init_apply import execute_schema_script
 from yoke_core.domain.worktree import resolve_item_worktree
-from yoke_core.domain.worktree_test_helpers import (  # noqa: F401
-    git_repo,
-    yoke_db,
-)
+from yoke_core.domain.worktree_test_helpers import pin_test_item_workflow
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
 
@@ -31,6 +28,7 @@ def _add_item_and_project(conn, epic_id: int, git_repo) -> None:
         f"VALUES ({p}, 'Epic', 'epic', 'reviewed-implementation', {p}, {p}, {p})",
         (epic_id, f"YOK-{epic_id}", SEED_PROJECT_IDS["yoke"], epic_id),
     )
+    pin_test_item_workflow(conn, epic_id, "epic")
     register_machine_checkout(
         git_repo.parent / "machine-config",
         git_repo,

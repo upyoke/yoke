@@ -78,6 +78,8 @@ pytest_plugins = [
     "runtime.api.fixtures.backlog",
     "runtime.api.fixtures.runtime",
     "yoke_core.engines._done_transition_test_helpers",
+    "yoke_core.domain._path_claim_guard_test_helpers",
+    "yoke_core.domain.worktree_test_helpers",
 ]
 
 

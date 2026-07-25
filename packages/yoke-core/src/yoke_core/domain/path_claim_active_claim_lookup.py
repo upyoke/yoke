@@ -17,10 +17,8 @@ Resolution order:
    The registering session is NOT a filter on this fallback — an
    item-owned claim survives any registering session ending.
 
-The returned dict carries ``covered_paths``, ``worktree_path``
-(absolute, issue items only) and ``chain_worktrees`` (epic items only,
-tuple of ``(branch, absolute_path)`` pairs). ``item_type`` lets callers
-pick the right field per evaluation.
+The returned dict carries ``covered_paths``, ``worktree_path`` for a
+single lane, and ``chain_worktrees`` for task-lane workflows.
 
 :func:`_resolve_active_worktree` is the path-driven canonical reader
 for "which worktree branch is this target bound to for this item?".
@@ -40,6 +38,8 @@ from yoke_core.domain.project_checkout_locations import (
     item_worktree_path,
     worktree_path_for_branch,
 )
+from yoke_core.domain.workflow_behavior import generates_task_graph
+from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 
 
 _NON_TERMINAL_CLAIM_STATES = ("active", "planned", "blocked")
@@ -171,7 +171,7 @@ def _resolve_active_claim(
         "integration_target": integration_target,
         "state": state,
         "covered_paths": covered,
-        "item_type": paths.get("item_type", ""),
+        "task_lanes": paths.get("task_lanes", False),
         "worktree_path": paths.get("worktree_path"),
         "project_repo_path": paths.get("project_repo_path"),
         "chain_worktrees": paths.get("chain_worktrees", ()),
@@ -219,7 +219,7 @@ def _paths_for_item(
         return {}
     try:
         row = conn.execute(
-            "SELECT i.type, i.worktree, i.project_id FROM items i "
+            "SELECT i.project_id FROM items i "
             f"WHERE i.id = {_p(conn)} LIMIT 1",
             (parsed,),
         ).fetchone()
@@ -228,19 +228,21 @@ def _paths_for_item(
     if row is None:
         return {}
     if hasattr(row, "keys"):
-        item_type, items_wt, project_id = row["type"], row["worktree"], row["project_id"]
+        project_id = row["project_id"]
     else:
-        item_type, items_wt, project_id = row[0], row[1], row[2]
-    item_type_str = str(item_type or "")
+        project_id = row[0]
+    task_lanes = generates_task_graph(
+        load_item_workflow_runtime(conn, parsed)
+    )
     checkout = checkout_for_project_id(_coerce_int(project_id))
     repo_str = str(checkout) if checkout is not None else None
     out: Dict[str, Any] = {
-        "item_type": item_type_str,
+        "task_lanes": task_lanes,
         "project_repo_path": repo_str,
         "worktree_path": None,
         "chain_worktrees": (),
     }
-    if item_type_str == "issue":
+    if not task_lanes:
         path = item_worktree_path(conn, parsed)
         if path is not None:
             out["worktree_path"] = str(path)
@@ -326,8 +328,7 @@ def _resolve_active_worktree(
     info = _paths_for_item(conn, parsed)
     if not info:
         return None
-    item_type = info.get("item_type", "")
-    if item_type == "issue":
+    if not info.get("task_lanes", False):
         wt = info.get("worktree_path")
         if not wt:
             return None

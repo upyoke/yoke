@@ -33,6 +33,11 @@ def _apply_live_schema() -> None:
     conn = db_backend.connect()
     try:
         execute_schema_script(conn, _LIVE_DDL)
+        from yoke_core.domain.workflow_registry import converge_builtin_workflows
+        from yoke_core.domain.workflow_schema import ensure_workflow_schema
+
+        ensure_workflow_schema(conn)
+        converge_builtin_workflows(conn)
         conn.commit()
     finally:
         conn.close()
@@ -52,13 +57,23 @@ def live_db(tmp_path):
                 f"INSERT INTO projects VALUES({p},{p})",
                 (1, "yoke"),
             )
+            from yoke_core.domain.workflow_registry import (
+                resolve_current_workflow_pin,
+            )
+
+            workflow_id = str(kw["workflow_id"])
+            _, version_id = resolve_current_workflow_pin(conn, workflow_id)
             conn.execute(
-                f"INSERT INTO items VALUES({p},{p},{p},{p})",
+                "INSERT INTO items "
+                "(id,type,worktree,project_id,workflow_id,workflow_version_id) "
+                f"VALUES({p},{p},{p},{p},{p},{p})",
                 (
                     kw["item_id"],
-                    kw["item_type"],
+                    workflow_id,
                     kw.get("items_worktree") or None,
                     1,
+                    workflow_id,
+                    version_id,
                 ),
             )
             conn.execute(

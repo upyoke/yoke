@@ -26,6 +26,8 @@ from yoke_core.domain.worktree_paths import (
     is_git_worktree,
     resolve_main_root,
 )
+from yoke_core.domain.workflow_behavior import generates_task_graph
+from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 
 
 @dataclass
@@ -131,10 +133,7 @@ def resolve_item_worktree(
             repo_root, "worktrees_dir", config_path=config_path,
         )
 
-        item_type = query_scalar(
-            conn, f"SELECT type FROM items WHERE id = {p}", (item_num,),
-        ) or "issue"
-        if item_type == "epic":
+        if generates_task_graph(load_item_workflow_runtime(conn, item_num)):
             lanes = _epic_worktree_lanes(conn, item_num, repo_root, wt_dir)
             if lanes:
                 paths = tuple(path for _, path in lanes)

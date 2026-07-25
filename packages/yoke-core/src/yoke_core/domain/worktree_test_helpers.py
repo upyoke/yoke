@@ -66,6 +66,11 @@ def apply_yoke_db_schema() -> None:
     conn = db_backend.connect()
     try:
         execute_schema_script(conn, _YOKE_DB_DDL)
+        from yoke_core.domain.workflow_registry import converge_builtin_workflows
+        from yoke_core.domain.workflow_schema import ensure_workflow_schema
+
+        ensure_workflow_schema(conn)
+        converge_builtin_workflows(conn)
         p = "%s" if db_backend.connection_is_postgres(conn) else "?"
         conn.execute(
             "INSERT INTO projects "
@@ -94,6 +99,18 @@ def apply_yoke_db_schema() -> None:
         conn.commit()
     finally:
         conn.close()
+
+
+def pin_test_item_workflow(conn, item_id: int, workflow_id: str) -> None:
+    """Attach the current immutable workflow version to a seeded item."""
+    from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
+
+    _, version_id = resolve_current_workflow_pin(conn, workflow_id)
+    conn.execute(
+        "UPDATE items SET workflow_id = %s, workflow_version_id = %s "
+        "WHERE id = %s",
+        (workflow_id, version_id, item_id),
+    )
 
 
 @pytest.fixture

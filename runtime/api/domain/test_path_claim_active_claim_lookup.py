@@ -53,7 +53,6 @@ def _make_conn(repo_path: str):
         );
         CREATE TABLE items (
             id INTEGER PRIMARY KEY,
-            type TEXT NOT NULL,
             worktree TEXT,
             project_id INTEGER
         );
@@ -70,11 +69,28 @@ def _make_conn(repo_path: str):
         );
         """,
     )
+    from yoke_core.domain.workflow_registry import converge_builtin_workflows
+    from yoke_core.domain.workflow_schema import ensure_workflow_schema
+
+    ensure_workflow_schema(conn)
+    converge_builtin_workflows(conn)
     conn.execute(
         "INSERT INTO projects (id, slug) VALUES (%s, %s)",
         (1, "yoke"),
     )
     return conn
+
+
+def _insert_item(conn, item_id, workflow_id, worktree):
+    from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
+
+    _, version_id = resolve_current_workflow_pin(conn, workflow_id)
+    conn.execute(
+        "INSERT INTO items "
+        "(id, worktree, project_id, workflow_id, workflow_version_id) "
+        "VALUES (%s, %s, 1, %s, %s)",
+        (item_id, worktree, workflow_id, version_id),
+    )
 
 
 def _insert_chain(conn, epic_id, branch):
@@ -86,10 +102,7 @@ def _insert_chain(conn, epic_id, branch):
 
 def test_issue_returns_items_worktree(tmp_path):
     conn = _make_conn(str(tmp_path))
-    conn.execute(
-        "INSERT INTO items (id, type, worktree, project_id) VALUES (%s, %s, %s, %s)",
-        (501, "issue", "YOK-501", 1),
-    )
+    _insert_item(conn, 501, "issue", "YOK-501")
     # target_path is irrelevant for issues — returned regardless of value.
     assert (
         _resolve_active_worktree(conn, "any-session", 501, "/nowhere")
@@ -99,19 +112,13 @@ def test_issue_returns_items_worktree(tmp_path):
 
 def test_issue_returns_none_when_worktree_blank(tmp_path):
     conn = _make_conn(str(tmp_path))
-    conn.execute(
-        "INSERT INTO items (id, type, worktree, project_id) VALUES (%s, %s, %s, %s)",
-        (502, "issue", "", 1),
-    )
+    _insert_item(conn, 502, "issue", "")
     assert _resolve_active_worktree(conn, "any-session", 502, "/nowhere") is None
 
 
 def test_issue_returns_none_when_worktree_null(tmp_path):
     conn = _make_conn(str(tmp_path))
-    conn.execute(
-        "INSERT INTO items (id, type, worktree, project_id) VALUES (%s, %s, %s, %s)",
-        (503, "issue", None, 1),
-    )
+    _insert_item(conn, 503, "issue", None)
     assert _resolve_active_worktree(conn, "any-session", 503, "/nowhere") is None
 
 
@@ -121,10 +128,7 @@ def test_epic_returns_chain_matching_target_path(tmp_path):
     (repo / ".worktrees" / "epic600-core").mkdir(parents=True)
     (repo / ".worktrees" / "epic600-tests").mkdir(parents=True)
     conn = _make_conn(str(repo))
-    conn.execute(
-        "INSERT INTO items (id, type, worktree, project_id) VALUES (%s, %s, %s, %s)",
-        (600, "epic", None, 1),
-    )
+    _insert_item(conn, 600, "epic", None)
     _insert_chain(conn, 600, "epic600-core")
     _insert_chain(conn, 600, "epic600-tests")
     core_target = str(repo / ".worktrees/epic600-core/runtime/api/foo.py")
@@ -143,10 +147,7 @@ def test_epic_returns_none_when_target_outside_every_chain(tmp_path):
     repo = tmp_path / "repo"
     (repo / ".worktrees" / "epic601-only").mkdir(parents=True)
     conn = _make_conn(str(repo))
-    conn.execute(
-        "INSERT INTO items (id, type, worktree, project_id) VALUES (%s, %s, %s, %s)",
-        (601, "epic", None, 1),
-    )
+    _insert_item(conn, 601, "epic", None)
     _insert_chain(conn, 601, "epic601-only")
     target = str(repo / "runtime/api/some_other_file.py")  # not in any chain
     assert _resolve_active_worktree(conn, "any-session", 601, target) is None
@@ -156,10 +157,7 @@ def test_epic_returns_none_when_target_path_missing(tmp_path):
     repo = tmp_path / "repo"
     (repo / ".worktrees" / "epic602-a").mkdir(parents=True)
     conn = _make_conn(str(repo))
-    conn.execute(
-        "INSERT INTO items (id, type, worktree, project_id) VALUES (%s, %s, %s, %s)",
-        (602, "epic", None, 1),
-    )
+    _insert_item(conn, 602, "epic", None)
     _insert_chain(conn, 602, "epic602-a")
     assert _resolve_active_worktree(conn, "any-session", 602, "") is None
 
@@ -168,10 +166,7 @@ def test_epic_returns_none_for_relative_target(tmp_path):
     repo = tmp_path / "repo"
     (repo / ".worktrees" / "epic603-a").mkdir(parents=True)
     conn = _make_conn(str(repo))
-    conn.execute(
-        "INSERT INTO items (id, type, worktree, project_id) VALUES (%s, %s, %s, %s)",
-        (603, "epic", None, 1),
-    )
+    _insert_item(conn, 603, "epic", None)
     _insert_chain(conn, 603, "epic603-a")
     # Relative paths cannot be ancestor-checked against absolute roots.
     assert (
@@ -184,10 +179,7 @@ def test_epic_returns_none_for_relative_target(tmp_path):
 
 def test_epic_returns_none_when_no_chains(tmp_path):
     conn = _make_conn(str(tmp_path))
-    conn.execute(
-        "INSERT INTO items (id, type, worktree, project_id) VALUES (%s, %s, %s, %s)",
-        (604, "epic", None, 1),
-    )
+    _insert_item(conn, 604, "epic", None)
     assert (
         _resolve_active_worktree(
             conn, "any-session", 604, "/tmp/anywhere/foo.py"
@@ -227,10 +219,7 @@ def test_two_parallel_evaluations_resolve_independently(tmp_path):
     (repo / ".worktrees" / "lane-feature-a").mkdir(parents=True)
     (repo / ".worktrees" / "lane-feature-b").mkdir(parents=True)
     conn = _make_conn(str(repo))
-    conn.execute(
-        "INSERT INTO items (id, type, worktree, project_id) VALUES (%s, %s, %s, %s)",
-        (700, "epic", "stale-from-old-write", 1),
-    )
+    _insert_item(conn, 700, "epic", "stale-from-old-write")
     _insert_chain(conn, 700, "lane-feature-a")
     _insert_chain(conn, 700, "lane-feature-b")
     target_a = str(repo / ".worktrees/lane-feature-a/runtime/api/a.py")
@@ -261,10 +250,7 @@ def test_epic_ignores_harness_sessions_execution_lane(tmp_path):
     (repo / ".worktrees" / "branch-x").mkdir(parents=True)
     (repo / ".worktrees" / "branch-y").mkdir(parents=True)
     conn = _make_conn(str(repo))
-    conn.execute(
-        "INSERT INTO items (id, type, worktree, project_id) VALUES (%s, %s, %s, %s)",
-        (701, "epic", None, 1),
-    )
+    _insert_item(conn, 701, "epic", None)
     conn.execute(
         "INSERT INTO harness_sessions (session_id, execution_lane) VALUES (%s, %s)",
         ("sess-x", "branch-x"),

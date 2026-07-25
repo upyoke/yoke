@@ -57,7 +57,7 @@ class ClaimContext:
     worktree_path: Optional[str]
     project_repo_path: Optional[str] = None
     project: str = "yoke"
-    item_type: str = ""
+    task_lanes: bool = False
     chain_worktrees: Tuple[Tuple[str, str], ...] = ()
 
     @classmethod
@@ -82,7 +82,7 @@ class ClaimContext:
             worktree_path=claim.get("worktree_path"),
             project_repo_path=claim.get("project_repo_path"),
             project=str(claim.get("project") or "yoke"),
-            item_type=str(claim.get("item_type") or ""),
+            task_lanes=bool(claim.get("task_lanes", False)),
             chain_worktrees=chains,
         )
 
@@ -173,7 +173,7 @@ def _effective_worktree_for(target_path: str, cwd: str, ctx: ClaimContext) -> st
     an ancestor of the target wins. Returns ``""`` when nothing matches
     (caller falls through to ``project_repo_path``).
     """
-    if ctx.item_type == "epic" and ctx.chain_worktrees:
+    if ctx.task_lanes and ctx.chain_worktrees:
         candidate = target_path
         if candidate and not os.path.isabs(candidate) and cwd:
             candidate = str(Path(cwd) / candidate)

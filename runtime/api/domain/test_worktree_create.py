@@ -20,11 +20,10 @@ from yoke_core.domain.worktree import (
     create_worktree,
     resolve_item_worktree,
 )
-from yoke_core.domain.worktree_test_helpers import (  # noqa: F401 — fixtures
+from yoke_core.domain.worktree_test_helpers import (
     TEST_ITEM_ID,
     TEST_ITEM_REF,
-    git_repo,
-    yoke_db,
+    pin_test_item_workflow,
 )
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
@@ -70,6 +69,7 @@ def _seed_item(
             item_id,
         ),
     )
+    pin_test_item_workflow(conn, item_id, item_type)
 
 
 class TestCreateWorktree:

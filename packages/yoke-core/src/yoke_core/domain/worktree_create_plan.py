@@ -20,6 +20,8 @@ from typing import List, Optional, Sequence, Tuple
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import _table_exists
+from yoke_core.domain.workflow_behavior import generates_task_graph
+from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 
 
 @dataclass
@@ -104,10 +106,11 @@ def resolve_worktrees_for_item(
             return fallback
         p = "%s" if db_backend.connection_is_postgres(conn) else "?"
         row = conn.execute(
-            f"SELECT type FROM items WHERE id = {p}", (int(item_id),),
+            f"SELECT id FROM items WHERE id = {p}", (int(item_id),),
         ).fetchone()
-        item_type = (row["type"] or "issue") if row else "issue"
-        if item_type != "epic":
+        if row is None or not generates_task_graph(
+            load_item_workflow_runtime(conn, int(item_id))
+        ):
             return fallback
         if not _table_exists(conn, "epic_dispatch_chains"):
             return fallback

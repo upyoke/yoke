@@ -3,11 +3,7 @@
 from __future__ import annotations
 
 import json
-import os
-from pathlib import Path
 from typing import Dict
-
-import pytest
 
 from yoke_core.domain.observe_normalization import (
     TOOL_KIND_APPLY_PATCH,
@@ -17,12 +13,10 @@ from yoke_core.domain.observe_normalization import (
     ToolEventRecord,
 )
 from yoke_core.domain.path_claim_pre_edit_guard import (
-    Verdict,
     decide_for_record,
     evaluate,
     evaluate_payload,
 )
-from yoke_core.domain._path_claim_guard_test_helpers import live_db
 from runtime.harness.hook_runner.types import HookContext, Outcome
 
 
@@ -294,7 +288,7 @@ class TestLiveNoConnEpicResolution:
         for sub in ("lane-a/runtime/api/domain", "lane-b/runtime/api/domain",
                     "lane-a/docs"):
             (repo / ".worktrees" / sub).mkdir(parents=True)
-        live_db(repo_path=repo, item_id=900, item_type="epic",
+        live_db(repo_path=repo, item_id=900, workflow_id="epic",
                 chains=("lane-a", "lane-b"),
                 covered_paths=("runtime/api/domain",), session_id="engineer-1")
         def _rec(target, cwd):

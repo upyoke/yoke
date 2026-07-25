@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Dict
 
 from yoke_core.domain import path_claim_bash_guard as bash_guard
-from yoke_core.domain._path_claim_guard_test_helpers import live_db
 from yoke_contracts.hook_runner.hook_ordering import ordered_pipeline_for
 from yoke_core.domain.path_claim_bash_guard import (
     decide_for_record,
@@ -275,7 +274,7 @@ class TestLiveNoConnEpicResolution:
         repo = tmp_path / "repo"
         for sub in ("lane-a/runtime/api/domain", "lane-b/runtime/api/domain", "lane-a/docs"):
             (repo / ".worktrees" / sub).mkdir(parents=True)
-        live_db(repo_path=repo, item_id=900, item_type="epic",
+        live_db(repo_path=repo, item_id=900, workflow_id="epic",
                 chains=("lane-a", "lane-b"),
                 covered_paths=("runtime/api/domain",),
                 session_id="engineer-1")
@@ -301,7 +300,8 @@ class TestTypedEvaluateEntrypoint:
             cwd=cwd, session_id="sess-A")
 
     def test_evaluate_returns_deny_envelope_on_out_of_claim(self, tmp_path, monkeypatch):
-        worktree = tmp_path / "YOK-1577"; worktree.mkdir()
+        worktree = tmp_path / "YOK-1577"
+        worktree.mkdir()
         monkeypatch.setattr(bash_guard, "resolve_active_claim_for_session",
             lambda session_id, conn=None: _claim_dict(worktree_path=str(worktree)))
         monkeypatch.setattr(bash_guard, "_emit_denial", lambda **_kwargs: None)
@@ -318,7 +318,8 @@ class TestTypedEvaluateEntrypoint:
         ) in hook["permissionDecisionReason"]
 
     def test_evaluate_returns_noop_on_allow(self, tmp_path, monkeypatch):
-        worktree = tmp_path / "YOK-1577"; worktree.mkdir()
+        worktree = tmp_path / "YOK-1577"
+        worktree.mkdir()
         monkeypatch.setattr(bash_guard, "resolve_active_claim_for_session",
             lambda session_id, conn=None: None)
         decision = evaluate(self._record(

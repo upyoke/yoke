@@ -10,10 +10,7 @@ from yoke_core.domain import db_backend
 from yoke_core.domain import worktree as worktree_cli
 from yoke_core.domain.schema_init_apply import execute_schema_script
 from yoke_core.domain.worktree import create_worktree
-from yoke_core.domain.worktree_test_helpers import (  # noqa: F401 — fixtures
-    git_repo,
-    yoke_db,
-)
+from yoke_core.domain.worktree_test_helpers import pin_test_item_workflow
 from runtime.api.fixtures.file_test_db import connect_test_db
 
 
@@ -55,6 +52,7 @@ def seed_multiworktree_epic(db_path: str, epic_id: int, branches, repo_root: str
         "project_id=excluded.project_id, project_sequence=excluded.project_sequence",
         (epic_id, 1, epic_id),
     )
+    pin_test_item_workflow(conn, epic_id, "epic")
     entries = []
     for branch in branches:
         wt_path = os.path.join(repo_root, ".worktrees", branch)
@@ -84,6 +82,7 @@ class TestCreateWorktreeMultiWorktree:
             "(id, title, type, status, project_id, project_sequence) "
             "VALUES (99100, 'plain issue', 'issue', 'implementing', 1, 99100)",
         )
+        pin_test_item_workflow(conn, 99100, "issue")
         conn.commit()
         conn.close()
 
@@ -334,6 +333,7 @@ class TestCreateWorktreeMultiWorktree:
             "(id, title, type, status, project_id, project_sequence) "
             "VALUES (99208, 'empty epic', 'epic', 'implementing', 1, 99208)",
         )
+        pin_test_item_workflow(conn, 99208, "epic")
         conn.commit()
         conn.close()
 
