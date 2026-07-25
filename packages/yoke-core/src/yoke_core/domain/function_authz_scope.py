@@ -103,20 +103,11 @@ _BY_ID: dict[str, AuthzSpec] = {
     "projects.capability_secret.set": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "projects.capability_settings.get": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "projects.capability_settings.set": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
-    "projects.capability_settings.merge": AuthzSpec(
-        PROJECT,
-        PERM_PROJECT_ADMIN,
-    ),
-    "projects.capability_settings.remove": AuthzSpec(
-        PROJECT,
-        PERM_PROJECT_ADMIN,
-    ),
+    "projects.capability_settings.merge": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    "projects.capability_settings.remove": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "projects.environment_settings.get": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "projects.infrastructure.list": AuthzSpec(PROJECT, PERM_ITEMS_READ),
-    "projects.environment_settings.merge": AuthzSpec(
-        PROJECT,
-        PERM_PROJECT_ADMIN,
-    ),
+    "projects.environment_settings.merge": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "projects.pulumi_state.migrate": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "projects.pulumi_state.checkpoint_import": AuthzSpec(
         PROJECT,
@@ -196,6 +187,13 @@ _BY_ID: dict[str, AuthzSpec] = {
     "conduct.epic.proceed_triage_handoff": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "onboard.checklist.init": AuthzSpec(PROJECT, PERM_PROJECT_INSTALL),
     "onboard.checklist.run": AuthzSpec(PROJECT, PERM_PROJECT_INSTALL),
+    # The Overview activation surface: the read derives universe-wide
+    # onboarding signals and latches monotone activation facts (no tenant
+    # content mutated); the dismissal pair writes only the calling actor's
+    # own preference rows. Any authenticated actor may call all three.
+    "overview.activation.get": AuthzSpec(ACTOR_SESSION, None),
+    "overview.module.dismiss": AuthzSpec(ACTOR_SESSION, None),
+    "overview.module.restore": AuthzSpec(ACTOR_SESSION, None),
     # Actor/session: the caller operating on its own session/orchestration.
     "sessions.begin": AuthzSpec(ACTOR_SESSION, None),
     "sessions.init": AuthzSpec(CLIENT_LOCAL, None),
