@@ -37,30 +37,12 @@ from yoke_contracts.project_contract.strategy_docs_io import (
 from yoke_core.domain import strategy_docs_header as _header
 from yoke_core.domain.strategy_doc_presentation import summary_from_row
 from yoke_core.domain.strategy_docs_defaults import DEFAULT_STRATEGY_DOC_SLUGS
+from yoke_core.domain.strategy_docs_schema import (
+    STRATEGY_DOCS_TABLE,
+    record_doc_revision,
+)
 
 StrategyHeaderError = _header.StrategyHeaderError
-STRATEGY_DOCS_TABLE = "strategy_docs"
-
-# No FK to actors: validation DBs may carry no actors rows; provenance
-# only, never joined for authority. The projects FK is real authority —
-# every corpus belongs to exactly one project.
-STRATEGY_DOCS_CREATE_TABLE_SQL = f"""
-CREATE TABLE IF NOT EXISTS {STRATEGY_DOCS_TABLE} (
-  id BIGSERIAL PRIMARY KEY,
-  project_id BIGINT NOT NULL REFERENCES projects(id),
-  slug TEXT NOT NULL,
-  content TEXT NOT NULL DEFAULT '',
-  updated_at TEXT NOT NULL,
-  updated_by_actor_id BIGINT,
-  -- archived_at: nullable ISO timestamp. NULL = active (renders to
-  -- .yoke/strategy/<slug>.md); a timestamp = archived (renders to
-  -- .yoke/strategy/archive/<slug>.md). Flipped by strategy.doc.archive /
-  -- strategy.doc.unarchive; the doc stays a full, editable corpus row.
-  archived_at TEXT
-);
-CREATE UNIQUE INDEX IF NOT EXISTS uq_strategy_docs_project_id_slug
-  ON {STRATEGY_DOCS_TABLE}(project_id, slug)
-"""
 
 # replace_doc refuses a write shrinking content below this fraction of
 # the old byte length unless force=True.
@@ -285,6 +267,10 @@ def replace_doc(
     )
     if cur.rowcount == 0:
         raise StrategyDocConflictError(replace_conflict_teaching(slug))
+    record_doc_revision(
+        conn, project_id, slug, content,
+        source_operation="replace", actor_id=actor_id, created_at=updated_at,
+    )
     conn.commit()
     return {
         "slug": slug,
@@ -376,7 +362,6 @@ def render_docs(
 __all__ = [
     "EmptyStrategyDocError",
     "SHRINK_GUARD_RATIO",
-    "STRATEGY_DOCS_CREATE_TABLE_SQL",
     "STRATEGY_DOCS_TABLE",
     "StrategyDocConflictError",
     "StrategyDocMissingError",
