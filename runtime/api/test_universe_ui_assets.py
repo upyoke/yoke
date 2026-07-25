@@ -44,8 +44,14 @@ def test_javascript_module_graph_is_in_closed_asset_roster():
     for module_name in (
         "app.js", "contract.js", "mount-options.js", "universe_navigation.js",
         "universe_view_support.js", "universe_views.js",
-        "universe_views_github.js", "universe_views_organization.js",
-        "universe_views_overview.js", "universe_views_workflows.js",
+        "universe_views_capabilities.js", "universe_views_delivery.js",
+        "universe_views_doctor.js", "universe_views_events.js",
+        "universe_views_frontier.js", "universe_views_github.js",
+        "universe_views_items.js", "universe_views_organization.js",
+        "universe_views_ouroboros.js", "universe_views_overview.js",
+        "universe_views_packs.js", "universe_views_projects.js",
+        "universe_views_sessions.js", "universe_views_strategy.js",
+        "universe_views_workflows.js",
     ):
         source = static_root.joinpath(module_name).read_text(encoding="utf-8")
         imports = re.findall(r'from "\./([^\"]+\.js)"', source)
@@ -151,21 +157,27 @@ def test_page_module_wires_the_workbench_shell():
     for reference in ("export function mountUniverseApp", "projects.list"):
         assert reference in shell, reference
 
-    views = static_root.joinpath("universe_views.js").read_text()
-    for reference in (
-        "strategy.doc.list",
-        "items.list.run",
-        "items.get.run",
-        "epic_tasks.list.run",
-        "events.query.run",
-        "deployment_runs.list",
-        "sessions.list",
-        "doctor.last_run.get",
-        "frontier.list",
-        "projects.capabilities.list",
-        '{ label: "title", value: (doc) => doc.title }',
-    ):
-        assert reference in views, reference
+    view_references = {
+        "universe_views_strategy.js": (
+            "strategy.doc.list",
+            '{ label: "title", value: (doc) => doc.title }',
+        ),
+        "universe_views_items.js": (
+            "items.list.run",
+            "items.get.run",
+            "epic_tasks.list.run",
+        ),
+        "universe_views_events.js": ("events.query.run",),
+        "universe_views_delivery.js": ("deployment_runs.list",),
+        "universe_views_sessions.js": ("sessions.list",),
+        "universe_views_doctor.js": ("doctor.last_run.get",),
+        "universe_views_frontier.js": ("frontier.list",),
+        "universe_views_capabilities.js": ("projects.capabilities.list",),
+    }
+    for module_name, references in view_references.items():
+        view = static_root.joinpath(module_name).read_text()
+        for reference in references:
+            assert reference in view, f"{module_name}: {reference}"
 
     workflows_view = static_root.joinpath(
         "universe_views_workflows.js",
