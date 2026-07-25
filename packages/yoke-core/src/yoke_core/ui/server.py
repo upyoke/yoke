@@ -32,6 +32,8 @@ import uuid
 import webbrowser
 from typing import Any, Dict, Optional
 
+from yoke_core.ui.asset_roster import ASSET_CACHE_CONTROL, ASSET_CONTENT_TYPES
+
 #: Default bind host and TCP port for the UI server (loopback only).
 #: Collision-probed at startup; ``--host`` and ``--port`` on ``yoke ui``
 #: override within the same loopback-only security boundary.
@@ -67,42 +69,6 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset({
     "doctor.last_run.get",
     "workflows.definition.get",
 })
-
-#: ``Cache-Control`` for the app shell and static assets: ``no-cache``
-#: makes browsers revalidate on every load, so an upgraded server never
-#: keeps stale modules running from cache.
-ASSET_CACHE_CONTROL = "no-cache"
-
-#: Packaged static assets the server may serve, with their content types.
-#: A closed name→type map (no filesystem paths from the request) keeps
-#: traversal structurally impossible.
-ASSET_CONTENT_TYPES: Dict[str, str] = {
-    "index.html": "text/html; charset=utf-8",
-    # Developer page, not a product route: mounts the same app with sample
-    # platform chrome shaped like the hosted shell's slots, so frame defects
-    # that only show with occupied slots are visible on a laptop.
-    "hosted-frame-harness.html": "text/html; charset=utf-8",
-    "app.js": "text/javascript; charset=utf-8",
-    "contract.js": "text/javascript; charset=utf-8",
-    "contract-version.js": "text/javascript; charset=utf-8",
-    "mount-options.js": "text/javascript; charset=utf-8",
-    "universe_navigation.js": "text/javascript; charset=utf-8",
-    "universe_view_support.js": "text/javascript; charset=utf-8",
-    "universe_views.js": "text/javascript; charset=utf-8",
-    "universe_views_github.js": "text/javascript; charset=utf-8",
-    "universe_views_organization.js": "text/javascript; charset=utf-8",
-    "universe_views_overview.js": "text/javascript; charset=utf-8",
-    "universe_views_packs.js": "text/javascript; charset=utf-8",
-    "universe_views_workflows.js": "text/javascript; charset=utf-8",
-    "app.css": "text/css; charset=utf-8",
-    "shell.css": "text/css; charset=utf-8",
-    "theme.css": "text/css; charset=utf-8",
-    "yoke.svg": "image/svg+xml",
-    "yoke-wordmark.svg": "image/svg+xml",
-    "favicon.svg": "image/svg+xml",
-    "favicon.ico": "image/x-icon",
-    "apple-touch-icon.png": "image/png",
-}
 
 _BROWSER_OPEN_DELAY_S = 0.5
 
