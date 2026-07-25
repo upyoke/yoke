@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from .frontier_types import AdapterCategory
-from .workflow_runtime import WorkflowRuntime
-
-_SKIP_STAGES = frozenset({"cancelled", "done", "stopped"})
-_WAIT_STAGES = frozenset({"blocked", "failed"})
+from .workflow_runtime import (
+    ENGINE_TERMINAL_STAGE_IDS,
+    ENGINE_WAIT_STAGE_IDS,
+    WorkflowRuntime,
+)
 
 
 def classify_next_action(
@@ -14,9 +15,12 @@ def classify_next_action(
     stage_id: str,
 ) -> AdapterCategory:
     """Map an item's current stage to its definition-bound executor."""
-    if stage_id in _SKIP_STAGES:
+    if (
+        stage_id in workflow.terminal_stage_ids
+        or stage_id in ENGINE_TERMINAL_STAGE_IDS
+    ):
         return AdapterCategory.SKIP
-    if stage_id in _WAIT_STAGES:
+    if stage_id in ENGINE_WAIT_STAGE_IDS:
         return AdapterCategory.WAIT
     if not workflow.accepts_stage(stage_id):
         raise ValueError(

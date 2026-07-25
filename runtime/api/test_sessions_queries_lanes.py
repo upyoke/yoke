@@ -1,3 +1,4 @@
+# ruff: noqa: F401, F811
 """Lane filtering and supported_paths tests for session_offer_with_ownership.
 
 Split from ``test_sessions_queries.py``. Covers lane allowed-paths filtering,
@@ -14,9 +15,7 @@ from runtime.api.test_sessions import (
     ownership_conn,  # noqa: F401 — fixture import
     _ensure_active_session,
 )
-from yoke_core.domain.sessions import (
-    session_offer_with_ownership,
-)
+from yoke_core.domain.sessions import session_offer_with_ownership
 
 
 class TestSessionOfferLanes:

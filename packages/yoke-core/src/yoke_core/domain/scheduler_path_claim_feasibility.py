@@ -3,9 +3,9 @@
 Reuses :func:`yoke_core.domain.path_claims_overlap.classify_overlap`
 so the probe agrees with the activation gate by construction. The
 conflict enumeration is a thin separate pass that surfaces the actual
-sibling claims for telemetry/operator messaging. Scope is the
-``(issue, refined-idea, advance)`` triple only; other triples are
-explicit non-goals.
+sibling claims for telemetry/operator messaging. The scheduler calls the
+probe only when the pinned definition's next stage declares item-level
+claim activation.
 """
 
 from __future__ import annotations

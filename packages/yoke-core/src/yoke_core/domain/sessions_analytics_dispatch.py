@@ -241,9 +241,10 @@ def _resolve_resume_dispatch(
         workflow = load_item_workflow_runtime(conn, item_num)
         adapter = classify_next_action(workflow, resolved_status)
         step = _compute_next_step(
-            workflow.workflow_id,
-            resolved_status,
             adapter,
+            probe_path_claim_activation=(
+                workflow.requires_item_path_claim_probe(resolved_status)
+            ),
         )
         return {
             "adapter": _NEXT_STEP_TO_PATH.get(step.next_step.value, step.next_step.value),

@@ -188,6 +188,11 @@ def _build_ownership_schema(create_ownership_schema) -> None:
     try:
         create_ownership_schema(conn)
         apply_ddl_statements(conn, _OWNERSHIP_EXTRA_TABLES)
+        from yoke_core.domain.workflow_registry import converge_builtin_workflows
+        from yoke_core.domain.workflow_schema import ensure_workflow_schema
+
+        ensure_workflow_schema(conn)
+        converge_builtin_workflows(conn)
         conn.commit()
     finally:
         conn.close()

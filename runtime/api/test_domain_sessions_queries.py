@@ -149,14 +149,14 @@ class TestItemFilter:
         filt = ItemFilter(
             status="implementing",
             priority="high",
-            item_type="epic",
+            workflow="epic",
             frozen=False,
             project="yoke",
         )
         clause, params = build_where_clause(filt)
         assert "status = %s" in clause
         assert "priority = %s" in clause
-        assert "type = %s" in clause
+        assert "workflow_id = %s" in clause
         assert "(frozen IS NULL OR frozen = 0)" in clause
         assert "project_id = (" in clause
         assert len(params) == 5  # frozen filter is literal, project uses slug/id params

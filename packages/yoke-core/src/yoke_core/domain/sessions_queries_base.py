@@ -92,7 +92,12 @@ def derive_required_path(
     from .scheduler import _compute_next_step
 
     adapter = classify_next_action(workflow, status)
-    result = _compute_next_step(workflow.workflow_id, status, adapter)
+    result = _compute_next_step(
+        adapter,
+        probe_path_claim_activation=(
+            workflow.requires_item_path_claim_probe(status)
+        ),
+    )
     ns = result.next_step
     if hasattr(ns, "value"):
         ns = ns.value

@@ -145,7 +145,8 @@ def compute_schedule(
         except (TypeError, ValueError):
             _probe_item_id = None
         step_result = _compute_next_step(
-            fi.workflow_id, fi.status, fi.adapter,
+            fi.adapter,
+            probe_path_claim_activation=fi.probe_path_claim_activation,
             conn=conn, item_id=_probe_item_id,
         )
         step = ScheduledStep(

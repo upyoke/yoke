@@ -52,3 +52,29 @@ def test_unknown_stage_fails_against_the_pin():
     workflow = builtin_workflow_runtime("issue")
     with pytest.raises(ValueError, match="Unknown stage"):
         classify_next_action(workflow, "planning")
+
+
+def test_item_claim_probe_comes_from_next_stage_gate_and_policy():
+    issue = builtin_workflow_runtime("issue")
+    epic = builtin_workflow_runtime("epic")
+
+    assert issue.requires_item_path_claim_probe("refined-idea") is True
+    assert epic.requires_item_path_claim_probe("planned") is False
+
+
+def test_executor_active_state_comes_from_binding_boundaries():
+    implementation_executors = frozenset({"advance", "conduct"})
+    issue = builtin_workflow_runtime("issue")
+
+    assert issue.executor_has_started(
+        "refined-idea", implementation_executors,
+    ) is False
+    assert issue.executor_has_started(
+        "implementing", implementation_executors,
+    ) is True
+    assert issue.executor_has_started(
+        "reviewing-implementation", implementation_executors,
+    ) is True
+    assert issue.executor_has_started(
+        "reviewed-implementation", implementation_executors,
+    ) is False

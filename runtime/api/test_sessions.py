@@ -1,3 +1,4 @@
+# ruff: noqa: E402, F401
 """Tests for yoke_core.domain.sessions -- session tracking and work claims.
 
 Covers the five canonical claim lifecycle operations (claim, heartbeat,
@@ -231,6 +232,11 @@ def _build_ownership_schema(conn) -> None:
     """Build the ownership schema + the extra reclaim/emit tables on ``conn``."""
     _create_ownership_schema(conn)
     apply_ddl_statements(conn, EMIT_PATH_TABLES)
+    from yoke_core.domain.workflow_registry import converge_builtin_workflows
+    from yoke_core.domain.workflow_schema import ensure_workflow_schema
+
+    ensure_workflow_schema(conn)
+    converge_builtin_workflows(conn)
 
 
 @pytest.fixture

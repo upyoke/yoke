@@ -33,21 +33,19 @@ class _StepResult:
 
 
 def _compute_next_step(
-    workflow_id: str,
-    status: str,
     adapter: AdapterCategory,
     *,
+    probe_path_claim_activation: bool = False,
     conn: Optional[Any] = None,
     item_id: Optional[int] = None,
 ) -> _StepResult:
     """Convert a definition-selected executor into a scheduler action."""
-    del workflow_id
     step = _ADAPTER_TO_STEP.get(adapter, NextStep.WAIT)
 
     if (
         conn is not None
         and item_id is not None
-        and status == "refined-idea"
+        and probe_path_claim_activation
         and step == NextStep.ADVANCE
     ):
         from .scheduler_path_claim_feasibility import (

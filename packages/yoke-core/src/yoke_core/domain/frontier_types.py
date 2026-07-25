@@ -36,6 +36,7 @@ class FrontierItem:
     workflow_version: int
     stage_index: int
     adapter: AdapterCategory
+    probe_path_claim_activation: bool = False
     blocked_by: List[str] = field(default_factory=list)
     blocked_reasons: List[str] = field(default_factory=list)
     blocker_details: List[dict[str, Any]] = field(default_factory=list)

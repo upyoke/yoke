@@ -1,191 +1,37 @@
 """Definition-selected next-step routing tests."""
+
 from __future__ import annotations
+
+import pytest
 
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
-from yoke_core.domain.scheduler import (
-    NextStep,
-    _compute_next_step,
-)
 from yoke_core.domain.frontier import AdapterCategory
+from yoke_core.domain.scheduler import NextStep, _compute_next_step
 
 
-class TestComputeNextStep:
-    """Verify registered executor-to-step mapping."""
-
-    # -- Issue workflow: refine --
-    def test_issue_idea_maps_to_refine(self):
-        result = _compute_next_step("issue", "idea", AdapterCategory.REFINE)
-        assert result.next_step == NextStep.REFINE
-
-    def test_issue_refining_idea_maps_to_refine(self):
-        result = _compute_next_step("issue", "refining-idea", AdapterCategory.REFINE)
-        assert result.next_step == NextStep.REFINE
-
-    # -- Issue workflow: advance --
-    def test_issue_refined_idea_maps_to_advance(self):
-        result = _compute_next_step("issue", "refined-idea", AdapterCategory.ADVANCE)
-        assert result.next_step == NextStep.ADVANCE
-
-    def test_issue_implementing_maps_to_advance(self):
-        result = _compute_next_step("issue", "implementing", AdapterCategory.ADVANCE)
-        assert result.next_step == NextStep.ADVANCE
-
-    def test_issue_reviewing_implementation_maps_to_advance(self):
-        result = _compute_next_step("issue", "reviewing-implementation", AdapterCategory.ADVANCE)
-        assert result.next_step == NextStep.ADVANCE
-
-    # -- Issue workflow: polish --
-    def test_issue_reviewed_implementation_maps_to_polish(self):
-        result = _compute_next_step("issue", "reviewed-implementation", AdapterCategory.POLISH)
-        assert result.next_step == NextStep.POLISH
-
-    def test_issue_polishing_implementation_maps_to_polish(self):
-        result = _compute_next_step("issue", "polishing-implementation", AdapterCategory.POLISH)
-        assert result.next_step == NextStep.POLISH
-
-    # -- Issue workflow: usher --
-    def test_issue_implemented_maps_to_usher(self):
-        result = _compute_next_step("issue", "implemented", AdapterCategory.USHER)
-        assert result.next_step == NextStep.USHER
-
-    def test_issue_release_maps_to_usher(self):
-        result = _compute_next_step("issue", "release", AdapterCategory.USHER)
-        assert result.next_step == NextStep.USHER
-
-    # -- Epic workflow: explicit routing --
-    def test_epic_idea_maps_to_refine(self):
-        """AC-1: epic idea -> refine."""
-        result = _compute_next_step("epic", "idea", AdapterCategory.REFINE)
-        assert result.next_step == NextStep.REFINE
-
-    def test_epic_refining_idea_maps_to_refine(self):
-        """AC-1: epic refining-idea -> refine."""
-        result = _compute_next_step("epic", "refining-idea", AdapterCategory.REFINE)
-        assert result.next_step == NextStep.REFINE
-
-    def test_epic_refined_idea_maps_to_shepherd(self):
-        """AC-2: epic refined-idea -> shepherd."""
-        result = _compute_next_step("epic", "refined-idea", AdapterCategory.SHEPHERD)
-        assert result.next_step == NextStep.SHEPHERD
-
-    def test_epic_planning_maps_to_shepherd(self):
-        """AC-3: epic planning -> shepherd."""
-        result = _compute_next_step("epic", "planning", AdapterCategory.SHEPHERD)
-        assert result.next_step == NextStep.SHEPHERD
-
-    def test_epic_plan_drafted_maps_to_refine(self):
-        """epic plan-drafted -> refine."""
-        result = _compute_next_step("epic", "plan-drafted", AdapterCategory.REFINE)
-        assert result.next_step == NextStep.REFINE
-
-    def test_epic_refining_plan_maps_to_refine(self):
-        """AC-4: epic refining-plan -> refine."""
-        result = _compute_next_step("epic", "refining-plan", AdapterCategory.REFINE)
-        assert result.next_step == NextStep.REFINE
-
-    def test_epic_planned_maps_to_conduct(self):
-        """AC-5: epic planned -> conduct."""
-        result = _compute_next_step("epic", "planned", AdapterCategory.CONDUCT)
-        assert result.next_step == NextStep.CONDUCT
-
-    def test_epic_implementing_maps_to_conduct(self):
-        """AC-6: epic implementing -> conduct."""
-        result = _compute_next_step("epic", "implementing", AdapterCategory.CONDUCT)
-        assert result.next_step == NextStep.CONDUCT
-
-    def test_epic_reviewing_implementation_maps_to_conduct(self):
-        """epic reviewing-implementation -> conduct."""
-        result = _compute_next_step("epic", "reviewing-implementation", AdapterCategory.CONDUCT)
-        assert result.next_step == NextStep.CONDUCT
-
-    def test_epic_reviewed_implementation_maps_to_polish(self):
-        """epic reviewed-implementation -> polish."""
-        result = _compute_next_step("epic", "reviewed-implementation", AdapterCategory.POLISH)
-        assert result.next_step == NextStep.POLISH
-
-    def test_epic_polishing_implementation_maps_to_polish(self):
-        """AC-7: epic polishing-implementation -> polish."""
-        result = _compute_next_step("epic", "polishing-implementation", AdapterCategory.POLISH)
-        assert result.next_step == NextStep.POLISH
-
-    def test_epic_implemented_maps_to_usher(self):
-        """AC-8: epic implemented -> usher."""
-        result = _compute_next_step("epic", "implemented", AdapterCategory.USHER)
-        assert result.next_step == NextStep.USHER
-
-    def test_epic_release_maps_to_usher(self):
-        """epic release -> usher."""
-        result = _compute_next_step("epic", "release", AdapterCategory.USHER)
-        assert result.next_step == NextStep.USHER
-
-    def test_epic_in_defined_maps_to_shepherd(self):
-        """Legacy status defined -> falls through to default adapter (SHEPHERD)."""
-        result = _compute_next_step("epic", "defined", AdapterCategory.SHEPHERD)
-        assert result.next_step == NextStep.SHEPHERD
-
-    # -- Legacy issue statuses preserve their explicitly selected adapter --
-    def test_issue_in_ready_maps_to_advance(self):
-        result = _compute_next_step("issue", "ready", AdapterCategory.ADVANCE)
-        assert result.next_step == NextStep.ADVANCE
-
-    def test_issue_in_active_maps_to_advance(self):
-        result = _compute_next_step("issue", "active", AdapterCategory.ADVANCE)
-        assert result.next_step == NextStep.ADVANCE
-
-    def test_issue_in_review_maps_to_advance(self):
-        result = _compute_next_step("issue", "review", AdapterCategory.ADVANCE)
-        assert result.next_step == NextStep.ADVANCE
-
-    def test_issue_in_passed_maps_to_usher(self):
-        result = _compute_next_step("issue", "passed", AdapterCategory.USHER)
-        assert result.next_step == NextStep.USHER
-
-    def test_issue_in_validate_maps_to_usher(self):
-        result = _compute_next_step("issue", "validate", AdapterCategory.USHER)
-        assert result.next_step == NextStep.USHER
-
-    def test_blocked_maps_to_wait(self):
-        result = _compute_next_step("issue", "blocked", AdapterCategory.WAIT)
-        assert result.next_step == NextStep.WAIT
-
-    # -- Legacy epic statuses preserve their explicitly selected adapter --
-    def test_epic_active_maps_to_conduct_legacy(self):
-        """Legacy status active -> falls through to default adapter (CONDUCT)."""
-        result = _compute_next_step("epic", "active", AdapterCategory.CONDUCT)
-        assert result.next_step == NextStep.CONDUCT
-
-    def test_epic_review_maps_to_conduct_legacy(self):
-        """Legacy status review -> falls through to default adapter (CONDUCT)."""
-        result = _compute_next_step("epic", "review", AdapterCategory.CONDUCT)
-        assert result.next_step == NextStep.CONDUCT
-
-    def test_epic_passed_maps_to_usher_legacy(self):
-        """Legacy status passed -> falls through to default adapter (USHER)."""
-        result = _compute_next_step("epic", "passed", AdapterCategory.USHER)
-        assert result.next_step == NextStep.USHER
-
-    # -- T7 AC-6: Refine/polish status advance on success only --
-    def test_refine_does_not_produce_advance_step(self):
-        """AC-6: refine step is REFINE, not ADVANCE — status advance is skill-level."""
-        result = _compute_next_step("issue", "idea", AdapterCategory.REFINE)
-        assert result.next_step == NextStep.REFINE
-        assert result.next_step != NextStep.ADVANCE
-
-    def test_polish_does_not_produce_advance_step(self):
-        """AC-6: polish step is POLISH, not ADVANCE — status advance is skill-level."""
-        result = _compute_next_step("issue", "polishing-implementation", AdapterCategory.POLISH)
-        assert result.next_step == NextStep.POLISH
-        assert result.next_step != NextStep.ADVANCE
+@pytest.mark.parametrize(
+    ("adapter", "expected"),
+    [
+        (AdapterCategory.REFINE, NextStep.REFINE),
+        (AdapterCategory.SHEPHERD, NextStep.SHEPHERD),
+        (AdapterCategory.CONDUCT, NextStep.CONDUCT),
+        (AdapterCategory.ADVANCE, NextStep.ADVANCE),
+        (AdapterCategory.BLITZ, NextStep.BLITZ),
+        (AdapterCategory.DASH, NextStep.DASH),
+        (AdapterCategory.POLISH, NextStep.POLISH),
+        (AdapterCategory.USHER, NextStep.USHER),
+        (AdapterCategory.WAIT, NextStep.WAIT),
+        (AdapterCategory.SKIP, NextStep.WAIT),
+    ],
+)
+def test_registered_adapter_maps_to_scheduler_step(adapter, expected):
+    result = _compute_next_step(adapter)
+    assert result.next_step is expected
 
 
 class TestAdvanceFeasibilityProbeRewrite:
-    """YOK-1779: (issue, refined-idea, advance) is rewritten to refine
-    when the candidate's planned path-claim would activate INCOMPATIBLE
-    against a non-terminal sibling. After the operator authors a
-    coordination_only `item_dependencies` edge, the rewrite no longer
-    fires and the step returns ADVANCE.
-    """
+    """Definition-selected item-claim activation may reroute to refine."""
 
     _SCHEMA = """
     CREATE TABLE actors (id INTEGER PRIMARY KEY, name TEXT);
@@ -215,9 +61,6 @@ class TestAdvanceFeasibilityProbeRewrite:
         gate_point TEXT, satisfaction TEXT, source TEXT, rationale TEXT,
         created_at TEXT
     );
-    -- Full column set from `schema_init_actor_path_claim_tables`: the
-    -- override reader selects every column, and on Postgres a
-    -- missing-column error would abort the probe's transaction.
     CREATE TABLE path_claim_overrides (
         id INTEGER PRIMARY KEY, path_claim_id INTEGER NOT NULL,
         blocking_claim_id INTEGER,
@@ -226,10 +69,6 @@ class TestAdvanceFeasibilityProbeRewrite:
         actor_id INTEGER, actor_reason TEXT, item_id INTEGER,
         project TEXT, session_id TEXT, created_at TEXT
     );
-    -- Required by the probe's transitive call into classify_overlap →
-    -- _is_render_target_only_overlap → read_render_source_for →
-    -- read_context_value. Canonical DDL lives in
-    -- `yoke_core.domain.schema_init_path_tables.create_path_registry_tables`.
     CREATE TABLE path_context_values (
         id INTEGER PRIMARY KEY, target_id INTEGER NOT NULL,
         context_family TEXT NOT NULL, entry_key TEXT NOT NULL DEFAULT '',
@@ -253,35 +92,41 @@ class TestAdvanceFeasibilityProbeRewrite:
             "VALUES (100, 'yoke', 'file', 'shared.py', 1, NULL, "
             "'2026-05-19T00:00:00Z', 'observed')"
         )
-        for cid, item in ((500, 42), (501, 43)):
+        for claim_id, item_id in ((500, 42), (501, 43)):
             conn.execute(
                 "INSERT INTO path_claims (id, state, mode, actor_id, item_id, "
                 "integration_target, registered_at) "
                 "VALUES (%s, 'planned', 'exclusive', 1, %s, 'main', "
                 "'2026-05-19T00:00:00Z')",
-                (cid, item),
+                (claim_id, item_id),
             )
             conn.execute(
-                "INSERT INTO path_claim_targets (claim_id, target_id, declared_at) "
+                "INSERT INTO path_claim_targets "
+                "(claim_id, target_id, declared_at) "
                 "VALUES (%s, 100, '2026-05-19T00:00:00Z')",
-                (cid,),
+                (claim_id,),
             )
 
     def test_blocked_overlap_rewrites_to_refine(self):
         from yoke_core.domain.scheduler_routing import (
             ROUTING_OVERRIDE_PATH_CLAIM_BLOCKED,
         )
+
         conn = self._make_db()
         self._seed(conn)
         try:
             result = _compute_next_step(
-                "issue", "refined-idea", AdapterCategory.ADVANCE,
-                conn=conn, item_id=42,
+                AdapterCategory.ADVANCE,
+                probe_path_claim_activation=True,
+                conn=conn,
+                item_id=42,
             )
-            assert result.next_step == NextStep.REFINE
+            assert result.next_step is NextStep.REFINE
             assert result.routing_override is not None
-            assert result.routing_override.reason == ROUTING_OVERRIDE_PATH_CLAIM_BLOCKED
-            assert result.routing_override.original_step == NextStep.ADVANCE.value
+            assert (
+                result.routing_override.reason
+                == ROUTING_OVERRIDE_PATH_CLAIM_BLOCKED
+            )
             assert "YOK-43" in result.routing_override.conflicting_item_ids
             assert "shared.py" in result.routing_override.shared_paths
         finally:
@@ -290,34 +135,34 @@ class TestAdvanceFeasibilityProbeRewrite:
     def test_coordination_only_edge_unblocks(self):
         conn = self._make_db()
         self._seed(conn)
-        for dep, block in ((42, 43), (43, 42)):
+        for dependent, blocking in ((42, 43), (43, 42)):
             conn.execute(
                 "INSERT INTO item_dependencies "
                 "(dependent_item, blocking_item, gate_point, satisfaction, "
                 "source, rationale, created_at) "
                 "VALUES (%s, %s, 'coordination_only', 'compatible', 'agent', "
                 "'compatible same-path edits', '2026-05-19T00:00:00Z')",
-                (dep, block),
+                (dependent, blocking),
             )
         try:
             result = _compute_next_step(
-                "issue", "refined-idea", AdapterCategory.ADVANCE,
-                conn=conn, item_id=42,
+                AdapterCategory.ADVANCE,
+                probe_path_claim_activation=True,
+                conn=conn,
+                item_id=42,
             )
-            assert result.next_step == NextStep.ADVANCE
+            assert result.next_step is NextStep.ADVANCE
             assert result.routing_override is None
         finally:
             conn.close()
 
-    def test_other_triples_pass_through_when_conn_supplied(self):
-        """conn + item_id supplied for a non-(issue, refined-idea, advance)
-        triple — probe MUST NOT fire."""
+    def test_probe_is_not_run_without_definition_signal(self):
         conn = self._make_db()
-        # No schema needed — the probe never runs.
         result = _compute_next_step(
-            "issue", "implementing", AdapterCategory.ADVANCE,
-            conn=conn, item_id=99,
+            AdapterCategory.ADVANCE,
+            conn=conn,
+            item_id=99,
         )
         conn.close()
-        assert result.next_step == NextStep.ADVANCE
+        assert result.next_step is NextStep.ADVANCE
         assert result.routing_override is None

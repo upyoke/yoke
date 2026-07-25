@@ -58,9 +58,10 @@ def live_next_step(
     except ValueError:
         return None
     return _compute_next_step(
-        workflow.workflow_id,
-        stage_id,
         adapter,
+        probe_path_claim_activation=(
+            workflow.requires_item_path_claim_probe(stage_id)
+        ),
     ).next_step.value
 
 

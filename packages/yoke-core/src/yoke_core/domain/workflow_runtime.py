@@ -15,12 +15,11 @@ from yoke_core.domain.workflow_registry import (
     definition_digest,
 )
 
-ENGINE_EXCEPTIONAL_STAGE_IDS = frozenset({
-    "blocked",
-    "cancelled",
-    "failed",
-    "stopped",
-})
+ENGINE_TERMINAL_STAGE_IDS = frozenset({"cancelled", "stopped"})
+ENGINE_WAIT_STAGE_IDS = frozenset({"blocked", "failed"})
+ENGINE_EXCEPTIONAL_STAGE_IDS = (
+    ENGINE_TERMINAL_STAGE_IDS | ENGINE_WAIT_STAGE_IDS
+)
 
 
 @dataclass(frozen=True)
@@ -67,6 +66,12 @@ class WorkflowRuntime:
         except ValueError:
             return None
 
+    def next_stage_id(self, stage_id: str) -> Optional[str]:
+        position = self.stage_index(stage_id)
+        if position is None or position + 1 >= len(self.stage_ids):
+            return None
+        return self.stage_ids[position + 1]
+
     def accepts_stage(self, stage_id: str) -> bool:
         return (
             stage_id in self.stage_ids
@@ -91,6 +96,13 @@ class WorkflowRuntime:
             return ()
         return tuple(stage["gates"])
 
+    def gate_ids_for_stage(self, stage_id: Optional[str]) -> frozenset[str]:
+        if stage_id is None:
+            return frozenset()
+        return frozenset(
+            str(gate["id"]) for gate in self.gates_for_stage(stage_id)
+        )
+
     def executor_for_stage(self, stage_id: str) -> Optional[str]:
         position = self.stage_index(stage_id)
         if position is None or stage_id in self.terminal_stage_ids:
@@ -107,6 +119,40 @@ class WorkflowRuntime:
         raise WorkflowRegistryError(
             f"workflow {self.workflow_id}@{self.version} has no executor "
             f"for stage {stage_id!r}"
+        )
+
+    def executor_has_started(
+        self,
+        stage_id: str,
+        executor_ids: frozenset[str],
+    ) -> bool:
+        """Whether the current stage is inside, not at the entry to, a binding."""
+        position = self.stage_index(stage_id)
+        if position is None:
+            return False
+        for binding in self.definition["executor_bindings"]:
+            if str(binding["executor_id"]) not in executor_ids:
+                continue
+            start = self.stage_index(str(binding["from_stage_id"]))
+            stop = self.stage_index(str(binding["through_stage_id"]))
+            if (
+                start is not None
+                and stop is not None
+                and start < position < stop
+            ):
+                return True
+        return False
+
+    def requires_item_path_claim_probe(self, stage_id: str) -> bool:
+        """Whether leaving *stage_id* activates an item-level path claim."""
+        from yoke_core.domain.workflow_gate_catalog import (
+            GATE_CLAIM_ACTIVATION,
+        )
+
+        return (
+            self.policies["path_claims"] == "required"
+            and GATE_CLAIM_ACTIVATION
+            in self.gate_ids_for_stage(self.next_stage_id(stage_id))
         )
 
     def allows_entry_surface(self, entry_surface: str) -> bool:
@@ -215,6 +261,8 @@ def load_item_workflow_runtime(
 
 __all__ = [
     "ENGINE_EXCEPTIONAL_STAGE_IDS",
+    "ENGINE_TERMINAL_STAGE_IDS",
+    "ENGINE_WAIT_STAGE_IDS",
     "WorkflowRuntime",
     "builtin_workflow_runtime",
     "load_item_workflow_runtime",

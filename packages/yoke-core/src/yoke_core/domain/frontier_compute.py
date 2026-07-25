@@ -16,7 +16,6 @@ from .frontier_sql import (
     FRONTIER_ITEMS_SQL_PREFIX,
     FRONTIER_ITEMS_SQL_SUFFIX,
     UNBLOCKS_COUNT_SQL,
-    WIP_COUNT_SQL_PREFIX,
 )
 from .frontier_types import AdapterCategory, FrontierItem, FrontierResult
 from .idea_body_completeness import (
@@ -25,9 +24,12 @@ from .idea_body_completeness import (
 )
 from .project_identity import resolve_project_slug
 from .project_scope import normalize_project_scope
-from .queries import is_blocked, is_frozen, sql_frozen_filter
+from .queries import is_blocked, is_frozen
 from .runtime_settings import get_seconds
 from .workflow_runtime import workflow_runtime_from_row
+from .workflow_runtime import ENGINE_WAIT_STAGE_IDS
+
+_WIP_EXECUTOR_IDS = frozenset({"advance", "blitz", "conduct", "dash"})
 
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
@@ -39,14 +41,6 @@ def _project_scope_clause(conn: Any, project_scope: List[int]) -> str:
         return " AND 1=0"
     placeholders = ", ".join(_p(conn) for _ in project_scope)
     return f" AND i.project_id IN ({placeholders})"
-
-
-def _wip_project_scope_clause(conn: Any, project_scope: List[int]) -> str:
-    """Same as ``_project_scope_clause`` for the unaliased WIP query."""
-    if not project_scope:
-        return " AND 1=0"
-    placeholders = ", ".join(_p(conn) for _ in project_scope)
-    return f" AND project_id IN ({placeholders})"
 
 
 def compute_frontier(
@@ -96,11 +90,7 @@ def compute_frontier(
 
     depth_map = _compute_downstream_depths(conn)
 
-    frozen_filter = sql_frozen_filter(False)
-    wip_project_clause = _wip_project_scope_clause(conn, project_scope)
-    wip_sql = WIP_COUNT_SQL_PREFIX + wip_project_clause + f" AND ({frozen_filter})"
-    cursor.execute(wip_sql, tuple(project_scope))
-    wip_active = cursor.fetchone()[0]
+    wip_active = 0
 
     recent_owner_window_s = get_seconds(
         "session_reactivation_reacquire_window_s", 300,
@@ -129,7 +119,19 @@ def compute_frontier(
         status = item["status"]
         workflow = workflow_runtime_from_row(item)
         adapter = classify_next_action(workflow, status)
+        if adapter == AdapterCategory.SKIP:
+            continue
+        if (
+            status in ENGINE_WAIT_STAGE_IDS
+            and status != "blocked"
+        ):
+            continue
         stage_index = workflow.stage_index(status)
+        if (
+            not is_frozen(item["frozen"])
+            and workflow.executor_has_started(status, _WIP_EXECUTOR_IDS)
+        ):
+            wip_active += 1
 
         fi = FrontierItem(
             item_id=item_id_str,
@@ -142,6 +144,9 @@ def compute_frontier(
             workflow_version=workflow.version,
             stage_index=stage_index if stage_index is not None else -1,
             adapter=adapter,
+            probe_path_claim_activation=(
+                workflow.requires_item_path_claim_probe(status)
+            ),
             unblocks_count=unblocks_map.get(item_id_str, 0),
             downstream_depth=depth_map.get(item_id_str, 0),
             created_at=item["created_at"],
@@ -173,7 +178,10 @@ def compute_frontier(
             )
             fi.blocker_details = blocker_details_map.get(item_id_str, [])
 
-        idea_incomplete = status == "idea" and is_idea_body_incomplete(item)
+        idea_incomplete = (
+            status == workflow.stage_ids[0]
+            and is_idea_body_incomplete(item)
+        )
         if idea_incomplete:
             fi.blocked_reasons.append(
                 f"{_IDEA_INCOMPLETE_REASON}: idea body is title-only "
