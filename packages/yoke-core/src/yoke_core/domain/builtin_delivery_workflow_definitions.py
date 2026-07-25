@@ -120,7 +120,7 @@ ISSUE_WORKFLOW_DEFINITION = definition_fixture(
             "advance", "refined-idea", "reviewed-implementation",
         ),
         executor_binding(
-            "polish", "polishing-implementation", "implemented",
+            "polish", "reviewed-implementation", "implemented",
         ),
         executor_binding("usher", "implemented", "done"),
     ),
@@ -200,7 +200,7 @@ EPIC_WORKFLOW_DEFINITION = definition_fixture(
         executor_binding("refine", "plan-drafted", "planned"),
         executor_binding("conduct", "planned", "reviewed-implementation"),
         executor_binding(
-            "polish", "polishing-implementation", "implemented",
+            "polish", "reviewed-implementation", "implemented",
         ),
         executor_binding("usher", "implemented", "done"),
     ),

@@ -17,27 +17,42 @@ function okEnvelope(result) {
   return { status: 200, envelope: { success: true, result } };
 }
 
-// A served definition with invented vocabulary: nothing here matches the
-// engine's real status or gate names, so anything the view shows beyond
-// these strings would be hardcoded — the assertion the fixture exists for.
-// The same read also serves deployment flows, which this screen deliberately
-// does not show — they are Delivery's Flows facet.
+// Invented registry vocabulary proves the view renders served definitions,
+// labels, placements, catalog strings, and policy rather than client constants.
 function definitionFixture(flows) {
   return {
-    family: "software-delivery",
-    types: [
-      {
-        type: "issue",
-        stages: ["draft", "review", "ship"],
-        gates: [{ at_status: "review", gate: "evidence_check" }],
-      },
-      {
-        type: "epic",
-        stages: ["draft", "plan", "review", "ship"],
-        gates: [
-          { at_status: "review", gate: "evidence_check" },
-          { at_status: "plan", gate: "plan_walkthrough" },
+    family: "work-items",
+    workflows: [{
+      id: "rally",
+      name: "Rally",
+      description: "Coordinate a small release train.",
+      source: "pack",
+      status: "disabled",
+      current_version: 3,
+      versions: [{ version: 1 }, { version: 3 }],
+      definition: {
+        stages: [
+          { id: "draft", label: "Drafted", gates: [] },
+          {
+            id: "prove", label: "Proving",
+            gates: [{ id: "evidence_check", mode: "strict" }],
+            description: "Collect the declared proof.",
+          },
+          { id: "ship", label: "Shipped", gates: [] },
         ],
+        policies: {
+          ownership: "paired",
+          item_knobs: ["extra proof", "approval"],
+        },
+      },
+    }],
+    gate_catalog: [
+      {
+        id: "evidence_check",
+        name: "Evidence check",
+        source_kind: "status_gate",
+        availability: "live",
+        description: "The declared proof must exist.",
       },
     ],
     flows,
@@ -82,7 +97,7 @@ function panelTitles(root) {
     .map((node) => node.textContent);
 }
 
-test("Workflows renders the lifecycle definition from one served read", async (t) => {
+test("Workflows renders the registry from one served read", async (t) => {
   const client = workflowsClient([
     {
       id: "demo-release", name: "Demo Release", target_env: "prod",
@@ -99,7 +114,10 @@ test("Workflows renders the lifecycle definition from one served read", async (t
     ),
     { function: "workflows.definition.get", payload: {} },
   );
-  assert.deepEqual(panelTitles(root), ["Types", "Gates"]);
+  assert.deepEqual(
+    panelTitles(root),
+    ["Workflows", "Stages", "Gate catalog", "Posture"],
+  );
 
   // Nothing on this screen takes a project, so it draws no picker — and no
   // note explaining a picker that is not there.
@@ -111,14 +129,16 @@ test("Workflows renders the lifecycle definition from one served read", async (t
     .filter((node) => node.tagName === "TD")
     .map(cellText);
   assert.deepEqual(cells, [
-    // Types: type | stage count | the full served progression, verbatim.
-    "issue", "3", "draft → review → ship",
-    "epic", "4", "draft → plan → review → ship",
-    // Gates: each served (status, gate) fact once, ordered by the longest
-    // served progression — plan precedes review because the epic fixture
-    // says so, not because this module knows either word.
-    "plan", "plan_walkthrough",
-    "review", "evidence_check",
+    "Rally", "rally", "v3", "v1 · v3", "disabled", "pack",
+    "Coordinate a small release train.",
+    "Rally", "1/3", "draft", "Drafted", "", "",
+    "Rally", "2/3", "prove", "Proving", "evidence_check:strict",
+    "Collect the declared proof.",
+    "Rally", "3/3", "ship", "Shipped", "", "",
+    "evidence_check", "Evidence check", "status_gate", "live",
+    "The declared proof must exist.",
+    "Rally", "ownership", "paired",
+    "Rally", "item_knobs", "extra proof · approval",
   ]);
 
   // The cells above are the whole rendered table set, so the served flows
@@ -132,7 +152,7 @@ test("Workflows renders the lifecycle definition from one served read", async (t
   mounted.unmount();
 });
 
-test("a failed read fails both panels instead of sticking at loading", async (t) => {
+test("a failed read fails every panel instead of sticking at loading", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
@@ -157,7 +177,7 @@ test("a failed read fails both panels instead of sticking at loading", async (t)
   await settle();
 
   const errors = byClass(root, "error");
-  assert.equal(errors.length, 2);
+  assert.equal(errors.length, 4);
   for (const node of errors) {
     assert.ok(node.textContent.includes("definition read broke"));
   }

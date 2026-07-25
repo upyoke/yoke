@@ -176,6 +176,14 @@ def execute_create(
                 project_identity.id, "default_priority",
             )
 
+        from yoke_core.domain.workflow_registry import (
+            resolve_current_workflow_pin,
+        )
+
+        workflow_id, workflow_version_id = resolve_current_workflow_pin(
+            conn, item_type,
+        )
+
         result = mutations.prepare_create(
             title=title,
             item_type=item_type,
@@ -202,6 +210,11 @@ def execute_create(
             )
             print(f"[DRY-RUN]   Title: {title}", file=out)
             print(f"[DRY-RUN]   Type: {item_type}", file=out)
+            print(
+                f"[DRY-RUN]   Workflow: {workflow_id}"
+                f" (version row {workflow_version_id})",
+                file=out,
+            )
             print(f"[DRY-RUN]   Status: {status}", file=out)
             print(f"[DRY-RUN]   Priority: {priority}", file=out)
             print(f"[DRY-RUN]   Project: {project}", file=out)
@@ -228,6 +241,8 @@ def execute_create(
                     body, now, now, source_token,
                     project_identity.id, current_sequence, deployment_flow,
                     owner=owner_token,
+                    workflow_id=workflow_id,
+                    workflow_version_id=workflow_version_id,
                 )
                 break
             except db_backend.integrity_error_types(conn) as exc:

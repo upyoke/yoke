@@ -1,10 +1,4 @@
-"""``workflows.definition.get`` read handler.
-
-Read-only: serves the engine's workflow definition (family, per-type
-progressions, gate points) plus the deployment flows, optionally scoped
-to one project. The payload shape and derivations live in
-:mod:`yoke_core.domain.workflows_definition_read`.
-"""
+"""``workflows.definition.get`` authoritative registry read handler."""
 
 from __future__ import annotations
 
@@ -25,7 +19,8 @@ class WorkflowsDefinitionGetRequest(BaseModel):
 
 class WorkflowsDefinitionGetResponse(BaseModel):
     family: str
-    types: List[Dict[str, Any]]
+    workflows: List[Dict[str, Any]]
+    gate_catalog: List[Dict[str, Any]]
     flows: List[Dict[str, Any]]
 
 

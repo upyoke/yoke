@@ -1,10 +1,4 @@
-"""Tests for the ``workflows.definition.get`` read handler and its domain read.
-
-Real-DB coverage on the ``test_db`` fixture: raw per-type stage service,
-gate rows derived from the status-gate-points map, flow listing with and
-without a project filter, stage-name parsing out of the stages JSON,
-UI-allowlist membership, and registration.
-"""
+"""Tests for the authoritative ``workflows.definition.get`` registry read."""
 
 from __future__ import annotations
 
@@ -15,16 +9,12 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
-from yoke_core.domain.backlog_status_gate_points import STATUS_GATE_POINTS
+from yoke_core.domain.builtin_workflow_definitions import BUILTIN_WORKFLOW_IDS
 from yoke_core.domain.handlers.workflows_definition import (
     handle_workflows_definition_get,
 )
 from yoke_core.domain.json_helper import dumps_compact
-from yoke_core.domain.lifecycle_enums import LIFECYCLE_FAMILY
-from yoke_core.domain.lifecycle_progression import (
-    EPIC_PROGRESSION,
-    ISSUE_PROGRESSION,
-)
+from yoke_core.domain.workflow_gate_catalog import workflow_gate_catalog
 from yoke_core.domain.workflows_definition_read import (
     get_workflows_definition,
 )
@@ -78,49 +68,52 @@ def _insert_flow(
     conn.commit()
 
 
-class TestLifecycleHalf:
-    def test_stages_served_raw_and_complete_per_type(self, test_db):
+class TestWorkflowRegistry:
+    def test_current_immutable_definitions_are_served(self, test_db):
         definition = get_workflows_definition()
-        assert definition["family"] == LIFECYCLE_FAMILY
-        by_type = {row["type"]: row for row in definition["types"]}
-        assert set(by_type) == {"issue", "epic"}
-        # Raw, full progressions — condensing is presentation, not data.
-        assert by_type["issue"]["stages"] == list(ISSUE_PROGRESSION)
-        assert by_type["epic"]["stages"] == list(EPIC_PROGRESSION)
-
-    def test_gate_rows_match_the_status_gate_points_map(self, test_db):
-        definition = get_workflows_definition()
-        for type_row in definition["types"]:
-            expected = [
-                {"at_status": status, "gate": family}
-                for status in type_row["stages"]
-                for family in STATUS_GATE_POINTS.get(status, ())
-            ]
-            assert type_row["gates"] == expected, type_row["type"]
-
-    def test_epic_only_gate_points_stay_off_the_issue_type(self, test_db):
-        definition = get_workflows_definition()
-        by_type = {row["type"]: row for row in definition["types"]}
-        issue_gates = {
-            (gate["at_status"], gate["gate"])
-            for gate in by_type["issue"]["gates"]
+        assert definition["family"] == "work-items"
+        by_id = {row["id"]: row for row in definition["workflows"]}
+        assert set(by_id) == set(BUILTIN_WORKFLOW_IDS)
+        assert {row["current_version"] for row in by_id.values()} == {1}
+        assert all(row["definition_digest"] for row in by_id.values())
+        assert all(row["versions"] for row in by_id.values())
+        issue_stages = by_id["issue"]["definition"]["stages"]
+        assert issue_stages[0] == {
+            "id": "idea",
+            "label": "Idea",
+            "gates": [],
         }
-        epic_gates = {
-            (gate["at_status"], gate["gate"])
-            for gate in by_type["epic"]["gates"]
-        }
-        # The plan-simulation gate fires at "planned", which only the epic
-        # progression reaches.
-        assert ("planned", "plan_simulation") in epic_gates
-        assert not any(gate == "plan_simulation" for _, gate in issue_gates)
 
-    def test_lifecycle_half_is_identical_under_a_project_filter(
+    def test_definition_owns_gate_placement_and_catalog_owns_strings(
+        self, test_db,
+    ):
+        definition = get_workflows_definition()
+        assert definition["gate_catalog"] == workflow_gate_catalog()
+        by_id = {row["id"]: row for row in definition["workflows"]}
+        issue = by_id["issue"]["definition"]
+        implementing = next(
+            stage for stage in issue["stages"]
+            if stage["id"] == "implementing"
+        )
+        assert implementing["gates"] == [
+            {"id": "check_hard_blocks"},
+            {"id": "claim_activation"},
+            {"id": "architecture_impact"},
+        ]
+        refining = next(
+            stage for stage in issue["stages"]
+            if stage["id"] == "refining-idea"
+        )
+        assert {"id": "db_mutation", "mode": "joint"} in refining["gates"]
+
+    def test_registry_half_is_identical_under_a_project_filter(
         self, test_db,
     ):
         unfiltered = get_workflows_definition()
         filtered = get_workflows_definition(project="yoke")
-        assert filtered["family"] == unfiltered["family"]
-        assert filtered["types"] == unfiltered["types"]
+        assert filtered["family"] == "work-items"
+        assert filtered["workflows"] == unfiltered["workflows"]
+        assert filtered["gate_catalog"] == unfiltered["gate_catalog"]
 
 
 class TestFlows:
@@ -178,8 +171,11 @@ class TestHandler:
         outcome = handle_workflows_definition_get(_request())
         assert outcome.primary_success
         payload = outcome.result_payload
-        assert payload["family"] == LIFECYCLE_FAMILY
-        assert [row["type"] for row in payload["types"]] == ["issue", "epic"]
+        assert payload["family"] == "work-items"
+        assert {row["id"] for row in payload["workflows"]} == set(
+            BUILTIN_WORKFLOW_IDS
+        )
+        assert payload["gate_catalog"] == workflow_gate_catalog()
         assert payload["flows"] == []
 
     def test_handler_unknown_project_is_typed_not_found(self, test_db):

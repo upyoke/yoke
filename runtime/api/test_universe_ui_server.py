@@ -249,15 +249,14 @@ class TestFunctionProxy:
         envelope = response.json()
         assert envelope["success"] is True
         result = envelope["result"]
-        assert result["family"] == "software-delivery"
-        by_type = {row["type"]: row for row in result["types"]}
-        assert set(by_type) == {"issue", "epic"}
-        # Stages arrive raw and complete; gates name served families.
-        assert len(by_type["issue"]["stages"]) == 10
-        assert len(by_type["epic"]["stages"]) == 14
+        assert result["family"] == "work-items"
+        by_id = {row["id"]: row for row in result["workflows"]}
+        assert set(by_id) == {"issue", "epic", "blitz", "dash"}
+        assert len(by_id["issue"]["definition"]["stages"]) == 10
+        assert len(by_id["epic"]["definition"]["stages"]) == 14
         assert all(
-            gate["at_status"] and gate["gate"]
-            for row in result["types"] for gate in row["gates"]
+            gate["id"] and gate["name"] and gate["description"]
+            for gate in result["gate_catalog"]
         )
         assert result["flows"] == []
 

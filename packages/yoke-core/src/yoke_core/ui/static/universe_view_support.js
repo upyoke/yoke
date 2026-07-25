@@ -77,7 +77,7 @@ export function section(documentNode, title) {
 }
 
 // Semantic color family per state value. Status vocabularies belong to
-// workflow types, so this map is a coloring hint and never a gate: any value
+// workflows, so this map is a coloring hint and never a gate: any value
 // it has not seen renders as a neutral idle pill rather than breaking.
 const STATE_PILL_FAMILIES = {
   implementing: "run",

@@ -214,6 +214,9 @@ class TestItemsCreateEndToEnd:
         # Source resolved to the seeded local human (numeric actor id).
         source = _item_field(tmp_db, item_id, "source")
         assert source.isdigit(), f"source={source!r} must be a numeric actor id"
+        assert _item_field(tmp_db, item_id, "workflow_id") == "issue"
+        version_id = _item_field(tmp_db, item_id, "workflow_version_id")
+        assert isinstance(version_id, int) and version_id > 0
 
     def test_missing_provenance_blocked_end_to_end(self, tmp_db, monkeypatch):
         monkeypatch.delenv(IDEA_INTAKE_ENV, raising=False)

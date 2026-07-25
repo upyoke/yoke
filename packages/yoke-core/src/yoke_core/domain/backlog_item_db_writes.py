@@ -36,6 +36,8 @@ def _insert_item(
     deployment_flow: Optional[str],
     *,
     owner: Optional[str] = None,
+    workflow_id: Optional[str] = None,
+    workflow_version_id: Optional[int] = None,
 ) -> None:
     """Insert a new item into the DB. The body param is accepted but ignored.
 
@@ -52,14 +54,19 @@ def _insert_item(
             rework_count, frozen,
             github_issue, deployed_to, worktree,
             created_at, updated_at, source, owner,
-            project_id, project_sequence, deployment_flow
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+            project_id, project_sequence, deployment_flow,
+            workflow_id, workflow_version_id
+        ) VALUES (
+            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+        )""",
         (
             item_id, title, item_type, status, priority, flow,
             rework_count, frozen,
             github_issue, deployed_to, worktree,
             created_at, updated_at, source, owner_value,
             project_id, project_sequence, deployment_flow,
+            workflow_id, workflow_version_id,
         ),
     )
     conn.commit()

@@ -52,6 +52,8 @@ def apply_canonical_schema(conn) -> None:
     from yoke_core.domain.org_schema import seed_default_org
     from yoke_core.domain.project_seed_test_helpers import seed_project_identities
     from yoke_core.domain.shepherd import cmd_init as shepherd_cmd_init
+    from yoke_core.domain.workflow_registry import converge_builtin_workflows
+    from yoke_core.domain.workflow_schema import ensure_workflow_schema
 
     create_core_tables(conn)
     seed_project_identities(conn)
@@ -67,6 +69,8 @@ def apply_canonical_schema(conn) -> None:
     seed_default_org(conn)
     seed_roles_and_permissions(conn)
     apply_idempotent_migrations(conn)
+    ensure_workflow_schema(conn)
+    converge_builtin_workflows(conn)
     shepherd_cmd_init(conn)
     for col, ctype in _ITEMS_LEGACY_COLUMNS:
         if not _column_exists(conn, "items", col):

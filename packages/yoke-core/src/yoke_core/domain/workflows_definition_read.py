@@ -1,14 +1,10 @@
-"""Read-only workflow definition: family, per-type progressions, gate
-points, and deployment flows.
+"""Read current immutable workflows, gate catalog, and deployment flows.
 
-The read behind ``workflows.definition.get``. The lifecycle half serves
-the engine's hardcoded definition as data — the workflow family
-(:data:`~yoke_core.domain.lifecycle_enums.LIFECYCLE_FAMILY`), the ordered
-status progression per item type, and the gate families the authoritative
-status gate evaluates at each status
-(:data:`~yoke_core.domain.backlog_status_gate_points.STATUS_GATE_POINTS`).
-Stages are served raw and complete; condensing is presentation, not data.
-The lifecycle definition is universe-wide today: no project changes it.
+The read behind ``workflows.definition.get``. Workflow identities and their
+selected version rows are universe-wide. Definitions own ordered stages,
+labels, descriptions, transition edges, gate placement, entry surfaces,
+registered executor bindings, and policy. The engine-owned gate catalog owns
+the stable gate strings those definitions reference.
 
 The flows half reads ``deployment_flows`` rows — optionally filtered to
 one project (slug or id) — with each flow's stage names parsed out of its
@@ -20,21 +16,10 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Tuple
 
 from yoke_core.domain import db_helpers
-from yoke_core.domain.backlog_status_gate_points import STATUS_GATE_POINTS
 from yoke_core.domain.json_helper import loads_text
-from yoke_core.domain.lifecycle_enums import LIFECYCLE_FAMILY
-from yoke_core.domain.lifecycle_progression import (
-    EPIC_PROGRESSION,
-    ISSUE_PROGRESSION,
-)
 from yoke_core.domain.project_identity import resolve_project_id
-
-#: (item type, its ordered status progression), matching the closed
-#: ``items.type`` vocabulary.
-WORKFLOW_TYPE_PROGRESSIONS: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
-    ("issue", ISSUE_PROGRESSION),
-    ("epic", EPIC_PROGRESSION),
-)
+from yoke_core.domain.workflow_gate_catalog import workflow_gate_catalog
+from yoke_core.domain.workflow_registry import list_current_workflows
 
 #: Row keys every served flow carries.
 FLOW_FIELDS = (
@@ -46,17 +31,6 @@ FLOW_FIELDS = (
     "stage_names",
     "project",
 )
-
-
-def _gates_for_progression(
-    progression: Tuple[str, ...],
-) -> List[Dict[str, str]]:
-    """Gate rows for one type: only statuses that type can reach."""
-    return [
-        {"at_status": status, "gate": family}
-        for status in progression
-        for family in STATUS_GATE_POINTS.get(status, ())
-    ]
 
 
 def _stage_names(raw_stages: Any) -> List[str]:
@@ -91,9 +65,8 @@ def get_workflows_definition(
 ) -> Dict[str, Any]:
     """The workflow definition, with flows optionally scoped to a project.
 
-    ``project`` (slug or id, resolved server-side) filters the flows
-    list; the lifecycle half is identical whatever the filter, because
-    the definition is universe-wide today.
+    ``project`` (slug or id, resolved server-side) filters only the project-owned
+    flows list. Workflows and their gate catalog remain universe-wide.
     """
     conn = db_helpers.connect()
     try:
@@ -123,25 +96,19 @@ def get_workflows_definition(
                 "stage_names": _stage_names(row.get("stages")),
                 "project": row.get("project"),
             })
+        workflows = list_current_workflows(conn)
     finally:
         conn.close()
 
     return {
-        "family": LIFECYCLE_FAMILY,
-        "types": [
-            {
-                "type": type_name,
-                "stages": list(progression),
-                "gates": _gates_for_progression(progression),
-            }
-            for type_name, progression in WORKFLOW_TYPE_PROGRESSIONS
-        ],
+        "family": "work-items",
+        "workflows": workflows,
+        "gate_catalog": workflow_gate_catalog(),
         "flows": flows,
     }
 
 
 __all__ = [
     "FLOW_FIELDS",
-    "WORKFLOW_TYPE_PROGRESSIONS",
     "get_workflows_definition",
 ]

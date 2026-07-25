@@ -45,6 +45,8 @@ from yoke_core.domain.strategy_docs_schema import (
     STRATEGY_DOC_REVISIONS_CREATE_TABLE_SQL,
     STRATEGY_DOCS_CREATE_TABLE_SQL,
 )
+from yoke_core.domain.workflow_schema import ensure_workflow_schema
+from yoke_core.domain.workflow_registry import converge_builtin_workflows
 
 
 def converge_core_schema(conn) -> None:
@@ -82,6 +84,8 @@ def converge_core_schema(conn) -> None:
     create_github_app_tables(conn)
     create_project_onboarding_tables(conn)
     create_pack_projection_tables(conn)
+    ensure_workflow_schema(conn)
+    converge_builtin_workflows(conn)
     # Strategy authority landed on prod via a since-retired governed
     # migration; fresh envs get the table from the same DDL constant
     # the strategy domain owns.

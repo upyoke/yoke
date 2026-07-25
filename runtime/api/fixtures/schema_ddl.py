@@ -42,6 +42,7 @@ def _schema_ddl() -> str:
             PROJECT_PACK_REPORT_ENTRIES_TABLE_SQL,
             PROJECT_PACK_REPORTS_TABLE_SQL,
         )
+        from yoke_core.domain.workflow_schema import WORKFLOW_TABLES_SQL
 
         onboarding_rows_without_fk = (
             PROJECT_ONBOARDING_CHECKLIST_ROWS_CREATE_SQL.replace(
@@ -58,7 +59,8 @@ def _schema_ddl() -> str:
             "",
         )
         composed = (
-            _ITEMS_DDL + _EPIC_QA_DDL + _RUNTIME_DDL + _STRATEGY_DDL
+            WORKFLOW_TABLES_SQL + ";" + _ITEMS_DDL
+            + _EPIC_QA_DDL + _RUNTIME_DDL + _STRATEGY_DDL
             + _AUTH_DDL + PACK_CATALOG_TABLE_SQL + ";"
             + pack_reports_without_fk + ";"
             + pack_entries_without_fk + ";"
@@ -87,6 +89,11 @@ def apply_fixture_ddl(conn: Any, ddl: str) -> None:
 def apply_fixture_schema(conn: Any) -> None:
     """Apply the composed fixture schema to *conn*."""
     apply_fixture_ddl(conn, _schema_ddl())
+    from yoke_core.domain.workflow_registry import converge_builtin_workflows
+    from yoke_core.domain.workflow_schema import ensure_workflow_schema
+
+    ensure_workflow_schema(conn)
+    converge_builtin_workflows(conn)
 
 
 __all__ = ("SCHEMA_DDL", "apply_fixture_ddl", "apply_fixture_schema")  # noqa: F822
