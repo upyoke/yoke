@@ -30,9 +30,7 @@ from yoke_core.domain.backlog_item_db_writes import _insert_item
 from yoke_core.domain.backlog_session_attribution import (
     _maybe_set_session_current_item,
 )
-from yoke_core.domain.ticket_intake_provenance import (
-    enforce_public_create_allowed,
-)
+from yoke_core.domain.item_entry_surface import enforce_item_entry_allowed
 
 
 class SourceActorResolutionError(Exception):
@@ -101,28 +99,26 @@ def _coerce_explicit_source(
 
 def execute_create(
     title: str,
-    item_type: str,
+    workflow: Optional[str] = None,
     priority: Optional[str] = None,
     project: Optional[str] = None,
     deployment_flow: Optional[str] = None,
-    status: str = "idea",
+    status: Optional[str] = None,
     source: Optional[str] = None,
     owner: Optional[str] = None,
     session_id: Optional[str] = None,
     dry_run: bool = False,
     rebuild_board: bool = True,
-    provenance: Optional[str] = None,
+    entry_surface: Optional[str] = None,
     out: TextIO = sys.stdout,
 ) -> dict:
     """Full item creation: validate → INSERT → md gen → GitHub sync.
 
     Returns a result dict with 'success', 'item_id', 'error', etc.
 
-    The ``provenance`` keyword carries the sanctioned-idea-intake
-    signal (``"idea"``) when the call originates from ``/yoke idea``.
-    Direct production creates without idea provenance fail closed with
-    a recovery hint that names ``/yoke idea``. Dry-run and
-    test-isolated DB targets bypass the gate.
+    ``workflow`` temporarily defaults to ``issue`` while intake callers
+    finish the registry cutover. Persistent production creates require a
+    typed entry surface allowed by the selected workflow version.
     """
     from yoke_core.domain import mutations
 
@@ -133,11 +129,6 @@ def execute_create(
     db_path = _resolve_write_db_path()
     _assert_write_db_ready(db_path)
 
-    intake_block = enforce_public_create_allowed(
-        provenance=provenance, dry_run=dry_run, db_path=db_path,
-    )
-    if intake_block:
-        return {"success": False, "error": intake_block}
     conn = connect(db_path)
     try:
         try:
@@ -180,13 +171,28 @@ def execute_create(
             resolve_current_workflow_pin,
         )
 
+        from yoke_core.domain.workflow_runtime import load_workflow_runtime
+
         workflow_id, workflow_version_id = resolve_current_workflow_pin(
-            conn, item_type,
+            conn, workflow or "issue",
         )
+        workflow_runtime = load_workflow_runtime(
+            conn,
+            workflow_id=workflow_id,
+            workflow_version_id=workflow_version_id,
+        )
+        intake_block = enforce_item_entry_allowed(
+            workflow=workflow_runtime,
+            entry_surface=entry_surface,
+            dry_run=dry_run,
+            db_path=db_path,
+        )
+        if intake_block:
+            return {"success": False, "error": intake_block}
 
         result = mutations.prepare_create(
             title=title,
-            item_type=item_type,
+            workflow=workflow_runtime,
             priority=priority,
             project=project,
             deployment_flow=deployment_flow,
@@ -209,13 +215,15 @@ def execute_create(
                 file=out,
             )
             print(f"[DRY-RUN]   Title: {title}", file=out)
-            print(f"[DRY-RUN]   Type: {item_type}", file=out)
             print(
                 f"[DRY-RUN]   Workflow: {workflow_id}"
                 f" (version row {workflow_version_id})",
                 file=out,
             )
-            print(f"[DRY-RUN]   Status: {status}", file=out)
+            print(
+                f"[DRY-RUN]   Status: {status or workflow_runtime.stage_ids[0]}",
+                file=out,
+            )
             print(f"[DRY-RUN]   Priority: {priority}", file=out)
             print(f"[DRY-RUN]   Project: {project}", file=out)
             if deployment_flow:
@@ -235,7 +243,8 @@ def execute_create(
             current_sequence = allocate_project_sequence(conn, project_identity.id)
             try:
                 _insert_item(
-                    conn, current_id, title, item_type, status, priority,
+                    conn, current_id, title,
+                    status or workflow_runtime.stage_ids[0], priority,
                     "accelerated", 0, 0,
                     None, None, None,
                     body, now, now, source_token,

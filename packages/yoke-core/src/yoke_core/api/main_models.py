@@ -98,7 +98,10 @@ class ItemObject(BaseModel):
 
     id: int
     title: str
-    type: str
+    workflow_id: str
+    workflow_version_id: int
+    workflow_version: Optional[int] = None
+    stage_index: Optional[int] = None
     status: str
     priority: str
     flow: Optional[str] = None
@@ -241,28 +244,23 @@ class SchedulerResultModel(BaseModel):
 # Write-endpoint request models
 # ---------------------------------------------------------------------------
 
-VALID_TYPES = ["epic", "issue"]
 VALID_PRIORITIES = ["high", "medium", "low"]
 
 
 class CreateItemRequest(BaseModel):
     """Request body for POST /v1/items.
 
-    The optional ``provenance`` field carries the sanctioned-idea-intake
-    signal. Production callers MUST set ``provenance="idea"`` (mirrors
-    the ``--idea-intake`` CLI flag and the ``YOKE_IDEA_INTAKE`` env
-    var) — anything else is rejected by the route's intake gate, which
-    points the caller back at ``/yoke idea``.
+    The web route supplies its own typed entry-surface token; callers select
+    a workflow and cannot spoof a different surface in the request body.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     title: str
-    type: str
+    workflow: Optional[str] = None
     priority: str = "medium"
     project: Optional[str] = None
     deployment_flow: Optional[str] = None
-    provenance: Optional[str] = None
 
 
 class UpdateItemRequest(BaseModel):

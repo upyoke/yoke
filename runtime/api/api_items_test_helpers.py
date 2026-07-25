@@ -192,7 +192,24 @@ def _apply_schema_and_seed() -> None:
     conn = db_backend.connect()
     try:
         apply_fixture_ddl(conn, _SCHEMA_DDL)
+        from yoke_core.domain.workflow_registry import (
+            converge_builtin_workflows,
+            resolve_current_workflow_pin,
+        )
+        from yoke_core.domain.workflow_schema import ensure_workflow_schema
+
+        ensure_workflow_schema(conn)
+        converge_builtin_workflows(conn)
         _seed_rows(conn)
+        for workflow_id in ("issue", "epic"):
+            resolved_id, version_id = resolve_current_workflow_pin(
+                conn, workflow_id,
+            )
+            conn.execute(
+                "UPDATE items SET workflow_id = %s, workflow_version_id = %s "
+                "WHERE type = %s",
+                (resolved_id, version_id, workflow_id),
+            )
         _sync_postgres_sequences(conn)
         conn.commit()
     finally:

@@ -112,14 +112,14 @@ _flow_list=$(yoke workflows definition get --project "${_project}" 2>/dev/null |
 
 If a flow applies, set `_deployment_flow` to its registered id (e.g., `yoke-internal`, `example-project-internal`). If no flow applies, leave `_deployment_flow` empty. NEVER store the literal string `none` — it is not a registered flow id and the CLI will reject it.
 
-### c. Infer type
+### c. Infer workflow
 
 Default: `issue`. Only recommend `epic` when the work clearly needs:
 - Multiple parallel worktrees
 - A spec plus task decomposition
 - More than ~2 hours of focused work
 
-If the work is borderline, ask ONE binary question: "This looks like it might need task decomposition. Epic or issue?"
+If the work is borderline, ask ONE binary question: "This looks like it might need task decomposition. Epic or Issue workflow?"
 
 Otherwise, auto-select `issue`. Never ask for clearly simple items.
 
@@ -188,7 +188,7 @@ Print the inference summary:
 ```text
 Inferred fields:
  Project: {_project}
- Type: {type}
+ Workflow: {workflow}
  Priority: {priority}
  Deployment flow: {_deployment_flow or "(no flow — flag will be omitted)"}
  Dependencies: {list or "none"}
@@ -280,26 +280,26 @@ Create anyway? (yes / no)
 - If **yes** -> proceed
 - If **no matches** -> proceed silently
 
-## 5. Run The Backlog Registry Script To Create The Item
+## 5. Create The Item Through Its Registered Entry Surface
 
-`yoke items create` is the sanctioned idea-intake create surface. It works in a Yoke checkout AND over a prod-https control plane — the same `FunctionCallRequest` either way — so `/yoke idea` files a ticket whether or not the machine has a Yoke source checkout. Pass `--idea-intake` on every production create: public create surfaces gate on sanctioned idea intake (`yoke_core.domain.ticket_intake_provenance.enforce_public_create_allowed`) and reject calls without it; `--idea-intake` is the flag form of the `provenance="idea"` signal (dry-run and test-isolated DB targets bypass the gate). **Run the command BARE — do NOT append `2>&1`, `| head`, `| tail`, or any other shell wrapping** (it is a registered `yoke` adapter; the harness surfaces stdout AND stderr in your prompt context on the next turn, and the shell-quoted-function-payload lint refuses write-shape adapters with non-best-effort wrapping). Read the rendered output inline and act on it from the prompt context (same shape as `/yoke do` Step A's "Parse the JSON from stdout in the prompt context" teaching).
+`yoke items create` is the registered work-item create surface. It works in a Yoke checkout and over a prod-https control plane through the same `FunctionCallRequest`. This skill always passes `--entry-surface harness_skill`; the selected workflow version must allow that surface. **Run the command BARE — do NOT append `2>&1`, `| head`, `| tail`, or any other shell wrapping** (it is a registered `yoke` adapter; the harness surfaces stdout and stderr in your prompt context on the next turn, and the shell-quoted-function-payload lint refuses write-shape adapters with non-best-effort wrapping). Read the rendered output inline and act on it from the prompt context.
 
-Title and type are positional; project / deployment-flow / priority are flags. Build the command with `--project` and optionally `--deployment-flow`:
+Title and workflow are positional; project / deployment-flow / priority are flags. Build the command with `--project` and optionally `--deployment-flow`:
 
 ```bash
-yoke items create "{title}" {type} --idea-intake --project "${_project}" --deployment-flow "${_deployment_flow}" --priority {priority}
+yoke items create "{title}" {workflow} --entry-surface harness_skill --project "${_project}" --deployment-flow "${_deployment_flow}" --priority {priority}
 ```
 
 If `_deployment_flow` is empty, omit that flag:
 
 ```bash
-yoke items create "{title}" {type} --idea-intake --project "${_project}" --priority {priority}
+yoke items create "{title}" {workflow} --entry-surface harness_skill --project "${_project}" --priority {priority}
 ```
 
 If `--dry-run` was passed, add `--dry-run` (no row is created, no GitHub sync; status defaults to `idea`):
 
 ```bash
-yoke items create "{title}" {type} --idea-intake --dry-run --project "${_project}" --priority {priority}
+yoke items create "{title}" {workflow} --entry-surface harness_skill --dry-run --project "${_project}" --priority {priority}
 ```
 
 ## 5b. Hold A Draft Claim Across The Body-Write Window (Layer 1)

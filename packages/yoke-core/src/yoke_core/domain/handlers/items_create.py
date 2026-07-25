@@ -1,5 +1,4 @@
-"""Handler for the ``items.create`` function id — sanctioned idea-intake
-item creation over the function-call surface (in-process AND https).
+"""Handler for workflow-selected creation over the function-call surface.
 
 Wraps :func:`yoke_core.domain.backlog_create_op.execute_create` so the
 CLI ``yoke items create`` path and an external/no-checkout HTTPS call share the
@@ -8,13 +7,8 @@ GitHub sync, board rebuild). Running server-side, ``execute_create``
 writes to the authoritative Postgres the deployed core is bound to, which
 is exactly what an https ``/yoke idea`` needs.
 
-The :mod:`yoke_core.domain.ticket_intake_provenance` gate still applies:
-production creates must carry ``provenance="idea"`` in the payload — the
-function-call equivalent of the ``YOKE_IDEA_INTAKE`` env var the local
-``db_router`` path uses. A create without it fails closed with the
-recovery hint that names ``/yoke idea``; this surface is a wrapped
-intake path, not a hole around the "``/yoke idea`` is the only entry"
-contract.
+Production creates carry a typed entry surface. The selected immutable
+workflow version decides whether that surface may create the item.
 
 Target is ``kind="global"`` with the project named in the payload
 (``project``); authz classifies ``items.create`` as PROJECT scope and
@@ -39,13 +33,14 @@ from yoke_contracts.api.function_call import (
 class ItemCreateRequest(BaseModel):
     """Payload for ``items.create``.
 
-    Mirrors :func:`backlog_create_op.execute_create`'s arguments. ``type``
-    matches the JSON field used by the REST create route; the handler maps
-    it to the create op's ``item_type`` argument.
+    Mirrors :func:`backlog_create_op.execute_create`'s arguments.
     """
 
     title: str = Field(..., description="Item title (<=100 chars).")
-    type: str = Field(..., description="Item type: issue | epic.")
+    workflow: Optional[str] = Field(
+        None,
+        description="Workflow id; temporarily defaults to issue.",
+    )
     priority: Optional[str] = Field(
         None, description="Priority bucket; defaults to the project's configured default."
     )
@@ -53,15 +48,17 @@ class ItemCreateRequest(BaseModel):
         None, description="Project slug or id; defaults to the caller's checkout project."
     )
     deployment_flow: Optional[str] = Field(None, description="Deployment flow id.")
-    status: str = Field("idea", description="Initial status (idea intake is always 'idea').")
+    status: Optional[str] = Field(
+        None, description="Initial stage; defaults to the workflow's first stage."
+    )
     source: Optional[str] = Field(
         None, description="Numeric source actor id; defaults to the authenticated/session actor."
     )
     owner: Optional[str] = Field(
         None, description="Numeric owner actor id; defaults to the source actor."
     )
-    provenance: Optional[str] = Field(
-        None, description="Sanctioned-intake signal; '/yoke idea' sets 'idea'."
+    entry_surface: Optional[str] = Field(
+        None, description="Typed creation surface allowed by the workflow."
     )
     dry_run: bool = Field(False, description="Preview only; no row, no GitHub sync.")
 
@@ -105,12 +102,12 @@ def handle_item_create(request: FunctionCallRequest) -> HandlerOutcome:
         source = str(request.actor.actor_id)
 
     from yoke_core.domain.backlog_create_op import execute_create
-    from yoke_core.domain.ticket_intake_provenance import BYPASS_MESSAGE
+    from yoke_core.domain.item_entry_surface import MISSING_ENTRY_SURFACE_MESSAGE
 
     captured = io.StringIO()
     result: Dict[str, Any] = execute_create(
         title=payload.title,
-        item_type=payload.type,
+        workflow=payload.workflow,
         priority=payload.priority,
         project=payload.project,
         deployment_flow=payload.deployment_flow,
@@ -119,13 +116,18 @@ def handle_item_create(request: FunctionCallRequest) -> HandlerOutcome:
         owner=payload.owner,
         session_id=request.actor.session_id,
         dry_run=payload.dry_run,
-        provenance=payload.provenance,
+        entry_surface=payload.entry_surface,
         out=captured,
     )
 
     if not result.get("success"):
         message = str(result.get("error") or "item create failed")
-        code = "intake_denied" if message == BYPASS_MESSAGE else "create_failed"
+        code = (
+            "entry_surface_denied"
+            if message == MISSING_ENTRY_SURFACE_MESSAGE
+            or "does not allow" in message
+            else "create_failed"
+        )
         return _error(code, message)
 
     response = ItemCreateResponse(
@@ -151,7 +153,7 @@ REGISTRATIONS: List[Dict[str, Any]] = [
         "target_kinds": ["global"],
         "side_effects": ["item_insert", "github_sync", "rebuild_board"],
         "emitted_event_names": ["YokeFunctionCalled"],
-        "guardrails": ["idea_intake_provenance"],
+        "guardrails": ["workflow_entry_surface"],
         "adapter_status": "live",
         "claim_required_kind": None,
     },

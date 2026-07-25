@@ -23,7 +23,6 @@ def _make_item(**overrides) -> ItemState:
     defaults = dict(
         id=42,
         title="Test item",
-        item_type="issue",
         status="idea",
         priority="medium",
         rework_count=0,
@@ -31,7 +30,8 @@ def _make_item(**overrides) -> ItemState:
         project="yoke",
     )
     defaults.update(overrides)
-    defaults["workflow"] = builtin_workflow_runtime(defaults["item_type"])
+    workflow_id = defaults.pop("item_type", "issue")
+    defaults["workflow"] = builtin_workflow_runtime(workflow_id)
     return ItemState(**defaults)
 
 

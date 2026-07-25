@@ -111,7 +111,9 @@ def _apply_write_parity_schema() -> None:
     conn = db_backend.connect()
     try:
         apply_fixture_ddl(conn, SERVICE_CLIENT_PARITY_SCHEMA + WRITE_PARITY_SCHEMA_EXTRAS)
+        _install_workflow_registry(conn)
         seed_service_client_parity_data(conn)
+        _pin_seeded_items(conn)
         _resync_items_identity_sequence(conn)
     finally:
         conn.close()
@@ -124,10 +126,33 @@ def _apply_read_parity_schema() -> None:
     conn = db_backend.connect()
     try:
         apply_fixture_ddl(conn, SERVICE_CLIENT_PARITY_SCHEMA)
+        _install_workflow_registry(conn)
         seed_service_client_parity_data(conn)
+        _pin_seeded_items(conn)
         _resync_items_identity_sequence(conn)
     finally:
         conn.close()
+
+
+def _install_workflow_registry(conn) -> None:
+    from yoke_core.domain.workflow_registry import converge_builtin_workflows
+    from yoke_core.domain.workflow_schema import ensure_workflow_schema
+
+    ensure_workflow_schema(conn)
+    converge_builtin_workflows(conn)
+
+
+def _pin_seeded_items(conn) -> None:
+    from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
+
+    for workflow_id in ("issue", "epic"):
+        resolved_id, version_id = resolve_current_workflow_pin(conn, workflow_id)
+        conn.execute(
+            "UPDATE items SET workflow_id = %s, workflow_version_id = %s "
+            "WHERE type = %s",
+            (resolved_id, version_id, workflow_id),
+        )
+    conn.commit()
 
 
 def _override_db_readonly(db_path: str):

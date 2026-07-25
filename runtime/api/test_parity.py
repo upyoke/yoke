@@ -36,7 +36,7 @@ def _run_service_client(db_path: str, *args: str) -> subprocess.CompletedProcess
     env = os.environ.copy()
     env["YOKE_DB"] = db_path
     if args and args[0] == "create-item":
-        env["YOKE_IDEA_INTAKE"] = "1"
+        env["YOKE_ITEM_ENTRY_SURFACE"] = "harness_skill"
     return subprocess.run(
         [sys.executable, "-m", _CLIENT] + list(args),
         capture_output=True,

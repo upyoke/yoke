@@ -35,7 +35,6 @@ def _load_item_state(conn: Any, item_id: int) -> mutations.ItemState | None:
     return mutations.ItemState(
         id=d["id"],
         title=d["title"],
-        item_type=d["type"],
         status=d["status"],
         priority=d["priority"],
         rework_count=d.get("rework_count", 0),

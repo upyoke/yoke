@@ -96,7 +96,7 @@ class TestExecuteCreateCli:
         assert rc == 0
         assert data["success"] is True
         assert called["title"] == "Title"
-        assert called["item_type"] == "issue"
+        assert called["workflow"] == "issue"
         assert called["status"] == "idea"
         assert called["priority"] == "high"
         assert called["project"] == "yoke"

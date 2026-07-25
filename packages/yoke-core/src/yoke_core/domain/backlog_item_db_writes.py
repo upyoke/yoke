@@ -18,7 +18,6 @@ def _insert_item(
     conn: Any,
     item_id: int,
     title: str,
-    item_type: str,
     status: str,
     priority: str,
     flow: str,
@@ -50,7 +49,7 @@ def _insert_item(
     owner_value = owner if owner is not None else source
     conn.execute(
         """INSERT INTO items (
-            id, title, type, status, priority, flow,
+            id, title, status, priority, flow,
             rework_count, frozen,
             github_issue, deployed_to, worktree,
             created_at, updated_at, source, owner,
@@ -58,10 +57,10 @@ def _insert_item(
             workflow_id, workflow_version_id
         ) VALUES (
             %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+            %s, %s, %s, %s, %s, %s, %s, %s, %s
         )""",
         (
-            item_id, title, item_type, status, priority, flow,
+            item_id, title, status, priority, flow,
             rework_count, frozen,
             github_issue, deployed_to, worktree,
             created_at, updated_at, source, owner_value,

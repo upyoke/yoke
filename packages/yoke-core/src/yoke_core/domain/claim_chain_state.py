@@ -44,7 +44,7 @@ ACQUIRE_INTENT_REASONS: tuple[str, ...] = (
     "rewrite-in-progress",
     "engineer-dispatch",
     "scheduled-run",
-    "idea-intake",
+    "item-filing",
     "advance_run",
 )
 

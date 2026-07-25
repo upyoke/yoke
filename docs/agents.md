@@ -264,15 +264,15 @@ PM and Designer do not have this section because they have no Bash tool and cann
 
 All 5 Bash-capable agents (Engineer, Tester, Boss, Simulator, Architect) include a prominent `**CRITICAL: NEVER invoke claude as a CLI/Bash command**` rule in their system prompt. This is a belt-and-suspenders defense alongside Check 5 in `yoke_core.domain.lint_db_cmd` (legacy stable check id `lint-sqlite-cmd`), which blocks local `claude` CLI invocations at the hook level. Nested Claude Code sessions crash the parent process. The only configurable exception is the project-local `lint_db_cmd_remote_claude_cli=warn` setting for operator-attended remote SSH smoke tests; local `claude` remains blocked. The Shepherd and Conduct SKILL.md files also include this rule for inline execution.
 
-### Ticket Creation Convention
+### Work-item Entry Convention
 
-All new backlog items must go through `/yoke idea`. This is the canonical entry point for ticket creation -- it handles duplicate search, user confirmation, GitHub sync, and body updates. No skill or agent should call lower-level create adapters directly from ad hoc tooling.
+Interactive agent filing goes through `/yoke idea`. It handles duplicate search, confirmation, workflow selection, GitHub sync, and body updates. No skill or agent should call lower-level create adapters from ad hoc tooling.
 
-**Yoke-owned noninteractive filing:** Bulk import, curate, and conduct simulation-gap filing are workflow-owned exceptions to the interactive prompt shape, not agent-facing create surfaces. They must carry explicit sanctioned intake provenance (`YOKE_IDEA_INTAKE=1` or the equivalent `--idea-intake` / `provenance="idea"` signal), pass project scope explicitly when needed, and write a full body immediately. Ad hoc sessions and dispatched agents still file through `/yoke idea` or report the discovered work to a parent session.
+**Yoke-owned noninteractive filing:** Bulk import, curate, and conduct simulation-gap filing are workflow-owned exceptions to the interactive prompt shape. Every create selects a workflow and supplies the workflow-authorized `harness_skill` entry surface, passes project scope explicitly when needed, and writes a full body immediately. Ad hoc sessions and dispatched agents still file through `/yoke idea` or report the discovered work to a parent session.
 
 **Subagent guidance:** Dispatched subagents that cannot invoke `/yoke idea` (e.g., Engineer, Tester, Simulator) should report discovered issues in their structured output (reflections, progress notes, or final response). The parent session (Conduct or main session) is responsible for filing tickets via `/yoke idea` on behalf of the subagent.
 
-**Enforcement:** The `idea/SKILL.md` dedup search runs before every ticket creation. The AGENTS.md `## Code Conventions` section documents this rule so all agents internalize it via their standard context loading.
+**Enforcement:** The `idea/SKILL.md` dedup search runs before interactive creation. The selected immutable workflow version authorizes each typed entry surface. AGENTS.md documents the rule so agents inherit it through standard context loading.
 
 ### Turn Ceiling and Main-Session Execution
 

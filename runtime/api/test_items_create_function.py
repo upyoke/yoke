@@ -1,15 +1,14 @@
 """Coverage for the ``items.create`` function-call surface.
 
-``items.create`` is the wrapped, https-capable idea-intake create path
-(``yoke items create``): it lets ``/yoke idea`` create a backlog item
+``items.create`` is the wrapped, HTTPS-capable work-item create path
+(``yoke items create``): it lets a harness skill create an item
 over a prod-https control plane where the local ``db_router items add``
 path cannot run. The handler delegates to
 :func:`yoke_core.domain.backlog_create_op.execute_create`, so the
-``ticket_intake_provenance`` gate still applies — the handler only
-threads ``provenance`` through and maps the result to a HandlerOutcome.
+workflow entry-surface gate still applies.
 
 The tests below cover: registration + authz classification (PROJECT
-scope, ``items.write``, no claim), provenance threading, source-actor
+scope, ``items.write``, no claim), entry-surface threading, source-actor
 precedence, result/error mapping, and one end-to-end create through the
 real ``execute_create`` against a disposable DB.
 """
@@ -31,9 +30,9 @@ from yoke_contracts.api.function_call import (
     TargetRef,
 )
 from yoke_core.domain.handlers.items_create import handle_item_create
-from yoke_core.domain.ticket_intake_provenance import (
-    BYPASS_MESSAGE,
-    IDEA_INTAKE_ENV,
+from yoke_core.domain.item_entry_surface import (
+    ITEM_ENTRY_SURFACE_ENV,
+    MISSING_ENTRY_SURFACE_MESSAGE,
 )
 
 
@@ -102,7 +101,7 @@ class TestItemsCreateRegistration:
 
 
 class TestItemsCreateHandler:
-    def test_provenance_threaded_through(self, monkeypatch):
+    def test_entry_surface_threaded_through(self, monkeypatch):
         captured = {}
 
         def _record(**kwargs):
@@ -113,10 +112,14 @@ class TestItemsCreateHandler:
             "yoke_core.domain.backlog_create_op.execute_create", _record,
         )
         outcome = handle_item_create(
-            _request({"title": "T", "type": "issue", "provenance": "idea"}),
+            _request({
+                "title": "T",
+                "workflow": "issue",
+                "entry_surface": "harness_skill",
+            }),
         )
         assert outcome.primary_success is True
-        assert captured["provenance"] == "idea"
+        assert captured["entry_surface"] == "harness_skill"
         assert outcome.result_payload["item_id"] == 7
 
     def test_token_actor_used_as_source(self, monkeypatch):
@@ -131,7 +134,11 @@ class TestItemsCreateHandler:
         )
         handle_item_create(
             _request(
-                {"title": "T", "type": "issue", "provenance": "idea"},
+                {
+                    "title": "T",
+                    "workflow": "issue",
+                    "entry_surface": "harness_skill",
+                },
                 actor_id="42",
             ),
         )
@@ -150,24 +157,27 @@ class TestItemsCreateHandler:
         )
         handle_item_create(
             _request(
-                {"title": "T", "type": "issue", "provenance": "idea",
+                {"title": "T", "workflow": "issue",
+                 "entry_surface": "harness_skill",
                  "source": "7"},
                 actor_id="42",
             ),
         )
         assert captured["source"] == "7"
 
-    def test_missing_provenance_maps_intake_denied(self, monkeypatch):
+    def test_missing_entry_surface_maps_denial(self, monkeypatch):
         def _blocked(**kwargs):
-            return {"success": False, "error": BYPASS_MESSAGE}
+            return {"success": False, "error": MISSING_ENTRY_SURFACE_MESSAGE}
 
         monkeypatch.setattr(
             "yoke_core.domain.backlog_create_op.execute_create", _blocked,
         )
-        outcome = handle_item_create(_request({"title": "T", "type": "issue"}))
+        outcome = handle_item_create(
+            _request({"title": "T", "workflow": "issue"}),
+        )
         assert outcome.primary_success is False
-        assert outcome.error.code == "intake_denied"
-        assert "/yoke idea" in outcome.error.message
+        assert outcome.error.code == "entry_surface_denied"
+        assert "typed entry surface" in outcome.error.message
 
     def test_generic_create_failure_maps_create_failed(self, monkeypatch):
         def _fail(**kwargs):
@@ -177,13 +187,17 @@ class TestItemsCreateHandler:
             "yoke_core.domain.backlog_create_op.execute_create", _fail,
         )
         outcome = handle_item_create(
-            _request({"title": "T", "type": "issue", "provenance": "idea"}),
+            _request({
+                "title": "T",
+                "workflow": "issue",
+                "entry_surface": "harness_skill",
+            }),
         )
         assert outcome.primary_success is False
         assert outcome.error.code == "create_failed"
 
     def test_invalid_payload_missing_title(self):
-        outcome = handle_item_create(_request({"type": "issue"}))
+        outcome = handle_item_create(_request({"workflow": "issue"}))
         assert outcome.primary_success is False
         assert outcome.error.code == "invalid_payload"
 
@@ -194,16 +208,17 @@ class TestItemsCreateHandler:
 
 
 class TestItemsCreateEndToEnd:
-    def test_payload_provenance_creates_a_row(self, tmp_db, monkeypatch):
-        # Pure payload-provenance path (the https shape): no env var, the
-        # gate passes because the payload carries provenance="idea".
-        monkeypatch.delenv(IDEA_INTAKE_ENV, raising=False)
+    def test_payload_entry_surface_creates_a_row(self, tmp_db, monkeypatch):
+        monkeypatch.delenv(ITEM_ENTRY_SURFACE_ENV, raising=False)
         with _patch_externals(), \
              mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
             outcome = handle_item_create(
                 _request(
-                    {"title": "Created via items.create", "type": "issue",
-                     "provenance": "idea"},
+                    {
+                        "title": "Created via items.create",
+                        "workflow": "issue",
+                        "entry_surface": "harness_skill",
+                    },
                 ),
             )
         assert outcome.primary_success is True, outcome.error
@@ -218,13 +233,15 @@ class TestItemsCreateEndToEnd:
         version_id = _item_field(tmp_db, item_id, "workflow_version_id")
         assert isinstance(version_id, int) and version_id > 0
 
-    def test_missing_provenance_blocked_end_to_end(self, tmp_db, monkeypatch):
-        monkeypatch.delenv(IDEA_INTAKE_ENV, raising=False)
+    def test_missing_entry_surface_blocked_end_to_end(
+        self, tmp_db, monkeypatch,
+    ):
+        monkeypatch.delenv(ITEM_ENTRY_SURFACE_ENV, raising=False)
         with _patch_externals(), \
              mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
             outcome = handle_item_create(
-                _request({"title": "Naive create", "type": "issue"}),
+                _request({"title": "Naive create", "workflow": "issue"}),
             )
         assert outcome.primary_success is False
-        assert outcome.error.code == "intake_denied"
-        assert "/yoke idea" in outcome.error.message
+        assert outcome.error.code == "entry_surface_denied"
+        assert "typed entry surface" in outcome.error.message

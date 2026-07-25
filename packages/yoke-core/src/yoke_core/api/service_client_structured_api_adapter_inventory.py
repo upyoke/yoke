@@ -43,37 +43,6 @@ from yoke_core.api.service_client_structured_api_adapter_inventory_types import 
 )
 
 CLI_ADAPTERS: List[AdapterEntry] = [
-    AdapterEntry(
-        function_id="items.create",
-        cli_invocation="yoke items create TITLE TYPE --idea-intake --project P",
-        notes="Sanctioned idea-intake create; /yoke idea is the only entry. Works over https.",
-        canonical_skill_invocation="yoke items create \"{title}\" {type} --idea-intake --project \"${_project}\"",
-    ),
-    AdapterEntry(
-        function_id="items.structured_field.replace",
-        cli_invocation=(
-            "python3 -m yoke_core.cli.db_router items update YOK-N "
-            "<field> --stdin | --body-file PATH"
-        ),
-        notes="structured-field write via stdin/body-file",
-    ),
-    AdapterEntry(
-        function_id="items.structured_field.append_addendum",
-        cli_invocation="python3 -m yoke_core.domain.item_field_transform append-addendum",
-        notes="additive ## heading addendum",
-    ),
-    AdapterEntry(function_id="items.structured_field.section_upsert", cli_invocation="python3 -m yoke_core.domain.item_field_transform section-upsert"),
-    AdapterEntry(function_id="items.structured_field.section_append", cli_invocation="python3 -m yoke_core.domain.item_field_transform section-append"),
-    AdapterEntry(function_id="items.section.upsert", cli_invocation="python3 -m yoke_core.cli.db_router sections upsert"),
-    _read_entry(function_id="items.section.get", cli_invocation="python3 -m yoke_core.cli.db_router sections get"),
-    AdapterEntry(function_id="items.section.delete", cli_invocation="python3 -m yoke_core.cli.db_router sections delete"),
-    AdapterEntry(
-        function_id="items.progress_log.append",
-        cli_invocation=(
-            "python3 -m yoke_core.cli.db_router sections upsert "
-            "YOK-N 'Progress Log' --content-file PATH"
-        ),
-    ),
     *EPIC_ADAPTERS,
     AdapterEntry(
         function_id="db_claim.amend",

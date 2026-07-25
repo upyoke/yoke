@@ -10,8 +10,8 @@ writes, GitHub sync, board rebuilds, .md regeneration, telemetry, and
 filesystem side effects are explicitly out of scope.
 
 Supported mutation surface:
-  - Create: title, type, priority, project, deployment_flow,
-    optional status override (default=idea, type-aware validated)
+  - Create: title, workflow pin, priority, project, deployment_flow,
+    optional initial-stage override
   - Update: status, frozen, priority, project, deployment_flow, deployed_to,
     title
   - Approval apply: advance authoritative run stage + mirrored item stage,
@@ -27,10 +27,9 @@ from . import mutations_update as _mutations_update
 from .lifecycle import is_forward_transition
 from .mutation_fields import (
     DONE_CLEANUP_FIELDS, REWORK_SOURCE_STATUSES, SUPPORTED_UPDATE_FIELDS,
-    TITLE_MAX_LENGTH, VALID_PRIORITIES, VALID_TYPES, ApprovalResult,
+    TITLE_MAX_LENGTH, VALID_PRIORITIES, ApprovalResult,
     CreateResult, GateContext, ItemState, MutationEvent, MutationEventKind,
     MutationResult, validate_frozen, validate_priority, validate_title,
-    validate_type,
 )
 from .mutations_approval import prepare_approval
 from .mutations_create import prepare_create
@@ -48,7 +47,6 @@ __all__ = [
     "SUPPORTED_UPDATE_FIELDS",
     "TITLE_MAX_LENGTH",
     "VALID_PRIORITIES",
-    "VALID_TYPES",
     "ApprovalResult",
     "CreateResult",
     "GateContext",
@@ -59,7 +57,6 @@ __all__ = [
     "validate_frozen",
     "validate_priority",
     "validate_title",
-    "validate_type",
     "is_forward_transition",
     "prepare_approval",
     "prepare_create",

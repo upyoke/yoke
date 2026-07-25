@@ -50,5 +50,5 @@ yoke sessions touch \
   `yoke ouroboros entry mark-archived --all-reviewed` — they remain in
   the DB but no longer appear in unreviewed queries.
 - Pattern detection uses semantic similarity (LLM judgment), not exact string matching.
-- All ticket creation goes through `/yoke idea` so intake provenance, claims, and GitHub sync stay on the product flow.
+- Interactive filing goes through `/yoke idea`; this Yoke-owned workflow uses the issue workflow's authorized `harness_skill` entry surface so claims and GitHub sync stay on the product flow.
 - This is part of Ouroboros — Yoke's self-improvement system. The learning loop: agents observe -> log to DB -> curate -> ticket -> fix -> agents observe better.

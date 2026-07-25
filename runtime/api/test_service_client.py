@@ -176,7 +176,7 @@ def _run_client(args: list[str], db_path: str = None) -> subprocess.CompletedPro
     if db_path:
         env["YOKE_DB"] = db_path
     if args and args[0] == "create-item":
-        env["YOKE_IDEA_INTAKE"] = "1"
+        env["YOKE_ITEM_ENTRY_SURFACE"] = "harness_skill"
     if "--session-id" in args:
         sid_index = args.index("--session-id") + 1
         if sid_index < len(args):

@@ -16,7 +16,6 @@ from yoke_core.domain.mutations import (
     SUPPORTED_UPDATE_FIELDS,
     TITLE_MAX_LENGTH,
     VALID_PRIORITIES,
-    VALID_TYPES,
     GateContext,
     ItemState,
     MutationEventKind,
@@ -25,7 +24,6 @@ from yoke_core.domain.mutations import (
     validate_frozen,
     validate_priority,
     validate_title,
-    validate_type,
 )
 from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
 
@@ -43,7 +41,6 @@ def _make_item(**overrides) -> ItemState:
     defaults = dict(
         id=42,
         title="Test item",
-        item_type="issue",
         status="idea",
         priority="medium",
         rework_count=0,
@@ -51,7 +48,7 @@ def _make_item(**overrides) -> ItemState:
         project="yoke",
     )
     defaults.update(overrides)
-    defaults["workflow"] = builtin_workflow_runtime(defaults["item_type"])
+    defaults["workflow"] = builtin_workflow_runtime("issue")
     return ItemState(**defaults)
 
 
@@ -82,22 +79,6 @@ class TestValidateTitle:
         err = validate_title("x" * (TITLE_MAX_LENGTH + 1))
         assert err is not None
         assert str(TITLE_MAX_LENGTH) in err
-
-
-# ---------------------------------------------------------------------------
-# Type validation
-# ---------------------------------------------------------------------------
-
-
-class TestValidateType:
-    def test_valid_types(self):
-        for t in VALID_TYPES:
-            assert validate_type(t) is None
-
-    def test_invalid_type(self):
-        err = validate_type("story")
-        assert err is not None
-        assert "story" in err
 
 
 # ---------------------------------------------------------------------------
@@ -145,14 +126,14 @@ class TestPrepareCreate:
     def test_successful_create(self):
         result = prepare_create(
             title="New issue",
-            item_type="issue",
+            workflow=builtin_workflow_runtime("issue"),
             priority="high",
             project="yoke",
         )
         assert result.success is True
         assert result.error is None
         assert result.field_writes["title"] == "New issue"
-        assert result.field_writes["type"] == "issue"
+        assert result.field_writes["workflow_id"] == "issue"
         assert result.field_writes["priority"] == "high"
         assert result.field_writes["status"] == "idea"
         assert result.field_writes["project"] == "yoke"
@@ -161,44 +142,56 @@ class TestPrepareCreate:
         assert any(e.kind == MutationEventKind.CREATED for e in result.events)
 
     def test_default_priority(self):
-        result = prepare_create(title="Test", item_type="issue")
+        result = prepare_create(
+            title="Test", workflow=builtin_workflow_runtime("issue"),
+        )
         assert result.success is True
         assert result.field_writes["priority"] == "medium"
 
     def test_invalid_title_too_long(self):
         result = prepare_create(
             title="x" * (TITLE_MAX_LENGTH + 1),
-            item_type="issue",
+            workflow=builtin_workflow_runtime("issue"),
         )
         assert result.success is False
         assert result.error_code == "VALIDATION_ERROR"
 
     def test_empty_title(self):
-        result = prepare_create(title="", item_type="issue")
+        result = prepare_create(
+            title="", workflow=builtin_workflow_runtime("issue"),
+        )
         assert result.success is False
 
-    def test_invalid_type(self):
-        result = prepare_create(title="Test", item_type="story")
+    def test_invalid_stage(self):
+        result = prepare_create(
+            title="Test",
+            workflow=builtin_workflow_runtime("issue"),
+            status="planning",
+        )
         assert result.success is False
         assert result.error_code == "VALIDATION_ERROR"
 
     def test_invalid_priority(self):
         result = prepare_create(
-            title="Test", item_type="issue", priority="critical",
+            title="Test",
+            workflow=builtin_workflow_runtime("issue"),
+            priority="critical",
         )
         assert result.success is False
 
     def test_create_only_emits_created_event(self):
         """Create mutations should only emit the canonical created event."""
         result = prepare_create(
-            title="My issue", item_type="issue", project="yoke",
+            title="My issue",
+            workflow=builtin_workflow_runtime("issue"),
+            project="yoke",
         )
         assert result.success is True
         assert [e.kind for e in result.events] == [MutationEventKind.CREATED]
 
     def test_flow_project_mismatch(self):
         result = prepare_create(
-            title="Test", item_type="issue",
+            title="Test", workflow=builtin_workflow_runtime("issue"),
             project="yoke",
             deployment_flow="externalwebapp-flow",
             flow_project="externalwebapp",
@@ -208,7 +201,7 @@ class TestPrepareCreate:
 
     def test_flow_project_match(self):
         result = prepare_create(
-            title="Test", item_type="issue",
+            title="Test", workflow=builtin_workflow_runtime("issue"),
             project="yoke",
             deployment_flow="yoke-flow",
             flow_project="yoke",
@@ -220,7 +213,9 @@ class TestPrepareCreate:
     def test_create_with_valid_issue_status_override(self):
         """valid issue status override sets status in field_writes."""
         result = prepare_create(
-            title="Imported item", item_type="issue", status="implementing",
+            title="Imported item",
+            workflow=builtin_workflow_runtime("issue"),
+            status="implementing",
         )
         assert result.success is True
         assert result.field_writes["status"] == "implementing"
@@ -228,7 +223,7 @@ class TestPrepareCreate:
     def test_create_with_default_status(self):
         """omitting status defaults to idea."""
         result = prepare_create(
-            title="Normal item", item_type="issue",
+            title="Normal item", workflow=builtin_workflow_runtime("issue"),
         )
         assert result.success is True
         assert result.field_writes["status"] == "idea"
@@ -236,16 +231,20 @@ class TestPrepareCreate:
     def test_create_with_invalid_issue_status_rejects(self):
         """invalid status for issue type is rejected."""
         result = prepare_create(
-            title="Bad status", item_type="issue", status="planning",
+            title="Bad status",
+            workflow=builtin_workflow_runtime("issue"),
+            status="planning",
         )
         assert result.success is False
         assert result.error_code == "VALIDATION_ERROR"
-        assert "not a valid issue status" in result.error
+        assert "not a valid stage for workflow issue@1" in result.error
 
     def test_create_with_valid_epic_status_override(self):
         """valid epic status override sets status in field_writes."""
         result = prepare_create(
-            title="Planned epic", item_type="epic", status="planning",
+            title="Planned epic",
+            workflow=builtin_workflow_runtime("epic"),
+            status="planning",
         )
         assert result.success is True
         assert result.field_writes["status"] == "planning"
@@ -253,7 +252,9 @@ class TestPrepareCreate:
     def test_create_with_invalid_epic_status_rejects(self):
         """invalid status for epic type is rejected."""
         result = prepare_create(
-            title="Bad epic", item_type="epic", status="bogus",
+            title="Bad epic",
+            workflow=builtin_workflow_runtime("epic"),
+            status="bogus",
         )
         assert result.success is False
         assert result.error_code == "VALIDATION_ERROR"
@@ -261,7 +262,9 @@ class TestPrepareCreate:
     def test_create_with_idea_status_is_noop(self):
         """explicit status=idea behaves identically to default."""
         result = prepare_create(
-            title="Explicit idea", item_type="issue", status="idea",
+            title="Explicit idea",
+            workflow=builtin_workflow_runtime("issue"),
+            status="idea",
         )
         assert result.success is True
         assert result.field_writes["status"] == "idea"

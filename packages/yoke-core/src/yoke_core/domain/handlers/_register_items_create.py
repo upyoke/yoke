@@ -1,4 +1,4 @@
-"""Handler registration for ``items.create`` (sanctioned idea-intake create).
+"""Handler registration for workflow-selected ``items.create``.
 
 Kept as its own registrar (not folded into ``_register_items_scalar_lifecycle``)
 because create is a distinct, no-claim, global-target concern from the

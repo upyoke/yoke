@@ -5,13 +5,19 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from .lifecycle import is_valid_epic_status, is_valid_issue_status, is_valid_item_status
-from .mutation_fields import (CreateResult, MutationEvent, MutationEventKind, validate_priority, validate_title, validate_type)
+from .mutation_fields import (
+    CreateResult,
+    MutationEvent,
+    MutationEventKind,
+    validate_priority,
+    validate_title,
+)
+from .workflow_runtime import WorkflowRuntime
 
 def prepare_create(
     *,
     title: str,
-    item_type: str,
+    workflow: WorkflowRuntime,
     priority: str = "medium",
     project: Optional[str] = None,
     deployment_flow: Optional[str] = None,
@@ -26,14 +32,14 @@ def prepare_create(
 
     Args:
         title: Item title (max 100 chars).
-        item_type: 'epic' or 'issue'.
+        workflow: Immutable workflow version selected for the new item.
         priority: 'high', 'medium', or 'low'.
         project: Project ID. Defaults to adapter-resolved default.
         deployment_flow: Optional deployment flow ID.
         flow_project: Project the deployment flow belongs to (for
             cross-project validation).
         status: Optional initial status override.  Defaults to 'idea'.
-            Validated against the type-aware lifecycle registry.
+            Validated against the selected workflow version.
 
     Returns:
         CreateResult with success=True and field_writes on valid input,
@@ -41,11 +47,6 @@ def prepare_create(
     """
     # Validate title
     err = validate_title(title)
-    if err:
-        return CreateResult(success=False, error=err, error_code="VALIDATION_ERROR")
-
-    # Validate type
-    err = validate_type(item_type)
     if err:
         return CreateResult(success=False, error=err, error_code="VALIDATION_ERROR")
 
@@ -66,49 +67,17 @@ def prepare_create(
                 error_code="VALIDATION_ERROR",
             )
 
-    # Type-aware create-time status validation.
-    # When a status override is provided, validate it against the type-aware
-    # lifecycle registry — the same validation used by prepare_update.
-    effective_status = status or "idea"
-    if status is not None and status != "idea":
-        if item_type == "issue":
-            if not is_valid_issue_status(status):
-                return CreateResult(
-                    success=False,
-                    error=(
-                        f"'{status}' is not a valid issue status. "
-                        f"Issue items use the issue-workflow-type lifecycle: "
-                        f"idea, refining-idea, refined-idea, implementing, "
-                        f"reviewing-implementation, reviewed-implementation, "
-                        f"polishing-implementation, "
-                        f"implemented, release, done "
-                        f"(plus blocked, stopped, failed, cancelled)."
-                    ),
-                    error_code="VALIDATION_ERROR",
-                )
-        elif item_type == "epic":
-            if not is_valid_epic_status(status):
-                return CreateResult(
-                    success=False,
-                    error=(
-                        f"'{status}' is not a valid epic status. "
-                        f"Epic items use the epic-workflow-type lifecycle: "
-                        f"idea, refining-idea, refined-idea, planning, "
-                        f"plan-drafted, refining-plan, planned, implementing, "
-                        f"reviewing-implementation, reviewed-implementation, "
-                        f"polishing-implementation, "
-                        f"implemented, release, done "
-                        f"(plus blocked, stopped, failed, cancelled)."
-                    ),
-                    error_code="VALIDATION_ERROR",
-                )
-        else:
-            if not is_valid_item_status(status):
-                return CreateResult(
-                    success=False,
-                    error=f"'{status}' is not a valid item status.",
-                    error_code="VALIDATION_ERROR",
-                )
+    effective_status = status or workflow.stage_ids[0]
+    if not workflow.accepts_stage(effective_status):
+        return CreateResult(
+            success=False,
+            error=(
+                f"'{effective_status}' is not a valid stage for workflow "
+                f"{workflow.workflow_id}@{workflow.version}. Valid stages: "
+                f"{', '.join(workflow.stage_ids)}."
+            ),
+            error_code="VALIDATION_ERROR",
+        )
 
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -125,7 +94,8 @@ def prepare_create(
 
     field_writes = {
         "title": title,
-        "type": item_type,
+        "workflow_id": workflow.workflow_id,
+        "workflow_version_id": workflow.workflow_version_id,
         "priority": priority,
         "status": effective_status,
         "project": project,
@@ -142,7 +112,12 @@ def prepare_create(
     events: List[MutationEvent] = [
         MutationEvent(
             kind=MutationEventKind.CREATED,
-            detail={"title": title, "type": item_type, "project": project},
+            detail={
+                "title": title,
+                "workflow_id": workflow.workflow_id,
+                "workflow_version_id": workflow.workflow_version_id,
+                "project": project,
+            },
         ),
     ]
 

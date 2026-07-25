@@ -139,6 +139,11 @@ def _apply_mutation_schema() -> None:
     conn = db_backend.connect()
     try:
         apply_fixture_ddl(conn, _SCHEMA_DDL)
+        from yoke_core.domain.workflow_registry import converge_builtin_workflows
+        from yoke_core.domain.workflow_schema import ensure_workflow_schema
+
+        ensure_workflow_schema(conn)
+        converge_builtin_workflows(conn)
     finally:
         conn.close()
 
@@ -147,6 +152,8 @@ def _seed(db_path: str) -> None:
     """Seed the backend-resolved mutation DB with the fixture rows."""
     conn = connect_test_db(db_path)
     try:
+        from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
+
         stages_json = json.dumps([
             {"name": "merged", "executor": "auto"},
             {"name": "approve-deploy", "executor": "human-approval"},
@@ -158,7 +165,6 @@ def _seed(db_path: str) -> None:
                VALUES ('test-flow', 1, 'TestFlow', %s, '2026-04-20T00:00:00Z')""",
             (stages_json,),
         )
-
         conn.execute(
             """INSERT INTO items (id, title, type, status, priority, project_id,
                                   deployment_flow, deploy_stage,
@@ -178,6 +184,18 @@ def _seed(db_path: str) -> None:
                                   created_at, updated_at, source, frozen)
                VALUES (12, 'Test epic', 'epic', 'implementing', 'high', 1,
                        '2026-01-01', '2026-01-01', 'user', 0)"""
+        )
+        issue_id, issue_version_id = resolve_current_workflow_pin(conn, "issue")
+        epic_id, epic_version_id = resolve_current_workflow_pin(conn, "epic")
+        conn.execute(
+            "UPDATE items SET workflow_id = %s, workflow_version_id = %s "
+            "WHERE id IN (10, 11)",
+            (issue_id, issue_version_id),
+        )
+        conn.execute(
+            "UPDATE items SET workflow_id = %s, workflow_version_id = %s "
+            "WHERE id = 12",
+            (epic_id, epic_version_id),
         )
 
         conn.execute(

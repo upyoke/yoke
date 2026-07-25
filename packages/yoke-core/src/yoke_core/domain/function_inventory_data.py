@@ -5,7 +5,7 @@ that skill prose, agent prompts, packets, and lint denial messages may
 reference without tripping the "function-call surface first" doctrine.
 
 Live consumers: ``doctor_hc_tier_cli_shape_bleed`` and its tests, plus
-``test_ticket_creation_teaching``. The wider Atlas surface inventory
+``test_item_entry_surface_teaching``. The wider Atlas surface inventory
 lives in ``yoke_core.tools.atlas_*`` and is driven from the operation
 tracker + subcommand registry directly.
 """

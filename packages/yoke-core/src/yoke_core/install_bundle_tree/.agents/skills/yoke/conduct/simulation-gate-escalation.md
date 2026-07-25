@@ -72,9 +72,9 @@ Print: `Simulation found WARNING/NOTE gaps but Simulator recommends PROCEED. Fil
 For each `### GAP #N:` block in `_simulation_gaps`:
 1. Extract: title, severity, category, tasks involved, "what happens", root cause, fix guidance.
 2. Map priority: `[WARNING]` → `medium`, `[NOTE]` → `low`.
-3. Create item (sanctioned direct-add exception):
+3. Create the item through the issue workflow's authorized harness entry:
  ```bash
- _add_output=$(yoke items create "Sim gap: {gap_title}" issue --project "$_project" --priority {priority} --idea-intake)
+ _add_output=$(yoke items create "Sim gap: {gap_title}" issue --project "$_project" --priority {priority} --entry-surface harness_skill)
  _new_id=$(echo "$_add_output" | sed -n 's/.*YOK-\([0-9][0-9]*\).*/\1/p')
  ```
 4. Set source to `simulation`, write spec to DB, sync to GitHub.

@@ -178,7 +178,7 @@ class TestGateParity:
         client = write_parity_env["client"]
         db_path = write_parity_env["db_path"]
 
-        # Item 1 is task type (shared lifecycle) — reviewing-implementation is
+        # Item 1 uses the issue workflow — reviewing-implementation is
         # valid here, so the QA gate check is reached.
         api_resp = client.patch("/v1/items/1", json={"status": "reviewing-implementation"})
         assert api_resp.status_code == 409

@@ -1,9 +1,4 @@
-"""Item write-side route sub-router.
-
-Owns ``POST /items`` (create) and ``PATCH /items/{item_id}`` (multi-field
-update). Both routes go through the shared mutation layer and translate
-mutation results into HTTP responses.
-"""
+"""Shared-mutation routes for creating and updating work items."""
 
 from __future__ import annotations
 
@@ -19,9 +14,6 @@ from yoke_core.domain.mutations import (
     ItemState,
     prepare_create,
     prepare_update,
-)
-from yoke_core.domain.ticket_intake_provenance import (
-    enforce_public_create_allowed,
 )
 from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.api.service_client import _resolve_deploy_envs
@@ -65,32 +57,37 @@ def _next_project_sequence(conn, project_id: int) -> int:
 def create_item(req: _main.CreateItemRequest) -> _main.ItemObject | JSONResponse:
     """Create a new item via the shared mutation layer.
 
-    Production callers must carry ``provenance="idea"`` (mirrors the
-    sanctioned-idea-intake signal threaded through the CLI and env-var
-    paths); anything else is rejected with a recovery hint that names
-    ``/yoke idea``. Test-isolated DB targets bypass the gate via the
-    shared helper.
+    The route is the ``web_form`` entry surface. The selected workflow
+    definition decides whether web filing is allowed.
     """
     from yoke_core.domain.deployment_flow_validator import (
         normalize_deployment_flow_value,
         validate_and_lookup_flow_project,
     )
 
-    try:
-        intake_db = str(_main.get_db_path())
-    except Exception:
-        intake_db = None
-    intake_block = enforce_public_create_allowed(
-        provenance=req.provenance, db_path=intake_db,
-    )
-    if intake_block:
-        return _main._error_response(403, "IDEA_INTAKE_REQUIRED", intake_block)
-
     deployment_flow = normalize_deployment_flow_value(req.deployment_flow)
     conn = _main.get_db_readonly()
     try:
         flow_project, flow_err = validate_and_lookup_flow_project(
             conn, deployment_flow, req.project
+        )
+        from yoke_core.domain.workflow_registry import (
+            WorkflowRegistryError,
+            resolve_current_workflow_pin,
+        )
+        from yoke_core.domain.workflow_runtime import load_workflow_runtime
+
+        workflow_id, workflow_version_id = resolve_current_workflow_pin(
+            conn, req.workflow or "issue",
+        )
+        workflow = load_workflow_runtime(
+            conn,
+            workflow_id=workflow_id,
+            workflow_version_id=workflow_version_id,
+        )
+    except WorkflowRegistryError as exc:
+        return _main._error_response(
+            422, "VALIDATION_ERROR", str(exc),
         )
     finally:
         conn.close()
@@ -100,7 +97,7 @@ def create_item(req: _main.CreateItemRequest) -> _main.ItemObject | JSONResponse
 
     result = prepare_create(
         title=req.title,
-        item_type=req.type,
+        workflow=workflow,
         priority=req.priority,
         project=req.project,
         deployment_flow=deployment_flow,
@@ -109,6 +106,17 @@ def create_item(req: _main.CreateItemRequest) -> _main.ItemObject | JSONResponse
 
     if not result.success:
         return _main._error_response(422, result.error_code or "VALIDATION_ERROR", result.error or "Unknown error")
+
+    from yoke_core.domain.item_entry_surface import enforce_item_entry_allowed
+
+    intake_block = enforce_item_entry_allowed(
+        workflow=workflow,
+        entry_surface="web_form",
+    )
+    if intake_block:
+        return _main._error_response(
+            403, "ENTRY_SURFACE_DENIED", intake_block,
+        )
 
     field_writes = dict(result.field_writes)
     if field_writes.get("project") is None:
@@ -194,7 +202,6 @@ def update_item(item_id: int, req: _main.UpdateItemRequest) -> _main.ItemObject 
         item_state = ItemState(
             id=item_dict["id"],
             title=item_dict["title"],
-            item_type=item_dict["type"],
             status=item_dict["status"],
             priority=item_dict["priority"],
             rework_count=item_dict.get("rework_count", 0),

@@ -39,20 +39,21 @@ def main(argv: Optional[list[str]] = None) -> int:
 
 def _cli_create(args: list[str]) -> int:
     title = None
-    item_type = "issue"
+    workflow = None
     priority = None
     project = None
     deployment_flow = None
-    status = "idea"
+    status = None
     source = None
+    entry_surface = None
     dry_run = False
 
     i = 0
     while i < len(args):
         if args[i] == "--title" and i + 1 < len(args):
             title = args[i + 1]; i += 2
-        elif args[i] == "--type" and i + 1 < len(args):
-            item_type = args[i + 1]; i += 2
+        elif args[i] == "--workflow" and i + 1 < len(args):
+            workflow = args[i + 1]; i += 2
         elif args[i] == "--priority" and i + 1 < len(args):
             priority = args[i + 1]; i += 2
         elif args[i] == "--project" and i + 1 < len(args):
@@ -63,6 +64,8 @@ def _cli_create(args: list[str]) -> int:
             status = args[i + 1]; i += 2
         elif args[i] == "--source" and i + 1 < len(args):
             source = args[i + 1]; i += 2
+        elif args[i] == "--entry-surface" and i + 1 < len(args):
+            entry_surface = args[i + 1]; i += 2
         elif args[i] == "--dry-run":
             dry_run = True; i += 1
         else:
@@ -70,17 +73,22 @@ def _cli_create(args: list[str]) -> int:
             return 2
 
     if title is None:
-        print("Usage: create --title TITLE --type TYPE [--priority P] ...", file=sys.stderr)
+        print(
+            "Usage: create --title TITLE [--workflow WORKFLOW] "
+            "[--entry-surface SURFACE] [--priority P] ...",
+            file=sys.stderr,
+        )
         return 2
 
     result = _bu.execute_create(
         title=title,
-        item_type=item_type,
+        workflow=workflow,
         priority=priority,
         project=project,
         deployment_flow=deployment_flow,
         status=status,
         source=source,
+        entry_surface=entry_surface,
         dry_run=dry_run,
     )
     print(json.dumps(result))

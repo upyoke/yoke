@@ -25,7 +25,7 @@ from runtime.api.backlog_mutations_test_helpers import (
     tmp_db,  # noqa: F401 — re-exported fixture
 )
 from yoke_core.domain import backlog, db_backend
-from yoke_core.domain.ticket_intake_provenance import IDEA_INTAKE_ENV
+from yoke_core.domain.item_entry_surface import ITEM_ENTRY_SURFACE_ENV
 
 
 def _p(conn) -> str:
@@ -40,7 +40,7 @@ def _p(conn) -> str:
 class TestInsertItem:
     def test_basic_insert(self, test_db):
         backlog._insert_item(
-            test_db, 99, "Test", "issue", "idea", "medium",
+            test_db, 99, "Test", "idea", "medium",
             "accelerated", 0, 0, None, None, None,
             "# Test\n", "2024-01-01T00:00:00Z", "2024-01-01T00:00:00Z",
             "user", 1, 99, None,
@@ -53,7 +53,7 @@ class TestInsertItem:
         insert_item(test_db, id=50)
         with pytest.raises(db_backend.integrity_error_types()):
             backlog._insert_item(
-                test_db, 50, "Dup", "issue", "idea", "medium",
+                test_db, 50, "Dup", "idea", "medium",
                 "accelerated", 0, 0, None, None, None,
                 "body", "2024-01-01T00:00:00Z", "2024-01-01T00:00:00Z",
                 "user", 1, 50, None,
@@ -61,7 +61,7 @@ class TestInsertItem:
 
     def test_owner_defaults_to_source(self, test_db):
         backlog._insert_item(
-            test_db, 101, "Owner-default", "issue", "idea", "medium",
+            test_db, 101, "Owner-default", "idea", "medium",
             "accelerated", 0, 0, None, None, None,
             None, "2024-01-01T00:00:00Z", "2024-01-01T00:00:00Z",
             "7", 1, 101, None,
@@ -75,7 +75,7 @@ class TestInsertItem:
 
     def test_explicit_owner_overrides_source(self, test_db):
         backlog._insert_item(
-            test_db, 102, "Owner-override", "issue", "idea", "medium",
+            test_db, 102, "Owner-override", "idea", "medium",
             "accelerated", 0, 0, None, None, None,
             None, "2024-01-01T00:00:00Z", "2024-01-01T00:00:00Z",
             "7", 1, 102, None,
@@ -145,10 +145,13 @@ class TestExecuteCreate:
     def test_basic_create(self, tmp_db):
         out = io.StringIO()
         with _patch_externals() as patched, \
-             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db, IDEA_INTAKE_ENV: "1"}):
+             mock.patch.dict(
+                 os.environ,
+                 {"YOKE_DB": tmp_db, ITEM_ENTRY_SURFACE_ENV: "harness_skill"},
+             ):
             result = backlog.execute_create(
                 title="Test item",
-                item_type="issue",
+                workflow="issue",
                 priority="medium",
                 project="yoke",
                 out=out,
@@ -162,10 +165,13 @@ class TestExecuteCreate:
     def test_create_validation_failure(self, tmp_db):
         out = io.StringIO()
         with _patch_externals(), \
-             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db, IDEA_INTAKE_ENV: "1"}):
+             mock.patch.dict(
+                 os.environ,
+                 {"YOKE_DB": tmp_db, ITEM_ENTRY_SURFACE_ENV: "harness_skill"},
+             ):
             result = backlog.execute_create(
                 title="",
-                item_type="issue",
+                workflow="issue",
                 out=out,
             )
         assert result["success"] is False
@@ -173,10 +179,13 @@ class TestExecuteCreate:
     def test_create_dry_run(self, tmp_db):
         out = io.StringIO()
         with _patch_externals() as patched, \
-             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db, IDEA_INTAKE_ENV: "1"}):
+             mock.patch.dict(
+                 os.environ,
+                 {"YOKE_DB": tmp_db, ITEM_ENTRY_SURFACE_ENV: "harness_skill"},
+             ):
             result = backlog.execute_create(
                 title="Dry run item",
-                item_type="issue",
+                workflow="issue",
                 dry_run=True,
                 out=out,
             )
@@ -189,10 +198,13 @@ class TestExecuteCreate:
         _seed_session(tmp_db)
         out = io.StringIO()
         with _patch_externals(), \
-             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db, IDEA_INTAKE_ENV: "1"}):
+             mock.patch.dict(
+                 os.environ,
+                 {"YOKE_DB": tmp_db, ITEM_ENTRY_SURFACE_ENV: "harness_skill"},
+             ):
             result = backlog.execute_create(
                 title="Attributed item",
-                item_type="issue",
+                workflow="issue",
                 session_id="sess-1",
                 out=out,
             )

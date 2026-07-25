@@ -1,10 +1,9 @@
-"""Teaching-surface regression coverage for idea-only ticket intake.
+"""Teaching-surface regression coverage for workflow item entry.
 
 These tests prove the rendered teaching artifacts (the ``main_agent``
 packet, every Bash-capable ``*_agent`` packet, the function-inventory
-data, and the surrounding doctrine docs) actually carry the
-``/yoke idea`` ticket-intake rule before the lower-level item /
-body / claim / REST APIs they're meant to gate.
+data, and the surrounding doctrine docs) carry the workflow-selected,
+typed entry-surface rule before the lower-level mutation APIs.
 """
 
 from __future__ import annotations
@@ -20,37 +19,37 @@ from yoke_core.domain.function_inventory_data import RETAINED_TERMINAL_BOUNDARIE
 # ---------------------------------------------------------------------------
 
 
-_IDEA_TOKENS = ("Ticket intake", "/yoke idea")
+_ENTRY_TOKENS = ("Work-item entry surfaces", "/yoke idea", "harness_skill")
 
 
 def _core_body() -> str:
     return schema_api_context.render_topic_packet("core")
 
 
-def test_core_topic_packet_carries_ticket_intake_doctrine() -> None:
+def test_core_topic_packet_carries_item_entry_doctrine() -> None:
     body = _core_body()
-    for token in _IDEA_TOKENS:
+    for token in _ENTRY_TOKENS:
         assert token in body, f"core packet missing token: {token}"
 
 
-def test_ticket_intake_block_renders_before_function_call_surface() -> None:
-    """AC-1: the rule must appear BEFORE lower-level API affordances."""
+def test_item_entry_block_renders_before_function_call_surface() -> None:
+    """The rule appears before lower-level API affordances."""
     body = _core_body()
-    intake_pos = body.find("Ticket intake")
+    intake_pos = body.find("Work-item entry surfaces")
     fn_call_pos = body.find("Function-call surface")
     assert intake_pos != -1
     assert fn_call_pos != -1
     assert intake_pos < fn_call_pos, (
-        "ticket-intake doctrine should render before the function-call "
+        "item-entry doctrine should render before the function-call "
         "surface block so agents see it first"
     )
 
 
-def test_every_role_packet_inherits_ticket_intake_doctrine() -> None:
-    """AC-2: main_agent and every *_agent packet contain the rule."""
+def test_every_role_packet_inherits_item_entry_doctrine() -> None:
+    """The main agent and every role packet contain the rule."""
     for role in seed.ROLE_TOPICS:
         body = schema_api_context.render_role_packet(role)
-        for token in _IDEA_TOKENS:
+        for token in _ENTRY_TOKENS:
             assert token in body, (
                 f"role {role!r} packet missing token: {token}"
             )
@@ -62,7 +61,7 @@ def test_every_role_packet_inherits_ticket_intake_doctrine() -> None:
 
 
 def test_item_creation_is_not_a_retained_boundary() -> None:
-    """AC-4: item creation must not be classified as agent-facing retained."""
+    """Item creation must not be classified as agent-facing retained."""
     forbidden_categories = {"agent_terminal", "retained_terminal_create"}
     for boundary in RETAINED_TERMINAL_BOUNDARIES:
         surface_lc = boundary.surface.lower()
@@ -94,18 +93,18 @@ def _repo_root() -> Path:
     return find_repo_root(Path(__file__))
 
 
-def test_agents_md_carries_ticket_intake_rule() -> None:
+def test_agents_md_carries_item_entry_rule() -> None:
     body = (_repo_root() / "AGENTS.md").read_text(encoding="utf-8")
-    assert "Ticket intake" in body
+    assert "Work-item entry surfaces" in body
     assert "/yoke idea" in body
-    assert "intake-provenance check" in body
+    assert "harness_skill" in body
 
 
-def test_codex_md_carries_ticket_intake_rule() -> None:
+def test_codex_md_carries_item_entry_rule() -> None:
     body = (_repo_root() / "CODEX.md").read_text(encoding="utf-8")
-    assert "Ticket intake" in body
+    assert "Work-item entry surfaces" in body
     assert "/yoke idea" in body
-    assert "intake-provenance check" in body
+    assert "harness_skill" in body
 
 
 # ---------------------------------------------------------------------------
@@ -122,12 +121,9 @@ _BASH_CAPABLE_AGENTS = (
 )
 
 
-def test_every_bash_capable_agent_body_teaches_idea_intake() -> None:
-    """AC-3: every Bash-capable canonical agent body must instruct the
-    agent to report new work for ``/yoke idea`` rather than creating
-    tickets directly. Phrasing varies (test-isolation bullet for
-    engineer/tester/simulator; standalone bullet for architect/boss);
-    the assertion looks for the shared anchor phrase.
+def test_every_bash_capable_agent_body_teaches_item_entry() -> None:
+    """Every Bash-capable canonical body routes item creation through
+    ``/yoke idea`` instead of lower-level create surfaces.
     """
     agents_dir = _repo_root() / "runtime" / "agents"
     for name in _BASH_CAPABLE_AGENTS:
@@ -137,4 +133,5 @@ def test_every_bash_capable_agent_body_teaches_idea_intake() -> None:
         assert (
             "do not create tickets" in lower
             or "do not call `backlog-cli add`" in lower
-        ), f"{name} missing explicit do-not-create-tickets teaching"
+            or "do not call lower-level create surfaces" in lower
+        ), f"{name} missing explicit item-entry teaching"

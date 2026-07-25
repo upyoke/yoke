@@ -37,7 +37,7 @@ from yoke_core.domain.schema_api_context_render import (
     render_command_block,
     render_function_call_surface_block,
     render_invariant_block,
-    render_ticket_intake_block,
+    render_item_entry_surface_block,
     render_json_nested_schema_block,
     render_table_block,
 )
@@ -254,7 +254,7 @@ def render_topic_packet(topic: str) -> str:
     if topic == "core":
         parts.extend(render_invariant_block())
         parts.append("")
-        parts.extend(render_ticket_intake_block())
+        parts.extend(render_item_entry_surface_block())
         parts.append("")
         parts.extend(render_function_call_surface_block())
         parts.append("")

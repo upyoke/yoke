@@ -15,7 +15,6 @@ from runtime.api.backlog_mutations_test_helpers import (
 )
 from yoke_core.domain import backlog
 from yoke_core.domain import db_backend
-from yoke_core.domain.ticket_intake_provenance import IDEA_INTAKE_ENV
 from runtime.api.fixtures.file_test_db import connect_test_db
 
 
@@ -46,10 +45,11 @@ class TestExecuteCreateDeploymentFlowValidation:
     def test_create_rejects_unregistered_flow(self, tmp_db):
         _seed_flows(tmp_db)
         out = io.StringIO()
-        with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db, IDEA_INTAKE_ENV: "1"}):
+        with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
             result = backlog.execute_create(
                 title="Bad flow",
-                item_type="issue",
+                workflow="issue",
+                entry_surface="harness_skill",
                 project="yoke",
                 deployment_flow="garbage",
                 out=out,
@@ -62,10 +62,11 @@ class TestExecuteCreateDeploymentFlowValidation:
     def test_create_rejects_literal_none_string(self, tmp_db):
         _seed_flows(tmp_db)
         out = io.StringIO()
-        with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db, IDEA_INTAKE_ENV: "1"}):
+        with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
             result = backlog.execute_create(
                 title="Literal none",
-                item_type="issue",
+                workflow="issue",
+                entry_surface="harness_skill",
                 project="yoke",
                 deployment_flow="none",
                 out=out,
@@ -76,10 +77,11 @@ class TestExecuteCreateDeploymentFlowValidation:
     def test_create_accepts_registered_flow(self, tmp_db):
         _seed_flows(tmp_db)
         out = io.StringIO()
-        with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db, IDEA_INTAKE_ENV: "1"}):
+        with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
             result = backlog.execute_create(
                 title="Good flow",
-                item_type="issue",
+                workflow="issue",
+                entry_surface="harness_skill",
                 project="yoke",
                 deployment_flow="yoke-internal",
                 out=out,
@@ -90,10 +92,11 @@ class TestExecuteCreateDeploymentFlowValidation:
         """Empty deployment_flow is treated as unset; no rejection."""
         _seed_flows(tmp_db)
         out = io.StringIO()
-        with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db, IDEA_INTAKE_ENV: "1"}):
+        with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
             result = backlog.execute_create(
                 title="Empty flow",
-                item_type="issue",
+                workflow="issue",
+                entry_surface="harness_skill",
                 project="yoke",
                 deployment_flow="",
                 out=out,
@@ -104,10 +107,11 @@ class TestExecuteCreateDeploymentFlowValidation:
         """Omitting deployment_flow continues to work as before."""
         _seed_flows(tmp_db)
         out = io.StringIO()
-        with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db, IDEA_INTAKE_ENV: "1"}):
+        with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
             result = backlog.execute_create(
                 title="No flow arg",
-                item_type="issue",
+                workflow="issue",
+                entry_surface="harness_skill",
                 project="yoke",
                 out=out,
             )
@@ -116,10 +120,11 @@ class TestExecuteCreateDeploymentFlowValidation:
     def test_create_null_sentinel_is_normalized_to_unset(self, tmp_db):
         _seed_flows(tmp_db)
         out = io.StringIO()
-        with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db, IDEA_INTAKE_ENV: "1"}):
+        with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
             result = backlog.execute_create(
                 title="Null sentinel flow",
-                item_type="issue",
+                workflow="issue",
+                entry_surface="harness_skill",
                 project="yoke",
                 deployment_flow="null",
                 out=out,

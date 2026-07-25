@@ -32,14 +32,14 @@ class TestCreateItem:
         """Item creation now goes through the shared mutation layer (no subprocess)."""
         resp = client.post("/v1/items", json={
             "title": "New idea",
-            "type": "issue",
+            "workflow": "dash",
             "priority": "medium",
         })
 
         assert resp.status_code == 201
         data = resp.json()
         assert data["title"] == "New idea"
-        assert data["type"] == "issue"
+        assert data["workflow_id"] == "dash"
         assert data["status"] == "idea"
         assert data["priority"] == "medium"
         assert data["project"] == "yoke"  # default project
@@ -49,7 +49,7 @@ class TestCreateItem:
         """POST /v1/items accepts optional project field."""
         resp = client.post("/v1/items", json={
             "title": "ExternalWebapp item",
-            "type": "issue",
+            "workflow": "dash",
             "project": "externalwebapp",
         })
         assert resp.status_code == 201
@@ -60,7 +60,7 @@ class TestCreateItem:
         """POST /v1/items accepts optional deployment_flow field."""
         resp = client.post("/v1/items", json={
             "title": "Flow item",
-            "type": "issue",
+            "workflow": "dash",
             "project": "yoke",
             "deployment_flow": "test-approval-flow",
         })
@@ -72,7 +72,7 @@ class TestCreateItem:
         """POST /v1/items rejects the retired epic field."""
         resp = client.post("/v1/items", json={
             "title": "Retired parent ref",
-            "type": "issue",
+            "workflow": "dash",
             "epic": 3,
         })
         assert resp.status_code == 422
@@ -82,7 +82,7 @@ class TestCreateItem:
     def test_create_item_missing_title(self, client):
         resp = client.post("/v1/items", json={
             "title": "",
-            "type": "issue",
+            "workflow": "dash",
         })
         assert resp.status_code == 422
         data = resp.json()
@@ -93,7 +93,7 @@ class TestCreateItem:
         """Title limit is 100 characters (matches TITLE_MAX_LENGTH)."""
         resp = client.post("/v1/items", json={
             "title": "x" * 101,
-            "type": "issue",
+            "workflow": "dash",
         })
         assert resp.status_code == 422
         data = resp.json()
@@ -103,14 +103,14 @@ class TestCreateItem:
         """Title at exactly 100 characters should succeed."""
         resp = client.post("/v1/items", json={
             "title": "x" * 100,
-            "type": "issue",
+            "workflow": "dash",
         })
         assert resp.status_code == 201
 
-    def test_create_item_invalid_type(self, client):
+    def test_create_item_invalid_workflow(self, client):
         resp = client.post("/v1/items", json={
             "title": "Valid title",
-            "type": "task",
+            "workflow": "task",
         })
         assert resp.status_code == 422
         data = resp.json()
@@ -120,7 +120,7 @@ class TestCreateItem:
     def test_create_item_invalid_priority(self, client):
         resp = client.post("/v1/items", json={
             "title": "Valid title",
-            "type": "issue",
+            "workflow": "dash",
             "priority": "urgent",
         })
         assert resp.status_code == 422
@@ -132,7 +132,7 @@ class TestCreateItem:
         """Omitting priority defaults to 'medium' via the mutation layer."""
         resp = client.post("/v1/items", json={
             "title": "Another idea",
-            "type": "issue",
+            "workflow": "dash",
         })
         assert resp.status_code == 201
         data = resp.json()
@@ -142,7 +142,7 @@ class TestCreateItem:
         """Unregistered non-empty deployment_flow values are rejected at create."""
         resp = client.post("/v1/items", json={
             "title": "Bad flow item",
-            "type": "issue",
+            "workflow": "dash",
             "project": "yoke",
             "deployment_flow": "garbage",
         })
@@ -158,7 +158,7 @@ class TestCreateItem:
         """Literal string 'none' is rejected."""
         resp = client.post("/v1/items", json={
             "title": "Literal none",
-            "type": "issue",
+            "workflow": "dash",
             "project": "yoke",
             "deployment_flow": "none",
         })
@@ -171,7 +171,7 @@ class TestCreateItem:
         """Empty-string deployment_flow is treated as unset (no rejection)."""
         resp = client.post("/v1/items", json={
             "title": "Empty flow",
-            "type": "issue",
+            "workflow": "dash",
             "project": "yoke",
             "deployment_flow": "",
         })
@@ -181,7 +181,7 @@ class TestCreateItem:
         """String null deployment_flow is treated as unset."""
         resp = client.post("/v1/items", json={
             "title": "Null flow",
-            "type": "issue",
+            "workflow": "dash",
             "project": "yoke",
             "deployment_flow": "null",
         })
@@ -202,7 +202,7 @@ class TestCreateItem:
         with patch("yoke_core.api.main.subprocess.run") as mock_run:
             resp = client.post("/v1/items", json={
                 "title": "Direct create",
-                "type": "issue",
+                "workflow": "dash",
             })
         assert resp.status_code == 201
         non_git_calls = []

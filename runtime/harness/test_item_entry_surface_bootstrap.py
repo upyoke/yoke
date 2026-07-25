@@ -1,10 +1,9 @@
-"""Bootstrap-orientation teaching tests for idea-only ticket intake.
+"""Bootstrap-orientation teaching tests for workflow item entry.
 
 The compact and full ``main_agent`` blocks injected by
 :mod:`yoke_core.domain.main_agent_packet` must surface the
-``/yoke idea`` ticket-intake rule so the top-level Yoke session
-sees it the moment orientation renders, before any lower-level item /
-body / claim / REST recipe shows up.
+workflow-selected, typed entry-surface rule so the top-level Yoke
+session sees it when orientation renders.
 """
 
 from __future__ import annotations
@@ -15,18 +14,18 @@ from yoke_core.domain.main_agent_packet import (
 )
 
 
-_IDEA_TOKENS = ("Ticket intake", "/yoke idea")
+_ENTRY_TOKENS = ("Work-item entry surfaces", "/yoke idea", "harness_skill")
 
 
-def test_main_agent_compact_block_includes_ticket_intake_rule() -> None:
+def test_main_agent_compact_block_includes_item_entry_rule() -> None:
     block = render_main_agent_block()
     assert block, "compact main_agent block rendered empty"
-    for token in _IDEA_TOKENS:
+    for token in _ENTRY_TOKENS:
         assert token in block, f"compact main_agent block missing token {token!r}"
 
 
-def test_main_agent_full_block_includes_ticket_intake_rule() -> None:
+def test_main_agent_full_block_includes_item_entry_rule() -> None:
     block = render_main_agent_block_full()
     assert block, "full main_agent block rendered empty"
-    for token in _IDEA_TOKENS:
+    for token in _ENTRY_TOKENS:
         assert token in block, f"full main_agent block missing token {token!r}"

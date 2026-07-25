@@ -24,17 +24,17 @@ from runtime.api.backlog_mutations_test_helpers import (
     tmp_db,  # noqa: F401 — re-exported fixture
 )
 from yoke_core.domain import backlog
-from yoke_core.domain.ticket_intake_provenance import IDEA_INTAKE_ENV
 
 
 class TestExecuteCreateActorRoundTrip:
     def test_create_writes_actor_id_for_source_and_owner(self, tmp_db):
         out = io.StringIO()
         with _patch_externals(), \
-             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db, IDEA_INTAKE_ENV: "1"}):
+             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
             result = backlog.execute_create(
                 title="Actor-id round trip",
-                item_type="issue",
+                workflow="issue",
+                entry_surface="harness_skill",
                 out=out,
             )
         assert result["success"] is True
@@ -48,10 +48,11 @@ class TestExecuteCreateActorRoundTrip:
     def test_create_rejects_mechanism_label_source(self, tmp_db):
         out = io.StringIO()
         with _patch_externals(), \
-             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db, IDEA_INTAKE_ENV: "1"}):
+             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
             result = backlog.execute_create(
                 title="Mechanism label",
-                item_type="issue",
+                workflow="issue",
+                entry_surface="harness_skill",
                 source="user",
                 out=out,
             )

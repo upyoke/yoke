@@ -58,7 +58,6 @@ def approve_item(item_id: int, req: _main.ApproveRequest) -> _main.ApproveRespon
         item_state = ItemState(
             id=item_dict["id"],
             title=item_dict["title"],
-            item_type=item_dict["type"],
             status=item_dict["status"],
             priority=item_dict["priority"],
             rework_count=item_dict.get("rework_count", 0),

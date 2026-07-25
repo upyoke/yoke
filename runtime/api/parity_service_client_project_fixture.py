@@ -81,7 +81,7 @@ def seed_service_client_parity_data(conn: Any) -> None:
     """Seed the service-client parity dataset on the strict project schema."""
     ts = "2026-03-01T00:00:00Z"
     items = (
-        (1, "Implementing item", "task", "implementing", "high", "yoke", 1, None, None, 0),
+        (1, "Implementing item", "issue", "implementing", "high", "yoke", 1, None, None, 0),
         (2, "Done item", "epic", "done", "medium", "yoke", 2, None, None, 0),
         (3, "ExternalWebapp idea", "issue", "idea", "low", "externalwebapp", 1, None, None, 0),
         (

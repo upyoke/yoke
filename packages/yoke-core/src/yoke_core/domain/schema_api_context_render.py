@@ -40,25 +40,21 @@ def render_invariant_block() -> list[str]:
     ]
 
 
-def render_ticket_intake_block() -> list[str]:
-    """Idea-only ticket-intake doctrine — taught in the ``core`` topic.
+def render_item_entry_surface_block() -> list[str]:
+    """Workflow entry-surface doctrine taught in the ``core`` topic.
 
     Both the top-level ``main_agent`` packet and every Bash-capable
     ``*_agent`` packet inherit ``core`` so every Yoke agent sees this
-    rule before reaching for lower-level item / body / claim / GitHub /
-    REST primitives. Enforcement owner:
-    ``yoke_core.domain.ticket_intake_provenance``.
+    rule before creating work items. Enforcement owner:
+    ``yoke_core.domain.item_entry_surface``.
     """
     return [
-        "**Ticket intake (`/yoke idea` only):** every new backlog "
-        "item enters through `/yoke idea`. Public persistent create "
-        "surfaces (`backlog_create_op.execute_create`, `backlog-cli "
-        "add`, `POST /v1/items`, the `create-item` validator) are "
-        "gated by `ticket_intake_provenance.enforce_public_create_allowed` "
-        "and reject direct production calls outside sanctioned idea "
-        "intake; dry-run, `--idea-intake` / `provenance=\"idea\"`, "
-        "and test-isolated DB targets bypass. Adopt title-only or "
-        "bypass-created shells through `/yoke idea`, not lower-level APIs.",
+        "**Work-item entry surfaces:** every create names a workflow and "
+        "a typed entry surface (`web_form`, `cli`, `harness_skill`, or "
+        "`promotion`). The selected immutable workflow version must allow "
+        "that surface. `/yoke idea` uses `yoke items create ... "
+        "--entry-surface harness_skill`; dry-run and test-isolated DB "
+        "targets may omit the surface.",
     ]
 
 
@@ -157,7 +153,7 @@ def render_table_block(
 __all__ = [
     "render_invariant_block",
     "render_function_call_surface_block",
-    "render_ticket_intake_block",
+    "render_item_entry_surface_block",
     "render_json_nested_schema_block",
     "render_command_block",
     "render_table_block",

@@ -20,32 +20,29 @@ from yoke_core.api.service_client_shared import (
 def cmd_execute_create(args: list[str]) -> int:
     """Full item creation: validate -> INSERT -> md gen -> GitHub sync.
 
-    Usage: execute-create --title TITLE --type TYPE [--priority P]
+    Usage: execute-create --title TITLE [--workflow WORKFLOW] [--priority P]
                           [--project P] [--deployment-flow F] [--status S]
-                          [--source S] [--dry-run] [--idea-intake]
-
-    Returns JSON result on stdout. ``--idea-intake`` carries the
-    sanctioned-idea-intake provenance signal (equivalent to the
-    ``YOKE_IDEA_INTAKE`` env var). The idea skill passes either.
+                          [--source S] [--dry-run]
+                          [--entry-surface SURFACE]
     """
     from yoke_core.domain import backlog
 
     title = None
-    item_type = "issue"
+    workflow = None
     priority = None
     project = None
     deployment_flow = None
-    status = "idea"
+    status = None
     source = None
     dry_run = False
-    provenance = None
+    entry_surface = None
 
     i = 0
     while i < len(args):
         if args[i] == "--title" and i + 1 < len(args):
             title = args[i + 1]; i += 2
-        elif args[i] == "--type" and i + 1 < len(args):
-            item_type = args[i + 1]; i += 2
+        elif args[i] == "--workflow" and i + 1 < len(args):
+            workflow = args[i + 1]; i += 2
         elif args[i] == "--priority" and i + 1 < len(args):
             priority = args[i + 1]; i += 2
         elif args[i] == "--project" and i + 1 < len(args):
@@ -58,20 +55,23 @@ def cmd_execute_create(args: list[str]) -> int:
             source = args[i + 1]; i += 2
         elif args[i] == "--dry-run":
             dry_run = True; i += 1
-        elif args[i] == "--idea-intake":
-            provenance = "idea"; i += 1
+        elif args[i] == "--entry-surface" and i + 1 < len(args):
+            entry_surface = args[i + 1]; i += 2
         else:
             print(f"Unknown argument: {args[i]}", file=sys.stderr)
             return 2
 
     if title is None:
-        print("Usage: execute-create --title TITLE --type TYPE ...", file=sys.stderr)
+        print(
+            "Usage: execute-create --title TITLE [--workflow WORKFLOW] ...",
+            file=sys.stderr,
+        )
         return 2
 
     captured = io.StringIO()
     result = backlog.execute_create(
         title=title,
-        item_type=item_type,
+        workflow=workflow,
         priority=priority,
         project=project,
         deployment_flow=deployment_flow,
@@ -79,7 +79,7 @@ def cmd_execute_create(args: list[str]) -> int:
         source=source,
         session_id=os.environ.get("YOKE_SESSION_ID"),
         dry_run=dry_run,
-        provenance=provenance,
+        entry_surface=entry_surface,
         out=captured,
     )
     result = dict(result)
@@ -99,7 +99,7 @@ def cmd_execute_create_cli(args: list[str]) -> int:
     dry_run = False
     project = None
     deployment_flow = None
-    provenance = None
+    entry_surface = None
     i = 0
     while i < len(args):
         token = args[i]
@@ -112,9 +112,9 @@ def cmd_execute_create_cli(args: list[str]) -> int:
         elif token == "--deployment-flow" and i + 1 < len(args):
             deployment_flow = args[i + 1]
             i += 2
-        elif token == "--idea-intake":
-            provenance = "idea"
-            i += 1
+        elif token == "--entry-surface" and i + 1 < len(args):
+            entry_surface = args[i + 1]
+            i += 2
         else:
             break
 
@@ -130,23 +130,23 @@ def cmd_execute_create_cli(args: list[str]) -> int:
             }
         )
 
-    if len(positional) < 2:
+    if len(positional) < 1:
         print(
             "Usage: execute-create-cli [--dry-run] [--project P] [--deployment-flow F] "
-            "<title> <type> [status] [priority]",
+            "[--entry-surface SURFACE] <title> [workflow] [status] [priority]",
             file=sys.stderr,
         )
         return 2
 
     title = positional[0]
-    item_type = positional[1]
-    status = positional[2] if len(positional) >= 3 else "idea"
+    workflow = positional[1] if len(positional) >= 2 else None
+    status = positional[2] if len(positional) >= 3 else None
     priority = positional[3] if len(positional) >= 4 else None
 
     captured = io.StringIO()
     result = backlog.execute_create(
         title=title,
-        item_type=item_type,
+        workflow=workflow,
         priority=priority,
         project=project,
         deployment_flow=deployment_flow,
@@ -154,7 +154,7 @@ def cmd_execute_create_cli(args: list[str]) -> int:
         session_id=os.environ.get("YOKE_SESSION_ID"),
         dry_run=dry_run,
         rebuild_board=True,
-        provenance=provenance,
+        entry_surface=entry_surface,
         out=captured,
     )
     return _emit_backlog_result(dict(result), log=captured.getvalue())

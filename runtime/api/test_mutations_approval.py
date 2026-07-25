@@ -15,18 +15,19 @@ from yoke_core.domain.mutations import (
 )
 from yoke_core.domain.approval import FlowStage
 from yoke_core.domain.runs import DeploymentRun
+from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
 
 
 def _make_item(**overrides) -> ItemState:
     defaults = dict(
         id=42,
         title="Test item",
-        item_type="issue",
         status="idea",
         priority="medium",
         rework_count=0,
         frozen=False,
         project="yoke",
+        workflow=builtin_workflow_runtime("issue"),
     )
     defaults.update(overrides)
     return ItemState(**defaults)

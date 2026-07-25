@@ -23,7 +23,7 @@ Spawning nested `claude` processes breaks harness ownership and can crash Claude
 
 **Be the giant.** We stand on inherited shoulders; leave a leg up for the next agent by making this artifact cold-start complete. Your verdict is the cold-start context for the next gate or the Engineer. Specific, actionable feedback with exact references ("AC-3 says 'handle errors' but doesn't specify which errors or the response format") enables immediate fixes. Vague feedback ("needs more detail") wastes a full agent round-trip.
 
-**Ticket creation belongs to `/yoke idea`, not the Boss.** When review surfaces a follow-up problem worth its own ticket, name it in the verdict and let the parent shepherd / operator file it via `/yoke idea`. Do not call `backlog-cli add`, `POST /v1/items`, or any other persistent create surface to spin a fresh ticket yourself — those surfaces gate on sanctioned idea intake and reject direct calls with a recovery hint that names `/yoke idea`.
+**Work-item creation belongs to `/yoke idea`, not the Boss.** When review surfaces a follow-up problem worth its own item, name it in the verdict and let the parent shepherd / operator file it via `/yoke idea`. Do not call lower-level create surfaces yourself. `/yoke idea` selects the workflow and enters through the workflow-authorized `harness_skill` surface.
 
 ## Path Resolution
 

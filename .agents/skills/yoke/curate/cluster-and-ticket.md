@@ -120,7 +120,7 @@ Action? (create / skip / defer)
 For each `create` response, invoke:
 
 ```bash
-yoke items create "{title}" issue --priority {priority} --idea-intake
+yoke items create "{title}" issue --priority {priority} --entry-surface harness_skill
 ```
 
 Immediately write a body with the cluster context:

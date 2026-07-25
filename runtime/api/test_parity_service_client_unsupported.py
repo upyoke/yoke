@@ -100,7 +100,7 @@ class TestUnsupportedFieldRegression:
         )
 
         item = ItemState(
-            id=1, title="Test", item_type="issue",
+            id=1, title="Test",
             status="implementing", priority="medium",
         )
 

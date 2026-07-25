@@ -20,7 +20,6 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 
 TITLE_MAX_LENGTH: int = 100
-VALID_TYPES: FrozenSet[str] = frozenset({"epic", "issue"})
 VALID_PRIORITIES: FrozenSet[str] = frozenset({"high", "medium", "low"})
 
 # Fields supported by the update surface.
@@ -140,13 +139,6 @@ def validate_title(title: str) -> Optional[str]:
     return None
 
 
-def validate_type(item_type: str) -> Optional[str]:
-    """Validate item type. Returns error message or None."""
-    if item_type not in VALID_TYPES:
-        return f"Invalid type '{item_type}'. Must be one of: {', '.join(sorted(VALID_TYPES))}"
-    return None
-
-
 def validate_priority(priority: str) -> Optional[str]:
     """Validate priority. Returns error message or None."""
     if priority not in VALID_PRIORITIES:
@@ -200,7 +192,6 @@ class ItemState:
     """
     id: int
     title: str
-    item_type: str
     status: str
     priority: str
     rework_count: int = 0

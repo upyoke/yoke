@@ -12,7 +12,7 @@ from yoke_core.domain.db_helpers import connect
 class DemoItemSpec:
     title: str
     priority: str
-    item_type: str = "issue"
+    workflow: str = "issue"
 
 
 DEFAULT_DEMO_ITEMS: tuple[DemoItemSpec, ...] = (
@@ -31,7 +31,7 @@ def seed_demo_items(
     project: Optional[str] = None,
     count: int = len(DEFAULT_DEMO_ITEMS),
 ) -> dict[str, Any]:
-    """Create local smoke items through the normal idea-intake create path."""
+    """Create local smoke items through the registered harness-skill path."""
     if count < 1:
         raise LocalDemoSeedError("count must be at least 1")
     specs = _selected_specs(count)
@@ -43,12 +43,12 @@ def seed_demo_items(
     for spec in specs:
         result = execute_create(
             title=spec.title,
-            item_type=spec.item_type,
+            workflow=spec.workflow,
             priority=spec.priority,
             project=project,
             source=str(source_actor),
             owner=str(source_actor),
-            provenance="idea",
+            entry_surface="harness_skill",
             rebuild_board=False,
         )
         if not result.get("success"):

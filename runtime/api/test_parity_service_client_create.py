@@ -32,7 +32,7 @@ class TestCreateParity:
 
         API returns the created item directly; CLI returns mutation result
         with field_writes and defaults.  Both must agree on the field values
-        that matter: status, priority, type, and flow defaults.
+        that matter: status, priority, workflow, and flow defaults.
         """
         client = write_parity_env["client"]
         db_path = write_parity_env["db_path"]
@@ -40,7 +40,7 @@ class TestCreateParity:
         # API create
         api_resp = client.post("/v1/items", json={
             "title": "Parity create test",
-            "type": "issue",
+            "workflow": "dash",
             "priority": "high",
         })
         assert api_resp.status_code == 201
@@ -50,7 +50,8 @@ class TestCreateParity:
         cli_result = _run_service_client(
             db_path, "create-item",
             "--title", "Parity create CLI",
-            "--type", "issue",
+            "--workflow", "dash",
+            "--entry-surface", "cli",
             "--priority", "high",
         )
         assert cli_result.returncode == 0
@@ -62,6 +63,8 @@ class TestCreateParity:
         assert cli_data["field_writes"]["status"] == "idea"
         assert api_item["priority"] == "high"
         assert cli_data["field_writes"]["priority"] == "high"
+        assert api_item["workflow_id"] == "dash"
+        assert cli_data["field_writes"]["workflow_id"] == "dash"
         # Default flow should be accelerated
         assert cli_data["field_writes"]["flow"] == "accelerated"
         assert cli_data["defaults"]["flow"] == "accelerated"
@@ -75,7 +78,7 @@ class TestCreateParity:
         # API
         api_resp = client.post("/v1/items", json={
             "title": long_title,
-            "type": "issue",
+            "workflow": "dash",
         })
         assert api_resp.status_code == 422
 
@@ -83,30 +86,32 @@ class TestCreateParity:
         cli_result = _run_service_client(
             db_path, "create-item",
             "--title", long_title,
-            "--type", "issue",
+            "--workflow", "dash",
+            "--entry-surface", "cli",
         )
         assert cli_result.returncode == 1
         cli_data = json.loads(cli_result.stdout)
         assert cli_data["success"] is False
         assert "100" in cli_data["error"]
 
-    def test_create_invalid_type_rejected_both(self, write_parity_env):
-        """Both surfaces should reject an invalid item type."""
+    def test_create_invalid_workflow_rejected_both(self, write_parity_env):
+        """Both surfaces should reject an unknown workflow."""
         client = write_parity_env["client"]
         db_path = write_parity_env["db_path"]
 
         # API
         api_resp = client.post("/v1/items", json={
-            "title": "Bad type",
-            "type": "task",
+            "title": "Bad workflow",
+            "workflow": "task",
         })
         assert api_resp.status_code == 422
 
         # CLI
         cli_result = _run_service_client(
             db_path, "create-item",
-            "--title", "Bad type",
-            "--type", "task",
+            "--title", "Bad workflow",
+            "--workflow", "task",
+            "--entry-surface", "cli",
         )
         assert cli_result.returncode == 1
         cli_data = json.loads(cli_result.stdout)
@@ -120,7 +125,7 @@ class TestCreateParity:
         # API
         api_resp = client.post("/v1/items", json={
             "title": "Bad priority",
-            "type": "issue",
+            "workflow": "dash",
             "priority": "critical",
         })
         assert api_resp.status_code == 422
@@ -129,7 +134,8 @@ class TestCreateParity:
         cli_result = _run_service_client(
             db_path, "create-item",
             "--title", "Bad priority",
-            "--type", "issue",
+            "--workflow", "dash",
+            "--entry-surface", "cli",
             "--priority", "critical",
         )
         assert cli_result.returncode == 1
@@ -145,7 +151,7 @@ class TestCreateParity:
         # API — parity-flow belongs to 'yoke', item says 'externalwebapp'
         api_resp = client.post("/v1/items", json={
             "title": "Cross project flow",
-            "type": "issue",
+            "workflow": "dash",
             "project": "externalwebapp",
             "deployment_flow": "parity-flow",
         })
@@ -155,7 +161,8 @@ class TestCreateParity:
         cli_result = _run_service_client(
             db_path, "create-item",
             "--title", "Cross project flow",
-            "--type", "issue",
+            "--workflow", "dash",
+            "--entry-surface", "cli",
             "--project", "externalwebapp",
             "--deployment-flow", "parity-flow",
         )
@@ -170,13 +177,14 @@ class TestCreateParity:
 
         api_resp = client.post("/v1/items", json={
             "title": "Retired parent ref",
-            "type": "issue",
+            "workflow": "dash",
             "epic": 11,
         })
         assert api_resp.status_code == 422
 
         cli_result = _run_service_client(
             db_path, "create-item", "--title", "Retired parent ref",
-            "--type", "issue", "--epic", "11",
+            "--workflow", "dash", "--entry-surface", "cli",
+            "--epic", "11",
         )
         assert cli_result.returncode == 2

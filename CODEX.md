@@ -15,9 +15,9 @@ Codex loads its Yoke orientation automatically from the auto-loaded rules files 
 
 Yoke skills live canonically in the hidden directory `.agents/skills/yoke/`. Codex treats that repo-local `.agents/skills` tree as a native skill source, so no `.codex/skills` mirror or plugin install is required for ordinary Yoke work. Codex progressive disclosure loads each skill's frontmatter first and reads the full `SKILL.md` only when the skill is invoked. `.claude/skills/yoke` is a discovery copy — a symlink in this repo, a real byte-identical copy in a managed project, since installs cannot rely on symlink support — and must not be treated as the authoritative location; Codex reads the same `SKILL.md` frontmatter Claude reads, so Yoke keeps no duplicate `.codex/skills` tree or per-skill Codex metadata sidecars.
 
-## Ticket intake
+## Work-item entry surfaces
 
-Every new backlog item enters through `/yoke idea`. The lower-level item, body, claim, GitHub, and REST creation primitives are internal to that workflow — do not assemble a ticket yourself by chaining `backlog-cli add`, `POST /v1/items`, body writes, path-claim registration, and GitHub sync. The public persistent create surfaces are gated by the intake-provenance check and reject direct production calls outside sanctioned idea intake with a recovery hint that names `/yoke idea`; dry-run, `--idea-intake` / `provenance="idea"`, and test-isolated DB targets bypass the gate. When you discover a title-only or bypass-created shell, adopt it through `/yoke idea` rather than filling it via lower-level APIs.
+Every create selects a workflow and a typed entry surface (`web_form`, `cli`, `harness_skill`, or `promotion`); the pinned immutable workflow version must allow that surface. `/yoke idea` drives the registered `items.create` function through `harness_skill`, while product forms and operator commands use their own typed surfaces. Dry-run and test-isolated DB targets may omit the surface.
 
 ## Safe Command Surface
 
