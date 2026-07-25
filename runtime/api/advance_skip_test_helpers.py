@@ -12,6 +12,7 @@ from unittest import mock
 
 from yoke_core.domain import advance_skip_core
 from yoke_core.domain import advance_skip_finalize
+from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
 
 
 class _CallRecorder:
@@ -33,7 +34,7 @@ class _CallRecorder:
 
 def _patch_core(
     current_status: str,
-    item_type: str = "issue",
+    workflow_id: str = "issue",
     *,
     executor=None,
     emit_recorder=None,
@@ -45,7 +46,10 @@ def _patch_core(
         mock.patch.object(
             advance_skip_core,
             "_lookup_item",
-            return_value=(current_status, item_type),
+            return_value=(
+                current_status,
+                builtin_workflow_runtime(workflow_id),
+            ),
         )
     )
     patches.append(

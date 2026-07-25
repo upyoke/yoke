@@ -45,7 +45,8 @@ def _placeholder(conn: Any) -> str:
 def _load_item_row(conn: Any, item_id: int) -> Optional[Dict[str, Any]]:
     p = _placeholder(conn)
     row = conn.execute(
-        "SELECT i.id, i.type, i.status, p.slug AS project, i.project_id, "
+        "SELECT i.id, i.workflow_id, i.workflow_version_id, i.status, "
+        "p.slug AS project, i.project_id, "
         "i.db_mutation_profile, i.db_compatibility_attestation, i.test_results "
         "FROM items i "
         "JOIN projects p ON p.id = i.project_id "

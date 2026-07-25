@@ -1,13 +1,4 @@
-"""Pytest suite for ``yoke_core.domain.advance_skip`` — skip_polish path.
-
-Covers the operator-asserted skip-polish hop (``reviewed-implementation ->
-implemented``, traversing ``polishing-implementation``), the safety guard,
-constants, and the CLI surface. The skip_refine path lives in
-``test_advance_skip_refine.py``.
-
-Focus areas: happy path, invalid-status rejection, bypass scoping, event
-emission shape, claim release routing.
-"""
+"""Skip-polish behavior, bypass scoping, events, claims, and CLI coverage."""
 
 from __future__ import annotations
 
@@ -19,6 +10,7 @@ import pytest
 
 from yoke_core.domain import advance_skip, advance_skip_core
 from yoke_core.domain import advance_skip_finalize
+from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
 from runtime.api.advance_skip_test_helpers import (
     _CallRecorder,
     _enter_all,
@@ -243,7 +235,10 @@ class TestAllowlistGuard:
 
         with mock.patch.object(
             advance_skip_core, "_lookup_item",
-            return_value=("reviewed-implementation", "issue"),
+            return_value=(
+                "reviewed-implementation",
+                builtin_workflow_runtime("issue"),
+            ),
         ), mock.patch.object(advance_skip_core, "_do_execute_update", failing):
             with pytest.raises(RuntimeError, match="simulated"):
                 advance_skip.skip_polish(500, out=io.StringIO())

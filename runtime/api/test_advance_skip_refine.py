@@ -143,7 +143,7 @@ class TestSkipRefineHappyPath:
 
 
 # ---------------------------------------------------------------------------
-# skip_refine — invalid-status and invalid-type rejection
+# skip_refine — invalid-stage and workflow rejection
 # ---------------------------------------------------------------------------
 
 
@@ -170,22 +170,22 @@ class TestSkipRefineRejection:
         finally:
             _exit_all(patches)
 
-    def test_refining_plan_rejected_for_issue_type(self):
-        """refining-plan is an epic-only status."""
+    def test_refining_plan_rejected_when_workflow_omits_target(self):
+        """The issue workflow does not declare the planned target."""
         patches = _patch_core("refining-plan", "issue")
         _enter_all(patches)
         try:
-            with pytest.raises(ValueError, match="epic"):
+            with pytest.raises(ValueError, match="not declared by issue@1"):
                 advance_skip.skip_refine(301, out=io.StringIO())
         finally:
             _exit_all(patches)
 
-    def test_plan_drafted_rejected_for_issue_type(self):
-        """plan-drafted is an epic-only skip-refine entry."""
+    def test_plan_drafted_rejected_when_workflow_omits_target(self):
+        """The issue workflow does not declare the planned target."""
         patches = _patch_core("plan-drafted", "issue")
         _enter_all(patches)
         try:
-            with pytest.raises(ValueError, match="epic"):
+            with pytest.raises(ValueError, match="not declared by issue@1"):
                 advance_skip.skip_refine(302, out=io.StringIO())
         finally:
             _exit_all(patches)

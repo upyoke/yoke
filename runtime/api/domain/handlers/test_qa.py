@@ -12,6 +12,7 @@ import unittest
 from unittest.mock import patch
 
 from yoke_core.domain.handlers import qa
+from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -87,7 +88,7 @@ class TestQaRequirementAutoCreateForItem(unittest.TestCase):
 
     def test_browser_testable_item_returns_noop(self):
         item_row = {
-            "id": 7, "type": "issue",
+            "id": 7,
             "browser_qa_metadata": '{"browser_testable": true}',
             "spec": "",
         }
@@ -98,6 +99,9 @@ class TestQaRequirementAutoCreateForItem(unittest.TestCase):
             with patch(
                 "yoke_core.domain.qa_requirements_auto._existing_requirement",
                 return_value=None,
+            ), patch(
+                "yoke_core.domain.workflow_runtime.load_item_workflow_runtime",
+                return_value=builtin_workflow_runtime("issue"),
             ):
                 outcome = qa.handle_qa_requirement_auto_create_for_item(
                     _request(TargetRef(kind="item", item_id=7)),
@@ -107,9 +111,9 @@ class TestQaRequirementAutoCreateForItem(unittest.TestCase):
                          "browser_testable_noop")
         self.assertIsNone(outcome.result_payload["requirement_id"])
 
-    def test_non_issue_returns_not_applicable(self):
+    def test_non_default_qa_policy_returns_not_applicable(self):
         item_row = {
-            "id": 8, "type": "epic", "browser_qa_metadata": "",
+            "id": 8, "browser_qa_metadata": "",
             "spec": "",
         }
         with patch(
@@ -119,6 +123,9 @@ class TestQaRequirementAutoCreateForItem(unittest.TestCase):
             with patch(
                 "yoke_core.domain.qa_requirements_auto._existing_requirement",
                 return_value=None,
+            ), patch(
+                "yoke_core.domain.workflow_runtime.load_item_workflow_runtime",
+                return_value=builtin_workflow_runtime("epic"),
             ):
                 outcome = qa.handle_qa_requirement_auto_create_for_item(
                     _request(TargetRef(kind="item", item_id=8)),
@@ -128,7 +135,7 @@ class TestQaRequirementAutoCreateForItem(unittest.TestCase):
 
     def test_creates_requirement_for_non_browser_issue(self):
         item_row = {
-            "id": 21, "type": "issue", "browser_qa_metadata": "",
+            "id": 21, "browser_qa_metadata": "",
             "spec": "## Acceptance Criteria\n- [ ] AC-1: do the thing\n",
         }
         with patch(
@@ -138,6 +145,9 @@ class TestQaRequirementAutoCreateForItem(unittest.TestCase):
             with patch(
                 "yoke_core.domain.qa_requirements_auto._existing_requirement",
                 return_value=None,
+            ), patch(
+                "yoke_core.domain.workflow_runtime.load_item_workflow_runtime",
+                return_value=builtin_workflow_runtime("issue"),
             ):
                 with patch(
                     "yoke_core.domain.qa_requirements_auto.auto_create_for_item",

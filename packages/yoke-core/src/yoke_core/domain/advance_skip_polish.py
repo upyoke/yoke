@@ -16,7 +16,7 @@ def skip_polish(
     out: TextIO = sys.stdout,
 ) -> dict:
     """Advance an item from ``reviewed-implementation`` to ``implemented``."""
-    current_status, _item_type = core._lookup_item(item_id)
+    current_status, _workflow = core._lookup_item(item_id)
     if current_status != core._POLISH_START:
         raise ValueError(
             f"--skip-polish requires current status {core._POLISH_START!r}, "

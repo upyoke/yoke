@@ -11,43 +11,26 @@ import os
 import sys
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.lifecycle import (
-    is_valid_epic_status,
-    is_valid_issue_status,
-    is_valid_item_status,
-)
+from yoke_core.domain.workflow_runtime import WorkflowRuntime
 
 
 def _p(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def _validate_item_target_status(item_type: str, new_status: str) -> str | None:
+def _validate_item_target_status(
+    workflow: WorkflowRuntime,
+    new_status: str,
+) -> str | None:
     """Return a human-readable validation error, or None when valid."""
-    if item_type == "issue":
-        if is_valid_issue_status(new_status):
-            return None
-        return (
-            f"Error: '{new_status}' is not a valid issue status. Issue items use "
-            "the issue-workflow-type lifecycle: idea, refining-idea, refined-idea, "
-            "implementing, reviewing-implementation, reviewed-implementation, "
-            "polishing-implementation, implemented, release, done (plus blocked, "
-            "stopped, failed, cancelled)."
-        )
-    if item_type == "epic":
-        if is_valid_epic_status(new_status):
-            return None
-        return (
-            f"Error: '{new_status}' is not a valid epic status. Epic items use "
-            "the epic-workflow-type lifecycle: idea, refining-idea, refined-idea, "
-            "planning, plan-drafted, refining-plan, planned, implementing, "
-            "reviewing-implementation, reviewed-implementation, "
-            "polishing-implementation, implemented, release, done (plus blocked, "
-            "stopped, failed, cancelled)."
-        )
-    if is_valid_item_status(new_status):
+    if workflow.accepts_stage(new_status):
         return None
-    return f"Error: '{new_status}' is not a valid item status."
+    declared = ", ".join(workflow.stage_ids)
+    return (
+        f"Error: {new_status!r} is not declared by "
+        f"{workflow.workflow_id}@{workflow.version}. Stages: {declared} "
+        "(plus blocked, stopped, failed, cancelled)."
+    )
 
 
 def repair_item_status(item_ref: str, new_status: str, *, dry_run: bool, reason: str) -> int:
@@ -68,17 +51,22 @@ def repair_item_status(item_ref: str, new_status: str, *, dry_run: bool, reason:
     with _connect() as conn:
         p = _p(conn)
         row = conn.execute(
-            f"SELECT id, type, status FROM items WHERE id = {p}",
+            f"SELECT id, status FROM items WHERE id = {p}",
             (item_id,),
         ).fetchone()
+        if row is not None:
+            from yoke_core.domain.workflow_runtime import (
+                load_item_workflow_runtime,
+            )
+
+            workflow = load_item_workflow_runtime(conn, item_id)
 
     if row is None or not row["status"]:
         print(f"Error: Item YOK-{item_id} not found.", file=sys.stderr)
         return 3
 
     old_status = str(row["status"])
-    item_type = str(row["type"] or "issue")
-    error = _validate_item_target_status(item_type, new_status)
+    error = _validate_item_target_status(workflow, new_status)
     if error is not None:
         print(error, file=sys.stderr)
         return 2

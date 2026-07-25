@@ -1,4 +1,4 @@
-"""Auto-create basic QA requirements for non-browser issue tickets."""
+"""Auto-create basic QA requirements for workflow-selected items."""
 
 from __future__ import annotations
 
@@ -49,8 +49,8 @@ def _metadata_says_not_browser_testable(row: dict) -> bool:
     return data is not None and "browser_testable" in data and not data["browser_testable"]
 
 
-def _should_create(row: dict) -> bool:
-    if str(row.get("type") or "") != "issue":
+def _should_create(row: dict, *, qa_policy: str) -> bool:
+    if qa_policy != "project_transition_defaults":
         return False
     if _metadata_is_browser_testable(row):
         return False
@@ -108,7 +108,15 @@ def auto_create_for_item(
         if row is None:
             return None
         item = dict(row)
-        if not _should_create(item):
+        from yoke_core.domain.workflow_runtime import (
+            load_item_workflow_runtime,
+        )
+
+        workflow = load_item_workflow_runtime(conn, item_id)
+        if not _should_create(
+            item,
+            qa_policy=str(workflow.policies["qa"]),
+        ):
             return None
         if dry_run:
             return None

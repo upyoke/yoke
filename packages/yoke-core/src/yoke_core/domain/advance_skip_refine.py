@@ -7,7 +7,6 @@ from typing import Optional, TextIO
 
 from yoke_core.domain import advance_skip_core as core
 from yoke_core.domain import advance_skip_finalize as finalize
-from yoke_core.domain.lifecycle import EPIC_PROGRESSION, ISSUE_PROGRESSION
 
 
 def skip_refine(
@@ -17,7 +16,7 @@ def skip_refine(
     out: TextIO = sys.stdout,
 ) -> dict:
     """Advance past an idea or plan refining phase in one sanctioned call."""
-    current_status, item_type = core._lookup_item(item_id)
+    current_status, workflow = core._lookup_item(item_id)
     if current_status not in core._REFINE_ROUTING:
         raise ValueError(
             f"--skip-refine requires current status in "
@@ -26,20 +25,13 @@ def skip_refine(
             "other statuses."
         )
 
-    if current_status in {"plan-drafted", "refining-plan"} and item_type == "issue":
-        raise ValueError(
-            "--skip-refine on plan-refinement statuses requires an epic item; "
-            "the issue progression has no plan-refining phase."
-        )
-
     hops, skipped_phase = core._REFINE_ROUTING[current_status]
     target = hops[-1]
 
-    progression = ISSUE_PROGRESSION if item_type == "issue" else EPIC_PROGRESSION
-    if target not in progression:
+    if not workflow.accepts_stage(target):
         raise ValueError(
-            f"Target status {target!r} is not in the {item_type} progression - "
-            "refusing to advance."
+            f"Target stage {target!r} is not declared by "
+            f"{workflow.workflow_id}@{workflow.version}; refusing to advance."
         )
 
     hops_written = core._walk_hops(

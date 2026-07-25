@@ -59,7 +59,8 @@ def _resolve_session_id(explicit: Optional[str]) -> str:
 def _read_item(item_id: int) -> Optional[Dict[str, Any]]:
     with db_helpers.connect() as conn:
         row = conn.execute(
-            "SELECT i.id, i.type, i.status, i.title, p.slug AS project "
+            "SELECT i.id, i.workflow_id, i.workflow_version_id, "
+            "i.status, i.title, p.slug AS project "
             "FROM items i LEFT JOIN projects p ON p.id = i.project_id "
             "WHERE i.id = %s",
             (int(item_id),),
@@ -68,8 +69,14 @@ def _read_item(item_id: int) -> Optional[Dict[str, Any]]:
         return None
     if hasattr(row, "keys"):
         return {k: row[k] for k in row.keys()}
-    return {"id": row[0], "type": row[1], "status": row[2],
-            "title": row[3], "project": row[4]}
+    return {
+        "id": row[0],
+        "workflow_id": row[1],
+        "workflow_version_id": row[2],
+        "status": row[3],
+        "title": row[4],
+        "project": row[5],
+    }
 
 
 def _record_phase(

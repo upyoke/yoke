@@ -188,14 +188,14 @@ class QaRequirementAutoCreateForItemResponse(BaseModel):
 def handle_qa_requirement_auto_create_for_item(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
-    """Idempotently seed one ``ac_verification`` requirement per non-browser issue.
+    """Seed the workflow's default ``ac_verification`` requirement.
 
     Outcomes (``result_payload.outcome``):
 
     * ``created`` — a new ``ac_verification`` row was inserted.
     * ``existing`` — an unwaived requirement already covered the item.
     * ``browser_testable_noop`` — the item is browser-testable; nothing inserted.
-    * ``not_applicable`` — non-issue type, or browser-section signals no need.
+    * ``not_applicable`` — workflow policy or browser signals say no requirement.
     """
     from yoke_core.domain import qa_requirements_auto
 
@@ -230,7 +230,13 @@ def handle_qa_requirement_auto_create_for_item(
         if row is None:
             return _error("not_found", f"item {item_id} not found")
         item = dict(row)
-        if str(item.get("type") or "") != "issue":
+        from yoke_core.domain.workflow_runtime import (
+            load_item_workflow_runtime,
+        )
+
+        workflow = load_item_workflow_runtime(conn, int(item_id))
+        qa_policy = str(workflow.policies["qa"])
+        if qa_policy != "project_transition_defaults":
             return HandlerOutcome(
                 result_payload={
                     "item_id": int(item_id),
@@ -248,7 +254,10 @@ def handle_qa_requirement_auto_create_for_item(
                 },
                 primary_success=True,
             )
-        if not qa_requirements_auto._should_create(item):
+        if not qa_requirements_auto._should_create(
+            item,
+            qa_policy=qa_policy,
+        ):
             return HandlerOutcome(
                 result_payload={
                     "item_id": int(item_id),

@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 from typing import TextIO
 
+from yoke_core.domain.workflow_runtime import WorkflowRuntime
+
 
 _POLISH_START = "reviewed-implementation"
 _POLISH_TRANSIT = "polishing-implementation"
@@ -28,8 +30,8 @@ _REFINE_TARGETS_ALLOWED: frozenset[str] = frozenset(
 )
 
 
-def _lookup_item(item_id: int) -> tuple[str, str]:
-    """Return (current_status, item_type) for *item_id*."""
+def _lookup_item(item_id: int) -> tuple[str, WorkflowRuntime]:
+    """Return the current stage and pinned workflow for *item_id*."""
     from yoke_core.domain.backlog_queries import _resolve_write_db_path
     from yoke_core.domain import db_backend
     from yoke_core.domain.db_helpers import connect
@@ -39,13 +41,19 @@ def _lookup_item(item_id: int) -> tuple[str, str]:
     try:
         p = "%s" if db_backend.connection_is_postgres(conn) else "?"
         row = conn.execute(
-            f"SELECT status, type FROM items WHERE id = {p}", (item_id,)
+            f"SELECT status FROM items WHERE id = {p}", (item_id,)
         ).fetchone()
+        if row is not None:
+            from yoke_core.domain.workflow_runtime import (
+                load_item_workflow_runtime,
+            )
+
+            workflow = load_item_workflow_runtime(conn, item_id)
     finally:
         conn.close()
     if row is None:
         raise ValueError(f"Item YOK-{item_id} not found")
-    return row["status"], row["type"]
+    return row["status"], workflow
 
 
 def _do_execute_update(

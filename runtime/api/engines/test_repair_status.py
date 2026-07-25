@@ -40,6 +40,23 @@ def _apply_repair_schema() -> None:
         conn.execute(
             "INSERT INTO epic_tasks (epic_id, task_num, status) VALUES ('42', 1, 'planning')"
         )
+        from yoke_core.domain.workflow_registry import (
+            converge_builtin_workflows,
+            resolve_current_workflow_pin,
+        )
+        from yoke_core.domain.workflow_schema import ensure_workflow_schema
+
+        ensure_workflow_schema(conn)
+        converge_builtin_workflows(conn)
+        for workflow_id in ("issue", "epic"):
+            resolved_id, version_id = resolve_current_workflow_pin(
+                conn, workflow_id,
+            )
+            conn.execute(
+                "UPDATE items SET workflow_id=%s, workflow_version_id=%s "
+                "WHERE type=%s",
+                (resolved_id, version_id, workflow_id),
+            )
         conn.commit()
     finally:
         conn.close()
@@ -97,7 +114,7 @@ def test_issue_rejects_epic_only_status(repair_db, capsys):
 
     captured = capsys.readouterr()
     assert rc == 2
-    assert "not a valid issue status" in captured.err
+    assert "is not declared by issue@1" in captured.err
 
 
 def test_item_happy_path_calls_backlog_execute_update(repair_db, capsys):
