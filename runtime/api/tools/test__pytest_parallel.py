@@ -78,6 +78,20 @@ class TestUsesXdistAutoWorkers:
 
 
 class TestApplyPostgresXdistAutoEnv:
+    @pytest.fixture(autouse=True)
+    def _no_real_cluster(self, monkeypatch):
+        """Keep env-computation tests off the real Postgres cluster.
+
+        Resolving the env also starts and prunes the local test cluster. Tests
+        that only assert the computed env must not do that — on a machine or
+        runner without the Postgres binaries it fails outright, and elsewhere
+        it would touch a cluster the test does not own. Tests that assert the
+        preparation itself re-patch this in their own body.
+        """
+        from yoke_core.tools import pg_testcluster
+
+        monkeypatch.setattr(pg_testcluster, "prepare_for_pytest", lambda: 0)
+
     def test_sets_local_postgres_auto_worker_env(self):
         env = apply_postgres_xdist_auto_env(
             ["-n", "auto", "runtime/api/"],
