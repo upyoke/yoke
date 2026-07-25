@@ -184,6 +184,23 @@ class WorkflowRuntime:
                 starts.append(start)
         return bool(starts) and position <= min(starts)
 
+    def allows_completed_claim_release(self, stage_id: str) -> bool:
+        """Whether a stage is a definition-owned successful handoff."""
+        if stage_id in self.terminal_stage_ids:
+            return True
+        through_stages = {
+            str(binding["through_stage_id"])
+            for binding in self.definition["executor_bindings"]
+        }
+        if stage_id in through_stages:
+            return True
+        position = self.stage_index(stage_id)
+        return (
+            self.policies["delivery"] == "release_stage"
+            and position is not None
+            and position == len(self.stage_ids) - 2
+        )
+
     def requires_item_path_claim_probe(self, stage_id: str) -> bool:
         """Whether leaving *stage_id* activates an item-level path claim."""
         from yoke_core.domain.workflow_gate_catalog import (

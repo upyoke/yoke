@@ -2,24 +2,20 @@
 
 from __future__ import annotations
 
-import os
 from typing import Any, Dict, List, Optional
-
-from yoke_core.domain.lifecycle import ItemStatus
 
 from . import db_backend
 from . import sessions_analytics as _sa
-from .sessions_analytics import EVENT_WORK_RELEASED, SessionError
+from .sessions_analytics import EVENT_WORK_RELEASED
 from .sessions_lifecycle_release_failure import (
     RELEASE_FAILURE_DOMAIN_ERROR,
-    diagnose_release_miss,
     diagnose_target_release_miss,
-    emit_release_failed,
     emit_target_release_failed,
     read_item_status,
 )
 from .sessions_lifecycle_release_precondition import emit_release_refused, evaluate_release_precondition
 from .sessions_queries import _now_iso, normalize_claim_item_id
+from .workflow_runtime import load_item_workflow_runtime
 from .work_claim_targets import (
     TARGET_KIND_EPIC_TASK,
     TARGET_KIND_ITEM,
@@ -52,17 +48,6 @@ def _canonical_release_reason(raw: str) -> str:
     return _RELEASE_REASON_SCHEMA_MAP.get(raw, "released")
 
 
-_COMPLETED_RELEASE_ALLOWED_ITEM_STATUSES = frozenset({
-    ItemStatus.REFINED_IDEA.value,
-    ItemStatus.PLAN_DRAFTED.value,
-    ItemStatus.PLANNED.value,
-    ItemStatus.REVIEWED_IMPLEMENTATION.value,
-    ItemStatus.IMPLEMENTED.value,
-    ItemStatus.RELEASE.value,
-    ItemStatus.DONE.value,
-})
-
-
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
@@ -88,7 +73,11 @@ def _validate_completed_release_status(
         return
 
     status = row["status"] if hasattr(row, "keys") else row[0]
-    if status in _COMPLETED_RELEASE_ALLOWED_ITEM_STATUSES:
+    try:
+        workflow = load_item_workflow_runtime(conn, item_id_int)
+    except Exception:
+        return
+    if workflow.allows_completed_claim_release(str(status)):
         return
 
     raise ValueError(

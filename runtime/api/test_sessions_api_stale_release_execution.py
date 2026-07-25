@@ -1,3 +1,4 @@
+# ruff: noqa: F811
 """TestReleaseItemClaimForExecution: AC-7 atomic release+focus-clear."""
 
 from __future__ import annotations
@@ -8,9 +9,16 @@ import pytest
 
 from runtime.api.test_sessions import _register, conn  # noqa: F401  (pytest fixture)
 from runtime.api.test_dependency_schema import ITEMS_SCHEMA
+from yoke_core.domain.builtin_workflow_definitions import (
+    builtin_workflow_definition,
+)
 from yoke_core.domain.sessions import (
     EVENT_WORK_RELEASED,
     claim_work,
+)
+from yoke_core.domain.workflow_registry import (
+    canonical_definition_json,
+    definition_digest,
 )
 from runtime.api.sessions_api_stale_test_helpers import (
     _now_literal,
@@ -20,6 +28,34 @@ from runtime.api.sessions_api_stale_test_helpers import (
 
 def _sun(item_id: int) -> str:
     return f"YOK-{item_id}"
+
+
+def _seed_issue_workflow(conn) -> None:
+    fixture = builtin_workflow_definition("issue")
+    definition = fixture["definition"]
+    apply_ddl_statements(
+        conn,
+        """
+        CREATE TABLE IF NOT EXISTS workflow_versions (
+            id INTEGER PRIMARY KEY,
+            workflow_id TEXT NOT NULL,
+            version INTEGER NOT NULL,
+            definition_json TEXT NOT NULL,
+            definition_digest TEXT NOT NULL
+        );
+        """,
+    )
+    conn.execute(
+        "INSERT INTO workflow_versions "
+        "(id, workflow_id, version, definition_json, definition_digest) "
+        "VALUES (1, 'issue', %s, %s, %s) "
+        "ON CONFLICT (id) DO NOTHING",
+        (
+            int(fixture["version"]),
+            canonical_definition_json(definition),
+            definition_digest(definition),
+        ),
+    )
 
 
 class TestReleaseItemClaimForExecution:
@@ -81,6 +117,7 @@ class TestReleaseItemClaimForExecution:
         from yoke_core.domain.sessions import release_item_claim_for_execution
 
         apply_ddl_statements(conn, ITEMS_SCHEMA)
+        _seed_issue_workflow(conn)
         _ts = _now_literal()
         conn.execute(
             "INSERT INTO items (id, title, status, created_at, updated_at)"
@@ -109,6 +146,7 @@ class TestReleaseItemClaimForExecution:
         from yoke_core.domain.sessions import release_item_claim_for_execution
 
         apply_ddl_statements(conn, ITEMS_SCHEMA)
+        _seed_issue_workflow(conn)
         _ts = _now_literal()
         conn.execute(
             "INSERT INTO items (id, title, status, created_at, updated_at)"

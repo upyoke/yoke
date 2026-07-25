@@ -11,7 +11,6 @@ from .sessions_lifecycle_registry import (
     set_session_mode,
 )
 from .sessions_lifecycle_release import (
-    _COMPLETED_RELEASE_ALLOWED_ITEM_STATUSES,
     _RELEASE_REASON_SCHEMA_MAP,
     _canonical_release_reason,
     _validate_completed_release_status,
@@ -31,7 +30,6 @@ __all__ = [
     "release_claim",
     "_RELEASE_REASON_SCHEMA_MAP",
     "_canonical_release_reason",
-    "_COMPLETED_RELEASE_ALLOWED_ITEM_STATUSES",
     "_validate_completed_release_status",
     "release_item_claim_for_execution",
     "release_work_claim_for_execution",

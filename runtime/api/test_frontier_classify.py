@@ -108,3 +108,15 @@ def test_reached_stage_uses_the_pinned_order_and_rejects_missing_stages():
     assert workflow.has_reached_stage("release", "implemented") is True
     assert workflow.has_reached_stage("refined-idea", "implemented") is False
     assert workflow.has_reached_stage("planning", "implemented") is False
+
+
+def test_completed_claim_release_uses_handoffs_and_delivery_policy():
+    issue = builtin_workflow_runtime("issue")
+    blitz = builtin_workflow_runtime("blitz")
+
+    assert issue.allows_completed_claim_release("refined-idea") is True
+    assert issue.allows_completed_claim_release("implemented") is True
+    assert issue.allows_completed_claim_release("release") is True
+    assert issue.allows_completed_claim_release("implementing") is False
+    assert blitz.allows_completed_claim_release("reviewing-implementation") is False
+    assert blitz.allows_completed_claim_release("done") is True
