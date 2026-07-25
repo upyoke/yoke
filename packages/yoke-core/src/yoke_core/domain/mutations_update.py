@@ -5,7 +5,6 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from .lifecycle import is_forward_transition, is_valid_epic_status, is_valid_issue_status, is_valid_item_status
 from .mutation_fields import (DONE_CLEANUP_FIELDS, REWORK_SOURCE_STATUSES, SUPPORTED_UPDATE_FIELDS, GateContext, ItemState, MutationEvent, MutationEventKind, MutationResult, validate_blocked, validate_blocked_reason, validate_frozen, validate_priority, validate_title)
 
 def prepare_update(
@@ -55,60 +54,39 @@ def prepare_update(
             )
 
     elif field_name == "status":
-        # Type-aware status validation.
-        # Issue items validate against the issue-workflow-type registry (rejects
-        # legacy shared-only statuses like defined/designed/planned/ready/
-        # active/review/validate/passed).  Epic items validate against the
-        # epic-workflow-type registry (rejects legacy shared-only statuses like
-        # defined/designed/ready/active/review/validate/passed).  All other
-        # types validate against the full shared registry.
-        if item.item_type == "issue":
-            if not is_valid_issue_status(value):
-                return MutationResult(
-                    success=False,
-                    error=(
-                        f"'{value}' is not a valid issue status. "
-                        f"Issue items use the issue-workflow-type lifecycle: "
-                        f"idea, refining-idea, refined-idea, implementing, "
-                        f"reviewing-implementation, reviewed-implementation, "
-                        f"polishing-implementation, "
-                        f"implemented, release, done "
-                        f"(plus blocked, stopped, failed, cancelled)."
-                    ),
-                    error_code="VALIDATION_ERROR",
-                    item_id=item.id,
-                )
-        elif item.item_type == "epic":
-            if not is_valid_epic_status(value):
-                return MutationResult(
-                    success=False,
-                    error=(
-                        f"'{value}' is not a valid epic status. "
-                        f"Epic items use the epic-workflow-type lifecycle: "
-                        f"idea, refining-idea, refined-idea, planning, "
-                        f"refining-plan, planned, implementing, "
-                        f"reviewing-implementation, reviewed-implementation, "
-                        f"polishing-implementation, "
-                        f"implemented, release, done "
-                        f"(plus blocked, stopped, failed, cancelled)."
-                    ),
-                    error_code="VALIDATION_ERROR",
-                    item_id=item.id,
-                )
-        else:
-            if not is_valid_item_status(value):
-                return MutationResult(
-                    success=False,
-                    error=f"'{value}' is not a valid item status",
-                    error_code="VALIDATION_ERROR",
-                    item_id=item.id,
-                )
+        workflow = item.workflow
+        if workflow is None:
+            return MutationResult(
+                success=False,
+                error=(
+                    f"Item {item.id} has no loaded workflow-version pin; "
+                    "status validation cannot proceed."
+                ),
+                error_code="WORKFLOW_PIN_REQUIRED",
+                item_id=item.id,
+            )
+        if not workflow.accepts_stage(value):
+            valid = ", ".join(workflow.stage_ids)
+            return MutationResult(
+                success=False,
+                error=(
+                    f"'{value}' is not a valid stage for "
+                    f"{workflow.workflow_id}@{workflow.version}. "
+                    f"Defined stages: {valid} (plus universal exceptional "
+                    "stages blocked, stopped, failed, cancelled)."
+                ),
+                error_code="VALIDATION_ERROR",
+                item_id=item.id,
+            )
 
         # --- Status transition gates ---
 
         # Epic task existence gate: block implementing for taskless epics
         # Updated from legacy ready/active to epic-family implementing
-        if value in ("implementing",) and item.item_type == "epic":
+        if (
+            value == "implementing"
+            and workflow.policies["generated_children"] == "epic_tasks"
+        ):
             if gate.epic_task_count is not None:
                 if gate.epic_task_count == 0:
                     return MutationResult(
@@ -122,7 +100,10 @@ def prepare_update(
                     )
 
         # Done-ceremony nonce gate: mutation layer trusts caller assertion
-        if value == "done":
+        if (
+            value == "done"
+            and workflow.policies["delivery"] == "release_stage"
+        ):
             if not gate.force and not gate.done_nonce_verified:
                 return MutationResult(
                     success=False,
@@ -135,7 +116,10 @@ def prepare_update(
                 )
 
         # Epic merge gate: block epics from done without merged_at
-        if value == "done" and item.item_type == "epic":
+        if (
+            value == "done"
+            and workflow.policies["generated_children"] == "epic_tasks"
+        ):
             if not gate.has_merged_at and not gate.force:
                 return MutationResult(
                     success=False,
@@ -236,7 +220,10 @@ def prepare_update(
             detail={
                 "from_status": item.status,
                 "to_status": value,
-                "is_forward": is_forward_transition(item.status, value, item_type=item.item_type),
+                "is_forward": workflow.is_forward_transition(
+                    item.status,
+                    value,
+                ),
             },
         ))
 

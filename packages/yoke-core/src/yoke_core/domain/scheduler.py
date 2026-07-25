@@ -10,8 +10,9 @@ from yoke_core.domain.strategy_docs_defaults import DEFAULT_STRATEGY_DOC_SLUGS
 from .frontier import AdapterCategory, FrontierResult, compute_frontier as compute_raw_frontier
 from .project_scope import normalize_project_scope
 from .scheduler_claims import _evaluate_claim_states
+from .scheduler_exceptional import project_slug_or_id, query_exceptional_items
 from .scheduler_events import _emit_frontier_step_selected, _logger
-from .scheduler_routing import _EPIC_ADAPTER_MAP, _StepResult, _compute_next_step
+from .scheduler_routing import _compute_next_step
 from .scheduler_types import (
     ClaimState,
     GateEvaluation,
@@ -75,55 +76,6 @@ def _compute_sml_state(
 
 
 # ---------------------------------------------------------------------------
-# Exceptional-state visibility (failed items)
-# ---------------------------------------------------------------------------
-
-_FAILED_STATUS = "failed"
-
-
-def _query_exceptional_items(
-    conn: Any,
-    project_scope: List[int],
-) -> List[Dict[str, Any]]:
-    """Query items in failed status across the given project scope."""
-    if not project_scope:
-        return []
-    p = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    placeholders = ", ".join(p for _ in project_scope)
-    try:
-        rows = conn.execute(
-            f"""SELECT id, title, status, priority, project_id, type, created_at
-               FROM items
-               WHERE project_id IN ({placeholders})
-                 AND status = {p}
-                 AND (frozen IS NULL OR frozen = 0)""",
-            (*project_scope, _FAILED_STATUS),
-        ).fetchall()
-        return [dict(r) for r in rows] if rows else []
-    except db_backend.operational_error_types(conn):
-        if db_backend.connection_is_postgres(conn):
-            try:
-                conn.rollback()
-            except Exception:
-                pass
-        return []
-    except IndexError:
-        return []
-
-
-def _project_slug_or_id(conn: Any, project_id: Any) -> str:
-    """Resolve a project id to its slug, falling back to the raw id text."""
-    if project_id is None:
-        return ""
-    from .project_identity import resolve_project_slug
-
-    try:
-        return resolve_project_slug(conn, int(project_id))
-    except Exception:
-        return str(project_id)
-
-
-# ---------------------------------------------------------------------------
 # Main entry point — compute_schedule
 # ---------------------------------------------------------------------------
 
@@ -181,7 +133,7 @@ def compute_schedule(
 
     conduct_eligible_ids = {fi.item_id for fi in raw.conduct_eligible}
 
-    # 5. Convert runnable FrontierItems to ScheduledSteps with type-aware next_step
+    # 5. Convert runnable FrontierItems to definition-selected next steps.
     ranked_steps: List[ScheduledStep] = []
     for rank_idx, fi in enumerate(raw.runnable):
         # Strip the "YOK-" prefix when present so the probe gets a bare int.
@@ -193,12 +145,14 @@ def compute_schedule(
         except (TypeError, ValueError):
             _probe_item_id = None
         step_result = _compute_next_step(
-            fi.item_type, fi.status, fi.adapter,
+            fi.workflow_id, fi.status, fi.adapter,
             conn=conn, item_id=_probe_item_id,
         )
         step = ScheduledStep(
             item_id=fi.item_id,
-            item_type=fi.item_type,
+            workflow_id=fi.workflow_id,
+            workflow_version_id=fi.workflow_version_id,
+            workflow_version=fi.workflow_version,
             status=fi.status,
             title=fi.title,
             priority=fi.priority,
@@ -206,7 +160,10 @@ def compute_schedule(
             project=fi.project,
             rank=rank_idx,
             claim_state=claims.get(fi.item_id, ClaimState.UNCLAIMED),
-            explanation=f"Ranked #{rank_idx + 1}: {step_result.next_step.value} for {fi.item_type} in {fi.status}",
+            explanation=(
+                f"Ranked #{rank_idx + 1}: {step_result.next_step.value} "
+                f"for {fi.workflow_id}@{fi.workflow_version} in {fi.status}"
+            ),
             adapter=fi.adapter.value if isinstance(fi.adapter, AdapterCategory) else str(fi.adapter),
             blocked_by=fi.blocked_by,
             blocked_reasons=fi.blocked_reasons,
@@ -241,7 +198,9 @@ def compute_schedule(
                 ))
         step = ScheduledStep(
             item_id=fi.item_id,
-            item_type=fi.item_type,
+            workflow_id=fi.workflow_id,
+            workflow_version_id=fi.workflow_version_id,
+            workflow_version=fi.workflow_version,
             status=fi.status,
             title=fi.title,
             priority=fi.priority,
@@ -261,17 +220,19 @@ def compute_schedule(
 
     # 7. Query exceptional items (failed)
     exceptional_steps: List[ScheduledStep] = []
-    exceptional_items = _query_exceptional_items(conn, project_scope)
+    exceptional_items = query_exceptional_items(conn, project_scope)
     for ei in exceptional_items:
         item_id_str = f"YOK-{ei['id']}"
         exceptional_steps.append(ScheduledStep(
             item_id=item_id_str,
-            item_type=ei.get("type", "issue"),
+            workflow_id=ei.get("workflow_id") or "",
+            workflow_version_id=int(ei.get("workflow_version_id") or 0),
+            workflow_version=int(ei.get("workflow_version") or 0),
             status=ei.get("status", "failed"),
             title=ei.get("title", ""),
             priority=ei.get("priority", "medium"),
             next_step=NextStep.WAIT,
-            project=_project_slug_or_id(conn, ei.get("project_id")),
+            project=project_slug_or_id(conn, ei.get("project_id")),
             explanation=f"Exceptional: item is in {ei.get('status', 'failed')} status",
             created_at=ei.get("created_at", ""),
         ))
@@ -281,7 +242,9 @@ def compute_schedule(
     for fi in raw.frozen:
         frozen_steps.append(ScheduledStep(
             item_id=fi.item_id,
-            item_type=fi.item_type,
+            workflow_id=fi.workflow_id,
+            workflow_version_id=fi.workflow_version_id,
+            workflow_version=fi.workflow_version,
             status=fi.status,
             title=fi.title,
             priority=fi.priority,
@@ -303,10 +266,7 @@ def compute_schedule(
     #     as assignable so stale sessions never block forward progress.
     selected: Optional[ScheduledStep] = None
     for step in ranked_steps:
-        # conduct_eligible_ids gates epic conduct eligibility only.
-        # ADVANCE items (issue-workflow-type) route to /yoke advance and do NOT
-        # go through the conduct pipeline, so they must not be filtered here
-        # .
+        # conduct_eligible_ids gates only definition-selected conduct work.
         if step.next_step == NextStep.CONDUCT and step.item_id not in conduct_eligible_ids:
             continue
         if is_assignable_claim_state(step.claim_state):
@@ -339,14 +299,11 @@ __all__ = [
     "GateEvaluation",
     "ScheduledStep",
     "SchedulerResult",
-    "_EPIC_ADAPTER_MAP",
-    "_StepResult",
     "_compute_next_step",
     "_evaluate_claim_states",
     "_compute_sml_state",
-    "_query_exceptional_items",
+    "query_exceptional_items",
     "compute_schedule",
     "_emit_frontier_step_selected",
     "_logger",
-    "Path",
 ]

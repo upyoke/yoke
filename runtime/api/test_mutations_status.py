@@ -13,6 +13,7 @@ from yoke_core.domain.mutations import (
     MutationEventKind,
     prepare_update,
 )
+from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
 
 TEST_ITEM_ID = 42
 TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"
@@ -30,6 +31,7 @@ def _make_item(**overrides) -> ItemState:
         project="yoke",
     )
     defaults.update(overrides)
+    defaults["workflow"] = builtin_workflow_runtime(defaults["item_type"])
     return ItemState(**defaults)
 
 
@@ -73,7 +75,8 @@ class TestStatusTransition:
             )
             assert result.success is False, f"Expected rejection of '{legacy}' for issue"
             assert result.error_code == "VALIDATION_ERROR"
-            assert "issue-workflow-type lifecycle" in result.error
+            assert "issue@1" in result.error
+            assert "Defined stages:" in result.error
 
     def test_issue_accepts_issue_family_statuses(self):
         """FR-3: Issue items accept all issue-workflow-type statuses."""
@@ -132,7 +135,8 @@ class TestStatusTransition:
             )
             assert result.success is False, f"Expected rejection of '{legacy}' for epic"
             assert result.error_code == "VALIDATION_ERROR"
-            assert "epic-workflow-type lifecycle" in result.error
+            assert "epic@1" in result.error
+            assert "Defined stages:" in result.error
 
     def test_epic_accepts_exceptional_statuses(self):
         """FR-3: Epic items accept exceptional statuses."""
@@ -169,20 +173,8 @@ class TestStatusTransition:
         event = [e for e in result.events if e.kind == MutationEventKind.STATUS_TRANSITIONED][0]
         assert event.detail["is_forward"] is False
 
-    def test_forward_transition_flag_issue_item_passes_item_type(self, monkeypatch):
-        """Issue-item transition metadata forwards item_type to the lifecycle helper."""
-
-        captured = {}
-
-        def fake_is_forward_transition(from_status, to_status, *, item_type=None):
-            captured["call"] = (from_status, to_status, item_type)
-            return True
-
-        monkeypatch.setattr(
-            "yoke_core.domain.mutations.is_forward_transition",
-            fake_is_forward_transition,
-        )
-
+    def test_forward_transition_flag_uses_pinned_workflow(self):
+        """Transition metadata is interpreted from the pinned definition."""
         item = _make_item(item_type="issue", status="idea")
         gate = _make_gate(done_nonce_verified=True)
         result = prepare_update(
@@ -190,7 +182,12 @@ class TestStatusTransition:
         )
 
         assert result.success is True
-        assert captured["call"] == ("idea", "implementing", "issue")
+        transition = next(
+            event
+            for event in result.events
+            if event.kind == MutationEventKind.STATUS_TRANSITIONED
+        )
+        assert transition.detail["is_forward"] is True
         event = [e for e in result.events if e.kind == MutationEventKind.STATUS_TRANSITIONED][0]
         assert event.detail["is_forward"] is True
 

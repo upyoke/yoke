@@ -12,6 +12,12 @@ from .frontier_classify import classify_next_action
 from .frontier_depth import _compute_downstream_depths
 from .frontier_rank import rank_frontier
 from .frontier_recent_owner import routed_ownership_exclusions
+from .frontier_sql import (
+    FRONTIER_ITEMS_SQL_PREFIX,
+    FRONTIER_ITEMS_SQL_SUFFIX,
+    UNBLOCKS_COUNT_SQL,
+    WIP_COUNT_SQL_PREFIX,
+)
 from .frontier_types import AdapterCategory, FrontierItem, FrontierResult
 from .idea_body_completeness import (
     INCOMPLETE_REASON as _IDEA_INCOMPLETE_REASON,
@@ -21,48 +27,7 @@ from .project_identity import resolve_project_slug
 from .project_scope import normalize_project_scope
 from .queries import is_blocked, is_frozen, sql_frozen_filter
 from .runtime_settings import get_seconds
-
-
-_FRONTIER_ITEMS_SQL_PREFIX = """
-SELECT
-    i.id,
-    i.title,
-    i.status,
-    i.priority,
-    i.project_id AS project,
-    i.type,
-    i.frozen,
-    i.blocked,
-    i.blocked_reason,
-    i.created_at,
-    i.spec
-FROM items i
-WHERE i.status IN (
-    'idea', 'planned', 'release',
-    'blocked',
-    'refining-idea', 'refined-idea',
-    'implementing', 'reviewing-implementation', 'reviewed-implementation',
-    'polishing-implementation', 'implemented',
-    'planning', 'plan-drafted', 'refining-plan'
-)
-"""
-
-_FRONTIER_ITEMS_SQL_SUFFIX = " ORDER BY i.id"
-
-_UNBLOCKS_COUNT_SQL = """
-SELECT
-    d.blocking_item,
-    COUNT(DISTINCT d.dependent_item) AS unblocks
-FROM item_dependencies d
-WHERE d.gate_point = 'activation'
-GROUP BY d.blocking_item
-"""
-
-_WIP_COUNT_SQL_PREFIX = """
-SELECT COUNT(*) FROM items
-WHERE status IN ('implementing', 'reviewing-implementation')
-"""
-
+from .workflow_runtime import workflow_runtime_from_row
 
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
@@ -103,7 +68,7 @@ def compute_frontier(
     cursor = conn.cursor()
 
     project_clause = _project_scope_clause(conn, project_scope)
-    items_sql = _FRONTIER_ITEMS_SQL_PREFIX + project_clause + _FRONTIER_ITEMS_SQL_SUFFIX
+    items_sql = FRONTIER_ITEMS_SQL_PREFIX + project_clause + FRONTIER_ITEMS_SQL_SUFFIX
     cursor.execute(items_sql, tuple(project_scope))
     rows = cursor.fetchall()
     col_names = [desc[0] for desc in cursor.description]
@@ -124,7 +89,7 @@ def compute_frontier(
         ]
         blocker_details_map[dep_item] = [d.to_dict() for d in details]
 
-    cursor.execute(_UNBLOCKS_COUNT_SQL)
+    cursor.execute(UNBLOCKS_COUNT_SQL)
     unblocks_map: Dict[str, int] = {}
     for blk_item, count in cursor.fetchall():
         unblocks_map[blk_item] = count
@@ -133,7 +98,7 @@ def compute_frontier(
 
     frozen_filter = sql_frozen_filter(False)
     wip_project_clause = _wip_project_scope_clause(conn, project_scope)
-    wip_sql = _WIP_COUNT_SQL_PREFIX + wip_project_clause + f" AND ({frozen_filter})"
+    wip_sql = WIP_COUNT_SQL_PREFIX + wip_project_clause + f" AND ({frozen_filter})"
     cursor.execute(wip_sql, tuple(project_scope))
     wip_active = cursor.fetchone()[0]
 
@@ -162,8 +127,9 @@ def compute_frontier(
         item = dict(zip(col_names, row))
         item_id_str = f"YOK-{item['id']}"
         status = item["status"]
-
-        adapter = classify_next_action(status, item_type=item["type"])
+        workflow = workflow_runtime_from_row(item)
+        adapter = classify_next_action(workflow, status)
+        stage_index = workflow.stage_index(status)
 
         fi = FrontierItem(
             item_id=item_id_str,
@@ -171,7 +137,10 @@ def compute_frontier(
             status=status,
             priority=item["priority"],
             project=_project_label(item["project"]),
-            item_type=item["type"],
+            workflow_id=workflow.workflow_id,
+            workflow_version_id=workflow.workflow_version_id,
+            workflow_version=workflow.version,
+            stage_index=stage_index if stage_index is not None else -1,
             adapter=adapter,
             unblocks_count=unblocks_map.get(item_id_str, 0),
             downstream_depth=depth_map.get(item_id_str, 0),

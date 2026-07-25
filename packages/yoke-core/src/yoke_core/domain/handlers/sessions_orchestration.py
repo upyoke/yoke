@@ -241,7 +241,9 @@ def _resolve_default_wip_cap(project_scope: List[int]) -> int:
 def _scheduled_step_to_dict(step: Any) -> Dict[str, Any]:
     return {
         "item_id": step.item_id,
-        "item_type": step.item_type,
+        "workflow_id": step.workflow_id,
+        "workflow_version_id": step.workflow_version_id,
+        "workflow_version": step.workflow_version,
         "status": step.status,
         "title": step.title,
         "priority": step.priority,

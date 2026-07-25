@@ -83,7 +83,8 @@ class TestReadyRows:
         # cell is exactly the copy-paste invocation.
         assert row["next_step"] == "advance"
         assert row["run_command"] == "yoke advance YOK-11"
-        assert row["item_type"] == "issue"
+        assert row["workflow_id"] == "issue"
+        assert row["workflow_version"] == 1
         assert row["project"] == "yoke"
         assert row["status"] == "implementing"
         # Readiness prose is composed server-side from computed facts.

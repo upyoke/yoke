@@ -117,8 +117,9 @@ class TestWipCapExtended:
 
         result = compute_frontier(conn, project_scope=["yoke"], wip_cap=100)
         assert result.wip_active == 1
-        # 4 conduct items: 1 implementing + 3 planned (all fit within wip_cap=100)
-        assert len(result.conduct_eligible) == 4
+        # The Issue implementing row routes to Advance and does not consume
+        # Epic Conduct headroom; all three planned Epics fit.
+        assert len(result.conduct_eligible) == 3
 
     def test_wip_cap_exactly_full(self):
         """WIP cap exactly equals active count: zero conduct eligible."""
@@ -196,6 +197,7 @@ class TestPerformance:
             _insert_item(
                 conn, i,
                 status=statuses[i % len(statuses)],
+                item_type="epic",
                 priority=priorities[i % len(priorities)],
                 created_at=f"2026-01-{(i % 28) + 1:02d}T{(i % 24):02d}:00:00Z",
             )
@@ -228,6 +230,7 @@ class TestPerformance:
             _insert_item(
                 conn, i,
                 status=statuses[i % len(statuses)],
+                item_type="epic",
                 priority=["high", "medium", "low"][i % 3],
                 created_at=f"2026-01-{(i % 28) + 1:02d}T00:00:00Z",
             )

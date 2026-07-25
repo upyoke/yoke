@@ -27,6 +27,8 @@ def test_file_line_gate_is_lifecycle_noop(tmp_path) -> None:
 
 def test_authoritative_gate_still_composes_file_line_noop(tmp_path) -> None:
     db_path = str(tmp_path / "fake.db")
+    from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
+
     with mock.patch.object(
         helpers, "_run_db_mutation_gate", return_value=None
     ), mock.patch.object(
@@ -43,6 +45,10 @@ def test_authoritative_gate_still_composes_file_line_noop(tmp_path) -> None:
         "yoke_core.domain.backlog_authoritative_status_gate"
         "._evaluate_qa_verification",
         return_value=None,
+    ), mock.patch(
+        "yoke_core.domain.backlog_authoritative_status_gate"
+        ".load_item_workflow_runtime",
+        return_value=builtin_workflow_runtime("issue"),
     ):
         result = _run_authoritative_status_gate(
             item_id=1,

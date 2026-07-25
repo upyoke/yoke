@@ -23,6 +23,9 @@ from yoke_core.domain.project_identity import (
 )
 from yoke_core.domain.project_seed_test_helpers import SEED_PROJECT_IDS
 from yoke_core.domain.schema_common import _column_exists
+from runtime.api.fixtures.workflow_pins import (
+    current_workflow_pin_if_available,
+)
 
 
 def _now() -> str:
@@ -97,6 +100,16 @@ def insert_item(
         cols["project_sequence"] = extra.pop("project_sequence", id)
     elif _table_has_column(conn, "items", "project"):
         cols["project"] = project
+    if (
+        _table_has_column(conn, "items", "workflow_id")
+        and "workflow_id" not in extra
+        and "workflow_version_id" not in extra
+    ):
+        pin = current_workflow_pin_if_available(conn, type)
+        if pin is not None:
+            workflow_id, workflow_version_id = pin
+            cols["workflow_id"] = workflow_id
+            cols["workflow_version_id"] = workflow_version_id
     cols.update(extra)
     col_names = ", ".join(cols.keys())
     p = _placeholder(conn)

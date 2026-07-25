@@ -1,4 +1,4 @@
-"""Type-aware next-step routing tests for yoke_core.domain.scheduler."""
+"""Definition-selected next-step routing tests."""
 from __future__ import annotations
 
 from runtime.api.fixtures import pg_testdb
@@ -11,9 +11,9 @@ from yoke_core.domain.frontier import AdapterCategory
 
 
 class TestComputeNextStep:
-    """Verify type-aware next-step mapping."""
+    """Verify registered executor-to-step mapping."""
 
-    # -- Issue-workflow-type: refine --
+    # -- Issue workflow: refine --
     def test_issue_idea_maps_to_refine(self):
         result = _compute_next_step("issue", "idea", AdapterCategory.REFINE)
         assert result.next_step == NextStep.REFINE
@@ -22,20 +22,20 @@ class TestComputeNextStep:
         result = _compute_next_step("issue", "refining-idea", AdapterCategory.REFINE)
         assert result.next_step == NextStep.REFINE
 
-    # -- Issue-workflow-type: advance — AC-12, AC-20 --
+    # -- Issue workflow: advance --
     def test_issue_refined_idea_maps_to_advance(self):
-        result = _compute_next_step("issue", "refined-idea", AdapterCategory.CONDUCT)
+        result = _compute_next_step("issue", "refined-idea", AdapterCategory.ADVANCE)
         assert result.next_step == NextStep.ADVANCE
 
     def test_issue_implementing_maps_to_advance(self):
-        result = _compute_next_step("issue", "implementing", AdapterCategory.CONDUCT)
+        result = _compute_next_step("issue", "implementing", AdapterCategory.ADVANCE)
         assert result.next_step == NextStep.ADVANCE
 
     def test_issue_reviewing_implementation_maps_to_advance(self):
-        result = _compute_next_step("issue", "reviewing-implementation", AdapterCategory.CONDUCT)
+        result = _compute_next_step("issue", "reviewing-implementation", AdapterCategory.ADVANCE)
         assert result.next_step == NextStep.ADVANCE
 
-    # -- Issue-workflow-type: polish --
+    # -- Issue workflow: polish --
     def test_issue_reviewed_implementation_maps_to_polish(self):
         result = _compute_next_step("issue", "reviewed-implementation", AdapterCategory.POLISH)
         assert result.next_step == NextStep.POLISH
@@ -44,7 +44,7 @@ class TestComputeNextStep:
         result = _compute_next_step("issue", "polishing-implementation", AdapterCategory.POLISH)
         assert result.next_step == NextStep.POLISH
 
-    # -- Issue-workflow-type: usher --
+    # -- Issue workflow: usher --
     def test_issue_implemented_maps_to_usher(self):
         result = _compute_next_step("issue", "implemented", AdapterCategory.USHER)
         assert result.next_step == NextStep.USHER
@@ -53,10 +53,10 @@ class TestComputeNextStep:
         result = _compute_next_step("issue", "release", AdapterCategory.USHER)
         assert result.next_step == NextStep.USHER
 
-    # -- Epic-workflow-type: explicit routing --
+    # -- Epic workflow: explicit routing --
     def test_epic_idea_maps_to_refine(self):
         """AC-1: epic idea -> refine."""
-        result = _compute_next_step("epic", "idea", AdapterCategory.SHEPHERD)
+        result = _compute_next_step("epic", "idea", AdapterCategory.REFINE)
         assert result.next_step == NextStep.REFINE
 
     def test_epic_refining_idea_maps_to_refine(self):
@@ -66,7 +66,7 @@ class TestComputeNextStep:
 
     def test_epic_refined_idea_maps_to_shepherd(self):
         """AC-2: epic refined-idea -> shepherd."""
-        result = _compute_next_step("epic", "refined-idea", AdapterCategory.CONDUCT)
+        result = _compute_next_step("epic", "refined-idea", AdapterCategory.SHEPHERD)
         assert result.next_step == NextStep.SHEPHERD
 
     def test_epic_planning_maps_to_shepherd(self):
@@ -86,7 +86,7 @@ class TestComputeNextStep:
 
     def test_epic_planned_maps_to_conduct(self):
         """AC-5: epic planned -> conduct."""
-        result = _compute_next_step("epic", "planned", AdapterCategory.SHEPHERD)
+        result = _compute_next_step("epic", "planned", AdapterCategory.CONDUCT)
         assert result.next_step == NextStep.CONDUCT
 
     def test_epic_implementing_maps_to_conduct(self):
@@ -124,17 +124,17 @@ class TestComputeNextStep:
         result = _compute_next_step("epic", "defined", AdapterCategory.SHEPHERD)
         assert result.next_step == NextStep.SHEPHERD
 
-    # -- Shared/legacy statuses on issues -> ADVANCE (AC-20: conduct rejects issues) --
+    # -- Legacy issue statuses preserve their explicitly selected adapter --
     def test_issue_in_ready_maps_to_advance(self):
-        result = _compute_next_step("issue", "ready", AdapterCategory.CONDUCT)
+        result = _compute_next_step("issue", "ready", AdapterCategory.ADVANCE)
         assert result.next_step == NextStep.ADVANCE
 
     def test_issue_in_active_maps_to_advance(self):
-        result = _compute_next_step("issue", "active", AdapterCategory.CONDUCT)
+        result = _compute_next_step("issue", "active", AdapterCategory.ADVANCE)
         assert result.next_step == NextStep.ADVANCE
 
     def test_issue_in_review_maps_to_advance(self):
-        result = _compute_next_step("issue", "review", AdapterCategory.CONDUCT)
+        result = _compute_next_step("issue", "review", AdapterCategory.ADVANCE)
         assert result.next_step == NextStep.ADVANCE
 
     def test_issue_in_passed_maps_to_usher(self):
@@ -149,7 +149,7 @@ class TestComputeNextStep:
         result = _compute_next_step("issue", "blocked", AdapterCategory.WAIT)
         assert result.next_step == NextStep.WAIT
 
-    # -- Epic-workflow-type routing via _EPIC_ADAPTER_MAP --
+    # -- Legacy epic statuses preserve their explicitly selected adapter --
     def test_epic_active_maps_to_conduct_legacy(self):
         """Legacy status active -> falls through to default adapter (CONDUCT)."""
         result = _compute_next_step("epic", "active", AdapterCategory.CONDUCT)
@@ -275,7 +275,7 @@ class TestAdvanceFeasibilityProbeRewrite:
         self._seed(conn)
         try:
             result = _compute_next_step(
-                "issue", "refined-idea", AdapterCategory.CONDUCT,
+                "issue", "refined-idea", AdapterCategory.ADVANCE,
                 conn=conn, item_id=42,
             )
             assert result.next_step == NextStep.REFINE
@@ -301,7 +301,7 @@ class TestAdvanceFeasibilityProbeRewrite:
             )
         try:
             result = _compute_next_step(
-                "issue", "refined-idea", AdapterCategory.CONDUCT,
+                "issue", "refined-idea", AdapterCategory.ADVANCE,
                 conn=conn, item_id=42,
             )
             assert result.next_step == NextStep.ADVANCE
@@ -315,7 +315,7 @@ class TestAdvanceFeasibilityProbeRewrite:
         conn = self._make_db()
         # No schema needed — the probe never runs.
         result = _compute_next_step(
-            "issue", "implementing", AdapterCategory.CONDUCT,
+            "issue", "implementing", AdapterCategory.ADVANCE,
             conn=conn, item_id=99,
         )
         conn.close()

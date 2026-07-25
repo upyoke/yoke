@@ -18,6 +18,7 @@ from typing import Any
 from yoke_core.domain import mutations
 from yoke_core.domain.project_identity import resolve_project
 from yoke_core.domain.schema_common import _table_exists as _schema_table_exists
+from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 
 
 def _load_item_state(conn: Any, item_id: int) -> mutations.ItemState | None:
@@ -45,6 +46,7 @@ def _load_item_state(conn: Any, item_id: int) -> mutations.ItemState | None:
         deployed_to=d.get("deployed_to"),
         worktree=d.get("worktree"),
         merged_at=d.get("merged_at"),
+        workflow=load_item_workflow_runtime(conn, item_id),
     )
 
 

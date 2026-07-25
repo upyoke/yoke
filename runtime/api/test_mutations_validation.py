@@ -16,6 +16,7 @@ from yoke_core.domain.mutations import (
     MutationResult,
     prepare_update,
 )
+from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
 
 
 def _make_item(**overrides) -> ItemState:
@@ -30,6 +31,7 @@ def _make_item(**overrides) -> ItemState:
         project="yoke",
     )
     defaults.update(overrides)
+    defaults["workflow"] = builtin_workflow_runtime(defaults["item_type"])
     return ItemState(**defaults)
 
 

@@ -12,6 +12,11 @@ import pytest
 from yoke_core.domain import db_backend
 from yoke_core.domain.backlog_updates_helpers import _run_authoritative_status_gate
 from yoke_core.domain.schema_init_apply import execute_schema_script
+from yoke_core.domain.workflow_registry import (
+    converge_builtin_workflows,
+    resolve_current_workflow_pin,
+)
+from yoke_core.domain.workflow_schema import ensure_workflow_schema
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.fixtures.backlog import (
     SCHEMA_DDL,
@@ -50,6 +55,8 @@ def helper_db(tmp_path: Path):
     conn = connect_test_db(str(db_file))
     execute_schema_script(conn, SCHEMA_DDL)
     execute_schema_script(conn, _EXTRA_DDL)
+    ensure_workflow_schema(conn)
+    converge_builtin_workflows(conn)
     conn.commit()
     yield conn, str(db_file)
     conn.close()
@@ -62,6 +69,13 @@ def _seed_item(conn, item_id: int) -> None:
         status="plan-drafted",
         db_mutation_profile='{"state":"none"}',
     )
+    workflow_id, version_id = resolve_current_workflow_pin(conn, "epic")
+    conn.execute(
+        "UPDATE items SET workflow_id = %s, workflow_version_id = %s "
+        "WHERE id = %s",
+        (workflow_id, version_id, item_id),
+    )
+    conn.commit()
 
 
 def _seed_req(

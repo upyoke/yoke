@@ -26,6 +26,8 @@ class NextStep(str, Enum):
     SHEPHERD = "shepherd"
     CONDUCT = "conduct"
     ADVANCE = "advance"
+    BLITZ = "blitz"
+    DASH = "dash"
     POLISH = "polish"
     USHER = "usher"
     WAIT = "wait"
@@ -159,7 +161,7 @@ class ScheduledStep:
 
     Attributes:
         item_id: Item identifier (``YOK-N``).
-        item_type: ``epic`` or ``issue``.
+        workflow_id: Stable workflow identity.
         status: Current canonical status.
         title: Item title.
         priority: Priority level.
@@ -180,7 +182,9 @@ class ScheduledStep:
     """
 
     item_id: str
-    item_type: str
+    workflow_id: str
+    workflow_version_id: int
+    workflow_version: int
     status: str
     title: str
     priority: str

@@ -142,6 +142,12 @@ def _item_num(item_id) -> int:
     return int(text)
 
 
+def _workflow_pin(conn, workflow_id: str) -> tuple[str, int]:
+    from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
+
+    return resolve_current_workflow_pin(conn, workflow_id)
+
+
 def _apply_scheduler_schema() -> None:
     """``apply_schema`` strategy that builds the scheduler-test ``SCHEMA``.
 
@@ -153,6 +159,11 @@ def _apply_scheduler_schema() -> None:
     conn = db_backend.connect()
     try:
         apply_fixture_ddl(conn, SCHEMA)
+        from yoke_core.domain.workflow_registry import converge_builtin_workflows
+        from yoke_core.domain.workflow_schema import ensure_workflow_schema
+
+        ensure_workflow_schema(conn)
+        converge_builtin_workflows(conn)
         conn.commit()
     finally:
         conn.close()
@@ -171,8 +182,7 @@ def scheduler_db(tmp_path):
         conn = connect_test_db(db_path)
         p = "%s" if db_backend.connection_is_postgres(conn) else "?"
 
-        # Seed items: different types and statuses for type-aware routing
-        # Statuses use the canonical lifecycle
+        # Seed items across the built-in pinned workflows and stages.
         items = [
             (1, "Refined issue", "issue", "refined-idea", "high"),
             (2, "Idea issue", "issue", "idea", "medium"),
@@ -184,13 +194,25 @@ def scheduler_db(tmp_path):
             (8, "Refined epic", "epic", "refined-idea", "medium"),
         ]
         for item_id, title, item_type, status, priority in items:
+            workflow_id, workflow_version_id = _workflow_pin(conn, item_type)
             conn.execute(
                 """INSERT INTO items
                    (id, title, type, status, priority, project_id,
-                    project_sequence, created_at, updated_at, source, frozen)
+                    project_sequence, created_at, updated_at, source, frozen,
+                    workflow_id, workflow_version_id)
                    VALUES ({p}, {p}, {p}, {p}, {p}, 1,
-                           {p}, '2026-03-01', '2026-03-01', 'user', 0)""".format(p=p),
-                (item_id, title, item_type, status, priority, item_id),
+                           {p}, '2026-03-01', '2026-03-01', 'user', 0,
+                           {p}, {p})""".format(p=p),
+                (
+                    item_id,
+                    title,
+                    item_type,
+                    status,
+                    priority,
+                    item_id,
+                    workflow_id,
+                    workflow_version_id,
+                ),
             )
 
         seed_strategy_docs(conn, project_id=1)

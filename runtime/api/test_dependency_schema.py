@@ -120,4 +120,9 @@ def create_dependency_test_db() -> Any:
         conn,
         PROJECTS_SCHEMA + ITEMS_SCHEMA + ITEM_DEPENDENCIES_SCHEMA + CLAIM_STATE_SCHEMA,
     )
+    from yoke_core.domain.workflow_registry import converge_builtin_workflows
+    from yoke_core.domain.workflow_schema import ensure_workflow_schema
+
+    ensure_workflow_schema(conn)
+    converge_builtin_workflows(conn)
     return drop_database_on_close(conn, db_name)

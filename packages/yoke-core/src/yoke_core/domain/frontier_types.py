@@ -10,9 +10,12 @@ from typing import Any, List
 class AdapterCategory(str, Enum):
     """Downstream adapter that should handle a frontier item."""
 
+    ADVANCE = "advance"
+    BLITZ = "blitz"
     SHEPHERD = "shepherd"
     REFINE = "refine"
     CONDUCT = "conduct"
+    DASH = "dash"
     POLISH = "polish"
     USHER = "usher"
     WAIT = "wait"
@@ -28,7 +31,10 @@ class FrontierItem:
     status: str
     priority: str
     project: str
-    item_type: str
+    workflow_id: str
+    workflow_version_id: int
+    workflow_version: int
+    stage_index: int
     adapter: AdapterCategory
     blocked_by: List[str] = field(default_factory=list)
     blocked_reasons: List[str] = field(default_factory=list)

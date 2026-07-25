@@ -27,6 +27,7 @@ from yoke_core.domain.mutations import (
     validate_title,
     validate_type,
 )
+from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
 
 TEST_ITEM_ID = 42
 TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"
@@ -50,6 +51,7 @@ def _make_item(**overrides) -> ItemState:
         project="yoke",
     )
     defaults.update(overrides)
+    defaults["workflow"] = builtin_workflow_runtime(defaults["item_type"])
     return ItemState(**defaults)
 
 

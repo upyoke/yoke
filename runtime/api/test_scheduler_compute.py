@@ -16,6 +16,7 @@ from yoke_core.domain.scheduler import (
 # Re-export the fixture so pytest discovers it in this module.
 from runtime.api.scheduler_test_fixtures import (  # noqa: F401
     _item_num,
+    _workflow_pin,
     scheduler_db,
 )
 
@@ -68,24 +69,35 @@ class TestComputeSchedule:
         the WIP cap is exhausted.
         """
         conn = scheduler_db["conn"]
+        workflow_id, workflow_version_id = _workflow_pin(conn, "issue")
         # Insert an issue in implementing (routes to ADVANCE)
         conn.execute(
             """INSERT INTO items
                (id, title, type, status, priority, project_id,
-                project_sequence, created_at, updated_at, source, frozen)
+                project_sequence, created_at, updated_at, source, frozen,
+                workflow_id, workflow_version_id)
                VALUES (100, 'Implementing issue', 'issue', 'implementing',
                        'high', 1, 100, '2026-03-01', '2026-03-01',
-                       'user', 0)"""
+                       'user', 0, %s, %s)""",
+            (workflow_id, workflow_version_id),
         )
         # Fill WIP with active epics so conduct_eligible is empty
+        epic_workflow_id, epic_workflow_version_id = _workflow_pin(conn, "epic")
         for i in range(101, 106):
             conn.execute(
                 """INSERT INTO items
                    (id, title, type, status, priority, project_id,
-                    project_sequence, created_at, updated_at, source, frozen)
+                    project_sequence, created_at, updated_at, source, frozen,
+                    workflow_id, workflow_version_id)
                    VALUES (%s, %s, 'epic', 'implementing', 'medium', 1, %s,
-                           '2026-03-01', '2026-03-01', 'user', 0)""",
-                (i, f"Active epic {i}", i),
+                           '2026-03-01', '2026-03-01', 'user', 0, %s, %s)""",
+                (
+                    i,
+                    f"Active epic {i}",
+                    i,
+                    epic_workflow_id,
+                    epic_workflow_version_id,
+                ),
             )
         conn.commit()
 

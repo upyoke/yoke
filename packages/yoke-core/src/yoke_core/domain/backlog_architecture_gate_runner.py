@@ -96,9 +96,13 @@ def _run_architecture_impact_gate(
     item_id: int,
     target_status: str,
     db_path: str,
+    definition_selected: bool = False,
 ) -> Optional[dict]:
     """Return ``None`` on pass, or a canonical failure payload."""
-    if target_status not in _ARCHITECTURE_GATE_TARGETS:
+    if (
+        not definition_selected
+        and target_status not in _ARCHITECTURE_GATE_TARGETS
+    ):
         return None
     conn = connect(db_path)
     try:

@@ -41,6 +41,8 @@ def insert_item(
     item_type: str = "issue",
     spec: str | None = None,
 ) -> None:
+    from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
+
     if not title:
         title = f"Item {item_id}"
     if spec is None:
@@ -50,14 +52,19 @@ def insert_item(
         # spec equal to "# {title}".
         spec = f"# {title}\n\nDefault spec body for fixture {item_id}."
     project_id = int(project) if str(project).isdigit() else PROJECT_IDS.get(project, 1)
+    workflow_id, workflow_version_id = resolve_current_workflow_pin(
+        conn,
+        item_type,
+    )
     conn.execute(
         "INSERT INTO items (id, title, type, status, priority, "
-        "project_id, project_sequence, frozen, created_at, updated_at, spec) "
-        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        "project_id, project_sequence, frozen, created_at, updated_at, spec, "
+        "workflow_id, workflow_version_id) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
         (
             item_id, title, item_type, status, priority,
             project_id, item_id, frozen,
-            created_at, created_at, spec,
+            created_at, created_at, spec, workflow_id, workflow_version_id,
         ),
     )
 

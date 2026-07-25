@@ -34,8 +34,7 @@ from yoke_core.domain.backlog_session_attribution import (
 from yoke_core.domain.backlog_unsupported_field_writes import _apply_shell_fallback
 from yoke_core.domain.backlog_status_claim_verification import _verify_status_claim
 from yoke_core.domain.deployment_flow_validator import normalize_deployment_flow_value, validate_and_lookup_flow_project
-
-
+from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 def execute_update(
     item_id: int,
     field: str,
@@ -70,6 +69,7 @@ def execute_update(
             return {"success": False, "error": f"Item YOK-{item_id} not found"}
 
         item_dict = dict(row)
+        workflow = load_item_workflow_runtime(conn, item_id)
         item_state = mutations.ItemState(
             id=item_dict["id"],
             title=item_dict["title"],
@@ -84,9 +84,9 @@ def execute_update(
             deployed_to=item_dict.get("deployed_to"),
             worktree=item_dict.get("worktree"),
             merged_at=item_dict.get("merged_at"),
+            workflow=workflow,
         )
 
-        # Build gate context
         gate = mutations.GateContext(
             done_nonce_verified=done_nonce_verified,
             force=force,
@@ -94,7 +94,7 @@ def execute_update(
         )
 
         target_status = value if field == "status" else None
-        if target_status and item_dict["type"] == "epic":
+        if target_status and workflow.policies["generated_children"] == "epic_tasks":
             task_count_row = conn.execute(
                 "SELECT COUNT(*) as cnt FROM epic_tasks WHERE epic_id = %s",
                 (item_dict["id"],),

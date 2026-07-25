@@ -9,21 +9,19 @@ from typing import Any, Dict, Iterator, List, Optional
 
 from . import db_backend
 from .db_helpers import connect
-from .frontier_classify import classify_next_action
 from .scheduler_events import emit_scheduler_offer_skipped
 from .scheduler_skip_reasons import SKIP_REASON_STALE_LIFECYCLE
 from .session_decision_lane_gate import evaluate_lane_gate
 from .sessions_lifecycle_release import release_item_claim_for_execution
-from .sessions_offer_revalidation import holder_session_for_item, normalize_item_id, revalidate_candidate_status
+from .sessions_offer_revalidation import holder_session_for_item, revalidate_candidate_status
 from .sessions_queries_chain import append_chain_skip_entry
+from .session_workflow_routing import (
+    live_next_step as compute_live_next_step,
+    read_item_project_and_workflow,
+)
 _logger = logging.getLogger(__name__)
 
 _SERVICEABLE_STEPS = frozenset({"refine", "shepherd", "conduct", "advance", "polish", "usher"})
-_ADAPTER_TO_NEXT_STEP = {
-    "refine": "refine", "shepherd": "shepherd", "conduct": "conduct",
-    "polish": "polish", "usher": "usher", "wait": "wait", "skip": "wait",
-}
-
 class FreshnessOutcome(str, Enum):
     UNCHANGED = "unchanged"
     UNAVAILABLE = "unavailable"
@@ -74,45 +72,6 @@ def _session_exists(conn: Any, session_id: str) -> bool:
     except db_backend.database_error_types(conn):
         return False
     return row is not None
-
-def _read_item_details(
-    conn: Any, item_id: str,
-) -> tuple[Optional[str], Optional[str]]:
-    bare = normalize_item_id(item_id)
-    if bare is None:
-        return None, None
-    p = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    try:
-        row = conn.execute(
-            "SELECT p.slug AS project, i.type FROM items i "
-            "LEFT JOIN projects p ON p.id = i.project_id "
-            f"WHERE i.id = {p}", (bare,),
-        ).fetchone()
-    except db_backend.operational_error_types(conn) as exc:
-        _logger.debug("freshness check items read failed: %s", exc)
-        return None, None
-    except db_backend.database_error_types(conn) as exc:
-        _logger.debug("freshness check items read failed: %s", exc)
-        return None, None
-    if row is None:
-        return None, None
-    keys = row.keys() if hasattr(row, "keys") else None
-    if keys and "project" in keys:
-        return row["project"], row["type"]
-    return row[0], row[1]
-
-def _compute_live_next_step(item_type: str, live_status: str) -> Optional[str]:
-    try:
-        adapter = classify_next_action(live_status, item_type=item_type or "issue")
-    except ValueError:
-        return None
-    step = _ADAPTER_TO_NEXT_STEP.get(adapter.value)
-    if step is None:
-        return None
-    if item_type == "issue" and step == "conduct":
-        return "advance"
-    return step
-
 
 def _is_serviceable(
     *,
@@ -289,10 +248,18 @@ def evaluate_freshness(
             return FreshnessVerdict(
                 outcome=FreshnessOutcome.UNCHANGED, current_status=current_status)
 
-        project, item_type = _read_item_details(conn, item_id)
+        project, workflow = read_item_project_and_workflow(conn, item_id)
         project = project or "yoke"
-        item_type = item_type or (scheduler_context or {}).get("item_type") or "issue"
-        live_next_step = _compute_live_next_step(item_type, current_status)
+        if workflow is None:
+            return _unavailable(
+                session_id=session_id,
+                chain_step=chain_step,
+                item_id=item_id,
+                expected_status=expected_status,
+                expected_next_step=expected_next_step,
+                reason="workflow_pin_unavailable",
+            )
+        live_next_step = compute_live_next_step(workflow, current_status)
         serviceable = (
             live_next_step is not None
             and live_next_step != "wait"
@@ -336,6 +303,9 @@ def evaluate_freshness(
         refreshed.update({
             "status": current_status,
             "next_step": live_next_step,
+            "workflow_id": workflow.workflow_id,
+            "workflow_version_id": workflow.workflow_version_id,
+            "workflow_version": workflow.version,
             "from_status": expected_status,
             "from_next_step": expected_next_step,
         })

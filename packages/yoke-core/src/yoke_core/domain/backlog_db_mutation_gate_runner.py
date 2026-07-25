@@ -117,6 +117,8 @@ def _run_db_mutation_gate(
     item_id: int,
     target_status: str,
     db_path: str,
+    gate_kind_override: Optional[str] = None,
+    include_prose: bool = True,
 ) -> Optional[dict]:
     """Dispatch to the appropriate governed-DB-mutation gate per target.
 
@@ -126,14 +128,18 @@ def _run_db_mutation_gate(
     blocks; the first failure wins so the operator-facing error is
     attributable to a single rule.
     """
-    if target_status in _PROSE_CHECK_TARGETS:
+    if include_prose and target_status in _PROSE_CHECK_TARGETS:
         prose_result = _run_prose_vs_claim_check(
             item_id=item_id, db_path=db_path,
         )
         if prose_result is not None:
             return prose_result
 
-    gate_kind = _DB_MUTATION_GATE_TARGETS.get(target_status)
+    gate_kind = (
+        gate_kind_override
+        if gate_kind_override is not None
+        else _DB_MUTATION_GATE_TARGETS.get(target_status)
+    )
     if gate_kind is None:
         return None
 

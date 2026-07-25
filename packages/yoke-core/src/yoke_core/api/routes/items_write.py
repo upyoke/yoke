@@ -187,6 +187,10 @@ def update_item(item_id: int, req: _main.UpdateItemRequest) -> _main.ItemObject 
             )
 
         item_dict = dict(row)
+        from yoke_core.domain.workflow_runtime import (
+            load_item_workflow_runtime,
+        )
+        workflow = load_item_workflow_runtime(conn, item_id)
         item_state = ItemState(
             id=item_dict["id"],
             title=item_dict["title"],
@@ -201,13 +205,14 @@ def update_item(item_id: int, req: _main.UpdateItemRequest) -> _main.ItemObject 
             deployed_to=item_dict.get("deployed_to"),
             worktree=item_dict.get("worktree"),
             merged_at=item_dict.get("merged_at"),
+            workflow=workflow,
         )
 
         gate = GateContext()
         if "status" in updates:
             target_status = updates["status"]
 
-            if item_dict["type"] == "epic":
+            if workflow.policies["generated_children"] == "epic_tasks":
                 task_count_row = conn.execute(
                     f"SELECT COUNT(*) as cnt FROM epic_tasks WHERE epic_id = {p}",
                     (item_dict["id"],),

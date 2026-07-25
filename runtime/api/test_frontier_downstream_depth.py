@@ -20,6 +20,7 @@ from yoke_core.domain.frontier import (
     compute_frontier,
     rank_frontier,
 )
+from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
 from runtime.api.frontier_test_helpers import (
     insert_dep as _insert_dep,
     insert_item as _insert_item,
@@ -38,10 +39,16 @@ class TestDownstreamDepthRanking:
     def _item(self, **kw) -> FrontierItem:
         defaults = dict(
             item_id="YOK-1", title="Test", status="planned",
-            priority="medium", project="yoke", item_type="epic",
+            priority="medium", project="yoke", workflow_id="epic",
+            workflow_version_id=1, workflow_version=1,
             adapter=AdapterCategory.CONDUCT, created_at="2026-01-01T00:00:00Z",
         )
         defaults.update(kw)
+        defaults.setdefault(
+            "stage_index",
+            builtin_workflow_runtime("epic").stage_index(defaults["status"])
+            or 0,
+        )
         return FrontierItem(**defaults)
 
     def test_depth_beats_breadth_in_ranking(self):

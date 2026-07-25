@@ -18,6 +18,7 @@ from yoke_core.domain.frontier import (
     FrontierItem,
     rank_frontier,
 )
+from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
 
 
 # ---------------------------------------------------------------------------
@@ -31,10 +32,16 @@ class TestRankFrontier:
     def _item(self, **kw) -> FrontierItem:
         defaults = dict(
             item_id="YOK-1", title="Test", status="planned",
-            priority="medium", project="yoke", item_type="epic",
+            priority="medium", project="yoke", workflow_id="epic",
+            workflow_version_id=1, workflow_version=1,
             adapter=AdapterCategory.CONDUCT, created_at="2026-01-01T00:00:00Z",
         )
         defaults.update(kw)
+        defaults.setdefault(
+            "stage_index",
+            builtin_workflow_runtime("epic").stage_index(defaults["status"])
+            or 0,
+        )
         return FrontierItem(**defaults)
 
     def test_priority_ordering(self):
@@ -152,10 +159,16 @@ class TestRankingDeterminism:
     def _item(self, **kw) -> FrontierItem:
         defaults = dict(
             item_id="YOK-1", title="Test", status="planned",
-            priority="medium", project="yoke", item_type="epic",
+            priority="medium", project="yoke", workflow_id="epic",
+            workflow_version_id=1, workflow_version=1,
             adapter=AdapterCategory.CONDUCT, created_at="2026-01-01T00:00:00Z",
         )
         defaults.update(kw)
+        defaults.setdefault(
+            "stage_index",
+            builtin_workflow_runtime("epic").stage_index(defaults["status"])
+            or 0,
+        )
         return FrontierItem(**defaults)
 
     def test_ten_repeated_runs_identical(self):

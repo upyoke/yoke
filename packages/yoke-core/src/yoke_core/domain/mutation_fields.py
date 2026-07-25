@@ -9,7 +9,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, FrozenSet, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, FrozenSet, List, Optional, Tuple
+
+if TYPE_CHECKING:
+    from yoke_core.domain.workflow_runtime import WorkflowRuntime
 
 
 # ---------------------------------------------------------------------------
@@ -210,6 +213,7 @@ class ItemState:
     deployed_to: Optional[str] = None
     worktree: Optional[str] = None
     merged_at: Optional[str] = None
+    workflow: Optional["WorkflowRuntime"] = None
 
 
 # ---------------------------------------------------------------------------

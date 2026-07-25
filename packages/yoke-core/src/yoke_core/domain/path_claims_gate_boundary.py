@@ -79,6 +79,7 @@ def check_boundary_for_item(
     item_id: int,
     target_status: str,
     db_path: str,
+    definition_selected: bool = False,
 ) -> Optional[dict]:
     """Run boundary checks for every claim attached to the item.
 
@@ -86,7 +87,7 @@ def check_boundary_for_item(
     payload (``{"success": False, "error_code", "error"}``) when any
     claim's boundary check is ``conflict``.
     """
-    if target_status not in _GATED_TARGETS:
+    if not definition_selected and target_status not in _GATED_TARGETS:
         return None
 
     conn = connect(db_path)

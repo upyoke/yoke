@@ -298,8 +298,13 @@ class TestProseVsClaimGate:
 def _aggregate_reviewed(*, arch=None, boundary=None, qa=None, item_id: int = 42):
     """Patch every gate the reviewed-implementation aggregator dispatches and
     invoke the composer. ``None`` => gate passes."""
+    from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
+
     qa_default = qa if qa is not None else GateResult(passed=True)
     with contextlib.ExitStack() as s:
+        s.enter_context(mock.patch(
+            "yoke_core.domain.backlog_authoritative_status_gate.load_item_workflow_runtime",
+            return_value=builtin_workflow_runtime("issue")))
         s.enter_context(mock.patch.object(helpers, "_run_db_mutation_gate", return_value=None))
         s.enter_context(mock.patch.object(helpers, "_run_file_line_gate", return_value=None))
         s.enter_context(mock.patch("yoke_core.domain.backlog_architecture_gate_runner._run_architecture_impact_gate", return_value=arch))

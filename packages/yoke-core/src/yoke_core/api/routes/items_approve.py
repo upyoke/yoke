@@ -51,6 +51,9 @@ def approve_item(item_id: int, req: _main.ApproveRequest) -> _main.ApproveRespon
             )
 
         item_dict = dict(row)
+        from yoke_core.domain.workflow_runtime import (
+            load_item_workflow_runtime,
+        )
 
         item_state = ItemState(
             id=item_dict["id"],
@@ -66,6 +69,7 @@ def approve_item(item_id: int, req: _main.ApproveRequest) -> _main.ApproveRespon
             deployed_to=item_dict.get("deployed_to"),
             worktree=item_dict.get("worktree"),
             merged_at=item_dict.get("merged_at"),
+            workflow=load_item_workflow_runtime(conn, item_id),
         )
 
         deployment_flow = item_dict.get("deployment_flow")
