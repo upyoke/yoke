@@ -4,14 +4,14 @@ These four checks run after the deployment-flow guard and before the
 status-flip to ``done``. They produce exact rejection-reason strings so
 callers and tests can branch precisely.
 
-Contract: ``check_done_preconditions(item_id, deploy_flow, item_type)``
+Contract: ``check_done_preconditions(item_id, deploy_flow, require_plan_verdict)``
 returns ``(allowed: bool, reason: str | None)``.
 
 - ``deployed_to`` non-empty for any registered deployment_flow that
   is not ``no-run-delivery`` (``no-run-delivery`` is carved out).
 - ``deploy_stage`` non-null for any registered deployment_flow.
 - Latest ``deploy_runs`` row for the item is not ``status='failed'``.
-- For ``item_type='epic'``, a ``shepherd_verdicts`` row exists with
+- When the pinned workflow requires a planning verdict, a ``shepherd_verdicts`` row exists with
   ``transition='refined_idea_to_planning'`` and verdict in (READY, CAVEATS).
 """
 
@@ -93,7 +93,7 @@ def _has_refined_idea_to_planning_verdict(
 def check_done_preconditions(
     item_id: int,
     deploy_flow: str,
-    item_type: str,
+    require_plan_verdict: bool,
 ) -> Tuple[bool, Optional[str]]:
     """Run all four preconditions; return ``(allowed, reason)``.
 
@@ -134,11 +134,11 @@ def check_done_preconditions(
                 f"latest deploy_run for YOK-{item_id} has status=failed"
             )
 
-        # Epics require refined_idea_to_planning verdict in history.
-        if item_type == "epic":
+        # Planning workflows require their refinement verdict in history.
+        if require_plan_verdict:
             if not _has_refined_idea_to_planning_verdict(conn, item_id):
                 return False, (
-                    f"epic YOK-{item_id} missing "
+                    f"YOK-{item_id} missing required "
                     "refined_idea_to_planning READY/CAVEATS verdict"
                 )
 
@@ -147,9 +147,17 @@ def check_done_preconditions(
         conn.close()
 
 
-def enforce_preconditions(item_id: int, deploy_flow: str, item_type: str) -> Optional[str]:
+def enforce_preconditions(
+    item_id: int,
+    deploy_flow: str,
+    require_plan_verdict: bool,
+) -> Optional[str]:
     """Runner hook: emit the guard banner on failure, return reason or None."""
-    allowed, reason = check_done_preconditions(item_id, deploy_flow, item_type)
+    allowed, reason = check_done_preconditions(
+        item_id,
+        deploy_flow,
+        require_plan_verdict,
+    )
     if allowed:
         return None
     print("\n=== Done preconditions guard ===", file=sys.stderr)

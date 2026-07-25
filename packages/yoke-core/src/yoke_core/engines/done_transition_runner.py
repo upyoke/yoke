@@ -5,7 +5,15 @@ from __future__ import annotations
 import os
 import sys
 
-from yoke_core.domain import db_backend
+from yoke_core.domain.workflow_behavior import (
+    generates_task_graph,
+    release_note_category,
+    requires_plan_simulation,
+)
+from yoke_core.engines.done_transition_item_context import (
+    format_workflow_route,
+    load_done_item_context,
+)
 from yoke_core.engines.done_transition_preconditions import enforce_preconditions as _enforce_preconditions
 from yoke_core.engines.done_transition_runtime import _reseat_runtime_paths
 
@@ -22,7 +30,6 @@ def run(
     skip_qa: bool = False,
 ) -> int:
     """Execute the done-transition state machine.
-
     This is the semantic core. Returns the process exit code.
     """
     mw = _parent()
@@ -71,23 +78,18 @@ def run(
     result.add_step("1")
     print(f"YOKE_REPO_ROOT={repo_root}")
     with _connect() as conn:
-        p = "%s" if db_backend.connection_is_postgres(conn) else "?"
-        row = conn.execute(
-            "SELECT i.id, i.title, i.status, i.worktree, i.type, i.github_issue, p.slug AS project "
-            "FROM items i LEFT JOIN projects p ON p.id = i.project_id "
-            f"WHERE i.id = {p}",
-            (item_id,),
-        ).fetchone()
-    if not row or not row["title"]:
+        context = load_done_item_context(conn, item_id)
+    if context is None:
         print(f"Error: Item YOK-{item_id} not found.", file=sys.stderr)
         return result.fail(result_file, 2, "2")
 
-    title = str(row["title"])
-    old_status = str(row["status"] or "")
-    worktree_field = str(row["worktree"] or "") if row["worktree"] else ""
-    item_type = str(row["type"] or "issue")
-    epic_name = str(item_id) if item_type == "epic" else ""
-    item_project = str(row["project"] or "yoke") if row["project"] else "yoke"
+    title = context.title
+    old_status = context.stage_id
+    worktree_field = context.worktree
+    workflow = context.workflow
+    has_task_graph = generates_task_graph(workflow)
+    task_parent_ref = str(item_id) if has_task_graph else ""
+    item_project = context.project
     result.old_status = result.new_status = old_status
     if worktree_field in ("null", ""):
         worktree_field = ""
@@ -96,13 +98,10 @@ def run(
         print("Use the zero-legacy DB convergence tool to purge legacy "
               "worktree metadata before retrying.", file=sys.stderr)
         return result.fail(result_file, 2, "2-legacy-worktree")
-    if epic_name in ("null", ""):
-        epic_name = ""
-
     print(f"\n=== Done transition: YOK-{item_id} ===")
     print(f"Title: {title}")
     print(f"Old status: {old_status}")
-    print(f"Type: {item_type}\n")
+    print(f"Workflow: {workflow.workflow_id}@{workflow.version}\n")
     result.add_step("2")
 
     project_repo, project_default_branch = _resolve_project_context(
@@ -117,7 +116,7 @@ def run(
 
     base_branch = _get_base_branch(project_default_branch, project_repo)
 
-    if item_type == "epic":
+    if requires_plan_simulation(workflow):
         sim_exit = _check_simulation_gate(item_id, skip_simulation)
         if sim_exit is not None:
             return result.fail(result_file, sim_exit, "2a")
@@ -160,8 +159,11 @@ def run(
     if not resume_from_step6:
         if worktree_field and not branch_already_merged:
             merge_exit, merge_output, _ = _do_merge(
-                item_id, worktree_field, base_branch, item_type,
-                epic_name, project_repo,
+                item_id,
+                worktree_field,
+                base_branch,
+                task_parent_ref,
+                project_repo,
             )
             if merge_exit == 0:
                 merge_ran = True
@@ -258,7 +260,11 @@ def run(
     _cross_project_commit_guard(item_id, item_project, repo_root)
     result.add_step("5c")
 
-    if _enforce_preconditions(item_id, deploy_flow, item_type):
+    if _enforce_preconditions(
+        item_id,
+        deploy_flow,
+        requires_plan_simulation(workflow),
+    ):
         print(f"RESULT_FILE={result_file}")
         return result.fail(result_file, 7, "5d-preconditions")
     result.add_step("5d")
@@ -282,12 +288,16 @@ def run(
     result.add_step("6a")  # reserved result slot
 
     _finalize_done_local_side_effects(
-        item_id, item_type, title, item_project, env_name
+        item_id,
+        release_note_category(workflow),
+        title,
+        item_project,
+        env_name,
     )
     result.add_step("6c")
 
-    if item_type == "epic" and epic_name:
-        _cascade_epic_tasks_to_done(item_id, epic_name)
+    if has_task_graph and task_parent_ref:
+        _cascade_epic_tasks_to_done(item_id, task_parent_ref)
     for _s in ("6b", "6d", "7"):
         result.add_step(_s)
     print("\n=== Step 8: Sync done state to GitHub ===")
@@ -333,17 +343,8 @@ def run(
     print("==========================================")
     print(f"YOK-{item_id} ({title}): {old_status} -> done")
     print("==========================================\n")
-    if item_type == "issue":
-        print("idea -> refining-idea -> refined-idea -> implementing -> "
-              "reviewing-implementation -> reviewed-implementation -> "
-              "polishing-implementation -> implemented -> release -> [done]")
-    else:
-        print("idea -> refining-idea -> refined-idea -> planning -> "
-              "plan-drafted -> refining-plan -> planned -> implementing -> "
-              "reviewing-implementation -> reviewed-implementation -> "
-              "polishing-implementation -> implemented -> release -> [done]")
+    print(format_workflow_route(workflow))
     result.add_step("14")
-
     result.write(result_file)
     print(f"RESULT_FILE={result_file}")
     return 0

@@ -8,27 +8,14 @@ Pytest fixture (dt_db) shared via _done_transition_test_helpers (private module)
 
 from __future__ import annotations
 
-import json
-import os
-import sys
 from pathlib import Path
 from unittest import mock
 
 from yoke_core.engines import done_transition
-from yoke_core.engines import done_transition_gates
-from runtime.api.test_backlog import (
-    _item_field,
-    _patch_externals,
-    _seed_claim,
-    _seed_item,
-    _seed_session,
-    tmp_db,  # noqa: F401 — fixture re-export
-)
 
 from yoke_core.engines._done_transition_test_helpers import (
     _insert_item,
     connect_dt_db,
-    dt_db,
 )
 
 
@@ -171,7 +158,7 @@ class TestLocalDoneFinalization:
 
         done_transition._finalize_done_local_side_effects(
             60,
-            "issue",
+            "bug_fixes",
             "Test item",
             "yoke",
             "",

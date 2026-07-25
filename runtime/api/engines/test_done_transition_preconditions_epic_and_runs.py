@@ -21,7 +21,6 @@ from yoke_core.engines._done_transition_test_helpers import (
     _insert_item,
     _project_id,
     connect_dt_db,
-    dt_db,  # noqa: F401 — pytest fixture re-export
 )
 
 
@@ -85,7 +84,7 @@ class TestAC3LatestRunNotFailed:
         _seed_deploy_run(db_path, 721, "failed")
 
         allowed, reason = check_done_preconditions(
-            721, "yoke-hosted-production", "issue",
+            721, "yoke-hosted-production", False,
         )
 
         assert allowed is False
@@ -104,7 +103,7 @@ class TestAC3LatestRunNotFailed:
         _seed_deploy_run(db_path, 722, "succeeded")
 
         allowed, reason = check_done_preconditions(
-            722, "yoke-hosted-production", "issue",
+            722, "yoke-hosted-production", False,
         )
 
         assert allowed is True
@@ -115,7 +114,7 @@ class TestAC3LatestRunNotFailed:
         db_path, _ = dt_db
         _insert_item(db_path, 723, deployment_flow="", deploy_stage=None)
 
-        allowed, reason = check_done_preconditions(723, "", "issue")
+        allowed, reason = check_done_preconditions(723, "", False)
 
         assert allowed is True
         assert reason is None
@@ -128,11 +127,12 @@ class TestAC4EpicVerdictRequired:
         db_path, _ = dt_db
         _insert_item(db_path, 731, type="epic", deployment_flow="")
 
-        allowed, reason = check_done_preconditions(731, "", "epic")
+        allowed, reason = check_done_preconditions(731, "", True)
 
         assert allowed is False
         assert reason == (
-            "epic YOK-731 missing refined_idea_to_planning READY/CAVEATS verdict"
+            "YOK-731 missing required "
+            "refined_idea_to_planning READY/CAVEATS verdict"
         )
 
     def test_ready_verdict_allows_epic(self, dt_db):
@@ -140,7 +140,7 @@ class TestAC4EpicVerdictRequired:
         _insert_item(db_path, 732, type="epic", deployment_flow="")
         _seed_verdict(db_path, 732, verdict="READY")
 
-        allowed, reason = check_done_preconditions(732, "", "epic")
+        allowed, reason = check_done_preconditions(732, "", True)
 
         assert allowed is True
         assert reason is None
@@ -150,7 +150,7 @@ class TestAC4EpicVerdictRequired:
         _insert_item(db_path, 733, type="epic", deployment_flow="")
         _seed_verdict(db_path, 733, verdict="CAVEATS")
 
-        allowed, reason = check_done_preconditions(733, "", "epic")
+        allowed, reason = check_done_preconditions(733, "", True)
 
         assert allowed is True
         assert reason is None
@@ -161,11 +161,12 @@ class TestAC4EpicVerdictRequired:
         _insert_item(db_path, 734, type="epic", deployment_flow="")
         _seed_verdict(db_path, 734, verdict="BLOCKED")
 
-        allowed, reason = check_done_preconditions(734, "", "epic")
+        allowed, reason = check_done_preconditions(734, "", True)
 
         assert allowed is False
         assert reason == (
-            "epic YOK-734 missing refined_idea_to_planning READY/CAVEATS verdict"
+            "YOK-734 missing required "
+            "refined_idea_to_planning READY/CAVEATS verdict"
         )
 
     def test_issues_do_not_require_verdict(self, dt_db):
@@ -173,7 +174,7 @@ class TestAC4EpicVerdictRequired:
         db_path, _ = dt_db
         _insert_item(db_path, 735, type="issue", deployment_flow="")
 
-        allowed, reason = check_done_preconditions(735, "", "issue")
+        allowed, reason = check_done_preconditions(735, "", False)
 
         assert allowed is True
         assert reason is None
@@ -193,7 +194,7 @@ class TestAC5NoRunDeliveryBypass:
         )
 
         allowed, reason = check_done_preconditions(
-            741, "no-run-delivery", "issue",
+            741, "no-run-delivery", False,
         )
 
         assert allowed is True
@@ -210,7 +211,7 @@ class TestAC5NoRunDeliveryBypass:
         )
 
         allowed, reason = check_done_preconditions(
-            742, "no-run-delivery", "issue",
+            742, "no-run-delivery", False,
         )
 
         assert allowed is False
@@ -230,7 +231,7 @@ class TestEmptyAndInternalFlows:
             deployed_to=None,
         )
 
-        allowed, reason = check_done_preconditions(751, "", "issue")
+        allowed, reason = check_done_preconditions(751, "", False)
 
         assert allowed is True
         assert reason is None
@@ -247,7 +248,7 @@ class TestEmptyAndInternalFlows:
         )
 
         allowed, reason = check_done_preconditions(
-            752, "yoke-internal", "issue",
+            752, "yoke-internal", False,
         )
 
         assert allowed is True
@@ -274,7 +275,7 @@ class TestUnregisteredFlowSkipped:
         )
 
         allowed, reason = check_done_preconditions(
-            761, "garbage-flow", "issue",
+            761, "garbage-flow", False,
         )
 
         assert allowed is True

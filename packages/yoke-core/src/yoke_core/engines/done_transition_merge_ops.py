@@ -100,8 +100,7 @@ def _do_merge(
     item_id: int,
     worktree_field: str,
     base_branch: str,
-    item_type: str,
-    epic_name: str,
+    task_parent_ref: str,
     project_repo: Path,
 ) -> Tuple[int, str, bool]:
     """Execute merge-worktree. Returns (exit_code, output, merge_ran)."""
@@ -133,7 +132,7 @@ def _do_merge(
         merge_args = MergeArgs(
             branch=actual_branch,
             target=base_branch,
-            epic_ref=epic_name if (item_type == "epic" and epic_name) else None,
+            epic_ref=task_parent_ref or None,
             local_merge=False,
             force_lock=False,
             keep_remote=False,

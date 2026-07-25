@@ -150,6 +150,11 @@ def dt_db(tmp_path, monkeypatch):
             target_env TEXT
         );
         """)
+        from yoke_core.domain.workflow_registry import converge_builtin_workflows
+        from yoke_core.domain.workflow_schema import ensure_workflow_schema
+
+        ensure_workflow_schema(conn)
+        converge_builtin_workflows(conn)
         conn.execute(
             "INSERT INTO projects "
             "(id, slug, name, github_repo, public_item_prefix, "
@@ -197,9 +202,15 @@ def _insert_item(db_path, item_id, **kwargs):
         "project_sequence": item_id,
     }
     defaults.update(kwargs)
+    conn = connect_dt_db(db_path)
+    from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
+
+    workflow_id = str(defaults["type"])
+    _, version_id = resolve_current_workflow_pin(conn, workflow_id)
+    defaults["workflow_id"] = workflow_id
+    defaults["workflow_version_id"] = version_id
     cols = ", ".join(["id"] + list(defaults.keys()))
     vals = [item_id] + list(defaults.values())
-    conn = connect_dt_db(db_path)
     from yoke_core.domain import db_backend
     p = "%s" if db_backend.connection_is_postgres(conn) else "?"
     placeholders = ", ".join([p] * (1 + len(defaults)))

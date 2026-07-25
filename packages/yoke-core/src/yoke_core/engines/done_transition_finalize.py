@@ -16,7 +16,7 @@ def _p(conn) -> str:
 
 def _finalize_done_local_side_effects(
     item_id: int,
-    item_type: str,
+    release_category: str,
     title: str,
     item_project: str,
     env_name: str,
@@ -34,7 +34,13 @@ def _finalize_done_local_side_effects(
                     f"UPDATE items SET deployed_to = {p} WHERE id = {p}",
                     (deployed_to, item_id),
                 )
-            release_note = _insert_release_note(conn, item_id, item_type, title, item_project)
+            release_note = _insert_release_note(
+                conn,
+                item_id,
+                release_category,
+                title,
+                item_project,
+            )
             conn.commit()
     except db_backend.operational_error_types() as exc:
         print(f"Advisory: local done finalization partly skipped: {exc}")
@@ -109,17 +115,12 @@ def _resolve_deployed_to(conn, item_id: int, env_name: str) -> str:
 def _insert_release_note(
     conn,
     item_id: int,
-    item_type: str,
+    category: str,
     title: str,
     item_project: str,
 ) -> bool:
     from yoke_core.domain import release_notes as _release_notes
 
-    category = "improvements"
-    if item_type == "epic":
-        category = "features"
-    elif item_type == "issue":
-        category = "bug_fixes"
     try:
         _release_notes.cmd_insert(
             conn,

@@ -20,7 +20,6 @@ from yoke_core.engines._done_transition_test_helpers import (
     _insert_item,
     _project_id,
     connect_dt_db,
-    dt_db,  # noqa: F401 — pytest fixture re-export
 )
 
 
@@ -54,7 +53,7 @@ class TestAC1DeployedToRequired:
         )
 
         allowed, reason = check_done_preconditions(
-            701, "yoke-hosted-production", "issue",
+            701, "yoke-hosted-production", False,
         )
 
         assert allowed is False
@@ -72,7 +71,7 @@ class TestAC1DeployedToRequired:
         )
 
         allowed, reason = check_done_preconditions(
-            702, "yoke-hosted-production", "issue",
+            702, "yoke-hosted-production", False,
         )
 
         assert allowed is True
@@ -90,7 +89,7 @@ class TestAC1DeployedToRequired:
         )
 
         allowed, reason = check_done_preconditions(
-            703, "yoke-hosted-production", "issue",
+            703, "yoke-hosted-production", False,
         )
 
         assert allowed is False
@@ -112,7 +111,7 @@ class TestAC2DeployStageRequired:
         )
 
         allowed, reason = check_done_preconditions(
-            711, "yoke-hosted-production", "issue",
+            711, "yoke-hosted-production", False,
         )
 
         assert allowed is False
@@ -130,7 +129,7 @@ class TestAC2DeployStageRequired:
         )
 
         allowed, reason = check_done_preconditions(
-            712, "yoke-hosted-production", "issue",
+            712, "yoke-hosted-production", False,
         )
 
         assert allowed is True
