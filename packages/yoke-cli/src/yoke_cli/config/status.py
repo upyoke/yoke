@@ -15,7 +15,12 @@ from importlib.metadata import version as metadata_version
 from pathlib import Path
 from typing import Any, Mapping
 
-from yoke_cli.config import install_binding, machine_config, status_server
+from yoke_cli.config import (
+    install_binding,
+    machine_config,
+    status_release_lineage,
+    status_server,
+)
 from yoke_cli.config.status_credentials import (
     credential_status as _credential_status,
 )
@@ -331,9 +336,15 @@ def _report(
     repo_root: Path,
     issues: list[dict[str, str]],
 ) -> dict[str, Any]:
-    return {"ok": ok, "config_path": str(config_path),
-            "repo_root": str(repo_root),
-            "install": install_binding.detect(), "issues": issues}
+    report: dict[str, Any] = {
+        "ok": ok, "config_path": str(config_path),
+        "repo_root": str(repo_root),
+        "install": install_binding.detect(), "issues": issues,
+    }
+    lineage = status_release_lineage.detect(repo_root)
+    if lineage is not None:
+        report["release_lineage"] = lineage
+    return report
 
 
 __all__ = ["build_status", "dumps_json", "render_human"]

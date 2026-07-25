@@ -6,6 +6,7 @@ import json
 from typing import Any, Mapping
 
 from yoke_cli.config import install_binding
+from yoke_cli.config import status_release_lineage
 from yoke_contracts.machine_config import schema as contract
 
 
@@ -19,6 +20,9 @@ def render_human(report: Mapping[str, Any]) -> str:
     install = report.get("install")
     if isinstance(install, Mapping):
         lines.append(f"  install: {install_binding.label(install)}")
+    lineage_label = status_release_lineage.label(report.get("release_lineage"))
+    if lineage_label:
+        lines.append(f"  release: {lineage_label}")
     server = report.get("server") or {}
     if isinstance(server, Mapping) and server.get("relevant"):
         if server.get("reachable") is True:
