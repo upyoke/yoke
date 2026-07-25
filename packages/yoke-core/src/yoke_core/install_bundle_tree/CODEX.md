@@ -3,7 +3,7 @@
 <!-- Managed by `yoke project install`. Everything between the BEGIN and END markers is overwritten on refresh — do not edit it here. Your own content outside the markers is always preserved. -->
 This file is the Codex-facing entry point for Yoke. It references the shared bootstrap contract and lists the narrow safe command surface for Codex sessions.
 
-For the full project rules, read `AGENTS.md` (the harness-neutral shared doctrine file; `CLAUDE.md` is retained as a compatibility symlink for harnesses that auto-load it). Everything in `AGENTS.md` applies to Codex sessions unless noted otherwise below.
+For the full project rules, read `AGENTS.md` — the harness-neutral shared doctrine file, and the one Codex loads. `CLAUDE.md` carries the same Yoke-managed block for Claude, which reads that file and does not fall back to `AGENTS.md`. In this repo the two are one file behind a symlink; in a managed project they are two real files, so anything written outside the managed markers has to be added to both or one harness never sees it. Everything in `AGENTS.md` applies to Codex sessions unless noted otherwise below.
 
 The `## Simplify — three-axis doctrine` section in `AGENTS.md` defines the shared **reuse / quality / efficiency** vocabulary, future-concept pull-forward lens, and stage weights used by every authoring step (idea, refine, advance, shepherd, conduct, polish). Codex sessions read it from `AGENTS.md`; this file does not duplicate it. The doctrine is Yoke-owned and harness-neutral — do not treat any Claude-only built-in as a dependency.
 
@@ -13,7 +13,7 @@ Codex loads its Yoke orientation automatically from the auto-loaded rules files 
 
 ### Repo-local skill discovery
 
-Yoke skills live canonically in the hidden directory `.agents/skills/yoke/`. Codex treats that repo-local `.agents/skills` tree as a native skill source, so no `.codex/skills` mirror or plugin install is required for ordinary Yoke work. Codex progressive disclosure loads each skill's frontmatter first and reads the full `SKILL.md` only when the skill is invoked. `.claude/skills/yoke` is a compatibility symlink and must not be treated as the authoritative location; Codex reads the same `SKILL.md` frontmatter Claude reads, so Yoke keeps no duplicate `.codex/skills` tree or per-skill Codex metadata sidecars.
+Yoke skills live canonically in the hidden directory `.agents/skills/yoke/`. Codex treats that repo-local `.agents/skills` tree as a native skill source, so no `.codex/skills` mirror or plugin install is required for ordinary Yoke work. Codex progressive disclosure loads each skill's frontmatter first and reads the full `SKILL.md` only when the skill is invoked. `.claude/skills/yoke` is a discovery copy — a symlink in this repo, a real byte-identical copy in a managed project, since installs cannot rely on symlink support — and must not be treated as the authoritative location; Codex reads the same `SKILL.md` frontmatter Claude reads, so Yoke keeps no duplicate `.codex/skills` tree or per-skill Codex metadata sidecars.
 
 ## Ticket intake
 
