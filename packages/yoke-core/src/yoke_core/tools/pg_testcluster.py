@@ -132,20 +132,48 @@ def ensure_started() -> int:
     return postgres_cluster.ensure_started(spec)
 
 
+# Concurrent local runs on one cluster are supported by design (each worker
+# gets a uniquely named ambient database). A run that has just created a
+# database but not yet connected to it looks idle, so "no active connection"
+# alone would let one run reclaim another's database. Requiring the database
+# to ALSO be untouched for this long closes that window: a live run writes to
+# its databases continuously, while a database orphaned by an interrupted run
+# goes quiet the moment that run dies. Erring long is free — anything missed
+# is reclaimed by the next run.
+STALE_TEST_DB_QUIET_MINUTES = 15
+
+
 def prune_stale_test_databases() -> int:
-    """Drop leaked inactive Yoke test databases from prior interrupted runs."""
+    """Drop leaked Yoke test databases left by prior interrupted runs.
+
+    Reclaims only databases that are both unconnected AND quiet for
+    :data:`STALE_TEST_DB_QUIET_MINUTES`, so a concurrently running suite keeps
+    its own databases. When the age signal cannot be read the prune declines
+    rather than falling back to the connection check alone — deleting another
+    run's database is far worse than leaving garbage for the next run.
+    """
     if not _is_ready():
         return 0
     res = _psql(
-        "SELECT datname FROM pg_database "
+        "SELECT datname FROM pg_database d "
         "WHERE datname LIKE 'yoke_test%' "
         "AND datname NOT IN ("
         "  SELECT datname FROM pg_stat_activity WHERE datname IS NOT NULL"
-        ") ORDER BY datname"
+        ") "
+        "AND (pg_stat_file('base/' || d.oid::text, true)).modification "
+        f"  < now() - interval '{STALE_TEST_DB_QUIET_MINUTES} minutes' "
+        "ORDER BY datname"
     )
     if res.returncode != 0:
+        # Most likely the cluster role cannot read server files. Decline the
+        # prune loudly instead of pruning on the connection check alone.
         sys.stderr.write(res.stdout + res.stderr)
-        return res.returncode
+        sys.stderr.write(
+            "pg_testcluster: cannot determine test-database age; skipping "
+            "prune rather than risk reclaiming a concurrent run's database\n"
+        )
+        return 0
+    reclaimed = 0
     for name in [line for line in res.stdout.splitlines() if line]:
         if not name.startswith("yoke_test"):
             continue
@@ -154,6 +182,15 @@ def prune_stale_test_databases() -> int:
         if drop.returncode != 0:
             sys.stderr.write(drop.stdout + drop.stderr)
             return drop.returncode
+        reclaimed += 1
+    # Say so when there was anything to reclaim. A silent prune let this
+    # cluster reach 275 leaked databases and 12G unnoticed, because the only
+    # visible symptom was a suite that got slower and slower.
+    if reclaimed:
+        sys.stderr.write(
+            f"pg_testcluster: reclaimed {reclaimed} leaked test database(s) "
+            f"from interrupted runs\n"
+        )
     return 0
 
 

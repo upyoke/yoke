@@ -72,19 +72,28 @@ def uses_xdist_auto_workers(args: Sequence[str]) -> bool:
 
 
 def _prepare_local_pg_testcluster(env: dict[str, str]) -> None:
-    dsn = env.get("YOKE_PG_DSN")
-    if not dsn:
-        return
+    """Start and prune the local test cluster before workers spawn.
+
+    ``YOKE_PG_DSN`` is normally ABSENT here. The suite's conftest binds it to
+    the test cluster at import time, inside the pytest process — long after
+    this parent-process decision is made. Treating an unset value as "not the
+    test cluster" therefore skipped the prune on every ordinary local run,
+    letting databases orphaned by interrupted runs accumulate until cloning a
+    template slowed enough to stall every xdist worker behind the maintenance
+    lock. Absence means the conftest will bind this cluster, so prune it; only
+    a DSN that explicitly names a DIFFERENT cluster is a reason to skip.
+    """
     try:
         from yoke_core.tools import pg_testcluster
     except Exception:
         return
+    dsn = env.get("YOKE_PG_DSN")
     cluster_root = env.get("YOKE_PG_CLUSTER_ROOT")
     prior_root = os.environ.get("YOKE_PG_CLUSTER_ROOT")
     if cluster_root:
         os.environ["YOKE_PG_CLUSTER_ROOT"] = cluster_root
     try:
-        if dsn != pg_testcluster.dsn():
+        if dsn and dsn != pg_testcluster.dsn():
             return
         pg_testcluster.prepare_for_pytest()
     finally:

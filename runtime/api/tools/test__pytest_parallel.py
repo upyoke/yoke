@@ -78,6 +78,20 @@ class TestUsesXdistAutoWorkers:
 
 
 class TestApplyPostgresXdistAutoEnv:
+    @pytest.fixture(autouse=True)
+    def _no_real_cluster(self, monkeypatch):
+        """Keep env-computation tests off the real Postgres cluster.
+
+        Resolving the env also starts and prunes the local test cluster. Tests
+        that only assert the computed env must not do that — on a machine or
+        runner without the Postgres binaries it fails outright, and elsewhere
+        it would touch a cluster the test does not own. Tests that assert the
+        preparation itself re-patch this in their own body.
+        """
+        from yoke_core.tools import pg_testcluster
+
+        monkeypatch.setattr(pg_testcluster, "prepare_for_pytest", lambda: 0)
+
     def test_sets_local_postgres_auto_worker_env(self):
         env = apply_postgres_xdist_auto_env(
             ["-n", "auto", "runtime/api/"],
@@ -141,6 +155,57 @@ class TestApplyPostgresXdistAutoEnv:
 
         assert calls == ["prepare"]
         assert "YOKE_PG_CLUSTER_ROOT" not in _pytest_parallel.os.environ
+
+    def test_prunes_when_pg_dsn_is_absent(self, monkeypatch):
+        """The real local shape: YOKE_PG_DSN is NOT set in the parent process.
+
+        The suite's conftest binds it to the test cluster at import time,
+        inside the pytest process, long after this parent-process decision.
+        Treating absence as "not the test cluster" skipped the prune on every
+        ordinary local run and let orphaned databases accumulate until cloning
+        a template stalled every xdist worker behind the maintenance lock.
+        """
+        from yoke_core.tools import pg_testcluster
+
+        calls = []
+        monkeypatch.setattr(
+            pg_testcluster,
+            "dsn",
+            lambda: "host=/tmp/yoke-pgtest-cluster/sock user=yoketest",
+        )
+        monkeypatch.setattr(
+            pg_testcluster,
+            "prepare_for_pytest",
+            lambda: calls.append("prepare") or 0,
+        )
+
+        apply_postgres_xdist_auto_env(["-n", "auto"], {})
+
+        assert calls == ["prepare"]
+
+    def test_skips_prune_for_a_different_cluster(self, monkeypatch):
+        # An explicit DSN naming another cluster is the one reason to skip:
+        # pruning there would touch a cluster this run does not own.
+        from yoke_core.tools import pg_testcluster
+
+        calls = []
+        monkeypatch.setattr(
+            pg_testcluster,
+            "dsn",
+            lambda: "host=/tmp/yoke-pgtest-cluster/sock user=yoketest",
+        )
+        monkeypatch.setattr(
+            pg_testcluster,
+            "prepare_for_pytest",
+            lambda: calls.append("prepare") or 0,
+        )
+
+        apply_postgres_xdist_auto_env(
+            ["-n", "auto"],
+            {"YOKE_PG_DSN": "host=/somewhere/else/sock user=someone"},
+        )
+
+        assert calls == []
 
     def test_operator_auto_worker_override_wins(self):
         env = apply_postgres_xdist_auto_env(
