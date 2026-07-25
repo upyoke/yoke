@@ -74,6 +74,7 @@ function overviewClient(overrides = {}) {
         { hc: "HC-stale-migration", name: "migrations", severity: "warn" },
       ],
     },
+    "overview.activation.get": { dismiss_available: false, modules: [] },
     ...overrides,
   };
   return {
@@ -144,11 +145,13 @@ test("Overview is no longer a stub: it composes the six section reads", async (t
     ],
   );
 
-  // Each section replays the read its full screen runs — no new function ids.
+  // Each section replays the read its full screen runs, plus exactly one
+  // Overview-owned read: the activation-module derivation.
   const called = new Set(client.requests.map((request) => request.function));
   for (const functionId of [
     "frontier.list", "sessions.list", "strategy.doc.list",
     "deployment_runs.list", "events.query.run", "doctor.last_run.get",
+    "overview.activation.get",
   ]) {
     assert.ok(called.has(functionId), functionId);
   }

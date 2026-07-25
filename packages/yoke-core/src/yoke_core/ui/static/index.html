@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="./assets/theme.css">
   <link rel="stylesheet" href="./assets/shell.css">
   <link rel="stylesheet" href="./assets/app.css">
+  <link rel="stylesheet" href="./assets/activation.css">
 </head>
 <body class="local-universe-page">
   <div id="universe-root"></div>
@@ -17,10 +18,15 @@
     // Bootstrap: hand the mount root to the app module and get out of the
     // way. The session cookie set by this page's response authenticates the
     // module fetch and every API call, so nothing token-shaped lives here.
+    // A local universe trivially has its machine connected, so this page —
+    // not the engine — supplies the onboarding machine fact.
     import { mountUniverseApp } from "./assets/app.js";
     mountUniverseApp(document.getElementById("universe-root"), {
       capabilities: {
-        data: { portability: { mode: "local", sectionOwned: false } },
+        data: {
+          portability: { mode: "local", sectionOwned: false },
+          onboarding: { machineConnected: true },
+        },
       },
     });
   </script>
