@@ -244,7 +244,7 @@ def _render_init_human(response: FunctionCallResponse, stdout, stderr) -> None:
         f"  project_id: {payload.get('project_id')}",
         "",
         "Next:",
-        "  - yoke onboard project",
+        "  - yoke onboard",
         "",
     ]
     print("\n".join(lines), file=stdout)

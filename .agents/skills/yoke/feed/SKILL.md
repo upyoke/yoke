@@ -30,7 +30,7 @@ REPO_ROOT=$(git rev-parse --show-toplevel)
 _project=$(yoke projects checkout-context --field slug)
 _project_id=$(yoke projects checkout-context --field id)
 _prefix=$(yoke projects checkout-context --field public_item_prefix)
-SML_SLUGS="MISSION LANDSCAPE VISION MASTER-PLAN"
+SML_SLUGS="MISSION LANDSCAPE VISION MASTER-PLAN CURRENT-PLAN"
 ```
 
 ## Philosophy

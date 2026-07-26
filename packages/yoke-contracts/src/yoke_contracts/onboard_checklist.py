@@ -8,7 +8,7 @@ SCHEMA_VERSION = 1
 SCHEMA_NAME = "yoke.onboard.checklist"
 OPERATION = "onboard.checklist"
 OPERATION_INIT = "onboard.checklist.init"
-HANDOFF_TO = "yoke onboard project"
+HANDOFF_TO = "yoke onboard"
 
 STATUS_UNKNOWN = "unknown"
 STATUS_NEEDED = "needed"
@@ -148,7 +148,7 @@ ROW_SPECS = (
                      LAYER_AGENTIC, "yoke onboard",
                      "File the first backlog items from CURRENT-PLAN via idea intake."),
     ChecklistRowSpec("verification", "18", "Verification", LAYER_VERIFICATION,
-                     "CLI + yoke onboard project",
+                     "CLI + yoke onboard",
                      "Run status, auth, command, render, and doctor checks."),
     ChecklistRowSpec("lifecycle-readiness", "19", "Lifecycle readiness",
                      LAYER_VERIFICATION, "Lifecycle",
