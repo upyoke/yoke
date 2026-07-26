@@ -16,7 +16,7 @@ from runtime.api.test_service_client_delivery_test_helpers import (  # noqa: F40
 class TestCreateItemFlowValidation:
     def test_create_rejects_unregistered_flow(self, mutation_db):
         result = _run_client(
-            ["create-item", "--title", "Bad flow", "--type", "issue",
+            ["create-item", "--title", "Bad flow", "--workflow", "issue",
              "--project", "yoke", "--deployment-flow", "garbage"],
             db_path=mutation_db["db_path"],
         )
@@ -29,7 +29,7 @@ class TestCreateItemFlowValidation:
 
     def test_create_rejects_literal_none_string(self, mutation_db):
         result = _run_client(
-            ["create-item", "--title", "Literal none", "--type", "issue",
+            ["create-item", "--title", "Literal none", "--workflow", "issue",
              "--project", "yoke", "--deployment-flow", "none"],
             db_path=mutation_db["db_path"],
         )
@@ -40,7 +40,7 @@ class TestCreateItemFlowValidation:
 
     def test_create_accepts_registered_flow(self, mutation_db):
         result = _run_client(
-            ["create-item", "--title", "Good flow", "--type", "issue",
+            ["create-item", "--title", "Good flow", "--workflow", "issue",
              "--project", "yoke", "--deployment-flow", "test-flow"],
             db_path=mutation_db["db_path"],
         )
@@ -50,7 +50,7 @@ class TestCreateItemFlowValidation:
 
     def test_create_null_sentinel_is_normalized_to_unset(self, mutation_db):
         result = _run_client(
-            ["create-item", "--title", "Null flow", "--type", "issue",
+            ["create-item", "--title", "Null flow", "--workflow", "issue",
              "--project", "yoke", "--deployment-flow", "null"],
             db_path=mutation_db["db_path"],
         )
@@ -65,9 +65,9 @@ class TestUpdateItemFlowValidation:
         try:
             conn.execute(
                 """INSERT INTO items
-                   (id, title, type, status, priority, project_id,
+                   (id, title, workflow_id, workflow_version_id, status, priority, project_id,
                     created_at, updated_at, source, deploy_stage)
-                   VALUES (%s, 'Test', 'issue', 'idea', 'medium', 1,
+                   VALUES (%s, 'Test', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'medium', 1,
                            '2026-05-07T00:00:00Z', '2026-05-07T00:00:00Z',
                            'user', NULL)""",
                 (item_id,),

@@ -153,9 +153,9 @@ class TestRegistrationEmits:
         actor = local_human(conn)
         target = seed_target(conn, path_string="src/foo.py")
         conn.execute(
-            "INSERT INTO items (id, title, type, status, priority, "
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, "
             "created_at, updated_at, project_id, project_sequence) "
-            "VALUES (12001, 't', 'issue', 'idea', 'medium', "
+            "VALUES (12001, 't', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'medium', "
             "'2026-05-01T00:00:00Z', '2026-05-01T00:00:00Z', 1, 12001)",
         )
         conn.commit()
@@ -187,15 +187,15 @@ class TestRegistrationEmits:
         actor = local_human(conn)
         target = seed_target(conn, path_string="src/foo.py")
         conn.execute(
-            "INSERT INTO items (id, title, type, status, priority, "
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, "
             "created_at, updated_at, project_id, project_sequence) "
-            "VALUES (12101, 't', 'issue', 'idea', 'medium', "
+            "VALUES (12101, 't', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'medium', "
             "'2026-05-01T00:00:00Z', '2026-05-01T00:00:00Z', 1, 12101)",
         )
         conn.execute(
-            "INSERT INTO items (id, title, type, status, priority, "
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, "
             "created_at, updated_at, project_id, project_sequence) "
-            "VALUES (12102, 't', 'issue', 'idea', 'medium', "
+            "VALUES (12102, 't', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'medium', "
             "'2026-05-01T00:00:00Z', '2026-05-01T00:00:00Z', 1, 12102)",
         )
         conn.commit()
@@ -228,9 +228,9 @@ class TestActivationWrapperEmits:
         actor = local_human(conn)
         target = seed_target(conn, path_string="src/foo.py")
         conn.execute(
-            "INSERT INTO items (id, title, type, status, priority, "
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, "
             "created_at, updated_at, project_id, project_sequence) "
-            "VALUES (12201, 't', 'issue', 'idea', 'medium', "
+            "VALUES (12201, 't', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'medium', "
             "'2026-05-01T00:00:00Z', '2026-05-01T00:00:00Z', 1, 12201)",
         )
         conn.commit()

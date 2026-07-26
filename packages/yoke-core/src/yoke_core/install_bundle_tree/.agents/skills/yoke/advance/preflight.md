@@ -4,7 +4,7 @@
 
 Called by the advance router after identity/lifecycle resolution for non-implementing transitions. Runs the hard-block dependency gate, AC presence gate, active reconciliation gate, epic-specific gates, and the merge verification gate.
 
-**Context variables** (set by router): `{N}`, `_type`, `_status`, `_target`, `--force` flag
+**Context variables** (set by router): `{N}`, `_workflow_id`, `_status`, `_target`, `--force` flag
 
 ---
 
@@ -35,7 +35,10 @@ Covers (in order):
 
 ## Path Claim Activation Handoff
 
-When target is `implementing` and the item type is not `epic`, the next phase is the path-claim auto-activation step. The phase doc lives at `.agents/skills/yoke/advance/activation.md` and the enforcement owner is `yoke_core.domain.advance_path_claim_activation`.
+When target is `implementing` and the pinned definition selects item-level
+implementation, the next phase is the path-claim auto-activation step. The
+phase doc lives at `.agents/skills/yoke/advance/activation.md` and the
+enforcement owner is `yoke_core.domain.advance_path_claim_activation`.
 
 The phase runs **after** preflight (so the path-claim-required gate has already enforced declaration where it applies) and **before** the worktree phase (so the worktree door-lock check sees `state='active'` rather than `state='planned'`). It auto-flips planned claims to active, surfaces blocked-on-upstream errors, and refuses divergent origin/local refs. Skip when `--no-worktree` is passed — no worktree door-lock will fire and there is nothing to gate against.
 

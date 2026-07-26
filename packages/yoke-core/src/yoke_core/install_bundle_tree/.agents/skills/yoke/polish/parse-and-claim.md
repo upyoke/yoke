@@ -2,7 +2,11 @@
 
 Covers polish steps 1, 2, and 3: parse the item argument, locate the existing worktree lane set, and activate polish (hard gate).
 
-**Context variables** (consumed by later phases): `ITEM_NUM`, `ITEM_TYPE`, `ITEM_STATUS`, `ITEM_TITLE`, `WORKTREE_SCOPE`, `WORKTREE_COUNT`, `WORKTREE_BRANCH`, `WORKTREE_BRANCHES`, `WORKTREE_PATH`, `WORKTREE_PATHS`, `WORKTREE_EXISTS`, `WORKTREE_MISSING`, `ITEM_PROJECT`, `REPO_ROOT`.
+**Context variables** (consumed by later phases): `ITEM_NUM`,
+`ITEM_WORKFLOW_ID`, `ITEM_STATUS`, `ITEM_TITLE`, `WORKTREE_SCOPE`,
+`WORKTREE_COUNT`, `WORKTREE_BRANCH`, `WORKTREE_BRANCHES`, `WORKTREE_PATH`,
+`WORKTREE_PATHS`, `WORKTREE_EXISTS`, `WORKTREE_MISSING`, `ITEM_PROJECT`,
+`REPO_ROOT`.
 
 ---
 
@@ -13,7 +17,7 @@ Resolve the item metadata through the unified DB router.
 ```bash
 MAIN_ROOT=$(git rev-parse --show-toplevel)
 ITEM_NUM=$(printf '%s' "{arg}" | sed 's/^[Ss][Uu][Nn]-//; s/^0*//')
-ITEM_TYPE=$(yoke items get "$ITEM_NUM" type 2>/dev/null) || ITEM_TYPE=""
+ITEM_WORKFLOW_ID=$(yoke items get "$ITEM_NUM" workflow_id 2>/dev/null) || ITEM_WORKFLOW_ID=""
 ITEM_STATUS=$(yoke items get "$ITEM_NUM" status 2>/dev/null) || ITEM_STATUS=""
 ITEM_TITLE=$(yoke items get "$ITEM_NUM" title 2>/dev/null) || ITEM_TITLE=""
 ```
@@ -23,7 +27,10 @@ If any of those reads come back empty, stop with:
 
 ## 2. Locate The Worktree Lane Set
 
-Use the deterministic helper so polish resolves the same repo and implementation lane set every time. Issue items normally resolve to one item worktree. Epic items may resolve to multiple task worktrees recorded by the epic dispatch chain or task rows; do not collapse those lanes back into `YOK-{N}`.
+Use the deterministic helper so polish resolves the same repo and
+definition-selected implementation lane set every time. Item-level execution
+normally resolves one lane; task-graph execution may resolve multiple lanes.
+Do not collapse those lanes back into `YOK-{N}`.
 
 ```bash
 MAIN_ROOT=$(git rev-parse --show-toplevel)

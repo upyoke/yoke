@@ -28,16 +28,17 @@ class TestCreateItem:
     """Tests for create-item mutation command."""
 
     def test_create_success_returns_json(self, mutation_db):
-        """Basic create with title and type returns success JSON."""
+        """Basic create with title and workflow returns success JSON."""
         result = _run_client(
-            ["create-item", "--title", "New feature", "--type", "issue"],
+            ["create-item", "--title", "New feature", "--workflow", "issue"],
             db_path=mutation_db["db_path"],
         )
         assert result.returncode == 0
         data = json.loads(result.stdout.strip())
         assert data["success"] is True
         assert data["field_writes"]["title"] == "New feature"
-        assert data["field_writes"]["type"] == "issue"
+        assert data["field_writes"]["workflow_id"] == "issue"
+        assert data["field_writes"]["workflow_version_id"] > 0
         assert data["field_writes"]["status"] == "idea"
         assert data["field_writes"]["priority"] == "medium"
         assert "events" in data
@@ -46,7 +47,7 @@ class TestCreateItem:
     def test_create_with_all_options(self, mutation_db):
         """Create with all optional fields returns correct field_writes."""
         result = _run_client(
-            ["create-item", "--title", "Epic item", "--type", "epic",
+            ["create-item", "--title", "Epic item", "--workflow", "epic",
              "--priority", "high", "--project", "yoke",
              "--deployment-flow", "test-flow"],
             db_path=mutation_db["db_path"],
@@ -54,7 +55,8 @@ class TestCreateItem:
         assert result.returncode == 0
         data = json.loads(result.stdout.strip())
         assert data["success"] is True
-        assert data["field_writes"]["type"] == "epic"
+        assert data["field_writes"]["workflow_id"] == "epic"
+        assert data["field_writes"]["workflow_version_id"] > 0
         assert data["field_writes"]["priority"] == "high"
         assert data["field_writes"]["project"] == "yoke"
         assert data["field_writes"]["deployment_flow"] == "test-flow"
@@ -63,7 +65,7 @@ class TestCreateItem:
     def test_create_has_defaults(self, mutation_db):
         """Create result includes defaults dict."""
         result = _run_client(
-            ["create-item", "--title", "Test", "--type", "issue"],
+            ["create-item", "--title", "Test", "--workflow", "issue"],
             db_path=mutation_db["db_path"],
         )
         assert result.returncode == 0
@@ -76,7 +78,7 @@ class TestCreateItem:
         """Title exceeding 100 chars should be rejected."""
         long_title = "A" * 101
         result = _run_client(
-            ["create-item", "--title", long_title, "--type", "issue"],
+            ["create-item", "--title", long_title, "--workflow", "issue"],
             db_path=mutation_db["db_path"],
         )
         assert result.returncode == 1
@@ -85,21 +87,21 @@ class TestCreateItem:
         assert "100 characters" in data["error"]
         assert data["error_code"] == "VALIDATION_ERROR"
 
-    def test_create_invalid_type_rejected(self, mutation_db):
-        """Invalid item type should be rejected."""
+    def test_create_invalid_workflow_rejected(self, mutation_db):
+        """An unknown workflow should be rejected."""
         result = _run_client(
-            ["create-item", "--title", "Test", "--type", "bogus"],
+            ["create-item", "--title", "Test", "--workflow", "bogus"],
             db_path=mutation_db["db_path"],
         )
         assert result.returncode == 1
         data = json.loads(result.stdout.strip())
         assert data["success"] is False
-        assert "Invalid type" in data["error"]
+        assert "unknown workflow" in data["error"]
 
     def test_create_invalid_priority_rejected(self, mutation_db):
         """Invalid priority should be rejected."""
         result = _run_client(
-            ["create-item", "--title", "Test", "--type", "issue",
+            ["create-item", "--title", "Test", "--workflow", "issue",
              "--priority", "critical"],
             db_path=mutation_db["db_path"],
         )
@@ -110,7 +112,7 @@ class TestCreateItem:
 
     def test_create_missing_title_usage_error(self):
         """Missing --title should return exit code 2."""
-        result = _run_client(["create-item", "--type", "issue"])
+        result = _run_client(["create-item", "--workflow", "issue"])
         assert result.returncode == 2
 
     def test_create_cross_project_flow_rejected(self, mutation_db):
@@ -127,7 +129,7 @@ class TestCreateItem:
         conn.close()
 
         result = _run_client(
-            ["create-item", "--title", "Test", "--type", "issue",
+            ["create-item", "--title", "Test", "--workflow", "issue",
              "--project", "yoke", "--deployment-flow", "externalwebapp-flow"],
             db_path=mutation_db["db_path"],
         )
@@ -139,7 +141,7 @@ class TestCreateItem:
     def test_create_rejects_retired_epic_flag(self, mutation_db):
         """The retired --epic flag should no longer be accepted."""
         result = _run_client(
-            ["create-item", "--title", "Child epic", "--type", "epic",
+            ["create-item", "--title", "Child epic", "--workflow", "epic",
              "--epic", "12"],
             db_path=mutation_db["db_path"],
         )

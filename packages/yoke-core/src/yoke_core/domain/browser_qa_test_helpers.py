@@ -13,6 +13,7 @@ from typing import Any, Dict, List
 from unittest import mock
 
 from yoke_core.domain import browser_qa, db_backend
+from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
 from runtime.api.fixtures.file_test_db import connect_test_db
 
 
@@ -23,16 +24,23 @@ def _placeholder(conn) -> str:
 def _seed_item(db_path: str, item_id: int, title: str = "Test item") -> None:
     conn = connect_test_db(db_path)
     p = _placeholder(conn)
+    workflow_id, workflow_version_id = resolve_current_workflow_pin(
+        conn, "issue"
+    )
     conn.execute(
         f"""
         INSERT INTO items (
-            id, title, type, status, priority, flow, rework_count, frozen,
+            id, title, workflow_id, workflow_version_id, status, priority,
+            flow, rework_count, frozen,
             created_at, updated_at, source, project_id, project_sequence
-        ) VALUES ({p}, {p}, 'issue', 'reviewing-implementation', 'high', 'accelerated', 0, 0, {p}, {p}, 'user', 1, {p})
+        ) VALUES ({p}, {p}, {p}, {p}, 'reviewing-implementation', 'high',
+                  'accelerated', 0, 0, {p}, {p}, 'user', 1, {p})
         """,
         (
             item_id,
             title,
+            workflow_id,
+            workflow_version_id,
             "2026-01-01T00:00:00Z",
             "2026-01-01T00:00:00Z",
             item_id,

@@ -210,8 +210,8 @@ class TestOrphanedActiveItems:
         """T1: PASS when no orphaned items exist."""
         conn = _make_conn()
         conn.execute(
-            "INSERT INTO items (id, title, type, status, worktree) "
-            "VALUES (10, 'Active item', 'issue', 'implementing', 'YOK-10')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, worktree) "
+            "VALUES (10, 'Active item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'YOK-10')"
         )
         rec = _run_hc(hc_orphaned_active_items, conn)
         assert _result(rec).result == "PASS"
@@ -221,8 +221,8 @@ class TestOrphanedActiveItems:
         """T2: WARN when branch is merged to main but status is still active."""
         conn = _make_conn()
         conn.execute(
-            "INSERT INTO items (id, title, type, status, worktree) "
-            "VALUES (20, 'Merged but active', 'issue', 'implementing', 'YOK-20')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, worktree) "
+            "VALUES (20, 'Merged but active', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'YOK-20')"
         )
         # Simulate: branch exists, and is merged
         mock_run.side_effect = [
@@ -238,8 +238,8 @@ class TestOrphanedActiveItems:
         """T3: WARN when merged_at is set but status is not done."""
         conn = _make_conn()
         conn.execute(
-            "INSERT INTO items (id, title, type, status, worktree, merged_at) "
-            "VALUES (30, 'Merged at set', 'issue', 'implementing', 'YOK-30', "
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, worktree, merged_at) "
+            "VALUES (30, 'Merged at set', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'YOK-30', "
             "'2026-03-01T10:00:00Z')"
         )
         rec = _run_hc(hc_orphaned_active_items, conn)
@@ -250,12 +250,12 @@ class TestOrphanedActiveItems:
         """T7: Items in done/cancelled status are not flagged."""
         conn = _make_conn()
         conn.execute(
-            "INSERT INTO items (id, title, type, status, merged_at) "
-            "VALUES (70, 'Done item', 'issue', 'done', '2026-03-01T10:00:00Z')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, merged_at) "
+            "VALUES (70, 'Done item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'done', '2026-03-01T10:00:00Z')"
         )
         conn.execute(
-            "INSERT INTO items (id, title, type, status) "
-            "VALUES (71, 'Cancelled item', 'issue', 'cancelled')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status) "
+            "VALUES (71, 'Cancelled item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'cancelled')"
         )
         rec = _run_hc(hc_orphaned_active_items, conn)
         assert _result(rec).result == "PASS"
@@ -265,12 +265,12 @@ class TestOrphanedActiveItems:
         conn = _make_conn()
         # Two items with merged_at set
         conn.execute(
-            "INSERT INTO items (id, title, type, status, merged_at) "
-            "VALUES (80, 'Orphan 1', 'issue', 'implementing', '2026-03-01T10:00:00Z')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, merged_at) "
+            "VALUES (80, 'Orphan 1', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', '2026-03-01T10:00:00Z')"
         )
         conn.execute(
-            "INSERT INTO items (id, title, type, status, merged_at) "
-            "VALUES (81, 'Orphan 2', 'issue', 'implementing', '2026-03-01T10:00:00Z')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, merged_at) "
+            "VALUES (81, 'Orphan 2', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', '2026-03-01T10:00:00Z')"
         )
         rec = _run_hc(hc_orphaned_active_items, conn)
         assert _result(rec).result == "WARN"
@@ -283,8 +283,8 @@ class TestOrphanedActiveItems:
         # Items in pre-work states with merged_at would be unusual,
         # but the HC only looks at items past the "implementing" stage
         conn.execute(
-            "INSERT INTO items (id, title, type, status) "
-            "VALUES (110, 'Idea item', 'issue', 'idea')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status) "
+            "VALUES (110, 'Idea item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea')"
         )
         rec = _run_hc(hc_orphaned_active_items, conn)
         assert _result(rec).result == "PASS"
@@ -295,8 +295,8 @@ class TestOrphanedActiveItems:
         """T11b: Legacy ready rows are ignored by the active-item check."""
         conn = _make_conn()
         conn.execute(
-            "INSERT INTO items (id, title, type, status, worktree) "
-            "VALUES (111, 'Legacy ready item', 'issue', 'ready', 'YOK-111')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, worktree) "
+            "VALUES (111, 'Legacy ready item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'ready', 'YOK-111')"
         )
         mock_run.side_effect = [
             _completed(returncode=0, stdout="main\n"),
@@ -310,8 +310,8 @@ class TestOrphanedActiveItems:
         """T4: Item matching both signals appears only once."""
         conn = _make_conn()
         conn.execute(
-            "INSERT INTO items (id, title, type, status, worktree, merged_at) "
-            "VALUES (40, 'Both signals', 'issue', 'implementing', 'YOK-40', "
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, worktree, merged_at) "
+            "VALUES (40, 'Both signals', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'YOK-40', "
             "'2026-03-01T10:00:00Z')"
         )
         # Simulate: branch exists and is merged (merge-base --is-ancestor succeeds)

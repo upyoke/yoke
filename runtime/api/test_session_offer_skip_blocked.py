@@ -73,8 +73,12 @@ def test_unblocking_restores_to_conduct_eligible():
     conn.execute("UPDATE items SET blocked = 0, blocked_reason = NULL WHERE id = 12")
     conn.commit()
     sched_post = compute_schedule(conn, project_scope=["yoke"])
-    # Refined-idea is conduct-eligible (issue family) once unblocked.
-    eligible = {s.item_id for s in sched_post.conduct_eligible}
+    # Refined-idea routes to advance for the Issue workflow once unblocked.
+    eligible = {
+        s.item_id
+        for s in sched_post.ranked_steps
+        if s.next_step == NextStep.ADVANCE
+    }
     assert "YOK-12" in eligible
     blocked = {s.item_id for s in sched_post.blocked_steps}
     assert "YOK-12" not in blocked
@@ -82,7 +86,7 @@ def test_unblocking_restores_to_conduct_eligible():
 
 def test_blocked_step_next_step_is_wait():
     conn = make_test_db()
-    insert_item(conn, 13, status="planned", item_type="epic")
+    insert_item(conn, 13, status="planned", workflow="epic")
     _block(conn, 13, "epic-level pause")
     conn.commit()
     sched = compute_schedule(conn, project_scope=["yoke"])

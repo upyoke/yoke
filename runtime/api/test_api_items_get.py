@@ -11,13 +11,13 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from runtime.api.api_items_test_helpers import (
     _client_for_db,
-    _p,
     _startup_test_db,
     _startup_error_for_db,
     connect_test_db,
     make_client_fixture,
     make_test_db_fixture,
 )
+from runtime.api.fixtures.backlog import insert_item
 from yoke_core.domain.strategy_docs import STRATEGY_DOCS_TABLE
 
 
@@ -38,7 +38,8 @@ class TestGetItem:
         data = resp.json()
         assert data["id"] == 1
         assert data["title"] == "First item"
-        assert data["type"] == "issue"
+        assert data["workflow_id"] == "issue"
+        assert isinstance(data["workflow_version_id"], int)
         assert data["status"] == "implementing"
         assert data["priority"] == "high"
         # body column removed; single-item response returns None
@@ -70,32 +71,23 @@ class TestGetItem:
             conn = connect_test_db(db_path)
             conn.execute(
                 """INSERT INTO items
-                   (id, title, type, status, priority, project_id,
+                   (id, title, workflow_id, workflow_version_id, status, priority, project_id,
                     project_sequence, created_at, updated_at, source)
-                   VALUES (98, 'Legacy qa item', 'issue', 'qa', 'medium',
+                   VALUES (98, 'Legacy qa item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'qa', 'medium',
                            1, 98, '2026-03-09T00:00:00Z',
                            '2026-03-09T00:00:00Z', 'user')"""
             )
             conn.commit()
             conn.close()
             message = _startup_error_for_db(db_path)
-            assert "retired statuses" in message
+            assert "invalid workflow pins or stages" in message
             assert "YOK-98=qa" in message
-            assert "zero-legacy DB convergence" in message
+            assert "Repair the item workflow pins" in message
 
     def test_startup_accepts_current_lifecycle_statuses(self, tmp_path):
         """Current issue/epic lifecycle statuses boot the API cleanly."""
         with _startup_test_db(tmp_path) as db_path:
             conn = connect_test_db(db_path)
-            p = _p(conn)
-            sql = (
-                f"""INSERT INTO items
-                   (id, title, type, status, priority, project_id,
-                    project_sequence, created_at, updated_at, source)
-                   VALUES ({p}, {p}, {p}, {p}, 'medium', 1, {p},
-                           '2026-04-05T00:00:00Z',
-                           '2026-04-05T00:00:00Z', 'user')"""
-            )
             for row in [
                 (90, "Epic planning", "epic", "planning", 90),
                 (91, "Epic plan refinement", "epic", "refining-plan", 91),
@@ -104,8 +96,16 @@ class TestGetItem:
                 (94, "Issue polish", "issue", "polishing-implementation", 94),
                 (95, "Issue implemented", "issue", "implemented", 95),
             ]:
-                conn.execute(sql, row)
-            conn.commit()
+                insert_item(
+                    conn,
+                    id=row[0],
+                    title=row[1],
+                    workflow_id=row[2],
+                    status=row[3],
+                    project_sequence=row[4],
+                    created_at="2026-04-05T00:00:00Z",
+                    updated_at="2026-04-05T00:00:00Z",
+                )
             conn.close()
 
             with _client_for_db(db_path) as client:

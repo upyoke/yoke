@@ -167,8 +167,8 @@ class TestRestPassWithGitHubAuth:
         conn = _make_conn()
         _seed_project(conn, "yoke", "upyoke/yoke")
         conn.execute(
-            "INSERT INTO items (id, title, type, status, github_issue) "
-            "VALUES (1, 'Test', 'issue', 'implementing', '#100')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, github_issue) "
+            "VALUES (1, 'Test', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', '#100')"
         )
         with patch(
             "yoke_core.engines.doctor_hc_worktrees.resolve_project_github_auth",

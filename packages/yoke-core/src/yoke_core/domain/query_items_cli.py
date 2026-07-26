@@ -13,24 +13,24 @@ from yoke_core.api.service_client_items_parsing import _QI_ALL_FIELDS
 
 _USAGE = """\
 Usage:
-  db_router items list [--status S] [--priority S] [--type S] [--frozen 0|1] [--project P] [--fields "f1,f2,..."] [--limit N]
-  db_router items count [--status S] [--priority S] [--type S] [--frozen 0|1] [--project P]
+  db_router items list [--status S] [--priority S] [--workflow S] [--frozen 0|1] [--project P] [--fields "f1,f2,..."] [--limit N]
+  db_router items count [--status S] [--priority S] [--workflow S] [--frozen 0|1] [--project P]
   db_router items get YOK-N <field> [<field2> ...] [--section "## Heading"] [--json]
   db_router items row YOK-N
   db_router items progress YOK-N
 
 Worked example — canonical agent shape:
-  yoke items get YOK-N status type title
+  yoke items get YOK-N status workflow_id title
   yoke items get YOK-N spec
 
 Operator-debug fallback inside a Yoke checkout (also offers --section
 body filtering the `yoke items get` adapter does not expose yet):
-  python3 -m yoke_core.cli.db_router items get YOK-N status type title
+  python3 -m yoke_core.cli.db_router items get YOK-N status workflow_id title
   python3 -m yoke_core.cli.db_router items get YOK-N body          # virtual rendered field
   python3 -m yoke_core.cli.db_router items get YOK-N spec --section "## Acceptance Criteria"
 
 Field matrix for `get` (canonical YOKE backlog item columns):
-  scalar:  id, title, status, type, priority, project, deployment_flow,
+  scalar:  id, title, status, workflow_id, workflow_version_id, priority, project, deployment_flow,
            frozen, blocked, blocked_reason, worktree, github_issue, deployed_to
   structured: spec, design_spec, technical_plan, worktree_plan,
               shepherd_log, shepherd_caveats, test_results, deploy_log

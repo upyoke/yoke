@@ -264,7 +264,9 @@ Add, split, reassign, or remove tasks after sync. Routes mutations through the `
 
 ### plan
 
-Explore scans codebase. Architect output is type-aware: issue -> lightweight `## Technical Plan` in item body, epic -> task decomposition + worktree plan. Recommends simulation for epics.
+Explore scans the codebase. Architect output follows the selected workflow
+policy: item-level execution gets a lightweight `## Technical Plan`; a
+task-graph workflow gets task decomposition plus a worktree plan.
 
 ### simulate
 

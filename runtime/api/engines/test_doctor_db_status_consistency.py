@@ -26,7 +26,7 @@ from runtime.api.api_workflow_test_helpers import (
 
 class TestHCStatusConsistency:
     def test_pass_no_epics(self, conn):
-        conn.execute("INSERT INTO items (id, title, type, status, priority) VALUES (1, 'T', 'issue', 'idea', 'low')")
+        conn.execute("INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority) VALUES (1, 'T', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'low')")
         install_workflow_registry_and_pin_items(conn)
         rec = RecordCollector()
         hc_status_consistency(conn, _default_args(), rec)
@@ -35,8 +35,8 @@ class TestHCStatusConsistency:
 
     def test_fail_epic_no_tasks(self, conn):
         conn.execute(
-            "INSERT INTO items (id, title, type, status, priority) "
-            "VALUES (10, 'E', 'epic', 'implementing', 'high')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority) "
+            "VALUES (10, 'E', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'implementing', 'high')"
         )
         install_workflow_registry_and_pin_items(
             conn,
@@ -50,8 +50,8 @@ class TestHCStatusConsistency:
 
     def test_pass_epic_with_tasks(self, conn):
         conn.execute(
-            "INSERT INTO items (id, title, type, status, priority) "
-            "VALUES (10, 'E', 'epic', 'implementing', 'high')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority) "
+            "VALUES (10, 'E', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'implementing', 'high')"
         )
         install_workflow_registry_and_pin_items(
             conn,
@@ -67,8 +67,8 @@ class TestHCStatusConsistency:
         # Epic decomposition runs in /yoke shepherd (refined-idea -> planning),
         # so refined-idea epics legitimately have no epic_tasks rows yet.
         conn.execute(
-            "INSERT INTO items (id, title, type, status, priority) "
-            "VALUES (11, 'E', 'epic', 'refined-idea', 'high')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority) "
+            "VALUES (11, 'E', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'refined-idea', 'high')"
         )
         install_workflow_registry_and_pin_items(
             conn,
@@ -82,8 +82,8 @@ class TestHCStatusConsistency:
     def test_fail_planning_epic_without_tasks(self, conn):
         # planning-status epics MUST have tasks (architect populates them).
         conn.execute(
-            "INSERT INTO items (id, title, type, status, priority) "
-            "VALUES (12, 'E', 'epic', 'planning', 'high')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority) "
+            "VALUES (12, 'E', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'planning', 'high')"
         )
         install_workflow_registry_and_pin_items(
             conn,

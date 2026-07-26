@@ -2,9 +2,9 @@
 
 The shared mutation layer owns the standard item fields. This bridge
 handles the small field set that still has direct validation rules:
-``type``, ``source``, ``owner``, ``deploy_stage``, and
-``architecture_impact`` (validated + normalized to its canonical enum
-form so a stored value can never carry stray whitespace/case).
+``source``, ``owner``, ``deploy_stage``, and ``architecture_impact``
+(validated + normalized to its canonical enum form so a stored value
+can never carry stray whitespace/case).
 """
 
 from __future__ import annotations
@@ -24,10 +24,7 @@ def _apply_shell_fallback(
     out: TextIO,
 ) -> dict:
     """Handle fields outside the shared mutation surface."""
-    if field == "type":
-        if value not in ("epic", "issue"):
-            return {"success": False, "error": "type must be 'epic' or 'issue'"}
-    elif field in ("source", "owner"):
+    if field in ("source", "owner"):
         if not value:
             return {"success": False, "error": f"{field} cannot be empty"}
     elif field == "deploy_stage":

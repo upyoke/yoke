@@ -24,8 +24,8 @@ class TestSessionOfferCodexManifest:
         conn = connect_test_db(session_offer_db["db_path"])
         conn.execute(
             """INSERT INTO items
-               (id, title, type, status, priority, project_id, project_sequence, created_at, updated_at, source, frozen, spec)
-               VALUES (13, 'Compatible refine task', 'issue', 'idea', 'high', 1, 13,
+               (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence, created_at, updated_at, source, frozen, spec)
+               VALUES (13, 'Compatible refine task', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'high', 1, 13,
                        '2026-03-01', '2026-03-01', 'user', 0,
                        '# Compatible refine task\n\nFixture spec body for codex-manifest tests.')"""
         )
@@ -63,8 +63,8 @@ class TestSessionOfferCodexManifest:
         conn = connect_test_db(session_offer_db["db_path"])
         conn.execute(
             """INSERT INTO items
-               (id, title, type, status, priority, project_id, project_sequence, created_at, updated_at, source, frozen, spec)
-               VALUES (13, 'Compatible refine task', 'issue', 'idea', 'high', 1, 13,
+               (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence, created_at, updated_at, source, frozen, spec)
+               VALUES (13, 'Compatible refine task', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'high', 1, 13,
                        '2026-03-01', '2026-03-01', 'user', 0,
                        '# Compatible refine task\n\nFixture spec body for codex-manifest tests.')"""
         )
@@ -113,8 +113,8 @@ class TestSessionOfferCodexManifest:
         conn = connect_test_db(session_offer_db["db_path"])
         conn.execute(
             """INSERT INTO items
-               (id, title, type, status, priority, project_id, project_sequence, created_at, updated_at, source, frozen, spec)
-               VALUES (13, 'Compatible refine task', 'issue', 'idea', 'high', 1, 13,
+               (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence, created_at, updated_at, source, frozen, spec)
+               VALUES (13, 'Compatible refine task', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'high', 1, 13,
                        '2026-03-01', '2026-03-01', 'user', 0,
                        '# Compatible refine task\n\nFixture spec body for codex-manifest tests.')"""
         )

@@ -130,6 +130,11 @@ def _create_schema(conn) -> None:
         _SESSIONS_AND_CLAIMS_DDL,
     )
     create_work_claim_active_uniques(conn)
+    from yoke_core.domain.workflow_registry import converge_builtin_workflows
+    from yoke_core.domain.workflow_schema import ensure_workflow_schema
+
+    ensure_workflow_schema(conn)
+    converge_builtin_workflows(conn)
 
 
 
@@ -253,10 +258,10 @@ def ownership_conn(tmp_path):
         c = _connect_with_backend_setup(tmp_path)
         # Seed a runnable item (matches the legacy fixture).
         c.execute(
-            "INSERT INTO items (id, title, type, status, priority, project_id, "
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, project_id, "
             "project_sequence, "
             "created_at, updated_at, source, frozen) VALUES "
-            "(100, 'Test item', 'issue', 'refined-idea', 'high', 1, 100, "
+            "(100, 'Test item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'refined-idea', 'high', 1, 100, "
             "'2026-03-01', '2026-03-01', 'user', 0)"
         )
         c.commit()

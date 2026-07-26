@@ -20,7 +20,8 @@ def _apply_repair_schema() -> None:
             """
             CREATE TABLE items (
                 id INTEGER PRIMARY KEY,
-                type TEXT,
+                workflow_id TEXT,
+                workflow_version_id INTEGER,
                 status TEXT
             )
             """
@@ -35,28 +36,18 @@ def _apply_repair_schema() -> None:
             )
             """
         )
-        conn.execute("INSERT INTO items (id, type, status) VALUES (9, 'issue', 'idea')")
-        conn.execute("INSERT INTO items (id, type, status) VALUES (42, 'epic', 'planning')")
-        conn.execute(
-            "INSERT INTO epic_tasks (epic_id, task_num, status) VALUES ('42', 1, 'planning')"
-        )
         from yoke_core.domain.workflow_registry import (
             converge_builtin_workflows,
-            resolve_current_workflow_pin,
         )
         from yoke_core.domain.workflow_schema import ensure_workflow_schema
 
         ensure_workflow_schema(conn)
         converge_builtin_workflows(conn)
-        for workflow_id in ("issue", "epic"):
-            resolved_id, version_id = resolve_current_workflow_pin(
-                conn, workflow_id,
-            )
-            conn.execute(
-                "UPDATE items SET workflow_id=%s, workflow_version_id=%s "
-                "WHERE type=%s",
-                (resolved_id, version_id, workflow_id),
-            )
+        conn.execute("INSERT INTO items (id, workflow_id, workflow_version_id, status) VALUES (9, 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea')")
+        conn.execute("INSERT INTO items (id, workflow_id, workflow_version_id, status) VALUES (42, 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'planning')")
+        conn.execute(
+            "INSERT INTO epic_tasks (epic_id, task_num, status) VALUES ('42', 1, 'planning')"
+        )
         conn.commit()
     finally:
         conn.close()

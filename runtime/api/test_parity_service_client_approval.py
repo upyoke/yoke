@@ -164,10 +164,10 @@ class TestApprovalWriteParity:
         # Now set up another item at the same stage for CLI test
         conn.execute(
             """INSERT INTO items
-               (id, title, type, status, priority, project_id, project_sequence,
+               (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
                 deploy_stage, deployment_flow,
                 created_at, updated_at, source, frozen)
-               VALUES (100, 'CLI approval test', 'issue', 'release', 'high', 1, 100,
+               VALUES (100, 'CLI approval test', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'release', 'high', 1, 100,
                        'approve-deploy', 'parity-flow',
                        '2026-01-01', '2026-01-01', 'user', 0)""",
         )

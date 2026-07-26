@@ -33,6 +33,11 @@ def _apply_core_only_schema() -> None:
     c = db_backend.connect()
     try:
         create_core_tables(c)
+        from yoke_core.domain.workflow_registry import converge_builtin_workflows
+        from yoke_core.domain.workflow_schema import ensure_workflow_schema
+
+        ensure_workflow_schema(c)
+        converge_builtin_workflows(c)
         c.execute(
             "INSERT INTO projects "
             "(id, slug, name, public_item_prefix, created_at) "
@@ -48,9 +53,9 @@ def _apply_core_only_schema() -> None:
 
 def _seed_item(conn, *, item_id: int) -> int:
     conn.execute(
-        "INSERT INTO items (id, title, type, status, priority, "
+        "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, "
         "created_at, updated_at, project_id, project_sequence) "
-        "VALUES (%s, 'item', 'issue', 'idea', 'medium', "
+        "VALUES (%s, 'item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'medium', "
         "'2026-05-01T00:00:00Z', '2026-05-01T00:00:00Z', 1, %s)",
         (item_id, item_id),
     )

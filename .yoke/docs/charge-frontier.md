@@ -41,38 +41,13 @@ broader but shallower fan-out when priority is equal.
 
 Count items in `implementing` or `reviewing-implementation` status for the project (excluding frozen items). These are the statuses that consume implementation WIP. `reviewed-implementation` and `polishing-implementation` are finishing-review states and do not consume conduct WIP slots.
 
-### Step 5: Classify adapter categories
+### Step 5: Resolve the registered executor
 
-Each item is classified into a downstream adapter based on its current status:
-
-| Status | Adapter | Description |
-|--------|---------|-------------|
-| `idea` (epic) | `refine` | Epic needs refinement |
-| `idea` (issue) | `refine` | Issue needs refinement |
-| `refining-idea` (epic) | `refine` | Epic refinement in progress |
-| `refining-idea` (issue) | `refine` | Issue refinement in progress |
-| `refined-idea` (epic) | `shepherd` | Epic ready for shepherd pipeline |
-| `refined-idea` (issue) | `conduct` | Issue ready for implementation |
-| `planning` (epic) | `shepherd` | Epic planning in progress |
-| `plan-drafted` (epic) | `refine` | Epic plan drafted, needs refinement |
-| `refining-plan` (epic) | `refine` | Epic plan refinement in progress |
-| `planned` (epic) | `conduct` | Epic ready for implementation work |
-| `implementing` (epic) | `conduct` | Epic implementation in progress |
-| `implementing` (issue) | `conduct` | Issue implementation in progress |
-| `reviewing-implementation` (epic) | `conduct` | Epic implementation under review |
-| `reviewing-implementation` (issue) | `conduct` | Issue implementation under review |
-| `reviewed-implementation` (epic) | `polish` | Epic review complete, queued for finishing review |
-| `reviewed-implementation` (issue) | `polish` | Issue review complete, queued for finishing review |
-| `polishing-implementation` (epic) | `polish` | Epic finishing review in progress |
-| `polishing-implementation` (issue) | `polish` | Issue finishing review in progress |
-| `implemented` | `usher` | Ready for merge/deploy |
-| `release` | `usher` | In deployment pipeline |
-| `failed` | `wait` | Exceptional state, needs resolution |
-| `done` | `skip` | Terminal, not actionable |
-| `cancelled` | `skip` | Terminal, not actionable |
-| `stopped` | `skip` | Terminal, not actionable |
-
-The frontier adapter is the raw ranking category. The scheduler then remaps issue `conduct`-classified implementation states (`refined-idea`, `implementing`, `reviewing-implementation`) to `next_step=advance`, while epic implementation states remain `next_step=conduct`.
+Each item loads its immutable `workflow_id` / `workflow_version_id` pin. The
+runtime finds the current stage in that definition and resolves the registered
+executor binding for the stage. The frontier adapter remains a coarse ranking
+category; scheduler `next_step` is the executor binding and is the dispatch
+truth.
 
 Items with unsatisfied activation-gate hard-block dependencies are reclassified to `wait` regardless of their status-based adapter. Items with `items.blocked = 1` are also reported in the blocked bucket even when they do not have a hard-block dependency row.
 
@@ -121,7 +96,8 @@ class FrontierItem:
  status: str # canonical status
  priority: str # high, medium, low
  project: str
- item_type: str # epic or issue
+ workflow_id: str
+ workflow_version_id: int
  adapter: AdapterCategory # refine, shepherd, conduct, polish, usher, wait, skip
  blocked_by: List[str] # ["YOK-N"] (blocked items only)
  blocked_reasons: List[str] # human-readable reasons
@@ -179,7 +155,8 @@ GET /v1/charge/frontier?project=yoke&wip_cap=5
  "status": "planned",
  "priority": "high",
  "project": "yoke",
- "item_type": "epic",
+ "workflow_id": "epic",
+ "workflow_version_id": 1,
  "adapter": "conduct",
  "blocked_by": [],
  "blocked_reasons": [],
@@ -223,11 +200,12 @@ The `/yoke charge` SKILL.md uses the frontier computation to drive the full char
 2. **Present** -- display a formatted table of runnable items with adapter classifications.
 3. **Select** -- use the highest-ranked item (or `--item YOK-N` override).
 4. **Confirm** -- ask the operator to confirm the dispatch target.
-5. **Dispatch** -- invoke the appropriate downstream skill based on the item's `next_step` (not the raw `adapter`):
+5. **Dispatch** -- invoke the registered executor in the item's `next_step`
+   (not the raw `adapter`):
  - `refine` routes to `/yoke refine YOK-N`
  - `shepherd` routes to `/yoke shepherd YOK-N`
- - `conduct` routes to `/yoke conduct YOK-N` (epics)
- - `advance` routes to `/yoke advance YOK-N implementation` (issues)
+ - `conduct` routes to `/yoke conduct YOK-N`
+ - `advance` routes to `/yoke advance YOK-N implementation`
  - `polish` routes to `/yoke polish YOK-N`
  - `usher` routes to `/yoke usher YOK-N`
  - `wait` reports blockers and stops

@@ -9,6 +9,7 @@ file presses the file-line cap.
 from __future__ import annotations
 
 import subprocess
+import sys
 
 from yoke_core.domain import schema_api_context as sac
 from yoke_core.domain import schema_api_context_seed as seed
@@ -16,7 +17,7 @@ from yoke_core.domain import schema_api_context_seed as seed
 
 def _qa_help(subcommand: str) -> str:
     result = subprocess.run(
-        ["python3", "-m", "yoke_core.domain.qa", subcommand, "--help"],
+        [sys.executable, "-m", "yoke_core.domain.qa", subcommand, "--help"],
         capture_output=True,
         text=True,
         check=False,

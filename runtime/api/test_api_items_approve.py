@@ -153,9 +153,9 @@ class TestApproveItem:
         conn = connect_test_db(test_db["db_path"])
         conn.execute(
             """INSERT INTO items
-               (id, title, type, status, priority, project_id, project_sequence,
+               (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
                 created_at, updated_at, source, deploy_stage, deployment_flow)
-               VALUES (6, 'No flow', 'issue', 'release', 'medium', 1, 6,
+               VALUES (6, 'No flow', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'release', 'medium', 1, 6,
                        '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z', 'user',
                        'some-stage', NULL)"""
         )
@@ -172,9 +172,9 @@ class TestApproveItem:
         conn = connect_test_db(test_db["db_path"])
         conn.execute(
             """INSERT INTO items
-               (id, title, type, status, priority, project_id, project_sequence,
+               (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
                 created_at, updated_at, source, deploy_stage, deployment_flow)
-               VALUES (7, 'No run item', 'issue', 'release', 'medium', 1, 7,
+               VALUES (7, 'No run item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'release', 'medium', 1, 7,
                        '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z', 'user',
                        'approve-deploy', 'test-approval-flow')"""
         )
@@ -199,9 +199,9 @@ class TestApproveItem:
         # Add a second item to the same run
         conn.execute(
             """INSERT INTO items
-               (id, title, type, status, priority, project_id, project_sequence,
+               (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
                 created_at, updated_at, source, deploy_stage, deployment_flow)
-               VALUES (8, 'Second run member', 'issue', 'release', 'medium', 1, 8,
+               VALUES (8, 'Second run member', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'release', 'medium', 1, 8,
                        '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z', 'user',
                        'approve-deploy', 'test-approval-flow')"""
         )

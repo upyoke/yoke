@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import unittest
 
+from runtime.api.api_workflow_test_helpers import install_workflow_registry_and_pin_items
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 from yoke_core.domain.session_project_scope import (
@@ -255,6 +256,7 @@ class TestEndToEndProjectScope(unittest.TestCase):
         conn = _make_disposable_db()
         apply_fixture_ddl(conn, PROJECTS_SCHEMA)
         apply_fixture_ddl(conn, ITEMS_SCHEMA)
+        install_workflow_registry_and_pin_items(conn)
         apply_fixture_ddl(conn, ITEM_DEPENDENCIES_SCHEMA)
         for pid in ("yoke", self.FIXTURE_PROJECT):
             conn.execute(
@@ -264,7 +266,7 @@ class TestEndToEndProjectScope(unittest.TestCase):
                 (_project_id(pid), pid, pid.title(), "YOK"),
             )
         # Seed one runnable item per project. Both items use the same
-        # status/type/priority so the only differentiator is the project
+        # status/workflow/priority so the only differentiator is the project
         # id; AC-9 then proves the new ``IN`` clause spans the scope.
         for item_id, project_id in (
             (501, "yoke"),
@@ -272,10 +274,10 @@ class TestEndToEndProjectScope(unittest.TestCase):
         ):
             conn.execute(
                 """INSERT INTO items
-                   (id, title, type, status, priority,
+                   (id, title, workflow_id, workflow_version_id, status, priority,
                     project_id, project_sequence, created_at, updated_at,
                     source, frozen)
-                   VALUES (%s, %s, 'issue', 'refined-idea', 'high', %s, %s,
+                   VALUES (%s, %s, 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'refined-idea', 'high', %s, %s,
                            '2026-05-21', '2026-05-21', 'user', 0)""",
                 (
                     item_id,

@@ -13,6 +13,7 @@ import pytest
 
 from yoke_core.domain import db_backend, schema
 from yoke_core.domain.schema_common import _get_columns
+from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 
 
@@ -40,6 +41,10 @@ def _column_names(conn, table: str) -> list[str]:
     return _get_columns(conn, table)
 
 
+def _issue_pin(conn) -> tuple[str, int]:
+    return resolve_current_workflow_pin(conn, "issue")
+
+
 class TestAddColumnMigrations:
     """ADD COLUMN migrations are idempotent and land on fresh DBs."""
 
@@ -47,10 +52,14 @@ class TestAddColumnMigrations:
         """Items without an explicit source receive the canonical actor id."""
         with init_test_db(tmp_path) as db_path:
             conn = _connect(db_path)
+            workflow_id, workflow_version_id = _issue_pin(conn)
             conn.execute(
                 "INSERT INTO items "
-                "(id, project_sequence, title, type, status, priority, created_at, updated_at) "
-                "VALUES (1, 1, 'old', 'issue', 'idea', 'medium', '2025-01-01', '2025-01-01')"
+                "(id, project_sequence, title, workflow_id, "
+                "workflow_version_id, status, priority, created_at, updated_at) "
+                "VALUES (1, 1, 'old', %s, %s, 'idea', 'medium', "
+                "'2025-01-01', '2025-01-01')",
+                (workflow_id, workflow_version_id),
             )
             conn.commit()
             row = conn.execute("SELECT source FROM items WHERE id=1").fetchone()
@@ -61,10 +70,14 @@ class TestAddColumnMigrations:
         """Project identity defaults to the seeded Yoke project id."""
         with init_test_db(tmp_path) as db_path:
             conn = _connect(db_path)
+            workflow_id, workflow_version_id = _issue_pin(conn)
             conn.execute(
                 "INSERT INTO items "
-                "(id, project_sequence, title, type, status, priority, created_at, updated_at) "
-                "VALUES (1, 1, 'test', 'issue', 'idea', 'medium', '2025-01-01', '2025-01-01')"
+                "(id, project_sequence, title, workflow_id, "
+                "workflow_version_id, status, priority, created_at, updated_at) "
+                "VALUES (1, 1, 'test', %s, %s, 'idea', 'medium', "
+                "'2025-01-01', '2025-01-01')",
+                (workflow_id, workflow_version_id),
             )
             conn.commit()
             row = conn.execute(
@@ -102,11 +115,13 @@ class TestAddColumnMigrations:
             if "browser_qa_metadata" in _column_names(conn, "items"):
                 conn.execute("ALTER TABLE items DROP COLUMN browser_qa_metadata")
                 conn.commit()
+            workflow_id, workflow_version_id = _issue_pin(conn)
             conn.execute(
-                "INSERT INTO items (id, title, type, status, priority, "
+                "INSERT INTO items (id, title, workflow_id, "
+                "workflow_version_id, status, priority, "
                 "created_at, updated_at, source, project_id, project_sequence) "
-                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                (1, "t", "issue", "idea", "medium",
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                (1, "t", workflow_id, workflow_version_id, "idea", "medium",
                  "2026-01-01T00:00:00Z", "2026-01-01T00:00:00Z",
                  "user", 1, 1),
             )

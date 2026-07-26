@@ -61,11 +61,11 @@ if [ "${_attempt_{_id}}" = "1" ]; then
  # Issues: compare merge-base with HEAD
  # Epics (first task): TASK_BASELINE == merge-base, so compare TASK_BASELINE with HEAD
  # Epics (subsequent tasks in chain): TASK_BASELINE != merge-base, always dispatch Engineer
- if [ "${_type}" = "issue" ]; then
+ if [ "${_workflow_id}" = "issue" ]; then
  if [ "$_merge_base" != "$_worktree_head" ]; then
  _has_implementation_{_id}=true
  fi
- elif [ "${_type}" = "epic" ]; then
+ elif [ "${_workflow_id}" = "epic" ]; then
  # Only skip for first task on branch (TASK_BASELINE == merge-base)
  if [ "${TASK_BASELINE_{_id}}" = "$_merge_base" ] && [ "${TASK_BASELINE_{_id}}" != "$_worktree_head" ]; then
  _has_implementation_{_id}=true

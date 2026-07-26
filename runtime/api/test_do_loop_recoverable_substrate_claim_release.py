@@ -32,9 +32,9 @@ from yoke_core.domain.sessions_queries_chain import read_chain_skip_memory
 def _seed_item(conn, *, item_id: int, status: str = "implementing") -> None:
     conn.execute(
         """INSERT INTO items
-           (id, title, type, status, priority, project_id, project_sequence,
+           (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
             created_at, updated_at, source, frozen)
-           VALUES (%s, %s, 'issue', %s, 'medium', 1, %s,
+           VALUES (%s, %s, 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), %s, 'medium', 1, %s,
                    '2026-05-01T00:00:00Z', '2026-05-06T00:00:00Z', 'user', 0)""",
         (item_id, f"Item {item_id}", status, item_id),
     )

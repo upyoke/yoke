@@ -14,6 +14,7 @@ from pathlib import Path
 from yoke_core.domain import db_backend, schema, shepherd
 from yoke_core.domain.project_seed_test_helpers import SEED_PROJECT_IDS
 from yoke_core.domain.project_seed_test_helpers import seed_project_identities
+from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 
 
@@ -71,18 +72,31 @@ def _p(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def _seed_item(conn, item_id: int, title: str) -> None:
+def _seed_item(
+    conn,
+    item_id: int,
+    title: str,
+    *,
+    workflow: str = "issue",
+) -> None:
     p = _p(conn)
+    workflow_id, workflow_version_id = resolve_current_workflow_pin(
+        conn, workflow
+    )
     conn.execute(
         f"""
         INSERT INTO items (
-            id, title, type, status, priority, flow, rework_count, frozen,
+            id, title, workflow_id, workflow_version_id, status, priority,
+            flow, rework_count, frozen,
             created_at, updated_at, source, project_id, project_sequence
-        ) VALUES ({p}, {p}, 'issue', 'idea', 'medium', 'accelerated', 0, 0, {p}, {p}, 'user', {p}, {p})
+        ) VALUES ({p}, {p}, {p}, {p}, 'idea', 'medium', 'accelerated', 0, 0,
+                  {p}, {p}, 'user', {p}, {p})
         """,
         (
             item_id,
             title,
+            workflow_id,
+            workflow_version_id,
             "2026-01-01T00:00:00Z",
             "2026-01-01T00:00:00Z",
             SEED_PROJECT_IDS["yoke"],

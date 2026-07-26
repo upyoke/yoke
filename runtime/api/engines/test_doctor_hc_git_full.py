@@ -234,8 +234,8 @@ class TestGhOrphanDetection:
         conn = _make_conn()
         _seed_project(conn, "yoke", github_repo="upyoke/yoke")
         conn.execute(
-            "INSERT INTO items (id, title, type, status, github_issue) "
-            "VALUES (1, 'Tracked', 'issue', 'implementing', '#10')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, github_issue) "
+            "VALUES (1, 'Tracked', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', '#10')"
         )
         gh_json = json.dumps([
             {"number": 10, "title": "[YOK-1] Tracked", "state": "OPEN"},
@@ -255,8 +255,8 @@ class TestGhOrphanDetection:
         conn = _make_conn()
         _seed_project(conn, "yoke", github_repo="upyoke/yoke")
         conn.execute(
-            "INSERT INTO items (id, title, type, status, github_issue) "
-            "VALUES (1, 'Tracked', 'issue', 'implementing', '#10')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, github_issue) "
+            "VALUES (1, 'Tracked', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', '#10')"
         )
         gh_json = json.dumps([
             {"number": 10, "title": "[YOK-1] Tracked", "state": "OPEN"},
@@ -274,8 +274,8 @@ class TestGhOrphanDetection:
         conn = _make_conn()
         _seed_project(conn, "yoke", github_repo="upyoke/yoke")
         conn.execute(
-            "INSERT INTO items (id, title, type, status, github_issue) "
-            "VALUES (1, 'Tracked', 'issue', 'implementing', '#10')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, github_issue) "
+            "VALUES (1, 'Tracked', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', '#10')"
         )
         conn.execute(
             "INSERT INTO epic_tasks (epic_id, task_num, title, status, github_issue) "
@@ -310,8 +310,8 @@ class TestGhOrphanDetection:
         conn = _make_conn()
         _seed_project(conn, "yoke", github_repo="upyoke/yoke")
         conn.execute(
-            "INSERT INTO items (id, title, type, status, github_issue) "
-            "VALUES (1, 'Tracked', 'issue', 'implementing', '#10')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, github_issue) "
+            "VALUES (1, 'Tracked', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', '#10')"
         )
         gh_json = json.dumps([
             {"number": 10, "title": "[YOK-1] Tracked", "state": "OPEN"},

@@ -35,7 +35,8 @@ def conn():
             id INTEGER PRIMARY KEY, slug TEXT UNIQUE
         );
         CREATE TABLE items (
-            id INTEGER PRIMARY KEY, worktree TEXT, project_id INTEGER, status TEXT
+            id INTEGER PRIMARY KEY, worktree TEXT, project_id INTEGER,
+            status TEXT, workflow_id TEXT, workflow_version_id INTEGER
         );
         CREATE TABLE epic_tasks (
             epic_id INTEGER NOT NULL, task_num INTEGER NOT NULL,
@@ -51,6 +52,11 @@ def conn():
         );
         """
     )
+    from yoke_core.domain.workflow_registry import converge_builtin_workflows
+    from yoke_core.domain.workflow_schema import ensure_workflow_schema
+
+    ensure_workflow_schema(c)
+    converge_builtin_workflows(c)
     yield c
     c.close()
 
@@ -92,9 +98,16 @@ def _seed_project(conn, checkout: str, project: str = "yoke") -> None:
 
 
 def _seed_item(conn, item_id: int, branch: str | None, project: str = "yoke") -> None:
+    from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
+
+    workflow_id, workflow_version_id = resolve_current_workflow_pin(conn, "issue")
     conn.execute(
-        "INSERT INTO items (id, worktree, project_id) VALUES (%s, %s, %s)",
-        (item_id, branch, _project_id(project)),
+        "INSERT INTO items (id, worktree, project_id, workflow_id, "
+        "workflow_version_id) VALUES (%s, %s, %s, %s, %s)",
+        (
+            item_id, branch, _project_id(project), workflow_id,
+            workflow_version_id,
+        ),
     )
     conn.commit()
 

@@ -45,9 +45,9 @@ _OTHER_ITEM = 7002
 def _seed_item(conn, *, item_id: int, project: str = "yoke") -> int:
     project_id = 1 if project == "yoke" else int(project)
     conn.execute(
-        "INSERT INTO items (id, title, type, status, priority, "
+        "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, "
         "created_at, updated_at, project_id, project_sequence) "
-        "VALUES (%s, 'item', 'issue', 'refining-idea', 'medium', "
+        "VALUES (%s, 'item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'refining-idea', 'medium', "
         "'2026-05-01T00:00:00Z', '2026-05-01T00:00:00Z', %s, %s)",
         (item_id, project_id, item_id),
     )

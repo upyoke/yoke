@@ -141,8 +141,8 @@ Track `_pre_merge_verified` and `_eph_next_stage` for deploy phase.
 
 **Epic items delegate to `/yoke merge {N}` — never call `merge_worktree` directly for epics**:
 ```bash
-_item_type=$(yoke items get {N} type)
-if [ "$_item_type" = "epic" ]; then
+_item_workflow_id=$(yoke items get {N} workflow_id)
+if [ "$_item_workflow_id" = "epic" ]; then
  # Epics may have multiple worktree lanes; /yoke merge handles all lanes in
  # dependency-safe order, runs per-branch merge_worktree, and does bookkeeping.
  # Do NOT call merge_worktree directly on the epic ref — it only covers one lane.

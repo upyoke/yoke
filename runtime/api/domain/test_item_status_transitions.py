@@ -18,9 +18,9 @@ def db_path(tmp_path: Path):
 
 def _seed_item(conn, item_id: int, *, project_id: int = 1) -> None:
     conn.execute(
-        "INSERT INTO items (id, title, type, status, created_at, updated_at, "
+        "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, created_at, updated_at, "
         "project_id, project_sequence) "
-        "VALUES (%s, %s, 'issue', 'idea', '2026-01-01T00:00:00Z', "
+        "VALUES (%s, %s, 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', '2026-01-01T00:00:00Z', "
         "'2026-01-01T00:00:00Z', %s, %s)",
         (item_id, f"item-{item_id}", project_id, item_id),
     )

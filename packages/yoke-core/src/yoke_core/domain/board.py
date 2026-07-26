@@ -27,7 +27,7 @@ Status-to-bucket mapping rules (in priority order):
     polishing-implementation -> reviewing
     refined-idea, planned   -> refined  (pipeline bucket)
     refining-idea           -> planning
-    planning, refining-plan -> planning (epic-workflow-type)
+    planning, refining-plan -> planning (Epic workflow)
     idea                    -> idea  (backlog bucket)
     unknown                 -> unknown
 

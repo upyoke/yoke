@@ -205,9 +205,11 @@ class TestExtractGeneratedFiles:
         p = _p(conn)
         conn.execute(
             "INSERT INTO items "
-            "(id, title, type, status, spec, project_id, project_sequence, "
+            "(id, title, workflow_id, workflow_version_id, status, spec, project_id, project_sequence, "
             "created_at, updated_at) "
-            f"VALUES (100, 'Test Epic', 'epic', 'implementing', {p}, 1, 100, "
+            "VALUES (100, 'Test Epic', 'epic', "
+            "(SELECT current_version_id FROM workflows WHERE id='epic'), "
+            f"'implementing', {p}, 1, 100, "
             "'2025-01-01', '2025-01-01')",
             (body,),
         )
@@ -228,9 +230,11 @@ class TestExtractGeneratedFiles:
         p = _p(conn)
         conn.execute(
             "INSERT INTO items "
-            "(id, title, type, status, spec, project_id, project_sequence, "
+            "(id, title, workflow_id, workflow_version_id, status, spec, project_id, project_sequence, "
             "created_at, updated_at) "
-            f"VALUES (100, 'Test', 'epic', 'implementing', {p}, 1, 100, "
+            "VALUES (100, 'Test', 'epic', "
+            "(SELECT current_version_id FROM workflows WHERE id='epic'), "
+            f"'implementing', {p}, 1, 100, "
             "'2025-01-01', '2025-01-01')",
             (body,),
         )

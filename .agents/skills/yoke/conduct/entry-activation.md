@@ -26,15 +26,16 @@ PROJECT=$(yoke items get YOK-${N} project)
 PROJECT=${PROJECT:-yoke}
 ```
 
-### S2a. Type Gate, Status Gate, and Acceptance Criteria Gate
+### S2a. Workflow Binding, Status, and Acceptance Criteria Gates
 
-**Type gate:**
+**Workflow binding gate:**
 ```bash
-_item_type=$(yoke items get ${N} type)
+_workflow_id=$(yoke items get ${N} workflow_id)
 ```
 
-If `_item_type` is `issue`, halt immediately:
-> Error: /yoke conduct does not support issue items. YOK-{N} is type 'issue'.
+If `_workflow_id` is not `epic`, halt immediately:
+> Error: /yoke conduct is not the registered executor for workflow
+> '{_workflow_id}' on YOK-{N}.
 >
 > Issue implementation routes through /yoke advance (main-session inline implementation).
 > Run '/yoke advance YOK-{N} implementation' to begin issue implementation.
@@ -66,7 +67,6 @@ Search for `- [ ] AC-` lines or unlabeled `- [ ] ` checkboxes under `## Acceptan
 ### S3. Item Validation
 
 ```bash
-_type=$(yoke items get ${N} type)
 _title=$(yoke items get ${N} title)
 ```
 
@@ -112,7 +112,8 @@ fi
 
 ### S4. Enter Epic Task Fan-Out Flow
 
-`_type` is guaranteed to be `epic` by the type gate in S2a. Proceed directly to **S6 (Epic Task Fan-Out Flow)**.
+`_workflow_id` is guaranteed to be `epic` by the binding gate in S2a. Proceed
+directly to **S6 (Epic Task Fan-Out Flow)**.
 
 ---
 

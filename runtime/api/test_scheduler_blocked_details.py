@@ -31,7 +31,7 @@ def _set_blocked(conn, item_id: int, reason: str) -> None:
 def test_dependency_block_names_real_yok_id():
     """A dependency-backed block surfaces the upstream YOK-N, not 'unknown'."""
     conn = make_test_db()
-    insert_item(conn, 10, status="planned", item_type="epic")
+    insert_item(conn, 10, status="planned", workflow="epic")
     insert_item(conn, 20, status="implementing")
     insert_dep(conn, "YOK-10", "YOK-20")
     conn.commit()
@@ -84,7 +84,7 @@ def test_blocked_flag_with_dependency_surfaces_both():
     Neither path synthesizes a `"unknown"` blocker.
     """
     conn = make_test_db()
-    insert_item(conn, 10, status="planned", item_type="epic")
+    insert_item(conn, 10, status="planned", workflow="epic")
     insert_item(conn, 20, status="implementing")
     insert_dep(conn, "YOK-10", "YOK-20")
     _set_blocked(conn, 10, "operator pause")

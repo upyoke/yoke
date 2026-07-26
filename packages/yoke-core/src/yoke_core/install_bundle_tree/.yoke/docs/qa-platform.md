@@ -191,7 +191,7 @@ Notes:
 | Value | Description |
 |-------|-------------|
 | `explicit` | Manually declared by operator or shepherd |
-| `seeded_default` | Auto-seeded by project/item-type policy |
+| `seeded_default` | Auto-seeded by project/workflow policy |
 | `ac_derived` | Derived from acceptance criteria (e.g., AC -> browser check) |
 | `flow_derived` | Materialized from deployment flow definition |
 

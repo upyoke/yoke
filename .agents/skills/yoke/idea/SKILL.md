@@ -1,6 +1,6 @@
 ---
 name: idea
-description: Create a new backlog item with a YOK-N ID. Infers project, type, priority, and flow from context.
+description: Create a new backlog item with a YOK-N ID. Infers project, workflow, priority, and flow from context.
 argument-hint: "{title}"
 ---
 

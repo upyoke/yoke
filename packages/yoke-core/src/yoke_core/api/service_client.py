@@ -24,12 +24,12 @@ Read/decision commands:
     validate-status <status>
         Return 0 if status is a valid canonical item status, 1 if not.
 
-    validate-transition <from-status> <to-status> [--item-type TYPE]
+    validate-transition <from-status> <to-status> [--workflow WORKFLOW]
         Return 0 if the transition is a forward progression step, 1 if not.
-        When --item-type is omitted, uses epic/default progression.
+        When --workflow is omitted, uses the built-in Epic workflow.
 
 Mutation commands (return structured JSON for shell adapters to apply):
-    create-item --title TITLE --type TYPE [--priority P] [--project P]
+    create-item --title TITLE --workflow WORKFLOW [--priority P] [--project P]
                 [--deployment-flow F]
         Validate and prepare an item creation.  Returns JSON with
         field_writes, events, and defaults.  The shell adapter applies
@@ -52,7 +52,7 @@ Mutation commands (return structured JSON for shell adapters to apply):
         delegate to execute_update / execute_structured_write.
 
     execute-create-cli [--dry-run] [--project P] [--deployment-flow F]
-                       <title> <type> [status] [priority]
+                       <title> <workflow> [status] [priority]
         Parse the public backlog-registry add CLI shape in Python and
         delegate to execute_create.
 

@@ -2,9 +2,12 @@
 
 > **Orchestrator role:** For implementation-entry advances, the advance implementation-entry orchestrator runs the capability-gated environment phase end-to-end and emits `AdvancePhaseCompleted{phase="environment"}`. For projects without the `ephemeral-env` capability the orchestrator emits `outcome=skipped:no-capability` and moves to finalize. For projects whose capability declares `trigger: "flow"`, the validated `flow_id` is dispatched later by Conduct after implementation; Advance emits `outcome=skipped:flow-triggered` so it does not create a dead pending row. For push-triggered projects (`trigger: "github-push"`), the orchestrator pushes the actual worktree branch, creates the environment row, derives the preview URL from the capability's `preview_domain`, and stores the deployed SHA in one Python call. Outcomes: `provisioned` (URL + env row + SHA recorded), `skipped:flow-triggered`, `pending:policy-invalid` (malformed settings — repair through `yoke projects capability-settings merge`), and `pending:push-failed` (advisory — no row is created). The agent never has to run the recipe below by hand for an implementation-entry advance; this doc remains the operator reference for non-orchestrator paths.
 
-Called by the advance router when target is `implementing` and type is not `epic`. Handles ephemeral env setup for browser QA. Skip if target is not `implementing` or type is `epic` (epics use conduct E1-E5).
+Called by the advance router when target is `implementing` and the pinned
+definition selects item-level implementation. Handles ephemeral env setup for
+browser QA. Skip for other targets or task-graph workflows (their conduct
+executor owns E1-E5).
 
-**Context variables** (set by router/worktree phase): `{N}`, `_type`, `_item_project`, `WORKTREE_PATH`
+**Context variables** (set by router/worktree phase): `{N}`, `_workflow_id`, `_item_project`, `WORKTREE_PATH`
 
 ---
 

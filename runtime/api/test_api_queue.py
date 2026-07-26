@@ -54,9 +54,9 @@ class TestQueueFiltering:
         conn = connect_test_db(test_db["db_path"])
         conn.execute(
             """INSERT INTO items
-               (id, title, type, status, priority, project_id,
+               (id, title, workflow_id, workflow_version_id, status, priority, project_id,
                 project_sequence, frozen, created_at, updated_at, source)
-               VALUES (50, 'Frozen item', 'issue', 'implementing', 'medium', 1, 50, 1,
+               VALUES (50, 'Frozen item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'medium', 1, 50, 1,
                        '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z', 'user')"""
         )
         conn.commit()
@@ -79,9 +79,9 @@ class TestQueueFiltering:
         conn = connect_test_db(test_db["db_path"])
         conn.execute(
             """INSERT INTO items
-               (id, title, type, status, priority, project_id,
+               (id, title, workflow_id, workflow_version_id, status, priority, project_id,
                 project_sequence, frozen, created_at, updated_at, source)
-               VALUES (51, 'Another frozen', 'issue', 'idea', 'low', 1, 51, 1,
+               VALUES (51, 'Another frozen', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'low', 1, 51, 1,
                        '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z', 'user')"""
         )
         conn.commit()
@@ -99,9 +99,9 @@ class TestQueueFiltering:
         conn = connect_test_db(test_db["db_path"])
         conn.execute(
             """INSERT INTO items
-               (id, title, type, status, priority, project_id,
+               (id, title, workflow_id, workflow_version_id, status, priority, project_id,
                 project_sequence, frozen, created_at, updated_at, source)
-               VALUES (52, 'Yet another frozen', 'issue', 'idea', 'low', 1, 52, 1,
+               VALUES (52, 'Yet another frozen', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'low', 1, 52, 1,
                        '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z', 'user')"""
         )
         conn.commit()

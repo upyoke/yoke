@@ -32,7 +32,7 @@ Each row returns `task_num|title|status|worktree|...`.
 Resolve the backlog item ID:
 
 ```bash
-_item_id=$(yoke db read --format lines "SELECT id FROM items WHERE id={epic-id} AND type='epic'")
+_item_id=$(yoke db read --format lines "SELECT id FROM items WHERE id={epic-id} AND workflow_id='epic'")
 ```
 
 ### Plan simulation context

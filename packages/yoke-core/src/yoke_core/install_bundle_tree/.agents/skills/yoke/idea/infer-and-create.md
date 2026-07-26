@@ -270,7 +270,7 @@ If matches found, present:
 ```text
 GATE [advisory]: Near-duplicate detected.
 Potential duplicates found:
-- YOK-{N}: {title} (status: {status}) [match type]
+- YOK-{N}: {title} (status: {status}) [match workflow]
 
 Remediation: Review the existing item(s) above. If this is truly new work, confirm below.
 Create anyway? (yes / no)

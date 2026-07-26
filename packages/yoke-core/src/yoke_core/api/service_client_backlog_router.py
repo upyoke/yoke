@@ -46,7 +46,7 @@ def cmd_backlog_cli(args: list[str]) -> int:
         print("  python3 -m yoke_core.cli.db_router items update YOK-N status=implementing priority=high", file=stream)
         print("", file=stream)
         print("Subcommands:", file=stream)
-        print("  add <title> <type> [status] [priority]                 — Create new item", file=stream)
+        print("  add <title> <workflow> [status] [priority]             — Create new item", file=stream)
         print("  update <id-number> <field> <value> [--no-rebuild]      — Update a scalar field", file=stream)
         print("  update <id-number> f1=v1 [f2=v2 ...] [--no-rebuild]    — Multi-field update", file=stream)
         print(
@@ -55,7 +55,7 @@ def cmd_backlog_cli(args: list[str]) -> int:
             file=stream,
         )
         print("  batch-update <field>=<value> <id1> <id2> ... [--no-rebuild] — Bulk update one field", file=stream)
-        print("  list [--status X] [--type X] [--priority X]            — List items", file=stream)
+        print("  list [--status X] [--workflow X] [--priority X]        — List items", file=stream)
         print("  get-next-id                                            — Get next YOK-N ID", file=stream)
         print("  sync-item <id-number>                                  — Create/update GitHub issue + labels", file=stream)
         print("  sync-labels <id-number>                                — Compare and update all GitHub labels", file=stream)

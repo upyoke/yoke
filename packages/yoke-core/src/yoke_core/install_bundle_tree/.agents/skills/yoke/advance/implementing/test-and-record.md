@@ -238,7 +238,8 @@ When summarizing test results, the agent MUST derive all claims from recorded ev
 
 **Test pass is not reviewed-implementation gate satisfaction.** Passing the registered test suite (the four-tier `quick`/`full`/`e2e`/`smoke` commands surfaced in section a2) means the implementation behaves as expected. The reviewed-implementation gate (run by the advance to `reviewed-implementation`) checks something different: every blocking `qa_requirements` row for the item must have a passing `qa_runs` entry recorded. Both must hold. While the test suite is green but you have not yet recorded the AC verification runs (or routed through the advance), do **not** summarize work as "all gates pass" — say "tests pass" instead. To preview the gate verdict at any point, use the registered summary surface: `yoke qa gate-summary --item YOK-N --target reviewed-implementation` for a standalone issue, or `yoke qa gate-summary --epic-id <epic_id> --task-num <task_num> --target reviewed-implementation` for an epic task. The gate verdict is the authority; tests being green is necessary but not sufficient.
 
-After recording QA runs for all AC-verification requirements, the issue-workflow-type progression should move through two distinct review states:
+After recording QA runs for all AC-verification requirements, the pinned
+advance workflow moves through two distinct review stages:
 
 1. Advance to `reviewing-implementation` when coding + self-verification are complete and the branch is ready for a deliberate review pass.
 2. Stay in the same worktree while performing that review. Fix anything the review finds, re-run relevant verification, and only then run `/yoke advance YOK-{N} reviewed-implementation` — this routes through the full phase dispatch (browser QA, project E2E) before the status update.

@@ -60,6 +60,7 @@ def _apply_resync_schema() -> None:
             "UPDATE projects SET github_repo=%s WHERE slug='yoke'",
             ("upyoke/yoke",),
         )
+        install_workflow_registry_and_pin_items(conn)
         conn.commit()
     finally:
         conn.close()
@@ -78,23 +79,23 @@ def populated_db(test_db):
     conn = connect_test_db(test_db)
     conn.execute("""
         INSERT INTO items
-        (id, title, status, priority, type, source, spec, frozen,
+        (id, title, status, priority, workflow_id, workflow_version_id, source, spec, frozen,
          github_issue, project_id, project_sequence, created_at, updated_at)
-        VALUES (42, 'Test item', 'implementing', 'high', 'issue', 'manual',
+        VALUES (42, 'Test item', 'implementing', 'high', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'manual',
                 'Item body', 0, '#100', 1, 42, '2026-01-01', '2026-01-01')
     """)
     conn.execute("""
         INSERT INTO items
-        (id, title, status, priority, type, source, spec, frozen,
+        (id, title, status, priority, workflow_id, workflow_version_id, source, spec, frozen,
          github_issue, project_id, project_sequence, created_at, updated_at)
-        VALUES (43, 'Done item', 'done', 'medium', 'issue', 'auto',
+        VALUES (43, 'Done item', 'done', 'medium', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'auto',
                 'Done body', 0, '#101', 1, 43, '2026-01-01', '2026-01-01')
     """)
     conn.execute("""
         INSERT INTO items
-        (id, title, status, priority, type, source, spec, frozen,
+        (id, title, status, priority, workflow_id, workflow_version_id, source, spec, frozen,
          github_issue, project_id, project_sequence, created_at, updated_at)
-        VALUES (1246, 'Epic parent', 'implementing', 'high', 'epic',
+        VALUES (1246, 'Epic parent', 'implementing', 'high', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'),
                 'manual', 'Epic body', 0, '#102', 1, 1246,
                 '2026-01-01', '2026-01-01')
     """)
@@ -102,6 +103,6 @@ def populated_db(test_db):
         INSERT INTO epic_tasks (epic_id, task_num, title, status, body, github_issue)
         VALUES ('1246', 1, 'Task one', 'implementing', 'Task body', '#200')
     """)
-    install_workflow_registry_and_pin_items(conn)
+    conn.commit()
     conn.close()
     return test_db

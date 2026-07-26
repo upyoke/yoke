@@ -149,20 +149,19 @@ class TestSessionOffer:
         try:
             conn.execute(
                 """INSERT INTO items
-                   (id, title, type, status, priority, project_id, project_sequence,
-                    created_at, updated_at, source, frozen,
-                    workflow_id, workflow_version_id)
-                   VALUES (30, 'Live-claimed implementing', 'issue',
+                   (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
+                    created_at, updated_at, source, frozen)
+                   VALUES (30, 'Live-claimed implementing', {p}, {p},
                            'implementing', 'medium', 1, 30,
-                           {p}, {p}, 'user', 0, {p}, {p})""".format(p=p),
+                           {p}, {p}, 'user', 0)""".format(p=p),
                 (
-                    now_iso,
-                    now_iso,
                     "issue",
                     conn.execute(
                         "SELECT current_version_id FROM workflows "
                         "WHERE id = 'issue'"
                     ).fetchone()[0],
+                    now_iso,
+                    now_iso,
                 ),
             )
             conn.execute(

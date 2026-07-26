@@ -69,9 +69,10 @@ class TestQueryDispatch:
         try:
             conn.execute(
                 "INSERT INTO items "
-                "(id, title, status, type, project_id, project_sequence, "
+                "(id, title, status, workflow_id, workflow_version_id, project_id, project_sequence, "
                 "created_at, updated_at) "
-                "VALUES (42, 'test', 'idea', 'issue', 1, 42, "
+                "VALUES (42, 'test', 'idea', 'issue', "
+                "(SELECT current_version_id FROM workflows WHERE id='issue'), 1, 42, "
                 "'2026-01-01', '2026-01-01')"
             )
             conn.commit()
@@ -88,9 +89,10 @@ class TestQueryDispatch:
         try:
             conn.execute(
                 "INSERT INTO items "
-                "(id, title, status, type, project_id, project_sequence, "
+                "(id, title, status, workflow_id, workflow_version_id, project_id, project_sequence, "
                 "created_at, updated_at) "
-                "VALUES (7, 'alpha', 'idea', 'issue', 1, 7, "
+                "VALUES (7, 'alpha', 'idea', 'issue', "
+                "(SELECT current_version_id FROM workflows WHERE id='issue'), 1, 7, "
                 "'2026-01-01', '2026-01-01')"
             )
             conn.commit()
@@ -118,9 +120,10 @@ class TestItemsDispatch:
         try:
             conn.execute(
                 "INSERT INTO items "
-                "(id, title, status, type, project_id, project_sequence, "
+                "(id, title, status, workflow_id, workflow_version_id, project_id, project_sequence, "
                 "created_at, updated_at) "
-                "VALUES (5, 'hello', 'refined-idea', 'issue', 1, 5, "
+                "VALUES (5, 'hello', 'refined-idea', 'issue', "
+                "(SELECT current_version_id FROM workflows WHERE id='issue'), 1, 5, "
                 "'2026-01-01', '2026-01-01')"
             )
             conn.commit()
@@ -276,9 +279,10 @@ def _seed_section_item(db_path: Path, item_id: int, *, spec: str = "") -> None:
     try:
         conn.execute(
             "INSERT INTO items "
-            "(id, title, status, type, project_id, project_sequence, spec, "
+            "(id, title, status, workflow_id, workflow_version_id, project_id, project_sequence, spec, "
             "created_at, updated_at) VALUES (%s, 'fixture', 'refined-idea', "
-            "'issue', 1, %s, %s, '2026-01-01', '2026-01-01')",
+            "'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), "
+            "1, %s, %s, '2026-01-01', '2026-01-01')",
             (item_id, item_id, spec),
         )
         conn.commit()

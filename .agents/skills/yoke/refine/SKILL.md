@@ -110,7 +110,7 @@ Resolve the repo root and look up the item through the unified DB router.
 ```bash
 MAIN_ROOT=$(git rev-parse --show-toplevel)
 ITEM_NUM=$(printf '%s' "{arg}" | sed 's/^[Ss][Uu][Nn]-//; s/^0*//')
-ITEM_TYPE=$(yoke items get "$ITEM_NUM" type 2>/dev/null) || ITEM_TYPE=""
+ITEM_WORKFLOW_ID=$(yoke items get "$ITEM_NUM" workflow_id 2>/dev/null) || ITEM_WORKFLOW_ID=""
 ITEM_STATUS=$(yoke items get "$ITEM_NUM" status 2>/dev/null) || ITEM_STATUS=""
 ITEM_TITLE=$(yoke items get "$ITEM_NUM" title 2>/dev/null) || ITEM_TITLE=""
 ```
@@ -120,15 +120,16 @@ If any of those reads come back empty, stop with:
 
 ### 1b. Claim and Set Entry Status
 
-Determine the refinement phase based on item type and current status:
+Determine the refinement phase from the registered executor binding and current
+status:
 
 **Idea refinement (issue and epic):**
 - If status is `idea`: advance to `refining-idea` before starting work.
 - If status is `refining-idea`: proceed without changing status (re-entry support).
 
 **Plan refinement (epic only):**
-- If `ITEM_TYPE` is `epic` and status is `plan-drafted`: advance to `refining-plan` before starting work. Record that the entry phase is plan refinement so step 9 advances to `planned` instead of `refined-idea`.
-- If `ITEM_TYPE` is `epic` and status is `refining-plan`: proceed without changing status (re-entry support). Record that the entry phase is plan refinement so step 9 advances to `planned` instead of `refined-idea`.
+- If `ITEM_WORKFLOW_ID` is `epic` and status is `plan-drafted`: advance to `refining-plan` before starting work. Record that the entry phase is plan refinement so step 9 advances to `planned` instead of `refined-idea`.
+- If `ITEM_WORKFLOW_ID` is `epic` and status is `refining-plan`: proceed without changing status (re-entry support). Record that the entry phase is plan refinement so step 9 advances to `planned` instead of `refined-idea`.
 
 If the item is at any other status, stop with:
 > **Cannot refine YOK-{N}:** Item is at `{status}`, expected `idea` or `refining-idea` for idea refinement, or `plan-drafted` or `refining-plan` for epic plan refinement.

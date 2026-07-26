@@ -158,23 +158,23 @@ def _apply_session_offer_schema() -> None:
         # Seed items: one runnable, one done, one blocked
         conn.execute(
             """INSERT INTO items
-               (id, title, type, status, priority, project_id, project_sequence,
+               (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
                 created_at, updated_at, source, frozen)
-               VALUES (10, 'Runnable task', 'issue', 'refined-idea', 'high', 1, 10,
+               VALUES (10, 'Runnable task', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'refined-idea', 'high', 1, 10,
                        '2026-03-01', '2026-03-01', 'user', 0)"""
         )
         conn.execute(
             """INSERT INTO items
-               (id, title, type, status, priority, project_id, project_sequence,
+               (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
                 created_at, updated_at, source, frozen)
-               VALUES (11, 'Done task', 'issue', 'done', 'medium', 1, 11,
+               VALUES (11, 'Done task', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'done', 'medium', 1, 11,
                        '2026-03-01', '2026-03-01', 'user', 0)"""
         )
         conn.execute(
             """INSERT INTO items
-               (id, title, type, status, priority, project_id, project_sequence,
+               (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
                 created_at, updated_at, source, frozen)
-               VALUES (12, 'Blocked task', 'issue', 'idea', 'low', 1, 12,
+               VALUES (12, 'Blocked task', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'low', 1, 12,
                        '2026-03-01', '2026-03-01', 'user', 0)"""
         )
         conn.execute(

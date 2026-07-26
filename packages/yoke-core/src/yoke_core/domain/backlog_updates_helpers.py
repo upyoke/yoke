@@ -15,7 +15,7 @@ Sibling layout (each imported directly — no two-hop indirection):
                                               dispatch + prose-vs-claim check
 - ``backlog_file_line_gate_runner``         — file-line lifecycle no-op shim
 - ``backlog_authoritative_status_gate``     — composes QA + DB + plan gates
-- ``backlog_unsupported_field_writes``      — type / source / deploy_stage writes
+- ``backlog_unsupported_field_writes``      — source / deploy-stage writes
 - ``backlog_project_issue_migration``       — project change → issue migration
 
 For new code, import directly from the canonical owner sibling.

@@ -40,9 +40,9 @@ COORD_RATIONALE = (
 
 def _seed_item(conn, *, item_id: int) -> int:
     conn.execute(
-        "INSERT INTO items (id, title, type, status, priority, "
+        "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, "
         "created_at, updated_at, project_id, project_sequence) "
-        "VALUES (%s, 'item', 'issue', 'idea', 'medium', "
+        "VALUES (%s, 'item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'medium', "
         "'2026-05-01T00:00:00Z', '2026-05-01T00:00:00Z', 1, %s)",
         (item_id, item_id),
     )

@@ -6,7 +6,7 @@ Called by the advance router when target status is `implementing` (including iss
 
 This phase is **Python-owned** through `yoke_core.domain.worktree_preflight`. The skill prose no longer hand-authors any of the shell snippets that previously routed agents through guard-hostile shapes (`db_router query -separator "|"`, manual `.worktrees/` `ls`, project shell-variable lookup, dirty-tree compound).
 
-**Context variables** (set by router): `{N}`, `_type`, `--no-worktree` flag, `--force` flag
+**Context variables** (set by router): `{N}`, `_workflow_id`, `--no-worktree` flag, `--force` flag
 
 **Enforcement owner:** `yoke_core.domain.worktree_preflight` (orchestrator + CLI), with step helpers in `yoke_core.domain.worktree_preflight_steps`.
 

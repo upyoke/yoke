@@ -108,9 +108,10 @@ def _apply_item_query_schema() -> None:
     )
     conn.execute(
         """INSERT INTO items
-           (id, title, type, status, priority, project_id, project_sequence,
+           (id, title, workflow_id, workflow_version_id, status, priority,
+            project_id, project_sequence,
             created_at, updated_at, source, frozen, spec, technical_plan)
-           VALUES (1, 'Implementing item', 'issue', 'implementing', 'high', 1, 1,
+           VALUES (1, 'Implementing item', 'issue', 1, 'implementing', 'high', 1, 1,
                    %s, %s, 'user', 0, 'Spec content here', %s)""",
         (ts, ts, _LARGE_SPEC_TEXT),
     )
@@ -118,9 +119,10 @@ def _apply_item_query_schema() -> None:
     # Item 2: idea, yoke
     conn.execute(
         """INSERT INTO items
-           (id, title, type, status, priority, project_id, project_sequence,
+           (id, title, workflow_id, workflow_version_id, status, priority,
+            project_id, project_sequence,
             created_at, updated_at, source, frozen)
-           VALUES (2, 'Idea item', 'issue', 'idea', 'medium', 1, 2,
+           VALUES (2, 'Idea item', 'issue', 1, 'idea', 'medium', 1, 2,
                    %s, %s, 'user', 0)""",
         (ts, ts),
     )
@@ -128,9 +130,10 @@ def _apply_item_query_schema() -> None:
     # Item 3: idea, externalwebapp project
     conn.execute(
         """INSERT INTO items
-           (id, title, type, status, priority, project_id, project_sequence,
+           (id, title, workflow_id, workflow_version_id, status, priority,
+            project_id, project_sequence,
             created_at, updated_at, source, frozen)
-           VALUES (3, 'ExternalWebapp idea', 'issue', 'idea', 'low', 2, 3,
+           VALUES (3, 'ExternalWebapp idea', 'issue', 1, 'idea', 'low', 2, 3,
                    %s, %s, 'user', 0)""",
         (ts, ts),
     )
@@ -138,9 +141,10 @@ def _apply_item_query_schema() -> None:
     # Item 4: done, yoke
     conn.execute(
         """INSERT INTO items
-           (id, title, type, status, priority, project_id, project_sequence,
+           (id, title, workflow_id, workflow_version_id, status, priority,
+            project_id, project_sequence,
             created_at, updated_at, source, frozen)
-           VALUES (4, 'Done item', 'epic', 'done', 'medium', 1, 4,
+           VALUES (4, 'Done item', 'epic', 2, 'done', 'medium', 1, 4,
                    %s, %s, 'user', 0)""",
         (ts, ts),
     )
@@ -148,9 +152,10 @@ def _apply_item_query_schema() -> None:
     # Item 5: frozen
     conn.execute(
         """INSERT INTO items
-           (id, title, type, status, priority, project_id, project_sequence,
+           (id, title, workflow_id, workflow_version_id, status, priority,
+            project_id, project_sequence,
             created_at, updated_at, source, frozen)
-           VALUES (5, 'Frozen item', 'issue', 'planned', 'medium', 1, 5,
+           VALUES (5, 'Frozen item', 'issue', 1, 'planned', 'medium', 1, 5,
                    %s, %s, 'user', 1)""",
         (ts, ts),
     )
@@ -170,10 +175,11 @@ def _apply_item_query_schema() -> None:
     # Item 6: release with active deployment run (for progress view)
     conn.execute(
         """INSERT INTO items
-           (id, title, type, status, priority, project_id, project_sequence,
+           (id, title, workflow_id, workflow_version_id, status, priority,
+            project_id, project_sequence,
             created_at, updated_at, source, frozen,
             deploy_stage, deployment_flow)
-           VALUES (6, 'Deploying item', 'issue', 'release', 'high', 1, 6,
+           VALUES (6, 'Deploying item', 'issue', 1, 'release', 'high', 1, 6,
                    %s, %s, 'user', 0,
                    'prod-deploy', 'test-flow')""",
         (ts, ts),

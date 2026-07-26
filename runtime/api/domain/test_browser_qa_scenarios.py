@@ -40,7 +40,7 @@ def db_path(tmp_path):
         insert_item(
             item_id=1,
             title="Scenario builder smoke",
-            item_type="issue",
+            workflow="issue",
             status="refined-idea",
             priority="medium",
             source="user",

@@ -66,8 +66,12 @@ def _schema_ddl() -> str:
             " REFERENCES actors(id)",
             "",
         )
+        workflow_tables_without_fk = WORKFLOW_TABLES_SQL.replace(
+            " REFERENCES workflows(id)",
+            "",
+        )
         composed = (
-            WORKFLOW_TABLES_SQL + ";" + _ITEMS_DDL
+            workflow_tables_without_fk + ";" + _ITEMS_DDL
             + _EPIC_QA_DDL + _RUNTIME_DDL + _STRATEGY_DDL
             + _AUTH_DDL + PACK_CATALOG_TABLE_SQL + ";"
             + pack_reports_without_fk + ";"

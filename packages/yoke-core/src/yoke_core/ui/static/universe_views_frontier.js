@@ -39,7 +39,7 @@ export function renderFrontierView(context, main, scope) {
     "items", rowProject(row), String(row.item_id).replace(/^YOK-/, ""),
   );
   // Exactly one project needs no project column; the column keeps its
-  // declared position (beside type), so the shared leading-cell insertion
+  // declared position (beside workflow), so the shared leading-cell insertion
   // helper does not apply here.
   const scopedColumns = (columns) => (
     (Array.isArray(scope) && scope.length === 1)
@@ -60,7 +60,8 @@ export function renderFrontierView(context, main, scope) {
           ),
         },
         { label: "item", value: (row) => row.item_id, href: itemHref },
-        { label: "type", value: (row) => row.item_type },
+        { label: "workflow", value: (row) => row.workflow_id },
+        { label: "version", value: (row) => row.workflow_version },
         { label: "project", value: (row) => row.project },
         { label: "status", value: (row) => row.status, pill: true },
         { label: "priority", value: (row) => row.priority },

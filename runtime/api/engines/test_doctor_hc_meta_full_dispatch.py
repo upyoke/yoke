@@ -121,8 +121,8 @@ class TestShepherdSpecIntegrity:
     def test_pass_epic_with_spec(self):
         conn = _make_conn()
         conn.execute(
-            "INSERT INTO items (id, title, type, status, spec) "
-            "VALUES (1, 'Epic', 'epic', 'implementing', 'Some spec content')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, spec) "
+            "VALUES (1, 'Epic', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'implementing', 'Some spec content')"
         )
         rec = _run_hc(hc_shepherd_spec_integrity, conn)
         assert _result(rec).result == "PASS"
@@ -130,8 +130,8 @@ class TestShepherdSpecIntegrity:
     def test_warn_epic_without_spec(self):
         conn = _make_conn()
         conn.execute(
-            "INSERT INTO items (id, title, type, status) "
-            "VALUES (1, 'Epic', 'epic', 'implementing')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status) "
+            "VALUES (1, 'Epic', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'implementing')"
         )
         rec = _run_hc(hc_shepherd_spec_integrity, conn)
         assert _result(rec).result == "WARN"

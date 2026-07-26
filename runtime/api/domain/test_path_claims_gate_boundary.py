@@ -77,10 +77,14 @@ def _apply_boundary_schema(project_repo):
             create_path_registry_tables,
         )
         from yoke_core.domain.schema_init_tables import create_core_tables
+        from yoke_core.domain.workflow_registry import (
+            converge_builtin_workflows,
+        )
 
         c = db_backend.connect()
         try:
             create_core_tables(c)
+            converge_builtin_workflows(c)
             _create_events_table(c)
             create_path_registry_tables(c)
             create_actor_path_claim_tables(c)
@@ -95,9 +99,9 @@ def _apply_boundary_schema(project_repo):
                 "ON CONFLICT (id) DO UPDATE SET slug = EXCLUDED.slug",
             )
             c.execute(
-                "INSERT INTO items (id, title, type, status, priority, "
+                "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, "
                 "created_at, updated_at, project_id, project_sequence, worktree) "
-                "VALUES (7777, 'item', 'issue', 'implementing', 'medium', "
+                "VALUES (7777, 'item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'medium', "
                 "'2026-05-01T00:00:00Z', '2026-05-01T00:00:00Z', 1, 7777, "
                 "'YOK-7777')",
             )

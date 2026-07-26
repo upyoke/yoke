@@ -15,7 +15,7 @@ All public symbols are re-exported here so that existing callers using
 CLI usage::
 
     python3 -m yoke_core.domain.backlog create \\
-        --title TITLE --type TYPE [--priority P] [--project P] \\
+        --title TITLE --workflow WORKFLOW [--priority P] [--project P] \\
         [--deployment-flow F] [--status S] [--source S] [--dry-run]
 
     python3 -m yoke_core.domain.backlog update <item-id> \\

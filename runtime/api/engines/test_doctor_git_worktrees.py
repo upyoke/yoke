@@ -37,7 +37,8 @@ def _make_conn():
         CREATE TABLE items (
             id INTEGER PRIMARY KEY,
             title TEXT,
-            type TEXT,
+            workflow_id TEXT,
+            workflow_version_id INTEGER,
             status TEXT,
             priority TEXT,
             project_id INTEGER DEFAULT 1,
@@ -115,6 +116,11 @@ def _make_conn():
             item_id INTEGER
         );
     """))
+    from yoke_core.domain.workflow_registry import converge_builtin_workflows
+    from yoke_core.domain.workflow_schema import ensure_workflow_schema
+
+    ensure_workflow_schema(conn)
+    converge_builtin_workflows(conn)
     return conn
 
 
@@ -148,8 +154,8 @@ class TestHcEpicTaskWorktreeBackfill:
     def test_empty_worktree_warns(self):
         conn = _make_conn()
         conn.execute(
-            "INSERT INTO items (id, title, type, status) "
-            "VALUES (100, 'Test Epic', 'epic', 'implementing')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status) "
+            "VALUES (100, 'Test Epic', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'implementing')"
         )
         conn.execute(
             "INSERT INTO epic_tasks (epic_id, task_num, title, status) "
@@ -162,8 +168,8 @@ class TestHcEpicTaskWorktreeBackfill:
     def test_all_tasks_have_worktree_passes(self):
         conn = _make_conn()
         conn.execute(
-            "INSERT INTO items (id, title, type, status) "
-            "VALUES (100, 'Test Epic', 'epic', 'implementing')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status) "
+            "VALUES (100, 'Test Epic', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'implementing')"
         )
         conn.execute(
             "INSERT INTO epic_tasks (epic_id, task_num, title, status, worktree) "
@@ -211,8 +217,8 @@ class TestHcWorktreeHealth:
         ]
         conn = _make_conn()
         conn.execute(
-            "INSERT INTO items (id, title, type, status) "
-            "VALUES (42, 'Test', 'issue', 'implementing')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status) "
+            "VALUES (42, 'Test', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing')"
         )
         with patch.object(Path, "is_dir", return_value=True):
             rec = _run_hc(hc_worktree_health, conn)

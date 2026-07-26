@@ -197,21 +197,18 @@ def scheduler_db(tmp_path):
             workflow_id, workflow_version_id = _workflow_pin(conn, item_type)
             conn.execute(
                 """INSERT INTO items
-                   (id, title, type, status, priority, project_id,
-                    project_sequence, created_at, updated_at, source, frozen,
-                    workflow_id, workflow_version_id)
-                   VALUES ({p}, {p}, {p}, {p}, {p}, 1,
-                           {p}, '2026-03-01', '2026-03-01', 'user', 0,
-                           {p}, {p})""".format(p=p),
+                   (id, title, workflow_id, workflow_version_id, status, priority, project_id,
+                    project_sequence, created_at, updated_at, source, frozen)
+                   VALUES ({p}, {p}, {p}, {p}, {p}, {p}, 1,
+                           {p}, '2026-03-01', '2026-03-01', 'user', 0)""".format(p=p),
                 (
                     item_id,
                     title,
-                    item_type,
+                    workflow_id,
+                    workflow_version_id,
                     status,
                     priority,
                     item_id,
-                    workflow_id,
-                    workflow_version_id,
                 ),
             )
 

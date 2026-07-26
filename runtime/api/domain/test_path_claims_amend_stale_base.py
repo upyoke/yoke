@@ -99,9 +99,9 @@ def _seed_snapshot(conn, *, project_id: int, commit_sha: str) -> int:
 
 def _seed_item(conn, *, item_id: int = 21001):
     conn.execute(
-        "INSERT INTO items (id, title, type, status, priority, "
+        "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, "
         "created_at, updated_at, project_id, project_sequence) "
-        "VALUES (%s, 't', 'issue', 'idea', 'medium', "
+        "VALUES (%s, 't', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'medium', "
         "'2026-05-01T00:00:00Z', '2026-05-01T00:00:00Z', 1, %s)",
         (item_id, item_id),
     )

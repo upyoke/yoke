@@ -104,7 +104,7 @@ class TestUpdateItem:
         assert result.returncode == 1
         data = json.loads(result.stdout.strip())
         assert data["success"] is False
-        assert "not a valid" in data["error"] and "status" in data["error"]
+        assert "not a valid stage" in data["error"]
 
     def test_update_unsupported_field_rejected(self, mutation_db):
         """Field not in the supported surface should be rejected."""

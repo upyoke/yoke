@@ -110,7 +110,7 @@ class TestFixturePersistence:
         insert_item(
             item_id=1,
             title=fixture["title"],
-            item_type="issue",
+            workflow="issue",
             status="idea",
             priority="medium",
             source="user",

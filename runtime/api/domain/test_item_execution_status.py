@@ -23,6 +23,7 @@ from yoke_core.domain.item_execution_status_helpers import (
     parse_iso,
 )
 from yoke_core.domain.schema_init_apply import execute_schema_script
+from yoke_core.domain.workflow_registry_sql import marker as _p
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
 
@@ -69,8 +70,7 @@ def core_db(tmp_path):
         yield db_path
 
 
-def _conn(db_path: str):
-    return connect_test_db(db_path)
+_conn = connect_test_db
 
 
 def _add_item(conn, item_id, **kwargs) -> None:

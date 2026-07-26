@@ -69,13 +69,19 @@ def _seed_item(conn, *, item_id: int, project: str) -> None:
     p = _placeholder(conn)
     conn.execute(f"DELETE FROM items WHERE id = {p}", (item_id,))
     project_id = _project_id(project)
+    from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
+
+    workflow_id, workflow_version_id = resolve_current_workflow_pin(conn, "issue")
     conn.execute(
         "INSERT INTO items "
-        "(id, title, status, type, project_id, project_sequence, "
+        "(id, title, status, workflow_id, workflow_version_id, project_id, project_sequence, "
         "created_at, updated_at) "
-        f"VALUES ({p}, {p}, 'idea', 'issue', {p}, {p}, "
+        f"VALUES ({p}, {p}, 'idea', {p}, {p}, {p}, {p}, "
         "'2026-05-11T00:00:00Z', '2026-05-11T00:00:00Z')",
-        (item_id, f"Test item {item_id}", project_id, item_id),
+        (
+            item_id, f"Test item {item_id}", workflow_id,
+            workflow_version_id, project_id, item_id,
+        ),
     )
 
 

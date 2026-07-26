@@ -94,20 +94,6 @@ class TestExecuteUpdate:
             )
         assert result["success"] is False
 
-    def test_shell_fallback_type(self, tmp_db):
-        _seed_item(tmp_db, id=10, type="issue")
-        out = io.StringIO()
-        with _patch_externals(), \
-             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
-            result = backlog.execute_update(
-                item_id=10,
-                field="type",
-                value="epic",
-                out=out,
-            )
-        assert result["success"] is True
-        assert _item_field(tmp_db, 10, "type") == "epic"
-
     def test_shell_fallback_deploy_stage(self, tmp_db):
         _seed_item(tmp_db, id=10)
         out = io.StringIO()

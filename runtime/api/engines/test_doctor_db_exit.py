@@ -24,8 +24,8 @@ class TestExitCode:
         with init_test_db(tmp_path, apply_schema=apply_make_conn_schema) as db_path:
             conn = connect_test_db(db_path)
             conn.execute(
-                "INSERT INTO items (id, title, type, status, priority) "
-                "VALUES (1, 'OK', 'issue', 'idea', 'low')"
+                "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority) "
+                "VALUES (1, 'OK', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'low')"
             )
             conn.commit()
             conn.close()
@@ -38,8 +38,8 @@ class TestExitCode:
         with init_test_db(tmp_path, apply_schema=apply_make_conn_schema) as db_path:
             conn = connect_test_db(db_path)
             conn.execute(
-                "INSERT INTO items (id, title, type, status, priority) "
-                "VALUES (10, 'E', 'epic', 'implementing', 'high')"
+                "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority) "
+                "VALUES (10, 'E', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'implementing', 'high')"
             )
             conn.commit()
             conn.close()
@@ -53,8 +53,8 @@ class TestExitCode:
         with init_test_db(tmp_path, apply_schema=apply_make_conn_schema) as db_path:
             conn = connect_test_db(db_path)
             conn.execute(
-                "INSERT INTO items (id, title, type, status, priority) "
-                "VALUES (1, 'OK', 'issue', 'idea', 'low')"
+                "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority) "
+                "VALUES (1, 'OK', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'low')"
             )
             conn.commit()
             conn.close()

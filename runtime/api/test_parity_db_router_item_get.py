@@ -11,6 +11,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.items_constants import CANONICAL_COLUMNS
 from runtime.api.fixtures.file_test_db import init_test_db
 from runtime.api.parity_db_router_test_fixtures import (  # noqa: F401
     _LARGE_SPEC_TEXT,
@@ -88,15 +89,17 @@ class TestItemRowCLI:
         result = _run_db_router(db_path, "item-row", "YOK-1")
         assert result.returncode == 0
         parts = result.stdout.strip().split("|")
-        assert len(parts) == 19  # canonical item row shape from query_item_row()
-        assert parts[0] == "1"
-        assert parts[1] == "Implementing item"
-        assert parts[2] == "issue"
-        assert parts[3] == "implementing"
-        assert parts[4] == "high"
-        assert parts[5] == "accelerated"
-        assert parts[15] == "user"
-        assert parts[16] == "yoke"
+        assert len(parts) == len(CANONICAL_COLUMNS)
+        row = dict(zip(CANONICAL_COLUMNS, parts))
+        assert row["id"] == "1"
+        assert row["title"] == "Implementing item"
+        assert row["workflow_id"] == "issue"
+        assert row["workflow_version_id"] == "1"
+        assert row["status"] == "implementing"
+        assert row["priority"] == "high"
+        assert row["flow"] == "accelerated"
+        assert row["source"] == "user"
+        assert row["project"] == "yoke"
 
     def test_row_nonexistent_item(self, item_query_env):
         """item-row YOK-999999 exits 1."""

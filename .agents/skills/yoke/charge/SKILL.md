@@ -6,7 +6,13 @@ argument-hint: "[--dry-run] [--item YOK-N] [--project P] [--wip-cap N]"
 
 # /yoke charge
 
-Direct-mode entrypoint for the charge flow. Computes the claim-aware schedule via `yoke charge schedule`, presents a formatted table of ranked items with their adapter classifications, confirms the top pick with the operator, and dispatches to the correct downstream skill (refine, shepherd, conduct, advance, polish, or usher). The `next_step` field is the dispatch truth: it applies type-aware epic/issue routing overrides that the raw `adapter` category does not. The `adapter` column remains in the table display for ranking diagnostics.
+Direct-mode entrypoint for the charge flow. Computes the claim-aware schedule
+via `yoke charge schedule`, presents a formatted table of ranked items with
+their adapter classifications, confirms the top pick with the operator, and
+dispatches to the correct downstream skill (refine, shepherd, conduct, advance,
+polish, or usher). The `next_step` field is the dispatch truth: the pinned
+workflow's registered executor binding produced it. The `adapter` column
+remains in the table display for ranking diagnostics.
 
 `yoke charge schedule` is claim-aware: each ranked step carries a `claim_state` (`unclaimed`, `claimed_by_self`, `claimed_by_other_live`, `claimed_by_stale`). Steps with `claim_state='claimed_by_other_live'` stay on the ranked frontier for diagnostics but must NOT appear in the operator-facing Runnable table or be selected for dispatch — that is the assignability rule defined in `yoke_core.domain.scheduler_types.is_assignable_claim_state`.
 
@@ -69,7 +75,8 @@ Parse the JSON output. The response has this shape:
  "title": "Some item title",
  "status": "planned",
  "priority": "high",
- "item_type": "epic",
+ "workflow_id": "epic",
+ "workflow_version_id": 2,
  "adapter": "conduct",
  "next_step": "conduct",
  "rank": 0,
@@ -255,7 +262,10 @@ Where `{item_id}`, `{next_step}`, and `{adapter}` are from the selected item (if
 
 ### 6. Dispatch to downstream skill
 
-Based on the confirmed item's `next_step` field, dispatch as follows. The `next_step` value is the dispatch truth — it applies type-aware epic/issue routing overrides (e.g., issue implementation routes to `advance`, not `conduct`). The raw frontier category (`adapter`) remains available for ranking diagnostics but is NOT used for routing.
+Based on the confirmed item's `next_step` field, dispatch as follows. The
+`next_step` value is the dispatch truth from the pinned workflow binding. The
+raw frontier category (`adapter`) remains available for ranking diagnostics
+but is NOT used for routing.
 
 #### `refine`
 Invoke `/yoke refine {item_id}` by reading and following `.agents/skills/yoke/refine/SKILL.md`, passing `{item_id}` as the argument.

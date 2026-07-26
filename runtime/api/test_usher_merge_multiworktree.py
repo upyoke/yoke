@@ -28,8 +28,11 @@ def _resolver_env(db_path: str) -> dict[str, str]:
 def _add_item_and_project(conn, epic_id: int, git_repo) -> None:
     conn.execute(
         "INSERT INTO items "
-        "(id, title, type, status, worktree, project_id, project_sequence) "
-        "VALUES (%s, 'Epic', 'epic', 'reviewed-implementation', %s, 1, %s)",
+        "(id, title, workflow_id, workflow_version_id, status, worktree, "
+        "project_id, project_sequence) "
+        "VALUES (%s, 'Epic', 'epic', "
+        "(SELECT current_version_id FROM workflows WHERE id='epic'), "
+        "'reviewed-implementation', %s, 1, %s)",
         (epic_id, f"YOK-{epic_id}", epic_id),
     )
     register_machine_checkout(git_repo.parent / "machine-config", git_repo, 1)

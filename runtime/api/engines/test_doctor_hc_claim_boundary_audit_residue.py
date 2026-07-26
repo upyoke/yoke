@@ -18,9 +18,9 @@ from runtime.api.engines.test_doctor_hc_claim_boundary_audit import (
 def _add_item(conn: Any, item_id: int, status: str) -> None:
     p = _p(conn)
     conn.execute(
-        "INSERT INTO items (id, title, type, status, priority, project_id,"
+        "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, project_id,"
         " project_sequence, created_at, updated_at)"
-        f" VALUES ({p}, {p}, 'issue', {p}, 'medium', 1, {p}, {p}, {p})",
+        f" VALUES ({p}, {p}, 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), {p}, 'medium', 1, {p}, {p}, {p})",
         (
             item_id, f"YOK-{item_id}", status, item_id,
             "2026-05-17T10:00:00Z", "2026-05-17T10:00:00Z",

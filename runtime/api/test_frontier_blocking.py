@@ -81,7 +81,7 @@ def test_blocked_flag_overrides_lifecycle_status():
     conn = make_test_db()
     insert_item(conn, 10, status="implementing")
     insert_item(conn, 11, status="refined-idea")
-    insert_item(conn, 12, status="planning", item_type="epic")
+    insert_item(conn, 12, status="planning", workflow="epic")
     for i in (10, 11, 12):
         _set_blocked(conn, i, "test reason")
     conn.commit()
@@ -105,7 +105,7 @@ def test_legacy_blocked_status_still_blocked_drift_safety():
 def test_blocked_flag_combines_with_dependency_blocker_details():
     """An item with both an operator block and a dependency edge surfaces both."""
     conn = make_test_db()
-    insert_item(conn, 10, status="planned", item_type="epic")
+    insert_item(conn, 10, status="planned", workflow="epic")
     insert_item(conn, 20, status="implementing")
     insert_dep(conn, "YOK-10", "YOK-20")  # YOK-10 blocked-by YOK-20 at activation
     _set_blocked(conn, 10, "operator reason")

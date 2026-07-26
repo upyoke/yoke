@@ -33,7 +33,7 @@ def conn():
         CREATE TABLE projects (id INTEGER PRIMARY KEY, slug TEXT UNIQUE);
         CREATE TABLE items (
             id INTEGER PRIMARY KEY, worktree TEXT, project_id INTEGER,
-            status TEXT
+            status TEXT, workflow_id TEXT, workflow_version_id INTEGER
         );
         CREATE TABLE epic_tasks (
             epic_id INTEGER NOT NULL, task_num INTEGER NOT NULL,
@@ -46,6 +46,11 @@ def conn():
         );
         """,
     )
+    from yoke_core.domain.workflow_registry import converge_builtin_workflows
+    from yoke_core.domain.workflow_schema import ensure_workflow_schema
+
+    ensure_workflow_schema(c)
+    converge_builtin_workflows(c)
     yield c
     c.close()
 
@@ -80,9 +85,13 @@ def _seed_fanout(
         "INSERT INTO projects (id, slug) VALUES (1, 'yoke')",
     )
     register_machine_checkout(repo.parent / "machine-config", repo, 1)
+    from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
+
+    workflow_id, workflow_version_id = resolve_current_workflow_pin(conn, "epic")
     conn.execute(
-        "INSERT INTO items (id, worktree, project_id) VALUES (%s, NULL, 1)",
-        (item_id,),
+        "INSERT INTO items (id, worktree, project_id, status, workflow_id, "
+        "workflow_version_id) VALUES (%s, NULL, 1, 'implementing', %s, %s)",
+        (item_id, workflow_id, workflow_version_id),
     )
     claims: dict = {}
     for task_num, branch in lanes:

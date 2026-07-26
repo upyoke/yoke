@@ -44,12 +44,19 @@ def _seed_item(
 ) -> None:
     conn = connect_test_db(str(db_path))
     try:
+        from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
+
+        workflow_id, workflow_version_id = resolve_current_workflow_pin(
+            conn, "issue",
+        )
         conn.execute(
             "INSERT INTO items "
-            "(id, project_id, project_sequence, title, status, type, spec, created_at, updated_at) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            "(id, project_id, project_sequence, title, status, workflow_id, "
+            "workflow_version_id, spec, created_at, updated_at) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
             (
-                item_id, 1, item_id, title, status, "issue", spec,
+                item_id, 1, item_id, title, status, workflow_id,
+                workflow_version_id, spec,
                 "2026-01-01", "2026-01-01",
             ),
         )
@@ -65,7 +72,7 @@ class TestMultiFieldGet:
         self, fresh_db: Path, capsys: pytest.CaptureFixture
     ) -> None:
         _seed_item(fresh_db, 51, title="hello", status="implementing")
-        rc = main(["get", "YOK-51", "status", "title", "type"])
+        rc = main(["get", "YOK-51", "status", "title", "workflow_id"])
         out = capsys.readouterr().out
         lines = out.splitlines()
         assert rc == 0
@@ -87,14 +94,14 @@ class TestMultiFieldGet:
         # multi-field invocations. Spec is a structured large-text field.
         spec = "# Title\n\n## Problem\n\nbody-text\n"
         _seed_item(fresh_db, 53, title="hello", spec=spec)
-        rc = main(["get", "YOK-53", "status", "spec", "type"])
+        rc = main(["get", "YOK-53", "status", "spec", "workflow_id"])
         out = capsys.readouterr().out
         assert rc == 0
         # All three values appear in argument order.
         assert "refined-idea" in out
         assert "# Title" in out
         assert "body-text" in out
-        # ``issue`` is the type value; appears AFTER the spec content.
+        # ``issue`` is the workflow id; it appears after the spec content.
         assert out.index("body-text") < out.index("issue")
 
     def test_unknown_field_in_multi_field_returns_error(

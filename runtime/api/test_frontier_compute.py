@@ -36,7 +36,7 @@ class TestComputeFrontier:
     def test_basic_partition(self):
         """AC-2: Returns FrontierResult with runnable/blocked partitions."""
         conn = _create_test_db()
-        _insert_item(conn, 10, status="planned", item_type="epic")
+        _insert_item(conn, 10, status="planned", workflow="epic")
         _insert_item(conn, 20, status="idea")
         conn.commit()
 
@@ -48,7 +48,7 @@ class TestComputeFrontier:
     def test_hard_block_creates_blocked_partition(self):
         """AC-5: Hard-block deps resolved via SQL join."""
         conn = _create_test_db()
-        _insert_item(conn, 10, status="planned", item_type="epic")
+        _insert_item(conn, 10, status="planned", workflow="epic")
         _insert_item(conn, 20, status="implementing")
         # is blocked by an implementing (non-done) item
         _insert_dep(conn, "YOK-10", "YOK-20")
@@ -63,7 +63,7 @@ class TestComputeFrontier:
     def test_integration_gate_does_not_block_activation(self):
         """Integration-gate deps do NOT block the activation frontier."""
         conn = _create_test_db()
-        _insert_item(conn, 10, status="planned", item_type="epic")
+        _insert_item(conn, 10, status="planned", workflow="epic")
         _insert_item(conn, 20, status="implementing")
         _insert_dep(conn, "YOK-10", "YOK-20", gate_point="integration", satisfaction="fact:merged")
         conn.commit()
@@ -75,7 +75,7 @@ class TestComputeFrontier:
     def test_satisfied_hard_block_not_blocking(self):
         """Hard-block with blocking item done is treated as satisfied."""
         conn = _create_test_db()
-        _insert_item(conn, 10, status="planned", item_type="epic")
+        _insert_item(conn, 10, status="planned", workflow="epic")
         _insert_item(conn, 20, status="done")  # Blocker is done
         _insert_dep(conn, "YOK-10", "YOK-20")
         conn.commit()
@@ -89,7 +89,7 @@ class TestComputeFrontier:
     def test_blocked_reasons_human_readable(self):
         """AC-7: Blocked items include human-readable reasons."""
         conn = _create_test_db()
-        _insert_item(conn, 10, status="planned", item_type="epic")
+        _insert_item(conn, 10, status="planned", workflow="epic")
         _insert_item(conn, 20, status="implementing")
         _insert_dep(conn, "YOK-10", "YOK-20")
         conn.commit()
@@ -103,8 +103,8 @@ class TestComputeFrontier:
     def test_frozen_items_excluded(self):
         """AC-9: Frozen items excluded from runnable frontier."""
         conn = _create_test_db()
-        _insert_item(conn, 10, status="planned", frozen=0, item_type="epic")
-        _insert_item(conn, 20, status="planned", frozen=1, item_type="epic")
+        _insert_item(conn, 10, status="planned", frozen=0, workflow="epic")
+        _insert_item(conn, 20, status="planned", frozen=1, workflow="epic")
         conn.commit()
 
         result = compute_frontier(conn, project_scope=["yoke"])
@@ -116,7 +116,7 @@ class TestComputeFrontier:
     def test_done_and_stopped_items_excluded_but_implemented_is_runnable(self):
         """Done/stopped are excluded, while implemented stays on the usher frontier."""
         conn = _create_test_db()
-        _insert_item(conn, 10, status="planned", item_type="epic")
+        _insert_item(conn, 10, status="planned", workflow="epic")
         _insert_item(conn, 20, status="done")
         _insert_item(conn, 30, status="stopped")
         _insert_item(conn, 40, status="implemented")
@@ -131,8 +131,8 @@ class TestComputeFrontier:
     def test_project_scoping(self):
         """Only items from the specified project appear."""
         conn = _create_test_db()
-        _insert_item(conn, 10, status="planned", project="yoke", item_type="epic")
-        _insert_item(conn, 20, status="planned", project="externalwebapp", item_type="epic")
+        _insert_item(conn, 10, status="planned", project="yoke", workflow="epic")
+        _insert_item(conn, 20, status="planned", project="externalwebapp", workflow="epic")
         conn.commit()
 
         result = compute_frontier(conn, project_scope=["yoke"])
@@ -159,8 +159,8 @@ class TestEdgeCases:
     def test_all_items_blocked(self):
         """All items blocked produces empty runnable, populated blocked."""
         conn = _create_test_db()
-        _insert_item(conn, 10, status="planned", item_type="epic")
-        _insert_item(conn, 20, status="planned", item_type="epic")
+        _insert_item(conn, 10, status="planned", workflow="epic")
+        _insert_item(conn, 20, status="planned", workflow="epic")
         # Circular blocker
         _insert_dep(conn, "YOK-10", "YOK-20")
         _insert_dep(conn, "YOK-20", "YOK-10")
@@ -172,7 +172,7 @@ class TestEdgeCases:
 
     def test_multiple_blockers_on_single_item(self):
         conn = _create_test_db()
-        _insert_item(conn, 10, status="planned", item_type="epic")
+        _insert_item(conn, 10, status="planned", workflow="epic")
         _insert_item(conn, 20, status="implementing")
         _insert_item(conn, 30, status="implementing")
         _insert_dep(conn, "YOK-10", "YOK-20")
@@ -189,7 +189,7 @@ class TestEdgeCases:
         """Failed items are excluded by the SQL (terminal state)."""
         conn = _create_test_db()
         _insert_item(conn, 10, status="failed")
-        _insert_item(conn, 20, status="planned", item_type="epic")
+        _insert_item(conn, 20, status="planned", workflow="epic")
         conn.commit()
 
         result = compute_frontier(conn, project_scope=["yoke"])

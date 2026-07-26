@@ -42,7 +42,7 @@ def db_with_item(db_path):
     insert_item(
         item_id=1,
         title="Test item",
-        item_type="issue",
+        workflow="issue",
         status="idea",
         priority="medium",
         source="user",

@@ -112,7 +112,7 @@ Invoke `/yoke idea` inline with the item title. When the idea skill prompts for 
 
 The `/yoke idea` pipeline handles:
 - Title validation (<=100 chars)
-- Metadata inference (project, type, priority)
+- Metadata inference (project, workflow, priority)
 - Duplicate detection (secondary check beyond our 3A.1 check)
 - GitHub issue creation and sync
 - Body generation with AC normalization

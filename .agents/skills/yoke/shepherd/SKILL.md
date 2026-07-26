@@ -65,15 +65,17 @@ Load:
 
 ```bash
 _num={N}
-_type=$(yoke items get $_num type)
+_workflow_id=$(yoke items get $_num workflow_id)
 _item_status=$(yoke items get $_num status)
 _title=$(yoke items get $_num title)
 ```
 
 If any query returns empty, stop with `Item YOK-{N} not found.`
 
-**Type gate:** If `_type` is not `epic`, reject immediately:
-> Error: /yoke shepherd only supports epic items. YOK-{N} is type '{_type}'.
+**Workflow binding gate:** If `_workflow_id` is not `epic`, reject
+immediately:
+> Error: /yoke shepherd is not the registered executor for workflow
+> '{_workflow_id}' on YOK-{N}.
 >
 > Issue refinement routes through /yoke refine.
 > Issue implementation routes through /yoke advance.

@@ -14,12 +14,13 @@ yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evide
 Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->
 
-## Issue-Type Rejection
+## Workflow binding gate
 
-**Conduct is epic-only.** If the target item has `type=issue`, reject immediately:
+**Conduct is bound to the Epic workflow.** If the target item's
+`workflow_id` is not `epic`, reject immediately:
 
 ```
-Error: /yoke conduct does not support issue items. YOK-{N} is type 'issue'.
+Error: /yoke conduct is not the registered executor for workflow '{workflow_id}' on YOK-{N}.
 
 Issue implementation routes through /yoke advance (main-session inline implementation).
 Issue refinement routes through /yoke refine.
@@ -28,7 +29,8 @@ Issue polish routes through /yoke polish.
 Run '/yoke advance YOK-{N} implementation' to begin issue implementation.
 ```
 
-Check the item type early (in S2 or before the status gate) and halt before any worktree or status mutation.
+Check the workflow binding early (in S2 or before the status gate) and halt
+before any worktree or status mutation.
 
 ## Autonomous Execution Mode
 

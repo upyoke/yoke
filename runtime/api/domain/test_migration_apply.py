@@ -32,7 +32,7 @@ from yoke_core.domain.migration_apply_test_helpers import (  # noqa: F401 — fi
     _audit_row,
     _connect_validation_db,
     _seed_apply_item,
-    apply_env as apply_env_fixture,  # noqa: F401 — fixture registration
+    apply_env,  # noqa: F401 — fixture registration
 )
 from yoke_core.domain.migration_apply_resolve import ModuleOverrideResolution
 from runtime.api.test_backlog import _conn, tmp_db  # noqa: F401 — reused fixtures

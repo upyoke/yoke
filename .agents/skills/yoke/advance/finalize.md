@@ -116,8 +116,8 @@ The status-change comment and body sync are downstream side effects of the `life
 **WORKTREE_PATH resolution fallback:** If `WORKTREE_PATH` was not propagated from the worktree phase (agent context loss, re-entry via backward compat path), resolve it from the DB before committing. This prevents accidental main-branch commits when a worktree exists.
 
 ```bash
-_finalize_item_type=$(yoke items get {N} type 2>/dev/null) || true
-if [ -z "$WORKTREE_PATH" ] && [ "$_finalize_item_type" != "epic" ]; then
+_finalize_workflow_id=$(yoke items get {N} workflow_id 2>/dev/null) || true
+if [ -z "$WORKTREE_PATH" ] && [ "$_finalize_workflow_id" != "epic" ]; then
  _wt_branch=$(yoke items get {N} worktree 2>/dev/null)
  if [ -n "$_wt_branch" ] && [ "$_wt_branch" != "null" ]; then
  _item_project=$(yoke items get {N} project 2>/dev/null)
@@ -235,4 +235,10 @@ Only emit a blocking summary and stop if some real blocker prevents the review l
 
 ## Implementation-entry Sub-skill Handoff
 
-**If target was `implementing` (issue or epic items, with issue entry surfaced as `/yoke advance YOK-{N} implementation`):** Read and follow `.agents/skills/yoke/advance/implementing/SKILL.md`. Pass `{N}`, `{NNN}`, `{_title}`, `{WORKTREE_PATH}`. The current session holds the work-claim on YOK-{N} (acquired in preflight) and has provisioned the worktree — both newly created and re-entered worktrees are same-session, no relaunch. The sub-skill handles QA seeding + implementation kickoff for both workflow types. **Return after sub-skill completes.**
+**If target was `implementing` and the pinned definition selected the advance
+executor:** Read and follow `.agents/skills/yoke/advance/implementing/SKILL.md`.
+Pass `{N}`, `{NNN}`, `{_title}`, `{WORKTREE_PATH}`. The current session holds
+the work-claim on YOK-{N} (acquired in preflight) and has provisioned the
+worktree — both newly created and re-entered worktrees are same-session, no
+relaunch. The sub-skill handles QA seeding + implementation kickoff.
+**Return after sub-skill completes.**

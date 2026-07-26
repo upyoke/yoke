@@ -225,9 +225,9 @@ class TestFlowBasic:
         stages = json.dumps([{"name": "s1", "executor": "auto"}])
         cmd_create(test_db, "f-ref", "yoke", "FRef", "D", stages)
         test_db.execute(
-            "INSERT INTO items (id, project_id, project_sequence, type, "
+            "INSERT INTO items (id, project_id, project_sequence, workflow_id, workflow_version_id, "
             "title, status, deployment_flow, created_at, updated_at) "
-            "VALUES (9001, 1, 9001, 'issue', 'T', 'done', 'f-ref', "
+            "VALUES (9001, 1, 9001, 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'T', 'done', 'f-ref', "
             "'2026-04-20T00:00:00Z', '2026-04-20T00:00:00Z')"
         )
         test_db.commit()
@@ -243,9 +243,9 @@ class TestFlowBasic:
         cmd_create(test_db, "f-old", "yoke", "FOld", "D", stages)
         cmd_create(test_db, "f-new", "yoke", "FNew", "D", stages)
         test_db.execute(
-            "INSERT INTO items (id, project_id, project_sequence, type, "
+            "INSERT INTO items (id, project_id, project_sequence, workflow_id, workflow_version_id, "
             "title, status, deployment_flow, created_at, updated_at) "
-            "VALUES (9002, 1, 9002, 'issue', 'T', 'done', 'f-old', "
+            "VALUES (9002, 1, 9002, 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'T', 'done', 'f-old', "
             "'2026-04-20T00:00:00Z', '2026-04-20T00:00:00Z')"
         )
         test_db.commit()

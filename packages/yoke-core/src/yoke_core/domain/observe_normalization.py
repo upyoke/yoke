@@ -150,7 +150,7 @@ def _resolve_dispatch_context(
                FROM items
                WHERE status NOT IN ('done', 'cancelled')
                  AND worktree = {p}
-                 AND type <> 'epic'
+                 AND workflow_id <> 'epic'
                LIMIT 2""".format(p=_p(conn)),
             (worktree,),
         ).fetchall()
@@ -216,7 +216,7 @@ def _resolve_main_session_attribution(
                  'implemented',
                  'release'
                )
-                 AND type <> 'epic'
+                 AND workflow_id <> 'epic'
                LIMIT 2"""
         ).fetchall()
         if len(active_rows) == 1:

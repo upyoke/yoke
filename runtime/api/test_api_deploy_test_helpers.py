@@ -28,9 +28,9 @@ def _seed_frontier_conn(conn) -> None:
     # Item 20: active (conduct-eligible), high priority, yoke
     conn.execute(
         """INSERT INTO items
-           (id, title, type, status, priority, project_id, project_sequence, frozen,
+           (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence, frozen,
             created_at, updated_at, source)
-           VALUES (20, 'Active task', 'issue', 'implementing', 'high', 1, 20, 0,
+           VALUES (20, 'Active task', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'high', 1, 20, 0,
                    '2026-03-01T00:00:00Z', '2026-03-02T00:00:00Z', 'user')"""
     )
     # Item 21: idea (shepherd-eligible), medium priority, yoke.
@@ -38,9 +38,9 @@ def _seed_frontier_conn(conn) -> None:
     # treats this as a real, runnable idea rather than a title-only draft.
     conn.execute(
         """INSERT INTO items
-           (id, title, type, status, priority, project_id, project_sequence, frozen,
+           (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence, frozen,
             created_at, updated_at, source, spec)
-           VALUES (21, 'Idea task', 'issue', 'idea', 'medium', 1, 21, 0,
+           VALUES (21, 'Idea task', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'medium', 1, 21, 0,
                    '2026-03-01T00:00:00Z', '2026-03-03T00:00:00Z', 'user',
                    '# Idea task\n\nFixture spec body for frontier tests.')"""
     )
@@ -50,9 +50,9 @@ def _seed_frontier_conn(conn) -> None:
     # the blocked bucket.
     conn.execute(
         """INSERT INTO items
-           (id, title, type, status, priority, project_id, project_sequence, frozen,
+           (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence, frozen,
             created_at, updated_at, source, spec)
-           VALUES (22, 'Blocked idea', 'issue', 'idea', 'low', 1, 22, 0,
+           VALUES (22, 'Blocked idea', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'low', 1, 22, 0,
                    '2026-03-01T00:00:00Z', '2026-03-04T00:00:00Z', 'user',
                    '# Blocked idea\n\nFixture spec body for frontier tests.')"""
     )
@@ -64,41 +64,41 @@ def _seed_frontier_conn(conn) -> None:
     # Item 23: done, yoke (terminal — excluded from frontier)
     conn.execute(
         """INSERT INTO items
-           (id, title, type, status, priority, project_id, project_sequence, frozen,
+           (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence, frozen,
             created_at, updated_at, source)
-           VALUES (23, 'Done task', 'issue', 'done', 'medium', 1, 23, 0,
+           VALUES (23, 'Done task', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'done', 'medium', 1, 23, 0,
                    '2026-03-01T00:00:00Z', '2026-03-05T00:00:00Z', 'user')"""
     )
     # Item 24: ready, externalwebapp project (different project)
     conn.execute(
         """INSERT INTO items
-           (id, title, type, status, priority, project_id, project_sequence, frozen,
+           (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence, frozen,
             created_at, updated_at, source)
-           VALUES (24, 'ExternalWebapp ready', 'issue', 'refined-idea', 'high', 2, 24, 0,
+           VALUES (24, 'ExternalWebapp ready', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'refined-idea', 'high', 2, 24, 0,
                    '2026-03-01T00:00:00Z', '2026-03-06T00:00:00Z', 'user')"""
     )
     # Item 25: frozen item, yoke
     conn.execute(
         """INSERT INTO items
-           (id, title, type, status, priority, project_id, project_sequence, frozen,
+           (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence, frozen,
             created_at, updated_at, source)
-           VALUES (25, 'Frozen task', 'issue', 'refined-idea', 'high', 1, 25, 1,
+           VALUES (25, 'Frozen task', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'refined-idea', 'high', 1, 25, 1,
                    '2026-03-01T00:00:00Z', '2026-03-07T00:00:00Z', 'user')"""
     )
     # Item 26: passed item, yoke (usher-eligible and still on the frontier)
     conn.execute(
         """INSERT INTO items
-           (id, title, type, status, priority, project_id, project_sequence, frozen,
+           (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence, frozen,
             created_at, updated_at, source)
-           VALUES (26, 'Passed task', 'issue', 'implemented', 'high', 1, 26, 0,
+           VALUES (26, 'Passed task', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implemented', 'high', 1, 26, 0,
                    '2026-03-01T00:00:00Z', '2026-03-08T00:00:00Z', 'user')"""
     )
     # Item 27: explicit blocked item, yoke (reported in blocked bucket)
     conn.execute(
         """INSERT INTO items
-           (id, title, type, status, priority, project_id, project_sequence, frozen,
+           (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence, frozen,
             created_at, updated_at, source)
-           VALUES (27, 'Explicitly blocked task', 'issue', 'blocked', 'medium', 1, 27, 0,
+           VALUES (27, 'Explicitly blocked task', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'blocked', 'medium', 1, 27, 0,
                    '2026-03-01T00:00:00Z', '2026-03-09T00:00:00Z', 'user')"""
     )
 

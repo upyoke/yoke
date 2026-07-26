@@ -73,12 +73,11 @@ class TestComputeSchedule:
         # Insert an issue in implementing (routes to ADVANCE)
         conn.execute(
             """INSERT INTO items
-               (id, title, type, status, priority, project_id,
-                project_sequence, created_at, updated_at, source, frozen,
-                workflow_id, workflow_version_id)
-               VALUES (100, 'Implementing issue', 'issue', 'implementing',
+               (id, title, workflow_id, workflow_version_id, status, priority, project_id,
+                project_sequence, created_at, updated_at, source, frozen)
+               VALUES (100, 'Implementing issue', %s, %s, 'implementing',
                        'high', 1, 100, '2026-03-01', '2026-03-01',
-                       'user', 0, %s, %s)""",
+                       'user', 0)""",
             (workflow_id, workflow_version_id),
         )
         # Fill WIP with active epics so conduct_eligible is empty
@@ -86,17 +85,16 @@ class TestComputeSchedule:
         for i in range(101, 106):
             conn.execute(
                 """INSERT INTO items
-                   (id, title, type, status, priority, project_id,
-                    project_sequence, created_at, updated_at, source, frozen,
-                    workflow_id, workflow_version_id)
-                   VALUES (%s, %s, 'epic', 'implementing', 'medium', 1, %s,
-                           '2026-03-01', '2026-03-01', 'user', 0, %s, %s)""",
+                   (id, title, workflow_id, workflow_version_id, status, priority, project_id,
+                    project_sequence, created_at, updated_at, source, frozen)
+                   VALUES (%s, %s, %s, %s, 'implementing', 'medium', 1, %s,
+                           '2026-03-01', '2026-03-01', 'user', 0)""",
                 (
                     i,
                     f"Active epic {i}",
-                    i,
                     epic_workflow_id,
                     epic_workflow_version_id,
+                    i,
                 ),
             )
         conn.commit()

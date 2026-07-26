@@ -53,6 +53,11 @@ def _make_db():
     for ddl in (PROJECTS_SCHEMA, ITEMS_SCHEMA, ITEM_DEPENDENCIES_SCHEMA,
                 HARNESS_SESSIONS_SCHEMA, WORK_CLAIMS_SCHEMA, EVENTS_SCHEMA):
         apply_ddl_statements(conn, ddl)
+    from yoke_core.domain.workflow_registry import converge_builtin_workflows
+    from yoke_core.domain.workflow_schema import ensure_workflow_schema
+
+    ensure_workflow_schema(conn)
+    converge_builtin_workflows(conn)
     conn.commit()
     return conn
 
@@ -71,9 +76,9 @@ def _seed_session(conn) -> None:
 def _build_item_fixture(conn) -> int:
     _seed_session(conn)
     conn.execute(
-        "INSERT INTO items (id, title, type, status, priority, project_id,"
+        "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, project_id,"
         " project_sequence, created_at, updated_at, source, frozen) "
-        "VALUES (%s, 't', 'issue', 'refined-idea', 'high', 1, %s, %s, %s, "
+        "VALUES (%s, 't', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'refined-idea', 'high', 1, %s, %s, %s, "
         "'user', 0)",
         (ITEM_ID, ITEM_ID, _TS, _TS))
     cursor = conn.execute(

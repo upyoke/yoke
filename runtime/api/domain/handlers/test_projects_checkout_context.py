@@ -41,11 +41,18 @@ def _seed_session_on_item(
     conn, session_id: str, *, item_id: int, project_id: int,
 ) -> None:
     now = iso8601_now()
+    from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
+
+    workflow_id, workflow_version_id = resolve_current_workflow_pin(conn, "issue")
     conn.execute(
         "INSERT INTO items (id, project_id, project_sequence, title, "
-        "created_at, updated_at) "
-        "VALUES (%s, %s, %s, 'checkout-context inference seed', %s, %s)",
-        (item_id, project_id, item_id, now, now),
+        "workflow_id, workflow_version_id, status, created_at, updated_at) "
+        "VALUES (%s, %s, %s, 'checkout-context inference seed', "
+        "%s, %s, 'idea', %s, %s)",
+        (
+            item_id, project_id, item_id, workflow_id,
+            workflow_version_id, now, now,
+        ),
     )
     conn.execute(
         "INSERT INTO harness_sessions (session_id, executor, provider, "

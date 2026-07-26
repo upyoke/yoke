@@ -30,9 +30,9 @@ from yoke_core.domain._path_claims_test_helpers import (  # noqa: F401
 
 def _seed_item(conn, *, item_id: int, status: str = "implementing") -> int:
     conn.execute(
-        "INSERT INTO items (id, title, type, status, priority, "
+        "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, "
         "created_at, updated_at, project_id, project_sequence) "
-        "VALUES (%s, 'item', 'issue', %s, 'medium', "
+        "VALUES (%s, 'item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), %s, 'medium', "
         "'2026-05-01T00:00:00Z', '2026-05-01T00:00:00Z', 1, %s)",
         (item_id, status, item_id),
     )

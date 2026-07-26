@@ -12,6 +12,7 @@ import contextlib
 import os
 import stat
 import subprocess
+import sys
 import textwrap
 from pathlib import Path
 from typing import Optional
@@ -41,6 +42,11 @@ def _apply_update_status_schema() -> None:
     conn = db_backend.connect()
     try:
         apply_fixture_ddl(conn, ddl)
+        from yoke_core.domain.workflow_registry import converge_builtin_workflows
+        from yoke_core.domain.workflow_schema import ensure_workflow_schema
+
+        ensure_workflow_schema(conn)
+        converge_builtin_workflows(conn)
     finally:
         conn.close()
 
@@ -56,8 +62,9 @@ def _upsert_set(*columns: str) -> str:
 
 
 _ITEM_UPSERT_SET = _upsert_set(
-    "title", "type", "status", "priority", "flow", "rework_count",
-    "frozen", "created_at", "updated_at", "project_id", "project_sequence",
+    "title", "workflow_id", "workflow_version_id", "status", "priority",
+    "flow", "rework_count", "frozen", "created_at", "updated_at",
+    "project_id", "project_sequence",
 )
 _PROJECT_UPSERT_SET = _upsert_set("slug", "name", "github_repo")
 _HARNESS_SESSION_UPSERT_SET = _upsert_set(
@@ -167,9 +174,12 @@ class UpdateStatusEnv:
         p = _p(conn)
         conn.execute(
             "INSERT INTO items"
-            " (id, title, type, status, priority, flow, rework_count, frozen,"
+            " (id, title, workflow_id, workflow_version_id, status, priority,"
+            "  flow, rework_count, frozen,"
             "  created_at, updated_at, project_id, project_sequence)"
-            " VALUES (42, 'Test Epic Item', 'epic', 'implementing', 'medium',"
+            " VALUES (42, 'Test Epic Item', 'epic',"
+            " (SELECT current_version_id FROM workflows WHERE id='epic'),"
+            " 'implementing', 'medium',"
             " 'accelerated', 0, 0, '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', 1, 42)"
             f" ON CONFLICT (id) DO UPDATE SET {_ITEM_UPSERT_SET}"
         )
@@ -317,7 +327,7 @@ class UpdateStatusEnv:
     ) -> subprocess.CompletedProcess:
         env = {**self.env, **(extra_env or {})}
         return subprocess.run(
-            ["python3", "-m", "runtime.api.update_status_test_entrypoint", *args],
+            [sys.executable, "-m", "runtime.api.update_status_test_entrypoint", *args],
             capture_output=True,
             text=True,
             env=env,

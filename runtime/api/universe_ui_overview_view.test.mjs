@@ -20,13 +20,13 @@ function overviewClient(overrides = {}) {
     "frontier.list": {
       ready_rows: [
         {
-          item_id: "YOK-9", item_type: "issue", project: "yoke",
+          item_id: "YOK-9", workflow_id: "issue", workflow_version_id: 1, project: "yoke",
           status: "planned", priority: "high", rank: 1,
           next_step: "advance", run_command: "yoke advance YOK-9",
           why_ready: "no blockers",
         },
         {
-          item_id: "YOK-8", item_type: "issue", project: "yoke",
+          item_id: "YOK-8", workflow_id: "issue", workflow_version_id: 1, project: "yoke",
           status: "refined-idea", priority: "medium", rank: 2,
           next_step: "conduct", run_command: "yoke conduct YOK-8",
           why_ready: "claims free",

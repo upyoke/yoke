@@ -104,17 +104,24 @@ def _seed_yoke_project_with_github_app(
         verifier=lambda **_kwargs: verified,
         conn=conn,
     )
+    from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
+
+    workflow_id, workflow_version_id = resolve_current_workflow_pin(
+        conn, "issue"
+    )
     conn.execute(
         _sql(
             conn,
             "INSERT INTO items "
-            "(id, title, type, status, project_id, project_sequence, "
+            "(id, title, workflow_id, workflow_version_id, status, "
+            "project_id, project_sequence, "
             "created_at, updated_at, test_results) "
-            "VALUES (?, ?, 'issue', 'implementing', 1, ?, "
+            "VALUES (?, ?, ?, ?, 'implementing', 1, ?, "
             "'2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', ?) "
             "ON CONFLICT(id) DO UPDATE SET "
             "title = EXCLUDED.title, "
-            "type = EXCLUDED.type, "
+            "workflow_id = EXCLUDED.workflow_id, "
+            "workflow_version_id = EXCLUDED.workflow_version_id, "
             "status = EXCLUDED.status, "
             "project_id = EXCLUDED.project_id, "
             "project_sequence = EXCLUDED.project_sequence, "
@@ -124,6 +131,8 @@ def _seed_yoke_project_with_github_app(
         (
             item_id,
             f"Test item {branch}",
+            workflow_id,
+            workflow_version_id,
             item_id,
             _SEEDED_FRESH_VERDICT,
         ),

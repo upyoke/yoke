@@ -35,7 +35,7 @@ class TestBlockedItemReporting:
     def test_single_blocker_reason_format(self):
         """Reason string includes blocker ID and its status."""
         conn = _create_test_db()
-        _insert_item(conn, 10, status="planned", item_type="epic")
+        _insert_item(conn, 10, status="planned", workflow="epic")
         _insert_item(conn, 20, status="implementing")
         _insert_dep(conn, "YOK-10", "YOK-20")
         conn.commit()
@@ -51,7 +51,7 @@ class TestBlockedItemReporting:
     def test_multiple_blockers_all_reasons_present(self):
         """Each blocker generates its own reason string."""
         conn = _create_test_db()
-        _insert_item(conn, 10, status="planned", item_type="epic")
+        _insert_item(conn, 10, status="planned", workflow="epic")
         _insert_item(conn, 20, status="implementing")
         _insert_item(conn, 30, status="idea")
         _insert_dep(conn, "YOK-10", "YOK-20")
@@ -70,7 +70,7 @@ class TestBlockedItemReporting:
     def test_blocked_by_list_matches_reasons(self):
         """blocked_by IDs correspond 1:1 with blocked_reasons."""
         conn = _create_test_db()
-        _insert_item(conn, 10, status="planned", item_type="epic")
+        _insert_item(conn, 10, status="planned", workflow="epic")
         _insert_item(conn, 20, status="implementing")
         _insert_item(conn, 30, status="reviewing-implementation")
         _insert_dep(conn, "YOK-10", "YOK-20")
@@ -86,7 +86,7 @@ class TestBlockedItemReporting:
     def test_blocker_in_idea_status_shows_idea(self):
         """Reason string reflects the actual status of the blocker."""
         conn = _create_test_db()
-        _insert_item(conn, 10, status="planned", item_type="epic")
+        _insert_item(conn, 10, status="planned", workflow="epic")
         _insert_item(conn, 20, status="idea")
         _insert_dep(conn, "YOK-10", "YOK-20")
         conn.commit()
@@ -98,7 +98,7 @@ class TestBlockedItemReporting:
     def test_adapter_overridden_to_wait_for_blocked_items(self):
         """Blocked items have their adapter overridden to WAIT regardless of status."""
         conn = _create_test_db()
-        _insert_item(conn, 10, status="planned", item_type="epic")  # Would be CONDUCT
+        _insert_item(conn, 10, status="planned", workflow="epic")  # Would be CONDUCT
         _insert_item(conn, 20, status="implementing")
         _insert_dep(conn, "YOK-10", "YOK-20")
         conn.commit()
@@ -120,8 +120,8 @@ class TestTransitiveDependencies:
         """A blocks B blocks C: B and C both blocked when A is implementing."""
         conn = _create_test_db()
         _insert_item(conn, 1, status="implementing")  # A
-        _insert_item(conn, 2, status="planned", item_type="epic")   # B blocked by A
-        _insert_item(conn, 3, status="planned", item_type="epic")   # C blocked by B
+        _insert_item(conn, 2, status="planned", workflow="epic")   # B blocked by A
+        _insert_item(conn, 3, status="planned", workflow="epic")   # C blocked by B
         _insert_dep(conn, "YOK-2", "YOK-1")
         _insert_dep(conn, "YOK-3", "YOK-2")
         conn.commit()
@@ -137,8 +137,8 @@ class TestTransitiveDependencies:
         """When A (head of chain) is done, B unblocked; C still blocked by B."""
         conn = _create_test_db()
         _insert_item(conn, 1, status="done")    # A done
-        _insert_item(conn, 2, status="planned", item_type="epic")   # B was blocked by A, now free
-        _insert_item(conn, 3, status="planned", item_type="epic")   # C blocked by B (B not done)
+        _insert_item(conn, 2, status="planned", workflow="epic")   # B was blocked by A, now free
+        _insert_item(conn, 3, status="planned", workflow="epic")   # C blocked by B (B not done)
         _insert_dep(conn, "YOK-2", "YOK-1")
         _insert_dep(conn, "YOK-3", "YOK-2")
         conn.commit()
@@ -153,9 +153,9 @@ class TestTransitiveDependencies:
         """Diamond: D depends on both B and C; B and C depend on A."""
         conn = _create_test_db()
         _insert_item(conn, 1, status="implementing")  # A
-        _insert_item(conn, 2, status="planned", item_type="epic")   # B
-        _insert_item(conn, 3, status="planned", item_type="epic")   # C
-        _insert_item(conn, 4, status="planned", item_type="epic")   # D
+        _insert_item(conn, 2, status="planned", workflow="epic")   # B
+        _insert_item(conn, 3, status="planned", workflow="epic")   # C
+        _insert_item(conn, 4, status="planned", workflow="epic")   # D
         _insert_dep(conn, "YOK-2", "YOK-1")
         _insert_dep(conn, "YOK-3", "YOK-1")
         _insert_dep(conn, "YOK-4", "YOK-2")

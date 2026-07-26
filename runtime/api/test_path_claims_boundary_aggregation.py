@@ -244,10 +244,14 @@ class TestAggregationGitignoreFilter:
                 create_path_registry_tables,
             )
             from yoke_core.domain.schema_init_tables import create_core_tables
+            from yoke_core.domain.workflow_registry import (
+                converge_builtin_workflows,
+            )
 
             conn = db_backend.connect()
             try:
                 create_core_tables(conn)
+                converge_builtin_workflows(conn)
                 _create_events_table(conn)
                 create_path_registry_tables(conn)
                 create_actor_path_claim_tables(conn)
@@ -271,10 +275,10 @@ class TestAggregationGitignoreFilter:
                     3,
                 )
                 conn.execute(
-                    "INSERT INTO items (id, title, type, status, priority, "
+                    "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, "
                     "created_at, updated_at, project_id, project_sequence, "
                     "worktree) VALUES "
-                    "(%s, %s, 'issue', 'idea', 'medium', %s, %s, 3, 701, "
+                    "(%s, %s, 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'medium', %s, %s, 3, 701, "
                     "'feature')",
                     (
                         701,

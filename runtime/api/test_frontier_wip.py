@@ -41,8 +41,8 @@ class TestWipCap:
         _insert_item(conn, 2, status="implementing")
         _insert_item(conn, 3, status="implementing")
         # 2 items planned for conduct
-        _insert_item(conn, 10, status="planned", item_type="epic")
-        _insert_item(conn, 11, status="planned", item_type="epic")
+        _insert_item(conn, 10, status="planned", workflow="epic")
+        _insert_item(conn, 11, status="planned", workflow="epic")
         conn.commit()
 
         result = compute_frontier(conn, project_scope=["yoke"], wip_cap=4)
@@ -55,7 +55,7 @@ class TestWipCap:
         conn = _create_test_db()
         _insert_item(conn, 1, status="implementing")
         _insert_item(conn, 2, status="implementing")
-        _insert_item(conn, 10, status="planned", item_type="epic")
+        _insert_item(conn, 10, status="planned", workflow="epic")
         conn.commit()
 
         result = compute_frontier(conn, project_scope=["yoke"], wip_cap=2)
@@ -70,9 +70,9 @@ class TestWipCap:
         conn = _create_test_db()
         _insert_item(conn, 1, status="implementing")
         _insert_item(conn, 2, status="implementing")
-        _insert_item(conn, 10, status="idea", item_type="epic")  # shepherd
-        _insert_item(conn, 11, status="planning", item_type="epic")  # shepherd
-        _insert_item(conn, 12, status="idea", item_type="issue")  # refine
+        _insert_item(conn, 10, status="idea", workflow="epic")  # shepherd
+        _insert_item(conn, 11, status="planning", workflow="epic")  # shepherd
+        _insert_item(conn, 12, status="idea", workflow="issue")  # refine
         conn.commit()
 
         result = compute_frontier(conn, project_scope=["yoke"], wip_cap=2)
@@ -85,8 +85,8 @@ class TestWipCap:
         """Items that blocker others get their unblocks_count set."""
         conn = _create_test_db()
         _insert_item(conn, 10, status="implementing")
-        _insert_item(conn, 20, status="planned", item_type="epic")
-        _insert_item(conn, 30, status="planned", item_type="epic")
+        _insert_item(conn, 20, status="planned", workflow="epic")
+        _insert_item(conn, 30, status="planned", workflow="epic")
         # both blockers still active
         _insert_dep(conn, "YOK-20", "YOK-10")
         _insert_dep(conn, "YOK-30", "YOK-10")
@@ -110,9 +110,9 @@ class TestWipCapExtended:
         """When WIP cap far exceeds active items, all conduct items are eligible."""
         conn = _create_test_db()
         _insert_item(conn, 1, status="implementing")
-        _insert_item(conn, 10, status="planned", item_type="epic")
-        _insert_item(conn, 11, status="planned", item_type="epic")
-        _insert_item(conn, 12, status="planned", item_type="epic")
+        _insert_item(conn, 10, status="planned", workflow="epic")
+        _insert_item(conn, 11, status="planned", workflow="epic")
+        _insert_item(conn, 12, status="planned", workflow="epic")
         conn.commit()
 
         result = compute_frontier(conn, project_scope=["yoke"], wip_cap=100)
@@ -126,7 +126,7 @@ class TestWipCapExtended:
         conn = _create_test_db()
         _insert_item(conn, 1, status="implementing")
         _insert_item(conn, 2, status="implementing")
-        _insert_item(conn, 10, status="planned", item_type="epic")
+        _insert_item(conn, 10, status="planned", workflow="epic")
         conn.commit()
 
         result = compute_frontier(conn, project_scope=["yoke"], wip_cap=2)
@@ -152,7 +152,7 @@ class TestWipCapExtended:
         conn = _create_test_db()
         _insert_item(conn, 1, status="implementing")
         _insert_item(conn, 2, status="reviewing-implementation")
-        _insert_item(conn, 10, status="planned", item_type="epic")
+        _insert_item(conn, 10, status="planned", workflow="epic")
         conn.commit()
 
         result = compute_frontier(conn, project_scope=["yoke"], wip_cap=2)
@@ -162,9 +162,9 @@ class TestWipCapExtended:
     def test_conduct_eligible_respects_rank_order(self):
         """Conduct-eligible items are returned in rank order, not insertion order."""
         conn = _create_test_db()
-        _insert_item(conn, 10, status="planned", priority="low", item_type="epic")
-        _insert_item(conn, 11, status="planned", priority="high", item_type="epic")
-        _insert_item(conn, 12, status="planned", priority="medium", item_type="epic")
+        _insert_item(conn, 10, status="planned", priority="low", workflow="epic")
+        _insert_item(conn, 11, status="planned", priority="high", workflow="epic")
+        _insert_item(conn, 12, status="planned", priority="medium", workflow="epic")
         conn.commit()
 
         result = compute_frontier(conn, project_scope=["yoke"], wip_cap=2)
@@ -197,7 +197,7 @@ class TestPerformance:
             _insert_item(
                 conn, i,
                 status=statuses[i % len(statuses)],
-                item_type="epic",
+                workflow="epic",
                 priority=priorities[i % len(priorities)],
                 created_at=f"2026-01-{(i % 28) + 1:02d}T{(i % 24):02d}:00:00Z",
             )
@@ -230,7 +230,7 @@ class TestPerformance:
             _insert_item(
                 conn, i,
                 status=statuses[i % len(statuses)],
-                item_type="epic",
+                workflow="epic",
                 priority=["high", "medium", "low"][i % 3],
                 created_at=f"2026-01-{(i % 28) + 1:02d}T00:00:00Z",
             )

@@ -2,58 +2,36 @@
 
 from __future__ import annotations
 
-import hashlib
-import json
-from typing import Any, Dict, Mapping, Optional
+from typing import Any, Mapping, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.builtin_workflow_definitions import (
     builtin_workflow_definitions,
 )
 from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.workflow_definition_codec import (
+    WorkflowRegistryError,
+    canonical_definition_json,
+    decode_definition as _decode_definition,
+    definition_digest,
+)
 from yoke_core.domain.workflow_definition_validation import (
     validate_workflow_definition,
 )
-
-
-class WorkflowRegistryError(RuntimeError):
-    """A requested registry operation cannot preserve registry invariants."""
-
-
-def canonical_definition_json(definition: Mapping[str, Any]) -> str:
-    """Serialize a definition into the stable digest and storage form."""
-    return json.dumps(
-        definition,
-        ensure_ascii=False,
-        separators=(",", ":"),
-        sort_keys=True,
-    )
-
-
-def definition_digest(definition: Mapping[str, Any]) -> str:
-    """Return the SHA-256 digest of the canonical definition JSON."""
-    encoded = canonical_definition_json(definition).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
-
-
-def _decode_definition(raw: Any) -> Dict[str, Any]:
-    try:
-        value = json.loads(str(raw))
-    except (TypeError, json.JSONDecodeError) as exc:
-        raise WorkflowRegistryError(
-            "stored workflow definition is not valid JSON"
-        ) from exc
-    if not isinstance(value, dict):
-        raise WorkflowRegistryError("stored workflow definition is not an object")
-    return value
+from yoke_core.domain.workflow_registry_sql import (
+    marker as _marker,
+    row_dict as _row_dict,
+    rows_dict as _rows_dict,
+)
 
 
 def _workflow_row(conn: Any, workflow_id: str) -> Optional[dict]:
-    row = conn.execute(
-        "SELECT * FROM workflows WHERE id = %s",
+    marker = _marker(conn)
+    cursor = conn.execute(
+        f"SELECT * FROM workflows WHERE id = {marker}",
         (workflow_id,),
-    ).fetchone()
-    return dict(row) if row is not None else None
+    )
+    return _row_dict(cursor, cursor.fetchone())
 
 
 def _version_row(
@@ -61,20 +39,22 @@ def _version_row(
     workflow_id: str,
     version: int,
 ) -> Optional[dict]:
-    row = conn.execute(
+    marker = _marker(conn)
+    cursor = conn.execute(
         "SELECT * FROM workflow_versions "
-        "WHERE workflow_id = %s AND version = %s",
+        f"WHERE workflow_id = {marker} AND version = {marker}",
         (workflow_id, version),
-    ).fetchone()
-    return dict(row) if row is not None else None
+    )
+    return _row_dict(cursor, cursor.fetchone())
 
 
 def _version_by_id(conn: Any, version_id: int) -> Optional[dict]:
-    row = conn.execute(
-        "SELECT * FROM workflow_versions WHERE id = %s",
+    marker = _marker(conn)
+    cursor = conn.execute(
+        f"SELECT * FROM workflow_versions WHERE id = {marker}",
         (version_id,),
-    ).fetchone()
-    return dict(row) if row is not None else None
+    )
+    return _row_dict(cursor, cursor.fetchone())
 
 
 def _insert_version(
@@ -89,11 +69,12 @@ def _insert_version(
     now = iso8601_now()
     canonical = canonical_definition_json(definition)
     digest = definition_digest(definition)
+    marker = _marker(conn)
     conn.execute(
         "INSERT INTO workflow_versions "
         "(workflow_id, version, definition_schema_version, definition_json, "
         "definition_digest, published_at, published_by_actor_id, immutable_at) "
-        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+        f"VALUES ({', '.join(marker for _ in range(8))})",
         (
             workflow_id,
             version,
@@ -116,6 +97,7 @@ def _insert_version(
 def converge_builtin_workflows(conn: Any) -> None:
     """Insert missing built-ins without mutating published versions."""
     now = iso8601_now()
+    marker = _marker(conn)
     for fixture in builtin_workflow_definitions():
         workflow = fixture["workflow"]
         workflow_id = str(workflow["id"])
@@ -127,7 +109,8 @@ def converge_builtin_workflows(conn: Any) -> None:
                 "INSERT INTO workflows "
                 "(id, name, description, source, status, current_version_id, "
                 "created_at, updated_at) "
-                "VALUES (%s, %s, %s, %s, 'active', NULL, %s, %s)",
+                f"VALUES ({marker}, {marker}, {marker}, {marker}, "
+                f"'active', NULL, {marker}, {marker})",
                 (
                     workflow_id,
                     workflow["name"],
@@ -166,8 +149,8 @@ def converge_builtin_workflows(conn: Any) -> None:
         current_id = current.get("current_version_id")
         if current_id is None:
             conn.execute(
-                "UPDATE workflows SET current_version_id = %s, updated_at = %s "
-                "WHERE id = %s",
+                f"UPDATE workflows SET current_version_id = {marker}, "
+                f"updated_at = {marker} WHERE id = {marker}",
                 (int(existing_version["id"]), now, workflow_id),
             )
         else:
@@ -218,9 +201,10 @@ def publish_workflow_version(
     published_by_actor_id: Optional[int] = None,
 ) -> dict:
     """Validate, append, and select a new immutable workflow version."""
+    marker = _marker(conn)
     if db_backend.connection_is_postgres(conn):
         conn.execute(
-            "SELECT id FROM workflows WHERE id = %s FOR UPDATE",
+            f"SELECT id FROM workflows WHERE id = {marker} FOR UPDATE",
             (workflow_id,),
         ).fetchone()
     workflow, current = _current_definition(conn, workflow_id)
@@ -228,12 +212,13 @@ def publish_workflow_version(
         raise WorkflowRegistryError(f"workflow {workflow_id!r} is disabled")
     previous = _decode_definition(current["definition_json"])
     validate_workflow_definition(definition, previous=previous)
-    row = conn.execute(
+    cursor = conn.execute(
         "SELECT COALESCE(MAX(version), 0) AS maximum "
-        "FROM workflow_versions WHERE workflow_id = %s",
+        f"FROM workflow_versions WHERE workflow_id = {marker}",
         (workflow_id,),
-    ).fetchone()
-    next_version = int(dict(row)["maximum"]) + 1
+    )
+    row = _row_dict(cursor, cursor.fetchone())
+    next_version = int(row["maximum"]) + 1
     if definition_digest(definition) == current["definition_digest"]:
         raise WorkflowRegistryError(
             "new workflow version must change the definition"
@@ -246,8 +231,8 @@ def publish_workflow_version(
         published_by_actor_id=published_by_actor_id,
     )
     conn.execute(
-        "UPDATE workflows SET current_version_id = %s, updated_at = %s "
-        "WHERE id = %s",
+        f"UPDATE workflows SET current_version_id = {marker}, "
+        f"updated_at = {marker} WHERE id = {marker}",
         (int(published["id"]), iso8601_now(), workflow_id),
     )
     conn.commit()
@@ -266,6 +251,7 @@ def set_current_workflow_version(
     version: int,
 ) -> dict:
     """Select an existing immutable version for subsequently created items."""
+    marker = _marker(conn)
     workflow = _workflow_row(conn, workflow_id)
     if workflow is None:
         raise WorkflowRegistryError(f"unknown workflow {workflow_id!r}")
@@ -275,8 +261,8 @@ def set_current_workflow_version(
             f"unknown workflow version {workflow_id}@{version}"
         )
     conn.execute(
-        "UPDATE workflows SET current_version_id = %s, updated_at = %s "
-        "WHERE id = %s",
+        f"UPDATE workflows SET current_version_id = {marker}, "
+        f"updated_at = {marker} WHERE id = {marker}",
         (int(target["id"]), iso8601_now(), workflow_id),
     )
     conn.commit()
@@ -289,7 +275,7 @@ def set_current_workflow_version(
 
 def list_current_workflows(conn: Any) -> list[dict]:
     """Return each workflow joined to its selected immutable definition."""
-    rows = conn.execute(
+    workflow_cursor = conn.execute(
         "SELECT w.id, w.name, w.description, w.source, w.status, "
         "w.current_version_id, v.version, v.definition_schema_version, "
         "v.definition_json, v.definition_digest, v.published_at, "
@@ -297,15 +283,16 @@ def list_current_workflows(conn: Any) -> list[dict]:
         "FROM workflows w "
         "JOIN workflow_versions v ON v.id = w.current_version_id "
         "ORDER BY w.name, w.id"
-    ).fetchall()
-    version_rows = conn.execute(
+    )
+    rows = _rows_dict(workflow_cursor)
+    version_cursor = conn.execute(
         "SELECT id, workflow_id, version, definition_digest, published_at, "
         "immutable_at FROM workflow_versions "
         "ORDER BY workflow_id, version"
-    ).fetchall()
+    )
+    version_rows = _rows_dict(version_cursor)
     versions_by_workflow: dict[str, list[dict]] = {}
-    for raw_version in version_rows:
-        version_row = dict(raw_version)
+    for version_row in version_rows:
         versions_by_workflow.setdefault(
             str(version_row["workflow_id"]), []
         ).append({
@@ -316,8 +303,7 @@ def list_current_workflows(conn: Any) -> list[dict]:
             "immutable_at": version_row["immutable_at"],
         })
     result: list[dict] = []
-    for raw in rows:
-        row = dict(raw)
+    for row in rows:
         result.append({
             "id": row["id"],
             "name": row["name"],

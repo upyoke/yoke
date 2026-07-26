@@ -187,47 +187,48 @@ def _apply_schema_and_seed_on_conn(conn) -> None:
         + STRATEGY_DOC_REVISIONS_CREATE_TABLE_SQL
         + ";\n",
     )
+    install_workflow_registry_and_pin_items(conn)
 
     # Seed items
     conn.execute(
         """INSERT INTO items
-           (id, title, type, status, priority, project_id, project_sequence,
+           (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
             created_at, updated_at, source, deploy_stage)
-           VALUES (1, 'First item', 'issue', 'implementing', 'high', 1, 1,
+           VALUES (1, 'First item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'high', 1, 1,
                    '2026-03-01T00:00:00Z', '2026-03-02T00:00:00Z', 'user',
                    NULL)"""
     )
     conn.execute(
         """INSERT INTO items
-           (id, title, type, status, priority, project_id, project_sequence,
+           (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
             created_at, updated_at, source, deploy_stage)
-           VALUES (2, 'Second item', 'epic', 'done', 'medium', 1, 2,
+           VALUES (2, 'Second item', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'done', 'medium', 1, 2,
                    '2026-03-01T00:00:00Z', '2026-03-03T00:00:00Z', 'user', NULL)"""
     )
     conn.execute(
         """INSERT INTO items
-           (id, title, type, status, priority, project_id, project_sequence,
+           (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
             created_at, updated_at, source, deploy_stage)
-           VALUES (3, 'ExternalWebapp item', 'issue', 'idea', 'low', 2, 3,
+           VALUES (3, 'ExternalWebapp item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'low', 2, 3,
                    '2026-03-01T00:00:00Z', '2026-03-04T00:00:00Z', 'user', NULL)"""
     )
     # Item 4: at a human-approval stage in a flow with a deployment run
     conn.execute(
         """INSERT INTO items
-           (id, title, type, status, priority, project_id, project_sequence,
+           (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
             created_at, updated_at, source, deploy_stage, deployment_flow)
-           VALUES (4, 'Awaiting approval', 'issue', 'release', 'high', 1, 4,
+           VALUES (4, 'Awaiting approval', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'release', 'high', 1, 4,
                    '2026-03-01T00:00:00Z', '2026-03-05T00:00:00Z', 'user',
                    'approve-deploy', 'test-approval-flow')"""
     )
     conn.execute(
         """INSERT INTO items
-           (id, title, type, status, priority, project_id, project_sequence,
+           (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
             created_at, updated_at, source, deploy_stage)
-           VALUES (5, 'Cancelled item', 'issue', 'cancelled', 'low', 1, 5,
+           VALUES (5, 'Cancelled item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'cancelled', 'low', 1, 5,
                    '2026-03-01T00:00:00Z', '2026-03-06T00:00:00Z', 'user', NULL)"""
     )
-    install_workflow_registry_and_pin_items(conn)
+    conn.commit()
 
     # Seed deployment flow with a human-approval stage
     _test_flow_stages = json.dumps([

@@ -107,9 +107,9 @@ def ownership_conn(tmp_path):
         c = connect_test_db(str(tmp_path / "yoke.db"))
         # Seed a runnable item (matches the legacy fixture).
         c.execute(
-            "INSERT INTO items (id, title, type, status, priority, project_id, "
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, project_id, "
             "created_at, updated_at, source, frozen) VALUES "
-            "(100, 'Test item', 'issue', 'refined-idea', 'high', 1, "
+            "(100, 'Test item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'refined-idea', 'high', 1, "
             "'2026-03-01', '2026-03-01', 'user', 0)"
         )
         c.commit()

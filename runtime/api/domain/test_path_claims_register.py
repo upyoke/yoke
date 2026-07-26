@@ -36,9 +36,9 @@ def _seed_item(
 ) -> int:
     project_id = int(project) if str(project).isdigit() else _PROJECT_IDS.get(project, 1)
     conn.execute(
-        "INSERT INTO items (id, title, type, status, priority, "
+        "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, "
         "created_at, updated_at, project_id, project_sequence) "
-        "VALUES (%s, %s, 'issue', 'idea', 'medium', "
+        "VALUES (%s, %s, 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'medium', "
         "'2026-05-01T00:00:00Z', '2026-05-01T00:00:00Z', %s, %s)",
         (item_id, title, project_id, item_id),
     )

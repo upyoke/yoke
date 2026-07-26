@@ -36,7 +36,8 @@ Repeated same-session `resume` responses are also bounded: if the prior persiste
  "scheduler": {
  "next_step": "refine",
  "adapter": "refine",
- "item_type": "issue",
+ "workflow_id": "issue",
+ "workflow_version_id": 1,
  "status": "idea",
  "title": "Implement feature X",
  "rank": 0,
@@ -45,15 +46,17 @@ Repeated same-session `resume` responses are also bounded: if the prior persiste
 }
 ```
 
-The `scheduler.next_step` field tells the adapter which command to invoke:
-- `refine` — issue or epic refinement step, run refinement pipeline
-- `shepherd` — epic in refined-idea/planning, run shepherd pipeline
-- `conduct` — epic in planned/implementing/reviewing-implementation, run conduct pipeline
-- `advance` — issue in refined-idea/implementing/reviewing-implementation, run `/yoke advance` in the main session
+The `scheduler.next_step` field is resolved from the pinned definition's
+registered executor binding and tells the adapter which command to invoke:
+- `refine` — run the refinement executor
+- `shepherd` — run the design/planning executor
+- `conduct` — run the task-graph implementation executor
+- `advance` — run the item-level implementation executor
 - `polish` — item in reviewed-implementation/polishing-implementation, run polish pipeline
 - `usher` — implemented/release, merge and deploy
 
-For issue implementation steps, `scheduler.adapter` may still show the raw frontier category (`conduct`) for ranking diagnostics, but `scheduler.next_step` is the dispatch truth and will be `advance`.
+`scheduler.adapter` remains a coarse ranking category. `scheduler.next_step`
+is the dispatch truth from the pinned workflow.
 
 Yoke core checks the configured allowlist for the offering session's actual lane (`lane_paths_*`). If the required downstream path is not allowed for that lane, the decision engine returns `WAIT`.
 

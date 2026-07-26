@@ -9,17 +9,12 @@ import pytest
 
 from runtime.api.test_sessions import _register, conn  # noqa: F401  (pytest fixture)
 from runtime.api.test_dependency_schema import ITEMS_SCHEMA
-from yoke_core.domain.builtin_workflow_definitions import (
-    builtin_workflow_definition,
-)
 from yoke_core.domain.sessions import (
     EVENT_WORK_RELEASED,
     claim_work,
 )
-from yoke_core.domain.workflow_registry import (
-    canonical_definition_json,
-    definition_digest,
-)
+from yoke_core.domain.workflow_registry import converge_builtin_workflows
+from yoke_core.domain.workflow_schema import ensure_workflow_schema
 from runtime.api.sessions_api_stale_test_helpers import (
     _now_literal,
     apply_ddl_statements,
@@ -31,31 +26,8 @@ def _sun(item_id: int) -> str:
 
 
 def _seed_issue_workflow(conn) -> None:
-    fixture = builtin_workflow_definition("issue")
-    definition = fixture["definition"]
-    apply_ddl_statements(
-        conn,
-        """
-        CREATE TABLE IF NOT EXISTS workflow_versions (
-            id INTEGER PRIMARY KEY,
-            workflow_id TEXT NOT NULL,
-            version INTEGER NOT NULL,
-            definition_json TEXT NOT NULL,
-            definition_digest TEXT NOT NULL
-        );
-        """,
-    )
-    conn.execute(
-        "INSERT INTO workflow_versions "
-        "(id, workflow_id, version, definition_json, definition_digest) "
-        "VALUES (1, 'issue', %s, %s, %s) "
-        "ON CONFLICT (id) DO NOTHING",
-        (
-            int(fixture["version"]),
-            canonical_definition_json(definition),
-            definition_digest(definition),
-        ),
-    )
+    ensure_workflow_schema(conn)
+    converge_builtin_workflows(conn)
 
 
 class TestReleaseItemClaimForExecution:
@@ -120,8 +92,12 @@ class TestReleaseItemClaimForExecution:
         _seed_issue_workflow(conn)
         _ts = _now_literal()
         conn.execute(
-            "INSERT INTO items (id, title, status, created_at, updated_at)"
-            " VALUES (530, 'Polish item', 'polishing-implementation', %s, %s)",
+            "INSERT INTO items "
+            "(id, title, workflow_id, workflow_version_id, status, "
+            "created_at, updated_at) "
+            "VALUES (530, 'Polish item', 'issue', "
+            "(SELECT current_version_id FROM workflows WHERE id='issue'), "
+            "'polishing-implementation', %s, %s)",
             (_ts, _ts),
         )
         _register(conn, session_id="active-status-sess")
@@ -149,8 +125,12 @@ class TestReleaseItemClaimForExecution:
         _seed_issue_workflow(conn)
         _ts = _now_literal()
         conn.execute(
-            "INSERT INTO items (id, title, status, created_at, updated_at)"
-            " VALUES (531, 'Implemented item', 'implemented', %s, %s)",
+            "INSERT INTO items "
+            "(id, title, workflow_id, workflow_version_id, status, "
+            "created_at, updated_at) "
+            "VALUES (531, 'Implemented item', 'issue', "
+            "(SELECT current_version_id FROM workflows WHERE id='issue'), "
+            "'implemented', %s, %s)",
             (_ts, _ts),
         )
         _register(conn, session_id="implemented-sess")

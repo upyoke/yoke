@@ -104,12 +104,15 @@ def seed_service_client_parity_data(conn: Any) -> None:
         _execute(
             conn,
             """INSERT INTO items
-               (id, title, type, status, priority, project_id, project_sequence,
+               (id, title, workflow_id, workflow_version_id, status, priority,
+                project_id, project_sequence,
                 created_at, updated_at, source, frozen, deploy_stage, deployment_flow)
-               VALUES (%s, %s, %s, %s, %s, %s, %s,
+               VALUES (%s, %s, %s,
+                       (SELECT current_version_id FROM workflows WHERE id = %s),
+                       %s, %s, %s, %s,
                        %s, %s, 'user', %s, %s, %s)""",
             (
-                item[0], item[1], item[2], item[3], item[4],
+                item[0], item[1], item[2], item[2], item[3], item[4],
                 _project_id(item[5]), item[6], ts, ts, item[9], item[7], item[8],
             ),
         )

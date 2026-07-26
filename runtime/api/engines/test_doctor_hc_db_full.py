@@ -36,11 +36,17 @@ def _unconstrained_priority_conn():
         conn,
         """
         CREATE TABLE items (
-            id INTEGER PRIMARY KEY, title TEXT, type TEXT, status TEXT,
+            id INTEGER PRIMARY KEY, title TEXT, workflow_id TEXT,
+            workflow_version_id INTEGER, status TEXT,
             priority TEXT, spec TEXT, created_at TEXT, updated_at TEXT
         );
         """,
     )
+    from yoke_core.domain.workflow_registry import converge_builtin_workflows
+    from yoke_core.domain.workflow_schema import ensure_workflow_schema
+
+    ensure_workflow_schema(conn)
+    converge_builtin_workflows(conn)
     return conn
 
 
@@ -91,8 +97,8 @@ class TestHCBacklogQualityFull:
         """
         conn = _unconstrained_priority_conn()
         conn.execute(
-            "INSERT INTO items (id, title, type, status, priority, spec, created_at, updated_at) "
-            "VALUES (1, 'A valid title with enough length', 'issue', 'implementing', "
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, spec, created_at, updated_at) "
+            "VALUES (1, 'A valid title with enough length', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', "
             "NULL, 'Some body content', '2099-01-01T00:00:00Z', '2099-01-01T00:00:00Z')"
         )
         conn.commit()
@@ -138,8 +144,8 @@ class TestHCBacklogQualityFull:
         """
         conn = _unconstrained_priority_conn()
         conn.execute(
-            "INSERT INTO items (id, title, type, status, priority, spec, created_at, updated_at) "
-            "VALUES (1, 'Bad', 'issue', 'idea', NULL, '', '2025-01-01T00:00:00Z', '2025-01-01T00:00:00Z')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, spec, created_at, updated_at) "
+            "VALUES (1, 'Bad', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', NULL, '', '2025-01-01T00:00:00Z', '2025-01-01T00:00:00Z')"
         )
         conn.commit()
         rec = _run_hc(hc_backlog_quality, conn)

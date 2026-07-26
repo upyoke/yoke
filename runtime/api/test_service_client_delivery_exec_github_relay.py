@@ -81,9 +81,9 @@ class TestBacklogGithubRelay:
         # Create a taskless epic in planned status
         conn = connect_test_db(mutation_db["db_path"])
         conn.execute(
-            """INSERT INTO items (id, title, type, status, priority, project_id,
+            """INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, project_id,
                                   created_at, updated_at, source, frozen)
-               VALUES (20, 'Taskless epic', 'epic', 'planned', 'medium', 1,
+               VALUES (20, 'Taskless epic', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'planned', 'medium', 1,
                        '2026-01-01', '2026-01-01', 'user', 0)"""
         )
         conn.commit()
@@ -102,9 +102,9 @@ class TestBacklogGithubRelay:
         """Epic without tasks should be allowed to transition to planned."""
         conn = connect_test_db(mutation_db["db_path"])
         conn.execute(
-            """INSERT INTO items (id, title, type, status, priority, project_id,
+            """INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, project_id,
                                   created_at, updated_at, source, frozen)
-               VALUES (21, 'Taskless planned epic', 'epic', 'refining-plan', 'medium', 1,
+               VALUES (21, 'Taskless planned epic', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'refining-plan', 'medium', 1,
                        '2026-01-01', '2026-01-01', 'user', 0)"""
         )
         conn.commit()
@@ -122,9 +122,9 @@ class TestBacklogGithubRelay:
         """Epic WITH tasks should be allowed to transition to implementing."""
         conn = connect_test_db(mutation_db["db_path"])
         conn.execute(
-            """INSERT INTO items (id, title, type, status, priority, project_id,
+            """INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, project_id,
                                   created_at, updated_at, source, frozen)
-               VALUES (22, 'Epic with tasks', 'epic', 'planned', 'medium', 1,
+               VALUES (22, 'Epic with tasks', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'planned', 'medium', 1,
                        '2026-01-01', '2026-01-01', 'user', 0)"""
         )
         conn.execute(
@@ -145,9 +145,9 @@ class TestBacklogGithubRelay:
         """Non-epic (issue) should reach implementing without needing epic tasks."""
         conn = connect_test_db(mutation_db["db_path"])
         conn.execute(
-            """INSERT INTO items (id, title, type, status, priority, project_id,
+            """INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, project_id,
                                   created_at, updated_at, source, frozen)
-               VALUES (23, 'Plain issue', 'issue', 'refined-idea', 'medium', 1,
+               VALUES (23, 'Plain issue', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'refined-idea', 'medium', 1,
                        '2026-01-01', '2026-01-01', 'user', 0)"""
         )
         conn.commit()
@@ -165,9 +165,9 @@ class TestBacklogGithubRelay:
         """Retired status 'ready' should be rejected for issue items."""
         conn = connect_test_db(mutation_db["db_path"])
         conn.execute(
-            """INSERT INTO items (id, title, type, status, priority, project_id,
+            """INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, project_id,
                                   created_at, updated_at, source, frozen)
-               VALUES (24, 'Issue wants ready', 'issue', 'refined-idea', 'medium', 1,
+               VALUES (24, 'Issue wants ready', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'refined-idea', 'medium', 1,
                        '2026-01-01', '2026-01-01', 'user', 0)"""
         )
         conn.commit()

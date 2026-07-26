@@ -44,9 +44,9 @@ def _now() -> str:
 def _seed_item(conn, *, item_id: int, project="yoke") -> int:
     project_id = 2 if project == "externalwebapp" else int(project) if str(project).isdigit() else 1
     conn.execute(
-        "INSERT INTO items (id, title, type, status, priority, created_at, "
+        "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, created_at, "
         "updated_at, project_id, project_sequence) "
-        "VALUES (%s, 'X', 'issue', 'idea', 'medium', "
+        "VALUES (%s, 'X', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'medium', "
         "'2026-05-01T00:00:00Z', '2026-05-01T00:00:00Z', %s, %s)",
         (item_id, project_id, item_id),
     )

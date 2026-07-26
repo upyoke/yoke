@@ -42,7 +42,8 @@ def _make_conn():
     apply_fixture_ddl(conn, textwrap.dedent("""\
         CREATE TABLE items (
             id INTEGER PRIMARY KEY,
-            title TEXT, type TEXT, status TEXT, priority TEXT,
+            title TEXT, workflow_id TEXT, workflow_version_id INTEGER,
+            status TEXT, priority TEXT,
             project_id INTEGER DEFAULT 1, project_sequence INTEGER,
             github_issue TEXT, flow TEXT, rework_count INTEGER,
             deployed_to TEXT, updated_at TEXT, worktree TEXT,
@@ -91,6 +92,11 @@ def _make_conn():
             id TEXT PRIMARY KEY, project_id INTEGER, stages TEXT
         );
     """))
+    from yoke_core.domain.workflow_registry import converge_builtin_workflows
+    from yoke_core.domain.workflow_schema import ensure_workflow_schema
+
+    ensure_workflow_schema(conn)
+    converge_builtin_workflows(conn)
     return pg_testdb.drop_database_on_close(conn, name)
 
 

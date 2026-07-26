@@ -17,7 +17,9 @@ CORE_TABLES: dict[str, dict] = {
         "columns": [
             ("id", "INTEGER"),
             ("title", "TEXT"),
-            ("type", "TEXT"),
+            ("workflow_id", "TEXT"),
+            ("workflow_version_id", "INTEGER"),
+            ("workflow_posture", "TEXT"),
             ("status", "TEXT"),
             ("priority", "TEXT"),
             ("project_id", "INTEGER"),
@@ -46,14 +48,14 @@ CORE_TABLES: dict[str, dict] = {
             "has been deleted. The GitHub linkage is the single `github_issue` "
             "column — there is no "
             "`github_issue_number` and no `github_url`. "
-            "The lifecycle columns are `type` and `status`; there "
+            "The lifecycle columns are the immutable `workflow_id` / "
+            "`workflow_version_id` pin and the current `status`; there "
             "is NO `item_type` column and NO `lifecycle_status` column. "
             "There is also NO `kind` column on items — the function-call "
             "envelope's `target.kind` discriminator "
             "(`item|epic_task|qa_requirement|session|process`) is the "
-            "dispatcher's row-type tag, not an items column. Use `type` "
-            "for the items lifecycle-type column with values `issue` "
-            "and `epic`. "
+            "dispatcher's row-type tag, not an items column. Use "
+            "`workflow_id` for the registered workflow identity. "
             "Project authority is `project_id` joined to `projects.id`; "
             "`project_sequence` is the per-project public item number. "
             "There is no item-level project slug column. "

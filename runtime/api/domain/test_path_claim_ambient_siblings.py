@@ -21,17 +21,22 @@ from yoke_core.domain.path_claims import register
 
 def _seed_item(conn, *, item_id: int, title: str, project: str = "yoke") -> None:
     project_id = 2 if project == "externalwebapp" else int(project) if str(project).isdigit() else 1
+    from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
+
+    workflow_id, workflow_version_id = resolve_current_workflow_pin(conn, "issue")
     conn.execute(
-        "INSERT INTO items (id, title, status, project_id, project_sequence, type, "
+        "INSERT INTO items (id, title, status, project_id, project_sequence, "
+        "                   workflow_id, workflow_version_id, "
         "                   created_at, updated_at) "
-        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
         (
             item_id,
             title,
             "implementing",
             project_id,
             item_id,
-            "issue",
+            workflow_id,
+            workflow_version_id,
             "2026-05-01T00:00:00Z",
             "2026-05-01T00:00:00Z",
         ),

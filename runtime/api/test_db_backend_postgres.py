@@ -128,10 +128,12 @@ def test_roundtrip_on_active_backend_uses_returning(pg_authority):
     try:
         row = conn.execute(
             "INSERT INTO items "
-            "(title, type, status, project_id, project_sequence, "
+            "(title, workflow_id, workflow_version_id, status, project_id, project_sequence, "
             "created_at, updated_at) "
             "VALUES ("
-            "%s, 'issue', 'idea', 1, "
+            "%s, 'issue', "
+            "(SELECT current_version_id FROM workflows WHERE id='issue'), "
+            "'idea', 1, "
             "COALESCE((SELECT MAX(project_sequence) + 1 FROM items "
             "WHERE project_id = 1), 1), %s, %s"
             ") RETURNING id",

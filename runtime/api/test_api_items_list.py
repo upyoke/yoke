@@ -93,9 +93,9 @@ class TestListItems:
             conn = connect_test_db(db_path)
             conn.execute(
                 """INSERT INTO items
-                   (id, title, type, status, priority, project_id,
+                   (id, title, workflow_id, workflow_version_id, status, priority, project_id,
                     project_sequence, created_at, updated_at, source)
-                   VALUES (99, 'Legacy merged item', 'issue', 'merged',
+                   VALUES (99, 'Legacy merged item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'merged',
                            'medium', 1, 99, '2026-03-09T00:00:00Z',
                            '2026-03-09T00:00:00Z', 'user')"""
             )

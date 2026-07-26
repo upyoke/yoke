@@ -2,7 +2,7 @@
 
 Extracted from `preflight.md`. Covers the implementation reconciliation gate, merge verification gate, and done transition redirect. Read and follow this file when `preflight.md` directs you here.
 
-**Context variables** (inherited from router): `{N}`, `_type`, `_status`, `_target`, `--force` flag
+**Context variables** (inherited from router): `{N}`, `_workflow_id`, `_status`, `_target`, `--force` flag
 
 ---
 

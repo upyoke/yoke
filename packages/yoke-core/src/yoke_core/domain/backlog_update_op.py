@@ -159,7 +159,8 @@ def execute_update(
         if not mutation_result.success:
             error_code = mutation_result.error_code
             if error_code == "UNSUPPORTED_FIELD":
-                # Narrow bridge for type, source, and deploy_stage writes.
+                # Narrow bridge for source, owner, deploy-stage, and
+                # architecture-impact writes.
                 return _apply_shell_fallback(conn, item_id, field, value, out)
 
             return {

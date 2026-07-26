@@ -57,8 +57,8 @@ class TestHCSmokeArtifactOrphan:
 class TestHCOrphanedDoneItems:
     def test_pass_clean(self, conn):
         conn.execute(
-            "INSERT INTO items (id, title, type, status, priority) "
-            "VALUES (1, 'T', 'issue', 'done', 'low')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority) "
+            "VALUES (1, 'T', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'done', 'low')"
         )
         rec = RecordCollector()
         hc_orphaned_done_items(conn, _default_args(), rec)
@@ -66,8 +66,8 @@ class TestHCOrphanedDoneItems:
 
     def test_warn_worktree_set(self, conn):
         conn.execute(
-            "INSERT INTO items (id, title, type, status, priority, worktree) "
-            "VALUES (1, 'T', 'issue', 'done', 'low', 'YOK-1')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, worktree) "
+            "VALUES (1, 'T', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'done', 'low', 'YOK-1')"
         )
         rec = RecordCollector()
         hc_orphaned_done_items(conn, _default_args(), rec)
@@ -79,8 +79,8 @@ class TestHCOrphanedDoneItems:
 class TestHCDeferredItems:
     def test_pass_no_deferred(self, conn):
         conn.execute(
-            "INSERT INTO items (id, title, type, status, priority, spec) "
-            "VALUES (1, 'E', 'epic', 'done', 'high', 'All done.')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, spec) "
+            "VALUES (1, 'E', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'done', 'high', 'All done.')"
         )
         rec = RecordCollector()
         hc_deferred_items(conn, _default_args(), rec)
@@ -88,8 +88,8 @@ class TestHCDeferredItems:
 
     def test_warn_unfiled(self, conn):
         conn.execute(
-            "INSERT INTO items (id, title, type, status, priority, spec) "
-            "VALUES (1, 'E', 'epic', 'done', 'high', "
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, spec) "
+            "VALUES (1, 'E', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'done', 'high', "
             "'## Deferred Items\n- UNFILED: something to do\n## Done')"
         )
         rec = RecordCollector()
@@ -100,8 +100,8 @@ class TestHCDeferredItems:
 
     def test_warn_deferral_language(self, conn):
         conn.execute(
-            "INSERT INTO items (id, title, type, status, priority, spec) "
-            "VALUES (1, 'E', 'epic', 'done', 'high', "
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, spec) "
+            "VALUES (1, 'E', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'done', 'high', "
             "'Some feature was deferred to a follow-up without a ticket.')"
         )
         rec = RecordCollector()
@@ -114,8 +114,8 @@ class TestHCDeferredItems:
 class TestHCShepherdLifecycle:
     def test_pass_verdicts_present(self, conn):
         conn.execute(
-            "INSERT INTO items (id, title, type, status, priority) "
-            "VALUES (1, 'E', 'epic', 'implementing', 'high')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority) "
+            "VALUES (1, 'E', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'implementing', 'high')"
         )
         conn.execute(
             "INSERT INTO shepherd_verdicts (item, transition, verdict) "
@@ -131,8 +131,8 @@ class TestHCShepherdLifecycle:
 
     def test_warn_missing_verdict(self, conn):
         conn.execute(
-            "INSERT INTO items (id, title, type, status, priority) "
-            "VALUES (1, 'E', 'epic', 'implementing', 'high')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority) "
+            "VALUES (1, 'E', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'implementing', 'high')"
         )
         rec = RecordCollector()
         hc_shepherd_lifecycle(conn, _default_args(), rec)
@@ -144,8 +144,8 @@ class TestHCShepherdLifecycle:
 class TestHCLifecycleContinuity:
     def test_pass_transition_row_exists(self, conn):
         conn.execute(
-            "INSERT INTO items (id, title, type, status, priority) "
-            "VALUES (1, 'T', 'issue', 'implementing', 'low')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority) "
+            "VALUES (1, 'T', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'low')"
         )
         conn.execute(
             "INSERT INTO item_status_transitions (item_id, to_status) "
@@ -157,8 +157,8 @@ class TestHCLifecycleContinuity:
 
     def test_task_row_does_not_satisfy_item_continuity(self, conn):
         conn.execute(
-            "INSERT INTO items (id, title, type, status, priority) "
-            "VALUES (1, 'T', 'issue', 'implementing', 'low')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority) "
+            "VALUES (1, 'T', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'low')"
         )
         # A task-level transition (task_num set) is not the item's own.
         conn.execute(
@@ -171,8 +171,8 @@ class TestHCLifecycleContinuity:
 
     def test_warn_missing_transition_row(self, conn):
         conn.execute(
-            "INSERT INTO items (id, title, type, status, priority) "
-            "VALUES (1, 'T', 'issue', 'implementing', 'low')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority) "
+            "VALUES (1, 'T', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'low')"
         )
         rec = RecordCollector()
         hc_lifecycle_continuity(conn, _default_args(), rec)
@@ -189,8 +189,8 @@ class TestHCOrphanedEphemeral:
 
     def test_warn_active_env_for_done_item(self, conn):
         conn.execute(
-            "INSERT INTO items (id, title, type, status, priority) "
-            "VALUES (1, 'T', 'issue', 'done', 'low')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority) "
+            "VALUES (1, 'T', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'done', 'low')"
         )
         conn.execute(
             "INSERT INTO ephemeral_environments (item, status) "

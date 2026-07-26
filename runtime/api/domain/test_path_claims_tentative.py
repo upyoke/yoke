@@ -24,9 +24,11 @@ class TestRegisterTentative:
         actor_id = local_human(conn)
         conn.execute(
             "INSERT INTO items "
-            "(id, title, type, status, project_id, project_sequence, "
+            "(id, title, workflow_id, workflow_version_id, status, project_id, project_sequence, "
             "created_at, updated_at) "
-            "VALUES (501, 'Item 501', 'issue', 'idea', 1, 501, "
+            "VALUES (501, 'Item 501', 'issue', "
+            "(SELECT current_version_id FROM workflows WHERE id='issue'), "
+            "'idea', 1, 501, "
             "'2026-05-01T00:00:00Z', '2026-05-01T00:00:00Z')"
         )
         claim_id = register_for_item(
@@ -71,9 +73,11 @@ class TestReadinessRefs:
         actor_id = local_human(conn)
         conn.execute(
             "INSERT INTO items "
-            "(id, title, type, status, project_id, project_sequence, "
+            "(id, title, workflow_id, workflow_version_id, status, project_id, project_sequence, "
             "created_at, updated_at) "
-            "VALUES (502, 'Item 502', 'issue', 'idea', 1, 502, "
+            "VALUES (502, 'Item 502', 'issue', "
+            "(SELECT current_version_id FROM workflows WHERE id='issue'), "
+            "'idea', 1, 502, "
             "'2026-05-01T00:00:00Z', '2026-05-01T00:00:00Z')"
         )
         register_for_item(

@@ -30,7 +30,7 @@ def _make_item(**overrides) -> ItemState:
         project="yoke",
     )
     defaults.update(overrides)
-    workflow_id = defaults.pop("item_type", "issue")
+    workflow_id = defaults.pop("workflow", "issue")
     defaults["workflow"] = builtin_workflow_runtime(workflow_id)
     return ItemState(**defaults)
 

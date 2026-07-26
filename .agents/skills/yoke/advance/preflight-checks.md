@@ -2,7 +2,7 @@
 
 Extracted from `preflight.md`. Covers the individual gate checks run before implementation work begins. Read and follow this file when `preflight.md` directs you here.
 
-**Context variables** (inherited from router): `{N}`, `_type`, `_status`, `_target`, `--force` flag
+**Context variables** (inherited from router): `{N}`, `_workflow_id`, `_status`, `_target`, `--force` flag
 
 ---
 
@@ -62,7 +62,8 @@ If no blockers (kernel says `is_blocked=false` or check-hard-blocks exits 0), pr
 
 ## AC Presence Gate (step 4-ac)
 
-Skip if `_type` is `epic` (epics use shepherd's Gate 0 for AC enforcement).
+Skip if `_workflow_id` is `epic` (its executor uses shepherd's Gate 0 for AC
+enforcement).
 
 Skip if target is `idea`, `refining-idea`, `refined-idea`, `planning`, `refining-plan`, or `planned` (pre-implementation statuses where ACs are not yet required).
 
@@ -136,7 +137,10 @@ If the report contains `skipped=true` (helper unavailable, item id not found, et
 
 ## Spec Coverage Gate (step 4-cov)
 
-Skip if `_type` is `epic` (epics use shepherd's path-claim handoff). Skip if target is `idea`, `refining-idea`, `refined-idea`, `planning`, `refining-plan`, or `planned` (claim widening can still happen during refine).
+Skip if `_workflow_id` is `epic` (its executor uses shepherd's path-claim
+handoff). Skip if target is `idea`, `refining-idea`, `refined-idea`,
+`planning`, `refining-plan`, or `planned` (claim widening can still happen
+during refine).
 
 Applies to targets `implementing`, `reviewing-implementation`, `reviewed-implementation`, `polishing-implementation`, `implemented`, and `release` — any status at or past implementation entry. **If `--force`:** skip with warning.
 
@@ -159,14 +163,17 @@ If `_cov_exit` is 0, proceed silently. The gate self-skips when:
 
 ## Epic Advisory (step 5)
 
-If `_type` is `epic` and the target status has a dedicated command (`refined-idea` → shepherd, `planned` → plan, `implementing` → conduct), print:
+If `_workflow_id` is `epic` and the target stage has a dedicated registered
+executor (`refined-idea` → shepherd, `planned` → plan, `implementing` →
+conduct), print:
 > Note: Epics normally advance via pipeline commands (`/yoke shepherd`, `/yoke plan`, `/yoke conduct`). Advancing manually.
 
 Proceed anyway — manual override is valid.
 
 ## Shepherd Lifecycle Gate (step 5-shep, epics only)
 
-Skip if `_type` is not `epic`. Ensures epics passed the shepherd pipeline.
+Skip if `_workflow_id` is not `epic`. Ensures items bound to shepherd passed
+that executor pipeline.
 
 **Pre-check:** Skip if current status is `implementing` or later. Also skip if current is `idea` and target is `implementing` (deliberate bypass).
 

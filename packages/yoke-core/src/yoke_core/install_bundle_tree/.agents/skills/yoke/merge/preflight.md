@@ -73,7 +73,7 @@ Covers merge Steps 1 through 5: require integration simulation, verify epic-leve
 4. **Read the worktree plan:**
  Read the `worktree_plan` field directly from the DB. `{epic-id}` IS the epic item's numeric `items.id`, so resolve to the item row by `id`:
  ```bash
- _item_id=$(yoke db read --format lines "SELECT id FROM items WHERE id={epic-id} AND type='epic' LIMIT 1")
+ _item_id=$(yoke db read --format lines "SELECT id FROM items WHERE id={epic-id} AND workflow_id='epic' LIMIT 1")
  _worktree_plan=$(yoke items get $_item_id worktree_plan)
  ```
  Parse the worktree plan content to get the list of branches and their merge order. If the `worktree_plan` field is empty, derive the branch list from `epic_tasks`:

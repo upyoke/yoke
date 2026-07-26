@@ -38,7 +38,7 @@ def _mask_path(monkeypatch):
 _ITEMS_DDL = (
     "CREATE TABLE items (id INTEGER PRIMARY KEY, github_issue TEXT, "
     "project_id INTEGER, project_sequence INTEGER, "
-    "title TEXT, status TEXT, type TEXT)"
+    "title TEXT, status TEXT, workflow_id TEXT, workflow_version_id INTEGER)"
 )
 _EPIC_TASKS_DDL = (
     "CREATE TABLE epic_tasks ("
@@ -63,6 +63,12 @@ def _disposable_conn(*ddl: str) -> Any:
     )
     for statement in ddl:
         conn.execute(statement)
+    if _ITEMS_DDL in ddl:
+        from yoke_core.domain.workflow_registry import converge_builtin_workflows
+        from yoke_core.domain.workflow_schema import ensure_workflow_schema
+
+        ensure_workflow_schema(conn)
+        converge_builtin_workflows(conn)
     return conn
 
 
@@ -180,8 +186,8 @@ class TestEpicCheckboxRest:
         conn = _disposable_conn(_ITEMS_DDL)
         conn.execute(
             "INSERT INTO items (id, github_issue, project_id, project_sequence, "
-            "title, status, type) "
-            "VALUES (42, '#1234', 1, 42, 'Parent', 'implementing', 'epic')"
+            "title, status, workflow_id, workflow_version_id) "
+            "VALUES (42, '#1234', 1, 42, 'Parent', 'implementing', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'))"
         )
         conn.commit()
         return conn
@@ -227,8 +233,8 @@ class TestNoGithubIssueShortCircuit:
         conn = _disposable_conn(_EPIC_TASKS_DDL, _ITEMS_DDL, _PROJECTS_DDL)
         conn.execute(
             "INSERT INTO items (id, project_id, project_sequence, title, "
-            "status, github_issue, type) "
-            "VALUES (50, 1, 50, 'p', 'implementing', '', 'epic')"
+            "status, github_issue, workflow_id, workflow_version_id) "
+            "VALUES (50, 1, 50, 'p', 'implementing', '', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'))"
         )
         conn.execute(
             "INSERT INTO epic_tasks (epic_id, task_num, title, status, github_issue) "
@@ -273,8 +279,8 @@ class TestNoGithubIssueShortCircuit:
         conn = _disposable_conn(_EPIC_TASKS_DDL, _ITEMS_DDL, _PROJECTS_DDL)
         conn.execute(
             "INSERT INTO items (id, project_id, project_sequence, title, "
-            "status, github_issue, type) "
-            "VALUES (50, 1, 50, 'p', 'implementing', '#4556', 'epic')"
+            "status, github_issue, workflow_id, workflow_version_id) "
+            "VALUES (50, 1, 50, 'p', 'implementing', '#4556', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'))"
         )
         conn.execute(
             "INSERT INTO epic_tasks (epic_id, task_num, title, status, github_issue) "

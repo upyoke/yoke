@@ -30,6 +30,7 @@ from yoke_core.domain.schema_init_path_tables import (
     create_path_registry_tables,
 )
 from yoke_core.domain.schema_init_tables import create_core_tables
+from yoke_core.domain.workflow_registry import converge_builtin_workflows
 
 
 @pytest.fixture
@@ -40,6 +41,7 @@ def conn(monkeypatch):
     )
     c = pg_testdb.connect_test_database(name)
     create_core_tables(c)
+    converge_builtin_workflows(c)
     create_path_registry_tables(c)
     create_actor_path_claim_tables(c)
     _create_events_table(c)
@@ -80,9 +82,9 @@ def _seed_blocked(conn, *, blocked_reason: str) -> tuple[int, int]:
     overlap_item_id = 8901
     for iid, title in ((item_id, "downstream"), (overlap_item_id, "overlap")):
         conn.execute(
-            "INSERT INTO items (id, title, type, status, priority, "
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, "
             "created_at, updated_at, project_id, project_sequence) "
-            "VALUES (%s, %s, 'issue', 'idea', 'medium', "
+            "VALUES (%s, %s, 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'medium', "
             "'2026-05-01T00:00:00Z', '2026-05-01T00:00:00Z', 1, %s)",
             (iid, title, iid),
         )

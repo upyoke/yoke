@@ -338,8 +338,8 @@ def test_frontier_unblocks_count_ignores_coordination_only() -> None:
     ``WHERE d.gate_point = 'activation'``.
     """
     db = make_test_db()
-    insert_item(db, 1, status="planned")
-    insert_item(db, 2, status="planned")
+    insert_item(db, 1, status="planned", workflow="epic")
+    insert_item(db, 2, status="planned", workflow="epic")
     insert_item(db, 3, status="implementing")
     insert_dep(db, "YOK-1", "YOK-3", gate_point="activation")
     _insert_coordination_only_dep(db, "YOK-2", "YOK-3")

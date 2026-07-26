@@ -32,6 +32,7 @@ from pathlib import Path
 from typing import Iterator, Optional, Tuple
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
 from runtime.api.fixtures.file_test_db import apply_fixture_schema_ddl, init_test_db
 
 
@@ -76,7 +77,7 @@ def observe_attribution_db() -> Iterator[Tuple[str, str]]:
             yield db_path, str(root)
 
 
-def seed_item(conn, item_id: int, *, status: str, item_type: str = "issue") -> None:
+def seed_item(conn, item_id: int, *, status: str, workflow: str = "issue") -> None:
     """Insert one ``items`` row with the canonical NOT NULL columns populated.
 
     Attribution only reads ``id`` / ``status`` / ``type``; the remaining NOT NULL
@@ -84,13 +85,25 @@ def seed_item(conn, item_id: int, *, status: str, item_type: str = "issue") -> N
     """
     now = "2026-01-01T00:00:00Z"
     p = _p(conn)
+    workflow_id, workflow_version_id = resolve_current_workflow_pin(
+        conn, workflow
+    )
     conn.execute(
-        "INSERT INTO items (id, title, type, status, priority, flow, "
-        "rework_count, frozen, created_at, updated_at, source, "
-        "project_id, project_sequence) "
-        f"VALUES ({p}, {p}, {p}, {p}, 'medium', 'accelerated', 0, 0, "
+        "INSERT INTO items (id, title, workflow_id, workflow_version_id, "
+        "status, priority, flow, rework_count, frozen, created_at, "
+        "updated_at, source, project_id, project_sequence) "
+        f"VALUES ({p}, {p}, {p}, {p}, {p}, 'medium', 'accelerated', 0, 0, "
         f"{p}, {p}, 'test', 1, {p})",
-        (item_id, f"Item {item_id}", item_type, status, now, now, item_id),
+        (
+            item_id,
+            f"Item {item_id}",
+            workflow_id,
+            workflow_version_id,
+            status,
+            now,
+            now,
+            item_id,
+        ),
     )
 
 

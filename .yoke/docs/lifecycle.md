@@ -1,8 +1,13 @@
-# Lifecycle State Machine — Software Delivery Workflow Family
+# Lifecycle Runtime — Workflow Registry
 
-> **Canonical source:** [packages/yoke-core/src/yoke_core/domain/lifecycle.py](/Users/dev/yoke/packages/yoke-core/src/yoke_core/domain/lifecycle.py) is authoritative. This document is the human-readable companion.
+> **Canonical source:** `workflow_runtime.py` loads an item's immutable
+> `workflow_id` / `workflow_version_id` pin. Registry definitions are served by
+> `yoke workflows definition get`.
 
-This document describes the current delivery lifecycle for Yoke work. The canonical implementation-family model is enforced by the Python lifecycle registry and the live write paths.
+This document describes the runtime contract. Definitions own ordered stages,
+labels, terminal stages, gates, policies, entry surfaces, and registered
+executor bindings. Live transition, frontier, scheduler, QA, approval, and
+delivery paths all interpret the item's pin.
 
 <!-- BEGIN GENERATED: field-note-directive -->
 When you hit a recipe gap or notice a minor bug not worth a ticket, file a field-note immediately — before retrying, before moving on.
@@ -10,43 +15,12 @@ yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evide
 Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->
 
-## Canonical Item Progressions
+## Item stage authority
 
-Yoke uses two canonical item progressions selected by workflow type.
-
-### Issue-workflow-type
-
-```text
-idea
--> refining-idea
--> refined-idea
--> implementing
--> reviewing-implementation
--> reviewed-implementation
--> polishing-implementation
--> implemented
--> release
--> done
-```
-
-### Epic-workflow-type
-
-```text
-idea
--> refining-idea
--> refined-idea
--> planning
--> plan-drafted
--> refining-plan
--> planned
--> implementing
--> reviewing-implementation
--> reviewed-implementation
--> polishing-implementation
--> implemented
--> release
--> done
-```
+Do not copy a progression into operator logic or documentation. Use
+`yoke workflows definition get` for current definitions. For a live item, the
+transition interpreter loads the exact pinned version so publishing or
+selecting a newer version cannot alter work already in flight.
 
 ### Exceptional Item States
 

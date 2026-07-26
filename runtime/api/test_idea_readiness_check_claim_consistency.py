@@ -22,9 +22,9 @@ def _seed_item(conn, spec: str, item_id: int = 1) -> None:
     conn.execute(
         """
         INSERT INTO items
-            (id, title, type, status, priority, project_id, project_sequence,
+            (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
              created_at, updated_at, source, spec)
-        VALUES (%s, 'Readiness item', 'issue', 'idea', 'medium',
+        VALUES (%s, 'Readiness item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'medium',
                 1, %s, %s, %s, 'test', %s)
         """,
         (item_id, item_id, now, now, spec),

@@ -169,7 +169,7 @@ def hc_deferred_items(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         conn,
         "SELECT "
         + ", ".join(select_cols)
-        + " FROM items WHERE type='epic' AND status='done' ORDER BY id",
+        + " FROM items WHERE workflow_id='epic' AND status='done' ORDER BY id",
     )
 
     deferral_patterns = [

@@ -34,7 +34,8 @@ _SCHEMA_DDL = """
     CREATE TABLE items (
         id INTEGER PRIMARY KEY,
         title TEXT NOT NULL,
-        type TEXT NOT NULL DEFAULT 'issue',
+        workflow_id TEXT,
+        workflow_version_id INTEGER,
         status TEXT NOT NULL DEFAULT 'idea',
         priority TEXT NOT NULL DEFAULT 'medium',
         flow TEXT DEFAULT 'accelerated',
@@ -166,23 +167,23 @@ def _seed(db_path: str) -> None:
             (stages_json,),
         )
         conn.execute(
-            """INSERT INTO items (id, title, type, status, priority, project_id,
+            """INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, project_id,
                                   deployment_flow, deploy_stage,
                                   created_at, updated_at, source, frozen)
-               VALUES (10, 'Release item', 'issue', 'release', 'high', 1,
+               VALUES (10, 'Release item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'release', 'high', 1,
                        'test-flow', 'approve-deploy',
                        '2026-01-01', '2026-01-01', 'user', 0)"""
         )
         conn.execute(
-            """INSERT INTO items (id, title, type, status, priority, project_id,
+            """INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, project_id,
                                   created_at, updated_at, source, frozen)
-               VALUES (11, 'Active issue', 'issue', 'implementing', 'medium', 1,
+               VALUES (11, 'Active issue', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'medium', 1,
                        '2026-01-01', '2026-01-01', 'user', 0)"""
         )
         conn.execute(
-            """INSERT INTO items (id, title, type, status, priority, project_id,
+            """INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, project_id,
                                   created_at, updated_at, source, frozen)
-               VALUES (12, 'Test epic', 'epic', 'implementing', 'high', 1,
+               VALUES (12, 'Test epic', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'implementing', 'high', 1,
                        '2026-01-01', '2026-01-01', 'user', 0)"""
         )
         issue_id, issue_version_id = resolve_current_workflow_pin(conn, "issue")

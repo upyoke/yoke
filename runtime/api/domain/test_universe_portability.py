@@ -507,11 +507,11 @@ def test_restore_failure_is_one_transaction_and_round_trip_succeeds(tmp_path):
             " WHERE id=88001"
         )
         source.execute(
-            "INSERT INTO items "
-            "(id, title, type, status, priority, created_at, updated_at, "
-            "project_id, project_sequence, resolution, resolution_ref, "
-            "resolution_comment, design_spec) VALUES "
-            "(88003, 'Closed item', 'issue', 'cancelled', 'medium', now(), now(), "
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, "
+            "priority, created_at, updated_at, project_id, project_sequence, "
+            "resolution, resolution_ref, resolution_comment, design_spec) VALUES "
+            "(88003, 'Closed item', 'issue', (SELECT current_version_id "
+            "FROM workflows WHERE id='issue'), 'cancelled', 'medium', now(), now(), "
             "88001, 1, 'duplicate', 'POR-2', 'Preserve close history', "
             "'trusted body')"
         )

@@ -31,22 +31,22 @@ class TestOrphanedGhIssues:
         assert "GitHub App repo binding is not available" in _result(rec).detail
 
     @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
-    @patch("yoke_core.engines.doctor_hc_worktrees_gh.resolve_project_github_auth",
+    @patch("yoke_core.engines.doctor_hc_worktrees_gh_labels.resolve_project_github_auth",
            side_effect=lambda project, db_path=None, **_kwargs: _auth("upyoke/yoke"))
-    @patch("yoke_core.engines.doctor_hc_worktrees_gh.list_issues_by_labels_rest")
+    @patch("yoke_core.engines.doctor_hc_worktrees_gh_labels.list_issues_by_labels_rest")
     def test_no_orphans_passes(self, mock_rest, mock_resolve, mock_avail):
         conn = _make_conn()
         _seed_project(conn, "yoke", github_repo="upyoke/yoke")
         conn.execute(
-            "INSERT INTO items (id, title, type, status, github_issue) "
-            "VALUES (1, 'Test', 'issue', 'implementing', '#100')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, github_issue) "
+            "VALUES (1, 'Test', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', '#100')"
         )
         mock_rest.return_value = _completed(stdout="100\n")
         rec = _run_hc(hc_orphaned_gh_issues, conn)
         assert _result(rec).result == "PASS"
 
     @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
-    @patch("yoke_core.engines.doctor_hc_worktrees_gh.list_issues_by_labels_rest")
+    @patch("yoke_core.engines.doctor_hc_worktrees_gh_labels.list_issues_by_labels_rest")
     def test_uses_dynamic_yoke_repo(self, mock_rest, mock_avail):
         """AC-3: Yoke repo is resolved via canonical resolver — not a
         hard-coded ``upyoke/yoke`` literal.
@@ -65,7 +65,7 @@ class TestOrphanedGhIssues:
         conn = _make_conn()
         _seed_project(conn, "yoke", github_repo="custom/owner-repo")
         with patch(
-            "yoke_core.engines.doctor_hc_worktrees_gh.resolve_project_github_auth",
+            "yoke_core.engines.doctor_hc_worktrees_gh_labels.resolve_project_github_auth",
             side_effect=lambda project, db_path=None, **_kwargs: _auth("custom/owner-repo"),
         ):
             _run_hc(hc_orphaned_gh_issues, conn)

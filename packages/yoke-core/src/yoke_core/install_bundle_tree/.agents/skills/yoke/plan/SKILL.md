@@ -41,7 +41,7 @@ yoke sessions touch \
 1. **Resolve the backlog item:**
  Resolve by `id` first (if `{epic-id}` is `YOK-N`, strip the prefix to get the numeric `id` — for epic items, that numeric `id` IS the same value referenced as `epic_id` in `epic_tasks`), otherwise by title slug:
  ```bash
- yoke db read --format lines "SELECT id, title, type, status FROM items WHERE id={N-from-YOK-if-provided} OR lower(replace(title,' ','-'))=lower('{epic-id}') ORDER BY CASE WHEN id={N-from-YOK-if-provided} THEN 0 ELSE 1 END LIMIT 1;"
+ yoke db read --format lines "SELECT id, title, workflow_id, workflow_version_id, status FROM items WHERE id={N-from-YOK-if-provided} OR lower(replace(title,' ','-'))=lower('{epic-id}') ORDER BY CASE WHEN id={N-from-YOK-if-provided} THEN 0 ELSE 1 END LIMIT 1;"
  ```
  If you also need the rendered body, fetch it separately (it is a virtual rendered field, not an `items` column):
  ```bash
@@ -49,13 +49,13 @@ yoke sessions touch \
  ```
  If no item found, stop: "No backlog item found for `{epic-id}`. Create one with `/yoke idea` first."
  Verify the item is in a planning-eligible lifecycle state:
- - `type=epic`: `refined-idea`, `planning`, or `plan-drafted`
- - `type=issue`: `refined-idea`
+ - Epic workflow binding: `refined-idea`, `planning`, or `plan-drafted`
+ - Issue workflow binding: `refined-idea`
  If the item is still `idea` or `refining-idea`, suggest `/yoke refine YOK-{N}` first. If an epic has not yet entered planning, suggest `/yoke shepherd YOK-{N}` first.
 
- Determine plan mode from `type`:
- - `type=epic` → **epic plan mode** (full task decomposition)
- - `type=issue` → **issue plan mode** (lightweight `technical_plan` field only)
+ Determine plan mode from `workflow_id`:
+ - `epic` → **epic plan mode** (full task decomposition)
+ - `issue` → **issue plan mode** (lightweight `technical_plan` field only)
 
  ```bash
  _epic_id={resolved numeric item ID from step 1}

@@ -31,7 +31,8 @@ def _apply_resync_full_schema() -> None:
                 title TEXT,
                 status TEXT,
                 priority TEXT,
-                type TEXT,
+                workflow_id TEXT,
+                workflow_version_id INTEGER,
                 source TEXT,
                 owner TEXT,
                 spec TEXT,
@@ -97,6 +98,7 @@ def _apply_resync_full_schema() -> None:
             "VALUES (1, 'yoke', 'Yoke', 'main', "
             "'2026-01-01T00:00:00Z', 'upyoke/yoke', 'YOK')"
         )
+        install_workflow_registry_and_pin_items(conn)
         conn.commit()
     finally:
         conn.close()
@@ -114,34 +116,34 @@ def populated_db(test_db):
     """DB with test items for comparison tests."""
     conn = connect_test_db(test_db)
     conn.execute("""
-        INSERT INTO items (id, title, status, priority, type, source, spec, frozen, github_issue, project_id, project_sequence)
-        VALUES (42, 'Test item', 'implementing', 'high', 'issue', 'manual', 'Item body', 0, '#100', 1, 42)
+        INSERT INTO items (id, title, status, priority, workflow_id, workflow_version_id, source, spec, frozen, github_issue, project_id, project_sequence)
+        VALUES (42, 'Test item', 'implementing', 'high', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'manual', 'Item body', 0, '#100', 1, 42)
     """)
     conn.execute("""
-        INSERT INTO items (id, title, status, priority, type, source, spec, frozen, github_issue, project_id, project_sequence)
-        VALUES (43, 'Done item', 'done', 'medium', 'issue', 'auto', 'Done body', 0, '#101', 1, 43)
+        INSERT INTO items (id, title, status, priority, workflow_id, workflow_version_id, source, spec, frozen, github_issue, project_id, project_sequence)
+        VALUES (43, 'Done item', 'done', 'medium', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'auto', 'Done body', 0, '#101', 1, 43)
     """)
     conn.execute("""
-        INSERT INTO items (id, title, status, priority, type, source, spec, frozen, github_issue, project_id, project_sequence)
-        VALUES (1246, 'Epic parent', 'implementing', 'high', 'epic', 'manual', 'Epic body', 0, '#102', 1, 1246)
+        INSERT INTO items (id, title, status, priority, workflow_id, workflow_version_id, source, spec, frozen, github_issue, project_id, project_sequence)
+        VALUES (1246, 'Epic parent', 'implementing', 'high', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'manual', 'Epic body', 0, '#102', 1, 1246)
     """)
     conn.execute("""
         INSERT INTO epic_tasks (epic_id, task_num, title, status, body, github_issue)
         VALUES ('1246', 1, 'Task one', 'implementing', 'Task body', '#200')
     """)
     conn.execute("""
-        INSERT INTO items (id, title, status, priority, type, source, spec, frozen, github_issue, project_id, project_sequence)
-        VALUES (45, 'Cancelled item', 'cancelled', 'low', 'issue', 'manual', 'Cancel body', 0, '#103', 1, 45)
+        INSERT INTO items (id, title, status, priority, workflow_id, workflow_version_id, source, spec, frozen, github_issue, project_id, project_sequence)
+        VALUES (45, 'Cancelled item', 'cancelled', 'low', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'manual', 'Cancel body', 0, '#103', 1, 45)
     """)
     conn.execute("""
-        INSERT INTO items (id, title, status, priority, type, source, spec, frozen, github_issue, project_id, project_sequence)
-        VALUES (46, 'Release item', 'release', 'high', 'issue', 'manual', 'Release body', 0, '#104', 1, 46)
+        INSERT INTO items (id, title, status, priority, workflow_id, workflow_version_id, source, spec, frozen, github_issue, project_id, project_sequence)
+        VALUES (46, 'Release item', 'release', 'high', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'manual', 'Release body', 0, '#104', 1, 46)
     """)
     conn.execute("""
-        INSERT INTO items (id, title, status, priority, type, source, spec, frozen, github_issue, project_id, project_sequence)
-        VALUES (47, 'Frozen item', 'implementing', 'high', 'issue', 'manual', 'Frozen body', 1, '#105', 1, 47)
+        INSERT INTO items (id, title, status, priority, workflow_id, workflow_version_id, source, spec, frozen, github_issue, project_id, project_sequence)
+        VALUES (47, 'Frozen item', 'implementing', 'high', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'manual', 'Frozen body', 1, '#105', 1, 47)
     """)
-    install_workflow_registry_and_pin_items(conn)
+    conn.commit()
     conn.close()
     return test_db
 

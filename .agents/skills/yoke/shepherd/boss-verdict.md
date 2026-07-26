@@ -2,7 +2,7 @@
 
 Covers steps 5e-5j: Boss invocation, verdict parsing chain (5 layers), verdict persistence, reflection capture, caveat resolution gate, and verdict result handling.
 
-**Inherited from router:** `MAX_ATTEMPTS`, `_num`, `_type`, `_title`, `_transition`, `_attempt`, `_session_id`, `_worker_name`, `_worker_output`.
+**Inherited from router:** `MAX_ATTEMPTS`, `_num`, `_workflow_id`, `_title`, `_transition`, `_attempt`, `_session_id`, `_worker_name`, `_worker_output`.
 
 **After this step completes:** Return to the router for step 6 (Shepherd Log update), step 7 (transition continuity), step 8 (commit), step 9 (final report).
 
@@ -42,7 +42,7 @@ _pre_boss_verdict_max_id=$(yoke db read --format lines "SELECT COALESCE(MAX(id),
 ```
  Review YOK-{N} at the {_transition} gate.
  Title: {_title}
- Type: {_type}
+ Workflow: {_workflow_id}
  Scope: {scope}
  Transition: {_transition}
  Worker: {_worker_name}

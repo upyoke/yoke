@@ -6,7 +6,10 @@ argument-hint: "[--fix]"
 
 # /yoke resync
 
-Detect and repair drift between local backlog items (DB) and their corresponding GitHub issues. Reports mismatches in title, status labels, priority labels, type labels, frozen labels, blocked labels, and body content.
+Detect and repair drift between local backlog items (DB) and their
+corresponding GitHub issues. Reports mismatches in title, stage labels,
+priority labels, workflow labels, frozen labels, blocked labels, and body
+content.
 
 <!-- BEGIN GENERATED: field-note-directive -->
 When you hit a recipe gap or notice a minor bug not worth a ticket, file a field-note immediately — before retrying, before moving on.

@@ -76,10 +76,10 @@ class TestGovernedMigrationStateWriteThrough:
         # Seed a single items row so the harness has something to see.
         conn = sqlite3.connect(db_path)
         conn.execute(
-            "INSERT INTO items (id, title, type, status, priority, flow, "
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, flow, "
             "rework_count, frozen, created_at, updated_at, source, "
             "project_id, project_sequence) "
-            "VALUES (1, 'test', 'issue', 'idea', 'medium', 'accelerated', 0, 0, "
+            "VALUES (1, 'test', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'medium', 'accelerated', 0, 0, "
             "'2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', 'user', 1, 1)"
         )
         conn.commit()
@@ -114,10 +114,10 @@ class TestGovernedMigrationStateWriteThrough:
 
         conn = sqlite3.connect(db_path)
         conn.execute(
-            "INSERT INTO items (id, title, type, status, priority, flow, "
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, flow, "
             "rework_count, frozen, created_at, updated_at, source, "
             "project_id, project_sequence) "
-            "VALUES (1, 'test', 'issue', 'idea', 'medium', 'accelerated', 0, 0, "
+            "VALUES (1, 'test', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'medium', 'accelerated', 0, 0, "
             "'2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', 'user', 1, 1)"
         )
         conn.commit()

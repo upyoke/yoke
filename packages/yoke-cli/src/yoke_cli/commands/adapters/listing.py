@@ -36,7 +36,7 @@ __all__ = [
 
 
 ITEMS_LIST_USAGE = (
-    "yoke items list [--status S] [--priority P] [--type T] "
+    "yoke items list [--status S] [--priority P] [--workflow W] "
     "[--frozen 0|1] [--blocked 0|1] [--project P|all] "
     '[--fields "f1,f2,..."] [--limit N] [--session-id S] [--json]'
 )
@@ -56,7 +56,9 @@ def items_list(args: List[str]) -> int:
     )
     parser.add_argument("--status", default=None, help="Filter by status.")
     parser.add_argument("--priority", default=None, help="Filter by priority.")
-    parser.add_argument("--type", default=None, help="Filter by item type.")
+    parser.add_argument(
+        "--workflow", default=None, help="Filter by workflow identity.",
+    )
     parser.add_argument("--frozen", default=None, help="Filter frozen flag (0|1).")
     parser.add_argument("--blocked", default=None, help="Filter blocked flag (0|1).")
     add_project_arg(parser)
@@ -64,7 +66,7 @@ def items_list(args: List[str]) -> int:
         "--fields", default=None,
         help=(
             "Comma-separated column projection "
-            "(default id,title,status,priority,type,source)."
+            "(default id,title,status,priority,workflow_id,source)."
         ),
     )
     parser.add_argument(
@@ -76,7 +78,7 @@ def items_list(args: List[str]) -> int:
     if parsed is None:
         return 2
     payload: Dict[str, Any] = {}
-    for key in ("status", "priority", "type"):
+    for key in ("status", "priority", "workflow"):
         value = getattr(parsed, key)
         if value:
             payload[key] = value

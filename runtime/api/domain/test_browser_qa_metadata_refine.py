@@ -33,7 +33,7 @@ def db_with_idea_item(tmp_path):
         insert_item(
             item_id=42,
             title="Refine dimension smoke test",
-            item_type="issue",
+            workflow="issue",
             status="idea",
             priority="medium",
             source="user",

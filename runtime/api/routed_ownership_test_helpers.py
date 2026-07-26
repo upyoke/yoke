@@ -99,13 +99,14 @@ def seed_item(conn: Any) -> None:
     workflow_id, workflow_version_id = resolve_current_workflow_pin(conn, "issue")
     p = _p(conn)
     conn.execute(
-        "INSERT INTO items (id, title, type, status, priority, project_id, "
-        "project_sequence, created_at, updated_at, source, frozen, spec, "
-        "workflow_id, workflow_version_id) "
-        f"VALUES ({p}, {p}, 'issue', 'refined-idea', 'high', 1, "
-        f"{p}, {p}, {p}, 'user', 0, {p}, {p}, {p})",
-        (SYNTHETIC_ITEM_ID, "Routed item under test", SYNTHETIC_ITEM_ID,
-         _SEED_TS, _SEED_TS, spec, workflow_id, workflow_version_id),
+        "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, project_id, "
+        "project_sequence, created_at, updated_at, source, frozen, spec) "
+        f"VALUES ({p}, {p}, {p}, {p}, 'refined-idea', 'high', 1, "
+        f"{p}, {p}, {p}, 'user', 0, {p})",
+        (
+            SYNTHETIC_ITEM_ID, "Routed item under test", workflow_id,
+            workflow_version_id, SYNTHETIC_ITEM_ID, _SEED_TS, _SEED_TS, spec,
+        ),
     )
     conn.commit()
 

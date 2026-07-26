@@ -20,7 +20,7 @@ class TestAttributionResolution:
         worktree = attribution_db.repo_root / "YOK-1246"
         worktree.mkdir()
         conn = connect_test_db(attribution_db.db_path)
-        conn.execute("INSERT INTO items (id, type, status) VALUES (1246, 'epic', 'planned')")
+        conn.execute("INSERT INTO items (id, workflow_id, workflow_version_id, status) VALUES (1246, 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'planned')")
         conn.execute(
             "INSERT INTO epic_dispatch_chains (epic_id, worktree_path, current_task) VALUES (%s, %s, %s)",
             ("1246", str(worktree), "7"),
@@ -49,7 +49,7 @@ class TestAttributionResolution:
         nested_dir = worktree / "runtime" / "api"
         nested_dir.mkdir(parents=True)
         conn = connect_test_db(attribution_db.db_path)
-        conn.execute("INSERT INTO items (id, type, status) VALUES (1246, 'epic', 'planned')")
+        conn.execute("INSERT INTO items (id, workflow_id, workflow_version_id, status) VALUES (1246, 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'planned')")
         conn.execute(
             "INSERT INTO epic_dispatch_chains (epic_id, worktree_path, current_task) VALUES (%s, %s, %s)",
             ("1246", str(worktree), "9"),
@@ -76,7 +76,10 @@ class TestAttributionResolution:
     def test_main_session_active_fallback(self, attribution_db):
         conn = connect_test_db(attribution_db.db_path)
         conn.execute(
-            "INSERT INTO items (id, type, status) VALUES (77, 'task', 'implementing')"
+            "INSERT INTO items (id, workflow_id, workflow_version_id, status) "
+            "VALUES (77, 'task', "
+            "(SELECT current_version_id FROM workflows WHERE id='task'), "
+            "'implementing')"
         )
         conn.commit()
         conn.close()

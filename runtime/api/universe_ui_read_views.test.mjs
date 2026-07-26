@@ -25,7 +25,7 @@ import {
 function twoProjectClient() {
   const requests = [];
   const itemRow = (id, title, project) => ({
-    id, title, type: "issue", status: "idea", priority: "medium",
+    id, title, workflow_id: "issue", workflow_version_id: 1, status: "idea", priority: "medium",
     blocked: "0", blocked_reason: "", project,
   });
   const rowsByProject = {
@@ -129,7 +129,7 @@ test("an epic's detail carries its tasks; an issue's does not", async (t) => {
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
 
-  const drillInto = async (type) => {
+  const drillInto = async (workflowId) => {
     const documentNode = new FakeDocument();
     documentNode.defaultView.location.hash = "#/items/7?project=1";
     const root = documentNode.createElement("div");
@@ -151,7 +151,7 @@ test("an epic's detail carries its tasks; an issue's does not", async (t) => {
               result: {
                 item_id: 7,
                 fields: {
-                  id: "7", type, status: "planned", title: "t", body: "# Spec",
+                  id: "7", workflow_id: workflowId, workflow_version_id: "1", status: "planned", title: "t", body: "# Spec",
                 },
               },
             },
@@ -238,8 +238,8 @@ test("an unblocked item reports no blocking reason", async (t) => {
             success: true,
             result: {
               rows: [
-                { id: 1, title: "runs", type: "issue", status: "idea", priority: "medium", blocked: "0", blocked_reason: "", project: "yoke" },
-                { id: 2, title: "waits", type: "epic", status: "idea", priority: "high", blocked: "1", blocked_reason: "upstream schema", project: "yoke" },
+                { id: 1, title: "runs", workflow_id: "issue", workflow_version_id: 1, status: "idea", priority: "medium", blocked: "0", blocked_reason: "", project: "yoke" },
+                { id: 2, title: "waits", workflow_id: "epic", workflow_version_id: 1, status: "idea", priority: "high", blocked: "1", blocked_reason: "upstream schema", project: "yoke" },
               ],
             },
           },
@@ -257,15 +257,15 @@ test("an unblocked item reports no blocking reason", async (t) => {
     .filter((node) => node.tagName === "TD")
     .map(cellText);
   assert.deepEqual(cells, [
-    "1", "yoke", "issue", "runs", "idea", "medium", "",
-    "2", "yoke", "epic", "waits", "idea", "high", "upstream schema",
+    "1", "yoke", "issue", "1", "runs", "idea", "medium", "",
+    "2", "yoke", "epic", "1", "waits", "idea", "high", "upstream schema",
   ]);
   // The drill-in carries the row's own project id, mapped from its slug.
   const rowLinks = allNodes(root)
     .filter((node) => node.classList && node.classList.contains("row-link"))
     .map((node) => node.href);
   assert.deepEqual(rowLinks, ["#/items/1?project=1", "#/items/2?project=1"]);
-  assert.ok(itemsRequest.payload.fields.includes("type"));
+  assert.ok(["workflow_id", "workflow_version_id"].every((field) => itemsRequest.payload.fields.includes(field)));
   assert.ok(itemsRequest.payload.fields.includes("blocked_reason"));
   assert.ok(itemsRequest.payload.fields.includes("project"));
   assert.ok(!("project" in itemsRequest.payload));
@@ -550,8 +550,8 @@ test("chips narrow to one, widen to a pair, and empty back out to All", async (t
     .filter((node) => node.tagName === "TD")
     .map(cellText);
   assert.deepEqual(cells, [
-    "11", "alpha", "issue", "alpha item", "idea", "medium", "",
-    "21", "beta", "issue", "beta item", "idea", "medium", "",
+    "11", "alpha", "issue", "1", "alpha item", "idea", "medium", "",
+    "21", "beta", "issue", "1", "beta item", "idea", "medium", "",
   ]);
   // Each row's drill-in carries that row's own project.
   assert.deepEqual(
@@ -823,7 +823,7 @@ test("the items count is the served total, summed across buckets — never rows.
   documentNode.defaultView.location.hash = "#/items?project=1,2";
   const root = documentNode.createElement("div");
   const itemRow = (id, project) => ({
-    id, title: "t", type: "issue", status: "idea", priority: "medium",
+    id, title: "t", workflow_id: "issue", workflow_version_id: 1, status: "idea", priority: "medium",
     blocked: "0", blocked_reason: "", project,
   });
   // Each bucket serves one row of a larger total, so the served counts and

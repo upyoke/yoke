@@ -161,9 +161,9 @@ class TestDBHelpers:
         conn = api_main.get_db_readwrite()
         conn.execute(
             """INSERT INTO items
-               (id, title, type, status, priority, project_id,
+               (id, title, workflow_id, workflow_version_id, status, priority, project_id,
                 project_sequence, created_at, updated_at, source)
-               VALUES (999, 'test', 'issue', 'idea', 'low', 1, 999,
+               VALUES (999, 'test', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'low', 1, 999,
                        '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', 'user')"""
         )
         conn.commit()

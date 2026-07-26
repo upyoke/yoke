@@ -40,7 +40,8 @@ def _make_conn():
         CREATE TABLE items (
             id INTEGER PRIMARY KEY,
             title TEXT,
-            type TEXT,
+            workflow_id TEXT,
+            workflow_version_id INTEGER,
             status TEXT,
             priority TEXT,
             project_id INTEGER DEFAULT 1,
@@ -93,6 +94,11 @@ def _make_conn():
             archived_at TEXT
         );
     """))
+    from yoke_core.domain.workflow_registry import converge_builtin_workflows
+    from yoke_core.domain.workflow_schema import ensure_workflow_schema
+
+    ensure_workflow_schema(conn)
+    converge_builtin_workflows(conn)
     return conn
 
 

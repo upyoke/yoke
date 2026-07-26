@@ -129,33 +129,33 @@ def _apply_service_client_schema_on_conn(conn) -> None:
 
     # Seed items
     conn.execute(
-        """INSERT INTO items (id, title, type, status, priority, project_id, project_sequence,
+        """INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
                               created_at, updated_at, source, frozen)
-           VALUES (1, 'Active item', 'issue', 'implementing', 'high', 1, 1,
+           VALUES (1, 'Active item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'high', 1, 1,
                    '2026-01-01', '2026-01-01', 'user', 0)"""
     )
     conn.execute(
-        """INSERT INTO items (id, title, type, status, priority, project_id, project_sequence,
+        """INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
                               created_at, updated_at, source, frozen)
-           VALUES (2, 'Done item', 'issue', 'done', 'medium', 1, 2,
+           VALUES (2, 'Done item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'done', 'medium', 1, 2,
                    '2026-01-01', '2026-01-01', 'user', 0)"""
     )
     conn.execute(
-        """INSERT INTO items (id, title, type, status, priority, project_id, project_sequence,
+        """INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
                               created_at, updated_at, source, frozen)
-           VALUES (3, 'Cancelled item', 'issue', 'cancelled', 'low', 1, 3,
+           VALUES (3, 'Cancelled item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'cancelled', 'low', 1, 3,
                    '2026-01-01', '2026-01-01', 'user', 0)"""
     )
     conn.execute(
-        """INSERT INTO items (id, title, type, status, priority, project_id, project_sequence,
+        """INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
                               created_at, updated_at, source, frozen)
-           VALUES (4, 'Frozen item', 'issue', 'idea', 'medium', 1, 4,
+           VALUES (4, 'Frozen item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'medium', 1, 4,
                    '2026-01-01', '2026-01-01', 'user', 1)"""
     )
     conn.execute(
-        """INSERT INTO items (id, title, type, status, priority, project_id, project_sequence,
+        """INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
                               created_at, updated_at, source, frozen)
-           VALUES (5, 'ExternalWebapp active', 'issue', 'implementing', 'medium', 2, 1,
+           VALUES (5, 'ExternalWebapp active', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'medium', 2, 1,
                    '2026-01-01', '2026-01-01', 'user', 0)"""
     )
 

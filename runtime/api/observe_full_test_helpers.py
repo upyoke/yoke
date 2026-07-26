@@ -158,7 +158,8 @@ def _apply_attribution_schema() -> None:
             CREATE TABLE items (
                 id INTEGER PRIMARY KEY,
                 project_id INTEGER DEFAULT 1,
-                type TEXT NOT NULL DEFAULT 'task',
+                workflow_id TEXT,
+                workflow_version_id INTEGER,
                 status TEXT NOT NULL DEFAULT 'planned',
                 worktree TEXT
             );
@@ -170,6 +171,11 @@ def _apply_attribution_schema() -> None:
             """
             + _EVENTS_DDL,
         )
+        from yoke_core.domain.workflow_registry import converge_builtin_workflows
+        from yoke_core.domain.workflow_schema import ensure_workflow_schema
+
+        ensure_workflow_schema(conn)
+        converge_builtin_workflows(conn)
         _seed_projects(conn)
     finally:
         conn.close()

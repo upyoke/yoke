@@ -6,7 +6,8 @@ This sub-step assembles context from prior Engineer attempts and Tester rejectio
 
 **When to run:** Before every Engineer dispatch (first attempt and retries). On first attempts with no prior data, this step produces an empty block and no context is injected.
 
-**Input:** `_id` (item numeric ID), `_type` (issue or epic), and for epics: `_epic_id`, `_task_id`.
+**Input:** `_id` (item numeric ID), `_workflow_id`, and for Epic workflow
+items: `_epic_id`, `_task_id`.
 
 ### Step 1: Query prior progress notes
 

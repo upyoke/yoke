@@ -29,10 +29,10 @@ class TestAutoDerive:
         env.exec_sql(f"""
             DELETE FROM items;
             INSERT INTO items
-                (id, title, type, status, priority, project_id, project_sequence,
+                (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
                  created_at, updated_at)
             VALUES
-                (42, 'Test Epic', 'epic', '{parent_status}', 'medium', 1, 42,
+                (42, 'Test Epic', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), '{parent_status}', 'medium', 1, 42,
                  '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z');
         """)
 

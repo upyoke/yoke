@@ -23,6 +23,7 @@ from yoke_core.domain.schema_init_path_tables import (
     create_path_registry_tables,
 )
 from yoke_core.domain.schema_init_tables import create_core_tables
+from yoke_core.domain.workflow_registry import converge_builtin_workflows
 
 
 @pytest.fixture
@@ -33,6 +34,7 @@ def conn(monkeypatch):
     )
     c = pg_testdb.connect_test_database(name)
     create_core_tables(c)
+    converge_builtin_workflows(c)
     create_path_registry_tables(c)
     create_actor_path_claim_tables(c)
     seed_canonical_actors(c)
@@ -55,9 +57,9 @@ def conn(monkeypatch):
 
 def _seed_item(conn, *, item_id: int = 5001, spec: str = "") -> int:
     conn.execute(
-        "INSERT INTO items (id, title, type, status, priority, "
+        "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, "
         "created_at, updated_at, project_id, project_sequence) "
-        "VALUES (%s, 'item', 'issue', 'refined-idea', 'medium', "
+        "VALUES (%s, 'item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'refined-idea', 'medium', "
         "'2026-05-01T00:00:00Z', '2026-05-01T00:00:00Z', 1, %s)",
         (item_id, item_id),
     )

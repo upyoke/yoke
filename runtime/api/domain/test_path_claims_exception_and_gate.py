@@ -61,9 +61,9 @@ def _seed_item(
     _, version_id = resolve_current_workflow_pin(conn, workflow_id)
     conn.execute(
         "INSERT INTO items "
-        "(id, project_id, project_sequence, status, type, workflow_id, "
+        "(id, project_id, project_sequence, status, workflow_id, "
         "workflow_version_id, title, created_at, updated_at, source) "
-        "VALUES (%s, %s, %s, %s, %s, %s, %s, 'test', "
+        "VALUES (%s, %s, %s, %s, %s, %s, 'test', "
         "'2026-05-01T00:00:00Z', '2026-05-01T00:00:00Z', '1') "
         "ON CONFLICT(id) DO NOTHING",
         (
@@ -71,7 +71,6 @@ def _seed_item(
             project_id,
             item_id,
             status,
-            workflow_id,
             workflow_id,
             version_id,
         ),

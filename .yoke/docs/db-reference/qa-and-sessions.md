@@ -267,7 +267,12 @@ Rules: same-session multiple `path_claims` on the same item roll up into one key
 
 The session-offer endpoint (`POST /v1/sessions/offer`) accepts a session-offer payload, computes the shared scheduler result from the DB, and calls the pure decision engine (`decide_next_action()` from `session.py`) to determine the next action for the offered session. The response is a `NextAction` JSON object.
 
-Scheduler computation (`compute_schedule()` in `scheduler.py`) delegates frontier classification and ranking to `frontier.py`, adds type-aware next-step routing, honors conduct WIP eligibility when selecting the assignable step, evaluates `work_claims` for claim state, and probes truthful SML coherence/staleness across the MISSION, VISION, MASTER-PLAN, and LANDSCAPE views rendered under `.yoke/strategy/`.
+Scheduler computation (`compute_schedule()` in `scheduler.py`) delegates
+frontier classification and ranking to `frontier.py`, resolves `next_step`
+from each item's pinned workflow executor binding, honors implementation WIP
+eligibility when selecting the assignable step, evaluates `work_claims` for
+claim state, and probes truthful SML coherence/staleness across the MISSION,
+VISION, MASTER-PLAN, and LANDSCAPE views rendered under `.yoke/strategy/`.
 
 The `service_client.py session-offer` command calls `compute_schedule()` directly (direct DB access, not via HTTP) for shell-accessible use.
 

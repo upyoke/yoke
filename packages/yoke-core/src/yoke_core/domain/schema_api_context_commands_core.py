@@ -31,7 +31,7 @@ CORE_COMMANDS: list[dict] = [
         "topic": "core",
         "purpose": "Read structured item field(s) — concrete examples",
         "recipe": (
-            "yoke items get YOK-N status title type github_issue\n"
+            "yoke items get YOK-N status title workflow_id github_issue\n"
             "yoke items get YOK-N spec"
         ),
         "notes": (
@@ -42,7 +42,8 @@ CORE_COMMANDS: list[dict] = [
             "deployment_flow, design_spec, flow, frozen, github_issue, id, "
             "merged_at, priority, project, rework_count, shepherd_caveats, "
             "shepherd_log, source, spec, status, technical_plan, "
-            "test_results, title, type, updated_at, worktree, worktree_plan. "
+            "test_results, title, updated_at, workflow_id, "
+            "workflow_version_id, worktree, worktree_plan. "
             "For body-section filtering, use "
             "`yoke items get YOK-N body --section \"## File Budget\"`."
         ),
@@ -60,7 +61,9 @@ CORE_COMMANDS: list[dict] = [
             "linking only — Yoke automation never shells out to ``gh`` "
             "to read or write the issue; the function-call surface and "
             "``project_github_auth.resolve_project_github_auth`` handle "
-            "every GitHub mutation through REST/GraphQL."
+            "every GitHub mutation through REST/GraphQL. The lower-level "
+            "``service_client backlog-cli`` family remains a source-dev/"
+            "operator-debug adapter, not the agent-default item surface."
         ),
     },
     {

@@ -57,6 +57,11 @@ def _insert_item(
     **fields,
 ) -> None:
     p = _p(conn)
+    from yoke_core.domain.schema_common import _column_exists
+
+    legacy_workflow_id = fields.pop("type", None)
+    if legacy_workflow_id is not None:
+        fields.setdefault("workflow_id", legacy_workflow_id)
     data = {
         "id": item_id,
         "title": title,
@@ -64,6 +69,15 @@ def _insert_item(
         "project_sequence": item_id,
         **fields,
     }
+    if _column_exists(conn, "items", "status"):
+        data.setdefault("status", "idea")
+    if _column_exists(conn, "items", "workflow_id"):
+        from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
+
+        workflow_id = str(data.get("workflow_id", "issue"))
+        _, version_id = resolve_current_workflow_pin(conn, workflow_id)
+        data.setdefault("workflow_id", workflow_id)
+        data.setdefault("workflow_version_id", version_id)
     columns = list(data)
     placeholders = ", ".join(p for _ in columns)
     conn.execute(

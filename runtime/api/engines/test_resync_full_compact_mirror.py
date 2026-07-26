@@ -44,16 +44,20 @@ def _seed_oversize_item(db_path: str, *, item_id: int, spec_size: int) -> None:
     conn = connect_test_db(db_path)
     spec_text = "x" * spec_size
     p = _p(conn)
+    install_workflow_registry_and_pin_items(conn)
     conn.execute(
-        "INSERT INTO items (id, title, status, priority, type, source, spec, "
+        "INSERT INTO items (id, title, status, priority, workflow_id, "
+        "workflow_version_id, source, spec, "
         "frozen, github_issue, project_id, project_sequence) "
-        f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, 0, {p}, 1, {p})",
+        f"VALUES ({p}, {p}, {p}, {p}, 'issue', "
+        "(SELECT current_version_id FROM workflows WHERE id='issue'), "
+        f"{p}, {p}, 0, {p}, 1, {p})",
         (
-            item_id, "Oversize body item", "implementing", "high",
-            "issue", "manual", spec_text, "#900", item_id,
+            item_id, "Oversize body item", "implementing", "high", "manual",
+            spec_text, "#900", item_id,
         ),
     )
-    install_workflow_registry_and_pin_items(conn)
+    conn.commit()
     conn.close()
 
 
@@ -145,14 +149,15 @@ class TestCompactMirrorSuppression:
         """Legitimate 'shrink back to full' case — real drift, --fix resolves it."""
         conn = connect_test_db(test_db)
         p = _p(conn)
+        install_workflow_registry_and_pin_items(conn)
         conn.execute(
-            "INSERT INTO items (id, title, status, priority, type, source, "
+            "INSERT INTO items (id, title, status, priority, workflow_id, workflow_version_id, source, "
             "spec, frozen, github_issue, project_id, project_sequence) "
-            f"VALUES ({p}, 'Small item', 'implementing', 'high', 'issue', 'manual', "
+            f"VALUES ({p}, 'Small item', 'implementing', 'high', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'manual', "
             f"'small spec', 0, '#901', 1, {p})",
             (911, 911),
         )
-        install_workflow_registry_and_pin_items(conn)
+        conn.commit()
         conn.close()
 
         fields = {

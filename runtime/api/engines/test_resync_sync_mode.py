@@ -56,9 +56,9 @@ def _insert_unlinked_item(db_path: str, item_id: int) -> None:
         conn.execute(
             """
             INSERT INTO items
-            (id, title, status, priority, type, source, spec, frozen,
+            (id, title, status, priority, workflow_id, workflow_version_id, source, spec, frozen,
              github_issue, project_id, project_sequence, created_at, updated_at)
-            VALUES (%s, 'DB-only item', 'idea', 'medium', 'issue', 'manual',
+            VALUES (%s, 'DB-only item', 'idea', 'medium', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'manual',
                     'Body', 0, NULL, 1, %s, '2026-01-01', '2026-01-01')
             """,
             (item_id, item_id),

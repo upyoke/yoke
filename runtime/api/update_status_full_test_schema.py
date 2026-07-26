@@ -25,7 +25,8 @@ CREATE TABLE IF NOT EXISTS sprints (
 CREATE TABLE IF NOT EXISTS items (
     id INTEGER PRIMARY KEY,
     title TEXT NOT NULL,
-    type TEXT NOT NULL DEFAULT 'issue',
+    workflow_id TEXT,
+    workflow_version_id INTEGER,
     status TEXT NOT NULL DEFAULT 'idea',
     priority TEXT NOT NULL DEFAULT 'medium',
     flow TEXT DEFAULT 'accelerated',

@@ -240,7 +240,7 @@ class TestFrontierTelemetry:
     @patch("yoke_core.domain.events.emit_event")
     def test_frontier_computed_carries_session_id_and_project(self, mock_emit):
         conn = _create_test_db()
-        _insert_item(conn, 1, status="planned", project="externalwebapp", item_type="epic")
+        _insert_item(conn, 1, status="planned", project="externalwebapp", workflow="epic")
 
         compute_frontier(conn, project_scope=["externalwebapp"], session_id="sess-frontier")
 

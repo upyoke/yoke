@@ -48,11 +48,11 @@ Do NOT block. Proceed to finalize. This is the expected path for a project whose
 _e2e_repo=$(yoke projects get --project "$_item_project" --field repo_path 2>/dev/null) || true
 _e2e_repo=${_e2e_repo:-$(git rev-parse --show-toplevel)}
 
-# Prefer worktree if it exists. E2E runs against issue items only (epics have no
-# single worktree; their tasks each have their own lane resolved via conduct).
-_e2e_item_type=$(yoke items get {N} type 2>/dev/null) || true
+# Prefer a worktree if the pinned workflow uses an item-level lane. The epic
+# executor resolves its task lanes through conduct.
+_e2e_workflow_id=$(yoke items get {N} workflow_id 2>/dev/null) || true
 _e2e_dir="$_e2e_repo"
-if [ "$_e2e_item_type" != "epic" ]; then
+if [ "$_e2e_workflow_id" != "epic" ]; then
  _wt_branch=$(yoke items get {N} worktree 2>/dev/null) || true
  if [ -n "$_wt_branch" ] && [ -d "$_e2e_repo/.worktrees/$_wt_branch" ]; then
  _e2e_dir="$_e2e_repo/.worktrees/$_wt_branch"

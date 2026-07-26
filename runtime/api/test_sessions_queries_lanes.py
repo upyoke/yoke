@@ -29,9 +29,9 @@ class TestSessionOfferLanes:
         # Add a second runnable item
         conn.execute(
             """INSERT INTO items
-               (id, title, type, status, priority, project_id,
+               (id, title, workflow_id, workflow_version_id, status, priority, project_id,
                 project_sequence, created_at, updated_at, source, frozen)
-               VALUES (101, 'Second item', 'issue', 'refined-idea', 'high',
+               VALUES (101, 'Second item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'refined-idea', 'high',
                        1, 101, '2026-03-01', '2026-03-01', 'user', 0)"""
         )
         conn.commit()
@@ -72,9 +72,9 @@ class TestSessionOfferLanes:
         )
         conn.execute(
             """INSERT INTO items
-               (id, title, type, status, priority, project_id,
+               (id, title, workflow_id, workflow_version_id, status, priority, project_id,
                 project_sequence, created_at, updated_at, source, frozen, spec)
-               VALUES (101, 'Compatible refine item', 'issue', 'idea', 'high',
+               VALUES (101, 'Compatible refine item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'high',
                        1, 101, '2026-03-01', '2026-03-01', 'user', 0,
                        '# Compatible refine item\n\nFixture spec body for lane tests.')"""
         )
@@ -306,9 +306,9 @@ class TestSessionOfferLanes:
         )
         conn.execute(
             """INSERT INTO items
-               (id, title, type, status, priority, project_id,
+               (id, title, workflow_id, workflow_version_id, status, priority, project_id,
                 project_sequence, created_at, updated_at, source, frozen, spec)
-               VALUES (101, 'Compatible refine item', 'issue', 'idea', 'high',
+               VALUES (101, 'Compatible refine item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'high',
                        1, 101, '2026-03-01', '2026-03-01', 'user', 0,
                        '# Compatible refine item\n\nFixture spec body for lane tests.')"""
         )

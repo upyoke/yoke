@@ -28,11 +28,15 @@ def seeded(test_db):
 
 
 def _insert_item(conn, item_id: int, project_id: int, seq: int) -> None:
+    from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
+
+    workflow_id, workflow_version_id = resolve_current_workflow_pin(conn, "issue")
     conn.execute(
-        "INSERT INTO items (id, title, created_at, updated_at, project_id, "
-        "project_sequence) VALUES (%s, 't', '2026-01-01T00:00:00Z', "
+        "INSERT INTO items (id, title, workflow_id, workflow_version_id, "
+        "status, created_at, updated_at, project_id, project_sequence) "
+        "VALUES (%s, 't', %s, %s, 'idea', '2026-01-01T00:00:00Z', "
         "'2026-01-01T00:00:00Z', %s, %s)",
-        (item_id, project_id, seq),
+        (item_id, workflow_id, workflow_version_id, project_id, seq),
     )
 
 

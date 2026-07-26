@@ -38,7 +38,7 @@ def insert_item(
     project: str = "yoke",
     frozen: int = 0,
     created_at: str = "2026-01-01T00:00:00Z",
-    item_type: str = "issue",
+    workflow: str = "issue",
     spec: str | None = None,
 ) -> None:
     from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
@@ -54,15 +54,15 @@ def insert_item(
     project_id = int(project) if str(project).isdigit() else PROJECT_IDS.get(project, 1)
     workflow_id, workflow_version_id = resolve_current_workflow_pin(
         conn,
-        item_type,
+        workflow,
     )
     conn.execute(
-        "INSERT INTO items (id, title, type, status, priority, "
+        "INSERT INTO items (id, title, status, priority, "
         "project_id, project_sequence, frozen, created_at, updated_at, spec, "
         "workflow_id, workflow_version_id) "
-        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
         (
-            item_id, title, item_type, status, priority,
+            item_id, title, status, priority,
             project_id, item_id, frozen,
             created_at, created_at, spec, workflow_id, workflow_version_id,
         ),

@@ -4,17 +4,11 @@ Item-level and epic-task-level status lifecycles, with valid transitions, deriva
 
 ## Item Status Lifecycle (items table)
 
-Two progressions exist, selected by item type:
-
-**Issue-workflow-type progression:**
-```
-idea → refining-idea → refined-idea → implementing → reviewing-implementation → reviewed-implementation → polishing-implementation → implemented → release → done
-```
-
-**Epic progression:**
-```
-idea → refining-idea → refined-idea → planning → plan-drafted → refining-plan → planned → implementing → reviewing-implementation → reviewed-implementation → polishing-implementation → implemented → release → done
-```
+Every item pins `workflow_id` and `workflow_version_id`. The immutable
+definition owns its ordered stages, terminal stages, gates, policies, and
+registered executor bindings. Read the authoritative definitions with
+`yoke workflows definition get`; do not reconstruct stage tables from this
+reference.
 
 An item can also be set to `cancelled`, `stopped`, or `failed` at any point.
 
@@ -37,13 +31,18 @@ An item can also be set to `cancelled`, `stopped`, or `failed` at any point.
 | `done` | Deployment run succeeded and all blocking QA satisfied (or no deployment flow). | Done section |
 | `cancelled` | Abandoned. Not shown on board by default. | Not displayed |
 
-**Transition enforcement:** `yoke lifecycle transition` validates that the status value is one of the canonical set before routing the state change. The schema init CLI schema includes a CHECK constraint on the `items.status` column. The `yoke_core.engines.done_transition` script handles the tail of the lifecycle with automated side effects (GitHub label swaps, issue closure, board rebuild).
+**Transition enforcement:** `yoke lifecycle transition` loads the item's pinned
+definition, verifies stage membership and forward order, invokes the
+definition-owned gates, and dispatches registered policy behavior. The
+`yoke_core.engines.done_transition` script handles the delivery tail selected
+by that policy.
 
 **Shepherd gates:** Certain transitions require Shepherd approval before advancing: `refined_idea_to_planning` (epics) and `planning_to_plan_drafted`. The Shepherd records verdicts in the `shepherd_verdicts` table. The `idea` to `refined-idea` transition is handled by `/yoke refine`, not shepherd.
 
 ## Epic Task Status Lifecycle (epic_tasks table)
 
-Epic tasks use the implementation-family vocabulary aligned with the epic-workflow-type lifecycle. The canonical status values are:
+Epic task rows use the implementation-family vocabulary selected by the Epic
+workflow's task-graph policy. The canonical task status values are:
 
 ### Lifecycle Diagram
 

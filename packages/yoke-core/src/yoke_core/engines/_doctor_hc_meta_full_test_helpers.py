@@ -50,7 +50,8 @@ def _iso_minutes_ago(minutes: int) -> str:
 _MAKE_CONN_DDL = """
         CREATE TABLE items (
             id INTEGER PRIMARY KEY,
-            title TEXT, type TEXT, status TEXT, priority TEXT, flow TEXT,
+            title TEXT, workflow_id TEXT, workflow_version_id INTEGER,
+            status TEXT, priority TEXT, flow TEXT,
             rework_count INTEGER, frozen INTEGER,
             blocked INTEGER DEFAULT 0, blocked_reason TEXT,
             github_issue TEXT, deployed_to TEXT, worktree TEXT,
@@ -189,6 +190,11 @@ def _make_conn():
     os.environ[db_backend.PG_DSN_ENV] = new_dsn
     conn = db_backend.connect()
     apply_fixture_ddl(conn, _MAKE_CONN_DDL)
+    from yoke_core.domain.workflow_registry import converge_builtin_workflows
+    from yoke_core.domain.workflow_schema import ensure_workflow_schema
+
+    ensure_workflow_schema(conn)
+    converge_builtin_workflows(conn)
 
     _base_close = conn.close
 

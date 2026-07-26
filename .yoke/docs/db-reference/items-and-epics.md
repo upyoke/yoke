@@ -4,9 +4,15 @@ Schemas for backlog items, epic tasks, and the supporting shepherd / caveat / de
 
 ## Backlog ontology
 
-Backlog items are flat rows in `items` — there is no parent-child column or table relating one item to another. An epic is just an item whose `type='epic'`. Standalone issues are not child rows of any epic; epic decomposition lives in the separate `epic_tasks` table.
+Backlog items are flat rows in `items` — there is no parent-child column or
+table relating one item to another. An Epic item pins
+`workflow_id='epic'`; its task decomposition lives in the separate
+`epic_tasks` table.
 
-Epic tasks are keyed by `(epic_id, task_num)`. The `epic_id` foreign key IS the epic item's own numeric `items.id` — for an epic item, `epic_tasks.epic_id` and the epic's `items.id` are the same value. There is no parent-link column on `items`. Resolve an epic backlog item by `id` (with `type='epic'` for safety); resolve its task rows through `epic_tasks.epic_id`.
+Epic tasks are keyed by `(epic_id, task_num)`. The `epic_id` foreign key IS
+the Epic item's own numeric `items.id`. There is no parent-link column on
+`items`. Resolve the backlog item by `id` and verify its immutable workflow
+pin; resolve its task rows through `epic_tasks.epic_id`.
 
 When an epic is synced to GitHub, sync may create one parent issue plus one task issue per `epic_tasks` row. That GitHub-side parent issue is metadata for `epic_tasks` sync, not a relationship in `items`.
 
@@ -15,8 +21,10 @@ When an epic is synced to GitHub, sync may create one parent issue plus one task
 ```sql
 id INTEGER PRIMARY KEY
 title TEXT NOT NULL -- max 100 chars (enforced by the backlog service)
-type TEXT NOT NULL DEFAULT 'issue' -- epic | issue
-status TEXT NOT NULL DEFAULT 'idea' -- Epic: idea|refining-idea|refined-idea|planning|plan-drafted|refining-plan|planned|implementing|reviewing-implementation|reviewed-implementation|polishing-implementation|implemented|release|done + Issue-workflow-type: idea|refining-idea|refined-idea|implementing|reviewing-implementation|reviewed-implementation|polishing-implementation|implemented|release|done + Exceptional: cancelled|blocked|stopped|failed
+workflow_id TEXT NOT NULL REFERENCES workflows(id)
+workflow_version_id INTEGER NOT NULL REFERENCES workflow_versions(id)
+workflow_posture TEXT NOT NULL DEFAULT '{}'
+status TEXT NOT NULL -- current stage in the pinned definition
 priority TEXT NOT NULL DEFAULT 'medium' -- high|medium|low
 flow TEXT DEFAULT 'accelerated'
 rework_count INTEGER DEFAULT 0
@@ -51,7 +59,10 @@ resolution_ref TEXT -- reference for resolution (e.g., duplicate item ID)
 resolution_comment TEXT -- free-text resolution notes
 ```
 
-> **Status enum note:** Two progressions exist, selected by item type. **Issue-workflow-type:** `idea|refining-idea|refined-idea|implementing|reviewing-implementation|reviewed-implementation|polishing-implementation|implemented|release|done`. **Epic:** `idea|refining-idea|refined-idea|planning|plan-drafted|refining-plan|planned|implementing|reviewing-implementation|reviewed-implementation|polishing-implementation|implemented|release|done`. Exceptional states (`cancelled|stopped|failed`) are reachable from multiple points in both progressions.
+> **Stage authority:** The immutable workflow version owns ordered stages,
+> terminal stages, gates, policies, and executor bindings. Read it with
+> `yoke workflows definition get`; transition code loads the item's explicit
+> version pin rather than a status table in this document.
 
 **Structured-field CLI examples** (body renders on next read):
 

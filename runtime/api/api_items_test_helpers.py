@@ -142,11 +142,14 @@ def _seed_rows(conn) -> None:
     for row in _SEED_ITEMS:
         conn.execute(
             f"""INSERT INTO items
-               (id, title, type, status, priority, project_id, project_sequence,
+               (id, title, workflow_id, workflow_version_id, status, priority,
+                project_id, project_sequence,
                 created_at, updated_at, source, deploy_stage, deployment_flow)
-               VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p},
+               VALUES ({p}, {p}, {p},
+                       (SELECT current_version_id FROM workflows WHERE id = {p}),
+                       {p}, {p}, {p}, {p},
                        '2026-03-01T00:00:00Z', {p}, 'user', {p}, {p})""",
-            (row[0], row[1], row[2], row[3], row[4], _project_id(row[5]),
+            (row[0], row[1], row[2], row[2], row[3], row[4], _project_id(row[5]),
              row[0], row[6], row[7], row[8]),
         )
     _test_flow_stages = json.dumps([
@@ -194,22 +197,12 @@ def _apply_schema_and_seed() -> None:
         apply_fixture_ddl(conn, _SCHEMA_DDL)
         from yoke_core.domain.workflow_registry import (
             converge_builtin_workflows,
-            resolve_current_workflow_pin,
         )
         from yoke_core.domain.workflow_schema import ensure_workflow_schema
 
         ensure_workflow_schema(conn)
         converge_builtin_workflows(conn)
         _seed_rows(conn)
-        for workflow_id in ("issue", "epic"):
-            resolved_id, version_id = resolve_current_workflow_pin(
-                conn, workflow_id,
-            )
-            conn.execute(
-                "UPDATE items SET workflow_id = %s, workflow_version_id = %s "
-                "WHERE type = %s",
-                (resolved_id, version_id, workflow_id),
-            )
         _sync_postgres_sequences(conn)
         conn.commit()
     finally:

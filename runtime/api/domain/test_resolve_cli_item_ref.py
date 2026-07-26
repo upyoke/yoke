@@ -23,6 +23,7 @@ from yoke_core.domain.project_identity_item_ref import (
     resolve_cli_item_ref,
 )
 from yoke_core.domain.project_seed_test_helpers import seed_project_identities
+from runtime.api.fixtures.backlog import insert_item
 
 YOKE_ITEM_ID = 100
 EXT_ITEM_ID = 200
@@ -39,13 +40,15 @@ def conn(test_db):
     c.execute("UPDATE projects SET public_item_prefix = 'EXT' WHERE slug = 'externalwebapp'")
     c.execute("UPDATE projects SET public_item_prefix = 'YOK' WHERE slug = 'yoke'")
     for item_id, project_id in ((YOKE_ITEM_ID, 1), (EXT_ITEM_ID, 2)):
-        c.execute(
-            "INSERT INTO items (id, title, created_at, updated_at, project_id, "
-            "project_sequence) VALUES (%s, 't', '2026-01-01T00:00:00Z', "
-            "'2026-01-01T00:00:00Z', %s, %s)",
-            (item_id, project_id, SEQ),
+        insert_item(
+            c,
+            id=item_id,
+            title="t",
+            project_id=project_id,
+            project_sequence=SEQ,
+            created_at="2026-01-01T00:00:00Z",
+            updated_at="2026-01-01T00:00:00Z",
         )
-    c.commit()
     return c
 
 

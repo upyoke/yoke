@@ -20,7 +20,7 @@ from typing import Dict
 
 
 _EXPECTED_SCHEMA_STR = (
-    "items:id/INTEGER,title/TEXT,type/TEXT,status/TEXT,priority/TEXT,flow/TEXT,"
+    "items:id/INTEGER,title/TEXT,status/TEXT,priority/TEXT,flow/TEXT,"
     "rework_count/INTEGER,frozen/INTEGER,github_issue/TEXT,deployed_to/TEXT,"
     "worktree/TEXT,merged_at/TEXT,created_at/TEXT,updated_at/TEXT,source/TEXT,"
     "project_id/INTEGER,project_sequence/INTEGER,deployment_flow/TEXT,deploy_stage/TEXT,spec/TEXT,design_spec/TEXT,"
@@ -29,7 +29,8 @@ _EXPECTED_SCHEMA_STR = (
     "resolution/TEXT,resolution_ref/TEXT,resolution_comment/TEXT,"
     "browser_qa_metadata/TEXT,db_mutation_profile/TEXT,"
     "db_compatibility_attestation/TEXT,owner/TEXT,blocked/INTEGER,"
-    "blocked_reason/TEXT,architecture_impact/TEXT,"
+    "blocked_reason/TEXT,architecture_impact/TEXT,workflow_id/TEXT,"
+    "workflow_version_id/INTEGER,workflow_posture/TEXT,"
     "github_body_compact_pending/TEXT"
     "|shepherd_verdicts:id/INTEGER,item/TEXT,transition/TEXT,worker/TEXT,verdict/TEXT,"
     "caveats/TEXT,attempt/INTEGER,created_at/TEXT"

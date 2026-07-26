@@ -145,7 +145,7 @@ class TestParseArgs:
 
 class TestHCBlockedItems:
     def test_pass_no_blocked(self, conn):
-        conn.execute("INSERT INTO items (id, title, type, status, priority) VALUES (1, 'T', 'issue', 'idea', 'low')")
+        conn.execute("INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority) VALUES (1, 'T', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'low')")
         rec = RecordCollector()
         hc_blocked_items(conn, _default_args(), rec)
         assert _get_result(rec, "HC-blocked-items").result == "PASS"
@@ -154,8 +154,8 @@ class TestHCBlockedItems:
         # HC-blocked-items now ages flag-driven blocks.
         p = _p(conn)
         conn.execute(
-            "INSERT INTO items (id, title, type, status, priority, updated_at, blocked, blocked_reason) "
-            f"VALUES (1, 'T', 'issue', 'implementing', 'low', {p}, 1, 'paused')",
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, updated_at, blocked, blocked_reason) "
+            f"VALUES (1, 'T', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'low', {p}, 1, 'paused')",
             (_iso_offset(days=-3),),
         )
         rec = RecordCollector()
@@ -167,8 +167,8 @@ class TestHCBlockedItems:
         # HC-blocked-items now ages flag-driven blocks.
         p = _p(conn)
         conn.execute(
-            "INSERT INTO items (id, title, type, status, priority, updated_at, blocked, blocked_reason) "
-            f"VALUES (1, 'T', 'issue', 'implementing', 'low', {p}, 1, 'paused')",
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, updated_at, blocked, blocked_reason) "
+            f"VALUES (1, 'T', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'low', {p}, 1, 'paused')",
             (_iso_offset(days=-45),),
         )
         rec = RecordCollector()
@@ -186,8 +186,8 @@ class TestHCDispatchChain:
 
     def test_fail_epic_no_tasks(self, conn):
         conn.execute(
-            "INSERT INTO items (id, title, type, status, priority) "
-            "VALUES (5, 'E', 'epic', 'implementing', 'high')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority) "
+            "VALUES (5, 'E', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'implementing', 'high')"
         )
         rec = RecordCollector()
         hc_dispatch_chain(conn, _default_args(), rec)
@@ -199,8 +199,8 @@ class TestHCDispatchChain:
         # refined-idea epics legitimately have no epic_tasks rows; shepherd
         # populates them on the refined-idea -> planning transition.
         conn.execute(
-            "INSERT INTO items (id, title, type, status, priority) "
-            "VALUES (6, 'E', 'epic', 'refined-idea', 'high')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority) "
+            "VALUES (6, 'E', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'refined-idea', 'high')"
         )
         rec = RecordCollector()
         hc_dispatch_chain(conn, _default_args(), rec)
@@ -211,8 +211,8 @@ class TestHCDispatchChain:
 class TestHCBacklogHygiene:
     def test_pass_complete(self, conn):
         conn.execute(
-            "INSERT INTO items (id, title, type, status, priority) "
-            "VALUES (1, 'Good', 'issue', 'idea', 'low')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority) "
+            "VALUES (1, 'Good', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'low')"
         )
         rec = RecordCollector()
         hc_backlog_hygiene(conn, _default_args(), rec)
@@ -220,8 +220,8 @@ class TestHCBacklogHygiene:
 
     def test_warn_missing_priority(self, conn):
         conn.execute(
-            "INSERT INTO items (id, title, type, status) "
-            "VALUES (1, 'NoPri', 'issue', 'idea')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status) "
+            "VALUES (1, 'NoPri', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea')"
         )
         rec = RecordCollector()
         hc_backlog_hygiene(conn, _default_args(), rec)
@@ -233,28 +233,28 @@ class TestHCBacklogHygiene:
 class TestHCFrontmatterSchema:
     def test_pass_valid(self, conn):
         conn.execute(
-            "INSERT INTO items (id, title, type, status, priority, github_issue, flow) "
-            "VALUES (1, 'OK', 'issue', 'idea', 'low', '#42', 'full')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, github_issue, flow) "
+            "VALUES (1, 'OK', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'low', '#42', 'full')"
         )
         rec = RecordCollector()
         hc_frontmatter_schema(conn, _default_args(), rec)
         assert _get_result(rec, "HC-frontmatter-schema").result == "PASS"
 
-    def test_warn_invalid_type(self, conn):
+    def test_warn_invalid_workflow_stage(self, conn):
         conn.execute(
-            "INSERT INTO items (id, title, type, status, priority) "
-            "VALUES (1, 'Bad', 'task', 'idea', 'low')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority) "
+            "VALUES (1, 'Bad', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'not-a-stage', 'low')"
         )
         rec = RecordCollector()
         hc_frontmatter_schema(conn, _default_args(), rec)
         r = _get_result(rec, "HC-frontmatter-schema")
         assert r.result == "WARN"
-        assert "invalid type" in r.detail
+        assert "invalid workflow stage" in r.detail
 
     def test_warn_bad_github_issue(self, conn):
         conn.execute(
-            "INSERT INTO items (id, title, type, status, priority, github_issue) "
-            "VALUES (1, 'Bad', 'issue', 'idea', 'low', 'abc')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, github_issue) "
+            "VALUES (1, 'Bad', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'low', 'abc')"
         )
         rec = RecordCollector()
         hc_frontmatter_schema(conn, _default_args(), rec)
@@ -264,8 +264,8 @@ class TestHCFrontmatterSchema:
 
     def test_pass_accelerated_frontmatter_flow(self, conn):
         conn.execute(
-            "INSERT INTO items (id, title, type, status, priority, github_issue, flow) "
-            "VALUES (1, 'OK', 'issue', 'idea', 'low', '#42', 'accelerated')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, github_issue, flow) "
+            "VALUES (1, 'OK', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'low', '#42', 'accelerated')"
         )
         rec = RecordCollector()
         hc_frontmatter_schema(conn, _default_args(), rec)
@@ -276,8 +276,8 @@ class TestHCFrontmatterSchema:
         # Deployment pipeline ids belong in deployment_flow, not the legacy
         # frontmatter flow/speed column.
         conn.execute(
-            "INSERT INTO items (id, title, type, status, priority, flow) "
-            "VALUES (1, 'Bad', 'issue', 'idea', 'low', 'yoke-internal')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, flow) "
+            "VALUES (1, 'Bad', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'low', 'yoke-internal')"
         )
         rec = RecordCollector()
         hc_frontmatter_schema(conn, _default_args(), rec)
@@ -289,8 +289,8 @@ class TestHCFrontmatterSchema:
 class TestHCTitleLength:
     def test_pass_short_title(self, conn):
         conn.execute(
-            "INSERT INTO items (id, title, type, status, priority) "
-            "VALUES (1, 'Short', 'issue', 'idea', 'low')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority) "
+            "VALUES (1, 'Short', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'low')"
         )
         rec = RecordCollector()
         hc_title_length(conn, _default_args(), rec)
@@ -300,8 +300,8 @@ class TestHCTitleLength:
         long_title = "A" * 120
         p = _p(conn)
         conn.execute(
-            "INSERT INTO items (id, title, type, status, priority) "
-            f"VALUES (1, {p}, 'issue', 'idea', 'low')",
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority) "
+            f"VALUES (1, {p}, 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'low')",
             (long_title,),
         )
         rec = RecordCollector()

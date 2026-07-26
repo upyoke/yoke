@@ -1,8 +1,7 @@
 """``yoke workflows definition get`` adapter (read-only workflow definition).
 
-Serves the engine's workflow definition — family, per-type status
-progressions, the gate families evaluated at each status, and the
-deployment flows (optionally scoped to one project).
+Serves the registry's current immutable workflow definitions, gate placements,
+and deployment flows (optionally scoped to one project).
 """
 
 from __future__ import annotations
@@ -41,15 +40,44 @@ def workflows_definition_get(args: List[str]) -> int:
     def _human_writer(response, stdout, stderr) -> None:
         result = response.result or {}
         print(f"family|{result.get('family') or ''}", file=stdout)
-        for type_row in result.get("types") or []:
-            stages = ",".join(type_row.get("stages") or [])
-            print(f"type|{type_row.get('type')}|{stages}", file=stdout)
-            for gate in type_row.get("gates") or []:
-                print(
-                    f"gate|{type_row.get('type')}"
-                    f"|{gate.get('at_status')}|{gate.get('gate')}",
-                    file=stdout,
-                )
+        for workflow in result.get("workflows") or []:
+            definition = workflow.get("definition") or {}
+            stages = ",".join(
+                str(stage.get("id") or "")
+                for stage in definition.get("stages") or []
+            )
+            print(
+                "workflow|" + "|".join(
+                    str(value or "")
+                    for value in (
+                        workflow.get("id"),
+                        workflow.get("current_version"),
+                        workflow.get("current_version_id"),
+                        workflow.get("status"),
+                        stages,
+                    )
+                ),
+                file=stdout,
+            )
+            for stage in definition.get("stages") or []:
+                for gate in stage.get("gates") or []:
+                    print(
+                        f"gate|{workflow.get('id')}"
+                        f"|{stage.get('id')}|{gate.get('id')}",
+                        file=stdout,
+                    )
+        for gate in result.get("gate_catalog") or []:
+            print(
+                "catalog-gate|" + "|".join(
+                    str(value or "")
+                    for value in (
+                        gate.get("id"),
+                        gate.get("owner"),
+                        gate.get("description"),
+                    )
+                ),
+                file=stdout,
+            )
         for flow in result.get("flows") or []:
             stage_names = ",".join(flow.get("stage_names") or [])
             print(

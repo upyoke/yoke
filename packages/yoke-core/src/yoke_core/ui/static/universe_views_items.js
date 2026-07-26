@@ -26,8 +26,8 @@ export function renderItemsView(context, main, scope) {
     projects.map((row) => [String(row.slug), String(row.id)]),
   );
   const fields = [
-    "id", "title", "type", "status", "priority", "blocked",
-    "blocked_reason", "project",
+    "id", "title", "workflow_id", "workflow_version_id", "status",
+    "priority", "blocked", "blocked_reason", "project",
   ];
   // A row's drill-in carries the row's own project: at exactly one project
   // the scope id is that project; otherwise the roster maps the served slug
@@ -58,7 +58,8 @@ export function renderItemsView(context, main, scope) {
       );
       renderTable(body, rows, withProjectColumn([
         { label: "id", value: (row) => row.id },
-        { label: "type", value: (row) => row.type },
+        { label: "workflow", value: (row) => row.workflow_id },
+        { label: "version", value: (row) => row.workflow_version_id },
         { label: "title", value: (row) => row.title },
         { label: "status", value: (row) => row.status, pill: true },
         { label: "priority", value: (row) => row.priority },
@@ -74,7 +75,7 @@ export function renderItemsView(context, main, scope) {
   );
 }
 
-// One item, whichever workflow type it is. `body` is a virtual field the
+// One item, whichever workflow it uses. `body` is a virtual field the
 // engine renders on demand from the item's structured fields.
 export function renderItemDetailView(context, main, projectId, itemRef) {
   const documentNode = context.document;
@@ -90,7 +91,9 @@ export function renderItemDetailView(context, main, projectId, itemRef) {
       // swaps the column-header table dress for label/value cell rules.
       const summary = el(documentNode, "table", "items kv");
       for (const [label, value] of [
-        ["type", fields.type], ["status", fields.status],
+        ["workflow", fields.workflow_id],
+        ["workflow version", fields.workflow_version_id],
+        ["status", fields.status],
         ["priority", fields.priority], ["flow", fields.flow],
         ["project", fields.project], ["created", fields.created_at],
       ]) {
@@ -113,7 +116,7 @@ export function renderItemDetailView(context, main, projectId, itemRef) {
       ));
 
       // An epic's tasks are its own decomposition, so they live on the epic.
-      if (fields.type === "epic") {
+      if (fields.workflow_id === "epic") {
         const tasks = section(documentNode, "Tasks");
         main.appendChild(tasks);
         loadSection(

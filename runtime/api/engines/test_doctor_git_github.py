@@ -154,8 +154,8 @@ class TestHcOrphanedGhIssues:
         conn = _make_conn()
         _seed_project(conn, "yoke", github_repo="upyoke/yoke")
         conn.execute(
-            "INSERT INTO items (id, title, type, status, github_issue) "
-            "VALUES (1, 'Test', 'issue', 'idea', '#100')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, github_issue) "
+            "VALUES (1, 'Test', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', '#100')"
         )
         mock_rest.return_value = _make_completed(stdout="100\n")
         rec = _run_hc(hc_orphaned_gh_issues, conn)

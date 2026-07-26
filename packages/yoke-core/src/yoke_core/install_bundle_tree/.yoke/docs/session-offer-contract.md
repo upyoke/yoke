@@ -159,7 +159,7 @@ The core returns a `NextAction` telling the session what to do next.
 | Value | Meaning | Chainable |
 |-------|---------|-----------|
 | `resume` | Continue work on an existing in-progress item the session was previously working on. | Yes |
-| `charge` | Pick up a new item from the frontier and begin work. The `context.scheduler` field carries type-aware next-step routing (`refine`, `shepherd`, `conduct`, `polish`, `usher`). | Yes |
+| `charge` | Pick up a new item from the frontier and begin work. The `context.scheduler` field carries the pinned workflow's registered next executor. | Yes |
 | `feed` | Materialize new work from the Strategic Markdown Layer (SML-to-idea materialization plus frontier-fact refresh). | No |
 | `strategize` | Perform guided Strategic Markdown Layer review when the SML is absent, stale, or incoherent. | No |
 | `wait` | No actionable work right now; session should wait and re-offer later. | No |

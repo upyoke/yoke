@@ -45,9 +45,9 @@ def _seed_db_with_done_ticket(path: str) -> None:
         conn.execute("DELETE FROM items WHERE id = %s", (100,))
         conn.execute(
             """INSERT INTO items
-               (id, title, type, status, priority, created_at, updated_at,
+               (id, title, workflow_id, workflow_version_id, status, priority, created_at, updated_at,
                 project_id, project_sequence)
-               VALUES (%s, %s, 'issue', %s, 'medium', %s, %s, 1, %s)""",
+               VALUES (%s, %s, 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), %s, 'medium', %s, %s, 1, %s)""",
             (100, "Historical cruft witness", "done", now, now, 100),
         )
         conn.commit()

@@ -51,9 +51,9 @@ class TestUpdateItem:
         conn = connect_test_db(test_db["db_path"])
         conn.execute(
             """INSERT INTO items
-               (id, title, type, status, priority, project_id, project_sequence,
+               (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
                 created_at, updated_at, source, deploy_stage)
-               VALUES (6, 'In-flight epic', 'epic', 'planned', 'medium', 1, 6,
+               VALUES (6, 'In-flight epic', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'planned', 'medium', 1, 6,
                        '2026-03-01T00:00:00Z', '2026-03-02T00:00:00Z', 'user', NULL)"""
         )
         conn.commit()
@@ -114,9 +114,9 @@ class TestUpdateItem:
         conn = connect_test_db(test_db["db_path"])
         conn.execute(
             """INSERT INTO items
-               (id, title, type, status, priority, project_id, project_sequence, rework_count,
+               (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence, rework_count,
                 created_at, updated_at, source, deploy_stage)
-               VALUES (7, 'Reopened issue', 'issue', 'done', 'medium', 1, 7, 0,
+               VALUES (7, 'Reopened issue', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'done', 'medium', 1, 7, 0,
                        '2026-03-01T00:00:00Z', '2026-03-02T00:00:00Z', 'user', NULL)"""
         )
         conn.commit()

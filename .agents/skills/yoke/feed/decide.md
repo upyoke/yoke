@@ -4,7 +4,8 @@ Determine the best action based on the gathered context. This phase is pure anal
 
 ## Inputs (from the Gather stage)
 
-- **Frontier items**: All non-terminal items with id, title, status, type, priority
+- **Frontier items**: All non-terminal items with id, title, status, pinned
+  workflow, and priority
 - **Target item context**: Body/spec/design_spec/technical_plan/worktree_plan/shepherd_caveats for each target item
 - **Dependency graph**: All dependency edges for frontier items, with source attribution
 - **SML content**: Full text of MISSION.md, LANDSCAPE.md, VISION.md, MASTER-PLAN.md

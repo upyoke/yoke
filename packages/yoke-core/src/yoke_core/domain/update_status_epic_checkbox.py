@@ -147,7 +147,7 @@ def _update_epic_checkbox(
         item_fields={
             "title": f"epic {epic_id}",
             "status": "implementing",
-            "type": "epic",
+            "workflow_id": "epic",
             "project": project,
         },
         conn=conn,

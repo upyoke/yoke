@@ -47,6 +47,15 @@ def _insert_item(
     keeps them in lockstep going forward.
     """
     owner_value = owner if owner is not None else source
+    if workflow_id is None or workflow_version_id is None:
+        from yoke_core.domain.workflow_registry import (
+            resolve_current_workflow_pin,
+        )
+
+        workflow_id, workflow_version_id = resolve_current_workflow_pin(
+            conn,
+            workflow_id or "issue",
+        )
     conn.execute(
         """INSERT INTO items (
             id, title, status, priority, flow,

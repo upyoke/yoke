@@ -36,13 +36,14 @@ Skip this section entirely when `_no_new_tickets` is true and the run is truly g
 Get all non-terminal items (everything except `done`, `cancelled`, `stopped`, `failed`):
 
 ```bash
-yoke items list --project "$_project" --fields "id,title,status,type,priority"
+yoke items list --project "$_project" --fields "id,title,status,workflow_id,workflow_version_id,priority"
 ```
 
 The status filter accepts one value per call, so list the project's items
 and keep only rows whose `status` is non-terminal (drop `done`,
 `cancelled`, `stopped`, `failed`). This produces the full frontier item
-list. Record every item's `id`, `title`, `status`, `type`, and `priority`.
+list. Record every item's `id`, `title`, `status`, `workflow_id`,
+`workflow_version_id`, and `priority`.
 
 Derive `_target_items`:
 - if `_scope_ids` is non-empty, filter the frontier list to those IDs and fail clearly if any requested item is missing
@@ -135,7 +136,8 @@ Re-examine `MASTER-PLAN.md` specifically for generation/wave structure:
 After this phase, the following context is available for subsequent phases:
 
 - **SML content**: Full text of the required SML files when materialization analysis is in scope
-- **Frontier items**: List of all non-terminal items with id, title, status, type, priority
+- **Frontier items**: List of all non-terminal items with id, title, status,
+  pinned workflow, and priority
 - **Target item context**: Body/spec/design_spec/technical_plan/worktree_plan/shepherd_caveats for every target item
 - **Dependency graph**: All dependency edges for target items, with source attribution
 - **Recent landed change report**: Recent commits plus diff-stat summaries of what actually changed

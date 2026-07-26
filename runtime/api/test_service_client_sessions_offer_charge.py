@@ -168,9 +168,9 @@ class TestSessionOfferCharge:
             if seed_item:
                 conn.execute(
                     """INSERT INTO items
-                       (id, title, type, status, priority, project_id, project_sequence,
+                       (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
                         created_at, updated_at, source, frozen)
-                       VALUES (%s, %s, 'issue', %s, 'medium', 1, %s,
+                       VALUES (%s, %s, 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), %s, 'medium', 1, %s,
                                %s, %s, 'user', 0)""",
                     (item_id, f"Resumable {item_id}", status, item_id, now, now),
                 )

@@ -169,7 +169,7 @@ resolution-marking step (finalize.md).
 For in-flight epics, read task titles to understand what is currently being built:
 
 ```bash
-_active_epics=$(yoke db read --format lines "SELECT id, title FROM items WHERE project_id = ${_project_id} AND status NOT IN ('idea','done','cancelled','failed','stopped') AND type = 'epic'")
+_active_epics=$(yoke db read --format lines "SELECT id, title FROM items WHERE project_id = ${_project_id} AND status NOT IN ('idea','done','cancelled','failed','stopped') AND workflow_id = 'epic'")
 ```
 
 For each active epic, list its tasks:

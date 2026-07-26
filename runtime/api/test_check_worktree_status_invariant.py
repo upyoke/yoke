@@ -44,9 +44,9 @@ def seeded_db(tmp_path):
                 conn.execute(
                     """
                     INSERT INTO items
-                        (id, title, type, status, priority, project_id,
+                        (id, title, workflow_id, workflow_version_id, status, priority, project_id,
                          project_sequence, created_at, updated_at, source)
-                    VALUES (%s, %s, 'issue', %s, 'medium', 1, %s, %s, %s, 'test')
+                    VALUES (%s, %s, 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), %s, 'medium', 1, %s, %s, %s, 'test')
                     """,
                     (row[0], row[1], row[2], row[0], row[3], row[4]),
                 )

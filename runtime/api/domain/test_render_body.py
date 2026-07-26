@@ -123,8 +123,7 @@ class TestRenderItem:
     def test_epic_progress_notes_render_into_epic_body(self, tmp_path: Path) -> None:
         with _init_db(tmp_path) as db_path:
             conn = _connect(db_path)
-            _seed_item(conn, 12, "Epic item")
-            conn.execute("UPDATE items SET type = 'epic' WHERE id = 12")
+            _seed_item(conn, 12, "Epic item", workflow="epic")
             conn.execute(
                 "INSERT INTO epic_tasks (epic_id, task_num, title, status) VALUES (12, 1, 'Task one', 'implementing')"
             )

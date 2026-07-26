@@ -71,13 +71,20 @@ def _insert_item(
     status: str,
     item_type: str = "issue",
 ) -> None:
+    from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
+
+    workflow_id, workflow_version_id = resolve_current_workflow_pin(
+        conn, item_type,
+    )
     conn.execute(
         "INSERT INTO items "
-        "(id, title, type, status, priority, created_at, updated_at, "
+        "(id, title, workflow_id, workflow_version_id, status, priority, created_at, updated_at, "
         "project_id, project_sequence) "
-        "VALUES (%s, %s, %s, %s, 'medium', "
+        "VALUES (%s, %s, %s, %s, %s, 'medium', "
         "'2026-05-13T00:00:00Z', '2026-05-13T00:00:00Z', 1, %s)",
-        (item_id, title, item_type, status, item_id),
+        (
+            item_id, title, workflow_id, workflow_version_id, status, item_id,
+        ),
     )
     conn.commit()
 

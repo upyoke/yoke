@@ -1,9 +1,7 @@
 # Yoke GitHub label color policy.
 # Format: label_color_*=HEX
 
-# Type labels
-label_color_type_epic=5319E7
-label_color_type_issue=1D76DB
+# Task labels
 label_color_type_task=0E8A16
 label_color_type_integration_fix=D93F0B
 
@@ -14,6 +12,7 @@ label_color_priority_low=0E8A16
 
 # Generic dynamic label families
 label_color_status=C5DEF5
+label_color_workflow=5319E7
 label_color_source=0E8A16
 label_color_owner=BFD4F2
 label_color_worktree=D4C5F9

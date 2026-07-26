@@ -49,8 +49,8 @@ class TestWorktreeHealth:
         ]
         conn = _make_conn()
         conn.execute(
-            "INSERT INTO items (id, title, type, status) "
-            "VALUES (10, 'Done item', 'issue', 'done')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status) "
+            "VALUES (10, 'Done item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'done')"
         )
         with patch.object(Path, "is_dir", return_value=False):
             rec = _run_hc(hc_worktree_health, conn)
@@ -72,8 +72,8 @@ class TestWorktreeHealth:
         ]
         conn = _make_conn()
         conn.execute(
-            "INSERT INTO items (id, title, type, status) "
-            "VALUES (20, 'Done item', 'issue', 'done')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status) "
+            "VALUES (20, 'Done item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'done')"
         )
         with patch.object(Path, "is_dir", return_value=False):
             rec = _run_hc(hc_worktree_health, conn)
@@ -98,8 +98,8 @@ class TestWorktreeHealth:
         ]
         conn = _make_conn()
         conn.execute(
-            "INSERT INTO items (id, title, type, status) "
-            "VALUES (42, 'Active item', 'issue', 'implementing')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status) "
+            "VALUES (42, 'Active item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing')"
         )
         with patch.object(Path, "is_dir", return_value=True):
             rec = _run_hc(hc_worktree_health, conn)
@@ -117,8 +117,8 @@ class TestWorktreeHealth:
         ))
         conn = _make_conn()
         conn.execute(
-            "INSERT INTO items (id, title, type, status) "
-            "VALUES (70, 'Active item', 'issue', 'implementing')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status) "
+            "VALUES (70, 'Active item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing')"
         )
         rec = _run_hc(hc_worktree_health, conn)
         detail = _result(rec).detail or ""

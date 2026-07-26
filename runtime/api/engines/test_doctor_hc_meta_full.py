@@ -104,8 +104,8 @@ class TestEpicTaskWorktree:
         """T1: PASS when all tasks have worktree populated."""
         conn = _make_conn()
         conn.execute(
-            "INSERT INTO items (id, title, type, status) "
-            "VALUES (1, 'Epic', 'epic', 'implementing')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status) "
+            "VALUES (1, 'Epic', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'implementing')"
         )
         conn.execute(
             "INSERT INTO epic_tasks (id, epic_id, task_num, title, worktree, status) "
@@ -118,8 +118,8 @@ class TestEpicTaskWorktree:
         """T2: WARN when tasks have NULL worktree."""
         conn = _make_conn()
         conn.execute(
-            "INSERT INTO items (id, title, type, status) "
-            "VALUES (1, 'Epic', 'epic', 'implementing')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status) "
+            "VALUES (1, 'Epic', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'implementing')"
         )
         conn.execute(
             "INSERT INTO epic_tasks (id, epic_id, task_num, title, worktree, status) "
@@ -136,8 +136,8 @@ class TestEpicTaskWorktreeBackfill:
         """Warn when epic tasks have empty worktree."""
         conn = _make_conn()
         conn.execute(
-            "INSERT INTO items (id, title, type, status) "
-            "VALUES (100, 'Test Epic', 'epic', 'implementing')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status) "
+            "VALUES (100, 'Test Epic', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'implementing')"
         )
         conn.execute(
             "INSERT INTO epic_tasks (epic_id, task_num, title, status) "
@@ -150,8 +150,8 @@ class TestEpicTaskWorktreeBackfill:
     def test_all_tasks_have_worktree_passes(self):
         conn = _make_conn()
         conn.execute(
-            "INSERT INTO items (id, title, type, status) "
-            "VALUES (100, 'Test Epic', 'epic', 'implementing')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status) "
+            "VALUES (100, 'Test Epic', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'implementing')"
         )
         conn.execute(
             "INSERT INTO epic_tasks (epic_id, task_num, title, status, worktree) "

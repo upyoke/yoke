@@ -59,9 +59,9 @@ def _setup_item(item_id=42, status="implementing"):
     conn = connect_test_db(os.environ["YOKE_DB"])
     p = "%s" if db_backend.connection_is_postgres(conn) else "?"
     conn.execute(
-        "INSERT INTO items (id, title, type, status, priority, "
+        "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, "
         "project_id, project_sequence, created_at, updated_at, source) "
-        f"VALUES ({p}, 'test', 'issue', {p}, 'medium', "
+        f"VALUES ({p}, 'test', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), {p}, 'medium', "
         f"1, {p}, '2026-01-01T00:00:00Z', "
         "'2026-01-01T00:00:00Z', '2')",
         (item_id, status, item_id),

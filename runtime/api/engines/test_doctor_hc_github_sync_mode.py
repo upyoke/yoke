@@ -66,8 +66,8 @@ class TestWrongRepoIssuesSyncMode:
         _seed_project(conn, "externalwebapp", github_repo="example-org/externalwebapp")
         _set_backlog_only(conn, "externalwebapp")
         conn.execute(
-            "INSERT INTO items (id, title, project_id, type, status, github_issue) "
-            "VALUES (662, 'Historical ref', 2, 'issue', 'done', '#1520')"
+            "INSERT INTO items (id, title, project_id, workflow_id, workflow_version_id, status, github_issue) "
+            "VALUES (662, 'Historical ref', 2, 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'done', '#1520')"
         )
         rec = _run_hc(hc_wrong_repo_issues, conn)
         assert _result(rec).result == "PASS"
@@ -90,12 +90,12 @@ class TestWrongRepoIssuesSyncMode:
         _seed_project(conn, "b", github_repo="beebauman/b")
         _set_backlog_only(conn, "externalwebapp")
         conn.execute(
-            "INSERT INTO items (id, title, project_id, type, status, github_issue) "
-            "VALUES (662, 'Historical ref', 2, 'issue', 'done', '#1520')"
+            "INSERT INTO items (id, title, project_id, workflow_id, workflow_version_id, status, github_issue) "
+            "VALUES (662, 'Historical ref', 2, 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'done', '#1520')"
         )
         conn.execute(
-            "INSERT INTO items (id, title, project_id, type, status, github_issue) "
-            "VALUES (700, 'Live ref', 5, 'issue', 'implementing', '#7')"
+            "INSERT INTO items (id, title, project_id, workflow_id, workflow_version_id, status, github_issue) "
+            "VALUES (700, 'Live ref', 5, 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', '#7')"
         )
         mock_gh_run.return_value = _completed(stdout="OPEN\n")
         rec = _run_hc(hc_wrong_repo_issues, conn)
@@ -109,7 +109,7 @@ class TestOrphanedGhIssuesSyncMode:
     @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
     @patch("yoke_core.engines.doctor_hc_worktrees_gh.resolve_project_github_auth",
            side_effect=lambda project, db_path=None, **_kwargs: _auth(f"example-org/{project}"))
-    @patch("yoke_core.engines.doctor_hc_worktrees_gh.list_issues_by_labels_rest")
+    @patch("yoke_core.engines.doctor_hc_worktrees_gh_labels.list_issues_by_labels_rest")
     def test_backlog_only_repo_not_scanned(
         self, mock_rest, mock_resolve, mock_avail,
     ):
@@ -139,8 +139,8 @@ class TestGhOrphanDetectionSyncMode:
         _seed_project(conn, "yoke", github_repo="upyoke/yoke")
         _set_backlog_only(conn, "yoke")
         conn.execute(
-            "INSERT INTO items (id, title, type, status, github_issue) "
-            "VALUES (1, 'Historical ref', 'issue', 'done', '#10')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, github_issue) "
+            "VALUES (1, 'Historical ref', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'done', '#10')"
         )
         rec = _run_hc(hc_gh_orphan_detection, conn)
         assert _result(rec).result == "PASS"

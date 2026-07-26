@@ -242,5 +242,6 @@ class TestLabelSyncFieldsCoverage:
         """Defense in depth: don't accidentally drop the prior set."""
         from yoke_core.domain.backlog_queries import LABEL_SYNC_FIELDS
 
-        for prior in ("status", "priority", "type", "worktree"):
+        for prior in ("status", "priority", "worktree"):
             assert prior in LABEL_SYNC_FIELDS
+        assert "type" not in LABEL_SYNC_FIELDS

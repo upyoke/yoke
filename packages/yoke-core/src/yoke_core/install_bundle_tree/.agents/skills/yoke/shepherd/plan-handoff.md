@@ -2,7 +2,7 @@
 
 Covers the `refined_idea_to_planning` Architect phase and the `planning_to_plan_drafted` transition: status transition, PRD gate, Architect invocation, DB writes, Simulator loop, and Boss handoff.
 
-**Inherited from router:** `MAX_ATTEMPTS`, `MAX_SIMULATOR_FIX_CYCLES`, `_num`, `_type`, `_title`, `_item_status`, `_epic`, `_scholar_context`, `_prior_caveats`, `_transition`, `_attempt`, `_session_id`, `_worker_name`.
+**Inherited from router:** `MAX_ATTEMPTS`, `MAX_SIMULATOR_FIX_CYCLES`, `_num`, `_workflow_id`, `_title`, `_item_status`, `_epic`, `_scholar_context`, `_prior_caveats`, `_transition`, `_attempt`, `_session_id`, `_worker_name`.
 
 **After this step completes:** Continue with Boss review in `boss-verdict.md`.
 
@@ -42,7 +42,7 @@ The Architect reads the item spec and plan from the DB (structured fields first,
 ```
  Decompose YOK-{N} into tasks.
  Title: {_title}
- Type: {_type}
+ Workflow: {_workflow_id}
  Repository root: {MAIN_ROOT}
 
  Read the item spec and design from the DB before planning (structured fields first, body fallback):

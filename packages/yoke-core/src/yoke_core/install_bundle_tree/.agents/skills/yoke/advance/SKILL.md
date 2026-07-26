@@ -9,7 +9,9 @@ argument-hint: "{YOK-N} [status]"
 
 # /yoke advance {YOK-N} [status]
 
-Advance a backlog item's status forward in its lifecycle. The lifecycle is **type-aware**: issue items follow the issue-workflow-type progression and epic items follow the epic-workflow-type progression. The advance skill resolves the correct progression automatically from the item's `type` field.
+Advance a backlog item's status forward through its pinned workflow. The shared
+lifecycle interpreter validates every transition from the item's immutable
+workflow version; this skill coordinates the surrounding operator journey.
 
 <!-- BEGIN GENERATED: field-note-directive -->
 When you hit a recipe gap or notice a minor bug not worth a ticket, file a field-note immediately — before retrying, before moving on.
@@ -59,15 +61,12 @@ The empty-branch guard exists to catch accidental merges of branches with no wor
 
 **Verify before claiming done (P-9).** The done-transition must confirm every AC is addressed, not just the core implementation. Execution-type deliverables (running a script, configuring secrets) need explicit verification separate from code correctness (P-52).
 
-## Lifecycles
+## Lifecycle authority
 
-**Issue-workflow-type progression:**
-`idea` → `refining-idea` → `refined-idea` → `implementing` → `reviewing-implementation` → `reviewed-implementation` → `polishing-implementation` → `implemented` → `release` → `done`
-
-**Epic-workflow-type progression:**
-`idea` → `refining-idea` → `refined-idea` → `planning` → `plan-drafted` → `refining-plan` → `planned` → `implementing` → `reviewing-implementation` → `reviewed-implementation` → `polishing-implementation` → `implemented` → `release` → `done`
-
-When the item type is `issue`, advance uses the issue-workflow-type progression. For all other types, the epic-workflow-type progression applies. The `type` field is looked up in step 1 and determines which progression governs forward-transition validation and auto-advance.
+The item's `workflow_id` and `workflow_version_id` select the immutable
+definition. Never reconstruct a progression in this skill. Read the served
+definition for navigation and let `lifecycle.transition.execute` enforce the
+pinned version, stage order, gates, and registered executor binding.
 
 ## Steps
 
@@ -91,7 +90,8 @@ The skip module validates the current status, emits both the canonical `ItemStat
 Extract the numeric part from the argument (strip `YOK-` prefix, leading zeros).
 
 ```bash
-_type=$(yoke items get {N} type)
+_workflow_id=$(yoke items get {N} workflow_id)
+_workflow_version_id=$(yoke items get {N} workflow_version_id)
 _status=$(yoke items get {N} status)
 _title=$(yoke items get {N} title)
 ```
@@ -121,10 +121,15 @@ if [ "$_arg" = "implementation" ]; then
 elif [ -n "$_arg" ]; then
  _target="$_arg"
 else
- case "$_type" in
- issue) _prog="idea refining-idea refined-idea implementing reviewing-implementation reviewed-implementation polishing-implementation implemented release done" ;;
- *) _prog="idea refining-idea refined-idea planning plan-drafted refining-plan planned implementing reviewing-implementation reviewed-implementation polishing-implementation implemented release done" ;;
- esac
+ _definition_json=$(yoke workflows definition get --json)
+ _prog=$(printf '%s' "$_definition_json" | python3 -c 'import json,sys
+envelope=json.load(sys.stdin)
+workflow_id=sys.argv[1]
+version_id=int(sys.argv[2])
+workflow=next((row for row in envelope["result"]["workflows"] if row["id"] == workflow_id and int(row["current_version_id"]) == version_id), None)
+if workflow is None:
+ raise SystemExit("the pinned workflow version is not present in the served definition read")
+print(" ".join(stage["id"] for stage in workflow["definition"]["stages"]))' "$_workflow_id" "$_workflow_version_id")
  _target=$(printf '%s\n' $_prog | awk -v cur="$_status" 'found==1{print; exit} $0==cur{found=1}')
 fi
 
@@ -150,11 +155,10 @@ For non-claim-holding targets (`reviewed-implementation`, `implemented`, `releas
 
 ### 2. Determine Target Status
 
-`$_target` was already resolved inline in Step 1 so the claim gate could run before phase-doc reads. This step validates the target against the applicable progression and handles re-entry semantics — computation has already happened, this is now forward-transition gating only.
-
-The applicable lifecycle progression based on item type:
-- If `_type` is `issue` → use issue-workflow-type progression: `idea refining-idea refined-idea implementing reviewing-implementation reviewed-implementation polishing-implementation implemented release done`
-- Otherwise → use epic progression: `idea refining-idea refined-idea planning plan-drafted refining-plan planned implementing reviewing-implementation reviewed-implementation polishing-implementation implemented release done`
+`$_target` was already resolved inline in Step 1 so the claim gate could run
+before phase-doc reads. This step delegates forward-transition validation to
+the shared lifecycle transition surface; the skill does not carry a second
+stage table.
 
 Then determine the target:
 
@@ -168,7 +172,7 @@ Then determine the target:
 - **Explicit target before current:** → stop (not valid), except for the `reviewing-implementation` → `implementation` re-entry above.
 - **No target (auto-advance):** Next status in the applicable progression. If already `done` → stop.
 
-**Issue-workflow-type transition semantics:**
+**Advance-executor transition semantics:**
 - `refined-idea -> implementing` — Implementation entry. Creates worktree and begins implementation.
 - `implementing -> reviewing-implementation` — Enter the review phase. Review-phase fixes and follow-up edits continue in the same worktree.
 - `reviewing-implementation` + advance target `implementation` — **Re-entry only.** This resumes the existing worktree without mutating status backward. The DB status stays `reviewing-implementation`.
@@ -186,7 +190,7 @@ When the advance target triggers re-entry into the current worktree:
 Locates the existing worktree, prepares `WORKTREE_PATH`, and resumes the implementation/review loop. Do **not** stop after surfacing the path.
 
 ```bash
-_item_type=$(yoke items get {N} type 2>/dev/null) || true
+_item_workflow_id=$(yoke items get {N} workflow_id 2>/dev/null) || true
 _item_project=$(yoke items get {N} project 2>/dev/null)
 if [ -n "$_item_project" ] && [ "$_item_project" != "null" ] && [ "$_item_project" != "" ]; then
  _wt_repo=$(yoke projects get --project "$_item_project" --field repo_path)
@@ -195,7 +199,7 @@ else
 fi
 
 	# For multi-worktree epics, advance cannot select a task worktree — redirect to /yoke conduct.
-	if [ "$_item_type" = "epic" ]; then
+	if [ "$_item_workflow_id" = "epic" ]; then
 	 # Internal source-dev/admin resolver; no registered product CLI wrapper exists.
 	 _wt_all_branches=$(python3 -m yoke_core.domain.worktree_item_resolve YOK-{N} --branches 2>/dev/null) || true
  _wt_worktree_count=$(printf '%s\n' "$_wt_all_branches" | grep -c .) || true
@@ -265,7 +269,7 @@ The phase reference docs ([`preflight.md`](preflight.md), [`activation.md`](acti
 The following DB query groups are independent and can be run as parallel Bash tool calls:
 
 **Step 1 — Item lookup:**
-- `items get {N} type`, `items get {N} status`, `items get {N} title` — all independent, batch in one message
+- `items get {N} workflow_id workflow_version_id`, `items get {N} status`, `items get {N} title` — all independent, batch in one message
 
 **Preflight — Reconciliation gate:**
 - `items get {N} deployment_flow`, `items get {N} project`, `items get {N} github_issue` — all independent reads

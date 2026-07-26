@@ -2,7 +2,7 @@
 
 Covers steps 5a and 5b: PM spec-writing gate (conditional) and design gate (conditional), plus Designer invocation when the design gate fires. Both gates apply during `refined_idea_to_planning`.
 
-**Inherited from router:** `MAX_ATTEMPTS`, `_num`, `_type`, `_title`, `_item_status`, `_epic`, `_scholar_context`, `_prior_caveats`, `_transition`, `_attempt`, `_session_id`, `_worker_name`.
+**Inherited from router:** `MAX_ATTEMPTS`, `_num`, `_workflow_id`, `_title`, `_item_status`, `_epic`, `_scholar_context`, `_prior_caveats`, `_transition`, `_attempt`, `_session_id`, `_worker_name`.
 
 ---
 

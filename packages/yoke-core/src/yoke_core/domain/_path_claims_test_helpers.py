@@ -35,6 +35,7 @@ from yoke_core.domain.schema_init_actor_path_claim_tables import (
 from yoke_core.domain.schema_init_columns import apply_harness_session_columns
 from yoke_core.domain.schema_init_path_tables import create_path_registry_tables
 from yoke_core.domain.schema_init_tables import create_core_tables
+from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 
 
@@ -144,12 +145,16 @@ def local_human(conn: Any) -> int:
 
 def seed_item(conn: Any, *, item_id: int, status: str = "idea") -> int:
     """Insert a minimal ``items`` row and return its id."""
+    workflow_id, workflow_version_id = resolve_current_workflow_pin(
+        conn, "issue"
+    )
     conn.execute(
-        "INSERT INTO items (id, title, type, status, priority, "
-        "created_at, updated_at, project_id, project_sequence) "
-        "VALUES (%s, 'item', 'issue', %s, 'medium', "
+        "INSERT INTO items (id, title, workflow_id, workflow_version_id, "
+        "status, priority, created_at, updated_at, project_id, "
+        "project_sequence) "
+        "VALUES (%s, 'item', %s, %s, %s, 'medium', "
         "'2026-05-01T00:00:00Z', '2026-05-01T00:00:00Z', 1, %s)",
-        (item_id, status, item_id),
+        (item_id, workflow_id, workflow_version_id, status, item_id),
     )
     conn.commit()
     return item_id

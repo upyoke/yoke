@@ -54,9 +54,9 @@ def _seed_linked_path_claim(conn, *, work_claim_id: int, state: str = "active") 
 def _seed_item_work_claim(conn, *, session_id: str, item_id: int) -> int:
     seed_test_holder_session(conn, session_id=session_id)
     conn.execute(
-        "INSERT INTO items (id, title, type, status, priority, "
+        "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, "
         "created_at, updated_at, project_id, project_sequence) "
-        "VALUES (%s, 't', 'issue', 'idea', 'medium', "
+        "VALUES (%s, 't', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'medium', "
         "'2026-05-01T00:00:00Z', '2026-05-01T00:00:00Z', 1, %s)",
         (item_id, item_id),
     )

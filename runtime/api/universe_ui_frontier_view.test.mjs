@@ -44,7 +44,8 @@ function frontierClient() {
             result: {
               ready_rows: [{
                 rank: 0, item_id: "YOK-7", title: "ship it",
-                item_type: "issue", project: "yoke", status: "implementing",
+                workflow_id: "issue", workflow_version: 1,
+                project: "yoke", status: "implementing",
                 priority: "high", next_step: "advance",
                 run_command: "yoke advance YOK-7",
                 why_ready: "No unsatisfied activation gates; unclaimed.",
@@ -91,7 +92,7 @@ test("Frontier shows the ready ranking and one blocked row per gate point", asyn
     .filter((node) => node.tagName === "TD")
     .map(cellText);
   assert.deepEqual(cells, [
-    "1", "YOK-7", "issue", "implementing", "high", "advance",
+    "1", "YOK-7", "issue", "1", "implementing", "high", "advance",
     "yoke advance YOK-7", "No unsatisfied activation gates; unclaimed.",
     "YOK-8", "YOK-7", "activation", "YOK-7 not done",
     "YOK-9", "YOK-7", "integration", "lands after YOK-7",

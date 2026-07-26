@@ -114,9 +114,9 @@ class TestDomainDelegation:
         conn = connect_test_db(test_db["db_path"])
         conn.execute(
             """INSERT INTO items
-               (id, title, type, status, priority, project_id, project_sequence,
+               (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
                 created_at, updated_at, source)
-               VALUES (60, 'In review', 'issue', 'reviewing-implementation', 'medium', 1, 60,
+               VALUES (60, 'In review', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'reviewing-implementation', 'medium', 1, 60,
                        '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z', 'user')"""
         )
         conn.commit()
@@ -135,16 +135,16 @@ class TestDomainDelegation:
         conn = connect_test_db(test_db["db_path"])
         conn.execute(
             """INSERT INTO items
-               (id, title, type, status, priority, project_id, project_sequence,
+               (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
                 created_at, updated_at, source)
-               VALUES (61, 'Stopped item', 'issue', 'stopped', 'medium', 1, 61,
+               VALUES (61, 'Stopped item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'stopped', 'medium', 1, 61,
                        '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z', 'user')"""
         )
         conn.execute(
             """INSERT INTO items
-               (id, title, type, status, priority, project_id, project_sequence,
+               (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
                 created_at, updated_at, source)
-               VALUES (62, 'Failed item', 'issue', 'failed', 'medium', 1, 62,
+               VALUES (62, 'Failed item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'failed', 'medium', 1, 62,
                        '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z', 'user')"""
         )
         conn.commit()
@@ -163,9 +163,9 @@ class TestDomainDelegation:
         for item_id, status, label in [(63, "refined-idea", "Refined"), (65, "planned", "Planned")]:
             conn.execute(
                 f"""INSERT INTO items
-                   (id, title, type, status, priority, project_id, project_sequence,
+                   (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
                     created_at, updated_at, source)
-                   VALUES ({item_id}, '{label} item', 'issue', '{status}',
+                   VALUES ({item_id}, '{label} item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), '{status}',
                            'medium', 1, {item_id},
                            '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z', 'user')"""
             )
@@ -184,9 +184,9 @@ class TestDomainDelegation:
         conn = connect_test_db(test_db["db_path"])
         conn.execute(
             """INSERT INTO items
-               (id, title, type, status, priority, project_id, project_sequence,
+               (id, title, workflow_id, workflow_version_id, status, priority, project_id, project_sequence,
                 frozen, created_at, updated_at, source)
-               VALUES (66, 'Frozen board item', 'issue', 'implementing', 'medium',
+               VALUES (66, 'Frozen board item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'medium',
                        1, 66, 1,
                        '2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z', 'user')"""
         )

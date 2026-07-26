@@ -163,8 +163,8 @@ class TestPrematureDone:
     def test_pass_done_with_merged_at(self):
         conn = _make_conn()
         conn.execute(
-            "INSERT INTO items (id, title, type, status, merged_at) "
-            "VALUES (1, 'Test', 'issue', 'done', '2026-01-01T00:00:00Z')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, merged_at) "
+            "VALUES (1, 'Test', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'done', '2026-01-01T00:00:00Z')"
         )
         rec = RecordCollector()
         hc_premature_done(conn, _args(), rec)
@@ -174,8 +174,8 @@ class TestPrematureDone:
     def test_warn_done_without_merged(self):
         conn = _make_conn()
         conn.execute(
-            "INSERT INTO items (id, title, type, status, merged_at) "
-            "VALUES (1, 'Test', 'issue', 'done', NULL)"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, merged_at) "
+            "VALUES (1, 'Test', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'done', NULL)"
         )
         rec = RecordCollector()
         hc_premature_done(conn, _args(), rec)
