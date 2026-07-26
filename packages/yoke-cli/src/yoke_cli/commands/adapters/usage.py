@@ -38,9 +38,7 @@ from yoke_cli.commands.adapters.onboard_checklist import (
     ONBOARD_CHECKLIST_INIT_USAGE,
     ONBOARD_CHECKLIST_USAGE,
 )
-from yoke_cli.commands.adapters.project_onboard import (
-    ONBOARD_PROJECT_USAGE,
-)
+from yoke_cli.commands.adapters.project_onboard import ONBOARD_PROJECT_USAGE
 from yoke_cli.commands.adapters.config_write import (
     AUTH_SET_USAGE,
     CONNECTION_REMOVE_USAGE,
@@ -93,9 +91,7 @@ from yoke_cli.commands.adapters.install import (
     PROJECT_REFRESH_USAGE,
     PROJECT_UNINSTALL_USAGE,
 )
-from yoke_cli.commands.adapters.project_snapshot import (
-    PROJECT_SNAPSHOT_SYNC_USAGE,
-)
+from yoke_cli.commands.adapters.project_snapshot import PROJECT_SNAPSHOT_SYNC_USAGE
 from yoke_cli.commands.adapters.items import (
     ITEMS_GET_USAGE,
     LIFECYCLE_SKIP_RECORD_RECOVERABLE_SUBSTRATE_USAGE,
@@ -141,6 +137,8 @@ from yoke_cli.commands.adapters.projects import (
 )
 from yoke_cli.commands.adapters.projects_write import (
     PROJECTS_CREATE_USAGE,
+    PROJECTS_ENVIRONMENT_CREATE_USAGE,
+    PROJECTS_SITE_CREATE_USAGE,
     PROJECTS_UPDATE_USAGE,
 )
 from yoke_cli.commands.adapters.project_structure_read import (
@@ -335,6 +333,8 @@ ADAPTER_USAGE: Dict[str, str] = {
     "projects.resolve_by_github_repo": PROJECTS_RESOLVE_BY_GITHUB_REPO_USAGE,
     "projects.create": PROJECTS_CREATE_USAGE,
     "projects.update": PROJECTS_UPDATE_USAGE,
+    "projects.site.create": PROJECTS_SITE_CREATE_USAGE,
+    "projects.environment.create": PROJECTS_ENVIRONMENT_CREATE_USAGE,
     "projects.capability.has": PROJECTS_CAPABILITY_HAS_USAGE,
     "projects.capabilities.list": PROJECTS_CAPABILITIES_LIST_USAGE,
     "projects.capability_settings.get": PROJECTS_CAPABILITY_SETTINGS_GET_USAGE,

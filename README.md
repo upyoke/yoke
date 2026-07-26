@@ -135,7 +135,7 @@ yoke onboard checklist init \
 Open the installed project in a supported harness and run:
 
 ```text
-/yoke onboard-project --project-root ~/work/my-app --run-id <run-id>
+/yoke onboard --run-id <run-id>
 ```
 
 Yoke source developers follow the same product install first. After the

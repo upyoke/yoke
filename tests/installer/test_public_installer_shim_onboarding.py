@@ -188,7 +188,14 @@ def test_handoff_omits_reload_step_when_calling_shell_already_resolves_yoke(
     assert "2  run /yoke onboard" in result.stdout
 
 
-def test_shim_never_invokes_onboard_project() -> None:
-    # Project adoption (`yoke onboard-project`) is a separate post-onboarding
-    # step; the public installer shim must never reach it.
-    assert "onboard-project" not in INSTALL_SHIM_PATH.read_text(encoding="utf-8")
+def test_shim_hands_off_adoption_to_the_harness() -> None:
+    # Execution-readiness is the harness skill's job. The shim only PRINTS the
+    # `/yoke onboard` handoff line; it must never execute a slash-command skill
+    # itself (the only onboarding the shim may launch is the terminal wizard).
+    text = INSTALL_SHIM_PATH.read_text(encoding="utf-8")
+    for line in text.splitlines():
+        if "/yoke onboard" in line:
+            assert "printf" in line or line.lstrip().startswith("#"), (
+                "the shim may only print the /yoke onboard handoff, "
+                f"never run it: {line.strip()}"
+            )

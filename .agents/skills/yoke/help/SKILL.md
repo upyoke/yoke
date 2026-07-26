@@ -25,7 +25,7 @@ COMMANDS
  /yoke charge Direct-mode: pick up next runnable item from frontier
  /yoke feed [--no-new-tickets] Direct-mode: maintain frontier dependency graph and optionally materialize new work from strategy layer
  /yoke strategize Direct-mode: guided SML review (research, propose, approve)
- /yoke onboard-project Harness-side agentic project adoption after deterministic install
+ /yoke onboard [--project P] [--run-id RUN] Make a wired project execution-ready (strategy, profile, Packs, hosting, envs, gated first deploy, seeded work)
  /yoke idea {title} Capture a new backlog item
  /yoke shepherd YOK-N Drive an epic through quality-gated planning to planned
  /yoke conduct YOK-N Engineer/Tester loop for a single epic

@@ -34,7 +34,7 @@ def _applied_report_with(clone_resume: dict[str, bool] | None) -> dict[str, Any]
             "default_branch": "main",
         },
         "checkout": {"path": "/home/dev/widgets"},
-        "handoff": {"run_id": "run-7", "agent_command": "/yoke onboard-project"},
+        "handoff": {"run_id": "run-7", "agent_command": "/yoke onboard --run-id run-7"},
     }
     if clone_resume is not None:
         project_onboarding["clone_resume"] = clone_resume

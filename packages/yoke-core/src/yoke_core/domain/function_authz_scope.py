@@ -109,10 +109,10 @@ _BY_ID: dict[str, AuthzSpec] = {
     "projects.infrastructure.list": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "projects.environment_settings.merge": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "projects.pulumi_state.migrate": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
-    "projects.pulumi_state.checkpoint_import": AuthzSpec(
-        PROJECT,
-        PERM_PROJECT_ADMIN,
-    ),
+    "projects.pulumi_state.checkpoint_import": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    # Site/environment registration: the install grant, like onboard.checklist.*.
+    "projects.site.create": AuthzSpec(PROJECT, PERM_PROJECT_INSTALL),
+    "projects.environment.create": AuthzSpec(PROJECT, PERM_PROJECT_INSTALL),
     "projects.pulumi_stack_config.get": AuthzSpec(
         PROJECT,
         PERM_PROJECT_RENDER_READ,

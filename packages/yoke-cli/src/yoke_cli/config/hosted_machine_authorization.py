@@ -21,6 +21,15 @@ class HostedMachineAuthorizationError(RuntimeError):
     """The hosted browser authorization could not complete safely."""
 
 
+class HostedMachineAuthorizationDenied(HostedMachineAuthorizationError):
+    """The user explicitly denied this machine in the browser."""
+
+
+# Hosted pages that may present the one-time code approval: the dedicated
+# machine-approval page and the unified connect-machine page.
+_BROWSER_VERIFICATION_PATHS = ("/machine", "/connect")
+
+
 @dataclass(frozen=True)
 class PendingMachineAuthorization:
     platform_url: str
@@ -65,12 +74,14 @@ def start(
     device_code = _required(payload, "device_code")
     user_code = _required(payload, "user_code")
     verification_uri = _same_origin_url(
-        _required(payload, "verification_uri"), origin, expected_path="/machine"
+        _required(payload, "verification_uri"),
+        origin,
+        expected_paths=_BROWSER_VERIFICATION_PATHS,
     )
     verification_uri_complete = _same_origin_url(
         _required(payload, "verification_uri_complete"),
         origin,
-        expected_path="/machine",
+        expected_paths=_BROWSER_VERIFICATION_PATHS,
     )
     expires_in = _bounded_integer(payload.get("expires_in"), 60, 1800, "expires_in")
     interval = _bounded_integer(payload.get("interval"), 1, 30, "interval")
@@ -127,6 +138,10 @@ def complete(
             )
             if exc.status == 202 and error == "authorization_pending":
                 continue
+            if exc.status == 410 and error == "authorization_denied":
+                raise HostedMachineAuthorizationDenied(
+                    "authorization denied in the browser"
+                ) from None
             if error in {"authorization_expired", "authorization_consumed"}:
                 raise HostedMachineAuthorizationError(
                     str(error).replace("_", " ")
@@ -137,6 +152,10 @@ def complete(
         error = payload.get("error")
         if status == 202 and error == "authorization_pending":
             continue
+        if status == 410 and error == "authorization_denied":
+            raise HostedMachineAuthorizationDenied(
+                "authorization denied in the browser"
+            )
         if error in {"authorization_expired", "authorization_consumed"}:
             raise HostedMachineAuthorizationError(
                 str(error).replace("_", " ")
@@ -232,13 +251,15 @@ def _platform_origin(value: str) -> str:
     return urllib.parse.urlunsplit((parsed.scheme, parsed.netloc, "", "", ""))
 
 
-def _same_origin_url(value: str, origin: str, *, expected_path: str) -> str:
+def _same_origin_url(
+    value: str, origin: str, *, expected_paths: tuple[str, ...]
+) -> str:
     parsed = urllib.parse.urlsplit(value)
     expected = urllib.parse.urlsplit(origin)
     if (
         parsed.scheme != expected.scheme
         or parsed.netloc != expected.netloc
-        or parsed.path != expected_path
+        or parsed.path not in expected_paths
         or parsed.fragment
     ):
         raise HostedMachineAuthorizationError(
@@ -289,6 +310,7 @@ def _bounded_integer(value: Any, minimum: int, maximum: int, label: str) -> int:
 
 
 __all__ = [
+    "HostedMachineAuthorizationDenied",
     "HostedMachineAuthorizationError",
     "HostedMachineCredential",
     "PendingMachineAuthorization",

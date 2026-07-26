@@ -7,7 +7,7 @@ not have a Yoke source checkout. The flow has two layers:
    Yoke env, and optionally connect machine GitHub access.
 2. **Project onboarding:** create, import, or register a project, install the
    project-local operating layer, create the durable checklist, then hand the
-   repo to `/yoke onboard-project`.
+   repo to `/yoke onboard`.
 
 Source-dev/admin and server-only leftovers are named at the end.
 
@@ -202,7 +202,7 @@ page and continues without claiming that the administrative step ran.
 ## 5. Capture the Install Report
 
 Keep the JSON output from the applied project command. It is the install
-report consumed by `/yoke onboard-project`.
+report consumed by `/yoke onboard`.
 
 The report identifies:
 
@@ -239,21 +239,15 @@ yoke onboard checklist --run-id <run-id> --json
 Open the installed project checkout in a supported harness and run:
 
 ```text
-/yoke onboard-project --project-root ~/work/demo --run-id <run-id>
+/yoke onboard --run-id <run-id>
 ```
 
-Pass the captured install report when prompted, or include its path:
-
-```text
-/yoke onboard-project --project-root ~/work/demo \
-  --run-id <run-id> --install-report /path/to/install-report.json
-```
-
-The slash-command skill consumes the install report and durable checklist. It
-does not rediscover deterministic setup by crawling the repo. It updates
-checklist rows as it surveys the repo, asks only for missing human context,
-configures strategy/project-structure/capabilities/delivery through sanctioned
-Yoke surfaces, and records verification evidence.
+The slash-command skill assumes deterministic setup already ran and does not
+re-create it. It starts from the strategy conversation, derives and confirms
+one execution profile, installs scaffold and infra Packs, verifies hosting,
+registers environments/sites/flows, records the domain posture, runs the
+gated infrastructure apply plus first deploy, seeds first work items, and
+updates checklist rows with evidence as it goes.
 
 ## 8. Verify the Installed Project
 

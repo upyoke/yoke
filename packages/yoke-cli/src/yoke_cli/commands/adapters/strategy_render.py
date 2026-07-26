@@ -5,7 +5,7 @@ adapters live in :mod:`yoke_cli.commands.adapters.strategy`):
 
 - ``render`` -> ``strategy.render.run`` (fetch the rendered file texts).
 - ``ingest`` -> ``strategy.ingest.run`` (CAS write-back of edited files).
-- ``seed-defaults`` -> ``strategy.seed_defaults.run`` (cold-start rows).
+- ``seed-defaults`` -> ``strategy.seed_defaults.run`` (top-up rows).
 
 File I/O happens HERE, client-side (12942): ``render`` dispatches for
 the row→file-text map and writes the files into the checkout it
@@ -316,12 +316,12 @@ def strategy_seed_defaults(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke strategy seed-defaults",
         description=(
-            "Cold-start a project's strategy corpus: mint the default "
-            "placeholder rows (MISSION, VISION, MASTER-PLAN, LANDSCAPE) "
-            "in the DB authority, parameterized by the project's display "
-            "name. Idempotent — a project with ANY existing strategy row "
-            "is left untouched. Render files from the rows afterwards "
-            "with `yoke strategy render`."
+            "Top up a project's default strategy docs: mint a placeholder "
+            "row for each missing default slug (MISSION, VISION, "
+            "MASTER-PLAN, LANDSCAPE, CURRENT-PLAN), parameterized by the "
+            "project's display name. Idempotent per slug — existing rows "
+            "are never touched, healing projects that predate a roster "
+            "addition. Render files afterwards with `yoke strategy render`."
         ),
     )
     add_project_arg(parser)
@@ -335,8 +335,8 @@ def strategy_seed_defaults(args: List[str]) -> int:
         result = response.result or {}
         if result.get("already_seeded"):
             print(
-                f"project {result.get('project_slug')} already has "
-                f"{result.get('existing_rows')} strategy doc(s); "
+                f"project {result.get('project_slug')} already carries all "
+                f"{result.get('existing_rows')} default strategy doc(s); "
                 "nothing seeded",
                 file=stdout,
             )

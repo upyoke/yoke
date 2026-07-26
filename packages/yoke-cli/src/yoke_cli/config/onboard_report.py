@@ -269,7 +269,7 @@ def next_steps(cfg_path: Path, project_mode: str) -> list[str]:
     if project_mode != PROJECT_MODE_MACHINE_ONLY:
         return [
             f"yoke status --config {cfg_path}",
-            "/yoke onboard-project --project-root <repo> --run-id <run-id>",
+            "/yoke onboard --run-id <run-id>",
         ]
     return [
         f"yoke status --config {cfg_path}",

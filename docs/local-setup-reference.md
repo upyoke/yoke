@@ -181,7 +181,7 @@ hooks.
 First project adoption after install should start with:
 
 ```text
-/yoke onboard-project --project-root <checkout> --run-id <run-id>
+/yoke onboard --run-id <run-id>
 ```
 
 After adoption, normal item flow is:

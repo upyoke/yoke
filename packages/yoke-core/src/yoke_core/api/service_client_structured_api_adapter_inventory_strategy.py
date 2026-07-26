@@ -52,7 +52,7 @@ STRATEGY_ADAPTERS = [
     AdapterEntry(
         function_id="strategy.seed_defaults.run",
         cli_invocation="yoke strategy seed-defaults [--project P]",
-        notes="Cold-start the default placeholder corpus (MISSION/VISION/MASTER-PLAN/LANDSCAPE) for a project with zero strategy rows; idempotent — any existing row no-ops. The install bundle runs the same seeding server-side.",
+        notes="Top up the default placeholder corpus (MISSION/VISION/MASTER-PLAN/LANDSCAPE/CURRENT-PLAN): each missing default slug gains its placeholder, existing rows are never touched — the healer for projects predating a roster addition. The install bundle runs the same seeding server-side.",
     ),
 ]
 

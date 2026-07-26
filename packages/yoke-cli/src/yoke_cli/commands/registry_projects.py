@@ -19,6 +19,14 @@ PROJECTS_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ),
     ("projects", "create"): ("projects.create", _adapters.projects_create),
     ("projects", "update"): ("projects.update", _adapters.projects_update),
+    ("projects", "site", "create"): (
+        "projects.site.create",
+        _adapters.projects_site_create,
+    ),
+    ("projects", "environment", "create"): (
+        "projects.environment.create",
+        _adapters.projects_environment_create,
+    ),
     ("projects", "capability", "has"): (
         "projects.capability.has",
         _adapters.projects_capability_has,

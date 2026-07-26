@@ -44,7 +44,7 @@ def test_onboard_checklist_model_renders_deterministic_json(
             checklist.ChecklistRow(
                 id="handoff",
                 layer="agentic",
-                title="/yoke onboard-project handoff",
+                title="/yoke onboard handoff",
                 status="deferred",
             ),
         ],
@@ -168,7 +168,7 @@ def test_onboard_checklist_handoff_json_summarizes_rows(
 
     assert payload == {
         "schema_version": 1,
-            "handoff_to": "yoke onboard project",
+            "handoff_to": "yoke onboard",
         "machine_config_path": str(machine_config),
         "checkout": {"path": str(checkout), "project_id": 7},
         "rows": [
