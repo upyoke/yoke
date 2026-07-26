@@ -213,20 +213,30 @@ async def advance_past_path(pilot) -> None:
 
 
 async def complete_board_art(pilot) -> None:
-    """Walk the board-art step from its intro to the Finish/review screen.
+    """Walk the board-art step from its intro to the Hosting step.
 
-    Real-project onboarding now routes project -> board art -> Finish, and the
-    gallery's Continue needs at least one saved header. This takes the shortest
-    valid path: accept the default map, generate one ASCII header, save it, and
-    continue. Scenarios that don't care about art call this once where they used
-    to land on Finish directly.
+    Real-project onboarding routes project -> board art -> hosting -> Finish,
+    and the gallery's Continue needs at least one saved header. This takes the
+    shortest valid path: accept the default map, generate one ASCII header,
+    save it, and continue. Scenarios that don't care about art call this once,
+    then :func:`skip_hosting` to reach the review screen.
     """
     await pilot.press("enter")  # intro: "Let's design it"
     await pilot.press("enter")  # map: "Looks good — continue"
     await pilot.press("enter")  # style: ASCII (first row)
     await pilot.press("enter")  # preview: "Save to board"
     await pilot.press("down")   # gallery: move to "Continue"
-    await pilot.press("enter")  # gallery: "Continue" -> Finish
+    await pilot.press("enter")  # gallery: "Continue" -> hosting
+
+
+async def skip_hosting(pilot) -> None:
+    """Decline the hosting credential, landing on the review screen.
+
+    "Save & verify" is the default row, so skipping is one row down. Scenarios
+    that exercise the credential itself drive the step directly instead.
+    """
+    await pilot.press("down")   # hosting: move to "Skip for now"
+    await pilot.press("enter")  # hosting: skip -> Finish
 
 
 class Spy:

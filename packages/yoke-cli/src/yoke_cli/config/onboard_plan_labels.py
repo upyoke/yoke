@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from yoke_cli.config import aws_admin_capability
 from yoke_cli.config import onboard_github_copy
 from yoke_cli.config import onboard_project
 from yoke_cli.config.project_clone_support import (
@@ -48,6 +49,12 @@ def friendly_line(action: str, target: str, project_name: str = "") -> str:
     if action == "machine-github-connection":
         return (onboard_github_copy.MACHINE_GITHUB_REVIEW if target == "connect"
                 else "Skip connecting GitHub for now")
+    if action == aws_admin_capability.HOSTING_CAPABILITY_ACTION:
+        return (
+            "Save your AWS hosting credential (owner-only)"
+            if target == aws_admin_capability.HOSTING_CHOICE_CONNECT
+            else "Skip connecting a hosting provider for now"
+        )
     if action == "create-runtime-dir":
         return f"Set up the {_RUNTIME_DIR_LABELS.get(target, target)} directory"
     if action == "project-source-choice":

@@ -16,6 +16,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable, TextIO
 
+from yoke_cli.config import aws_admin_capability
 from yoke_cli.config import onboard_destinations
 from yoke_cli.config import machine_config
 from yoke_cli.config import onboard_machine_github
@@ -86,6 +87,11 @@ class WizardResult:
     machine_github_api_url: str | None = None
     machine_github_verification: dict[str, Any] | None = None
     machine_github_saved: bool = False
+    # Hosting step answer. "aws-admin" once the pair is stored on this machine
+    # (verified or explicitly kept unverified); "skip" otherwise. The plan
+    # reports it, and the review reads the machine store for the reuse line.
+    hosting_choice: str = aws_admin_capability.HOSTING_CHOICE_SKIP
+    hosting_verification: dict[str, Any] | None = None
     project_mode: str = onboard_project.PROJECT_MODE_MACHINE_ONLY
     project_remote_url: str | None = None
     project_checkout: str | None = None
@@ -198,6 +204,7 @@ class WizardResult:
             "check_identity": check_identity,
             "machine_github_choice": self.machine_github_choice,
             "machine_github_api_url": self.machine_github_api_url,
+            "hosting_choice": self.hosting_choice,
             "project_mode": self.project_mode,
             "project_remote_url": self.project_remote_url,
             "project_checkout": self.project_checkout,

@@ -142,6 +142,32 @@ def validate_prefix(value: str) -> str | None:
     return None
 
 
+def validate_access_key_id(value: str) -> str | None:
+    """Validate a pasted AWS access key id.
+
+    Deliberately shape-only: AWS issues several id prefixes (AKIA for a user
+    key, ASIA for a session key) and adds more over time, so rejecting on
+    prefix would reject valid credentials. Catching stray whitespace is what
+    actually goes wrong when a value is copied out of a console page.
+    """
+    cleaned = value.strip()
+    if not cleaned:
+        return "Paste the access key ID."
+    if len(cleaned.split()) > 1:
+        return "That looks like more than one value — paste the access key ID alone."
+    return None
+
+
+def validate_secret_access_key(value: str) -> str | None:
+    """Validate a pasted AWS secret access key without inspecting its content."""
+    cleaned = value.strip()
+    if not cleaned:
+        return "Paste the secret access key."
+    if len(cleaned.split()) > 1:
+        return "That looks like more than one value — paste the secret key alone."
+    return None
+
+
 def validate_branch(value: str) -> str | None:
     """Validate a branch before it can reach any Git command."""
 
@@ -156,6 +182,7 @@ def validate_repository_name(value: str) -> str | None:
 
 __all__ = [
     "PROJECT_SLUG_MAX_LENGTH",
+    "validate_access_key_id",
     "validate_branch",
     "validate_clone_target_folder",
     "validate_clone_resume_target_folder",
@@ -163,5 +190,6 @@ __all__ = [
     "validate_display_name",
     "validate_prefix",
     "validate_repository_name",
+    "validate_secret_access_key",
     "validate_slug",
 ]

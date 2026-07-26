@@ -76,7 +76,7 @@ class _Shell(Protocol):  # pragma: no cover - structural typing only
     def _start_dev_flow(self) -> None: ...
     def _check_project_git(self, mode: str) -> None: ...
     def _run_checking(self, **kwargs) -> None: ...
-    def _goto_finish(self) -> None: ...
+    def _goto_hosting(self) -> None: ...
     def _goto_board_art_intro(self) -> None: ...
     def _goto_stored_project_picker(self) -> None: ...
 
@@ -111,7 +111,7 @@ class WizardFlow(
         self._preserve_project_fields_once = False
         self.result.project_mode = mode
         if mode == onboard_project.PROJECT_MODE_MACHINE_ONLY:
-            self._goto_finish()
+            self._goto_hosting()
             return
         self._check_project_git(mode)
 
@@ -446,7 +446,7 @@ class WizardFlow(
             self._after_prefix(self.result.project_public_item_prefix)
             return
         if onboard_wizard_board_art.board_art_exists(self.result.project_checkout):
-            self._goto_finish()
+            self._goto_hosting()
             return
         self._goto_board_art_intro()
 

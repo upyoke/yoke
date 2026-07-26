@@ -19,6 +19,7 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     advance_past_path,
     complete_board_art,
     make_app,
+    skip_hosting,
     stub_path_doctor,
     type_text,
 )
@@ -102,6 +103,7 @@ def test_local_destination_manifest_project_id_uses_local_universe(
             assert "local Yoke database: verified project id 37." in body
             await pilot.press("enter")  # continue -> board art
             await complete_board_art(pilot)
+            await skip_hosting(pilot)  # hosting: skip -> Finish
             await pilot.press("enter")  # finish: apply
             await pilot.pause()
 

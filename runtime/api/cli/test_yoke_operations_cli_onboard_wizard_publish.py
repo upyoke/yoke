@@ -28,6 +28,7 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     advance_past_path,
     complete_board_art,
     make_app,
+    skip_hosting,
     stub_path_doctor,
     type_text,
 )
@@ -83,7 +84,8 @@ def test_local_checkout_offers_publish_and_creates_request(monkeypatch) -> None:
             await pilot.press("enter")  # repo name placeholder -> widget
             await pilot.press("enter")  # default branch main
             await pilot.press("enter")  # prefix placeholder
-            await complete_board_art(pilot)  # board art -> Finish
+            await complete_board_art(pilot)  # board art -> hosting
+            await skip_hosting(pilot)  # hosting: skip -> Finish
             await pilot.press("enter")  # finish: apply
             await pilot.pause()
 
@@ -118,7 +120,8 @@ def test_publish_no_keeps_it_local(monkeypatch) -> None:
             await pilot.press("enter")  # publish: No — keep local
             await pilot.press("enter")  # default branch main
             await pilot.press("enter")  # prefix placeholder
-            await complete_board_art(pilot)  # board art -> Finish
+            await complete_board_art(pilot)  # board art -> hosting
+            await skip_hosting(pilot)  # hosting: skip -> Finish
             await pilot.press("enter")  # finish: apply (no project github step)
             await pilot.pause()
 
@@ -148,7 +151,8 @@ def test_owner_picker_routes_org_with_user_login() -> None:
             await pilot.press("enter")
             await pilot.press("enter")  # default branch main
             await pilot.press("enter")  # prefix placeholder
-            await complete_board_art(pilot)  # board art -> Finish
+            await complete_board_art(pilot)  # board art -> hosting
+            await skip_hosting(pilot)  # hosting: skip -> Finish
             await pilot.press("enter")  # finish: apply
             await pilot.pause()
 
@@ -190,7 +194,8 @@ def test_remote_already_present_auto_skips_publish(tmp_path: Path) -> None:
             await pilot.press("enter")  # name -> publish prompt auto-skipped
             await pilot.press("enter")  # prefix; existing branch was detected
             await select_connected_repository(app, pilot)
-            await complete_board_art(pilot)  # board art -> Finish
+            await complete_board_art(pilot)  # board art -> hosting
+            await skip_hosting(pilot)  # hosting: skip -> Finish
             await pilot.press("enter")  # finish: apply
             await pilot.pause()
 
@@ -273,7 +278,8 @@ def test_no_app_connection_publish_no_keeps_it_local() -> None:
             await pilot.press("enter")  # publish: No — keep local
             await pilot.press("enter")  # default branch main
             await pilot.press("enter")  # prefix placeholder
-            await complete_board_art(pilot)  # board art -> Finish
+            await complete_board_art(pilot)  # board art -> hosting
+            await skip_hosting(pilot)  # hosting: skip -> Finish
             await pilot.press("enter")  # finish: apply
             await pilot.pause()
 

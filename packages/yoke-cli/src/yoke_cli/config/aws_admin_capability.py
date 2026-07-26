@@ -149,6 +149,22 @@ def credential_dir(project_slug: str) -> Path:
     )
 
 
+def credential_dir_display(project_slug: str) -> str:
+    """The credential directory as an operator reads it: ``~``-relative, trailing ``/``.
+
+    Custody copy names this path on screen, so it must read the same on every
+    machine rather than leaking whoever's home directory the wizard runs in.
+    """
+    slug = str(project_slug or "").strip()
+    if not slug:
+        return ""
+    directory = credential_dir(slug)
+    try:
+        return f"~/{directory.relative_to(Path.home())}/"
+    except (OSError, ValueError):
+        return f"{directory}/"
+
+
 def credential_saved(project_slug: str) -> bool:
     """Whether both halves of the pair are already on this machine."""
     slug = str(project_slug or "").strip()
@@ -271,6 +287,7 @@ __all__ = [
     "SECRET_ACCESS_KEY_KEY",
     "build_version",
     "credential_dir",
+    "credential_dir_display",
     "credential_saved",
     "default_region",
     "distribution_base_url",

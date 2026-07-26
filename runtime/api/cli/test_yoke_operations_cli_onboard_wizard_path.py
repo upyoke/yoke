@@ -103,11 +103,16 @@ def _visible_static_text(app: OnboardWizardApp) -> str:
 
 def test_stepper_order_uses_consistent_noun_labels() -> None:
     # The rail uses nouns (the subject of each step): Install · Account · GitHub
-    # · Project · Review. PATH folds into Install; internal step ids are unchanged.
+    # · Project · Hosting · Review. PATH folds into Install; Hosting follows
+    # Project because the credential is stored per project; step ids are
+    # unchanged.
     labels = [label for _id, label in STEPPER_ORDER]
-    assert labels == ["Install", "Account", "GitHub", "Project", "Review"]
+    assert labels == [
+        "Install", "Account", "GitHub", "Project", "Hosting", "Review",
+    ]
     assert STEPPER_ORDER[0] == ("install", "Install")
     assert STEPPER_ORDER[1] == ("connect", "Account")
+    assert STEPPER_ORDER[-2] == ("hosting", "Hosting")
     assert STEPPER_ORDER[-1] == ("finish", "Review")
 
 

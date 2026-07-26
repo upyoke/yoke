@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Mapping
 
+from yoke_cli.config import aws_admin_capability
 from yoke_cli.config import machine_config
 from yoke_cli.config import local_universe_setup
 from yoke_cli.config import onboard_machine_github
@@ -67,6 +68,12 @@ def detect(
         "cache_dir": (
             _effective_path(machine_config.cache_dir(cfg_path)) == _effective_path(cache_dir)
             and cache_dir.is_dir()
+        ),
+        # The hosting credential lands on disk during the wizard's Hosting
+        # step, before Review, so its presence — not the answer given — is what
+        # the review reports.
+        "aws_admin": aws_admin_capability.credential_saved(
+            str(project_inputs.get("slug") or "")
         ),
         "project_identity": project_id is not None,
         "project_checkout": _project_checkout_reused(cfg_path, checkout, project_id),

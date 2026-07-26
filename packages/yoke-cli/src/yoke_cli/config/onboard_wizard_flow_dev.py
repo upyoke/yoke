@@ -50,7 +50,7 @@ class _Shell(Protocol):  # pragma: no cover - structural typing only
                     password: bool = False,
                     allow_placeholder: bool = True,
                     initial_value: str = "") -> None: ...
-    def _goto_finish(self) -> None: ...
+    def _goto_hosting(self) -> None: ...
     def _run_checking(self, **kwargs) -> None: ...
 
 
@@ -201,7 +201,7 @@ class DevFlow:
         self.result.project_name = _YOKE_NAME
         self.result.project_default_branch = _YOKE_BRANCH
         self.result.project_public_item_prefix = _YOKE_PREFIX
-        self._goto_finish()
+        self._goto_hosting()
 
     def _goto_dev_error(self: _Shell, message: str) -> None:
         from yoke_cli.config.onboard_wizard_app import _View

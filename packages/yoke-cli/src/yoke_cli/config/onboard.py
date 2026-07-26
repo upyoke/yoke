@@ -8,6 +8,7 @@ from typing import Any, Dict
 
 from yoke_contracts.machine_config import schema as machine_schema
 
+from yoke_cli.config import aws_admin_capability
 from yoke_cli.config import local_universe_setup
 from yoke_cli.config import machine_config
 from yoke_cli.config import onboard_apply_connection
@@ -49,6 +50,7 @@ def build_report(
     check_identity: bool,
     machine_github_choice: str = onboard_machine_github.CHOICE_SKIP,
     machine_github_api_url: str | None = None,
+    hosting_choice: str = aws_admin_capability.HOSTING_CHOICE_SKIP,
     project_mode: str = PROJECT_MODE_MACHINE_ONLY,
     project_remote_url: str | None = None,
     project_checkout: str | Path | None = None,
@@ -147,6 +149,7 @@ def build_report(
         cfg_path, env_name, api_url, credential_source, source, mode,
         project_mode=normalized_project_mode, project_inputs=project_inputs,
         machine_github=machine_github,
+        hosting_choice=hosting_choice,
         reuse=reuse,
         local_destination=local_destination,
     )

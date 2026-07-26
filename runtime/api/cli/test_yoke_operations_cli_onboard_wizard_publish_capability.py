@@ -25,6 +25,7 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     advance_past_path,
     complete_board_art,
     make_app,
+    skip_hosting,
     stub_path_doctor,
     type_text,
 )
@@ -110,6 +111,7 @@ def test_unavailable_app_publish_opens_github_and_keeps_project_local(
             await pilot.press("enter")  # default branch main
             await pilot.press("enter")  # prefix placeholder
             await complete_board_art(pilot)
+            await skip_hosting(pilot)  # hosting: skip -> Finish
             await pilot.press("enter")  # finish: apply
             await pilot.pause()
 
@@ -316,6 +318,7 @@ def test_manual_create_refresh_selects_exact_repo_and_continues_in_run(
             await pilot.press("enter")  # use connected App repo
             await pilot.press("enter")  # access found
             await complete_board_art(pilot)
+            await skip_hosting(pilot)  # hosting: skip -> Finish
             await pilot.press("enter")  # apply
             await pilot.pause()
 

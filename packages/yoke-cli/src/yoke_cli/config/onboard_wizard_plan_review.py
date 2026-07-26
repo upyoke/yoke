@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from yoke_cli.config import aws_admin_capability
 from yoke_cli.config import onboard_project
 from yoke_cli.config import onboard_reuse_feedback
 from yoke_cli.config.onboard_plan_labels import friendly_line as _friendly_line
@@ -40,6 +41,7 @@ _MACHINE_ACTIONS = {
     "local-universe-init",
     "store-token-reference", "machine-github-connection", "create-runtime-dir",
     "project-checkout-register",
+    aws_admin_capability.HOSTING_CAPABILITY_ACTION,
 }
 _REPO_ACTIONS = {
     "project-create-checkout", "project-clone-remote",
