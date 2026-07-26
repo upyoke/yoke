@@ -23,13 +23,15 @@ from yoke_core.domain.strategy_docs_schema import (
     STRATEGY_DOC_REVISIONS_CREATE_TABLE_SQL,
     STRATEGY_DOCS_CREATE_TABLE_SQL,
 )
-from yoke_core.domain.workflow_schema import WORKFLOW_TABLES_SQL
+from yoke_core.domain.workflow_schema import ensure_workflow_registry_tables
 
 
 def create_core_tables(conn: Any) -> None:
-    execute_schema_script(conn, f"""
+    ensure_workflow_registry_tables(conn)
+    execute_schema_script(
+        conn,
+        f"""
         {_projects_table_sql(if_not_exists=True)}
-        {WORKFLOW_TABLES_SQL}
         CREATE TABLE IF NOT EXISTS items (
           id INTEGER PRIMARY KEY,
           title TEXT NOT NULL,
@@ -272,7 +274,8 @@ def create_core_tables(conn: Any) -> None:
           updated_at TEXT NOT NULL,
           PRIMARY KEY (item_id, section_name)
         );
-    """)
+    """,
+    )
     create_session_tables(conn)
 
 def create_governed_tables(conn: Any) -> None:

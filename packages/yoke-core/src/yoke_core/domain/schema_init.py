@@ -48,6 +48,9 @@ from yoke_core.domain.strategy_docs_schema import (
 from yoke_core.domain.ui_preferences_schema import create_ui_preference_tables
 from yoke_core.domain.workflow_schema import ensure_workflow_schema
 from yoke_core.domain.workflow_registry import converge_builtin_workflows
+from yoke_core.domain.workflow_item_pins import (
+    backfill_legacy_item_workflow_pins,
+)
 
 
 def converge_core_schema(conn) -> None:
@@ -89,6 +92,11 @@ def converge_core_schema(conn) -> None:
     create_pack_projection_tables(conn)
     ensure_workflow_schema(conn)
     converge_builtin_workflows(conn)
+    # Existing databases retain the legacy classification until the governed
+    # contract migration. Boot convergence must populate immutable pins before
+    # the new readers serve those rows; after contraction this is a no-op.
+    backfill_legacy_item_workflow_pins(conn)
+    conn.commit()
     # Strategy authority landed on prod via a since-retired governed
     # migration; fresh envs get the table from the same DDL constant
     # the strategy domain owns.
