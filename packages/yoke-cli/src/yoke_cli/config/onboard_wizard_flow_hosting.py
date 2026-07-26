@@ -158,25 +158,29 @@ class HostingFlow:
     def _goto_hosting_error(self: _Shell, exc: BaseException) -> None:
         from yoke_cli.config.onboard_wizard_app import _View
 
-        if isinstance(exc, hosting.HostingCredentialError):
-            title = "Couldn't save the hosting credential."
-            details = [
-                "Nothing was written; re-entering the two values retries the save.",
-                "Skipping leaves hosting for a later `/yoke onboard` run.",
-            ]
-            rows = hosting_steps.HOSTING_RETRY_ROWS
-        elif isinstance(exc, hosting.AwsCliMissingError):
+        # AwsCliMissingError is a HostingVerificationError, so it is matched
+        # first. Anything that is not a verification verdict — a failed write,
+        # or an unexpected failure — reports as a save problem rather than
+        # putting words in AWS's mouth.
+        if isinstance(exc, hosting.AwsCliMissingError):
             title = "Saved, but Yoke can't verify it here."
             details = [
                 "The two values are already stored on this machine.",
                 "`yoke aws exec -- sts get-caller-identity` checks them once the CLI is installed.",
             ]
             rows = hosting_steps.HOSTING_UNVERIFIED_ROWS
-        else:
+        elif isinstance(exc, hosting.HostingVerificationError):
             title = "AWS rejected the hosting credential."
             details = [
                 "The two values were stored, but they did not pass the identity check.",
                 "Re-entering replaces them; a wrong paste is the usual cause.",
+            ]
+            rows = hosting_steps.HOSTING_RETRY_ROWS
+        else:
+            title = "Couldn't save the hosting credential."
+            details = [
+                "Re-entering the two values retries the save.",
+                "Skipping leaves hosting for a later `/yoke onboard` run.",
             ]
             rows = hosting_steps.HOSTING_RETRY_ROWS
         self.result.hosting_choice = hosting.HOSTING_CHOICE_SKIP

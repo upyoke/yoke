@@ -131,10 +131,14 @@ def quick_create_url(
     if template is None:
         return None
     resolved_region = (region or default_region()).strip() or DEFAULT_REGION
+    # The nested template URL keeps its ``:`` and ``/`` literal: they are legal
+    # fragment characters, it carries no ``&`` or ``#`` to confuse the console's
+    # parser, and an operator has to be able to read the link Yoke asks them to
+    # open. Everything else is still escaped.
     return (
         f"https://console.aws.amazon.com/cloudformation/home?region={resolved_region}"
         f"#/stacks/quickcreate?stackName={BOOTSTRAP_STACK_NAME}"
-        f"&templateURL={quote(template, safe='')}"
+        f"&templateURL={quote(template, safe=':/')}"
     )
 
 

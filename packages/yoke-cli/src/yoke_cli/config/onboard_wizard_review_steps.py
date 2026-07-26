@@ -96,6 +96,10 @@ def finish_body(
         ))
         return widgets
     widgets = heading(REVIEW_TITLE, _review_subtitle(plan, machine_github_saved))
+    # Every group heading below carries its own top margin, so the heading's
+    # trailing spacer would double the gap and cost a row the longest review
+    # cannot spare.
+    widgets.pop()
     # Already-saved state reads first: it is the honest answer to "has anything
     # happened yet?", and it frames every Apply group that follows.
     widgets.extend(render_reuse_summary(plan))

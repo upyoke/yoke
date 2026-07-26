@@ -1,10 +1,12 @@
 """Shared harness for the ``yoke onboard`` Textual SVG golden gates.
 
-The gates live in :mod:`test_onboard_wizard_goldens` (PATH / Connect / GitHub)
-and :mod:`test_onboard_wizard_goldens_project` (Project / Finish); both import
-this module for the render-and-assert machinery, the stubbed host-independent
-data, and the catalog<->golden parity scan. Splitting the harness out keeps each
-gate module under the authored-file line budget while the goldens stay one flat
+The gates live in :mod:`test_onboard_wizard_goldens` (PATH / Connect / GitHub),
+:mod:`test_onboard_wizard_goldens_project` (Project / Finish),
+:mod:`test_onboard_wizard_goldens_art` (board art), and
+:mod:`test_onboard_wizard_goldens_hosting` (Hosting); each imports this module
+for the render-and-assert machinery, the stubbed host-independent data, and the
+catalog<->golden parity scan. Splitting the harness out keeps each gate module
+under the authored-file line budget while the goldens stay one flat
 ``__snapshots__`` tree the parity test owns end to end.
 
 Determinism: Textual renders to a virtual terminal of a fixed size. Build-
@@ -180,12 +182,15 @@ YOKE_TOKEN_VERIFICATION = {
 }
 
 # A finish plan with writes in every group (machine / account / project, incl. the post-checkout scaffold + board-art steps) so the review renders every section.
+# The reuse block carries the two secrets that are already on disk by the time
+# Review renders — the API token from machine approval and the hosting
+# credential from Save & verify — so the golden covers the honest subtitle and
+# the already-saved-above-the-plan ordering rather than only the write plan.
 FINISH_PLAN_FULL = {
     "project_mode": onboard_project.PROJECT_MODE_CREATE_REPO,
     "plan": {
+        "reuse": {"token_reference": True, "aws_admin": True},
         "steps": [
-            {"action": "create-or-validate-dir", "target": "~/.yoke"},
-            {"action": "store-token-reference", "target": "prod.token"},
             {"action": "set-active-env", "target": "prod"},
             {"action": "project-onboard", "target": "my-project"},
             {"action": "project-create-checkout", "target": "~/code/my-project"},
@@ -289,6 +294,7 @@ GATE_MODULES = (
     "runtime.api.cli.test_onboard_wizard_goldens",
     "runtime.api.cli.test_onboard_wizard_goldens_project",
     "runtime.api.cli.test_onboard_wizard_goldens_art",
+    "runtime.api.cli.test_onboard_wizard_goldens_hosting",
 )
 
 
