@@ -1,0 +1,182 @@
+/* Overview activation-module stack and day-zero ghost panels. Loaded beside
+   app.css by every shell that mounts the universe app; selectors stay under
+   .universe-app-root like the rest of the workbench styling. */
+
+.universe-app-root .activation-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 22px;
+}
+.universe-app-root .activation-module {
+  background: var(--yoke-surface);
+  border: 1px solid var(--yoke-border);
+  border-radius: var(--yoke-radius);
+  padding: 13px 15px;
+}
+.universe-app-root .activation-module[data-state="not_started"] {
+  opacity: 0.62;
+}
+.universe-app-root .activation-module[data-state="in_progress"] {
+  border-color: var(--yoke-accent-line);
+}
+.universe-app-root .activation-module.dismissed {
+  opacity: 0.62;
+  border-style: dashed;
+}
+.universe-app-root .activation-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.universe-app-root .activation-medallion {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid var(--yoke-border);
+  background: var(--yoke-surface-2);
+  font-size: 12px;
+  font-weight: 640;
+}
+.universe-app-root .activation-module[data-state="activated"]
+  .activation-medallion {
+  color: var(--yoke-good);
+  background: var(--yoke-good-bg);
+  border-color: transparent;
+}
+.universe-app-root .activation-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 640;
+}
+.universe-app-root .activation-title.cmd {
+  font-family: var(--yoke-font-mono);
+  font-size: 13px;
+}
+.universe-app-root .activation-dismiss,
+.universe-app-root .activation-restore,
+.universe-app-root .activation-show {
+  margin-left: auto;
+  border: 1px solid var(--yoke-border);
+  border-radius: 7px;
+  background: var(--yoke-surface);
+  color: var(--yoke-muted);
+  font: inherit;
+  font-size: 11.5px;
+  padding: 1px 8px;
+  cursor: pointer;
+}
+.universe-app-root .activation-restore,
+.universe-app-root .activation-show {
+  margin-left: 0;
+}
+.universe-app-root .activation-dismiss {
+  /* Hover-revealed: present for keyboard/AT focus, visually quiet until
+     the module is pointed at. */
+  opacity: 0;
+}
+.universe-app-root .activation-module:hover .activation-dismiss,
+.universe-app-root .activation-dismiss:focus-visible {
+  opacity: 1;
+}
+.universe-app-root .activation-dismiss:hover,
+.universe-app-root .activation-restore:hover,
+.universe-app-root .activation-show:hover {
+  color: var(--yoke-accent);
+  border-color: var(--yoke-accent);
+}
+.universe-app-root .activation-sig {
+  margin: 5px 0 0 31px;
+  color: var(--yoke-muted);
+  font-size: 11px;
+}
+.universe-app-root .activation-body {
+  margin-left: 31px;
+}
+.universe-app-root .activation-copy {
+  margin: 7px 0 0;
+  font-size: 13px;
+}
+.universe-app-root .activation-cta {
+  margin: 7px 0 0;
+  font-size: 13.5px;
+  font-weight: 640;
+}
+.universe-app-root .activation-cta code,
+.universe-app-root .activation-copy code,
+.universe-app-root .activation-project code {
+  font-family: var(--yoke-font-mono);
+  font-size: 12px;
+  background: var(--yoke-surface-2);
+  border-radius: 5px;
+  padding: 1px 5px;
+}
+.universe-app-root .activation-checklist {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.universe-app-root .activation-check {
+  font-size: 12.5px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  align-items: baseline;
+}
+.universe-app-root .activation-check[data-done="true"]
+  .activation-check-mark {
+  color: var(--yoke-good);
+}
+.universe-app-root .activation-check[data-done="false"] {
+  color: var(--yoke-ink-2);
+}
+.universe-app-root .activation-check-optional,
+.universe-app-root .activation-check-signal {
+  color: var(--yoke-muted);
+  font-size: 11px;
+}
+.universe-app-root .activation-project {
+  margin: 5px 0 0;
+  font-size: 12.5px;
+}
+.universe-app-root .activation-targets {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--yoke-ink-2);
+}
+.universe-app-root .activation-target[data-hit="true"] {
+  color: var(--yoke-good);
+  font-weight: 600;
+}
+.universe-app-root .activation-note,
+.universe-app-root .activation-restore-line,
+.universe-app-root .activation-unresolved {
+  margin: 6px 0 0;
+  color: var(--yoke-muted);
+  font-size: 11px;
+}
+.universe-app-root .activation-restore-line {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+/* Day-zero ghosts: the collapsed stand-in for a section whose read served
+   nothing while its backing module is not yet activated. */
+.universe-app-root .panel.overview-ghost {
+  border-style: dashed;
+  background: transparent;
+  padding: 10px 15px;
+}
+.universe-app-root .overview-ghost-hint {
+  margin: 0;
+  color: var(--yoke-muted);
+  font-size: 12px;
+}

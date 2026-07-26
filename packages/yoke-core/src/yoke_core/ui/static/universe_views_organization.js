@@ -4,7 +4,9 @@
 // complete portability surface; local and self-host views keep honest command
 // guidance because this read-only workbench has no write path of its own.
 
-import { el, loadSection, section } from "./universe_view_support.js";
+import {
+  el, loadSection, portabilityMode, section,
+} from "./universe_view_support.js";
 
 function invokeAction(action, option) {
   let result;
@@ -78,13 +80,6 @@ function appendSelfHostCommands(documentNode, body) {
     "Replace a stopped self-host bundle from that archive:",
     "yoke self-host import <archive> --dir <bundle>",
   ));
-}
-
-function portabilityMode(capabilities) {
-  const portability = capabilities?.data?.portability;
-  if (!portability || typeof portability !== "object") return "local";
-  return ["local", "self-host", "hosted"].includes(portability.mode)
-    ? portability.mode : "local";
 }
 
 function hostOwnsPortabilitySection(capabilities) {

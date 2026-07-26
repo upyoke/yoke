@@ -35,6 +35,10 @@ READINESS_TABLES: Tuple[str, ...] = (
     # (create_external_identity_tables): a deploy that converges the schema
     # on boot must land it before reporting schema_ready.
     "actor_external_identities",
+    # representative of the UI-preference step (create_ui_preference_tables):
+    # the Overview activation read latches into overview_activation_facts on
+    # first dispatch, so a booted core must carry the step before it is ready.
+    "actor_ui_preferences",
 )
 
 

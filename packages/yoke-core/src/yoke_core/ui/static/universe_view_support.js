@@ -129,6 +129,11 @@ const STATE_PILL_FAMILIES = {
   available: "good",
   installed: "good",
   success: "good",
+  // Activation-module stage vocabulary: a locked module waits, exactly one
+  // unlocked module is next up, and a latched module reads activated.
+  waits: "idle",
+  "next up": "run",
+  activated: "good",
 };
 
 // A state value rendered as a tinted lozenge with a leading dot, colored by
@@ -221,6 +226,16 @@ export async function loadSection(
   if (!context.isMounted()) return;
   const ok = callResult.status === 200 && callResult.envelope.success;
   panel.renderEnvelope(callResult, ok ? renderBody : renderError);
+}
+
+// Deployment mode from the host capability bag; an absent or unknown shape
+// reads as a local universe. Shared by every view that adapts copy to how
+// the universe is hosted.
+export function portabilityMode(capabilities) {
+  const portability = capabilities?.data?.portability;
+  if (!portability || typeof portability !== "object") return "local";
+  return ["local", "self-host", "hosted"].includes(portability.mode)
+    ? portability.mode : "local";
 }
 
 // A multi view's scope resolves into per-call project buckets. "all" is one

@@ -19,8 +19,11 @@ Security model:
   user's door: print it to the caller's terminal, never into event
   streams or logs.
 * The function proxy accepts only the function ids in
-  :data:`UI_READ_FUNCTION_ALLOWLIST` — a closed, read-only roster.
-  Everything else is refused with 403 before the dispatcher sees it.
+  :data:`UI_READ_FUNCTION_ALLOWLIST` — a closed, read-only roster — plus
+  the two actor-scoped Overview dismissal writes in
+  :data:`UI_MUTATION_FUNCTION_ALLOWLIST`, which act only as the resolved
+  local operator actor. Everything else is refused with 403 before the
+  dispatcher sees it.
 """
 
 from __future__ import annotations
@@ -28,11 +31,16 @@ from __future__ import annotations
 import secrets
 import socket
 import threading
-import uuid
 import webbrowser
 from typing import Any, Dict, Optional
 
 from yoke_core.ui.asset_roster import ASSET_CACHE_CONTROL, ASSET_CONTENT_TYPES
+from yoke_core.ui.function_proxy import (
+    UI_ACTIVATION_LATCH_FUNCTIONS,
+    UI_MUTATION_FUNCTION_ALLOWLIST,
+    UI_READ_FUNCTION_ALLOWLIST,
+    proxy_function_call,
+)
 
 #: Default bind host and TCP port for the UI server (loopback only).
 #: Collision-probed at startup; ``--host`` and ``--port`` on ``yoke ui``
@@ -46,29 +54,6 @@ SESSION_TOKEN_BYTES = 32
 
 #: Cookie the app-shell response sets so assets/API ride the session.
 SESSION_COOKIE_NAME = "yoke_ui_session"
-
-#: The closed roster of function ids the browser proxy may dispatch.
-#: Read-only by construction: every id here is registered with no side
-#: effects and no claim requirement.
-UI_READ_FUNCTION_ALLOWLIST = frozenset({
-    "organizations.get",
-    "projects.list",
-    "projects.capabilities.list",
-    "projects.github_binding.status",
-    "items.get.run",
-    "items.list.run",
-    "epic_tasks.list.run",
-    "strategy.doc.list",
-    "strategy.doc.get",
-    "ouroboros.entry.list",
-    "board.data.get",
-    "deployment_runs.list",
-    "sessions.list",
-    "frontier.list",
-    "events.query.run",
-    "doctor.last_run.get",
-    "workflows.definition.get",
-})
 
 _BROWSER_OPEN_DELAY_S = 0.5
 
@@ -156,13 +141,6 @@ def create_ui_app(token: str):
         Response,
     )
 
-    from yoke_contracts.api.function_call import (
-        ActorContext,
-        FunctionCallRequest,
-        TargetRef,
-    )
-    from yoke_core.domain.yoke_function_dispatch import dispatch
-
     if not token:
         raise UiServerError("a non-empty session token is required")
 
@@ -226,47 +204,8 @@ def create_ui_app(token: str):
 
     @app.post("/api/functions/call")
     def call_function(envelope: Dict[str, Any]) -> JSONResponse:
-        function_id = str(envelope.get("function") or "")
-        if function_id not in UI_READ_FUNCTION_ALLOWLIST:
-            return JSONResponse(
-                {"error": {
-                    "code": "function_not_allowed",
-                    "message": (
-                        f"function {function_id!r} is not on this UI "
-                        "server's read-only allowlist"
-                    ),
-                    "allowed": sorted(UI_READ_FUNCTION_ALLOWLIST),
-                }},
-                status_code=403,
-            )
-        raw_target = envelope.get("target")
-        try:
-            target = (
-                TargetRef(**raw_target)
-                if isinstance(raw_target, dict)
-                else TargetRef(kind="global")
-            )
-        except Exception as exc:
-            return JSONResponse(
-                {"error": {"code": "target_invalid", "message": str(exc)}},
-                status_code=422,
-            )
-        request = FunctionCallRequest(
-            function=function_id,
-            # No harness session exists in a browser: the empty session id
-            # (with ambient resolution pinned off below) is the anonymous
-            # local-read identity, same as an unbound CLI read.
-            actor=ActorContext(actor_id=None, session_id=""),
-            target=target,
-            request_id=str(envelope.get("request_id") or uuid.uuid4()),
-            payload=dict(envelope.get("payload") or {}),
-            options=dict(envelope.get("options") or {}),
-        )
-        # ambient_session_id="" (never None): the browser's identity lives
-        # client-side, so the dispatcher must not resolve the SERVER
-        # process's env/ancestry into a session.
-        response = dispatch(request, ambient_session_id="")
-        return JSONResponse(response.model_dump(mode="json"))
+        payload, status_code = proxy_function_call(envelope)
+        return JSONResponse(payload, status_code=status_code)
 
     return app
 
@@ -304,6 +243,8 @@ __all__ = [
     "DEFAULT_UI_PORT",
     "SESSION_COOKIE_NAME",
     "SESSION_TOKEN_BYTES",
+    "UI_ACTIVATION_LATCH_FUNCTIONS",
+    "UI_MUTATION_FUNCTION_ALLOWLIST",
     "UI_READ_FUNCTION_ALLOWLIST",
     "UiServerError",
     "create_ui_app",
