@@ -14,15 +14,14 @@ from yoke_core.domain.workflow_registry import (
     WorkflowRegistryError,
     definition_digest,
 )
+from yoke_core.domain.workflow_registry_sql import row_dict as _row_dict
 from yoke_core.domain.workflow_definition_builders import (
     IMPLEMENTATION_WORKFLOW_EXECUTOR_IDS,
 )
 
 ENGINE_TERMINAL_STAGE_IDS = frozenset({"cancelled", "stopped"})
 ENGINE_WAIT_STAGE_IDS = frozenset({"blocked", "failed"})
-ENGINE_EXCEPTIONAL_STAGE_IDS = (
-    ENGINE_TERMINAL_STAGE_IDS | ENGINE_WAIT_STAGE_IDS
-)
+ENGINE_EXCEPTIONAL_STAGE_IDS = ENGINE_TERMINAL_STAGE_IDS | ENGINE_WAIT_STAGE_IDS
 
 
 @dataclass(frozen=True)
@@ -45,9 +44,7 @@ class WorkflowRuntime:
 
     @property
     def terminal_stage_ids(self) -> frozenset[str]:
-        return frozenset(
-            str(value) for value in self.definition["terminal_stage_ids"]
-        )
+        return frozenset(str(value) for value in self.definition["terminal_stage_ids"])
 
     @property
     def policies(self) -> Mapping[str, Any]:
@@ -55,11 +52,7 @@ class WorkflowRuntime:
 
     def stage(self, stage_id: str) -> Optional[Mapping[str, Any]]:
         return next(
-            (
-                stage
-                for stage in self.stages
-                if str(stage["id"]) == stage_id
-            ),
+            (stage for stage in self.stages if str(stage["id"]) == stage_id),
             None,
         )
 
@@ -76,10 +69,7 @@ class WorkflowRuntime:
         return self.stage_ids[position + 1]
 
     def accepts_stage(self, stage_id: str) -> bool:
-        return (
-            stage_id in self.stage_ids
-            or stage_id in ENGINE_EXCEPTIONAL_STAGE_IDS
-        )
+        return stage_id in self.stage_ids or stage_id in ENGINE_EXCEPTIONAL_STAGE_IDS
 
     def is_forward_transition(
         self,
@@ -98,11 +88,7 @@ class WorkflowRuntime:
         """Whether the current ordered stage is at or beyond a target."""
         current = self.stage_index(current_stage_id)
         target = self.stage_index(target_stage_id)
-        return (
-            current is not None
-            and target is not None
-            and current >= target
-        )
+        return current is not None and target is not None and current >= target
 
     def gates_for_stage(
         self,
@@ -116,9 +102,7 @@ class WorkflowRuntime:
     def gate_ids_for_stage(self, stage_id: Optional[str]) -> frozenset[str]:
         if stage_id is None:
             return frozenset()
-        return frozenset(
-            str(gate["id"]) for gate in self.gates_for_stage(stage_id)
-        )
+        return frozenset(str(gate["id"]) for gate in self.gates_for_stage(stage_id))
 
     def executor_for_stage(self, stage_id: str) -> Optional[str]:
         position = self.stage_index(stage_id)
@@ -127,11 +111,7 @@ class WorkflowRuntime:
         for binding in self.definition["executor_bindings"]:
             start = self.stage_index(str(binding["from_stage_id"]))
             stop = self.stage_index(str(binding["through_stage_id"]))
-            if (
-                start is not None
-                and stop is not None
-                and start <= position < stop
-            ):
+            if start is not None and stop is not None and start <= position < stop:
                 return str(binding["executor_id"])
         raise WorkflowRegistryError(
             f"workflow {self.workflow_id}@{self.version} has no executor "
@@ -152,11 +132,7 @@ class WorkflowRuntime:
                 continue
             start = self.stage_index(str(binding["from_stage_id"]))
             stop = self.stage_index(str(binding["through_stage_id"]))
-            if (
-                start is not None
-                and stop is not None
-                and start < position < stop
-            ):
+            if start is not None and stop is not None and start < position < stop:
                 return True
         return False
 
@@ -174,10 +150,7 @@ class WorkflowRuntime:
             return False
         starts = []
         for binding in self.definition["executor_bindings"]:
-            if (
-                str(binding["executor_id"])
-                not in IMPLEMENTATION_WORKFLOW_EXECUTOR_IDS
-            ):
+            if str(binding["executor_id"]) not in IMPLEMENTATION_WORKFLOW_EXECUTOR_IDS:
                 continue
             start = self.stage_index(str(binding["from_stage_id"]))
             if start is not None:
@@ -228,10 +201,10 @@ class WorkflowRuntime:
             GATE_CLAIM_ACTIVATION,
         )
 
-        return (
-            self.policies["path_claims"] == "required"
-            and GATE_CLAIM_ACTIVATION
-            in self.gate_ids_for_stage(self.next_stage_id(stage_id))
+        return self.policies[
+            "path_claims"
+        ] == "required" and GATE_CLAIM_ACTIVATION in self.gate_ids_for_stage(
+            self.next_stage_id(stage_id)
         )
 
     def allows_entry_surface(self, entry_surface: str) -> bool:
@@ -252,9 +225,7 @@ def _runtime_from_row(row: Any) -> WorkflowRuntime:
             "stored workflow definition is not valid JSON"
         ) from exc
     if not isinstance(definition, dict):
-        raise WorkflowRegistryError(
-            "stored workflow definition is not an object"
-        )
+        raise WorkflowRegistryError("stored workflow definition is not an object")
     stored_digest = str(values["definition_digest"])
     if definition_digest(definition) != stored_digest:
         raise WorkflowRegistryError(
@@ -283,13 +254,14 @@ def load_workflow_runtime(
 ) -> WorkflowRuntime:
     """Load and verify one explicitly pinned workflow version."""
     placeholder = _placeholder(conn)
-    row = conn.execute(
+    cursor = conn.execute(
         "SELECT v.id AS workflow_version_id, v.workflow_id, v.version, "
         "v.definition_json, v.definition_digest "
         "FROM workflow_versions v "
         f"WHERE v.id = {placeholder} AND v.workflow_id = {placeholder}",
         (workflow_version_id, workflow_id),
-    ).fetchone()
+    )
+    row = _row_dict(cursor, cursor.fetchone())
     if row is None:
         raise WorkflowRegistryError(
             f"unknown workflow pin {workflow_id}@version-id:{workflow_version_id}"
@@ -316,14 +288,15 @@ def load_item_workflow_runtime(
 ) -> WorkflowRuntime:
     """Load and verify the immutable workflow version pinned by an item."""
     placeholder = _placeholder(conn)
-    row = conn.execute(
+    cursor = conn.execute(
         "SELECT i.workflow_id, i.workflow_version_id, v.version, "
         "v.definition_json, v.definition_digest "
         "FROM items i "
         "LEFT JOIN workflow_versions v ON v.id = i.workflow_version_id "
         f"WHERE i.id = {placeholder}",
         (item_id,),
-    ).fetchone()
+    )
+    row = _row_dict(cursor, cursor.fetchone())
     if row is None:
         raise WorkflowRegistryError(f"item {item_id} does not exist")
     values = dict(row)
