@@ -261,8 +261,63 @@ def test_review_shows_already_saved_state_before_the_apply_plan() -> None:
     assert already < apply_group
 
     # Done and pending read differently, and the heading renders exactly once.
-    assert "  ✔ Yoke API token file is already saved." in rendered
+    assert f"  ✔ {onboard_reuse_feedback.API_TOKEN_REUSE_LINE}" in rendered
     assert '  • Make "prod" your active environment' in rendered
     # The heading was emitted twice before; the review draws it once, at the top.
     assert rendered.count("Review what Yoke will save.") == 1
     assert rendered[0] == "Review what Yoke will save."
+
+
+def _machine_lines(reuse: dict) -> list[str]:
+    return onboard_reuse_feedback.grouped_lines_for_plan(_review_plan(reuse))["machine"]
+
+
+def test_the_saved_token_is_named_as_a_secret_with_its_custody() -> None:
+    """The line names what was saved and when, not the connection it belongs to."""
+    assert _machine_lines({"connection": True, "token_reference": True}) == [
+        onboard_reuse_feedback.API_TOKEN_REUSE_LINE
+    ]
+    # A token file recorded without a matching connection reads the same way.
+    assert _machine_lines({"token_reference": True}) == [
+        onboard_reuse_feedback.API_TOKEN_REUSE_LINE
+    ]
+
+
+def test_the_two_saved_secrets_are_the_whole_already_saved_block() -> None:
+    """What the review promises above the plan is exactly what is on disk."""
+    lines = _machine_lines(
+        {"yoke_home": True, "token_reference": True, "aws_admin": True}
+    )
+
+    assert lines == [
+        onboard_reuse_feedback.API_TOKEN_REUSE_LINE,
+        "The aws-admin hosting credential (2 values, redacted · saved at "
+        "Save & verify)",
+    ]
+
+
+def test_the_home_folder_is_not_claimed_next_to_a_saved_secret() -> None:
+    """Creating ~/.yoke already happened with the first secret saved into it."""
+    for reuse in ({"token_reference": True}, {"aws_admin": True}):
+        assert "Yoke home folder already exists." not in _machine_lines(
+            {"yoke_home": True, **reuse}
+        )
+
+
+def test_the_home_folder_is_named_when_nothing_else_implies_it() -> None:
+    """With no saved secret to speak for it, the folder is news worth reporting."""
+    assert _machine_lines({"yoke_home": True}) == ["Yoke home folder already exists."]
+
+
+def test_other_machine_state_still_reports_beside_the_secrets() -> None:
+    """Suppressing the folder line does not silence the honest ones around it."""
+    lines = _machine_lines({
+        "yoke_home": True,
+        "token_reference": True,
+        "machine_github": True,
+        "temp_root": True,
+        "cache_dir": True,
+    })
+
+    assert "GitHub App authorization is already connected." in lines
+    assert "Runtime scratch and cache folders already exist." in lines

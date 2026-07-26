@@ -129,14 +129,16 @@ Screen.plain-glyphs _OptionRow.-selected {
 }
 
 /* ── Input screen ───────────────────────────────────────── */
-#onboard-input {
+/* Styled by class, not by id: a screen that collects several values needs one
+   box per field, and each of those needs its own id to address it. */
+.onboard-input {
     height: auto;
     margin: 1 3 0 0;
     border: round $onboard-accent;
     background: transparent;
 }
 
-#onboard-input:focus {
+.onboard-input:focus {
     border: round $onboard-accent-bright;
 }
 
@@ -144,6 +146,28 @@ Screen.plain-glyphs _OptionRow.-selected {
     color: $onboard-danger;
     height: 1;
     margin: 1 0 0 0;
+}
+
+/* ── Multi-field screen ─────────────────────────────────── */
+/* A field box sits directly under its own label at the body's text indent and
+   keeps a fixed width, so a pair of them reads as one credential rather than as
+   two full-width screens stacked. */
+.onboard-form-input {
+    width: 54;
+    margin: 0 0 0 2;
+}
+
+/* The inline error slot takes no row until it has something to say, so a screen
+   that fills its frame exactly still fits while it is being filled in. */
+.onboard-field-error {
+    color: $onboard-danger;
+    height: 1;
+    margin: 0 0 0 2;
+    display: none;
+}
+
+.onboard-field-error.-shown {
+    display: block;
 }
 
 /* ── Write plan ─────────────────────────────────────────── */

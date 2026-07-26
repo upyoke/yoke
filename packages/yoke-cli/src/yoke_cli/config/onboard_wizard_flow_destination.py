@@ -25,12 +25,17 @@ from yoke_cli.config import local_universe_setup
 from yoke_cli.config import onboard_wizard_steps as steps
 from yoke_cli.config.local_universe_setup import LOCAL_ENV
 from yoke_cli.config.onboard_destinations import (
-    DEFAULT_DESTINATION,
     DEFAULT_SIGN_IN_ENV,
     DESTINATION_HOSTED,
     DESTINATION_LOCAL,
     DESTINATION_SERVER,
     is_hosted_url,
+)
+from yoke_cli.config.onboard_destination_rows import (
+    ACCOUNT_STEP_LABELS,
+    DEFAULT_DESTINATION_INDEX,
+    DESTINATION_ROWS,
+    HOSTED_ROW_ENVS,
 )
 from yoke_cli.config.onboard_wizard_palette import BRAND
 from yoke_cli.config.onboard_wizard_widgets import (
@@ -42,28 +47,7 @@ from yoke_cli.config.onboard_wizard_widgets import (
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from yoke_cli.config.onboard_wizard_app import _View
 
-# Where should this Yoke live? Every row is a full first-class deployment of
-# the same engine; the hint names what makes each home different.
-DESTINATION_ROWS = [
-    SelectionRow(DESTINATION_LOCAL, "This machine", "free · no account · stays here"),
-    SelectionRow(DESTINATION_SERVER, "A team server", "your own Yoke server URL"),
-    SelectionRow(DESTINATION_HOSTED, "upyoke.com", "hosted by Yoke"),
-]
-_DEFAULT_DESTINATION_INDEX = next(
-    index
-    for index, row in enumerate(DESTINATION_ROWS)
-    if row.value == DEFAULT_DESTINATION
-)
 _STORED_DESTINATION = "stored"
-
-# Rail label per destination: the sign-in destinations keep the Account
-# label; a local run's Account step is universe setup, not sign-in.
-ACCOUNT_STEP_LABELS = {
-    DESTINATION_LOCAL: "Universe",
-    DESTINATION_SERVER: STEP_CONNECT_LABEL,
-    DESTINATION_HOSTED: STEP_CONNECT_LABEL,
-}
-
 
 class _Shell(Protocol):  # pragma: no cover - structural typing only
     result: Any
@@ -91,7 +75,7 @@ class _Shell(Protocol):  # pragma: no cover - structural typing only
     ) -> None: ...
     def _goto_machine_github(self) -> None: ...
     def _goto_token_source(self) -> None: ...
-    def _goto_hosted_env_select(self) -> None: ...
+    def _start_hosted_machine_authorization(self) -> None: ...
     def _after_api_url(self, value: str) -> None: ...
     def _render_current(self) -> None: ...
 
@@ -125,7 +109,7 @@ class DestinationFlow:
                 "Where should this Yoke live?",
                 "Every home runs the full engine — you can add another later.",
                 DESTINATION_ROWS,
-                initial=_DEFAULT_DESTINATION_INDEX,
+                initial=DEFAULT_DESTINATION_INDEX,
             )
 
         self._account_step_label = STEP_CONNECT_LABEL
@@ -199,7 +183,12 @@ class DestinationFlow:
         self._stored_yoke_token_available = False
 
     def _route_destination(self: _Shell, choice: str) -> None:
-        self.result.destination = choice
+        hosted_env = HOSTED_ROW_ENVS.get(choice)
+        # The hosted rows are one destination reached through two platforms;
+        # the row is the environment choice.
+        self.result.destination = (
+            DESTINATION_HOSTED if hosted_env is not None else choice
+        )
         self._account_step_label = ACCOUNT_STEP_LABELS.get(
             choice,
             STEP_CONNECT_LABEL,
@@ -208,9 +197,9 @@ class DestinationFlow:
             self._prepare_local_result()
             self._goto_local_universe_summary()
             return
-        if self.result.env_name == LOCAL_ENV:
-            # A local detour left the local env label behind; sign-in lanes
-            # never use it (the hosted select re-picks its own env id).
+        if hosted_env is None and self.result.env_name == LOCAL_ENV:
+            # A local detour left the local env label behind; the team-server
+            # lane never uses it.
             self.result.env_name = DEFAULT_SIGN_IN_ENV
         if choice == DESTINATION_SERVER:
             if self.result.api_url and not is_hosted_url(self.result.api_url):
@@ -228,8 +217,12 @@ class DestinationFlow:
             # start a fresh browser approval instead of exposing token entry.
             self._goto_token_source()
             return
+        # Only a fresh approval takes the row's environment. A reused stored
+        # connection keeps the env label it was approved under — that is the
+        # org slug the credential belongs to, not a platform name.
+        self.result.env_name = hosted_env or DEFAULT_SIGN_IN_ENV
         self._clear_stored_connection()
-        self._goto_hosted_env_select()
+        self._start_hosted_machine_authorization()
 
     # ── local destination: universe setup replaces sign-in ──
 

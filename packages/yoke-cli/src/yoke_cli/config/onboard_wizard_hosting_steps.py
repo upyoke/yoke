@@ -2,7 +2,7 @@
 
 The Hosting screens are their own module because they are the one place the
 wizard shows a credential's custody rules alongside the action that collects
-it: the connect screen carries the one-click link, the paste directive, and
+it: the connect screen carries the one-click link, both boxes of the pair, and
 where the pair will live; the verified screen carries redacted evidence and
 the CI-federation promise. Both are shaped by hand rather than through the
 generic selection/verification bodies so that copy stays intact.
@@ -13,7 +13,10 @@ from __future__ import annotations
 from rich.markup import escape
 from textual.widgets import Static
 
+from yoke_cli.config import onboard_input_validation as input_validation
+from yoke_cli.config.onboard_wizard_input_entry import form_field_widgets
 from yoke_cli.config.onboard_wizard_palette import ACCENT
+from yoke_cli.config.onboard_wizard_state import _FormField
 from yoke_cli.config.onboard_wizard_widgets import SelectionList, SelectionRow
 
 HOSTING_CONNECT_TITLE = "Connect your hosting provider?"
@@ -21,14 +24,24 @@ HOSTING_CONNECT_SUBTITLE = (
     "AWS for now. One click creates the deploy credential; paste its two "
     "values below."
 )
-HOSTING_ACCESS_KEY_TITLE = "Paste the access key ID."
-HOSTING_ACCESS_KEY_SUBTITLE = (
-    "The AKIA... value from the stack — here in the wizard, never into an AI chat."
+
+# The two halves of one credential, collected together: they are minted by the
+# same click and are useless apart, so the screen that explains them is also the
+# screen that takes them.
+HOSTING_ACCESS_KEY_FIELD = _FormField(
+    key="access-key-id",
+    label="Access key ID",
+    placeholder="AKIA...",
+    validate=input_validation.validate_access_key_id,
 )
-HOSTING_SECRET_KEY_TITLE = "Paste the secret access key."
-HOSTING_SECRET_KEY_SUBTITLE = (
-    "Hidden as you type. Stored owner-only on this machine, never echoed back."
+HOSTING_SECRET_KEY_FIELD = _FormField(
+    key="secret-access-key",
+    label="Secret access key",
+    placeholder="the secret value from the stack",
+    password=True,
+    validate=input_validation.validate_secret_access_key,
 )
+HOSTING_CREDENTIAL_FIELDS = (HOSTING_ACCESS_KEY_FIELD, HOSTING_SECRET_KEY_FIELD)
 
 HOSTING_CONNECT_ROWS = [
     SelectionRow("connect", "Save & verify", "redacted caller-identity check"),
@@ -61,7 +74,7 @@ def hosting_connect_body(
     quick_create_url: str | None,
     credential_dir: str,
 ) -> list[Static]:
-    """The connect screen: how to mint the pair, and where it will live."""
+    """The connect screen: how to mint the pair, where to paste it, where it lives."""
     link_line = quick_create_url or NO_LINK_LINE
     return [
         Static(HOSTING_CONNECT_TITLE, classes="onboard-title"),
@@ -77,11 +90,8 @@ def hosting_connect_body(
             "  2  Paste the two values — here in the wizard, never into an AI chat:",
             classes="onboard-plan-line",
         ),
-        Static(
-            "     Access key ID first, then the secret access key.",
-            classes="onboard-plan-line",
-        ),
         Static("", classes="onboard-spacer"),
+        *form_field_widgets(HOSTING_CREDENTIAL_FIELDS),
         Static(
             f"  Stays on this machine ({escape(credential_dir)}) —",
             classes="onboard-subtitle",
@@ -153,14 +163,13 @@ def hosting_error_body(
 
 
 __all__ = [
-    "HOSTING_ACCESS_KEY_SUBTITLE",
-    "HOSTING_ACCESS_KEY_TITLE",
+    "HOSTING_ACCESS_KEY_FIELD",
     "HOSTING_CONNECT_ROWS",
     "HOSTING_CONNECT_SUBTITLE",
     "HOSTING_CONNECT_TITLE",
+    "HOSTING_CREDENTIAL_FIELDS",
     "HOSTING_RETRY_ROWS",
-    "HOSTING_SECRET_KEY_SUBTITLE",
-    "HOSTING_SECRET_KEY_TITLE",
+    "HOSTING_SECRET_KEY_FIELD",
     "HOSTING_UNVERIFIED_ROWS",
     "HOSTING_VERIFIED_ROWS",
     "NO_LINK_LINE",

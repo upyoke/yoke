@@ -1,8 +1,11 @@
-// The activation-module copy deck: every drawn string the module stack
-// renders, kept beside the renderer so chrome and copy review together.
+// The activation-module copy deck: every string the module stack renders,
+// kept beside the renderer so chrome and copy review together.
 // Module/submodule KEYS are engine vocabulary (stable ids in
 // overview.activation.get responses); the strings here are the product
-// copy for those keys, including the quiet fine-print signal lines.
+// copy for those keys. Which signal derives a module's state, and why the
+// bonus targets are not blockers, are explanations of the model rather
+// than anything a member acts on: they belong to the design record, never
+// to this screen.
 
 export const MODULE_TITLES = {
   finish_installation_wizard: "Finish the installation wizard",
@@ -11,36 +14,23 @@ export const MODULE_TITLES = {
   first_deploy: "First deploy",
 };
 
-// The quiet fine-print signal line under each module title.
-export const MODULE_SIGNAL_LINES = {
-  finish_installation_wizard:
-    "submodule signals listed inline — the module activates on the " +
-    "required pair (machine/universe + project) and reads fully complete " +
-    "on all four",
-  connect_harness: "signal · HarnessSessionStarted carrying the executor",
-  run_onboard: "signal · onboarding checklist (run_id) progress",
-  first_deploy: "signal · a successful deployment run",
-};
-
 export const STATE_PILL_TEXT = {
   not_started: "waits",
   in_progress: "next up",
   activated: "activated",
 };
 
-// Wizard checklist rows: label + quiet signal, the first row adapting to how
-// the universe is hosted. Tail rows are recommended, never required.
+// Wizard checklist rows, the first adapting to how the universe is hosted.
+// Tail rows are recommended, never required.
 export const WIZARD_MACHINE_ROWS = {
-  hosted: ["Machine connected", "machine-auth approval"],
-  local: [
-    "Local universe created", 'yoke init --local / wizard "this machine"',
-  ],
-  "self-host": ["Team server connected", "server connect"],
+  hosted: "Machine connected",
+  local: "Local universe created",
+  "self-host": "Team server connected",
 };
 export const WIZARD_ROWS = {
-  github: ["GitHub connected", "GitHub App binding"],
-  first_project: ["First project created", "projects.create"],
-  hosting: ["Hosting connected", "aws-admin capability saved"],
+  github: "GitHub connected",
+  first_project: "First project created",
+  hosting: "Hosting connected",
 };
 export const WIZARD_TAIL_KEYS = new Set(["github", "hosting"]);
 
@@ -48,8 +38,6 @@ export const RUN_ONBOARD_TITLE_HINT =
   "Run this in your harness — the web never invokes a skill";
 export const DISMISS_HINT =
   "Dismiss — signals keep tracking; restore any time";
-export const TARGET_NOTE =
-  "any one activates — the rest stay as bonus targets, never blockers";
 export const INSTALL_COMMAND = "curl -fsSL https://upyoke.com/install | sh";
 
 export const MODULE_COPY = {

@@ -232,9 +232,13 @@ async def complete_board_art(pilot) -> None:
 async def skip_hosting(pilot) -> None:
     """Decline the hosting credential, landing on the review screen.
 
-    "Save & verify" is the default row, so skipping is one row down. Scenarios
-    that exercise the credential itself drive the step directly instead.
+    The connect screen opens with the caret in the first credential box, so
+    reaching the rows means tabbing past both boxes; "Save & verify" leads them,
+    making skipping one row down. Scenarios that exercise the credential itself
+    drive the step directly instead.
     """
+    await pilot.press("tab")    # hosting: leave the access key ID box
+    await pilot.press("tab")    # hosting: leave the secret access key box
     await pilot.press("down")   # hosting: move to "Skip for now"
     await pilot.press("enter")  # hosting: skip -> Finish
 

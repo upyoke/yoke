@@ -152,15 +152,6 @@ def test_connect_local_universe() -> None:
     )
 
 
-def test_connect_env_select() -> None:
-    app = make_app(api_url="")  # hosted pick with nothing stored: env select
-
-    async def drive(a: OnboardWizardApp, _pilot: Any) -> None:
-        a._after_destination_select(DESTINATION_HOSTED)
-
-    assert_golden("connect_env_select", render(app, drive, title="yoke onboard · Account"))
-
-
 def test_connect_server_url_input() -> None:
     app = make_app(api_url="")
 

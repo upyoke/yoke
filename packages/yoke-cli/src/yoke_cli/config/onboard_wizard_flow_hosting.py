@@ -12,12 +12,12 @@ capability is reachable later from ``/yoke onboard``, from
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Callable, Protocol
 
 from yoke_cli.config import aws_admin_capability as hosting
-from yoke_cli.config import onboard_input_validation as input_validation
 from yoke_cli.config import onboard_project_modes as project_modes
 from yoke_cli.config import onboard_wizard_hosting_steps as hosting_steps
+from yoke_cli.config.onboard_wizard_state import _FormField
 from yoke_cli.config.onboard_wizard_step_ids import STEP_HOSTING
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -28,11 +28,13 @@ class _Shell(Protocol):  # pragma: no cover - structural typing only
     result: Any
 
     def _goto(self, view: "_View") -> None: ...
-    def _goto_input(self, step, title, subtitle, *, placeholder, on_done,
-                    password: bool = False,
-                    allow_placeholder: bool = True,
-                    validate=None,
-                    initial_value: str = "") -> None: ...
+    def _begin_form(
+        self,
+        fields: tuple[_FormField, ...],
+        *,
+        on_done: Callable[[dict[str, str]], None],
+    ) -> None: ...
+    def _submit_pending_form(self) -> bool: ...
     def _goto_finish(self) -> None: ...
     def _run_checking(self, **kwargs) -> None: ...
 
@@ -43,8 +45,6 @@ class HostingFlow:
     # ── entry ───────────────────────────────────────────────
 
     def _goto_hosting(self: _Shell) -> None:
-        from yoke_cli.config.onboard_wizard_app import _View
-
         slug = str(self.result.project_slug or "").strip()
         if not slug or not project_modes.offers_hosting_credential(
             self.result.project_mode
@@ -52,22 +52,32 @@ class HostingFlow:
             # No project Yoke deploys for means no owner for a credential.
             self._goto_finish()
             return
-        self._goto(_View(
-            STEP_HOSTING,
-            lambda: hosting_steps.hosting_connect_body(
+        self._goto_hosting_connect()
+
+    def _goto_hosting_connect(self: _Shell) -> None:
+        from yoke_cli.config.onboard_wizard_app import _View
+
+        def builder():
+            self._begin_form(
+                hosting_steps.HOSTING_CREDENTIAL_FIELDS,
+                on_done=self._after_hosting_credentials,
+            )
+            return hosting_steps.hosting_connect_body(
                 quick_create_url=hosting.quick_create_url(
                     region=self._hosting_region(),
                 ),
                 credential_dir=self._hosting_credential_dir(),
-            ),
-            self._on_hosting_choice,
-        ))
+            )
+
+        self._goto(_View(STEP_HOSTING, builder, self._on_hosting_choice))
 
     def _on_hosting_choice(self: _Shell, choice: str) -> None:
         if choice != "connect":
             self._skip_hosting()
             return
-        self._goto_hosting_access_key()
+        # Both boxes are on this screen, so the row commits what is in them; a
+        # rejected value keeps the screen and marks the box it came from.
+        self._submit_pending_form()
 
     def _skip_hosting(self: _Shell) -> None:
         self.result.hosting_choice = hosting.HOSTING_CHOICE_SKIP
@@ -76,37 +86,13 @@ class HostingFlow:
 
     # ── credential entry ────────────────────────────────────
 
-    def _goto_hosting_access_key(self: _Shell) -> None:
-        self._goto_input(
-            STEP_HOSTING,
-            hosting_steps.HOSTING_ACCESS_KEY_TITLE,
-            hosting_steps.HOSTING_ACCESS_KEY_SUBTITLE,
-            placeholder="AKIA...",
-            allow_placeholder=False,
-            validate=input_validation.validate_access_key_id,
-            on_done=self._after_hosting_access_key,
-        )
-
-    def _after_hosting_access_key(self: _Shell, value: str) -> None:
-        self._hosting_access_key_id = value.strip()
-        self._goto_input(
-            STEP_HOSTING,
-            hosting_steps.HOSTING_SECRET_KEY_TITLE,
-            hosting_steps.HOSTING_SECRET_KEY_SUBTITLE,
-            placeholder="the secret value from the stack",
-            allow_placeholder=False,
-            password=True,
-            validate=input_validation.validate_secret_access_key,
-            on_done=self._after_hosting_secret_key,
-        )
-
-    def _after_hosting_secret_key(self: _Shell, value: str) -> None:
+    def _after_hosting_credentials(self: _Shell, values: dict[str, str]) -> None:
         # The secret lives only in this closure until the store writes it; it
         # is never held on the app or echoed to any screen.
-        secret = value.strip()
+        access_key_id = values[hosting_steps.HOSTING_ACCESS_KEY_FIELD.key]
+        secret = values[hosting_steps.HOSTING_SECRET_KEY_FIELD.key]
         slug = str(self.result.project_slug or "").strip()
         region = self._hosting_region()
-        access_key_id = getattr(self, "_hosting_access_key_id", "")
 
         def _work() -> hosting.CallerIdentity:
             hosting.store_credential(
@@ -195,7 +181,7 @@ class HostingFlow:
 
     def _on_hosting_error_choice(self: _Shell, choice: str) -> None:
         if choice == "retry":
-            self._goto_hosting_access_key()
+            self._goto_hosting_connect()
             return
         if choice == "keep":
             # The pair is already on disk; only the proof is missing.

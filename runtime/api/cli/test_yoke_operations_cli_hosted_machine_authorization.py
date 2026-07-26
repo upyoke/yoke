@@ -96,10 +96,6 @@ def test_hosted_url_preset_starts_browser_approval_without_token_entry(
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
-            assert "Which hosted environment should this machine use?" in _body_text(
-                app
-            )
-            await pilot.press("enter")
             await app.workers.wait_for_complete()
             body = _body_text(app)
             assert "Sign in and choose an organization." in body
@@ -153,7 +149,7 @@ def test_hosted_pick_persists_browser_approval_before_project_flow(
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
-            await pilot.press("up", "enter", "enter")
+            await pilot.press("up", "up", "enter")
             await app.workers.wait_for_complete()
             assert "Sign in and choose an organization." in _body_text(app)
             assert "ABCD-2345" in _body_text(app)
@@ -289,7 +285,7 @@ def test_browser_denial_reports_and_mints_one_fresh_authorization(
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
-            await pilot.press("up", "enter", "enter")
+            await pilot.press("up", "up", "enter")
             await app.workers.wait_for_complete()
             # First denial: one fresh authorization mints automatically and
             # the approval view returns with the new code.
@@ -335,7 +331,7 @@ def test_hosted_failure_retries_browser_flow_without_teaching_token_paste(
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
-            await pilot.press("up", "enter", "enter")
+            await pilot.press("up", "up", "enter")
             await app.workers.wait_for_complete()
             await pilot.press("enter")
             await app.workers.wait_for_complete()

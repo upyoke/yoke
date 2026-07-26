@@ -46,7 +46,8 @@ from yoke_cli.config.onboard_wizard_flow_project_git import ProjectGitFlow
 from yoke_cli.config.onboard_wizard_flow_publish import PublishFlow
 from yoke_cli.config.onboard_wizard_flow_publish_manual import ManualPublishFlow
 from yoke_cli.config.onboard_wizard_path import PathFlow
-from yoke_cli.config.onboard_wizard_state import _PendingInput, _View
+from yoke_cli.config.onboard_wizard_input_entry import InputEntry
+from yoke_cli.config.onboard_wizard_state import _PendingForm, _PendingInput, _View
 from yoke_cli.config.onboard_wizard_widgets import (
     STEP_CONNECT_LABEL,
     SelectionList,
@@ -94,7 +95,7 @@ def _disable_mouse_reporting() -> None:
 class OnboardWizardApp(
     CheckingFlow, PathFlow, DestinationFlow, HostedMachineConnectFlow, ConnectFlow, MachineGithubFlow,
     ProjectGitFlow, WizardFlow, ApplyFlow, CloneFlow, DevFlow, ManualPublishFlow,
-    PublishFlow, HostingFlow, BoardArtFlow, App[None],
+    PublishFlow, HostingFlow, BoardArtFlow, InputEntry, App[None],
 ):
     CSS_PATH = "onboard_wizard.tcss"
     BINDINGS = [
@@ -168,6 +169,7 @@ class OnboardWizardApp(
         self._post_install = defaults.post_install
         self._history: list[_View] = []
         self._pending_input: _PendingInput | None = None
+        self._pending_form: _PendingForm | None = None
         self._checking = False
         self._checking_blocks_quit = False
         # Set by ``_render_current`` and drained by the async message handlers so
@@ -292,6 +294,7 @@ class OnboardWizardApp(
         # (the leading "~" of a path is the painful case); disabling it drops its
         # focus immediately so no key lands in a widget that is about to vanish.
         self._pending_input = None
+        self._pending_form = None
         self._swap_pending = True
         body = self.query_one("#onboard-body")
         for widget in body.children:
@@ -371,41 +374,12 @@ class OnboardWizardApp(
         # focus to the active control so Enter never goes dead.
         self._refocus_body()
 
-    def on_key(self, event: Any) -> None:
-        text = str(getattr(event, "character", "") or "")
-        if not text or not text.isprintable():  # Enter is "\r"; controls stay with widgets
-            return
-        target = self._active_input()
-        if target is not None and not target.has_focus:
-            # Key arrived before the freshly mounted Input settled focus: place
-            # it manually so the leading character is never dropped. Once the
-            # Input owns focus, Textual delivers keys to it directly and this
-            # branch is a no-op (guarded by `not target.has_focus`), so the
-            # event is never inserted twice.
-            self.set_focus(target)
-            self._insert_input_text(target, text)
-            event.stop()
-
-    def _active_input(self) -> Input | None:
-        if self._pending_input is None:
-            return None
-        body = self.query_one("#onboard-body")
-        for widget in body.children:
-            if isinstance(widget, Input) and not widget.disabled:
-                return widget
-        return None
-
-    def _insert_input_text(self, widget: Input, text: str) -> None:
-        value = widget.value or ""
-        cursor = int(getattr(widget, "cursor_position", len(value)) or 0)
-        widget.value = value[:cursor] + text + value[cursor:]
-        widget.cursor_position = cursor + len(text)
-
     async def action_back(self) -> None:
         if self._checking:
             return
         if len(self._history) > 1:
             self._pending_input = None
+            self._pending_form = None
             self._history.pop()
             self._render_current()
             await self._apply_pending_swap()
@@ -428,31 +402,6 @@ class OnboardWizardApp(
         if handler is not None:
             handler(message.value)
         await self._apply_pending_swap()
-
-    async def on_input_submitted(self, message: Input.Submitted) -> None:
-        if self._pending_input is None:
-            return
-        value = message.value.strip()
-        if not value and self._pending_input.allow_placeholder:
-            value = self._pending_input.placeholder.strip()
-        # Fail fast: reject invalid input inline and stay on this step so the user
-        # re-enters, instead of advancing and surfacing the failure at Apply.
-        if self._pending_input.validate is not None:
-            error = self._pending_input.validate(value)
-            if error:
-                self._show_input_error(error)
-                return
-        if not value:
-            self._show_input_error("A value is required.")
-            return
-        pending = self._pending_input
-        self._pending_input = None
-        pending.on_done(value)
-        await self._apply_pending_swap()
-
-    def _show_input_error(self, text: str) -> None:
-        for widget in self.query(".onboard-input-error").results(Static):
-            widget.update(text)
 
     # ── view helpers ────────────────────────────────────────
 
