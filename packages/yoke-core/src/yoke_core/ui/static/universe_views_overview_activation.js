@@ -5,9 +5,11 @@
 // medallions, waits / next up / activated pills, the wizard checklist, the
 // harness target row, hover dismiss, and the restore line. Honesty rules
 // hold throughout: an unresolved read renders a pending line (never
-// fabricated module states), a pending submodule stays ○ with its reason,
-// and the day-zero ghost panels replace a section only when its read served
-// nothing AND its backing module is not yet activated.
+// fabricated module states), a pending submodule stays ○, and the day-zero
+// ghost panels replace a section only when its read served nothing AND its
+// backing module is not yet activated. Which signal derives a state is a
+// fact about the model, not something a member acts on, so it stays out of
+// the rendered card.
 
 import {
   callFunction,
@@ -21,11 +23,9 @@ import {
   GHOST_MODULES,
   INSTALL_COMMAND,
   MODULE_COPY,
-  MODULE_SIGNAL_LINES,
   MODULE_TITLES,
   RUN_ONBOARD_TITLE_HINT,
   STATE_PILL_TEXT,
-  TARGET_NOTE,
   WIZARD_MACHINE_ROWS,
   WIZARD_ROWS,
   WIZARD_TAIL_KEYS,
@@ -89,9 +89,9 @@ async function setDismissed(context, module, dismissed, draw) {
 function wizardChecklist(documentNode, module, mode) {
   const list = el(documentNode, "ul", "activation-checklist");
   for (const submodule of module.submodules || []) {
-    const [label, signal] = submodule.key === "machine_universe"
+    const label = submodule.key === "machine_universe"
       ? (WIZARD_MACHINE_ROWS[mode] || WIZARD_MACHINE_ROWS.local)
-      : (WIZARD_ROWS[submodule.key] || [submodule.key, ""]);
+      : (WIZARD_ROWS[submodule.key] || submodule.key);
     const row = el(documentNode, "li", "activation-check");
     row.setAttribute("data-sub", submodule.key);
     row.setAttribute("data-done", String(Boolean(submodule.done)));
@@ -103,15 +103,6 @@ function wizardChecklist(documentNode, module, mode) {
     if (!submodule.done && WIZARD_TAIL_KEYS.has(submodule.key)) {
       row.appendChild(el(
         documentNode, "span", "activation-check-optional", "· finish any time",
-      ));
-    }
-    row.appendChild(el(
-      documentNode, "span", "activation-check-signal", `· ${signal}`,
-    ));
-    if (submodule.detail) {
-      row.appendChild(el(
-        documentNode, "span", "activation-check-signal",
-        `· ${submodule.detail}`,
       ));
     }
     list.appendChild(row);
@@ -191,7 +182,6 @@ function harnessBody(documentNode, module, body) {
     targets.appendChild(chip);
   });
   body.appendChild(targets);
-  body.appendChild(el(documentNode, "p", "activation-note", TARGET_NOTE));
 }
 
 function renderModule(context, module, position, result, draw, viewState) {
@@ -235,9 +225,6 @@ function renderModule(context, module, position, result, draw, viewState) {
     head.appendChild(dismiss);
   }
   card.appendChild(head);
-  card.appendChild(el(
-    documentNode, "p", "activation-sig", MODULE_SIGNAL_LINES[module.key] || "",
-  ));
   const body = el(documentNode, "div", "activation-body");
   if (module.key === "finish_installation_wizard") {
     wizardBody(documentNode, module, viewState.mode, body);

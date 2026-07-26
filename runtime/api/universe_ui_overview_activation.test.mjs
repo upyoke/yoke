@@ -73,14 +73,16 @@ test("day zero: module one is next up, the rest wait in order", async (t) => {
     onboardTitle.attributes.get("title"),
     "Run this in your harness — the web never invokes a skill",
   );
-  // The quiet signal fine print renders for every module.
-  assert.equal(
-    byClass(cards[3], "activation-sig")[0].textContent,
-    "signal · a successful deployment run",
-  );
-  // The pending machine row carries its honest reason; no dismiss controls
-  // exist without an actor.
-  assert.ok(textOf(cards[0]).includes("no host machine fact supplied"));
+  // Which signal derives a state explains the model to its designers; it is
+  // never printed on a member's dashboard, and neither is the engine
+  // vocabulary that carries it.
+  const stackText = textOf(byClass(root, "activation-stack")[0]);
+  for (const internal of [
+    "signal ·", "HarnessSessionStarted", "run_id", "no host machine fact",
+  ]) {
+    assert.ok(!stackText.includes(internal), `leaked internal copy: ${internal}`);
+  }
+  // No dismiss controls exist without an actor.
   assert.equal(byClass(root, "activation-dismiss").length, 0);
   mounted.unmount();
 });
@@ -122,14 +124,9 @@ test("the wizard checklist renders ✓/○ rows with tail allowances", async (t)
     byClass(rows[1], "activation-check-optional")[0].textContent,
     "· finish any time",
   );
-  assert.equal(
-    byClass(rows[0], "activation-check-signal")[0].textContent,
-    '· yoke init --local / wizard "this machine"',
-  );
-  assert.equal(
-    byClass(rows[3], "activation-check-signal")[0].textContent,
-    "· aws-admin capability saved",
-  );
+  // A row states what is done, never which engine surface proves it.
+  assert.equal(textOf(rows[0]), "✓Local universe created");
+  assert.equal(textOf(rows[1]), "○GitHub connected· finish any time");
   // Machine connected mid-wizard reads return-to-terminal, never web-first.
   const wizard = moduleCards(root)[0];
   assert.ok(textOf(wizard).includes(
@@ -215,10 +212,9 @@ test("the harness module lights hit targets and names the connection", async (t)
     chips.map((chip) => chip.attributes.get("data-hit")),
     ["true", "false", "true", "false", "true"],
   );
-  assert.equal(
-    byClass(harness, "activation-note")[0].textContent,
-    "any one activates — the rest stay as bonus targets, never blockers",
-  );
+  // Why the unlit targets are not blockers explains the activation model;
+  // the chips carry that themselves without a note beneath them.
+  assert.equal(byClass(harness, "activation-note").length, 0);
   // The unlocked third module carries its next-action copy.
   assert.ok(textOf(cards[2]).includes(
     "In your harness: strategy → execution profile → Packs → envs → " +

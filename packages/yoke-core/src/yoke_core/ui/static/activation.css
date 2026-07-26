@@ -89,11 +89,6 @@
   color: var(--yoke-accent);
   border-color: var(--yoke-accent);
 }
-.universe-app-root .activation-sig {
-  margin: 5px 0 0 31px;
-  color: var(--yoke-muted);
-  font-size: 11px;
-}
 .universe-app-root .activation-body {
   margin-left: 31px;
 }
@@ -137,8 +132,7 @@
 .universe-app-root .activation-check[data-done="false"] {
   color: var(--yoke-ink-2);
 }
-.universe-app-root .activation-check-optional,
-.universe-app-root .activation-check-signal {
+.universe-app-root .activation-check-optional {
   color: var(--yoke-muted);
   font-size: 11px;
 }
@@ -155,7 +149,6 @@
   color: var(--yoke-good);
   font-weight: 600;
 }
-.universe-app-root .activation-note,
 .universe-app-root .activation-restore-line,
 .universe-app-root .activation-unresolved {
   margin: 6px 0 0;
