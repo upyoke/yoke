@@ -27,6 +27,7 @@ from yoke_core.engines._project_identity_test_helpers import (
 from runtime.api.api_workflow_test_helpers import (
     install_workflow_registry_and_pin_items,
 )
+from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
 
 
 def _p(conn) -> str:
@@ -204,8 +205,12 @@ def _make_conn():
 
 def _insert_item(conn, *args, **kwargs) -> None:
     """Insert an item and resolve its immutable workflow pin."""
+    workflow_id = kwargs.pop("workflow_id", "issue")
+    _, workflow_version_id = resolve_current_workflow_pin(conn, workflow_id)
+    kwargs["workflow_id"] = workflow_id
+    kwargs["workflow_version_id"] = workflow_version_id
     _insert_project_item(conn, *args, **kwargs)
-    install_workflow_registry_and_pin_items(conn)
+    conn.commit()
 
 
 def _args(**kwargs) -> DoctorArgs:

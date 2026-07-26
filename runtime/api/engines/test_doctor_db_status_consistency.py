@@ -38,7 +38,10 @@ class TestHCStatusConsistency:
             "INSERT INTO items (id, title, type, status, priority) "
             "VALUES (10, 'E', 'epic', 'implementing', 'high')"
         )
-        install_workflow_registry_and_pin_items(conn)
+        install_workflow_registry_and_pin_items(
+            conn,
+            workflow_id_by_item={10: "epic"},
+        )
         rec = RecordCollector()
         hc_status_consistency(conn, _default_args(), rec)
         r = _get_result(rec, "HC-status-consistency")
@@ -50,7 +53,10 @@ class TestHCStatusConsistency:
             "INSERT INTO items (id, title, type, status, priority) "
             "VALUES (10, 'E', 'epic', 'implementing', 'high')"
         )
-        install_workflow_registry_and_pin_items(conn)
+        install_workflow_registry_and_pin_items(
+            conn,
+            workflow_id_by_item={10: "epic"},
+        )
         conn.execute("INSERT INTO epic_tasks (epic_id, task_num, title, status) VALUES (10, 1, 'T1', 'planning')")
         rec = RecordCollector()
         hc_status_consistency(conn, _default_args(), rec)
@@ -64,7 +70,10 @@ class TestHCStatusConsistency:
             "INSERT INTO items (id, title, type, status, priority) "
             "VALUES (11, 'E', 'epic', 'refined-idea', 'high')"
         )
-        install_workflow_registry_and_pin_items(conn)
+        install_workflow_registry_and_pin_items(
+            conn,
+            workflow_id_by_item={11: "epic"},
+        )
         rec = RecordCollector()
         hc_status_consistency(conn, _default_args(), rec)
         r = _get_result(rec, "HC-status-consistency")
@@ -76,7 +85,10 @@ class TestHCStatusConsistency:
             "INSERT INTO items (id, title, type, status, priority) "
             "VALUES (12, 'E', 'epic', 'planning', 'high')"
         )
-        install_workflow_registry_and_pin_items(conn)
+        install_workflow_registry_and_pin_items(
+            conn,
+            workflow_id_by_item={12: "epic"},
+        )
         rec = RecordCollector()
         hc_status_consistency(conn, _default_args(), rec)
         r = _get_result(rec, "HC-status-consistency")

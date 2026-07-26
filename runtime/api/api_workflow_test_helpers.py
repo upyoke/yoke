@@ -9,20 +9,35 @@ from yoke_core.domain.workflow_registry import (
 from yoke_core.domain.workflow_schema import ensure_workflow_schema
 
 
-def install_workflow_registry_and_pin_items(conn) -> None:
-    """Converge built-ins and pin fixture items from their workflow marker."""
+def install_workflow_registry_and_pin_items(
+    conn,
+    *,
+    default_workflow_id: str = "issue",
+    workflow_id_by_item: dict[int, str] | None = None,
+) -> None:
+    """Converge built-ins and complete explicit fixture workflow pins."""
     ensure_workflow_schema(conn)
     converge_builtin_workflows(conn)
-    for workflow_id in ("issue", "epic"):
+    assignments = workflow_id_by_item or {}
+    for item_id, workflow_id in assignments.items():
         resolved_id, version_id = resolve_current_workflow_pin(
             conn,
             workflow_id,
         )
         conn.execute(
             "UPDATE items SET workflow_id = %s, workflow_version_id = %s "
-            "WHERE type = %s",
-            (resolved_id, version_id, workflow_id),
+            "WHERE id = %s",
+            (resolved_id, version_id, item_id),
         )
+    resolved_id, version_id = resolve_current_workflow_pin(
+        conn,
+        default_workflow_id,
+    )
+    conn.execute(
+        "UPDATE items SET workflow_id = %s, workflow_version_id = %s "
+        "WHERE workflow_id IS NULL AND workflow_version_id IS NULL",
+        (resolved_id, version_id),
+    )
     conn.commit()
 
 

@@ -43,6 +43,7 @@ from yoke_cli.config import writer as machine_config_writer
 from yoke_cli.config.local_universe_setup import LOCAL_ENV
 
 from runtime.api.fixtures import pg_testdb
+from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.schema_ddl import apply_fixture_schema
 from runtime.api.engines.resync_local_mode_test_support import (
     PROJECT_REPO,
@@ -204,16 +205,19 @@ def _seed_item(universe, item_id: int, github_issue) -> str:
     """Insert one backlog item into the universe; return its rendered body."""
     conn = pg_testdb.connect_test_database(universe.db_name)
     try:
-        conn.execute(
-            "INSERT INTO items (id, title, status, priority, type, source, "
-            "spec, frozen, github_issue, project_id, project_sequence, "
-            "created_at, updated_at) "
-            "VALUES (%s, 'Local mode sync item', 'implementing', 'high', "
-            "'issue', 'manual', 'Spec body', 0, %s, 1, %s, "
-            "'2026-01-01', '2026-01-01')",
-            (item_id, github_issue, item_id),
+        insert_item(
+            conn,
+            id=item_id,
+            title="Local mode sync item",
+            status="implementing",
+            priority="high",
+            source="manual",
+            spec="Spec body",
+            frozen=0,
+            github_issue=github_issue,
+            created_at="2026-01-01",
+            updated_at="2026-01-01",
         )
-        conn.commit()
         body = build_body(conn, item_id) or ""
     finally:
         conn.close()

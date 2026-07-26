@@ -39,11 +39,6 @@ from yoke_core.engines.doctor import (
     hc_shepherd_lifecycle,
     hc_undeployed_done,
 )
-from runtime.api.api_workflow_test_helpers import (
-    install_workflow_registry_and_pin_items,
-)
-
-
 def _seed_undeployed_done(conn, item_id: int) -> None:
     """Seed a done item that trips HC-undeployed-done."""
     days_old = 30
@@ -55,7 +50,7 @@ def _seed_undeployed_done(conn, item_id: int) -> None:
         conn,
         item_id,
         f"Stale undeployed item {item_id}",
-        type="issue",
+        workflow_id="issue",
         status="done",
         deployed_to=None,
         updated_at=updated,
@@ -96,14 +91,13 @@ class TestUndeployedDoneCutoff:
 
 class TestPrematureDoneCutoff:
     def _seed(self, conn, item_id: int) -> None:
-        p = _p(conn)
-        conn.execute(
-            "INSERT INTO items (id, title, type, status, merged_at) "
-            f"VALUES ({p}, {p}, 'issue', 'done', NULL)",
-            (item_id, f"Done without merged_at {item_id}"),
+        _insert_item(
+            conn,
+            item_id,
+            f"Done without merged_at {item_id}",
+            status="done",
+            merged_at=None,
         )
-        install_workflow_registry_and_pin_items(conn)
-        conn.commit()
 
     def test_below_cutoff_excluded(self, tmp_path):
         conn = _make_conn()
@@ -135,14 +129,13 @@ class TestPrematureDoneCutoff:
 
 class TestShepherdLifecycleCutoff:
     def _seed_epic_without_verdict(self, conn, item_id: int) -> None:
-        p = _p(conn)
-        conn.execute(
-            "INSERT INTO items (id, title, type, status) "
-            f"VALUES ({p}, {p}, 'epic', 'planned')",
-            (item_id, f"Epic without verdict {item_id}"),
+        _insert_item(
+            conn,
+            item_id,
+            f"Epic without verdict {item_id}",
+            workflow_id="epic",
+            status="planned",
         )
-        install_workflow_registry_and_pin_items(conn)
-        conn.commit()
 
     def test_below_cutoff_excluded(self, tmp_path):
         conn = _make_conn()
@@ -190,19 +183,14 @@ class TestLifecycleContinuityCutoff:
         self, conn, item_id: int, updated_at: str,
     ) -> None:
         """Insert an item with status='done' and no transition row."""
-        p = _p(conn)
-        conn.execute(
-            "INSERT INTO items (id, title, type, status, "
-            " created_at, updated_at) "
-            f"VALUES ({p}, {p}, 'issue', 'done', {p}, {p})",
-            (
-                item_id,
-                f"Done item without status-change event {item_id}",
-                updated_at,
-                updated_at,
-            ),
+        _insert_item(
+            conn,
+            item_id,
+            f"Done item without status-change event {item_id}",
+            status="done",
+            created_at=updated_at,
+            updated_at=updated_at,
         )
-        conn.commit()
 
     def test_below_cutoff_excluded(self, tmp_path):
         conn = _make_conn()
