@@ -10,7 +10,10 @@ from yoke_core.domain.path_claim_bash_guard_planning_phase_test_helpers import (
     RETIRED_DISPATCH_ROOT,
     _dispatch_target,
     _seed,
-    widener_db,
+)
+
+pytest_plugins = (
+    "runtime.api.domain.path_claim_bash_guard_planning_phase_fixture",
 )
 
 
