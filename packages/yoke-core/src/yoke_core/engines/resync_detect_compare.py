@@ -18,6 +18,9 @@ from yoke_core.engines.resync_detect_models import (
     normalize_body_for_compare,
 )
 from yoke_core.engines.resync_detect_fetch import _project_unavailable
+from yoke_core.domain.workflow_runtime import (
+    ENGINE_TERMINAL_STAGE_IDS, load_item_workflow_runtime,
+)
 
 
 def _row_to_dict(row) -> dict:
@@ -67,11 +70,12 @@ def stage2_compare(
     try:
         from yoke_core.domain.render_body import build_body
         cur = conn.execute(
-            "SELECT id, title, status, priority, type, source, owner, frozen, blocked FROM items"
+            "SELECT id, title, status, priority, workflow_id, source, owner, frozen, blocked FROM items"
         )
         for row in cur.fetchall():
             d = _row_to_dict(row)
             d["body"] = build_body(conn, row["id"]) or ""
+            d["workflow_runtime"] = load_item_workflow_runtime(conn, int(row["id"]))
             d["source_label"] = _render_actor_token(conn, d.get("source") or "")
             d["owner_label"] = _render_actor_token(conn, d.get("owner") or "")
             items_by_id[row["id"]] = d
@@ -106,7 +110,7 @@ def stage2_compare(
         if not gh_issue:
             continue
 
-        if item.type == "backlog":
+        if item.kind == "backlog":
             id_num_str = item.id.replace("YOK-", "")
             try:
                 id_num = int(id_num_str)
@@ -130,7 +134,7 @@ def stage2_compare(
                 "title": local_item.get("title", "") or "",
                 "project": proj,
                 "status": local_item.get("status", "") or "",
-                "type": local_item.get("type", "") or "",
+                "workflow_id": local_item.get("workflow_id", "") or "",
             }
             gh_heavy = heavy_by_project.get(proj, {}).get(item.gh_num)
             if gh_heavy is not None:
@@ -179,13 +183,13 @@ def stage2_compare(
                         f"priority:{local_priority}", f"priority:{gh_priority}",
                     ))
 
-            local_type = local_item.get("type", "") or ""
-            if local_type and local_type != "null":
-                gh_type = _get_label_value(gh_labels, "type:")
-                if local_type != gh_type:
+            local_workflow = local_item.get("workflow_id", "") or ""
+            if local_workflow and local_workflow != "null":
+                gh_workflow = _get_label_value(gh_labels, "workflow:")
+                if local_workflow != gh_workflow:
                     drifts.append(DriftRecord(
-                        item.id, "label-type",
-                        f"type:{local_type}", f"type:{gh_type}",
+                        item.id, "label-workflow",
+                        f"workflow:{local_workflow}", f"workflow:{gh_workflow}",
                     ))
 
             local_source_label = local_item.get("source_label", "") or ""
@@ -227,13 +231,14 @@ def stage2_compare(
             # --- State comparison ---
             gh_state = gh_issue.get("state", "UNKNOWN")
             expected_state = "OPEN"
-            if local_status in ("done", "release", "cancelled"):
+            runtime = local_item["workflow_runtime"]
+            if runtime.stage_implies_merge(local_status) or local_status in ENGINE_TERMINAL_STAGE_IDS:
                 expected_state = "CLOSED"
             if gh_state != expected_state:
                 drifts.append(DriftRecord(item.id, "state", expected_state, gh_state))
 
             # --- Comment presence check ---
-            if local_status in ("done", "release") and gh_heavy is not None:
+            if runtime.stage_implies_merge(local_status) and gh_heavy is not None:
                 comments = gh_heavy.get("comments", [])
                 has_status = any(
                     "**Status:**" in c.get("body", "") for c in comments
@@ -243,7 +248,7 @@ def stage2_compare(
                         item.id, "comment", "has-status-comment", "missing",
                     ))
 
-        elif item.type == "epic_task":
+        elif item.kind == "epic_task":
             file_path = item.file
             stripped = file_path.replace("epic_tasks:", "", 1)
             parts = stripped.rsplit("/", 1)

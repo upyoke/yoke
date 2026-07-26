@@ -88,7 +88,7 @@ def _emit_doctor_format(
     hc39_status = "PASS"
     for d in drifts:
         if d.field not in (
-            "label-status", "label-priority", "label-type",
+            "label-status", "label-priority", "label-workflow",
             "label-source", "label-owner",
         ):
             continue

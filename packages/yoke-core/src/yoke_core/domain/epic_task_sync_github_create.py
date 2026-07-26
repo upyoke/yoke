@@ -126,19 +126,19 @@ def _resolve_or_create_epic_issue(
 
     if backlog_github_issue:
         # Reuse the backlog item's existing GitHub issue — ensure it
-        # carries the ``type:epic`` label.
+        # carries the parent workflow label.
         try:
             auth = resolve_project_github_auth(
                 gh_project,
                 required_permissions=GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
             )
             _label_rest.add_labels(
-                auth.repo, int(backlog_github_issue), ["type:epic"],
+                auth.repo, int(backlog_github_issue), ["workflow:epic"],
                 token=auth.token,
             )
         except github_rest.RestTransportError as exc:
             print(
-                f"Warning: failed to add type:epic to #{backlog_github_issue}: {exc}",
+                f"Warning: failed to add workflow:epic to #{backlog_github_issue}: {exc}",
                 file=stderr,
             )
         print(f"Reusing backlog issue as epic parent: #{backlog_github_issue}", file=stdout)
@@ -183,12 +183,12 @@ def _resolve_or_create_epic_issue(
         project=gh_project,
         title=epic_title,
         body=body_text,
-        labels=["type:epic"],
+        labels=["workflow:epic"],
         item_id=int(parent_item_id) if parent_item_id else 0,
         item_fields={
             "title": epic_title,
             "status": "planning",
-            "type": "epic",
+            "workflow_id": "epic",
             "project": gh_project,
         },
         conn=conn,
@@ -250,7 +250,7 @@ def _dedup_or_create_task_issue(
         item_fields={
             "title": issue_title,
             "status": "planned",
-            "type": "task",
+            "subject_kind": "task",
             "project": gh_project,
             "identity": _writer.epic_task_identity(epic_id, task_num),
             "body_command": _writer.epic_task_body_command(epic_id, task_num),

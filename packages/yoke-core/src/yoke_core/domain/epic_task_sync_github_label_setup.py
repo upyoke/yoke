@@ -9,13 +9,16 @@ from yoke_core.domain.epic_task_sync import (
     WORKTREE_LABEL_COLOR_DEFAULT,
 )
 from yoke_core.domain.github_constraints import clamp_label_name
+from yoke_contracts.project_contract.label_policy import DEFAULT_COLOR_WORKFLOW
 
 
 def prepare_required_labels(project: str, *, dry_run: bool) -> tuple[str, str]:
     """Ensure shared epic/task labels and return status/worktree colors."""
     from yoke_core.domain import epic_task_sync_github as sync
 
-    epic_color = project_label_policy.get_color("label_color_type_epic", "5319E7")
+    workflow_color = project_label_policy.get_color(
+        "label_color_workflow", DEFAULT_COLOR_WORKFLOW,
+    )
     task_color = project_label_policy.get_color(
         "label_color_type_task", TYPE_LABEL_COLOR_DEFAULT,
     )
@@ -26,8 +29,8 @@ def prepare_required_labels(project: str, *, dry_run: bool) -> tuple[str, str]:
         "label_color_worktree", WORKTREE_LABEL_COLOR_DEFAULT,
     )
     sync._ensure_label(
-        "type:epic", project=project, description="Epic (parent issue)",
-        color=epic_color, dry_run=dry_run,
+        "workflow:epic", project=project, description="Epic workflow",
+        color=workflow_color, dry_run=dry_run,
     )
     sync._ensure_label(
         "type:task", project=project, description="Task (child of epic)",

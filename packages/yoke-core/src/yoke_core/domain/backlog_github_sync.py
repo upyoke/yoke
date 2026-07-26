@@ -33,15 +33,14 @@ from yoke_core.domain import epic_task_sync  # noqa: F401 — patch surface
 from yoke_core.domain.backlog_github_transport import (  # noqa: F401
     _dry_run,
     _github_auth_available,
-    _sync_epic_children,
+    _sync_task_children,
 )
 
 # Shared read-side helpers (canonical owner: backlog_github_fetch)
 from yoke_core.domain.backlog_github_fetch import (  # noqa: F401
     DEFAULT_COLOR_SOURCE,
     DEFAULT_COLOR_STATUS,
-    DEFAULT_COLOR_TYPE_EPIC,
-    DEFAULT_COLOR_TYPE_ISSUE,
+    DEFAULT_COLOR_WORKFLOW,
     DEFAULT_COLOR_WORKTREE,
     BLOCKED_LABEL_COLOR,
     FROZEN_LABEL_COLOR,
@@ -117,7 +116,7 @@ __all__ = [
     "_dry_run",
     "_github_sync_skip",
     "_github_auth_available",
-    "_sync_epic_children",
+    "_sync_task_children",
     # Shared read helpers
     "_open_conn",
     "_close_if_owned",
@@ -133,8 +132,7 @@ __all__ = [
     "REPO_LABEL_DEFINITIONS",
     "DEFAULT_COLOR_SOURCE",
     "DEFAULT_COLOR_STATUS",
-    "DEFAULT_COLOR_TYPE_EPIC",
-    "DEFAULT_COLOR_TYPE_ISSUE",
+    "DEFAULT_COLOR_WORKFLOW",
     "DEFAULT_COLOR_WORKTREE",
     # Label reconcile
     "_get_issue_labels",

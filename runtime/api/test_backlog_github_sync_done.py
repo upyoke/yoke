@@ -62,7 +62,7 @@ def test_sync_done_item_batches_body_labels_and_close():
     stdout = io.StringIO()
 
     existing_labels = (
-        "status:release", "priority:medium", "type:issue",
+        "status:release", "priority:medium", "workflow:issue",
         "source:ben", "owner:ben",
     )
 
@@ -152,7 +152,7 @@ def test_sync_done_item_uses_compact_mirror_when_body_exceeds_budget():
         f"{_DONE_GH_REST}.get_issue",
         return_value=_existing_issue(
             4114,
-            labels=("status:release", "priority:medium", "type:issue",
+            labels=("status:release", "priority:medium", "workflow:issue",
                     "source:ben", "owner:ben"),
         ),
     ), patch(

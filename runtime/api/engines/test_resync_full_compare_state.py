@@ -9,6 +9,9 @@ _resync_full_test_helpers (private module).
 
 from __future__ import annotations
 
+# Shared fixture functions intentionally remain module globals for pytest.
+# ruff: noqa: F401, F811
+
 from yoke_core.engines.resync import PairedItem, stage2_compare
 
 from yoke_core.engines._resync_full_test_helpers import (
@@ -29,7 +32,7 @@ class TestStage2CompareStateMisc:
             "labels": [
                 {"name": "status:done"},
                 {"name": "priority:medium"},
-                {"name": "type:issue"},
+                {"name": "workflow:issue"},
                 {"name": "source:auto"},
             ],
             "state": "OPEN",
@@ -47,7 +50,7 @@ class TestStage2CompareStateMisc:
         gh_issues = _make_gh_issues([{
             "number": 103,
             "title": "[YOK-45] Cancelled item",
-            "labels": [{"name": "status:cancelled"}, {"name": "priority:low"}, {"name": "type:issue"}, {"name": "source:manual"}],
+            "labels": [{"name": "status:cancelled"}, {"name": "priority:low"}, {"name": "workflow:issue"}, {"name": "source:manual"}],
             "state": "OPEN",
             "body": "Cancel body",
         }])
@@ -62,7 +65,7 @@ class TestStage2CompareStateMisc:
         gh_issues = _make_gh_issues([{
             "number": 104,
             "title": "[YOK-46] Release item",
-            "labels": [{"name": "status:release"}, {"name": "priority:high"}, {"name": "type:issue"}, {"name": "source:manual"}],
+            "labels": [{"name": "status:release"}, {"name": "priority:high"}, {"name": "workflow:issue"}, {"name": "source:manual"}],
             "state": "OPEN",
             "body": "Release body",
         }])
@@ -80,7 +83,7 @@ class TestStage2CompareStateMisc:
             "labels": [
                 {"name": "status:implementing"},
                 {"name": "priority:high"},
-                {"name": "type:issue"},
+                {"name": "workflow:issue"},
                 {"name": "source:manual"},
                 {"name": "frozen"},
             ],
@@ -102,7 +105,7 @@ class TestStage2CompareStateMisc:
             "labels": [
                 {"name": "status:implementing"},
                 {"name": "priority:high"},
-                {"name": "type:issue"},
+                {"name": "workflow:issue"},
                 {"name": "source:manual"},
                 # No "frozen" label
             ],
@@ -124,7 +127,7 @@ class TestStage2CompareStateMisc:
             "labels": [
                 {"name": "status:done"},
                 {"name": "priority:medium"},
-                {"name": "type:issue"},
+                {"name": "workflow:issue"},
                 {"name": "source:auto"},
             ],
             "state": "CLOSED",
@@ -148,7 +151,7 @@ class TestStage2CompareStateMisc:
             "labels": [
                 {"name": "status:done"},
                 {"name": "priority:medium"},
-                {"name": "type:issue"},
+                {"name": "workflow:issue"},
                 {"name": "source:auto"},
             ],
             "state": "CLOSED",
@@ -172,7 +175,7 @@ class TestStage2CompareStateMisc:
             "labels": [
                 {"name": "status:idea"},
                 {"name": "priority:low"},
-                {"name": "type:epic"},
+                {"name": "workflow:epic"},
                 {"name": "source:auto"},
             ],
             "state": "CLOSED",

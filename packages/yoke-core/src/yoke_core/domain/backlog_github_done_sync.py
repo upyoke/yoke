@@ -105,7 +105,7 @@ def sync_done_item(
 
         fields = _item_fields(
             item_pk,
-            ["title", "status", "priority", "type", "source", "owner", "worktree", "project"],
+            ["title", "status", "priority", "workflow_id", "source", "owner", "worktree", "project"],
             conn=conn,
         )
         if fields is None:
@@ -118,7 +118,8 @@ def sync_done_item(
         desired = {
             "status:": f"status:{_status_display_label(fields['status'])}",
             "priority:": f"priority:{fields['priority']}",
-            "type:": f"type:{fields['type']}",
+            "workflow:": f"workflow:{fields['workflow_id']}",
+            "type:": "",
             "source:": f"source:{source_label}" if source_label else "",
             "owner:": f"owner:{owner_label}" if owner_label else "",
             "worktree:": "",
@@ -128,9 +129,7 @@ def sync_done_item(
             desired["priority:"]: project_label_policy.get_color(
                 f"label_color_priority_{fields['priority']}", colors["status"]
             ),
-            desired["type:"]: (
-                colors["type_epic"] if fields["type"] == "epic" else colors["type_issue"]
-            ),
+            desired["workflow:"]: colors["workflow"],
             desired["source:"]: colors["source"],
             desired["owner:"]: colors["owner"],
         }
@@ -153,7 +152,7 @@ def sync_done_item(
         body_item_fields = {
             "title": fields.get("title", ""),
             "status": fields.get("status", ""),
-            "type": fields.get("type", ""),
+            "workflow_id": fields.get("workflow_id", ""),
             "project": fields.get("project") or gh_project,
             "identity": item_ref,
         }

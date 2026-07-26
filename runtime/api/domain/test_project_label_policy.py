@@ -21,9 +21,9 @@ def test_get_color_reads_explicit_policy_path(tmp_path: Path) -> None:
 
 def test_get_color_strips_comments_and_quotes(tmp_path: Path) -> None:
     labels = tmp_path / "labels"
-    labels.write_text("label_color_type_epic='5319E7'  # purple\n", encoding="utf-8")
+    labels.write_text("label_color_workflow='5319E7'  # purple\n", encoding="utf-8")
     assert project_label_policy.get_color(
-        "label_color_type_epic", "000000", policy_path=labels
+        "label_color_workflow", "000000", policy_path=labels
     ) == "5319E7"
 
 

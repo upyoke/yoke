@@ -157,14 +157,13 @@ def render_compact_mirror(
     title = _truncate(str(item_fields.get("title") or ""))
     project = str(item_fields.get("project") or "")
     status = str(item_fields.get("status") or "")
-    item_type = str(item_fields.get("type") or "")
-    lifecycle = status or "unknown"
+    workflow_id = str(item_fields.get("workflow_id") or "")
+    subject_kind = str(item_fields.get("subject_kind") or "")
     subject_ref = _display_ref(item_fields.get("identity") or _public_ref(conn, item_id))
     body_command = str(
         item_fields.get("body_command")
         or f"python3 -m yoke_core.cli.db_router items get {subject_ref} body"
     )
-
     body_lines: list[str] = []
     body_lines.append(f"# [{subject_ref}] {title}".rstrip())
     body_lines.append("")
@@ -177,17 +176,18 @@ def render_compact_mirror(
     body_lines.append(f"- **Reference:** {subject_ref}")
     if project:
         body_lines.append(f"- **Project:** {project}")
-    if item_type:
-        body_lines.append(f"- **Type:** {item_type}")
+    for label, value in (("Workflow", workflow_id), ("Subject", subject_kind)):
+        if value:
+            body_lines.append(f"- **{label}:** {value}")
     body_lines.append(f"- **Status:** {status or '(unset)'}")
-    body_lines.append(f"- **Lifecycle:** {lifecycle}")
+    body_lines.append(f"- **Lifecycle:** {status or 'unknown'}")
     body_lines.append("")
     body_lines.append("## Next actions")
     configured_actions = item_fields.get("next_actions")
     if isinstance(configured_actions, (list, tuple)) and configured_actions:
         action_lines = [str(line) for line in configured_actions if str(line).strip()]
     else:
-        action_lines = _lifecycle_commands(lifecycle, subject_ref)
+        action_lines = _lifecycle_commands(status or "unknown", subject_ref)
     for line in action_lines:
         body_lines.append(f"- {line}")
     body_lines.append("")

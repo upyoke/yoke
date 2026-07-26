@@ -59,7 +59,7 @@ def _select_body_for_create(
     compact-mirror notice when truncating."""
     selected, mode = _budget.select_body_for_github(
         body, item_fields={
-            "title": title, "status": status, "type": "task",
+            "title": title, "status": status, "subject_kind": "task",
             "project": project or "yoke",
             "identity": _writer.epic_task_identity(et_slug, et_tnum),
             "body_command": _writer.epic_task_body_command(et_slug, et_tnum),

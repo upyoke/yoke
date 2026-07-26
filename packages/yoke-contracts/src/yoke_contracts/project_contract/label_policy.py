@@ -15,12 +15,16 @@ from __future__ import annotations
 
 from typing import Dict, Mapping, Optional, Tuple
 
+DEFAULT_COLOR_WORKFLOW = "5319E7"
+
 # (github label name, policy key, default hex, description). The policy key is
 # the ``label_color_*`` knob a project may override in ``.yoke/labels``.
 REPO_LABEL_DEFINITIONS: Tuple[Tuple[str, str, str, str], ...] = (
-    ("type:epic", "label_color_type_epic", "5319E7", "Epic (parent issue)"),
+    ("workflow:issue", "label_color_workflow", DEFAULT_COLOR_WORKFLOW, "Issue workflow"),
+    ("workflow:epic", "label_color_workflow", DEFAULT_COLOR_WORKFLOW, "Epic workflow"),
+    ("workflow:blitz", "label_color_workflow", DEFAULT_COLOR_WORKFLOW, "Blitz workflow"),
+    ("workflow:dash", "label_color_workflow", DEFAULT_COLOR_WORKFLOW, "Dash workflow"),
     ("type:task", "label_color_type_task", "0E8A16", "Task (child of epic)"),
-    ("type:issue", "label_color_type_issue", "1D76DB", "Issue (backlog item)"),
     ("type:integration-fix", "label_color_type_integration_fix", "D93F0B", "Integration fix"),
     ("priority:high", "label_color_priority_high", "D93F0B", "High priority"),
     ("priority:medium", "label_color_priority_medium", "C5DEF5", "Medium priority"),
@@ -49,8 +53,6 @@ REPO_LABEL_DEFINITIONS: Tuple[Tuple[str, str, str, str], ...] = (
 # Default colors for the generic dynamic label families (status/source/owner/
 # worktree) and flags that are not row-per-value in REPO_LABEL_DEFINITIONS.
 DEFAULT_COLOR_STATUS = "C5DEF5"
-DEFAULT_COLOR_TYPE_EPIC = "5319E7"
-DEFAULT_COLOR_TYPE_ISSUE = "1D76DB"
 DEFAULT_COLOR_SOURCE = "0e8a16"
 DEFAULT_COLOR_OWNER = "BFD4F2"
 DEFAULT_COLOR_WORKTREE = "D4C5F9"
@@ -65,6 +67,7 @@ DEFAULT_LABEL_COLORS: Dict[str, str] = {
 DEFAULT_LABEL_COLORS.update(
     {
         "label_color_status": DEFAULT_COLOR_STATUS,
+        "label_color_workflow": DEFAULT_COLOR_WORKFLOW,
         "label_color_source": DEFAULT_COLOR_SOURCE,
         "label_color_owner": DEFAULT_COLOR_OWNER,
         "label_color_worktree": DEFAULT_COLOR_WORKTREE,

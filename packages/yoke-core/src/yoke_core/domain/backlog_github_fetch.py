@@ -33,8 +33,7 @@ from yoke_contracts.project_contract.label_policy import (  # noqa: F401
     DEFAULT_COLOR_OWNER,
     DEFAULT_COLOR_SOURCE,
     DEFAULT_COLOR_STATUS,
-    DEFAULT_COLOR_TYPE_EPIC,
-    DEFAULT_COLOR_TYPE_ISSUE,
+    DEFAULT_COLOR_WORKFLOW,
     DEFAULT_COLOR_WORKTREE,
     FROZEN_LABEL_COLOR,
     REPO_LABEL_DEFINITIONS,
@@ -46,7 +45,10 @@ from yoke_contracts.project_contract.label_policy import (  # noqa: F401
 # ---------------------------------------------------------------------------
 
 # Label category prefixes
-LABEL_CATEGORIES = ("status:", "priority:", "type:", "source:", "owner:", "worktree:")
+LABEL_CATEGORIES = (
+    "status:", "priority:", "workflow:", "type:",
+    "source:", "owner:", "worktree:",
+)
 
 
 # ---------------------------------------------------------------------------
@@ -244,11 +246,8 @@ def _label_colors() -> dict[str, str]:
         "status": project_label_policy.get_color(
             "label_color_status", DEFAULT_COLOR_STATUS,
         ),
-        "type_epic": project_label_policy.get_color(
-            "label_color_type_epic", DEFAULT_COLOR_TYPE_EPIC,
-        ),
-        "type_issue": project_label_policy.get_color(
-            "label_color_type_issue", DEFAULT_COLOR_TYPE_ISSUE,
+        "workflow": project_label_policy.get_color(
+            "label_color_workflow", DEFAULT_COLOR_WORKFLOW,
         ),
         "source": project_label_policy.get_color(
             "label_color_source", DEFAULT_COLOR_SOURCE,

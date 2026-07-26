@@ -10,6 +10,9 @@ _resync_full_test_helpers (private module).
 
 from __future__ import annotations
 
+# Shared fixture functions intentionally remain module globals for pytest.
+# ruff: noqa: F401, F811
+
 from yoke_core.engines.resync import PairedItem, stage2_compare
 
 from yoke_core.engines._resync_full_test_helpers import (
@@ -30,7 +33,7 @@ class TestStage2CompareTextLabel:
             "labels": [
                 {"name": "status:implementing"},
                 {"name": "priority:high"},
-                {"name": "type:issue"},
+                {"name": "workflow:issue"},
                 {"name": "source:manual"},
             ],
             "state": "OPEN",
@@ -48,7 +51,7 @@ class TestStage2CompareTextLabel:
             "labels": [
                 {"name": "status:implementing"},
                 {"name": "priority:high"},
-                {"name": "type:issue"},
+                {"name": "workflow:issue"},
                 {"name": "source:manual"},
             ],
             "state": "OPEN",
@@ -69,7 +72,7 @@ class TestStage2CompareTextLabel:
             "labels": [
                 {"name": "status:implementing"},
                 {"name": "priority:high"},
-                {"name": "type:issue"},
+                {"name": "workflow:issue"},
                 {"name": "source:manual"},
             ],
             "state": "OPEN",
@@ -88,7 +91,7 @@ class TestStage2CompareTextLabel:
             "labels": [
                 {"name": "status:implementing"},
                 {"name": "priority:high"},
-                {"name": "type:issue"},
+                {"name": "workflow:issue"},
                 {"name": "source:manual"},
             ],
             "state": "OPEN",
@@ -107,7 +110,7 @@ class TestStage2CompareTextLabel:
             "labels": [
                 {"name": "status:implementing"},
                 {"name": "priority:high"},
-                {"name": "type:issue"},
+                {"name": "workflow:issue"},
                 {"name": "source:manual"},
             ],
             "state": "OPEN",
@@ -126,7 +129,7 @@ class TestStage2CompareTextLabel:
             "labels": [
                 {"name": "status:idea"},
                 {"name": "priority:high"},
-                {"name": "type:issue"},
+                {"name": "workflow:issue"},
                 {"name": "source:manual"},
             ],
             "state": "OPEN",
@@ -147,7 +150,7 @@ class TestStage2CompareTextLabel:
             "labels": [
                 {"name": "status:implementing"},
                 {"name": "priority:low"},
-                {"name": "type:issue"},
+                {"name": "workflow:issue"},
                 {"name": "source:manual"},
             ],
             "state": "OPEN",
@@ -159,15 +162,15 @@ class TestStage2CompareTextLabel:
         assert len(priority_drifts) == 1
         assert priority_drifts[0].local == "priority:high"
 
-    def test_label_type_drift(self, populated_db):
-        """Detects type label drift."""
+    def test_label_workflow_drift(self, populated_db):
+        """Detects workflow label drift."""
         gh_issues = _make_gh_issues([{
             "number": 100,
             "title": "[YOK-42] Test item",
             "labels": [
                 {"name": "status:implementing"},
                 {"name": "priority:high"},
-                {"name": "type:epic"},
+                {"name": "workflow:epic"},
                 {"name": "source:manual"},
             ],
             "state": "OPEN",
@@ -175,9 +178,9 @@ class TestStage2CompareTextLabel:
         }])
         paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "")]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
-        type_drifts = [d for d in drifts if d.field == "label-type"]
+        type_drifts = [d for d in drifts if d.field == "label-workflow"]
         assert len(type_drifts) == 1
-        assert type_drifts[0].local == "type:issue"
+        assert type_drifts[0].local == "workflow:issue"
 
     def test_label_source_drift(self, populated_db):
         """Detects source label drift."""
@@ -187,7 +190,7 @@ class TestStage2CompareTextLabel:
             "labels": [
                 {"name": "status:implementing"},
                 {"name": "priority:high"},
-                {"name": "type:issue"},
+                {"name": "workflow:issue"},
                 {"name": "source:auto"},
             ],
             "state": "OPEN",
@@ -214,7 +217,7 @@ class TestStage2CompareTextLabel:
             "labels": [
                 {"name": "status:implementing"},
                 {"name": "priority:high"},
-                {"name": "type:issue"},
+                {"name": "workflow:issue"},
                 {"name": "source:manual"},
                 {"name": "owner:auto-owner"},
             ],
@@ -238,7 +241,7 @@ class TestStage2CompareTextLabel:
             "labels": [
                 {"name": "status:implementing"},
                 {"name": "priority:high"},
-                {"name": "type:issue"},
+                {"name": "workflow:issue"},
                 {"name": "source:manual"},
                 {"name": "owner:stranger"},
             ],

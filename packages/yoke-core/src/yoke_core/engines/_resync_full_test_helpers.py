@@ -17,6 +17,9 @@ import pytest
 
 from yoke_core.domain import db_backend
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
+from runtime.api.api_workflow_test_helpers import (
+    install_workflow_registry_and_pin_items,
+)
 
 
 def _apply_resync_full_schema() -> None:
@@ -138,7 +141,7 @@ def populated_db(test_db):
         INSERT INTO items (id, title, status, priority, type, source, spec, frozen, github_issue, project_id, project_sequence)
         VALUES (47, 'Frozen item', 'implementing', 'high', 'issue', 'manual', 'Frozen body', 1, '#105', 1, 47)
     """)
-    conn.commit()
+    install_workflow_registry_and_pin_items(conn)
     conn.close()
     return test_db
 

@@ -240,7 +240,7 @@ def sync_labels(
             return 1
         fields = _item_fields(
             item_pk,
-            ["status", "priority", "type", "source", "owner", "worktree", "blocked"],
+            ["status", "priority", "workflow_id", "source", "owner", "worktree", "blocked"],
             conn=conn,
         )
         if fields is None:
@@ -251,7 +251,8 @@ def sync_labels(
         )
         target_repo = auth.repo
         colors = _label_colors()
-        status, priority, item_type = fields["status"], fields["priority"], fields["type"]
+        status, priority = fields["status"], fields["priority"]
+        workflow_id = fields["workflow_id"]
         source_label = actor_label_or_passthrough(conn, fields["source"])
         owner_label = actor_label_or_passthrough(conn, fields["owner"])
         worktree = fields["worktree"]
@@ -259,7 +260,9 @@ def sync_labels(
 
         want_status = f"status:{_status_display_label(status)}" if status and status != "null" else ""
         want_priority = f"priority:{priority}" if priority and priority != "null" else ""
-        want_type = f"type:{item_type}" if item_type and item_type != "null" else ""
+        want_workflow = (
+            f"workflow:{workflow_id}" if workflow_id and workflow_id != "null" else ""
+        )
         want_source = f"source:{source_label}" if source_label else ""
         want_owner = f"owner:{owner_label}" if owner_label else ""
         want_worktree = (
@@ -271,11 +274,10 @@ def sync_labels(
         pri_color = project_label_policy.get_color(
             f"label_color_priority_{priority}", colors["status"],
         )
-        type_color = colors["type_epic"] if item_type == "epic" else colors["type_issue"]
-
         _reconcile_category("status:", want_status, existing, str(issue_num), target_repo, gh_project, colors["status"])
         _reconcile_category("priority:", want_priority, existing, str(issue_num), target_repo, gh_project, pri_color)
-        _reconcile_category("type:", want_type, existing, str(issue_num), target_repo, gh_project, type_color)
+        _reconcile_category("workflow:", want_workflow, existing, str(issue_num), target_repo, gh_project, colors["workflow"])
+        _reconcile_category("type:", "", existing, str(issue_num), target_repo, gh_project, colors["workflow"])
         _reconcile_category("source:", want_source, existing, str(issue_num), target_repo, gh_project, colors["source"])
         _reconcile_category("owner:", want_owner, existing, str(issue_num), target_repo, gh_project, colors["owner"])
 
@@ -300,7 +302,7 @@ def sync_labels(
 
         print(
             f"Labels synced: {item_ref} → {github_issue} "
-            f"(status:{status}, priority:{priority}, type:{item_type}, "
+            f"(status:{status}, priority:{priority}, workflow:{workflow_id}, "
             f"source:{source_label or '-'}, owner:{owner_label or '-'})",
             file=stdout,
         )

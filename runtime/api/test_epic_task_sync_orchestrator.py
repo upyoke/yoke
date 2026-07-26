@@ -99,7 +99,7 @@ def _stub_typed_rest_surfaces():
 
     def fake_create_issue(*, project, title, body, labels, **_):
         create_counter[0] += 1
-        if "type:epic" in labels:
+        if "workflow:epic" in labels:
             number = 100
         else:
             number = 100 + create_counter[0]
@@ -302,7 +302,7 @@ class TestSyncEpicTasks:
         stderr = io.StringIO()
 
         def fake_create_issue(*, project, title, body, labels, **_):
-            if "type:epic" in labels:
+            if "workflow:epic" in labels:
                 return github_rest.Issue(number=100, title=title, state="OPEN")
             if "ok-task" in title:
                 return github_rest.Issue(number=101, title=title, state="OPEN")

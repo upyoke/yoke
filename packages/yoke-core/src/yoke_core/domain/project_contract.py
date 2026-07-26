@@ -48,6 +48,7 @@ from yoke_contracts.project_contract.label_policy import (
     DEFAULT_COLOR_OWNER,
     DEFAULT_COLOR_SOURCE,
     DEFAULT_COLOR_STATUS,
+    DEFAULT_COLOR_WORKFLOW,
     DEFAULT_COLOR_WORKTREE,
     FROZEN_LABEL_COLOR,
     REPO_LABEL_DEFINITIONS,
@@ -116,6 +117,7 @@ def render_label_policy() -> str:
     labels.update(
         {
             "label_color_status": DEFAULT_COLOR_STATUS.upper(),
+            "label_color_workflow": DEFAULT_COLOR_WORKFLOW.upper(),
             "label_color_source": DEFAULT_COLOR_SOURCE.upper(),
             "label_color_owner": DEFAULT_COLOR_OWNER.upper(),
             "label_color_worktree": DEFAULT_COLOR_WORKTREE.upper(),
@@ -124,10 +126,8 @@ def render_label_policy() -> str:
     )
     ordered_groups = (
         (
-            "Type labels",
+            "Task labels",
             (
-                "label_color_type_epic",
-                "label_color_type_issue",
                 "label_color_type_task",
                 "label_color_type_integration_fix",
             ),
@@ -144,6 +144,7 @@ def render_label_policy() -> str:
             "Generic dynamic label families",
             (
                 "label_color_status",
+                "label_color_workflow",
                 "label_color_source",
                 "label_color_owner",
                 "label_color_worktree",

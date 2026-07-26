@@ -149,27 +149,27 @@ class TestHelpers:
         ) as ensure_label:
             rc = backlog_github_sync.update_repo_labels(dry_run=True, stdout=stdout)
         assert rc == 0
-        assert "[DRY-RUN] Would create: type:epic" in stdout.getvalue()
+        assert "[DRY-RUN] Would create: workflow:epic" in stdout.getvalue()
         ensure_label.assert_not_called()
 
     def test_update_repo_labels_updates_changed_color(self):
         stdout = io.StringIO()
         from yoke_core.domain import project_label_policy
 
-        expected = project_label_policy.get_color("label_color_type_epic", "5319E7")
+        expected = project_label_policy.get_color("label_color_workflow", "5319E7")
         with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch.object(
             backlog_github_label_sync, "resolve_project_github_auth",
             side_effect=_ok_resolver,
-        ), patch(f"{GH_PATCH}._repo_labels", return_value={"type:epic": "ffffff"}), patch(
+        ), patch(f"{GH_PATCH}._repo_labels", return_value={"workflow:epic": "ffffff"}), patch(
             f"{_LABEL_REST}.ensure_label",
         ) as ensure_label:
             rc = backlog_github_sync.update_repo_labels(stdout=stdout)
         assert rc == 0
-        assert f"Updated: type:epic (ffffff -> {expected})" in stdout.getvalue()
+        assert f"Updated: workflow:epic (ffffff -> {expected})" in stdout.getvalue()
         # ensure_label is called once per label-definition; verify the
-        # type:epic update happened with the desired color.
-        calls = [c for c in ensure_label.call_args_list if c.args[0] == "type:epic"]
-        assert calls, "expected ensure_label call for type:epic"
+        # workflow:epic update happened with the desired color.
+        calls = [c for c in ensure_label.call_args_list if c.args[0] == "workflow:epic"]
+        assert calls, "expected ensure_label call for workflow:epic"
         assert calls[0].args[1] == expected
 
     def test_update_repo_labels_fetch_failure(self):

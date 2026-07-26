@@ -86,7 +86,7 @@ def test_lint_config_is_canonical_render_covering_guard_catalog() -> None:
 def test_render_label_policy_uses_key_value_format() -> None:
     body = _entries()[".yoke/labels"]["content"]
     assert body == project_contract.render_label_policy()
-    assert "label_color_type_epic=" in body
+    assert "label_color_workflow=" in body
     assert "label_color_status_done=" in body
     assert "label_color_frozen=" in body
     assert "{" not in body

@@ -259,7 +259,7 @@ Rebuilt on every status change and backlog mutation via the Python backlog and b
 ## GitHub Integration
 
 ### Epic tasks
-- Each epic → parent Issue (labeled `type:epic`)
+- Each epic → parent Issue (labeled `workflow:epic`)
 - Each task → child Issue (labeled `type:task`, `status:{status}`, `worktree:{branch}`)
 - Linked via `gh-sub-issue` (falls back to checkbox list)
 - Status transitions → label swap + comment via `yoke_core.domain.update_status`

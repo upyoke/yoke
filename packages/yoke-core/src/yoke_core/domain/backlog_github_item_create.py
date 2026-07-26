@@ -43,6 +43,8 @@ from yoke_core.domain.project_github_auth import (
     ProjectGithubAuthError,
     resolve_project_github_auth,
 )
+from yoke_core.domain.workflow_behavior import generates_task_graph
+from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 
 
 def sync_item(
@@ -80,14 +82,17 @@ def sync_item(
         # Read all needed fields upfront
         fields = _item_fields(
             item_pk,
-            ["id", "title", "type", "priority", "status", "source", "owner", "github_issue", "worktree"],
+            ["id", "title", "workflow_id", "priority", "status", "source", "owner", "github_issue", "worktree"],
             conn=conn,
         )
         if fields is None or not fields.get("id"):
             print(f"Error: Item {item_ref} not found in database", file=stderr)
             return 1
 
-        item_type = fields["type"]
+        workflow_id = fields["workflow_id"]
+        sync_task_children = generates_task_graph(
+            load_item_workflow_runtime(conn, int(item_pk))
+        )
         gh_issue = fields["github_issue"]
 
         # Resolve repo and project upfront so the auth-first check (below)
@@ -125,9 +130,9 @@ def sync_item(
             print(f"{item_ref} already synced to GitHub issue {gh_issue} — syncing labels and body", file=stdout)
             _bgs().sync_labels(item_pk, conn=conn, stdout=stdout, stderr=stderr)
             _bgs().sync_body(item_pk, conn=conn, stdout=stdout, stderr=stderr)
-            return _bgs()._sync_epic_children(
+            return _bgs()._sync_task_children(
                 item_pk,
-                item_type=item_type,
+                enabled=sync_task_children,
                 conn=conn,
                 stdout=stdout,
                 stderr=stderr,
@@ -163,9 +168,9 @@ def sync_item(
             conn.commit()
             _bgs()._regenerate_md(item_pk)
             print(f"Synced: {item_ref} → GitHub issue #{reuse_num} (reused)", file=stdout)
-            return _bgs()._sync_epic_children(
+            return _bgs()._sync_task_children(
                 item_pk,
-                item_type=item_type,
+                enabled=sync_task_children,
                 conn=conn,
                 stdout=stdout,
                 stderr=stderr,
@@ -191,17 +196,16 @@ def sync_item(
 
         # Ensure labels exist
         status_label = f"status:{_status_display_label(status)}"
-        type_label = f"type:{item_type}"
+        workflow_label = f"workflow:{workflow_id}"
         pri_label = f"priority:{priority}"
         source_label = f"source:{source_token}" if source_token else ""
         owner_label = f"owner:{owner_token}" if owner_token else ""
 
-        type_color = colors["type_epic"] if item_type == "epic" else colors["type_issue"]
         pri_color = project_label_policy.get_color(
             f"label_color_priority_{priority}", colors["status"],
         )
 
-        _ensure_label(type_label, type_color, repo, gh_project)
+        _ensure_label(workflow_label, colors["workflow"], repo, gh_project)
         _ensure_label(pri_label, pri_color, repo, gh_project)
         _ensure_label(status_label, colors["status"], repo, gh_project)
         if source_label:
@@ -210,7 +214,7 @@ def sync_item(
             _ensure_label(owner_label, colors["owner"], repo, gh_project)
 
         # Build label list
-        create_labels: list[str] = [type_label, pri_label, status_label]
+        create_labels: list[str] = [workflow_label, pri_label, status_label]
         if source_label:
             create_labels.append(source_label)
         if owner_label:
@@ -226,7 +230,7 @@ def sync_item(
         body_item_fields = {
             "title": title,
             "status": status,
-            "type": item_type,
+            "workflow_id": workflow_id,
             "project": gh_project,
             "identity": item_ref,
         }
@@ -291,9 +295,9 @@ def sync_item(
 
         print(issue_url, file=stdout)
         print(f"Synced: {item_ref} → GitHub issue #{issue_num}", file=stdout)
-        return _bgs()._sync_epic_children(
+        return _bgs()._sync_task_children(
             item_pk,
-            item_type=item_type,
+            enabled=sync_task_children,
             conn=conn,
             stdout=stdout,
             stderr=stderr,

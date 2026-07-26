@@ -7,21 +7,21 @@ from typing import Any, Dict, List
 class PairedItem:
     """Represents a local item/task paired with a GitHub issue."""
 
-    __slots__ = ("id", "file", "gh_num", "type", "project", "repo")
+    __slots__ = ("id", "file", "gh_num", "kind", "project", "repo")
 
     def __init__(
         self,
         id: str,
         file: str,
         gh_num: int,
-        type: str,
+        kind: str,
         project: str,
         repo: str,
     ):
         self.id = id
         self.file = file
         self.gh_num = gh_num
-        self.type = type
+        self.kind = kind
         self.project = project
         self.repo = repo
 

@@ -4,7 +4,7 @@ Yoke does NOT use the ``gh`` CLI; all GitHub access goes through typed REST
 surfaces using bearer tokens returned by
 :func:`yoke_core.domain.project_github_auth.resolve_project_github_auth`.
 This module hosts the thin ``_dry_run`` env-var gate, the historical
-``_github_auth_available`` auth probe name, and the ``_sync_epic_children`` dispatch
+``_github_auth_available`` auth probe name, and the ``_sync_task_children`` dispatch
 wrapper used by ``sync_item``.
 """
 
@@ -41,16 +41,16 @@ def _github_auth_available(project: str) -> bool:
         return False
 
 
-def _sync_epic_children(
+def _sync_task_children(
     item_id: str,
     *,
-    item_type: str,
+    enabled: bool,
     conn: Any,
     stdout: TextIO,
     stderr: TextIO,
 ) -> int:
-    """Sync epic child task issues and dispatch chains when the item is an epic."""
-    if item_type != "epic":
+    """Sync generated task issues and dispatch chains when enabled."""
+    if not enabled:
         return 0
     try:
         item_ref = render_item_ref(conn, int(item_id))
@@ -67,5 +67,5 @@ def _sync_epic_children(
 __all__ = [
     "_dry_run",
     "_github_auth_available",
-    "_sync_epic_children",
+    "_sync_task_children",
 ]

@@ -6,6 +6,11 @@ _resync_test_helpers (private module).
 
 from __future__ import annotations
 
+from typing import Dict, List
+
+# Shared fixture functions intentionally remain module globals for pytest.
+# ruff: noqa: F401, F811
+
 from yoke_core.engines.resync import (
     PairedItem,
     _get_label_value,
@@ -52,11 +57,11 @@ class TestNormalizeBody:
 
 class TestGetLabelValue:
     def test_found(self):
-        labels = [{"name": "status:active"}, {"name": "type:issue"}]
+        labels = [{"name": "status:active"}, {"name": "workflow:issue"}]
         assert _get_label_value(labels, "status:") == "active"
 
     def test_not_found(self):
-        labels = [{"name": "type:issue"}]
+        labels = [{"name": "workflow:issue"}]
         assert _get_label_value(labels, "status:") == ""
 
     def test_empty_labels(self):
@@ -85,7 +90,7 @@ class TestStage2Compare:
                 "labels": [
                     {"name": "status:implementing"},
                     {"name": "priority:high"},
-                    {"name": "type:issue"},
+                    {"name": "workflow:issue"},
                     {"name": "source:manual"},
                 ],
                 "state": "OPEN",
@@ -107,7 +112,7 @@ class TestStage2Compare:
                 "labels": [
                     {"name": "status:implementing"},
                     {"name": "priority:high"},
-                    {"name": "type:issue"},
+                    {"name": "workflow:issue"},
                     {"name": "source:manual"},
                 ],
                 "state": "OPEN",
@@ -132,7 +137,7 @@ class TestStage2Compare:
                 "labels": [
                     {"name": "status:implementing"},
                     {"name": "priority:high"},
-                    {"name": "type:issue"},
+                    {"name": "workflow:issue"},
                     {"name": "source:manual"},
                 ],
                 "state": "OPEN",
@@ -155,7 +160,7 @@ class TestStage2Compare:
                 "labels": [
                     {"name": "status:idea"},  # wrong status
                     {"name": "priority:high"},
-                    {"name": "type:issue"},
+                    {"name": "workflow:issue"},
                     {"name": "source:manual"},
                 ],
                 "state": "OPEN",
@@ -180,7 +185,7 @@ class TestStage2Compare:
                 "labels": [
                     {"name": "status:done"},
                     {"name": "priority:medium"},
-                    {"name": "type:issue"},
+                    {"name": "workflow:issue"},
                     {"name": "source:auto"},
                 ],
                 "state": "OPEN",
@@ -205,7 +210,7 @@ class TestStage2Compare:
                 "labels": [
                     {"name": "status:implementing"},
                     {"name": "priority:high"},
-                    {"name": "type:issue"},
+                    {"name": "workflow:issue"},
                     {"name": "source:manual"},
                     {"name": "frozen"},
                 ],
@@ -231,7 +236,7 @@ class TestStage2Compare:
                 "labels": [
                     {"name": "status:implementing"},
                     {"name": "priority:high"},
-                    {"name": "type:issue"},
+                    {"name": "workflow:issue"},
                     {"name": "source:manual"},
                     {"name": "blocked"},
                 ],
@@ -257,7 +262,7 @@ class TestStage2Compare:
                 "labels": [
                     {"name": "status:done"},
                     {"name": "priority:medium"},
-                    {"name": "type:issue"},
+                    {"name": "workflow:issue"},
                     {"name": "source:auto"},
                 ],
                 "state": "CLOSED",
@@ -285,7 +290,7 @@ class TestStage2Compare:
                 "labels": [
                     {"name": "status:done"},
                     {"name": "priority:medium"},
-                    {"name": "type:issue"},
+                    {"name": "workflow:issue"},
                     {"name": "source:auto"},
                 ],
                 "state": "CLOSED",

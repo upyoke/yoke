@@ -73,11 +73,11 @@ class TestTrimTrailing:
 
 class TestGetLabelValue:
     def test_found(self):
-        labels = [{"name": "status:active"}, {"name": "type:issue"}]
+        labels = [{"name": "status:active"}, {"name": "workflow:issue"}]
         assert _get_label_value(labels, "status:") == "active"
 
     def test_not_found(self):
-        labels = [{"name": "type:issue"}]
+        labels = [{"name": "workflow:issue"}]
         assert _get_label_value(labels, "status:") == ""
 
     def test_empty_labels(self):

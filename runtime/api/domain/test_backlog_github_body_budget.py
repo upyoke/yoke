@@ -100,7 +100,7 @@ class TestRenderCompactMirror:
             "title": "My Title",
             "project": "yoke",
             "status": "implementing",
-            "type": "issue",
+            "workflow_id": "issue",
         }
         out = bb.render_compact_mirror(fields, conn=evidence_conn, item_id=42)
         assert "[YOK-42] My Title" in out
@@ -119,7 +119,7 @@ class TestRenderCompactMirror:
     def test_unknown_status_falls_back_to_do(
         self, evidence_conn: Any,
     ):
-        fields = {"title": "x", "status": "unknown-status", "type": "issue"}
+        fields = {"title": "x", "status": "unknown-status", "workflow_id": "issue"}
         out = bb.render_compact_mirror(fields, conn=evidence_conn, item_id=1)
         assert "/yoke do YOK-1" in out
 
@@ -162,7 +162,7 @@ class TestRenderCompactMirror:
                 "title": long_title,
                 "project": "yoke",
                 "status": "implementing",
-                "type": "issue",
+                "workflow_id": "issue",
             },
             conn=evidence_conn,
             item_id=42,
@@ -197,7 +197,7 @@ class TestSelectBodyForGithub:
                 "title": "t",
                 "project": "yoke",
                 "status": "implementing",
-                "type": "issue",
+                "workflow_id": "issue",
             },
             conn=evidence_conn,
             item_id=42,

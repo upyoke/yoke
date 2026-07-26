@@ -183,7 +183,7 @@ def sync_task_body(
         item_fields={
             "title": f"{epic_id}/{task_num}",
             "status": "implementing",
-            "type": "task",
+            "subject_kind": "task",
             "project": gh_project,
             "identity": _writer.epic_task_identity(epic_id, task_num),
             "body_command": _writer.epic_task_body_command(epic_id, task_num),

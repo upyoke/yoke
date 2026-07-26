@@ -124,7 +124,7 @@ def sync_body(
         # in-memory selector — the typed REST surface accepts the body
         # string directly, no temp-file dance required.
         item_fields = _item_fields(
-            item_pk, ["title", "status", "type", "project"], conn=conn,
+            item_pk, ["title", "status", "workflow_id", "project"], conn=conn,
         ) or {}
         item_fields.setdefault("identity", item_ref)
         selected_body, mode = _budget.select_body_for_github(

@@ -277,7 +277,7 @@ class TestDetectUnderLocalDispatch:
             "number": 100,
             "title": f"[YOK-{item_id}] Local mode sync item",
             "labels": [
-                {"name": "type:issue"},
+                {"name": "workflow:issue"},
                 {"name": "priority:high"},
                 {"name": "status:implementing"},
                 {"name": "source:manual"},

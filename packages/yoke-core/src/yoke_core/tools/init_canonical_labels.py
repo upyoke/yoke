@@ -53,10 +53,8 @@ _CANONICAL_LABELS = (
     ("status:blocked",                    "Backlog item — blocked",                            "label_color_blocked",                           "B60205"),
     ("status:stopped",                    "Backlog item — stopped",                            "label_color_status_stopped",                    "E4E669"),
     ("status:cancelled",                  "Backlog item — cancelled",                          "label_color_status_cancelled",                  "BFD4F2"),
-    ("type:epic",                         "Backlog item — epic",                               "label_color_type_epic",                         "5319E7"),
     ("type:task",                         "Backlog item — task",                               "label_color_type_task",                         "0E8A16"),
     ("type:integration-fix",              "Backlog item — integration fix",                    "label_color_type_integration_fix",              "D93F0B"),
-    ("type:issue",                        "Backlog item — issue",                              "label_color_type_issue",                        "1D76DB"),
 )
 
 

@@ -10,6 +10,9 @@ Pytest fixtures (``test_db``) are shared via the private
 
 from __future__ import annotations
 
+# Shared fixture functions intentionally remain module globals for pytest.
+# ruff: noqa: F811
+
 from yoke_core.engines.resync import PairedItem, stage2_compare
 from yoke_core.domain import db_backend
 from yoke_core.engines.resync_detect_compact_mirror import (
@@ -22,6 +25,9 @@ from yoke_core.domain.backlog_github_body_budget import (
     render_compact_mirror,
 )
 from runtime.api.fixtures.file_test_db import connect_test_db
+from runtime.api.api_workflow_test_helpers import (
+    install_workflow_registry_and_pin_items,
+)
 
 from yoke_core.engines._resync_full_test_helpers import (
     _make_gh_issues,
@@ -47,7 +53,7 @@ def _seed_oversize_item(db_path: str, *, item_id: int, spec_size: int) -> None:
             "issue", "manual", spec_text, "#900", item_id,
         ),
     )
-    conn.commit()
+    install_workflow_registry_and_pin_items(conn)
     conn.close()
 
 
@@ -77,7 +83,7 @@ class TestCompactMirrorSuppression:
         local = "x" * (GITHUB_BODY_BUDGET_BYTES + 200)
         assert not _matches_compact_mirror(
             local_body=local, gh_body="just some random body",
-            item_fields={"title": "t", "status": "implementing", "type": "issue", "project": "yoke"},
+            item_fields={"title": "t", "status": "implementing", "workflow_id": "issue", "project": "yoke"},
             item_id=901,
         )
 
@@ -86,19 +92,19 @@ class TestCompactMirrorSuppression:
         'shrink back to full' path emits real drift."""
         local = "small body"
         gh = render_compact_mirror(
-            {"title": "t", "status": "implementing", "type": "issue", "project": "yoke"},
+            {"title": "t", "status": "implementing", "workflow_id": "issue", "project": "yoke"},
             conn=None, item_id=901,
         )
         assert COMPACT_MIRROR_FOOTER in gh
         assert not _matches_compact_mirror(
             local_body=local, gh_body=gh,
-            item_fields={"title": "t", "status": "implementing", "type": "issue", "project": "yoke"},
+            item_fields={"title": "t", "status": "implementing", "workflow_id": "issue", "project": "yoke"},
             item_id=901,
         )
 
     def test_matches_compact_mirror_returns_true_when_matched(self):
         local = "x" * (GITHUB_BODY_BUDGET_BYTES + 200)
-        fields = {"title": "Big", "status": "implementing", "type": "issue", "project": "yoke"}
+        fields = {"title": "Big", "status": "implementing", "workflow_id": "issue", "project": "yoke"}
         gh = render_compact_mirror(fields, conn=None, item_id=902)
         assert _matches_compact_mirror(
             local_body=local, gh_body=gh, item_fields=fields, item_id=902,
@@ -110,7 +116,7 @@ class TestCompactMirrorSuppression:
         fields = {
             "title": "Oversize body item",
             "status": "implementing",
-            "type": "issue",
+            "workflow_id": "issue",
             "project": "yoke",
         }
         gh_body = render_compact_mirror(fields, conn=None, item_id=910)
@@ -120,7 +126,7 @@ class TestCompactMirrorSuppression:
             "labels": [
                 {"name": "status:implementing"},
                 {"name": "priority:high"},
-                {"name": "type:issue"},
+                {"name": "workflow:issue"},
                 {"name": "source:manual"},
             ],
             "state": "OPEN",
@@ -146,11 +152,11 @@ class TestCompactMirrorSuppression:
             f"'small spec', 0, '#901', 1, {p})",
             (911, 911),
         )
-        conn.commit()
+        install_workflow_registry_and_pin_items(conn)
         conn.close()
 
         fields = {
-            "title": "Small item", "status": "implementing", "type": "issue", "project": "yoke",
+            "title": "Small item", "status": "implementing", "workflow_id": "issue", "project": "yoke",
         }
         gh_body = render_compact_mirror(fields, conn=None, item_id=911)
         gh_issues = _make_gh_issues([{
@@ -159,7 +165,7 @@ class TestCompactMirrorSuppression:
             "labels": [
                 {"name": "status:implementing"},
                 {"name": "priority:high"},
-                {"name": "type:issue"},
+                {"name": "workflow:issue"},
                 {"name": "source:manual"},
             ],
             "state": "OPEN",
@@ -178,7 +184,7 @@ class TestCompactMirrorSuppression:
         stale_fields = {
             "title": "WRONG TITLE",
             "status": "implementing",
-            "type": "issue",
+            "workflow_id": "issue",
             "project": "yoke",
         }
         gh_body = render_compact_mirror(stale_fields, conn=None, item_id=912)
@@ -188,7 +194,7 @@ class TestCompactMirrorSuppression:
             "labels": [
                 {"name": "status:implementing"},
                 {"name": "priority:high"},
-                {"name": "type:issue"},
+                {"name": "workflow:issue"},
                 {"name": "source:manual"},
             ],
             "state": "OPEN",

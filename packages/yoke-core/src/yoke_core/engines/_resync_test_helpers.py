@@ -15,6 +15,9 @@ import pytest
 from yoke_core.domain import db_backend
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
+from runtime.api.api_workflow_test_helpers import (
+    install_workflow_registry_and_pin_items,
+)
 from runtime.api.test_dependency_schema import ITEMS_SCHEMA, PROJECTS_SCHEMA
 
 
@@ -99,6 +102,6 @@ def populated_db(test_db):
         INSERT INTO epic_tasks (epic_id, task_num, title, status, body, github_issue)
         VALUES ('1246', 1, 'Task one', 'implementing', 'Task body', '#200')
     """)
-    conn.commit()
+    install_workflow_registry_and_pin_items(conn)
     conn.close()
     return test_db

@@ -218,7 +218,7 @@ def _repair_drift(
         return False
 
     elif drift.field in (
-        "label-status", "label-priority", "label-type",
+        "label-status", "label-priority", "label-workflow",
         "label-source", "label-owner",
     ):
         if drift.id.startswith("YOK-"):

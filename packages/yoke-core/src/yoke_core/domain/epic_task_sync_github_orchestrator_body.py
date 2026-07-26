@@ -49,7 +49,7 @@ def append_task_list_to_epic_body(
         item_fields={
             "title": "",
             "status": "planning",
-            "type": "epic",
+            "workflow_id": "epic",
             "project": gh_project,
         },
         conn=conn,

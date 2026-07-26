@@ -88,7 +88,7 @@ class TestSyncLabels:
             side_effect=_ok_resolver,
         ), patch(
             f"{_LABEL_REST_LABELS}.fetch_issue_labels",
-            return_value=["status:idea", "priority:low", "type:issue", "source:ben"],
+            return_value=["status:idea", "priority:low", "workflow:issue", "source:ben"],
         ), patch(f"{_LABEL_REST_LABELS}.ensure_label"), patch(
             f"{_LABEL_REST_LABELS}.add_labels", side_effect=fake_add_labels,
         ), patch(
