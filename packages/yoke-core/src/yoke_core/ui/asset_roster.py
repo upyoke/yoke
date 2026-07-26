@@ -23,6 +23,7 @@ ASSET_CONTENT_TYPES: Dict[str, str] = {
     # platform chrome shaped like the hosted shell's slots, so frame defects
     # that only show with occupied slots are visible on a laptop.
     "hosted-frame-harness.html": "text/html; charset=utf-8",
+    "hosted_frame_workflows_fixture.js": "text/javascript; charset=utf-8",
     "app.js": "text/javascript; charset=utf-8",
     "contract.js": "text/javascript; charset=utf-8",
     "contract-version.js": "text/javascript; charset=utf-8",
@@ -48,10 +49,15 @@ ASSET_CONTENT_TYPES: Dict[str, str] = {
     "universe_views_sessions.js": "text/javascript; charset=utf-8",
     "universe_views_strategy.js": "text/javascript; charset=utf-8",
     "universe_views_workflows.js": "text/javascript; charset=utf-8",
+    "workflow_view_lifecycle.js": "text/javascript; charset=utf-8",
+    "workflow_view_policy.js": "text/javascript; charset=utf-8",
+    "workflow_view_primitives.js": "text/javascript; charset=utf-8",
+    "workflow_view_versions.js": "text/javascript; charset=utf-8",
     "app.css": "text/css; charset=utf-8",
     "activation.css": "text/css; charset=utf-8",
     "shell.css": "text/css; charset=utf-8",
     "theme.css": "text/css; charset=utf-8",
+    "workflows.css": "text/css; charset=utf-8",
     "yoke.svg": "image/svg+xml",
     "yoke-wordmark.svg": "image/svg+xml",
     "favicon.svg": "image/svg+xml",

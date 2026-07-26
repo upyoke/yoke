@@ -60,7 +60,8 @@ export const NAV = [
   },
   {
     id: "workflows", icon: "⚗", label: "Workflows", scope: SCOPE_NONE,
-    summary: "What done means for a type of work, and the parts that compose it.",
+    summary:
+      "The versioned definitions every work item follows — lifecycle, posture, gates, testing and delivery.",
   },
   {
     id: "capabilities", icon: "⚿", label: "Capabilities", scope: SCOPE_MULTI,

@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="./shell.css">
   <link rel="stylesheet" href="./app.css">
   <link rel="stylesheet" href="./activation.css">
+  <link rel="stylesheet" href="./workflows.css">
   <style>
     /* Harness chrome only — never the product. The bar exists so nobody can
        mistake this page for the app: everything below it is the real frame
@@ -48,7 +49,7 @@
   <div class="harness-meta">
     <span class="dot"></span>
     <b>Hosted-frame harness</b>
-    <span>sample platform chrome in every mount slot · real local reads · not the product</span>
+    <span id="harness-source">sample platform chrome in every mount slot · real local reads · not the product</span>
   </div>
   <div id="universe-root"></div>
   <script type="module">
@@ -58,6 +59,9 @@
     // see the platform's createHostedSlots). A frame defect that only shows
     // with occupied slots shows here, on a laptop, before anything ships.
     import { mountUniverseApp } from "./app.js";
+    import {
+      hostedFrameWorkflowClient,
+    } from "./hosted_frame_workflows_fixture.js";
 
     const SAMPLE_ORG = { slug: "acme", name: "Acme (sample)" };
 
@@ -165,7 +169,15 @@
       return panel;
     }
 
+    const useWorkflowFixture = new URLSearchParams(location.search)
+      .has("workflow-fixture");
+    if (useWorkflowFixture) {
+      document.getElementById("harness-source").textContent =
+        "sample platform chrome · deterministic workflow data · not the product";
+    }
+
     mountUniverseApp(document.getElementById("universe-root"), {
+      client: useWorkflowFixture ? hostedFrameWorkflowClient() : undefined,
       currentActor: { id: 2, kind: "human", label: "ben" },
       capabilities: {
         flags: ["hosted-shell"],
