@@ -20,8 +20,12 @@ from typing import List, Optional, Sequence, Tuple
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import _table_exists
-from yoke_core.domain.workflow_behavior import generates_task_graph
+from yoke_core.domain.workflow_behavior import (
+    LANE_IMPLEMENTATION,
+    generates_task_graph,
+)
 from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
+from yoke_core.domain.worktree_lane_plan import normalize_worktree_lane
 
 
 @dataclass
@@ -34,6 +38,7 @@ class WorktreeCreationEntry:
 
     branch: str
     path: str
+    lane_role: str = LANE_IMPLEMENTATION
     created: bool = False
     preexisting: bool = False
     error: Optional[str] = None
@@ -60,18 +65,6 @@ class WorktreeCreationPlan:
         return sum(1 for entry in self.worktrees if not entry.preexisting)
 
 
-def _worktree_tuple(branch: str, path: str, repo_root: str, wt_dir: str) -> Tuple[str, str]:
-    branch = (branch or "").strip()
-    path = (path or "").strip()
-    if not path and branch:
-        path = os.path.join(repo_root, wt_dir, branch)
-    if not branch and path:
-        branch = os.path.basename(path)
-    if path and not os.path.isabs(path):
-        path = os.path.join(repo_root, path)
-    return branch, path
-
-
 def resolve_worktrees_for_item(
     item_id: int,
     repo_root: str,
@@ -93,9 +86,6 @@ def resolve_worktrees_for_item(
     except Exception:
         return fallback
 
-    if not db_path:
-        return fallback
-
     try:
         conn = connect(db_path)
     except Exception:
@@ -106,7 +96,8 @@ def resolve_worktrees_for_item(
             return fallback
         p = "%s" if db_backend.connection_is_postgres(conn) else "?"
         row = conn.execute(
-            f"SELECT id FROM items WHERE id = {p}", (int(item_id),),
+            f"SELECT id FROM items WHERE id = {p}",
+            (int(item_id),),
         ).fetchone()
         if row is None or not generates_task_graph(
             load_item_workflow_runtime(conn, int(item_id))
@@ -126,7 +117,12 @@ def resolve_worktrees_for_item(
         ).fetchall()
 
         worktrees = [
-            _worktree_tuple(row["branch"], row["path"], repo_root, wt_dir)
+            normalize_worktree_lane(
+                row["branch"],
+                row["path"],
+                repo_root,
+                wt_dir,
+            )
             for row in rows
         ]
         return worktrees or fallback
@@ -161,7 +157,7 @@ def _classify_existing(branch: str, path: str) -> Tuple[bool, Optional[str]]:
 
 
 def preflight_worktree_plan(
-    raw_worktrees: Sequence[Tuple[str, str]],
+    raw_worktrees: Sequence[Tuple[str, ...]],
     repo_root: str,
     worktrees_dir: str,
     max_active_worktrees: int,
@@ -181,7 +177,15 @@ def preflight_worktree_plan(
 
     seen_paths: set = set()
     seen_branches: set = set()
-    for branch, path in raw_worktrees:
+    for raw in raw_worktrees:
+        if len(raw) == 2:
+            branch, path = raw
+            lane_role = LANE_IMPLEMENTATION
+        elif len(raw) == 3:
+            branch, path, lane_role = raw
+        else:
+            plan.error = f"malformed worktree entry: {raw!r}"
+            return plan
         if not branch or not path:
             plan.error = f"malformed worktree entry: branch='{branch}' path='{path}'"
             plan.failed_branch = branch or path
@@ -197,7 +201,11 @@ def preflight_worktree_plan(
         seen_paths.add(path)
         seen_branches.add(branch)
 
-        entry = WorktreeCreationEntry(branch=branch, path=path)
+        entry = WorktreeCreationEntry(
+            branch=branch,
+            path=path,
+            lane_role=lane_role,
+        )
         preexisting, err = _classify_existing(branch, path)
         if err:
             entry.error = err
@@ -229,23 +237,33 @@ def dirty_main_error(repo_root: str, worktrees_dir: str) -> Optional[str]:
 
     tracked = _run(["git", "-C", repo_root, "diff", "--name-only"])
     staged = _run(["git", "-C", repo_root, "diff", "--name-only", "--cached"])
-    dirty = sorted({
-        p.strip()
-        for p in (tracked.stdout + "\n" + staged.stdout).splitlines()
-        if p.strip()
-    })
+    dirty = sorted(
+        {
+            p.strip()
+            for p in (tracked.stdout + "\n" + staged.stdout).splitlines()
+            if p.strip()
+        }
+    )
     if dirty:
         return (
             "Cannot create worktree: main has tracked or staged changes. "
             "Commit, stash, or revert them and retry. Dirty paths: "
             + ", ".join(dirty[:20])
         )
-    untracked_run = _run([
-        "git", "-C", repo_root, "ls-files", "--others", "--exclude-standard",
-    ])
+    untracked_run = _run(
+        [
+            "git",
+            "-C",
+            repo_root,
+            "ls-files",
+            "--others",
+            "--exclude-standard",
+        ]
+    )
     worktrees_rel = os.path.relpath(worktrees_dir, repo_root).rstrip("/")
     untracked = [
-        p.strip() for p in untracked_run.stdout.splitlines()
+        p.strip()
+        for p in untracked_run.stdout.splitlines()
         if p.strip()
         and p.strip() != "runtime/config"
         and not p.strip().startswith(worktrees_rel + "/")

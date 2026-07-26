@@ -245,7 +245,10 @@ Wrapped `yoke <subcommand>` adapters: **226** (operation tracker confirms 224 wr
 | workflow_item | `yoke workflow-item epic-task split` | `workflow_item.epic_task.split` | ok |
 | workflow_item | `yoke workflow-item epic-task submission-receipt-get` | `workflow_item.epic_task.submission_receipt_get` | ok |
 | workflow_item | `yoke workflow-item epic-task update-status` | `workflow_item.epic_task.update_status` | ok |
+| workflows | `yoke workflows current set` | `workflows.current.set` | ok |
 | workflows | `yoke workflows definition get` | `workflows.definition.get` | ok |
+| workflows | `yoke workflows item get` | `workflows.item.get` | ok |
+| workflows | `yoke workflows item migrate` | `workflows.item.migrate` | ok |
 
 ## 3. Permanent command-shaped boundary roster
 

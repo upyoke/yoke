@@ -47,6 +47,10 @@ def _schema_ddl() -> str:
             OVERVIEW_ACTIVATION_FACTS_CREATE_SQL,
         )
         from yoke_core.domain.workflow_schema import WORKFLOW_TABLES_SQL
+        from yoke_core.domain.item_worktree_schema import (
+            ITEM_WORKTREES_INDEX_SQL,
+            ITEM_WORKTREES_TABLE_SQL,
+        )
 
         onboarding_rows_without_fk = (
             PROJECT_ONBOARDING_CHECKLIST_ROWS_CREATE_SQL.replace(
@@ -71,15 +75,29 @@ def _schema_ddl() -> str:
             "",
         )
         composed = (
-            workflow_tables_without_fk + ";" + _ITEMS_DDL
-            + _EPIC_QA_DDL + _RUNTIME_DDL + _STRATEGY_DDL
-            + _AUTH_DDL + PACK_CATALOG_TABLE_SQL + ";"
-            + pack_reports_without_fk + ";"
-            + pack_entries_without_fk + ";"
-            + PROJECT_ONBOARDING_RUNS_CREATE_SQL + ";"
-            + onboarding_rows_without_fk + ";"
-            + ui_preferences_without_fk + ";"
-            + OVERVIEW_ACTIVATION_FACTS_CREATE_SQL + ";"
+            workflow_tables_without_fk
+            + ";"
+            + _ITEMS_DDL
+            + ITEM_WORKTREES_TABLE_SQL
+            + ITEM_WORKTREES_INDEX_SQL
+            + _EPIC_QA_DDL
+            + _RUNTIME_DDL
+            + _STRATEGY_DDL
+            + _AUTH_DDL
+            + PACK_CATALOG_TABLE_SQL
+            + ";"
+            + pack_reports_without_fk
+            + ";"
+            + pack_entries_without_fk
+            + ";"
+            + PROJECT_ONBOARDING_RUNS_CREATE_SQL
+            + ";"
+            + onboarding_rows_without_fk
+            + ";"
+            + ui_preferences_without_fk
+            + ";"
+            + OVERVIEW_ACTIVATION_FACTS_CREATE_SQL
+            + ";"
             + _MERGE_LOCKS_DDL
         )
         globals()["SCHEMA_DDL"] = composed

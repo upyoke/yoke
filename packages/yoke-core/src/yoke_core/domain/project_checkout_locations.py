@@ -12,6 +12,7 @@ from yoke_contracts.machine_config.schema import (
 
 from yoke_core.domain import db_backend, machine_config, project_settings
 from yoke_core.domain.project_identity import resolve_project_id
+from yoke_core.domain.schema_common import _column_exists, _table_exists
 
 
 def checkout_for_project_id(
@@ -59,6 +60,25 @@ def item_worktree_path(
     """Return this machine's worktree path for an item, if one is mapped."""
 
     p = _placeholder(conn)
+    if _table_exists(conn, "item_worktrees"):
+        row = conn.execute(
+            "SELECT iw.branch, iw.path, i.project_id "
+            "FROM item_worktrees iw JOIN items i ON i.id = iw.item_id "
+            f"WHERE iw.item_id = {p} AND iw.state = 'active' "
+            "AND iw.lane_role IN ('integration', 'implementation') "
+            "ORDER BY CASE iw.lane_role "
+            "WHEN 'integration' THEN 0 ELSE 1 END, iw.id LIMIT 1",
+            (int(item_id),),
+        ).fetchone()
+        if row is not None:
+            explicit_path = _row_value(row, "path", 1)
+            if explicit_path:
+                return Path(str(explicit_path)).expanduser()
+            return worktree_path_for_branch(
+                normalize_project_id(_row_value(row, "project_id", 2)),
+                _row_value(row, "branch", 0),
+                config_path=config_path,
+            )
     row = conn.execute(
         "SELECT worktree, project_id FROM items WHERE id = " + p + " LIMIT 1",
         (int(item_id),),
@@ -68,7 +88,9 @@ def item_worktree_path(
     branch = _row_value(row, "worktree", 0)
     project_id = normalize_project_id(_row_value(row, "project_id", 1))
     return worktree_path_for_branch(
-        project_id, branch, config_path=config_path,
+        project_id,
+        branch,
+        config_path=config_path,
     )
 
 
@@ -82,18 +104,37 @@ def epic_task_worktree_path(
     """Return this machine's worktree path for an epic task, if mapped."""
 
     p = _placeholder(conn)
+    branch_expression = (
+        "COALESCE(NULLIF(et.branch, ''), et.worktree)"
+        if _column_exists(conn, "epic_tasks", "branch")
+        else "et.worktree"
+    )
     row = conn.execute(
-        "SELECT et.worktree, i.project_id FROM epic_tasks et "
+        f"SELECT {branch_expression} AS branch, "
+        "i.project_id FROM epic_tasks et "
         "JOIN items i ON i.id = et.epic_id "
         f"WHERE et.epic_id = {p} AND et.task_num = {p} LIMIT 1",
         (int(epic_id), int(task_num)),
     ).fetchone()
     if row is None:
         return None
-    branch = _row_value(row, "worktree", 0)
+    branch = _row_value(row, "branch", 0)
     project_id = normalize_project_id(_row_value(row, "project_id", 1))
+    if _table_exists(conn, "item_worktrees"):
+        lane = conn.execute(
+            "SELECT path FROM item_worktrees "
+            f"WHERE item_id = {p} AND branch = {p} AND state = 'active' "
+            "LIMIT 1",
+            (int(epic_id), branch),
+        ).fetchone()
+        if lane is not None:
+            explicit_path = _row_value(lane, "path", 0)
+            if explicit_path:
+                return Path(str(explicit_path)).expanduser()
     return worktree_path_for_branch(
-        project_id, branch, config_path=config_path,
+        project_id,
+        branch,
+        config_path=config_path,
     )
 
 
@@ -112,7 +153,9 @@ def worktree_path_for_branch(
     if checkout is None:
         return None
     worktrees_dir = project_settings.get_project_str(
-        checkout, "worktrees_dir", config_path=config_path,
+        checkout,
+        "worktrees_dir",
+        config_path=config_path,
     )
     return checkout / worktrees_dir / branch_str
 

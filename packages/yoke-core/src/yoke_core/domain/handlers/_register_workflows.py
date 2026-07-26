@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from yoke_core.domain.handlers import workflows_definition as _wd
+from yoke_core.domain.handlers import workflows_versioning as _wv
 
 
 def register(registry) -> None:
     registry.register(
-        "workflows.definition.get", _wd.handle_workflows_definition_get,
+        "workflows.definition.get",
+        _wd.handle_workflows_definition_get,
         _wd.WorkflowsDefinitionGetRequest,
         _wd.WorkflowsDefinitionGetResponse,
         stability="stable",
@@ -18,6 +20,53 @@ def register(registry) -> None:
         guardrails=[],
         adapter_status="live",
         claim_required_kind=None,
+    )
+    registry.register(
+        "workflows.item.get",
+        _wv.handle_workflows_item_get,
+        _wv.WorkflowItemGetRequest,
+        _wv.WorkflowItemPinResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.workflows_versioning",
+        target_kinds=["item"],
+        side_effects=[],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["immutable_version_read"],
+        adapter_status="live",
+        claim_required_kind=None,
+    )
+    registry.register(
+        "workflows.current.set",
+        _wv.handle_workflows_current_set,
+        _wv.WorkflowCurrentSetRequest,
+        _wv.WorkflowCurrentSetResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.workflows_versioning",
+        target_kinds=["global"],
+        side_effects=["workflows_current_version_update"],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["published_version_only", "new_items_only"],
+        adapter_status="live",
+        claim_required_kind="operator_override",
+    )
+    registry.register(
+        "workflows.item.migrate",
+        _wv.handle_workflows_item_migrate,
+        _wv.WorkflowItemMigrateRequest,
+        _wv.WorkflowItemMigrateResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.workflows_versioning",
+        target_kinds=["item"],
+        side_effects=["items_workflow_version_update"],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=[
+            "same_workflow_only",
+            "stage_mapping_required",
+            "posture_compatibility",
+            "lane_policy_compatibility",
+        ],
+        adapter_status="live",
+        claim_required_kind="operator_override",
     )
 
 

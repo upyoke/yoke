@@ -22,6 +22,10 @@ from yoke_core.domain.workflow_registry import (
     resolve_current_workflow_pin,
     set_current_workflow_version,
 )
+from yoke_core.domain.workflow_item_versioning import (
+    inspect_item_workflow_pin,
+    migrate_item_workflow_pin,
+)
 
 
 def _definition(workflow_id: str = "issue") -> dict:
@@ -59,9 +63,7 @@ def test_schema_boot_seeds_immutable_builtin_versions(test_db):
     "mutate, match",
     [
         (
-            lambda value: value["stages"][0]["gates"].append(
-                {"id": "unknown_gate"}
-            ),
+            lambda value: value["stages"][0]["gates"].append({"id": "unknown_gate"}),
             "unknown gate",
         ),
         (
@@ -71,9 +73,7 @@ def test_schema_boot_seeds_immutable_builtin_versions(test_db):
             "unknown executor",
         ),
         (
-            lambda value: value["stages"][1].update(
-                label=value["stages"][0]["label"]
-            ),
+            lambda value: value["stages"][1].update(label=value["stages"][0]["label"]),
             "labels must be unique",
         ),
         (
@@ -81,9 +81,7 @@ def test_schema_boot_seeds_immutable_builtin_versions(test_db):
             "terminal_stage_ids",
         ),
         (
-            lambda value: value["policies"].update(
-                governed_migrations="optional"
-            ),
+            lambda value: value["policies"].update(governed_migrations="optional"),
             "core invariants",
         ),
         (
@@ -108,9 +106,7 @@ def test_structural_stage_change_requires_complete_mapping():
         validate_workflow_definition(changed, previous=previous)
 
     changed["stage_mapping"] = {
-        stage["id"]: (
-            "delivering" if stage["id"] == "release" else stage["id"]
-        )
+        stage["id"]: ("delivering" if stage["id"] == "release" else stage["id"])
         for stage in previous["stages"]
     }
     validate_workflow_definition(changed, previous=previous)
@@ -123,8 +119,7 @@ def test_published_rows_reject_update_and_delete(test_db):
     version_id = int(row[0])
     with pytest.raises(Exception, match="immutable"):
         test_db.execute(
-            "UPDATE workflow_versions SET definition_digest = 'changed' "
-            "WHERE id = %s",
+            "UPDATE workflow_versions SET definition_digest = 'changed' WHERE id = %s",
             (version_id,),
         )
     test_db.rollback()
@@ -175,6 +170,71 @@ def test_publish_pins_existing_items_and_can_roll_back_new_item_default(test_db)
         "issue",
         version_one_id,
     )
+
+
+def test_current_definition_change_does_not_repin_existing_item(test_db):
+    workflow_id, version_one_id = resolve_current_workflow_pin(
+        test_db,
+        "issue",
+    )
+    test_db.execute(
+        "INSERT INTO items "
+        "(id, title, status, priority, created_at, updated_at, "
+        "project_id, project_sequence, workflow_id, workflow_version_id) "
+        "VALUES (902, 'Stable pin', 'idea', 'medium', "
+        "'2026-07-25T00:00:00Z', '2026-07-25T00:00:00Z', 1, 902, %s, %s)",
+        (workflow_id, version_one_id),
+    )
+    test_db.commit()
+
+    next_definition = _definition()
+    next_definition["stages"][0]["label"] = "Submitted"
+    published = publish_workflow_version(
+        test_db,
+        workflow_id="issue",
+        definition=next_definition,
+    )
+
+    pinned = inspect_item_workflow_pin(test_db, 902)
+    assert pinned["workflow_version"] == 1
+    assert pinned["workflow_version_id"] == version_one_id
+    assert pinned["status"] == "idea"
+
+    migrated = migrate_item_workflow_pin(test_db, item_id=902)
+    assert migrated["changed"] is True
+    assert migrated["after"]["workflow_version"] == 2
+    assert migrated["after"]["workflow_version_id"] == published["version_id"]
+
+
+def test_compatible_item_migration_applies_adjacent_stage_mapping(test_db):
+    workflow_id, version_one_id = resolve_current_workflow_pin(
+        test_db,
+        "issue",
+    )
+    test_db.execute(
+        "INSERT INTO items "
+        "(id, title, status, priority, created_at, updated_at, "
+        "project_id, project_sequence, workflow_id, workflow_version_id) "
+        "VALUES (903, 'Mapped pin', 'release', 'medium', "
+        "'2026-07-25T00:00:00Z', '2026-07-25T00:00:00Z', 1, 903, %s, %s)",
+        (workflow_id, version_one_id),
+    )
+    test_db.commit()
+    changed = _definition()
+    _replace_stage_id(changed, "release", "delivering")
+    changed["stage_mapping"] = {
+        stage["id"]: ("delivering" if stage["id"] == "release" else stage["id"])
+        for stage in _definition()["stages"]
+    }
+    publish_workflow_version(
+        test_db,
+        workflow_id="issue",
+        definition=changed,
+    )
+
+    migrated = migrate_item_workflow_pin(test_db, item_id=903)
+    assert migrated["after"]["status"] == "delivering"
+    assert migrated["after"]["workflow_version"] == 2
 
 
 def test_publication_refuses_noop_definition(test_db):

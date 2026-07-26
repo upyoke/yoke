@@ -1,16 +1,11 @@
-"""``core`` topic table entries for the schema cheat sheet.
+"""Core topic table entries for the canonical schema cheat sheet.
 
-Sibling of :mod:`schema_api_context_tables` (which combines per-topic
-dicts into the canonical ``CANONICAL_TABLES``). Holds the ``core``
-topic entries: items, epic_tasks, epic_dispatch_chains,
-epic_progress_notes, item_dependencies, events, event_registry,
-ouroboros_entries.
-
-Pure data only — no I/O, no DB connections, no imports beyond stdlib.
+Pure data only — no I/O or DB connections.
 """
 
 from __future__ import annotations
 
+from yoke_core.domain.schema_api_context_tables_worktrees import ITEM_WORKTREE_TABLES
 
 CORE_TABLES: dict[str, dict] = {
     "items": {
@@ -67,11 +62,12 @@ CORE_TABLES: dict[str, dict] = {
             "db_compatibility_attestation, architecture_impact, "
             "resolution, resolution_ref, resolution_comment, "
             "spec_updated_at, spec_updated_by, rework_count, merged_at, "
-            "deployed_to. The worktree column holds the branch slug; the "
-            "absolute worktree path lives on epic_tasks.worktree_path, "
-            "not on items."
+            "deployed_to. items.worktree is a temporary compatibility "
+            "projection of the primary branch; authoritative lane ownership "
+            "lives in item_worktrees."
         ),
     },
+    **ITEM_WORKTREE_TABLES,
     "epic_tasks": {
         "columns": [
             ("id", "INTEGER"),
@@ -91,6 +87,8 @@ CORE_TABLES: dict[str, dict] = {
             "mutation surface (status transitions, body/field updates, "
             "progress notes, epic-task claim acquire/release); "
             "chain_head_freshness reads it for /yoke conduct re-entry. "
+            "The worktree fields are temporary compatibility projections; "
+            "authoritative lane ownership lives in item_worktrees. "
             "Task recency previously lived only in task-scoped event rows "
             "— read this column, never the events ledger (telemetry-only); "
             "NULL means no mutation recorded."
@@ -211,7 +209,7 @@ CORE_TABLES: dict[str, dict] = {
             "`$.context.detail.actor_role` is present on subagent-delegated "
             "tool-call events and absent on parent-turn calls. "
             "Working forensic SELECT examples (all runnable via "
-            "`yoke db read \"...\"`): "
+            '`yoke db read "..."`): '
             "filter by (item_id, event_name) — "
             "`SELECT event_name, event_outcome, created_at FROM events "
             "WHERE item_id = <id> AND event_name = 'WorkClaimed' ORDER "

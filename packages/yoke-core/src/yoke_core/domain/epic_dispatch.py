@@ -18,6 +18,8 @@ from yoke_core.domain.epic_parsing import (
     _now_iso,
     _placeholder,
 )
+from yoke_core.domain.item_worktrees import record_worker_item_worktree
+from yoke_core.domain.schema_common import _table_exists
 
 
 def dispatch_chain_upsert(
@@ -56,10 +58,27 @@ def dispatch_chain_upsert(
              no_chain=excluded.no_chain,
              started_at=excluded.started_at,
              last_updated=excluded.last_updated""",
-        (str(epic_id), worktree, worktree_path, queue, current_index,
-         current_task, current_attempt, max_attempts, no_chain,
-         started_at, ts),
+        (
+            str(epic_id),
+            worktree,
+            worktree_path,
+            queue,
+            current_index,
+            current_task,
+            current_attempt,
+            max_attempts,
+            no_chain,
+            started_at,
+            ts,
+        ),
     )
+    if _table_exists(conn, "item_worktrees"):
+        record_worker_item_worktree(
+            conn,
+            item_id=int(epic_id),
+            branch=worktree,
+            path=worktree_path or None,
+        )
     conn.commit()
     return f"Upserted dispatch chain: {epic_id}/{worktree}"
 
@@ -115,14 +134,11 @@ def dispatch_chain_refresh_for_activation(
     p = _placeholder(conn)
     row = query_one(
         conn,
-        "SELECT dispatch_attempts FROM epic_tasks "
-        f"WHERE epic_id={p} AND task_num={p}",
+        f"SELECT dispatch_attempts FROM epic_tasks WHERE epic_id={p} AND task_num={p}",
         (str(epic_id), str(task_num)),
     )
     if row is None:
-        raise LookupError(
-            f"epic_tasks row '{epic_id}/{task_num}' not found"
-        )
+        raise LookupError(f"epic_tasks row '{epic_id}/{task_num}' not found")
     attempt = int(row["dispatch_attempts"] or 1)
 
     chain_count = query_scalar(
@@ -131,9 +147,7 @@ def dispatch_chain_refresh_for_activation(
         (str(epic_id), worktree),
     )
     if chain_count == 0:
-        raise LookupError(
-            f"dispatch chain '{epic_id}/{worktree}' not found"
-        )
+        raise LookupError(f"dispatch chain '{epic_id}/{worktree}' not found")
 
     ts = _now_iso()
     conn.execute(
@@ -168,7 +182,7 @@ def dispatch_chain_advance(conn, epic_id: str, worktree: str) -> str:
     raw_queue = row["queue"] or ""
 
     if cur_index is None or (isinstance(cur_index, str) and not cur_index.strip()):
-        raise ValueError(f"invalid current_index '<empty>'")
+        raise ValueError("invalid current_index '<empty>'")
 
     try:
         cur_index = int(cur_index)

@@ -142,6 +142,17 @@ The same handler accepts `items.structured_field.section_upsert` (replace a `## 
 
 The handler reads the existing `Progress Log` section, appends a timestamped entry, and upserts at `ordering=200` (the canonical Progress Log convention — see `AGENTS.md` § Progress Log).
 
+### `workflows.*` — immutable version and item-pin operations
+
+| Function id | claim_required_kind | Handler | Notes |
+|---|---|---|---|
+| `workflows.definition.get` | `None` (read) | `yoke_core.domain.handlers.workflows_definition` | Lists selected immutable definitions, version history, gate catalog, and deployment flows. |
+| `workflows.item.get` | `None` (read) | `yoke_core.domain.handlers.workflows_versioning` | Returns the item's exact pin, digest, stage, posture, interpreted lane policy, and active lanes. |
+| `workflows.current.set` | `"operator_override"` | same module | Selects an already-published version for subsequently created items; existing pins do not change. |
+| `workflows.item.migrate` | `"operator_override"` | same module | Explicitly migrates one item when stage mapping, posture, and active lanes are compatible. |
+
+The operator adapters are `yoke workflows item get PREFIX-N`, `yoke workflows current set WORKFLOW VERSION`, and `yoke workflows item migrate PREFIX-N [--version N]`.
+
 ### `workflow_item.epic_task.*` and `workflow_item.epic_progress_note.*` — epic-task amendment
 
 Replaces every hand-authored `python3 -m yoke_core.domain.epic task-update-body <epic-id> <task-num>` / `task-upsert` / direct `epic_progress_notes` choreography in `/yoke amend` and related skills.

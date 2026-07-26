@@ -246,10 +246,7 @@ from yoke_cli.commands.adapters.sessions_read import SESSIONS_LIST_USAGE
 from yoke_cli.commands.adapters.projects_capabilities_read import (
     PROJECTS_CAPABILITIES_LIST_USAGE,
 )
-from yoke_cli.commands.adapters.workflows_read import (
-    WORKFLOWS_DEFINITION_GET_USAGE,
-)
-
+from yoke_cli.commands.adapters.workflows_read import WORKFLOWS_CURRENT_SET_USAGE, WORKFLOWS_DEFINITION_GET_USAGE, WORKFLOWS_ITEM_GET_USAGE, WORKFLOWS_ITEM_MIGRATE_USAGE
 __all__ = ["ADAPTER_USAGE"]
 
 # Function-id → usage-line map consumed by the entrypoint's grouped
@@ -284,7 +281,10 @@ ADAPTER_USAGE: Dict[str, str] = {
     "sessions.begin": SESSIONS_BEGIN_USAGE,
     "sessions.init": SESSIONS_INIT_USAGE,
     "sessions.list": SESSIONS_LIST_USAGE,
+    "workflows.current.set": WORKFLOWS_CURRENT_SET_USAGE,
     "workflows.definition.get": WORKFLOWS_DEFINITION_GET_USAGE,
+    "workflows.item.get": WORKFLOWS_ITEM_GET_USAGE,
+    "workflows.item.migrate": WORKFLOWS_ITEM_MIGRATE_USAGE,
     "sessions.touch": SESSIONS_TOUCH_USAGE,
     "sessions.checkpoint": SESSIONS_CHECKPOINT_USAGE,
     "sessions.checkpoint_read": SESSIONS_CHECKPOINT_READ_USAGE,
