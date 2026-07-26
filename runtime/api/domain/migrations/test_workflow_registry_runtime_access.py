@@ -9,8 +9,12 @@ from psycopg import sql
 
 from yoke_core.domain.migration_apply_manifest import validate_manifest_payload
 from yoke_core.domain.migrations.workflow_registry_runtime_access import (
+    MIGRATION_NAME,
     apply,
     invariants,
+)
+from runtime.api.domain.migrations import (
+    workflow_registry_runtime_access as source_wrapper,
 )
 
 _ROOT = Path(__file__).resolve().parents[4]
@@ -23,6 +27,12 @@ def test_governed_manifest_is_valid_and_digest_bound():
     source = payload["module_sources"]["workflow_registry_runtime_access"]
     digest = hashlib.sha256((_ROOT / source["path"]).read_bytes()).hexdigest()
     assert digest == source["sha256"]
+
+
+def test_source_checkout_wrapper_exposes_packaged_migration():
+    assert source_wrapper.MIGRATION_NAME == MIGRATION_NAME
+    assert source_wrapper.apply is apply
+    assert source_wrapper.invariants is invariants
 
 
 def test_apply_is_idempotent_when_registry_already_matches_database_owner(test_db):
