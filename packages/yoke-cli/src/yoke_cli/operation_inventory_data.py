@@ -138,6 +138,8 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke projects environment-settings get", "projects.environment_settings"),
     _w("yoke projects environment-settings merge", "projects.environment_settings"),
     _w("yoke projects infrastructure list", "projects.infrastructure"),
+    _w("yoke projects site create", "projects.infrastructure"),
+    _w("yoke projects environment create", "projects.infrastructure"),
     _w("yoke projects pulumi-state migrate", "projects.pulumi_state"),
     _w("yoke projects pulumi-state checkpoint-import", "projects.pulumi_state"),
     _w("yoke projects pulumi-stack-config get", "projects.pulumi_stack_config"),
@@ -172,11 +174,9 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     ),
     *GITHUB_ACTIONS_WRAPPED_ROWS,
     # Per-project DB-authoritative strategy docs; each project's
-    # .yoke/strategy/ is a gitignored local rendered view written only by
-    # `yoke strategy render`, with operator edits written back via
-    # `yoke strategy ingest` (CAS), brand-new slugs created by
-    # `yoke strategy doc create`, and cold starts minted by
-    # `yoke strategy seed-defaults`.
+    # .yoke/strategy/ is a gitignored rendered view written only by
+    # `yoke strategy render` (operator edits back via `yoke strategy ingest`
+    # CAS, new slugs via `doc create`, roster top-up via `seed-defaults`).
     _w("yoke strategy doc list", "strategy"),
     _w("yoke strategy doc get", "strategy"),
     _w("yoke strategy doc create", "strategy"),

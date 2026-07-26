@@ -20,6 +20,9 @@ from yoke_core.domain.handlers import (
 from yoke_core.domain.handlers import projects_pulumi_state as _pulumi_state
 from yoke_core.domain.handlers import projects_infrastructure as _infrastructure
 from yoke_core.domain.handlers import (
+    projects_infrastructure_create as _infrastructure_create,
+)
+from yoke_core.domain.handlers import (
     projects_pulumi_stack_config as _pulumi_stack_config,
 )
 
@@ -45,6 +48,24 @@ def register(registry) -> None:
         adapter_status="live",
         claim_required_kind=None,
     )
+    for spec in _infrastructure_create.REGISTRATION_SPECS:
+        registry.register(
+            spec["function_id"],
+            spec["handler"],
+            spec["request_model"],
+            spec["response_model"],
+            stability="stable",
+            owner_module=(
+                "yoke_core.domain.handlers.projects_infrastructure_create"
+            ),
+            target_kinds=["global"],
+            side_effects=spec["side_effects"],
+            emitted_event_names=["YokeFunctionCalled"],
+            guardrails=["idempotent_already_present", "project_owner_match"],
+            adapter_status="live",
+            claim_required_kind=None,
+            ambient_session_required=False,
+        )
     for function_id, handler in _PROJECT_WRITE_SURFACES:
         registry.register(
             function_id,
