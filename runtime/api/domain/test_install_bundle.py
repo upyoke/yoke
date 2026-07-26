@@ -352,17 +352,16 @@ def test_bundle_carries_project_contract_files(conn) -> None:
 
 
 def test_bundle_strategy_files_render_from_rows(conn) -> None:
+    from yoke_core.domain.strategy_docs_defaults import DEFAULT_STRATEGY_DOC_SLUGS
     from yoke_core.domain.strategy_docs_header import parse_file_text
 
     bundle = install_bundle.build_bundle(1, conn)
-    (entry,) = bundle["strategy_files"]
-    assert entry["path"] == ".yoke/strategy/MISSION.md"
-    assert entry["install_policy"] == "db_render"
-    parsed = parse_file_text(entry["content"])
-    assert parsed.slug == "MISSION"
-    assert parsed.body == "# Yoke mission\n"
-    # An established corpus is never replaced by placeholders.
-    assert len(bundle["strategy_files"]) == 1
+    parsed = [parse_file_text(e["content"]) for e in bundle["strategy_files"]]
+    # Authored rows are never replaced; missing defaults top up around them.
+    assert sorted(p.slug for p in parsed) == sorted(DEFAULT_STRATEGY_DOC_SLUGS)
+    assert {p.slug: p.body for p in parsed}["MISSION"] == "# Yoke mission\n"
+    assert ".yoke/strategy/MISSION.md" in {e["path"] for e in bundle["strategy_files"]}
+    assert all(e["install_policy"] == "db_render" for e in bundle["strategy_files"])
 
 
 def test_bundle_cold_starts_strategy_corpus_for_empty_project(conn) -> None:

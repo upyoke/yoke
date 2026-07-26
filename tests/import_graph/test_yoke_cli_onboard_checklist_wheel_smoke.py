@@ -66,7 +66,7 @@ def test_onboard_checklist_product_wheel_renders_with_inert_engine(
             "    rows=[row],",
             ")",
             "payload = json.loads(checklist.dumps_handoff_json(run))",
-            "assert payload['handoff_to'] == 'yoke onboard project'",
+            "assert payload['handoff_to'] == 'yoke onboard'",
             "assert payload['machine_config_path'].endswith('config.json')",
             "assert payload['rows'] == [",
             "    {",

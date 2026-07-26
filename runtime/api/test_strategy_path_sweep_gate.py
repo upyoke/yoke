@@ -23,7 +23,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 
 _DOC_SLUGS = (
     "MISSION", "VISION", "PAD", "PROMPTS", "WISPS",
-    "LANDSCAPE", "MASTER-PLAN", "LEGACY-NOTES", "FUTURE-NOTES",
+    "LANDSCAPE", "MASTER-PLAN", "CURRENT-PLAN", "LEGACY-NOTES", "FUTURE-NOTES",
 )
 
 _NEEDLES = tuple(f"strategy/{slug}.md" for slug in _DOC_SLUGS)

@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-07-19T19:18:32Z_
+_Audit generated_at: 2026-07-26T06:34:45Z_
 
 ## 1. Summary
 
-- Function ids registered: **228**
-- Internal dispatch-only functions without CLI adapters: **1**
-- `yoke` CLI subcommands: **226** (226 carry usable `--help`)
-- Operation tracker: **224 wrapped**, 74 permanent, 0 pending
+- Function ids registered: **233**
+- Internal dispatch-only functions without CLI adapters: **4**
+- `yoke` CLI subcommands: **228** (228 carry usable `--help`)
+- Operation tracker: **227 wrapped**, 74 permanent, 0 pending
 - Skill-body recipes: 226 total (185 template-skipped, 0 failing)
-- Recent field-notes inspected: 50
+- Recent field-notes inspected: 0
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped `yoke <subcommand>` adapters: **226** (operation tracker confirms 224 wrapped rows).
+Wrapped `yoke <subcommand>` adapters: **228** (operation tracker confirms 227 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -152,6 +152,7 @@ Wrapped `yoke <subcommand>` adapters: **226** (operation tracker confirms 224 wr
 | projects | `yoke projects capability-settings set` | `projects.capability_settings.set` | ok |
 | projects | `yoke projects checkout-context` | `projects.checkout_context.run` | ok |
 | projects | `yoke projects create` | `projects.create` | ok |
+| projects | `yoke projects environment create` | `projects.environment.create` | ok |
 | projects | `yoke projects environment-settings get` | `projects.environment_settings.get` | ok |
 | projects | `yoke projects environment-settings merge` | `projects.environment_settings.merge` | ok |
 | projects | `yoke projects get` | `projects.get` | ok |
@@ -165,6 +166,7 @@ Wrapped `yoke <subcommand>` adapters: **226** (operation tracker confirms 224 wr
 | projects | `yoke projects pulumi-state checkpoint-import` | `projects.pulumi_state.checkpoint_import` | ok |
 | projects | `yoke projects pulumi-state migrate` | `projects.pulumi_state.migrate` | ok |
 | projects | `yoke projects resolve-by-github-repo` | `projects.resolve_by_github_repo` | ok |
+| projects | `yoke projects site create` | `projects.site.create` | ok |
 | projects | `yoke projects update` | `projects.update` | ok |
 | qa | `yoke qa artifact add` | `qa.artifact.add` | ok |
 | qa | `yoke qa artifact presign` | `qa.artifact.presign` | ok |
@@ -347,11 +349,7 @@ Lint modules inventoried: **1** (0 reference the field-note footer; 0 carry deni
 
 ## 6. Field-note hotspots
 
-Recent field-notes inspected: **50** (read surface: `agent_facing`).
-
-| agent | recent count |
-|---|---|
-| 2 | 50 |
+_Field-note read failed: https://app.upyoke.com/api/orgs/upyoke/v1/functions/call returned HTTP 503 with a non-envelope body_
 
 ## 7. Contradictions
 
@@ -362,7 +360,7 @@ Recent field-notes inspected: **50** (read surface: `agent_facing`).
 
 ## 8. Next-slice recommendation
 
-_No outstanding follow-ups — the harness has nothing to recommend._
+- **Field-note hotspot read through the agent-facing surface is unhealthy** _(category: teaching_drift)_
 
 ## 9. Curl floor — the envelope shape under every family
 

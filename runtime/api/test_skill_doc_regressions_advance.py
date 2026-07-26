@@ -128,7 +128,7 @@ class TestSkillDiscovery:
         "charge",
         "feed",
         "strategize",
-        "onboard-project",
+        "onboard",
     )
 
     def test_all_operator_commands_have_skill_md(self):

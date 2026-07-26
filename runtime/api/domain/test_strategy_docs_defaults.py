@@ -50,9 +50,14 @@ class TestSeedDefaults:
             conn.close()
         assert second["already_seeded"] is True
         assert second["seeded"] == []
+        assert second["already_present"] == list(
+            defaults.DEFAULT_STRATEGY_DOC_SLUGS
+        )
         assert int(count) == len(defaults.DEFAULT_STRATEGY_DOC_SLUGS)
 
-    def test_seed_noops_on_any_existing_row(self, tmp_db: str) -> None:
+    def test_seed_tops_up_missing_slugs_without_touching_existing(
+        self, tmp_db: str,
+    ) -> None:
         conn = connect_test_db(tmp_db)
         try:
             conn.execute(
@@ -62,13 +67,21 @@ class TestSeedDefaults:
             )
             conn.commit()
             report = defaults.seed_default_docs(conn, 2, "ExternalWebapp")
+            master_plan = sd.get_doc(conn, 2, "MASTER-PLAN")
             slugs = sd.project_doc_slugs(conn, 2)
         finally:
             conn.close()
-        # An established corpus (even partial vs the default canon) is
-        # never extended by cold-start seeding.
-        assert report["already_seeded"] is True
-        assert slugs == ["MASTER-PLAN"]
+        # A partial corpus gains only the missing default slugs; the
+        # existing row keeps its content byte-for-byte.
+        assert report["already_seeded"] is False
+        assert report["already_present"] == ["MASTER-PLAN"]
+        assert report["seeded"] == [
+            slug
+            for slug in defaults.DEFAULT_STRATEGY_DOC_SLUGS
+            if slug != "MASTER-PLAN"
+        ]
+        assert master_plan["content"] == "# existing plan\n"
+        assert sorted(slugs) == sorted(defaults.DEFAULT_STRATEGY_DOC_SLUGS)
 
     def test_seed_scopes_to_one_project(self, tmp_db: str) -> None:
         conn = connect_test_db(tmp_db)

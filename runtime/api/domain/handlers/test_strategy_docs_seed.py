@@ -11,6 +11,7 @@ from yoke_core.domain.handlers import strategy_docs_seed as handlers
 from yoke_core.domain.handlers._strategy_docs_test_helpers import (
     OTHER_PROJECT_ID,
     OTHER_PROJECT_SLUG,
+    SEED_SLUGS,
     build_request,
     ok_emit,
     seed_docs,
@@ -59,13 +60,22 @@ class TestSeedDefaults:
         assert second.primary_success is True
         assert second.result_payload["already_seeded"] is True
         assert second.result_payload["seeded"] == []
+        assert second.result_payload["already_present"] == list(
+            DEFAULT_STRATEGY_DOC_SLUGS
+        )
         assert second.result_payload["existing_rows"] == len(
             DEFAULT_STRATEGY_DOC_SLUGS
         )
         # Only the cold start emitted.
         emit.assert_called_once()
 
-    def test_established_corpus_never_extended(self, tmp_db: str) -> None:
+    def test_established_corpus_tops_up_missing_default_slugs(
+        self, tmp_db: str,
+    ) -> None:
+        missing = [
+            slug for slug in DEFAULT_STRATEGY_DOC_SLUGS if slug not in SEED_SLUGS
+        ]
+        assert missing, "helper seed must omit at least one default slug"
         conn = connect_test_db(tmp_db)
         try:
             seed_docs(conn, OTHER_PROJECT_ID)
@@ -76,7 +86,11 @@ class TestSeedDefaults:
         ):
             outcome = handlers.handle_seed_defaults(_seed_request())
         assert outcome.primary_success is True
-        assert outcome.result_payload["already_seeded"] is True
+        assert outcome.result_payload["already_seeded"] is False
+        assert outcome.result_payload["seeded"] == missing
+        assert outcome.result_payload["already_present"] == [
+            slug for slug in DEFAULT_STRATEGY_DOC_SLUGS if slug not in missing
+        ]
 
     def test_project_context_required(self, tmp_db: str) -> None:
         outcome = handlers.handle_seed_defaults(_seed_request(project=None))
@@ -102,5 +116,5 @@ def test_registration_shape() -> None:
     )
     assert entry["target_kinds"] == ["global"]
     assert entry["side_effects"] == ["db_write", "event_emit"]
-    assert "cold_start_only" in entry["guardrails"]
+    assert "missing_slugs_only" in entry["guardrails"]
     assert entry["ambient_session_required"] is False

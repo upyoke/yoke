@@ -96,7 +96,7 @@ description TEXT -- human-readable description
 created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" below
 ```
 
-Seed data: none — a fresh universe seeds no sites; rows are written through the projects settings surfaces during onboarding.
+Seed data: none — a fresh universe seeds no sites; rows are registered through `projects.site.create` (`yoke projects site create`, idempotent already_present) during onboarding, with settings maintained through the projects settings surfaces.
 
 ## Table: environments
 
@@ -116,7 +116,7 @@ created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline
 UNIQUE(site, name) -- one environment per name per site
 ```
 
-Seed data: a fresh universe seeds no sites or environments — projects enter through onboarding, and their sites/environments carry structured settings written through the projects settings surfaces. The operator's own registry rows (sites, environments, capability settings) live in the operator's private ops repo and are applied by operator tooling.
+Seed data: a fresh universe seeds no sites or environments — projects enter through onboarding, registering rows via `projects.site.create` / `projects.environment.create` (idempotent already_present), with structured settings maintained through the projects settings surfaces. The operator's own registry rows (sites, environments, capability settings) live in the operator's private ops repo and are applied by operator tooling.
 
 ## Table: project_capabilities
 

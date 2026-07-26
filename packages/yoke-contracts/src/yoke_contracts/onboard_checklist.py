@@ -8,7 +8,7 @@ SCHEMA_VERSION = 1
 SCHEMA_NAME = "yoke.onboard.checklist"
 OPERATION = "onboard.checklist"
 OPERATION_INIT = "onboard.checklist.init"
-HANDOFF_TO = "yoke onboard project"
+HANDOFF_TO = "yoke onboard"
 
 STATUS_UNKNOWN = "unknown"
 STATUS_NEEDED = "needed"
@@ -129,8 +129,26 @@ ROW_SPECS = (
                      "Configure needed capabilities and secrets."),
     ChecklistRowSpec("delivery-setup", "17", "Delivery setup", LAYER_DELIVERY,
                      HANDOFF_TO, "Configure sites, envs, flows, and automation."),
+    ChecklistRowSpec("scaffold-install", "17a", "Scaffold Pack install",
+                     LAYER_AGENTIC, "yoke onboard",
+                     "Install the webapp scaffold Pack; receipt in .yoke/packs.json."),
+    ChecklistRowSpec("hosting-setup", "17b", "Hosting setup",
+                     LAYER_AGENTIC, "yoke onboard",
+                     "Verify the aws-admin capability or record an explicit skip."),
+    ChecklistRowSpec("environment-registration", "17c",
+                     "Environment registration", LAYER_AGENTIC, "yoke onboard",
+                     "Register the site, stage/prod environments, and deploy flow."),
+    ChecklistRowSpec("domain-setup", "17d", "Domain setup",
+                     LAYER_AGENTIC, "yoke onboard",
+                     "Record the default subdomain; custom domains come later."),
+    ChecklistRowSpec("infra-apply-first-deploy", "17e",
+                     "Infra apply + first deploy", LAYER_AGENTIC, "yoke onboard",
+                     "Gated infra apply, first stage deploy, and smoke check."),
+    ChecklistRowSpec("work-seeding", "17f", "Work seeding",
+                     LAYER_AGENTIC, "yoke onboard",
+                     "File the first backlog items from CURRENT-PLAN via idea intake."),
     ChecklistRowSpec("verification", "18", "Verification", LAYER_VERIFICATION,
-                     "CLI + yoke onboard project",
+                     "CLI + yoke onboard",
                      "Run status, auth, command, render, and doctor checks."),
     ChecklistRowSpec("lifecycle-readiness", "19", "Lifecycle readiness",
                      LAYER_VERIFICATION, "Lifecycle",

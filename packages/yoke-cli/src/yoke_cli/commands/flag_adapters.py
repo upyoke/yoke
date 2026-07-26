@@ -80,9 +80,7 @@ from yoke_cli.commands.adapters.items import (
 )
 from yoke_cli.commands.adapters.items_create import items_create
 from yoke_cli.commands.adapters.items_scalar import items_scalar_update
-from yoke_cli.commands.adapters.items_github_sync import (
-    items_github_sync,
-)
+from yoke_cli.commands.adapters.items_github_sync import items_github_sync
 from yoke_cli.commands.adapters.items_section import (
     items_section_delete,
     items_section_get,
@@ -100,9 +98,7 @@ from yoke_cli.commands.adapters.claims_read import (
     claims_work_holder_list,
     path_claims_conflicts_list,
 )
-from yoke_cli.commands.adapters.db_claim import (
-    db_claim_amend,
-)
+from yoke_cli.commands.adapters.db_claim import db_claim_amend
 from yoke_cli.commands.adapters.db import db_read
 from yoke_cli.commands.adapters.render import (
     agents_render,
@@ -192,6 +188,8 @@ from yoke_cli.commands.adapters.projects import (
 )
 from yoke_cli.commands.adapters.projects_write import (
     projects_create,
+    projects_environment_create,
+    projects_site_create,
     projects_update,
 )
 from yoke_cli.commands.adapters.project_structure_read import (
@@ -438,6 +436,8 @@ __all__ = [
     "projects_list",
     "projects_resolve_by_github_repo",
     "projects_create",
+    "projects_environment_create",
+    "projects_site_create",
     "projects_update",
     "projects_capability_has",
     "projects_capabilities_list",

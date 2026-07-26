@@ -1,16 +1,17 @@
-"""Handler for ``strategy.seed_defaults.run`` — cold-start placeholder rows.
+"""Handler for ``strategy.seed_defaults.run`` — default placeholder top-up.
 
-DB-first cold start: mints the default placeholder corpus
+DB-first per-slug top-up: seeds a placeholder row for each default slug
 (:data:`yoke_core.domain.strategy_docs_defaults.DEFAULT_STRATEGY_DOC_SLUGS`)
-for a project with ZERO strategy rows, parameterized by the project's
-display name. Idempotent — a project with any existing row reports
-``already_seeded`` and writes nothing, so re-runs and install-refresh
-paths can call it unconditionally. Files are rendered FROM the seeded
-rows afterwards (``strategy.render.run`` / the install bundle); this
-handler never touches the filesystem.
+the project is missing, parameterized by the project's display name.
+Idempotent per slug — an existing row is never touched, so re-runs,
+install-refresh paths, and projects predating a roster addition can call
+it unconditionally: ``yoke strategy seed-defaults`` is the healer that
+brings an established corpus up to the full default roster. Files are
+rendered FROM the seeded rows afterwards (``strategy.render.run`` / the
+install bundle); this handler never touches the filesystem.
 
-No claim gate: seeding only ever fires on an empty corpus, so there is
-no existing content a racing writer could lose; the unique
+No claim gate: seeding only ever inserts missing slugs, so there is no
+existing content a racing writer could lose; the unique
 ``(project_id, slug)`` index serializes concurrent seeders.
 """
 
@@ -42,6 +43,7 @@ class SeedDefaultsResponse(BaseModel):
     project_id: int
     project_slug: str
     seeded: List[str] = Field(default_factory=list)
+    already_present: List[str] = Field(default_factory=list)
     existing_rows: int = 0
     already_seeded: bool = False
 
@@ -71,12 +73,14 @@ def handle_seed_defaults(request: FunctionCallRequest) -> HandlerOutcome:
                 "project_id": project.id,
                 "project_slug": project.slug,
                 "seeded": report["seeded"],
+                "already_present": report["already_present"],
             },
         )
     return HandlerOutcome(
         result_payload=SeedDefaultsResponse(
             project_id=project.id, project_slug=project.slug,
             seeded=report["seeded"],
+            already_present=report["already_present"],
             existing_rows=report["existing_rows"],
             already_seeded=report["already_seeded"],
         ).model_dump(),
@@ -95,7 +99,7 @@ REGISTRATIONS: List[Dict[str, Any]] = [
         "target_kinds": ["global"],
         "side_effects": ["db_write", "event_emit"],
         "emitted_event_names": [STRATEGY_DEFAULTS_SEEDED_EVENT_NAME],
-        "guardrails": ["cold_start_only"],
+        "guardrails": ["missing_slugs_only"],
         "adapter_status": "live",
         "claim_required_kind": None,
         "ambient_session_required": False,

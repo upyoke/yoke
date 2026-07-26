@@ -7,8 +7,8 @@ Per-project DB-authoritative strategy documents: ``strategy.doc.list``
 archived state), ``strategy.render.run`` (the only writer of each
 project's gitignored local ``.yoke/strategy/`` rendered view),
 ``strategy.ingest.run`` (CAS write-back from operator-edited rendered
-files), and ``strategy.seed_defaults.run`` (cold-start placeholder
-rows for a project with no corpus).
+files), and ``strategy.seed_defaults.run`` (per-slug top-up of the
+default placeholder roster; existing rows never touched).
 """
 from __future__ import annotations
 
