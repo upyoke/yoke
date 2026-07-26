@@ -81,7 +81,7 @@ def test_install_then_refresh_then_uninstall_round_trip(
     assert report["machine_config_newly_registered"] is True
     assert report["snapshot_sync"]["status"] == "skipped"
     assert report["snapshot_sync"]["repair_command"].endswith("--project 7")
-    assert (repo / ".claude/skills/yoke/onboard-project/SKILL.md").is_file()
+    assert (repo / ".claude/skills/yoke/onboard/SKILL.md").is_file()
     assert (repo / ".yoke/install-manifest.json").is_file()
     assert report["worktrees_ignore"]["status"] == "written"
     assert report["worktrees_ignore"]["patch"] == ["+.worktrees/"]
@@ -201,7 +201,7 @@ def test_install_accepts_non_prod_local_postgres_bundle(
     assert report["operation"] == "install"
     assert report["source"] == "local-postgres:source-dev-admin"
     assert (repo / ".yoke/install-manifest.json").exists()
-    assert (repo / ".claude/skills/yoke/onboard-project/SKILL.md").is_file()
+    assert (repo / ".claude/skills/yoke/onboard/SKILL.md").is_file()
 
 
 def test_install_refuses_prod_marked_local_postgres_before_repo_writes(

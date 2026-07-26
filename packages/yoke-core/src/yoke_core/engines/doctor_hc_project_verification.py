@@ -87,7 +87,7 @@ def hc_project_verification_configured(
         "  Their merge gate runs zero tests (the merge engine reads only "
         "merge_verification and never falls back to a full command), and "
         "tester / advance / polish have no project test command.\n"
-        "  Seed the project's structure by running the onboard-project skill "
+        "  Seed the project's structure by running the /yoke onboard skill "
         "for it (it configures command_definitions and merge_verification)."
     )
     rec.record(CHECK_ID, CHECK_NAME, "WARN", detail)

@@ -63,7 +63,7 @@ def test_onboard_project_apply_writes_handoff_and_worktrees_ignore(
     assert payload["install"]["snapshot_sync"]["status"] == "ok"
     assert payload["handoff"]["run_id"] == "run-handoff"
     assert payload["handoff"]["install_report"]["project_id"] == 43
-    assert "/yoke onboard-project" in payload["handoff"]["agent_command"]
+    assert payload["handoff"]["agent_command"] == "/yoke onboard --run-id run-handoff"
 
     handoff_call = api.function_call("onboard.checklist.run")
     handoff_payload = handoff_call["payload"]

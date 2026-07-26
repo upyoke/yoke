@@ -23,8 +23,8 @@ def install_bundle(project: dict[str, Any]) -> dict[str, Any]:
         "project_id": project["id"],
         "project_slug": project["slug"],
         "files": [{
-            "path": ".codex/skills/yoke/onboard-project/SKILL.md",
-            "content": "# onboard-project\n",
+            "path": ".codex/skills/yoke/onboard/SKILL.md",
+            "content": "# onboard\n",
         }],
         "project_contract_files": [{
             "path": ".yoke/lint-config",

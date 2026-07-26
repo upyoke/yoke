@@ -10,7 +10,7 @@ Yoke has two local setup lanes:
 
 - **Product/operator setup** is the normal path. Install the CLI as an app,
   onboard the machine, install a project, then hand the project to
-  `/yoke onboard-project`.
+  `/yoke onboard`.
 - **Yoke source-dev/admin setup** is only for people editing Yoke itself
   or operating the server side. It starts with the product path, then adds
   `yoke dev setup`.
@@ -286,7 +286,7 @@ agentic project adoption. Open the installed project in a supported harness and
 run:
 
 ```text
-/yoke onboard-project --project-root ~/work/my-app --run-id <run-id>
+/yoke onboard --run-id <run-id>
 ```
 
 Pass the captured install report when the harness asks for it, or include the

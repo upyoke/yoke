@@ -96,7 +96,7 @@ That matters because the system should preserve causal truth. Yoke should be abl
 
 When work happens outside the standard execution path, the answer should not be "the framework kind of inferred it later." It should be an explicit manual override record with the actor, reason, evidence, and state effects attached.
 
-**Project adoption prerequisite:** New projects must be installed and adopted before the Usher can operate. The product path is `yoke onboard`, then `yoke project create` / `yoke project import` / `yoke onboard project` or `yoke project install`, followed by `/yoke onboard-project` to configure Project Structure, strategy docs, capabilities, delivery settings, QA, and checklist evidence. GitHub labels, Actions variables/secrets, branch protection, environment protection, and project capability secrets are previewed and configured through Yoke surfaces, not ad-hoc bootstrap scripts.
+**Project adoption prerequisite:** New projects must be installed and adopted before the Usher can operate. The product path is `yoke onboard`, then `yoke project create` / `yoke project import` / `yoke onboard project` or `yoke project install`, followed by the `/yoke onboard` harness skill to fill strategy docs, confirm the execution profile, install Packs, verify hosting, register environments and flows, run the gated first deploy, and seed first work with checklist evidence. GitHub labels, Actions variables/secrets, branch protection, environment protection, and project capability secrets are previewed and configured through Yoke surfaces, not ad-hoc bootstrap scripts.
 
 ## The Seven Agents + Orchestration Skills
 

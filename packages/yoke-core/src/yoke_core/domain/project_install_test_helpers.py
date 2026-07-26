@@ -28,12 +28,12 @@ DEFAULT_FILES = [
     {"path": ".claude/skills/yoke/SKILL.md", "content": "# yoke\n"},
     {"path": ".codex/skills/yoke/SKILL.md", "content": "# yoke\n"},
     {
-        "path": ".claude/skills/yoke/onboard-project/SKILL.md",
-        "content": "# onboard-project\n",
+        "path": ".claude/skills/yoke/onboard/SKILL.md",
+        "content": "# onboard\n",
     },
     {
-        "path": ".codex/skills/yoke/onboard-project/SKILL.md",
-        "content": "# onboard-project\n",
+        "path": ".codex/skills/yoke/onboard/SKILL.md",
+        "content": "# onboard\n",
     },
 ]
 

@@ -42,7 +42,7 @@ def create_handoff(
     )
     result = dispatch_fn("onboard.checklist.run", payload, config_path)
     run_id = str(result.get("run_id") or "")
-    command = _agent_command(root, run_id or "<run-id>")
+    command = _agent_command(run_id or "<run-id>")
     return {
         "run_id": run_id,
         "status": result.get("status"),
@@ -80,7 +80,7 @@ def _payload(
             "source_operation": operation,
             "install_report": dict(install),
             "github_adoption": dict(github_adoption or {}),
-            "agent_command_template": _agent_command(root, "<run-id>"),
+            "agent_command_template": _agent_command("<run-id>"),
             "repair_commands": _repair_commands(install),
         },
     }
@@ -153,12 +153,10 @@ def _repair_commands(install: Mapping[str, Any]) -> dict[str, str]:
     return {"path_snapshot": str(command)} if command else {}
 
 
-def _agent_command(root: Path, run_id: str) -> str:
+def _agent_command(run_id: str) -> str:
     return shlex.join([
         "/yoke",
-        "onboard-project",
-        "--project-root",
-        str(root),
+        "onboard",
         "--run-id",
         run_id,
     ])
