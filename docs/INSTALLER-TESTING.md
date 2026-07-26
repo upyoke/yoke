@@ -174,8 +174,11 @@ should usually run alone because they may intentionally leave partial state.
 ### Wave 4: Account And Yoke Token
 
 The Account step opens on the deployment-destination picker: `Where should this
-Yoke live?` with choices for this machine, a team server, and upyoke.com. Enter
-keeps the hosted lane, while the team-server lane asks for a Yoke server URL.
+Yoke live?` with choices for this machine, a team server, `upyoke.com`, and
+`stage.upyoke.com`. The two hosted rows are one destination reached through two
+platforms — the row picked is what the browser connect leg opens, and there is
+no second screen asking which hosted environment to use. The team-server lane
+asks for a Yoke server URL.
 
 | ID | Profile | Flow | Assertions |
 | --- | --- | --- | --- |
@@ -808,8 +811,9 @@ curl -fsSL https://api.stage.upyoke.com/install | bash
 ```
 
 Manual proof path: accept uv install if missing, accept PATH repair, confirm
-handoff into `yoke onboard`, pick upyoke.com on the destination picker, choose
-stage, use `/tmp/yoke-stage.token`, choose the GitHub App connection or
+handoff into `yoke onboard`, pick `stage.upyoke.com` on the destination picker
+(the row is the environment choice), use `/tmp/yoke-stage.token`, choose the
+GitHub App connection or
 backlog-only skip, clone/import under `~/code`, apply, and record the report
 path.
 
