@@ -62,6 +62,50 @@ def test_onboard_checklist_init_handler_uses_db_record(onboarding_db) -> None:
     assert result["run"]["machine_config_path"] == "/home/.yoke/config.json"
 
 
+def test_onboard_checklist_init_handler_resolves_project_ref(onboarding_db) -> None:
+    from yoke_core.domain.db_helpers import connect, iso8601_now
+
+    conn = connect()
+    try:
+        conn.execute(
+            "INSERT INTO projects (id, slug, name, created_at) "
+            "VALUES (%s, %s, %s, %s) ON CONFLICT (id) DO NOTHING",
+            (31, "demo", "Demo", iso8601_now()),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    outcome = onboard_checklist.handle_onboard_checklist_init(
+        _request(
+            "onboard.checklist.init",
+            {
+                "run_id": "run-handler-standalone",
+                "project": "demo",
+                "checkout_path": "/repo",
+            },
+        )
+    )
+
+    assert outcome.primary_success is True
+    assert outcome.result_payload["run"]["project_id"] == 31
+
+
+def test_onboard_checklist_init_handler_rejects_unknown_project_ref(
+    onboarding_db,
+) -> None:
+    outcome = onboard_checklist.handle_onboard_checklist_init(
+        _request(
+            "onboard.checklist.init",
+            {"run_id": "run-handler-unknown-project", "project": "no-such-project"},
+        )
+    )
+
+    assert outcome.primary_success is False
+    assert outcome.error is not None
+    assert outcome.error.code == "project_not_found"
+
+
 def test_onboard_checklist_run_handler_updates_and_reads_json_shape(
     onboarding_db,
 ) -> None:
