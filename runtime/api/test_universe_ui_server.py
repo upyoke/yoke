@@ -2,11 +2,12 @@
 
 Pins the security contract of :mod:`yoke_core.ui.server`: every route
 requires the per-run session token (query param exchanged for a cookie),
-the function proxy admits only the read-only allowlist, and the page
-assets resolve from the packaged ``yoke_core.ui`` static resources.
-"""
+the function proxy admits only allowlisted ids, and the page assets
+resolve from the packaged ``yoke_core.ui`` static resources."""
 
 from __future__ import annotations
+
+import socket
 
 import pytest
 from fastapi.testclient import TestClient
@@ -82,8 +83,7 @@ class TestSessionTokenGate:
 class TestFunctionProxy:
     def _call(self, ui_client, envelope):
         return ui_client.post(
-            f"/api/functions/call?token={_TOKEN}",
-            json=envelope,
+            f"/api/functions/call?token={_TOKEN}", json=envelope,
         )
 
     def test_write_function_id_refused(self, ui_client):
@@ -94,7 +94,9 @@ class TestFunctionProxy:
         assert response.status_code == 403
         body = response.json()
         assert body["error"]["code"] == "function_not_allowed"
-        assert body["error"]["allowed"] == sorted(ui_server.UI_READ_FUNCTION_ALLOWLIST)
+        allowed = (ui_server.UI_READ_FUNCTION_ALLOWLIST
+                   | ui_server.UI_MUTATION_FUNCTION_ALLOWLIST)
+        assert body["error"]["allowed"] == sorted(allowed)
 
     def test_unknown_function_id_refused(self, ui_client):
         assert (
@@ -306,14 +308,15 @@ class TestFunctionProxy:
         assert envelope["error"]["code"] == "project_context_required"
 
     def test_allowlist_ids_are_registered_claimless_reads(self):
-        from yoke_core.domain.handlers.__init_register__ import (
-            register_all_handlers,
-        )
+        # The activation-latch entries carry one documented side effect and
+        # are pinned in test_universe_ui_server_mutations instead.
+        from yoke_core.domain.handlers.__init_register__ import register_all_handlers
         from yoke_core.domain.yoke_function_actor_identity import is_read_only
         from yoke_core.domain.yoke_function_registry import lookup
 
         register_all_handlers()
-        for function_id in ui_server.UI_READ_FUNCTION_ALLOWLIST:
+        latch = ui_server.UI_ACTIVATION_LATCH_FUNCTIONS
+        for function_id in ui_server.UI_READ_FUNCTION_ALLOWLIST - latch:
             entry = lookup(function_id)
             assert entry is not None, function_id
             assert is_read_only(entry), function_id
@@ -321,8 +324,6 @@ class TestFunctionProxy:
 
 class TestPortProbe:
     def test_default_port_is_probed_free_or_refused(self):
-        import socket
-
         # Occupy an ephemeral port, then ask the resolver for exactly it.
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as holder:
             holder.bind(("127.0.0.1", 0))
@@ -332,8 +333,6 @@ class TestPortProbe:
                 ui_server.resolve_ui_port(taken)
 
     def test_explicit_free_port_round_trips(self):
-        import socket
-
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
             probe.bind(("127.0.0.1", 0))
             free_port = probe.getsockname()[1]
