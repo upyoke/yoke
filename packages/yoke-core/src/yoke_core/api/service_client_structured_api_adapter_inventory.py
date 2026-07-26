@@ -41,6 +41,9 @@ from yoke_core.api.service_client_structured_api_adapter_inventory_types import 
     AdapterEntry,
     read_entry as _read_entry,
 )
+from yoke_core.api.service_client_structured_api_adapter_inventory_workflows import (
+    WORKFLOW_ADAPTERS,
+)
 
 CLI_ADAPTERS: List[AdapterEntry] = [
     *EPIC_ADAPTERS,
@@ -274,14 +277,7 @@ CLI_ADAPTERS: List[AdapterEntry] = [
             "doctor findings persist nowhere else."
         ),
     ),
-    _read_entry(
-        function_id="workflows.definition.get",
-        cli_invocation="yoke workflows definition get [--project P]",
-        notes=(
-            "The definition of done as a read-only composition: per-type "
-            "lifecycle progressions, the gate map, and the project's flows."
-        ),
-    ),
+    *WORKFLOW_ADAPTERS,
     *INSTALLER_ADAPTERS,
     AdapterEntry(function_id="board.rebuild.run", cli_invocation="yoke board rebuild"),
     _read_entry(

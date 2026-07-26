@@ -28,6 +28,7 @@ from yoke_cli.operation_inventory_github_actions import (
 from yoke_cli.operation_inventory_installer_local import (
     PERMANENT_ROWS as INSTALLER_LOCAL_PERMANENT_ROWS,
 )
+from yoke_cli.operation_inventory_workflows import WRAPPED_ROWS as WORKFLOW_WRAPPED_ROWS
 from yoke_cli.operation_inventory_shepherd_qa_writes import (
     WRAPPED_ROWS as SHEPHERD_QA_WRITE_ROWS,
 )
@@ -35,7 +36,6 @@ from yoke_cli.operation_inventory_strategy_event import (
     PERMANENT_ROWS as STRATEGY_EVENT_PERMANENT_ROWS,
     WRAPPED_ROWS as STRATEGY_EVENT_WRAPPED_ROWS,
 )
-
 WRAPPED_ROWS: Tuple[_Row, ...] = (
     # Baseline wrapped item and claim operations.
     _w("yoke items get", "items.read"),
@@ -84,7 +84,7 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke sessions checkpoint-read", "sessions"),
     _w("yoke sessions offer", "sessions"),
     _w("yoke sessions ownership-guard", "sessions"),
-    _w("yoke workflows definition get", "workflows"),
+    *WORKFLOW_WRAPPED_ROWS,
     _w("yoke charge schedule", "charge"),
     _w("yoke frontier list", "frontier"),
     # render.

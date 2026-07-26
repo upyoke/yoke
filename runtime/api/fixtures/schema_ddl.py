@@ -74,11 +74,15 @@ def _schema_ddl() -> str:
             " REFERENCES workflows(id)",
             "",
         )
+        item_worktrees_without_fk = ITEM_WORKTREES_TABLE_SQL.replace(
+            " REFERENCES items(id) ON DELETE CASCADE",
+            "",
+        )
         composed = (
             workflow_tables_without_fk
             + ";"
             + _ITEMS_DDL
-            + ITEM_WORKTREES_TABLE_SQL
+            + item_worktrees_without_fk
             + ITEM_WORKTREES_INDEX_SQL
             + _EPIC_QA_DDL
             + _RUNTIME_DDL

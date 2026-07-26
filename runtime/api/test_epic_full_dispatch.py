@@ -10,6 +10,7 @@ from __future__ import annotations
 import pytest
 
 from yoke_core.domain import epic
+from runtime.api.conftest import insert_item
 
 TEST_EPIC_ID = 42
 TEST_EPIC_REF = f"YOK-{TEST_EPIC_ID}"
@@ -61,6 +62,12 @@ class TestFileOperations:
 
 
 class TestDispatchChains:
+    @pytest.fixture(autouse=True)
+    def _seed_parent_item(self, test_db):
+        insert_item(
+            test_db, id=TEST_EPIC_ID, type="epic", status="planned", project="yoke"
+        )
+
     def test_upsert_and_get(self, test_db):
         data = {
             "worktree_path": TEST_EPIC_WORKTREE_PATH,
