@@ -1,33 +1,13 @@
 """Validation checks for the canonical Yoke control-plane schema.
 
-Status validity checks for items and epic_tasks, extracted from schema.py.
-Callers import these from schema.py which re-exports them.
+Item stages are validated through immutable workflow pins. Epic-task statuses
+retain their engine-owned vocabulary.
 """
 
 from __future__ import annotations
 
 import sys
 from typing import Any
-
-# ---------------------------------------------------------------------------
-# Status constants (canonical — imported back into schema.py)
-# ---------------------------------------------------------------------------
-
-# Canonical item statuses.
-# "blocked" is retained in the CHECK constraint enum here so legacy
-# rows can continue to round-trip through the DB during the migration window.
-# Post-cutover, no fresh write produces status='blocked' for items — the
-# canonical signal is items.blocked=1, and HC-blocked-status-drift surfaces
-# any row that still holds the legacy lifecycle position.
-_VALID_ITEM_STATUSES = (
-    "idea", "planned", "release", "done", "cancelled", "blocked",
-    "stopped", "failed", "refining-idea", "refined-idea", "implementing",
-    "reviewing-implementation", "reviewed-implementation",
-    "polishing-implementation", "implemented", "planning",
-    "plan-drafted", "refining-plan",
-)
-
-_VALID_ITEM_STATUSES_SQL = ", ".join(f"'{s}'" for s in _VALID_ITEM_STATUSES)
 
 # Canonical epic_tasks statuses
 _VALID_TASK_STATUSES = (
@@ -44,24 +24,38 @@ _VALID_TASK_STATUSES_SQL = ", ".join(f"'{s}'" for s in _VALID_TASK_STATUSES)
 # Validators
 # ---------------------------------------------------------------------------
 
-def _validate_item_statuses(conn: Any) -> None:
-    """Verify no items have retired/invalid statuses."""
-    cur = conn.execute(
-        f"SELECT COUNT(*) FROM items WHERE status NOT IN ({_VALID_ITEM_STATUSES_SQL})"
+def _validate_item_workflow_stages(conn: Any) -> None:
+    """Verify every item stage against its immutable workflow pin."""
+    from yoke_core.domain.workflow_runtime import (
+        ENGINE_EXCEPTIONAL_STAGE_IDS,
+        load_item_workflow_runtime,
     )
-    count = cur.fetchone()[0]
-    if count > 0:
-        print(f"Error: {count} items have retired/invalid statuses:", file=sys.stderr)
-        rows = conn.execute(
-            f"SELECT id || '|' || status FROM items "
-            f"WHERE status NOT IN ({_VALID_ITEM_STATUSES_SQL}) ORDER BY id"
-        ).fetchall()
-        for row in rows:
-            print(row[0], file=sys.stderr)
+    from yoke_core.domain.workflow_registry import WorkflowRegistryError
+
+    invalid: list[str] = []
+    rows = conn.execute("SELECT id, status FROM items ORDER BY id").fetchall()
+    for item_id, status in rows:
+        try:
+            runtime = load_item_workflow_runtime(conn, int(item_id))
+        except WorkflowRegistryError as exc:
+            invalid.append(f"{item_id}|{exc}")
+            continue
+        stage_id = str(status)
+        if (
+            stage_id not in runtime.stage_ids
+            and stage_id not in ENGINE_EXCEPTIONAL_STAGE_IDS
+        ):
+            invalid.append(
+                f"{item_id}|{stage_id} not in "
+                f"{runtime.workflow_id}@{runtime.version}"
+            )
+    if invalid:
         print(
-            "Run the zero-legacy DB convergence tool to fix these before proceeding.",
+            f"Error: {len(invalid)} items have invalid workflow stages:",
             file=sys.stderr,
         )
+        for evidence in invalid:
+            print(evidence, file=sys.stderr)
         sys.exit(1)
 
 

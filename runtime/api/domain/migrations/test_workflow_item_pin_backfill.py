@@ -28,6 +28,16 @@ def test_governed_manifest_is_valid_and_digest_bound():
     assert digest == source["sha256"]
 
 
+def _restore_prebackfill_shape(test_db) -> None:
+    test_db.execute(
+        "ALTER TABLE items ADD COLUMN type TEXT NOT NULL DEFAULT 'issue'"
+    )
+    for column in ("workflow_id", "workflow_version_id"):
+        test_db.execute(
+            f"ALTER TABLE items ALTER COLUMN {column} DROP NOT NULL"
+        )
+
+
 def _insert_item(test_db, item_id: int, item_type: str, status: str) -> None:
     test_db.execute(
         "INSERT INTO items "
@@ -40,6 +50,7 @@ def _insert_item(test_db, item_id: int, item_type: str, status: str) -> None:
 
 
 def test_backfill_pins_issue_and_epic_without_changing_stage(test_db):
+    _restore_prebackfill_shape(test_db)
     _insert_item(test_db, 701, "issue", "implementing")
     _insert_item(test_db, 702, "epic", "planned")
 
@@ -58,6 +69,7 @@ def test_backfill_pins_issue_and_epic_without_changing_stage(test_db):
 
 
 def test_backfill_refuses_partial_pin(test_db):
+    _restore_prebackfill_shape(test_db)
     _insert_item(test_db, 703, "issue", "idea")
     test_db.execute(
         "UPDATE items SET workflow_id = 'issue' WHERE id = 703"
@@ -68,6 +80,7 @@ def test_backfill_refuses_partial_pin(test_db):
 
 
 def test_invariant_refuses_stage_outside_pinned_definition(test_db):
+    _restore_prebackfill_shape(test_db)
     _insert_item(test_db, 704, "issue", "planning")
     apply(test_db)
 

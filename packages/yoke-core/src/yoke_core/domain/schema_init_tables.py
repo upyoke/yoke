@@ -4,10 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_core.domain.schema_checks import (
-    _VALID_ITEM_STATUSES_SQL,
-    _VALID_TASK_STATUSES_SQL,
-)
+from yoke_core.domain.schema_checks import _VALID_TASK_STATUSES_SQL
 from yoke_core.domain.schema_init_apply import execute_schema_script
 from yoke_core.domain.schema_init_path_integrity_tables import (
     create_path_integrity_tables,  # noqa: F401 - compatibility re-export
@@ -26,16 +23,17 @@ from yoke_core.domain.strategy_docs_schema import (
     STRATEGY_DOC_REVISIONS_CREATE_TABLE_SQL,
     STRATEGY_DOCS_CREATE_TABLE_SQL,
 )
+from yoke_core.domain.workflow_schema import WORKFLOW_TABLES_SQL
 
 
 def create_core_tables(conn: Any) -> None:
     execute_schema_script(conn, f"""
         {_projects_table_sql(if_not_exists=True)}
+        {WORKFLOW_TABLES_SQL}
         CREATE TABLE IF NOT EXISTS items (
           id INTEGER PRIMARY KEY,
           title TEXT NOT NULL,
-          type TEXT NOT NULL DEFAULT 'issue' CHECK(type IN ('epic','issue')),
-          status TEXT NOT NULL DEFAULT 'idea' CHECK(status IN ({_VALID_ITEM_STATUSES_SQL})),
+          status TEXT NOT NULL,
           priority TEXT NOT NULL DEFAULT 'medium' CHECK(priority IN ('high','medium','low')),
           flow TEXT DEFAULT 'accelerated',
           rework_count INTEGER DEFAULT 0,
@@ -56,6 +54,9 @@ def create_core_tables(conn: Any) -> None:
           project_sequence INTEGER NOT NULL,
           spec_updated_at TEXT,
           spec_updated_by TEXT,
+          workflow_id TEXT NOT NULL REFERENCES workflows(id),
+          workflow_version_id INTEGER NOT NULL REFERENCES workflow_versions(id),
+          workflow_posture TEXT NOT NULL DEFAULT '{{}}',
           UNIQUE(project_id, project_sequence)
         );
         CREATE TABLE IF NOT EXISTS ouroboros_entries (

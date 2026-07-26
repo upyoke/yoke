@@ -23,7 +23,10 @@ from typing import Any
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.qa_schema import _migrate_qa_vocab
-from yoke_core.domain.schema_checks import _validate_epic_task_statuses, _validate_item_statuses
+from yoke_core.domain.schema_checks import (
+    _validate_epic_task_statuses,
+    _validate_item_workflow_stages,
+)
 from yoke_core.domain.schema_common import _add_column_if_not_exists, _column_exists, _table_exists
 from yoke_core.domain.schema_migrations import _migrate_qa_execution_status
 from yoke_core.domain.items_constants import DEFAULT_ITEM_ACTOR_ID
@@ -325,7 +328,7 @@ def apply_legacy_data_migrations(conn: Any) -> None:
     # Split browser capture from inspection verdict
     _migrate_qa_execution_status(conn)
 
-    _validate_item_statuses(conn)
+    _validate_item_workflow_stages(conn)
     _validate_epic_task_statuses(conn)
 
 

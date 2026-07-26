@@ -22,6 +22,7 @@ from yoke_core.domain.schema_common import (
     _get_indexes,
     _get_tables,
 )
+from yoke_core.domain.schema_checks import _validate_item_workflow_stages
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 
 
@@ -124,16 +125,16 @@ class TestCmdInit:
 
         # Core + migration-added columns
         for col in (
-            "id", "title", "type", "status", "priority", "source",
+            "id", "title", "status", "priority", "source",
             "project_id", "project_sequence",
+            "workflow_id", "workflow_version_id", "workflow_posture",
             "deployment_flow", "deploy_stage", "spec", "design_spec",
             "technical_plan", "worktree_plan", "shepherd_log", "shepherd_caveats",
             "test_results", "deploy_log",
             "spec_updated_at", "spec_updated_by",
         ):
             assert col in cols, f"items table missing column: {col}"
-        # body and body_generated_at are retired
-        for retired_col in ("body", "body_generated_at"):
+        for retired_col in ("body", "body_generated_at", "type"):
             assert retired_col not in cols, f"items table still has retired column: {retired_col}"
 
     def test_items_has_db_mutation_profile_with_negative_default(self, tmp_path: Path) -> None:
@@ -193,10 +194,12 @@ class TestCmdInit:
             try:
                 conn.execute(
                     "INSERT INTO items "
-                    "(id, title, type, status, priority, project_id, "
-                    "project_sequence, created_at, updated_at) "
-                    "VALUES (777, 'item', 'issue', 'idea', 'medium', "
-                    "1, 777, "
+                    "(id, title, status, priority, project_id, "
+                    "project_sequence, workflow_id, workflow_version_id, "
+                    "created_at, updated_at) "
+                    "VALUES (777, 'item', 'idea', 'medium', 1, 777, "
+                    "'issue', (SELECT current_version_id FROM workflows "
+                    "WHERE id = 'issue'), "
                     "'2026-04-23T00:00:00Z', '2026-04-23T00:00:00Z')"
                 )
                 conn.commit()
@@ -243,16 +246,20 @@ class TestCmdInit:
             conn.close()
         assert "source" in cols
 
-    def test_items_check_constraints_active(self, tmp_path: Path) -> None:
-        """After init, invalid statuses are rejected by CHECK constraints."""
+    def test_item_stage_vocabulary_is_workflow_owned(self, tmp_path: Path) -> None:
         with init_test_db(tmp_path) as db_path:
             conn = _connect(db_path)
             try:
-                with pytest.raises(db_backend.integrity_error_types()):
-                    conn.execute(
-                        "INSERT INTO items (id, title, type, status, priority, created_at, updated_at) "
-                        "VALUES (999, 'test', 'issue', 'BOGUS', 'medium', '2025-01-01', '2025-01-01')"
-                    )
+                conn.execute(
+                    "INSERT INTO items "
+                    "(id, title, status, priority, project_id, project_sequence, "
+                    "workflow_id, workflow_version_id, created_at, updated_at) "
+                    "VALUES (999, 'test', 'BOGUS', 'medium', 1, 999, 'issue', "
+                    "(SELECT current_version_id FROM workflows "
+                    "WHERE id = 'issue'), '2025-01-01', '2025-01-01')"
+                )
+                with pytest.raises(SystemExit):
+                    _validate_item_workflow_stages(conn)
             finally:
                 conn.close()
 
@@ -275,9 +282,10 @@ class TestCmdInit:
             conn = _connect(db_path)
             conn.execute(
                 "INSERT INTO items "
-                "(id, title, type, status, priority, project_id, "
-                "project_sequence, created_at, updated_at) "
-                "VALUES (1, 'hello', 'issue', 'idea', 'medium', 1, 1, "
+                "(id, title, status, priority, project_id, project_sequence, "
+                "workflow_id, workflow_version_id, created_at, updated_at) "
+                "VALUES (1, 'hello', 'idea', 'medium', 1, 1, 'issue', "
+                "(SELECT current_version_id FROM workflows WHERE id = 'issue'), "
                 "'2025-01-01', '2025-01-01')"
             )
             conn.commit()
@@ -301,9 +309,10 @@ class TestInitIdempotent:
             conn = _connect(db_path)
             conn.execute(
                 "INSERT INTO items "
-                "(id, title, type, status, priority, project_id, "
-                "project_sequence, created_at, updated_at) "
-                "VALUES (42, 'preserved', 'issue', 'idea', 'medium', 1, 42, "
+                "(id, title, status, priority, project_id, project_sequence, "
+                "workflow_id, workflow_version_id, created_at, updated_at) "
+                "VALUES (42, 'preserved', 'idea', 'medium', 1, 42, 'issue', "
+                "(SELECT current_version_id FROM workflows WHERE id = 'issue'), "
                 "'2025-01-01', '2025-01-01')"
             )
             conn.commit()

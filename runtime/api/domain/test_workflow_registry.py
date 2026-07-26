@@ -140,9 +140,9 @@ def test_publish_pins_existing_items_and_can_roll_back_new_item_default(test_db)
     workflow_id, version_one_id = resolve_current_workflow_pin(test_db, "issue")
     test_db.execute(
         "INSERT INTO items "
-        "(id, title, type, status, priority, created_at, updated_at, "
+        "(id, title, status, priority, created_at, updated_at, "
         "project_id, project_sequence, workflow_id, workflow_version_id) "
-        "VALUES (901, 'Pinned', 'issue', 'idea', 'medium', "
+        "VALUES (901, 'Pinned', 'idea', 'medium', "
         "'2026-07-25T00:00:00Z', '2026-07-25T00:00:00Z', 1, 901, %s, %s)",
         (workflow_id, version_one_id),
     )

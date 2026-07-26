@@ -9,25 +9,24 @@ from yoke_core.domain.workflow_registry import (
 from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 
 
-def _create(test_db, item_type: str = "issue") -> int:
-    workflow_id, version_id = resolve_current_workflow_pin(
+def _create(test_db, workflow_id: str = "issue") -> int:
+    pinned_workflow_id, version_id = resolve_current_workflow_pin(
         test_db,
-        item_type,
+        workflow_id,
     )
     item_id = 991
     test_db.execute(
         "INSERT INTO items "
-        "(id, title, type, status, priority, created_at, updated_at, "
+        "(id, title, status, priority, created_at, updated_at, "
         "project_id, project_sequence, workflow_id, workflow_version_id) "
-        "VALUES (%s, %s, %s, 'idea', 'medium', "
+        "VALUES (%s, %s, 'idea', 'medium', "
         "'2026-07-25T00:00:00Z', '2026-07-25T00:00:00Z', "
         "1, %s, %s, %s)",
         (
             item_id,
-            f"Pinned {item_type}",
-            item_type,
+            f"Pinned {workflow_id}",
             item_id,
-            workflow_id,
+            pinned_workflow_id,
             version_id,
         ),
     )
@@ -73,16 +72,9 @@ def test_runtime_exposes_definition_owned_gate_placement(test_db):
     assert gates[1]["mode"] == "polish"
 
 
-def test_runtime_refuses_missing_pin(test_db):
-    item_id = _create(test_db)
-    test_db.execute(
-        "UPDATE items SET workflow_id = NULL, workflow_version_id = NULL "
-        "WHERE id = %s",
-        (item_id,),
-    )
-
+def test_runtime_refuses_unknown_item(test_db):
     with pytest.raises(
         WorkflowRegistryError,
-        match="has no complete workflow-version pin",
+        match="does not exist",
     ):
-        load_item_workflow_runtime(test_db, item_id)
+        load_item_workflow_runtime(test_db, 992)
