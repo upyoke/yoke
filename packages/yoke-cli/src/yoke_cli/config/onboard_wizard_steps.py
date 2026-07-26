@@ -161,10 +161,8 @@ def input_body(
     return [
         *_heading(title, subtitle),
         FocusInput(
-            value=initial_value,
-            placeholder=placeholder,
-            password=password,
-            id="onboard-input",
+            value=initial_value, placeholder=placeholder, password=password,
+            id="onboard-input", classes="onboard-input",
         ),
         Static("", classes="onboard-input-error"),
     ]

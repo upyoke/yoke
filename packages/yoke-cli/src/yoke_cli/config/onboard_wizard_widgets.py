@@ -197,10 +197,20 @@ class FocusInput(Input):
     the leading ``~`` of a typed path on a selection->input screen swap. Taking
     focus during ``on_mount`` establishes it before the next key is forwarded,
     so the first keystroke after a screen swap always lands.
+
+    A screen that mounts several boxes wants that guarantee for the first field
+    only: every later field passes ``claim_focus=False`` so the mount order does
+    not decide where typing goes, and focus stays where the traversal rules put
+    it.
     """
 
+    def __init__(self, *args, claim_focus: bool = True, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self._claim_focus = claim_focus
+
     def on_mount(self) -> None:
-        self.focus()
+        if self._claim_focus:
+            self.focus()
         self.cursor_position = len(self.value or "")
 
 

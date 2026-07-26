@@ -10,6 +10,13 @@ from yoke_contracts.machine_config.schema import POSTGRES_TRANSPORTS
 
 _GROUP_ORDER = ("machine", "core", "repo", "admin")
 
+# The token is saved when the machine is approved, well before the review, so
+# the line names the secret and when it landed rather than the connection it
+# belongs to — which the review's own subtitle and the connection line cover.
+API_TOKEN_REUSE_LINE = (
+    "Your API token (owner-only · saved when this machine was approved)"
+)
+
 
 def lines_for_plan(plan: Mapping[str, Any]) -> list[str]:
     """Return short notes for already-detected onboard state."""
@@ -45,8 +52,10 @@ def grouped_lines_for_plan(plan: Mapping[str, Any]) -> dict[str, list[str]]:
     local_connection = str(connection.get("transport") or "") in POSTGRES_TRANSPORTS
     database_label = "local Yoke database" if local_connection else "Yoke core database"
 
-    if reuse.get("yoke_home"):
-        machine.append("Yoke home folder already exists.")
+    # Creating ~/.yoke already happened with the first saved secret, so the
+    # folder line only earns a row when no credential line below implies it.
+    # Tracked as the lines are appended, then decided at the end of the block.
+    names_saved_credential = False
     if local_connection and reuse.get("connection"):
         if str(reuse.get("local_universe") or "") == "unavailable":
             machine.append(
@@ -58,17 +67,15 @@ def grouped_lines_for_plan(plan: Mapping[str, Any]) -> dict[str, list[str]]:
                 "Local universe connection is already saved; Apply will verify it."
             )
     elif reuse.get("connection") and reuse.get("token_reference"):
-        target = f" for {env}" if env else ""
-        endpoint = f" at {api_url}" if api_url else ""
-        machine.append(
-            f"Yoke API connection and token are already saved{target}{endpoint}."
-        )
+        machine.append(API_TOKEN_REUSE_LINE)
+        names_saved_credential = True
     else:
         if reuse.get("connection"):
             endpoint = f" at {api_url}" if api_url else ""
             machine.append(f"Yoke API connection is already saved{endpoint}.")
         if reuse.get("token_reference"):
-            machine.append("Yoke API token file is already saved.")
+            machine.append(API_TOKEN_REUSE_LINE)
+            names_saved_credential = True
     if reuse.get("active_env") and not reuse.get("connection"):
         target = f" {env}" if env else ""
         machine.append(f"Active environment is already{target}.")
@@ -79,6 +86,7 @@ def grouped_lines_for_plan(plan: Mapping[str, Any]) -> dict[str, list[str]]:
             "The aws-admin hosting credential (2 values, redacted · saved at "
             "Save & verify)"
         )
+        names_saved_credential = True
     if reuse.get("temp_root") and reuse.get("cache_dir"):
         machine.append("Runtime scratch and cache folders already exist.")
     else:
@@ -86,6 +94,8 @@ def grouped_lines_for_plan(plan: Mapping[str, Any]) -> dict[str, list[str]]:
             machine.append("Runtime scratch folder already exists.")
         if reuse.get("cache_dir"):
             machine.append("Runtime cache folder already exists.")
+    if reuse.get("yoke_home") and not names_saved_credential:
+        machine.insert(0, "Yoke home folder already exists.")
 
     project_name = _project_name(project)
     project_id = _project_id(project)
@@ -237,4 +247,4 @@ def _append_default_branch_lines(
         )
 
 
-__all__ = ["grouped_lines_for_plan", "lines_for_plan"]
+__all__ = ["API_TOKEN_REUSE_LINE", "grouped_lines_for_plan", "lines_for_plan"]
