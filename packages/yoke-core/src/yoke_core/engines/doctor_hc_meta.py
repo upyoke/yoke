@@ -29,6 +29,9 @@ from yoke_core.engines.doctor_report import (
     DoctorArgs,
     RecordCollector,
 )
+from yoke_core.engines.doctor_workflow_behavior import (
+    rows_generating_task_graph,
+)
 
 from yoke_core.engines.doctor_hc_meta_backlog import (  # noqa: F401
     hc_backlog_quality,
@@ -61,11 +64,10 @@ def hc_status_consistency(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     issues: List[str] = []
     rows = query_rows(
         conn,
-        "SELECT id, status, type FROM items "
-        "WHERE status IN ('planning','implementing','reviewing-implementation') "
-        "AND type='epic'",
+        "SELECT id, status, workflow_id, workflow_version_id FROM items "
+        "WHERE status IN ('planning','implementing','reviewing-implementation')",
     )
-    for row in rows:
+    for row in rows_generating_task_graph(conn, rows):
         item_id, status = row["id"], row["status"]
         task_count = query_scalar(
             conn,
@@ -150,13 +152,12 @@ def hc_dispatch_chain(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     # epic_tasks rows yet.
     rows2 = query_rows(
         conn,
-        "SELECT i.id, i.status, "
+        "SELECT i.id, i.status, i.workflow_id, i.workflow_version_id, "
         "(SELECT COUNT(*) FROM epic_tasks WHERE epic_id=i.id) as task_count "
-        "FROM items i WHERE i.type='epic' "
-        "AND i.status IN ('planning','implementing','reviewing-implementation',"
+        "FROM items i WHERE i.status IN ('planning','implementing','reviewing-implementation',"
         "'reviewed-implementation','polishing-implementation','implemented')",
     )
-    for row in rows2:
+    for row in rows_generating_task_graph(conn, rows2):
         tc = row["task_count"]
         if not tc or int(tc) == 0:
             issues.append(
@@ -178,7 +179,8 @@ def hc_backlog_hygiene(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     issues: List[str] = []
     rows = query_rows(
         conn,
-        "SELECT id, title, type, status, priority, github_issue FROM items",
+        "SELECT id, title, workflow_id, workflow_version_id, status, priority, "
+        "github_issue FROM items",
     )
     for row in rows:
         item_id = row["id"]
@@ -187,8 +189,8 @@ def hc_backlog_hygiene(conn, args: DoctorArgs, rec: RecordCollector) -> None:
             issues.append(f"- {fname}: missing id field")
         if not row["title"]:
             issues.append(f"- {fname}: missing title field")
-        if not row["type"]:
-            issues.append(f"- {fname}: missing type field")
+        if not row["workflow_id"] or row["workflow_version_id"] is None:
+            issues.append(f"- {fname}: missing workflow pin")
         if not row["status"]:
             issues.append(f"- {fname}: missing status field")
         if not row["priority"]:

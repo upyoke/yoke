@@ -6,6 +6,9 @@ Schema scaffolding shared via _doctor_db_test_helpers (private module).
 
 from __future__ import annotations
 
+# Shared fixture functions intentionally remain module globals for pytest.
+# ruff: noqa: F401, F811
+
 from yoke_core.engines.doctor import (
     RecordCollector,
     hc_status_consistency,
@@ -16,11 +19,15 @@ from yoke_core.engines._doctor_db_test_helpers import (
     _get_result,
     conn,
 )
+from runtime.api.api_workflow_test_helpers import (
+    install_workflow_registry_and_pin_items,
+)
 
 
 class TestHCStatusConsistency:
     def test_pass_no_epics(self, conn):
         conn.execute("INSERT INTO items (id, title, type, status, priority) VALUES (1, 'T', 'issue', 'idea', 'low')")
+        install_workflow_registry_and_pin_items(conn)
         rec = RecordCollector()
         hc_status_consistency(conn, _default_args(), rec)
         r = _get_result(rec, "HC-status-consistency")
@@ -31,6 +38,7 @@ class TestHCStatusConsistency:
             "INSERT INTO items (id, title, type, status, priority) "
             "VALUES (10, 'E', 'epic', 'implementing', 'high')"
         )
+        install_workflow_registry_and_pin_items(conn)
         rec = RecordCollector()
         hc_status_consistency(conn, _default_args(), rec)
         r = _get_result(rec, "HC-status-consistency")
@@ -42,6 +50,7 @@ class TestHCStatusConsistency:
             "INSERT INTO items (id, title, type, status, priority) "
             "VALUES (10, 'E', 'epic', 'implementing', 'high')"
         )
+        install_workflow_registry_and_pin_items(conn)
         conn.execute("INSERT INTO epic_tasks (epic_id, task_num, title, status) VALUES (10, 1, 'T1', 'planning')")
         rec = RecordCollector()
         hc_status_consistency(conn, _default_args(), rec)
@@ -55,6 +64,7 @@ class TestHCStatusConsistency:
             "INSERT INTO items (id, title, type, status, priority) "
             "VALUES (11, 'E', 'epic', 'refined-idea', 'high')"
         )
+        install_workflow_registry_and_pin_items(conn)
         rec = RecordCollector()
         hc_status_consistency(conn, _default_args(), rec)
         r = _get_result(rec, "HC-status-consistency")
@@ -66,6 +76,7 @@ class TestHCStatusConsistency:
             "INSERT INTO items (id, title, type, status, priority) "
             "VALUES (12, 'E', 'epic', 'planning', 'high')"
         )
+        install_workflow_registry_and_pin_items(conn)
         rec = RecordCollector()
         hc_status_consistency(conn, _default_args(), rec)
         r = _get_result(rec, "HC-status-consistency")

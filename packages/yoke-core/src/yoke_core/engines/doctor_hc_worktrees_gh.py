@@ -15,7 +15,6 @@ import sys
 from typing import List
 
 from yoke_contracts.github_app_installation_permissions import (
-    GITHUB_ISSUES_READ_PERMISSION_LEVELS,
     GITHUB_METADATA_READ_PERMISSION_LEVELS,
 )
 from yoke_core.domain import runtime_settings
@@ -47,8 +46,10 @@ from yoke_core.engines.doctor_hc_worktrees_gh_repo import (  # noqa: F401
     hc_wrong_repo_issues,
 )
 from yoke_core.engines.doctor_hc_worktrees_gh_rest import (
-    list_issues_by_labels_rest,
     search_issues_by_query_rest,
+)
+from yoke_core.engines.doctor_hc_worktrees_gh_labels import (  # noqa: F401
+    hc_orphaned_gh_issues,
 )
 from yoke_core.engines.doctor_report import (
     DoctorArgs,
@@ -74,94 +75,6 @@ _DELEGATED_HC_LABELS = {
     "blocked-label-drift": "Blocked label drift",
     "task-label-drift": "Task label drift",
 }
-
-
-def hc_orphaned_gh_issues(conn, args: DoctorArgs, rec: RecordCollector) -> None:
-    """Find labeled repository issues not linked to backlog items."""
-    if not _wt._github_auth_configured("yoke", db_path=args.db_path):
-        rec.record(
-            "HC-orphaned-gh-issues", "Orphaned GitHub issues", "SKIP",
-            GH_APP_AUTH_UNAVAILABLE_SKIP_REASON.format(project="yoke"),
-        )
-        return
-
-    # Build set of known github_issue numbers
-    known_nums: set = set()
-    rows = query_rows(
-        conn,
-        "SELECT id, github_issue FROM items "
-        "WHERE github_issue IS NOT NULL AND github_issue <> ''",
-    )
-    for row in rows:
-        gh = row["github_issue"]
-        if gh and gh != "null":
-            known_nums.add(gh.replace("#", ""))
-
-    # Iterate every project with a configured github_repo. Backlog-only
-    # projects are out of scope: their backlog is DB-only by design, so
-    # their repo's issue tracker is never expected to mirror the backlog
-    # (.yoke/docs/github-sync.md, "Backlog-only semantics").
-    all_issues: set = set()
-    auth_failures: List[str] = []
-    sync_disabled_notes: List[str] = []
-
-    if _base._table_exists(conn, "projects"):
-        proj_rows = query_rows(
-            conn,
-            "SELECT slug, COALESCE(github_repo, '') as github_repo FROM projects "
-            "WHERE github_repo IS NOT NULL AND github_repo <> ''",
-        )
-        for prow in proj_rows:
-            project = prow["slug"]
-            if not github_sync_enabled(project, conn=conn):
-                sync_disabled_notes.append("- " + github_sync_disabled_notice(
-                    project, "orphaned-issue scan",
-                ))
-                continue
-            try:
-                auth = resolve_project_github_auth(
-                    project, db_path=args.db_path,
-                    required_permissions=GITHUB_ISSUES_READ_PERMISSION_LEVELS,
-                )
-            except ProjectGithubAuthError as err:
-                auth_failures.append(
-                    f"- project '{project}': {err}\n"
-                    f"  Repair: {repair_command_hint(err, project)}"
-                )
-                continue
-            for label in ("type:epic", "type:issue"):
-                parts = auth.repo.split("/", 1)
-                if len(parts) != 2:
-                    continue
-                owner, name = parts
-                r = list_issues_by_labels_rest(
-                    owner=owner, name=name, token=auth.token,
-                    labels=[label], state="open",
-                )
-                if r.returncode == 0:
-                    for num in r.stdout.strip().splitlines():
-                        if num.strip():
-                            all_issues.add(num.strip())
-
-    if auth_failures:
-        rec.record(
-            "HC-orphaned-gh-issues", "Orphaned GitHub issues", "FAIL",
-            "Cannot resolve project GitHub auth:\n" + "\n".join(auth_failures),
-        )
-        return
-
-    issues: List[str] = []
-    for num in sorted(all_issues, key=lambda x: int(x) if x.isdigit() else 0):
-        if num not in known_nums:
-            issues.append(f"- GitHub issue #{num} has Yoke labels but no matching backlog item")
-
-    if issues:
-        rec.record("HC-orphaned-gh-issues", "Orphaned GitHub issues", "WARN",
-                    "\n".join(issues + sync_disabled_notes))
-    else:
-        rec.record("HC-orphaned-gh-issues", "Orphaned GitHub issues", "PASS",
-                    "\n".join(sync_disabled_notes))
-
 
 
 def hc_gh_orphan_detection(conn, args: DoctorArgs, rec: RecordCollector) -> None:

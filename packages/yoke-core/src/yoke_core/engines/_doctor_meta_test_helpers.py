@@ -20,9 +20,12 @@ from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 from runtime.api.fixtures.schema_ddl_items import _ITEMS_RELAXED_DDL
 from yoke_core.engines._project_identity_test_helpers import (
     _insert_deployment_flow,
-    _insert_item,
+    _insert_item as _insert_project_item,
     _project_id,
     _seed_project,
+)
+from runtime.api.api_workflow_test_helpers import (
+    install_workflow_registry_and_pin_items,
 )
 
 
@@ -183,6 +186,7 @@ def _make_conn():
     conn = db_backend.connect()
     apply_fixture_ddl(conn, _ITEMS_RELAXED_DDL)
     apply_fixture_ddl(conn, _REST_DDL)
+    install_workflow_registry_and_pin_items(conn)
 
     _base_close = conn.close
 
@@ -196,6 +200,12 @@ def _make_conn():
 
     conn.close = _close_and_drop
     return conn
+
+
+def _insert_item(conn, *args, **kwargs) -> None:
+    """Insert an item and resolve its immutable workflow pin."""
+    _insert_project_item(conn, *args, **kwargs)
+    install_workflow_registry_and_pin_items(conn)
 
 
 def _args(**kwargs) -> DoctorArgs:

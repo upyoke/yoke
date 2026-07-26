@@ -24,6 +24,9 @@ from yoke_core.engines.doctor_report import (
     DoctorArgs,
     RecordCollector,
 )
+from yoke_core.engines.doctor_workflow_behavior import (
+    rows_generating_task_graph,
+)
 
 
 def _p(conn) -> str:
@@ -39,9 +42,8 @@ def hc_shepherd_lifecycle(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     # Epics at 'planning' or later should have refined_idea_to_planning verdict
     rows = query_rows(
         conn,
-        "SELECT i.id, i.status FROM items i "
-        "WHERE i.type='epic' "
-        "AND i.status NOT IN ('idea', 'refining-idea', 'refined-idea') "
+        "SELECT i.id, i.status, i.workflow_id, i.workflow_version_id FROM items i "
+        "WHERE i.status NOT IN ('idea', 'refining-idea', 'refined-idea') "
         "AND NOT EXISTS ("
         "  SELECT 1 FROM shepherd_verdicts sv "
         "  WHERE sv.item = 'YOK-' || i.id "
@@ -49,7 +51,7 @@ def hc_shepherd_lifecycle(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         "  AND sv.verdict IN ('READY','CAVEATS')"
         ") ORDER BY i.id",
     )
-    for row in rows:
+    for row in rows_generating_task_graph(conn, rows):
         if min_item_id is not None and row["id"] < min_item_id:
             continue
         issues.append(
@@ -67,9 +69,8 @@ def hc_shepherd_lifecycle(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     placeholders = ",".join(_p(conn) for _ in later_statuses)
     rows2 = query_rows(
         conn,
-        f"SELECT i.id, i.status FROM items i "
-        f"WHERE i.type='epic' "
-        f"AND i.status IN ({placeholders}) "
+        f"SELECT i.id, i.status, i.workflow_id, i.workflow_version_id FROM items i "
+        f"WHERE i.status IN ({placeholders}) "
         f"AND NOT EXISTS ("
         f"  SELECT 1 FROM shepherd_verdicts sv "
         f"  WHERE sv.item = 'YOK-' || i.id "
@@ -78,7 +79,7 @@ def hc_shepherd_lifecycle(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         f") ORDER BY i.id",
         later_statuses,
     )
-    for row in rows2:
+    for row in rows_generating_task_graph(conn, rows2):
         if min_item_id is not None and row["id"] < min_item_id:
             continue
         if row["id"] not in reported_ids:

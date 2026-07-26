@@ -22,6 +22,9 @@ from yoke_core.engines.doctor_report import (
     DoctorArgs,
     RecordCollector,
 )
+from yoke_core.engines.doctor_workflow_behavior import (
+    rows_generating_task_graph,
+)
 
 
 def hc_orphaned_active_items(conn, args: DoctorArgs, rec: RecordCollector) -> None:
@@ -90,12 +93,12 @@ def hc_premature_done(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     min_item_id = _base._read_int_cutoff("hc_premature_done_min_item_id")
     rows = query_rows(
         conn,
-        "SELECT id, type, title, COALESCE(merged_at, '') as merged_at "
+        "SELECT id, workflow_id, title, COALESCE(merged_at, '') as merged_at "
         "FROM items WHERE status = 'done' "
         "AND (merged_at IS NULL OR merged_at = '') ORDER BY id",
     )
     issues = [
-        f"- YOK-{r['id']} ({r['type']}: {r['title']}): status=done but merged_at is null"
+        f"- YOK-{r['id']} ({r['workflow_id']}: {r['title']}): status=done but merged_at is null"
         for r in rows if min_item_id is None or r["id"] >= min_item_id
     ]
 
@@ -111,11 +114,12 @@ def hc_shepherd_spec_integrity(conn, args: DoctorArgs, rec: RecordCollector) -> 
     issues: List[str] = []
     rows = query_rows(
         conn,
-        "SELECT id, spec, design_spec, technical_plan FROM items "
-        "WHERE type='epic' AND status NOT IN ('idea','cancelled') "
+        "SELECT id, workflow_id, workflow_version_id, spec, design_spec, "
+        "technical_plan FROM items "
+        "WHERE status NOT IN ('idea','cancelled') "
         "ORDER BY id",
     )
-    for row in rows:
+    for row in rows_generating_task_graph(conn, rows):
         item_id = row["id"]
         # Check for epics past idea without specs
         if not row["spec"] and not row["design_spec"] and not row["technical_plan"]:
@@ -150,8 +154,8 @@ def hc_reviewed_implementation_epics_no_sim(
 
     rows = query_rows(
         conn,
-        "SELECT i.id FROM items i "
-        "WHERE i.type = 'epic' AND i.status = 'reviewed-implementation' "
+        "SELECT i.id, i.workflow_id, i.workflow_version_id FROM items i "
+        "WHERE i.status = 'reviewed-implementation' "
         "AND NOT EXISTS ("
         "  SELECT 1 FROM qa_runs qr "
         "  JOIN qa_requirements qreq ON qr.qa_requirement_id = qreq.id "
@@ -164,6 +168,7 @@ def hc_reviewed_implementation_epics_no_sim(
         ") ORDER BY i.id",
     )
 
+    rows = rows_generating_task_graph(conn, rows)
     issues = [
         f"- YOK-{r['id']}: status is 'reviewed-implementation' but no integration simulation record exists"
         for r in rows

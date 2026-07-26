@@ -18,6 +18,7 @@ from yoke_contracts.github_app_installation_permissions import (
 )
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
+from runtime.api.api_workflow_test_helpers import install_workflow_registry_and_pin_items
 
 from yoke_core.engines._project_identity_test_helpers import (
     _insert_item,
@@ -33,7 +34,6 @@ from yoke_core.engines.doctor import (
     _should_run_hc,
     HEALTH_CHECKS,
 )
-
 
 def _make_conn():
     """Disposable Postgres DB with minimal schema for git/file HC testing."""
@@ -98,6 +98,7 @@ def _make_conn():
             archived_at TEXT
         );
     """))
+    install_workflow_registry_and_pin_items(conn)
     return conn
 
 
@@ -146,9 +147,9 @@ class TestHcOrphanedGhIssues:
         assert "GitHub App repo binding is not available" in rec.results[0].detail
 
     @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
-    @patch("yoke_core.engines.doctor_hc_worktrees_gh.resolve_project_github_auth",
+    @patch("yoke_core.engines.doctor_hc_worktrees_gh_labels.resolve_project_github_auth",
            side_effect=lambda project, db_path=None, **_kwargs: _auth())
-    @patch("yoke_core.engines.doctor_hc_worktrees_gh.list_issues_by_labels_rest")
+    @patch("yoke_core.engines.doctor_hc_worktrees_gh_labels.list_issues_by_labels_rest")
     def test_no_orphans_passes(self, mock_rest, mock_resolve, mock_avail):
         conn = _make_conn()
         _seed_project(conn, "yoke", github_repo="upyoke/yoke")

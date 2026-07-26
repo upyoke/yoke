@@ -28,6 +28,9 @@ from yoke_core.engines.doctor import (
     RecordCollector,
 )
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
+from runtime.api.api_workflow_test_helpers import (
+    install_workflow_registry_and_pin_items,
+)
 
 
 def _p(conn) -> str:
@@ -228,6 +231,7 @@ def apply_make_conn_schema() -> None:
     conn = db_backend.connect()
     try:
         apply_fixture_ddl(conn, _MAKE_CONN_DDL)
+        install_workflow_registry_and_pin_items(conn)
     finally:
         conn.close()
 

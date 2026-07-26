@@ -23,6 +23,9 @@ from yoke_core.engines.doctor import (
     hc_shepherd_spec_integrity,
     hc_stale_body,
 )
+from runtime.api.api_workflow_test_helpers import (
+    install_workflow_registry_and_pin_items,
+)
 
 
 class TestEpicTaskWorktree:
@@ -32,6 +35,7 @@ class TestEpicTaskWorktree:
             "INSERT INTO items (id, title, type, status) "
             "VALUES (1, 'Epic', 'epic', 'implementing')"
         )
+        install_workflow_registry_and_pin_items(conn)
         conn.execute(
             "INSERT INTO epic_tasks (id, epic_id, task_num, title, worktree, status) "
             "VALUES (1, 1, 1, 'Task', 'YOK-1', 'implementing')"
@@ -47,6 +51,7 @@ class TestEpicTaskWorktree:
             "INSERT INTO items (id, title, type, status) "
             "VALUES (1, 'Epic', 'epic', 'implementing')"
         )
+        install_workflow_registry_and_pin_items(conn)
         conn.execute(
             "INSERT INTO epic_tasks (id, epic_id, task_num, title, worktree, status) "
             "VALUES (1, 1, 1, 'Task', NULL, 'implementing')"
@@ -122,6 +127,7 @@ class TestShepherdSpecIntegrity:
             "INSERT INTO items (id, title, type, status, spec) "
             "VALUES (1, 'Epic', 'epic', 'implementing', 'Some spec content')"
         )
+        install_workflow_registry_and_pin_items(conn)
         rec = RecordCollector()
         hc_shepherd_spec_integrity(conn, _args(), rec)
         res = _results(rec)
@@ -133,6 +139,7 @@ class TestShepherdSpecIntegrity:
             "INSERT INTO items (id, title, type, status) "
             "VALUES (1, 'Epic', 'epic', 'implementing')"
         )
+        install_workflow_registry_and_pin_items(conn)
         rec = RecordCollector()
         hc_shepherd_spec_integrity(conn, _args(), rec)
         res = _results(rec)

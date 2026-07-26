@@ -39,6 +39,9 @@ from yoke_core.engines.doctor import (
     hc_shepherd_lifecycle,
     hc_undeployed_done,
 )
+from runtime.api.api_workflow_test_helpers import (
+    install_workflow_registry_and_pin_items,
+)
 
 
 def _seed_undeployed_done(conn, item_id: int) -> None:
@@ -99,6 +102,7 @@ class TestPrematureDoneCutoff:
             f"VALUES ({p}, {p}, 'issue', 'done', NULL)",
             (item_id, f"Done without merged_at {item_id}"),
         )
+        install_workflow_registry_and_pin_items(conn)
         conn.commit()
 
     def test_below_cutoff_excluded(self, tmp_path):
@@ -137,6 +141,7 @@ class TestShepherdLifecycleCutoff:
             f"VALUES ({p}, {p}, 'epic', 'planned')",
             (item_id, f"Epic without verdict {item_id}"),
         )
+        install_workflow_registry_and_pin_items(conn)
         conn.commit()
 
     def test_below_cutoff_excluded(self, tmp_path):

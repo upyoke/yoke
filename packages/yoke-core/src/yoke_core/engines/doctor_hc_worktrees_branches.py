@@ -140,7 +140,7 @@ def hc_stale_remote_branches(conn, args: DoctorArgs, rec: RecordCollector) -> No
     # Check done/cancelled items
     done_rows = query_rows(
         conn,
-        "SELECT i.id, i.type, COALESCE(p.slug, '') as project FROM items i "
+        "SELECT i.id, COALESCE(p.slug, '') as project FROM items i "
         "LEFT JOIN projects p ON p.id = i.project_id "
         "WHERE i.status IN ('done', 'cancelled')",
     )

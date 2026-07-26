@@ -39,6 +39,9 @@ def _make_conn() -> Any:
     """Disposable Postgres test DB; dropped when the conn is closed or GC'd."""
     from runtime.api.fixtures import pg_testdb
     from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
+    from runtime.api.api_workflow_test_helpers import (
+        install_workflow_registry_and_pin_items,
+    )
 
     name = pg_testdb.create_test_database()
     conn = pg_testdb.drop_database_on_close(
@@ -59,6 +62,7 @@ def _make_conn() -> Any:
             PRIMARY KEY(project_id, type)
         );
     """))
+    install_workflow_registry_and_pin_items(conn)
     return conn
 
 
@@ -170,7 +174,7 @@ class TestRestPassWithGitHubAuth:
             "yoke_core.engines.doctor_hc_worktrees.resolve_project_github_auth",
             return_value=_auth(),
         ), patch(
-            "yoke_core.engines.doctor_hc_worktrees_gh.resolve_project_github_auth",
+            "yoke_core.engines.doctor_hc_worktrees_gh_labels.resolve_project_github_auth",
             return_value=_auth(),
         ), patch(
             "yoke_core.engines.doctor_hc_worktrees_gh_rest.request_with_retry",
