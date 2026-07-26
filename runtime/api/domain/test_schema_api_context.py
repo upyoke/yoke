@@ -213,8 +213,8 @@ _CANONICAL_LIVE_NAMES_BY_TOPIC = {
     ),
     "project": (
         "project_structure",
-        "command_definitions",
-        "yoke project-structure command-definitions get",
+        "deploy_defaults",
+        "yoke project-structure deploy-defaults get",
         # AC-2 / AC-4 positive teaching: project_capabilities + deployment JOINs.
         "SELECT type, settings FROM project_capabilities",
         "JOIN deployment_run_items dri ON dri.run_id = dr.id",

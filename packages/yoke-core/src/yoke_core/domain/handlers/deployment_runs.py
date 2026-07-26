@@ -241,9 +241,19 @@ def handle_deployment_run_approve(request: FunctionCallRequest) -> HandlerOutcom
     )
 
     try:
-        approval = approve_run(resolved_run_id)
+        actor_id = request.actor.actor_id
+        if actor_id is None or not str(actor_id).isdigit():
+            return error("permission_denied", "a numeric actor_id is required")
+        approval = approve_run(
+            resolved_run_id,
+            actor_id=int(actor_id),
+            session_id=request.actor.session_id,
+            note=note,
+        )
     except LookupError as exc:
         return error("not_found", str(exc), jsonpath="$.target.workflow_run_id")
+    except PermissionError as exc:
+        return error("permission_denied", str(exc))
     except RunApprovalRejected as exc:
         return error("invalid_state", str(exc))
     event_id = emit_run_approval(
@@ -263,6 +273,7 @@ def handle_deployment_run_approve(request: FunctionCallRequest) -> HandlerOutcom
             "approver_session_id": request.actor.session_id,
             "note": note,
             "member_item_ids": list(approval.member_item_ids),
+            "decision_request_id": approval.decision_request_id,
             "event_id": event_id,
         },
         primary_success=True,

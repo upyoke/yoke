@@ -138,7 +138,7 @@ def _format_reason(
         "are allowed on main.\n\n"
         "Options:\n"
         "  1. Continue work in the existing item worktree\n"
-        "  2. File a separate ticket: /yoke idea\n"
+        "  2. File a separate work item: /yoke idea\n"
         "  3. Override: add # lint:no-main-check to the command"
     ) % (impl_files, active_list)
     return append_field_note_footer(body, rule_id="lint-main-commit")

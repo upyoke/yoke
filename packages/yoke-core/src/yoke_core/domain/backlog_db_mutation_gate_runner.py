@@ -47,7 +47,7 @@ def _profile_declares_mutation(conn: Any, item_id: int) -> bool:
     """Return True when the item's ``db_mutation_profile.state`` is ``declared``.
 
     Negative claims (``state="none"``) stay unfrozen — the auto-stamp
-    side effect on the joint gate only engages when the ticket
+    side effect on the joint gate only engages when the work item
     actually declares a governed DB mutation.
     """
     row = conn.execute(

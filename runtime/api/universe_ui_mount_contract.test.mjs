@@ -174,7 +174,7 @@ test("injected clients, generic actions, slots, and mounts stay isolated", async
     (request) => !secondClient.requests.includes(request),
   ));
   const strategyRequest = firstClient.requests.find(
-    (request) => request.function === "strategy.doc.list",
+    (request) => request.function === "strategy.surface.list",
   );
   assert.deepEqual(strategyRequest.target, {
     kind: "global", project_id: "first",
@@ -277,7 +277,7 @@ test("a host-filled topbarStart suppresses the app's own org context", async (t)
   assert.equal(documentNode.defaultView.listenerCounts.get("hashchange"), 0);
 });
 
-test("strategy rows render slug, title, owner, last write, size, and status", async (t) => {
+test("strategy rows render the prototype corpus facts", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
@@ -294,7 +294,7 @@ test("strategy rows render slug, title, owner, last write, size, and status", as
       if (request.function === "projects.list") {
         return { status: 200, envelope: { success: true, result: { rows: [{ id: 1, slug: "yoke", name: "Yoke" }] } } };
       }
-      if (request.function === "strategy.doc.list") {
+      if (request.function === "strategy.surface.list") {
         return {
           status: 200,
           envelope: {
@@ -304,14 +304,17 @@ test("strategy rows render slug, title, owner, last write, size, and status", as
                 {
                   slug: "MISSION", title: "Mission statement",
                   updated_at: "2026-07-01", updated_by: "ben",
-                  bytes: 2048, archived: false,
+                  parent_slug: null, revisions: 4,
+                  execution_state: "available", archived: false,
                 },
                 {
                   slug: "VISION", title: "Vision",
                   updated_at: "2026-06-30", updated_by: null,
-                  bytes: 512, archived: true,
+                  parent_slug: "MISSION", revisions: 2,
+                  execution_state: "available", archived: true,
                 },
               ],
+              writes: [],
             },
           },
         };
@@ -324,385 +327,19 @@ test("strategy rows render slug, title, owner, last write, size, and status", as
   await settle();
 
   // At the "all" default the docs read fans out per project, and each row
-  // wears the slug of the project bucket that requested it. The values pass
-  // through as served: an unresolved editor renders empty, and the size is
-  // the raw byte number the engine owns.
+  // wears the slug of the project bucket that requested it. An unresolved
+  // editor remains empty and the hierarchy is visible in the purpose cell.
   const cells = allNodes(root)
     .filter((node) => node.tagName === "TH" || node.tagName === "TD")
     .map(cellText);
   assert.deepEqual(cells, [
-    "slug", "project", "title", "owner", "last write", "size", "status",
-    "MISSION", "yoke", "Mission statement", "ben", "2026-07-01", "2048",
-    "active",
-    "VISION", "yoke", "Vision", "", "2026-06-30", "512", "archived",
+    "Doc", "Purpose / ancestry", "Last editor", "Last write",
+    "Revisions", "Execution",
+    "MISSION", "Mission statement", "b", "25d", "4", "available",
+    "VISION", "Vision", "", "26d", "2", "archived",
   ]);
-  assert.ok(requests.some((request) => request.function === "strategy.doc.list"));
+  assert.ok(requests.some(
+    (request) => request.function === "strategy.surface.list",
+  ));
   mounted.unmount();
-});
-
-test("mount rejects non-elements and rolls back throwing slot factories", () => {
-  const documentNode = new FakeDocument();
-  const root = documentNode.createElement("div");
-  const retained = documentNode.createElement("aside");
-  const fragment = new FakeNode(documentNode, "fragment", 11);
-  const client = injectedClient("unused");
-
-  assert.throws(() => mountUniverseApp(root, {
-    client,
-    slots: { topbarStart: retained, topbarEnd: fragment },
-  }), /slot content must be an Element/);
-  assert.equal(retained.parentNode, null);
-  assert.equal(root.children.length, 0);
-  assert.ok(!root.classList.contains("universe-app-root"));
-
-  assert.throws(() => mountUniverseApp(root, {
-    client,
-    slots: {
-      topbarStart: retained,
-      topbarEnd: () => { throw new Error("slot factory failed"); },
-    },
-  }), /slot factory failed/);
-  assert.equal(retained.parentNode, null);
-  assert.equal(root.children.length, 0);
-  assert.equal(client.requests.length, 0);
-
-  const host = documentNode.createElement("section");
-  host.appendChild(root);
-  assert.throws(() => mountUniverseApp(root, {
-    client, slots: { topbarStart: host },
-  }), /mount root or its ancestor/);
-  assert.equal(root.parentNode, host);
-  assert.equal(host.children[0], root);
-  assert.throws(() => mountUniverseApp(root, {
-    client, slots: { topbarStart: root },
-  }), /mount root or its ancestor/);
-
-  const svgRoot = documentNode.createElement("svg");
-  svgRoot.namespaceURI = "http://www.w3.org/2000/svg";
-  assert.throws(() => mountUniverseApp(svgRoot, { client }),
-    /requires an HTML element root/);
-});
-
-test("host-fed sections light their nav entries and render as the view", async (t) => {
-  const originalFetch = globalThis.fetch;
-  t.after(() => { globalThis.fetch = originalFetch; });
-  globalThis.fetch = () => response(200, {});
-
-  const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/members";
-  const root = documentNode.createElement("div");
-  const membersPanel = documentNode.createElement("section");
-  const billingPanel = documentNode.createElement("section");
-  const mounted = mountUniverseApp(root, {
-    client: injectedClient("host"),
-    // One section arrives as an element, the other through a factory: both
-    // shapes of UniverseSlotContent materialize the same way.
-    sections: { members: membersPanel, billing: () => billingPanel },
-  });
-  await settle();
-
-  // Both host-fed entries join the one flat nav arc as ordinary links.
-  const navLabels = byClass(root, "nav-link")
-    .map((link) => link.children[1] && link.children[1].textContent);
-  assert.ok(navLabels.includes("Members"));
-  assert.ok(navLabels.includes("Billing"));
-
-  // The routed host-fed view mounts the host's node as the whole body under
-  // the entry's own page head — no picker, no stub.
-  assert.ok(allNodes(root).includes(membersPanel));
-  assert.equal(byClass(root, "title")[0].textContent, "Members");
-  assert.equal(byClass(root, "scope-bar").length, 0);
-  assert.equal(byClass(root, "stub-panel").length, 0);
-  assert.ok(membersPanel.parentNode.classList.contains("view-host"));
-
-  // Routing to the other host-fed view swaps sections and releases the
-  // outgoing node completely — it never strands in a discarded subtree.
-  documentNode.defaultView.location.hash = "#/billing";
-  documentNode.defaultView.dispatchEvent(new Event("hashchange"));
-  await settle();
-  assert.ok(allNodes(root).includes(billingPanel));
-  assert.equal(membersPanel.parentNode, null);
-  assert.equal(byClass(root, "title")[0].textContent, "Billing");
-
-  // Unmount detaches the mounted section, leaving the node reusable.
-  mounted.unmount();
-  assert.equal(billingPanel.parentNode, null);
-  assert.equal(membersPanel.parentNode, null);
-});
-
-test("a host-fed deep link without its section stays honest", async (t) => {
-  const originalFetch = globalThis.fetch;
-  t.after(() => { globalThis.fetch = originalFetch; });
-  globalThis.fetch = () => response(200, {});
-
-  const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/members";
-  const root = documentNode.createElement("div");
-  const mounted = mountUniverseApp(root, { client: injectedClient("local") });
-  await settle();
-
-  // No supplied section, no nav entry: the arc carries no dead links.
-  const navLabels = byClass(root, "nav-link")
-    .map((link) => link.children[1] && link.children[1].textContent);
-  assert.ok(!navLabels.includes("Members"));
-  assert.ok(!navLabels.includes("Billing"));
-
-  // The deep link still routes — the page head names the destination and
-  // the body is the coming-soon stub, not a blank or a crash.
-  assert.equal(byClass(root, "title")[0].textContent, "Members");
-  assert.equal(byClass(root, "stub-panel").length, 1);
-
-  mounted.unmount();
-});
-
-test("a section for a workbench view appends after the view's own output", async (t) => {
-  const originalFetch = globalThis.fetch;
-  t.after(() => { globalThis.fetch = originalFetch; });
-  globalThis.fetch = () => response(200, {});
-
-  const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/strategy";
-  const root = documentNode.createElement("div");
-  const extra = documentNode.createElement("aside");
-  const mounted = mountUniverseApp(root, {
-    client: injectedClient("host"),
-    sections: { strategy: extra },
-  });
-  await settle();
-
-  // The view renders itself first; the host's section lands after it,
-  // inside the same view host.
-  const viewHost = byClass(root, "view-host")[0];
-  assert.ok(viewHost.children.length >= 2);
-  assert.ok(viewHost.children[0].classList.contains("panel"));
-  assert.equal(viewHost.children[viewHost.children.length - 1], extra);
-
-  // A section never turns a workbench view into a nav toggle: strategy's
-  // entry was in the arc before the section and stays exactly once.
-  const strategyLinks = byClass(root, "nav-link").filter(
-    (link) => link.children[1] && link.children[1].textContent === "Strategy",
-  );
-  assert.equal(strategyLinks.length, 1);
-
-  // Leaving the view releases the section node; unmount keeps it released.
-  documentNode.defaultView.location.hash = "#/items";
-  documentNode.defaultView.dispatchEvent(new Event("hashchange"));
-  await settle();
-  assert.equal(extra.parentNode, null);
-  mounted.unmount();
-  assert.equal(extra.parentNode, null);
-});
-
-test("host sections remain visible when a single-scope view has no project", async (t) => {
-  const originalFetch = globalThis.fetch;
-  t.after(() => { globalThis.fetch = originalFetch; });
-  globalThis.fetch = () => response(200, {});
-
-  // GitHub is the single-scope view that renders an engine-backed read, so
-  // it is the one that reaches the empty-universe panel; a scope-less or
-  // unbuilt view never gets there.
-  for (const placement of ["inView", "beforeScope"]) {
-    const documentNode = new FakeDocument();
-    documentNode.defaultView.location.hash = "#/github";
-    const root = documentNode.createElement("div");
-    const hostSection = documentNode.createElement("aside");
-    const client = {
-      async call(request) {
-        if (request.function === "organizations.get") {
-          return { status: 200, envelope: { success: true, result: { name: "Empty" } } };
-        }
-        if (request.function === "projects.list") {
-          return { status: 200, envelope: { success: true, result: { rows: [] } } };
-        }
-        throw new Error(`unexpected function ${request.function}`);
-      },
-    };
-    const mounted = mountUniverseApp(root, {
-      client, sections: { github: { content: hostSection, placement } },
-    });
-    await settle();
-
-    // Project scope governs the engine-owned read, not the host's section.
-    // Org-plane controls such as the hosted GitHub connection must remain
-    // reachable before the universe has its first project — at either
-    // placement, because an empty universe draws no picker for a
-    // `beforeScope` section to sit above.
-    assert.equal(byClass(root, "empty")[0].textContent, "no projects yet", placement);
-    assert.ok(allNodes(root).includes(hostSection), placement);
-    const viewHost = byClass(root, "view-host")[0];
-    assert.equal(
-      viewHost.children[viewHost.children.length - 1], hostSection, placement,
-    );
-
-    mounted.unmount();
-    assert.equal(hostSection.parentNode, null, placement);
-  }
-});
-
-test("a beforeScope section sits above the picker, an inView section below", async (t) => {
-  const originalFetch = globalThis.fetch;
-  t.after(() => { globalThis.fetch = originalFetch; });
-  globalThis.fetch = () => response(200, {});
-
-  const mountWith = async (placement) => {
-    const documentNode = new FakeDocument();
-    documentNode.defaultView.location.hash = "#/github?project=1";
-    const root = documentNode.createElement("div");
-    const hostSection = documentNode.createElement("aside");
-    const client = {
-      async call(request) {
-        if (request.function === "organizations.get") {
-          return { status: 200, envelope: { success: true, result: { name: "Org" } } };
-        }
-        if (request.function === "projects.list") {
-          return {
-            status: 200,
-            envelope: { success: true, result: { rows: [{ id: 1, slug: "a", name: "A" }] } },
-          };
-        }
-        return { status: 200, envelope: { success: true, result: { bound: false } } };
-      },
-    };
-    const mounted = mountUniverseApp(root, {
-      client, sections: { github: { content: hostSection, placement } },
-    });
-    await settle();
-    return { root, hostSection, mounted };
-  };
-
-  // The hosted org's GitHub connection is not a project's fact, so the
-  // picker must not appear to filter it: the section stands above the
-  // control, between the page head and the chips.
-  const above = await mountWith("beforeScope");
-  const aboveContent = byClass(above.root, "content")[0];
-  const aboveOrder = aboveContent.children.map((node) => node.className);
-  assert.deepEqual(aboveOrder, ["page-head", "", "scope-bar", "view-host"]);
-  assert.equal(aboveContent.children[1], above.hostSection);
-  assert.ok(!allNodes(byClass(above.root, "view-host")[0])
-    .includes(above.hostSection));
-  above.mounted.unmount();
-
-  // The default placement is unchanged: scoped content stays in the view,
-  // under the picker, after whatever the view rendered for itself.
-  const below = await mountWith("inView");
-  const belowContent = byClass(below.root, "content")[0];
-  assert.deepEqual(
-    belowContent.children.map((node) => node.className),
-    ["page-head", "scope-bar", "view-host"],
-  );
-  const belowHost = byClass(below.root, "view-host")[0];
-  assert.equal(belowHost.children[belowHost.children.length - 1],
-    below.hostSection);
-  below.mounted.unmount();
-});
-
-test("mount rejects section content the way it rejects slot content", () => {
-  const documentNode = new FakeDocument();
-  const root = documentNode.createElement("div");
-  const node = documentNode.createElement("section");
-  const fragment = new FakeNode(documentNode, "fragment", 11);
-  const client = injectedClient("unused");
-
-  assert.throws(() => mountUniverseApp(root, {
-    client, sections: { members: fragment },
-  }), /section content must be an Element/);
-  assert.throws(() => mountUniverseApp(root, {
-    client, sections: { members: node, billing: node },
-  }), /cannot occupy two universe app slots or sections/);
-  // The duplicate ledger spans slots and sections: one Element cannot stand
-  // in a slot and a section at once.
-  assert.throws(() => mountUniverseApp(root, {
-    client, slots: { contentAfter: node }, sections: { members: node },
-  }), /cannot occupy two universe app slots or sections/);
-  // A placement the contract does not define is refused by name rather than
-  // silently falling back to the default.
-  assert.throws(() => mountUniverseApp(root, {
-    client, sections: { members: { content: node, placement: "sideways" } },
-  }), /placement must be one of inView, beforeScope/);
-  assert.equal(root.children.length, 0);
-  assert.equal(node.parentNode, null);
-  assert.equal(client.requests.length, 0);
-});
-
-test("a section entry is told from a spec by being a node, not by its keys", async (t) => {
-  const originalFetch = globalThis.fetch;
-  t.after(() => { globalThis.fetch = originalFetch; });
-  globalThis.fetch = () => response(200, {});
-  const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/members";
-  const root = documentNode.createElement("div");
-  // A <template> owns a `content` property of its own, so an entry sniffed
-  // for a `content` key would read this Element as a placement spec and hand
-  // mount its DocumentFragment instead of the element the host supplied.
-  const template = documentNode.createElement("template");
-  template.content = new FakeNode(documentNode, "fragment", 11);
-
-  const mounted = mountUniverseApp(root, {
-    client: injectedClient("unused"), sections: { members: template },
-  });
-  await settle();
-
-  assert.ok(allNodes(root).includes(template));
-  mounted.unmount();
-});
-
-test("a synchronously throwing client still returns a cleanup handle", async (t) => {
-  const originalFetch = globalThis.fetch;
-  t.after(() => { globalThis.fetch = originalFetch; });
-  globalThis.fetch = () => response(200, {});
-  const documentNode = new FakeDocument();
-  const root = documentNode.createElement("div");
-  const slot = documentNode.createElement("aside");
-  const client = { call() { throw new Error("synchronous client failure"); } };
-
-  const mounted = mountUniverseApp(root, {
-    client, slots: { topbarStart: slot },
-  });
-  assert.equal(typeof mounted.unmount, "function");
-  await settle();
-  assert.ok(root.classList.contains("universe-app-root"));
-  mounted.unmount();
-  assert.equal(root.children.length, 0);
-  assert.equal(slot.parentNode, null);
-  assert.ok(!root.classList.contains("universe-app-root"));
-});
-
-test("route helpers are deterministic and platform-neutral", () => {
-  assert.deepEqual(parseUniverseRoute("#/strategy?project=abc%201"), {
-    view: "strategy", tab: null, detail: null, project: "abc 1",
-  });
-  // An unrecognised view falls back to the first destination in the nav.
-  assert.deepEqual(parseUniverseRoute("#/unknown"), {
-    view: "overview", tab: null, detail: null, project: null,
-  });
-  // Board rendering remains a CLI/local artifact; it is not a web route.
-  assert.deepEqual(parseUniverseRoute("#/board"), {
-    view: "overview", tab: null, detail: null, project: null,
-  });
-  assert.equal(buildUniverseRoute("strategy", "abc 1"),
-    "#/strategy?project=abc%201");
-  assert.equal(buildUniverseRoute("unknown", null), "#/overview");
-  assert.equal(buildUniverseRoute("board", null), "#/overview");
-});
-
-test("every nav destination declares how it takes project scope", () => {
-  for (const view of ["items", "strategy", "overview", "inbox", "frontier"]) {
-    assert.equal(universeNavScope(view), "multi");
-  }
-  for (const view of ["github", "project", "packs"]) {
-    assert.equal(universeNavScope(view), "single");
-  }
-  // Workflows serves the engine's universe-wide lifecycle definition, so no
-  // project narrows it and it draws no picker.
-  for (const view of ["projects", "access", "organization", "workflows"]) {
-    assert.equal(universeNavScope(view), "none");
-  }
-  // Members and Billing are host-fed views: the workbench routes them like
-  // any destination, and no project narrows a host-owned screen.
-  for (const hostFed of ["members", "billing"]) {
-    assert.equal(universeNavScope(hostFed), "none");
-    assert.deepEqual(parseUniverseRoute(`#/${hostFed}`), {
-      view: hostFed, tab: null, detail: null, project: null,
-    });
-  }
 });

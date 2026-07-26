@@ -26,8 +26,6 @@ is DENY for writes / allow-but-audit for pure reads (see ``classify``).
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from yoke_core.domain.actor_permissions import (
     PERM_BOARD_REBUILD,
     PERM_CLAIMS_ACQUIRE,
@@ -49,26 +47,22 @@ from yoke_core.domain.actor_permissions import (
     PERM_PROJECT_RENDER_READ,
 )
 from yoke_core.domain.db_read_constants import DB_READ_FUNCTION_ID
+from yoke_core.domain.function_authz_product_scopes import PRODUCT_AUTHZ_BY_ID
+from yoke_core.domain.function_authz_types import (
+    ACTOR_SESSION,
+    CLIENT_LOCAL,
+    CONTROL_PLANE,
+    DENY,
+    ORG,
+    PROJECT,
+    AuthzSpec,
+)
 from yoke_core.domain.yoke_function_registry import RegistryEntry
-
-PROJECT = "project"
-ORG = "org"
-CONTROL_PLANE = "control_plane"
-ACTOR_SESSION = "actor_session"
-CLIENT_LOCAL = "client_local"
-DENY = "deny"
-
-@dataclass(frozen=True)
-class AuthzSpec:
-    """How to authorize one function call."""
-
-    scope: str
-    permission_key: str | None  # None when the scope alone decides (local/session/deny)
-
 
 # function_id -> (scope, permission). PROJECT families are handled by
 # permission_key_for and need no entry here.
 _BY_ID: dict[str, AuthzSpec] = {
+    **PRODUCT_AUTHZ_BY_ID,
     # Control-plane: whole-DB / whole-instance, gated by yoke admin.
     "db.read.run": AuthzSpec(CONTROL_PLANE, PERM_DB_READ_RAW),
     # Default Doctor is control-plane; yoke_function_permissions routes the
@@ -141,8 +135,6 @@ _BY_ID: dict[str, AuthzSpec] = {
     "packs.list": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "packs.bundle.get": AuthzSpec(PROJECT, PERM_PROJECT_INSTALL),
     "packs.project.report": AuthzSpec(PROJECT, PERM_PROJECT_INSTALL),
-    "project_structure.command_definitions.get": AuthzSpec(PROJECT, PERM_ITEMS_READ),
-    "project_structure.command_definitions.list": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "path_claims.conflicts.list": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "github.pr.create": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "github.release.create_next_tag": AuthzSpec(
@@ -184,15 +176,6 @@ _BY_ID: dict[str, AuthzSpec] = {
     "conduct.epic.proceed_triage_handoff": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "onboard.checklist.init": AuthzSpec(PROJECT, PERM_PROJECT_INSTALL),
     "onboard.checklist.run": AuthzSpec(PROJECT, PERM_PROJECT_INSTALL),
-    # The Overview activation surface: the read derives universe-wide
-    # onboarding signals and latches monotone activation facts (no tenant
-    # content mutated); the dismissal pair writes only the calling actor's
-    # own preference rows. Any authenticated actor may call all three.
-    "overview.activation.get": AuthzSpec(ACTOR_SESSION, None),
-    "overview.module.dismiss": AuthzSpec(ACTOR_SESSION, None),
-    "overview.module.restore": AuthzSpec(ACTOR_SESSION, None),
-    "workflows.current.set": AuthzSpec(ORG, PERM_ORG_ADMIN),
-    "workflows.policy_defaults.publish": AuthzSpec(ORG, PERM_ORG_ADMIN),
     # Actor/session: caller operating on its own session/orchestration.
     "sessions.begin": AuthzSpec(ACTOR_SESSION, None),
     "sessions.init": AuthzSpec(CLIENT_LOCAL, None),
@@ -320,6 +303,8 @@ def permission_key_for(entry: RegistryEntry) -> str | None:
         return PERM_DB_READ_RAW
     if fid.startswith("items.") or fid.startswith("workflow_item."):
         return PERM_ITEMS_WRITE if entry.side_effects else PERM_ITEMS_READ
+    if fid.startswith("direct_workflow."):
+        return PERM_ITEMS_WRITE
     if fid.startswith("workflows.item."):
         return PERM_ITEMS_WRITE if entry.side_effects else PERM_ITEMS_READ
     if fid.startswith("lifecycle."):

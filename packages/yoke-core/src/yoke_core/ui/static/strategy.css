@@ -1,0 +1,259 @@
+.universe-app-root .strategy-callout {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 14px;
+  padding: 11px 14px;
+  border: 1px solid color-mix(in srgb, var(--yoke-accent) 24%, var(--yoke-border));
+  border-radius: var(--yoke-radius);
+  color: var(--yoke-ink);
+  background: color-mix(in srgb, var(--yoke-accent) 5%, var(--yoke-surface));
+  font-size: 13px;
+}
+
+.universe-app-root .strategy-callout-icon {
+  color: var(--yoke-accent);
+  font-size: 17px;
+}
+
+.universe-app-root .strategy-corpus-table th:nth-child(1) {
+  width: 190px;
+}
+
+.universe-app-root .strategy-corpus-table th:nth-child(3) {
+  width: 105px;
+}
+
+.universe-app-root .strategy-corpus-table th:nth-child(4) {
+  width: 90px;
+}
+
+.universe-app-root .strategy-corpus-table th:nth-child(5) {
+  width: 70px;
+}
+
+.universe-app-root .strategy-corpus-table th:nth-child(6) {
+  width: 190px;
+}
+
+.universe-app-root .strategy-doc-link {
+  color: var(--yoke-ink);
+  font-weight: 600;
+}
+
+.universe-app-root .strategy-doc-title {
+  color: var(--yoke-ink);
+  font-weight: 520;
+}
+
+.universe-app-root .strategy-doc-ancestry,
+.universe-app-root .strategy-editor,
+.universe-app-root .strategy-last-write,
+.universe-app-root .strategy-revision-count {
+  color: var(--yoke-muted);
+}
+
+.universe-app-root .strategy-doc-ancestry {
+  margin-top: 2px;
+  font-size: 12px;
+}
+
+.universe-app-root .strategy-editor {
+  white-space: nowrap;
+}
+
+.universe-app-root .strategy-editor-avatar {
+  display: inline-grid;
+  width: 15px;
+  height: 15px;
+  margin-right: 5px;
+  align-items: center;
+  border-radius: 50%;
+  color: var(--yoke-muted);
+  background: var(--yoke-surface-2);
+  font-size: 8px;
+  text-align: center;
+  vertical-align: 1px;
+}
+
+.universe-app-root .strategy-archived {
+  display: inline-flex;
+  margin-left: 7px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  color: var(--yoke-idle);
+  background: var(--yoke-idle-bg);
+  font-family: var(--yoke-font-sans);
+  font-size: 10px;
+}
+
+.universe-app-root .strategy-spark-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  font-size: 12px;
+}
+
+.universe-app-root .strategy-spark {
+  display: flex;
+  align-items: end;
+  gap: 2px;
+  height: 62px;
+}
+
+.universe-app-root .strategy-spark-bar {
+  min-width: 1px;
+  flex: 1;
+  border-radius: 2px 2px 0 0;
+  background: var(--yoke-good, #2f9e68);
+  opacity: 0.78;
+}
+
+.universe-app-root .strategy-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.universe-app-root .strategy-tabs {
+  display: flex;
+  gap: 6px;
+  margin: 14px 0;
+  border-bottom: 1px solid var(--yoke-border);
+}
+
+.universe-app-root .strategy-tabs .workflow-tab {
+  margin-bottom: -1px;
+}
+
+.universe-app-root .strategy-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(280px, 0.8fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.universe-app-root .strategy-document {
+  max-width: 78ch;
+  color: var(--yoke-ink);
+  line-height: 1.65;
+}
+
+.universe-app-root .strategy-document h2,
+.universe-app-root .strategy-document h3,
+.universe-app-root .strategy-document h4 {
+  margin: 20px 0 7px;
+  letter-spacing: -0.01em;
+}
+
+.universe-app-root .strategy-document h2:first-child,
+.universe-app-root .strategy-document h3:first-child {
+  margin-top: 0;
+}
+
+.universe-app-root .strategy-document p,
+.universe-app-root .strategy-document ul {
+  margin: 0 0 12px;
+}
+
+.universe-app-root .strategy-timeline {
+  padding: 0;
+}
+
+.universe-app-root .strategy-revision {
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+  padding: 13px 15px;
+  border-bottom: 1px solid var(--yoke-border);
+}
+
+.universe-app-root .strategy-revision:last-child {
+  border-bottom: 0;
+}
+
+.universe-app-root .strategy-revision-dot {
+  width: 8px;
+  height: 8px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: var(--yoke-muted);
+}
+
+.universe-app-root .strategy-revision-dot.current {
+  background: var(--yoke-accent);
+}
+
+.universe-app-root .strategy-revision-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.universe-app-root .strategy-compare-controls {
+  display: grid;
+  grid-template-columns: 55px minmax(0, 1fr);
+  gap: 8px 10px;
+  align-items: center;
+}
+
+.universe-app-root .strategy-revision-select {
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--yoke-border);
+  border-radius: 6px;
+  color: var(--yoke-ink);
+  background: var(--yoke-surface);
+}
+
+.universe-app-root .strategy-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.universe-app-root .strategy-diff {
+  max-height: 420px;
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid var(--yoke-border);
+  border-radius: 6px;
+  background: var(--yoke-surface-2);
+  font-size: 11px;
+}
+
+.universe-app-root .blitz-document {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.universe-app-root .blitz-document:hover strong {
+  color: var(--yoke-accent);
+}
+
+.universe-app-root .blitz-document-icon {
+  color: var(--yoke-accent);
+  font-size: 18px;
+}
+
+.universe-app-root .blitz-document-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+@media (max-width: 900px) {
+  .universe-app-root .strategy-split {
+    grid-template-columns: 1fr;
+  }
+}

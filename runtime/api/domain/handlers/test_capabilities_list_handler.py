@@ -95,7 +95,7 @@ class TestKindAndStateDerivation:
         rows = list_capabilities()
         assert [row["type"] for row in rows] == ["migration_model"]
         assert rows[0]["kind"] == "declared_model"
-        assert rows[0]["state"] == "declared"
+        assert rows[0]["state"] == "ready"
 
     def test_null_verified_at_reads_configured_unverified(self, test_db):
         _insert_capability(test_db, "aws-admin")
@@ -109,9 +109,23 @@ class TestKindAndStateDerivation:
         stamp = _iso(5)
         _insert_capability(test_db, "docker", verified_at=stamp)
         rows = list_capabilities()
-        assert rows[0]["state"] == "verified"
+        assert rows[0]["state"] == "ready"
         assert rows[0]["verified_at"] == stamp
         assert rows[0]["verified_source"] == "capability"
+
+    def test_test_machine_is_a_ready_test_resource(self, test_db):
+        _insert_capability(
+            test_db,
+            "test-machine",
+            settings=(
+                '{"resource_name":"mac-mini-lab","host":"mac",'
+                '"user":"yoke","operating_notes":""}'
+            ),
+            verified_at=_iso(2),
+        )
+        row = list_capabilities()[0]
+        assert (row["kind"], row["state"]) == ("test_resource", "ready")
+        assert row["used_by_summary"].startswith("Machine methods ×")
 
 
 class TestGithubFreshnessOverlay:
@@ -125,7 +139,7 @@ class TestGithubFreshnessOverlay:
         rows = list_capabilities()
         assert rows[0]["verified_at"] == binding_stamp
         assert rows[0]["verified_source"] == "repo-binding"
-        assert rows[0]["state"] == "verified"
+        assert rows[0]["state"] == "ready"
 
     def test_installation_stamp_serves_when_newer_than_binding(self, test_db):
         installation_stamp = _iso(3)
@@ -151,7 +165,7 @@ class TestGithubFreshnessOverlay:
         _insert_capability(test_db, "aws-admin")
         _insert_github_binding(test_db, binding_verified_at=_iso(1))
         by_type = {row["type"]: row for row in list_capabilities()}
-        assert by_type["github"]["state"] == "verified"
+        assert by_type["github"]["state"] == "ready"
         assert by_type["aws-admin"]["state"] == "configured_unverified"
         assert by_type["aws-admin"]["verified_at"] is None
 
@@ -195,7 +209,7 @@ class TestGithubFreshnessOverlay:
         rows = list_capabilities()
         assert rows[0]["verified_at"] == stamp
         assert rows[0]["verified_source"] == "capability"
-        assert rows[0]["state"] == "verified"
+        assert rows[0]["state"] == "ready"
 
 
 class TestScopeAndSummary:
@@ -230,6 +244,11 @@ class TestScopeAndSummary:
         assert summarize_settings(
             "migration_model", json_helper.dumps_compact(model),
         ) == "primary (governed_module)"
+        assert summarize_settings(
+            "test-machine",
+            '{"resource_name":"mac-mini-lab","host":"mac",'
+            '"user":"yoke","operating_notes":""}',
+        ) == "mac-mini-lab · Terminal + PTY · baselines ×2"
 
     def test_path_and_key_material_shaped_values_are_suppressed(self, test_db):
         assert summarize_settings("ssh", '{"host": "/etc/ssh/config"}') == ""

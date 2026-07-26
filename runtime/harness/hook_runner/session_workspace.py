@@ -8,7 +8,7 @@ consumed by the writer guard in
 PreToolUse lint in ``yoke_core.domain.lint_workspace_cwd_match``.
 
 Lives in the hook_runner subpackage because ``session_dispatch.py`` is at
-the file-line cap (ticket addendum) and the workspace export needs a
+the file-line cap (approved addendum) and the workspace export needs a
 sibling module to absorb new logic without busting the cap.
 """
 

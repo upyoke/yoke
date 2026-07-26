@@ -48,6 +48,14 @@ CREATE TABLE IF NOT EXISTS qa_requirements (
     waived_at TEXT,
     waiver_rationale TEXT,
     waiver_source TEXT,
+    plan_id INTEGER,
+    plan_case_key TEXT,
+    method_id TEXT,
+    host_baseline TEXT,
+    workflow_transition_id TEXT,
+    instructions TEXT,
+    expected_outcome TEXT,
+    method_config TEXT,
     created_at TEXT NOT NULL,
     CHECK (
         (item_id IS NOT NULL AND epic_id IS NULL AND task_num IS NULL AND deployment_run_id IS NULL) OR
@@ -66,6 +74,11 @@ CREATE TABLE IF NOT EXISTS qa_runs (
     qa_kind TEXT NOT NULL,
     verdict TEXT CHECK(verdict IN ('pass','fail','inconclusive','error')),
     execution_status TEXT CHECK(execution_status IN ('captured','capture_failed') OR execution_status IS NULL),
+    case_outcome TEXT CHECK(case_outcome IN (
+        'running','waiting','passed','failed','needs_review',
+        'blocked_on_precondition'
+    )),
+    capture_degraded_reason TEXT,
     score REAL,
     confidence REAL,
     raw_result TEXT,
@@ -179,6 +192,14 @@ def _migrate_qa_vocab(conn) -> None:
             waived_at TEXT,
             waiver_rationale TEXT,
             waiver_source TEXT,
+            plan_id INTEGER,
+            plan_case_key TEXT,
+            method_id TEXT,
+            host_baseline TEXT,
+            workflow_transition_id TEXT,
+            instructions TEXT,
+            expected_outcome TEXT,
+            method_config TEXT,
             created_at TEXT NOT NULL,
             CHECK (
                 (item_id IS NOT NULL AND epic_id IS NULL AND task_num IS NULL AND deployment_run_id IS NULL) OR
@@ -191,7 +212,9 @@ def _migrate_qa_vocab(conn) -> None:
             id, item_id, epic_id, task_num, deployment_run_id, qa_kind, qa_phase,
             target_env, blocking_mode, requirement_source, success_policy,
             capability_requirements, suite_id, waived_at, waiver_rationale,
-            waiver_source, created_at
+            waiver_source, plan_id, plan_case_key, method_id, host_baseline,
+            workflow_transition_id, instructions, expected_outcome,
+            method_config, created_at
         )
         SELECT
             id,
@@ -210,6 +233,14 @@ def _migrate_qa_vocab(conn) -> None:
             waived_at,
             waiver_rationale,
             waiver_source,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
             created_at
         FROM qa_requirements_old;
 

@@ -7,8 +7,6 @@ resolution).
 
 from __future__ import annotations
 
-from unittest.mock import patch
-
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.test_api_helpers import test_db, client  # noqa: F401
 
@@ -224,10 +222,8 @@ class TestDomainDelegation:
         # The error should come from the domain layer
         assert "not a human-approval stage" in data["error"]["message"]
 
-    def test_approve_uses_domain_run_lookup(self, client, test_db):
-        """Approval endpoint uses domain runs.find_active_run_for_item
-        to locate the active run, correctly ignoring terminal runs.
-        """
+    def test_approve_ignores_terminal_runs(self, client, test_db):
+        """A terminal run cannot be bypassed through item-only approval."""
         conn = connect_test_db(test_db["db_path"])
         # Mark the existing run as succeeded (terminal)
         conn.execute(
@@ -237,18 +233,16 @@ class TestDomainDelegation:
         conn.commit()
         conn.close()
 
-        # With no active run, approval should still succeed (fallback path)
-        with patch("yoke_core.api.main.subprocess.run"):
-            resp = client.post("/v1/items/4/approve", json={})
-        assert resp.status_code == 200
+        resp = client.post("/v1/items/4/approve", json={})
+        assert resp.status_code == 409
+        assert resp.json()["error"]["code"] == "NO_ACTIVE_RUN"
 
-        # Verify only the item was updated (not the terminal run)
+        # Verify the terminal run remains unchanged.
         conn = connect_test_db(test_db["db_path"])
         run_row = conn.execute(
             "SELECT current_stage, status FROM deployment_runs "
             "WHERE id = 'run-20260325-001'"
         ).fetchone()
-        # Run should NOT have been advanced (it was terminal)
         assert run_row["status"] == "succeeded"
         assert run_row["current_stage"] == "approve-deploy"
         conn.close()

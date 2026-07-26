@@ -31,7 +31,7 @@ test("Workflows renders the registry as the lifecycle experience", async (t) => 
   );
   assert.deepEqual(classText(root, "workflow-tab"), ["Rally"]);
   assert.deepEqual(classText(root, "workflow-stage-label"), [
-    "Drafted", "Proving", "Shipped",
+    "draft", "prove", "ship",
   ]);
   assert.deepEqual(classText(root, "workflow-stage-count"), [
     "entry", "1 check",
@@ -56,6 +56,40 @@ test("Workflows renders the registry as the lifecycle experience", async (t) => 
   );
   assert.equal(byClass(root, "raw-toggle").length, 0);
   assert.equal(byClass(root, "scope-bar").length, 0);
+  mounted.unmount();
+});
+
+test("Dash entry surfaces use the prototype filing copy", async (t) => {
+  const dash = workflowFixture({
+    id: "dash",
+    name: "Dash",
+    currentVersion: 1,
+  });
+  dash.definition.entry_surfaces = [
+    "web_form", "cli", "harness_skill", "promotion",
+  ];
+  const { root, mounted } = await mountWorkflows(
+    t, workflowsClient([dash]),
+  );
+
+  assert.deepEqual(
+    classText(root, "workflow-detail-row-title").slice(0, 4),
+    [
+      "Enter a Dash on the web",
+      "CLI",
+      "Harness",
+      "Promote from field note",
+    ],
+  );
+  assert.deepEqual(classText(root, "workflow-entry-command"), [
+    'yoke dash "<title>" "<instruction>"',
+    '/yoke dash "<instruction>"',
+  ]);
+  assert.deepEqual(classText(root, "workflow-entry-note"), [
+    "agent authors title and files for you",
+  ]);
+  const newItemLink = byClass(root, "workflow-entry-link")[0];
+  assert.equal(newItemLink.href, "#/items/new");
   mounted.unmount();
 });
 
@@ -89,7 +123,7 @@ test("workflow tabs use the decided built-in order and open Dash first", async (
     workflowFixture({
       id: "dash",
       name: "Dash",
-      description: "A short instruction filed in seconds.",
+      description: "A short instruction you file in seconds — filing is the spec; an agent executes it end-to-end.",
       currentVersion: 1,
     }),
     workflowFixture({ id: "rally", name: "Rally", currentVersion: 1 }),
@@ -103,7 +137,7 @@ test("workflow tabs use the decided built-in order and open Dash first", async (
   ]);
   assert.equal(byClass(root, "workflow-tab")[0].attributes.get("aria-selected"), "true");
   assert.deepEqual(classText(root, "workflow-intro"), [
-    "A short instruction filed in seconds.",
+    "A short instruction you file in seconds — filing is the spec; an agent executes it end-to-end.",
   ]);
 
   byClass(root, "workflow-tab")[2].dispatchEvent(new Event("click"));
@@ -117,7 +151,9 @@ test("workflow tabs use the decided built-in order and open Dash first", async (
 test("version inspection reads the immutable definition and can select it", async (t) => {
   const client = workflowsClient();
   const { root, mounted } = await mountWorkflows(t, client);
-  byClass(root, "workflow-button")[0].dispatchEvent(new Event("click"));
+  allNodes(root).find(
+    (node) => node.tagName === "BUTTON" && node.textContent === "Inspect",
+  ).dispatchEvent(new Event("click"));
   await settle();
   assert.deepEqual(classText(root, "workflow-version-digest"), [
     "rally-first",

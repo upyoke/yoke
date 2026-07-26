@@ -8,15 +8,12 @@ op lands or the transaction is rolled back and the handler returns
 ``payload_invalid`` / ``policy_violation`` with the original error message.
 
 ``claim_required_kind="item"`` — Project Structure mutations are item-scoped
-because they typically land alongside a ticket's spec change. The active
+because they typically land alongside a work item's spec change. The active
 claim's session is verified by the dispatcher before this handler runs.
 
 Read path:
-``project_structure.command_definitions.{get,list}`` exposes the
-agent-facing Project Test Command readers over the registered function
-surface, routing through the existing command_definitions domain helper.
 ``project_structure.deploy_defaults.get`` exposes the project's default
-deployment flow over the same registered surface.
+deployment flow over the registered function surface.
 """
 
 from __future__ import annotations
@@ -41,26 +38,6 @@ class ProjectStructurePatchApplyRequest(BaseModel):
 class ProjectStructurePatchApplyResponse(BaseModel):
     project_id: str
     applied_ops: List[Dict[str, Any]]
-
-
-class ProjectStructureCommandDefinitionsGetRequest(BaseModel):
-    project_id: str
-    scope: str
-
-
-class ProjectStructureCommandDefinitionsGetResponse(BaseModel):
-    project_id: str
-    scope: str
-    command: Optional[str] = None
-
-
-class ProjectStructureCommandDefinitionsListRequest(BaseModel):
-    project_id: str
-
-
-class ProjectStructureCommandDefinitionsListResponse(BaseModel):
-    project_id: str
-    commands: Dict[str, str]
 
 
 class ProjectStructureDeployDefaultsGetRequest(BaseModel):
@@ -137,78 +114,6 @@ def handle_project_structure_patch_apply(
     )
 
 
-def handle_project_structure_command_definitions_get(
-    request: FunctionCallRequest,
-) -> HandlerOutcome:
-    from yoke_core.domain import command_definitions
-
-    payload = request.payload or {}
-    project_id = _payload_project_id(payload)
-    scope = payload.get("scope")
-    if project_id is None:
-        return HandlerOutcome(
-            primary_success=False,
-            error=FunctionError(
-                code="payload_invalid",
-                message="project_id is required",
-                jsonpath="$.payload.project_id",
-            ),
-        )
-    if not isinstance(scope, str) or not scope.strip():
-        return HandlerOutcome(
-            primary_success=False,
-            error=FunctionError(
-                code="payload_invalid",
-                message="scope is required",
-                jsonpath="$.payload.scope",
-            ),
-        )
-
-    scope = scope.strip()
-    try:
-        command = command_definitions.get_command(project_id, scope)
-    except ValueError as exc:
-        return HandlerOutcome(
-            primary_success=False,
-            error=FunctionError(
-                code="payload_invalid",
-                message=str(exc),
-                jsonpath="$.payload.scope",
-            ),
-        )
-    return HandlerOutcome(
-        result_payload={
-            "project_id": project_id,
-            "scope": scope,
-            "command": command,
-        },
-        primary_success=True,
-    )
-
-
-def handle_project_structure_command_definitions_list(
-    request: FunctionCallRequest,
-) -> HandlerOutcome:
-    from yoke_core.domain import command_definitions
-
-    payload = request.payload or {}
-    project_id = _payload_project_id(payload)
-    if project_id is None:
-        return HandlerOutcome(
-            primary_success=False,
-            error=FunctionError(
-                code="payload_invalid",
-                message="project_id is required",
-                jsonpath="$.payload.project_id",
-            ),
-        )
-    commands = command_definitions.list_commands(project_id)
-    return HandlerOutcome(
-        result_payload={"project_id": project_id, "commands": commands},
-        primary_success=True,
-    )
-
-
 def handle_project_structure_deploy_defaults_get(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
@@ -238,14 +143,8 @@ def handle_project_structure_deploy_defaults_get(
 __all__ = [
     "ProjectStructurePatchApplyRequest",
     "ProjectStructurePatchApplyResponse",
-    "ProjectStructureCommandDefinitionsGetRequest",
-    "ProjectStructureCommandDefinitionsGetResponse",
-    "ProjectStructureCommandDefinitionsListRequest",
-    "ProjectStructureCommandDefinitionsListResponse",
     "ProjectStructureDeployDefaultsGetRequest",
     "ProjectStructureDeployDefaultsGetResponse",
     "handle_project_structure_patch_apply",
-    "handle_project_structure_command_definitions_get",
-    "handle_project_structure_command_definitions_list",
     "handle_project_structure_deploy_defaults_get",
 ]

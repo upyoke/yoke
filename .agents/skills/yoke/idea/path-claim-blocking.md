@@ -31,7 +31,7 @@ claim is **entirely on `FAMILY_RENDER_TARGET` paths** AND the two
 claims' coverage is **disjoint at the seed-source layer**, the
 classifier auto-returns `OverlapClassification.NONE` and the candidate
 registers cleanly — no operator-authored `coordination_only` edge,
-no escalation. This catches the case where two tickets each touch a
+no escalation. This catches the case where two work items each touch a
 disjoint stanza of `yoke_core.domain.schema_api_context_*` and
 the renderer deterministically regenerates the same agent packets. The
 seed sources are disjoint, so the rendered overlap is not real
@@ -70,7 +70,7 @@ Run these inputs in order:
    the conflicting item's spec via
    `yoke items get YOK-{conflicting-id} body`.
 2. **Read the relevant sections of the shared paths.** Identify which
-   blocks, functions, or subsections each ticket actually edits.
+   blocks, functions, or subsections each work item actually edits.
 3. **Run the decision helper to gather evidence:**
 
    ```bash
@@ -126,7 +126,7 @@ by `yoke_core.engines.merge_worktree`.
 yoke shepherd dependency-add \
     YOK-{id-number} YOK-{conflicting-item-id} idea \
     --gate-point coordination_only \
-    --rationale "<non-empty: name shared paths, the disjoint sections each ticket edits, why the edits are independent>"
+    --rationale "<non-empty: name shared paths, the disjoint sections each work item edits, why the edits are independent>"
 ```
 
 The `satisfaction` defaults to `fact:merged`. The rationale text is the
@@ -193,11 +193,11 @@ branch rather than the trunk.
 This produces a `state='blocked'` row but skips the dep-graph walk.
 Prefer section 2 or 3 over this when an ordering or coordination
 relationship is real, since the dep-graph is authoritative for
-cross-ticket sequencing.
+cross-item sequencing.
 
 ## 5. Mode='exception' for no-claim items (terminal alternative)
 
-Some tickets legitimately touch no repo surface — validation-only,
+Some work items legitimately touch no repo surface — validation-only,
 evidence-only, meta. They should never block on path-claim overlap;
 they declare an exception:
 
@@ -205,7 +205,7 @@ they declare an exception:
 yoke claims path register \
     --item YOK-{id-number} \
     --mode exception \
-    --reason "validation-only ticket: verifies YOK-{other-id} end-to-end"
+    --reason "validation-only work item: verifies YOK-{other-id} end-to-end"
 ```
 
 ## 6. Item-level block (LAST RESORT)

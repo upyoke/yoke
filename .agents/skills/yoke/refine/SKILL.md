@@ -1,6 +1,6 @@
 ---
 name: refine
-description: "Read item artifacts, critique them, and write improved ticket artifacts back through sanctioned Yoke update surfaces."
+description: "Read item artifacts, critique them, and write improved work item artifacts back through sanctioned Yoke update surfaces."
 argument-hint: "{YOK-N}"
 ---
 
@@ -11,7 +11,7 @@ Standalone capability for refining backlog item artifacts. Reads the item's stru
 This is an explicit, operator-invoked capability that Codex can execute directly. It does not require `/yoke do`, lane-aware routing, or lifecycle-family ownership wiring.
 
 <!-- BEGIN GENERATED: field-note-directive -->
-When you hit a recipe gap or notice a minor bug not worth a ticket, file a field-note immediately — before retrying, before moving on.
+When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
 Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->
@@ -40,7 +40,7 @@ If refine fails or is interrupted, the item must NOT auto-advance past its curre
 
 - No worktree required.
 - No code edits or commits.
-- Artifact writes are work writes: ticket/spec/body sections, File Budget, path-claim register/widen/narrow/release, and GitHub issue-body edits are shared coordination state; hold the item claim before mutating them, and treat `who-claims` session ids as identifiers, not authority.
+- Artifact writes are work writes: work item/spec/body sections, File Budget, path-claim register/widen/narrow/release, and GitHub issue-body edits are shared coordination state; hold the item claim before mutating them, and treat `who-claims` session ids as identifiers, not authority.
 - Full-field rewrites go through the `items.structured_field.replace`
   function call; additive transforms (preserve existing content, append
   a `## heading`-led block) go through
@@ -75,21 +75,21 @@ If the spec contains a major error — wrong file references, contradictory requ
 
 **ACs are additive, not replacive.** You may add new ACs, renumber, improve wording, and add verification commands. You may NOT delete or replace the substance of an existing AC. Every concrete AC in the original must have a corresponding concrete AC in the enhanced version.
 
-**User voice is verbatim.** When the spec contains content that is clearly the user's own words — numbered questions, direct observations, screenshots, "I saw X", "why does X", evidence references — that content must be preserved word-for-word. User questions define what the ticket must answer; user evidence defines the ground truth the ticket must address. Abstracting "what's the point of running CI in parallel with deployments?" into "document the tradeoff" loses the question the ticket exists to answer.
+**User voice is verbatim.** When the spec contains content that is clearly the user's own words — numbered questions, direct observations, screenshots, "I saw X", "why does X", evidence references — that content must be preserved word-for-word. User questions define what the work item must answer; user evidence defines the ground truth the work item must address. Abstracting "what's the point of running CI in parallel with deployments?" into "document the tradeoff" loses the question the work item exists to answer.
 
 ### Operating principles
 
-**Maximalist interpretation.** Read every ticket as "make this fully work end-to-end so the operator can use and experience the result." A minimal interpretation that leaves obvious end-to-end requirements for a hypothetical future ticket is a refinement failure. If a reasonable person would expect it to work, the ticket should say so.
+**Maximalist interpretation.** Read every work item as "make this fully work end-to-end so the operator can use and experience the result." A minimal interpretation that leaves obvious end-to-end requirements for a hypothetical future work item is a refinement failure. If a reasonable person would expect it to work, the work item should say so.
 
-**Surface what's missing, not just what's unclear.** Refinement fills in what the operator obviously meant but didn't write. Missing error handling, missing cleanup of replaced state, missing documentation updates, missing blast-radius items. Do not fabricate unrelated scope or redesign the ticket's purpose, but do complete the picture of what "done" actually looks like.
+**Surface what's missing, not just what's unclear.** Refinement fills in what the operator obviously meant but didn't write. Missing error handling, missing cleanup of replaced state, missing documentation updates, missing blast-radius items. Do not fabricate unrelated scope or redesign the work item's purpose, but do complete the picture of what "done" actually looks like.
 
-**Clean-slate mindset.** If the ticket replaces, removes, or supersedes something, the spec must explicitly call out what gets deleted. The codebase after this ticket should read as if the old way never existed.
+**Clean-slate mindset.** If the work item replaces, removes, or supersedes something, the spec must explicitly call out what gets deleted. The codebase after this work item should read as if the old way never existed.
 
 **Simplest migration wins.** Default to hard cutover unless there is provably live data, live users, or live integrations that need graceful migration.
 
-**Future-concept lens.** Generation labels are sequencing hints, not architecture walls. If a ticket adds or changes `actor_id`, `session_id`, `heartbeat_at`, ownership, leases, claims, approvals, overrides, evidence, run records, execution journals, compiled packets, route-around facts, resource locks, or shared-state coordination, refine must decide whether this is the smallest honest v0 of a later end-state primitive. If yes, shape the spec around that primitive and the concrete current consumers. If no, require an explicit deletion or absorption target so a local workaround does not become accidental architecture.
+**Future-concept lens.** Generation labels are sequencing hints, not architecture walls. If a work item adds or changes `actor_id`, `session_id`, `heartbeat_at`, ownership, leases, claims, approvals, overrides, evidence, run records, execution journals, compiled packets, route-around facts, resource locks, or shared-state coordination, refine must decide whether this is the smallest honest v0 of a later end-state primitive. If yes, shape the spec around that primitive and the concrete current consumers. If no, require an explicit deletion or absorption target so a local workaround does not become accidental architecture.
 
-**Dead weight has zero tolerance.** If the ticket obsoletes code, tests, config keys, feature flags, utility functions, documentation sections, migration scripts, or re-exports, the spec must include their removal.
+**Dead weight has zero tolerance.** If the work item obsoletes code, tests, config keys, feature flags, utility functions, documentation sections, migration scripts, or re-exports, the spec must include their removal.
 
 **Be the giant.** Your refined artifacts are the cold-start context for every downstream agent. Every gap you leave is a gap they'll hit. Do the investigative legwork: verify code references against the live codebase, include grep commands for blast-radius discovery, provide concrete examples.
 
@@ -97,9 +97,9 @@ If the spec contains a major error — wrong file references, contradictory requ
 
 **Events table for investigation.** When critiquing artifacts, query the events table for diagnostic context: `yoke events query --item {N}`. Anomaly flags and envelope data reveal whether the artifact was produced under context pressure.
 
-**File tickets for root causes.** When refinement surfaces a systemic issue, note the root cause for ticket filing.
+**File work items for root causes.** When refinement surfaces a systemic issue, note the root cause for work item filing.
 
-**Think, don't just check.** The dimensions and rules in this skill are a starting point, not a ceiling. Step back and think about the ticket as a whole: What is this ticket actually trying to achieve? What would a thoughtful senior engineer expect "done" to look like? The checklist catches known failure modes; your judgment catches everything else.
+**Think, don't just check.** The dimensions and rules in this skill are a starting point, not a ceiling. Step back and think about the work item as a whole: What is this work item actually trying to achieve? What would a thoughtful senior engineer expect "done" to look like? The checklist catches known failure modes; your judgment catches everything else.
 
 ## Steps
 
@@ -246,7 +246,7 @@ git -C "$MAIN_ROOT" log --oneline -20
 
 Scan for commits that touch the same files, functions, or subsystems as this item. If recent work has already addressed part of this item's scope, note it — the spec may need descoping or the item may be partially done.
 
-**Active and pipeline tickets** — What else is in flight or queued that overlaps?
+**Active and pipeline work items** — What else is in flight or queued that overlaps?
 
 ```bash
 MAIN_ROOT=$(git rev-parse --show-toplevel)
@@ -254,11 +254,11 @@ yoke db read --format lines "SELECT id, status, title FROM items WHERE status IN
 ```
 
 Look for:
-- **Overlap** — another ticket targeting the same files, functions, or behavior. Flag it in the critique and ensure the spec acknowledges the overlap or deconflicts.
-- **Supersession** — a broader ticket that subsumes this one. If so, recommend absorbing or cancelling.
-- **Dependencies** — a ticket that must land first for this item's assumptions to hold, or vice versa.
+- **Overlap** — another work item targeting the same files, functions, or behavior. Flag it in the critique and ensure the spec acknowledges the overlap or deconflicts.
+- **Supersession** — a broader work item that subsumes this one. If so, recommend absorbing or cancelling.
+- **Dependencies** — a work item that must land first for this item's assumptions to hold, or vice versa.
 
-**Recently done tickets** — What just shipped that might affect this item's assumptions?
+**Recently done work items** — What just shipped that might affect this item's assumptions?
 
 ```bash
 MAIN_ROOT=$(git rev-parse --show-toplevel)
@@ -274,7 +274,7 @@ Check whether recently completed work has:
 - Its spec references files, functions, or behaviors that have been renamed, removed, or significantly refactored since the spec was written.
 - Its problem statement describes a symptom that has already been fixed.
 - Its approach assumes codebase state that no longer exists.
-- Its scope overlaps with another active or recently-done ticket in any way — same files, same behavior, same problem from a different angle. Any overlap must be resolved: descope, absorb, dependency-link, or cancel.
+- Its scope overlaps with another active or recently-done work item in any way — same files, same behavior, same problem from a different angle. Any overlap must be resolved: descope, absorb, dependency-link, or cancel.
 
 Carry ALL survey findings into the critique in step 5. Staleness and overlap are first-class refinement issues, not optional observations.
 

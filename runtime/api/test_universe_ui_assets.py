@@ -43,6 +43,7 @@ def test_javascript_module_graph_is_in_closed_asset_roster():
     static_root = files("yoke_core.ui").joinpath("static")
     for module_name in (
         "app.js", "contract.js", "mount-options.js", "universe_navigation.js",
+        "universe_app_chrome.js", "universe_destinations.js",
         "universe_view_support.js", "universe_views.js",
         "universe_views_capabilities.js", "universe_views_delivery.js",
         "universe_views_doctor.js", "universe_views_events.js",
@@ -55,6 +56,9 @@ def test_javascript_module_graph_is_in_closed_asset_roster():
         "universe_views_packs.js", "universe_views_projects.js",
         "universe_views_sessions.js", "universe_views_strategy.js",
         "universe_views_workflows.js",
+        "universe_view_test_machine.js", "universe_time.js",
+        "test_machine_view_primitives.js",
+        "workflow_mechanics_data.js", "workflow_mechanics_dialogs.js",
     ):
         source = static_root.joinpath(module_name).read_text(encoding="utf-8")
         imports = re.findall(r'from "\./([^\"]+\.js)"', source)
@@ -162,14 +166,15 @@ def test_page_module_wires_the_workbench_shell():
 
     view_references = {
         "universe_views_strategy.js": (
-            "strategy.doc.list",
-            '{ label: "title", value: (doc) => doc.title }',
+            "strategy.surface.list",
+            "renderStrategyTable",
+            '"Purpose / ancestry"',
         ),
         "universe_views_items.js": (
             "items.list.run",
             "items.get.run",
-            "epic_tasks.list.run",
         ),
+        "item_view_details.js": ("epic_tasks.list.run",),
         "universe_views_events.js": ("events.query.run",),
         "universe_views_delivery.js": ("deployment_runs.list",),
         "universe_views_sessions.js": ("sessions.list",),
@@ -195,7 +200,7 @@ def test_every_nav_destination_is_routable_and_scoped():
     """Each nav entry is a real route from day one: it declares its scope and
     either renders rows, states what it will be, or renders host content."""
     page_module = files("yoke_core.ui").joinpath(
-        "static", "universe_navigation.js",
+        "static", "universe_destinations.js",
     ).read_text()
     for destination in (
         "overview", "inbox", "strategy", "frontier", "items",

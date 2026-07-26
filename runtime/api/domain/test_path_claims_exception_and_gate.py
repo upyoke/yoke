@@ -85,7 +85,7 @@ class TestExceptionRegister:
             actor_id=actor,
             integration_target="main",
             target_ids=[],
-            exception_reason="validation-only ticket",
+            exception_reason="validation-only work item",
             item_id=42,
         )
         row = conn.execute(
@@ -94,7 +94,7 @@ class TestExceptionRegister:
         ).fetchone()
         assert row["mode"] == "exception"
         assert row["state"] == "active"
-        assert row["exception_reason"] == "validation-only ticket"
+        assert row["exception_reason"] == "validation-only work item"
 
     def test_exception_rejects_non_empty_target_set(self, conn):
         actor = local_human(conn)
@@ -118,14 +118,14 @@ class TestExceptionRegister:
         cid = register(
             conn, actor_id=actor, integration_target="main",
             target_ids=[], mode="exception",
-            exception_reason="meta-only ticket", item_id=99,
+            exception_reason="meta-only work item", item_id=99,
         )
         row = conn.execute(
             "SELECT mode, exception_reason FROM path_claims WHERE id = %s",
             (cid,),
         ).fetchone()
         assert row["mode"] == "exception"
-        assert row["exception_reason"] == "meta-only ticket"
+        assert row["exception_reason"] == "meta-only work item"
 
     def test_item_onramp_rejects_exception_with_paths(self, conn):
         actor = local_human(conn)
@@ -137,7 +137,7 @@ class TestExceptionRegister:
                 integration_target="main",
                 paths=["unexpected.py"],
                 mode="exception",
-                exception_reason="meta-only ticket",
+                exception_reason="meta-only work item",
                 actor_id=actor,
             )
 

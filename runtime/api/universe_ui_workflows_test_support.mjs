@@ -114,6 +114,16 @@ export function workflowsClient(workflows) {
       if (request.function === "workflows.definition.get") {
         return okEnvelope(definitionFixture(structuredClone(rows)));
       }
+      if (request.function === "workflows.mechanics.get") {
+        return okEnvelope({
+          testing_defaults: [],
+          delivery_defaults: [],
+          approvers: [],
+        });
+      }
+      if (request.function === "qa.plan.list") {
+        return okEnvelope({ rows: [] });
+      }
       if (request.function === "workflows.version.get") {
         const workflow = rows.find(
           (row) => row.id === request.payload.workflow_id,

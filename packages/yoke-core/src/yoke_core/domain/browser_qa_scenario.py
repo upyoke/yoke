@@ -31,10 +31,11 @@ def _fetch_browser_context(
     item_id: int | str,
     project: str,
     expected_branch: Optional[str] = None,
+    requirement_id: Optional[int] = None,
 ) -> Dict[str, Any]:
     """Fetch the scenario's DB context through the dispatcher.
 
-    One batched read: browser-kind qa_requirements rows plus (when
+    One batched read: Browser method cases plus (when
     ``expected_branch`` is given) the latest deployed_sha for the freshness
     gate. ``item_id`` accepts the numeric id or a public ref
     (``PREFIX-N`` / bare project-local number) — refs resolve server-side
@@ -60,6 +61,8 @@ def _fetch_browser_context(
     payload: Dict[str, Any] = {"project": project}
     if expected_branch:
         payload["expected_branch"] = expected_branch
+    if requirement_id is not None:
+        payload["requirement_id"] = int(requirement_id)
     response = call_dispatcher(
         function_id="qa.browser_context.get",
         target=target,
@@ -78,6 +81,7 @@ def execute_scenario(
     base_url: str = "",
     expected_branch: Optional[str] = None,
     expected_sha: Optional[str] = None,
+    requirement_id: Optional[int] = None,
 ) -> ScenarioResult:
     """Execute browser QA scenarios for an item.
 
@@ -117,9 +121,17 @@ def execute_scenario(
         "(qa.browser_context.get)..."
     )
     try:
-        context = _bqa._fetch_browser_context(
-            item_id, project, expected_branch,
-        )
+        if requirement_id is None:
+            context = _bqa._fetch_browser_context(
+                item_id, project, expected_branch,
+            )
+        else:
+            context = _bqa._fetch_browser_context(
+                item_id,
+                project,
+                expected_branch,
+                requirement_id=requirement_id,
+            )
     except Exception as exc:
         _bqa._log(f"ERROR: {exc}")
         result.verdict = "error"
@@ -161,16 +173,18 @@ def execute_scenario(
 
     # Step 3: Resolve base_url
     if not base_url:
-        first_policy = req_rows[0]["success_policy"]
-        if first_policy:
+        first_config = req_rows[0]["method_config"]
+        if first_config:
             try:
-                policy_data = json.loads(first_policy)
-                base_url = policy_data.get("base_url", "")
+                method_config = json.loads(first_config)
+                base_url = method_config.get("base_url", "")
             except json.JSONDecodeError:
                 pass
 
     if not base_url:
-        _bqa._log("ERROR: No --base-url provided and no base_url in success_policy")
+        _bqa._log(
+            "ERROR: No --base-url provided and no base_url in method_config"
+        )
         result.verdict = "error"
         result.note = "no_base_url"
         print(result.to_json())
@@ -219,6 +233,11 @@ def execute_scenario(
 
         if outcome.capture_failed:
             result.verdict = "fail"
+        elif (
+            outcome.run_result.verdict == "inconclusive"
+            and result.verdict == "pass"
+        ):
+            result.verdict = "inconclusive"
 
         if outcome.env_failure:
             _bqa._log("Aborting remaining requirements due to env setup failure")

@@ -1,0 +1,73 @@
+{
+  "version": 1,
+  "project": "yoke",
+  "profile": {
+    "state": "declared",
+    "model_name": "primary",
+    "mutation_intent": "apply",
+    "migration_modules": [
+      "workflow_item_browser_qa_metadata_contract"
+    ],
+    "compatibility_class": "pre_merge_breaking",
+    "migration_strategy": "hard_cutover",
+    "migration_strategy_justification": "Browser check and Browser inspection method cases become the executable configuration authority before item-level Browser QA metadata is removed.",
+    "schema_kinds": [
+      "destructive"
+    ],
+    "data_kinds": [
+      "drop"
+    ],
+    "affected_surfaces": [
+      {
+        "table": "items",
+        "columns": [
+          "browser_qa_metadata"
+        ]
+      },
+      {
+        "table": "qa_requirements",
+        "columns": [
+          "item_id",
+          "qa_kind",
+          "method_id"
+        ]
+      }
+    ],
+    "count_preserving": true
+  },
+  "module_sources": {
+    "workflow_item_browser_qa_metadata_contract": {
+      "path": "packages/yoke-core/src/yoke_core/domain/migrations/workflow_item_browser_qa_metadata_contract.py",
+      "sha256": "fe7a3ae953c36dd52049a4d6e69f693e2a7d47f3f6141b4875c2c8a88d6ce7b6"
+    }
+  },
+  "attestation": {
+    "pre_merge_readers_writers": [
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/qa_plan_attachments.py",
+        "symbol": "materialize_for_item",
+        "role": "writer"
+      },
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/handlers/qa_browser.py",
+        "symbol": "handle_qa_browser_context",
+        "role": "reader"
+      },
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/browser_qa_requirement.py",
+        "symbol": "_process_requirement",
+        "role": "reader"
+      }
+    ],
+    "invariants": [
+      "The items row count is unchanged by the metadata contraction.",
+      "Every non-terminal browser-configured item has materialized Browser QA before its source metadata is removed.",
+      "Terminal items do not gain new blocking requirements during historical cleanup.",
+      "The items table no longer carries browser_qa_metadata."
+    ],
+    "rehearsal_commands": [
+      "PYTHONPATH=packages/yoke-contracts/src:packages/yoke-cli/src:packages/yoke-core/src:packages/yoke-harness/src:. python3 -m pytest runtime/api/domain/migrations/test_workflow_item_browser_qa_metadata_contract.py runtime/api/domain/test_browser_plan_methods.py runtime/api/domain/test_qa_case_execution.py -q"
+    ],
+    "residual_risk_notes": "The migration takes an exclusive items-table lock, refuses to drop active Browser QA configuration without materialized executable evidence, preserves item rows, and deliberately does not create new blocking requirements for terminal history."
+  }
+}

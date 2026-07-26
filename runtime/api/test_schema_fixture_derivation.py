@@ -96,7 +96,6 @@ class TestItemsFamilyDerivation:
         # Spot-check columns added by recent migrations / one-shots —
         # if any of these go missing the derivation has regressed.
         for col in (
-            "browser_qa_metadata",
             "db_mutation_profile",
             "db_compatibility_attestation",
             "owner",

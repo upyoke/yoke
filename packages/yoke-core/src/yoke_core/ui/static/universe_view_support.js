@@ -3,6 +3,8 @@
 // scoped loaders that fan a multi-project scope out into per-project calls.
 // View modules own what a screen says; this module owns how panels say it.
 
+import { pillFamilyForState } from "./universe_state_pills.js";
+
 export function el(documentNode, tag, className, text) {
   const node = documentNode.createElement(tag);
   if (className) node.className = className;
@@ -21,14 +23,17 @@ export function callFunction(client, functionId, payload, target) {
 // One titled section with a raw-JSON toggle showing the exact function-call
 // response envelope(s) the section rendered from — a lone envelope for a
 // single read, the array of them when a scope fanned out into several.
-export function section(documentNode, title) {
+export function section(documentNode, title, { showRaw = true } = {}) {
   const wrap = el(documentNode, "section", "panel");
   const header = el(documentNode, "div", "panel-header");
   const heading = el(documentNode, "h2", null, title);
   header.appendChild(heading);
-  const toggle = el(documentNode, "button", "raw-toggle", "raw JSON");
-  toggle.type = "button";
-  header.appendChild(toggle);
+  let toggle = null;
+  if (showRaw) {
+    toggle = el(documentNode, "button", "raw-toggle", "raw JSON");
+    toggle.type = "button";
+    header.appendChild(toggle);
+  }
   wrap.appendChild(header);
 
   // The muted count beside the title. Numbers are facts the engine owns: a
@@ -54,16 +59,20 @@ export function section(documentNode, title) {
   const body = el(documentNode, "div", "panel-body", "loading…");
   wrap.appendChild(body);
 
-  const raw = el(documentNode, "pre", "raw-json");
-  raw.hidden = true;
-  wrap.appendChild(raw);
-  toggle.addEventListener("click", () => { raw.hidden = !raw.hidden; });
+  const raw = showRaw ? el(documentNode, "pre", "raw-json") : null;
+  if (raw) {
+    raw.hidden = true;
+    wrap.appendChild(raw);
+    toggle.addEventListener("click", () => { raw.hidden = !raw.hidden; });
+  }
 
   wrap.renderEnvelopes = (callResults, renderBody) => {
     const envelopes = callResults.map((callResult) => callResult.envelope);
-    raw.textContent = JSON.stringify(
-      envelopes.length === 1 ? envelopes[0] : envelopes, null, 2,
-    );
+    if (raw) {
+      raw.textContent = JSON.stringify(
+        envelopes.length === 1 ? envelopes[0] : envelopes, null, 2,
+      );
+    }
     body.replaceChildren();
     renderBody(body, callResults);
   };
@@ -76,73 +85,13 @@ export function section(documentNode, title) {
   return wrap;
 }
 
-// Semantic color family per state value. Status vocabularies belong to
-// workflows, so this map is a coloring hint and never a gate: any value
-// it has not seen renders as a neutral idle pill rather than breaking.
-const STATE_PILL_FAMILIES = {
-  implementing: "run",
-  "reviewing-implementation": "run",
-  "reviewed-implementation": "run",
-  "polishing-implementation": "run",
-  release: "run",
-  new: "run",
-  executing: "run",
-  implemented: "good",
-  done: "good",
-  active: "good",
-  succeeded: "good",
-  blocked: "crit",
-  failed: "crit",
-  error: "crit",
-  critical: "crit",
-  unclear: "warn",
-  warn: "warn",
-  warning: "warn",
-  stale: "warn",
-  pass: "good",
-  fail: "crit",
-  skip: "idle",
-  // Dependency gate points: an activation gate stops work from starting,
-  // an integration gate only orders the landing, a closure gate merely
-  // holds the closeout milestone.
-  activation: "crit",
-  integration: "warn",
-  closure: "idle",
-  // Capability vocabulary. A capability someone configured but nothing has
-  // ever verified must read as loudly as a broken one — warn, never idle.
-  provider_access: "run",
-  declared_model: "idle",
-  verified: "good",
-  configured_unverified: "warn",
-  declared: "idle",
-  // GitHub repository-binding vocabulary: binding and installation
-  // lifecycle states, permission verdicts, automation availability, and
-  // sync outcomes. A suspended or deleted installation is a severed
-  // credential channel and must read as loudly as a failure.
-  pending: "warn",
-  unavailable: "warn",
-  suspended: "crit",
-  deleted: "crit",
-  satisfied: "good",
-  missing: "crit",
-  unknown: "warn",
-  available: "good",
-  installed: "good",
-  success: "good",
-  // Activation-module stage vocabulary: a locked module waits, exactly one
-  // unlocked module is next up, and a latched module reads activated.
-  waits: "idle",
-  "next up": "run",
-  activated: "good",
-};
-
 // A state value rendered as a tinted lozenge with a leading dot, colored by
 // its semantic family. Empty values render nothing at all.
-export function statePill(documentNode, value) {
+export function statePill(documentNode, value, label = value) {
   const text = String(value ?? "");
   if (!text) return null;
-  const family = STATE_PILL_FAMILIES[text.toLowerCase()] || "idle";
-  const pill = el(documentNode, "span", `pill ${family}`, text);
+  const family = pillFamilyForState(text);
+  const pill = el(documentNode, "span", `pill ${family}`, String(label ?? ""));
   pill.setAttribute("data-state", text);
   return pill;
 }

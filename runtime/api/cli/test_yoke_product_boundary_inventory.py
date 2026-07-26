@@ -156,11 +156,8 @@ def test_registry_operation_and_tool_shaped_surfaces_are_present():
         "python3 -m yoke_core.cli.db_router query"
     ].disposition == inventory.OPERATOR_DEBUG_PERMANENT
     assert rows[
-        "yoke project-structure command-definitions get"
-    ].disposition == inventory.HTTPS_RELAY
-    assert rows[
-        "yoke project-structure command-definitions list"
-    ].function_id == "project_structure.command_definitions.list"
+        "yoke project-structure deploy-defaults get"
+    ].function_id == "project_structure.deploy_defaults.get"
     assert rows["yoke qa run get"].function_id == "qa.run.get"
     assert rows["yoke qa run get"].disposition == inventory.HTTPS_RELAY
     assert rows["yoke readiness check"].function_id == "readiness.check.run"

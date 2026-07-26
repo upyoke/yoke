@@ -122,7 +122,7 @@ class TestFetchBrowserContextSeam:
             "item_id": 1732,
             "requirements": [{
                 "id": 10, "qa_kind": "browser_smoke",
-                "success_policy": json.dumps(
+                "method_config": json.dumps(
                     {"base_url": "http://localhost:9", "steps": [{}]},
                 ),
             }],

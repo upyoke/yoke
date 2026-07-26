@@ -98,8 +98,7 @@ class TestApprovalParity:
         )
         assert result.returncode == 1, "CLI should reject unknown flow"
 
-    def test_api_approve_advances_run_stage(self, parity_env):
-        """API approve endpoint should advance the run's current_stage."""
+    def test_api_approve_routes_to_inbox_without_advancing(self, parity_env):
         client = parity_env["client"]
         db_path = parity_env["db_path"]
 
@@ -108,10 +107,9 @@ class TestApprovalParity:
             "/v1/items/4/approve",
             json={"comment": "Parity test approval"},
         )
-        assert resp.status_code == 200
+        assert resp.status_code == 409
         data = resp.json()
-        assert data["id"] == 4
-        assert "approved_at" in data
+        assert data["error"]["code"] == "APPROVAL_REQUIRED"
 
         # Verify the run's current_stage was advanced in the DB
         conn = connect_test_db(db_path)
@@ -119,47 +117,44 @@ class TestApprovalParity:
             "SELECT current_stage FROM deployment_runs WHERE id = %s",
             ("run-parity-001",),
         ).fetchone()
-        assert run["current_stage"] == "prod-deploy"
+        assert run["current_stage"] == "approve-deploy"
 
         # Verify the item's deploy_stage was also advanced
         item = conn.execute(
             "SELECT deploy_stage, status FROM items WHERE id = %s", (4,)
         ).fetchone()
-        assert item["deploy_stage"] == "prod-deploy"
+        assert item["deploy_stage"] == "approve-deploy"
         assert item["status"] == "release"
         conn.close()
 
 
 class TestApprovalWriteParity:
-    """Verify that API POST /v1/items/{id}/approve and service-client
-    apply-approval produce matching results for the approval surface."""
+    """Verify the request and legacy preview surfaces stay distinct."""
 
-    def test_approval_success_both(self, write_parity_env):
-        """Both surfaces should advance the deploy stage on a valid approval.
+    def test_api_requests_decision_while_check_surface_previews(
+        self, write_parity_env,
+    ):
+        """The API requests approval; the check surface only previews.
 
         Uses item 4 which has deploy_stage=approve-deploy with the
         parity-flow containing a human-approval executor at that stage.
 
-        The API returns an ApproveResponse (id, approved_at, comment) and
-        applies the stage advancement to the DB.  The CLI returns a mutation
-        result with next_stage, run_id, and member_item_ids for the shell
-        adapter to apply.
+        The API exposes the Inbox request without stage advancement. The
+        legacy CLI surface remains a mutation preview for its shell adapter.
         """
         client = write_parity_env["client"]
         db_path = write_parity_env["db_path"]
 
         # API approval on item 4
         api_resp = client.post("/v1/items/4/approve", json={})
-        assert api_resp.status_code == 200
+        assert api_resp.status_code == 409
         api_data = api_resp.json()
-        # API returns approved_at confirming the approval happened
-        assert "approved_at" in api_data
-        assert api_data["id"] == 4
+        assert api_data["error"]["code"] == "APPROVAL_REQUIRED"
 
-        # Verify the API actually updated the DB
+        # Verify the API did not advance deployment state.
         conn = connect_test_db(db_path)
         row = conn.execute("SELECT deploy_stage FROM items WHERE id = 4").fetchone()
-        assert row["deploy_stage"] == "prod-deploy"
+        assert row["deploy_stage"] == "approve-deploy"
 
         # Now set up another item at the same stage for CLI test
         conn.execute(

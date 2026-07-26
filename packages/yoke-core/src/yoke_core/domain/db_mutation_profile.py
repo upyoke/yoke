@@ -1,6 +1,6 @@
 """Validator and default for the ``items.db_mutation_profile`` structured field.
 
-Declares what governed DB mutation a ticket is performing against a
+Declares what governed DB mutation a work item is performing against a
 declared project ``migration_model``.  Every write path that persists
 ``db_mutation_profile`` MUST route through :func:`validate`.  Ad hoc JSON
 construction in skill bodies is forbidden.
@@ -36,7 +36,7 @@ step.  Gate matrices read both axes — see
 ``yoke_core.domain.db_mutation_gate_strategy``.
 
 Full cross-layer validation (capability lookup, migration-module
-existence, cross-ticket overlap, flow reference) lives at the
+existence, cross-item overlap, flow reference) lives at the
 ``idea → refining-idea`` joint gate.  This module is the per-write
 structural validator only — it verifies vocabulary, required fields, and
 type shapes, then returns canonical JSON.

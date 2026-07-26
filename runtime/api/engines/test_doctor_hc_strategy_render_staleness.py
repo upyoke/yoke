@@ -76,6 +76,8 @@ def _seed(conn, project_id: int = PROJECT_A) -> None:
 def _drop_table(tmp_db: str) -> None:
     conn = connect_test_db(tmp_db)
     try:
+        conn.execute("DROP TABLE IF EXISTS strategy_doc_claims")
+        conn.execute("DROP TABLE IF EXISTS item_strategy_docs")
         conn.execute(f"DROP TABLE IF EXISTS {sd.STRATEGY_DOCS_TABLE}")
         conn.commit()
     finally:

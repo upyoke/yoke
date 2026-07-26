@@ -1,4 +1,140 @@
-# Testing Verification Recipes
+# Testing and Verification
+
+Yoke presents QA as test plans, methods, capabilities, and readable outcomes.
+Requirements, runs, and artifacts remain execution records created by Yoke and
+its harnesses.
+
+## Methods
+
+A method is the registered contract for one kind of proof: executor, optional
+capability kind, verdict path, evidence contract, and success policy. The
+built-in roster is:
+
+- **Command** — deterministic worktree command; exit 0 passes and captured
+  output is evidence.
+- **Browser check** — browser assertions with an automatic verdict.
+- **Browser inspection** — screenshots judged against the expected outcome.
+
+The `machine-qa` Pack adds **Terminal check**, **Terminal inspection**, and
+**Machine state check**. Those methods share the registered `host_control`
+executor and a serial `test-machine` capability.
+
+Inspect the roster and a method contract with:
+
+```text
+yoke qa method list --project <project>
+yoke qa method get <method-id> --project <project>
+```
+
+Built-in, Pack-registered, and project-local sources remain distinct. A method
+selects registered code; case instructions never become an executor.
+
+## Test plans
+
+A test plan is a named, project-scoped, ordered sequence of cases. Every case
+has a stable slug key, its own method, instructions, and expected outcome, so
+one plan may mix command, browser, terminal, and machine proof.
+
+```text
+yoke qa plan create <slug> --project <project> --name "<name>"
+yoke qa plan-cases replace \
+  --project <project> --plan-id <id> --cases-file <cases.json>
+yoke qa plan get <id> --project <project>
+```
+
+Attach a reusable plan as a project default for one workflow transition:
+
+```text
+yoke qa project-default set \
+  --project <project> --plan-id <id> \
+  --workflow <workflow> --transition <stage>
+```
+
+Or attach it to one item:
+
+```text
+yoke qa item-plan attach \
+  --item <PREFIX-N> --project <project> --plan-id <id> \
+  --transition <stage>
+```
+
+At the declared transition, Yoke materializes one requirement per case.
+Those rows are the snapshot: later plan edits affect only items that have not
+materialized the plan. Case rerun and waiver stay case-scoped, and the
+transition consumes the union of all materialized outcomes.
+
+## Capabilities and secrets
+
+A capability is the configured resource a method may need. Its availability
+is one of: not configured, configured (unverified), ready, in use, or error.
+Serial resources queue while in use; that does not prevent plan attachment.
+
+The Test Mac is one `test-machine` capability, not three separate resources.
+Inspect, update non-secret settings, and verify it with:
+
+```text
+yoke test-machine get --project <project> --json
+yoke test-machine settings-replace \
+  --project <project> --settings-file <settings.json> \
+  (--new | --base '<as-read-json>')
+yoke test-machine verify --project <project>
+```
+
+Provision the host once before saving the capability:
+
+1. Create a dedicated macOS test user and make the host reachable through a
+   private network.
+2. Enable **System Settings → General → Sharing → Remote Login** for that user,
+   install the operator public key in `~/.ssh/authorized_keys`, and verify a
+   batch SSH login. Do not expose SSH with router port forwarding.
+3. Install `tmux`, which `host_control` uses to retain the real terminal
+   session while driving and capturing it.
+4. In **System Settings → Privacy & Security**, grant the logged-in
+   Terminal.app Automation access to Terminal and Screen Recording access.
+   Keep the Mac logged in and unlocked for screenshots.
+5. Disable automatic system and display sleep for the test interval. Restore
+   the operator's normal sleep policy when the dedicated test interval ends.
+
+The saved settings document contains exactly `resource_name`, `host`, `user`,
+and `operating_notes`. It contains no credentials. Store every credential key
+shown by `yoke test-machine get` on the machine that runs `host_control`; for
+example:
+
+```text
+printf '%s' "$SECRET_VALUE" | yoke projects capability secret set \
+  --project <project> --cap-type test-machine \
+  --key <ssh_private_key|screen_control_token|sudo_password> --value-stdin
+```
+
+The private key value is the key material, not a path. Yoke writes these values
+to capability-owned machine-local files with restricted permissions. Do not
+copy them to the remote host, the project checkout, or control-plane settings.
+After provisioning or changing any setting or credential, run
+`yoke test-machine verify`; the capability is not ready until connectivity and
+terminal-control checks pass.
+
+Secret values never belong in settings JSON, workflow definitions, item
+bodies, prompts, logs, captures, or artifacts. The executor receives resolved
+secrets only for its subprocess and must redact them from evidence.
+
+## Evidence
+
+The QA screen renders case outcomes and artifacts through the registered
+artifact read surface. Durable handles use authorized short-lived downloads;
+machine-local handles render on the owning machine and appear elsewhere as an
+explicit on-machine or not-portable state.
+
+```text
+yoke qa activity list --project <project>
+yoke qa artifact read --requirement-id <id> --artifact-id <id>
+```
+
+Missing or blocked evidence is never a silent pass. Machine baselines run as
+registered operations inside the capability lease, verify the exact
+branch-determining host state, and block dependent cases if the baseline cannot
+be reached or verified.
+
+## Source verification recipes
 
 Ruff is a locked development dependency. Lint every changed Python path with:
 

@@ -108,10 +108,9 @@ execute_structured_write() writes the structured field to DB
 
 Reading `items get YOK-N body` renders on demand from all structured fields. When you already have a real artifact file, the same command can read from a body file instead of stdin.
 
-Valid structured fields are:
-`spec`, `design_spec`, `technical_plan`, `worktree_plan`, `shepherd_log`, `shepherd_caveats`, `test_results`, `deploy_log`, and `browser_qa_metadata`.
-
-`browser_qa_metadata` is JSON-shape — every write routes through `yoke_core.domain.browser_qa_metadata.validate_json_string` so malformed payloads never reach the DB, and the canonical stored form is a compact sorted-key JSON object. Non-browser items hold the explicit negative-default object, not NULL.
+Valid structured fields are `spec`, `design_spec`, `technical_plan`,
+`worktree_plan`, `shepherd_log`, `shepherd_caveats`, `test_results`, and
+`deploy_log`.
 
 Shepherd subagents (PM, Architect) write structured content during lifecycle transitions (e.g., spec, technical plan, shepherd log/caveats) using the same path.
 

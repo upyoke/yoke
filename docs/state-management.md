@@ -2,9 +2,11 @@
 
 All authoritative Yoke state lives in the configured Postgres authority. Compacting, restarting, crashing, or switching tabs never loses state.
 
-## Backlog Registry
+## Work Item Registry
 
-Every trackable item gets a stable `YOK-N` ID that persists through its entire lifecycle. The registry is the single source of truth for all items — ideas, epics, and standalone issues.
+Every work item gets a stable `YOK-N` ID that persists through its entire
+lifecycle. The registry is the single source of truth for Dash, Blitz, Issue,
+and Epic items.
 
 ### ID System
 
@@ -14,14 +16,28 @@ Every trackable item gets a stable `YOK-N` ID that persists through its entire l
 - **Stability:** local ID never changes. GitHub issue number is a separate metadata field (`github_issue`).
 - **Tasks within epics** keep plan-order numbering (001, 002) — internal to epic, not global YOK-N IDs.
 
-### Item Types
+### Workflows
 
-| Type | Description | Lifecycle |
-|------|-------------|-----------|
-| `epic` | Big feature, needs spec + task decomposition | `idea → refining-idea → refined-idea → planning → plan-drafted → refining-plan → planned → implementing → reviewing-implementation → reviewed-implementation → polishing-implementation → implemented → release → done` |
-| `issue` | Small, single unit of work | `idea → refining-idea → refined-idea → implementing → reviewing-implementation → reviewed-implementation → polishing-implementation → implemented → release → done` |
+| Workflow | Description | Stages |
+|---|---|---|
+| `dash` | Instruction-sized work whose filing is the specification | `idea → implementing → reviewing-implementation → done` |
+| `blitz` | Document-led execution of one strategy document | `idea → refining-idea → refined-idea → implementing → reviewing-implementation → done` |
+| `issue` | A bounded change whose item body is the specification | `idea → refining-idea → refined-idea → implementing → reviewing-implementation → reviewed-implementation → polishing-implementation → implemented → release → done` |
+| `epic` | Work that needs Architect decomposition and task lanes | `idea → refining-idea → refined-idea → planning → plan-drafted → refining-plan → planned → implementing → reviewing-implementation → reviewed-implementation → polishing-implementation → implemented → release → done` |
 
-After merge and QA, items reach `implemented` and enter the **delivery lifecycle** owned by the Usher skill, which manages the `implemented → release → done` transition through deployment runs (see Delivery Lifecycle below). Two halt states (`needs-capability`, `awaiting-approval`) may interrupt the delivery flow. Items in `release` do NOT count toward the WIP cap. Type indicates scope (epic = has tasks, issue = single unit), not which statuses are available. Skipping states is allowed.
+Every item stores `workflow_id` and `workflow_version_id`. Its pinned immutable
+definition is the authority for valid stages, order, entry checks, posture,
+and registered executors. Do not infer a lifecycle from the workflow id.
+Selecting a different current version affects future items only; moving an
+existing item is explicit and compatibility-checked. See
+[workflows.md](workflows.md).
+
+Issue and Epic items reach `implemented` and enter the **delivery lifecycle**
+owned by Usher, which manages `implemented → release → done` through
+deployment runs. Dash delivery is an after-merge action when selected; Blitz
+delivers continuously inside `implementing`. Two deployment-run halt states
+(`needs-capability`, `awaiting-approval`) may interrupt a delivery flow. They
+are not item stages.
 
 ### Status Vocabulary
 
@@ -34,8 +50,8 @@ After merge and QA, items reach `implemented` and enter the **delivery lifecycle
 | `plan-drafted` | Shepherd (epics only) | Architect's initial plan + task decomposition captured, awaiting plan refinement |
 | `refining-plan` | Refine (`/yoke refine`, epics only) | Plan under refinement after critique/simulation |
 | `planned` | Refine (epics only) | Architecture decomposed and approved, ready to conduct |
-| `implementing` | Advance (issues) / Conduct (epics) | Engineer dispatched |
-| `reviewing-implementation` | Advance (issues) / Conduct (epics) | Engineer done, under review in the same worktree |
+| `implementing` | Workflow executor | Work is executing in registered worktree lanes |
+| `reviewing-implementation` | Workflow executor | Workflow-specific verification and close |
 | `reviewed-implementation` | Advance (issues) / Conduct (epics) | Review complete, ready for polish |
 | `polishing-implementation` | Polish (`/yoke polish`) | Final polish in progress |
 | `implemented` | Polish (`/yoke polish`) | Polish complete, awaiting deployment handoff |
@@ -43,7 +59,11 @@ After merge and QA, items reach `implemented` and enter the **delivery lifecycle
 | `done` | Usher | Deployment run succeeded and all blocking QA satisfied (or no deployment flow) |
 | `cancelled` | Human | Explicitly cancelled |
 
-> **Ownership note:** `/yoke refine` owns idea refinement for both issues and epics, and plan refinement for epics. `/yoke shepherd` is an epic-only bridge that owns `refined-idea -> planning -> plan-drafted`. See [lifecycle.md](lifecycle.md) for the full command-boundary guide.
+> **Ownership note:** `/yoke refine` owns idea refinement for Issue, Epic, and
+> Blitz, and plan refinement for Epic. `/yoke shepherd` is the Epic bridge
+> from `refined-idea` through planning. `/yoke dash` owns Dash execution and
+> `/yoke blitz` owns Blitz execution after refinement. See
+> [workflows.md](workflows.md) for the operator boundary.
 
 **Note:** `needs-capability` and `awaiting-approval` are **halt states** on the deployment run, not item statuses. Items at these halt states remain at `status=release`. The `current_stage` field on the `deployment_runs` row tracks position within the deployment pipeline. See Delivery Lifecycle below for details.
 
@@ -54,8 +74,9 @@ Items are read via `yoke items get YOK-N <field>`. The `body` field is a virtual
 **Fields:**
 - `id` — stable `YOK-N` identifier, never changes
 - `title` — human-readable title
-- `type` — `epic` or `issue`
-- `status` — lifecycle state (see Item Types above)
+- `workflow_id` — stable workflow identity (`dash`, `blitz`, `issue`, `epic`)
+- `workflow_version_id` — immutable definition version pinned at creation
+- `status` — current stage id, validated against the pinned version
 - `priority` — `high`, `medium`, or `low`
 - `epic` — slug of linked epic directory (null if not yet planned)
 - `github_issue` — GitHub issue reference, populated on sync (null if unsynced)

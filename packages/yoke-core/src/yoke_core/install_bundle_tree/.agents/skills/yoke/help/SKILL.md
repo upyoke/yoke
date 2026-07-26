@@ -8,7 +8,7 @@ description: Show the Yoke command reference and quick-start guide.
 Display the Yoke command reference.
 
 <!-- BEGIN GENERATED: field-note-directive -->
-When you hit a recipe gap or notice a minor bug not worth a ticket, file a field-note immediately — before retrying, before moving on.
+When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
 Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->
@@ -23,7 +23,7 @@ Yoke -- Your operating system for software delivery
 COMMANDS
  /yoke do Autonomous orchestrator — decision engine picks next action
  /yoke charge Direct-mode: pick up next runnable item from frontier
- /yoke feed [--no-new-tickets] Direct-mode: maintain frontier dependency graph and optionally materialize new work from strategy layer
+ /yoke feed [--no-new-items] Direct-mode: maintain frontier dependency graph and optionally materialize new work from strategy layer
  /yoke strategize Direct-mode: guided SML review (research, propose, approve)
  /yoke onboard [--project P] [--run-id RUN] Make a wired project execution-ready (strategy, profile, Packs, hosting, envs, gated first deploy, seeded work)
  /yoke idea {title} Capture a new backlog item

@@ -199,7 +199,7 @@ def render_velocity_sparkline(
     Activity is counted from the ``item_activity_days`` rollup
     (see :mod:`yoke_core.domain.item_activity`); per-day commit
     counts are unioned in so days that produced code without a
-    ticket-scoped mutation still register.
+    item-scoped mutation still register.
     """
     dates = _date_range(14)
 
@@ -341,7 +341,7 @@ def _compute_lifetime_activity(
                 _resolve_repos(db, scope, repo_root), project_days,
             )
         # Clamp commit days to the project's own lifetime so a repo
-        # whose history predates the first ticket can't push the
+        # whose history predates the first work item can't push the
         # percentage above 100%.
         for day in commits:
             if day >= first_iso:

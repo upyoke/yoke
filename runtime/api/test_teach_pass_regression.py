@@ -100,7 +100,7 @@ def test_function_call_stanza_names_canonical_models(body: str) -> None:
 
 
 _JSON_NESTED_COLUMNS_REQUIRED = (
-    "items.browser_qa_metadata", "items.db_mutation_profile",
+    "items.db_mutation_profile",
     "items.db_compatibility_attestation", "harness_sessions.offer_envelope",
     "qa_requirements.capability_requirements",
     "qa_requirements.success_policy", "epic_tasks.dependencies",

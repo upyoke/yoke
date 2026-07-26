@@ -40,7 +40,7 @@ def conn():
 class TestNonFatalContract:
     def test_emit_swallows_connection_errors(self, conn):
         """Simulating a table-not-found error returns a failed result."""
-        conn.execute("DROP TABLE events")
+        conn.execute("DROP TABLE events CASCADE")
         conn.commit()
         result = emit_event(
             "NoTable",

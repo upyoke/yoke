@@ -193,7 +193,7 @@ class TestCLI:
                     "proceed-triage-handoff", "42",
                     "--recommendation", "PROCEED",
                     "--gap-summary", "test",
-                    "--filed-tickets", "1515,1516",
+                    "--filed-items", "1515,1516",
                     "--session-id", "sess-1",
                 ])
 
@@ -202,7 +202,7 @@ class TestCLI:
             42,
             recommendation="PROCEED",
             gap_summary="test",
-            filed_ticket_ids=["1515", "1516"],
+            filed_item_ids=["1515", "1516"],
             session_id="sess-1",
         )
 

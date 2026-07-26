@@ -116,7 +116,7 @@ mirror — no extra permission needed. Only fires when a project has sync
 enabled; new projects default to `backlog_only`, which does zero issue writes.
 
 **Pull requests: write** — **Opening** a pull request from the worktree branch
-into your default branch when you ship a ticket (`/yoke usher`), plus the
+into your default branch when you ship a work item (`/yoke usher`), plus the
 agent-driven "open a PR" command. This permission is specifically for
 *creating* PRs; merging the PR is authorized by Contents: write, and the
 find-PR and mergeability reads run at Pull requests: read.

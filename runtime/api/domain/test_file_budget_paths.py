@@ -60,7 +60,7 @@ class TestIsPathToken:
 
 
 class TestFunctionIdsInFileBudgetReproductionShape:
-    """Two consecutive rewrites of a prior ticket were blocked because the
+    """Two consecutive rewrites of a prior work item were blocked because the
     operator listed function ids in ``## File Budget`` backticks. The
     parser must surface only real paths and silently ignore dotted-
     identifier tokens, even when they sit alongside real paths.

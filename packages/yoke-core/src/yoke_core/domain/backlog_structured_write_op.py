@@ -70,19 +70,6 @@ def execute_structured_write(
         with open(file_path, "r", encoding="utf-8") as f:
             content = f.read()
 
-    # JSON-shape structured field: reject malformed payload before DB write.
-    if field == "browser_qa_metadata" and content and content.strip():
-        from yoke_core.domain.browser_qa_metadata import (
-            BrowserQaMetadataError,
-            validate_json_string,
-        )
-        try:
-            content = validate_json_string(content)
-        except BrowserQaMetadataError as exc:
-            return {
-                "success": False,
-                "error": f"browser_qa_metadata validation failed: {exc}",
-            }
     if field == "db_mutation_profile" and content and content.strip():
         from yoke_core.domain.db_mutation_profile import (
             DbMutationProfileError,

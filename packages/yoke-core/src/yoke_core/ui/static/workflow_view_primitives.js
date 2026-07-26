@@ -53,9 +53,15 @@ export function workflowPanel(documentNode, title, options = {}) {
       documentNode, "span", "panel-count", `· ${options.count}`,
     ));
   }
+  if (options.inlineVersion && options.version !== undefined) {
+    heading.appendChild(el(
+      documentNode, "span", "workflow-version",
+      `current · v${options.version}`,
+    ));
+  }
   header.appendChild(heading);
   const meta = el(documentNode, "div", "workflow-panel-meta");
-  if (options.version !== undefined) {
+  if (!options.inlineVersion && options.version !== undefined) {
     meta.appendChild(el(
       documentNode, "span", "workflow-version",
       `current · v${options.version}`,

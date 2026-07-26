@@ -16,6 +16,22 @@ from yoke_core.api.service_client_structured_api_adapter_inventory_types import 
 
 
 QA_ADAPTERS: List[AdapterEntry] = [
+    _read_entry(
+        function_id="qa.case_execution.get",
+        cli_invocation="yoke qa case run --requirement-id N",
+    ),
+    _read_entry(function_id="qa.method.list", cli_invocation="yoke qa method list --project P"),
+    _read_entry(function_id="qa.method.get", cli_invocation="yoke qa method get METHOD --project P"),
+    AdapterEntry("qa.project_method.register", "yoke qa project-method register --project P --slug SLUG --name NAME --description TEXT --executor worktree_run --verdict-path automatic --verdict-contract TEXT --evidence-contract TEXT"),
+    _read_entry(function_id="qa.plan.list", cli_invocation="yoke qa plan list --project P"),
+    _read_entry(function_id="qa.plan.get", cli_invocation="yoke qa plan get PLAN_ID --project P"),
+    _read_entry(function_id="qa.activity.list", cli_invocation="yoke qa activity list --project P"),
+    _read_entry(function_id="qa.artifact.read", cli_invocation="yoke qa artifact read --requirement-id N --artifact-id N"),
+    AdapterEntry("qa.plan.create", "yoke qa plan create SLUG --project P"),
+    AdapterEntry("qa.plan_cases.replace", "yoke qa plan-cases replace --project P --plan-id N --stdin"),
+    AdapterEntry("qa.project_default.set", "yoke qa project-default set --project P --plan-id N --workflow W --transition T"),
+    AdapterEntry("qa.item_plan.attach", "yoke qa item-plan attach --item YOK-N --project P --plan-id N --transition T"),
+    AdapterEntry("qa.plan.materialize", "yoke qa plan materialize --item YOK-N --transition T"),
     AdapterEntry("qa.requirement.update", "yoke qa requirement update --requirement-id N --field FIELD --value VALUE"),
     AdapterEntry("qa.requirement.auto_create_for_item", "yoke qa requirement auto-create-for-item --item YOK-N"),
     AdapterEntry("qa.requirement.waive", "yoke qa requirement waive --requirement-id N --rationale TEXT"),

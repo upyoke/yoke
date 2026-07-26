@@ -117,7 +117,7 @@ def regression_db(tmp_db: str, tmp_path: Path):
         )
         # Seed Yoke's flow with the migration_apply stage so the joint
         # gate's flow cross-reference resolves cleanly when callers move
-        # tickets through earlier transitions.  Even though this test only
+        # work items through earlier transitions.  Even though this test only
         # drives implementing -> reviewing-implementation, having the flow
         # stage in place keeps the migration_model bootstrap honest.
         stages_json = json.dumps([

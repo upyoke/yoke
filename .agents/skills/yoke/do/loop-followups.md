@@ -98,7 +98,7 @@ classes of statement appear in those summaries:
 
 - **Narrative claims** — what the loop attempted, what it decided, what it
   declined. These describe the chain's history and may stay free-form.
-- **State claims** — anything that names a DB-resident ticket field for an item
+- **State claims** — anything that names a DB-resident work item field for an item
   the chain touched. The item status, worktree, deployed-to, and deployment-flow
   fields — and every other column on the item row (see your ``items`` packet
   stanza) — count as state. So do the matching fields on the epic-task row

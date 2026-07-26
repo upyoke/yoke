@@ -78,7 +78,7 @@ if "status" in command and "done" in command and "# lint:no-done-check" not in c
 """
 RULE_TEXT_ADD_PROJECT = r"""
 # --- Check 14: Advisory for items add without --project ---
-# Automated ticket creation (conduct gap tickets, curate, import) should always
+# Automated work-item creation (conduct gaps, curate, import) should always
 # pass --project explicitly; repo config no longer defines project context.
 # Suppression: add "# lint:no-project-check" comment to the command.
 if "items" in command and "add" in command and "# lint:no-project-check" not in command_stripped:
@@ -93,8 +93,8 @@ if "items" in command and "add" in command and "# lint:no-project-check" not in 
                 "permissionDecisionReason": (
                     "WARNING: items add called without --project.\n"
                     "Without --project, the item cannot inherit project context "
-                    "from repo config. For automated ticket creation (conduct "
-                    "gap tickets, curate promotions, bulk imports), always pass "
+                    "from repo config. For automated work-item creation "
+                    "(conduct gaps, curate promotions, bulk imports), always pass "
                     "--project explicitly to inherit the correct project scope.\n"
                     "Add %s# lint:no-project-check%s comment to suppress this warning."
                     % (chr(39), chr(39))

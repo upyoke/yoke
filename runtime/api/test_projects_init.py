@@ -126,9 +126,9 @@ class TestInit:
 
     def test_reinit_preserves_onboarded_project_edits(self, empty_db: str):
         """Re-running ``cmd_init`` after a project onboarded (identity row +
-        Project Structure seed) leaves operator-edited command_definitions
-        alone — init never touches per-project entries."""
-        from yoke_core.domain import command_definitions as cmd_defs
+        Project Structure seed) leaves an operator-edited deployment default
+        alone."""
+        from yoke_core.domain import deploy_defaults
         from yoke_core.domain import project_structure as ps
 
         projects.cmd_init(db_path=empty_db)
@@ -139,20 +139,19 @@ class TestInit:
             conn.close()
         ps.cmd_seed("yoke", db_path=empty_db)
 
-        # Operator edit: override the full scope with a different command.
         ps.apply_patch(
             "yoke",
             ops=[{
                 "op": "put",
-                "family": "command_definitions",
+                "family": "deploy_defaults",
                 "attachment": "project",
-                "entry_key": "full",
-                "payload": {"command": "custom-full-command"},
+                "payload": {"deployment_flow": "custom-flow"},
             }],
             db_path=empty_db,
         )
 
         projects.cmd_init(db_path=empty_db)
 
-        commands = cmd_defs.list_commands("yoke", db_path=empty_db)
-        assert commands["full"] == "custom-full-command"
+        assert deploy_defaults.get_default_flow(
+            "yoke", db_path=empty_db,
+        ) == "custom-flow"

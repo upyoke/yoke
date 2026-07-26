@@ -94,7 +94,7 @@ from yoke_core.domain.epic_cascade import (  # noqa: F401
     cascade_task_status,
 )
 
-from yoke_core.domain.db_helpers import connect, query_one
+from yoke_core.domain.db_helpers import connect, query_one  # noqa: F401 -- patch target
 from yoke_core.domain import epic_task_sync  # noqa: F401  -- patch target for sibling modules
 from yoke_core.domain.qa import cmd_requirement_add, cmd_run_add
 
@@ -244,7 +244,7 @@ def proceed_triage_and_handoff(
     *,
     recommendation: str,
     gap_summary: str = "",
-    filed_ticket_ids: Optional[List[str]] = None,
+    filed_item_ids: Optional[List[str]] = None,
     session_id: Optional[str] = None,
 ) -> int:
     from yoke_core.domain.epic_review import proceed_triage_and_handoff as _impl
@@ -252,7 +252,7 @@ def proceed_triage_and_handoff(
         epic_id,
         recommendation=recommendation,
         gap_summary=gap_summary,
-        filed_ticket_ids=filed_ticket_ids,
+        filed_item_ids=filed_item_ids,
         session_id=session_id,
     )
 

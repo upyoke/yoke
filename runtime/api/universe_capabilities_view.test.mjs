@@ -35,22 +35,33 @@ test("Capabilities shows stored types with derived kind, state, and freshness", 
             result: {
               rows: [
                 {
-                  type: "github", kind: "provider_access", state: "verified",
+                  type: "test-machine", kind: "test_resource", state: "in_use",
+                  project: "yoke", project_id: 1,
+                  settings_summary: "mac-mini-lab · Terminal + PTY · baselines ×2",
+                  used_by_summary: "Machine methods ×3",
+                  verified_at: "2026-07-15T12:10:00Z",
+                  verified_source: "capability",
+                },
+                {
+                  type: "github", kind: "provider_access", state: "ready",
                   project: "yoke",
                   settings_summary: "example-org/example-repo",
+                  used_by_summary: "GitHub · delivery",
                   verified_at: "2026-07-15T12:00:00Z",
                   verified_source: "repo-binding",
                 },
                 {
                   type: "migration_model", kind: "declared_model",
-                  state: "declared", project: "yoke",
+                  state: "ready", project: "yoke",
                   settings_summary: "primary (governed_module)",
+                  used_by_summary: "all workflows",
                   verified_at: null, verified_source: null,
                 },
                 {
                   type: "aws-admin", kind: "provider_access",
                   state: "configured_unverified", project: "yoke",
                   settings_summary: "",
+                  used_by_summary: "Delivery · Infrastructure",
                   verified_at: null, verified_source: null,
                 },
               ],
@@ -75,11 +86,15 @@ test("Capabilities shows stored types with derived kind, state, and freshness", 
     .filter((node) => node.tagName === "TD")
     .map(cellText);
   assert.deepEqual(cells, [
-    "github", "provider_access", "example-org/example-repo",
-    "2026-07-15T12:00:00Z", "verified",
-    "migration_model", "declared_model", "primary (governed_module)",
-    "never", "declared",
-    "aws-admin", "provider_access", "—", "never", "configured_unverified",
+    "test-machine", "test resource",
+    "mac-mini-lab · Terminal + PTY · baselines ×2",
+    "Machine methods ×3", "2026-07-15T12:10:00Z", "in use",
+    "github", "provider access", "example-org/example-repo",
+    "GitHub · delivery", "2026-07-15T12:00:00Z", "ready",
+    "migration_model", "declared model", "primary (governed_module)",
+    "all workflows", "never", "ready",
+    "aws-admin", "provider access", "—", "Delivery · Infrastructure",
+    "never", "configured (unverified)",
   ]);
   // Kind and state color through the semantic pill families. The engine
   // derives both values; configured-but-never-verified reads as loudly as
@@ -89,8 +104,9 @@ test("Capabilities shows stored types with derived kind, state, and freshness", 
   assert.deepEqual(
     pills.map((pill) => pill.className),
     [
+      "pill good", "pill run",
       "pill run", "pill good",
-      "pill idle", "pill idle",
+      "pill idle", "pill good",
       "pill run", "pill warn",
     ],
   );
@@ -99,7 +115,14 @@ test("Capabilities shows stored types with derived kind, state, and freshness", 
     .filter((node) => node.tagName === "TD" &&
       node.classList && node.classList.contains("mono"))
     .map(cellText);
-  assert.deepEqual(monoCells, ["github", "migration_model", "aws-admin"]);
+  assert.deepEqual(
+    monoCells,
+    ["test-machine", "github", "migration_model", "aws-admin"],
+  );
+  const machineLink = allNodes(root).find(
+    (node) => node.classList?.contains("row-link"),
+  );
+  assert.equal(machineLink.href, "#/capabilities/test-machine?project=1");
   mounted.unmount();
 });
 
@@ -137,6 +160,6 @@ test("Capabilities renders its honest empty state", async (t) => {
   );
   const text = allNodes(root)
     .map((node) => node.textContent || "").join(" ");
-  assert.ok(text.includes("no capabilities declared yet"));
+  assert.ok(text.includes("No capabilities in this scope."));
   mounted.unmount();
 });

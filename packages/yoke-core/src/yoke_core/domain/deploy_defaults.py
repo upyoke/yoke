@@ -62,13 +62,19 @@ def set_default_flow(
     """Upsert the project's default deployment flow."""
     if not isinstance(flow_id, str) or not flow_id:
         raise ValueError("flow_id must be a non-empty string")
+    state = ps.read_structure(project_id, family=FAMILY, db_path=db_path)
+    entries = state.get("entries") or []
+    existing = entries[0].get("payload") or {} if entries else {}
+    payload = {"deployment_flow": flow_id}
+    if isinstance(existing.get("workflow_defaults"), dict):
+        payload["workflow_defaults"] = existing["workflow_defaults"]
     ps.apply_patch(
         project_id,
         ops=[{
             "op": "put",
             "family": FAMILY,
             "attachment": "project",
-            "payload": {"deployment_flow": flow_id},
+            "payload": payload,
         }],
         actor=actor,
         db_path=db_path,
@@ -91,6 +97,7 @@ def set_default_flow_on_connection(
         "AND attachment_value='project' AND entry_key=''",
         (numeric_project_id,),
     ).fetchone()
+    payload = {}
     if row is not None:
         try:
             payload = json_helper.loads_text(str(row[0] or "{}"))
@@ -98,6 +105,11 @@ def set_default_flow_on_connection(
             payload = {}
         if isinstance(payload, dict) and payload.get("deployment_flow") == flow_id:
             return False
+    if not isinstance(payload, dict):
+        payload = {}
+    next_payload = {"deployment_flow": flow_id}
+    if isinstance(payload.get("workflow_defaults"), dict):
+        next_payload["workflow_defaults"] = payload["workflow_defaults"]
     from yoke_core.domain.project_structure_write import apply_patch_on_connection
 
     apply_patch_on_connection(
@@ -107,7 +119,7 @@ def set_default_flow_on_connection(
             "op": "put",
             "family": FAMILY,
             "attachment": "project",
-            "payload": {"deployment_flow": flow_id},
+            "payload": next_payload,
         }],
     )
     return True

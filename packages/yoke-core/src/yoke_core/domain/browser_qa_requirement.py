@@ -1,7 +1,7 @@
 """Per-requirement step-loop orchestration for Browser QA.
 
 Owns ``_process_requirement`` — the per-``qa_requirement`` step loop that
-``execute_scenario`` calls once per browser-kind row. The loop owns the
+``execute_scenario`` calls once per Browser method case. The loop owns the
 ``_mark_capture_failed`` closure (the closure's ``nonlocal`` over the
 loop-local execution-status/verdict/error variables is load-bearing).
 
@@ -63,22 +63,23 @@ def _process_requirement(
 
     req_id = req_row["id"]
     qa_kind = req_row["qa_kind"]
-    success_policy_raw = req_row["success_policy"]
+    method_id = req_row.get("method_id")
+    method_config_raw = req_row["method_config"]
 
     _bqa._log(f"Processing requirement {req_id} (kind: {qa_kind})...")
 
-    # Parse success_policy
+    # Parse the materialized method configuration.
     steps = []
-    if success_policy_raw:
+    if method_config_raw:
         try:
-            policy_data = json.loads(success_policy_raw)
-            steps = policy_data.get("steps", [])
+            method_config = json.loads(method_config_raw)
+            steps = method_config.get("steps", [])
         except json.JSONDecodeError:
             pass
 
     if not steps:
         _bqa._log(
-            f"WARNING: No steps found in success_policy for requirement {req_id}"
+            f"WARNING: No steps found in method_config for requirement {req_id}"
         )
 
         # Record error run
@@ -90,8 +91,8 @@ def _process_requirement(
                 code_identity=code_identity,
                 freshness_validated=freshness_validated,
                 verdict="error",
-                errors="malformed_success_policy:missing_steps",
-                note="Skipped: success_policy missing 'steps' array",
+                errors="malformed_method_config:missing_steps",
+                note="Skipped: method_config missing 'steps' array",
             ),
         )
         run_result = RunResult(
@@ -99,7 +100,7 @@ def _process_requirement(
             qa_kind=qa_kind,
             verdict="error",
             qa_run_id=run_id,
-            errors="malformed_success_policy:missing_steps",
+            errors="malformed_method_config:missing_steps",
             code_identity=dict(code_identity),
         )
         return RequirementOutcome(run_result=run_result, skipped=True)
@@ -268,8 +269,13 @@ def _process_requirement(
             f"recorded={recorded_screenshots};"
         )
 
-    # finalize with execution_status. verdict is NULL on success
-    # (awaiting inspection) and 'fail' on capture failure.
+    # Browser checks decide automatically when every declared step succeeds.
+    # Browser inspections capture evidence and explicitly enter review.
+    if run_verdict is None and method_id == "browser-check":
+        run_verdict = "pass"
+    elif run_verdict is None and method_id == "browser-inspection":
+        run_verdict = "inconclusive"
+
     _bqa._complete_run(
         run_id,
         req_id,

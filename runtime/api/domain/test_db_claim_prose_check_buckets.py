@@ -1,7 +1,7 @@
 """Bucket-fixture coverage for the prose-vs-claim detector.
 
 Companion to ``test_db_claim_prose_check.py``. Houses the
-real-mutation-vs-meta-ticket prose fixtures so the parent test file
+real-mutation-vs-meta-work-item prose fixtures so the parent test file
 stays under the file-line gate after this addition.
 
 These tests exercise the existing detector — no new logic, just two
@@ -10,7 +10,7 @@ representative prose strings that the three-bucket discipline in
 
 * a real governed mutation prose example (schema change, trigger, and
   ``migration_audit`` writes — Bucket 1 or 2 in skill prose), and
-* a meta-ticket prose example that cites ``ALTER TABLE`` / ``ADD COLUMN``
+* a meta-work-item prose example that cites ``ALTER TABLE`` / ``ADD COLUMN``
   / ``governed DB`` only because it discusses gate vocabulary (Bucket 3).
 
 The detector itself does not classify intent — both fixtures fire
@@ -46,17 +46,17 @@ that performs the live apply through the governed runner.
 """
 
 
-_META_TICKET_PROSE = """\
-Tighten the prose-vs-claim gate so meta-tickets that cite ALTER TABLE,
+_META_WORK_ITEM_PROSE = """\
+Tighten the prose-vs-claim gate so meta work items that cite ALTER TABLE,
 ADD COLUMN, or governed DB only when describing the gate vocabulary they
 are hardening do not get blocked. The change edits skill prose and the
 prose-trigger composition; no schema change, no governed authoritative
-DB mutation, no migration_audit row written by this ticket.
+DB mutation, no migration_audit row written by this work item.
 """
 
 
-class TestRealMutationVsMetaTicketProse:
-    """Real governed mutation prose fixture and meta-ticket prose
+class TestRealMutationVsMetaWorkItemProse:
+    """Real governed mutation prose fixture and meta-work-item prose
     fixture. Both exercise the existing prose-trigger detector so the
     bucket-distinction documentation in body-and-sync.md step 8b is
     grounded in real classifier output."""
@@ -83,9 +83,9 @@ class TestRealMutationVsMetaTicketProse:
         assert outcome.blocks is True
         assert outcome.has_declared_claim is False
 
-    def test_meta_ticket_prose_fires_triggers(self):
-        labels = [t[0] for t in detect_triggers(_META_TICKET_PROSE)]
-        # Meta-ticket prose still trips the detector because it names DB
+    def test_meta_work_item_prose_fires_triggers(self):
+        labels = [t[0] for t in detect_triggers(_META_WORK_ITEM_PROSE)]
+        # Meta-work-item prose still trips the detector because it names DB
         # vocabulary verbatim. Bucket 3 reviewed-none is the recorded
         # signal that distinguishes intentional discussion from silent
         # deferral; the detector itself does not classify intent.
@@ -93,10 +93,10 @@ class TestRealMutationVsMetaTicketProse:
         assert "ADD COLUMN" in labels or "add column" in labels, labels
         assert "governed DB" in labels, labels
 
-    def test_meta_ticket_prose_clears_with_canonical_reviewed_none(
+    def test_meta_work_item_prose_clears_with_canonical_reviewed_none(
         self, db_conn
     ):
-        """Meta-ticket prose plus a canonical reviewed-none amendment
+        """Meta-work-item prose plus a canonical reviewed-none amendment
         clears the gate. The amendment workflow stamps the
         reviewed-negative attestation onto the stored profile — the
         bucket-3 signal documented in body-and-sync.md step 8b; the gate
@@ -108,7 +108,7 @@ class TestRealMutationVsMetaTicketProse:
             db_conn,
             id=item_id,
             status="idea",
-            spec=_META_TICKET_PROSE,
+            spec=_META_WORK_ITEM_PROSE,
             db_mutation_profile='{"state":"none"}',
         )
         _stamp_reviewed_none_profile(db_conn, item_id=item_id)

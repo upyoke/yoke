@@ -143,7 +143,7 @@ def parse_frontier_entries(
     # Walk forward collecting entries inside #### Landed / Remaining frontier
     # subsections until the next ``## `` heading. Modern MP versions may
     # expose the active frontier as phase-level bullets before concrete YOK-N
-    # tickets are filed; keep those as a specific advisory instead of the old
+    # work items are filed; keep those as a specific advisory instead of the old
     # generic "format changed" warning.
     current_section: Optional[str] = None
     rank_remaining = 0
@@ -223,7 +223,7 @@ def parse_frontier_entries(
             advisories.append(
                 "Backlog By Generation section contains phase-level frontier "
                 f"entries ({preview}{suffix}) but no numbered YOK-N entries; "
-                "status-order validation is skipped until concrete tickets are filed."
+                "status-order validation is skipped until concrete work items are filed."
             )
         else:
             advisories.append(

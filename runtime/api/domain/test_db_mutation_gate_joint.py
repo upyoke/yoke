@@ -301,12 +301,12 @@ class TestJointGate:
             for e in outcome.errors
         )
 
-    def test_cross_ticket_overlap_blocks(self, gate_db) -> None:
+    def test_cross_work_item_overlap_blocks(self, gate_db) -> None:
         _conn, repo_path = gate_db
         modules_dir = "runtime/api/domain/migrations"
         _write_module(repo_path, modules_dir, "m")
         item_id = self._stage(gate_db, profile=_overlap_profile("m"))
-        # Other ticket: also non-terminal, same column.
+        # Other work item: also non-terminal, same column.
         insert_item(
             _conn,
             id=999,

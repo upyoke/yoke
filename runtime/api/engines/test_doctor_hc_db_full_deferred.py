@@ -63,7 +63,7 @@ class TestHCDeferredItemsFull:
 
             ## Deferred Items
 
-            | Description | Reason | Ticket |
+            | Description | Reason | Work item |
             |---|---|---|
             | Remove column | Migration risk | UNFILED |
 
@@ -85,7 +85,7 @@ class TestHCDeferredItemsFull:
 
             ## Deferred Items
 
-            | Description | Reason | Ticket |
+            | Description | Reason | Work item |
             |---|---|---|
             | Remove column | Migration risk | YOK-99 |
             | Add tests | Out of scope | YOK-100 |
@@ -156,7 +156,7 @@ class TestHCDeferredItemsFull:
 
             ## Deferred Items
 
-            | Description | Reason | Ticket |
+            | Description | Reason | Work item |
             |---|---|---|
             | Remove column | Risk | UNFILED |""")
         insert_item(test_db, id=90, title="Done epic warn severity test", type="epic",

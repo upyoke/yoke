@@ -19,9 +19,7 @@ from yoke_cli.commands.registry_github_actions import (
 )
 from yoke_cli.commands.registry_identity import IDENTITY_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_projects import PROJECTS_SUBCOMMAND_REGISTRY
-from yoke_cli.commands.registry_project_structure import (
-    PROJECT_STRUCTURE_SUBCOMMAND_REGISTRY,
-)
+from yoke_cli.commands import registry_product_surfaces as _product_surfaces
 from yoke_cli.commands.registry_readiness import READINESS_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_shepherd_dependency import (
     SHEPHERD_DEPENDENCY_SUBCOMMAND_REGISTRY,
@@ -272,7 +270,6 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ("packs", "update"): ("packs.update.run", _adapters.packs_update),
 }
 
-SUBCOMMAND_REGISTRY.update(PROJECT_STRUCTURE_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(SHEPHERD_DEPENDENCY_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(EPIC_OPS_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(DEPLOYMENT_SUBCOMMAND_REGISTRY)
@@ -283,6 +280,7 @@ SUBCOMMAND_REGISTRY.update(IDENTITY_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(GITHUB_ACTIONS_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(PROJECTS_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(WORKFLOW_SUBCOMMAND_REGISTRY)
+SUBCOMMAND_REGISTRY.update(_product_surfaces.PRODUCT_SURFACE_SUBCOMMAND_REGISTRY)
 
 
 _TOKEN_LENGTHS: Tuple[int, ...] = (4, 3, 2, 1)
@@ -294,6 +292,7 @@ _TOKEN_LENGTHS: Tuple[int, ...] = (4, 3, 2, 1)
 # mechanical translation of its function_id; aliases live separately so
 # the 1:1 invariant on the primary registry stays intact.
 SUBCOMMAND_ALIAS_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
+    **_product_surfaces.PRODUCT_SURFACE_SUBCOMMAND_ALIAS_REGISTRY,
     ("projects", "capability", "secret", "set"): (
         "projects.capability_secret.set",
         _adapters.projects_capability_secret_set,

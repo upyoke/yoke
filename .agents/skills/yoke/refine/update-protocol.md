@@ -62,12 +62,12 @@ content by abstracting it into vague prose.
 
 **Escalation gate.** If the critique identified major errors (wrong
 references verified against the codebase, contradictory requirements,
-scope conflicts with active tickets), do NOT dispatch the write.
+scope conflicts with active work items), do NOT dispatch the write.
 Instead, stop and surface the issues to the operator. Do NOT advance
 status. The item stays at `refining-idea` or `refining-plan` until the
 operator resolves the issue.
 
-**File Budget escalation.** If the ticket is implementation-bearing AND
+**File Budget escalation.** If the work item is implementation-bearing AND
 the File Budget cannot be resolved during this refine pass — the file
 shape is genuinely unknown, the touched source files are already over
 the 300-line design target with no obvious split, or a proposed task
@@ -75,7 +75,7 @@ owns multiple responsibilities that cannot be reduced without operator
 input — do NOT silently advance. Surface the blocker to the operator
 with the exact set of files in question (including current line counts)
 and the resolution options (split before implementation, expand the
-budget with justification, descope, or split the ticket). The item
+budget with justification, descope, or split the work item). The item
 stays at `refining-idea` (issue) or `refining-plan` (epic) until the
 operator resolves it.
 
@@ -177,13 +177,13 @@ spec/body declares governed DB mutation but the stored
 `DbClaimAmended` event is on record. Dispatch `db_claim.amend` before
 retrying the advance:
 
-- **Ticket actually mutates the governed DB** — `target = {kind: "item",
+- **Work item actually mutates the governed DB** — `target = {kind: "item",
   item_id: N}`, `payload = {reason: "refine: prose declares governed
   DB mutation", claim: <unified-claim-json>}`.
-- **Meta-ticket about DB governance** — the spec legitimately cites
+- **Meta work item about DB governance** — the spec legitimately cites
   `ALTER TABLE`, `ADD COLUMN`, `migration_audit`, or similar while
   performing no governed mutation. Dispatch with `payload = {reason:
-  "refine: ticket discusses DB governance vocabulary but mutates
+  "refine: work item discusses DB governance vocabulary but mutates
   nothing; reviewed-none", claim: {state: "none"}}`. The amendment
   emits a `DbClaimAmended` event; the prose-vs-claim gate honors the
   latest event with `context.new_profile.state="none"` and

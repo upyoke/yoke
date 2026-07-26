@@ -17,7 +17,7 @@ remains in the table display for ranking diagnostics.
 `yoke charge schedule` is claim-aware: each ranked step carries a `claim_state` (`unclaimed`, `claimed_by_self`, `claimed_by_other_live`, `claimed_by_stale`). Steps with `claim_state='claimed_by_other_live'` stay on the ranked frontier for diagnostics but must NOT appear in the operator-facing Runnable table or be selected for dispatch — that is the assignability rule defined in `yoke_core.domain.scheduler_types.is_assignable_claim_state`.
 
 <!-- BEGIN GENERATED: field-note-directive -->
-When you hit a recipe gap or notice a minor bug not worth a ticket, file a field-note immediately — before retrying, before moving on.
+When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
 Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->

@@ -77,13 +77,13 @@ class TestReflectionCaptureDocs:
 
 
 class TestNoDescopeForActivePathClaims:
-    """Active path claims must not narrow ticket scope.
+    """Active path claims must not narrow work-item scope.
 
-    A ticket's correct implementation scope must never be narrowed,
+    A work item's correct implementation scope must never be narrowed,
     descoped, or rewritten solely because a required path is already
     claimed. Active path claims are coordination/dependency/blocking
     facts about who currently coordinates work on a path — never
-    permission to omit a required file from a ticket.
+    permission to omit a required file from a work item.
     """
 
     @pytest.fixture
@@ -101,12 +101,12 @@ class TestNoDescopeForActivePathClaims:
 
     def test_agents_forbids_scope_narrowing_for_claimed_paths(self, docs):
         text = _read(docs["agents"])
-        assert "Claimed paths do not narrow ticket scope" in text
+        assert "Claimed paths do not narrow work item scope" in text
         assert (
             "must never be narrowed, descoped, or rewritten solely because"
             in text
         )
-        assert "the file stays in the ticket" in text
+        assert "the file stays in the work item" in text
 
     def test_agents_states_path_claims_are_coordination_facts(self, docs):
         text = _read(docs["agents"])
@@ -138,8 +138,8 @@ class TestNoDescopeForActivePathClaims:
 
     def test_idea_infer_create_states_no_descope_rule(self, docs):
         text = _read(docs["idea_infer"])
-        assert "claimed paths do not narrow ticket scope" in text
-        assert "do **not** remove the file from the ticket" in text
+        assert "claimed paths do not narrow work item scope" in text
+        assert "do **not** remove the file from the work item" in text
         assert "coordination/dependency/blocking facts" in text
         assert "## Path Claims — Hard Rule" in text
 

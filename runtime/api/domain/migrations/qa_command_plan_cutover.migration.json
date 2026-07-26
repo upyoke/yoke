@@ -1,0 +1,88 @@
+{
+  "version": 1,
+  "project": "yoke",
+  "profile": {
+    "state": "declared",
+    "model_name": "primary",
+    "mutation_intent": "apply",
+    "migration_modules": [
+      "qa_command_plan_cutover"
+    ],
+    "compatibility_class": "pre_merge_safe",
+    "migration_strategy": "expand_contract",
+    "migration_strategy_justification": "Executable QA plans, transition attachments, and the shared case runner land before legacy command and merge-verification settings rows are removed.",
+    "schema_kinds": [],
+    "data_kinds": [
+      "fill",
+      "drop"
+    ],
+    "affected_surfaces": [
+      {
+        "table": "project_structure",
+        "columns": [
+          "family",
+          "entry_key",
+          "payload"
+        ]
+      },
+      {
+        "table": "qa_plans",
+        "columns": [
+          "project_id",
+          "slug"
+        ]
+      },
+      {
+        "table": "qa_plan_cases",
+        "columns": [
+          "method_id",
+          "method_config"
+        ]
+      },
+      {
+        "table": "qa_plan_project_defaults",
+        "columns": [
+          "workflow_id",
+          "transition_id",
+          "plan_id"
+        ]
+      }
+    ],
+    "count_preserving": false
+  },
+  "module_sources": {
+    "qa_command_plan_cutover": {
+      "path": "packages/yoke-core/src/yoke_core/domain/migrations/qa_command_plan_cutover.py",
+      "sha256": "dc16145cbb2ae36eb77bfa80b64788534ee65a2ec0aecf7d9fccea49ecedec25"
+    }
+  },
+  "attestation": {
+    "pre_merge_readers_writers": [
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/qa_case_execution.py",
+        "symbol": "execute_case",
+        "role": "reader"
+      },
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/qa_plan_attachments.py",
+        "symbol": "materialize_for_item",
+        "role": "reader"
+      },
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/qa_command_plan_migration.py",
+        "symbol": "migrate_registered_commands",
+        "role": "writer"
+      }
+    ],
+    "invariants": [
+      "No project_structure command_definitions or merge_verification rows remain.",
+      "Every migrated scope has one Command-method plan case carrying the original command.",
+      "Each migrated plan is attached only to its declared workflow transition.",
+      "Each migrated merge-verification policy executes after rebase from a materialized release case."
+    ],
+    "rehearsal_commands": [
+      "PYTHONPATH=packages/yoke-contracts/src:packages/yoke-cli/src:packages/yoke-core/src:packages/yoke-harness/src:. python3 -m pytest runtime/api/domain/migrations/test_qa_command_plan_cutover.py runtime/api/domain/test_qa_command_plan_migration.py runtime/api/domain/test_qa_case_execution.py -q"
+    ],
+    "residual_risk_notes": "The cutover preserves command text and timeout budgets exactly. Deployment must remove the legacy read adapters in the same release so no caller can recreate or depend on retired settings rows."
+  }
+}

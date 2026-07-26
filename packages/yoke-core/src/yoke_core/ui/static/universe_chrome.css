@@ -1,0 +1,270 @@
+/* Workbench chrome for the universe app shell. Colors, fonts, and radius
+   come from the shared design tokens in theme.css, so light/dark follows
+   theme.css's tiers for free — nothing is hardcoded here. Panels read as
+   raised cards on the page background; the left nav reads as a rail. */
+
+.local-universe-page {
+  margin: 0;
+  background: var(--yoke-bg);
+}
+
+.universe-app-root {
+  font-family: var(--yoke-font-sans);
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--yoke-ink);
+  background: var(--yoke-bg);
+  /* Opt native form controls (buttons) into the active theme so they don't
+     render with a light UA appearance on the dark bar. The hosted shell
+     inherits this from the platform document; standalone needs it declared. */
+  color-scheme: light dark;
+}
+.universe-app-root,
+.universe-app-root * {
+  box-sizing: border-box;
+}
+
+/* Top bar: brand lockup left, org context right. Scope is not a top-bar
+   concern — each view carries its own project picker.
+
+   The frame itself is not declared here. The header element carries the
+   shared `.yoke-app-header` class from shell.css alongside `.topbar`, and the
+   marketing site carries the same one; restating the height here is how the
+   two drifted 32px apart in the first place. Only what is specific to the
+   workbench stays below. */
+.universe-app-root .brand svg { height: 1.625rem; width: auto; display: block; }
+/* Who you are acting as. Present only when a host names one. */
+.universe-app-root .actor-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--yoke-ink);
+}
+.universe-app-root .actor-kind {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--yoke-muted);
+  border: 1px solid var(--yoke-border);
+  border-radius: 5px;
+  padding: 1px 5px;
+}
+
+.universe-app-root .org-context {
+  color: var(--yoke-muted);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+/* The view's own scope picker, sitting above that view's rows. It renders
+   only where it can act, so it needs no disabled state. A row of chips:
+   selected ones wear the accent lozenge, the rest stay quiet until hovered. */
+.universe-app-root .scope-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-bottom: 18px;
+}
+.universe-app-root .scope-label {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--yoke-muted);
+  font-weight: 600;
+  margin-right: 3px;
+}
+.universe-app-root .scope-chip {
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 550;
+  padding: 4px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--yoke-border);
+  background: var(--yoke-bg);
+  color: var(--yoke-ink-2);
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+.universe-app-root .scope-chip:hover {
+  background: var(--yoke-hover);
+  color: var(--yoke-ink);
+}
+.universe-app-root .scope-chip.on {
+  background: var(--yoke-accent);
+  color: #fff;
+  border-color: transparent;
+}
+/* Tabs: facets of one concept, never a second nav level. An underline strip
+   above the view's own chrome — the active facet takes the accent, the rest
+   stay muted until hovered. */
+.universe-app-root .tab-bar {
+  display: flex;
+  gap: 2px;
+  margin: -2px 0 16px;
+  border-bottom: 1px solid var(--yoke-border);
+}
+.universe-app-root .tab-link {
+  padding: 7px 13px;
+  font-size: 12.5px;
+  font-weight: 550;
+  color: var(--yoke-muted);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+.universe-app-root .tab-link:hover { color: var(--yoke-ink); }
+.universe-app-root .tab-link.active {
+  color: var(--yoke-accent);
+  border-bottom-color: var(--yoke-accent);
+}
+
+/* The way back out of a drill-in, sitting where that view's picker sits. */
+.universe-app-root .breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 18px;
+  font-size: 12.5px;
+}
+.universe-app-root .breadcrumb-parent { color: var(--yoke-accent); text-decoration: none; font-weight: 550; }
+.universe-app-root .breadcrumb-parent:hover { text-decoration: underline; }
+.universe-app-root .breadcrumb-sep,
+.universe-app-root .breadcrumb-here { color: var(--yoke-muted); }
+
+/* The cell that opens a row's drill-in. A real link: middle-click works. */
+.universe-app-root .row-link { color: var(--yoke-accent); text-decoration: none; }
+.universe-app-root .row-link:hover { text-decoration: underline; }
+
+/* The item's rendered body, shown as the text it is: a code-editor inset —
+   the page background framed inside the surface card, mono at reading
+   density. The file IS the artifact, so it dresses like one. */
+.universe-app-root .item-body {
+  padding: 12px 14px;
+  background: var(--yoke-bg);
+  border: 1px solid var(--yoke-border);
+  border-radius: var(--yoke-radius);
+  font-family: var(--yoke-font-mono);
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--yoke-ink-2);
+  white-space: pre-wrap;
+  overflow-x: auto;
+}
+
+/* Two-column shell: left rail, one content column. The shell holds up to
+   four children — the rail, a host-injected node before the main view, the
+   main view, and a host-injected node after it — so it is a grid whose
+   second column stacks everything that is not the rail. Slot nodes are
+   host-owned elements of any tag, hence the structural :not() placement
+   rather than named classes. The trailing filler row keeps the rail
+   full-height when the stacked content runs short. */
+.universe-app-root .shell {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  grid-template-rows: repeat(3, auto) 1fr;
+  gap: 0;
+  padding: 0;
+  min-height: calc(100vh - var(--yoke-header-height));
+}
+.universe-app-root .shell > * {
+  grid-column: 2;
+  min-width: 0;
+}
+.universe-app-root .shell > .sidenav {
+  grid-column: 1;
+  grid-row: 1 / -1;
+}
+
+.universe-app-root .sidenav {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 236px;
+  padding: 12px 10px;
+  background: var(--yoke-surface);
+  border-right: 1px solid var(--yoke-border);
+}
+.universe-app-root .nav-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  color: var(--yoke-ink-2);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+  /* Nav rows are 30px chrome, not body text: the body's reading
+     line-height (1.45) would add 3px per row and visibly loosen the
+     whole rail. */
+  line-height: normal;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+.universe-app-root .nav-link:hover {
+  background: var(--yoke-hover);
+  color: var(--yoke-ink);
+}
+.universe-app-root .nav-link.active {
+  background: var(--yoke-accent-weak);
+  color: var(--yoke-accent);
+}
+/* Nav glyphs sit in a fixed box so the labels align into a column. */
+.universe-app-root .nav-link .ico {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  color: var(--yoke-muted);
+  font-size: 13px;
+  line-height: 1;
+}
+.universe-app-root .nav-link.active .ico { color: var(--yoke-accent); }
+.universe-app-root .nav-link .txt {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.universe-app-root .content {
+  min-width: 0;
+  padding: 24px 30px 40px;
+}
+
+/* Every routed view opens with its name and one orienting sentence. The
+   head belongs to the route, not the view — a drill-in trades it for the
+   breadcrumb, and a tabbed view keeps one head above the facet strip. */
+.universe-app-root .page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.universe-app-root .page-head-action {
+  flex: 0 0 auto;
+}
+.universe-app-root .page-head .title {
+  margin: 0 0 4px;
+  font-size: 20px;
+  font-weight: 640;
+  letter-spacing: -0.015em;
+  color: var(--yoke-ink);
+}
+.universe-app-root .page-head .subtitle {
+  margin: 0;
+  max-width: 60ch;
+  font-size: 13px;
+  color: var(--yoke-muted);
+}
+
+/* One titled card per read: bordered surface, its own header bar, rows
+   flush to the card edge. Elevation arrives only on hover. */
+.universe-app-root .panel {
+  background: var(--yoke-surface);

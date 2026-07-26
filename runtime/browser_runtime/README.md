@@ -189,9 +189,7 @@ cd "$(python3 -c 'from yoke_core.domain import browser_runtime_home; print(brows
 PYTHONPATH=. python3 -m pytest runtime/api/domain/test_browser_client.py \
   runtime/api/domain/test_browser_runtime_home.py \
   runtime/api/domain/test_browser_qa.py \
-  runtime/api/domain/test_browser_worker.py \
-  runtime/api/domain/test_browser_qa_metadata.py \
-  runtime/api/domain/test_browser_qa_scenarios.py
+  runtime/api/domain/test_browser_worker.py
 ```
 
 ## Documentation

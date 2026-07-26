@@ -83,10 +83,10 @@ Count `[CRITICAL]`, `[WARNING]`, and `[NOTE]` lines in the saved report and disp
 Ouroboros system-wide simulation complete: {X} critical, {Y} warnings, {Z} notes
 
 {if X > 0:}
-Critical gaps found. File tickets via /yoke idea and fix through the normal pipeline.
+Critical gaps found. File work items via /yoke idea and fix through the normal pipeline.
 
 {if X == 0 and Y > 0:}
-No critical gaps. Review warnings and file tickets for any that need attention.
+No critical gaps. Review warnings and file work items for any that need attention.
 
 {if X == 0 and Y == 0:}
 Clean simulation. Yoke's components are internally consistent.

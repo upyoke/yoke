@@ -102,6 +102,18 @@ def converge_builtin_workflows(conn: Any) -> None:
                 f"built-in workflow id {workflow_id!r} is owned by "
                 f"{existing_workflow['source']!r}"
             )
+        else:
+            conn.execute(
+                f"UPDATE workflows SET name = {marker}, "
+                f"description = {marker}, updated_at = {marker} "
+                f"WHERE id = {marker}",
+                (
+                    workflow["name"],
+                    workflow["description"],
+                    now,
+                    workflow_id,
+                ),
+            )
 
         version = int(fixture["version"])
         existing_version = _version_row(conn, workflow_id, version)

@@ -1,10 +1,10 @@
 """HC-stranded-migration-module: detect retired-but-not-deleted modules.
 
-Defense-in-depth backstop for the cutover-ticket AC wording. The
+Defense-in-depth backstop for the cutover work item's AC wording. The
 governed migration runner now auto-retires module files for
 single-install models after live-apply (see
 :mod:`yoke_core.domain.migration_auto_retire`), and refine's review
-rubric verifies the ticket's retire-AC matches the project's install
+rubric verifies the work item's retire AC matches the project's install
 topology. This HC catches the residual case: a migration whose
 ``migration_audit.state='completed'`` row exists on its migration target
 while the module file still sits under the model's declared
@@ -203,7 +203,7 @@ def _scan_governed_projects(conn) -> List[str]:
             f"- {gp.project}: {len(completed)} module(s) have "
             f"`migration_audit.state='completed'` but the module file "
             f"is still present under `{gp.modules_dir_rel}/`. "
-            f"Per `AGENTS.md` `## Cutover-ticket AC wording`, "
+            f"Per the migration-retirement rule in `AGENTS.md`, "
             f"single-install completed modules retire in the same "
             f"slice as live-apply; multi-install modules retire after "
             f"every install records completion."

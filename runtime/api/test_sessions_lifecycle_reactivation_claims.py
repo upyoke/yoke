@@ -1,6 +1,6 @@
 """Regression tests: session-end + reactivation + conduct re-entry claim gap.
 
-Simulate the silent-no-claim window that motivated this ticket:
+Simulate the silent-no-claim window that motivated this work item:
   1. Session is created and claims an item.
   2. Session is ended — claim is released with reason='session_ended'.
   3. Same session is reactivated (ended_at cleared).

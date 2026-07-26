@@ -29,10 +29,6 @@ from yoke_core.engines.doctor_hc_architecture_items import (
     hc_architecture_impact_declaration,
     hc_architecture_scan_error,
 )
-from yoke_core.engines.doctor_hc_installer_live_tui_import_boundary import (
-    HC_DESC as INSTALLER_LIVE_TUI_IMPORT_BOUNDARY_DESC,
-    hc_installer_live_tui_import_boundary,
-)
 from yoke_core.engines.doctor_hc_platform_namespace_boundary import (
     HC_DESC as PLATFORM_NAMESPACE_BOUNDARY_DESC,
     hc_platform_namespace_boundary,
@@ -88,11 +84,6 @@ ARCHITECTURE_HEALTH_CHECKS: List[HealthCheck] = [
         "server-checkout-independence",
         SERVER_CHECKOUT_INDEPENDENCE_DESC,
         hc_server_checkout_independence,
-    ),
-    HealthCheck(
-        "installer-live-tui-import-boundary",
-        INSTALLER_LIVE_TUI_IMPORT_BOUNDARY_DESC,
-        hc_installer_live_tui_import_boundary,
     ),
     HealthCheck(
         "platform-namespace-boundary",

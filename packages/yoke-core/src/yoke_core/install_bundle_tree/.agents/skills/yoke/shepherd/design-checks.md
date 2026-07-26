@@ -128,7 +128,7 @@ fi
 
  If you defer any work from scope (e.g., "deferred to a follow-up", "out of scope"),
  you MUST include a ## Deferred Items section with a table tracking each deferral.
- Format: | Description | Reason | Ticket | — mark Ticket as UNFILED until filed.
+ Format: | Description | Reason | Work item | — mark Work item as UNFILED until filed.
 
  Attempt {_attempt} of {MAX_ATTEMPTS}.
  {if _attempt > 1: "Previous Boss feedback:\n{_boss_feedback}"}

@@ -115,7 +115,7 @@ worktree or mutating status. Surface the blocked or diverged messages
 verbatim to the operator and let them decide how to proceed:
 
 - **Blocked claim** — wait for the upstream claim to release. The
-  upstream's owning ticket needs to reach a terminal state
+  upstream's owning work item needs to reach a terminal state
   (typically `done`) before activation succeeds.
 - **Diverged refs** — reconcile with `git push`, `git pull`, or
   `git rebase` so origin and local agree on `<integration_target>`.

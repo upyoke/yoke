@@ -3,7 +3,6 @@
 The write half of the browser-QA function family (read half + family
 docstring: :mod:`yoke_core.domain.handlers.qa_browser`). Each handler
 mirrors its CLI counterpart's gates without the ``sys.exit`` branches:
-
 - ``qa.run.add`` mirrors :func:`yoke_core.domain.qa_execution.cmd_run_add`
   (stored-kind resolution, qa_kind mismatch hard error, agent-for-browser
   refusal, QARunStarted/Captured/Completed event selection).
@@ -48,7 +47,7 @@ class QaRunAddResponse(BaseModel):
 def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
     from yoke_core.domain import qa_events
     from yoke_core.domain.db_helpers import connect, iso8601_now, query_one
-    from yoke_core.domain.qa_constants import VALID_BROWSER_QA_KINDS
+    from yoke_core.domain.qa_constants import case_outcome_for_verdict
 
     req_id = request.target.qa_requirement_id
     if req_id is None:
@@ -73,7 +72,7 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
         p = _p(conn)
         row = query_one(
             conn,
-            f"SELECT qa_kind FROM qa_requirements WHERE id = {p}",
+            f"SELECT qa_kind, method_id FROM qa_requirements WHERE id = {p}",
             (int(req_id),),
         )
         if row is None:
@@ -86,11 +85,14 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
                 f"stored kind {stored_kind!r}",
                 jsonpath="$.payload.qa_kind",
             )
-        if executor_type == "agent" and stored_kind in VALID_BROWSER_QA_KINDS:
+        if (
+            executor_type == "agent"
+            and row["method_id"] in {"browser-check", "browser-inspection"}
+        ):
             return _error(
                 "policy_violation",
-                f"executor_type 'agent' is not allowed for qa_kind "
-                f"{stored_kind!r} -- use browser_substrate",
+                "executor_type 'agent' is not allowed for Browser methods "
+                "-- use browser_substrate",
                 jsonpath="$.payload.executor_type",
             )
 
@@ -103,13 +105,14 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
         cur = conn.execute(
             "INSERT INTO qa_runs "
             "(qa_requirement_id, executor_type, qa_kind, verdict, "
-            "execution_status, raw_result, duration_ms, started_at, "
-            "completed_at, created_at) "
-            f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}) "
+            "execution_status, case_outcome, raw_result, duration_ms, "
+            "started_at, completed_at, created_at) "
+            f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}) "
             "RETURNING id",
             (
                 int(req_id), executor_type, stored_kind, verdict,
-                execution_status, raw_result, duration_ms,
+                execution_status, case_outcome_for_verdict(verdict),
+                raw_result, duration_ms,
                 now_iso, completed_at_value, now_iso,
             ),
         )
@@ -149,6 +152,7 @@ class QaRunCompleteResponse(BaseModel):
 def handle_qa_run_complete(request: FunctionCallRequest) -> HandlerOutcome:
     from yoke_core.domain import qa_events
     from yoke_core.domain.db_helpers import connect, iso8601_now, query_one
+    from yoke_core.domain.qa_constants import case_outcome_for_verdict
 
     req_id = request.target.qa_requirement_id
     if req_id is None:
@@ -196,6 +200,8 @@ def handle_qa_run_complete(request: FunctionCallRequest) -> HandlerOutcome:
         if verdict is not None:
             set_parts.append(f"verdict = {p}")
             params.append(verdict)
+            set_parts.append(f"case_outcome = {p}")
+            params.append(case_outcome_for_verdict(verdict))
         if execution_status is not None:
             set_parts.append(f"execution_status = {p}")
             params.append(execution_status)
@@ -211,6 +217,22 @@ def handle_qa_run_complete(request: FunctionCallRequest) -> HandlerOutcome:
             tuple(params),
         )
         conn.commit()
+        if verdict == "inconclusive":
+            from yoke_core.domain.qa_review_requests import (
+                ensure_qa_review_request,
+            )
+
+            actor = request.actor.actor_id
+            ensure_qa_review_request(
+                conn,
+                requirement_id=int(req_id),
+                run_id=int(run_id),
+                originator_actor_id=(
+                    int(actor) if actor is not None and str(actor).isdigit()
+                    else None
+                ),
+                session_id=str(request.actor.session_id or ""),
+            )
         event_name = "QARunCompleted" if verdict is not None else "QARunCaptured"
         qa_events.emit_qa_run_event(
             conn, db_path=None, event_name=event_name, run_id=int(run_id),

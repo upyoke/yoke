@@ -1,6 +1,6 @@
 """Focused regressions for offer revalidation, skip memory, and chain accounting.
 
-This module reproduces the three concrete failure shapes the ticket spec
+This module reproduces the three concrete failure shapes the work-item spec
 calls out and verifies the substrate that prevents them:
 
 * live-claim conflict skip + within-chain skip memory

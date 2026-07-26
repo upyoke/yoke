@@ -26,7 +26,7 @@ from yoke_core.domain.qa_constants import (  # noqa: F401  (re-exported)
     VALID_BROWSER_QA_KINDS,
     _coalesce,
     _normalize_qa_kind,
-    _pipe_row,
+    _pipe_row, case_outcome_for_verdict,
 )
 from yoke_core.domain import qa_events
 from yoke_core.domain.qa_artifact_ops import (  # noqa: F401  (re-exported)
@@ -39,7 +39,6 @@ from yoke_core.domain.qa_run_batch import cmd_run_add_batch  # noqa: F401  (re-e
 from yoke_core.domain.qa_evidence_bridge import (  # noqa: F401  (re-exported)
     cmd_satisfy_screenshot_evidence,
 )
-
 
 # Backward-compat aliases for the parent shim's existing API. Internal
 # callers (and qa.py re-exports) reference the underscore-prefixed names;
@@ -163,12 +162,13 @@ def cmd_run_add(
 
         sql = """INSERT INTO qa_runs
                   (qa_requirement_id, executor_type, qa_kind, verdict,
-                   execution_status, score, confidence, raw_result,
+                   execution_status, case_outcome, score, confidence, raw_result,
                    duration_ms, started_at, completed_at, created_at)
-                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id"""
+                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id"""
         cur = conn.execute(sql, (
             requirement_id, executor_type, qa_kind, verdict,
-            execution_status, score, confidence, raw_result, duration_ms,
+            execution_status, case_outcome_for_verdict(verdict),
+            score, confidence, raw_result, duration_ms,
             now_iso, completed_at_value, now_iso,
         ))
         inserted_id = int(cur.fetchone()[0])
@@ -261,8 +261,8 @@ def cmd_run_complete(
         params: list = [iso8601_now()]
         set_parts = ["completed_at = %s"]
         if verdict is not None:
-            set_parts.append("verdict = %s")
-            params.append(verdict)
+            set_parts.extend(("verdict = %s", "case_outcome = %s"))
+            params.extend((verdict, case_outcome_for_verdict(verdict)))
         if execution_status is not None:
             set_parts.append("execution_status = %s")
             params.append(execution_status)

@@ -18,7 +18,7 @@ If the path does not resolve, re-derive from the live tree before writing. Canon
 
 1. `runtime/api/domain/migrations/__init__.py` for the live one-shot migration package root. New migration ideas reference this directory, never `runtime/api/migrations/` (which does not exist).
 2. The live skill structure under `.agents/skills/yoke/` for skill-prose ideas.
-3. The most recent completed ticket of the same family (`yoke items list --status done` plus body inspection) for any other concrete-path category.
+3. The most recent completed work item of the same family (`yoke items list --status done` plus body inspection) for any other concrete-path category.
 
 No path is written into the spec from naming intuition. If verification still fails after re-derivation, flag the unresolved reference as a clarification question in the spec rather than guessing.
 
@@ -52,7 +52,7 @@ This is the broader version of the gate template that catches the "spec named `y
 
 ## 1b. Active Path Claim Conflicts Are Coordination, Not Scope
 
-**Rule:** claimed paths do not narrow ticket scope. When inference (or later body drafting) discovers that a required file is already covered by another item's active or non-terminal path claim, do **not** remove the file from the ticket, do **not** rewrite the spec to avoid the overlap, and do **not** narrow the File Budget to whatever paths happen to be unclaimed. Active path claims are coordination/dependency/blocking facts about who currently coordinates work on a path — they never authorize omitting a required file from a new ticket. "Avoid the overlap" never means "omit the required file."
+**Rule:** claimed paths do not narrow work item scope. When inference (or later body drafting) discovers that a required file is already covered by another item's active or non-terminal path claim, do **not** remove the file from the work item, do **not** rewrite the spec to avoid the overlap, and do **not** narrow the File Budget to whatever paths happen to be unclaimed. Active path claims are coordination/dependency/blocking facts about who currently coordinates work on a path — they never authorize omitting a required file from a new work item. "Avoid the overlap" never means "omit the required file."
 
 The accepted remediations when an overlap is observed are:
 
@@ -146,7 +146,7 @@ If no `YOK-N` references are found, skip silently.
 
 ### f. Infer Pack-reuse stance
 
-If `_project` is NOT `yoke`, every project-side ticket must declare whether the change belongs only to that project or also to a reusable Pack. Infer from title/body:
+If `_project` is NOT `yoke`, every project-side work item must declare whether the change belongs only to that project or also to a reusable Pack. Infer from title/body:
 
 - **`project-owned`** — The result is specific to this project; customized Pack files remain project-owned and need no central exception record.
 - **`pack-update`** — The general capability should ship as a new Pack version and then be previewed/applied in the target project. Cross-repo delivery follows the `project=yoke` Pattern B rule in `AGENTS.md`.
@@ -160,30 +160,6 @@ If the stance cannot be inferred from context, ask ONE binary question:
 
 Set `_pack_stance` to the inferred value. If `_project` is `yoke`, set `_pack_stance=""`.
 
-### g. Infer browser QA metadata
-
-Every new item gets a validated `browser_qa_metadata` object persisted at creation time. The object shape is fixed:
-
-```json
-{
- "browser_testable": false,
- "visual_outcome": false,
- "browser_routes": [],
- "browser_timing_hints_ms": []
-}
-```
-
-Decide each field from title + body + any acceptance criteria the user already wrote. Condition on whether this ticket ships code that affects what an end user sees in a web browser — not on whether the body merely mentions URLs, settings, or dashboards in passing.
-
-- **`browser_testable`** — `true` when the change renders, mutates, or exercises a user-facing page or UI surface. Login pages, dashboards, modals, form flows, theme swaps, animation additions, visible empty/error states. `false` for backend-only work, CLI tooling, infrastructure, config, docs, classifier/extraction logic, or anything where "browser QA" would capture nothing meaningful.
-- **`visual_outcome`** — `true` when the change produces a visible UI result that screenshot evidence would improve (animations, theme/layout changes, new visible components, visible state transitions). `visual_outcome=true` requires `browser_testable=true`; the validator rejects the contradiction.
-- **`browser_routes`** — explicit leading-slash relative routes the change targets (`/login`, `/forgot-password`, `/`). Lowercase. Route-form words in non-URL prose (`backend service settings`, `account management docs`, `dashboard rollout strategy`) are NOT routes — leave them out.
-- **`browser_timing_hints_ms`** — integer milliseconds for any explicit pre-screenshot delay implied by AC language such as "visible 7 seconds after load" or "fade-in completes in 1500 ms". Empty when no AC makes timing explicit. Never include a floor or padding value here — the browser QA executor applies the 2000 ms settle-delay floor.
-
-Non-browser tickets record the explicit negative object above — not `null`, not an empty string. The validator at `yoke_core.domain.browser_qa_metadata.validate` rejects contradictions, malformed shape, bad routes, and out-of-range timings; assemble the object so it passes validation before persistence.
-
-Store the resulting object in `_browser_qa_metadata_json` as a compact JSON string. `body-and-sync.md` owns the persistence step.
-
 Print the inference summary:
 ```text
 Inferred fields:
@@ -193,28 +169,27 @@ Inferred fields:
  Deployment flow: {_deployment_flow or "(no flow — flag will be omitted)"}
  Dependencies: {list or "none"}
  Pack reuse: {_pack_stance or "n/a (yoke project)"}
- Browser QA: testable={browser_testable}, visual={visual_outcome}, routes={browser_routes or "[]"}, timings_ms={browser_timing_hints_ms or "[]"}
 ```
 
 ## 3. Cross-Project Detection (Hard Block)
 
-Before proceeding, check if the title/body implies work touching files in more than one project repo. If detected, STOP -- do not create a single ticket spanning multiple projects.
+Before proceeding, check if the title/body implies work touching files in more than one project repo. If detected, STOP -- do not create a single work item spanning multiple projects.
 
-### Pattern A: Split into two tickets
+### Pattern A: Split into two work items
 
 - Signals: distinct independent work items per project
-- Action: Propose splitting into two tickets with a hard-block dependency between them
+- Action: Propose splitting into two work items with a hard-block dependency between them
 - Gate message:
  ```text
  GATE [hard-block]: Cross-project work detected.
  This idea touches both {project-A} and {project-B}.
- Remediation: Split into two tickets -- one per project.
- Create both tickets with a hard-block dependency? (Yes / No)
+ Remediation: Split into two work items -- one per project.
+ Create both work items with a hard-block dependency? (Yes / No)
  ```
-- If yes, create both tickets by repeating this phase and the body phase for each
+- If yes, create both work items by repeating this phase and the body phase for each
 - If no, let the user clarify scope
 
-### Pattern B: Single multi-repo ticket under `yoke`
+### Pattern B: Single multi-repo work item under `yoke`
 
 - Signals: publish-a-Pack-update then install/deploy/verify it, or similar coordinated Yoke-led work
 - Action: File under `project=yoke`, note multi-repo scope in the body
@@ -252,7 +227,7 @@ git log --oneline -10
 
 Use recent commits to catch "already landed" or "just cancelled/replaced"
 work that may not be prominent in the active board sections. If a recent
-commit names the same subsystem, feature, or ticket family, inspect the
+commit names the same subsystem, feature, or work item family, inspect the
 referenced item body or commit diff before deciding this is new work.
 
 Run the dedup search:
@@ -322,7 +297,7 @@ Budget have all landed. Skip in `--dry-run` mode (no row to claim).
 
 The configured stale-heartbeat reclaim window (`session_stale_ttl_minutes`
 in machine config) in `runtime.harness.harness_sessions` is the safety net
-for a crashed `/yoke idea` — during that window the half-finished ticket
+for a crashed `/yoke idea` — during that window the half-finished work item
 is intentionally unworkable, and `yoke_core.domain.frontier_compute`
 flags the title-only body explicitly via `idea-incomplete` so doctor and
 operators can rescue or freeze it.

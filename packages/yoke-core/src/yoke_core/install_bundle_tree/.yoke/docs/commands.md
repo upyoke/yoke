@@ -5,7 +5,7 @@ Each command is a nested skill at `.agents/skills/yoke/{name}/SKILL.md`. Harness
 Yoke has **20 operator commands** (the primary interface) and **6 internal sub-skills** (called by other commands, not typically invoked directly). Large skills are decomposed into phase sub-files; top-level SKILL.md files should stay compact orchestration surfaces that delegate detailed sub-protocols to phase files. The 350-line file limit is implemented by `yoke_core.domain.file_line_check`, exposed to agents as `yoke check file-line`, and enforced at pre-commit, advance/polish status gates, and `HC-file-line-limit` in doctor; the upstream **File Budget** contract (seeded by `/yoke idea`, hardened by `/yoke refine`, propagated through architect plans and Engineer dispatch) shapes implementation work to fit the limit before coding begins so the late-stage gates rarely fire. A small temporary-exception list covers strategic docs and prompt source-of-truth surfaces.
 
 <!-- BEGIN GENERATED: field-note-directive -->
-When you hit a recipe gap or notice a minor bug not worth a ticket, file a field-note immediately — before retrying, before moving on.
+When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
 Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->
@@ -30,7 +30,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 | `/yoke help` | Show command reference (also: `/yoke` with no args) |
 | `/yoke do` | Autonomous session orchestrator -- offers session to decision engine, routes to chosen mode |
 | `/yoke charge` | Direct-mode entrypoint -- pick up next runnable item from frontier, begin implementation |
-| `/yoke feed [--no-new-tickets] [YOK-N ...]` | Direct-mode entrypoint -- refresh stale frontier items, maintain dependency graph truth, and materialize new work from strategy |
+| `/yoke feed [--no-new-items] [YOK-N ...]` | Direct-mode entrypoint -- refresh stale frontier items, maintain dependency graph truth, and materialize new work from strategy |
 | `/yoke strategize` | Direct-mode entrypoint -- guided SML review (research, propose, approve) |
 
 ## Local Terminal Helpers
@@ -122,9 +122,9 @@ Detect and repair drift between local backlog and GitHub issues. Three-stage pip
 
 ### curate
 
-Curate the Ouroboros learning log. Process unreviewed agent observations from the `ouroboros_entries` table -- cluster related entries by semantic similarity, propose tickets for actionable clusters, archive old entries, and promote recurring patterns to `yoke/ouroboros/patterns.md`.
+Curate the Ouroboros learning log. Process unreviewed agent observations from the `ouroboros_entries` table -- cluster related entries by semantic similarity, propose work items for actionable clusters, archive old entries, and promote recurring patterns to `yoke/ouroboros/patterns.md`.
 
-**Phase files:** `curate/cluster-and-ticket.md` (entry loading, clustering, code validation, duplicate checks, ticket filing, review/archive state) and `curate/patterns-and-retro.md` (pattern promotion and retrospective summary).
+**Phase files:** `curate/cluster-and-work-item.md` (entry loading, clustering, code validation, duplicate checks, work-item filing, review/archive state) and `curate/patterns-and-retro.md` (pattern promotion and retrospective summary).
 
 Supports project filtering (`--project <project-id>`). Runs inline in the main session -- no subagent needed.
 
@@ -176,16 +176,16 @@ Direct-mode entrypoint for the `charge` action. Computes the runnable frontier t
 
 ### feed
 
-Direct-mode entrypoint for SML-to-idea materialization, stale-ticket refresh, and frontier dependency graph maintenance. Feed reads the Strategic Markdown Layer (the MISSION, LANDSCAPE, VISION, and MASTER-PLAN docs rendered under .yoke/strategy/), the target frontier items, existing dependency edges, and recent codebase changes. It then converges on one or more of four valid outcomes:
+Direct-mode entrypoint for SML-to-idea materialization, stale-work-item refresh, and frontier dependency graph maintenance. Feed reads the Strategic Markdown Layer (the MISSION, LANDSCAPE, VISION, and MASTER-PLAN docs rendered under .yoke/strategy/), the target frontier items, existing dependency edges, and recent codebase changes. It then converges on one or more of four valid outcomes:
 
 1. **Leave work in the SML** -- the strategy layer contains potential work, but pulling it forward now is unsafe or premature.
 2. **Refresh graph only** -- the frontier is sufficient but dependency facts are stale; reconcile generated edges without creating new items.
 3. **Sharpen/split current frontier** -- existing items are underdefined or fused; refine them before adding unrelated new work.
-4. **Materialize new tickets** -- stable SML work can be pulled forward safely; create minimal useful new items and refresh the graph.
+4. **Materialize new work items** -- stable SML work can be pulled forward safely; create minimal useful new items and refresh the graph.
 
-Feed is the canonical semantic owner of generated frontier-fact maintenance. It writes `source='feed'` dependency rows in `item_dependencies` with human-readable rationale and structured `evidence_json`, and it updates stale structured ticket fields when recent landed work changed the frontier's ground truth. It does not own ranking, WIP caps, or claim handling (those belong to the scheduler and charge).
+Feed is the canonical semantic owner of generated frontier-fact maintenance. It writes `source='feed'` dependency rows in `item_dependencies` with human-readable rationale and structured `evidence_json`, and it updates stale structured work-item fields when recent landed work changed the frontier's ground truth. It does not own ranking, WIP caps, or claim handling (those belong to the scheduler and charge).
 
-**Arguments:** `--no-new-tickets` (run analysis and graph refresh without creating new items), optional `YOK-N ...` scope IDs, `--lane LANE`, `--model MODEL`.
+**Arguments:** `--no-new-items` (run analysis and graph refresh without creating new items), optional `YOK-N ...` scope IDs, `--lane LANE`, `--model MODEL`.
 
 **Events:** `FeedStarted` (at run start), `FeedCompleted` (at run end with outcome summary).
 
@@ -236,7 +236,10 @@ Advance an item's status forward. No args: auto-advance to next status. With sta
 5. **Finalize** -- Status update, GitHub sync, commit. For `implementing` target: hands off to `advance/implementing/SKILL.md`. For `reviewed-implementation`: emits next-step guidance to run `/yoke polish YOK-N`. For `implemented`: the next step is `/yoke usher YOK-N`.
 
 **`advance/implementing` sub-skill:** Post-advance implementation kickoff called after status is set to `implementing`. Handles:
-- **QA seeding** (`implementing/qa-seeding.md`): Seeds `qa_requirements` rows from acceptance criteria. Uses `ac_derived` as requirement source with AC-derived dedup. Seeds browser-testable requirements via `implementing/browser-seeding.md`, which reads the structured `browser_qa_metadata` field written at idea time and delegates scenario construction to `yoke_core.domain.qa_requirements.build_browser_requirements_from_metadata`. Seeds project E2E requirements when the project has an `e2e` command defined (in the `command_definitions` Project Structure family) and the `ephemeral-env` capability is registered.
+- **QA seeding** (`implementing/qa-seeding.md`): Seeds the item-specific
+  AC-verification requirement with `requirement_source=ac_derived`. Project
+  Browser, command, and machine verification comes from attached QA plans;
+  genuinely one-off proof uses an explicit method-backed case.
 - **Browser seeding** (`implementing/browser-seeding.md`): Seeds `browser_smoke` and `browser_diff` QA requirements for browser-testable items.
 - **Project context preflight** (`implementing/project-context.md`): Reads the project-wide always-included docs and topic list from the `context_routing` Project Structure family, infers relevant topics from title/spec/AC text, and surfaces concrete implementation/test/doc paths before the text-sensitive audit and file discovery.
 - **Test commands & QA recording** (`implementing/test-and-record.md`): Records test results as QA runs.
@@ -278,7 +281,7 @@ Auto-detects phase: plan (all tasks still pre-implementation, typically `planned
 
 **Auto-fix (steps 8-12):** After gaps are found, offers to invoke the Architect in fix mode to revise task specs. Loop caps at 3 iterations. Code-level gaps are skipped -- only plan-level fixes applied.
 
-**System-wide simulation** (`--system`): Ouroboros audit of all Yoke components for consistency drift. Checks stale references, cross-agent assumption mismatches, hook references, and rule-implementation contradictions. Report saved to `yoke/ouroboros/health/` (local, gitignored). No auto-fix -- file tickets via `/yoke idea`.
+**System-wide simulation** (`--system`): Ouroboros audit of all Yoke components for consistency drift. Checks stale references, cross-agent assumption mismatches, hook references, and rule-implementation contradictions. Report saved to `yoke/ouroboros/health/` (local, gitignored). No auto-fix -- file work items via `/yoke idea`.
 
 ## Internal Support Artifacts
 

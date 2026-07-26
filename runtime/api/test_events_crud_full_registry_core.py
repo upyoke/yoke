@@ -2,10 +2,18 @@
 
 from __future__ import annotations
 
+import pytest
+
 from yoke_core.domain import events_crud
 
 
 class TestRegistryCRUD:
+    @pytest.fixture(autouse=True)
+    def _empty_registry(self, test_db):
+        """Keep direct CRUD counts independent of authoritative seed rows."""
+        test_db.execute("DELETE FROM event_registry")
+        test_db.commit()
+
     def _add_registry_entry(self, conn, name="TestEvent", kind="lifecycle",
                              event_type="test", service="cli", desc="Test event"):
         conn.execute(

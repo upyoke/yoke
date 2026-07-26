@@ -45,7 +45,7 @@ class TestCheckComposition:
     def test_explicit_negative_claim_suppresses_vocabulary_only_hits(self):
         item_id = 88
         outcome = check(
-            "This ticket is expected to be control-plane code only. "
+            "This work item is expected to be control-plane code only. "
             "It should not mutate live Yoke DB schema or bulk data.",
             profile_raw='{"state":"none"}',
             item_id=item_id,
@@ -58,7 +58,7 @@ class TestCheckComposition:
     def test_negative_claim_does_not_suppress_structural_sql_hits(self):
         item_id = 89
         outcome = check(
-            "This ticket does not run live DB apply during refine, but "
+            "This work item does not run live DB apply during refine, but "
             "the implementation will ALTER TABLE items ADD COLUMN due_date TEXT.",
             profile_raw='{"state":"none"}',
             item_id=item_id,
@@ -118,7 +118,7 @@ class TestCheckItem:
             db_conn,
             id=item_id,
             status="refining-idea",
-            spec="The ticket will ALTER TABLE items to add due_date.",
+            spec="The work item will ALTER TABLE items to add due_date.",
             db_mutation_profile='{"state":"none"}',
         )
         outcome = check_item(item_id, conn=db_conn)

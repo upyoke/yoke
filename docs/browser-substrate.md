@@ -44,7 +44,6 @@ All JS paths below are the packaged sources; the daemon runs from their material
 | `yoke_core.domain.browser_client` | `packages/yoke-core/src/yoke_core/domain/browser_client.py` | Python daemon client: state, HTTP, lifecycle, exec, snapshot |
 | `yoke_core.domain.browser_qa` | `packages/yoke-core/src/yoke_core/domain/browser_qa.py` | Canonical scenario orchestrator — executes all steps for an item's browser QA requirements |
 | `yoke_core.domain.browser_worker` | `packages/yoke-core/src/yoke_core/domain/browser_worker.py` | Remote browser worker via SSH tunnel |
-| `yoke_core.domain.browser_qa_metadata` | `packages/yoke-core/src/yoke_core/domain/browser_qa_metadata.py` | Validator + negative default for the structured `browser_qa_metadata` item field that replaces classifier inference |
 
 ## Daemon Lifecycle
 
@@ -292,7 +291,7 @@ Browser domain events emitted to the `events` table:
 
 ### Orchestration Events (deferred)
 
-Fine-grained orchestration events (e.g., `BrowserScenarioStarted`, `BrowserScenarioCompleted`, `BrowserScenarioFailed`) are not yet emitted by `yoke_core.domain.browser_qa`. The orchestrator records its results via `qa_runs` and `qa_artifacts` DB tables. Scenario execution is also observable through the underlying `BrowserStepExecuted` events emitted per step by `yoke_core.domain.browser_client exec`. Adding dedicated orchestration events to the `event_registry` is deferred to a follow-up ticket.
+Fine-grained orchestration events (e.g., `BrowserScenarioStarted`, `BrowserScenarioCompleted`, `BrowserScenarioFailed`) are not yet emitted by `yoke_core.domain.browser_qa`. The orchestrator records its results via `qa_runs` and `qa_artifacts` DB tables. Scenario execution is also observable through the underlying `BrowserStepExecuted` events emitted per step by `yoke_core.domain.browser_client exec`. Adding dedicated orchestration events to the `event_registry` is deferred to a follow-up work item.
 
 ## Exit Codes
 

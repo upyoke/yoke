@@ -100,6 +100,14 @@ CREATE TABLE IF NOT EXISTS qa_requirements (
     waiver_rationale TEXT,
     created_at TEXT NOT NULL,
     waiver_source TEXT,
+    plan_id INTEGER,
+    plan_case_key TEXT,
+    method_id TEXT,
+    host_baseline TEXT,
+    workflow_transition_id TEXT,
+    instructions TEXT,
+    expected_outcome TEXT,
+    method_config TEXT,
     CHECK (
         (item_id IS NOT NULL AND epic_id IS NULL AND task_num IS NULL AND deployment_run_id IS NULL) OR
         (item_id IS NULL AND epic_id IS NOT NULL AND task_num IS NOT NULL AND deployment_run_id IS NULL) OR
@@ -114,6 +122,11 @@ CREATE TABLE IF NOT EXISTS qa_runs (
     qa_kind TEXT NOT NULL,
     verdict TEXT CHECK(verdict IN ('pass','fail','inconclusive','error')),
     execution_status TEXT CHECK(execution_status IN ('captured','capture_failed') OR execution_status IS NULL),
+    case_outcome TEXT CHECK(case_outcome IN (
+        'running','waiting','passed','failed','needs_review',
+        'blocked_on_precondition'
+    )),
+    capture_degraded_reason TEXT,
     score REAL,
     confidence REAL,
     raw_result TEXT,

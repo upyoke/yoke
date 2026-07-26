@@ -48,7 +48,7 @@ For tiny additive changes (one-line template edits, doc-only updates), the full 
 **Occurrences:** 5+ entries across PM, engineer, simulator agents
 **Status:** Partially addressed (shared logic extracted to scripts; SKILL.md splitting ongoing)
 
-Files like `advance/SKILL.md` are modified by many tickets. Duplicate logic paths drift apart. The worktree-isolation epic's feature branch directly conflicted with parallel accelerated-flow changes to the same file.
+Files like `advance/SKILL.md` are modified by many work items. Duplicate logic paths drift apart. The worktree-isolation epic's feature branch directly conflicted with parallel accelerated-flow changes to the same file.
 
 **Action:** Extracted shared logic into scripts (YOK-66, YOK-73 done). Keep SKILL.md files focused (YOK-84 tracked). Sprint-db.sh cmd_init() merge conflicts (SINAI sprint T5) confirmed this pattern persists for additive DB schema changes.
 

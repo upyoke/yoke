@@ -9,7 +9,6 @@ ADVANCE_SKILL_MD = SKILL_ROOT / "advance" / "SKILL.md"
 PREFLIGHT_CHECKS_MD = SKILL_ROOT / "advance" / "preflight-checks.md"
 FINALIZE_MD = SKILL_ROOT / "advance" / "finalize.md"
 PROJECT_E2E_MD = SKILL_ROOT / "advance" / "project-e2e.md"
-BROWSER_QA_MD = SKILL_ROOT / "advance" / "browser-qa-checks.md"
 PREFLIGHT_RECOVERY_MD = SKILL_ROOT / "advance" / "preflight-recovery.md"
 TESTER_TEMPLATE_MD = SKILL_ROOT / "shared" / "tester-dispatch-template.md"
 
@@ -100,13 +99,6 @@ class TestAC9Surfaces:
         text = PROJECT_E2E_MD.read_text()
         assert "epic" in text, (
             "project-e2e.md does not guard the worktree path preference against epic items"
-        )
-
-    def test_browser_qa_issue_only_documented(self):
-        """browser-qa-checks.md must document the issue-only invariant."""
-        text = BROWSER_QA_MD.read_text()
-        assert "issue" in text.lower(), (
-            "browser-qa-checks.md does not document the issue-only invariant"
         )
 
     def test_preflight_recovery_uses_resolver(self):

@@ -79,6 +79,8 @@ _POLICY_VALUES = {
         "after_merge_action",
     }),
 }
+_APPROVAL_DEFAULT_KEYS = frozenset({"roles", "actors"})
+_APPROVAL_ROLES = frozenset({"owner", "operator", "admin"})
 _ITEM_POSTURE_VALUES = frozenset({
     "approval",
     "approval_on_done",
@@ -155,6 +157,59 @@ def _validate_stages(
     return ids, set(ids)
 
 
+def _validate_approval_defaults(
+    definition: Mapping[str, Any],
+    policies: Mapping[str, Any],
+) -> None:
+    defaults = require_mapping(
+        policies["approval_defaults"],
+        "policies.approval_defaults",
+    )
+    target_stage_ids = {
+        str(edge["to_stage_id"])
+        for edge in require_sequence(definition["transitions"], "transitions")
+    }
+    for transition_id, raw_gate in defaults.items():
+        path = f"policies.approval_defaults.{transition_id}"
+        if (
+            not isinstance(transition_id, str)
+            or transition_id not in target_stage_ids
+        ):
+            raise WorkflowDefinitionError(
+                f"{path} does not name a declared transition target"
+            )
+        gate = require_mapping(raw_gate, path)
+        require_exact_keys(gate, _APPROVAL_DEFAULT_KEYS, path)
+        roles = require_sequence(gate.get("roles"), f"{path}.roles")
+        actors = require_sequence(gate.get("actors"), f"{path}.actors")
+        if not roles and not actors:
+            raise WorkflowDefinitionError(
+                f"{path} must name at least one role or actor"
+            )
+        if (
+            any(not isinstance(role, str) for role in roles)
+            or len(roles) != len(set(roles))
+        ):
+            raise WorkflowDefinitionError(f"{path}.roles must be unique")
+        unknown_roles = set(roles) - _APPROVAL_ROLES
+        if unknown_roles:
+            raise WorkflowDefinitionError(
+                f"{path}.roles has unknown values: {sorted(unknown_roles)}"
+            )
+        if (
+            any(
+                isinstance(actor_id, bool)
+                or not isinstance(actor_id, int)
+                or actor_id <= 0
+                for actor_id in actors
+            )
+            or len(actors) != len(set(actors))
+        ):
+            raise WorkflowDefinitionError(
+                f"{path}.actors must be unique positive integer actor ids"
+            )
+
+
 def _validate_policies(definition: Mapping[str, Any]) -> None:
     policies = require_mapping(definition.get("policies"), "policies")
     forbidden = set(policies) & _CORE_INVARIANT_KEYS
@@ -162,7 +217,10 @@ def _validate_policies(definition: Mapping[str, Any]) -> None:
         raise WorkflowDefinitionError(
             f"core invariants cannot be workflow policy: {sorted(forbidden)}"
         )
-    expected = set(_POLICY_VALUES) | {"item_posture_allowlist"}
+    expected = set(_POLICY_VALUES) | {
+        "approval_defaults",
+        "item_posture_allowlist",
+    }
     missing = expected - set(policies)
     extra = set(policies) - expected
     if missing or extra:
@@ -189,6 +247,7 @@ def _validate_policies(definition: Mapping[str, Any]) -> None:
             "policies.item_posture_allowlist has unknown values: "
             f"{sorted(unknown)}"
         )
+    _validate_approval_defaults(definition, policies)
 
 
 def _validate_structural_change(

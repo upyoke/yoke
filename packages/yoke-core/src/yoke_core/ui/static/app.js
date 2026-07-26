@@ -32,7 +32,7 @@ import {
   createHttpFunctionClient,
 } from "./contract.js";
 import {
-  appendSlot, attachMountRootClass,
+  attachMountRootClass,
   createUnmountHandle, detachMountedSlots, materializeSections,
   materializeSlots, validateMountRoot,
 } from "./mount-options.js";
@@ -51,8 +51,17 @@ import {
   universeNavScope,
 } from "./universe_navigation.js";
 import {
-  DETAIL_RENDERERS, section, TAB_RENDERERS, VIEW_RENDERERS,
+  DETAIL_RENDERERS, TAB_RENDERERS, VIEW_RENDERERS,
 } from "./universe_views.js";
+import {
+  callFunction,
+  createBreadcrumb,
+  createPageHead,
+  createWorkbenchChrome,
+  drillInProject,
+  el,
+  emptyUniversePanel,
+} from "./universe_app_chrome.js";
 
 export {
   UNIVERSE_APP_CONTRACT_VERSION,
@@ -61,92 +70,6 @@ export {
 export { buildUniverseRoute, parseUniverseRoute, universeNavScope };
 
 const WORDMARK_ASSET_URL = new URL("./yoke-wordmark.svg", import.meta.url);
-
-function el(documentNode, tag, className, text) {
-  const node = documentNode.createElement(tag);
-  if (className) node.className = className;
-  if (text !== undefined) node.textContent = text;
-  return node;
-}
-
-function callFunction(client, functionId, payload, target) {
-  const request = { function: functionId, payload: payload || {} };
-  // Preserve the local proxy envelope: omit target unless a view supplies
-  // one, so global-target reads keep their server-side default.
-  if (target) request.target = target;
-  return client.call(request);
-}
-
-// Whoever the viewer is acting as. The engine models an actor as an id and a
-// kind and nothing else — a human actor has no name there, because a name
-// belongs to an account and accounts are the host's. So the chip shows the
-// host's label when it has one and falls back to the id, which is the only
-// thing the universe itself knows.
-function createActorChip(documentNode, actor) {
-  const chip = el(documentNode, "span", "actor-chip");
-  const name = actor.label || `actor ${actor.id}`;
-  chip.appendChild(el(documentNode, "span", "actor-name", name));
-  // A system actor is not a person, and a screen that lets the two look alike
-  // invites reading automated work as somebody's.
-  if (actor.kind === "system") {
-    chip.appendChild(el(
-      documentNode, "span", "actor-kind",
-      actor.systemComponent || "system",
-    ));
-  }
-  return chip;
-}
-
-// Every routed view opens with its name and, when its NAV entry carries
-// one, the entry's one-sentence summary. The head belongs to the route, not
-// the view — renderers stay unaware of it, a drill-in trades it for the
-// breadcrumb, and a tabbed view keeps one head (the view's, one concept)
-// above the facet strip while the tabs below it change.
-function createPageHead(documentNode, entry) {
-  const head = el(documentNode, "div", "page-head");
-  const heading = el(documentNode, "div", "h");
-  heading.appendChild(el(documentNode, "h1", "title", entry.label));
-  if (entry.summary) {
-    heading.appendChild(el(documentNode, "p", "subtitle", entry.summary));
-  }
-  head.appendChild(heading);
-  return head;
-}
-
-// The way back out of a drill-in, naming the view it belongs to. It carries
-// the view's project so returning lands on the same rows the row came from.
-function createBreadcrumb(documentNode, entry, project, detail) {
-  const bar = el(documentNode, "div", "breadcrumb");
-  const back = el(documentNode, "a", "breadcrumb-parent", entry.label);
-  back.href = buildUniverseRoute(entry.id, project);
-  bar.appendChild(back);
-  bar.appendChild(el(documentNode, "span", "breadcrumb-sep", "/"));
-  bar.appendChild(el(documentNode, "span", "breadcrumb-here", String(detail)));
-  return bar;
-}
-
-// A drill-in shows one row, and a row lives in exactly one project. Row
-// links carry that id, so the resolved set normally has one member; a
-// hand-written wider route lands on its first member, and an empty universe
-// resolves to nothing — no project can hold the row.
-function drillInProject(scope, projects) {
-  if (Array.isArray(scope)) return scope[0];
-  if (scope === "all") return projects[0] ? String(projects[0].id) : null;
-  return scope;
-}
-
-function emptyUniversePanel(documentNode) {
-  const panel = section(documentNode, "Universe");
-  panel.renderEnvelope(
-    { status: 200, envelope: { success: true, result: {} } },
-    (body) => {
-      body.appendChild(el(
-        documentNode, "p", "empty", "no projects yet",
-      ));
-    },
-  );
-  return panel;
-}
 
 export function mountUniverseApp(rootNode, options = {}) {
   validateMountRoot(rootNode);
@@ -177,6 +100,7 @@ export function mountUniverseApp(rootNode, options = {}) {
     client,
     document: documentNode,
     isMounted: () => mounted,
+    navigate: (route) => { windowNode.location.hash = route; },
     // The roster the scope pickers already hold, so a view that only lists
     // projects costs no second call.
     projects: () => projects,
@@ -186,57 +110,16 @@ export function mountUniverseApp(rootNode, options = {}) {
     capabilities,
   };
 
-  const brand = el(documentNode, "div", "brand yoke-header-brand");
-  brand.style.color = "var(--yoke-ink)";
-  // The app names the universe's org itself only when no host does: a
-  // topbarStart option is host org chrome arriving (the hosted platform puts
-  // its org switcher there), and one header must not name the org twice. The
-  // option's presence alone is the signal — a function-valued slot is never
-  // invoked to decide. The actor chip is engine identity, not org chrome,
-  // so it stays either way.
-  const hostFillsTopbarStart =
-    slots.topbarStart !== undefined && slots.topbarStart !== null;
-  const orgContext = hostFillsTopbarStart
-    ? null
-    : el(documentNode, "span", "org-context", "…");
-  const contextSide = el(documentNode, "div", "context-side yoke-header-context");
-  // A host with a sign-in door names the viewer; a local universe admits a
-  // loopback token rather than an actor, so it supplies none and the chip is
-  // simply absent — never a greyed-out chip that names nobody.
-  if (options.currentActor) {
-    contextSide.appendChild(createActorChip(documentNode, options.currentActor));
-  }
-  if (orgContext) contextSide.appendChild(orgContext);
-  const header = el(documentNode, "header", "topbar yoke-app-header");
-  header.appendChild(brand);
-  appendSlot(header, resolvedSlots.topbarStart, mountedSlotNodes);
-  header.appendChild(contextSide);
-  appendSlot(header, resolvedSlots.topbarEnd, mountedSlotNodes);
-
-  const navEl = el(documentNode, "nav", "sidenav");
-  const main = el(documentNode, "main", "content");
-  const shell = el(documentNode, "div", "shell");
-  appendSlot(navEl, resolvedSlots.navigationStart, mountedSlotNodes);
-  shell.appendChild(navEl);
-  appendSlot(shell, resolvedSlots.contentBefore, mountedSlotNodes);
-  shell.appendChild(main);
-  appendSlot(shell, resolvedSlots.contentAfter, mountedSlotNodes);
-
-  const navLinks = new Map();
-  for (const entry of NAV) {
-    // A host-fed destination is only reachable through the content its host
-    // supplies, so its entry joins the arc exactly when that section does —
-    // never a dead link to an empty screen.
-    if (entry.hostFed && !resolvedSections[entry.id]) continue;
-    // Glyph and label are separate spans so the glyph column stays fixed
-    // and long labels ellipsize instead of wrapping under it.
-    const link = el(documentNode, "a", "nav-link");
-    link.appendChild(el(documentNode, "span", "ico", entry.icon));
-    link.appendChild(el(documentNode, "span", "txt", entry.label));
-    navLinks.set(entry.id, link);
-    navEl.appendChild(link);
-  }
-  appendSlot(navEl, resolvedSlots.navigationEnd, mountedSlotNodes);
+  const {
+    brand, header, main, navLinks, orgContext, shell,
+  } = createWorkbenchChrome({
+    documentNode,
+    mountedSlotNodes,
+    options,
+    resolvedSections,
+    resolvedSlots,
+    slots,
+  });
 
   const detachRootClass = attachMountRootClass(rootNode);
   rootNode.replaceChildren(header, shell);
@@ -360,17 +243,18 @@ export function mountUniverseApp(rootNode, options = {}) {
         main.replaceChildren(pageHead, tabBar, emptyHost);
         return;
       }
-      // A built tab carries its own picker, below the facet strip: scope
-      // belongs to the data, and only this facet's data takes it here.
+      // A built tab carries its own picker before the facet strip. Project
+      // scope governs every facet, so the scope is chosen before the user
+      // selects which facet of that scoped data to inspect.
       const viewHost = el(documentNode, "div", "view-host");
       main.replaceChildren(
         pageHead,
-        tabBar,
         ...beforeScopeSections(entry),
         createScopePicker({
           documentNode, entry, scope, projects, renderRoute,
           scopeSelections, segment: tab.id, windowNode,
         }),
+        tabBar,
         viewHost,
       );
       tabRenderer(context, viewHost, scope);

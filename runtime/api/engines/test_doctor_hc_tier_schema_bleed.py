@@ -12,10 +12,7 @@ from typing import Iterable, Iterator, List, Tuple
 
 import pytest
 
-from yoke_core.domain.schema_api_context_json_schemas import (
-    ACCESS_PATTERN_NOTE,
-    JSON_NESTED_SCHEMAS,
-)
+from yoke_core.domain.schema_api_context_json_schemas import JSON_NESTED_SCHEMAS
 from yoke_core.engines import doctor_hc_tier_schema_bleed as mod
 from yoke_core.engines.doctor_hc_tier_schema_bleed import (
     HC_SLUG,
@@ -120,24 +117,6 @@ def test_epic_tasks_depends_on_in_tier4_fires(tmp_path, monkeypatch, conn):
     detail = _detail(rec)
     assert "epic_tasks.depends_on" in detail
     assert "confabulation" in detail
-
-
-def test_json_nested_browser_testable_in_tier5_fires(tmp_path, monkeypatch, conn):
-    """Class B: ``items get YOK-N browser_testable`` — WARN names parent column."""
-
-    rel = ".agents/skills/yoke/refine/SKILL.md"
-    body = (
-        "# Refine\n\n"
-        "Check the flag with `db_router items get YOK-42 browser_testable`.\n"
-    )
-    _make_fixture_repo(tmp_path, {rel: body}, {rel: 5})
-    _install_iter(monkeypatch, tmp_path, {rel: 5})
-
-    rec = _run(conn)
-    assert rec.results[0].result == "WARN"
-    detail = _detail(rec)
-    assert "items.browser_qa_metadata" in detail
-    assert ACCESS_PATTERN_NOTE in detail
 
 
 # ---------------------------------------------------------------------------
@@ -250,25 +229,6 @@ def test_fenced_sql_block_does_not_fire(tmp_path, monkeypatch, conn):
 
     rec = _run(conn)
     assert rec.results[0].result == "PASS"
-
-
-def test_fenced_block_still_fires_class_b(tmp_path, monkeypatch, conn):
-    """Class B applies inside fences too — a fenced ``items get`` example
-    with a nested-field shape is still wrong teaching."""
-
-    rel = ".yoke/docs/commands.md"
-    body = (
-        "# Commands\n\n"
-        "```bash\n"
-        "db_router items get YOK-42 browser_testable\n"
-        "```\n"
-    )
-    _make_fixture_repo(tmp_path, {rel: body}, {rel: 2})
-    _install_iter(monkeypatch, tmp_path, {rel: 2})
-
-    rec = _run(conn)
-    assert rec.results[0].result == "WARN"
-    assert "items.browser_qa_metadata" in _detail(rec)
 
 
 # ---------------------------------------------------------------------------

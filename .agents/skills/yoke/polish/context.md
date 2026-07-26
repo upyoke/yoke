@@ -26,7 +26,7 @@ Use spec (or body fallback) to identify:
 
 ## 5. Contextual Survey
 
-**This step is critical.** Polishing in isolation misses codebase drift and cross-ticket conflicts. Before reviewing the implementation, survey the surrounding landscape.
+**This step is critical.** Polishing in isolation misses codebase drift and cross-item conflicts. Before reviewing the implementation, survey the surrounding landscape.
 
 **Recent commits on main** — What has landed since this branch diverged? The implementation may conflict with or duplicate recent work.
 
@@ -48,10 +48,10 @@ fi
 
 Scan for main-branch commits that touch the same files or subsystems as this branch. If recent work on main has:
 - Changed APIs or signatures this branch calls → the branch may need rebasing or adaptation.
-- Already implemented part of this ticket's scope → flag for descoping.
+- Already implemented part of this work item's scope → flag for descoping.
 - Renamed or removed things this branch references → the branch has stale references.
 
-**Active and pipeline tickets** — What else is in flight that might overlap or conflict?
+**Active and pipeline work items** — What else is in flight that might overlap or conflict?
 
 ```bash
 MAIN_ROOT=$(git rev-parse --show-toplevel)
@@ -59,11 +59,11 @@ yoke db read --format lines "SELECT id, status, title FROM items WHERE status IN
 ```
 
 Look for:
-- **Overlap** — another ticket modifying the same files. If two branches touch the same code, note the merge-order risk.
-- **Supersession** — a broader ticket that subsumes this one's remaining work.
-- **Dependencies** — a ticket that must land first, or that depends on this one landing first.
+- **Overlap** — another work item modifying the same files. If two branches touch the same code, note the merge-order risk.
+- **Supersession** — a broader work item that subsumes this one's remaining work.
+- **Dependencies** — a work item that must land first, or that depends on this one landing first.
 
-**Recently done tickets** — What just shipped that might affect this branch?
+**Recently done work items** — What just shipped that might affect this branch?
 
 ```bash
 MAIN_ROOT=$(git rev-parse --show-toplevel)
@@ -72,4 +72,4 @@ yoke db read --format lines "SELECT id, title FROM items WHERE status='done' ORD
 
 Check whether recently completed work has changed the codebase in ways that make parts of this implementation stale, redundant, or conflicting.
 
-**Staleness synthesis** — Carry ALL findings into the review phase (`.agents/skills/yoke/polish/review.md`). Staleness and cross-ticket conflicts are first-class polish issues. If the branch needs rebasing, flag it before making fixes. If scope should be reduced because another ticket already covered part of the work, note it in the review.
+**Staleness synthesis** — Carry ALL findings into the review phase (`.agents/skills/yoke/polish/review.md`). Staleness and cross-item conflicts are first-class polish issues. If the branch needs rebasing, flag it before making fixes. If scope should be reduced because another work item already covered part of the work, note it in the review.

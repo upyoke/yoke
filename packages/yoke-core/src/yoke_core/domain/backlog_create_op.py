@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import sys
 import time
-from typing import Any, Optional, TextIO
+from typing import Any, Mapping, Optional, TextIO
 
 from . import db_backend
 from yoke_core.domain.actors import validate_actor_id
@@ -110,6 +110,8 @@ def execute_create(
     dry_run: bool = False,
     rebuild_board: bool = True,
     entry_surface: Optional[str] = None,
+    instruction: Optional[str] = None,
+    workflow_posture: Optional[Mapping[str, Any]] = None,
     out: TextIO = sys.stdout,
 ) -> dict:
     """Full item creation: validate → INSERT → md gen → GitHub sync.
@@ -189,6 +191,28 @@ def execute_create(
         )
         if intake_block:
             return {"success": False, "error": intake_block}
+        clean_instruction = (
+            None if instruction is None else str(instruction).strip()
+        )
+        if entry_surface == "web_form" and not clean_instruction:
+            return {
+                "success": False,
+                "error": "web-form item creation requires an instruction",
+            }
+        from yoke_core.domain.item_posture_validation import (
+            ItemPostureError,
+            validate_item_posture,
+        )
+
+        try:
+            normalized_posture = validate_item_posture(
+                conn,
+                definition=workflow_runtime.definition,
+                project_id=project_identity.id,
+                posture=workflow_posture,
+            )
+        except (ItemPostureError, LookupError) as exc:
+            return {"success": False, "error": str(exc)}
 
         result = mutations.prepare_create(
             title=title,
@@ -252,6 +276,8 @@ def execute_create(
                     owner=owner_token,
                     workflow_id=workflow_id,
                     workflow_version_id=workflow_version_id,
+                    instruction=clean_instruction,
+                    workflow_posture=normalized_posture,
                 )
                 break
             except db_backend.integrity_error_types(conn) as exc:

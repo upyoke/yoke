@@ -57,7 +57,7 @@ class LifecycleSkipRecordRecoverableSubstrateRequest(BaseModel):
     remediation_owner: str = Field(
         ...,
         description=(
-            "Ticket id or recipe owner responsible for the fix "
+            "Work-item id or recipe owner responsible for the fix "
             "(e.g. ``YOK-N``)."
         ),
     )

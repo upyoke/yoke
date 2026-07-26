@@ -25,6 +25,17 @@ VALID_VERDICTS = ("pass", "fail", "inconclusive", "error")
 VALID_BROWSER_QA_KINDS = ("browser_smoke", "browser_diff")
 
 
+def case_outcome_for_verdict(verdict: Optional[str]) -> Optional[str]:
+    """Translate a terminal verdict into the plan-case outcome vocabulary."""
+    if verdict == "pass":
+        return "passed"
+    if verdict in {"fail", "error"}:
+        return "failed"
+    if verdict == "inconclusive":
+        return "needs_review"
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Tiny shared formatting helpers
 # ---------------------------------------------------------------------------
@@ -67,6 +78,9 @@ REQ_COLUMNS = (
     "qa_kind", "qa_phase", "target_env", "blocking_mode",
     "requirement_source", "success_policy", "capability_requirements",
     "suite_id", "waived_at", "waiver_rationale", "waiver_source",
+    "plan_id", "plan_case_key", "method_id", "host_baseline",
+    "workflow_transition_id", "instructions", "expected_outcome",
+    "method_config",
     "created_at",
 )
 
@@ -77,7 +91,11 @@ _REQ_SELECT = (
     "blocking_mode, requirement_source, COALESCE(success_policy,''), "
     "COALESCE(capability_requirements,''), COALESCE(suite_id,''), "
     "COALESCE(waived_at,''), COALESCE(waiver_rationale,''), "
-    "COALESCE(waiver_source,''), created_at"
+    "COALESCE(waiver_source,''), COALESCE(CAST(plan_id AS TEXT),''), "
+    "COALESCE(plan_case_key,''), COALESCE(method_id,''), "
+    "COALESCE(host_baseline,''), COALESCE(workflow_transition_id,''), "
+    "COALESCE(instructions,''), COALESCE(expected_outcome,''), "
+    "COALESCE(method_config,''), created_at"
 )
 
 
@@ -87,6 +105,7 @@ _REQ_SELECT = (
 # the browser-QA capture flow branches on it.
 RUN_COLUMNS = (
     "id", "qa_requirement_id", "executor_type", "qa_kind", "verdict",
-    "execution_status", "score", "confidence", "raw_result", "duration_ms",
+    "execution_status", "case_outcome", "capture_degraded_reason",
+    "score", "confidence", "raw_result", "duration_ms",
     "started_at", "completed_at", "created_at",
 )

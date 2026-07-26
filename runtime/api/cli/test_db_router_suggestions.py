@@ -3,7 +3,7 @@
 Covers the pure ranker, the formatted hint string, and the two
 operator-facing emitters used by ``db_router``'s unknown-domain and
 unknown-items-subcommand denial paths. The 24-line subcommand wall the
-ticket targets must not return.
+work item targets must not return.
 """
 
 from __future__ import annotations

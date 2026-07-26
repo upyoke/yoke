@@ -51,7 +51,6 @@ STALE_TERMS: tuple[str, ...] = (
     "claim_" "session_id",
     "item_" "claims",
     "work_claims" ".target_id",
-    "command_definitions" " WHERE",
     "qa_kind=" "'review'",
     "--qa-kind " "review",
     ".agents/skills/yoke/" "scripts/python3 -m yoke_core.cli." "db_router qa",

@@ -180,7 +180,7 @@ def test_auto_retire_records_no_op_when_files_already_gone(
 
 
 def test_auto_retire_stages_test_alongside_module(audit_conn, tmp_path: Path):
-    """Tickets that place tests alongside the module (recent governed-drop
+    """Work items that place tests alongside the module (recent governed-drop
     convention) MUST get those tests staged for retire too — not only the
     legacy one-level-up convention.
     """

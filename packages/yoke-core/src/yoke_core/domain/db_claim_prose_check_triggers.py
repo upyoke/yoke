@@ -162,7 +162,7 @@ _STRUCTURAL_TRIGGER_LABELS = frozenset({
 
 _NEGATIVE_DB_CLAIM_PATTERNS: List[re.Pattern] = [
     re.compile(
-        r"\b(?:this\s+(?:ticket|work)|the\s+ticket)\s+"
+        r"\b(?:this\s+work(?:\s+item)?|the\s+work\s+item)\s+"
         r"(?:is\s+expected\s+to\s+be|is)\s+control-plane\s+code\s+only\b",
         re.IGNORECASE,
     ),

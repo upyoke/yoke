@@ -1,26 +1,10 @@
-"""Read-only project-capability roster with verification provenance.
+"""Read-only capability roster with secret-free readiness provenance.
 
-The read behind ``projects.capabilities.list``: one row per
-``project_capabilities`` declaration carrying the stored ``type``
-vocabulary, a derived kind/state pair, a curated non-secret settings
-summary, and verification freshness. The ``capability_secrets`` table
-holds literal secret values — this read never selects from it, not even
-a join.
-
-``project_capabilities.verified_at`` has no timestamp writer today, so
-most rows carry NULL; the derived ``state`` renders that honestly as
-``configured_unverified`` rather than pretending a verification
-happened. GitHub verification freshness genuinely lives on
-``github_app_installations.last_verified_at`` and
-``project_github_repo_bindings.last_verified_at``, so rows of the
-stored ``github`` type overlay the newest of those stamps as the row's
-``verified_at`` surrogate, with ``verified_source`` naming where the
-stamp came from. The overlay only counts bindings whose installation is
-currently active: both stamps are earned through the installation's
-credential channel, so once that channel is suspended, deleted, or
-gone, neither attests anything Yoke can still reach and the capability
-must not read ``verified`` against the binding-status read's own
-unavailable verdict.
+Rows retain their stored capability type while deriving the user-facing kind,
+availability, safe settings summary, usage, and trusted verification stamp.
+GitHub freshness overlays only from active installation channels; Test Mac
+readiness also reflects its receipt and serial lease. Secret storage is never
+selected or joined.
 """
 
 from __future__ import annotations
@@ -28,17 +12,28 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from yoke_contracts.github_app_tokens import GITHUB_CAPABILITY_TYPE
+from yoke_contracts.machine_config.capability_secrets import (
+    TEST_MACHINE_CAPABILITY,
+)
 
 from yoke_core.domain import db_helpers, json_helper
+from yoke_core.domain.capabilities_test_machine_read import (
+    read_test_machine_facts,
+)
 from yoke_core.domain.migration_model_capability_validation import (
     CAPABILITY_TYPE as MIGRATION_MODEL_CAPABILITY_TYPE,
 )
 from yoke_core.domain.project_github_binding_state import INSTALLATION_ACTIVE
 from yoke_core.domain.project_identity import resolve_project_id
+from yoke_core.domain.test_machine_capability import (
+    TEST_MACHINE_BASELINES,
+    TEST_MACHINE_FEATURES,
+)
 
 
 KIND_DECLARED_MODEL = "declared_model"
 KIND_PROVIDER_ACCESS = "provider_access"
+KIND_TEST_RESOURCE = "test_resource"
 
 #: Capability types that declare a model of the project's world rather
 #: than granting access to an external provider. The architecture model
@@ -47,9 +42,10 @@ KIND_PROVIDER_ACCESS = "provider_access"
 #: (``project_structure`` rows), so this read never sees it.
 DECLARED_MODEL_TYPES = frozenset({MIGRATION_MODEL_CAPABILITY_TYPE})
 
-STATE_DECLARED = "declared"
-STATE_VERIFIED = "verified"
 STATE_CONFIGURED_UNVERIFIED = "configured_unverified"
+STATE_ERROR = "error"
+STATE_IN_USE = "in_use"
+STATE_READY = "ready"
 
 VERIFIED_SOURCE_CAPABILITY = "capability"
 VERIFIED_SOURCE_REPO_BINDING = "repo-binding"
@@ -63,6 +59,7 @@ CAPABILITY_LIST_FIELDS = (
     "project_id",
     "project",
     "settings_summary",
+    "used_by_summary",
     "verified_at",
     "verified_source",
     "created_at",
@@ -135,6 +132,15 @@ def _migration_model_summary(settings: Dict[str, Any]) -> str:
     return ", ".join(parts)
 
 
+def _test_machine_summary(settings: Dict[str, Any]) -> str:
+    resource = _display_safe(settings.get("resource_name"))
+    features = " + ".join(
+        feature.replace(".app", "") for feature in TEST_MACHINE_FEATURES[:2]
+    )
+    parts = [resource, features, f"baselines ×{len(TEST_MACHINE_BASELINES)}"]
+    return " · ".join(part for part in parts if part)
+
+
 def summarize_settings(cap_type: str, settings_json: Any) -> str:
     """A one-line curated non-secret summary of a settings document."""
     try:
@@ -147,6 +153,8 @@ def summarize_settings(cap_type: str, settings_json: Any) -> str:
         return _github_summary(parsed)
     if cap_type == MIGRATION_MODEL_CAPABILITY_TYPE:
         return _migration_model_summary(parsed)
+    if cap_type == TEST_MACHINE_CAPABILITY:
+        return _test_machine_summary(parsed)
     parts: List[str] = []
     repo_slug = _repo_slug_safe(parsed.get("repo"))
     if repo_slug:
@@ -221,13 +229,23 @@ def list_capabilities(
             str(dict(raw)["type"]) == GITHUB_CAPABILITY_TYPE for raw in rows
         ):
             github_freshness = _github_freshness_by_project(conn)
+        machine_projects = [
+            int(dict(raw)["project_id"])
+            for raw in rows
+            if str(dict(raw)["type"]) == TEST_MACHINE_CAPABILITY
+        ]
+        machine_status, active_machines, machine_method_count = (
+            read_test_machine_facts(conn, machine_projects)
+        )
 
         result: List[Dict[str, Any]] = []
         for raw in rows:
             row = dict(raw)
             cap_type = str(row["type"])
             kind = (
-                KIND_DECLARED_MODEL
+                KIND_TEST_RESOURCE
+                if cap_type == TEST_MACHINE_CAPABILITY
+                else KIND_DECLARED_MODEL
                 if cap_type in DECLARED_MODEL_TYPES
                 else KIND_PROVIDER_ACCESS
             )
@@ -242,12 +260,24 @@ def list_capabilities(
                 ):
                     verified_at = overlay
                     verified_source = VERIFIED_SOURCE_REPO_BINDING
-            if kind == KIND_DECLARED_MODEL:
-                state = STATE_DECLARED
-            elif verified_at:
-                state = STATE_VERIFIED
+            project_id = int(row["project_id"])
+            if project_id in active_machines:
+                state = STATE_IN_USE
+            elif machine_status.get(project_id) == STATE_ERROR:
+                state = STATE_ERROR
+            elif kind == KIND_DECLARED_MODEL or verified_at:
+                state = STATE_READY
+            elif kind == KIND_TEST_RESOURCE:
+                state = STATE_CONFIGURED_UNVERIFIED
             else:
                 state = STATE_CONFIGURED_UNVERIFIED
+            used_by = {
+                GITHUB_CAPABILITY_TYPE: "GitHub · delivery",
+                MIGRATION_MODEL_CAPABILITY_TYPE: "all workflows",
+                "aws-admin": "Delivery · Infrastructure",
+            }.get(cap_type, "")
+            if kind == KIND_TEST_RESOURCE:
+                used_by = f"Machine methods ×{machine_method_count}"
             result.append({
                 "type": cap_type,
                 "kind": kind,
@@ -257,6 +287,7 @@ def list_capabilities(
                 "settings_summary": summarize_settings(
                     cap_type, row.get("settings"),
                 ),
+                "used_by_summary": used_by,
                 "verified_at": verified_at,
                 "verified_source": verified_source,
                 "created_at": row.get("created_at"),
@@ -272,9 +303,11 @@ __all__ = [
     "GENERIC_SUMMARY_KEYS",
     "KIND_DECLARED_MODEL",
     "KIND_PROVIDER_ACCESS",
+    "KIND_TEST_RESOURCE",
     "STATE_CONFIGURED_UNVERIFIED",
-    "STATE_DECLARED",
-    "STATE_VERIFIED",
+    "STATE_ERROR",
+    "STATE_IN_USE",
+    "STATE_READY",
     "VERIFIED_SOURCE_CAPABILITY",
     "VERIFIED_SOURCE_REPO_BINDING",
     "list_capabilities",

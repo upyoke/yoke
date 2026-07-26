@@ -12,7 +12,7 @@ This skill routes to subcommands. Parse the arguments to determine which subcomm
 
 1. **Extract the subcommand** from the arguments — it is the first word (e.g., `plan`, `conduct`).
 2. **Plan-mode guard.** If plan mode is active, classify the subcommand before dispatch:
-   - Execute-class commands (`advance`, `conduct`, `usher`, `polish`, `idea` write paths, and `refine` write paths after Gate 0) automatically call `ExitPlanMode` when the tool exists, with this note: `Plan mode auto-exited — Yoke ticket is the plan.`
+   - Execute-class commands (`advance`, `conduct`, `usher`, `polish`, `idea` write paths, and `refine` write paths after Gate 0) automatically call `ExitPlanMode` when the tool exists, with this note: `Plan mode auto-exited — Yoke work item is the plan.`
    - Planning-class commands (`shepherd plan`, `plan`, and `refine` Gate 0 critique/planning) honor plan mode and continue without auto-exit.
    - Harnesses without an `ExitPlanMode` tool continue normally after emitting the same one-line note.
 3. **Read the instruction file** at `.agents/skills/yoke/{subcommand}/SKILL.md` using the Read tool. If the file is missing, show the command reference instead of inventing a replacement.

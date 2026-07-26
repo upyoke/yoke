@@ -82,6 +82,10 @@ def definition_fixture(
 ) -> Dict[str, Any]:
     """Build a complete first-version seed fixture."""
     stage_ids = [stage["id"] for stage in stages]
+    normalized_policies = {
+        **policies,
+        "approval_defaults": dict(policies.get("approval_defaults", {})),
+    }
     return {
         "workflow": {
             "id": workflow_id,
@@ -100,7 +104,7 @@ def definition_fixture(
             ],
             "entry_surfaces": list(entry_surfaces),
             "executor_bindings": list(executor_bindings),
-            "policies": policies,
+            "policies": normalized_policies,
         },
     }
 

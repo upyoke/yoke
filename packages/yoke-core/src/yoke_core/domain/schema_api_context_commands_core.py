@@ -37,7 +37,7 @@ CORE_COMMANDS: list[dict] = [
         "notes": (
             "Multi-field returns one value per line in field order. Valid "
             "fields: architecture_impact, blocked, blocked_reason, body, "
-            "browser_qa_metadata, created_at, db_compatibility_attestation, "
+            "created_at, db_compatibility_attestation, "
             "db_mutation_profile, deploy_log, deploy_stage, deployed_to, "
             "deployment_flow, design_spec, flow, frozen, github_issue, id, "
             "merged_at, priority, project, rework_count, shepherd_caveats, "
@@ -55,7 +55,7 @@ CORE_COMMANDS: list[dict] = [
             "yoke items get YOK-N body"
         ),
         "notes": (
-            "The rendered body is the source of truth for ticket content "
+            "The rendered body is the source of truth for work-item content "
             "and is auto-synced to the GitHub issue via bearer-token REST. "
             "items.github_issue stores '#NNNN' format and is for outbound "
             "linking only — Yoke automation never shells out to ``gh`` "
@@ -78,7 +78,7 @@ CORE_COMMANDS: list[dict] = [
             "id, session_id, target_kind, item_id, epic_id, task_num, "
             "claim_type, claimed_at FROM work_claims WHERE released_at IS "
             "NULL\"\n"
-            "# Recent events on a ticket:\n"
+            "# Recent events on a work item:\n"
             "yoke events query --item YOK-N --limit 20"
         ),
         "notes": (
@@ -101,7 +101,7 @@ CORE_COMMANDS: list[dict] = [
         "notes": (
             "Registered body-section filter. Returns just the named "
             "``## Section Name`` block between that heading and the "
-            "next ``## ``. Use for large ticket bodies whose full "
+            "next ``## ``. Use for large work-item bodies whose full "
             "render exceeds the read budget. Missing section returns "
             "an empty body with a stderr advisory; exit 0."
         ),

@@ -1,4 +1,4 @@
-"""Committed-manifest subject for ticketless governed migrations.
+"""Committed-manifest subject for itemless governed migrations.
 
 The normal two-unit runner derives its safety theorem from an item profile.
 Some operator-directed maintenance is deliberately itemless. This module
@@ -50,7 +50,7 @@ _SOURCE_COMMIT_MARKER = "manifest_source_commit="
 
 
 class MigrationManifestError(MigrationApplyError):
-    """A ticketless migration manifest or its source checkout is unsafe."""
+    """An itemless migration manifest or its source checkout is unsafe."""
 
 
 @dataclass(frozen=True)
@@ -396,7 +396,7 @@ def _require_clean_git_checkout(root: Path) -> None:
     status = _git_capture(root, ["status", "--porcelain", "--untracked-files=all"])
     if status:
         raise MigrationManifestError(
-            "ticketless governed migration requires a clean source worktree"
+            "itemless governed migration requires a clean source worktree"
         )
 
 

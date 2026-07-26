@@ -11,7 +11,7 @@ installs the migration must reach before its module can retire.
 * **Multi-install** — the model declares more than one authoritative
   DB (a future capability shape, e.g. a list under
   ``authoritative_db.installs``). Module retirement waits until every
-  install has recorded ``state='completed'``; the cutover-ticket AC
+  install has recorded ``state='completed'``; the cutover work item's AC
   remains "retire in the post-merge slice" for these projects.
 
 Today's `governed_migration_module` runner only ships single-install
@@ -20,7 +20,7 @@ schema flips it without a code change at every consumer site.
 
 Consumers:
 
-* The skill that drafts AC wording for migration tickets reads
+* The skill that drafts AC wording for migration work items reads
   :func:`is_single_authoritative_install` to choose between the
   "retire in this slice" and "retire in the post-merge slice"
   templates.

@@ -8,6 +8,12 @@ from yoke_cli.commands.adapters.workflows_read import (
     workflows_policy_defaults_publish,
     workflows_version_get,
 )
+from yoke_cli.commands.adapters.workflow_mechanics import (
+    workflows_approval_defaults_publish,
+    workflows_delivery_default_set,
+    workflows_mechanics_get,
+    workflows_testing_default_set,
+)
 
 WORKFLOW_SUBCOMMAND_REGISTRY = {
     ("workflows", "definition", "get"): (
@@ -33,5 +39,21 @@ WORKFLOW_SUBCOMMAND_REGISTRY = {
     ("workflows", "item", "migrate"): (
         "workflows.item.migrate",
         workflows_item_migrate,
+    ),
+    ("workflows", "mechanics", "get"): (
+        "workflows.mechanics.get",
+        workflows_mechanics_get,
+    ),
+    ("workflows", "testing-default", "set"): (
+        "workflows.testing_default.set",
+        workflows_testing_default_set,
+    ),
+    ("workflows", "delivery-default", "set"): (
+        "workflows.delivery_default.set",
+        workflows_delivery_default_set,
+    ),
+    ("workflows", "approval-defaults", "publish"): (
+        "workflows.approval_defaults.publish",
+        workflows_approval_defaults_publish,
     ),
 }

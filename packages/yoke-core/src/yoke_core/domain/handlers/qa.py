@@ -194,8 +194,7 @@ def handle_qa_requirement_auto_create_for_item(
 
     * ``created`` — a new ``ac_verification`` row was inserted.
     * ``existing`` — an unwaived requirement already covered the item.
-    * ``browser_testable_noop`` — the item is browser-testable; nothing inserted.
-    * ``not_applicable`` — workflow policy or browser signals say no requirement.
+    * ``not_applicable`` — the workflow does not use project-transition QA.
     """
     from yoke_core.domain import qa_requirements_auto
 
@@ -242,15 +241,6 @@ def handle_qa_requirement_auto_create_for_item(
                     "item_id": int(item_id),
                     "requirement_id": None,
                     "outcome": "not_applicable",
-                },
-                primary_success=True,
-            )
-        if qa_requirements_auto._metadata_is_browser_testable(item):
-            return HandlerOutcome(
-                result_payload={
-                    "item_id": int(item_id),
-                    "requirement_id": None,
-                    "outcome": "browser_testable_noop",
                 },
                 primary_success=True,
             )

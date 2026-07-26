@@ -148,11 +148,11 @@ def test_conduct_status_pipeline_dispatches_claim_bypass() -> None:
     }
 
 
-def test_conduct_proceed_handoff_splits_ticket_ids() -> None:
+def test_conduct_proceed_handoff_splits_item_ids() -> None:
     assert _run(
         "conduct", "epic", "proceed-triage-handoff",
         "--epic", "501", "--recommendation", "PROCEED",
-        "--gap-summary", "minor", "--filed-tickets", "YOK-1,YOK-2",
+        "--gap-summary", "minor", "--filed-items", "YOK-1,YOK-2",
     ) == 0
     req = _CAPTURED[-1]
     assert req.function == "conduct.epic.proceed_triage_handoff"
@@ -160,6 +160,6 @@ def test_conduct_proceed_handoff_splits_ticket_ids() -> None:
     assert req.payload == {
         "recommendation": "PROCEED",
         "gap_summary": "minor",
-        "filed_ticket_ids": ["YOK-1", "YOK-2"],
+        "filed_item_ids": ["YOK-1", "YOK-2"],
         "session_id": None,
     }

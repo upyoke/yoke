@@ -7,7 +7,6 @@ ROOT = Path(__file__).resolve().parents[3]
 
 SURFACES = (
     "README.md",
-    "docs/installer-github-app-testing.md",
     "docs/local-setup.md",
     "docs/onboard-external-project.md",
     "docs/OVERVIEW.md",

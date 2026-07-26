@@ -11,8 +11,8 @@ Determine the best action based on the gathered context. This phase is pure anal
 - **SML content**: Full text of MISSION.md, LANDSCAPE.md, VISION.md, MASTER-PLAN.md
 - **Materialization gaps**: Items in MASTER-PLAN.md not yet represented in the backlog
 - **Recent landed change report**: Recent commits plus diff-stat summaries of what actually changed
-- **Landed-impact updates**: Concrete candidates for stale-ticket updates
-- **`_no_new_tickets`**: Boolean flag from argument parsing
+- **Landed-impact updates**: Concrete candidates for stale-work-item updates
+- **`_no_new_items`**: Boolean flag from argument parsing
 
 ## 2.1 Assess Recent Landings Against The Target Frontier
 
@@ -69,7 +69,7 @@ _decision_outcomes = [{ area: "frontier", outcome: "refresh_only", rationale: "<
 _items_to_materialize = []
 _items_to_sharpen = []
 _edges_to_generate = [<list of edge specs to add/update/remove>]
-_no_new_tickets_suppressed = false
+_no_new_items_suppressed = false
 ```
 
 ### Check 2: Frontier items underdefined -- `sharpen_frontier`
@@ -94,7 +94,7 @@ _items_to_sharpen = [
  ...
 ]
 _edges_to_generate = [<any edges identified during analysis>]
-_no_new_tickets_suppressed = false
+_no_new_items_suppressed = false
 ```
 
 ### Check 3: Frontier depleted and SML ready -- `materialize_new`
@@ -105,7 +105,7 @@ The frontier is depleted or nearly depleted (few or no runnable items remain), A
 2. **Does not depend on currently unstable work** -- no active items are still reshaping the foundation
 3. **Is the natural next generation/wave** in MASTER-PLAN.md -- not a leap ahead
 
-Pull forward a minimal set of new items. Prefer fewer, sharper tickets over many vague ones.
+Pull forward a minimal set of new items. Prefer fewer, sharper work items over many vague ones.
 
 Produce:
 ```
@@ -123,7 +123,7 @@ _items_to_materialize = [
 ]
 _items_to_sharpen = []
 _edges_to_generate = [<edges for both existing and new items>]
-_no_new_tickets_suppressed = false
+_no_new_items_suppressed = false
 ```
 
 ### Check 4: None of the above -- `leave_in_sml`
@@ -145,26 +145,26 @@ _decision_outcomes = [{ area: "<strategic area>", outcome: "leave_in_sml", ratio
 _items_to_materialize = []
 _items_to_sharpen = []
 _edges_to_generate = []
-_no_new_tickets_suppressed = false
+_no_new_items_suppressed = false
 ```
 
-## `--no-new-tickets` Enforcement
+## `--no-new-items` Enforcement
 
-When `_no_new_tickets` is true, apply these overrides AFTER the decision order:
+When `_no_new_items` is true, apply these overrides AFTER the decision order:
 
 - If the decision would be `materialize_new`, downgrade to `refresh_only` and set:
  ```
  _decision = "refresh_only"
- _decision_rationale = "frontier insufficient, new tickets suppressed by flag. " + original rationale
- _no_new_tickets_suppressed = true
+ _decision_rationale = "frontier insufficient, new work items suppressed by flag. " + original rationale
+ _no_new_items_suppressed = true
  _items_to_materialize = []
  ```
 - If the decision would be `sharpen_frontier`, preserve refinement of existing items but suppress actions that would create new items (`split`) and set:
  ```
  _items_to_sharpen = only the existing-item refinements that do not create new items
  if any split action was suppressed:
- _no_new_tickets_suppressed = true
- _decision_rationale = original rationale + " Split/materialization work was suppressed by --no-new-tickets."
+ _no_new_items_suppressed = true
+ _decision_rationale = original rationale + " Split/materialization work was suppressed by --no-new-items."
  ```
 - `refresh_only` and `leave_in_sml` pass through unchanged.
 
@@ -214,4 +214,4 @@ After this phase, the following decision outputs are available for subsequent ph
 - **`_items_to_materialize`**: List of items to create (empty unless `materialize_new`)
 - **`_items_to_sharpen`**: List of items to refine/split (empty unless `sharpen_frontier`)
 - **`_edges_to_generate`**: List of edge specs for dependency reconciliation
-- **`_no_new_tickets_suppressed`**: Boolean, true when materialization/sharpening was suppressed by flag
+- **`_no_new_items_suppressed`**: Boolean, true when materialization/sharpening was suppressed by flag

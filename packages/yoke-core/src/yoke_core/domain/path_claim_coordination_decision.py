@@ -104,7 +104,7 @@ _RATIONALE_CHECKLIST: List[str] = [
     "shared_paths=<comma-separated paths from the overlap>",
     "conflicting_claim_id=<the path_claims.id this row coordinates with>",
     "independence_evidence=<for coordination_only: which disjoint "
-    "sections/functions each ticket edits; explicitly absent for directional>",
+    "sections/functions each work item edits; explicitly absent for directional>",
     "why_order_matters=<for directional: what upstream lands that the "
     "candidate inherits or restructures; explicitly absent for coordination_only>",
 ]
@@ -121,7 +121,7 @@ def _suggested_commands(
     coord_rationale = (
         f"decision=coordination_only. shared_paths={shared}. "
         f"conflicting_claim_id={conflicting_claim_id}. "
-        "independence_evidence=<which disjoint sections each ticket edits>"
+        "independence_evidence=<which disjoint sections each work item edits>"
     )
     dir_rationale = (
         f"decision=directional. shared_paths={shared}. "

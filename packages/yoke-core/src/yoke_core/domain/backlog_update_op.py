@@ -34,6 +34,7 @@ from yoke_core.domain.backlog_session_attribution import (
 from yoke_core.domain.backlog_unsupported_field_writes import _apply_shell_fallback
 from yoke_core.domain.backlog_status_claim_verification import _verify_status_claim
 from yoke_core.domain.deployment_flow_validator import normalize_deployment_flow_value, validate_and_lookup_flow_project
+from yoke_core.domain.item_block_notifications import emit_item_block_state_change_if_needed
 from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 def execute_update(
     item_id: int,
@@ -199,10 +200,7 @@ def execute_update(
             if authoritative_gate_result is not None:
                 return authoritative_gate_result
 
-        # Capture old status before applying writes
         old_status = item_dict["status"] if field == "status" else None
-
-        # Apply field_writes from mutation result
         field_writes = mutation_result.field_writes
         filtered_writes = {
             k: v for k, v in field_writes.items()
@@ -211,6 +209,8 @@ def execute_update(
 
         if filtered_writes:
             _update_item_multi(conn, item_id, filtered_writes)
+        emit_item_block_state_change_if_needed(
+            conn, item=item_dict, field=field, value=value, session_id=session_id)
 
         print(f"Updated: YOK-{item_id} {field} → {value}", file=out)
 

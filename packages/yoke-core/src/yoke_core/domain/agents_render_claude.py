@@ -51,7 +51,7 @@ def render_claude_settings_json() -> str:
         "hooks": render_claude_hooks_block(),
         "permissions": CLAUDE_PERMISSIONS,
         # Yoke policy: project context (CLAUDE.md, AGENTS.md, session rules,
-        # skill prose, ticket bodies) is the only durable surface. Claude's
+        # skill prose, work-item bodies) is the only durable surface. Claude's
         # auto-memory subsystem would route rules into a per-machine file that
         # only loads when the model checks it, obscuring drift between what
         # the operator sees and what every agent inherits.

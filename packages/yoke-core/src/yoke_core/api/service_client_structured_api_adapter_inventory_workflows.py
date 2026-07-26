@@ -39,6 +39,33 @@ WORKFLOW_ADAPTERS = [
         cli_invocation="yoke workflows item migrate YOK-N --to-version N",
         notes="Explicitly migrates a compatible existing item to another published version.",
     ),
+    read_entry(
+        function_id="workflows.mechanics.get",
+        cli_invocation="yoke workflows mechanics get",
+        notes="Reads project defaults and the named approver roster.",
+    ),
+    AdapterEntry(
+        function_id="workflows.testing_default.set",
+        cli_invocation=(
+            "yoke workflows testing-default set --project P --workflow W "
+            "--plan-id N"
+        ),
+    ),
+    AdapterEntry(
+        function_id="workflows.delivery_default.set",
+        cli_invocation=(
+            "yoke workflows delivery-default set --project P --workflow W "
+            "--flow F"
+        ),
+    ),
+    AdapterEntry(
+        function_id="workflows.approval_defaults.publish",
+        cli_invocation=(
+            "yoke workflows approval-defaults publish --workflow W "
+            "--expected-current-version N --defaults-file FILE"
+        ),
+        notes="Publishes a new immutable version with bounded approval defaults.",
+    ),
 ]
 
 __all__ = ["WORKFLOW_ADAPTERS"]

@@ -263,7 +263,7 @@ def test_release_override_fail_on_cross_session(env):
         conn, "ItemClaimReleaseOverride", other, 905,
         {
             "prior_owner_session_id": holder, "claim_id": 100,
-            "operator_rationale": "ticket coordination",
+            "operator_rationale": "work-item coordination",
         },
     )
     rec = _run(conn)

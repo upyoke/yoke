@@ -2,7 +2,7 @@
 
 Extracted from `dispatch-context.md`. Referenced from `5f-issue.2` (Build Context Block) and `5f-epic.6` (Build Context Block).
 
-This sub-step is called as the **final sub-step** of both `5f-issue.2` (Build Context Block) and `5f-epic.6` (Build Context Block). It appends project-specific context to the existing context block for every item with a project, including Yoke itself. The same context fields (test commands, repo path, ephemeral URL) are documented in `shared/tester-dispatch-template.md` for use by non-conduct flows.
+This sub-step is called as the **final sub-step** of both `5f-issue.2` (Build Context Block) and `5f-epic.6` (Build Context Block). It appends project-specific context to the existing context block for every item with a project, including Yoke itself. The same context fields (test plans, repo path, ephemeral URL) are documented in `shared/tester-dispatch-template.md` for use by non-conduct flows.
 
 **1. Query the item's project:**
 ```bash
@@ -39,28 +39,22 @@ c. Read `repo_path`:
 _repo_path=$(yoke projects get --project "${_project}" --field repo_path)
 ```
 
-d. Read test commands (four-tier model). Project-level test commands live in the `command_definitions` Project Structure family:
+d. Read attached test plans and materialized case snapshots:
 ```bash
-_cmd_quick=$(python3 -m yoke_core.domain.command_definitions get "${_project}" quick)
-_cmd_full=$(python3 -m yoke_core.domain.command_definitions get "${_project}" full)
-_cmd_e2e=$(python3 -m yoke_core.domain.command_definitions get "${_project}" e2e)
-_cmd_smoke=$(python3 -m yoke_core.domain.command_definitions get "${_project}" smoke)
+_qa_plans=$(yoke qa plan list --project "${_project}" --json)
+_qa_requirements=$(yoke qa requirement list --item "${_id}" --json)
 ```
 
-d1. Validate test commands — detect broken commands before agents try to use them. The Python owner is `yoke_core.domain.projects validate-test-commands`; it prints `project=<id>` followed by one line per canonical scope in the form `<scope>=<valid|invalid|empty>|<detail>` and exits 0 when nothing is invalid. An empty value is reported as `empty`, not `invalid`:
+d1. Include plan names, transition attachments, and every materialized row's
+case key, method, instructions, expected outcome, and requirement id in the
+dispatch context. The Engineer or Tester executes a runnable row only through:
+
 ```bash
-_validation_output=$(python3 -m yoke_core.domain.projects validate-test-commands "${_project}" 2>/dev/null) || true
-_quick_status=$(printf '%s' "$_validation_output" | grep '^quick=' | sed 's/^[^=]*=//; s/|.*//')
-_full_status=$(printf '%s' "$_validation_output" | grep '^full=' | sed 's/^[^=]*=//; s/|.*//')
-_e2e_status=$(printf '%s' "$_validation_output" | grep '^e2e=' | sed 's/^[^=]*=//; s/|.*//')
-_smoke_status=$(printf '%s' "$_validation_output" | grep '^smoke=' | sed 's/^[^=]*=//; s/|.*//')
-if [ "$_quick_status" = "invalid" ]; then _cmd_quick=""; fi
-if [ "$_full_status" = "invalid" ]; then _cmd_full=""; fi
-if [ "$_e2e_status" = "invalid" ]; then _cmd_e2e=""; fi
-if [ "$_smoke_status" = "invalid" ]; then _cmd_smoke=""; fi
+yoke qa case run --requirement-id <qa_requirements.id>
 ```
 
-If any status is "invalid", emit a warning and downgrade that command to empty in the dispatch context. Do not inject broken commands into agent prompts — they waste agent time debugging missing scripts. The warning identifies the exact project and scope for repair.
+Plan authoring validates executor configuration, so dispatch never re-parses or
+validates embedded command strings.
 
 d2. Read the environment for the actual worktree branch through `yoke
 ephemeral-env get "${_project}" "${_worktree_branch}" --json`. If it is not

@@ -8,7 +8,7 @@
 #   * runtime.api.domain.retired_schema_registry (loader + query helpers)
 #   * runtime.api.domain.projects_restart (ADD COLUMN guard)
 #   * runtime.api.domain.db_mutation_gate (post-state verification for
-#     check_implementing_to_reviewing_implementation_gate when a ticket's
+#     check_implementing_to_reviewing_implementation_gate when a work item's
 #     db_mutation_profile.affected_surfaces names a registered surface)
 #   * runtime.api.engines.doctor_hc_retired_schema (health check)
 #

@@ -45,7 +45,7 @@ _POSTGRES_TABLE_HINT_RE = re.compile(
 # commands (``items get ... body``, ``items update ...``, ``projects get
 # ...``) is content data, not failure output, and must not fire the hint
 # -- that scenario is the false-positive class where reading a
-# ticket body containing historical ``Error: no such column`` examples
+# work-item body containing historical ``Error: no such column`` examples
 # was emitting the hard-stop unnecessarily.
 _DB_QUERY_SHAPE_SUBSTRINGS: tuple[str, ...] = (
     "sqlite3",

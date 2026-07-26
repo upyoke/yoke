@@ -21,6 +21,9 @@ from yoke_core.api.service_client_structured_api_adapter_inventory_github_action
 from yoke_core.api.service_client_structured_api_adapter_inventory_epic import (
     EPIC_ADAPTERS,
 )
+from yoke_core.api.service_client_structured_api_adapter_inventory_direct_workflows import (
+    DIRECT_WORKFLOW_ADAPTERS,
+)
 from yoke_core.api.service_client_structured_api_adapter_inventory_qa import (
     QA_ADAPTERS,
 )
@@ -29,6 +32,9 @@ from yoke_core.api.service_client_structured_api_adapter_inventory_sessions impo
 )
 from yoke_core.api.service_client_structured_api_adapter_inventory_strategy import (
     STRATEGY_ADAPTERS,
+)
+from yoke_core.api.service_client_structured_api_adapter_inventory_test_machine import (
+    TEST_MACHINE_ADAPTERS,
 )
 from yoke_core.api.service_client_structured_api_adapter_inventory_ops import (
     OPS_ADAPTERS,
@@ -47,6 +53,7 @@ from yoke_core.api.service_client_structured_api_adapter_inventory_workflows imp
 
 CLI_ADAPTERS: List[AdapterEntry] = [
     *EPIC_ADAPTERS,
+    *DIRECT_WORKFLOW_ADAPTERS,
     AdapterEntry(
         function_id="db_claim.amend",
         cli_invocation="python3 -m yoke_core.api.service_client db-claim-amend",
@@ -71,6 +78,7 @@ CLI_ADAPTERS: List[AdapterEntry] = [
     AdapterEntry("lifecycle.skip.record_recoverable_substrate", "yoke lifecycle skip record-recoverable-substrate YOK-N --chain-step N --project P --routed-action ACTION --failure-class CLASS --remediation-owner YOK-N"),
     # qa-family entries live in the _qa sibling module (350-cap split).
     *QA_ADAPTERS,
+    *TEST_MACHINE_ADAPTERS,
     # Cross-family readers (db_router forms stay operator-debug).
     _read_entry(function_id="events.tail.run", cli_invocation="yoke events tail --limit N"),
     _read_entry(function_id="events.count.run", cli_invocation="yoke events count --event-name NAME"),
@@ -204,19 +212,6 @@ CLI_ADAPTERS: List[AdapterEntry] = [
         function_id="project_structure.patch.apply",
         cli_invocation=(
             "python3 -m yoke_core.cli.db_router project-structure patch-apply"
-        ),
-    ),
-    _read_entry(
-        function_id="project_structure.command_definitions.get",
-        cli_invocation=(
-            "yoke project-structure command-definitions get "
-            "--project NAME --scope SCOPE"
-        ),
-    ),
-    _read_entry(
-        function_id="project_structure.command_definitions.list",
-        cli_invocation=(
-            "yoke project-structure command-definitions list --project NAME"
         ),
     ),
     _read_entry(

@@ -1,6 +1,6 @@
 """HC-project-flow-migration-apply-coverage: declared models need a flow stage.
 
-Verifies the doctor HC catches the silent stuck-ticket class that
+Verifies the doctor HC catches the silent stuck-work-item class that
 YOK-1882 surfaced live: a project declares a ``migration_model``
 capability but no project flow carries a ``migration_apply`` stage
 referencing that model at ``lifecycle_phase='implementing'``.

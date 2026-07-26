@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-07-26T06:34:45Z_
+_Audit generated_at: 2026-07-26T19:10:46Z_
 
 ## 1. Summary
 
-- Function ids registered: **233**
-- Internal dispatch-only functions without CLI adapters: **4**
-- `yoke` CLI subcommands: **228** (228 carry usable `--help`)
-- Operation tracker: **227 wrapped**, 74 permanent, 0 pending
-- Skill-body recipes: 226 total (185 template-skipped, 0 failing)
-- Recent field-notes inspected: 0
+- Function ids registered: **281**
+- Internal dispatch-only functions without CLI adapters: **11**
+- `yoke` CLI subcommands: **269** (269 carry usable `--help`)
+- Operation tracker: **268 wrapped**, 76 permanent, 0 pending
+- Skill-body recipes: 261 total (214 template-skipped, 0 failing)
+- Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped `yoke <subcommand>` adapters: **228** (operation tracker confirms 227 wrapped rows).
+Wrapped `yoke <subcommand>` adapters: **269** (operation tracker confirms 268 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -59,6 +59,10 @@ Wrapped `yoke <subcommand>` adapters: **228** (operation tracker confirms 227 wr
 | deployment_runs | `yoke deployment-runs resolve-target-env` | `deployment_runs.resolve_target_env` | ok |
 | deployment_runs | `yoke deployment-runs start-for-item` | `deployment_runs.start_for_item` | ok |
 | deployment_runs | `yoke deployment-runs update` | `deployment_runs.update` | ok |
+| direct_workflow | `yoke direct-workflow blitz survey` | `direct_workflow.blitz.survey` | ok |
+| direct_workflow | `yoke direct-workflow dash escalate` | `direct_workflow.dash.escalate` | ok |
+| direct_workflow | `yoke direct-workflow dash evidence` | `direct_workflow.dash.evidence` | ok |
+| direct_workflow | `yoke direct-workflow dash survey` | `direct_workflow.dash.survey` | ok |
 | doctor | `yoke doctor last-run get` | `doctor.last_run.get` | ok |
 | doctor | `yoke doctor run` | `doctor.run.run` | ok |
 | env | `yoke env use` | `env.use.run` | ok |
@@ -98,9 +102,12 @@ Wrapped `yoke <subcommand>` adapters: **228** (operation tracker confirms 227 wr
 | identity | `yoke identity invite revoke` | `identity.invite.revoke` | ok |
 | identity | `yoke identity link set` | `identity.link.set` | ok |
 | items | `yoke items create` | `items.create` | ok |
+| items | `yoke dash` | `items.create` | ok |
+| items | `yoke items detail get` | `items.detail.get` | ok |
 | items | `yoke items get` | `items.get.run` | ok |
 | items | `yoke items github-sync` | `items.github_sync` | ok |
 | items | `yoke items list` | `items.list.run` | ok |
+| items | `yoke items overview list` | `items.overview.list` | ok |
 | items | `yoke items progress-log append` | `items.progress_log.append` | ok |
 | items | `yoke items scalar update` | `items.scalar.update` | ok |
 | items | `yoke items search` | `items.search.run` | ok |
@@ -124,6 +131,7 @@ Wrapped `yoke <subcommand>` adapters: **228** (operation tracker confirms 227 wr
 | ouroboros | `yoke ouroboros field-note append` | `ouroboros.field_note.append` | ok |
 | ouroboros | `yoke ouroboros field-note get` | `ouroboros.field_note.get` | ok |
 | ouroboros | `yoke ouroboros field-note list` | `ouroboros.field_note.list` | ok |
+| ouroboros | `yoke ouroboros field-note promote` | `ouroboros.field_note.promote` | ok |
 | ouroboros | `yoke ouroboros wrapup list` | `ouroboros.wrapup.list` | ok |
 | ouroboros | `yoke ouroboros wrapup save` | `ouroboros.wrapup.save` | ok |
 | packets | `yoke packets check` | `packets.check.run` | ok |
@@ -138,8 +146,6 @@ Wrapped `yoke <subcommand>` adapters: **228** (operation tracker confirms 227 wr
 | project | `yoke project register` | `project.register.run` | ok |
 | project | `yoke project snapshot sync` | `project.snapshot.sync` | ok |
 | project | `yoke project uninstall` | `project.uninstall.run` | ok |
-| project_structure | `yoke project-structure command-definitions get` | `project_structure.command_definitions.get` | ok |
-| project_structure | `yoke project-structure command-definitions list` | `project_structure.command_definitions.list` | ok |
 | project_structure | `yoke project-structure deploy-defaults get` | `project_structure.deploy_defaults.get` | ok |
 | project_structure | `yoke project-structure patch apply` | `project_structure.patch.apply` | ok |
 | projects | `yoke projects capabilities list` | `projects.capabilities.list` | ok |
@@ -168,10 +174,22 @@ Wrapped `yoke <subcommand>` adapters: **228** (operation tracker confirms 227 wr
 | projects | `yoke projects resolve-by-github-repo` | `projects.resolve_by_github_repo` | ok |
 | projects | `yoke projects site create` | `projects.site.create` | ok |
 | projects | `yoke projects update` | `projects.update` | ok |
+| qa | `yoke qa activity list` | `qa.activity.list` | ok |
 | qa | `yoke qa artifact add` | `qa.artifact.add` | ok |
 | qa | `yoke qa artifact presign` | `qa.artifact.presign` | ok |
+| qa | `yoke qa artifact read` | `qa.artifact.read` | ok |
 | qa | `yoke qa browser-context get` | `qa.browser_context.get` | ok |
 | qa | `yoke qa gate-summary` | `qa.gate_summary.run` | ok |
+| qa | `yoke qa item-plan attach` | `qa.item_plan.attach` | ok |
+| qa | `yoke qa method get` | `qa.method.get` | ok |
+| qa | `yoke qa method list` | `qa.method.list` | ok |
+| qa | `yoke qa plan create` | `qa.plan.create` | ok |
+| qa | `yoke qa plan get` | `qa.plan.get` | ok |
+| qa | `yoke qa plan list` | `qa.plan.list` | ok |
+| qa | `yoke qa plan materialize` | `qa.plan.materialize` | ok |
+| qa | `yoke qa plan-cases replace` | `qa.plan_cases.replace` | ok |
+| qa | `yoke qa project-default set` | `qa.project_default.set` | ok |
+| qa | `yoke qa project-method register` | `qa.project_method.register` | ok |
 | qa | `yoke qa requirement add` | `qa.requirement.add` | ok |
 | qa | `yoke qa requirement add-batch` | `qa.requirement.add_batch` | ok |
 | qa | `yoke qa requirement auto-create-for-item` | `qa.requirement.auto_create_for_item` | ok |
@@ -212,16 +230,30 @@ Wrapped `yoke <subcommand>` adapters: **228** (operation tracker confirms 227 wr
 | strategy | `yoke strategy carry summary` | `strategy.carry.summary` | ok |
 | strategy | `yoke strategy checkpoint latest` | `strategy.checkpoint.latest` | ok |
 | strategy | `yoke strategy checkpoint record` | `strategy.checkpoint.record` | ok |
+| strategy | `yoke strategy claim acquire` | `strategy.claim.acquire` | ok |
+| strategy | `yoke strategy claim break-glass-release` | `strategy.claim.break_glass_release` | ok |
+| strategy | `yoke strategy claim release` | `strategy.claim.release` | ok |
+| strategy | `yoke strategy coordination append` | `strategy.coordination.append` | ok |
 | strategy | `yoke strategy doc archive` | `strategy.doc.archive` | ok |
 | strategy | `yoke strategy doc create` | `strategy.doc.create` | ok |
 | strategy | `yoke strategy doc get` | `strategy.doc.get` | ok |
 | strategy | `yoke strategy doc list` | `strategy.doc.list` | ok |
 | strategy | `yoke strategy doc replace` | `strategy.doc.replace` | ok |
 | strategy | `yoke strategy doc unarchive` | `strategy.doc.unarchive` | ok |
+| strategy | `yoke strategy execution get` | `strategy.execution.get` | ok |
+| strategy | `yoke strategy execution link` | `strategy.execution.link` | ok |
 | strategy | `yoke strategy ingest` | `strategy.ingest.run` | ok |
 | strategy | `yoke strategy master-plan-check` | `strategy.master_plan_check.run` | ok |
+| strategy | `yoke strategy parent set` | `strategy.parent.set` | ok |
 | strategy | `yoke strategy render` | `strategy.render.run` | ok |
+| strategy | `yoke strategy revision diff` | `strategy.revision.diff` | ok |
+| strategy | `yoke strategy revision restore` | `strategy.revision.restore` | ok |
 | strategy | `yoke strategy seed-defaults` | `strategy.seed_defaults.run` | ok |
+| strategy | `yoke strategy surface get` | `strategy.surface.get` | ok |
+| strategy | `yoke strategy surface list` | `strategy.surface.list` | ok |
+| test_machine | `yoke test-machine get` | `test_machine.get` | ok |
+| test_machine | `yoke test-machine settings-replace` | `test_machine.settings_replace` | ok |
+| test_machine | `yoke test-machine verify` | `test_machine.verify` | ok |
 | workflow_item | `yoke workflow-item epic-dispatch-chain advance` | `workflow_item.epic_dispatch_chain.advance` | ok |
 | workflow_item | `yoke workflow-item epic-dispatch-chain get` | `workflow_item.epic_dispatch_chain.get` | ok |
 | workflow_item | `yoke workflow-item epic-dispatch-chain list` | `workflow_item.epic_dispatch_chain.list` | ok |
@@ -247,15 +279,22 @@ Wrapped `yoke <subcommand>` adapters: **228** (operation tracker confirms 227 wr
 | workflow_item | `yoke workflow-item epic-task split` | `workflow_item.epic_task.split` | ok |
 | workflow_item | `yoke workflow-item epic-task submission-receipt-get` | `workflow_item.epic_task.submission_receipt_get` | ok |
 | workflow_item | `yoke workflow-item epic-task update-status` | `workflow_item.epic_task.update_status` | ok |
+| workflows | `yoke workflows approval-defaults publish` | `workflows.approval_defaults.publish` | ok |
 | workflows | `yoke workflows current set` | `workflows.current.set` | ok |
 | workflows | `yoke workflows definition get` | `workflows.definition.get` | ok |
+| workflows | `yoke workflows delivery-default set` | `workflows.delivery_default.set` | ok |
 | workflows | `yoke workflows item get` | `workflows.item.get` | ok |
 | workflows | `yoke workflows item migrate` | `workflows.item.migrate` | ok |
+| workflows | `yoke workflows mechanics get` | `workflows.mechanics.get` | ok |
+| workflows | `yoke workflows policy-defaults publish` | `workflows.policy_defaults.publish` | ok |
+| workflows | `yoke workflows testing-default set` | `workflows.testing_default.set` | ok |
+| workflows | `yoke workflows version get` | `workflows.version.get` | ok |
 
 ## 3. Permanent command-shaped boundary roster
 
 | family | shell_form | reason | source owner |
 |---|---|---|---|
+| aws | `yoke aws admin-link` | tool_shaped | — |
 | aws | `yoke aws exec` | tool_shaped | — |
 | board.art | `yoke board art variant create` | tool_shaped | — |
 | checks.file_line | `yoke check file-line` | tool_shaped | — |
@@ -284,6 +323,7 @@ Wrapped `yoke <subcommand>` adapters: **228** (operation tracker confirms 227 wr
 | dev | `yoke dev db-admin setup` | tool_shaped | — |
 | dev | `yoke dev path-snapshot-prewarm` | tool_shaped | — |
 | dev | `yoke dev setup` | tool_shaped | — |
+| direct_workflow.worktree | `yoke direct-workflow worktree prepare` | tool_shaped | — |
 | git | `yoke git post-commit` | tool_shaped | — |
 | git | `yoke git pre-commit` | tool_shaped | — |
 | github | `yoke github connect` | tool_shaped | — |
@@ -339,8 +379,8 @@ _No pending handler-registration rows._
 
 | path glob | count |
 |---|---|
-| .agents/skills/yoke/**/*.md | 123 |
-| packages/yoke-core/src/yoke_core/domain/schema_api_context*.py | 25 |
+| .agents/skills/yoke/**/*.md | 127 |
+| packages/yoke-core/src/yoke_core/domain/schema_api_context*.py | 26 |
 | runtime/agents/*.md | 8 |
 | runtime/harness/claude/agents/yoke-*.md | 7 |
 | runtime/harness/codex/agents/yoke-*.toml | 7 |
@@ -349,7 +389,11 @@ Lint modules inventoried: **1** (0 reference the field-note footer; 0 carry deni
 
 ## 6. Field-note hotspots
 
-_Field-note read failed: https://app.upyoke.com/api/orgs/upyoke/v1/functions/call returned HTTP 503 with a non-envelope body_
+Recent field-notes inspected: **50** (read surface: `agent_facing`).
+
+| agent | recent count |
+|---|---|
+| 2 | 50 |
 
 ## 7. Contradictions
 
@@ -360,7 +404,7 @@ _Field-note read failed: https://app.upyoke.com/api/orgs/upyoke/v1/functions/cal
 
 ## 8. Next-slice recommendation
 
-- **Field-note hotspot read through the agent-facing surface is unhealthy** _(category: teaching_drift)_
+_No outstanding follow-ups — the harness has nothing to recommend._
 
 ## 9. Curl floor — the envelope shape under every family
 

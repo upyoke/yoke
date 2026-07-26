@@ -102,7 +102,7 @@ class TestHCDeferredItems:
         conn.execute(
             "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, spec) "
             "VALUES (1, 'E', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'done', 'high', "
-            "'Some feature was deferred to a follow-up without a ticket.')"
+            "'Some feature was deferred to a follow-up without a work item.')"
         )
         rec = RecordCollector()
         hc_deferred_items(conn, _default_args(), rec)

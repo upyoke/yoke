@@ -77,9 +77,6 @@ class TestJsonbColumns:
     def test_has_events_envelope(self) -> None:
         assert "envelope" in JSONB_COLUMNS["events"]
 
-    def test_has_items_browser_qa_metadata(self) -> None:
-        assert "browser_qa_metadata" in JSONB_COLUMNS["items"]
-
     def test_has_items_db_mutation_profile(self) -> None:
         assert "db_mutation_profile" in JSONB_COLUMNS["items"]
 

@@ -120,6 +120,7 @@ class TestItemsCreateHandler:
         )
         assert outcome.primary_success is True
         assert captured["entry_surface"] == "harness_skill"
+        assert captured["workflow_posture"] == {}
         assert outcome.result_payload["item_id"] == 7
 
     def test_token_actor_used_as_source(self, monkeypatch):
@@ -208,6 +209,34 @@ class TestItemsCreateHandler:
 
 
 class TestItemsCreateEndToEnd:
+    def test_web_form_create_stores_instruction_and_posture_atomically(
+        self, tmp_db, monkeypatch,
+    ):
+        monkeypatch.delenv(ITEM_ENTRY_SURFACE_ENV, raising=False)
+        with _patch_externals(), \
+             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
+            outcome = handle_item_create(
+                _request({
+                    "title": "Fix the footer",
+                    "instruction": "Correct the footer and verify every link.",
+                    "workflow": "dash",
+                    "project": "yoke",
+                    "entry_surface": "web_form",
+                    "workflow_posture": {
+                        "path_claims": True,
+                        "approval_on_done": True,
+                    },
+                }),
+            )
+        assert outcome.primary_success is True, outcome.error
+        item_id = outcome.result_payload["item_id"]
+        assert _item_field(tmp_db, item_id, "spec") == (
+            "Correct the footer and verify every link."
+        )
+        assert _item_field(tmp_db, item_id, "workflow_posture") == (
+            '{"approval_on_done": true, "path_claims": true}'
+        )
+
     def test_payload_entry_surface_creates_a_row(self, tmp_db, monkeypatch):
         monkeypatch.delenv(ITEM_ENTRY_SURFACE_ENV, raising=False)
         with _patch_externals(), \

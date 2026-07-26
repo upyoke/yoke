@@ -10,7 +10,7 @@ data compatibility rules, and operator contacts before production use.
 2. Record the failed run, workflow, environment, full SHA, last healthy SHA,
    public symptoms, and UTC time.
 3. Preserve workflow, container, reverse-proxy, and infrastructure logs without
-   copying secrets into tickets or tracked files.
+   copying secrets into work items or tracked files.
 4. Decide whether the failure is application, data, host, DNS/TLS/CDN, OIDC,
    or control-plane related.
 5. Choose rollback, roll-forward, restore, or infrastructure recovery using the

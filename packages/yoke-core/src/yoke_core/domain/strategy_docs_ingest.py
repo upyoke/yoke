@@ -212,6 +212,7 @@ def execute_ingest(
     *,
     project_id: int,
     actor_id: Optional[int],
+    session_id: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """Compare-and-swap each changed doc into the DB; return per-doc results.
 
@@ -221,6 +222,7 @@ def execute_ingest(
     the header's base value). Every doc is attempted: docs written
     before a conflict stay written (their headers advance on re-render,
     so a retry after recovery no-ops them).
+    ``session_id`` is stored as revision provenance when present.
     """
     results: List[Dict[str, Any]] = []
     for plan in plans:
@@ -252,6 +254,7 @@ def execute_ingest(
         record_doc_revision(
             conn, project_id, plan.slug, plan.file_body,
             source_operation="ingest", actor_id=actor_id,
+            session_id=session_id,
             created_at=new_updated_at,
         )
         conn.commit()

@@ -109,6 +109,12 @@ def _seed_yoke_project_with_github_app(
     workflow_id, workflow_version_id = resolve_current_workflow_pin(
         conn, "issue"
     )
+    # Merge-mechanics fixtures exercise the local-verification fallback. The
+    # minimal disposable schema omits its scalar evidence field, so extend only
+    # the test database and leave production schema authority unchanged.
+    conn.execute(
+        "ALTER TABLE items ADD COLUMN IF NOT EXISTS test_results TEXT"
+    )
     conn.execute(
         _sql(
             conn,

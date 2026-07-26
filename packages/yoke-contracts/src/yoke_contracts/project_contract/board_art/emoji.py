@@ -43,7 +43,7 @@ from typing import Dict, Optional
 # headers (renderer_sections). One label + one glyph per bucket.
 # ---------------------------------------------------------------------------
 
-ACTIVE_LABEL, ACTIVE_EMOJI = "Active", "🎫"           # 🎫 tickets
+ACTIVE_LABEL, ACTIVE_EMOJI = "Active", "🎫"           # 🎫 work items
 PIPELINE_LABEL, PIPELINE_EMOJI = "Pipeline", "💧"    # 💧 droplet (flow)
 BACKLOG_LABEL, BACKLOG_EMOJI = "Backlog", "🌱"         # 🌱 seedling
 BLOCKED_LABEL, BLOCKED_EMOJI = "Blocked", "⛔"             # ⛔ no-entry

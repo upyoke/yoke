@@ -123,7 +123,7 @@ EPIC_ADAPTERS: List[AdapterEntry] = [
     ),
     AdapterEntry(
         "conduct.epic.proceed_triage_handoff",
-        "yoke conduct epic proceed-triage-handoff --epic N [--filed-tickets T1,T2]",
+        "yoke conduct epic proceed-triage-handoff --epic N [--filed-items T1,T2]",
     ),
 ]
 

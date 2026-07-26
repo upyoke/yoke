@@ -49,7 +49,7 @@ _BYPASS_TOKEN = "# lint:no-structured-transform-check"
 _ITEMS_GET_RE = re.compile(
     r"\bitems\s+get\b[^\n;|&]*?\b"
     r"(spec|design_spec|technical_plan|worktree_plan|shepherd_log|"
-    r"shepherd_caveats|test_results|deploy_log|browser_qa_metadata|"
+    r"shepherd_caveats|test_results|deploy_log|"
     r"db_mutation_profile|db_compatibility_attestation)\b",
     re.IGNORECASE,
 )

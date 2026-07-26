@@ -1,17 +1,4 @@
-"""Doctor health check — a project can actually run verification at merge.
-
-HC-project-verification-configured WARNs when a registered project has NEITHER
-a ``command_definitions`` test command NOR a ``merge_verification`` policy. Such
-a project's merge gate runs ZERO tests — the merge engine reads only
-``merge_verification`` and never falls back to a full command — and tester /
-advance / polish have no project test command to run either. A freshly
-installed external project is in exactly this state until it is onboarded.
-
-WARN, not FAIL: an under-onboarded project should surface loudly without
-blocking a green doctor run. PASSes when every project carries a non-empty
-command in either family. Self-skips silently when the structure tables are
-absent (minimal-schema fixtures).
-"""
+"""Doctor health check — every project can execute a QA plan."""
 
 from __future__ import annotations
 
@@ -26,15 +13,13 @@ from yoke_core.engines.doctor_report import (
 )
 
 CHECK_ID = "project-verification-configured"
-CHECK_NAME = "Project has a test command or merge policy"
+CHECK_NAME = "Project has an executable Command plan"
 
 
 def _payload_has_command(payload_text) -> bool:
     """True when a structure payload carries a non-empty ``command`` string.
 
-    Both the ``command_definitions`` and ``merge_verification`` families store
-    ``{"command": <str>}``; an empty or missing command reads as "not
-    configured", matching the family readers.
+    Command cases store ``{"command": <str>}`` in ``method_config``.
     """
     if not payload_text:
         return False
@@ -53,17 +38,19 @@ def hc_project_verification_configured(
     """HC-project-verification-configured."""
     if not (
         _table_exists(conn, "projects")
-        and _table_exists(conn, "project_structure")
+        and _table_exists(conn, "qa_plans")
+        and _table_exists(conn, "qa_plan_cases")
     ):
         return
 
     rows = query_rows(
         conn,
-        "SELECT p.slug AS slug, ps.payload AS payload "
+        "SELECT p.slug AS slug, c.method_config AS payload "
         "FROM projects p "
-        "LEFT JOIN project_structure ps "
-        "  ON ps.project_id = p.id "
-        "  AND ps.family IN ('command_definitions', 'merge_verification') "
+        "LEFT JOIN qa_plans qp "
+        "  ON qp.project_id=p.id AND qp.retired_at IS NULL "
+        "LEFT JOIN qa_plan_cases c "
+        "  ON c.plan_id=qp.id AND c.method_id='command' "
         "ORDER BY p.slug",
     )
     configured: Dict[str, bool] = {}
@@ -77,18 +64,14 @@ def hc_project_verification_configured(
     if not inert:
         rec.record(
             CHECK_ID, CHECK_NAME, "PASS",
-            "Every project has a test command or merge-verification policy.",
+            "Every project has at least one executable Command-plan case.",
         )
         return
 
     detail = (
-        "Projects with NO test command and NO merge-verification policy: "
+        "Projects with NO executable Command-plan case: "
         f"{', '.join(inert)}.\n"
-        "  Their merge gate runs zero tests (the merge engine reads only "
-        "merge_verification and never falls back to a full command), and "
-        "tester / advance / polish have no project test command.\n"
-        "  Seed the project's structure by running the /yoke onboard skill "
-        "for it (it configures command_definitions and merge_verification)."
+        "  Author and attach a project QA plan containing a Command case."
     )
     rec.record(CHECK_ID, CHECK_NAME, "WARN", detail)
 

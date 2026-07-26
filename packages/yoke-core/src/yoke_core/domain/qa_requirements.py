@@ -1,12 +1,11 @@
 """QA requirement add/add-batch + re-export shim.
 
 Owns ``cmd_requirement_add`` and ``cmd_requirement_add_batch``; re-exports
-the read/mutate ops, browser scenario surface, vocabulary constants, and
-shared event helper for the supported public requirement surface.
+the read/mutate ops, vocabulary constants, and shared event helper for the
+supported public requirement surface.
 
 Sibling modules: ``qa_constants`` (vocab + helpers), ``qa_requirement_ops``
-(list/get/waive/update), ``qa_browser_scenarios`` (settle floor + scenarios),
-``qa_events`` (lifecycle emission).
+(list/get/waive/update), ``qa_events`` (lifecycle emission).
 """
 
 from __future__ import annotations
@@ -16,14 +15,6 @@ import sys
 from typing import List, Optional
 
 from yoke_core.domain.db_helpers import connect, iso8601_now
-from yoke_core.domain.qa_browser_scenarios import (
-    DEFAULT_SETTLE_MS,
-    _inject_settle_delay,
-    build_browser_requirements_from_metadata,
-    build_browser_scenario_policy,
-    min_delay_before_first_screenshot,
-    read_browser_qa_metadata,
-)
 from yoke_core.domain.qa_constants import (
     VALID_BLOCKING_MODES,
     VALID_BROWSER_QA_KINDS,
@@ -61,13 +52,6 @@ __all__ = (
     "_normalize_qa_phase",
     "_normalize_qa_kind",
     "_pipe_row",
-    # Browser scenario surface (sourced from qa_browser_scenarios)
-    "DEFAULT_SETTLE_MS",
-    "min_delay_before_first_screenshot",
-    "_inject_settle_delay",
-    "build_browser_scenario_policy",
-    "read_browser_qa_metadata",
-    "build_browser_requirements_from_metadata",
     # Read/mutate ops (sourced from qa_requirement_ops)
     "UPDATABLE_REQUIREMENT_FIELDS",
     "cmd_requirement_list",

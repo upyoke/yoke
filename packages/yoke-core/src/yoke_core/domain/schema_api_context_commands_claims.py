@@ -209,7 +209,7 @@ CLAIMS_COMMANDS: list[dict] = [
         ),
         "notes": (
             "--allow-planned for files not yet committed. --mode "
-            "exception for no-repo-touch tickets."
+            "exception for no-repo-touch work items."
         ),
     },
     {

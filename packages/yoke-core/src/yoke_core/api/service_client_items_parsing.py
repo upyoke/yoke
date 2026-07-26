@@ -27,7 +27,7 @@ _QI_ALL_FIELDS = {
     "project_id", "project_sequence",
     "deployment_flow", "deploy_stage", "spec", "design_spec",
     "technical_plan", "worktree_plan", "shepherd_log", "shepherd_caveats",
-    "test_results", "deploy_log", "browser_qa_metadata",
+    "test_results", "deploy_log",
     "db_mutation_profile", "db_compatibility_attestation",
     "architecture_impact",
 }
@@ -40,7 +40,6 @@ _QI_DEFAULT_FIELDS = "id,title,status,priority,workflow_id,source"
 _QI_LARGE_TEXT_FIELDS = {
     "body", "spec", "design_spec", "technical_plan", "worktree_plan",
     "shepherd_log", "shepherd_caveats", "test_results", "deploy_log",
-    "browser_qa_metadata",
     "db_mutation_profile", "db_compatibility_attestation",
     "architecture_impact",
 }

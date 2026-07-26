@@ -83,27 +83,11 @@ if [ -n "$_env_id" ]; then
 fi
 ```
 
-## Update Browser QA Requirements (step 5b-eph.f)
+## Preserve Case Contracts (step 5b-eph.f)
 
-If `_ephemeral_url` is derived (not `pending`), call `qa.requirement.update` once per browser-kind requirement on this item. The handler replaces the `localhost:3000` substring in `success_policy` with the ephemeral URL and emits the standard `QaRequirementUpdated` event:
-
-```json
-{
-  "function": "qa.requirement.update",
-  "actor": {"session_id": "<this-session>"},
-  "target": {"kind": "qa_requirement", "qa_requirement_id": <req-id>},
-  "intent": "advance_eph_url_rewrite",
-  "payload": {
-    "success_policy_rewrite": {
-      "match": "http://localhost:3000",
-      "replace": "${_ephemeral_url}"
-    },
-    "qa_kinds": ["browser_smoke", "browser_diff"]
-  }
-}
-```
-
-To enumerate the affected `qa_requirement_id`s use the read-only `qa.requirement.list` function with `target.item_id={N}` and filter the result locally — do not compose raw `UPDATE qa_requirements ...` SQL.
+Do not rewrite QA requirements when the environment URL becomes available.
+Browser method configuration remains the authored case contract; the Browser
+gate passes the current ephemeral URL to `yoke qa case run --base-url`.
 
 ## Surface Ephemeral Info (step 5b-eph.g)
 

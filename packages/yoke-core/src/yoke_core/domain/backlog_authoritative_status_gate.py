@@ -55,7 +55,7 @@ def _run_authoritative_status_gate(
     * QA verification / done gate for ``reviewed-implementation``,
       ``implemented``, ``release``, ``done``.
 
-    The DB-mutation gate is a no-op for tickets whose
+    The DB-mutation gate is a no-op for work items whose
     ``db_mutation_profile.state`` is ``"none"`` (absence-as-opt-out). On
     a passing ``idea -> refining-idea`` transition the helper additionally
     stamps ``db_compatibility_attestation.frozen_at`` so the immutability

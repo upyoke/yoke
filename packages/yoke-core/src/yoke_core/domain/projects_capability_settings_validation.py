@@ -38,6 +38,12 @@ def canonicalize_capability_settings(cap_type: str, raw_json: str) -> str:
         )
 
         return validate_json_string(raw_json)
+    if cap_type == "test-machine":
+        from yoke_core.domain.test_machine_capability import (
+            validate_test_machine_json,
+        )
+
+        return validate_test_machine_json(raw_json)
     return raw_json
 
 

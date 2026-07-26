@@ -188,7 +188,7 @@ def _fetch_context_from_test_db(
             (item_id,),
         ).fetchall()
         requirements = [
-            {"id": int(r[0]), "qa_kind": str(r[1]), "success_policy": r[2]}
+            {"id": int(r[0]), "qa_kind": str(r[1]), "method_config": r[2]}
             for r in rows
         ]
         deployed_sha = None

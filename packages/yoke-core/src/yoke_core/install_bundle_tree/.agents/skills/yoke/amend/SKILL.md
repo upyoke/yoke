@@ -12,7 +12,7 @@ Modify an epic's tasks after the initial sync. Use when you need to add
 new tasks, split existing ones, reassign worktrees, or remove tasks.
 
 <!-- BEGIN GENERATED: field-note-directive -->
-When you hit a recipe gap or notice a minor bug not worth a ticket, file a field-note immediately — before retrying, before moving on.
+When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
 Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->
@@ -35,7 +35,7 @@ moved, frame the cause as a system correction — missing task
 boundaries, stale overlap assumptions, or new information discovered
 during execution — not as blame on the Engineer or Architect.
 
-**Artifact writes are work writes.** Ticket/spec/body edits,
+**Artifact writes are work writes.** Work item/spec/body edits,
 epic-task body/metadata mutations, worktree-plan rewrites, dependency
 edits, File Budget adjustments, path-claim amendments, and GitHub
 issue-body edits are shared coordination state — the calling session

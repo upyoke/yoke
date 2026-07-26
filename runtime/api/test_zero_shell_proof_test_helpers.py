@@ -156,7 +156,6 @@ SKILLS_ROOT = REPO_ROOT / ".agents" / "skills" / "yoke"
 #: use ``--stdin`` or ``--body-file`` instead.
 _MKTEMP_ALLOWLIST: frozenset = frozenset({
     "advance/preflight-checks.md",
-    "advance/browser-qa-fallback.md",
     "advance/implementing/implementation.md",
     "conduct/dispatch-context-prompts.md",
     "conduct/dispatch-context-verify.md",

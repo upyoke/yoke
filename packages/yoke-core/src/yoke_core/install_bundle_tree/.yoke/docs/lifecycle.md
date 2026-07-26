@@ -10,7 +10,7 @@ executor bindings. Live transition, frontier, scheduler, QA, approval, and
 delivery paths all interpret the item's pin.
 
 <!-- BEGIN GENERATED: field-note-directive -->
-When you hit a recipe gap or notice a minor bug not worth a ticket, file a field-note immediately — before retrying, before moving on.
+When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
 Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->
@@ -204,7 +204,9 @@ Operationally:
 
 ## Command Families
 
-Two delivery command families cover the entire item progression. Use the right family for the item's workflow type — mixing them produces routing failures.
+Two delivery command families cover the entire item progression. Use the family
+selected by the item's pinned workflow definition; mixing executor families
+produces routing failures.
 
 ### Issue command family
 

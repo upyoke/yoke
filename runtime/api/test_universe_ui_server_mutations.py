@@ -47,7 +47,7 @@ class TestRegistrationShape:
             assert entry.side_effects == ("overview_activation_facts_insert",)
             assert entry.claim_required_kind is None
 
-    def test_mutation_allowlist_is_the_two_bounded_operator_families(self):
+    def test_mutation_allowlist_is_the_bounded_browser_operation_roster(self):
         from yoke_core.domain.handlers.__init_register__ import (
             register_all_handlers,
         )
@@ -57,6 +57,14 @@ class TestRegistrationShape:
         assert ui_server.UI_MUTATION_FUNCTION_ALLOWLIST == {
             "overview.module.dismiss", "overview.module.restore",
             "workflows.current.set", "workflows.policy_defaults.publish",
+            "workflows.testing_default.set",
+            "workflows.delivery_default.set",
+            "workflows.approval_defaults.publish",
+            "test_machine.settings_replace", "test_machine.verify",
+            "decision_requests.resolve",
+            "notifications.read", "notifications.read_all",
+            "items.create",
+            "strategy.revision.restore",
         }
         assert not (
             ui_server.UI_MUTATION_FUNCTION_ALLOWLIST

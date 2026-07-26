@@ -229,6 +229,10 @@ def _apply_schema_and_seed_on_conn(conn) -> None:
                    '2026-03-01T00:00:00Z', '2026-03-06T00:00:00Z', 'user', NULL)"""
     )
     conn.commit()
+    from runtime.api.api_decision_schema_test_support import (
+        create_decision_schema,
+    )
+    create_decision_schema(conn)
 
     # Seed deployment flow with a human-approval stage
     _test_flow_stages = json.dumps([

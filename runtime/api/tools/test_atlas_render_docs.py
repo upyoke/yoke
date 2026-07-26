@@ -126,7 +126,7 @@ _REPORT: dict = {
         {"id": "open-one", "kind": "promise-vs-live", "surface": "s1",
          "claim": "c1", "live_truth": "lt1", "resolution_hint": "h1",
          "status": "open"},
-        {"id": "resolved-one", "kind": "ticket-promise-vs-live", "surface": "s2",
+        {"id": "resolved-one", "kind": "work-item-promise-vs-live", "surface": "s2",
          "claim": "c2", "live_truth": "lt2", "resolution_hint": "h2",
          "status": "resolved", "resolution_note": "n"},
     ],

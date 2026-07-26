@@ -31,9 +31,14 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset({
     "projects.github_binding.status",
     "items.get.run",
     "items.list.run",
+    "items.overview.list",
+    "items.detail.get",
     "epic_tasks.list.run",
     "strategy.doc.list",
     "strategy.doc.get",
+    "strategy.surface.list",
+    "strategy.surface.get",
+    "strategy.revision.diff",
     "ouroboros.entry.list",
     "board.data.get",
     "deployment_runs.list",
@@ -41,8 +46,17 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset({
     "frontier.list",
     "events.query.run",
     "doctor.last_run.get",
+    "qa.method.list",
+    "qa.method.get",
+    "qa.plan.list",
+    "qa.plan.get",
+    "qa.activity.list",
+    "qa.artifact.read",
+    "inbox.list",
     "workflows.definition.get",
+    "workflows.mechanics.get",
     "workflows.version.get",
+    "test_machine.get",
     # Documented exception to "no side effects": the Overview activation
     # read latches newly satisfied module activations into
     # overview_activation_facts — universe-scoped, monotone, idempotent,
@@ -59,6 +73,14 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset({
 #: dismissal flags then match what the dismissal writes would do.
 UI_ACTIVATION_LATCH_FUNCTIONS = frozenset({"overview.activation.get"})
 
+#: Reads whose result is defined for the resolved local operator rather than
+#: an anonymous browser process.
+UI_ACTOR_BOUND_READ_FUNCTIONS = frozenset({
+    "inbox.list",
+    "test_machine.get",
+    "workflows.mechanics.get",
+})
+
 #: The only mutations the local proxy may dispatch: the per-actor Overview
 #: dismissal pair and the org-admin workflow version/default controls. All act
 #: as the resolved local operator actor (:mod:`yoke_core.ui.local_operator_actor`)
@@ -68,6 +90,16 @@ UI_MUTATION_FUNCTION_ALLOWLIST = frozenset({
     "overview.module.restore",
     "workflows.current.set",
     "workflows.policy_defaults.publish",
+    "workflows.testing_default.set",
+    "workflows.delivery_default.set",
+    "workflows.approval_defaults.publish",
+    "test_machine.settings_replace",
+    "test_machine.verify",
+    "decision_requests.resolve",
+    "notifications.read",
+    "notifications.read_all",
+    "items.create",
+    "strategy.revision.restore",
 })
 
 
@@ -103,21 +135,28 @@ def proxy_function_call(
     # server-side. Reads that surface per-actor dismissal state bind the
     # operator when one resolves; mutations refuse without one.
     operator_actor_id: Optional[str] = None
-    if is_mutation or function_id in UI_ACTIVATION_LATCH_FUNCTIONS:
+    if (
+        is_mutation
+        or function_id in UI_ACTIVATION_LATCH_FUNCTIONS
+        or function_id in UI_ACTOR_BOUND_READ_FUNCTIONS
+    ):
         from yoke_core.ui.local_operator_actor import (
             resolve_local_operator_actor,
         )
 
         resolved = resolve_local_operator_actor()
         operator_actor_id = None if resolved is None else str(resolved)
-        if is_mutation and operator_actor_id is None:
+        if (
+            (is_mutation or function_id in UI_ACTOR_BOUND_READ_FUNCTIONS)
+            and operator_actor_id is None
+        ):
             return (
                 {"error": {
                     "code": "operator_actor_unresolved",
                     "message": (
                         "this universe has no unambiguous local "
-                        "operator actor, so per-actor dismissal "
-                        "writes are refused"
+                        "operator actor, so this per-actor operation "
+                        "is refused"
                     ),
                 }},
                 403,
@@ -155,6 +194,7 @@ def proxy_function_call(
 
 __all__ = [
     "UI_ACTIVATION_LATCH_FUNCTIONS",
+    "UI_ACTOR_BOUND_READ_FUNCTIONS",
     "UI_MUTATION_FUNCTION_ALLOWLIST",
     "UI_READ_FUNCTION_ALLOWLIST",
     "proxy_function_call",

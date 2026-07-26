@@ -4,7 +4,9 @@ Detail pages for the delivery pipeline owned by the Usher. The high-level owners
 
 ## Deployment Runs
 
-Stage authority now lives on the `deployment_runs` row (`current_stage` column), not on individual items. A deployment run groups one or more items into a single pipeline execution for ticket delivery.
+Stage authority now lives on the `deployment_runs` row (`current_stage`
+column), not on individual items. A deployment run groups one or more items
+into a single pipeline execution for delivery.
 
 **Run statuses:** `created → executing → succeeded | failed | cancelled`
 
@@ -118,5 +120,7 @@ Ephemeral environments are a **conduct-phase capability**, not a deployment flow
 
 - **Creation:** GitHub Actions spins up an ephemeral environment on branch push (triggered by the CI workflow, not by the Usher).
 - **Tracking:** Yoke tracks active environments in the `ephemeral_environments` DB table (keyed by branch name).
-- **Conduct integration:** The Conduct polls for environment health and injects the environment URL into the Tester's dispatch prompt so integration tests can run against a live instance. The Tester runs the project's `e2e` command from the `command_definitions` family with `BASE_URL={environment_url}` injected as an environment variable.
+- **Conduct integration:** Conduct polls for environment health and makes the
+  environment URL available to materialized QA cases. Cases whose method
+  configuration requires a base URL execute against that exact environment.
 - **Lifecycle:** Environments are torn down when the branch is merged or deleted (handled by the CI cleanup workflow, not by Yoke).

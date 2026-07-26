@@ -23,15 +23,15 @@ readers (including the reviewed-negative attestation reader) live in
 
 Escape hatches that clear the gate when prose triggers do fire:
 
-* ``db_mutation_profile.state == "declared"`` — the ticket has already
+* ``db_mutation_profile.state == "declared"`` — the work item has already
   declared a governed DB mutation through the amendment workflow.
 * In-spec negative scope note — clears only when no structural DDL-shape
-  trigger fires.  Meta-tickets about DB governance that unavoidably cite
+  trigger fires.  Meta work items about DB governance that unavoidably cite
   DDL verbs cannot rely on this alone.
 * Reviewed-negative attestation — when the stored profile carries
   ``state == "none"`` with ``reviewed_negative: true`` (stamped by the
   ``db_claim.amend`` workflow at amendment time), the gate treats the
-  ticket as operator-reviewed no-DB work and clears even structural
+  work item as operator-reviewed no-DB work and clears even structural
   hits.  The ``DbClaimAmended`` events ledger is telemetry/audit only.
 """
 
@@ -70,7 +70,7 @@ class ProseClaimCheck:
     records an explicit reviewed-none decision (``state == "none"`` plus
     the ``reviewed_negative: true`` attestation the amendment workflow
     stamps).  That signal suppresses vocabulary-only AND structural
-    prose hits — meta-tickets about DB governance can discuss ``ALTER
+    prose hits — meta work items about DB governance can discuss ``ALTER
     TABLE`` / ``ADD COLUMN`` plainly once an operator has amended the
     claim through the sanctioned workflow.
     """
@@ -115,7 +115,7 @@ def check(
     ``state="none"`` profile carrying the ``reviewed_negative: true``
     attestation (stamped by the ``db_claim.amend`` workflow) clears the
     gate even in the presence of structural DDL-shape triggers.  That
-    branch exists so meta-tickets about DB governance can discuss
+    branch exists so meta work items about DB governance can discuss
     ``ALTER TABLE`` / ``ADD COLUMN`` / ``migration_audit`` plainly once
     an operator has recorded an explicit reviewed-none decision through
     the unified amendment workflow.

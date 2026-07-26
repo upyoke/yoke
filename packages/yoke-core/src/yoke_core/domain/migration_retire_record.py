@@ -1,6 +1,6 @@
 """Retire-flow decision-record authoring for governed DB mutations.
 
-For ``mutation_intent = "retire"`` tickets, the implementing phase
+For ``mutation_intent = "retire"`` work items, the implementing phase
 authors a decision record per migration module under
 ``docs/archive/decisions/<identifier>.md``.  The record IS the evidence
 the implementing → reviewing-implementation gate
@@ -189,7 +189,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         description=(
             "Author a retire decision record under "
             "docs/archive/decisions/<module>.md for a "
-            "mutation_intent='retire' migration ticket."
+            "mutation_intent='retire' migration work item."
         ),
     )
     parser.add_argument("--project", required=True,

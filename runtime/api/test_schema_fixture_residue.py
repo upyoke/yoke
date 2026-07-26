@@ -137,7 +137,6 @@ def _is_long_form_realistic(body: str) -> bool:
         "shepherd_log ",
         "test_results ",
         "deploy_log ",
-        "browser_qa_metadata ",
         "db_mutation_profile ",
         "db_compatibility_attestation ",
     )

@@ -281,7 +281,7 @@ class TestExplicitUpstreamWithoutDepEdge:
 
 
 class TestYok1619Reproduction:
-    """AC-5: the exact shape that motivated this ticket.
+    """AC-5: the exact shape that motivated this work item.
 
     Three upstream items, each holding a non-terminal path claim on a
     distinct overlapping path. Candidate has dep-edges to all three.

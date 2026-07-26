@@ -1,4 +1,4 @@
-"""Dispatch tests for project_structure command_definitions read wrappers."""
+"""Dispatch tests for the project_structure deploy-defaults read wrapper."""
 
 from __future__ import annotations
 
@@ -55,127 +55,13 @@ def _run_capture(
                 return rc, out.getvalue(), err.getvalue()
 
 
-class TestProjectStructureCommandDefinitions:
-    def test_get_registry_maps_tokens_to_function_id(self) -> None:
-        from yoke_cli.commands.registry import SUBCOMMAND_REGISTRY
-
-        assert SUBCOMMAND_REGISTRY[
-            ("project-structure", "command-definitions", "get")
-        ][0] == "project_structure.command_definitions.get"
-
-    def test_list_registry_maps_tokens_to_function_id(self) -> None:
-        from yoke_cli.commands.registry import SUBCOMMAND_REGISTRY
-
-        assert SUBCOMMAND_REGISTRY[
-            ("project-structure", "command-definitions", "list")
-        ][0] == "project_structure.command_definitions.list"
-
+class TestProjectStructureDeployDefaults:
     def test_deploy_defaults_registry_maps_tokens_to_function_id(self) -> None:
         from yoke_cli.commands.registry import SUBCOMMAND_REGISTRY
 
         assert SUBCOMMAND_REGISTRY[
             ("project-structure", "deploy-defaults", "get")
         ][0] == "project_structure.deploy_defaults.get"
-
-    def test_get_dispatches_project_and_scope(self) -> None:
-        rc = _run(
-            _stub_ok,
-            "project-structure", "command-definitions", "get",
-            "--project", "yoke",
-            "--scope", "quick",
-        )
-        assert rc == 0
-        req = _CAPTURED_REQUESTS[-1]
-        assert req.function == "project_structure.command_definitions.get"
-        assert req.target.kind == "project_structure"
-        assert req.target.project_id == "yoke"
-        assert req.payload == {"project_id": "yoke", "scope": "quick"}
-
-    def test_get_prints_command_value(self) -> None:
-        def stub(request: FunctionCallRequest) -> FunctionCallResponse:
-            _CAPTURED_REQUESTS.append(request)
-            return FunctionCallResponse(
-                success=True,
-                function=request.function,
-                version=request.version,
-                request_id=request.request_id,
-                result={
-                    "project_id": "yoke",
-                    "scope": "quick",
-                    "command": "pytest -q",
-                },
-            )
-
-        rc, out, _err = _run_capture(
-            stub,
-            "project-structure", "command-definitions", "get",
-            "--project", "yoke",
-            "--scope", "quick",
-        )
-        assert rc == 0
-        assert out == "pytest -q\n"
-
-    def test_get_absent_command_prints_empty_stdout(self) -> None:
-        def stub(request: FunctionCallRequest) -> FunctionCallResponse:
-            _CAPTURED_REQUESTS.append(request)
-            return FunctionCallResponse(
-                success=True,
-                function=request.function,
-                version=request.version,
-                request_id=request.request_id,
-                result={
-                    "project_id": "yoke",
-                    "scope": "quick",
-                    "command": None,
-                },
-            )
-
-        rc, out, _err = _run_capture(
-            stub,
-            "project-structure", "command-definitions", "get",
-            "--project", "yoke",
-            "--scope", "quick",
-        )
-        assert rc == 0
-        assert out == ""
-
-    def test_list_dispatches_project(self) -> None:
-        rc = _run(
-            _stub_ok,
-            "project-structure", "command-definitions", "list",
-            "--project", "yoke",
-        )
-        assert rc == 0
-        req = _CAPTURED_REQUESTS[-1]
-        assert req.function == "project_structure.command_definitions.list"
-        assert req.target.kind == "project_structure"
-        assert req.target.project_id == "yoke"
-        assert req.payload == {"project_id": "yoke"}
-
-    def test_list_prints_scope_command_lines(self) -> None:
-        def stub(request: FunctionCallRequest) -> FunctionCallResponse:
-            _CAPTURED_REQUESTS.append(request)
-            return FunctionCallResponse(
-                success=True,
-                function=request.function,
-                version=request.version,
-                request_id=request.request_id,
-                result={
-                    "project_id": "yoke",
-                    "commands": {
-                        "quick": "pytest -q",
-                        "full": "pytest",
-                    },
-                },
-            )
-
-        rc, out, _err = _run_capture(
-            stub,
-            "project-structure", "command-definitions", "list",
-            "--project", "yoke",
-        )
-        assert rc == 0
-        assert out == "quick=pytest -q\nfull=pytest\n"
 
     def test_deploy_defaults_get_dispatches_project(self) -> None:
         rc = _run(

@@ -9,7 +9,7 @@ argument-hint: "YOK-N [--max-attempts N] [--no-chain]"
 Run a single backlog item through the Engineer/Tester loop (epic items only).
 
 <!-- BEGIN GENERATED: field-note-directive -->
-When you hit a recipe gap or notice a minor bug not worth a ticket, file a field-note immediately — before retrying, before moving on.
+When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
 Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->
@@ -59,7 +59,7 @@ All implementation and verification work happens inside subagents, which get fre
 
 **Be the giant.** We stand on inherited shoulders; leave a leg up for the next agent by making this artifact cold-start complete. Each Engineer and Tester dispatch starts with a cold context. The dispatch prompt must be self-contained — absolute paths, item metadata, diff content, test commands. Missing a single path or context variable costs an entire subagent session. The quality of the dispatch context directly determines the quality of the subagent's output.
 
-**Codebase-reader naming travels through dispatch.** Assume future readers of the codebase will NOT have the ephemeral planning artifacts this conduct run is using. Engineer and Tester prompts must remind subagents that task specs are scaffolding, not naming source material: live names, comments, and current-state docs describe current function, purpose, mechanics, or domain role, never the ticket, plan, phase, task, AC, branch, worktree, or batch that produced them.
+**Codebase-reader naming travels through dispatch.** Assume future readers of the codebase will NOT have the ephemeral planning artifacts this conduct run is using. Engineer and Tester prompts must remind subagents that task specs are scaffolding, not naming source material: live names, comments, and current-state docs describe current function, purpose, mechanics, or domain role, never the work item, plan, phase, task, AC, branch, worktree, or batch that produced them.
 
 **No such thing as "agent error."** When the Engineer fails or the Tester returns no verdict, the cause is always systemic: truncated diff, missing script path, stale task spec, corrupted prompt, file too large to read, or context exhaustion. Documentation-as-enforcement fails under context pressure — the retry tiers exist because the system must compensate for these structural limitations, not because agents are unreliable. Before retrying, query `yoke events tail --limit 20` to diagnose the failure mode.
 
@@ -205,7 +205,7 @@ After pre-dispatch gates pass, follow this phased-read sequence. **Do NOT read a
 
 ### Successor owner map
 
-For adjacent tickets that target specific conduct responsibilities:
+For adjacent work items that target specific conduct responsibilities:
 
 | Responsibility | Owner file | Notes |
 |---|---|---|

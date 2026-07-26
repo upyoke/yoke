@@ -199,7 +199,7 @@ If `_gate_exit` is non-zero (no qualifying verdict), **block** with `$_gate_reas
 >
 > Inspect the verdict history directly: `yoke db read --format lines "SELECT id, transition, verdict, created_at FROM shepherd_verdicts WHERE item='YOK-{N}' ORDER BY id DESC"`.
 >
-> If the modern verdict (`planning_to_plan_drafted`) is missing but the epic's status is `plan-drafted` or later, the upstream shepherd run did not emit it — re-run `/yoke shepherd YOK-{N}` only if the epic is still at `refined-idea`, otherwise file a follow-up ticket against the shepherd producer path. Modern shepherd does not re-run against plan-drafted or later statuses.
+> If the modern verdict (`planning_to_plan_drafted`) is missing but the epic's status is `plan-drafted` or later, the upstream shepherd run did not emit it — re-run `/yoke shepherd YOK-{N}` only if the epic is still at `refined-idea`, otherwise file a follow-up work item against the shepherd producer path. Modern shepherd does not re-run against plan-drafted or later statuses.
 
 Do NOT update status.
 

@@ -2,7 +2,7 @@
 
 These tests pin the operator-facing prose for the three-bucket
 classification (real-mutation-declare / real-mutation-blocker /
-meta-ticket-reviewed-none) plus the Prevention 1 + 2 reference
+meta-work-item-reviewed-none) plus the Prevention 1 + 2 reference
 verification rules. They are pure file-content assertions against the
 live skill prose under ``.agents/skills/yoke/idea/`` — no DB, no
 fixtures, no subprocess.
@@ -42,12 +42,12 @@ class TestBodyAndSyncThreeBuckets:
             'idea: spec/body declares no governed DB mutation' in text
         ), "Bucket-1 (no-DB) canonical reason text drifted."
 
-    def test_meta_ticket_canonical_reason_pinned(self):
+    def test_meta_work_item_canonical_reason_pinned(self):
         text = _read(_BODY_AND_SYNC)
         assert (
-            'idea: ticket discusses DB governance vocabulary but performs '
+            'idea: work item discusses DB governance vocabulary but performs '
             'no governed DB mutation; reviewed-none' in text
-        ), "Bucket-3 (meta-ticket) canonical reason text drifted."
+        ), "Bucket-3 (meta work item) canonical reason text drifted."
         # The literal "; reviewed-none" suffix is the canonical signal.
         assert "; reviewed-none" in text
 
@@ -55,7 +55,7 @@ class TestBodyAndSyncThreeBuckets:
         text = _read(_BODY_AND_SYNC)
         assert "Real governed mutation, declare now" in text
         assert "Real governed mutation, blocker for refine" in text
-        assert "Meta-ticket about DB governance" in text
+        assert "Meta work item about DB governance" in text
 
     def test_blocker_section_template_pinned(self):
         text = _read(_BODY_AND_SYNC)

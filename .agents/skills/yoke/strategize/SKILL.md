@@ -13,7 +13,7 @@ The strategy authority is the Yoke DB `strategy_docs` table, scoped per project;
 Strategize is the "compass" mode -- it ensures Yoke always has a clear, current strategy to charge against. It shapes strategy and frontier coherence, but does not own per-item dependency ordering or session assignment logic (those belong to `feed` and the scheduler).
 
 <!-- BEGIN GENERATED: field-note-directive -->
-When you hit a recipe gap or notice a minor bug not worth a ticket, file a field-note immediately — before retrying, before moving on.
+When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
 Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->

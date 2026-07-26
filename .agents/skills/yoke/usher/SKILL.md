@@ -20,7 +20,7 @@ argument-hint: "YOK-N [YOK-N ...] [--dry-run] [--merge-only] [--deploy-only] [--
 Unified merge+deploy command. Takes `implemented` items through merge, deployment pipeline, and done-transition.
 
 <!-- BEGIN GENERATED: field-note-directive -->
-When you hit a recipe gap or notice a minor bug not worth a ticket, file a field-note immediately — before retrying, before moving on.
+When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
 Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->

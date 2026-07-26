@@ -18,7 +18,7 @@ from runtime.api.fixtures.file_test_db import init_test_db
 def _seed_lint_items_table() -> None:
     """``init_test_db`` ``apply_schema`` strategy for the cruft lint.
 
-    Builds the tiny two-column ``items`` table the lint's ticket-status lookup
+    Builds the tiny two-column ``items`` table the lint's work-item-status lookup
     reads (deliberately NOT the production ``items`` schema) and seeds rows with
     representative statuses. Resolves its own connection through the backend
     factory (``YOKE_DB`` on SQLite, the repointed per-test ``YOKE_PG_DSN`` on
@@ -67,18 +67,18 @@ def _seed(repo_root: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_flags_done_ticket_in_prose(tmp_path: Path, db_path: str) -> None:
+def test_flags_done_work_item_in_prose(tmp_path: Path, db_path: str) -> None:
     _seed(tmp_path)
     (tmp_path / "docs" / "foo.md").write_text(
         "This note retains a (YOK-100) provenance tag.\n"
     )
     result = lint_yok_n_cruft.scan(tmp_path, db_path=db_path)
     assert len(result.hits) == 1
-    assert result.hits[0].ticket == "YOK-100"
+    assert result.hits[0].work_item == "YOK-100"
     assert result.hits[0].status == "done"
 
 
-def test_ignores_open_ticket(tmp_path: Path, db_path: str) -> None:
+def test_ignores_open_work_item(tmp_path: Path, db_path: str) -> None:
     _seed(tmp_path)
     (tmp_path / "docs" / "foo.md").write_text(
         "Open bug under investigation: YOK-200.\n"
@@ -87,7 +87,7 @@ def test_ignores_open_ticket(tmp_path: Path, db_path: str) -> None:
     assert result.hits == []
 
 
-def test_ignores_refined_ticket(tmp_path: Path, db_path: str) -> None:
+def test_ignores_refined_work_item(tmp_path: Path, db_path: str) -> None:
     _seed(tmp_path)
     (tmp_path / "docs" / "foo.md").write_text(
         "Refined for planning: YOK-300.\n"
@@ -127,7 +127,7 @@ def test_ignores_ouroboros_path(tmp_path: Path, db_path: str) -> None:
 
 
 def test_ignores_strategy_path(tmp_path: Path, db_path: str) -> None:
-    """.yoke/strategy/ is exempt: planning docs intentionally enumerate ticket IDs as
+    """.yoke/strategy/ is exempt: planning docs intentionally enumerate work-item IDs as
     inventory data, same category as ouroboros/."""
     _seed(tmp_path)
     (tmp_path / "strategy").mkdir()
@@ -162,14 +162,14 @@ def test_extra_paths_broaden_scan_beyond_default(tmp_path: Path, db_path: str) -
         db_path=db_path,
         extra_paths=(tmp_path / "projects",),
     )
-    assert any(h.ticket == "YOK-100" for h in result.hits)
+    assert any(h.work_item == "YOK-100" for h in result.hits)
 
 
 def test_scans_python_comments_and_docstrings(tmp_path: Path, db_path: str) -> None:
     """Linter now scans Python source alongside Markdown prose.
 
     Comments and docstrings in ``.py`` are in scope for the cruft policy.
-    Quoted ticket literals (``"YOK-N"``) and ``def test_sun_N_*``
+    Quoted work-item literals (``"YOK-N"``) and ``def test_sun_N_*``
     function names are exempted (separate tests cover those cases).
     """
     _seed(tmp_path)
@@ -178,28 +178,28 @@ def test_scans_python_comments_and_docstrings(tmp_path: Path, db_path: str) -> N
     )
     (tmp_path / "docs" / "foo.md").write_text("clean prose\n")
     result = lint_yok_n_cruft.scan(tmp_path, db_path=db_path)
-    assert any(h.ticket == "YOK-100" for h in result.hits)
+    assert any(h.work_item == "YOK-100" for h in result.hits)
 
 
-def test_records_unknown_tickets(tmp_path: Path, db_path: str) -> None:
-    """Tickets that don't exist in the DB are recorded as 'unknown' and do NOT
-    produce hits. The HC cannot distinguish a deleted-but-done ticket from a
+def test_records_unknown_work_items(tmp_path: Path, db_path: str) -> None:
+    """Work items that don't exist in the DB are recorded as 'unknown' and do NOT
+    produce hits. The HC cannot distinguish a deleted-but-done work item from a
     typo without more evidence, so it errs on the side of silence."""
     _seed(tmp_path)
     (tmp_path / "docs" / "foo.md").write_text("Prose about YOK-99999.\n")
     result = lint_yok_n_cruft.scan(tmp_path, db_path=db_path)
     assert result.hits == []
-    assert "YOK-99999" in result.unknown_tickets
+    assert "YOK-99999" in result.unknown_work_items
 
 
-def test_multiple_tickets_per_line(tmp_path: Path, db_path: str) -> None:
+def test_multiple_work_items_per_line(tmp_path: Path, db_path: str) -> None:
     _seed(tmp_path)
     (tmp_path / "docs" / "foo.md").write_text(
         "Two done tags in one sentence (YOK-100, YOK-101) should both be flagged.\n"
     )
     result = lint_yok_n_cruft.scan(tmp_path, db_path=db_path)
-    tickets = sorted(h.ticket for h in result.hits)
-    assert tickets == ["YOK-100", "YOK-101"]
+    work_items = sorted(h.work_item for h in result.hits)
+    assert work_items == ["YOK-100", "YOK-101"]
 
 
 def test_agents_md_top_level_file(tmp_path: Path, db_path: str) -> None:

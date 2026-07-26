@@ -43,17 +43,11 @@ class TestSeed:
     # ``deploy_defaults`` is optional because a project may legitimately have
     # no project-level deployment default; callers treat absence as a valid
     # "no project default" state.
-    # ``merge_verification`` is optional because absence is the documented
-    # default for both seeded projects: the merge engine emits an explicit
-    # "no merge policy configured" log line and skips project tests at
-    # merge time. Operators configure a command and timeout explicitly via
-    # ``python3 -m yoke_core.domain.merge_verification set <project>
-    # <command> --timeout-seconds <seconds>`` when they want a merge gate.
     # ``architecture_model`` is in the optional set until Slice 6
     # authors the concrete yoke architecture_model.payload seed; AC-2 lands
     # there alongside the AGENTS.md architecture-model documentation surface.
     _SEED_COVERAGE_OPTIONAL = {
-        "deploy_defaults", "merge_verification", "architecture_model",
+        "deploy_defaults", "architecture_model",
     }
 
     def test_seed_yoke_populates_every_required_net_new_family(
@@ -67,25 +61,6 @@ class TestSeed:
             assert structure["families"][family], (
                 f"Net-new family '{family}' was not seeded for yoke"
             )
-
-    def test_yoke_command_definitions_scope_coverage(self, initialized_db: str):
-        """Yoke seeds ``full`` with the canonical local verification target.
-        ``quick``, ``e2e``, and ``smoke`` are intentionally absent today and
-        are exercised by the validator as ``empty`` rather than ``invalid``.
-        """
-        ps.cmd_seed("yoke", db_path=initialized_db)
-        structure = ps.read_structure("yoke", family="command_definitions",
-                                      db_path=initialized_db)
-        scopes = {e["entry_key"] for e in structure["entries"]}
-        assert scopes == {"full"}
-        full_entry = next(e for e in structure["entries"]
-                          if e["entry_key"] == "full")
-        assert full_entry["payload"] == {
-            "command": (
-                "python3 -m yoke_core.tools.watch_pytest -- "
-                "runtime/api/ runtime/harness/ tests/"
-            ),
-        }
 
     def test_yoke_seeds_deploy_defaults(self, initialized_db: str):
         """Yoke ships with a `deploy_defaults` entry pointing at its

@@ -76,7 +76,7 @@ class TestErrorEnvelope:
         resp = client.post("/v1/items/1/approve", json={})
         data = resp.json()
         assert "error" in data
-        assert data["error"]["code"] == "INVALID_STATE"
+        assert data["error"]["code"] == "NO_ACTIVE_RUN"
 
 
 # ---------------------------------------------------------------------------

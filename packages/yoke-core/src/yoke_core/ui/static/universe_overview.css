@@ -1,0 +1,251 @@
+/* Overview section map: the prototype's board headings turned into sticky
+   in-page navigation. Full-screen navigation remains in each panel footer. */
+.universe-app-root .overview-jumps {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  padding: 8px 0 10px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--yoke-border);
+  background: var(--yoke-bg);
+}
+.universe-app-root .overview-jump {
+  padding: 4px 11px;
+  border: 1px solid var(--yoke-border);
+  border-radius: 8px;
+  color: var(--yoke-ink);
+  background: var(--yoke-surface);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    color 120ms ease,
+    border-color 120ms ease,
+    background-color 120ms ease;
+}
+.universe-app-root .overview-jump:hover {
+  color: var(--yoke-accent);
+  border-color: var(--yoke-accent);
+  background: var(--yoke-hover);
+}
+.universe-app-root .overview-jump:focus-visible {
+  outline: 2px solid var(--yoke-accent);
+  outline-offset: 2px;
+}
+.universe-app-root .overview-section {
+  scroll-margin-top: 50px;
+}
+.universe-app-root .overview-section-detail {
+  order: 1;
+  margin-left: auto;
+  color: var(--yoke-muted);
+  font-size: 11.5px;
+  font-weight: 400;
+}
+.universe-app-root .overview-section .raw-toggle {
+  order: 2;
+}
+
+/* The Overview begins with one coherent signal surface, then ends with the
+   two compact pulse/health summaries side by side like the prototype. */
+.universe-app-root .overview-masthead {
+  margin-bottom: 14px;
+  overflow: hidden;
+  background: var(--yoke-surface);
+  border: 1px solid var(--yoke-border);
+  border-radius: var(--yoke-radius);
+}
+.universe-app-root .overview-masthead-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 11px 15px;
+  border-bottom: 1px solid var(--yoke-border);
+}
+.universe-app-root .overview-masthead-heading strong {
+  font-size: 10px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+.universe-app-root .overview-masthead-heading span {
+  font-size: 11.5px;
+  color: var(--yoke-muted);
+}
+.universe-app-root .overview-masthead .stat-row {
+  gap: 0;
+  margin: 0;
+}
+.universe-app-root .overview-masthead .stat {
+  position: relative;
+  border: 0;
+  border-right: 1px solid var(--yoke-border);
+  border-radius: 0;
+  padding-left: 19px;
+}
+.universe-app-root .overview-masthead .stat::before {
+  position: absolute;
+  top: 11px;
+  bottom: 11px;
+  left: 0;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--yoke-muted);
+  content: "";
+}
+.universe-app-root .overview-masthead .stat[data-signal="ready"]::before {
+  background: var(--yoke-accent);
+}
+.universe-app-root .overview-masthead .stat[data-signal="blocked"]::before {
+  background: var(--yoke-crit);
+}
+.universe-app-root .overview-masthead .stat[data-signal="healthy"]::before {
+  background: var(--yoke-good);
+}
+.universe-app-root .overview-masthead .stat:last-child {
+  border-right: 0;
+}
+.universe-app-root .overview-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+@media (max-width: 860px) {
+  .universe-app-root .overview-pair {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .universe-app-root .overview-masthead .stat-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .universe-app-root .overview-masthead .stat:nth-child(2) {
+    border-right: 0;
+  }
+  .universe-app-root .overview-masthead .stat:nth-child(-n + 2) {
+    border-bottom: 1px solid var(--yoke-border);
+  }
+}
+
+/* The Overview's summary panels: each is a peek at a full screen and links
+   out to it. The link sits flush at the panel's foot, a full-width row with
+   its own top rule, so "open the whole thing" reads as the panel's floor. */
+.universe-app-root .overview-open {
+  display: block;
+  padding: 10px 15px;
+  border-top: 1px solid var(--yoke-border);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--yoke-accent);
+  text-decoration: none;
+}
+.universe-app-root .overview-open:hover {
+  background: var(--yoke-hover);
+}
+.universe-app-root .overview-open:focus-visible {
+  outline: 2px solid var(--yoke-accent);
+  outline-offset: -2px;
+}
+.universe-app-root .overview-environments {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 15px;
+  border-top: 1px solid var(--yoke-border);
+  color: var(--yoke-muted);
+  font-size: 11px;
+}
+.universe-app-root .overview-environments > strong {
+  margin-right: 2px;
+  color: var(--yoke-ink);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.universe-app-root .overview-environment {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 7px;
+  border: 1px solid var(--yoke-border);
+  border-radius: 999px;
+  background: var(--yoke-bg);
+}
+.universe-app-root .overview-environment::before {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--yoke-muted);
+  content: "";
+}
+.universe-app-root .overview-environment[data-status="succeeded"]::before {
+  background: var(--yoke-good);
+}
+.universe-app-root .overview-environment[data-status="failed"]::before {
+  background: var(--yoke-crit);
+}
+
+/* A destination that exists but has nothing to read yet: a dashed, hatched
+   placeholder holding a badge and skeleton bars. The name and sentence live
+   in the page head above it, and nothing here pretends to act. */
+.universe-app-root .stub-panel {
+  border: 1.5px dashed var(--yoke-border);
+  border-radius: 14px;
+  padding: 40px 30px;
+  text-align: center;
+  background: repeating-linear-gradient(
+    135deg,
+    transparent,
+    transparent 9px,
+    var(--yoke-surface) 9px,
+    var(--yoke-surface) 18px
+  );
+}
+.universe-app-root .stub-panel .badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--yoke-warn);
+  background: var(--yoke-warn-bg);
+  padding: 4px 11px;
+  border-radius: 20px;
+}
+.universe-app-root .stub-panel .stub-summary {
+  color: var(--yoke-muted);
+  max-width: 52ch;
+  margin: 12px auto 0;
+  font-size: 13px;
+}
+.universe-app-root .stub-panel .preview {
+  margin-top: 22px;
+  display: grid;
+  gap: 9px;
+  max-width: 440px;
+  margin-inline: auto;
+  text-align: left;
+  opacity: 0.55;
+}
+.universe-app-root .stub-panel .ln {
+  height: 11px;
+  border-radius: 5px;
+  background: var(--yoke-surface-2);
+}
+
+/* Keyboard focus is always visible on the interactive surfaces. */
+.universe-app-root .nav-link:focus-visible,
+.universe-app-root .tab-link:focus-visible,
+.universe-app-root .capability-action:focus-visible,
+.universe-app-root .scope-chip:focus-visible,
+.universe-app-root .row-link:focus-visible,
+.universe-app-root .breadcrumb-parent:focus-visible,
+.universe-app-root .raw-toggle:focus-visible {
+  outline: 2px solid var(--yoke-accent);
+  outline-offset: 2px;
+}

@@ -35,16 +35,6 @@ ACCESS_PATTERN_NOTE: str = (
 # + the access-pattern note. ``topic`` keys the renderer's grouping;
 # the renderer reads ``CANONICAL_TABLES`` to confirm the column exists.
 JSON_NESTED_SCHEMAS: dict[tuple[str, str], dict] = {
-    ("items", "browser_qa_metadata"): {
-        "topic": "core",
-        "validator": "yoke_core.domain.browser_qa_metadata.validate_json_string",
-        "fields": [
-            ("browser_testable", "bool", "false"),
-            ("browser_routes", "list[str]", "[]"),
-            ("browser_intents", "list[dict]", "[]"),
-            ("browser_timing_budget_ms", "int", "0"),
-        ],
-    },
     ("items", "db_mutation_profile"): {
         "topic": "core",
         "validator": "yoke_core.domain.db_mutation_profile.validate_json_string",

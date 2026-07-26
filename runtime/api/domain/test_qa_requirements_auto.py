@@ -1,8 +1,6 @@
-"""Tests for automatic non-browser AC verification requirements."""
+"""Tests for automatic AC verification requirements."""
 
 from __future__ import annotations
-
-import json
 
 import pytest
 
@@ -56,63 +54,6 @@ def test_missing_browser_metadata_on_issue_creates_ac_verification(qa_db) -> Non
     assert rows[0]["requirement_source"] == "ac_derived"
     assert PYTEST_TARGET in rows[0]["success_policy"]
     assert "AC-1: Verify the unit-tested path" in rows[0]["success_policy"]
-
-
-def test_not_browser_testable_section_creates_requirement(qa_db) -> None:
-    spec = (
-        "## Browser QA Metadata\n"
-        "This is not browser-testable.\n\n"
-        "## Acceptance Criteria\n"
-        "- [ ] AC-1: Cover it with pytest\n"
-    )
-    _insert_item(qa_db, spec=spec)
-
-    req_id = auto_create_for_item(1, db_path=qa_db)
-
-    assert req_id is not None
-    assert len(_requirements(qa_db)) == 1
-
-
-def test_browser_testable_metadata_skips_auto_create(qa_db) -> None:
-    _insert_item(
-        qa_db,
-        spec="## Acceptance Criteria\n- [ ] AC-1: Browser path\n",
-        browser_qa_metadata=json.dumps({"browser_testable": True}),
-    )
-
-    assert auto_create_for_item(1, db_path=qa_db) is None
-    assert _requirements(qa_db) == []
-
-
-def test_confirmed_non_browser_metadata_overrides_section_prose(qa_db) -> None:
-    """An authoritative browser_qa_metadata object with browser_testable=false
-    seeds the consolidated AC-verification requirement even when the
-    "## Browser QA Metadata" section prose ("Non-browser ticket: ...") matches
-    none of the prose heuristics — otherwise the verification-entry gate stalls
-    with zero requirements."""
-    spec = (
-        "## Browser QA Metadata\n"
-        "Non-browser ticket: backend-only change with no UI surface.\n\n"
-        "## Acceptance Criteria\n"
-        "- [ ] AC-1: Cover the path with pytest\n"
-    )
-    _insert_item(
-        qa_db,
-        spec=spec,
-        browser_qa_metadata=json.dumps({"browser_testable": False}),
-    )
-
-    req_id = auto_create_for_item(1, db_path=qa_db)
-
-    rows = _requirements(qa_db)
-    assert len(rows) == 1
-    assert req_id == rows[0]["id"]
-    assert rows[0]["qa_kind"] == "ac_verification"
-    assert rows[0]["qa_phase"] == "verification"
-    assert rows[0]["blocking_mode"] == "blocking"
-    assert rows[0]["requirement_source"] == "ac_derived"
-    assert PYTEST_TARGET in rows[0]["success_policy"]
-    assert "AC-1: Cover the path with pytest" in rows[0]["success_policy"]
 
 
 def test_existing_ac_verification_requirement_is_idempotent(qa_db) -> None:

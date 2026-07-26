@@ -62,6 +62,38 @@ class TestRequirementAdd(unittest.TestCase):
         self.assertEqual(row[3], "blocking")
         self.assertEqual(row[4], "ac_derived")
 
+    def test_inserts_method_backed_browser_case(self):
+        with test_database() as conn:
+            insert_item(conn, id=42, title="T", status="implementing")
+            conn.commit()
+            outcome = qa_requirement_create.handle_qa_requirement_add(
+                _request(
+                    "qa.requirement.add", 42,
+                    {
+                        "method_id": "browser-check",
+                        "qa_phase": "verification",
+                        "instructions": "Check the login page.",
+                        "expected_outcome": "The login form is ready.",
+                        "method_config": {
+                            "steps": [
+                                {"action": "navigate", "route": "/login"},
+                                {"action": "assert", "selector": "form"},
+                            ],
+                        },
+                    },
+                ),
+            )
+            self.assertTrue(outcome.primary_success, outcome.error)
+            row = conn.execute(
+                "SELECT qa_kind, method_id, instructions, expected_outcome, "
+                "method_config FROM qa_requirements WHERE id=%s",
+                (outcome.result_payload["requirement_id"],),
+            ).fetchone()
+        self.assertEqual(row["qa_kind"], "method_case")
+        self.assertEqual(row["method_id"], "browser-check")
+        self.assertEqual(row["instructions"], "Check the login page.")
+        self.assertIn('"route": "/login"', row["method_config"])
+
     def test_normalizes_retired_vocab(self):
         with test_database() as conn:
             insert_item(conn, id=42, title="T", status="implementing")

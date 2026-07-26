@@ -11,7 +11,7 @@ Standalone capability for polishing an in-progress implementation. Locates the e
 This is an explicit, operator-invoked capability that Codex can execute directly. It does not require `/yoke do`, lane-aware routing, or lifecycle-family ownership wiring.
 
 <!-- BEGIN GENERATED: field-note-directive -->
-When you hit a recipe gap or notice a minor bug not worth a ticket, file a field-note immediately — before retrying, before moving on.
+When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
 Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->
@@ -60,9 +60,9 @@ If polish fails, cannot resolve the worktree, or leaves verification failing, th
 
 **Events table for debugging.** When investigating unexpected behavior or test failures during polish, query the events table for recent telemetry: `yoke events tail --limit 20` or `yoke events anomalies --since "4 hours ago"`. Anomaly flags (nonzero_exit, benign_failure, generated_view_write) and tool call timing reveal what happened during the Engineer's session and whether the failure was systemic or code-specific.
 
-**Think, don't just check.** The review dimensions in this skill are a starting point, not a ceiling. Before and after working through the checklist, step back and think about the implementation as a whole: Does this branch actually deliver what the ticket intended? Would the operator be satisfied using the result end-to-end? What would a thoughtful senior engineer notice that the checklist doesn't cover? Work top-down (from the ticket's purpose to the code) as well as bottom-up (from each file's diff to the overall picture). The checklist catches known failure modes; your judgment catches everything else. If something feels wrong, wasteful, incomplete, or fragile but doesn't match a specific review dimension, fix it or flag it anyway.
+**Think, don't just check.** The review dimensions in this skill are a starting point, not a ceiling. Before and after working through the checklist, step back and think about the implementation as a whole: Does this branch actually deliver what the work item intended? Would the operator be satisfied using the result end-to-end? What would a thoughtful senior engineer notice that the checklist doesn't cover? Work top-down (from the work item's purpose to the code) as well as bottom-up (from each file's diff to the overall picture). The checklist catches known failure modes; your judgment catches everything else. If something feels wrong, wasteful, incomplete, or fragile but doesn't match a specific review dimension, fix it or flag it anyway.
 
-**Codebase-reader naming.** Assume future readers of the codebase will NOT have the ephemeral planning artifacts this branch was written from. During polish, rewrite any new or renamed file, module, helper, test, doc, command, event, config key, symbol, heading, or comment that explains itself by pointing at a ticket, strategy doc, plan, initiative, phase, task, AC/FR label, branch, worktree, or implementation batch. Polished code describes current function, purpose, mechanics, and domain role to a repository reader.
+**Codebase-reader naming.** Assume future readers of the codebase will NOT have the ephemeral planning artifacts this branch was written from. During polish, rewrite any new or renamed file, module, helper, test, doc, command, event, config key, symbol, heading, or comment that explains itself by pointing at a work item, strategy doc, plan, initiative, phase, task, AC/FR label, branch, worktree, or implementation batch. Polished code describes current function, purpose, mechanics, and domain role to a repository reader.
 
 ## Simplify Anchor (reuse / quality / efficiency)
 
@@ -83,7 +83,7 @@ Polish executes six phases in order. Each phase lives in its own file; read and 
 Read `.agents/skills/yoke/polish/parse-and-claim.md` and execute it. Parses the item argument, locates the existing worktree lane set via the resolver, and activates polish through the claim + status-transition hard gate. Stops immediately if the item is missing, the lane set does not exist, or the claim is held by another session.
 
 ### Gather context (steps 4–5)
-Read `.agents/skills/yoke/polish/context.md` and execute it. Reads the item's spec, body, technical plan, and test results, then surveys recent main commits, active pipeline tickets, and recently-done tickets for drift, overlap, and supersession. All findings feed the review phase.
+Read `.agents/skills/yoke/polish/context.md` and execute it. Reads the item's spec, body, technical plan, and test results, then surveys recent main commits, active pipeline work items, and recently-done work items for drift, overlap, and supersession. All findings feed the review phase.
 
 ### Named simplify pass (worktree-diff-scoped)
 
@@ -95,7 +95,7 @@ The pass reviews the worktree diff against `main` along the three axes and futur
 - **Run sequentially as a single pass.** Walk the diff once; carry findings across all three axes simultaneously rather than three independent sweeps. Parallel three-sub-agent fan-out is **explicitly deferred to v1**.
 - **Reuse:** Does the diff add a new file, helper, template, skill, event, command, or prompt surface that an existing one already covers? Replace with reuse. Does it duplicate an existing constant, type, or helper API? Collapse onto the existing one.
 - **Quality:** Is each artifact at the smallest concrete shape that satisfies the request? Remove redundant state, parameter sprawl, copy-paste-with-variation, leaky abstractions, stringly-typed code where types/constants exist, unnecessary wrapper nesting, and unnecessary WHAT comments. Keep only non-obvious WHY comments.
-- **Codebase-reader naming:** Are all new or renamed live surfaces named for current function/purpose/mechanics rather than for the ticket, plan, phase, task, AC, branch, worktree, or batch that produced them? Rename provenance-shaped surfaces in the polish diff.
+- **Codebase-reader naming:** Are all new or renamed live surfaces named for current function/purpose/mechanics rather than for the work item, plan, phase, task, AC, branch, worktree, or batch that produced them? Rename provenance-shaped surfaces in the polish diff.
 - **Efficiency:** Is there redundant computation, repeated file reads, duplicate API calls, N+1 patterns, missed concurrency, hot-path bloat, recurring no-op updates, unnecessary existence pre-checks, unbounded structures, missing cleanup, or overly broad operations? Collapse them. New infrastructure proposed mid-polish must justify itself against existing surfaces.
 
 **Anti-argumentation (verbatim):** **do not argue with the finding, just skip false positives.** A finding is a fix attempt, not a debate prompt. If the finding doesn't apply to this diff, move past it without ceremony; if it does, fix it in place.

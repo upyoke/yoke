@@ -1,0 +1,71 @@
+"""Authorization routing for workflow-aware product surfaces."""
+
+import pytest
+
+from yoke_core.domain.actor_permissions import seed_roles_and_permissions
+from yoke_core.domain.auth_schema import create_auth_tables
+from yoke_core.domain.org_schema import seed_default_org
+from yoke_core.domain.project_identity import resolve_project_id
+from yoke_core.domain.project_seed_test_helpers import seed_project_identities
+from yoke_core.domain.schema_init_actor_path_claim_tables import (
+    create_actor_path_claim_tables,
+)
+from yoke_core.domain.schema_init_path_tables import create_path_registry_tables
+from yoke_core.domain.schema_init_tables import create_core_tables
+from yoke_core.domain.yoke_function_permissions import check_dispatch_permission
+
+from runtime.api.domain.test_function_authz_scope_routing import (
+    _entry,
+    _payload_request,
+    _project_owner,
+)
+from runtime.api.fixtures import pg_testdb
+
+
+@pytest.fixture
+def conn():
+    name = pg_testdb.create_test_database()
+    connection = pg_testdb.drop_database_on_close(
+        pg_testdb.connect_test_database(name),
+        name,
+    )
+    create_core_tables(connection)
+    seed_project_identities(connection)
+    create_path_registry_tables(connection)
+    create_actor_path_claim_tables(connection)
+    create_auth_tables(connection)
+    seed_default_org(connection)
+    seed_roles_and_permissions(connection)
+    yield connection
+    connection.close()
+
+
+def test_field_note_promotion_requires_write_access_to_payload_project(conn):
+    yoke = resolve_project_id(conn, "yoke")
+    externalwebapp = resolve_project_id(conn, "externalwebapp")
+    actor_id = _project_owner(conn, externalwebapp)
+    entry = _entry("ouroboros.field_note.promote")
+
+    allowed = check_dispatch_permission(
+        conn,
+        entry,
+        _payload_request(
+            actor_id,
+            "ouroboros.field_note.promote",
+            {"project": "externalwebapp"},
+        ),
+    )
+    assert allowed.error is None
+    assert allowed.project_id == externalwebapp
+
+    denied = check_dispatch_permission(
+        conn,
+        entry,
+        _payload_request(
+            actor_id,
+            "ouroboros.field_note.promote",
+            {"project": "yoke"},
+        ),
+    )
+    assert denied.error is not None
+    assert denied.project_id == yoke

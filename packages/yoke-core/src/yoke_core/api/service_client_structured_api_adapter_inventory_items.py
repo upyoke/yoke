@@ -9,6 +9,14 @@ from yoke_core.api.service_client_structured_api_adapter_inventory_types import 
 
 
 ITEMS_ADAPTERS = [
+    read_entry(
+        function_id="items.overview.list",
+        cli_invocation="yoke items overview list --project P",
+    ),
+    read_entry(
+        function_id="items.detail.get",
+        cli_invocation="yoke items detail get ITEM --project P",
+    ),
     AdapterEntry(
         function_id="items.create",
         cli_invocation=(

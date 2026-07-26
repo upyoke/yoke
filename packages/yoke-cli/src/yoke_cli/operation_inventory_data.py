@@ -28,6 +28,10 @@ from yoke_cli.operation_inventory_github_actions import (
 from yoke_cli.operation_inventory_installer_local import (
     PERMANENT_ROWS as INSTALLER_LOCAL_PERMANENT_ROWS,
 )
+from yoke_cli.operation_inventory_product_surfaces import (
+    PERMANENT_ROWS as PRODUCT_SURFACE_PERMANENT_ROWS,
+    WRAPPED_ROWS as PRODUCT_SURFACE_WRAPPED_ROWS,
+)
 from yoke_cli.operation_inventory_workflows import WRAPPED_ROWS as WORKFLOW_WRAPPED_ROWS
 from yoke_cli.operation_inventory_shepherd_qa_writes import (
     WRAPPED_ROWS as SHEPHERD_QA_WRITE_ROWS,
@@ -85,6 +89,7 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke sessions offer", "sessions"),
     _w("yoke sessions ownership-guard", "sessions"),
     *WORKFLOW_WRAPPED_ROWS,
+    *PRODUCT_SURFACE_WRAPPED_ROWS,
     _w("yoke charge schedule", "charge"),
     _w("yoke frontier list", "frontier"),
     # render.
@@ -161,14 +166,6 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke identity autojoin set", "identity.autojoin"),
     _w("yoke project-structure patch apply", "project_structure"),
     _w(
-        "yoke project-structure command-definitions get",
-        "project_structure.command_definitions",
-    ),
-    _w(
-        "yoke project-structure command-definitions list",
-        "project_structure.command_definitions",
-    ),
-    _w(
         "yoke project-structure deploy-defaults get",
         "project_structure.deploy_defaults",
     ),
@@ -238,6 +235,7 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
 
 
 PERMANENT_ROWS: Tuple[_Row, ...] = (
+    *PRODUCT_SURFACE_PERMANENT_ROWS,
     # Coordination-lease family — operator break-glass.
     _p(
         "python3 -m yoke_core.api.service_client coordination-lease-acquire",

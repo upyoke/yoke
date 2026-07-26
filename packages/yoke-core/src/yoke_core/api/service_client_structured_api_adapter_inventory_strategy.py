@@ -10,6 +10,66 @@ from yoke_core.api.service_client_structured_api_adapter_inventory_types import 
 
 STRATEGY_ADAPTERS = [
     _read_entry(
+        function_id="strategy.surface.list",
+        cli_invocation="yoke strategy surface list --project P",
+    ),
+    _read_entry(
+        function_id="strategy.surface.get",
+        cli_invocation="yoke strategy surface get SLUG --project P",
+    ),
+    _read_entry(
+        function_id="strategy.revision.diff",
+        cli_invocation=(
+            "yoke strategy revision diff SLUG --from-revision N "
+            "--to-revision N --project P"
+        ),
+    ),
+    AdapterEntry(
+        function_id="strategy.revision.restore",
+        cli_invocation=(
+            "yoke strategy revision restore SLUG --revision N "
+            "--base-updated-at TS --project P"
+        ),
+    ),
+    AdapterEntry(
+        function_id="strategy.parent.set",
+        cli_invocation=(
+            "yoke strategy parent set SLUG --parent-slug PARENT --project P"
+        ),
+    ),
+    AdapterEntry(
+        function_id="strategy.coordination.append",
+        cli_invocation=(
+            "yoke strategy coordination append SLUG --section NAME "
+            "--entry TEXT --project P"
+        ),
+    ),
+    _read_entry(
+        function_id="strategy.execution.get",
+        cli_invocation="yoke strategy execution get ITEM --project P",
+    ),
+    AdapterEntry(
+        function_id="strategy.execution.link",
+        cli_invocation=(
+            "yoke strategy execution link ITEM --slug SLUG --project P"
+        ),
+    ),
+    AdapterEntry(
+        function_id="strategy.claim.acquire",
+        cli_invocation="yoke strategy claim acquire ITEM --project P",
+    ),
+    AdapterEntry(
+        function_id="strategy.claim.release",
+        cli_invocation="yoke strategy claim release ITEM --project P",
+    ),
+    AdapterEntry(
+        function_id="strategy.claim.break_glass_release",
+        cli_invocation=(
+            "yoke strategy claim break-glass-release ITEM "
+            "--reason TEXT --project P"
+        ),
+    ),
+    _read_entry(
         function_id="strategy.doc.list",
         cli_invocation="yoke strategy doc list",
         notes="Per-project DB-authoritative strategy docs (slug, title, status metadata, updated_at, bytes); .yoke/strategy/ is a rendered view.",

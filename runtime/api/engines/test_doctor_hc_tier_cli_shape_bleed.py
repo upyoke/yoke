@@ -241,7 +241,7 @@ def test_db_router_read_only_path_passes(tmp_path, monkeypatch, conn):
     """`db_router items get` matches the read-only-paths surface — passes."""
     from yoke_core.domain.function_inventory_data import RETAINED_TERMINAL_BOUNDARIES
 
-    # Defense-in-depth: regression check for the parent ticket's hard rule.
+    # Defense-in-depth: regression check for the parent work item's hard rule.
     assert any(
         "python3 -m yoke_core.cli.db_router" in b.surface
         for b in RETAINED_TERMINAL_BOUNDARIES

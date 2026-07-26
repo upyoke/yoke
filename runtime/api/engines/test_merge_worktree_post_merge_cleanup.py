@@ -80,7 +80,7 @@ class TestPostMergeCleanupLocalSyncFailure:
         )
 
         # The recovery text must not point operators at the
-        # ambiguous ``git pull --ff-only`` shape this ticket retires; it
+        # ambiguous ``git pull --ff-only`` shape this work item retires; it
         # must teach the explicit fetch + ff-only-merge sequence the code
         # itself uses.
         recovery_lines = [line for line in printed_lines if "Recovery:" in line]

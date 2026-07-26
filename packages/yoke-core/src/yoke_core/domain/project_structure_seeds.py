@@ -12,8 +12,11 @@ from yoke_core.domain.strategy_docs_paths import STRATEGY_DIR_REL
 import copy
 from typing import Any, Dict, List, Optional, Tuple
 
+from yoke_core.domain.db_helpers import connect
+from yoke_core.domain.project_identity import resolve_project
 from yoke_core.domain.project_structure import UsageError, read_structure
 from yoke_core.domain.project_structure_write import apply_patch
+from yoke_core.domain.schema_common import _table_exists
 
 _YOKE_FULL_TEST_COMMAND = (
     "python3 -m yoke_core.tools.watch_pytest -- "
@@ -78,31 +81,9 @@ _SEEDS: Dict[str, List[Dict[str, Any]]] = {
          "payload": {"branch_pattern": "main",
                      "description": "Primary integration branch."}},
 
-        # Yoke project-level test commands.
-        # ``full`` resolves to the canonical local verification target.
-        # ``quick``, ``e2e``, and ``smoke`` are intentionally absent: Yoke is
-        # a control-plane CLI, not a deployed service, so there is no real
-        # end-to-end suite, no shallow real-stack smoke surface, and no
-        # fast-signal subset distinct from ``full`` today. Consumers treat
-        # missing scopes as "no command defined".
-        {"family": "command_definitions", "attachment": "project",
-         "entry_key": "full",
-         "payload": {"command": _YOKE_FULL_TEST_COMMAND}},
-
         # Yoke's delivery deployment flow.
         {"family": "deploy_defaults", "attachment": "project",
          "payload": {"deployment_flow": "yoke-internal"}},
-
-        # Yoke's merge verification policy: intentionally absent.
-        # The agent-facing ``full`` command is too slow for Yoke's merge gate.
-        # Yoke therefore configures no ``merge_verification`` row; the merge
-        # engine logs an explicit
-        # "no merge policy configured" line and proceeds without running
-        # any project test command. To run a different command at merge
-        # time, configure one explicitly via
-        # ``python3 -m yoke_core.domain.merge_verification set yoke <cmd>
-        # --timeout-seconds <seconds>``. The timeout is part of the project
-        # policy; choose a budget that fits the command.
 
         # Yoke's context routing: project-wide always-included docs. The
         # reserved ``always`` entry_key is the project-wide doc set; yoke
@@ -151,15 +132,38 @@ def cmd_seed(project_id: str, db_path: Optional[str] = None) -> Dict[str, Any]:
         ops.append(op)
 
     if not ops:
-        return {
+        result = {
             "project_id": project_id,
             "applied_ops": [],
             "note": "seed already complete",
         }
+    else:
+        result = apply_patch(
+            project_id,
+            ops=ops,
+            actor="seed",
+            db_path=db_path,
+        )
+    if project_id == "yoke":
+        conn = connect(path=db_path)
+        try:
+            if (
+                _table_exists(conn, "qa_methods")
+                and _table_exists(conn, "qa_plans")
+                and _table_exists(conn, "qa_plan_project_defaults")
+            ):
+                from yoke_core.domain.qa_command_plan_migration import (
+                    ensure_registered_command_plan,
+                )
 
-    return apply_patch(
-        project_id,
-        ops=ops,
-        actor="seed",
-        db_path=db_path,
-    )
+                identity = resolve_project(conn, project_id, required=True)
+                ensure_registered_command_plan(
+                    conn,
+                    project_id=int(identity.id),
+                    project=identity.slug,
+                    scope="full",
+                    command=_YOKE_FULL_TEST_COMMAND,
+                )
+        finally:
+            conn.close()
+    return result

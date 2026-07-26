@@ -194,7 +194,7 @@ def hc_test_command_validity(conn, args: DoctorArgs, rec: RecordCollector) -> No
 
     # Imported lazily to avoid a hard import cycle between doctor.py and
     # projects.py during module import.
-    from yoke_core.domain import command_definitions as _cmd_defs
+    from yoke_core.domain import qa_command_plans
     from yoke_core.domain.projects import _validate_test_command
     from yoke_core.domain.project_checkout_locations import checkout_for_project_id
 
@@ -210,7 +210,9 @@ def hc_test_command_validity(conn, args: DoctorArgs, rec: RecordCollector) -> No
         checkout = checkout_for_project_id(int(project_id))
         repo_path = str(checkout) if checkout is not None else ""
 
-        commands = _cmd_defs.list_commands(project_id, db_path=args.db_path)
+        commands = qa_command_plans.list_registered_commands(
+            project_slug, db_path=args.db_path,
+        )
         if not commands:
             # Nothing configured — nothing to validate.
             continue

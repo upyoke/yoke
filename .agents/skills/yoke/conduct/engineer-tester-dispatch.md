@@ -100,7 +100,7 @@ fi
 
 	 Apply the simplify three-axis vocabulary at code-author time. See AGENTS.md "## Simplify — three-axis doctrine": reuse existing surfaces first, keep the diff to the smallest AC-satisfying shape, justify new infrastructure against what already exists, and apply the future-concept lens when the change touches actors, sessions, heartbeats, ownership, leases, claims, approvals, overrides, evidence, run records, journals, packets, locks, or shared-state coordination.}
 
-	 CODEBASE-READER NAMING: Assume future readers of the codebase will NOT have the ephemeral planning artifacts you are working from. Treat the task/spec/plan as scaffolding, not naming source material. New or renamed files, modules, helpers, tests, docs, commands, events, config keys, symbols, headings, and comments must describe current function, purpose, mechanics, or domain role to someone who can only see the repository. Do not copy ticket IDs, plan names, initiative labels, phase/task/thread numbers, AC/FR identifiers, branch/worktree names, or implementation-batch wording into live code or current-state docs unless the identifier is itself a runtime/domain concept.
+	 CODEBASE-READER NAMING: Assume future readers of the codebase will NOT have the ephemeral planning artifacts you are working from. Treat the task/spec/plan as scaffolding, not naming source material. New or renamed files, modules, helpers, tests, docs, commands, events, config keys, symbols, headings, and comments must describe current function, purpose, mechanics, or domain role to someone who can only see the repository. Do not copy work item IDs, plan names, initiative labels, phase/task/thread numbers, AC/FR identifiers, branch/worktree names, or implementation-batch wording into live code or current-state docs unless the identifier is itself a runtime/domain concept.
 
 	 {If task body/spec mentions schema, column, migration, ALTER TABLE, CREATE TABLE, ADD COLUMN, or DROP TABLE:
 	 DB MIGRATION PROTOCOL: Follow the migration protocol in your agent definition (## DB Schema Changes section).}
@@ -247,7 +247,7 @@ Tester prompt template:
 	 not just counts. A test that passes on main but fails on the branch is a regression.
 
 	 Review the engineer's work against the acceptance criteria in the spec.
-	 Check codebase-reader naming: new or renamed surfaces must describe current function/purpose/mechanics rather than the ticket, plan, phase, task, AC, branch, worktree, or batch that produced them.
+	 Check codebase-reader naming: new or renamed surfaces must describe current function/purpose/mechanics rather than the work item, plan, phase, task, AC, branch, worktree, or batch that produced them.
 	 Run tests. Return a verdict line:
  VERDICT: PASS or VERDICT: FAIL followed by details.
 

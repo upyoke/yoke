@@ -4,7 +4,7 @@ Owns:
 
 * ``discover_test_surfaces(item_id)`` — resolve the project's test surfaces
   via the ``context_routing`` Project Structure family (topic ``testing``),
-  ``command_definitions`` (e2e + smoke), deterministic directory scans, and
+  migrated Command plans (e2e + smoke), deterministic directory scans, and
   built-in defaults.
 * Surface-discovery internal helpers: ``_extract_test_dirs_from_docs``,
   ``_extract_dirs_from_test_command``, ``_looks_like_test_surface``,
@@ -82,7 +82,7 @@ def discover_test_surfaces(item_id: int) -> Dict[str, Any]:
             "project": "example-project",
             "checkout_path": "/path/to/example-project",
             "surfaces": ["e2e/", "__tests__/", ...],
-            "source": "context_routing" | "command_definitions_e2e" | "command_definitions_smoke" | "directory_scan" | "defaults",
+            "source": "context_routing" | "qa_command_plan_e2e" | "qa_command_plan_smoke" | "directory_scan" | "defaults",
             "doc_paths": ["docs/TESTING.md", ...]
         }
     """
@@ -120,19 +120,19 @@ def discover_test_surfaces(item_id: int) -> Dict[str, Any]:
             checkout_path, doc_paths,
         )
 
-    # Strategy 2: command_definitions (e2e, smoke) path hints.
+    # Strategy 2: migrated Command plans (e2e, smoke) path hints.
     # Both scopes may point at playwright-style surfaces — iterate them so
     # each contributes directory hints.
-    from yoke_core.domain import command_definitions as _cmd_defs
+    from yoke_core.domain import qa_command_plans
     _hint_scopes = ("e2e", "smoke")
     command_hint_dirs: List[tuple[str, List[str]]] = []
     for _scope in _hint_scopes:
-        cmd_value = _cmd_defs.get_command(project, _scope)
+        cmd_value = qa_command_plans.get_registered_command(project, _scope)
         if not cmd_value:
             continue
         dirs_for_field = _extract_dirs_from_test_command(cmd_value)
         if dirs_for_field:
-            command_hint_dirs.append((f"command_definitions_{_scope}", dirs_for_field))
+            command_hint_dirs.append((f"qa_command_plan_{_scope}", dirs_for_field))
 
     # Merge: config surfaces + command-hint dirs + fallback scan
     all_surfaces: List[str] = []

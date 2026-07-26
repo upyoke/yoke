@@ -86,7 +86,6 @@ def test_function_call_surface_stanza_names_canonical_models() -> None:
 
 
 _JSON_NESTED_COLUMNS_REQUIRED = (
-    "items.browser_qa_metadata",
     "items.db_mutation_profile",
     "items.db_compatibility_attestation",
     "harness_sessions.offer_envelope",
@@ -96,7 +95,7 @@ _JSON_NESTED_COLUMNS_REQUIRED = (
 )
 
 
-def test_json_nested_field_schemas_appear_for_seven_enumerated_columns() -> None:
+def test_json_nested_field_schemas_appear_for_enumerated_columns() -> None:
     body = _main_body()
     for column in _JSON_NESTED_COLUMNS_REQUIRED:
         assert column in body, (

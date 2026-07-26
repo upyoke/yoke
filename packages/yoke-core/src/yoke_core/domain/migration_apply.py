@@ -1,7 +1,7 @@
 """Two-unit apply contract for governed DB migrations.
 
 Per the governed-DB-mutation contract, an item-backed profile or a committed
-ticketless migration manifest runs its migration in two distinct units,
+itemless migration manifest runs its migration in two distinct units,
 separated by a mandatory operator checkpoint:
 
 **Rehearsal unit** (no lease, no backup, no authoritative mutation):
@@ -225,7 +225,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     manifest_help = (
         "Committed JSON migration manifest inside the exact clean source "
-        "worktree. This is the ticketless governed subject."
+        "worktree. This is the itemless governed subject."
     )
     for command, help_text in (
         ("rehearse-manifest", "Run itemless rehearsal from a committed manifest."),

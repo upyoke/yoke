@@ -26,7 +26,7 @@ This companion file covers the simulation dispatch and result verification:
 
 This companion file covers result branching:
 - **CLEAN path** — Satisfy unsatisfied parent item verification requirements; verify auto-handoff to `reviewed-implementation`; print polish invitation; go to `cleanup-report.md` with `SUCCESS`.
-- **GAPS FOUND — Branch 1 (PROCEED, no CRITICALs)** — File tickets per gap, satisfy parent verification requirements, call `proceed-triage-handoff`; go to `cleanup-report.md` with `SUCCESS`.
+- **GAPS FOUND — Branch 1 (PROCEED, no CRITICALs)** — File work items per gap, satisfy parent verification requirements, call `proceed-triage-handoff`; go to `cleanup-report.md` with `SUCCESS`.
 - **GAPS FOUND — Branch 2 (--no-auto-fix)** — Print halt message; go to `cleanup-report.md` with `HALTED`.
 - **GAPS FOUND — Branch 3 (CRITICAL gaps or Recommendation ≠ PROCEED)** — Read `simulation-autofix.md`; on `AUTOFIX_CLEAN` verify auto-handoff and go to `cleanup-report.md` with `SUCCESS`; on `AUTOFIX_HALTED` go to `cleanup-report.md` with `HALTED`.
 

@@ -26,38 +26,11 @@ def _qa_help(subcommand: str) -> str:
     return (result.stdout or "") + (result.stderr or "")
 
 
-def test_project_topic_renders_command_definitions_recipes() -> None:
-    body = sac.render_topic_packet("project")
-    # Every supported scope appears so agents pick the right command.
-    for scope in ("quick", "full", "e2e", "smoke"):
-        assert scope in body, f"project topic missing scope keyword: {scope}"
-    assert (
-        "yoke project-structure command-definitions get "
-        "--project <project> --scope quick"
-    ) in body
-    assert (
-        "yoke project-structure command-definitions list --project <project>"
-    ) in body
-    assert "project_structure.command_definitions.get" in body
-    assert "project_structure.command_definitions.list" in body
-    assert "raw command_definitions module" in body
-
-
 def test_project_topic_renders_deploy_defaults_recipe() -> None:
     body = sac.render_topic_packet("project")
     assert ("yoke project-structure deploy-defaults get --project <project>") in body
     assert "project_structure.deploy_defaults.get" in body
     assert "raw deploy_defaults module" in body
-
-
-def test_project_topic_warns_no_command_definitions_table() -> None:
-    """The packet must teach that there is no top-level command_definitions
-    table — agents who raw-query that name hit `no such table`."""
-
-    body = sac.render_topic_packet("project")
-    assert "no top-level command_definitions" in body, (
-        "project topic must warn that there is no command_definitions table"
-    )
 
 
 def test_project_topic_warns_settings_are_not_on_projects() -> None:
@@ -159,7 +132,6 @@ def test_main_packet_includes_learning_log_and_deployment_runs() -> None:
 
 
 _NEW_STALE_TERMS_2026_05 = (
-    "command_definitions WHERE",
     "qa_kind='review'",
     "--qa-kind review",
     ".agents/skills/yoke/scripts/python3 -m yoke_core.cli.db_router qa",
@@ -178,7 +150,7 @@ def test_new_stale_terms_in_seed() -> None:
 def test_engineer_and_tester_receive_project_and_qa_topics() -> None:
     """AC-9: Engineer and Tester get every topic; Architect / Simulator /
     Boss intentionally omit `qa` and `project` (they plan, trace, or
-    review without invoking the gate or command_definitions directly)."""
+    review without invoking project execution surfaces directly)."""
 
     assert seed.ROLE_TOPICS["engineer_agent"] == ("core", "claims", "qa", "project")
     assert seed.ROLE_TOPICS["tester_agent"] == ("core", "claims", "qa", "project")

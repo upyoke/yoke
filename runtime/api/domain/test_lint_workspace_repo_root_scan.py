@@ -75,7 +75,7 @@ def test_scan_flags_test_fixture_that_calls_repo_root_directly(
     """AC-7: a hypothetical `test_*.py` file that imports `_repo_root` and
     calls it inside a fixture is flagged. The lint surfaces the leak shape
     that the rewritten ``test_agents_render.repo_root`` fixture used to
-    have before this ticket replaced it with the workspace-anchored helper.
+    have before this work item replaced it with the workspace-anchored helper.
     """
     bad_rel = "runtime/api/domain/test_some_renderer_consumer.py"
     assert bad_rel not in REPO_ROOT_REFERENCE_ALLOWLIST

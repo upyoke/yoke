@@ -86,34 +86,9 @@ class TestQaRequirementAutoCreateForItem(unittest.TestCase):
         self.assertFalse(outcome.primary_success)
         self.assertEqual(outcome.error.code, "not_found")
 
-    def test_browser_testable_item_returns_noop(self):
-        item_row = {
-            "id": 7,
-            "browser_qa_metadata": '{"browser_testable": true}',
-            "spec": "",
-        }
-        with patch(
-            "yoke_core.domain.db_helpers.connect",
-            return_value=_Conn(row=item_row),
-        ):
-            with patch(
-                "yoke_core.domain.qa_requirements_auto._existing_requirement",
-                return_value=None,
-            ), patch(
-                "yoke_core.domain.workflow_runtime.load_item_workflow_runtime",
-                return_value=builtin_workflow_runtime("issue"),
-            ):
-                outcome = qa.handle_qa_requirement_auto_create_for_item(
-                    _request(TargetRef(kind="item", item_id=7)),
-                )
-        self.assertTrue(outcome.primary_success)
-        self.assertEqual(outcome.result_payload["outcome"],
-                         "browser_testable_noop")
-        self.assertIsNone(outcome.result_payload["requirement_id"])
-
     def test_non_default_qa_policy_returns_not_applicable(self):
         item_row = {
-            "id": 8, "browser_qa_metadata": "",
+            "id": 8,
             "spec": "",
         }
         with patch(
@@ -133,9 +108,9 @@ class TestQaRequirementAutoCreateForItem(unittest.TestCase):
         self.assertTrue(outcome.primary_success)
         self.assertEqual(outcome.result_payload["outcome"], "not_applicable")
 
-    def test_creates_requirement_for_non_browser_issue(self):
+    def test_creates_requirement_for_issue(self):
         item_row = {
-            "id": 21, "browser_qa_metadata": "",
+            "id": 21,
             "spec": "## Acceptance Criteria\n- [ ] AC-1: do the thing\n",
         }
         with patch(

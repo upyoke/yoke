@@ -5,26 +5,11 @@ from __future__ import annotations
 import unittest
 from unittest.mock import Mock, patch
 
-from yoke_core.domain.handlers import deployment_flows, deployment_runs
-from yoke_contracts.api.function_call import (
-    ActorContext,
-    FunctionCallRequest,
-    TargetRef,
+from runtime.api.domain.handlers.deployment_handler_test_support import (
+    deployment_request as _request,
 )
-
-
-def _request(
-    *,
-    function: str,
-    target: TargetRef | None = None,
-    payload: dict | None = None,
-) -> FunctionCallRequest:
-    return FunctionCallRequest(
-        function=function,
-        actor=ActorContext(actor_id="op", session_id="s-1"),
-        target=target or TargetRef(kind="global"),
-        payload=payload or {},
-    )
+from yoke_core.domain.handlers import deployment_flows, deployment_runs
+from yoke_contracts.api.function_call import TargetRef
 
 
 def _assert_flow_connect_restored(testcase: unittest.TestCase) -> None:
@@ -257,11 +242,17 @@ class TestDeploymentRunHandlers(unittest.TestCase):
                     function="deployment_runs.approve",
                     target=self._run_target(),
                     payload={"note": "stage verified"},
+                    actor_id="7",
                 ),
             )
 
         self.assertTrue(outcome.primary_success)
-        approve.assert_called_once_with("run-20260616-001")
+        approve.assert_called_once_with(
+            "run-20260616-001",
+            actor_id=7,
+            session_id="s-1",
+            note="stage verified",
+        )
         emit.assert_called_once()
         self.assertEqual(outcome.result_payload["next_stage"], "production")
         self.assertEqual(outcome.result_payload["member_item_ids"], [19, 20])

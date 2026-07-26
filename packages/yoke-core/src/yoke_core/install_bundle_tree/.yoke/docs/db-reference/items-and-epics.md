@@ -49,7 +49,6 @@ shepherd_log TEXT -- shepherd transition log
 shepherd_caveats TEXT -- shepherd caveats summary
 test_results TEXT -- test/QA results
 deploy_log TEXT -- deployment log
-browser_qa_metadata TEXT -- → JSONB on Postgres; validated JSON object (browser_testable, visual_outcome, browser_routes, browser_timing_hints_ms); populated at idea time, corrected by refine, consumed by browser QA seeding
 db_mutation_profile TEXT -- → JSONB on Postgres; validated JSON object declaring governed DB mutation (state, model_name, mutation_intent, migration_modules, compatibility_class, ...); default '{"state":"none"}'. Internal half of the unified DB claim — write through `db-claim-amend`, never raw
 db_compatibility_attestation TEXT -- → JSONB on Postgres; validated JSON object carrying the safety argument (frozen_at, pre_merge_readers_writers, invariants, rehearsal_commands, residual_risk_notes, rehearsal_outcomes, class_escalations); default '{}'. Internal half of the unified DB claim — write through `db-claim-amend`, never raw
 spec_updated_at TEXT -- timestamp of last spec field update
@@ -77,7 +76,7 @@ python3 -m yoke_core.domain.item_field_transform section-upsert --item YOK-N --s
 
 ### DB Claim — the unified amendment workflow
 
-`db_mutation_profile` and `db_compatibility_attestation` are two JSON columns on the `items` table (not standalone tables) — the two storage halves of one operator-facing concept: the item's **DB claim**. The claim says (a) what governed DB mutation the ticket performs and (b) the safety argument for why pre-merge `main` stays true after it lands.
+`db_mutation_profile` and `db_compatibility_attestation` are two JSON columns on the `items` table (not standalone tables) — the two storage halves of one operator-facing concept: the item's **DB claim**. The claim says (a) what governed DB mutation the work item performs and (b) the safety argument for why pre-merge `main` stays true after it lands.
 
 The canonical write surface is the `db_claim.amend` function id (see [functions.md](functions.md)). Operator/debug CLI adapter: `python3 -m yoke_core.api.service_client db-claim-amend`. Every Yoke command that needs to write or correct a claim — `/yoke idea` late classification, `/yoke refine` stale-claim repair, `/yoke advance` and `/yoke polish` mid-implementation discovery — routes through this function id. Per-field writes via `python3 -m yoke_core.cli.db_router items update <id> db_mutation_profile ...` remain structurally valid but are reserved as internal implementation helpers; do not author them in skill prose, recovery messages, or operator-facing docs.
 
@@ -110,7 +109,7 @@ python3 -m yoke_core.api.service_client db-claim-amend \
   --item YOK-N --state none --reason "<why>"
 ```
 
-Running this is an **explicit reviewed-none decision**: an operator or agent has confirmed the ticket does not mutate a governed authoritative DB. The amendment stamps the reviewed-negative attestation onto the stored profile itself — `{"state":"none","reviewed_negative":true,"validated_at":"<ts>"}` — so the decision lives as item state, not in the events ledger. The prose-vs-claim gate reads that attestation as proof the negative claim was deliberately reviewed (not the implicit schema default) and clears vocabulary- and structural-trigger hits alike. Meta-tickets about DB governance that unavoidably cite `ALTER TABLE`, `ADD COLUMN`, `DROP COLUMN`, `migration_audit`, or similar DDL-shape terms advance once the reviewed-none amendment is on record. The `reviewed_negative` / `validated_at` keys are workflow-managed — amendment payloads that try to supply them are rejected as reserved.
+Running this is an **explicit reviewed-none decision**: an operator or agent has confirmed the work item does not mutate a governed authoritative DB. The amendment stamps the reviewed-negative attestation onto the stored profile itself — `{"state":"none","reviewed_negative":true,"validated_at":"<ts>"}` — so the decision lives as item state, not in the events ledger. The prose-vs-claim gate reads that attestation as proof the negative claim was deliberately reviewed (not the implicit schema default) and clears vocabulary- and structural-trigger hits alike. Meta work items about DB governance that unavoidably cite `ALTER TABLE`, `ADD COLUMN`, `DROP COLUMN`, `migration_audit`, or similar DDL-shape terms advance once the reviewed-none amendment is on record. The `reviewed_negative` / `validated_at` keys are workflow-managed — amendment payloads that try to supply them are rejected as reserved.
 
 Every successful amendment also emits a `DbClaimAmended` telemetry event whose envelope carries the previous and new claim summaries, the actor/session, and the operator-supplied reason. The event stream is history/audit-only — the gate-consulted attestation lives on the profile:
 
@@ -122,7 +121,7 @@ yoke events query --event-name DbClaimAmended
 
 - `state="none"` claims stay mutable forever — the freeze stamp applies only when the workflow writes `state="declared"`.
 - The amendment workflow is the sole forward writer of `db_compatibility_attestation.frozen_at` for declared claims.
-- A prose-vs-claim consistency gate (`GATE_DB_CLAIM_PROSE_MISMATCH`) blocks every refine advance, evidence gate, and polish gate when the spec/body declares governed DB work but the stored profile is still the bare `state="none"` default **without** the reviewed-negative attestation. The block points at `db-claim-amend` for recovery; running the amendment workflow with `--state none --reason "<why>"` is the canonical fix for meta-tickets that legitimately discuss governance vocabulary. Backtick-wrapping DDL verbs or scrubbing terminology from the spec is **not** the canonical remediation.
+- A prose-vs-claim consistency gate (`GATE_DB_CLAIM_PROSE_MISMATCH`) blocks every refine advance, evidence gate, and polish gate when the spec/body declares governed DB work but the stored profile is still the bare `state="none"` default **without** the reviewed-negative attestation. The block points at `db-claim-amend` for recovery; running the amendment workflow with `--state none --reason "<why>"` is the canonical fix for meta work items that legitimately discuss governance vocabulary. Backtick-wrapping DDL verbs or scrubbing terminology from the spec is **not** the canonical remediation.
 - The reviewed-none signal reads the **stored profile JSON** (`state="none"` + `reviewed_negative: true`). The latest amendment is authoritative by construction — a later `state="declared"` amendment replaces the profile and removes the attestation. Malformed profile JSON, the bare implicit default, `reviewed_negative` values other than `true`, and declared states all read as not-reviewed — the gate behaves as if no amendment ever ran.
 - Rows with `state="none"` + a stamped `frozen_at` are accepted as inert compatibility data; the renderer does not surface them, and the joint gate does not add new ones.
 

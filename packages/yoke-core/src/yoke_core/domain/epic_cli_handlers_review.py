@@ -208,12 +208,12 @@ def handle(epic_module, conn, subcmd, rest, epic_id) -> bool:
             _cli_usage_error(
                 "Usage: proceed-triage-handoff <epic-id> "
                 "[--recommendation R] [--gap-summary S] "
-                "[--filed-tickets T1,T2] [--session-id SID]"
+                "[--filed-items T1,T2] [--session-id SID]"
             )
         # Parse keyword args from rest
         _pth_recommendation = "PROCEED"
         _pth_gap_summary = ""
-        _pth_filed_tickets: Optional[List[str]] = None
+        _pth_filed_items: Optional[List[str]] = None
         _pth_session_id: Optional[str] = None
         _pth_i = 0
         while _pth_i < len(rest):
@@ -223,8 +223,12 @@ def handle(epic_module, conn, subcmd, rest, epic_id) -> bool:
             elif rest[_pth_i] == "--gap-summary" and _pth_i + 1 < len(rest):
                 _pth_gap_summary = rest[_pth_i + 1]
                 _pth_i += 2
-            elif rest[_pth_i] == "--filed-tickets" and _pth_i + 1 < len(rest):
-                _pth_filed_tickets = [t.strip() for t in rest[_pth_i + 1].split(",") if t.strip()]
+            elif rest[_pth_i] == "--filed-items" and _pth_i + 1 < len(rest):
+                _pth_filed_items = [
+                    item.strip()
+                    for item in rest[_pth_i + 1].split(",")
+                    if item.strip()
+                ]
                 _pth_i += 2
             elif rest[_pth_i] == "--session-id" and _pth_i + 1 < len(rest):
                 _pth_session_id = rest[_pth_i + 1]
@@ -236,7 +240,7 @@ def handle(epic_module, conn, subcmd, rest, epic_id) -> bool:
             int(epic_id),
             recommendation=_pth_recommendation,
             gap_summary=_pth_gap_summary,
-            filed_ticket_ids=_pth_filed_tickets,
+            filed_item_ids=_pth_filed_items,
             session_id=_pth_session_id,
         )
         sys.exit(rc)

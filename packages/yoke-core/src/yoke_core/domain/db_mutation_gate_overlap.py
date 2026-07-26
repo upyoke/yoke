@@ -1,4 +1,4 @@
-"""Cross-ticket overlap detection for the §7.1 joint gate.
+"""Cross-item overlap detection for the §7.1 joint gate.
 
 Owns the surface-signature comparator and :func:`detect_overlap` — the
 public surface re-exported from
@@ -47,7 +47,7 @@ def detect_overlap(
     *,
     dependency_pairs: Optional[Set[Tuple[int, int]]] = None,
 ) -> List[str]:
-    """Run §7.1 step e cross-ticket overlap detection.
+    """Run §7.1 step e cross-item overlap detection.
 
     Both *candidate* and *others* must be already-validated profiles.
     Profiles with ``state="none"`` are ignored on either side.
@@ -133,7 +133,7 @@ def detect_overlap(
                         _conflict_msg(
                             other_id, cs[0], shared_cols,
                             "data-kind presence on shared surface — at "
-                            "least one ticket declares a data_kind",
+                            "least one work item declares a data_kind",
                         )
                     )
                     continue
@@ -164,7 +164,7 @@ def detect_overlap(
                         )
 
     # Deduplicate while preserving order (multiple surfaces can re-trigger
-    # the same blocker against the same other ticket).
+    # the same blocker against the same other work item).
     seen: set = set()
     deduped: List[str] = []
     for msg in conflicts:
@@ -180,7 +180,11 @@ def _conflict_msg(
     columns: Tuple[str, ...],
     reason: str,
 ) -> str:
-    other_label = f"YOK-{other_id}" if other_id is not None else "another non-terminal ticket"
+    other_label = (
+        f"YOK-{other_id}"
+        if other_id is not None
+        else "another non-terminal work item"
+    )
     if columns:
         col_part = f" columns {sorted(columns)}"
     else:

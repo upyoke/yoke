@@ -2,10 +2,10 @@
 
 # Yoke — Architecture Overview
 
-> **Field-note loop.** Yoke improves itself by capturing field-note signals from every agent — recipe gaps and minor bug observations alike. When a recipe is missing, wrong, or unclear, or an agent spots a small bug not worth a ticket, they log it inline; `/yoke curate` clusters the signals and fixes the source. The directive block is the contract.
+> **Field-note loop.** Yoke improves itself by capturing field-note signals from every agent — recipe gaps and minor bug observations alike. When a recipe is missing, wrong, or unclear, or an agent spots a small bug best held as a supporting record, they log it inline; `/yoke curate` clusters the signals and fixes the source. The directive block is the contract.
 
 <!-- BEGIN GENERATED: field-note-directive -->
-When you hit a recipe gap or notice a minor bug not worth a ticket, file a field-note immediately — before retrying, before moving on.
+When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
 Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->
@@ -180,9 +180,9 @@ Every trackable item (idea, epic, issue) gets a stable `YOK-N` ID that persists 
  - **Agent Reflection:** Every agent answers 4 reflection questions at session end. Observations are captured automatically by the PostToolUse Agent-tool hook (`packages/yoke-core/src/yoke_core/domain/reflection_capture_hook.py`) from `---REFLECTION-START---` blocks and persisted to the `ouroboros_entries` table.
  - **System-Wide Simulation:** `/yoke simulate --system` audits all agents, commands, scripts, rules, and docs for internal consistency drift.
  - **Health Checks:** `/yoke doctor` runs deterministic checks across the entire installation — backlog, GitHub, worktrees, docs, dispatch chains, agents, hooks, schema validation, semantic drift, orphaned stashes, stale sessions, GitHub state sync, size/bloat monitoring, backlog quality, GitHub orphan detection, bidirectional sync, session startup hook, documentation health audit, DB schema drift detection, event registry coverage, event emission rate, event call site registry sync.
- - **Learning Curation:** `/yoke curate` clusters agent observations, files tickets, archives old entries, and promotes recurring patterns to rules or code changes.
+ - **Learning Curation:** `/yoke curate` clusters agent observations, files work items, archives old entries, and promotes recurring patterns to rules or code changes.
 
- The feedback loop: agents observe friction and ideas → log → curate clusters and tickets → doctor catches drift → fixes improve the system → agents observe better. Ouroboros is a headline feature — it's what makes Yoke compound its own intelligence over time.
+ The feedback loop: agents observe friction and ideas → log → curate clusters and work items → doctor catches drift → fixes improve the system → agents observe better. Ouroboros is a headline feature — it's what makes Yoke compound its own intelligence over time.
 
 ## State Management
 
@@ -195,8 +195,8 @@ Every trackable item (idea, epic, issue) gets a stable `YOK-N` ID that persists 
 - **Progress notes:** `epic_progress_notes` table — per-task progress with GitHub sync tracking.
 - **Simulations:** Stored in `qa_runs` table via `yoke workflow-item epic-task simulation-upsert` — plan and integration phase simulation reports.
 - **Events:** `events` table — structured telemetry events (tool calls, session lifecycle, anomalies). Keyed by `event_id` (UUID, idempotent insert/upsert for deduplication). Filterable by `source_type`, `session_id`, `event_name`, `tool_name`, `project` through `yoke events query`; write-side severity gating uses the `severity_config` table.
-- **Projects:** `projects` table — registered project repos with identity and repo metadata (see your `projects` packet stanza for the column list). Per-project structured settings live in the Project Structure aggregate: project-level test commands in the `command_definitions` family (agent-facing scopes: `quick`, `full`, `e2e`, `smoke`); deployment-flow defaults in the `deploy_defaults` family; the pre-merge verification policy in the `merge_verification` family (read by the merge engine alone, never by Tester/Engineer dispatch); per-project context routing (always-included docs and topic-keyed doc lists) in the `context_routing` family. Supporting tables: `sites`, `environments`, `project_capabilities`, `capability_templates`. Items reference projects via their project column (default `'yoke'`; cross-reference: see your `items` packet stanza).
-- **Project Structure aggregate:** `project_structure` table — the unversioned policy-family declaration of project-wide structure (`areas`, `mappings`, `test_roots`, `verification_profiles`, `ownership_defaults`, `integration_targets`, `command_definitions`, `deploy_defaults`, `merge_verification`, and `context_routing`). There are no placeholder or named-only family slots. Public mutations route through `yoke project-structure patch apply`.
+- **Projects:** `projects` table — registered project repos with identity and repo metadata (see your `projects` packet stanza for the column list). Deployment-flow defaults and context routing live in Project Structure; executable project verification lives in immutable QA plans attached at workflow transitions. Supporting tables: `sites`, `environments`, `project_capabilities`, `capability_templates`. Items reference projects via their project column (default `'yoke'`; cross-reference: see your `items` packet stanza).
+- **Project Structure aggregate:** `project_structure` table — the unversioned declaration of project-wide structure (`architecture_model`, `areas`, `context_routing`, `deploy_defaults`, `integration_targets`, `mappings`, `ownership_defaults`, `test_roots`, and `verification_profiles`). There are no placeholder or named-only family slots. Public mutations route through `yoke project-structure patch apply`.
 - **Board:** `.yoke/BOARD.md` — project-local generated board between `<!-- YOKE:BOARD:START/END -->` markers with sections for Active, Pipeline, Backlog, Freezer, and Done. Rendered by the Python board renderer (`yoke_core.board`) via the public backlog surface. Header features dynamic emoji pixel art from `.yoke/board-art`: progress bar or random standalone art variant / rainbow fill, plus a stats box with 10-cell proportional meters. All counts use **task-expanded counting** (epics with tasks expand to N units). Below the art header, **dashboard rows** display a 14-day touched-units sparkline, an optional 90-day meter (activity, code lines, issues done, strategy lines), WIP gauge, weather indicator, type badges, age heatmap, and achievement badges.
 
 ## Execution Loop

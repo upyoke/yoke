@@ -317,9 +317,9 @@ def test_alternative_flows_may_govern_the_same_migration_model(test_db) -> None:
     )
     test_db.execute(
         "INSERT INTO project_capabilities "
-        "(project_id, type, config, settings, created_at) "
-        "VALUES (%s, 'migration_model', %s, %s, '2026-01-01T00:00:00Z')",
-        (resolve_project_id(test_db, "acme"), settings, settings),
+        "(project_id, type, settings, created_at) "
+        "VALUES (%s, 'migration_model', %s, '2026-01-01T00:00:00Z')",
+        (resolve_project_id(test_db, "acme"), settings),
     )
     test_db.commit()
     shared_gate = {

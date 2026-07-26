@@ -133,7 +133,7 @@ Organize all findings into a structured format that cleanly separates facts from
 ### Future-Concept Pull-Forward
 | # | Current Surface | Later Concept | Required Move | SML Change |
 |---|-----------------|---------------|---------------|------------|
-| 1 | {surface/ticket} | {concept} | pull forward / consume existing primitive / declare deletion target | {file + section} |
+| 1 | {surface/work item} | {concept} | pull forward / consume existing primitive / declare deletion target | {file + section} |
 | ...
 
 ### Contradictions

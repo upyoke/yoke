@@ -18,8 +18,8 @@ Usage::
     )
 
     conn.execute(
-        f"UPDATE items SET browser_qa_metadata = "
-        f"{json_set_expr('browser_qa_metadata', '$.last_verdict', '?')}",
+        f"UPDATE qa_runs SET raw_result = "
+        f"{json_set_expr('raw_result', '$.last_verdict', '?')}",
         (verdict,),
     )
 """
@@ -50,7 +50,7 @@ def _pg_path(path: str) -> str:
 # ``wrapup_reports.body``, and ``release_entries.{title,version,category,project}``.
 JSONB_COLUMNS: Mapping[str, Tuple[str, ...]] = {
     "events": ("envelope", "anomaly_flags"),
-    "items": ("browser_qa_metadata", "db_mutation_profile", "db_compatibility_attestation"),
+    "items": ("db_mutation_profile", "db_compatibility_attestation"),
     "qa_runs": ("raw_result",),
     "qa_artifacts": ("metadata",),
     "deployment_flows": ("stages",),

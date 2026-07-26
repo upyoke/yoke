@@ -243,7 +243,7 @@ class TestQueryBuilder:
     def test_invalid_item_filter_value_fails_closed(self):
         """Item filters accept refs or project-local sequences with context."""
         with pytest.raises(ValueError, match="requires PREFIX-N"):
-            events_crud._build_where(["--item", "not-a-ticket"])
+            events_crud._build_where(["--item", "not-an-item"])
 
     def test_item_alias_normalizes_through_item_id(self, db_path):
         """``--item`` resolves public refs and project-local numeric refs."""

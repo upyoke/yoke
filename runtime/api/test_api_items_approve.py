@@ -29,54 +29,40 @@ def client(test_db):
 
 
 class TestApproveItem:
-    def test_approve_advances_run_and_item_state(self, client, test_db):
-        """AC: Approval goes through shared mutation layer, advances run+item state.
-
-        emit-event.sh was deleted in wave 3 lane C. The approval
-        event now fires through yoke_core.domain.events.emit_event
-        directly — we patch that instead of subprocess.run.
-        """
+    def test_approve_routes_to_inbox_without_moving_run_state(
+        self, client, test_db,
+    ):
         with patch("yoke_core.domain.events.emit_event") as mock_emit:
-            mock_emit.return_value = {"event_name": "DeploymentApprovalGranted"}
             resp = client.post("/v1/items/4/approve", json={
                 "comment": "Looks good",
             })
-        assert resp.status_code == 200
+        assert resp.status_code == 409
         data = resp.json()
-        assert data["id"] == 4
-        assert data["comment"] == "Looks good"
-        assert "approved_at" in data
+        assert data["error"]["code"] == "APPROVAL_REQUIRED"
+        assert "Inbox decision request" in data["error"]["message"]
 
-        # Item state: deploy_stage advanced to next stage, status remains release
         conn = connect_test_db(test_db["db_path"])
         item_row = conn.execute(
             "SELECT status, deploy_stage FROM items WHERE id = 4"
         ).fetchone()
         assert item_row["status"] == "release"
-        assert item_row["deploy_stage"] == "prod-deploy"
-
-        # Run's current_stage advanced atomically
+        assert item_row["deploy_stage"] == "approve-deploy"
         run_row = conn.execute(
             "SELECT current_stage FROM deployment_runs WHERE id = 'run-20260325-001'"
         ).fetchone()
-        assert run_row["current_stage"] == "prod-deploy"
-
+        assert run_row["current_stage"] == "approve-deploy"
+        decision = conn.execute(
+            "SELECT status FROM decision_requests "
+            "WHERE subject_key='run-20260325-001:approve-deploy'"
+        ).fetchone()
         conn.close()
-
-        # Verify the native emitter was called for approval telemetry
-        mock_emit.assert_called_once()
-        args, kwargs = mock_emit.call_args
-        assert args[0] == "DeploymentApprovalGranted"
-        assert kwargs["event_kind"] == "lifecycle"
-        assert kwargs["event_type"] == "deployment_run"
-        assert kwargs["item_id"] == "4"
+        assert decision["status"] == "pending"
+        mock_emit.assert_not_called()
 
     def test_approve_no_comment(self, client):
-        with patch("yoke_core.api.main.subprocess.run"):
-            resp = client.post("/v1/items/4/approve", json={})
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["comment"] is None
+        resp = client.post("/v1/items/4/approve", json={})
+        assert resp.status_code == 409
+        assert resp.json()["error"]["code"] == "APPROVAL_REQUIRED"
 
     def test_approve_item_not_found(self, client):
         resp = client.post("/v1/items/999/approve", json={})
@@ -90,13 +76,16 @@ class TestApproveItem:
         resp = client.post("/v1/items/1/approve", json={})
         assert resp.status_code == 409
         data = resp.json()
-        assert data["error"]["code"] == "INVALID_STATE"
+        assert data["error"]["code"] == "NO_ACTIVE_RUN"
 
     def test_approve_non_approval_stage(self, client, test_db):
         """Item at a non-human-approval stage should be rejected."""
-        # Set item 4 to a non-approval stage
+        # Set the run to a non-approval stage.
         conn = connect_test_db(test_db["db_path"])
-        conn.execute("UPDATE items SET deploy_stage = 'prod-deploy' WHERE id = 4")
+        conn.execute(
+            "UPDATE deployment_runs SET current_stage = 'prod-deploy' "
+            "WHERE id = 'run-20260325-001'"
+        )
         conn.commit()
         conn.close()
 
@@ -106,38 +95,16 @@ class TestApproveItem:
         assert data["error"]["code"] == "INVALID_STATE"
         assert "not a human-approval stage" in data["error"]["message"]
 
-    def test_approve_emit_event_failure_nonfatal(self, client, test_db):
-        """Approval succeeds even if the native emitter fails.
-
-        the approval event was migrated off emit-event.sh to
-        yoke_core.domain.events.emit_event. The failure-nonfatal
-        contract is preserved — we simulate an emitter exception and
-        confirm the approval still completes.
-        """
+    def test_pending_approval_does_not_emit_granted_event(self, client):
         with patch(
             "yoke_core.domain.events.emit_event",
             side_effect=RuntimeError("emitter boom"),
-        ):
+        ) as emit:
             resp = client.post("/v1/items/4/approve", json={
                 "comment": "LGTM",
             })
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["id"] == 4
-
-        # Item and run state should still be advanced
-        conn = connect_test_db(test_db["db_path"])
-        item_row = conn.execute(
-            "SELECT status, deploy_stage FROM items WHERE id = 4"
-        ).fetchone()
-        assert item_row["status"] == "release"
-        assert item_row["deploy_stage"] == "prod-deploy"
-
-        run_row = conn.execute(
-            "SELECT current_stage FROM deployment_runs WHERE id = 'run-20260325-001'"
-        ).fetchone()
-        assert run_row["current_stage"] == "prod-deploy"
-        conn.close()
+        assert resp.status_code == 409
+        emit.assert_not_called()
 
     def test_approve_comment_too_long(self, client):
         resp = client.post("/v1/items/4/approve", json={
@@ -164,10 +131,9 @@ class TestApproveItem:
 
         resp = client.post("/v1/items/6/approve", json={})
         assert resp.status_code == 409
-        assert "no deployment_flow" in resp.json()["error"]["message"]
+        assert resp.json()["error"]["code"] == "NO_ACTIVE_RUN"
 
-    def test_approve_without_run_falls_back_to_item_only(self, client, test_db):
-        """AC-4: When no active run exists, item deploy_stage is still advanced."""
+    def test_approve_without_run_refuses_item_only_fallback(self, client, test_db):
         # Create an item with approval stage but no run
         conn = connect_test_db(test_db["db_path"])
         conn.execute(
@@ -181,20 +147,19 @@ class TestApproveItem:
         conn.commit()
         conn.close()
 
-        with patch("yoke_core.api.main.subprocess.run"):
-            resp = client.post("/v1/items/7/approve", json={})
-        assert resp.status_code == 200
+        resp = client.post("/v1/items/7/approve", json={})
+        assert resp.status_code == 409
+        assert resp.json()["error"]["code"] == "NO_ACTIVE_RUN"
 
         conn = connect_test_db(test_db["db_path"])
         row = conn.execute(
             "SELECT status, deploy_stage FROM items WHERE id = 7"
         ).fetchone()
         assert row["status"] == "release"
-        assert row["deploy_stage"] == "prod-deploy"
+        assert row["deploy_stage"] == "approve-deploy"
         conn.close()
 
-    def test_approve_multi_item_run_advances_all_members(self, client, test_db):
-        """AC-1: All member items in the run get their deploy_stage advanced."""
+    def test_pending_run_approval_moves_no_members(self, client, test_db):
         conn = connect_test_db(test_db["db_path"])
         # Add a second item to the same run
         conn.execute(
@@ -212,9 +177,8 @@ class TestApproveItem:
         conn.commit()
         conn.close()
 
-        with patch("yoke_core.api.main.subprocess.run"):
-            resp = client.post("/v1/items/4/approve", json={})
-        assert resp.status_code == 200
+        resp = client.post("/v1/items/4/approve", json={})
+        assert resp.status_code == 409
 
         # Both members should be advanced
         conn = connect_test_db(test_db["db_path"])
@@ -223,5 +187,5 @@ class TestApproveItem:
             row = conn.execute(
                 f"SELECT deploy_stage FROM items WHERE id = {p}", (item_id,)
             ).fetchone()
-            assert row["deploy_stage"] == "prod-deploy", f"Item {item_id} not advanced"
+            assert row["deploy_stage"] == "approve-deploy"
         conn.close()

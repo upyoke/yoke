@@ -109,6 +109,46 @@ def _run_streaming(
     return (proc.returncode, "\n".join(transcript_lines))
 
 
+def _post_rebase_requirement_id(ctx: MergeContext) -> Optional[int]:
+    """Materialize and return this item's post-rebase Command case."""
+    item_id_raw = getattr(ctx, "item_id", None)
+    try:
+        item_id = int(str(item_id_raw))
+    except (TypeError, ValueError):
+        return None
+    mw = _parent()
+    conn = mw._connect()
+    try:
+        from yoke_core.domain.qa_plan_attachments import materialize_for_item
+
+        materialize_for_item(
+            conn,
+            item_id=item_id,
+            transition_id="release",
+        )
+        marker = "%s"
+        from yoke_core.domain import db_backend
+
+        if not db_backend.connection_is_postgres(conn):
+            marker = "?"
+        row = conn.execute(
+            "SELECT q.id FROM qa_requirements q "
+            "JOIN qa_plans p ON p.id=q.plan_id "
+            "JOIN qa_plan_cases c "
+            "ON c.plan_id=q.plan_id AND c.case_key=q.plan_case_key "
+            f"WHERE q.item_id={marker} "
+            "AND q.workflow_transition_id='release' "
+            "AND q.waived_at IS NULL "
+            "AND p.slug='pre-merge-verification' "
+            "AND c.method_id='command' "
+            "ORDER BY q.id DESC LIMIT 1",
+            (item_id,),
+        ).fetchone()
+        return int(row[0]) if row is not None else None
+    finally:
+        conn.close()
+
+
 def run_tests(ctx: MergeContext) -> Optional[Tuple[int, str]]:
     """Run project or generic tests. Returns (1, msg) on failure, None on success."""
     from yoke_core.domain import runtime_settings
@@ -121,53 +161,33 @@ def run_tests(ctx: MergeContext) -> Optional[Tuple[int, str]]:
     generic_test_timeout = runtime_settings.get_seconds("test_timeout", 300)
     cwd = ctx.worktree_path
 
-    # Look up the project's pre-merge verification policy. The merge gate
-    # owns both command selection and timeout budget, and is separate from the
-    # agent-facing test scopes
-    # (``command_definitions.{quick, full, e2e, smoke}``); the merge engine
-    # reads only ``merge_verification`` and never falls back to ``full``.
-    # An absent entry means "no merge command configured" — emit
-    # an explicit skip log line and proceed without running anything.
-    # Pass the merge engine's active db path through explicitly so
-    # test-time monkeypatches of ``_db_path()`` route the read to the same
-    # DB as the rest of the merge flow.
-    merge_policy = None
-    if ctx.project:
-        try:
-            from yoke_core.domain import merge_verification as _merge_ver
-            merge_policy = _merge_ver.get_policy(
-                ctx.project,
-                db_path=None,
-            )
-        except Exception:  # noqa: BLE001 - policy lookup is advisory.
-            pass
+    requirement_id = _post_rebase_requirement_id(ctx)
+    if requirement_id is not None:
+        from yoke_core.domain.qa_case_execution import execute_case
 
-    if merge_policy:
-        test_cmd = merge_policy.command.strip()
-        test_timeout = merge_policy.timeout_seconds
-        _print(f"[phase:tests] project command (merge_verification): {test_cmd}")
-        _print(f"[phase:tests] project timeout (merge_verification): {test_timeout}s")
-        rc, transcript = _run_streaming(
-            ["sh", "-c", test_cmd], cwd=cwd, timeout=test_timeout,
+        _print(
+            "[phase:tests] executing post-rebase QA plan case "
+            f"(requirement {requirement_id})"
         )
-        if rc == -1:
-            _print(f"Error: Test execution timed out after {test_timeout}s.", err=True)
-            if transcript:
-                _print(transcript, err=True)
-            return (1, "test timeout")
-        if rc != 0:
-            _print("Tests failed after rebase:", err=True)
-            if transcript:
-                _print(transcript, err=True)
+        try:
+            result = execute_case(
+                requirement_id,
+                checkout_path=ctx.worktree_path,
+            )
+        except Exception as exc:  # noqa: BLE001 - executor failure blocks merge.
+            _print(f"Post-rebase QA execution failed: {exc}", err=True)
+            return (1, "test execution failed")
+        _print(
+            "[phase:tests] QA run "
+            f"{result.get('run_id')} artifact {result.get('artifact_id')} "
+            f"verdict {result.get('verdict')}"
+        )
+        if result.get("verdict") != "pass":
+            _print("Tests failed after rebase.", err=True)
             return (1, "tests failed")
     elif ctx.project:
-        # Project is registered but has no merge_verification policy: do
-        # NOT fall back to package.json/Makefile discovery. Emit an
-        # explicit skip log so the operator sees the policy gap and can
-        # configure it via ``python3 -m yoke_core.domain.merge_verification
-        # set <project> <command> --timeout-seconds <seconds>``.
         _print(
-            f"[phase:tests] no merge policy configured for project "
+            f"[phase:tests] no post-rebase QA plan attached for project "
             f"'{ctx.project}' — skipping project tests"
         )
     elif (Path(cwd) / "package.json").is_file():

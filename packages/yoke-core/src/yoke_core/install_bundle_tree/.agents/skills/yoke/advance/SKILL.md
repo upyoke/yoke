@@ -14,7 +14,7 @@ lifecycle interpreter validates every transition from the item's immutable
 workflow version; this skill coordinates the surrounding operator journey.
 
 <!-- BEGIN GENERATED: field-note-directive -->
-When you hit a recipe gap or notice a minor bug not worth a ticket, file a field-note immediately — before retrying, before moving on.
+When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
 Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->
@@ -253,12 +253,10 @@ The phase reference docs ([`preflight.md`](preflight.md), [`activation.md`](acti
 - Applies to: target = `reviewed-implementation`, `implemented`, or `polishing-implementation`
 - Skip for all other targets
 
-**Project E2E:** Read `.agents/skills/yoke/advance/project-e2e.md`
-- Applies to: target = `reviewed-implementation`, `implemented`, or `polishing-implementation`
-- Runs the project's `e2e` scope of the `command_definitions` family (real end-to-end against the deployed backend) with `BASE_URL` injected from the ephemeral URL — or self-skips when no `e2e` command is defined (e.g., projects whose browser integration tests live under the `full` scope and which have no real E2E configured yet)
-- Skip for all other targets
-
-**Parallel phase-read note (reviewed/implemented/polishing path):** When both browser QA and project E2E apply, the agent MAY read `browser-qa.md` and `project-e2e.md` in a single parallel tool call before executing either, since both docs are needed and neither depends on the other's content. Execution order remains sequential (browser QA before project E2E) — only the doc reads are parallelizable.
+**Deployed-stack QA:** Read `.agents/skills/yoke/advance/project-e2e.md`
+- Applies to: workflow transition = `release`
+- Materializes attached QA plans and executes every `Command` case whose project-owned configuration declares the migrated `e2e` scope, with `BASE_URL` supplied from the ephemeral environment
+- Self-skips when no deployed-stack plan is attached; skip for all other transitions
 
 **Finalize:** Read `.agents/skills/yoke/advance/finalize.md`
 - Applies to: all non-implementing transitions that reach this point

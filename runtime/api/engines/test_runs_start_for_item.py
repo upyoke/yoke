@@ -112,6 +112,27 @@ def test_explicit_kwargs_override_item_row():
     )
 
 
+def test_item_without_flow_uses_its_workflow_specific_project_default():
+    conn = mock.MagicMock()
+    conn.execute.return_value.fetchone.return_value = ("yoke", None, "dash")
+    with mock.patch(
+        "yoke_core.domain.db_helpers.connect",
+        return_value=conn,
+    ), mock.patch(
+        "yoke_core.domain.workflow_project_defaults.get_delivery_default",
+        return_value="dash-production",
+    ) as resolve_default:
+        project, flow = composer._lookup_item_project_and_flow(42)
+
+    assert (project, flow) == ("yoke", "dash-production")
+    resolve_default.assert_called_once_with(
+        conn,
+        project="yoke",
+        workflow_id="dash",
+    )
+    conn.close.assert_called_once()
+
+
 def test_missing_project_short_circuits_before_db_writes():
     helpers, resolve, create, add, validate = _patches(item_row=(None, "x"))
     with helpers, resolve, create as create_m, add as add_m, validate:

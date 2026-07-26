@@ -71,7 +71,7 @@ These are the top-level `/yoke` commands that constitute the safe operator inter
 | `/yoke block YOK-N "<reason>"` | Mark an item blocked with operator-supplied reason | Safe: sets blocked flag and reason only, preserves lifecycle status |
 | `/yoke unblock YOK-N` | Clear an item's blocked flag and reason | Safe: clears blocked flag only, preserves lifecycle status |
 | `/yoke resync` | Detect and repair GitHub drift | Safe: `--fix` requires explicit opt-in |
-| `/yoke curate` | Curate the Ouroboros learning log | Safe: processes observations, proposes tickets |
+| `/yoke curate` | Curate the Ouroboros learning log | Safe: processes observations, proposes work items |
 | `/yoke wrapup` | Structured session wrap-up | Safe: captures reflections and session summary |
 | `/yoke refine YOK-N` | Critique and improve item artifacts | Safe: structured-field refinement only, no worktree or code edits |
 | `/yoke polish YOK-N` | Review and finish implementation in existing worktree lane(s) | Safe: scoped to one item's recorded implementation lanes and explicit verification |

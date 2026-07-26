@@ -155,37 +155,7 @@ if [ "$_transition" = "refined_idea_to_planning" ] && { [ "$_verdict" = "READY" 
  esac
  done
 
- # 4. Seed browser requirements from the structured browser_qa_metadata.
- # The Python helper reads the validated metadata (negative default when
- # unset), builds one browser_smoke per route and per AC-derived timing
- # hint, optionally adds a browser_diff per route when visual_outcome is
- # set, and returns a batch payload. Non-browser items produce an empty
- # list and the insert step is skipped.
- _qa_base_url="http://localhost:3000"
- _qa_project=$(yoke items get $_num project 2>/dev/null) || true
- if [ -n "$_qa_project" ] && [ "$_qa_project" != "null" ]; then
- _qa_cap_settings=$(yoke projects capability-settings get --project "$_qa_project" --cap-type browser-qa 2>/dev/null) || true
- _qa_cap_url=$(python3 -c 'import json,sys; print((json.load(sys.stdin) or {}).get("base_url", ""))' <<<"$_qa_cap_settings" 2>/dev/null) || true
- if [ -n "$_qa_cap_url" ]; then _qa_base_url="$_qa_cap_url"; fi
- fi
-
- _qa_batch_payload=$(python3 -c "
-import json
-from yoke_core.domain.qa_requirements import build_browser_requirements_from_metadata
-rows = build_browser_requirements_from_metadata(
- $_num,
- '$_qa_base_url',
- include_diff=True,
-)
-print(json.dumps(rows))
-") || _qa_batch_payload="[]"
-
- if [ -n "$_qa_batch_payload" ] && [ "$_qa_batch_payload" != "[]" ]; then
- printf '%s' "$_qa_batch_payload" | yoke qa requirement add-batch --item "YOK-$_num" --stdin >/dev/null 2>&1 || true
- echo "QA: Seeded browser requirements from metadata for YOK-$_num"
- fi
-
- # 5. If no ACs found, seed at least one implementation review requirement
+ # 4. If no ACs found, seed at least one implementation review requirement
  _qa_existing_count=$(yoke db read --format lines "SELECT COUNT(*) FROM qa_requirements WHERE item_id=$_num" 2>/dev/null) || true
  if [ -z "$_qa_existing_count" ] || [ "$_qa_existing_count" = "0" ]; then
  yoke qa requirement add \
@@ -205,5 +175,7 @@ fi
 **Behavior notes:**
 - Seeding is idempotent per-requirement-source: duplicate calls create additional rows (harmless since each run is tracked independently). The `requirement_source=ac_derived` and `requirement_source=seeded_default` values distinguish shepherd-seeded requirements from manually-added ones.
 - If the item has no ACs (title-only), a single `implementation_review` requirement is seeded as a fallback.
-- Browser QA seeding reads the validated `browser_qa_metadata` structured field and delegates scenario construction to `build_browser_requirements_from_metadata`. Non-browser items hold the explicit negative default, so the helper returns zero rows and the batch insert is skipped quietly.
+- Browser, command, and machine cases come from attached project QA plans or
+  explicit method-backed requirements. This AC seeding step does not infer or
+  duplicate them.
 - Errors during seeding are swallowed (`|| true`) — QA seeding should never block the shepherd pipeline.

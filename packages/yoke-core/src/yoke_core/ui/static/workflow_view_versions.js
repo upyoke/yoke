@@ -26,11 +26,13 @@ function renderInspection(documentNode, row, result, makeCurrent) {
       documentNode, "p", "workflow-version-stages", stages,
     ));
   }
-  const makeCurrentButton = button(
-    documentNode, "Make current", "workflow-button compact",
-  );
-  makeCurrentButton.addEventListener("click", makeCurrent);
-  inspection.appendChild(makeCurrentButton);
+  if (makeCurrent) {
+    const makeCurrentButton = button(
+      documentNode, "Make current", "workflow-button compact",
+    );
+    makeCurrentButton.addEventListener("click", makeCurrent);
+    inspection.appendChild(makeCurrentButton);
+  }
   row.appendChild(inspection);
 }
 
@@ -73,7 +75,7 @@ function inspectButton(documentNode, row, workflow, version, actions) {
       documentNode,
       row,
       callResult.envelope.result || {},
-      () => actions.makeCurrent(version),
+      actions.makeCurrent ? () => actions.makeCurrent(version) : null,
     );
   });
   return inspect;

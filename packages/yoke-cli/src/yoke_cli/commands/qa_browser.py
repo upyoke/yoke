@@ -31,7 +31,7 @@ QA_BROWSER_RUN_USAGE = (
 )
 
 _QA_BROWSER_RUN_HELP_DEEP = """\
-Run every unwaived browser_smoke / browser_diff qa_requirement on the item:
+Run every unwaived Browser check / Browser inspection case on the item:
 fetch the scenario context (qa.browser_context.get), validate deployment
 freshness and base-url reachability, ensure the machine-local browser
 daemon is running (materialized on first use), execute the scenario steps,
@@ -48,7 +48,7 @@ Flag matrix:
   flag               required  default                       value shape
   --item             yes       —                             PREFIX-N or project-local number
   --project          no        checkout's mapped project     project slug or id
-  --base-url         no        success_policy.base_url       http(s)://host[:port]
+  --base-url         no        method_config.base_url        http(s)://host[:port]
   --expected-branch  no        — (pair with --expected-sha)  branch name
   --expected-sha     no        — (pair with --expected-branch) full HEAD SHA
 
@@ -73,7 +73,7 @@ def qa_browser_run(args: List[str]) -> int:
     )
     parser.add_argument(
         "--base-url", dest="base_url", default="",
-        help="Base URL for browser tests (default: success_policy.base_url).",
+        help="Base URL for Browser cases (default: method_config.base_url).",
     )
     parser.add_argument(
         "--expected-branch", dest="expected_branch", default=None,

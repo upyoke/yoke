@@ -107,7 +107,8 @@ DASH_WORKFLOW_DEFINITION = definition_fixture(
     workflow_id="dash",
     name="Dash",
     description=(
-        "A short instruction filed in seconds and executed end to end."
+        "A short instruction you file in seconds — filing is the spec; "
+        "an agent executes it end-to-end."
     ),
     stages=(
         workflow_stage("idea", "Idea"),

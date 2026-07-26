@@ -65,12 +65,12 @@ class TestRender:
         actor = local_human(conn)
         register_exception(
             conn, actor_id=actor, integration_target="main",
-            target_ids=[], exception_reason="validation-only ticket",
+            target_ids=[], exception_reason="validation-only work item",
             item_id=44,
         )
         rendered = render_path_claims_section(conn, 44)
         assert "**No-Claim Exception**" in rendered
-        assert "validation-only ticket" in rendered
+        assert "validation-only work item" in rendered
         assert "Declared coverage" not in rendered
 
     def test_mixed_claims_render_both_blocks(self, conn):

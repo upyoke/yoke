@@ -4,7 +4,7 @@ Reconstructs the failure-class failure mode (tests green, code correct,
 live state wrong / migration deleted without applied-everywhere evidence)
 and verifies the new gate refuses the transition until evidence appears.
 
-This module owns the **retire variant**: ticket profile carries
+This module owns the **retire variant**: work-item profile carries
 ``mutation_intent="retire"`` for one migration module.  Advancing
 ``implementing → reviewing-implementation`` must fail with the missing
 decision-record message.  Once a well-formed

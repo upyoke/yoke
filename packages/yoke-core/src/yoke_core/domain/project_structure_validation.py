@@ -10,7 +10,6 @@ from typing import Any, Dict
 
 from yoke_core.domain.project_structure import (
     ALL_FAMILIES,
-    COMMAND_DEFINITIONS_SCOPES,
     EMPTY_SLOT,
     NET_NEW_FAMILIES,
     PATH_SELECTOR_KINDS,
@@ -90,13 +89,6 @@ def _validate_envelope(
             raise ValidationError(
                 f"Family '{family}' is keyed_set; entry_key is required."
             )
-        # Closed-vocabulary gate for families whose entry_key is a fixed enum.
-        if family == "command_definitions" and entry_key not in COMMAND_DEFINITIONS_SCOPES:
-            raise ValidationError(
-                f"Family 'command_definitions' entry_key must be one of "
-                f"{', '.join(COMMAND_DEFINITIONS_SCOPES)} "
-                f"(got '{entry_key}')."
-            )
     else:  # pragma: no cover - constitution invariant
         raise ValidationError(
             f"Unknown multiplicity '{multiplicity}' for family '{family}'."
@@ -134,16 +126,6 @@ def _validate_payload(family: str, payload: Any) -> Dict[str, Any]:
                 "Family 'integration_targets' payload must be non-empty; "
                 "declare branch_pattern or coordination metadata."
             )
-    elif family == "command_definitions":
-        # Closed scope vocabulary — rejects scopes outside {quick, full, e2e,
-        # smoke}.  Payload must carry a string ``command`` (empty allowed but
-        # discouraged; callers treat empty as "no command defined").
-        command = payload.get("command")
-        if not isinstance(command, str):
-            raise ValidationError(
-                "Family 'command_definitions' payload must contain a "
-                "'command' string."
-            )
     elif family == "deploy_defaults":
         # Singleton per project. Payload must declare a non-empty
         # ``deployment_flow`` string naming a ``deployment_flows.id``.
@@ -155,25 +137,6 @@ def _validate_payload(family: str, payload: Any) -> Dict[str, Any]:
             raise ValidationError(
                 "Family 'deploy_defaults' payload must contain a non-empty "
                 "'deployment_flow' string referencing a deployment_flows.id."
-            )
-    elif family == "merge_verification":
-        # Singleton per project. Payload must declare a non-empty
-        # ``command`` string naming the pre-merge verification command and a
-        # positive integer ``timeout_seconds`` budget for that command.
-        # Absence of the entry (no row) means "no merge command configured"
-        # — callers never write an empty payload to express that state; they
-        # omit the entry entirely or remove it.
-        command = payload.get("command")
-        if not isinstance(command, str) or not command.strip():
-            raise ValidationError(
-                "Family 'merge_verification' payload must contain a non-empty "
-                "'command' string."
-            )
-        timeout_seconds = payload.get("timeout_seconds")
-        if not isinstance(timeout_seconds, int) or timeout_seconds <= 0:
-            raise ValidationError(
-                "Family 'merge_verification' payload must contain a positive "
-                "integer 'timeout_seconds' value."
             )
     elif family == "context_routing":
         # Keyed-set per project; entry_key="always" is the project-wide set,

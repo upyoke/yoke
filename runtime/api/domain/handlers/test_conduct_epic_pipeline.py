@@ -6,8 +6,6 @@ import os
 from contextlib import contextmanager
 from unittest.mock import patch
 
-import pytest
-
 from yoke_core.domain.handlers import conduct_epic_pipeline as handlers
 from yoke_core.domain.handlers.__init_register__ import register_all_handlers
 from yoke_core.domain.yoke_function_registry import (
@@ -114,7 +112,7 @@ def test_proceed_handoff_uses_actor_session_when_payload_omits_it() -> None:
                 payload={
                     "recommendation": "PROCEED",
                     "gap_summary": "minor",
-                    "filed_ticket_ids": ["YOK-1"],
+                    "filed_item_ids": ["YOK-1"],
                 },
             ),
         )
@@ -124,7 +122,7 @@ def test_proceed_handoff_uses_actor_session_when_payload_omits_it() -> None:
         42,
         recommendation="PROCEED",
         gap_summary="minor",
-        filed_ticket_ids=["YOK-1"],
+        filed_item_ids=["YOK-1"],
         session_id="session-1",
     )
 

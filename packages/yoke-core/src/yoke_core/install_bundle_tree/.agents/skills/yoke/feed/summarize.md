@@ -4,11 +4,11 @@ Emit the `FeedCompleted` event and print the operator-facing summary. This is th
 
 ## Inputs (from prior stages)
 
-- **`_mode`**: `"default"` or `"no-new-tickets"` (from argument parsing)
+- **`_mode`**: `"default"` or `"no-new-items"` (from argument parsing)
 - **`_decision`**: One of `leave_in_sml`, `refresh_only`, `sharpen_frontier`, `materialize_new` (from the Decide stage)
 - **`_decision_rationale`**: Human-readable explanation of why this decision was chosen (from the Decide stage)
 - **`_decision_outcomes`**: Per-area leave/refresh/sharpen/materialize outcomes (from the Decide stage)
-- **`_no_new_tickets_suppressed`**: Boolean -- true when `--no-new-tickets` forced a downgrade from `materialize_new` (from the Decide stage)
+- **`_no_new_items_suppressed`**: Boolean -- true when `--no-new-items` forced a downgrade from `materialize_new` (from the Decide stage)
 - **`_updated_items`**: List of updated or cancellation-recommended frontier items (from the Materialize stage)
 - **`_materialized_items`**: List of `{ yok_id, title, sml_source }` for items created (from the Materialize stage, may be empty)
 - **`_sharpen_recommendations`**: List of `{ yok_id, title, recommendation }` for items needing refinement (from the Materialize stage, may be empty)
@@ -20,7 +20,7 @@ Emit the `FeedCompleted` event and print the operator-facing summary. This is th
 - **`_stale_edges`**: List of stale non-feed edges with cleanup recommendations (from the Reconcile stage)
 - **`_conflicts`**: List of feed-vs-manual edge conflicts with resolution notes (from the Reconcile stage)
 - **`_reconcile_errors`**: List of errors from reconciliation (from the Reconcile stage, should be empty)
-- **`_no_new_tickets`**: Boolean flag (from argument parsing)
+- **`_no_new_items`**: Boolean flag (from argument parsing)
 - **`_lane`**: Execution lane identity (from argument parsing)
 - **`_model`**: Model identifier (from argument parsing)
 - **Recent landed change report**: Summary of what recently landed and what it changed (from the Gather stage)
@@ -81,7 +81,7 @@ Build the event context JSON and emit via the registered telemetry surface:
 ```bash
 _items_created=$(echo "$_materialized_items" | grep -c 'yok_id' 2>/dev/null || echo 0)
 
-_event_context="{\"mode\":\"${_mode}\",\"decision\":\"${_decision}\",\"items_created\":${_items_created},\"edges_added\":${_edges_added},\"edges_removed\":${_edges_removed},\"edges_preserved\":${_edges_preserved},\"conflicts\":$(echo "$_conflicts" | grep -c '.' 2>/dev/null || echo 0),\"frontier_coherent\":${_frontier_coherent},\"suppressed\":${_no_new_tickets_suppressed}}"
+_event_context="{\"mode\":\"${_mode}\",\"decision\":\"${_decision}\",\"items_created\":${_items_created},\"edges_added\":${_edges_added},\"edges_removed\":${_edges_removed},\"edges_preserved\":${_edges_preserved},\"conflicts\":$(echo "$_conflicts" | grep -c '.' 2>/dev/null || echo 0),\"frontier_coherent\":${_frontier_coherent},\"suppressed\":${_no_new_items_suppressed}}"
 
 yoke events emit \
  --name "FeedCompleted" \
@@ -129,7 +129,7 @@ Decision: {_decision}
 What landed and what it changed:
  - {recent landed change summary with impacted files/contracts/hooks/tests/docs}
 
-Tickets that need updating: {count}
+Work items that need updating: {count}
  {For each item in _updated_items:}
  - {yok_id}: fields updated = {fields_updated}; reason = {reason}
  - {If recommend_cancel:} cancellation recommended -- {cancellation_reason}
@@ -138,7 +138,7 @@ Decision outcomes:
  {For each entry in _decision_outcomes:}
  - {area}: {outcome} -- {rationale}
 
-New tickets created: {count}
+New work items created: {count}
  {For each item in _materialized_items:}
  - {yok_id}: {title} (source: {sml_source})
 
@@ -182,10 +182,10 @@ Ambiguous items ({count}):
  - {yok_id}: {title}
  Reason: {reason}
 
-{If _no_new_tickets_suppressed:}
-NOTE: Frontier insufficient, new tickets suppressed by flag.
-The analysis determined new tickets were needed but --no-new-tickets
-prevented materialization. Re-run without --no-new-tickets to create
+{If _no_new_items_suppressed:}
+NOTE: Frontier insufficient, new work items suppressed by flag.
+The analysis determined new work items were needed but --no-new-items
+prevented materialization. Re-run without --no-new-items to create
 the missing items.
 
 Residual uncertainty:
@@ -204,7 +204,7 @@ ERRORS ({count}):
 1. **Always report mode** -- even when it is `"default"`, print it explicitly.
 2. **Always report the decision and rationale** -- the operator must understand why this outcome was chosen.
 3. **Always report exact counts** -- never use vague language like "some" or "several."
-4. **Suppression notice is mandatory** -- when `_no_new_tickets_suppressed` is true, the `NOTE:` block MUST appear.
+4. **Suppression notice is mandatory** -- when `_no_new_items_suppressed` is true, the `NOTE:` block MUST appear.
 5. **Coherence assessment is mandatory** -- when the graph is stale or incoherent, say so explicitly.
 6. **Dependency rows should be exact when available** -- prefer the real persisted rows over summary-only counts.
 7. **Readiness callouts must be actionable** -- "not ready" is insufficient without the missing prerequisite or refinement named explicitly.

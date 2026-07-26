@@ -108,29 +108,10 @@ NET_NEW_FAMILIES: Dict[str, Dict[str, Optional[str]]] = {
         "multiplicity": "keyed_set",
         "locked_kind": None,
     },
-    # ``command_definitions`` uses project attachment, keyed-set multiplicity,
-    # and scope-keyed entries.
-    "command_definitions": {
-        "attachment": "project",
-        "multiplicity": "keyed_set",
-        "locked_kind": None,
-    },
-    # ``deploy_defaults`` holds the ticket-level deployment-flow default for
+    # ``deploy_defaults`` holds the item-level deployment-flow default for
     # a project. Singleton per project — at most one default flow. Absence is
     # a valid "no project default" state; callers treat it as "infer or ask".
     "deploy_defaults": {
-        "attachment": "project",
-        "multiplicity": "singleton",
-        "locked_kind": None,
-    },
-    # ``merge_verification`` holds the project's pre-merge verification
-    # policy: command plus timeout budget. Singleton per project — at most
-    # one policy. Absence (no row) is a valid state meaning "no merge command
-    # configured"; the merge engine emits an explicit skip log line in that
-    # case. Distinct from ``command_definitions`` so the merge gate never
-    # leaks into agent test surfaces (Tester dispatch, doctor health checks,
-    # stale-string discovery) by construction.
-    "merge_verification": {
         "attachment": "project",
         "multiplicity": "singleton",
         "locked_kind": None,
@@ -157,13 +138,6 @@ NET_NEW_FAMILIES: Dict[str, Dict[str, Optional[str]]] = {
         "locked_kind": None,
     },
 }
-
-
-#: Closed scope vocabulary for the ``command_definitions`` family. Mirrored
-#: in :mod:`yoke_core.domain.command_definitions` so consumers that only
-#: need the read surface don't have to pull in the full Project Structure
-#: module.
-COMMAND_DEFINITIONS_SCOPES: Tuple[str, ...] = ("quick", "full", "e2e", "smoke")
 
 
 #: Reserved ``entry_key`` for the project-wide always-included docs in the

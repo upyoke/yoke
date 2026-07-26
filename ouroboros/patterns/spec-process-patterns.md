@@ -256,7 +256,7 @@ Writing detailed audit findings (with line numbers, exact text to change, specif
 **First observed:** 2026-03-02 (conductor, shepherd agents)
 **Promoted:** 2026-03-05
 **Occurrences:** 8+ entries across conductor, shepherd, product-manager agents
-**Status:** Active — ticket filed: YOK-502
+**Status:** Active — work item filed: YOK-502
 
 `conduct/SKILL.md` at 1453 lines (~26K tokens) exceeds the 25K token Read tool limit. Agents must read in chunks, losing cross-reference context. The file is also the most-edited file in the project, causing merge conflicts. Extends P-4 (high-traffic files) with a new dimension: agent context window exhaustion.
 
@@ -269,7 +269,7 @@ Writing detailed audit findings (with line numbers, exact text to change, specif
 **First observed:** 2026-03-03 (product-manager, shepherd agents)
 **Promoted:** 2026-03-05
 **Occurrences:** 6+ entries across product-manager, shepherd agents
-**Status:** Active — ticket filed: YOK-503
+**Status:** Active — work item filed: YOK-503
 
 Understanding how body content flows from agents → DB → GitHub → .md requires reading 4+ files (~2,800 lines). No single document maps the path. PM agents report 30+ minutes of exploration just to understand body persistence. Root cause of YOK-476 (body replacement loses specs) and YOK-459 (auto-sync swallows failures).
 

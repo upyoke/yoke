@@ -3,7 +3,7 @@
 Owns :func:`check_idea_to_refining_idea_gate` — the joint validator that
 proves *intent* before refining-idea: profile schema, opportunistic
 mechanical scanner, attestation presence, model + flow cross-reference,
-and cross-ticket overlap.
+and cross-item overlap.
 
 This gate does not require migration module files to exist on disk —
 refine proves intent; implementation proves artifacts;
@@ -67,7 +67,7 @@ def check_idea_to_refining_idea_gate(
     Profiles with ``state="none"`` pass trivially.  When ``state="declared"``
     the gate runs (a) profile schema, (b) opportunistic mechanical scanner,
     (c) attestation presence (when ``pre_merge_safe``), (d) model + flow
-    cross-reference, (e) cross-ticket overlap.  On pass the caller stamps
+    cross-reference, (e) cross-item overlap.  On pass the caller stamps
     ``frozen_at`` via :func:`stamp_attestation_frozen_at`.
 
     This gate proves *intent*, not artifacts: declared migration module
@@ -158,7 +158,7 @@ def check_idea_to_refining_idea_gate(
         if capability_settings is None:
             errors.append(
                 f"project '{project}' has no valid migration_model capability; "
-                "tickets on projects without a declared model must use "
+                "work items on projects without a declared model must use "
                 'db_mutation_profile.state = "none"'
             )
             return GateOutcome(passed=False, errors=errors, escalations=escalations)
@@ -258,7 +258,7 @@ def check_idea_to_refining_idea_gate(
             errors.append(
                 f"no deployment_flow on project '{project}' has a "
                 f"migration_apply stage referencing model_name='{model_name}'. "
-                "Add the stage to a project flow before the ticket can advance "
+                "Add the stage to a project flow before the work item can advance "
                 "past idea."
             )
         else:
@@ -270,7 +270,7 @@ def check_idea_to_refining_idea_gate(
                     f"{sorted(phases)}); only 'implementing' is wired in governed DB-mutation gate"
                 )
 
-        # Step (e): cross-ticket overlap.  Dependency-aware bypass treats
+        # Step (e): cross-item overlap.  Dependency-aware bypass treats
         # candidate ↔ other pairs that already carry a blocks/depends-on
         # edge in ``item_dependencies`` as serializable, so overlapping
         # destructive declarations on shared surfaces do not block when

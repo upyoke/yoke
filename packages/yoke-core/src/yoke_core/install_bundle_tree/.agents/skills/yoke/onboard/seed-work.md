@@ -34,11 +34,31 @@ yoke items create "{title}" issue --entry-surface harness_skill --project {proje
 
 Every seeded item enters at `idea` status; `/yoke refine` owns its spec body next — do not assemble bodies, claims, or dependencies here through lower-level surfaces. Echo each created id with the CURRENT-PLAN outcome it came from.
 
-When the plan names explicit QA expectations for the first item, attach them through the QA requirement surface:
+When the plan names a reusable test plan, attach that plan to the matching
+seeded work item rather than flattening it into an ad hoc requirement. Resolve
+the plan id from the registered read, then attach the immutable plan snapshot
+at the transition where its evidence becomes definition-of-done proof:
 
 ```bash
-yoke qa requirement add --item {ITEM} --qa-kind ac_verification --qa-phase verification \
-  --blocking-mode blocking --requirement-source explicit
+yoke qa plan list --project {project} --json
+yoke qa item-plan attach --item {ITEM} --project {project} --plan-id {plan_id} \
+  --transition reviewing-implementation --qa-phase verification
+```
+
+For Yoke installer, onboarding-wizard, or machine-connection work, the
+project-owned `installer-campaign` plan is the required physical proof. Attach
+it to every seeded item whose completion claims one of those behaviors. Its
+Test Mac cases materialize one requirement per case and per declared host
+baseline; do not replace them with prose, a generic `ac_verification`
+requirement, or a runbook checklist.
+
+When CURRENT-PLAN names a genuinely one-off QA expectation with no reusable
+plan, keep the ad hoc requirement surface:
+
+```bash
+yoke qa requirement add --item {ITEM} --qa-kind ac_verification \
+  --qa-phase verification --blocking-mode blocking \
+  --requirement-source explicit
 ```
 
 Mark the row with the created ids as evidence:

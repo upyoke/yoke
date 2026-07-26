@@ -207,16 +207,8 @@ class TestLifecycleAndVocabulary:
 
 
 def _apply_command_substrate_schema() -> None:
-    """``apply_schema`` strategy: ``projects`` + ``project_structure``.
-
-    Both the ``projects`` row (read from the passed conn) and the
-    ``command_definitions`` family (read by the HC via ``list_commands`` through
-    the factory) must co-locate on one DB. Building both through the backend
-    factory plus the disposable per-test DB ``init_test_db`` provides gives that
-    co-location AND isolation from other parallel workers — on Postgres the
-    shared ambient DB would otherwise leak ``externalwebapp`` command rows between tests.
-    """
-    from yoke_core.domain import db_backend, project_structure as ps
+    """Create the minimal projects + QA Command-plan validation substrate."""
+    from yoke_core.domain import db_backend
 
     conn = db_backend.connect()
     try:
@@ -230,31 +222,31 @@ def _apply_command_substrate_schema() -> None:
                 github_repo TEXT,
                 public_item_prefix TEXT DEFAULT 'YOK'
             );
+            CREATE TABLE qa_plans (
+                id INTEGER PRIMARY KEY,
+                project_id INTEGER NOT NULL,
+                slug TEXT NOT NULL,
+                retired_at TEXT
+            );
+            CREATE TABLE qa_plan_cases (
+                id INTEGER PRIMARY KEY,
+                plan_id INTEGER NOT NULL,
+                position INTEGER NOT NULL,
+                method_id TEXT NOT NULL,
+                method_config TEXT NOT NULL
+            );
             """,
         )
-        ps.create_project_structure_tables(conn)
         conn.commit()
     finally:
         conn.close()
 
 
 class TestTestCommandValidity:
-    """Tests read ``command_definitions`` via a disposable per-test DB so both
-    the ``projects`` row and the ``project_structure`` the HC reads co-locate
-    and stay isolated from other workers (on Postgres the shared ambient DB
-    would otherwise leak command rows between tests)."""
+    """Command-plan checks use one isolated disposable database."""
 
     def _run(self, tmp_path, checkout_path, *, remove_checkout=False, **scopes):
-        """Build a disposable DB (projects + command_definitions), run the HC,
-        return the first result."""
-        from yoke_core.domain import project_structure as ps
-
-        ops = [
-            {"op": "put", "family": "command_definitions",
-             "attachment": "project", "entry_key": scope,
-             "payload": {"command": command}}
-            for scope, command in scopes.items() if command
-        ]
+        """Build a disposable DB with Command plans and run the HC."""
         with init_test_db(
             tmp_path, apply_schema=_apply_command_substrate_schema
         ) as db_path:
@@ -265,6 +257,26 @@ class TestTestCommandValidity:
                     "(id, slug, name, public_item_prefix) "
                     "VALUES (2, 'externalwebapp', 'ExternalWebapp', 'EXT')",
                 )
+                for offset, (scope, command) in enumerate(
+                    (
+                        (scope, command)
+                        for scope, command in scopes.items()
+                        if command
+                    ),
+                    start=1,
+                ):
+                    seed.execute(
+                        "INSERT INTO qa_plans("
+                        "id, project_id, slug, retired_at"
+                        ") VALUES (%s, 2, %s, NULL)",
+                        (offset, f"registered-command-{scope}"),
+                    )
+                    seed.execute(
+                        "INSERT INTO qa_plan_cases("
+                        "id, plan_id, position, method_id, method_config"
+                        ") VALUES (%s, %s, 1, 'command', %s)",
+                        (offset, offset, json.dumps({"command": command})),
+                    )
                 seed.commit()
             finally:
                 seed.close()
@@ -278,8 +290,6 @@ class TestTestCommandValidity:
                     clear_machine_checkout(2)
             else:
                 clear_machine_checkout(2)
-            if ops:
-                ps.apply_patch("externalwebapp", ops=ops, db_path=db_path)
             conn = connect_test_db(db_path)
             try:
                 return _run_hc(hc_test_command_validity, conn,

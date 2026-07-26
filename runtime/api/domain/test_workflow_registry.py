@@ -17,6 +17,7 @@ from yoke_core.domain.workflow_definition_validation import (
 )
 from yoke_core.domain.workflow_registry import (
     WorkflowRegistryError,
+    converge_builtin_workflows,
     get_workflow_version,
     list_current_workflows,
     publish_workflow_version,
@@ -61,6 +62,31 @@ def test_schema_boot_seeds_immutable_builtin_versions(test_db):
     assert all(row["current_version_id"] for row in workflows)
     assert all(len(row["versions"]) == 1 for row in workflows)
     assert all(row["definition_digest"] for row in workflows)
+
+
+def test_convergence_refreshes_builtin_display_copy_without_new_version(
+    test_db,
+):
+    expected = builtin_workflow_definition("dash")["workflow"]
+    test_db.execute(
+        "UPDATE workflows SET name = 'Old', description = 'Old copy' "
+        "WHERE id = 'dash'"
+    )
+    test_db.commit()
+
+    converge_builtin_workflows(test_db)
+
+    row = test_db.execute(
+        "SELECT name, description FROM workflows WHERE id = 'dash'"
+    ).fetchone()
+    version_count = test_db.execute(
+        "SELECT COUNT(*) FROM workflow_versions WHERE workflow_id = 'dash'"
+    ).fetchone()
+    assert tuple(row) == (
+        expected["name"],
+        expected["description"],
+    )
+    assert int(version_count[0]) == 1
 
 
 @pytest.mark.parametrize(

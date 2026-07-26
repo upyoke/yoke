@@ -68,7 +68,7 @@ class TestReviewedNegativeClaimClearsGate:
         assert outcome.blocks is True
 
     def test_check_item_raw_prose_with_stamped_profile_passes(self, db_conn):
-        """AC-1 / AC-8: meta-ticket with explicit amendment-workflow
+        """AC-1 / AC-8: meta work item with explicit amendment-workflow
         reviewed-none decision advances even with raw DDL-shape prose."""
         item_id = 610
         insert_item(
@@ -76,8 +76,8 @@ class TestReviewedNegativeClaimClearsGate:
             id=item_id,
             status="refining-idea",
             spec=(
-                "This ticket changes the prose-vs-claim gate so it no "
-                "longer re-fires on meta-tickets citing ALTER TABLE, "
+                "This work item changes the prose-vs-claim gate so it no "
+                "longer re-fires on meta work items citing ALTER TABLE, "
                 "ADD COLUMN, DROP COLUMN, migration_audit, or similar "
                 "governed-DB vocabulary."
             ),
@@ -129,7 +129,7 @@ class TestReviewedNegativeClaimClearsGate:
         result = amend(
             item_id,
             {"state": "none"},
-            reason="reviewed: meta-ticket, no governed DB mutation",
+            reason="reviewed: meta work item, no governed DB mutation",
             conn=db_conn,
         )
         assert result.new_profile.get("reviewed_negative") is True
@@ -201,7 +201,7 @@ class TestReviewedNegativeClaimClearsGate:
     def test_check_item_reviewed_none_with_clean_prose_still_passes(
         self, db_conn
     ):
-        """A reviewed-none attestation on a ticket with no prose triggers is
+        """A reviewed-none attestation on a work item with no prose triggers is
         a no-op — the gate passes for the usual reason (no triggers)."""
         insert_item(
             db_conn,

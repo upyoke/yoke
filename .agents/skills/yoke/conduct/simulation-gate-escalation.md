@@ -25,11 +25,11 @@ When any of these fire, conduct does NOT enter result branching; it goes straigh
 
 - **Satisfy parent epic item-level verification requirements.** All epic tasks passed testing and simulation is clean. Record passing QA runs for unsatisfied blocking verification requirements:
  ```bash
- _unsatisfied_reqs=$(yoke db read --format lines "SELECT r.id, r.qa_kind FROM qa_requirements r WHERE r.item_id=${N} AND r.qa_phase='verification' AND r.blocking_mode='blocking' AND r.waived_at IS NULL AND NOT EXISTS (SELECT 1 FROM qa_runs qr WHERE qr.qa_requirement_id=r.id AND qr.verdict='pass')")
+ _unsatisfied_reqs=$(yoke db read --format lines "SELECT r.id, r.qa_kind, COALESCE(r.method_id, '') FROM qa_requirements r WHERE r.item_id=${N} AND r.qa_phase='verification' AND r.blocking_mode='blocking' AND r.waived_at IS NULL AND NOT EXISTS (SELECT 1 FROM qa_runs qr WHERE qr.qa_requirement_id=r.id AND qr.verdict='pass')")
  ```
- For each unsatisfied requirement (parse `id|qa_kind` per line):
+ For each unsatisfied requirement (parse `id|qa_kind|method_id` per line):
  - Skip `simulation` kind — already satisfied by the `persist_simulation` call above.
- - Skip `browser_smoke` and `browser_diff` — require `executor_type='browser_substrate'`.
+ - Skip cases whose method is `browser-check` or `browser-inspection` — they execute through the shared case runner and Browser substrate.
  - Otherwise record a passing run:
  ```bash
  yoke qa run add \
@@ -63,11 +63,11 @@ _warning_count=$(echo "$_simulation_gaps" | grep -c '\[WARNING\]' || true)
 _recommendation=$(echo "$_simulation_gaps" | grep '^- Recommendation:' | sed 's/.*Recommendation: //')
 ```
 
-##### Branch 1 — PROCEED with no CRITICALs (file tickets, proceed)
+##### Branch 1 — PROCEED with no CRITICALs (file work items, proceed)
 
 **Condition:** `_critical_count = 0` AND `_recommendation = "PROCEED"`.
 
-Print: `Simulation found WARNING/NOTE gaps but Simulator recommends PROCEED. Filing follow-up tickets.`
+Print: `Simulation found WARNING/NOTE gaps but Simulator recommends PROCEED. Filing follow-up work items.`
 
 For each `### GAP #N:` block in `_simulation_gaps`:
 1. Extract: title, severity, category, tasks involved, "what happens", root cause, fix guidance.
@@ -79,15 +79,15 @@ For each `### GAP #N:` block in `_simulation_gaps`:
  ```
 4. Set source to `simulation`, write spec to DB, sync to GitHub.
 
-Collect all filed ticket IDs into `_filed_ticket_ids`.
-Satisfy parent epic verification requirements** (same logic as CLEAN path — skip `simulation`, `browser_smoke`, `browser_diff` kinds).
+Collect all filed work item IDs into `_filed_item_ids`.
+Satisfy parent epic verification requirements** (same logic as CLEAN path — skip `simulation` and Browser method cases).
 PROCEED triage write + reviewed-implementation handoff:
 ```bash
 _gap_summary=$(echo "$_simulation_gaps" | head -c 500)
 yoke conduct epic proceed-triage-handoff --epic "${_epic_id}" \
  --recommendation "$_recommendation" \
  --gap-summary "$_gap_summary" \
- --filed-tickets "$(echo "$_filed_ticket_ids" | tr ' ' ',')"
+ --filed-items "$(echo "$_filed_item_ids" | tr ' ' ',')"
 _proceed_rc=$?
 ```
 If `_proceed_rc` non-zero: **HALT**. Do NOT write status manually. **Go to `cleanup-report.md`** with `HALTED`.

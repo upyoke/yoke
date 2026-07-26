@@ -44,7 +44,6 @@ LIST_COLUMNS = (
 LARGE_TEXT_FIELDS = frozenset({
     "body", "spec", "design_spec", "technical_plan", "worktree_plan",
     "shepherd_log", "shepherd_caveats", "test_results", "deploy_log",
-    "browser_qa_metadata",
     "db_mutation_profile", "db_compatibility_attestation",
     "architecture_impact",
 })
@@ -53,13 +52,11 @@ LARGE_TEXT_FIELDS = frozenset({
 STRUCTURED_FIELDS = frozenset({
     "spec", "design_spec", "technical_plan", "worktree_plan",
     "shepherd_log", "shepherd_caveats", "test_results", "deploy_log",
-    "browser_qa_metadata",
     "db_mutation_profile", "db_compatibility_attestation",
     "architecture_impact",
 })
 
 # Content-bearing structured fields that track spec_updated_at/by.
-# browser_qa_metadata is operational state, not narrative content — intentionally excluded.
 # db_mutation_profile / db_compatibility_attestation ARE content-bearing: each
 # declares or argues about a governed DB mutation and is part of the item's
 # editable spec surface.

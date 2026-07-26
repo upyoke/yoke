@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import re
 from typing import Optional
 
@@ -12,64 +11,9 @@ from yoke_core.domain.qa_events import emit_qa_requirement_event
 PYTEST_TARGET = "python3 -m yoke_core.tools.watch_pytest -- runtime/api/"
 
 
-def _browser_section(spec: str) -> Optional[str]:
-    match = re.search(
-        r"^## Browser QA Metadata\s*(.*?)(?=^## |\Z)",
-        spec,
-        flags=re.M | re.S,
-    )
-    return match.group(1) if match else None
-
-
-def _parsed_metadata(row: dict) -> Optional[dict]:
-    raw = row.get("browser_qa_metadata")
-    if not raw:
-        return None
-    try:
-        data = json.loads(raw)
-    except (TypeError, json.JSONDecodeError):
-        return None
-    return data if isinstance(data, dict) else None
-
-
-def _metadata_is_browser_testable(row: dict) -> bool:
-    data = _parsed_metadata(row)
-    return bool(data.get("browser_testable")) if data else False
-
-
-def _metadata_says_not_browser_testable(row: dict) -> bool:
-    """True only when the stored ``browser_qa_metadata`` object explicitly
-    classifies the item as non-browser (``browser_testable`` present and false).
-
-    Distinct from ``_metadata_is_browser_testable`` returning ``False``, which
-    also covers the no-metadata / unparseable cases. This is the authoritative
-    "confirmed non-browser" signal.
-    """
-    data = _parsed_metadata(row)
-    return data is not None and "browser_testable" in data and not data["browser_testable"]
-
-
 def _should_create(row: dict, *, qa_policy: str) -> bool:
-    if qa_policy != "project_transition_defaults":
-        return False
-    if _metadata_is_browser_testable(row):
-        return False
-    # The authoritative browser_qa_metadata object is the source of truth for the
-    # non-browser classification. When it explicitly records browser_testable=false,
-    # seed regardless of section-prose wording: standard phrasings like
-    # "Non-browser ticket: ..." match none of the prose heuristics below and would
-    # otherwise leave the verification-entry gate with zero requirements.
-    if _metadata_says_not_browser_testable(row):
-        return True
-    section = _browser_section(str(row.get("spec") or ""))
-    if section is None:
-        return True
-    lowered = section.lower()
-    if "not browser-testable" in lowered or "browser_testable: false" in lowered:
-        return True
-    if "browser_testable: true" in lowered or "browser-testable" in lowered:
-        return False
-    return False
+    del row
+    return qa_policy == "project_transition_defaults"
 
 
 def _ac_list(spec: str) -> str:
@@ -143,7 +87,7 @@ def auto_create_for_item(
             qa_phase="verification",
             target_row={"item_id": item_id, "epic_id": None, "task_num": None,
                         "deployment_run_id": None},
-            extra_detail={"source": "auto_non_browser"},
+            extra_detail={"source": "auto_ac_verification"},
         )
         return req_id
     finally:

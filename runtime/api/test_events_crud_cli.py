@@ -255,7 +255,7 @@ class TestListErgonomics:
     def test_list_invalid_item_value_fails_closed(self, db_path, monkeypatch, capsys):
         monkeypatch.setenv("YOKE_DB", db_path)
         _insert_event(db_path, event_id="baditem-1")
-        assert ec.main(["list", "--item", "not-a-ticket"]) == 2
+        assert ec.main(["list", "--item", "not-an-item"]) == 2
         assert "requires PREFIX-N" in capsys.readouterr().err
 
     def test_list_item_alias_normalizes_yok_n_to_int(self, db_path, monkeypatch, capsys):

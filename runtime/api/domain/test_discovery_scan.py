@@ -68,7 +68,7 @@ def test_detects_item_scoped_ouroboros(seeded_repo):
     )
     _insert_ouroboros(
         conn, timestamp="2026-03-10T12:00:00Z", agent="engineer",
-        context="YOK-43", category="idea", body="Other ticket",
+        context="YOK-43", category="idea", body="Other work item",
     )
     _insert_ouroboros(
         conn, timestamp="2026-03-10T13:00:00Z", agent="engineer",
@@ -97,7 +97,7 @@ def test_detects_item_scoped_ouroboros(seeded_repo):
     assert "UNREVIEWED_OUROBOROS=2" in content
     assert "YOK-9999/task-1" in content
     assert "shepherd YOK-9999 refined_idea_to_planning" in content
-    assert "Other ticket" not in content
+    assert "Other work item" not in content
     assert "Unscoped" not in content
     discovery_file.unlink()
 

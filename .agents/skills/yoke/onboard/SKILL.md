@@ -9,7 +9,7 @@ argument-hint: "[--project P] [--run-id RUN]"
 Make an already-wired project **execution-ready** from a supported harness. The terminal wizard (`yoke onboard`) owns wire-up — machine profile, account, GitHub, project binding, review. This skill starts from strategy and derives everything else: the strategy-doc corpus, one confirmed execution profile, scaffold and infra Packs, hosting verification, environment/site/flow registration, the domain record, a gated infrastructure apply plus first deploy, and the first seeded work items.
 
 <!-- BEGIN GENERATED: field-note-directive -->
-When you hit a recipe gap or notice a minor bug not worth a ticket, file a field-note immediately — before retrying, before moving on.
+When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
 Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->

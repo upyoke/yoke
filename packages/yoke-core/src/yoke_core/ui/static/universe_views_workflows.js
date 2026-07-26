@@ -19,6 +19,14 @@ import {
   renderPosture,
 } from "./workflow_view_policy.js";
 import { renderVersionHistory } from "./workflow_view_versions.js";
+import {
+  emptyMechanicsData,
+  loadWorkflowMechanicsData,
+} from "./workflow_mechanics_data.js";
+import {
+  openApprovalEditor,
+  openProjectDefaultEditor,
+} from "./workflow_mechanics_dialogs.js";
 
 function renderSelectedWorkflow(
   documentNode,
@@ -47,12 +55,27 @@ function renderSelectedWorkflow(
       },
     ),
     renderPosture(documentNode, workflow, {
-      editPathClaims: (enabled) => actions.editPathClaims(workflow, enabled),
+      editPathClaims: actions.editPathClaims
+        ? (enabled) => actions.editPathClaims(workflow, enabled)
+        : null,
     }),
-    renderMechanics(documentNode, workflow),
+    renderMechanics(documentNode, workflow, {
+      mechanics: actions.mechanics,
+      editTesting: actions.editTesting
+        ? () => actions.editTesting(workflow)
+        : null,
+      editApprovals: actions.editApprovals
+        ? () => actions.editApprovals(workflow)
+        : null,
+      editDelivery: actions.editDelivery
+        ? () => actions.editDelivery(workflow)
+        : null,
+    }),
     renderVersionHistory(documentNode, workflow, {
       client: actions.client,
-      makeCurrent: (version) => actions.makeCurrent(workflow, version),
+      makeCurrent: actions.makeCurrent
+        ? (version) => actions.makeCurrent(workflow, version)
+        : null,
     }),
   );
 }
@@ -80,6 +103,7 @@ export function renderWorkflowsView(context, main) {
   let workflows = [];
   let catalogById = new Map();
   let selectedWorkflowId = null;
+  let mechanicsData = emptyMechanicsData();
   const stageSelections = new Map();
   let dialog = null;
 
@@ -97,7 +121,7 @@ export function renderWorkflowsView(context, main) {
 
   const closeDialog = () => {
     dialog = null;
-    renderWorkflowDialog(documentNode, dialogHost, null);
+    dialogHost.replaceChildren();
   };
 
   const openPathClaimsDialog = (workflow, enabled) => {
@@ -172,6 +196,68 @@ export function renderWorkflowsView(context, main) {
     renderWorkflowDialog(documentNode, dialogHost, dialog);
   };
 
+  const saveProjectDefault = async (kind, workflow, edit) => {
+    const valueKey = kind === "testing" ? "plan_id" : "flow_id";
+    const value = kind === "testing"
+      ? Number(edit.value) : edit.value;
+    await mutation(`workflows.${kind}_default.set`, {
+      project: edit.project,
+      workflow_id: workflow.id,
+      [valueKey]: value,
+      apply_to_all: edit.applyToAll,
+    });
+    closeDialog();
+    await load();
+  };
+
+  const openTestingDialog = (workflow) => {
+    dialog = { kind: "testing" };
+    openProjectDefaultEditor({
+      documentNode,
+      host: dialogHost,
+      kind: "testing",
+      workflow,
+      projects: context.projects(),
+      data: mechanicsData,
+      close: closeDialog,
+      save: (edit) => saveProjectDefault("testing", workflow, edit),
+    });
+  };
+
+  const openDeliveryDialog = (workflow) => {
+    dialog = { kind: "delivery" };
+    openProjectDefaultEditor({
+      documentNode,
+      host: dialogHost,
+      kind: "delivery",
+      workflow,
+      projects: context.projects(),
+      data: mechanicsData,
+      close: closeDialog,
+      save: (edit) => saveProjectDefault("delivery", workflow, edit),
+    });
+  };
+
+  const openApprovalsDialog = (workflow) => {
+    dialog = { kind: "approvals" };
+    openApprovalEditor({
+      documentNode,
+      host: dialogHost,
+      workflow,
+      data: mechanicsData,
+      close: closeDialog,
+      save: async (approvalDefaults) => {
+        await mutation("workflows.approval_defaults.publish", {
+          workflow_id: workflow.id,
+          expected_current_version: Number(workflow.current_version),
+          approval_defaults: approvalDefaults,
+        });
+        closeDialog();
+        await load();
+      },
+    });
+  };
+
   const render = () => {
     if (!workflows.length) return;
     const selected = workflows.find(
@@ -198,8 +284,13 @@ export function renderWorkflowsView(context, main) {
       render,
       {
         client: context.client,
-        editPathClaims: openPathClaimsDialog,
-        makeCurrent: openCurrentDialog,
+        mechanics: mechanicsData,
+        editPathClaims: mechanicsData.editable
+          ? openPathClaimsDialog : null,
+        editTesting: mechanicsData.editable ? openTestingDialog : null,
+        editApprovals: mechanicsData.editable ? openApprovalsDialog : null,
+        editDelivery: mechanicsData.editable ? openDeliveryDialog : null,
+        makeCurrent: mechanicsData.editable ? openCurrentDialog : null,
       },
     );
   };
@@ -218,6 +309,10 @@ export function renderWorkflowsView(context, main) {
       }
       const result = callResult.envelope.result || {};
       workflows = sortedWorkflows(result.workflows || []);
+      mechanicsData = await loadWorkflowMechanicsData(
+        context, result.flows || [],
+      );
+      if (!context.isMounted()) return;
       catalogById = new Map(
         (result.gate_catalog || []).map((gate) => [gate.id, gate]),
       );

@@ -15,7 +15,9 @@ A Tester dispatch is appropriate when:
 2. The item needs deliberate agent verification before a `reviewed-implementation` or `done` transition outside the conduct pipeline
 3. The operator explicitly requests Tester validation
 
-**Browser QA requirements** (`browser_smoke`, `browser_diff`) are handled automatically by the `yoke qa browser run` orchestrator in the advance browser-QA gate (`advance/browser-qa.md`). Do NOT dispatch a Tester agent for browser-kind requirements.
+Browser method cases (`browser-check`, `browser-inspection`) execute through
+the shared case runner and the advance Browser gate. Do not dispatch a Tester
+for those cases.
 
 ---
 
@@ -35,11 +37,10 @@ Validate YOK-{N}: {title}
 {spec content from items.get.run result.fields.spec}
 ```
 
-### 2. Project Test Commands
+### 2. Project Test Plans
 
-**Always include this block** — even for `yoke` project items. For
-`yoke` items, the commands may be empty, but including the block
-prevents the Tester from guessing.
+**Always include this block** — even when no plan is attached. It prevents the
+Tester from guessing test commands or bypassing the method contracts.
 
 Read the item's project via the `items.get.run` function call
 (envelope in
@@ -47,56 +48,21 @@ Read the item's project via the `items.get.run` function call
 with `target = {kind: "item", item_id: <N>}` and `payload = {fields:
 ["project"]}`. The response carries `result.fields.project`.
 
-Project-level test commands live in the `command_definitions` Project
-Structure family. Read each scope through the
-`yoke_core.domain.command_definitions` Python module, which is the
-authoritative read for the family. The structured function-call
-dispatch surface for command-definitions reads
-(`project_structure.command_definitions.get`) is a follow-up; for now
-the module CLI is the explicit retained-boundary read for project
-test commands:
+Project verification lives in attached QA plans. List the item's materialized
+requirements and include every row with a non-null `plan_id`:
 
 ```bash
-# Retained-boundary: command_definitions module read.
-# {_item_project} comes from the items.get.run response above.
-_cmd_quick=""
-_cmd_full=""
-_cmd_e2e=""
-_cmd_smoke=""
-if [ -n "$_item_project" ] && [ "$_item_project" != "null" ]; then
- _cmd_quick=$(python3 -m yoke_core.domain.command_definitions get "$_item_project" quick 2>/dev/null) || true
- _cmd_full=$(python3 -m yoke_core.domain.command_definitions get "$_item_project" full 2>/dev/null) || true
- _cmd_e2e=$(python3 -m yoke_core.domain.command_definitions get "$_item_project" e2e 2>/dev/null) || true
- _cmd_smoke=$(python3 -m yoke_core.domain.command_definitions get "$_item_project" smoke 2>/dev/null) || true
-fi
+_item_project=$(yoke items get "YOK-{N}" project)
+_qa_requirements=$(yoke qa requirement list --item "YOK-{N}" --json)
 ```
 
-**Four-tier test model:** `quick` = fast signal, `full` = everything including browser integration tests, `e2e` = real end-to-end against a deployed backend, `smoke` = shallow real-stack checks. An absent `e2e` scope means the project has no real E2E suite — not that browser integration tests go there.
-
-**Validate configured commands before dispatching.** Run `yoke_core.domain.projects validate-test-commands` to detect broken commands before handing them to the Tester as authoritative. The validator emits one line per scope in the form `<scope>=<status>|<detail>` (`quick`, `full`, `e2e`, `smoke`). Invalid scopes should be downgraded to "none configured" in the dispatch prompt so the Tester does not waste time running missing scripts; the warning itself goes to the dispatch log so the operator can repair the project config:
+The snapshot includes the case key, method id, instructions, expected outcome,
+method configuration, transition, and host baseline. Do not extract and run a
+Command method's shell text yourself. Execute each case through the shared
+runner so its method selects the executor, verdict path, and evidence:
 
 ```bash
-if [ -n "$_item_project" ] && [ "$_item_project" != "null" ]; then
- _validation_output=$(python3 -m yoke_core.domain.projects validate-test-commands "$_item_project" 2>/dev/null) || true
- _quick_status=$(printf '%s' "$_validation_output" | grep '^quick=' | sed 's/^[^=]*=//; s/|.*//')
- _full_status=$(printf '%s' "$_validation_output" | grep '^full=' | sed 's/^[^=]*=//; s/|.*//')
- _e2e_status=$(printf '%s' "$_validation_output" | grep '^e2e=' | sed 's/^[^=]*=//; s/|.*//')
- _smoke_status=$(printf '%s' "$_validation_output" | grep '^smoke=' | sed 's/^[^=]*=//; s/|.*//')
- if [ "$_quick_status" = "invalid" ]; then _cmd_quick=""; fi
- if [ "$_full_status" = "invalid" ]; then _cmd_full=""; fi
- if [ "$_e2e_status" = "invalid" ]; then _cmd_e2e=""; fi
- if [ "$_smoke_status" = "invalid" ]; then _cmd_smoke=""; fi
-fi
-```
-
-Present each command to the Tester with an inline `⚠️ INVALID` marker when the corresponding status is `invalid`, and prefer "none configured" over shipping a broken command:
-
-```
-Project Test Commands:
- Quick: {_cmd_quick or "none configured"} {if _quick_status is "invalid": "⚠️ INVALID — script/executable not found, treating as unconfigured"}
- Full: {_cmd_full or "none configured"} {if _full_status is "invalid": "⚠️ INVALID — script/executable not found, treating as unconfigured"}
- E2E: {_cmd_e2e or "none configured"} {if _e2e_status is "invalid": "⚠️ INVALID — script/executable not found, treating as unconfigured"}
- Smoke: {_cmd_smoke or "none configured"} {if _smoke_status is "invalid": "⚠️ INVALID — script/executable not found, treating as unconfigured"}
+yoke qa case run --requirement-id <qa_requirements.id>
 ```
 
 ### 3. Changed files and diff
@@ -183,11 +149,10 @@ Ephemeral URL: {_ephemeral_url}
  Spec (read via items.get.run by the dispatcher; embedded inline):
  {spec_content}
 
- Project Test Commands:
- Quick: {_cmd_quick or "none configured"}
- Full: {_cmd_full or "none configured"}
- E2E: {_cmd_e2e or "none configured"}
- Smoke: {_cmd_smoke or "none configured"}
+ Project Test Plan Cases:
+ {_plan_case_rows or "none attached"}
+ Execute each runnable row with:
+ yoke qa case run --requirement-id <qa_requirements.id>
  Ephemeral URL: {_ephemeral_url}
 
  Worktree: {_worktree_path}
@@ -203,7 +168,7 @@ Ephemeral URL: {_ephemeral_url}
  git diff main...YOK-{N}
 
  Review the implementation against the acceptance criteria in the spec.
- Run tests using the Project Test Commands above (prefer Quick for fast feedback, Full for thorough validation).
+ Execute the materialized plan cases above through the shared case runner.
  Return a verdict line:
  VERDICT: PASS or VERDICT: FAIL followed by details.
 

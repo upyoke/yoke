@@ -101,55 +101,6 @@ class TestAddColumnMigrations:
                      "deploy_log"):
             assert col in cols, f"Missing structured column: {col}"
 
-    def test_browser_qa_metadata_column_and_backfill(
-        self, tmp_path: Path
-    ) -> None:
-        """browser_qa_metadata column exists and existing rows are backfilled
-        with the canonical negative-default JSON.
-        """
-        from yoke_core.domain.browser_qa_metadata import NEGATIVE_DEFAULT_JSON
-
-        with init_test_db(tmp_path) as db_path:
-            # Simulate a pre-migration row: drop the column, insert, then rerun init
-            conn = _connect(db_path)
-            if "browser_qa_metadata" in _column_names(conn, "items"):
-                conn.execute("ALTER TABLE items DROP COLUMN browser_qa_metadata")
-                conn.commit()
-            workflow_id, workflow_version_id = _issue_pin(conn)
-            conn.execute(
-                "INSERT INTO items (id, title, workflow_id, "
-                "workflow_version_id, status, priority, "
-                "created_at, updated_at, source, project_id, project_sequence) "
-                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                (1, "t", workflow_id, workflow_version_id, "idea", "medium",
-                 "2026-01-01T00:00:00Z", "2026-01-01T00:00:00Z",
-                 "user", 1, 1),
-            )
-            conn.commit()
-            conn.close()
-
-            _reinit(db_path)
-
-            conn = _connect(db_path)
-            try:
-                cols = _column_names(conn, "items")
-                assert "browser_qa_metadata" in cols
-                row = conn.execute(
-                    "SELECT browser_qa_metadata FROM items WHERE id = 1"
-                ).fetchone()
-                assert row[0] == NEGATIVE_DEFAULT_JSON
-
-                null_rows = conn.execute(
-                    "SELECT COUNT(*) FROM items "
-                    "WHERE browser_qa_metadata IS NULL "
-                    "OR browser_qa_metadata = '' "
-                    "OR browser_qa_metadata = 'null'"
-                ).fetchone()[0]
-                assert null_rows == 0
-            finally:
-                conn.close()
-
-
 class TestQaExecutionStatusMigration:
     """ALTER TABLE adds execution_status and partitions existing browser rows."""
 

@@ -27,7 +27,7 @@ _EXPECTED_SCHEMA_STR = (
     "technical_plan/TEXT,worktree_plan/TEXT,shepherd_log/TEXT,shepherd_caveats/TEXT,"
     "test_results/TEXT,deploy_log/TEXT,spec_updated_at/TEXT,spec_updated_by/TEXT,"
     "resolution/TEXT,resolution_ref/TEXT,resolution_comment/TEXT,"
-    "browser_qa_metadata/TEXT,db_mutation_profile/TEXT,"
+    "db_mutation_profile/TEXT,"
     "db_compatibility_attestation/TEXT,owner/TEXT,blocked/INTEGER,"
     "blocked_reason/TEXT,architecture_impact/TEXT,workflow_id/TEXT,"
     "workflow_version_id/INTEGER,workflow_posture/TEXT,"

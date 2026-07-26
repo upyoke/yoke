@@ -40,7 +40,7 @@ EXEMPT_PATH_SEGMENTS: tuple[str, ...] = (
     "wrapup_reports",
     "qa-artifacts",
     # Historical authoring evidence / planning snapshots for completed
-    # cloud-runtime tickets. See docs/archive/legacy-plan-artifacts/atlas-boundary-inventory/atlas-evidence/README.md
+    # cloud-runtime work items. See docs/archive/legacy-plan-artifacts/atlas-boundary-inventory/atlas-evidence/README.md
     # — same conceptual role as docs/archive/ (record, not live prose).
     "legacy-plan-artifacts",
     "node_modules",

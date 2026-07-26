@@ -72,7 +72,7 @@ class TestProceedTriageAndHandoff:
                 42,
                 recommendation="PROCEED",
                 gap_summary="1 WARNING gap",
-                filed_ticket_ids=["YOK-99", "YOK-100"],
+                filed_item_ids=["YOK-99", "YOK-100"],
                 session_id="sess-1",
             )
 
@@ -83,6 +83,7 @@ class TestProceedTriageAndHandoff:
         assert call_kwargs["verdict"] == "pass"
         assert call_kwargs["qa_kind"] == "simulation"
         assert "PROCEED" in call_kwargs["raw_result"]
+        assert '"filed_items"' in call_kwargs["raw_result"]
         assert "YOK-99, YOK-100" in call_kwargs["raw_result"]
         # Handoff was called
         handoff.assert_called_once_with(42, session_id="sess-1")
@@ -114,7 +115,7 @@ class TestProceedTriageAndHandoff:
         assert rc == 2
         handoff.assert_called_once_with(42, session_id="sess-1")
 
-    def test_proceed_no_filed_tickets(self, db):
+    def test_proceed_no_filed_items(self, db):
         """PROCEED with zero gaps to file still records triage and hands off."""
         insert_item(db, id=42, status="reviewing-implementation")
         self._seed_simulation_requirement(db, 42)
@@ -140,7 +141,7 @@ class TestProceedTriageAndHandoff:
             rc = epic.proceed_triage_and_handoff(
                 42,
                 recommendation="PROCEED",
-                filed_ticket_ids=["YOK-99"],
+                filed_item_ids=["YOK-99"],
                 session_id="sess-1",
             )
 

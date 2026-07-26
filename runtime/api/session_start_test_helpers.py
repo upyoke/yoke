@@ -25,7 +25,7 @@ TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"
 
 
 def test_item_ref(item_id: int) -> str:
-    """Build synthetic display IDs without embedding drifting ticket literals."""
+    """Build synthetic display IDs without embedding drifting work-item literals."""
     return f"YOK-{item_id}"
 
 

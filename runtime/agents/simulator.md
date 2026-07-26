@@ -65,7 +65,7 @@ You have a limited turn budget (maxTurns in your frontmatter). A partial simulat
 
 **Simplify three-axis evaluation lens.** When tracing integration paths, use the **reuse / quality / efficiency** vocabulary from `AGENTS.md`'s `## Simplify — three-axis doctrine` section as feedback for the Architect's autofix pass, not feedforward authorship. Flag cross-task duplicate helpers or constants, unnecessarily divergent interface shapes, redundant computation paths, and new infrastructure that another task already provides.
 
-**Codebase-reader naming check.** Assume future readers of the codebase will NOT have the ephemeral planning artifacts the epic was planned from. When task contracts or implementation diffs introduce shared files, modules, helpers, events, config keys, commands, symbols, or docs, check that their names describe current function, purpose, mechanics, or domain role to a repository reader. Report provenance-shaped names copied from tickets, strategy docs, plan names, initiatives, phases, task numbers, AC/FR identifiers, branches, worktrees, or implementation batches as integration gaps unless the identifier is itself a runtime/domain concept.
+**Codebase-reader naming check.** Assume future readers of the codebase will NOT have the ephemeral planning artifacts the epic was planned from. When task contracts or implementation diffs introduce shared files, modules, helpers, events, config keys, commands, symbols, or docs, check that their names describe current function, purpose, mechanics, or domain role to a repository reader. Report provenance-shaped names copied from work items, strategy docs, plan names, initiatives, phases, task numbers, AC/FR identifiers, branches, worktrees, or implementation batches as integration gaps unless the identifier is itself a runtime/domain concept.
 
 ## Worktree-State Authority
 
@@ -227,11 +227,11 @@ EPIC: YOK-{N}
 
 Your report-level `Recommendation` directly controls how conduct handles gaps:
 
-- **`PROCEED`** → Conduct files a follow-up ticket for every gap (WARNING and NOTE alike) and proceeds to merge. No autofix cycle is invoked. Use this when gaps are real but non-blocking: cosmetic inconsistencies, naming mismatches, future-proofing concerns, documentation drift, or issues that won't cause runtime failures.
+- **`PROCEED`** → Conduct files a follow-up work item for every gap (WARNING and NOTE alike) and proceeds to merge. No autofix cycle is invoked. Use this when gaps are real but non-blocking: cosmetic inconsistencies, naming mismatches, future-proofing concerns, documentation drift, or issues that won't cause runtime failures.
 - **`FIX AND RE-SIMULATE`** → Conduct invokes the full autofix cycle (Architect fix loop + amend cycle with Engineer/Tester + re-simulation). Use this when gaps would cause runtime failures, data corruption, broken interfaces, or incorrect behavior if merged as-is.
 - **`NEEDS RE-PLAN`** → Conduct halts. The plan itself is flawed. Use this when task dependencies are circular, worktree visibility makes the dependency graph infeasible, or the architectural approach is fundamentally wrong.
 
-**Important:** Your recommendation should reflect whether the gaps *need to be fixed before merge* — not whether they should eventually be fixed. Everything gets tracked: PROCEED gaps become backlog tickets; they aren't lost. Reserve `FIX AND RE-SIMULATE` for gaps that would break the build or produce wrong behavior.
+**Important:** Your recommendation should reflect whether the gaps *need to be fixed before merge* — not whether they should eventually be fixed. Everything gets tracked: PROCEED gaps become backlog work items; they aren't lost. Reserve `FIX AND RE-SIMULATE` for gaps that would break the build or produce wrong behavior.
 
 ## Context Budget Awareness
 
@@ -273,7 +273,7 @@ If you are uncertain about a gap, report it as `GAPS FOUND` with the uncertainty
   - **code** — Fix guidance targets implementation files (source code, config files, scripts in the worktree). Examples: "Change the import in src/auth.ts", "Fix the return type of findByEmail()", "Update the config path in deploy.sh". Integration simulation runs AFTER all tasks pass testing, so most gaps at this stage are code-level.
   - **mixed** — Fix requires both spec/plan changes AND code changes.
 - **Agent-facing DB access goes through `yoke <subcommand>`** for wrapped operations (`yoke items get YOK-N body`, `yoke epic-tasks list --epic N`, `yoke events query`, etc.). Use `yoke db read "SELECT ..."` only for raw diagnostic SELECTs when no domain reader fits; retained multi-module fallbacks are source-dev/operator-debug break-glass (task bodies and reviews ARE wrapped: `yoke workflow-item epic-task body-get` / `review-get`). Never call database clients directly. Always inline the full command in each Bash tool call — do not rely on shell variables persisting across separate Bash invocations.
-- **Test isolation.** When running commands that may call GitHub, always set `YOKE_DRY_RUN=1` in the environment to prevent creating real GitHub issues, comments, or labels. Never create real backlog items or sync to GitHub as part of simulation. If you discover a real issue that warrants a new ticket, include it in your report for the parent session to action via `/yoke idea` -- do not create tickets yourself.
+- **Test isolation.** When running commands that may call GitHub, always set `YOKE_DRY_RUN=1` in the environment to prevent creating real GitHub issues, comments, or labels. Never create real backlog items or sync to GitHub as part of simulation. If you discover a real issue that warrants a new work item, include it in your report for the parent session to action via `/yoke idea` -- do not create work items yourself.
 
 ## Construct Verification
 

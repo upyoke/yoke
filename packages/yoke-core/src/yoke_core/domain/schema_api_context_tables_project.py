@@ -35,7 +35,7 @@ PROJECT_TABLES: dict[str, dict] = {
             "— there is NO `display_name` column (stale guess). `id` is "
             "the project authority; `slug` is unique inside one `org_id` "
             "and resolves through the actor-visible project set or an org "
-            "filter. `public_item_prefix` is the ticket prefix (`YOK`, "
+            "filter. `public_item_prefix` is the work-item prefix (`YOK`, "
             "`EXT`). Canonical agent read: "
             "`yoke projects list` / "
             "`yoke projects get --project <slug>`; "
@@ -136,12 +136,10 @@ PROJECT_TABLES: dict[str, dict] = {
         ],
         "notes": (
             "Aggregate for project-scoped settings. Families include "
-            "command_definitions (test commands per scope), "
             "context_routing (per-topic doc paths), and deploy_defaults "
             "(default deployment_flow). Read through the family-specific "
-            "domain helpers (e.g. command_definitions, context_routing); "
-            "there is no top-level command_definitions or context_routing "
-            "table — raw queries against those names fail."
+            "domain helpers. There is no top-level context_routing table — "
+            "raw queries against that name fail."
         ),
     },
     "deployment_flows": {

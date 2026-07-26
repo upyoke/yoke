@@ -22,7 +22,7 @@ from yoke_core.engines import doctor_hc_historical_yok_n as hc
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
 _CHECK_ID = "HC-historical-yok-n-cruft"
-_DONE_TICKET = "YOK-100"
+_DONE_WORK_ITEM = "YOK-100"
 
 
 def _make_args(db_path: str) -> DoctorArgs:
@@ -36,8 +36,8 @@ def _make_args(db_path: str) -> DoctorArgs:
     )
 
 
-def _seed_db_with_done_ticket(path: str) -> None:
-    """Mark the witness ticket ``done`` in the ambient ``items`` table."""
+def _seed_db_with_done_work_item(path: str) -> None:
+    """Mark the witness work item ``done`` in the ambient ``items`` table."""
     del path  # ambient Postgres authority; compatibility slot only
     conn = db_backend.connect()
     now = iso8601_now()
@@ -79,13 +79,13 @@ class TestGeneratedOutputExemption(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             db_path = str(root / "lint.db")
-            _seed_db_with_done_ticket(db_path)
+            _seed_db_with_done_work_item(db_path)
             # Live tracked source — must still be flagged.
-            _write(root, "docs/lifecycle-note.md", f"Historical note: implemented in {_DONE_TICKET}.\n")
-            _write(root, "runtime/api/widget.py", f"# implemented in {_DONE_TICKET}\n")
+            _write(root, "docs/lifecycle-note.md", f"Historical note: implemented in {_DONE_WORK_ITEM}.\n")
+            _write(root, "runtime/api/widget.py", f"# implemented in {_DONE_WORK_ITEM}\n")
             # Generated outputs — must be exempt.
-            _write(root, "docs/archive/legacy-plan-artifacts/spec-history/snap.md", f"Snapshot mentions {_DONE_TICKET}.\n")
-            _write(root, "runtime/harness/claude/agents/yoke-architect.md", f"Recipe: items get {_DONE_TICKET} spec.\n")
+            _write(root, "docs/archive/legacy-plan-artifacts/spec-history/snap.md", f"Snapshot mentions {_DONE_WORK_ITEM}.\n")
+            _write(root, "runtime/harness/claude/agents/yoke-architect.md", f"Recipe: items get {_DONE_WORK_ITEM} spec.\n")
             rec = _run_hc(root, db_path)
 
         result = _only_result(rec)
@@ -101,9 +101,9 @@ class TestGeneratedOutputExemption(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             db_path = str(root / "lint.db")
-            _seed_db_with_done_ticket(db_path)
-            _write(root, "docs/archive/legacy-plan-artifacts/evidence.md", f"Mentions {_DONE_TICKET}.\n")
-            _write(root, "runtime/harness/codex/agents/yoke-boss.md", f"Mentions {_DONE_TICKET}.\n")
+            _seed_db_with_done_work_item(db_path)
+            _write(root, "docs/archive/legacy-plan-artifacts/evidence.md", f"Mentions {_DONE_WORK_ITEM}.\n")
+            _write(root, "runtime/harness/codex/agents/yoke-boss.md", f"Mentions {_DONE_WORK_ITEM}.\n")
             rec = _run_hc(root, db_path)
 
         result = _only_result(rec)
@@ -113,8 +113,8 @@ class TestGeneratedOutputExemption(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             db_path = str(root / "lint.db")
-            _seed_db_with_done_ticket(db_path)
-            _write(root, "docs/lifecycle-note.md", f"Implemented in {_DONE_TICKET}.\n")
+            _seed_db_with_done_work_item(db_path)
+            _write(root, "docs/lifecycle-note.md", f"Implemented in {_DONE_WORK_ITEM}.\n")
             rec = _run_hc(root, db_path)
 
         result = _only_result(rec)
@@ -132,13 +132,13 @@ class TestSelfSkip(unittest.TestCase):
         self.assertIn("No repo root resolved", result.detail)
 
     def test_self_skips_on_minimal_schema(self) -> None:
-        # DB has no ``items`` table: every ticket resolves 'unknown', so the HC
+        # DB has no ``items`` table: every work item resolves 'unknown', so the HC
         # cannot classify any reference as done-and-cruft → clean PASS, no crash.
         from runtime.api.fixtures import pg_testdb
 
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
-            _write(root, "docs/lifecycle-note.md", f"Mentions {_DONE_TICKET}.\n")
+            _write(root, "docs/lifecycle-note.md", f"Mentions {_DONE_WORK_ITEM}.\n")
             name = pg_testdb.create_test_database()
             prior = os.environ.get(db_backend.PG_DSN_ENV)
             os.environ[db_backend.PG_DSN_ENV] = pg_testdb.dsn_for_test_database(name)

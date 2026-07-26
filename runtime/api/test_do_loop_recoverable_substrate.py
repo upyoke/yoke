@@ -1,6 +1,6 @@
 """Focused regressions for recoverable advance-entry substrate behavior.
 
-Reproduces concrete failure shapes from the ticket spec:
+Reproduces concrete failure shapes from the work-item spec:
 
 * AC-28 — re-entry shape: item already ``implementing``,
   routed advance hits a recoverable substrate failure before useful

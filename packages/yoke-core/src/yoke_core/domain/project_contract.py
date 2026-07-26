@@ -271,10 +271,11 @@ DB-owned execution truth and project policy:
 - Environments and sites (`environments.settings`, `sites.settings`): model
   desired settings through Project Structure patches or the supported
   project-onboarding surfaces until a dedicated product command exists.
-- Project structure families (deployment default, command definitions, merge
-  verification, context routing, architecture model):
-  `yoke project-structure command-definitions get|list` and
-  `yoke project-structure patch apply`.
+- Project structure families (deployment default, context routing,
+  architecture model):
+  `yoke project-structure deploy-defaults get` and
+  `yoke project-structure patch apply`. Deterministic project commands are
+  Command-method QA plans, read through `yoke qa plan list|get`.
 
 Machine view binding (`~/.yoke/config.json`): `projects[<checkout>].board`
 carries `scope` and `render_path` - per-machine, because one machine may

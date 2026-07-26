@@ -32,12 +32,24 @@ def _request(function_id: str, target: TargetRef, payload=None) -> FunctionCallR
 
 
 def _seed_browser_requirement(conn, *, req_id: int = 10, item_id: int = 42,
-                              qa_kind: str = "browser_smoke") -> None:
+                              qa_kind: str = "plan_case") -> None:
     insert_item(conn, id=item_id, title="T", status="reviewing-implementation")
     insert_qa_requirement(
         conn, id=req_id, item_id=item_id, qa_kind=qa_kind,
         qa_phase="verification", blocking_mode="blocking",
-        success_policy='{"base_url": "http://localhost:9", "steps": []}',
+        success_policy='{"id":"all-pass","params":{}}',
+    )
+    conn.execute(
+        "UPDATE qa_requirements SET method_id='browser-check', "
+        "instructions=%s, expected_outcome=%s, method_config=%s "
+        "WHERE id=%s",
+        (
+            "Open the page and assert its ready state.",
+            "The page is ready.",
+            '{"base_url":"http://localhost:9",'
+            '"steps":[{"action":"navigate","route":"/"}]}',
+            req_id,
+        ),
     )
     conn.commit()
 
@@ -77,7 +89,10 @@ class TestQaBrowserContextGet(unittest.TestCase):
         result = outcome.result_payload
         self.assertEqual(result["item_id"], 42)
         self.assertEqual([r["id"] for r in result["requirements"]], [10])
-        self.assertEqual(result["requirements"][0]["qa_kind"], "browser_smoke")
+        self.assertEqual(result["requirements"][0]["qa_kind"], "plan_case")
+        self.assertEqual(
+            result["requirements"][0]["method_id"], "browser-check",
+        )
         self.assertFalse(result["deployment_recorded"])
         self.assertIsNone(result["deployed_sha"])
 
@@ -162,7 +177,7 @@ class TestQaRunAdd(unittest.TestCase):
         self.assertFalse(outcome.primary_success)
         self.assertEqual(outcome.error.code, "target_invalid")
 
-    def test_rejects_agent_for_browser_kind(self):
+    def test_rejects_agent_for_browser_method(self):
         with test_database() as conn:
             _seed_browser_requirement(conn)
             outcome = qa_browser_writes.handle_qa_run_add(
@@ -196,7 +211,7 @@ class TestQaRunAdd(unittest.TestCase):
                         "qa.run.add",
                         TargetRef(kind="qa_requirement", qa_requirement_id=10),
                         payload={"executor_type": "browser_substrate",
-                                 "qa_kind": "browser_smoke",
+                                 "qa_kind": "plan_case",
                                  "raw_result": "{}"},
                     ),
                 )
@@ -208,7 +223,7 @@ class TestQaRunAdd(unittest.TestCase):
                 (run_id,),
             ).fetchone()
         self.assertEqual(row[0], "browser_substrate")
-        self.assertEqual(row[1], "browser_smoke")
+        self.assertEqual(row[1], "plan_case")
         self.assertIsNone(row[2])
         self.assertIsNone(row[3])
         self.assertEqual(

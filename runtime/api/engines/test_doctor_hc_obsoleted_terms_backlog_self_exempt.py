@@ -1,10 +1,10 @@
-"""Tests for the obsoleting-ticket self-exemption in the backlog scanner.
+"""Tests for the obsoleting-work-item self-exemption in the backlog scanner.
 
-A retired term whose label embeds ``YOK-N`` (the ticket that retired the
+A retired term whose label embeds ``YOK-N`` (the work item that retired the
 term) must not flag mentions of that term inside ``YOK-N``'s OWN backlog
 fields — the spec/plan/task-body/progress-note content explaining what is
-being retired. Without this exemption, every rename ticket creates a
-structural catch-22: the very ticket retiring a symbol can never PASS
+being retired. Without this exemption, every rename work item creates a
+structural catch-22: the very work item retiring a symbol can never PASS
 ``HC-obsoleted-terms`` because it must spell the symbol out in its own
 description.
 
@@ -23,7 +23,7 @@ from yoke_core.engines.doctor_hc_obsoleted_terms_backlog import (
 )
 
 
-# Synthetic patterns + labels. ``LABEL_OWNED`` embeds a sample ticket id so the
+# Synthetic patterns + labels. ``LABEL_OWNED`` embeds a sample work-item id so the
 # exemption applies to mentions inside item 1674's backlog fields. ``LABEL_UNOWNED``
 # carries no YOK-N marker, so no exemption applies.
 _RETIRED_OWNED = "retired_owned_symbol"
@@ -106,22 +106,22 @@ def _insert_progress_note(
 
 
 # ---------------------------------------------------------------------------
-# items.* fields — obsoleting ticket exempts itself
+# items.* fields — obsoleting work item exempts itself
 # ---------------------------------------------------------------------------
 
 
-def test_obsoleting_ticket_spec_is_exempt() -> None:
+def test_obsoleting_work_item_spec_is_exempt() -> None:
     """YOK-1674's spec mentioning ``retired_owned_symbol`` is the
     meta-content of the retirement — not live residue."""
     conn = _build_db()
     _insert_item(
         conn, id_=1674, status="implementing",
-        spec=f"this ticket retires {_RETIRED_OWNED}\n",
+        spec=f"this work item retires {_RETIRED_OWNED}\n",
     )
     assert scan_backlog_fields(conn, PATTERNS, LABELS) == []
 
 
-def test_other_ticket_spec_still_flagged_for_same_term() -> None:
+def test_other_work_item_spec_still_flagged_for_same_term() -> None:
     """A different item touching the retired term is still flagged."""
     conn = _build_db()
     _insert_item(
@@ -132,9 +132,9 @@ def test_other_ticket_spec_still_flagged_for_same_term() -> None:
     assert any(h.startswith("items:999:spec:") for h in hits), hits
 
 
-def test_obsoleting_ticket_still_flags_unowned_term() -> None:
+def test_obsoleting_work_item_still_flags_unowned_term() -> None:
     """The exemption is per-label: mentions of OTHER retired terms (whose
-    labels carry no YOK-N marker) in the obsoleting ticket's own spec
+    labels carry no YOK-N marker) in the obsoleting work item's own spec
     remain flagged."""
     conn = _build_db()
     _insert_item(
@@ -150,7 +150,7 @@ def test_obsoleting_ticket_still_flags_unowned_term() -> None:
     ), hits
 
 
-def test_obsoleting_ticket_technical_plan_is_exempt() -> None:
+def test_obsoleting_work_item_technical_plan_is_exempt() -> None:
     conn = _build_db()
     _insert_item(
         conn, id_=1674, status="implementing",
@@ -164,8 +164,8 @@ def test_obsoleting_ticket_technical_plan_is_exempt() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_obsoleting_ticket_epic_task_body_is_exempt() -> None:
-    """When the obsoleting ticket is an epic, its epic_tasks.body content
+def test_obsoleting_work_item_epic_task_body_is_exempt() -> None:
+    """When the obsoleting work item is an epic, its epic_tasks.body content
     is exempt (the task body describes what to retire)."""
     conn = _build_db()
     _insert_item(conn, id_=1674, status="implementing")
@@ -192,7 +192,7 @@ def test_other_epic_task_body_still_flagged() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_obsoleting_ticket_progress_note_is_exempt() -> None:
+def test_obsoleting_work_item_progress_note_is_exempt() -> None:
     """The obsoleting epic's progress notes routinely name the term in
     receipts and submission-check evidence; those are not live residue."""
     conn = _build_db()
@@ -239,7 +239,7 @@ def test_label_without_yok_n_has_no_exemption() -> None:
 def test_label_with_multiple_yok_n_uses_first() -> None:
     """The first YOK-N in the label wins. Labels with a back-reference
     cluster (``retired ... YOK-9999 follow-up``) are exempted
-    for the first ticket only — pragmatic enough for the live shape."""
+    for the first work item only — pragmatic enough for the live shape."""
     patterns = (r"\b" + _RETIRED_OWNED + r"\b",)
     labels = {
         patterns[0]: (

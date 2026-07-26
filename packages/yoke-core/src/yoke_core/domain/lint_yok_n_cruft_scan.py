@@ -1,6 +1,6 @@
 """Scanner core for the historical ``YOK-N`` cruft lint.
 
-Owns the scan scope, exemption rules, ticket-status lookup, allowed-context
+Owns the scan scope, exemption rules, work-item status lookup, allowed-context
 predicate, and the public :func:`scan` entry point. The companion
 :mod:`yoke_core.domain.lint_yok_n_cruft` module wraps this with the CLI
 formatter and re-exports the public surface so callers can keep importing
@@ -27,10 +27,11 @@ from yoke_core.domain.db_helpers import connect
 # Scan scope
 # ---------------------------------------------------------------------------
 
-# Markdown prose plus Python source; ``.py`` carries historical ticket
+# Markdown prose plus Python source; ``.py`` carries historical work-item
 # provenance in comments/docstrings that should be swept like ``.md`` cruft.
 # Allowed-context rules below exempt ``test_sun_N_*`` function names and
-# quoted ticket literals (for example, ``"YOK-" + str(item_id)``) so test data and doc examples
+# quoted work-item literals (for example, ``"YOK-" + str(item_id)``) so test
+# data and doc examples
 # aren't flagged.
 _SCAN_EXTS: tuple[str, ...] = (".md", ".py")
 
@@ -54,7 +55,7 @@ _DEFAULT_SCAN_ROOT_FILES: tuple[str, ...] = (
 # Path segments excluded by policy: ``docs/archive/`` (the durable stable-slug
 # home for architectural-why decision records); knowledge-layer inventory
 # surfaces (``ouroboros/``, ``wrapup_reports/``, ``.yoke/strategy/``) that carry
-# ticket IDs as data; ``.claude/`` compat symlink that would double-count.
+# work-item IDs as data; ``.claude/`` compat symlink that would double-count.
 _EXEMPT_PATH_SEGMENTS: tuple[str, ...] = (
     "archive",
     "ouroboros",
@@ -78,23 +79,24 @@ _EXEMPT_FILE_RELPATHS: frozenset[str] = frozenset({
 
 _YOKE_REF = re.compile(r"YOK-(\d+)")
 
-# YOK-N inside a TODO/FIXME/XXX/HACK marker is legitimate if the ticket
+# YOK-N inside a TODO/FIXME/XXX/HACK marker is legitimate if the work item
 # is still open (status != done).
 _TODO_LINE = re.compile(r"\b(?:TODO|FIXME|XXX|HACK)\b", re.IGNORECASE)
 
 # ``def test_sun_N_*`` function names are explicitly allowed by AGENTS.md
-# as a regression-test naming convention; the ticket ID is active state.
+# as a regression-test naming convention; the work-item ID is active state.
 _TEST_FUNC_NAME = re.compile(r"def\s+test_sun_\d+", re.IGNORECASE)
 
-# Quoted ticket literals (for example, ``"YOK-" + str(item_id)``) are test data, doc
+# Quoted work-item literals (for example, ``"YOK-" + str(item_id)``) are test data,
+# doc
 # examples, CLI-usage snippets, or routing tables — not provenance. The
 # HC-hardcoded-sun-ids check enforces the "no drifting IDs in tests" rule
 # separately, so the cruft check focuses on inline provenance in comments
 # and docstrings.
 _QUOTED_YOKE_REF = re.compile(r"[\"']YOK-\d+[\"']")
 
-# Regression-guard docstrings/comments may name the specific ticket they
-# guard against — the ticket is active state (the bug being guarded).
+# Regression-guard docstrings/comments may name the specific work item they
+# guard against — the work item is active state (the bug being guarded).
 _REGRESSION_GUARD_LINE = re.compile(
     r"\b(?:"
     r"[Rr]egression[- ]guard|"
@@ -110,7 +112,7 @@ _REGRESSION_GUARD_LINE = re.compile(
 class CruftHit:
     path: Path
     line: int
-    ticket: str
+    work_item: str
     status: str
     context: str
 
@@ -119,8 +121,8 @@ class CruftHit:
 class LintResult:
     hits: list[CruftHit] = field(default_factory=list)
     scanned_files: int = 0
-    ticket_lookups: int = 0
-    unknown_tickets: set[str] = field(default_factory=set)
+    work_item_lookups: int = 0
+    unknown_work_items: set[str] = field(default_factory=set)
 
 
 # ---------------------------------------------------------------------------
@@ -175,21 +177,21 @@ def _iter_scan_paths(
 
 
 # ---------------------------------------------------------------------------
-# Ticket status lookup
+# Work-item status lookup
 # ---------------------------------------------------------------------------
 
 
-def _load_ticket_statuses(
-    tickets: Iterable[str],
+def _load_work_item_statuses(
+    work_items: Iterable[str],
     *,
     db_path: Optional[str] = None,
 ) -> dict[str, str]:
-    """Return a ``{ticket: status}`` map for every provided ticket.
+    """Return a status map for every provided work-item reference.
 
-    Missing tickets (already deleted or not yet filed) land in the map as
+    Missing work items (already deleted or not yet filed) land in the map as
     ``'unknown'``. Opens a single read-only connection to minimise overhead.
     """
-    ids = sorted({t for t in tickets if _YOKE_REF.fullmatch(t)})
+    ids = sorted({ref for ref in work_items if _YOKE_REF.fullmatch(ref)})
     if not ids:
         return {}
     numeric_ids = [int(t.split("-", 1)[1]) for t in ids]
@@ -209,8 +211,8 @@ def _load_ticket_statuses(
         for row in rows:
             row_id = row[0] if not hasattr(row, "keys") else row["id"]
             row_status = row[1] if not hasattr(row, "keys") else row["status"]
-            ticket = f"YOK-{int(row_id)}"
-            statuses[ticket] = str(row_status or "unknown")
+            work_item = f"YOK-{int(row_id)}"
+            statuses[work_item] = str(row_status or "unknown")
     except Exception:
         pass
     finally:
@@ -229,7 +231,7 @@ def _load_ticket_statuses(
 def _python_exempt_line_ranges(text: str) -> set[int]:
     """Return 1-based line numbers where YOK-N occurrences are exempted.
 
-    Ticket tokens inside *non-docstring* string literals are test data,
+    Work-item tokens inside *non-docstring* string literals are test data,
     routing-table values, CLI examples, etc. — not cold-start prose.
     Docstrings (first stmt of module/class/function) remain in scope
     because they accumulate historical provenance.
@@ -275,17 +277,17 @@ def _python_exempt_line_ranges(text: str) -> set[int]:
     return exempt
 
 
-def _line_is_allowed_context(line: str, status: str, ticket: str) -> bool:
+def _line_is_allowed_context(line: str, status: str, work_item: str) -> bool:
     """Decide whether *line* is an allowed context for a YOK-N ref.
 
-    Allowed regardless of ticket status: ``def test_sun_N_*`` function names
-    and the specific ticket inside a quoted literal.
-    Open-ticket references are additionally allowed inside TODO/FIXME.
+    Allowed regardless of work-item status: ``def test_sun_N_*`` function names
+    and the specific work item inside a quoted literal.
+    Open-item references are additionally allowed inside TODO/FIXME.
     """
     if _TEST_FUNC_NAME.search(line):
         return True
     for quoted in _QUOTED_YOKE_REF.finditer(line):
-        if ticket in quoted.group(0):
+        if work_item in quoted.group(0):
             return True
     if _REGRESSION_GUARD_LINE.search(line):
         return True
@@ -303,7 +305,7 @@ def scan(
     """Scan *repo_root* for historical YOK-N cruft and return a :class:`LintResult`."""
     result = LintResult()
 
-    tickets: set[str] = set()
+    work_items: set[str] = set()
     per_file_matches: list[tuple[Path, int, str, str]] = []
 
     for f in _iter_scan_paths(repo_root, extra_paths=extra_paths):
@@ -319,27 +321,27 @@ def scan(
             if i in exempt_lines:
                 continue
             for match in _YOKE_REF.finditer(line):
-                ticket = f"YOK-{match.group(1)}"
-                tickets.add(ticket)
-                per_file_matches.append((f, i, ticket, line.rstrip()))
+                work_item = f"YOK-{match.group(1)}"
+                work_items.add(work_item)
+                per_file_matches.append((f, i, work_item, line.rstrip()))
 
-    statuses = _load_ticket_statuses(tickets, db_path=db_path)
-    result.ticket_lookups = len(statuses)
+    statuses = _load_work_item_statuses(work_items, db_path=db_path)
+    result.work_item_lookups = len(statuses)
 
-    for path, line_no, ticket, line in per_file_matches:
-        status = statuses.get(ticket, "unknown")
+    for path, line_no, work_item, line in per_file_matches:
+        status = statuses.get(work_item, "unknown")
         if status == "unknown":
-            result.unknown_tickets.add(ticket)
+            result.unknown_work_items.add(work_item)
             continue
         if status != "done":
             continue
-        if _line_is_allowed_context(line, status, ticket):
+        if _line_is_allowed_context(line, status, work_item):
             continue
         result.hits.append(
             CruftHit(
                 path=path,
                 line=line_no,
-                ticket=ticket,
+                work_item=work_item,
                 status=status,
                 context=line[:200],
             )

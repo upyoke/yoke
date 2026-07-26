@@ -4,7 +4,10 @@ Surfaces project test commands and handles QA run recording after implementation
 
 **Context variables** (from router): `{N}`, `{NNN}`, `{title}`, `{WORKTREE_PATH}`
 
-**Exact-path test anchor:** Every test invocation in this phase — `pytest`, `python3 -m pytest`, `python3 -m yoke_core.tools.watch_pytest`, and the project-registered four-tier `quick` / `full` / `e2e` / `smoke` commands surfaced below — MUST collect and run from `{WORKTREE_PATH}`, not the main checkout. The Step 0 `cd "{WORKTREE_PATH}"` directive in [`implementation.md`](implementation.md) is what keeps the working directory bound; without it, pytest's positional collection path silently resolves under main and the verification gates run against the wrong tree. `watch_pytest` hard-refuses wrong-cwd invocations under a worktree-bearing claim with a one-line remediation message — `cd` once at the top of the session and the refusal never fires.
+**Exact-path test anchor:** Every direct test invocation in this phase MUST
+collect from `{WORKTREE_PATH}`, not the main checkout. Attached Command cases
+resolve the same mapped worktree through `yoke qa case run`; do not re-run
+their shell text from another checkout.
 
 ---
 
@@ -14,89 +17,44 @@ This phase runs after `implementing/project-context.md`. If that earlier phase e
 
 Do not broad-explore a project's test tree when the project docs already name the relevant helpers, fixtures, or directories. Start from the surfaced paths, then expand only as far as the minimum audit scope requires.
 
-## a2. Surface Project Test Commands
+## a2. Surface and run attached plan cases
 
-After QA seeding, read and surface the project's registered test commands so the implementing agent knows exactly which test suites to run. This uses the same DB-backed project command registry that conduct/dispatch-context.md uses for Engineer and Tester dispatch, so the two surfaces stay consistent.
-
-Project-level test commands live in the `command_definitions` Project Structure
-family. In the normal advance flow, use the Project Context Summary emitted by
-`implementing/project-context.md`. If that summary is missing, the
-`command_definitions` reader is a Yoke source-dev/admin helper with no
-registered product CLI wrapper yet; do not present it as an external project
-command.
+After QA seeding, materialize the default plan for the next verification
+checkpoint, then list the item's immutable case snapshots:
 
 ```bash
-_item_project=$(yoke items get {N} project 2>/dev/null) || true
-_cmd_quick=""
-_cmd_full=""
-_cmd_e2e=""
-_cmd_smoke=""
-if [ -n "$_item_project" ] && [ "$_item_project" != "null" ]; then
- # Source-dev/admin read: populate each value from the command_definitions
- # Project Structure family for scopes quick/full/e2e/smoke.
-fi
+yoke qa plan materialize --item "YOK-{N}" \
+ --transition reviewing-implementation
+yoke qa requirement list --item "YOK-{N}" --json
 ```
 
-**Four-tier test model:**
-- **quick** — fast signal suite (typically unit tests + vitest)
-- **full** — everything: quick + build + browser integration tests (mocked APIs)
-- **e2e** — real end-to-end against a deployed backend (frontend → backend → DB)
-- **smoke** — shallow real-stack subset: "is the system alive and are critical paths working?"
+Surface every row with a non-null `plan_id`, including its case key, method,
+instructions, expected outcome, transition, and host baseline. An empty list
+means no project or item plan is attached; do not guess a replacement command.
 
-E2E and smoke both exercise a real deployment; browser integration tests live under **full** and mock their APIs. An absent `e2e` scope means "no real E2E tests are configured yet," not "browser integration tests go here."
-
-**Validate configured commands before surfacing.** After reading test commands,
-run the source-dev/admin project command validator to detect broken commands
-before the agent tries to use them. This validator has no registered product CLI
-wrapper yet. It emits `project=<id>` then one
-`<scope>=<valid|invalid|empty>|<detail>` line per canonical scope (`quick`,
-`full`, `e2e`, `smoke`), returns 0 when nothing is invalid and 1 when at least
-one scope is invalid. An empty value is reported as `empty`, not `invalid`:
+Run each materialized case through the shared executor:
 
 ```bash
-# Source-dev/admin validation read: set _validation_output from the project
-# command validator for "$_item_project".
-_quick_status=$(printf '%s' "$_validation_output" | grep '^quick=' | sed 's/^[^=]*=//; s/|.*//')
-_full_status=$(printf '%s' "$_validation_output" | grep '^full=' | sed 's/^[^=]*=//; s/|.*//')
-_e2e_status=$(printf '%s' "$_validation_output" | grep '^e2e=' | sed 's/^[^=]*=//; s/|.*//')
-_smoke_status=$(printf '%s' "$_validation_output" | grep '^smoke=' | sed 's/^[^=]*=//; s/|.*//')
-if [ "$_quick_status" = "invalid" ]; then _cmd_quick=""; fi
-if [ "$_full_status" = "invalid" ]; then _cmd_full=""; fi
-if [ "$_e2e_status" = "invalid" ]; then _cmd_e2e=""; fi
-if [ "$_smoke_status" = "invalid" ]; then _cmd_smoke=""; fi
+yoke qa case run --requirement-id <qa_requirements.id>
 ```
 
-**Always emit this block** — even when commands are empty. Showing "none configured" prevents the agent from guessing CLI invocations. When a command is invalid, show the warning and degrade to "none configured":
+The method owns execution: Command uses the mapped worktree and exit-code
+verdict, Browser check uses automatic assertions, and Browser inspection
+captures evidence and enters review. Never extract `method_config.command` and
+run it separately, discover a substitute from `package.json`, or replace a
+failing case with a smaller command.
 
-```
-Project Test Commands (from project registry):
- Quick: {_cmd_quick or "none configured"} {if _quick_status is "invalid": "⚠️ INVALID — script/executable not found, treating as unconfigured"}
- Full: {_cmd_full or "none configured"} {if _full_status is "invalid": "⚠️ INVALID — script/executable not found, treating as unconfigured"}
- E2E: {_cmd_e2e or "none configured"} {if _e2e_status is "invalid": "⚠️ INVALID — script/executable not found, treating as unconfigured"}
- Smoke: {_cmd_smoke or "none configured"} {if _smoke_status is "invalid": "⚠️ INVALID — script/executable not found, treating as unconfigured"}
-```
+## a2b. Plan-case failure discipline
 
-**Do NOT use ad-hoc test discovery** (scanning `package.json`, running bare `npx vitest` or `npx playwright test`). Always prefer the project-registered commands.
-
-**E2E and smoke guidance for standalone items:** If `_cmd_e2e` is non-empty, the implementing agent MUST run the E2E suite before recording AC-verification QA runs when the changes are E2E-sensitive. The same rule applies to `_cmd_smoke` when the changes are smoke-sensitive (e.g., touching deploy-critical paths, auth, or homepage routes). If the agent determines the changes are not E2E- or smoke-sensitive, it MUST record a brief waiver in the QA run's `--raw-result` explaining why the suite was skipped.
-
-## a2b. Quick/Full Command Failure Discipline
-
-When the `quick` or `full` scope is configured and the implementing agent runs it, the **entire** configured command must be accounted for. Partial success is not blanket success.
-
-**If any part of the registered command fails**, the agent MUST do one of:
-1. **Fix the failure** and re-run until the full command passes, OR
-2. **Record a failing QA run** (`--verdict "fail"`) with the failure details in `--raw-result`, OR
-3. **Record an explicit waiver** — a passing QA run whose `--raw-result` explains why the failure is not attributable to the current change.
-
-**The agent MUST NOT:**
-- Silently drop the failing portion and run only the passing subset without recording a waiver.
-- Record a blanket pass result that implies the full registered command succeeded when only a subset was run.
-- Substitute an ad-hoc subset command without documenting the deviation.
-
-**Waiver format:** Use `--verdict "pass"` with `--raw-result` that begins with `"Waiver:"` followed by: (a) what failed, (b) why it is not caused by the current change, and (c) a YOK-N reference to the tracking ticket for the pre-existing failure if one exists.
-
-**Path-claim ownership is not a waiver:** Future/planned item ownership or a planned path claim does not make a registered command failure pre-existing. If fixing the failure touches a file outside the active claim, widen the claim and encode the serial dependency or claim reconciliation first. Do not use `path-claim-override` for a planned future claim when dependency or claim reconciliation can resolve the ordering; override is last resort for irreducible live collisions and requires explicit operator approval.
+Every attached case must end in pass, waiver, or an explicit review outcome.
+If a case fails, fix the failure and rerun the same requirement, or use the
+registered waiver surface with a concrete rationale. Future/planned item ownership
+or a planned path claim is not a waiver for a current regression.
+If the fix expands the required files, widen the claim and use
+dependency or claim reconciliation before retrying.
+Do not use `path-claim-override` for a planned future claim when reconciliation can
+resolve the ordering; override is last resort for irreducible live collisions
+and requires explicit operator approval.
 
 ## a3. Text-Sensitive Test Audit Gate
 
@@ -113,7 +71,9 @@ Run the preflight helper before writing any implementation code:
 # YOK-{N} and "{WORKTREE_PATH}". No registered product CLI wrapper exists yet.
 ```
 
-The helper consumes the same project config (the `context_routing` Project Structure family's `testing` topic plus the `e2e` and `smoke` scopes of the `command_definitions` family) that `implementing/project-context.md` reads, falls back to deterministic directory discovery, derives candidate old strings, and greps the discovered test surfaces in one pass.
+The helper consumes project context plus attached QA-plan case configuration,
+falls back to deterministic directory discovery, derives candidate old strings,
+and greps the discovered test surfaces in one pass.
 
 Candidate-string derivation prefers **removed lines of the combined git diffs** (`git diff`, `git diff --staged`, `git diff main...HEAD`) so mid-implementation runs target the literal values being replaced. When no removals exist yet (preflight, before any edit), it falls back to quoted literals in the item spec/body and filters out anything that also appears on a `+` line — so new values the agent intentionally placed are never flagged as stale.
 
@@ -149,7 +109,7 @@ Stale String Audit: no pre-existing references found in test surfaces. Proceedin
 Stale String Audit: skipped (not text-sensitive).
 ```
 
-**If `verdict` is `missing_candidate_strings`:** Stop and tighten the ticket context before coding. Add explicit quoted old strings to the spec/body (or otherwise clarify the values being replaced), then re-run the preflight. The gate must know what old strings it is enforcing before implementation begins.
+**If `verdict` is `missing_candidate_strings`:** Stop and tighten the work-item context before coding. Add explicit quoted old strings to the spec/body (or otherwise clarify the values being replaced), then re-run the preflight. The gate must know what old strings it is enforcing before implementation begins.
 
 ### a3.3. Pre-commit verify (blocking gate)
 
@@ -206,7 +166,7 @@ yoke db read --format lines \
   WHERE migration_name='<module>'"
 ```
 
-Only after the authoritative row is present is the one-shot cutover code safe to delete. Deleting earlier (after validation-surface apply alone) leaves the ticket with no path past `implementing` without reconstructing the module from git history.
+Only after the authoritative row is present is the one-shot cutover code safe to delete. Deleting earlier (after validation-surface apply alone) leaves the work item with no path past `implementing` without reconstructing the module from git history.
 
 ## b. Record QA Runs (after implementation, before advance done)
 
@@ -232,11 +192,18 @@ When summarizing test results, the agent MUST derive all claims from recorded ev
 - **Suite scope claims** MUST reflect which suites were actually run.
 - **Never claim success for a suite that was not run or that failed.**
 
-**IMPORTANT — browser-kind requirements:** For `browser_smoke` and `browser_diff` requirements, do NOT record `executor_type='agent'` runs. These kinds require `executor_type='browser_substrate'` and must come from `yoke qa browser run`. Browser QA execution happens automatically via the pre-implemented gate in `advance/browser-qa.md`.
+**IMPORTANT — Browser method cases:** Do not record an `agent` verdict for
+`browser-check` or `browser-inspection`. Execute the requirement through
+`yoke qa case run`; the registered `browser_substrate` executor records its
+own provenance and evidence.
 
 ## c. Advance Through Review Completion
 
-**Test pass is not reviewed-implementation gate satisfaction.** Passing the registered test suite (the four-tier `quick`/`full`/`e2e`/`smoke` commands surfaced in section a2) means the implementation behaves as expected. The reviewed-implementation gate (run by the advance to `reviewed-implementation`) checks something different: every blocking `qa_requirements` row for the item must have a passing `qa_runs` entry recorded. Both must hold. While the test suite is green but you have not yet recorded the AC verification runs (or routed through the advance), do **not** summarize work as "all gates pass" — say "tests pass" instead. To preview the gate verdict at any point, use the registered summary surface: `yoke qa gate-summary --item YOK-N --target reviewed-implementation` for a standalone issue, or `yoke qa gate-summary --epic-id <epic_id> --task-num <task_num> --target reviewed-implementation` for an epic task. The gate verdict is the authority; tests being green is necessary but not sufficient.
+**One plan-case pass is not union-gate satisfaction.** Every blocking
+requirement in the attached plan must pass or be waived. To preview the union,
+use `yoke qa gate-summary --item YOK-N --target reviewed-implementation` for a
+standalone issue, or the epic/task form for a task lane. The gate verdict is
+the authority.
 
 After recording QA runs for all AC-verification requirements, the pinned
 advance workflow moves through two distinct review stages:
@@ -260,4 +227,7 @@ When `advance done` is called, the done-transition engine calls `check_done_gate
 
 ## e. Ad-hoc Tester Dispatch
 
-When the implementing agent needs to dispatch a Tester outside the conduct pipeline, it MUST use the structured dispatch template at `.agents/skills/yoke/shared/tester-dispatch-template.md`. **Do NOT dispatch a Tester for browser-kind QA requirements** — those are handled automatically by `advance/browser-qa.md`.
+When the implementing agent needs to dispatch a Tester outside the conduct
+pipeline, it MUST use the structured dispatch template at
+`.agents/skills/yoke/shared/tester-dispatch-template.md`. Do not dispatch a
+Tester for Browser method cases; execute them through the shared case runner.

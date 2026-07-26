@@ -32,7 +32,7 @@ Break-glass activation, amendment, release, and override surfaces remain command
 | Subcommand | Purpose |
 |---|---|
 | `yoke claims path register --item YOK-N --paths a,b,c [--integration-target T] [--allow-planned]` | Declare a path claim for an item. Resolves paths to canonical `path_targets` rows, runs overlap classification, transitions to `planned` (or `blocked` when a serial-via-dep upstream is named). `--integration-target` defaults to the project trunk (`projects.default_branch`, fallback `main`); pass it explicitly only when gating against a non-trunk branch. Supplied targets that do not resolve to a current git ref reject at registration with a structured error. With `--allow-planned`, paths not yet in the registry are minted as `materialization_state='planned'` rows attributed to the item. |
-| `yoke claims path register --item YOK-N --paths "" --mode exception --exception-reason "<why>" [--integration-target T]` | Record a no-claim exception for items that legitimately touch no repo surface (validation tickets, evidence-only items). Pass non-empty `--exception-reason` text so the rendered body can surface the operator's justification verbatim. `--integration-target` defaults to project trunk. |
+| `yoke claims path register --item YOK-N --paths "" --mode exception --exception-reason "<why>" [--integration-target T]` | Record a no-claim exception for items that legitimately touch no repo surface (validation work items, evidence-only items). Pass non-empty `--exception-reason` text so the rendered body can surface the operator's justification verbatim. `--integration-target` defaults to project trunk. |
 | `yoke claims path get <claim-id>` | Rich projection: state, declared coverage as readable paths, amendment history, current blocking conflicts. |
 | `yoke claims path list --item YOK-N [--state X]` | Same projection, every claim attached to the item, filterable by state. |
 | `yoke path-claims conflicts list [--integration-target T]` | Cross-claim conflict listing across the open frontier. |
@@ -64,16 +64,16 @@ that matches reality:
 | Out-of-coverage commits are… | Action |
 |---|---|
 | same logical change, no other claim conflicts | **Widen** existing claim |
-| same logical change, would conflict with another active claim | **Split** into a new ticket |
+| same logical change, would conflict with another active claim | **Split** into a new work item |
 | accidental (rebase artifact, debug code, wrong include) | **Revert** the commits |
-| different cadence / reviewer / risk profile | **Split** into a new ticket |
+| different cadence / reviewer / risk profile | **Split** into a new work item |
 
 * **Widen:** `yoke claims path widen --claim-id <claim-id> --add-paths a,b --reason R --item YOK-N`.
   Re-runs overlap classification on the union; rejects with
   `IncompatibleOverlap` if the union conflicts.
 * **Revert:** `git -C <worktree> revert <commit-sha>`; re-run the
   boundary check.
-* **Split:** file a new ticket via `/yoke idea`, cherry-pick or
+* **Split:** file a new work item via `/yoke idea`, cherry-pick or
   move the commits onto its branch, register a new claim for that
   coverage, and re-run the original boundary check.
 
@@ -115,7 +115,7 @@ rejects with `IncompatibleOverlap`. Claim narrower or split.
 
 ## No-claim exceptions
 
-Validation tickets, evidence-only items, and meta tickets that
+Validation work items, evidence-only items, and meta work items that
 legitimately touch no repo surface record a no-claim exception
 instead of a normal claim:
 
@@ -123,7 +123,7 @@ instead of a normal claim:
 yoke claims path register \
     --item YOK-N --mode exception \
     --paths "" \
-    --exception-reason "validation-only ticket; verifies path-claim coverage end-to-end without code changes"
+    --exception-reason "validation-only work item; verifies path-claim coverage end-to-end without code changes"
 ```
 
 Exceptions land in state `active` immediately (there is no door
@@ -133,7 +133,7 @@ operator's reason verbatim. The catch-up audit and idea/refine gate
 both treat a non-terminal exception with non-empty reason as
 "coverage satisfied."
 
-## Where the rendered ticket body shows claim state
+## Where the rendered work item body shows claim state
 
 `yoke items get YOK-N body` renders a
 `## Path Claims` section for any item with at least one claim
@@ -173,8 +173,8 @@ Boundary touch facts never narrow a non-terminal claim. While a
 claim is non-terminal, every declared path remains reserved
 regardless of whether the worktree has touched it.
 
-If Ticket A actively claims `foo.py` and `bar.py` but only commits
-changes to `foo.py`, Ticket B cannot claim `bar.py` merely because
+If Work item A actively claims `foo.py` and `bar.py` but only commits
+changes to `foo.py`, Work item B cannot claim `bar.py` merely because
 A's diff doesn't touch it. Free `bar.py` for B by (a) narrowing A
 explicitly (which runs the boundary check first — see "Narrowing
 safety" above) or (b) waiting for A to terminate. Touched files are
@@ -236,7 +236,7 @@ next.
    `done` backstop) emits `PathClaimReleased` automatically (see
    "Item terminal transitions" above).
 4. **Route a narrow / cancel request to the active holder** —
-   cross-session emission is deferred to a future ticket; for now
+   cross-session emission is deferred to a future work item; for now
    this collapses to manual operator coordination (reach the holder
    out of band, or escalate to step 5).
 5. **Operator override (last resort)** — when normal resolution is
@@ -343,4 +343,4 @@ Everyday reads and mutations use `yoke claims path ...` plus `yoke path-claims c
 
 ## Expressing dependencies between path claims
 
-To express "ticket B waits for ticket A", use the shepherd dependency mutation flow rather than a path-claim-specific command. The path-claim system reads `item_dependencies`: register auto-populates `blocked_reason` so B lands in `state='blocked'` without `--upstream-claim-id`; widen and classify_overlap inherit the same posture in both directions. `--upstream-claim-id` is an advanced escape hatch for multi-claim coordination, not the default. When a claim releases, `propagate_release_unblock` re-classifies downstream blocked claims via direct `blocked_reason` references AND `item_dependencies` satisfaction (`status:done` default), flipping `blocked → planned` automatically.
+To express "work item B waits for work item A", use the shepherd dependency mutation flow rather than a path-claim-specific command. The path-claim system reads `item_dependencies`: register auto-populates `blocked_reason` so B lands in `state='blocked'` without `--upstream-claim-id`; widen and classify_overlap inherit the same posture in both directions. `--upstream-claim-id` is an advanced escape hatch for multi-claim coordination, not the default. When a claim releases, `propagate_release_unblock` re-classifies downstream blocked claims via direct `blocked_reason` references AND `item_dependencies` satisfaction (`status:done` default), flipping `blocked → planned` automatically.

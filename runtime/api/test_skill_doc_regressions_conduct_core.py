@@ -124,7 +124,7 @@ class TestConductPhasedRead:
         text = _read(conduct_dir / "SKILL.md")
         assert "Successor owner map" in text
         # Verify the owner-map points at the real phase files, not legacy
-        # ticket breadcrumbs.
+        # work-item breadcrumbs.
         for owner_file in (
             "engineer-tester-loop.md",
             "dispatch-context.md",

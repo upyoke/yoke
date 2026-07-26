@@ -70,6 +70,13 @@ def _harness_event_isolation(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _harness_authority_selection_isolation(monkeypatch):
+    """Keep an operator's selected universe out of synthetic hook bindings."""
+    monkeypatch.delenv("YOKE_ENV", raising=False)
+    yield
+
+
+@pytest.fixture(autouse=True)
 def _no_batch_connection(monkeypatch):
     """Pin the telemetry flush to its no-shared-connection path.
 

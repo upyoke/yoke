@@ -166,6 +166,15 @@ def emit_qa_run_event(
     event_type=``qa_execution``. ``verdict`` is included in the context
     detail only when not None.
     """
+    from yoke_core.domain.qa_review_requests import (
+        maybe_ensure_qa_review_request,
+    )
+    try:
+        maybe_ensure_qa_review_request(
+            conn, verdict=verdict, requirement_id=requirement_id, run_id=run_id,
+        )
+    except Exception:
+        _safe_rollback(conn)
     try:
         from .events import emit_event
     except Exception:

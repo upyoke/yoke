@@ -132,13 +132,11 @@ def _dispatch_executor(
             first_item=first_item, sd=sd,
         ), ""
     if executor == "human-approval":
-        print(f"Awaiting human approval for stage '{name}'")
-        _emit_run_event(
-            "DeploymentRunStageCompleted", "completed",
-            {"run_id": run_id, "stage": name, "result": "skipped", "reason": "awaiting-approval"},
-            member_items=member_items, project=project, sd=sd,
+        from yoke_core.domain.deployment_approval_requests import (
+            dispatch_deployment_stage_approval,
         )
-        return -2, ""
+
+        return dispatch_deployment_stage_approval(run_id, name)
     if executor == "github-actions-workflow":
         return _dispatch_github_actions_workflow(
             config, name=name, run_id=run_id, member_items=member_items,

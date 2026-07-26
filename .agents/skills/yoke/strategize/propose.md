@@ -47,10 +47,10 @@ When an approved finding says current work has pulled a later-generation concept
 
 When an approved finding says a planned surface looks temporary, draft one of two shapes:
 
-- **Pull forward / consume existing primitive:** Name the existing or current-slice primitive (`path_claims`, `coordination_leases`, events ledger, actors, phase runs, execution journal, compiled packet, etc.) and make the ticket consume it.
-- **Declare deletion target:** If the surface is intentionally temporary, require the ticket to name the exact later slice or primitive that deletes or absorbs it.
+- **Pull forward / consume existing primitive:** Name the existing or current-slice primitive (`path_claims`, `coordination_leases`, events ledger, actors, phase runs, execution journal, compiled packet, etc.) and make the work item consume it.
+- **Declare deletion target:** If the surface is intentionally temporary, require the work item to name the exact later slice or primitive that deletes or absorbs it.
 
-Avoid changes that merely move a phrase from one generation to another without changing the implementation instruction. The output should tell the next ticket author what to build, what not to build yet, and what future surface consumes the v0.
+Avoid changes that merely move a phrase from one generation to another without changing the implementation instruction. The output should tell the next work item author what to build, what not to build yet, and what future surface consumes the v0.
 
 ### 1b1. LANDSCAPE.md Editorial Rules
 

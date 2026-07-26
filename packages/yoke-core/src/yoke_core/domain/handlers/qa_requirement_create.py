@@ -24,11 +24,15 @@ after commit (mirrors the CLI contract).
 
 from __future__ import annotations
 
+import json
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
 from yoke_core.domain.handlers.qa import _error, _p
+from yoke_core.domain.handlers.qa_requirement_method_validation import (
+    validate_method_requirement,
+)
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     HandlerOutcome,
@@ -39,14 +43,16 @@ _INSERT_SQL = (
     "INSERT INTO qa_requirements "
     "(item_id, epic_id, task_num, deployment_run_id, qa_kind, qa_phase, "
     "target_env, blocking_mode, requirement_source, success_policy, "
-    "capability_requirements, suite_id, created_at) "
-    "VALUES ({p}, NULL, NULL, NULL, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}) "
+    "capability_requirements, suite_id, method_id, instructions, "
+    "expected_outcome, method_config, created_at) "
+    "VALUES ({p}, NULL, NULL, NULL, {p}, {p}, {p}, {p}, {p}, {p}, "
+    "{p}, {p}, {p}, {p}, {p}, {p}, {p}) "
     "RETURNING id"
 )
 
 
 class QaRequirementAddRequest(BaseModel):
-    qa_kind: str
+    qa_kind: Optional[str] = None
     qa_phase: str
     target_env: Optional[str] = None
     blocking_mode: str = "blocking"
@@ -54,6 +60,10 @@ class QaRequirementAddRequest(BaseModel):
     success_policy: Optional[str] = None
     capability_requirements: Optional[str] = None
     suite_id: Optional[str] = None
+    method_id: Optional[str] = None
+    instructions: Optional[str] = None
+    expected_outcome: Optional[str] = None
+    method_config: Optional[Dict[str, Any]] = None
 
 
 class QaRequirementAddResponse(BaseModel):
@@ -77,11 +87,23 @@ def _validate_row(row: Dict[str, Any], jsonpath: str) -> Optional[HandlerOutcome
         validate_success_policy,
     )
 
+    method_id = row.get("method_id")
     qa_kind = row.get("qa_kind")
-    qa_phase = row.get("qa_phase")
-    if not isinstance(qa_kind, str) or not qa_kind:
+    if (
+        isinstance(method_id, str) and method_id.strip()
+        and isinstance(qa_kind, str) and qa_kind.strip()
+    ):
         return _error(
-            "payload_invalid", "qa_kind is required",
+            "payload_invalid", "qa_kind and method_id are mutually exclusive",
+            jsonpath=jsonpath,
+        )
+    qa_phase = row.get("qa_phase")
+    if isinstance(method_id, str) and method_id.strip():
+        row["method_id"] = method_id.strip()
+        row["qa_kind"] = "method_case"
+    elif not isinstance(qa_kind, str) or not qa_kind:
+        return _error(
+            "payload_invalid", "qa_kind or method_id is required",
             jsonpath=f"{jsonpath}.qa_kind",
         )
     if not isinstance(qa_phase, str) or not qa_phase:
@@ -89,7 +111,8 @@ def _validate_row(row: Dict[str, Any], jsonpath: str) -> Optional[HandlerOutcome
             "payload_invalid", "qa_phase is required",
             jsonpath=f"{jsonpath}.qa_phase",
         )
-    row["qa_kind"] = _normalize_qa_kind(qa_kind)
+    if not row.get("method_id"):
+        row["qa_kind"] = _normalize_qa_kind(str(qa_kind))
     row["qa_phase"] = _normalize_qa_phase(qa_phase)
 
     blocking_mode = str(row.get("blocking_mode") or "blocking")
@@ -131,6 +154,13 @@ def _insert_params(item_id: int, row: Dict[str, Any], now_iso: str) -> tuple:
         row.get("success_policy"),
         row.get("capability_requirements"),
         row.get("suite_id"),
+        row.get("method_id"),
+        row.get("instructions"),
+        row.get("expected_outcome"),
+        (
+            json.dumps(row["method_config"], sort_keys=True)
+            if row.get("method_id") else None
+        ),
         now_iso,
     )
 
@@ -155,6 +185,9 @@ def handle_qa_requirement_add(request: FunctionCallRequest) -> HandlerOutcome:
 
     conn = connect()
     try:
+        invalid = validate_method_requirement(conn, row, "$.payload")
+        if invalid is not None:
+            return invalid
         p = _p(conn)
         cur = conn.execute(
             _INSERT_SQL.format(p=p),
@@ -254,6 +287,12 @@ def handle_qa_requirement_add_batch(
             p = _p(conn)
             now_iso = iso8601_now()
             for row in normalized:
+                invalid = validate_method_requirement(
+                    conn, row, f"$.payload.rows[{len(inserted_ids)}]",
+                )
+                if invalid is not None:
+                    conn.rollback()
+                    return invalid
                 cur = conn.execute(
                     _INSERT_SQL.format(p=p),
                     _insert_params(int(item_id), row, now_iso),

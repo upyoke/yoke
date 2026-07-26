@@ -209,12 +209,12 @@ def proceed_triage_and_handoff(
     *,
     recommendation: str,
     gap_summary: str = "",
-    filed_ticket_ids: Optional[List[str]] = None,
+    filed_item_ids: Optional[List[str]] = None,
     session_id: Optional[str] = None,
 ) -> int:
     """Record a PROCEED triage decision and hand off the parent epic.
 
-    Called by Conduct's simulation-gate PROCEED branch after follow-up tickets
+    Called by Conduct's simulation-gate PROCEED branch after follow-up work items
     are filed. This is the Python owner for the PROCEED-path reviewed-handoff,
     mirroring how ``persist_and_verify`` owns the CLEAN-path auto-handoff.
 
@@ -228,7 +228,7 @@ def proceed_triage_and_handoff(
         epic_id: The parent epic item ID (bare integer).
         recommendation: The Simulator's recommendation string (e.g. "PROCEED").
         gap_summary: Brief summary of gaps accepted (for audit trail).
-        filed_ticket_ids: List of YOK-N IDs for follow-up tickets filed.
+        filed_item_ids: List of YOK-N IDs for follow-up work items filed.
         session_id: Session ID for claim release (falls back to env vars).
 
     Returns:
@@ -258,12 +258,12 @@ def proceed_triage_and_handoff(
         )
         return 1
 
-    tickets_str = ", ".join(filed_ticket_ids) if filed_ticket_ids else "none"
+    items_str = ", ".join(filed_item_ids) if filed_item_ids else "none"
     raw_result = json.dumps({
         "triage": "PROCEED",
         "recommendation": recommendation,
         "gap_summary": gap_summary,
-        "filed_tickets": tickets_str,
+        "filed_items": items_str,
     }, separators=(",", ":"))
 
     # Step 1: Record PROCEED triage as a passing QA run on the integration
@@ -317,7 +317,7 @@ def proceed_triage_and_handoff(
 
     print(
         "PROCEED triage accepted for epic %d: recommendation=%s, "
-        "filed_tickets=[%s] -> reviewed-implementation (verified)"
-        % (epic_id, recommendation, tickets_str)
+        "filed_items=[%s] -> reviewed-implementation (verified)"
+        % (epic_id, recommendation, items_str)
     )
     return 0

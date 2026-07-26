@@ -177,13 +177,6 @@ def apply_additive_schema(conn: Any) -> None:
     _add_column_if_not_exists(conn, "items", "deploy_log", "TEXT")
     conn.commit()
 
-    # browser_qa_metadata — JSON-valued structured field populated at
-    # idea/refine time.  Added nullable; existing-row normalization to the
-    # negative default lives in apply_legacy_data_migrations.  Annotated for
-    # Postgres cutover; see :data:`yoke_core.domain.sql_json.JSONB_COLUMNS`.
-    _add_column_if_not_exists(conn, "items", "browser_qa_metadata", "TEXT")  # → JSONB on Postgres
-    conn.commit()
-
     # db_mutation_profile / db_compatibility_attestation — governed
     # DB-mutation contract.  DB-level NOT NULL DEFAULT makes omission
     # structurally impossible: every INSERT lands a row with a valid negative
@@ -269,19 +262,6 @@ def apply_legacy_data_migrations(conn: Any) -> None:
         conn.execute("DROP TABLE IF EXISTS epic_reviews")
         conn.commit()
         print("Dropped legacy epic_reviews table (consolidated into reviews).")
-
-    # browser_qa_metadata — normalize legacy NULL/''/'null' rows to the
-    # explicit negative default so seeding callers never encounter empty
-    # metadata.
-    from yoke_core.domain.browser_qa_metadata import NEGATIVE_DEFAULT_JSON
-    conn.execute(
-        f"UPDATE items SET browser_qa_metadata = {placeholder} "
-        "WHERE browser_qa_metadata IS NULL "
-        "OR browser_qa_metadata = '' "
-        "OR browser_qa_metadata = 'null'",
-        (NEGATIVE_DEFAULT_JSON,),
-    )
-    conn.commit()
 
     # db_mutation_profile / db_compatibility_attestation — normalize legacy
     # NULL/''/'null' rows to the explicit negative defaults.

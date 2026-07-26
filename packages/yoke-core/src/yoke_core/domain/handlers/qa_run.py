@@ -46,8 +46,8 @@ def handle_qa_run_record_verdict(request: FunctionCallRequest) -> HandlerOutcome
     from yoke_core.domain.db_helpers import connect, iso8601_now, query_one
     from yoke_core.domain import qa_events
     from yoke_core.domain.qa_constants import (
-        VALID_BROWSER_QA_KINDS,
         VALID_VERDICTS,
+        case_outcome_for_verdict,
     )
 
     target = request.target
@@ -79,16 +79,19 @@ def handle_qa_run_record_verdict(request: FunctionCallRequest) -> HandlerOutcome
         p = _p(conn)
         row = query_one(
             conn,
-            f"SELECT qa_kind FROM qa_requirements WHERE id = {p}",
+            f"SELECT qa_kind, method_id FROM qa_requirements WHERE id = {p}",
             (int(req_id),),
         )
         if row is None:
             return _error("not_found", f"requirement {req_id} not found")
         qa_kind = str(row["qa_kind"])
-        if executor_type == "agent" and qa_kind in VALID_BROWSER_QA_KINDS:
+        if (
+            executor_type == "agent"
+            and row["method_id"] in {"browser-check", "browser-inspection"}
+        ):
             return _error(
                 "policy_violation",
-                f"executor_type 'agent' is not allowed for qa_kind {qa_kind!r} "
+                "executor_type 'agent' is not allowed for Browser methods "
                 f"-- use browser_substrate",
                 jsonpath="$.payload.executor_type",
             )
@@ -97,12 +100,14 @@ def handle_qa_run_record_verdict(request: FunctionCallRequest) -> HandlerOutcome
         p = _p(conn)
         cur = conn.execute(
             "INSERT INTO qa_runs "
-            "(qa_requirement_id, executor_type, qa_kind, verdict, raw_result, "
-            "duration_ms, started_at, completed_at, created_at) "
-            f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}) "
+            "(qa_requirement_id, executor_type, qa_kind, verdict, "
+            "case_outcome, raw_result, duration_ms, started_at, "
+            "completed_at, created_at) "
+            f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}) "
             "RETURNING id",
             (
-                int(req_id), executor_type, qa_kind, verdict, raw_result,
+                int(req_id), executor_type, qa_kind, verdict,
+                case_outcome_for_verdict(verdict), raw_result,
                 duration_ms, now_iso, now_iso, now_iso,
             ),
         )

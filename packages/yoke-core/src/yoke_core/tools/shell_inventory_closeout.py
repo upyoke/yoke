@@ -1,8 +1,8 @@
 """Zero-shell zero-shell closeout lane routing tables for the shell migration inventory.
 
 Each frozenset declares the relpath or basename allowlist owned by a specific
-zero-shell closeout lane. The classifier consults ``closeout_ticket_for_non_test`` and
-``closeout_ticket_for_test`` to attach the right closeout lane to every shell
+zero-shell closeout lane. The classifier consults ``closeout_lane_for_non_test`` and
+``closeout_lane_for_test`` to attach the right closeout lane to every shell
 file the inventory enumerates.
 """
 
@@ -305,7 +305,7 @@ ZERO_SHELL_CLOSEOUT_UTILITY_TESTS = frozenset(
 )
 
 
-def closeout_ticket_for_non_test(relpath: str) -> str | None:
+def closeout_lane_for_non_test(relpath: str) -> str | None:
     if relpath in ZERO_SHELL_CLOSEOUT_DB_RELPATHS:
         return "db-wrapper-retirement"
     if relpath in ZERO_SHELL_CLOSEOUT_BACKLOG_RELPATHS:
@@ -325,7 +325,7 @@ def closeout_ticket_for_non_test(relpath: str) -> str | None:
     return None
 
 
-def closeout_ticket_for_test(relpath: str) -> str:
+def closeout_lane_for_test(relpath: str) -> str:
     basename = Path(relpath).name
     if basename in ZERO_SHELL_CLOSEOUT_DB_TESTS:
         return "db-wrapper-retirement"

@@ -33,7 +33,7 @@ from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 # clean-baseline guard (fix cycle 1 GAP #9). Function-id-style noun phrases
 # (`items.structured_field`, `items.scalar`, `items.body`, etc.) still
 # trip Class A without a sanctioned cross-reference prefix; the post-merge
-# refinement ticket drains the remaining residue.
+# refinement work item drains the remaining residue.
 BASELINE_KNOWN_RESIDUE: Dict[str, Tuple[str, ...]] = {
     "tier-schema-bleed": (
         "items.structured_field", "items.section", "items.progress_log",
@@ -143,7 +143,6 @@ def test_schema_bleed_class_a(tmp_path, monkeypatch, conn, table_col, kind):
 
 # HC-tier-schema-bleed Class B — JSON nested field accessed as top-level.
 _CLASS_B_CASES = [
-    ("browser_testable", "items", "browser_qa_metadata"),
     ("migration_strategy", "items", "db_mutation_profile"),
 ]
 

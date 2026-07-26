@@ -205,7 +205,7 @@ def conduct_epic_task_update_status(args: List[str]) -> int:
 
 CONDUCT_EPIC_PROCEED_TRIAGE_HANDOFF_USAGE = (
     "yoke conduct epic proceed-triage-handoff --epic N "
-    "[--recommendation R] [--gap-summary S] [--filed-tickets T1,T2] "
+    "[--recommendation R] [--gap-summary S] [--filed-items T1,T2] "
     "[--session-id S] [--json]"
 )
 
@@ -218,7 +218,7 @@ def conduct_epic_proceed_triage_handoff(args: List[str]) -> int:
     parser.add_argument("--epic", type=int, required=True)
     parser.add_argument("--recommendation", default="PROCEED")
     parser.add_argument("--gap-summary", default="")
-    parser.add_argument("--filed-tickets", default="")
+    parser.add_argument("--filed-items", default="")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(
@@ -231,7 +231,7 @@ def conduct_epic_proceed_triage_handoff(args: List[str]) -> int:
         {
             "recommendation": parsed.recommendation,
             "gap_summary": parsed.gap_summary,
-            "filed_ticket_ids": split_comma(parsed.filed_tickets),
+            "filed_item_ids": split_comma(parsed.filed_items),
             "session_id": parsed.session_id,
         },
         parsed, lambda r, out, err: out.write((r.result or {}).get("stdout", "")),

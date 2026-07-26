@@ -43,6 +43,6 @@ Read and follow each phase file in order. All phases share the context variables
 
 **Execution order matters:** The project-context preflight must complete before the text-sensitive audit in `test-and-record.md` and before the file-discovery guidance in `implementation.md`.
 
-**Parallel phase-read optimization:** The agent MAY read phases 1, 2, 3, and 4 in a single parallel tool call before executing any of them. Phase 1b (browser-seeding) is only read when qa-seeding.md determines the item is browser-testable — skip it for non-browser items to save context budget. Pre-loading applicable docs in one round-trip eliminates multiple sequential Read calls.
+**Parallel phase-read optimization:** The agent MAY read phases 1, 2, 3, and 4 in a single parallel tool call before executing any of them. Read Phase 1b only when the item's attached plans or explicit verification contract call for a Browser method case. Pre-loading applicable docs in one round-trip eliminates multiple sequential Read calls.
 
 **IMPORTANT — large files:** When working with large files during implementation, use the Read tool's `offset` and `limit` parameters to load only the needed range. This preserves context window budget. For example, if you need a theme block near the end of a 500-line CSS file, read only that range — do not read the entire file. This guidance appears here (in the router) so it is always visible, even if later phase files are read with offset/limit themselves.

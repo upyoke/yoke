@@ -58,7 +58,7 @@ CORE_TABLES: dict[str, dict] = {
             "`items get YOK-N body` or read the structured-field columns "
             "directly): spec, design_spec, technical_plan, worktree_plan, "
             "shepherd_log, shepherd_caveats, test_results, deploy_log, "
-            "browser_qa_metadata, db_mutation_profile, "
+            "db_mutation_profile, "
             "db_compatibility_attestation, architecture_impact, "
             "resolution, resolution_ref, resolution_comment, "
             "spec_updated_at, spec_updated_by, rework_count, merged_at, "

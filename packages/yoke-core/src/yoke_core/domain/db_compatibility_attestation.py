@@ -25,7 +25,7 @@ Schema shape::
     }
 
 The empty default ``{}`` is the shape stored before any attestation is
-authored.  ``validate`` accepts the empty object unchanged so tickets whose
+authored.  ``validate`` accepts the empty object unchanged so work items whose
 profile is ``state="none"`` never need to author an attestation.
 
 For attestations on a ``pre_merge_safe`` profile the joint gate at

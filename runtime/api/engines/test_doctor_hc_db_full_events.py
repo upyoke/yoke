@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
+import pytest
+
 from yoke_core.engines.doctor import (
     hc_event_callsite_registry_sync,
     hc_event_emission_rate,
@@ -217,6 +219,12 @@ class TestHCShepherdLifecycleFull:
 class TestHCEventRegistryCoverage:
     """Tests for HC-event-registry-coverage."""
 
+    @pytest.fixture(autouse=True)
+    def _empty_registry(self, test_db):
+        """Exercise coverage against only the rows authored by each test."""
+        test_db.execute("DELETE FROM event_registry")
+        test_db.commit()
+
     def test_pass_no_registry_table(self, test_db):
         """PASS when event_registry table absent."""
         test_db.execute("DROP TABLE IF EXISTS event_registry")
@@ -279,7 +287,7 @@ class TestHCEventEmissionRate:
 
     def test_pass_no_events_table(self, test_db):
         """PASS when events table absent."""
-        test_db.execute("DROP TABLE IF EXISTS events")
+        test_db.execute("DROP TABLE IF EXISTS events CASCADE")
         test_db.commit()
         rec = _run_hc(hc_event_emission_rate, test_db)
         r = _result(rec)

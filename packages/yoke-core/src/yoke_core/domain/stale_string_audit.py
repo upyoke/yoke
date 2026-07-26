@@ -8,9 +8,8 @@ Main entry points:
 
 1. ``discover-surfaces <item-id>`` — Discover test surfaces for an item's
    project using project config (the ``context_routing`` Project Structure
-   family's ``testing`` topic plus the ``e2e`` and ``smoke``
-   ``command_definitions`` scopes), with fallback to deterministic
-   directory scanning.
+   family's ``testing`` topic plus registered ``e2e`` and ``smoke`` Command
+   QA plans), with fallback to deterministic directory scanning.
 2. ``preflight <item-id> <search-root>`` — Discover surfaces, extract
    candidate old strings from the item spec/body, and grep before editing.
    Returns a JSON summary and never blocks on matches.
