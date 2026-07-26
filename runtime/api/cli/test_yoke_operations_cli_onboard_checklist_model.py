@@ -44,7 +44,7 @@ def test_onboard_checklist_model_renders_deterministic_json(
             checklist.ChecklistRow(
                 id="handoff",
                 layer="agentic",
-                title="/yoke onboard-project handoff",
+                title="/yoke onboard handoff",
                 status="deferred",
             ),
         ],

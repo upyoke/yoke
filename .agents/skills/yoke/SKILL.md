@@ -17,7 +17,7 @@ This skill routes to subcommands. Parse the arguments to determine which subcomm
    - Harnesses without an `ExitPlanMode` tool continue normally after emitting the same one-line note.
 3. **Read the instruction file** at `.agents/skills/yoke/{subcommand}/SKILL.md` using the Read tool. If the file is missing, show the command reference instead of inventing a replacement.
    For setup, the entry point is the `yoke onboard` Textual wizard, which opens on the deployment-destination picker (this machine's local universe / a team server / upyoke.com), walks the destination's sign-in lane plus GitHub, Project, and Review, and previews every write before applying (`--local` / `--connect URL` route non-interactively). To install or repair a project's local operating layer afterward, use `yoke project install`. The standalone per-mode commands `yoke project create`, `yoke project import`, and `yoke onboard project` script a single project source non-interactively. Verify with `yoke status`; `yoke dev setup` is the explicit source-dev/admin add-on.
-   Use `/yoke onboard-project` only for harness-side agentic adoption after deterministic install.
+   After wire-up, `/yoke onboard` is the harness-side skill that makes the wired project execution-ready — strategy docs, execution profile, Packs, hosting, environments, a gated first deploy, and seeded first work.
 4. **Follow those instructions completely**, passing any remaining arguments as that subcommand's arguments.
 
 If the user typed a colon-separated form like `/yoke:conduct` or `yoke:plan`, the part after the colon is the subcommand.
@@ -33,7 +33,7 @@ If no subcommand is provided, or the subcommand is `help`, show the command refe
 | `/yoke charge` | Direct-mode: pick up next runnable item from the frontier |
 | `/yoke feed` | Direct-mode: materialize new work from the strategy layer |
 | `/yoke strategize` | Direct-mode: guided SML review (research, propose, approve) |
-| `/yoke onboard-project` | Harness-side agentic project adoption after deterministic install |
+| `/yoke onboard [--project P] [--run-id RUN]` | Make a wired project execution-ready: strategy, profile, Packs, hosting, environments, gated first deploy, seeded work |
 | `/yoke idea {title}` | Capture a new backlog item |
 | `/yoke shepherd YOK-N` | Drive item through quality-gated lifecycle to ready |
 | `/yoke conduct YOK-N` | Engineer/Tester loop for a single item |

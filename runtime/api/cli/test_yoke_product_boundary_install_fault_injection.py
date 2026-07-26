@@ -213,8 +213,8 @@ def _bundle() -> dict[str, Any]:
         "project_slug": "external-demo",
         "files": [
             {
-                "path": ".codex/skills/yoke/onboard-project/SKILL.md",
-                "content": "# onboard-project\n",
+                "path": ".codex/skills/yoke/onboard/SKILL.md",
+                "content": "# onboard\n",
             },
         ],
         "project_contract_files": [
@@ -257,7 +257,7 @@ def _assert_installed_project_layer(checkout: Path) -> None:
         if path.is_file()
     }
     assert {
-        ".codex/skills/yoke/onboard-project/SKILL.md",
+        ".codex/skills/yoke/onboard/SKILL.md",
         ".claude/settings.json",
         ".codex/hooks.json",
         ".git/hooks/pre-commit",

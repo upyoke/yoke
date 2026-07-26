@@ -70,8 +70,8 @@ def test_install_bundle_serves_files_and_hooks(client) -> None:
     assert ".codex/skills/yoke/shepherd/SKILL.md" in paths
     assert ".claude/agents/yoke-engineer.md" in paths
     assert ".codex/agents/yoke-tester.toml" in paths
-    assert ".claude/skills/yoke/onboard-project/SKILL.md" in paths
-    assert ".codex/skills/yoke/onboard-project/SKILL.md" in paths
+    assert ".claude/skills/yoke/onboard/SKILL.md" in paths
+    assert ".codex/skills/yoke/onboard/SKILL.md" in paths
     assert bundle["hooks"]["claude_settings_hooks"]
     assert bundle["hooks"]["codex_hooks"]
     contract = bundle["project_contract_files"]
