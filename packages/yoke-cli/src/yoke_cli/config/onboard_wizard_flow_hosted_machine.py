@@ -4,24 +4,23 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Protocol
 
-from yoke_contracts.api_urls import HOSTED_PLATFORM_URL
+from yoke_contracts.api_urls import HOSTED_PLATFORM_URL, HOSTED_STAGE_PLATFORM_URL
 
 from yoke_cli.config import hosted_machine_authorization
 from yoke_cli.config import onboard_wizard_steps as steps
 from yoke_cli.config import writer
 from yoke_cli.config import yoke_token_verify
-from yoke_cli.config.onboard_destinations import ENV_PRODUCTION
-from yoke_cli.config.onboard_wizard_palette import BRAND
-from yoke_cli.config.onboard_wizard_widgets import STEP_CONNECT, SelectionRow
+from yoke_cli.config.onboard_destinations import ENV_STAGE
+from yoke_cli.config.onboard_wizard_widgets import STEP_CONNECT
 
 
-ENV_SELECT_ROWS = [
-    SelectionRow(
-        ENV_PRODUCTION,
-        "Yoke Cloud",
-        HOSTED_PLATFORM_URL.removeprefix("https://"),
-    ),
-]
+def platform_url_for_env(env_name: object) -> str:
+    """Platform the browser connect leg opens for a hosted environment."""
+    return (
+        HOSTED_STAGE_PLATFORM_URL
+        if str(env_name or "") == ENV_STAGE
+        else HOSTED_PLATFORM_URL
+    )
 
 if TYPE_CHECKING:  # pragma: no cover
     from yoke_cli.config.onboard_wizard_app import _View
@@ -35,25 +34,13 @@ class _Shell(Protocol):  # pragma: no cover
     _hosted_machine_denial_retry_used: bool
 
     def _goto(self, view: "_View") -> None: ...
+    def _goto_destination_picker(self) -> None: ...
     def _selection_view(self, *args, **kwargs) -> "_View": ...
     def _run_checking(self, **kwargs) -> None: ...
     def _goto_yoke_verify_success(self, verification: dict[str, Any]) -> None: ...
 
 
 class HostedMachineConnectFlow:
-    def _goto_hosted_env_select(self: _Shell) -> None:
-        self._goto(self._selection_view(
-            STEP_CONNECT,
-            f"Connect to {BRAND}.",
-            "Which hosted environment should this machine use?",
-            ENV_SELECT_ROWS,
-            self._after_env_select,
-        ))
-
-    def _after_env_select(self: _Shell, choice: str) -> None:
-        del choice
-        self._start_hosted_machine_authorization()
-
     def _start_hosted_machine_authorization(
         self: _Shell, *, after_denial: bool = False,
     ) -> None:
@@ -80,7 +67,9 @@ class HostedMachineConnectFlow:
             step=STEP_CONNECT,
             title=title,
             message=message,
-            work=lambda: hosted_machine_authorization.start(HOSTED_PLATFORM_URL),
+            work=lambda: hosted_machine_authorization.start(
+                platform_url_for_env(self.result.env_name),
+            ),
             on_success=_success,
             on_error=lambda exc: self._goto_hosted_machine_error(str(exc)),
             group="onboard-hosted-machine-start",
@@ -204,9 +193,9 @@ class HostedMachineConnectFlow:
             lambda choice: (
                 self._start_hosted_machine_authorization()
                 if choice == "retry"
-                else self._goto_hosted_env_select()
+                else self._goto_destination_picker()
             ),
         ))
 
 
-__all__ = ["ENV_SELECT_ROWS", "HostedMachineConnectFlow"]
+__all__ = ["HostedMachineConnectFlow", "platform_url_for_env"]

@@ -1,9 +1,10 @@
 """Pilot coverage for the wizard's deployment-destination picker.
 
 The Account step opens on one picker — this machine / a team server /
-upyoke.com — and the answer changes only the sign-in lane: local swaps
-sign-in for the universe summary (birth runs at Apply), server collects a
-URL then a token, hosted keeps the environment select and browser approval. The closing test
+upyoke.com / stage.upyoke.com — and the answer changes only the sign-in
+lane: local swaps sign-in for the universe summary (birth runs at Apply),
+server collects a URL then a token, and either hosted row goes straight to
+browser approval against the platform that row named. The closing test
 drives the real apply seam end to end (picker → local → Apply) against a
 scratch machine home with the embedded-Postgres engine stubbed, and proves
 the written config matches what ``yoke init --local`` lands.
@@ -24,7 +25,6 @@ from yoke_cli.commands.adapters import onboard_apply  # noqa: E402
 from yoke_cli.config import local_universe_setup  # noqa: E402
 from yoke_cli.config import writer  # noqa: E402
 from yoke_cli.config.onboard_destinations import (  # noqa: E402
-    DESTINATION_HOSTED,
     DESTINATION_LOCAL,
     DESTINATION_SERVER,
 )
@@ -34,7 +34,6 @@ from yoke_cli.config.onboard_wizard_flow_destination import (  # noqa: E402
     ACCOUNT_STEP_LABELS,
 )
 from yoke_cli.config.onboard_wizard_widgets import (  # noqa: E402
-    STEP_CONNECT_LABEL,
     STEP_GITHUB,
     SelectionList,
     Stepper,
@@ -175,22 +174,6 @@ def test_server_pick_collects_url_then_token() -> None:
     asyncio.run(scenario())
 
 
-def test_hosted_pick_offers_the_product_cloud_authority() -> None:
-    app, _spy = make_app(_picker_defaults(token=None))
-
-    async def scenario() -> None:
-        async with app.run_test() as pilot:
-            await advance_past_path(pilot)
-            await pilot.press("up")  # picker: wrap local -> upyoke.com
-            await pilot.press("enter")
-            text = _body_text(app)
-            assert "Which hosted environment should this machine use?" in text
-            rows = app.query_one(SelectionList).rows
-            assert [row.label for row in rows] == ["Yoke Cloud"]
-            assert app.result.destination == DESTINATION_HOSTED
-
-    asyncio.run(scenario())
-
 
 def test_preset_destination_skips_picker() -> None:
     app, _spy = make_app(_picker_defaults(destination=DESTINATION_LOCAL))
@@ -237,27 +220,6 @@ def test_stored_connection_shows_confirmation_picker(tmp_path: Path) -> None:
             assert "Use this saved Yoke connection?" in text
             assert "Use existing hosted prod connection" in text
             assert HOSTED_PROD_API_URL in text
-
-    asyncio.run(scenario())
-
-
-def test_back_from_local_summary_repicks_cleanly() -> None:
-    app, _spy = make_app(_picker_defaults(token=None))
-
-    async def scenario() -> None:
-        async with app.run_test() as pilot:
-            await advance_past_path(pilot)
-            await pilot.press("enter")
-            await pilot.press("escape")  # back to the picker
-            await pilot.pause()
-            assert "Where should this Yoke live?" in _body_text(app)
-            assert app.query_one(Stepper).account_label == STEP_CONNECT_LABEL
-            await pilot.press("up")  # repick: wrap local -> upyoke.com
-            await pilot.press("enter")
-            await pilot.pause()
-            # The local detour left no residue: hosted collects env + browser approval.
-            assert app.result.env_name != local_universe_setup.LOCAL_ENV
-            assert "Which hosted environment" in _body_text(app)
 
     asyncio.run(scenario())
 
