@@ -5,12 +5,16 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.schema_common import _add_column_if_not_exists
+from yoke_core.domain.schema_common import (
+    _add_column_if_not_exists,
+    _index_exists,
+    _table_exists,
+)
 from yoke_core.domain.schema_init_apply import execute_schema_script
 
 WORKFLOW_VERSIONS_IMMUTABLE_TRIGGER = "workflow_versions_immutable"
 
-WORKFLOW_TABLES_SQL = """
+WORKFLOWS_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS workflows (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
@@ -21,6 +25,9 @@ CREATE TABLE IF NOT EXISTS workflows (
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
+"""
+
+WORKFLOW_VERSIONS_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS workflow_versions (
   id INTEGER PRIMARY KEY,
   workflow_id TEXT NOT NULL REFERENCES workflows(id),
@@ -34,9 +41,20 @@ CREATE TABLE IF NOT EXISTS workflow_versions (
   UNIQUE(workflow_id, version),
   UNIQUE(workflow_id, definition_digest)
 );
+"""
+
+WORKFLOW_VERSION_INDEX_SQL = """
 CREATE INDEX IF NOT EXISTS idx_workflow_versions_workflow
   ON workflow_versions(workflow_id, version);
 """
+
+WORKFLOW_TABLES_SQL = "\n".join(
+    (
+        WORKFLOWS_TABLE_SQL,
+        WORKFLOW_VERSIONS_TABLE_SQL,
+        WORKFLOW_VERSION_INDEX_SQL,
+    )
+)
 
 _SQLITE_IMMUTABLE_TRIGGERS = (
     f"""
@@ -98,16 +116,43 @@ $$;
 
 def _ensure_immutable_version_triggers(conn: Any) -> None:
     if db_backend.connection_is_postgres(conn):
-        conn.execute(_POSTGRES_IMMUTABLE_FUNCTION)
-        conn.execute(_POSTGRES_IMMUTABLE_TRIGGER)
+        function_exists = conn.execute(
+            "SELECT 1 FROM pg_proc p "
+            "JOIN pg_namespace n ON n.oid = p.pronamespace "
+            "WHERE n.nspname = 'public' "
+            "AND p.proname = %s",
+            (f"{WORKFLOW_VERSIONS_IMMUTABLE_TRIGGER}_fn",),
+        ).fetchone()
+        if function_exists is None:
+            conn.execute(_POSTGRES_IMMUTABLE_FUNCTION)
+        trigger_exists = conn.execute(
+            "SELECT 1 FROM pg_trigger WHERE tgname = %s AND NOT tgisinternal",
+            (WORKFLOW_VERSIONS_IMMUTABLE_TRIGGER,),
+        ).fetchone()
+        if trigger_exists is None:
+            conn.execute(_POSTGRES_IMMUTABLE_TRIGGER)
         return
     for statement in _SQLITE_IMMUTABLE_TRIGGERS:
         conn.execute(statement)
 
 
+def ensure_workflow_registry_tables(conn: Any) -> None:
+    """Create only missing registry objects, preserving managed ownership."""
+    if not _table_exists(conn, "workflows"):
+        execute_schema_script(conn, WORKFLOWS_TABLE_SQL)
+    if not _table_exists(conn, "workflow_versions"):
+        execute_schema_script(conn, WORKFLOW_VERSIONS_TABLE_SQL)
+    if not _index_exists(
+        conn,
+        "idx_workflow_versions_workflow",
+        "workflow_versions",
+    ):
+        execute_schema_script(conn, WORKFLOW_VERSION_INDEX_SQL)
+
+
 def ensure_workflow_schema(conn: Any) -> None:
     """Converge the additive registry schema and item pin columns."""
-    execute_schema_script(conn, WORKFLOW_TABLES_SQL)
+    ensure_workflow_registry_tables(conn)
     _add_column_if_not_exists(
         conn,
         "items",
@@ -137,5 +182,6 @@ def ensure_workflow_schema(conn: Any) -> None:
 __all__ = [
     "WORKFLOW_VERSIONS_IMMUTABLE_TRIGGER",
     "WORKFLOW_TABLES_SQL",
+    "ensure_workflow_registry_tables",
     "ensure_workflow_schema",
 ]

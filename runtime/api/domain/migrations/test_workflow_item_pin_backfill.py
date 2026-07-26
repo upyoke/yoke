@@ -11,6 +11,7 @@ from yoke_core.domain.migrations.workflow_item_pin_backfill import (
     apply,
     invariants,
 )
+from yoke_core.domain.schema_init import converge_core_schema
 
 _ROOT = Path(__file__).resolve().parents[4]
 _MANIFEST = Path(__file__).with_name(
@@ -77,6 +78,24 @@ def test_backfill_refuses_partial_pin(test_db):
 
     with pytest.raises(RuntimeError, match="partial workflow pins"):
         apply(test_db)
+
+
+def test_boot_convergence_backfills_legacy_items_before_readers_serve(test_db):
+    _restore_prebackfill_shape(test_db)
+    _insert_item(test_db, 705, "issue", "implementing")
+    _insert_item(test_db, 706, "epic", "planned")
+
+    converge_core_schema(test_db)
+
+    rows = test_db.execute(
+        "SELECT id, workflow_id, workflow_version_id "
+        "FROM items WHERE id IN (705, 706) ORDER BY id"
+    ).fetchall()
+    assert [(row[0], row[1]) for row in rows] == [
+        (705, "issue"),
+        (706, "epic"),
+    ]
+    assert all(int(row[2]) > 0 for row in rows)
 
 
 def test_invariant_refuses_stage_outside_pinned_definition(test_db):

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+from psycopg.rows import tuple_row
 
 from yoke_core.domain.workflow_registry import (
     WorkflowRegistryError,
@@ -78,3 +79,16 @@ def test_runtime_refuses_unknown_item(test_db):
         match="does not exist",
     ):
         load_item_workflow_runtime(test_db, 992)
+
+
+def test_runtime_interprets_positional_postgres_rows(test_db):
+    item_id = _create(test_db)
+    original_row_factory = test_db.row_factory
+    test_db.row_factory = tuple_row
+    try:
+        runtime = load_item_workflow_runtime(test_db, item_id)
+    finally:
+        test_db.row_factory = original_row_factory
+
+    assert runtime.workflow_id == "issue"
+    assert runtime.workflow_version_id > 0

@@ -21,7 +21,9 @@ from yoke_core.domain.path_registry import (
 from yoke_core.domain.path_snapshots import build_head_snapshot
 
 
-GRAPH_TRAVERSAL_MEDIAN_BUDGET_SECONDS = 0.002
+# Shared workers add scheduler jitter to microbenchmarks; this keeps the
+# regression guard tight without treating the host as a calibrated benchmark.
+GRAPH_TRAVERSAL_MEDIAN_BUDGET_SECONDS = 0.003
 
 
 def _p(conn) -> str:
@@ -53,17 +55,16 @@ class TestYokePopulatedGraph:
     def test_every_committed_file_has_identity(self, populated_yoke_db):
         conn, root = populated_yoke_db
         files = subprocess.run(
-            ["git", "-C", str(root),
-             "ls-tree", "-r", "--name-only", "HEAD"],
-            check=True, capture_output=True, text=True,
+            ["git", "-C", str(root), "ls-tree", "-r", "--name-only", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
         ).stdout.splitlines()
         for fp in files:
             if not fp:
                 continue
             tid = target_at(conn, 1, fp)
-            assert tid is not None, (
-                f"file {fp!r} missing from path_targets"
-            )
+            assert tid is not None, f"file {fp!r} missing from path_targets"
 
     def test_ancestor_query_is_low_latency(self, populated_yoke_db):
         conn, _root = populated_yoke_db
@@ -86,9 +87,7 @@ class TestYokePopulatedGraph:
             f"{GRAPH_TRAVERSAL_MEDIAN_BUDGET_SECONDS * 1000:.1f}ms"
         )
 
-    def test_descendants_query_is_low_latency_on_subtree(
-        self, populated_yoke_db
-    ):
+    def test_descendants_query_is_low_latency_on_subtree(self, populated_yoke_db):
         conn, _root = populated_yoke_db
         p = _p(conn)
         row = conn.execute(

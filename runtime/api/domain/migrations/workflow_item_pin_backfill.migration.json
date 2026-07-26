@@ -29,7 +29,7 @@
   "module_sources": {
     "workflow_item_pin_backfill": {
       "path": "packages/yoke-core/src/yoke_core/domain/migrations/workflow_item_pin_backfill.py",
-      "sha256": "f2edaf89ab29222239ce28ddb15706064b8c0fd727bf02905e1347c944b1fc32"
+      "sha256": "2aabf748330b05c7a0acc9a50db628e6b9a422c84d868e519edd10fb7c71233e"
     }
   },
   "attestation": {
