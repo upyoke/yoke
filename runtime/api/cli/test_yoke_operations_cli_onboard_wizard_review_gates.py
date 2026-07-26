@@ -22,6 +22,7 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     advance_past_path,
     complete_board_art,
     make_app,
+    skip_hosting,
     stub_path_doctor,
     type_text,
 )
@@ -96,7 +97,8 @@ def test_review_preflight_blocks_apply_until_clear(monkeypatch) -> None:
             await pilot.press("enter")
             await pilot.press("enter")  # default branch main
             await pilot.press("enter")  # prefix
-            await complete_board_art(pilot)  # board art -> Review (blocked)
+            await complete_board_art(pilot)  # board art -> hosting
+            await skip_hosting(pilot)  # hosting: skip -> Review (blocked)
             await pilot.pause()
             body = _body_text(app)
             assert "to fix before applying" in body.lower()

@@ -23,6 +23,7 @@ from yoke_cli.config.onboard_wizard_step_ids import (
     STEP_CONNECT,
     STEP_FINISH,
     STEP_GITHUB,
+    STEP_HOSTING,
     STEP_INSTALL,
     STEP_PROJECT,
 )
@@ -32,19 +33,22 @@ from yoke_cli.config.onboard_wizard_step_ids import (
 # machine's own universe instead (the app overrides ``Stepper.account_label``).
 STEP_CONNECT_LABEL = "Account"
 
-# Header reads Install -> Account -> GitHub -> Project -> Review; the stepper
-# renders in this order regardless of which screen is active. Labels are nouns
-# (the subject of each step) for a consistent rail: Account = your Yoke
-# account (or the local universe, per the destination picker), Review = the
-# write-plan review. PATH setup folds into Install (its screens highlight the
-# Install segment) so the installer hand-off and onboarding read as one
-# continuous app; GitHub precedes Project so App authorization is connected
-# before the project step that reuses it.
+# Header reads Install -> Account -> GitHub -> Project -> Hosting -> Review;
+# the stepper renders in this order regardless of which screen is active.
+# Labels are nouns (the subject of each step) for a consistent rail: Account =
+# your Yoke account (or the local universe, per the destination picker),
+# Hosting = the project's deploy credential, Review = the write-plan review.
+# PATH setup folds into Install (its screens highlight the Install segment) so
+# the installer hand-off and onboarding read as one continuous app; GitHub
+# precedes Project so App authorization is connected before the project step
+# that reuses it, and Hosting follows Project because the credential is stored
+# per project.
 STEPPER_ORDER = (
     (STEP_INSTALL, "Install"),
     (STEP_CONNECT, STEP_CONNECT_LABEL),
     (STEP_GITHUB, "GitHub"),
     (STEP_PROJECT, "Project"),
+    (STEP_HOSTING, "Hosting"),
     (STEP_FINISH, "Review"),
 )
 
@@ -59,7 +63,7 @@ class SelectionRow:
 
 
 class Stepper(Static):
-    """Fixed four-step progress rail driven by the active step id.
+    """Fixed progress rail driven by the active step id.
 
     The wizard's ordered phases double as the stepper model; ``active`` names
     the current phase and every earlier phase renders as completed.
@@ -207,6 +211,7 @@ __all__ = [
     "STEP_CONNECT_LABEL",
     "STEP_FINISH",
     "STEP_GITHUB",
+    "STEP_HOSTING",
     "STEP_INSTALL",
     "STEP_PROJECT",
     "SelectionList",

@@ -30,6 +30,14 @@ CONFIRM_ROWS_AFTER_GITHUB = [
 ]
 REVIEW_TITLE = f"Review what {BRAND} will save."
 REVIEW_SUBTITLE = "Nothing is written until you choose Apply."
+# By the time Review renders, two secrets can already be on disk: the API token
+# was saved when this machine was approved, and the hosting credential at Save
+# & verify. Saying "nothing is written yet" there would be false, so the
+# subtitle names what is already saved and what still waits.
+REVIEW_SAVED_SECRETS_SUBTITLE = (
+    "Your API token and hosting credential are already saved; everything below "
+    "waits for Apply."
+)
 REVIEW_AFTER_GITHUB_SUBTITLE = (
     "Machine GitHub authorization is already saved; only the remaining setup "
     "writes wait for Apply. Use yoke github disconnect to remove the saved "
@@ -87,30 +95,41 @@ def finish_body(
             if machine_github_saved else REVIEW_BLOCKED_ROWS
         ))
         return widgets
-    review_subtitle = (
-        REVIEW_AFTER_GITHUB_SUBTITLE
-        if machine_github_saved else REVIEW_SUBTITLE
-    )
-    widgets = heading(REVIEW_TITLE, review_subtitle)
+    widgets = heading(REVIEW_TITLE, _review_subtitle(plan, machine_github_saved))
+    # Every group heading below carries its own top margin, so the heading's
+    # trailing spacer would double the gap and cost a row the longest review
+    # cannot spare.
+    widgets.pop()
+    # Already-saved state reads first: it is the honest answer to "has anything
+    # happened yet?", and it frames every Apply group that follows.
+    widgets.extend(render_reuse_summary(plan))
     widgets.extend(render_write_plan(plan))
-    reuse_widgets = render_reuse_summary(plan)
-    if reuse_widgets:
-        widgets.append(Static("", classes="onboard-spacer"))
-        widgets.extend(reuse_widgets)
     for line in notes or []:
         widgets.append(Static(f"Note: {escape(line)}", classes="onboard-note"))
     widgets.append(Static("", classes="onboard-spacer"))
-    widgets.extend(heading(REVIEW_TITLE, review_subtitle))
     widgets.append(SelectionList(
         CONFIRM_ROWS_AFTER_GITHUB if machine_github_saved else CONFIRM_ROWS
     ))
     return widgets
 
 
+def _review_subtitle(plan: dict, machine_github_saved: bool) -> str:
+    """Name what is already on disk, or promise nothing is written yet."""
+    inner = plan.get("plan") if isinstance(plan, dict) else None
+    reuse = inner.get("reuse") if isinstance(inner, dict) else None
+    reuse = reuse if isinstance(reuse, dict) else {}
+    if reuse.get("token_reference") and reuse.get("aws_admin"):
+        return REVIEW_SAVED_SECRETS_SUBTITLE
+    if machine_github_saved:
+        return REVIEW_AFTER_GITHUB_SUBTITLE
+    return REVIEW_SUBTITLE
+
+
 __all__ = [
     "CONFIRM_ROWS",
     "FINISH_EMPTY_ROWS",
     "REVIEW_BLOCKED_ROWS",
+    "REVIEW_SAVED_SECRETS_SUBTITLE",
     "REVIEW_SUBTITLE",
     "REVIEW_TITLE",
     "finish_body",

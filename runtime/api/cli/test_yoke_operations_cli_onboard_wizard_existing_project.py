@@ -20,6 +20,7 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     advance_past_path,
     complete_board_art,
     make_app,
+    skip_hosting,
     stub_path_doctor,
     type_text,
 )
@@ -107,6 +108,7 @@ def test_local_checkout_manifest_project_id_skips_project_setup(
             assert "Yoke core database: verified project id 37." in body
             await pilot.press("enter")  # continue -> board art
             await complete_board_art(pilot)
+            await skip_hosting(pilot)  # hosting: skip -> Finish
             await pilot.press("enter")  # finish: apply
             await pilot.pause()
 
@@ -176,6 +178,7 @@ def test_stored_checkout_project_id_shows_confirmation_picker(
             assert "~/code/my-project" not in body
             await pilot.press("enter")  # continue -> board art
             await complete_board_art(pilot)
+            await skip_hosting(pilot)  # hosting: skip -> Finish
             await pilot.press("enter")  # finish: apply
             await pilot.pause()
 
@@ -234,7 +237,8 @@ def test_existing_project_with_board_art_skips_art_flow(
             await app.workers.wait_for_complete()
             await pilot.pause()
             assert "Existing Yoke project found." in _body_text(app)
-            await pilot.press("enter")  # continue -> Finish
+            await pilot.press("enter")  # continue -> hosting (art already saved)
+            await skip_hosting(pilot)  # hosting: skip -> Finish
             await pilot.press("enter")  # finish: apply
             await pilot.pause()
 

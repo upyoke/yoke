@@ -260,7 +260,7 @@ class BoardArtFlow:
 
     def _on_board_art_gallery(self, choice: str) -> None:
         if choice == "continue" and self.result.board_art_variants:
-            self._goto_finish()
+            self._goto_hosting()
         else:
             self._return_to_board_art_style()
 

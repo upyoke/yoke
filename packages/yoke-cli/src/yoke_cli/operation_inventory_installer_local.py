@@ -15,6 +15,7 @@ from yoke_cli.operation_inventory_model import (
 # dispatcher function id. The tool-shaped registry routes them after the
 # registered-function lookup misses.
 PERMANENT_ROWS: Tuple[_Row, ...] = (
+    _p("yoke aws admin-link", "aws", REASON_TOOL_SHAPED),
     _p("yoke aws exec", "aws", REASON_TOOL_SHAPED),
     _p("yoke github connect", "github", REASON_TOOL_SHAPED),
     _p("yoke github disconnect", "github", REASON_TOOL_SHAPED),

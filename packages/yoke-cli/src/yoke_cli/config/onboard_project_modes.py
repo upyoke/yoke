@@ -25,8 +25,22 @@ PROJECT_MODES = (
 )
 
 
+# Modes that onboard a project Yoke will deploy for, and so the modes offered a
+# hosting credential. Machine-only has no project to own one; developing Yoke
+# itself runs through `yoke dev setup` and deploys nothing of its own.
+PROJECT_DEPLOYABLE_MODES = tuple(
+    mode for mode in PROJECT_MODES
+    if mode not in (PROJECT_MODE_MACHINE_ONLY, PROJECT_MODE_SOURCE_DEV_ADMIN)
+)
+
+
 class OnboardProjectError(RuntimeError):
     """The project handoff part of onboarding cannot proceed."""
+
+
+def offers_hosting_credential(project_mode: str | None) -> bool:
+    """Whether a run in this mode reaches the hosting-credential step."""
+    return (project_mode or "") in PROJECT_DEPLOYABLE_MODES
 
 
 def normalize_project_mode(project_mode: str | None) -> str:
@@ -52,6 +66,8 @@ __all__ = [
     "PROJECT_MODE_MACHINE_ONLY",
     "PROJECT_MODE_SOURCE_DEV_ADMIN",
     "PROJECT_MODES",
+    "PROJECT_DEPLOYABLE_MODES",
     "PROJECT_REMOTE_MODES",
     "normalize_project_mode",
+    "offers_hosting_credential",
 ]

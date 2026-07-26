@@ -14,6 +14,49 @@ from yoke_cli.commands.adapters.dev import DEFAULT_PROJECT_ID, PROJECT_ID_ENV
 AWS_EXEC_USAGE = (
     "yoke aws exec [--project PROJECT] [--region REGION] -- <aws-args>"
 )
+AWS_ADMIN_LINK_USAGE = (
+    "yoke aws admin-link [--project PROJECT] [--region REGION]"
+)
+
+
+def aws_admin_link(args: List[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="yoke aws admin-link",
+        description=(
+            "Print the one-click CloudFormation link that creates this "
+            "project's aws-admin bootstrap credential. The stack makes an IAM "
+            "user, an access key, and a Secrets Manager secret holding the "
+            "pair; paste those two values into `yoke onboard`. The link pins "
+            "the template published with the running build."
+        ),
+    )
+    parser.add_argument(
+        "--project",
+        default=None,
+        help="Project slug or id the credential belongs to (informational).",
+    )
+    parser.add_argument(
+        "--region",
+        default=None,
+        help="AWS region the console opens in (default: $AWS_REGION or us-east-1).",
+    )
+    parsed = parse_or_usage_error(parser, args, AWS_ADMIN_LINK_USAGE)
+    if parsed is None:
+        return 2
+
+    from yoke_cli.config import aws_admin_capability
+
+    url = aws_admin_capability.quick_create_url(region=parsed.region)
+    if url is None:
+        print(
+            "error: this build has no published release version, so no pinned "
+            "bootstrap template exists for it. Run this from an installed Yoke "
+            "build.",
+            file=sys.stderr,
+        )
+        return 1
+    print(url)
+    return 0
 
 
 def aws_exec(args: List[str]) -> int:

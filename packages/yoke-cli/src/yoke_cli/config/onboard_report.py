@@ -5,7 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from yoke_cli.config import aws_admin_capability
 from yoke_cli.config import onboard_project
+from yoke_cli.config import onboard_project_modes
 from yoke_cli.config.onboard_report_render import render_human
 from yoke_cli.config.project_clone_support import (
     CLONE_OUTCOME_FORK,
@@ -36,6 +38,7 @@ def build_plan(
     project_mode: str,
     project_inputs: dict[str, Any],
     machine_github: dict[str, Any],
+    hosting_choice: str = aws_admin_capability.HOSTING_CHOICE_SKIP,
     reuse: dict[str, Any] | None = None,
     local_destination: bool = False,
 ) -> dict[str, Any]:
@@ -67,6 +70,20 @@ def build_plan(
         steps.append({
             "action": "machine-github-connection",
             "target": str(machine_github.get("choice") or "skip"),
+        })
+    # The hosting credential belongs to a project Yoke deploys for, so only
+    # those modes plan one. When it is already on this machine the reuse block
+    # names it instead — the wizard stores it before Review, the same way the
+    # machine GitHub authorization is saved before Review.
+    if (
+        onboard_project_modes.offers_hosting_credential(project_mode)
+        and not reuse.get("aws_admin")
+    ):
+        steps.append({
+            "action": aws_admin_capability.HOSTING_CAPABILITY_ACTION,
+            "target": str(
+                hosting_choice or aws_admin_capability.HOSTING_CHOICE_SKIP
+            ),
         })
     if not reuse.get("temp_root"):
         steps.append({"action": "create-runtime-dir", "target": "temp_root"})

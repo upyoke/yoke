@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from yoke_core.tools import build_release, package_index
+from yoke_core.tools import build_release, package_index, release_artifacts
 
 
 def test_build_release_renders_pep503_simple_index(
@@ -21,6 +21,7 @@ def test_build_release_renders_pep503_simple_index(
     asset_dir.mkdir()
     (asset_dir / "install.py").write_text("print('install')\n", encoding="utf-8")
     (asset_dir / "install").write_text("#!/bin/sh\n", encoding="utf-8")
+    aws_asset_dir = _aws_bootstrap_assets(tmp_path)
 
     def fake_wheelhouse(*, wheelhouse: Path, **_: object) -> Path:
         wheelhouse.mkdir(parents=True)
@@ -45,6 +46,7 @@ def test_build_release_renders_pep503_simple_index(
         channel="stable",
         generated_at="2026-06-18T00:00:00+00:00",
         installer_asset_dir=asset_dir,
+        aws_bootstrap_asset_dir=aws_asset_dir,
     )
 
     assert result.version == "0.2.0"
@@ -55,6 +57,12 @@ def test_build_release_renders_pep503_simple_index(
     # Installer assets and immutable versioned product wheels.
     assert (tmp_path / "release" / "install").read_text(encoding="utf-8")
     assert (tmp_path / "release" / "dist" / "install.py").is_file()
+    # The hosting bootstrap template rides the same immutable version
+    # directory, so onboarding's one-click link resolves for this build.
+    assert result.paths.aws_admin_template == (
+        release_dir / release_artifacts.AWS_ADMIN_TEMPLATE
+    )
+    assert result.paths.aws_admin_template.is_file()
     wheels_dir = release_dir / "wheels"
     # Third-party wheels are NOT hosted; only the product wheels.
     assert sorted(p.name for p in wheels_dir.glob("*.whl")) == [
@@ -126,6 +134,7 @@ def test_build_release_quotes_local_version_public_urls(
     asset_dir.mkdir()
     (asset_dir / "install.py").write_text("print('install')\n", encoding="utf-8")
     (asset_dir / "install").write_text("#!/bin/sh\n", encoding="utf-8")
+    aws_asset_dir = _aws_bootstrap_assets(tmp_path)
 
     def fake_wheelhouse(*, wheelhouse: Path, **_: object) -> Path:
         wheelhouse.mkdir(parents=True)
@@ -142,6 +151,7 @@ def test_build_release_quotes_local_version_public_urls(
         channel="stable",
         generated_at="2026-06-18T00:00:00+00:00",
         installer_asset_dir=asset_dir,
+        aws_bootstrap_asset_dir=aws_asset_dir,
     )
 
     channel = json.loads(result.paths.channel_path.read_text(encoding="utf-8"))
@@ -178,6 +188,35 @@ def test_build_release_refuses_missing_installer_assets(
             output_root=tmp_path / "release",
             base_url="https://api.upyoke.com",
             installer_asset_dir=tmp_path / "missing-assets",
+            aws_bootstrap_asset_dir=_aws_bootstrap_assets(tmp_path),
+        )
+
+
+def test_build_release_refuses_missing_hosting_bootstrap_template(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A release without the template would publish an unresolvable link."""
+    asset_dir = tmp_path / "assets"
+    asset_dir.mkdir()
+    (asset_dir / "install.py").write_text("print('install')\n", encoding="utf-8")
+    (asset_dir / "install").write_text("#!/bin/sh\n", encoding="utf-8")
+
+    def fake_wheelhouse(*, wheelhouse: Path, **_: object) -> Path:
+        wheelhouse.mkdir(parents=True)
+        for name in build_release.PRODUCT_PACKAGE_NAMES:
+            _write_wheel(wheelhouse, name=name, version="0.2.0")
+        return wheelhouse
+
+    monkeypatch.setattr(build_release, "build_product_wheelhouse", fake_wheelhouse)
+
+    with pytest.raises(build_release.ReleaseBuildError, match="bootstrap template"):
+        build_release.build_release(
+            repo_root=tmp_path,
+            output_root=tmp_path / "release",
+            base_url="https://api.upyoke.com",
+            installer_asset_dir=asset_dir,
+            aws_bootstrap_asset_dir=tmp_path / "missing-aws-assets",
         )
 
 
@@ -240,6 +279,16 @@ def test_build_product_wheelhouse_rejects_public_version_before_pip(
 
     assert len(commands) == len(build_release.PRODUCT_PACKAGE_NAMES)
     assert all("--package" in command for command in commands)
+
+
+def _aws_bootstrap_assets(root: Path) -> Path:
+    """A stand-in for ``packaging/aws`` holding the hosting bootstrap template."""
+    directory = root / "aws-assets"
+    directory.mkdir()
+    (directory / release_artifacts.AWS_ADMIN_TEMPLATE).write_text(
+        "AWSTemplateFormatVersion: \"2010-09-09\"\n", encoding="utf-8",
+    )
+    return directory
 
 
 def _write_wheel(wheelhouse: Path, *, name: str, version: str) -> None:

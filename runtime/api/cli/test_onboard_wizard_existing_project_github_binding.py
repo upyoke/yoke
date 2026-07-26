@@ -12,6 +12,7 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     advance_past_path,
     complete_board_art,
     make_app,
+    skip_hosting,
     stub_path_doctor,
     type_text,
 )
@@ -109,6 +110,7 @@ def test_existing_backlog_project_can_bind_detected_checkout_origin(
             assert "repository access found" in _body_text(app)
             await pilot.press("enter")
             await complete_board_art(pilot)
+            await skip_hosting(pilot)  # hosting: skip -> Finish
             await pilot.press("enter")
             await pilot.pause()
 
@@ -190,6 +192,7 @@ def test_new_project_keeps_existing_origin_and_reaches_binding(
             await pilot.press("enter")
             await pilot.press("enter")
             await complete_board_art(pilot)
+            await skip_hosting(pilot)  # hosting: skip -> Finish
             await pilot.press("enter")
             await pilot.pause()
 

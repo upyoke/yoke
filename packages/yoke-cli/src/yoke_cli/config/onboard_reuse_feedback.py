@@ -74,6 +74,11 @@ def grouped_lines_for_plan(plan: Mapping[str, Any]) -> dict[str, list[str]]:
         machine.append(f"Active environment is already{target}.")
     if reuse.get("machine_github"):
         machine.append("GitHub App authorization is already connected.")
+    if reuse.get("aws_admin"):
+        machine.append(
+            "The aws-admin hosting credential (2 values, redacted · saved at "
+            "Save & verify)"
+        )
     if reuse.get("temp_root") and reuse.get("cache_dir"):
         machine.append("Runtime scratch and cache folders already exist.")
     else:

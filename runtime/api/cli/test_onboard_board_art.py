@@ -127,7 +127,7 @@ class _FakeShell(BoardArtFlow):
         self._history: list = []
         self.goto_views = self._history
         self.input_calls: list = []
-        self.finished = False
+        self.left_board_art = False
         self.exited = False
 
     def _board_art_view(self, step, builder, on_select):
@@ -154,8 +154,8 @@ class _FakeShell(BoardArtFlow):
         self.input_calls.append(view)
         self._goto(view)
 
-    def _goto_finish(self):
-        self.finished = True
+    def _goto_hosting(self):
+        self.left_board_art = True
 
     def exit(self):
         self.exited = True
@@ -186,7 +186,7 @@ def test_flow_save_then_continue_gated_on_one_header():
     shell._on_board_art_preview("save")
     assert len(shell.result.board_art_variants) == 1
     shell._on_board_art_gallery("continue")
-    assert shell.finished is True
+    assert shell.left_board_art is True
 
 
 def test_flow_shuffle_increments_attempt():

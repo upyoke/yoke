@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import Dict, Tuple
 
-from yoke_cli.commands.adapters.aws import aws_exec
+from yoke_cli.commands.adapters.aws import aws_admin_link, aws_exec
 from yoke_cli.commands.adapters.path_doctor import (
     path_check,
     path_fix,
@@ -36,6 +36,7 @@ from yoke_cli.commands.flag_adapters import (
 )
 
 TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
+    ("aws", "admin-link"): aws_admin_link,
     ("aws", "exec"): aws_exec,
     ("github", "connect"): github_connect,
     ("github", "disconnect"): github_disconnect,
@@ -56,6 +57,7 @@ TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
 }
 
 TOOL_SHAPED_USAGE: Dict[str, str] = {
+    "yoke aws admin-link": "yoke aws admin-link [--project PROJECT] [--region REGION]",
     "yoke aws exec": "yoke aws exec [--project PROJECT] [--region REGION] -- <aws-args>",
     "yoke github connect": "yoke github connect [--replace] [--add-installation] [--config PATH] [--json]",
     "yoke github disconnect": "yoke github disconnect [--config PATH] [--json]",

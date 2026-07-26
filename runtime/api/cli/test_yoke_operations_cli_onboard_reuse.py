@@ -139,6 +139,9 @@ def test_onboard_yes_reuses_existing_machine_and_project_state(
     actions = [step["action"] for step in report["plan"]["steps"]]
 
     assert actions == [
+        # No hosting credential on this machine for the project, so the plan
+        # still names the (skipped) hosting answer alongside the reused state.
+        "hosting-capability-secret",
         "project-refresh-scaffold",
         "project-install-agent-rules",
         "project-install-tool-permissions",

@@ -5,6 +5,7 @@ versioned wheels. Layout under ``output_root``::
 
     dist/releases/<version>/wheels/<wheel>.whl   immutable versioned wheels
     dist/releases/<version>/release-records.json per-wheel sha256/size record
+    dist/releases/<version>/yoke-aws-admin.yaml  hosting bootstrap CFN template
     simple/index.html                            PEP 503 root (lists projects)
     simple/<project>/index.html                  per-project wheel links (#sha256=)
     dist/channels/<channel>.json                 mutable channel -> version pointer
@@ -16,6 +17,10 @@ The ``simple/`` index is served at ``<base_url>/simple/`` and is the value of
 to the immutable versioned wheel URLs, so a single ``simple/`` tree spans every
 retained version. Third-party dependencies are never hosted here; the installer
 selects this as the first index and public PyPI as the explicit default index.
+
+``yoke-aws-admin.yaml`` rides the same immutable version directory: onboarding's
+one-click hosting link hands AWS CloudFormation that exact URL, so the template a
+user launches always matches the build that offered it.
 """
 
 from __future__ import annotations
@@ -39,6 +44,8 @@ RELEASE_RECORDS_FILENAME = "release-records.json"
 INSTALLER_ASSET_DIR = Path("packaging") / "public-installer"
 INSTALL_PY = "install.py"
 INSTALL_SHIM = "install"
+AWS_BOOTSTRAP_ASSET_DIR = Path("packaging") / "aws"
+AWS_ADMIN_TEMPLATE = "yoke-aws-admin.yaml"
 
 
 @dataclass(frozen=True)
@@ -53,6 +60,7 @@ class ReleasePaths:
     install_py: Path
     install_shim: Path
     channel_path: Path
+    aws_admin_template: Path
 
 
 @dataclass(frozen=True)
@@ -79,6 +87,7 @@ class ReleaseBuild:
             "install_py": str(self.paths.install_py),
             "install": str(self.paths.install_shim),
             "channel_path": str(self.paths.channel_path),
+            "aws_admin_template": str(self.paths.aws_admin_template),
         }
 
 
@@ -95,6 +104,7 @@ def materialize_release_artifacts(
     base_url: str,
     generated_at: str,
     installer_asset_dir: Path,
+    aws_bootstrap_asset_dir: Path,
 ) -> ReleaseBuild:
     paths = _prepare_release_paths(
         output_root=output_root,
@@ -113,6 +123,7 @@ def materialize_release_artifacts(
     release_records = package_index.build_records_manifest(wheel_records)
     json_helper._dump_json(paths.release_records_path, release_records)
     _copy_installer_assets(installer_asset_dir, paths)
+    _copy_aws_admin_template(aws_bootstrap_asset_dir, paths)
     index_url = _join_url(base_url, SIMPLE_DIR) + "/"
     channel_payload = _channel_payload(
         channel=channel,
@@ -157,6 +168,7 @@ def _prepare_release_paths(
         install_py=dist_root / INSTALL_PY,
         install_shim=output_root / INSTALL_SHIM,
         channel_path=channels_dir / f"{channel}.json",
+        aws_admin_template=release_dir / AWS_ADMIN_TEMPLATE,
     )
 
 
@@ -182,6 +194,13 @@ def _copy_installer_assets(asset_dir: Path, paths: ReleasePaths) -> None:
         )
     shutil.copy2(install_py_source, paths.install_py)
     shutil.copy2(install_shim_source, paths.install_shim)
+
+
+def _copy_aws_admin_template(asset_dir: Path, paths: ReleasePaths) -> None:
+    source = asset_dir / AWS_ADMIN_TEMPLATE
+    if not source.is_file():
+        raise ReleaseBuildError(f"missing hosting bootstrap template: {source}")
+    shutil.copy2(source, paths.aws_admin_template)
 
 
 def _channel_payload(
