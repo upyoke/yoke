@@ -1,23 +1,28 @@
-"""Cold-start placeholder canon + seeding for per-project strategy docs.
+"""Default placeholder canon + per-slug seeding for project strategy docs.
 
 A project's strategy corpus is exactly its ``strategy_docs`` rows — there
-is no global slug canon. This module owns the DEFAULT starter set minted
-for a project with zero rows: fill-me-in scaffolds (the
-:mod:`yoke_core.domain.project_contract` runbook style) parameterized
-by the project display name, written DB-first by :func:`seed_default_docs`
-and only ever rendered to files FROM those rows.
+is no global slug canon. This module owns the DEFAULT starter set:
+fill-me-in scaffolds (the :mod:`yoke_core.domain.project_contract`
+runbook style) parameterized by the project display name, written
+DB-first by :func:`seed_default_docs` and only ever rendered to files
+FROM those rows.
 
-Seeding is strictly cold-start: a project with any existing row is left
-untouched (idempotent re-runs report ``already_seeded``). Exposed as the
-``strategy.seed_defaults.run`` function id; the install bundle calls the
-same seeder so a fresh external install always receives a starter corpus.
+Seeding is a per-slug top-up: each missing default slug gains its
+placeholder row, and an existing row — whatever its content — is never
+touched. A fresh project cold-starts the full roster; an established
+project heals by gaining only the default slugs it is missing. Exposed
+as the ``strategy.seed_defaults.run`` function id; the install bundle
+calls the same seeder so a fresh external install always receives a
+starter corpus and an existing install tops up on refresh.
 """
 
 from __future__ import annotations
 
 from typing import Any, Dict, List
 
-DEFAULT_STRATEGY_DOC_SLUGS = ("MISSION", "VISION", "MASTER-PLAN", "LANDSCAPE")
+DEFAULT_STRATEGY_DOC_SLUGS = (
+    "MISSION", "VISION", "MASTER-PLAN", "LANDSCAPE", "CURRENT-PLAN",
+)
 
 
 def render_mission_placeholder(display_name: str) -> str:
@@ -84,11 +89,32 @@ TODO: technical, market, or ecosystem facts that shape sequencing.
 """
 
 
+def render_current_plan_placeholder(display_name: str) -> str:
+    return f"""# Current Plan: {display_name}
+
+The near-term executable slice: what ships next and how to tell it
+shipped. First-work seeding derives backlog items from this doc.
+
+## Now
+
+TODO: the current goal and the concrete work that reaches it.
+
+## Next
+
+TODO: what follows once the current slice lands.
+
+## Done when
+
+TODO: the observable outcomes that close this plan.
+"""
+
+
 _PLACEHOLDER_RENDERERS = {
     "MISSION": render_mission_placeholder,
     "VISION": render_vision_placeholder,
     "MASTER-PLAN": render_master_plan_placeholder,
     "LANDSCAPE": render_landscape_placeholder,
+    "CURRENT-PLAN": render_current_plan_placeholder,
 }
 
 
@@ -107,13 +133,16 @@ def placeholder_content(slug: str, display_name: str) -> str:
 def seed_default_docs(
     conn: Any, project_id: int, display_name: str,
 ) -> Dict[str, Any]:
-    """Mint placeholder rows for a project with zero strategy rows.
+    """Top up the project's default strategy docs, seeding only missing slugs.
 
-    DB-first cold start: rows are the authority, files render from them
-    afterwards. Idempotent — any existing row for the project means the
-    corpus is already established and nothing is written (``seeded`` is
-    empty and ``already_seeded`` is true). Commits on write.
-    Backend-aware (the install-bundle fixtures drive it over sqlite).
+    DB-first: rows are the authority, files render from them afterwards.
+    Idempotent per slug — an existing row for a default slug (whatever
+    its content, live or archived) is never touched; each missing
+    default slug gains its placeholder. ``seeded`` names the slugs
+    written by this call, ``already_present`` the default slugs that
+    already had a row, and ``already_seeded`` is true when nothing was
+    missing. Commits on write. Backend-aware (the install-bundle
+    fixtures drive it over sqlite).
     """
     from yoke_core.domain.project_identity import placeholder
     from yoke_core.domain.strategy_docs import (
@@ -122,21 +151,21 @@ def seed_default_docs(
     )
 
     p = placeholder(conn)
-    row = conn.execute(
-        f"SELECT COUNT(*) FROM {STRATEGY_DOCS_TABLE} WHERE project_id = {p}",
-        (project_id,),
-    ).fetchone()
-    existing = int(row[0]) if row else 0
-    if existing:
-        return {
-            "project_id": project_id,
-            "seeded": [],
-            "existing_rows": existing,
-            "already_seeded": True,
-        }
+    slug_ph = ", ".join(p for _ in DEFAULT_STRATEGY_DOC_SLUGS)
+    rows = conn.execute(
+        f"SELECT slug FROM {STRATEGY_DOCS_TABLE} "
+        f"WHERE project_id = {p} AND slug IN ({slug_ph})",
+        (project_id, *DEFAULT_STRATEGY_DOC_SLUGS),
+    ).fetchall()
+    present = {str(row[0]) for row in rows or []}
+    already_present = [
+        slug for slug in DEFAULT_STRATEGY_DOC_SLUGS if slug in present
+    ]
     seeded: List[str] = []
     updated_at = next_updated_at()
     for slug in DEFAULT_STRATEGY_DOC_SLUGS:
+        if slug in present:
+            continue
         conn.execute(
             f"INSERT INTO {STRATEGY_DOCS_TABLE} "
             "(project_id, slug, content, updated_at) "
@@ -144,18 +173,21 @@ def seed_default_docs(
             (project_id, slug, placeholder_content(slug, display_name), updated_at),
         )
         seeded.append(slug)
-    conn.commit()
+    if seeded:
+        conn.commit()
     return {
         "project_id": project_id,
         "seeded": seeded,
-        "existing_rows": 0,
-        "already_seeded": False,
+        "already_present": already_present,
+        "existing_rows": len(already_present),
+        "already_seeded": not seeded,
     }
 
 
 __all__ = [
     "DEFAULT_STRATEGY_DOC_SLUGS",
     "placeholder_content",
+    "render_current_plan_placeholder",
     "render_landscape_placeholder",
     "render_master_plan_placeholder",
     "render_mission_placeholder",

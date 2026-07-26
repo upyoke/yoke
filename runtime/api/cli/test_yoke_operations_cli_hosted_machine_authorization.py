@@ -258,6 +258,57 @@ def test_browser_connection_write_atomically_activates_existing_env(
     assert payload["active_env"] == "second"
 
 
+def test_browser_denial_reports_and_mints_one_fresh_authorization(
+    monkeypatch,
+) -> None:
+    pending = hosted_machine_authorization.PendingMachineAuthorization(
+        platform_url="https://app.upyoke.com",
+        device_code="device-secret",
+        user_code="ABCD-2345",
+        verification_uri="https://app.upyoke.com/connect",
+        verification_uri_complete="https://app.upyoke.com/connect?user_code=ABCD-2345",
+        expires_in=600,
+        interval=2,
+    )
+    starts: list[str] = []
+    monkeypatch.setattr(
+        hosted_machine_authorization,
+        "start",
+        lambda url: starts.append(url) or pending,
+    )
+    monkeypatch.setattr(hosted_machine_authorization, "open_browser", lambda _: True)
+
+    def deny_complete(_pending) -> None:
+        raise hosted_machine_authorization.HostedMachineAuthorizationDenied(
+            "authorization denied in the browser"
+        )
+
+    monkeypatch.setattr(hosted_machine_authorization, "complete", deny_complete)
+    app, _spy = make_app(WizardDefaults(config_path="/tmp/cfg.json", env_name="prod"))
+
+    async def scenario() -> None:
+        async with app.run_test() as pilot:
+            await advance_past_path(pilot)
+            await pilot.press("up", "enter", "enter")
+            await app.workers.wait_for_complete()
+            # First denial: one fresh authorization mints automatically and
+            # the approval view returns with the new code.
+            await pilot.press("enter")
+            await app.workers.wait_for_complete()
+            assert len(starts) == 2
+            assert "Sign in and choose an organization." in _body_text(app)
+            # Second denial: no further automatic mint — the manual retry
+            # view reports the denial instead.
+            await pilot.press("enter")
+            await app.workers.wait_for_complete()
+            assert len(starts) == 2
+            body = _body_text(app)
+            assert "authorization denied in the browser" in body
+            assert "start a fresh browser sign-in" in body
+
+    asyncio.run(scenario())
+
+
 def test_hosted_failure_retries_browser_flow_without_teaching_token_paste(
     monkeypatch,
 ) -> None:

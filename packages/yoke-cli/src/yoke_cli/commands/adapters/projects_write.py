@@ -1,14 +1,18 @@
-"""``yoke projects create`` / ``yoke projects update`` adapters.
+"""``yoke projects ...`` registry-write adapters.
 
 Sibling of :mod:`yoke_cli.commands.adapters.projects` (the read-side
-adapters). Both write commands share one flag parser and differ only in
-the dispatched function id (org-scoped register vs project-scoped edit).
+adapters). ``create``/``update`` share one flag parser and differ only
+in the dispatched function id (org-scoped register vs project-scoped
+edit); ``site create`` / ``environment create`` are the idempotent
+infrastructure-registry writes (``projects.site.create`` /
+``projects.environment.create``).
 """
 
 from __future__ import annotations
 
 import json
-from typing import List
+import sys
+from typing import Any, Dict, List, Optional
 
 import argparse
 
@@ -27,7 +31,9 @@ from yoke_contracts.api.function_call import TargetRef
 
 __all__ = [
     "projects_create", "projects_update",
+    "projects_site_create", "projects_environment_create",
     "PROJECTS_CREATE_USAGE", "PROJECTS_UPDATE_USAGE",
+    "PROJECTS_SITE_CREATE_USAGE", "PROJECTS_ENVIRONMENT_CREATE_USAGE",
 ]
 
 
@@ -78,7 +84,8 @@ def _projects_write(
         ),
     )
     parser.add_argument("--emoji", default=None)
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, usage)
     if parsed is None:
         return 2
@@ -121,4 +128,91 @@ def projects_update(args: List[str]) -> int:
     return _projects_write(
         args, function_id="projects.update",
         usage=PROJECTS_UPDATE_USAGE, prog="yoke projects update",
+    )
+
+
+PROJECTS_SITE_CREATE_USAGE = (
+    "yoke projects site create --project P --site-slug SLUG "
+    "[--settings-json JSON] [--session-id S] [--json]"
+)
+
+PROJECTS_ENVIRONMENT_CREATE_USAGE = (
+    "yoke projects environment create --project P --site-slug SLUG "
+    "--environment-id ID [--settings-json JSON] [--session-id S] [--json]"
+)
+
+
+def _infrastructure_create(
+    args: List[str], *, function_id: str, usage: str, prog: str,
+    with_environment: bool = False,
+) -> int:
+    parser = argparse.ArgumentParser(prog=prog, description=usage)
+    parser.add_argument("--project", required=True, help="Project slug or id.")
+    parser.add_argument("--site-slug", dest="site_slug", required=True,
+                        help="Site row id (the site's slug).")
+    if with_environment:
+        parser.add_argument("--environment-id", dest="environment_id",
+                            required=True, help="Environment row id.")
+    parser.add_argument("--settings-json", dest="settings_json", default=None,
+                        help="Optional JSON object stored as row settings.")
+    add_session_arg(parser)
+    add_json_arg(parser)
+    parsed = parse_or_usage_error(parser, args, usage)
+    if parsed is None:
+        return 2
+    payload: Dict[str, Any] = {
+        "project": parsed.project,
+        "site_slug": parsed.site_slug,
+    }
+    if with_environment:
+        payload["environment_id"] = parsed.environment_id
+    settings, settings_error = _parse_settings_json(parsed.settings_json)
+    if settings_error is not None:
+        print(f"error: {settings_error}", file=sys.stderr)
+        return 1
+    if settings is not None:
+        payload["settings"] = settings
+
+    def _human_writer(response, stdout, stderr) -> None:
+        if not response.success:
+            return None
+        print(json.dumps(response.result or {}, sort_keys=True), file=stdout)
+        return None
+
+    return dispatch_and_emit(
+        function_id=function_id,
+        target=TargetRef(kind="global"),
+        payload=payload,
+        session_id=parsed.session_id, json_mode=parsed.json_mode,
+        human_writer=_human_writer,
+    )
+
+
+def _parse_settings_json(
+    raw: Optional[str],
+) -> tuple[Optional[Dict[str, Any]], Optional[str]]:
+    if raw is None:
+        return None, None
+    try:
+        value = json.loads(raw)
+    except ValueError:
+        return None, "--settings-json must be valid JSON"
+    if not isinstance(value, dict):
+        return None, "--settings-json must be a JSON object"
+    return value, None
+
+
+def projects_site_create(args: List[str]) -> int:
+    return _infrastructure_create(
+        args, function_id="projects.site.create",
+        usage=PROJECTS_SITE_CREATE_USAGE, prog="yoke projects site create",
+    )
+
+
+def projects_environment_create(args: List[str]) -> int:
+    return _infrastructure_create(
+        args, function_id="projects.environment.create",
+        usage=PROJECTS_ENVIRONMENT_CREATE_USAGE,
+        prog="yoke projects environment create",
+        with_environment=True,
     )

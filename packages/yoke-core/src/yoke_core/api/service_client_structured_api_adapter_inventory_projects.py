@@ -48,6 +48,30 @@ PROJECT_ADAPTERS = [
         function_id="projects.infrastructure.list",
         cli_invocation="yoke projects infrastructure list --project NAME",
     ),
+    AdapterEntry(
+        function_id="projects.site.create",
+        cli_invocation=(
+            "yoke projects site create --project P --site-slug SLUG "
+            "[--settings-json JSON]"
+        ),
+        notes=(
+            "idempotent site registration: an existing slug owned by the "
+            "same project reports already_present untouched; a slug owned "
+            "by another project refuses"
+        ),
+    ),
+    AdapterEntry(
+        function_id="projects.environment.create",
+        cli_invocation=(
+            "yoke projects environment create --project P --site-slug SLUG "
+            "--environment-id ID [--settings-json JSON]"
+        ),
+        notes=(
+            "idempotent environment registration under a project-owned "
+            "site (resolves ownership through the site row); an existing "
+            "id under the same site reports already_present untouched"
+        ),
+    ),
 ]
 
 

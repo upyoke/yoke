@@ -32,6 +32,7 @@ class _Shell(Protocol):  # pragma: no cover
     _hosted_machine_authorization: (
         hosted_machine_authorization.PendingMachineAuthorization | None
     )
+    _hosted_machine_denial_retry_used: bool
 
     def _goto(self, view: "_View") -> None: ...
     def _selection_view(self, *args, **kwargs) -> "_View": ...
@@ -53,7 +54,11 @@ class HostedMachineConnectFlow:
         del choice
         self._start_hosted_machine_authorization()
 
-    def _start_hosted_machine_authorization(self: _Shell) -> None:
+    def _start_hosted_machine_authorization(
+        self: _Shell, *, after_denial: bool = False,
+    ) -> None:
+        self._hosted_machine_denial_retry_used = after_denial
+
         def _success(
             pending: hosted_machine_authorization.PendingMachineAuthorization,
         ) -> None:
@@ -61,10 +66,20 @@ class HostedMachineConnectFlow:
             opened = hosted_machine_authorization.open_browser(pending)
             self._goto_hosted_machine_approval(pending, opened)
 
+        title = (
+            "This machine was denied in the browser."
+            if after_denial
+            else "Starting secure browser sign-in."
+        )
+        message = (
+            "Minting a fresh one-time machine code so you can approve it."
+            if after_denial
+            else "Requesting a one-time machine code from Yoke Cloud."
+        )
         self._run_checking(
             step=STEP_CONNECT,
-            title="Starting secure browser sign-in.",
-            message="Requesting a one-time machine code from Yoke Cloud.",
+            title=title,
+            message=message,
             work=lambda: hosted_machine_authorization.start(HOSTED_PLATFORM_URL),
             on_success=_success,
             on_error=lambda exc: self._goto_hosted_machine_error(str(exc)),
@@ -138,6 +153,14 @@ class HostedMachineConnectFlow:
             self.result.yoke_token_verification = verification
             self._goto_yoke_verify_success(verification)
 
+        def _error(exc: BaseException) -> None:
+            if isinstance(
+                exc, hosted_machine_authorization.HostedMachineAuthorizationDenied,
+            ):
+                self._goto_hosted_machine_denied(str(exc))
+            else:
+                self._goto_hosted_machine_error(str(exc))
+
         self._run_checking(
             step=STEP_CONNECT,
             title="Waiting for browser approval.",
@@ -148,10 +171,22 @@ class HostedMachineConnectFlow:
             ],
             work=_work,
             on_success=_success,
-            on_error=lambda exc: self._goto_hosted_machine_error(str(exc)),
+            on_error=_error,
             group="onboard-hosted-machine-poll",
             replace_current=True,
         )
+
+    def _goto_hosted_machine_denied(self: _Shell, message: str) -> None:
+        """Report a browser denial; mint ONE fresh authorization automatically.
+
+        A second denial falls through to the manual retry view so denials
+        never mint codes in an unattended loop.
+        """
+        self._hosted_machine_authorization = None
+        if self._hosted_machine_denial_retry_used:
+            self._goto_hosted_machine_error(message)
+            return
+        self._start_hosted_machine_authorization(after_denial=True)
 
     def _goto_hosted_machine_error(self: _Shell, message: str) -> None:
         from yoke_cli.config.onboard_wizard_app import _View

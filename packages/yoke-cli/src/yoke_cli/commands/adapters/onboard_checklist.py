@@ -22,8 +22,9 @@ from yoke_cli.transport.dispatcher import build_actor, call_dispatcher, emit_res
 from yoke_contracts.api.function_call import FunctionCallResponse, TargetRef
 
 ONBOARD_CHECKLIST_INIT_USAGE = (
-    "yoke onboard checklist init --config PATH [--checkout PATH] "
-    "[--project-id N] [--json]"
+    "yoke onboard checklist init [--config PATH] [--checkout PATH] "
+    "[--project P] [--project-id N] [--json] "
+    "(without --config, both --project and --checkout are required)"
 )
 ONBOARD_CHECKLIST_USAGE = (
     "yoke onboard checklist [--run-id RUN] [--branch MODE] [--json] "
@@ -95,8 +96,10 @@ def onboard_checklist_init(args: List[str]) -> int:
 
 def _init(args: List[str]) -> int:
     parser = argparse.ArgumentParser(prog="yoke onboard checklist init")
-    parser.add_argument("--config", dest="config_path", required=True)
+    parser.add_argument("--config", dest="config_path", default=None)
     parser.add_argument("--checkout", dest="checkout_path", default=None)
+    parser.add_argument("--project", dest="project", default=None,
+                        help="Project slug or numeric id (standalone init).")
     parser.add_argument("--project-id", dest="project_id", type=int, default=None)
     parser.add_argument("--json", dest="json_mode", action="store_true")
     attach_field_note_footer(parser)
@@ -106,15 +109,27 @@ def _init(args: List[str]) -> int:
     if parsed.project_id is not None and parsed.project_id <= 0:
         print("error: --project-id must be a positive integer", file=sys.stderr)
         return 1
+    if parsed.config_path is None and not (
+        (parsed.project or parsed.project_id is not None) and parsed.checkout_path
+    ):
+        print(
+            "error: without --config, standalone init requires both "
+            "--project (or --project-id) and --checkout",
+            file=sys.stderr,
+        )
+        return 1
+    payload: dict[str, Any] = {
+        "machine_config_path": parsed.config_path,
+        "checkout_path": parsed.checkout_path,
+        "project_id": parsed.project_id,
+    }
+    if parsed.project:
+        payload["project"] = parsed.project
     ensure_handlers_loaded()
     response = call_dispatcher(
         function_id="onboard.checklist.init",
-        target=_target(parsed.project_id),
-        payload={
-            "machine_config_path": parsed.config_path,
-            "checkout_path": parsed.checkout_path,
-            "project_id": parsed.project_id,
-        },
+        target=_target(parsed.project_id, project=parsed.project),
+        payload=payload,
         actor=build_actor(),
     )
     return emit_response(
@@ -124,10 +139,13 @@ def _init(args: List[str]) -> int:
     )
 
 
-def _target(project_id: int | None) -> TargetRef:
-    project_context = (
-        str(project_id) if project_id is not None else client_project_context()
-    )
+def _target(project_id: int | None, project: str | None = None) -> TargetRef:
+    if project_id is not None:
+        project_context: str | None = str(project_id)
+    elif project:
+        project_context = project
+    else:
+        project_context = client_project_context()
     return TargetRef(kind="global", project_id=project_context)
 
 

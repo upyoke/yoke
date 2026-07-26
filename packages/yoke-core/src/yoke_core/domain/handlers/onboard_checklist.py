@@ -18,6 +18,7 @@ from yoke_core.domain import project_onboarding_runs
 class OnboardChecklistInitRequest(BaseModel):
     run_id: Optional[str] = None
     project_id: Optional[int] = None
+    project: Optional[str] = None
     branch: str = BRANCH_LOCAL_CHECKOUT
     checkout_path: Optional[str] = None
     machine_config_path: Optional[str] = None
@@ -43,6 +44,7 @@ class OnboardChecklistInitResponse(BaseModel):
 class OnboardChecklistRunRequest(BaseModel):
     run_id: Optional[str] = None
     project_id: Optional[int] = None
+    project: Optional[str] = None
     branch: Optional[str] = None
     checkout_path: Optional[str] = None
     machine_config_path: Optional[str] = None
@@ -72,10 +74,13 @@ def _handle(payload: dict[str, Any], *, operation: str) -> HandlerOutcome:
     branch = payload.get("branch")
     if branch is None and operation == OPERATION_INIT:
         branch = BRANCH_LOCAL_CHECKOUT
+    project_id, project_error = _resolve_project_ref(payload)
+    if project_error is not None:
+        return project_error
     try:
         result = project_onboarding_runs.update_run(
             run_id=payload.get("run_id"),
-            project_id=payload.get("project_id"),
+            project_id=project_id,
             branch=branch,
             checkout_path=payload.get("checkout_path"),
             machine_config_path=payload.get("machine_config_path"),
@@ -96,6 +101,39 @@ def _handle(payload: dict[str, Any], *, operation: str) -> HandlerOutcome:
             ),
         )
     return HandlerOutcome(result_payload=result, primary_success=True)
+
+
+def _resolve_project_ref(
+    payload: dict[str, Any],
+) -> tuple[Optional[int], Optional[HandlerOutcome]]:
+    """Resolve the run's numeric project id from the payload.
+
+    A numeric ``project_id`` wins; otherwise a ``project`` slug-or-id ref
+    (the standalone init shape) resolves through the project registry so
+    the run row stays project-attributed. No ref at all stays ``None`` —
+    machine-only runs carry no project.
+    """
+    project_id = payload.get("project_id")
+    ref = payload.get("project")
+    if project_id is not None or not ref:
+        return project_id, None
+    from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.project_identity import resolve_project_id
+
+    conn = connect()
+    try:
+        return resolve_project_id(conn, str(ref)), None
+    except LookupError as exc:
+        return None, HandlerOutcome(
+            primary_success=False,
+            error=FunctionError(
+                code="project_not_found",
+                message=str(exc),
+                jsonpath="$.payload.project",
+            ),
+        )
+    finally:
+        conn.close()
 
 
 __all__ = [
