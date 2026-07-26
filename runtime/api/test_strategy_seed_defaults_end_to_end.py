@@ -58,6 +58,8 @@ def test_seed_defaults_cold_start_through_real_cli(world) -> None:
     again = _envelope("strategy", "seed-defaults")
     assert again["success"] is True
     assert again["result"]["already_seeded"] is True
+    assert again["result"]["seeded"] == []
+    assert again["result"]["already_present"] == list(DEFAULT_STRATEGY_DOC_SLUGS)
 
     conn = connect_test_db(world)
     try:
