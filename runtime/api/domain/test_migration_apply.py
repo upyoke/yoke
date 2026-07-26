@@ -11,6 +11,7 @@ live-verify failure recovery + profile gating lives in
 
 from __future__ import annotations
 
+from contextlib import nullcontext
 import json
 import sys
 
@@ -31,22 +32,29 @@ from yoke_core.domain.migration_apply_test_helpers import (  # noqa: F401 — fi
     _audit_row,
     _connect_validation_db,
     _seed_apply_item,
-    apply_env,
+    apply_env as apply_env_fixture,  # noqa: F401 — fixture registration
 )
 from yoke_core.domain.migration_apply_resolve import ModuleOverrideResolution
 from runtime.api.test_backlog import _conn, tmp_db  # noqa: F401 — reused fixtures
 
 
 class TestDbTargets:
-    def test_postgres_target_connects_with_native_psycopg(self, monkeypatch) -> None:
+    def test_postgres_target_connects_with_domain_rows(self, monkeypatch) -> None:
         from yoke_core.domain import migration_apply_targets as targets
         from yoke_core.domain.migration_apply_targets import DbTarget, connect_db_target
 
         sentinel = object()
-        monkeypatch.setattr(targets.db_backend, "connect_psycopg", lambda dsn: sentinel)
+        selected = []
+        monkeypatch.setattr(
+            targets.db_backend,
+            "bound_pg_dsn",
+            lambda dsn: selected.append(dsn) or nullcontext(),
+        )
+        monkeypatch.setattr(targets.db_backend, "connect", lambda: sentinel)
 
         target = DbTarget(kind="postgres", target="dbname=test", display="postgres:test")
         assert connect_db_target(target) is sentinel
+        assert selected == ["dbname=test"]
 
     def test_sqlite_rollback_backup_fails_closed(self, tmp_path) -> None:
         from yoke_core.domain.migration_apply_contract import MigrationApplyError

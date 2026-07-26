@@ -111,7 +111,8 @@ def connect_db_target(target: DbTarget):
         conn.execute("PRAGMA foreign_keys = ON")
         return conn
     if target.kind == "postgres":
-        return db_backend.connect_psycopg(target.target)
+        with db_backend.bound_pg_dsn(target.target):
+            return db_backend.connect()
     raise MigrationApplyError(
         f"database target kind {target.kind!r} is not connectable"
     )
