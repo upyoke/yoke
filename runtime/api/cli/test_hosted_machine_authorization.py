@@ -7,6 +7,7 @@ import pytest
 from yoke_cli.config import hosted_machine_authorization as auth
 from yoke_cli.transport.bounded_json_http import (
     BoundedJsonHttpResponse,
+    BoundedJsonHttpStatusError,
 )
 
 
@@ -112,6 +113,115 @@ def test_browser_authorization_rejects_malformed_pending_response(monkeypatch) -
             sleep=clock.sleep,
             monotonic=clock.monotonic,
         )
+
+
+def test_browser_authorization_accepts_connect_page_urls(monkeypatch) -> None:
+    monkeypatch.setattr(
+        auth,
+        "request_json",
+        lambda *_args, **_kwargs: BoundedJsonHttpResponse(
+            payload={
+                "device_code": "device-secret",
+                "user_code": "ABCD-2345",
+                "verification_uri": "https://app.upyoke.com/connect",
+                "verification_uri_complete": (
+                    "https://app.upyoke.com/connect?user_code=ABCD-2345"
+                ),
+                "expires_in": 600,
+                "interval": 2,
+            },
+            status=200,
+            headers={},
+        ),
+    )
+    pending = auth.start("https://app.upyoke.com")
+    assert pending.verification_uri == "https://app.upyoke.com/connect"
+    assert pending.verification_uri_complete == (
+        "https://app.upyoke.com/connect?user_code=ABCD-2345"
+    )
+
+
+def test_browser_authorization_rejects_unlisted_page_path(monkeypatch) -> None:
+    monkeypatch.setattr(
+        auth,
+        "request_json",
+        lambda *_args, **_kwargs: BoundedJsonHttpResponse(
+            payload={
+                "device_code": "device-secret",
+                "user_code": "ABCD-2345",
+                "verification_uri": "https://app.upyoke.com/anything",
+                "verification_uri_complete": (
+                    "https://app.upyoke.com/anything?user_code=ABCD-2345"
+                ),
+                "expires_in": 600,
+                "interval": 2,
+            },
+            status=200,
+            headers={},
+        ),
+    )
+    with pytest.raises(auth.HostedMachineAuthorizationError, match="unsafe browser"):
+        auth.start("https://app.upyoke.com")
+
+
+def _pending_authorization() -> auth.PendingMachineAuthorization:
+    return auth.PendingMachineAuthorization(
+        platform_url="https://app.upyoke.com",
+        device_code="device-secret",
+        user_code="ABCD-2345",
+        verification_uri="https://app.upyoke.com/connect",
+        verification_uri_complete="https://app.upyoke.com/connect?user_code=ABCD-2345",
+        expires_in=60,
+        interval=2,
+    )
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        BoundedJsonHttpResponse(
+            payload={"error": "authorization_denied"}, status=410, headers={},
+        ),
+        BoundedJsonHttpStatusError(410, {"error": "authorization_denied"}),
+    ],
+)
+def test_polling_denial_answer_raises_typed_denial(monkeypatch, answer) -> None:
+    responses = deque([answer])
+
+    def fake_request(*_args, **_kwargs):
+        result = responses.popleft()
+        if isinstance(result, Exception):
+            raise result
+        return result
+
+    monkeypatch.setattr(auth, "request_json", fake_request)
+    clock = _Clock()
+    with pytest.raises(auth.HostedMachineAuthorizationDenied, match="denied"):
+        auth.complete(
+            _pending_authorization(), sleep=clock.sleep, monotonic=clock.monotonic,
+        )
+
+
+def test_polling_unknown_410_body_keeps_generic_failure(monkeypatch) -> None:
+    responses = deque(
+        [BoundedJsonHttpStatusError(410, {"error": "some_new_condition"})]
+    )
+
+    def fake_request(*_args, **_kwargs):
+        raise responses.popleft()
+
+    monkeypatch.setattr(auth, "request_json", fake_request)
+    clock = _Clock()
+    with pytest.raises(
+        auth.HostedMachineAuthorizationError,
+        match="polling failed \\(HTTP 410\\)",
+    ) as excinfo:
+        auth.complete(
+            _pending_authorization(), sleep=clock.sleep, monotonic=clock.monotonic,
+        )
+    assert not isinstance(
+        excinfo.value, auth.HostedMachineAuthorizationDenied
+    )
 
 
 def test_browser_authorization_rejects_cross_origin_authority(monkeypatch) -> None:
