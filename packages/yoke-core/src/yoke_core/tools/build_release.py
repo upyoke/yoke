@@ -22,6 +22,7 @@ from yoke_core.tools import (
     wheel_sibling_pins,
 )
 from yoke_core.tools.release_artifacts import (
+    AWS_BOOTSTRAP_ASSET_DIR,
     INSTALLER_ASSET_DIR,
     ReleaseBuild,
     ReleaseBuildError,
@@ -43,6 +44,7 @@ def build_release(
     uv_executable: str | None = None,
     python_executable: str | None = None,
     installer_asset_dir: Path | None = None,
+    aws_bootstrap_asset_dir: Path | None = None,
 ) -> ReleaseBuild:
     """Build the product wheels and render the hosted release directory.
 
@@ -76,6 +78,11 @@ def build_release(
         if installer_asset_dir is not None
         else repo_root / INSTALLER_ASSET_DIR
     )
+    aws_asset_dir = (
+        aws_bootstrap_asset_dir
+        if aws_bootstrap_asset_dir is not None
+        else repo_root / AWS_BOOTSTRAP_ASSET_DIR
+    )
     return materialize_release_artifacts(
         records=product_records,
         output_root=output_root,
@@ -84,6 +91,7 @@ def build_release(
         base_url=base_url,
         generated_at=generated_at,
         installer_asset_dir=asset_dir,
+        aws_bootstrap_asset_dir=aws_asset_dir,
     )
 
 
@@ -266,6 +274,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--uv", dest="uv_executable", default=None)
     parser.add_argument("--python", dest="python_executable", default=None)
     parser.add_argument("--installer-asset-dir", type=Path, default=None)
+    parser.add_argument("--aws-bootstrap-asset-dir", type=Path, default=None)
     parser.add_argument("--json", action="store_true", dest="json_mode")
     return parser
 
@@ -282,6 +291,7 @@ def main(argv: Iterable[str] | None = None) -> int:
             uv_executable=args.uv_executable,
             python_executable=args.python_executable,
             installer_asset_dir=args.installer_asset_dir,
+            aws_bootstrap_asset_dir=args.aws_bootstrap_asset_dir,
         )
     except (OSError, ReleaseBuildError) as exc:
         print(f"build-release: {exc}", file=sys.stderr)

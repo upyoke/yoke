@@ -84,6 +84,20 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
         "yoke_core.domain.capability_machine_secrets",
     ): ("source_dev_admin", "local aws-admin capability secret file writer"),
     (
+        "packages/yoke-cli/src/yoke_cli/config/aws_admin_capability.py",
+        "yoke_core.domain.capability_machine_secrets",
+    ): (
+        "machine_local_credential_custody",
+        "onboarding hosting-credential owner-only file writer",
+    ),
+    (
+        "packages/yoke-cli/src/yoke_cli/config/aws_admin_capability.py",
+        "yoke_core.domain.deploy_remote",
+    ): (
+        "machine_local_credential_custody",
+        "onboarding hosting-credential caller-identity probe env",
+    ),
+    (
         "packages/yoke-cli/src/yoke_cli/commands/resync.py",
         "yoke_core.engines.resync",
     ): ("source_dev_admin", "sanctioned resync source-dev/admin command"),

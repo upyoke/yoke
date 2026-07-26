@@ -10,6 +10,10 @@ from __future__ import annotations
 
 DISTRIBUTION_PROD_URL = "https://api.upyoke.com"
 DISTRIBUTION_STAGE_URL = "https://api.stage.upyoke.com"
+# Environment override for the distribution host, read by the public installer
+# and by every surface that has to name a published artifact URL back to the
+# operator (the hosting bootstrap link is the first).
+DISTRIBUTION_BASE_URL_ENV = "YOKE_INSTALL_BASE_URL"
 HOSTED_PROD_API_URL = "https://app.upyoke.com/api/orgs/upyoke"
 HOSTED_STAGE_API_URL = "https://app.stage.upyoke.com/api/orgs/upyoke"
 HOSTED_PLATFORM_URL = "https://app.upyoke.com"
@@ -38,6 +42,7 @@ __all__ = [
     "FUNCTIONS_REGISTRY_PATH",
     "HEALTH_PATH",
     "UNIVERSE_EXPORT_PATH",
+    "DISTRIBUTION_BASE_URL_ENV",
     "DISTRIBUTION_PROD_URL",
     "DISTRIBUTION_STAGE_URL",
     "HOSTED_PROD_API_URL",
