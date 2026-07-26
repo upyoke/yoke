@@ -124,3 +124,76 @@ export function renderTabs(
     host.appendChild(tab);
   }
 }
+
+export function renderWorkflowDialog(documentNode, host, spec) {
+  host.replaceChildren();
+  if (!spec) return;
+
+  const backdrop = el(
+    documentNode, "div", "workflow-dialog-backdrop",
+  );
+  const dialog = el(documentNode, "section", "workflow-dialog");
+  dialog.setAttribute("role", "dialog");
+  dialog.setAttribute("aria-modal", "true");
+  dialog.appendChild(el(
+    documentNode, "h2", "workflow-dialog-title", spec.title,
+  ));
+  if (spec.subtitle) {
+    dialog.appendChild(el(
+      documentNode, "p", "workflow-dialog-subtitle", spec.subtitle,
+    ));
+  }
+  if (spec.lines && spec.lines.length) {
+    const lines = el(documentNode, "div", "workflow-dialog-lines");
+    for (const line of spec.lines) {
+      const row = el(documentNode, "p", "workflow-dialog-line");
+      row.appendChild(el(
+        documentNode, "strong", null, line.title,
+      ));
+      row.appendChild(el(
+        documentNode, "span", null, ` — ${line.description}`,
+      ));
+      lines.appendChild(row);
+    }
+    dialog.appendChild(lines);
+  }
+  const error = el(documentNode, "p", "workflow-dialog-error");
+  error.hidden = true;
+  dialog.appendChild(error);
+  const footer = el(documentNode, "div", "workflow-dialog-footer");
+  footer.appendChild(el(
+    documentNode, "p", "workflow-dialog-impact", spec.impact,
+  ));
+  const actions = el(documentNode, "div", "workflow-dialog-actions");
+  const cancel = button(documentNode, "Cancel", "workflow-button");
+  const confirm = button(
+    documentNode, spec.confirmText, "workflow-button primary",
+  );
+  cancel.addEventListener("click", spec.cancel);
+  confirm.addEventListener("click", async () => {
+    cancel.disabled = true;
+    confirm.disabled = true;
+    confirm.textContent = spec.pendingText || "Saving…";
+    error.hidden = true;
+    try {
+      await spec.confirm();
+    } catch (failure) {
+      cancel.disabled = false;
+      confirm.disabled = false;
+      confirm.textContent = spec.confirmText;
+      error.textContent = String(
+        failure && failure.message ? failure.message : failure,
+      );
+      error.hidden = false;
+    }
+  });
+  actions.appendChild(cancel);
+  actions.appendChild(confirm);
+  footer.appendChild(actions);
+  dialog.appendChild(footer);
+  backdrop.appendChild(dialog);
+  backdrop.addEventListener("click", (event) => {
+    if (event.target === backdrop) spec.cancel();
+  });
+  host.appendChild(backdrop);
+}

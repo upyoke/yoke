@@ -10,6 +10,8 @@ from yoke_cli.commands.adapters.workflows_read import (
     workflows_definition_get,
     workflows_item_get,
     workflows_item_migrate,
+    workflows_policy_defaults_publish,
+    workflows_version_get,
 )
 from yoke_contracts.api.function_call import FunctionCallResponse
 
@@ -110,12 +112,35 @@ def test_current_set_and_item_migrate_build_typed_payloads() -> None:
     with patch(
         "yoke_cli.commands.adapters.workflows_read.dispatch_and_emit",
         side_effect=_dispatch,
+    ), patch(
+        "yoke_cli.commands.adapters.workflows_versions.dispatch_and_emit",
+        side_effect=_dispatch,
     ):
-        assert workflows_current_set(["issue", "2"]) == 0
+        assert workflows_current_set([
+            "issue", "2", "--expected-current-version", "1",
+        ]) == 0
         assert workflows_item_migrate(["YOK-42", "--version", "2"]) == 0
+        assert workflows_version_get(["issue", "1"]) == 0
+        assert workflows_policy_defaults_publish([
+            "dash",
+            "--path-claims", "on",
+            "--expected-current-version", "1",
+        ]) == 0
 
     assert calls[0]["function_id"] == "workflows.current.set"
-    assert calls[0]["payload"] == {"workflow_id": "issue", "version": 2}
+    assert calls[0]["payload"] == {
+        "workflow_id": "issue",
+        "version": 2,
+        "expected_current_version": 1,
+    }
     assert calls[1]["function_id"] == "workflows.item.migrate"
     assert calls[1]["target"].item_ref == "YOK-42"
     assert calls[1]["payload"] == {"version": 2}
+    assert calls[2]["function_id"] == "workflows.version.get"
+    assert calls[2]["payload"] == {"workflow_id": "issue", "version": 1}
+    assert calls[3]["function_id"] == "workflows.policy_defaults.publish"
+    assert calls[3]["payload"] == {
+        "workflow_id": "dash",
+        "expected_current_version": 1,
+        "path_claims_default": True,
+    }

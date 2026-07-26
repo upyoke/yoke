@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from yoke_core.domain.workflow_definition_builders import (
+    WORKFLOW_PATH_CLAIMS_OPTIONAL,
     definition_fixture,
     executor_binding,
     gate_ref,
@@ -86,7 +87,7 @@ BLITZ_WORKFLOW_DEFINITION = definition_fixture(
     ),
     policies={
         "ownership": "session_item_and_document_claim",
-        "path_claims": "optional",
+        "path_claims": WORKFLOW_PATH_CLAIMS_OPTIONAL,
         "worktrees": "worker_lanes_optional_integration",
         "parallelism": "maximum_safe_slices",
         "generated_children": "none",
@@ -145,7 +146,7 @@ DASH_WORKFLOW_DEFINITION = definition_fixture(
     executor_bindings=(executor_binding("dash", "idea", "done"),),
     policies={
         "ownership": "exclusive_session_work_claim",
-        "path_claims": "optional",
+        "path_claims": WORKFLOW_PATH_CLAIMS_OPTIONAL,
         "worktrees": "single_implementation_lane",
         "parallelism": "none",
         "generated_children": "none",

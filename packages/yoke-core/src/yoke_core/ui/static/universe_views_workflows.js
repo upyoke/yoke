@@ -9,6 +9,7 @@ import {
 } from "./universe_view_support.js";
 import {
   renderTabs,
+  renderWorkflowDialog,
   sortedWorkflows,
   workflowPanel,
 } from "./workflow_view_primitives.js";
@@ -27,6 +28,7 @@ function renderSelectedWorkflow(
   catalogById,
   stageSelections,
   rerender,
+  actions,
 ) {
   intro.textContent = workflow.description || "";
   intro.hidden = !workflow.description;
@@ -44,9 +46,14 @@ function renderSelectedWorkflow(
         rerender();
       },
     ),
-    renderPosture(documentNode, workflow),
+    renderPosture(documentNode, workflow, {
+      editPathClaims: (enabled) => actions.editPathClaims(workflow, enabled),
+    }),
     renderMechanics(documentNode, workflow),
-    renderVersionHistory(documentNode, workflow),
+    renderVersionHistory(documentNode, workflow, {
+      client: actions.client,
+      makeCurrent: (version) => actions.makeCurrent(workflow, version),
+    }),
   );
 }
 
@@ -64,15 +71,106 @@ export function renderWorkflowsView(context, main) {
   tabs.setAttribute("role", "tablist");
   const intro = el(documentNode, "p", "workflow-intro");
   const content = el(documentNode, "div", "workflow-stack");
+  const dialogHost = el(documentNode, "div", "workflow-dialog-host");
   const loading = workflowPanel(documentNode, "Stages");
   loading.body.textContent = "loading…";
   content.appendChild(loading.panel);
-  main.replaceChildren(tabs, intro, content);
+  main.replaceChildren(tabs, intro, content, dialogHost);
 
   let workflows = [];
   let catalogById = new Map();
   let selectedWorkflowId = null;
   const stageSelections = new Map();
+  let dialog = null;
+
+  const mutation = async (functionId, payload) => {
+    const callResult = await callFunction(
+      context.client, functionId, payload,
+    );
+    if (callResult.status !== 200 || !callResult.envelope.success) {
+      throw new Error(
+        callResult.envelope?.error?.message || "Workflow update failed.",
+      );
+    }
+    return callResult.envelope.result || {};
+  };
+
+  const closeDialog = () => {
+    dialog = null;
+    renderWorkflowDialog(documentNode, dialogHost, null);
+  };
+
+  const openPathClaimsDialog = (workflow, enabled) => {
+    const nextVersion = Number(workflow.current_version) + 1;
+    const name = workflow.name || workflow.id;
+    dialog = {
+      title: `${enabled ? "Turn on" : "Turn off"} path claims`,
+      subtitle: enabled
+        ? `Enable path claims for new ${name} items.`
+        : `Return new ${name} items to claim-less by default.`,
+      lines: [
+        {
+          title: "What this does",
+          description:
+            `reserves the files a ${name} will touch, so overlapping work ` +
+            "serializes through the claim machinery instead of colliding at merge.",
+        },
+        {
+          title: "Default (off)",
+          description:
+            `the ${name} executor surveys anticipated conflicts, works in an ` +
+            "isolated worktree, and re-checks at merge without registering every path.",
+        },
+        {
+          title: "Turn on when",
+          description:
+            `${name} items collide often enough that claim coordination costs less ` +
+            "than resolving conflicts.",
+        },
+      ],
+      impact:
+        `Publishing creates ${name} v${nextVersion}. Items already underway ` +
+        `stay pinned to v${workflow.current_version} and are unaffected.`,
+      confirmText: `${enabled ? "Turn on" : "Turn off"} path claims`,
+      cancel: closeDialog,
+      confirm: async () => {
+        await mutation("workflows.policy_defaults.publish", {
+          workflow_id: workflow.id,
+          expected_current_version: Number(workflow.current_version),
+          path_claims_default: enabled,
+        });
+        closeDialog();
+        await load();
+      },
+    };
+    renderWorkflowDialog(documentNode, dialogHost, dialog);
+  };
+
+  const openCurrentDialog = (workflow, version) => {
+    const name = workflow.name || workflow.id;
+    dialog = {
+      title: `Make ${name} v${version.version} current?`,
+      subtitle:
+        `New ${name} items will pin v${version.version}. ` +
+        `Items already underway stay pinned to v${workflow.current_version}.`,
+      lines: [],
+      impact:
+        "The immutable versions are not changed. This only selects the " +
+        "version subsequently created items receive.",
+      confirmText: `Make v${version.version} current`,
+      cancel: closeDialog,
+      confirm: async () => {
+        await mutation("workflows.current.set", {
+          workflow_id: workflow.id,
+          version: Number(version.version),
+          expected_current_version: Number(workflow.current_version),
+        });
+        closeDialog();
+        await load();
+      },
+    };
+    renderWorkflowDialog(documentNode, dialogHost, dialog);
+  };
 
   const render = () => {
     if (!workflows.length) return;
@@ -98,14 +196,20 @@ export function renderWorkflowsView(context, main) {
       catalogById,
       stageSelections,
       render,
+      {
+        client: context.client,
+        editPathClaims: openPathClaimsDialog,
+        makeCurrent: openCurrentDialog,
+      },
     );
   };
 
-  Promise.resolve()
-    .then(() => callFunction(
+  const load = async () => {
+    let callResult;
+    try {
+      callResult = await callFunction(
       context.client, "workflows.definition.get", {},
-    ))
-    .then((callResult) => {
+      );
       if (!context.isMounted()) return;
       const ok = callResult.status === 200 && callResult.envelope.success;
       if (!ok) {
@@ -131,8 +235,7 @@ export function renderWorkflowsView(context, main) {
         return;
       }
       render();
-    })
-    .catch((fetchError) => {
+    } catch (fetchError) {
       if (!context.isMounted()) return;
       renderFailure(documentNode, tabs, intro, content, {
         status: 0,
@@ -141,5 +244,7 @@ export function renderWorkflowsView(context, main) {
           error: { message: String(fetchError) },
         },
       });
-    });
+    }
+  };
+  load();
 }

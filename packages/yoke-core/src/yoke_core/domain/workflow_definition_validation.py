@@ -8,6 +8,9 @@ from typing import Any, Mapping, Optional, Sequence
 from yoke_core.domain.workflow_definition_builders import (
     ENTRY_SURFACE_IDS,
     WORKFLOW_DEFINITION_SCHEMA_VERSION,
+    WORKFLOW_PATH_CLAIMS_OPTIONAL,
+    WORKFLOW_PATH_CLAIMS_REQUIRED,
+    WORKFLOW_PATH_CLAIMS_REQUIRED_PER_TASK,
 )
 from yoke_core.domain.workflow_definition_graph_validation import (
     validate_executor_bindings,
@@ -42,7 +45,11 @@ _POLICY_VALUES = {
         "session_item_and_document_claim",
         "exclusive_session_work_claim",
     }),
-    "path_claims": frozenset({"required", "required_per_task", "optional"}),
+    "path_claims": frozenset({
+        WORKFLOW_PATH_CLAIMS_REQUIRED,
+        WORKFLOW_PATH_CLAIMS_REQUIRED_PER_TASK,
+        WORKFLOW_PATH_CLAIMS_OPTIONAL,
+    }),
     "worktrees": frozenset({
         "single_implementation_lane",
         "worker_and_integration_lanes",

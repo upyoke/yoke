@@ -58,6 +58,7 @@ ASSET_CONTENT_TYPES: Dict[str, str] = {
     "shell.css": "text/css; charset=utf-8",
     "theme.css": "text/css; charset=utf-8",
     "workflows.css": "text/css; charset=utf-8",
+    "workflow_controls.css": "text/css; charset=utf-8",
     "yoke.svg": "image/svg+xml",
     "yoke-wordmark.svg": "image/svg+xml",
     "favicon.svg": "image/svg+xml",

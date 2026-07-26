@@ -34,12 +34,45 @@ class WorkflowItemPinResponse(BaseModel):
 class WorkflowCurrentSetRequest(BaseModel):
     workflow_id: str
     version: int
+    expected_current_version: Optional[int] = None
 
 
 class WorkflowCurrentSetResponse(BaseModel):
     workflow_id: str
     version: int
     version_id: int
+
+
+class WorkflowVersionGetRequest(BaseModel):
+    workflow_id: str
+    version: int
+
+
+class WorkflowVersionGetResponse(BaseModel):
+    workflow_id: str
+    version: int
+    version_id: int
+    definition_schema_version: int
+    definition_digest: str
+    published_at: str
+    immutable_at: str
+    published_by_actor_id: Optional[int] = None
+    current: bool
+    definition: Dict[str, Any]
+
+
+class WorkflowPolicyDefaultsPublishRequest(BaseModel):
+    workflow_id: str
+    expected_current_version: int
+    path_claims_default: bool
+
+
+class WorkflowPolicyDefaultsPublishResponse(BaseModel):
+    workflow_id: str
+    version: int
+    version_id: int
+    definition_digest: str
+    path_claims_default: bool
 
 
 class WorkflowItemMigrateRequest(BaseModel):
@@ -117,9 +150,80 @@ def handle_workflows_current_set(
                 conn,
                 workflow_id=payload.workflow_id,
                 version=payload.version,
+                expected_current_version=payload.expected_current_version,
             )
     except WorkflowRegistryError as exc:
         return _error("incompatible", str(exc), "$.payload.version")
+    return HandlerOutcome(result_payload=result, primary_success=True)
+
+
+def handle_workflows_version_get(
+    request: FunctionCallRequest,
+) -> HandlerOutcome:
+    if request.target.kind != "global":
+        return _error(
+            "target_invalid",
+            "workflows.version.get requires target.kind='global'",
+            "$.target.kind",
+        )
+    try:
+        payload = WorkflowVersionGetRequest.model_validate(request.payload or {})
+    except ValueError as exc:
+        return _error("payload_invalid", str(exc), "$.payload")
+    from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.workflow_registry import (
+        WorkflowRegistryError,
+        get_workflow_version,
+    )
+
+    try:
+        with connect() as conn:
+            result = get_workflow_version(
+                conn,
+                workflow_id=payload.workflow_id,
+                version=payload.version,
+            )
+    except WorkflowRegistryError as exc:
+        return _error("not_found", str(exc), "$.payload.version")
+    return HandlerOutcome(result_payload=result, primary_success=True)
+
+
+def handle_workflows_policy_defaults_publish(
+    request: FunctionCallRequest,
+) -> HandlerOutcome:
+    if request.target.kind != "global":
+        return _error(
+            "target_invalid",
+            "workflows.policy_defaults.publish requires target.kind='global'",
+            "$.target.kind",
+        )
+    try:
+        payload = WorkflowPolicyDefaultsPublishRequest.model_validate(
+            request.payload or {}
+        )
+    except ValueError as exc:
+        return _error("payload_invalid", str(exc), "$.payload")
+    from yoke_core.domain.actor_project_visibility import numeric_actor_id
+    from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.workflow_definition_codec import WorkflowRegistryError
+    from yoke_core.domain.workflow_policy_defaults import (
+        publish_workflow_policy_defaults,
+    )
+
+    actor_id = numeric_actor_id(
+        request.actor.actor_id if request.actor else None
+    )
+    try:
+        with connect() as conn:
+            result = publish_workflow_policy_defaults(
+                conn,
+                workflow_id=payload.workflow_id,
+                expected_current_version=payload.expected_current_version,
+                path_claims_default=payload.path_claims_default,
+                published_by_actor_id=actor_id,
+            )
+    except WorkflowRegistryError as exc:
+        return _error("incompatible", str(exc), "$.payload")
     return HandlerOutcome(result_payload=result, primary_success=True)
 
 
@@ -160,11 +264,17 @@ def handle_workflows_item_migrate(
 __all__ = [
     "WorkflowCurrentSetRequest",
     "WorkflowCurrentSetResponse",
+    "WorkflowPolicyDefaultsPublishRequest",
+    "WorkflowPolicyDefaultsPublishResponse",
     "WorkflowItemGetRequest",
     "WorkflowItemMigrateRequest",
     "WorkflowItemMigrateResponse",
     "WorkflowItemPinResponse",
+    "WorkflowVersionGetRequest",
+    "WorkflowVersionGetResponse",
     "handle_workflows_current_set",
     "handle_workflows_item_get",
     "handle_workflows_item_migrate",
+    "handle_workflows_policy_defaults_publish",
+    "handle_workflows_version_get",
 ]

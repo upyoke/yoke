@@ -16,6 +16,14 @@ from yoke_cli.commands._helpers import (
     item_target,
     parse_or_usage_error,
 )
+from yoke_cli.commands.adapters.workflows_versions import (
+    WORKFLOWS_CURRENT_SET_USAGE,
+    WORKFLOWS_POLICY_DEFAULTS_PUBLISH_USAGE,
+    WORKFLOWS_VERSION_GET_USAGE,
+    workflows_current_set,
+    workflows_policy_defaults_publish,
+    workflows_version_get,
+)
 from yoke_contracts.api.function_call import TargetRef
 
 
@@ -24,9 +32,6 @@ WORKFLOWS_DEFINITION_GET_USAGE = (
 )
 WORKFLOWS_ITEM_GET_USAGE = (
     "yoke workflows item get ITEM [--project P] [--session-id S] [--json]"
-)
-WORKFLOWS_CURRENT_SET_USAGE = (
-    "yoke workflows current set WORKFLOW VERSION [--session-id S] [--json]"
 )
 WORKFLOWS_ITEM_MIGRATE_USAGE = (
     "yoke workflows item migrate ITEM [--version N] [--project P] "
@@ -168,45 +173,6 @@ def workflows_item_get(args: List[str]) -> int:
     )
 
 
-def workflows_current_set(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(
-        prog="yoke workflows current set",
-        description=WORKFLOWS_CURRENT_SET_USAGE,
-    )
-    parser.add_argument("workflow")
-    parser.add_argument("version", type=int)
-    add_session_arg(parser)
-    add_json_arg(parser)
-    parsed = parse_or_usage_error(
-        parser,
-        args,
-        WORKFLOWS_CURRENT_SET_USAGE,
-    )
-    if parsed is None:
-        return 2
-
-    def _human_writer(response, stdout, stderr) -> None:
-        result = response.result or {}
-        print(
-            f"workflow-current|{result.get('workflow_id') or ''}|"
-            f"{result.get('version') or ''}|"
-            f"{result.get('version_id') or ''}",
-            file=stdout,
-        )
-
-    return dispatch_and_emit(
-        function_id="workflows.current.set",
-        target=TargetRef(kind="global"),
-        payload={
-            "workflow_id": parsed.workflow,
-            "version": parsed.version,
-        },
-        session_id=parsed.session_id,
-        json_mode=parsed.json_mode,
-        human_writer=_human_writer,
-    )
-
-
 def workflows_item_migrate(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke workflows item migrate",
@@ -254,8 +220,12 @@ __all__ = [
     "WORKFLOWS_DEFINITION_GET_USAGE",
     "WORKFLOWS_ITEM_GET_USAGE",
     "WORKFLOWS_ITEM_MIGRATE_USAGE",
+    "WORKFLOWS_POLICY_DEFAULTS_PUBLISH_USAGE",
+    "WORKFLOWS_VERSION_GET_USAGE",
     "workflows_current_set",
     "workflows_definition_get",
     "workflows_item_get",
     "workflows_item_migrate",
+    "workflows_policy_defaults_publish",
+    "workflows_version_get",
 ]

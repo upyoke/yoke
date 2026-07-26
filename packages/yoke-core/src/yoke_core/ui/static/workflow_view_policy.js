@@ -48,24 +48,56 @@ function postureRows(workflow) {
   return rows;
 }
 
-function postureCell(documentNode, label, value) {
-  const cell = el(documentNode, "div", "workflow-posture-cell");
+function postureCell(documentNode, label, value, edit = null) {
+  const cell = el(
+    documentNode,
+    "div",
+    `workflow-posture-cell${edit ? " editable" : ""}`,
+  );
   const heading = el(documentNode, "div", "workflow-posture-label");
-  heading.appendChild(el(documentNode, "span", "workflow-lock", "🔒"));
+  if (!edit) {
+    heading.appendChild(el(documentNode, "span", "workflow-lock", "🔒"));
+  }
   heading.appendChild(el(documentNode, "span", null, label));
   cell.appendChild(heading);
-  cell.appendChild(el(
+  const valueRow = el(documentNode, "div", "workflow-posture-value-row");
+  valueRow.appendChild(el(
     documentNode, "div", "workflow-posture-value", value,
   ));
+  if (edit) {
+    const control = el(
+      documentNode, "button", "workflow-button compact",
+      edit.label,
+    );
+    control.type = "button";
+    control.addEventListener("click", edit.action);
+    valueRow.appendChild(control);
+  }
+  cell.appendChild(valueRow);
   return cell;
 }
 
-export function renderPosture(documentNode, workflow) {
+export function renderPosture(documentNode, workflow, actions = {}) {
   const { panel, body } = workflowPanel(documentNode, "Execution posture");
   const grid = el(documentNode, "div", "workflow-posture-grid");
   for (const [label, policy, value] of postureRows(workflow)) {
+    const pathClaimsEditable = policy === "path_claims" &&
+      (workflow.definition?.policies?.item_posture_allowlist || [])
+        .includes("path_claims") &&
+      ["optional", "required"].includes(value);
+    const pathClaimsOn = value === "required";
     grid.appendChild(postureCell(
-      documentNode, label, readablePolicyValue(policy, value),
+      documentNode,
+      label,
+      pathClaimsEditable
+        ? `${pathClaimsOn ? "on" : "off"} by default`
+        : readablePolicyValue(policy, value),
+      pathClaimsEditable && actions.editPathClaims
+        ? {
+          label: pathClaimsOn ? "Turn off" : "Turn on",
+          action: () => actions.editPathClaims(!pathClaimsOn),
+        }
+        : null,
     ));
   }
   grid.appendChild(postureCell(

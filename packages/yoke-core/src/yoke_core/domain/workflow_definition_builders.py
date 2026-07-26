@@ -5,6 +5,9 @@ from __future__ import annotations
 from typing import Any, Dict, Iterable, Optional, Sequence
 
 WORKFLOW_DEFINITION_SCHEMA_VERSION = 1
+WORKFLOW_PATH_CLAIMS_OPTIONAL = "optional"
+WORKFLOW_PATH_CLAIMS_REQUIRED = "required"
+WORKFLOW_PATH_CLAIMS_REQUIRED_PER_TASK = "required_per_task"
 REGISTERED_WORKFLOW_EXECUTOR_IDS = frozenset({
     "advance",
     "blitz",
@@ -107,6 +110,9 @@ __all__ = [
     "IMPLEMENTATION_WORKFLOW_EXECUTOR_IDS",
     "REGISTERED_WORKFLOW_EXECUTOR_IDS",
     "WORKFLOW_DEFINITION_SCHEMA_VERSION",
+    "WORKFLOW_PATH_CLAIMS_OPTIONAL",
+    "WORKFLOW_PATH_CLAIMS_REQUIRED",
+    "WORKFLOW_PATH_CLAIMS_REQUIRED_PER_TASK",
     "definition_fixture",
     "executor_binding",
     "gate_ref",

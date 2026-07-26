@@ -7,7 +7,8 @@ names for its callers. The proxy admits a closed set of function ids:
 * :data:`UI_READ_FUNCTION_ALLOWLIST` — read-only by construction, with
   one documented exception (:data:`UI_ACTIVATION_LATCH_FUNCTIONS`).
 * :data:`UI_MUTATION_FUNCTION_ALLOWLIST` — the per-actor Overview
-  dismissal pair, dispatched as the resolved local operator actor.
+  dismissal pair plus the org-admin workflow version/default controls,
+  dispatched as the resolved local operator actor.
 
 Everything else is refused with 403 before the dispatcher sees it. The
 browser envelope's own actor claim is never trusted: only the
@@ -41,6 +42,7 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset({
     "events.query.run",
     "doctor.last_run.get",
     "workflows.definition.get",
+    "workflows.version.get",
     # Documented exception to "no side effects": the Overview activation
     # read latches newly satisfied module activations into
     # overview_activation_facts — universe-scoped, monotone, idempotent,
@@ -57,13 +59,15 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset({
 #: dismissal flags then match what the dismissal writes would do.
 UI_ACTIVATION_LATCH_FUNCTIONS = frozenset({"overview.activation.get"})
 
-#: The only mutations the local proxy may dispatch: the per-actor
-#: Overview module dismissal pair. Both act as the resolved local
-#: operator actor (:mod:`yoke_core.ui.local_operator_actor`) and are
-#: refused when no operator resolves; every other mutation stays 403.
+#: The only mutations the local proxy may dispatch: the per-actor Overview
+#: dismissal pair and the org-admin workflow version/default controls. All act
+#: as the resolved local operator actor (:mod:`yoke_core.ui.local_operator_actor`)
+#: and are refused when no operator resolves; every other mutation stays 403.
 UI_MUTATION_FUNCTION_ALLOWLIST = frozenset({
     "overview.module.dismiss",
     "overview.module.restore",
+    "workflows.current.set",
+    "workflows.policy_defaults.publish",
 })
 
 

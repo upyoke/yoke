@@ -2,138 +2,18 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  mountUniverseApp,
-} from "../../packages/yoke-core/src/yoke_core/ui/static/app.js";
-import {
-  FakeDocument,
   allNodes,
   byClass,
-  response,
   settle,
 } from "./universe_ui_dom_test_support.mjs";
-
-function okEnvelope(result) {
-  return { status: 200, envelope: { success: true, result } };
-}
-
-function workflowFixture({
-  id = "rally",
-  name = "Rally",
-  description = "Coordinate a small release train.",
-  stages,
-  currentVersion = 3,
-  versions,
-} = {}) {
-  return {
-    id,
-    name,
-    description,
-    source: "pack",
-    status: "disabled",
-    current_version: currentVersion,
-    published_at: "2026-07-25T12:00:00Z",
-    versions: versions || [
-      {
-        version: 1,
-        definition_digest: `${id}-first`,
-        published_at: "2026-07-20T12:00:00Z",
-      },
-      {
-        version: currentVersion,
-        definition_digest: `${id}-current`,
-        published_at: "2026-07-25T12:00:00Z",
-      },
-    ],
-    definition: {
-      stages: stages || [
-        { id: "draft", label: "Drafted", gates: [] },
-        {
-          id: "prove",
-          label: "Proving",
-          gates: [{ id: "evidence_check", mode: "strict" }],
-          description: "Collect the declared proof.",
-        },
-        { id: "ship", label: "Shipped", gates: [] },
-      ],
-      entry_surfaces: ["cli", "harness_skill"],
-      executor_bindings: [
-        {
-          executor_id: "advance",
-          from_stage_id: "draft",
-          through_stage_id: "ship",
-        },
-      ],
-      policies: {
-        ownership: "single_item_claim",
-        path_claims: "required",
-        worktrees: "single_implementation_lane",
-        parallelism: "inside_item",
-        generated_children: "none",
-        qa: "project_transition_defaults",
-        approvals: "definition_transitions",
-        delivery: "release_stage",
-        item_posture_allowlist: ["verification"],
-      },
-    },
-  };
-}
-
-function definitionFixture(workflows = [workflowFixture()]) {
-  return {
-    family: "work-items",
-    workflows,
-    gate_catalog: [{
-      id: "evidence_check",
-      name: "Evidence check",
-      source_kind: "status_gate",
-      availability: "live",
-      description: "The declared proof must exist.",
-    }],
-    flows: [],
-  };
-}
-
-function workflowsClient(workflows) {
-  const requests = [];
-  return {
-    requests,
-    async call(request) {
-      requests.push(request);
-      if (request.function === "organizations.get") {
-        return okEnvelope({ name: "Yoke" });
-      }
-      if (request.function === "projects.list") {
-        return okEnvelope({ rows: [{ id: 1, slug: "yoke", name: "Yoke" }] });
-      }
-      if (request.function === "workflows.definition.get") {
-        return okEnvelope(definitionFixture(workflows));
-      }
-      throw new Error(`unexpected function ${request.function}`);
-    },
-  };
-}
-
-async function mountWorkflows(t, client) {
-  const originalFetch = globalThis.fetch;
-  t.after(() => { globalThis.fetch = originalFetch; });
-  globalThis.fetch = () => response(200, {});
-  const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/workflows";
-  const root = documentNode.createElement("div");
-  const mounted = mountUniverseApp(root, { client });
-  await settle();
-  return { root, mounted };
-}
-
-function panelTitles(root) {
-  return allNodes(root)
-    .filter((node) => node.tagName === "H2")
-    .map((node) => node.textContent);
-}
-
-function classText(root, className) {
-  return byClass(root, className).map((node) => node.textContent);
-}
+import {
+  classText,
+  mountWorkflows,
+  okEnvelope,
+  panelTitles,
+  workflowFixture,
+  workflowsClient,
+} from "./universe_ui_workflows_test_support.mjs";
 
 test("Workflows renders the registry as the lifecycle experience", async (t) => {
   const client = workflowsClient();
@@ -234,14 +114,104 @@ test("workflow tabs use the decided built-in order and open Dash first", async (
   mounted.unmount();
 });
 
-test("version history inspection reveals the immutable digest", async (t) => {
-  const { root, mounted } = await mountWorkflows(t, workflowsClient());
+test("version inspection reads the immutable definition and can select it", async (t) => {
+  const client = workflowsClient();
+  const { root, mounted } = await mountWorkflows(t, client);
   byClass(root, "workflow-button")[0].dispatchEvent(new Event("click"));
-  assert.deepEqual(classText(root, "workflow-version-inspection"), [
+  await settle();
+  assert.deepEqual(classText(root, "workflow-version-digest"), [
     "rally-first",
   ]);
-  byClass(root, "workflow-button")[0].dispatchEvent(new Event("click"));
-  assert.deepEqual(classText(root, "workflow-version-inspection"), []);
+  assert.deepEqual(
+    client.requests.find(
+      (request) => request.function === "workflows.version.get",
+    ),
+    {
+      function: "workflows.version.get",
+      payload: { workflow_id: "rally", version: 1 },
+    },
+  );
+
+  allNodes(root).find(
+    (node) => node.tagName === "BUTTON" && node.textContent === "Make current",
+  ).dispatchEvent(new Event("click"));
+  assert.deepEqual(classText(root, "workflow-dialog-title"), [
+    "Make Rally v1 current?",
+  ]);
+  byClass(root, "primary")[0].dispatchEvent(new Event("click"));
+  await settle();
+  assert.deepEqual(
+    client.requests.find(
+      (request) => request.function === "workflows.current.set",
+    ),
+    {
+      function: "workflows.current.set",
+      payload: {
+        workflow_id: "rally",
+        version: 1,
+        expected_current_version: 3,
+      },
+    },
+  );
+  assert.deepEqual(classText(root, "workflow-version-title"), [
+    "v3", "v1 · current",
+  ]);
+  mounted.unmount();
+});
+
+test("the editable path-claims default publishes a new immutable version", async (t) => {
+  const dash = workflowFixture({
+    id: "dash",
+    name: "Dash",
+    currentVersion: 1,
+    policies: {
+      ownership: "exclusive_session_work_claim",
+      path_claims: "optional",
+      worktrees: "single_implementation_lane",
+      parallelism: "none",
+      generated_children: "none",
+      qa: "optional_item_attachment",
+      approvals: "none",
+      delivery: "after_merge_action",
+      item_posture_allowlist: [
+        "verification", "path_claims", "approval_on_done", "deployment",
+      ],
+    },
+  });
+  const client = workflowsClient([dash]);
+  const { root, mounted } = await mountWorkflows(t, client);
+
+  const turnOn = allNodes(root).find(
+    (node) => node.tagName === "BUTTON" && node.textContent === "Turn on",
+  );
+  assert.ok(turnOn);
+  turnOn.dispatchEvent(new Event("click"));
+  assert.deepEqual(classText(root, "workflow-dialog-title"), [
+    "Turn on path claims",
+  ]);
+  assert.ok(classText(root, "workflow-dialog-impact")[0].includes(
+    "Publishing creates Dash v2",
+  ));
+  byClass(root, "primary")[0].dispatchEvent(new Event("click"));
+  await settle();
+
+  assert.deepEqual(
+    client.requests.find(
+      (request) => request.function === "workflows.policy_defaults.publish",
+    ),
+    {
+      function: "workflows.policy_defaults.publish",
+      payload: {
+        workflow_id: "dash",
+        expected_current_version: 1,
+        path_claims_default: true,
+      },
+    },
+  );
+  assert.ok(classText(root, "workflow-posture-value").includes("on by default"));
+  assert.deepEqual(classText(root, "workflow-version-title"), [
+    "v2 · current", "v1",
+  ]);
   mounted.unmount();
 });
 

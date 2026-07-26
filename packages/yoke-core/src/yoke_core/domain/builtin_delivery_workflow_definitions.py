@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from yoke_core.domain.workflow_definition_builders import (
+    WORKFLOW_PATH_CLAIMS_REQUIRED,
+    WORKFLOW_PATH_CLAIMS_REQUIRED_PER_TASK,
     definition_fixture,
     executor_binding,
     gate_ref,
@@ -126,7 +128,7 @@ ISSUE_WORKFLOW_DEFINITION = definition_fixture(
     ),
     policies={
         "ownership": "single_item_claim",
-        "path_claims": "required",
+        "path_claims": WORKFLOW_PATH_CLAIMS_REQUIRED,
         "worktrees": "single_implementation_lane",
         "parallelism": "inside_item",
         "generated_children": "none",
@@ -206,7 +208,7 @@ EPIC_WORKFLOW_DEFINITION = definition_fixture(
     ),
     policies={
         "ownership": "item_claim_and_task_lanes",
-        "path_claims": "required_per_task",
+        "path_claims": WORKFLOW_PATH_CLAIMS_REQUIRED_PER_TASK,
         "worktrees": "worker_and_integration_lanes",
         "parallelism": "task_graph",
         "generated_children": "epic_tasks",

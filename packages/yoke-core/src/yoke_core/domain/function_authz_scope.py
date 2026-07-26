@@ -191,7 +191,9 @@ _BY_ID: dict[str, AuthzSpec] = {
     "overview.activation.get": AuthzSpec(ACTOR_SESSION, None),
     "overview.module.dismiss": AuthzSpec(ACTOR_SESSION, None),
     "overview.module.restore": AuthzSpec(ACTOR_SESSION, None),
-    # Actor/session: the caller operating on its own session/orchestration.
+    "workflows.current.set": AuthzSpec(ORG, PERM_ORG_ADMIN),
+    "workflows.policy_defaults.publish": AuthzSpec(ORG, PERM_ORG_ADMIN),
+    # Actor/session: caller operating on its own session/orchestration.
     "sessions.begin": AuthzSpec(ACTOR_SESSION, None),
     "sessions.init": AuthzSpec(CLIENT_LOCAL, None),
     "sessions.touch": AuthzSpec(ACTOR_SESSION, None),
@@ -223,10 +225,8 @@ _BY_ID: dict[str, AuthzSpec] = {
     "packets.render.run": AuthzSpec(CLIENT_LOCAL, None),
     "packets.check.run": AuthzSpec(CLIENT_LOCAL, None),
 }
-
 # Prefix families where every member shares a scope.
 _BY_PREFIX: tuple[tuple[str, AuthzSpec], ...] = (
-    ("workflows.current.", AuthzSpec(CONTROL_PLANE, PERM_DB_READ_RAW)),
     # Global learning channel; handlers retain optional project list filters.
     ("ouroboros.field_note.", AuthzSpec(ACTOR_SESSION, None)),
     # Flow reads/runs are org-scoped; project reconcile is excepted above.

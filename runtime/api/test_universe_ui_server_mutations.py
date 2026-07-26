@@ -1,8 +1,8 @@
-"""Local UI proxy coverage for the Overview activation surface.
+"""Local UI proxy coverage for the narrow operator mutation surfaces.
 
-Pins the narrow mutation allowlist (dismiss/restore acting as the
-resolved local operator actor), the documented latch exception on the
-read allowlist, and the operator-actor resolution rules.
+Pins the mutation allowlist (Overview preferences plus workflow defaults),
+the documented latch exception on the read allowlist, and the operator-actor
+resolution rules.
 """
 
 from __future__ import annotations
@@ -47,7 +47,7 @@ class TestRegistrationShape:
             assert entry.side_effects == ("overview_activation_facts_insert",)
             assert entry.claim_required_kind is None
 
-    def test_mutation_allowlist_is_exactly_the_dismissal_pair(self):
+    def test_mutation_allowlist_is_the_two_bounded_operator_families(self):
         from yoke_core.domain.handlers.__init_register__ import (
             register_all_handlers,
         )
@@ -56,6 +56,7 @@ class TestRegistrationShape:
         register_all_handlers()
         assert ui_server.UI_MUTATION_FUNCTION_ALLOWLIST == {
             "overview.module.dismiss", "overview.module.restore",
+            "workflows.current.set", "workflows.policy_defaults.publish",
         }
         assert not (
             ui_server.UI_MUTATION_FUNCTION_ALLOWLIST
@@ -64,7 +65,13 @@ class TestRegistrationShape:
         for function_id in ui_server.UI_MUTATION_FUNCTION_ALLOWLIST:
             entry = lookup(function_id)
             assert entry is not None, function_id
-            assert "actor_required" in entry.guardrails
+            assert entry.claim_required_kind is None
+        assert "actor_required" in lookup(
+            "overview.module.dismiss"
+        ).guardrails
+        assert "expected_current_version" in lookup(
+            "workflows.policy_defaults.publish"
+        ).guardrails
 
 
 class TestOperatorActorResolution:
@@ -112,7 +119,7 @@ class TestProxyMutations:
         })
         assert dismissed.status_code == 200
         envelope = dismissed.json()
-        assert envelope["success"] is True
+        assert envelope["success"] is True, envelope
         assert envelope["result"] == {
             "module_key": "connect_harness", "dismissed": True,
         }
@@ -147,6 +154,50 @@ class TestProxyMutations:
             "SELECT COUNT(*) FROM actor_ui_preferences"
         ).fetchone()[0]
         assert int(remaining) == 0
+
+    def test_workflow_default_publish_acts_as_org_admin(
+        self, ui_client, test_db,
+    ):
+        from yoke_core.domain.actor_permissions import (
+            ROLE_ADMIN,
+            grant_actor_org_role,
+            seed_roles_and_permissions,
+        )
+
+        seed_roles_and_permissions(test_db)
+        operator = int(
+            local_operator_actor.resolve_local_operator_actor()
+        )
+        org_id = int(
+            test_db.execute(
+                "SELECT id FROM organizations ORDER BY id LIMIT 1"
+            ).fetchone()[0]
+        )
+        grant_actor_org_role(
+            test_db,
+            actor_id=operator,
+            org_id=org_id,
+            role_name=ROLE_ADMIN,
+            granted_by_actor_id=operator,
+        )
+        test_db.commit()
+        response = _call(ui_client, {
+            "function": "workflows.policy_defaults.publish",
+            "payload": {
+                "workflow_id": "dash",
+                "expected_current_version": 1,
+                "path_claims_default": True,
+            },
+        })
+        assert response.status_code == 200
+        envelope = response.json()
+        assert envelope["success"] is True, envelope
+        assert envelope["result"]["version"] == 2
+        row = test_db.execute(
+            "SELECT published_by_actor_id FROM workflow_versions "
+            "WHERE workflow_id = 'dash' AND version = 2"
+        ).fetchone()
+        assert int(row[0]) == operator
 
     def test_unresolved_operator_refuses_writes_but_reads_still_serve(
         self, ui_client, test_db, monkeypatch,
