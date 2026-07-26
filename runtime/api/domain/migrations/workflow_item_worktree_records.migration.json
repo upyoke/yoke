@@ -38,7 +38,7 @@
   "module_sources": {
     "workflow_item_worktree_records": {
       "path": "packages/yoke-core/src/yoke_core/domain/migrations/workflow_item_worktree_records.py",
-      "sha256": "e9c8c8c48552d0e4d4576603316eb8286491e7e26081e083195ecece6df3a98e"
+      "sha256": "ab4625211cdc273d9025f1e6fcf840f5b08c418c5e0639bab542b2425c519769"
     }
   },
   "attestation": {
@@ -66,13 +66,13 @@
     ],
     "invariants": [
       "Legacy item, task, and dispatch-chain row counts are unchanged.",
-      "Every populated legacy worktree branch has one active universal lane record.",
+      "Every policy-owned legacy worktree branch has one active universal lane record; cross-workflow Epic-table residue is not promoted into an Issue worker lane.",
       "Every active lane role is allowed and every populated lane set satisfies the item's pinned workflow policy.",
       "An active path and an active single-lane role cannot be owned twice."
     ],
     "rehearsal_commands": [
       "PYTHONPATH=packages/yoke-contracts/src:packages/yoke-cli/src:packages/yoke-core/src:packages/yoke-harness/src:. python3 -m pytest runtime/api/domain/migrations/test_workflow_item_worktree_records.py runtime/api/domain/test_item_worktrees.py runtime/api/domain/test_workflow_registry.py runtime/api/domain/test_worktree.py -q"
     ],
-    "residual_risk_notes": "The cutover is additive and idempotent. New readers prefer universal rows while the existing item, task, and dispatch-chain fields remain populated until the later residue contraction."
+    "residual_risk_notes": "The cutover is additive and idempotent. New readers prefer universal rows while the existing item, task, and dispatch-chain fields remain populated until the later residue contraction; historical Epic-table rows attached to Issue-pinned items remain legacy residue rather than becoming invalid worker lanes."
   }
 }

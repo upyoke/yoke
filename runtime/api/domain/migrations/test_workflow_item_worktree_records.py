@@ -82,3 +82,34 @@ def test_backfill_preserves_legacy_rows_and_is_idempotent(test_db):
     assert {
         row["lane_role"] for row in list_item_worktrees(test_db, 932, active_only=True)
     } == {LANE_WORKER, LANE_INTEGRATION}
+
+
+def test_backfill_ignores_cross_workflow_epic_table_residue(test_db):
+    insert_item(
+        test_db,
+        id=933,
+        workflow_id="issue",
+        worktree="YOK-933",
+    )
+    insert_epic_task(
+        test_db,
+        epic_id=933,
+        task_num=1,
+        worktree="YOK-933-stale",
+        branch="YOK-933-stale",
+        worktree_path="/tmp/YOK-933-stale",
+    )
+    test_db.execute(
+        "INSERT INTO epic_dispatch_chains "
+        "(epic_id, worktree, worktree_path) VALUES (%s, %s, %s)",
+        (933, "YOK-933-stale", "/tmp/YOK-933-stale"),
+    )
+    test_db.commit()
+
+    apply(test_db)
+    invariants(test_db)
+
+    assert [
+        (row["branch"], row["lane_role"])
+        for row in list_item_worktrees(test_db, 933, active_only=True)
+    ] == [("YOK-933", LANE_IMPLEMENTATION)]

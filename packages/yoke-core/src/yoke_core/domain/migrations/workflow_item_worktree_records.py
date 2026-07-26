@@ -75,6 +75,18 @@ def _legacy_lane_rows(conn: Any) -> list[tuple[int, str, str | None]]:
     return rows
 
 
+def _legacy_worker_lane_rows(conn: Any) -> list[tuple[int, str, str | None]]:
+    """Exclude cross-workflow residue that is not a current worker lane."""
+    return [
+        row
+        for row in _legacy_lane_rows(conn)
+        if LANE_WORKER
+        in worktree_lane_policy(
+            load_item_workflow_runtime(conn, row[0])
+        ).allowed_roles
+    ]
+
+
 def _backfill(conn: Any) -> None:
     if _column_exists(conn, "items", "worktree"):
         rows = conn.execute(
@@ -91,7 +103,7 @@ def _backfill(conn: Any) -> None:
             )
 
     worker_items: set[int] = set()
-    for item_id, branch, path in _legacy_lane_rows(conn):
+    for item_id, branch, path in _legacy_worker_lane_rows(conn):
         record_item_worktree(
             conn,
             item_id=item_id,
@@ -137,7 +149,7 @@ def _assert_legacy_rows_covered(conn: Any) -> None:
                 + ", ".join(f"{row[0]}:{row[1]}" for row in missing)
             )
 
-    for item_id, branch, _path in _legacy_lane_rows(conn):
+    for item_id, branch, _path in _legacy_worker_lane_rows(conn):
         row = conn.execute(
             "SELECT 1 FROM item_worktrees "
             f"WHERE item_id = {marker} AND branch = {marker} "
