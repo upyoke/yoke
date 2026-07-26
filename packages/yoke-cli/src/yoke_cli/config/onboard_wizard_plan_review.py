@@ -21,11 +21,15 @@ from yoke_contracts.machine_config.schema import POSTGRES_TRANSPORTS
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from textual.widgets import Static
 
+# Write-plan groups name what Apply does, not merely where it lands: by the
+# time Review renders, some secrets are already on disk (the API token at
+# machine approval, the hosting credential at Save & verify), so an unqualified
+# "On this machine" heading would read as a promise nothing is written yet.
 _PLAN_GROUPS = (
-    ("On this machine (~/.yoke)", "onboard-plan-group-machine", "machine"),
-    ("In the Yoke core database", "onboard-plan-group-core", "core"),
-    ("In your project folder", "onboard-plan-group-repo", "repo"),
-    ("Advanced / admin", "onboard-plan-group-admin", "admin"),
+    ("Apply — on this machine (~/.yoke)", "onboard-plan-group-machine", "machine"),
+    ("Apply — in the Yoke core database", "onboard-plan-group-core", "core"),
+    ("Apply — in your project folder", "onboard-plan-group-repo", "repo"),
+    ("Apply — advanced / admin", "onboard-plan-group-admin", "admin"),
 )
 # Distinct labels for the "already set up, Apply reuses these" block so it is not
 # confused with the write-plan groups above (which share the same locations).
@@ -35,6 +39,10 @@ _REUSE_GROUPS = (
     ("Already in your project folder", "onboard-plan-group-repo", "repo"),
     ("Already set up (advanced / admin)", "onboard-plan-group-admin", "admin"),
 )
+# Write-plan lines are things Apply will do; reuse lines are things already
+# done. The two markers keep that difference readable at a glance.
+_WRITE_MARKER = "•"
+_REUSE_MARKER = "✔"
 
 _MACHINE_ACTIONS = {
     "create-or-validate-dir", "set-active-env", "set-https-api-url",
@@ -67,7 +75,8 @@ def render_write_plan(plan: dict[str, Any]) -> list[Static]:
             continue
         widgets.append(Static(label, classes=css_class))
         widgets.extend(
-            Static(f"  • {line}", classes="onboard-plan-line") for line in lines
+            Static(f"  {_WRITE_MARKER} {line}", classes="onboard-plan-line")
+            for line in lines
         )
     if not widgets:
         widgets.append(
@@ -90,7 +99,8 @@ def render_reuse_summary(plan: dict[str, Any]) -> list[Static]:
             continue
         widgets.append(Static(label, classes=css_class))
         widgets.extend(
-            Static(f"  • {line}", classes="onboard-plan-line") for line in lines
+            Static(f"  {_REUSE_MARKER} {line}", classes="onboard-plan-line")
+            for line in lines
         )
     return widgets
 
