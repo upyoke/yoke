@@ -1,6 +1,6 @@
 ---
 name: strategize
-description: "Direct-mode entrypoint — guided SML review across the MISSION, LANDSCAPE, VISION, and MASTER-PLAN strategy docs."
+description: "Direct-mode entrypoint — guided SML review across the MISSION, LANDSCAPE, VISION, MASTER-PLAN, and CURRENT-PLAN strategy docs."
 argument-hint: "[--lane LANE] [--model MODEL]"
 ---
 
@@ -27,7 +27,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 ```
 REPO_ROOT=$(git rev-parse --show-toplevel)
-SML_SLUGS="MISSION LANDSCAPE VISION MASTER-PLAN"
+SML_SLUGS="MISSION LANDSCAPE VISION MASTER-PLAN CURRENT-PLAN"
 _project=$(yoke projects checkout-context --field slug)
 _project_id=$(yoke projects checkout-context --field id)
 ```

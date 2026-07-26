@@ -98,6 +98,23 @@ class TestStrategize:
         # operations/cleanup wave.
         assert '"function": "claims.work.release"' in text
 
+    def test_strategize_roster_reviews_all_five_default_docs(self):
+        """The SML review roster covers every seeded default strategy doc.
+
+        The seeded default corpus is five docs; a stale four-doc roster
+        would leave CURRENT-PLAN — the doc first-work seeding derives
+        from — outside the strategize review loop.
+        """
+        text = _read(self.STRATEGIZE_DIR / "SKILL.md")
+        assert (
+            'SML_SLUGS="MISSION LANDSCAPE VISION MASTER-PLAN CURRENT-PLAN"'
+            in text
+        )
+        for slug in (
+            "MISSION", "LANDSCAPE", "VISION", "MASTER-PLAN", "CURRENT-PLAN",
+        ):
+            assert slug in text, f"strategize roster missing {slug!r}"
+
     def test_strategize_skill_is_not_a_stub(self):
         """Guards against regression to a placeholder skill."""
         text = _read(self.STRATEGIZE_DIR / "SKILL.md")
