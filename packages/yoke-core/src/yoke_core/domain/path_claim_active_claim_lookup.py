@@ -7,23 +7,18 @@ the current session (or, fallback, the session's current item).
 Resolution prefers typed ownership; the registering session is
 provenance only and is never authority.
 
-Resolution order:
-
-1. ``owner_kind='session' AND owner_session_id = session_id`` with
-   non-terminal state — most recent first. Catches the orphan/session
-   claim case. Legacy un-typed rows match via ``session_id`` as well.
-2. ``harness_sessions.current_item_id`` link, then
-   ``owner_kind='item' AND owner_item_id = item`` for that item.
-   The registering session is NOT a filter on this fallback — an
-   item-owned claim survives any registering session ending.
+Resolution first checks session-owned non-terminal claims, then item-owned
+claims for ``harness_sessions.current_item_id``. Registering-session fields
+are provenance and never narrow typed item ownership.
 
 The returned dict carries ``covered_paths``, ``worktree_path`` for a
 single lane, and ``chain_worktrees`` for task-lane workflows.
 
 :func:`_resolve_active_worktree` is the path-driven canonical reader
 for "which worktree branch is this target bound to for this item?".
-Issue items return ``items.worktree``; epic items return the chain
-whose worktree path is an ancestor of the inbound ``target_path``.
+Universal lane records are authoritative; single-lane items return their
+one branch, while multi-lane items return the lane whose path is an ancestor
+of the inbound ``target_path``. Legacy projections remain as a fallback.
 """
 
 from __future__ import annotations
@@ -37,6 +32,9 @@ from yoke_core.domain.project_checkout_locations import (
     checkout_for_project_id,
     item_worktree_path,
     worktree_path_for_branch,
+)
+from yoke_core.domain.path_claim_item_worktree_paths import (
+    universal_item_worktree_paths,
 )
 from yoke_core.domain.workflow_behavior import generates_task_graph
 from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
@@ -91,9 +89,7 @@ def resolve_active_claim_for_session(
                 pass
 
 
-def _resolve_active_claim(
-    conn: Any, *, session_id: str
-) -> Optional[Dict[str, Any]]:
+def _resolve_active_claim(conn: Any, *, session_id: str) -> Optional[Dict[str, Any]]:
     """DB-side resolution; safe against missing tables (returns None).
 
     Prefers typed owner columns. A NULL ``owner_kind`` row (pre-
@@ -147,7 +143,9 @@ def _resolve_active_claim(
                 "END, id DESC LIMIT 1",
                 (
                     *_NON_TERMINAL_CLAIM_STATES,
-                    item_id, item_id, session_id,
+                    item_id,
+                    item_id,
+                    session_id,
                 ),
             ).fetchone()
         except db_backend.database_error_types(conn):
@@ -178,9 +176,7 @@ def _resolve_active_claim(
     }
 
 
-def _current_item_for_session(
-    conn: Any, session_id: str
-) -> Optional[int]:
+def _current_item_for_session(conn: Any, session_id: str) -> Optional[int]:
     try:
         row = conn.execute(
             f"SELECT current_item_id FROM harness_sessions WHERE session_id = {_p(conn)}",
@@ -194,9 +190,7 @@ def _current_item_for_session(
     return _coerce_int(raw)
 
 
-def _covered_paths_for_claim(
-    conn: Any, claim_id: int
-) -> List[str]:
+def _covered_paths_for_claim(conn: Any, claim_id: int) -> List[str]:
     try:
         rows = conn.execute(
             "SELECT pt.path_string FROM path_claim_targets pct "
@@ -211,7 +205,8 @@ def _covered_paths_for_claim(
 
 
 def _paths_for_item(
-    conn: Any, item_id: Any,
+    conn: Any,
+    item_id: Any,
 ) -> Dict[str, Any]:
     """Return item metadata used to bind path-claims to physical roots."""
     parsed = _coerce_int(item_id)
@@ -219,8 +214,7 @@ def _paths_for_item(
         return {}
     try:
         row = conn.execute(
-            "SELECT i.project_id FROM items i "
-            f"WHERE i.id = {_p(conn)} LIMIT 1",
+            f"SELECT i.project_id FROM items i WHERE i.id = {_p(conn)} LIMIT 1",
             (parsed,),
         ).fetchone()
     except db_backend.database_error_types(conn):
@@ -231,9 +225,7 @@ def _paths_for_item(
         project_id = row["project_id"]
     else:
         project_id = row[0]
-    task_lanes = generates_task_graph(
-        load_item_workflow_runtime(conn, parsed)
-    )
+    task_lanes = generates_task_graph(load_item_workflow_runtime(conn, parsed))
     checkout = checkout_for_project_id(_coerce_int(project_id))
     repo_str = str(checkout) if checkout is not None else None
     out: Dict[str, Any] = {
@@ -242,6 +234,14 @@ def _paths_for_item(
         "worktree_path": None,
         "chain_worktrees": (),
     }
+    universal = universal_item_worktree_paths(
+        conn,
+        item_id=parsed,
+        project_id=_coerce_int(project_id),
+    )
+    if universal:
+        out.update(universal)
+        return out
     if not task_lanes:
         path = item_worktree_path(conn, parsed)
         if path is not None:
@@ -314,11 +314,11 @@ def _resolve_active_worktree(
 ) -> Optional[str]:
     """Return the active worktree branch name for this evaluation.
 
-    Path-driven canonical reader. Issue items return ``items.worktree``
-    regardless of ``target_path``. Epic items return the chain whose
-    worktree path is an ancestor of ``target_path``; ``None`` when no
-    chain matches, when the target is missing or non-absolute, or when
-    the item has no chains. ``session_id`` is unused — epic worktree
+    Path-driven canonical reader. Single-lane items return their universal
+    branch regardless of ``target_path``. Multi-lane items return the lane
+    whose worktree path is an ancestor of ``target_path``; ``None`` when no
+    lane matches, when the target is missing or non-absolute, or when
+    the item has no lanes. ``session_id`` is unused — multi-lane worktree
     resolution is driven by the file under examination, not by the
     session row's lane field.
     """

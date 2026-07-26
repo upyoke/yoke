@@ -25,7 +25,9 @@ def seed_multiworktree_epic(db_path: str, epic_id: int, branches, repo_root: str
     creator should iterate over.
     """
     conn = connect_test_db(db_path)
-    execute_schema_script(conn, """\
+    execute_schema_script(
+        conn,
+        """\
         CREATE TABLE IF NOT EXISTS epic_dispatch_chains (
             id INTEGER PRIMARY KEY,
             epic_id INTEGER NOT NULL,
@@ -41,7 +43,8 @@ def seed_multiworktree_epic(db_path: str, epic_id: int, branches, repo_root: str
             last_updated TEXT,
             UNIQUE(epic_id, worktree)
         );
-    """)
+    """,
+    )
     p = _placeholder(conn)
     conn.execute(
         "INSERT INTO items "
@@ -87,7 +90,9 @@ class TestCreateWorktreeMultiWorktree:
         conn.close()
 
         result = create_worktree(
-            99100, repo_root=str(git_repo), config_path=_config_path(git_repo),
+            99100,
+            repo_root=str(git_repo),
+            config_path=_config_path(git_repo),
             db_path=yoke_db,
         )
 
@@ -99,53 +104,22 @@ class TestCreateWorktreeMultiWorktree:
         assert result.worktrees[0].branch == "YOK-99100"
         assert result.worktrees[0].created is True
 
-    def test_multi_worktree_epic_creates_one_per_chain(self, git_repo, yoke_db):
-        # Epic with N>=2 chains produces N worktrees, one per chain row.
-        # Worktree order follows ``epic_dispatch_chains.worktree`` (alphabetical),
-        # matching the pre-existing ``resolve_item_worktree`` contract.
-        branches = ["epic-99200-cli", "epic-99200-core", "epic-99200-tests"]
-        entries = seed_multiworktree_epic(yoke_db, 99200, branches, str(git_repo))
-
-        result = create_worktree(
-            99200, repo_root=str(git_repo), config_path=_config_path(git_repo),
-            db_path=yoke_db,
-        )
-
-        assert result.error is None, result.error
-        assert result.created is True
-        assert len(result.worktrees) == len(branches)
-        assert sorted(entry.branch for entry in result.worktrees) == sorted(branches)
-        assert sorted(entry.path for entry in result.worktrees) == sorted(
-            path for _, path in entries
-        )
-        for branch, path in entries:
-            assert os.path.isdir(path), f"missing worktree at {path}"
-            cur = subprocess.run(
-                ["git", "branch", "--show-current"],
-                cwd=path, capture_output=True, text=True,
-            )
-            assert cur.stdout.strip() == branch
-
-        # Git worktree list includes one entry per chain.
-        listing = subprocess.run(
-            ["git", "-C", str(git_repo), "worktree", "list", "--porcelain"],
-            capture_output=True, text=True,
-        )
-        for _, path in entries:
-            assert path in listing.stdout
-
     def test_multi_worktree_idempotency_skips_existing(self, git_repo, yoke_db):
         # Rerunning is a no-op for worktrees already on the expected branch.
         branches = ["epic-99201-a", "epic-99201-b"]
         seed_multiworktree_epic(yoke_db, 99201, branches, str(git_repo))
         first = create_worktree(
-            99201, repo_root=str(git_repo), config_path=_config_path(git_repo),
+            99201,
+            repo_root=str(git_repo),
+            config_path=_config_path(git_repo),
             db_path=yoke_db,
         )
         assert first.error is None and first.created is True
 
         second = create_worktree(
-            99201, repo_root=str(git_repo), config_path=_config_path(git_repo),
+            99201,
+            repo_root=str(git_repo),
+            config_path=_config_path(git_repo),
             db_path=yoke_db,
         )
 
@@ -157,32 +131,30 @@ class TestCreateWorktreeMultiWorktree:
         ]
 
     def test_multi_worktree_creation_does_not_race_a_session_envelope(
-        self, git_repo, yoke_db,
+        self,
+        git_repo,
+        yoke_db,
     ):
-        # Parallel multi-worktree creation does not race a single session
-        # envelope, because the envelope is gone. Per-worktree authority comes
-        # from each subagent's work_claim on the parent epic, validated
-        # per call by lint_session_cwd. Each worktree stands on its own.
         branches = ["epic-99202-aaa", "epic-99202-bbb", "epic-99202-ccc"]
         entries = seed_multiworktree_epic(yoke_db, 99202, branches, str(git_repo))
 
         result = create_worktree(
-            99202, repo_root=str(git_repo), config_path=_config_path(git_repo),
+            99202,
+            repo_root=str(git_repo),
+            config_path=_config_path(git_repo),
             db_path=yoke_db,
         )
 
         assert result.error is None
-        # The result no longer carries scope_entered / scope_message fields.
         assert not hasattr(result, "scope_entered")
         assert not hasattr(result, "scope_message")
-        # Primary worktree is the first chain in epic_dispatch_chains.worktree order.
-        primary_branch, primary_path = entries[0]
-        assert result.branch == primary_branch
-        assert result.path == primary_path
-        # All sibling worktrees provisioned (parallel-fan-out shape; no envelope
-        # race because there is no envelope).
-        assert len(result.worktrees) == len(entries)
-        for wt_result, (expected_branch, expected_path) in zip(result.worktrees, entries):
+        assert result.branch == "YOK-99202"
+        assert result.path.endswith(".worktrees/YOK-99202")
+        assert len(result.worktrees) == len(entries) + 1
+        for wt_result, (expected_branch, expected_path) in zip(
+            result.worktrees[1:],
+            entries,
+        ):
             assert wt_result.branch == expected_branch
             assert wt_result.path == expected_path
             assert os.path.isdir(expected_path)
@@ -196,7 +168,9 @@ class TestCreateWorktreeMultiWorktree:
         seed_multiworktree_epic(yoke_db, 99203, branches, str(git_repo))
 
         result = create_worktree(
-            99203, repo_root=str(git_repo), config_path=str(cfg),
+            99203,
+            repo_root=str(git_repo),
+            config_path=str(cfg),
             db_path=yoke_db,
         )
 
@@ -206,7 +180,9 @@ class TestCreateWorktreeMultiWorktree:
         for branch in branches:
             assert not os.path.isdir(str(git_repo / ".worktrees" / branch))
 
-    def test_duplicate_worktree_path_blocks_before_side_effects(self, git_repo, yoke_db):
+    def test_duplicate_worktree_path_blocks_before_side_effects(
+        self, git_repo, yoke_db
+    ):
         branches = ["epic-99209-a", "epic-99209-b"]
         entries = seed_multiworktree_epic(yoke_db, 99209, branches, str(git_repo))
         conn = connect_test_db(yoke_db)
@@ -220,7 +196,9 @@ class TestCreateWorktreeMultiWorktree:
         conn.close()
 
         result = create_worktree(
-            99209, repo_root=str(git_repo), config_path=_config_path(git_repo),
+            99209,
+            repo_root=str(git_repo),
+            config_path=_config_path(git_repo),
             db_path=yoke_db,
         )
 
@@ -234,7 +212,9 @@ class TestCreateWorktreeMultiWorktree:
         (git_repo / "dirty.txt").write_text("dirty\n")
 
         result = create_worktree(
-            99210, repo_root=str(git_repo), config_path=_config_path(git_repo),
+            99210,
+            repo_root=str(git_repo),
+            config_path=_config_path(git_repo),
             db_path=yoke_db,
         )
 
@@ -251,11 +231,15 @@ class TestCreateWorktreeMultiWorktree:
         clash_path = entries[1][1]
         subprocess.run(
             ["git", "worktree", "add", clash_path, "-b", "wrong-branch", "main"],
-            cwd=str(git_repo), check=True, capture_output=True,
+            cwd=str(git_repo),
+            check=True,
+            capture_output=True,
         )
 
         result = create_worktree(
-            99204, repo_root=str(git_repo), config_path=_config_path(git_repo),
+            99204,
+            repo_root=str(git_repo),
+            config_path=_config_path(git_repo),
             db_path=yoke_db,
         )
 
@@ -268,7 +252,9 @@ class TestCreateWorktreeMultiWorktree:
     def test_result_backward_compat_for_single_worktree(self, git_repo):
         # Existing single-worktree callers receive populated path/branch/created.
         result = create_worktree(
-            99205, repo_root=str(git_repo), config_path=_config_path(git_repo),
+            99205,
+            repo_root=str(git_repo),
+            config_path=_config_path(git_repo),
         )
         assert result.path.endswith(".worktrees/YOK-99205")
         assert result.branch == "YOK-99205"
@@ -277,7 +263,11 @@ class TestCreateWorktreeMultiWorktree:
         assert len(result.worktrees) == 1
 
     def test_main_create_prints_one_path_per_worktree(
-        self, git_repo, yoke_db, monkeypatch, capsys,
+        self,
+        git_repo,
+        yoke_db,
+        monkeypatch,
+        capsys,
     ):
         # CLI prints one path per worktree for multi-worktree items.
         # ``main_create`` always passes ``repo_root=None`` (env-resolved),
@@ -301,10 +291,17 @@ class TestCreateWorktreeMultiWorktree:
         rc = worktree_cli.main_create()
         assert rc == 0, capsys.readouterr().err
         out = capsys.readouterr().out.strip().splitlines()
-        assert sorted(out) == sorted(path for _, path in entries)
+        expected = [
+            str(git_repo / ".worktrees" / "YOK-99206"),
+            *(path for _, path in entries),
+        ]
+        assert sorted(out) == sorted(expected)
 
     def test_main_create_prints_single_path_for_issue(
-        self, git_repo, monkeypatch, capsys,
+        self,
+        git_repo,
+        monkeypatch,
+        capsys,
     ):
         # Single-worktree callers still see one path on stdout (no change).
         original = worktree_cli.create_worktree
@@ -338,7 +335,9 @@ class TestCreateWorktreeMultiWorktree:
         conn.close()
 
         result = create_worktree(
-            99208, repo_root=str(git_repo), config_path=_config_path(git_repo),
+            99208,
+            repo_root=str(git_repo),
+            config_path=_config_path(git_repo),
             db_path=yoke_db,
         )
 

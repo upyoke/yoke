@@ -16,23 +16,24 @@ from typing import Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain import project_settings
-from yoke_core.domain.schema_common import _table_exists
+from yoke_core.domain.item_worktree_resolution import (
+    recorded_item_worktree_lanes,
+    resolve_live_branch,
+)
 from yoke_core.domain.project_checkout_locations import checkout_for_project
 from yoke_core.domain.worktree_paths import (
     _parse_item_id,
     _resolve_config_path,
     _resolve_repo_root_from_cwd,
-    _run,
     is_git_worktree,
     resolve_main_root,
 )
-from yoke_core.domain.workflow_behavior import generates_task_graph
-from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 
 
 @dataclass
 class ResolvedWorktree:
     """Result of resolving an item's worktree."""
+
     path: str
     branch: str
     repo: str
@@ -88,14 +89,15 @@ def resolve_item_worktree(
         from yoke_core.api.repo_root import find_repo_root
 
         scripts_dir = str(
-            find_repo_root(Path(__file__))
-            / ".agents" / "skills" / "yoke" / "scripts"
+            find_repo_root(Path(__file__)) / ".agents" / "skills" / "yoke" / "scripts"
         )
 
     conn = connect(path=db_path)
     try:
         p = _placeholder(conn)
-        status = query_scalar(conn, f"SELECT status FROM items WHERE id = {p}", (item_num,))
+        status = query_scalar(
+            conn, f"SELECT status FROM items WHERE id = {p}", (item_num,)
+        )
         if status is None:
             raise LookupError(f"item YOK-{item_num} not found")
 
@@ -106,8 +108,11 @@ def resolve_item_worktree(
             (item_num,),
         ).fetchone()
         item_project = (
-            project_row["project"] if project_row and hasattr(project_row, "keys")
-            else project_row[0] if project_row else None
+            project_row["project"]
+            if project_row and hasattr(project_row, "keys")
+            else project_row[0]
+            if project_row
+            else None
         )
         if not item_project or item_project == "null":
             item_project = "yoke"
@@ -125,32 +130,44 @@ def resolve_item_worktree(
                     repo_root = None
 
         if not repo_root:
-            raise RuntimeError(f"could not resolve repo root for project '{item_project}'")
+            raise RuntimeError(
+                f"could not resolve repo root for project '{item_project}'"
+            )
 
         # Resolve worktrees dir
         config_path = _resolve_config_path(repo_root)
         wt_dir = project_settings.get_project_str(
-            repo_root, "worktrees_dir", config_path=config_path,
+            repo_root,
+            "worktrees_dir",
+            config_path=config_path,
         )
 
-        if generates_task_graph(load_item_workflow_runtime(conn, item_num)):
-            lanes = _epic_worktree_lanes(conn, item_num, repo_root, wt_dir)
-            if lanes:
-                paths = tuple(path for _, path in lanes)
-                branches = tuple(_resolve_live_branch(path, branch) for branch, path in lanes)
-                return ResolvedWorktree(
-                    path=paths[0] if len(paths) == 1 else "",
-                    branch=branches[0] if len(branches) == 1 else "",
-                    repo=repo_root,
-                    project=item_project,
-                    exists=all(is_git_worktree(path) for path in paths),
-                    scope="epic-tasks",
-                    paths=paths,
-                    branches=branches,
-                )
+        lanes, lane_scope = recorded_item_worktree_lanes(
+            conn,
+            item_num,
+            repo_root,
+            wt_dir,
+        )
+        if lanes:
+            paths = tuple(path for _, path in lanes)
+            branches = tuple(
+                resolve_live_branch(path, branch) for branch, path in lanes
+            )
+            return ResolvedWorktree(
+                path=paths[0] if len(paths) == 1 else "",
+                branch=branches[0] if len(branches) == 1 else "",
+                repo=repo_root,
+                project=item_project,
+                exists=all(is_git_worktree(path) for path in paths),
+                scope=lane_scope,
+                paths=paths,
+                branches=branches,
+            )
 
         wt_branch = query_scalar(
-            conn, f"SELECT worktree FROM items WHERE id = {p}", (item_num,),
+            conn,
+            f"SELECT worktree FROM items WHERE id = {p}",
+            (item_num,),
         )
         if not wt_branch or wt_branch == "null":
             wt_branch = f"YOK-{item_num}"
@@ -159,7 +176,7 @@ def resolve_item_worktree(
 
         exists = is_git_worktree(worktree_path)
         if exists:
-            wt_branch = _resolve_live_branch(worktree_path, wt_branch)
+            wt_branch = resolve_live_branch(worktree_path, wt_branch)
 
         return ResolvedWorktree(
             path=worktree_path,
@@ -172,83 +189,6 @@ def resolve_item_worktree(
         )
     finally:
         conn.close()
-
-
-def _epic_worktree_lanes(
-    conn,
-    item_num: int,
-    repo_root: str,
-    wt_dir: str,
-) -> list[tuple[str, str]]:
-    """Return unique ``(branch, path)`` lanes recorded for an epic."""
-    lanes: list[tuple[str, str]] = []
-
-    if _table_exists(conn, "epic_dispatch_chains"):
-        p = _placeholder(conn)
-        rows = conn.execute(
-            """SELECT COALESCE(worktree, '') AS branch,
-                      COALESCE(worktree_path, '') AS path
-               FROM epic_dispatch_chains
-               WHERE epic_id = {p}
-                 AND COALESCE(worktree, '') <> ''
-               ORDER BY worktree""".format(p=p),
-            (str(item_num),),
-        ).fetchall()
-        lanes.extend(
-            _lane_from_row(row["branch"], row["path"], repo_root, wt_dir)
-            for row in rows
-        )
-
-    if not lanes and _table_exists(conn, "epic_tasks"):
-        p = _placeholder(conn)
-        rows = conn.execute(
-            """SELECT COALESCE(NULLIF(branch, ''), NULLIF(worktree, ''), '') AS branch,
-                      COALESCE(worktree_path, '') AS path
-               FROM epic_tasks
-               WHERE epic_id = {p}
-                 AND (
-                   COALESCE(NULLIF(branch, ''), NULLIF(worktree, ''), '') <> ''
-                   OR COALESCE(worktree_path, '') <> ''
-                 )
-               ORDER BY task_num""".format(p=p),
-            (str(item_num),),
-        ).fetchall()
-        lanes.extend(
-            _lane_from_row(row["branch"], row["path"], repo_root, wt_dir)
-            for row in rows
-        )
-
-    return _dedupe_lanes(lanes)
-
-
-def _lane_from_row(branch: str, path: str, repo_root: str, wt_dir: str) -> tuple[str, str]:
-    branch = (branch or "").strip()
-    path = (path or "").strip()
-    if not path and branch:
-        path = os.path.join(repo_root, wt_dir, branch)
-    if not branch and path:
-        branch = os.path.basename(path)
-    return branch, path
-
-
-def _dedupe_lanes(lanes: list[tuple[str, str]]) -> list[tuple[str, str]]:
-    unique: list[tuple[str, str]] = []
-    seen: set[str] = set()
-    for branch, path in lanes:
-        if not path or path in seen:
-            continue
-        seen.add(path)
-        unique.append((branch, path))
-    return unique
-
-
-def _resolve_live_branch(path: str, fallback: str) -> str:
-    if not is_git_worktree(path):
-        return fallback
-    br = _run(["git", "branch", "--show-current"], cwd=path)
-    if br.returncode == 0 and br.stdout.strip():
-        return br.stdout.strip()
-    return fallback
 
 
 if __name__ == "__main__":
@@ -287,17 +227,21 @@ if __name__ == "__main__":
         for path in result.paths:
             print(path)
     elif args.as_json:
-        print(json.dumps({
-            "path": result.path,
-            "branch": result.branch,
-            "repo": result.repo,
-            "project": result.project,
-            "exists": result.exists,
-            "scope": result.scope,
-            "paths": list(result.paths),
-            "branches": list(result.branches),
-            "has_multiple": result.has_multiple,
-        }))
+        print(
+            json.dumps(
+                {
+                    "path": result.path,
+                    "branch": result.branch,
+                    "repo": result.repo,
+                    "project": result.project,
+                    "exists": result.exists,
+                    "scope": result.scope,
+                    "paths": list(result.paths),
+                    "branches": list(result.branches),
+                    "has_multiple": result.has_multiple,
+                }
+            )
+        )
     else:
         for branch in result.branches:
             print(branch)

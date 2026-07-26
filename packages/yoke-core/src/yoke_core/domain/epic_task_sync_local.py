@@ -13,6 +13,8 @@ from typing import Any, TextIO
 from yoke_core.domain import db_backend
 from yoke_core.domain import project_settings
 from yoke_core.domain.epic_task_sync import _placeholder
+from yoke_core.domain.item_worktrees import record_worker_item_worktree
+from yoke_core.domain.schema_common import _table_exists
 
 
 def _generate_dispatch_chains(
@@ -46,7 +48,9 @@ def _generate_dispatch_chains(
             (epic_name, wt_branch),
         ).fetchone()
         if existing:
-            print(f"Dispatch chain already exists: {epic_name}/{wt_branch}", file=stdout)
+            print(
+                f"Dispatch chain already exists: {epic_name}/{wt_branch}", file=stdout
+            )
             continue
 
         # Collect task IDs for this worktree
@@ -54,7 +58,9 @@ def _generate_dispatch_chains(
         wt_slug = wt_branch.replace("/", "-")
         chain_path = f"{repo_root}/{worktrees_dir}/{wt_slug}"
 
-        timestamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        timestamp = datetime.datetime.now(datetime.timezone.utc).strftime(
+            "%Y-%m-%dT%H:%M:%SZ"
+        )
         queue_json = json.dumps(task_nums)
         first_task = task_nums[0] if task_nums else ""
 
@@ -65,13 +71,30 @@ def _generate_dispatch_chains(
                     current_index, current_task, current_attempt,
                     max_attempts, no_chain, started_at, last_updated)
                    VALUES ({p}, {p}, {p}, {p}, 0, {p}, 0, {p}, 0, '', {p})""",
-                (epic_name, wt_branch, chain_path, queue_json,
-                 first_task, max_attempts, timestamp),
+                (
+                    epic_name,
+                    wt_branch,
+                    chain_path,
+                    queue_json,
+                    first_task,
+                    max_attempts,
+                    timestamp,
+                ),
             )
+            if _table_exists(conn, "item_worktrees"):
+                record_worker_item_worktree(
+                    conn,
+                    item_id=int(epic_name),
+                    branch=wt_branch,
+                    path=chain_path,
+                )
             conn.commit()
         except db_backend.operational_error_types(conn):
             conn.rollback()
             pass  # table may not exist in test fixtures
 
         task_count = len(task_nums)
-        print(f"Generated dispatch chain: {epic_name}/{wt_branch} ({task_count} tasks)", file=stdout)
+        print(
+            f"Generated dispatch chain: {epic_name}/{wt_branch} ({task_count} tasks)",
+            file=stdout,
+        )

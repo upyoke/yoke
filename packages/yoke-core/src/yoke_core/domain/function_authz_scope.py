@@ -51,14 +51,12 @@ from yoke_core.domain.actor_permissions import (
 from yoke_core.domain.db_read_constants import DB_READ_FUNCTION_ID
 from yoke_core.domain.yoke_function_registry import RegistryEntry
 
-# Scope bucket names (plain strings keep them easy to log + assert on).
 PROJECT = "project"
 ORG = "org"
 CONTROL_PLANE = "control_plane"
 ACTOR_SESSION = "actor_session"
 CLIENT_LOCAL = "client_local"
 DENY = "deny"
-
 
 @dataclass(frozen=True)
 class AuthzSpec:
@@ -68,7 +66,6 @@ class AuthzSpec:
     permission_key: str | None  # None when the scope alone decides (local/session/deny)
 
 
-# --- Explicit classification of the non-PROJECT functions. ---
 # function_id -> (scope, permission). PROJECT families are handled by
 # permission_key_for and need no entry here.
 _BY_ID: dict[str, AuthzSpec] = {
@@ -229,6 +226,7 @@ _BY_ID: dict[str, AuthzSpec] = {
 
 # Prefix families where every member shares a scope.
 _BY_PREFIX: tuple[tuple[str, AuthzSpec], ...] = (
+    ("workflows.current.", AuthzSpec(CONTROL_PLANE, PERM_DB_READ_RAW)),
     # Global learning channel; handlers retain optional project list filters.
     ("ouroboros.field_note.", AuthzSpec(ACTOR_SESSION, None)),
     # Flow reads/runs are org-scoped; project reconcile is excepted above.
@@ -321,6 +319,8 @@ def permission_key_for(entry: RegistryEntry) -> str | None:
     if fid == DB_READ_FUNCTION_ID:
         return PERM_DB_READ_RAW
     if fid.startswith("items.") or fid.startswith("workflow_item."):
+        return PERM_ITEMS_WRITE if entry.side_effects else PERM_ITEMS_READ
+    if fid.startswith("workflows.item."):
         return PERM_ITEMS_WRITE if entry.side_effects else PERM_ITEMS_READ
     if fid.startswith("lifecycle."):
         return PERM_ITEMS_WRITE

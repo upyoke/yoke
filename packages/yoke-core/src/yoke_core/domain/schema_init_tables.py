@@ -18,6 +18,7 @@ from yoke_core.domain.github_workflow_dispatch_intents import (
     GITHUB_WORKFLOW_DISPATCH_INTENTS_CREATE_SQL,
 )
 from yoke_core.domain.items_constants import DEFAULT_ITEM_ACTOR_ID
+from yoke_core.domain.item_worktree_schema import ensure_item_worktree_schema
 from yoke_core.domain.projects_restart_schema import _projects_table_sql
 from yoke_core.domain.strategy_docs_schema import (
     STRATEGY_DOC_REVISIONS_CREATE_TABLE_SQL,
@@ -276,10 +277,13 @@ def create_core_tables(conn: Any) -> None:
         );
     """,
     )
+    ensure_item_worktree_schema(conn)
     create_session_tables(conn)
+
 
 def create_governed_tables(conn: Any) -> None:
     from yoke_core.domain.migration_audit_schema import ensure_migration_audit_table
+
     ensure_migration_audit_table(conn)
 
     # coordination_leases — shared-operation lease primitive keyed on
@@ -288,7 +292,9 @@ def create_governed_tables(conn: Any) -> None:
     # consumers pick their own key conventions without adding another
     # lock table.  Ordinary work ownership remains in ``work_claims``;
     # repo mutation authority remains in ``path_claims``.
-    execute_schema_script(conn, """
+    execute_schema_script(
+        conn,
+        """
         CREATE TABLE IF NOT EXISTS coordination_leases (
             id INTEGER PRIMARY KEY,
             project_id INTEGER NOT NULL REFERENCES projects(id),
@@ -307,5 +313,6 @@ def create_governed_tables(conn: Any) -> None:
             idx_coordination_leases_session ON coordination_leases(session_id);
         CREATE INDEX IF NOT EXISTS
             idx_coordination_leases_heartbeat ON coordination_leases(heartbeat_at);
-    """)
+    """,
+    )
     conn.commit()

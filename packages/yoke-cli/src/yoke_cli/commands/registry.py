@@ -27,6 +27,7 @@ from yoke_cli.commands.registry_shepherd_dependency import (
     SHEPHERD_DEPENDENCY_SUBCOMMAND_REGISTRY,
 )
 from yoke_cli.commands.registry_strategy_event import STRATEGY_EVENT_SUBCOMMAND_REGISTRY
+from yoke_cli.commands.registry_workflows import WORKFLOW_SUBCOMMAND_REGISTRY
 
 AdapterFn = Callable[[List[str]], int]
 # (cli_tokens) -> (function_id, adapter_fn)
@@ -269,10 +270,6 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ("packs", "get"): ("packs.get.run", _adapters.packs_get),
     ("packs", "relink"): ("packs.relink.run", _adapters.packs_relink),
     ("packs", "update"): ("packs.update.run", _adapters.packs_update),
-    ("workflows", "definition", "get"): (
-        "workflows.definition.get",
-        _adapters.workflows_definition_get,
-    ),
 }
 
 SUBCOMMAND_REGISTRY.update(PROJECT_STRUCTURE_SUBCOMMAND_REGISTRY)
@@ -285,6 +282,7 @@ SUBCOMMAND_REGISTRY.update(STRATEGY_EVENT_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(IDENTITY_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(GITHUB_ACTIONS_SUBCOMMAND_REGISTRY)
 SUBCOMMAND_REGISTRY.update(PROJECTS_SUBCOMMAND_REGISTRY)
+SUBCOMMAND_REGISTRY.update(WORKFLOW_SUBCOMMAND_REGISTRY)
 
 
 _TOKEN_LENGTHS: Tuple[int, ...] = (4, 3, 2, 1)

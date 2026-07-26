@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "project": "yoke",
+  "profile": {
+    "state": "declared",
+    "model_name": "primary",
+    "mutation_intent": "apply",
+    "migration_modules": [
+      "workflow_item_worktree_records"
+    ],
+    "compatibility_class": "pre_merge_safe",
+    "migration_strategy": "expand_contract",
+    "migration_strategy_justification": "Create universal item lane records and backfill them while legacy issue and epic worktree fields remain available for rollback.",
+    "schema_kinds": [
+      "additive"
+    ],
+    "data_kinds": [
+      "fill"
+    ],
+    "affected_surfaces": [
+      {
+        "table": "item_worktrees",
+        "columns": [
+          "item_id",
+          "session_id",
+          "branch",
+          "path",
+          "lane_role",
+          "state",
+          "created_at",
+          "updated_at",
+          "released_at"
+        ]
+      }
+    ],
+    "count_preserving": false
+  },
+  "module_sources": {
+    "workflow_item_worktree_records": {
+      "path": "packages/yoke-core/src/yoke_core/domain/migrations/workflow_item_worktree_records.py",
+      "sha256": "ab4625211cdc273d9025f1e6fcf840f5b08c418c5e0639bab542b2425c519769"
+    }
+  },
+  "attestation": {
+    "pre_merge_readers_writers": [
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/worktree_create_db.py",
+        "symbol": "persist_item_worktrees",
+        "role": "writer"
+      },
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/epic_dispatch.py",
+        "symbol": "dispatch_chain_upsert",
+        "role": "writer"
+      },
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/worktree_item_resolve.py",
+        "symbol": "resolve_item_worktree",
+        "role": "reader"
+      },
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/workflow_item_versioning.py",
+        "symbol": "migrate_item_workflow_pin",
+        "role": "reader"
+      }
+    ],
+    "invariants": [
+      "Legacy item, task, and dispatch-chain row counts are unchanged.",
+      "Every policy-owned legacy worktree branch has one active universal lane record; cross-workflow Epic-table residue is not promoted into an Issue worker lane.",
+      "Every active lane role is allowed and every populated lane set satisfies the item's pinned workflow policy.",
+      "An active path and an active single-lane role cannot be owned twice."
+    ],
+    "rehearsal_commands": [
+      "PYTHONPATH=packages/yoke-contracts/src:packages/yoke-cli/src:packages/yoke-core/src:packages/yoke-harness/src:. python3 -m pytest runtime/api/domain/migrations/test_workflow_item_worktree_records.py runtime/api/domain/test_item_worktrees.py runtime/api/domain/test_workflow_registry.py runtime/api/domain/test_worktree.py -q"
+    ],
+    "residual_risk_notes": "The cutover is additive and idempotent. New readers prefer universal rows while the existing item, task, and dispatch-chain fields remain populated until the later residue contraction; historical Epic-table rows attached to Issue-pinned items remain legacy residue rather than becoming invalid worker lanes."
+  }
+}
