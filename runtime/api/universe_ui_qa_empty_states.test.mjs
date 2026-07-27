@@ -5,6 +5,9 @@ import {
   renderQaActivity,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/qa_view_activity.js";
 import {
+  renderQaMethods,
+} from "../../packages/yoke-core/src/yoke_core/ui/static/qa_view_methods.js";
+import {
   renderQaPlanDetail,
   renderQaPlans,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/qa_view_plans.js";
@@ -74,6 +77,25 @@ test("plan roster, detail, and activity all explain their empty state", async ()
   const activity = text(host);
   assert.match(activity, /0 case runs today/);
   assert.match(activity, /No materialized case activity yet\./);
+});
+
+test("method roster explains an honestly empty served catalog", async () => {
+  const documentNode = new FakeDocument();
+  const host = documentNode.createElement("main");
+  const uiContext = context(
+    documentNode,
+    async (request) => {
+      assert.equal(request.function, "qa.method.list");
+      return ok({ rows: [] });
+    },
+  );
+
+  await renderQaMethods(uiContext, host, ["1"]);
+
+  assert.equal(byClass(host, "qa-method-groups").length, 1);
+  assert.equal(byClass(host, "qa-method-catalog").length, 0);
+  assert.match(text(host), /No QA methods are available in this project scope/);
+  assert.match(text(host), /required capability is configured/);
 });
 
 test("a lease-waiting case explains contention without offering actions", async () => {

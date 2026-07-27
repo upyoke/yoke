@@ -32,7 +32,7 @@ def test_item_breakpoints_keep_issue_and_generic_geometry_distinct() -> None:
     )
 
     assert ("grid-template-columns: minmax(0, 1.55fr) minmax(260px, 0.75fr)") in source
-    assert "grid-template-columns: minmax(0, 0.445fr) minmax(0, 1fr)" in source
+    assert "grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr)" in source
     assert "@media (max-width: 1080px)" in source
     assert ".issue-detail .item-detail-grid" in source
     assert "@media (max-width: 860px)" in source
@@ -139,6 +139,17 @@ def test_strategy_document_is_bounded_for_review() -> None:
     assert "height: 34px" in source
     assert ".strategy-spark-bar" not in source
     assert ("grid-template-columns: minmax(0, 1.55fr) minmax(260px, 0.75fr)") in source
+
+
+def test_strategy_stats_reflow_from_four_to_two_to_one() -> None:
+    source = _asset("universe_content.css")
+
+    assert ".strategy-stats" in source
+    assert "grid-template-columns: repeat(4, minmax(0, 1fr))" in source
+    assert "@media (max-width: 860px)" in source
+    assert "grid-template-columns: repeat(2, minmax(0, 1fr))" in source
+    assert "@media (max-width: 560px)" in source
+    assert "grid-template-columns: minmax(0, 1fr)" in source
 
 
 def test_production_views_do_not_render_prototype_annotations() -> None:

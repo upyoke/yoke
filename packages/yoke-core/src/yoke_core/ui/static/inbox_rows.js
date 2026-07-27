@@ -39,9 +39,22 @@ function makeRowNavigable(documentNode, row, href, label) {
 }
 
 function timedSubtitle(
-  documentNode, text, createdAt, verb = "", trailingText = "",
+  documentNode,
+  text,
+  createdAt,
+  verb = "",
+  trailingText = "",
+  projectLabel = null,
 ) {
   const subtitle = el(documentNode, "div", "inbox-row-subtitle");
+  if (projectLabel) {
+    subtitle.appendChild(el(
+      documentNode, "span", "inbox-row-project", projectLabel,
+    ));
+  }
+  if (projectLabel && (text || createdAt || trailingText)) {
+    subtitle.appendChild(el(documentNode, "span", null, " · "));
+  }
   if (text) subtitle.appendChild(el(documentNode, "span", null, text));
   if (createdAt) {
     if (text) subtitle.appendChild(el(documentNode, "span", null, " · "));
@@ -63,7 +76,13 @@ export function appendPanelHint(documentNode, panel, text) {
   ));
 }
 
-export function appendDecisionRow(context, body, row, invoke) {
+export function appendDecisionRow(
+  context,
+  body,
+  row,
+  invoke,
+  projectLabel = null,
+) {
   const documentNode = context.document;
   const wrap = el(documentNode, "article", "inbox-row");
   wrap.setAttribute("data-request-id", row.id);
@@ -81,6 +100,7 @@ export function appendDecisionRow(context, body, row, invoke) {
     row.created_at,
     subtitle.timeVerb,
     subtitle.trailing,
+    projectLabel,
   ));
   wrap.appendChild(main);
   const actions = el(documentNode, "div", "inbox-actions");
@@ -141,7 +161,13 @@ export function appendDecisionRow(context, body, row, invoke) {
   body.appendChild(wrap);
 }
 
-export function appendNotificationRow(context, body, row, markRead) {
+export function appendNotificationRow(
+  context,
+  body,
+  row,
+  markRead,
+  projectLabel = null,
+) {
   const documentNode = context.document;
   const wrap = el(documentNode, "article", "inbox-row");
   const icon = row.notification_kind === "deployment_run_completed"
@@ -156,7 +182,12 @@ export function appendNotificationRow(context, body, row, markRead) {
   title.href = href;
   main.appendChild(title);
   main.appendChild(timedSubtitle(
-    documentNode, presentation.subtitle, row.created_at,
+    documentNode,
+    presentation.subtitle,
+    row.created_at,
+    "",
+    "",
+    projectLabel,
   ));
   wrap.appendChild(main);
   const button = el(documentNode, "button", "inbox-read", "Mark read");

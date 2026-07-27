@@ -42,6 +42,7 @@ export class FakeNode extends EventTarget {
     this.selected = false;
     this.value = "";
     this.attributes = new Map();
+    this.tabIndex = -1;
     this._textContent = "";
     this._innerHTML = "";
   }
@@ -97,6 +98,19 @@ export class FakeNode extends EventTarget {
 
   setAttribute(name, value) {
     this.attributes.set(name, String(value));
+    if (name === "tabindex") this.tabIndex = Number(value);
+  }
+
+  getAttribute(name) {
+    return this.attributes.get(name) ?? null;
+  }
+
+  removeAttribute(name) {
+    this.attributes.delete(name);
+  }
+
+  focus() {
+    this.ownerDocument.activeElement = this;
   }
 }
 
@@ -123,6 +137,7 @@ class FakeWindow extends EventTarget {
 export class FakeDocument {
   constructor() {
     this.defaultView = new FakeWindow();
+    this.activeElement = null;
   }
 
   createElement(tagName) {

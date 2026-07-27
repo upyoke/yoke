@@ -16,6 +16,7 @@ import {
   openApprovalEditor,
   openProjectDefaultEditor,
 } from "./workflow_mechanics_dialogs.js";
+import { clearWorkflowDialog, linkWorkflowPanel } from "./workflow_accessibility.js";
 function renderSelectedWorkflow(
   documentNode,
   content,
@@ -26,6 +27,7 @@ function renderSelectedWorkflow(
   rerender,
   actions,
 ) {
+  linkWorkflowPanel(content, workflow.id);
   intro.textContent = workflow.description || "";
   intro.hidden = !workflow.description;
   const stages = workflow.definition?.stages || [];
@@ -93,6 +95,7 @@ export function renderWorkflowsView(context, main, _scope, routeWorkflowId) {
   const documentNode = context.document;
   const tabs = el(documentNode, "div", "workflow-tabs");
   tabs.setAttribute("role", "tablist");
+  tabs.setAttribute("aria-label", "Workflow definitions");
   const intro = el(documentNode, "p", "workflow-intro");
   const content = el(documentNode, "div", "workflow-stack");
   const dialogHost = el(documentNode, "div", "workflow-dialog-host");
@@ -100,7 +103,6 @@ export function renderWorkflowsView(context, main, _scope, routeWorkflowId) {
   loading.body.textContent = "loading…";
   content.appendChild(loading.panel);
   main.replaceChildren(tabs, intro, content, dialogHost);
-
   let workflows = [];
   let catalogById = new Map();
   let selectedWorkflowId = null;
@@ -118,10 +120,7 @@ export function renderWorkflowsView(context, main, _scope, routeWorkflowId) {
     }
     return callResult.envelope.result || {};
   };
-  const closeDialog = () => {
-    dialog = null;
-    dialogHost.replaceChildren();
-  };
+  const closeDialog = () => { dialog = null; clearWorkflowDialog(dialogHost); };
   const openPathClaimsDialog = (workflow, enabled) => {
     const name = workflow.name || workflow.id;
     const names = `${name}es`;

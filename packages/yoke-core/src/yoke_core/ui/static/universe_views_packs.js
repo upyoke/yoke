@@ -1,22 +1,14 @@
-// Pack catalog, repository-report freshness, and preview-first file inspection.
+// Installed and available Packs, repository-report freshness, and preview-first
+// file inspection.
 
 import {
   el,
-  loadSection,
+  loadScopedSection,
+  loadScopedPanels,
   renderTable,
   section,
   statePill,
 } from "./universe_view_support.js";
-
-function packDependencySummary(row, statusBySlug) {
-  const dependencies = Array.isArray(row.dependencies) ? row.dependencies : [];
-  if (dependencies.length === 0) return "none";
-  return dependencies.map((slug) => {
-    const dependency = statusBySlug.get(String(slug));
-    if (!dependency || dependency.status === "available") return `${slug}: missing`;
-    return `${slug}: ${dependency.status}`;
-  }).join(", ");
-}
 
 function displayFileMode(mode) {
   if (Number.isInteger(mode) && mode >= 0) {
@@ -25,14 +17,17 @@ function displayFileMode(mode) {
   return String(mode ?? "");
 }
 
-function renderPackPreview(context, panel, project, row) {
+function renderPackPreview(context, panel, row) {
   const operation = row.status === "available" ? "get" : "update";
-  loadSection(
+  loadScopedSection(
     context,
     panel,
-    "packs.bundle.get",
-    { project, pack: row.slug },
-    (body, callResult) => {
+    [{
+      functionId: "packs.bundle.get",
+      payload: { project: String(row.project_id), pack: row.slug },
+    }],
+    (body, callResults) => {
+      const callResult = callResults[0];
       const bundle = callResult.envelope.result || {};
       const documentNode = body.ownerDocument;
       panel.setCount((bundle.files || []).length);
@@ -44,7 +39,7 @@ function renderPackPreview(context, panel, project, row) {
           "Customize it freely after it lands.",
       ));
       const command = `yoke packs ${operation} ${row.slug} . --project ` +
-        `${bundle.project_slug || project}`;
+        `${bundle.project_slug || row.project_slug || row.project_id}`;
       const commandLine = el(documentNode, "p", "fact-line");
       commandLine.appendChild(el(
         documentNode,
@@ -63,83 +58,173 @@ function renderPackPreview(context, panel, project, row) {
   );
 }
 
-function renderPackCatalog(body, result, context, previewPanel, project) {
+function catalogRows(callResults) {
+  return callResults.flatMap((callResult) => {
+    const result = callResult.envelope.result || {};
+    return (result.packs || []).map((row) => ({
+      ...row,
+      project_id: result.project_id,
+      project_slug: result.project_slug,
+    }));
+  });
+}
+
+function renderRepositoryReports(body, callResults) {
   const documentNode = body.ownerDocument;
-  const rows = Array.isArray(result.packs) ? result.packs : [];
-  const report = result.repository_report;
-  const statusBySlug = new Map(rows.map((row) => [String(row.slug), row]));
-
   body.appendChild(el(
     documentNode,
     "p",
-    "fact-line",
-    "Installed versions come from the project's last repository receipt report; " +
-      "the repository receipt remains the authority.",
+    "pack-installed-note",
+    "Updates preview as a three-way merge against the installed baseline — " +
+      "project-local customizations stay yours, and apply is a separate step.",
   ));
-  body.appendChild(el(
-    documentNode,
-    "p",
-    report && report.fresh ? "fact-line" : "empty",
-    report
-      ? `Repository report: ${report.reported_at} (${report.fresh ? "fresh" : "stale"})`
-      : "No repository receipt has been reported for this project.",
-  ));
-  if (rows.length === 0) {
-    body.appendChild(el(documentNode, "p", "empty", "no Packs available"));
-    return;
+  for (const callResult of callResults) {
+    const result = callResult.envelope.result || {};
+    const report = result.repository_report;
+    body.appendChild(el(
+      documentNode,
+      "p",
+      report && report.fresh
+        ? "pack-repository-report"
+        : "pack-repository-report stale",
+      report
+        ? `${result.project_slug}: repository report ${report.reported_at} ` +
+          `(${report.fresh ? "fresh" : "stale"})`
+        : `${result.project_slug || result.project_id}: no repository receipt reported`,
+    ));
   }
+}
 
+function previewButton(documentNode, label, onClick) {
+  const button = el(
+    documentNode,
+    "button",
+    "capability-action pack-preview-action",
+    label,
+  );
+  button.type = "button";
+  button.addEventListener("click", onClick);
+  return button;
+}
+
+function openPreview(context, previewPanel, row) {
+  previewPanel.hidden = false;
+  previewPanel.setCount(null);
+  renderPackPreview(context, previewPanel, row);
+}
+
+function installedPackRows(callResults) {
+  return catalogRows(callResults).filter(
+    (row) => row.status !== "available" && row.installed_version,
+  );
+}
+
+function availablePackRows(callResults) {
+  return catalogRows(callResults).filter(
+    (row) => row.status === "available" || !row.installed_version,
+  );
+}
+
+function renderInstalledPacks(
+  body, callResults, context, previewPanel, panel,
+) {
+  const documentNode = body.ownerDocument;
+  const rows = installedPackRows(callResults);
+  panel.setCount(rows.length);
+  if (!rows.length) body.appendChild(el(
+    documentNode, "p", "empty", "No Packs installed.",
+  ));
   const table = el(documentNode, "table", "items");
   const head = el(documentNode, "tr");
   for (const label of [
-    "Pack", "what it does", "status", "installed", "latest", "dependencies", "files", "guidance", "action",
+    "Pack", "Project", "Installed", "Latest", "State",
+    "Update — preview first",
   ]) {
     head.appendChild(el(documentNode, "th", null, label));
   }
   table.appendChild(head);
   for (const row of rows) {
     const tr = el(documentNode, "tr");
-    tr.appendChild(el(documentNode, "td", null, row.name || row.slug));
-    tr.appendChild(el(documentNode, "td", null, row.description || "—"));
+    tr.appendChild(el(documentNode, "td", "mono", row.slug));
+    tr.appendChild(el(
+      documentNode, "td", "mono", row.project_slug || row.project_id,
+    ));
+    tr.appendChild(el(
+      documentNode, "td", "mono", row.installed_version || "—",
+    ));
+    tr.appendChild(el(documentNode, "td", "mono", row.latest_version || "—"));
     const statusCell = el(documentNode, "td");
-    const pill = statePill(documentNode, row.status);
+    const updateAvailable = row.status === "stale" ||
+      row.installed_version !== row.latest_version;
+    const pill = statePill(
+      documentNode,
+      updateAvailable ? "stale" : "ready",
+      updateAvailable ? "update available" : "current",
+    );
     if (pill) statusCell.appendChild(pill);
     tr.appendChild(statusCell);
-    tr.appendChild(el(documentNode, "td", "mono", row.installed_version || "—"));
-    tr.appendChild(el(documentNode, "td", "mono", row.latest_version));
-    tr.appendChild(el(
-      documentNode,
-      "td",
-      null,
-      packDependencySummary(row, statusBySlug),
-    ));
-    tr.appendChild(el(documentNode, "td", null, String(row.file_count ?? "")));
-    const guidanceCell = el(documentNode, "td");
-    guidanceCell.appendChild(el(documentNode, "code", null, row.documentation));
-    tr.appendChild(guidanceCell);
     const actionCell = el(documentNode, "td");
-    const operation = row.status === "available" ? "get" : "update";
-    const button = el(
-      documentNode,
-      "button",
-      "capability-action pack-preview-action",
-      `Inspect ${operation}`,
-    );
-    button.type = "button";
-    button.addEventListener("click", () => {
-      previewPanel.setCount(null);
-      renderPackPreview(context, previewPanel, project, row);
-    });
-    actionCell.appendChild(button);
+    if (updateAvailable) {
+      actionCell.appendChild(previewButton(
+        documentNode,
+        "Inspect update",
+        () => openPreview(context, previewPanel, row),
+      ));
+    } else {
+      actionCell.appendChild(el(documentNode, "span", "secondary-muted", "—"));
+    }
     tr.appendChild(actionCell);
     table.appendChild(tr);
   }
-  body.appendChild(table);
+  if (rows.length) body.appendChild(table);
+  renderRepositoryReports(body, callResults);
+}
+
+function renderAvailablePacks(
+  body, callResults, context, previewPanel, panel,
+) {
+  const documentNode = body.ownerDocument;
+  const rows = availablePackRows(callResults);
+  panel.setCount(rows.length);
+  if (!rows.length) {
+    body.appendChild(el(
+      documentNode, "p", "empty", "No additional Packs available.",
+    ));
+    return;
+  }
+  for (const row of rows) {
+    const pack = el(documentNode, "div", "pack-available-row");
+    const info = el(documentNode, "div", "pack-available-info");
+    info.appendChild(el(
+      documentNode, "div", "pack-available-title mono", row.slug,
+    ));
+    info.appendChild(el(
+      documentNode,
+      "div",
+      "pack-available-description",
+      row.description || "No description published.",
+    ));
+    info.appendChild(el(
+      documentNode,
+      "div",
+      "pack-available-meta",
+      `${row.project_slug || row.project_id} · latest ${row.latest_version || "not exposed"}`,
+    ));
+    pack.appendChild(info);
+    pack.appendChild(previewButton(
+      documentNode,
+      "Inspect get",
+      () => openPreview(context, previewPanel, row),
+    ));
+    body.appendChild(pack);
+  }
 }
 
 export function renderPacksView(context, main, scope) {
-  const catalog = section(context.document, "Pack catalog");
+  const installed = section(context.document, "Installed");
+  const available = section(context.document, "Available");
   const preview = section(context.document, "Pack contents and checkout handoff");
+  const stack = el(context.document, "div", "packs-stack");
   preview.renderEnvelope(
     { status: 200, envelope: { success: true, result: {} } },
     (body) => body.appendChild(el(
@@ -149,16 +234,24 @@ export function renderPacksView(context, main, scope) {
       "Choose a Pack to inspect its exact files and checkout command.",
     )),
   );
-  main.replaceChildren(catalog, preview);
-  loadSection(
+  preview.hidden = true;
+  stack.appendChild(installed);
+  stack.appendChild(available);
+  stack.appendChild(preview);
+  main.replaceChildren(stack);
+  loadScopedPanels(
     context,
-    catalog,
-    "packs.list",
-    { project: scope },
-    (body, callResult) => {
-      const result = callResult.envelope.result || {};
-      catalog.setCount((result.packs || []).length);
-      renderPackCatalog(body, result, context, preview, scope);
-    },
+    [
+      [installed, (body, callResults) => renderInstalledPacks(
+        body, callResults, context, preview, installed,
+      )],
+      [available, (body, callResults) => renderAvailablePacks(
+        body, callResults, context, preview, available,
+      )],
+    ],
+    context.projects().map((project) => ({
+      functionId: "packs.list",
+      payload: { project: String(project.id) },
+    })),
   );
 }

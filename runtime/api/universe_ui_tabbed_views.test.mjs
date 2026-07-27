@@ -41,6 +41,16 @@ function deliveryClient() {
       if (request.function === "deployment_runs.list") {
         return okEnvelope({ rows: [] });
       }
+      if (request.function === "projects.infrastructure.list") {
+        return okEnvelope({
+          project: request.payload.project,
+          sites: [],
+          environments: [],
+        });
+      }
+      if (request.function === "projects.capabilities.list") {
+        return okEnvelope({ rows: [] });
+      }
       throw new Error(`unexpected function ${request.function}`);
     },
   };
@@ -98,7 +108,7 @@ test("tab routes round-trip; absent and unknown segments resolve to the first ta
   assert.equal(parseUniverseRoute("#/delivery/flows").detail, null);
 });
 
-test("a deep-linked unbuilt tab renders its stub under the active nav item, with no picker", async (t) => {
+test("a deep-linked Delivery facet stays under the active nav item and keeps scope", async (t) => {
   const client = deliveryClient();
   const { documentNode, root, mounted } = await mountAt(
     t, "#/delivery/environments?project=1", client,
@@ -126,24 +136,24 @@ test("a deep-linked unbuilt tab renders its stub under the active nav item, with
   // Tabs are real links that carry the view's scope.
   assert.equal(activeTabs[0].href, "#/delivery/environments?project=1");
 
-  // The honest stub: Coming soon, no scope control, and the FACET's own
-  // what-it-will-be line — the page head names the view, not the tab, so
-  // the tab summary must render here or nowhere.
-  assert.equal(byClass(root, "stub-panel").length, 1);
-  const stubText = allNodes(byClass(root, "stub-panel")[0])
-    .map((node) => node.textContent || "").join(" ");
-  assert.ok(stubText.includes("Coming soon"));
-  assert.ok(stubText.includes("The deploy targets runs ship to."));
-  assert.ok(!allNodes(byClass(root, "stub-panel")[0]).some(
-    (node) => node.tagName === "H1" || node.tagName === "H2",
-  ));
-  assert.equal(byClass(root, "scope-bar").length, 0);
-  assert.equal(byClass(root, "scope-chip").length, 0);
-
-  // A stub reads nothing beyond the shell's own roster calls.
+  assert.equal(byClass(root, "stub-panel").length, 0);
+  assert.equal(byClass(root, "scope-bar").length, 1);
   assert.deepEqual(
-    client.requests.map((request) => request.function).sort(),
-    ["projects.list"],
+    byClass(root, "scope-chip").map((node) => node.textContent),
+    ["All", "Yoke"],
+  );
+  assert.deepEqual(
+    client.requests.filter((request) => (
+      request.function === "projects.infrastructure.list" ||
+      request.function === "deployment_runs.list"
+    )),
+    [
+      {
+        function: "projects.infrastructure.list",
+        payload: { project: "1" },
+      },
+      { function: "deployment_runs.list", payload: { project: "1" } },
+    ],
   );
   // The deep link survives untouched.
   assert.equal(
@@ -179,12 +189,12 @@ test("a tabbed view's page head names the view and holds still across facets", a
     "Environments, flows and runs, with databases and infrastructure.",
   );
 
-  // Switching to another facet — a stub one, even — re-renders the same
-  // head: one concept, one name, whatever the strip below shows.
+  // Switching to another live facet re-renders the same head: one concept,
+  // one name, whatever the strip below shows.
   documentNode.defaultView.location.hash = "#/delivery/environments?project=1";
   documentNode.defaultView.dispatchEvent(new Event("hashchange"));
   await settle();
-  assert.equal(byClass(root, "stub-panel").length, 1);
+  assert.equal(byClass(root, "stub-panel").length, 0);
   const stubHead = headOf(root);
   assert.equal(byClass(root, "page-head").length, 1);
   assert.equal(byClass(stubHead, "title")[0].textContent, "Delivery");
@@ -275,17 +285,18 @@ test("Runs fills from deployment runs, newest first, with grounded status pills"
   );
   assert.equal(byClass(root, "stub-panel").length, 0);
 
-  // Newest run first; the engine-projected stages render as a segmented bar.
-  const cards = byClass(root, "delivery-run-card");
+  // Newest run first in the one prototype table; engine-projected stages
+  // render as compact segmented bars.
+  const cells = allNodes(root).filter((node) => node.tagName === "TD");
   assert.deepEqual(
-    cards.map((card) => allNodes(card)
-      .find((node) => node.tagName === "H3").textContent),
+    cells.filter((cell, index) => index % 7 === 0)
+      .map((cell) => cell.textContent),
     [
       "run-20260103-002", "run-20260103-001",
       "run-20260102-001", "run-20260101-001",
     ],
   );
-  assert.equal(byClass(cards[0], "delivery-stage").length, 2);
+  assert.equal(byClass(root, "delivery-run-stage").length, 8);
 
   // Grounded status vocabulary maps to semantic pill families; values the
   // hint has not seen (created) wear neutral idle.

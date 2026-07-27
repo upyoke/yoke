@@ -9,6 +9,11 @@ import {
   renderDeliveryFlowsView,
   renderDeliveryRunsView,
 } from "./universe_views_delivery.js";
+import {
+  renderDeliveryDatabasesView,
+  renderDeliveryEnvironmentsView,
+  renderDeliveryInfrastructureView,
+} from "./universe_views_delivery_inventory.js";
 import { renderDoctorView } from "./universe_views_doctor.js";
 import { renderEventsView } from "./universe_views_events.js";
 import { renderFrontierView } from "./universe_views_frontier.js";
@@ -54,7 +59,13 @@ export const DETAIL_RENDERERS = {
 // appears here only when its NAV entry declares tabs — the same second route
 // segment cannot also be a drill-in.
 export const TAB_RENDERERS = {
-  delivery: { runs: renderDeliveryRunsView, flows: renderDeliveryFlowsView },
+  delivery: {
+    runs: renderDeliveryRunsView,
+    environments: renderDeliveryEnvironmentsView,
+    flows: renderDeliveryFlowsView,
+    databases: renderDeliveryDatabasesView,
+    infrastructure: renderDeliveryInfrastructureView,
+  },
   qa: {
     methods: renderQaMethods,
     plans: renderQaPlans,

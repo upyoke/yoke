@@ -7,6 +7,7 @@ import {
   section,
   settledScopedCalls,
   statePill,
+  withProjectColumn,
 } from "./universe_view_support.js";
 import { actionLink } from "./item_view_primitives.js";
 export { renderItemDetailView } from "./item_detail_loader.js";
@@ -36,6 +37,19 @@ function claimLabel(row) {
   return claim ? (claim.actor_label || claim.session_id || "") : "";
 }
 
+function projectLabel(projects, row) {
+  const rowLabel = row.project_slug || row.project;
+  const rowKey = row.project_id ?? rowLabel;
+  const project = projects.find((candidate) => (
+    [candidate.id, candidate.slug, candidate.name].some(
+      (value) => String(value) === String(rowKey),
+    )
+  ));
+  return String(
+    rowLabel || project?.slug || project?.name || row.project_id || "—",
+  );
+}
+
 function eventCameFromControl(event, row) {
   let target = event.target;
   while (target && target !== row) {
@@ -63,16 +77,23 @@ function makeRowNavigable(documentNode, row, href) {
   });
 }
 
-function itemTable(documentNode, rows, rowHref) {
+function itemTable(documentNode, rows, rowHref, scope, projects) {
   if (!rows.length) {
     return el(documentNode, "p", "empty", "No items match this view.");
   }
   const table = el(documentNode, "table", "items item-roster");
+  const columns = withProjectColumn([
+    { label: "ID" },
+    { label: "Title" },
+    { label: "Workflow" },
+    { label: "Status" },
+    { label: "Owner" },
+    { label: "Claimed by" },
+  ], scope, (row) => projectLabel(projects, row));
+  const projectColumn = columns.find((column) => column.label === "project");
   const head = el(documentNode, "tr");
-  for (const label of [
-    "ID", "Title", "Workflow", "Status", "Owner", "Claimed by",
-  ]) {
-    head.appendChild(el(documentNode, "th", null, label));
+  for (const column of columns) {
+    head.appendChild(el(documentNode, "th", null, column.label));
   }
   table.appendChild(head);
   for (const row of rows) {
@@ -83,6 +104,14 @@ function itemTable(documentNode, rows, rowHref) {
     link.href = href;
     refCell.appendChild(link);
     tr.appendChild(refCell);
+    if (projectColumn) {
+      tr.appendChild(el(
+        documentNode,
+        "td",
+        "item-project",
+        projectColumn.value(row),
+      ));
+    }
     const titleCell = el(documentNode, "td", "item-roster-title");
     const titleLink = el(
       documentNode, "a", "item-title-link", row.title,
@@ -281,6 +310,8 @@ export function renderItemsView(context, main, scope, chrome = {}) {
             String(row.project_id),
             String(row.public_ref),
           ),
+          scope,
+          projects,
         ));
       };
       filterHost.replaceChildren(filterControls(
