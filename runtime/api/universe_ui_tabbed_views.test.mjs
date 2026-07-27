@@ -285,17 +285,18 @@ test("Runs fills from deployment runs, newest first, with grounded status pills"
   );
   assert.equal(byClass(root, "stub-panel").length, 0);
 
-  // Newest run first; the engine-projected stages render as a segmented bar.
-  const cards = byClass(root, "delivery-run-card");
+  // Newest run first in the one prototype table; engine-projected stages
+  // render as compact segmented bars.
+  const cells = allNodes(root).filter((node) => node.tagName === "TD");
   assert.deepEqual(
-    cards.map((card) => allNodes(card)
-      .find((node) => node.tagName === "H3").textContent),
+    cells.filter((cell, index) => index % 7 === 0)
+      .map((cell) => cell.textContent),
     [
       "run-20260103-002", "run-20260103-001",
       "run-20260102-001", "run-20260101-001",
     ],
   );
-  assert.equal(byClass(cards[0], "delivery-stage").length, 2);
+  assert.equal(byClass(root, "delivery-run-stage").length, 8);
 
   // Grounded status vocabulary maps to semantic pill families; values the
   // hint has not seen (created) wear neutral idle.

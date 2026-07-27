@@ -130,6 +130,15 @@ test("Strategy corpus matches the prototype hierarchy with real read facts", asy
   assert.match(rendered, /claimed · YOK-2001/);
   assert.match(rendered, /Writes\s+last 120 days/);
   assert.match(rendered, /Strategy-doc writes 1 this week/);
+  assert.deepEqual(
+    allNodes(byClass(main, "strategy-corpus-table")[0])
+      .filter((node) => node.tagName === "TH")
+      .map((node) => node.textContent),
+    [
+      "Doc", "Purpose / ancestry", "Last editor", "Last write",
+      "Revisions", "Execution",
+    ],
+  );
   const spark = byClass(main, "strategy-spark")[0];
   assert.equal(spark.tagName, "SVG");
   assert.equal(spark.attributes.get("viewBox"), "0 0 240 34");

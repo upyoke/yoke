@@ -17,6 +17,7 @@ import {
   FakeDocument,
   allNodes,
   byClass,
+  cellText,
   response,
   settle,
 } from "./universe_ui_dom_test_support.mjs";
@@ -66,7 +67,7 @@ test("flat navigation matches the canonical prototype arc", () => {
   );
 });
 
-test("Runs at All reads unfiltered and labels each run's own project", async (t) => {
+test("Runs is the prototype's one seven-column execution table", async (t) => {
   const requests = [];
   const client = {
     async call(request) {
@@ -109,21 +110,33 @@ test("Runs at All reads unfiltered and labels each run's own project", async (t)
     requests.find((request) => request.function === "deployment_runs.list"),
     { function: "deployment_runs.list", payload: {} },
   );
-  assert.equal(byClass(root, "delivery-run-card").length, 1);
-  assert.equal(
-    allNodes(byClass(root, "delivery-run-card")[0])
-      .find((node) => node.tagName === "H3").textContent,
-    "run-20260101-001",
+  assert.deepEqual(
+    allNodes(root).filter((node) => node.tagName === "TH")
+      .map((node) => node.textContent),
+    [
+      "Run", "Project", "Originating item", "Target",
+      "Stages", "Status", "When",
+    ],
   );
-  assert.equal(byClass(root, "delivery-stage").length, 2);
-  assert.ok(
-    byClass(root, "delivery-run-subtitle")[0].textContent
-      .includes("externalwebapp"),
+  assert.deepEqual(
+    allNodes(root).filter((node) => node.tagName === "TD").map(cellText),
+    [
+      "run-20260101-001", "externalwebapp", "",
+      "prod", "", "succeeded", "then",
+    ],
+  );
+  assert.equal(byClass(root, "secondary-muted")[0].textContent, "environment run");
+  assert.equal(byClass(root, "delivery-run-card").length, 0);
+  assert.deepEqual(
+    byClass(root, "delivery-run-stage").map(
+      (node) => node.attributes.get("data-state"),
+    ),
+    ["complete", "complete"],
   );
   mounted.unmount();
 });
 
-test("an approval-paused run links its member items and the Inbox decision", async (t) => {
+test("an approval-paused table row links its item and Inbox decision", async (t) => {
   const client = {
     async call(request) {
       if (request.function === "organizations.get") {
@@ -165,7 +178,7 @@ test("an approval-paused run links its member items and the Inbox decision", asy
   );
 
   assert.deepEqual(
-    byClass(root, "delivery-stage").map(
+    byClass(root, "delivery-run-stage").map(
       (node) => node.attributes.get("data-state"),
     ),
     ["complete", "active", "pending"],
@@ -175,20 +188,17 @@ test("an approval-paused run links its member items and the Inbox decision", asy
     byClass(root, "delivery-member")[0].textContent,
     "YOK-41 · Ship the release",
   );
-  const footer = byClass(root, "delivery-approval-footer")[0];
-  assert.ok(footer.children[0].textContent.includes("approval"));
-  assert.equal(footer.children[1].href, "#/inbox?project=1");
-  assert.deepEqual(
-    byClass(root, "metric").map((node) => node.children[0].textContent),
-    ["1", "1", "1", "0", "0"],
-  );
+  const footer = byClass(root, "delivery-waiting-link")[0];
+  assert.equal(footer.textContent, "1 run waiting on you →");
+  assert.equal(footer.href, "#/inbox?project=1");
+  assert.equal(byClass(root, "metric").length, 0);
   mounted.unmount();
 });
 
 // Flows moved here off the Workflows screen: a flow belongs to one project,
 // so unlike the lifecycle definition it left behind, it takes the Delivery
 // scope and fans out per project the way every other multi view does.
-test("the Flows facet reads the served flows and takes the Delivery scope", async (t) => {
+test("Flows selects one served definition and renders its stage pipeline", async (t) => {
   const requests = [];
   const flowsByProject = {
     "1": [{
@@ -216,7 +226,12 @@ test("the Flows facet reads the served flows and takes the Delivery scope", asyn
         });
       }
       if (request.function === "workflows.definition.get") {
-        return okEnvelope({ flows: flowsByProject[request.payload.project] || [] });
+        const project = request.payload.project;
+        return okEnvelope({
+          flows: project
+            ? (flowsByProject[project] || [])
+            : [...flowsByProject["1"], ...flowsByProject["2"]],
+        });
       }
       throw new Error(`unexpected function ${request.function}`);
     },
@@ -233,23 +248,46 @@ test("the Flows facet reads the served flows and takes the Delivery scope", asyn
   // A built facet carries its own picker.
   assert.equal(byClass(root, "scope-bar").length, 1);
   assert.equal(byClass(root, "stub-panel").length, 0);
+  assert.deepEqual(
+    byClass(root, "delivery-flow-choice").map((button) => button.textContent),
+    ["alpha · Alpha Release", "beta · Beta Release"],
+  );
+  assert.deepEqual(
+    byClass(root, "delivery-flow-choice").map(
+      (button) => button.attributes.get("aria-pressed"),
+    ),
+    ["true", "false"],
+  );
+  assert.equal(
+    allNodes(root).find((node) => node.tagName === "H2").textContent,
+    "Flow · alpha-release",
+  );
+  assert.deepEqual(
+    byClass(root, "delivery-flow-stage").map((stage) => stage.textContent),
+    ["build", "verify"],
+  );
+  byClass(root, "delivery-flow-choice")[1].dispatchEvent(new Event("click"));
+  assert.equal(
+    allNodes(root).find((node) => node.tagName === "H2").textContent,
+    "Flow · beta-release",
+  );
+  assert.deepEqual(
+    byClass(root, "delivery-flow-stage").map((stage) => stage.textContent),
+    ["build"],
+  );
   mounted.unmount();
 
-  // Narrowed to one project, the read names it and the project column drops:
-  // every row belongs to the one project the picker holds.
+  // Narrowed to one project, the single selected flow needs no extra chooser.
   const scoped = await mountAt(t, "#/delivery/flows?project=2", client);
-  const headers = allNodes(scoped.root)
-    .filter((node) => node.tagName === "TH")
-    .map((node) => node.textContent);
-  assert.deepEqual(headers, [
-    "flow", "name", "target env", "status", "stages", "on failure",
-  ]);
-  const cells = allNodes(scoped.root)
-    .filter((node) => node.tagName === "TD")
-    .map((node) => node.textContent ||
-      (node.children[0] && node.children[0].textContent) || "");
-  assert.deepEqual(cells, [
-    "beta-release", "Beta Release", "stage", "disabled", "build", "continue",
-  ]);
+  assert.equal(byClass(scoped.root, "delivery-flow-choice").length, 0);
+  assert.equal(
+    allNodes(scoped.root).find((node) => node.tagName === "H2").textContent,
+    "Flow · beta-release",
+  );
+  assert.deepEqual(
+    byClass(scoped.root, "delivery-flow-stage")
+      .map((stage) => stage.textContent),
+    ["build"],
+  );
   scoped.mounted.unmount();
 });

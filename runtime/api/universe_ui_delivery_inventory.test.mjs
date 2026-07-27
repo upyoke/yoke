@@ -57,6 +57,13 @@ function deliveryClient() {
           }],
         });
       }
+      if (request.function === "projects.environment_settings.get") {
+        return okEnvelope({
+          project: request.payload.project,
+          environment_id: request.payload.environment_id,
+          values: { "git.branch": "main" },
+        });
+      }
       if (request.function === "projects.capabilities.list") {
         return okEnvelope({
           rows: [{
@@ -94,7 +101,7 @@ async function mountAt(t, hash, client) {
   return { root, mounted };
 }
 
-test("Environments joins registered targets to the latest run without inventing policy", async (t) => {
+test("Environments joins branch and latest-run reads without inventing policy", async (t) => {
   const client = deliveryClient();
   const { root, mounted } = await mountAt(
     t, "#/delivery/environments?project=1", client,
@@ -104,12 +111,22 @@ test("Environments joins registered targets to the latest run without inventing 
   assert.equal(byClass(root, "scope-bar").length, 1);
   assert.deepEqual(
     client.requests.filter((request) => [
-      "projects.infrastructure.list", "deployment_runs.list",
+      "projects.infrastructure.list",
+      "projects.environment_settings.get",
+      "deployment_runs.list",
     ].includes(request.function)),
     [
       {
         function: "projects.infrastructure.list",
         payload: { project: "1" },
+      },
+      {
+        function: "projects.environment_settings.get",
+        payload: {
+          project: "1",
+          environment_id: "prod",
+          paths: ["git.branch"],
+        },
       },
       { function: "deployment_runs.list", payload: { project: "1" } },
     ],
@@ -121,10 +138,10 @@ test("Environments joins registered targets to the latest run without inventing 
   );
   const cells = allNodes(root).filter((node) => node.tagName === "TD");
   assert.deepEqual(cells.slice(0, 4).map(cellText), [
-    "Production", "not exposed", "not exposed", "succeeded",
+    "Production", "main", "not exposed", "succeeded",
   ]);
   assert.ok(byClass(root, "delivery-read-note")[0].children[1].textContent
-    .includes("Branch and auto-deploy policy are not published"));
+    .includes("Auto-deploy policy has no published browser read"));
 
   const raw = byClass(root, "raw-json")[0];
   assert.equal(raw.hidden, true);
@@ -163,6 +180,16 @@ test("Environment inventory fans out at All and labels each project", async (t) 
       if (request.function === "deployment_runs.list") {
         return okEnvelope({ rows: [] });
       }
+      if (request.function === "projects.environment_settings.get") {
+        return okEnvelope({
+          project: request.payload.project,
+          environment_id: request.payload.environment_id,
+          values: {
+            "git.branch": request.payload.project === "1"
+              ? "alpha-main" : "beta-main",
+          },
+        });
+      }
       throw new Error(`unexpected function ${request.function}`);
     },
   };
@@ -192,6 +219,30 @@ test("Environment inventory fans out at All and labels each project", async (t) 
     { function: "deployment_runs.list", payload: {} },
   );
   assert.deepEqual(
+    requests.filter(
+      (request) =>
+        request.function === "projects.environment_settings.get",
+    ),
+    [
+      {
+        function: "projects.environment_settings.get",
+        payload: {
+          project: "1",
+          environment_id: "prod",
+          paths: ["git.branch"],
+        },
+      },
+      {
+        function: "projects.environment_settings.get",
+        payload: {
+          project: "2",
+          environment_id: "prod",
+          paths: ["git.branch"],
+        },
+      },
+    ],
+  );
+  assert.deepEqual(
     allNodes(root).filter((node) => node.tagName === "TH")
       .map((node) => node.textContent),
     [
@@ -201,8 +252,10 @@ test("Environment inventory fans out at All and labels each project", async (t) 
   );
   assert.deepEqual(
     allNodes(root).filter((node) => node.tagName === "TD")
-      .map(cellText).filter((text) => ["alpha", "beta"].includes(text)),
-    ["alpha", "beta"],
+      .map(cellText).filter((text) => [
+        "alpha", "beta", "alpha-main", "beta-main",
+      ].includes(text)),
+    ["alpha", "alpha-main", "beta", "beta-main"],
   );
   mounted.unmount();
 });

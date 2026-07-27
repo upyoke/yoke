@@ -19,6 +19,7 @@ import {
   scopeBuckets,
   section,
   statePill,
+  withProjectColumn,
 } from "./universe_view_support.js";
 import { relativeTime } from "./universe_time.js";
 
@@ -68,7 +69,7 @@ function makeRowNavigable(documentNode, row, href, label) {
   });
 }
 
-function renderStrategyTable(documentNode, body, docs) {
+function renderStrategyTable(documentNode, body, docs, scope) {
   if (docs.length === 0) {
     body.appendChild(el(
       documentNode, "p", "empty", "No strategy documents yet.",
@@ -76,12 +77,18 @@ function renderStrategyTable(documentNode, body, docs) {
     return;
   }
   const table = el(documentNode, "table", "items strategy-corpus-table");
+  const columns = withProjectColumn([
+    { label: "Doc" },
+    { label: "Purpose / ancestry" },
+    { label: "Last editor" },
+    { label: "Last write" },
+    { label: "Revisions" },
+    { label: "Execution" },
+  ], scope, (doc) => doc.project || doc.project_id || "—");
+  const projectColumn = columns.find((column) => column.label === "project");
   const head = el(documentNode, "tr");
-  for (const label of [
-    "Doc", "Purpose / ancestry", "Last editor", "Last write",
-    "Revisions", "Execution",
-  ]) {
-    head.appendChild(el(documentNode, "th", null, label));
+  for (const column of columns) {
+    head.appendChild(el(documentNode, "th", null, column.label));
   }
   table.appendChild(head);
   for (const doc of docs) {
@@ -100,6 +107,14 @@ function renderStrategyTable(documentNode, body, docs) {
       slugCell.appendChild(archived);
     }
     row.appendChild(slugCell);
+    if (projectColumn) {
+      row.appendChild(strategyCell(
+        documentNode,
+        "td",
+        "strategy-project",
+        projectColumn.value(doc),
+      ));
+    }
 
     const purpose = el(documentNode, "td");
     purpose.appendChild(strategyCell(
@@ -186,7 +201,7 @@ export function renderStrategyView(context, main, scope) {
       writesHost.replaceChildren(
         strategyWriteActivity(documentNode, writes),
       );
-      renderStrategyTable(documentNode, body, docs);
+      renderStrategyTable(documentNode, body, docs, scope);
     },
   );
 }

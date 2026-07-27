@@ -5,6 +5,7 @@ import {
   el,
   loadScopedPanels,
   section,
+  withProjectColumn,
 } from "./universe_view_support.js";
 import {
   appendDecisionRow,
@@ -15,6 +16,20 @@ import {
 } from "./inbox_rows.js";
 
 export { inboxPresentation } from "./inbox_presentation.js";
+
+function projectLabel(context, row) {
+  const projects = typeof context.projects === "function"
+    ? context.projects() : [];
+  const rowLabel = row.project_slug || row.project;
+  const rowKey = row.project_id ?? rowLabel;
+  const project = projects.find((candidate) => (
+    [candidate.id, candidate.slug, candidate.name].some(
+      (value) => String(value) === String(rowKey),
+    )
+  ));
+  const label = rowLabel || project?.slug || project?.name || row.project_id;
+  return label == null ? "" : String(label);
+}
 
 export function renderInboxView(context, main, scope) {
   const documentNode = context.document;
@@ -41,6 +56,13 @@ export function renderInboxView(context, main, scope) {
   host.appendChild(notifications);
   main.replaceChildren(host);
 
+  const rowColumns = withProjectColumn([
+    { label: "subject", value: () => "" },
+  ], scope, (row) => projectLabel(context, row));
+  const projectColumn = rowColumns.find(
+    (column) => column.label === "project",
+  );
+  const rowProject = (row) => projectColumn?.value(row) || null;
   const payload = scope === "all"
     ? {} : { project_ids: scope.map((value) => Number(value)) };
   const load = () => loadScopedPanels(context, [
@@ -51,7 +73,7 @@ export function renderInboxView(context, main, scope) {
         emptyRow(documentNode, body, "Nothing is waiting on you.");
       }
       for (const row of rows) {
-        appendDecisionRow(context, body, row, resolve);
+        appendDecisionRow(context, body, row, resolve, rowProject(row));
       }
     }],
     [requests, (body, calls) => {
@@ -59,7 +81,7 @@ export function renderInboxView(context, main, scope) {
       requests.setCount(rows.length);
       if (!rows.length) emptyRow(documentNode, body, "No open requests.");
       for (const row of rows) {
-        appendDecisionRow(context, body, row, resolve);
+        appendDecisionRow(context, body, row, resolve, rowProject(row));
       }
     }],
     [notifications, (body, calls) => {
@@ -68,7 +90,7 @@ export function renderInboxView(context, main, scope) {
       markAll.disabled = rows.length === 0;
       if (!rows.length) emptyRow(documentNode, body, "Nothing new.");
       for (const row of rows) {
-        appendNotificationRow(context, body, row, readOne);
+        appendNotificationRow(context, body, row, readOne, rowProject(row));
       }
     }],
   ], [{ functionId: "inbox.list", payload }]);

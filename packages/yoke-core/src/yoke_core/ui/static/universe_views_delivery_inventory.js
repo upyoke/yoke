@@ -6,9 +6,11 @@ import {
   el,
   loadScopedSection,
   mergedRows,
+  renderError,
   renderTable,
   scopeBuckets,
   section,
+  settledScopedCalls,
   withProjectColumn,
 } from "./universe_view_support.js";
 import { relativeAge } from "./universe_time.js";
@@ -108,65 +110,116 @@ function latestRunsByEnvironment(rows, directory) {
   return latest;
 }
 
+function branchesByEnvironment(callResults) {
+  const branches = new Map();
+  for (const callResult of callResults) {
+    const result = callResult.envelope.result || {};
+    if (!result.environment_id || !result.values) continue;
+    const branch = result.values["git.branch"];
+    if (branch !== null && branch !== undefined && String(branch).trim()) {
+      branches.set(
+        `${String(result.project)}:${String(result.environment_id)}`,
+        String(branch),
+      );
+    }
+  }
+  return branches;
+}
+
 export function renderDeliveryEnvironmentsView(context, main, scope) {
   const documentNode = context.document;
   const projects = context.projects();
   const directory = projectDirectory(projects);
   const panel = deliveryPanel(documentNode, "Environments");
   main.replaceChildren(panel);
-  loadScopedSection(
-    context,
-    panel,
-    [
-      ...readCalls("projects.infrastructure.list", scope, projects, true),
+  const loadInventory = async () => {
+    const infrastructure = await settledScopedCalls(
+      context,
+      readCalls("projects.infrastructure.list", scope, projects, true),
+    );
+    if (!context.isMounted()) return;
+    if (infrastructure.failed) {
+      panel.renderEnvelopes(
+        infrastructure.callResults,
+        (body) => renderError(body, infrastructure.failed),
+      );
+      return;
+    }
+    const environments = infrastructureRows(
+      infrastructure.callResults, "environments", directory,
+    );
+    const details = await settledScopedCalls(context, [
+      ...environments.map((row) => ({
+        functionId: "projects.environment_settings.get",
+        payload: {
+          project: projectIdentity(directory, row),
+          environment_id: String(row.id),
+          paths: ["git.branch"],
+        },
+      })),
       ...readCalls("deployment_runs.list", scope, projects, false),
-    ],
-    (body, callResults) => {
-      const environments = infrastructureRows(
-        callResults, "environments", directory,
-      );
-      const runs = mergedRows(callResults, (result) => result.rows);
-      const latestRuns = latestRunsByEnvironment(runs, directory);
-      const latestFor = (row) => {
-        const project = projectIdentity(directory, row);
-        for (const environment of [row.id, row.name]) {
-          const latest = latestRuns.get(
-            `${project}:${String(environment || "").toLowerCase()}`,
-          );
-          if (latest) return latest;
-        }
-        return null;
-      };
-      panel.setCount(environments.length);
-      renderTable(
-        body,
-        environments,
-        withProjectColumn([
-          { label: "environment", value: (row) => row.name || row.id },
-          { label: "branch", value: () => "not exposed" },
-          { label: "auto-deploy", value: () => "not exposed" },
-          {
-            label: "status",
-            value: (row) => latestFor(row)?.status || "no run record",
-            pill: true,
-          },
-          {
-            label: "last deploy",
-            value: (row) => {
-              const stamp = runTimestamp(latestFor(row));
-              return stamp ? relativeAge(stamp) : "never";
+    ]);
+    if (!context.isMounted()) return;
+    const callResults = [
+      ...infrastructure.callResults,
+      ...details.callResults,
+    ];
+    panel.renderEnvelopes(
+      callResults,
+      details.failed ? (body) => renderError(body, details.failed) : (body) => {
+        const environments = infrastructureRows(
+          callResults, "environments", directory,
+        );
+        const runs = mergedRows(callResults, (result) => result.rows);
+        const branches = branchesByEnvironment(callResults);
+        const latestRuns = latestRunsByEnvironment(runs, directory);
+        const latestFor = (row) => {
+          const project = projectIdentity(directory, row);
+          for (const environment of [row.id, row.name]) {
+            const latest = latestRuns.get(
+              `${project}:${String(environment || "").toLowerCase()}`,
+            );
+            if (latest) return latest;
+          }
+          return null;
+        };
+        panel.setCount(environments.length);
+        renderTable(
+          body,
+          environments,
+          withProjectColumn([
+            { label: "environment", value: (row) => row.name || row.id },
+            {
+              label: "branch",
+              value: (row) => branches.get(
+                `${projectIdentity(directory, row)}:${String(row.id)}`,
+              ) || "not exposed",
             },
-          },
-        ], scope, (row) => projectLabel(directory, row)),
-        "No environments registered in this scope.",
-      );
-      body.appendChild(deliveryNote(
-        documentNode,
-        "Registered targets, grounded by their latest run. ",
-        "Environment identity comes from projects.infrastructure.list and status from deployment_runs.list. Branch and auto-deploy policy are not published by either read, so those cells stay explicitly unavailable.",
-      ));
-    },
-  );
+            { label: "auto-deploy", value: () => "not exposed" },
+            {
+              label: "status",
+              value: (row) => latestFor(row)?.status || "no run record",
+              pill: true,
+            },
+            {
+              label: "last deploy",
+              value: (row) => {
+                const stamp = runTimestamp(latestFor(row));
+                return stamp ? relativeAge(stamp) : "never";
+              },
+            },
+          ], scope, (row) => projectLabel(directory, row)),
+          "No environments registered in this scope.",
+        );
+        body.appendChild(deliveryNote(
+          documentNode,
+          "Registered targets, grounded by their latest run. ",
+          "Environment identity comes from projects.infrastructure.list, branch from the git.branch environment-settings projection, and status from deployment_runs.list. Auto-deploy policy has no published browser read, so that cell stays explicitly unavailable.",
+        ));
+      },
+    );
+  };
+  void loadInventory();
 }
 
 export function renderDeliveryDatabasesView(context, main, scope) {

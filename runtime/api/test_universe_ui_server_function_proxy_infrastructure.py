@@ -38,7 +38,7 @@ def test_project_infrastructure_read_is_admitted_and_metadata_only(
     test_db.execute(
         "CREATE TABLE environments ("
         "id TEXT PRIMARY KEY, site TEXT NOT NULL, name TEXT, url TEXT, "
-        "deploy_method TEXT, health_check_url TEXT)"
+        "deploy_method TEXT, health_check_url TEXT, settings TEXT)"
     )
     test_db.execute(
         "INSERT INTO sites (id, project_id, name, description) "
@@ -47,8 +47,8 @@ def test_project_infrastructure_read_is_admitted_and_metadata_only(
     )
     test_db.execute(
         "INSERT INTO environments ("
-        "id, site, name, url, deploy_method, health_check_url"
-        ") VALUES (%s, %s, %s, %s, %s, %s)",
+        "id, site, name, url, deploy_method, health_check_url, settings"
+        ") VALUES (%s, %s, %s, %s, %s, %s, %s)",
         (
             "ui-prod",
             "ui-app",
@@ -56,6 +56,7 @@ def test_project_infrastructure_read_is_admitted_and_metadata_only(
             "https://example.test",
             "github-actions",
             "https://example.test/health",
+            '{"git":{"branch":"main"},"deploy":{"automatic":true}}',
         ),
     )
     test_db.commit()
@@ -90,5 +91,34 @@ def test_project_infrastructure_read_is_admitted_and_metadata_only(
     assert "projects.infrastructure.list" in ui_server.UI_READ_FUNCTION_ALLOWLIST
     assert (
         "projects.infrastructure.list"
+        not in ui_server.UI_MUTATION_FUNCTION_ALLOWLIST
+    )
+
+    settings_response = _call(
+        ui_client,
+        {
+            "function": "projects.environment_settings.get",
+            "payload": {
+                "project": project_id,
+                "environment_id": "ui-prod",
+                "paths": ["git.branch"],
+            },
+        },
+    )
+
+    assert settings_response.status_code == 200
+    settings_envelope = settings_response.json()
+    assert settings_envelope["success"] is True
+    assert settings_envelope["result"] == {
+        "project": project_id,
+        "environment_id": "ui-prod",
+        "values": {"git.branch": "main"},
+    }
+    assert (
+        "projects.environment_settings.get"
+        in ui_server.UI_READ_FUNCTION_ALLOWLIST
+    )
+    assert (
+        "projects.environment_settings.get"
         not in ui_server.UI_MUTATION_FUNCTION_ALLOWLIST
     )

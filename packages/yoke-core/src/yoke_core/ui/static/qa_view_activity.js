@@ -1,4 +1,7 @@
-import { el } from "./universe_view_support.js";
+import {
+  el,
+  withProjectColumn,
+} from "./universe_view_support.js";
 import {
   loadProjectCalls,
   outcomeNode,
@@ -75,7 +78,20 @@ function evidenceText(row) {
   return count ? `${count} ${count === 1 ? "artifact" : "artifacts"}` : "—";
 }
 
-function renderActivityTable(context, body, rows) {
+function activityProjectLabel(context, row) {
+  const rowLabel = row.project_slug || row.project;
+  const rowKey = row.project_id ?? rowLabel;
+  const project = context.projects().find((candidate) => (
+    [candidate.id, candidate.slug, candidate.name].some(
+      (value) => String(value) === String(rowKey),
+    )
+  ));
+  return String(
+    rowLabel || project?.slug || project?.name || row.project_id || "—",
+  );
+}
+
+function renderActivityTable(context, body, rows, scope) {
   const documentNode = context.document;
   if (!rows.length) {
     body.appendChild(el(
@@ -84,11 +100,18 @@ function renderActivityTable(context, body, rows) {
     return;
   }
   const table = el(documentNode, "table", "items qa-activity-table");
+  const columns = withProjectColumn([
+    { label: "Plan" },
+    { label: "Case" },
+    { label: "Method" },
+    { label: "Outcome" },
+    { label: "Evidence" },
+    { label: "When" },
+  ], scope, (row) => activityProjectLabel(context, row));
+  const projectColumn = columns.find((column) => column.label === "project");
   const head = el(documentNode, "tr");
-  for (const label of [
-    "Plan", "Case", "Method", "Outcome", "Evidence", "When",
-  ]) {
-    head.appendChild(el(documentNode, "th", null, label));
+  for (const column of columns) {
+    head.appendChild(el(documentNode, "th", null, column.label));
   }
   table.appendChild(head);
   for (const row of rows) {
@@ -105,6 +128,14 @@ function renderActivityTable(context, body, rows) {
     planLink.href = href;
     plan.appendChild(planLink);
     tr.appendChild(plan);
+    if (projectColumn) {
+      tr.appendChild(el(
+        documentNode,
+        "td",
+        "qa-activity-project",
+        projectColumn.value(row),
+      ));
+    }
     const caseLabel = row.host_baseline
       ? `${row.case_key} @${row.host_baseline}` : row.case_key;
     tr.appendChild(el(documentNode, "td", "mono", caseLabel));
@@ -174,7 +205,7 @@ export async function renderQaActivity(context, main, scope) {
   ));
   panel.appendChild(header);
   const body = el(documentNode, "div", "panel-body");
-  renderActivityTable(context, body, rows);
+  renderActivityTable(context, body, rows, scope);
   panel.appendChild(body);
   const note = el(documentNode, "div", "qa-panel-note");
   note.textContent =

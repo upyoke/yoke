@@ -3,6 +3,9 @@ import test from "node:test";
 
 import { renderEvidence } from "../../packages/yoke-core/src/yoke_core/ui/static/qa_view_evidence.js";
 import {
+  renderQaActivity,
+} from "../../packages/yoke-core/src/yoke_core/ui/static/qa_view_activity.js";
+import {
   FakeDocument,
   allNodes,
   byClass,
@@ -102,6 +105,12 @@ test("Activity folds hidden QA plumbing into readable outcomes", async (t) => {
   );
   assert.equal(byClass(root, "qa-clickable-row").length, 6);
   assert.deepEqual(
+    allNodes(byClass(root, "qa-activity-table")[0])
+      .filter((node) => node.tagName === "TH")
+      .map((node) => node.textContent),
+    ["Plan", "Case", "Method", "Outcome", "Evidence", "When"],
+  );
+  assert.deepEqual(
     client.requests.find(
       (request) => request.function === "qa.activity.list",
     ),
@@ -143,4 +152,65 @@ test("Activity folds hidden QA plumbing into readable outcomes", async (t) => {
     /Blocked on precondition is neither a pass nor a case failure — the case's host baseline could not be reached or verified\./,
   );
   mounted.unmount();
+});
+
+test("Activity labels every merged row with its owning project", async () => {
+  const documentNode = new FakeDocument();
+  const root = documentNode.createElement("main");
+  const requests = [];
+  const projects = [
+    { id: 1, slug: "alpha", name: "Alpha" },
+    { id: 2, slug: "beta", name: "Beta" },
+  ];
+  const context = {
+    document: documentNode,
+    projects: () => projects,
+    isMounted: () => true,
+    navigate: () => {},
+    client: {
+      async call(request) {
+        requests.push(request);
+        const project = projects.find(
+          (row) => String(row.id) === String(request.payload.project),
+        );
+        return ok({
+          summary: { total: 1, counts: { passed: 1 } },
+          rows: [{
+            requirement_id: project.id,
+            plan_id: project.id,
+            plan: `${project.slug}-plan`,
+            project: project.slug,
+            case_key: "browser-proof",
+            method_id: "browser-check",
+            method_name: "Browser check",
+            outcome: "passed",
+            evidence_count: 1,
+            proof_summary: "1 screenshot",
+            happened_at: `2026-07-2${project.id}T12:00:00Z`,
+          }],
+        });
+      },
+    },
+  };
+
+  await renderQaActivity(context, root, "all");
+
+  assert.deepEqual(
+    requests.map((request) => request.payload.project),
+    ["1", "2"],
+  );
+  assert.deepEqual(
+    allNodes(byClass(root, "qa-activity-table")[0])
+      .filter((node) => node.tagName === "TH")
+      .map((node) => node.textContent),
+    ["Plan", "project", "Case", "Method", "Outcome", "Evidence", "When"],
+  );
+  assert.deepEqual(
+    byClass(root, "qa-activity-project").map((node) => node.textContent),
+    ["beta", "alpha"],
+  );
+  assert.deepEqual(
+    byClass(root, "qa-activity-link").map((node) => node.href),
+    ["#/qa/plans/2?project=2", "#/qa/plans/1?project=1"],
+  );
 });
