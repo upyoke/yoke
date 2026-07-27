@@ -266,7 +266,7 @@ class TestCurrentItemWorktreeNarrative:
             _payload(command="rm docs/oof.md", cwd=str(tmp_path / "main")),
             claim=_claim_dict(worktree_path=""))
         assert v.outcome == "deny" and "worktree_preflight" in v.narrative
-        assert "items.worktree" in v.narrative and "widen" not in v.narrative
+        assert "item_worktrees row" in v.narrative and "widen" not in v.narrative
 
 
 class TestLiveNoConnEpicResolution:

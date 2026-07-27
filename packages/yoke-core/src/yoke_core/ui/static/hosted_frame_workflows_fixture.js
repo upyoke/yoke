@@ -1,88 +1,116 @@
 // Deterministic registry data for the hosted-frame development page. This is
 // not product state: it lets the real browser renderer and CSS be reviewed
 // when no machine-local universe is running.
+import {
+  DELIVERY_POLICIES,
+  gate,
+  stage,
+  workflow,
+} from "./hosted_frame_workflow_builders.js";
+import { createHostedFrameWorkflowClient } from "./hosted_frame_workflow_client.js";
+import {
+  hostedFrameEpicWorkflow,
+} from "./hosted_frame_workflow_epic_fixture.js";
 
 const GATES = {
+  db_claim_prose: {
+    name: "DB claim consistency",
+    description:
+      "The item's declared DB claim must agree with what its own text describes — prose about migrations alongside a claim of none is refused.",
+    source_kind: "status_gate",
+    availability: "live",
+  },
+  db_mutation: {
+    name: "Governed DB mutation",
+    description:
+      "A declared governed mutation must satisfy this point's check — joint: the strategy fits the project's breakage policy with no cross-item overlap; evidence: the authoritative apply evidence exists; polish: migration closeout is complete.",
+    source_kind: "status_gate",
+    availability: "live",
+  },
   architecture_impact: {
     name: "Architecture impact",
     description:
-      "The declared impact must honor the project's architecture model.",
+      "The item's declared architecture impact must honor the project's authoritative architecture model (the per-project architecture_model Project Structure family).",
     source_kind: "status_gate",
+    availability: "live",
+  },
+  path_claim_boundary: {
+    name: "Path-claim boundary",
+    description:
+      "The item's changed files must stay inside its registered path claims.",
+    source_kind: "status_gate",
+    availability: "live",
+  },
+  plan_simulation: {
+    name: "Plan simulation",
+    description:
+      "The epic's plan must pass the simulator's cross-task execution trace.",
+    source_kind: "status_gate",
+    availability: "live",
   },
   conflict_survey: {
     name: "Conflict survey",
     description:
-      "Claims, worktrees, and frontier items are checked before execution.",
-    source_kind: "activation_op",
+      "The agent reads claims, worktrees, and frontier items and aborts on any detected conflict.",
+    source_kind: "status_gate",
+    availability: "live",
   },
   qa_verification: {
     name: "QA requirements",
     description:
-      "Every requirement for this transition must pass or be waived.",
+      "Every QA requirement materialized for this transition must be satisfied — passed or explicitly waived.",
     source_kind: "status_gate",
+    availability: "live",
+  },
+  check_hard_blocks: {
+    name: "Dependency hard blocks",
+    description:
+      "Every upstream item this one depends on must be finished before activation.",
+    source_kind: "activation_operation",
+    availability: "live",
+  },
+  claim_activation: {
+    name: "Claim activation",
+    description:
+      "Registered path claims activate together with the worktree; a conflicting live claim refuses activation.",
+    source_kind: "activation_operation",
+    availability: "live",
+  },
+  work_claim_activation: {
+    name: "Work-claim activation",
+    description:
+      "The executing session takes the exclusive work claim and a worktree.",
+    source_kind: "activation_operation",
+    availability: "live",
+  },
+  doc_claim_activation: {
+    name: "Execution-document claim",
+    description:
+      "The Blitz atomically claims its single execution document; an already-owned document refuses activation.",
+    source_kind: "activation_operation",
+    availability: "live",
+  },
+  doc_completion: {
+    name: "Document completion",
+    description:
+      "The strategy document must record what was completed, what changed, what remains, the evidence, and the parent reconciliation.",
+    source_kind: "status_gate",
+    availability: "live",
   },
   dash_evidence: {
     name: "Result evidence",
     description:
-      "The result and every item-declared check must be recorded.",
+      "The result and verification evidence must be recorded on the item, plus every check the item's knobs declared — an attached plan passed, an approval resolved.",
     source_kind: "status_gate",
+    availability: "live",
   },
-};
-
-function gate(id) {
-  return { id };
-}
-
-function stage(id, label, gates = [], description = "") {
-  const value = { id, label, gates };
-  if (description) value.description = description;
-  return value;
-}
-
-function workflow({
-  id,
-  name,
-  description,
-  stages,
-  entrySurfaces,
-  executors,
-  policies,
-}) {
-  const definition = {
-    stages,
-    entry_surfaces: entrySurfaces,
-    executor_bindings: executors.map((executorId) => ({
-      executor_id: executorId,
-    })),
-    policies,
-  };
-  return {
-    id,
-    name,
-    description,
-    source: "built_in",
-    status: "active",
-    current_version: 1,
-    published_at: "2026-07-20T12:00:00Z",
-    versions: [{
-      version: 1,
-      definition_digest: `${id}-v1-fixture`,
-      published_at: "2026-07-20T12:00:00Z",
-      definition: structuredClone(definition),
-    }],
-    definition,
-  };
-}
-
-const DELIVERY_POLICIES = {
-  path_claims: "required",
-  worktrees: "single_implementation_lane",
-  parallelism: "inside_item",
-  generated_children: "none",
-  qa: "project_transition_defaults",
-  approvals: "definition_transitions",
-  delivery: "release_stage",
-  item_posture_allowlist: ["verification", "approval", "deployment"],
+  approval: {
+    name: "Approval",
+    description:
+      "The approval request declared for this transition must be resolved.",
+    source_kind: "status_gate",
+    availability: "live",
+  },
 };
 
 function hostedFrameWorkflows() {
@@ -95,28 +123,36 @@ function hostedFrameWorkflows() {
       entrySurfaces: ["web_form", "cli", "harness_skill", "promotion"],
       executors: ["dash"],
       stages: [
-        stage("idea", "Idea"),
+        stage("idea", "idea"),
         stage(
           "implementing",
-          "Implementing",
-          [gate("conflict_survey"), gate("architecture_impact")],
-          "The executor surveys conflicts and completes the instruction.",
+          "implementing",
+          [
+            gate("work_claim_activation"),
+            gate("conflict_survey"),
+            gate("architecture_impact"),
+          ],
+          "The agent surveys for conflicts, takes a worktree, and executes the instruction in one pass.",
         ),
         stage(
           "reviewing-implementation",
-          "Reviewing implementation",
-          [gate("architecture_impact")],
-          "The executor self-checks plus any declared verification.",
+          "reviewing implementation",
+          [
+            gate("db_claim_prose"),
+            gate("db_mutation", "evidence"),
+            gate("architecture_impact"),
+          ],
+          "The verification close — the agent self-checks, plus any case a tightened posture knob added.",
         ),
         stage(
           "done",
-          "Done",
+          "done",
           [
             gate("architecture_impact"),
             gate("qa_verification"),
             gate("dash_evidence"),
           ],
-          "The result and verification evidence are recorded on the item.",
+          "Result and verification evidence are recorded on the item; delivery, when enabled, ran as an after-merge action.",
         ),
       ],
       policies: {
@@ -137,21 +173,51 @@ function hostedFrameWorkflows() {
       id: "blitz",
       name: "Blitz",
       description:
-        "Execute a strategy document directly; the item is only its coordination shell.",
+        "Execute a strategy document directly; the item is only its coordination shell. Releases happen continuously inside implementing; the close reconciles the document.",
       entrySurfaces: ["harness_skill"],
       executors: ["refine", "blitz"],
       stages: [
-        stage("idea", "Idea"),
-        stage("refining-idea", "Refining idea"),
-        stage("refined-idea", "Refined idea"),
+        stage("idea", "idea"),
+        stage(
+          "refining-idea",
+          "refining idea",
+          [gate("db_claim_prose"), gate("db_mutation", "joint")],
+        ),
+        stage(
+          "refined-idea",
+          "refined idea",
+          [gate("db_claim_prose"), gate("architecture_impact")],
+        ),
         stage(
           "implementing",
-          "Implementing",
-          [gate("conflict_survey"), gate("architecture_impact")],
-          "The linked document drives a continuous loop of integrated slices.",
+          "implementing",
+          [
+            gate("doc_claim_activation"),
+            gate("conflict_survey"),
+            gate("architecture_impact"),
+          ],
+          "The continuous slice loop — the linked document is executed directly, and each slice may merge, migrate, and deploy; there is no separate release stage.",
         ),
-        stage("reviewing-implementation", "Reviewing implementation"),
-        stage("done", "Done", [gate("qa_verification")]),
+        stage(
+          "reviewing-implementation",
+          "reviewing implementation",
+          [
+            gate("db_claim_prose"),
+            gate("db_mutation", "evidence"),
+            gate("architecture_impact"),
+          ],
+          "The once-per-item close — the full suite runs and the document records what was completed, what changed, what remains, the evidence, and how the parent strategy was reconciled.",
+        ),
+        stage(
+          "done",
+          "done",
+          [
+            gate("architecture_impact"),
+            gate("qa_verification"),
+            gate("doc_completion"),
+          ],
+          "The execution document states completion and parent reconciliation; that evidence is the entry gate.",
+        ),
       ],
       policies: {
         ownership: "session_item_and_document_claim",
@@ -175,161 +241,87 @@ function hostedFrameWorkflows() {
       entrySurfaces: ["harness_skill", "promotion"],
       executors: ["refine", "advance", "polish", "usher"],
       stages: [
-        stage("idea", "Idea"),
-        stage("refining-idea", "Refining idea"),
-        stage("refined-idea", "Refined idea"),
-        stage("implementing", "Implementing"),
-        stage("reviewing-implementation", "Reviewing implementation"),
-        stage("reviewed-implementation", "Reviewed implementation"),
-        stage("polishing-implementation", "Polishing implementation"),
-        stage("implemented", "Implemented"),
-        stage("release", "Release", [gate("qa_verification")]),
-        stage("done", "Done"),
+        stage("idea", "idea"),
+        stage(
+          "refining-idea",
+          "refining idea",
+          [gate("db_claim_prose"), gate("db_mutation", "joint")],
+        ),
+        stage(
+          "refined-idea",
+          "refined idea",
+          [gate("db_claim_prose"), gate("architecture_impact")],
+        ),
+        stage(
+          "implementing",
+          "implementing",
+          [
+            gate("check_hard_blocks"),
+            gate("claim_activation"),
+            gate("architecture_impact"),
+          ],
+          "One implementation lane in an isolated worktree; the engineer builds against the spec and acceptance criteria.",
+        ),
+        stage(
+          "reviewing-implementation",
+          "reviewing implementation",
+          [
+            gate("db_claim_prose"),
+            gate("db_mutation", "evidence"),
+            gate("architecture_impact"),
+          ],
+          "The in-worktree review loop — the work is checked against the acceptance criteria before it can leave the lane.",
+        ),
+        stage(
+          "reviewed-implementation",
+          "reviewed implementation",
+          [
+            gate("architecture_impact"),
+            gate("path_claim_boundary"),
+            gate("qa_verification"),
+          ],
+        ),
+        stage(
+          "polishing-implementation",
+          "polishing implementation",
+          [gate("architecture_impact")],
+        ),
+        stage(
+          "implemented",
+          "implemented",
+          [
+            gate("db_claim_prose"),
+            gate("db_mutation", "polish"),
+            gate("architecture_impact"),
+            gate("path_claim_boundary"),
+            gate("qa_verification"),
+          ],
+        ),
+        stage(
+          "release",
+          "release",
+          [
+            gate("architecture_impact"),
+            gate("path_claim_boundary"),
+            gate("qa_verification"),
+          ],
+        ),
+        stage(
+          "done",
+          "done",
+          [gate("architecture_impact"), gate("qa_verification")],
+          "Merged and delivered through the selected flow; the item closes.",
+        ),
       ],
       policies: {
         ownership: "single_item_claim",
         ...DELIVERY_POLICIES,
       },
     }),
-    workflow({
-      id: "epic",
-      name: "Epic",
-      description:
-        "Planned task decomposition with parallel lanes and an integration boundary.",
-      entrySurfaces: ["harness_skill"],
-      executors: ["refine", "shepherd", "conduct", "polish", "usher"],
-      stages: [
-        stage("idea", "Idea"),
-        stage("refining-idea", "Refining idea"),
-        stage("refined-idea", "Refined idea"),
-        stage("planning", "Planning"),
-        stage("plan-drafted", "Plan drafted"),
-        stage("refining-plan", "Refining plan"),
-        stage("planned", "Planned"),
-        stage("implementing", "Implementing"),
-        stage("reviewing-implementation", "Reviewing implementation"),
-        stage("reviewed-implementation", "Reviewed implementation"),
-        stage("polishing-implementation", "Polishing implementation"),
-        stage("implemented", "Implemented"),
-        stage("release", "Release", [gate("qa_verification")]),
-        stage("done", "Done"),
-      ],
-      policies: {
-        ownership: "item_claim_and_task_lanes",
-        ...DELIVERY_POLICIES,
-        path_claims: "required_per_task",
-        worktrees: "worker_and_integration_lanes",
-        parallelism: "task_graph",
-        generated_children: "epic_tasks",
-        qa: "project_and_task_attachments",
-      },
-    }),
+    hostedFrameEpicWorkflow(),
   ];
 }
 
 export function hostedFrameWorkflowClient() {
-  const workflows = hostedFrameWorkflows();
-  const ok = (result) => ({
-    status: 200,
-    envelope: { success: true, result },
-  });
-  return {
-    async call(request) {
-      if (request.function === "projects.list") {
-        return ok({ rows: [{ id: 1, slug: "yoke", name: "Yoke" }] });
-      }
-      if (request.function === "workflows.definition.get") {
-        return ok({
-          family: "work-items",
-          workflows: structuredClone(workflows),
-          gate_catalog: Object.entries(GATES).map(([id, value]) => ({
-            id,
-            availability: "live",
-            ...value,
-          })),
-          flows: [],
-        });
-      }
-      if (request.function === "workflows.version.get") {
-        const current = workflows.find(
-          (row) => row.id === request.payload.workflow_id,
-        );
-        const version = current?.versions.find(
-          (row) => Number(row.version) === Number(request.payload.version),
-        );
-        if (current && version) {
-          return ok({
-            workflow_id: current.id,
-            ...structuredClone(version),
-            current:
-              Number(current.current_version) === Number(version.version),
-            definition: structuredClone(version.definition),
-          });
-        }
-      }
-      if (request.function === "workflows.policy_defaults.publish") {
-        const current = workflows.find(
-          (row) => row.id === request.payload.workflow_id,
-        );
-        if (current) {
-          const version =
-            Math.max(...current.versions.map((row) => Number(row.version))) + 1;
-          const publishedAt = new Date().toISOString();
-          const definition = structuredClone(current.definition);
-          definition.policies.path_claims =
-            request.payload.path_claims_default ? "required" : "optional";
-          current.current_version = version;
-          current.published_at = publishedAt;
-          current.definition = definition;
-          current.versions.push({
-            version,
-            definition_digest: `${current.id}-v${version}-fixture`,
-            published_at: publishedAt,
-            definition: structuredClone(definition),
-          });
-          return ok({
-            workflow_id: current.id,
-            version,
-            version_id: version,
-            definition_digest: `${current.id}-v${version}-fixture`,
-            path_claims_default: request.payload.path_claims_default,
-          });
-        }
-      }
-      if (request.function === "workflows.current.set") {
-        const current = workflows.find(
-          (row) => row.id === request.payload.workflow_id,
-        );
-        if (current) {
-          const version = current.versions.find(
-            (row) => Number(row.version) === Number(request.payload.version),
-          );
-          if (!version) {
-            return {
-              status: 404,
-              envelope: {
-                success: false,
-                error: { message: "Workflow version not found." },
-              },
-            };
-          }
-          current.current_version = Number(version.version);
-          current.published_at = version.published_at;
-          current.definition = structuredClone(version.definition);
-          return ok({
-            workflow_id: current.id,
-            version: current.current_version,
-            version_id: current.current_version,
-          });
-        }
-      }
-      return {
-        status: 404,
-        envelope: {
-          success: false,
-          error: { message: `No fixture for ${request.function}` },
-        },
-      };
-    },
-  };
+  return createHostedFrameWorkflowClient(hostedFrameWorkflows(), GATES);
 }

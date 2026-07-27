@@ -17,7 +17,10 @@ stays under the 350-line authoring cap.
 
 from __future__ import annotations
 
+import sqlite3
+
 from yoke_core.domain import schema_api_context as sac
+from yoke_core.domain.schema_api_context_commands_claims import CLAIMS_COMMANDS
 
 
 def test_claims_packet_teaches_path_claims_join_and_state_enum() -> None:
@@ -58,3 +61,41 @@ def test_claims_packet_teaches_spec_rewrite_pattern() -> None:
     assert "yoke claims work release --item YOK-N --reason rewrite-complete" in body
     # Doctrine sentence — no new skill.
     assert "no new skill" in body.lower()
+
+
+def test_specific_path_conflict_recipe_executes_against_canonical_columns() -> None:
+    """The packet's raw diagnostic join stays executable against the schema."""
+    entry = next(
+        command
+        for command in CLAIMS_COMMANDS
+        if command["purpose"] == "Find conflicts on specific paths (SQL)"
+    )
+    recipe = str(entry["recipe"])
+    sql = recipe.partition('yoke db read "')[2].rsplit('"', 1)[0]
+
+    conn = sqlite3.connect(":memory:")
+    conn.executescript(
+        """
+        CREATE TABLE path_claims (
+          id INTEGER PRIMARY KEY, item_id INTEGER NOT NULL, state TEXT NOT NULL
+        );
+        CREATE TABLE path_targets (
+          id INTEGER PRIMARY KEY, path_string TEXT NOT NULL
+        );
+        CREATE TABLE path_claim_targets (
+          id INTEGER PRIMARY KEY,
+          claim_id INTEGER NOT NULL REFERENCES path_claims(id),
+          target_id INTEGER NOT NULL REFERENCES path_targets(id)
+        );
+        INSERT INTO path_claims (id, item_id, state)
+          VALUES (7, 42, 'active');
+        INSERT INTO path_targets (id, path_string)
+          VALUES (9, 'runtime/api/domain/foo.py');
+        INSERT INTO path_claim_targets (id, claim_id, target_id)
+          VALUES (11, 7, 9);
+        """
+    )
+
+    assert conn.execute(sql).fetchall() == [
+        (7, 42, "active", "runtime/api/domain/foo.py")
+    ]

@@ -37,10 +37,18 @@ one plan may mix command, browser, terminal, and machine proof.
 
 ```text
 yoke qa plan create <slug> --project <project> --name "<name>"
-yoke qa plan-cases replace \
-  --project <project> --plan-id <id> --cases-file <cases.json>
+yoke qa plan edit <slug>
 yoke qa plan get <id> --project <project>
 ```
+
+`qa plan edit` resolves project context from `--project`, then `YOKE_PROJECT`,
+then the machine-config checkout mapping. It opens a clean JSON authoring
+document in `$VISUAL`, `$EDITOR`, or `vi` and compare-and-swap saves plan
+metadata plus the complete ordered case set. Invalid JSON, an editor failure,
+or a concurrent edit preserves the temporary document and refuses the write.
+An unchanged document preserves the plan timestamp and its case row identities.
+The lower-level `qa plan-cases replace` adapter remains available for callers
+that already hold a numeric plan id and intentionally replace cases only.
 
 Attach a reusable plan as a project default for one workflow transition:
 
@@ -60,8 +68,13 @@ yoke qa item-plan attach \
 
 At the declared transition, Yoke materializes one requirement per case.
 Those rows are the snapshot: later plan edits affect only items that have not
-materialized the plan. Case rerun and waiver stay case-scoped, and the
-transition consumes the union of all materialized outcomes.
+materialized the plan. Once any requirement for a plan and transition exists,
+the whole plan is considered snapshotted for that item; newly authored cases
+do not leak into that item on a later materialization call. Empty plans cannot
+be attached or materialized. v1 accepts only the `all-pass` policy, including
+case-level overrides, and project-local methods can only be used by plans in
+that same project. Case rerun and waiver stay case-scoped, and the transition
+consumes the union of all materialized outcomes.
 
 ## Capabilities and secrets
 

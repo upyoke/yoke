@@ -15,10 +15,6 @@ from yoke_core.domain.mutations import (
 )
 from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
 
-TEST_ITEM_ID = 42
-TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"
-
-
 def _make_item(**overrides) -> ItemState:
     defaults = dict(
         id=42,
@@ -41,7 +37,7 @@ def _make_gate(**overrides) -> GateContext:
 
 class TestStatusTransition:
     def test_valid_status_epic(self):
-        """Epic items accept epic-workflow-type statuses."""
+        """Epic items accept statuses declared by the Epic workflow."""
         item = _make_item(workflow="epic", status="idea")
         gate = _make_gate(done_nonce_verified=True)
         result = prepare_update(item=item, field_name="status", value="planning", gate=gate)
@@ -52,7 +48,7 @@ class TestStatusTransition:
         )
 
     def test_valid_status_issue(self):
-        """Issue items accept issue-workflow-type statuses."""
+        """Issue items accept statuses declared by the Issue workflow."""
         item = _make_item(workflow="issue", status="idea")
         gate = _make_gate(done_nonce_verified=True)
         result = prepare_update(item=item, field_name="status", value="refining-idea", gate=gate)
@@ -79,7 +75,7 @@ class TestStatusTransition:
             assert "Defined stages:" in result.error
 
     def test_issue_accepts_issue_family_statuses(self):
-        """FR-3: Issue items accept all issue-workflow-type statuses."""
+        """FR-3: Issue items accept every status in the Issue workflow."""
         gate = _make_gate(
             done_nonce_verified=True,
             qa_requirement_count=1,
@@ -106,14 +102,14 @@ class TestStatusTransition:
             assert result.success is True, f"Expected acceptance of '{status}' for issue"
 
     def test_epic_accepts_epic_family_statuses(self):
-        """FR-3: Epic items accept epic-workflow-type lifecycle statuses."""
+        """FR-3: Epic items accept every status in the Epic workflow."""
         gate = _make_gate(
             done_nonce_verified=True,
             has_merged_at=True,
             qa_requirement_count=1,
             unsatisfied_verification_blocking=0,
         )
-        # Exclude done (needs special gates) — test the epic-workflow-type progression
+        # Exclude done (needs special gates) — test the Epic progression.
         for status in ("refining-idea", "refined-idea", "planning", "plan-drafted",
                         "refining-plan", "planned", "implementing",
                         "reviewing-implementation", "reviewed-implementation",
@@ -224,13 +220,12 @@ class TestDoneCleanup:
             workflow="epic",
             status="implementing",
             frozen=True,
-            worktree=TEST_ITEM_REF,
         )
         gate = _make_gate(done_nonce_verified=True, has_merged_at=True)
         result = prepare_update(item=item, field_name="status", value="done", gate=gate)
         assert result.success is True
         assert result.field_writes["frozen"] is False
-        assert result.field_writes["worktree"] is None
+        assert "worktree" not in result.field_writes
         assert any(e.kind == MutationEventKind.DONE_CLEANUP for e in result.events)
 
     def test_non_done_no_cleanup(self):

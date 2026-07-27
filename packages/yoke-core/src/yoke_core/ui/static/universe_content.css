@@ -1,12 +1,3 @@
-  border: 1px solid var(--yoke-border);
-  border-radius: var(--yoke-radius);
-  overflow: hidden;
-  margin-bottom: 14px;
-  transition: box-shadow 140ms ease;
-}
-.universe-app-root .panel:hover {
-  box-shadow: var(--yoke-shadow);
-}
 .universe-app-root .panel-header {
   display: flex;
   align-items: center;
@@ -35,6 +26,7 @@
    card's inset for itself. */
 .universe-app-root .panel-body:has(> table.items) {
   padding: 0;
+  overflow-x: auto;
 }
 .universe-app-root .panel-body:has(> table.items) > :not(table.items) {
   margin: 13px 15px;
@@ -70,8 +62,96 @@
 .universe-app-root table.items tr:last-child :is(th, td) {
   border-bottom: 0;
 }
-.universe-app-root table.items:not(.kv) tr:has(td):hover {
+.universe-app-root table.items:not(.kv) tr:has(a.row-link):hover {
   background: var(--yoke-hover);
+}
+.universe-app-root table.items:not(.kv) tr:has(a.row-link) {
+  cursor: pointer;
+}
+
+.universe-app-root .mono {
+  font-family: var(--yoke-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.universe-app-root .ago {
+  cursor: pointer;
+  text-decoration-line: underline;
+  text-decoration-style: dotted;
+  text-decoration-color: color-mix(
+    in srgb,
+    currentColor 42%,
+    transparent
+  );
+  text-underline-offset: 3px;
+}
+
+.universe-app-root .rich-text {
+  color: var(--yoke-ink-2);
+  font-size: 13px;
+  line-height: 1.62;
+  overflow-wrap: anywhere;
+}
+.universe-app-root .rich-text > :first-child {
+  margin-top: 0;
+}
+.universe-app-root .rich-text > :last-child {
+  margin-bottom: 0;
+}
+.universe-app-root .rich-text h2,
+.universe-app-root .rich-text h3,
+.universe-app-root .rich-text h4,
+.universe-app-root .rich-text h5,
+.universe-app-root .rich-text h6 {
+  margin: 18px 0 7px;
+  color: var(--yoke-ink);
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: -0.005em;
+}
+.universe-app-root .rich-text p,
+.universe-app-root .rich-text ul,
+.universe-app-root .rich-text ol,
+.universe-app-root .rich-checklist,
+.universe-app-root .rich-code-block {
+  margin: 0 0 11px;
+}
+.universe-app-root .rich-text :is(ul, ol) {
+  padding-left: 21px;
+}
+.universe-app-root .rich-text li + li {
+  margin-top: 3px;
+}
+.universe-app-root .rich-text a {
+  color: var(--yoke-accent);
+}
+.universe-app-root .rich-checklist {
+  display: grid;
+  gap: 6px;
+}
+.universe-app-root .rich-check {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 5px;
+  align-items: start;
+}
+.universe-app-root .rich-check-glyph {
+  color: var(--yoke-muted);
+}
+.universe-app-root .rich-check.complete .rich-check-glyph {
+  color: var(--yoke-good);
+}
+.universe-app-root .rich-code-block {
+  overflow-x: auto;
+  padding: 10px 12px;
+  border: 1px solid var(--yoke-border);
+  border-radius: 7px;
+  background: var(--yoke-surface-2);
+}
+.universe-app-root .rich-code-block code {
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 
 /* Key/value grid: label cells become a quiet left column with an internal

@@ -143,23 +143,31 @@ def run_validation(repo_root: Path, epic_ref: str, *, out: TextIO, err: TextIO) 
         checked_worktrees = False
         worktree_rows = conn.execute(
             f"""
-            SELECT DISTINCT worktree
-              FROM epic_tasks
-             WHERE epic_id={_p(conn)}
-               AND status NOT IN ({placeholders})
-               AND worktree IS NOT NULL
-               AND worktree <> ''
+            SELECT et.task_num, iw.branch, iw.path
+              FROM epic_tasks et
+              LEFT JOIN item_worktrees iw
+                ON iw.id = et.item_worktree_id AND iw.state = 'active'
+             WHERE et.epic_id={_p(conn)}
+               AND et.status NOT IN ({placeholders})
             """,
             (canonical_epic_id, *terminal_params),
         ).fetchall()
         git_worktrees = _run(["git", "worktree", "list"], cwd=repo_root).stdout
         for row in worktree_rows:
-            worktree = (row["worktree"] or "").strip()
-            if not worktree:
+            branch = (row["branch"] or "").strip()
+            path = (row["path"] or "").strip()
+            if not branch and not path:
+                _result(
+                    out,
+                    "❌",
+                    f"Worktree lane missing for task {row['task_num']}",
+                )
+                issues += 1
+                check2_ok = False
                 continue
             checked_worktrees = True
-            if worktree not in git_worktrees:
-                _result(out, "❌", f"Worktree missing: {worktree}")
+            if branch not in git_worktrees and path not in git_worktrees:
+                _result(out, "❌", f"Worktree missing: {path or branch}")
                 issues += 1
                 check2_ok = False
         if check2_ok:

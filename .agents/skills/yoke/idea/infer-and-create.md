@@ -114,7 +114,21 @@ If a flow applies, set `_deployment_flow` to its registered id (e.g., `yoke-inte
 
 ### c. Infer workflow
 
-Default: `issue`. Only recommend `epic` when the work clearly needs:
+If the operator supplied `--workflow`, validate it before inference:
+
+- Accept only `issue`, `epic`, or `blitz`.
+- Set `{workflow}` to that exact value and do not replace it with an inferred
+  workflow.
+- Reject `dash` with the direct route: use `/yoke dash "instruction"` so the
+  stored instruction and direct-execution contract are created atomically.
+- For `blitz`, preserve the workflow's two registered executor boundaries:
+  `/yoke refine` takes the item from `idea` through `refined-idea` and links
+  exactly one execution strategy document; `/yoke blitz` executes that
+  document from `refined-idea` through `done`. Intake does not copy the plan
+  into the item body or bypass refinement.
+
+Without `--workflow`, default to `issue`. Only recommend `epic` when the work
+clearly needs:
 - Multiple parallel worktrees
 - A spec plus task decomposition
 - More than ~2 hours of focused work
@@ -265,6 +279,23 @@ Title and workflow are positional; project / deployment-flow / priority are flag
 yoke items create "{title}" {workflow} --entry-surface harness_skill --project "${_project}" --deployment-flow "${_deployment_flow}" --priority {priority}
 ```
 
+The adapter dispatches function id `items.create` to a global target with this
+payload shape:
+
+```text
+{
+  "title": "{title}",
+  "workflow": "{workflow}",
+  "entry_surface": "harness_skill",
+  "project": "{_project}",
+  "priority": "{priority}",
+  "deployment_flow": "{_deployment_flow}"  # omitted when empty
+}
+```
+
+For `/yoke idea --workflow blitz`, `{workflow}` is literally `blitz`; it is
+not an instruction field, posture choice, or later migration.
+
 If `_deployment_flow` is empty, omit that flag:
 
 ```bash
@@ -317,7 +348,19 @@ Dry-run mode: print what would be persisted instead of mutating state.
 
 Read the created item from the DB and display a confirmation. If GitHub issue creation succeeded, include the linked issue number. If dependencies were detected, include them in the confirmation output.
 
-Always end with:
+For Issue and Epic items, preserve the existing handoff:
 ```text
 Next step: /yoke shepherd YOK-{N}
 ```
+
+For a Blitz, end with the refinement and execution handoff instead:
+
+```text
+Next step: /yoke refine YOK-{N}
+After refinement links exactly one execution strategy document and the item
+reaches refined-idea: /yoke blitz YOK-{N}
+```
+
+The link is the registered `strategy.execution.link` operation. Do not start
+`/yoke blitz`, generate child items, or treat the intake body as the live
+execution plan before that link exists.

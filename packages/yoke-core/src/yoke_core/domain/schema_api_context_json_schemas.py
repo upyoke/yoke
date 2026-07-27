@@ -59,13 +59,6 @@ JSON_NESTED_SCHEMAS: dict[tuple[str, str], dict] = {
             ("frozen_at", "str|null", "null"),
         ],
     },
-    ("epic_tasks", "dependencies"): {
-        "topic": "core",
-        "validator": "yoke_core.domain.shepherd_dependency",
-        "fields": [
-            ("(JSON array of bare task_num integers within the same epic)", "list[int]", "[]"),
-        ],
-    },
     ("harness_sessions", "offer_envelope"): {
         "topic": "claims",
         "validator": "yoke_core.domain.sessions_offer_envelope_merge.merge_offer_envelope",

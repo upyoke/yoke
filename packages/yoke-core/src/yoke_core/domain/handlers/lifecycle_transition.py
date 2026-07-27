@@ -152,6 +152,16 @@ def _prepare_definition_gates(
             workflow.policies.get("approval_defaults", {})
         ).get(target_status)
         if not approval:
+            from yoke_core.domain.dash_posture_gate import (
+                approval_policy_for_transition,
+            )
+
+            approval = approval_policy_for_transition(
+                conn,
+                item_id=item_id,
+                target_status=target_status,
+            )
+        if not approval:
             return None
         from yoke_core.domain.actor_project_visibility import numeric_actor_id
         from yoke_core.domain.approval_gate import evaluate_lifecycle_approval
@@ -232,6 +242,25 @@ def handle_transition(request: FunctionCallRequest) -> HandlerOutcome:
         return _error_outcome(
             _map_error_code(legacy_code),
             str(result.get("error") or "lifecycle transition failed"),
+        )
+
+    from yoke_core.domain.actor_project_visibility import numeric_actor_id
+    from yoke_core.domain.direct_workflow_terminal_resources import (
+        release_for_transition,
+    )
+
+    cleanup = release_for_transition(
+        item_id=item_id,
+        target_status=payload.target_status,
+        session_id=request.actor.session_id,
+        actor_id=numeric_actor_id(request.actor.actor_id),
+    )
+    if cleanup["document_claim_released"]:
+        captured.write("Released the Blitz execution-document claim.\n")
+    released_lanes = int(cleanup["worktree_lanes_released"])
+    if released_lanes:
+        captured.write(
+            f"Released {released_lanes} direct-workflow worktree lane(s).\n"
         )
 
     response = LifecycleTransitionResponse(

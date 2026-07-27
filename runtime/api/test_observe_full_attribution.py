@@ -22,8 +22,24 @@ class TestAttributionResolution:
         conn = connect_test_db(attribution_db.db_path)
         conn.execute("INSERT INTO items (id, workflow_id, workflow_version_id, status) VALUES (1246, 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'planned')")
         conn.execute(
-            "INSERT INTO epic_dispatch_chains (epic_id, worktree_path, current_task) VALUES (%s, %s, %s)",
-            ("1246", str(worktree), "7"),
+            "INSERT INTO item_worktrees "
+            "(id, item_id, branch, path, lane_role, state, created_at, updated_at) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+            (
+                1246,
+                1246,
+                "YOK-1246-worker",
+                str(worktree),
+                "worker",
+                "active",
+                "2026-01-01T00:00:00Z",
+                "2026-01-01T00:00:00Z",
+            ),
+        )
+        conn.execute(
+            "INSERT INTO epic_dispatch_chains "
+            "(epic_id, item_worktree_id, current_task) VALUES (%s, %s, %s)",
+            ("1246", 1246, "7"),
         )
         conn.commit()
         conn.close()
@@ -51,8 +67,24 @@ class TestAttributionResolution:
         conn = connect_test_db(attribution_db.db_path)
         conn.execute("INSERT INTO items (id, workflow_id, workflow_version_id, status) VALUES (1246, 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'planned')")
         conn.execute(
-            "INSERT INTO epic_dispatch_chains (epic_id, worktree_path, current_task) VALUES (%s, %s, %s)",
-            ("1246", str(worktree), "9"),
+            "INSERT INTO item_worktrees "
+            "(id, item_id, branch, path, lane_role, state, created_at, updated_at) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+            (
+                1246,
+                1246,
+                "YOK-1246-worker",
+                str(worktree),
+                "worker",
+                "active",
+                "2026-01-01T00:00:00Z",
+                "2026-01-01T00:00:00Z",
+            ),
+        )
+        conn.execute(
+            "INSERT INTO epic_dispatch_chains "
+            "(epic_id, item_worktree_id, current_task) VALUES (%s, %s, %s)",
+            ("1246", 1246, "9"),
         )
         conn.commit()
         conn.close()

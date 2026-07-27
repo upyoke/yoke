@@ -27,6 +27,9 @@ from yoke_core.domain.dependencies import evaluate_satisfaction
 from yoke_core.domain.dependency_workflow_context import (
     workflow_from_joined_values,
 )
+from yoke_core.domain.item_worktree_resolution import (
+    primary_item_worktree_branch_sql,
+)
 from yoke_core.domain.path_claims_dependency_resolver import _strip_sun_prefix
 from yoke_core.domain.project_checkout_locations import checkout_for_project
 
@@ -84,7 +87,9 @@ def _query_item(conn, item_id: int) -> Optional[dict]:
     p = "%s" if db_backend.connection_is_postgres(conn) else "?"
     row = db_helpers.query_one(
         conn,
-        "SELECT i.status, i.title, i.worktree, p.slug AS project, i.merged_at, "
+        "SELECT i.status, i.title, "
+        f"{primary_item_worktree_branch_sql('i.id')} AS lane_branch, "
+        "p.slug AS project, i.merged_at, "
         "i.workflow_id, i.workflow_version_id, wv.version, "
         "wv.definition_json, wv.definition_digest "
         "FROM items i LEFT JOIN projects p ON p.id = i.project_id "
@@ -97,7 +102,7 @@ def _query_item(conn, item_id: int) -> Optional[dict]:
     return {
         "status": row["status"],
         "title": row["title"],
-        "worktree": row["worktree"],
+        "lane_branch": row["lane_branch"],
         "project": row["project"],
         "merged_at": row["merged_at"],
         "workflow": workflow_from_joined_values(
@@ -150,15 +155,15 @@ def _is_satisfied(satisfaction: str, item: dict, conn) -> bool:
     status = item.get("status") or ""
     merged = True if item.get("merged_at") else None
     if satisfaction == "fact:merged":
-        worktree = item.get("worktree")
-        if merged is None and worktree:
+        lane_branch = item.get("lane_branch")
+        if merged is None and lane_branch:
             repo = _query_project_repo_path(conn, item.get("project")) or _git_root()
-            if repo and _branch_is_merged(repo, worktree):
+            if repo and _branch_is_merged(repo, lane_branch):
                 merged = True
     return evaluate_satisfaction(
         satisfaction,
         status,
-        item.get("worktree"),
+        item.get("lane_branch"),
         blocking_merged=merged,
         workflow=item.get("workflow"),
     ).satisfied

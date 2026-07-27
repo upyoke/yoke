@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
@@ -90,6 +91,13 @@ function buttonByText(root, text) {
   );
 }
 
+function cssRule(source, selector) {
+  const marker = `${selector} {`;
+  const start = source.indexOf(marker);
+  assert.notEqual(start, -1, `${selector} exists`);
+  return source.slice(start, source.indexOf("}", start) + 1);
+}
+
 test("approval editor publishes structured addressees as a new version", async (t) => {
   const client = mechanicsClient();
   const { root, mounted } = await mountWorkflows(t, client);
@@ -99,9 +107,26 @@ test("approval editor publishes structured addressees as a new version", async (
   assert.deepEqual(classText(root, "workflow-dialog-title"), [
     "Default approvals — Dash",
   ]);
+  assert.equal(
+    byClass(root, "workflow-dialog")[0].attributes.get("aria-label"),
+    "Default approvals — Dash",
+  );
+  const transition = allNodes(root).find(
+    (node) => node.tagName === "SELECT",
+  );
+  assert.deepEqual(
+    Array.from(transition.children).map((node) => node.textContent),
+    ["prove", "ship"],
+  );
+  assert.deepEqual(classText(root, "workflow-field-help").slice(0, 1), [
+    "Anyone who matches may approve prove",
+  ]);
   assert.equal(byClass(root, "workflow-checkbox").length, 4);
   byClass(root, "workflow-checkbox")[0].children[0]
     .dispatchEvent(new Event("change"));
+  assert.deepEqual(classText(root, "workflow-configured-summary"), [
+    "Gates set: prove",
+  ]);
   buttonByText(root, "Save universe default")
     .dispatchEvent(new Event("click"));
   await settle();
@@ -124,6 +149,35 @@ test("approval editor publishes structured addressees as a new version", async (
   mounted.unmount();
 });
 
+test("a failed mechanics save restores the editor controls", async (t) => {
+  const client = mechanicsClient();
+  const callBase = client.call.bind(client);
+  client.call = async (request) => {
+    if (request.function === "workflows.approval_defaults.publish") {
+      throw new Error("approval save unavailable");
+    }
+    return callBase(request);
+  };
+  const { root, mounted } = await mountWorkflows(t, client);
+
+  buttonByText(root, "Set universe defaults for Dash")
+    .dispatchEvent(new Event("click"));
+  const confirm = buttonByText(root, "Save universe default");
+  const cancel = buttonByText(root, "Cancel");
+  confirm.dispatchEvent(new Event("click"));
+  assert.equal(confirm.textContent, "Saving…");
+  await settle();
+
+  assert.equal(confirm.textContent, "Save universe default");
+  assert.equal(confirm.disabled, false);
+  assert.equal(cancel.disabled, false);
+  assert.deepEqual(classText(root, "workflow-dialog-error"), [
+    "approval save unavailable",
+  ]);
+  assert.equal(byClass(root, "workflow-dialog-error")[0].hidden, false);
+  mounted.unmount();
+});
+
 test("Testing and Delivery editors stay project-owned and can apply broadly", async (t) => {
   const client = mechanicsClient();
   const { root, mounted } = await mountWorkflows(t, client);
@@ -133,6 +187,11 @@ test("Testing and Delivery editors stay project-owned and can apply broadly", as
   assert.deepEqual(classText(root, "workflow-dialog-title"), [
     "Default test plan — Dash",
   ]);
+  assert.equal(
+    byClass(root, "workflow-dialog-footer")[0]
+      .classList.contains("actions-only"),
+    true,
+  );
   byClass(root, "workflow-checkbox")[0].children[0]
     .dispatchEvent(new Event("change"));
   buttonByText(root, "Set default").dispatchEvent(new Event("click"));
@@ -160,6 +219,11 @@ test("Testing and Delivery editors stay project-owned and can apply broadly", as
   assert.deepEqual(classText(root, "workflow-dialog-title"), [
     "Default deployment flow — Dash",
   ]);
+  assert.equal(
+    byClass(root, "workflow-dialog-footer")[0]
+      .classList.contains("actions-only"),
+    true,
+  );
   buttonByText(root, "Set default").dispatchEvent(new Event("click"));
   await settle();
   assert.deepEqual(
@@ -179,7 +243,42 @@ test("Testing and Delivery editors stay project-owned and can apply broadly", as
   mounted.unmount();
 });
 
-test("a viewer without mechanics authority still sees the workflow", async (t) => {
+test("mechanics dialogs preserve the prototype desktop control treatment", () => {
+  const mechanicsCss = readFileSync(new URL(
+    "../../packages/yoke-core/src/yoke_core/ui/static/workflow_mechanics.css",
+    import.meta.url,
+  ), "utf8");
+  const controlsCss = readFileSync(new URL(
+    "../../packages/yoke-core/src/yoke_core/ui/static/workflow_controls.css",
+    import.meta.url,
+  ), "utf8");
+  const field = cssRule(
+    mechanicsCss, ".universe-app-root .workflow-field",
+  );
+  assert.match(field, /width: 100%;/);
+  assert.match(field, /margin-bottom: 12px;/);
+  assert.doesNotMatch(
+    field,
+    /min-height|padding|border|background|font|color/,
+  );
+  assert.match(
+    cssRule(
+      mechanicsCss,
+      ".universe-app-root .workflow-checkbox",
+    ),
+    /color: var\(--yoke-ink\);/,
+  );
+  assert.doesNotMatch(mechanicsCss, /accent-color:/);
+  assert.match(
+    cssRule(
+      controlsCss,
+      ".universe-app-root .workflow-dialog-footer.actions-only",
+    ),
+    /justify-content: flex-end;/,
+  );
+});
+
+test("registry policy controls do not depend on the mechanics read", async (t) => {
   const client = workflowsClient([dashFixture()]);
   const callBase = client.call.bind(client);
   client.call = async (request) => {
@@ -207,6 +306,6 @@ test("a viewer without mechanics authority still sees the workflow", async (t) =
     buttonByText(root, "Edit Dash defaults for each project"),
     undefined,
   );
-  assert.equal(buttonByText(root, "Turn on"), undefined);
+  assert.ok(buttonByText(root, "Turn on"));
   mounted.unmount();
 });

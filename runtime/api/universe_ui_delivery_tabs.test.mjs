@@ -82,6 +82,12 @@ test("Runs at All reads unfiltered and labels each run's own project", async (t)
             release_lineage: null, status: "succeeded",
             current_stage: "complete", created_at: "then",
             started_at: null, completed_at: null, created_by: "usher",
+            stage_index: 1, stage_count: 2,
+            stages: [
+              { name: "build", state: "complete" },
+              { name: "release", state: "complete" },
+            ],
+            member_items: [], waiting_on_approval: false,
           }],
         });
       }
@@ -95,18 +101,79 @@ test("Runs at All reads unfiltered and labels each run's own project", async (t)
     requests.find((request) => request.function === "deployment_runs.list"),
     { function: "deployment_runs.list", payload: {} },
   );
-  const headers = allNodes(root)
-    .filter((node) => node.tagName === "TH")
-    .map((node) => node.textContent);
-  assert.deepEqual(headers, [
-    "run", "project", "flow", "target", "stage", "status", "created",
-  ]);
-  const firstCells = allNodes(root)
-    .filter((node) => node.tagName === "TD")
-    .slice(0, 2)
-    .map((node) => node.textContent ||
-      (node.children[0] && node.children[0].textContent) || "");
-  assert.deepEqual(firstCells, ["run-20260101-001", "externalwebapp"]);
+  assert.equal(byClass(root, "delivery-run-card").length, 1);
+  assert.equal(
+    allNodes(byClass(root, "delivery-run-card")[0])
+      .find((node) => node.tagName === "H3").textContent,
+    "run-20260101-001",
+  );
+  assert.equal(byClass(root, "delivery-stage").length, 2);
+  assert.ok(
+    byClass(root, "delivery-run-subtitle")[0].textContent
+      .includes("externalwebapp"),
+  );
+  mounted.unmount();
+});
+
+test("an approval-paused run links its member items and the Inbox decision", async (t) => {
+  const client = {
+    async call(request) {
+      if (request.function === "organizations.get") {
+        return okEnvelope({ name: "Yoke" });
+      }
+      if (request.function === "projects.list") {
+        return okEnvelope({
+          rows: [{ id: 1, slug: "yoke", name: "Yoke" }],
+        });
+      }
+      if (request.function === "deployment_runs.list") {
+        return okEnvelope({
+          rows: [{
+            id: "run-20260726-001", project: "yoke",
+            flow: "hosted-release", target_env: "prod",
+            release_lineage: "release-17", status: "executing",
+            current_stage: "approval", created_at: "2026-07-26T10:00:00Z",
+            created_by: "usher", stage_index: 1, stage_count: 3,
+            stages: [
+              { name: "build", state: "complete" },
+              { name: "approval", state: "active" },
+              { name: "release", state: "pending" },
+            ],
+            member_items: [{
+              id: 41, ref: "YOK-41", title: "Ship the release",
+              project_id: 1, project: "yoke", status: "implemented",
+            }],
+            waiting_on_approval: true,
+          }],
+        });
+      }
+      throw new Error(`unexpected function ${request.function}`);
+    },
+  };
+  const { root, mounted } = await mountAt(
+    t,
+    "#/delivery/runs?project=1",
+    client,
+  );
+
+  assert.deepEqual(
+    byClass(root, "delivery-stage").map(
+      (node) => node.attributes.get("data-state"),
+    ),
+    ["complete", "active", "pending"],
+  );
+  assert.equal(byClass(root, "delivery-member")[0].href, "#/items/41?project=1");
+  assert.equal(
+    byClass(root, "delivery-member")[0].textContent,
+    "YOK-41 · Ship the release",
+  );
+  const footer = byClass(root, "delivery-approval-footer")[0];
+  assert.ok(footer.children[0].textContent.includes("approval"));
+  assert.equal(footer.children[1].href, "#/inbox?project=1");
+  assert.deepEqual(
+    byClass(root, "metric").map((node) => node.children[0].textContent),
+    ["1", "1", "1", "0", "0"],
+  );
   mounted.unmount();
 });
 

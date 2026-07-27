@@ -11,6 +11,7 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
+from runtime.api.fixtures.backlog import insert_item_worktree
 
 from yoke_core.engines.doctor import (
     hc_empty_task_worktree,
@@ -108,8 +109,12 @@ class TestEpicTaskWorktree:
             "VALUES (1, 'Epic', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'implementing')"
         )
         conn.execute(
-            "INSERT INTO epic_tasks (id, epic_id, task_num, title, worktree, status) "
-            "VALUES (1, 1, 1, 'Task', 'YOK-1', 'implementing')"
+            "INSERT INTO epic_tasks "
+            "(id, epic_id, task_num, title, item_worktree_id, status) "
+            "VALUES (1, 1, 1, 'Task', %s, 'implementing')",
+            (insert_item_worktree(
+                conn, item_id=1, branch="YOK-1", lane_role="worker"
+            )["id"],),
         )
         rec = _run_hc(hc_epic_task_worktree, conn)
         assert _result(rec).result == "PASS"
@@ -122,7 +127,8 @@ class TestEpicTaskWorktree:
             "VALUES (1, 'Epic', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'implementing')"
         )
         conn.execute(
-            "INSERT INTO epic_tasks (id, epic_id, task_num, title, worktree, status) "
+            "INSERT INTO epic_tasks "
+            "(id, epic_id, task_num, title, item_worktree_id, status) "
             "VALUES (1, 1, 1, 'Task', NULL, 'implementing')"
         )
         rec = _run_hc(hc_epic_task_worktree, conn)
@@ -154,8 +160,12 @@ class TestEpicTaskWorktreeBackfill:
             "VALUES (100, 'Test Epic', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'implementing')"
         )
         conn.execute(
-            "INSERT INTO epic_tasks (epic_id, task_num, title, status, worktree) "
-            "VALUES (100, 1, 'Task 1', 'implementing', 'YOK-100')"
+            "INSERT INTO epic_tasks "
+            "(epic_id, task_num, title, status, item_worktree_id) "
+            "VALUES (100, 1, 'Task 1', 'implementing', %s)",
+            (insert_item_worktree(
+                conn, item_id=100, branch="YOK-100", lane_role="worker"
+            )["id"],),
         )
         rec = _run_hc(hc_epic_task_worktree_backfill, conn)
         assert _result(rec).result == "PASS"

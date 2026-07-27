@@ -41,27 +41,23 @@ def test_assets_and_shell_are_served_with_revalidation_header(ui_client):
 
 def test_javascript_module_graph_is_in_closed_asset_roster():
     static_root = files("yoke_core.ui").joinpath("static")
-    for module_name in (
-        "app.js", "contract.js", "mount-options.js", "universe_navigation.js",
-        "universe_app_chrome.js", "universe_destinations.js",
-        "universe_view_support.js", "universe_views.js",
-        "universe_views_capabilities.js", "universe_views_delivery.js",
-        "universe_views_doctor.js", "universe_views_events.js",
-        "universe_views_frontier.js", "universe_views_github.js",
-        "universe_views_items.js", "universe_views_organization.js",
-        "universe_views_ouroboros.js", "universe_views_overview.js",
-        "universe_views_overview_activation.js",
-        "universe_views_overview_activation_copy.js",
-        "universe_views_overview_signals.js",
-        "universe_views_packs.js", "universe_views_projects.js",
-        "universe_views_sessions.js", "universe_views_strategy.js",
-        "universe_views_workflows.js",
-        "universe_view_test_machine.js", "universe_time.js",
-        "test_machine_view_primitives.js",
-        "workflow_mechanics_data.js", "workflow_mechanics_dialogs.js",
-    ):
+    roster = set(ui_server.ASSET_CONTENT_TYPES)
+    for module_name in sorted(name for name in roster if name.endswith(".js")):
         source = static_root.joinpath(module_name).read_text(encoding="utf-8")
-        imports = re.findall(r'from "\./([^\"]+\.js)"', source)
+        imports = re.findall(
+            r"""(?:from\s+|import\s*)["']\./([^"']+\.js)["']""",
+            source,
+        )
+        assert set(imports) <= roster, module_name
+
+
+def test_stylesheet_import_graph_is_in_closed_asset_roster():
+    static_root = files("yoke_core.ui").joinpath("static")
+    for asset_name in ui_server.ASSET_CONTENT_TYPES:
+        if not asset_name.endswith(".css"):
+            continue
+        source = static_root.joinpath(asset_name).read_text(encoding="utf-8")
+        imports = re.findall(r'@import url\("\./([^"]+\.css)"\)', source)
         assert set(imports) <= set(ui_server.ASSET_CONTENT_TYPES)
 
 
@@ -74,6 +70,51 @@ def test_static_assets_ship_as_package_resources():
     static_root = files("yoke_core.ui").joinpath("static")
     for asset_name in ui_server.ASSET_CONTENT_TYPES:
         assert static_root.joinpath(asset_name).is_file(), asset_name
+
+
+def test_each_css_asset_is_a_self_contained_stylesheet():
+    """Imported stylesheets cannot continue a rule across file boundaries."""
+    static_root = files("yoke_core.ui").joinpath("static")
+    for asset_name in ui_server.ASSET_CONTENT_TYPES:
+        if not asset_name.endswith(".css"):
+            continue
+        source = static_root.joinpath(asset_name).read_text()
+        assert source.count("{") == source.count("}"), asset_name
+
+    chrome = static_root.joinpath("universe_chrome.css").read_text()
+    panel_rule = re.search(
+        r"\.universe-app-root \.panel\s*\{(?P<body>[^}]*)\}",
+        chrome,
+        re.DOTALL,
+    )
+    assert panel_rule is not None
+    for declaration in (
+        "background:",
+        "border:",
+        "border-radius:",
+        "overflow:",
+        "margin-bottom:",
+        "transition:",
+    ):
+        assert declaration in panel_rule.group("body"), declaration
+
+
+def test_phone_shell_gives_the_route_the_full_viewport():
+    static_root = files("yoke_core.ui").joinpath("static")
+    chrome = static_root.joinpath("universe_chrome.css").read_text()
+    controls = static_root.joinpath("universe_shell_controls.css").read_text()
+
+    phone_rules = chrome.split("@media (max-width: 720px)", 1)[1]
+    assert "grid-template-columns: minmax(0, 1fr)" in phone_rules
+    assert ".universe-app-root .shell > .sidenav" in phone_rules
+    assert "flex-direction: row" in phone_rules
+    assert "overflow-x: auto" in phone_rules
+    assert ".universe-app-root .workbench-body" in phone_rules
+    assert "grid-column: 1" in phone_rules
+
+    compact_controls = controls.split("@media (max-width: 560px)", 1)[1]
+    assert ".universe-app-root .header-search" in compact_controls
+    assert "display: none" in compact_controls
 
 
 def test_page_module_exports_the_mount_contract():
@@ -89,7 +130,11 @@ def test_shell_static_references_are_host_prefix_safe():
     assert 'class="local-universe-page"' in shell
     assert '="/assets/' not in shell
     for asset_name in (
-        "app.js", "app.css", "shell.css", "theme.css", "favicon.svg",
+        "app.js",
+        "app.css",
+        "shell.css",
+        "theme.css",
+        "favicon.svg",
     ):
         assert f"./assets/{asset_name}" in shell
 
@@ -99,26 +144,38 @@ def test_hosted_frame_harness_mirrors_the_platform_slot_shapes():
     pin. It only does that job if its sample chrome wears the exact class
     names the platform's hosted shell injects — a harness with invented
     names verifies a frame nobody ships."""
-    harness = files("yoke_core.ui").joinpath(
-        "static", "hosted-frame-harness.html",
-    ).read_text()
+    harness = (
+        files("yoke_core.ui")
+        .joinpath(
+            "static",
+            "hosted-frame-harness.html",
+        )
+        .read_text()
+    )
     for platform_marker in (
         "hosted-org-switcher",
         "hosted-user-menu",
-        "hosted-org-links",
         'dataset.platformSlot = "github-connection"',
     ):
         assert platform_marker in harness, platform_marker
+    assert "hosted-org-links" not in harness
+    assert "hosted-github-link" not in harness
+    assert "hosted-tenant-replacement-link" not in harness
     # Every mount slot the platform fills is occupied here too.
     for slot_name in (
-        "topbarStart", "topbarEnd", "navigationEnd",
-        "contentBefore", "contentAfter",
+        "topbarStart",
+        "topbarEnd",
+        "contentBefore",
+        "contentAfter",
     ):
         assert f"{slot_name}:" in harness, slot_name
+    assert "navigationEnd:" not in harness
     # The page names itself a harness so it cannot pass for the product,
-    # and it exercises the identity chip and a capability action.
+    # and mirrors Platform's identity boundary: topbarEnd owns identity, so
+    # the mounted app must not add a duplicate currentActor chip.
     assert "Hosted-frame harness" in harness
-    assert "currentActor" in harness
+    assert "currentActor" not in harness
+    assert 'memberDirectory: { "2": "ben", "5": "dana" }' in harness
     assert "Move universe" in harness
 
 
@@ -148,11 +205,16 @@ def test_typed_mount_contract_and_declaration_emit_ship():
     # The three emits must agree on the version; which number it is belongs to
     # the TypeScript source, not to this assertion. Pinning the literal here
     # would fail every bump on principle.
-    assert len({
-        source_value.group(1),
-        declaration_value.group(1),
-        runtime_value.group(1),
-    }) == 1
+    assert (
+        len(
+            {
+                source_value.group(1),
+                declaration_value.group(1),
+                runtime_value.group(1),
+            }
+        )
+        == 1
+    )
 
 
 def test_page_module_wires_the_workbench_shell():
@@ -170,10 +232,8 @@ def test_page_module_wires_the_workbench_shell():
             "renderStrategyTable",
             '"Purpose / ancestry"',
         ),
-        "universe_views_items.js": (
-            "items.list.run",
-            "items.get.run",
-        ),
+        "universe_views_items.js": ("items.overview.list",),
+        "item_detail_loader.js": ("items.detail.get",),
         "item_view_details.js": ("epic_tasks.list.run",),
         "universe_views_events.js": ("events.query.run",),
         "universe_views_delivery.js": ("deployment_runs.list",),
@@ -196,17 +256,47 @@ def test_page_module_wires_the_workbench_shell():
     assert "projects.github_binding.status" in github_view
 
 
+def test_qa_case_table_keeps_actions_visible_in_the_prototype_split():
+    css = files("yoke_core.ui").joinpath("static", "qa_details.css").read_text()
+
+    assert ".universe-app-root .qa-case-panel-body" in css
+    assert ".qa-case-panel-body .qa-case-table" in css
+    assert "min-width: 100%" in css
+
+
 def test_every_nav_destination_is_routable_and_scoped():
     """Each nav entry is a real route from day one: it declares its scope and
     either renders rows, states what it will be, or renders host content."""
-    page_module = files("yoke_core.ui").joinpath(
-        "static", "universe_destinations.js",
-    ).read_text()
+    page_module = (
+        files("yoke_core.ui")
+        .joinpath(
+            "static",
+            "universe_destinations.js",
+        )
+        .read_text()
+    )
     for destination in (
-        "overview", "inbox", "strategy", "frontier", "items",
-        "sessions", "delivery", "qa", "workflows", "capabilities", "events",
-        "doctor", "ouroboros", "projects", "access", "members", "billing",
-        "packs", "github", "project", "organization",
+        "overview",
+        "inbox",
+        "strategy",
+        "frontier",
+        "items",
+        "sessions",
+        "delivery",
+        "qa",
+        "workflows",
+        "capabilities",
+        "events",
+        "doctor",
+        "ouroboros",
+        "projects",
+        "access",
+        "members",
+        "billing",
+        "packs",
+        "github",
+        "project",
+        "organization",
     ):
         assert f'id: "{destination}"' in page_module, destination
     assert 'id: "board"' not in page_module

@@ -15,6 +15,8 @@ import pytest
 from yoke_core.engines import merge_audit
 from yoke_core.engines.merge_audit_test_schema import (
     apply_merge_audit_schema,
+    seed_merge_audit_lane,
+    seed_merge_audit_task,
 )
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.source_pythonpath_test_helpers import SOURCE_PYTHONPATH
@@ -88,13 +90,21 @@ class TestGenerateReport:
         # Set up DB state
         conn = connect_test_db(tmp_db)
         conn.execute("INSERT INTO items (id, title, status) VALUES (100, 'Test Epic', 'implementing')")
-        conn.execute(
-            "INSERT INTO epic_tasks (epic_id, task_num, title, status, worktree) "
-            "VALUES (100, 1, 'Task A', 'done', 'YOK-100')"
+        seed_merge_audit_task(
+            conn,
+            epic_id=100,
+            task_num=1,
+            title="Task A",
+            status="done",
+            branch="YOK-100",
         )
-        conn.execute(
-            "INSERT INTO epic_tasks (epic_id, task_num, title, status, worktree) "
-            "VALUES (100, 2, 'Task B', 'planned', 'YOK-100')"
+        seed_merge_audit_task(
+            conn,
+            epic_id=100,
+            task_num=2,
+            title="Task B",
+            status="planned",
+            branch="YOK-100",
         )
         conn.commit()
         conn.close()
@@ -116,13 +126,21 @@ class TestGenerateReport:
         conn = connect_test_db(tmp_db)
         conn.execute("INSERT INTO items (id, title, status) VALUES (200, 'Epic A', 'implementing')")
         conn.execute("INSERT INTO items (id, title, status) VALUES (201, 'Epic B', 'implementing')")
-        conn.execute(
-            "INSERT INTO epic_tasks (epic_id, task_num, title, status, worktree) "
-            "VALUES (200, 1, 'Task X', 'planned', 'YOK-200')"
+        seed_merge_audit_task(
+            conn,
+            epic_id=200,
+            task_num=1,
+            title="Task X",
+            status="planned",
+            branch="YOK-200",
         )
-        conn.execute(
-            "INSERT INTO epic_tasks (epic_id, task_num, title, status, worktree) "
-            "VALUES (201, 1, 'Task Y', 'planned', 'YOK-201')"
+        seed_merge_audit_task(
+            conn,
+            epic_id=201,
+            task_num=1,
+            title="Task Y",
+            status="planned",
+            branch="YOK-201",
         )
         conn.commit()
         conn.close()
@@ -140,9 +158,13 @@ class TestGenerateReport:
         """When all tasks are done but epic is not, shows warning."""
         conn = connect_test_db(tmp_db)
         conn.execute("INSERT INTO items (id, title, status) VALUES (300, 'Epic Done', 'implementing')")
-        conn.execute(
-            "INSERT INTO epic_tasks (epic_id, task_num, title, status, worktree) "
-            "VALUES (300, 1, 'T1', 'done', 'YOK-300')"
+        seed_merge_audit_task(
+            conn,
+            epic_id=300,
+            task_num=1,
+            title="T1",
+            status="done",
+            branch="YOK-300",
         )
         conn.commit()
         conn.close()
@@ -159,9 +181,13 @@ class TestGenerateReport:
         """When integration simulation is missing, shows warning."""
         conn = connect_test_db(tmp_db)
         conn.execute("INSERT INTO items (id, title, status) VALUES (400, 'No Sim', 'implementing')")
-        conn.execute(
-            "INSERT INTO epic_tasks (epic_id, task_num, title, status, worktree) "
-            "VALUES (400, 1, 'T1', 'planned', 'YOK-400')"
+        seed_merge_audit_task(
+            conn,
+            epic_id=400,
+            task_num=1,
+            title="T1",
+            status="planned",
+            branch="YOK-400",
         )
         conn.commit()
         conn.close()
@@ -178,9 +204,13 @@ class TestGenerateReport:
         """When integration simulation exists, shows its result."""
         conn = connect_test_db(tmp_db)
         conn.execute("INSERT INTO items (id, title, status) VALUES (500, 'Has Sim', 'implementing')")
-        conn.execute(
-            "INSERT INTO epic_tasks (epic_id, task_num, title, status, worktree) "
-            "VALUES (500, 1, 'T1', 'planned', 'YOK-500')"
+        seed_merge_audit_task(
+            conn,
+            epic_id=500,
+            task_num=1,
+            title="T1",
+            status="planned",
+            branch="YOK-500",
         )
         conn.execute(
             "INSERT INTO epic_simulations (epic_id, phase, result) VALUES (500, 'integration', 'PASS')"
@@ -200,6 +230,13 @@ class TestGenerateReport:
         """Standalone YOK-* branches with status done are reported."""
         conn = connect_test_db(tmp_db)
         conn.execute("INSERT INTO items (id, title, status) VALUES (50, 'Done Item', 'done')")
+        seed_merge_audit_lane(
+            conn,
+            item_id=50,
+            branch="YOK-50",
+            lane_role="implementation",
+            state="released",
+        )
         conn.commit()
         conn.close()
 
@@ -230,9 +267,13 @@ class TestGenerateReport:
         """Report includes recommended merge order."""
         conn = connect_test_db(tmp_db)
         conn.execute("INSERT INTO items (id, title, status) VALUES (600, 'Merge Order', 'implementing')")
-        conn.execute(
-            "INSERT INTO epic_tasks (epic_id, task_num, title, status, worktree) "
-            "VALUES (600, 1, 'T1', 'done', 'YOK-600')"
+        seed_merge_audit_task(
+            conn,
+            epic_id=600,
+            task_num=1,
+            title="T1",
+            status="done",
+            branch="YOK-600",
         )
         conn.commit()
         conn.close()
@@ -249,13 +290,21 @@ class TestGenerateReport:
         """Summary section includes correct ready/blocked counts."""
         conn = connect_test_db(tmp_db)
         conn.execute("INSERT INTO items (id, title, status) VALUES (700, 'Counts', 'implementing')")
-        conn.execute(
-            "INSERT INTO epic_tasks (epic_id, task_num, title, status, worktree) "
-            "VALUES (700, 1, 'T1', 'done', 'YOK-700')"
+        seed_merge_audit_task(
+            conn,
+            epic_id=700,
+            task_num=1,
+            title="T1",
+            status="done",
+            branch="YOK-700",
         )
-        conn.execute(
-            "INSERT INTO epic_tasks (epic_id, task_num, title, status, worktree) "
-            "VALUES (700, 2, 'T2', 'planned', 'YOK-700')"
+        seed_merge_audit_task(
+            conn,
+            epic_id=700,
+            task_num=2,
+            title="T2",
+            status="planned",
+            branch="YOK-700",
         )
         conn.commit()
         conn.close()
@@ -273,9 +322,13 @@ class TestGenerateReport:
         """CLI exits 0 even when there are warnings."""
         conn = connect_test_db(tmp_db)
         conn.execute("INSERT INTO items (id, title, status) VALUES (800, 'Ex', 'implementing')")
-        conn.execute(
-            "INSERT INTO epic_tasks (epic_id, task_num, title, status, worktree) "
-            "VALUES (800, 1, 'T1', 'planned', 'YOK-800')"
+        seed_merge_audit_task(
+            conn,
+            epic_id=800,
+            task_num=1,
+            title="T1",
+            status="planned",
+            branch="YOK-800",
         )
         conn.commit()
         conn.close()

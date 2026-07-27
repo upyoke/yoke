@@ -46,7 +46,7 @@ On retry attempts (`_attempt > 1`), always dispatch Engineer.
 
 **Step 3b — Acquire per-task work-claim** (covers both Engineer and Tester dispatches for this task):
 
-The parent item claim from `entry-activation.md` S3b is the epic coordination lock; the `target_kind="epic_task"` claim acquired here authorizes writes in the task worktree (`epic_tasks.worktree`). Same-session re-acquire is idempotent — see [`engineer-tester-loop.md`](engineer-tester-loop.md) "Re-entry semantics" for the cross-session paths.
+The parent item claim from `entry-activation.md` S3b is the epic coordination lock; the `target_kind="epic_task"` claim acquired here authorizes writes in the task lane linked by `epic_tasks.item_worktree_id`. Same-session re-acquire is idempotent — see [`engineer-tester-loop.md`](engineer-tester-loop.md) "Re-entry semantics" for the cross-session paths.
 
 ```bash
 yoke claims work acquire \

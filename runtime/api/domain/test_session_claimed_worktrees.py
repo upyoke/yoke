@@ -55,13 +55,23 @@ def conn(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         );
         CREATE TABLE items (
             id INTEGER PRIMARY KEY,
-            worktree TEXT,
             project_id INTEGER
+        );
+        CREATE TABLE item_worktrees (
+            id INTEGER PRIMARY KEY,
+            item_id INTEGER NOT NULL,
+            branch TEXT NOT NULL,
+            path TEXT,
+            lane_role TEXT NOT NULL,
+            state TEXT NOT NULL DEFAULT 'active',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            released_at TEXT
         );
         CREATE TABLE epic_tasks (
             epic_id INTEGER NOT NULL,
             task_num INTEGER NOT NULL,
-            worktree TEXT,
+            item_worktree_id INTEGER,
             PRIMARY KEY (epic_id, task_num)
         );
         CREATE TABLE work_claims (
@@ -92,17 +102,41 @@ def _worktree_path(branch: str) -> str:
 
 def _seed_item(conn, *, item_id, worktree=None, project="yoke"):
     conn.execute(
-        "INSERT INTO items (id, worktree, project_id) VALUES (%s, %s, %s)",
-        (item_id, worktree, _project_id(project)),
+        "INSERT INTO items (id, project_id) VALUES (%s, %s)",
+        (item_id, _project_id(project)),
     )
+    if worktree:
+        conn.execute(
+            "INSERT INTO item_worktrees "
+            "(item_id, branch, lane_role, state, created_at, updated_at) "
+            "VALUES (%s, %s, 'implementation', 'active', %s, %s)",
+            (
+                item_id,
+                worktree,
+                "2026-05-14T12:00:00Z",
+                "2026-05-14T12:00:00Z",
+            ),
+        )
     conn.commit()
 
 
 def _seed_epic_task(conn, *, epic_id, task_num, worktree):
+    row = conn.execute(
+        "INSERT INTO item_worktrees "
+        "(item_id, branch, lane_role, state, created_at, updated_at) "
+        "VALUES (%s, %s, 'worker', 'active', %s, %s) RETURNING id",
+        (
+            epic_id,
+            worktree,
+            "2026-05-14T12:00:00Z",
+            "2026-05-14T12:00:00Z",
+        ),
+    ).fetchone()
+    lane_id = int(row["id"] if hasattr(row, "keys") else row[0])
     conn.execute(
-        "INSERT INTO epic_tasks (epic_id, task_num, worktree) "
+        "INSERT INTO epic_tasks (epic_id, task_num, item_worktree_id) "
         "VALUES (%s, %s, %s)",
-        (epic_id, task_num, worktree),
+        (epic_id, task_num, lane_id),
     )
     conn.commit()
 
@@ -143,7 +177,7 @@ class TestSingleItemClaim:
         ]
 
     def test_item_without_worktree_branch_is_skipped(self, conn):
-        # Evidence-only items (--no-worktree) have items.worktree = NULL.
+        # Evidence-only items (--no-worktree) have no active lane row.
         _seed_item(conn, item_id=42, worktree=None)
         _seed_claim(
             conn, session_id="sid-1", target_kind="item", item_id=42,
@@ -216,8 +250,9 @@ class TestProcessTargetKind:
 
 
 class TestEpicItemClaimAuthorityIsItemOnly:
-    """After the hotfix rollback, an ``item``-level claim authorises
-    only ``items.worktree`` for the epic — sibling-branch task
+    """An ``item``-level claim authorises only the primary item lane.
+
+    Sibling-branch task
     worktrees require explicit ``target_kind='epic_task'`` claims.
     """
 

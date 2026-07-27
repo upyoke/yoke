@@ -44,13 +44,23 @@ def _make_conn() -> Any:
         );
         CREATE TABLE items (
             id INTEGER PRIMARY KEY,
-            worktree TEXT,
             project_id INTEGER DEFAULT 1
+        );
+        CREATE TABLE item_worktrees (
+            id INTEGER PRIMARY KEY,
+            item_id INTEGER NOT NULL,
+            branch TEXT NOT NULL,
+            path TEXT,
+            lane_role TEXT NOT NULL,
+            state TEXT NOT NULL DEFAULT 'active',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            released_at TEXT
         );
         CREATE TABLE epic_tasks (
             epic_id INTEGER NOT NULL,
             task_num INTEGER NOT NULL,
-            worktree TEXT,
+            item_worktree_id INTEGER,
             PRIMARY KEY (epic_id, task_num)
         );
         CREATE TABLE work_claims (
@@ -100,9 +110,21 @@ def _add_session(conn, session_id, mode="advance", current_item_id="9001"):
 def _add_item(conn, item_id, worktree="YOK-9001", project="yoke"):
     project_id = 1 if project == "yoke" else 999
     conn.execute(
-        "INSERT INTO items (id, worktree, project_id) VALUES (%s, %s, %s)",
-        (item_id, worktree, project_id),
+        "INSERT INTO items (id, project_id) VALUES (%s, %s)",
+        (item_id, project_id),
     )
+    if worktree:
+        conn.execute(
+            "INSERT INTO item_worktrees "
+            "(item_id, branch, lane_role, state, created_at, updated_at) "
+            "VALUES (%s, %s, 'implementation', 'active', %s, %s)",
+            (
+                item_id,
+                worktree,
+                "2026-01-01T00:00:00Z",
+                "2026-01-01T00:00:00Z",
+            ),
+        )
     conn.commit()
 
 

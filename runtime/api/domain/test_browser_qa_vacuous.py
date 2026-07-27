@@ -31,7 +31,7 @@ class TestVacuousPassPrevention:
         """Malformed success_policy (no steps) → verdict=error."""
         _seed_item(db_path, 300)
         _seed_requirement(
-            db_path, 300, "browser_smoke",
+            db_path, 300, "browser-check",
             {"url": "https://example.com/login", "assertions": []},  # no "steps" array
         )
 
@@ -50,44 +50,91 @@ class TestVacuousPassPrevention:
         conn.close()
         assert err_count == 1
 
-    def test_mixed_skip_and_execute(self, tmp_path: Path, db_path: str) -> None:
-        """One malformed + one good → skipped and executed both tracked."""
-        _seed_item(db_path, 301)
+    def test_action_only_browser_check_prevents_vacuous_pass(
+        self, db_path: str,
+    ) -> None:
+        """Navigation success cannot stand in for a Browser assertion."""
+        _seed_item(db_path, 302)
         _seed_requirement(
-            db_path, 301, "browser_smoke",
+            db_path,
+            302,
+            "browser-check",
+            {"steps": [{"action": "navigate", "route": "/"}]},
+        )
+
+        result = _run_scenario(db_path, 302)
+
+        assert result.verdict == "error"
+        assert result.note == "vacuous_pass_prevented"
+        assert result.executed == 0
+        assert result.skipped == 1
+        assert "assertion_missing" in result.runs[0].errors
+
+    def test_browser_inspection_without_capture_prevents_vacuous_review(
+        self, db_path: str,
+    ) -> None:
+        """Inspection needs evidence before it can enter human judgment."""
+        _seed_item(db_path, 303)
+        _seed_requirement(
+            db_path,
+            303,
+            "browser-inspection",
+            {"steps": [{"action": "navigate", "route": "/"}]},
+        )
+
+        result = _run_scenario(db_path, 303)
+
+        assert result.verdict == "error"
+        assert result.note == "vacuous_pass_prevented"
+        assert result.executed == 0
+        assert result.skipped == 1
+        assert "capture_missing" in result.runs[0].errors
+
+    def test_materialized_cases_execute_independently(
+        self, tmp_path: Path, db_path: str,
+    ) -> None:
+        """A malformed case cannot alter a sibling case's execution."""
+        _seed_item(db_path, 301)
+        good_id = _seed_requirement(
+            db_path, 301, "browser-check",
             {
                 "base_url": "http://localhost:9999",
                 "steps": [
                     {"action": "navigate", "route": "/"},
+                    {
+                        "action": "assert",
+                        "target": "main",
+                        "check": "visible",
+                    },
                     {"action": "screenshot", "capture": True},
                 ],
             },
         )
-        _seed_requirement(
-            db_path, 301, "browser_diff",
+        malformed_id = _seed_requirement(
+            db_path, 301, "browser-inspection",
             {"url": "https://example.com", "assertions": []},  # no steps array
         )
 
         # screenshot steps now require artifact paths that exist on disk
         shot_file = tmp_path / "capture.png"
         shot_file.write_bytes(b"PNG")
-        result = _run_scenario(
-            db_path, 301,
+        good_result = _run_scenario(
+            db_path, 301, requirement_id=good_id,
             execute_step_responses=[
                 {"success": True, "artifacts": []},  # navigate step
                 {"success": True, "artifacts": [str(shot_file)]},  # screenshot step
             ],
         )
+        malformed_result = _run_scenario(
+            db_path, 301, requirement_id=malformed_id,
+        )
 
-        # Good one captured successfully → overall scenario verdict still 'pass'.
-        assert result.verdict == "pass"
-        assert result.skipped >= 1
-        assert result.executed >= 1
+        assert good_result.verdict == "pass"
+        assert good_result.executed == 1
+        assert good_result.skipped == 0
+        assert malformed_result.executed == 0
+        assert malformed_result.skipped == 1
 
-        # successful capture leaves verdict NULL (awaiting inspection)
-        # and execution_status='captured'. The vacuous-pass-prevention fall-back
-        # still records verdict='error' when zero requirements executed, but in
-        # this mixed scenario at least one good capture lands.
         conn = connect_test_db(db_path)
         captured_count = conn.execute(
             "SELECT COUNT(*) FROM qa_runs WHERE execution_status = 'captured'"
@@ -110,7 +157,7 @@ class TestScenarioResultSerialization:
         result.runs.append(
             browser_qa.RunResult(
                 requirement_id=1,
-                qa_kind="browser_smoke",
+                qa_kind="plan_case",
                 verdict="pass",
                 qa_run_id=42,
                 artifacts=["a.png"],
@@ -119,7 +166,7 @@ class TestScenarioResultSerialization:
         data = json.loads(result.to_json())
         assert data["verdict"] == "pass"
         assert data["runs"][0]["requirement_id"] == 1
-        assert data["runs"][0]["qa_kind"] == "browser_smoke"
+        assert data["runs"][0]["qa_kind"] == "plan_case"
         assert data["runs"][0]["verdict"] == "pass"
         assert data["runs"][0]["qa_run_id"] == 42
         assert data["runs"][0]["artifacts"] == ["a.png"]

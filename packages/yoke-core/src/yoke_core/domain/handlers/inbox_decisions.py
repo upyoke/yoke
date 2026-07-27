@@ -2,74 +2,32 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
-
-from pydantic import BaseModel, Field
+from typing import Optional
 
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionError,
     HandlerOutcome,
 )
-
-
-class InboxListRequest(BaseModel):
-    project_ids: Optional[List[int]] = None
-    include_read: bool = False
-
-
-class InboxListResponse(BaseModel):
-    needs_decision: List[Dict[str, Any]]
-    requests: List[Dict[str, Any]]
-    notifications: List[Dict[str, Any]]
-
-
-class DecisionRoleAuthority(BaseModel):
-    scope_kind: str
-    scope_id: int
-    role_name: str
-
-
-class DecisionCreateRequest(BaseModel):
-    kind: str
-    subject_type: str
-    subject_key: str
-    project_id: Optional[int] = None
-    org_id: Optional[int] = None
-    originator_actor_id: Optional[int] = None
-    role_authorities: List[DecisionRoleAuthority] = Field(default_factory=list)
-    named_actor_ids: List[int] = Field(default_factory=list)
-    subject_context: Dict[str, Any] = Field(default_factory=dict)
-
-
-class DecisionMutationResponse(BaseModel):
-    request: Dict[str, Any]
-    created: Optional[bool] = None
-
-
-class DecisionResolveRequest(BaseModel):
-    request_id: int
-    action: str
-    note: Optional[str] = None
-
-
-class DecisionWithdrawRequest(BaseModel):
-    request_id: int
-    reason: str
-
-
-class NotificationReadRequest(BaseModel):
-    notification_id: int
-
-
-class NotificationReadResponse(BaseModel):
-    read: bool
-    notification_id: Optional[int] = None
-    count: Optional[int] = None
+from yoke_core.domain.handlers.inbox_decision_models import (
+    DecisionCreateRequest,
+    DecisionMutationResponse,
+    DecisionResolveRequest,
+    DecisionRoleAuthority,
+    DecisionWithdrawRequest,
+    InboxListRequest,
+    InboxListResponse,
+    NotificationReadRequest,
+    NotificationReadResponse,
+    NotificationsReadAllRequest,
+)
 
 
 def _error(
-    code: str, message: str, *, jsonpath: Optional[str] = None,
+    code: str,
+    message: str,
+    *,
+    jsonpath: Optional[str] = None,
 ) -> HandlerOutcome:
     return HandlerOutcome(
         primary_success=False,
@@ -78,24 +36,25 @@ def _error(
 
 
 def _require_global(
-    request: FunctionCallRequest, function_id: str,
+    request: FunctionCallRequest,
+    function_id: str,
 ) -> Optional[HandlerOutcome]:
     if request.target.kind != "global":
         return _error(
-            "target_invalid", f"{function_id} requires target.kind='global'",
+            "target_invalid",
+            f"{function_id} requires target.kind='global'",
             jsonpath="$.target.kind",
         )
     return None
 
 
 def _actor_id(
-    request: FunctionCallRequest, function_id: str,
+    request: FunctionCallRequest,
+    function_id: str,
 ) -> int | HandlerOutcome:
     raw = (request.actor.actor_id or "").strip()
     if not raw.isdigit():
-        return _error(
-            "actor_required", f"{function_id} requires a bound numeric actor"
-        )
+        return _error("actor_required", f"{function_id} requires a bound numeric actor")
     return int(raw)
 
 
@@ -113,7 +72,8 @@ def handle_inbox_list(request: FunctionCallRequest) -> HandlerOutcome:
         or any(not isinstance(value, int) for value in project_ids)
     ):
         return _error(
-            "payload_invalid", "project_ids must be an array of integers",
+            "payload_invalid",
+            "project_ids must be an array of integers",
             jsonpath="$.payload.project_ids",
         )
     from yoke_core.domain import db_helpers
@@ -123,17 +83,21 @@ def handle_inbox_list(request: FunctionCallRequest) -> HandlerOutcome:
     conn = db_helpers.connect()
     try:
         decisions = pending_requests_for_actor(
-            conn, actor_id, project_ids=project_ids,
+            conn,
+            actor_id,
+            project_ids=project_ids,
         )
         notifications = notification_rows(
-            conn, actor_id, unread_only=not bool(payload.get("include_read")),
+            conn,
+            actor_id,
+            unread_only=not bool(payload.get("include_read")),
         )
         if project_ids is not None:
             allowed = set(project_ids)
             notifications = [
-                row for row in notifications
-                if row.get("project_id") is None
-                or int(row["project_id"]) in allowed
+                row
+                for row in notifications
+                if row.get("project_id") is None or int(row["project_id"]) in allowed
             ]
     finally:
         conn.close()
@@ -165,15 +129,19 @@ def handle_decision_create(request: FunctionCallRequest) -> HandlerOutcome:
     conn = db_helpers.connect()
     try:
         row, created = create_decision_request(
-            conn, kind=model.kind, subject_type=model.subject_type,
-            subject_key=model.subject_key, project_id=model.project_id,
+            conn,
+            kind=model.kind,
+            subject_type=model.subject_type,
+            subject_key=model.subject_key,
+            project_id=model.project_id,
             org_id=model.org_id,
             originator_actor_id=(
                 model.originator_actor_id
                 if model.originator_actor_id is not None
                 else (
                     int(request.actor.actor_id)
-                    if (request.actor.actor_id or "").isdigit() else None
+                    if (request.actor.actor_id or "").isdigit()
+                    else None
                 )
             ),
             role_authorities=[
@@ -214,8 +182,12 @@ def handle_decision_resolve(request: FunctionCallRequest) -> HandlerOutcome:
     conn = db_helpers.connect()
     try:
         row = resolve_decision_request(
-            conn, model.request_id, actor_id=actor_id, action=model.action,
-            note=model.note, session_id=request.actor.session_id,
+            conn,
+            model.request_id,
+            actor_id=actor_id,
+            action=model.action,
+            note=model.note,
+            session_id=request.actor.session_id,
         )
     except LookupError as exc:
         conn.rollback()
@@ -229,7 +201,8 @@ def handle_decision_resolve(request: FunctionCallRequest) -> HandlerOutcome:
     finally:
         conn.close()
     return HandlerOutcome(
-        result_payload={"request": row}, primary_success=True,
+        result_payload={"request": row},
+        primary_success=True,
     )
 
 
@@ -250,7 +223,9 @@ def handle_decision_withdraw(request: FunctionCallRequest) -> HandlerOutcome:
     conn = db_helpers.connect()
     try:
         row = withdraw_decision_request(
-            conn, model.request_id, reason=model.reason,
+            conn,
+            model.request_id,
+            reason=model.reason,
             actor_id=int(raw_actor) if raw_actor.isdigit() else None,
             session_id=request.actor.session_id,
         )
@@ -263,12 +238,15 @@ def handle_decision_withdraw(request: FunctionCallRequest) -> HandlerOutcome:
     finally:
         conn.close()
     return HandlerOutcome(
-        result_payload={"request": row}, primary_success=True,
+        result_payload={"request": row},
+        primary_success=True,
     )
 
 
 def _mark_read(
-    request: FunctionCallRequest, *, all_rows: bool,
+    request: FunctionCallRequest,
+    *,
+    all_rows: bool,
 ) -> HandlerOutcome:
     function_id = "notifications.read_all" if all_rows else "notifications.read"
     invalid = _require_global(request, function_id)
@@ -277,12 +255,15 @@ def _mark_read(
     actor_id = _actor_id(request, function_id)
     if isinstance(actor_id, HandlerOutcome):
         return actor_id
-    model = None
-    if not all_rows:
-        try:
+    try:
+        if all_rows:
+            model = NotificationsReadAllRequest.model_validate(
+                request.payload or {},
+            )
+        else:
             model = NotificationReadRequest.model_validate(request.payload or {})
-        except Exception as exc:
-            return _error("payload_invalid", str(exc), jsonpath="$.payload")
+    except Exception as exc:
+        return _error("payload_invalid", str(exc), jsonpath="$.payload")
     from yoke_core.domain import db_helpers
     from yoke_core.domain.decision_request_contract import NOTIFICATION_READ_EVENT
     from yoke_core.domain.decision_request_events import append_decision_event
@@ -295,19 +276,36 @@ def _mark_read(
     conn = db_helpers.connect()
     try:
         count = (
-            mark_all_notifications_read(conn, actor_id, stamp)
-            if all_rows else int(mark_notification_read(
-                conn, actor_id, model.notification_id, stamp,
-            ))
+            mark_all_notifications_read(
+                conn,
+                actor_id,
+                stamp,
+                project_ids=model.project_ids,
+            )
+            if all_rows
+            else int(
+                mark_notification_read(
+                    conn,
+                    actor_id,
+                    model.notification_id,
+                    stamp,
+                )
+            )
         )
         if count:
             append_decision_event(
-                conn, NOTIFICATION_READ_EVENT, actor_id=actor_id,
-                session_id=request.actor.session_id, project_id=None,
-                org_id=None, context={
+                conn,
+                NOTIFICATION_READ_EVENT,
+                actor_id=actor_id,
+                session_id=request.actor.session_id,
+                project_id=None,
+                org_id=None,
+                context={
                     "notification_id": None if all_rows else model.notification_id,
                     "count": count,
-                }, created_at=stamp,
+                    "project_ids": model.project_ids if all_rows else None,
+                },
+                created_at=stamp,
             )
         conn.commit()
     finally:
@@ -334,10 +332,12 @@ __all__ = [
     "DecisionCreateRequest",
     "DecisionMutationResponse",
     "DecisionResolveRequest",
+    "DecisionRoleAuthority",
     "DecisionWithdrawRequest",
     "InboxListRequest",
     "InboxListResponse",
     "NotificationReadRequest",
+    "NotificationsReadAllRequest",
     "NotificationReadResponse",
     "handle_decision_create",
     "handle_decision_resolve",

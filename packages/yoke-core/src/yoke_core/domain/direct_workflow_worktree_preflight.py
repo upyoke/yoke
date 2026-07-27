@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 from contextlib import contextmanager
+from functools import partial
 import json
 import os
 import sys
@@ -31,6 +32,55 @@ def _session_identity(session_id: str) -> Iterator[None]:
                 os.environ.pop("YOKE_SESSION_ID", None)
             else:
                 os.environ["YOKE_SESSION_ID"] = previous
+
+
+def _prepare_dash_path_claim(
+    *,
+    item_id: int,
+    touch_paths: tuple[str, ...],
+    integration_target: str,
+) -> Optional[str]:
+    from yoke_core.domain.dash_path_claim_posture import (
+        ensure_survey_path_claim,
+    )
+    from yoke_core.domain.path_claims import PathClaimError
+    from yoke_core.domain.path_claims_register import (
+        PathClaimRegistrationError,
+    )
+    from yoke_core.domain.path_claims_resolve import PathResolveError
+
+    try:
+        with connect() as conn:
+            from yoke_core.domain.dash_posture_read import marker
+
+            placeholder = marker(conn)
+            claim = conn.execute(
+                "SELECT session_id FROM work_claims "
+                "WHERE target_kind = 'item' "
+                f"AND item_id = {placeholder} AND released_at IS NULL "
+                "ORDER BY claimed_at DESC, id DESC LIMIT 1",
+                (int(item_id),),
+            ).fetchone()
+            if claim is None:
+                return "Dash path-claim preparation has no live item work claim"
+            claim_session = str(
+                claim["session_id"] if hasattr(claim, "keys") else claim[0]
+            )
+            ensure_survey_path_claim(
+                conn,
+                item_id=item_id,
+                session_id=claim_session,
+                touch_paths=touch_paths,
+                integration_target=integration_target,
+            )
+    except (
+        PathClaimError,
+        PathClaimRegistrationError,
+        PathResolveError,
+        ValueError,
+    ) as exc:
+        return str(exc)
+    return None
 
 
 def run(args: List[str]) -> int:
@@ -103,13 +153,21 @@ def run(args: List[str]) -> int:
                 ],
             }))
             return 1
-
     with _session_identity(parsed.session_id):
+        claim_preparer = None
+        if parsed.workflow == "dash":
+            claim_preparer = partial(
+                _prepare_dash_path_claim,
+                item_id=int(item_id),
+                touch_paths=live.touch_paths,
+                integration_target=live.integration_target,
+            )
         outcome = run_preflight(
             item_id=int(item_id),
             project=parsed.project,
             session_id=parsed.session_id,
             actual_cwd=os.getcwd(),
+            prepare_path_claims=claim_preparer,
         )
     print(json.dumps(outcome.to_envelope(), indent=2, sort_keys=True))
     return 0 if outcome.ok else 1

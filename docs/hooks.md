@@ -8,15 +8,22 @@ Yoke uses harness-native hook points to keep orchestration deterministic — sta
 |---|---|
 | SessionStart hook (session registration, emits `HarnessSessionStarted`) | `yoke hook evaluate SessionStart` |
 | UserPromptSubmit hook (first-prompt orientation, emits `HarnessSessionSentFirstUserPromptSubmit`; idempotent re-registration safety net) | `yoke hook evaluate UserPromptSubmit` |
-| Session end (guarded end-session path, claim release) | `yoke hook evaluate SessionEnd` |
+| Session end (guarded end-if-empty; live claims or a resumable chain keep the session active) | `yoke hook evaluate SessionEnd` |
 | Pre-tool guardrail deniers (Bash / DB-command lint, policy deny) — each emits `HarnessToolCallDenied` via the shared `emit_denial_event` helper before returning its deny JSON. | `yoke_core.domain.lint_db_cmd` (emits stable compatibility id `lint-sqlite-cmd`), `yoke_core.domain.lint_event_registry`, `yoke_core.domain.lint_main_commit`, `yoke_core.domain.lint_tc_label`, `yoke_core.domain.lint_write_path` |
 | Pre-tool observer (emits `HarnessToolCallStarted` so PostToolUse can compute `duration_ms`) | `yoke_core.domain.observe_pre` |
 | Post-tool telemetry (emits `HarnessToolCallCompleted` / `HarnessToolCallFailed` / `HarnessToolCallStructuredExit` / `HarnessLifecycleMutationDetected`, runs anomaly detection, computes `duration_ms`) | `yoke_core.domain.observe` for `PostToolUse` |
 | DB error annotation | `yoke_core.domain.db_error_hook` |
-| Agent stop (claim drain, HarnessSessionStopped) | `yoke_core.domain.agent_stop` |
+| Subagent stop (Issue-flow auto-commit safety net, `HarnessSessionStopped`) | `yoke_core.domain.agent_stop` |
 | Emergency status repair | `yoke_core.engines.repair_status` |
 
 The `yoke hook evaluate` CLI is the stable boundary project hook configs call; the spelling is identical on every transport. Other Python modules above are internal policy/telemetry owners executed behind the runner, not copy-paste hook config commands.
+
+`Stop` and `SessionEnd` call `end_session_if_empty`: they preserve an active
+session when it still owns unreleased work claims or has a resumable chain
+checkpoint. They do not drain claims. `SubagentStop` has a different local
+responsibility: it can safety-net auto-commit uncommitted Issue-lane work and
+then emits `HarnessSessionStopped`; it does not terminate the parent session
+or release its claims.
 
 ## Transport
 

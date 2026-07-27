@@ -2,75 +2,59 @@ import {
   callFunction,
   el,
 } from "./universe_view_support.js";
+import { renderMarkdown } from "./markdown_view.js";
+import { relativeTime } from "./universe_time.js";
 import {
   button,
-  formatTimestamp,
   workflowPanel,
 } from "./workflow_view_primitives.js";
 
-function appendParagraph(documentNode, host, lines) {
-  const text = lines.join(" ").trim();
-  if (text) host.appendChild(el(documentNode, "p", null, text));
+function formatBytes(value) {
+  const bytes = Number(value || 0);
+  if (bytes < 1024) return `${bytes} B`;
+  const digits = bytes < 10240 ? 1 : 0;
+  return `${(bytes / 1024).toFixed(digits)} KB`;
 }
 
-export function renderDocumentBody(documentNode, content) {
-  const host = el(documentNode, "article", "strategy-document");
-  const lines = String(content || "").split(/\r?\n/);
-  let paragraph = [];
-  let list = null;
-  const flush = () => {
-    appendParagraph(documentNode, host, paragraph);
-    paragraph = [];
-    list = null;
-  };
-  for (const raw of lines) {
-    const line = raw.trim();
-    const heading = line.match(/^(#{1,4})\s+(.+)$/);
-    const bullet = line.match(/^[-*]\s+(.+)$/);
-    if (heading) {
-      flush();
-      const level = Math.min(heading[1].length + 1, 4);
-      host.appendChild(el(documentNode, `h${level}`, null, heading[2]));
-    } else if (bullet) {
-      appendParagraph(documentNode, host, paragraph);
-      paragraph = [];
-      if (!list) {
-        list = el(documentNode, "ul");
-        host.appendChild(list);
-      }
-      list.appendChild(el(documentNode, "li", null, bullet[1]));
-    } else if (!line) {
-      flush();
-    } else {
-      if (list) list = null;
-      paragraph.push(line);
-    }
-  }
-  flush();
-  if (!host.children.length) {
-    host.appendChild(el(documentNode, "p", "empty", "No content yet."));
-  }
-  return host;
+export function renderDocumentBody(documentNode, content, documentHeadings = []) {
+  return renderMarkdown(documentNode, content, {
+    className: "rich-text strategy-document",
+    emptyText: "No content yet.",
+    omitLeadingHeading: documentHeadings,
+    demoteHeadings: true,
+  });
 }
 
 export function documentReviewView(documentNode, doc) {
   const split = el(documentNode, "div", "strategy-split");
-  const current = workflowPanel(
+  const current = workflowPanel(documentNode, "Current document");
+  current.panel.children[0].children[0].appendChild(el(
     documentNode,
-    "Current document",
-    {
-      detail: [
-        doc.current_revision ? `revision ${doc.current_revision}` : "unrevised",
-        `${doc.bytes} B`,
-        `updated ${formatTimestamp(doc.updated_at)}`,
-      ].join(" · "),
-    },
-  );
-  current.body.appendChild(renderDocumentBody(documentNode, doc.content));
+    "span",
+    "strategy-revision-chip",
+    doc.current_revision ? `revision ${doc.current_revision}` : "unrevised",
+  ));
+  const meta = el(documentNode, "div", "workflow-panel-meta");
+  const detail = el(documentNode, "span", "workflow-panel-detail");
+  detail.appendChild(el(
+    documentNode, "span", null, `${formatBytes(doc.bytes)} · updated `,
+  ));
+  if (doc.updated_at) {
+    detail.appendChild(relativeTime(documentNode, doc.updated_at));
+  } else {
+    detail.appendChild(el(documentNode, "span", null, "recently"));
+  }
+  meta.appendChild(detail);
+  current.panel.children[0].appendChild(meta);
+  current.body.appendChild(renderDocumentBody(
+    documentNode,
+    doc.content,
+    [doc.slug, doc.title].filter(Boolean),
+  ));
   split.appendChild(current.panel);
 
   const harness = workflowPanel(documentNode, "Author through a harness");
-  harness.body.className += " item-stack";
+  harness.body.className += " item-stack strategy-harness";
   for (const command of [
     `yoke strategy render --project ${doc.project_slug || "PROJECT"}`,
     `yoke strategy ingest ${doc.slug} --dry-run`,
@@ -97,27 +81,46 @@ function revisionRow(documentNode, revision, current) {
     `strategy-revision-dot${current ? " current" : ""}`,
   ));
   const copy = el(documentNode, "div", "strategy-revision-copy");
+  const operationFamily = String(
+    revision.source_operation || "updated",
+  ).split(":", 1)[0];
+  const operation = String(
+    revision.operation_label || {
+      create: "created",
+      ingest: "ingested",
+      replace: "replaced",
+      restore: "restored",
+      coordination_append: "updated",
+    }[operationFamily] || operationFamily,
+  ).replace(/[._-]+/g, " ").toLowerCase();
   copy.appendChild(el(
     documentNode,
     "strong",
     null,
-    `Revision ${revision.revision}${current ? " · current" : ""}`,
+    `Revision ${revision.revision} · ${current ? "current" : operation}`,
   ));
-  copy.appendChild(el(
+  const summary = el(documentNode, "span", "item-muted");
+  summary.appendChild(el(
     documentNode,
     "span",
-    "item-muted",
+    null,
     [
-      revision.source_operation,
-      revision.session_id ? `session ${revision.session_id}` : null,
-      `${revision.byte_length} B`,
-      `${String(revision.content_sha256).slice(0, 8)}…`,
+      revision.change_summary || `Document ${operation}`,
+      formatBytes(revision.byte_length),
     ].filter(Boolean).join(" · "),
   ));
-  row.appendChild(copy);
-  row.appendChild(el(
-    documentNode, "span", "item-muted", formatTimestamp(revision.created_at),
+  summary.appendChild(el(documentNode, "span", null, " · "));
+  summary.appendChild(el(
+    documentNode,
+    "span",
+    "mono",
+    `${String(revision.content_sha256).slice(0, 8)}…`,
   ));
+  copy.appendChild(summary);
+  row.appendChild(copy);
+  const created = el(documentNode, "span", "item-muted");
+  created.appendChild(relativeTime(documentNode, revision.created_at));
+  row.appendChild(created);
   return row;
 }
 
@@ -168,6 +171,9 @@ export function historyReviewView(
   controls.appendChild(from);
   controls.appendChild(el(documentNode, "label", null, "To"));
   controls.appendChild(to);
+  controls.appendChild(el(documentNode, "label", null, "Change"));
+  const change = el(documentNode, "span", "strategy-change-summary");
+  controls.appendChild(change);
   compare.body.appendChild(controls);
   const actions = el(documentNode, "div", "strategy-actions");
   const view = button(documentNode, "View diff", "item-action");
@@ -178,25 +184,76 @@ export function historyReviewView(
   );
   const output = el(documentNode, "pre", "strategy-diff");
   output.hidden = true;
+  const feedback = el(documentNode, "p", "strategy-action-feedback");
+  feedback.setAttribute("aria-live", "polite");
+  feedback.hidden = true;
   view.disabled = doc.revisions.length < 2;
   restore.disabled = doc.revisions.length < 2;
+  const updateChange = () => {
+    const fromRevision = doc.revisions.find(
+      (row) => Number(row.revision) === Number(from.value),
+    );
+    const toRevision = doc.revisions.find(
+      (row) => Number(row.revision) === Number(to.value),
+    );
+    if (
+      Number.isFinite(Number(fromRevision?.line_count)) &&
+      Number.isFinite(Number(toRevision?.line_count))
+    ) {
+      const lineDelta = Number(toRevision.line_count) -
+        Number(fromRevision.line_count);
+      const magnitude = Math.abs(lineDelta);
+      change.textContent = `${lineDelta >= 0 ? "+" : "−"}${magnitude} ${
+        magnitude === 1 ? "line" : "lines"
+      }`;
+      return;
+    }
+    const delta = Number(toRevision?.byte_length || 0) -
+      Number(fromRevision?.byte_length || 0);
+    change.textContent = `${delta >= 0 ? "+" : "−"}${formatBytes(
+      Math.abs(delta),
+    )}`;
+  };
   from.addEventListener("change", () => {
     restore.textContent = `Restore revision ${from.value}…`;
+    updateChange();
   });
+  to.addEventListener("change", updateChange);
+  updateChange();
   view.addEventListener("click", async () => {
-    const result = await callFunction(
-      context.client,
-      "strategy.revision.diff",
-      {
-        slug: doc.slug,
-        from_revision: Number(from.value),
-        to_revision: Number(to.value),
-      },
-      { kind: "global", project_id: String(projectId) },
-    );
-    const comparison = result.envelope.result?.comparison;
-    output.textContent = comparison?.diff || result.envelope.error?.message || "";
+    view.disabled = true;
     output.hidden = false;
+    output.textContent = "Loading comparison…";
+    try {
+      const result = await callFunction(
+        context.client,
+        "strategy.revision.diff",
+        {
+          slug: doc.slug,
+          from_revision: Number(from.value),
+          to_revision: Number(to.value),
+        },
+        { kind: "global", project_id: String(projectId) },
+      );
+      const comparison = result.envelope.result?.comparison;
+      output.textContent = comparison?.diff ||
+        result.envelope.error?.message ||
+        "No difference.";
+      if (comparison?.diff) {
+        const lines = String(comparison.diff).split(/\r?\n/);
+        const additions = lines.filter(
+          (line) => line.startsWith("+") && !line.startsWith("+++"),
+        ).length;
+        const removals = lines.filter(
+          (line) => line.startsWith("-") && !line.startsWith("---"),
+        ).length;
+        change.textContent = `+${additions} / −${removals} lines`;
+      }
+    } catch (error) {
+      output.textContent = `Comparison failed: ${String(error)}`;
+    } finally {
+      view.disabled = false;
+    }
   });
   restore.addEventListener("click", async () => {
     const confirmed = typeof context.document.defaultView?.confirm !== "function" ||
@@ -205,18 +262,33 @@ export function historyReviewView(
       );
     if (!confirmed) return;
     restore.disabled = true;
-    const result = await callFunction(
-      context.client,
-      "strategy.revision.restore",
-      {
-        slug: doc.slug,
-        revision: Number(from.value),
-        base_updated_at: doc.updated_at,
-      },
-      { kind: "global", project_id: String(projectId) },
-    );
-    if (result.status === 200 && result.envelope.success) refresh();
-    else restore.disabled = false;
+    feedback.hidden = false;
+    feedback.className = "strategy-action-feedback";
+    feedback.textContent = `Restoring revision ${from.value}…`;
+    try {
+      const result = await callFunction(
+        context.client,
+        "strategy.revision.restore",
+        {
+          slug: doc.slug,
+          revision: Number(from.value),
+          base_updated_at: doc.updated_at,
+        },
+        { kind: "global", project_id: String(projectId) },
+      );
+      if (result.status === 200 && result.envelope.success) {
+        feedback.textContent = "Revision restored.";
+        refresh();
+        return;
+      }
+      feedback.className += " error";
+      feedback.textContent =
+        result.envelope.error?.message || "Restore failed.";
+    } catch (error) {
+      feedback.className += " error";
+      feedback.textContent = `Restore failed: ${String(error)}`;
+    }
+    restore.disabled = false;
   });
   actions.appendChild(view);
   actions.appendChild(restore);
@@ -227,6 +299,7 @@ export function historyReviewView(
     "item-muted",
     `Restore creates revision ${Number(newest || 0) + 1}. History is never rewritten.`,
   ));
+  compare.body.appendChild(feedback);
   compare.body.appendChild(output);
   split.appendChild(compare.panel);
   return split;

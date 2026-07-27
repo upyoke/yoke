@@ -8,8 +8,14 @@ import json
 
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.pg_testdb import test_database
+from yoke_contracts.api.function_call import (
+    ActorContext,
+    FunctionCallRequest,
+    TargetRef,
+)
 from yoke_core.domain import qa_case_execution
 from yoke_core.domain.browser_qa_results import RunResult, ScenarioResult
+from yoke_core.domain.handlers import qa_case_execution as case_handlers
 from yoke_core.domain.qa_case_execution_context import (
     get_case_execution_context,
 )
@@ -31,8 +37,56 @@ def _case(method_id: str, executor_id: str, config: dict) -> dict:
         "method_config": config,
         "project_id": 1,
         "project": "yoke",
-        "worktree": None,
+        "lane_branch": None,
     }
+
+
+def _materialized_command_requirement(conn) -> int:
+    insert_item(conn, id=42, title="Run verification", workflow_id="issue")
+    plan = create_plan(
+        conn,
+        project="yoke",
+        slug="command-verification",
+        name="Command verification",
+    )
+    replace_plan_cases(
+        conn,
+        plan_id=plan["id"],
+        cases=[{
+            "case_key": "backend",
+            "position": 1,
+            "method_id": "command",
+            "instructions": "Run backend checks.",
+            "expected_outcome": "The command exits successfully.",
+            "method_config": {"command": "printf 'composed-case-output'"},
+        }],
+    )
+    set_project_default(
+        conn,
+        plan_id=plan["id"],
+        workflow_id="issue",
+        transition_id="implemented",
+    )
+    materialized = materialize_for_item(
+        conn, item_id=42, transition_id="implemented",
+    )
+    return int(materialized["created_requirement_ids"][0])
+
+
+def _case_request(
+    function_id: str,
+    requirement_id: int,
+    payload: dict,
+) -> FunctionCallRequest:
+    return FunctionCallRequest(
+        function=function_id,
+        actor=ActorContext(actor_id="1", session_id=""),
+        target=TargetRef(
+            kind="qa_requirement",
+            qa_requirement_id=requirement_id,
+        ),
+        payload=payload,
+    )
 
 
 def test_materialized_case_context_carries_immutable_executor_snapshot() -> None:
@@ -122,9 +176,10 @@ def test_command_case_records_verdict_and_output_artifact(
         },
     )
     calls = []
+    actor = ActorContext(actor_id="7", session_id="qa-case-test")
 
-    def dispatch(function_id, requirement_id, payload):
-        calls.append((function_id, requirement_id, payload))
+    def dispatch(function_id, requirement_id, payload, *, actor=None):
+        calls.append((function_id, requirement_id, payload, actor))
         if function_id == "qa.run.add":
             return {"qa_run_id": 77}
         if function_id == "qa.artifact.add":
@@ -151,7 +206,7 @@ def test_command_case_records_verdict_and_output_artifact(
         ),
     ):
         result = qa_case_execution.execute_case(
-            41, base_url="https://preview.example",
+            41, base_url="https://preview.example", actor=actor,
         )
 
     assert result["verdict"] == "pass"
@@ -160,6 +215,7 @@ def test_command_case_records_verdict_and_output_artifact(
     assert [call[0] for call in calls] == [
         "qa.run.add", "qa.artifact.add", "qa.run.complete",
     ]
+    assert all(call[3] == actor for call in calls)
     assert calls[0][2]["executor_type"] == "worktree_run"
     assert "verdict" not in calls[0][2]
     assert calls[2][2]["verdict"] == "pass"
@@ -181,6 +237,7 @@ def test_browser_case_executes_only_the_target_requirement() -> None:
         runs=[RunResult(41, "browser_smoke", "pass", qa_run_id=7)],
         executed=1,
     )
+    actor = ActorContext(actor_id="7", session_id="qa-case-test")
     with (
         mock.patch.object(
             qa_case_execution,
@@ -193,7 +250,7 @@ def test_browser_case_executes_only_the_target_requirement() -> None:
         ) as execute,
     ):
         result = qa_case_execution.execute_case(
-            41, base_url="https://preview.example",
+            41, base_url="https://preview.example", actor=actor,
         )
 
     assert result["verdict"] == "pass"
@@ -204,4 +261,58 @@ def test_browser_case_executes_only_the_target_requirement() -> None:
         expected_branch=None,
         expected_sha=None,
         requirement_id=41,
+        actor=actor,
     )
+
+
+def test_doorman_rerun_composes_case_writes_without_a_harness_claim(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path / "scratch"))
+    with test_database() as conn:
+        requirement_id = _materialized_command_requirement(conn)
+        with mock.patch.object(
+            qa_case_execution,
+            "_execution_checkout",
+            return_value=tmp_path,
+        ):
+            outcome = case_handlers.handle_case_rerun(_case_request(
+                "qa.case.rerun", requirement_id, {},
+            ))
+        run = conn.execute(
+            "SELECT executor_type, verdict, case_outcome "
+            "FROM qa_runs WHERE qa_requirement_id = %s",
+            (requirement_id,),
+        ).fetchone()
+        artifact_count = conn.execute(
+            "SELECT COUNT(*) FROM qa_artifacts a "
+            "JOIN qa_runs r ON r.id = a.qa_run_id "
+            "WHERE r.qa_requirement_id = %s",
+            (requirement_id,),
+        ).fetchone()[0]
+
+    assert outcome.primary_success is True
+    assert outcome.result_payload["verdict"] == "pass"
+    assert tuple(run) == ("worktree_run", "pass", "passed")
+    assert int(artifact_count) == 1
+
+
+def test_doorman_waive_records_operator_rationale_without_a_harness_claim() -> None:
+    with test_database() as conn:
+        requirement_id = _materialized_command_requirement(conn)
+        outcome = case_handlers.handle_case_waive(_case_request(
+            "qa.case.waive",
+            requirement_id,
+            {"rationale": "Equivalent external proof was reviewed."},
+        ))
+        row = conn.execute(
+            "SELECT waived_at, waiver_rationale, waiver_source "
+            "FROM qa_requirements WHERE id = %s",
+            (requirement_id,),
+        ).fetchone()
+
+    assert outcome.primary_success is True
+    assert row[0]
+    assert row[1] == "Equivalent external proof was reviewed."
+    assert row[2] == "operator"

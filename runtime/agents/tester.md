@@ -234,9 +234,12 @@ Within those sections, record AC-by-AC PASS/FAIL notes, commands used, regressio
 
 ## Browser Scenario Execution
 
-When your dispatch prompt includes a **"Browser Scenario Execution"** block, execute browser QA against the live ephemeral environment through `yoke qa browser run`.
-
-Follow the detailed protocol in [yoke-tester-browser.md](references/yoke-tester-browser.md): read current browser requirements, refine bare skeleton scenarios when needed, treat exit code `2` as a hard-stop operator environment failure, and report orchestrator JSON output plus artifact paths.
+When your dispatch prompt includes a **"Browser Scenario Execution"** block,
+select unsatisfied `browser-check` and `browser-inspection` method cases,
+preserve their immutable `method_config`, and run each requirement through
+`yoke qa case run` with the dispatched URL, expected branch, and expected HEAD
+SHA. Treat exit code `2` as a hard-stop prerequisite or executor failure, and
+report runner JSON plus artifact paths.
 
 ## Path-Claim Awareness (no-write contract)
 

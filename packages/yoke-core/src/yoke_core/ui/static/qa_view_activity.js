@@ -2,8 +2,13 @@ import { el } from "./universe_view_support.js";
 import {
   loadProjectCalls,
   outcomeNode,
+  qaRoute,
+  relativeTimeNode,
   showFailure,
+  tableWrap,
 } from "./qa_view_primitives.js";
+
+const RECENT_ACTIVITY_LIMIT = 6;
 
 function todayRows(rows) {
   const today = new Date().toISOString().slice(0, 10);
@@ -11,6 +16,47 @@ function todayRows(rows) {
     (row) => String(row.happened_at || "").slice(0, 10) === today,
   );
 }
+
+function summarizeRows(rows) {
+  const today = todayRows(rows);
+  const counts = {};
+  for (const row of today) {
+    const outcome = String(row.outcome || "queued");
+    counts[outcome] = Number(counts[outcome] || 0) + 1;
+  }
+  return { total: today.length, counts };
+}
+
+function resultSummary(result) {
+  const payload = result.envelope.result || {};
+  const summary = payload.summary;
+  if (
+    summary
+    && Number.isFinite(Number(summary.total))
+    && summary.counts
+    && typeof summary.counts === "object"
+    && !Array.isArray(summary.counts)
+  ) {
+    return summary;
+  }
+  return summarizeRows(payload.rows || []);
+}
+
+function aggregateSummaries(callResults) {
+  const aggregate = { total: 0, counts: {} };
+  for (const result of callResults) {
+    const summary = resultSummary(result);
+    aggregate.total += Number(summary.total);
+    for (const [outcome, rawCount] of Object.entries(summary.counts)) {
+      const count = Number(rawCount);
+      if (!Number.isFinite(count)) continue;
+      aggregate.counts[outcome] =
+        Number(aggregate.counts[outcome] || 0) + count;
+    }
+  }
+  return aggregate;
+}
+
 function stat(documentNode, value, label) {
   const card = el(documentNode, "div", "qa-stat");
   card.appendChild(el(documentNode, "strong", null, String(value)));
@@ -19,6 +65,7 @@ function stat(documentNode, value, label) {
 }
 
 function evidenceText(row) {
+  if (row.proof_summary) return row.proof_summary;
   const count = Number(row.evidence_count || 0);
   if (row.capture_degraded_reason) {
     return count
@@ -28,7 +75,8 @@ function evidenceText(row) {
   return count ? `${count} ${count === 1 ? "artifact" : "artifacts"}` : "—";
 }
 
-function renderActivityTable(documentNode, body, rows) {
+function renderActivityTable(context, body, rows) {
+  const documentNode = context.document;
   if (!rows.length) {
     body.appendChild(el(
       documentNode, "p", "empty", "No materialized case activity yet.",
@@ -44,8 +92,19 @@ function renderActivityTable(documentNode, body, rows) {
   }
   table.appendChild(head);
   for (const row of rows) {
-    const tr = el(documentNode, "tr");
-    tr.appendChild(el(documentNode, "td", "mono", row.plan));
+    const href = qaRoute(
+      context, "plans", String(row.plan_id), row.project,
+    );
+    const tr = el(documentNode, "tr", "qa-clickable-row");
+    tr.addEventListener("click", (event) => {
+      if (event.target?.closest?.("a")) return;
+      context.navigate(href);
+    });
+    const plan = el(documentNode, "td");
+    const planLink = el(documentNode, "a", "mono qa-activity-link", row.plan);
+    planLink.href = href;
+    plan.appendChild(planLink);
+    tr.appendChild(plan);
     const caseLabel = row.host_baseline
       ? `${row.case_key} @${row.host_baseline}` : row.case_key;
     tr.appendChild(el(documentNode, "td", "mono", caseLabel));
@@ -58,10 +117,12 @@ function renderActivityTable(documentNode, body, rows) {
     ));
     tr.appendChild(outcome);
     tr.appendChild(el(documentNode, "td", null, evidenceText(row)));
-    tr.appendChild(el(documentNode, "td", null, row.happened_at || "—"));
+    const when = el(documentNode, "td");
+    when.appendChild(relativeTimeNode(documentNode, row.happened_at));
+    tr.appendChild(when);
     table.appendChild(tr);
   }
-  body.appendChild(table);
+  body.appendChild(tableWrap(documentNode, table));
 }
 
 export async function renderQaActivity(context, main, scope) {
@@ -70,7 +131,7 @@ export async function renderQaActivity(context, main, scope) {
     documentNode, "p", "empty", "loading QA activity…",
   ));
   const { callResults, failed } = await loadProjectCalls(
-    context, scope, "qa.activity.list", { limit: 100 },
+    context, scope, "qa.activity.list", { limit: RECENT_ACTIVITY_LIMIT },
   );
   if (!context.isMounted()) return;
   if (failed) {
@@ -82,23 +143,24 @@ export async function renderQaActivity(context, main, scope) {
   ).sort((left, right) =>
     String(right.happened_at || "").localeCompare(
       String(left.happened_at || ""),
-    ));
-  const today = todayRows(rows);
+    )).slice(0, RECENT_ACTIVITY_LIMIT);
+  const summary = aggregateSummaries(callResults);
+  const counts = summary.counts;
   const stats = el(documentNode, "div", "qa-stats");
-  stats.appendChild(stat(documentNode, today.length, "case runs today"));
+  stats.appendChild(stat(documentNode, summary.total, "case runs today"));
   stats.appendChild(stat(
     documentNode,
-    today.filter((row) => row.outcome === "passed").length,
+    counts.passed || 0,
     "passed",
   ));
   stats.appendChild(stat(
     documentNode,
-    today.filter((row) => row.outcome === "needs_review").length,
+    counts.needs_review || 0,
     "needs review",
   ));
   stats.appendChild(stat(
     documentNode,
-    today.filter((row) => row.outcome === "running").length,
+    counts.running || 0,
     "running",
   ));
   const panel = el(documentNode, "section", "panel");
@@ -112,13 +174,14 @@ export async function renderQaActivity(context, main, scope) {
   ));
   panel.appendChild(header);
   const body = el(documentNode, "div", "panel-body");
-  renderActivityTable(documentNode, body, rows);
+  renderActivityTable(context, body, rows);
   panel.appendChild(body);
   const note = el(documentNode, "div", "qa-panel-note");
   note.textContent =
-    "Blocked on precondition is neither a pass nor a case failure. " +
-    "Passed · capture degraded keeps paired text evidence and the explicit " +
-    "reason; missing evidence never renders as a satisfied outcome.";
+    "Blocked on precondition is neither a pass nor a case failure — " +
+    "the case's host baseline could not be reached or verified. " +
+    "Passed · capture degraded keeps the paired text evidence plus the " +
+    "explicit reason; missing evidence never renders as a satisfied outcome.";
   panel.appendChild(note);
   main.replaceChildren(stats, panel);
 }

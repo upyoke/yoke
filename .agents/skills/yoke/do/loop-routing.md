@@ -111,8 +111,8 @@ yoke sessions checkpoint \
  --outcome "$_handler_outcome"
 ```
 
-If the handler provisioned a new worktree (`items.worktree` (branch slug) set,
-path claims activated), persist the checkpoint with the classified
+If the handler provisioned a new worktree (an active `item_worktrees` lane
+recorded and path claims activated), persist the checkpoint with the classified
 outcome and continue chain evaluation as normal. Worktree creation does
 NOT terminate the loop — the same harness session keeps the work-claim
 and proceeds into worktree-bound implementation/review work in the same

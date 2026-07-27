@@ -172,7 +172,8 @@ def preflight_checks(ctx: MergeContext) -> Optional[Tuple[int, str]]:
         _conn = mw._connect()
         try:
             _row = _conn.execute(
-                f"SELECT id FROM items WHERE worktree = {_p(_conn)}",
+                "SELECT item_id FROM item_worktrees "
+                f"WHERE branch = {_p(_conn)} AND state = 'active'",
                 (ctx.args.branch,),
             ).fetchone()
             if _row is not None:

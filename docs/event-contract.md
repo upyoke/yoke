@@ -194,9 +194,16 @@ explicit execution context propagation so events carry attribution metadata auto
 
 When an event is emitted, execution context is resolved in this order:
 
-1. **Worktree dispatch context.** `resolve_dispatch_context()` in `hook-helpers.sh` queries `epic_dispatch_chains` for a chain whose `worktree_path` matches `$CLAUDE_PROJECT_DIR`. Returns `epic_id | task_num | item_id`.
+1. **Worktree dispatch context.** `resolve_dispatch_context()` in
+   `runtime/harness/hook_helpers_session_id.py` joins
+   `epic_dispatch_chains.item_worktree_id` to `item_worktrees.id` and matches
+   the lane's `path` to the harness project directory (exactly or as an
+   ancestor). Returns `epic_id | task_num | item_id`.
 
-2. **Non-epic worktree fallback.** If no dispatch chain matches (e.g., standalone item work in a worktree), the function queries `items` for a single non-epic in-flight item whose `worktree` column matches. Returns `item_id` without `task_num`.
+2. **Unique item-lane fallback.** If no dispatch chain matches, the function
+   joins `items.id` to `item_worktrees.item_id` and resolves a single active
+   in-flight item whose lane branch or path matches. Returns `item_id` without
+   `task_num`.
 
 3. **Explicit tool reference extraction.** The observe hook can attribute a tool call from an unambiguous item reference in a Bash command or an item-scoped worktree path.
 

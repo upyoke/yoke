@@ -21,7 +21,12 @@ Never hand-write intermediate `items scalar update --field status` hops to climb
 
 ### Skip-flag bookkeeping hops
 
-`yoke_core.domain.advance_skip` owns the operator-asserted skip-phase hops. `PRE_IMPLEMENTATION_STATUSES` (in `yoke_core.domain.lifecycle_progression`) marks the gate-free bookkeeping rungs; each skip allowlist stays disjoint from any rung that carries a real gate, so claim-bypass is only ever granted for bookkeeping moves.
+`yoke_core.domain.advance_skip_core` owns the operator-asserted skip routing:
+`_REFINE_ROUTING` defines the bookkeeping hops, while
+`_REFINE_TARGETS_ALLOWED` and `_POLISH_TRANSIT_ALLOWED` are the exact
+claim-bypass allowlists. Each allowlist stays disjoint from any rung that
+carries a real gate, so claim-bypass is only ever granted for bookkeeping
+moves.
 
 The operator-facing `--skip-polish` and `--skip-refine` flags (documented in `SKILL.md` step 0) dispatch to `advance_skip` and return before reaching this finalize step — they handle the full lifecycle themselves (hops, events, claim release):
 

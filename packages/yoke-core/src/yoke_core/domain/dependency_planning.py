@@ -37,6 +37,7 @@ from .dependency_planning_results import (
 )
 from .dependency_planning_telemetry import emit_batch_gate_evaluated
 from .dependency_workflow_context import workflow_from_joined_values
+from .item_worktree_resolution import primary_item_worktree_branch_sql
 
 
 # --- SQL queries ---
@@ -50,7 +51,8 @@ def _item_deps_sql(conn: Any) -> str:
     return f"""
 SELECT d.id, d.dependent_item, d.blocking_item, d.gate_point, d.satisfaction,
        d.rationale, bi.status AS blocking_status,
-       bi.worktree AS blocking_worktree, bi.merged_at AS blocking_merged_at,
+       {primary_item_worktree_branch_sql("bi.id")} AS blocking_worktree,
+       bi.merged_at AS blocking_merged_at,
        bi.workflow_id, bi.workflow_version_id, wv.version,
        wv.definition_json, wv.definition_digest
 FROM item_dependencies d
@@ -65,7 +67,8 @@ def _batch_deps_sql(conn: Any) -> str:
     return f"""
 SELECT d.dependent_item, d.blocking_item, d.gate_point, d.satisfaction,
        d.rationale, bi.status AS blocking_status,
-       bi.worktree AS blocking_worktree, bi.merged_at AS blocking_merged_at,
+       {primary_item_worktree_branch_sql("bi.id")} AS blocking_worktree,
+       bi.merged_at AS blocking_merged_at,
        bi.workflow_id, bi.workflow_version_id, wv.version,
        wv.definition_json, wv.definition_digest
 FROM item_dependencies d

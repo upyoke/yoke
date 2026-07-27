@@ -1,12 +1,5 @@
-// The workflow registry as an operator experience: select one immutable
-// workflow, follow its lifecycle, inspect each entry gate, understand its
-// execution posture and mechanics, and read its version history.
-
-import {
-  callFunction,
-  el,
-  renderError,
-} from "./universe_view_support.js";
+import { buildUniverseRoute } from "./universe_navigation.js";
+import { callFunction, el, renderError } from "./universe_view_support.js";
 import {
   renderTabs,
   renderWorkflowDialog,
@@ -14,20 +7,15 @@ import {
   workflowPanel,
 } from "./workflow_view_primitives.js";
 import { renderStages } from "./workflow_view_lifecycle.js";
-import {
-  renderMechanics,
-  renderPosture,
-} from "./workflow_view_policy.js";
+import { renderMechanics, renderPosture } from "./workflow_view_policy.js";
 import { renderVersionHistory } from "./workflow_view_versions.js";
 import {
-  emptyMechanicsData,
-  loadWorkflowMechanicsData,
+  emptyMechanicsData, loadWorkflowMechanicsData,
 } from "./workflow_mechanics_data.js";
 import {
   openApprovalEditor,
   openProjectDefaultEditor,
 } from "./workflow_mechanics_dialogs.js";
-
 function renderSelectedWorkflow(
   documentNode,
   content,
@@ -79,7 +67,6 @@ function renderSelectedWorkflow(
     }),
   );
 }
-
 function renderFailure(documentNode, tabs, intro, content, callResult) {
   const failure = workflowPanel(documentNode, "Workflows");
   renderError(failure.body, callResult);
@@ -87,8 +74,22 @@ function renderFailure(documentNode, tabs, intro, content, callResult) {
   intro.hidden = true;
   content.replaceChildren(failure.panel);
 }
-
-export function renderWorkflowsView(context, main) {
+function replaceWorkflowRoute(documentNode, context, workflowId) {
+  const route = buildUniverseRoute("workflows", null, workflowId);
+  const history = documentNode.defaultView?.history;
+  if (history && typeof history.replaceState === "function") {
+    try {
+      history.replaceState(history.state ?? null, "", route);
+      return true;
+    } catch {
+      // A constrained host may deny History writes; hash navigation remains
+      // the compatible fallback and the app router will render the route.
+    }
+  }
+  context.navigate(route);
+  return false;
+}
+export function renderWorkflowsView(context, main, _scope, routeWorkflowId) {
   const documentNode = context.document;
   const tabs = el(documentNode, "div", "workflow-tabs");
   tabs.setAttribute("role", "tablist");
@@ -106,7 +107,6 @@ export function renderWorkflowsView(context, main) {
   let mechanicsData = emptyMechanicsData();
   const stageSelections = new Map();
   let dialog = null;
-
   const mutation = async (functionId, payload) => {
     const callResult = await callFunction(
       context.client, functionId, payload,
@@ -118,15 +118,13 @@ export function renderWorkflowsView(context, main) {
     }
     return callResult.envelope.result || {};
   };
-
   const closeDialog = () => {
     dialog = null;
     dialogHost.replaceChildren();
   };
-
   const openPathClaimsDialog = (workflow, enabled) => {
-    const nextVersion = Number(workflow.current_version) + 1;
     const name = workflow.name || workflow.id;
+    const names = `${name}es`;
     dialog = {
       title: `${enabled ? "Turn on" : "Turn off"} path claims`,
       subtitle: enabled
@@ -142,18 +140,22 @@ export function renderWorkflowsView(context, main) {
         {
           title: "Default (off)",
           description:
-            `the ${name} executor surveys anticipated conflicts, works in an ` +
-            "isolated worktree, and re-checks at merge without registering every path.",
+            `the agent executing the ${name} surveys the landscape for ` +
+            "anticipated conflicts, works in an isolated worktree, and " +
+            "re-checks at merge, but does not register every path it wants to " +
+            "change. Reduces overhead, but risks potential collisions with " +
+            "other in-flight work.",
         },
         {
           title: "Turn on when",
           description:
-            `${name} items collide often enough that claim coordination costs less ` +
-            "than resolving conflicts.",
+            `you like the reduced overhead of ${names}, but they collide with ` +
+            "each other and waste time resolving conflicts or even break things.",
         },
       ],
       impact:
-        `Publishing creates ${name} v${nextVersion}. Items already underway ` +
+        `Editing creates a new version of the ${name} workflow in your Yoke ` +
+        `universe. Items already underway ` +
         `stay pinned to v${workflow.current_version} and are unaffected.`,
       confirmText: `${enabled ? "Turn on" : "Turn off"} path claims`,
       cancel: closeDialog,
@@ -169,7 +171,6 @@ export function renderWorkflowsView(context, main) {
     };
     renderWorkflowDialog(documentNode, dialogHost, dialog);
   };
-
   const openCurrentDialog = (workflow, version) => {
     const name = workflow.name || workflow.id;
     dialog = {
@@ -195,7 +196,6 @@ export function renderWorkflowsView(context, main) {
     };
     renderWorkflowDialog(documentNode, dialogHost, dialog);
   };
-
   const saveProjectDefault = async (kind, workflow, edit) => {
     const valueKey = kind === "testing" ? "plan_id" : "flow_id";
     const value = kind === "testing"
@@ -209,7 +209,6 @@ export function renderWorkflowsView(context, main) {
     closeDialog();
     await load();
   };
-
   const openTestingDialog = (workflow) => {
     dialog = { kind: "testing" };
     openProjectDefaultEditor({
@@ -223,7 +222,6 @@ export function renderWorkflowsView(context, main) {
       save: (edit) => saveProjectDefault("testing", workflow, edit),
     });
   };
-
   const openDeliveryDialog = (workflow) => {
     dialog = { kind: "delivery" };
     openProjectDefaultEditor({
@@ -237,7 +235,6 @@ export function renderWorkflowsView(context, main) {
       save: (edit) => saveProjectDefault("delivery", workflow, edit),
     });
   };
-
   const openApprovalsDialog = (workflow) => {
     dialog = { kind: "approvals" };
     openApprovalEditor({
@@ -257,7 +254,6 @@ export function renderWorkflowsView(context, main) {
       },
     });
   };
-
   const render = () => {
     if (!workflows.length) return;
     const selected = workflows.find(
@@ -271,7 +267,9 @@ export function renderWorkflowsView(context, main) {
       selectedWorkflowId,
       (workflowId) => {
         selectedWorkflowId = workflowId;
-        render();
+        if (replaceWorkflowRoute(
+          documentNode, context, selectedWorkflowId,
+        )) render();
       },
     );
     renderSelectedWorkflow(
@@ -285,8 +283,7 @@ export function renderWorkflowsView(context, main) {
       {
         client: context.client,
         mechanics: mechanicsData,
-        editPathClaims: mechanicsData.editable
-          ? openPathClaimsDialog : null,
+        editPathClaims: openPathClaimsDialog,
         editTesting: mechanicsData.editable ? openTestingDialog : null,
         editApprovals: mechanicsData.editable ? openApprovalsDialog : null,
         editDelivery: mechanicsData.editable ? openDeliveryDialog : null,
@@ -294,7 +291,6 @@ export function renderWorkflowsView(context, main) {
       },
     );
   };
-
   const load = async () => {
     let callResult;
     try {
@@ -309,16 +305,25 @@ export function renderWorkflowsView(context, main) {
       }
       const result = callResult.envelope.result || {};
       workflows = sortedWorkflows(result.workflows || []);
-      mechanicsData = await loadWorkflowMechanicsData(
-        context, result.flows || [],
-      );
+      try {
+        mechanicsData = await loadWorkflowMechanicsData(
+          context, result.flows || [],
+        );
+      } catch {
+        mechanicsData = emptyMechanicsData();
+      }
       if (!context.isMounted()) return;
       catalogById = new Map(
         (result.gate_catalog || []).map((gate) => [gate.id, gate]),
       );
+      const linkedWorkflowId = String(routeWorkflowId || "").toLowerCase();
       selectedWorkflowId = workflows.some(
-        (workflow) => workflow.id === "dash",
-      ) ? "dash" : (workflows[0] && workflows[0].id);
+        (workflow) => workflow.id === linkedWorkflowId,
+      )
+        ? linkedWorkflowId
+        : workflows.some((workflow) => workflow.id === "dash")
+          ? "dash"
+          : (workflows[0] && workflows[0].id);
       if (!workflows.length) {
         const empty = workflowPanel(documentNode, "Workflows");
         empty.body.appendChild(el(

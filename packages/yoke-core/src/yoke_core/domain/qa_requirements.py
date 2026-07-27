@@ -16,8 +16,8 @@ from typing import List, Optional
 
 from yoke_core.domain.db_helpers import connect, iso8601_now
 from yoke_core.domain.qa_constants import (
+    BROWSER_METHOD_IDS,
     VALID_BLOCKING_MODES,
-    VALID_BROWSER_QA_KINDS,
     VALID_QA_PHASES,
     VALID_REQUIREMENT_SOURCES,
     VALID_VERDICTS,
@@ -46,7 +46,7 @@ __all__ = (
     "VALID_BLOCKING_MODES",
     "VALID_REQUIREMENT_SOURCES",
     "VALID_VERDICTS",
-    "VALID_BROWSER_QA_KINDS",
+    "BROWSER_METHOD_IDS",
     "_REQ_SELECT",
     "_coalesce",
     "_normalize_qa_phase",

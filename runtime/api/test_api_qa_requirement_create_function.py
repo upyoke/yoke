@@ -77,7 +77,11 @@ class TestRequirementAdd(unittest.TestCase):
                         "method_config": {
                             "steps": [
                                 {"action": "navigate", "route": "/login"},
-                                {"action": "assert", "selector": "form"},
+                                {
+                                    "action": "assert",
+                                    "target": "form",
+                                    "check": "visible",
+                                },
                             ],
                         },
                     },
@@ -122,16 +126,22 @@ class TestRequirementAdd(unittest.TestCase):
         self.assertFalse(outcome.primary_success)
         self.assertEqual(outcome.error.code, "target_invalid")
 
-    def test_browser_kind_requires_steps_policy(self):
-        outcome = qa_requirement_create.handle_qa_requirement_add(
-            _request(
-                "qa.requirement.add", 42,
-                {"qa_kind": "browser_smoke", "qa_phase": "verification"},
-            ),
-        )
+    def test_browser_method_requires_case_contract(self):
+        with test_database() as conn:
+            insert_item(conn, id=42, title="T", status="implementing")
+            conn.commit()
+            outcome = qa_requirement_create.handle_qa_requirement_add(
+                _request(
+                    "qa.requirement.add", 42,
+                    {
+                        "method_id": "browser-check",
+                        "qa_phase": "verification",
+                    },
+                ),
+            )
         self.assertFalse(outcome.primary_success)
         self.assertEqual(outcome.error.code, "payload_invalid")
-        self.assertEqual(outcome.error.jsonpath, "$.payload.success_policy")
+        self.assertEqual(outcome.error.jsonpath, "$.payload.instructions")
 
     def test_invalid_requirement_source_rejected(self):
         outcome = qa_requirement_create.handle_qa_requirement_add(
@@ -182,12 +192,20 @@ class TestRequirementAddBatch(unittest.TestCase):
                                 "qa_phase": "verification",
                             },
                             {
-                                "qa_kind": "browser_smoke",
+                                "method_id": "browser-check",
                                 "qa_phase": "verification",
-                                "success_policy": (
-                                    '{"steps": [{"action": "navigate", '
-                                    '"route": "/"}]}'
-                                ),
+                                "instructions": "Check the page.",
+                                "expected_outcome": "The page is ready.",
+                                "method_config": {
+                                    "steps": [
+                                        {"action": "navigate", "route": "/"},
+                                        {
+                                            "action": "assert",
+                                            "target": "main",
+                                            "check": "visible",
+                                        },
+                                    ],
+                                },
                             },
                         ],
                     },
@@ -214,9 +232,9 @@ class TestRequirementAddBatch(unittest.TestCase):
                                 "qa_kind": "ac_verification",
                                 "qa_phase": "verification",
                             },
-                            # Browser kind without the required steps JSON.
+                            # Browser method without its case contract.
                             {
-                                "qa_kind": "browser_smoke",
+                                "method_id": "browser-check",
                                 "qa_phase": "verification",
                             },
                         ],
@@ -225,7 +243,10 @@ class TestRequirementAddBatch(unittest.TestCase):
             )
             self.assertFalse(outcome.primary_success)
             self.assertEqual(outcome.error.code, "payload_invalid")
-            self.assertIn("rows[1]", outcome.error.jsonpath)
+            self.assertEqual(
+                outcome.error.jsonpath,
+                "$.payload.rows[1].instructions",
+            )
             count = conn.execute(
                 "SELECT COUNT(*) FROM qa_requirements WHERE item_id = 42",
             ).fetchone()

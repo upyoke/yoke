@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 from typing import Any, Optional
 
-from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.api.function_call import ActorContext, TargetRef
 
 
 class QaCaseExecutionError(RuntimeError):
@@ -17,19 +17,24 @@ class QaCaseExecutionError(RuntimeError):
 
 
 def _dispatch(
-    function_id: str, requirement_id: int, payload: dict,
+    function_id: str,
+    requirement_id: int,
+    payload: dict,
+    *,
+    actor: Optional[ActorContext] = None,
 ) -> dict:
-    from yoke_core.api.service_client_structured_api_adapter import (
-        call_dispatcher,
+    from yoke_core.domain.qa_composed_dispatch import (
+        call_qa_function,
     )
 
-    response = call_dispatcher(
+    response = call_qa_function(
         function_id=function_id,
         target=TargetRef(
             kind="qa_requirement",
             qa_requirement_id=int(requirement_id),
         ),
         payload=payload,
+        actor=actor,
     )
     if not response.success:
         code = response.error.code if response.error else "unknown"
@@ -40,9 +45,15 @@ def _dispatch(
     return response.result or {}
 
 
-def fetch_case_execution_context(requirement_id: int) -> dict:
+def fetch_case_execution_context(
+    requirement_id: int,
+    *,
+    actor: Optional[ActorContext] = None,
+) -> dict:
     """Fetch one immutable case snapshot through the registered read."""
-    result = _dispatch("qa.case_execution.get", requirement_id, {})
+    result = _dispatch(
+        "qa.case_execution.get", requirement_id, {}, actor=actor,
+    )
     case = result.get("case")
     if not isinstance(case, dict):
         raise QaCaseExecutionError(
@@ -58,7 +69,7 @@ def _execution_checkout(case: dict) -> Path:
     )
 
     project_id = int(case["project_id"])
-    branch = str(case.get("worktree") or "").strip()
+    branch = str(case.get("lane_branch") or "").strip()
     if branch and branch != "null":
         worktree = worktree_path_for_branch(project_id, branch)
         if worktree is not None and worktree.is_dir():
@@ -85,6 +96,7 @@ def _command_result(
     base_url: str = "",
     timeout_seconds: Optional[int] = None,
     checkout_path: Optional[str | Path] = None,
+    actor: Optional[ActorContext] = None,
 ) -> dict:
     config = case["method_config"]
     command = str(config.get("command") or "").strip()
@@ -158,6 +170,7 @@ def _command_result(
             "raw_result": raw_result,
             "duration_ms": duration_ms,
         },
+        actor=actor,
     )
     run_id = int(run["qa_run_id"])
     from yoke_core.domain.qa_artifact_handle import local_handle
@@ -186,6 +199,7 @@ def _command_result(
                 "timed_out": timed_out,
             }, sort_keys=True),
         },
+        actor=actor,
     )
     _dispatch(
         "qa.run.complete",
@@ -196,6 +210,7 @@ def _command_result(
             "raw_result": raw_result,
             "duration_ms": duration_ms,
         },
+        actor=actor,
     )
     return {
         "requirement_id": int(case["requirement_id"]),
@@ -215,6 +230,7 @@ def _browser_result(
     base_url: str,
     expected_branch: Optional[str],
     expected_sha: Optional[str],
+    actor: Optional[ActorContext] = None,
 ) -> dict:
     from yoke_core.domain.browser_qa import execute_scenario
 
@@ -225,6 +241,7 @@ def _browser_result(
         expected_branch=expected_branch,
         expected_sha=expected_sha,
         requirement_id=int(case["requirement_id"]),
+        actor=actor,
     )
     return {
         "requirement_id": int(case["requirement_id"]),
@@ -241,9 +258,10 @@ def execute_case(
     expected_sha: Optional[str] = None,
     timeout_seconds: Optional[int] = None,
     checkout_path: Optional[str | Path] = None,
+    actor: Optional[ActorContext] = None,
 ) -> dict:
     """Execute one materialized case through its registered executor."""
-    case = fetch_case_execution_context(requirement_id)
+    case = fetch_case_execution_context(requirement_id, actor=actor)
     executor_id = str(case["executor_id"])
     if executor_id == "worktree_run":
         return _command_result(
@@ -251,6 +269,7 @@ def execute_case(
             base_url=base_url,
             timeout_seconds=timeout_seconds,
             checkout_path=checkout_path,
+            actor=actor,
         )
     if executor_id == "browser_substrate":
         return _browser_result(
@@ -258,13 +277,14 @@ def execute_case(
             base_url=base_url,
             expected_branch=expected_branch,
             expected_sha=expected_sha,
+            actor=actor,
         )
     if executor_id == "host_control":
         from yoke_core.domain.machine_qa_case_execution import (
             execute_materialized_machine_case,
         )
 
-        return execute_materialized_machine_case(case)
+        return execute_materialized_machine_case(case, actor=actor)
     raise QaCaseExecutionError(
         f"executor {executor_id!r} is not supported by shared case execution"
     )

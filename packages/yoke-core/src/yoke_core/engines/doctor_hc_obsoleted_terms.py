@@ -43,6 +43,11 @@ from yoke_core.engines.doctor_hc_obsoleted_terms_allowlists import (
 )
 from yoke_core.engines.doctor_hc_obsoleted_terms_backlog import scan_backlog_fields
 from yoke_core.engines import doctor_hc_obsoleted_terms_packs as _pack_terms
+from yoke_core.engines.doctor_obsoleted_scan_scope import (
+    SCAN_DIRS_BY_EXT,
+    SCAN_ROOT_FILES,
+    needs_slash_normalization,
+)
 from yoke_core.engines.doctor_report import (
     DoctorArgs,
     RecordCollector,
@@ -56,16 +61,29 @@ _RETIRED_PARENT_EPIC_CLI_PATTERN = r"items\s+(get|update|set)\s+\S+\s+" + "epic"
 # SQL form: catches ``items WHERE epic = …`` and the screenshot-shape
 # ``items WHERE epic_id IN (…)``. Tight enough that ``epic_tasks WHERE epic_id``
 # (no leading ``items`` token) and ``id={epic-id-…}`` placeholders (``epic``
-# preceded by ``{`` or ``-``, not by a SQL delimiter) do not trigger.
+# preceded by ``{`` or ``-``, not by a SQL delimiter) do not trigger. Requiring
+# a predicate operator after the field also prevents the scanner from crossing
+# a closed Python query string into a later ``(int(epic_id),)`` argument.
 _RETIRED_PARENT_EPIC_SQL_PATTERN = (
-    r"\bitems\b" + r"[^\n]*" + r"\bWHERE\b" + r"[^\n]*"
-    + r"[\s,(]" + "epic" + r"(_id)?[\s)=;]"
+    r"\bitems\b"
+    + r"[^\n]*"
+    + r"\bWHERE\b"
+    + r"[^\n]*"
+    + r"[\s,(]"
+    + "epic"
+    + r"(_id)?\s*"
+    + r"(?:=|<>|!=|<=|>=|<|>|\bIN\b|\bIS\b|\bLIKE\b)"
 )
 # SQL select-list form: catches ``SELECT epic_id FROM items ...``. Keep this
 # separate from the WHERE-clause form so each stale shape has a focused label.
 _RETIRED_PARENT_EPIC_SQL_SELECT_PATTERN = (
-    r"\bSELECT\b" + r"[^\n]*" + r"[\s,(]" + "epic" + r"(_id)?[\s,)]"
-    + r"[^\n]*" + r"\bFROM\s+items\b"
+    r"\bSELECT\b"
+    + r"[^\n]*"
+    + r"[\s,(]"
+    + "epic"
+    + r"(_id)?[\s,)]"
+    + r"[^\n]*"
+    + r"\bFROM\s+items\b"
 )
 # Prose form: catches ``the `epic` field on a backlog item`` and bare
 # ``epic field on the item``. Optional backticks bracket the field token.
@@ -114,6 +132,9 @@ _RETIRED_PRODUCT_NAME_PATTERN = r"\b[Ss]unday\b"
 # ``\d+`` escape keep each declaration from matching itself, like ``[Ss]unday``.
 _RETIRED_PRODUCT_DOMAIN_PATTERN = r"(?i)\b[s]undaydo\b"
 _RETIRED_ITEM_PREFIX_PATTERN = r"\bSUN-\d+\b"
+_RETIRED_QA_AUTO_MODULE_PATTERN = r"\byoke_core\.domain\.qa_requirements_auto\b"
+_RETIRED_QA_AUTO_FUNCTION_PATTERN = r"\bqa\.requirement\.auto_create_for_item\b"
+_RETIRED_QA_AUTO_CLI_PATTERN = r"\byoke\s+qa\s+requirement\s+auto-create-for-item\b"
 
 OBSOLETED_TERM_PATTERNS: tuple[str, ...] = (
     _RETIRED_PARENT_EPIC_SYMBOL_PATTERN,
@@ -147,6 +168,9 @@ OBSOLETED_TERM_PATTERNS: tuple[str, ...] = (
     _RETIRED_PRODUCT_NAME_PATTERN,
     _RETIRED_PRODUCT_DOMAIN_PATTERN,
     _RETIRED_ITEM_PREFIX_PATTERN,
+    _RETIRED_QA_AUTO_MODULE_PATTERN,
+    _RETIRED_QA_AUTO_FUNCTION_PATTERN,
+    _RETIRED_QA_AUTO_CLI_PATTERN,
     *_pack_terms.PACK_RETIREMENT_PATTERNS,
 )
 
@@ -174,36 +198,13 @@ OBSOLETED_TERM_LABELS: dict[str, str] = {
     _RETIRED_PRODUCT_NAME_PATTERN: "Sunday/sunday (retired product name — replaced by Yoke/yoke)",
     _RETIRED_PRODUCT_DOMAIN_PATTERN: "sundaydo (retired product domain token — replaced by upyoke.com)",
     _RETIRED_ITEM_PREFIX_PATTERN: "SUN-<digits> (retired item prefix — replaced by YOK-<digits>)",
+    _RETIRED_QA_AUTO_MODULE_PATTERN: "retired QA auto-requirement module",
+    _RETIRED_QA_AUTO_FUNCTION_PATTERN: "retired QA auto-requirement function",
+    _RETIRED_QA_AUTO_CLI_PATTERN: "retired QA auto-requirement command",
     **_pack_terms.PACK_RETIREMENT_LABELS,
 }
 
 # Scan scope
-
-# Scan operator-facing prose plus live runtime Python, so stale retired
-# hook/module references in doctor code cannot reach main unnoticed.
-# JSON/TOML/YAML stay out of scope by design (auto-generated from Python/TS
-# inputs). Audit code that intentionally names retired surfaces is allow-listed
-# by path below.
-_SCAN_DIRS_BY_EXT: dict[str, tuple[str, ...]] = {
-    ".md": (
-        "docs",
-        ".agents",
-        ".claude",
-        "packs",
-        "projects",
-        ".yoke/strategy",
-    ),
-    ".py": (
-        "packages",
-        "runtime",
-    ),
-}
-
-_SCAN_ROOT_FILES: tuple[str, ...] = (
-    "AGENTS.md",
-    "CLAUDE.md",
-    "README.md",
-)
 
 # Per-pattern path allow-list. Each entry is a repo-relative path string;
 # matching is prefix-based so a single entry covers a file family. Audit-
@@ -249,25 +250,12 @@ def _path_in_allowlist(rel_str: str, allow: tuple[str, ...]) -> bool:
     return any(rel_str.startswith(entry) for entry in allow)
 
 
-def _needs_slash_normalization(pattern_src: str) -> bool:
-    """Return True when ``pattern_src`` targets a dotted Python module path.
-
-    Slash-to-dot translation of the haystack lets a single dotted pattern
-    catch both ``runtime.harness.codex.codex_hooks_tool_events`` and the
-    string-literal ``runtime/harness/codex/codex_hooks_tool_events.py``.
-    Patterns whose match is a field name, prose phrase, or shell wrapper
-    stay original-only to avoid false positives on legitimate slash-form
-    path lists (``items/epic_tasks/events``, ``path/file overlap``, etc).
-    """
-    return pattern_src.startswith((r"runtime\.", r"yoke_"))
-
-
 def _iter_scan_paths(repo_root: Path):
-    for name in _SCAN_ROOT_FILES:
+    for name in SCAN_ROOT_FILES:
         candidate = repo_root / name
         if candidate.is_file() and not _is_exempt(candidate):
             yield candidate
-    for ext, dirs in _SCAN_DIRS_BY_EXT.items():
+    for ext, dirs in SCAN_DIRS_BY_EXT.items():
         for rel in dirs:
             base = repo_root / rel
             if not base.is_dir():
@@ -309,7 +297,7 @@ def scan_repo(repo_root: Path) -> list[str]:
             allow = _PER_PATTERN_PATH_ALLOWLIST.get(pattern_src, ())
             if _path_in_allowlist(rel_str, allow):
                 continue
-            normalize = _needs_slash_normalization(pattern_src)
+            normalize = needs_slash_normalization(pattern_src)
             label = OBSOLETED_TERM_LABELS.get(pattern_src, pattern_src)
             for i, line in enumerate(lines, start=1):
                 if compiled_pattern.search(line):
@@ -332,7 +320,9 @@ def hc_obsoleted_terms(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         return
     repo_root = Path(repo_root_str)
     hits = scan_repo(repo_root)
-    hits.extend(scan_backlog_fields(conn, OBSOLETED_TERM_PATTERNS, OBSOLETED_TERM_LABELS))
+    hits.extend(
+        scan_backlog_fields(conn, OBSOLETED_TERM_PATTERNS, OBSOLETED_TERM_LABELS)
+    )
     if hits:
         rec.record(
             "HC-obsoleted-terms",

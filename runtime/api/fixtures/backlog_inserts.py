@@ -15,57 +15,19 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import iso8601_now
-from yoke_core.domain.project_identity import (
-    DEFAULT_PUBLIC_ITEM_PREFIX,
-    resolve_project,
+from runtime.api.fixtures.backlog_insert_support import (
+    ensure_project_id as _ensure_project_id,
+    now as _now,
+    placeholder as _placeholder,
+    table_has_column as _table_has_column,
 )
-from yoke_core.domain.project_seed_test_helpers import SEED_PROJECT_IDS
-from yoke_core.domain.schema_common import _column_exists
+from runtime.api.fixtures.backlog_qa_inserts import (
+    insert_qa_requirement,
+    insert_qa_run,
+)
 from runtime.api.fixtures.workflow_pins import (
     current_workflow_pin_if_available,
 )
-
-
-def _now() -> str:
-    return iso8601_now()
-
-def _placeholder(conn: Any) -> str:
-    return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
-def _table_has_column(conn: Any, table: str, column: str) -> bool:
-    try:
-        return _column_exists(conn, table, column)
-    except Exception:
-        return False
-
-
-def _ensure_project_id(conn: Any, project: str, *, ts: str) -> int:
-    """Return numeric project authority, creating a lightweight row if needed."""
-    ident = resolve_project(conn, project, required=False)
-    if ident is not None:
-        return ident.id
-    slug = str(project)
-    project_id = int(slug) if slug.isdigit() else SEED_PROJECT_IDS.get(slug)
-    p = _placeholder(conn)
-    if project_id is None:
-        row = conn.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM projects").fetchone()
-        project_id = int(row[0])
-    if slug.isdigit():
-        slug = str(project_id)
-    conn.execute(
-        "INSERT INTO projects "
-        "(id, slug, name, public_item_prefix, created_at) "
-        f"VALUES ({p}, {p}, {p}, {p}, {p}) "
-        "ON CONFLICT (id) DO NOTHING",
-        (
-            project_id, slug, slug,
-            DEFAULT_PUBLIC_ITEM_PREFIX, ts,
-        ),
-    )
-    return project_id
 
 
 def insert_item(
@@ -97,7 +59,9 @@ def insert_item(
     if _table_has_column(conn, "items", "type"):
         cols["type"] = schema_workflow_id
     if _table_has_column(conn, "items", "project_id"):
-        cols["project_id"] = extra.pop("project_id", _ensure_project_id(conn, project, ts=ts))
+        cols["project_id"] = extra.pop(
+            "project_id", _ensure_project_id(conn, project, ts=ts)
+        )
         cols["project_sequence"] = extra.pop("project_sequence", id)
     elif _table_has_column(conn, "items", "project"):
         cols["project"] = project
@@ -125,6 +89,49 @@ def insert_item(
     return conn.execute(f"SELECT * FROM items WHERE id = {p}", (id,)).fetchone()
 
 
+def insert_item_worktree(
+    conn: Any,
+    *,
+    item_id: int,
+    branch: str,
+    lane_role: str = "implementation",
+    path: Optional[str] = None,
+    state: str = "active",
+    created_at: Optional[str] = None,
+    updated_at: Optional[str] = None,
+    released_at: Optional[str] = None,
+    id: Optional[int] = None,
+) -> Any:
+    """Insert one universal item-owned worktree lane and return it."""
+    ts = created_at or _now()
+    cols = {
+        "item_id": item_id,
+        "branch": branch,
+        "path": path,
+        "lane_role": lane_role,
+        "state": state,
+        "created_at": ts,
+        "updated_at": updated_at or ts,
+        "released_at": released_at,
+    }
+    if id is not None:
+        cols = {"id": id, **cols}
+    p = _placeholder(conn)
+    col_names = ", ".join(cols.keys())
+    placeholders = ", ".join(p for _ in cols)
+    row = conn.execute(
+        f"INSERT INTO item_worktrees ({col_names}) "
+        f"VALUES ({placeholders}) RETURNING id",
+        tuple(cols.values()),
+    ).fetchone()
+    lane_id = int(row[0])
+    conn.commit()
+    return conn.execute(
+        f"SELECT * FROM item_worktrees WHERE id = {p}",
+        (lane_id,),
+    ).fetchone()
+
+
 def insert_epic_task(
     conn: Any,
     *,
@@ -137,6 +144,21 @@ def insert_epic_task(
     **kwargs,
 ) -> Any:
     """Insert a row into ``epic_tasks`` and return it."""
+    extra = dict(kwargs)
+    if not _table_has_column(conn, "epic_tasks", "worktree"):
+        branch = str(
+            extra.pop("branch", None) or extra.pop("worktree", None) or ""
+        ).strip()
+        path = extra.pop("worktree_path", None)
+        if branch and "item_worktree_id" not in extra:
+            lane = insert_item_worktree(
+                conn,
+                item_id=int(epic_id),
+                branch=branch,
+                lane_role="worker",
+                path=path,
+            )
+            extra["item_worktree_id"] = int(lane["id"])
     cols = {
         "epic_id": epic_id,
         "task_num": task_num,
@@ -144,7 +166,7 @@ def insert_epic_task(
         "status": status,
         "body": body,
         "dependencies": dependencies,
-        **kwargs,
+        **extra,
     }
     col_names = ", ".join(cols.keys())
     p = _placeholder(conn)
@@ -190,7 +212,9 @@ def insert_event(
         "created_at": ts,
     }
     if _table_has_column(conn, "events", "project_id"):
-        cols["project_id"] = extra.pop("project_id", _ensure_project_id(conn, project, ts=ts))
+        cols["project_id"] = extra.pop(
+            "project_id", _ensure_project_id(conn, project, ts=ts)
+        )
     elif _table_has_column(conn, "events", "project"):
         cols["project"] = project
     cols.update(extra)
@@ -257,86 +281,6 @@ def insert_deployment_run(
     conn.commit()
     return conn.execute(
         f"SELECT * FROM deployment_runs WHERE id = {p}", (id,)
-    ).fetchone()
-
-
-def insert_qa_requirement(
-    conn: Any,
-    *,
-    item_id: Optional[int] = 1,
-    epic_id: Optional[int] = None,
-    task_num: Optional[int] = None,
-    deployment_run_id: Optional[str] = None,
-    qa_kind: str = "smoke",
-    qa_phase: str = "verification",
-    blocking_mode: str = "blocking",
-    requirement_source: str = "explicit",
-    success_policy: Optional[str] = None,
-    created_at: Optional[str] = None,
-    **kwargs,
-) -> Any:
-    """Insert a row into ``qa_requirements`` and return it."""
-    cols = {
-        "item_id": item_id,
-        "epic_id": epic_id,
-        "task_num": task_num,
-        "deployment_run_id": deployment_run_id,
-        "qa_kind": qa_kind,
-        "qa_phase": qa_phase,
-        "blocking_mode": blocking_mode,
-        "requirement_source": requirement_source,
-        "success_policy": success_policy,
-        "created_at": created_at or _now(),
-        **kwargs,
-    }
-    col_names = ", ".join(cols.keys())
-    p = _placeholder(conn)
-    placeholders = ", ".join(p for _ in cols)
-    cur = conn.execute(
-        f"INSERT INTO qa_requirements ({col_names}) VALUES ({placeholders}) RETURNING id",
-        tuple(cols.values()),
-    )
-    row_id = cur.fetchone()[0]
-    conn.commit()
-    return conn.execute(
-        f"SELECT * FROM qa_requirements WHERE id = {p}", (row_id,)
-    ).fetchone()
-
-
-def insert_qa_run(
-    conn: Any,
-    *,
-    qa_requirement_id: int = 1,
-    executor_type: str = "pytest",
-    qa_kind: str = "smoke",
-    verdict: str = "pass",
-    raw_result: Optional[str] = None,
-    duration_ms: Optional[int] = None,
-    created_at: Optional[str] = None,
-    **kwargs,
-) -> Any:
-    """Insert a row into ``qa_runs`` and return it."""
-    cols = {
-        "qa_requirement_id": qa_requirement_id,
-        "executor_type": executor_type,
-        "qa_kind": qa_kind,
-        "verdict": verdict,
-        "raw_result": raw_result,
-        "duration_ms": duration_ms,
-        "created_at": created_at or _now(),
-        **kwargs,
-    }
-    col_names = ", ".join(cols.keys())
-    p = _placeholder(conn)
-    placeholders = ", ".join(p for _ in cols)
-    cur = conn.execute(
-        f"INSERT INTO qa_runs ({col_names}) VALUES ({placeholders}) RETURNING id",
-        tuple(cols.values()),
-    )
-    row_id = cur.fetchone()[0]
-    conn.commit()
-    return conn.execute(
-        f"SELECT * FROM qa_runs WHERE id = {p}", (row_id,)
     ).fetchone()
 
 

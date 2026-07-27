@@ -131,10 +131,6 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
         "qa.requirement.update",
         _adapters.qa_requirement_update,
     ),
-    ("qa", "requirement", "auto-create-for-item"): (
-        "qa.requirement.auto_create_for_item",
-        _adapters.qa_requirement_auto_create_for_item,
-    ),
     ("qa", "requirement", "waive"): (
         "qa.requirement.waive",
         _adapters.qa_requirement_waive,

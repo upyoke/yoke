@@ -54,7 +54,7 @@ _MAKE_CONN_DDL = """
             status TEXT, priority TEXT, flow TEXT,
             rework_count INTEGER, frozen INTEGER,
             blocked INTEGER DEFAULT 0, blocked_reason TEXT,
-            github_issue TEXT, deployed_to TEXT, worktree TEXT,
+            github_issue TEXT, deployed_to TEXT,
             merged_at TEXT, created_at TEXT, updated_at TEXT, source TEXT,
             project_id INTEGER DEFAULT 1, project_sequence INTEGER,
             deployment_flow TEXT, deploy_stage TEXT,
@@ -64,12 +64,23 @@ _MAKE_CONN_DDL = """
             spec_updated_at TEXT, spec_updated_by TEXT,
             resolution TEXT, resolution_ref TEXT, resolution_comment TEXT
         );
+        CREATE TABLE item_worktrees (
+            id INTEGER PRIMARY KEY,
+            item_id INTEGER NOT NULL,
+            branch TEXT NOT NULL,
+            path TEXT,
+            lane_role TEXT NOT NULL,
+            state TEXT NOT NULL DEFAULT 'active',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            released_at TEXT
+        );
         CREATE TABLE epic_tasks (
             id INTEGER PRIMARY KEY,
             epic_id INTEGER, task_num INTEGER, title TEXT,
-            worktree TEXT, context_estimate TEXT, dependencies TEXT,
+            item_worktree_id INTEGER, context_estimate TEXT, dependencies TEXT,
             status TEXT, dispatch_attempts INTEGER, body TEXT,
-            github_issue TEXT, branch TEXT, worktree_path TEXT,
+            github_issue TEXT,
             blocked_by TEXT, max_attempts INTEGER, agent_id TEXT,
             last_heartbeat TEXT
         );
@@ -160,8 +171,8 @@ _MAKE_CONN_DDL = """
             id TEXT PRIMARY KEY, site TEXT, name TEXT
         );
         CREATE TABLE epic_dispatch_chains (
-            id INTEGER PRIMARY KEY, epic_id TEXT, worktree TEXT,
-            worktree_path TEXT, queue TEXT, current_index INTEGER
+            id INTEGER PRIMARY KEY, epic_id TEXT, item_worktree_id INTEGER,
+            queue TEXT, current_index INTEGER
         );
 """
 

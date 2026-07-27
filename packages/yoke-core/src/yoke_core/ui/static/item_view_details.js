@@ -48,7 +48,7 @@ function issuePanels(documentNode, item) {
   );
 }
 
-function renderEpicTasks(context, item, panel) {
+function renderEpicTasks(context, item, panel, progress) {
   loadSection(
     context,
     panel,
@@ -57,6 +57,12 @@ function renderEpicTasks(context, item, panel) {
     (body, callResult) => {
       const rows = (callResult.envelope.result || {}).tasks || [];
       panel.setCount(rows.length);
+      const completed = rows.filter((row) => (
+        ["done", "completed", "succeeded"].includes(
+          String(row.status || "").toLowerCase(),
+        )
+      )).length;
+      progress.textContent = `${completed} of ${rows.length} done`;
       renderTable(body, rows, [
         { label: "No", value: (row) => row.task_num, mono: true },
         { label: "Task", value: (row) => row.title },
@@ -72,8 +78,13 @@ function renderEpicTasks(context, item, panel) {
 }
 
 function epicPanels(context, documentNode, item) {
-  const tasks = section(documentNode, "Tasks");
-  renderEpicTasks(context, item, tasks);
+  const tasks = section(documentNode, "Tasks", { showRaw: false });
+  tasks.className += " item-epic-tasks";
+  const progress = el(
+    documentNode, "span", "workflow-panel-detail", "loading progress…",
+  );
+  tasks.children[0].appendChild(progress);
+  renderEpicTasks(context, item, tasks, progress);
   return detailColumns(
     documentNode,
     [
@@ -89,6 +100,7 @@ function epicPanels(context, documentNode, item) {
         "Worktree plan",
         item.narrative.worktree_plan,
         "No worktree plan recorded.",
+        { detail: "intent · lanes activate per task at conduct" },
       ),
     ],
     [
@@ -135,7 +147,12 @@ function fallbackPanels(documentNode, item) {
 
 export function renderWorkflowItemDetail(context, main, item) {
   const documentNode = context.document;
-  const host = el(documentNode, "div", "item-detail");
+  const workflowId = String(item.workflow.id || "").toLowerCase();
+  const host = el(
+    documentNode,
+    "div",
+    `item-detail ${workflowId || "workflow"}-detail`,
+  );
   host.appendChild(itemHeading(documentNode, item));
   if (item.blocked && item.blocked_reason) {
     const blocked = el(documentNode, "div", "item-blocked");
@@ -145,11 +162,11 @@ export function renderWorkflowItemDetail(context, main, item) {
     ));
     host.appendChild(blocked);
   }
-  if (item.workflow.id === "issue") {
+  if (workflowId === "issue") {
     host.appendChild(issuePanels(documentNode, item));
-  } else if (item.workflow.id === "epic") {
+  } else if (workflowId === "epic") {
     host.appendChild(epicPanels(context, documentNode, item));
-  } else if (item.workflow.id === "dash") {
+  } else if (workflowId === "dash") {
     host.appendChild(dashPanels(documentNode, item));
   } else {
     host.appendChild(fallbackPanels(documentNode, item));

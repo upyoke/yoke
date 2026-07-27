@@ -26,7 +26,9 @@ COMMANDS
  /yoke feed [--no-new-items] Direct-mode: maintain frontier dependency graph and optionally materialize new work from strategy layer
  /yoke strategize Direct-mode: guided SML review (research, propose, approve)
  /yoke onboard [--project P] [--run-id RUN] Make a wired project execution-ready (strategy, profile, Packs, hosting, envs, gated first deploy, seeded work)
- /yoke idea {title} Capture a new backlog item
+ /yoke idea [--workflow issue|epic|blitz] {title} Capture a new backlog item
+ /yoke dash "instruction" | YOK-N File and execute instruction-sized work, or resume a Dash
+ /yoke blitz YOK-N Execute a refined Blitz from its single linked strategy document
  /yoke shepherd YOK-N Drive an epic through quality-gated planning to planned
  /yoke conduct YOK-N Engineer/Tester loop for a single epic
  /yoke usher [YOK-N] Merge and deploy implemented/release items
@@ -76,6 +78,14 @@ TYPICAL FLOW
  5. /yoke usher YOK-N -> merge -> deploy -> done
 
  Epics use /yoke shepherd and /yoke conduct for their planning and implementation loop.
+
+ DASH FLOW
+ /yoke dash "fix the focused behavior" -> file, execute, verify, merge, record evidence
+
+ BLITZ FLOW
+ 1. /yoke idea --workflow blitz "my document-led plan" -> Blitz at idea
+ 2. /yoke refine YOK-N -> link exactly one execution strategy document -> refined-idea
+ 3. /yoke blitz YOK-N -> execute integrated slices -> reconcile document -> done
 
 DEPENDENCY INSPECTION
  Authoritative dependency data lives in the item_dependencies table.

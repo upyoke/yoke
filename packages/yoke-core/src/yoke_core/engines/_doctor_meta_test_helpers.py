@@ -46,11 +46,17 @@ _REST_DDL = """
         CREATE TABLE epic_tasks (
             id INTEGER PRIMARY KEY,
             epic_id INTEGER, task_num INTEGER, title TEXT,
-            worktree TEXT, context_estimate TEXT, dependencies TEXT,
+            item_worktree_id INTEGER, context_estimate TEXT, dependencies TEXT,
             status TEXT, dispatch_attempts INTEGER, body TEXT,
             github_issue TEXT, branch TEXT, worktree_path TEXT,
             blocked_by TEXT, max_attempts INTEGER, agent_id TEXT,
             last_heartbeat TEXT
+        );
+        CREATE TABLE item_worktrees (
+            id INTEGER PRIMARY KEY, item_id INTEGER NOT NULL,
+            branch TEXT NOT NULL, path TEXT, lane_role TEXT NOT NULL,
+            state TEXT NOT NULL DEFAULT 'active', created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL, released_at TEXT
         );
 
         CREATE TABLE shepherd_verdicts (

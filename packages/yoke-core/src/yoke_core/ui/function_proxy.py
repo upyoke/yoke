@@ -6,9 +6,8 @@ names for its callers. The proxy admits a closed set of function ids:
 
 * :data:`UI_READ_FUNCTION_ALLOWLIST` — read-only by construction, with
   one documented exception (:data:`UI_ACTIVATION_LATCH_FUNCTIONS`).
-* :data:`UI_MUTATION_FUNCTION_ALLOWLIST` — the per-actor Overview
-  dismissal pair plus the org-admin workflow version/default controls,
-  dispatched as the resolved local operator actor.
+* :data:`UI_MUTATION_FUNCTION_ALLOWLIST` — the bounded browser action
+  roster, dispatched as the resolved local operator actor.
 
 Everything else is refused with 403 before the dispatcher sees it. The
 browser envelope's own actor claim is never trusted: only the
@@ -27,6 +26,7 @@ from typing import Any, Dict, Optional, Tuple
 UI_READ_FUNCTION_ALLOWLIST = frozenset({
     "organizations.get",
     "projects.list",
+    "projects.get",
     "projects.capabilities.list",
     "projects.github_binding.status",
     "items.get.run",
@@ -63,6 +63,7 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset({
     # and carrying no actor attribution. See
     # UI_ACTIVATION_LATCH_FUNCTIONS.
     "overview.activation.get",
+    "overview.vitals.get",
 })
 
 #: Read-allowlist members whose one sanctioned side effect is the
@@ -81,10 +82,9 @@ UI_ACTOR_BOUND_READ_FUNCTIONS = frozenset({
     "workflows.mechanics.get",
 })
 
-#: The only mutations the local proxy may dispatch: the per-actor Overview
-#: dismissal pair and the org-admin workflow version/default controls. All act
-#: as the resolved local operator actor (:mod:`yoke_core.ui.local_operator_actor`)
-#: and are refused when no operator resolves; every other mutation stays 403.
+#: The only mutations the local proxy may dispatch. All act as the resolved
+#: local operator actor (:mod:`yoke_core.ui.local_operator_actor`) and are
+#: refused when no operator resolves; every other mutation stays 403.
 UI_MUTATION_FUNCTION_ALLOWLIST = frozenset({
     "overview.module.dismiss",
     "overview.module.restore",
@@ -98,7 +98,10 @@ UI_MUTATION_FUNCTION_ALLOWLIST = frozenset({
     "decision_requests.resolve",
     "notifications.read",
     "notifications.read_all",
+    "qa.case.rerun",
+    "qa.case.waive",
     "items.create",
+    "sessions.reclaim_stale",
     "strategy.revision.restore",
 })
 

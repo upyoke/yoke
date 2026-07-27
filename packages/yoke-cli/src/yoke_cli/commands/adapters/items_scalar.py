@@ -4,15 +4,15 @@ Covers the function id ``items.scalar.update`` — single-field scalar
 update with frozen-item rejection. Supported fields are enumerated in
 :data:`yoke_core.domain.mutation_fields.SUPPORTED_UPDATE_FIELDS`
 (status, frozen, blocked, blocked_reason, priority, project,
-deployment_flow, deployed_to, title, worktree).
+deployment_flow, deployed_to, title).
 
 Value handling:
 
 * ``--value VALUE`` — string value. Bool fields (``frozen``, ``blocked``)
   accept ``true|false|1|0`` and are coerced server-side by
   :mod:`yoke_core.domain.backlog`.
-* ``--null`` — set the field to null (nullable fields like
-  ``blocked_reason`` and ``worktree``).
+* ``--null`` — set the field to null (for nullable fields such as
+  ``blocked_reason``).
 * ``--value-json JSON`` — typed value parsed as JSON (rare; for
   integers / booleans / structured values when the string form is
   ambiguous).

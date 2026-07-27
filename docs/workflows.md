@@ -10,7 +10,7 @@ selecting another current version affects new items only.
 | Workflow | Use it for | Normal entry |
 |---|---|---|
 | **Dash** | One instruction that can be filed and executed in seconds | Web New Item, `yoke dash`, or `/yoke dash` |
-| **Blitz** | A substantial document-led plan executed as integrated slices | `/yoke idea`, then `/yoke blitz` |
+| **Blitz** | A substantial document-led plan executed as integrated slices | `/yoke idea --workflow blitz "<title>"`, `/yoke refine`, then `/yoke blitz` |
 | **Issue** | A bounded change whose item body is the specification | `/yoke idea`, then refine/advance |
 | **Epic** | Work that needs Architect decomposition and task lanes | `/yoke idea`, then shepherd/conduct |
 
@@ -101,10 +101,22 @@ A Blitz links exactly one execution strategy document. The document remains
 the live plan, progress log, handoff surface, evidence summary, completion
 record, and parent-reconciliation record; the item holds system facts.
 
-Use `/yoke blitz <PREFIX-N>` after refinement has linked the document. The
-skill acquires the item-owned document claim, surveys coordination state,
-executes coherent slices in registered worktree lanes, updates the document
-after integration, and closes only after verification and reconciliation are
+Create it through the explicit typed intake route:
+
+```text
+/yoke idea --workflow blitz "<title>"
+```
+
+That harness route dispatches registered function id `items.create` with
+`workflow: "blitz"` and `entry_surface: "harness_skill"`. The created item
+starts at `idea`; it is not executable yet. Run `/yoke refine <PREFIX-N>` so
+refinement links exactly one execution strategy document and advances the item
+to `refined-idea`.
+
+Use `/yoke blitz <PREFIX-N>` only after that document link exists. The skill
+acquires the item-owned document claim, surveys coordination state, executes
+coherent slices in registered worktree lanes, updates the document after
+integration, and closes only after verification and reconciliation are
 recorded. Do not copy the plan into the item body or generate child items.
 
 The document claim survives session handoff. Only the session holding the

@@ -22,7 +22,40 @@ VALID_QA_PHASES = ("verification", "post_deploy", "manual_acceptance")
 VALID_BLOCKING_MODES = ("blocking", "non_blocking")
 VALID_REQUIREMENT_SOURCES = ("explicit", "seeded_default", "ac_derived", "flow_derived")
 VALID_VERDICTS = ("pass", "fail", "inconclusive", "error")
-VALID_BROWSER_QA_KINDS = ("browser_smoke", "browser_diff")
+BROWSER_METHOD_IDS = ("browser-check", "browser-inspection")
+
+# Compatibility is intentionally private. Active requirements created before
+# Browser execution moved into the method/plan layer can remain in flight
+# without exposing their aggregate kind names as supported authoring choices.
+_LEGACY_BROWSER_QA_KINDS = ("browser_smoke", "browser_diff")
+
+
+def is_browser_method_requirement(
+    method_id: Optional[str],
+    qa_kind: Optional[str] = None,
+) -> bool:
+    """Return whether a requirement uses Browser-method execution.
+
+    ``qa_kind`` is consulted only for pre-cutover rows that do not carry a
+    method identity. New and materialized requirements are classified solely
+    by ``method_id``.
+    """
+    if method_id in BROWSER_METHOD_IDS:
+        return True
+    return method_id is None and qa_kind in _LEGACY_BROWSER_QA_KINDS
+
+
+def browser_requirement_predicate(alias: str = "r") -> str:
+    """Return the SQL predicate for Browser method cases plus legacy rows."""
+    method_values = ", ".join(f"'{value}'" for value in BROWSER_METHOD_IDS)
+    legacy_values = ", ".join(
+        f"'{value}'" for value in _LEGACY_BROWSER_QA_KINDS
+    )
+    return (
+        f"({alias}.method_id IN ({method_values}) OR "
+        f"({alias}.method_id IS NULL AND "
+        f"{alias}.qa_kind IN ({legacy_values})))"
+    )
 
 
 def case_outcome_for_verdict(verdict: Optional[str]) -> Optional[str]:

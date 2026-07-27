@@ -24,7 +24,6 @@ from yoke_core.engines._doctor_hc_git_test_helpers import (
     _seed_project,
 )
 from yoke_core.engines.doctor import (
-    hc_orphaned_active_items,
     hc_wrong_repo_issues,
 )
 
@@ -32,39 +31,68 @@ from yoke_core.engines.doctor import (
 class TestWrongRepoIssues:
     """Tests for hc_wrong_repo_issues."""
 
-    @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=False)
+    @patch(
+        "yoke_core.engines.doctor_hc_worktrees._github_auth_configured",
+        return_value=False,
+    )
     def test_no_github_auth_skips(self, mock_gh):
         """T6: SKIPs with canonical reason when project GitHub App auth is unavailable."""
         rec = _run_hc(hc_wrong_repo_issues)
         assert _result(rec).result == "SKIP"
         assert "GitHub App repo binding is not available" in _result(rec).detail
 
-    @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
-    @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.resolve_project_github_auth",
-           side_effect=lambda project, db_path=None, **_kwargs: _auth(
-               "upyoke/yoke" if project == "yoke" else f"example-org/{project}"))
+    @patch(
+        "yoke_core.engines.doctor_hc_worktrees._github_auth_configured",
+        return_value=True,
+    )
+    @patch(
+        "yoke_core.engines.doctor_hc_worktrees_gh_repo.resolve_project_github_auth",
+        side_effect=lambda project, db_path=None, **_kwargs: _auth(
+            "upyoke/yoke" if project == "yoke" else f"example-org/{project}"
+        ),
+    )
     @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.issue_view_state")
     def test_issue_in_correct_repo(self, mock_gh_run, mock_resolve, mock_avail):
         """T4: PASS when issue is in correct repo."""
         conn = _make_conn()
         _seed_project(conn, "externalwebapp", github_repo="example-org/externalwebapp")
-        _insert_item(conn, 42, "ExternalWebapp item", project="externalwebapp",
-                     type="issue", status="implementing", github_issue="#100")
+        _insert_item(
+            conn,
+            42,
+            "ExternalWebapp item",
+            project="externalwebapp",
+            type="issue",
+            status="implementing",
+            github_issue="#100",
+        )
         mock_gh_run.return_value = _completed(stdout="OPEN\n")
         rec = _run_hc(hc_wrong_repo_issues, conn)
         assert _result(rec).result == "PASS"
 
-    @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
-    @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.resolve_project_github_auth",
-           side_effect=lambda project, db_path=None, **_kwargs: _auth(
-               "upyoke/yoke" if project == "yoke" else f"example-org/{project}"))
+    @patch(
+        "yoke_core.engines.doctor_hc_worktrees._github_auth_configured",
+        return_value=True,
+    )
+    @patch(
+        "yoke_core.engines.doctor_hc_worktrees_gh_repo.resolve_project_github_auth",
+        side_effect=lambda project, db_path=None, **_kwargs: _auth(
+            "upyoke/yoke" if project == "yoke" else f"example-org/{project}"
+        ),
+    )
     @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.issue_view_state")
     def test_issue_in_wrong_repo(self, mock_gh_run, mock_resolve, mock_avail):
         """T3: Detects wrong-repo (externalwebapp item in yoke repo)."""
         conn = _make_conn()
         _seed_project(conn, "externalwebapp", github_repo="example-org/externalwebapp")
-        _insert_item(conn, 662, "ExternalWebapp wrong repo", project="externalwebapp",
-                     type="issue", status="implementing", github_issue="#1520")
+        _insert_item(
+            conn,
+            662,
+            "ExternalWebapp wrong repo",
+            project="externalwebapp",
+            type="issue",
+            status="implementing",
+            github_issue="#1520",
+        )
         # Not found in target repo, found in yoke repo
         mock_gh_run.side_effect = [
             _completed(returncode=1, stdout=""),
@@ -75,9 +103,14 @@ class TestWrongRepoIssues:
         assert "YOK-662" in _result(rec).detail
         assert "wrong" in _result(rec).detail.lower() or "Wrong" in _result(rec).detail
 
-    @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
-    @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.resolve_project_github_auth",
-           side_effect=lambda project, db_path=None, **_kwargs: _auth("upyoke/yoke"))
+    @patch(
+        "yoke_core.engines.doctor_hc_worktrees._github_auth_configured",
+        return_value=True,
+    )
+    @patch(
+        "yoke_core.engines.doctor_hc_worktrees_gh_repo.resolve_project_github_auth",
+        side_effect=lambda project, db_path=None, **_kwargs: _auth("upyoke/yoke"),
+    )
     @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.issue_view_state")
     def test_yoke_only_items_skipped(self, mock_gh_run, mock_resolve, mock_avail):
         """T5: Same-repo Yoke rows are filtered before any REST call.
@@ -88,19 +121,33 @@ class TestWrongRepoIssues:
         """
         conn = _make_conn()
         _seed_project(conn, "yoke", github_repo="upyoke/yoke")
-        _insert_item(conn, 100, "Yoke item",
-                     type="issue", status="implementing", github_issue="#100")
+        _insert_item(
+            conn,
+            100,
+            "Yoke item",
+            type="issue",
+            status="implementing",
+            github_issue="#100",
+        )
         rec = _run_hc(hc_wrong_repo_issues, conn)
         assert _result(rec).result == "PASS"
         # Same-repo skip must short-circuit BEFORE the REST lookup.
         assert mock_gh_run.call_count == 0
 
-    @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
-    @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.resolve_project_github_auth",
-           side_effect=lambda project, db_path=None, **_kwargs: _auth(
-               "upyoke/yoke" if project == "yoke" else f"example-org/{project}"))
+    @patch(
+        "yoke_core.engines.doctor_hc_worktrees._github_auth_configured",
+        return_value=True,
+    )
+    @patch(
+        "yoke_core.engines.doctor_hc_worktrees_gh_repo.resolve_project_github_auth",
+        side_effect=lambda project, db_path=None, **_kwargs: _auth(
+            "upyoke/yoke" if project == "yoke" else f"example-org/{project}"
+        ),
+    )
     @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.issue_view_state")
-    def test_auth_resolved_once_per_distinct_project(self, mock_gh_run, mock_resolve, mock_avail):
+    def test_auth_resolved_once_per_distinct_project(
+        self, mock_gh_run, mock_resolve, mock_avail
+    ):
         """AC-13: ``resolve_project_github_auth`` runs at most once per distinct project.
 
         Mixes multiple Yoke rows (same-repo, skipped before REST) with
@@ -112,13 +159,22 @@ class TestWrongRepoIssues:
         _seed_project(conn, "externalwebapp", github_repo="example-org/externalwebapp")
         for i in range(3):
             _insert_item(
-                conn, 200 + i, "Yoke item",
-                type="issue", status="implementing", github_issue=f"#{300 + i}",
+                conn,
+                200 + i,
+                "Yoke item",
+                type="issue",
+                status="implementing",
+                github_issue=f"#{300 + i}",
             )
         for i in range(4):
             _insert_item(
-                conn, 400 + i, "ExternalWebapp item", project="externalwebapp",
-                type="issue", status="implementing", github_issue=f"#{500 + i}",
+                conn,
+                400 + i,
+                "ExternalWebapp item",
+                project="externalwebapp",
+                type="issue",
+                status="implementing",
+                github_issue=f"#{500 + i}",
             )
         mock_gh_run.return_value = _completed(stdout="OPEN\n")
         rec = _run_hc(hc_wrong_repo_issues, conn)
@@ -131,44 +187,76 @@ class TestWrongRepoIssues:
         assert resolved_projects.count("yoke") == 1
         assert resolved_projects.count("externalwebapp") == 1
         assert all(
-            call.kwargs["required_permissions"]
-            is GITHUB_ISSUES_READ_PERMISSION_LEVELS
+            call.kwargs["required_permissions"] is GITHUB_ISSUES_READ_PERMISSION_LEVELS
             for call in mock_resolve.call_args_list
         )
         # Only the 4 externalwebapp rows reach the REST call — yoke rows skip.
         assert mock_gh_run.call_count == 4
 
-    @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
-    @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.resolve_project_github_auth",
-           side_effect=lambda project, db_path=None, **_kwargs: _auth(
-               "upyoke/yoke" if project == "yoke" else f"example-org/{project}"))
+    @patch(
+        "yoke_core.engines.doctor_hc_worktrees._github_auth_configured",
+        return_value=True,
+    )
+    @patch(
+        "yoke_core.engines.doctor_hc_worktrees_gh_repo.resolve_project_github_auth",
+        side_effect=lambda project, db_path=None, **_kwargs: _auth(
+            "upyoke/yoke" if project == "yoke" else f"example-org/{project}"
+        ),
+    )
     @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.issue_view_state")
     def test_per_project_iteration(self, mock_gh_run, mock_resolve, mock_avail):
         """T1/T2: HC fetches issues from multiple project repos."""
         conn = _make_conn()
         _seed_project(conn, "externalwebapp", github_repo="example-org/externalwebapp")
-        _insert_item(conn, 100, "Yoke item",
-                     type="issue", status="implementing", github_issue="#100")
-        _insert_item(conn, 200, "ExternalWebapp item", project="externalwebapp",
-                     type="issue", status="implementing", github_issue="#50")
+        _insert_item(
+            conn,
+            100,
+            "Yoke item",
+            type="issue",
+            status="implementing",
+            github_issue="#100",
+        )
+        _insert_item(
+            conn,
+            200,
+            "ExternalWebapp item",
+            project="externalwebapp",
+            type="issue",
+            status="implementing",
+            github_issue="#50",
+        )
         # Issue found in target repo for externalwebapp
         mock_gh_run.return_value = _completed(stdout="OPEN\n")
         rec = _run_hc(hc_wrong_repo_issues, conn)
         assert _result(rec).result == "PASS"
 
-    @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
-    @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.resolve_project_github_auth",
-           side_effect=lambda project, db_path=None, **_kwargs: _auth(
-               "upyoke/yoke" if project == "yoke" else "verified-org/externalwebapp"))
+    @patch(
+        "yoke_core.engines.doctor_hc_worktrees._github_auth_configured",
+        return_value=True,
+    )
+    @patch(
+        "yoke_core.engines.doctor_hc_worktrees_gh_repo.resolve_project_github_auth",
+        side_effect=lambda project, db_path=None, **_kwargs: _auth(
+            "upyoke/yoke" if project == "yoke" else "verified-org/externalwebapp"
+        ),
+    )
     @patch("yoke_core.engines.doctor_hc_worktrees_gh_repo.issue_view_state")
     def test_verified_binding_overrides_stale_project_projection(
-        self, mock_issue, mock_resolve, mock_available,
+        self,
+        mock_issue,
+        mock_resolve,
+        mock_available,
     ):
         conn = _make_conn()
         _seed_project(conn, "externalwebapp", github_repo="stale-org/stale-repo")
         _insert_item(
-            conn, 701, "ExternalWebapp item", project="externalwebapp", type="issue",
-            status="implementing", github_issue="#91",
+            conn,
+            701,
+            "ExternalWebapp item",
+            project="externalwebapp",
+            type="issue",
+            status="implementing",
+            github_issue="#91",
         )
         mock_issue.return_value = _completed(stdout="OPEN\n")
 
@@ -200,129 +288,5 @@ class TestWrongRepoIssues:
 def _auth(repo: str):
     """Build a ProjectGithubAuth stub for resolver patches."""
     from yoke_core.domain.project_github_auth import ProjectGithubAuth
+
     return ProjectGithubAuth(project="yoke", repo=repo, token="t")
-
-
-class TestOrphanedActiveItems:
-    """Tests for hc_orphaned_active_items."""
-
-    def test_pass_no_orphans(self):
-        """T1: PASS when no orphaned items exist."""
-        conn = _make_conn()
-        conn.execute(
-            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, worktree) "
-            "VALUES (10, 'Active item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'YOK-10')"
-        )
-        rec = _run_hc(hc_orphaned_active_items, conn)
-        assert _result(rec).result == "PASS"
-
-    @patch("yoke_core.engines.doctor_report._run")
-    def test_warn_branch_merged_but_active(self, mock_run):
-        """T2: WARN when branch is merged to main but status is still active."""
-        conn = _make_conn()
-        conn.execute(
-            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, worktree) "
-            "VALUES (20, 'Merged but active', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'YOK-20')"
-        )
-        # Simulate: branch exists, and is merged
-        mock_run.side_effect = [
-            _completed(returncode=0, stdout="YOK-20\n"),  # branch exists
-            _completed(returncode=0, stdout="abc123\n"),  # merge-base
-            _completed(returncode=0, stdout="abc123\n"),  # rev-parse YOK-20
-        ]
-        rec = _run_hc(hc_orphaned_active_items, conn)
-        assert _result(rec).result == "WARN"
-        assert "YOK-20" in _result(rec).detail
-
-    def test_warn_merged_at_set_but_not_done(self):
-        """T3: WARN when merged_at is set but status is not done."""
-        conn = _make_conn()
-        conn.execute(
-            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, worktree, merged_at) "
-            "VALUES (30, 'Merged at set', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'YOK-30', "
-            "'2026-03-01T10:00:00Z')"
-        )
-        rec = _run_hc(hc_orphaned_active_items, conn)
-        assert _result(rec).result == "WARN"
-        assert "YOK-30" in _result(rec).detail
-
-    def test_done_items_not_flagged(self):
-        """T7: Items in done/cancelled status are not flagged."""
-        conn = _make_conn()
-        conn.execute(
-            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, merged_at) "
-            "VALUES (70, 'Done item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'done', '2026-03-01T10:00:00Z')"
-        )
-        conn.execute(
-            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status) "
-            "VALUES (71, 'Cancelled item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'cancelled')"
-        )
-        rec = _run_hc(hc_orphaned_active_items, conn)
-        assert _result(rec).result == "PASS"
-
-    def test_multiple_orphans(self):
-        """T8: Multiple orphaned items reported together."""
-        conn = _make_conn()
-        # Two items with merged_at set
-        conn.execute(
-            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, merged_at) "
-            "VALUES (80, 'Orphan 1', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', '2026-03-01T10:00:00Z')"
-        )
-        conn.execute(
-            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, merged_at) "
-            "VALUES (81, 'Orphan 2', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', '2026-03-01T10:00:00Z')"
-        )
-        rec = _run_hc(hc_orphaned_active_items, conn)
-        assert _result(rec).result == "WARN"
-        assert "YOK-80" in _result(rec).detail
-        assert "YOK-81" in _result(rec).detail
-
-    def test_idea_status_not_checked(self):
-        """T11: Pre-work statuses (idea, defined, designed) not checked."""
-        conn = _make_conn()
-        # Items in pre-work states with merged_at would be unusual,
-        # but the HC only looks at items past the "implementing" stage
-        conn.execute(
-            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status) "
-            "VALUES (110, 'Idea item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea')"
-        )
-        rec = _run_hc(hc_orphaned_active_items, conn)
-        assert _result(rec).result == "PASS"
-
-    @patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value="/fake/repo")
-    @patch("yoke_core.engines.doctor_report._run")
-    def test_legacy_ready_status_not_checked(self, mock_run, mock_root):
-        """T11b: Legacy ready rows are ignored by the active-item check."""
-        conn = _make_conn()
-        conn.execute(
-            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, worktree) "
-            "VALUES (111, 'Legacy ready item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'ready', 'YOK-111')"
-        )
-        mock_run.side_effect = [
-            _completed(returncode=0, stdout="main\n"),
-        ]
-        rec = _run_hc(hc_orphaned_active_items, conn)
-        assert _result(rec).result == "PASS"
-
-    @patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value="/fake/repo")
-    @patch("yoke_core.engines.doctor_report._run")
-    def test_deduplication(self, mock_run, mock_root):
-        """T4: Item matching both signals appears only once."""
-        conn = _make_conn()
-        conn.execute(
-            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, worktree, merged_at) "
-            "VALUES (40, 'Both signals', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'YOK-40', "
-            "'2026-03-01T10:00:00Z')"
-        )
-        # Simulate: branch exists and is merged (merge-base --is-ancestor succeeds)
-        mock_run.side_effect = [
-            _completed(returncode=0, stdout="main\n"),  # rev-parse --verify main
-            _completed(returncode=0),  # merge-base --is-ancestor <branch> main
-        ]
-        rec = _run_hc(hc_orphaned_active_items, conn)
-        # flagged by merged_at check first, branch check skips due to dedup
-        detail = _result(rec).detail
-        # Count only the issue mentions in "YOK-N (status:...)" lines
-        import re
-        mentions = re.findall(r"YOK-40 \(status:", detail) if detail else []
-        assert len(mentions) == 1

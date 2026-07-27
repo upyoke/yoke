@@ -225,3 +225,82 @@ class TestWorktreeHandoffEmittedRetired:
             "",
         )
         assert "RETIRED" in line or "retired" in line, line
+
+
+class TestCanonicalOwnerPaths:
+    """Agent sources and active docs name current Python owners."""
+
+    def test_canonical_agent_sources_do_not_name_runtime_api_owners(self):
+        canonical = REPO / "runtime" / "agents"
+        stale = (
+            "runtime/api/domain/reflection_capture_hook.py",
+            "runtime/api/domain/reflection_capture_shapes.py",
+            "runtime/api/domain/field_note_text.py",
+            "runtime/api/domain/schema_init_tables.py",
+            "runtime/api/domain/schema_init_columns.py",
+            "runtime/api/domain/items_constants.py",
+            "runtime/api/domain/mutation_fields.py",
+            "runtime/api/domain/flow.py",
+            "runtime/api/domain/ephemeral_env.py",
+            "runtime/api/domain/handlers/reads.py",
+            "runtime/api/domain/file_line_check.py",
+            "runtime/api/engines/doctor_hc_db_project_schema_expected.py",
+        )
+        text = "\n".join(
+            path.read_text(encoding="utf-8") for path in canonical.rglob("*.md")
+        )
+        for owner in stale:
+            assert owner not in text, owner
+
+    def test_canonical_agent_sources_name_package_owners(self):
+        engineer = _read(
+            REPO / "runtime" / "agents" / "engineer" / "migration-protocol.md"
+        )
+        reflection = _read(REPO / "runtime" / "agents" / "engineer" / "reflection.md")
+        field_note = _read(
+            REPO / "runtime" / "agents" / "_shared" / "ouroboros-field-note.md"
+        )
+        assert (
+            "packages/yoke-core/src/yoke_core/domain/schema_init_tables.py" in engineer
+        )
+        assert (
+            "packages/yoke-core/src/yoke_core/engines/doctor_hc_db_project_schema_expected.py"
+            in engineer
+        )
+        assert (
+            "packages/yoke-core/src/yoke_core/domain/reflection_capture_hook.py"
+            in reflection
+        )
+        assert (
+            "packages/yoke-contracts/src/yoke_contracts/field_note_text.py"
+            in field_note
+        )
+
+    def test_active_docs_do_not_name_retired_shell_owners(self):
+        docs = (
+            REPO / "docs" / "agents.md",
+            REPO / "docs" / "event-contract.md",
+            REPO / "docs" / "github-actions-gotchas.md",
+            REPO / "docs" / "structured-logging-standard" / "agent-session-pattern.md",
+        )
+        text = "\n".join(_read(path) for path in docs)
+        for owner in (
+            "write-to-main.sh",
+            "hook-helpers.sh",
+            "lint-write-path.sh",
+            "harness-session-start.sh",
+        ):
+            assert owner not in text, owner
+
+    def test_hook_docs_preserve_claim_ownership_at_session_end(self):
+        text = _read(REPO / "docs" / "hooks.md")
+        assert "They do not drain claims." in text
+        assert "Issue-flow auto-commit" in text
+        assert "HarnessSessionStopped" in text
+
+    def test_session_workspace_comment_is_functional(self):
+        text = _read(
+            REPO / "runtime" / "harness" / "hook_runner" / "session_workspace.py"
+        )
+        assert "approved addendum" not in text
+        assert "session_dispatch.py`` is at" in text

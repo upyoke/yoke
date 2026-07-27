@@ -29,7 +29,7 @@ from yoke_core.domain.path_claim_active_claim_lookup import (
 # Failure mode constants — both guards reference these.
 OUT_OF_CLAIM = "out-of-claim"
 WRONG_CWD = "wrong-cwd"
-# Claim has no worktree binding (``items.worktree`` empty). Narrative
+# Claim has no active universal lane. Narrative
 # teaches ``worktree_preflight``, NOT the ``path-claims widen`` template.
 WORKTREE_UNRESOLVED = "worktree-unresolved"
 
@@ -40,9 +40,9 @@ class ClaimContext:
 
     ``covered_paths`` is the list of repo-relative path strings the
     claim covers (resolved from ``path_claim_targets`` via
-    ``path_targets.path_string``). For issue items ``worktree_path`` is
-    the absolute worktree root the claim was issued for. For epic items
-    ``worktree_path`` is ``None`` and ``chain_worktrees`` carries the
+    ``path_targets.path_string``). For single-lane items ``worktree_path`` is
+    the absolute active lane root. For task-lane items ``worktree_path`` is
+    ``None`` and ``chain_worktrees`` carries the
     ``((branch, absolute_path), ...)`` enumeration; the effective
     worktree is then chosen per-evaluation by matching the inbound
     target path against each chain root, so path-driven checks can map
@@ -92,8 +92,8 @@ class Failure:
     """One target's failure reason, consumed by the guard's narrative.
 
     ``effective_worktree_path`` is the worktree root used for the
-    decision. For issue items this equals ``ctx.worktree_path``. For
-    epic items it is the chain worktree path that matched the
+    decision. For single-lane items this equals ``ctx.worktree_path``. For
+    task-lane items it is the lane path that matched the
     inbound target path; narratives prefer this over ``ctx.worktree_path``
     so the operator sees the correct lane in the deny output.
     """
@@ -167,8 +167,8 @@ def _path_is_under(path: Path, root: str) -> bool:
 def _effective_worktree_for(target_path: str, cwd: str, ctx: ClaimContext) -> str:
     """Return the worktree root that binds ``target_path`` under ``ctx``.
 
-    For issue items this is ``ctx.worktree_path`` (or empty when none).
-    For epic items the worktree is chosen by matching ``target_path``
+    For single-lane items this is ``ctx.worktree_path`` (or empty when none).
+    For task-lane items the worktree is chosen by matching ``target_path``
     against ``ctx.chain_worktrees`` — the chain whose absolute path is
     an ancestor of the target wins. Returns ``""`` when nothing matches
     (caller falls through to ``project_repo_path``).

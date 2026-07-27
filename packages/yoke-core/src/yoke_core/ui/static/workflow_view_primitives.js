@@ -44,6 +44,27 @@ export function button(
   return node;
 }
 
+export function setWorkflowInlineContent(documentNode, host, parts) {
+  const values = Array.isArray(parts) ? parts : [parts];
+  const text = values.map((part) => (
+    typeof part === "string" ? part : String(part?.text || "")
+  )).join("");
+  host.textContent = text;
+  if (typeof documentNode.createTextNode !== "function") return;
+
+  const nodes = values.map((part) => {
+    if (typeof part === "string") return documentNode.createTextNode(part);
+    const kind = part?.kind === "strong" ? "strong" : "code";
+    const className = [
+      kind === "strong"
+        ? "workflow-inline-strong" : "workflow-inline-code",
+      part?.className || "",
+    ].filter(Boolean).join(" ");
+    return el(documentNode, kind, className, part?.text || "");
+  });
+  host.replaceChildren(...nodes);
+}
+
 export function workflowPanel(documentNode, title, options = {}) {
   const panel = el(documentNode, "section", "panel workflow-panel");
   const header = el(documentNode, "div", "panel-header workflow-panel-header");
@@ -57,6 +78,14 @@ export function workflowPanel(documentNode, title, options = {}) {
     heading.appendChild(el(
       documentNode, "span", "workflow-version",
       `current · v${options.version}`,
+    ));
+  }
+  if (options.status && options.status !== "active") {
+    heading.appendChild(el(
+      documentNode,
+      "span",
+      `workflow-status ${options.status}`,
+      options.status,
     ));
   }
   header.appendChild(heading);
@@ -104,6 +133,24 @@ export function sortedWorkflows(workflows) {
   });
 }
 
+export function stageDisplayLabel(stage) {
+  return String(stage?.label || stage?.id || "");
+}
+
+export function workflowStageDisplayLabel(workflow, stage) {
+  if (BUILTIN_WORKFLOW_ORDER.includes(String(workflow?.id))) {
+    return String(stage?.id || stage?.label || "");
+  }
+  return stageDisplayLabel(stage);
+}
+
+export function workflowStageLabel(workflow, stageId) {
+  const stage = (workflow.definition?.stages || []).find(
+    (candidate) => candidate.id === stageId,
+  );
+  return workflowStageDisplayLabel(workflow, stage) || String(stageId || "");
+}
+
 export function readablePolicyValue(policy, value) {
   const declared = POLICY_VALUE_COPY[policy] || {};
   if (declared[value]) return declared[value];
@@ -120,11 +167,24 @@ export function renderTabs(
 ) {
   host.replaceChildren();
   for (const workflow of workflows) {
+    const workflowName = workflow.name || workflow.id;
+    const disabled = workflow.status === "disabled";
     const tab = button(
       documentNode,
-      workflow.name || workflow.id,
-      `workflow-tab${workflow.id === selectedId ? " selected" : ""}`,
+      workflowName,
+      `workflow-tab${workflow.id === selectedId ? " selected" : ""}` +
+        `${disabled ? " disabled" : ""}`,
     );
+    if (disabled) {
+      tab.appendChild(el(
+        documentNode, "span", "workflow-tab-status", "disabled",
+      ));
+    }
+    tab.setAttribute(
+      "aria-label",
+      `${workflowName} workflow · ${disabled ? "disabled" : "active"}`,
+    );
+    tab.setAttribute("role", "tab");
     tab.setAttribute("aria-selected", String(workflow.id === selectedId));
     tab.addEventListener("click", () => select(workflow.id));
     host.appendChild(tab);
@@ -141,9 +201,17 @@ export function renderWorkflowDialog(documentNode, host, spec) {
   const dialog = el(documentNode, "section", "workflow-dialog");
   dialog.setAttribute("role", "dialog");
   dialog.setAttribute("aria-modal", "true");
-  dialog.appendChild(el(
+  dialog.setAttribute("aria-label", spec.title);
+  const heading = el(documentNode, "div", "workflow-dialog-heading");
+  if (/^Turn (?:on|off) path claims/.test(spec.title)) {
+    heading.appendChild(el(
+      documentNode, "span", "workflow-dialog-lock", "🔒",
+    ));
+  }
+  heading.appendChild(el(
     documentNode, "h2", "workflow-dialog-title", spec.title,
   ));
+  dialog.appendChild(heading);
   if (spec.subtitle) {
     dialog.appendChild(el(
       documentNode, "p", "workflow-dialog-subtitle", spec.subtitle,

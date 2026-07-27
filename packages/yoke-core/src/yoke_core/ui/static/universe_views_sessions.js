@@ -1,52 +1,347 @@
+import { buildUniverseRoute } from "./universe_navigation.js";
 import {
-  loadScopedSection,
+  callFunction,
+  el,
   mergedRows,
-  renderTable,
+  portabilityMode,
+  renderError,
   scopeBuckets,
-  section,
+  sessionModePill,
+  settledScopedCalls,
+  statePill,
   whoColumn,
-  withProjectColumn,
 } from "./universe_view_support.js";
+import { relativeTime } from "./universe_time.js";
+const LIVE_STATES = new Set(["active", "stale"]);
+const WORKTREE_ROLES = new Set(["integration", "worker"]);
+function sessionItemHref(projectIds, row) {
+  const project = projectIds.get(String(row.project)) || row.project_id;
+  const detail = String(row.current_item || "").replace(/^[A-Za-z]+-/, "");
+  return project && detail
+    ? buildUniverseRoute("items", String(project), detail)
+    : null;
+}
+function statRow(documentNode, facts) {
+  const row = el(documentNode, "div", "stat-row sessions-stats");
+  for (const [value, label] of facts) {
+    const tile = el(documentNode, "div", "stat");
+    tile.appendChild(el(documentNode, "div", "n", String(value)));
+    tile.appendChild(el(documentNode, "div", "l", label));
+    row.appendChild(tile);
+  }
+  return row;
+}
+function harnessIdentity(row) {
+  const executor = String(row.executor || "unreported");
+  const normalized = executor.toLowerCase();
+  if (row.actor_kind === "system" && normalized.includes("ci")) {
+    return { mark: "⚙", className: "h-machine", label: executor };
+  }
+  if (normalized.includes("claude")) {
+    return { mark: "C", className: "h-claude", label: executor };
+  }
+  if (normalized.includes("codex")) {
+    return { mark: "X", className: "h-codex", label: executor };
+  }
+  return {
+    mark: executor.slice(0, 1).toUpperCase() || "?",
+    className: "h-other",
+    label: executor,
+  };
+}
+function appendAssignment(documentNode, body, row, projectIds) {
+  const work = el(documentNode, "div", "session-work");
+  if (!row.current_item) {
+    work.appendChild(el(
+      documentNode,
+      "span",
+      "session-unassigned",
+      row.current_item_title || "No actionable work right now",
+    ));
+    body.appendChild(work);
+    return;
+  }
 
-// The session, not the item: who runs (the actor, honestly labelled by the
-// engine so a system actor never reads as a person), what it holds (its
-// active work-claims, rendered server-side from the typed targets), how
-// alive it is (engine-derived liveness — the executor-aware TTL numbers
-// live in the engine, never here), and what Yoke directed it to do (the
-// stored execution lane and mode).
-export function renderSessionsView(context, main, scope) {
-  const panel = section(context.document, "Sessions");
-  main.replaceChildren(panel);
-  const buckets = scopeBuckets(scope, context.projects(), false);
-  // Who runs a session is the actor by default; a host that names accounts
-  // (a hosted org) turns the same column into the member it maps to.
-  const who = whoColumn(context.capabilities);
-  loadScopedSection(
-    context, panel,
-    buckets.map((bucket) => ({
-      functionId: "sessions.list",
-      payload: bucket === null ? {} : { project: bucket },
-    })),
-    (body, callResults) => {
-      const rows = mergedRows(callResults, (result) => result.rows);
-      // Every bucket served its complete set, so the merged length is the
-      // fetched total.
-      panel.setCount(rows.length);
-      // Each session row carries the slug of the project it works in.
-      renderTable(body, rows, withProjectColumn([
-        { label: "session", value: (row) => row.session_id },
-        { label: who.label, value: who.value },
-        { label: "liveness", value: (row) => row.liveness, pill: true },
-        { label: "lane", value: (row) => row.execution_lane },
-        { label: "mode", value: (row) => row.mode },
-        {
-          label: "holds",
-          value: (row) => (row.claims || [])
-            .map((claim) => claim.target).join(", "),
-        },
-        { label: "item", value: (row) => row.current_item },
-        { label: "last activity", value: (row) => row.activity_at },
-      ], scope, (row) => row.project), "no sessions yet");
-    },
+  const marker = el(
+    documentNode,
+    "span",
+    `session-lock${row.owns_current_item ? "" : " attached"}`,
+    row.owns_current_item ? "🔒" : "↳",
   );
+  marker.title = row.owns_current_item
+    ? "this session owns the item claim"
+    : "worktree lane on the owning session's item; holds no item claim";
+  work.appendChild(marker);
+  const href = sessionItemHref(projectIds, row);
+  const item = el(documentNode, href ? "a" : "span", "session-item-link");
+  item.textContent = String(row.current_item);
+  if (href) item.href = href;
+  work.appendChild(item);
+  if (row.current_item_title) {
+    work.appendChild(el(
+      documentNode,
+      "span",
+      "session-item-title",
+      `· ${row.current_item_title}`,
+    ));
+  }
+  work.appendChild(el(
+    documentNode,
+    "span",
+    "session-work-role",
+    row.work_role || (row.owns_current_item ? "item" : "attached"),
+  ));
+  body.appendChild(work);
+}
+function appendRuntime(documentNode, body, row) {
+  const runtime = el(documentNode, "div", "session-runtime");
+  const lane = el(
+    documentNode,
+    "span",
+    "session-lane",
+    row.execution_lane || "no lane",
+  );
+  lane.title = "execution lane — the job Yoke assigned, not the harness";
+  runtime.appendChild(lane);
+  runtime.appendChild(el(
+    documentNode,
+    "span",
+    "session-model",
+    row.model || "model not reported",
+  ));
+  body.appendChild(runtime);
+}
+function appendAge(documentNode, body, row) {
+  const age = el(documentNode, "div", "session-age");
+  let lead = "idle ";
+  let timestamp = row.activity_at;
+  if (row.current_item && row.owns_current_item) {
+    lead = "claim held ";
+    timestamp = row.claim_started_at || row.activity_at;
+  } else if (row.current_item) {
+    lead = "worktree attached · active ";
+  }
+  age.appendChild(el(documentNode, "span", "session-age-prefix", lead));
+  age.appendChild(relativeTime(documentNode, timestamp));
+  body.appendChild(age);
+}
+function footerIdentity(row, who, mode) {
+  if (mode === "local") {
+    return { local: true, label: "this machine", machine: false };
+  }
+  const machine = row.actor_kind === "system";
+  const directory = who.label === "member";
+  return {
+    local: false,
+    label: machine && directory ? "—" : (who.value(row) || "unattributed"),
+    machine: machine && directory,
+  };
+}
+function appendFooter(documentNode, card, row, who, mode) {
+  const footer = el(documentNode, "div", "session-foot");
+  const identity = footerIdentity(row, who, mode);
+  if (identity.local) {
+    footer.appendChild(el(documentNode, "span", "session-local-mark", "◍"));
+  } else {
+    const avatar = el(
+      documentNode,
+      "span",
+      "session-actor-avatar",
+      identity.machine
+        ? "⚙"
+        : String(identity.label).slice(0, 1).toUpperCase(),
+    );
+    footer.appendChild(avatar);
+  }
+  footer.appendChild(el(
+    documentNode,
+    "span",
+    "session-operator",
+    identity.label,
+  ));
+  if (identity.machine) {
+    footer.appendChild(el(documentNode, "span", "session-machine", "machine"));
+  }
+  footer.appendChild(el(documentNode, "span", "session-footer-separator", "·"));
+  footer.appendChild(el(documentNode, "span", null, "session"));
+  footer.appendChild(el(
+    documentNode,
+    "span",
+    "session-id",
+    String(row.session_id || "unreported"),
+  ));
+  card.appendChild(footer);
+}
+function sessionCard(documentNode, row, who, mode, projectIds) {
+  const card = el(documentNode, "article", "session-card");
+  card.setAttribute("data-liveness", row.liveness || "unknown");
+
+  const top = el(documentNode, "div", "session-top");
+  const harness = harnessIdentity(row);
+  top.appendChild(el(
+    documentNode,
+    "span",
+    `session-harness ${harness.className}`,
+    harness.mark,
+  ));
+  top.appendChild(el(documentNode, "span", "session-executor", harness.label));
+  top.appendChild(sessionModePill(documentNode, row.mode, row.liveness));
+  card.appendChild(top);
+
+  const body = el(documentNode, "div", "session-card-body");
+  appendAssignment(documentNode, body, row, projectIds);
+  appendRuntime(documentNode, body, row);
+  appendAge(documentNode, body, row);
+  card.appendChild(body);
+  appendFooter(documentNode, card, row, who, mode);
+  return card;
+}
+
+function metricFacts(rows) {
+  const claimedItems = new Set(rows.filter(
+    (row) => row.owns_current_item && row.current_item,
+  ).map((row) => row.current_item));
+  const worktreeLanes = rows.filter(
+    (row) =>
+      String(row.current_item_workflow_id || "").toLowerCase() === "blitz"
+      && WORKTREE_ROLES.has(String(row.work_role || "").toLowerCase()),
+  ).length;
+  const actors = new Set(rows.map(
+    (row) => row.actor_id ?? row.actor_label,
+  ).filter((value) => value !== null && value !== undefined && value !== ""));
+  const actorCount = actors.size;
+  return [
+    [rows.length, "live sessions"],
+    [claimedItems.size, "items claimed"],
+    [worktreeLanes, "Blitz worktree lanes"],
+    [actorCount, `actor${actorCount === 1 ? "" : "s"}`],
+  ];
+}
+
+function renderSessions(documentNode, host, rows, who, mode, projectIds) {
+  host.replaceChildren(statRow(documentNode, metricFacts(rows)));
+  if (!rows.length) {
+    host.appendChild(el(
+      documentNode,
+      "p",
+      "sessions-empty",
+      "No live sessions in this scope.",
+    ));
+    return;
+  }
+  const grid = el(documentNode, "div", "session-grid");
+  for (const row of rows) {
+    grid.appendChild(sessionCard(documentNode, row, who, mode, projectIds));
+  }
+  host.appendChild(grid);
+}
+
+export function renderSessionsView(context, main, scope, chrome = {}) {
+  const documentNode = context.document;
+  const view = el(documentNode, "div", "sessions-view");
+  const actionStatus = el(documentNode, "p", "sessions-action-status");
+  actionStatus.hidden = true;
+  actionStatus.setAttribute("role", "status");
+  const content = el(documentNode, "div", "sessions-content", "loading sessions…");
+  view.appendChild(actionStatus);
+  view.appendChild(content);
+  main.replaceChildren(view);
+
+  const reclaim = el(documentNode, "button", "item-button", "Reclaim stale");
+  reclaim.type = "button";
+  reclaim.disabled = true;
+  if (typeof chrome.setPageHead === "function") {
+    chrome.setPageHead({
+      title: "Sessions",
+      summary:
+        "Every harness session running against this universe, and what each one holds.",
+      actions: [reclaim],
+    });
+  }
+
+  const buckets = scopeBuckets(scope, context.projects(), false);
+  const who = whoColumn(context.capabilities);
+  const mode = portabilityMode(context.capabilities);
+  const projectIds = new Map(context.projects().map(
+    (row) => [String(row.slug), String(row.id)],
+  ));
+  const reclaimPayload = scope === "all"
+    ? { confirm: true }
+    : {
+      confirm: true,
+      project_ids: scope.map((value) => Number(value)),
+    };
+  let staleCount = 0;
+
+  const load = async () => {
+    const calls = buckets.flatMap((bucket) => [...LIVE_STATES].map(
+      (liveness) => ({
+        functionId: "sessions.list",
+        payload: {
+          ...(bucket === null ? {} : { project: bucket }),
+          liveness,
+          limit: 500,
+        },
+      }),
+    ));
+    const { callResults, failed } = await settledScopedCalls(
+      context,
+      calls,
+    );
+    if (!context.isMounted()) return;
+    if (failed) {
+      content.replaceChildren();
+      renderError(content, failed);
+      reclaim.disabled = true;
+      reclaim.title = "Sessions could not be read";
+      return;
+    }
+    const rowsBySession = new Map();
+    for (const row of mergedRows(callResults, (result) => result.rows)) {
+      if (LIVE_STATES.has(String(row.liveness || "").toLowerCase())) {
+        rowsBySession.set(String(row.session_id), row);
+      }
+    }
+    const rows = [...rowsBySession.values()];
+    staleCount = rows.filter((row) => row.liveness === "stale").length;
+    reclaim.disabled = staleCount === 0;
+    reclaim.title = staleCount
+      ? `Recheck and reclaim ${staleCount} stale session${staleCount === 1 ? "" : "s"}`
+      : "No stale sessions in this scope";
+    renderSessions(documentNode, content, rows, who, mode, projectIds);
+  };
+
+  reclaim.addEventListener("click", async () => {
+    if (reclaim.disabled || staleCount === 0) return;
+    reclaim.disabled = true;
+    actionStatus.hidden = false;
+    actionStatus.textContent = "Rechecking liveness before reclaim…";
+    let result;
+    try {
+      result = await callFunction(
+        context.client,
+        "sessions.reclaim_stale",
+        reclaimPayload,
+      );
+    } catch (error) {
+      actionStatus.textContent = `Cleanup failed: ${String(error)}`;
+      reclaim.disabled = false;
+      return;
+    }
+    const ok = result.status === 200 && result.envelope.success;
+    if (!ok) {
+      actionStatus.textContent =
+        (result.envelope.error || {}).message || "Cleanup failed";
+      reclaim.disabled = false;
+      return;
+    }
+    const reclaimed = Number(
+      (result.envelope.result || {}).total_reclaimed,
+    ) || 0;
+    actionStatus.textContent =
+      `${reclaimed} stale session${reclaimed === 1 ? "" : "s"} reclaimed`;
+    await load();
+  });
+
+  load();
 }

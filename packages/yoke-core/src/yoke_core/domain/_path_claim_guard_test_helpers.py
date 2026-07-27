@@ -12,12 +12,16 @@ from yoke_core.domain.schema_init_apply import execute_schema_script
 
 _LIVE_DDL = (
     "CREATE TABLE projects(id INTEGER PRIMARY KEY,slug TEXT UNIQUE NOT NULL);"
-    "CREATE TABLE items(id INTEGER PRIMARY KEY,type TEXT NOT NULL,worktree TEXT,project_id INTEGER);"
+    "CREATE TABLE items(id INTEGER PRIMARY KEY,type TEXT NOT NULL,project_id INTEGER);"
+    "CREATE TABLE item_worktrees(id INTEGER PRIMARY KEY,item_id INTEGER NOT NULL,"
+    "branch TEXT NOT NULL,path TEXT,lane_role TEXT NOT NULL,state TEXT NOT NULL,"
+    "created_at TEXT,updated_at TEXT,released_at TEXT);"
     "CREATE TABLE harness_sessions(session_id TEXT PRIMARY KEY,current_item_id TEXT);"
     "CREATE TABLE path_claims(id INTEGER PRIMARY KEY,item_id INTEGER,integration_target TEXT,state TEXT,session_id TEXT,owner_kind TEXT,owner_item_id INTEGER,owner_session_id TEXT,owner_work_claim_id INTEGER);"
     "CREATE TABLE path_targets(id INTEGER PRIMARY KEY AUTOINCREMENT,path_string TEXT UNIQUE);"
     "CREATE TABLE path_claim_targets(id INTEGER PRIMARY KEY AUTOINCREMENT,claim_id INTEGER,target_id INTEGER);"
-    "CREATE TABLE epic_dispatch_chains(id INTEGER PRIMARY KEY AUTOINCREMENT,epic_id INTEGER NOT NULL,worktree TEXT NOT NULL,worktree_path TEXT);"
+    "CREATE TABLE epic_dispatch_chains(id INTEGER PRIMARY KEY AUTOINCREMENT,"
+    "epic_id INTEGER NOT NULL,item_worktree_id INTEGER);"
 )
 
 
@@ -65,17 +69,31 @@ def live_db(tmp_path):
             _, version_id = resolve_current_workflow_pin(conn, workflow_id)
             conn.execute(
                 "INSERT INTO items "
-                "(id,type,worktree,project_id,workflow_id,workflow_version_id) "
-                f"VALUES({p},{p},{p},{p},{p},{p})",
+                "(id,type,project_id,workflow_id,workflow_version_id) "
+                f"VALUES({p},{p},{p},{p},{p})",
                 (
                     kw["item_id"],
                     workflow_id,
-                    kw.get("items_worktree") or None,
                     1,
                     workflow_id,
                     version_id,
                 ),
             )
+            next_lane_id = 100
+            if kw.get("items_worktree"):
+                conn.execute(
+                    "INSERT INTO item_worktrees "
+                    "(id,item_id,branch,lane_role,state) "
+                    f"VALUES({p},{p},{p},{p},{p})",
+                    (
+                        next_lane_id,
+                        kw["item_id"],
+                        kw["items_worktree"],
+                        "implementation",
+                        "active",
+                    ),
+                )
+                next_lane_id += 1
             conn.execute(
                 f"INSERT INTO harness_sessions VALUES({p},{p})",
                 (kw["session_id"], str(kw["item_id"])),
@@ -105,9 +123,23 @@ def live_db(tmp_path):
                 )
             for branch in kw["chains"]:
                 conn.execute(
-                    f"INSERT INTO epic_dispatch_chains(epic_id,worktree) VALUES({p},{p})",
-                    (kw["item_id"], branch),
+                    "INSERT INTO item_worktrees "
+                    "(id,item_id,branch,lane_role,state) "
+                    f"VALUES({p},{p},{p},{p},{p})",
+                    (
+                        next_lane_id,
+                        kw["item_id"],
+                        branch,
+                        "worker",
+                        "active",
+                    ),
                 )
+                conn.execute(
+                    "INSERT INTO epic_dispatch_chains"
+                    f"(epic_id,item_worktree_id) VALUES({p},{p})",
+                    (kw["item_id"], next_lane_id),
+                )
+                next_lane_id += 1
             conn.commit()
 
         try:

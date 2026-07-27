@@ -18,6 +18,7 @@ import yoke_core.domain.epic_task_sync_github as _etsg
 from yoke_core.domain import db_backend, github_rest
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.github_constraints import is_real_issue_num
+from yoke_core.domain.item_worktrees import record_worker_item_worktree
 from yoke_core.domain.epic_task_sync import (
     _connect_db,
     _epic_parent_item_id,
@@ -53,8 +54,8 @@ def sync_epic_tasks(
     """Main create/link/dedup flow for epic tasks on GitHub.
 
     Creates or reuses the parent epic GitHub issue, then creates or reuses a
-    child GitHub issue for each epic task, writes back ``github_issue`` / ``branch`` /
-    ``worktree_path`` to the DB, links sub-issues when the extension is
+    child GitHub issue for each epic task, writes back ``github_issue`` and
+    the task's universal lane reference, links sub-issues when the extension is
     available, and generates dispatch chains.
     """
     stdout = stdout or sys.stdout
@@ -131,13 +132,13 @@ def sync_epic_tasks(
         # --- Read tasks from DB ---
         task_rows = conn.execute(
             f"""
-            SELECT id, epic_id, task_num, COALESCE(title, ''),
-                   COALESCE(worktree, ''), COALESCE(context_estimate, ''),
-                   COALESCE(dependencies, ''), COALESCE(status, ''),
-                   COALESCE(dispatch_attempts, 0)
-            FROM epic_tasks
-            WHERE epic_id = {p}
-            ORDER BY task_num ASC
+            SELECT t.id, t.epic_id, t.task_num, COALESCE(t.title, ''),
+                   COALESCE(iw.branch, ''), COALESCE(t.context_estimate, ''),
+                   COALESCE(t.dependencies, ''), COALESCE(t.status, ''),
+                   COALESCE(t.dispatch_attempts, 0)
+            FROM epic_tasks t LEFT JOIN item_worktrees iw ON iw.id=t.item_worktree_id
+            WHERE t.epic_id = {p}
+            ORDER BY t.task_num ASC
             """,
             (epic_name,),
         ).fetchall()
@@ -182,8 +183,8 @@ def sync_epic_tasks(
                     print(f"Warning: task {task_num_str} has empty worktree, "
                           f"defaulting to {skip_wt}", file=stderr)
                     conn.execute(
-                        f"UPDATE epic_tasks SET worktree = {p} WHERE epic_id = {p} AND task_num = {p}",
-                        (skip_wt, epic_name, int(db_tnum)),
+                        f"UPDATE epic_tasks SET item_worktree_id = {p} WHERE epic_id = {p} AND task_num = {p}",
+                        (int(record_worker_item_worktree(conn, item_id=int(epic_name), branch=skip_wt, path=None)["id"]), epic_name, int(db_tnum)),
                     )
                     conn.commit()
                 if skip_wt:
@@ -198,8 +199,8 @@ def sync_epic_tasks(
                 print(f"Warning: task {task_num_str} has empty worktree, "
                       f"defaulting to {task_worktree}", file=stderr)
                 conn.execute(
-                    f"UPDATE epic_tasks SET worktree = {p} WHERE epic_id = {p} AND task_num = {p}",
-                    (task_worktree, epic_name, int(db_tnum)),
+                    f"UPDATE epic_tasks SET item_worktree_id = {p} WHERE epic_id = {p} AND task_num = {p}",
+                    (int(record_worker_item_worktree(conn, item_id=int(epic_name), branch=task_worktree, path=None)["id"]), epic_name, int(db_tnum)),
                 )
                 conn.commit()
 
@@ -289,16 +290,15 @@ def sync_epic_tasks(
                 f"UPDATE epic_tasks SET github_issue = {p} WHERE epic_id = {p} AND task_num = {p}",
                 (f"#{task_issue_num}", epic_name, int(db_tnum)),
             )
-            conn.execute(
-                f"UPDATE epic_tasks SET branch = {p} WHERE epic_id = {p} AND task_num = {p}",
-                (task_worktree, epic_name, int(db_tnum)),
-            )
             if task_worktree and repo_root:
                 wt_slug = task_worktree.replace("/", "-")
                 wt_path = f"{repo_root}/.worktrees/{wt_slug}"
+                lane = record_worker_item_worktree(
+                    conn, item_id=int(epic_name), branch=task_worktree, path=wt_path,
+                )
                 conn.execute(
-                    f"UPDATE epic_tasks SET worktree_path = {p} WHERE epic_id = {p} AND task_num = {p}",
-                    (wt_path, epic_name, int(db_tnum)),
+                    f"UPDATE epic_tasks SET item_worktree_id = {p} WHERE epic_id = {p} AND task_num = {p}",
+                    (int(lane["id"]), epic_name, int(db_tnum)),
                 )
             conn.commit()
 

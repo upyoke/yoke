@@ -81,6 +81,13 @@ export function activationClient(activation, overrides = {}) {
     "events.query.run": { rows: [] },
     "doctor.last_run.get": { never_run: true },
     "overview.activation.get": activation,
+    "overview.vitals.get": {
+      state_counts: {
+        active: 0, pipeline: 0, backlog: 0, blocked: 0, frozen: 0, done: 0,
+      },
+      momentum: [],
+      days: 120,
+    },
     "overview.module.dismiss": { dismissed: true },
     "overview.module.restore": { dismissed: false },
     ...overrides,

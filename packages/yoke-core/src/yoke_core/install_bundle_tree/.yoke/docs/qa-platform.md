@@ -4,8 +4,8 @@ Yoke's QA platform replaces the legacy `reviews` table with a unified, requireme
 
 Agent writes against the QA tables route through the Yoke function-call
 surface (`qa.requirement.add`, `qa.requirement.add_batch`,
-`qa.requirement.auto_create_for_item`, `qa.requirement.list`,
-`qa.requirement.get`, `qa.requirement.update`, `qa.run.add`,
+`qa.requirement.list`, `qa.requirement.get`, `qa.requirement.update`,
+`qa.plan.materialize`, `qa.run.add`,
 `qa.run.complete`, `qa.run.record_verdict`, `qa.run.list`,
 `qa.artifact.presign`, `qa.artifact.add`, `qa.gate_summary.run`,
 `qa.browser_context.get`, `qa.screenshot_evidence.pending_count`, and
@@ -245,57 +245,54 @@ An epic parent item cannot become `reviewed-implementation` until:
 
 Deployment runs materialize run-level requirements when the run is created. These are flow- or release-scoped post-deploy requirements that prove release health.
 
-## Browser QA Modes
+## Browser Methods
 
-The schema supports three browser-QA assessment modes under the same normalized model:
+Browser execution is method-backed and case-scoped. The built-in methods are:
 
-### Deterministic Assertions
+- **Browser check** (`browser-check`) — runs declared browser assertions and
+  produces an automatic verdict.
+- **Browser inspection** (`browser-inspection`) — captures evidence for the
+  declared expected outcome and remains inconclusive until review resolves it.
 
-Exact computed values (color, selector visibility, HTTP status).
-
-```json
-{
- "qa_kind": "e2e",
- "executor_type": "playwright",
- "success_policy": {"type": "deterministic", "check": "exit_code", "expected": 0}
-}
-```
-
-### Diff-Aware Baseline Comparison
-
-Visual diff against a known-good render.
+Each materialized requirement carries an immutable `method_config` snapshot.
+Routes, assertions, screenshots, and any baseline-specific settings belong in
+that snapshot; they are not encoded as aggregate `qa_kind` choices.
 
 ```json
 {
- "qa_kind": "visual-regression",
- "executor_type": "remote-browser",
- "success_policy": {"type": "threshold", "metric": "diff_pct", "threshold": 5.0, "operator": "lte"}
+  "method_id": "browser-check",
+  "instructions": "Open the dashboard and verify its ready state.",
+  "expected_outcome": "The dashboard is visible and ready.",
+  "method_config": {
+    "steps": [
+      {"action": "navigate", "route": "/dashboard"},
+      {"action": "assert", "target": "[data-ready=true]", "check": "visible"},
+      {"action": "screenshot", "capture": true}
+    ]
+  }
 }
 ```
 
-### Agent-Judged Visual Acceptance
+Execute one materialized case at a time:
 
-LLM-based screenshot judgment for higher-level acceptance criteria.
-
-```json
-{
- "qa_kind": "e2e",
- "executor_type": "agent",
- "success_policy": {
- "type": "agent_judgment",
- "confidence_pass": 0.8,
- "confidence_fail": 0.4,
- "min_runs": 3
- }
-}
+```text
+yoke qa case run \
+  --requirement-id <requirement-id> \
+  --base-url <environment-url> \
+  --expected-branch <branch> \
+  --expected-sha <commit>
 ```
+
+`yoke qa browser setup`, `status`, and `screenshot` remain low-level
+machine-substrate utilities. Diagnostic screenshot capture does not create a
+parallel QA verdict.
 
 ## AC-Derived Requirements and Suite Graduation
 
-Requirements with `requirement_source='ac_derived'` are derived from acceptance criteria (e.g., an AC that says "the page should be pink" generates a browser QA check). The `suite_id` field (nullable TEXT, no FK) links to a permanent test suite for test-intelligence tracking (future epic). This supports the lifecycle:
+Requirements with `requirement_source='ac_derived'` are derived from acceptance criteria (e.g., an AC that says "the page should be pink" generates a Browser check case). The `suite_id` field (nullable TEXT, no FK) links to a permanent test suite for test-intelligence tracking (future epic). This supports the lifecycle:
 
 1. AC is written during spec/design
-2. A browser check is derived from the AC (`requirement_source='ac_derived'`)
+2. A Browser check case is derived from the AC (`requirement_source='ac_derived'`)
 3. If the check proves stable, it can be graduated to a permanent suite (`suite_id` is populated)
 4. Future test-intelligence tooling tracks suite membership, flakiness, and coverage
 

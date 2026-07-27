@@ -50,7 +50,7 @@
       },
       {
         "path": "packages/yoke-core/src/yoke_core/domain/handlers/qa_browser.py",
-        "symbol": "handle_qa_browser_context",
+        "symbol": "handle_qa_browser_context_get",
         "role": "reader"
       },
       {

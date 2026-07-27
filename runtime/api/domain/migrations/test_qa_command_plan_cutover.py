@@ -20,12 +20,37 @@ _MANIFEST = Path(__file__).with_name(
 def test_governed_manifest_is_valid_and_digest_bound() -> None:
     payload = json.loads(_MANIFEST.read_text(encoding="utf-8"))
     validate_manifest_payload(payload)
+    profile = payload["profile"]
+    assert profile["compatibility_class"] == "pre_merge_breaking"
+    assert profile["migration_strategy"] == "hard_cutover"
     source = payload["module_sources"]["qa_command_plan_cutover"]
     digest = hashlib.sha256((_ROOT / source["path"]).read_bytes()).hexdigest()
     assert digest == source["sha256"]
 
 
-def test_cutover_moves_commands_and_removes_legacy_rows(test_db) -> None:
+def _cutover_state(conn) -> dict[str, list[tuple]]:
+    plans = conn.execute(
+        "SELECT p.id,p.slug,p.name,p.description,p.retired_at,"
+        "c.id,c.case_key,c.position,c.method_id,c.method_config "
+        "FROM qa_plans p JOIN qa_plan_cases c ON c.plan_id=p.id "
+        "WHERE p.slug IN ('registered-command-quick','pre-merge-verification') "
+        "ORDER BY p.slug,c.position"
+    ).fetchall()
+    defaults = conn.execute(
+        "SELECT project_id,workflow_id,transition_id,qa_phase,plan_id "
+        "FROM qa_plan_project_defaults "
+        "WHERE plan_id IN ("
+        "SELECT id FROM qa_plans WHERE slug IN ("
+        "'registered-command-quick','pre-merge-verification')) "
+        "ORDER BY project_id,workflow_id,transition_id,plan_id"
+    ).fetchall()
+    return {
+        "plans": [tuple(row) for row in plans],
+        "defaults": [tuple(row) for row in defaults],
+    }
+
+
+def test_cutover_moves_commands_removes_legacy_and_reapplies_cleanly(test_db) -> None:
     test_db.execute(
         "INSERT INTO project_structure("
         "project_id, family, attachment_value, attachment_kind, entry_key, "
@@ -70,3 +95,9 @@ def test_cutover_moves_commands_and_removes_legacy_rows(test_db) -> None:
     assert json.loads(merge_row["method_config"])[
         "execution_point"
     ] == "post_rebase_merge"
+
+    first_state = _cutover_state(test_db)
+    apply(test_db)
+    invariants(test_db)
+
+    assert _cutover_state(test_db) == first_state

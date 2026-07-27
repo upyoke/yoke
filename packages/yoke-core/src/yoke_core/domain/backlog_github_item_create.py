@@ -82,7 +82,7 @@ def sync_item(
         # Read all needed fields upfront
         fields = _item_fields(
             item_pk,
-            ["id", "title", "workflow_id", "priority", "status", "source", "owner", "github_issue", "worktree"],
+            ["id", "title", "workflow_id", "priority", "status", "source", "owner", "github_issue"],
             conn=conn,
         )
         if fields is None or not fields.get("id"):
@@ -184,7 +184,10 @@ def sync_item(
         status = fields["status"]
         source = fields["source"]
         owner = fields["owner"]
-        worktree = fields["worktree"]
+        from yoke_core.domain.item_worktrees import primary_item_worktree
+
+        active_lane = primary_item_worktree(conn, int(item_pk))
+        worktree = str(active_lane["branch"]) if active_lane else ""
         # Render body on demand from structured fields.
         from yoke_core.domain.render_body import build_body
         body = build_body(conn, int(item_pk)) or ""

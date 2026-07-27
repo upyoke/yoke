@@ -9,7 +9,9 @@ from typing import Any, Mapping, Sequence
 from yoke_core.domain import db_backend
 from yoke_core.domain.coordination_leases import (
     Lease,
+    LeaseHeldError,
     acquire_lease,
+    active_lease,
     release_lease,
 )
 from yoke_core.domain.db_helpers import iso8601_now
@@ -39,6 +41,35 @@ class MachineCaseResult:
     evidence: dict[str, Any]
     capture_degraded_reason: str | None = None
     error_code: str | None = None
+
+
+class MachineQaLeaseHeld(MachineQaExecutionError):
+    """The test machine is in use and this case must remain waiting."""
+
+    def __init__(self, *, lease: Lease, machine: str) -> None:
+        super().__init__(
+            f"test machine {machine!r} is in use by another execution"
+        )
+        self.lease = lease
+        self.machine = machine
+
+    def waiting_result(self) -> MachineCaseResult:
+        return MachineCaseResult(
+            case_outcome="waiting",
+            verdict="waiting",
+            evidence={
+                "executor_id": "host_control",
+                "machine": self.machine,
+                "case_started": False,
+                "lease": {
+                    "id": self.lease.id,
+                    "key": self.lease.lease_key,
+                    "holder_session_id": self.lease.session_id,
+                    "acquired_at": self.lease.acquired_at,
+                    "heartbeat_at": self.lease.heartbeat_at,
+                },
+            },
+        )
 
 
 @dataclass
@@ -77,6 +108,10 @@ class MachineQaLease:
         if self.closed:
             raise MachineQaExecutionError("test-machine lease is closed")
         if self.baseline is not None and not self.baseline.ok:
+            baseline_evidence = _redact(
+                self.baseline.evidence,
+                tuple(self.material.secrets.values()),
+            )
             return MachineCaseResult(
                 case_outcome="blocked_on_precondition",
                 verdict="blocked",
@@ -84,7 +119,8 @@ class MachineQaLease:
                 evidence={
                     "executor_id": "host_control",
                     "machine": self.material.settings["resource_name"],
-                    "baseline": self.baseline.evidence,
+                    "baseline": self.baseline.name,
+                    "baseline_evidence": baseline_evidence,
                     "case_started": False,
                 },
             )
@@ -109,6 +145,14 @@ class MachineQaLease:
             "machine": self.material.settings["resource_name"],
             "method_id": method_id,
             "baseline": self.baseline.name if self.baseline else None,
+            "baseline_evidence": (
+                _redact(
+                    self.baseline.evidence,
+                    tuple(self.material.secrets.values()),
+                )
+                if self.baseline is not None
+                else None
+            ),
             **safe,
         }
         if not raw.ok:
@@ -154,13 +198,30 @@ def acquire_machine_qa_lease(
 ) -> MachineQaLease:
     """Materialize the approved adapter, then acquire its resource lease."""
     control, material = resolve_host_control(conn, project=project)
-    lease = acquire_lease(
-        conn,
-        material.project_id,
-        lease_key(material.settings["resource_name"]),
-        session_id,
-        actor_id=actor_id,
-    )
+    resource_name = str(material.settings["resource_name"])
+    resource_lease_key = lease_key(resource_name)
+    try:
+        lease = acquire_lease(
+            conn,
+            material.project_id,
+            resource_lease_key,
+            session_id,
+            actor_id=actor_id,
+        )
+    except LeaseHeldError:
+        held = active_lease(
+            conn,
+            material.project_id,
+            resource_lease_key,
+        )
+        if held is None:
+            raise MachineQaExecutionError(
+                "test-machine lease changed while acquiring; retry execution"
+            ) from None
+        raise MachineQaLeaseHeld(
+            lease=held,
+            machine=resource_name,
+        ) from None
     return MachineQaLease(
         conn=conn,
         control=control,
@@ -278,6 +339,7 @@ __all__ = [
     "MachineCaseResult",
     "MachineQaExecutionError",
     "MachineQaLease",
+    "MachineQaLeaseHeld",
     "acquire_machine_qa_lease",
     "validate_machine_method_config",
     "verify_test_machine",

@@ -195,6 +195,38 @@ class TestAccessors:
 class TestRegistryCoverage:
     """The tracker MUST cover every yoke subcommand registered today."""
 
+    def test_registered_dispositions_match_dispatch_boundaries(self) -> None:
+        from yoke_cli.commands.registry import (
+            SUBCOMMAND_ALIAS_REGISTRY,
+            SUBCOMMAND_REGISTRY,
+        )
+        from yoke_core.domain.function_authz_scope import (
+            is_explicit_client_local,
+        )
+
+        registered = {
+            "yoke " + " ".join(cli_tokens): function_id
+            for cli_tokens, (function_id, _) in (
+                *SUBCOMMAND_REGISTRY.items(),
+                *SUBCOMMAND_ALIAS_REGISTRY.items(),
+            )
+        }
+        client_local_forms = {
+            shell_form
+            for shell_form, function_id in registered.items()
+            if is_explicit_client_local(function_id)
+        }
+        dispatcher_forms = set(registered) - client_local_forms
+
+        assert {
+            entry.shell_form for entry in inv.by_status(inv.WRAPPED)
+        } == dispatcher_forms
+        assert client_local_forms <= {
+            entry.shell_form
+            for entry in inv.by_status(inv.PERMANENT)
+            if entry.reason == inv.REASON_TOOL_SHAPED
+        }
+
     def test_every_registered_subcommand_has_valid_disposition(self) -> None:
         from yoke_cli.commands.registry import (
             SUBCOMMAND_ALIAS_REGISTRY,

@@ -222,7 +222,7 @@ def main_resolve() -> int:
     if field in ("path", "branch") and result.has_multiple:
         print(
             f"Error: {item_label} resolves to "
-            f"{len(result.paths)} task worktrees; use --field "
+            f"{len(result.paths)} active worktree lanes; use --field "
             f"{'paths' if field == 'path' else 'branches'}",
             file=sys.stderr,
         )

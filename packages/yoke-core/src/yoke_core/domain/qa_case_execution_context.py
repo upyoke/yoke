@@ -7,6 +7,9 @@ from typing import Any
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_one
+from yoke_core.domain.item_worktree_resolution import (
+    primary_item_worktree_branch_sql,
+)
 
 
 class QaCaseExecutionError(ValueError):
@@ -38,7 +41,9 @@ def get_case_execution_context(
         "q.plan_case_key, q.method_id, q.qa_kind, q.instructions, "
         "q.expected_outcome, q.method_config, q.host_baseline, "
         "q.workflow_transition_id, c.entry_surface, "
-        "c.required_completion, i.worktree, p.id AS project_id, "
+        "c.required_completion, "
+        f"{primary_item_worktree_branch_sql('i.id')} AS lane_branch, "
+        "p.id AS project_id, "
         "p.slug AS project, m.name AS method_name, m.executor_id, "
         "m.required_capability_kind, m.verdict_path "
         "FROM qa_requirements q "
@@ -86,7 +91,7 @@ def get_case_execution_context(
         "workflow_transition_id": row["workflow_transition_id"],
         "project_id": int(row["project_id"]),
         "project": str(row["project"]),
-        "worktree": row["worktree"],
+        "lane_branch": row["lane_branch"],
     }
 
 

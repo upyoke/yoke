@@ -75,6 +75,14 @@ class TestWorktreeHealth:
             "INSERT INTO items (id, title, workflow_id, workflow_version_id, status) "
             "VALUES (20, 'Done item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'done')"
         )
+        conn.execute(
+            "INSERT INTO item_worktrees "
+            "(id, item_id, branch, path, lane_role, state, "
+            "created_at, updated_at, released_at) VALUES "
+            "(1, 20, 'YOK-20', NULL, 'implementation', 'released', "
+            "'2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', "
+            "'2026-01-01T00:00:00Z')"
+        )
         with patch.object(Path, "is_dir", return_value=False):
             rec = _run_hc(hc_worktree_health, conn)
         assert _result(rec).result == "WARN"

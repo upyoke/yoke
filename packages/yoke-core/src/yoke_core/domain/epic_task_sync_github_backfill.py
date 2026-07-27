@@ -182,10 +182,10 @@ def backfill_task_labels(
         p = _placeholder(conn)
         rows = conn.execute(
             f"""
-            SELECT task_num, COALESCE(worktree, ''), COALESCE(github_issue, ''), COALESCE(status, '')
-            FROM epic_tasks
-            WHERE epic_id = {p} AND github_issue IS NOT NULL AND github_issue <> ''
-            ORDER BY task_num ASC
+            SELECT t.task_num, COALESCE(iw.branch, ''), COALESCE(t.github_issue, ''), COALESCE(t.status, '')
+            FROM epic_tasks t LEFT JOIN item_worktrees iw ON iw.id=t.item_worktree_id
+            WHERE t.epic_id = {p} AND t.github_issue IS NOT NULL AND t.github_issue <> ''
+            ORDER BY t.task_num ASC
             """,
             (epic_name,),
         ).fetchall()

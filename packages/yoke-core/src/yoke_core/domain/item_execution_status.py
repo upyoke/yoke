@@ -51,17 +51,15 @@ def _row_value(row: Any, key: str, index: int) -> Any:
 
 def _item_dict(item: Any) -> Dict[str, Any]:
     item_id = _row_value(item, "id", 0)
-    worktree = _row_value(item, "worktree", 4)
     return {
         "id": int(item_id),
         "yok_id": f"YOK-{int(item_id)}",
         "title": str(_row_value(item, "title", 1)),
         "status": str(_row_value(item, "status", 2)),
         "project": str(_row_value(item, "project", 3)),
-        "worktree": str(worktree) if worktree else None,
-        "workflow_id": str(_row_value(item, "workflow_id", 6)),
+        "workflow_id": str(_row_value(item, "workflow_id", 5)),
         "workflow_version_id": int(
-            _row_value(item, "workflow_version_id", 7)
+            _row_value(item, "workflow_version_id", 6)
         ),
     }
 
@@ -116,7 +114,7 @@ def build_projection(
         item = query_one(
             conn,
             "SELECT i.id, i.title, i.status, p.slug AS project, "
-            "i.worktree, i.spec, i.workflow_id, i.workflow_version_id "
+            "i.spec, i.workflow_id, i.workflow_version_id "
             "FROM items i LEFT JOIN projects p ON p.id = i.project_id "
             f"WHERE i.id={_p(conn)}",
             (item_id,),
@@ -131,7 +129,6 @@ def build_projection(
         warnings: List[str] = []
         wt_state = worktree_state(
             item_id,
-            _row_value(item, "worktree", 4),
             db_path=db_path,
             repo_root=repo_root,
             warnings=warnings,
@@ -139,7 +136,7 @@ def build_projection(
         path_claims = collect_path_claims(conn, item_id)
         progress_log = collect_progress_log(conn, item_id, now=now)
         file_budget = collect_file_budget(
-            _row_value(item, "spec", 5) or "",
+            _row_value(item, "spec", 4) or "",
             repo_root=file_budget_root(wt_state, repo_root),
         )
         warnings.extend(_collect_warnings(

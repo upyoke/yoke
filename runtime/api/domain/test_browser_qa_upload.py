@@ -17,6 +17,7 @@ from yoke_core.domain.browser_qa_steps import (
 )
 from yoke_core.domain.browser_qa_test_helpers import (
     _FakeRunRecorder,
+    _browser_check_steps,
     _fetch_context_from_test_db,
     _seed_item,
     _seed_requirement,
@@ -56,7 +57,9 @@ class TestDurableArtifactHandle:
             handle = _durable_artifact_handle(1, 10, str(shot), "image/png")
         assert handle["backend"] == "s3"
         assert handle["bucket"] == "yoke-prod-artifacts"
-        presign.assert_called_once_with(1, 10, "home.png", "image/png")
+        presign.assert_called_once_with(
+            1, 10, "home.png", "image/png", actor=None,
+        )
         upload.assert_called_once_with(
             "https://b.s3.us-east-1.amazonaws.com/k?sig=x",
             str(shot), "image/png",
@@ -146,19 +149,21 @@ class TestScenarioRecordsUploadedHandles:
         """End-to-end: capture lands on disk, uploads, records the s3 handle."""
         monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path / "scratch"))
         _seed_item(db_path, 100)
-        _seed_requirement(
-            db_path, 100, "browser_smoke",
+        req_id = _seed_requirement(
+            db_path, 100, "browser-check",
             {
                 "base_url": "http://localhost:9999",
-                "steps": [
+                "steps": _browser_check_steps(
                     {"action": "screenshot", "capture": True, "label": "home"},
-                ],
+                ),
             },
         )
         recorder = _FakeRunRecorder(db_path)
         uploads: List[Any] = []
 
         def _fake_step(_step, _base_url, artifact_dir, *args, **kwargs):
+            if _step.get("action") != "screenshot":
+                return {"success": True, "artifacts": []}
             shot = Path(artifact_dir) / "home.png"
             shot.parent.mkdir(parents=True, exist_ok=True)
             shot.write_bytes(b"PNG")
@@ -168,9 +173,11 @@ class TestScenarioRecordsUploadedHandles:
             uploads.append((url, path, content_type))
             return True
 
-        def _fake_context(item_id, project, expected_branch=None):
+        def _fake_context(
+            item_id, project, requirement_id, expected_branch=None, actor=None,
+        ):
             return _fetch_context_from_test_db(
-                db_path, item_id, project, expected_branch,
+                db_path, item_id, project, requirement_id, expected_branch,
             )
 
         patches = [
@@ -207,6 +214,7 @@ class TestScenarioRecordsUploadedHandles:
         try:
             result = browser_qa.execute_scenario(
                 item_id=100, project="testproj",
+                requirement_id=req_id,
                 base_url="http://localhost:9999",
             )
         finally:

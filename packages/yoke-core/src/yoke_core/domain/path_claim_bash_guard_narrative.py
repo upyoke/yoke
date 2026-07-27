@@ -97,7 +97,7 @@ def worktree_unresolved_narrative(
 ) -> str:
     """Render the WORKTREE_UNRESOLVED deny body (shared by Bash+Edit guards).
 
-    The claim has no worktree binding (``items.worktree`` is empty), so
+    The claim has no active universal worktree lane, so
     widening the claim's coverage does not help — the next correct move
     is to provision the worktree via the canonical preflight primitive.
     The claim-widen template is intentionally absent from this
@@ -108,22 +108,16 @@ def worktree_unresolved_narrative(
         f"  python3 -m yoke_core.domain.worktree_preflight "
         f"--item YOK-{item_id}"
     )
-    fallback = (
-        f"  python3 -m yoke_core.cli.db_router items update "
-        f"{item_id} worktree <branch>"
-    )
     return (
         f"BLOCKED: path-claim guard ({tool_kind}).\n"
         f"  target_path:    {target_path}\n"
         f"  claim_id:       {ctx.claim_id}\n"
         f"  failure_mode:   worktree-unresolved\n\n"
-        "The active claim is not bound to a worktree (items.worktree is "
-        "empty). Provision the worktree via the canonical preflight "
-        "primitive — it sets items.worktree and activates the bound "
+        "The active claim has no universal worktree lane. Provision the "
+        "lane via the canonical preflight primitive — it records the active "
+        "item_worktrees row and activates the bound "
         "claim:\n\n"
-        f"{preflight}\n\n"
-        "Or set items.worktree directly when you already have a branch:\n"
-        f"{fallback}"
+        f"{preflight}"
     )
 
 

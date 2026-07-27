@@ -16,7 +16,7 @@ Public surface:
 - :func:`task_split` — split a parent task into child rows, preserve
   sibling dependencies (sibling references to the parent become the
   first child), drop the parent row, all in a single transaction.
-- :func:`task_reassign` — change a task's ``worktree`` column.
+- :func:`task_reassign` — relink a task to an active universal lane.
 - :func:`task_add` — append a new task at the next free task_num.
 - :func:`task_remove` — drop a task row and cascade-remove dependency
   references in sibling ``dependencies`` columns.
@@ -84,8 +84,7 @@ class MetadataUpdateResult:
 
 
 _METADATA_WHITELIST = frozenset({
-    "title", "context_estimate", "dependencies", "worktree_path",
-    "github_issue", "branch", "max_attempts",
+    "title", "context_estimate", "dependencies", "github_issue", "max_attempts",
 })
 
 
@@ -150,20 +149,25 @@ def task_add(
 def task_reassign(
     conn, epic_id: int, task_num: int, new_worktree: str,
 ) -> ReassignResult:
-    """Update the ``worktree`` column on a task row."""
+    """Reassign a task through its active universal worktree lane."""
     if not new_worktree:
         raise ValueError("new_worktree is required for task_reassign")
     epic_key = str(epic_id)
     _require_task_exists(conn, epic_key, task_num)
     p = _placeholder(conn)
     row = conn.execute(
-        f"SELECT worktree FROM epic_tasks WHERE epic_id = {p} AND task_num = {p}",
+        "SELECT iw.branch FROM epic_tasks t JOIN item_worktrees iw "
+        f"ON iw.id=t.item_worktree_id WHERE t.epic_id = {p} AND t.task_num = {p}",
         (epic_key, task_num),
     ).fetchone()
     old = ""
     if row is not None:
-        old = (row[0] if not hasattr(row, "keys") else row["worktree"]) or ""
-    task_update_field(conn, epic_key, task_num, "worktree", new_worktree)
+        old = (row[0] if not hasattr(row, "keys") else row["branch"]) or ""
+    from yoke_core.domain.item_worktrees import record_worker_item_worktree
+    lane = record_worker_item_worktree(
+        conn, item_id=int(epic_id), branch=new_worktree, path=None,
+    )
+    task_update_field(conn, epic_key, task_num, "item_worktree_id", str(lane["id"]))
     return ReassignResult(
         task_num=task_num,
         old_worktree=old,
@@ -223,8 +227,8 @@ def task_metadata_update(
     """Patch one or more whitelisted scalar fields on a task row.
 
     Accepted fields: ``title``, ``context_estimate``, ``dependencies``,
-    ``worktree_path``, ``github_issue``, ``branch``, ``max_attempts``.
-    Status / body / worktree route through dedicated helpers.
+    ``github_issue``, ``max_attempts``. Status / body / lane assignment route
+    through dedicated helpers.
     """
     if not fields:
         raise ValueError("fields dict cannot be empty for task_metadata_update")

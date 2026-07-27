@@ -44,7 +44,7 @@
         "role": "writer"
       },
       {
-        "path": "packages/yoke-core/src/yoke_core/domain/items_create_writer.py",
+        "path": "packages/yoke-core/src/yoke_core/domain/backlog_create_op.py",
         "symbol": "execute_create",
         "role": "writer"
       },

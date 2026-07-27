@@ -4,7 +4,7 @@ Owns ``cmd_run_add_batch`` — the JSON-driven multi-row run insertion path.
 Keeping this command in its own module groups the batch-specific validation,
 transaction, and per-row event emission together.
 
-This module imports ``VALID_BROWSER_QA_KINDS`` and ``_normalize_qa_kind``
+This module imports the Browser-method classifier and ``_normalize_qa_kind``
 from :mod:`yoke_core.domain.qa_constants` (the leaf vocabulary module)
 and ``emit_qa_run_event`` from :mod:`yoke_core.domain.qa_events` (the
 leaf events module) — never from the parent ``qa_execution`` shim. That
@@ -30,8 +30,8 @@ from yoke_core.domain.qa_artifact_handle import (
     serialize_handle,
 )
 from yoke_core.domain.qa_constants import (
-    VALID_BROWSER_QA_KINDS,
     _normalize_qa_kind,
+    is_browser_method_requirement,
 )
 from yoke_core.domain.qa_events import emit_qa_run_event
 
@@ -85,16 +85,6 @@ def cmd_run_add_batch(
         if row.get("qa_kind"):
             row["qa_kind"] = _normalize_qa_kind(row["qa_kind"])
 
-        # Reject agent executor for browser QA kinds (only check when
-        # qa_kind is supplied; the DB-aware pass below derives missing
-        # values and re-runs this check).
-        if row.get("qa_kind") and row["executor_type"] == "agent" and row["qa_kind"] in VALID_BROWSER_QA_KINDS:
-            print(
-                f"Error: row {idx}: executor_type 'agent' is not allowed for qa_kind '{row['qa_kind']}' -- use browser_substrate",
-                file=sys.stderr,
-            )
-            sys.exit(2)
-
     # All rows validated — insert in one transaction
     conn = connect(path=db_path)
     inserted_ids: List[int] = []
@@ -102,18 +92,19 @@ def cmd_run_add_batch(
         # Derive missing qa_kind from the requirement, and reject any
         # mismatch between caller-supplied qa_kind and the requirement.
         for idx, row in enumerate(payload):
-            req_kind = query_scalar(
+            requirement = query_one(
                 conn,
-                "SELECT qa_kind FROM qa_requirements WHERE id = %s",
+                "SELECT qa_kind, method_id FROM qa_requirements WHERE id = %s",
                 (row["requirement_id"],),
             )
-            if not req_kind:
+            if requirement is None:
                 print(
                     f"Error: row {idx}: requirement_id "
                     f"{row['requirement_id']} not found in qa_requirements",
                     file=sys.stderr,
                 )
                 sys.exit(2)
+            req_kind = requirement["qa_kind"]
             normalized_req_kind = _normalize_qa_kind(str(req_kind))
             if not row.get("qa_kind"):
                 row["qa_kind"] = normalized_req_kind
@@ -128,13 +119,15 @@ def cmd_run_add_batch(
                         file=sys.stderr,
                     )
                     sys.exit(2)
-            # Re-run the agent-vs-browser-kind guard now that qa_kind is
-            # always populated.
-            if row["executor_type"] == "agent" and row["qa_kind"] in VALID_BROWSER_QA_KINDS:
+            if (
+                row["executor_type"] == "agent"
+                and is_browser_method_requirement(
+                    requirement["method_id"], row["qa_kind"],
+                )
+            ):
                 print(
                     f"Error: row {idx}: executor_type 'agent' is not "
-                    f"allowed for qa_kind '{row['qa_kind']}' -- use "
-                    "browser_substrate",
+                    "allowed for Browser method cases -- use browser_substrate",
                     file=sys.stderr,
                 )
                 sys.exit(2)

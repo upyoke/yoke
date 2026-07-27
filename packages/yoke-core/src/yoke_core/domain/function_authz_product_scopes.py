@@ -25,8 +25,10 @@ PRODUCT_AUTHZ_BY_ID = {
     "notifications.read": AuthzSpec(ACTOR_SESSION, None),
     "notifications.read_all": AuthzSpec(ACTOR_SESSION, None),
     "overview.activation.get": AuthzSpec(ACTOR_SESSION, None),
+    "overview.vitals.get": AuthzSpec(ACTOR_SESSION, None),
     "overview.module.dismiss": AuthzSpec(ACTOR_SESSION, None),
     "overview.module.restore": AuthzSpec(ACTOR_SESSION, None),
+    "sessions.reclaim_stale": AuthzSpec(ORG, PERM_ORG_ADMIN),
     # Promotion materializes a Dash in payload.project.
     "ouroboros.field_note.promote": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     # Workflow definition publication is org-wide; selected defaults and
@@ -37,9 +39,14 @@ PRODUCT_AUTHZ_BY_ID = {
     "workflows.testing_default.set": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "workflows.delivery_default.set": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "workflows.approval_defaults.publish": AuthzSpec(ORG, PERM_ORG_ADMIN),
+    "qa.case.rerun": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
+    "qa.case.waive": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "test_machine.get": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "test_machine.settings_replace": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "test_machine.verify": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    "test_machine.baseline_group_execute": AuthzSpec(
+        PROJECT, PERM_ITEMS_WRITE,
+    ),
     "test_machine.case_execute": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
 }
 

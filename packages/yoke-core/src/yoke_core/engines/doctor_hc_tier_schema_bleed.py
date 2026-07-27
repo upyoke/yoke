@@ -34,6 +34,7 @@ not drown the doctor report.
 from __future__ import annotations
 
 import re
+from functools import lru_cache
 from pathlib import Path
 from typing import Dict, Iterable, List, Tuple
 
@@ -42,6 +43,7 @@ from yoke_core.domain.schema_api_context_json_schemas import (
     JSON_NESTED_SCHEMAS,
 )
 from yoke_core.domain.schema_api_context_tables import CANONICAL_TABLES
+from yoke_core.domain.items_constants import LARGE_TEXT_FIELDS
 from yoke_core.engines.doctor_registry_tier_discipline import (
     TIER_GLOBS,
     TIER_6_ARCHIVE_PREFIXES,
@@ -90,11 +92,18 @@ for (_table, _json_col), _meta in JSON_NESTED_SCHEMAS.items():
         _JSON_FIELD_INDEX.setdefault(_field_name, []).append((_table, _json_col))
 
 
-# Class A pattern: word-boundary <table>.<column>. We extract every
-# ``identifier.identifier`` pair on the line, then validate against the
-# canonical-tables index. This keeps the regex agnostic of which tables
-# exist — growth in CANONICAL_TABLES is picked up automatically.
-_TABLE_COL_RE = re.compile(r"\b([a-z_][a-z0-9_]*)\.([a-z_][a-z0-9_]*)\b")
+# Class A pattern: a complete dotted identifier. Reading the complete token,
+# rather than only its first two components, lets the scanner distinguish
+# registered function ids such as ``items.structured_field.replace`` from
+# schema references such as ``items.worktree_path``.
+_DOTTED_IDENTIFIER_RE = re.compile(
+    r"\b[a-z_][a-z0-9_]*(?:\.[a-z_][a-z0-9_]*)+\b"
+)
+_NON_SCHEMA_DOTTED_SUFFIXES = frozenset({".json", ".md", ".py", ".toml"})
+# Item structured fields are agent-facing read/write projections, and ``body``
+# is rendered virtually. Their dotted names describe the item API rather than
+# teaching raw table shape, even when a structured field has physical storage.
+_ITEM_PUBLIC_FIELD_REFERENCES = LARGE_TEXT_FIELDS
 
 # Class B pattern: ``items get YOK-N <field>`` or ``items get <bare-int>
 # <field>``. The trailing field token is captured for index lookup.
@@ -103,6 +112,59 @@ _ITEMS_GET_RE = re.compile(
     r"(?:YOK-\d+|\d+)"
     r"\s+([a-z_][a-z0-9_]*)\b"
 )
+
+
+@lru_cache(maxsize=1)
+def _registered_function_tokens() -> frozenset[str]:
+    """Return registered function ids and their multi-part family prefixes."""
+
+    from yoke_core.domain.yoke_function_dispatch import _ensure_handlers_registered
+    from yoke_core.domain.yoke_function_registry import list_entries
+
+    _ensure_handlers_registered()
+    tokens: set[str] = set()
+    for entry in list_entries():
+        parts = entry.function_id.split(".")
+        for end in range(2, len(parts) + 1):
+            token_parts = parts[:end]
+            if (
+                end == 2
+                and token_parts[0] in _TABLE_COLUMNS
+                and token_parts[1] in _TABLE_COLUMNS[token_parts[0]]
+            ):
+                continue
+            tokens.add(".".join(token_parts))
+    return frozenset(tokens)
+
+
+def extract_schema_references(text: str) -> List[Tuple[str, str]]:
+    """Return distinct table-column pairs, excluding other dotted syntax."""
+
+    pairs: List[Tuple[str, str]] = []
+    seen: set[Tuple[str, str]] = set()
+    function_tokens = _registered_function_tokens()
+    for match in _DOTTED_IDENTIFIER_RE.finditer(text):
+        token = match.group(0)
+        if token.endswith(tuple(_NON_SCHEMA_DOTTED_SUFFIXES)):
+            continue
+        table, column, *_rest = token.split(".")
+        if table not in CANONICAL_TABLES:
+            continue
+        if table == "items" and column in _ITEM_PUBLIC_FIELD_REFERENCES:
+            continue
+        # A registered function id can share its leading components with a
+        # physical table-column pair (for example ``deployment_flows.stages``
+        # and ``projects.github_sync_mode.repair``). Physical schema truth
+        # wins that collision: suppress function syntax only after proving
+        # its first two components are not a real column.
+        if column not in _TABLE_COLUMNS.get(table, set()) and token in function_tokens:
+            continue
+        pair = (table, column)
+        if pair in seen:
+            continue
+        seen.add(pair)
+        pairs.append(pair)
+    return pairs
 
 
 def _scan_file(rel_path: str, text: str) -> List[str]:
@@ -141,9 +203,7 @@ def _scan_file(rel_path: str, text: str) -> List[str]:
             continue
         if is_cross_reference_line(line):
             continue
-        for match in _TABLE_COL_RE.finditer(line):
-            table = match.group(1)
-            column = match.group(2)
+        for table, column in extract_schema_references(line):
             cols = _TABLE_COLUMNS.get(table)
             if cols is None:
                 continue
@@ -203,4 +263,10 @@ def hc_tier_schema_bleed(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         rec.record(HC_SLUG, HC_LABEL, "PASS", "")
 
 
-__all__ = ["hc_tier_schema_bleed", "HC_SLUG", "HC_LABEL", "TIER_GLOBS"]
+__all__ = [
+    "hc_tier_schema_bleed",
+    "extract_schema_references",
+    "HC_SLUG",
+    "HC_LABEL",
+    "TIER_GLOBS",
+]

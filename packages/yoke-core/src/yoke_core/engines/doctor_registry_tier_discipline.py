@@ -46,8 +46,7 @@ TIER_GLOBS: dict[int, tuple[str, ...]] = {
     ),
     # Tier 5 — skill prose (top-level SKILL.md plus skill-internal subdocs).
     5: (
-        ".agents/skills/yoke/*/SKILL.md",
-        ".agents/skills/yoke/*/*.md",
+        ".agents/skills/yoke/**/*.md",
     ),
     # Tier 6 — archive decision records (callers opt in explicitly).
     6: (

@@ -2,7 +2,8 @@
 
 Covers merge Steps 1 through 5: require integration simulation, verify epic-level acceptance criteria against worktree paths, verify all tasks are complete, read the worktree plan, and determine merge order.
 
-**Context variables** (consumed by later phases): `{epic-id}`, `_worktrees`, `WORKTREE_PATH`, `_item_id`, `_worktree_plan`.
+**Context variables** (consumed by later phases): `{epic-id}`, `_epic_ref`,
+`_epic_id`, `_worktrees`, `WORKTREE_PATH`, `_worktree_plan`.
 
 ---
 
@@ -11,7 +12,7 @@ Covers merge Steps 1 through 5: require integration simulation, verify epic-leve
 1. **Require integration simulation:**
  Check if a canonical integration simulation report exists in the DB:
  ```bash
- _sim_record=$(yoke workflow-item epic-task simulation-get --epic "{epic-id}" --phase integration 2>/dev/null) && _sim_rc=0 || _sim_rc=$?
+ _sim_record=$(yoke workflow-item epic-task simulation-get --epic "$_epic_id" --phase integration 2>/dev/null) && _sim_rc=0 || _sim_rc=$?
  ```
  If `_sim_rc` is non-zero or `_sim_record` is empty, print the following error and **STOP** (do not proceed to subsequent steps):
  > **Error: Integration simulation required before merge.**
@@ -27,13 +28,26 @@ Covers merge Steps 1 through 5: require integration simulation, verify epic-leve
  If `_sim_rc` is 0 and `_sim_record` is non-empty, proceed silently to Step 2.
 
 2. **Verify epic-level acceptance criteria:**
- Read the rendered body for the epic backlog item via `yoke items get YOK-{epic-id} body` (the body is a virtual rendered field — never selected via raw SQL on `items`). Find the `### Acceptance Criteria` section (under `## Technical Plan`). Count the total ACs first, then for each AC listed:
+ Read the rendered body for the epic backlog item via
+ `yoke items get "$_epic_ref" body` (the body is a virtual rendered field —
+ never selected via raw SQL on `items`). Find the `### Acceptance Criteria`
+ section (under `## Technical Plan`). Count the total ACs first, then for each
+ AC listed:
 
- **CRITICAL — Scope all checks to worktree paths, not main.** Before verifying ACs, collect the worktree paths for this epic:
+ **CRITICAL — Scope all checks to worktree paths, not main.** Before verifying
+ ACs, read the epic task rows through the registered reader:
  ```bash
- _worktrees=$(yoke db read --format lines "SELECT DISTINCT worktree FROM epic_tasks WHERE epic_id={epic-id} AND worktree IS NOT NULL ORDER BY task_num")
+ yoke epic-tasks list --epic "$_epic_id"
  ```
- For each worktree branch, resolve its local path: `WORKTREE_PATH=".worktrees/$(echo {branch} | tr '/' '-')"`. All file reads, greps, and existence checks **MUST** target these worktree paths (e.g., `grep ... "$WORKTREE_PATH/..."`, `[ -f "$WORKTREE_PATH/..." ]`). **Never check files in the main working directory** — before merge, the feature code only exists in worktrees. If dispatching sub-agents for parallel AC verification, pass the explicit worktree path(s) in the agent prompt and instruct them to scope all file operations there.
+ Retain the distinct non-empty lane branches from the fourth pipe-delimited
+ field as `_worktrees`. For each branch, resolve its local path:
+ `WORKTREE_PATH=".worktrees/$(echo {branch} | tr '/' '-')"`. All file reads,
+ greps, and existence checks **MUST** target these worktree paths (e.g.,
+ `grep ... "$WORKTREE_PATH/..."`, `[ -f "$WORKTREE_PATH/..." ]`). **Never
+ check files in the main working directory** — before merge, the feature code
+ only exists in worktrees. If dispatching sub-agents for parallel AC
+ verification, pass the explicit worktree path(s) in the agent prompt and
+ instruct them to scope all file operations there.
 
  **Print progress before each check** so the user knows the merge isn't hung:
  ```
@@ -64,22 +78,20 @@ Covers merge Steps 1 through 5: require integration simulation, verify epic-leve
  Proceed after the warning — this maintains backward compatibility with older epics.
 
 3. **Verify all tasks are complete:**
- Query `epic_tasks` in the DB for any non-terminal tasks:
- ```bash
- _incomplete=$(yoke db read --format lines "SELECT task_num, title, status FROM epic_tasks WHERE epic_id={epic-id}' AND status NOT IN ('reviewed-implementation','polishing-implementation','implemented','release','done') ORDER BY task_num")
- ```
- If any rows are returned, report which tasks are still pre-dispatch, in progress, or failed and abort. Every task must be in terminal success (`reviewed-implementation`, `polishing-implementation`, `implemented`, `release`, or `done`) before merging.
+ Inspect the registered epic-task rows read in step 2. The third
+ pipe-delimited field is the task status. If any row is outside
+ `reviewed-implementation`, `polishing-implementation`, `implemented`,
+ `release`, or `done`, report which tasks are still pre-dispatch, in progress,
+ or failed and abort.
 
 4. **Read the worktree plan:**
- Read the `worktree_plan` field directly from the DB. `{epic-id}` IS the epic item's numeric `items.id`, so resolve to the item row by `id`:
+ Read the `worktree_plan` field through the registered item reader:
  ```bash
- _item_id=$(yoke db read --format lines "SELECT id FROM items WHERE id={epic-id} AND workflow_id='epic' LIMIT 1")
- _worktree_plan=$(yoke items get $_item_id worktree_plan)
+ yoke items get "$_epic_ref" worktree_plan
  ```
- Parse the worktree plan content to get the list of branches and their merge order. If the `worktree_plan` field is empty, derive the branch list from `epic_tasks`:
- ```bash
- yoke db read --format lines "SELECT DISTINCT worktree FROM epic_tasks WHERE epic_id={epic-id}' AND worktree IS NOT NULL ORDER BY task_num"
- ```
+ Retain the printed content as `_worktree_plan` and parse it for the branch
+ merge order. If the field is empty, reuse the lane branches from the
+ registered epic-task rows read in step 2.
 
 5. **Determine merge order:**
  The worktree plan specifies execution order. Merge in the same order — branches that were independent can merge in any order, but if there's a suggested sequence, follow it.

@@ -135,7 +135,6 @@ from yoke_cli.commands.adapters.epic_state import (
 )
 from yoke_cli.commands.adapters.qa import (
     qa_requirement_waive,
-    qa_requirement_auto_create_for_item,
     qa_requirement_update,
     qa_run_record_verdict,
 )
@@ -402,7 +401,6 @@ __all__ = [
     "epic_tasks_list",
     "qa_requirement_update",
     "qa_requirement_waive",
-    "qa_requirement_auto_create_for_item",
     "qa_run_record_verdict",
     "qa_browser_context_get",
     "qa_run_add",

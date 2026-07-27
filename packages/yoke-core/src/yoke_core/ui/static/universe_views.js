@@ -22,10 +22,15 @@ import { renderOrganizationView } from "./universe_views_organization.js";
 import { renderOuroborosView } from "./universe_views_ouroboros.js";
 import { renderOverviewView } from "./universe_views_overview.js";
 import { renderPacksView } from "./universe_views_packs.js";
-import { renderProjectsView } from "./universe_views_projects.js";
+import {
+  renderProjectsView,
+  renderProjectView,
+} from "./universe_views_projects.js";
 import {
   renderQaActivity,
+  renderQaMethodDetail,
   renderQaMethods,
+  renderQaPlanDetail,
   renderQaPlans,
 } from "./universe_views_qa.js";
 import { renderSessionsView } from "./universe_views_sessions.js";
@@ -57,6 +62,16 @@ export const TAB_RENDERERS = {
   },
 };
 
+// Third-segment drill-ins owned by a tab. They remain children of the
+// selected facet and replace that facet's list chrome with their own page
+// heading, exactly like non-tabbed detail views.
+export const TAB_DETAIL_RENDERERS = {
+  qa: {
+    methods: renderQaMethodDetail,
+    plans: renderQaPlanDetail,
+  },
+};
+
 // A destination is live exactly when it has a renderer here.
 export const VIEW_RENDERERS = {
   overview: renderOverviewView,
@@ -70,6 +85,7 @@ export const VIEW_RENDERERS = {
   doctor: renderDoctorView,
   ouroboros: renderOuroborosView,
   projects: renderProjectsView,
+  project: renderProjectView,
   packs: renderPacksView,
   workflows: renderWorkflowsView,
   github: renderGithubView,

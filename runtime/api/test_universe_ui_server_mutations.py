@@ -1,8 +1,7 @@
 """Local UI proxy coverage for the narrow operator mutation surfaces.
 
-Pins the mutation allowlist (Overview preferences plus workflow defaults),
-the documented latch exception on the read allowlist, and the operator-actor
-resolution rules.
+Pins the bounded mutation allowlist, the documented latch exception on the
+read allowlist, and the operator-actor resolution rules.
 """
 
 from __future__ import annotations
@@ -63,7 +62,9 @@ class TestRegistrationShape:
             "test_machine.settings_replace", "test_machine.verify",
             "decision_requests.resolve",
             "notifications.read", "notifications.read_all",
+            "qa.case.rerun", "qa.case.waive",
             "items.create",
+            "sessions.reclaim_stale",
             "strategy.revision.restore",
         }
         assert not (

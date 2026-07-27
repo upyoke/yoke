@@ -5,6 +5,10 @@ import {
   mountUniverseApp,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/app.js";
 import {
+  capabilityRoute,
+  sourceNode,
+} from "../../packages/yoke-core/src/yoke_core/ui/static/qa_view_primitives.js";
+import {
   FakeDocument,
   allNodes,
   byClass,
@@ -12,207 +16,31 @@ import {
   settle,
 } from "./universe_ui_dom_test_support.mjs";
 
-function ok(result) {
-  return { status: 200, envelope: { success: true, result } };
-}
+import { mountAt } from "./universe_ui_qa_view_test_support.mjs";
 
-const methods = [
-  {
-    id: "command",
-    name: "Command",
-    description:
-      "Run deterministic project commands in a worktree.",
-    source_kind: "built_in",
-    source_ref: null,
-    executor_id: "worktree_run",
-    required_capability_kind: null,
-    verdict_path: "automatic",
-    verdict_contract: "exit 0 = pass",
-    evidence_contract: "exit code · captured output tail",
-    success_policy_id: "all-pass",
-    concurrency_mode: "parallel",
-    used_by_plan_count: 2,
-    capability_state: "available",
-  },
-  {
-    id: "browser-check",
-    name: "Browser check",
-    description: "Playwright-style assertions against declared routes.",
-    source_kind: "built_in",
-    source_ref: null,
-    executor_id: "browser_substrate",
-    required_capability_kind: "browser-control",
-    verdict_path: "automatic",
-    verdict_contract: "declared assertions pass",
-    evidence_contract: "assertions · trace · logs",
-    success_policy_id: "all-pass",
-    concurrency_mode: "parallel",
-    used_by_plan_count: 1,
-    capability_state: "ready",
-  },
-];
-
-const planRow = {
-  id: 7,
-  project: "yoke",
-  slug: "release-readiness",
-  name: "Release readiness",
-  description: "",
-  case_count: 2,
-  materialized_requirement_count: 2,
-  method_ids: ["command", "browser-check"],
-  attachments: [{
-    kind: "project_default",
-    project: "yoke",
-    workflow_id: "issue",
-    transition_id: "release",
-    item_id: null,
-  }],
-  last_outcome: "needs_review",
-  last_at: "2026-07-26T12:00:00Z",
-};
-
-const planDetail = {
-  ...planRow,
-  project_id: 1,
-  success_policy_id: "all-pass",
-  success_policy_params: {},
-  created_at: "2026-07-26T10:00:00Z",
-  updated_at: "2026-07-26T10:00:00Z",
-  retired_at: null,
-  cases: [
-    {
-      id: 1,
-      case_key: "backend-suite",
-      position: 1,
-      method_id: "command",
-      method_name: "Command",
-      executor_id: "worktree_run",
-      required_capability_kind: null,
-      verdict_path: "automatic",
-      instructions: "Run it.",
-      expected_outcome: "It passes.",
-      method_config: {},
-      success_policy_id: null,
-      success_policy_params: null,
-      host_baselines: [],
-      entry_surface: null,
-      required_completion: null,
-      last_result: {
-        requirement_id: 31,
-        run_id: 91,
-        outcome: "passed",
-        evidence: [{
-          id: 4,
-          artifact_type: "output",
-          content_type: "text/plain",
-          artifact_handle: "{\"backend\":\"local\",\"path\":\"output.txt\"}",
-          metadata: {},
-        }],
-      },
-    },
-    {
-      id: 2,
-      case_key: "checkout-flow",
-      position: 2,
-      method_id: "browser-check",
-      method_name: "Browser check",
-      executor_id: "browser_substrate",
-      required_capability_kind: "browser-control",
-      verdict_path: "automatic",
-      instructions: "Open checkout.",
-      expected_outcome: "Confirmation is visible.",
-      method_config: {},
-      success_policy_id: null,
-      success_policy_params: null,
-      host_baselines: [],
-      entry_surface: null,
-      required_completion: null,
-      last_result: {
-        requirement_id: 32,
-        run_id: 92,
-        outcome: "needs_review",
-        evidence: [],
-      },
-    },
-  ],
-  union: { satisfied: false, counts: { passed: 1, needs_review: 1 } },
-};
-
-function qaClient() {
-  const requests = [];
-  return {
-    requests,
-    async call(request) {
-      requests.push(request);
-      if (request.function === "organizations.get") return ok({ name: "Yoke" });
-      if (request.function === "projects.list") {
-        return ok({ rows: [{ id: 1, slug: "yoke", name: "Yoke" }] });
-      }
-      if (request.function === "qa.method.list") {
-        return ok({ rows: [...methods].reverse() });
-      }
-      if (request.function === "qa.method.get") {
-        return ok({
-          method: {
-            ...methods.find((row) => row.id === request.payload.method_id),
-            plans: [{
-              id: 7,
-              slug: "release-readiness",
-              name: "Release readiness",
-              project: "yoke",
-              case_keys: ["backend-suite"],
-            }],
-          },
-        });
-      }
-      if (request.function === "qa.plan.list") return ok({ rows: [planRow] });
-      if (request.function === "qa.plan.get") return ok({ plan: planDetail });
-      if (request.function === "qa.activity.list") {
-        return ok({
-          rows: [{
-            requirement_id: 32,
-            run_id: 92,
-            plan_id: 7,
-            plan: "release-readiness",
-            project: "yoke",
-            case_key: "checkout-flow",
-            host_baseline: null,
-            method_id: "browser-check",
-            method_name: "Browser check",
-            outcome: "needs_review",
-            evidence_count: 4,
-            capture_degraded_reason: null,
-            happened_at: new Date().toISOString(),
-          }],
-        });
-      }
-      if (request.function === "qa.artifact.read") {
-        return ok({
-          artifact_id: 4,
-          backend: "local",
-          disposition: "ready",
-          content_type: "text/plain",
-          content_base64: "ZnVsbCBvdXRwdXQ=",
-        });
-      }
-      throw new Error(`unexpected function ${request.function}`);
-    },
-  };
-}
-
-async function mountAt(t, hash) {
-  const originalFetch = globalThis.fetch;
-  t.after(() => { globalThis.fetch = originalFetch; });
-  globalThis.fetch = () => response(200, {});
+test("Pack sources and Test Mac capability relations keep their prototype routes", () => {
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = hash;
-  const root = documentNode.createElement("div");
-  const client = qaClient();
-  const mounted = mountUniverseApp(root, { client });
-  await settle();
-  return { documentNode, root, client, mounted };
-}
+  const primitiveContext = {
+    document: documentNode,
+    projects: () => [{ id: 1, slug: "yoke", name: "Yoke" }],
+  };
+  const source = sourceNode(primitiveContext, {
+    source_kind: "pack",
+    source_ref: "machine-qa",
+  }, "yoke");
+  const cardSource = sourceNode(primitiveContext, {
+    source_kind: "pack",
+    source_ref: "machine-qa",
+  }, "yoke", false);
+
+  assert.equal(byClass(source, "qa-source-link")[0].href, "#/packs?project=1");
+  assert.equal(byClass(cardSource, "qa-source-link").length, 0);
+  assert.equal(cardSource.textContent, "Pack");
+  assert.equal(
+    capabilityRoute(primitiveContext, "yoke", "test-machine"),
+    "#/capabilities/test-machine?project=1",
+  );
+});
 
 test("QA defaults to the prototype Methods roster and opens contract detail", async (t) => {
   const { root, client, mounted } = await mountAt(
@@ -230,26 +58,48 @@ test("QA defaults to the prototype Methods roster and opens contract detail", as
     ),
     ["Command", "Browser check"],
   );
+  for (const card of byClass(root, "qa-method-card")) {
+    assert.equal(
+      byClass(card, "qa-source")[0].parentNode,
+      byClass(card, "qa-method-top")[0],
+    );
+  }
   const text = allNodes(root).map((node) => node.textContent).join(" ");
   assert.match(
     text,
     /Test plans prove the work; methods say how; capabilities make it possible/,
   );
   assert.match(text, /requires nothing — a checkout is enough/);
-  assert.match(text, /requires Browser control · ready/);
-  assert.match(text, /How methods enter this project/);
+  assert.match(text, /requires\s+Browser control\s+·\s+ready/);
+  assert.doesNotMatch(text, /How methods enter this project/);
   assert.deepEqual(
     client.requests.find((request) => request.function === "qa.method.list"),
     { function: "qa.method.list", payload: { project: "1" } },
   );
 
-  byClass(root, "qa-method-card")[0].dispatchEvent(new Event("click"));
+  const methodLink = byClass(root, "qa-method-card")[0];
+  assert.equal(methodLink.tagName, "A");
+  assert.equal(methodLink.href, "#/qa/methods/command?project=1");
+  root.ownerDocument.defaultView.location.hash = methodLink.href;
+  root.ownerDocument.defaultView.dispatchEvent(new Event("hashchange"));
   await settle();
   const detailText = allNodes(root).map((node) => node.textContent).join(" ");
+  assert.equal(byClass(root, "breadcrumb").length, 1);
+  assert.deepEqual(
+    byClass(root, "breadcrumb")[0].children.map((node) => node.textContent),
+    ["QA", "›", "Methods", "›", "Command"],
+  );
+  assert.equal(byClass(root, "page-head").length, 1);
+  assert.equal(byClass(root, "tab-bar").length, 0);
+  assert.equal(byClass(root, "qa-detail-page-head").length, 1);
   assert.match(detailText, /Contract/);
-  assert.match(detailText, /worktree_run/);
+  assert.match(
+    detailText,
+    /worktree_run · runs the case's command in the item worktree/,
+  );
   assert.match(detailText, /Used by plans/);
   assert.match(detailText, /release-readiness/);
+  assert.match(detailText, /passed/);
   mounted.unmount();
 });
 
@@ -261,28 +111,73 @@ test("Plans renders the durable objects and the full case-detail composition", a
   assert.equal(byClass(root, "qa-plans-table").length, 1);
   const listText = allNodes(root).map((node) => node.textContent).join(" ");
   assert.match(listText, /release-readiness/);
-  assert.match(listText, /project default · release/);
-  assert.match(listText, /needs review/);
+  assert.match(listText, /project default · review/);
+  assert.doesNotMatch(listText, /project default · Review gate/);
+  assert.match(listText, /item · YOK-2001/);
+  assert.doesNotMatch(listText, /item · YOK-2001 · reviewing-implementation/);
+  assert.match(listText, /1 needs review/);
+  assert.equal(
+    byClass(root, "qa-method-summary")[0].children
+      .map((node) => node.textContent)
+      .join(""),
+    "2·⌥◎",
+  );
+  assert.equal(byClass(root, "qa-result-age").length, 0);
+  assert.equal(byClass(root, "qa-relative-time").length, 0);
+  assert.match(
+    listText,
+    /yoke qa plan create --project yoke release-readiness/,
+  );
 
-  byClass(root, "qa-plan-button")[0].dispatchEvent(new Event("click"));
+  const planLink = byClass(root, "qa-plan-button")[0];
+  assert.equal(planLink.tagName, "A");
+  assert.equal(planLink.href, "#/qa/plans/7?project=1");
+  root.ownerDocument.defaultView.location.hash = planLink.href;
+  root.ownerDocument.defaultView.dispatchEvent(new Event("hashchange"));
   await settle();
   const detailText = allNodes(root).map((node) => node.textContent).join(" ");
+  assert.equal(byClass(root, "breadcrumb").length, 1);
+  assert.deepEqual(
+    byClass(root, "breadcrumb")[0].children.map((node) => node.textContent),
+    ["QA", "›", "Plans", "›", "release-readiness"],
+  );
+  assert.equal(byClass(root, "page-head").length, 1);
+  assert.match(
+    detailText,
+    /gates the reviewed-implementation transition/,
+  );
+  assert.match(detailText, /issue · reviewing-implementation/);
+  assert.doesNotMatch(detailText, /Review gate|Implementation review/);
+  assert.match(
+    detailText,
+    /Rerun and waive are per-case engine actions on the materialized requirement, authority-checked at resolve\./,
+  );
+  assert.equal(byClass(root, "tab-bar").length, 0);
+  assert.equal(byClass(root, "qa-detail-page-head").length, 1);
   assert.match(detailText, /Case sequence/);
   assert.match(detailText, /backend-suite/);
   assert.match(detailText, /checkout-flow/);
-  assert.match(detailText, /union gate not satisfied/);
+  assert.match(detailText, /cold-start-hosted/);
+  assert.match(detailText, /@fresh-host/);
+  assert.match(detailText, /@shell-preconfigured/);
+  assert.match(detailText, /all 5 case-baseline proofs pass/);
+  assert.match(detailText, /union: gate not satisfied/);
   assert.match(detailText, /Attached to/);
-  assert.match(detailText, /Evidence/);
+  assert.match(detailText, /Evidence by case/);
   assert.match(detailText, /output.txt/);
+  assert.equal(byClass(root, "qa-case-actions")[2].textContent, "—");
   assert.match(
     detailText,
-    /yoke qa plan-cases replace --project yoke --plan-id 7 --stdin/,
+    /yoke qa plan edit release-readiness/,
   );
-  byClass(root, "qa-evidence-open")[0].dispatchEvent(new Event("click"));
+  const evidenceAction = byClass(root, "qa-evidence-action")[0];
+  assert.equal(evidenceAction.tagName, "BUTTON");
+  assert.equal(evidenceAction.textContent, "view →");
+  evidenceAction.dispatchEvent(new Event("click"));
   await settle();
   assert.match(
     allNodes(root).map((node) => node.textContent).join(" "),
-    /Open evidence/,
+    /open →/,
   );
   assert.deepEqual(
     client.requests.find((request) => request.function === "qa.artifact.read"),
@@ -292,22 +187,99 @@ test("Plans renders the durable objects and the full case-detail composition", a
       target: { kind: "qa_requirement", qa_requirement_id: 31 },
     },
   );
-  mounted.unmount();
-});
-
-test("Activity folds hidden QA plumbing into readable outcomes", async (t) => {
-  const { root, mounted } = await mountAt(
-    t, "#/qa/activity?project=1",
+  byClass(root, "qa-evidence-action")[1].dispatchEvent(new Event("click"));
+  await settle();
+  assert.deepEqual(
+    client.requests.filter(
+      (request) => request.function === "qa.artifact.read",
+    ).at(-1),
+    {
+      function: "qa.artifact.read",
+      payload: { artifact_id: 6 },
+      target: { kind: "qa_requirement", qa_requirement_id: 34 },
+    },
   );
 
-  assert.equal(byClass(root, "qa-stat").length, 4);
-  const text = allNodes(root).map((node) => node.textContent).join(" ");
-  assert.match(text, /case runs today/);
-  assert.match(text, /release-readiness/);
-  assert.match(text, /checkout-flow/);
-  assert.match(text, /Browser check/);
-  assert.match(text, /needs review/);
-  assert.match(text, /4 artifacts/);
-  assert.match(text, /Blocked on precondition is neither a pass/);
+  allNodes(root).find(
+    (node) => node.tagName === "BUTTON" && node.textContent === "Rerun",
+  ).dispatchEvent(new Event("click"));
+  await settle();
+  assert.deepEqual(
+    client.requests.find((request) => request.function === "qa.case.rerun"),
+    {
+      function: "qa.case.rerun",
+      payload: {},
+      target: { kind: "qa_requirement", qa_requirement_id: 31 },
+    },
+  );
+
+  allNodes(root).find(
+    (node) => node.tagName === "BUTTON" && node.textContent === "Waive",
+  ).dispatchEvent(new Event("click"));
+  const rationale = byClass(root, "qa-waiver-rationale")[0];
+  rationale.value = "Equivalent external proof was reviewed.";
+  allNodes(root).find(
+    (node) => node.tagName === "BUTTON" && node.textContent === "Waive case",
+  ).dispatchEvent(new Event("click"));
+  await settle();
+  assert.deepEqual(
+    client.requests.find((request) => request.function === "qa.case.waive"),
+    {
+      function: "qa.case.waive",
+      payload: { rationale: "Equivalent external proof was reviewed." },
+      target: { kind: "qa_requirement", qa_requirement_id: 32 },
+    },
+  );
+  assert.equal(byClass(root, "qa-action-overlay").length, 0);
+
+  const freshRow = allNodes(root).find((node) =>
+    node.tagName === "TR"
+    && allNodes(node).some((child) => child.textContent === " @fresh-host")
+  );
+  allNodes(freshRow).find(
+    (node) => node.tagName === "BUTTON" && node.textContent === "Rerun",
+  ).dispatchEvent(new Event("click"));
+  await settle();
+  assert.deepEqual(
+    client.requests.filter(
+      (request) => request.function === "qa.case.rerun",
+    ).at(-1),
+    {
+      function: "qa.case.rerun",
+      payload: {},
+      target: { kind: "qa_requirement", qa_requirement_id: 34 },
+    },
+  );
+
+  const shellRow = allNodes(root).find((node) =>
+    node.tagName === "TR"
+    && allNodes(node).some(
+      (child) => child.textContent === " @shell-preconfigured",
+    )
+  );
+  allNodes(shellRow).find(
+    (node) => node.tagName === "BUTTON" && node.textContent === "Waive",
+  ).dispatchEvent(new Event("click"));
+  assert.match(
+    allNodes(byClass(root, "qa-action-dialog")[0])
+      .map((node) => node.textContent).join(" "),
+    /cold-start-hosted @shell-preconfigured/,
+  );
+  byClass(root, "qa-waiver-rationale")[0].value =
+    "The shell baseline has equivalent proof.";
+  allNodes(root).find(
+    (node) => node.tagName === "BUTTON" && node.textContent === "Waive case",
+  ).dispatchEvent(new Event("click"));
+  await settle();
+  assert.deepEqual(
+    client.requests.filter(
+      (request) => request.function === "qa.case.waive",
+    ).at(-1),
+    {
+      function: "qa.case.waive",
+      payload: { rationale: "The shell baseline has equivalent proof." },
+      target: { kind: "qa_requirement", qa_requirement_id: 35 },
+    },
+  );
   mounted.unmount();
 });

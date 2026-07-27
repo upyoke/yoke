@@ -36,7 +36,9 @@ from yoke_core.domain.schema_api_context_seed import (
     ROLE_TOPICS,
     TOPIC_TABLES,
 )
-from yoke_core.domain.schema_api_context_tables import CANONICAL_TABLES
+from yoke_core.engines.doctor_hc_tier_schema_bleed import (
+    extract_schema_references,
+)
 from yoke_core.engines.doctor_registry_tier_discipline import (
     REQUIRED_FUNCTION_IDS,
 )
@@ -104,10 +106,6 @@ _TABLE_TOPIC: Dict[str, str] = {
 }
 
 
-# Class-A bleed pattern (word-boundary <table>.<column>). Same shape
-# the schema-bleed HC uses; reused here to grow with CANONICAL_TABLES.
-_TABLE_COL_RE = re.compile(r"\b([a-z_][a-z0-9_]*)\.([a-z_][a-z0-9_]*)\b")
-
 # Schema-cheat-sheet bullet anchor. Matches lines like:
 #   - **`items`** — `id, title, ...`
 # The leading ``- `` is the markdown bullet marker; ``**`` + backtick
@@ -154,18 +152,7 @@ def _bullet_for_table(section: str, table: str) -> Optional[str]:
 
 def _extract_references(text: str) -> List[Tuple[str, str]]:
     """Return distinct ``(table, column)`` pairs whose table is canonical."""
-    seen: set[Tuple[str, str]] = set()
-    pairs: List[Tuple[str, str]] = []
-    for m in _TABLE_COL_RE.finditer(text):
-        table, column = m.group(1), m.group(2)
-        if table not in CANONICAL_TABLES:
-            continue
-        key = (table, column)
-        if key in seen:
-            continue
-        seen.add(key)
-        pairs.append(key)
-    return pairs
+    return extract_schema_references(text)
 
 
 def _check_a_for_role(role: str, repo_root: Path, findings: List[str]) -> None:
@@ -175,6 +162,7 @@ def _check_a_for_role(role: str, repo_root: Path, findings: List[str]) -> None:
         return
 
     packet = render_role_packet(role)
+    packet_schema_references = set(_extract_references(packet))
     sections = _section_chunks(packet)
     role_topics = set(ROLE_TOPICS.get(role, ()))
 
@@ -190,6 +178,10 @@ def _check_a_for_role(role: str, repo_root: Path, findings: List[str]) -> None:
         except OSError:
             continue
         for table, column in _extract_references(text):
+            if (table, column) in packet_schema_references:
+                # Small role-specific packet projections may carry an exact,
+                # qualified fact without loading the table's full topic.
+                continue
             topic = _TABLE_TOPIC.get(table)
             if topic is None:
                 findings.append(

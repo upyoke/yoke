@@ -143,7 +143,7 @@ test("a deep-linked unbuilt tab renders its stub under the active nav item, with
   // A stub reads nothing beyond the shell's own roster calls.
   assert.deepEqual(
     client.requests.map((request) => request.function).sort(),
-    ["organizations.get", "projects.list"],
+    ["projects.list"],
   );
   // The deep link survives untouched.
   assert.equal(
@@ -220,6 +220,18 @@ test("Runs fills from deployment runs, newest first, with grounded status pills"
     release_lineage: null, status, current_stage: stage,
     created_at: `${id}-created`, started_at: null, completed_at: null,
     created_by: "usher",
+    stage_index: stage ? 1 : -1,
+    stage_count: 2,
+    stages: [
+      { name: "build", state: status === "created" ? "active" : "complete" },
+      {
+        name: stage || "release",
+        state: status === "failed"
+          ? "failed" : (status === "succeeded" ? "complete" : "active"),
+      },
+    ],
+    member_items: [],
+    waiting_on_approval: false,
   });
   const client = {
     async call(request) {
@@ -263,16 +275,17 @@ test("Runs fills from deployment runs, newest first, with grounded status pills"
   );
   assert.equal(byClass(root, "stub-panel").length, 0);
 
-  // Newest run first; the stage is text the engine owns, never a bar.
-  const firstCells = allNodes(root)
-    .filter((node) => node.tagName === "TD")
-    .slice(0, 6)
-    .map((node) => node.textContent ||
-      (node.children[0] && node.children[0].textContent) || "");
-  assert.deepEqual(firstCells, [
-    "run-20260103-002", "yoke-hosted-production", "production", "ci-gate",
-    "executing", "run-20260103-002-created",
-  ]);
+  // Newest run first; the engine-projected stages render as a segmented bar.
+  const cards = byClass(root, "delivery-run-card");
+  assert.deepEqual(
+    cards.map((card) => allNodes(card)
+      .find((node) => node.tagName === "H3").textContent),
+    [
+      "run-20260103-002", "run-20260103-001",
+      "run-20260102-001", "run-20260101-001",
+    ],
+  );
+  assert.equal(byClass(cards[0], "delivery-stage").length, 2);
 
   // Grounded status vocabulary maps to semantic pill families; values the
   // hint has not seen (created) wear neutral idle.

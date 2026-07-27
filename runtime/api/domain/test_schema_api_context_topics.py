@@ -128,7 +128,31 @@ def test_main_packet_includes_learning_log_and_deployment_runs() -> None:
 
     assert "ouroboros_entries" in main_body
     assert "deployment_runs" in main_body
-    assert "There is no `item_id` column on this table" in main_body
+    assert "`deployment_flows.target_env`" in main_body
+    assert "`deployment_runs.status`" in main_body
+    assert "`deployment_runs.current_stage`" in main_body
+    assert "There is no `deployment_runs.item_id`" in main_body
+
+
+def test_taught_items_get_fields_match_handler_allowlist() -> None:
+    from yoke_core.domain.handlers.reads import _ALLOWED_GET_FIELDS
+    from yoke_core.domain.schema_api_context_commands_core import CORE_COMMANDS
+
+    entry = next(
+        row
+        for row in CORE_COMMANDS
+        if row["purpose"] == "Read structured item field(s) — concrete examples"
+    )
+    taught_segment = entry["notes"].split("Valid fields: ", 1)[1].split(
+        ". For body-section", 1
+    )[0]
+    taught_fields = {
+        field.strip()
+        for field in taught_segment.split(",")
+        if field.strip()
+    }
+
+    assert taught_fields == set(_ALLOWED_GET_FIELDS)
 
 
 _NEW_STALE_TERMS_2026_05 = (

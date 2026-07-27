@@ -54,8 +54,10 @@ VERIFIED_SOURCE_REPO_BINDING = "repo-binding"
 #: presentation order. Every field is a scalar.
 CAPABILITY_LIST_FIELDS = (
     "type",
+    "display_type",
     "kind",
     "state",
+    "active_item_ref",
     "project_id",
     "project",
     "settings_summary",
@@ -280,8 +282,14 @@ def list_capabilities(
                 used_by = f"Machine methods ×{machine_method_count}"
             result.append({
                 "type": cap_type,
+                "display_type": (
+                    "test-mac"
+                    if cap_type == TEST_MACHINE_CAPABILITY
+                    else cap_type
+                ),
                 "kind": kind,
                 "state": state,
+                "active_item_ref": active_machines.get(project_id),
                 "project_id": row.get("project_id"),
                 "project": row.get("project"),
                 "settings_summary": summarize_settings(

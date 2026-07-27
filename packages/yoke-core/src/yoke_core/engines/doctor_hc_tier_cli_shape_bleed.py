@@ -22,6 +22,7 @@ from __future__ import annotations
 import re
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
+from functools import lru_cache
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Set, Tuple
 
@@ -98,9 +99,48 @@ def _surface_match(line: str) -> bool:
 
     for boundary in RETAINED_TERMINAL_BOUNDARIES:
         prefix = boundary.surface.split("(", 1)[0].strip() if boundary.surface else ""
-        if prefix and prefix in line:
+        if prefix and _contains_command_prefix(line, prefix):
             return True
-    return False
+    return any(
+        _contains_command_prefix(line, prefix)
+        for prefix in _permanent_operation_prefixes()
+    )
+
+
+def _contains_command_prefix(line: str, prefix: str) -> bool:
+    """Match a command prefix only at complete shell-token boundaries."""
+
+    return bool(
+        re.search(
+            rf"(?<![\w.-]){re.escape(prefix)}(?=$|\s)",
+            line,
+        )
+    )
+
+
+@lru_cache(maxsize=1)
+def _permanent_operation_prefixes() -> Tuple[str, ...]:
+    """Return command-shaped operations that intentionally bypass argparse.
+
+    Watchers and other tool-shaped boundaries forward their remaining
+    arguments to an owned runner. Their module ``--help`` therefore cannot
+    validate downstream flags or subcommands. The operation inventory is the
+    canonical classifier for those surfaces.
+    """
+
+    from yoke_cli.operation_inventory import (
+        PERMANENT,
+        REASON_TOOL_SHAPED,
+        all_entries,
+    )
+
+    return tuple(
+        entry.shell_form
+        for entry in all_entries()
+        if entry.status == PERMANENT
+        and entry.reason == REASON_TOOL_SHAPED
+        and entry.shell_form.startswith("python3 -m ")
+    )
 
 
 def _is_negative_example(line: str) -> bool:

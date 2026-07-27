@@ -45,7 +45,8 @@ def fan_out_in_app_notification(
         raise ValueError(f"unknown in-app notification kind {notification_kind!r}")
     p = _p(conn)
     event = conn.execute(
-        f"SELECT event_name FROM events WHERE event_id = {p}", (event_id,),
+        f"SELECT event_name FROM events WHERE event_id = {p}",
+        (event_id,),
     ).fetchone()
     if event is None:
         raise LookupError(f"registered producer event {event_id!r} does not exist")
@@ -84,8 +85,7 @@ def fan_out_registered_event(
             raise ValueError("decision resolution event needs request_id")
         p = _p(conn)
         row = conn.execute(
-            "SELECT originator_actor_id FROM decision_requests "
-            f"WHERE id = {p}",
+            f"SELECT originator_actor_id FROM decision_requests WHERE id = {p}",
             (int(request_id),),
         ).fetchone()
         if row is None:
@@ -105,8 +105,12 @@ def fan_out_registered_event(
     else:
         raise ValueError(f"unknown in-app notification kind {notification_kind!r}")
     return fan_out_in_app_notification(
-        conn, event_id=event_id, notification_kind=notification_kind,
-        recipient_actor_ids=recipients, reason=reason, created_at=created_at,
+        conn,
+        event_id=event_id,
+        notification_kind=notification_kind,
+        recipient_actor_ids=recipients,
+        reason=reason,
+        created_at=created_at,
     )
 
 
@@ -122,9 +126,15 @@ def notification_rows(
     rows = conn.execute(
         "SELECT d.id, d.event_id, d.notification_kind, d.reason, "
         "d.read_at, d.created_at, e.event_name, e.project_id, "
-        "e.event_outcome, e.envelope "
+        "e.event_outcome, "
+        "COALESCE(dl.label, a.system_component, "
+        "'actor ' || CAST(e.actor_id AS TEXT)) AS event_actor_label, "
+        "e.envelope "
         "FROM addressed_event_deliveries d "
         "JOIN events e ON e.event_id = d.event_id "
+        "LEFT JOIN actors a ON a.id = e.actor_id "
+        "LEFT JOIN actor_labels dl "
+        "ON dl.actor_id = e.actor_id AND dl.surface = 'display' "
         f"WHERE d.actor_id = {p} AND d.channel = 'in_app' {unread}"
         "ORDER BY d.created_at DESC, d.id DESC",
         (actor_id,),
@@ -133,10 +143,22 @@ def notification_rows(
     for row in rows:
         value = _row_dict(row)
         envelope = value.pop("envelope", None)
+        event_actor_label = value.pop("event_actor_label", None)
         try:
             value["event"] = json.loads(envelope) if envelope else {}
         except (TypeError, json.JSONDecodeError):
             value["event"] = {}
+        if (
+            value["event_name"] == REQUEST_RESOLVED_EVENT
+            and event_actor_label
+            and isinstance(value["event"], dict)
+        ):
+            context = value["event"].setdefault("context", {})
+            if isinstance(context, dict):
+                context.setdefault(
+                    "resolution_actor_label",
+                    str(event_actor_label),
+                )
         result.append(value)
     return result
 
@@ -160,12 +182,31 @@ def mark_all_notifications_read(
     conn: Any,
     actor_id: int,
     read_at: str,
+    *,
+    project_ids: Iterable[int] | None = None,
 ) -> int:
     p = _p(conn)
+    project_clause = ""
+    params: list[Any] = [read_at, actor_id]
+    if project_ids is not None:
+        scoped_project_ids = sorted({int(value) for value in project_ids})
+        if scoped_project_ids:
+            placeholders = ", ".join(p for _ in scoped_project_ids)
+            project_clause = (
+                " AND event_id IN (SELECT event_id FROM events "
+                f"WHERE project_id IS NULL OR project_id IN ({placeholders}))"
+            )
+            params.extend(scoped_project_ids)
+        else:
+            project_clause = (
+                " AND event_id IN (SELECT event_id FROM events "
+                "WHERE project_id IS NULL)"
+            )
     cursor = conn.execute(
         f"UPDATE addressed_event_deliveries SET read_at = {p} "
-        f"WHERE actor_id = {p} AND channel = 'in_app' AND read_at IS NULL",
-        (read_at, actor_id),
+        f"WHERE actor_id = {p} AND channel = 'in_app' AND read_at IS NULL"
+        f"{project_clause}",
+        tuple(params),
     )
     return max(int(cursor.rowcount or 0), 0)
 

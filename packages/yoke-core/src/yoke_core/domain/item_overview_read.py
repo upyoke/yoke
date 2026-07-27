@@ -7,6 +7,7 @@ from typing import Any, Iterable
 from yoke_contracts.item_ref import format_item_ref
 from yoke_core.domain import db_backend, db_helpers
 from yoke_core.domain.item_page_claims import active_item_claims
+from yoke_core.domain.workflow_runtime import workflow_runtime_from_row
 
 
 def _p(conn: Any) -> str:
@@ -42,7 +43,34 @@ def enrich_item_overview_rows(
             tuple(ids),
         )
         facts = {int(row["id"]): row for row in _dict_rows(cursor)}
+        lane_cursor = conn.execute(
+            "SELECT id, item_id, branch, path, lane_role, state, "
+            "created_at, updated_at, released_at "
+            "FROM item_worktrees "
+            f"WHERE item_id IN ({placeholders}) AND state = 'active' "
+            "ORDER BY item_id, id",
+            tuple(ids),
+        )
+        worktrees: dict[int, list[dict[str, Any]]] = {}
+        for lane in _dict_rows(lane_cursor):
+            worktrees.setdefault(int(lane["item_id"]), []).append(lane)
         claims = active_item_claims(conn, ids)
+        version_ids = sorted({
+            int(row["workflow_version_id"]) for row in base_rows
+        })
+        version_placeholders = ", ".join(marker for _ in version_ids)
+        version_cursor = conn.execute(
+            "SELECT v.id AS workflow_version_id, v.workflow_id, v.version, "
+            "v.definition_json, v.definition_digest "
+            "FROM workflow_versions v "
+            f"WHERE v.id IN ({version_placeholders})",
+            tuple(version_ids),
+        )
+        runtimes = {
+            int(version["workflow_version_id"]):
+                workflow_runtime_from_row(version)
+            for version in _dict_rows(version_cursor)
+        }
     finally:
         conn.close()
 
@@ -50,6 +78,7 @@ def enrich_item_overview_rows(
     for row in base_rows:
         item_id = int(row["id"])
         fact = facts[item_id]
+        runtime = runtimes[int(row["workflow_version_id"])]
         row.update({
             "public_ref": format_item_ref(
                 fact["project"],
@@ -62,6 +91,8 @@ def enrich_item_overview_rows(
             "project_name": str(fact["project_name"]),
             "owner": str(fact.get("owner") or ""),
             "claimed_by": claims.get(item_id),
+            "worktrees": worktrees.get(item_id, []),
+            "stage_label": runtime.stage_label(str(row["status"])),
         })
         result.append(row)
     return result

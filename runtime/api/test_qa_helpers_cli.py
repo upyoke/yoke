@@ -48,7 +48,7 @@ class TestCLI:
         lines = qa.cmd_requirement_list(item_id=42, db_path=db_path)
         assert len(lines) == 1
 
-    def test_requirement_add_help_lists_policy_shapes(
+    def test_requirement_add_help_is_aggregate_only(
         self, capsys: pytest.CaptureFixture[str]
     ) -> None:
         with pytest.raises(SystemExit) as exc:
@@ -59,11 +59,11 @@ class TestCLI:
         assert "--requirement-source" in out
         for source in qa.VALID_REQUIREMENT_SOURCES:
             assert source in out
-        assert "browser_smoke" in out
-        assert "browser_diff" in out
-        assert '{"steps"' in out
-        assert "ac_verification" in out
-        assert "min_runs" in out
+        assert "Executable cases are" in out
+        assert "materialized from registered test-plan methods" in out
+        assert "immutable method_config snapshot" in out
+        assert "browser_smoke" not in out
+        assert "browser_diff" not in out
 
     def test_requirement_add_rejects_bad_source_before_db_write(
         self,
@@ -91,65 +91,6 @@ class TestCLI:
         assert "invalid choice" in err
         for source in qa.VALID_REQUIREMENT_SOURCES:
             assert source in err
-        assert "sqlite3.IntegrityError" not in err
-        conn = connect_test_db(db_path)
-        count = conn.execute("SELECT COUNT(*) FROM qa_requirements").fetchone()[0]
-        conn.close()
-        assert count == 0
-
-    def test_requirement_add_rejects_browser_policy_before_db_write(
-        self,
-        db_path: str,
-        monkeypatch: pytest.MonkeyPatch,
-        capsys: pytest.CaptureFixture[str],
-    ) -> None:
-        monkeypatch.setenv("YOKE_DB", db_path)
-
-        with pytest.raises(SystemExit) as exc:
-            qa.main([
-                "requirement-add",
-                "--item-id",
-                "42",
-                "--qa-kind",
-                "browser_smoke",
-                "--qa-phase",
-                "verification",
-            ])
-
-        assert exc.value.code == 2
-        err = capsys.readouterr().err
-        assert "--success-policy is required when --qa-kind=browser_smoke" in err
-        assert '{"steps"' in err
-        assert "sqlite3.IntegrityError" not in err
-        conn = connect_test_db(db_path)
-        count = conn.execute("SELECT COUNT(*) FROM qa_requirements").fetchone()[0]
-        conn.close()
-        assert count == 0
-
-    def test_requirement_add_rejects_browser_policy_shape_before_db_write(
-        self,
-        db_path: str,
-        monkeypatch: pytest.MonkeyPatch,
-        capsys: pytest.CaptureFixture[str],
-    ) -> None:
-        monkeypatch.setenv("YOKE_DB", db_path)
-
-        with pytest.raises(SystemExit) as exc:
-            qa.main([
-                "requirement-add",
-                "--item-id",
-                "42",
-                "--qa-kind",
-                "browser_smoke",
-                "--qa-phase",
-                "verification",
-                "--success-policy",
-                '{"steps":[{"route":"/"}]}',
-            ])
-
-        assert exc.value.code == 2
-        err = capsys.readouterr().err
-        assert "missing the 'action' field" in err
         assert "sqlite3.IntegrityError" not in err
         conn = connect_test_db(db_path)
         count = conn.execute("SELECT COUNT(*) FROM qa_requirements").fetchone()[0]

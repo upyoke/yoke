@@ -178,7 +178,7 @@ def test_machine_result_records_exact_outcome_and_canonical_artifacts(
     )
     requirement_id = int(test_db.execute(
         "SELECT id FROM qa_requirements "
-        "WHERE id=ANY(%s) AND plan_case_key='welcome-frame'",
+        "WHERE id=ANY(%s) AND plan_case_key='path-001'",
         (materialized["created_requirement_ids"],),
     ).fetchone()[0])
     case = get_case_execution_context(

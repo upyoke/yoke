@@ -7,6 +7,12 @@ import os
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
+from yoke_contracts.browser_qa_contract import (
+    BROWSER_CHECK_METHOD,
+    BROWSER_INSPECTION_METHOD,
+    browser_method_contract_violation,
+    is_browser_assertion,
+)
 from yoke_harness import browser_client
 from yoke_harness.browser_qa_artifacts import (
     artifact_directory,
@@ -32,6 +38,8 @@ class RequirementState:
     step_errors: str = ""
     expected_screenshots: int = 0
     recorded_screenshots: int = 0
+    expected_assertions: int = 0
+    passed_assertions: int = 0
     env_failure: bool = False
 
     def __post_init__(self) -> None:
@@ -81,11 +89,25 @@ def process_requirement(
 ) -> RequirementOutcome:
     req_id = int(req_row["id"])
     qa_kind = str(req_row["qa_kind"])
-    steps = parse_steps(req_row.get("success_policy"))
+    method_id = str(req_row.get("method_id") or "")
+    steps = parse_steps(req_row.get("method_config"))
     if not steps:
         return skipped_requirement(
             dispatcher, req_id, qa_kind, project, base_url,
             code_identity, freshness_validated,
+        )
+    violation = browser_method_contract_violation(method_id, steps)
+    if violation is not None:
+        return skipped_requirement(
+            dispatcher,
+            req_id,
+            qa_kind,
+            project,
+            base_url,
+            code_identity,
+            freshness_validated,
+            error_code=violation.code,
+            note=violation.message,
         )
 
     run_id = record_run(
@@ -106,6 +128,9 @@ def process_requirement(
     current_route = "/"
 
     for step_idx, step in enumerate(steps):
+        assertion_expected = is_browser_assertion(step)
+        if assertion_expected:
+            state.expected_assertions += 1
         if isinstance(step, dict) and step.get("action") == "navigate":
             current_route = step.get("route") or current_route
         screenshot_expected = is_screenshot_step(step)
@@ -116,10 +141,12 @@ def process_requirement(
             state.mark_capture_failed(f"step_{step_idx}:env_setup_failure;")
             state.env_failure = True
             break
-        process_step_artifacts(
+        step_succeeded = process_step_artifacts(
             dispatcher, response, screenshot_expected, state, step_idx,
             run_id or 0, req_id, qa_kind, item_id, current_route,
         )
+        if assertion_expected and step_succeeded:
+            state.passed_assertions += 1
 
     if (
         state.expected_screenshots > 0
@@ -130,6 +157,17 @@ def process_requirement(
             f"screenshot_completeness:expected={state.expected_screenshots},"
             f"recorded={state.recorded_screenshots};"
         )
+    if state.run_verdict is None and method_id == BROWSER_CHECK_METHOD:
+        if state.passed_assertions == state.expected_assertions:
+            state.run_verdict = "pass"
+        else:
+            state.mark_capture_failed(
+                "assertion_completeness:"
+                f"expected={state.expected_assertions},"
+                f"passed={state.passed_assertions};"
+            )
+    elif state.run_verdict is None and method_id == BROWSER_INSPECTION_METHOD:
+        state.run_verdict = "inconclusive"
     complete_requirement_run(
         dispatcher, state, run_id or 0, req_id, project, base_url,
         code_identity, freshness_validated,
@@ -137,14 +175,14 @@ def process_requirement(
     return state.outcome(req_id, qa_kind, run_id, code_identity)
 
 
-def parse_steps(success_policy_raw: Any) -> List[Dict[str, Any]]:
-    if not success_policy_raw:
+def parse_steps(method_config_raw: Any) -> List[Dict[str, Any]]:
+    if not method_config_raw:
         return []
     try:
-        parsed_policy = json.loads(success_policy_raw)
+        method_config = json.loads(method_config_raw)
     except json.JSONDecodeError:
         return []
-    steps = parsed_policy.get("steps", [])
+    steps = method_config.get("steps", [])
     return steps if isinstance(steps, list) else []
 
 
@@ -156,7 +194,11 @@ def skipped_requirement(
     base_url: str,
     code_identity: Dict[str, str],
     freshness_validated: bool,
+    *,
+    error_code: str = "missing_steps",
+    note: str = "method_config missing 'steps' array",
 ) -> RequirementOutcome:
+    error = f"malformed_method_config:{error_code}"
     run_id = record_run(
         dispatcher,
         req_id,
@@ -168,8 +210,8 @@ def skipped_requirement(
             code_identity=code_identity,
             freshness_validated=freshness_validated,
             verdict="error",
-            errors="malformed_success_policy:missing_steps",
-            note="Skipped: success_policy missing 'steps' array",
+            errors=error,
+            note=f"Skipped: {note}",
         ),
     )
     return RequirementOutcome(
@@ -178,7 +220,7 @@ def skipped_requirement(
             qa_kind=qa_kind,
             verdict="error",
             qa_run_id=run_id,
-            errors="malformed_success_policy:missing_steps",
+            errors=error,
             code_identity=dict(code_identity),
         ),
         skipped=True,
@@ -196,13 +238,13 @@ def process_step_artifacts(
     qa_kind: str,
     item_id: int,
     current_route: str,
-) -> None:
+) -> bool:
     data = response.get("data", response)
     if not response.get("success", True):
         data_error = data.get("error") if isinstance(data, dict) else "unknown"
         error = response.get("error", data_error)
         state.mark_capture_failed(f"step_{step_idx}:{error};")
-        return
+        return False
     if (
         isinstance(data, dict)
         and data is not response
@@ -211,7 +253,7 @@ def process_step_artifacts(
         state.mark_capture_failed(
             f"step_{step_idx}:{data.get('error', 'step_failed')};"
         )
-        return
+        return False
     artifacts_raw = data.get("artifacts", []) if isinstance(data, dict) else []
     if not artifacts_raw:
         screenshot = (
@@ -221,7 +263,7 @@ def process_step_artifacts(
             artifacts_raw = [screenshot]
     if screenshot_expected and not artifacts_raw:
         state.mark_capture_failed(f"step_{step_idx}:no_screenshot_artifact;")
-        return
+        return False
 
     valid_artifact = False
     artifact_failure = False
@@ -248,6 +290,7 @@ def process_step_artifacts(
             valid_artifact = True
     if screenshot_expected and valid_artifact and not artifact_failure:
         state.recorded_screenshots += 1
+    return not artifact_failure
 
 
 def complete_requirement_run(

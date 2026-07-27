@@ -1,6 +1,7 @@
 import { el } from "./universe_view_support.js";
 import { callFunction } from "./universe_view_support.js";
-import { button, formatTimestamp, workflowPanel } from "./workflow_view_primitives.js";
+import { relativeAge } from "./universe_time.js";
+import { button, workflowPanel } from "./workflow_view_primitives.js";
 
 function inspectionNode(row) {
   return Array.from(row.children).find(
@@ -38,19 +39,38 @@ function renderInspection(documentNode, row, result, makeCurrent) {
 
 function inspectButton(documentNode, row, workflow, version, actions) {
   const inspect = button(
-    documentNode, "Inspect", "workflow-button compact",
+    documentNode, "Inspect", "workflow-button version-inspect",
   );
+  inspect.setAttribute("aria-expanded", "false");
   inspect.addEventListener("click", async () => {
-    row.classList.toggle("inspecting");
+    if (inspect.disabled) return;
     const existing = inspectionNode(row);
-    if (existing) {
+    if (existing && !existing.classList.contains("error")) {
       row.removeChild(existing);
+      row.classList.remove("inspecting");
+      inspect.setAttribute("aria-expanded", "false");
+      inspect.textContent = "Inspect";
       return;
     }
+    if (existing) row.removeChild(existing);
+    row.classList.add("inspecting");
+    inspect.setAttribute("aria-expanded", "true");
+    inspect.disabled = true;
+    inspect.textContent = "Inspecting…";
     const loading = el(
-      documentNode, "div", "workflow-version-inspection", "Loading version…",
+      documentNode,
+      "div",
+      "workflow-version-inspection loading",
+      "Loading version…",
     );
     row.appendChild(loading);
+    const showFailure = (message) => {
+      loading.textContent = message;
+      loading.classList.remove("loading");
+      loading.classList.add("error");
+      inspect.disabled = false;
+      inspect.textContent = "Retry";
+    };
     let callResult;
     try {
       callResult = await callFunction(
@@ -59,15 +79,14 @@ function inspectButton(documentNode, row, workflow, version, actions) {
         { workflow_id: workflow.id, version: Number(version.version) },
       );
     } catch (failure) {
-      loading.textContent = String(failure);
-      loading.classList.add("error");
+      showFailure(String(failure));
       return;
     }
     const ok = callResult.status === 200 && callResult.envelope.success;
     if (!ok) {
-      loading.textContent = callResult.envelope?.error?.message ||
-        "Version read failed.";
-      loading.classList.add("error");
+      showFailure(
+        callResult.envelope?.error?.message || "Version read failed.",
+      );
       return;
     }
     row.removeChild(loading);
@@ -77,6 +96,8 @@ function inspectButton(documentNode, row, workflow, version, actions) {
       callResult.envelope.result || {},
       actions.makeCurrent ? () => actions.makeCurrent(version) : null,
     );
+    inspect.disabled = false;
+    inspect.textContent = "Hide";
   });
   return inspect;
 }
@@ -102,17 +123,25 @@ function versionRow(documentNode, workflow, version, actions) {
     "div",
     "workflow-version-description",
     current
-      ? "New items pin this version."
+      ? Number(version.version) > 1
+        ? "edited here"
+        : "New items pin this version."
       : "Readable and eligible to become current again.",
   ));
   row.appendChild(summary);
-  row.appendChild(el(
-    documentNode,
-    "time",
-    "workflow-version-when",
-    formatTimestamp(version.published_at),
-  ));
-  if (!current) {
+  if (current) {
+    const published = el(
+      documentNode,
+      "time",
+      "workflow-version-when",
+      relativeAge(version.published_at),
+    );
+    if (version.published_at) {
+      published.setAttribute("datetime", version.published_at);
+      published.setAttribute("title", version.published_at);
+    }
+    row.appendChild(published);
+  } else {
     row.appendChild(inspectButton(
       documentNode, row, workflow, version, actions,
     ));

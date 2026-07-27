@@ -8,13 +8,15 @@ daemon state live. Project repositories never receive a browser source tree.
 The product entry points are:
 
 ```sh
-yoke qa browser run --item PREFIX-N --project PROJECT --base-url URL
+yoke qa case run --requirement-id N --base-url URL \
+  --expected-branch BRANCH --expected-sha SHA
 yoke qa browser screenshot URL --output /tmp/capture.png
 ```
 
-`yoke-harness` owns the local daemon/client orchestration. `yoke-cli` owns
-flag parsing and dispatches DB-backed legs through the registered `qa.*`
-function-call surfaces.
+`yoke-harness` owns the local daemon/client substrate. The shared case runner
+executes one materialized Browser check or Browser inspection requirement and
+dispatches its DB-backed legs through registered `qa.*` function-call
+surfaces. Screenshot is diagnostic tooling and records no QA verdict.
 
 ## Prerequisites
 

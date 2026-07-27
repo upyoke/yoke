@@ -45,7 +45,7 @@
   "module_sources": {
     "installer_campaign_plan_rows": {
       "path": "packages/yoke-core/src/yoke_core/domain/migrations/installer_campaign_plan_rows.py",
-      "sha256": "59a8341b57eb038dcac3bd4322bb3c2d64c19d9142b9332e837897690a09edd6"
+      "sha256": "7f58ff7e54f664ef36571d797c803dfc5cb8487d53bc7b1eed07f513aedc091c"
     }
   },
   "attestation": {
@@ -67,13 +67,14 @@
       }
     ],
     "invariants": [
-      "The yoke project owns exactly one installer-campaign plan with ten name-slug cases.",
-      "The case roster is four Terminal checks, three Terminal inspections, and three Machine state checks.",
-      "The two baseline-parameterized cases expand the plan to twelve materialized requirements.",
-      "Every Terminal case declares its entry surface and required completion."
+      "The yoke project owns exactly one installer-campaign plan with all 188 absorbed source scenarios under name-slug keys.",
+      "Every source id, catalog section, declared host profile or precondition, flow, and expected outcome survives in the code-owned case contract.",
+      "The roster contains five Terminal checks, 180 Terminal inspections, and three safe Machine state checks.",
+      "Every interactive Terminal inspection declares input, entry surface, required completion, and a capture checkpoint.",
+      "The migration digest transitively binds the code-owned catalog digest."
     ],
     "rehearsal_commands": [
-      "PYTHONPATH=packages/yoke-contracts/src:packages/yoke-cli/src:packages/yoke-core/src:packages/yoke-harness/src:. python3 -m pytest runtime/api/domain/migrations/test_installer_campaign_plan_rows.py runtime/api/domain/test_machine_qa.py runtime/api/domain/test_qa_case_execution.py -q"
+      "PYTHONPATH=packages/yoke-contracts/src:packages/yoke-cli/src:packages/yoke-core/src:packages/yoke-harness/src:. python3 -m pytest runtime/api/domain/migrations/test_installer_campaign_plan_rows.py runtime/api/domain/test_machine_qa.py runtime/api/domain/test_qa_case_execution.py runtime/api/domain/test_machine_qa_baseline_group.py runtime/api/domain/test_machine_qa_case_execution.py -q"
     ],
     "residual_risk_notes": "The physical Test Mac proof remains an explicit execution prerequisite; the migration installs executable contracts but does not claim a case verdict."
   }

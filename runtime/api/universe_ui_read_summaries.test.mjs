@@ -14,7 +14,6 @@ import {
   FakeDocument,
   allNodes,
   byClass,
-  cellText,
   injectedClient,
   response,
   settle,
@@ -25,48 +24,59 @@ import {
   itemsCalls, scopeChips, twoProjectClient,
 } from "./universe_ui_read_views_test_support.mjs";
 
-test("Sessions shows the session: actor, liveness, lane, mode, and what it holds", async (t) => {
+test("Projects is an aggregate roster and each project opens its settings", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/sessions?project=1";
+  documentNode.defaultView.location.hash = "#/projects";
   const root = documentNode.createElement("div");
   const requests = [];
+  const roster = [
+    {
+      id: 1, slug: "yoke", name: "Yoke", emoji: "▤",
+      github_repo: "acme/yoke", default_branch: "main",
+      public_item_prefix: "YOK", in_flight_count: 3,
+      ready_count: 2, blocked_count: 1, strategy_doc_count: 4,
+      has_strategy: true,
+    },
+    {
+      id: 2, slug: "notes", name: "Notes", emoji: "◇",
+      github_repo: null, default_branch: "trunk",
+      public_item_prefix: "NOT", in_flight_count: 0,
+      ready_count: 1, blocked_count: 0, strategy_doc_count: 0,
+      has_strategy: false,
+    },
+  ];
   const client = {
     async call(request) {
       requests.push(request);
       if (request.function === "organizations.get") {
-        return { status: 200, envelope: { success: true, result: { name: "Yoke" } } };
+        return {
+          status: 200,
+          envelope: { success: true, result: { name: "Yoke" } },
+        };
       }
       if (request.function === "projects.list") {
-        return { status: 200, envelope: { success: true, result: { rows: [{ id: 1, name: "Yoke" }] } } };
+        const rows = request.payload?.include_summary
+          ? roster
+          : roster.map(({ id, slug, name }) => ({ id, slug, name }));
+        return {
+          status: 200,
+          envelope: { success: true, result: { rows } },
+        };
       }
-      if (request.function === "sessions.list") {
+      if (request.function === "projects.get") {
         return {
           status: 200,
           envelope: {
             success: true,
             result: {
-              rows: [
-                {
-                  session_id: "s-run", liveness: "active",
-                  execution_lane: "primary", mode: "charge",
-                  actor_id: 2, actor_kind: "human", actor_label: "Ben",
-                  claims: [
-                    { target_kind: "item", target: "YOK-41" },
-                    { target_kind: "process", target: "feed" },
-                  ],
-                  current_item: "YOK-41", activity_at: "now",
-                },
-                {
-                  session_id: "s-idle", liveness: "stale",
-                  execution_lane: "primary", mode: "wait",
-                  actor_id: 1, actor_kind: "system",
-                  actor_label: "yoke-core",
-                  claims: [], current_item: null, activity_at: "then",
-                },
-              ],
+              row: {
+                ...roster[0],
+                github_sync_mode: "issue",
+                created_at: "2026-07-01T12:00:00Z",
+              },
             },
           },
         };
@@ -77,33 +87,52 @@ test("Sessions shows the session: actor, liveness, lane, mode, and what it holds
 
   const mounted = mountUniverseApp(root, { client });
   await settle();
+  assert.deepEqual(
+    requests.find((request) => request.payload?.include_summary),
+    { function: "projects.list", payload: { include_summary: true } },
+  );
+  assert.deepEqual(
+    byClass(root, "metric").map((node) => node.children[0].textContent),
+    ["2", "3", "3", "1", "4"],
+  );
+  assert.deepEqual(
+    byClass(root, "row-link").map((node) => node.href),
+    [
+      "#/project?project=1",
+      "https://github.com/acme/yoke",
+      "#/project?project=2",
+    ],
+  );
+  assert.equal(
+    allNodes(root).find(
+      (node) => node.tagName === "CODE" &&
+        node.textContent === "yoke projects create <slug> <name>",
+    ).textContent,
+    "yoke projects create <slug> <name>",
+  );
 
+  documentNode.defaultView.location.hash = "#/project?project=1";
+  documentNode.defaultView.dispatchEvent(new Event("hashchange"));
+  await settle();
   assert.deepEqual(
-    requests.find((request) => request.function === "sessions.list"),
-    { function: "sessions.list", payload: { project: "1" } },
+    requests.find((request) => request.function === "projects.get"),
+    { function: "projects.get", payload: { project: "1" } },
   );
-  const cells = allNodes(root)
-    .filter((node) => node.tagName === "TD")
-    .map(cellText);
-  assert.deepEqual(cells, [
-    "s-run", "Ben", "active", "primary", "charge", "YOK-41, feed",
-    "YOK-41", "now",
-    "s-idle", "yoke-core · system", "stale", "primary", "wait", "",
-    "", "then",
-  ]);
-  // Liveness colors through the semantic pill families: alive reads good,
-  // stale reads warn — derived states, never re-encoded thresholds.
-  const pills = allNodes(root)
-    .filter((node) => node.classList && node.classList.contains("pill"));
   assert.deepEqual(
-    pills.map((pill) => pill.className),
-    ["pill good", "pill warn"],
+    byClass(root, "labelled-fact-label").map((node) => node.textContent),
+    [
+      "Project id", "Public item prefix", "Default branch",
+      "GitHub repository", "GitHub sync", "Created",
+    ],
   );
-  // The read served its complete set, so the panel counts the merged rows.
-  assert.equal(byClass(root, "panel-count")[0].textContent, "· 2");
+  const settingsText = allNodes(root)
+    .map((node) => node.textContent || "").join(" ");
+  for (const expected of ["YOK", "main", "acme/yoke", "issue"]) {
+    assert.ok(settingsText.includes(expected), expected);
+  }
   mounted.unmount();
 });
-test("every routed view opens with its page head, and only summarized entries get a subtitle", async (t) => {
+test("every routed view opens with its prototype page head and scope summary", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
@@ -138,20 +167,20 @@ test("every routed view opens with its page head, and only summarized entries ge
   assert.equal(title.textContent, "Sessions");
   assert.equal(
     byClass(heads[0], "subtitle")[0].textContent,
-    "Each session: who runs it, what it holds, and how alive it is.",
+    "Every harness session running against this universe, and what each one holds.",
   );
   // The head leads the content column, above the view's own picker.
   const content = byClass(root, "content")[0];
   assert.ok(content.children[0].classList.contains("page-head"));
   assert.ok(content.children[1].classList.contains("scope-bar"));
 
-  // An entry with no summary renders no empty subtitle node at all.
   documentNode.defaultView.location.hash = "#/items?project=1";
   documentNode.defaultView.dispatchEvent(new Event("hashchange"));
   await settle();
   const itemsHead = byClass(root, "page-head")[0];
   assert.equal(byClass(itemsHead, "title")[0].textContent, "Items");
-  assert.equal(byClass(itemsHead, "subtitle").length, 0);
+  assert.equal(byClass(itemsHead, "subtitle")[0].textContent,
+    "scoped to Yoke · every durable piece of project work");
   mounted.unmount();
 });
 
@@ -208,15 +237,24 @@ test("the items count is the served total, summed across buckets — never rows.
   const documentNode = new FakeDocument();
   documentNode.defaultView.location.hash = "#/items?project=1,2";
   const root = documentNode.createElement("div");
-  const itemRow = (id, project) => ({
-    id, title: "t", workflow_id: "issue", workflow_version_id: 1, status: "idea", priority: "medium",
-    blocked: "0", blocked_reason: "", project,
+  const itemRow = (id, projectId, project) => ({
+    id,
+    public_ref: `YOK-${id}`,
+    project_id: projectId,
+    title: "t",
+    workflow_id: "issue",
+    workflow_version_id: 1,
+    status: "idea",
+    stage_label: "Idea",
+    owner: "",
+    claimed_by: null,
+    project,
   });
   // Each bucket serves one row of a larger total, so the served counts and
   // the merged rows.length deliberately disagree.
   const servedByBucket = {
-    1: { rows: [itemRow(11, "alpha")], count: 3 },
-    2: { rows: [itemRow(21, "beta")], count: 4 },
+    1: { rows: [itemRow(11, 1, "alpha")], count: 3 },
+    2: { rows: [itemRow(21, 2, "beta")], count: 4 },
   };
   const client = {
     async call(request) {
@@ -237,7 +275,7 @@ test("the items count is the served total, summed across buckets — never rows.
           },
         };
       }
-      if (request.function === "items.list.run") {
+      if (request.function === "items.overview.list") {
         return {
           status: 200,
           envelope: {

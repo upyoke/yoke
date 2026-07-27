@@ -12,118 +12,15 @@ import {
   settle,
 } from "./universe_ui_dom_test_support.mjs";
 
-const ok = (result) => ({
-  status: 200, envelope: { success: true, result },
-});
-
-function requestRow(overrides = {}) {
-  return {
-    id: 7,
-    kind: "lifecycle_transition_approval",
-    subject_type: "item_transition",
-    subject_key: "1907:reviewing-implementation",
-    subject_context: {
-      item_id: 1907,
-      item_ref: "YOK-1907",
-      transition: "reviewing-implementation",
-      policy_summary: "Issue v1 approval policy",
-      title: "YOK-1907 — approve the reviewing-implementation transition",
-    },
-    project_id: 10,
-    blocking: true,
-    created_at: "2026-07-26T12:00:00Z",
-    asked_of_you: false,
-    authority_reason: "project owner",
-    actions: ["approve", "reject"],
-    ...overrides,
-  };
-}
-
-function notificationRow(overrides = {}) {
-  return {
-    id: 19,
-    event_id: "event-19",
-    notification_kind: "deployment_run_completed",
-    reason: "run completed",
-    created_at: "2026-07-26T13:00:00Z",
-    event_name: "DeploymentRunSucceeded",
-    project_id: 10,
-    event_outcome: "completed",
-    event: {
-      context: {
-        target_env: "Production",
-        run_id: "run-20260726-019",
-      },
-    },
-    ...overrides,
-  };
-}
-
-function inboxClient() {
-  const requests = [];
-  let needs = [requestRow()];
-  let reviews = [requestRow({
-    id: 8,
-    kind: "strategy_revision_review",
-    subject_type: "strategy_doc_revision",
-    subject_key: "10:WORKFLOW-TYPES:7",
-    subject_context: {
-      slug: "WORKFLOW-TYPES",
-      revision: 7,
-      author_label: "Dana",
-    },
-    blocking: false,
-    asked_of_you: true,
-    authority_reason: "asked of you",
-    actions: ["approve", "request_changes"],
-  })];
-  let notifications = [notificationRow()];
-  return {
-    requests,
-    async call(request) {
-      requests.push(structuredClone(request));
-      if (request.function === "inbox.list") {
-        return ok({
-          needs_decision: structuredClone(needs),
-          requests: structuredClone(reviews),
-          notifications: structuredClone(notifications),
-        });
-      }
-      if (request.function === "decision_requests.resolve") {
-        needs = needs.filter((row) => row.id !== request.payload.request_id);
-        reviews = reviews.filter((row) => row.id !== request.payload.request_id);
-        return ok({ request: { id: request.payload.request_id, status: "resolved" } });
-      }
-      if (request.function === "notifications.read") {
-        notifications = notifications.filter(
-          (row) => row.id !== request.payload.notification_id,
-        );
-        return ok({ read: true, notification_id: request.payload.notification_id });
-      }
-      if (request.function === "notifications.read_all") {
-        const count = notifications.length;
-        notifications = [];
-        return ok({ read: count > 0, count });
-      }
-      throw new Error(`unexpected function ${request.function}`);
-    },
-  };
-}
-
-function render(scope = "all") {
-  const documentNode = new FakeDocument();
-  const main = documentNode.createElement("main");
-  const client = inboxClient();
-  renderInboxView({
-    document: documentNode,
-    client,
-    isMounted: () => true,
-  }, main, scope);
-  return { client, main };
-}
+import {
+  notificationRow,
+  ok,
+  renderInbox,
+  requestRow,
+} from "./universe_ui_inbox_test_support.mjs";
 
 test("Inbox matches the three-class prototype and renders served counts", async () => {
-  const { client, main } = render(["10"]);
+  const { client, main } = renderInbox(["10"]);
   await settle();
 
   const headings = allNodes(main)
@@ -144,13 +41,59 @@ test("Inbox matches the three-class prototype and renders served counts", async 
   assert.deepEqual(client.requests[0], {
     function: "inbox.list", payload: { project_ids: [10] },
   });
-  const asked = byClass(main, "inbox-addressed");
-  assert.equal(asked.length, 1);
-  assert.equal(asked[0].textContent, "asked of you");
+  assert.equal(byClass(main, "inbox-addressed").length, 0);
+  assert.match(
+    allNodes(main).map((node) => node.textContent || "").join(" "),
+    /asked of you/,
+  );
+  assert.equal(allNodes(main).filter((node) => node.tagName === "TIME").length, 3);
+  assert.deepEqual(
+    byClass(main, "inbox-row-subtitle")[0].children
+      .filter((node) => node.tagName === "SPAN")
+      .map((node) => node.textContent),
+    [
+      "Issue v1 approval policy",
+      " · ",
+      "requested ",
+      " · ",
+      "you: project owner",
+    ],
+  );
+  assert.deepEqual(
+    byClass(main, "inbox-row-subtitle")[1].children
+      .filter((node) => node.tagName === "SPAN")
+      .map((node) => node.textContent),
+    [
+      "revision by Dana",
+      " · ",
+      " · ",
+      "the doc stays live while this waits · asked of you",
+    ],
+  );
+  assert.ok(byClass(main, "inbox-action").every(
+    (node) => node.classList.contains("item-button"),
+  ));
+  const firstRow = byClass(main, "inbox-row")[0];
+  assert.deepEqual(
+    byClass(firstRow, "inbox-action").map((node) => node.textContent),
+    ["Reject", "Approve"],
+  );
+  assert.deepEqual(
+    byClass(main, "inbox-row")[1].children.at(-1).children.map(
+      (node) => node.textContent,
+    ),
+    ["Request changes", "Approve"],
+  );
+  assert.equal(firstRow.attributes.get("role"), "link");
+  firstRow.dispatchEvent(new Event("click"));
+  assert.equal(
+    main.ownerDocument.defaultView.location.hash,
+    "#/items/YOK-1907?project=10",
+  );
 });
 
 test("decision buttons call engine actions and refresh the instance lists", async () => {
-  const { client, main } = render();
+  const { client, main } = renderInbox();
   await settle();
   const approve = allNodes(main).find(
     (node) => node.attributes.get("data-action") === "approve"
@@ -169,7 +112,7 @@ test("decision buttons call engine actions and refresh the instance lists", asyn
 });
 
 test("request changes collects the required note before resolving", async () => {
-  const { client, main } = render();
+  const { client, main } = renderInbox();
   await settle();
   const requestChanges = allNodes(main).find(
     (node) => node.attributes.get("data-action") === "request_changes",
@@ -197,8 +140,46 @@ test("request changes collects the required note before resolving", async () => 
   });
 });
 
+test("resolving a decision disables every action on that row", async () => {
+  const documentNode = new FakeDocument();
+  const main = documentNode.createElement("main");
+  let finishResolve;
+  const client = {
+    async call(request) {
+      if (request.function === "inbox.list") {
+        return ok({
+          needs_decision: [requestRow()],
+          requests: [],
+          notifications: [],
+        });
+      }
+      if (request.function === "decision_requests.resolve") {
+        return new Promise((resolve) => { finishResolve = resolve; });
+      }
+      throw new Error(`unexpected function ${request.function}`);
+    },
+  };
+  renderInboxView({
+    document: documentNode,
+    client,
+    isMounted: () => true,
+  }, main, "all");
+  await settle();
+
+  const actions = byClass(byClass(main, "inbox-row")[0], "inbox-action");
+  actions[0].dispatchEvent(new Event("click"));
+  assert.ok(actions.every((node) => node.disabled));
+  finishResolve({
+    status: 500,
+    envelope: { success: false, error: { message: "try again" } },
+  });
+  await settle();
+  assert.ok(actions.every((node) => !node.disabled));
+  assert.equal(byClass(main, "inbox-row-error")[0].textContent, "try again");
+});
+
 test("notification actions are actor-read mutations, including mark all", async () => {
-  const first = render();
+  const first = renderInbox();
   await settle();
   byClass(first.main, "inbox-read")
     .find((node) => node.textContent === "Mark read")
@@ -211,19 +192,87 @@ test("notification actions are actor-read mutations, including mark all", async 
   assert.equal(byClass(first.main, "inbox-empty").at(-1).textContent,
     "Nothing new.");
 
-  const second = render();
+  const second = renderInbox(["10"]);
   await settle();
   byClass(second.main, "inbox-read-all")[0].dispatchEvent(new Event("click"));
   await settle();
-  assert.ok(second.client.requests.some(
+  assert.deepEqual(second.client.requests.find(
     (request) => request.function === "notifications.read_all",
-  ));
+  ), {
+    function: "notifications.read_all",
+    payload: { project_ids: [10] },
+  });
+
+  const global = renderInbox();
+  await settle();
+  byClass(global.main, "inbox-read-all")[0].dispatchEvent(new Event("click"));
+  await settle();
+  assert.deepEqual(global.client.requests.find(
+    (request) => request.function === "notifications.read_all",
+  ), { function: "notifications.read_all", payload: {} });
+});
+
+test("notification mutation failures stay visible and retryable", async () => {
+  const documentNode = new FakeDocument();
+  const main = documentNode.createElement("main");
+  const client = {
+    async call(request) {
+      if (request.function === "inbox.list") {
+        return ok({
+          needs_decision: [],
+          requests: [],
+          notifications: [notificationRow()],
+        });
+      }
+      return {
+        status: 503,
+        envelope: {
+          success: false,
+          error: { message: `${request.function} unavailable` },
+        },
+      };
+    },
+  };
+  renderInboxView({
+    document: documentNode,
+    client,
+    isMounted: () => true,
+  }, main, "all");
+  await settle();
+
+  byClass(main, "inbox-read").find(
+    (node) => node.textContent === "Mark read",
+  ).dispatchEvent(new Event("click"));
+  await settle();
+  assert.match(
+    byClass(main, "inbox-row-error")[0].textContent,
+    /notifications\.read unavailable/,
+  );
+  assert.equal(
+    byClass(main, "inbox-read").find(
+      (node) => node.textContent === "Mark read",
+    ).disabled,
+    false,
+  );
+
+  byClass(main, "inbox-read-all")[0].dispatchEvent(new Event("click"));
+  await settle();
+  assert.match(
+    byClass(main, "inbox-panel-error")[0].textContent,
+    /notifications\.read_all unavailable/,
+  );
+  assert.equal(byClass(main, "inbox-read-all")[0].disabled, false);
 });
 
 test("all five request kinds link to their one subject home", () => {
   const cases = [
     ["deployment_stage_approval", "deployment_stage", {}, "#/delivery/runs?project=10"],
-    ["qa_needs_review", "qa_requirement", {}, "#/qa?project=10"],
+    [
+      "qa_needs_review",
+      "qa_requirement",
+      { plan_id: 7, case_name: "checkout-flow" },
+      "#/qa/plans/7?project=10",
+    ],
     ["lifecycle_transition_approval", "item_transition", { item_id: 7 }, "#/items/7?project=10"],
     ["machine_approval", "machine_auth_request", {}, "#/access"],
     ["strategy_revision_review", "strategy_doc_revision", { slug: "PLAN" }, "#/strategy/PLAN?project=10"],
@@ -233,4 +282,61 @@ test("all five request kinds link to their one subject home", () => {
       kind, subject_type: subjectType, subject_context: subjectContext,
     })), expected);
   }
+  assert.equal(inboxPresentation.subjectHref(requestRow({
+    kind: "qa_needs_review",
+    subject_type: "qa_requirement",
+    subject_context: {},
+  })), "#/qa/activity?project=10");
+});
+
+test("notifications link their full row to the subject home", () => {
+  assert.equal(
+    inboxPresentation.notificationHref(notificationRow()),
+    "#/delivery/runs?project=10",
+  );
+  assert.equal(
+    inboxPresentation.notificationHref(notificationRow({
+      notification_kind: "item_block_state_changed",
+      event: { context: { item_ref: "YOK-1907" } },
+    })),
+    "#/items/YOK-1907?project=10",
+  );
+});
+
+test("decision notifications use the served kind and action without inventing subject facts", () => {
+  assert.deepEqual(
+    inboxPresentation.notificationPresentation(notificationRow({
+      notification_kind: "decision_request_resolved",
+      reason: "deployment_stage_approval approve",
+      event: {
+        context: {
+          request_id: 12,
+          kind: "deployment_stage_approval",
+          action: "approve",
+          resolution_actor_label: "ben",
+        },
+      },
+    })),
+    {
+      title: "Your stage approval was resolved",
+      subtitle: "approved by ben",
+    },
+  );
+  assert.deepEqual(
+    inboxPresentation.notificationPresentation(notificationRow({
+      notification_kind: "decision_request_resolved",
+      reason: "strategy_revision_review request_changes",
+      event: {
+        context: {
+          request_id: 13,
+          kind: "strategy_revision_review",
+          action: "request_changes",
+        },
+      },
+    })),
+    {
+      title: "Your decision request was resolved",
+      subtitle: "changes requested",
+    },
+  );
 });

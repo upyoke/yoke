@@ -1,8 +1,9 @@
+# ruff: noqa: F811
 """Tests for qa_gate_summary — typed read-only QA summary.
 
 Covers AC-1 / AC-2 / AC-3 / AC-13 / AC-14
 - Target-aware unsatisfied counts.
-- Browser-substrate evidence rule for ``browser_smoke`` / ``browser_diff``
+- Browser-method substrate evidence rule
   matches the verification gate.
 - Per-requirement evidence (id, kind, blocking, satisfied, latest run)
   is surfaced.
@@ -78,8 +79,8 @@ def test_no_requirements_for_scope(qa_db):
 
 
 def test_blocking_browser_without_substrate_run_unsatisfied(qa_db):
-    """AC-2: browser_smoke requires substrate-executed pass + artifacts."""
-    add_requirement(qa_db, qa_kind="browser_smoke")
+    """AC-2: Browser check requires substrate-executed pass + artifacts."""
+    add_requirement(qa_db, qa_kind="plan_case", method_id="browser-check")
     summary = render_gate_summary(
         GateTarget(item_id=42), qa_db, transition_name="reviewed-implementation"
     )
@@ -87,14 +88,18 @@ def test_blocking_browser_without_substrate_run_unsatisfied(qa_db):
     assert summary["blocking_unsatisfied_count"] == 1
     assert summary["browser_unsatisfied_count"] == 1
     [req] = summary["requirements"]
-    assert req["qa_kind"] == "browser_smoke"
+    assert req["method_id"] == "browser-check"
     assert req["satisfied"] is False
 
 
 def test_browser_with_substrate_run_and_artifact_satisfied(qa_db):
     """AC-2: pass + non-agent executor + artifact satisfies the gate."""
-    rid = add_requirement(qa_db, qa_kind="browser_diff")
-    run_id = add_run(qa_db, rid, executor_type="browser_substrate", qa_kind="browser_diff")
+    rid = add_requirement(
+        qa_db, qa_kind="plan_case", method_id="browser-inspection",
+    )
+    run_id = add_run(
+        qa_db, rid, executor_type="browser_substrate", qa_kind="plan_case",
+    )
     add_artifact(qa_db, run_id)
     summary = render_gate_summary(
         GateTarget(item_id=42), qa_db, transition_name="reviewed-implementation"
@@ -111,9 +116,11 @@ def test_browser_with_substrate_run_and_artifact_satisfied(qa_db):
 
 
 def test_browser_with_agent_only_run_unsatisfied(qa_db):
-    """AC-2: agent-executed pass alone does NOT satisfy a browser kind."""
-    rid = add_requirement(qa_db, qa_kind="browser_smoke")
-    add_run(qa_db, rid, executor_type="agent", qa_kind="browser_smoke")
+    """AC-2: agent-executed pass alone does not satisfy a Browser case."""
+    rid = add_requirement(
+        qa_db, qa_kind="plan_case", method_id="browser-check",
+    )
+    add_run(qa_db, rid, executor_type="agent", qa_kind="plan_case")
     summary = render_gate_summary(
         GateTarget(item_id=42), qa_db, transition_name="reviewed-implementation"
     )
@@ -124,8 +131,12 @@ def test_browser_with_agent_only_run_unsatisfied(qa_db):
 
 def test_browser_substrate_run_without_artifact_unsatisfied(qa_db):
     """AC-2: browser pass without an artifact does not satisfy."""
-    rid = add_requirement(qa_db, qa_kind="browser_smoke")
-    add_run(qa_db, rid, executor_type="browser_substrate", qa_kind="browser_smoke")
+    rid = add_requirement(
+        qa_db, qa_kind="plan_case", method_id="browser-check",
+    )
+    add_run(
+        qa_db, rid, executor_type="browser_substrate", qa_kind="plan_case",
+    )
     summary = render_gate_summary(
         GateTarget(item_id=42), qa_db, transition_name="reviewed-implementation"
     )
@@ -160,7 +171,12 @@ def test_e2e_without_passing_run_unsatisfied(qa_db):
 
 
 def test_waived_requirement_treated_as_satisfied(qa_db):
-    add_requirement(qa_db, qa_kind="browser_smoke", waived_at="2026-05-07T02:00:00Z")
+    add_requirement(
+        qa_db,
+        qa_kind="plan_case",
+        method_id="browser-check",
+        waived_at="2026-05-07T02:00:00Z",
+    )
     summary = render_gate_summary(
         GateTarget(item_id=42), qa_db, transition_name="reviewed-implementation"
     )

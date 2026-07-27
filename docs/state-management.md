@@ -4,16 +4,23 @@ All authoritative Yoke state lives in the configured Postgres authority. Compact
 
 ## Work Item Registry
 
-Every work item gets a stable `YOK-N` ID that persists through its entire
-lifecycle. The registry is the single source of truth for Dash, Blitz, Issue,
-and Epic items.
+Every work item gets a stable global integer `items.id`. Its user-facing
+reference combines the owning project's `public_item_prefix` with the item's
+per-project `project_sequence` (for example, `YOK-42`). Both identities persist
+through the item's entire lifecycle. The registry is the single source of
+truth for Dash, Blitz, Issue, and Epic items.
 
 ### ID System
 
-- **Format:** `YOK-N` (e.g.) — prefixed to avoid confusion with GitHub issue `#N`
-- **Scope:** per-repo, monotonically increasing
-- **Counter:** DB auto-increment on the `items` table.
-- **Stability:** local ID never changes. GitHub issue number is a separate metadata field (`github_issue`).
+- **Public format:** `<PREFIX>-N` (for example, `YOK-42`) — the prefix comes
+  from `projects.public_item_prefix`.
+- **Scope:** `items.id` is globally unique in the universe;
+  `items.project_sequence` is monotonically allocated within one project.
+- **Counters:** the registry assigns the global integer id and the next
+  project sequence; `UNIQUE(project_id, project_sequence)` preserves the
+  project-local namespace.
+- **Stability:** neither identity changes. A GitHub issue number is separate
+  metadata in `github_issue`.
 - **Tasks within epics** keep plan-order numbering (001, 002) — internal to epic, not global YOK-N IDs.
 
 ### Workflows
@@ -56,7 +63,7 @@ are not item stages.
 | `polishing-implementation` | Polish (`/yoke polish`) | Final polish in progress |
 | `implemented` | Polish (`/yoke polish`) | Polish complete, awaiting deployment handoff |
 | `release` | Usher | Enrolled in an executing deployment run |
-| `done` | Usher | Deployment run succeeded and all blocking QA satisfied (or no deployment flow) |
+| `done` | Pinned workflow executor | The workflow's registered close executor satisfied its final gates: Dash or Blitz closes directly; Issue or Epic closes through Usher delivery |
 | `cancelled` | Human | Explicitly cancelled |
 
 > **Ownership note:** `/yoke refine` owns idea refinement for Issue, Epic, and
@@ -72,16 +79,19 @@ are not item stages.
 Items are read via `yoke items get YOK-N <field>`. The `body` field is a virtual rendered field assembled on demand from structured fields — it is not stored in the DB.
 
 **Fields:**
-- `id` — stable `YOK-N` identifier, never changes
+- `id` — stable global integer primary key
+- public reference — derived from the owning project's
+  `public_item_prefix` plus `project_sequence`; it is not a second primary key
 - `title` — human-readable title
+- `project_id` — integer project authority
+- `project_sequence` — stable sequence within that project
 - `workflow_id` — stable workflow identity (`dash`, `blitz`, `issue`, `epic`)
 - `workflow_version_id` — immutable definition version pinned at creation
 - `status` — current stage id, validated against the pinned version
 - `priority` — `high`, `medium`, or `low`
-- `epic` — slug of linked epic directory (null if not yet planned)
 - `github_issue` — GitHub issue reference, populated on sync (null if unsynced)
-- `created` — ISO timestamp, set on creation
-- `updated` — ISO timestamp, updated on every field change
+- `created_at` — ISO timestamp, set on creation
+- `updated_at` — ISO timestamp, updated on every field change
 - `merged_at` — ISO timestamp, automatically populated by `yoke_core.engines.done_transition` when the item transitions to `done` (set to current UTC timestamp if null). Not overwritten if already set (e.g., by the merge pipeline). Tracks when the item's code was finalized on main.
 
 **Item-level dependencies** are stored in the `item_dependencies` table (not as an item field). Every row is a canonical blocker with `gate_point` (`activation`, `integration`, or `closure`) and `satisfaction` (`status:done`, `status:implemented`, or `fact:merged`). Each row carries a `rationale` (human-readable) and `evidence_json` (structured provenance). A shared dependency-planning kernel (`dependency_planning.py`) evaluates gates and plans candidate sets for all consumers. Transition and dispatch gates call the hard-block gate or the dependency-planning service commands. See `.yoke/docs/db-reference.md` for the full schema.
@@ -89,11 +99,14 @@ Items are read via `yoke items get YOK-N <field>`. The `body` field is a virtual
 ### Counter Mechanics
 
 When the backlog create path inserts an item:
-1. Insert into DB (auto-increment assigns next ID, e.g., `19`)
-2. Item is accessible via `items get YOK-N body`
-3. Trigger board rebuild
+1. Resolve `project_id` and allocate the next `project_sequence` for it.
+2. Insert the row and receive its global integer `items.id`.
+3. Format the public reference from the project's prefix and sequence.
+4. Make the item accessible through `yoke items get <PREFIX-N> body`.
+5. Trigger board rebuild.
 
-The counter never decrements. Deleted items leave gaps (IDs are never reused).
+The counters never decrement. Removed items leave gaps; identities are never
+reused.
 
 ## Backlog Item Lifecycle
 
@@ -124,11 +137,16 @@ Specs, plans, and review artifacts live in structured item fields (`spec`, `tech
 
 ## Delivery Lifecycle
 
-After an item completes implementation and reaches `implemented`, ownership transfers from Conduct/Polish to the **Usher** skill. The Usher manages the `implemented → release → done` transition by creating and executing deployment runs.
+After an Issue or Epic completes implementation and reaches `implemented`,
+ownership transfers from Conduct/Polish to the **Usher** skill. Usher manages
+that pinned definition's `implemented → release → done` transition by creating
+and executing deployment runs. Dash and Blitz never enter this boundary:
+their registered direct executors close them at `done`.
 
 ### Usher Ownership Boundary
 
-The Usher owns the delivery lifecycle exclusively. It does not touch anything pre-merge. The boundary is:
+For the built-in Issue and Epic definitions, Usher owns the delivery lifecycle
+exclusively. It does not touch anything pre-merge. The boundary is:
 
 - **Advance / Conduct** owns: `implementing → reviewing-implementation → reviewed-implementation` (implementation and review loop in the existing worktree lane set)
 - **Polish** owns: `reviewed-implementation → polishing-implementation → implemented` (finishing review, cleanup, verification, and local polish commits across the changed lanes)
@@ -140,7 +158,10 @@ The handoff occurs when an item reaches `implemented` status. By default, `imple
 - **Fresh command entrypoint required:** Even when the operator already knows usher should run next, `/yoke usher` starts as its own command entrypoint and claims the item itself. Advance/polish must stop at their handoff boundary instead of carrying claim ownership across commands.
 - **Conduct-managed items:** The conduct pipeline outputs the same next-step instructions.
 
-**lifecycle fix:** Done transitions are handled exclusively by `/yoke usher YOK-N`, which manages the full pipeline: merge → deploy → verify → done-transition. `/yoke advance YOK-N done` redirects to usher.
+For Issue and Epic, done transitions are handled by `/yoke usher YOK-N`,
+which manages the full pipeline: merge → deploy → verify → done-transition.
+Dash and Blitz use `/yoke dash` and `/yoke blitz` respectively because their
+pinned definitions bind those executors directly through `done`.
 
 ### Delivery Pipeline Internals
 
@@ -164,15 +185,21 @@ One row per task. Created by `yoke_core.api.service_client_items`. Updated by `y
 | Column | Type | Description |
 |--------|------|-------------|
 | `id` | INTEGER | Auto-increment primary key |
-| `epic_id` | TEXT | Parent epic slug (e.g., "auth-api") |
+| `epic_id` | INTEGER | Numeric parent item ID |
 | `task_num` | INTEGER | Plan-order number (e.g., 1, 2, 3) |
 | `title` | TEXT | Task title |
-| `worktree` | TEXT | Branch/worktree name |
+| `item_worktree_id` | INTEGER | Universal lane record in `item_worktrees` |
 | `context_estimate` | TEXT | Size estimate (e.g., "S", "30k") |
-| `dependencies` | TEXT | Comma-separated task numbers |
+| `dependencies` | TEXT | Comma-separated prerequisite task numbers within the same epic |
 | `status` | TEXT | Current lifecycle status |
 | `dispatch_attempts` | INTEGER | Auto-incremented on each `implementing` transition |
+| `body` | TEXT | Task body |
 | `github_issue` | TEXT | GitHub issue reference (e.g., "#42") |
+| `blocked_by` | TEXT | Current task-level blocker context |
+| `max_attempts` | INTEGER | Retry limit (default 5) |
+| `agent_id` | TEXT | Active task agent identity |
+| `last_heartbeat` | TEXT | Latest task-agent heartbeat |
+| `last_activity_at` | TEXT | Latest task activity timestamp |
 
 **History:** Status transitions are logged in the `events` table as `task_status_change` rows. Epic task context lives on `item_id`/`task_num`; `from_status`, `to_status`, and `note` live in the JSON envelope.
 
@@ -199,6 +226,16 @@ Plus: failed, blocked, stopped
 
 ## Backlog Item Status Flow
 
+**Dash items:**
+```
+idea → implementing → reviewing-implementation → done
+```
+
+**Blitz items:**
+```
+idea → refining-idea → refined-idea → implementing → reviewing-implementation → done
+```
+
 **Issue items:**
 ```
 idea → refining-idea → refined-idea → implementing → reviewing-implementation → reviewed-implementation → polishing-implementation → implemented → release → done
@@ -211,6 +248,10 @@ idea → refining-idea → refined-idea → planning → plan-drafted → refini
 
 - `idea` → `refining-idea`: `/yoke refine` starts spec refinement
 - `refining-idea` → `refined-idea`: `/yoke refine` completes spec refinement
+- Dash `idea` → `done`: `/yoke dash` owns execution, verification, optional
+  after-merge delivery, and close through the intermediate stages.
+- Blitz `refined-idea` → `done`: `/yoke blitz` owns continuous-slice delivery
+  and the final document reconciliation through the intermediate stages.
 - `refined-idea` → `planning`: `/yoke shepherd` starts epic planning
 - `planning` → `plan-drafted`: `/yoke shepherd` captures the initial task/worktree plan
 - `plan-drafted` → `refining-plan`: `/yoke refine` starts plan refinement
@@ -230,16 +271,16 @@ idea → refining-idea → refined-idea → planning → plan-drafted → refini
 
 ## Dispatch Chain (DB table: `epic_dispatch_chains`)
 
-One row per worktree. Created by `yoke_core.api.service_client_items`. Updated by `yoke_core.domain.update_status` on status changes.
+One row per universal worktree lane. The chain references the lane record and
+never duplicates its branch or filesystem path.
 
 **Columns:**
 
 | Column | Type | Description |
 |--------|------|-------------|
 | `id` | INTEGER | Auto-increment primary key |
-| `epic_id` | TEXT | Parent epic slug |
-| `worktree` | TEXT | Branch/worktree name |
-| `worktree_path` | TEXT | Absolute filesystem path |
+| `epic_id` | INTEGER | Numeric parent item ID |
+| `item_worktree_id` | INTEGER | Universal lane record in `item_worktrees` |
 | `queue` | TEXT | JSON array of task numbers |
 | `current_index` | INTEGER | Index into queue |
 | `current_task` | TEXT | Currently active task number |
@@ -273,7 +314,9 @@ Flat kanban: one item, one row, one place. Shows all backlog items grouped by st
 - **Backlog** — `idea` (raw captures, not yet spec'd)
 - **Done** — `done` (finished)
 
-Each row shows ID, title, type, priority, status, and progress (task counts for epics from the `epic_tasks` DB table). Per-epic task detail is queried live from the DB through Yoke core.
+Each row shows public reference, title, workflow, priority, status, and
+progress (task counts for epics from the `epic_tasks` DB table). Per-epic task
+detail is queried live from the DB through Yoke core.
 
 Rebuilt on every status change and backlog mutation via the Python backlog and board surfaces.
 
@@ -288,7 +331,9 @@ Rebuilt on every status change and backlog mutation via the Python backlog and b
 
 ### Standalone backlog items
 - the backlog sync helper creates a GitHub issue from a backlog item
-- Labels: `type:{epic|issue}`, `priority:{high|medium|low}`
+- Labels include `workflow:<workflow_id>`, `status:<stage>`, and
+  `priority:{high|medium|low}`; the workflow value comes from the item's
+  pinned registry identity
 - Issue number stored in `github_issue` field (e.g., `#8`)
 - `/yoke advance` posts status-change comments to linked issues via `post-comment`
 - Idempotent: `sync-item` skips if `github_issue` is already set

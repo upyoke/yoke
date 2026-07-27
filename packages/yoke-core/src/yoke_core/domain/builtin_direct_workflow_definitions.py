@@ -22,10 +22,10 @@ from yoke_core.domain.workflow_gate_catalog import (
 )
 
 _REFINEMENT_STAGES = (
-    workflow_stage("idea", "Idea"),
+    workflow_stage("idea", "idea"),
     workflow_stage(
         "refining-idea",
-        "Refining idea",
+        "refining idea",
         (
             gate_ref(GATE_DB_CLAIM_PROSE),
             gate_ref(GATE_DB_MUTATION, "joint"),
@@ -33,7 +33,7 @@ _REFINEMENT_STAGES = (
     ),
     workflow_stage(
         "refined-idea",
-        "Refined idea",
+        "refined idea",
         (
             gate_ref(GATE_DB_CLAIM_PROSE),
             gate_ref(GATE_ARCHITECTURE_IMPACT),
@@ -45,39 +45,46 @@ BLITZ_WORKFLOW_DEFINITION = definition_fixture(
     workflow_id="blitz",
     name="Blitz",
     description=(
-        "Execute one strategy document directly with continuous slice delivery."
+        "Execute a strategy document directly; the item is only its "
+        "coordination shell. Releases happen continuously inside implementing; "
+        "the close reconciles the document."
     ),
     stages=(
         *_REFINEMENT_STAGES,
         workflow_stage(
             "implementing",
-            "Implementing",
+            "implementing",
             (
                 gate_ref(GATE_DOC_CLAIM_ACTIVATION),
                 gate_ref(GATE_CONFLICT_SURVEY),
                 gate_ref(GATE_ARCHITECTURE_IMPACT),
             ),
-            "The linked document drives a continuous loop of integrated slices.",
+            "The continuous slice loop — the linked document is executed "
+            "directly, and each slice may merge, migrate, and deploy; there "
+            "is no separate release stage.",
         ),
         workflow_stage(
             "reviewing-implementation",
-            "Reviewing implementation",
+            "reviewing implementation",
             (
                 gate_ref(GATE_DB_CLAIM_PROSE),
                 gate_ref(GATE_DB_MUTATION, "evidence"),
                 gate_ref(GATE_ARCHITECTURE_IMPACT),
             ),
-            "The complete result and its evidence are reconciled in the document.",
+            "The once-per-item close — the full suite runs and the document "
+            "records what was completed, what changed, what remains, the "
+            "evidence, and how the parent strategy was reconciled.",
         ),
         workflow_stage(
             "done",
-            "Done",
+            "done",
             (
                 gate_ref(GATE_ARCHITECTURE_IMPACT),
                 gate_ref(GATE_QA_VERIFICATION),
                 gate_ref(GATE_DOC_COMPLETION),
             ),
-            "The document records completion and parent reconciliation.",
+            "The execution document states completion and parent "
+            "reconciliation; that evidence is the entry gate.",
         ),
     ),
     entry_surfaces=("harness_skill",),
@@ -111,36 +118,39 @@ DASH_WORKFLOW_DEFINITION = definition_fixture(
         "an agent executes it end-to-end."
     ),
     stages=(
-        workflow_stage("idea", "Idea"),
+        workflow_stage("idea", "idea"),
         workflow_stage(
             "implementing",
-            "Implementing",
+            "implementing",
             (
                 gate_ref(GATE_WORK_CLAIM_ACTIVATION),
                 gate_ref(GATE_CONFLICT_SURVEY),
                 gate_ref(GATE_ARCHITECTURE_IMPACT),
             ),
-            "The executor surveys conflicts and completes the instruction.",
+            "The agent surveys for conflicts, takes a worktree, and executes "
+            "the instruction in one pass.",
         ),
         workflow_stage(
             "reviewing-implementation",
-            "Reviewing implementation",
+            "reviewing implementation",
             (
                 gate_ref(GATE_DB_CLAIM_PROSE),
                 gate_ref(GATE_DB_MUTATION, "evidence"),
                 gate_ref(GATE_ARCHITECTURE_IMPACT),
             ),
-            "The executor self-checks plus any item-declared verification.",
+            "The verification close — the agent self-checks, plus any case a "
+            "tightened posture knob added.",
         ),
         workflow_stage(
             "done",
-            "Done",
+            "done",
             (
                 gate_ref(GATE_ARCHITECTURE_IMPACT),
                 gate_ref(GATE_QA_VERIFICATION),
                 gate_ref(GATE_DASH_EVIDENCE),
             ),
-            "The result and verification evidence are recorded on the item.",
+            "Result and verification evidence are recorded on the item; "
+            "delivery, when enabled, ran as an after-merge action.",
         ),
     ),
     entry_surfaces=("web_form", "cli", "harness_skill", "promotion"),

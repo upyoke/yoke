@@ -15,6 +15,7 @@ from yoke_core.domain.qa_artifact_ops import linked_artifact_handle
 from yoke_core.domain.qa_artifacts import artifact_directory
 from yoke_core.domain.browser_qa_test_helpers import (
     _FakeRunRecorder,
+    _browser_check_steps,
     _fetch_context_from_test_db,
     _run_scenario,
     _seed_item,
@@ -33,10 +34,6 @@ def _placeholder(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-# ---------------------------------------------------------------------------
-# Happy path and run recording
-# ---------------------------------------------------------------------------
-
 class TestHappyPath:
     def test_ac6_successful_run_records_qa_run_with_browser_substrate(
         self, tmp_path: Path, db_path: str
@@ -44,13 +41,12 @@ class TestHappyPath:
         """AC-6/7/8/11: happy path records qa_run with executor_type='browser_substrate'."""
         _seed_item(db_path, 100)
         req_id = _seed_requirement(
-            db_path, 100, "browser_smoke",
+            db_path, 100, "browser-check",
             {
                 "base_url": "http://localhost:9999",
-                "steps": [
-                    {"action": "navigate", "route": "/"},
+                "steps": _browser_check_steps(
                     {"action": "screenshot", "capture": True, "label": "home"},
-                ],
+                ),
             },
         )
 
@@ -65,17 +61,15 @@ class TestHappyPath:
             ],
         )
 
-        # scenario-level verdict stays 'pass' for capture success.
-        # Per-run verdict is now empty (None rendered as '' in RunResult) with
-        # execution_status='captured' until inspection fires verdict.
+        # Browser check decides automatically after every declared step passes.
         assert result.verdict == "pass"
         assert result.executed == 1
         assert len(result.runs) == 1
-        assert result.runs[0].qa_kind == "browser_smoke"
-        assert result.runs[0].verdict == ""
+        assert result.runs[0].qa_kind == "plan_case"
+        assert result.runs[0].verdict == "pass"
         assert result.runs[0].execution_status == "captured"
 
-        # Check qa_run was recorded with execution_status and NULL verdict.
+        # Check the automatic Browser check verdict and capture status.
         conn = connect_test_db(db_path)
         p = _placeholder(conn)
         row = conn.execute(
@@ -86,7 +80,7 @@ class TestHappyPath:
         conn.close()
         assert row is not None
         assert row[0] == "browser_substrate"
-        assert row[1] is None
+        assert row[1] == "pass"
         assert row[2] == "captured"
 
     def test_artifacts_use_scratch_storage_tree(
@@ -101,13 +95,12 @@ class TestHappyPath:
         req_id = _seed_requirement(
             db_path,
             100,
-            "browser_smoke",
+            "browser-check",
             {
                 "base_url": "http://localhost:9999",
-                "steps": [
-                    {"action": "navigate", "route": "/"},
+                "steps": _browser_check_steps(
                     {"action": "screenshot", "capture": True, "label": "home"},
-                ],
+                ),
             },
         )
         recorder = _FakeRunRecorder(db_path)
@@ -134,9 +127,11 @@ class TestHappyPath:
             shot.write_bytes(b"PNG")
             return {"success": True, "artifacts": [str(shot)]}
 
-        def _fake_context(item_id, project, expected_branch=None):
+        def _fake_context(
+            item_id, project, requirement_id, expected_branch=None, actor=None,
+        ):
             return _fetch_context_from_test_db(
-                db_path, item_id, project, expected_branch,
+                db_path, item_id, project, requirement_id, expected_branch,
             )
 
         patches = [
@@ -156,6 +151,7 @@ class TestHappyPath:
             result = browser_qa.execute_scenario(
                 item_id=100,
                 project="testproj",
+                requirement_id=req_id,
                 base_url="http://localhost:9999",
             )
         finally:
@@ -191,8 +187,7 @@ class TestHappyPath:
             ) / "home.png"
         )
 
-        # capture success leaves verdict NULL (awaiting inspection)
-        # and stamps execution_status='captured'.
+        # Browser check succeeds automatically and stamps captured status.
         conn = connect_test_db(db_path)
         p = _placeholder(conn)
         qa_row = conn.execute(
@@ -201,7 +196,9 @@ class TestHappyPath:
             (req_id,),
         ).fetchone()
         conn.close()
-        assert (qa_row[0], qa_row[1], qa_row[2]) == ("browser_substrate", None, "captured")
+        assert (qa_row[0], qa_row[1], qa_row[2]) == (
+            "browser_substrate", "pass", "captured",
+        )
         assert result.runs[0].artifacts == [str(expected_dir / "home.png")]
 
         conn = connect_test_db(db_path)
@@ -227,8 +224,10 @@ class TestHappyPath:
         req_id = _seed_requirement(
             db_path,
             100,
-            "browser_smoke",
-            {"steps": [{"action": "screenshot", "capture": True}]},
+            "browser-check",
+            {"steps": _browser_check_steps(
+                {"action": "screenshot", "capture": True},
+            )},
         )
         source = tmp_path / "manual.png"
         source.write_bytes(b"PNG")
@@ -256,10 +255,10 @@ class TestHappyPath:
         """AC-3: non-browser qa_kinds (simulation) are not touched by execute_scenario."""
         _seed_item(db_path, 100)
         _seed_requirement(
-            db_path, 100, "browser_smoke",
+            db_path, 100, "browser-check",
             {
                 "base_url": "http://localhost:9999",
-                "steps": [{"action": "navigate"}],
+                "steps": _browser_check_steps(),
             },
         )
         # Simulate a non-browser requirement (different qa_kind).
@@ -284,28 +283,27 @@ class TestHappyPath:
         conn.close()
         # Only browser kinds should have been executed; simulation must not appear.
         assert "simulation" not in kinds
-        assert "browser_smoke" in kinds
+        assert "plan_case" in kinds
 
-
-# ---------------------------------------------------------------------------
-# Failure propagation
-# ---------------------------------------------------------------------------
 
 class TestFailurePropagation:
     def test_ac13_success_false_step_marks_run_fail(self, db_path: str) -> None:
         """AC-13: a step returning success:false marks the run verdict=fail."""
         _seed_item(db_path, 100)
         _seed_requirement(
-            db_path, 100, "browser_smoke",
+            db_path, 100, "browser-check",
             {
                 "base_url": "http://localhost:9999",
-                "steps": [{"action": "click", "selector": "#missing"}],
+                "steps": _browser_check_steps(
+                    {"action": "click", "target": "#missing"},
+                ),
             },
         )
 
         result = _run_scenario(
             db_path, 100,
             execute_step_responses=[
+                {"success": True, "artifacts": []},
                 {"success": False, "error": "element not found", "artifacts": []}
             ],
         )
@@ -318,17 +316,22 @@ class TestFailurePropagation:
         """Step returning exit_code=2 aborts remaining requirements."""
         _seed_item(db_path, 100)
         _seed_requirement(
-            db_path, 100, "browser_smoke",
+            db_path, 100, "browser-check",
             {
                 "base_url": "http://localhost:9999",
-                "steps": [{"action": "navigate"}, {"action": "click"}],
+                "steps": _browser_check_steps(
+                    {"action": "click", "target": "button"},
+                ),
             },
         )
         _seed_requirement(
-            db_path, 100, "browser_diff",
+            db_path, 100, "browser-inspection",
             {
                 "base_url": "http://localhost:9999",
-                "steps": [{"action": "navigate"}],
+                "steps": [
+                    {"action": "navigate", "route": "/"},
+                    {"action": "screenshot", "capture": True},
+                ],
             },
         )
 

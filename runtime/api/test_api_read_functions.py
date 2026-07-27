@@ -153,8 +153,14 @@ class TestEpicTasksList(unittest.TestCase):
 
     def test_returns_typed_task_list(self):
         rows = [
-            (1, 7, 1, "t1", "planned", "wt", "deps"),
-            (2, 7, 2, "t2", "implementing", "", ""),
+            (
+                1, 7, 1, "t1", "planned", 41, "deps",
+                41, "wt", "/repo/.worktrees/wt", "worker", "active",
+            ),
+            (
+                2, 7, 2, "t2", "implementing", None, "",
+                None, None, None, None, None,
+            ),
         ]
 
         class _Conn:
@@ -180,6 +186,10 @@ class TestEpicTasksList(unittest.TestCase):
         self.assertEqual(outcome.result_payload["epic_id"], 7)
         self.assertEqual(len(outcome.result_payload["tasks"]), 2)
         self.assertEqual(outcome.result_payload["tasks"][0]["task_num"], 1)
+        self.assertEqual(
+            outcome.result_payload["tasks"][0]["lane"]["branch"], "wt",
+        )
+        self.assertIsNone(outcome.result_payload["tasks"][1]["lane"])
 
 
 class TestPathClaimsConflicts(unittest.TestCase):

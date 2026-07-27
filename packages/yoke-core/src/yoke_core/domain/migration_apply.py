@@ -158,7 +158,7 @@ def _resolve_override_from_cli(
 
     The CLI reads the live control DB so production callers see the same
     worktree / profile validation that tests cover via direct API. The
-    item's worktree path is derived from ``items.worktree`` and this
+    item's worktree path is derived from its active universal lane and this
     machine's checkout mapping — no envelope read.
     """
     if not requested:

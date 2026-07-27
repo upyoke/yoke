@@ -26,7 +26,6 @@ VALID_PRIORITIES: FrozenSet[str] = frozenset({"high", "medium", "low"})
 SUPPORTED_UPDATE_FIELDS: FrozenSet[str] = frozenset({
     "status", "frozen", "blocked", "blocked_reason",
     "priority", "project", "deployment_flow", "deployed_to", "title",
-    "worktree",
 })
 
 # Statuses that trigger rework detection when work re-enters implementation.
@@ -42,7 +41,6 @@ DONE_CLEANUP_FIELDS: Dict[str, Any] = {
     "frozen": False,
     "blocked": False,
     "blocked_reason": None,
-    "worktree": None,
 }
 
 
@@ -202,7 +200,6 @@ class ItemState:
     deployment_flow: Optional[str] = None
     deploy_stage: Optional[str] = None
     deployed_to: Optional[str] = None
-    worktree: Optional[str] = None
     merged_at: Optional[str] = None
     workflow: Optional["WorkflowRuntime"] = None
 

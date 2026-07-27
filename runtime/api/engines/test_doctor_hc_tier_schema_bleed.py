@@ -119,6 +119,65 @@ def test_epic_tasks_depends_on_in_tier4_fires(tmp_path, monkeypatch, conn):
     assert "confabulation" in detail
 
 
+@pytest.mark.parametrize(
+    "qualified",
+    (
+        "deployment_flows.stages",
+        "projects.github_sync_mode",
+        "projects.github_sync_mode.repair",
+    ),
+)
+def test_physical_column_wins_function_token_collision(
+    tmp_path,
+    monkeypatch,
+    conn,
+    qualified,
+):
+    """A registered function token cannot hide a real leading table.column."""
+
+    rel = ".agents/skills/yoke/conduct/SKILL.md"
+    _make_fixture_repo(
+        tmp_path,
+        {rel: f"Inspect {qualified} before dispatch.\n"},
+        {rel: 5},
+    )
+    _install_iter(monkeypatch, tmp_path, {rel: 5})
+
+    rec = _run(conn)
+    assert rec.results[0].result == "WARN"
+    table_column = ".".join(qualified.split(".")[:2])
+    assert table_column in _detail(rec)
+
+
+@pytest.mark.parametrize(
+    "qualified",
+    (
+        "items.body",
+        "items.spec",
+        "items.design_spec",
+        "items.technical_plan",
+        "items.worktree_plan",
+    ),
+)
+def test_item_public_field_reference_is_not_raw_schema_bleed(
+    tmp_path,
+    monkeypatch,
+    conn,
+    qualified,
+):
+    """Agent-facing item projections are not table-shape teaching."""
+
+    rel = "runtime/agents/architect.md"
+    _make_fixture_repo(
+        tmp_path,
+        {rel: f"Read {qualified} through the item API.\n"},
+        {rel: 4},
+    )
+    _install_iter(monkeypatch, tmp_path, {rel: 4})
+
+    assert _run(conn).results[0].result == "PASS"
+
+
 # ---------------------------------------------------------------------------
 # AC-6 Per-key parametrized reachability test for JSON_NESTED_SCHEMAS.
 # ---------------------------------------------------------------------------
@@ -182,6 +241,28 @@ def test_see_the_worktree_column_packet_stanza_passes(tmp_path, monkeypatch, con
 
     rec = _run(conn)
     assert rec.results[0].result == "PASS"
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "Call items.structured_field.replace through the registered dispatcher.\n",
+        "The items.structured_field family owns structured item updates.\n",
+        "Read the guide at .agents/skills/yoke/onboard/environments.md.\n",
+    ],
+)
+def test_non_schema_dotted_syntax_passes(
+    tmp_path,
+    monkeypatch,
+    conn,
+    body,
+):
+    """Function ids, function families, and file names are not columns."""
+    rel = ".agents/skills/yoke/conduct/SKILL.md"
+    _make_fixture_repo(tmp_path, {rel: body}, {rel: 5})
+    _install_iter(monkeypatch, tmp_path, {rel: 5})
+
+    assert _run(conn).results[0].result == "PASS"
 
 
 # ---------------------------------------------------------------------------

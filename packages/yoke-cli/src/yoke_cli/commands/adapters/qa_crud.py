@@ -30,7 +30,8 @@ QA_REQUIREMENT_ADD_USAGE = (
     "(--qa-kind KIND | --method-id METHOD) "
     "--qa-phase PHASE [--target-env E] [--blocking-mode M] "
     "[--requirement-source S] [--success-policy JSON-OR-TEXT] "
-    "[--capability-requirements C] [--suite-id ID] [--session-id S] [--json]"
+    "[--capability-requirements C] [--suite-id ID] "
+    "[--workflow-transition STAGE] [--session-id S] [--json]"
 )
 
 _REQUIREMENT_ADD_HELP_DEEP = """\
@@ -63,6 +64,7 @@ Flag matrix:
   --instructions              method    —          what the case executes
   --expected-outcome          method    —          observable passing outcome
   --method-config             method    —          method-specific JSON object
+  --workflow-transition      no        —          pinned workflow stage id
   --success-policy            no        —          aggregate/ad hoc policy
   --capability-requirements   no        —          capability slug (e.g. browser-qa)
   --suite-id                  no        —          suite id string
@@ -117,6 +119,10 @@ def qa_requirement_add(args: List[str]) -> int:
                         default=None, help="Method case passing outcome.")
     parser.add_argument("--method-config", dest="method_config", default=None,
                         help="Method-specific JSON object.")
+    parser.add_argument(
+        "--workflow-transition", dest="workflow_transition_id", default=None,
+        help="Pinned workflow stage this requirement governs.",
+    )
     add_session_arg(parser); add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, QA_REQUIREMENT_ADD_USAGE)
     if parsed is None:
@@ -132,7 +138,7 @@ def qa_requirement_add(args: List[str]) -> int:
         payload["method_id"] = parsed.method_id
     for key in (
         "target_env", "success_policy", "capability_requirements", "suite_id",
-        "instructions", "expected_outcome",
+        "instructions", "expected_outcome", "workflow_transition_id",
     ):
         value = getattr(parsed, key)
         if value is not None:

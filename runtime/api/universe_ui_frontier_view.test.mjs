@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { mountUniverseApp } from "../../packages/yoke-core/src/yoke_core/ui/static/app.js";
@@ -11,60 +12,7 @@ import {
   settle,
 } from "./universe_ui_dom_test_support.mjs";
 
-// A frontier universe with one ready step and one blocked row per gate
-// point, so both panels and every gate pill family render from one read.
-function frontierClient() {
-  const requests = [];
-  const blockedRow = (itemId, gatePoint, why) => ({
-    item_id: itemId, title: `waits ${itemId}`, project: "yoke",
-    blocking_item: "YOK-7", gate_point: gatePoint, why,
-    satisfaction: "status:done",
-  });
-  return {
-    requests,
-    async call(request) {
-      requests.push(request);
-      if (request.function === "organizations.get") {
-        return { status: 200, envelope: { success: true, result: { name: "Yoke" } } };
-      }
-      if (request.function === "projects.list") {
-        return {
-          status: 200,
-          envelope: {
-            success: true,
-            result: { rows: [{ id: 1, slug: "yoke", name: "Yoke" }] },
-          },
-        };
-      }
-      if (request.function === "frontier.list") {
-        return {
-          status: 200,
-          envelope: {
-            success: true,
-            result: {
-              ready_rows: [{
-                rank: 0, item_id: "YOK-7", title: "ship it",
-                workflow_id: "issue", workflow_version: 1,
-                project: "yoke", status: "implementing",
-                priority: "high", next_step: "advance",
-                run_command: "yoke advance YOK-7",
-                why_ready: "No unsatisfied activation gates; unclaimed.",
-                unblocks_count: 3, downstream_depth: 1,
-              }],
-              blocked_rows: [
-                blockedRow("YOK-8", "activation", "YOK-7 not done"),
-                blockedRow("YOK-9", "integration", "lands after YOK-7"),
-                blockedRow("YOK-10", "closure", "closes after YOK-7"),
-              ],
-              frozen_count: 0, wip_cap: 5, wip_active: 1,
-            },
-          },
-        };
-      }
-      throw new Error(`unexpected function ${request.function}`);
-    },
-  };
-}
+import { frontierClient } from "./universe_ui_frontier_view_test_support.mjs";
 
 test("Frontier shows the ready ranking and one blocked row per gate point", async (t) => {
   const originalFetch = globalThis.fetch;
@@ -83,27 +31,100 @@ test("Frontier shows the ready ranking and one blocked row per gate point", asyn
     client.requests.filter((request) => request.function === "frontier.list"),
     [{ function: "frontier.list", payload: { project: "1" } }],
   );
+  assert.deepEqual(
+    client.requests.filter((request) => request.function === "sessions.list"),
+    [
+      {
+        function: "sessions.list",
+        payload: { project: "1", liveness: "active", limit: 500 },
+      },
+      {
+        function: "sessions.list",
+        payload: { project: "1", liveness: "stale", limit: 500 },
+      },
+    ],
+  );
 
-  // Exactly one project: no project column in either table. The ready
-  // table shows the engine's zero-based rank as an ordinal ("1" is the
-  // top pick); the blocked table names the gate its row waits at,
-  // verbatim.
+  // The ready table follows the prototype's steering anatomy: ordinal,
+  // item, workflow, project, structural progress, why, then the command.
+  // Project stays visible even under one selected scope so the row remains
+  // self-identifying when copied or scanned.
   const cells = allNodes(root)
     .filter((node) => node.tagName === "TD")
     .map(cellText);
-  assert.deepEqual(cells, [
-    "1", "YOK-7", "issue", "1", "implementing", "high", "advance",
-    "yoke advance YOK-7", "No unsatisfied activation gates; unclaimed.",
-    "YOK-8", "YOK-7", "activation", "YOK-7 not done",
-    "YOK-9", "YOK-7", "integration", "lands after YOK-7",
-    "YOK-10", "YOK-7", "closure", "closes after YOK-7",
+  assert.deepEqual(cells.slice(0, 7), [
+    "1", "ship it", "issue", "🐄 yoke", "",
+    "No unsatisfied activation gates; unclaimed.", "yoke advance YOK-7",
   ]);
+  assert.deepEqual(cells.slice(7), [
+    "waits YOK-8", "🐄 yoke", "YOK-7", "YOK-7 not done", "activation",
+    "waits YOK-9", "🐄 yoke", "YOK-7", "lands after YOK-7", "integration",
+    "waits YOK-10", "🐄 yoke", "YOK-7", "closes after YOK-7", "closure",
+  ]);
+  assert.deepEqual(
+    byClass(root, "frontier-item-ref").map((node) => node.textContent),
+    ["YOK-7", "YOK-8", "YOK-9", "YOK-10"],
+  );
+  assert.equal(byClass(root, "stage-progress").length, 1);
+  assert.equal(byClass(root, "stage-progress-segment").length, 10);
+  assert.equal(
+    byClass(root, "stage-progress-segment")
+      .filter((node) => node.classList.contains("is-complete")).length,
+    5,
+  );
+  assert.deepEqual(
+    byClass(root, "stage-progress-label").map((node) => node.textContent),
+    ["5/10"],
+  );
+  assert.equal(byClass(root, "workflow-badge").length, 1);
+  assert.equal(byClass(root, "workflow-badge")[0].textContent, "issue");
+  assert.equal(byClass(root, "metric-strip").length, 1);
+  assert.deepEqual(
+    byClass(root, "metric").map((node) => [
+      node.children[0].textContent,
+      node.children[1].textContent,
+    ]),
+    [
+      ["1", "ready now"],
+      ["1", "in progress"],
+      ["3", "blocked"],
+      ["0", "waiting on you"],
+    ],
+  );
+  assert.deepEqual(
+    allNodes(root)
+      .filter((node) => node.tagName === "TH")
+      .map((node) => node.textContent),
+    [
+      "", "item", "Type", "project", "progress",
+      "why it is ready", "run in your harness",
+      "item", "project", "waiting on", "why", "gate",
+    ],
+  );
+  assert.deepEqual(
+    byClass(root, "frontier-panel-detail").map((node) => node.textContent),
+    ["scoped to yoke", "why these cannot run yet"],
+  );
+  assert.deepEqual(
+    byClass(root, "frontier-session-count").map((node) => node.textContent),
+    ["· 1 session"],
+  );
+  assert.equal(byClass(root, "raw-toggle").length, 0);
+  assert.deepEqual(
+    byClass(root, "panel-count").map((node) => node.textContent),
+    ["· ranked", "· 3"],
+  );
 
   // The item cell links to the items drill-in with the bare numeric ref —
   // frontier rows point at items, never at a frontier drill-in.
   assert.deepEqual(
     byClass(root, "row-link").map((node) => node.href),
-    ["#/items/7?project=1"],
+    [
+      "#/items/7?project=1",
+      "#/items/8?project=1", "#/items/7?project=1",
+      "#/items/9?project=1", "#/items/7?project=1",
+      "#/items/10?project=1", "#/items/7?project=1",
+    ],
   );
 
   // The run command is a code element carrying the exact copyable text,
@@ -111,7 +132,14 @@ test("Frontier shows the ready ranking and one blocked row per gate point", asyn
   const codeNodes = allNodes(root).filter((node) => node.tagName === "CODE");
   assert.deepEqual(
     codeNodes.map((node) => node.textContent),
-    ["yoke advance YOK-7", "YOK-7", "YOK-7", "YOK-7"],
+    ["yoke advance YOK-7"],
+  );
+  assert.equal(
+    allNodes(root).filter(
+      (node) => node.tagName === "BUTTON" &&
+        node.textContent.includes("yoke advance"),
+    ).length,
+    0,
   );
 
   // Gate pills color by severity of what the gate withholds: activation
@@ -148,7 +176,17 @@ test("an empty frontier states both halves honestly", async (t) => {
         return { status: 200, envelope: { success: true, result: { name: "Yoke" } } };
       }
       if (request.function === "projects.list") {
-        return { status: 200, envelope: { success: true, result: { rows: [{ id: 1, slug: "yoke", name: "Yoke" }] } } };
+        return {
+          status: 200,
+          envelope: {
+            success: true,
+            result: {
+              rows: [{
+                id: 1, slug: "yoke", name: "Yoke", emoji: "🐄",
+              }],
+            },
+          },
+        };
       }
       if (request.function === "frontier.list") {
         return {
@@ -159,6 +197,15 @@ test("an empty frontier states both halves honestly", async (t) => {
               ready_rows: [], blocked_rows: [],
               frozen_count: 0, wip_cap: 5, wip_active: 0,
             },
+          },
+        };
+      }
+      if (request.function === "sessions.list") {
+        return {
+          status: 200,
+          envelope: {
+            success: true,
+            result: { rows: [] },
           },
         };
       }
@@ -175,6 +222,108 @@ test("an empty frontier states both halves honestly", async (t) => {
       !("project" in request.payload),
   ));
   const empties = byClass(root, "empty").map((node) => node.textContent);
-  assert.deepEqual(empties, ["nothing ready to run", "nothing waiting"]);
+  assert.deepEqual(empties, [
+    "No ready work in this scope.",
+    "Nothing blocked in this scope.",
+  ]);
+  assert.equal(byClass(root, "frontier-table").length, 2);
+  assert.deepEqual(
+    byClass(root, "frontier-empty").map(
+      (node) => node.attributes.get("colspan"),
+    ),
+    ["7", "5"],
+  );
+  assert.deepEqual(
+    byClass(root, "frontier-panel-detail").map((node) => node.textContent),
+    ["across all projects", "why these cannot run yet"],
+  );
+  assert.deepEqual(
+    byClass(root, "frontier-session-count").map((node) => node.textContent),
+    ["· 0 sessions"],
+  );
+  assert.equal(byClass(root, "raw-toggle").length, 0);
   mounted.unmount();
+});
+
+test("a failed Frontier read keeps both facets honest", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = () => response(200, {});
+  const documentNode = new FakeDocument();
+  documentNode.defaultView.location.hash = "#/frontier";
+  const root = documentNode.createElement("div");
+  const client = {
+    async call(request) {
+      if (request.function === "organizations.get") {
+        return {
+          status: 200,
+          envelope: { success: true, result: { name: "Yoke" } },
+        };
+      }
+      if (request.function === "projects.list") {
+        return {
+          status: 200,
+          envelope: {
+            success: true,
+            result: {
+              rows: [{
+                id: 1, slug: "yoke", name: "Yoke", emoji: "🐄",
+              }],
+            },
+          },
+        };
+      }
+      if (request.function === "frontier.list") {
+        return {
+          status: 503,
+          envelope: {
+            success: false,
+            error: { message: "scheduler unavailable" },
+          },
+        };
+      }
+      if (request.function === "sessions.list") {
+        return {
+          status: 200,
+          envelope: { success: true, result: { rows: [] } },
+        };
+      }
+      throw new Error(`unexpected function ${request.function}`);
+    },
+  };
+
+  const mounted = mountUniverseApp(root, { client });
+  await settle();
+
+  assert.deepEqual(
+    byClass(root, "error").map((node) => node.textContent),
+    [
+      "read failed (HTTP 503): scheduler unavailable",
+      "read failed (HTTP 503): scheduler unavailable",
+    ],
+  );
+  assert.equal(byClass(root, "metric-strip").length, 0);
+  assert.equal(byClass(root, "frontier-table").length, 0);
+  mounted.unmount();
+});
+
+test("Frontier keeps the prototype table geometry", () => {
+  const css = readFileSync(new URL(
+    "../../packages/yoke-core/src/yoke_core/ui/static/universe_secondary_views.css",
+    import.meta.url,
+  ), "utf8");
+
+  assert.match(css, /\.stage-progress\s*\{\s*display:\s*inline;/);
+  assert.match(
+    css,
+    /\.frontier-ready-panel \.frontier-table\s*\{\s*min-width:\s*100%;/,
+  );
+  assert.match(
+    css,
+    /\.frontier-ready-panel \.frontier-table th:nth-child\(5\)\s*\{\s*width:\s*96px;/,
+  );
+  assert.doesNotMatch(
+    css,
+    /\.frontier-project\s*\{[^}]*white-space:\s*nowrap;/,
+  );
 });

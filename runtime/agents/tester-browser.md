@@ -1,69 +1,78 @@
 # Tester Browser Scenario Execution
 
-When the dispatch prompt includes a **"Browser Scenario Execution"** block, execute browser QA against the live ephemeral environment.
+When the dispatch prompt includes a **"Browser Scenario Execution"** block,
+execute every listed Browser method case against the live ephemeral
+environment.
 
-## Overview
+## Select the cases
 
-Browser-testable items have `browser_smoke` and/or `browser_diff` QA requirements with structured scenarios in `success_policy`. Execute them through the canonical orchestrator `yoke qa browser run` (its DB legs are dispatcher function ids, so it works over both transports).
-
-## Step 1: Review The Scenario
-
-Read the current scenarios:
+Read the materialized requirements:
 
 ```bash
-yoke qa browser-context get --item {item_id} --project {project} --json
+yoke qa requirement list --item "YOK-{N}" --json
 ```
 
-`result.requirements[*].success_policy` carries the scenario JSON, which uses executor vocabulary:
-- Actions: `navigate`, `click`, `fill_form`, `assert`, `screenshot`, `wait_for`, `scroll`, `hover`, `select`
-- Fields: `route` (not `url`), `target` (not `selector`), `capture: true` on screenshot steps
-- `refined=false` means auto-generated; `refined=true` means manually refined
+Select each unsatisfied, non-waived requirement whose `method_id` is
+`browser-check` or `browser-inspection`. Method identity selects Browser
+execution; do not infer it from `qa_kind` or item metadata.
 
-## Step 2: Refine The Scenario When Needed
+Each requirement is an immutable materialized case snapshot. Its
+`method_config` contains the declared steps and optional case-local base URL.
+Do not refine, replace, or otherwise rewrite `method_config` during testing.
+If the case contract is incomplete, report that specification failure instead
+of changing the case under review.
 
-If the scenario is just a navigate-plus-screenshot skeleton, refine it:
-- Add `assert` steps for expected text or elements
-- Add `click` or `fill_form` steps for interactive flows
-- Update routes to cover pages named in the ACs
-- Mark refined steps with `"refined": true`
+## Require the deployed code identity
 
-Persist the refined scenario through the `qa.requirement.update` function id — never a raw SQL UPDATE:
+The dispatch block supplies all three execution inputs:
+
+- the ephemeral URL;
+- the already-resolved worktree branch;
+- the already-resolved worktree HEAD SHA deployed to that environment.
+
+Treat a missing URL, branch, or SHA as a prerequisite failure. Never omit the
+freshness flags to make a Browser case run.
+
+## Execute each requirement
+
+Run the shared case runner once per selected requirement:
 
 ```bash
-yoke qa requirement update --requirement-id {requirement_id} \
-  --field success_policy --value '{refined_json}'
+yoke qa case run \
+  --requirement-id <requirement-id> \
+  --base-url "<ephemeral-url>" \
+  --expected-branch "<worktree-branch>" \
+  --expected-sha "<worktree-head-sha>"
 ```
 
-## Step 3: Execute Via The Canonical Orchestrator
+The runner fetches the immutable case through `qa.case_execution.get`, starts
+the Browser substrate, executes only the named requirement, records its run,
+and stores screenshot and trace evidence. Do not add a second run manually.
 
-```bash
-yoke qa browser run \
-  --item {item_id} --project {project} --base-url {ephemeral_url}
-```
+## Interpret the result
 
-The orchestrator handles daemon lifecycle, step execution, screenshot capture, artifact storage, and `qa_run` / `qa_artifact` recording (via `qa.run.add` / `qa.run.complete` / `qa.artifact.add`).
+The runner prints JSON. Include the result and artifact paths in the validation
+report.
 
-## Exit Code Interpretation
+| Result | Tester action |
+|--------|---------------|
+| `browser-check` with `verdict=pass` | Continue. |
+| `verdict=fail` or exit `1` | Report the failed case and product or environment evidence. |
+| `browser-inspection` with `verdict=inconclusive` | Report the generated review request; the requirement remains unresolved pending approval, rejection, or waiver. |
+| `verdict=error` or exit `2` | Hard-stop on the prerequisite or executor failure and report it to the operator. |
 
-| Exit | Meaning | Your Action |
-|------|---------|-------------|
-| 0 | All scenarios passed | Include JSON summary in report. Browser QA satisfied. |
-| 1 | One or more scenarios failed | Report failures. Assess whether the failure is a product issue or a scenario issue. |
-| 2 | Operator env setup failure | Hard stop. Fail the verdict and escalate to the operator. |
-
-If exit code `2` occurs, immediately fail with:
-
-```text
-FAIL — browser QA blocked by operator environment issue (exit 2). Auto-bootstrap failed — escalate to operator.
-```
-
-Do not continue testing other ACs after an exit-2 failure.
+Re-running the same requirement creates a new evidence run. It does not mutate
+the case snapshot.
 
 <!-- YOKE:FIELD-NOTE -->
 
 ## Important Notes
 
-- Evidence goes to `qa_runs` with `executor_type='browser_substrate'`
-- Never self-report browser passes as `executor_type='agent'`
-- Orchestrator stdout is JSON; parse it into the validation report
-- Re-running the orchestrator creates a new `qa_run`; the gate accepts any passing run
+- Method identity selects Browser execution; never infer it from legacy
+  requirement kinds or item metadata.
+- `yoke qa case run` owns the run and its evidence records; never add a second
+  run manually.
+- Browser inspection remains inconclusive until a reviewer approves, rejects,
+  or waives it; never report that state as a pass.
+- The ephemeral URL, deployed branch, and deployed commit are mandatory
+  freshness inputs.

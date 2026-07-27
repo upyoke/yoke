@@ -270,7 +270,7 @@ def execute_create(
                     conn, current_id, title,
                     status or workflow_runtime.stage_ids[0], priority,
                     "accelerated", 0, 0,
-                    None, None, None,
+                    None, None,
                     body, now, now, source_token,
                     project_identity.id, current_sequence, deployment_flow,
                     owner=owner_token,
@@ -278,12 +278,30 @@ def execute_create(
                     workflow_version_id=workflow_version_id,
                     instruction=clean_instruction,
                     workflow_posture=normalized_posture,
+                    commit=False,
                 )
+                from yoke_core.domain.item_posture_bindings import (
+                    bind_item_posture_on_create,
+                )
+
+                bind_item_posture_on_create(
+                    conn,
+                    item_id=current_id,
+                    definition=workflow_runtime.definition,
+                    posture=normalized_posture,
+                    actor_id=source_actor_id,
+                    commit=False,
+                )
+                conn.commit()
                 break
             except db_backend.integrity_error_types(conn) as exc:
+                conn.rollback()
                 if "UNIQUE constraint" in str(exc) and attempt < max_retries - 1:
                     time.sleep(0.1)
                     continue
+                raise
+            except Exception:
+                conn.rollback()
                 raise
 
         _maybe_set_session_current_item(conn, current_id, session_id)

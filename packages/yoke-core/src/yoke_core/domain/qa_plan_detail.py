@@ -7,7 +7,11 @@ from typing import Any
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_one, query_rows
-from yoke_core.domain.qa_catalog_reads import _attachment_rows, _outcome
+from yoke_core.domain.qa_catalog_reads import (
+    _attachment_rows,
+    _capability_contexts,
+    _outcome,
+)
 
 
 def _placeholder(conn: Any) -> str:
@@ -21,7 +25,12 @@ def _decode(value: Any, fallback: Any) -> Any:
         return fallback
 
 
-def _case_result(conn: Any, plan_id: int, case_key: str) -> dict:
+def _case_result(
+    conn: Any,
+    plan_id: int,
+    case_key: str,
+    host_baseline: str | None,
+) -> dict:
     marker = _placeholder(conn)
     row = query_one(
         conn,
@@ -34,13 +43,15 @@ def _case_result(conn: Any, plan_id: int, case_key: str) -> dict:
         "SELECT rr.id FROM qa_runs rr WHERE rr.qa_requirement_id=q.id "
         "ORDER BY rr.created_at DESC, rr.id DESC LIMIT 1"
         f") WHERE q.plan_id={marker} AND q.plan_case_key={marker} "
+        f"AND COALESCE(q.host_baseline, '')={marker} "
         "ORDER BY happened_at DESC, q.id DESC LIMIT 1",
-        (plan_id, case_key),
+        (plan_id, case_key, host_baseline or ""),
     )
     if row is None:
         return {
             "requirement_id": None,
             "run_id": None,
+            "host_baseline": host_baseline,
             "outcome": "not_run",
             "evidence": [],
         }
@@ -85,23 +96,47 @@ def get_plan(conn: Any, *, plan_id: int) -> dict:
     )
     if row is None:
         raise LookupError(f"QA plan {plan_id} not found")
-    cases = []
-    for case in query_rows(
+    case_rows = query_rows(
         conn,
         "SELECT c.*, m.name AS method_name, m.executor_id, "
         "m.required_capability_kind, m.verdict_path "
         "FROM qa_plan_cases c JOIN qa_methods m ON m.id=c.method_id "
         f"WHERE c.plan_id={marker} ORDER BY c.position",
         (int(plan_id),),
-    ):
-        cases.append({
+    )
+    capability_contexts = _capability_contexts(
+        conn,
+        project_id=int(row["project_id"]),
+        capability_kinds={
+            case["required_capability_kind"]
+            for case in case_rows
+        },
+    )
+    cases = []
+    proofs = []
+    for case in case_rows:
+        host_baselines = _decode(case["host_baselines"], [])
+        case_proofs = [
+            _case_result(
+                conn,
+                int(plan_id),
+                str(case["case_key"]),
+                host_baseline,
+            )
+            for host_baseline in (host_baselines or [None])
+        ]
+        capability_kind = case["required_capability_kind"]
+        capability_context = dict(capability_contexts[capability_kind])
+        case_detail = {
             "id": int(case["id"]),
             "case_key": str(case["case_key"]),
             "position": int(case["position"]),
             "method_id": str(case["method_id"]),
             "method_name": str(case["method_name"]),
             "executor_id": str(case["executor_id"]),
-            "required_capability_kind": case["required_capability_kind"],
+            "required_capability_kind": capability_kind,
+            "capability_state": capability_context["state"],
+            "capability_context": capability_context,
             "verdict_path": str(case["verdict_path"]),
             "instructions": str(case["instructions"]),
             "expected_outcome": str(case["expected_outcome"]),
@@ -110,20 +145,22 @@ def get_plan(conn: Any, *, plan_id: int) -> dict:
             "success_policy_params": _decode(
                 case["success_policy_params"], None,
             ),
-            "host_baselines": _decode(case["host_baselines"], []),
+            "host_baselines": host_baselines,
             "entry_surface": case["entry_surface"],
             "required_completion": case["required_completion"],
-            "last_result": _case_result(
-                conn, int(plan_id), str(case["case_key"]),
-            ),
-        })
+            "proofs": case_proofs,
+        }
+        if not host_baselines:
+            case_detail["last_result"] = case_proofs[0]
+        cases.append(case_detail)
+        proofs.extend(case_proofs)
     counts: dict[str, int] = {}
-    for case in cases:
-        outcome = str(case["last_result"]["outcome"])
+    for proof in proofs:
+        outcome = str(proof["outcome"])
         counts[outcome] = counts.get(outcome, 0) + 1
-    satisfied = bool(cases) and all(
-        case["last_result"]["outcome"] in {"passed", "waived"}
-        for case in cases
+    satisfied = bool(proofs) and all(
+        proof["outcome"] in {"passed", "waived"}
+        for proof in proofs
     )
     return {
         "id": int(row["id"]),

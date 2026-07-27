@@ -243,7 +243,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     try:
         _cli_tokens, _function_id, adapter, remaining = resolve(argv)
     except KeyError:
-        # Tool-shaped commands (git hook bodies, browser-QA orchestration,
+        # Tool-shaped commands (git hook bodies, QA case/substrate tools,
         # the client-local installer/onboarding flows) carry no function
         # id; they route here only after registry resolution misses. A
         # concrete tool-shaped match wins over group-prefix help, mirroring

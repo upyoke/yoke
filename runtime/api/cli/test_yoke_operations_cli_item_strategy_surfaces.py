@@ -7,6 +7,10 @@ from contextlib import redirect_stderr, redirect_stdout
 from unittest.mock import patch
 
 from yoke_cli.main import main as cli_main
+from yoke_cli.commands.adapters.strategy_surfaces import USAGE_BY_FUNCTION_ID
+from yoke_core.api.service_client_structured_api_adapter_inventory_strategy import (
+    STRATEGY_ADAPTERS,
+)
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionCallResponse,
@@ -183,6 +187,21 @@ def test_strategy_execution_and_claim_commands_target_the_item() -> None:
     result, release = _run(
         "strategy",
         "claim",
+        "release",
+        TEST_ITEM_REF,
+        "--reason",
+        "Execution document complete.",
+        "--project",
+        "yoke",
+    )
+    assert result == 0
+    assert release.function == "strategy.claim.release"
+    assert release.target.item_ref == TEST_ITEM_REF
+    assert release.payload == {"reason": "Execution document complete."}
+
+    result, release = _run(
+        "strategy",
+        "claim",
         "break-glass-release",
         TEST_ITEM_REF,
         "--reason",
@@ -196,3 +215,10 @@ def test_strategy_execution_and_claim_commands_target_the_item() -> None:
     assert release.payload == {
         "reason": "Operator recovered an abandoned document claim."
     }
+
+
+def test_strategy_claim_release_usage_advertises_optional_reason() -> None:
+    expected = "yoke strategy claim release ITEM [--reason TEXT] --project P"
+    assert USAGE_BY_FUNCTION_ID["strategy.claim.release"] == expected
+    inventory = {entry.function_id: entry.cli_invocation for entry in STRATEGY_ADAPTERS}
+    assert inventory["strategy.claim.release"] == expected

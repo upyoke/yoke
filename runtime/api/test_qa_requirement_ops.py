@@ -184,25 +184,6 @@ class TestRequirementUpdate:
             qa.cmd_requirement_update(req_id, "qa_phase", "whenever", db_path=db_path)
         assert exc.value.code == 2
 
-    def test_update_rejects_malformed_success_policy_for_browser_qa(self, db_path: str) -> None:
-        rid = qa.cmd_requirement_add(
-            db_path=db_path,
-            item_id=42,
-            qa_kind="browser_smoke",
-            qa_phase="verification",
-            success_policy=json.dumps({
-                "type": "browser_scenario",
-                "base_url": "https://x.test",
-                "steps": [
-                    {"action": "navigate", "route": "/"},
-                    {"action": "screenshot", "capture": True},
-                ],
-            }),
-        )
-        with pytest.raises(SystemExit) as exc:
-            qa.cmd_requirement_update(rid, "success_policy", "{not json", db_path=db_path)
-        assert exc.value.code == 2
-
     def test_update_missing_requirement_exits(self, db_path: str) -> None:
         with pytest.raises(SystemExit) as exc:
             qa.cmd_requirement_update(9999, "target_env", "staging", db_path=db_path)

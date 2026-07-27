@@ -9,8 +9,8 @@ under a claimed worktree, under the main control plane, or under a
 free-path allowlist.
 
 The resolution is small (typically 1-3 worktrees + control plane); no
-caching is required. Released claims are excluded. Items without a
-populated worktree branch (e.g. ``--no-worktree`` evidence-only items)
+caching is required. Released claims are excluded. Items without an
+active universal lane (e.g. ``--no-worktree`` evidence-only items)
 contribute no worktree row — the session still holds the work claim,
 but it has no worktree to target, so the lint authorises only control
 plane and free paths.
@@ -19,12 +19,12 @@ The path itself is computed from this machine's checkout-to-project
 mapping and the recorded worktree branch. Shared project rows do not
 store checkout paths.
 
-Epic items with sibling-branch task worktrees rely on explicit
+Items with worker lanes rely on explicit
 ``target_kind='epic_task'`` claims (one per task) — see
 ``.agents/skills/yoke/conduct/engineer-tester-dispatch.md`` for the
 per-task acquire / release wiring. An ``item``-only claim authorises
-``items.worktree`` and nothing else; the lint exercises the per-task
-claims for fan-out coverage.
+the claimed item's primary lane and nothing else; the lint exercises
+per-task claims for fan-out coverage.
 
 Codex subagent dispatch runs in-process inside the parent harness
 session — the subagent's tool calls land under the parent's

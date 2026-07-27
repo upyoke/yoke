@@ -1,0 +1,258 @@
+/* Workflow-aware item facts, proof, posture, and progress. */
+
+.universe-app-root .item-detail-state {
+  gap: 10px;
+  margin: 2px 0 14px;
+}
+
+.universe-app-root .item-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(260px, 0.75fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.universe-app-root .item-detail .panel-body:has(> .table-wrap) {
+  padding: 0;
+}
+
+.universe-app-root .item-blocked {
+  display: flex;
+  gap: 9px;
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--yoke-crit);
+  border-radius: 8px;
+  color: var(--yoke-crit);
+  background: var(--yoke-crit-bg);
+  font-size: 12px;
+}
+
+.universe-app-root .item-prose {
+  margin: 0;
+  color: var(--yoke-ink-2);
+  font-family: var(--yoke-font-sans);
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: normal;
+}
+
+.universe-app-root table.item-facts {
+  margin: 0;
+  width: 100%;
+}
+
+.universe-app-root .item-posture-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+  gap: 9px;
+}
+
+.universe-app-root .item-posture-cell {
+  min-width: 0;
+  padding: 10px 11px;
+  border: 1px solid var(--yoke-border);
+  border-radius: 8px;
+  background: var(--yoke-bg);
+}
+
+.universe-app-root .item-posture-cell.locked {
+  background: var(--yoke-bg);
+}
+
+.universe-app-root .item-posture-label {
+  margin-bottom: 4px;
+  color: var(--yoke-muted);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.universe-app-root .item-posture-value {
+  color: var(--yoke-ink-2);
+  font-size: 12.5px;
+  font-weight: 550;
+  overflow-wrap: anywhere;
+}
+
+.universe-app-root .item-proof-row,
+.universe-app-root .item-proof-plan {
+  color: inherit;
+  text-decoration: none;
+}
+
+.universe-app-root .item-proof-row:hover,
+.universe-app-root .item-proof-plan:hover {
+  border-color: color-mix(
+    in srgb,
+    var(--yoke-accent) 38%,
+    var(--yoke-border)
+  );
+  background: var(--yoke-hover);
+}
+
+.universe-app-root .item-proof-plan {
+  gap: 9px;
+}
+
+.universe-app-root .item-proof-icon {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 8px;
+  color: var(--yoke-accent);
+  background: var(--yoke-accent-weak);
+  font-weight: 700;
+}
+
+.universe-app-root .item-proof-arrow {
+  flex: 0 0 auto;
+  padding: 2px 8px;
+  border-radius: 6px;
+  color: var(--yoke-accent);
+  background: var(--yoke-accent-weak);
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.universe-app-root .item-proof-row {
+  padding: 9px 15px 9px 26px;
+  border: 0;
+  border-bottom: 1px solid var(--yoke-border);
+  border-radius: 0;
+  background: transparent;
+}
+
+.universe-app-root .item-proof-row:hover {
+  border-color: var(--yoke-border);
+  background: var(--yoke-hover);
+}
+
+.universe-app-root .item-proof-row.item-proof-link {
+  padding: 9px 11px;
+  border: 1px solid var(--yoke-border);
+  border-radius: 8px;
+  background: var(--yoke-bg);
+}
+
+.universe-app-root .item-proof-row.item-proof-link:hover {
+  border-color: color-mix(
+    in srgb,
+    var(--yoke-accent) 38%,
+    var(--yoke-border)
+  );
+}
+
+.universe-app-root .item-proof-title {
+  color: var(--yoke-ink);
+  font-size: 12.5px;
+  font-weight: 580;
+}
+
+.universe-app-root .item-proof-heading {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.universe-app-root .item-method-badge {
+  max-width: 150px;
+  overflow: hidden;
+  padding: 2px 7px;
+  border-radius: 999px;
+  color: var(--yoke-ink-2);
+  background: var(--yoke-surface-2);
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.universe-app-root .item-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.universe-app-root .item-fact-lock {
+  color: var(--yoke-accent);
+}
+
+.universe-app-root .item-proof-union {
+  align-items: center;
+  padding: 9px 15px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.universe-app-root .item-command {
+  display: inline-block;
+  max-width: 100%;
+  margin: 0;
+  overflow-x: auto;
+  padding: 2px 6px;
+  border-radius: 5px;
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+.universe-app-root .item-command-copy {
+  margin: 0 0 8px;
+}
+
+.universe-app-root .item-progress {
+  padding: 0;
+}
+
+.universe-app-root .item-progress-entry {
+  padding: 12px 15px;
+  border-bottom: 1px solid var(--yoke-border);
+}
+
+.universe-app-root .item-progress-entry:last-child {
+  border-bottom: 0;
+}
+
+.universe-app-root .item-progress-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 5px;
+  color: var(--yoke-muted);
+  font-size: 11.5px;
+}
+
+.universe-app-root .item-progress-heading strong {
+  color: var(--yoke-ink);
+  font-size: 12.5px;
+}
+
+.universe-app-root .item-progress-body {
+  font-size: 12.5px;
+}
+
+.universe-app-root .issue-detail .item-detail-grid {
+  grid-template-columns: minmax(0, 0.445fr) minmax(0, 1fr);
+}
+
+.universe-app-root .item-epic-tasks table.items td:nth-child(2) {
+  font-weight: 550;
+}
+
+@media (max-width: 1080px) {
+  .universe-app-root .issue-detail .item-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 860px) {
+  .universe-app-root .item-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}

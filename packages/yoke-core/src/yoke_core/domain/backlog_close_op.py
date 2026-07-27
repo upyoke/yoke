@@ -1,6 +1,6 @@
 """Backlog close operation — `execute_close` cancels an item through the
 structured cancellation path: validates the resolution reason, refuses
-to cancel items past review or with active worktrees, reconciles
+to cancel items past review or with active worktree lanes, reconciles
 `item_dependencies` rows, writes the status + resolution payload, and
 posts the GitHub close + status comment.
 """
@@ -20,6 +20,10 @@ from yoke_core.domain.backlog_queries import (
 from yoke_core.domain import backlog_rendering as _rendering
 from yoke_core.domain.path_claims_item_hook import (
     cancel_claims_on_item_terminal,
+)
+from yoke_core.domain.item_worktrees import (
+    list_item_worktrees,
+    release_item_worktrees,
 )
 
 
@@ -98,13 +102,14 @@ def execute_close(
                 ),
             }
 
-        worktree = item.get("worktree")
-        if worktree not in (None, "", "null"):
+        active_lanes = list_item_worktrees(conn, item_id, active_only=True)
+        if active_lanes:
+            branches = ", ".join(str(lane["branch"]) for lane in active_lanes)
             return {
                 "success": False,
                 "error": (
-                    f"YOK-{item_id} has an active worktree ({worktree}). "
-                    "Remove the worktree first or use --force."
+                    f"YOK-{item_id} has active worktree lanes ({branches}). "
+                    "Complete or release those lanes before cancellation."
                 ),
             }
 
@@ -186,12 +191,13 @@ def execute_close(
             {
                 "status": "cancelled",
                 "frozen": 0,
-                "worktree": None,
                 "resolution": reason,
                 "resolution_ref": normalized_resolution_ref,
                 "resolution_comment": resolution_comment,
             },
         )
+        release_item_worktrees(conn, item_id=item_id)
+        conn.commit()
 
         print(f"Updated: YOK-{item_id} status → cancelled (resolution: {reason})", file=out)
 

@@ -8,6 +8,8 @@ item markers (current/done), and hook JSON parsing. Detection helpers
   entrypoint env-probe tests
 - ``test_hook_helpers_model.py`` — ``detect_model`` plus
   ``_extract_model_from_argv`` and the VS Code regression suite
+- ``test_hook_helpers_database_resolution.py`` — connected-environment
+  database resolution
 
 Shared fixtures (``clean_markers`` autouse, ``dispatch_db``,
 ``no_parent_argv``) live in ``conftest.py``.
@@ -18,10 +20,8 @@ from __future__ import annotations
 import json
 import os
 import time
-from pathlib import Path
 from unittest import mock
 
-from yoke_core.domain import machine_config
 from runtime.harness import hook_helpers
 from runtime.harness.hook_helpers import (
     find_project_root,
@@ -30,7 +30,6 @@ from runtime.harness.hook_helpers import (
     read_current_item_marker,
     read_done_item_marker,
     resolve_dispatch_context,
-    resolve_yoke_db,
     write_current_item_marker,
     write_done_item_marker,
 )
@@ -57,83 +56,6 @@ class TestFindProjectRoot:
             with mock.patch("subprocess.run", side_effect=FileNotFoundError):
                 result = find_project_root()
                 assert result == str(tmp_path)
-
-
-class TestResolveYokeDb:
-    def _binding(self, root: Path) -> Path:
-        path = root / ".yoke" / "config.json"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(
-            json.dumps(
-                {
-                    "schema_version": 1,
-                    "active_env": "prod-db-admin",
-                    "connections": {
-                        "prod-db-admin": {
-                            "transport": "local-postgres",
-                            "authority": {
-                                "kind": "aws_aurora_postgres",
-                                "infra_dir": ".yoke/infra",
-                                "location": {
-                                    "stack": "yoke-prod",
-                                    "database_name": "yoke_prod",
-                                },
-                            },
-                            "credential_source": {
-                                "kind": "dsn_file",
-                                "path": "/tmp/yoke-prod-db-admin.pg.dsn",
-                            },
-                        },
-                    },
-                }
-            ),
-            encoding="utf-8",
-        )
-        return path
-
-    def test_returns_empty_without_explicit_override(self):
-        with mock.patch.dict(
-            os.environ,
-            {"YOKE_CONNECTED_ENV_DISABLE": "1"},
-            clear=True,
-        ):
-            assert resolve_yoke_db() == ""
-
-    def test_connected_postgres_binding_uses_no_sqlite_db(self, tmp_path):
-        root = tmp_path / "repo"
-        root.mkdir()
-        binding = self._binding(root)
-        with mock.patch.dict(os.environ, {machine_config.CONFIG_FILE_ENV: str(binding)}, clear=True):
-            with mock.patch(
-                "runtime.harness.hook_helpers_session_id.find_project_root",
-                return_value=str(root),
-            ):
-                assert resolve_yoke_db() == ""
-
-    def test_retired_canonical_yoke_db_env_returns_empty(self, tmp_path):
-        root = tmp_path / "repo"
-        root.mkdir()
-        binding = self._binding(root)
-        canonical = root / "data" / "yoke.db"
-        canonical.parent.mkdir(parents=True, exist_ok=True)
-        with mock.patch.dict(os.environ, {"YOKE_DB": str(canonical), machine_config.CONFIG_FILE_ENV: str(binding)}, clear=True):
-            with mock.patch(
-                "runtime.harness.hook_helpers_session_id.find_project_root",
-                return_value=str(root),
-            ):
-                assert resolve_yoke_db() == ""
-
-    def test_noncanonical_yoke_db_env_still_supports_fixtures(self, tmp_path):
-        root = tmp_path / "repo"
-        root.mkdir()
-        binding = self._binding(root)
-        fixture = tmp_path / "fixture.db"
-        with mock.patch.dict(os.environ, {"YOKE_DB": str(fixture), machine_config.CONFIG_FILE_ENV: str(binding)}, clear=True):
-            with mock.patch(
-                "runtime.harness.hook_helpers_session_id.find_project_root",
-                return_value=str(root),
-            ):
-                assert resolve_yoke_db() == str(fixture)
 
 
 # ---------------------------------------------------------------------------
@@ -181,13 +103,31 @@ class TestResolveDispatchContext:
 
         conn = connect(dispatch_db)
         conn.execute(
+            "INSERT INTO items (id, title, type, status) VALUES (%s, %s, %s, %s)",
+            (100, "Epic", "epic", "implementing"),
+        )
+        conn.execute(
+            "INSERT INTO item_worktrees "
+            "(id, item_id, branch, path, lane_role, state, created_at, updated_at) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+            (
+                100,
+                100,
+                "YOK-100-worker",
+                "/path/to/worktree",
+                "worker",
+                "active",
+                "2026-01-01T00:00:00Z",
+                "2026-01-01T00:00:00Z",
+            ),
+        )
+        conn.execute(
             "INSERT INTO epic_dispatch_chains "
-            "(epic_id, worktree_path, current_task) VALUES (%s, %s, %s)",
-            (100, "/path/to/worktree", "3"),
+            "(epic_id, item_worktree_id, current_task) VALUES (%s, %s, %s)",
+            (100, 100, "3"),
         )
         conn.commit()
         conn.close()
-
         result = resolve_dispatch_context(dispatch_db, "/path/to/worktree")
         assert result == ("100", "3", "100")
 
@@ -196,13 +136,31 @@ class TestResolveDispatchContext:
 
         conn = connect(dispatch_db)
         conn.execute(
+            "INSERT INTO items (id, title, type, status) VALUES (%s, %s, %s, %s)",
+            (200, "Epic", "epic", "implementing"),
+        )
+        conn.execute(
+            "INSERT INTO item_worktrees "
+            "(id, item_id, branch, path, lane_role, state, created_at, updated_at) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+            (
+                200,
+                200,
+                "YOK-200-worker",
+                "/path/to/worktree",
+                "worker",
+                "active",
+                "2026-01-01T00:00:00Z",
+                "2026-01-01T00:00:00Z",
+            ),
+        )
+        conn.execute(
             "INSERT INTO epic_dispatch_chains "
-            "(epic_id, worktree_path, current_task) VALUES (%s, %s, %s)",
-            (200, "/path/to/worktree", "5"),
+            "(epic_id, item_worktree_id, current_task) VALUES (%s, %s, %s)",
+            (200, 200, "5"),
         )
         conn.commit()
         conn.close()
-
         result = resolve_dispatch_context(dispatch_db, "/path/to/worktree/yoke/api")
         assert result == ("200", "5", "200")
 
@@ -211,13 +169,26 @@ class TestResolveDispatchContext:
 
         conn = connect(dispatch_db)
         conn.execute(
-            "INSERT INTO items "
-            "(id, title, type, status, worktree) VALUES (%s, %s, %s, %s, %s)",
-            (9001, "Test item", "issue", "implementing", "YOK-9001"),
+            "INSERT INTO items (id, title, type, status) VALUES (%s, %s, %s, %s)",
+            (9001, "Test item", "issue", "implementing"),
+        )
+        conn.execute(
+            "INSERT INTO item_worktrees "
+            "(id, item_id, branch, path, lane_role, state, created_at, updated_at) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+            (
+                9001,
+                9001,
+                "YOK-9001",
+                "/repo/.worktrees/YOK-9001",
+                "implementation",
+                "active",
+                "2026-01-01T00:00:00Z",
+                "2026-01-01T00:00:00Z",
+            ),
         )
         conn.commit()
         conn.close()
-
         result = resolve_dispatch_context(dispatch_db, "/repo/.worktrees/YOK-9001")
         assert result == ("", "", "9001")
 

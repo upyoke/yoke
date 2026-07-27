@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.api.function_call import ActorContext, TargetRef
 from yoke_core.domain.machine_qa_method_contracts import MACHINE_METHODS
 
 
@@ -13,15 +13,7 @@ class MachineCaseDispatchError(RuntimeError):
     """A materialized case cannot execute through ``host_control``."""
 
 
-def execute_materialized_machine_case(
-    case: Mapping[str, Any],
-) -> dict[str, Any]:
-    """Run one immutable case snapshot without trusting client-supplied proof.
-
-    The server rereads the targeted requirement before controlling the host.
-    The supplied snapshot is used only to refuse an incompatible generic-runner
-    dispatch before it crosses the function boundary.
-    """
+def _require_machine_case(case: Mapping[str, Any]) -> int:
     requirement_id = int(case.get("requirement_id") or 0)
     executor_id = str(case.get("executor_id") or "")
     method_id = str(case.get("method_id") or "")
@@ -36,26 +28,52 @@ def execute_materialized_machine_case(
             raise MachineCaseDispatchError(
                 f"Machine QA execution context is missing {key}"
             )
+    return requirement_id
 
-    from yoke_core.api.service_client_structured_api_adapter import (
-        call_dispatcher,
-    )
 
-    response = call_dispatcher(
-        function_id="test_machine.case_execute",
+def _dispatch_machine_case(
+    function_id: str,
+    requirement_id: int,
+    *,
+    actor: ActorContext | None,
+) -> dict[str, Any]:
+    from yoke_core.domain.qa_composed_dispatch import call_qa_function
+
+    response = call_qa_function(
+        function_id=function_id,
         target=TargetRef(
             kind="qa_requirement",
             qa_requirement_id=requirement_id,
         ),
         payload={},
+        actor=actor,
     )
     if not response.success:
         code = response.error.code if response.error else "unknown"
         message = response.error.message if response.error else ""
         raise MachineCaseDispatchError(
-            f"test_machine.case_execute failed ({code}): {message}"
+            f"{function_id} failed ({code}): {message}"
         )
-    result = dict(response.result or {})
+    return dict(response.result or {})
+
+
+def execute_materialized_machine_case(
+    case: Mapping[str, Any],
+    *,
+    actor: ActorContext | None = None,
+) -> dict[str, Any]:
+    """Rerun one immutable case without trusting client-supplied proof.
+
+    The server rereads the targeted requirement before controlling the host.
+    The supplied snapshot is used only to refuse an incompatible generic-runner
+    dispatch before it crosses the function boundary.
+    """
+    requirement_id = _require_machine_case(case)
+    result = _dispatch_machine_case(
+        "test_machine.case_execute",
+        requirement_id,
+        actor=actor,
+    )
     if int(result.get("requirement_id") or 0) != requirement_id:
         raise MachineCaseDispatchError(
             "test_machine.case_execute returned the wrong requirement"
@@ -63,7 +81,39 @@ def execute_materialized_machine_case(
     return result
 
 
+def execute_materialized_machine_baseline_group(
+    case: Mapping[str, Any],
+    *,
+    actor: ActorContext | None = None,
+) -> dict[str, Any]:
+    """Run the anchor's server-discovered baseline group under one lease."""
+    requirement_id = _require_machine_case(case)
+    if case.get("plan_id") is None or not case.get("host_baseline"):
+        raise MachineCaseDispatchError(
+            "Machine QA baseline-group execution requires a plan-backed "
+            "case with host_baseline"
+        )
+    result = _dispatch_machine_case(
+        "test_machine.baseline_group_execute",
+        requirement_id,
+        actor=actor,
+    )
+    if int(result.get("anchor_requirement_id") or 0) != requirement_id:
+        raise MachineCaseDispatchError(
+            "test_machine.baseline_group_execute returned the wrong anchor"
+        )
+    requirement_ids = {
+        int(value) for value in result.get("requirement_ids") or []
+    }
+    if requirement_id not in requirement_ids:
+        raise MachineCaseDispatchError(
+            "test_machine.baseline_group_execute omitted its anchor"
+        )
+    return result
+
+
 __all__ = [
     "MachineCaseDispatchError",
+    "execute_materialized_machine_baseline_group",
     "execute_materialized_machine_case",
 ]

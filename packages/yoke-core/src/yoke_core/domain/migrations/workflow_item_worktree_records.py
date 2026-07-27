@@ -1,24 +1,37 @@
-"""Backfill workflow-neutral item worktree lane records."""
+"""Contract legacy worktree fields into universal item-lane references."""
 
 from __future__ import annotations
 
 from typing import Any
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.item_worktree_schema import ensure_item_worktree_schema
+from yoke_core.domain.item_worktree_schema import (
+    ensure_epic_item_worktree_references,
+    ensure_item_worktree_schema,
+)
 from yoke_core.domain.item_worktrees import (
-    list_item_worktrees,
-    record_item_worktree,
     validate_item_worktree_roles,
 )
-from yoke_core.domain.schema_common import _column_exists, _table_exists
-from yoke_core.domain.workflow_behavior import (
-    LANE_IMPLEMENTATION,
-    LANE_INTEGRATION,
-    LANE_WORKER,
-    worktree_lane_policy,
+from yoke_core.domain.migrations.workflow_item_worktree_backfill import (
+    backfill_item_lanes as _backfill_item_lanes,
+    backfill_worker_lanes as _backfill_worker_lanes,
+    ensure_required_peers as _ensure_required_peers,
 )
-from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
+from yoke_core.domain.migrations.workflow_item_worktree_sources import (
+    ItemLaneSource as _ItemLaneSource,
+    WorkerLaneSource as _WorkerLaneSource,
+    assert_source_roles_do_not_conflict as _assert_source_roles_do_not_conflict,
+    clean as _clean,
+    item_lane_sources as _item_lane_sources,
+    resolve_worker_lane_path as _resolve_worker_lane_path,
+    worker_lane_sources as _worker_lane_sources,
+    worker_source_groups as _worker_source_groups,
+)
+from yoke_core.domain.schema_common import (
+    _add_column_if_not_exists,
+    _table_exists,
+)
+from yoke_core.domain.workflow_behavior import LANE_WORKER
 
 MIGRATION_NAME = "workflow_item_worktree_records"
 
@@ -27,174 +40,169 @@ def _placeholder(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def _item_lane_role(conn: Any, item_id: int) -> str:
-    policy = worktree_lane_policy(load_item_workflow_runtime(conn, item_id))
-    if LANE_IMPLEMENTATION in policy.allowed_roles:
-        return LANE_IMPLEMENTATION
-    return LANE_INTEGRATION
-
-
-def _legacy_lane_rows(conn: Any) -> list[tuple[int, str, str | None]]:
-    rows: list[tuple[int, str, str | None]] = []
-    if _table_exists(conn, "epic_dispatch_chains"):
-        rows.extend(
-            (
-                int(row[0]),
-                str(row[1]),
-                str(row[2]) if row[2] else None,
-            )
-            for row in conn.execute(
-                "SELECT CAST(epic_id AS INTEGER), worktree, worktree_path "
-                "FROM epic_dispatch_chains "
-                "WHERE COALESCE(worktree, '') <> '' ORDER BY id"
-            ).fetchall()
-        )
-    if _table_exists(conn, "epic_tasks"):
-        branch_sql = (
-            "COALESCE(NULLIF(branch, ''), NULLIF(worktree, ''), '')"
-            if _column_exists(conn, "epic_tasks", "branch")
-            else "COALESCE(worktree, '')"
-        )
-        path_sql = (
-            "worktree_path"
-            if _column_exists(conn, "epic_tasks", "worktree_path")
-            else "NULL"
-        )
-        rows.extend(
-            (
-                int(row[0]),
-                str(row[1]),
-                str(row[2]) if row[2] else None,
-            )
-            for row in conn.execute(
-                f"SELECT CAST(epic_id AS INTEGER), {branch_sql}, {path_sql} "
-                "FROM epic_tasks "
-                f"WHERE {branch_sql} <> '' ORDER BY id"
-            ).fetchall()
-        )
-    return rows
-
-
-def _legacy_worker_lane_rows(conn: Any) -> list[tuple[int, str, str | None]]:
-    """Exclude cross-workflow residue that is not a current worker lane."""
-    return [
-        row
-        for row in _legacy_lane_rows(conn)
-        if LANE_WORKER
-        in worktree_lane_policy(
-            load_item_workflow_runtime(conn, row[0])
-        ).allowed_roles
-    ]
-
-
-def _backfill(conn: Any) -> None:
-    if _column_exists(conn, "items", "worktree"):
-        rows = conn.execute(
-            "SELECT id, worktree FROM items "
-            "WHERE COALESCE(worktree, '') <> '' ORDER BY id"
-        ).fetchall()
-        for item_id, branch in rows:
-            record_item_worktree(
-                conn,
-                item_id=int(item_id),
-                branch=str(branch),
-                path=None,
-                lane_role=_item_lane_role(conn, int(item_id)),
-            )
-
-    worker_items: set[int] = set()
-    for item_id, branch, path in _legacy_worker_lane_rows(conn):
-        record_item_worktree(
-            conn,
-            item_id=item_id,
-            branch=branch,
-            path=path,
-            lane_role=LANE_WORKER,
-        )
-        worker_items.add(item_id)
-
-    for item_id in sorted(worker_items):
-        policy = worktree_lane_policy(load_item_workflow_runtime(conn, item_id))
-        active_roles = {
-            str(row["lane_role"])
-            for row in list_item_worktrees(conn, item_id, active_only=True)
-        }
-        if LANE_INTEGRATION not in policy.required_roles:
-            continue
-        if LANE_INTEGRATION not in active_roles:
-            record_item_worktree(
-                conn,
-                item_id=item_id,
-                branch=f"YOK-{item_id}-integration",
-                path=None,
-                lane_role=LANE_INTEGRATION,
-            )
-
-
-def _assert_legacy_rows_covered(conn: Any) -> None:
-    marker = _placeholder(conn)
-    if _column_exists(conn, "items", "worktree"):
-        missing = conn.execute(
-            "SELECT i.id, i.worktree FROM items i "
-            "WHERE COALESCE(i.worktree, '') <> '' "
-            "AND NOT EXISTS ("
-            "SELECT 1 FROM item_worktrees iw "
-            "WHERE iw.item_id = i.id AND iw.branch = i.worktree "
-            "AND iw.state = 'active') "
-            "ORDER BY i.id LIMIT 5"
-        ).fetchall()
-        if missing:
-            raise AssertionError(
-                "items.worktree rows lack universal lane records: "
-                + ", ".join(f"{row[0]}:{row[1]}" for row in missing)
-            )
-
-    for item_id, branch, _path in _legacy_worker_lane_rows(conn):
-        row = conn.execute(
-            "SELECT 1 FROM item_worktrees "
-            f"WHERE item_id = {marker} AND branch = {marker} "
-            "AND lane_role = 'worker' AND state = 'active'",
-            (item_id, branch),
-        ).fetchone()
-        if row is None:
-            raise AssertionError(
-                f"legacy worker lane {item_id}:{branch} was not backfilled"
-            )
-
-
-def apply(conn: Any) -> None:
-    """Create and populate universal lane ownership without dropping legacy."""
-    before = {
+def _legacy_row_counts(conn: Any) -> dict[str, int]:
+    return {
         table: int(conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0])
         for table in ("items", "epic_tasks", "epic_dispatch_chains")
         if _table_exists(conn, table)
     }
-    ensure_item_worktree_schema(conn)
-    _backfill(conn)
-    _assert_legacy_rows_covered(conn)
-    for (item_id,) in conn.execute(
-        "SELECT DISTINCT item_id FROM item_worktrees "
-        "WHERE state = 'active' ORDER BY item_id"
-    ).fetchall():
-        validate_item_worktree_roles(conn, int(item_id))
-    after = {
+
+
+def _assert_legacy_row_counts(conn: Any, expected: dict[str, int]) -> None:
+    actual = {
         table: int(conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0])
-        for table in before
+        for table in expected
     }
-    if after != before:
+    if actual != expected:
         raise AssertionError(
-            f"legacy worktree source row counts changed: {before} -> {after}"
+            f"legacy worktree source row counts changed: {expected} -> {actual}"
         )
 
 
+def _assert_item_lanes(
+    conn: Any,
+    sources: list[_ItemLaneSource],
+) -> None:
+    marker = _placeholder(conn)
+    for source in sources:
+        expected_state = "released" if source.released else "active"
+        row = conn.execute(
+            "SELECT id FROM item_worktrees WHERE item_id="
+            + marker
+            + " AND branch="
+            + marker
+            + " AND lane_role="
+            + marker
+            + " AND state="
+            + marker
+            + " ORDER BY id DESC LIMIT 1",
+            (
+                source.item_id,
+                source.branch,
+                source.lane_role,
+                expected_state,
+            ),
+        ).fetchone()
+        if row is None:
+            raise AssertionError(
+                f"items id={source.item_id} branch {source.branch!r} lacks its "
+                f"{expected_state} {source.lane_role} lane"
+            )
+
+
+def _assert_worker_links(
+    conn: Any,
+    sources: list[_WorkerLaneSource],
+) -> None:
+    marker = _placeholder(conn)
+    for (item_id, branch), group in _worker_source_groups(sources).items():
+        path_resolution = _resolve_worker_lane_path(item_id, branch, group)
+        expected_state = (
+            "released" if all(source.released for source in group) else "active"
+        )
+        linked_ids: set[int] = set()
+        for source in group:
+            link = conn.execute(
+                f"SELECT item_worktree_id FROM {source.table} WHERE id={marker}",
+                (source.row_id,),
+            ).fetchone()
+            if link is None or link[0] is None:
+                raise AssertionError(
+                    f"{source.table} id={source.row_id} lacks an item worktree link"
+                )
+            lane_id = int(link[0])
+            linked_ids.add(lane_id)
+            lane = conn.execute(
+                "SELECT item_id, branch, path, lane_role, state "
+                "FROM item_worktrees WHERE id=" + marker,
+                (lane_id,),
+            ).fetchone()
+            if lane is None:
+                raise AssertionError(
+                    f"{source.table} id={source.row_id} references missing "
+                    f"item_worktrees id={lane_id}"
+                )
+            actual = (
+                int(lane[0]),
+                str(lane[1]),
+                _clean(lane[2]),
+                str(lane[3]),
+                str(lane[4]),
+            )
+            if actual[0] != item_id or actual[1] != branch:
+                raise AssertionError(
+                    f"{source.table} id={source.row_id} links to "
+                    f"{actual[0]}:{actual[1]!r}, expected {item_id}:{branch!r}"
+                )
+            if path_resolution.clear_released_path and actual[2] is not None:
+                raise AssertionError(
+                    f"{source.table} id={source.row_id} links to path "
+                    f"{actual[2]!r}, expected released history without an owning path"
+                )
+            if path_resolution.path is not None and actual[2] != path_resolution.path:
+                raise AssertionError(
+                    f"{source.table} id={source.row_id} links to path "
+                    f"{actual[2]!r}, expected {path_resolution.path!r}"
+                )
+            if actual[3:] != (LANE_WORKER, expected_state):
+                raise AssertionError(
+                    f"{source.table} id={source.row_id} links to "
+                    f"{actual[3]!r}/{actual[4]!r}, expected "
+                    f"{LANE_WORKER!r}/{expected_state!r}"
+                )
+        if len(linked_ids) != 1:
+            raise AssertionError(
+                f"legacy sources for item {item_id} branch {branch!r} "
+                f"reference different lane records: {sorted(linked_ids)}"
+            )
+
+
+def _assert_links(conn: Any) -> None:
+    item_sources = _item_lane_sources(conn)
+    worker_sources = _worker_lane_sources(conn)
+    _assert_source_roles_do_not_conflict(item_sources, worker_sources)
+    _assert_item_lanes(conn, item_sources)
+    _assert_worker_links(conn, worker_sources)
+
+
+def apply(conn: Any) -> None:
+    """Create universal lane records and link every usable epic lane once."""
+    before = _legacy_row_counts(conn)
+    item_sources = _item_lane_sources(conn)
+    worker_sources = _worker_lane_sources(conn)
+    _assert_source_roles_do_not_conflict(item_sources, worker_sources)
+    ensure_item_worktree_schema(conn)
+    if _table_exists(conn, "epic_tasks"):
+        _add_column_if_not_exists(
+            conn, "epic_tasks", "item_worktree_id", "INTEGER DEFAULT NULL"
+        )
+    if _table_exists(conn, "epic_dispatch_chains"):
+        _add_column_if_not_exists(
+            conn,
+            "epic_dispatch_chains",
+            "item_worktree_id",
+            "INTEGER DEFAULT NULL",
+        )
+    ensure_epic_item_worktree_references(conn)
+    _backfill_item_lanes(conn, item_sources)
+    _backfill_worker_lanes(conn, worker_sources)
+    _ensure_required_peers(conn)
+    _assert_links(conn)
+    _assert_legacy_row_counts(conn, before)
+    for (item_id,) in conn.execute(
+        "SELECT DISTINCT item_id FROM item_worktrees WHERE state='active' ORDER BY item_id"
+    ).fetchall():
+        validate_item_worktree_roles(conn, int(item_id))
+    conn.commit()
+
+
 def invariants(conn: Any) -> None:
-    """Verify universal records cover every surviving legacy lane."""
+    """Verify item-lane links and active lane policy after contraction."""
     if not _table_exists(conn, "item_worktrees"):
         raise AssertionError("item_worktrees table is missing")
-    _assert_legacy_rows_covered(conn)
+    _assert_links(conn)
     for (item_id,) in conn.execute(
-        "SELECT DISTINCT item_id FROM item_worktrees "
-        "WHERE state = 'active' ORDER BY item_id"
+        "SELECT DISTINCT item_id FROM item_worktrees WHERE state='active' ORDER BY item_id"
     ).fetchall():
         validate_item_worktree_roles(conn, int(item_id))
 

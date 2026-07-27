@@ -217,7 +217,7 @@ def test_version_read_and_current_selection_use_optimistic_version(test_db):
         version=1,
     )
     assert first["current"] is False
-    assert first["definition"]["stages"][0]["label"] == "Idea"
+    assert first["definition"]["stages"][0]["label"] == "idea"
 
     with pytest.raises(WorkflowRegistryError, match="refresh first"):
         set_current_workflow_version(

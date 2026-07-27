@@ -8,9 +8,9 @@
     "migration_modules": [
       "qa_command_plan_cutover"
     ],
-    "compatibility_class": "pre_merge_safe",
-    "migration_strategy": "expand_contract",
-    "migration_strategy_justification": "Executable QA plans, transition attachments, and the shared case runner land before legacy command and merge-verification settings rows are removed.",
+    "compatibility_class": "pre_merge_breaking",
+    "migration_strategy": "hard_cutover",
+    "migration_strategy_justification": "The deploy-bound cutover creates executable QA plans and transition attachments while removing legacy command and merge-verification settings rows in the same apply.",
     "schema_kinds": [],
     "data_kinds": [
       "fill",

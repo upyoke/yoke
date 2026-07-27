@@ -86,7 +86,9 @@ _GATE_CODES = frozenset({
 
 
 def _map_error_code(legacy_code: Optional[str]) -> str:
-    if legacy_code and legacy_code in _GATE_CODES:
+    if legacy_code and (
+        legacy_code in _GATE_CODES or legacy_code.startswith("GATE_")
+    ):
         return "lifecycle_gate_unmet"
     if legacy_code == "UNSUPPORTED_FIELD":
         return "unsupported_field"

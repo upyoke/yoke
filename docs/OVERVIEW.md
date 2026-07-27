@@ -27,7 +27,7 @@ In practice, the near-term control surface should settle around four paths:
 - `/yoke do` as the general session-offer loop
 - `/yoke strategize` for guided Strategic Markdown Layer research and synthesis
 - `/yoke feed` for maintaining frontier dependency facts and materializing strategy into ideas
-- `/yoke charge` for moving the active frontier forward (see [charge-frontier.md](charge-frontier.md) for algorithm details)
+- `/yoke charge` for moving the active frontier forward (see [charge-frontier.md](../.yoke/docs/charge-frontier.md) for algorithm details)
 
 Direct item commands such as `idea`, `shepherd`, `conduct`, and `usher` still matter, but as narrower downstream delivery adapters inside that control surface rather than as separate architectural centers.
 
@@ -149,7 +149,13 @@ tests/                        # Import-graph and installer boundary tests
 
 ## Backlog Registry
 
-Every trackable item (idea, epic, issue) gets a stable `YOK-N` ID that persists through its entire lifecycle. The connected Postgres authority (`items` table) is the source of truth for all backlog item data. Item body content is read via `items get YOK-N body` (a virtual rendered field assembled on demand from structured fields). The auto-generated board in `.yoke/BOARD.md` shows all registry items grouped by status.
+Every Dash, Blitz, Issue, and Epic gets a stable global integer `items.id` and
+a stable public reference formed from the owning project's item prefix plus
+the item's `project_sequence` (for example, `YOK-42`). The connected Postgres
+authority (`items` table) is the source of truth for all registry data. Item
+body content is read via `items get YOK-N body` (a virtual rendered field
+assembled on demand from structured fields). The auto-generated board in
+`.yoke/BOARD.md` shows all registry items grouped by status.
 
 - **`/yoke idea {title}`** — Create a new item and assign the next `YOK-N` ID.
 - **`yoke items list`** — List items with optional filters.
@@ -187,15 +193,21 @@ Every trackable item (idea, epic, issue) gets a stable `YOK-N` ID that persists 
 ## State Management
 
 - **Backlog items:** The `items` table in the connected Postgres authority is the source of truth for all backlog item data (see your `items` packet stanza for the structured-field column list). All CRUD operations write to the DB; the rendered body is a virtual field — read via `items get YOK-N body`, which renders on demand from the stored structured fields. Content flows through structured field writes, which trigger GitHub sync.
-- **Item status flow:** Issue items normally progress `idea` → `refining-idea` → `refined-idea` → `implementing` → `reviewing-implementation` → `reviewed-implementation` → `polishing-implementation` → `implemented` → `release` → `done`. Epic items add `planning` / `plan-drafted` / `refining-plan` before `planned`.
-- **Epic tasks:** `epic_tasks` table — one row per task, keyed by `(epic_id, task_num)`. Status, body, github_issue, worktree, dispatch_attempts tracked in DB.
-- **Dispatch chains:** `epic_dispatch_chains` table — ordered task queue per worktree, with current_index and attempt tracking.
+- **Item status flow:** Every item is governed by its pinned immutable workflow
+  version. Dash runs `idea` → `implementing` →
+  `reviewing-implementation` → `done`; Blitz adds idea refinement and then
+  closes directly through its continuous-slice executor. Issue uses the full
+  review, polish, and release path. Epic adds
+  `planning` / `plan-drafted` / `refining-plan` / `planned` before that
+  implementation and delivery path.
+- **Epic tasks:** `epic_tasks` table — one row per task, keyed by `(epic_id, task_num)`. Status, body, GitHub issue, universal `item_worktree_id` lane, dependencies, and dispatch attempts are tracked in DB.
+- **Dispatch chains:** `epic_dispatch_chains` table — ordered task queue per universal `item_worktree_id` lane, with current index and attempt tracking. Branch and path facts live only on `item_worktrees`.
 - **Task history:** `events` rows with `event_type='task_status_change'` — epic task status transition log with timestamps and envelope detail.
 - **Reviews:** Stored in `qa_requirements` + `qa_runs` with `qa_kind='implementation_review'`; epic task helpers use `yoke workflow-item epic-task review-insert ... --body-file <path>` (stdin fallback supported) and `yoke workflow-item epic-task review-get`.
 - **Progress notes:** `epic_progress_notes` table — per-task progress with GitHub sync tracking.
 - **Simulations:** Stored in `qa_runs` table via `yoke workflow-item epic-task simulation-upsert` — plan and integration phase simulation reports.
 - **Events:** `events` table — structured telemetry events (tool calls, session lifecycle, anomalies). Keyed by `event_id` (UUID, idempotent insert/upsert for deduplication). Filterable by `source_type`, `session_id`, `event_name`, `tool_name`, `project` through `yoke events query`; write-side severity gating uses the `severity_config` table.
-- **Projects:** `projects` table — registered project repos with identity and repo metadata (see your `projects` packet stanza for the column list). Deployment-flow defaults and context routing live in Project Structure; executable project verification lives in immutable QA plans attached at workflow transitions. Supporting tables: `sites`, `environments`, `project_capabilities`, `capability_templates`. Items reference projects via their project column (default `'yoke'`; cross-reference: see your `items` packet stanza).
+- **Projects:** `projects` table — registered project repos with identity and repo metadata (see your `projects` packet stanza for the column list). Deployment-flow defaults and context routing live in Project Structure; executable project verification lives in immutable QA plans attached at workflow transitions. Supporting tables: `sites`, `environments`, `project_capabilities`, `capability_templates`. Items reference the integer project authority through `items.project_id`; `projects.slug` is a resolved display and command-context value, not the foreign key.
 - **Project Structure aggregate:** `project_structure` table — the unversioned declaration of project-wide structure (`architecture_model`, `areas`, `context_routing`, `deploy_defaults`, `integration_targets`, `mappings`, `ownership_defaults`, `test_roots`, and `verification_profiles`). There are no placeholder or named-only family slots. Public mutations route through `yoke project-structure patch apply`.
 - **Board:** `.yoke/BOARD.md` — project-local generated board between `<!-- YOKE:BOARD:START/END -->` markers with sections for Active, Pipeline, Backlog, Freezer, and Done. Rendered by the Python board renderer (`yoke_core.board`) via the public backlog surface. Header features dynamic emoji pixel art from `.yoke/board-art`: progress bar or random standalone art variant / rainbow fill, plus a stats box with 10-cell proportional meters. All counts use **task-expanded counting** (epics with tasks expand to N units). Below the art header, **dashboard rows** display a 14-day touched-units sparkline, an optional 90-day meter (activity, code lines, issues done, strategy lines), WIP gauge, weather indicator, type badges, age heatmap, and achievement badges.
 

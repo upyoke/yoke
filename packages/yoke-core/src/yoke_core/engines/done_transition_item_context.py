@@ -6,6 +6,9 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.item_worktree_resolution import (
+    primary_item_worktree_branch_sql,
+)
 from yoke_core.domain.workflow_runtime import (
     WorkflowRuntime,
     load_item_workflow_runtime,
@@ -18,7 +21,7 @@ class DoneItemContext:
 
     title: str
     stage_id: str
-    worktree: str
+    lane_branch: str
     project: str
     workflow: WorkflowRuntime
 
@@ -30,7 +33,9 @@ def load_done_item_context(
     """Load an item plus its immutable workflow definition."""
     placeholder = "%s" if db_backend.connection_is_postgres(conn) else "?"
     row = conn.execute(
-        "SELECT i.title, i.status, i.worktree, p.slug AS project "
+        "SELECT i.title, i.status, "
+        f"{primary_item_worktree_branch_sql('i.id')} AS lane_branch, "
+        "p.slug AS project "
         "FROM items i LEFT JOIN projects p ON p.id = i.project_id "
         f"WHERE i.id = {placeholder}",
         (item_id,),
@@ -40,7 +45,7 @@ def load_done_item_context(
     return DoneItemContext(
         title=str(row["title"]),
         stage_id=str(row["status"] or ""),
-        worktree=str(row["worktree"] or ""),
+        lane_branch=str(row["lane_branch"] or ""),
         project=str(row["project"] or "yoke"),
         workflow=load_item_workflow_runtime(conn, item_id),
     )

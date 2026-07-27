@@ -15,6 +15,7 @@ import pytest
 from yoke_core.engines import merge_audit
 from yoke_core.engines.merge_audit_test_schema import (
     apply_merge_audit_schema,
+    seed_merge_audit_task,
 )
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 
@@ -85,9 +86,13 @@ class TestMergeOrder:
         """Report includes recommended merge order."""
         conn = connect_test_db(tmp_db)
         conn.execute("INSERT INTO items (id, title, status) VALUES (600, 'Merge Order', 'implementing')")
-        conn.execute(
-            "INSERT INTO epic_tasks (epic_id, task_num, title, status, worktree) "
-            "VALUES (600, 1, 'T1', 'done', 'YOK-600')"
+        seed_merge_audit_task(
+            conn,
+            epic_id=600,
+            task_num=1,
+            title="T1",
+            status="done",
+            branch="YOK-600",
         )
         conn.commit()
         conn.close()
@@ -108,9 +113,13 @@ class TestSummaryCounts:
         """Ready branch (all tasks done) counted correctly."""
         conn = connect_test_db(tmp_db)
         conn.execute("INSERT INTO items (id, title, status) VALUES (700, 'Ready', 'implementing')")
-        conn.execute(
-            "INSERT INTO epic_tasks (epic_id, task_num, title, status, worktree) "
-            "VALUES (700, 1, 'T1', 'done', 'YOK-700')"
+        seed_merge_audit_task(
+            conn,
+            epic_id=700,
+            task_num=1,
+            title="T1",
+            status="done",
+            branch="YOK-700",
         )
         conn.commit()
         conn.close()
@@ -126,13 +135,21 @@ class TestSummaryCounts:
         """Blocked branch (incomplete tasks) counted correctly."""
         conn = connect_test_db(tmp_db)
         conn.execute("INSERT INTO items (id, title, status) VALUES (710, 'Blocked', 'implementing')")
-        conn.execute(
-            "INSERT INTO epic_tasks (epic_id, task_num, title, status, worktree) "
-            "VALUES (710, 1, 'T1', 'done', 'YOK-710')"
+        seed_merge_audit_task(
+            conn,
+            epic_id=710,
+            task_num=1,
+            title="T1",
+            status="done",
+            branch="YOK-710",
         )
-        conn.execute(
-            "INSERT INTO epic_tasks (epic_id, task_num, title, status, worktree) "
-            "VALUES (710, 2, 'T2', 'planned', 'YOK-710')"
+        seed_merge_audit_task(
+            conn,
+            epic_id=710,
+            task_num=2,
+            title="T2",
+            status="planned",
+            branch="YOK-710",
         )
         conn.commit()
         conn.close()
@@ -148,9 +165,13 @@ class TestSummaryCounts:
         """Summary shows 'Conflicts detected: 0' when no conflicts."""
         conn = connect_test_db(tmp_db)
         conn.execute("INSERT INTO items (id, title, status) VALUES (720, 'NC', 'implementing')")
-        conn.execute(
-            "INSERT INTO epic_tasks (epic_id, task_num, title, status, worktree) "
-            "VALUES (720, 1, 'T1', 'planned', 'YOK-720')"
+        seed_merge_audit_task(
+            conn,
+            epic_id=720,
+            task_num=1,
+            title="T1",
+            status="planned",
+            branch="YOK-720",
         )
         conn.commit()
         conn.close()
@@ -208,9 +229,13 @@ class TestCLI:
         """CLI exits 0 even when there are warnings."""
         conn = connect_test_db(tmp_db)
         conn.execute("INSERT INTO items (id, title, status) VALUES (800, 'Ex', 'implementing')")
-        conn.execute(
-            "INSERT INTO epic_tasks (epic_id, task_num, title, status, worktree) "
-            "VALUES (800, 1, 'T1', 'planned', 'YOK-800')"
+        seed_merge_audit_task(
+            conn,
+            epic_id=800,
+            task_num=1,
+            title="T1",
+            status="planned",
+            branch="YOK-800",
         )
         conn.commit()
         conn.close()

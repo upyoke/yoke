@@ -14,6 +14,20 @@ from yoke_core.domain.qa_plan_management import (
 )
 
 
+def _require_plan_cases(conn: Any, plan_id: int) -> None:
+    marker = _placeholder(conn)
+    row = query_one(
+        conn,
+        f"SELECT 1 FROM qa_plan_cases WHERE plan_id={marker} LIMIT 1",
+        (int(plan_id),),
+    )
+    if row is None:
+        raise QaPlanError(
+            f"QA plan {plan_id} has no cases and cannot be attached or "
+            "materialized"
+        )
+
+
 def set_project_default(
     conn: Any,
     *,
@@ -25,6 +39,7 @@ def set_project_default(
 ) -> dict:
     """Attach one of a transition's project-default plans."""
     plan = _plan_row(conn, plan_id)
+    _require_plan_cases(conn, plan_id)
     marker = _placeholder(conn)
     if query_one(
         conn, f"SELECT 1 FROM workflows WHERE id={marker}", (workflow_id,),
@@ -63,9 +78,11 @@ def attach_plan_to_item(
     transition_id: str,
     qa_phase: str = "verification",
     actor_id: Optional[int] = None,
+    commit: bool = True,
 ) -> dict:
     """Add an item-specific plan attachment after enforcing project scope."""
     plan = _plan_row(conn, plan_id)
+    _require_plan_cases(conn, plan_id)
     marker = _placeholder(conn)
     item = query_one(
         conn,
@@ -87,7 +104,8 @@ def attach_plan_to_item(
         "attached_by_actor_id=EXCLUDED.attached_by_actor_id",
         (item_id, transition_id, qa_phase, plan_id, now, actor_id),
     )
-    conn.commit()
+    if commit:
+        conn.commit()
     return {
         "plan_id": int(plan_id),
         "item_id": int(item_id),
@@ -212,8 +230,20 @@ def materialize_for_item(
     created: list[int] = []
     existing: list[int] = []
     now = iso8601_now()
+    snapshots: dict[int, tuple[Any, dict, list[Any], list[int]]] = {}
     for plan_id, attachment in attachments.items():
         plan = _plan_row(conn, plan_id)
+        existing_rows = query_rows(
+            conn,
+            "SELECT id FROM qa_requirements "
+            f"WHERE item_id={marker} AND plan_id={marker} "
+            f"AND workflow_transition_id={marker} ORDER BY id",
+            (item_id, plan_id, transition_id),
+        )
+        existing_ids = [int(row["id"]) for row in existing_rows]
+        if existing_ids:
+            snapshots[plan_id] = (plan, attachment, [], existing_ids)
+            continue
         cases = query_rows(
             conn,
             "SELECT c.*, m.required_capability_kind "
@@ -221,6 +251,16 @@ def materialize_for_item(
             f"WHERE c.plan_id={marker} ORDER BY c.position",
             (plan_id,),
         )
+        if not cases:
+            raise QaPlanError(
+                f"QA plan {plan_id} has no cases and cannot be materialized"
+            )
+        snapshots[plan_id] = (plan, attachment, cases, [])
+
+    for plan_id, (plan, attachment, cases, existing_ids) in snapshots.items():
+        if existing_ids:
+            existing.extend(existing_ids)
+            continue
         for case in cases:
             baselines = json.loads(str(case["host_baselines"] or "[]")) or [None]
             for baseline in baselines:

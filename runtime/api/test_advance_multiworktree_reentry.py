@@ -20,7 +20,7 @@ class TestAdvanceSkillReentry:
         return ADVANCE_SKILL_MD.read_text()
 
     def test_resolver_used_in_reentry(self):
-        """Re-entry must call worktree_item_resolve instead of reading items.worktree directly."""
+        """Re-entry must use the universal lane resolver."""
         text = self._read()
         assert "worktree_item_resolve" in text, (
             "advance/SKILL.md does not use worktree_item_resolve for re-entry"

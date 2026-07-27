@@ -5,10 +5,10 @@ import {
   scopeBuckets,
   section,
   statePill,
-  withProjectColumn,
 } from "./universe_view_support.js";
 import { buildUniverseRoute } from "./universe_navigation.js";
 import { renderTestMachineDetail } from "./universe_view_test_machine.js";
+import { relativeTime } from "./universe_time.js";
 
 const CAPABILITY_LABELS = {
   configured_unverified: "configured (unverified)",
@@ -24,36 +24,80 @@ function capabilityOrder(row) {
   return row.type === "test-machine" ? 0 : 1;
 }
 
+function wireCapabilityRouteRow(documentNode, record, href) {
+  const navigate = () => {
+    documentNode.defaultView.location.hash = href;
+  };
+  record.classList.add("capability-route-row");
+  record.setAttribute("role", "link");
+  record.setAttribute("tabindex", "0");
+  record.setAttribute("aria-label", "Open Test Mac capability");
+  record.addEventListener("click", (event) => {
+    if (event.defaultPrevented) return;
+    if (event.button !== undefined && event.button !== 0) return;
+    if (event.target?.closest?.("a")) return;
+    navigate();
+  });
+  record.addEventListener("keydown", (event) => {
+    if (!["Enter", " "].includes(event.key)) return;
+    event.preventDefault();
+    navigate();
+  });
+}
+
 function renderCapabilityTable(body, rows, columns) {
   const documentNode = body.ownerDocument;
-  if (!rows.length) {
-    body.appendChild(el(
-      documentNode, "p", "empty", "No capabilities in this scope.",
-    ));
-    return;
-  }
   const table = el(documentNode, "table", "items");
   const head = el(documentNode, "tr");
   for (const column of columns) {
     head.appendChild(el(documentNode, "th", null, column.label));
   }
   table.appendChild(head);
+  if (!rows.length) {
+    const emptyRow = el(documentNode, "tr");
+    const emptyCell = el(
+      documentNode, "td", "empty", "No capabilities in this scope.",
+    );
+    emptyCell.colSpan = columns.length;
+    emptyCell.setAttribute("colspan", String(columns.length));
+    emptyRow.appendChild(emptyCell);
+    table.appendChild(emptyRow);
+    const emptyWrap = el(documentNode, "div", "table-wrap");
+    emptyWrap.appendChild(table);
+    body.appendChild(emptyWrap);
+    return;
+  }
   for (const row of rows) {
     const record = el(documentNode, "tr");
+    const detailHref = row.type === "test-machine"
+      ? buildUniverseRoute(
+        "capabilities", String(row.project_id), "test-machine",
+      )
+      : null;
+    if (detailHref) {
+      wireCapabilityRouteRow(documentNode, record, detailHref);
+    }
     for (const [index, column] of columns.entries()) {
-      const text = String(column.value(row) ?? "");
+      const value = column.value(row);
+      const isNode = Boolean(
+        value && typeof value === "object" &&
+        (value.nodeType || value.tagName),
+      );
+      const text = isNode ? value.textContent : String(value ?? "");
       const cell = el(documentNode, "td", column.mono ? "mono" : null);
-      if (index === 0 && row.type === "test-machine") {
+      if (index === 0 && detailHref) {
         const link = el(documentNode, "a", "row-link", text);
-        link.href = buildUniverseRoute(
-          "capabilities", String(row.project_id), "test-machine",
-        );
+        link.href = detailHref;
         cell.appendChild(link);
       } else if (column.pill) {
         const pill = statePill(
-          documentNode, text, capabilityLabel(text),
+          documentNode,
+          text,
+          column.display ? column.display(row) : capabilityLabel(text),
         );
         if (pill) cell.appendChild(pill);
+      } else if (isNode) {
+        cell.appendChild(value);
       } else {
         cell.textContent = text;
       }
@@ -61,7 +105,9 @@ function renderCapabilityTable(body, rows, columns) {
     }
     table.appendChild(record);
   }
-  body.appendChild(table);
+  const wrap = el(documentNode, "div", "table-wrap");
+  wrap.appendChild(table);
+  body.appendChild(wrap);
 }
 
 // What Yoke can reach on a project's behalf, and how honestly it can claim
@@ -73,6 +119,21 @@ function renderCapabilityTable(body, rows, columns) {
 // not a resting state.
 export function renderCapabilitiesView(context, main, scope) {
   const documentNode = context.document;
+  const projects = context.projects();
+  const projectByKey = new Map();
+  for (const project of projects) {
+    for (const key of [project.id, project.slug, project.name]) {
+      if (key !== null && key !== undefined && String(key)) {
+        projectByKey.set(String(key), project);
+      }
+    }
+  }
+  const projectLabel = (row) => {
+    const project = projectByKey.get(String(row.project_id ?? "")) ||
+      projectByKey.get(String(row.project ?? ""));
+    const label = row.project || project?.slug || project?.name || "—";
+    return project?.emoji ? `${project.emoji} ${label}` : label;
+  };
   const callout = el(documentNode, "div", "strategy-callout");
   callout.appendChild(el(
     documentNode, "span", "strategy-callout-icon", "⌘",
@@ -85,7 +146,7 @@ export function renderCapabilitiesView(context, main, scope) {
     documentNode,
     "span",
     null,
-    "Connection, Terminal control, screenshot capture, its named host baselines, supported features, and secret references stay together because they describe one scarce machine—not six things the user should assemble by hand. A baseline is a registered operation on the capability's executor—reached and verified by code, never instructions a reader is trusted to follow.",
+    "Connection, Terminal control, screenshot capture, its named host baselines, supported features, and secret references stay together because they describe one scarce machine—not six things the user should assemble by hand. A baseline is a registered operation on the capability's executor — reached and verified by code, never instructions a reader is trusted to follow.",
   ));
   callout.appendChild(calloutCopy);
   const panel = section(
@@ -98,7 +159,7 @@ export function renderCapabilitiesView(context, main, scope) {
     scope === "all" ? "across all projects" : "selected projects",
   ));
   main.replaceChildren(callout, panel);
-  const buckets = scopeBuckets(scope, context.projects(), false);
+  const buckets = scopeBuckets(scope, projects, false);
   loadScopedSection(
     context, panel,
     buckets.map((bucket) => ({
@@ -111,23 +172,46 @@ export function renderCapabilitiesView(context, main, scope) {
       );
       panel.setCount(rows.length);
       // Each capability row carries the slug of the project declaring it.
-      const columns = withProjectColumn([
-        { label: "capability", value: (row) => row.type, mono: true },
+      const columns = [
+        {
+          label: "capability",
+          value: (row) => row.display_type || row.type,
+          mono: true,
+        },
+        { label: "project", value: projectLabel },
         { label: "kind", value: (row) => row.kind, pill: true },
         { label: "settings", value: (row) => row.settings_summary || "—" },
         { label: "used by", value: (row) => row.used_by_summary || "—" },
-        { label: "verified", value: (row) => row.verified_at || "never" },
-        { label: "state", value: (row) => row.state, pill: true },
-      ], scope, (row) => row.project);
+        {
+          label: "verified",
+          value: (row) => row.verified_at
+            ? relativeTime(documentNode, row.verified_at)
+            : "never",
+        },
+        {
+          label: "state",
+          value: (row) => row.state,
+          display: (row) => {
+            const label = capabilityLabel(row.state);
+            return row.state === "in_use" && row.active_item_ref
+              ? `${label} · ${row.active_item_ref}`
+              : label;
+          },
+          pill: true,
+        },
+      ];
       renderCapabilityTable(body, rows, columns);
     },
   );
 }
 
 export function renderCapabilityDetail(
-  context, main, project, capabilityType,
+  context, main, project, capabilityType, navigation = {},
 ) {
   if (capabilityType === "test-machine") {
+    if (typeof navigation.setDetailLabel === "function") {
+      navigation.setDetailLabel("Test Mac");
+    }
     return renderTestMachineDetail(context, main, project);
   }
   main.replaceChildren(el(

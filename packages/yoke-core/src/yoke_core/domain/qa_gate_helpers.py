@@ -12,7 +12,10 @@ import os
 import subprocess
 from typing import List, Optional, Tuple
 
-from yoke_core.domain.db_helpers import connect, query_one, query_rows, query_scalar
+from yoke_core.domain.db_helpers import connect, query_one, query_rows
+from yoke_core.domain.item_worktree_resolution import (
+    primary_item_worktree_branch_sql,
+)
 from yoke_core.domain.project_checkout_locations import checkout_for_project
 from yoke_core.domain.qa_gate_definitions import GateTarget, LatestCodeRef
 from yoke_core.domain.schema_common import _table_exists
@@ -40,13 +43,15 @@ def _resolve_target_branch_project(
             try:
                 row = query_one(
                     conn,
-                    "SELECT i.worktree, p.slug AS project "
+                    "SELECT "
+                    f"{primary_item_worktree_branch_sql('i.id')} AS branch, "
+                    "p.slug AS project "
                     "FROM items i LEFT JOIN projects p ON p.id = i.project_id "
                     "WHERE i.id = %s",
                     (target.item_id,),
                 )
                 if row:
-                    branch = row["worktree"]
+                    branch = row["branch"]
                     project = row["project"]
             except Exception:
                 return None, None
@@ -54,7 +59,10 @@ def _resolve_target_branch_project(
             try:
                 branch_row = query_one(
                     conn,
-                    "SELECT branch FROM epic_tasks WHERE epic_id = %s AND task_num = %s",
+                    "SELECT iw.branch FROM epic_tasks et "
+                    "LEFT JOIN item_worktrees iw "
+                    "ON iw.id = et.item_worktree_id AND iw.state = 'active' "
+                    "WHERE et.epic_id = %s AND et.task_num = %s",
                     (target.epic_id, target.task_num),
                 )
                 if branch_row:
@@ -62,11 +70,13 @@ def _resolve_target_branch_project(
                 if not branch:
                     item_row = query_one(
                         conn,
-                        "SELECT worktree FROM items WHERE id = %s",
+                        "SELECT "
+                        f"{primary_item_worktree_branch_sql('i.id')} AS branch "
+                        "FROM items i WHERE i.id = %s",
                         (target.epic_id,),
                     )
                     if item_row:
-                        branch = item_row["worktree"]
+                        branch = item_row["branch"]
                 proj_row = query_one(
                     conn,
                     "SELECT p.slug AS project "
@@ -240,7 +250,9 @@ def _collect_stale_browser_requirements(
     latest_code: LatestCodeRef,
     qa_phase: Optional[str] = "verification",
 ) -> List[Tuple[int, str, Optional[str], Optional[str]]]:
-    """Return browser requirements whose latest pass does not match latest code."""
+    """Return Browser method cases whose latest pass misses latest code."""
+    from yoke_core.domain.qa_constants import browser_requirement_predicate
+
     phase_sql = ""
     phase_params: tuple = ()
     if qa_phase is not None:
@@ -249,13 +261,13 @@ def _collect_stale_browser_requirements(
     req_rows = query_rows(
         conn,
         f"""
-        SELECT r.id, r.qa_kind
+        SELECT r.id, r.method_id
         FROM qa_requirements r
         WHERE {where}
           {phase_sql}
           AND r.blocking_mode = 'blocking'
           AND r.waived_at IS NULL
-          AND r.qa_kind IN ('browser_smoke', 'browser_diff')
+          AND {browser_requirement_predicate("r")}
           AND EXISTS (
             SELECT 1 FROM qa_runs qr
             WHERE qr.qa_requirement_id = r.id
@@ -276,7 +288,7 @@ def _collect_stale_browser_requirements(
         stale.append(
             (
                 int(row["id"]),
-                str(row["qa_kind"]),
+                str(row["method_id"] or "legacy Browser case"),
                 str(latest_run["created_at"] or "") or None,
                 run_sha,
             )
@@ -303,12 +315,15 @@ def _browser_freshness_errors(
         errors.append(f"  Latest SHA: {latest_code.sha}")
     if latest_code.timestamp:
         errors.append(f"  Latest commit: {latest_code.timestamp}")
-    errors.append("  Re-run browser scenarios to generate fresh passing runs.")
+    errors.append(
+        "  Re-run each materialized Browser case with `yoke qa case run "
+        "--requirement-id <REQ_ID>` to generate fresh passing runs."
+    )
     if bypass_hint:
         errors.append(bypass_hint)
-    for req_id, qa_kind, latest_run_at, run_sha in stale_rows:
+    for req_id, method_id, latest_run_at, run_sha in stale_rows:
         detail = (
-            f"  - Requirement #{req_id} ({qa_kind}): latest passing run at "
+            f"  - Requirement #{req_id} ({method_id}): latest passing run at "
             f"{latest_run_at or '<unknown>'}"
         )
         if run_sha:

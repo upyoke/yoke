@@ -4,12 +4,18 @@ Used by tests in test_merge_worktree_prepare.py to seed minimal DB state for
 preflight gate tests. Tests that need richer state should add their helpers
 alongside or extend these.
 """
+
 from __future__ import annotations
 
 import os
 from pathlib import Path
 
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
+from runtime.api.merge_worktree_simulation_test_db import (
+    _insert_canonical_integration_simulation as _insert_canonical_integration_simulation,
+    _insert_plain_text_integration_simulation as _insert_plain_text_integration_simulation,
+    _sql,
+)
 from yoke_core.domain.item_test_results_classify import (
     format_verdict_head_sha_trailer,
 )
@@ -39,16 +45,12 @@ _SEEDED_FRESH_VERDICT = (
 )
 
 
-def _sql(conn, statement: str) -> str:
-    from yoke_core.domain import db_backend
-
-    if db_backend.connection_is_postgres(conn):
-        return statement.replace("?", "%s")
-    return statement
-
-
 def _seed_yoke_project_with_github_app(
-    conn, *, repo_path: str, item_id: int, branch: str,
+    conn,
+    *,
+    repo_path: str,
+    item_id: int,
+    branch: str,
 ) -> None:
     """Seed a project App binding plus the merge fixture's item row.
 
@@ -106,15 +108,11 @@ def _seed_yoke_project_with_github_app(
     )
     from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
 
-    workflow_id, workflow_version_id = resolve_current_workflow_pin(
-        conn, "issue"
-    )
+    workflow_id, workflow_version_id = resolve_current_workflow_pin(conn, "issue")
     # Merge-mechanics fixtures exercise the local-verification fallback. The
     # minimal disposable schema omits its scalar evidence field, so extend only
     # the test database and leave production schema authority unchanged.
-    conn.execute(
-        "ALTER TABLE items ADD COLUMN IF NOT EXISTS test_results TEXT"
-    )
+    conn.execute("ALTER TABLE items ADD COLUMN IF NOT EXISTS test_results TEXT")
     conn.execute(
         _sql(
             conn,
@@ -166,15 +164,26 @@ def _create_epic_tasks_db(db_path: Path, task_status: str = "implementing") -> N
             epic_id INTEGER NOT NULL,
             task_num INTEGER NOT NULL,
             title TEXT,
-            worktree TEXT,
+            item_worktree_id INTEGER,
             context_estimate TEXT,
             dependencies TEXT,
             status TEXT DEFAULT 'planned',
             dispatch_attempts INTEGER DEFAULT 0,
-            body TEXT, github_issue TEXT, branch TEXT, worktree_path TEXT,
+            body TEXT, github_issue TEXT,
             blocked_by TEXT, max_attempts INTEGER DEFAULT 5,
             agent_id TEXT, last_heartbeat TEXT,
             UNIQUE(epic_id, task_num)
+        );
+        CREATE TABLE IF NOT EXISTS item_worktrees (
+            id INTEGER PRIMARY KEY,
+            item_id INTEGER NOT NULL,
+            branch TEXT NOT NULL,
+            path TEXT,
+            lane_role TEXT NOT NULL,
+            state TEXT NOT NULL DEFAULT 'active',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            released_at TEXT
         );
         CREATE TABLE IF NOT EXISTS qa_requirements (
             id INTEGER PRIMARY KEY,
@@ -194,18 +203,12 @@ def _create_epic_tasks_db(db_path: Path, task_status: str = "implementing") -> N
             created_at TEXT NOT NULL,
             started_at TEXT, completed_at TEXT
         );
-    """
+    """,
     )
     conn.execute("DELETE FROM qa_runs")
     conn.execute("DELETE FROM qa_requirements")
-    conn.execute(_sql(conn, "DELETE FROM epic_tasks WHERE epic_id = ?"), (TEST_ITEM_ID,))
     conn.execute(
-        _sql(
-            conn,
-            "INSERT INTO epic_tasks (epic_id, task_num, title, worktree, status) "
-            "VALUES (?, 1, 'Task 1', ?, ?);",
-        ),
-        (TEST_ITEM_ID, TEST_BRANCH, task_status),
+        _sql(conn, "DELETE FROM epic_tasks WHERE epic_id = ?"), (TEST_ITEM_ID,)
     )
     # Seed projects + a GitHub App binding + items so the REST transport's
     # auth precondition resolves; tests stub REST responses via the merge_env
@@ -260,69 +263,27 @@ def _create_epic_tasks_db(db_path: Path, task_status: str = "implementing") -> N
         item_id=TEST_ITEM_ID,
         branch=TEST_BRANCH,
     )
-    conn.commit()
-    conn.close()
-
-
-def _insert_canonical_integration_simulation(db_path: Path) -> None:
-    """Insert a canonical integration simulation qa_requirement + qa_run."""
-    from yoke_core.domain import db_backend
-
-    conn = db_backend.connect(path=str(db_path))
-    conn.execute(
-        """
-        INSERT INTO qa_requirements (item_id, qa_kind, qa_phase, target_env, blocking_mode, requirement_source, success_policy, created_at)
-        VALUES (42, 'simulation', 'verification', 'local', 'blocking', 'explicit',
-                '{"type":"deterministic","criteria":"result_pass","phase":"integration"}',
-                '2026-04-20T00:00:00Z');
-        """
-    )
-    req_id = conn.execute(
-        "SELECT id FROM qa_requirements WHERE item_id = 42 AND qa_kind = 'simulation' ORDER BY id DESC LIMIT 1;"
-    ).fetchone()[0]
     conn.execute(
         _sql(
             conn,
-            """
-        INSERT INTO qa_runs (qa_requirement_id, executor_type, qa_kind, verdict, raw_result, created_at)
-        VALUES (?, 'agent', 'simulation', 'pass',
-                '{"body":"## Result: CLEAN","phase":"integration"}',
-                '2026-04-20T00:00:00Z');
-        """,
+            "INSERT INTO item_worktrees "
+            "(id, item_id, branch, path, lane_role, state, created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, 'worker', 'active', "
+            "'2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z') "
+            "ON CONFLICT (id) DO UPDATE SET branch = EXCLUDED.branch, "
+            "path = EXCLUDED.path, state = EXCLUDED.state, "
+            "updated_at = EXCLUDED.updated_at",
         ),
-        (req_id,),
+        (TEST_ITEM_ID, TEST_ITEM_ID, TEST_BRANCH, f"/tmp/{TEST_BRANCH}"),
     )
-    conn.commit()
-    conn.close()
-
-
-def _insert_plain_text_integration_simulation(db_path: Path) -> None:
-    """Insert a plain-text (non-canonical) simulation qa_requirement + qa_run."""
-    from yoke_core.domain import db_backend
-
-    conn = db_backend.connect(path=str(db_path))
-    conn.execute(
-        """
-        INSERT INTO qa_requirements (item_id, qa_kind, qa_phase, target_env, blocking_mode, requirement_source, success_policy, created_at)
-        VALUES (42, 'simulation', 'verification', 'local', 'blocking', 'explicit',
-                '{"type":"deterministic","criteria":"result_pass","phase":"integration"}',
-                '2026-04-20T00:00:00Z');
-        """
-    )
-    req_id = conn.execute(
-        "SELECT id FROM qa_requirements WHERE item_id = 42 AND qa_kind = 'simulation' ORDER BY id DESC LIMIT 1;"
-    ).fetchone()[0]
     conn.execute(
         _sql(
             conn,
-            """
-        INSERT INTO qa_runs (qa_requirement_id, executor_type, qa_kind, verdict, raw_result, created_at)
-        VALUES (?, 'agent', 'simulation', 'pass',
-                'All 6 epic tasks completed and verified',
-                '2026-04-20T00:00:00Z');
-        """,
+            "INSERT INTO epic_tasks "
+            "(epic_id, task_num, title, item_worktree_id, status) "
+            "VALUES (?, 1, 'Task 1', ?, ?);",
         ),
-        (req_id,),
+        (TEST_ITEM_ID, TEST_ITEM_ID, task_status),
     )
     conn.commit()
     conn.close()

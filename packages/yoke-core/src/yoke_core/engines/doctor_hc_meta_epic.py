@@ -36,7 +36,7 @@ def hc_orphaned_active_items(conn, args: DoctorArgs, rec: RecordCollector) -> No
     # Check items with merged_at set but status not done/cancelled
     rows = query_rows(
         conn,
-        "SELECT id, status, COALESCE(worktree, '') as worktree "
+        "SELECT id, status "
         "FROM items WHERE merged_at IS NOT NULL AND merged_at <> '' "
         "AND status NOT IN ('done', 'cancelled') ORDER BY id",
     )
@@ -50,7 +50,7 @@ def hc_orphaned_active_items(conn, args: DoctorArgs, rec: RecordCollector) -> No
             f"Run: `/yoke usher YOK-{item_id}` to complete the done transition."
         )
 
-    # Check items with worktree branch merged into main
+    # Check items with active lane branches merged into main
     if repo_root:
         main_branch = "main"
         r = _base._run(["git", "-C", repo_root, "rev-parse", "--verify", "main"], timeout=5)
@@ -61,16 +61,17 @@ def hc_orphaned_active_items(conn, args: DoctorArgs, rec: RecordCollector) -> No
 
         wt_rows = query_rows(
             conn,
-            "SELECT id, status, worktree FROM items "
-            "WHERE status IN ('planned','implementing','reviewing-implementation',"
+            "SELECT DISTINCT i.id, i.status, iw.branch FROM items i "
+            "JOIN item_worktrees iw ON iw.item_id = i.id "
+            "WHERE i.status IN ('planned','implementing','reviewing-implementation',"
             "'reviewed-implementation','polishing-implementation','release','implemented') "
-            "AND worktree IS NOT NULL AND worktree <> '' ORDER BY id",
+            "AND iw.state = 'active' ORDER BY i.id, iw.branch",
         )
         for row in wt_rows:
             item_id = row["id"]
             if item_id in flagged:
                 continue
-            wt = row["worktree"]
+            wt = row["branch"]
             # Check if branch is ancestor of main
             r = _base._run(["git", "-C", repo_root, "merge-base", "--is-ancestor", wt, main_branch],
                       timeout=5)

@@ -46,15 +46,21 @@ def _make_conn():
             status TEXT, priority TEXT,
             project_id INTEGER DEFAULT 1, project_sequence INTEGER,
             github_issue TEXT, flow TEXT, rework_count INTEGER,
-            deployed_to TEXT, updated_at TEXT, worktree TEXT,
+            deployed_to TEXT, updated_at TEXT,
             deployment_flow TEXT, merged_at TEXT,
             deploy_stage TEXT, created_at TEXT
+        );
+        CREATE TABLE item_worktrees (
+            id INTEGER PRIMARY KEY, item_id INTEGER NOT NULL,
+            branch TEXT NOT NULL, path TEXT, lane_role TEXT NOT NULL,
+            state TEXT NOT NULL DEFAULT 'active', created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL, released_at TEXT
         );
         CREATE TABLE epic_tasks (
             epic_id TEXT, task_num INTEGER, title TEXT,
             status TEXT, last_heartbeat TEXT,
             dispatch_attempts INTEGER DEFAULT 0,
-            worktree TEXT, github_issue TEXT,
+            item_worktree_id INTEGER, github_issue TEXT,
             PRIMARY KEY (epic_id, task_num)
         );
         CREATE TABLE projects (
@@ -79,8 +85,8 @@ def _make_conn():
             task_num INTEGER, envelope TEXT, created_at TEXT
         );
         CREATE TABLE epic_dispatch_chains (
-            id INTEGER PRIMARY KEY, epic_id TEXT, worktree TEXT,
-            worktree_path TEXT, queue TEXT, current_index INTEGER
+            id INTEGER PRIMARY KEY, epic_id TEXT, item_worktree_id INTEGER,
+            queue TEXT, current_index INTEGER
         );
         CREATE TABLE sites (
             id TEXT PRIMARY KEY, project_id INTEGER, name TEXT

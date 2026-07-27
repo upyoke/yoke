@@ -43,7 +43,6 @@ _SCHEMA_DDL = """
         frozen INTEGER DEFAULT 0,
         github_issue TEXT,
         deployed_to TEXT,
-        worktree TEXT,
         merged_at TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,

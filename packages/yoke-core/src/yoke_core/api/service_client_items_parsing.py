@@ -22,7 +22,7 @@ _QI_ALL_FIELDS = {
     "id", "title", "workflow_id", "workflow_version_id", "status",
     "priority", "flow", "rework_count",
     "frozen", "blocked", "blocked_reason",
-    "github_issue", "deployed_to", "worktree", "body",
+    "github_issue", "deployed_to", "body",
     "merged_at", "created_at", "updated_at", "source", "project",
     "project_id", "project_sequence",
     "deployment_flow", "deploy_stage", "spec", "design_spec",

@@ -29,6 +29,14 @@ QA_TABLES: dict[str, dict] = {
             ("waived_at", "TEXT"),
             ("waiver_rationale", "TEXT"),
             ("waiver_source", "TEXT"),
+            ("plan_id", "INTEGER"),
+            ("plan_case_key", "TEXT"),
+            ("method_id", "TEXT"),
+            ("host_baseline", "TEXT"),
+            ("workflow_transition_id", "TEXT"),
+            ("instructions", "TEXT"),
+            ("expected_outcome", "TEXT"),
+            ("method_config", "TEXT"),
             ("created_at", "TEXT"),
         ],
         "notes": (
@@ -40,13 +48,18 @@ QA_TABLES: dict[str, dict] = {
             "is NO `is_blocking` column. Primary key is `id`, not "
             "`requirement_id`; requirement rows do not carry `status` "
             "or `last_known_result`. "
-            "The kind discriminator is `qa_kind` (values like "
-            "`ac_verification` / `browser_smoke` / "
-            "`implementation_review`) — there is no `kind` and no "
-            "`requirement_type` column; requirement provenance is "
-            "`requirement_source` (`explicit` / `ac_derived` / ...). "
+            "The aggregate discriminator is `qa_kind` "
+            "(values like `ac_verification` / `implementation_review`) — "
+            "there is no `kind` and no `requirement_type` column; "
+            "requirement provenance is `requirement_source` (`explicit` / "
+            "`ac_derived` / ...). Materialized executable cases instead "
+            "carry `method_id`, `instructions`, `expected_outcome`, and "
+            "an immutable `method_config` snapshot. Execute each snapshot "
+            "through `yoke qa case run --requirement-id <id>`; never "
+            "replace method_config during execution. "
             "Canonical unsatisfied-verification SELECT: "
-            "`SELECT qr.id, qr.qa_kind, qr.blocking_mode, qr.success_policy "
+            "`SELECT qr.id, qr.qa_kind, qr.method_id, qr.expected_outcome, "
+            "qr.method_config, qr.blocking_mode "
             "FROM qa_requirements qr WHERE qr.item_id = %s "
             "AND qr.qa_phase = 'verification' AND qr.waived_at IS NULL "
             "AND NOT EXISTS (SELECT 1 FROM qa_runs qrun "
@@ -71,9 +84,10 @@ QA_TABLES: dict[str, dict] = {
         ],
         "notes": (
             "Recorded results. Join to qa_requirements via "
-            "qa_requirement_id. Browser-kind requirements (browser_smoke, "
-            "browser_diff) require executor_type=browser_substrate; "
-            "agent runs are rejected for those kinds. Tester review "
+            "qa_requirement_id. Requirements whose method_id is "
+            "`browser-check` or `browser-inspection` require "
+            "executor_type=browser_substrate; agent runs are rejected for "
+            "those methods. Tester review "
             "verdicts (`yoke workflow-item epic-task review-insert`) "
             "ALSO land here — verdict + "
             "raw_result.body live on a qa_runs row with "
@@ -85,16 +99,12 @@ QA_TABLES: dict[str, dict] = {
             "`execution_status` is the browser capture outcome "
             "(captured | capture_failed), distinct from the quality "
             "`verdict`. "
-            "Browser-QA execution shape: `yoke qa browser run --item "
-            "PREFIX-N [--project P] [--base-url URL]` (tool-shaped "
-            "launcher token; works from any project checkout because its "
-            "DB legs are the dispatcher ids qa.browser_context.get / "
-            "qa.run.add / qa.run.complete / qa.artifact.add — there is "
-            "NO browser_qa.run function id). The internal browser-QA "
-            "module form only works "
-            "inside a Yoke checkout, and the orchestrator takes NO "
-            "`--db` flag (the retired db-path token was purged with the "
-            "resolve_db_path guard)."
+            "Browser method execution shape: `yoke qa case run "
+            "--requirement-id R --base-url URL --expected-branch BRANCH "
+            "--expected-sha SHA`. The runner reads the immutable case "
+            "through qa.case_execution.get and owns the qa.run.add / "
+            "qa.run.complete / qa.artifact.add evidence writes for that "
+            "single requirement."
         ),
     },
     "qa_artifacts": {

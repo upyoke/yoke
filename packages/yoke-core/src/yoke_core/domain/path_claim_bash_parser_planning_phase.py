@@ -2,7 +2,7 @@
 
 The Bash guard's coverage check denies any non-tmp redirect when the
 calling session's active path claim has no worktree binding
-(``items.worktree`` empty) and the target is not in the claim's covered
+(no active universal lane) and the target is not in the claim's covered
 roots — the canonical ``worktree-unresolved`` denial. That posture is
 correct for implementation-phase sessions but wrong for planning
 sessions (``/yoke idea``, ``/yoke refine``, ``/yoke shepherd``,

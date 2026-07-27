@@ -8,7 +8,6 @@ from typing import Any, Optional
 from yoke_core.domain import db_backend
 from yoke_core.domain.strategy_docs import (
     StrategyDocConflictError,
-    StrategyDocMissingError,
     get_doc,
     next_updated_at,
     replace_conflict_teaching,
@@ -46,6 +45,68 @@ def _rows(cursor: Any) -> list[dict[str, Any]]:
     ]
 
 
+def _operation_label(source_operation: str) -> str:
+    operation = str(source_operation or "updated")
+    family = operation.split(":", 1)[0]
+    return {
+        "create": "created",
+        "ingest": "ingested",
+        "replace": "replaced",
+        "restore": "restored",
+        "coordination_append": "updated",
+    }.get(family, family.replace("_", " ").replace("-", " "))
+
+
+def _is_title_only(slug: str, content: str) -> bool:
+    lines = [line.strip() for line in str(content).splitlines() if line.strip()]
+    return lines == [f"# {slug}"]
+
+
+def _looks_like_implementation_plan(content: str) -> bool:
+    headings = {
+        line.removeprefix("## ").strip().casefold()
+        for line in str(content).splitlines()
+        if line.startswith("## ")
+    }
+    return "purpose" in headings and bool(
+        headings.intersection({"decisions", "outcomes", "slices"})
+    )
+
+
+def _change_summary(
+    *,
+    slug: str,
+    source_operation: str,
+    content: str,
+    previous_content: Optional[str],
+) -> str:
+    operation = str(source_operation or "updated")
+    family, _, detail = operation.partition(":")
+    if family == "create":
+        return (
+            "Initial title only"
+            if _is_title_only(slug, content)
+            else "Document created"
+        )
+    if family == "ingest":
+        if (
+            previous_content is not None
+            and _is_title_only(slug, previous_content)
+            and _looks_like_implementation_plan(content)
+        ):
+            return "Full implementation plan ingested"
+        return "Document ingested"
+    if family == "replace":
+        return "Document replaced"
+    if family == "restore":
+        return f"Revision {detail} restored" if detail else "Revision restored"
+    if family == "coordination_append":
+        section = detail.replace("_", " ").strip()
+        return f"{section.capitalize()} updated" if section else "Coordination updated"
+    label = _operation_label(operation)
+    return f"Document {label}" if label else "Document updated"
+
+
 def list_doc_revisions(
     conn: Any,
     project_id: int,
@@ -55,14 +116,30 @@ def list_doc_revisions(
     get_doc(conn, project_id, slug)
     marker = _marker(conn)
     cursor = conn.execute(
-        "SELECT revision, content_sha256, byte_length, source_operation, "
+        "SELECT revision, content, content_sha256, byte_length, source_operation, "
         "actor_id, session_id, created_at "
         f"FROM {STRATEGY_DOC_REVISIONS_TABLE} "
         f"WHERE project_id = {marker} AND slug = {marker} "
         "ORDER BY revision DESC",
         (int(project_id), slug),
     )
-    return _rows(cursor)
+    revisions = _rows(cursor)
+    for index, revision in enumerate(revisions):
+        content = str(revision.pop("content"))
+        previous_content = (
+            str(revisions[index + 1]["content"]) if index + 1 < len(revisions) else None
+        )
+        revision["line_count"] = len(content.splitlines())
+        revision["operation_label"] = _operation_label(
+            str(revision["source_operation"])
+        )
+        revision["change_summary"] = _change_summary(
+            slug=slug,
+            source_operation=str(revision["source_operation"]),
+            content=content,
+            previous_content=previous_content,
+        )
+    return revisions
 
 
 def get_doc_revision(
@@ -110,11 +187,13 @@ def diff_doc_revisions(
         )
     )
     added = sum(
-        1 for line in diff.splitlines()
+        1
+        for line in diff.splitlines()
         if line.startswith("+") and not line.startswith("+++")
     )
     removed = sum(
-        1 for line in diff.splitlines()
+        1
+        for line in diff.splitlines()
         if line.startswith("-") and not line.startswith("---")
     )
     return {

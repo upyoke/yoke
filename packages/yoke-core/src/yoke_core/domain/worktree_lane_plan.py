@@ -6,7 +6,6 @@ import os
 from typing import List, Optional, Tuple
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.workflow_behavior import (
     LANE_IMPLEMENTATION,
     LANE_INTEGRATION,
@@ -54,8 +53,6 @@ def resolve_worktree_lanes_for_item(
     except Exception:
         return fallback
     try:
-        if not _table_exists(conn, "items"):
-            return fallback
         marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
         if (
             conn.execute(
@@ -67,66 +64,43 @@ def resolve_worktree_lanes_for_item(
             return fallback
         runtime = load_item_workflow_runtime(conn, int(item_id))
         policy = worktree_lane_policy(runtime)
-        if _table_exists(conn, "item_worktrees"):
-            existing_rows = conn.execute(
-                "SELECT branch, COALESCE(path, '') AS path, lane_role "
-                "FROM item_worktrees "
-                f"WHERE item_id = {marker} AND state = 'active' "
-                "ORDER BY CASE lane_role "
-                "WHEN 'integration' THEN 0 "
-                "WHEN 'implementation' THEN 1 ELSE 2 END, id",
-                (int(item_id),),
-            ).fetchall()
-            if existing_rows:
-                return [
-                    (
-                        *normalize_worktree_lane(
-                            row["branch"],
-                            row["path"],
-                            repo_root,
-                            worktrees_dir,
-                        ),
-                        row["lane_role"],
-                    )
-                    for row in existing_rows
-                ]
+        existing_rows = conn.execute(
+            "SELECT branch, COALESCE(path, '') AS path, lane_role "
+            "FROM item_worktrees "
+            f"WHERE item_id = {marker} AND state = 'active' "
+            "ORDER BY CASE lane_role "
+            "WHEN 'integration' THEN 0 "
+            "WHEN 'implementation' THEN 1 ELSE 2 END, id",
+            (int(item_id),),
+        ).fetchall()
+        if existing_rows:
+            resolved = [
+                (
+                    *normalize_worktree_lane(
+                        row["branch"],
+                        row["path"],
+                        repo_root,
+                        worktrees_dir,
+                    ),
+                    row["lane_role"],
+                )
+                for row in existing_rows
+            ]
+            present_roles = {lane_role for _, _, lane_role in resolved}
+            if (
+                LANE_INTEGRATION in policy.required_roles
+                and LANE_INTEGRATION not in present_roles
+            ):
+                resolved.insert(
+                    0,
+                    (f"YOK-{item_id}", fallback_path, LANE_INTEGRATION),
+                )
+            return resolved
         if LANE_IMPLEMENTATION in policy.allowed_roles:
             return fallback
-
-        rows = []
-        if _table_exists(conn, "epic_dispatch_chains"):
-            rows = conn.execute(
-                "SELECT COALESCE(worktree, '') AS branch, "
-                "COALESCE(worktree_path, '') AS path "
-                "FROM epic_dispatch_chains "
-                f"WHERE epic_id = {marker} "
-                "AND COALESCE(worktree, '') <> '' ORDER BY worktree",
-                (int(item_id),),
-            ).fetchall()
-        workers = [
-            (
-                *normalize_worktree_lane(
-                    row["branch"],
-                    row["path"],
-                    repo_root,
-                    worktrees_dir,
-                ),
-                LANE_WORKER,
-            )
-            for row in rows
-        ]
-        if LANE_INTEGRATION not in policy.required_roles:
-            return workers or [(f"YOK-{item_id}", fallback_path, LANE_WORKER)]
-
-        integration_branch = f"YOK-{item_id}"
-        if integration_branch in {branch for branch, _path, _role in workers}:
-            integration_branch += "-integration"
-        integration = (
-            integration_branch,
-            os.path.join(repo_root, worktrees_dir, integration_branch),
-            LANE_INTEGRATION,
-        )
-        return [integration, *workers]
+        if policy.required_roles == frozenset({LANE_WORKER}):
+            return [(f"YOK-{item_id}", fallback_path, LANE_WORKER)]
+        return []
     finally:
         conn.close()
 

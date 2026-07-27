@@ -40,8 +40,14 @@ from yoke_core.domain.dependency_types import (  # noqa: F401 — re-export publ
     GateResult,
     Satisfaction,
 )
+from yoke_core.domain.dependency_explanation import (  # noqa: F401 — public API
+    explain_dependency,
+)
 from yoke_core.domain.dependency_workflow_context import (
     workflow_from_joined_values,
+)
+from yoke_core.domain.item_worktree_resolution import (
+    primary_item_worktree_branch_sql,
 )
 from yoke_core.domain.workflow_runtime import WorkflowRuntime
 
@@ -142,7 +148,7 @@ SELECT
     d.satisfaction,
     d.rationale,
     bi.status AS blocking_status,
-    bi.worktree AS blocking_worktree,
+    {blocking_worktree_sql} AS blocking_worktree,
     bi.merged_at AS blocking_merged_at,
     bi.workflow_id,
     bi.workflow_version_id,
@@ -177,7 +183,10 @@ def query_unsatisfied_at_gate(
     """
     cursor = conn.cursor()
     cursor.execute(
-        _UNSATISFIED_DEPS_SQL.format(p=_p(conn)),
+        _UNSATISFIED_DEPS_SQL.format(
+            p=_p(conn),
+            blocking_worktree_sql=primary_item_worktree_branch_sql("bi.id"),
+        ),
         (dependent_item, gate_point),
     )
     results: List[Tuple[DependencyEdge, GateResult]] = []
@@ -240,7 +249,7 @@ SELECT
     d.gate_point,
     d.satisfaction,
     bi.status AS blocking_status,
-    bi.worktree AS blocking_worktree,
+    {blocking_worktree_sql} AS blocking_worktree,
     bi.merged_at AS blocking_merged_at,
     bi.workflow_id,
     bi.workflow_version_id,
@@ -267,7 +276,13 @@ def query_frontier_blocks(
     Only returns *unsatisfied* dependencies.
     """
     cursor = conn.cursor()
-    cursor.execute(_FRONTIER_BLOCKS_SQL.format(p=_p(conn)), (gate_point,))
+    cursor.execute(
+        _FRONTIER_BLOCKS_SQL.format(
+            p=_p(conn),
+            blocking_worktree_sql=primary_item_worktree_branch_sql("bi.id"),
+        ),
+        (gate_point,),
+    )
 
     blocks: dict[str, list[tuple[str, str, str, str]]] = {}
     for row in cursor.fetchall():
@@ -305,41 +320,3 @@ def query_frontier_blocks(
             )
 
     return blocks
-
-
-# ---------------------------------------------------------------------------
-# Human-readable explanation
-# ---------------------------------------------------------------------------
-
-
-def explain_dependency(
-    gate_point: str,
-    satisfaction: str,
-    blocking_item: str,
-    blocking_status: Optional[str] = None,
-    rationale: Optional[str] = None,
-) -> str:
-    """Generate a human-readable explanation of a dependency.
-
-    Example output::
-
-        blocks activation (satisfied when: status reaches done)
-    """
-    sat_desc = {
-        "status:done": "status reaches done",
-        "status:implemented": "status reaches implemented",
-        "fact:merged": "branch is merged to main",
-    }.get(satisfaction, satisfaction)
-
-    gate_desc = {
-        "activation": "blocks activation",
-        "integration": "blocks integration (merge ordering)",
-        "closure": "blocks closure",
-    }.get(gate_point, f"blocks at {gate_point}")
-
-    parts = [blocking_item, gate_desc, f"(satisfied when: {sat_desc})"]
-    if blocking_status:
-        parts.append(f"[current: {blocking_status}]")
-    if rationale:
-        parts.append(f"-- {rationale}")
-    return " ".join(parts)

@@ -94,7 +94,7 @@ def query_item_row(
         row = query_one(conn, sql, (item_id,))
         if row is None:
             return None
-        # Insert rendered body at the expected position (after worktree)
+        # Insert rendered body at its public row-contract position.
         from yoke_core.domain.render_body import build_body
         rendered = (build_body(conn, item_id) or "").replace("\n", "\\n")
         db_vals = list(str(v) for v in row)

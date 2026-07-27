@@ -80,7 +80,7 @@ class TestWorkflowRegistry:
         issue_stages = by_id["issue"]["definition"]["stages"]
         assert issue_stages[0] == {
             "id": "idea",
-            "label": "Idea",
+            "label": "idea",
             "gates": [],
         }
 

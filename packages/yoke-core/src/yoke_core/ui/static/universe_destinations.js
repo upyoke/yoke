@@ -6,7 +6,7 @@ export const SCOPE_NONE = "none";
 export const NAV = [
   {
     id: "overview", icon: "⊞", label: "Overview", scope: SCOPE_MULTI,
-    summary: "Where it is headed, what is running, what is shipping, and whether it is healthy.",
+    summary: "Your Yoke universe at a glance",
   },
   {
     id: "inbox", icon: "✉", label: "Inbox", scope: SCOPE_MULTI,
@@ -19,13 +19,13 @@ export const NAV = [
   },
   {
     id: "frontier", icon: "⚡", label: "Frontier", scope: SCOPE_MULTI,
-    summary: "What runs next and why, and what a waiting item waits on.",
+    summary: "What can run now, and why. You steer here; the harness runs it.",
   },
   { id: "items", icon: "≣", label: "Items", scope: SCOPE_MULTI },
   {
     id: "sessions", icon: "◈", label: "Sessions", scope: SCOPE_MULTI,
     summary:
-      "Each session: who runs it, what it holds, and how alive it is.",
+      "Every harness session running against this universe, and what each one holds.",
   },
   {
     id: "delivery", icon: "⬈", label: "Delivery", scope: SCOPE_MULTI,

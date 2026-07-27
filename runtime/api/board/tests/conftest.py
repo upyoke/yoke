@@ -40,7 +40,6 @@ _SCHEMA_DDL = textwrap.dedent("""\
         priority TEXT DEFAULT 'medium',
         status TEXT DEFAULT 'idea',
         progress TEXT DEFAULT '',
-        worktree TEXT DEFAULT '',
         project_id INTEGER DEFAULT 1,
         project_sequence INTEGER,
         updated_at TEXT DEFAULT '2025-01-01',

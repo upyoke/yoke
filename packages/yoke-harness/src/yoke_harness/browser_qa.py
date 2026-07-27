@@ -1,4 +1,4 @@
-"""Public product-owned browser QA orchestration surface."""
+"""Low-level Browser execution substrate used by materialized QA cases."""
 
 from __future__ import annotations
 

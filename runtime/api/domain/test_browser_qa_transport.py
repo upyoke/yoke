@@ -1,7 +1,7 @@
-"""Browser QA — dispatcher transport seam.
+"""Browser method-case dispatcher transport seam.
 
-Asserts the orchestrator's DB legs are exactly the four browser-QA
-function ids with the documented target/payload shapes. ``call_dispatcher``
+Asserts one case's DB legs use the registered Browser function ids with the
+documented target/payload/actor shapes. ``call_dispatcher``
 is mocked at the seam — handler behavior is covered by
 ``runtime/api/test_api_qa_browser_function.py`` and transport routing by
 the structured-API adapter's own suite.
@@ -19,7 +19,9 @@ from yoke_core.domain.browser_qa_steps import (
     _record_artifact,
     _record_run,
 )
+from yoke_core.domain.qa_composed_dispatch import composed_qa_dispatch
 from yoke_contracts.api.function_call import (
+    ActorContext,
     FunctionCallResponse,
     FunctionError,
 )
@@ -50,7 +52,9 @@ class TestFetchBrowserContextSeam:
             "yoke_core.api.service_client_structured_api_adapter.call_dispatcher",
             side_effect=_capture,
         ):
-            browser_qa._fetch_browser_context(42, "externalwebapp", "feature-x")
+            browser_qa._fetch_browser_context(
+                42, "externalwebapp", 10, "feature-x",
+            )
 
         assert calls[0]["function_id"] == "qa.browser_context.get"
         target = calls[0]["target"]
@@ -58,7 +62,9 @@ class TestFetchBrowserContextSeam:
         assert target.item_id == 42
         assert target.item_ref is None
         assert calls[0]["payload"] == {
-            "project": "externalwebapp", "expected_branch": "feature-x",
+            "project": "externalwebapp",
+            "requirement_id": 10,
+            "expected_branch": "feature-x",
         }
 
     def test_public_ref_targets_item_ref_with_project(self) -> None:
@@ -72,7 +78,9 @@ class TestFetchBrowserContextSeam:
             "yoke_core.api.service_client_structured_api_adapter.call_dispatcher",
             side_effect=_capture,
         ):
-            browser_qa._fetch_browser_context("EXT-1732", "externalwebapp")
+            browser_qa._fetch_browser_context(
+                "EXT-1732", "externalwebapp", 10,
+            )
 
         target = calls[0]["target"]
         assert target.kind == "item"
@@ -86,7 +94,7 @@ class TestFetchBrowserContextSeam:
             return_value=_fail("not_found"),
         ):
             try:
-                browser_qa._fetch_browser_context(42, "externalwebapp")
+                browser_qa._fetch_browser_context(42, "externalwebapp", 10)
             except RuntimeError as exc:
                 assert "not_found" in str(exc)
             else:
@@ -97,7 +105,9 @@ class TestFetchBrowserContextSeam:
             browser_qa, "_fetch_browser_context",
             side_effect=RuntimeError("qa.browser_context.get failed"),
         ):
-            result = browser_qa.execute_scenario(item_id=42, project="externalwebapp")
+            result = browser_qa.execute_scenario(
+                item_id=42, project="externalwebapp", requirement_id=10,
+            )
         assert result.verdict == "error"
         assert result.note == "context_unavailable"
 
@@ -113,7 +123,7 @@ class TestFetchBrowserContextSeam:
 
             return RequirementOutcome(
                 run_result=RunResult(
-                    requirement_id=10, qa_kind="browser_smoke", verdict="",
+                    requirement_id=10, qa_kind="plan_case", verdict="",
                 ),
                 executed=True,
             )
@@ -121,7 +131,8 @@ class TestFetchBrowserContextSeam:
         context = {
             "item_id": 1732,
             "requirements": [{
-                "id": 10, "qa_kind": "browser_smoke",
+                "id": 10, "qa_kind": "plan_case",
+                "method_id": "browser-check",
                 "method_config": json.dumps(
                     {"base_url": "http://localhost:9", "steps": [{}]},
                 ),
@@ -139,6 +150,7 @@ class TestFetchBrowserContextSeam:
         ):
             result = browser_qa.execute_scenario(
                 item_id="EXT-1732", project="externalwebapp",
+                requirement_id=10,
             )
         assert result.executed == 1
         assert seen["item_id"] == 1732
@@ -156,14 +168,14 @@ class TestWriteSeam:
             "yoke_core.api.service_client_structured_api_adapter.call_dispatcher",
             side_effect=_capture,
         ):
-            run_id = _record_run(10, "browser_smoke", raw_result="{}")
+            run_id = _record_run(10, "plan_case", raw_result="{}")
 
         assert run_id == 77
         assert calls[0]["function_id"] == "qa.run.add"
         assert calls[0]["target"].qa_requirement_id == 10
         assert calls[0]["payload"] == {
             "executor_type": "browser_substrate",
-            "qa_kind": "browser_smoke",
+            "qa_kind": "plan_case",
             "raw_result": "{}",
         }
 
@@ -172,7 +184,7 @@ class TestWriteSeam:
             "yoke_core.api.service_client_structured_api_adapter.call_dispatcher",
             return_value=_fail(),
         ):
-            assert _record_run(10, "browser_smoke") is None
+            assert _record_run(10, "plan_case") is None
 
     def test_complete_run_dispatches_qa_run_complete(self) -> None:
         calls: List[Dict[str, Any]] = []
@@ -220,3 +232,60 @@ class TestWriteSeam:
         assert calls[0]["function_id"] == "qa.artifact.add"
         assert calls[0]["target"].qa_requirement_id == 10
         assert calls[0]["payload"]["artifact_handle"] == handle
+
+    def test_actor_is_forwarded_to_context_and_writes(self) -> None:
+        calls: List[Dict[str, Any]] = []
+        actor = ActorContext(actor_id="17", session_id="session-17")
+
+        def _capture(**kwargs):
+            calls.append(kwargs)
+            if kwargs["function_id"] == "qa.browser_context.get":
+                return _ok({"item_id": 42, "requirements": []})
+            return _ok({"qa_run_id": 77})
+
+        with mock.patch(
+            "yoke_core.api.service_client_structured_api_adapter.call_dispatcher",
+            side_effect=_capture,
+        ):
+            browser_qa._fetch_browser_context(
+                42, "externalwebapp", 10, actor=actor,
+            )
+            _record_run(10, "plan_case", actor=actor)
+
+        assert [call["actor"] for call in calls] == [actor, actor]
+
+    def test_context_and_writes_use_scoped_composed_dispatch(self) -> None:
+        calls: List[Dict[str, Any]] = []
+        actor = ActorContext(actor_id="17", session_id="session-17")
+
+        def _composed(function_id, target, payload, nested_actor):
+            calls.append({
+                "function_id": function_id,
+                "target": target,
+                "payload": payload,
+                "actor": nested_actor,
+            })
+            if function_id == "qa.browser_context.get":
+                return _ok({"item_id": 42, "requirements": []})
+            return _ok({"qa_run_id": 77})
+
+        with (
+            mock.patch(
+                "yoke_core.api.service_client_structured_api_adapter."
+                "call_dispatcher",
+                side_effect=AssertionError(
+                    "normal dispatcher should not run inside composition"
+                ),
+            ),
+            composed_qa_dispatch(_composed),
+        ):
+            browser_qa._fetch_browser_context(
+                42, "externalwebapp", 10, actor=actor,
+            )
+            _record_run(10, "plan_case", actor=actor)
+
+        assert [call["function_id"] for call in calls] == [
+            "qa.browser_context.get",
+            "qa.run.add",
+        ]
+        assert [call["actor"] for call in calls] == [actor, actor]

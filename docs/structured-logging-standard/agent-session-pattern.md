@@ -20,7 +20,9 @@ HarnessSessionStopped (0..1 -- session close when stop hooks are wired)
 
 **HarnessSessionSentFirstUserPromptSubmit**
 
-Emitted when an agent session begins (augmented `harness-session-start.sh`).
+Emitted on the first UserPromptSubmit handled by
+`runtime.harness.hook_runner`; SessionStart separately emits
+`HarnessSessionStarted` when it registers the session.
 
 ```json
 {
@@ -31,7 +33,7 @@ Emitted when an agent session begins (augmented `harness-session-start.sh`).
  "source_type": "agent",
  "severity": "INFO",
  "agent": "engineer",
- "item_id": "42",
+ "item_id": 42,
  "task_num": 3,
  "worktree_path": "/Users/dev/yoke/.worktrees/YOK-N",
  "context": {

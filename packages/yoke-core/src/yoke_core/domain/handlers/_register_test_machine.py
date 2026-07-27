@@ -13,6 +13,36 @@ def register(registry) -> None:
 
     register_ssh_mac_host_control()
     registry.register(
+        "test_machine.baseline_group_execute",
+        _case.handle_baseline_group_execute,
+        _case.TestMachineBaselineGroupExecuteRequest,
+        _case.TestMachineBaselineGroupExecuteResponse,
+        stability="stable",
+        owner_module=__name__,
+        target_kinds=["qa_requirement"],
+        side_effects=[
+            "host_control",
+            "coordination_lease",
+            "qa_run_write",
+            "qa_artifact_write",
+        ],
+        emitted_event_names=[
+            "QARunStarted",
+            "QARunCompleted",
+            "YokeFunctionCalled",
+        ],
+        guardrails=[
+            "materialized_case_reread",
+            "server_discovered_baseline_group",
+            "serial_lease",
+            "lease_waiting_state",
+            "registered_baseline",
+            "secret_redaction",
+        ],
+        adapter_status="internal",
+        claim_required_kind="item",
+    )
+    registry.register(
         "test_machine.case_execute",
         _case.handle_case_execute,
         _case.TestMachineCaseExecuteRequest,
@@ -26,10 +56,15 @@ def register(registry) -> None:
             "qa_run_write",
             "qa_artifact_write",
         ],
-        emitted_event_names=["QARunCompleted", "YokeFunctionCalled"],
+        emitted_event_names=[
+            "QARunStarted",
+            "QARunCompleted",
+            "YokeFunctionCalled",
+        ],
         guardrails=[
             "materialized_case_reread",
             "serial_lease",
+            "lease_waiting_state",
             "registered_baseline",
             "secret_redaction",
         ],

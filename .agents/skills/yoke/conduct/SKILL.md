@@ -36,7 +36,7 @@ before any worktree or status mutation.
 
 After every subagent returns, the conduct skill MUST immediately continue to the next step. Do not summarize, do not wait for user input. Each subagent return is a transition point, not a stopping point.
 
-Worktree creation/activation is a pure filesystem + DB operation: `items.worktree` (branch slug) is set, path claims activate, and the same harness session continues directly into the Engineer/Tester loop — no manual relaunch, no parent-session stop, no claim handoff to a fresh session, no scope envelope. The parent session's authority over each activated worktree is the work-claim it (or its subagent) holds on that item; `lint_session_cwd` reads `work_claims` per tool call and validates target paths against the claimed worktree set + main control plane + free-path allowlist. The orchestrator does control-plane reads (`epic_progress_notes`, `yoke events query`, board rebuilds) freely from the same session — no bounce-throughs.
+Worktree creation/activation is a pure filesystem + DB operation: active `item_worktrees` lane rows are recorded, path claims activate, and the same harness session continues directly into the Engineer/Tester loop — no manual relaunch, no parent-session stop, no claim handoff to a fresh session, no scope envelope. The parent session's authority over each activated worktree is the work-claim it (or its subagent) holds on that item; `lint_session_cwd` reads `work_claims` per tool call and validates target paths against the claimed worktree set + main control plane + free-path allowlist. The orchestrator does control-plane reads (`epic_progress_notes`, `yoke events query`, board rebuilds) freely from the same session — no bounce-throughs.
 
 ## Thin Conduct Principle
 

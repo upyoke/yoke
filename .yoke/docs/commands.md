@@ -240,7 +240,10 @@ Advance an item's status forward. No args: auto-advance to next status. With sta
   AC-verification requirement with `requirement_source=ac_derived`. Project
   Browser, command, and machine verification comes from attached QA plans;
   genuinely one-off proof uses an explicit method-backed case.
-- **Browser seeding** (`implementing/browser-seeding.md`): Seeds `browser_smoke` and `browser_diff` QA requirements for browser-testable items.
+- **Browser case authoring** (`implementing/browser-seeding.md`): Reuses an
+  attached test plan or authors an explicit `browser-check` /
+  `browser-inspection` method-backed case; it never infers aggregate Browser
+  requirement kinds.
 - **Project context preflight** (`implementing/project-context.md`): Reads the project-wide always-included docs and topic list from the `context_routing` Project Structure family, infers relevant topics from title/spec/AC text, and surfaces concrete implementation/test/doc paths before the text-sensitive audit and file discovery.
 - **Test commands & QA recording** (`implementing/test-and-record.md`): Records test results as QA runs.
 - **Implementation guidance** (`implementing/implementation.md`): Kickoff for implementation work.

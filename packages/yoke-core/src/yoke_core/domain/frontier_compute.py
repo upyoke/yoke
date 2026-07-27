@@ -148,6 +148,10 @@ def compute_frontier(
             workflow_version=workflow.version,
             stage_index=stage_index if stage_index is not None else -1,
             adapter=adapter,
+            stage_count=len(workflow.stages),
+            stage_label=str(
+                (workflow.stage(status) or {}).get("label") or status
+            ),
             probe_path_claim_activation=(
                 workflow.requires_item_path_claim_probe(status)
             ),

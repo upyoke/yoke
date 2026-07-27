@@ -7,7 +7,6 @@ from typing import Any, Dict, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.project_checkout_locations import worktree_path_for_branch
-from yoke_core.domain.schema_common import _table_exists
 
 
 def universal_item_worktree_paths(
@@ -16,9 +15,7 @@ def universal_item_worktree_paths(
     item_id: int,
     project_id: Optional[int],
 ) -> Optional[Dict[str, Any]]:
-    """Return guard path fields, or ``None`` before the additive cutover."""
-    if not _table_exists(conn, "item_worktrees"):
-        return None
+    """Return active universal-lane path fields for claim guards."""
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     rows = conn.execute(
         "SELECT lane_role, branch, path FROM item_worktrees "
@@ -59,6 +56,11 @@ def universal_item_worktree_paths(
     )
     return {
         "task_lanes": task_lanes,
+        "worktree_branch": (
+            branch_paths[0][0]
+            if not task_lanes and len(branch_paths) == 1
+            else None
+        ),
         "worktree_path": (
             branch_paths[0][1]
             if not task_lanes and len(branch_paths) == 1

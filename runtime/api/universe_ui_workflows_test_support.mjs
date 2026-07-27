@@ -21,6 +21,8 @@ export function workflowFixture({
   currentVersion = 3,
   versions,
   policies,
+  executorBindings,
+  status = "active",
 } = {}) {
   const declaredVersions = versions || (
     currentVersion === 1
@@ -47,7 +49,7 @@ export function workflowFixture({
     name,
     description,
     source: "pack",
-    status: "disabled",
+    status,
     current_version: currentVersion,
     published_at: "2026-07-25T12:00:00Z",
     versions: declaredVersions,
@@ -63,7 +65,7 @@ export function workflowFixture({
         { id: "ship", label: "Shipped", gates: [] },
       ],
       entry_surfaces: ["cli", "harness_skill"],
-      executor_bindings: [{
+      executor_bindings: executorBindings || [{
         executor_id: "advance",
         from_stage_id: "draft",
         through_stage_id: "ship",
@@ -175,16 +177,16 @@ export function workflowsClient(workflows) {
   };
 }
 
-export async function mountWorkflows(t, client) {
+export async function mountWorkflows(t, client, hash = "#/workflows") {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/workflows";
+  documentNode.defaultView.location.hash = hash;
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, { client });
   await settle();
-  return { root, mounted };
+  return { documentNode, root, mounted };
 }
 
 export function panelTitles(root) {

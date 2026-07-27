@@ -30,6 +30,14 @@ def test_qa_packet_lists_live_qa_requirements_columns() -> None:
         "waived_at",
         "waiver_rationale",
         "waiver_source",
+        "plan_id",
+        "plan_case_key",
+        "method_id",
+        "host_baseline",
+        "workflow_transition_id",
+        "instructions",
+        "expected_outcome",
+        "method_config",
     ):
         assert column in body, f"qa_requirements column {column!r} missing from qa packet"
 
@@ -70,13 +78,19 @@ def test_qa_packet_carries_requirement_add_ac_verification_example() -> None:
     assert "requirement-add --epic-id E --task-num K" in body
 
 
-def test_qa_packet_carries_requirement_add_browser_smoke_example() -> None:
+def test_qa_packet_carries_plan_case_materialization_example() -> None:
     body = sac.render_topic_packet("qa")
-    assert "Add a QA requirement — browser_smoke variant" in body
-    assert "--qa-kind browser_smoke --qa-phase verification" in body
-    assert "--capability-requirements browser-qa" in body
-    assert '--success-policy \'{"steps":[{"action":"navigate"' in body
-    assert "Browser kinds (`browser_smoke`, `browser_diff`) REQUIRE" in body
+    assert "Materialize attached QA plan cases for a transition" in body
+    assert (
+        "yoke qa plan materialize --item PREFIX-N "
+        "--transition reviewed-implementation"
+    ) in body
+    for field in (
+        "method_id",
+        "expected_outcome",
+        "immutable method_config",
+    ):
+        assert field in body
 
 
 def test_qa_packet_carries_run_add_agent_ac_verification_example() -> None:
@@ -93,17 +107,30 @@ def test_qa_packet_carries_run_add_agent_ac_verification_example() -> None:
     assert "`--qa-kind` defaults to the requirement's kind" in body
 
 
-def test_qa_packet_carries_run_add_browser_substrate_smoke_example() -> None:
+def test_qa_packet_carries_per_requirement_browser_case_run_example() -> None:
     body = sac.render_topic_packet("qa")
+    assert "Execute one materialized Browser method case" in body
     assert (
-        "Add a QA run verdict — browser_substrate × browser_smoke (file evidence)"
-        in body
-    )
-    assert "--executor-type browser_substrate" in body
-    assert "--qa-kind browser_smoke --verdict pass" in body
-    assert '--raw-result \'{"status":"captured"}\'' in body
-    assert "yoke qa artifact add --requirement-id R --run-id RUN" in body
-    assert '"/tmp/browser-evidence/login.png"' in body
+        "yoke qa case run --requirement-id R "
+        "--base-url https://preview.example "
+        "--expected-branch BRANCH --expected-sha SHA"
+    ) in body
+    assert "qa.case_execution.get" in body
+    assert "executes only requirement R" in body
+    assert "browser-check decides automatically" in body
+    assert "browser-inspection records inconclusive evidence" in body
+
+
+def test_qa_packet_drops_retired_browser_execution_teaching() -> None:
+    body = sac.render_topic_packet("qa")
+    for retired in (
+        "browser_smoke",
+        "browser_diff",
+        "yoke qa browser run",
+        "--executor-type browser_substrate",
+        '--success-policy \'{"steps"',
+    ):
+        assert retired not in body
 
 
 def test_qa_packet_replaces_run_add_trailing_parenthetical() -> None:

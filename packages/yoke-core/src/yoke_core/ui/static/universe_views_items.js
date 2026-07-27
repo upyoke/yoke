@@ -1,6 +1,5 @@
 import { buildUniverseRoute } from "./universe_navigation.js";
 import {
-  callFunction,
   el,
   mergedRows,
   renderError,
@@ -9,15 +8,8 @@ import {
   settledScopedCalls,
   statePill,
 } from "./universe_view_support.js";
-import { renderWorkflowItemDetail } from "./item_view_details.js";
-import { renderBlitzItemDetail } from "./universe_views_blitz.js";
-import { renderNewItemView } from "./item_view_new.js";
-import {
-  LEGACY_ITEM_FIELDS,
-  renderLegacyItemDetail,
-  renderLegacyItems,
-} from "./item_view_legacy.js";
 import { actionLink } from "./item_view_primitives.js";
+export { renderItemDetailView } from "./item_detail_loader.js";
 
 function detailProject(scope, projects) {
   if (Array.isArray(scope)) return scope[0] || null;
@@ -25,9 +17,50 @@ function detailProject(scope, projects) {
   return scope;
 }
 
+function itemsScopeSummary(scope, projects) {
+  if (scope === "all" || scope === null) {
+    return "across all projects · every durable piece of project work";
+  }
+  const selected = Array.isArray(scope) ? scope : [scope];
+  const labels = selected.map((projectId) => {
+    const project = projects.find(
+      (candidate) => String(candidate.id) === String(projectId),
+    );
+    return project?.slug || project?.name || String(projectId);
+  });
+  return `scoped to ${labels.join(" + ")} · every durable piece of project work`;
+}
+
 function claimLabel(row) {
   const claim = row.claimed_by;
   return claim ? (claim.actor_label || claim.session_id || "") : "";
+}
+
+function eventCameFromControl(event, row) {
+  let target = event.target;
+  while (target && target !== row) {
+    if (["A", "BUTTON", "INPUT", "SELECT", "TEXTAREA", "TIME"].includes(
+      String(target.tagName || "").toUpperCase(),
+    )) return true;
+    target = target.parentNode;
+  }
+  return false;
+}
+
+function makeRowNavigable(documentNode, row, href) {
+  row.tabIndex = 0;
+  row.setAttribute("role", "link");
+  row.setAttribute("aria-label", `Open ${row.children[0]?.textContent || "item"}`);
+  row.addEventListener("click", (event) => {
+    if (eventCameFromControl(event, row)) return;
+    documentNode.defaultView.location.hash = href;
+  });
+  row.addEventListener("keydown", (event) => {
+    if (eventCameFromControl(event, row)) return;
+    if (!["Enter", " "].includes(event.key)) return;
+    if (typeof event.preventDefault === "function") event.preventDefault();
+    documentNode.defaultView.location.hash = href;
+  });
 }
 
 function itemTable(documentNode, rows, rowHref) {
@@ -43,13 +76,20 @@ function itemTable(documentNode, rows, rowHref) {
   }
   table.appendChild(head);
   for (const row of rows) {
-    const tr = el(documentNode, "tr");
+    const href = rowHref(row);
+    const tr = el(documentNode, "tr", "item-roster-row");
     const refCell = el(documentNode, "td", "mono");
     const link = el(documentNode, "a", "row-link", row.public_ref);
-    link.href = rowHref(row);
+    link.href = href;
     refCell.appendChild(link);
     tr.appendChild(refCell);
-    tr.appendChild(el(documentNode, "td", "item-roster-title", row.title));
+    const titleCell = el(documentNode, "td", "item-roster-title");
+    const titleLink = el(
+      documentNode, "a", "item-title-link", row.title,
+    );
+    titleLink.href = href;
+    titleCell.appendChild(titleLink);
+    tr.appendChild(titleCell);
     const workflowCell = el(documentNode, "td");
     const workflow = el(
       documentNode,
@@ -58,10 +98,15 @@ function itemTable(documentNode, rows, rowHref) {
       row.workflow_id,
     );
     workflow.setAttribute("data-workflow", row.workflow_id);
+    workflow.setAttribute("title", `workflow · ${row.workflow_id}`);
     workflowCell.appendChild(workflow);
     tr.appendChild(workflowCell);
     const statusCell = el(documentNode, "td");
-    const status = statePill(documentNode, row.status);
+    const status = statePill(
+      documentNode,
+      row.status,
+      row.stage_label || row.status,
+    );
     if (status) statusCell.appendChild(status);
     tr.appendChild(statusCell);
     tr.appendChild(el(
@@ -86,9 +131,12 @@ function itemTable(documentNode, rows, rowHref) {
       claimCell.textContent = "—";
     }
     tr.appendChild(claimCell);
+    makeRowNavigable(documentNode, tr, href);
     table.appendChild(tr);
   }
-  return table;
+  const wrap = el(documentNode, "div", "table-wrap item-roster-wrap");
+  wrap.appendChild(table);
+  return wrap;
 }
 
 function filterRows(rows, state) {
@@ -122,10 +170,25 @@ function filterControls(documentNode, rows, state, rerender) {
     const empty = el(documentNode, "option", null, label);
     empty.value = "";
     select.appendChild(empty);
-    const values = [...new Set(rows.map((row) => row[key]).filter(Boolean))]
-      .sort();
+    const rowKey = key === "workflow" ? "workflow_id" : key;
+    const valueLabels = new Map();
+    for (const row of rows) {
+      const value = row[rowKey];
+      if (!value || valueLabels.has(value)) continue;
+      valueLabels.set(
+        value,
+        key === "status" ? row.stage_label || value : value,
+      );
+    }
+    const values = [...valueLabels.keys()].sort((left, right) => (
+      String(valueLabels.get(left)).localeCompare(
+        String(valueLabels.get(right)),
+      )
+    ));
     for (const value of values) {
-      const option = el(documentNode, "option", null, value);
+      const option = el(
+        documentNode, "option", null, valueLabels.get(value),
+      );
       option.value = value;
       option.selected = state[key] === value;
       select.appendChild(option);
@@ -140,32 +203,46 @@ function filterControls(documentNode, rows, state, rerender) {
   return controls;
 }
 
-export function renderItemsView(context, main, scope) {
+export function renderItemsView(context, main, scope, chrome = {}) {
   const documentNode = context.document;
   const projects = context.projects();
   const panel = section(documentNode, "Items", { showRaw: false });
-  const toolbar = el(documentNode, "div", "item-roster-toolbar");
-  const note = el(
-    documentNode,
-    "p",
-    "item-roster-note",
-    "Every durable piece of project work, across Issue, Epic, Blitz, and Dash.",
-  );
-  const actions = el(documentNode, "div", "item-roster-actions");
   const filterButton = el(documentNode, "button", "item-button", "Filter ▾");
   filterButton.type = "button";
+  filterButton.setAttribute("aria-expanded", "false");
+  filterButton.setAttribute("aria-controls", "item-roster-filters");
   const projectId = detailProject(scope, projects);
-  actions.appendChild(filterButton);
-  actions.appendChild(actionLink(
+  const newItem = actionLink(
     documentNode,
     "New item",
     buildUniverseRoute("items", projectId, "new"),
     true,
-  ));
-  toolbar.appendChild(note);
-  toolbar.appendChild(actions);
+  );
+  if (typeof chrome.setPageHead === "function") {
+    chrome.setPageHead({
+      title: "Items",
+      summary: itemsScopeSummary(scope, projects),
+      actions: [filterButton, newItem],
+    });
+  }
   const filterHost = el(documentNode, "div");
-  main.replaceChildren(toolbar, filterHost, panel);
+  filterHost.id = "item-roster-filters";
+  if (typeof chrome.setPageHead === "function") {
+    main.replaceChildren(filterHost, panel);
+  } else {
+    const toolbar = el(documentNode, "div", "item-roster-toolbar");
+    toolbar.appendChild(el(
+      documentNode,
+      "p",
+      "item-roster-note",
+      itemsScopeSummary(scope, projects),
+    ));
+    const actions = el(documentNode, "div", "item-roster-actions");
+    actions.appendChild(filterButton);
+    actions.appendChild(newItem);
+    toolbar.appendChild(actions);
+    main.replaceChildren(toolbar, filterHost, panel);
+  }
   const filterState = {
     open: false,
     query: "",
@@ -175,6 +252,7 @@ export function renderItemsView(context, main, scope) {
   filterButton.addEventListener("click", () => {
     filterState.open = !filterState.open;
     filterHost.hidden = !filterState.open;
+    filterButton.setAttribute("aria-expanded", String(filterState.open));
   });
   filterHost.hidden = true;
 
@@ -204,116 +282,20 @@ export function renderItemsView(context, main, scope) {
             String(row.public_ref),
           ),
         ));
-        filterHost.replaceChildren(filterControls(
-          documentNode, rows, filterState, renderRows,
-        ));
-        filterHost.hidden = !filterState.open;
       };
+      filterHost.replaceChildren(filterControls(
+        documentNode, rows, filterState, renderRows,
+      ));
+      filterHost.hidden = !filterState.open;
       renderRows();
     });
   };
-  const renderLegacy = (callResults) => {
-    panel.renderEnvelopes(callResults, (body) => {
-      const rows = mergedRows(callResults, (result) => result.rows);
-      const counts = callResults.map(
-        (callResult) => (callResult.envelope.result || {}).count,
-      );
-      panel.setCount(
-        counts.every((count) => typeof count === "number")
-          ? counts.reduce((total, count) => total + count, 0)
-          : null,
-      );
-      renderLegacyItems(body, rows, scope, projects);
-    });
-  };
-  settledScopedCalls(context, calls).then(async ({ callResults, failed }) => {
+  settledScopedCalls(context, calls).then(({ callResults, failed }) => {
     if (!context.isMounted()) return;
     if (!failed) {
       renderPrototype(callResults);
       return;
     }
-    const legacyCalls = buckets.map((bucket) => ({
-      functionId: "items.list.run",
-      payload: {
-        fields: LEGACY_ITEM_FIELDS,
-        ...(bucket === null ? {} : { project: bucket }),
-      },
-    }));
-    const legacy = await settledScopedCalls(context, legacyCalls);
-    if (!context.isMounted()) return;
-    if (!legacy.failed) {
-      renderLegacy(legacy.callResults);
-      return;
-    }
     panel.renderEnvelope(failed, (body) => renderError(body, failed));
   });
-}
-
-export function renderItemDetailView(
-  context,
-  main,
-  projectId,
-  itemRef,
-) {
-  if (String(itemRef).toLowerCase() === "new") {
-    renderNewItemView(context, main, projectId);
-    return;
-  }
-  const loading = section(
-    context.document, String(itemRef), { showRaw: false },
-  );
-  main.replaceChildren(loading);
-  const target = {
-    kind: "item",
-    item_ref: String(itemRef),
-    project_id: String(projectId),
-  };
-  (async () => {
-    let callResult;
-    try {
-      callResult = await callFunction(
-        context.client,
-        "items.detail.get",
-        {},
-        target,
-      );
-    } catch (error) {
-      callResult = {
-        status: 0,
-        envelope: { success: false, error: { message: String(error) } },
-      };
-    }
-    if (!context.isMounted()) return;
-    if (callResult.status === 200 && callResult.envelope.success) {
-      const item = (callResult.envelope.result || {}).item;
-      if (String(item.workflow_id || "").toLowerCase() === "blitz") {
-        renderBlitzItemDetail(context, main, item);
-      } else {
-        renderWorkflowItemDetail(context, main, item);
-      }
-      return;
-    }
-    let legacy;
-    try {
-      legacy = await callFunction(
-        context.client,
-        "items.get.run",
-        {},
-        target,
-      );
-    } catch (error) {
-      legacy = {
-        status: 0,
-        envelope: { success: false, error: { message: String(error) } },
-      };
-    }
-    if (!context.isMounted()) return;
-    if (legacy.status === 200 && legacy.envelope.success) {
-      renderLegacyItemDetail(
-        context, main, projectId, itemRef, legacy,
-      );
-      return;
-    }
-    loading.renderEnvelope(callResult, (body) => renderError(body, callResult));
-  })();
 }

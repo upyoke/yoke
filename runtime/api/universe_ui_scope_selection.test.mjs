@@ -9,6 +9,7 @@ import {
 import {
   createScopePicker,
   navEntry,
+  scopeForEntry,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_navigation.js";
 import {
   FakeDocument,
@@ -39,7 +40,7 @@ test("a multi view defaults to the whole universe: All chip on, unfiltered read"
 
   const chips = scopeChips(root);
   assert.deepEqual(
-    chips.map((chip) => chip.textContent), ["All", "Alpha", "Beta"],
+    chips.map((chip) => chip.textContent), ["All", "alpha", "beta"],
   );
   assert.deepEqual(
     chips.map((chip) => chip.classList.contains("on")),
@@ -71,11 +72,11 @@ test("chips narrow to one, widen to a pair, and empty back out to All", async (t
       .dispatchEvent(new Event("click"));
     await settle();
     return client.requests.slice(before)
-      .filter((request) => request.function === "items.list.run");
+      .filter((request) => request.function === "items.overview.list");
   };
 
   // One project: the read carries it and the hash names it.
-  const narrowed = await click("Alpha");
+  const narrowed = await click("alpha");
   assert.equal(documentNode.defaultView.location.hash, "#/items?project=1");
   assert.deepEqual(narrowed.map((request) => request.payload.project), ["1"]);
   assert.deepEqual(
@@ -88,30 +89,30 @@ test("chips narrow to one, widen to a pair, and empty back out to All", async (t
   ));
 
   // A second chip widens to the pair: one read per member, rows merged in
-  // call order, each labelled with its own project.
-  const paired = await click("Beta");
+  // call order, with each row retaining its own project for drill-in.
+  const paired = await click("beta");
   assert.equal(documentNode.defaultView.location.hash, "#/items?project=1,2");
   assert.deepEqual(paired.map((request) => request.payload.project), ["1", "2"]);
   const cells = allNodes(root)
     .filter((node) => node.tagName === "TD")
     .map(cellText);
   assert.deepEqual(cells, [
-    "11", "alpha", "issue", "1", "alpha item", "idea", "medium", "",
-    "21", "beta", "issue", "1", "beta item", "idea", "medium", "",
+    "YOK-11", "alpha item", "issue", "Idea", "unassigned", "—",
+    "YOK-21", "beta item", "issue", "Idea", "unassigned", "—",
   ]);
   // Each row's drill-in carries that row's own project.
   assert.deepEqual(
     allNodes(root)
       .filter((node) => node.classList && node.classList.contains("row-link"))
       .map((node) => node.href),
-    ["#/items/11?project=1", "#/items/21?project=2"],
+    ["#/items/YOK-11?project=1", "#/items/YOK-21?project=2"],
   );
 
   // Removing members one at a time: the last removal returns to "all",
   // whose read omits the project filter and whose route has no query.
-  await click("Alpha");
+  await click("alpha");
   assert.equal(documentNode.defaultView.location.hash, "#/items?project=2");
-  const widened = await click("Beta");
+  const widened = await click("beta");
   assert.equal(documentNode.defaultView.location.hash, "#/items");
   assert.deepEqual(widened.map((request) => request.payload.project), [undefined]);
   assert.deepEqual(
@@ -206,6 +207,28 @@ test("each screen remembers its own scope across nav round trips", async (t) => 
   mounted.unmount();
 });
 
+test("an explicit QA Activity All route overrides its remembered project scope", () => {
+  const projects = [
+    { id: "buzz", slug: "buzz", name: "Buzz" },
+    { id: "yoke", slug: "yoke", name: "Yoke" },
+  ];
+  const selections = new Map();
+  const entry = navEntry("qa");
+
+  assert.deepEqual(
+    scopeForEntry(entry, "buzz", projects, selections),
+    ["buzz"],
+  );
+  const route = parseUniverseRoute("#/qa/activity?project=all");
+  assert.equal(route.tab, "activity");
+  assert.equal(route.project, "all");
+  assert.equal(
+    scopeForEntry(entry, route.project, projects, selections),
+    "all",
+  );
+  assert.equal(selections.get("qa"), "all");
+});
+
 test("a single-scope picker offers radio chips and no All chip", () => {
   const documentNode = new FakeDocument();
   const windowNode = documentNode.defaultView;
@@ -227,7 +250,7 @@ test("a single-scope picker offers radio chips and no All chip", () => {
 
   assert.equal(byClass(bar, "scope-label")[0].textContent, "Project");
   const chips = byClass(bar, "scope-chip");
-  assert.deepEqual(chips.map((chip) => chip.textContent), ["Alpha", "Beta"]);
+  assert.deepEqual(chips.map((chip) => chip.textContent), ["alpha", "beta"]);
   assert.deepEqual(
     chips.map((chip) => chip.classList.contains("on")), [true, false],
   );
@@ -256,8 +279,14 @@ test("a multi view still reads an empty universe, unfiltered", async (t) => {
       if (request.function === "projects.list") {
         return { status: 200, envelope: { success: true, result: { rows: [] } } };
       }
-      if (request.function === "items.list.run") {
-        return { status: 200, envelope: { success: true, result: { rows: [] } } };
+      if (request.function === "items.overview.list") {
+        return {
+          status: 200,
+          envelope: {
+            success: true,
+            result: { rows: [], count: 0 },
+          },
+        };
       }
       throw new Error(`unexpected function ${request.function}`);
     },
@@ -268,12 +297,12 @@ test("a multi view still reads an empty universe, unfiltered", async (t) => {
   // An unfiltered read over an empty universe is honest: the view renders
   // its own empty table rather than a "no projects" panel.
   assert.ok(requests.some(
-    (request) => request.function === "items.list.run" &&
+    (request) => request.function === "items.overview.list" &&
       !("project" in request.payload),
   ));
   const text = allNodes(root)
     .map((node) => node.textContent || "").join(" ");
-  assert.ok(text.includes("no items yet"));
+  assert.ok(text.includes("No items match this view."));
   assert.ok(!text.includes("no projects yet"));
   mounted.unmount();
 });

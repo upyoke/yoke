@@ -128,20 +128,23 @@ BUILTIN_QA_METHODS = (
         "executor_id": "browser_substrate",
         "required_capability_kind": "browser-control",
         "verdict_path": "automatic",
-        "verdict_contract": "declared assertions pass",
+        "verdict_contract": "assertions",
         "evidence_contract": "assertions · trace · logs",
     },
     {
         "id": "browser-inspection",
         "name": "Browser inspection",
         "description": (
-            "Capture screenshots, then judge whether they show the case's "
-            "expected outcome."
+            "Captures screenshots; an agent judges whether they show the "
+            "case's expected outcome."
         ),
         "executor_id": "browser_substrate",
         "required_capability_kind": "browser-control",
         "verdict_path": "agent",
-        "verdict_contract": "agent inspection against expected outcome",
+        "verdict_contract": (
+            "inspects the screenshot and judges whether it shows the case's "
+            "expected outcome"
+        ),
         "evidence_contract": "screenshots · inspection verdict",
     },
 )

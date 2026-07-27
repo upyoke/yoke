@@ -130,6 +130,21 @@ structural changes you intended: canonical AC labels, any required
 grep/residue guidance, explicit cleanup/removal notes, and
 failure/recovery coverage where applicable.
 
+### 7b. Link And Verify A Blitz Execution Document
+
+When `ITEM_WORKFLOW_ID=blitz`, read and follow
+[`blitz-execution-document.md`](blitz-execution-document.md). Select exactly
+one project strategy document, invoke the registered
+`strategy.execution.link` operation through
+`yoke strategy execution link ITEM --slug SLUG`, and verify the result with
+registered read `strategy.execution.get` through
+`yoke strategy execution get ITEM --json`.
+
+Do not advance a Blitz when the selection is missing or ambiguous, when an
+existing link conflicts with the selected slug, or when the execution read
+does not return that exact document. Linking does not acquire the document
+claim; `/yoke blitz` activation owns that atomic step.
+
 ### 8. Capture Final Summary
 
 Before status advancement, capture the details you will present after cleanup is finished. Do not emit the success summary yet:
@@ -152,10 +167,18 @@ the entry phase determined in step 1b. Dispatch the
 
 **Idea refinement** (entry was `idea` or `refining-idea`): advance to
 `refined-idea`. Payload: `{target_status: "refined-idea",
-source_status: "refining-idea"}`. Final output should include:
+source_status: "refining-idea"}`.
+
+For Issue and Epic, final output should include:
 
 > **YOK-{N}** refined: `refining-idea` -> `refined-idea`
 > The scheduler will route this item to `/yoke shepherd` (epic) or `/yoke advance` (issue) for implementation.
+
+For Blitz, final output must include the verified linked slug:
+
+> **YOK-{N}** refined: `refining-idea` -> `refined-idea`
+> Execution document: `{SLUG}`
+> Next step: `/yoke blitz YOK-{N}`
 
 **Plan refinement** (entry was `refining-plan`, epic only): advance to
 `planned`. Payload: `{target_status: "planned", source_status:
@@ -228,6 +251,8 @@ After status advancement and claim release, emit:
 ```
 
 Include the applicable status transition note from step 9.
+For Blitz, also include the linked execution-document slug and the
+`/yoke blitz YOK-{N}` handoff.
 
 ### 12. Completion
 
@@ -236,6 +261,8 @@ Refinement is complete when:
 - Identified issues have been addressed in the appropriate structured fields
 - Every updated field has been re-read successfully after the write
 - Status has been advanced to `refined-idea` (idea refinement) or `planned` (plan refinement)
+- A Blitz has exactly one execution strategy document linked and verified
+  through `strategy.execution.get`
 - The item claim has been released with reason `completed`
 - The operator has been shown what changed in the final output
 

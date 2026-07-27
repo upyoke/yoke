@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
@@ -37,13 +36,12 @@ from yoke_core.domain.test_machine_capability import (
 from yoke_core.domain.capability_machine_secrets import (
     store_machine_capability_secret,
 )
-from yoke_core.domain.ssh_mac_host_control import SshMacHostControl
 from runtime.api.domain.machine_qa_test_support import FakeHostControl, make_conn
 
 
 def test_pack_owns_all_three_serial_host_control_method_definitions() -> None:
     version, methods = load_machine_qa_methods()
-    assert version == "1.0.0"
+    assert version == "1.0.1"
     assert {row["id"] for row in methods} == {
         "terminal-check",
         "terminal-inspection",
@@ -52,6 +50,20 @@ def test_pack_owns_all_three_serial_host_control_method_definitions() -> None:
     assert {row["executor_id"] for row in methods} == {"host_control"}
     assert {row["required_capability_kind"] for row in methods} == {"test-machine"}
     assert {row["concurrency_mode"] for row in methods} == {"serial"}
+    assert {row["id"]: row["description"] for row in methods} == {
+        "terminal-check": (
+            "Scripted PTY interaction with any terminal program; "
+            "transcript + checkpoint expectations."
+        ),
+        "terminal-inspection": (
+            "Real Terminal screenshots at checkpoints; an agent judges "
+            "them against the expected outcome."
+        ),
+        "machine-state-check": (
+            "Shell assertions on the controlled host — any provisioning "
+            "or install claim."
+        ),
+    }
 
     conn = make_conn()
     sync_machine_qa_pack_methods(conn)
@@ -105,6 +117,60 @@ def test_test_machine_is_typed_and_secret_presence_only(
     }
 
 
+def test_active_machine_lease_projects_its_owning_work_item() -> None:
+    conn = make_conn()
+    replace_test_machine_settings(
+        conn,
+        project="yoke",
+        settings={
+            "resource_name": "mac-mini-lab",
+            "host": "test-mac.local",
+            "user": "yoke-test",
+            "operating_notes": "Do not interrupt an active lease.",
+        },
+        base_settings=None,
+    )
+    sync_machine_qa_pack_methods(conn)
+    conn.executescript(
+        """
+        CREATE TABLE items (
+            id INTEGER PRIMARY KEY,
+            project_id INTEGER NOT NULL,
+            project_sequence INTEGER,
+            title TEXT NOT NULL
+        );
+        CREATE TABLE work_claims (
+            id INTEGER PRIMARY KEY,
+            session_id TEXT NOT NULL,
+            target_kind TEXT NOT NULL,
+            item_id INTEGER,
+            claimed_at TEXT NOT NULL,
+            released_at TEXT
+        );
+        INSERT INTO items(id,project_id,project_sequence,title)
+        VALUES(41,1,2001,'Prove the installer campaign');
+        INSERT INTO work_claims(
+            id,session_id,target_kind,item_id,claimed_at,released_at
+        ) VALUES(8,'session-machine','item',41,'2026-07-26T15:55:00Z',NULL);
+        INSERT INTO coordination_leases(
+            id,project_id,lease_key,session_id,actor_id,
+            acquired_at,heartbeat_at,released_at
+        ) VALUES(
+            9,1,'QA_HOST:mac-mini-lab','session-machine','2',
+            '2026-07-26T15:58:00Z','2026-07-26T15:59:00Z',NULL
+        );
+        """
+    )
+
+    detail = read_test_machine_detail(conn, project="yoke")
+
+    assert detail["active_lease"]["item"] == {
+        "id": 41,
+        "ref": "YOK-2001",
+        "title": "Prove the installer campaign",
+    }
+
+
 def test_baselines_verify_the_path_branch_itself_and_dirty_state_fails() -> None:
     control = FakeHostControl()
     fresh = run_host_baseline(control, "fresh-host")
@@ -114,9 +180,10 @@ def test_baselines_verify_the_path_branch_itself_and_dirty_state_fails() -> None
         "ssh": False,
     }
     assert "old" not in control.files["/Users/tester/.zprofile"]
-    assert 'export PATH="$HOME/.local/bin:$PATH"' in control.files[
-        "/Users/tester/.zprofile"
-    ]
+    assert (
+        'export PATH="$HOME/.local/bin:$PATH"'
+        in control.files["/Users/tester/.zprofile"]
+    )
     preconfigured = run_host_baseline(control, "shell-preconfigured")
     assert preconfigured.ok
     assert preconfigured.evidence["observed_present"] == {
@@ -203,11 +270,13 @@ def test_terminal_contract_requires_entry_completion_and_structured_steps() -> N
     assert validate_machine_method_config(
         "terminal-inspection",
         {
-            "steps": [{
-                "key": "project-screen",
-                "send": "Enter",
-                "expect": "Project",
-            }],
+            "steps": [
+                {
+                    "key": "project-screen",
+                    "send": "Enter",
+                    "expect": "Project",
+                }
+            ],
             "capture_checkpoints": ["project-screen"],
         },
         entry_surface="public-installer",
@@ -262,51 +331,3 @@ def test_verifier_holds_one_lease_and_returns_only_redacted_receipts(
         "WHERE project_id=1 AND type='test-machine'"
     ).fetchone()[0]
     assert verified_at
-
-
-def test_ssh_adapter_uses_secret_file_reference_not_secret_argv(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    calls = []
-
-    def fake_run(argv, **kwargs):
-        calls.append((list(argv), dict(kwargs)))
-        if len(calls) == 1:
-            return SimpleNamespace(
-                returncode=0,
-                stdout=json.dumps({
-                    "home": "/Users/tester",
-                    "shell": "/bin/zsh",
-                    "xdg_bin_home": None,
-                }),
-                stderr="",
-            )
-        return SimpleNamespace(returncode=0, stdout="", stderr="")
-
-    monkeypatch.setattr("subprocess.run", fake_run)
-    key_path = tmp_path / "ssh_private_key"
-    key_path.write_text("top-secret", encoding="utf-8")
-    material = MachineMaterial(
-        project_id=1,
-        project="yoke",
-        settings={
-            "resource_name": "mac-mini-lab",
-            "host": "test-mac.local",
-            "user": "yoke-test",
-            "operating_notes": "",
-        },
-        secrets={
-            "ssh_private_key": "top-secret",
-            "sudo_password": "sudo-secret",
-            "screen_control_token": "screen-secret",
-        },
-        secret_paths={"ssh_private_key": str(key_path)},
-    )
-    control = SshMacHostControl(material)
-    assert control.check_connection().ok
-    argv_text = json.dumps([call[0] for call in calls])
-    assert str(key_path) in argv_text
-    assert "top-secret" not in argv_text
-    assert "sudo-secret" not in argv_text
-    assert "screen-secret" not in argv_text

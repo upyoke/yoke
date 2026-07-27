@@ -1,31 +1,8 @@
-// Read-only universe view. Hand-authored vanilla JS: no build step and no
-// framework. Everything ships inside the yoke-core wheel.
-//
-// Mount contract: `mountUniverseApp(rootNode, options?)` renders into a
-// host-owned node. The default options preserve `yoke ui`: same-origin
-// cookie-authenticated calls to /api/functions/call and no outer slots.
-// Another same-realm host may inject its own function client, opaque generic
-// capabilities/actions, named slot nodes, and per-view sections without
-// forking this app.
-//
-// Views are hash-routed as `#/<view>[/<segment>]?project=<id>[,<id>…]` so a
-// shared link restores the view, its facet, and the scope. The left nav is
-// data-driven (see NAV) — adding a route is one more array entry, with no
-// per-view branching in the markup. The second segment means what the view
-// declares: a tab (one facet of the view's concept, from the entry's `tabs`
-// roster) or a drill-in (one row, with a breadcrumb back) — never both.
-//
-// Scope is per-screen: each view remembers its own scope and declares how it
-// takes it (see SCOPE_*). A multi view reads the whole universe ("all", no
-// query) or a set of projects; a single view configures exactly one. Live
-// scoped views carry their own chip picker; stubs do not render a control
-// that cannot act.
-//
-// Members and Billing sit in NAV as host-fed destinations in the one flat
-// arc: the workbench routes them and draws their page head, but their body
-// is the host's `sections` entry, and each nav entry shows exactly when its
-// section is supplied. The workbench itself still has no notion of an
-// account — the content stays host-owned.
+// Read-only, hand-authored universe app. `mountUniverseApp(rootNode, options?)`
+// accepts same-realm clients, host slots, and sections without forking the UI.
+// Hash routes preserve each view's declared scope, tab, and drill-in. NAV owns
+// the flat destination arc; host-fed Members and Billing contribute only their
+// body while the workbench retains routing and page chrome.
 
 import {
   UNIVERSE_APP_CONTRACT_VERSION,
@@ -51,10 +28,11 @@ import {
   universeNavScope,
 } from "./universe_navigation.js";
 import {
-  DETAIL_RENDERERS, TAB_RENDERERS, VIEW_RENDERERS,
+  DETAIL_RENDERERS, TAB_DETAIL_RENDERERS, TAB_RENDERERS, VIEW_RENDERERS,
 } from "./universe_views.js";
 import {
   callFunction,
+  configurePageHead,
   createBreadcrumb,
   createPageHead,
   createWorkbenchChrome,
@@ -62,15 +40,18 @@ import {
   el,
   emptyUniversePanel,
 } from "./universe_app_chrome.js";
-
+import {
+  createHostSectionPlacement,
+  loadOrganizationName,
+  loadWordmark,
+  revealActiveCompactDestination,
+} from "./universe_app_shell_support.js";
 export {
   UNIVERSE_APP_CONTRACT_VERSION,
   createHttpFunctionClient,
 } from "./contract.js";
 export { buildUniverseRoute, parseUniverseRoute, universeNavScope };
-
 const WORDMARK_ASSET_URL = new URL("./yoke-wordmark.svg", import.meta.url);
-
 export function mountUniverseApp(rootNode, options = {}) {
   validateMountRoot(rootNode);
   const documentNode = rootNode.ownerDocument;
@@ -84,8 +65,7 @@ export function mountUniverseApp(rootNode, options = {}) {
   }
   const capabilities = options.capabilities || {};
   const slots = options.slots || {};
-  // Slots and sections share one duplicate ledger: a node placed as both a
-  // slot and a section is one Element asked to stand in two places.
+  // Slots and sections share one duplicate-node ledger.
   const hostContentNodes = new Set();
   const resolvedSlots = materializeSlots(slots, rootNode, hostContentNodes);
   const resolvedSections = materializeSections(
@@ -111,8 +91,9 @@ export function mountUniverseApp(rootNode, options = {}) {
   };
 
   const {
-    brand, header, main, navLinks, orgContext, shell,
+    brand, disposeChrome, header, main, navLinks, orgContext, shell,
   } = createWorkbenchChrome({
+    client,
     documentNode,
     mountedSlotNodes,
     options,
@@ -126,22 +107,11 @@ export function mountUniverseApp(rootNode, options = {}) {
 
   // The mark uses currentColor, so it must live in the DOM (an <img src>
   // would not inherit color); the brand container's ink flips in dark mode.
-  Promise.resolve().then(() => globalThis.fetch(WORDMARK_ASSET_URL))
-    .then((response) => response.text())
-    .then((svg) => { if (mounted) brand.innerHTML = svg; })
-    .catch(() => { if (mounted) brand.textContent = "Yoke"; });
+  loadWordmark(brand, WORDMARK_ASSET_URL, () => mounted);
 
   // The org read exists only to fill the app's own org naming, so a
   // suppressed org-context skips the call entirely.
-  if (orgContext) {
-    Promise.resolve().then(() => callFunction(client, "organizations.get", {}))
-      .then((callResult) => {
-        if (!mounted) return;
-        const org = (callResult.envelope && callResult.envelope.result) || {};
-        orgContext.textContent = org.name || "(unnamed org)";
-      })
-      .catch(() => { if (mounted) orgContext.textContent = ""; });
-  }
+  loadOrganizationName(client, orgContext, () => mounted);
 
   // Each visited scoped view remembers its own project.
   const scopeSelections = new Map();
@@ -153,23 +123,15 @@ export function mountUniverseApp(rootNode, options = {}) {
   // and `beforeScopeSections` has already lifted it above that control. A
   // page with no picker has no control for it to sit above, so both
   // placements land here and no section can silently go unplaced.
-  function appendViewSection(entry, viewHost, { scoped = false } = {}) {
-    const hostSection = resolvedSections[entry.id];
-    if (!hostSection) return;
-    if (scoped && hostSection.placement === "beforeScope") return;
-    viewHost.appendChild(hostSection.content);
-  }
-
-  // The host section the view's scope does not govern, placed above the scope
-  // control so the picker never appears to filter facts it cannot touch. A
-  // view whose section is `inView` contributes nothing here.
-  function beforeScopeSections(entry) {
-    const hostSection = resolvedSections[entry.id];
-    return (hostSection && hostSection.placement === "beforeScope")
-      ? [hostSection.content] : [];
-  }
+  const {
+    append: appendViewSection,
+    beforeScope: beforeScopeSections,
+  } = createHostSectionPlacement(resolvedSections);
 
   function renderRoute() {
+    // The nav keeps its own position, but every destination begins at the
+    // top of its independent content scroller.
+    main.scrollTop = 0;
     // A section the previous route mounted leaves before the new route
     // renders, so the host's node reference never strands inside a
     // discarded subtree.
@@ -179,6 +141,13 @@ export function mountUniverseApp(rootNode, options = {}) {
     const scope = scopeForEntry(
       entry, route.project, projects, scopeSelections,
     );
+    const breadcrumbNavigation = (breadcrumb) => ({
+      setDetailLabel(label) {
+        if (!mounted || main.children[0] !== breadcrumb) return;
+        breadcrumb.children[breadcrumb.children.length - 1].textContent =
+          String(label);
+      },
+    });
 
     for (const navItem of NAV) {
       const link = navLinks.get(navItem.id);
@@ -191,6 +160,7 @@ export function mountUniverseApp(rootNode, options = {}) {
       );
       link.classList.toggle("active", navItem.id === entry.id);
     }
+    revealActiveCompactDestination(windowNode, navLinks.get(entry.id));
 
     if (entry.hostFed) {
       // The page head still belongs to the route; only the body is the
@@ -210,6 +180,33 @@ export function mountUniverseApp(rootNode, options = {}) {
       // The segment is a tab facet: parse already resolved it to one of the
       // entry's declared tabs, so the strip and the body agree by construction.
       const tab = entry.tabs.find((item) => item.id === route.tab);
+      const tabDetailRenderer = route.detail
+        ? (TAB_DETAIL_RENDERERS[entry.id] || {})[tab.id]
+        : null;
+      if (tabDetailRenderer) {
+        const detailHost = el(documentNode, "div", "view-host");
+        if (scope === null && entry.scope !== SCOPE_NONE) {
+          detailHost.appendChild(emptyUniversePanel(documentNode));
+          main.replaceChildren(detailHost);
+          return;
+        }
+        const breadcrumb = createBreadcrumb(
+          documentNode,
+          entry,
+          serializeScope(scope),
+          route.detail,
+          tab,
+        );
+        main.replaceChildren(breadcrumb, detailHost);
+        tabDetailRenderer(
+          context,
+          detailHost,
+          scope,
+          route.detail,
+          breadcrumbNavigation(breadcrumb),
+        );
+        return;
+      }
       const tabBar = createTabBar(
         documentNode, entry, tab.id, serializeScope(scope),
       );
@@ -274,7 +271,7 @@ export function mountUniverseApp(rootNode, options = {}) {
     if (entry.scope === SCOPE_NONE) {
       const viewHost = el(documentNode, "div", "view-host");
       main.replaceChildren(createPageHead(documentNode, entry), viewHost);
-      renderer(context, viewHost, null);
+      renderer(context, viewHost, null, route.detail);
       appendViewSection(entry, viewHost);
       return;
     }
@@ -289,25 +286,30 @@ export function mountUniverseApp(rootNode, options = {}) {
     const detailProject = detailRenderer
       ? drillInProject(scope, projects) : null;
     if (detailRenderer && detailProject !== null) {
-      // A drill-in swaps the view's picker for a breadcrumb, and the
-      // breadcrumb is a drill-in's whole head: re-scoping a single row to
-      // another project is nonsense, and the way out is back. The view's
-      // host section stays out too — it belongs to the view, not to one row.
+      // A drill-in swaps the view's picker for a breadcrumb. Its renderer
+      // owns the detail page head below that trail; re-scoping one row to
+      // another project is nonsense. The view's host section stays out too
+      // — it belongs to the view, not to one row.
       const detailHost = el(documentNode, "div", "view-host");
-      main.replaceChildren(
-        createBreadcrumb(
-          documentNode, entry, serializeScope(scope), route.detail,
-        ),
-        detailHost,
+      const breadcrumb = createBreadcrumb(
+        documentNode, entry, serializeScope(scope), route.detail,
       );
-      detailRenderer(context, detailHost, detailProject, route.detail);
+      main.replaceChildren(breadcrumb, detailHost);
+      detailRenderer(
+        context,
+        detailHost,
+        detailProject,
+        route.detail,
+        breadcrumbNavigation(breadcrumb),
+      );
       return;
     }
     // The picker is the view's own chrome, so it sits in the content column
     // above a host the view owns outright and re-renders into at will.
     const viewHost = el(documentNode, "div", "view-host");
+    const pageHead = createPageHead(documentNode, entry);
     main.replaceChildren(
-      createPageHead(documentNode, entry),
+      pageHead,
       ...beforeScopeSections(entry),
       createScopePicker({
         documentNode, entry, scope, projects, renderRoute, scopeSelections,
@@ -315,19 +317,22 @@ export function mountUniverseApp(rootNode, options = {}) {
       }),
       viewHost,
     );
-    renderer(context, viewHost, scope);
+    renderer(context, viewHost, scope, {
+      setPageHead(options) {
+        if (!mounted || main.children[0] !== pageHead) return;
+        configurePageHead(documentNode, pageHead, options);
+      },
+    });
     appendViewSection(entry, viewHost, { scoped: true });
   }
 
   windowNode.addEventListener("hashchange", renderRoute);
 
   Promise.resolve().then(() => callFunction(
-    client, "projects.list", { fields: ["id", "slug", "name"] },
-  ))
-    .then((callResult) => {
-      const result = (callResult.envelope && callResult.envelope.result) || {};
-      projects = result.rows || [];
-    })
+    client, "projects.list", { fields: ["id", "slug", "name", "emoji"] },
+  )).then((callResult) => {
+    projects = (callResult.envelope && callResult.envelope.result)?.rows || [];
+  })
     // A roster that fails to load leaves the universe empty. The catch stays
     // on the fetch alone: folding the first render into it would report any
     // view's render error as "no projects yet".
@@ -337,6 +342,7 @@ export function mountUniverseApp(rootNode, options = {}) {
   return createUnmountHandle(UNIVERSE_APP_CONTRACT_VERSION, () => {
     mounted = false;
     windowNode.removeEventListener("hashchange", renderRoute);
+    disposeChrome();
     detachMountedSlots(rootNode, [...mountedSlotNodes, ...sectionNodes]);
     rootNode.replaceChildren();
     detachRootClass();

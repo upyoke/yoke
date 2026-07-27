@@ -13,12 +13,10 @@ import {
   FakeNode,
   allNodes,
   byClass,
-  cellText,
   injectedClient,
   response,
   settle,
 } from "./universe_ui_dom_test_support.mjs";
-
 test("one-argument mount preserves the local client and DOM shape", async (t) => {
   const originalFetch = globalThis.fetch;
   const fetches = [];
@@ -47,32 +45,40 @@ test("one-argument mount preserves the local client and DOM shape", async (t) =>
   assert.ok(root.classList.contains("universe-app-root"));
   const [topbar, shellNode] = root.children;
   assert.ok(topbar.classList.contains("topbar"));
-  // The header wears the shared frame from shell.css rather than restating
-  // its own height — the drift that made the app's bar and the marketing
-  // site's 32px apart.
+  // Shared shell.css owns the prototype's frame height.
   assert.ok(topbar.classList.contains("yoke-app-header"));
   assert.ok(shellNode.classList.contains("shell"));
-  // With no host chrome in the header, the app names the org itself.
-  const orgContextNodes = byClass(root, "org-context");
-  assert.equal(orgContextNodes.length, 1);
-  assert.equal(orgContextNodes[0].textContent, "Local");
-  assert.ok(orgContextNodes[0].parentNode.classList.contains("context-side"));
+  // Loopback identity is actor-shaped, never the organization.
+  assert.equal(byClass(root, "org-context").length, 0);
+  const actor = byClass(root, "actor-chip")[0];
+  assert.equal(byClass(actor, "actor-name")[0].textContent, "local actor");
+  assert.ok(actor.parentNode.classList.contains("context-side"));
   assert.equal(byClass(root, "capability-actions").length, 0);
   const functionFetches = fetches.filter((entry) => entry.init);
-  assert.ok(functionFetches.length >= 3);
+  assert.ok(functionFetches.length >= 2);
+  assert.ok(functionFetches.every((entry) => (
+    JSON.parse(entry.init.body).function !== "organizations.get"
+  )));
   assert.ok(functionFetches.every(
     (entry) => entry.url === "/api/functions/call",
   ));
+  const projectRosterRequest = functionFetches
+    .map((entry) => JSON.parse(entry.init.body))
+    .find((request) => request.function === "projects.list");
+  assert.deepEqual(projectRosterRequest.payload, {
+    fields: ["id", "slug", "name", "emoji"],
+  });
   const assetFetch = fetches.find((entry) => !entry.init);
   assert.match(assetFetch.url, /\/static\/yoke-wordmark\.svg$/);
   assert.doesNotMatch(assetFetch.url, /\/assets\//);
   assert.equal(documentNode.defaultView.listenerCounts.get("hashchange"), 1);
-
+  assert.equal(documentNode.defaultView.listenerCounts.get("keydown"), 1);
   mounted.unmount();
   mounted.unmount();
   assert.equal(root.children.length, 0);
   assert.ok(!root.classList.contains("universe-app-root"));
   assert.equal(documentNode.defaultView.listenerCounts.get("hashchange"), 0);
+  assert.equal(documentNode.defaultView.listenerCounts.get("keydown"), 0);
 });
 
 test("injected clients, generic actions, slots, and mounts stay isolated", async (t) => {
@@ -141,20 +147,17 @@ test("injected clients, generic actions, slots, and mounts stay isolated", async
   assert.equal(byClass(secondRoot, "capability-actions").length, 0);
   const firstHeader = byClass(firstRoot, "topbar")[0];
   const firstBrand = byClass(firstRoot, "yoke-header-brand")[0];
-  // The mark sits hard left no matter what a host injects beside it — a
-  // host-supplied topbarStart slot must never be able to push the brand
-  // toward center (this was live on stage: the platform's org switcher did
-  // exactly that because the slot rendered before the brand).
+  // Search follows the brand; host chrome follows the flexible spacer.
   assert.equal(firstHeader.children[0], firstBrand);
-  assert.equal(firstHeader.children[1], topbarStartSlot);
+  assert.ok(firstHeader.children[1].classList.contains("header-search"));
+  assert.ok(firstHeader.children[2].classList.contains("header-spacer"));
+  assert.equal(firstHeader.children[3], topbarStartSlot);
   assert.equal(firstHeader.children[firstHeader.children.length - 1],
     topbarEndSlot);
-  // A header the host already stamps with its own org chrome must not name
-  // the org a second time; the slotless mount beside it keeps naming it.
+  // Neither local mount substitutes organization identity for its actor.
   assert.equal(byClass(firstRoot, "org-context").length, 0);
-  const secondOrgContext = byClass(secondRoot, "org-context");
-  assert.equal(secondOrgContext.length, 1);
-  assert.equal(secondOrgContext[0].textContent, "second org");
+  assert.equal(byClass(secondRoot, "org-context").length, 0);
+  assert.equal(byClass(secondRoot, "actor-chip").length, 1);
   const firstNavigation = byClass(firstRoot, "sidenav")[0];
   assert.equal(firstNavigation.children[0], navigationStartSlot);
   assert.equal(
@@ -166,9 +169,12 @@ test("injected clients, generic actions, slots, and mounts stay isolated", async
   ));
   const firstShell = byClass(firstRoot, "shell")[0];
   assert.equal(firstShell.children[0], firstNavigation);
-  assert.equal(firstShell.children[1], contentBeforeSlot);
-  assert.ok(firstShell.children[2].classList.contains("content"));
-  assert.equal(firstShell.children[3], contentAfterSlot);
+  const firstBody = firstShell.children[1];
+  assert.ok(firstBody.classList.contains("workbench-body"));
+  assert.equal(firstBody.children[0], contentBeforeSlot);
+  assert.ok(firstBody.children[1].classList.contains("content"));
+  assert.equal(firstBody.children[2], contentAfterSlot);
+  assert.ok(firstShell.children[2].classList.contains("app-footer"));
   assert.ok(!allNodes(secondRoot).includes(topbarStartSlot));
   assert.ok(firstClient.requests.every(
     (request) => !secondClient.requests.includes(request),
@@ -234,7 +240,7 @@ test("injected clients, generic actions, slots, and mounts stay isolated", async
   assert.ok(secondRoot.classList.contains("universe-app-root"));
 });
 
-test("a host-filled topbarStart suppresses the app's own org context", async (t) => {
+test("header identity follows the host boundary and local actor", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
@@ -263,83 +269,17 @@ test("a host-filled topbarStart suppresses the app's own org context", async (t)
   assert.ok(hostedClient.requests.every(
     (request) => request.function !== "organizations.get",
   ));
-  // Only topbarStart carries host org chrome: any other filled slot leaves
-  // the app naming the org exactly as a slotless mount does.
-  const localOrgContext = byClass(localRoot, "org-context");
-  assert.equal(localOrgContext.length, 1);
-  assert.equal(localOrgContext[0].textContent, "local org");
-  assert.ok(localClient.requests.some(
-    (request) => request.function === "organizations.get",
+  // An unrelated host slot does not replace local actor identity.
+  assert.equal(byClass(localRoot, "org-context").length, 0);
+  assert.equal(
+    byClass(byClass(localRoot, "actor-chip")[0], "actor-name")[0].textContent,
+    "local actor",
+  );
+  assert.ok(localClient.requests.every(
+    (request) => request.function !== "organizations.get",
   ));
 
   hostedMount.unmount();
   localMount.unmount();
   assert.equal(documentNode.defaultView.listenerCounts.get("hashchange"), 0);
-});
-
-test("strategy rows render the prototype corpus facts", async (t) => {
-  const originalFetch = globalThis.fetch;
-  t.after(() => { globalThis.fetch = originalFetch; });
-  globalThis.fetch = () => response(200, {});
-  const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/strategy";
-  const root = documentNode.createElement("div");
-  const requests = [];
-  const client = {
-    async call(request) {
-      requests.push(request);
-      if (request.function === "organizations.get") {
-        return { status: 200, envelope: { success: true, result: { name: "Yoke" } } };
-      }
-      if (request.function === "projects.list") {
-        return { status: 200, envelope: { success: true, result: { rows: [{ id: 1, slug: "yoke", name: "Yoke" }] } } };
-      }
-      if (request.function === "strategy.surface.list") {
-        return {
-          status: 200,
-          envelope: {
-            success: true,
-            result: {
-              docs: [
-                {
-                  slug: "MISSION", title: "Mission statement",
-                  updated_at: "2026-07-01", updated_by: "ben",
-                  parent_slug: null, revisions: 4,
-                  execution_state: "available", archived: false,
-                },
-                {
-                  slug: "VISION", title: "Vision",
-                  updated_at: "2026-06-30", updated_by: null,
-                  parent_slug: "MISSION", revisions: 2,
-                  execution_state: "available", archived: true,
-                },
-              ],
-              writes: [],
-            },
-          },
-        };
-      }
-      throw new Error(`unexpected function ${request.function}`);
-    },
-  };
-
-  const mounted = mountUniverseApp(root, { client });
-  await settle();
-
-  // At the "all" default the docs read fans out per project, and each row
-  // wears the slug of the project bucket that requested it. An unresolved
-  // editor remains empty and the hierarchy is visible in the purpose cell.
-  const cells = allNodes(root)
-    .filter((node) => node.tagName === "TH" || node.tagName === "TD")
-    .map(cellText);
-  assert.deepEqual(cells, [
-    "Doc", "Purpose / ancestry", "Last editor", "Last write",
-    "Revisions", "Execution",
-    "MISSION", "Mission statement", "b", "25d", "4", "available",
-    "VISION", "Vision", "", "26d", "2", "archived",
-  ]);
-  assert.ok(requests.some(
-    (request) => request.function === "strategy.surface.list",
-  ));
-  mounted.unmount();
 });

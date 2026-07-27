@@ -48,6 +48,7 @@ def handle_qa_run_record_verdict(request: FunctionCallRequest) -> HandlerOutcome
     from yoke_core.domain.qa_constants import (
         VALID_VERDICTS,
         case_outcome_for_verdict,
+        is_browser_method_requirement,
     )
 
     target = request.target
@@ -87,12 +88,12 @@ def handle_qa_run_record_verdict(request: FunctionCallRequest) -> HandlerOutcome
         qa_kind = str(row["qa_kind"])
         if (
             executor_type == "agent"
-            and row["method_id"] in {"browser-check", "browser-inspection"}
+            and is_browser_method_requirement(row["method_id"], qa_kind)
         ):
             return _error(
                 "policy_violation",
                 "executor_type 'agent' is not allowed for Browser methods "
-                f"-- use browser_substrate",
+                "-- use browser_substrate",
                 jsonpath="$.payload.executor_type",
             )
 

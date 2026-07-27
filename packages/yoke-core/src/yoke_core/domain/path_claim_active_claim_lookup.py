@@ -18,7 +18,7 @@ single lane, and ``chain_worktrees`` for task-lane workflows.
 for "which worktree branch is this target bound to for this item?".
 Universal lane records are authoritative; single-lane items return their
 one branch, while multi-lane items return the lane whose path is an ancestor
-of the inbound ``target_path``. Legacy projections remain as a fallback.
+of the inbound ``target_path``.
 """
 
 from __future__ import annotations
@@ -30,14 +30,10 @@ from typing import Any, Dict, List, Optional, Tuple
 from yoke_core.domain import db_backend
 from yoke_core.domain.project_checkout_locations import (
     checkout_for_project_id,
-    item_worktree_path,
-    worktree_path_for_branch,
 )
 from yoke_core.domain.path_claim_item_worktree_paths import (
     universal_item_worktree_paths,
 )
-from yoke_core.domain.workflow_behavior import generates_task_graph
-from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 
 
 _NON_TERMINAL_CLAIM_STATES = ("active", "planned", "blocked")
@@ -225,12 +221,12 @@ def _paths_for_item(
         project_id = row["project_id"]
     else:
         project_id = row[0]
-    task_lanes = generates_task_graph(load_item_workflow_runtime(conn, parsed))
     checkout = checkout_for_project_id(_coerce_int(project_id))
     repo_str = str(checkout) if checkout is not None else None
     out: Dict[str, Any] = {
-        "task_lanes": task_lanes,
+        "task_lanes": False,
         "project_repo_path": repo_str,
+        "worktree_branch": None,
         "worktree_path": None,
         "chain_worktrees": (),
     }
@@ -241,50 +237,7 @@ def _paths_for_item(
     )
     if universal:
         out.update(universal)
-        return out
-    if not task_lanes:
-        path = item_worktree_path(conn, parsed)
-        if path is not None:
-            out["worktree_path"] = str(path)
-        return out
-    if project_id:
-        out["chain_worktrees"] = _enumerate_chain_worktrees(
-            conn, parsed, _coerce_int(project_id)
-        )
     return out
-
-
-def _enumerate_chain_worktrees(
-    conn: Any, epic_id: int, project_id: Optional[int]
-) -> Tuple[Tuple[str, str], ...]:
-    """Return ``((branch, absolute_path), ...)`` for an epic's chains.
-
-    Each entry's absolute path is the canonical resolved path so the
-    ancestor check survives symlinked ``.worktrees`` directories.
-    """
-    try:
-        rows = conn.execute(
-            "SELECT worktree FROM epic_dispatch_chains "
-            f"WHERE epic_id = {_p(conn)} ORDER BY id",
-            (epic_id,),
-        ).fetchall()
-    except db_backend.database_error_types(conn):
-        return ()
-    out: List[Tuple[str, str]] = []
-    for row in rows:
-        branch = row[0] if not hasattr(row, "keys") else row["worktree"]
-        branch_str = branch.strip() if isinstance(branch, str) else ""
-        if not branch_str:
-            continue
-        path = worktree_path_for_branch(project_id, branch_str)
-        if path is None:
-            continue
-        try:
-            chain_path = path.resolve()
-        except OSError:
-            continue
-        out.append((branch_str, str(chain_path)))
-    return tuple(out)
 
 
 def _pick_chain_for_target(
@@ -329,10 +282,8 @@ def _resolve_active_worktree(
     if not info:
         return None
     if not info.get("task_lanes", False):
-        wt = info.get("worktree_path")
-        if not wt:
-            return None
-        return Path(wt).name
+        branch = info.get("worktree_branch")
+        return str(branch) if branch else None
     return _pick_chain_for_target(target_path or "", info.get("chain_worktrees", ()))
 
 

@@ -57,7 +57,16 @@ The record is created with `status=pending` (the default). Store `_env_id` for u
 
 #### E2. Trigger the Declared Delivery Model
 
-Branch on the validated policy's `trigger`; no project-slug branch is allowed.
+Resolve the immutable code identity before triggering either delivery model:
+
+```bash
+_expected_browser_branch="${_worktree_branch}"
+_expected_browser_sha=$(git -C "${_worktree_path}" rev-parse HEAD)
+```
+
+The same branch and SHA must identify the deployed build and every Browser
+case invocation later in E4. Branch on the validated policy's `trigger`; no
+project-slug branch is allowed.
 
 For `github-push`:
 
@@ -131,12 +140,16 @@ If Browser method cases exist AND `_ephemeral_url` is not `"none"` and not
 
 This item has Browser method cases that must be executed against the ephemeral environment.
 Ephemeral URL: {_ephemeral_url}
+Expected branch: {_expected_browser_branch}
+Expected HEAD SHA: {_expected_browser_sha}
 
 **Execute each materialized case with the shared case runner**:
 ```
 yoke qa case run \
- --requirement-id <requirement-id> \
- --base-url {_ephemeral_url}
+  --requirement-id <requirement-id> \
+  --base-url "{_ephemeral_url}" \
+  --expected-branch "{_expected_browser_branch}" \
+  --expected-sha "{_expected_browser_sha}"
 ```
 
 The runner validates reachability and freshness, starts the Browser substrate,
@@ -144,7 +157,8 @@ executes only the named case, records the run, and stores its evidence. A
 `browser-check` returns an automatic pass/fail. A `browser-inspection` creates
 a review request after capture and remains unresolved until that request is
 approved, rejected, or the requirement is waived. Do not add a second run
-manually and do not rewrite the materialized case snapshot.
+manually, do not rewrite the materialized case snapshot, and do not omit the
+expected branch or SHA from any case invocation.
 ```
 
 If Browser method cases exist but `_ephemeral_url` is `"none"` or `"pending"`,

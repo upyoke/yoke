@@ -37,7 +37,7 @@ CONTENT_TRACKING_FIELDS = frozenset({
 INTEGER_FIELDS = frozenset({"rework_count", "frozen", "id"})
 
 LABEL_SYNC_FIELDS = frozenset({
-    "status", "priority", "worktree", "source", "owner",
+    "status", "priority", "source", "owner",
 })
 
 

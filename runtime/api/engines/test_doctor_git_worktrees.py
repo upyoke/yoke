@@ -16,6 +16,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from runtime.api.fixtures import pg_testdb
+from runtime.api.fixtures.backlog import insert_item_worktree
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 from yoke_core.engines.doctor import (
     DoctorArgs,
@@ -48,8 +49,13 @@ def _make_conn():
             rework_count INTEGER,
             deployed_to TEXT,
             updated_at TEXT,
-            worktree TEXT,
             deployment_flow TEXT
+        );
+        CREATE TABLE item_worktrees (
+            id INTEGER PRIMARY KEY, item_id INTEGER NOT NULL,
+            branch TEXT NOT NULL, path TEXT, lane_role TEXT NOT NULL,
+            state TEXT NOT NULL DEFAULT 'active', created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL, released_at TEXT
         );
 
         CREATE TABLE epic_tasks (
@@ -59,7 +65,7 @@ def _make_conn():
             status TEXT,
             last_heartbeat TEXT,
             dispatch_attempts INTEGER DEFAULT 0,
-            worktree TEXT,
+            item_worktree_id INTEGER,
             github_issue TEXT,
             PRIMARY KEY (epic_id, task_num)
         );
@@ -172,8 +178,15 @@ class TestHcEpicTaskWorktreeBackfill:
             "VALUES (100, 'Test Epic', 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'implementing')"
         )
         conn.execute(
-            "INSERT INTO epic_tasks (epic_id, task_num, title, status, worktree) "
-            "VALUES (100, 1, 'Task 1', 'pending', 'YOK-100')"
+            "INSERT INTO epic_tasks "
+            "(epic_id, task_num, title, status, item_worktree_id) "
+            "VALUES (100, 1, 'Task 1', 'pending', %s)",
+            (insert_item_worktree(
+                conn,
+                item_id=100,
+                branch="YOK-100",
+                lane_role="worker",
+            )["id"],),
         )
         rec = _run_hc(hc_epic_task_worktree_backfill, conn)
         assert rec.results[0].result == "PASS"

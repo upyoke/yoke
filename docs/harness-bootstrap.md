@@ -134,7 +134,7 @@ These are internal implementation mechanisms. A harness must never invoke these 
 **Examples of raw Python entrypoints (never invoke directly from a harness):**
 
 - Direct item creation through the db-router internals -- use `/yoke idea` instead.
-- Direct item updates through the db-router internals -- use the `items.structured_field.replace` / `items.scalar.update` function ids (see [`.yoke/docs/db-reference/functions.md`](db-reference/functions.md)) or the wrapped operator surface where one exists.
+- Direct item updates through the db-router internals -- use the `items.structured_field.replace` / `items.scalar.update` function ids (see [`.yoke/docs/db-reference/functions.md`](../.yoke/docs/db-reference/functions.md)) or the wrapped operator surface where one exists.
 - `python3 -m yoke_core.cli.db_router query` -- source-dev/operator-debug raw SQL break-glass; everyday diagnostics use `yoke db read`
 - Direct epic db-router operations -- operator/debug adapters for the `workflow_item.epic_task.*` and `workflow_item.epic_progress_note.append` function family.
 - `yoke_core.domain.emit_event` -- internal event emitter module.
@@ -167,7 +167,7 @@ When a harness connects to Yoke, Yoke needs to know certain facts about the sess
 
 | Field | Description | Source |
 |-------|-------------|--------|
-| `supported_paths` | Which downstream Yoke paths this harness can execute | Yoke core derives this server-side from the shared registry plus any limitations in the coarse harness manifest. Surface-specific executors normalize back to the family manifest (`codex-desktop` -> `runtime/harness/codex/manifest.json`, `claude-vscode` -> `runtime/harness/claude-code/manifest.json`). Harness-passed values are ignored for Yoke-owned harnesses. Harnesses without a manifest fall into the backward-compat branch (empty list = all paths supported). |
+| `supported_paths` | Which downstream Yoke paths this harness can execute | Yoke core derives this server-side from the shared registry plus any limitations in the coarse harness manifest. Surface-specific executors normalize back to the family manifest (`codex-desktop` -> `runtime/harness/codex/manifest.json`, `claude-vscode` -> `runtime/harness/claude/manifest.json`). Harness-passed values are ignored for Yoke-owned harnesses. Harnesses without a manifest fall into the backward-compat branch (empty list = all paths supported). |
 | `hook_affordances` | Which hook events the harness supports | Harness capability manifest |
 | `lane` | Execution lane identity (e.g., `DARIUS`) | Harness or operator configuration |
 

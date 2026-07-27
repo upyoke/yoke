@@ -11,6 +11,7 @@ WRAPPED_ROWS: tuple[_Row, ...] = (
     _w("yoke qa plan get", "qa.plan"),
     _w("yoke qa activity list", "qa.activity"),
     _w("yoke qa plan create", "qa.plan"),
+    _w("yoke qa plan edit", "qa.plan"),
     _w("yoke qa plan-cases replace", "qa.plan_cases"),
     _w("yoke qa project-default set", "qa.project_default"),
     _w("yoke qa item-plan attach", "qa.item_plan"),

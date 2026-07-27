@@ -26,7 +26,7 @@ Refine always advances status on successful completion, whether invoked directly
 
 ### Lifecycle transitions
 
-**Idea refinement (issue and epic):**
+**Idea refinement (issue, epic, and Blitz):**
 - `idea` -> `refining-idea` (set at start of work)
 - `refining-idea` -> `refined-idea` (set on successful completion)
 
@@ -40,6 +40,9 @@ If refine fails or is interrupted, the item must NOT auto-advance past its curre
 
 - No worktree required.
 - No code edits or commits.
+- A Blitz must leave Refine with exactly one verified execution strategy
+  document linked through `strategy.execution.link`. Refine links metadata
+  only; `/yoke blitz` owns atomic document-claim acquisition and execution.
 - Artifact writes are work writes: work item/spec/body sections, File Budget, path-claim register/widen/narrow/release, and GitHub issue-body edits are shared coordination state; hold the item claim before mutating them, and treat `who-claims` session ids as identifiers, not authority.
 - Full-field rewrites go through the `items.structured_field.replace`
   function call; additive transforms (preserve existing content, append
@@ -53,9 +56,13 @@ If refine fails or is interrupted, the item must NOT auto-advance past its curre
   for the envelope shape.
 - Both standalone and routed modes advance status on successful completion.
 
-## Entry Backstop
+## QA Preparation
 
-The idempotent non-browser QA requirement backstop is a **claim-requiring** op, so it runs inside step 1b immediately after the work claim is acquired — never before the claim. Running it before the claim fails with `claim_required` (it self-corrects via the recovery hint, but the ordering should not produce the avoidable failure). The recipe lives in step 1b below. `yoke qa requirement auto-create-for-item --help` documents the worked example, outcome vocabulary, and flag matrix.
+Refine does not derive QA requirements from an item's workflow type or Browser
+posture. Project-default and item-attached plans materialize at their declared
+lifecycle transitions. Add an explicit item-specific requirement through
+`qa.requirement.add` only when the refined verification contract calls for
+coverage outside those attached plans.
 
 ## Philosophy
 
@@ -109,10 +116,12 @@ Resolve the repo root and look up the item through the unified DB router.
 
 ```bash
 MAIN_ROOT=$(git rev-parse --show-toplevel)
-ITEM_NUM=$(printf '%s' "{arg}" | sed 's/^[Ss][Uu][Nn]-//; s/^0*//')
-ITEM_WORKFLOW_ID=$(yoke items get "$ITEM_NUM" workflow_id 2>/dev/null) || ITEM_WORKFLOW_ID=""
-ITEM_STATUS=$(yoke items get "$ITEM_NUM" status 2>/dev/null) || ITEM_STATUS=""
-ITEM_TITLE=$(yoke items get "$ITEM_NUM" title 2>/dev/null) || ITEM_TITLE=""
+ITEM_REF="{arg}"
+ITEM_NUM=$(yoke items get "$ITEM_REF" id 2>/dev/null) || ITEM_NUM=""
+ITEM_WORKFLOW_ID=$(yoke items get "$ITEM_REF" workflow_id 2>/dev/null) || ITEM_WORKFLOW_ID=""
+ITEM_STATUS=$(yoke items get "$ITEM_REF" status 2>/dev/null) || ITEM_STATUS=""
+ITEM_TITLE=$(yoke items get "$ITEM_REF" title 2>/dev/null) || ITEM_TITLE=""
+ITEM_PROJECT=$(yoke items get "$ITEM_REF" project 2>/dev/null) || ITEM_PROJECT=""
 ```
 
 If any of those reads come back empty, stop with:
@@ -123,7 +132,7 @@ If any of those reads come back empty, stop with:
 Determine the refinement phase from the registered executor binding and current
 status:
 
-**Idea refinement (issue and epic):**
+**Idea refinement (issue, epic, and Blitz):**
 - If status is `idea`: advance to `refining-idea` before starting work.
 - If status is `refining-idea`: proceed without changing status (re-entry support).
 
@@ -137,13 +146,12 @@ If the item is at any other status, stop with:
 Register the work claim BEFORE the status transition (claim-before-status ordering). The session stamp uses the registered session wrapper. This prevents the scheduler from offering the same item while refine is actively working on it, and ensures the subsequent status mutation passes claim verification:
 
 ```bash
-ITEM_NUM=$(printf '%s' "{arg}" | sed 's/^[Ss][Uu][Nn]-//; s/^0*//')
+# Reuse ITEM_REF and ITEM_NUM from step 1. The items.get dispatcher already
+# resolved prefixed, zero-padded, and project-local bare-number input.
 # Session touch + claim (AC-4)
 yoke sessions touch --mode refine
 yoke claims work acquire \
- --item "YOK-$ITEM_NUM"
-# Entry QA backstop — claim-requiring, so it runs AFTER the work claim above (never before).
-yoke qa requirement auto-create-for-item --item "YOK-$ITEM_NUM"
+ --item "$ITEM_REF"
 ```
 
 For idea refinement, run the internal pre-handoff readiness gate before the
@@ -156,7 +164,7 @@ chain-step contract. The recipe inlined below mirrors the phase doc:
 
 ```bash
 if [ "$ITEM_STATUS" = "idea" ]; then
- _readiness_json=$(yoke readiness check "$ITEM_NUM" 2>/dev/null) || true
+ _readiness_json=$(yoke readiness check "$ITEM_REF" 2>/dev/null) || true
  _advisories=$(printf '%s' "$_readiness_json" | python3 -c "
 import json, sys
 data = json.loads(sys.stdin.read() or '{}')
@@ -173,23 +181,23 @@ print(data.get('classification', 'unrecoverable'))
  case "$_class" in
   pass) ;;
   pure_stale_count)
-   yoke readiness repair-stale-count --item "$ITEM_NUM" || {
-    yoke sessions checkpoint --step 1 --action refine --chainable false --outcome blocked --item-id "YOK-$ITEM_NUM"
+   yoke readiness repair-stale-count --item "$ITEM_REF" || {
+    yoke sessions checkpoint --step 1 --action refine --chainable false --outcome blocked --item-id "$ITEM_REF"
     yoke claims work release \
-     --item "YOK-$ITEM_NUM" --reason "readiness-check-blocked" >/dev/null 2>&1 || true
+     --item "$ITEM_REF" --reason "readiness-check-blocked" >/dev/null 2>&1 || true
     exit 1
    }
    ;;
   mixed_stale_count)
-   yoke readiness repair-claim-coverage --item "$ITEM_NUM" || {
+   yoke readiness repair-claim-coverage --item "$ITEM_REF" || {
     printf 'Recoverable readiness gaps not auto-repaired; continuing into refine for repair:\n%s\n' "$_readiness_json"
    }
    ;;
   unrecoverable)
    printf '%s\n' "$_readiness_json"
-   yoke sessions checkpoint --step 1 --action refine --chainable false --outcome blocked --item-id "YOK-$ITEM_NUM"
+   yoke sessions checkpoint --step 1 --action refine --chainable false --outcome blocked --item-id "$ITEM_REF"
    yoke claims work release \
-    --item "YOK-$ITEM_NUM" --reason "readiness-check-blocked" >/dev/null 2>&1 || true
+    --item "$ITEM_REF" --reason "readiness-check-blocked" >/dev/null 2>&1 || true
    exit 1
    ;;
  esac
@@ -211,20 +219,19 @@ Read all available structured fields. Empty fields are normal; refinement should
 
 ```bash
 MAIN_ROOT=$(git rev-parse --show-toplevel)
-ITEM_NUM=$(printf '%s' "{arg}" | sed 's/^[Ss][Uu][Nn]-//; s/^0*//')
-BODY=$(yoke items get "$ITEM_NUM" body 2>/dev/null) || true
-SPEC=$(yoke items get "$ITEM_NUM" spec 2>/dev/null) || true
-DESIGN_SPEC=$(yoke items get "$ITEM_NUM" design_spec 2>/dev/null) || true
-TECHNICAL_PLAN=$(yoke items get "$ITEM_NUM" technical_plan 2>/dev/null) || true
-WORKTREE_PLAN=$(yoke items get "$ITEM_NUM" worktree_plan 2>/dev/null) || true
-SHEPHERD_CAVEATS=$(yoke items get "$ITEM_NUM" shepherd_caveats 2>/dev/null) || true
+# Reuse ITEM_REF and ITEM_NUM from step 1.
+BODY=$(yoke items get "$ITEM_REF" body 2>/dev/null) || true
+SPEC=$(yoke items get "$ITEM_REF" spec 2>/dev/null) || true
+DESIGN_SPEC=$(yoke items get "$ITEM_REF" design_spec 2>/dev/null) || true
+TECHNICAL_PLAN=$(yoke items get "$ITEM_REF" technical_plan 2>/dev/null) || true
+WORKTREE_PLAN=$(yoke items get "$ITEM_REF" worktree_plan 2>/dev/null) || true
+SHEPHERD_CAVEATS=$(yoke items get "$ITEM_REF" shepherd_caveats 2>/dev/null) || true
 ```
 
 For planned epics, also inspect the current task decomposition:
 
 ```bash
 MAIN_ROOT=$(git rev-parse --show-toplevel)
-ITEM_NUM=$(printf '%s' "{arg}" | sed 's/^[Ss][Uu][Nn]-//; s/^0*//')
 EPIC_TASKS=$(yoke epic-tasks list --epic "$ITEM_NUM" 2>/dev/null) || true
 ```
 
@@ -283,6 +290,9 @@ Carry ALL survey findings into the critique in step 5. Staleness and overlap are
 Pick the field(s) to refine based on the current status and whatever structured content actually exists:
 
 - `idea` / `refining-idea` / `refined-idea` / `defined` / `designed`: focus on `spec` first, then `design_spec` if the item already has UX or flow detail.
+- For a Blitz, also identify the one strategy document that will remain the
+  live execution plan. Apply the document-readiness rubric in
+  `review-rubric.md`; do not treat the item body as the execution document.
 - `planned` / `refining-plan`: focus on `technical_plan`, `worktree_plan`, and for epics also cross-check the stored epic tasks against the written plan.
 - Any status with substantive `shepherd_caveats`: refine `shepherd_caveats` so open questions and deferrals are crisp and actionable.
 - If no structured field exists yet, refine the authoritative fallback (`body`) but keep the resulting content ready to migrate into structured fields later.
@@ -313,9 +323,14 @@ The claim re-check is **blocking**: refine MUST NOT advance the item past `refin
 
 Read [`review-rubric.md`](review-rubric.md) for the full critique dimensions, mandatory checks (approved decisions inventory, user-provided input inventory, staleness/overlap, events forensics, reference verification, blast radius discovery, cleanup coverage, failure/recovery coverage, open-question closure, prompt/file-size awareness, **File Budget readiness**), and artifact-specific evaluation rubrics for body/spec, design spec, technical plan/worktree plan, and shepherd caveats. Emit the structured critique as described there. The File Budget rubric is first-class — implementation-bearing items must not advance to `refined-idea` (issue) or `planned` (epic) with a missing, vague, or unresolved File Budget; see `update-protocol.md`'s **File Budget escalation** for the operator handoff path when refine cannot resolve it.
 
-### 6-12. Apply Improvements, Verify, Advance, Release, Final Output
+### 6-12. Apply Improvements, Verify, Link Blitz Plan, Advance, Release, Final Output
 
 Read [`update-protocol.md`](update-protocol.md) for the full update protocol: applying additive improvements (step 6), verifying writes (step 7), capturing the final summary (step 8), advancing status on success (step 9), releasing the item claim (step 10), final output (step 11), and completion criteria (step 12).
+
+When `ITEM_WORKFLOW_ID=blitz`, read and follow
+[`blitz-execution-document.md`](blitz-execution-document.md) after step 7 and
+before step 9. Refine is not complete until the registered link write has
+been verified through `strategy.execution.get`.
 
 ### Final phase — Path Closure (before status advance)
 

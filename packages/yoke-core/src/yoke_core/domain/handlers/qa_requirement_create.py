@@ -33,6 +33,9 @@ from yoke_core.domain.handlers.qa import _error, _p
 from yoke_core.domain.handlers.qa_requirement_method_validation import (
     validate_method_requirement,
 )
+from yoke_core.domain.handlers.qa_requirement_transition_validation import (
+    validate_workflow_transition,
+)
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     HandlerOutcome,
@@ -44,9 +47,9 @@ _INSERT_SQL = (
     "(item_id, epic_id, task_num, deployment_run_id, qa_kind, qa_phase, "
     "target_env, blocking_mode, requirement_source, success_policy, "
     "capability_requirements, suite_id, method_id, instructions, "
-    "expected_outcome, method_config, created_at) "
+    "expected_outcome, method_config, workflow_transition_id, created_at) "
     "VALUES ({p}, NULL, NULL, NULL, {p}, {p}, {p}, {p}, {p}, {p}, "
-    "{p}, {p}, {p}, {p}, {p}, {p}, {p}) "
+    "{p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}) "
     "RETURNING id"
 )
 
@@ -64,12 +67,12 @@ class QaRequirementAddRequest(BaseModel):
     instructions: Optional[str] = None
     expected_outcome: Optional[str] = None
     method_config: Optional[Dict[str, Any]] = None
+    workflow_transition_id: Optional[str] = None
 
 
 class QaRequirementAddResponse(BaseModel):
     requirement_id: int
     item_id: int
-
 
 def _validate_row(row: Dict[str, Any], jsonpath: str) -> Optional[HandlerOutcome]:
     """Shared add/add-batch row validation. Returns an error outcome or None.
@@ -161,6 +164,7 @@ def _insert_params(item_id: int, row: Dict[str, Any], now_iso: str) -> tuple:
             json.dumps(row["method_config"], sort_keys=True)
             if row.get("method_id") else None
         ),
+        row.get("workflow_transition_id"),
         now_iso,
     )
 
@@ -186,6 +190,11 @@ def handle_qa_requirement_add(request: FunctionCallRequest) -> HandlerOutcome:
     conn = connect()
     try:
         invalid = validate_method_requirement(conn, row, "$.payload")
+        if invalid is not None:
+            return invalid
+        invalid = validate_workflow_transition(
+            conn, item_id=int(item_id), row=row, jsonpath="$.payload",
+        )
         if invalid is not None:
             return invalid
         p = _p(conn)
@@ -225,7 +234,6 @@ class QaRequirementAddBatchRequest(BaseModel):
 class QaRequirementAddBatchResponse(BaseModel):
     requirement_ids: List[int]
     item_id: int
-
 
 def handle_qa_requirement_add_batch(
     request: FunctionCallRequest,
@@ -293,6 +301,15 @@ def handle_qa_requirement_add_batch(
                 if invalid is not None:
                     conn.rollback()
                     return invalid
+                invalid = validate_workflow_transition(
+                    conn,
+                    item_id=int(item_id),
+                    row=row,
+                    jsonpath=f"$.payload.rows[{len(inserted_ids)}]",
+                )
+                if invalid is not None:
+                    conn.rollback()
+                    return invalid
                 cur = conn.execute(
                     _INSERT_SQL.format(p=p),
                     _insert_params(int(item_id), row, now_iso),
@@ -324,7 +341,6 @@ def handle_qa_requirement_add_batch(
         },
         primary_success=True,
     )
-
 
 __all__ = [
     "QaRequirementAddRequest", "QaRequirementAddResponse",

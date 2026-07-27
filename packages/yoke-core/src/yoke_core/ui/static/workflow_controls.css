@@ -1,14 +1,18 @@
 /* Workflow version controls, dialogs, and responsive editor details. */
 
 .universe-app-root .workflow-button {
-  padding: 5px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 13px;
   border: 1px solid var(--yoke-border);
-  border-radius: 7px;
+  border-radius: 8px;
   color: var(--yoke-ink);
   background: var(--yoke-bg);
   font: inherit;
-  font-size: 11.5px;
-  font-weight: 600;
+  font-size: 12.5px;
+  font-weight: 550;
+  transition: .14s;
   cursor: pointer;
 }
 
@@ -17,18 +21,76 @@
 }
 
 .universe-app-root .workflow-button.primary {
-  border-color: var(--yoke-accent);
+  border-color: transparent;
   color: white;
   background: var(--yoke-accent);
 }
 
 .universe-app-root .workflow-button.primary:hover {
-  filter: brightness(0.95);
+  filter: brightness(1.06);
 }
 
 .universe-app-root .workflow-button:disabled {
   opacity: 0.55;
   cursor: default;
+}
+
+.universe-app-root .workflow-button.version-inspect {
+  padding: 4px 8px;
+}
+
+.universe-app-root .workflow-version-timeline {
+  display: grid;
+}
+
+.universe-app-root .workflow-version-row {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  gap: 9px;
+  align-items: start;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--yoke-border);
+}
+
+.universe-app-root .workflow-version-row:last-child {
+  border-bottom: 0;
+}
+
+.universe-app-root .workflow-version-dot {
+  width: 8px;
+  height: 8px;
+  margin: 6px 0 0 5px;
+  border-radius: 50%;
+  background: var(--yoke-muted);
+}
+
+.universe-app-root .workflow-version-dot.current {
+  background: var(--yoke-accent);
+}
+
+.universe-app-root .workflow-version-title {
+  font-size: 12.5px;
+  font-weight: 570;
+}
+
+.universe-app-root .workflow-version-description,
+.universe-app-root .workflow-first-version {
+  color: var(--yoke-muted);
+  font-size: 11.5px;
+}
+
+.universe-app-root .workflow-version-when {
+  color: var(--yoke-muted);
+  font-size: 11px;
+}
+
+.universe-app-root .workflow-version-description {
+  margin-top: 2px;
+}
+
+.universe-app-root .workflow-first-version {
+  margin: 0;
+  padding-top: 9px;
 }
 
 .universe-app-root .workflow-version-inspection {
@@ -78,7 +140,7 @@
 }
 
 .universe-app-root .workflow-dialog {
-  width: min(100%, 500px);
+  width: min(100%, 480px);
   padding: 20px 22px;
   border: 1px solid var(--yoke-border);
   border-radius: 12px;
@@ -86,13 +148,26 @@
   box-shadow: var(--yoke-shadow);
 }
 
-.universe-app-root .workflow-dialog-title {
-  margin: 0;
+.universe-app-root .workflow-dialog-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 3px;
+}
+
+.universe-app-root .workflow-dialog-lock {
+  flex: 0 0 auto;
   font-size: 15px;
 }
 
+.universe-app-root .workflow-dialog-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+}
+
 .universe-app-root .workflow-dialog-subtitle {
-  margin: 4px 0 14px;
+  margin: 0 0 14px;
   color: var(--yoke-muted);
   font-size: 12px;
   line-height: 1.45;
@@ -130,8 +205,12 @@
   flex-wrap: wrap;
 }
 
+.universe-app-root .workflow-dialog-footer.actions-only {
+  justify-content: flex-end;
+}
+
 .universe-app-root .workflow-dialog-impact {
-  min-width: 190px;
+  min-width: 180px;
   flex: 1;
   margin: 0;
   color: var(--yoke-muted);
@@ -149,21 +228,22 @@
   .workflow-tab,
   .workflow-stage,
   .workflow-button,
-  .workflow-home-link
+  .workflow-home-link,
+  .workflow-entry-link
 ):focus-visible {
   outline: 2px solid var(--yoke-accent);
   outline-offset: 2px;
 }
 
-@media (max-width: 860px) {
-  .universe-app-root .workflow-posture-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
 @media (max-width: 560px) {
-  .universe-app-root .workflow-posture-grid {
-    grid-template-columns: 1fr;
+  .universe-app-root .workflow-dialog-backdrop {
+    align-items: flex-start;
+    padding: 16px;
+  }
+
+  .universe-app-root .workflow-dialog {
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
   }
 
   .universe-app-root .workflow-detail-row {
@@ -172,7 +252,7 @@
   }
 
   .universe-app-root .workflow-version-row {
-    grid-template-columns: 12px minmax(0, 1fr);
+    grid-template-columns: 18px minmax(0, 1fr);
   }
 
   .universe-app-root .workflow-version-row > :nth-child(n + 3) {

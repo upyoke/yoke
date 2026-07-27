@@ -30,8 +30,9 @@ _GATE_CATALOG: Tuple[Dict[str, Any], ...] = (
         "id": GATE_DB_CLAIM_PROSE,
         "name": "DB claim consistency",
         "description": (
-            "The item's declared DB claim must agree with the database work "
-            "described by the item."
+            "The item's declared DB claim must agree with what its own text "
+            "describes — prose about migrations alongside a claim of none "
+            "is refused."
         ),
         "source_kind": "status_gate",
         "availability": "live",
@@ -41,8 +42,10 @@ _GATE_CATALOG: Tuple[Dict[str, Any], ...] = (
         "id": GATE_DB_MUTATION,
         "name": "Governed DB mutation",
         "description": (
-            "A governed database change must satisfy the policy check for "
-            "this lifecycle point."
+            "A declared governed mutation must satisfy this point's check — "
+            "joint: the strategy fits the project's breakage policy with no "
+            "cross-item overlap; evidence: the authoritative apply evidence "
+            "exists; polish: migration closeout is complete."
         ),
         "source_kind": "status_gate",
         "availability": "live",
@@ -71,8 +74,9 @@ _GATE_CATALOG: Tuple[Dict[str, Any], ...] = (
         "id": GATE_ARCHITECTURE_IMPACT,
         "name": "Architecture impact",
         "description": (
-            "The declared architecture impact must honor the project's "
-            "authoritative architecture model."
+            "The item's declared architecture impact must honor the project's "
+            "authoritative architecture model (the per-project "
+            "architecture_model Project Structure family)."
         ),
         "source_kind": "status_gate",
         "availability": "live",
@@ -82,7 +86,8 @@ _GATE_CATALOG: Tuple[Dict[str, Any], ...] = (
         "id": GATE_PATH_CLAIM_BOUNDARY,
         "name": "Path-claim boundary",
         "description": (
-            "Changed files must stay inside the item's registered path claims."
+            "The item's changed files must stay inside its registered path "
+            "claims."
         ),
         "source_kind": "status_gate",
         "availability": "live",
@@ -92,7 +97,8 @@ _GATE_CATALOG: Tuple[Dict[str, Any], ...] = (
         "id": GATE_PLAN_SIMULATION,
         "name": "Plan simulation",
         "description": (
-            "The plan must pass the simulator's cross-task execution trace."
+            "The epic's plan must pass the simulator's cross-task execution "
+            "trace."
         ),
         "source_kind": "status_gate",
         "availability": "live",
@@ -102,8 +108,8 @@ _GATE_CATALOG: Tuple[Dict[str, Any], ...] = (
         "id": GATE_QA_VERIFICATION,
         "name": "QA requirements",
         "description": (
-            "Every QA requirement for the transition must pass or be "
-            "explicitly waived."
+            "Every QA requirement materialized for this transition must be "
+            "satisfied — passed or explicitly waived."
         ),
         "source_kind": "status_gate",
         "availability": "live",
@@ -113,7 +119,8 @@ _GATE_CATALOG: Tuple[Dict[str, Any], ...] = (
         "id": GATE_CHECK_HARD_BLOCKS,
         "name": "Dependency hard blocks",
         "description": (
-            "Every upstream item dependency must be finished before activation."
+            "Every upstream item this one depends on must be finished before "
+            "activation."
         ),
         "source_kind": "activation_operation",
         "availability": "live",
@@ -123,8 +130,8 @@ _GATE_CATALOG: Tuple[Dict[str, Any], ...] = (
         "id": GATE_CLAIM_ACTIVATION,
         "name": "Claim activation",
         "description": (
-            "Registered path claims activate with the worktree and conflicts "
-            "refuse activation."
+            "Registered path claims activate together with the worktree; a "
+            "conflicting live claim refuses activation."
         ),
         "source_kind": "activation_operation",
         "availability": "live",
@@ -138,51 +145,53 @@ _GATE_CATALOG: Tuple[Dict[str, Any], ...] = (
             "worktree."
         ),
         "source_kind": "activation_operation",
-        "availability": "registry",
+        "availability": "live",
         "modes": [],
     },
     {
         "id": GATE_DOC_CLAIM_ACTIVATION,
         "name": "Execution-document claim",
         "description": (
-            "The item atomically claims its execution document and refuses "
-            "activation when another item owns it."
+            "The Blitz atomically claims its single execution document; an "
+            "already-owned document refuses activation."
         ),
         "source_kind": "activation_operation",
-        "availability": "registry",
+        "availability": "live",
         "modes": [],
     },
     {
         "id": GATE_CONFLICT_SURVEY,
         "name": "Conflict survey",
         "description": (
-            "The executor surveys claims, worktrees, and frontier items and "
-            "aborts on a detected conflict."
+            "The agent reads claims, worktrees, and frontier items and aborts "
+            "on any detected conflict."
         ),
         "source_kind": "status_gate",
-        "availability": "planned",
+        "availability": "live",
         "modes": [],
     },
     {
         "id": GATE_DOC_COMPLETION,
         "name": "Document completion",
         "description": (
-            "The execution document must record outcome, remaining work, "
-            "evidence, and parent reconciliation."
+            "The strategy document must record what was completed, what "
+            "changed, what remains, the evidence, and the parent "
+            "reconciliation."
         ),
         "source_kind": "status_gate",
-        "availability": "planned",
+        "availability": "live",
         "modes": [],
     },
     {
         "id": GATE_DASH_EVIDENCE,
         "name": "Result evidence",
         "description": (
-            "The result, verification evidence, and every item-declared check "
-            "must be recorded."
+            "The result and verification evidence must be recorded on the "
+            "item, plus every check the item's knobs declared — an attached "
+            "plan passed, an approval resolved."
         ),
         "source_kind": "status_gate",
-        "availability": "planned",
+        "availability": "live",
         "modes": [],
     },
     {
@@ -192,7 +201,7 @@ _GATE_CATALOG: Tuple[Dict[str, Any], ...] = (
             "The approval request declared for this transition must be resolved."
         ),
         "source_kind": "status_gate",
-        "availability": "planned",
+        "availability": "live",
         "modes": [],
     },
 )

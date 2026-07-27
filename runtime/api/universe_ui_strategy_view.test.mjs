@@ -11,6 +11,7 @@ import {
 import {
   FakeDocument,
   allNodes,
+  byClass,
   settle,
 } from "./universe_ui_dom_test_support.mjs";
 
@@ -28,12 +29,26 @@ function context(documentNode, client) {
 }
 
 function strategyDocument() {
+  const now = Date.now();
   return {
     slug: "WORKFLOW-TYPES",
-    content: "# Purpose\n\nExecute the plan.\n\n## Decisions\n\n- Keep one authority.",
+    content: [
+      "# WORKFLOW-TYPES",
+      "",
+      "## Purpose",
+      "",
+      "Execute **the plan** with `yoke`.",
+      "",
+      "1. Render",
+      "2. Review",
+      "",
+      "## Decisions",
+      "",
+      "- Keep one authority.",
+    ].join("\n"),
     updated_at: "2026-07-26T12:00:00Z",
     updated_by: "ben",
-    bytes: 84,
+    bytes: 31 * 1024,
     parent_slug: "MASTER-PLAN",
     references: ["MASTER-PLAN"],
     current_revision: 2,
@@ -42,21 +57,29 @@ function strategyDocument() {
     execution_claim: {
       owning_item_id: 2001,
       item_ref: "YOK-2001",
+      workflow_id: "blitz",
+      workflow_version_id: 1,
     },
     revisions: [
       {
         revision: 2,
         source_operation: "ingest",
-        byte_length: 84,
+        operation_label: "ingested",
+        change_summary: "Full implementation plan ingested",
+        byte_length: 31 * 1024,
+        line_count: 398,
         content_sha256: "d0fdad55aa",
-        created_at: "2026-07-26T12:00:00Z",
+        created_at: new Date(now - 12 * 60 * 1000).toISOString(),
       },
       {
         revision: 1,
         source_operation: "create",
+        operation_label: "created",
+        change_summary: "Initial title only",
         byte_length: 16,
+        line_count: 1,
         content_sha256: "4dece4a3bb",
-        created_at: "2026-07-26T11:00:00Z",
+        created_at: new Date(now - 23 * 60 * 1000).toISOString(),
       },
     ],
   };
@@ -106,10 +129,23 @@ test("Strategy corpus matches the prototype hierarchy with real read facts", asy
   assert.match(rendered, /claimed · YOK-2001/);
   assert.match(rendered, /Writes\s+last 120 days/);
   assert.match(rendered, /Strategy-doc writes 1 this week/);
+  const spark = byClass(main, "strategy-spark")[0];
+  assert.equal(spark.tagName, "SVG");
+  assert.equal(spark.attributes.get("viewBox"), "0 0 240 34");
+  assert.ok(allNodes(spark).some((node) => node.tagName === "POLYGON"));
+  assert.ok(allNodes(spark).some((node) => node.tagName === "POLYLINE"));
   assert.equal(requests[0].function, "strategy.surface.list");
   assert.deepEqual(requests[0].target, {
     kind: "global", project_id: "1",
   });
+  const row = byClass(main, "strategy-corpus-row")[0];
+  assert.equal(row.attributes.get("role"), "link");
+  row.dispatchEvent(new Event("click"));
+  assert.equal(
+    documentNode.defaultView.location.hash,
+    "#/strategy/WORKFLOW-TYPES?project=1",
+  );
+  assert.ok(allNodes(main).some((node) => node.tagName === "TIME"));
 });
 
 test("Strategy detail exposes document, history, diff, restore, and review", async () => {
@@ -152,8 +188,28 @@ test("Strategy detail exposes document, history, diff, restore, and review", asy
   assert.match(rendered, /State & actions/);
   assert.match(rendered, /Approve revision 2/);
   assert.match(rendered, /Author through a harness/);
+  assert.match(rendered, /item-owned\s+·\s+YOK-2001/);
+  assert.match(rendered, /Blitz v1/);
   assert.match(rendered, /Purpose/);
   assert.doesNotMatch(rendered, /<h1>/);
+  const documentBody = byClass(main, "strategy-document")[0];
+  assert.equal(
+    allNodes(documentBody).some(
+      (node) => ["H2", "H3"].includes(node.tagName)
+        && node.children.some((child) => child.textContent === "WORKFLOW-TYPES"),
+    ),
+    false,
+  );
+  assert.ok(allNodes(documentBody).some((node) => node.tagName === "STRONG"));
+  assert.ok(allNodes(documentBody).some((node) => node.tagName === "CODE"));
+  assert.ok(allNodes(documentBody).some((node) => node.tagName === "OL"));
+  assert.match(rendered, /revision 2/);
+  assert.ok(allNodes(main).some(
+    (node) => node.attributes.get("data-state") === "pending",
+  ));
+  assert.ok(allNodes(main).some(
+    (node) => node.attributes.get("data-state") === "item-owned",
+  ));
 
   const history = allNodes(main).find(
     (node) => node.tagName === "BUTTON" && node.textContent === "History",
@@ -161,7 +217,18 @@ test("Strategy detail exposes document, history, diff, restore, and review", asy
   history.dispatchEvent(new Event("click"));
   rendered = text(main);
   assert.match(rendered, /Revision history/);
+  assert.match(rendered, /Revision 2 · current/);
+  assert.match(
+    rendered,
+    /Full implementation plan ingested · 31 KB\s+·\s+d0fdad55…/,
+  );
+  assert.match(rendered, /Revision 1 · created/);
+  assert.match(rendered, /Initial title only · 16 B\s+·\s+4dece4a3…/);
+  assert.match(rendered, /12m/);
+  assert.match(rendered, /23m/);
   assert.match(rendered, /Restore creates revision 3/);
+  assert.match(rendered, /\+397 lines/);
+  assert.ok(allNodes(main).some((node) => node.tagName === "TIME"));
 
   const viewDiff = allNodes(main).find(
     (node) => node.tagName === "BUTTON" && node.textContent === "View diff",
@@ -169,6 +236,7 @@ test("Strategy detail exposes document, history, diff, restore, and review", asy
   viewDiff.dispatchEvent(new Event("click"));
   await settle();
   assert.match(text(main), /\+Keep one authority/);
+  assert.match(text(main), /\+1 \/ −0 lines/);
   const diffRequest = requests.find(
     (request) => request.function === "strategy.revision.diff",
   );
@@ -233,6 +301,11 @@ test("Blitz detail is a thin system-fact shell around the live document", async 
         branch: "codex/registry-schema",
         state: "active",
       },
+      {
+        lane_role: "worker",
+        branch: "codex/qa-types",
+        state: "committed",
+      },
     ],
     qa_requirements: [],
     narrative: { body: "THIS PLAN BODY MUST NOT BE COPIED" },
@@ -248,7 +321,8 @@ test("Blitz detail is a thin system-fact shell around the live document", async 
   assert.match(rendered, /codex\/registry-schema/);
   assert.match(rendered, /Path claims none · workflow default/);
   assert.match(rendered, /Child items none/);
-  assert.match(rendered, /Parallelism 2 lanes/);
+  assert.match(rendered, /codex\/qa-types\s+slice committed/);
+  assert.match(rendered, /Parallelism 3 lanes/);
   assert.match(rendered, /Migrations governed/);
   assert.match(rendered, /\/yoke blitz YOK-2001/);
   assert.doesNotMatch(rendered, /THIS PLAN BODY MUST NOT BE COPIED/);

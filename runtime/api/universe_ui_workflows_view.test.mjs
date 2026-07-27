@@ -9,7 +9,6 @@ import {
 import {
   classText,
   mountWorkflows,
-  okEnvelope,
   panelTitles,
   workflowFixture,
   workflowsClient,
@@ -31,13 +30,18 @@ test("Workflows renders the registry as the lifecycle experience", async (t) => 
   );
   assert.deepEqual(classText(root, "workflow-tab"), ["Rally"]);
   assert.deepEqual(classText(root, "workflow-stage-label"), [
-    "draft", "prove", "ship",
+    "Drafted", "Proving", "Shipped",
   ]);
+  assert.deepEqual(classText(root, "workflow-stage-detail-label"), ["Drafted"]);
+  assert.equal(byClass(root, "workflow-stage-guide").length, 0);
   assert.deepEqual(classText(root, "workflow-stage-count"), [
     "entry", "1 check",
   ]);
   assert.deepEqual(classText(root, "workflow-detail-row-title"), [
     "CLI", "Harness", "Executor", "Testing", "Approvals", "Delivery",
+  ]);
+  assert.deepEqual(classText(root, "workflow-home-link"), [
+    "QA →", "Inbox →", "Delivery →",
   ]);
   assert.deepEqual(classText(root, "workflow-posture-value"), [
     "one active item claim",
@@ -48,6 +52,10 @@ test("Workflows renders the registry as the lifecycle experience", async (t) => 
   ]);
   assert.deepEqual(classText(root, "workflow-version-title"), [
     "v3 · current", "v1",
+  ]);
+  assert.deepEqual(classText(root, "workflow-version-description"), [
+    "edited here",
+    "Readable and eligible to become current again.",
   ]);
 
   assert.equal(
@@ -88,8 +96,51 @@ test("Dash entry surfaces use the prototype filing copy", async (t) => {
   assert.deepEqual(classText(root, "workflow-entry-note"), [
     "agent authors title and files for you",
   ]);
+  assert.equal(
+    byClass(root, "workflow-entry-note")[0].classList.contains("block"),
+    true,
+  );
   const newItemLink = byClass(root, "workflow-entry-link")[0];
   assert.equal(newItemLink.href, "#/items/new");
+  assert.equal(
+    newItemLink.parentNode.classList.contains("workflow-detail-row"),
+    true,
+  );
+  mounted.unmount();
+});
+
+test("workflows open on the definition's first stage", async (t) => {
+  const dash = workflowFixture({
+    id: "dash",
+    name: "Dash",
+    currentVersion: 1,
+    stages: [
+      { id: "idea", label: "Idea", gates: [] },
+      {
+        id: "implementing",
+        label: "Implementing",
+        gates: [{ id: "evidence_check" }],
+      },
+      { id: "done", label: "Done", gates: [] },
+    ],
+  });
+  const { root, mounted } = await mountWorkflows(
+    t, workflowsClient([dash]),
+  );
+
+  assert.deepEqual(
+    classText(root, "workflow-stage-detail-label"),
+    ["idea"],
+  );
+  assert.equal(
+    byClass(root, "workflow-stage")[0].attributes.get("aria-pressed"),
+    "true",
+  );
+  byClass(root, "workflow-stage")[1].dispatchEvent(new Event("click"));
+  assert.deepEqual(
+    classText(root, "workflow-stage-detail-label"),
+    ["implementing"],
+  );
   mounted.unmount();
 });
 
@@ -102,6 +153,7 @@ test("selecting a stage opens its served description and gate cards", async (t) 
     classText(root, "workflow-stage-description"),
     ["Collect the declared proof."],
   );
+  assert.deepEqual(classText(root, "workflow-stage-detail-label"), ["Proving"]);
   assert.deepEqual(classText(root, "workflow-detail-row-title").slice(0, 1), [
     "Evidence check — strict",
   ]);
@@ -115,160 +167,120 @@ test("selecting a stage opens its served description and gate cards", async (t) 
   mounted.unmount();
 });
 
-test("workflow tabs use the decided built-in order and open Dash first", async (t) => {
+test("disabled workflows remain selectable and render their registry state", async (t) => {
   const workflows = [
-    workflowFixture({ id: "epic", name: "Epic", currentVersion: 1 }),
-    workflowFixture({ id: "issue", name: "Issue", currentVersion: 1 }),
-    workflowFixture({ id: "blitz", name: "Blitz", currentVersion: 1 }),
     workflowFixture({
       id: "dash",
       name: "Dash",
-      description: "A short instruction you file in seconds — filing is the spec; an agent executes it end-to-end.",
       currentVersion: 1,
+      status: "active",
     }),
-    workflowFixture({ id: "rally", name: "Rally", currentVersion: 1 }),
+    workflowFixture({
+      id: "rally",
+      name: "Rally",
+      currentVersion: 3,
+      status: "disabled",
+    }),
   ];
-  const { root, mounted } = await mountWorkflows(
+  const { documentNode, root, mounted } = await mountWorkflows(
     t, workflowsClient(workflows),
   );
 
-  assert.deepEqual(classText(root, "workflow-tab"), [
-    "Dash", "Blitz", "Issue", "Epic", "Rally",
-  ]);
-  assert.equal(byClass(root, "workflow-tab")[0].attributes.get("aria-selected"), "true");
-  assert.deepEqual(classText(root, "workflow-intro"), [
-    "A short instruction you file in seconds — filing is the spec; an agent executes it end-to-end.",
-  ]);
+  assert.deepEqual(classText(root, "workflow-tab"), ["Dash", "Rally"]);
+  assert.deepEqual(classText(root, "workflow-tab-status"), ["disabled"]);
+  assert.equal(
+    byClass(root, "workflow-tab")[1].classList.contains("disabled"),
+    true,
+  );
+  assert.equal(
+    byClass(root, "workflow-tab")[1].attributes.get("aria-label"),
+    "Rally workflow · disabled",
+  );
 
-  byClass(root, "workflow-tab")[2].dispatchEvent(new Event("click"));
-  assert.equal(byClass(root, "workflow-tab")[2].attributes.get("aria-selected"), "true");
-  assert.deepEqual(classText(root, "workflow-intro"), [
-    "Coordinate a small release train.",
-  ]);
+  byClass(root, "workflow-tab")[1].dispatchEvent(new Event("click"));
+  documentNode.defaultView.dispatchEvent(new Event("hashchange"));
+  await settle();
+  assert.equal(
+    byClass(root, "workflow-tab")[1].attributes.get("aria-selected"),
+    "true",
+  );
+  assert.deepEqual(classText(root, "workflow-status"), ["disabled"]);
+  assert.deepEqual(classText(root, "workflow-version"), ["current · v3"]);
   mounted.unmount();
 });
 
-test("version inspection reads the immutable definition and can select it", async (t) => {
-  const client = workflowsClient();
-  const { root, mounted } = await mountWorkflows(t, client);
-  allNodes(root).find(
-    (node) => node.tagName === "BUTTON" && node.textContent === "Inspect",
-  ).dispatchEvent(new Event("click"));
-  await settle();
-  assert.deepEqual(classText(root, "workflow-version-digest"), [
-    "rally-first",
-  ]);
-  assert.deepEqual(
-    client.requests.find(
-      (request) => request.function === "workflows.version.get",
-    ),
-    {
-      function: "workflows.version.get",
-      payload: { workflow_id: "rally", version: 1 },
-    },
+test("approval summaries use display labels while registry ids stay internal", async (t) => {
+  const workflow = workflowFixture();
+  workflow.definition.policies.approval_defaults = {
+    prove: { roles: ["owner"], actors: [] },
+  };
+  const { root, mounted } = await mountWorkflows(
+    t, workflowsClient([workflow]),
   );
 
-  allNodes(root).find(
-    (node) => node.tagName === "BUTTON" && node.textContent === "Make current",
-  ).dispatchEvent(new Event("click"));
-  assert.deepEqual(classText(root, "workflow-dialog-title"), [
-    "Make Rally v1 current?",
-  ]);
-  byClass(root, "primary")[0].dispatchEvent(new Event("click"));
-  await settle();
-  assert.deepEqual(
-    client.requests.find(
-      (request) => request.function === "workflows.current.set",
-    ),
-    {
-      function: "workflows.current.set",
-      payload: {
-        workflow_id: "rally",
-        version: 1,
-        expected_current_version: 3,
+  const descriptions = classText(root, "workflow-detail-row-description");
+  assert.ok(descriptions.includes("Proving → project owner"));
+  assert.equal(descriptions.includes("prove → project owner"), false);
+  mounted.unmount();
+});
+
+test("Blitz mechanics link back to Strategy with the prototype executor copy", async (t) => {
+  const blitz = workflowFixture({
+    id: "blitz",
+    name: "Blitz",
+    currentVersion: 1,
+    executorBindings: [
+      {
+        executor_id: "refine",
+        from_stage_id: "draft",
+        through_stage_id: "prove",
       },
-    },
+      {
+        executor_id: "blitz",
+        from_stage_id: "prove",
+        through_stage_id: "ship",
+      },
+    ],
+  });
+  const { root, mounted } = await mountWorkflows(
+    t, workflowsClient([blitz]),
   );
-  assert.deepEqual(classText(root, "workflow-version-title"), [
-    "v3", "v1 · current",
-  ]);
+
+  assert.ok(classText(root, "workflow-detail-row-description").includes(
+    "Run /yoke refine then /yoke blitz in a supported harness like Claude " +
+    "Code or Codex — blitz executes the linked document directly, in " +
+    "continuous slices; nothing is copied.",
+  ));
+  assert.equal(
+    byClass(root, "workflow-home-link").find(
+      (node) => node.textContent === "Strategy →",
+    )?.href,
+    "#/strategy",
+  );
   mounted.unmount();
 });
 
-test("the editable path-claims default publishes a new immutable version", async (t) => {
+test("built-in executor copy follows the served binding signature", async (t) => {
   const dash = workflowFixture({
     id: "dash",
     name: "Dash",
     currentVersion: 1,
-    policies: {
-      ownership: "exclusive_session_work_claim",
-      path_claims: "optional",
-      worktrees: "single_implementation_lane",
-      parallelism: "none",
-      generated_children: "none",
-      qa: "optional_item_attachment",
-      approvals: "none",
-      delivery: "after_merge_action",
-      item_posture_allowlist: [
-        "verification", "path_claims", "approval_on_done", "deployment",
-      ],
-    },
+    executorBindings: [{
+      executor_id: "alternate",
+      from_stage_id: "draft",
+      through_stage_id: "ship",
+    }],
   });
-  const client = workflowsClient([dash]);
-  const { root, mounted } = await mountWorkflows(t, client);
-
-  const turnOn = allNodes(root).find(
-    (node) => node.tagName === "BUTTON" && node.textContent === "Turn on",
+  const { root, mounted } = await mountWorkflows(
+    t, workflowsClient([dash]),
   );
-  assert.ok(turnOn);
-  turnOn.dispatchEvent(new Event("click"));
-  assert.deepEqual(classText(root, "workflow-dialog-title"), [
-    "Turn on path claims",
-  ]);
-  assert.ok(classText(root, "workflow-dialog-impact")[0].includes(
-    "Publishing creates Dash v2",
+
+  const descriptions = classText(root, "workflow-detail-row-description");
+  assert.ok(descriptions.includes(
+    "Run /yoke alternate in a supported harness.",
   ));
-  byClass(root, "primary")[0].dispatchEvent(new Event("click"));
-  await settle();
-
-  assert.deepEqual(
-    client.requests.find(
-      (request) => request.function === "workflows.policy_defaults.publish",
-    ),
-    {
-      function: "workflows.policy_defaults.publish",
-      payload: {
-        workflow_id: "dash",
-        expected_current_version: 1,
-        path_claims_default: true,
-      },
-    },
-  );
-  assert.ok(classText(root, "workflow-posture-value").includes("on by default"));
-  assert.deepEqual(classText(root, "workflow-version-title"), [
-    "v2 · current", "v1",
-  ]);
-  mounted.unmount();
-});
-
-test("a failed registry read renders one honest screen failure", async (t) => {
-  const client = {
-    async call(request) {
-      if (request.function === "organizations.get") {
-        return okEnvelope({ name: "Yoke" });
-      }
-      if (request.function === "projects.list") {
-        return okEnvelope({ rows: [{ id: 1, slug: "yoke", name: "Yoke" }] });
-      }
-      return {
-        status: 500,
-        envelope: { success: false, error: { message: "definition read broke" } },
-      };
-    },
-  };
-  const { root, mounted } = await mountWorkflows(t, client);
-  const errors = byClass(root, "error");
-  assert.equal(errors.length, 1);
-  assert.ok(errors[0].textContent.includes("definition read broke"));
+  assert.equal(descriptions.some((copy) => copy.includes(
+    "it runs the whole item: survey, worktree, execute, verify, merge, evidence",
+  )), false);
   mounted.unmount();
 });

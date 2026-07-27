@@ -98,21 +98,21 @@ def _pre_merge_commit(repo_root: Path) -> None:
 
 def _do_merge(
     item_id: int,
-    worktree_field: str,
+    lane_branch: str,
     base_branch: str,
     task_parent_ref: str,
     project_repo: Path,
 ) -> Tuple[int, str, bool]:
     """Execute merge-worktree. Returns (exit_code, output, merge_ran)."""
     # Resolve actual branch from worktree directory
-    actual_branch = worktree_field
+    actual_branch = lane_branch
     wt_dir = project_repo / ".worktrees" / f"YOK-{item_id}"
     if wt_dir.is_dir():
         br = _parent()._run_git(["-C", str(wt_dir), "branch", "--show-current"], capture=True)
         actual = (br.stdout or "").strip()
-        if actual and actual != worktree_field:
+        if actual and actual != lane_branch:
             print(f"Warning: branch mismatch for YOK-{item_id}", file=sys.stderr)
-            print(f"  Stored:  {worktree_field}", file=sys.stderr)
+            print(f"  Stored:  {lane_branch}", file=sys.stderr)
             print(f"  Actual:  {actual}", file=sys.stderr)
             print("  Using actual branch for merge.", file=sys.stderr)
             actual_branch = actual

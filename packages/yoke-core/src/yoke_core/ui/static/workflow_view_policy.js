@@ -6,8 +6,25 @@ import {
 } from "./workflow_mechanics_data.js";
 import {
   readablePolicyValue,
+  setWorkflowInlineContent,
+  stageDisplayLabel,
   workflowPanel,
 } from "./workflow_view_primitives.js";
+
+const MECHANIC_DESTINATION_LABELS = {
+  qa: "QA",
+  inbox: "Inbox",
+  delivery: "Delivery",
+  strategy: "Strategy",
+};
+
+function testingMechanicSummary(mechanics, workflow) {
+  return testingSummary(mechanics, workflow);
+}
+
+function deliveryMechanicSummary(mechanics, workflow) {
+  return deliverySummary(mechanics, workflow);
+}
 
 function postureRows(workflow) {
   const policies = workflow.definition?.policies || {};
@@ -36,16 +53,17 @@ function postureCell(documentNode, label, value, edit = null) {
     "div",
     `workflow-posture-cell${edit ? " editable" : ""}`,
   );
+  const copy = el(documentNode, "div", "workflow-posture-copy");
   const heading = el(documentNode, "div", "workflow-posture-label");
   if (!edit) {
     heading.appendChild(el(documentNode, "span", "workflow-lock", "🔒"));
   }
   heading.appendChild(el(documentNode, "span", null, label));
-  cell.appendChild(heading);
-  const valueRow = el(documentNode, "div", "workflow-posture-value-row");
-  valueRow.appendChild(el(
+  copy.appendChild(heading);
+  copy.appendChild(el(
     documentNode, "div", "workflow-posture-value", value,
   ));
+  cell.appendChild(copy);
   if (edit) {
     const control = el(
       documentNode, "button", "workflow-button compact",
@@ -53,9 +71,8 @@ function postureCell(documentNode, label, value, edit = null) {
     );
     control.type = "button";
     control.addEventListener("click", edit.action);
-    valueRow.appendChild(control);
+    cell.appendChild(control);
   }
-  cell.appendChild(valueRow);
   return cell;
 }
 
@@ -73,7 +90,9 @@ export function renderPosture(documentNode, workflow, actions = {}) {
       label,
       pathClaimsEditable
         ? `${pathClaimsOn ? "on" : "off"} by default`
-        : readablePolicyValue(policy, value),
+        : workflow.id === "dash" && policy === "worktrees"
+          ? "one"
+          : readablePolicyValue(policy, value),
       pathClaimsEditable && actions.editPathClaims
         ? {
           label: pathClaimsOn ? "Turn off" : "Turn on",
@@ -91,12 +110,64 @@ export function renderPosture(documentNode, workflow, actions = {}) {
   return panel;
 }
 
-function executorSummary(definition) {
+const EXECUTOR_SUMMARIES_BY_BINDING = {
+  "dash:dash": [
+    "Run ",
+    { kind: "code", text: "/yoke dash" },
+    " in a supported harness like Claude Code or Codex — it runs the whole " +
+      "item: survey, worktree, execute, verify, merge, evidence.",
+  ],
+  "blitz:refine>blitz": [
+    "Run ",
+    { kind: "code", text: "/yoke refine" },
+    " then ",
+    { kind: "code", text: "/yoke blitz" },
+    " in a supported harness like Claude Code or Codex — blitz executes the " +
+      "linked document directly, in continuous slices; nothing is copied.",
+  ],
+  "issue:refine>advance>polish>usher": [
+    "Run ",
+    { kind: "code", text: "/yoke refine" },
+    ", ",
+    { kind: "code", text: "advance" },
+    ", ",
+    { kind: "code", text: "polish" },
+    ", ",
+    { kind: "code", text: "usher" },
+    " in a supported harness like Claude Code or Codex.",
+  ],
+  "epic:refine>shepherd>refine>conduct>polish>usher": [
+    "Run ",
+    { kind: "code", text: "/yoke refine" },
+    ", ",
+    { kind: "code", text: "shepherd" },
+    ", ",
+    { kind: "code", text: "conduct" },
+    ", ",
+    { kind: "code", text: "polish" },
+    ", ",
+    { kind: "code", text: "usher" },
+    " in a supported harness like Claude Code or Codex.",
+  ],
+};
+
+function executorSummary(workflow) {
+  const definition = workflow.definition || {};
   const executors = (definition.executor_bindings || [])
     .map((binding) => binding.executor_id);
   if (!executors.length) return "No registered executor.";
-  return `Run ${executors.map((value) => `/yoke ${value}`).join(" → ")} ` +
-    "in a supported harness.";
+  const servedBindingKey = `${workflow.id}:${executors.join(">")}`;
+  if (EXECUTOR_SUMMARIES_BY_BINDING[servedBindingKey]) {
+    return EXECUTOR_SUMMARIES_BY_BINDING[servedBindingKey];
+  }
+  return [
+    "Run ",
+    ...executors.flatMap((value, index) => [
+      ...(index ? [" → "] : []),
+      { kind: "code", text: `/yoke ${value}` },
+    ]),
+    " in a supported harness.",
+  ];
 }
 
 function mechanicRow(
@@ -107,15 +178,17 @@ function mechanicRow(
   content.appendChild(el(
     documentNode, "div", "workflow-detail-row-title", title,
   ));
-  content.appendChild(el(
-    documentNode,
-    "div",
-    "workflow-detail-row-description",
-    description,
-  ));
+  const descriptionNode = el(
+    documentNode, "div", "workflow-detail-row-description",
+  );
+  setWorkflowInlineContent(documentNode, descriptionNode, description);
+  content.appendChild(descriptionNode);
   row.appendChild(content);
   if (route) {
-    const link = el(documentNode, "a", "workflow-home-link", `${title} →`);
+    const destination = MECHANIC_DESTINATION_LABELS[route] || title;
+    const link = el(
+      documentNode, "a", "workflow-home-link", `${destination} →`,
+    );
     link.href = `#/${route}`;
     row.appendChild(link);
   }
@@ -131,6 +204,17 @@ function mechanicRow(
   return row;
 }
 
+function approvalSummaryWithStageLabels(mechanics, workflow) {
+  let summary = approvalSummary(mechanics, workflow);
+  for (const stage of workflow.definition?.stages || []) {
+    summary = summary.replaceAll(
+      `${stage.id} →`,
+      `${stageDisplayLabel(stage)} →`,
+    );
+  }
+  return summary;
+}
+
 export function renderMechanics(documentNode, workflow, actions = {}) {
   const definition = workflow.definition || {};
   const policies = definition.policies || {};
@@ -143,12 +227,15 @@ export function renderMechanics(documentNode, workflow, actions = {}) {
   const { panel, body } = workflowPanel(documentNode, "Mechanics");
   const rows = el(documentNode, "div", "workflow-detail-stack");
   rows.appendChild(mechanicRow(
-    documentNode, "Executor", executorSummary(definition),
+    documentNode,
+    "Executor",
+    executorSummary(workflow),
+    workflow.id === "blitz" ? "strategy" : null,
   ));
   rows.appendChild(mechanicRow(
     documentNode,
     "Testing",
-    testingSummary(mechanics, workflow),
+    testingMechanicSummary(mechanics, workflow),
     "qa",
     actions.editTesting
       ? {
@@ -160,7 +247,7 @@ export function renderMechanics(documentNode, workflow, actions = {}) {
   rows.appendChild(mechanicRow(
     documentNode,
     "Approvals",
-    approvalSummary(mechanics, workflow),
+    approvalSummaryWithStageLabels(mechanics, workflow),
     "inbox",
     actions.editApprovals
       ? {
@@ -174,7 +261,7 @@ export function renderMechanics(documentNode, workflow, actions = {}) {
   rows.appendChild(mechanicRow(
     documentNode,
     "Delivery",
-    deliverySummary(mechanics, workflow),
+    deliveryMechanicSummary(mechanics, workflow),
     "delivery",
     actions.editDelivery
       ? {

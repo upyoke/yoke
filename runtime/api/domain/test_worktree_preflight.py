@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -103,6 +101,53 @@ class TestReEntryWithExistingWorktree:
 
 
 class TestBlocks:
+    def test_path_claim_preparation_runs_between_work_claim_and_activation(
+        self, repo_layout, monkeypatch,
+    ):
+        calls = []
+        monkeypatch.setattr(
+            wp, "claim_work",
+            lambda _item_id: (calls.append("work") or True, "acquired"),
+        )
+        monkeypatch.setattr(
+            wp, "activate_path_claims",
+            lambda _item_id: (
+                calls.append("activate") or True,
+                "",
+                [39],
+            ),
+        )
+        outcome = wp.run_preflight(
+            item_id=9001,
+            repo_root=repo_layout.root,
+            session_id="sess",
+            no_worktree=True,
+            prepare_path_claims=lambda: calls.append("prepare"),
+        )
+        assert outcome.ok is True
+        assert calls == ["work", "prepare", "activate"]
+        assert "path-claim:prepared" in outcome.actions_taken
+
+    def test_path_claim_preparation_refusal_stops_before_activation(
+        self, repo_layout, monkeypatch,
+    ):
+        _patch_steps(monkeypatch)
+        monkeypatch.setattr(
+            wp,
+            "activate_path_claims",
+            lambda _item_id: pytest.fail("activation must not run"),
+        )
+        outcome = wp.run_preflight(
+            item_id=9001,
+            repo_root=repo_layout.root,
+            session_id="sess",
+            no_worktree=True,
+            prepare_path_claims=lambda: "survey has no concrete paths",
+        )
+        assert outcome.ok is False
+        assert outcome.block_kind == steps.BLOCK_PATH_CLAIM
+        assert outcome.narrative == "survey has no concrete paths"
+
     def test_work_claim_conflict_returns_block_kind_with_no_widen(
         self, repo_layout, monkeypatch
     ):

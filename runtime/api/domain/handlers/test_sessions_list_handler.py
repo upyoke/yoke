@@ -64,9 +64,19 @@ def _insert_session(
         "ended_at, actor_id, current_item_id"
         ") VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
         (
-            session_id, executor, "anthropic", "test-model", lane,
-            "/tmp/workspace", project_id, mode, last_heartbeat,
-            last_heartbeat, last_tool_call_at, ended_at, actor_id,
+            session_id,
+            executor,
+            "anthropic",
+            "test-model",
+            lane,
+            "/tmp/workspace",
+            project_id,
+            mode,
+            last_heartbeat,
+            last_heartbeat,
+            last_tool_call_at,
+            ended_at,
+            actor_id,
             current_item_id,
         ),
     )
@@ -87,11 +97,13 @@ class TestLivenessDerivation:
     def test_active_stale_and_ended_states(self, test_db):
         _insert_session(test_db, "s-active", last_heartbeat=_iso())
         _insert_session(
-            test_db, "s-stale",
+            test_db,
+            "s-stale",
             last_heartbeat=_iso(_LONG_AGO_MINUTES),
         )
         _insert_session(
-            test_db, "s-ended",
+            test_db,
+            "s-ended",
             last_heartbeat=_iso(_LONG_AGO_MINUTES),
             ended_at=_iso(_LONG_AGO_MINUTES),
         )
@@ -102,13 +114,15 @@ class TestLivenessDerivation:
         assert by_id["s-ended"]["liveness"] == "ended"
 
     def test_recent_tool_call_keeps_an_old_heartbeat_session_active(
-        self, test_db,
+        self,
+        test_db,
     ):
         # Activity is MAX(last_heartbeat, last_tool_call_at) — the same
         # combined stamp the stale-session reclaim sweep consults.
         recent_tool_call = _iso()
         _insert_session(
-            test_db, "s-tooling",
+            test_db,
+            "s-tooling",
             last_heartbeat=_iso(_LONG_AGO_MINUTES),
             last_tool_call_at=recent_tool_call,
         )
@@ -120,7 +134,8 @@ class TestLivenessDerivation:
     def test_liveness_filter_and_rejection(self, test_db):
         _insert_session(test_db, "s-active", last_heartbeat=_iso())
         _insert_session(
-            test_db, "s-ended",
+            test_db,
+            "s-ended",
             last_heartbeat=_iso(_LONG_AGO_MINUTES),
             ended_at=_iso(_LONG_AGO_MINUTES),
         )
@@ -188,7 +203,9 @@ class TestClaimsAndAttribution:
         ).fetchone()
         system_actor_id = int(dict(row)["id"])
         _insert_session(
-            test_db, "s-system", last_heartbeat=_iso(),
+            test_db,
+            "s-system",
+            last_heartbeat=_iso(),
             actor_id=system_actor_id,
         )
         rows = list_sessions()
@@ -200,10 +217,49 @@ class TestClaimsAndAttribution:
 
     def test_current_item_renders_display_form(self, test_db):
         _insert_session(
-            test_db, "s-on-item", last_heartbeat=_iso(),
+            test_db,
+            "s-on-item",
+            last_heartbeat=_iso(),
             current_item_id="17",
         )
         assert list_sessions()[0]["current_item"] == "YOK-17"
+
+    def test_current_item_ownership_title_and_worktree_role(self, test_db):
+        from runtime.api.fixtures.backlog import insert_item
+
+        insert_item(test_db, id=40, title="Other lane")
+        insert_item(test_db, id=41, title="Owned implementation")
+        test_db.commit()
+        _insert_session(
+            test_db,
+            "s-owner",
+            last_heartbeat=_iso(),
+            current_item_id="41",
+        )
+        _insert_item_claim(test_db, "s-owner", 41)
+        test_db.execute(
+            "INSERT INTO item_worktrees ("
+            "item_id, branch, path, lane_role, state, "
+            "created_at, updated_at"
+            ") VALUES (%s, %s, %s, 'implementation', 'active', %s, %s)",
+            (40, "codex/other", "/tmp/other", _iso(), _iso()),
+        )
+        test_db.execute(
+            "INSERT INTO item_worktrees ("
+            "item_id, branch, path, lane_role, state, "
+            "created_at, updated_at"
+            ") VALUES (%s, %s, %s, 'worker', 'active', %s, %s)",
+            (41, "codex/worker", "/tmp/worker", _iso(), _iso()),
+        )
+        test_db.commit()
+
+        row = list_sessions()[0]
+        assert row["current_item_title"] == "Owned implementation"
+        assert row["current_item_workflow_id"] == "issue"
+        assert int(row["current_item_workflow_version_id"]) > 0
+        assert row["owns_current_item"] is True
+        assert row["work_role"] == "worker"
+        assert row["claim_started_at"]
 
 
 class TestHandler:
@@ -217,14 +273,16 @@ class TestHandler:
 
     def test_handler_project_filter_scopes_rows(self, test_db):
         test_db.execute(
-            "INSERT INTO projects (id, slug, name, created_at) "
-            "VALUES (%s, %s, %s, %s)",
+            "INSERT INTO projects (id, slug, name, created_at) VALUES (%s, %s, %s, %s)",
             (77, "other", "Other", _iso()),
         )
         test_db.commit()
         _insert_session(test_db, "s-yoke", last_heartbeat=_iso())
         _insert_session(
-            test_db, "s-other", last_heartbeat=_iso(), project_id=77,
+            test_db,
+            "s-other",
+            last_heartbeat=_iso(),
+            project_id=77,
         )
         outcome = handle_sessions_list(_request({"project": "other"}))
         assert outcome.primary_success

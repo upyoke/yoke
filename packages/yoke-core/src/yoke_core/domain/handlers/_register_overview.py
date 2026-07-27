@@ -1,8 +1,9 @@
 """Handler registrations for the overview.* activation-module surface.
 
-All three ids are browser-proxied UI surfaces (``adapter_status=
+All ids are browser-proxied UI surfaces (``adapter_status=
 "internal"``): the workbench Overview dispatches them through the local
 ``yoke ui`` proxy or the hosted doorman, so no agent CLI adapter exists.
+``overview.vitals.get`` is the actor-visible state/momentum projection.
 ``overview.activation.get`` declares its one sanctioned side effect —
 the universe-scoped monotone activation latch; the dismiss/restore pair
 are ordinary actor-scoped mutations. ``ambient_session_required=False``
@@ -14,9 +15,23 @@ writes when none is bound.
 from __future__ import annotations
 
 from yoke_core.domain.handlers import overview_activation as _oa
+from yoke_core.domain.handlers import overview_vitals as _ov
 
 
 def register(registry) -> None:
+    registry.register(
+        "overview.vitals.get", _ov.handle_overview_vitals,
+        _ov.OverviewVitalsRequest, _ov.OverviewVitalsResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.overview_vitals",
+        target_kinds=["global"],
+        side_effects=[],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["actor_project_visibility"],
+        adapter_status="internal",
+        claim_required_kind=None,
+        ambient_session_required=False,
+    )
     registry.register(
         "overview.activation.get", _oa.handle_overview_activation_get,
         _oa.OverviewActivationGetRequest, _oa.OverviewActivationGetResponse,

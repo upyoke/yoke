@@ -1,6 +1,6 @@
 """Mutation tests — execute_close.
 
-Covers reason validation, delivery-tail/worktree/merge guards, idempotent
+Covers reason validation, delivery-tail/worktree-lane/merge guards, idempotent
 re-close, resolution-ref normalization, and the dry-run skip path that
 suppresses GitHub side effects but still rebuilds the board.
 """
@@ -12,16 +12,31 @@ import os
 from unittest import mock
 
 from runtime.api.backlog_mutations_test_helpers import (
+    _conn,
     _item_field,
     _patch_externals,
     _seed_item,
     tmp_db,  # noqa: F401 — re-exported fixture
 )
+from runtime.api.fixtures.backlog_inserts import insert_item_worktree
 from yoke_core.domain import backlog
 
 
+def _seed_active_item_lane(path, *, item_id: int, branch: str) -> None:
+    conn = _conn(path)
+    try:
+        insert_item_worktree(
+            conn,
+            item_id=item_id,
+            branch=branch,
+            lane_role="implementation",
+        )
+    finally:
+        conn.close()
+
+
 class TestExecuteClose:
-    def test_basic_close_sets_resolution_and_clears_worktree(self, tmp_db):
+    def test_basic_close_sets_resolution(self, tmp_db):
         _seed_item(tmp_db, id=10, status="idea", frozen=1)
         out = io.StringIO()
 
@@ -41,7 +56,6 @@ class TestExecuteClose:
         assert _item_field(tmp_db, 10, "resolution_ref") == "YOK-33"
         assert _item_field(tmp_db, 10, "resolution_comment") == "Superseded by YOK-33"
         assert _item_field(tmp_db, 10, "frozen") == 0
-        assert _item_field(tmp_db, 10, "worktree") is None
         patched["_post_comment"].return_value = True
         patched["_close_issue"].return_value = True
         patched["_post_comment"].assert_called_once_with(10, "idea", "cancelled", out)
@@ -112,7 +126,8 @@ class TestExecuteClose:
         assert "merge evidence" in result["error"]
 
     def test_close_rejects_active_worktree(self, tmp_db):
-        _seed_item(tmp_db, id=10, worktree="YOK-10")
+        _seed_item(tmp_db, id=10)
+        _seed_active_item_lane(tmp_db, item_id=10, branch="YOK-10")
         out = io.StringIO()
 
         with _patch_externals(), \

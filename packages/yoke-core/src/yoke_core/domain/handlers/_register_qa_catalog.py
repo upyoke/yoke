@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from yoke_core.domain.handlers import qa_catalog_reads as _reads
+from yoke_core.domain.handlers import qa_plan_edit as _edit
 from yoke_core.domain.handlers import qa_plan_writes as _writes
 
 
@@ -63,7 +64,7 @@ def register(registry) -> None:
         "qa.activity.list",
         _reads.handle_activity_list,
         _reads.ActivityListRequest,
-        _reads.RowsResponse,
+        _reads.ActivityListResponse,
     )
     registry.register(
         "qa.project_method.register",
@@ -91,6 +92,26 @@ def register(registry) -> None:
         side_effects=["qa_plans_insert"],
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=["project_scope_required", "all_pass_policy"],
+        adapter_status="live",
+        claim_required_kind=None,
+        ambient_session_required=False,
+    )
+    registry.register(
+        "qa.plan.edit",
+        _edit.handle_plan_edit,
+        _edit.PlanEditRequest,
+        _edit.PlanEditResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.qa_plan_edit",
+        target_kinds=["global"],
+        side_effects=["qa_plans_update", "qa_plan_cases_replace"],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=[
+            "project_scope_required",
+            "compare_and_swap",
+            "all_pass_policy",
+            "snapshot_preserved",
+        ],
         adapter_status="live",
         claim_required_kind=None,
         ambient_session_required=False,

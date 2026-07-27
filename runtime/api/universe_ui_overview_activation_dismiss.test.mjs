@@ -163,7 +163,7 @@ test("a day-zero section collapses to its ghost; activation revives it", async (
   const text = allNodes(activated.root)
     .map((node) => node.textContent || "").join(" ");
   assert.ok(text.includes("no strategy docs yet"));
-  assert.ok(text.includes("no runs yet"));
+  assert.ok(text.includes("No runs in this scope."));
   activated.mounted.unmount();
 });
 
@@ -176,12 +176,13 @@ test("a non-empty read keeps its live panel on day zero", async (t) => {
   // Default fixtures serve rows for strategy/frontier/delivery, so nothing
   // ghosts even though no backing module is activated.
   assert.equal(byClass(root, "overview-ghost").length, 0);
-  const titles = allNodes(root)
-    .filter((node) => node.tagName === "H2")
-    .map((node) => node.textContent);
-  assert.deepEqual(titles, [
-    "❖ Strategy", "⚡ Frontier", "◈ Sessions",
-    "⬈ Delivery", "≋ Events", "♥ Doctor",
-  ]);
+  assert.deepEqual(
+    byClass(root, "overview-section-icon").map((node) => node.textContent),
+    ["❖", "⚡", "◈", "⬈", "≋", "♥"],
+  );
+  assert.deepEqual(
+    byClass(root, "overview-section-title").map((node) => node.textContent),
+    ["Strategy", "Frontier", "Sessions", "Delivery", "Events", "Doctor"],
+  );
   mounted.unmount();
 });

@@ -1,5 +1,9 @@
 import { el } from "./universe_view_support.js";
-import { button } from "./workflow_view_primitives.js";
+import {
+  button,
+  setWorkflowInlineContent,
+  workflowStageLabel,
+} from "./workflow_view_primitives.js";
 import {
   optionsForProject,
   projectKey,
@@ -44,6 +48,7 @@ function dialogShell(documentNode, host, title, close) {
   );
   dialog.setAttribute("role", "dialog");
   dialog.setAttribute("aria-modal", "true");
+  dialog.setAttribute("aria-label", title);
   dialog.appendChild(el(
     documentNode, "h2", "workflow-dialog-title", title,
   ));
@@ -62,6 +67,7 @@ function footer(documentNode, dialog, {
   error.hidden = true;
   dialog.appendChild(error);
   const row = el(documentNode, "div", "workflow-dialog-footer");
+  if (!impact) row.classList.add("actions-only");
   if (impact) {
     row.appendChild(el(
       documentNode, "p", "workflow-dialog-impact", impact,
@@ -125,6 +131,7 @@ export function openApprovalEditor({
     const dialog = dialogShell(
       documentNode, host, `Default approvals — ${name}`, close,
     );
+    dialog.classList.add("workflow-approval-dialog");
     dialog.appendChild(fieldLabel(documentNode, "Transition"));
     const transition = el(documentNode, "select", "workflow-field");
     for (const transitionId of ids) {
@@ -134,7 +141,8 @@ export function openApprovalEditor({
       transition.appendChild(option(
         documentNode,
         transitionId,
-        `${transitionId}${configured ? " ✓" : ""}`,
+        `${workflowStageLabel(workflow, transitionId)}` +
+          `${configured ? " ✓" : ""}`,
         state.transitionId,
       ));
     }
@@ -145,12 +153,19 @@ export function openApprovalEditor({
     });
     dialog.appendChild(transition);
     const gate = gates[state.transitionId];
-    dialog.appendChild(el(
+    const approvalHelp = el(
       documentNode,
       "p",
-      "workflow-field-help",
-      `Anyone who matches may approve ${state.transitionId}`,
-    ));
+      "workflow-field-help workflow-approval-help",
+    );
+    setWorkflowInlineContent(documentNode, approvalHelp, [
+      "Anyone who matches may approve ",
+      {
+        kind: "strong",
+        text: workflowStageLabel(workflow, state.transitionId),
+      },
+    ]);
+    dialog.appendChild(approvalHelp);
     for (const [role, label] of ROLE_OPTIONS) {
       dialog.appendChild(checkbox(
         documentNode,
@@ -188,14 +203,26 @@ export function openApprovalEditor({
     const configured = ids.filter(
       (id) => gates[id].roles.length || gates[id].actors.length,
     );
-    dialog.appendChild(el(
-      documentNode,
-      "p",
-      "workflow-configured-summary",
-      configured.length
-        ? `Gates set: ${configured.join(" · ")}`
-        : "No gates yet — a transition with no one selected has no approval.",
-    ));
+    const configuredSummary = el(
+      documentNode, "p", "workflow-configured-summary",
+    );
+    const configuredParts = configured.length
+      ? [
+        "Gates set: ",
+        ...configured.flatMap((stageId, index) => [
+          ...(index ? [" · "] : []),
+          {
+            kind: "strong",
+            className: "workflow-configured-stage",
+            text: workflowStageLabel(workflow, stageId),
+          },
+        ]),
+      ]
+      : "No gates yet — a transition with no one selected has no approval.";
+    setWorkflowInlineContent(
+      documentNode, configuredSummary, configuredParts,
+    );
+    dialog.appendChild(configuredSummary);
     footer(documentNode, dialog, {
       impact:
         `Saving creates a new version of the ${name} workflow. Items already ` +
@@ -280,7 +307,8 @@ export function openProjectDefaultEditor({
       dialog.appendChild(valueSelect);
     } else {
       dialog.appendChild(el(
-        documentNode, "p", "workflow-field-help",
+        documentNode, "p",
+        "workflow-field-help workflow-empty-options",
         `${projectName || "This project"} has no ${noun}s yet.`,
       ));
     }

@@ -76,7 +76,7 @@ def _check_simulation_gate(item_id: int, skip: bool) -> Optional[int]:
 
 
 def _check_merge_guard(
-    worktree_field: str,
+    lane_branch: str,
     project_repo: Path,
     base_branch: str,
 ) -> bool:
@@ -90,15 +90,15 @@ def _check_merge_guard(
     worktree and rerun the merge engine. Mirrors merge_worktree_runner's
     own already-merged guard.
     """
-    if not worktree_field:
+    if not lane_branch:
         return False
     # Branch missing locally — assume already merged and cleaned up.
     verify = _parent()._run_git(
-        ["-C", str(project_repo), "rev-parse", "--verify", worktree_field],
+        ["-C", str(project_repo), "rev-parse", "--verify", lane_branch],
         capture=True,
     )
     if verify.returncode != 0:
-        print(f"Merge guard: branch '{worktree_field}' not found locally "
+        print(f"Merge guard: branch '{lane_branch}' not found locally "
               "(likely already merged and cleaned up) — skipping merge step.")
         return True
     # Fetch origin so ancestry/squash signals reflect production state.
@@ -117,24 +117,24 @@ def _check_merge_guard(
         target_ref = base_branch
     ancestry = _parent()._run_git(
         ["-C", str(project_repo), "merge-base", "--is-ancestor",
-         worktree_field, target_ref],
+         lane_branch, target_ref],
         capture=True,
     )
     if ancestry.returncode == 0:
-        print(f"Merge guard: branch '{worktree_field}' is merged to "
+        print(f"Merge guard: branch '{lane_branch}' is merged to "
               f"{target_ref} — skipping merge step.")
         return True
     log_check = _parent()._run_git(
         ["-C", str(project_repo), "log", "--oneline",
-         f"--grep={worktree_field}", target_ref],
+         f"--grep={lane_branch}", target_ref],
         capture=True,
     )
     first_line = (log_check.stdout or "").strip().split("\n")[0] if log_check.stdout else ""
     if first_line:
-        print(f"Merge guard: squash-merge detected for branch '{worktree_field}' "
+        print(f"Merge guard: squash-merge detected for branch '{lane_branch}' "
               f"on {target_ref} — skipping merge step.")
         return True
-    print(f"Merge guard: branch '{worktree_field}' not yet merged to "
+    print(f"Merge guard: branch '{lane_branch}' not yet merged to "
           f"{target_ref} — Step 4 will merge.")
     return False
 
@@ -146,10 +146,8 @@ def _verify_recovery_evidence(
 ) -> bool:
     """Defense-in-depth for _check_recovery's resume_from_step6 path.
 
-    "no worktree + status != done" can mean either (a) a prior run completed
-    the merge but did not reach the status update — legitimate resume — or
-    (b) a false-positive guard cleared the worktree field without an actual
-    merge. (a) leaves a squash-merge commit referencing YOK-N on
+    A prior run may complete the merge but not reach the status update.
+    That run leaves a squash-merge commit referencing YOK-N on
     origin/{base_branch}; (b) does not. Returning False refuses the
     fraudulent recovery and forces the operator to restore worktree state
     explicitly.
@@ -190,19 +188,18 @@ def _handle_resume_from_step6(
     """
     if not _verify_recovery_evidence(item_id, project_repo, base_branch):
         print(
-            f"\nError: YOK-{item_id} has no worktree field but no merge "
+            f"\nError: YOK-{item_id} has no active worktree lane and no merge "
             f"evidence found on origin/{base_branch}.\n"
             "State is inconsistent — refusing to skip merge step.\n"
             "If the branch was merged out-of-band, push the merge commit "
-            "to origin and retry. Otherwise restore the worktree field:\n"
-            f"  python3 -m yoke_core.cli.db_router items "
-            f"update YOK-{item_id} worktree <branch-name>",
+            "to origin and retry. Otherwise recreate the item worktree lane "
+            f"with `yoke worktree preflight YOK-{item_id}`.",
             file=sys.stderr,
         )
         print(f"RESULT_FILE={result_file}")
         return result.fail(result_file, 2, "2d-recovery-no-evidence")
     print(
-        f"Pre-flight: merge already completed (no worktree), status is "
+        f"Pre-flight: merge already completed (no active lane), status is "
         f"'{old_status}'."
     )
     print("Resuming from step 6 (status update and post-merge steps).")
@@ -210,30 +207,30 @@ def _handle_resume_from_step6(
 
 
 def _check_empty_branch(
-    worktree_field: str,
+    lane_branch: str,
     project_repo: Path,
     base_branch: str,
     item_id: int,
 ) -> Optional[int]:
     """Check for empty worktree branch. Returns exit code or None."""
-    if not worktree_field:
+    if not lane_branch:
         return None
     verify = _parent()._run_git(
-        ["-C", str(project_repo), "rev-parse", "--verify", worktree_field],
+        ["-C", str(project_repo), "rev-parse", "--verify", lane_branch],
         capture=True,
     )
     if verify.returncode != 0:
         return None
     count_result = _parent()._run_git(
         ["-C", str(project_repo), "rev-list", "--count",
-         f"{base_branch}..{worktree_field}"],
+         f"{base_branch}..{lane_branch}"],
         capture=True,
     )
     count = int((count_result.stdout or "0").strip() or "0")
     if count == 0:
         print("", file=sys.stderr)
         print("=== Empty worktree branch guard ===", file=sys.stderr)
-        print(f"Blocked: Branch '{worktree_field}' has no commits beyond "
+        print(f"Blocked: Branch '{lane_branch}' has no commits beyond "
               f"'{base_branch}'.", file=sys.stderr)
         print("No implementation work was done — cannot transition to done.",
               file=sys.stderr)
@@ -241,10 +238,9 @@ def _check_empty_branch(
         print("Either:", file=sys.stderr)
         print("  - Implement the item's acceptance criteria in the worktree, "
               "then retry", file=sys.stderr)
-        print("  - If this item is intentionally evidence-only, clear the "
-              "worktree field and retry:", file=sys.stderr)
-        print(f"      yoke items scalar update YOK-{item_id} "
-              f"--field worktree --null", file=sys.stderr)
+        print("  - If this item is intentionally evidence-only, release the "
+              "active lane and retry through the workflow's no-worktree "
+              "entry path.", file=sys.stderr)
         print("    Future evidence-only items should enter implementing with "
               f"/yoke advance YOK-{item_id} implementing --no-worktree.",
               file=sys.stderr)
@@ -253,13 +249,11 @@ def _check_empty_branch(
 
 
 def _check_recovery(
-    old_status: str, worktree_field: str
+    old_status: str, lane_branch: str
 ) -> Tuple[bool, bool]:
     """Detect recovery state. Returns (already_done, resume_from_step6)."""
-    if old_status == "done" and not worktree_field:
+    if old_status == "done" and not lane_branch:
         return True, False
-    if old_status != "done" and not worktree_field:
-        return False, True
     return False, False
 
 

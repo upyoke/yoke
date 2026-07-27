@@ -77,12 +77,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
        --item "YOK-{N}" --reason freeze-complete
    ```
 
-8. **Commit the changes.**
-   ```bash
-   git diff --cached --quiet || git commit -m "YOK-{N}: freeze"
-   ```
-
-9. **Report:**
+8. **Report:**
  > **YOK-{N}** ({title}): frozen
  >
  > The item retains its `{STATUS}` status but is now hidden from the active board.

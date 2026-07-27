@@ -115,10 +115,22 @@ class TestEventsQuery:
         assert row["event_name"] == "EventA"
         assert row["envelope"] == '{"k":1}'
         assert row["anomaly_flags"] == "nonzero_exit"
-        # Full 24-column projection + envelope.
+        # Full 24-column projection + envelope and readable presentation.
         from yoke_core.domain.events_crud import EVT_COLUMN_NAMES
 
-        assert set(row.keys()) == {*EVT_COLUMN_NAMES, "envelope"}
+        assert set(row.keys()) == {
+            *EVT_COLUMN_NAMES,
+            "envelope",
+            "category",
+            "target_kind",
+            "target_label",
+            "target_id",
+            "target_project_id",
+            "context_label",
+            "source_label",
+        }
+        assert row["category"] == "qa"
+        assert row["target_label"] == "sess-test"
 
     def test_item_filter_rides_resolved_target(self, test_db):
         insert_event(

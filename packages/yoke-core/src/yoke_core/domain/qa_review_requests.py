@@ -21,7 +21,8 @@ def _requirement(conn: Any, requirement_id: int) -> dict[str, Any]:
     p = _p(conn)
     row = conn.execute(
         "SELECT id, item_id, epic_id, deployment_run_id, plan_id, "
-        "qa_kind, success_policy FROM qa_requirements "
+        "plan_case_key, method_id, qa_kind, success_policy "
+        "FROM qa_requirements "
         f"WHERE id = {p}",
         (int(requirement_id),),
     ).fetchone()
@@ -36,6 +37,13 @@ def _requirement(conn: Any, requirement_id: int) -> dict[str, Any]:
         if project is not None:
             value["project_id"] = int(project[0])
             value["plan_name"] = str(project[1])
+    if value.get("method_id") is not None:
+        method = conn.execute(
+            f"SELECT name FROM qa_methods WHERE id = {p}",
+            (str(value["method_id"]),),
+        ).fetchone()
+        if method is not None:
+            value["method_name"] = str(method[0])
     item_id = value.get("item_id") or value.get("epic_id")
     if value.get("project_id") is None and item_id is not None:
         project = conn.execute(
@@ -87,8 +95,14 @@ def ensure_qa_review_request(
         subject_context={
             "requirement_id": int(requirement_id),
             "run_id": int(run_id),
+            "plan_id": (
+                int(requirement["plan_id"])
+                if requirement.get("plan_id") is not None else None
+            ),
             "qa_kind": str(requirement["qa_kind"]),
             "plan_name": requirement.get("plan_name"),
+            "case_name": requirement.get("plan_case_key"),
+            "method_name": requirement.get("method_name"),
             "title": "QA evidence needs your review",
             "evidence_summary": str(requirement.get("success_policy") or ""),
         },

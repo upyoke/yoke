@@ -18,6 +18,39 @@ yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evide
 Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->
 
+## Registered operation authority
+
+Use the registered function id as the operation authority. The `yoke`
+commands taught later are adapters for these envelopes:
+
+| Function id | Target and payload | CLI adapter |
+|---|---|---|
+| `items.detail.get` | Item target; empty payload | `yoke items detail get ITEM --json` |
+| `strategy.execution.get` | Blitz item target; empty payload | `yoke strategy execution get ITEM --json` |
+| `strategy.doc.get` | Project target; `slug` | `yoke strategy doc get SLUG --project PROJECT --json` |
+| `direct_workflow.blitz.survey` | Item target; `paths` plus optional `integration_target` | `yoke direct-workflow blitz survey ITEM --path PATH --json` |
+| `lifecycle.transition.execute` | Item target; `source_status`, `target_status`, and `reason` | `yoke lifecycle transition ITEM --from STATUS --to STATUS --reason TEXT` |
+| `strategy.coordination.append` | Project target; `slug`, `section`, and `entry` | `yoke strategy coordination append SLUG --section NAME --entry TEXT --project PROJECT` |
+| `strategy.doc.replace` | Project target; `slug`, full `content`, `base_updated_at`, and shrink-guard posture | `yoke strategy doc replace SLUG --base-updated-at TS --content-file PATH --project PROJECT` |
+| `strategy.claim.release` | Blitz item target; optional `reason` | `yoke strategy claim release ITEM --reason TEXT` |
+| `claims.work.release` | Current item or claim target; `reason` | `yoke claims work release --item ITEM --reason TEXT` |
+
+The survey has no item-claim precondition. Strategy reads, coordination
+appends, document replacement, lifecycle transitions, and claim release
+remain their own registered operation families; they are not hidden
+Blitz-survey payloads. Execution-document linking belongs to `/yoke refine`
+through `strategy.execution.link`, before this skill begins.
+
+Worktree preparation is intentionally a retained tool-shaped operation:
+
+```text
+yoke direct-workflow worktree prepare ITEM --workflow blitz
+```
+
+It delegates to the local engine worktree preflight and has no registered
+`direct_workflow.*` function id. Use the command verbatim; do not invent a
+function id for it.
+
 ## Input and invariants
 
 - `{PREFIX-N}` must resolve to a Blitz at `refined-idea`, `implementing`, or
@@ -87,16 +120,20 @@ yoke lifecycle transition ITEM --from refined-idea --to implementing --reason "B
 ```
 
 This transition must acquire the item-owned document claim while the item
-work claim is held and must pass the live `conflict_survey` gate. Confirm
-the claim in `yoke strategy execution get ITEM --json`. If activation
-returns without the document claim, stop; do not emulate the atomic
-contract with an untracked document edit.
+work claim and its registered worker worktree are held, after the live
+`conflict_survey` gate passes. Confirm the claim in
+`yoke strategy execution get ITEM --json`. If activation returns without
+the document claim, stop; do not emulate the atomic contract with an
+untracked document edit.
 
 ### 4. Build an integration map
 
-Use one integration lane owned by this session. Create additional worker
-lanes only for slices with explicit non-overlapping ownership. Every worker
-brief must name:
+The preparation call creates and registers the default worker lane. Keep
+execution sequential in that lane unless additional worker lanes and an
+explicit integration lane have been registered through the universal
+item-worktree surface. The item owns every registered lane; the main session
+holds the item work claim while coordinating integration. Never parallelize
+by inventing an unregistered branch or directory. Every worker brief must name:
 
 - its outcome and exact file responsibility;
 - its registered worktree;
@@ -181,11 +218,10 @@ Transition through the `doc_completion` gate:
 yoke lifecycle transition ITEM --from reviewing-implementation --to done --reason "Execution document reconciled with passing evidence"
 ```
 
-Release the document claim and item work claim through their registered
-surfaces:
+The terminal transition releases the item-owned document claim and every
+registered Blitz worktree lane. Release the remaining session work claim:
 
 ```text
-yoke strategy claim release ITEM --reason "Blitz completed"
 yoke claims work release --item ITEM --reason "Blitz completed"
 ```
 

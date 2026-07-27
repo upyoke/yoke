@@ -2,7 +2,7 @@
 
 Canonical agent behavior bodies live in `runtime/agents/{agent}.md`. These are the source-of-truth persona definitions — one per agent, containing the full system prompt body. The substrate renderer fans each canonical body into per-harness adapters: Claude adapters at `runtime/harness/claude/agents/yoke-{agent}.md`, Codex custom agents at `runtime/harness/codex/agents/yoke-{agent}.toml`. The runtime `.claude/agents` and `.codex/agents` paths are symlinks into those adapter directories, so each harness reads the rendered files from its native location. Codex Desktop reads the rendered TOML adapters as custom agents and dispatches them through Codex-native primitives. Each adapter combines harness-specific metadata with the same canonical body, so the prompt text stays identical across harnesses. Claude adapters carry Markdown YAML frontmatter (`name`, `description`, `tools`, `model`, `hooks`); Codex custom agents carry the current Codex subagent schema — required `name` / `description` / `developer_instructions` plus optional config (`model`, `sandbox_mode`) that Codex inherits from the parent session when omitted. The Claude `tools` allowlist and `model` pin are Claude-only and are not emitted into the Codex TOML. The `canonical_agents` entries in `runtime/harness/bootstrap-spec.json` and `runtime/harness/codex/manifest.json` document where the canonical bodies live without inlining them into bootstrap output. Shared dispatch descriptors emit one task envelope per agent and feed both harness call paths, so phase files name agents by descriptor rather than hardcoding Claude's `subagent_type`. The drift check `HC-agent-canonical-drift` in doctor verifies adapter bodies stay in sync with their canonical sources. The full universal-source + per-harness-renderer model is documented in [`harness-substrate.md`](harness-substrate.md).
 
-> **Note:** Shepherd and Conduct are orchestration skills (`SKILL.md` files), not agents. They run inline in the main session and invoke the 7 agents below as needed. Usher is also a skill (post-merge pipeline), not an agent. See [lifecycle.md](lifecycle.md) for the canonical state machine. Per-project test-surface docs live in each managed project at `.yoke/test-inventory.md`.
+> **Note:** Shepherd and Conduct are orchestration skills (`SKILL.md` files), not agents. They run inline in the main session and invoke the 7 agents below as needed. Usher is also a skill (post-merge pipeline), not an agent. See [lifecycle.md](../.yoke/docs/lifecycle.md) for the canonical state machine. Per-project test-surface docs live in each managed project at `.yoke/test-inventory.md`.
 
 ### Lane Reversal
 
@@ -128,7 +128,10 @@ Implements exactly what the task specifies. Commits incrementally. Writes progre
 **Tools:** Read, Grep, Glob, Bash (no Write, Edit -- 3-layer enforcement)
 **Hooks:** PreToolUse(Bash) -> `yoke_core.domain.lint_db_cmd` (legacy stable check id `lint-sqlite-cmd`) + observe hook (PreToolUse), PreToolUse(Write/Edit) -> block commands + observe hook (PreToolUse), PreToolUse(Read) -> observe hook (PreToolUse), PostToolUse -> observe hook with `agent=tester`, PostToolUseFailure -> observe hook with `agent=tester`, SubagentStop -> `yoke_core.domain.agent_stop`
 
-Validates Engineer's work. Uses `write-to-main.sh` for ouroboros reflections to ensure log entries land on the main repo root regardless of worktree CWD. Process:
+Validates Engineer's work. Its structured reflection block is captured by the
+PostToolUse Agent-tool hook in
+`packages/yoke-core/src/yoke_core/domain/reflection_capture_hook.py`, so no
+worktree-local log write is needed. Process:
 1. Check acceptance criteria
 2. Review code changes
 3. Verify interface contracts
@@ -151,7 +154,14 @@ Validates Engineer's work. Uses `write-to-main.sh` for ouroboros reflections to 
 
 **Portable timeout wrapper:** The Tester uses a portable timeout mechanism for test execution that works across BSD (macOS) and GNU (Linux) environments, preventing runaway test processes from consuming the entire turn budget.
 
-**Browser Scenario Execution:** The Tester can execute browser QA scenarios via `yoke qa browser run`. When the dispatch prompt includes browser test scenarios (from QA seeding), the Tester runs them against ephemeral or local URLs, collecting accessibility snapshots, screenshots, and pixel-diff results. Browser test failures contribute to the PASS/FAIL verdict.
+**Browser Scenario Execution:** The Tester selects unsatisfied materialized
+cases whose `method_id` is `browser-check` or `browser-inspection` and executes
+each requirement through `yoke qa case run`. The case's `expected_outcome` and
+immutable `method_config` are the execution contract. Against an ephemeral
+environment, every invocation includes the resolved URL, expected worktree
+branch, and expected HEAD SHA. The shared runner records accessibility,
+screenshot, trace, and verdict evidence; the Tester never rewrites the case or
+adds a parallel Browser run manually.
 
 **Diff externalization:** When a per-task diff exceeds 300 lines, the conduct writes it to a temp file and passes a `--stat` summary plus file path in the Tester prompt instead of inlining the full diff. The Tester reads the file directly for line-level detail. This prevents context saturation that causes timeouts and no-verdict failures on large diffs. Diffs of 300 lines or fewer are still inlined as before.
 
@@ -225,7 +235,9 @@ Quality gate agent. Reviews worker artifacts (specs, plans, designs) at pipeline
 
 ### Hook Coverage
 
-All 7 agents have SubagentStop -> `yoke_core.domain.agent_stop` (sets task to "stopped" as safety net).
+All 7 agents have SubagentStop -> `yoke_core.domain.agent_stop` (Issue-flow
+auto-commit safety net plus `HarnessSessionStopped` event emission; it does
+not drain claims or set task lifecycle state).
 
 **Agent-frontmatter observe attribution** (PostToolUse + PostToolUseFailure -> observe hook with `--agent ... --hook-event ...`): Present on 6 agents -- Product Manager, Product Designer, Architect, Engineer, Simulator, and Tester. Boss does not add agent-specific `--agent` wiring in frontmatter.
 
@@ -235,7 +247,8 @@ All 7 agents have SubagentStop -> `yoke_core.domain.agent_stop` (sets task to "s
 
 **Write/Edit block hooks** (PreToolUse): Present on 3 agents -- Tester, Simulator, and Boss. Architect relies on `disallowedTools` only (no runtime block hook). PM and Designer lack Bash entirely, so the block is moot.
 
-**on-bash-complete** (PostToolUse/Bash): Present only on Engineer. Used for progress tracking of Bash command execution.
+**PostToolUse observation**: Engineer tool completion is recorded by the
+Python observe hook; no separate shell completion hook owns progress.
 
 ### Shared Prompt Sections
 

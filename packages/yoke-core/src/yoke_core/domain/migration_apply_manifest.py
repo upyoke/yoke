@@ -10,47 +10,41 @@ verification, and audit rows owned by the existing runner.
 from __future__ import annotations
 
 import hashlib
-import re
-import subprocess
 from dataclasses import dataclass
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Any, Mapping, Optional
 
 from yoke_core.domain import json_helper
-from yoke_core.domain.db_compatibility_attestation import (
-    AUTHORED_FIELDS,
-    validate as validate_attestation,
+from yoke_core.domain.migration_manifest_validation import (
+    MANIFEST_VERSION,
+    MigrationManifestError,
+    manifest_module_sources,
+    validate_manifest_payload,
 )
-from yoke_core.domain.db_mutation_profile import (
-    MUTATION_INTENT_APPLY,
-    STATE_DECLARED,
-    validate as validate_profile,
+from yoke_core.domain.migration_source_checkout import (
+    git_capture as _git_capture,
+    require_clean_git_checkout as _require_clean_git_checkout,
+    require_registered_checkout as _require_registered_checkout,
+    require_tracked as _require_tracked,
+)
+from yoke_core.domain.migration_source_digest import (
+    MigrationSourceDigestError,
+    migration_source_digest,
+    migration_source_files,
 )
 from yoke_core.domain.migration_apply_audit import DESCRIPTION_BASE
-from yoke_core.domain.migration_apply_contract import MigrationApplyError
 from yoke_core.domain.migration_apply_resolve import (
     _load_item,
     _resolve_capability_settings,
 )
 from yoke_core.domain.migration_apply_resolve import (
     _resolve_profile_or_raise,
-    _resolve_repo_path,
 )
 from yoke_core.domain.migration_model_capability_defaults import resolve_model
 from yoke_core.domain.project_identity import resolve_project_id
 
 
-MANIFEST_VERSION = 1
-_TOP_LEVEL_KEYS = frozenset(
-    {"version", "project", "profile", "attestation", "module_sources"}
-)
-_MODULE_SOURCE_KEYS = frozenset({"path", "sha256"})
-_SHA256 = re.compile(r"[0-9a-f]{64}")
 _SOURCE_COMMIT_MARKER = "manifest_source_commit="
-
-
-class MigrationManifestError(MigrationApplyError):
-    """An itemless migration manifest or its source checkout is unsafe."""
 
 
 @dataclass(frozen=True)
@@ -75,107 +69,6 @@ class ResolvedMigrationInput:
     project_id: int
     profile: Mapping[str, Any]
     attestation_raw: Any
-
-
-def validate_manifest_payload(
-    payload: Any,
-) -> tuple[str, Mapping[str, Any], Mapping[str, Any]]:
-    """Validate the DB-independent theorem carried by a manifest payload.
-
-    Source-checkout execution adds project lookup, checkout authority, tracked
-    file, and exact-commit checks.  Hosted engine fleets reuse this pure layer
-    before applying the same packaged migration module to a tenant database;
-    their fleet control plane is intentionally not the tenant target.
-    """
-
-    if not isinstance(payload, dict):
-        raise MigrationManifestError("migration manifest root must be an object")
-    unknown = set(payload) - _TOP_LEVEL_KEYS
-    missing = _TOP_LEVEL_KEYS - set(payload)
-    if unknown or missing:
-        raise MigrationManifestError(
-            f"migration manifest keys invalid; missing={sorted(missing)} "
-            f"unknown={sorted(unknown)}"
-        )
-    if payload.get("version") != MANIFEST_VERSION:
-        raise MigrationManifestError(
-            f"migration manifest version must be {MANIFEST_VERSION}"
-        )
-
-    project = payload.get("project")
-    if not isinstance(project, str) or not project.strip():
-        raise MigrationManifestError("migration manifest project must be non-empty")
-    project = project.strip()
-    try:
-        profile = validate_profile(payload.get("profile"))
-        attestation = validate_attestation(payload.get("attestation"))
-    except ValueError as exc:
-        raise MigrationManifestError(
-            f"migration manifest theorem invalid: {exc}"
-        ) from exc
-    if profile.get("state") != STATE_DECLARED:
-        raise MigrationManifestError("migration manifest profile must be declared")
-    if profile.get("mutation_intent") != MUTATION_INTENT_APPLY:
-        raise MigrationManifestError("migration manifest profile intent must be apply")
-    missing_attestations = sorted(
-        field for field in AUTHORED_FIELDS if not attestation.get(field)
-    )
-    if missing_attestations:
-        raise MigrationManifestError(
-            "migration manifest attestation has empty authored fields: "
-            + ", ".join(missing_attestations)
-        )
-    manifest_module_sources(payload, profile)
-    return project, profile, attestation
-
-
-def manifest_module_sources(
-    payload: Mapping[str, Any], profile: Mapping[str, Any]
-) -> Mapping[str, Mapping[str, str]]:
-    """Validate the source path and digest bound to every module slug."""
-
-    raw = payload.get("module_sources")
-    if not isinstance(raw, dict):
-        raise MigrationManifestError(
-            "migration manifest module_sources must be an object"
-        )
-    expected = {str(identifier) for identifier in profile["migration_modules"]}
-    actual = set(raw)
-    if actual != expected:
-        raise MigrationManifestError(
-            "migration manifest module_sources must exactly match migration_modules; "
-            f"missing={sorted(expected - actual)} unknown={sorted(actual - expected)}"
-        )
-    normalized: dict[str, Mapping[str, str]] = {}
-    for identifier in sorted(expected):
-        source = raw[identifier]
-        if not isinstance(source, dict) or set(source) != _MODULE_SOURCE_KEYS:
-            raise MigrationManifestError(
-                f"migration manifest module source {identifier!r} must contain only "
-                "path and sha256"
-            )
-        path_raw = source.get("path")
-        if not isinstance(path_raw, str) or not path_raw.strip():
-            raise MigrationManifestError(
-                f"migration manifest module source {identifier!r} has no path"
-            )
-        path = PurePosixPath(path_raw)
-        if (
-            path.is_absolute()
-            or ".." in path.parts
-            or path.as_posix() != path_raw
-            or path.name != f"{identifier}.py"
-        ):
-            raise MigrationManifestError(
-                f"migration manifest module source {identifier!r} path is unsafe"
-            )
-        digest = source.get("sha256")
-        if not isinstance(digest, str) or _SHA256.fullmatch(digest) is None:
-            raise MigrationManifestError(
-                f"migration manifest module source {identifier!r} sha256 is invalid"
-            )
-        normalized[identifier] = {"path": path.as_posix(), "sha256": digest}
-    return normalized
 
 
 def resolve_runner_input(
@@ -299,8 +192,19 @@ def resolve_manifest_subject(
             raise MigrationManifestError(
                 f"packaged migration source is missing: {source_path}"
             )
-        _require_tracked(root, source_path)
-        actual_digest = hashlib.sha256(resolved_source.read_bytes()).hexdigest()
+        try:
+            source_closure = migration_source_files(resolved_source)
+        except MigrationSourceDigestError as exc:
+            raise MigrationManifestError(str(exc)) from exc
+        for closure_source in source_closure:
+            try:
+                closure_relative = closure_source.relative_to(root)
+            except ValueError as exc:
+                raise MigrationManifestError(
+                    f"packaged migration dependency escapes worktree: {closure_source}"
+                ) from exc
+            _require_tracked(root, closure_relative)
+        actual_digest = migration_source_digest(resolved_source)
         if actual_digest != source["sha256"]:
             raise MigrationManifestError(
                 f"packaged migration source digest differs for {identifier!r}"
@@ -388,60 +292,6 @@ def assert_rehearsal_subject_consistent(
         audit_description=audit_description,
         subject=subject,
     )
-
-
-def _require_clean_git_checkout(root: Path) -> None:
-    if _git_capture(root, ["rev-parse", "--is-inside-work-tree"]) != "true":
-        raise MigrationManifestError(f"not a git worktree: {root}")
-    status = _git_capture(root, ["status", "--porcelain", "--untracked-files=all"])
-    if status:
-        raise MigrationManifestError(
-            "itemless governed migration requires a clean source worktree"
-        )
-
-
-def _require_registered_checkout(control_conn: Any, root: Path, project: str) -> None:
-    registered = _resolve_repo_path(control_conn, project).resolve()
-    if _git_common_dir(root) != _git_common_dir(registered):
-        raise MigrationManifestError(
-            f"worktree {root} is not attached to registered checkout {registered}"
-        )
-
-
-def _git_common_dir(root: Path) -> Path:
-    raw = _git_capture(root, ["rev-parse", "--git-common-dir"])
-    path = Path(raw)
-    return (root / path).resolve() if not path.is_absolute() else path.resolve()
-
-
-def _require_tracked(root: Path, relative: Path) -> None:
-    result = _git_run(root, ["ls-files", "--error-unmatch", relative.as_posix()])
-    if result.returncode != 0:
-        raise MigrationManifestError(
-            f"migration source is not tracked at HEAD: {relative.as_posix()}"
-        )
-
-
-def _git_capture(root: Path, argv: list[str]) -> str:
-    result = _git_run(root, argv)
-    if result.returncode != 0:
-        raise MigrationManifestError(
-            f"git {' '.join(argv)} failed in {root}: {result.stderr.strip()}"
-        )
-    return result.stdout.strip()
-
-
-def _git_run(root: Path, argv: list[str]) -> subprocess.CompletedProcess[str]:
-    try:
-        return subprocess.run(
-            ["git", "-C", str(root), *argv],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-    except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
-        raise MigrationManifestError(f"git source validation failed: {exc}") from exc
 
 
 __all__ = [

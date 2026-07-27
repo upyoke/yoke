@@ -84,7 +84,7 @@ def _staged_files() -> Optional[list[str]]:
 
 
 def _active_worktree_items() -> Optional[list[str]]:
-    """Return ``id|title`` rows for in-flight worktree-backed items."""
+    """Return ``id|title`` rows for in-flight items with active lanes."""
     try:
         from yoke_contracts.api.function_call import TargetRef
         from yoke_core.api.service_client_structured_api_adapter import (
@@ -92,9 +92,9 @@ def _active_worktree_items() -> Optional[list[str]]:
         )
 
         response = call_dispatcher(
-            function_id="items.list.run",
+            function_id="items.overview.list",
             target=TargetRef(kind="global"),
-            payload={"fields": ["id", "title", "status", "worktree"]},
+            payload={"limit": 1000},
             timeout_s=2.0,
         )
         if not response.success:
@@ -106,7 +106,7 @@ def _active_worktree_items() -> Optional[list[str]]:
     return [
         f"{row['id']}|{row['title']}"
         for row in rows
-        if (row.get("worktree") or "").strip()
+        if row.get("worktrees")
         and row.get("status") not in terminal
     ]
 

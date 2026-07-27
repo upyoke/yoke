@@ -1,8 +1,8 @@
-"""Unit tests for the browser-QA function family.
+"""Unit tests for the Browser method-case function family.
 
 ``qa.browser_context.get`` + ``qa.run.add`` + ``qa.run.complete`` +
-``qa.artifact.add`` — the DB legs of the browser-QA orchestrator. Handlers
-run against the isolated Postgres fixture (the orchestrator-side seam test
+``qa.artifact.add`` — the DB legs of the per-requirement case executor.
+Handlers run against the isolated Postgres fixture (the executor-side seam test
 asserting the dispatcher wiring lives in
 ``runtime/api/domain/test_browser_qa_transport.py``).
 """
@@ -71,7 +71,18 @@ class TestQaBrowserContextGet(unittest.TestCase):
         self.assertFalse(outcome.primary_success)
         self.assertEqual(outcome.error.code, "payload_invalid")
 
-    def test_returns_browser_requirements_and_item_id(self):
+    def test_rejects_missing_requirement_id(self):
+        outcome = qa_browser.handle_qa_browser_context_get(
+            _request(
+                "qa.browser_context.get",
+                TargetRef(kind="item", item_id=42),
+                payload={"project": "yoke"},
+            ),
+        )
+        self.assertFalse(outcome.primary_success)
+        self.assertEqual(outcome.error.code, "payload_invalid")
+
+    def test_returns_named_browser_case_and_item_id(self):
         with test_database() as conn:
             _seed_browser_requirement(conn)
             insert_qa_requirement(
@@ -83,7 +94,7 @@ class TestQaBrowserContextGet(unittest.TestCase):
             outcome = qa_browser.handle_qa_browser_context_get(
                 _request("qa.browser_context.get",
                          TargetRef(kind="item", item_id=42),
-                         payload={"project": "yoke"}),
+                         payload={"project": "yoke", "requirement_id": 10}),
             )
         self.assertTrue(outcome.primary_success, outcome.error)
         result = outcome.result_payload
@@ -109,7 +120,7 @@ class TestQaBrowserContextGet(unittest.TestCase):
             outcome = qa_browser.handle_qa_browser_context_get(
                 _request("qa.browser_context.get",
                          TargetRef(kind="item", item_id=42),
-                         payload={"project": "yoke",
+                         payload={"project": "yoke", "requirement_id": 10,
                                   "expected_branch": "feature-x"}),
             )
         self.assertTrue(outcome.primary_success, outcome.error)
@@ -136,7 +147,7 @@ class TestQaBrowserContextGet(unittest.TestCase):
             outcome = qa_browser.handle_qa_browser_context_get(
                 _request("qa.browser_context.get",
                          TargetRef(kind="item", item_id=42),
-                         payload={"project": "yoke",
+                         payload={"project": "yoke", "requirement_id": 10,
                                   "expected_branch": "feature-x"}),
             )
         self.assertTrue(outcome.primary_success, outcome.error)
@@ -161,7 +172,7 @@ class TestQaBrowserContextGet(unittest.TestCase):
             outcome = qa_browser.handle_qa_browser_context_get(
                 _request("qa.browser_context.get",
                          TargetRef(kind="item", item_id=42),
-                         payload={"project": "yoke",
+                         payload={"project": "yoke", "requirement_id": 10,
                                   "expected_branch": "feature-x"}),
             )
         self.assertTrue(outcome.primary_success, outcome.error)
@@ -195,7 +206,7 @@ class TestQaRunAdd(unittest.TestCase):
                 _request("qa.run.add",
                          TargetRef(kind="qa_requirement", qa_requirement_id=10),
                          payload={"executor_type": "browser_substrate",
-                                  "qa_kind": "browser_diff"}),
+                                  "qa_kind": "ac_verification"}),
             )
         self.assertFalse(outcome.primary_success)
         self.assertEqual(outcome.error.code, "payload_invalid")
@@ -256,7 +267,7 @@ class TestQaRunComplete(unittest.TestCase):
         with test_database() as conn:
             _seed_browser_requirement(conn)
             insert_qa_requirement(
-                conn, id=11, item_id=42, qa_kind="browser_diff",
+                conn, id=11, item_id=42, qa_kind="plan_case",
                 qa_phase="verification", blocking_mode="blocking",
                 success_policy="",
             )

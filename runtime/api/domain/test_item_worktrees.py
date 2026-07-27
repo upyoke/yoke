@@ -27,7 +27,6 @@ def test_single_lane_record_refresh_and_release(test_db):
         branch="YOK-921",
         path="/tmp/yoke-921",
         lane_role=LANE_IMPLEMENTATION,
-        session_id="session-one",
     )
     refreshed = record_item_worktree(
         test_db,
@@ -35,12 +34,11 @@ def test_single_lane_record_refresh_and_release(test_db):
         branch="YOK-921",
         path="/tmp/yoke-921",
         lane_role=LANE_IMPLEMENTATION,
-        session_id="session-two",
     )
     test_db.commit()
 
     assert refreshed["id"] == first["id"]
-    assert refreshed["session_id"] == "session-two"
+    assert "session_id" not in refreshed
     validate_item_worktree_roles(test_db, 921)
     assert release_item_worktrees(test_db, item_id=921) == 1
     assert list_item_worktrees(test_db, 921, active_only=True) == []
@@ -65,7 +63,6 @@ def test_epic_worker_materializes_required_integration_lane(test_db):
         item_id=923,
         branch="YOK-923-task-1",
         path="/tmp/yoke-923-task-1",
-        session_id="session-epic",
     )
     test_db.commit()
 

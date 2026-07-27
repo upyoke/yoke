@@ -87,6 +87,10 @@ class TestReadyRows:
         assert row["workflow_version"] == 1
         assert row["project"] == "yoke"
         assert row["status"] == "implementing"
+        assert row["stage_index"] == 3
+        assert row["stage_count"] == 10
+        assert row["stage_label"] == "implementing"
+        assert row["created_at"]
         # Readiness prose is composed server-side from computed facts.
         assert "no unsatisfied activation gates" in row["why_ready"].lower()
         assert "unclaimed" in row["why_ready"]
@@ -177,13 +181,17 @@ class TestBlockedRows:
             status="refining-idea", blocked=1,
             blocked_reason="waiting on vendor",
         )
-        rows = list_frontier()["blocked_rows"]
+        result = list_frontier()
+        rows = result["blocked_rows"]
         assert len(rows) == 1
         row = rows[0]
         assert row["item_id"] == "YOK-41"
+        assert row["workflow_id"] == "issue"
         assert row["blocking_item"] == ""
         assert row["gate_point"] == ""
         assert "waiting on vendor" in row["why"]
+        assert row["created_at"]
+        assert result["waiting_on_you_count"] == 1
 
 
 class TestProjectScope:

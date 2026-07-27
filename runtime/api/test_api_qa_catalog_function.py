@@ -2,17 +2,19 @@
 
 from __future__ import annotations
 
-import json
-
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.pg_testdb import test_database
+from runtime.api.qa_catalog_test_support import (
+    CATALOG_CASES,
+    create_release_readiness_plan,
+)
 from yoke_core.domain.qa_catalog_reads import (
     get_method,
-    list_activity,
     list_methods,
     list_plans,
 )
 from yoke_core.domain.qa_plan_attachments import (
+    attach_plan_to_item,
     materialize_for_item,
     set_project_default,
 )
@@ -21,40 +23,8 @@ from yoke_core.domain.qa_plan_management import (
     create_plan,
     replace_plan_cases,
 )
-
-
-CASES = [
-    {
-        "case_key": "backend-suite",
-        "position": 1,
-        "method_id": "command",
-        "instructions": "Run the registered backend suite.",
-        "expected_outcome": "The suite exits successfully.",
-        "method_config": {"command": "python3 -m pytest runtime/api"},
-    },
-    {
-        "case_key": "checkout-flow",
-        "position": 2,
-        "method_id": "browser-check",
-        "instructions": "Open checkout and submit the declared fixture.",
-        "expected_outcome": "The confirmation route and summary are visible.",
-        "method_config": {
-            "base_url": "http://localhost:9999",
-            "steps": [{"action": "navigate", "route": "/checkout"}],
-        },
-    },
-]
-
-
-def _plan(conn) -> dict:
-    plan = create_plan(
-        conn,
-        project="yoke",
-        slug="release-readiness",
-        name="Release readiness",
-    )
-    replace_plan_cases(conn, plan_id=plan["id"], cases=CASES)
-    return plan
+from yoke_core.domain.schema_init_tables import create_governed_tables
+from yoke_core.domain.test_machine_schema import ensure_test_machine_schema
 
 
 def test_builtin_methods_seed_with_real_contracts() -> None:
@@ -74,16 +44,30 @@ def test_builtin_methods_seed_with_real_contracts() -> None:
     assert command["required_capability_kind"] is None
     assert command["verdict_path"] == "automatic"
     assert command["capability_state"] == "available"
+    inspection = next(
+        row for row in rows if row["id"] == "browser-inspection"
+    )
+    assert inspection["description"] == (
+        "Captures screenshots; an agent judges whether they show the "
+        "case's expected outcome."
+    )
 
 
 def test_plan_cases_and_attachment_reads_are_project_scoped() -> None:
     with test_database() as conn:
-        plan = _plan(conn)
+        plan = create_release_readiness_plan(conn)
+        item = insert_item(conn, id=2001, project_sequence=2001)
         attached = set_project_default(
             conn,
             plan_id=plan["id"],
             workflow_id="issue",
             transition_id="release",
+        )
+        attach_plan_to_item(
+            conn,
+            plan_id=plan["id"],
+            item_id=int(item["id"]),
+            transition_id="reviewing-implementation",
         )
         rows = list_plans(conn, project="yoke")
         detail = get_plan(conn, plan_id=plan["id"])
@@ -99,6 +83,15 @@ def test_plan_cases_and_attachment_reads_are_project_scoped() -> None:
         "workflow_id": "issue",
         "transition_id": "release",
         "item_id": None,
+            "transition_label": "release",
+    }, {
+        "kind": "item",
+        "project": "yoke",
+        "workflow_id": "issue",
+        "transition_id": "reviewing-implementation",
+        "item_id": 2001,
+            "transition_label": "reviewing implementation",
+        "item_ref": "YOK-2001",
     }]
     assert [case["case_key"] for case in detail["cases"]] == [
         "backend-suite",
@@ -117,7 +110,7 @@ def test_multiple_project_default_plans_share_one_transition() -> None:
             workflow_id="issue",
             status="implemented",
         )
-        release = _plan(conn)
+        release = create_release_readiness_plan(conn)
         lint = create_plan(
             conn,
             project="yoke",
@@ -153,94 +146,191 @@ def test_multiple_project_default_plans_share_one_transition() -> None:
     assert len(materialized["created_requirement_ids"]) == 3
 
 
-def test_materialization_is_idempotent_and_preserves_case_snapshot() -> None:
+def test_method_plan_roster_stays_inside_the_requested_project() -> None:
     with test_database() as conn:
+        create_release_readiness_plan(conn)
+        external = create_plan(
+            conn,
+            project="externalwebapp",
+            slug="external-command",
+            name="External command",
+        )
+        replace_plan_cases(
+            conn,
+            plan_id=external["id"],
+            cases=[CATALOG_CASES[0]],
+        )
+
+        method = get_method(conn, method_id="command", project="yoke")
+
+    assert [plan["project"] for plan in method["plans"]] == ["yoke"]
+    assert [plan["slug"] for plan in method["plans"]] == [
+        "release-readiness",
+    ]
+
+
+def test_machine_methods_and_plan_cases_project_the_active_serial_lease() -> None:
+    with test_database() as conn:
+        ensure_test_machine_schema(conn)
+        create_governed_tables(conn)
         item = insert_item(
             conn,
-            id=42,
-            title="Ship checkout",
-            workflow_id="issue",
-            status="implemented",
+            id=2101,
+            project_sequence=2101,
+            title="Exercise the Test Mac",
         )
-        plan = _plan(conn)
-        set_project_default(
+        plan = create_plan(
             conn,
-            plan_id=plan["id"],
-            workflow_id=str(item["workflow_id"]),
-            transition_id="release",
-        )
-        first = materialize_for_item(
-            conn, item_id=42, transition_id="release",
+            project="yoke",
+            slug="machine-readiness",
+            name="Machine readiness",
         )
         replace_plan_cases(
             conn,
             plan_id=plan["id"],
             cases=[{
-                **CASES[0],
-                "instructions": "A later edit for future items.",
-            }, CASES[1]],
+                "case_key": "host-state",
+                "position": 1,
+                "method_id": "machine-state-check",
+                "instructions": "Inspect the controlled host.",
+                "expected_outcome": "The host state is ready.",
+                "method_config": {
+                    "assertions": [{"argv": ["/usr/bin/true"]}],
+                },
+            }],
         )
-        second = materialize_for_item(
-            conn, item_id=42, transition_id="release",
-        )
-        snapshot = conn.execute(
-            "SELECT method_id, qa_kind, instructions, success_policy, "
-            "workflow_transition_id FROM qa_requirements "
-            "WHERE item_id=%s ORDER BY id",
-            (42,),
-        ).fetchall()
-
-    assert len(first["created_requirement_ids"]) == 2
-    assert second["created_requirement_ids"] == []
-    assert second["existing_requirement_ids"] == first["created_requirement_ids"]
-    assert snapshot[0]["method_id"] == "command"
-    assert snapshot[0]["qa_kind"] == "plan_case"
-    assert snapshot[0]["instructions"] == CASES[0]["instructions"]
-    assert json.loads(snapshot[0]["success_policy"]) == {
-        "id": "all-pass",
-        "params": {},
-    }
-    assert snapshot[1]["qa_kind"] == "plan_case"
-    assert snapshot[1]["workflow_transition_id"] == "release"
-
-
-def test_activity_folds_requirement_run_and_artifacts_into_case_outcome() -> None:
-    with test_database() as conn:
-        insert_item(conn, id=42, title="Ship checkout", workflow_id="issue")
-        plan = _plan(conn)
-        set_project_default(
-            conn,
-            plan_id=plan["id"],
-            workflow_id="issue",
-            transition_id="release",
-        )
-        materialized = materialize_for_item(
-            conn, item_id=42, transition_id="release",
-        )
-        requirement_id = materialized["created_requirement_ids"][0]
-        run = conn.execute(
-            "INSERT INTO qa_runs("
-            "qa_requirement_id, executor_type, qa_kind, verdict, "
-            "case_outcome, created_at"
-            ") VALUES (%s, 'worktree_run', 'command', 'pass', "
-            "'passed', '2026-07-26T12:00:00Z') RETURNING id",
-            (requirement_id,),
-        ).fetchone()
         conn.execute(
-            "INSERT INTO qa_artifacts("
-            "qa_run_id, artifact_type, artifact_handle, created_at"
-            ") VALUES (%s, 'output', %s, '2026-07-26T12:00:00Z')",
-            (run["id"], '{"kind":"local","path":"output.txt"}'),
+            "INSERT INTO project_capabilities("
+            "project_id,type,settings,verified_at,created_at"
+            ") VALUES(1,'test-machine','{}',%s,%s) "
+            "ON CONFLICT(project_id,type) DO UPDATE SET "
+            "verified_at=EXCLUDED.verified_at",
+            ("2026-07-26T16:00:00Z", "2026-07-26T15:00:00Z"),
         )
-        conn.commit()
-        activity = list_activity(conn, project="yoke")
-        detail = get_plan(conn, plan_id=plan["id"])
+        conn.execute(
+            "INSERT INTO test_machine_verifications("
+            "project_id,status,checked_at,receipt_json,error_code,updated_at"
+            ") VALUES(1,'verified',%s,'{}',NULL,%s) "
+            "ON CONFLICT(project_id) DO UPDATE SET "
+            "status=EXCLUDED.status, checked_at=EXCLUDED.checked_at, "
+            "updated_at=EXCLUDED.updated_at",
+            ("2026-07-26T16:00:00Z", "2026-07-26T16:00:00Z"),
+        )
+        conn.execute(
+            "INSERT INTO work_claims("
+            "session_id,target_kind,item_id,claimed_at,last_heartbeat"
+            ") VALUES('machine-session','item',%s,%s,%s)",
+            (
+                int(item["id"]),
+                "2026-07-26T16:05:00Z",
+                "2026-07-26T16:06:00Z",
+            ),
+        )
+        conn.execute(
+            "INSERT INTO coordination_leases("
+            "id,project_id,lease_key,session_id,actor_id,"
+            "acquired_at,heartbeat_at,released_at"
+            ") VALUES(901,1,'QA_HOST:mac-mini-lab','machine-session','2',"
+            "%s,%s,NULL)",
+            ("2026-07-26T16:05:00Z", "2026-07-26T16:06:00Z"),
+        )
 
-    passed = next(row for row in activity if row["case_key"] == "backend-suite")
-    assert passed["outcome"] == "passed"
-    assert passed["evidence_count"] == 1
-    assert passed["method_name"] == "Command"
-    assert detail["union"] == {
-        "satisfied": False,
-        "counts": {"passed": 1, "queued": 1},
+        methods = list_methods(conn, project="yoke")
+        detail = get_plan(conn, plan_id=plan["id"])
+        conn.execute(
+            "UPDATE coordination_leases SET released_at=%s WHERE id=901",
+            ("2026-07-26T16:10:00Z",),
+        )
+        conn.execute(
+            "UPDATE test_machine_verifications SET status='error' "
+            "WHERE project_id=1",
+        )
+        error_state = next(
+            row["capability_state"] for row in list_methods(
+                conn, project="yoke",
+            )
+            if row["id"] == "machine-state-check"
+        )
+        conn.execute(
+            "UPDATE test_machine_verifications "
+            "SET status='configured_unverified' WHERE project_id=1",
+        )
+        configured_state = next(
+            row["capability_state"] for row in list_methods(
+                conn, project="yoke",
+            )
+            if row["id"] == "machine-state-check"
+        )
+        conn.execute(
+            "UPDATE test_machine_verifications SET status='verified' "
+            "WHERE project_id=1",
+        )
+        ready_state = next(
+            row["capability_state"] for row in list_methods(
+                conn, project="yoke",
+            )
+            if row["id"] == "machine-state-check"
+        )
+        conn.execute(
+            "DELETE FROM test_machine_verifications WHERE project_id=1",
+        )
+        fallback_ready_state = next(
+            row["capability_state"] for row in list_methods(
+                conn, project="yoke",
+            )
+            if row["id"] == "machine-state-check"
+        )
+        conn.execute(
+            "UPDATE project_capabilities SET verified_at=NULL "
+            "WHERE project_id=1 AND type='test-machine'",
+        )
+        fallback_configured_state = next(
+            row["capability_state"] for row in list_methods(
+                conn, project="yoke",
+            )
+            if row["id"] == "machine-state-check"
+        )
+        conn.execute(
+            "DELETE FROM project_capabilities "
+            "WHERE project_id=1 AND type='test-machine'",
+        )
+        missing_state = next(
+            row["capability_state"] for row in list_methods(
+                conn, project="yoke",
+            )
+            if row["id"] == "machine-state-check"
+        )
+
+    expected_context = {
+        "state": "in_use",
+        "concurrency_mode": "serial",
+        "wait_reason": "serial_lease_in_use",
+        "active_lease": {"item_ref": "YOK-2101"},
     }
+    machine_methods = [
+        row for row in methods
+        if row["required_capability_kind"] == "test-machine"
+    ]
+    assert len(machine_methods) == 3
+    assert all(
+        row["capability_state"] == "in_use"
+        and row["capability_context"] == expected_context
+        for row in machine_methods
+    )
+    assert detail["cases"][0]["capability_state"] == "in_use"
+    assert detail["cases"][0]["capability_context"] == expected_context
+    assert [
+        error_state,
+        configured_state,
+        ready_state,
+        fallback_ready_state,
+        fallback_configured_state,
+        missing_state,
+    ] == [
+        "error",
+        "configured_unverified",
+        "ready",
+        "ready",
+        "configured_unverified",
+        "not_configured",
+    ]

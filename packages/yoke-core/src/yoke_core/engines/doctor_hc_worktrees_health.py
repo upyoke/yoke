@@ -2,12 +2,11 @@
 
 Cluster: HC-worktree-health (single HC). Inspects ``git worktree list``,
 the configured ``.worktrees`` directory, local YOK-* branches, and the
-``items.worktree`` DB field to detect stale entries for done/cancelled items.
+universal ``item_worktrees`` registry to detect stale terminal-item lanes.
 """
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 from typing import List
 
@@ -80,21 +79,20 @@ def hc_worktree_health(conn, args: DoctorArgs, rec: RecordCollector) -> None:
                     f"(cd {wt_path} && git status)"
                 )
 
-        # Check for stale worktrees (done/cancelled items)
-        m = re.search(r"[Yy][Oo][Kk]-(\d+)", branch)
-        if m:
-            yok_id = int(m.group(1))
-            p = _p(conn)
-            row = query_rows(
-                conn,
-                f"SELECT status FROM items WHERE id={p}",
-                (yok_id,),
-            )
-            if row and row[0]["status"] in ("done", "cancelled"):
-                status = row[0]["status"]
+        # Check terminal ownership through the universal registry.
+        p = _p(conn)
+        owners = query_rows(
+            conn,
+            "SELECT DISTINCT iw.item_id, i.status FROM item_worktrees iw "
+            "JOIN items i ON i.id = iw.item_id "
+            f"WHERE iw.branch = {p} OR iw.path = {p}",
+            (branch, wt_path),
+        )
+        for owner in owners:
+            if owner["status"] in ("done", "cancelled"):
                 issues.append(
                     f"- Stale worktree: {branch} at {wt_path} "
-                    f"— YOK-{yok_id} is {status} "
+                    f"— YOK-{owner['item_id']} is {owner['status']} "
                     "(safe cleanup requires exact DB ownership, no active "
                     "claim, a clean tree, and target ancestry)"
                 )
@@ -110,51 +108,54 @@ def hc_worktree_health(conn, args: DoctorArgs, rec: RecordCollector) -> None:
                 child_str = str(child)
                 if child_str in registered_paths:
                     continue
-                m = re.search(r"[Yy][Oo][Kk]-(\d+)", child.name)
-                if m:
-                    yok_id = int(m.group(1))
-                    p = _p(conn)
-                    row = query_rows(
-                        conn,
-                        f"SELECT status FROM items WHERE id={p}",
-                        (yok_id,),
-                    )
-                    if row and row[0]["status"] in ("done", "cancelled"):
-                        status = row[0]["status"]
+                p = _p(conn)
+                owners = query_rows(
+                    conn,
+                    "SELECT DISTINCT iw.item_id, i.status "
+                    "FROM item_worktrees iw "
+                    "JOIN items i ON i.id = iw.item_id "
+                    f"WHERE iw.path = {p}",
+                    (child_str,),
+                )
+                for owner in owners:
+                    if owner["status"] in ("done", "cancelled"):
                         issues.append(
                             f"- Stale worktree directory: {child_str} "
-                            f"— YOK-{yok_id} is {status} "
+                            f"— YOK-{owner['item_id']} is {owner['status']} "
                             "(unregistered directory preserved for inspection)"
                         )
 
     # Detect stale local branches for done/cancelled items
     done_rows = query_rows(
         conn,
-        "SELECT id FROM items WHERE status IN ('done', 'cancelled')",
+        "SELECT DISTINCT iw.item_id, iw.branch FROM item_worktrees iw "
+        "JOIN items i ON i.id = iw.item_id "
+        "WHERE i.status IN ('done', 'cancelled')",
     )
     for row in done_rows:
-        did = row["id"]
-        br = _base._run(["git", "rev-parse", "--verify", f"YOK-{did}"])
+        did = row["item_id"]
+        branch = row["branch"]
+        br = _base._run(["git", "rev-parse", "--verify", branch])
         if br.returncode == 0:
             issues.append(
-                f"- Stale local branch: YOK-{did} "
+                f"- Stale local branch: {branch} "
                 f"— YOK-{did} is done/cancelled "
                 "(safe pruning requires DB ownership, no active claim, and "
                 "target ancestry)"
             )
 
-    # Detect non-null worktree DB field on done/cancelled items
+    # Terminal updates release operational lanes but retain audit history.
     wt_rows = query_rows(
         conn,
-        "SELECT id, worktree FROM items "
-        "WHERE status IN ('done', 'cancelled') "
-        "AND worktree IS NOT NULL AND worktree <> ''",
+        "SELECT i.id, iw.branch FROM items i "
+        "JOIN item_worktrees iw ON iw.item_id = i.id "
+        "WHERE i.status IN ('done', 'cancelled') AND iw.state = 'active'",
     )
     for row in wt_rows:
         issues.append(
-            f"- Non-null worktree DB field on done item: YOK-{row['id']} "
-            f"has worktree='{row['worktree']}' "
-            "(preserve this ownership record until safe cleanup completes)"
+            f"- Active worktree lane on terminal item: YOK-{row['id']} "
+            f"has branch='{row['branch']}' "
+            "(release the lane while preserving its audit record)"
         )
 
     if issues:

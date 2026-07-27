@@ -58,10 +58,10 @@ def test_main_cwd_target_with_worktree_claim_refuses(
 def test_session_with_only_no_worktree_claims_is_no_op(
     patch_conn, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Item-without-worktree-branch claims contribute no row.
+    """Claims on items without an active lane contribute no row.
 
-    ``claimed_worktrees`` deliberately filters items without a worktree
-    branch (idea/refine-phase items). Without worktree claims the helper
+    ``claimed_worktrees`` deliberately filters items without an active
+    worktree lane (idea/refine-phase items). Without worktree claims the helper
     has no authority signal to enforce — fall through to no-op (same
     posture the per-tool-call lint takes for sessions with no claims).
     Authority for pre-implementation lifecycles is enforced by

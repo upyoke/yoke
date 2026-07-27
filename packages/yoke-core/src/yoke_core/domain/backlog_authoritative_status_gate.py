@@ -21,16 +21,26 @@ from .workflow_gate_catalog import (
     GATE_ARCHITECTURE_IMPACT,
     GATE_CHECK_HARD_BLOCKS,
     GATE_CLAIM_ACTIVATION,
+    GATE_CONFLICT_SURVEY,
     GATE_DB_CLAIM_PROSE,
     GATE_DB_MUTATION,
+    GATE_DOC_CLAIM_ACTIVATION,
     GATE_PATH_CLAIM_BOUNDARY,
     GATE_PLAN_SIMULATION,
     GATE_QA_VERIFICATION,
+    GATE_WORK_CLAIM_ACTIVATION,
 )
 from .workflow_runtime import load_item_workflow_runtime
 
 
 _REVIEWED_IMPLEMENTATION_TARGET = "reviewed-implementation"
+_ACTIVATION_GATE_IDS = frozenset({
+    GATE_WORK_CLAIM_ACTIVATION,
+    GATE_DOC_CLAIM_ACTIVATION,
+})
+_NON_BYPASSABLE_ACTIVATION_GATE_IDS = (
+    _ACTIVATION_GATE_IDS | {GATE_CONFLICT_SURVEY}
+)
 
 
 def _run_authoritative_status_gate(
@@ -40,6 +50,7 @@ def _run_authoritative_status_gate(
     db_path: str,
     qa_bypass: bool,
     force: bool,
+    session_id: Optional[str] = None,
 ) -> Optional[dict]:
     """Run the authoritative QA + governed-DB-mutation gates for status writes.
 
@@ -65,28 +76,50 @@ def _run_authoritative_status_gate(
     returns the failure payload (verbatim for serial targets, aggregated
     for ``reviewed-implementation``).
     """
-    if qa_bypass or force:
-        return None
+    bypass_non_activation = qa_bypass or force
 
     # Lazy import keeps the helpers shim patchable while avoiding a
     # helpers <-> authoritative-gate import cycle at module load time.
     from yoke_core.domain import backlog_updates_helpers as _helpers
 
-    file_line_result = _helpers._run_file_line_gate(
-        item_id=item_id,
-        target_status=target_status,
-        db_path=db_path,
-    )
-    if file_line_result is not None:
-        return file_line_result
+    if not bypass_non_activation:
+        file_line_result = _helpers._run_file_line_gate(
+            item_id=item_id,
+            target_status=target_status,
+            db_path=db_path,
+        )
+        if file_line_result is not None:
+            return file_line_result
 
     conn = connect(db_path)
     try:
         workflow = load_item_workflow_runtime(conn, item_id)
     finally:
         conn.close()
+    if workflow.workflow_id == "dash":
+        from yoke_core.domain.dash_posture_gate import evaluate as evaluate_posture
+
+        posture_result = evaluate_posture(
+            item_id=item_id,
+            target_status=target_status,
+            db_path=db_path,
+        )
+        if posture_result is not None:
+            return posture_result
     failures: list[dict] = []
-    for gate_ref in workflow.gates_for_stage(target_status):
+    gate_refs = workflow.gates_for_stage(target_status)
+    if bypass_non_activation:
+        gate_refs = tuple(
+            ref for ref in gate_refs
+            if str(ref["id"]) in _NON_BYPASSABLE_ACTIVATION_GATE_IDS
+        )
+        if not gate_refs:
+            return None
+    ordered_refs = sorted(
+        gate_refs,
+        key=lambda ref: str(ref["id"]) in _ACTIVATION_GATE_IDS,
+    )
+    for gate_ref in ordered_refs:
         gate_id = str(gate_ref["id"])
         result = _evaluate_definition_gate(
             gate_id=gate_id,
@@ -94,6 +127,7 @@ def _run_authoritative_status_gate(
             item_id=item_id,
             target_status=target_status,
             db_path=db_path,
+            session_id=session_id,
         )
         if result is None:
             continue
@@ -119,6 +153,7 @@ def _evaluate_definition_gate(
     item_id: int,
     target_status: str,
     db_path: str,
+    session_id: Optional[str] = None,
 ) -> Optional[dict]:
     """Dispatch one definition-owned gate reference to registered code."""
     from yoke_core.domain import backlog_updates_helpers as _helpers
@@ -161,6 +196,15 @@ def _evaluate_definition_gate(
             target_status=target_status,
             db_path=db_path,
             definition_selected=True,
+        )
+    from yoke_core.domain import direct_workflow_gate_dispatch
+    if direct_workflow_gate_dispatch.handles(gate_id):
+        return direct_workflow_gate_dispatch.evaluate(
+            gate_id=gate_id,
+            item_id=item_id,
+            target_status=target_status,
+            db_path=db_path,
+            session_id=session_id,
         )
     if gate_id in {GATE_CHECK_HARD_BLOCKS, GATE_CLAIM_ACTIVATION}:
         return None

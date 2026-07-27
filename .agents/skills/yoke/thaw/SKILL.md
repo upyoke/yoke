@@ -67,12 +67,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
        --item "YOK-{N}" --reason thaw-complete
    ```
 
-7. **Commit the changes.**
-   ```bash
-   git diff --cached --quiet || git commit -m "YOK-{N}: thaw"
-   ```
-
-8. **Report:**
+7. **Report:**
  > **YOK-{N}** ({title}): thawed
  >
  > The item is back on the board in the `{status}` section.

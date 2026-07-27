@@ -211,7 +211,7 @@ USAGE_BY_FUNCTION_ID = {
     "strategy.execution.get": "yoke strategy execution get ITEM --project P",
     "strategy.execution.link": "yoke strategy execution link ITEM --slug SLUG --project P",
     "strategy.claim.acquire": "yoke strategy claim acquire ITEM --project P",
-    "strategy.claim.release": "yoke strategy claim release ITEM --project P",
+    "strategy.claim.release": "yoke strategy claim release ITEM [--reason TEXT] --project P",
     "strategy.claim.break_glass_release": "yoke strategy claim break-glass-release ITEM --reason TEXT --project P",
 }
 

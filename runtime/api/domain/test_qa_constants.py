@@ -1,17 +1,4 @@
-"""Tests for ``yoke_core.domain.qa_constants`` leaf module.
-
-Covers AC-10 from the parent task spec:
-
-- (a) every ``VALID_*`` tuple is the expected non-empty tuple.
-- (b) ``_normalize_qa_phase`` normalizes ``"validation"`` to
-  ``"verification"`` and is a no-op on canonical values.
-- (c) ``_normalize_qa_kind`` round-trips canonical browser QA kinds and
-  rewrites the legacy ``"review"`` value to ``"implementation_review"``.
-- (d) ``_coalesce(None)`` returns the default; ``_coalesce(value)`` returns
-  ``str(value)``.
-- (e) ``_pipe_row`` matches the current behavior on a representative
-  authority row object.
-"""
+"""Tests for the shared QA vocabulary and formatting helpers."""
 
 from __future__ import annotations
 
@@ -20,13 +7,15 @@ import pytest
 from runtime.api.fixtures import pg_testdb
 from yoke_core.domain import qa_constants
 from yoke_core.domain.qa_constants import (
+    BROWSER_METHOD_IDS,
     VALID_BLOCKING_MODES,
-    VALID_BROWSER_QA_KINDS,
     VALID_QA_PHASES,
     VALID_REQUIREMENT_SOURCES,
     VALID_VERDICTS,
     _REQ_SELECT,
+    browser_requirement_predicate,
     _coalesce,
+    is_browser_method_requirement,
     _normalize_qa_kind,
     _normalize_qa_phase,
     _pipe_row,
@@ -62,9 +51,9 @@ def test_valid_verdicts_tuple():
     assert VALID_VERDICTS == ("pass", "fail", "inconclusive", "error")
 
 
-def test_valid_browser_qa_kinds_tuple():
-    assert isinstance(VALID_BROWSER_QA_KINDS, tuple)
-    assert VALID_BROWSER_QA_KINDS == ("browser_smoke", "browser_diff")
+def test_browser_method_ids_tuple():
+    assert isinstance(BROWSER_METHOD_IDS, tuple)
+    assert BROWSER_METHOD_IDS == ("browser-check", "browser-inspection")
 
 
 def test_all_valid_tuples_are_nonempty():
@@ -74,11 +63,34 @@ def test_all_valid_tuples_are_nonempty():
         "VALID_BLOCKING_MODES",
         "VALID_REQUIREMENT_SOURCES",
         "VALID_VERDICTS",
-        "VALID_BROWSER_QA_KINDS",
     ):
         value = getattr(qa_constants, name)
         assert isinstance(value, tuple)
         assert len(value) > 0, f"{name} must be non-empty"
+
+
+@pytest.mark.parametrize("method_id", BROWSER_METHOD_IDS)
+def test_browser_method_requirement_uses_method_identity(method_id):
+    assert is_browser_method_requirement(method_id, qa_kind="plan_case")
+
+
+def test_non_browser_method_does_not_inherit_legacy_kind():
+    assert not is_browser_method_requirement(
+        "unit-test",
+        qa_kind="browser_smoke",
+    )
+
+
+def test_legacy_browser_kind_is_private_compatibility_for_unidentified_rows():
+    assert is_browser_method_requirement(None, qa_kind="browser_smoke")
+    assert is_browser_method_requirement(None, qa_kind="browser_diff")
+
+
+def test_browser_requirement_predicate_is_method_first_with_null_method_fallback():
+    predicate = browser_requirement_predicate("req")
+    assert "req.method_id IN ('browser-check', 'browser-inspection')" in predicate
+    assert "req.method_id IS NULL" in predicate
+    assert "req.qa_kind IN ('browser_smoke', 'browser_diff')" in predicate
 
 
 # ---------------------------------------------------------------------------

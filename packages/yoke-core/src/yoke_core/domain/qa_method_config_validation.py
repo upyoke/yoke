@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_contracts.browser_qa_contract import (
+    browser_method_contract_violation,
+)
+
 
 class QaMethodConfigError(ValueError):
     """A case configuration does not satisfy its method contract."""
@@ -60,6 +64,9 @@ def validate_method_config(method_id: str, raw: Any) -> dict:
             raise QaMethodConfigError(
                 f"{method_id} base_url must be a non-empty string"
             )
+        violation = browser_method_contract_violation(method_id, steps)
+        if violation is not None:
+            raise QaMethodConfigError(violation.message)
     return config
 
 

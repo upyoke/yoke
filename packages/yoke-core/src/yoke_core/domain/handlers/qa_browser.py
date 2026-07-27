@@ -1,13 +1,11 @@
-"""Browser-QA orchestration handlers — the server half of the browser flow.
+"""Browser-method execution handlers — server reads for one case.
 
-The browser-QA orchestrator (``yoke_core.domain.browser_qa``) executes
-scenarios on the CLIENT machine (Playwright daemon, screenshots) while every
-DB leg routes through four function ids, so the flow works identically from
-a Yoke checkout on a local-postgres env and from an external project over
-the https relay:
+The shared case runner executes one materialized Browser method requirement
+on the client machine (Playwright daemon, screenshots) while every DB leg
+routes through registered function ids:
 
-- ``qa.browser_context.get`` (this module) — one batched read: the item's
-  Browser-method requirements plus (when ``expected_branch`` is
+- ``qa.browser_context.get`` (this module) — one requirement-scoped read:
+  the named Browser-method case plus (when ``expected_branch`` is
   supplied) the latest ``ephemeral_environments.deployed_sha`` for the
   freshness gate and the branch's latest recorded ephemeral preview URL
   (``ephemeral_url`` — the advance gate-entry read that replaces raw
@@ -37,8 +35,8 @@ from yoke_contracts.api.function_call import (
 
 class QaBrowserContextGetRequest(BaseModel):
     project: str
+    requirement_id: int
     expected_branch: Optional[str] = None
-    requirement_id: Optional[int] = None
 
 
 class QaBrowserContextGetResponse(BaseModel):
@@ -71,23 +69,23 @@ def handle_qa_browser_context_get(request: FunctionCallRequest) -> HandlerOutcom
             "payload_invalid", "project is required",
             jsonpath="$.payload.project",
         )
+    if not isinstance(requirement_id, int):
+        return _error(
+            "payload_invalid", "requirement_id is required",
+            jsonpath="$.payload.requirement_id",
+        )
 
     conn = connect()
     try:
         p = _p(conn)
-        requirement_filter = ""
-        params: tuple = (int(item_id),)
-        if requirement_id is not None:
-            requirement_filter = f" AND id = {p}"
-            params += (int(requirement_id),)
         req_rows = query_rows(
             conn,
             "SELECT id, qa_kind, method_id, method_config, "
             "expected_outcome FROM qa_requirements "
             f"WHERE item_id = {p} "
             "AND method_id IN ('browser-check', 'browser-inspection') "
-            f"AND waived_at IS NULL{requirement_filter} ORDER BY id",
-            params,
+            f"AND waived_at IS NULL AND id = {p}",
+            (int(item_id), int(requirement_id)),
         )
         requirements = [
             {

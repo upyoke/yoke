@@ -43,7 +43,6 @@ def _load_item_state(conn: Any, item_id: int) -> mutations.ItemState | None:
         deployment_flow=d.get("deployment_flow"),
         deploy_stage=d.get("deploy_stage"),
         deployed_to=d.get("deployed_to"),
-        worktree=d.get("worktree"),
         merged_at=d.get("merged_at"),
         workflow=load_item_workflow_runtime(conn, item_id),
     )

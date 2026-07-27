@@ -92,8 +92,11 @@ def sync_dispatch_progress(
     try:
         conn = connect(db_path or None)
         chains = conn.execute(
-            "SELECT epic_id, COALESCE(worktree_path, ''), COALESCE(current_task, '') "
-            "FROM epic_dispatch_chains"
+            "SELECT c.epic_id, COALESCE(iw.path, ''), "
+            "COALESCE(c.current_task, '') "
+            "FROM epic_dispatch_chains c "
+            "JOIN item_worktrees iw ON iw.id = c.item_worktree_id "
+            "WHERE iw.state = 'active'"
         ).fetchall()
         conn.close()
     except db_backend.operational_error_types():

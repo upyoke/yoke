@@ -54,17 +54,6 @@ def _require_dash(conn: Any, item_id: int) -> dict[str, Any]:
     return row
 
 
-def _posture(row: Mapping[str, Any]) -> dict[str, Any]:
-    value = row.get("workflow_posture") or "{}"
-    if isinstance(value, Mapping):
-        return dict(value)
-    try:
-        parsed = json.loads(str(value))
-    except (TypeError, ValueError):
-        return {}
-    return dict(parsed) if isinstance(parsed, Mapping) else {}
-
-
 def _upsert_json_section(
     conn: Any,
     *,
@@ -181,8 +170,8 @@ def read_json_section(
 
 
 def evaluate_dash_evidence(conn: Any, item_id: int) -> DashEvidenceVerdict:
-    """Validate result, verification, merge, and item-declared checks."""
-    item = _require_dash(conn, item_id)
+    """Validate execution evidence; posture is checked by real authorities."""
+    _require_dash(conn, item_id)
     evidence = read_json_section(
         conn, item_id=item_id, section=DASH_EVIDENCE_SECTION,
     )
@@ -201,12 +190,6 @@ def evaluate_dash_evidence(conn: Any, item_id: int) -> DashEvidenceVerdict:
         missing.append("merge_sha")
     if not evidence.get("touched_files") and not evidence.get("no_changes"):
         missing.append("touched_files")
-    recorded_checks = dict(evidence.get("posture_checks") or {})
-    for key, configured in _posture(item).items():
-        if configured in (None, False, "", [], {}):
-            continue
-        if str(recorded_checks.get(key) or "").casefold() not in _PASS_VALUES:
-            missing.append(f"posture_check:{key}")
     return DashEvidenceVerdict(not missing, tuple(missing), evidence)
 
 

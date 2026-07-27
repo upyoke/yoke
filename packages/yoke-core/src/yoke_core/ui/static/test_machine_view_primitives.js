@@ -28,13 +28,16 @@ export function machineDefinitionList(documentNode, rows) {
 export function machineVerificationCallout(documentNode, detail) {
   const verification = detail.verification || {};
   const verified = verification.status === "verified";
+  const failed = verification.status === "error";
   const callout = el(
     documentNode,
     "div",
-    `callout test-machine-callout ${verified ? "good" : "warn"}`,
+    `callout test-machine-callout ${
+      verified ? "good" : failed ? "error" : "warn"
+    }`,
   );
   callout.appendChild(el(
-    documentNode, "span", "callout-icon", verified ? "✓" : "!",
+    documentNode, "span", "callout-icon", verified ? "✓" : failed ? "×" : "!",
   ));
   const copy = el(documentNode, "span");
   copy.appendChild(el(
@@ -43,12 +46,12 @@ export function machineVerificationCallout(documentNode, detail) {
     null,
     verified
       ? `Verified ${machineRelativeAge(verification.checked_at)}.`
-      : verification.status === "error"
+      : failed
         ? "Verification failed."
         : "Settings saved · verification required.",
   ));
   const explanation = verified
-    ? " Connection, Terminal control, screenshot capture, PTY interaction and both named host baselines passed without returning secret values."
+    ? " Connection, Terminal control, screenshot capture, PTY interaction and both named host baselines passed verification without returning secret values."
     : " The capability is not ready until the registered verifier re-checks the connection, control surfaces, and both host baselines.";
   copy.appendChild(
     documentNode.createTextNode

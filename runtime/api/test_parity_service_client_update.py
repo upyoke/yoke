@@ -36,7 +36,7 @@ class TestUpdateParity:
         assert api_resp.json()["status"] == "blocked"
 
         # Now update via CLI (item 3 is issue at idea, move to refining-idea
-        # — a valid issue-workflow-type transition).
+        # — a valid Issue workflow transition).
         cli_result = _run_service_client(
             db_path, "update-item", "3",
             "--field", "status", "--value", "refining-idea",

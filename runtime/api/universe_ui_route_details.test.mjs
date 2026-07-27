@@ -120,11 +120,41 @@ test("events at All merge newest-first across buckets and name their source", as
     // Bucket order alone would render alpha's block before beta's newer
     // row; the merged stream must interleave by timestamp instead.
     1: [
-      { created_at: "2026-07-20T10:00:00Z", event_name: "Old", event_kind: "system", severity: "INFO", actor_id: 2, project: "alpha" },
-      { created_at: "2026-07-20T12:00:00.500Z", event_name: "Newest", event_kind: "system", severity: "INFO", actor_id: null, service: "cli", project: "alpha" },
+      {
+        created_at: "2026-07-20T10:00:00Z",
+        event_name: "Old",
+        event_kind: "system",
+        category: "system",
+        severity: "INFO",
+        project: "alpha",
+        target_label: "Universe",
+        source_label: "actor 2",
+      },
+      {
+        created_at: "2026-07-20T12:00:00.500Z",
+        event_name: "Newest",
+        event_kind: "system",
+        category: "system",
+        severity: "INFO",
+        project: "alpha",
+        target_label: "Universe",
+        source_label: "cli",
+      },
     ],
     2: [
-      { created_at: "2026-07-20T11:00:00Z", event_name: "Middle", event_kind: "lifecycle", severity: "INFO", actor_id: 170, project: "beta" },
+      {
+        created_at: "2026-07-20T11:00:00Z",
+        event_name: "Middle",
+        event_kind: "lifecycle",
+        category: "workflow",
+        severity: "INFO",
+        project: "beta",
+        target_kind: "item",
+        target_label: "YOK-7",
+        target_project_id: 2,
+        context_label: "Lifecycle advanced",
+        source_label: "actor 170",
+      },
     ],
   };
   const client = {
@@ -161,13 +191,44 @@ test("events at All merge newest-first across buckets and name their source", as
   const mounted = mountUniverseApp(root, { client });
   await settle();
 
-  const cells = allNodes(root)
-    .filter((node) => node.tagName === "TD")
-    .map(cellText);
-  assert.deepEqual(cells, [
-    "2026-07-20T12:00:00.500Z", "alpha", "Newest", "system", "INFO", "cli",
-    "2026-07-20T11:00:00Z", "beta", "Middle", "lifecycle", "INFO", "actor 170",
-    "2026-07-20T10:00:00Z", "alpha", "Old", "system", "INFO", "actor 2",
-  ]);
+  assert.deepEqual(
+    byClass(root, "event-name").map((node) => node.textContent),
+    ["Newest", "Middle", "Old"],
+  );
+  assert.deepEqual(
+    byClass(root, "event-category").map((node) => node.textContent),
+    ["System", "Workflow", "System"],
+  );
+  assert.deepEqual(
+    byClass(root, "event-filter").map((node) => node.textContent),
+    ["All · 3", "Workflow · 1", "System · 2"],
+  );
+  const timelineText = byClass(root, "event-timeline")[0].children
+    .map((node) => allNodes(node).map((part) => part.textContent).join(" "));
+  assert.ok(timelineText[0].includes("Source cli"));
+  assert.ok(timelineText[1].includes("Lifecycle advanced"));
+  assert.ok(timelineText[1].includes("Source actor 170"));
+  assert.ok(timelineText[2].includes("Source actor 2"));
+  assert.equal(
+    byClass(root, "event-card")[1]
+      .children.flatMap(allNodes)
+      .find((node) => node.classList.contains("row-link")).href,
+    "#/items/7?project=2",
+  );
+
+  // Filters are local: narrowing the rendered stream does not make another
+  // authority read, and the selected chip carries the on state.
+  const workflowFilter = byClass(root, "event-filter")[1];
+  workflowFilter.dispatchEvent(new Event("click"));
+  assert.deepEqual(
+    byClass(root, "event-name").map((node) => node.textContent),
+    ["Middle"],
+  );
+  assert.ok(workflowFilter.classList.contains("on"));
+  assert.equal(workflowFilter.attributes.get("aria-pressed"), "true");
+  assert.equal(
+    byClass(root, "event-filter")[0].attributes.get("aria-pressed"),
+    "false",
+  );
   mounted.unmount();
 });

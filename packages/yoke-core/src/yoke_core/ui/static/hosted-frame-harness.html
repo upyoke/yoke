@@ -116,28 +116,6 @@
       return details;
     }
 
-    // navigationEnd — the platform's injected org links (admin set), each
-    // wearing the workbench nav-link anatomy (glyph box + label) the way
-    // the platform's slot builder emits them. Members and Billing are not
-    // links here: they are host-fed views the sections below light in the
-    // workbench's own nav arc.
-    function sampleOrgLinks() {
-      const container = el("div", "hosted-org-links");
-      const links = [
-        ["hosted-project-link", "✚", "New project", "projects/new"],
-        ["hosted-github-link", "⎇", "GitHub", "github/repositories"],
-        ["hosted-tenant-replacement-link", "⇅", "Import universe", "tenant-replacement"],
-      ];
-      for (const [className, glyph, text, route] of links) {
-        const link = el("a", `${className} nav-link`);
-        link.href = `/orgs/${SAMPLE_ORG.slug}/${route}`;
-        link.appendChild(el("span", "ico", glyph));
-        link.appendChild(el("span", "txt", text));
-        container.appendChild(link);
-      }
-      return container;
-    }
-
     // contentBefore — the platform ships a hidden reserved node here today;
     // the harness keeps a visible sample block instead so the stacked
     // content column is exercised, not just tolerated.
@@ -161,10 +139,10 @@
       return container;
     }
 
-    // sections — the platform's host-fed screens. Supplying these lights
-    // the Members and Billing entries in the workbench's own nav arc; the
-    // panels wear the workbench panel anatomy so the framed screens read
-    // like the rest of the app.
+    // sections — the platform's host-fed destination content. Supplying
+    // these lights the corresponding entries in the workbench's flat nav
+    // arc; hosted controls live inside their destination rather than in a
+    // second injected link group.
     function sampleHostSection(title, text) {
       const panel = el("section", "panel");
       const header = el("div", "panel-header");
@@ -185,9 +163,15 @@
 
     mountUniverseApp(document.getElementById("universe-root"), {
       client: useWorkflowFixture ? hostedFrameWorkflowClient() : undefined,
-      currentActor: { id: 2, kind: "human", label: "ben" },
+      environmentLabel: "hosted universe · Acme (sample)",
+      versionLabel: "frame harness",
+      docsUrl: "https://github.com/upyoke/yoke/tree/main/docs",
       capabilities: {
         flags: ["hosted-shell"],
+        data: {
+          portability: { mode: "hosted" },
+          memberDirectory: { "2": "ben", "5": "dana" },
+        },
         actions: [{
           label: "Move universe",
           options: [
@@ -202,11 +186,15 @@
       slots: {
         topbarStart: sampleOrgSwitcher(),
         topbarEnd: sampleUserMenu(),
-        navigationEnd: sampleOrgLinks(),
         contentBefore: sampleContentNotice(),
         contentAfter: sampleReservedContentAfter(),
       },
       sections: {
+        projects: sampleHostSection(
+          "Create project",
+          "Sample hosted project setup supplied by the platform. In the " +
+            "product this section owns repository selection and provisioning.",
+        ),
         members: sampleHostSection(
           "Members",
           "Sample member roster supplied by the host platform.",

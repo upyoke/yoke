@@ -1,7 +1,7 @@
 """Aggregate registry for tool-shaped ``yoke`` subcommands.
 
-Tool-shaped commands are client-local operations (git hook bodies, the
-browser-QA orchestration) that carry NO dispatcher function id — the
+Tool-shaped commands are client-local operations (git hook bodies and
+machine-substrate utilities) that carry NO dispatcher function id — the
 entrypoint consults this table only after registry resolution misses.
 Each owning module contributes its own token→adapter dict; this module
 merges them and owns the one resolver, so adding a family never edits

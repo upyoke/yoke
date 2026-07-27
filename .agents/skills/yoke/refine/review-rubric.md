@@ -18,6 +18,14 @@ Before writing any changes, complete these mandatory checks and carry the findin
 - **Cleanup coverage:** If the artifact replaces or removes behavior, explicitly identify dead code, dead docs, dead tests, dead config, compatibility shims, and migration residue that should be deleted.
 - **Failure/recovery coverage:** If the artifact describes a state-changing or write path, ensure it names failure modes, partial-state behavior, and operator recovery/rollback expectations.
 - **Open-question closure:** For issue-scoped artifacts, resolve open questions or assign explicit defaults whenever the answer would change interfaces, files touched, data model, or user-visible behavior.
+- **Blitz execution document:** When `ITEM_WORKFLOW_ID=blitz`, identify exactly
+  one unarchived strategy document in the item project. Verify that it can
+  cold-start execution from required outcomes, explicit slice boundaries,
+  affected areas, coordination dependencies, verification and delivery
+  actions, unresolved decisions, and its parent-strategy relationship. Zero
+  matches, multiple matches, an existing conflicting link, or a document that
+  lacks those facts is blocking; leave the item at `refining-idea` and do not
+  invoke `strategy.execution.link`.
 - **Prompt/file-size awareness:** If the artifact itself is a large prompt/doc/script surface, note any P-50 risk or line-count pressure in the critique so downstream work does not inherit an unreadable blob.
 - **Simplify lenses (reuse / quality / efficiency):** Apply the simplify three-axis vocabulary from `AGENTS.md`'s `## Simplify — three-axis doctrine` section to the spec/plan as feedforward critique. These are first-class rubric items, not advisory afterthoughts.
   - **reuse lens (required):** Does the spec/plan name the existing helpers, templates, skills, modules, events, and command surfaces it will use? An empty reuse section is valid only with an explicit "no relevant existing surface" justification — write that justification verbatim if no existing surface applies. Flag any spec that proposes a new file/helper/skill/event/command without first naming what was searched and why nothing existing fits.

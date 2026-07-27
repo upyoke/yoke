@@ -17,7 +17,12 @@ from yoke_core.domain.capability_machine_secrets import (
 )
 from yoke_core.domain.coordination_leases import active_lease
 from yoke_core.domain.db_helpers import iso8601_now
-from yoke_core.domain.project_identity import resolve_project
+from yoke_core.domain.project_identity import (
+    DEFAULT_PUBLIC_ITEM_PREFIX,
+    render_item_ref,
+    resolve_project,
+)
+from yoke_core.domain.schema_common import _column_exists, _table_exists
 from yoke_core.domain.test_machine_schema import ensure_test_machine_schema
 
 
@@ -88,6 +93,66 @@ def lease_key(resource_name: str) -> str:
     if not _SLUG.fullmatch(str(resource_name or "")):
         raise TestMachineCapabilityError("resource_name is not a safe resource label")
     return _LEASE_PREFIX + str(resource_name)
+
+
+def _lease_item(
+    conn: Any,
+    *,
+    session_id: str,
+) -> dict[str, Any] | None:
+    """Return the work item whose execution owns a machine lease, if known."""
+    if not all(
+        _table_exists(conn, table)
+        for table in ("work_claims", "items")
+    ):
+        return None
+    required_columns = {
+        "work_claims": (
+            "id",
+            "session_id",
+            "target_kind",
+            "item_id",
+            "released_at",
+            "claimed_at",
+        ),
+        "items": ("id", "title"),
+    }
+    if any(
+        not _column_exists(conn, table, column)
+        for table, columns in required_columns.items()
+        for column in columns
+    ):
+        return None
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    row = conn.execute(
+        "SELECT wc.item_id, i.title FROM work_claims wc "
+        "JOIN items i ON i.id=wc.item_id "
+        f"WHERE wc.session_id={marker} AND wc.target_kind='item' "
+        "AND wc.released_at IS NULL "
+        "ORDER BY wc.claimed_at DESC, wc.id DESC LIMIT 1",
+        (session_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    item_id = int(row[0])
+    ref = f"{DEFAULT_PUBLIC_ITEM_PREFIX}-{item_id}"
+    if (
+        _table_exists(conn, "projects")
+        and all(
+            _column_exists(conn, "items", column)
+            for column in ("project_id", "project_sequence")
+        )
+        and all(
+            _column_exists(conn, "projects", column)
+            for column in ("id", "slug", "public_item_prefix")
+        )
+    ):
+        ref = render_item_ref(conn, item_id)
+    return {
+        "id": item_id,
+        "ref": ref,
+        "title": str(row[1] or ""),
+    }
 
 
 def replace_test_machine_settings(
@@ -186,6 +251,10 @@ def test_machine_detail(conn: Any, *, project: str) -> dict[str, Any]:
     ).fetchone()
     receipt = json.loads(str(verification[2] or "{}")) if verification else {}
     lease = active_lease(conn, identity.id, lease_key(settings["resource_name"]))
+    lease_item = (
+        _lease_item(conn, session_id=lease.session_id)
+        if lease is not None else None
+    )
     methods = conn.execute(
         "SELECT id,name,source_ref FROM qa_methods "
         f"WHERE required_capability_kind={marker} ORDER BY name",
@@ -227,6 +296,7 @@ def test_machine_detail(conn: Any, *, project: str) -> dict[str, Any]:
                 "actor_id": lease.actor_id,
                 "acquired_at": lease.acquired_at,
                 "heartbeat_at": lease.heartbeat_at,
+                "item": lease_item,
             }
             if lease is not None else None
         ),

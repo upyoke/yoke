@@ -4,13 +4,22 @@ import {
 
 export function twoProjectClient() {
   const requests = [];
-  const itemRow = (id, title, project) => ({
-    id, title, workflow_id: "issue", workflow_version_id: 1, status: "idea", priority: "medium",
-    blocked: "0", blocked_reason: "", project,
+  const itemRow = (id, title, projectId, project) => ({
+    id,
+    public_ref: `YOK-${id}`,
+    project_id: projectId,
+    project,
+    title,
+    workflow_id: "issue",
+    workflow_version_id: 1,
+    status: "idea",
+    stage_label: "Idea",
+    owner: "",
+    claimed_by: null,
   });
   const rowsByProject = {
-    1: [itemRow(11, "alpha item", "alpha")],
-    2: [itemRow(21, "beta item", "beta")],
+    1: [itemRow(11, "alpha item", 1, "alpha")],
+    2: [itemRow(21, "beta item", 2, "beta")],
   };
   return {
     requests,
@@ -33,12 +42,18 @@ export function twoProjectClient() {
           },
         };
       }
-      if (request.function === "items.list.run") {
+      if (request.function === "items.overview.list") {
         const bucket = request.payload.project;
         const rows = bucket === undefined
           ? [...rowsByProject[1], ...rowsByProject[2]]
           : rowsByProject[bucket] || [];
-        return { status: 200, envelope: { success: true, result: { rows } } };
+        return {
+          status: 200,
+          envelope: {
+            success: true,
+            result: { rows, count: rows.length },
+          },
+        };
       }
       if (request.function === "strategy.surface.list") {
         return {
@@ -74,6 +89,6 @@ export function scopeChips(root) {
 
 export function itemsCalls(client) {
   return client.requests.filter(
-    (request) => request.function === "items.list.run",
+    (request) => request.function === "items.overview.list",
   );
 }

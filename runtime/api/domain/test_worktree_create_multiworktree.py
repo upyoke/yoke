@@ -6,9 +6,11 @@ import os
 import subprocess
 import sys
 
+import pytest
+
 from yoke_core.domain import db_backend
 from yoke_core.domain import worktree as worktree_cli
-from yoke_core.domain.schema_init_apply import execute_schema_script
+from yoke_core.domain.item_worktrees import record_item_worktree
 from yoke_core.domain.worktree import create_worktree
 from yoke_core.domain.worktree_test_helpers import pin_test_item_workflow
 from runtime.api.fixtures.file_test_db import connect_test_db
@@ -19,32 +21,12 @@ def _placeholder(conn) -> str:
 
 
 def seed_multiworktree_epic(db_path: str, epic_id: int, branches, repo_root: str):
-    """Seed an ``items`` row + ``epic_dispatch_chains`` rows for *branches*.
+    """Seed an item plus universal worker lanes for *branches*.
 
     Returns the ordered ``(branch, worktree_path)`` list the unified
     creator should iterate over.
     """
     conn = connect_test_db(db_path)
-    execute_schema_script(
-        conn,
-        """\
-        CREATE TABLE IF NOT EXISTS epic_dispatch_chains (
-            id INTEGER PRIMARY KEY,
-            epic_id INTEGER NOT NULL,
-            worktree TEXT NOT NULL,
-            worktree_path TEXT,
-            queue TEXT,
-            current_index INTEGER DEFAULT 0,
-            current_task TEXT,
-            current_attempt INTEGER DEFAULT 1,
-            max_attempts INTEGER DEFAULT 5,
-            no_chain INTEGER DEFAULT 0,
-            started_at TEXT,
-            last_updated TEXT,
-            UNIQUE(epic_id, worktree)
-        );
-    """,
-    )
     p = _placeholder(conn)
     conn.execute(
         "INSERT INTO items "
@@ -59,12 +41,19 @@ def seed_multiworktree_epic(db_path: str, epic_id: int, branches, repo_root: str
     entries = []
     for branch in branches:
         wt_path = os.path.join(repo_root, ".worktrees", branch)
+        lane = record_item_worktree(
+            conn,
+            item_id=epic_id,
+            branch=branch,
+            path=wt_path,
+            lane_role="worker",
+        )
         conn.execute(
             "INSERT INTO epic_dispatch_chains "
-            f"(epic_id, worktree, worktree_path, queue) VALUES ({p}, {p}, {p}, {p}) "
-            "ON CONFLICT(epic_id, worktree) DO UPDATE SET "
-            "worktree_path=excluded.worktree_path, queue=excluded.queue",
-            (epic_id, branch, wt_path, "[]"),
+            f"(epic_id, item_worktree_id, queue) VALUES ({p}, {p}, {p}) "
+            "ON CONFLICT(epic_id, item_worktree_id) DO UPDATE SET "
+            "queue=excluded.queue",
+            (epic_id, lane["id"], "[]"),
         )
         entries.append((branch, wt_path))
     conn.commit()
@@ -180,30 +169,20 @@ class TestCreateWorktreeMultiWorktree:
         for branch in branches:
             assert not os.path.isdir(str(git_repo / ".worktrees" / branch))
 
-    def test_duplicate_worktree_path_blocks_before_side_effects(
+    def test_duplicate_worktree_path_is_rejected_by_registry(
         self, git_repo, yoke_db
     ):
         branches = ["epic-99209-a", "epic-99209-b"]
         entries = seed_multiworktree_epic(yoke_db, 99209, branches, str(git_repo))
         conn = connect_test_db(yoke_db)
         p = _placeholder(conn)
-        conn.execute(
-            f"UPDATE epic_dispatch_chains SET worktree_path = {p} "
-            f"WHERE epic_id = {p} AND worktree = {p}",
-            (entries[0][1], 99209, branches[1]),
-        )
-        conn.commit()
+        with pytest.raises(db_backend.integrity_error_types(conn)):
+            conn.execute(
+                f"UPDATE item_worktrees SET path = {p} "
+                f"WHERE item_id = {p} AND branch = {p}",
+                (entries[0][1], 99209, branches[1]),
+            )
         conn.close()
-
-        result = create_worktree(
-            99209,
-            repo_root=str(git_repo),
-            config_path=_config_path(git_repo),
-            db_path=yoke_db,
-        )
-
-        assert result.error is not None
-        assert "duplicate worktree path" in result.error
         assert not os.path.isdir(entries[0][1])
 
     def test_dirty_main_blocks_before_side_effects(self, git_repo, yoke_db):
@@ -322,8 +301,8 @@ class TestCreateWorktreeMultiWorktree:
         assert len(out) == 1
         assert out[0].endswith(".worktrees/YOK-99207")
 
-    def test_falls_back_to_single_worktree_when_no_chains(self, git_repo, yoke_db):
-        # AC-2 edge: epic item with NO chains falls back to single-worktree shape.
+    def test_epic_without_worker_lanes_is_rejected(self, git_repo, yoke_db):
+        # Task-graph workflows require their universal worker lanes first.
         conn = connect_test_db(yoke_db)
         conn.execute(
             "INSERT INTO items "
@@ -341,7 +320,5 @@ class TestCreateWorktreeMultiWorktree:
             db_path=yoke_db,
         )
 
-        assert result.error is None
-        assert result.created is True
-        assert len(result.worktrees) == 1
-        assert result.worktrees[0].branch == "YOK-99208"
+        assert result.error == "no worktrees resolved for item"
+        assert result.created is False

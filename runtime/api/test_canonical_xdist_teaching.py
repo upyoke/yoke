@@ -50,18 +50,6 @@ def test_api_readmes_use_watcher_for_test_recipes() -> None:
         assert "python3 -m pytest runtime/api" not in text
 
 
-def test_ac_verification_policy_uses_watcher_target() -> None:
-    text = _read(
-        REPO / "packages" / "yoke-core" / "src"
-        / "yoke_core" / "domain" / "qa_requirements_auto.py"
-    )
-    assert (
-        'PYTEST_TARGET = "python3 -m yoke_core.tools.watch_pytest -- runtime/api/"'
-        in text
-    )
-    assert 'PYTEST_TARGET = "python3 -m pytest runtime/api/"' not in text
-
-
 def test_pg_cluster_example_uses_watcher() -> None:
     text = _read(
         REPO / "packages" / "yoke-core" / "src"

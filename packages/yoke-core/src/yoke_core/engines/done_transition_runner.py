@@ -48,7 +48,6 @@ def run(
     _pre_merge_commit = mw._pre_merge_commit
     _check_deployment_redirect = mw._check_deployment_redirect
     _do_merge = mw._do_merge
-    _update_item_direct = mw._update_item_direct
     _run_git = mw._run_git
     _cleanup_stale_branches = mw._cleanup_stale_branches
     _verify_cwd_after_merge = mw._verify_cwd_after_merge
@@ -85,16 +84,16 @@ def run(
 
     title = context.title
     old_status = context.stage_id
-    worktree_field = context.worktree
+    lane_branch = context.lane_branch
     workflow = context.workflow
     has_task_graph = generates_task_graph(workflow)
     task_parent_ref = str(item_id) if has_task_graph else ""
     item_project = context.project
     result.old_status = result.new_status = old_status
-    if worktree_field in ("null", ""):
-        worktree_field = ""
-    if worktree_field.startswith(("issue/YOK-", "epic/YOK-")):
-        print(f"Error: legacy worktree branch '{worktree_field}' is retired.", file=sys.stderr)
+    if lane_branch in ("null", ""):
+        lane_branch = ""
+    if lane_branch.startswith(("issue/YOK-", "epic/YOK-")):
+        print(f"Error: legacy worktree branch '{lane_branch}' is retired.", file=sys.stderr)
         print("Use the zero-legacy DB convergence tool to purge legacy "
               "worktree metadata before retrying.", file=sys.stderr)
         return result.fail(result_file, 2, "2-legacy-worktree")
@@ -124,17 +123,17 @@ def run(
     if (blocked_exit := mw._check_blocked_flag(item_id)) is not None:
         return result.fail(result_file, blocked_exit, "2a-blocked")
 
-    branch_already_merged = _check_merge_guard(worktree_field, project_repo, base_branch)
+    branch_already_merged = _check_merge_guard(lane_branch, project_repo, base_branch)
     result.add_step("2b")
 
     if not branch_already_merged:
-        empty_exit = _check_empty_branch(worktree_field, project_repo, base_branch, item_id)
+        empty_exit = _check_empty_branch(lane_branch, project_repo, base_branch, item_id)
         if empty_exit is not None:
             print(f"RESULT_FILE={result_file}")
             return result.fail(result_file, empty_exit, "2c-empty-branch")
     result.add_step("2c")
 
-    already_done, resume_from_step6 = _check_recovery(old_status, worktree_field)
+    already_done, resume_from_step6 = _check_recovery(old_status, lane_branch)
 
     if already_done:
         return _handle_already_done(item_id, project_repo, result, result_file)
@@ -157,10 +156,10 @@ def run(
     merge_ran = False
     merge_output = ""
     if not resume_from_step6:
-        if worktree_field and not branch_already_merged:
+        if lane_branch and not branch_already_merged:
             merge_exit, merge_output, _ = _do_merge(
                 item_id,
-                worktree_field,
+                lane_branch,
                 base_branch,
                 task_parent_ref,
                 project_repo,
@@ -169,7 +168,7 @@ def run(
                 merge_ran = True
             elif merge_exit in (1, 3, 4):
                 if merge_exit == 1:
-                    print(f"\nError: Merge of branch '{worktree_field}' failed.",
+                    print(f"\nError: Merge of branch '{lane_branch}' failed.",
                           file=sys.stderr)
                 elif merge_exit == 3:
                     print("\nMerge halted: agent resolution required.",
@@ -212,30 +211,22 @@ def run(
                     if ls.stdout and f"YOK-{item_id}" in ls.stdout:
                         branch_exists = True
                 if not branch_exists:
-                    print("No worktree field and no branch found — treating "
-                          "as merge already completed (crash recovery).")
+                    print("No active worktree lane and no branch found — "
+                          "continuing without a merge.")
                 else:
-                    print("No worktree field but branch exists — skipping "
-                          "merge (--no-worktree was used).")
+                    print("No active worktree lane but branch exists — "
+                          "skipping merge.")
 
     result.add_step("4")
     if merge_ran:
         result.merge_ran = True
 
-    cleanup_complete = _cleanup_stale_branches(
+    _cleanup_stale_branches(
         item_id,
-        worktree_field,
+        lane_branch,
         project_repo,
         base_branch,
     )
-    if worktree_field and cleanup_complete:
-        _update_item_direct(
-            item_id,
-            "worktree",
-            "null",
-            rebuild_board=False,
-            suppress_output=True,
-        )
     result.add_step("4a")
 
     cwd = _verify_cwd_after_merge(merge_ran, merge_output, project_repo)

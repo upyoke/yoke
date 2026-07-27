@@ -190,10 +190,8 @@ yoke claims work holder-get YOK-N
 ```
 
 Do NOT infer claim state from ``items`` columns or guessed
-``work_claims`` columns; the canonical claim schema lives in your
-``work_claims`` packet stanza, and obsoleted names such as
-``owner_session_id`` / ``claim_session_id`` / ``item_claims`` /
-``work_claims.target_id`` do not exist there.
+``work_claims`` columns. Use only the canonical fields returned by the
+holder lookup and documented in your ``work_claims`` packet stanza.
 
 ## Error Handling
 

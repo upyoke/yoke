@@ -54,7 +54,6 @@ class TestRenderSectionPrecomputedEpicTaskRows:
                 "implementing",
                 "1/2 (50%)",
                 201,
-                "",
                 "yoke",
                 "2024-01-01",
             ),

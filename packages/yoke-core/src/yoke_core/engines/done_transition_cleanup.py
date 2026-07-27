@@ -146,14 +146,14 @@ def _delete_remote_if_merged(
 
 def _cleanup_stale_branches(
     item_id: int,
-    worktree_field: str,
+    lane_branch: str,
     project_repo: Path,
     base_branch: str = "main",
 ) -> bool:
     """Remove only the current clean, registered, fully merged lane.
 
-    Returns whether item worktree metadata can safely be cleared.  Any
-    ambiguity leaves the filesystem, refs, and metadata intact so the
+    Returns whether the active lane can safely be released after the item
+    reaches done. Any ambiguity leaves the filesystem, refs, and lane intact so the
     terminal-item pruner can retry after ownership or dirtiness is resolved.
     """
     print("\n=== Step 4a: Safe worktree/branch cleanup ===")
@@ -161,21 +161,21 @@ def _cleanup_stale_branches(
         print("  Preserving merge lane: another or unknown claim is active.")
         return False
 
-    if worktree_field:
+    if lane_branch:
         valid_branch = _parent()._run_git(
             [
                 "-C",
                 str(project_repo),
                 "check-ref-format",
                 "--branch",
-                worktree_field,
+                lane_branch,
             ],
             capture=True,
         )
         if valid_branch.returncode != 0:
             print(
-                "  Preserving merge lane: worktree metadata is not a valid "
-                f"branch name ({worktree_field!r})."
+                "  Preserving merge lane: the recorded branch is not valid "
+                f"({lane_branch!r})."
             )
             return False
 
@@ -189,8 +189,8 @@ def _cleanup_stale_branches(
 
     canonical = f"YOK-{item_id}"
     expected = {canonical}
-    if worktree_field:
-        expected.add(worktree_field)
+    if lane_branch:
+        expected.add(lane_branch)
     base_ref = f"origin/{base_branch}"
     wt_dir = project_repo / ".worktrees" / canonical
 
@@ -239,7 +239,7 @@ def _cleanup_stale_branches(
         if not _delete_remote_if_merged(project_repo, branch, base_ref):
             return False
 
-    if worktree_field.startswith("trial/") and not _cleanup_trial_branches(
+    if lane_branch.startswith("trial/") and not _cleanup_trial_branches(
         project_repo, item_id=item_id
     ):
         return False

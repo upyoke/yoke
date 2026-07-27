@@ -53,7 +53,7 @@ class TestRefinePolishSkill:
         # its own contract.
         if name == "refine":
             assert "yoke claims work release" in text
-            assert '"YOK-$ITEM_NUM"' in text
+            assert '"$ITEM_REF"' in text
         else:
             assert "claims.work.release" in text
         assert '"completed"' in text
@@ -81,6 +81,36 @@ class TestRefinePolishSkill:
             f"{name}/SKILL.md releases claim at line {release_line} but "
             f"final-output step is at line {final_line}; release must come first"
         )
+
+
+class TestRefineItemReferenceResolution:
+    """Refine delegates public/bare ref normalization to items.get."""
+
+    def test_refine_resolves_once_through_the_registered_item_reader(self):
+        text = _read(SKILLS / "refine" / "SKILL.md")
+
+        assert 'ITEM_REF="{arg}"' in text
+        assert 'ITEM_NUM=$(yoke items get "$ITEM_REF" id' in text
+        for field in (
+            "workflow_id",
+            "status",
+            "title",
+            "project",
+            "body",
+            "spec",
+            "design_spec",
+            "technical_plan",
+            "worktree_plan",
+            "shepherd_caveats",
+        ):
+            assert f'yoke items get "$ITEM_REF" {field}' in text
+        assert '--item "$ITEM_REF"' in text
+
+    def test_refine_does_not_hand_parse_a_retired_prefix(self):
+        text = _read(SKILLS / "refine" / "SKILL.md")
+
+        assert "[Ss][Uu][Nn]" not in text
+        assert "s/^[Ss][Uu][Nn]-//" not in text
 
 
 # ---------------------------------------------------------------------------

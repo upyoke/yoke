@@ -272,7 +272,7 @@ CLAIMS_COMMANDS: list[dict] = [
             "yoke db read \"\n"
             "SELECT pc.id, pc.item_id, pc.state, tgt.path_string\n"
             "FROM path_claims pc\n"
-            "JOIN path_claim_targets pct ON pct.path_claim_id = pc.id\n"
+            "JOIN path_claim_targets pct ON pct.claim_id = pc.id\n"
             "JOIN path_targets tgt ON tgt.id = pct.target_id\n"
             "WHERE tgt.path_string IN ('runtime/api/domain/foo.py', "
             "'runtime/api/domain/bar.py')\n"

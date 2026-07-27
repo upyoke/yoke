@@ -1,6 +1,6 @@
 """Registry rows for workflow-aware product surfaces."""
 
-from yoke_cli.commands.adapters import qa_catalog, test_machine
+from yoke_cli.commands.adapters import qa_catalog, qa_plan_edit, test_machine
 from yoke_cli.commands.registry_direct_workflows import (
     DIRECT_WORKFLOW_SUBCOMMAND_ALIAS_REGISTRY,
     DIRECT_WORKFLOW_SUBCOMMAND_REGISTRY,
@@ -32,6 +32,7 @@ QA_CATALOG_SUBCOMMAND_REGISTRY = {
         qa_catalog.qa_artifact_read,
     ),
     ("qa", "plan", "create"): ("qa.plan.create", qa_catalog.qa_plan_create),
+    ("qa", "plan", "edit"): ("qa.plan.edit", qa_plan_edit.qa_plan_edit),
     ("qa", "plan-cases", "replace"): (
         "qa.plan_cases.replace",
         qa_catalog.qa_plan_cases_replace,

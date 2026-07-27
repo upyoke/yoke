@@ -12,6 +12,8 @@ from yoke_core.domain.qa_case_execution import (
     execute_case,
 )
 
+WAITING_RETRY_EXIT = 3
+
 
 def run(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
@@ -41,6 +43,8 @@ def run(args: List[str]) -> int:
         print(f"yoke qa case run: {exc}", file=sys.stderr)
         return 2
     print(json.dumps(result, sort_keys=True))
+    if result.get("case_outcome") == "waiting":
+        return WAITING_RETRY_EXIT
     verdict = result.get("verdict")
     if verdict == "fail":
         return 1
@@ -53,7 +57,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     return run(list(sys.argv[1:] if argv is None else argv))
 
 
-__all__ = ["main", "run"]
+__all__ = ["WAITING_RETRY_EXIT", "main", "run"]
 
 
 if __name__ == "__main__":  # pragma: no cover - module adapter

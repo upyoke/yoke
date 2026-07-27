@@ -72,9 +72,7 @@ def test_create_is_open_subject_idempotent_and_audited(conn):
     assert second["blocking"] is True
     assert second["actions"] == ["approve", "reject"]
     assert conn.execute("SELECT COUNT(*) FROM decision_requests").fetchone()[0] == 1
-    events = conn.execute(
-        "SELECT event_name FROM events ORDER BY id"
-    ).fetchall()
+    events = conn.execute("SELECT event_name FROM events ORDER BY id").fetchall()
     assert [row[0] for row in events] == ["DecisionRequestCreated"]
 
 
@@ -95,8 +93,12 @@ def test_live_role_union_named_priority_and_authorized_resolution(conn):
         "project operator"
     )
     resolved = resolve_decision_request(
-        conn, request["id"], actor_id=4, action="approve",
-        note="Evidence checked", resolved_at="2026-07-26T12:05:00Z",
+        conn,
+        request["id"],
+        actor_id=4,
+        action="approve",
+        note="Evidence checked",
+        resolved_at="2026-07-26T12:05:00Z",
     )
     assert resolved["status"] == "resolved"
     assert resolved["resolution_action"] == "approve"
@@ -104,20 +106,23 @@ def test_live_role_union_named_priority_and_authorized_resolution(conn):
     assert [row["notification_kind"] for row in notification_rows(conn, 1)] == [
         "decision_request_resolved"
     ]
-    assert [row[0] for row in conn.execute(
-        "SELECT event_name FROM events ORDER BY id"
-    )] == ["DecisionRequestCreated", "DecisionRequestResolved"]
+    notification = notification_rows(conn, 1)[0]
+    assert notification["event"]["context"]["resolution_actor_label"] == "actor 4"
+    assert [
+        row[0] for row in conn.execute("SELECT event_name FROM events ORDER BY id")
+    ] == ["DecisionRequestCreated", "DecisionRequestResolved"]
 
 
 def test_unauthorized_resolution_refuses_without_state_change(conn):
     request, _ = _transition_request(conn)
     with pytest.raises(PermissionError, match="not authorized"):
-        resolve_decision_request(
-            conn, request["id"], actor_id=4, action="approve"
-        )
-    assert list_subject_requests(
-        conn, "item_transition", "1907:reviewing-implementation"
-    )[0]["status"] == "pending"
+        resolve_decision_request(conn, request["id"], actor_id=4, action="approve")
+    assert (
+        list_subject_requests(conn, "item_transition", "1907:reviewing-implementation")[
+            0
+        ]["status"]
+        == "pending"
+    )
 
 
 def test_strategy_review_is_nonblocking_and_changes_need_a_note(conn):
@@ -139,7 +144,10 @@ def test_strategy_review_is_nonblocking_and_changes_need_a_note(conn):
             conn, request["id"], actor_id=3, action="request_changes"
         )
     resolved = resolve_decision_request(
-        conn, request["id"], actor_id=3, action="request_changes",
+        conn,
+        request["id"],
+        actor_id=3,
+        action="request_changes",
         note="Clarify the evidence contract.",
     )
     assert resolved["status"] == "resolved"
@@ -148,14 +156,16 @@ def test_strategy_review_is_nonblocking_and_changes_need_a_note(conn):
 def test_withdrawal_is_explicit_and_audited(conn):
     request, _ = _transition_request(conn)
     withdrawn = withdraw_decision_request(
-        conn, request["id"], reason="item cancelled",
+        conn,
+        request["id"],
+        reason="item cancelled",
         withdrawn_at="2026-07-26T13:00:00Z",
     )
     assert withdrawn["status"] == "withdrawn"
     assert withdrawn["withdrawal_reason"] == "item cancelled"
-    assert [row[0] for row in conn.execute(
-        "SELECT event_name FROM events ORDER BY id"
-    )] == ["DecisionRequestCreated", "DecisionRequestWithdrawn"]
+    assert [
+        row[0] for row in conn.execute("SELECT event_name FROM events ORDER BY id")
+    ] == ["DecisionRequestCreated", "DecisionRequestWithdrawn"]
 
 
 def test_notification_read_state_is_actor_scoped(conn):
@@ -168,8 +178,12 @@ def test_notification_read_state_is_actor_scoped(conn):
     assert notification_rows(conn, 1) == []
 
     second, _ = create_decision_request(
-        conn, kind="qa_needs_review", subject_type="qa_requirement",
-        subject_key="44", project_id=10, originator_actor_id=1,
+        conn,
+        kind="qa_needs_review",
+        subject_type="qa_requirement",
+        subject_key="44",
+        project_id=10,
+        originator_actor_id=1,
         role_authorities=[RoleAuthority("project", 10, "owner")],
     )
     resolve_decision_request(conn, second["id"], actor_id=2, action="waive")
@@ -178,32 +192,92 @@ def test_notification_read_state_is_actor_scoped(conn):
     assert notification_rows(conn, 1) == []
 
 
+def test_bulk_notification_read_preserves_hidden_project_rows(conn):
+    conn.execute(
+        "INSERT INTO projects "
+        "(id, slug, name, public_item_prefix, org_id, created_at) "
+        "VALUES (11, 'hidden', 'Hidden', 'HID', 1, 'now')"
+    )
+    for index, project_id in enumerate((10, 11, None), 1):
+        event_id = append_decision_event(
+            conn,
+            "DeploymentRunSucceeded",
+            actor_id=2,
+            session_id="",
+            project_id=project_id,
+            org_id=None,
+            context={"run_id": f"run-{index}"},
+            created_at=f"2026-07-26T14:0{index}:00Z",
+        )
+        fan_out_registered_event(
+            conn,
+            event_id=event_id,
+            notification_kind=DEPLOYMENT_RUN_COMPLETED,
+            event_context={"initiator_actor_id": 1},
+            reason=f"run-{index} succeeded",
+            created_at=f"2026-07-26T14:0{index}:00Z",
+        )
+    conn.commit()
+
+    assert (
+        mark_all_notifications_read(
+            conn,
+            1,
+            "later",
+            project_ids=[10],
+        )
+        == 2
+    )
+    remaining = notification_rows(conn, 1)
+    assert [row["project_id"] for row in remaining] == [11]
+
+
 def test_registered_event_fanout_derives_exact_v1_recipients(conn):
     deploy_event = append_decision_event(
-        conn, "DeploymentRunSucceeded", actor_id=2, session_id="",
-        project_id=10, org_id=None,
-        context={"run_id": "run-1"}, created_at="2026-07-26T14:00:00Z",
+        conn,
+        "DeploymentRunSucceeded",
+        actor_id=2,
+        session_id="",
+        project_id=10,
+        org_id=None,
+        context={"run_id": "run-1"},
+        created_at="2026-07-26T14:00:00Z",
     )
-    assert fan_out_registered_event(
-        conn, event_id=deploy_event,
-        notification_kind=DEPLOYMENT_RUN_COMPLETED,
-        event_context={
-            "initiator_actor_id": 1,
-            "stage_approver_actor_ids": [2, 2, 3],
-        },
-        reason="run-1 succeeded", created_at="2026-07-26T14:00:00Z",
-    ) == 3
+    assert (
+        fan_out_registered_event(
+            conn,
+            event_id=deploy_event,
+            notification_kind=DEPLOYMENT_RUN_COMPLETED,
+            event_context={
+                "initiator_actor_id": 1,
+                "stage_approver_actor_ids": [2, 2, 3],
+            },
+            reason="run-1 succeeded",
+            created_at="2026-07-26T14:00:00Z",
+        )
+        == 3
+    )
     item_event = append_decision_event(
-        conn, "ItemUnblocked", actor_id=None, session_id="",
-        project_id=10, org_id=None,
-        context={"item_ref": "YOK-9"}, created_at="2026-07-26T14:01:00Z",
+        conn,
+        "ItemUnblocked",
+        actor_id=None,
+        session_id="",
+        project_id=10,
+        org_id=None,
+        context={"item_ref": "YOK-9"},
+        created_at="2026-07-26T14:01:00Z",
     )
-    assert fan_out_registered_event(
-        conn, event_id=item_event,
-        notification_kind=ITEM_BLOCK_STATE_CHANGED,
-        event_context={"owner_actor_id": 4},
-        reason="dependency reached done", created_at="2026-07-26T14:01:00Z",
-    ) == 1
+    assert (
+        fan_out_registered_event(
+            conn,
+            event_id=item_event,
+            notification_kind=ITEM_BLOCK_STATE_CHANGED,
+            event_context={"owner_actor_id": 4},
+            reason="dependency reached done",
+            created_at="2026-07-26T14:01:00Z",
+        )
+        == 1
+    )
     conn.commit()
     assert len(notification_rows(conn, 1)) == 1
     assert len(notification_rows(conn, 2)) == 1
@@ -223,12 +297,15 @@ def test_item_block_state_is_addressed_to_accountable_owner(conn):
         "source": "1",
         "blocked_reason": "Waiting for upstream schema",
     }
-    assert emit_item_block_state_notification(
-        conn, item=item, blocked=True,
-    ) == 1
+    assert (
+        emit_item_block_state_notification(
+            conn,
+            item=item,
+            blocked=True,
+        )
+        == 1
+    )
     notification = notification_rows(conn, 2)[0]
     assert notification["event_name"] == "ItemBlocked"
     assert notification["event"]["context"]["item_ref"] == "YOK-44"
-    assert notification["event"]["context"]["reason"] == (
-        "Waiting for upstream schema"
-    )
+    assert notification["event"]["context"]["reason"] == ("Waiting for upstream schema")

@@ -65,7 +65,7 @@ class TestQueryItem:
         assert query_item(1, "spec", db_path=db_with_item) == ""
 
     def test_returns_empty_for_null_field(self, db_with_item):
-        result = query_item(1, "worktree", db_path=db_with_item)
+        result = query_item(1, "github_issue", db_path=db_with_item)
         assert result == ""
 
     def test_returns_empty_for_nonexistent_item(self, db_path):
@@ -165,10 +165,10 @@ class TestUpdateItemField:
         assert new_ts != old_ts
 
     def test_null_string_maps_to_null(self, db_with_item):
-        update_item_field(1, "worktree", "some-path", db_path=db_with_item)
-        assert query_item(1, "worktree", db_path=db_with_item) == "some-path"
-        update_item_field(1, "worktree", "null", db_path=db_with_item)
-        assert query_item(1, "worktree", db_path=db_with_item) == ""
+        update_item_field(1, "github_issue", "#123", db_path=db_with_item)
+        assert query_item(1, "github_issue", db_path=db_with_item) == "#123"
+        update_item_field(1, "github_issue", "null", db_path=db_with_item)
+        assert query_item(1, "github_issue", db_path=db_with_item) == ""
 
     def test_frozen_boolean_mapping_true(self, db_with_item):
         update_item_field(1, "frozen", "true", db_path=db_with_item)

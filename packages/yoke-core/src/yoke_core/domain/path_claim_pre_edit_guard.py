@@ -167,8 +167,7 @@ def _format_narrative(
     * ``wrong-cwd`` — claim coverage matches by string but the physical
       path lives outside the bound worktree. Carries the
       ``yoke claims path widen`` template and names the expected worktree.
-    * ``worktree-unresolved`` — claim has no worktree binding
-      (``items.worktree`` is empty). Teaches the canonical
+    * ``worktree-unresolved`` — claim has no active universal lane. Teaches the canonical
       ``worktree_preflight`` primitive, NOT claim widening.
     * ``out-of-claim`` — claim coverage misses the target. Carries the
       ``yoke claims path widen`` template.

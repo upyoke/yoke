@@ -133,8 +133,7 @@ def update_task_status(
     # --- Look up current task ---
     row = query_one(
         conn,
-        f"""SELECT id, epic_id, task_num, title, worktree,
-                  context_estimate, dependencies, status, dispatch_attempts,
+        f"""SELECT status, dispatch_attempts,
                   COALESCE(github_issue, '') as github_issue
            FROM epic_tasks WHERE epic_id={p} AND task_num={p}""",
         (str(epic_id), str(task_num)),

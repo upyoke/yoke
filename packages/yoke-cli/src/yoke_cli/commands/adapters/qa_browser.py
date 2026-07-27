@@ -1,11 +1,10 @@
 """``yoke qa ...`` browser-family flag adapters.
 
-Four function ids in one module — the DB legs of the browser-QA
-orchestrator (the orchestration itself is the tool-shaped
-``yoke qa browser run`` in :mod:`yoke_cli.commands.qa_browser`):
+Function ids used by the per-requirement Browser method executor. Execution
+enters through ``yoke qa case run --requirement-id``; there is no aggregate
+Browser run command:
 
-* ``qa.browser_context.get`` — batched read: browser-kind requirements +
-  freshness row for one item.
+* ``qa.browser_context.get`` — one Browser method case + freshness row.
 * ``qa.run.add`` — insert a ``qa_runs`` row (two-phase shape; verdict may
   land later via complete).
 * ``qa.run.complete`` — finalize a run in place.
@@ -32,7 +31,7 @@ from yoke_contracts.api.function_call import TargetRef
 
 
 QA_BROWSER_CONTEXT_GET_USAGE = (
-    "yoke qa browser-context get --item PREFIX-N --project P "
+    "yoke qa browser-context get --item PREFIX-N --requirement-id N --project P "
     "[--expected-branch BRANCH] [--session-id S] [--json]"
 )
 
@@ -44,14 +43,20 @@ def qa_browser_context_get(args: List[str]) -> int:
     )
     parser.add_argument("--item", required=True,
                         help="Target item (PREFIX-N or project-local number).")
+    parser.add_argument("--requirement-id", dest="requirement_id", type=int,
+                        required=True, help="Materialized Browser case id.")
     parser.add_argument("--expected-branch", dest="expected_branch",
                         default=None,
                         help="Also return the branch's latest deployed_sha.")
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, QA_BROWSER_CONTEXT_GET_USAGE)
     if parsed is None:
         return 2
-    payload: Dict[str, Any] = {"project": parsed.project or ""}
+    payload: Dict[str, Any] = {
+        "project": parsed.project or "",
+        "requirement_id": parsed.requirement_id,
+    }
     if parsed.expected_branch:
         payload["expected_branch"] = parsed.expected_branch
     return dispatch_and_emit(
@@ -89,7 +94,8 @@ def qa_run_add(args: List[str]) -> int:
     parser.add_argument("--duration-ms", dest="duration_ms",
                         type=int, default=None,
                         help="Optional duration in milliseconds.")
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, QA_RUN_ADD_USAGE)
     if parsed is None:
         return 2
@@ -136,7 +142,8 @@ def qa_run_complete(args: List[str]) -> int:
     parser.add_argument("--duration-ms", dest="duration_ms",
                         type=int, default=None,
                         help="Optional duration in milliseconds.")
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, QA_RUN_COMPLETE_USAGE)
     if parsed is None:
         return 2
@@ -189,7 +196,8 @@ def qa_artifact_add(args: List[str]) -> int:
     )
     parser.add_argument("--metadata", default=None,
                         help="Optional metadata JSON string.")
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, QA_ARTIFACT_ADD_USAGE)
     if parsed is None:
         return 2
@@ -241,7 +249,8 @@ def qa_artifact_presign(args: List[str]) -> int:
                         help="Artifact filename (single path segment).")
     parser.add_argument("--content-type", dest="content_type", default=None,
                         help="MIME content type for the upload (e.g. image/png).")
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, QA_ARTIFACT_PRESIGN_USAGE)
     if parsed is None:
         return 2
@@ -275,7 +284,8 @@ def qa_screenshot_evidence_pending_count(args: List[str]) -> int:
     )
     parser.add_argument("--item", required=True,
                         help="Target item (PREFIX-N or project-local number).")
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(
         parser, args, QA_SCREENSHOT_EVIDENCE_PENDING_COUNT_USAGE,
     )
@@ -304,7 +314,8 @@ def qa_screenshot_evidence_satisfy(args: List[str]) -> int:
                         help="Target item (PREFIX-N or project-local number).")
     parser.add_argument("--evidence", default=None,
                         help="Evidence text recorded on the bridged runs.")
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(
         parser, args, QA_SCREENSHOT_EVIDENCE_SATISFY_USAGE,
     )

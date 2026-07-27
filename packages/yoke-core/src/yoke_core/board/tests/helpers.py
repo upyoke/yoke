@@ -36,7 +36,6 @@ def insert_item(db: BoardDB, item_id: int, **kwargs) -> None:
         "status": "idea",
         "priority": "medium",
         "frozen": 0,
-        "worktree": "",
         "project": "yoke",
         "updated_at": "2024-01-01",
         "created_at": "2024-01-01",
@@ -44,8 +43,8 @@ def insert_item(db: BoardDB, item_id: int, **kwargs) -> None:
     defaults.update(kwargs)
     db.execute(
         "INSERT INTO items (id, title, workflow_id, status, priority, frozen,"
-        " worktree, project_id, project_sequence, updated_at, created_at)"
-        " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        " project_id, project_sequence, updated_at, created_at)"
+        " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
         (
             item_id,
             defaults["title"],
@@ -53,7 +52,6 @@ def insert_item(db: BoardDB, item_id: int, **kwargs) -> None:
             defaults["status"],
             defaults["priority"],
             defaults["frozen"],
-            defaults["worktree"],
             project_id(defaults["project"]),
             item_id,
             defaults["updated_at"],

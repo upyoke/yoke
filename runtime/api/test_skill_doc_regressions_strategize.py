@@ -86,6 +86,14 @@ class TestStrategize:
         assert "_carry_total_pending=" in text
         assert "_carry_new_count=" in text
 
+    def test_refresh_extracts_event_context_from_the_envelope(self):
+        text = _read(self.STRATEGIZE_DIR / "refresh.md")
+
+        assert "SELECT created_at, context FROM events" not in text
+        assert "NULLIF(envelope, '')::jsonb" in text
+        assert "-> 'context' AS context" in text
+        assert "event_name = 'SMLChangeApproved'" in text
+
     def test_finalize_uses_module_invocation_for_claim_release(self):
         """carry marks and claim release use the function-call surface without shell glue."""
         text = _read(self.STRATEGIZE_DIR / "finalize.md")

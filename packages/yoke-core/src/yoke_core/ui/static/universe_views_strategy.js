@@ -18,14 +18,15 @@ import {
   loadSection,
   scopeBuckets,
   section,
+  statePill,
 } from "./universe_view_support.js";
-import { relativeAge } from "./universe_time.js";
+import { relativeTime } from "./universe_time.js";
 
 function executionLabel(doc) {
   if (doc.execution_state === "claimed") {
     return `claimed · ${doc.execution_item_ref || `item ${doc.execution_item_id}`}`;
   }
-  return doc.archived ? "archived" : doc.execution_state;
+  return doc.archived ? "archived" : doc.execution_state || "available";
 }
 
 function scopeLabel(scope, slugById) {
@@ -38,6 +39,33 @@ function scopeLabel(scope, slugById) {
 
 function strategyCell(documentNode, tag, className, text) {
   return el(documentNode, tag, className, text);
+}
+
+function eventCameFromControl(event, row) {
+  let target = event.target;
+  while (target && target !== row) {
+    if (["A", "BUTTON", "INPUT", "SELECT", "TEXTAREA", "TIME"].includes(
+      String(target.tagName || "").toUpperCase(),
+    )) return true;
+    target = target.parentNode;
+  }
+  return false;
+}
+
+function makeRowNavigable(documentNode, row, href, label) {
+  row.tabIndex = 0;
+  row.setAttribute("role", "link");
+  row.setAttribute("aria-label", `Open ${label}`);
+  row.addEventListener("click", (event) => {
+    if (eventCameFromControl(event, row)) return;
+    documentNode.defaultView.location.hash = href;
+  });
+  row.addEventListener("keydown", (event) => {
+    if (eventCameFromControl(event, row)) return;
+    if (!["Enter", " "].includes(event.key)) return;
+    if (typeof event.preventDefault === "function") event.preventDefault();
+    documentNode.defaultView.location.hash = href;
+  });
 }
 
 function renderStrategyTable(documentNode, body, docs) {
@@ -58,17 +86,18 @@ function renderStrategyTable(documentNode, body, docs) {
   table.appendChild(head);
   for (const doc of docs) {
     const row = el(documentNode, "tr", "strategy-corpus-row");
+    const href = buildUniverseRoute(
+      "strategy", doc.project_id, doc.slug,
+    );
 
     const slugCell = el(documentNode, "td", "mono");
     const slug = el(documentNode, "a", "row-link strategy-doc-link", doc.slug);
-    slug.href = buildUniverseRoute(
-      "strategy", doc.project_id, doc.slug,
-    );
+    slug.href = href;
     slugCell.appendChild(slug);
     if (doc.archived) {
-      slugCell.appendChild(strategyCell(
-        documentNode, "span", "strategy-archived", "archived",
-      ));
+      const archived = statePill(documentNode, "archived");
+      archived.className += " strategy-archived";
+      slugCell.appendChild(archived);
     }
     row.appendChild(slugCell);
 
@@ -101,22 +130,21 @@ function renderStrategyTable(documentNode, body, docs) {
       ));
     }
     row.appendChild(editor);
-    row.appendChild(strategyCell(
-      documentNode, "td", "strategy-last-write",
-      relativeAge(doc.updated_at),
-    ));
+    const lastWrite = el(documentNode, "td", "strategy-last-write");
+    lastWrite.appendChild(relativeTime(documentNode, doc.updated_at));
+    row.appendChild(lastWrite);
     row.appendChild(strategyCell(
       documentNode, "td", "mono strategy-revision-count", doc.revisions,
     ));
     const execution = el(documentNode, "td");
-    const state = el(
+    const state = statePill(
       documentNode,
-      "span",
-      `pill ${doc.execution_state === "claimed" ? "run" : "idle"}`,
+      doc.archived ? "archived" : doc.execution_state || "available",
       executionLabel(doc),
     );
-    execution.appendChild(state);
+    if (state) execution.appendChild(state);
     row.appendChild(execution);
+    makeRowNavigable(documentNode, row, href, doc.slug);
     table.appendChild(row);
   }
   body.appendChild(table);
@@ -182,25 +210,47 @@ function renderDetail(context, main, projectId, doc) {
   const tabs = el(documentNode, "div", "strategy-tabs");
   tabs.setAttribute("role", "tablist");
   const content = el(documentNode, "div", "strategy-tab-content");
+  content.id = "strategy-tab-content";
+  content.setAttribute("role", "tabpanel");
   const draw = () => {
     tabs.replaceChildren();
-    for (const [id, label] of [
+    const definitions = [
       ["document", "Document"],
       ["history", "History"],
-    ]) {
+    ];
+    for (const [index, [id, label]] of definitions.entries()) {
       const tab = button(
         documentNode,
         label,
         `workflow-tab${selectedTab === id ? " selected" : ""}`,
       );
+      tab.id = `strategy-tab-${id}`;
       tab.setAttribute("role", "tab");
       tab.setAttribute("aria-selected", String(selectedTab === id));
+      tab.setAttribute("aria-controls", content.id);
+      tab.tabIndex = selectedTab === id ? 0 : -1;
       tab.addEventListener("click", () => {
         selectedTab = id;
         draw();
       });
+      tab.addEventListener("keydown", (event) => {
+        const delta = event.key === "ArrowRight"
+          ? 1 : event.key === "ArrowLeft" ? -1 : 0;
+        if (!delta && !["Home", "End"].includes(event.key)) return;
+        if (typeof event.preventDefault === "function") event.preventDefault();
+        const next = event.key === "Home"
+          ? 0
+          : event.key === "End"
+            ? definitions.length - 1
+            : (index + delta + definitions.length) % definitions.length;
+        selectedTab = definitions[next][0];
+        draw();
+        const selected = tabs.children[next];
+        if (typeof selected?.focus === "function") selected.focus();
+      });
       tabs.appendChild(tab);
     }
+    content.setAttribute("aria-labelledby", `strategy-tab-${selectedTab}`);
     content.replaceChildren(
       selectedTab === "history"
         ? historyReviewView(

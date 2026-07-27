@@ -35,6 +35,7 @@ from runtime.api.fixtures.backlog_inserts import (
     insert_epic_task,
     insert_event,
     insert_item,
+    insert_item_worktree,
     insert_qa_requirement,
     insert_qa_run,
 )
@@ -76,6 +77,7 @@ __all__ = (
     "insert_epic_task",
     "insert_event",
     "insert_item",
+    "insert_item_worktree",
     "insert_qa_requirement",
     "insert_qa_run",
     "seed_test_canonical_actors",

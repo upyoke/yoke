@@ -26,7 +26,6 @@ def _insert_item(
     frozen: int,
     github_issue: Optional[str],
     deployed_to: Optional[str],
-    worktree: Optional[str],
     body: Optional[str],
     created_at: str,
     updated_at: str,
@@ -40,6 +39,7 @@ def _insert_item(
     workflow_version_id: Optional[int] = None,
     instruction: Optional[str] = None,
     workflow_posture: Optional[dict[str, Any]] = None,
+    commit: bool = True,
 ) -> None:
     """Insert a new item into the DB. The body param is accepted but ignored.
 
@@ -63,7 +63,7 @@ def _insert_item(
         """INSERT INTO items (
             id, title, status, priority, flow,
             rework_count, frozen,
-            github_issue, deployed_to, worktree,
+            github_issue, deployed_to,
             created_at, updated_at, source, owner,
             project_id, project_sequence, deployment_flow,
             workflow_id, workflow_version_id, workflow_posture,
@@ -71,12 +71,12 @@ def _insert_item(
         ) VALUES (
             %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
             %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-            %s, %s, %s
+            %s, %s
         )""",
         (
             item_id, title, status, priority, flow,
             rework_count, frozen,
-            github_issue, deployed_to, worktree,
+            github_issue, deployed_to,
             created_at, updated_at, source, owner_value,
             project_id, project_sequence, deployment_flow,
             workflow_id, workflow_version_id,
@@ -85,7 +85,8 @@ def _insert_item(
             source if instruction else None,
         ),
     )
-    conn.commit()
+    if commit:
+        conn.commit()
 
 
 def _update_item_field(

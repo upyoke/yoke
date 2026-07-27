@@ -5,6 +5,7 @@ import {
   buildUniverseRoute,
   NAV,
 } from "./universe_navigation.js";
+import { createShellControls } from "./universe_shell_controls.js";
 import { section } from "./universe_views.js";
 
 export function el(documentNode, tag, className, text) {
@@ -28,8 +29,18 @@ export function callFunction(client, functionId, payload, target) {
 function createActorChip(documentNode, actor) {
   const chip = el(documentNode, "span", "actor-chip");
   const name = actor.label || `actor ${actor.id}`;
+  chip.appendChild(el(
+    documentNode,
+    "span",
+    "actor-avatar",
+    actor.kind === "system" ? "⚙" : name.slice(0, 1),
+  ));
   chip.appendChild(el(documentNode, "span", "actor-name", name));
-  if (actor.kind === "system") {
+  if (actor.id !== undefined && actor.id !== null) {
+    chip.appendChild(el(
+      documentNode, "span", "actor-kind", `actor ${actor.id}`,
+    ));
+  } else if (actor.kind === "system") {
     chip.appendChild(el(
       documentNode, "span", "actor-kind",
       actor.systemComponent || "system",
@@ -38,14 +49,27 @@ function createActorChip(documentNode, actor) {
   return chip;
 }
 
+export function configurePageHead(
+  documentNode,
+  head,
+  { title, summary = null, actions = [] },
+) {
+  const heading = el(documentNode, "div", "h");
+  heading.appendChild(el(documentNode, "h1", "title", title));
+  if (summary) {
+    heading.appendChild(el(documentNode, "p", "subtitle", summary));
+  }
+  head.replaceChildren(heading);
+  if (actions.length) {
+    const actionHost = el(documentNode, "div", "head-actions");
+    for (const action of actions) actionHost.appendChild(action);
+    head.appendChild(actionHost);
+  }
+}
+
 export function createPageHead(documentNode, entry) {
   const head = el(documentNode, "div", "page-head");
-  const heading = el(documentNode, "div", "h");
-  heading.appendChild(el(documentNode, "h1", "title", entry.label));
-  if (entry.summary) {
-    heading.appendChild(el(documentNode, "p", "subtitle", entry.summary));
-  }
-  head.appendChild(heading);
+  const actions = [];
   if (entry.pageAction) {
     const action = el(
       documentNode,
@@ -54,17 +78,39 @@ export function createPageHead(documentNode, entry) {
       entry.pageAction.label,
     );
     action.href = buildUniverseRoute(entry.pageAction.view, null);
-    head.appendChild(action);
+    actions.push(action);
   }
+  configurePageHead(documentNode, head, {
+    title: entry.label,
+    summary: entry.summary,
+    actions,
+  });
   return head;
 }
 
-export function createBreadcrumb(documentNode, entry, project, detail) {
+export function createBreadcrumb(
+  documentNode,
+  entry,
+  project,
+  detail,
+  tab = null,
+) {
   const bar = el(documentNode, "div", "breadcrumb");
   const back = el(documentNode, "a", "breadcrumb-parent", entry.label);
   back.href = buildUniverseRoute(entry.id, project);
   bar.appendChild(back);
-  bar.appendChild(el(documentNode, "span", "breadcrumb-sep", "/"));
+  if (tab) {
+    bar.appendChild(el(documentNode, "span", "breadcrumb-sep", "›"));
+    const tabLink = el(
+      documentNode,
+      "a",
+      "breadcrumb-parent breadcrumb-tab",
+      tab.label,
+    );
+    tabLink.href = buildUniverseRoute(entry.id, project, tab.id);
+    bar.appendChild(tabLink);
+  }
+  bar.appendChild(el(documentNode, "span", "breadcrumb-sep", "›"));
   bar.appendChild(el(documentNode, "span", "breadcrumb-here", String(detail)));
   return bar;
 }
@@ -89,6 +135,7 @@ export function emptyUniversePanel(documentNode) {
 }
 
 export function createWorkbenchChrome({
+  client,
   documentNode,
   mountedSlotNodes,
   options,
@@ -100,30 +147,44 @@ export function createWorkbenchChrome({
   brand.style.color = "var(--yoke-ink)";
   const hostFillsTopbarStart =
     slots.topbarStart !== undefined && slots.topbarStart !== null;
-  const orgContext = hostFillsTopbarStart
-    ? null
-    : el(documentNode, "span", "org-context", "…");
+  const mode = options.capabilities?.data?.portability?.mode || "local";
+  const actor = options.currentActor || (
+    !hostFillsTopbarStart && mode !== "hosted"
+      ? {
+          kind: "human",
+          label: mode === "selfhost" ? "actor unavailable" : "local actor",
+        }
+      : null
+  );
+  const orgContext = !hostFillsTopbarStart && mode === "hosted"
+    ? el(documentNode, "span", "org-context", "…")
+    : null;
   const contextSide = el(
     documentNode, "div", "context-side yoke-header-context",
   );
-  if (options.currentActor) {
-    contextSide.appendChild(createActorChip(documentNode, options.currentActor));
-  }
   if (orgContext) contextSide.appendChild(orgContext);
+  if (actor) contextSide.appendChild(createActorChip(documentNode, actor));
+  const controls = createShellControls({ documentNode, client, options });
+  const spacer = el(documentNode, "span", "header-spacer");
   const header = el(documentNode, "header", "topbar yoke-app-header");
   header.appendChild(brand);
+  header.appendChild(controls.search);
+  header.appendChild(spacer);
   appendSlot(header, resolvedSlots.topbarStart, mountedSlotNodes);
   header.appendChild(contextSide);
   appendSlot(header, resolvedSlots.topbarEnd, mountedSlotNodes);
 
   const navEl = el(documentNode, "nav", "sidenav");
   const main = el(documentNode, "main", "content");
+  const body = el(documentNode, "div", "workbench-body");
   const shell = el(documentNode, "div", "shell");
   appendSlot(navEl, resolvedSlots.navigationStart, mountedSlotNodes);
   shell.appendChild(navEl);
-  appendSlot(shell, resolvedSlots.contentBefore, mountedSlotNodes);
-  shell.appendChild(main);
-  appendSlot(shell, resolvedSlots.contentAfter, mountedSlotNodes);
+  appendSlot(body, resolvedSlots.contentBefore, mountedSlotNodes);
+  body.appendChild(main);
+  appendSlot(body, resolvedSlots.contentAfter, mountedSlotNodes);
+  shell.appendChild(body);
+  shell.appendChild(controls.footer);
 
   const navLinks = new Map();
   for (const entry of NAV) {
@@ -136,5 +197,13 @@ export function createWorkbenchChrome({
   }
   appendSlot(navEl, resolvedSlots.navigationEnd, mountedSlotNodes);
 
-  return { brand, header, main, navLinks, orgContext, shell };
+  return {
+    brand,
+    disposeChrome: controls.dispose,
+    header,
+    main,
+    navLinks,
+    orgContext,
+    shell,
+  };
 }

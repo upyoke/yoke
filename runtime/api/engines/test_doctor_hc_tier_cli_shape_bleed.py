@@ -1,84 +1,19 @@
-"""Unit tests for HC-tier-cli-shape-bleed.
-
-Fixtures monkeypatch :func:`iter_tier_paths`, ``_resolve_repo_root``,
-and ``_run_help`` inside the HC module so the suite is fully
-self-contained — no live repo paths are read and no real argparse
-subprocesses are spawned.
-"""
+"""Unit tests for HC-tier-cli-shape-bleed."""
 
 from __future__ import annotations
-
-from pathlib import Path
-from typing import Dict, Iterable, Iterator, Tuple
 
 import pytest
 
 from yoke_core.engines import doctor_hc_tier_cli_shape_bleed as mod
-from yoke_core.engines.doctor_hc_tier_cli_shape_bleed import (
-    HC_SLUG,
-    hc_tier_cli_shape_bleed,
+from yoke_core.engines.doctor_hc_tier_cli_shape_bleed import HC_SLUG
+from .doctor_hc_tier_cli_shape_test_support import (
+    _detail,
+    _run,
+    _setup,
+    conn as conn,
 )
-from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
 
-@pytest.fixture
-def conn():
-    """The HC under test scans tier files only; it never reads *conn*."""
-    return None
-
-
-def _materialize(tmp_path: Path, files: Dict[str, str]) -> Path:
-    for rel, content in files.items():
-        target = tmp_path / rel
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(content, encoding="utf-8")
-    return tmp_path
-
-
-def _install_iter(
-    monkeypatch: pytest.MonkeyPatch,
-    repo_root: Path,
-    tier_for: Dict[str, int],
-) -> None:
-    def fake_iter(
-        repo: Path, tiers: Iterable[int] = (0, 2, 4, 5)
-    ) -> Iterator[Tuple[int, Path]]:
-        tier_set = set(tiers)
-        for rel, tier in sorted(tier_for.items()):
-            if tier in tier_set:
-                yield tier, repo_root / rel
-
-    monkeypatch.setattr(mod, "iter_tier_paths", fake_iter)
-    monkeypatch.setattr(mod, "_resolve_repo_root", lambda: str(repo_root))
-
-
-def _install_help_table(
-    monkeypatch: pytest.MonkeyPatch,
-    table: Dict[Tuple[str, object], Tuple[int, str]],
-) -> None:
-    def fake_run_help(_repo_root, module, sub):
-        return table.get((module, sub), (1, ""))
-
-    monkeypatch.setattr(mod, "_run_help", fake_run_help)
-
-
-def _setup(tmp_path, monkeypatch, files, tier_for, help_table=None):
-    _materialize(tmp_path, files)
-    _install_iter(monkeypatch, tmp_path, tier_for)
-    _install_help_table(monkeypatch, help_table or {})
-
-
-def _run(conn) -> RecordCollector:
-    rec = RecordCollector()
-    hc_tier_cli_shape_bleed(conn, DoctorArgs(), rec)
-    return rec
-
-
-def _detail(rec: RecordCollector) -> str:
-    return rec.results[0].detail
-
-
-# --- Check A: CLI shape drift (argparse-help-driven) ----------------------
 def test_check_a_drifted_flag_in_tier5_fires(tmp_path, monkeypatch, conn):
     """`db-claim-amend --claim-state none` (real flag is `--state`) fires."""
     rel = ".agents/skills/yoke/conduct/SKILL.md"
@@ -250,6 +185,71 @@ def test_db_router_read_only_path_passes(tmp_path, monkeypatch, conn):
     body = "    python3 -m yoke_core.cli.db_router items get YOK-N spec\n"
     _setup(tmp_path, monkeypatch, {rel: body}, {rel: 5})
     assert _run(conn).results[0].result == "PASS"
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "python3 -m yoke_core.tools.watch_doctor -- --full --fix\n",
+        "python3 -m yoke_core.tools.watch_merge done-transition YOK-N\n",
+        "python3 -m yoke_core.domain.worktree create YOK-N /repo\n",
+        "python3 -m yoke_core.tools.executors ephemeral-verify p r b w d sha\n",
+    ],
+)
+def test_permanent_tool_shaped_operation_passes(
+    tmp_path,
+    monkeypatch,
+    conn,
+    body,
+):
+    """Inventory-classified tools own their forwarded argument grammar."""
+    rel = ".agents/skills/yoke/conduct/SKILL.md"
+    _setup(tmp_path, monkeypatch, {rel: body}, {rel: 5})
+    assert _run(conn).results[0].result == "PASS"
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "python3 -m yoke_core.tools.watch_doctorish --bogus\n",
+        (
+            "python3 -m yoke_core.api.service_client "
+            "coordination-lease-acquirex --bogus\n"
+        ),
+    ],
+)
+def test_permanent_surface_prefix_does_not_exempt_longer_token(
+    tmp_path,
+    monkeypatch,
+    conn,
+    body,
+):
+    """A permanent command's textual prefix cannot exempt a different token."""
+
+    rel = ".agents/skills/yoke/conduct/SKILL.md"
+    _setup(tmp_path, monkeypatch, {rel: body}, {rel: 5})
+
+    rec = _run(conn)
+    assert rec.results[0].result == "WARN"
+    assert "confabulated" in _detail(rec) or "exits non-zero" in _detail(rec)
+
+
+def test_operator_break_glass_surface_is_not_tool_shaped_exemption(
+    tmp_path,
+    monkeypatch,
+    conn,
+):
+    """Permanent operator/debug commands remain subject to their own help."""
+
+    rel = ".agents/skills/yoke/conduct/SKILL.md"
+    body = (
+        "python3 -m yoke_core.api.service_client coordination-lease-acquire --bogus\n"
+    )
+    _setup(tmp_path, monkeypatch, {rel: body}, {rel: 5})
+
+    rec = _run(conn)
+    assert rec.results[0].result == "WARN"
+    assert "confabulated subcommand" in _detail(rec)
 
 
 # --- Edges: archive, empty, truncation, repo-root self-skip ----------------

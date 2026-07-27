@@ -3,7 +3,8 @@
 Sibling of :mod:`schema_api_context_commands` (which combines per-topic
 lists into the canonical ``WRAPPER_COMMANDS``). Holds the ``qa`` topic
 entries: QA requirement/run reads, run-verdict recording, gate preview,
-gate summary, and the events read recipe.
+gate summary, method-case materialization/execution, and the events read
+recipe.
 
 Recipe shape doctrine:
     The qa family teaches registered ``yoke`` forms — requirement
@@ -83,20 +84,32 @@ QA_COMMANDS: list[dict] = [
     },
     {
         "topic": "qa",
-        "purpose": "Add a QA requirement — browser_smoke variant",
+        "purpose": "Materialize attached QA plan cases for a transition",
         "recipe": (
-            "yoke qa requirement add "
-            "--item PREFIX-N --qa-kind browser_smoke --qa-phase verification "
-            "--blocking-mode blocking --requirement-source ac_derived "
-            "--capability-requirements browser-qa "
-            "--success-policy '{\"steps\":[{\"action\":\"navigate\","
-            "\"route\":\"/login\"},{\"action\":\"screenshot\","
-            "\"capture\":true,\"name\":\"login\"}]}'"
+            "yoke qa plan materialize --item PREFIX-N "
+            "--transition reviewed-implementation"
         ),
         "notes": (
-            "Registered write qa.requirement.add. Browser kinds "
-            "(`browser_smoke`, `browser_diff`) REQUIRE "
-            "`--success-policy` with the `{\"steps\":[…]}` shape."
+            "Registered write qa.plan.materialize. Materialization is "
+            "idempotent and snapshots each attached plan case into one "
+            "qa_requirements row carrying method_id, instructions, "
+            "expected_outcome, and immutable method_config. Read the "
+            "result with `yoke qa requirement list --item PREFIX-N`; "
+            "never rewrite the case snapshot during execution."
+        ),
+    },
+    {
+        "topic": "qa",
+        "purpose": "Edit a project QA plan as one compare-and-swap document",
+        "recipe": "yoke qa plan edit release-readiness",
+        "notes": (
+            "Registered write qa.plan.edit. From a mapped project checkout, "
+            "the command resolves project context, opens a clean JSON plan "
+            "document in $VISUAL / $EDITOR, and saves metadata plus the full "
+            "ordered case set in one transaction. A stale updated_at refuses "
+            "the write and preserves the edited file. v1 accepts only the "
+            "all-pass policy; materialized item requirements remain immutable "
+            "snapshots."
         ),
     },
     {
@@ -118,23 +131,19 @@ QA_COMMANDS: list[dict] = [
     },
     {
         "topic": "qa",
-        "purpose": "Add a QA run verdict — browser_substrate × browser_smoke (file evidence)",
+        "purpose": "Execute one materialized Browser method case",
         "recipe": (
-            "yoke qa run add "
-            "--requirement-id R --executor-type browser_substrate "
-            "--qa-kind browser_smoke --verdict pass "
-            "--raw-result '{\"status\":\"captured\"}'\n"
-            "yoke qa artifact add --requirement-id R --run-id RUN "
-            "--artifact-type screenshot --artifact-handle "
-            "'{\"backend\":\"local\","
-            "\"path\":\"/tmp/browser-evidence/login.png\"}'"
+            "yoke qa case run --requirement-id R "
+            "--base-url https://preview.example "
+            "--expected-branch BRANCH --expected-sha SHA"
         ),
         "notes": (
-            "Registered agent path: `yoke qa run add` records inline "
-            "evidence, then `yoke qa artifact add` records screenshot "
-            "metadata. Browser kinds reject `--executor-type agent`. "
-            "`--execution-status {captured|capture_failed}` is "
-            "distinct from the quality `--verdict`."
+            "The shared case runner fetches the immutable snapshot through "
+            "qa.case_execution.get, executes only requirement R, and owns "
+            "qa.run.add / qa.run.complete / qa.artifact.add evidence "
+            "writes. browser-check decides automatically; "
+            "browser-inspection records inconclusive evidence and creates "
+            "a review request. Never add a parallel Browser run manually."
         ),
     },
     {

@@ -14,56 +14,56 @@ Sibling modules cover related surfaces:
 
 from __future__ import annotations
 
-from typing import Optional
-
 import pytest
 
 from yoke_core.domain import epic
 
-TEST_EPIC_ID = 42
-TEST_EPIC_REF = f"YOK-{TEST_EPIC_ID}"
-TEST_EPIC_BRANCH = TEST_EPIC_REF
-TEST_EPIC_BRANCH_NEXT = f"{TEST_EPIC_REF}-new"
-TEST_EPIC_WORKTREE_PATH = f"/tmp/worktrees/{TEST_EPIC_REF}"
-
-
-def _p(conn) -> str:
-    return epic._placeholder(conn)
-
-
-def _task_row(conn, epic_id: int, task_num: int):
-    return conn.execute(
-        f"SELECT * FROM epic_tasks WHERE epic_id={_p(conn)} AND task_num={_p(conn)}",
-        (str(epic_id), task_num),
-    ).fetchone()
-
-
-def _task_field(conn, epic_id: int, task_num: int, field: str):
-    row = _task_row(conn, epic_id, task_num)
-    return row[field] if row else None
+from runtime.api.epic_full_test_support import (
+    _seed_epic_item as _seed_epic_item,
+    _task_field,
+    _task_lane_field,
+    _task_row,
+    TEST_EPIC_BRANCH,
+    TEST_EPIC_BRANCH_NEXT,
+    TEST_EPIC_ID,
+    TEST_EPIC_REF,
+    TEST_EPIC_WORKTREE_PATH,
+)
 
 
 class TestTaskUpsert:
     def test_basic_upsert(self, test_db):
-        result = epic.task_upsert(test_db, "42", 1, "Create the widget", "feature/widget", "50k", "none")
+        result = epic.task_upsert(
+            test_db, "42", 1, "Create the widget", "feature/widget", "50k", "none"
+        )
         assert "Upserted task 42/1" in result
 
         row = _task_row(test_db, 42, 1)
         assert row is not None
         assert row["title"] == "Create the widget"
-        assert row["worktree"] == "feature/widget"
+        assert _task_lane_field(test_db, 42, 1, "branch") == "feature/widget"
         assert row["context_estimate"] == "50k"
         assert row["dependencies"] == "none"
         assert row["status"] == "planning"
 
     def test_upsert_updates_title_and_worktree(self, test_db):
-        epic.task_upsert(test_db, "42", 1, "Create the widget", "feature/widget", "50k", "none")
-        result = epic.task_upsert(test_db, "42", 1, "Create the better widget", "feature/widget-v2", "50k", "none")
+        epic.task_upsert(
+            test_db, "42", 1, "Create the widget", "feature/widget", "50k", "none"
+        )
+        result = epic.task_upsert(
+            test_db,
+            "42",
+            1,
+            "Create the better widget",
+            "feature/widget-v2",
+            "50k",
+            "none",
+        )
         assert "Upserted task 42/1" in result
 
         row = _task_row(test_db, 42, 1)
         assert row["title"] == "Create the better widget"
-        assert row["worktree"] == "feature/widget-v2"
+        assert _task_lane_field(test_db, 42, 1, "branch") == "feature/widget-v2"
 
     def test_upsert_no_duplicates(self, test_db):
         epic.task_upsert(test_db, "42", 1, "First", "", "", "")
@@ -75,23 +75,22 @@ class TestTaskUpsert:
 
     def test_worktree_preserved_on_empty_re_upsert(self, test_db):
         epic.task_upsert(test_db, "42", 1, "Widget", "feature/widget-v2", "", "")
-        wt_before = _task_field(test_db, 42, 1, "worktree")
+        wt_before = _task_lane_field(test_db, 42, 1, "branch")
         assert wt_before == "feature/widget-v2"
 
         epic.task_upsert(test_db, "42", 1, "Widget updated", "", "", "")
-        wt_after = _task_field(test_db, 42, 1, "worktree")
+        wt_after = _task_lane_field(test_db, 42, 1, "branch")
         assert wt_after == "feature/widget-v2"
 
     def test_worktree_overwritten_by_non_empty(self, test_db):
         epic.task_upsert(test_db, "42", 1, "Widget", "feature/widget-v2", "", "")
         epic.task_upsert(test_db, "42", 1, "Widget", "feature/widget-v3", "", "")
-        wt = _task_field(test_db, 42, 1, "worktree")
+        wt = _task_lane_field(test_db, 42, 1, "branch")
         assert wt == "feature/widget-v3"
 
     def test_initial_empty_worktree(self, test_db):
         epic.task_upsert(test_db, "42", 1, "Widget", "", "", "")
-        wt = _task_field(test_db, 42, 1, "worktree")
-        assert wt == ""
+        assert _task_field(test_db, 42, 1, "item_worktree_id") is None
 
     def test_special_characters_in_title(self, test_db):
         title = "Title with 'quotes' and \"doubles\" & <angle>"
@@ -221,8 +220,15 @@ class TestTaskUpdateStatus:
         with pytest.raises(ValueError) as exc_info:
             epic.task_update_status(test_db, "42", 1, "bogus")
         msg = str(exc_info.value)
-        for expected in ("implementing", "reviewing-implementation", "reviewed-implementation",
-                         "done", "failed", "blocked", "stopped"):
+        for expected in (
+            "implementing",
+            "reviewing-implementation",
+            "reviewed-implementation",
+            "done",
+            "failed",
+            "blocked",
+            "stopped",
+        ):
             assert expected in msg
 
 
@@ -301,27 +307,38 @@ class TestTaskUpdateField:
         with pytest.raises(ValueError, match="invalid epic task status"):
             epic.task_update_field(test_db, "42", 20, "status", "invalid_value")
 
-    def test_worktree_related_fields(self, test_db):
-        """AC-5 from shell tests: worktree, branch, worktree_path fields."""
-        epic.task_upsert(test_db, str(TEST_EPIC_ID), 1, "Widget", "", "", "")
-        epic.task_update_field(test_db, str(TEST_EPIC_ID), 1, "worktree", TEST_EPIC_BRANCH)
-        epic.task_update_field(test_db, str(TEST_EPIC_ID), 1, "branch", TEST_EPIC_BRANCH)
+    def test_item_worktree_reference_field(self, test_db):
+        """Task lane references update without scalar branch/path mirrors."""
+        from yoke_core.domain.item_worktrees import record_worker_item_worktree
+
+        epic.task_upsert(
+            test_db,
+            str(TEST_EPIC_ID),
+            1,
+            "Widget",
+            TEST_EPIC_BRANCH,
+            "",
+            "",
+        )
+        lane = record_worker_item_worktree(
+            test_db,
+            item_id=TEST_EPIC_ID,
+            branch=TEST_EPIC_BRANCH_NEXT,
+            path=TEST_EPIC_WORKTREE_PATH,
+        )
         epic.task_update_field(
-            test_db, str(TEST_EPIC_ID), 1, "worktree_path", TEST_EPIC_WORKTREE_PATH
+            test_db,
+            str(TEST_EPIC_ID),
+            1,
+            "item_worktree_id",
+            str(lane["id"]),
         )
 
-        assert _task_field(test_db, TEST_EPIC_ID, 1, "worktree") == TEST_EPIC_BRANCH
-        assert _task_field(test_db, TEST_EPIC_ID, 1, "branch") == TEST_EPIC_BRANCH
-        assert _task_field(test_db, TEST_EPIC_ID, 1, "worktree_path") == TEST_EPIC_WORKTREE_PATH
-
-        # Verify no partial null state
-        null_count = test_db.execute(
-            f"SELECT COUNT(*) FROM epic_tasks WHERE epic_id='{TEST_EPIC_ID}' AND task_num=1 "
-            "AND (worktree IS NULL OR branch IS NULL OR worktree_path IS NULL)"
-        ).fetchone()[0]
-        assert null_count == 0
-
-        # Updating worktree preserves branch and worktree_path
-        epic.task_update_field(test_db, str(TEST_EPIC_ID), 1, "worktree", TEST_EPIC_BRANCH_NEXT)
-        assert _task_field(test_db, TEST_EPIC_ID, 1, "branch") == TEST_EPIC_BRANCH
-        assert _task_field(test_db, TEST_EPIC_ID, 1, "worktree_path") == TEST_EPIC_WORKTREE_PATH
+        assert (
+            _task_lane_field(test_db, TEST_EPIC_ID, 1, "branch")
+            == TEST_EPIC_BRANCH_NEXT
+        )
+        assert (
+            _task_lane_field(test_db, TEST_EPIC_ID, 1, "path")
+            == TEST_EPIC_WORKTREE_PATH
+        )

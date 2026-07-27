@@ -167,17 +167,6 @@ def register(registry) -> None:
         claim_required_kind="item",
     )
     registry.register(
-        "qa.requirement.auto_create_for_item",
-        _qa.handle_qa_requirement_auto_create_for_item,
-        _qa.QaRequirementAutoCreateForItemRequest,
-        _qa.QaRequirementAutoCreateForItemResponse,
-        stability="stable", owner_module="yoke_core.domain.handlers.qa",
-        target_kinds=["item"], side_effects=["qa_requirements_insert"],
-        emitted_event_names=["YokeFunctionCalled", "QARequirementCreated"],
-        guardrails=["claim_required"], adapter_status="live",
-        claim_required_kind="item",
-    )
-    registry.register(
         "qa.requirement.waive",
         _qa_requirement_waive.handle_qa_requirement_waive,
         _qa_requirement_waive.QaRequirementWaiveRequest,

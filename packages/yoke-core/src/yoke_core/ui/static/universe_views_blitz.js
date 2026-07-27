@@ -8,14 +8,31 @@ import {
 import {
   el,
   loadSection,
-  renderTable,
   section,
   statePill,
 } from "./universe_view_support.js";
+import { relativeTime } from "./universe_time.js";
 import {
-  formatTimestamp,
   workflowPanel,
 } from "./workflow_view_primitives.js";
+
+const LANE_STATE_PRESENTATION = {
+  active: { tone: "running", label: "active" },
+  committed: { tone: "succeeded", label: "slice committed" },
+};
+
+function worktreeLanePill(documentNode, state) {
+  const value = String(state || "");
+  const presentation = LANE_STATE_PRESENTATION[value] || {
+    tone: value,
+    label: value,
+  };
+  const pill = statePill(
+    documentNode, presentation.tone, presentation.label,
+  );
+  if (pill) pill.setAttribute("data-state", value);
+  return pill;
+}
 
 function executionDocumentPanel(documentNode, item, document) {
   const { panel, body } = workflowPanel(documentNode, "Execution document");
@@ -33,18 +50,26 @@ function executionDocumentPanel(documentNode, item, document) {
   card.appendChild(el(documentNode, "span", "blitz-document-icon", "❖"));
   const copy = el(documentNode, "span", "blitz-document-copy");
   copy.appendChild(el(documentNode, "strong", "mono", document.slug));
-  copy.appendChild(el(
+  const detail = el(documentNode, "span", "item-muted");
+  detail.appendChild(el(
     documentNode,
     "span",
-    "item-muted",
-    [
-      document.parent_slug ? `child of ${document.parent_slug}` : "top-level strategy",
-      `revised ${formatTimestamp(document.updated_at)}`,
-    ].join(" · "),
+    null,
+    document.parent_slug
+      ? `child of ${document.parent_slug} · revised `
+      : "top-level strategy · revised ",
   ));
+  if (document.updated_at) {
+    detail.appendChild(relativeTime(documentNode, document.updated_at));
+  } else {
+    detail.appendChild(el(documentNode, "span", null, "recently"));
+  }
+  copy.appendChild(detail);
   card.appendChild(copy);
   const pill = statePill(
-    documentNode, document.execution_claim ? "claimed" : "available",
+    documentNode,
+    document.execution_claim ? "claimed" : "available",
+    document.execution_claim ? "🔒 claimed" : "available",
   );
   if (pill) card.appendChild(pill);
   body.appendChild(card);
@@ -52,7 +77,9 @@ function executionDocumentPanel(documentNode, item, document) {
 }
 
 function worktreeLanesPanel(documentNode, item) {
-  const panel = section(documentNode, "Worktree lanes");
+  const panel = section(
+    documentNode, "Worktree lanes", { showRaw: false },
+  );
   const rows = item.worktrees || [];
   panel.setCount(rows.length);
   panel.renderEnvelope(
@@ -60,11 +87,39 @@ function worktreeLanesPanel(documentNode, item) {
       status: 200,
       envelope: { success: true, result: { worktree_lanes: rows } },
     },
-    (body) => renderTable(body, rows, [
-      { label: "Role", value: (row) => row.lane_role },
-      { label: "Branch", value: (row) => row.branch, mono: true },
-      { label: "State", value: (row) => row.state, pill: true },
-    ], "No worktree lanes registered."),
+    (body) => {
+      if (!rows.length) {
+        body.appendChild(el(
+          documentNode, "p", "empty", "No worktree lanes registered.",
+        ));
+        return;
+      }
+      const wrap = el(documentNode, "div", "table-wrap");
+      const table = el(documentNode, "table", "items");
+      const head = el(documentNode, "tr");
+      for (const label of ["Role", "Branch", "State"]) {
+        head.appendChild(el(documentNode, "th", null, label));
+      }
+      table.appendChild(head);
+      for (const row of rows) {
+        const tr = el(documentNode, "tr");
+        const role = el(documentNode, "td");
+        role.appendChild(el(
+          documentNode, "span", "item-workflow", row.lane_role,
+        ));
+        tr.appendChild(role);
+        tr.appendChild(el(
+          documentNode, "td", "mono item-muted", row.branch,
+        ));
+        const state = el(documentNode, "td");
+        const pill = worktreeLanePill(documentNode, row.state);
+        if (pill) state.appendChild(pill);
+        tr.appendChild(state);
+        table.appendChild(tr);
+      }
+      wrap.appendChild(table);
+      body.appendChild(wrap);
+    },
   );
   return panel;
 }
@@ -74,29 +129,67 @@ function blitzFactsPanel(documentNode, item) {
   const table = el(documentNode, "table", "items kv item-facts");
   const claim = item.claim;
   const pathClaims = item.path_claims || { total: 0 };
+  const workflow = el(documentNode, "span", "item-inline");
+  workflow.appendChild(el(
+    documentNode,
+    "span",
+    "item-workflow",
+    String(item.workflow.id || "blitz").toLowerCase(),
+  ));
+  workflow.appendChild(el(
+    documentNode, "span", "item-version", `v${item.workflow.version}`,
+  ));
+  const liveClaim = claim
+    ? el(documentNode, "span", "item-inline")
+    : "none";
+  if (claim) {
+    liveClaim.appendChild(el(
+      documentNode, "span", null, claim.actor_label || claim.session_id,
+    ));
+    if (
+      claim.session_id &&
+      claim.session_id !== (claim.actor_label || claim.session_id)
+    ) {
+      liveClaim.appendChild(el(documentNode, "span", "item-muted", "·"));
+      liveClaim.appendChild(el(
+        documentNode, "span", "mono", claim.session_id,
+      ));
+    }
+  }
+  const claimStates = Object.entries(pathClaims.states || {})
+    .map(([state, count]) => `${count} ${state}`)
+    .join(" · ");
   const values = [
     ["Project", item.project.name || item.project.slug],
-    ["Workflow", `${item.workflow.name || "Blitz"} · v${item.workflow.version}`],
-    ["Status", item.workflow.stage_label || item.status],
-    ["Owner", item.owner || "unassigned"],
+    ["Workflow", workflow],
     [
-      "Live claim",
-      claim
-        ? `${claim.actor_label || claim.session_id} · ${claim.session_id}`
-        : "none",
+      "Status",
+      statePill(
+        documentNode,
+        item.status,
+        item.workflow.stage_label || item.status,
+      ),
     ],
+    ["Owner", item.owner || "unassigned"],
+    ["Live claim", liveClaim],
     [
       "Path claims",
       pathClaims.total
-        ? `${pathClaims.total} registered`
+        ? `${pathClaims.total} registered${claimStates ? ` · ${claimStates}` : ""}`
         : "none · workflow default",
     ],
-    ["Created", formatTimestamp(item.created_at)],
+    [
+      "Created",
+      item.created_at ? relativeTime(documentNode, item.created_at) : "",
+    ],
   ];
   for (const [label, value] of values) {
     const row = el(documentNode, "tr");
     row.appendChild(el(documentNode, "th", null, label));
-    row.appendChild(el(documentNode, "td", null, String(value)));
+    const cell = el(documentNode, "td");
+    if (value && value.tagName) cell.appendChild(value);
+    else cell.textContent = String(value);
+    row.appendChild(cell);
     table.appendChild(row);
   }
   body.appendChild(table);
@@ -119,18 +212,17 @@ function postureCell(documentNode, label, value, locked = false) {
 function blitzPosturePanel(documentNode, item) {
   const { panel, body } = workflowPanel(documentNode, "Execution posture");
   const grid = el(documentNode, "div", "item-posture-grid");
-  const active = (item.worktrees || []).filter((row) => row.state === "active");
-  const integration = active.find((row) => row.lane_role === "integration");
+  const lanes = item.worktrees || [];
   grid.appendChild(postureCell(documentNode, "Child items", "none"));
   grid.appendChild(postureCell(
     documentNode,
     "Parallelism",
-    active.length ? `${active.length} lanes` : "ready for worker lanes",
+    lanes.length ? `${lanes.length} lanes` : "ready for worker lanes",
   ));
   grid.appendChild(postureCell(
     documentNode,
     "Integration",
-    integration ? "integration lane" : "main session",
+    "main session",
   ));
   grid.appendChild(postureCell(
     documentNode, "Migrations", "governed", true,

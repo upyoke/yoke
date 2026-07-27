@@ -1,8 +1,8 @@
 """Scenario-level orchestration for Browser QA.
 
-Owns ``execute_scenario`` — the top-level driver that walks a single item's
-browser QA requirements, validates freshness/reachability/daemon state, and
-delegates per-requirement step execution to ``_process_requirement`` in
+Owns ``execute_scenario`` — the internal driver for one materialized Browser
+case. It validates freshness/reachability/daemon state and delegates step
+execution to ``_process_requirement`` in
 ``browser_qa_requirement``.
 
 Every DB leg goes through the Yoke function-call dispatcher
@@ -23,6 +23,7 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, Optional
 
+from yoke_contracts.api.function_call import ActorContext
 from yoke_core.domain.browser_qa_requirement import _process_requirement
 from yoke_core.domain.browser_qa_results import ScenarioResult
 
@@ -30,12 +31,13 @@ from yoke_core.domain.browser_qa_results import ScenarioResult
 def _fetch_browser_context(
     item_id: int | str,
     project: str,
+    requirement_id: int,
     expected_branch: Optional[str] = None,
-    requirement_id: Optional[int] = None,
+    actor: Optional[ActorContext] = None,
 ) -> Dict[str, Any]:
     """Fetch the scenario's DB context through the dispatcher.
 
-    One batched read: Browser method cases plus (when
+    One requirement-scoped read: the named Browser method case plus (when
     ``expected_branch`` is given) the latest deployed_sha for the freshness
     gate. ``item_id`` accepts the numeric id or a public ref
     (``PREFIX-N`` / bare project-local number) — refs resolve server-side
@@ -43,12 +45,9 @@ def _fetch_browser_context(
     numeric ``item_id``. Raises ``RuntimeError`` with the
     transport/handler error message on failure.
     """
-    # Lazy import: the structured-API adapter sits above the domain layer;
-    # importing it at call time keeps the module import graph clean (the
-    # main-commit strategy-freshness lint follows the same pattern).
     from yoke_contracts.api.function_call import TargetRef
-    from yoke_core.api.service_client_structured_api_adapter import (
-        call_dispatcher,
+    from yoke_core.domain.qa_composed_dispatch import (
+        call_qa_function,
     )
 
     try:
@@ -58,15 +57,17 @@ def _fetch_browser_context(
             kind="item", item_ref=str(item_id).strip(), project_id=project,
         )
 
-    payload: Dict[str, Any] = {"project": project}
+    payload: Dict[str, Any] = {
+        "project": project,
+        "requirement_id": int(requirement_id),
+    }
     if expected_branch:
         payload["expected_branch"] = expected_branch
-    if requirement_id is not None:
-        payload["requirement_id"] = int(requirement_id)
-    response = call_dispatcher(
+    response = call_qa_function(
         function_id="qa.browser_context.get",
         target=target,
         payload=payload,
+        actor=actor,
     )
     if not response.success:
         code = response.error.code if response.error else "unknown"
@@ -78,19 +79,21 @@ def _fetch_browser_context(
 def execute_scenario(
     item_id: int | str,
     project: str,
+    requirement_id: int,
     base_url: str = "",
     expected_branch: Optional[str] = None,
     expected_sha: Optional[str] = None,
-    requirement_id: Optional[int] = None,
+    actor: Optional[ActorContext] = None,
 ) -> ScenarioResult:
-    """Execute browser QA scenarios for an item.
+    """Execute one materialized Browser method case.
 
-    This is the ONE canonical entry point for browser QA execution.
+    The user-facing entry is ``yoke qa case run --requirement-id``.
 
     Args:
         item_id: Numeric item id, or a public ref (``PREFIX-N`` / bare
             project-local number) resolved server-side by the context
             fetch.
+        requirement_id: Materialized Browser case requirement to execute.
         expected_branch: Optional branch name for deployment freshness
             validation. Must be provided together with expected_sha.
         expected_sha: Optional HEAD SHA for deployment freshness validation.
@@ -121,17 +124,13 @@ def execute_scenario(
         "(qa.browser_context.get)..."
     )
     try:
-        if requirement_id is None:
-            context = _bqa._fetch_browser_context(
-                item_id, project, expected_branch,
-            )
-        else:
-            context = _bqa._fetch_browser_context(
-                item_id,
-                project,
-                expected_branch,
-                requirement_id=requirement_id,
-            )
+        context = _bqa._fetch_browser_context(
+            item_id,
+            project,
+            requirement_id,
+            expected_branch,
+            actor,
+        )
     except Exception as exc:
         _bqa._log(f"ERROR: {exc}")
         result.verdict = "error"
@@ -221,6 +220,7 @@ def execute_scenario(
             base_url=base_url,
             code_identity=code_identity,
             freshness_validated=freshness_validated,
+            actor=actor,
         )
         result.runs.append(outcome.run_result)
 

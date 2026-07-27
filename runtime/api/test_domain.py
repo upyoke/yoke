@@ -3,7 +3,7 @@
 Shared helpers used by the split test modules:
   - test_domain_items_lifecycle.py: lifecycle invariants, validation,
     terminal/task-terminal-success, progression, SQL fragments
-  - test_domain_items_epic.py: epic-workflow-type validation and progression
+  - test_domain_items_epic.py: Epic workflow validation and progression
   - test_domain_items_approval.py: approval domain (halt-state, flow stages,
     resolution, ApprovalPath)
   - test_domain_sessions.py: runs, queries, and board tests

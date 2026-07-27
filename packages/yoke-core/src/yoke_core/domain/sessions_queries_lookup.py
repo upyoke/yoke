@@ -106,6 +106,11 @@ def get_claim_for_work_unit(
 # Core-derived harness capability lookup
 # ---------------------------------------------------------------------------
 
+_MANIFEST_DIRECTORY_BY_HARNESS_ID = {
+    "claude-code": "claude",
+    "codex": "codex",
+}
+
 
 def resolve_harness_capabilities(
     executor: str,
@@ -117,7 +122,7 @@ def resolve_harness_capabilities(
     for manifest lookup:
 
     - ``codex-*`` -> ``runtime/harness/codex/manifest.json``
-    - ``claude-*`` -> ``runtime/harness/claude-code/manifest.json``
+    - ``claude-*`` -> ``runtime/harness/claude/manifest.json``
 
     Unknown executors continue to probe ``runtime/harness/{executor}/``. When a
     manifest exists, command/path truth comes from the shared Yoke registry and
@@ -129,17 +134,22 @@ def resolve_harness_capabilities(
         manifest_executor = canonical_harness_id(executor)
     except ValueError:
         manifest_executor = executor
+    manifest_directory = _MANIFEST_DIRECTORY_BY_HARNESS_ID.get(
+        manifest_executor,
+        manifest_executor,
+    )
 
     manifest_path = os.path.join(
         workspace,
         "runtime",
         "harness",
-        manifest_executor,
+        manifest_directory,
         "manifest.json",
     )
     result: Dict[str, Any] = {
         "executor": executor,
         "manifest_executor": manifest_executor,
+        "manifest_directory": manifest_directory,
         "downstream_paths": [],
         "source": "shared_registry",
     }

@@ -5,6 +5,7 @@ from __future__ import annotations
 from yoke_core.domain.handlers import sessions_begin as _sb
 from yoke_core.domain.handlers import sessions_list as _sl
 from yoke_core.domain.handlers import sessions_orchestration as _so
+from yoke_core.domain.handlers import sessions_reclaim as _sr
 
 
 def register(registry) -> None:
@@ -19,6 +20,34 @@ def register(registry) -> None:
         guardrails=[],
         adapter_status="live",
         claim_required_kind=None,
+    )
+    registry.register(
+        "sessions.reclaim_stale", _sr.handle_sessions_reclaim_stale,
+        _sr.SessionsReclaimStaleRequest, _sr.SessionsReclaimStaleResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.sessions_reclaim",
+        target_kinds=["global"],
+        side_effects=[
+            "harness_sessions_update",
+            "work_claims_update",
+            "events_insert",
+            "scratch_cleanup",
+        ],
+        emitted_event_names=[
+            "HarnessSessionStaleReclaimed",
+            "HarnessSessionStaleSweepCompleted",
+            "ReclaimAborted",
+            "WorkReclaimed",
+            "YokeFunctionCalled",
+        ],
+        guardrails=[
+            "explicit_confirmation",
+            "liveness_recheck",
+            "project_scope_exact",
+        ],
+        adapter_status="internal",
+        claim_required_kind=None,
+        ambient_session_required=False,
     )
     registry.register(
         "sessions.touch", _so.handle_touch,

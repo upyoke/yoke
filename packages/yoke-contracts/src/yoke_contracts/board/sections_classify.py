@@ -65,7 +65,6 @@ class ItemRow(NamedTuple):
     status: str
     progress: str
     epic_id: Optional[int]  # numeric epic_id (or None)
-    worktree: str
     project: str
     updated_at: str
 
@@ -232,7 +231,6 @@ def classify_items(
         COALESCE(i.priority, 'medium'),
         CASE WHEN i.frozen = 1 THEN 1 ELSE 0 END,
         CASE WHEN i.blocked = 1 THEN 1 ELSE 0 END,
-        COALESCE(i.worktree, ''),
         i.id,
         CASE WHEN p.emoji IS NOT NULL AND p.emoji <> ''
              THEN p.emoji || ' ' || p.slug
@@ -257,7 +255,6 @@ def classify_items(
             priority,
             frozen_int,
             blocked_int,
-            worktree,
             numid,
             project_display,
             updated_at,
@@ -296,7 +293,6 @@ def classify_items(
             status=status,
             progress=progress,
             epic_id=eff_epic,
-            worktree=worktree,
             project=project_display,
             updated_at=updated_at,
         )

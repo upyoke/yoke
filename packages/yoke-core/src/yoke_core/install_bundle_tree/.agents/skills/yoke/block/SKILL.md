@@ -59,7 +59,18 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
    Use this note in the final report:
    > YOK-{N} was already blocked. Updated the recorded reason.
 
-5. **Set `blocked=true` and record the reason via the canonical adapter.**
+5. **Acquire a work claim.** The `items.scalar.update` dispatcher refuses
+   item mutations unless the calling session holds an active claim:
+
+   ```bash
+   yoke claims work acquire \
+       --item "YOK-{N}" --reason block
+   ```
+
+   If another session holds the claim, stop and coordinate with that holder.
+   Do not override the claim.
+
+6. **Set `blocked=true` and record the reason via the canonical adapter.**
    Use the wrapped `items.scalar.update` adapter once for `blocked` and
    once for `blocked_reason`. Each call syncs the GitHub `blocked`
    label best-effort and rebuilds the board through the shared mutation
@@ -75,14 +86,17 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
    lines on stderr; the block itself still succeeded when exit code is
    0. If the second write (reason) fails after the first (flag)
    succeeds, rerun the `blocked_reason` command after addressing the
-   reported error.
+   reported error while retaining the claim.
 
-6. **Commit.**
+7. **Release the work claim.** Once both writes have applied, release the
+   claim so blocking the item does not leave it owned by this session:
+
    ```bash
-   git diff --cached --quiet || git commit -m "YOK-{N}: block - <reason>"
+   yoke claims work release \
+       --item "YOK-{N}" --reason block-complete
    ```
 
-7. **Report.**
+8. **Report.**
    > **YOK-{N}** ({title}): blocked
    >
    > Reason: {reason}

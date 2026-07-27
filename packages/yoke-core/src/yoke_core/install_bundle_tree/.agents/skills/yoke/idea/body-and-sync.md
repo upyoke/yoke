@@ -272,14 +272,10 @@ yoke claims path required-gate YOK-{id-number}
 
 ## 10. Sync Body To GitHub
 
-Before syncing, seed the default AC-verification QA requirement. This is
-idempotent and reuses an existing AC-verification requirement:
-
-```bash
-yoke qa requirement auto-create-for-item --item YOK-{id-number}
-```
-
-`yoke qa requirement auto-create-for-item --help` documents the worked example, outcome vocabulary, and flag matrix.
+Body sync does not derive QA requirements from item type or Browser posture.
+Project-default and item-attached plans materialize at their declared lifecycle
+transitions. Use `qa.requirement.add` only for an explicitly authored,
+item-specific requirement outside those plans.
 
 If step 8 wrote body content, push it to the linked GitHub issue via
 the `items sync-body` CLI — this is the explicit GitHub-side-effect

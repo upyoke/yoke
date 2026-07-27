@@ -60,7 +60,9 @@ STRATEGY_ADAPTERS = [
     ),
     AdapterEntry(
         function_id="strategy.claim.release",
-        cli_invocation="yoke strategy claim release ITEM --project P",
+        cli_invocation=(
+            "yoke strategy claim release ITEM [--reason TEXT] --project P"
+        ),
     ),
     AdapterEntry(
         function_id="strategy.claim.break_glass_release",

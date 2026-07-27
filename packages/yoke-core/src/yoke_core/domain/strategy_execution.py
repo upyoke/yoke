@@ -44,14 +44,16 @@ def _row(cursor: Any) -> Optional[dict[str, Any]]:
 
 def _item_row(conn: Any, item_id: int) -> dict[str, Any]:
     marker = _marker(conn)
-    row = _row(conn.execute(
-        "SELECT i.id, i.project_id, i.title, i.status, i.workflow_id, "
-        "i.workflow_version_id, i.owner, i.source, i.created_at, "
-        "i.workflow_posture, p.slug AS project_slug, p.name AS project_name "
-        "FROM items i JOIN projects p ON p.id = i.project_id "
-        f"WHERE i.id = {marker}",
-        (int(item_id),),
-    ))
+    row = _row(
+        conn.execute(
+            "SELECT i.id, i.project_id, i.title, i.status, i.workflow_id, "
+            "i.workflow_version_id, i.owner, i.source, i.created_at, "
+            "i.workflow_posture, p.slug AS project_slug, p.name AS project_name "
+            "FROM items i JOIN projects p ON p.id = i.project_id "
+            f"WHERE i.id = {marker}",
+            (int(item_id),),
+        )
+    )
     if row is None:
         raise StrategyExecutionLinkError(f"item {item_id} does not exist")
     return row
@@ -72,16 +74,18 @@ def _active_item_claim(
     item_id: int,
 ) -> Optional[dict[str, Any]]:
     marker = _marker(conn)
-    return _row(conn.execute(
-        "SELECT wc.id, wc.session_id, wc.claimed_at, "
-        "hs.executor_display_name, hs.executor "
-        "FROM work_claims wc "
-        "LEFT JOIN harness_sessions hs ON hs.session_id = wc.session_id "
-        "WHERE wc.target_kind = 'item' "
-        f"AND wc.item_id = {marker} AND wc.released_at IS NULL "
-        "ORDER BY wc.claimed_at DESC LIMIT 1",
-        (int(item_id),),
-    ))
+    return _row(
+        conn.execute(
+            "SELECT wc.id, wc.session_id, wc.claimed_at, "
+            "hs.executor_display_name, hs.executor "
+            "FROM work_claims wc "
+            "LEFT JOIN harness_sessions hs ON hs.session_id = wc.session_id "
+            "WHERE wc.target_kind = 'item' "
+            f"AND wc.item_id = {marker} AND wc.released_at IS NULL "
+            "ORDER BY wc.claimed_at DESC LIMIT 1",
+            (int(item_id),),
+        )
+    )
 
 
 def link_execution_document(
@@ -119,7 +123,12 @@ def link_execution_document(
         "linked_by_session_id = EXCLUDED.linked_by_session_id, "
         "linked_at = EXCLUDED.linked_at",
         (
-            int(item_id), int(project_id), slug, actor_id, session_id, linked_at,
+            int(item_id),
+            int(project_id),
+            slug,
+            actor_id,
+            session_id,
+            linked_at,
         ),
     )
     conn.commit()
@@ -147,17 +156,20 @@ def active_strategy_doc_claim(
         params = (int(project_id), slug)
     else:
         raise ValueError("document identity or item_id is required")
-    claim = _row(conn.execute(
-        "SELECT c.id, c.project_id, c.strategy_doc_slug, c.owning_item_id, "
-        "c.registered_by_actor_id, c.registered_by_session_id, "
-        "c.registered_at, i.title AS item_title, i.status AS item_status, "
-        "i.project_sequence, p.slug AS project_slug, p.public_item_prefix "
-        "FROM strategy_doc_claims c "
-        "JOIN items i ON i.id = c.owning_item_id "
-        "JOIN projects p ON p.id = i.project_id "
-        f"WHERE {where} AND c.released_at IS NULL",
-        params,
-    ))
+    claim = _row(
+        conn.execute(
+            "SELECT c.id, c.project_id, c.strategy_doc_slug, c.owning_item_id, "
+            "c.registered_by_actor_id, c.registered_by_session_id, "
+            "c.registered_at, i.title AS item_title, i.status AS item_status, "
+            "i.workflow_id, i.workflow_version_id, "
+            "i.project_sequence, p.slug AS project_slug, p.public_item_prefix "
+            "FROM strategy_doc_claims c "
+            "JOIN items i ON i.id = c.owning_item_id "
+            "JOIN projects p ON p.id = i.project_id "
+            f"WHERE {where} AND c.released_at IS NULL",
+            params,
+        )
+    )
     if claim is not None:
         claim["item_ref"] = format_item_ref(
             claim["project_slug"],
@@ -183,31 +195,35 @@ def acquire_strategy_doc_claim(
             f"session {session_id!r} does not hold item {item_id}'s active claim"
         )
     marker = _marker(conn)
-    link = _row(conn.execute(
-        "SELECT project_id, strategy_doc_slug FROM item_strategy_docs "
-        f"WHERE item_id = {marker}",
-        (int(item_id),),
-    ))
+    link = _row(
+        conn.execute(
+            "SELECT project_id, strategy_doc_slug FROM item_strategy_docs "
+            f"WHERE item_id = {marker}",
+            (int(item_id),),
+        )
+    )
     if link is None:
         raise StrategyExecutionLinkError(
             f"Blitz item {item_id} has no execution document"
         )
     registered_at = iso8601_now()
-    inserted = _row(conn.execute(
-        "INSERT INTO strategy_doc_claims "
-        "(project_id, strategy_doc_slug, owning_item_id, "
-        "registered_by_actor_id, registered_by_session_id, registered_at) "
-        f"VALUES ({', '.join(marker for _ in range(6))}) "
-        "ON CONFLICT DO NOTHING RETURNING id",
-        (
-            int(link["project_id"]),
-            str(link["strategy_doc_slug"]),
-            int(item_id),
-            actor_id,
-            session_id,
-            registered_at,
-        ),
-    ))
+    inserted = _row(
+        conn.execute(
+            "INSERT INTO strategy_doc_claims "
+            "(project_id, strategy_doc_slug, owning_item_id, "
+            "registered_by_actor_id, registered_by_session_id, registered_at) "
+            f"VALUES ({', '.join(marker for _ in range(6))}) "
+            "ON CONFLICT DO NOTHING RETURNING id",
+            (
+                int(link["project_id"]),
+                str(link["strategy_doc_slug"]),
+                int(item_id),
+                actor_id,
+                session_id,
+                registered_at,
+            ),
+        )
+    )
     if inserted is None:
         holder = active_strategy_doc_claim(
             conn,
@@ -218,7 +234,8 @@ def acquire_strategy_doc_claim(
             return holder
         label = (
             f"item {holder['owning_item_id']} ({holder['item_title']})"
-            if holder is not None else "another active item"
+            if holder is not None
+            else "another active item"
         )
         raise StrategyDocClaimConflictError(
             f"strategy document {link['strategy_doc_slug']!r} is owned by {label}"
@@ -241,7 +258,9 @@ def authorize_strategy_doc_write(
     session currently holding the owning Blitz's item claim may revise it.
     """
     claim = active_strategy_doc_claim(
-        conn, project_id=int(project_id), slug=slug,
+        conn,
+        project_id=int(project_id),
+        slug=slug,
     )
     if claim is None:
         return False

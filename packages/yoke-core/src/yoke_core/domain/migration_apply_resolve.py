@@ -239,7 +239,7 @@ def resolve_module_override(
     """Validate ``--module-path-override`` against the item's worktree.
 
     The caller passes ``worktree_path`` explicitly — typically computed
-    from ``items.worktree`` joined with this machine's checkout mapping.
+    from the active universal lane joined with this machine's checkout mapping.
     Every denied shape — empty path, missing worktree_path, missing-on-
     disk path, non-file path, symlink escape, ``<slug>.py`` mismatch,
     undeclared slug — raises :class:`ModuleOverrideError`. There is no
@@ -253,8 +253,8 @@ def resolve_module_override(
     if not worktree_path:
         raise ModuleOverrideError(
             f"--module-path-override requires an active item worktree; "
-            f"YOK-{item_id} has no worktree path (items.worktree is empty "
-            "or this machine has no checkout mapping for the project)."
+            f"YOK-{item_id} has no active lane path "
+            "(or this machine has no checkout mapping for the project)."
         )
     worktree_real = Path(worktree_path).expanduser().resolve()
     if not worktree_real.is_dir():

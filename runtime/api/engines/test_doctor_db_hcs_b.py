@@ -8,6 +8,7 @@ Schema scaffolding shared via _doctor_db_test_helpers (private module).
 
 from __future__ import annotations
 
+from runtime.api.fixtures.backlog import insert_item_worktree
 from yoke_core.engines.doctor import (
     HEALTH_CHECKS,
     HealthCheck,
@@ -66,9 +67,13 @@ class TestHCOrphanedDoneItems:
 
     def test_warn_worktree_set(self, conn):
         conn.execute(
-            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, worktree) "
-            "VALUES (1, 'T', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'done', 'low', 'YOK-1')"
+            "INSERT INTO items "
+            "(id, title, workflow_id, workflow_version_id, status, priority) "
+            "VALUES (1, 'T', 'issue', "
+            "(SELECT current_version_id FROM workflows WHERE id='issue'), "
+            "'done', 'low')"
         )
+        insert_item_worktree(conn, item_id=1, branch="YOK-1")
         rec = RecordCollector()
         hc_orphaned_done_items(conn, _default_args(), rec)
         r = _get_result(rec, "HC-orphaned-done-items")

@@ -305,8 +305,8 @@ class TestHCEventEmissionRate:
         """WARN when zero events despite active sessions."""
         test_db.execute(
             "INSERT INTO epic_dispatch_chains "
-            "(epic_id, worktree, last_updated) VALUES (%s, %s, %s)",
-            (431, "YOK-431", iso8601_now()),
+            "(epic_id, last_updated) VALUES (%s, %s)",
+            (431, iso8601_now()),
         )
         test_db.commit()
         rec = _run_hc(hc_event_emission_rate, test_db)
@@ -318,8 +318,8 @@ class TestHCEventEmissionRate:
         """PASS when events emitted with active sessions."""
         test_db.execute(
             "INSERT INTO epic_dispatch_chains "
-            "(epic_id, worktree, last_updated) VALUES (%s, %s, %s)",
-            (431, "YOK-431", iso8601_now()),
+            "(epic_id, last_updated) VALUES (%s, %s)",
+            (431, iso8601_now()),
         )
         insert_event(test_db, event_id="evt-rate-1", event_name="SomeEvent")
         rec = _run_hc(hc_event_emission_rate, test_db)

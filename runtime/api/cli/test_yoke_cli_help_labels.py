@@ -19,7 +19,8 @@ def test_top_help_labels_non_product_dispositions() -> None:
     assert rc == 0
     assert "yoke dev setup [source-dev/admin]" in out
     assert "yoke dev db-admin setup [source-dev/admin]" in out
-    assert "yoke qa browser run [client-local]" in out
+    assert "yoke qa case run [client-local]" in out
+    assert "yoke qa browser run" not in out
     assert "yoke git pre-commit [hook-local]" in out
     assert "yoke status\n" in out
     assert "yoke self-host import ARCHIVE [--dir D] [--yes] [--json]" in out
@@ -36,7 +37,10 @@ def test_top_help_labels_non_product_dispositions() -> None:
         (["agents", "--help"], "yoke agents render [source-dev/admin]"),
         (["packets", "--help"], "yoke packets check [source-dev/admin]"),
         (["merge", "--help"], "yoke merge audit [source-dev/admin]"),
-        (["qa", "browser", "--help"], "yoke qa browser run [client-local]"),
+        (
+            ["qa", "browser", "--help"],
+            "yoke qa browser screenshot [client-local]",
+        ),
         (
             ["github-actions", "--help"],
             "yoke github-actions secret set [source-dev/admin]",

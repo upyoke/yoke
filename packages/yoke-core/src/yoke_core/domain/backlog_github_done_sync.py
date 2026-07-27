@@ -105,7 +105,7 @@ def sync_done_item(
 
         fields = _item_fields(
             item_pk,
-            ["title", "status", "priority", "workflow_id", "source", "owner", "worktree", "project"],
+            ["title", "status", "priority", "workflow_id", "source", "owner", "project"],
             conn=conn,
         )
         if fields is None:

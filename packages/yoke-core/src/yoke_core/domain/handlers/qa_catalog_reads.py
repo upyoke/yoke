@@ -33,6 +33,16 @@ class RowsResponse(BaseModel):
     rows: List[Dict[str, Any]]
 
 
+class ActivitySummaryResponse(BaseModel):
+    day: str
+    total: int = Field(..., ge=0)
+    counts: Dict[str, int]
+
+
+class ActivityListResponse(RowsResponse):
+    summary: ActivitySummaryResponse
+
+
 class MethodGetResponse(BaseModel):
     method: Dict[str, Any]
 
@@ -136,20 +146,22 @@ def handle_activity_list(request: FunctionCallRequest) -> HandlerOutcome:
     if error is not None:
         return error
     from yoke_core.domain.db_helpers import connect
-    from yoke_core.domain.qa_catalog_reads import list_activity
+    from yoke_core.domain.qa_catalog_reads import read_activity
 
     try:
         with connect() as conn:
-            rows = list_activity(
+            result = read_activity(
                 conn, project=payload.project, limit=payload.limit,
             )
     except LookupError as exc:
         return _error("not_found", str(exc), "$.payload.project")
-    return HandlerOutcome(result_payload={"rows": rows}, primary_success=True)
+    return HandlerOutcome(result_payload=result, primary_success=True)
 
 
 __all__ = [
+    "ActivityListResponse",
     "ActivityListRequest",
+    "ActivitySummaryResponse",
     "MethodGetRequest",
     "MethodGetResponse",
     "PlanGetRequest",

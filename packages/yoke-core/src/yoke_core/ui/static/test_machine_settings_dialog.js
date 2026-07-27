@@ -1,7 +1,6 @@
 import {
   callFunction,
   el,
-  renderError,
   statePill,
 } from "./universe_view_support.js";
 
@@ -10,6 +9,26 @@ export const machineSecretNotes = {
   sudo_password: "used only by registered host-baseline operations",
   screen_control_token: "Terminal automation bridge",
 };
+
+export function orderedMachineSecrets(secrets) {
+  const order = new Map(
+    Object.keys(machineSecretNotes).map((key, index) => [key, index]),
+  );
+  return [...(secrets || [])].sort((left, right) => {
+    const leftOrder = order.get(left.key);
+    const rightOrder = order.get(right.key);
+    if (leftOrder === undefined && rightOrder === undefined) return 0;
+    if (leftOrder === undefined) return 1;
+    if (rightOrder === undefined) return -1;
+    return leftOrder - rightOrder;
+  });
+}
+
+function rejectedCallMessage(error, fallback) {
+  if (error instanceof Error && error.message) return error.message;
+  const detail = String(error ?? "").trim();
+  return detail || fallback;
+}
 
 export function machineSettingsDialog(context, detail, close, saved) {
   const documentNode = context.document;
@@ -51,13 +70,17 @@ export function machineSettingsDialog(context, detail, close, saved) {
     "muted",
     "Presence is visible here; replacement happens through the registered terminal surface with --value-stdin, so raw values never render or enter browser history.",
   ));
-  for (const secret of detail.secrets || []) {
+  for (const secret of orderedMachineSecrets(detail.secrets)) {
     const row = el(documentNode, "div", "test-machine-command");
-    row.appendChild(el(documentNode, "strong", null, secret.key));
+    const identity = el(
+      documentNode, "div", "test-machine-command-identity",
+    );
+    identity.appendChild(el(documentNode, "strong", null, secret.key));
     const state = statePill(
       documentNode, secret.stored ? "stored" : "missing",
     );
-    if (state) row.appendChild(state);
+    if (state) identity.appendChild(state);
+    row.appendChild(identity);
     row.appendChild(el(
       documentNode,
       "small",
@@ -73,12 +96,20 @@ export function machineSettingsDialog(context, detail, close, saved) {
     credentials.appendChild(row);
   }
   dialog.appendChild(credentials);
-  dialog.appendChild(el(
+  const footer = el(documentNode, "div", "test-machine-dialog-footer");
+  footer.appendChild(el(
     documentNode,
     "p",
     "muted",
     "Host baselines stay read-only here: fresh-host and shell-preconfigured are registered executor operations, not user-authored instructions.",
   ));
+  const error = el(
+    documentNode, "p", "test-machine-settings-error error",
+  );
+  error.setAttribute("role", "alert");
+  error.setAttribute("aria-live", "polite");
+  error.hidden = true;
+  footer.appendChild(error);
   const actions = el(documentNode, "div", "test-machine-dialog-actions");
   const cancel = el(documentNode, "button", "btn", "Cancel");
   cancel.type = "button";
@@ -87,27 +118,48 @@ export function machineSettingsDialog(context, detail, close, saved) {
   const save = el(documentNode, "button", "btn primary", "Save non-secret settings");
   save.type = "button";
   save.addEventListener("click", async () => {
+    error.textContent = "";
+    error.hidden = true;
     save.disabled = true;
-    const result = await callFunction(
-      context.client,
-      "test_machine.settings_replace",
-      {
-        project: detail.project,
-        settings: Object.fromEntries(
-          Object.entries(inputs).map(([key, input]) => [key, input.value]),
-        ),
-        base_settings: detail.settings_token,
-      },
-    );
-    if (!result.envelope.success) {
+    save.textContent = "Saving…";
+    const fail = (message) => {
       save.disabled = false;
-      renderError(dialog, result);
+      save.textContent = "Save non-secret settings";
+      error.textContent = message;
+      error.hidden = false;
+    };
+    let result;
+    try {
+      result = await callFunction(
+        context.client,
+        "test_machine.settings_replace",
+        {
+          project: detail.project,
+          settings: Object.fromEntries(
+            Object.entries(inputs).map(([key, input]) => [key, input.value]),
+          ),
+          base_settings: detail.settings_token,
+        },
+      );
+    } catch (callError) {
+      fail(rejectedCallMessage(
+        callError,
+        "Could not save non-secret settings.",
+      ));
+      return;
+    }
+    if (!result.envelope.success) {
+      fail(
+        result.envelope?.error?.message ||
+          "Could not save non-secret settings.",
+      );
       return;
     }
     saved();
   });
   actions.appendChild(save);
-  dialog.appendChild(actions);
+  footer.appendChild(actions);
+  dialog.appendChild(footer);
   overlay.appendChild(dialog);
   return overlay;
 }

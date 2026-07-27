@@ -12,10 +12,9 @@ under the file budget.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Optional, Tuple
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.events_crud import normalize_event_item_id
@@ -24,6 +23,14 @@ from yoke_core.domain.observe_db_reads import (
     repo_root_for_attribution,
 )
 from yoke_core.domain.observe_function_call_refs import extract_function_call_item_id
+from yoke_core.domain.observe_tool_event import (
+    TOOL_KIND_APPLY_PATCH,
+    TOOL_KIND_BASH,
+    TOOL_KIND_EDIT,
+    TOOL_KIND_WRITE,
+    TOOL_KINDS,
+    ToolEventRecord,
+)
 
 if TYPE_CHECKING:
     # Imported only for annotations: observe_parsing imports this module at
@@ -31,47 +38,9 @@ if TYPE_CHECKING:
     from yoke_core.domain.observe_parsing import EventRecord
 
 
-# ``tool_kind`` is the harness-neutral category the policy pipeline
-# dispatches on. Concrete harness tool names (e.g. Claude's ``Edit`` /
-# ``Write`` / ``Bash``, Codex's ``apply_patch``) map onto these values.
-TOOL_KIND_BASH = "bash"
-TOOL_KIND_WRITE = "write"
-TOOL_KIND_EDIT = "edit"
-TOOL_KIND_APPLY_PATCH = "apply_patch"
-
-
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
-TOOL_KINDS: Tuple[str, ...] = (
-    TOOL_KIND_BASH,
-    TOOL_KIND_WRITE,
-    TOOL_KIND_EDIT,
-    TOOL_KIND_APPLY_PATCH,
-)
-
-
-@dataclass
-class ToolEventRecord:
-    """Harness-neutral tool-event payload consumed by the policy pipeline.
-
-    ``tool_kind`` is the dispatch key. ``changed_paths`` is the list of
-    repo-relative paths the tool will mutate. ``command`` carries the
-    Bash command body; ``patch_body`` carries the raw Codex
-    ``apply_patch`` envelope. Other fields mirror the PreToolUse hook
-    payload so adapters can build a record without re-deriving context.
-    """
-
-    tool_kind: str = ""
-    changed_paths: List[str] = field(default_factory=list)
-    command: str = ""
-    patch_body: str = ""
-    tool_name: str = ""
-    session_id: str = ""
-    tool_use_id: Optional[str] = None
-    turn_id: Optional[str] = None
-    cwd: str = ""
-    project_dir: str = ""
 
 def _normalize_dir(path: Optional[str]) -> Optional[str]:
     """Return a symlink-resolved directory path when it exists."""
@@ -120,39 +89,52 @@ def _resolve_dispatch_context(
 
     try:
         chain_row = conn.execute(
-            """SELECT epic_id, current_task
-               FROM epic_dispatch_chains
-               WHERE worktree_path = {p}
-                 AND current_task IS NOT NULL
-                 AND current_task <> ''
+            """SELECT c.epic_id, c.current_task
+               FROM epic_dispatch_chains c
+               JOIN item_worktrees iw ON iw.id = c.item_worktree_id
+               WHERE iw.path = {p}
+                 AND iw.state = 'active'
+                 AND c.current_task IS NOT NULL
+                 AND c.current_task <> ''
                LIMIT 1""".format(p=_p(conn)),
             (normalized_project,),
         ).fetchone()
         if chain_row:
-            return normalize_event_item_id(str(chain_row[0])), int(chain_row[1]), "dispatch"
+            return (
+                normalize_event_item_id(str(chain_row[0])),
+                int(chain_row[1]),
+                "dispatch",
+            )
 
         # deliberate case-sensitive match — worktree paths are POSIX-case-sensitive
         chain_row = conn.execute(
-            """SELECT epic_id, current_task
-               FROM epic_dispatch_chains
-               WHERE {p} LIKE worktree_path || {p}
-                 AND current_task IS NOT NULL
-                 AND current_task <> ''
+            """SELECT c.epic_id, c.current_task
+               FROM epic_dispatch_chains c
+               JOIN item_worktrees iw ON iw.id = c.item_worktree_id
+               WHERE {p} LIKE iw.path || {p}
+                 AND iw.state = 'active'
+                 AND c.current_task IS NOT NULL
+                 AND c.current_task <> ''
                LIMIT 1""".format(p=_p(conn)),
             (normalized_project, "/%"),
         ).fetchone()
         if chain_row:
-            return normalize_event_item_id(str(chain_row[0])), int(chain_row[1]), "dispatch"
+            return (
+                normalize_event_item_id(str(chain_row[0])),
+                int(chain_row[1]),
+                "dispatch",
+            )
 
         worktree = Path(normalized_project).name
         fallback_rows = conn.execute(
-            """SELECT id
-               FROM items
-               WHERE status NOT IN ('done', 'cancelled')
-                 AND worktree = {p}
-                 AND workflow_id <> 'epic'
+            """SELECT DISTINCT i.id
+               FROM items i
+               JOIN item_worktrees iw ON iw.item_id = i.id
+               WHERE i.status NOT IN ('done', 'cancelled')
+                 AND iw.state = 'active'
+                 AND (iw.branch = {p} OR iw.path = {p})
                LIMIT 2""".format(p=_p(conn)),
-            (worktree,),
+            (worktree, normalized_project),
         ).fetchall()
         if len(fallback_rows) == 1:
             return normalize_event_item_id(str(fallback_rows[0][0])), None, "worktree"
@@ -162,6 +144,7 @@ def _resolve_dispatch_context(
         conn.close()
 
     return None, None, None
+
 
 def _resolve_main_session_attribution(
     db_path: str, project_dir: str, session_id: str = ""
@@ -203,7 +186,9 @@ def _resolve_main_session_attribution(
             if row:
                 current_item_id = row[0]
                 if current_item_id and _item_exists(conn, str(current_item_id)):
-                    return normalize_event_item_id(str(current_item_id)), "session_current"
+                    return normalize_event_item_id(
+                        str(current_item_id)
+                    ), "session_current"
 
         # Single active non-epic item
         active_rows = conn.execute(
@@ -251,7 +236,9 @@ def _resolve_main_session_attribution(
                     except (TypeError, ValueError):
                         age = -1
                     if 0 <= age <= 1800 and _item_exists(conn, str(recent_item_id)):
-                        return normalize_event_item_id(str(recent_item_id)), "session_recent"
+                        return normalize_event_item_id(
+                            str(recent_item_id)
+                        ), "session_recent"
 
     except Exception:
         return None, None
@@ -259,6 +246,7 @@ def _resolve_main_session_attribution(
         conn.close()
 
     return None, None
+
 
 def _compute_duration(db_path: str, tool_use_id: str) -> Optional[int]:
     """Compute duration_ms from a HarnessToolCallStarted event matched by tool_use_id."""
@@ -296,9 +284,7 @@ def _resolve_explicit_refs(rec: EventRecord, db_path: Optional[str]) -> None:
         # Numeric refs in item get/update commands
         cmd_refs = set(re.findall(r"(?:items\s+(?:get|update)\s+)(\d+)", cmd))
         # Epic refs in legacy wrapper commands
-        epic_cmd_refs = set(
-            re.findall(r"(?:yoke-db\.sh\s+epic\s+\S+)\s+(\d+)", cmd)
-        )
+        epic_cmd_refs = set(re.findall(r"(?:yoke-db\.sh\s+epic\s+\S+)\s+(\d+)", cmd))
         # Numeric refs in other yoke scripts
         script_refs = set(
             re.findall(
@@ -312,7 +298,9 @@ def _resolve_explicit_refs(rec: EventRecord, db_path: Optional[str]) -> None:
         # Function-call envelope refs (curl POST to /v1/functions/call)
         fn_call_id = extract_function_call_item_id(cmd)
         fn_call_refs: set = {fn_call_id} if fn_call_id else set()
-        all_refs = sun_refs | cmd_refs | epic_cmd_refs | script_refs | flag_refs | fn_call_refs
+        all_refs = (
+            sun_refs | cmd_refs | epic_cmd_refs | script_refs | flag_refs | fn_call_refs
+        )
         if len(all_refs) == 1:
             explicit_item = all_refs.pop()
             explicit_source = (
@@ -348,3 +336,13 @@ def _resolve_explicit_refs(rec: EventRecord, db_path: Optional[str]) -> None:
     if explicit_item:
         rec.item_id = explicit_item
         rec.attribution_source = explicit_source
+
+
+__all__ = [
+    "TOOL_KIND_APPLY_PATCH",
+    "TOOL_KIND_BASH",
+    "TOOL_KIND_EDIT",
+    "TOOL_KIND_WRITE",
+    "TOOL_KINDS",
+    "ToolEventRecord",
+]

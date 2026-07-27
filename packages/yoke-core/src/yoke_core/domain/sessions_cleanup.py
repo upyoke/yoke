@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from . import sessions_analytics as _sa
+from . import db_backend
 from .session_reclaim_activity import (
     SCOPE_SESSION_CLEANUP,
     classify_reclaimable,
@@ -40,12 +41,14 @@ def _minutes_since(iso_value: Optional[str]) -> int:
     delta = datetime.now(timezone.utc) - ts
     return max(0, int(delta.total_seconds() // 60))
 
+
 def clean_stale_harness_sessions(
     conn: Any,
     stale_threshold_minutes: int = DEFAULT_STALE_THRESHOLD_MINUTES,
     progress_threshold_minutes: int = DEFAULT_PROGRESS_THRESHOLD_MINUTES,
     *,
     executor_ttl_overrides: Optional[Dict[str, int]] = None,
+    project_ids: Optional[List[int]] = None,
 ) -> Dict[str, Any]:
     """Unified stale-session cleanup.
 
@@ -93,9 +96,23 @@ def clean_stale_harness_sessions(
     if activity_cols:
         select_cols += ", last_tool_call_at, tool_call_count"
 
-    all_active = conn.execute(
-        f"SELECT {select_cols} FROM harness_sessions WHERE ended_at IS NULL",
-    ).fetchall()
+    if project_ids is None:
+        all_active = conn.execute(
+            f"SELECT {select_cols} FROM harness_sessions WHERE ended_at IS NULL",
+        ).fetchall()
+    else:
+        scoped_project_ids = sorted({int(value) for value in project_ids})
+        if scoped_project_ids:
+            marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+            placeholders = ", ".join(marker for _ in scoped_project_ids)
+            all_active = conn.execute(
+                f"SELECT {select_cols} FROM harness_sessions "
+                "WHERE ended_at IS NULL "
+                f"AND project_id IN ({placeholders})",
+                tuple(scoped_project_ids),
+            ).fetchall()
+        else:
+            all_active = []
 
     never_engaged: List[Dict[str, Any]] = []
     heartbeat_stale: List[Dict[str, Any]] = []
@@ -114,7 +131,9 @@ def clean_stale_harness_sessions(
             sess_row["executor"] if executor_col and sess_row["executor"] else "unknown"
         )
         effective_ttl = _resolve_effective_ttl(
-            executor, stale_threshold_minutes, executor_ttl_overrides,
+            executor,
+            stale_threshold_minutes,
+            executor_ttl_overrides,
         )
 
         # Activity timestamp uses the latest tool call, not registration-
@@ -133,12 +152,16 @@ def clean_stale_harness_sessions(
             latest_event_at = None
 
         activity_at = latest_activity(conn, sid, executor=executor)
-        is_stale = activity_is_stale(
-            activity_at,
-            executor=executor,
-            base_ttl_minutes=stale_threshold_minutes,
-            executor_ttl_overrides=executor_ttl_overrides,
-        ) if activity_at is not None else True
+        is_stale = (
+            activity_is_stale(
+                activity_at,
+                executor=executor,
+                base_ttl_minutes=stale_threshold_minutes,
+                executor_ttl_overrides=executor_ttl_overrides,
+            )
+            if activity_at is not None
+            else True
+        )
         stale_minutes = _minutes_since(activity_at) if activity_at else 0
 
         entry = {
@@ -222,15 +245,11 @@ def clean_stale_harness_sessions(
                     "abort_reason": recheck.reason,
                     "candidate_reason": entry["reason"],
                     "executor": evidence_payload["executor"],
-                    "effective_ttl_minutes": evidence_payload[
-                        "effective_ttl_minutes"
-                    ],
+                    "effective_ttl_minutes": evidence_payload["effective_ttl_minutes"],
                     "original_session_last_heartbeat": evidence_payload[
                         "last_heartbeat"
                     ],
-                    "original_session_last_event_at": evidence_payload[
-                        "last_event_at"
-                    ],
+                    "original_session_last_event_at": evidence_payload["last_event_at"],
                     "janitor_now": now_iso,
                 },
             )
@@ -275,13 +294,17 @@ def clean_stale_harness_sessions(
     # The pruner requires positive ended-session or dead-PID proof and carries
     # its own machine-wide throttle, so validation DBs and concurrent sessions
     # cannot authorize deletion merely by omitting another session's row.
-    try:
-        scratch_cleanup = auto_prune_stale_scratch(conn)
-    except Exception as exc:  # noqa: BLE001 - report janitor boundary failures
-        scratch_cleanup = ScratchPruneResult(
-            failure_count=1,
-            issues=[f"automatic scratch cleanup failed: {exc}"],
-        )
+    if project_ids is None:
+        try:
+            scratch_cleanup = auto_prune_stale_scratch(conn).as_dict()
+        except Exception as exc:  # noqa: BLE001 - report janitor boundary failures
+            scratch_cleanup = ScratchPruneResult(
+                failure_count=1,
+                issues=[f"automatic scratch cleanup failed: {exc}"],
+            ).as_dict()
+    else:
+        scratch_cleanup = ScratchPruneResult().as_dict()
+        scratch_cleanup["scope_limited"] = True
 
     # Emit sweep-level event even when zero sessions reclaimed
     _sweep_duration_ms = int((_time.monotonic() - _sweep_start) * 1000)
@@ -290,6 +313,7 @@ def clean_stale_harness_sessions(
         EVENT_HARNESS_SESSION_STALE_SWEEP_COMPLETED,
         session_id="__sweep__",
         context={
+            "project_ids": project_ids,
             "total_scanned": len(all_active),
             "total_reclaimed": total_reclaimed,
             "sweep_duration_ms": _sweep_duration_ms,
@@ -297,7 +321,7 @@ def clean_stale_harness_sessions(
             "heartbeat_stale_count": len(heartbeat_stale),
             "progress_stale_count": len(progress_stale),
             "skipped_between_turns_count": len(skipped_between_turns),
-            "scratch_cleanup": scratch_cleanup.as_dict(),
+            "scratch_cleanup": scratch_cleanup,
         },
     )
 
@@ -307,7 +331,7 @@ def clean_stale_harness_sessions(
         "progress_stale": progress_stale,
         "skipped_between_turns": skipped_between_turns,
         "total_reclaimed": total_reclaimed,
-        "scratch_cleanup": scratch_cleanup.as_dict(),
+        "scratch_cleanup": scratch_cleanup,
     }
 
 

@@ -12,7 +12,7 @@ This skill routes to subcommands. Parse the arguments to determine which subcomm
 
 1. **Extract the subcommand** from the arguments — it is the first word (e.g., `plan`, `conduct`).
 2. **Plan-mode guard.** If plan mode is active, classify the subcommand before dispatch:
-   - Execute-class commands (`advance`, `conduct`, `usher`, `polish`, `idea` write paths, and `refine` write paths after Gate 0) automatically call `ExitPlanMode` when the tool exists, with this note: `Plan mode auto-exited — Yoke work item is the plan.`
+   - Execute-class commands (`advance`, `conduct`, `usher`, `polish`, `dash`, `blitz`, `idea` write paths, and `refine` write paths after Gate 0) automatically call `ExitPlanMode` when the tool exists, with this note: `Plan mode auto-exited — Yoke work item is the plan.`
    - Planning-class commands (`shepherd plan`, `plan`, and `refine` Gate 0 critique/planning) honor plan mode and continue without auto-exit.
    - Harnesses without an `ExitPlanMode` tool continue normally after emitting the same one-line note.
 3. **Read the instruction file** at `.agents/skills/yoke/{subcommand}/SKILL.md` using the Read tool. If the file is missing, show the command reference instead of inventing a replacement.
@@ -34,7 +34,9 @@ If no subcommand is provided, or the subcommand is `help`, show the command refe
 | `/yoke feed` | Direct-mode: materialize new work from the strategy layer |
 | `/yoke strategize` | Direct-mode: guided SML review (research, propose, approve) |
 | `/yoke onboard [--project P] [--run-id RUN]` | Make a wired project execution-ready: strategy, profile, Packs, hosting, environments, gated first deploy, seeded work |
-| `/yoke idea {title}` | Capture a new backlog item |
+| `/yoke idea [--workflow issue\|epic\|blitz] {title}` | Capture a new backlog item; use the typed `blitz` selection for document-led execution |
+| `/yoke dash "instruction"` or `/yoke dash YOK-N` | File and execute instruction-sized work, or resume a Dash |
+| `/yoke blitz YOK-N` | Execute a refined Blitz from its single linked strategy document |
 | `/yoke shepherd YOK-N` | Drive item through quality-gated lifecycle to ready |
 | `/yoke conduct YOK-N` | Engineer/Tester loop for a single item |
 | `/yoke usher [YOK-N]` | Merge and deploy passed items |

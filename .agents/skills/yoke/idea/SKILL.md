@@ -1,10 +1,10 @@
 ---
 name: idea
 description: Create a new backlog item with a YOK-N ID. Infers project, workflow, priority, and flow from context.
-argument-hint: "{title}"
+argument-hint: "[--dry-run] [--workflow issue|epic|blitz] {title}"
 ---
 
-# /yoke idea [--dry-run] {title}
+# /yoke idea [--dry-run] [--workflow issue|epic|blitz] {title}
 
 Create a new backlog item and assign it the next available YOK-N ID.
 
@@ -17,6 +17,10 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 ## Arguments
 
 - `--dry-run` — Preview what would be created without modifying files or syncing to GitHub (optional, must be first argument)
+- `--workflow issue|epic|blitz` — Select the workflow explicitly. Use
+  `blitz` for a substantial document-led plan that refinement will link to
+  one execution strategy document. Dash work enters through `/yoke dash`,
+  not this flag.
 - `{title}` — Short title for the item (required)
 
 ## Philosophy
@@ -56,7 +60,14 @@ yoke sessions touch --mode idea
 ## Notes
 
 - **`/yoke idea` is a harness skill entrypoint, not a `yoke` CLI subcommand.** Invoke it as the `/yoke idea` slash command — there is no `yoke idea` CLI adapter, so `yoke idea --help` returns `unknown subcommand`. The `yoke <subcommand>` CLI wraps item/claim/lifecycle operations; work item *intake* is a skill flow, not a CLI verb.
-- Status is always `idea` for new items. Use `/yoke shepherd` to drive the item through the quality-gated lifecycle.
+- An explicit `/yoke idea --workflow blitz "{title}"` selection is passed to
+  the registered `items.create` function as `workflow: "blitz"` with
+  `entry_surface: "harness_skill"`. The new item still starts at `idea`;
+  refinement must link exactly one execution strategy document before
+  `/yoke blitz` begins at `refined-idea`.
+- Status is always `idea` for new items. Follow the workflow-specific
+  handoff in `infer-and-create.md`: Issue and Epic use `/yoke shepherd`;
+  Blitz uses `/yoke refine` and then `/yoke blitz`.
 - The YOK-N ID is permanent — it never changes even after GitHub sync.
 - Items are auto-synced to GitHub on creation. If GitHub sync is unavailable, the item is created locally and can be synced later through the internal item sync repair path; do not teach that repair path as normal product flow.
 - This is a write command — it creates a file and inserts a DB row.

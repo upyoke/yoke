@@ -174,7 +174,6 @@ from yoke_cli.commands.adapters import strategy_event_usage as _strategy_event_u
 from yoke_cli.commands.adapters import qa as _qa_usage
 from yoke_cli.commands.adapters import shepherd_writes as _shepherd_writes
 from yoke_cli.commands.adapters.qa import (
-    QA_REQUIREMENT_AUTO_CREATE_FOR_ITEM_USAGE,
     QA_REQUIREMENT_UPDATE_USAGE,
     QA_RUN_RECORD_VERDICT_USAGE,
 )
@@ -292,7 +291,6 @@ ADAPTER_USAGE: Dict[str, str] = {
     "board.data.get": BOARD_DATA_GET_USAGE,
     **EPIC_USAGE,
     "qa.requirement.update": QA_REQUIREMENT_UPDATE_USAGE,
-    "qa.requirement.auto_create_for_item": QA_REQUIREMENT_AUTO_CREATE_FOR_ITEM_USAGE,
     "qa.run.record_verdict": QA_RUN_RECORD_VERDICT_USAGE,
     "qa.browser_context.get": QA_BROWSER_CONTEXT_GET_USAGE,
     "qa.run.add": QA_RUN_ADD_USAGE,

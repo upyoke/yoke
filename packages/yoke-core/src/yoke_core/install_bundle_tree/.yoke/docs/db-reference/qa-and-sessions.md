@@ -78,15 +78,27 @@ created_at TEXT NOT NULL
 
 **Index:** `idx_qa_runs_requirement(qa_requirement_id)`
 
-**Capture vs inspection.** For `browser_smoke` and `browser_diff` runs, the two columns serve distinct concerns:
+**Capture vs inspection.** For requirements whose `method_id` is
+`browser-check` or `browser-inspection`, the two columns serve distinct
+concerns:
 - `execution_status='captured'` means the daemon successfully saved the expected screenshots to disk.
 - `execution_status='capture_failed'` means the daemon errored, an artifact path was missing, a step failed, or completeness check failed.
 - `verdict` is set **only after screenshot inspection** (LLM or human evaluation of the screenshot content). Infrastructure success alone never writes `verdict='pass'`.
-- Typical lifecycle: orchestrator writes `execution_status='captured', verdict=NULL` -> agent inspects screenshots -> `yoke qa run complete --requirement-id <id> --run-id X --verdict pass|fail` flips verdict in place.
+- Typical lifecycle: `yoke qa case run --requirement-id <id>` records the
+  method's execution result. Browser inspection cases remain inconclusive
+  until their review request is approved, rejected, or waived.
 
 Every downstream gate that filters `verdict='pass'` (status-transition, pre-merge, pre-deploy, flow-gate updates) therefore gates on inspection outcome, not capture.
 
-**Browser run freshness:** For `browser_smoke` and `browser_diff` requirements, the QA gate checks that passing runs are **fresh** — i.e., their `created_at` is at or after the latest commit timestamp on the item's branch. If an Engineer retry changes code after a browser scenario was recorded, the prior passing run is considered stale and does not satisfy the gate. This prevents the gate from accepting screenshots that validated a different version of the deployed app. The freshness check applies only to rows that already carry `verdict='pass'` (i.e., have been inspection-verified); capture-only rows fail the gate on the `verdict='pass'` predicate first and never reach the freshness check. When no branch can be resolved (e.g., items without a worktree), the freshness check is skipped gracefully — it only applies when git context is available.
+**Browser run freshness:** For Browser method cases, the QA gate checks that
+passing runs are **fresh** — i.e., their `created_at` is at or after the
+latest commit timestamp on the item's branch. If an Engineer retry changes
+code after a Browser case was recorded, the prior passing run is stale and
+does not satisfy the gate. This prevents evidence for a different deployed
+revision from passing. The freshness check applies only to rows that already
+carry `verdict='pass'`; unresolved inspection rows fail the verdict predicate
+first. When no branch can be resolved (for example, an item without a
+worktree), the freshness check is skipped gracefully.
 
 ## Table: qa_artifacts
 

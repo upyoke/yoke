@@ -81,7 +81,7 @@ def test_conflict_survey_preserves_dot_paths_and_finds_frontier_scope(test_db):
     assert json.loads(stored[0])["fingerprint"] == result.fingerprint
 
 
-def test_dash_evidence_requires_every_enabled_posture_check(test_db):
+def test_dash_evidence_cannot_self_attest_enabled_posture(test_db):
     insert_item(
         test_db,
         id=2110,
@@ -102,25 +102,10 @@ def test_dash_evidence_requires_every_enabled_posture_check(test_db):
         touched_files=["ui/footer.js"],
         posture_checks={"deployment": "completed"},
     )
-    incomplete = evaluate_dash_evidence(test_db, 2110)
-    assert incomplete.satisfied is False
-    assert incomplete.missing == ("posture_check:approval_on_done",)
-
-    record_dash_evidence(
-        test_db,
-        item_id=2110,
-        result_summary="Updated the generated footer.",
-        verification_summary="Focused UI test and approval passed.",
-        verification_status="passed",
-        commit_sha="abc1234",
-        merge_sha="def5678",
-        touched_files=["ui/footer.js"],
-        posture_checks={
-            "approval_on_done": "approved",
-            "deployment": "completed",
-        },
-    )
-    assert evaluate_dash_evidence(test_db, 2110).satisfied is True
+    evidence = evaluate_dash_evidence(test_db, 2110)
+    assert evidence.satisfied is True
+    assert evidence.missing == ()
+    assert evidence.evidence["posture_checks"] == {"deployment": "completed"}
 
 
 def test_dash_escalation_is_a_machine_readable_item_link(test_db):

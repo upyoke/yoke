@@ -87,50 +87,6 @@ class TestRequirementAdd:
             )
         assert exc.value.code == 2
 
-    def test_browser_smoke_requires_success_policy(self, db_path: str) -> None:
-        with pytest.raises(SystemExit) as exc:
-            qa.cmd_requirement_add(
-                db_path=db_path,
-                item_id=10,
-                qa_kind="browser_smoke",
-                qa_phase="verification",
-            )
-        assert exc.value.code == 2
-
-    def test_browser_smoke_validates_steps(self, db_path: str) -> None:
-        """Success policy must have a valid steps array."""
-        with pytest.raises(SystemExit) as exc:
-            qa.cmd_requirement_add(
-                db_path=db_path,
-                item_id=10,
-                qa_kind="browser_smoke",
-                qa_phase="verification",
-                success_policy='{"no_steps": true}',
-            )
-        assert exc.value.code == 2
-
-    def test_browser_smoke_validates_action_in_steps(self, db_path: str) -> None:
-        """Each step must have an 'action' field."""
-        with pytest.raises(SystemExit) as exc:
-            qa.cmd_requirement_add(
-                db_path=db_path,
-                item_id=10,
-                qa_kind="browser_smoke",
-                qa_phase="verification",
-                success_policy='{"steps": [{"route": "/"}]}',
-            )
-        assert exc.value.code == 2
-
-    def test_browser_smoke_with_valid_policy(self, db_path: str) -> None:
-        rid = qa.cmd_requirement_add(
-            db_path=db_path,
-            item_id=10,
-            qa_kind="browser_smoke",
-            qa_phase="verification",
-            success_policy='{"steps": [{"action": "navigate", "route": "/"}, {"action": "screenshot", "capture": true}]}',
-        )
-        assert rid > 0
-
     def test_optional_fields_stored(self, db_path: str) -> None:
         rid = qa.cmd_requirement_add(
             db_path=db_path,

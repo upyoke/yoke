@@ -92,14 +92,14 @@ def apply_additive_schema(conn: Any) -> None:
     # Idempotent ADD COLUMN migrations for epic_tasks
     _add_column_if_not_exists(conn, "epic_tasks", "body", "TEXT")
     _add_column_if_not_exists(conn, "epic_tasks", "github_issue", "TEXT")
-    _add_column_if_not_exists(conn, "epic_tasks", "branch", "TEXT")
-    _add_column_if_not_exists(conn, "epic_tasks", "worktree_path", "TEXT")
+    _add_column_if_not_exists(conn, "epic_tasks", "item_worktree_id", "INTEGER DEFAULT NULL")
     _add_column_if_not_exists(conn, "epic_tasks", "blocked_by", "TEXT")
     _add_column_if_not_exists(conn, "epic_tasks", "max_attempts", "INTEGER DEFAULT 5")
     _add_column_if_not_exists(conn, "epic_tasks", "agent_id", "TEXT")
     _add_column_if_not_exists(conn, "epic_tasks", "last_heartbeat", "TEXT")
     # task-freshness state: stamped by every epic-task mutation surface.
     _add_column_if_not_exists(conn, "epic_tasks", "last_activity_at", "TEXT")
+    _add_column_if_not_exists(conn, "epic_dispatch_chains", "item_worktree_id", "INTEGER DEFAULT NULL")
     conn.commit()
 
     # Per-project GitHub sync switch. Authoritative creators write

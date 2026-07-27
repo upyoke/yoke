@@ -38,11 +38,16 @@ class _Conn:
         self.closed = False
 
     def execute(self, sql, params=()):
-        if "FROM items WHERE worktree" in sql:
-            if params == (self.branch,):
+        if "FROM item_worktrees iw JOIN items i" in sql:
+            if params and params[0] == self.branch:
                 if self.mixed_owner:
-                    return _Rows([(1, "done"), (2, "implementing")])
-                return _Rows([(1, "done" if self.terminal else "implementing")])
+                    return _Rows([
+                        (11, 1, "done"),
+                        (12, 2, "implementing"),
+                    ])
+                return _Rows([
+                    (11, 1, "done" if self.terminal else "implementing")
+                ])
             return _Rows()
         if "FROM epic_tasks" in sql or "FROM epic_dispatch_chains" in sql:
             return _Rows()
