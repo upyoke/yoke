@@ -6,6 +6,7 @@ from pathlib import Path
 
 import psycopg
 
+from runtime.api.fixtures.pg_testdb import dsn_for_test_database
 from yoke_core.domain.migration_apply_manifest import validate_manifest_payload
 from yoke_core.domain.migrations.qa_command_plan_cutover import (
     apply,
@@ -110,7 +111,8 @@ def test_cutover_moves_commands_removes_legacy_and_reapplies_cleanly(test_db) ->
 
 
 def test_cutover_accepts_default_psycopg_tuple_rows(test_db) -> None:
-    with psycopg.connect(test_db.info.dsn) as tuple_conn:
+    dsn = dsn_for_test_database(test_db.info.dbname)
+    with psycopg.connect(dsn) as tuple_conn:
         _seed_legacy_commands(tuple_conn)
         apply(tuple_conn)
         invariants(tuple_conn)

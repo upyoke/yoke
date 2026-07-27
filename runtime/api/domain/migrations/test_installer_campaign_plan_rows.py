@@ -7,6 +7,7 @@ from pathlib import Path
 
 import psycopg
 
+from runtime.api.fixtures.pg_testdb import dsn_for_test_database
 from yoke_core.domain.migration_apply_manifest import validate_manifest_payload
 from yoke_core.domain.installer_campaign_catalog import (
     INSTALLER_CAMPAIGN_SCENARIOS,
@@ -169,7 +170,8 @@ def test_migration_replaces_catalog_and_reapplies_without_semantic_drift(
 
 
 def test_migration_accepts_default_psycopg_tuple_rows(test_db) -> None:
-    with psycopg.connect(test_db.info.dsn) as tuple_conn:
+    dsn = dsn_for_test_database(test_db.info.dbname)
+    with psycopg.connect(dsn) as tuple_conn:
         apply(tuple_conn)
         invariants(tuple_conn)
         apply(tuple_conn)
