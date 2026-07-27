@@ -13,6 +13,7 @@ import re
 from pathlib import Path
 from typing import Iterable, List, Set, Tuple
 
+from yoke_contracts.project_contract.strategy_docs_paths import is_strategy_view_path
 from yoke_core.engines.doctor_registry_tier_discipline import (
     REQUIRED_FUNCTION_IDS,
     TIER_3_GLOBS,
@@ -97,6 +98,8 @@ def _is_archive_relpath(rel: str) -> bool:
 def _classify_path(cited: str, repo_root: Path) -> int | None:
     """Return the tier for ``cited`` (repo-relative path), or None."""
 
+    if is_strategy_view_path(cited):
+        return 3
     target = repo_root / cited
     if not target.is_file():
         return None
@@ -104,8 +107,6 @@ def _classify_path(cited: str, repo_root: Path) -> int | None:
         return 6
     if cited == "CLAUDE.md":
         return 0
-    if cited.startswith(".yoke/strategy/") and cited.endswith(".md"):
-        return 3
     for tier, globs in TIER_GLOBS.items():
         if tier != 6 and any(fnmatch.fnmatch(cited, pattern) for pattern in globs):
             return tier
@@ -159,12 +160,7 @@ def _normalize_cited(
         )
     candidates.append(posixpath.normpath(posixpath.join(_SKILL_ROOT, cited)))
     if "/" not in cited and cited.endswith(".md"):
-        candidates.extend(
-            (
-                posixpath.join("docs/archive/decisions", cited),
-                posixpath.join(".yoke/strategy", cited),
-            )
-        )
+        candidates.append(posixpath.join("docs/archive/decisions", cited))
     if cited.startswith("yoke/ouroboros/"):
         candidates.append(cited.removeprefix("yoke/"))
     for candidate in candidates:

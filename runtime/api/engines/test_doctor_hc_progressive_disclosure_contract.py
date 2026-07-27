@@ -33,3 +33,25 @@ def test_vague_denial_markers_contains_canonical_phrases():
 
     assert "use function dispatch" in VAGUE_DENIAL_MARKERS
     assert "via the function-call surface" in VAGUE_DENIAL_MARKERS
+
+
+def test_strategy_view_tier_does_not_require_rendered_cache(tmp_path):
+    """Logical strategy views remain Tier 3 when their cache is absent."""
+
+    cited = ".yoke/strategy/FOCUSED-PLAN.md"
+    assert not (tmp_path / cited).exists()
+    assert mod._classify_path(cited, tmp_path) == 3
+
+
+def test_bare_citation_resolution_ignores_strategy_render_cache(tmp_path):
+    """An ignored cache cannot change an ambiguous basename's meaning."""
+
+    citing = ".agents/skills/yoke/strategize/research.md"
+    cited = "MASTER-PLAN.md"
+    expected = ".agents/skills/yoke/strategize/MASTER-PLAN.md"
+    assert mod._normalize_cited(cited, citing, tmp_path) == expected
+
+    rendered = tmp_path / ".yoke/strategy" / cited
+    rendered.parent.mkdir(parents=True)
+    rendered.write_text("# rendered cache\n", encoding="utf-8")
+    assert mod._normalize_cited(cited, citing, tmp_path) == expected

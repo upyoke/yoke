@@ -108,7 +108,7 @@ _recent_done_sample=$(yoke db read --format lines "SELECT id, title FROM items W
 The `head -30` commit sample in step 2b and the `LIMIT 10` done-items sample
 in step 2d are **presentation-only** — the Strategize State Refresh summary
 must present the **complete bounded set** of landed work that still owes a
-`MASTER-PLAN.md` reflection or explicit dismissal. That set is owned by
+`.yoke/strategy/MASTER-PLAN.md` reflection or explicit dismissal. That set is owned by
 the registered `yoke strategy carry ...` surfaces, which:
 
 - Scans items merged within the configured horizon

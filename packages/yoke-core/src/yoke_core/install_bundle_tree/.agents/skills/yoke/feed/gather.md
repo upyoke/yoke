@@ -125,7 +125,7 @@ Focus on:
 
 ## 1.8 Re-Read MASTER-PLAN.md Structure
 
-Re-examine `MASTER-PLAN.md` specifically for generation/wave structure:
+Re-examine `.yoke/strategy/MASTER-PLAN.md` specifically for generation/wave structure:
 - Identify the current generation and its completion state
 - Identify what the next generation/wave contains
 - Identify which items from the plan are already materialized in the backlog

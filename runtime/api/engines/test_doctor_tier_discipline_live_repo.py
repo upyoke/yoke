@@ -43,7 +43,18 @@ def test_live_role_packets_cover_skill_references() -> None:
     assert not findings, "\n".join(findings)
 
 
-def test_live_teaching_references_are_classified_before_direction_checks() -> None:
+def test_live_teaching_references_are_classified_without_strategy_cache(
+    monkeypatch,
+) -> None:
+    strategy_root = REPO_ROOT / ".yoke/strategy"
+    original_is_file = Path.is_file
+
+    def is_file_without_strategy_cache(path: Path) -> bool:
+        if path.is_relative_to(strategy_root):
+            return False
+        return original_is_file(path)
+
+    monkeypatch.setattr(Path, "is_file", is_file_without_strategy_cache)
     findings = disclosure_mod._scan_all(REPO_ROOT)
     detail = "\n".join(findings)
     assert "is not classified into a teaching tier" not in detail, detail
