@@ -46,7 +46,7 @@ test("All item detail spines collapse through theme-backed surfaces", () => {
   for (const contract of [
     ".item-detail-grid",
     ".issue-detail .item-detail-grid",
-    "grid-template-columns: minmax(0, 0.445fr) minmax(0, 1fr)",
+    "grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr)",
     "background: var(--yoke-bg)",
     "color: var(--yoke-ink-2)",
     "@media (max-width: 1080px)",

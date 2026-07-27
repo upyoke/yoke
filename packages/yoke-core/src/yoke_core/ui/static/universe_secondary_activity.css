@@ -1,5 +1,4 @@
-.universe-app-root .secondary-card-list,
-.universe-app-root .delivery-run-list {
+.universe-app-root .secondary-card-list {
   display: grid;
   gap: 10px;
 }
@@ -13,15 +12,6 @@
   gap: 12px;
 }
 
-.universe-app-root .delivery-run-card {
-  min-width: 0;
-  padding: 16px;
-  border: 1px solid var(--yoke-border);
-  border-radius: var(--yoke-radius);
-  background: var(--yoke-surface);
-}
-
-.universe-app-root .delivery-run-header,
 .universe-app-root .secondary-card-header,
 .universe-app-root .event-header {
   display: flex;
@@ -30,14 +20,12 @@
   gap: 12px;
 }
 
-.universe-app-root .delivery-run-card h3,
 .universe-app-root .secondary-card-header h3 {
   margin: 0;
   color: var(--yoke-ink);
   font-size: 14px;
 }
 
-.universe-app-root .delivery-run-subtitle,
 .universe-app-root .secondary-muted {
   margin: 4px 0 0;
   color: var(--yoke-muted);
@@ -52,7 +40,6 @@
 }
 
 .universe-app-root .secondary-action-row,
-.universe-app-root .delivery-approval-footer,
 .universe-app-root .project-create-line {
   display: flex;
   align-items: center;
@@ -209,11 +196,10 @@
 .universe-app-root .delivery-stage[data-state="failed"] i { background: var(--yoke-crit); }
 .universe-app-root .delivery-stage[data-state="stopped"] i { background: var(--yoke-warn); }
 
-.universe-app-root .delivery-members {
+.universe-app-root .delivery-origin-items {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-top: 14px;
 }
 
 .universe-app-root .delivery-member {
@@ -229,9 +215,131 @@
 
 .universe-app-root .delivery-member:hover { color: var(--yoke-ink); }
 
-.universe-app-root .delivery-approval-footer {
-  padding-top: 12px;
+.universe-app-root .delivery-run-stages {
+  display: flex;
+  width: 108px;
+  gap: 4px;
+}
+
+.universe-app-root .delivery-run-stage {
+  height: 5px;
+  flex: 1 1 0;
+  border-radius: 3px;
+  background: var(--yoke-surface-2);
+}
+
+.universe-app-root .delivery-run-stage[data-state="complete"] {
+  background: var(--yoke-good);
+}
+.universe-app-root .delivery-run-stage[data-state="active"] {
+  background: var(--yoke-accent);
+  animation: delivery-run-pulse 1.6s ease-in-out infinite;
+}
+.universe-app-root .delivery-run-stage[data-state="failed"] {
+  background: var(--yoke-crit);
+}
+.universe-app-root .delivery-run-stage[data-state="stopped"] {
+  background: var(--yoke-warn);
+}
+@keyframes delivery-run-pulse { 50% { opacity: .4; } }
+
+.universe-app-root .delivery-waiting-link {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  margin: 0 !important;
+  padding: 9px 15px;
   border-top: 1px solid var(--yoke-border);
-  color: var(--yoke-warn);
+  color: var(--yoke-accent);
   font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.universe-app-root .delivery-waiting-link:hover {
+  background: var(--yoke-hover);
+}
+
+.universe-app-root .delivery-flow-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.universe-app-root .delivery-flow-choice {
+  padding: 5px 9px;
+  border: 1px solid var(--yoke-border);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--yoke-muted);
+  cursor: pointer;
+  font: 11.5px/1.35 var(--yoke-font-sans);
+}
+
+.universe-app-root .delivery-flow-choice:hover { color: var(--yoke-ink); }
+
+.universe-app-root .delivery-flow-choice.selected {
+  border-color: color-mix(
+    in srgb,
+    var(--yoke-accent) 55%,
+    var(--yoke-border)
+  );
+  background: var(--yoke-accent-weak);
+  color: var(--yoke-ink);
+}
+
+.universe-app-root .delivery-flow-pipeline {
+  display: flex;
+  align-items: stretch;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.universe-app-root .delivery-flow-stage {
+  min-width: 78px;
+  padding: 8px 12px;
+  border: 1px solid var(--yoke-border);
+  border-radius: 8px;
+  color: var(--yoke-ink);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.universe-app-root .delivery-flow-arrow {
+  align-self: center;
+  color: var(--yoke-muted);
+}
+
+.universe-app-root .delivery-read-note {
+  display: flex;
+  gap: 4px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  border: 1px solid var(--yoke-border);
+  border-radius: var(--yoke-radius);
+  background: var(--yoke-surface-2);
+  color: var(--yoke-muted);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.universe-app-root .delivery-read-note strong {
+  color: var(--yoke-ink);
+}
+
+@media (max-width: 760px) {
+  .universe-app-root .delivery-facet-panel .table-wrap {
+    touch-action: pan-x;
+  }
+
+  .universe-app-root .delivery-facet-panel .table-wrap > table {
+    min-width: 660px;
+  }
+
+  .universe-app-root .delivery-read-note {
+    display: block;
+  }
 }

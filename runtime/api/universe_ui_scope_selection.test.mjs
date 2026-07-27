@@ -97,9 +97,15 @@ test("chips narrow to one, widen to a pair, and empty back out to All", async (t
     .filter((node) => node.tagName === "TD")
     .map(cellText);
   assert.deepEqual(cells, [
-    "YOK-11", "alpha item", "issue", "Idea", "unassigned", "—",
-    "YOK-21", "beta item", "issue", "Idea", "unassigned", "—",
+    "YOK-11", "alpha", "alpha item", "issue", "Idea", "unassigned", "—",
+    "YOK-21", "beta", "beta item", "issue", "Idea", "unassigned", "—",
   ]);
+  assert.deepEqual(
+    allNodes(root)
+      .filter((node) => node.tagName === "TH")
+      .map((node) => node.textContent),
+    ["ID", "project", "Title", "Workflow", "Status", "Owner", "Claimed by"],
+  );
   // Each row's drill-in carries that row's own project.
   assert.deepEqual(
     allNodes(root)
@@ -142,14 +148,23 @@ test("strategy at All fans out one call per roster project", async (t) => {
       { kind: "global", project_id: "2" },
     ],
   );
-  // Rows from every bucket render in the prototype's six-column corpus table.
+  // Rows from every bucket render with their owning project.
   const cells = allNodes(root)
     .filter((node) => node.tagName === "TD")
     .map(cellText);
   assert.deepEqual(cells, [
-    "PLAN-1", "plan", "b", "today", "1", "available",
-    "PLAN-2", "plan", "b", "today", "1", "available",
+    "PLAN-1", "alpha", "plan", "b", "today", "1", "available",
+    "PLAN-2", "beta", "plan", "b", "today", "1", "available",
   ]);
+  assert.deepEqual(
+    allNodes(root)
+      .filter((node) => node.tagName === "TH")
+      .map((node) => node.textContent),
+    [
+      "Doc", "project", "Purpose / ancestry", "Last editor", "Last write",
+      "Revisions", "Execution",
+    ],
+  );
   assert.deepEqual(
     byClass(root, "strategy-doc-ancestry").map((node) => node.textContent),
     ["top-level strategy", "top-level strategy"],

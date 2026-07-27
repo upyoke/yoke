@@ -1,4 +1,8 @@
 import { el } from "./universe_view_support.js";
+import {
+  mountWorkflowDialog,
+  workflowDomId,
+} from "./workflow_accessibility.js";
 
 const BUILTIN_WORKFLOW_ORDER = ["dash", "blitz", "issue", "epic"];
 
@@ -166,13 +170,21 @@ export function renderTabs(
   select,
 ) {
   host.replaceChildren();
-  for (const workflow of workflows) {
+  const focusRenderedTab = (workflowId) => {
+    const rendered = [...host.children].find(
+      (node) => node.attributes?.get?.("data-workflow-id") === workflowId ||
+        node.getAttribute?.("data-workflow-id") === workflowId,
+    );
+    if (typeof rendered?.focus === "function") rendered.focus();
+  };
+  for (const [index, workflow] of workflows.entries()) {
     const workflowName = workflow.name || workflow.id;
     const disabled = workflow.status === "disabled";
+    const selected = workflow.id === selectedId;
     const tab = button(
       documentNode,
       workflowName,
-      `workflow-tab${workflow.id === selectedId ? " selected" : ""}` +
+      `workflow-tab${selected ? " selected" : ""}` +
         `${disabled ? " disabled" : ""}`,
     );
     if (disabled) {
@@ -185,8 +197,34 @@ export function renderTabs(
       `${workflowName} workflow · ${disabled ? "disabled" : "active"}`,
     );
     tab.setAttribute("role", "tab");
-    tab.setAttribute("aria-selected", String(workflow.id === selectedId));
+    tab.setAttribute("aria-selected", String(selected));
+    tab.setAttribute("id", `workflow-tab-${workflowDomId(workflow.id)}`);
+    tab.setAttribute(
+      "aria-controls", `workflow-panel-${workflowDomId(workflow.id)}`,
+    );
+    tab.setAttribute("data-workflow-id", workflow.id);
+    tab.tabIndex = selected ? 0 : -1;
     tab.addEventListener("click", () => select(workflow.id));
+    tab.addEventListener("keydown", (event) => {
+      const keyOffsets = {
+        ArrowLeft: -1,
+        ArrowRight: 1,
+      };
+      let nextIndex = null;
+      if (event.key === "Home") nextIndex = 0;
+      else if (event.key === "End") nextIndex = workflows.length - 1;
+      else if (Object.hasOwn(keyOffsets, event.key)) {
+        nextIndex = (
+          index + keyOffsets[event.key] + workflows.length
+        ) % workflows.length;
+      }
+      if (nextIndex === null) return;
+      event.preventDefault();
+      const nextId = workflows[nextIndex].id;
+      select(nextId);
+      focusRenderedTab(nextId);
+      Promise.resolve().then(() => focusRenderedTab(nextId));
+    });
     host.appendChild(tab);
   }
 }
@@ -233,6 +271,7 @@ export function renderWorkflowDialog(documentNode, host, spec) {
   }
   const error = el(documentNode, "p", "workflow-dialog-error");
   error.hidden = true;
+  error.setAttribute("role", "alert");
   dialog.appendChild(error);
   const footer = el(documentNode, "div", "workflow-dialog-footer");
   footer.appendChild(el(
@@ -243,10 +282,16 @@ export function renderWorkflowDialog(documentNode, host, spec) {
   const confirm = button(
     documentNode, spec.confirmText, "workflow-button primary",
   );
-  cancel.addEventListener("click", spec.cancel);
+  const dismiss = () => {
+    if (dialog.attributes?.get?.("aria-busy") === "true" ||
+        dialog.getAttribute?.("aria-busy") === "true") return;
+    spec.cancel();
+  };
+  cancel.addEventListener("click", dismiss);
   confirm.addEventListener("click", async () => {
     cancel.disabled = true;
     confirm.disabled = true;
+    dialog.setAttribute("aria-busy", "true");
     confirm.textContent = spec.pendingText || "Saving…";
     error.hidden = true;
     try {
@@ -254,6 +299,7 @@ export function renderWorkflowDialog(documentNode, host, spec) {
     } catch (failure) {
       cancel.disabled = false;
       confirm.disabled = false;
+      dialog.setAttribute("aria-busy", "false");
       confirm.textContent = spec.confirmText;
       error.textContent = String(
         failure && failure.message ? failure.message : failure,
@@ -267,7 +313,14 @@ export function renderWorkflowDialog(documentNode, host, spec) {
   dialog.appendChild(footer);
   backdrop.appendChild(dialog);
   backdrop.addEventListener("click", (event) => {
-    if (event.target === backdrop) spec.cancel();
+    if (event.target === backdrop) dismiss();
   });
   host.appendChild(backdrop);
+  mountWorkflowDialog({
+    documentNode,
+    host,
+    dialog,
+    dismiss,
+    initialFocus: cancel,
+  });
 }

@@ -105,6 +105,73 @@
   background: var(--yoke-accent);
 }
 
+.universe-app-root .packs-stack {
+  display: grid;
+  gap: 14px;
+}
+
+.universe-app-root .pack-installed-note {
+  margin: 0 !important;
+  padding: 11px 15px 7px;
+  border-top: 1px solid var(--yoke-border);
+  color: var(--yoke-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.universe-app-root .pack-repository-report {
+  margin: 0 !important;
+  padding: 2px 15px 8px;
+  color: var(--yoke-muted);
+  font-size: 11.5px;
+}
+
+.universe-app-root .pack-repository-report.stale {
+  color: var(--yoke-warn);
+}
+
+.universe-app-root .pack-available-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 15px;
+  border-bottom: 1px solid var(--yoke-border);
+}
+
+.universe-app-root .pack-available-row:last-child {
+  border-bottom: 0;
+}
+
+.universe-app-root .pack-available-info {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.universe-app-root .pack-available-title {
+  color: var(--yoke-ink);
+  font-size: 12.5px;
+  font-weight: 550;
+}
+
+.universe-app-root .pack-available-description {
+  margin-top: 2px;
+  overflow: hidden;
+  color: var(--yoke-muted);
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.universe-app-root .pack-available-meta {
+  margin-top: 3px;
+  color: var(--yoke-muted);
+  font-size: 10.5px;
+}
+
+.universe-app-root .pack-available-row .pack-preview-action {
+  flex: 0 0 auto;
+}
+
 /* Frontier is the steering surface from the prototype: four independent
    facts, then a ranked runnable table and a blocked-with-reasons table.
    Commands stay copyable text; the browser never promises to run a skill. */

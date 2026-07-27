@@ -107,6 +107,7 @@ export function renderInbox(scope = "all") {
     document: documentNode,
     client,
     isMounted: () => true,
+    projects: () => [{ id: 10, slug: "yoke", name: "Yoke" }],
   }, main, scope);
   return { client, main };
 }

@@ -5,6 +5,10 @@ import {
   workflowStageLabel,
 } from "./workflow_view_primitives.js";
 import {
+  appendWorkflowDialogFooter,
+  workflowDialogShell,
+} from "./workflow_dialog_shell.js";
+import {
   optionsForProject,
   projectKey,
   ROLE_LABELS,
@@ -39,68 +43,6 @@ function checkbox(documentNode, checked, label, toggle) {
   return row;
 }
 
-function dialogShell(documentNode, host, title, close) {
-  host.replaceChildren();
-  const backdrop = el(documentNode, "div", "workflow-dialog-backdrop");
-  const dialog = el(
-    documentNode, "section",
-    "workflow-dialog workflow-mechanics-dialog",
-  );
-  dialog.setAttribute("role", "dialog");
-  dialog.setAttribute("aria-modal", "true");
-  dialog.setAttribute("aria-label", title);
-  dialog.appendChild(el(
-    documentNode, "h2", "workflow-dialog-title", title,
-  ));
-  backdrop.appendChild(dialog);
-  backdrop.addEventListener("click", (event) => {
-    if (event.target === backdrop) close();
-  });
-  host.appendChild(backdrop);
-  return dialog;
-}
-
-function footer(documentNode, dialog, {
-  impact = "", confirmText, close, save, disabled = false,
-}) {
-  const error = el(documentNode, "p", "workflow-dialog-error");
-  error.hidden = true;
-  dialog.appendChild(error);
-  const row = el(documentNode, "div", "workflow-dialog-footer");
-  if (!impact) row.classList.add("actions-only");
-  if (impact) {
-    row.appendChild(el(
-      documentNode, "p", "workflow-dialog-impact", impact,
-    ));
-  }
-  const actions = el(documentNode, "div", "workflow-dialog-actions");
-  const cancel = button(documentNode, "Cancel");
-  const confirm = button(
-    documentNode, confirmText, "workflow-button primary",
-  );
-  confirm.disabled = disabled;
-  cancel.addEventListener("click", close);
-  confirm.addEventListener("click", async () => {
-    cancel.disabled = true;
-    confirm.disabled = true;
-    confirm.textContent = "Saving…";
-    error.hidden = true;
-    try {
-      await save();
-    } catch (failure) {
-      cancel.disabled = false;
-      confirm.disabled = disabled;
-      confirm.textContent = confirmText;
-      error.textContent = String(failure?.message || failure);
-      error.hidden = false;
-    }
-  });
-  actions.appendChild(cancel);
-  actions.appendChild(confirm);
-  row.appendChild(actions);
-  dialog.appendChild(row);
-}
-
 function transitionIds(workflow) {
   const stages = workflow.definition?.stages || [];
   const declared = new Set(
@@ -128,9 +70,10 @@ export function openApprovalEditor({
 
   const render = () => {
     const name = workflow.name || workflow.id;
-    const dialog = dialogShell(
+    const shell = workflowDialogShell(
       documentNode, host, `Default approvals — ${name}`, close,
     );
+    const { dialog } = shell;
     dialog.classList.add("workflow-approval-dialog");
     dialog.appendChild(fieldLabel(documentNode, "Transition"));
     const transition = el(documentNode, "select", "workflow-field");
@@ -223,12 +166,13 @@ export function openApprovalEditor({
       documentNode, configuredSummary, configuredParts,
     );
     dialog.appendChild(configuredSummary);
-    footer(documentNode, dialog, {
+    appendWorkflowDialogFooter(documentNode, dialog, {
       impact:
         `Saving creates a new version of the ${name} workflow. Items already ` +
         `underway stay pinned to v${workflow.current_version} and are unaffected.`,
       confirmText: "Save universe default",
-      close,
+      dismiss: shell.dismiss,
+      activate: shell.activate,
       save: () => save(Object.fromEntries(
         Object.entries(gates).filter(
           ([, value]) => value.roles.length || value.actors.length,
@@ -263,9 +207,10 @@ export function openProjectDefaultEditor({
 
   const render = () => {
     const name = workflow.name || workflow.id;
-    const dialog = dialogShell(
+    const shell = workflowDialogShell(
       documentNode, host, `Default ${noun} — ${name}`, close,
     );
+    const { dialog } = shell;
     dialog.appendChild(fieldLabel(documentNode, "Project"));
     const projectSelect = el(documentNode, "select", "workflow-field");
     for (const project of projects) {
@@ -323,10 +268,11 @@ export function openProjectDefaultEditor({
         },
       ));
     }
-    footer(documentNode, dialog, {
+    appendWorkflowDialogFooter(documentNode, dialog, {
       impact: "",
       confirmText: "Set default",
-      close,
+      dismiss: shell.dismiss,
+      activate: shell.activate,
       disabled: !choices.length,
       save: () => save({
         project: projectName,

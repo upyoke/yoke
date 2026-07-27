@@ -102,7 +102,11 @@ test("Items is one workflow roster with distinct owner and claim facts", async (
     allNodes(byClass(root, "item-roster")[0])
       .filter((node) => node.tagName === "TH")
       .map((node) => node.textContent),
-    ["ID", "Title", "Workflow", "Status", "Owner", "Claimed by"],
+    ["ID", "project", "Title", "Workflow", "Status", "Owner", "Claimed by"],
+  );
+  assert.deepEqual(
+    byClass(root, "item-project").map((node) => node.textContent),
+    ["acme", "acme"],
   );
   assert.match(itemText(root), /ACM-12/);
   assert.match(itemText(root), /Ship the direct fix/);

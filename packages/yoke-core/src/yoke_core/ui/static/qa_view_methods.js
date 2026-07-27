@@ -143,6 +143,17 @@ function groupHeading(context, kind, rows, scope) {
 function renderRoster(context, host, methods, scope) {
   const documentNode = context.document;
   const stack = el(documentNode, "div", "qa-method-groups");
+  if (!methods.length) {
+    stack.appendChild(el(
+      documentNode,
+      "p",
+      "empty qa-method-empty",
+      "No QA methods are available in this project scope. Methods appear " +
+        "when Yoke serves them and their required capability is configured.",
+    ));
+    host.replaceChildren(stack);
+    return;
+  }
   const groups = new Map();
   for (const method of methods) {
     const key = method.required_capability_kind || "";

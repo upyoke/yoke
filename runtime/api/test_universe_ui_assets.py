@@ -237,6 +237,12 @@ def test_page_module_wires_the_workbench_shell():
         "item_view_details.js": ("epic_tasks.list.run",),
         "universe_views_events.js": ("events.query.run",),
         "universe_views_delivery.js": ("deployment_runs.list",),
+        "universe_views_delivery_inventory.js": (
+            "projects.infrastructure.list",
+            "projects.environment_settings.get",
+            "projects.capabilities.list",
+            "deployment_runs.list",
+        ),
         "universe_views_sessions.js": ("sessions.list",),
         "universe_views_doctor.js": ("doctor.last_run.get",),
         "universe_views_frontier.js": ("frontier.list",),
@@ -254,6 +260,30 @@ def test_page_module_wires_the_workbench_shell():
 
     github_view = static_root.joinpath("universe_views_github.js").read_text()
     assert "projects.github_binding.status" in github_view
+
+
+def test_delivery_facets_keep_wide_tables_scrollable_on_compact_screens():
+    css = (
+        files("yoke_core.ui")
+        .joinpath("static", "universe_secondary_activity.css")
+        .read_text()
+    )
+
+    assert "@media (max-width: 760px)" in css
+    assert ".delivery-facet-panel .table-wrap" in css
+    assert "touch-action: pan-x" in css
+    assert ".delivery-facet-panel .table-wrap > table" in css
+    assert "min-width: 660px" in css
+    assert ".delivery-run-stages" in css
+    assert ".delivery-flow-pipeline" in css
+
+    secondary_css = (
+        files("yoke_core.ui")
+        .joinpath("static", "universe_secondary_views.css")
+        .read_text()
+    )
+    assert ".packs-stack" in secondary_css
+    assert ".pack-available-row" in secondary_css
 
 
 def test_qa_case_table_keeps_actions_visible_in_the_prototype_split():

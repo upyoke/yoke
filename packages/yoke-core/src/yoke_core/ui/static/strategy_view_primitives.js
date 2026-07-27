@@ -67,7 +67,7 @@ export function documentReviewView(documentNode, doc) {
     documentNode,
     "p",
     "item-muted",
-    "The web supports review, comments and approval; open-ended edits stay in the harness where the plan and repository can be understood together.",
+    "Inspect documents, compare revisions, and approve requested reviews here; open-ended edits stay in the harness where the plan and repository can be understood together.",
   ));
   split.appendChild(harness.panel);
   return split;

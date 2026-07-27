@@ -28,6 +28,8 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset({
     "projects.list",
     "projects.get",
     "projects.capabilities.list",
+    "projects.environment_settings.get",
+    "projects.infrastructure.list",
     "projects.github_binding.status",
     "items.get.run",
     "items.list.run",
