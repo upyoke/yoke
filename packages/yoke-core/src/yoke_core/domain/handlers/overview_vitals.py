@@ -7,10 +7,12 @@ each measure may count — state counts expand an epic into its tasks, and
 the issues meter counts work reaching a terminal success rather than work
 being filed — because the board's own meters are defined that way.
 
-The one signal that cannot match exactly is code volume. The board reads
-lines changed per day from a local checkout's commit cache; a server has
-no checkout, so this counts the git-shaped rows the event stream carries
-instead. It answers the same question at a coarser grain.
+Two signals match in direction but not in grain, because the board reads
+them from somewhere a server cannot. Code volume is lines changed per
+day from a local checkout's commit cache, counted here as the git-shaped
+rows in the event stream; strategy volume is bytes authored, counted here
+as revisions written. Both rise and fall with the board's, but neither is
+the same magnitude, so read them as trends rather than totals.
 """
 
 from __future__ import annotations
