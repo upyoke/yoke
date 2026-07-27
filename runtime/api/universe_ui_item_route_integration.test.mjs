@@ -114,7 +114,7 @@ test("an epic's detail carries its tasks; an issue's does not", async (t) => {
   assert.equal(issue.askedForTasks, false);
 });
 
-test("Items roster keeps blocking details out of its prototype columns", async (t) => {
+test("Items roster names projects but keeps blocking details out", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
@@ -178,8 +178,8 @@ test("Items roster keeps blocking details out of its prototype columns", async (
     .filter((node) => node.tagName === "TD")
     .map(cellText);
   assert.deepEqual(cells, [
-    "YOK-1", "runs", "issue", "Idea", "unassigned", "—",
-    "YOK-2", "waits", "epic", "Idea", "unassigned", "—",
+    "YOK-1", "yoke", "runs", "issue", "Idea", "unassigned", "—",
+    "YOK-2", "yoke", "waits", "epic", "Idea", "unassigned", "—",
   ]);
   assert.ok(!allNodes(root).some(
     (node) => node.textContent === "upstream schema",

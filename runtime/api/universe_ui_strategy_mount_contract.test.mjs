@@ -69,11 +69,11 @@ test("strategy rows render the prototype corpus facts", async (t) => {
     .filter((node) => node.tagName === "TH" || node.tagName === "TD")
     .map(cellText);
   assert.deepEqual(cells, [
-    "Doc", "Purpose / ancestry", "Last editor", "Last write",
+    "Doc", "project", "Purpose / ancestry", "Last editor", "Last write",
     "Revisions", "Execution",
-    "MISSION", "Mission statement", "b",
+    "MISSION", "yoke", "Mission statement", "b",
     relativeAge("2026-07-01"), "4", "available",
-    "VISION", "Vision", "",
+    "VISION", "yoke", "Vision", "",
     relativeAge("2026-06-30"), "2", "archived",
   ]);
   assert.ok(requests.some(
