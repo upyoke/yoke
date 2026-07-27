@@ -58,7 +58,8 @@ function strategyDocument() {
       owning_item_id: 2001,
       item_ref: "YOK-2001",
       workflow_id: "blitz",
-      workflow_version_id: 1,
+      workflow_version_id: 17,
+      workflow_version: 2,
     },
     revisions: [
       {
@@ -189,7 +190,7 @@ test("Strategy detail exposes document, history, diff, restore, and review", asy
   assert.match(rendered, /Approve revision 2/);
   assert.match(rendered, /Author through a harness/);
   assert.match(rendered, /item-owned\s+·\s+YOK-2001/);
-  assert.match(rendered, /Blitz v1/);
+  assert.match(rendered, /Blitz v2/);
   assert.match(rendered, /Purpose/);
   assert.doesNotMatch(rendered, /<h1>/);
   const documentBody = byClass(main, "strategy-document")[0];

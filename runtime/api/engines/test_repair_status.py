@@ -105,7 +105,7 @@ def test_issue_rejects_epic_only_status(repair_db, capsys):
 
     captured = capsys.readouterr()
     assert rc == 2
-    assert "is not declared by issue@1" in captured.err
+    assert "is not declared by issue@2" in captured.err
 
 
 def test_item_happy_path_calls_backlog_execute_update(repair_db, capsys):

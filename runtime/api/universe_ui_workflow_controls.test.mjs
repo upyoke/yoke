@@ -85,7 +85,11 @@ test("a workflow detail route selects the linked definition", async (t) => {
 });
 
 test("version inspection reads the immutable definition and can select it", async (t) => {
-  const client = workflowsClient();
+  const rally = workflowFixture();
+  const historicalDefinition = structuredClone(rally.definition);
+  historicalDefinition.stages[0].label = "Filed";
+  rally.versions[0].definition = historicalDefinition;
+  const client = workflowsClient([rally]);
   const { root, mounted } = await mountWorkflows(t, client);
   allNodes(root).find(
     (node) => node.tagName === "BUTTON" && node.textContent === "Inspect",
@@ -93,6 +97,9 @@ test("version inspection reads the immutable definition and can select it", asyn
   await settle();
   assert.deepEqual(classText(root, "workflow-version-digest"), [
     "rally-first",
+  ]);
+  assert.deepEqual(classText(root, "workflow-version-stages"), [
+    "Filed → Proving → Shipped",
   ]);
   assert.ok(allNodes(root).some(
     (node) => node.tagName === "BUTTON" &&
@@ -132,6 +139,9 @@ test("version inspection reads the immutable definition and can select it", asyn
   );
   assert.deepEqual(classText(root, "workflow-version-title"), [
     "v3", "v1 · current",
+  ]);
+  assert.deepEqual(classText(root, "workflow-stage-label"), [
+    "Filed", "Proving", "Shipped",
   ]);
   mounted.unmount();
 });
@@ -247,6 +257,15 @@ test("the editable path-claims default publishes a new immutable version", async
   assert.deepEqual(classText(root, "workflow-version-title"), [
     "v2 · current", "v1",
   ]);
+  assert.equal(
+    classText(root, "workflow-version-description")[0],
+    "edited here",
+  );
+  const publishedVersion = await client.call({
+    function: "workflows.version.get",
+    payload: { workflow_id: "dash", version: 2 },
+  });
+  assert.equal(publishedVersion.envelope.result.published_by_actor_id, 1);
   mounted.unmount();
 });
 

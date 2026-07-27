@@ -1,4 +1,4 @@
-"""Canonical first published definitions for Yoke's built-in workflows."""
+"""Canonical current definitions and immutable history for built-in workflows."""
 
 from __future__ import annotations
 
@@ -9,11 +9,20 @@ from yoke_core.domain.builtin_delivery_workflow_definitions import (
     EPIC_WORKFLOW_DEFINITION,
     ISSUE_WORKFLOW_DEFINITION,
 )
+from yoke_core.domain.builtin_delivery_workflow_version_history import (
+    EPIC_WORKFLOW_VERSION_ONE,
+    ISSUE_WORKFLOW_VERSION_ONE,
+)
 from yoke_core.domain.builtin_direct_workflow_definitions import (
     BLITZ_WORKFLOW_DEFINITION,
     DASH_WORKFLOW_DEFINITION,
 )
+from yoke_core.domain.builtin_direct_workflow_version_history import (
+    BLITZ_WORKFLOW_VERSION_ONE,
+    DASH_WORKFLOW_VERSION_ONE,
+)
 from yoke_core.domain.workflow_definition_builders import (
+    BUILTIN_WORKFLOW_PREFERRED_VERSION,
     ENTRY_SURFACE_IDS,
     REGISTERED_WORKFLOW_EXECUTOR_IDS,
     WORKFLOW_DEFINITION_SCHEMA_VERSION,
@@ -27,26 +36,39 @@ _BUILTIN_WORKFLOW_DEFINITIONS = (
     BLITZ_WORKFLOW_DEFINITION,
     DASH_WORKFLOW_DEFINITION,
 )
+_BUILTIN_WORKFLOW_VERSION_HISTORY = (
+    ISSUE_WORKFLOW_VERSION_ONE,
+    EPIC_WORKFLOW_VERSION_ONE,
+    BLITZ_WORKFLOW_VERSION_ONE,
+    DASH_WORKFLOW_VERSION_ONE,
+)
 
 
 def builtin_workflow_definitions() -> list[Dict[str, Any]]:
-    """Return caller-owned copies of all first published definitions."""
+    """Return caller-owned copies of the four current definitions."""
     return deepcopy(list(_BUILTIN_WORKFLOW_DEFINITIONS))
 
 
 def builtin_workflow_definition(workflow_id: str) -> Dict[str, Any]:
-    """Return one caller-owned first definition by stable workflow id."""
+    """Return one caller-owned current definition by stable workflow id."""
     for fixture in _BUILTIN_WORKFLOW_DEFINITIONS:
         if fixture["workflow"]["id"] == workflow_id:
             return deepcopy(fixture)
     raise KeyError(workflow_id)
 
 
+def builtin_workflow_version_history() -> list[Dict[str, Any]]:
+    """Return caller-owned copies of fixed previously published versions."""
+    return deepcopy(list(_BUILTIN_WORKFLOW_VERSION_HISTORY))
+
+
 __all__ = [
     "BUILTIN_WORKFLOW_IDS",
+    "BUILTIN_WORKFLOW_PREFERRED_VERSION",
     "ENTRY_SURFACE_IDS",
     "REGISTERED_WORKFLOW_EXECUTOR_IDS",
     "WORKFLOW_DEFINITION_SCHEMA_VERSION",
     "builtin_workflow_definition",
     "builtin_workflow_definitions",
+    "builtin_workflow_version_history",
 ]

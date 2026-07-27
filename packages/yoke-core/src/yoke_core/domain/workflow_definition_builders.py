@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Dict, Iterable, Optional, Sequence
 
 WORKFLOW_DEFINITION_SCHEMA_VERSION = 1
+BUILTIN_WORKFLOW_PREFERRED_VERSION = 2
 WORKFLOW_PATH_CLAIMS_OPTIONAL = "optional"
 WORKFLOW_PATH_CLAIMS_REQUIRED = "required"
 WORKFLOW_PATH_CLAIMS_REQUIRED_PER_TASK = "required_per_task"
@@ -75,17 +76,18 @@ def definition_fixture(
     workflow_id: str,
     name: str,
     description: str,
+    version: int = 1,
     stages: Sequence[Dict[str, Any]],
     entry_surfaces: Sequence[str],
     executor_bindings: Sequence[Dict[str, str]],
     policies: Dict[str, Any],
+    approval_defaults: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """Build a complete first-version seed fixture."""
+    """Build one immutable built-in workflow-version fixture."""
     stage_ids = [stage["id"] for stage in stages]
-    normalized_policies = {
-        **policies,
-        "approval_defaults": dict(policies.get("approval_defaults", {})),
-    }
+    normalized_policies = dict(policies)
+    if approval_defaults is not None:
+        normalized_policies["approval_defaults"] = dict(approval_defaults)
     return {
         "workflow": {
             "id": workflow_id,
@@ -93,7 +95,7 @@ def definition_fixture(
             "description": description,
             "source": "built_in",
         },
-        "version": 1,
+        "version": version,
         "definition": {
             "schema_version": WORKFLOW_DEFINITION_SCHEMA_VERSION,
             "stages": list(stages),
@@ -110,6 +112,7 @@ def definition_fixture(
 
 
 __all__ = [
+    "BUILTIN_WORKFLOW_PREFERRED_VERSION",
     "ENTRY_SURFACE_IDS",
     "IMPLEMENTATION_WORKFLOW_EXECUTOR_IDS",
     "REGISTERED_WORKFLOW_EXECUTOR_IDS",

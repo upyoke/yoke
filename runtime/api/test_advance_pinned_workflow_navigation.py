@@ -11,6 +11,7 @@ from yoke_contracts.api.function_call import (
     TargetRef,
 )
 from yoke_core.domain.builtin_workflow_definitions import (
+    BUILTIN_WORKFLOW_PREFERRED_VERSION,
     builtin_workflow_definition,
 )
 from yoke_core.domain.handlers.workflows_versioning import (
@@ -72,26 +73,32 @@ def test_advance_has_no_stale_current_definition_lookup_residue() -> None:
     assert "exact `workflows.version.get` read" in text
 
 
-def test_existing_item_navigates_v1_after_v2_becomes_current(test_db) -> None:
+def test_existing_item_uses_pinned_definition_after_new_version_becomes_current(
+    test_db,
+) -> None:
     insert_item(test_db, id=943, workflow_id="issue", status="idea")
 
-    version_two = builtin_workflow_definition("issue")["definition"]
-    previous_stage_ids = [stage["id"] for stage in version_two["stages"]]
-    version_two["stages"].insert(1, workflow_stage("triaged", "Triaged"))
-    version_two["transitions"] = [
+    edited_definition = builtin_workflow_definition("issue")["definition"]
+    previous_stage_ids = [
+        stage["id"] for stage in edited_definition["stages"]
+    ]
+    edited_definition["stages"].insert(
+        1, workflow_stage("triaged", "Triaged"),
+    )
+    edited_definition["transitions"] = [
         {"from_stage_id": "idea", "to_stage_id": "triaged"},
         {"from_stage_id": "triaged", "to_stage_id": "refining-idea"},
-        *version_two["transitions"][1:],
+        *edited_definition["transitions"][1:],
     ]
-    version_two["stage_mapping"] = {
+    edited_definition["stage_mapping"] = {
         stage_id: stage_id for stage_id in previous_stage_ids
     }
     published = publish_workflow_version(
         test_db,
         workflow_id="issue",
-        definition=version_two,
+        definition=edited_definition,
     )
-    assert published["version"] == 2
+    assert published["version"] == BUILTIN_WORKFLOW_PREFERRED_VERSION + 1
 
     pin_outcome = handle_workflows_item_get(
         _request(
@@ -101,7 +108,7 @@ def test_existing_item_navigates_v1_after_v2_becomes_current(test_db) -> None:
     )
     assert pin_outcome.primary_success
     pin = pin_outcome.result_payload
-    assert pin["workflow_version"] == 1
+    assert pin["workflow_version"] == BUILTIN_WORKFLOW_PREFERRED_VERSION
 
     pinned_outcome = handle_workflows_version_get(
         _request(
@@ -117,7 +124,10 @@ def test_existing_item_navigates_v1_after_v2_becomes_current(test_db) -> None:
         _request(
             "workflows.version.get",
             target=TargetRef(kind="global"),
-            payload={"workflow_id": "issue", "version": 2},
+            payload={
+                "workflow_id": "issue",
+                "version": published["version"],
+            },
         )
     )
 

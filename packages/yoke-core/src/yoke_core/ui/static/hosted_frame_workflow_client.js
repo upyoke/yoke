@@ -57,6 +57,7 @@ export function createHostedFrameWorkflowClient(workflows, gates) {
             version,
             definition_digest: `${current.id}-v${version}-fixture`,
             published_at: publishedAt,
+            published_by_actor_id: 1,
             definition: structuredClone(definition),
           });
           return ok({

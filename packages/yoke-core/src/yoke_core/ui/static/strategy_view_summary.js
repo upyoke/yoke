@@ -188,7 +188,7 @@ function executionFact(documentNode, projectId, claim) {
   const workflowName = workflowId
     ? `${workflowId[0].toUpperCase()}${workflowId.slice(1)}`
     : "workflow";
-  const workflowVersion = claim.workflow_version_id;
+  const workflowVersion = claim.workflow_version;
   host.appendChild(el(
     documentNode,
     "span",

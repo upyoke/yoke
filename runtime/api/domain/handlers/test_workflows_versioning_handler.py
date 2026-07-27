@@ -9,6 +9,7 @@ from yoke_contracts.api.function_call import (
     TargetRef,
 )
 from yoke_core.domain.builtin_workflow_definitions import (
+    BUILTIN_WORKFLOW_PREFERRED_VERSION,
     builtin_workflow_definition,
 )
 from yoke_core.domain.handlers.workflows_versioning import (
@@ -46,7 +47,10 @@ def test_item_get_serves_exact_pin(test_db):
     )
     assert outcome.primary_success
     assert outcome.result_payload["workflow_id"] == "issue"
-    assert outcome.result_payload["workflow_version"] == 1
+    assert (
+        outcome.result_payload["workflow_version"]
+        == BUILTIN_WORKFLOW_PREFERRED_VERSION
+    )
     assert outcome.result_payload["status"] == "idea"
 
 
@@ -78,10 +82,11 @@ def test_version_get_and_policy_default_publish(test_db):
         )
     )
     assert version.primary_success
-    assert version.result_payload["current"] is True
-    assert version.result_payload["definition"]["policies"]["path_claims"] == (
-        "optional"
-    )
+    assert version.result_payload["current"] is False
+    historical_policies = version.result_payload["definition"]["policies"]
+    assert historical_policies["path_claims"] == "optional"
+    assert "approval_defaults" not in historical_policies
+    assert historical_policies.get("approval_defaults", {}) == {}
 
     published = handle_workflows_policy_defaults_publish(
         _request(
@@ -89,14 +94,17 @@ def test_version_get_and_policy_default_publish(test_db):
             target=TargetRef(kind="global"),
             payload={
                 "workflow_id": "dash",
-                "expected_current_version": 1,
+                "expected_current_version": BUILTIN_WORKFLOW_PREFERRED_VERSION,
                 "path_claims_default": True,
             },
             actor_id="1",
         )
     )
     assert published.primary_success
-    assert published.result_payload["version"] == 2
+    assert (
+        published.result_payload["version"]
+        == BUILTIN_WORKFLOW_PREFERRED_VERSION + 1
+    )
     assert published.result_payload["path_claims_default"] is True
 
 
@@ -117,7 +125,10 @@ def test_item_migrate_moves_only_compatible_target(test_db):
     )
     assert outcome.primary_success
     assert outcome.result_payload["changed"] is True
-    assert outcome.result_payload["after"]["workflow_version"] == 2
+    assert (
+        outcome.result_payload["after"]["workflow_version"]
+        == BUILTIN_WORKFLOW_PREFERRED_VERSION + 1
+    )
 
 
 def test_versioning_handlers_validate_targets():

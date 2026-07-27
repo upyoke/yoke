@@ -109,6 +109,38 @@ test("Dash entry surfaces use the prototype filing copy", async (t) => {
   mounted.unmount();
 });
 
+test("code-owned workflow revisions do not masquerade as local edits", async (t) => {
+  const builtIn = workflowFixture({
+    id: "issue",
+    name: "Issue",
+    currentVersion: 2,
+    versions: [
+      {
+        version: 1,
+        definition_digest: "issue-first",
+        published_at: "2026-07-20T12:00:00Z",
+        published_by_actor_id: null,
+      },
+      {
+        version: 2,
+        definition_digest: "issue-current",
+        published_at: "2026-07-27T12:00:00Z",
+        published_by_actor_id: null,
+      },
+    ],
+  });
+  builtIn.source = "built_in";
+  const { root, mounted } = await mountWorkflows(
+    t, workflowsClient([builtIn]),
+  );
+
+  assert.equal(
+    classText(root, "workflow-version-description")[0],
+    "New items pin this version.",
+  );
+  mounted.unmount();
+});
+
 test("workflows open on the definition's first stage", async (t) => {
   const dash = workflowFixture({
     id: "dash",

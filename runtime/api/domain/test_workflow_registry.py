@@ -2,18 +2,21 @@
 
 from __future__ import annotations
 
-from copy import deepcopy
+import sqlite3
 
 import pytest
 
+from runtime.api.fixtures.backlog_inserts import insert_item
+from yoke_core.domain import builtin_workflow_version_convergence, db_helpers
 from yoke_core.domain.builtin_workflow_definitions import (
     BUILTIN_WORKFLOW_IDS,
     builtin_workflow_definition,
     builtin_workflow_definitions,
+    builtin_workflow_version_history,
 )
-from yoke_core.domain.workflow_definition_validation import (
-    WorkflowDefinitionError,
-    validate_workflow_definition,
+from yoke_core.domain.workflow_definition_codec import (
+    canonical_definition_json,
+    definition_digest,
 )
 from yoke_core.domain.workflow_registry import (
     WorkflowRegistryError,
@@ -22,8 +25,10 @@ from yoke_core.domain.workflow_registry import (
     list_current_workflows,
     publish_workflow_version,
     resolve_current_workflow_pin,
+    select_current_builtin_workflow_versions,
     set_current_workflow_version,
 )
+from yoke_core.domain.workflow_schema import ensure_workflow_registry_tables
 from yoke_core.domain.workflow_policy_defaults import (
     publish_workflow_policy_defaults,
 )
@@ -31,6 +36,8 @@ from yoke_core.domain.workflow_item_versioning import (
     inspect_item_workflow_pin,
     migrate_item_workflow_pin,
 )
+
+_TS = "2026-07-25T00:00:00Z"
 
 
 def _definition(workflow_id: str = "issue") -> dict:
@@ -55,91 +62,146 @@ def _replace_stage_id(definition: dict, before: str, after: str) -> None:
                 binding[key] = after
 
 
-def test_schema_boot_seeds_immutable_builtin_versions(test_db):
-    workflows = list_current_workflows(test_db)
-    assert {row["id"] for row in workflows} == set(BUILTIN_WORKFLOW_IDS)
-    assert {row["current_version"] for row in workflows} == {1}
-    assert all(row["current_version_id"] for row in workflows)
-    assert all(len(row["versions"]) == 1 for row in workflows)
-    assert all(row["definition_digest"] for row in workflows)
+def _reset_to_version_one(conn, fixtures) -> None:
+    conn.execute("TRUNCATE workflows, workflow_versions RESTART IDENTITY CASCADE")
+    for fixture in fixtures:
+        workflow = fixture["workflow"]
+        definition = fixture["definition"]
+        workflow_values = tuple(
+            workflow[key] for key in ("id", "name", "description", "source")
+        )
+        conn.execute(
+            "INSERT INTO workflows "
+            "(id, name, description, source, status, created_at, updated_at) "
+            "VALUES (%s, %s, %s, %s, 'active', %s, %s)",
+            workflow_values + (_TS, _TS),
+        )
+        version_id = conn.execute(
+            "INSERT INTO workflow_versions "
+            "(workflow_id, version, definition_schema_version, "
+            "definition_json, definition_digest, published_at, immutable_at) "
+            "VALUES (%s, 1, 1, %s, %s, %s, %s) RETURNING id",
+            (workflow["id"], canonical_definition_json(definition),
+             definition_digest(definition), _TS, _TS),
+        ).fetchone()[0]
+        conn.execute(
+            "UPDATE workflows SET current_version_id = %s WHERE id = %s",
+            (version_id, workflow["id"]),
+        )
+    conn.commit()
 
 
-def test_convergence_refreshes_builtin_display_copy_without_new_version(
-    test_db,
-):
-    expected = builtin_workflow_definition("dash")["workflow"]
-    test_db.execute(
-        "UPDATE workflows SET name = 'Old', description = 'Old copy' "
-        "WHERE id = 'dash'"
-    )
-    test_db.commit()
-
-    converge_builtin_workflows(test_db)
-
-    row = test_db.execute(
-        "SELECT name, description FROM workflows WHERE id = 'dash'"
-    ).fetchone()
-    version_count = test_db.execute(
-        "SELECT COUNT(*) FROM workflow_versions WHERE workflow_id = 'dash'"
-    ).fetchone()
-    assert tuple(row) == (
-        expected["name"],
-        expected["description"],
-    )
-    assert int(version_count[0]) == 1
+def _version_one_rows(conn) -> list[tuple]:
+    rows = conn.execute(
+        "SELECT workflow_id, definition_json, definition_digest "
+        "FROM workflow_versions WHERE version = 1 ORDER BY workflow_id"
+    ).fetchall()
+    return [tuple(row.values()) for row in rows]
 
 
 @pytest.mark.parametrize(
-    "mutate, match",
+    ("fixtures", "expected_versions", "selected_version"),
     [
-        (
-            lambda value: value["stages"][0]["gates"].append({"id": "unknown_gate"}),
-            "unknown gate",
-        ),
-        (
-            lambda value: value["executor_bindings"][0].update(
-                executor_id="unknown_executor"
-            ),
-            "unknown executor",
-        ),
-        (
-            lambda value: value["stages"][1].update(label=value["stages"][0]["label"]),
-            "labels must be unique",
-        ),
-        (
-            lambda value: value.update(terminal_stage_ids=["missing"]),
-            "terminal_stage_ids",
-        ),
-        (
-            lambda value: value["policies"].update(governed_migrations="optional"),
-            "core invariants",
-        ),
-        (
-            lambda value: value["transitions"].pop(),
-            "no outgoing transition",
-        ),
+        (builtin_workflow_version_history, [1, 2], 2),
+        (builtin_workflow_definitions, [1], 1),
     ],
+    ids=("historical-definition", "current-definition-at-version-one"),
 )
-def test_invalid_definitions_fail_closed(mutate, match):
-    definition = _definition()
-    mutate(definition)
-    with pytest.raises(WorkflowDefinitionError, match=match):
-        validate_workflow_definition(definition)
+def test_known_version_one_definitions_converge_without_rewriting(
+    test_db, fixtures, expected_versions, selected_version,
+):
+    _reset_to_version_one(test_db, fixtures())
+    expected_dash = builtin_workflow_definition("dash")["workflow"]
+    test_db.execute(
+        "UPDATE workflows SET name = 'Old', description = 'Old' "
+        "WHERE id = 'dash'"
+    )
+    before = _version_one_rows(test_db)
+
+    converge_builtin_workflows(test_db)
+
+    assert _version_one_rows(test_db) == before
+    dash_copy = test_db.execute(
+        "SELECT name, description FROM workflows WHERE id = 'dash'"
+    ).fetchone()
+    assert tuple(dash_copy) == (expected_dash["name"], expected_dash["description"])
+    workflows = list_current_workflows(test_db)
+    assert {row["current_version"] for row in workflows} == {1}
+    assert all(
+        [version["version"] for version in row["versions"]] == expected_versions
+        for row in workflows
+    )
+
+    selected = select_current_builtin_workflow_versions(test_db)
+    assert set(selected.values()) == {selected_version}
+    assert {
+        row["current_version"] for row in list_current_workflows(test_db)
+    } == {selected_version}
 
 
-def test_structural_stage_change_requires_complete_mapping():
-    previous = _definition()
-    changed = deepcopy(previous)
-    _replace_stage_id(changed, "release", "delivering")
+def test_unknown_version_one_definition_is_rejected(test_db):
+    fixtures = builtin_workflow_version_history()
+    fixtures[0]["definition"]["stages"][0]["label"] = "Unknown drift"
+    _reset_to_version_one(test_db, fixtures)
 
-    with pytest.raises(WorkflowDefinitionError, match="stage_mapping"):
-        validate_workflow_definition(changed, previous=previous)
+    with pytest.raises(WorkflowRegistryError, match="issue@1 differs"):
+        converge_builtin_workflows(test_db)
+    test_db.rollback()
 
-    changed["stage_mapping"] = {
-        stage["id"]: ("delivering" if stage["id"] == "release" else stage["id"])
-        for stage in previous["stages"]
-    }
-    validate_workflow_definition(changed, previous=previous)
+
+def test_builtin_convergence_keeps_sqlite_locking_portable():
+    with sqlite3.connect(":memory:") as conn:
+        conn.row_factory = sqlite3.Row
+        ensure_workflow_registry_tables(conn)
+        converge_builtin_workflows(conn)
+        converge_builtin_workflows(conn)
+        assert {
+            (row["id"], row["current_version"], len(row["versions"]))
+            for row in list_current_workflows(conn)
+        } == {(workflow_id, 2, 2) for workflow_id in BUILTIN_WORKFLOW_IDS}
+
+
+def test_selection_locks_before_digest_lookup(test_db, monkeypatch):
+    def unexpected_lookup(*_args, **_kwargs):
+        raise AssertionError("digest lookup ran before the workflow lock")
+
+    monkeypatch.setattr(
+        builtin_workflow_version_convergence,
+        "_matching_version",
+        unexpected_lookup,
+    )
+    test_db.execute("SELECT id FROM workflows WHERE id = 'issue' FOR UPDATE")
+    with db_helpers.connect() as contender:
+        contender.execute("SET LOCAL lock_timeout = '100ms'")
+        with pytest.raises(Exception, match="lock timeout"):
+            select_current_builtin_workflow_versions(contender)
+        contender.rollback()
+    test_db.rollback()
+
+
+def test_code_owned_revision_appends_after_operator_version_collision(test_db):
+    _reset_to_version_one(test_db, builtin_workflow_version_history())
+    changed = _definition()
+    changed["stages"][0]["label"] = "Operator filed"
+    assert publish_workflow_version(
+        test_db,
+        workflow_id="issue",
+        definition=changed,
+        published_by_actor_id=1,
+    )["version"] == 2
+
+    converge_builtin_workflows(test_db)
+
+    issue = {
+        row["id"]: row for row in list_current_workflows(test_db)
+    }["issue"]
+    assert issue["current_version"] == 2
+    assert [row["version"] for row in issue["versions"]] == [1, 2, 3]
+    assert issue["published_by_actor_id"] == 1
+    select_current_builtin_workflow_versions(test_db)
+    assert {
+        row["id"]: row for row in list_current_workflows(test_db)
+    }["issue"]["current_version"] == 3
 
 
 def test_published_rows_reject_update_and_delete(test_db):
@@ -162,185 +224,110 @@ def test_published_rows_reject_update_and_delete(test_db):
 
 
 def test_publish_pins_existing_items_and_can_roll_back_new_item_default(test_db):
-    workflow_id, version_one_id = resolve_current_workflow_pin(test_db, "issue")
-    test_db.execute(
-        "INSERT INTO items "
-        "(id, title, status, priority, created_at, updated_at, "
-        "project_id, project_sequence, workflow_id, workflow_version_id) "
-        "VALUES (901, 'Pinned', 'idea', 'medium', "
-        "'2026-07-25T00:00:00Z', '2026-07-25T00:00:00Z', 1, 901, %s, %s)",
-        (workflow_id, version_one_id),
-    )
-    test_db.commit()
-
+    _, version_two_id = resolve_current_workflow_pin(test_db, "issue")
+    insert_item(test_db, id=901, title="Pinned")
     next_definition = _definition()
     next_definition["stages"][0]["label"] = "Filed"
     published = publish_workflow_version(
-        test_db,
-        workflow_id="issue",
-        definition=next_definition,
+        test_db, workflow_id="issue", definition=next_definition,
     )
-    assert published["version"] == 2
+    assert published["version"] == 3
     assert resolve_current_workflow_pin(test_db, "issue") == (
-        "issue",
-        published["version_id"],
-    )
+        "issue", published["version_id"])
     pinned = test_db.execute(
         "SELECT workflow_version_id FROM items WHERE id = 901"
     ).fetchone()
-    assert int(pinned[0]) == version_one_id
-
+    assert int(pinned[0]) == version_two_id
     rolled_back = set_current_workflow_version(
-        test_db,
-        workflow_id="issue",
-        version=1,
+        test_db, workflow_id="issue", version=2,
     )
-    assert rolled_back["version_id"] == version_one_id
-    assert resolve_current_workflow_pin(test_db, "issue") == (
-        "issue",
-        version_one_id,
-    )
+    assert rolled_back["version_id"] == version_two_id
+    assert resolve_current_workflow_pin(test_db, "issue") == ("issue", version_two_id)
 
 
 def test_version_read_and_current_selection_use_optimistic_version(test_db):
     changed = _definition()
     changed["stages"][0]["label"] = "Filed"
-    publish_workflow_version(
-        test_db,
-        workflow_id="issue",
-        definition=changed,
-    )
-
-    first = get_workflow_version(
-        test_db,
-        workflow_id="issue",
-        version=1,
-    )
-    assert first["current"] is False
-    assert first["definition"]["stages"][0]["label"] == "idea"
+    publish_workflow_version(test_db, workflow_id="issue", definition=changed)
+    current_builtin = get_workflow_version(test_db, workflow_id="issue", version=2)
+    assert current_builtin["current"] is False
+    assert current_builtin["definition"]["stages"][0]["label"] == "idea"
 
     with pytest.raises(WorkflowRegistryError, match="refresh first"):
         set_current_workflow_version(
-            test_db,
-            workflow_id="issue",
-            version=1,
-            expected_current_version=1,
+            test_db, workflow_id="issue", version=2, expected_current_version=2,
         )
     selected = set_current_workflow_version(
-        test_db,
-        workflow_id="issue",
-        version=1,
-        expected_current_version=2,
+        test_db, workflow_id="issue", version=2, expected_current_version=3,
     )
-    assert selected["version"] == 1
+    assert selected["version"] == 2
 
 
 def test_editable_path_claim_default_publishes_an_immutable_version(test_db):
     result = publish_workflow_policy_defaults(
         test_db,
         workflow_id="dash",
-        expected_current_version=1,
+        expected_current_version=2,
         path_claims_default=True,
         published_by_actor_id=1,
     )
-    assert result["version"] == 2
+    assert result["version"] == 3
     assert result["path_claims_default"] is True
-    first = get_workflow_version(test_db, workflow_id="dash", version=1)
     second = get_workflow_version(test_db, workflow_id="dash", version=2)
-    assert first["definition"]["policies"]["path_claims"] == "optional"
-    assert second["definition"]["policies"]["path_claims"] == "required"
-    assert second["current"] is True
+    third = get_workflow_version(test_db, workflow_id="dash", version=3)
+    assert second["definition"]["policies"]["path_claims"] == "optional"
+    assert third["definition"]["policies"]["path_claims"] == "required"
+    assert third["current"] is True
 
     with pytest.raises(WorkflowRegistryError, match="refresh first"):
         publish_workflow_policy_defaults(
             test_db,
             workflow_id="dash",
-            expected_current_version=1,
+            expected_current_version=2,
             path_claims_default=False,
         )
     with pytest.raises(WorkflowRegistryError, match="does not expose"):
         publish_workflow_policy_defaults(
             test_db,
             workflow_id="issue",
-            expected_current_version=1,
+            expected_current_version=2,
             path_claims_default=False,
         )
 
 
 def test_current_definition_change_does_not_repin_existing_item(test_db):
-    workflow_id, version_one_id = resolve_current_workflow_pin(
-        test_db,
-        "issue",
-    )
-    test_db.execute(
-        "INSERT INTO items "
-        "(id, title, status, priority, created_at, updated_at, "
-        "project_id, project_sequence, workflow_id, workflow_version_id) "
-        "VALUES (902, 'Stable pin', 'idea', 'medium', "
-        "'2026-07-25T00:00:00Z', '2026-07-25T00:00:00Z', 1, 902, %s, %s)",
-        (workflow_id, version_one_id),
-    )
-    test_db.commit()
-
+    _, version_two_id = resolve_current_workflow_pin(test_db, "issue")
+    insert_item(test_db, id=902, title="Stable pin")
     next_definition = _definition()
     next_definition["stages"][0]["label"] = "Submitted"
     published = publish_workflow_version(
-        test_db,
-        workflow_id="issue",
-        definition=next_definition,
+        test_db, workflow_id="issue", definition=next_definition,
     )
-
     pinned = inspect_item_workflow_pin(test_db, 902)
-    assert pinned["workflow_version"] == 1
-    assert pinned["workflow_version_id"] == version_one_id
+    assert pinned["workflow_version"] == 2
+    assert pinned["workflow_version_id"] == version_two_id
     assert pinned["status"] == "idea"
 
     migrated = migrate_item_workflow_pin(test_db, item_id=902)
     assert migrated["changed"] is True
-    assert migrated["after"]["workflow_version"] == 2
+    assert migrated["after"]["workflow_version"] == 3
     assert migrated["after"]["workflow_version_id"] == published["version_id"]
 
 
 def test_compatible_item_migration_applies_adjacent_stage_mapping(test_db):
-    workflow_id, version_one_id = resolve_current_workflow_pin(
-        test_db,
-        "issue",
-    )
-    test_db.execute(
-        "INSERT INTO items "
-        "(id, title, status, priority, created_at, updated_at, "
-        "project_id, project_sequence, workflow_id, workflow_version_id) "
-        "VALUES (903, 'Mapped pin', 'release', 'medium', "
-        "'2026-07-25T00:00:00Z', '2026-07-25T00:00:00Z', 1, 903, %s, %s)",
-        (workflow_id, version_one_id),
-    )
-    test_db.commit()
+    insert_item(test_db, id=903, title="Mapped pin", status="release")
     changed = _definition()
     _replace_stage_id(changed, "release", "delivering")
     changed["stage_mapping"] = {
         stage["id"]: ("delivering" if stage["id"] == "release" else stage["id"])
         for stage in _definition()["stages"]
     }
-    publish_workflow_version(
-        test_db,
-        workflow_id="issue",
-        definition=changed,
-    )
-
+    publish_workflow_version(test_db, workflow_id="issue", definition=changed)
     migrated = migrate_item_workflow_pin(test_db, item_id=903)
     assert migrated["after"]["status"] == "delivering"
-    assert migrated["after"]["workflow_version"] == 2
+    assert migrated["after"]["workflow_version"] == 3
 
 
 def test_publication_refuses_noop_definition(test_db):
     with pytest.raises(WorkflowRegistryError, match="must change"):
-        publish_workflow_version(
-            test_db,
-            workflow_id="issue",
-            definition=_definition(),
-        )
-
-
-def test_every_fixture_validates_as_a_first_publication():
-    for fixture in builtin_workflow_definitions():
-        validate_workflow_definition(fixture["definition"])
+        publish_workflow_version(test_db, workflow_id="issue", definition=_definition())

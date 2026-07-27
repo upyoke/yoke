@@ -7,6 +7,7 @@ from copy import deepcopy
 import pytest
 
 from yoke_core.domain.builtin_workflow_definitions import (
+    BUILTIN_WORKFLOW_PREFERRED_VERSION,
     builtin_workflow_definition,
 )
 from yoke_core.domain.deploy_defaults import set_default_flow_on_connection
@@ -38,7 +39,7 @@ def test_approval_defaults_are_normalized_and_publish_a_new_version(test_db):
     published = publish_workflow_policy_defaults(
         test_db,
         workflow_id="issue",
-        expected_current_version=1,
+        expected_current_version=BUILTIN_WORKFLOW_PREFERRED_VERSION,
         approval_defaults={
             "done": {
                 "roles": ["admin", "owner", "owner"],
@@ -48,14 +49,28 @@ def test_approval_defaults_are_normalized_and_publish_a_new_version(test_db):
         published_by_actor_id=2,
     )
 
-    assert published["version"] == 2
+    assert published["version"] == BUILTIN_WORKFLOW_PREFERRED_VERSION + 1
     assert published["approval_defaults"] == {
         "done": {"roles": ["owner", "admin"], "actors": [2]},
     }
-    first = get_workflow_version(test_db, workflow_id="issue", version=1)
-    second = get_workflow_version(test_db, workflow_id="issue", version=2)
-    assert first["definition"]["policies"]["approval_defaults"] == {}
-    assert second["definition"]["policies"]["approval_defaults"] == {
+    historical = get_workflow_version(
+        test_db, workflow_id="issue", version=1,
+    )
+    current = get_workflow_version(
+        test_db,
+        workflow_id="issue",
+        version=BUILTIN_WORKFLOW_PREFERRED_VERSION,
+    )
+    edited = get_workflow_version(
+        test_db,
+        workflow_id="issue",
+        version=BUILTIN_WORKFLOW_PREFERRED_VERSION + 1,
+    )
+    historical_policies = historical["definition"]["policies"]
+    assert "approval_defaults" not in historical_policies
+    assert historical_policies.get("approval_defaults", {}) == {}
+    assert current["definition"]["policies"]["approval_defaults"] == {}
+    assert edited["definition"]["policies"]["approval_defaults"] == {
         "done": {"roles": ["owner", "admin"], "actors": [2]},
     }
 
@@ -81,7 +96,7 @@ def test_approval_defaults_reject_unknown_named_actors(test_db):
         publish_workflow_policy_defaults(
             test_db,
             workflow_id="issue",
-            expected_current_version=1,
+            expected_current_version=BUILTIN_WORKFLOW_PREFERRED_VERSION,
             approval_defaults={
                 "done": {"roles": [], "actors": [999999]},
             },
@@ -149,6 +164,11 @@ def test_delivery_default_is_per_workflow_and_keeps_versions_immutable(test_db):
     } >= {("yoke", "dash", "workflows-production")}
     assert get_workflow_version(
         test_db, workflow_id="dash", version=1,
+    )["current"] is False
+    assert get_workflow_version(
+        test_db,
+        workflow_id="dash",
+        version=BUILTIN_WORKFLOW_PREFERRED_VERSION,
     )["current"] is True
     assert set_default_flow_on_connection(
         test_db, "yoke", "workflows-stage",

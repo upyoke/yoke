@@ -175,7 +175,7 @@ class TestSkipRefineRejection:
         patches = _patch_core("refining-plan", "issue")
         _enter_all(patches)
         try:
-            with pytest.raises(ValueError, match="not declared by issue@1"):
+            with pytest.raises(ValueError, match="not declared by issue@2"):
                 advance_skip.skip_refine(301, out=io.StringIO())
         finally:
             _exit_all(patches)
@@ -185,7 +185,7 @@ class TestSkipRefineRejection:
         patches = _patch_core("plan-drafted", "issue")
         _enter_all(patches)
         try:
-            with pytest.raises(ValueError, match="not declared by issue@1"):
+            with pytest.raises(ValueError, match="not declared by issue@2"):
                 advance_skip.skip_refine(302, out=io.StringIO())
         finally:
             _exit_all(patches)
@@ -196,7 +196,7 @@ class TestSkipRefineRejection:
 # ---------------------------------------------------------------------------
 
 
-def test_real_execute_update_path_refine(tmp_db):
+def test_real_execute_update_path_refine(tmp_db):  # noqa: F811
     """Exercise the real backlog.execute_update seam for skip_refine."""
     _seed_item(
         tmp_db,

@@ -17,6 +17,9 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
+from yoke_core.domain.builtin_workflow_definitions import (
+    BUILTIN_WORKFLOW_PREFERRED_VERSION,
+)
 from yoke_core.domain.frontier_list_read import (
     FRONTIER_BLOCKED_FIELDS,
     FRONTIER_READY_FIELDS,
@@ -84,7 +87,7 @@ class TestReadyRows:
         assert row["next_step"] == "advance"
         assert row["run_command"] == "yoke advance YOK-11"
         assert row["workflow_id"] == "issue"
-        assert row["workflow_version"] == 1
+        assert row["workflow_version"] == BUILTIN_WORKFLOW_PREFERRED_VERSION
         assert row["project"] == "yoke"
         assert row["status"] == "implementing"
         assert row["stage_index"] == 3

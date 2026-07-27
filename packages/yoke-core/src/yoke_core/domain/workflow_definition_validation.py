@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Mapping, Optional, Sequence
+from typing import Any, Mapping, Optional
 
 from yoke_core.domain.workflow_definition_builders import (
     ENTRY_SURFACE_IDS,
@@ -217,12 +217,10 @@ def _validate_policies(definition: Mapping[str, Any]) -> None:
         raise WorkflowDefinitionError(
             f"core invariants cannot be workflow policy: {sorted(forbidden)}"
         )
-    expected = set(_POLICY_VALUES) | {
-        "approval_defaults",
-        "item_posture_allowlist",
-    }
-    missing = expected - set(policies)
-    extra = set(policies) - expected
+    required = set(_POLICY_VALUES) | {"item_posture_allowlist"}
+    allowed = required | {"approval_defaults"}
+    missing = required - set(policies)
+    extra = set(policies) - allowed
     if missing or extra:
         raise WorkflowDefinitionError(
             f"policies keys mismatch; missing={sorted(missing)} "
@@ -247,7 +245,8 @@ def _validate_policies(definition: Mapping[str, Any]) -> None:
             "policies.item_posture_allowlist has unknown values: "
             f"{sorted(unknown)}"
         )
-    _validate_approval_defaults(definition, policies)
+    if "approval_defaults" in policies:
+        _validate_approval_defaults(definition, policies)
 
 
 def _validate_structural_change(
