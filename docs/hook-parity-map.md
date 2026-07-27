@@ -88,9 +88,9 @@ Coverage tests live in `runtime/api/test_observe_codex_bash.py::TestCodexBashFai
 
 ## Cross-Harness Coverage
 
-The shared Yoke registry now supplies the current Codex-safe entrypoints (`/yoke idea`, `/yoke do`, `/yoke refine`, `/yoke advance YOK-N implementation`, `/yoke polish`, `/yoke usher YOK-N [--dry-run]`) and downstream paths (`shepherd`, `refine`, `advance`, `polish`, `usher`); [runtime/harness/codex/manifest.json](../runtime/harness/codex/manifest.json) declares Codex identity, affordances, and explicit limitations rather than copying those lists. The full Tier 1 operator surface in [docs/harness-bootstrap.md](harness-bootstrap.md) §2 is part of Codex's safe surface unless the manifest declares an additional substrate limitation.
+The shared Yoke registry exposes two intentionally different capability views. The safe operator surface includes `/yoke conduct YOK-N` for direct Codex invocation. The narrower session-offer registry advertises entrypoints (`/yoke idea`, `/yoke do`, `/yoke refine`, `/yoke advance YOK-N implementation`, `/yoke polish`, `/yoke usher YOK-N [--dry-run]`) and downstream paths (`shepherd`, `refine`, `advance`, `polish`, `usher`) used by `/yoke do` orientation and routing; Conduct is not a session-offer entrypoint or downstream path. [runtime/harness/codex/manifest.json](../runtime/harness/codex/manifest.json) declares Codex identity, affordances, and explicit limitations rather than copying either registry view. The full Tier 1 operator surface in [docs/harness-bootstrap.md](harness-bootstrap.md) §2 is part of Codex's safe surface unless the manifest declares an additional substrate limitation.
 
-`/yoke conduct` is not advertised as a current Codex-safe entrypoint, but the shared dispatch descriptor module remains the source for conduct-capable lanes: phase files emit one task envelope per agent, and the substrate renderer ships the canonical agent body to both `runtime/harness/claude/agents/yoke-*.md` and `runtime/harness/codex/agents/yoke-*.toml` (surfaced at `.claude/agents/` and `.codex/agents/`). The `shepherd` path remains the Codex-safe quality-gated proof lane for PM, Designer, Boss, Architect, and Simulator work.
+`/yoke conduct` is a current Codex-safe direct command. The shared dispatch descriptor module is the source for its agent lanes: phase files emit one task envelope per agent, and the substrate renderer ships the canonical agent body to both `runtime/harness/claude/agents/yoke-*.md` and `runtime/harness/codex/agents/yoke-*.toml` (surfaced at `.claude/agents/` and `.codex/agents/`). The `shepherd` path remains the quality-gated proof lane for PM, Designer, Boss, Architect, and Simulator work in both harnesses.
 
 The remaining named substrate gap is the `PostToolUseFailure` event for non-Bash Codex tools; Bash failures are recovered through transcript reconciliation as documented above.
 
@@ -104,5 +104,5 @@ Harness-local hook output (e.g., Codex hook logs) is informational. It is never 
 
 - [Harness Bootstrap Contract](harness-bootstrap.md) -- neutral startup expectations for all harnesses
 - [Harness Adapter Template](harness-adapter-template.md) -- five-part adapter template with manifest schema
-- [Session-Offer Contract](session-offer-contract.md) -- request/response envelope and identity model
+- [Session-Offer Contract](../.yoke/docs/session-offer-contract.md) -- request/response envelope and identity model
 - [Harness README](../runtime/harness/README.md) -- adapter directory convention

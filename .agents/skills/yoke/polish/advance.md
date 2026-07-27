@@ -1,6 +1,8 @@
 # Polish — Advance To Implemented
 
-Covers polish steps 10 through 15: re-run browser QA gates, capture the final summary, advance status, release the claim, emit the final output, and confirm completion.
+Covers polish steps 10 through 15: rerun attached QA cases, capture the final
+summary, advance status, release the claim, emit the final output, and confirm
+completion.
 
 **Context variables** (set by earlier phases): `ITEM_NUM`, `WORKTREE_PATH`, `WORKTREE_PATHS`.
 
@@ -8,7 +10,9 @@ Covers polish steps 10 through 15: re-run browser QA gates, capture the final su
 
 ## 10. Inspect Outstanding QA Requirements (read-only)
 
-Before re-running the browser and E2E gates, inspect the outstanding QA evidence so you know exactly which blocking requirements still need passing runs. This is a typed read-only diagnostic — it never mutates `qa_runs` or `qa_requirements`:
+Before rerunning attached cases, inspect the outstanding QA evidence so you
+know exactly which blocking requirements still need passing runs. This is a
+typed read-only diagnostic:
 
 ```bash
 yoke qa gate-summary --item "YOK-$ITEM_NUM" --target implemented
@@ -16,16 +20,16 @@ yoke qa gate-summary --item "YOK-$ITEM_NUM" --target implemented
 
 Use `--target reviewed-implementation` to scope to verification-phase only; the bare call prints the summary JSON (add `--json` for the full typed envelope). Do not compose raw `qa_requirements` SQL during polish — `qa.gate_summary.run` is the canonical surface and matches the gate semantics in `yoke_core.domain.qa_gates`. The old checkout-local db-router QA summary is operator-debug fallback only, not the agent-facing teaching shape.
 
-## 10b. Re-run Browser QA Gates
+## 10b. Re-run Attached Cases
 
-After inspecting outstanding requirements, re-run the browser evidence gates against the latest polish commit. This is the final screenshot QA checkpoint before `implemented`.
+Materialize the `implemented` transition and execute every outstanding
+method-backed case through `yoke qa case run`. For Browser methods, follow
+`.agents/skills/yoke/advance/browser-qa.md` with target semantics
+`implemented`, including the current branch/SHA freshness check. Deployed-stack
+cases belong to `release`; polish must not pull them forward.
 
-- Read `.agents/skills/yoke/advance/browser-qa.md` and execute it with target semantics = `implemented`.
-- Read `.agents/skills/yoke/advance/project-e2e.md` and execute it with target semantics = `implemented`.
-- Treat both gates exactly like advance does: if browser QA, screenshot evaluation, or project E2E fails, do **not** advance status.
-- The browser QA run must execute against the current `HEAD` of each changed implementation worktree so the resulting `qa_runs` rows record the branch/SHA for the latest polish commits. For single-worktree items, use `{WORKTREE_PATH}`. For multi-worktree epics, iterate the changed paths from `WORKTREE_PATHS`.
-
-If either gate blocks, leave the item at `polishing-implementation` and report the failure instead of advancing.
+If any case blocks, leave the item at `polishing-implementation` and report the
+failed requirement/run instead of advancing.
 
 ## 11. Capture Final Summary
 

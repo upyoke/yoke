@@ -92,14 +92,14 @@ def apply_additive_schema(conn: Any) -> None:
     # Idempotent ADD COLUMN migrations for epic_tasks
     _add_column_if_not_exists(conn, "epic_tasks", "body", "TEXT")
     _add_column_if_not_exists(conn, "epic_tasks", "github_issue", "TEXT")
-    _add_column_if_not_exists(conn, "epic_tasks", "branch", "TEXT")
-    _add_column_if_not_exists(conn, "epic_tasks", "worktree_path", "TEXT")
+    _add_column_if_not_exists(conn, "epic_tasks", "item_worktree_id", "INTEGER DEFAULT NULL")
     _add_column_if_not_exists(conn, "epic_tasks", "blocked_by", "TEXT")
     _add_column_if_not_exists(conn, "epic_tasks", "max_attempts", "INTEGER DEFAULT 5")
     _add_column_if_not_exists(conn, "epic_tasks", "agent_id", "TEXT")
     _add_column_if_not_exists(conn, "epic_tasks", "last_heartbeat", "TEXT")
     # task-freshness state: stamped by every epic-task mutation surface.
     _add_column_if_not_exists(conn, "epic_tasks", "last_activity_at", "TEXT")
+    _add_column_if_not_exists(conn, "epic_dispatch_chains", "item_worktree_id", "INTEGER DEFAULT NULL")
     conn.commit()
 
     # Per-project GitHub sync switch. Authoritative creators write
@@ -175,13 +175,6 @@ def apply_additive_schema(conn: Any) -> None:
     _add_column_if_not_exists(conn, "items", "shepherd_caveats", "TEXT")
     _add_column_if_not_exists(conn, "items", "test_results", "TEXT")
     _add_column_if_not_exists(conn, "items", "deploy_log", "TEXT")
-    conn.commit()
-
-    # browser_qa_metadata — JSON-valued structured field populated at
-    # idea/refine time.  Added nullable; existing-row normalization to the
-    # negative default lives in apply_legacy_data_migrations.  Annotated for
-    # Postgres cutover; see :data:`yoke_core.domain.sql_json.JSONB_COLUMNS`.
-    _add_column_if_not_exists(conn, "items", "browser_qa_metadata", "TEXT")  # → JSONB on Postgres
     conn.commit()
 
     # db_mutation_profile / db_compatibility_attestation — governed
@@ -269,19 +262,6 @@ def apply_legacy_data_migrations(conn: Any) -> None:
         conn.execute("DROP TABLE IF EXISTS epic_reviews")
         conn.commit()
         print("Dropped legacy epic_reviews table (consolidated into reviews).")
-
-    # browser_qa_metadata — normalize legacy NULL/''/'null' rows to the
-    # explicit negative default so seeding callers never encounter empty
-    # metadata.
-    from yoke_core.domain.browser_qa_metadata import NEGATIVE_DEFAULT_JSON
-    conn.execute(
-        f"UPDATE items SET browser_qa_metadata = {placeholder} "
-        "WHERE browser_qa_metadata IS NULL "
-        "OR browser_qa_metadata = '' "
-        "OR browser_qa_metadata = 'null'",
-        (NEGATIVE_DEFAULT_JSON,),
-    )
-    conn.commit()
 
     # db_mutation_profile / db_compatibility_attestation — normalize legacy
     # NULL/''/'null' rows to the explicit negative defaults.

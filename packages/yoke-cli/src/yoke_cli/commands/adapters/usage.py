@@ -142,8 +142,6 @@ from yoke_cli.commands.adapters.projects_write import (
     PROJECTS_UPDATE_USAGE,
 )
 from yoke_cli.commands.adapters.project_structure_read import (
-    PROJECT_STRUCTURE_COMMAND_DEFINITIONS_GET_USAGE,
-    PROJECT_STRUCTURE_COMMAND_DEFINITIONS_LIST_USAGE,
     PROJECT_STRUCTURE_DEPLOY_DEFAULTS_GET_USAGE,
 )
 from yoke_cli.commands.adapters.projects_secret import (
@@ -158,6 +156,7 @@ from yoke_cli.commands.adapters.projects_capability_settings import (
 from yoke_cli.commands.adapters import (
     projects_environment_settings as _environment_settings_usage,
 )
+from yoke_cli.commands.adapters import usage_product_surfaces as _product_usage
 from yoke_cli.commands.adapters.projects_pulumi_state import (
     PULUMI_STATE_CHECKPOINT_IMPORT_USAGE,
     PULUMI_STATE_MIGRATE_USAGE,
@@ -175,7 +174,6 @@ from yoke_cli.commands.adapters import strategy_event_usage as _strategy_event_u
 from yoke_cli.commands.adapters import qa as _qa_usage
 from yoke_cli.commands.adapters import shepherd_writes as _shepherd_writes
 from yoke_cli.commands.adapters.qa import (
-    QA_REQUIREMENT_AUTO_CREATE_FOR_ITEM_USAGE,
     QA_REQUIREMENT_UPDATE_USAGE,
     QA_RUN_RECORD_VERDICT_USAGE,
 )
@@ -244,7 +242,6 @@ from yoke_cli.commands.adapters.sessions_read import SESSIONS_LIST_USAGE
 from yoke_cli.commands.adapters.projects_capabilities_read import (
     PROJECTS_CAPABILITIES_LIST_USAGE,
 )
-from yoke_cli.commands.adapters.workflows_read import WORKFLOWS_CURRENT_SET_USAGE, WORKFLOWS_DEFINITION_GET_USAGE, WORKFLOWS_ITEM_GET_USAGE, WORKFLOWS_ITEM_MIGRATE_USAGE
 __all__ = ["ADAPTER_USAGE"]
 
 # Function-id → usage-line map consumed by the entrypoint's grouped
@@ -279,10 +276,6 @@ ADAPTER_USAGE: Dict[str, str] = {
     "sessions.begin": SESSIONS_BEGIN_USAGE,
     "sessions.init": SESSIONS_INIT_USAGE,
     "sessions.list": SESSIONS_LIST_USAGE,
-    "workflows.current.set": WORKFLOWS_CURRENT_SET_USAGE,
-    "workflows.definition.get": WORKFLOWS_DEFINITION_GET_USAGE,
-    "workflows.item.get": WORKFLOWS_ITEM_GET_USAGE,
-    "workflows.item.migrate": WORKFLOWS_ITEM_MIGRATE_USAGE,
     "sessions.touch": SESSIONS_TOUCH_USAGE,
     "sessions.checkpoint": SESSIONS_CHECKPOINT_USAGE,
     "sessions.checkpoint_read": SESSIONS_CHECKPOINT_READ_USAGE,
@@ -298,7 +291,6 @@ ADAPTER_USAGE: Dict[str, str] = {
     "board.data.get": BOARD_DATA_GET_USAGE,
     **EPIC_USAGE,
     "qa.requirement.update": QA_REQUIREMENT_UPDATE_USAGE,
-    "qa.requirement.auto_create_for_item": QA_REQUIREMENT_AUTO_CREATE_FOR_ITEM_USAGE,
     "qa.run.record_verdict": QA_RUN_RECORD_VERDICT_USAGE,
     "qa.browser_context.get": QA_BROWSER_CONTEXT_GET_USAGE,
     "qa.run.add": QA_RUN_ADD_USAGE,
@@ -355,8 +347,6 @@ ADAPTER_USAGE: Dict[str, str] = {
     "organizations.get": ORGANIZATIONS_GET_USAGE,
     **IDENTITY_USAGE,
     "project_structure.patch.apply": PROJECT_STRUCTURE_PATCH_APPLY_USAGE,
-    "project_structure.command_definitions.get": PROJECT_STRUCTURE_COMMAND_DEFINITIONS_GET_USAGE,
-    "project_structure.command_definitions.list": PROJECT_STRUCTURE_COMMAND_DEFINITIONS_LIST_USAGE,
     "project_structure.deploy_defaults.get": PROJECT_STRUCTURE_DEPLOY_DEFAULTS_GET_USAGE,
     "events.query.run": EVENTS_QUERY_USAGE,
     "events.tail.run": EVENTS_TAIL_USAGE,
@@ -417,3 +407,4 @@ ADAPTER_USAGE.update(_qa_usage.USAGE_BY_FUNCTION_ID)
 ADAPTER_USAGE.update(_shepherd_writes.USAGE_BY_FUNCTION_ID)
 ADAPTER_USAGE.update(_strategy_event_usage.USAGE_BY_FUNCTION_ID)
 ADAPTER_USAGE.update(_composed_usage.USAGE_BY_FUNCTION_ID)
+ADAPTER_USAGE.update(_product_usage.USAGE_BY_FUNCTION_ID)

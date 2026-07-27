@@ -7,64 +7,26 @@ from pathlib import Path
 
 import pytest
 
+from runtime.api.domain.item_ref_parser_test_support import ref_db as ref_db
+from runtime.api.fixtures.file_test_db import connect_test_db
 from yoke_core.domain import machine_config
 from yoke_core.domain.yok_n_parser import parse_item_id
-from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
-
-
-def _seed_refs(conn) -> None:
-    conn.execute(
-        """
-        CREATE TABLE projects (
-            id BIGINT PRIMARY KEY,
-            slug TEXT NOT NULL UNIQUE,
-            name TEXT NOT NULL,
-            public_item_prefix TEXT NOT NULL DEFAULT 'TST'
-        )
-        """
-    )
-    conn.execute(
-        """
-        CREATE TABLE items (
-            id BIGINT PRIMARY KEY,
-            project_id BIGINT NOT NULL REFERENCES projects(id),
-            project_sequence BIGINT NOT NULL,
-            UNIQUE(project_id, project_sequence)
-        )
-        """
-    )
-    conn.execute(
-        "INSERT INTO projects (id, slug, name, public_item_prefix) "
-        "VALUES (1, 'alpha', 'Alpha', 'TST'), (2, 'beta', 'Beta', 'EXT')"
-    )
-    conn.execute(
-        "INSERT INTO items (id, project_id, project_sequence) "
-        "VALUES (1001, 1, 42), (2001, 2, 42)"
-    )
-    conn.execute(
-        """
-        CREATE TABLE harness_sessions (
-            session_id TEXT PRIMARY KEY,
-            current_item_id TEXT,
-            recent_item_id TEXT
-        )
-        """
-    )
-    conn.commit()
-
-
-@pytest.fixture
-def ref_db(tmp_path):
-    with init_test_db(tmp_path, apply_schema=lambda: None) as db_path:
-        conn = connect_test_db(db_path)
-        try:
-            _seed_refs(conn)
-        finally:
-            conn.close()
-        yield db_path
+from yoke_contracts.api.function_call import FunctionCallRequest
 
 
 class TestParseItemId:
+    @pytest.mark.parametrize("raw", ("YOK-42", "YOK-0042", "42", "0042"))
+    def test_refine_accepted_item_ref_shapes_resolve(
+        self,
+        ref_db: str,
+        raw: str,
+    ) -> None:
+        conn = connect_test_db(ref_db)
+        try:
+            assert parse_item_id(raw, project="yoke", conn=conn) == 3001
+        finally:
+            conn.close()
+
     def test_public_refs_resolve_by_unique_prefix(self, ref_db: str) -> None:
         conn = connect_test_db(ref_db)
         try:
@@ -82,7 +44,8 @@ class TestParseItemId:
             conn.close()
 
     def test_explicit_public_prefix_selects_project_over_context(
-        self, ref_db: str,
+        self,
+        ref_db: str,
     ) -> None:
         conn = connect_test_db(ref_db)
         try:
@@ -92,7 +55,8 @@ class TestParseItemId:
             conn.close()
 
     def test_bare_number_uses_project_context_by_default(
-        self, ref_db: str,
+        self,
+        ref_db: str,
     ) -> None:
         conn = connect_test_db(ref_db)
         try:
@@ -102,16 +66,29 @@ class TestParseItemId:
             conn.close()
 
     def test_bare_number_uses_project_context_when_operator_mode_enabled(
-        self, ref_db: str,
+        self,
+        ref_db: str,
     ) -> None:
         conn = connect_test_db(ref_db)
         try:
-            assert parse_item_id(
-                "42", project="alpha", conn=conn, allow_bare_internal=False,
-            ) == 1001
-            assert parse_item_id(
-                "42", project="beta", conn=conn, allow_bare_internal=False,
-            ) == 2001
+            assert (
+                parse_item_id(
+                    "42",
+                    project="alpha",
+                    conn=conn,
+                    allow_bare_internal=False,
+                )
+                == 1001
+            )
+            assert (
+                parse_item_id(
+                    "42",
+                    project="beta",
+                    conn=conn,
+                    allow_bare_internal=False,
+                )
+                == 2001
+            )
         finally:
             conn.close()
 
@@ -130,7 +107,8 @@ class TestParseItemId:
         assert parse_item_id(123) == 123
 
     def test_well_formed_missing_public_ref_reports_not_found(
-        self, ref_db: str,
+        self,
+        ref_db: str,
     ) -> None:
         conn = connect_test_db(ref_db)
         try:
@@ -141,7 +119,9 @@ class TestParseItemId:
         finally:
             conn.close()
 
-    def test_duplicate_public_prefix_without_context_is_rejected(self, ref_db: str) -> None:
+    def test_duplicate_public_prefix_without_context_is_rejected(
+        self, ref_db: str
+    ) -> None:
         conn = connect_test_db(ref_db)
         try:
             conn.execute(
@@ -182,11 +162,11 @@ class TestDispatcherItemRefResolution:
     replacement for the retired client-side parse helper)."""
 
     @staticmethod
-    def _request(item_ref: str, project: str | None = None,
-                 session_id: str = "") -> "FunctionCallRequest":
+    def _request(
+        item_ref: str, project: str | None = None, session_id: str = ""
+    ) -> FunctionCallRequest:
         from yoke_contracts.api.function_call import (
             ActorContext,
-            FunctionCallRequest,
             TargetRef,
         )
 
@@ -194,12 +174,16 @@ class TestDispatcherItemRefResolution:
             function="items.get.run",
             actor=ActorContext(actor_id=None, session_id=session_id),
             target=TargetRef(
-                kind="item", item_ref=item_ref, project_id=project,
+                kind="item",
+                item_ref=item_ref,
+                project_id=project,
             ),
         )
 
     def test_bare_number_uses_explicit_project_context(
-        self, ref_db: str, monkeypatch: pytest.MonkeyPatch,
+        self,
+        ref_db: str,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         from yoke_core.domain import db_helpers
         from yoke_core.domain.yoke_function_dispatch_target import (
@@ -216,7 +200,9 @@ class TestDispatcherItemRefResolution:
         assert request.target.project_id is None
 
     def test_bare_number_without_context_is_typed_error(
-        self, ref_db: str, monkeypatch: pytest.MonkeyPatch,
+        self,
+        ref_db: str,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         from yoke_core.domain import db_helpers
         from yoke_core.domain.yoke_function_dispatch_target import (
@@ -233,7 +219,9 @@ class TestDispatcherItemRefResolution:
         assert "project-local" in response.error.message
 
     def test_bare_number_uses_session_item_project_context(
-        self, ref_db: str, monkeypatch: pytest.MonkeyPatch,
+        self,
+        ref_db: str,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         from yoke_core.domain import db_helpers
         from yoke_core.domain.yoke_function_dispatch_target import (
@@ -258,7 +246,9 @@ class TestDispatcherItemRefResolution:
         assert request.target.item_id == 2001
 
     def test_explicit_prefix_overrides_session_item_project_context(
-        self, ref_db: str, monkeypatch: pytest.MonkeyPatch,
+        self,
+        ref_db: str,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         from yoke_core.domain import db_helpers
         from yoke_core.domain.yoke_function_dispatch_target import (
@@ -283,7 +273,9 @@ class TestDispatcherItemRefResolution:
         assert request.target.item_id == 1001
 
     def test_project_qualified_refs_are_typed_errors(
-        self, ref_db: str, monkeypatch: pytest.MonkeyPatch,
+        self,
+        ref_db: str,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         from yoke_core.domain import db_helpers
         from yoke_core.domain.yoke_function_dispatch_target import (
@@ -303,7 +295,9 @@ class TestClientProjectContext:
     YOKE_PROJECT -> machine config checkout map -> None."""
 
     def test_machine_config_checkout_map(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         from yoke_cli.commands._helpers import (
             client_project_context,
@@ -313,19 +307,24 @@ class TestClientProjectContext:
         repo = tmp_path / "checkout"
         repo.mkdir()
         config = tmp_path / "config.json"
-        config.write_text(json.dumps({
-            "schema_version": 1,
-            "active_env": "prod",
-            "connections": {
-                "prod": {
-                    "transport": "https",
-                    "credential_source": {"kind": "env", "name": "YOKE_TOKEN"},
-                },
-            },
-            "projects": {
-                str(repo.resolve()): {"project_id": 2, "project": "beta"},
-            },
-        }), encoding="utf-8")
+        config.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "active_env": "prod",
+                    "connections": {
+                        "prod": {
+                            "transport": "https",
+                            "credential_source": {"kind": "env", "name": "YOKE_TOKEN"},
+                        },
+                    },
+                    "projects": {
+                        str(repo.resolve()): {"project_id": 2, "project": "beta"},
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
 
         monkeypatch.setattr(
             checkout_context, "resolve_repo_root_from_cwd", lambda: str(repo)

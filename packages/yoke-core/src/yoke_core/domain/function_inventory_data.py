@@ -48,10 +48,10 @@ RETAINED_TERMINAL_BOUNDARIES: Tuple[RetainedBoundary, ...] = (
     RetainedBoundary(
         surface="project test commands (pytest, npm test, etc.)",
         category="project_test",
-        owner="Project Structure command_definitions family",
-        rationale="Per-project test invocations are operator-configurable; Yoke reads from project_structure rather than embedding a runner.",
+        owner="QA Command method",
+        rationale="Per-project test invocations are plan cases executed by the shared client-local case runner.",
         allowed_path_globs=(
-            "packages/yoke-core/src/yoke_core/domain/command_definitions.py",
+            "packages/yoke-core/src/yoke_core/domain/qa_case_execution.py",
         ),
     ),
     RetainedBoundary(

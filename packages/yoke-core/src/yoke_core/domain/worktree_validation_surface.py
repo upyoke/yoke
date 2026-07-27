@@ -1,6 +1,6 @@
 """Per-model validation surface provisioning for worktrees under the governed DB-mutation contract.
 
-A ``mutation_intent="apply"`` ticket rehearses its migration on the
+A ``mutation_intent="apply"`` work item rehearses its migration on the
 model's declared validation surface before the live-apply unit runs
 against the authoritative DB. Yoke-project authority is Postgres and
 its primary model declares ``external_validation``; this module provisions

@@ -99,7 +99,7 @@ worktree` when the recursive walk is the point.
 
 `worktree_preflight` returning a non-zero exit code is **always** a sanctioned block. Surface the stderr narrative verbatim and stop the advance — do not advance status, do not retry, and do not paper over the block with `--force` or path-claim widening.
 
-For `work-claim-conflict`, the right remediation is to coordinate with the holder or wait. For `path-claim-blocked`, follow the `BLOCKED:` / `DIVERGED:` rows to the upstream coordination ticket. For `dirty-tracked` / `dirty-untracked`, commit / stash / remove / gitignore on main and retry. For `worktree-create-failed`, surface the `git worktree add` error verbatim and stop.
+For `work-claim-conflict`, the right remediation is to coordinate with the holder or wait. For `path-claim-blocked`, follow the `BLOCKED:` / `DIVERGED:` rows to the upstream coordination work item. For `dirty-tracked` / `dirty-untracked`, commit / stash / remove / gitignore on main and retry. For `worktree-create-failed`, surface the `git worktree add` error verbatim and stop.
 
 ## --no-worktree
 

@@ -194,7 +194,7 @@ def replace_doc(
     actor_id: Optional[int],
     *,
     base_updated_at: str,
-    force: bool = False,
+    force: bool = False, session_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """CAS-replace one of the project's docs; return the byte report.
 
@@ -210,7 +210,6 @@ def replace_doc(
       without ``force=True`` → :class:`StrategyDocShrinkError`;
     - row moved past ``base_updated_at`` → :class:`StrategyDocConflictError`
       (``force`` does NOT bypass — re-read first, always).
-
     Commits on success and returns ``{slug, old_bytes, new_bytes,
     updated_at}``.
     """
@@ -270,6 +269,7 @@ def replace_doc(
     record_doc_revision(
         conn, project_id, slug, content,
         source_operation="replace", actor_id=actor_id, created_at=updated_at,
+        session_id=session_id,
     )
     conn.commit()
     return {

@@ -45,7 +45,7 @@ def repo_root() -> Path:
     """Workspace-anchored live Yoke checkout root for read-only assertions.
 
     Tests that *write* should use ``isolated_repo`` instead — see FR-6 in the
-    workspace-anchored renderer ticket. Read-only assertions (existence,
+    workspace-anchored renderer work item. Read-only assertions (existence,
     parse-shape, content checks) keep using the live tree because they
     document properties of the actual rendered substrate.
     """

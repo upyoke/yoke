@@ -13,7 +13,7 @@ Full bodies in [patterns/engineering-patterns.md](patterns/engineering-patterns.
 - **P-1: Task spec quality directly determines implementation velocity.** Clear, machine-verifiable ACs let Engineers implement quickly and Testers verify in one pass. (Active)
 - **P-2: PRD codebase context is highest-leverage content.** Specs that bundle current file contents and pre-enumerated affected files cut redundant agent exploration. (Addressed — PRDs deprecated)
 - **P-3: Doc-only and micro-tasks need lighter verification.** Full Engineer + Tester dispatch is high overhead for tiny additive changes. (Active)
-- **P-4: High-traffic files accumulate parallel conflict risk.** Files like `advance/SKILL.md` get edited by many tickets — extract shared logic and split SKILL.md files. (Partially addressed)
+- **P-4: High-traffic files accumulate parallel conflict risk.** Files like `advance/SKILL.md` get edited by many work items — extract shared logic and split SKILL.md files. (Partially addressed)
 - **P-5: Test artifacts should be preserved for auditability.** Engineers should capture test output in update notes; shared test-helpers.sh provides reusable infrastructure. (Partially addressed)
 - **P-6: POSIX sh pitfalls cause recurring debugging cycles.** `set -e`, subshell variable scoping, `pipe | while read`, heredoc quoting are the recurring footguns. (Addressed)
 - **P-7: Hardcoded counts drift across documentation files.** HC counts and similar magic numbers go stale across multiple docs. (Addressed — counts removed and dynamic)

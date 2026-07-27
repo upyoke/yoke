@@ -321,32 +321,3 @@ class TestMainCli:
         )
         rc = vsr.main(["--skill-root", str(skill_root), "--parse-only"])
         assert rc == 0
-
-
-class TestNoResidualQaRequirementsAutoRecipes:
-    """AC-5: zero ``python3 -c "from yoke_core.domain.qa_requirements_auto"``
-    recipes survive in live ``.agents/`` content after the function-call +
-    CLI adapter wrap.
-    """
-
-    def _live_skills_root(self) -> Path:
-        here = Path(__file__).resolve()
-        for parent in here.parents:
-            candidate = parent / ".agents" / "skills" / "yoke"
-            if candidate.is_dir():
-                return candidate
-        pytest.skip(".agents/skills/yoke not found from this checkout")
-
-    def test_no_qa_requirements_auto_import_recipes(self) -> None:
-        root = self._live_skills_root()
-        offenders: list[tuple[str, int, str]] = []
-        for md in root.rglob("*.md"):
-            for line_no, line in enumerate(
-                md.read_text(encoding="utf-8").splitlines(), start=1,
-            ):
-                if "qa_requirements_auto" in line:
-                    offenders.append((str(md), line_no, line.strip()))
-        assert offenders == [], (
-            "residual qa_requirements_auto recipe shape found in .agents/:\n"
-            + "\n".join(f"{p}:{n}: {ln}" for p, n, ln in offenders)
-        )

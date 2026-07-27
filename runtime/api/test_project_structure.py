@@ -1,6 +1,6 @@
 """Constitution invariants, schema init, and envelope validation for ``yoke_core.domain.project_structure``.
 
-Family-specific tests (replacement rejection, command_definitions, write/read
+Family-specific tests (replacement rejection, write/read
 round-trip, atomicity, stale-base-version) live in
 ``test_project_structure_families.py``. Seed recipe and CLI tests live in
 ``test_project_structure_seed_cli.py``.
@@ -72,9 +72,7 @@ class TestConstitutionInvariants:
             "verification_profiles",
             "ownership_defaults",
             "integration_targets",
-            "command_definitions",
             "deploy_defaults",
-            "merge_verification",
             "context_routing",
             "architecture_model",
         }

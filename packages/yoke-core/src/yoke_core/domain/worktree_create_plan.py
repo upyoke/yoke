@@ -1,9 +1,7 @@
 """Worktree planning helpers for ``create_worktree``.
 
 Houses the multi-worktree vocabulary the unified creator uses to handle both
-single-worktree issue items and multi-worktree epic items through one
-provisioning loop. Single-worktree is the N=1 case; multi-worktree epics
-resolve their worktree list from ``epic_dispatch_chains``.
+single-lane and task-lane items through one provisioning loop.
 
 Why this module exists: ``worktree_create.py`` already approaches the
 350-line hard limit owned by ``yoke_core.domain.file_line_check``.
@@ -18,22 +16,17 @@ import os
 from dataclasses import dataclass, field
 from typing import List, Optional, Sequence, Tuple
 
-from yoke_core.domain import db_backend
-from yoke_core.domain.schema_common import _table_exists
-from yoke_core.domain.workflow_behavior import (
-    LANE_IMPLEMENTATION,
-    generates_task_graph,
+from yoke_core.domain.workflow_behavior import LANE_IMPLEMENTATION
+from yoke_core.domain.worktree_lane_plan import (
+    resolve_worktree_lanes_for_item,
 )
-from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
-from yoke_core.domain.worktree_lane_plan import normalize_worktree_lane
 
 
 @dataclass
 class WorktreeCreationEntry:
     """One worktree in a multi-worktree ``create_worktree`` call.
 
-    A single-worktree issue resolves to one entry; an epic resolves to one
-    entry per ``epic_dispatch_chains`` row.
+    Every entry is backed by the item's universal lane registry.
     """
 
     branch: str
@@ -48,9 +41,8 @@ class WorktreeCreationEntry:
 class WorktreeCreationPlan:
     """All-worktree preflight result.
 
-    ``worktrees`` is ordered to match the underlying source —
-    single-worktree fallback first, then ``epic_dispatch_chains.worktree``
-    ordering for epic items. ``primary`` is the first worktree; the
+    ``worktrees`` is ordered by universal lane priority. ``primary`` is the
+    first worktree; the
     session's claim over it (not an envelope) defines write authority going
     forward.
     """
@@ -73,61 +65,18 @@ def resolve_worktrees_for_item(
 ) -> List[Tuple[str, str]]:
     """Return ``(branch, path)`` worktree pairs for ``item_id``.
 
-    Issue / unknown / no-DB items resolve to one worktree keyed on
-    ``YOK-N``. Epic items read their worktree list from
-    ``epic_dispatch_chains``; when that table is empty for the epic, the
-    resolver falls back to the single-worktree shape so the caller never
-    produces a partial epic.
+    The compatibility return shape omits each lane role; all authority comes
+    from ``item_worktrees`` through the shared workflow-policy resolver.
     """
-    fallback = [(f"YOK-{item_id}", os.path.join(repo_root, wt_dir, f"YOK-{item_id}"))]
-
-    try:
-        from yoke_core.domain.db_helpers import connect
-    except Exception:
-        return fallback
-
-    try:
-        conn = connect(db_path)
-    except Exception:
-        return fallback
-
-    try:
-        if not _table_exists(conn, "items"):
-            return fallback
-        p = "%s" if db_backend.connection_is_postgres(conn) else "?"
-        row = conn.execute(
-            f"SELECT id FROM items WHERE id = {p}",
-            (int(item_id),),
-        ).fetchone()
-        if row is None or not generates_task_graph(
-            load_item_workflow_runtime(conn, int(item_id))
-        ):
-            return fallback
-        if not _table_exists(conn, "epic_dispatch_chains"):
-            return fallback
-
-        rows = conn.execute(
-            """SELECT COALESCE(worktree, '') AS branch,
-                      COALESCE(worktree_path, '') AS path
-               FROM epic_dispatch_chains
-               WHERE epic_id = {p}
-                 AND COALESCE(worktree, '') <> ''
-               ORDER BY worktree""".format(p=p),
-            (int(item_id),),
-        ).fetchall()
-
-        worktrees = [
-            normalize_worktree_lane(
-                row["branch"],
-                row["path"],
-                repo_root,
-                wt_dir,
-            )
-            for row in rows
-        ]
-        return worktrees or fallback
-    finally:
-        conn.close()
+    return [
+        (branch, path)
+        for branch, path, _lane_role in resolve_worktree_lanes_for_item(
+            item_id,
+            repo_root,
+            wt_dir,
+            db_path,
+        )
+    ]
 
 
 def _classify_existing(branch: str, path: str) -> Tuple[bool, Optional[str]]:

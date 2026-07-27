@@ -250,7 +250,7 @@ class TestStaticCwdSubstrateNoChainBurnRegression:
     The originating evidence was a /yoke do run where worktree creation
     flipped the item to ``implementing``, the path claim went active, the
     declared scope was ``worktree``, but Claude Code's cwd remained at main.
-    The lint_session_cwd carve-outs from the same ticket family now sanction
+    The lint_session_cwd carve-outs from the same work-item family now sanction
     the static-cwd substrate so the resume can proceed; this regression pins
     the decision-engine half: when step 2 is the same item / same status /
     same required_path as step 1's completed disposition, the decision must

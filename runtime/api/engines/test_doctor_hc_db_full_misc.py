@@ -32,7 +32,7 @@ class TestHCSyntheticEventContamination:
 
     def test_pass_no_events_table(self, test_db):
         """PASS when events table absent."""
-        test_db.execute("DROP TABLE IF EXISTS events")
+        test_db.execute("DROP TABLE IF EXISTS events CASCADE")
         test_db.commit()
         rec = _run_hc(hc_synthetic_event_contamination, test_db)
         r = _result(rec)

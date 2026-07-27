@@ -80,7 +80,14 @@ The rendered `.yoke/strategy/*.md` views are gitignored local caches, so their c
 yoke strategy doc list --project "$_project"
 ```
 
-Each row's `updated_at` / `updated_by` shows which docs changed and how recently. The narrative of prior approved changes is the `SMLChangeApproved` / `StrategyDocReplaced` event trail (query the events surface, e.g. `yoke db read --format lines "SELECT created_at, context FROM events WHERE event_name = 'SMLChangeApproved' ORDER BY created_at DESC LIMIT 10"`).
+Each row's `updated_at` / `updated_by` shows which docs changed and how recently.
+The narrative of prior approved changes is the `SMLChangeApproved` /
+`StrategyDocReplaced` event trail. Event context lives under
+`envelope.context`, so project-Postgres diagnostics extract that JSON path:
+
+```bash
+yoke db read --format lines "SELECT created_at, NULLIF(envelope, '')::jsonb -> 'context' AS context FROM events WHERE event_name = 'SMLChangeApproved' ORDER BY created_at DESC LIMIT 10"
+```
 
 ### 2d. Board State
 
@@ -101,7 +108,7 @@ _recent_done_sample=$(yoke db read --format lines "SELECT id, title FROM items W
 The `head -30` commit sample in step 2b and the `LIMIT 10` done-items sample
 in step 2d are **presentation-only** — the Strategize State Refresh summary
 must present the **complete bounded set** of landed work that still owes a
-`MASTER-PLAN.md` reflection or explicit dismissal. That set is owned by
+`.yoke/strategy/MASTER-PLAN.md` reflection or explicit dismissal. That set is owned by
 the registered `yoke strategy carry ...` surfaces, which:
 
 - Scans items merged within the configured horizon

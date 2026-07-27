@@ -274,7 +274,7 @@ class TestRefineRecoverableReadinessRepair:
         # Anti-regression for the original bug: a bare
         # `if [ "$?" -ne 0 ]; then ... release-work-claim ... exit 1`
         # block with no classification is exactly the contradiction this
-        # ticket exists to delete.
+        # work item exists to delete.
         assert 'readiness-check-blocked' in text
         # The release/exit must be conditional on the unrecoverable case.
         assert 'unrecoverable' in text

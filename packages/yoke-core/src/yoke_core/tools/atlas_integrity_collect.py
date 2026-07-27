@@ -69,15 +69,17 @@ def collect_subcommand_registry() -> Dict[str, Any]:
     Includes both the primary ``SUBCOMMAND_REGISTRY`` (mechanically
     grammar-translated from function ids) and ``SUBCOMMAND_ALIAS_REGISTRY``
     (operator-intuitive aliases that route to an existing function id).
-    Both surfaces are reachable from the agent CLI; the audit treats them
-    uniformly as wrapped reach. Alias rows are tagged ``alias=True`` for
-    diagnostic value.
+    Both surfaces are reachable from the agent CLI. Most rows dispatch a
+    registered function; the deliberately client-local rows stay classified
+    as permanent command-shaped boundaries. Alias and dispatch-kind metadata
+    keep those two contracts distinct in the audit and rendered Atlas.
     """
     from yoke_cli.commands.registry import (
         SUBCOMMAND_ALIAS_REGISTRY,
         SUBCOMMAND_REGISTRY,
     )
     from yoke_cli.commands.flag_adapters import ADAPTER_USAGE
+    from yoke_core.domain.function_authz_scope import is_explicit_client_local
 
     def _row(cli_tokens, function_id, is_alias):
         usage = ADAPTER_USAGE.get(function_id, "")
@@ -89,6 +91,11 @@ def collect_subcommand_registry() -> Dict[str, Any]:
             "has_usage_line": bool(usage),
             "usage": usage,
             "alias": is_alias,
+            "dispatch_kind": (
+                "client_local"
+                if is_explicit_client_local(function_id)
+                else "dispatcher"
+            ),
         }
 
     rows: List[Dict[str, Any]] = []
@@ -96,7 +103,15 @@ def collect_subcommand_registry() -> Dict[str, Any]:
         rows.append(_row(cli_tokens, function_id, False))
     for cli_tokens, (function_id, _adapter) in sorted(SUBCOMMAND_ALIAS_REGISTRY.items()):
         rows.append(_row(cli_tokens, function_id, True))
-    return {"count": len(rows), "rows": rows}
+    by_dispatch_kind: Dict[str, int] = {}
+    for row in rows:
+        key = row["dispatch_kind"]
+        by_dispatch_kind[key] = by_dispatch_kind.get(key, 0) + 1
+    return {
+        "count": len(rows),
+        "by_dispatch_kind": by_dispatch_kind,
+        "rows": rows,
+    }
 
 
 def collect_operation_tracker() -> Dict[str, Any]:

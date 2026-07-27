@@ -61,7 +61,7 @@ environment settings); this file carries the context those records cannot:
 the why, the order, the gotchas.
 
 Fill in the sections below as the deploy story takes shape — agents working
-deployment tickets should keep this current.
+deployment work items should keep this current.
 
 ## Targets and environments
 

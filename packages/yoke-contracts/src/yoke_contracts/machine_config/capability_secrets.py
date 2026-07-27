@@ -14,9 +14,16 @@ AWS_ADMIN_SECRET_KEYS = frozenset({
 SSH_CAPABILITY = "ssh"
 SSH_PRIVATE_KEY_SECRET_KEY = "private_key"
 SSH_SECRET_KEYS = frozenset({SSH_PRIVATE_KEY_SECRET_KEY})
+TEST_MACHINE_CAPABILITY = "test-machine"
+TEST_MACHINE_SECRET_KEYS = frozenset({
+    "screen_control_token",
+    "ssh_private_key",
+    "sudo_password",
+})
 MACHINE_LOCAL_SECRET_KEYS_BY_CAPABILITY = {
     AWS_ADMIN_CAPABILITY: AWS_ADMIN_SECRET_KEYS,
     SSH_CAPABILITY: SSH_SECRET_KEYS,
+    TEST_MACHINE_CAPABILITY: TEST_MACHINE_SECRET_KEYS,
 }
 
 
@@ -87,6 +94,8 @@ __all__ = [
     "SSH_CAPABILITY",
     "SSH_PRIVATE_KEY_SECRET_KEY",
     "SSH_SECRET_KEYS",
+    "TEST_MACHINE_CAPABILITY",
+    "TEST_MACHINE_SECRET_KEYS",
     "capability_secret_directory_relative_path",
     "capability_secret_relative_path",
     "is_machine_local_capability_secret",

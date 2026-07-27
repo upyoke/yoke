@@ -1,8 +1,8 @@
-"""Python backstop for the retired ``tests/test-browser-run-scenario.sh`` suite.
+"""Python backstop for the Browser method executor substrate.
 
 The original Python port of the shell suite lived in this file alongside every
-scenario class. It now hosts only the small entry-point checks (argparse,
-requirements/base_url plumbing, and reachability/daemon-init) so each authored
+scenario class. It now hosts only requirement/base_url plumbing and
+reachability/daemon-init checks so each authored
 file stays under the 350-line limit. The remaining scenarios live in sibling
 ``test_browser_qa_*.py`` files; shared helpers live in
 ``browser_qa_test_helpers``.
@@ -22,6 +22,7 @@ from yoke_core.domain import browser_qa
 from yoke_core.domain import browser_qa_requirement
 from yoke_core.domain import browser_qa_results
 from yoke_core.domain.browser_qa_test_helpers import (
+    _browser_verdict_assertion,
     _patch_external_deps,
     _run_scenario,
     _seed_item,
@@ -34,32 +35,6 @@ from runtime.api.fixtures.file_test_db import init_test_db
 def db_path(tmp_path):
     with init_test_db(tmp_path) as path:
         yield path
-
-
-# ---------------------------------------------------------------------------
-# CLI argparse surface
-# ---------------------------------------------------------------------------
-
-class TestArgparseSurface:
-    """Port of AC-2 shell cases: required args."""
-
-    def test_ac2_no_args_exits_nonzero(self) -> None:
-        """AC-2a: no args → argparse exits nonzero (SystemExit)."""
-        with pytest.raises(SystemExit) as exc:
-            browser_qa.main([])
-        assert exc.value.code != 0
-
-    def test_ac2_missing_project_exits_nonzero(self) -> None:
-        """AC-2b: missing --project → argparse exits nonzero."""
-        with pytest.raises(SystemExit) as exc:
-            browser_qa.main(["--item-id", "100"])
-        assert exc.value.code != 0
-
-    def test_ac2_missing_item_id_exits_nonzero(self) -> None:
-        """AC-2c: missing --item-id → argparse exits nonzero."""
-        with pytest.raises(SystemExit) as exc:
-            browser_qa.main(["--project", "testproj"])
-        assert exc.value.code != 0
 
 
 # ---------------------------------------------------------------------------
@@ -78,6 +53,7 @@ class TestRequirementsAndBaseUrl:
             result = browser_qa.execute_scenario(
                 item_id=200,
                 project="testproj",
+                requirement_id=-1,
                 base_url="http://localhost:9999",
             )
         finally:
@@ -85,14 +61,18 @@ class TestRequirementsAndBaseUrl:
                 p.stop()
 
         assert result.note == "no_browser_requirements"
-        # main() converts this note into exit 2.
 
     def test_no_base_url_no_fallback_returns_error(self, db_path: str) -> None:
         """If --base-url is empty AND success_policy has no base_url, note=no_base_url."""
         _seed_item(db_path, 100)
         _seed_requirement(
-            db_path, 100, "browser_smoke",
-            {"steps": [{"action": "navigate", "route": "/"}]},
+            db_path, 100, "browser-check",
+            {
+                "steps": [
+                    {"action": "navigate", "route": "/"},
+                    _browser_verdict_assertion(),
+                ],
+            },
         )
 
         result = _run_scenario(db_path, 100, base_url="")
@@ -103,10 +83,13 @@ class TestRequirementsAndBaseUrl:
         """AC-2 base_url fallback: success_policy.base_url used when flag omitted."""
         _seed_item(db_path, 100)
         _seed_requirement(
-            db_path, 100, "browser_smoke",
+            db_path, 100, "browser-check",
             {
                 "base_url": "http://localhost:9999",
-                "steps": [{"action": "navigate", "route": "/"}],
+                "steps": [
+                    {"action": "navigate", "route": "/"},
+                    _browser_verdict_assertion(),
+                ],
             },
         )
 
@@ -123,8 +106,14 @@ class TestReachabilityAndDaemon:
         """AC-4: unreachable base_url returns verdict=error, note=unreachable."""
         _seed_item(db_path, 100)
         _seed_requirement(
-            db_path, 100, "browser_smoke",
-            {"base_url": "http://unreachable.invalid", "steps": [{"action": "navigate"}]},
+            db_path, 100, "browser-check",
+            {
+                "base_url": "http://unreachable.invalid",
+                "steps": [
+                    {"action": "navigate", "route": "/"},
+                    _browser_verdict_assertion(),
+                ],
+            },
         )
 
         result = _run_scenario(db_path, 100, reachable=False)
@@ -135,8 +124,14 @@ class TestReachabilityAndDaemon:
         """Daemon start failure → verdict=error, note=daemon_failure."""
         _seed_item(db_path, 100)
         _seed_requirement(
-            db_path, 100, "browser_smoke",
-            {"base_url": "http://localhost:9999", "steps": [{"action": "navigate"}]},
+            db_path, 100, "browser-check",
+            {
+                "base_url": "http://localhost:9999",
+                "steps": [
+                    {"action": "navigate", "route": "/"},
+                    _browser_verdict_assertion(),
+                ],
+            },
         )
 
         result = _run_scenario(db_path, 100, daemon_ok=False)

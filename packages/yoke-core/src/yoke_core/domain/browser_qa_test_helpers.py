@@ -53,23 +53,24 @@ def _seed_item(db_path: str, item_id: int, title: str = "Test item") -> None:
 def _seed_requirement(
     db_path: str,
     item_id: int,
-    qa_kind: str,
-    success_policy: Dict[str, Any] | None,
+    method_id: str,
+    method_config: Dict[str, Any] | None,
 ) -> int:
     conn = connect_test_db(db_path)
     p = _placeholder(conn)
     cur = conn.execute(
         f"""
         INSERT INTO qa_requirements (
-            item_id, qa_kind, qa_phase, target_env,
-            blocking_mode, requirement_source, success_policy, created_at
-        ) VALUES ({p}, {p}, 'verification', 'ephemeral', 'blocking', 'seeded_default', {p}, {p})
+            item_id, qa_kind, method_id, method_config, qa_phase, target_env,
+            blocking_mode, requirement_source, created_at
+        ) VALUES ({p}, 'plan_case', {p}, {p}, 'verification', 'ephemeral',
+                  'blocking', 'seeded_default', {p})
         RETURNING id
         """,
         (
             item_id,
-            qa_kind,
-            json.dumps(success_policy) if success_policy is not None else None,
+            method_id,
+            json.dumps(method_config) if method_config is not None else None,
             "2026-01-01T00:00:00Z",
         ),
     )
@@ -77,6 +78,26 @@ def _seed_requirement(
     conn.commit()
     conn.close()
     return int(req_id)
+
+
+def _browser_verdict_assertion() -> Dict[str, str]:
+    """Return the deterministic assertion used by orchestration fixtures."""
+    return {
+        "action": "assert",
+        "target": "body",
+        "check": "visible",
+    }
+
+
+def _browser_check_steps(
+    *additional_steps: Dict[str, Any],
+) -> List[Dict[str, Any]]:
+    """Return a minimally valid check around scenario-specific steps."""
+    return [
+        {"action": "navigate", "route": "/"},
+        _browser_verdict_assertion(),
+        *additional_steps,
+    ]
 
 
 class _FakeRunRecorder:
@@ -98,6 +119,8 @@ class _FakeRunRecorder:
         qa_kind: str,
         verdict: str | None = None,
         raw_result: str | None = None,
+        *,
+        actor=None,
     ) -> int:
         conn = connect_test_db(self.db_path)
         p = _placeholder(conn)
@@ -128,6 +151,7 @@ class _FakeRunRecorder:
         raw_result: str | None = None,
         *,
         execution_status: str | None = None,
+        actor=None,
     ) -> None:
         conn = connect_test_db(self.db_path)
         p = _placeholder(conn)
@@ -147,6 +171,8 @@ class _FakeRunRecorder:
         content_type: str,
         artifact_handle: dict,
         metadata: str,
+        *,
+        actor=None,
     ) -> int:
         from yoke_core.domain.qa_artifact_handle import serialize_handle
 
@@ -170,6 +196,7 @@ def _fetch_context_from_test_db(
     db_path: str,
     item_id: int,
     project: str,
+    requirement_id: int,
     expected_branch: str | None = None,
 ) -> Dict[str, Any]:
     """Direct-DB stand-in for browser_qa._fetch_browser_context.
@@ -182,13 +209,21 @@ def _fetch_context_from_test_db(
     p = _placeholder(conn)
     try:
         rows = conn.execute(
-            "SELECT id, qa_kind, success_policy FROM qa_requirements "
-            f"WHERE item_id = {p} AND qa_kind IN ('browser_smoke', 'browser_diff') "
-            "AND waived_at IS NULL ORDER BY id",
-            (item_id,),
+            "SELECT id, qa_kind, method_id, method_config, expected_outcome "
+            "FROM qa_requirements "
+            f"WHERE item_id = {p} AND id = {p} "
+            "AND method_id IN ('browser-check', 'browser-inspection') "
+            "AND waived_at IS NULL",
+            (item_id, requirement_id),
         ).fetchall()
         requirements = [
-            {"id": int(r[0]), "qa_kind": str(r[1]), "success_policy": r[2]}
+            {
+                "id": int(r[0]),
+                "qa_kind": str(r[1]),
+                "method_id": str(r[2]),
+                "method_config": r[3],
+                "expected_outcome": r[4],
+            }
             for r in rows
         ]
         deployed_sha = None
@@ -223,9 +258,11 @@ def _patch_external_deps(
     """Return a list of active mock.patch context managers."""
     recorder = _FakeRunRecorder(db_path)
 
-    def _fake_context(item_id, project, expected_branch=None):
+    def _fake_context(
+        item_id, project, requirement_id, expected_branch=None, actor=None,
+    ):
         return _fetch_context_from_test_db(
-            db_path, item_id, project, expected_branch,
+            db_path, item_id, project, requirement_id, expected_branch,
         )
 
     patches = [
@@ -255,7 +292,9 @@ def _patch_external_deps(
     if execute_step_responses is not None:
         # Each step yields the next response in the list, cycling the last one
         # if more steps are executed than responses provided.
-        def _fake_step(*_args, **_kwargs):
+        def _fake_step(step, *_args, **_kwargs):
+            if step.get("action") == "assert":
+                return {"success": True, "artifacts": []}
             if not execute_step_responses:
                 return {"success": True, "artifacts": []}
             if len(execute_step_responses) > 1:
@@ -273,8 +312,23 @@ def _run_scenario(
     *,
     project: str = "testproj",
     base_url: str = "http://localhost:9999",
+    requirement_id: int | None = None,
     **patch_kwargs: Any,
 ) -> browser_qa.ScenarioResult:
+    if requirement_id is None:
+        conn = connect_test_db(db_path)
+        p = _placeholder(conn)
+        try:
+            row = conn.execute(
+                "SELECT id FROM qa_requirements "
+                f"WHERE item_id = {p} "
+                "AND method_id IN ('browser-check', 'browser-inspection') "
+                "ORDER BY id LIMIT 1",
+                (item_id,),
+            ).fetchone()
+        finally:
+            conn.close()
+        requirement_id = int(row[0]) if row is not None else -1
     patches = _patch_external_deps(db_path, **patch_kwargs)
     for p in patches:
         p.start()
@@ -282,6 +336,7 @@ def _run_scenario(
         return browser_qa.execute_scenario(
             item_id=item_id,
             project=project,
+            requirement_id=requirement_id,
             base_url=base_url,
         )
     finally:

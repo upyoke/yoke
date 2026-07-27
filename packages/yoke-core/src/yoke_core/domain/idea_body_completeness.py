@@ -5,7 +5,7 @@ classification used by:
 
 - :mod:`yoke_core.domain.frontier_compute` — pushes incomplete idea
   bodies into ``blocked`` instead of ``runnable`` so the frontier never
-  hands a title-only ticket to ``/yoke refine``.
+  hands a title-only work item to ``/yoke refine``.
 - :mod:`yoke_core.engines.doctor_hc_meta_backlog` — surfaces tail-case
   items that re-emerged unclaimed after stale-heartbeat reclaim.
 - ``.agents/skills/yoke/advance/preflight-recovery.md`` — the

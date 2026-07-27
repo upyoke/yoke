@@ -89,7 +89,7 @@ The readiness issue's `context.recovery_command` is a ready-to-paste invocation 
 3. Decide from the evidence:
    - **Independent edits** (different sections / no logical coupling) →
      author ``coordination_only`` with rationale naming the shared paths
-     and the disjoint subsections each ticket edits.
+     and the disjoint subsections each work item edits.
    - **Order-dependent edits** (candidate inherits or restructures what
      upstream lands) → author explicit ``--gate-point activation`` with
      directional rationale (`decision=directional, ...`).

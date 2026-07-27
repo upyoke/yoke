@@ -61,6 +61,7 @@ CREATE TABLE IF NOT EXISTS {STRATEGY_DOC_REVISIONS_TABLE} (
   byte_length BIGINT NOT NULL,
   source_operation TEXT NOT NULL,
   actor_id BIGINT,
+  session_id TEXT,
   created_at TEXT NOT NULL
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uq_strategy_doc_revisions_doc_revision
@@ -76,6 +77,7 @@ def record_doc_revision(
     *,
     source_operation: str,
     actor_id: Optional[int],
+    session_id: Optional[str] = None,
     created_at: str,
 ) -> int:
     """Append one revision row inside the caller's open transaction.
@@ -101,8 +103,8 @@ def record_doc_revision(
     conn.execute(
         f"INSERT INTO {STRATEGY_DOC_REVISIONS_TABLE} "
         "(project_id, slug, revision, content, content_sha256, "
-        "byte_length, source_operation, actor_id, created_at) "
-        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        "byte_length, source_operation, actor_id, session_id, created_at) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
         (
             project_id,
             slug,
@@ -112,6 +114,7 @@ def record_doc_revision(
             len(content.encode("utf-8")),
             source_operation,
             actor_id,
+            session_id,
             created_at,
         ),
     )

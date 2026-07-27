@@ -15,15 +15,16 @@ real ``execute_create`` against a disposable DB.
 
 from __future__ import annotations
 
-import io
 import os
 from unittest import mock
 
 from runtime.api.backlog_mutations_test_helpers import (
+    _conn,
     _item_field,
     _patch_externals,
     tmp_db,  # noqa: F401 — re-exported pytest fixture
 )
+from runtime.api.qa_catalog_test_support import CATALOG_CASES
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -120,6 +121,7 @@ class TestItemsCreateHandler:
         )
         assert outcome.primary_success is True
         assert captured["entry_surface"] == "harness_skill"
+        assert captured["workflow_posture"] == {}
         assert outcome.result_payload["item_id"] == 7
 
     def test_token_actor_used_as_source(self, monkeypatch):
@@ -208,7 +210,103 @@ class TestItemsCreateHandler:
 
 
 class TestItemsCreateEndToEnd:
-    def test_payload_entry_surface_creates_a_row(self, tmp_db, monkeypatch):
+    def test_plan_posture_creates_item_attachment_at_dash_review(
+        self, tmp_db, monkeypatch,  # noqa: F811
+    ):
+        from yoke_core.domain.qa_catalog_schema import (
+            create_qa_catalog_tables,
+        )
+        from yoke_core.domain.qa_plan_management import (
+            create_plan,
+            replace_plan_cases,
+        )
+
+        conn = _conn(tmp_db)
+        try:
+            create_qa_catalog_tables(conn)
+            plan = create_plan(
+                conn,
+                project="yoke",
+                slug="dash-close",
+                name="Dash close",
+            )
+            replace_plan_cases(
+                conn, plan_id=plan["id"], cases=[CATALOG_CASES[0]],
+            )
+        finally:
+            conn.close()
+
+        monkeypatch.delenv(ITEM_ENTRY_SURFACE_ENV, raising=False)
+        with _patch_externals(), \
+             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
+            outcome = handle_item_create(
+                _request({
+                    "title": "Fix the footer",
+                    "instruction": "Correct the footer and verify every link.",
+                    "workflow": "dash",
+                    "project": "yoke",
+                    "entry_surface": "web_form",
+                    "workflow_posture": {
+                        "verification": {
+                            "kind": "plan",
+                            "plan_id": plan["id"],
+                        },
+                    },
+                }),
+            )
+
+        assert outcome.primary_success is True, outcome.error
+        item_id = int(outcome.result_payload["item_id"])
+        conn = _conn(tmp_db)
+        try:
+            attachment = conn.execute(
+                "SELECT plan_id, transition_id, qa_phase "
+                "FROM qa_plan_item_attachments WHERE item_id=%s",
+                (item_id,),
+            ).fetchone()
+            requirement_count = conn.execute(
+                "SELECT COUNT(*) FROM qa_requirements WHERE item_id=%s",
+                (item_id,),
+            ).fetchone()[0]
+        finally:
+            conn.close()
+
+        assert int(attachment["plan_id"]) == int(plan["id"])
+        assert attachment["transition_id"] == "reviewing-implementation"
+        assert attachment["qa_phase"] == "verification"
+        assert int(requirement_count) == 0
+
+    def test_web_form_create_stores_instruction_and_posture_atomically(
+        self, tmp_db, monkeypatch,  # noqa: F811
+    ):
+        monkeypatch.delenv(ITEM_ENTRY_SURFACE_ENV, raising=False)
+        with _patch_externals(), \
+             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
+            outcome = handle_item_create(
+                _request({
+                    "title": "Fix the footer",
+                    "instruction": "Correct the footer and verify every link.",
+                    "workflow": "dash",
+                    "project": "yoke",
+                    "entry_surface": "web_form",
+                    "workflow_posture": {
+                        "path_claims": True,
+                        "approval_on_done": True,
+                    },
+                }),
+            )
+        assert outcome.primary_success is True, outcome.error
+        item_id = outcome.result_payload["item_id"]
+        assert _item_field(tmp_db, item_id, "spec") == (
+            "Correct the footer and verify every link."
+        )
+        assert _item_field(tmp_db, item_id, "workflow_posture") == (
+            '{"approval_on_done": true, "path_claims": true}'
+        )
+
+    def test_payload_entry_surface_creates_a_row(
+        self, tmp_db, monkeypatch,  # noqa: F811
+    ):
         monkeypatch.delenv(ITEM_ENTRY_SURFACE_ENV, raising=False)
         with _patch_externals(), \
              mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
@@ -234,7 +332,7 @@ class TestItemsCreateEndToEnd:
         assert isinstance(version_id, int) and version_id > 0
 
     def test_missing_entry_surface_blocked_end_to_end(
-        self, tmp_db, monkeypatch,
+        self, tmp_db, monkeypatch,  # noqa: F811
     ):
         monkeypatch.delenv(ITEM_ENTRY_SURFACE_ENV, raising=False)
         with _patch_externals(), \

@@ -102,6 +102,7 @@ def handle_qa_screenshot_evidence_satisfy(
         query_rows,
         query_scalar,
     )
+    from yoke_core.domain.qa_constants import browser_requirement_predicate
 
     item_id = request.target.item_id
     if item_id is None:
@@ -120,7 +121,7 @@ def handle_qa_screenshot_evidence_satisfy(
             SELECT COUNT(*) FROM qa_runs qr
             JOIN qa_requirements r ON r.id = qr.qa_requirement_id
             WHERE r.item_id = {p}
-              AND r.qa_kind IN ('browser_smoke','browser_diff')
+              AND {browser_requirement_predicate("r")}
               AND qr.executor_type = 'browser_substrate'
               AND qr.execution_status = 'captured'
               AND qr.verdict = 'pass'
@@ -130,9 +131,9 @@ def handle_qa_screenshot_evidence_satisfy(
                 "capture_not_verified",
                 f"item {item_id} has no inspection-verified browser captures "
                 "(need execution_status='captured' AND verdict='pass' on a "
-                "browser_smoke/browser_diff run). Call qa.run.complete with "
-                "verdict='pass' on the capture run after screenshot "
-                "inspection, then retry.",
+                "Browser method case). Re-run or resolve the materialized "
+                "case through the shared case execution/review flow, then "
+                "retry.",
             )
 
         unsatisfied = query_rows(

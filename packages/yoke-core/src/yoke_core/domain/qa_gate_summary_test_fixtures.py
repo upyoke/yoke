@@ -28,6 +28,7 @@ CREATE TABLE qa_requirements (
     task_num INTEGER,
     deployment_run_id TEXT,
     qa_kind TEXT NOT NULL,
+    method_id TEXT,
     qa_phase TEXT NOT NULL,
     blocking_mode TEXT NOT NULL DEFAULT 'blocking',
     requirement_source TEXT DEFAULT 'explicit',
@@ -105,6 +106,7 @@ def add_requirement(
     epic_id: Optional[int] = None,
     task_num: Optional[int] = None,
     qa_kind: str = "ac_verification",
+    method_id: Optional[str] = None,
     qa_phase: str = "verification",
     blocking_mode: str = "blocking",
     waived_at: Optional[str] = None,
@@ -114,13 +116,13 @@ def add_requirement(
         cursor = conn.execute(
             """
             INSERT INTO qa_requirements
-              (item_id, epic_id, task_num, qa_kind, qa_phase, blocking_mode,
-               waived_at, created_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+              (item_id, epic_id, task_num, qa_kind, method_id, qa_phase,
+               blocking_mode, waived_at, created_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
             """,
-            (item_id, epic_id, task_num, qa_kind, qa_phase, blocking_mode,
-             waived_at, "2026-05-07T00:00:00Z"),
+            (item_id, epic_id, task_num, qa_kind, method_id, qa_phase,
+             blocking_mode, waived_at, "2026-05-07T00:00:00Z"),
         )
         rid = int(cursor.fetchone()[0])
         conn.commit()

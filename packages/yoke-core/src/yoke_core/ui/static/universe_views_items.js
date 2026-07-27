@@ -1,145 +1,301 @@
 import { buildUniverseRoute } from "./universe_navigation.js";
 import {
   el,
-  loadScopedSection,
-  loadSection,
   mergedRows,
-  renderTable,
+  renderError,
   scopeBuckets,
   section,
+  settledScopedCalls,
   statePill,
-  withProjectColumn,
 } from "./universe_view_support.js";
+import { actionLink } from "./item_view_primitives.js";
+export { renderItemDetailView } from "./item_detail_loader.js";
 
-// `blocked` arrives as the string "0"/"1", which makes both values truthy —
-// read it as a number, never as a bare condition.
-function isBlocked(row) {
-  return Number(row.blocked) === 1;
+function detailProject(scope, projects) {
+  if (Array.isArray(scope)) return scope[0] || null;
+  if (scope === "all") return projects[0] ? String(projects[0].id) : null;
+  return scope;
 }
 
-export function renderItemsView(context, main, scope) {
-  const panel = section(context.document, "Items");
-  main.replaceChildren(panel);
+function itemsScopeSummary(scope, projects) {
+  if (scope === "all" || scope === null) {
+    return "across all projects · every durable piece of project work";
+  }
+  const selected = Array.isArray(scope) ? scope : [scope];
+  const labels = selected.map((projectId) => {
+    const project = projects.find(
+      (candidate) => String(candidate.id) === String(projectId),
+    );
+    return project?.slug || project?.name || String(projectId);
+  });
+  return `scoped to ${labels.join(" + ")} · every durable piece of project work`;
+}
+
+function claimLabel(row) {
+  const claim = row.claimed_by;
+  return claim ? (claim.actor_label || claim.session_id || "") : "";
+}
+
+function eventCameFromControl(event, row) {
+  let target = event.target;
+  while (target && target !== row) {
+    if (["A", "BUTTON", "INPUT", "SELECT", "TEXTAREA", "TIME"].includes(
+      String(target.tagName || "").toUpperCase(),
+    )) return true;
+    target = target.parentNode;
+  }
+  return false;
+}
+
+function makeRowNavigable(documentNode, row, href) {
+  row.tabIndex = 0;
+  row.setAttribute("role", "link");
+  row.setAttribute("aria-label", `Open ${row.children[0]?.textContent || "item"}`);
+  row.addEventListener("click", (event) => {
+    if (eventCameFromControl(event, row)) return;
+    documentNode.defaultView.location.hash = href;
+  });
+  row.addEventListener("keydown", (event) => {
+    if (eventCameFromControl(event, row)) return;
+    if (!["Enter", " "].includes(event.key)) return;
+    if (typeof event.preventDefault === "function") event.preventDefault();
+    documentNode.defaultView.location.hash = href;
+  });
+}
+
+function itemTable(documentNode, rows, rowHref) {
+  if (!rows.length) {
+    return el(documentNode, "p", "empty", "No items match this view.");
+  }
+  const table = el(documentNode, "table", "items item-roster");
+  const head = el(documentNode, "tr");
+  for (const label of [
+    "ID", "Title", "Workflow", "Status", "Owner", "Claimed by",
+  ]) {
+    head.appendChild(el(documentNode, "th", null, label));
+  }
+  table.appendChild(head);
+  for (const row of rows) {
+    const href = rowHref(row);
+    const tr = el(documentNode, "tr", "item-roster-row");
+    const refCell = el(documentNode, "td", "mono");
+    const link = el(documentNode, "a", "row-link", row.public_ref);
+    link.href = href;
+    refCell.appendChild(link);
+    tr.appendChild(refCell);
+    const titleCell = el(documentNode, "td", "item-roster-title");
+    const titleLink = el(
+      documentNode, "a", "item-title-link", row.title,
+    );
+    titleLink.href = href;
+    titleCell.appendChild(titleLink);
+    tr.appendChild(titleCell);
+    const workflowCell = el(documentNode, "td");
+    const workflow = el(
+      documentNode,
+      "span",
+      `item-workflow ${String(row.workflow_id || "").toLowerCase()}`,
+      row.workflow_id,
+    );
+    workflow.setAttribute("data-workflow", row.workflow_id);
+    workflow.setAttribute("title", `workflow · ${row.workflow_id}`);
+    workflowCell.appendChild(workflow);
+    tr.appendChild(workflowCell);
+    const statusCell = el(documentNode, "td");
+    const status = statePill(
+      documentNode,
+      row.status,
+      row.stage_label || row.status,
+    );
+    if (status) statusCell.appendChild(status);
+    tr.appendChild(statusCell);
+    tr.appendChild(el(
+      documentNode,
+      "td",
+      "item-muted",
+      row.owner || "unassigned",
+    ));
+    const claimCell = el(documentNode, "td", "item-muted");
+    const claimedBy = claimLabel(row);
+    if (claimedBy) {
+      claimCell.appendChild(el(
+        documentNode,
+        "span",
+        "item-claim-avatar",
+        claimedBy.slice(0, 1).toUpperCase(),
+      ));
+      claimCell.appendChild(el(
+        documentNode, "span", null, claimedBy,
+      ));
+    } else {
+      claimCell.textContent = "—";
+    }
+    tr.appendChild(claimCell);
+    makeRowNavigable(documentNode, tr, href);
+    table.appendChild(tr);
+  }
+  const wrap = el(documentNode, "div", "table-wrap item-roster-wrap");
+  wrap.appendChild(table);
+  return wrap;
+}
+
+function filterRows(rows, state) {
+  const query = state.query.trim().toLowerCase();
+  return rows.filter((row) => {
+    if (state.workflow && row.workflow_id !== state.workflow) return false;
+    if (state.status && row.status !== state.status) return false;
+    if (!query) return true;
+    return [
+      row.public_ref, row.title, row.owner, claimLabel(row),
+    ].some((value) => String(value || "").toLowerCase().includes(query));
+  });
+}
+
+function filterControls(documentNode, rows, state, rerender) {
+  const controls = el(documentNode, "div", "item-filters");
+  const query = el(documentNode, "input", "item-filter-control");
+  query.type = "search";
+  query.placeholder = "ID, title, owner, or claim";
+  query.value = state.query;
+  query.addEventListener("input", () => {
+    state.query = query.value;
+    rerender();
+  });
+  controls.appendChild(query);
+  for (const [key, label] of [
+    ["workflow", "All workflows"],
+    ["status", "All statuses"],
+  ]) {
+    const select = el(documentNode, "select", "item-filter-control");
+    const empty = el(documentNode, "option", null, label);
+    empty.value = "";
+    select.appendChild(empty);
+    const rowKey = key === "workflow" ? "workflow_id" : key;
+    const valueLabels = new Map();
+    for (const row of rows) {
+      const value = row[rowKey];
+      if (!value || valueLabels.has(value)) continue;
+      valueLabels.set(
+        value,
+        key === "status" ? row.stage_label || value : value,
+      );
+    }
+    const values = [...valueLabels.keys()].sort((left, right) => (
+      String(valueLabels.get(left)).localeCompare(
+        String(valueLabels.get(right)),
+      )
+    ));
+    for (const value of values) {
+      const option = el(
+        documentNode, "option", null, valueLabels.get(value),
+      );
+      option.value = value;
+      option.selected = state[key] === value;
+      select.appendChild(option);
+    }
+    select.value = state[key];
+    select.addEventListener("change", () => {
+      state[key] = select.value;
+      rerender();
+    });
+    controls.appendChild(select);
+  }
+  return controls;
+}
+
+export function renderItemsView(context, main, scope, chrome = {}) {
+  const documentNode = context.document;
   const projects = context.projects();
+  const panel = section(documentNode, "Items", { showRaw: false });
+  const filterButton = el(documentNode, "button", "item-button", "Filter ▾");
+  filterButton.type = "button";
+  filterButton.setAttribute("aria-expanded", "false");
+  filterButton.setAttribute("aria-controls", "item-roster-filters");
+  const projectId = detailProject(scope, projects);
+  const newItem = actionLink(
+    documentNode,
+    "New item",
+    buildUniverseRoute("items", projectId, "new"),
+    true,
+  );
+  if (typeof chrome.setPageHead === "function") {
+    chrome.setPageHead({
+      title: "Items",
+      summary: itemsScopeSummary(scope, projects),
+      actions: [filterButton, newItem],
+    });
+  }
+  const filterHost = el(documentNode, "div");
+  filterHost.id = "item-roster-filters";
+  if (typeof chrome.setPageHead === "function") {
+    main.replaceChildren(filterHost, panel);
+  } else {
+    const toolbar = el(documentNode, "div", "item-roster-toolbar");
+    toolbar.appendChild(el(
+      documentNode,
+      "p",
+      "item-roster-note",
+      itemsScopeSummary(scope, projects),
+    ));
+    const actions = el(documentNode, "div", "item-roster-actions");
+    actions.appendChild(filterButton);
+    actions.appendChild(newItem);
+    toolbar.appendChild(actions);
+    main.replaceChildren(toolbar, filterHost, panel);
+  }
+  const filterState = {
+    open: false,
+    query: "",
+    workflow: "",
+    status: "",
+  };
+  filterButton.addEventListener("click", () => {
+    filterState.open = !filterState.open;
+    filterHost.hidden = !filterState.open;
+    filterButton.setAttribute("aria-expanded", String(filterState.open));
+  });
+  filterHost.hidden = true;
+
   const buckets = scopeBuckets(scope, projects, false);
-  const idBySlug = new Map(
-    projects.map((row) => [String(row.slug), String(row.id)]),
-  );
-  const fields = [
-    "id", "title", "workflow_id", "workflow_version_id", "status",
-    "priority", "blocked", "blocked_reason", "project",
-  ];
-  // A row's drill-in carries the row's own project: at exactly one project
-  // the scope id is that project; otherwise the roster maps the served slug
-  // back to the id the route speaks.
-  const rowProject = (row) => (
-    (Array.isArray(scope) && scope.length === 1)
-      ? scope[0]
-      : (idBySlug.get(String(row.project)) || String(row.project))
-  );
-  loadScopedSection(
-    context, panel,
-    buckets.map((bucket) => ({
-      functionId: "items.list.run",
-      payload: bucket === null ? { fields } : { fields, project: bucket },
-    })),
-    (body, callResults) => {
+  const calls = buckets.map((bucket) => ({
+      functionId: "items.overview.list",
+      payload: bucket === null ? {} : { project: bucket },
+    }));
+  const renderPrototype = (callResults) => {
+    panel.renderEnvelopes(callResults, (body) => {
       const rows = mergedRows(callResults, (result) => result.rows);
-      // The served `count` is each bucket's authoritative total, summed
-      // across a fan-out. Never rows.length: when the two disagree, the
-      // engine's number is the fact.
-      const servedCounts = callResults.map(
+      const counts = callResults.map(
         (callResult) => (callResult.envelope.result || {}).count,
       );
       panel.setCount(
-        servedCounts.every((count) => typeof count === "number")
-          ? servedCounts.reduce((total, count) => total + count, 0)
+        counts.every((count) => typeof count === "number")
+          ? counts.reduce((total, count) => total + count, 0)
           : null,
       );
-      renderTable(body, rows, withProjectColumn([
-        { label: "id", value: (row) => row.id },
-        { label: "workflow", value: (row) => row.workflow_id },
-        { label: "version", value: (row) => row.workflow_version_id },
-        { label: "title", value: (row) => row.title },
-        { label: "status", value: (row) => row.status, pill: true },
-        { label: "priority", value: (row) => row.priority },
-        {
-          label: "blocked",
-          value: (row) => (
-            isBlocked(row) ? (row.blocked_reason || "blocked") : ""
+      const renderRows = () => {
+        body.replaceChildren(itemTable(
+          documentNode,
+          filterRows(rows, filterState),
+          (row) => buildUniverseRoute(
+            "items",
+            String(row.project_id),
+            String(row.public_ref),
           ),
-        },
-      ], scope, (row) => row.project), "no items yet",
-      (row) => buildUniverseRoute("items", rowProject(row), String(row.id)));
-    },
-  );
-}
-
-// One item, whichever workflow it uses. `body` is a virtual field the
-// engine renders on demand from the item's structured fields.
-export function renderItemDetailView(context, main, projectId, itemRef) {
-  const documentNode = context.document;
-  const panel = section(documentNode, `Item ${itemRef}`);
-  main.replaceChildren(panel);
-  loadSection(
-    context, panel,
-    "items.get.run",
-    {},
-    (body, callResult) => {
-      const fields = (callResult.envelope.result || {}).fields || {};
-      // The summary is a key/value grid, not a row list — the kv class
-      // swaps the column-header table dress for label/value cell rules.
-      const summary = el(documentNode, "table", "items kv");
-      for (const [label, value] of [
-        ["workflow", fields.workflow_id],
-        ["workflow version", fields.workflow_version_id],
-        ["status", fields.status],
-        ["priority", fields.priority], ["flow", fields.flow],
-        ["project", fields.project], ["created", fields.created_at],
-      ]) {
-        const tr = el(documentNode, "tr");
-        tr.appendChild(el(documentNode, "th", null, label));
-        const cell = el(documentNode, "td");
-        const pill = label === "status"
-          ? statePill(documentNode, value) : null;
-        if (pill) cell.appendChild(pill);
-        else cell.textContent = String(value ?? "");
-        tr.appendChild(cell);
-        summary.appendChild(tr);
-      }
-      body.appendChild(summary);
-
-      const rendered = String(fields.body || "").trim();
-      body.appendChild(el(
-        documentNode, rendered ? "pre" : "p", rendered ? "item-body" : "empty",
-        rendered || "no body yet",
+        ));
+      };
+      filterHost.replaceChildren(filterControls(
+        documentNode, rows, filterState, renderRows,
       ));
-
-      // An epic's tasks are its own decomposition, so they live on the epic.
-      if (fields.workflow_id === "epic") {
-        const tasks = section(documentNode, "Tasks");
-        main.appendChild(tasks);
-        loadSection(
-          context, tasks,
-          "epic_tasks.list.run",
-          {},
-          (taskBody, taskResult) => {
-            const rows = (taskResult.envelope.result || {}).tasks || [];
-            renderTable(taskBody, rows, [
-              { label: "#", value: (row) => row.task_num },
-              { label: "title", value: (row) => row.title },
-              { label: "status", value: (row) => row.status, pill: true },
-            ], "no tasks yet");
-          },
-          // The read resolves the epic through the target, not the payload.
-          {
-            kind: "epic_task",
-            epic_id: Number(fields.id),
-            project_id: String(projectId),
-          },
-        );
-      }
-    },
-    { kind: "item", item_ref: String(itemRef), project_id: String(projectId) },
-  );
+      filterHost.hidden = !filterState.open;
+      renderRows();
+    });
+  };
+  settledScopedCalls(context, calls).then(({ callResults, failed }) => {
+    if (!context.isMounted()) return;
+    if (!failed) {
+      renderPrototype(callResults);
+      return;
+    }
+    panel.renderEnvelope(failed, (body) => renderError(body, failed));
+  });
 }

@@ -300,7 +300,7 @@ def lifecycle_skip_record_recoverable_substrate(args: List[str]) -> int:
     parser.add_argument("--failure-class", dest="failure_class", required=True,
                         help="Structured failure class string.")
     parser.add_argument("--remediation-owner", dest="remediation_owner", required=True,
-                        help="Ticket id or recipe owner responsible for the fix.")
+                        help="Work item id or recipe owner responsible for the fix.")
     parser.add_argument("--current-status", dest="current_status", default=None,
                         help="Lifecycle status of the failing item at skip time.")
     parser.add_argument("--useful-work-began", dest="useful_work_began",

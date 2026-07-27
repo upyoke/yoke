@@ -1,7 +1,7 @@
 """Resolve item-dependency edges to path-claim ids.
 
-Bridges :mod:`item_dependencies` (the operator-facing "ticket B waits
-for ticket A" surface) and :mod:`path_claims` (the file-coverage door
+Bridges :mod:`item_dependencies` (the operator-facing "work item B waits
+for work item A" surface) and :mod:`path_claims` (the file-coverage door
 lock). The CLI register dispatcher consumes this module when overlap is
 detected: if every overlapping owner is covered and at least one
 candidate -> blocker edge is serial, it auto-populates

@@ -24,7 +24,6 @@ from yoke_core.domain.project_identity import resolve_project
 VALID_STRUCTURED_FIELDS = frozenset({
     "spec", "design_spec", "technical_plan", "worktree_plan",
     "shepherd_log", "shepherd_caveats", "test_results", "deploy_log",
-    "browser_qa_metadata",
     "db_mutation_profile", "db_compatibility_attestation",
     "architecture_impact",
 })
@@ -38,7 +37,7 @@ CONTENT_TRACKING_FIELDS = frozenset({
 INTEGER_FIELDS = frozenset({"rework_count", "frozen", "id"})
 
 LABEL_SYNC_FIELDS = frozenset({
-    "status", "priority", "worktree", "source", "owner",
+    "status", "priority", "source", "owner",
 })
 
 

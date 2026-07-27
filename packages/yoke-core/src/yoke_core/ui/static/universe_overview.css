@@ -1,0 +1,286 @@
+@import url("./universe_overview_foundations.css");
+@import url("./universe_overview_tables.css");
+@import url("./universe_overview_activity.css");
+
+.universe-app-root .overview-section {
+  scroll-margin-top: 50px;
+}
+.universe-app-root .overview-section-heading {
+  display: inline-flex;
+  align-items: center;
+}
+.universe-app-root .overview-section-icon {
+  margin-right: 2px;
+  color: var(--yoke-accent);
+  font-size: 14px;
+}
+.universe-app-root .overview-section-detail {
+  order: 1;
+  margin-left: auto;
+  color: var(--yoke-muted);
+  font-size: 11.5px;
+  font-weight: 400;
+}
+.universe-app-root .overview-section .raw-toggle {
+  order: 2;
+}
+
+.universe-app-root .overview-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+@media (max-width: 860px) {
+  .universe-app-root .overview-pair {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .universe-app-root .overview-masthead .stat-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .universe-app-root .overview-masthead .stat:nth-child(2) {
+    border-right: 0;
+  }
+  .universe-app-root .overview-masthead .stat:nth-child(-n + 2) {
+    border-bottom: 1px solid var(--yoke-border);
+  }
+}
+
+/* Binding Overview composition: board state and momentum share one mast,
+   followed by the six prototype-shaped summary regions. */
+.universe-app-root .overview-mast-grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+  padding: 15px 16px 13px;
+}
+.universe-app-root .overview-state-row {
+  display: grid;
+  grid-template-columns: 17px 56px 42px minmax(80px, 1fr);
+  align-items: center;
+  gap: 7px;
+  padding: 2px 0;
+  color: var(--yoke-ink-2);
+  font-size: 12px;
+}
+.universe-app-root .overview-state-icon {
+  text-align: center;
+}
+.universe-app-root .overview-state-value {
+  color: var(--yoke-ink);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.universe-app-root .overview-state-meter {
+  min-width: 80px;
+  height: 5px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--yoke-surface-2);
+}
+.universe-app-root .overview-state-meter i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--yoke-muted);
+}
+.universe-app-root .overview-state-row[data-state="active"] i {
+  background: var(--yoke-run);
+}
+.universe-app-root .overview-state-row[data-state="pipeline"] i {
+  background: var(--yoke-accent);
+}
+.universe-app-root .overview-state-row[data-state="backlog"] i,
+.universe-app-root .overview-state-row[data-state="done"] i {
+  background: var(--yoke-good);
+}
+.universe-app-root .overview-state-row[data-state="blocked"] i {
+  background: var(--yoke-crit);
+}
+.universe-app-root .overview-sparkline {
+  display: block;
+  width: 100%;
+  height: 13px;
+  overflow: visible;
+}
+.universe-app-root .overview-sparkline-baseline {
+  stroke: color-mix(in srgb, var(--yoke-border) 68%, transparent);
+  stroke-width: 1;
+}
+.universe-app-root .overview-sparkline-line {
+  fill: none;
+  stroke: var(--yoke-accent);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+.universe-app-root .overview-sparkline-line[data-series="code"] {
+  stroke: #a78bfa;
+}
+.universe-app-root .overview-sparkline-line[data-series="issues"] {
+  stroke: #e8823a;
+}
+.universe-app-root .overview-sparkline-line[data-series="strategy"] {
+  stroke: var(--yoke-good);
+}
+.universe-app-root .overview-sync {
+  padding: 7px 16px;
+  border-top: 1px solid var(--yoke-border);
+  color: var(--yoke-muted);
+  font-size: 11px;
+}
+
+.universe-app-root .overview-section-body {
+  padding: 0;
+}
+.universe-app-root .overview-section-body > .empty,
+.universe-app-root .overview-section-body > .error {
+  margin: 0;
+  padding: 18px 15px;
+}
+.universe-app-root .overview-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+}
+.universe-app-root .overview-item-ref,
+.universe-app-root .overview-session-id,
+.universe-app-root .overview-run-id,
+.universe-app-root .overview-model-cell,
+.universe-app-root .overview-command,
+.universe-app-root .overview-health-check,
+.universe-app-root .overview-pulse-source,
+.universe-app-root .overview-pulse-context {
+  font-family: var(--yoke-font-mono);
+}
+.universe-app-root .overview-item-ref {
+  color: var(--yoke-muted);
+  font-size: 10.5px;
+}
+.universe-app-root .overview-project-cell,
+.universe-app-root .overview-age-cell,
+.universe-app-root .overview-who-cell {
+  color: var(--yoke-muted);
+  white-space: nowrap;
+}
+.universe-app-root .overview-session-identity {
+  white-space: nowrap;
+}
+.universe-app-root .overview-session-avatar {
+  display: inline-grid;
+  width: 16px;
+  height: 16px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--yoke-ink);
+  color: var(--yoke-surface);
+  font-size: 9px;
+  font-weight: 700;
+  vertical-align: -3px;
+}
+.universe-app-root .overview-session-machine-label,
+.universe-app-root .overview-session-actor-id {
+  font-family: var(--yoke-font-mono);
+}
+.universe-app-root .overview-session-actor-id,
+.universe-app-root .overview-session-machine-kind,
+.universe-app-root .overview-session-unmapped {
+  color: var(--yoke-muted);
+}
+.universe-app-root .overview-session-machine-kind {
+  font-size: 10.5px;
+}
+.universe-app-root .overview-zen-dot {
+  position: absolute;
+  top: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--yoke-accent);
+  text-decoration: none;
+  transform: translateX(-50%);
+}
+.universe-app-root .overview-zen-label {
+  position: absolute;
+  top: 22px;
+  color: var(--yoke-muted);
+  font-size: 10px;
+  font-style: normal;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+.universe-app-root .overview-zen-now {
+  padding: 0 3px;
+  flex: 0 0 auto;
+  font-size: 12px;
+  line-height: 24px;
+}
+.universe-app-root .overview-zen-queued,
+.universe-app-root .overview-zen-vision {
+  position: relative;
+  min-width: 56px;
+  flex: 1.1;
+}
+.universe-app-root .overview-zen-queued::before,
+.universe-app-root .overview-zen-vision::before {
+  position: absolute;
+  top: 11px;
+  right: 3px;
+  left: 3px;
+  border-top: 2px dashed color-mix(
+    in srgb,
+    var(--yoke-muted) 55%,
+    transparent
+  );
+  content: "";
+}
+.universe-app-root .overview-zen-vision::before {
+  border-top-style: dotted;
+}
+.universe-app-root .overview-zen-vision-dot {
+  top: 8px;
+  left: 50%;
+  border: 1.6px solid var(--yoke-muted);
+  background: var(--yoke-bg);
+}
+@media (max-width: 860px) {
+  .universe-app-root .overview-pair {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+}
+@media (max-width: 720px) {
+  .universe-app-root .overview-mast-grid {
+    grid-template-columns: 1fr;
+  }
+  .universe-app-root .overview-jumps {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+  }
+  .universe-app-root .overview-jump {
+    flex: 0 0 auto;
+  }
+  .universe-app-root .overview-zen-track {
+    min-width: 460px;
+  }
+  .universe-app-root .overview-zen-row {
+    overflow-x: auto;
+  }
+  .universe-app-root .overview-section .overview-compact-row {
+    grid-template-columns: 1fr auto;
+  }
+  .universe-app-root .overview-section .overview-compact-row > :nth-child(2) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .universe-app-root .overview-pulse-source {
+    flex-basis: 88px;
+    width: 88px;
+  }
+  .universe-app-root .overview-subhead-detail {
+    display: none;
+  }
+}

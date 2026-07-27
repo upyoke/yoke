@@ -2,7 +2,7 @@
 
 Wires ``db-claim-amend`` to :func:`yoke_core.domain.db_claim.amend`.
 The CLI is the sanctioned surface operators, agents, and skill prose
-use when they need to write or correct a ticket's DB claim — all other
+use when they need to write or correct a work item's DB claim — all other
 paths (``/yoke idea`` late classification, ``/yoke refine``
 stale-claim repair, ``/yoke advance`` / ``/yoke polish`` discovery)
 call through this surface rather than mutating the two JSON fields

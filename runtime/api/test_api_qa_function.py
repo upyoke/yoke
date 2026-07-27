@@ -118,8 +118,8 @@ class TestQaRunRecordVerdict(unittest.TestCase):
         self.assertFalse(outcome.primary_success)
         self.assertEqual(outcome.error.code, "payload_invalid")
 
-    def test_rejects_agent_for_browser_kind(self):
-        existing = {"qa_kind": "browser_smoke"}
+    def test_rejects_agent_for_browser_method(self):
+        existing = {"qa_kind": "plan_case", "method_id": "browser-check"}
 
         class _Conn:
             def close(self):
@@ -142,7 +142,7 @@ class TestQaRunRecordVerdict(unittest.TestCase):
         self.assertEqual(outcome.error.code, "policy_violation")
 
     def test_happy_path_inserts_row(self):
-        existing = {"qa_kind": "ac_verification"}
+        existing = {"qa_kind": "ac_verification", "method_id": None}
 
         class _Cursor:
             # record_verdict reads the inserted id via ``RETURNING id`` +

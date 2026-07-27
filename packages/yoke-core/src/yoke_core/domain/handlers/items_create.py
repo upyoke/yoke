@@ -60,6 +60,13 @@ class ItemCreateRequest(BaseModel):
     entry_surface: Optional[str] = Field(
         None, description="Typed creation surface allowed by the workflow."
     )
+    instruction: Optional[str] = Field(
+        None, description="Initial executable instruction stored with the item."
+    )
+    workflow_posture: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Definition-bounded verification, gate, and delivery choices.",
+    )
     dry_run: bool = Field(False, description="Preview only; no row, no GitHub sync.")
 
 
@@ -117,6 +124,8 @@ def handle_item_create(request: FunctionCallRequest) -> HandlerOutcome:
         session_id=request.actor.session_id,
         dry_run=payload.dry_run,
         entry_surface=payload.entry_surface,
+        instruction=payload.instruction,
+        workflow_posture=payload.workflow_posture,
         out=captured,
     )
 

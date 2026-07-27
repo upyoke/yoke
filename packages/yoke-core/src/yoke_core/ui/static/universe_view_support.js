@@ -3,6 +3,8 @@
 // scoped loaders that fan a multi-project scope out into per-project calls.
 // View modules own what a screen says; this module owns how panels say it.
 
+import { pillFamilyForState } from "./universe_state_pills.js";
+
 export function el(documentNode, tag, className, text) {
   const node = documentNode.createElement(tag);
   if (className) node.className = className;
@@ -21,14 +23,17 @@ export function callFunction(client, functionId, payload, target) {
 // One titled section with a raw-JSON toggle showing the exact function-call
 // response envelope(s) the section rendered from — a lone envelope for a
 // single read, the array of them when a scope fanned out into several.
-export function section(documentNode, title) {
+export function section(documentNode, title, { showRaw = true } = {}) {
   const wrap = el(documentNode, "section", "panel");
   const header = el(documentNode, "div", "panel-header");
   const heading = el(documentNode, "h2", null, title);
   header.appendChild(heading);
-  const toggle = el(documentNode, "button", "raw-toggle", "raw JSON");
-  toggle.type = "button";
-  header.appendChild(toggle);
+  let toggle = null;
+  if (showRaw) {
+    toggle = el(documentNode, "button", "raw-toggle", "raw JSON");
+    toggle.type = "button";
+    header.appendChild(toggle);
+  }
   wrap.appendChild(header);
 
   // The muted count beside the title. Numbers are facts the engine owns: a
@@ -54,16 +59,20 @@ export function section(documentNode, title) {
   const body = el(documentNode, "div", "panel-body", "loading…");
   wrap.appendChild(body);
 
-  const raw = el(documentNode, "pre", "raw-json");
-  raw.hidden = true;
-  wrap.appendChild(raw);
-  toggle.addEventListener("click", () => { raw.hidden = !raw.hidden; });
+  const raw = showRaw ? el(documentNode, "pre", "raw-json") : null;
+  if (raw) {
+    raw.hidden = true;
+    wrap.appendChild(raw);
+    toggle.addEventListener("click", () => { raw.hidden = !raw.hidden; });
+  }
 
   wrap.renderEnvelopes = (callResults, renderBody) => {
     const envelopes = callResults.map((callResult) => callResult.envelope);
-    raw.textContent = JSON.stringify(
-      envelopes.length === 1 ? envelopes[0] : envelopes, null, 2,
-    );
+    if (raw) {
+      raw.textContent = JSON.stringify(
+        envelopes.length === 1 ? envelopes[0] : envelopes, null, 2,
+      );
+    }
     body.replaceChildren();
     renderBody(body, callResults);
   };
@@ -76,75 +85,33 @@ export function section(documentNode, title) {
   return wrap;
 }
 
-// Semantic color family per state value. Status vocabularies belong to
-// workflows, so this map is a coloring hint and never a gate: any value
-// it has not seen renders as a neutral idle pill rather than breaking.
-const STATE_PILL_FAMILIES = {
-  implementing: "run",
-  "reviewing-implementation": "run",
-  "reviewed-implementation": "run",
-  "polishing-implementation": "run",
-  release: "run",
-  new: "run",
-  executing: "run",
-  implemented: "good",
-  done: "good",
-  active: "good",
-  succeeded: "good",
-  blocked: "crit",
-  failed: "crit",
-  error: "crit",
-  critical: "crit",
-  unclear: "warn",
-  warn: "warn",
-  warning: "warn",
-  stale: "warn",
-  pass: "good",
-  fail: "crit",
-  skip: "idle",
-  // Dependency gate points: an activation gate stops work from starting,
-  // an integration gate only orders the landing, a closure gate merely
-  // holds the closeout milestone.
-  activation: "crit",
-  integration: "warn",
-  closure: "idle",
-  // Capability vocabulary. A capability someone configured but nothing has
-  // ever verified must read as loudly as a broken one — warn, never idle.
-  provider_access: "run",
-  declared_model: "idle",
-  verified: "good",
-  configured_unverified: "warn",
-  declared: "idle",
-  // GitHub repository-binding vocabulary: binding and installation
-  // lifecycle states, permission verdicts, automation availability, and
-  // sync outcomes. A suspended or deleted installation is a severed
-  // credential channel and must read as loudly as a failure.
-  pending: "warn",
-  unavailable: "warn",
-  suspended: "crit",
-  deleted: "crit",
-  satisfied: "good",
-  missing: "crit",
-  unknown: "warn",
-  available: "good",
-  installed: "good",
-  success: "good",
-  // Activation-module stage vocabulary: a locked module waits, exactly one
-  // unlocked module is next up, and a latched module reads activated.
-  waits: "idle",
-  "next up": "run",
-  activated: "good",
-};
-
 // A state value rendered as a tinted lozenge with a leading dot, colored by
 // its semantic family. Empty values render nothing at all.
-export function statePill(documentNode, value) {
+export function statePill(documentNode, value, label = value) {
   const text = String(value ?? "");
   if (!text) return null;
-  const family = STATE_PILL_FAMILIES[text.toLowerCase()] || "idle";
-  const pill = el(documentNode, "span", `pill ${family}`, text);
+  const family = pillFamilyForState(text);
+  const pill = el(documentNode, "span", `pill ${family}`, String(label ?? ""));
   pill.setAttribute("data-state", text);
   return pill;
+}
+
+// A session's mode is the directive Yoke gave it, so its semantic signal is
+// independent of whether the session is currently active or stale.
+export function sessionModePill(documentNode, mode, liveness) {
+  const normalizedMode = String(mode || "").toLowerCase();
+  const normalizedLiveness = String(liveness || "").toLowerCase();
+  let state = normalizedMode ? "waiting" : (
+    normalizedLiveness === "stale" ? "stale" : "waiting"
+  );
+  if (["charge", "resume"].includes(normalizedMode)) state = "running";
+  if (["feed", "strategize"].includes(normalizedMode)) state = "active";
+  if (normalizedMode === "escalate") state = "critical";
+  return statePill(
+    documentNode,
+    state,
+    mode || liveness || "idle",
+  );
 }
 
 export function renderError(body, callResult) {
@@ -173,6 +140,7 @@ export function renderTable(body, rows, columns, emptyText, rowHref) {
     return;
   }
   const table = el(documentNode, "table", "items");
+  const tableWrap = el(documentNode, "div", "table-wrap");
   const head = el(documentNode, "tr");
   for (const column of columns) {
     head.appendChild(el(documentNode, "th", null, column.label));
@@ -188,9 +156,14 @@ export function renderTable(body, rows, columns, emptyText, rowHref) {
         link.href = rowHref(row);
         cell.appendChild(link);
       } else if (column.href) {
-        const link = el(documentNode, "a", "row-link", text);
-        link.href = column.href(row);
-        cell.appendChild(link);
+        const href = column.href(row);
+        if (href) {
+          const link = el(documentNode, "a", "row-link", text);
+          link.href = href;
+          cell.appendChild(link);
+        } else {
+          cell.textContent = text;
+        }
       } else if (column.pill) {
         const pill = statePill(documentNode, text);
         if (pill) cell.appendChild(pill);
@@ -203,7 +176,8 @@ export function renderTable(body, rows, columns, emptyText, rowHref) {
     }
     table.appendChild(tr);
   }
-  body.appendChild(table);
+  tableWrap.appendChild(table);
+  body.appendChild(tableWrap);
 }
 
 export async function loadSection(
@@ -311,33 +285,38 @@ export function withProjectColumn(columns, scope, valueOf) {
   ];
 }
 
-// Who runs a session, mode-shaped by what the host can name. The engine models
-// an actor as an id and a kind and nothing else — a human actor has no name
-// there, because a name belongs to an account and accounts are the host's. So
-// the column's identity follows the host's `data.memberDirectory` capability:
-// an actor-id → account-label map a host supplies only where accounts exist
-// (it rides the same opaque `capabilities.data` bag as portability).
-//   * absent (a local or self-hosted universe has actors, not accounts) — the
-//     column is "actor" and shows the engine's honest label, a system actor
-//     marked so it never reads as a person;
-//   * present (a hosted org, whose members map to actors at first sign-in) —
-//     the column is "member" and shows the account, falling back to the actor
-//     label for a machine actor (a CI token) the directory does not name.
-// The directory never invents a mapping: an unnamed actor keeps its engine
-// identity rather than borrowing someone else's.
+// Who runs a session, mode-shaped by what the host can name. Local callers hide
+// this column. A self-hosted universe has actors rather than accounts, so every
+// label carries the actor id and machine actors say what they are. Hosted mode
+// shows only account mappings; a machine actor has no account and remains the
+// explicit, non-person identity "— machine".
 export function whoColumn(capabilities) {
+  const mode = portabilityMode(capabilities);
   const directory =
     (capabilities && capabilities.data && capabilities.data.memberDirectory) ||
-    null;
-  const named = directory && Object.keys(directory).length > 0;
-  const actorLabel = (row) => {
+    {};
+  const isMachine = (row) => ["machine", "system"].includes(
+    String(row.actor_kind || "").toLowerCase(),
+  );
+  const actorIdentity = (row) => {
+    const id = row.actor_id == null ? "" : `#${row.actor_id}`;
     const label = row.actor_label ||
-      (row.actor_id == null ? "" : `actor ${row.actor_id}`);
-    return row.actor_kind === "system" ? `${label} · system` : label;
+      (row.actor_id == null ? "unattributed" : `actor ${row.actor_id}`);
+    return [
+      label,
+      id,
+      isMachine(row) ? "machine" : "",
+    ].filter(Boolean).join(" ");
   };
-  if (!named) return { label: "actor", value: actorLabel };
+  if (mode !== "hosted") {
+    return { label: "actor", value: actorIdentity, isMachine };
+  }
   return {
     label: "member",
-    value: (row) => directory[String(row.actor_id)] || actorLabel(row),
+    value: (row) => {
+      if (isMachine(row)) return "— machine";
+      return directory[String(row.actor_id)] || "—";
+    },
+    isMachine,
   };
 }

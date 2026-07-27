@@ -28,6 +28,10 @@ from yoke_cli.operation_inventory_github_actions import (
 from yoke_cli.operation_inventory_installer_local import (
     PERMANENT_ROWS as INSTALLER_LOCAL_PERMANENT_ROWS,
 )
+from yoke_cli.operation_inventory_product_surfaces import (
+    PERMANENT_ROWS as PRODUCT_SURFACE_PERMANENT_ROWS,
+    WRAPPED_ROWS as PRODUCT_SURFACE_WRAPPED_ROWS,
+)
 from yoke_cli.operation_inventory_workflows import WRAPPED_ROWS as WORKFLOW_WRAPPED_ROWS
 from yoke_cli.operation_inventory_shepherd_qa_writes import (
     WRAPPED_ROWS as SHEPHERD_QA_WRITE_ROWS,
@@ -85,20 +89,15 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke sessions offer", "sessions"),
     _w("yoke sessions ownership-guard", "sessions"),
     *WORKFLOW_WRAPPED_ROWS,
+    *PRODUCT_SURFACE_WRAPPED_ROWS,
     _w("yoke charge schedule", "charge"),
     _w("yoke frontier list", "frontier"),
-    # render.
-    _w("yoke agents render", "agents.render"),
-    _w("yoke agents render check", "agents.render"),
-    _w("yoke packets render", "packets"),
-    _w("yoke packets check", "packets"),
     _w("yoke board rebuild", "board"),
     _w("yoke board data get", "board"),
     _w("yoke hook evaluate", "hook"),
     *EPIC_OPS_WRAPPED_ROWS,
     # qa writes.
     _w("yoke qa requirement update", "qa.requirement"),
-    _w("yoke qa requirement auto-create-for-item", "qa.requirement"),
     _w("yoke qa run record-verdict", "qa.run"),
     # Browser-QA DB legs: the orchestrator's reads/writes as dispatcher ids so
     # the flow works over https from external projects.
@@ -161,14 +160,6 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke identity autojoin set", "identity.autojoin"),
     _w("yoke project-structure patch apply", "project_structure"),
     _w(
-        "yoke project-structure command-definitions get",
-        "project_structure.command_definitions",
-    ),
-    _w(
-        "yoke project-structure command-definitions list",
-        "project_structure.command_definitions",
-    ),
-    _w(
         "yoke project-structure deploy-defaults get",
         "project_structure.deploy_defaults",
     ),
@@ -189,27 +180,10 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     # PR-create was the last bearer-token GitHub admin surface without a wrapper
     # (repo-level github family, not github_actions).
     _w("yoke github pr create", "github"),
-    # Project-scoped scratch path resolver for shepherd skill dispatch.
-    _w("yoke scratch dispatch-inputs", "scratch"),
-    # machine-config status: machine config example + local status diagnostics.
-    _w("yoke config example", "config"),
-    _w("yoke config stamp-project-env", "config"),
-    _w("yoke status", "status"),
     _w("yoke onboard checklist", "onboard"),
     _w("yoke onboard checklist init", "onboard"),
-    _w("yoke env use", "env"),
-    _w("yoke connection set", "connection"),
-    _w("yoke connection remove", "connection"),
-    _w("yoke auth set", "auth"),
-    _w("yoke project register", "project"),
-    _w("yoke project install", "project"),
-    _w("yoke project refresh", "project"),
-    _w("yoke project uninstall", "project"),
     _w("yoke project snapshot sync", "project.snapshot"),
     _w("yoke packs list", "packs"),
-    _w("yoke packs get", "packs"),
-    _w("yoke packs relink", "packs"),
-    _w("yoke packs update", "packs"),
     # cross-family-reader: cross-family reader ids — events forensics, path-claim
     # projections, ouroboros curate-loop readers, backlog listing/search,
     # dependency graph. All reads work over https from any cwd.
@@ -238,6 +212,7 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
 
 
 PERMANENT_ROWS: Tuple[_Row, ...] = (
+    *PRODUCT_SURFACE_PERMANENT_ROWS,
     # Coordination-lease family — operator break-glass.
     _p(
         "python3 -m yoke_core.api.service_client coordination-lease-acquire",
@@ -285,12 +260,30 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
     _p("yoke git pre-commit", "git", REASON_TOOL_SHAPED),
     _p("yoke git post-commit", "git", REASON_TOOL_SHAPED),
     _p("yoke sessions init", "sessions", REASON_TOOL_SHAPED),
-    # Browser-QA orchestration is client-local (Playwright daemon,
-    # screenshots on this machine's disk) — tool-shaped like the git hook
-    # bodies; its DB legs are the wrapped qa.* ids above. The screenshot
-    # token is the manual-fallback capture; the module form was checkout-only
-    # from ambient python3.
-    _p("yoke qa browser run", "qa.browser", REASON_TOOL_SHAPED),
+    # Registered CLI commands that intentionally execute on the caller's
+    # machine instead of crossing the function-call dispatcher.
+    _p("yoke agents render", "agents.render", REASON_TOOL_SHAPED),
+    _p("yoke agents render check", "agents.render", REASON_TOOL_SHAPED),
+    _p("yoke packets render", "packets", REASON_TOOL_SHAPED),
+    _p("yoke packets check", "packets", REASON_TOOL_SHAPED),
+    _p("yoke scratch dispatch-inputs", "scratch", REASON_TOOL_SHAPED),
+    _p("yoke config example", "config", REASON_TOOL_SHAPED),
+    _p("yoke config stamp-project-env", "config", REASON_TOOL_SHAPED),
+    _p("yoke status", "status", REASON_TOOL_SHAPED),
+    _p("yoke env use", "env", REASON_TOOL_SHAPED),
+    _p("yoke connection set", "connection", REASON_TOOL_SHAPED),
+    _p("yoke connection remove", "connection", REASON_TOOL_SHAPED),
+    _p("yoke auth set", "auth", REASON_TOOL_SHAPED),
+    _p("yoke project register", "project", REASON_TOOL_SHAPED),
+    _p("yoke project install", "project", REASON_TOOL_SHAPED),
+    _p("yoke project refresh", "project", REASON_TOOL_SHAPED),
+    _p("yoke project uninstall", "project", REASON_TOOL_SHAPED),
+    _p("yoke packs get", "packs", REASON_TOOL_SHAPED),
+    _p("yoke packs relink", "packs", REASON_TOOL_SHAPED),
+    _p("yoke packs update", "packs", REASON_TOOL_SHAPED),
+    # QA case execution and Browser substrate utilities are client-local.
+    # The case runner executes one materialized method requirement.
+    _p("yoke qa case run", "qa.case", REASON_TOOL_SHAPED),
     _p("yoke qa browser setup", "qa.browser", REASON_TOOL_SHAPED),
     _p("yoke qa browser screenshot", "qa.browser", REASON_TOOL_SHAPED),
     _p("yoke qa browser status", "qa.browser", REASON_TOOL_SHAPED),
@@ -352,6 +345,11 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
     ),
     _p("python3 -m yoke_core.tools.watch_tail", "tools.watch", REASON_TOOL_SHAPED),
     _p("python3 -m yoke_core.tools.watch_inventory", "tools.watch", REASON_TOOL_SHAPED),
+    _p(
+        "python3 -m yoke_core.tools.executors",
+        "tools.executors",
+        REASON_TOOL_SHAPED,
+    ),
     *STRATEGY_EVENT_PERMANENT_ROWS,
     _p(
         "python3 -m yoke_core.cli.db_router query",

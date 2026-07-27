@@ -45,8 +45,6 @@ class _Harness:
             return "\n".join(
                 f"{_RUN_ID}|{item}" for item in self.member_items
             )
-        if args[:3] == ("items", "get", "YOK-42") and args[3] == "worktree":
-            return "item-branch"
         if args[:3] == ("items", "get", "YOK-42") and args[3] == "status":
             return "implemented"
         return ""
@@ -68,8 +66,6 @@ class _Harness:
             deploy_pipeline_reporting, "_yoke_db",
             side_effect=self.yoke_db,
         ), mock.patch.object(
-            deploy_pipeline_gates, "_yoke_db", side_effect=self.yoke_db,
-        ), mock.patch.object(
             deploy_pipeline, "_flow_db", side_effect=self.flow_db,
         ), mock.patch.object(
             deploy_pipeline, "_project_db",
@@ -89,6 +85,10 @@ class _Harness:
         ), mock.patch.object(
             deploy_pipeline_executors, "_item_label",
             side_effect=lambda first: f"YOK-{first}" if first else "",
+        ), mock.patch.object(
+            deploy_pipeline_gates,
+            "_active_item_lane_branch",
+            return_value="item-branch",
         ), mock.patch(
             "yoke_core.domain.deploy_ephemeral.exec_ephemeral_deploy",
             return_value=exec_rc,

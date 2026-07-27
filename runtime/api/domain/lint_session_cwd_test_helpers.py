@@ -15,7 +15,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from runtime.api.fixtures.backlog_inserts import insert_epic_task, insert_item
+from runtime.api.fixtures.backlog_inserts import (
+    insert_epic_task,
+    insert_item,
+    insert_item_worktree,
+)
 from yoke_core.domain.db_helpers import iso8601_now
 
 _PROJECT_IDS = {"yoke": 1, "externalwebapp": 2}
@@ -37,11 +41,17 @@ def seed_item(
     insert_item(
         conn,
         id=item_id,
-        worktree=branch,
         project_id=project_id(project),
         status=status,
         workflow_id=workflow_id,
     )
+    if branch:
+        insert_item_worktree(
+            conn,
+            item_id=item_id,
+            branch=branch,
+            lane_role="integration" if workflow_id == "epic" else "implementation",
+        )
 
 
 def seed_epic_task(

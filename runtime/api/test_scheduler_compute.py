@@ -1,5 +1,8 @@
 """compute_schedule tests for the shared frontier-step scheduler — selection,
 ranking, lane filtering, claim states."""
+# The imported fixture must keep its public name so pytest can inject it.
+# ruff: noqa: F811
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
@@ -43,7 +46,7 @@ class TestComputeSchedule:
         items (SHEPHERD, REFINE, ADVANCE, USHER) are still selectable.
 
         With the gap-1 fix, only NextStep.CONDUCT is filtered by
-        conduct_eligible_ids.  ADVANCE (issue-workflow-type) passes through.
+        conduct_eligible_ids. ADVANCE (the Issue workflow) passes through.
         We verify the WIP filter by checking that the selected item is NOT
         a CONDUCT step when WIP is full.
         """

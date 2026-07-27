@@ -222,8 +222,7 @@ def test_service_client_project_structure_get(project_structure_db: str):
     assert result.returncode == 0, result.stderr
     data = json.loads(result.stdout)
     assert data["project_id"] == "yoke"
-    # Replacement slots must appear as empty arrays so consumers see the vocab.
-    assert data["families"]["command_definitions"] == []
+    # Current Project Structure slots appear even when no rows are configured.
     assert data["families"]["areas"] == []
 
 

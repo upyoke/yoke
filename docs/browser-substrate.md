@@ -2,13 +2,20 @@
 
 The browser substrate provides a reusable browser capability for interactive browsing, scenario replay, and diff-aware QA. It consists of a Node.js daemon (Playwright), Python client modules, and integration with Yoke's QA artifact pipeline.
 
-The daemon is machine substrate, not repo content: its JS sources ship inside the Python package at `runtime/browser_runtime/` and `yoke_core.domain.browser_runtime_home` materializes them into the machine-level runtime directory `~/.yoke/browser-runtime/`, where npm dependencies, Playwright browsers, and daemon state live. Project repos never receive a browser source tree, `node_modules`, or daemon state.
+The daemon is machine substrate, not repo content: its JS sources ship inside
+the Python package at `runtime/browser_runtime/` and
+`yoke_core.domain.browser_runtime_home` materializes them into the
+machine-level runtime directory `~/.yoke/browser-runtime/`, where npm
+dependencies, Playwright browsers, and daemon state live. Project repos never
+receive a browser source tree, `node_modules`, or daemon state.
 
-the `browser-*.sh` launchers (daemon, snapshot, exec, run-scenario, worker) were eliminated in zero-shell wave 3. Invoke the Python modules directly — see the Components table below.
+Invoke the registered `yoke qa` surfaces for QA execution and the Python
+modules below for source-development diagnostics.
 
 ## Related Documentation
 
-- [Browser Scenario Schema](browser-scenario-schema.md) — structured JSON format for `qa_requirements.success_policy` (browser_smoke, browser_diff)
+- [Browser Scenario Schema](../.yoke/docs/browser-scenario-schema.md) —
+  immutable `method_config` for `browser-check` and `browser-inspection`
 
 ## Architecture
 
@@ -42,9 +49,8 @@ All JS paths below are the packaged sources; the daemon runs from their material
 | Exec routes | `runtime/browser_runtime/src/routes/exec-routes.js` | HTTP routes for step execution |
 | `yoke_core.domain.browser_runtime_home` | `packages/yoke-core/src/yoke_core/domain/browser_runtime_home.py` | Machine runtime dir + hash-gated materialization of the packaged sources |
 | `yoke_core.domain.browser_client` | `packages/yoke-core/src/yoke_core/domain/browser_client.py` | Python daemon client: state, HTTP, lifecycle, exec, snapshot |
-| `yoke_core.domain.browser_qa` | `packages/yoke-core/src/yoke_core/domain/browser_qa.py` | Canonical scenario orchestrator — executes all steps for an item's browser QA requirements |
+| `yoke_core.domain.browser_qa` | `packages/yoke-core/src/yoke_core/domain/browser_qa.py` | Internal per-requirement Browser scenario orchestration used by the shared case runner |
 | `yoke_core.domain.browser_worker` | `packages/yoke-core/src/yoke_core/domain/browser_worker.py` | Remote browser worker via SSH tunnel |
-| `yoke_core.domain.browser_qa_metadata` | `packages/yoke-core/src/yoke_core/domain/browser_qa_metadata.py` | Validator + negative default for the structured `browser_qa_metadata` item field that replaces classifier inference |
 
 ## Daemon Lifecycle
 
@@ -169,15 +175,8 @@ python3 -m yoke_core.domain.browser_client exec step '<step-json>' --base-url <u
 
 ## Scenario Orchestration
 
-`yoke_core.domain.browser_qa` is the canonical orchestrator for executing browser QA scenarios against an ephemeral environment; the agent shape is the tool-shaped launcher token `yoke qa browser run`, which works from any project checkout — every DB leg routes through the `qa.browser_context.get` / `qa.run.add` / `qa.run.complete` / `qa.artifact.add` function ids over both transports. The orchestrator is shared by both the direct advance path (standalone items) and the conduct path (epic items) — there is no parallel implementation. Full details live in [browser-substrate/scenario-orchestration.md](browser-substrate/scenario-orchestration.md):
-
-- **Usage** — launcher shape (`yoke qa browser run --item PREFIX-N [--project P] [--base-url URL]`); module form (`--item-id N`) for checkout dev.
-- **What it does** — eight-step run loop (fetches context, resolves base URL, validates reachability, runs steps, records runs/artifacts, emits JSON summary).
-- **Exit codes** — `0` pass, `1` fail, `2` prerequisite failure.
-- **Re-entrancy and capture-vs-inspection verdict** — captures land with `verdict=NULL`; inspection flips it via `yoke qa run complete`.
-- **Executor type enforcement** — only `browser_substrate` runs satisfy the gate for `browser_smoke`/`browser_diff`.
-- **Execution paths** — Path 1 (direct advance) and Path 2 (conduct/Tester) both converge on the same orchestrator.
-- **Artifact storage convention** — scratch-backed storage with keys like `qa-artifacts/{project}/{item_id}/{run_id}/...`.
+`yoke qa case run` executes one immutable Browser case and validates deployed
+code freshness. Direct Advance and Conduct/Tester share this [runner](browser-substrate/scenario-orchestration.md).
 
 ## Remote Browser Worker
 
@@ -292,7 +291,7 @@ Browser domain events emitted to the `events` table:
 
 ### Orchestration Events (deferred)
 
-Fine-grained orchestration events (e.g., `BrowserScenarioStarted`, `BrowserScenarioCompleted`, `BrowserScenarioFailed`) are not yet emitted by `yoke_core.domain.browser_qa`. The orchestrator records its results via `qa_runs` and `qa_artifacts` DB tables. Scenario execution is also observable through the underlying `BrowserStepExecuted` events emitted per step by `yoke_core.domain.browser_client exec`. Adding dedicated orchestration events to the `event_registry` is deferred to a follow-up ticket.
+Fine-grained orchestration events (e.g., `BrowserScenarioStarted`, `BrowserScenarioCompleted`, `BrowserScenarioFailed`) are not yet emitted by `yoke_core.domain.browser_qa`. The orchestrator records its results via `qa_runs` and `qa_artifacts` DB tables. Scenario execution is also observable through the underlying `BrowserStepExecuted` events emitted per step by `yoke_core.domain.browser_client exec`. Adding dedicated orchestration events to the `event_registry` is deferred to a follow-up work item.
 
 ## Exit Codes
 
@@ -308,9 +307,9 @@ All shell wrapper scripts use consistent exit codes:
 ## Dependencies
 
 The browser substrate's dependencies are **deferred** — none of them are
-installed at product install time. They are needed only the first time you run
-`yoke qa browser run` (or any other `yoke qa browser` execution), and
-`yoke qa browser setup` provisions them on demand at that point.
+installed at product install time. They are needed only the first time a
+Browser method executes through `yoke qa case run` (or another `yoke qa
+browser` operation), and `yoke qa browser setup` provisions them on demand.
 
 The deferred set:
 
@@ -342,7 +341,8 @@ readiness any time with `yoke qa browser status`.
 
 ## Related
 
-- [Browser Scenario Schema](browser-scenario-schema.md) — structured JSON format for `success_policy` (executor vocabulary, AC-aware generation, refinement)
+- [Browser Scenario Schema](../.yoke/docs/browser-scenario-schema.md) —
+  `method_config` shape for Browser method cases
 - `runtime/browser_runtime/README.md` — Quick-start guide and usage examples
 - `.agents/skills/yoke/advance/browser-qa.md` — browser execution gate on the `implemented` / `polishing-implementation` path
 - `.agents/skills/yoke/advance/implementing/SKILL.md` — AC-aware browser scenario seeding

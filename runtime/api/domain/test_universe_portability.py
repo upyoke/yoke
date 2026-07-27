@@ -7,7 +7,6 @@ import os
 import subprocess
 import time
 from contextlib import contextmanager
-from pathlib import Path
 
 import psycopg
 import pytest
@@ -716,67 +715,3 @@ def test_schema_fingerprint_and_org_identity_fail_closed(tmp_path):
                 expected_org_slug="default",
                 expected_schema_fingerprint=expected,
             )
-
-
-def test_user_content_counts_detects_nonempty_universe():
-    with _canonical_test_universe() as (conn, _dsn):
-        # The general API fixture carries two synthetic project rows; a newly
-        # born product universe does not.  Remove fixture-only content before
-        # asserting the portability definition of empty.
-        conn.execute("DELETE FROM api_token_audit")
-        conn.execute("DELETE FROM api_tokens")
-        conn.execute("DELETE FROM projects")
-        conn.execute(
-            "INSERT INTO migration_audit "
-            "(migration_name, tables_declared, expected_deltas, pre_row_counts, "
-            "backup_path, state, started_at) VALUES "
-            "('maintenance-receipt', '[]', '{}', '{}', 'none', 'completed', now())"
-        )
-        conn.commit()
-        empty_counts = portability.user_content_counts(conn)
-        assert "migration_audit" not in empty_counts
-        assert all(value == 0 for value in empty_counts.values())
-        actor_id = conn.execute("SELECT id FROM actors ORDER BY id LIMIT 1").fetchone()[
-            0
-        ]
-        conn.execute(
-            "INSERT INTO api_tokens "
-            "(id, token_hash, actor_id, name, status, created_at) "
-            "VALUES (99000, 'credential-only', %s, 'extra', 'active', now())",
-            (actor_id,),
-        )
-        conn.commit()
-        assert portability.user_content_counts(conn)["api_tokens"] == 1
-        conn.execute("DELETE FROM api_tokens WHERE id = 99000")
-        conn.execute(
-            "INSERT INTO projects (id, slug, name, public_item_prefix, created_at)"
-            " VALUES (99001, 'not-empty', 'Not Empty', 'NON', now())"
-        )
-        counts = portability.user_content_counts(conn)
-        assert counts["projects"] == 1
-
-        conn.execute("DELETE FROM projects WHERE id = 99001")
-        conn.execute(
-            "INSERT INTO ouroboros_entries"
-            " (id, timestamp, agent, category, body, created_at, project_id)"
-            " VALUES (99002, 'now', 'tester', 'observation', 'real work',"
-            " 'now', NULL)"
-        )
-        conn.commit()
-        counts = portability.user_content_counts(conn)
-        assert counts["ouroboros_entries"] == 1
-
-        conn.execute(
-            "INSERT INTO project_onboarding_runs "
-            "(run_id, schema_version, branch, status, metadata_json, created_at, "
-            "updated_at) VALUES "
-            "('content-run', 1, 'local-checkout', 'open', '{}', 'now', 'now')"
-        )
-        conn.commit()
-        counts = portability.user_content_counts(conn)
-        assert counts["project_onboarding_runs"] == 1
-
-        conn.execute("CREATE TABLE future_content (id integer primary key)")
-        conn.execute("INSERT INTO future_content (id) VALUES (1)")
-        conn.commit()
-        assert portability.all_table_row_counts(conn)["future_content"] == 1

@@ -200,6 +200,9 @@ class ScheduledStep:
     unblocks_count: int = 0
     downstream_depth: int = 0
     created_at: str = ""
+    stage_index: int = -1
+    stage_count: int = 0
+    stage_label: str = ""
     routing_override: Optional[RoutingOverride] = None
 
 

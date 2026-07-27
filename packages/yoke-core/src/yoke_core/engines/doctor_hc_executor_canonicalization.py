@@ -46,9 +46,9 @@ HC_LABEL = "Active harness_sessions.executor values are canonical harness ids"
 _MAX_OFFENDERS_REPORTED = 20
 _MAX_OFFENDERS_SCANNED = 500
 _REMEDIATION_NOTE = (
-    "File a /yoke idea ticket for the leaking writer (CLAUDE.md Bug "
+    "File a /yoke idea work item for the leaking writer (CLAUDE.md Bug "
     "Discipline). Do not silently repair the row — the writer that "
-    "wrote the leak is the substrate gap to close. The bug ticket's "
+    "wrote the leak is the substrate gap to close. The bug work item's "
     "slice owns the one-off row repair."
 )
 

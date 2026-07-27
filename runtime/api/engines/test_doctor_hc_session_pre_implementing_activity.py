@@ -12,6 +12,7 @@ from __future__ import annotations
 from typing import Any
 
 from runtime.api.fixtures import pg_testdb
+from runtime.api.fixtures.backlog import insert_item_worktree
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 from yoke_core.domain.builtin_workflow_definitions import (
     builtin_workflow_definition,
@@ -20,6 +21,7 @@ from yoke_core.domain.workflow_registry import (
     canonical_definition_json,
     definition_digest,
 )
+from yoke_core.domain.item_worktree_schema import ITEM_WORKTREES_TABLE_SQL
 from yoke_core.engines import doctor_hc_session_cwd_binding as hc_module
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
@@ -38,7 +40,7 @@ def _make_pre_impl_conn() -> Any:
     return _disposable_pg_db(
         """
         CREATE TABLE items (
-            id INTEGER PRIMARY KEY, status TEXT, worktree TEXT,
+            id INTEGER PRIMARY KEY, status TEXT,
             project_id INTEGER DEFAULT 1, workflow_id TEXT,
             workflow_version_id INTEGER
         );
@@ -57,6 +59,7 @@ def _make_pre_impl_conn() -> Any:
             envelope TEXT
         );
         """
+        + ITEM_WORKTREES_TABLE_SQL
     )
 
 
@@ -87,15 +90,19 @@ def _add_pre_impl_claim(
     )
     conn.execute(
         "INSERT INTO items "
-        "(id, status, worktree, project_id, workflow_id, workflow_version_id) "
-        "VALUES (%s, %s, %s, 1, %s, %s)",
+        "(id, status, project_id, workflow_id, workflow_version_id) "
+        "VALUES (%s, %s, 1, %s, %s)",
         (
             item_id,
             status,
-            f"YOK-{item_id}",
             workflow_id,
             workflow_version_id,
         ),
+    )
+    insert_item_worktree(
+        conn,
+        item_id=item_id,
+        branch=f"YOK-{item_id}",
     )
     conn.execute(
         "INSERT INTO work_claims "
@@ -212,7 +219,7 @@ class TestPreImplementingActivityHC:
         # Minimal items schema without status: HC should skip gracefully.
         conn = _disposable_pg_db(
             """
-            CREATE TABLE items (id INTEGER PRIMARY KEY, worktree TEXT);
+            CREATE TABLE items (id INTEGER PRIMARY KEY);
             CREATE TABLE work_claims (
                 id INTEGER PRIMARY KEY, session_id TEXT, item_id INTEGER,
                 released_at TEXT

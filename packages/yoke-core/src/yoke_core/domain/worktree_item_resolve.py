@@ -9,7 +9,6 @@ branch data, repo, and project. Imports the shared low-level primitives from
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -164,28 +163,15 @@ def resolve_item_worktree(
                 branches=branches,
             )
 
-        wt_branch = query_scalar(
-            conn,
-            f"SELECT worktree FROM items WHERE id = {p}",
-            (item_num,),
-        )
-        if not wt_branch or wt_branch == "null":
-            wt_branch = f"YOK-{item_num}"
-
-        worktree_path = os.path.join(repo_root, wt_dir, f"YOK-{item_num}")
-
-        exists = is_git_worktree(worktree_path)
-        if exists:
-            wt_branch = resolve_live_branch(worktree_path, wt_branch)
-
         return ResolvedWorktree(
-            path=worktree_path,
-            branch=wt_branch,
+            path="",
+            branch="",
             repo=repo_root,
             project=item_project,
-            exists=exists,
-            paths=(worktree_path,),
-            branches=(wt_branch,),
+            exists=False,
+            scope=lane_scope,
+            paths=(),
+            branches=(),
         )
     finally:
         conn.close()

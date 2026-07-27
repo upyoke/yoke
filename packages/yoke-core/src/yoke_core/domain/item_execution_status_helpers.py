@@ -56,7 +56,6 @@ def normalize_item_id(raw: str) -> int:
 
 def worktree_state(
     item_id: int,
-    branch: Optional[str],
     *,
     db_path: Optional[str],
     repo_root: Path,
@@ -70,8 +69,7 @@ def worktree_state(
         resolved = resolve_item_worktree(f"YOK-{item_id}", db_path=db_path)
         paths = list(resolved.paths)
         branches = list(resolved.branches)
-        has_recorded_or_live = bool(branch or (resolved.exists and paths))
-        if not has_recorded_or_live:
+        if not paths:
             return {
                 "state": "none", "branch": None, "path": None,
                 "exists": False, "scope": resolved.scope,
@@ -79,12 +77,12 @@ def worktree_state(
             }
         if paths and not resolved.exists:
             warnings.append(
-                "items.worktree set but one or more directories are missing: "
+                "one or more active worktree lane directories are missing: "
                 + ", ".join(paths)
             )
         return {
             "state": "set",
-            "branch": resolved.branch or (branches[0] if branches else branch),
+            "branch": resolved.branch or (branches[0] if branches else None),
             "path": resolved.path or (paths[0] if len(paths) == 1 else None),
             "exists": resolved.exists,
             "scope": resolved.scope,
@@ -93,26 +91,10 @@ def worktree_state(
             "repo": resolved.repo,
         }
     except Exception:
-        if not branch:
-            return {
-                "state": "none", "branch": None, "path": None,
-                "exists": False, "scope": "item", "branches": [],
-                "paths": [], "repo": str(repo_root),
-            }
-        wt_path = repo_root / ".worktrees" / branch
-        exists = wt_path.is_dir()
-        if not exists:
-            warnings.append(
-                f"items.worktree set but directory missing: {wt_path}"
-            )
         return {
-            "state": "set",
-            "branch": str(branch),
-            "path": str(wt_path),
-            "exists": exists,
-            "scope": "item",
-            "branches": [str(branch)],
-            "paths": [str(wt_path)],
+            "state": "none", "branch": None, "path": None,
+            "exists": False, "scope": "item-lanes", "branches": [],
+            "paths": [],
             "repo": str(repo_root),
         }
 

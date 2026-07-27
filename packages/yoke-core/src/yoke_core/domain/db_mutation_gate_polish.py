@@ -15,7 +15,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, List, Optional
 
-from yoke_core.domain import command_definitions, db_backend, db_helpers
+from yoke_core.domain import db_backend, db_helpers, qa_command_plans
 from yoke_core.domain.db_mutation_gate_implementing import (
     _resolve_audit_db_path,
     check_implementing_to_reviewing_implementation_gate,
@@ -156,7 +156,7 @@ def _check_test_results_evidence(item: dict) -> Optional[str]:
     usher hours later.
 
     Project-agnostic filter: enforces only when the item's project has a
-    ``command_definitions.quick`` command configured. Projects without
+    migrated quick Command plan. Projects without
     a registered quick command (the legacy carve-out) pass through
     without inspection so the gate doesn't block work on projects that
     have no pytest runner wired up yet.
@@ -167,7 +167,7 @@ def _check_test_results_evidence(item: dict) -> Optional[str]:
     project = item.get("project") or ""
     if not project:
         return None
-    if not command_definitions.get_command(project, "quick"):
+    if not qa_command_plans.get_registered_command(project, "quick"):
         return None
     raw = item.get("test_results") or ""
     verdict = classify_test_results(raw)
@@ -178,7 +178,7 @@ def _check_test_results_evidence(item: dict) -> Optional[str]:
             "items.test_results carries a failure verdict — polish must "
             "fix the failing tests and re-capture a passing pytest run "
             "before advancing past polishing-implementation. Re-run the "
-            "project's quick command (see `command_definitions.quick`) "
+            "project's quick Command-plan case "
             "and write the capture via the `items.structured_field.replace` "
             "function call with `payload.field=\"test_results\"` "
             "(see `.agents/skills/yoke/polish/verify-and-commit.md`)."
@@ -186,7 +186,7 @@ def _check_test_results_evidence(item: dict) -> Optional[str]:
     return (
         "items.test_results is empty — polish must capture a passing "
         "pytest verdict before advancing past polishing-implementation. "
-        "Run the project's quick command (see `command_definitions.quick`) "
+        "Run the project's quick Command-plan case "
         "and write the capture via the `items.structured_field.replace` "
         "function call with `payload.field=\"test_results\"` "
         "(see `.agents/skills/yoke/polish/verify-and-commit.md`)."

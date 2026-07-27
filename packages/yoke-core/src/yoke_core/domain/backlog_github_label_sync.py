@@ -240,7 +240,7 @@ def sync_labels(
             return 1
         fields = _item_fields(
             item_pk,
-            ["status", "priority", "workflow_id", "source", "owner", "worktree", "blocked"],
+            ["status", "priority", "workflow_id", "source", "owner", "blocked"],
             conn=conn,
         )
         if fields is None:
@@ -255,7 +255,10 @@ def sync_labels(
         workflow_id = fields["workflow_id"]
         source_label = actor_label_or_passthrough(conn, fields["source"])
         owner_label = actor_label_or_passthrough(conn, fields["owner"])
-        worktree = fields["worktree"]
+        from yoke_core.domain.item_worktrees import primary_item_worktree
+
+        active_lane = primary_item_worktree(conn, int(item_pk))
+        worktree = str(active_lane["branch"]) if active_lane else ""
         blocked = str(fields.get("blocked") or "").lower() in {"1", "true"}
 
         want_status = f"status:{_status_display_label(status)}" if status and status != "null" else ""
@@ -289,6 +292,12 @@ def sync_labels(
                     token=auth.token, description=f"Worktree: {worktree}",
                 )
                 _rest.add_labels(target_repo, issue_num, [want_worktree], token=auth.token)
+        else:
+            for label in existing:
+                if label.startswith("worktree:"):
+                    _rest.remove_label(
+                        target_repo, issue_num, label, token=auth.token,
+                    )
 
         has_blocked = "blocked" in existing
         if blocked and not has_blocked:

@@ -71,7 +71,6 @@ _CANONICAL_BY_LOWER = {h.lower(): h for h in CANONICAL_HEADINGS}
 # JSON, not markdown headings, so scanning them adds noise without signal.
 _NARRATIVE_STRUCTURED_FIELDS: Tuple[str, ...] = tuple(sorted(
     STRUCTURED_FIELDS - {
-        "browser_qa_metadata",
         "db_mutation_profile",
         "db_compatibility_attestation",
         "architecture_impact",

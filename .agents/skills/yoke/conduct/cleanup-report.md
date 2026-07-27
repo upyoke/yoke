@@ -21,7 +21,7 @@ After the board rebuild, always proceed to **step 6z-cleanup** (Main-Repo Cleanu
 
 ## 6z-cleanup. Main-Repo Cleanup
 
-After the board rebuild and before the final report, clean up shared-state artifacts that conduct leaves on main (gap-ticket filing, board rebuilds, view regeneration). This step runs on every exit path — SUCCESS, HALTED, `--no-chain`, and skip-simulation.
+After the board rebuild and before the final report, clean up shared-state artifacts that conduct leaves on main (follow-up work-item filing, board rebuilds, view regeneration). This step runs on every exit path — SUCCESS, HALTED, `--no-chain`, and skip-simulation.
 
 ### a. Remove orphaned temp files
 

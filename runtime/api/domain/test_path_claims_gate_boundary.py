@@ -1,15 +1,13 @@
 """Coverage for the path-claim boundary lifecycle gate.
 
-Wires a real temp git repo + project row + item with a worktree
-field so the gate's project-aware path resolution sees a worktree
-on disk to point the boundary check at.
+Wires a real temp git repo, project row, item, and universal lane so the
+gate's project-aware path resolution sees an on-disk worktree.
 """
 
 from __future__ import annotations
 
 import os
 import subprocess
-import tempfile
 from contextlib import closing
 
 import pytest
@@ -58,8 +56,8 @@ def _apply_boundary_schema(project_repo):
     Builds the same minimal schema the ``conn`` fixture provides (core +
     events + path registry + actor/path-claim tables + canonical actors)
     plus the ``projects`` table the gate's project-aware lookup needs,
-    then seeds the project row (pointing at ``project_repo``) and the item
-    with its worktree branch. Resolves its connection through the backend
+    then seeds the project row (pointing at ``project_repo``), item, and
+    universal lane. Resolves its connection through the backend
     factory so the gate, which re-opens the DB via ``db_helpers.connect``
     (the same factory), reads the data the test writes on either engine —
     the VACUUM-INTO-a-SQLite-file path the legacy fixture used was
@@ -100,10 +98,17 @@ def _apply_boundary_schema(project_repo):
             )
             c.execute(
                 "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, "
-                "created_at, updated_at, project_id, project_sequence, worktree) "
+                "created_at, updated_at, project_id, project_sequence) "
                 "VALUES (7777, 'item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', 'medium', "
-                "'2026-05-01T00:00:00Z', '2026-05-01T00:00:00Z', 1, 7777, "
-                "'YOK-7777')",
+                "'2026-05-01T00:00:00Z', '2026-05-01T00:00:00Z', 1, 7777)",
+            )
+            c.execute(
+                "INSERT INTO item_worktrees "
+                "(item_id, branch, path, lane_role, state, "
+                "created_at, updated_at) "
+                "VALUES (7777, 'YOK-7777', %s, 'implementation', 'active', "
+                "'2026-05-01T00:00:00Z', '2026-05-01T00:00:00Z')",
+                (str(project_repo / ".worktrees" / "YOK-7777"),),
             )
             c.commit()
         finally:
@@ -237,10 +242,10 @@ class TestBoundaryGate:
         assert "have diverged" in result["error"]
 
     def test_gate_self_skips_when_no_worktree(self, real_db):
-        # Update the item to drop the worktree field
+        # Remove active lane authority from the item.
         with closing(connect_test_db(real_db)) as wconn:
             wconn.execute(
-                "UPDATE items SET worktree = NULL WHERE id = 7777"
+                "DELETE FROM item_worktrees WHERE item_id = 7777"
             )
             wconn.commit()
         result = check_boundary_for_item(

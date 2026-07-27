@@ -171,6 +171,9 @@ def compute_schedule(
             unblocks_count=fi.unblocks_count,
             downstream_depth=fi.downstream_depth,
             created_at=fi.created_at,
+            stage_index=fi.stage_index,
+            stage_count=fi.stage_count,
+            stage_label=fi.stage_label,
             routing_override=step_result.routing_override,
         )
         ranked_steps.append(step)
@@ -216,6 +219,9 @@ def compute_schedule(
             unblocks_count=fi.unblocks_count,
             downstream_depth=fi.downstream_depth,
             created_at=fi.created_at,
+            stage_index=fi.stage_index,
+            stage_count=fi.stage_count,
+            stage_label=fi.stage_label,
         )
         blocked_steps.append(step)
 
@@ -253,6 +259,9 @@ def compute_schedule(
             project=fi.project,
             explanation="Frozen — excluded from scheduling",
             created_at=fi.created_at,
+            stage_index=fi.stage_index,
+            stage_count=fi.stage_count,
+            stage_label=fi.stage_label,
         ))
 
     # 9. Convert conduct-eligible items

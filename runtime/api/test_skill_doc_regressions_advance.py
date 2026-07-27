@@ -65,6 +65,21 @@ class TestAdvanceFinalizeSkill:
         assert "items update {N} status refining-idea" not in section_text
         assert "items update {N} status refined-idea" not in section_text
 
+    def test_skip_routing_names_resolve_to_the_current_owner(self, finalize_doc: Path):
+        from yoke_core.domain import advance_skip_core
+
+        text = _read(finalize_doc)
+        assert "yoke_core.domain.advance_skip_core" in text
+        assert "yoke_core.domain.lifecycle_progression" not in text
+        assert "PRE_IMPLEMENTATION_STATUSES" not in text
+        for name in (
+            "_REFINE_ROUTING",
+            "_REFINE_TARGETS_ALLOWED",
+            "_POLISH_TRANSIT_ALLOWED",
+        ):
+            assert name in text
+            assert getattr(advance_skip_core, name) is not None
+
 
 # ---------------------------------------------------------------------------
 # TestAdvanceBrowserQaSkill
@@ -72,7 +87,7 @@ class TestAdvanceFinalizeSkill:
 
 
 class TestAdvanceBrowserQaSkill:
-    """Browser QA retry docs must persist healthy env status after polling."""
+    """Browser QA executes method-backed cases through the shared runner."""
 
     @pytest.fixture
     def browser_qa_doc(self) -> Path:
@@ -80,26 +95,14 @@ class TestAdvanceBrowserQaSkill:
         assert doc.is_file()
         return doc
 
-    @pytest.fixture
-    def browser_qa_checks_doc(self) -> Path:
-        doc = SKILLS / "advance" / "browser-qa-checks.md"
-        assert doc.is_file()
-        return doc
-
-    def test_successful_poll_updates_env_status_to_healthy(
-        self, browser_qa_doc: Path, browser_qa_checks_doc: Path
+    def test_materializes_and_executes_browser_method_cases(
+        self, browser_qa_doc: Path,
     ):
-        # Parent router must reference the checks child file
-        parent_text = _read(browser_qa_doc)
-        assert "browser-qa-checks.md" in parent_text
-        # Deployment polling and env-status logic lives in the checks child file
-        checks_text = _read(browser_qa_checks_doc)
-        assert 'if [ "$_deploy_status" = "healthy" ] && [ -n "$_env_id" ]; then' in checks_text
-        assert (
-            'yoke ephemeral-env update "$_env_id" status "healthy"'
-            in checks_text
-        )
-        assert "- `healthy` → env record updated to `healthy`, proceed" in checks_text
+        text = _read(browser_qa_doc)
+        assert "yoke qa plan materialize" in text
+        assert "browser-check" in text
+        assert "browser-inspection" in text
+        assert "yoke qa case run" in text
 
 
 # ---------------------------------------------------------------------------

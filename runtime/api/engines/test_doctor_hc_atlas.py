@@ -129,6 +129,29 @@ class TestPass:
         assert "running HC-atlas-integrity check-doc-staleness" in out
         assert rec.results[0].result == "PASS"
 
+    def test_client_local_cli_row_uses_permanent_boundary(
+        self, conn, monkeypatch
+    ) -> None:
+        report = _clean_report()
+        report["yoke_cli"]["rows"].append({
+            "cli_form": "yoke sessions init",
+            "function_id": "sessions.init",
+            "cli_tokens": ["sessions", "init"],
+            "dispatch_kind": "client_local",
+        })
+        report["yoke_cli"]["count"] = 3
+        report["operation_tracker"]["rows"].append({
+            "shell_form": "yoke sessions init",
+            "status": "permanent",
+        })
+        report["help_pages"]["per_subcommand"]["sessions init"] = {
+            "exit_code": 0,
+            "body": "ok",
+            "stderr": "",
+        }
+        rec = _record(report, conn, monkeypatch)
+        assert rec.results[0].result == "PASS", rec.results[0].detail
+
 
 class TestFailures:
     def test_wrapped_tracker_count_mismatch(self, conn, monkeypatch) -> None:
@@ -163,6 +186,26 @@ class TestFailures:
         rec = _record(report, conn, monkeypatch)
         assert rec.results[0].result == "FAIL"
         assert "phantom.missing.run" in rec.results[0].detail
+
+    def test_client_local_cli_row_requires_permanent_boundary(
+        self, conn, monkeypatch
+    ) -> None:
+        report = _clean_report()
+        report["yoke_cli"]["rows"].append({
+            "cli_form": "yoke sessions init",
+            "function_id": "sessions.init",
+            "cli_tokens": ["sessions", "init"],
+            "dispatch_kind": "client_local",
+        })
+        report["yoke_cli"]["count"] = 3
+        report["help_pages"]["per_subcommand"]["sessions init"] = {
+            "exit_code": 0,
+            "body": "ok",
+            "stderr": "",
+        }
+        rec = _record(report, conn, monkeypatch)
+        assert rec.results[0].result == "FAIL"
+        assert "permanent command-shaped boundary" in rec.results[0].detail
 
     def test_subcommand_missing_help(self, conn, monkeypatch) -> None:
         report = _clean_report()

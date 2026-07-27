@@ -206,7 +206,8 @@ def prepare_update(
                 },
             ))
 
-        # Done cleanup: clear frozen, worktree
+        # Done cleanup: clear item posture flags. Lane release is a
+        # universal-registry side effect owned by the write adapter.
         if value == "done":
             for k, v in DONE_CLEANUP_FIELDS.items():
                 field_writes[k] = v

@@ -129,6 +129,60 @@ def _frozen_blocked(item_id: int, force: bool) -> Optional[HandlerOutcome]:
     )
 
 
+def _prepare_definition_gates(
+    request: FunctionCallRequest,
+    *,
+    item_id: int,
+    target_status: str,
+) -> Optional[HandlerOutcome]:
+    """Materialize attached QA and evaluate the pinned approval policy."""
+    from yoke_core.domain import db_helpers
+    from yoke_core.domain.schema_common import _table_exists
+    from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
+
+    with db_helpers.connect() as conn:
+        workflow = load_item_workflow_runtime(conn, item_id)
+        if _table_exists(conn, "qa_plan_project_defaults"):
+            from yoke_core.domain.qa_plan_attachments import materialize_for_item
+
+            materialize_for_item(
+                conn, item_id=item_id, transition_id=target_status,
+            )
+        approval = dict(
+            workflow.policies.get("approval_defaults", {})
+        ).get(target_status)
+        if not approval:
+            from yoke_core.domain.dash_posture_gate import (
+                approval_policy_for_transition,
+            )
+
+            approval = approval_policy_for_transition(
+                conn,
+                item_id=item_id,
+                target_status=target_status,
+            )
+        if not approval:
+            return None
+        from yoke_core.domain.actor_project_visibility import numeric_actor_id
+        from yoke_core.domain.approval_gate import evaluate_lifecycle_approval
+
+        verdict = evaluate_lifecycle_approval(
+            conn,
+            item_id=item_id,
+            to_stage_id=target_status,
+            role_names=approval.get("roles", ()),
+            named_actor_ids=approval.get("actors", ()),
+            originator_actor_id=numeric_actor_id(request.actor.actor_id),
+            session_id=request.actor.session_id,
+        )
+    if verdict.satisfied:
+        return None
+    return _error_outcome(
+        "approval_required",
+        f"{verdict.reason} (decision request {verdict.request_id})",
+    )
+
+
 # ---------------------------------------------------------------------------
 # Handler
 # ---------------------------------------------------------------------------
@@ -163,6 +217,11 @@ def handle_transition(request: FunctionCallRequest) -> HandlerOutcome:
     blocked = _frozen_blocked(item_id, payload.force)
     if blocked is not None:
         return blocked
+    gate = _prepare_definition_gates(
+        request, item_id=item_id, target_status=payload.target_status,
+    )
+    if gate is not None:
+        return gate
 
     from yoke_core.domain import backlog
 
@@ -183,6 +242,25 @@ def handle_transition(request: FunctionCallRequest) -> HandlerOutcome:
         return _error_outcome(
             _map_error_code(legacy_code),
             str(result.get("error") or "lifecycle transition failed"),
+        )
+
+    from yoke_core.domain.actor_project_visibility import numeric_actor_id
+    from yoke_core.domain.direct_workflow_terminal_resources import (
+        release_for_transition,
+    )
+
+    cleanup = release_for_transition(
+        item_id=item_id,
+        target_status=payload.target_status,
+        session_id=request.actor.session_id,
+        actor_id=numeric_actor_id(request.actor.actor_id),
+    )
+    if cleanup["document_claim_released"]:
+        captured.write("Released the Blitz execution-document claim.\n")
+    released_lanes = int(cleanup["worktree_lanes_released"])
+    if released_lanes:
+        captured.write(
+            f"Released {released_lanes} direct-workflow worktree lane(s).\n"
         )
 
     response = LifecycleTransitionResponse(

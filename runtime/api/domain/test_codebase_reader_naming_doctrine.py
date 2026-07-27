@@ -96,7 +96,7 @@ def test_rendered_adapters_inherit_canonical_reader_doctrine() -> None:
 def test_codebase_reader_rule_enumerates_full_provenance_token_set() -> None:
     """The master rule must explicitly name every purged provenance class, so a
     future agent cannot read it and think tiers, stages, slices, waves, field-notes,
-    ticket/epic refs, or functional requirements are exempt."""
+    work-item/epic refs, or functional requirements are exempt."""
     agents_text = _read(ROOT / "AGENTS.md")
     marker = "Codebase-reader naming"
     assert marker in agents_text

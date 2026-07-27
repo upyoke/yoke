@@ -1,7 +1,7 @@
 """Aggregate registry for tool-shaped ``yoke`` subcommands.
 
-Tool-shaped commands are client-local operations (git hook bodies, the
-browser-QA orchestration) that carry NO dispatcher function id — the
+Tool-shaped commands are client-local operations (git hook bodies and
+machine-substrate utilities) that carry NO dispatcher function id — the
 entrypoint consults this table only after registry resolution misses.
 Each owning module contributes its own token→adapter dict; this module
 merges them and owns the one resolver, so adding a family never edits
@@ -32,6 +32,10 @@ from yoke_cli.commands.deployment_execute import (
     TOOL_SHAPED_SUBCOMMANDS as _DEPLOYMENT_EXECUTE_SUBCOMMANDS,
     TOOL_SHAPED_USAGE as _DEPLOYMENT_EXECUTE_USAGE,
 )
+from yoke_cli.commands.direct_workflow_worktree import (
+    TOOL_SHAPED_SUBCOMMANDS as _DIRECT_WORKFLOW_WORKTREE_SUBCOMMANDS,
+    TOOL_SHAPED_USAGE as _DIRECT_WORKFLOW_WORKTREE_USAGE,
+)
 from yoke_cli.commands.core import (
     TOOL_SHAPED_SUBCOMMANDS as _CORE_SUBCOMMANDS,
     CORE_USAGE as _CORE_USAGE,
@@ -60,6 +64,10 @@ from yoke_cli.commands.qa_browser import (
 from yoke_cli.commands.qa_browser_lifecycle import (
     QA_BROWSER_LIFECYCLE_SUBCOMMANDS as _QA_BROWSER_LIFECYCLE_SUBCOMMANDS,
     QA_BROWSER_LIFECYCLE_USAGE as _QA_BROWSER_LIFECYCLE_USAGE,
+)
+from yoke_cli.commands.qa_case import (
+    TOOL_COMMANDS as _QA_CASE_SUBCOMMANDS,
+    USAGE as _QA_CASE_USAGE,
 )
 from yoke_cli.commands.resync import (
     TOOL_SHAPED_SUBCOMMANDS as _RESYNC_SUBCOMMANDS,
@@ -96,6 +104,7 @@ TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
     **_CHECK_SUBCOMMANDS,
     **_CONNECT_SUBCOMMANDS,
     **_DEPLOYMENT_EXECUTE_SUBCOMMANDS,
+    **_DIRECT_WORKFLOW_WORKTREE_SUBCOMMANDS,
     **_CORE_SUBCOMMANDS,
     **_GIT_SUBCOMMANDS,
     **_INSTALLER_LOCAL_SUBCOMMANDS,
@@ -103,6 +112,7 @@ TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
     **_MERGE_AUDIT_SUBCOMMANDS,
     **_QA_BROWSER_LIFECYCLE_SUBCOMMANDS,
     **_QA_BROWSER_SUBCOMMANDS,
+    **_QA_CASE_SUBCOMMANDS,
     **_RESYNC_SUBCOMMANDS,
     **_SCHEMA_CONVERGE_SUBCOMMANDS,
     **_SELF_HOST_SUBCOMMANDS,
@@ -119,6 +129,7 @@ TOOL_SHAPED_USAGE: Dict[str, str] = {
     **_CHECK_USAGE,
     **_CONNECT_USAGE,
     **_DEPLOYMENT_EXECUTE_USAGE,
+    **_DIRECT_WORKFLOW_WORKTREE_USAGE,
     **_CORE_USAGE,
     **_GIT_USAGE,
     **_INSTALLER_LOCAL_USAGE,
@@ -126,6 +137,7 @@ TOOL_SHAPED_USAGE: Dict[str, str] = {
     **_MERGE_AUDIT_USAGE,
     **_QA_BROWSER_LIFECYCLE_USAGE,
     **_QA_BROWSER_USAGE,
+    **_QA_CASE_USAGE,
     **_RESYNC_USAGE,
     **_SCHEMA_CONVERGE_USAGE,
     **_SELF_HOST_USAGE,

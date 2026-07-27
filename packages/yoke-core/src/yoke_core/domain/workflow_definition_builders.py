@@ -5,6 +5,9 @@ from __future__ import annotations
 from typing import Any, Dict, Iterable, Optional, Sequence
 
 WORKFLOW_DEFINITION_SCHEMA_VERSION = 1
+WORKFLOW_PATH_CLAIMS_OPTIONAL = "optional"
+WORKFLOW_PATH_CLAIMS_REQUIRED = "required"
+WORKFLOW_PATH_CLAIMS_REQUIRED_PER_TASK = "required_per_task"
 REGISTERED_WORKFLOW_EXECUTOR_IDS = frozenset({
     "advance",
     "blitz",
@@ -79,6 +82,10 @@ def definition_fixture(
 ) -> Dict[str, Any]:
     """Build a complete first-version seed fixture."""
     stage_ids = [stage["id"] for stage in stages]
+    normalized_policies = {
+        **policies,
+        "approval_defaults": dict(policies.get("approval_defaults", {})),
+    }
     return {
         "workflow": {
             "id": workflow_id,
@@ -97,7 +104,7 @@ def definition_fixture(
             ],
             "entry_surfaces": list(entry_surfaces),
             "executor_bindings": list(executor_bindings),
-            "policies": policies,
+            "policies": normalized_policies,
         },
     }
 
@@ -107,6 +114,9 @@ __all__ = [
     "IMPLEMENTATION_WORKFLOW_EXECUTOR_IDS",
     "REGISTERED_WORKFLOW_EXECUTOR_IDS",
     "WORKFLOW_DEFINITION_SCHEMA_VERSION",
+    "WORKFLOW_PATH_CLAIMS_OPTIONAL",
+    "WORKFLOW_PATH_CLAIMS_REQUIRED",
+    "WORKFLOW_PATH_CLAIMS_REQUIRED_PER_TASK",
     "definition_fixture",
     "executor_binding",
     "gate_ref",

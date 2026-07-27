@@ -10,7 +10,7 @@ def persist_item_worktrees(
     lanes: Iterable[Tuple[str, str, str]],
     db_path: Optional[str],
 ) -> None:
-    """Best-effort universal-lane write with a legacy primary projection."""
+    """Persist the universal lane rows provisioned by worktree creation."""
     from yoke_core.domain.db_helpers import connect
 
     lane_rows = list(lanes)
@@ -21,29 +21,15 @@ def persist_item_worktrees(
     except Exception:  # noqa: BLE001 — best-effort
         return
     try:
-        from yoke_core.domain import db_backend
         from yoke_core.domain.item_worktrees import record_item_worktree
-        from yoke_core.domain.schema_common import _table_exists
-        from yoke_core.domain.session_ambient_identity import (
-            resolve_ambient_session_id,
-        )
-
-        p = "%s" if db_backend.connection_is_postgres(conn) else "?"
-        conn.execute(
-            f"UPDATE items SET worktree = {p} WHERE id = {p}",
-            (lane_rows[0][0], int(item_id)),
-        )
-        if _table_exists(conn, "item_worktrees"):
-            session_id = resolve_ambient_session_id()
-            for branch, path, lane_role in lane_rows:
-                record_item_worktree(
-                    conn,
-                    item_id=int(item_id),
-                    branch=branch,
-                    path=path,
-                    lane_role=lane_role,
-                    session_id=session_id,
-                )
+        for branch, path, lane_role in lane_rows:
+            record_item_worktree(
+                conn,
+                item_id=int(item_id),
+                branch=branch,
+                path=path,
+                lane_role=lane_role,
+            )
         conn.commit()
     except Exception:  # noqa: BLE001 — best-effort
         pass

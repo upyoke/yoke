@@ -16,7 +16,7 @@ is a flag-driven primitive; it is unrelated to
 `path_claims.state='blocked'`, which has its own activation flow.
 
 <!-- BEGIN GENERATED: field-note-directive -->
-When you hit a recipe gap or notice a minor bug not worth a ticket, file a field-note immediately — before retrying, before moving on.
+When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
 Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->
@@ -41,7 +41,18 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
    a note:
    > YOK-{N} is not blocked. Nothing to do.
 
-4. **Clear the flag and the reason via the canonical adapter.** Use the
+4. **Acquire a work claim.** The `items.scalar.update` dispatcher refuses
+   item mutations unless the calling session holds an active claim:
+
+   ```bash
+   yoke claims work acquire \
+       --item "YOK-{N}" --reason unblock
+   ```
+
+   If another session holds the claim, stop and coordinate with that holder.
+   Do not override the claim.
+
+5. **Clear the flag and the reason via the canonical adapter.** Use the
    wrapped `items.scalar.update` adapter once to clear the flag and once
    to clear the reason. The shared mutation path removes the GitHub
    `blocked` label best-effort and rebuilds the board.
@@ -54,14 +65,18 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
    GitHub label-sync warnings surface as `warning: github_sync_degraded`
    lines on stderr; the unblock itself still succeeded when exit code is
    0. If the second write fails after the first succeeds, rerun the
-   `blocked_reason --null` command after addressing the reported error.
+   `blocked_reason --null` command after addressing the reported error
+   while retaining the claim.
 
-5. **Commit.**
+6. **Release the work claim.** Once both writes have applied, release the
+   claim so unblocking the item does not leave it owned by this session:
+
    ```bash
-   git diff --cached --quiet || git commit -m "YOK-{N}: unblock"
+   yoke claims work release \
+       --item "YOK-{N}" --reason unblock-complete
    ```
 
-6. **Report.**
+7. **Report.**
    > **YOK-{N}** ({title}): unblocked
    >
    > The item is back on the board in the `{status}` section.

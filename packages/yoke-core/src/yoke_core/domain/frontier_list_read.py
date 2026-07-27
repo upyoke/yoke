@@ -24,9 +24,17 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from yoke_core.domain import db_helpers
-from yoke_core.domain.dependency_planning import BlockerDetail, evaluate_batch_gates
+from yoke_core.domain.dependency_planning import (
+    BlockerDetail,
+    evaluate_batch_gates,
+)
 from yoke_core.domain.scheduler import compute_schedule
-from yoke_core.domain.scheduler_types import ClaimState, NextStep, ScheduledStep
+from yoke_core.domain.scheduler_types import (
+    ClaimState,
+    GateEvaluation,
+    NextStep,
+    ScheduledStep,
+)
 from yoke_core.domain.session_project_scope import resolve_session_project_scope
 
 
@@ -39,23 +47,29 @@ FRONTIER_READY_FIELDS = (
     "workflow_version",
     "project",
     "status",
+    "stage_index",
+    "stage_count",
+    "stage_label",
     "priority",
     "next_step",
     "run_command",
     "why_ready",
     "unblocks_count",
     "downstream_depth",
+    "created_at",
 )
 
 #: Blocked-row keys, in presentation order.
 FRONTIER_BLOCKED_FIELDS = (
     "item_id",
     "title",
+    "workflow_id",
     "project",
     "blocking_item",
     "gate_point",
     "why",
     "satisfaction",
+    "created_at",
 )
 
 #: Gate points the frontier computation does not enforce but whose
@@ -99,7 +113,10 @@ def _compose_edge_why(reason: str, rationale: str) -> str:
     return reason
 
 
-def _blocked_row(step: ScheduledStep, detail: Optional[BlockerDetail]) -> Dict[str, Any]:
+def _blocked_row(
+    step: ScheduledStep,
+    detail: Optional[BlockerDetail | GateEvaluation],
+) -> Dict[str, Any]:
     if detail is None:
         # Non-edge wait: operator block, legacy blocked status, or an
         # incomplete idea body. There is no blocking item or gate point;
@@ -107,20 +124,24 @@ def _blocked_row(step: ScheduledStep, detail: Optional[BlockerDetail]) -> Dict[s
         return {
             "item_id": step.item_id,
             "title": step.title,
+            "workflow_id": step.workflow_id,
             "project": step.project,
             "blocking_item": "",
             "gate_point": "",
             "why": "; ".join(step.blocked_reasons) or step.explanation,
             "satisfaction": "",
+            "created_at": step.created_at,
         }
     return {
         "item_id": step.item_id,
         "title": step.title,
+        "workflow_id": step.workflow_id,
         "project": step.project,
         "blocking_item": detail.blocking_item,
         "gate_point": detail.gate_point,
         "why": _compose_edge_why(detail.reason, detail.rationale),
         "satisfaction": detail.satisfaction,
+        "created_at": step.created_at,
     }
 
 
@@ -158,6 +179,9 @@ def list_frontier(
                 "workflow_version": step.workflow_version,
                 "project": step.project,
                 "status": step.status,
+                "stage_index": step.stage_index,
+                "stage_count": step.stage_count,
+                "stage_label": step.stage_label,
                 "priority": step.priority,
                 "next_step": step.next_step.value,
                 "run_command": f"yoke {step.next_step.value} {step.item_id}",
@@ -169,6 +193,7 @@ def list_frontier(
                 ),
                 "unblocks_count": step.unblocks_count,
                 "downstream_depth": step.downstream_depth,
+                "created_at": step.created_at,
             })
 
         blocked_rows: List[Dict[str, Any]] = []
@@ -177,15 +202,7 @@ def list_frontier(
                 blocked_rows.append(_blocked_row(step, None))
                 continue
             for gate in step.gate_evaluations:
-                blocked_rows.append({
-                    "item_id": step.item_id,
-                    "title": step.title,
-                    "project": step.project,
-                    "blocking_item": gate.blocking_item,
-                    "gate_point": gate.gate_point,
-                    "why": _compose_edge_why(gate.reason, gate.rationale),
-                    "satisfaction": gate.satisfaction,
-                })
+                blocked_rows.append(_blocked_row(step, gate))
 
         # Later-landing edges attach to whichever non-terminal step the
         # schedule already tracks for the dependent item — an edge whose
@@ -220,6 +237,14 @@ def list_frontier(
             "frozen_count": len(schedule.frozen_steps),
             "wip_cap": schedule.wip_cap,
             "wip_active": schedule.wip_active,
+            "waiting_on_you_count": len({
+                step.item_id
+                for step in schedule.blocked_steps
+                if any(
+                    str(reason).startswith("Blocked by operator")
+                    for reason in step.blocked_reasons
+                )
+            }),
         }
     finally:
         conn.close()

@@ -21,5 +21,5 @@ def test_router_documents_execute_class_plan_mode_auto_exit() -> None:
         assert "conduct" in text
         assert "usher" in text
         assert "polish" in text
-        assert "Plan mode auto-exited — Yoke ticket is the plan." in text
+        assert "Plan mode auto-exited — Yoke work item is the plan." in text
         assert "Planning-class commands" in text

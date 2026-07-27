@@ -210,7 +210,6 @@ def update_item(item_id: int, req: _main.UpdateItemRequest) -> _main.ItemObject 
             deployment_flow=item_dict.get("deployment_flow"),
             deploy_stage=item_dict.get("deploy_stage"),
             deployed_to=item_dict.get("deployed_to"),
-            worktree=item_dict.get("worktree"),
             merged_at=item_dict.get("merged_at"),
             workflow=workflow,
         )

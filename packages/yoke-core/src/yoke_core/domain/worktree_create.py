@@ -1,9 +1,8 @@
 """Worktree creation surface.
 
 Owns ``create_worktree`` and its per-worktree provisioning loop. A
-single-worktree issue is the N=1 case of an N-worktree epic — the creator
-resolves the worktree list internally (single-worktree fallback for
-issues, ``epic_dispatch_chains`` rows for epics) and runs one provisioning
+single-worktree workflow is the N=1 case of a multi-lane workflow — the
+creator resolves universal item lanes and runs one provisioning
 path covering both shapes. Worktree planning, idempotency classification,
 and capacity preflight live in
 :mod:`yoke_core.domain.worktree_create_plan`.
@@ -69,10 +68,9 @@ def create_worktree(
 ) -> CreateWorktreeResult:
     """Create git worktrees for a backlog item.
 
-    Resolves the worktree list internally (single-worktree fallback for
-    issues, ``epic_dispatch_chains`` rows for epics) and runs one
-    per-worktree provisioning loop. Worktree creation is a pure
-    filesystem + ``items.worktree`` mutation; the session's authority over
+    Resolves the worktree list internally and runs one per-worktree
+    provisioning loop. Worktree creation mutates the filesystem and the
+    universal lane registry; the session's authority over
     the new worktree comes from its active ``work_claims`` row, validated
     per-call by ``lint_session_cwd``.
     """
@@ -226,7 +224,7 @@ def create_worktree(
             )
         entry.created = True
 
-    # --- Backward-compat fields from primary worktree ---
+    # --- Stable primary result plus universal lane persistence ---
     primary = plan.primary or plan.worktrees[0]
     any_created = any(entry.created for entry in plan.worktrees)
     persist_item_worktrees(
@@ -248,4 +246,3 @@ def _resolve_db_path_for_worktrees(*, repo_root_was_explicit: bool) -> Optional[
 
 def _fallback_project_for_worktree() -> str:
     return "yoke"
-

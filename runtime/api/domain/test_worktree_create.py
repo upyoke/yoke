@@ -16,6 +16,10 @@ import pytest
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.project_seed_test_helpers import SEED_PROJECT_IDS
+from yoke_core.domain.item_worktrees import (
+    list_item_worktrees,
+    record_item_worktree,
+)
 from yoke_core.domain.worktree import (
     create_worktree,
     resolve_item_worktree,
@@ -51,25 +55,33 @@ def _seed_item(
     title: str = "Test",
     status: str = "implementing",
     worktree=None,
+    worktree_path=None,
     project: str = "yoke",
     item_type: str = "issue",
 ) -> None:
     p = _placeholder(conn)
     conn.execute(
         "INSERT INTO items "
-        "(id, title, type, status, worktree, project_id, project_sequence) "
-        f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p})",
+        "(id, title, type, status, project_id, project_sequence) "
+        f"VALUES ({p}, {p}, {p}, {p}, {p}, {p})",
         (
             item_id,
             title,
             item_type,
             status,
-            worktree,
             _project_id(project),
             item_id,
         ),
     )
     pin_test_item_workflow(conn, item_id, item_type)
+    if worktree:
+        record_item_worktree(
+            conn,
+            item_id=item_id,
+            branch=worktree,
+            path=worktree_path,
+            lane_role="implementation",
+        )
 
 
 class TestCreateWorktree:
@@ -166,11 +178,11 @@ class TestCreateWorktree:
         )
         assert result.error is not None or not result.created
 
-    def test_persists_items_worktree_without_explicit_db_path(
+    def test_persists_universal_lane_without_explicit_db_path(
         self, git_repo, yoke_db,
     ):
         # The preflight caller never threads db_path through; without the
-        # YOKE_DB-driven fallback in _persist_item_worktree the write
+        # YOKE_DB-driven fallback in the persistence adapter the write
         # silently no-ops and every Edit/Write in the new worktree is
         # refused by lint_session_cwd.
         conn = connect_test_db(yoke_db)
@@ -189,13 +201,11 @@ class TestCreateWorktree:
         assert result.created is True
 
         conn = connect_test_db(yoke_db)
-        p = _placeholder(conn)
-        row = conn.execute(
-            f"SELECT worktree FROM items WHERE id = {p}", (TEST_ITEM_ID,),
-        ).fetchone()
+        rows = list_item_worktrees(conn, TEST_ITEM_ID, active_only=True)
         conn.close()
-        assert row is not None
-        assert row[0] == TEST_ITEM_REF
+        assert [(row["branch"], row["lane_role"]) for row in rows] == [
+            (TEST_ITEM_REF, "implementation")
+        ]
 
 
 class TestResolveItemWorktree:
@@ -221,7 +231,7 @@ class TestResolveItemWorktree:
         assert result.project == "yoke"
         assert result.path.endswith(f".worktrees/{TEST_ITEM_REF}")
 
-    def test_fallback_branch(self, git_repo, yoke_db):
+    def test_unrecorded_item_has_no_resolved_lane(self, git_repo, yoke_db):
         conn = connect_test_db(yoke_db)
         _seed_item(conn, 43, worktree="")
         _seed_project_repo(conn, "yoke", str(git_repo))
@@ -231,7 +241,8 @@ class TestResolveItemWorktree:
         with patch.dict(os.environ, {"YOKE_ROOT": str(git_repo)}):
             result = resolve_item_worktree("YOK-43", db_path=yoke_db)
 
-        assert result.branch == "YOK-43"
+        assert result.branch == ""
+        assert result.path == ""
         assert result.exists is False
 
     def test_external_project(self, tmp_path, yoke_db):
@@ -278,9 +289,14 @@ class TestResolveItemWorktree:
             resolve_item_worktree("abc")
 
     def test_live_branch_override(self, git_repo, yoke_db):
-        """When actual branch differs from DB worktree field, live branch wins."""
+        """When the checked-out branch differs from the lane record, live wins."""
         conn = connect_test_db(yoke_db)
-        _seed_item(conn, 44, worktree="stale-branch-name")
+        _seed_item(
+            conn,
+            44,
+            worktree="stale-branch-name",
+            worktree_path=str(git_repo / ".worktrees" / "YOK-44"),
+        )
         _seed_project_repo(conn, "yoke", str(git_repo))
         conn.commit()
         conn.close()

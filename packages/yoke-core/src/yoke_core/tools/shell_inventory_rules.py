@@ -51,7 +51,7 @@ WRITE_AUTHORITY = {
     "sync-to-github.sh",
 }
 
-WRITE_AUTHORITY_TICKETS = {
+WRITE_AUTHORITY_LANES = {
     "backlog-registry.sh": "backlog-write-authority-retirement",
     "sync-helper.sh": "github-sync-write-authority-retirement",
     "sync-to-github.sh": "github-sync-write-authority-retirement",
@@ -68,7 +68,7 @@ ORCHESTRATION_TARGETS = {
     "qa-gate-check.sh",
 }
 
-ORCHESTRATION_TICKETS = {
+ORCHESTRATION_LANES = {
     "browser-exec.sh": "browser-qa-orchestration-retirement",
     "browser-run-scenario.sh": "browser-qa-orchestration-retirement",
     "browser-snapshot.sh": "browser-qa-orchestration-retirement",
@@ -89,7 +89,7 @@ COMPATIBILITY_SHIMS = {
     "schema-db.sh",
 }
 
-DB_WRAPPER_TICKETS = {
+DB_WRAPPER_LANES = {
     "yoke-db.sh": "db-wrapper-retirement",
     "schema-db.sh": "db-wrapper-retirement",
     "item-db.sh": "db-wrapper-retirement",
@@ -103,7 +103,7 @@ DB_WRAPPER_TICKETS = {
     "release-notes-db.sh": "domain-db-wrapper-retirement",
 }
 
-UTILITY_TICKET_OVERRIDES = {
+UTILITY_LANE_OVERRIDES = {
     "backfill-deployment-flows.sh": "deployment-orchestration-retirement",
     "browser-daemon.sh": "browser-qa-orchestration-retirement",
     "browser-worker.sh": "browser-qa-orchestration-retirement",

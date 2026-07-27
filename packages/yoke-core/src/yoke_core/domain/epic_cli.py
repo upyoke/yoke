@@ -59,7 +59,7 @@ Subcommands:
   simulation-upsert <epic-id> <phase>  (reads body from stdin)
   simulation-get <epic-id> <phase>
   proceed-triage-handoff <epic-id> [--recommendation R] [--gap-summary S]
-                              [--filed-tickets T1,T2] [--session-id SID]
+                              [--filed-items T1,T2] [--session-id SID]
   cascade-task-status <epic-id> <from-parent-status> <to-parent-status>
   orphan-check
   migrate-task-files                  Add UNIQUE constraint to epic_task_files (idempotent)

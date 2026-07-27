@@ -65,10 +65,10 @@ Rehearsal and live apply dispatch the same slug through the same runner
 shape; only the checkout root differs (`worktree_path` during rehearsal,
 this machine's registered project checkout during live apply).
 
-### Ticketless committed manifests
+### Work-item-independent committed manifests
 
 Operator-directed maintenance that deliberately has no backlog item uses a
-committed migration manifest instead of synthesizing a ticket. The manifest
+committed migration manifest instead of synthesizing a work item. The manifest
 contains the same validated `db_mutation_profile` and
 `db_compatibility_attestation` the item-backed path reads, plus `version: 1`
 and the project slug. Every authored attestation field must be non-empty.
@@ -261,7 +261,7 @@ defaults.
 ## DB-Claim Semantics
 
 This page describes capability configuration, not a governed mutation.
-A ticket that adds, edits, or removes a `migration_model` settings JSON
+A work item that adds, edits, or removes a `migration_model` settings JSON
 on the Yoke control-plane DB is doing project-capability work; the
 default `db_mutation_profile.state="none"` claim covers it. If
 implementation discovers an unexpected `ALTER TABLE` or

@@ -232,7 +232,7 @@ class TestDomainDispatch:
             "multiplicities",
         }
         assert "areas" in out
-        assert "command_definitions" in out
+        assert "deploy_defaults" in out
         assert "context_routing" in out
 
     def test_project_structure_dispatch_get(self, fresh_db: Path) -> None:

@@ -12,7 +12,8 @@ from unittest import mock
 
 import pytest
 
-from yoke_core.domain import db_backend, qa_artifacts
+from yoke_core.domain import db_backend
+from yoke_core.domain.item_worktree_schema import ITEM_WORKTREES_TABLE_SQL
 from yoke_core.domain.qa_gates import (
     GateTarget,
     LatestCodeRef,
@@ -37,7 +38,6 @@ CREATE TABLE items (
     title TEXT,
     type TEXT DEFAULT 'issue',
     status TEXT DEFAULT 'implementing',
-    worktree TEXT,
     project_id INTEGER DEFAULT 1,
     project_sequence INTEGER NOT NULL
 );
@@ -45,7 +45,7 @@ CREATE TABLE epic_tasks (
     epic_id INTEGER,
     task_num INTEGER,
     status TEXT,
-    branch TEXT,
+    item_worktree_id INTEGER,
     PRIMARY KEY (epic_id, task_num)
 );
 CREATE TABLE qa_requirements (
@@ -59,6 +59,7 @@ CREATE TABLE qa_requirements (
     blocking_mode TEXT NOT NULL DEFAULT 'blocking',
     requirement_source TEXT DEFAULT 'explicit',
     success_policy TEXT,
+    method_id TEXT,
     waived_at TEXT,
     created_at TEXT
 );
@@ -90,7 +91,7 @@ def _apply_qa_schema() -> None:
     """
     conn = db_backend.connect()
     try:
-        execute_schema_script(conn, QA_SCHEMA)
+        execute_schema_script(conn, QA_SCHEMA + ITEM_WORKTREES_TABLE_SQL)
         conn.execute(
             "INSERT INTO projects "
             "(id, slug, name, public_item_prefix) "
@@ -120,12 +121,27 @@ def qa_db(tmp_path):
             yield db_path
 
 
-def _add_requirement(db_path, item_id=42, qa_kind="implementation_review",
-                     qa_phase="verification", blocking="blocking"):
+def _add_requirement(
+    db_path,
+    item_id=42,
+    qa_kind="implementation_review",
+    qa_phase="verification",
+    blocking="blocking",
+    method_id=None,
+):
     conn = connect_test_db(db_path)
     cur = conn.execute(
-        "INSERT INTO qa_requirements (item_id, qa_kind, qa_phase, blocking_mode, created_at) VALUES (%s, %s, %s, %s, %s) RETURNING id",
-        (item_id, qa_kind, qa_phase, blocking, "2026-04-20T00:00:00Z"),
+        "INSERT INTO qa_requirements "
+        "(item_id, qa_kind, qa_phase, blocking_mode, method_id, created_at) "
+        "VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
+        (
+            item_id,
+            qa_kind,
+            qa_phase,
+            blocking,
+            method_id,
+            "2026-04-20T00:00:00Z",
+        ),
     )
     req_id = int(cur.fetchone()[0])
     conn.commit()
@@ -208,7 +224,11 @@ class TestCheckReviewedImplementationGate:
 
     def test_tc_browser_evidence_enforcement(self, qa_db):
         """Browser requirements need substrate execution + artifacts."""
-        req_id = _add_requirement(qa_db, qa_kind="browser_smoke")
+        req_id = _add_requirement(
+            qa_db,
+            qa_kind="plan_case",
+            method_id="browser-check",
+        )
         # Only agent-executed run — should fail
         _add_run(qa_db, req_id, "pass", executor_type="agent")
         target = GateTarget.parse("42")
@@ -216,30 +236,35 @@ class TestCheckReviewedImplementationGate:
         assert not result.passed
         assert any("substrate evidence" in e for e in result.errors)
 
-    def test_tc_browser_evidence_remediation_text(self, qa_db):
-        """Gate error includes remediation commands for manual fallback."""
     def test_tc_browser_evidence_remediation_points_to_advance(self, qa_db):
         """browser evidence failures point back to /yoke advance."""
-        req_id = _add_requirement(qa_db, qa_kind="browser_smoke")
+        req_id = _add_requirement(
+            qa_db,
+            qa_kind="plan_case",
+            method_id="browser-inspection",
+        )
         _add_run(qa_db, req_id, "pass", executor_type="agent")
         target = GateTarget.parse("42")
         result = check_reviewed_implementation_gate(target, qa_db)
         assert not result.passed
         joined = "\n".join(result.errors)
-        assert "Remediation (manual screenshot fallback):" in joined
-        assert "yoke qa run add" in joined
-        assert "yoke qa artifact add" in joined
-        # One-step --artifact-path stays the labelled operator-debug shape.
-        assert "qa run-add" in joined
-        assert "--artifact-path" in joined
-        assert "snapshot screenshot <URL>" in joined
-        assert "--qa-kind <REQ_KIND>" in joined
+        assert "Re-run each named materialized case" in joined
+        assert "yoke qa case run --requirement-id <REQ_ID>" in joined
+        assert "yoke qa browser screenshot <URL>" in joined
+        assert "without recording a" in joined
+        assert "parallel QA verdict" in joined
+        assert "yoke qa run add" not in joined
+        assert "yoke qa artifact add" not in joined
         assert f"/yoke advance {TEST_ITEM_REF} reviewed-implementation" in joined
         assert "browser QA automatically before updating status" in joined
 
     def test_tc_browser_evidence_passes_with_substrate(self, qa_db, tmp_path):
         """Browser requirement passes with substrate run + artifact on disk."""
-        req_id = _add_requirement(qa_db, qa_kind="browser_smoke")
+        req_id = _add_requirement(
+            qa_db,
+            qa_kind="plan_case",
+            method_id="browser-check",
+        )
         run_id = _add_run(qa_db, req_id, "pass", executor_type="browser_substrate")
         # Create artifact with real file
         art_file = tmp_path / "screenshot.png"
@@ -253,7 +278,11 @@ class TestCheckReviewedImplementationGate:
         """Uploaded (s3-handle) evidence passes without a machine-local file."""
         from yoke_core.domain.qa_artifact_handle import s3_handle
 
-        req_id = _add_requirement(qa_db, qa_kind="browser_smoke")
+        req_id = _add_requirement(
+            qa_db,
+            qa_kind="plan_case",
+            method_id="browser-inspection",
+        )
         run_id = _add_run(qa_db, req_id, "pass", executor_type="browser_substrate")
         _add_artifact(
             qa_db, run_id,
@@ -279,7 +308,11 @@ class TestCheckReviewedImplementationGate:
 
     def test_tc_browser_freshness_accepts_exact_sha_match(self, qa_db, tmp_path):
         """Fresh browser runs can match the latest code by explicit SHA."""
-        req_id = _add_requirement(qa_db, qa_kind="browser_smoke")
+        req_id = _add_requirement(
+            qa_db,
+            qa_kind="plan_case",
+            method_id="browser-check",
+        )
         run_id = _add_run(
             qa_db,
             req_id,

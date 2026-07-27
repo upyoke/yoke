@@ -8,10 +8,12 @@
  * Tests use a local HTML fixture and real Playwright browser instance.
  */
 
-const fs = require('fs');
-const path = require('path');
-const { chromium } = require('playwright');
-const { accessibilitySnapshot, buildRefMap } = require('../src/snapshot');
+const { fixtureUrl, setup, teardown } = require('./snapshot_test_page');
+const {
+  accessibilitySnapshot,
+  buildRefMap,
+  parseAriaSnapshot,
+} = require('../src/snapshot');
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -47,26 +49,43 @@ function assertEqual(actual, expected, message) {
 // Test context -- shared browser, fixture page
 // ---------------------------------------------------------------------------
 
-let browser;
 let context;
-
-async function setup() {
-  browser = await chromium.launch({ headless: true });
-  context = await browser.newContext();
-}
-
-async function teardown() {
-  if (browser) await browser.close();
-}
-
-function fixtureUrl() {
-  const fixturePath = path.join(__dirname, 'fixtures', 'test-page.html');
-  return `file://${fixturePath}`;
-}
 
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
+
+async function testAriaYamlConversion() {
+  console.log('\n## Test: Playwright ARIA YAML preserves the JSON tree contract');
+  const tree = parseAriaSnapshot(`
+- main:
+  - heading "Status: ready" [level=1]
+  - paragraph: Visible copy
+  - checkbox "Enabled" [checked]
+  - link "Open":
+    - /url: /open
+`);
+  assertEqual(tree.length, 1, 'one top-level node is returned');
+  assertEqual(tree[0].role, 'main', 'top-level role is preserved');
+  assertEqual(
+    tree[0].children[0].name,
+    'Status: ready',
+    'quoted names may contain mapping colons',
+  );
+  assertEqual(tree[0].children[0].level, 1, 'numeric attributes are preserved');
+  assertEqual(
+    tree[0].children[1].children[0].role,
+    'StaticText',
+    'inline accessible text becomes a static-text child',
+  );
+  assertEqual(
+    tree[0].children[1].children[0].name,
+    'Visible copy',
+    'inline accessible text content is preserved',
+  );
+  assertEqual(tree[0].children[2].checked, true, 'boolean attributes are preserved');
+  assertEqual(tree[0].children[3].url, '/open', 'slash properties are preserved');
+}
 
 async function testOutputJsonShape() {
   console.log('\n## Test: Output JSON shape matches contract');
@@ -81,6 +100,11 @@ async function testOutputJsonShape() {
   assert(typeof result.timestamp === 'string', 'timestamp is a string');
   // timestamp should be ISO format
   assert(!isNaN(Date.parse(result.timestamp)), 'timestamp is valid ISO date');
+  const main = result.tree.find(node => node.role === 'main');
+  assert(main !== undefined, 'tree includes the main landmark');
+  const title = main.children.find(node => node.role === 'heading');
+  assertEqual(title.name, 'Test Page', 'accessible names are preserved');
+  assertEqual(title.level, 1, 'ARIA state attributes are preserved');
 
   // refs should have string keys with string values
   const refKeys = Object.keys(result.refs);
@@ -281,7 +305,7 @@ async function run() {
   console.log('# Snapshot & Ref System Tests\n');
 
   try {
-    await setup();
+    context = await setup();
   } catch (err) {
     console.error('Setup failed:', err.message);
     console.error('Make sure Playwright browsers are installed: npx playwright install chromium');
@@ -289,6 +313,7 @@ async function run() {
   }
 
   const tests = [
+    testAriaYamlConversion,
     testOutputJsonShape,
     testInteractiveElementsGetRefIds,
     testRefStability,

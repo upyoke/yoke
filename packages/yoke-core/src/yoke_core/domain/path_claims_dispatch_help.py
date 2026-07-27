@@ -25,7 +25,7 @@ REGISTER_DESCRIPTION = (
     "Exception mode (operator no-claim justification on no paths):\n"
     "  python3 -m yoke_core.api.service_client path-claim-register \\\n"
     "    --item YOK-N --mode exception \\\n"
-    "    --reason \"evidence-only ticket; no repo changes\"\n"
+    "    --reason \"evidence-only work item; no repo changes\"\n"
 )
 
 

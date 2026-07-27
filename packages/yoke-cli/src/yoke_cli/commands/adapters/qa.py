@@ -10,7 +10,6 @@ from yoke_cli.commands._helpers import (
     add_json_arg,
     add_session_arg,
     dispatch_and_emit,
-    item_target,
     parse_or_usage_error,
 )
 from yoke_contracts.api.function_call import TargetRef
@@ -20,10 +19,8 @@ from yoke_contracts.api.function_call import FunctionCallResponse
 __all__ = [
     "qa_requirement_update", "qa_requirement_waive",
     "qa_run_record_verdict",
-    "qa_requirement_auto_create_for_item",
     "QA_REQUIREMENT_UPDATE_USAGE", "QA_REQUIREMENT_WAIVE_USAGE",
     "QA_RUN_RECORD_VERDICT_USAGE",
-    "QA_REQUIREMENT_AUTO_CREATE_FOR_ITEM_USAGE",
     "USAGE_BY_FUNCTION_ID",
 ]
 
@@ -48,7 +45,8 @@ def qa_requirement_update(args: List[str]) -> int:
                              help="New value (string).")
     value_group.add_argument("--null", action="store_true",
                              help="Set the field to null.")
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, QA_REQUIREMENT_UPDATE_USAGE)
     if parsed is None:
         return 2
@@ -105,7 +103,8 @@ def qa_requirement_waive(args: List[str]) -> int:
                         help="Waiver authority source.")
     parser.add_argument("--force", action="store_true",
                         help="Required to waive a blocking requirement.")
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, QA_REQUIREMENT_WAIVE_USAGE)
     if parsed is None:
         return 2
@@ -149,7 +148,8 @@ def qa_run_record_verdict(args: List[str]) -> int:
     parser.add_argument("--duration-ms", dest="duration_ms",
                         type=int, default=None,
                         help="Optional duration in milliseconds.")
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, QA_RUN_RECORD_VERDICT_USAGE)
     if parsed is None:
         return 2
@@ -172,77 +172,8 @@ def qa_run_record_verdict(args: List[str]) -> int:
     )
 
 
-QA_REQUIREMENT_AUTO_CREATE_FOR_ITEM_USAGE = (
-    "yoke qa requirement auto-create-for-item --item PREFIX-N "
-    "[--session-id S] [--json]"
-)
-
 USAGE_BY_FUNCTION_ID = {
     "qa.requirement.update": QA_REQUIREMENT_UPDATE_USAGE,
-    "qa.requirement.auto_create_for_item":
-        QA_REQUIREMENT_AUTO_CREATE_FOR_ITEM_USAGE,
     "qa.requirement.waive": QA_REQUIREMENT_WAIVE_USAGE,
     "qa.run.record_verdict": QA_RUN_RECORD_VERDICT_USAGE,
 }
-
-
-_AUTO_CREATE_FOR_ITEM_HELP_DEEP = """\
-Idempotently seed one ``ac_verification`` requirement for a non-browser
-issue item. Reads the item's structured fields, decides whether a
-default unit-test QA requirement is appropriate, and inserts one row in
-``qa_requirements`` when so. The call is a no-op for browser-testable
-items, items with an existing unwaived requirement, and non-issue types.
-
-Worked example:
-
-  yoke qa requirement auto-create-for-item --item YOK-N
-  yoke qa requirement auto-create-for-item --item 1833 --json
-
-Outcomes (rendered in ``result.outcome``):
-
-  - created               — one new ac_verification row was inserted.
-  - existing              — an unwaived requirement already covered this item.
-  - browser_testable_noop — the item is browser-testable; nothing inserted.
-  - not_applicable        — non-issue type or browser-section signals no need.
-
-Canonical vocabulary:
-
-  --item PREFIX-N    Target item id. Accepts PREFIX-N, PREFIX-0N, or project-local number N.
-  --session-id S  Override the resolved session id; defaults to env chain.
-  --json          Emit the typed FunctionCallResponse envelope on stdout.
-
-Flag matrix:
-
-  flag           required  default                value shape
-  --item         yes       —                      PREFIX-N or project-local number
-  --session-id   no        $YOKE_SESSION_ID     opaque session id
-  --json         no        false                  flag (no value)
-
-Exit codes: 0 on success, 1 on dispatch failure (e.g. missing item), 2
-on usage error.
-"""
-
-
-def qa_requirement_auto_create_for_item(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(
-        prog="yoke qa requirement auto-create-for-item",
-        description=(
-            f"{QA_REQUIREMENT_AUTO_CREATE_FOR_ITEM_USAGE}\n\n"
-            f"{_AUTO_CREATE_FOR_ITEM_HELP_DEEP}"
-        ),
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-    parser.add_argument("--item", required=True,
-                        help="Target item id (PREFIX-N or project-local number).")
-    add_session_arg(parser); add_json_arg(parser)
-    parsed = parse_or_usage_error(
-        parser, args, QA_REQUIREMENT_AUTO_CREATE_FOR_ITEM_USAGE,
-    )
-    if parsed is None:
-        return 2
-    return dispatch_and_emit(
-        function_id="qa.requirement.auto_create_for_item",
-        target=item_target("item", parsed.item, parsed.project),
-        payload={},
-        session_id=parsed.session_id, json_mode=parsed.json_mode,
-    )

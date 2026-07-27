@@ -14,7 +14,7 @@ The check below fires only when ALL three signals line up:
 
 1. ``YOKE_SESSION_ID`` is present in the environment.
 2. The session holds at least one active ``work_claims`` row whose
-   ``items.worktree`` branch resolves to an absolute worktree path
+   active universal lane resolves to an absolute worktree path
    (see :mod:`yoke_core.domain.session_claimed_worktrees`).
 3. The current cwd is outside every claimed worktree AND outside the
    free-path allowlist (``/tmp``, ``/var/folders/...``).

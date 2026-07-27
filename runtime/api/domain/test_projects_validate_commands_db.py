@@ -5,6 +5,7 @@ Pure-unit (no DB) tests live in test_projects_validate_commands.py.
 
 from __future__ import annotations
 
+import json
 import stat
 import zlib
 from pathlib import Path
@@ -12,19 +13,19 @@ from typing import Iterator
 
 import pytest
 
-from yoke_core.domain import command_definitions as cmd_defs
 from yoke_core.domain import db_backend
-from yoke_core.domain import project_structure as ps
+from yoke_core.domain import qa_command_plans
 from yoke_core.domain.project_seed_test_helpers import SEED_PROJECT_IDS
 from yoke_core.domain.projects import (
     cmd_validate_test_commands,
     validate_project_test_commands,
 )
 from yoke_core.domain.project_identity import DEFAULT_PUBLIC_ITEM_PREFIX
-from yoke_core.domain.projects_restart_schema import _projects_table_sql
-from yoke_core.domain.schema_init_apply import execute_schema_script
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
+from runtime.api.domain.projects_validate_command_plan_test_support import (
+    apply_command_plan_schema,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -45,24 +46,10 @@ def _numeric_project_id(project_id: str) -> int:
 def _apply_projvalidate_schema() -> None:
     """``apply_schema`` strategy for :func:`init_test_db`.
 
-    The validator reads ``projects`` and the Project Structure tables that
-    house ``command_definitions``. The default ``schema.cmd_init`` builds
-    neither, so this closure creates the minimal ``projects`` table on the
-    backend-resolved connection and then runs ``ps.cmd_init`` for the Project
-    Structure tables. Both resolve their connection from the active backend
-    (``YOKE_DB`` on SQLite, the repointed ``YOKE_PG_DSN`` on Postgres), so
-    the seeds the validator reads land in the same per-test database.
+    The validator reads ``projects`` plus QA plans and cases. This closure
+    creates their minimal portable shape on the backend-resolved connection.
     """
-    conn = db_backend.connect()
-    try:
-        execute_schema_script(
-            conn,
-            _projects_table_sql(if_not_exists=False)
-        )
-        conn.commit()
-    finally:
-        conn.close()
-    ps.cmd_init()
+    apply_command_plan_schema()
 
 
 def _insert_project(
@@ -111,20 +98,29 @@ def _insert_project(
     seeds = {s: v for s, v in seeds.items() if v}
     if not seeds:
         return
-    ps.apply_patch(
-        project_id,
-        ops=[
-            {
-                "op": "put",
-                "family": "command_definitions",
-                "attachment": "project",
-                "entry_key": scope,
-                "payload": {"command": command},
-            }
-            for scope, command in seeds.items()
-        ],
-        db_path=db_path,
-    )
+    conn = connect_test_db(db_path)
+    try:
+        p = _p(conn)
+        for offset, (scope, command) in enumerate(seeds.items(), start=1):
+            plan_id = numeric_project_id * 10 + offset
+            conn.execute(
+                f"INSERT INTO qa_plans(id, project_id, slug, retired_at) "
+                f"VALUES ({p}, {p}, {p}, NULL)",
+                (plan_id, numeric_project_id, f"registered-command-{scope}"),
+            )
+            conn.execute(
+                f"INSERT INTO qa_plan_cases("
+                "id, plan_id, position, method_id, method_config"
+                f") VALUES ({p}, {p}, 1, 'command', {p})",
+                (
+                    plan_id,
+                    plan_id,
+                    json.dumps({"command": command}),
+                ),
+            )
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def _make_script(path: Path) -> None:
@@ -175,7 +171,7 @@ class TestValidateProjectCommands:
 
         assert exit_code == 0
         assert "project=validproj" in output
-        for scope in cmd_defs.SCOPES:
+        for scope in qa_command_plans.REGISTERED_SCOPES:
             assert f"{scope}=valid|" in output
 
     def test_empty_project_all_empty_exit_zero(
@@ -190,13 +186,13 @@ class TestValidateProjectCommands:
         )
 
         assert exit_code == 0
-        for scope in cmd_defs.SCOPES:
+        for scope in qa_command_plans.REGISTERED_SCOPES:
             assert f"{scope}=empty|" in output
 
     def test_empty_e2e_is_not_configured_not_invalid(
         self, yoke_db: str, tmp_path: Path
     ) -> None:
-        """Contract: an absent or empty command_definitions scope => 'empty'
+        """Contract: an absent Command-plan scope reports ``empty``
         (not configured), never 'invalid'. ExternalWebapp relies on this for ``e2e``
         because it has no real E2E suite today."""
         repo = tmp_path / "repo"
@@ -242,7 +238,7 @@ class TestValidateProjectCommands:
         )
 
         assert exit_code == 1
-        for scope in cmd_defs.SCOPES:
+        for scope in qa_command_plans.REGISTERED_SCOPES:
             assert f"{scope}=invalid|" in output
         assert "nonexistent" in output
 
@@ -261,7 +257,7 @@ class TestValidateProjectCommands:
         )
 
         assert exit_code == 1
-        for scope in cmd_defs.SCOPES:
+        for scope in qa_command_plans.REGISTERED_SCOPES:
             assert f"{scope}=invalid|" in output
         assert "has no machine-local checkout mapping" in output
 

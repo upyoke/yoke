@@ -76,7 +76,7 @@ Spawning nested `claude` processes breaks harness ownership and can crash Claude
 
 **Simplify three-axis vocabulary at plan time.** Apply the **reuse / quality / efficiency** doctrine from `AGENTS.md`'s `## Simplify — three-axis doctrine` section as feedforward authoring discipline: write the **smallest plan** that satisfies the spec, name existing surfaces each task will use or explicitly justify "no relevant existing surface," declare out-of-scope boundaries, and justify new infrastructure against what already exists.
 
-**Codebase-reader naming.** Assume future readers of the codebase will NOT have the ephemeral planning artifacts you are working from. Every task that creates or renames a file, module, helper, test, doc, command, event, config key, or symbol must name it for its current responsibility and mechanics in the repository. Never derive live names from ticket IDs, strategy docs, plan names, initiative labels, phase/task/thread numbers, AC/FR identifiers, branch names, or worktree labels unless that identifier is literally part of the runtime domain. Translate "Phase 3 installer adapter inventory" into `install_adapter_inventory`; translate "Task 4 packet cleanup" into the actual mechanism being cleaned up.
+**Codebase-reader naming.** Assume future readers of the codebase will NOT have the ephemeral planning artifacts you are working from. Every task that creates or renames a file, module, helper, test, doc, command, event, config key, or symbol must name it for its current responsibility and mechanics in the repository. Never derive live names from work item IDs, strategy docs, plan names, initiative labels, phase/task/thread numbers, AC/FR identifiers, branch names, or worktree labels unless that identifier is literally part of the runtime domain. Translate "Phase 3 installer adapter inventory" into `install_adapter_inventory`; translate "Task 4 packet cleanup" into the actual mechanism being cleaned up.
 ## Turn Budget Discipline
 
 You have a limited turn budget (maxTurns in your frontmatter). An incomplete plan is infinitely better than no plan.
@@ -136,21 +136,21 @@ NEVER rely on shell variables persisting across separate Bash tool calls. Each B
 - _Read structured item field(s) — concrete examples_
   - `yoke items get YOK-N status title workflow_id github_issue
 yoke items get YOK-N spec`
-  - Multi-field returns one value per line in field order. Valid fields: architecture_impact, blocked, blocked_reason, body, browser_qa_metadata, created_at, db_compatibility_attestation, db_mutation_profile, deploy_log, deploy_stage, deployed_to, deployment_flow, design_spec, flow, frozen, github_issue, id, merged_at, priority, project, rework_count, shepherd_caveats, shepherd_log, source, spec, status, technical_plan, test_results, title, updated_at, workflow_id, workflow_version_id, worktree, worktree_plan. For body-section filtering, use `yoke items get YOK-N body --section "## File Budget"`.
+  - Multi-field returns one value per line in field order. Valid fields: architecture_impact, blocked, blocked_reason, body, created_at, db_compatibility_attestation, db_mutation_profile, deploy_log, deploy_stage, deployed_to, deployment_flow, design_spec, flow, frozen, github_issue, id, merged_at, owner, priority, project, project_id, project_sequence, resolution, resolution_comment, resolution_ref, rework_count, shepherd_caveats, shepherd_log, source, spec, spec_updated_at, spec_updated_by, status, technical_plan, test_results, title, updated_at, workflow_id, workflow_version_id, worktree_plan. For body-section filtering, use `yoke items get YOK-N body --section "## File Budget"`.
 - _Inspect a Yoke item's rendered body (GitHub issue surrogate)_
   - `yoke items get YOK-N body`
-  - The rendered body is the source of truth for ticket content and is auto-synced to the GitHub issue via bearer-token REST. items.github_issue stores '#NNNN' format and is for outbound linking only — Yoke automation never shells out to ``gh`` to read or write the issue; the function-call surface and ``project_github_auth.resolve_project_github_auth`` handle every GitHub mutation through REST/GraphQL. The lower-level ``service_client backlog-cli`` family remains a source-dev/operator-debug adapter, not the agent-default item surface.
+  - The rendered body is the source of truth for work-item content and is auto-synced to the GitHub issue via bearer-token REST. items.github_issue stores '#NNNN' format and is for outbound linking only — Yoke automation never shells out to ``gh`` to read or write the issue; the function-call surface and ``project_github_auth.resolve_project_github_auth`` handle every GitHub mutation through REST/GraphQL. The lower-level ``service_client backlog-cli`` family remains a source-dev/operator-debug adapter, not the agent-default item surface.
 - _Inspect open work via registered reads + diagnostic SQL_
   - `# Recent item scan:
 yoke items list --project all --fields "id,status,title" --limit 20
 # All active work claims (diagnostic SQL fallback):
 yoke db read "SELECT id, session_id, target_kind, item_id, epic_id, task_num, claim_type, claimed_at FROM work_claims WHERE released_at IS NULL"
-# Recent events on a ticket:
+# Recent events on a work item:
 yoke events query --item YOK-N --limit 20`
   - Use ``<>`` not ``!=``. Prefer registered readers such as `yoke items list` and `yoke claims work holder-get` when they answer the question. Raw diagnostic SELECTs use `yoke db read`; `db_router query` is the source-dev/operator-debug break-glass fallback inside a Yoke checkout, not the agent default. ``work_claims`` has no ``state``, ``reason``, or ``worktree_path`` columns.
 - _Read one section of an item's rendered body_
   - `yoke items get YOK-N body --section "## Section Name"`
-  - Registered body-section filter. Returns just the named ``## Section Name`` block between that heading and the next ``## ``. Use for large ticket bodies whose full render exceeds the read budget. Missing section returns an empty body with a stderr advisory; exit 0.
+  - Registered body-section filter. Returns just the named ``## Section Name`` block between that heading and the next ``## ``. Use for large work-item bodies whose full render exceeds the read budget. Missing section returns an empty body with a stderr advisory; exit 0.
 - _Write structured item field (canonical agent shape)_
   - `yoke items structured-field replace YOK-N --field spec --content-file PATH
 yoke items structured-field replace YOK-N --field test_results --stdin < PATH`
@@ -212,23 +212,23 @@ yoke workflow-item epic-task submission-receipt-get --epic 1704 --task-num 5 --a
 - _Update epic-task status / metadata field via CLI_
   - `yoke workflow-item epic-task update-status --epic <epic-id> --task-num <task_num> --status <status>
 yoke workflow-item epic-task metadata-update --epic <epic-id> --task-num <task_num> --fields-json '{"max_attempts": 2}'`
-  - `update-status` dispatches workflow_item.epic_task.update_status (epic work claim required; syncs the GitHub label) and accepts the lifecycle vocabulary: planning, plan-drafted, planned, implementing, reviewing-implementation, reviewed-implementation, polishing-implementation, implemented, release, done, blocked, stopped. Terminal success statuses are pipeline-owned and refused (`pipeline_required`). `metadata-update` writes selected epic_tasks fields; valid fields include title, worktree, context_estimate, dependencies, status, dispatch_attempts, body, github_issue, branch, worktree_path, blocked_by, max_attempts, agent_id, last_heartbeat. For body content prefer `yoke workflow-item epic-task body-replace`; for status changes from a skill, prefer the orchestrator-routed transition (e.g. `yoke conduct epic-task update-status`) so the gate + cascade fire.
+  - `update-status` dispatches workflow_item.epic_task.update_status (epic work claim required; syncs the GitHub label) and accepts the lifecycle vocabulary: planning, plan-drafted, planned, implementing, reviewing-implementation, reviewed-implementation, polishing-implementation, implemented, release, done, blocked, stopped. Terminal success statuses are pipeline-owned and refused (`pipeline_required`). `metadata-update` writes selected epic_tasks fields; valid fields include title, context_estimate, dependencies, status, dispatch_attempts, body, github_issue, item_worktree_id, blocked_by, max_attempts, agent_id, last_heartbeat. dependencies is comma-separated TEXT containing prerequisite task_num values from the same epic, not JSON. For body content prefer `yoke workflow-item epic-task body-replace`; for status changes from a skill, prefer the orchestrator-routed transition (e.g. `yoke conduct epic-task update-status`) so the gate + cascade fire.
 - _Read or refresh an epic dispatch chain_
   - `yoke workflow-item epic-dispatch-chain list --epic <epic-id>
 yoke workflow-item epic-dispatch-chain get --epic <epic-id> --worktree <branch>
 yoke workflow-item epic-dispatch-chain refresh-activation --epic <epic-id> --worktree <branch> --task-num <task_num>`
   - Dispatches workflow_item.epic_dispatch_chain.*. Reads need no claim; update / refresh-activation require the epic work claim.
-- _Cancel / stop / fail a ticket (terminal-exceptional)_
+- _Cancel / stop / fail a work item (terminal-exceptional)_
   - `yoke claims work acquire --item YOK-N --reason 'superseded by YOK-X'
 yoke lifecycle transition YOK-N --to cancelled --reason 'superseded by YOK-X'
 yoke claims work release --item YOK-N --reason cancelled`
   - Status writes require a claim. Substitute: cancelled (abandoned/superseded), stopped (paused), failed.
-- _Move a ticket forward in lifecycle (claim → transition → release)_
+- _Move a work item forward in lifecycle (claim → transition → release)_
   - `yoke claims work acquire --item YOK-N --reason transition
 yoke lifecycle transition YOK-N --to refined-idea
 yoke claims work release --item YOK-N --reason transition-complete`
   - Same shape for any non-terminal transition. Status vocabulary in .yoke/docs/lifecycle.md. The function id `lifecycle.transition.execute` fires status gates, cascades, and GitHub sync.
-- _Append to a ticket's Progress Log (canonical agent shape)_
+- _Append to a work item's Progress Log (canonical agent shape)_
   - `yoke claims work acquire --item YOK-N --reason progress-log-append
 yoke items progress-log append YOK-N --headline "dispatched engineer" --source orchestrator --content-file PATH
 yoke claims work release --item YOK-N --reason progress-log-append-complete`
@@ -302,12 +302,12 @@ uv run --frozen python3 -m yoke_core.tools.watch_doctor -- --full --json`
 
 **Schema cheat sheet:**
 
-- **`items`** — `id, title, workflow_id, workflow_version_id, workflow_posture, status, priority, project_id, project_sequence, github_issue, worktree, frozen, blocked, blocked_reason, deployment_flow, flow, deploy_stage, source, owner, created_at, updated_at`
-  - Backlog row keyed by global bare-integer id for internal joins. The primary key is `id`; items has NO `item_id` or `public_id` column. `item_id` is a foreign-key column on OTHER tables, so self-orient with `WHERE id = <n>` here. Public item refs are project-scoped: join `items.project_id` to `projects.id` and render `{projects.public_item_prefix}-{items.project_sequence}` inside project context; the old item-level project slug field has been deleted. The GitHub linkage is the single `github_issue` column — there is no `github_issue_number` and no `github_url`. The lifecycle columns are the immutable `workflow_id` / `workflow_version_id` pin and the current `status`; there is NO `item_type` column and NO `lifecycle_status` column. There is also NO `kind` column on items — the function-call envelope's `target.kind` discriminator (`item|epic_task|qa_requirement|session|process`) is the dispatcher's row-type tag, not an items column. Use `workflow_id` for the registered workflow identity. Project authority is `project_id` joined to `projects.id`; `project_sequence` is the per-project public item number. There is no item-level project slug column. items.body is a virtual rendered field (use `items get YOK-N body` or read the structured-field columns directly): spec, design_spec, technical_plan, worktree_plan, shepherd_log, shepherd_caveats, test_results, deploy_log, browser_qa_metadata, db_mutation_profile, db_compatibility_attestation, architecture_impact, resolution, resolution_ref, resolution_comment, spec_updated_at, spec_updated_by, rework_count, merged_at, deployed_to. items.worktree is a temporary compatibility projection of the primary branch; authoritative lane ownership lives in item_worktrees.
-- **`epic_tasks`** — `id, epic_id, task_num, title, status, body, dependencies, worktree, last_activity_at`
-  - Keyed by (epic_id, task_num). NOT item_id, NOT task_number, NOT seq, NOT depends_on, NOT description. last_activity_at is first-class task freshness — stamped by every epic-task mutation surface (status transitions, body/field updates, progress notes, epic-task claim acquire/release); chain_head_freshness reads it for /yoke conduct re-entry. The worktree fields are temporary compatibility projections; authoritative lane ownership lives in item_worktrees. Task recency previously lived only in task-scoped event rows — read this column, never the events ledger (telemetry-only); NULL means no mutation recorded.
-- **`epic_dispatch_chains`** — `id, epic_id, worktree, worktree_path, queue, current_index, current_task, current_attempt, max_attempts, no_chain, started_at, last_updated`
-  - One row per epic-task fan-out worktree. Unique on (epic_id, worktree). queue is a JSON array of task_nums; current_task is the head task being worked. Conduct's task activation refreshes current_task / current_attempt / last_updated when it sets epic_tasks.status='implementing' so telemetry and scheduler views see the live dispatch.
+- **`items`** — `id, title, workflow_id, workflow_version_id, workflow_posture, status, priority, project_id, project_sequence, github_issue, frozen, blocked, blocked_reason, deployment_flow, flow, deploy_stage, source, owner, created_at, updated_at`
+  - Backlog row keyed by global bare-integer id for internal joins. The primary key is `id`; items has NO `item_id` or `public_id` column. `item_id` is a foreign-key column on OTHER tables, so self-orient with `WHERE id = <n>` here. Public item refs are project-scoped: join `items.project_id` to `projects.id` and render `{projects.public_item_prefix}-{items.project_sequence}` inside project context; the old item-level project slug field has been deleted. The GitHub linkage is the single `github_issue` column — there is no `github_issue_number` and no `github_url`. The lifecycle columns are the immutable `workflow_id` / `workflow_version_id` pin and the current `status`; there is NO `item_type` column and NO `lifecycle_status` column. There is also NO `kind` column on items — the function-call envelope's `target.kind` discriminator (`item|epic_task|qa_requirement|session|process`) is the dispatcher's row-type tag, not an items column. Use `workflow_id` for the registered workflow identity. Project authority is `project_id` joined to `projects.id`; `project_sequence` is the per-project public item number. There is no item-level project slug column. items.body is a virtual rendered field (use `items get YOK-N body` or read the structured-field columns directly): spec, design_spec, technical_plan, worktree_plan, shepherd_log, shepherd_caveats, test_results, deploy_log, db_mutation_profile, db_compatibility_attestation, architecture_impact, resolution, resolution_ref, resolution_comment, spec_updated_at, spec_updated_by, rework_count, merged_at, deployed_to. Worktree branches and paths live exclusively in item_worktrees; task and dispatch rows reference those lanes through item_worktree_id.
+- **`epic_tasks`** — `id, epic_id, task_num, title, status, body, dependencies, item_worktree_id, last_activity_at`
+  - Keyed by (epic_id, task_num). NOT item_id, NOT task_number, NOT seq, NOT depends_on, NOT description. last_activity_at is first-class task freshness — stamped by every epic-task mutation surface (status transitions, body/field updates, progress notes, epic-task claim acquire/release); chain_head_freshness reads it for /yoke conduct re-entry. dependencies is comma-separated TEXT containing prerequisite task_num values from the same epic, not JSON. item_worktree_id references the authoritative lane in item_worktrees. Task recency previously lived only in task-scoped event rows — read this column, never the events ledger (telemetry-only); NULL means no mutation recorded.
+- **`epic_dispatch_chains`** — `id, epic_id, item_worktree_id, queue, current_index, current_task, current_attempt, max_attempts, no_chain, started_at, last_updated`
+  - One row per epic-task fan-out lane. Unique on (epic_id, item_worktree_id). queue is a JSON array of task_nums; current_task is the head task being worked. Conduct's task activation refreshes current_task / current_attempt / last_updated when it sets epic_tasks.status='implementing' so telemetry and scheduler views see the live dispatch.
 - **`epic_progress_notes`** — `id, epic_id, task_num, note_num, body, created_at`
   - Append-only. NOT note (the content column is body).
 - **`item_dependencies`** — `id, dependent_item, blocking_item, gate_point, satisfaction, source, session_id, rationale, evidence_json, created_at`
@@ -326,10 +326,8 @@ uv run --frozen python3 -m yoke_core.tools.watch_doctor -- --full --json`
   - Legacy compatibility helper surface. Agents should prefer registered `yoke <subcommand>` surfaces for control-plane access. There is NO `read_only=` keyword on `connect` and NO `get_canonical_conn` importable name on this module — those are wrong guesses the live denial log has captured. The standalone FastAPI route-module connector is `connect`; importing `yoke_core.api.main.get_db_readonly` from a route module is a wrong guess because it re-enters app construction and creates a circular route import. The query helpers (`query_rows`, `query_one`, `query_scalar`) remain for compatibility while Postgres-native callers move through router-owned surfaces.
 
 **JSON-nested-field schemas** (_parse the rendered JSON string; do NOT query nested fields as top-level columns_):
-- `items.browser_qa_metadata` — `browser_testable`:bool=false, `browser_routes`:list[str]=[], `browser_intents`:list[dict]=[], `browser_timing_budget_ms`:int=0. Validator: `yoke_core.domain.browser_qa_metadata.validate_json_string`.
 - `items.db_mutation_profile` — `state`:'none'|'declared'='none', `model`:str|null=null, `mutation_intent`:'apply'|'retire'=null, `compatibility_class`:'pre_merge_safe'|'pre_merge_breaking'=null, `migration_strategy`:'additive_only'|'hard_cutover'|'expand_contract'=null, `migration_modules`:list[str]=[]. Validator: `yoke_core.domain.db_mutation_profile.validate_json_string`.
 - `items.db_compatibility_attestation` — `pre_merge_readers_writers`:list[dict]=[], `invariants`:list[str]=[], `rehearsal_commands`:list[str]=[], `residual_risk_notes`:list[str]=[], `class_escalations`:list[dict]=[], `frozen_at`:str|null=null. Validator: `yoke_core.domain.db_compatibility_attestation.validate_json_string`.
-- `epic_tasks.dependencies` — `(JSON array of bare task_num integers within the same epic)`:list[int]=[]. Validator: `yoke_core.domain.shepherd_dependency`.
 
 <!-- YOKE:DB-PACKET end -->
 
@@ -383,7 +381,7 @@ yoke claims work release --item YOK-N --reason session-handoff-fresh-session`
   --item YOK-N \
   --paths runtime/api/domain/path_claim_targets.py,runtime/api/test_path_claim_targets.py,docs/event-catalog.md \
   --integration-target main --mode exclusive --allow-planned`
-  - --allow-planned for files not yet committed. --mode exception for no-repo-touch tickets.
+  - --allow-planned for files not yet committed. --mode exception for no-repo-touch work items.
 - _Widen a path claim (canonical agent shape)_
   - `yoke claims path widen --claim-id 138 --item YOK-N \
   --add-paths runtime/api/service_client_backlog_router.py,runtime/api/test_backlog_github_backfill_oversized.py \
@@ -403,7 +401,7 @@ yoke claims path get 138`
   - `yoke db read "
 SELECT pc.id, pc.item_id, pc.state, tgt.path_string
 FROM path_claims pc
-JOIN path_claim_targets pct ON pct.path_claim_id = pc.id
+JOIN path_claim_targets pct ON pct.claim_id = pc.id
 JOIN path_targets tgt ON tgt.id = pct.target_id
 WHERE tgt.path_string IN ('runtime/api/domain/foo.py', 'runtime/api/domain/bar.py')
   AND pc.state NOT IN ('cancelled','released')"`
@@ -667,7 +665,7 @@ The full Hard Constraints list (session-fit sizing, worktree independence, depen
 - **Cross-script data boundaries require explicit contracts.** When a task calls an existing script that produces or consumes structured data (JSON envelopes, DB rows), document the output schema in the task's `## Cross-Script Contracts` section — especially non-obvious nesting (for example, the event emitter wraps context JSON under `envelope.context.detail`, not `envelope.context`). When a task replaces inline operations with subprocess calls, flag the environment propagation requirements (which env vars must be exported, with references to existing patterns in the codebase). When a task changes the error propagation model (e.g., inline `|| true` to subprocess with `set -e`), document the old and new error models and what callers must do differently. Use the `## Watch Out For` section for gotchas that don't fit neatly into the structured contract format. These sections are conditional — only include them when applicable, to avoid boilerplate in simple tasks.
 - **Title length limit.** All epic task titles MUST be ≤100 characters. Move detail into the task body description. The DB rejects titles >100 chars.
 - **Err on the side of smaller tasks.** A task that's too small wastes a session. A task that's too big fails mid-session and loses work. Too small is safer.
-- **Schema-migration sequencing.** When an epic includes DB schema changes (DROP/RENAME column, table rebuilds), the task that updates shared Python owners (`yoke_core.domain.items`, `yoke_core.api.service_client`, `yoke_core.cli.db_router`, etc.) to be compatible with the new schema MUST be sequenced BEFORE or IN THE SAME TASK as the migration that alters the live DB. If they are separate tasks, the API-update task must have a hard dependency from the migration task. Rationale: the live DB is shared across all worktrees and the main session. Once a migration drops a column, main-branch API surfaces that still reference it will fail for gap-ticket filing, board rebuilds, and other shared operations. `HC-schema-script-sync` in `doctor` catches this at rest, but sequencing prevents it at planning time.
+- **Schema-migration sequencing.** When an epic includes DB schema changes (DROP/RENAME column, table rebuilds), the task that updates shared Python owners (`yoke_core.domain.items`, `yoke_core.api.service_client`, `yoke_core.cli.db_router`, etc.) to be compatible with the new schema MUST be sequenced BEFORE or IN THE SAME TASK as the migration that alters the live DB. If they are separate tasks, the API-update task must have a hard dependency from the migration task. Rationale: the live DB is shared across all worktrees and the main session. Once a migration drops a column, main-branch API surfaces that still reference it will fail for follow-up work-item filing, board rebuilds, and other shared operations. `HC-schema-script-sync` in `doctor` catches this at rest, but sequencing prevents it at planning time.
 - **Coordination-edge authoring is a plan-time responsibility.** You author intra-epic `coordination_only` edges (and directional `activation` edges where order matters) for task pairs sharing File Budget paths — see `### Step 5.5` under `## Your Process`. Engineer, Tester, Boss, Conduct, Polish, Advance, and Usher are NOT authors of coordination edges; runtime collisions at those phases route back to `/yoke refine`. If you find yourself unsure at plan time, emit a `## Plan Caveats` bullet — do not push the decision downstream.
 - **Consider existing code.** Don't redesign what already works. Build on existing patterns.
 - **Track deferred work.** When you defer any work from the epic's scope during planning (e.g., "deferred to a follow-up", "out of scope for this epic"), add or update the `## Deferred Items` section in the item body with a table entry for each deferral: `| Description | Reason | UNFILED |`. Untracked deferrals silently disappear when the epic closes.
@@ -680,7 +678,7 @@ Fix mode is triggered when the invoking prompt contains a **gap report** (from `
 
 **Read `runtime/agents/architect/fix-mode.md` for the full fix-mode contract** — inputs (gap report + structured fields + worktree plan + task specs), the per-severity fix process, the required output format (Modified Task Specs / Modified Worktree Plan / Change Summary), and the fix-mode constraints (only touch tasks named by gaps, never restructure tasks, never change worktree assignments, never change the epic-level technical plan, etc.).
 
-When you hit a recipe gap or notice a minor bug not worth a ticket, file a field-note immediately — before retrying, before moving on.
+When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
 Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 

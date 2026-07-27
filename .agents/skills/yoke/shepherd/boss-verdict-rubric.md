@@ -152,7 +152,7 @@ When the verdict is **CAVEATS**, every caveat must be triaged before the pipelin
  - **The `resolution_details` MUST reference the specific change** -- section name, field modified, or content added/removed. Vague summaries like "already handles this", "determined not needed", or "Architect confirmed no changes required" are NOT valid RESOLVED details. If you cannot point to a specific artifact edit you just made, the disposition is ANALYZED, not RESOLVED.
  - Record the disposition: `RESOLVED: {one-line summary of what was changed, referencing the specific edit}`
 
-2. **Is this an implementation concern for a later stage?** If the caveat is about how something should be built, tested, or deployed -- something the current worker cannot act on -- then it must be **persisted in the ticket artifacts** so the engineer or next worker sees it when they read the item:
+2. **Is this an implementation concern for a later stage?** If the caveat is about how something should be built, tested, or deployed -- something the current worker cannot act on -- then it must be **persisted in the work item artifacts** so the engineer or next worker sees it when they read the item:
  - Write the caveat into the `shepherd_caveats` structured field (rendered back into the item body under `## Shepherd Caveats`; see format below).
  - If tasks exist (post-planning transitions) and the caveat explicitly references a task number (e.g., "Task 005: ..."), also write it into that task's body.
  - Record the disposition: `DEFERRED to YOK-{N} body: {caveat summary}`

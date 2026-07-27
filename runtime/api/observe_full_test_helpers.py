@@ -16,6 +16,7 @@ from pathlib import Path
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.file_test_db import init_test_db
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
+from yoke_core.domain.item_worktree_schema import ITEM_WORKTREES_TABLE_SQL
 
 
 SAMPLE_BASH_SUCCESS = {
@@ -160,12 +161,14 @@ def _apply_attribution_schema() -> None:
                 project_id INTEGER DEFAULT 1,
                 workflow_id TEXT,
                 workflow_version_id INTEGER,
-                status TEXT NOT NULL DEFAULT 'planned',
-                worktree TEXT
+                status TEXT NOT NULL DEFAULT 'planned'
             );
+            """
+            + ITEM_WORKTREES_TABLE_SQL
+            + """
             CREATE TABLE epic_dispatch_chains (
                 epic_id TEXT NOT NULL,
-                worktree_path TEXT NOT NULL,
+                item_worktree_id INTEGER NOT NULL,
                 current_task TEXT
             );
             """

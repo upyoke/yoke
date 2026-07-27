@@ -1,6 +1,6 @@
 ---
 name: refine
-description: "Read item artifacts, critique them, and write improved ticket artifacts back through sanctioned Yoke update surfaces."
+description: "Read item artifacts, critique them, and write improved work item artifacts back through sanctioned Yoke update surfaces."
 argument-hint: "{YOK-N}"
 ---
 
@@ -11,7 +11,7 @@ Standalone capability for refining backlog item artifacts. Reads the item's stru
 This is an explicit, operator-invoked capability that Codex can execute directly. It does not require `/yoke do`, lane-aware routing, or lifecycle-family ownership wiring.
 
 <!-- BEGIN GENERATED: field-note-directive -->
-When you hit a recipe gap or notice a minor bug not worth a ticket, file a field-note immediately — before retrying, before moving on.
+When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
 Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->
@@ -26,7 +26,7 @@ Refine always advances status on successful completion, whether invoked directly
 
 ### Lifecycle transitions
 
-**Idea refinement (issue and epic):**
+**Idea refinement (issue, epic, and Blitz):**
 - `idea` -> `refining-idea` (set at start of work)
 - `refining-idea` -> `refined-idea` (set on successful completion)
 
@@ -40,7 +40,10 @@ If refine fails or is interrupted, the item must NOT auto-advance past its curre
 
 - No worktree required.
 - No code edits or commits.
-- Artifact writes are work writes: ticket/spec/body sections, File Budget, path-claim register/widen/narrow/release, and GitHub issue-body edits are shared coordination state; hold the item claim before mutating them, and treat `who-claims` session ids as identifiers, not authority.
+- A Blitz must leave Refine with exactly one verified execution strategy
+  document linked through `strategy.execution.link`. Refine links metadata
+  only; `/yoke blitz` owns atomic document-claim acquisition and execution.
+- Artifact writes are work writes: work item/spec/body sections, File Budget, path-claim register/widen/narrow/release, and GitHub issue-body edits are shared coordination state; hold the item claim before mutating them, and treat `who-claims` session ids as identifiers, not authority.
 - Full-field rewrites go through the `items.structured_field.replace`
   function call; additive transforms (preserve existing content, append
   a `## heading`-led block) go through
@@ -53,9 +56,13 @@ If refine fails or is interrupted, the item must NOT auto-advance past its curre
   for the envelope shape.
 - Both standalone and routed modes advance status on successful completion.
 
-## Entry Backstop
+## QA Preparation
 
-The idempotent non-browser QA requirement backstop is a **claim-requiring** op, so it runs inside step 1b immediately after the work claim is acquired — never before the claim. Running it before the claim fails with `claim_required` (it self-corrects via the recovery hint, but the ordering should not produce the avoidable failure). The recipe lives in step 1b below. `yoke qa requirement auto-create-for-item --help` documents the worked example, outcome vocabulary, and flag matrix.
+Refine does not derive QA requirements from an item's workflow type or Browser
+posture. Project-default and item-attached plans materialize at their declared
+lifecycle transitions. Add an explicit item-specific requirement through
+`qa.requirement.add` only when the refined verification contract calls for
+coverage outside those attached plans.
 
 ## Philosophy
 
@@ -75,21 +82,21 @@ If the spec contains a major error — wrong file references, contradictory requ
 
 **ACs are additive, not replacive.** You may add new ACs, renumber, improve wording, and add verification commands. You may NOT delete or replace the substance of an existing AC. Every concrete AC in the original must have a corresponding concrete AC in the enhanced version.
 
-**User voice is verbatim.** When the spec contains content that is clearly the user's own words — numbered questions, direct observations, screenshots, "I saw X", "why does X", evidence references — that content must be preserved word-for-word. User questions define what the ticket must answer; user evidence defines the ground truth the ticket must address. Abstracting "what's the point of running CI in parallel with deployments?" into "document the tradeoff" loses the question the ticket exists to answer.
+**User voice is verbatim.** When the spec contains content that is clearly the user's own words — numbered questions, direct observations, screenshots, "I saw X", "why does X", evidence references — that content must be preserved word-for-word. User questions define what the work item must answer; user evidence defines the ground truth the work item must address. Abstracting "what's the point of running CI in parallel with deployments?" into "document the tradeoff" loses the question the work item exists to answer.
 
 ### Operating principles
 
-**Maximalist interpretation.** Read every ticket as "make this fully work end-to-end so the operator can use and experience the result." A minimal interpretation that leaves obvious end-to-end requirements for a hypothetical future ticket is a refinement failure. If a reasonable person would expect it to work, the ticket should say so.
+**Maximalist interpretation.** Read every work item as "make this fully work end-to-end so the operator can use and experience the result." A minimal interpretation that leaves obvious end-to-end requirements for a hypothetical future work item is a refinement failure. If a reasonable person would expect it to work, the work item should say so.
 
-**Surface what's missing, not just what's unclear.** Refinement fills in what the operator obviously meant but didn't write. Missing error handling, missing cleanup of replaced state, missing documentation updates, missing blast-radius items. Do not fabricate unrelated scope or redesign the ticket's purpose, but do complete the picture of what "done" actually looks like.
+**Surface what's missing, not just what's unclear.** Refinement fills in what the operator obviously meant but didn't write. Missing error handling, missing cleanup of replaced state, missing documentation updates, missing blast-radius items. Do not fabricate unrelated scope or redesign the work item's purpose, but do complete the picture of what "done" actually looks like.
 
-**Clean-slate mindset.** If the ticket replaces, removes, or supersedes something, the spec must explicitly call out what gets deleted. The codebase after this ticket should read as if the old way never existed.
+**Clean-slate mindset.** If the work item replaces, removes, or supersedes something, the spec must explicitly call out what gets deleted. The codebase after this work item should read as if the old way never existed.
 
 **Simplest migration wins.** Default to hard cutover unless there is provably live data, live users, or live integrations that need graceful migration.
 
-**Future-concept lens.** Generation labels are sequencing hints, not architecture walls. If a ticket adds or changes `actor_id`, `session_id`, `heartbeat_at`, ownership, leases, claims, approvals, overrides, evidence, run records, execution journals, compiled packets, route-around facts, resource locks, or shared-state coordination, refine must decide whether this is the smallest honest v0 of a later end-state primitive. If yes, shape the spec around that primitive and the concrete current consumers. If no, require an explicit deletion or absorption target so a local workaround does not become accidental architecture.
+**Future-concept lens.** Generation labels are sequencing hints, not architecture walls. If a work item adds or changes `actor_id`, `session_id`, `heartbeat_at`, ownership, leases, claims, approvals, overrides, evidence, run records, execution journals, compiled packets, route-around facts, resource locks, or shared-state coordination, refine must decide whether this is the smallest honest v0 of a later end-state primitive. If yes, shape the spec around that primitive and the concrete current consumers. If no, require an explicit deletion or absorption target so a local workaround does not become accidental architecture.
 
-**Dead weight has zero tolerance.** If the ticket obsoletes code, tests, config keys, feature flags, utility functions, documentation sections, migration scripts, or re-exports, the spec must include their removal.
+**Dead weight has zero tolerance.** If the work item obsoletes code, tests, config keys, feature flags, utility functions, documentation sections, migration scripts, or re-exports, the spec must include their removal.
 
 **Be the giant.** Your refined artifacts are the cold-start context for every downstream agent. Every gap you leave is a gap they'll hit. Do the investigative legwork: verify code references against the live codebase, include grep commands for blast-radius discovery, provide concrete examples.
 
@@ -97,9 +104,9 @@ If the spec contains a major error — wrong file references, contradictory requ
 
 **Events table for investigation.** When critiquing artifacts, query the events table for diagnostic context: `yoke events query --item {N}`. Anomaly flags and envelope data reveal whether the artifact was produced under context pressure.
 
-**File tickets for root causes.** When refinement surfaces a systemic issue, note the root cause for ticket filing.
+**File work items for root causes.** When refinement surfaces a systemic issue, note the root cause for work item filing.
 
-**Think, don't just check.** The dimensions and rules in this skill are a starting point, not a ceiling. Step back and think about the ticket as a whole: What is this ticket actually trying to achieve? What would a thoughtful senior engineer expect "done" to look like? The checklist catches known failure modes; your judgment catches everything else.
+**Think, don't just check.** The dimensions and rules in this skill are a starting point, not a ceiling. Step back and think about the work item as a whole: What is this work item actually trying to achieve? What would a thoughtful senior engineer expect "done" to look like? The checklist catches known failure modes; your judgment catches everything else.
 
 ## Steps
 
@@ -109,10 +116,12 @@ Resolve the repo root and look up the item through the unified DB router.
 
 ```bash
 MAIN_ROOT=$(git rev-parse --show-toplevel)
-ITEM_NUM=$(printf '%s' "{arg}" | sed 's/^[Ss][Uu][Nn]-//; s/^0*//')
-ITEM_WORKFLOW_ID=$(yoke items get "$ITEM_NUM" workflow_id 2>/dev/null) || ITEM_WORKFLOW_ID=""
-ITEM_STATUS=$(yoke items get "$ITEM_NUM" status 2>/dev/null) || ITEM_STATUS=""
-ITEM_TITLE=$(yoke items get "$ITEM_NUM" title 2>/dev/null) || ITEM_TITLE=""
+ITEM_REF="{arg}"
+ITEM_NUM=$(yoke items get "$ITEM_REF" id 2>/dev/null) || ITEM_NUM=""
+ITEM_WORKFLOW_ID=$(yoke items get "$ITEM_REF" workflow_id 2>/dev/null) || ITEM_WORKFLOW_ID=""
+ITEM_STATUS=$(yoke items get "$ITEM_REF" status 2>/dev/null) || ITEM_STATUS=""
+ITEM_TITLE=$(yoke items get "$ITEM_REF" title 2>/dev/null) || ITEM_TITLE=""
+ITEM_PROJECT=$(yoke items get "$ITEM_REF" project 2>/dev/null) || ITEM_PROJECT=""
 ```
 
 If any of those reads come back empty, stop with:
@@ -123,7 +132,7 @@ If any of those reads come back empty, stop with:
 Determine the refinement phase from the registered executor binding and current
 status:
 
-**Idea refinement (issue and epic):**
+**Idea refinement (issue, epic, and Blitz):**
 - If status is `idea`: advance to `refining-idea` before starting work.
 - If status is `refining-idea`: proceed without changing status (re-entry support).
 
@@ -137,13 +146,12 @@ If the item is at any other status, stop with:
 Register the work claim BEFORE the status transition (claim-before-status ordering). The session stamp uses the registered session wrapper. This prevents the scheduler from offering the same item while refine is actively working on it, and ensures the subsequent status mutation passes claim verification:
 
 ```bash
-ITEM_NUM=$(printf '%s' "{arg}" | sed 's/^[Ss][Uu][Nn]-//; s/^0*//')
+# Reuse ITEM_REF and ITEM_NUM from step 1. The items.get dispatcher already
+# resolved prefixed, zero-padded, and project-local bare-number input.
 # Session touch + claim (AC-4)
 yoke sessions touch --mode refine
 yoke claims work acquire \
- --item "YOK-$ITEM_NUM"
-# Entry QA backstop — claim-requiring, so it runs AFTER the work claim above (never before).
-yoke qa requirement auto-create-for-item --item "YOK-$ITEM_NUM"
+ --item "$ITEM_REF"
 ```
 
 For idea refinement, run the internal pre-handoff readiness gate before the
@@ -156,7 +164,7 @@ chain-step contract. The recipe inlined below mirrors the phase doc:
 
 ```bash
 if [ "$ITEM_STATUS" = "idea" ]; then
- _readiness_json=$(yoke readiness check "$ITEM_NUM" 2>/dev/null) || true
+ _readiness_json=$(yoke readiness check "$ITEM_REF" 2>/dev/null) || true
  _advisories=$(printf '%s' "$_readiness_json" | python3 -c "
 import json, sys
 data = json.loads(sys.stdin.read() or '{}')
@@ -173,23 +181,23 @@ print(data.get('classification', 'unrecoverable'))
  case "$_class" in
   pass) ;;
   pure_stale_count)
-   yoke readiness repair-stale-count --item "$ITEM_NUM" || {
-    yoke sessions checkpoint --step 1 --action refine --chainable false --outcome blocked --item-id "YOK-$ITEM_NUM"
+   yoke readiness repair-stale-count --item "$ITEM_REF" || {
+    yoke sessions checkpoint --step 1 --action refine --chainable false --outcome blocked --item-id "$ITEM_REF"
     yoke claims work release \
-     --item "YOK-$ITEM_NUM" --reason "readiness-check-blocked" >/dev/null 2>&1 || true
+     --item "$ITEM_REF" --reason "readiness-check-blocked" >/dev/null 2>&1 || true
     exit 1
    }
    ;;
   mixed_stale_count)
-   yoke readiness repair-claim-coverage --item "$ITEM_NUM" || {
+   yoke readiness repair-claim-coverage --item "$ITEM_REF" || {
     printf 'Recoverable readiness gaps not auto-repaired; continuing into refine for repair:\n%s\n' "$_readiness_json"
    }
    ;;
   unrecoverable)
    printf '%s\n' "$_readiness_json"
-   yoke sessions checkpoint --step 1 --action refine --chainable false --outcome blocked --item-id "YOK-$ITEM_NUM"
+   yoke sessions checkpoint --step 1 --action refine --chainable false --outcome blocked --item-id "$ITEM_REF"
    yoke claims work release \
-    --item "YOK-$ITEM_NUM" --reason "readiness-check-blocked" >/dev/null 2>&1 || true
+    --item "$ITEM_REF" --reason "readiness-check-blocked" >/dev/null 2>&1 || true
    exit 1
    ;;
  esac
@@ -211,20 +219,19 @@ Read all available structured fields. Empty fields are normal; refinement should
 
 ```bash
 MAIN_ROOT=$(git rev-parse --show-toplevel)
-ITEM_NUM=$(printf '%s' "{arg}" | sed 's/^[Ss][Uu][Nn]-//; s/^0*//')
-BODY=$(yoke items get "$ITEM_NUM" body 2>/dev/null) || true
-SPEC=$(yoke items get "$ITEM_NUM" spec 2>/dev/null) || true
-DESIGN_SPEC=$(yoke items get "$ITEM_NUM" design_spec 2>/dev/null) || true
-TECHNICAL_PLAN=$(yoke items get "$ITEM_NUM" technical_plan 2>/dev/null) || true
-WORKTREE_PLAN=$(yoke items get "$ITEM_NUM" worktree_plan 2>/dev/null) || true
-SHEPHERD_CAVEATS=$(yoke items get "$ITEM_NUM" shepherd_caveats 2>/dev/null) || true
+# Reuse ITEM_REF and ITEM_NUM from step 1.
+BODY=$(yoke items get "$ITEM_REF" body 2>/dev/null) || true
+SPEC=$(yoke items get "$ITEM_REF" spec 2>/dev/null) || true
+DESIGN_SPEC=$(yoke items get "$ITEM_REF" design_spec 2>/dev/null) || true
+TECHNICAL_PLAN=$(yoke items get "$ITEM_REF" technical_plan 2>/dev/null) || true
+WORKTREE_PLAN=$(yoke items get "$ITEM_REF" worktree_plan 2>/dev/null) || true
+SHEPHERD_CAVEATS=$(yoke items get "$ITEM_REF" shepherd_caveats 2>/dev/null) || true
 ```
 
 For planned epics, also inspect the current task decomposition:
 
 ```bash
 MAIN_ROOT=$(git rev-parse --show-toplevel)
-ITEM_NUM=$(printf '%s' "{arg}" | sed 's/^[Ss][Uu][Nn]-//; s/^0*//')
 EPIC_TASKS=$(yoke epic-tasks list --epic "$ITEM_NUM" 2>/dev/null) || true
 ```
 
@@ -246,7 +253,7 @@ git -C "$MAIN_ROOT" log --oneline -20
 
 Scan for commits that touch the same files, functions, or subsystems as this item. If recent work has already addressed part of this item's scope, note it — the spec may need descoping or the item may be partially done.
 
-**Active and pipeline tickets** — What else is in flight or queued that overlaps?
+**Active and pipeline work items** — What else is in flight or queued that overlaps?
 
 ```bash
 MAIN_ROOT=$(git rev-parse --show-toplevel)
@@ -254,11 +261,11 @@ yoke db read --format lines "SELECT id, status, title FROM items WHERE status IN
 ```
 
 Look for:
-- **Overlap** — another ticket targeting the same files, functions, or behavior. Flag it in the critique and ensure the spec acknowledges the overlap or deconflicts.
-- **Supersession** — a broader ticket that subsumes this one. If so, recommend absorbing or cancelling.
-- **Dependencies** — a ticket that must land first for this item's assumptions to hold, or vice versa.
+- **Overlap** — another work item targeting the same files, functions, or behavior. Flag it in the critique and ensure the spec acknowledges the overlap or deconflicts.
+- **Supersession** — a broader work item that subsumes this one. If so, recommend absorbing or cancelling.
+- **Dependencies** — a work item that must land first for this item's assumptions to hold, or vice versa.
 
-**Recently done tickets** — What just shipped that might affect this item's assumptions?
+**Recently done work items** — What just shipped that might affect this item's assumptions?
 
 ```bash
 MAIN_ROOT=$(git rev-parse --show-toplevel)
@@ -274,7 +281,7 @@ Check whether recently completed work has:
 - Its spec references files, functions, or behaviors that have been renamed, removed, or significantly refactored since the spec was written.
 - Its problem statement describes a symptom that has already been fixed.
 - Its approach assumes codebase state that no longer exists.
-- Its scope overlaps with another active or recently-done ticket in any way — same files, same behavior, same problem from a different angle. Any overlap must be resolved: descope, absorb, dependency-link, or cancel.
+- Its scope overlaps with another active or recently-done work item in any way — same files, same behavior, same problem from a different angle. Any overlap must be resolved: descope, absorb, dependency-link, or cancel.
 
 Carry ALL survey findings into the critique in step 5. Staleness and overlap are first-class refinement issues, not optional observations.
 
@@ -283,6 +290,9 @@ Carry ALL survey findings into the critique in step 5. Staleness and overlap are
 Pick the field(s) to refine based on the current status and whatever structured content actually exists:
 
 - `idea` / `refining-idea` / `refined-idea` / `defined` / `designed`: focus on `spec` first, then `design_spec` if the item already has UX or flow detail.
+- For a Blitz, also identify the one strategy document that will remain the
+  live execution plan. Apply the document-readiness rubric in
+  `review-rubric.md`; do not treat the item body as the execution document.
 - `planned` / `refining-plan`: focus on `technical_plan`, `worktree_plan`, and for epics also cross-check the stored epic tasks against the written plan.
 - Any status with substantive `shepherd_caveats`: refine `shepherd_caveats` so open questions and deferrals are crisp and actionable.
 - If no structured field exists yet, refine the authoritative fallback (`body`) but keep the resulting content ready to migrate into structured fields later.
@@ -313,9 +323,14 @@ The claim re-check is **blocking**: refine MUST NOT advance the item past `refin
 
 Read [`review-rubric.md`](review-rubric.md) for the full critique dimensions, mandatory checks (approved decisions inventory, user-provided input inventory, staleness/overlap, events forensics, reference verification, blast radius discovery, cleanup coverage, failure/recovery coverage, open-question closure, prompt/file-size awareness, **File Budget readiness**), and artifact-specific evaluation rubrics for body/spec, design spec, technical plan/worktree plan, and shepherd caveats. Emit the structured critique as described there. The File Budget rubric is first-class — implementation-bearing items must not advance to `refined-idea` (issue) or `planned` (epic) with a missing, vague, or unresolved File Budget; see `update-protocol.md`'s **File Budget escalation** for the operator handoff path when refine cannot resolve it.
 
-### 6-12. Apply Improvements, Verify, Advance, Release, Final Output
+### 6-12. Apply Improvements, Verify, Link Blitz Plan, Advance, Release, Final Output
 
 Read [`update-protocol.md`](update-protocol.md) for the full update protocol: applying additive improvements (step 6), verifying writes (step 7), capturing the final summary (step 8), advancing status on success (step 9), releasing the item claim (step 10), final output (step 11), and completion criteria (step 12).
+
+When `ITEM_WORKFLOW_ID=blitz`, read and follow
+[`blitz-execution-document.md`](blitz-execution-document.md) after step 7 and
+before step 9. Refine is not complete until the registered link write has
+been verified through `strategy.execution.get`.
 
 ### Final phase — Path Closure (before status advance)
 

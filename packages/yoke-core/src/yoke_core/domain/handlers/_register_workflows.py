@@ -36,6 +36,20 @@ def register(registry) -> None:
         claim_required_kind=None,
     )
     registry.register(
+        "workflows.version.get",
+        _wv.handle_workflows_version_get,
+        _wv.WorkflowVersionGetRequest,
+        _wv.WorkflowVersionGetResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.workflows_versioning",
+        target_kinds=["global"],
+        side_effects=[],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["immutable_version_read"],
+        adapter_status="live",
+        claim_required_kind=None,
+    )
+    registry.register(
         "workflows.current.set",
         _wv.handle_workflows_current_set,
         _wv.WorkflowCurrentSetRequest,
@@ -45,9 +59,34 @@ def register(registry) -> None:
         target_kinds=["global"],
         side_effects=["workflows_current_version_update"],
         emitted_event_names=["YokeFunctionCalled"],
-        guardrails=["published_version_only", "new_items_only"],
+        guardrails=[
+            "published_version_only",
+            "new_items_only",
+            "expected_current_version",
+        ],
         adapter_status="live",
-        claim_required_kind="operator_override",
+        claim_required_kind=None,
+        ambient_session_required=False,
+    )
+    registry.register(
+        "workflows.policy_defaults.publish",
+        _wv.handle_workflows_policy_defaults_publish,
+        _wv.WorkflowPolicyDefaultsPublishRequest,
+        _wv.WorkflowPolicyDefaultsPublishResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.workflows_versioning",
+        target_kinds=["global"],
+        side_effects=["workflows_version_publish"],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=[
+            "bounded_policy_defaults_only",
+            "immutable_version_publish",
+            "expected_current_version",
+            "new_items_only",
+        ],
+        adapter_status="live",
+        claim_required_kind=None,
+        ambient_session_required=False,
     )
     registry.register(
         "workflows.item.migrate",

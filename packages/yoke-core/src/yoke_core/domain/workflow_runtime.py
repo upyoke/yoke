@@ -56,6 +56,11 @@ class WorkflowRuntime:
             None,
         )
 
+    def stage_label(self, stage_id: str) -> str:
+        """Return the immutable definition's label for a stage id."""
+        stage = self.stage(stage_id) or {}
+        return str(stage.get("label") or stage_id.replace("-", " "))
+
     def stage_index(self, stage_id: str) -> Optional[int]:
         try:
             return self.stage_ids.index(stage_id)

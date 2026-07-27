@@ -3,13 +3,18 @@
 from yoke_core.domain.actor_permissions import seed_roles_and_permissions
 from yoke_core.domain.actors import seed_canonical_actors
 from yoke_core.domain.auth_schema import create_auth_tables
+from yoke_core.domain.decision_request_schema import create_decision_request_tables
 from yoke_core.domain.events_schema import ensure_event_schema
 from yoke_core.domain.external_identity_schema import create_external_identity_tables
+from yoke_core.domain.field_note_dash_promotion import (
+    ensure_field_note_dash_promotion_schema,
+)
 from yoke_core.domain.flow_init import (
     converge_flow_catalog,
     create_or_replace_item_progress_view,
 )
 from yoke_core.domain.github_app_schema import create_github_app_tables
+from yoke_core.domain.machine_qa_pack import sync_machine_qa_pack_methods
 from yoke_core.domain.org_schema import seed_default_org
 from yoke_core.domain.pack_projection import (
     converge_pack_catalog,
@@ -18,6 +23,8 @@ from yoke_core.domain.pack_projection import (
 from yoke_core.domain.project_onboarding_runs import (
     create_project_onboarding_tables,
 )
+from yoke_core.domain.project_structure import create_project_structure_tables
+from yoke_core.domain.qa_catalog_schema import create_qa_catalog_tables
 from yoke_core.domain.schema_common import _connect_raw
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.schema_init_actor_path_claim_tables import (
@@ -45,6 +52,8 @@ from yoke_core.domain.strategy_docs_schema import (
     STRATEGY_DOC_REVISIONS_CREATE_TABLE_SQL,
     STRATEGY_DOCS_CREATE_TABLE_SQL,
 )
+from yoke_core.domain.strategy_execution_schema import ensure_strategy_execution_schema
+from yoke_core.domain.test_machine_schema import ensure_test_machine_schema
 from yoke_core.domain.ui_preferences_schema import create_ui_preference_tables
 from yoke_core.domain.workflow_schema import ensure_workflow_schema
 from yoke_core.domain.workflow_registry import converge_builtin_workflows
@@ -87,11 +96,19 @@ def converge_core_schema(conn) -> None:
     create_actor_path_claim_tables(conn)
     create_auth_tables(conn)
     create_external_identity_tables(conn)
+    create_decision_request_tables(conn)
     create_github_app_tables(conn)
     create_project_onboarding_tables(conn)
     create_pack_projection_tables(conn)
+    create_project_structure_tables(conn)
     ensure_workflow_schema(conn)
     converge_builtin_workflows(conn)
+    # Plans attach to projects, workflows and items; requirements snapshot
+    # those plans, so the catalog follows all four authorities.
+    create_qa_catalog_tables(conn)
+    ensure_test_machine_schema(conn)
+    ensure_field_note_dash_promotion_schema(conn)
+    sync_machine_qa_pack_methods(conn)
     # Existing databases retain the legacy classification until the governed
     # contract migration. Boot convergence must populate immutable pins before
     # the new readers serve those rows; after contraction this is a no-op.
@@ -102,6 +119,7 @@ def converge_core_schema(conn) -> None:
     # the strategy domain owns.
     conn.execute(STRATEGY_DOCS_CREATE_TABLE_SQL)
     conn.execute(STRATEGY_DOC_REVISIONS_CREATE_TABLE_SQL)
+    ensure_strategy_execution_schema(conn)
     apply_additive_schema(conn)
     converge_pack_catalog(conn)
     # Built-in deployment flows are executable configuration, not birth-only

@@ -19,6 +19,7 @@ from yoke_core.domain.db_helpers import (
     query_rows,
     query_scalar,
 )
+from yoke_core.domain.qa_constants import browser_requirement_predicate
 
 
 def cmd_satisfy_screenshot_evidence(
@@ -32,9 +33,8 @@ def cmd_satisfy_screenshot_evidence(
     Returns count of newly satisfied requirements. Prints ``0`` and returns
     when no requirements need satisfying. Refuses to insert the
     ac_verification pass row unless the item has at least one
-    inspection-verified browser capture — a ``browser_smoke`` or
-    ``browser_diff`` qa_run with ``execution_status='captured'`` AND
-    ``verdict='pass'``.
+    inspection-verified Browser method run with
+    ``execution_status='captured'`` AND ``verdict='pass'``.
     """
     if not item_id:
         print("Error: --item-id is required", file=sys.stderr)
@@ -43,11 +43,11 @@ def cmd_satisfy_screenshot_evidence(
     conn = connect(path=db_path)
     try:
         # guard: require an inspection-verified capture before bridging.
-        inspected_count = query_scalar(conn, """
+        inspected_count = query_scalar(conn, f"""
             SELECT COUNT(*) FROM qa_runs qr
             JOIN qa_requirements r ON r.id = qr.qa_requirement_id
             WHERE r.item_id = %s
-              AND r.qa_kind IN ('browser_smoke','browser_diff')
+              AND {browser_requirement_predicate("r")}
               AND qr.executor_type = 'browser_substrate'
               AND qr.execution_status = 'captured'
               AND qr.verdict = 'pass'
@@ -56,10 +56,8 @@ def cmd_satisfy_screenshot_evidence(
             print(
                 f"Error: item {item_id} has no inspection-verified browser captures "
                 "(need execution_status='captured' AND verdict='pass' on a "
-                "browser_smoke/browser_diff run). Call "
-                "`yoke qa run complete --requirement-id <id> "
-                "--run-id <capture_run_id> --verdict pass` "
-                "after screenshot inspection, then retry.",
+                "Browser method case). Resolve the materialized case through "
+                "the shared case execution/review flow, then retry.",
                 file=sys.stderr,
             )
             sys.exit(3)

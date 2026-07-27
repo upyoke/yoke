@@ -10,7 +10,6 @@ from yoke_core.domain.handlers import (
     projects_capability_secret as _projects_capability_secret,
     projects_get as _projects_get,
     qa as _qa,
-    qa_artifact_presign as _qa_artifact_presign,
     qa_browser as _qa_browser,
     qa_browser_evidence as _qa_browser_evidence,
     qa_browser_writes as _qa_browser_writes,
@@ -168,17 +167,6 @@ def register(registry) -> None:
         claim_required_kind="item",
     )
     registry.register(
-        "qa.requirement.auto_create_for_item",
-        _qa.handle_qa_requirement_auto_create_for_item,
-        _qa.QaRequirementAutoCreateForItemRequest,
-        _qa.QaRequirementAutoCreateForItemResponse,
-        stability="stable", owner_module="yoke_core.domain.handlers.qa",
-        target_kinds=["item"], side_effects=["qa_requirements_insert"],
-        emitted_event_names=["YokeFunctionCalled", "QARequirementCreated"],
-        guardrails=["claim_required"], adapter_status="live",
-        claim_required_kind="item",
-    )
-    registry.register(
         "qa.requirement.waive",
         _qa_requirement_waive.handle_qa_requirement_waive,
         _qa_requirement_waive.QaRequirementWaiveRequest,
@@ -260,29 +248,6 @@ def register(registry) -> None:
         stability="stable",
         owner_module="yoke_core.domain.handlers.qa_browser_evidence",
         target_kinds=["item"], side_effects=["qa_runs_insert"],
-        emitted_event_names=["YokeFunctionCalled"],
-        guardrails=["claim_required"], adapter_status="live",
-        claim_required_kind="item",
-    )
-    registry.register(
-        "qa.artifact.add", _qa_browser_writes.handle_qa_artifact_add,
-        _qa_browser_writes.QaArtifactAddRequest,
-        _qa_browser_writes.QaArtifactAddResponse,
-        stability="stable",
-        owner_module="yoke_core.domain.handlers.qa_browser_writes",
-        target_kinds=["qa_requirement"], side_effects=["qa_artifacts_insert"],
-        emitted_event_names=["YokeFunctionCalled"],
-        guardrails=["claim_required"], adapter_status="live",
-        claim_required_kind="item",
-    )
-    registry.register(
-        "qa.artifact.presign",
-        _qa_artifact_presign.handle_qa_artifact_presign,
-        _qa_artifact_presign.QaArtifactPresignRequest,
-        _qa_artifact_presign.QaArtifactPresignResponse,
-        stability="stable",
-        owner_module="yoke_core.domain.handlers.qa_artifact_presign",
-        target_kinds=["qa_requirement"], side_effects=[],
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=["claim_required"], adapter_status="live",
         claim_required_kind="item",

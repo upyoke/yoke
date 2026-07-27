@@ -22,7 +22,51 @@ VALID_QA_PHASES = ("verification", "post_deploy", "manual_acceptance")
 VALID_BLOCKING_MODES = ("blocking", "non_blocking")
 VALID_REQUIREMENT_SOURCES = ("explicit", "seeded_default", "ac_derived", "flow_derived")
 VALID_VERDICTS = ("pass", "fail", "inconclusive", "error")
-VALID_BROWSER_QA_KINDS = ("browser_smoke", "browser_diff")
+BROWSER_METHOD_IDS = ("browser-check", "browser-inspection")
+
+# Compatibility is intentionally private. Active requirements created before
+# Browser execution moved into the method/plan layer can remain in flight
+# without exposing their aggregate kind names as supported authoring choices.
+_LEGACY_BROWSER_QA_KINDS = ("browser_smoke", "browser_diff")
+
+
+def is_browser_method_requirement(
+    method_id: Optional[str],
+    qa_kind: Optional[str] = None,
+) -> bool:
+    """Return whether a requirement uses Browser-method execution.
+
+    ``qa_kind`` is consulted only for pre-cutover rows that do not carry a
+    method identity. New and materialized requirements are classified solely
+    by ``method_id``.
+    """
+    if method_id in BROWSER_METHOD_IDS:
+        return True
+    return method_id is None and qa_kind in _LEGACY_BROWSER_QA_KINDS
+
+
+def browser_requirement_predicate(alias: str = "r") -> str:
+    """Return the SQL predicate for Browser method cases plus legacy rows."""
+    method_values = ", ".join(f"'{value}'" for value in BROWSER_METHOD_IDS)
+    legacy_values = ", ".join(
+        f"'{value}'" for value in _LEGACY_BROWSER_QA_KINDS
+    )
+    return (
+        f"({alias}.method_id IN ({method_values}) OR "
+        f"({alias}.method_id IS NULL AND "
+        f"{alias}.qa_kind IN ({legacy_values})))"
+    )
+
+
+def case_outcome_for_verdict(verdict: Optional[str]) -> Optional[str]:
+    """Translate a terminal verdict into the plan-case outcome vocabulary."""
+    if verdict == "pass":
+        return "passed"
+    if verdict in {"fail", "error"}:
+        return "failed"
+    if verdict == "inconclusive":
+        return "needs_review"
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -67,6 +111,9 @@ REQ_COLUMNS = (
     "qa_kind", "qa_phase", "target_env", "blocking_mode",
     "requirement_source", "success_policy", "capability_requirements",
     "suite_id", "waived_at", "waiver_rationale", "waiver_source",
+    "plan_id", "plan_case_key", "method_id", "host_baseline",
+    "workflow_transition_id", "instructions", "expected_outcome",
+    "method_config",
     "created_at",
 )
 
@@ -77,7 +124,11 @@ _REQ_SELECT = (
     "blocking_mode, requirement_source, COALESCE(success_policy,''), "
     "COALESCE(capability_requirements,''), COALESCE(suite_id,''), "
     "COALESCE(waived_at,''), COALESCE(waiver_rationale,''), "
-    "COALESCE(waiver_source,''), created_at"
+    "COALESCE(waiver_source,''), COALESCE(CAST(plan_id AS TEXT),''), "
+    "COALESCE(plan_case_key,''), COALESCE(method_id,''), "
+    "COALESCE(host_baseline,''), COALESCE(workflow_transition_id,''), "
+    "COALESCE(instructions,''), COALESCE(expected_outcome,''), "
+    "COALESCE(method_config,''), created_at"
 )
 
 
@@ -87,6 +138,7 @@ _REQ_SELECT = (
 # the browser-QA capture flow branches on it.
 RUN_COLUMNS = (
     "id", "qa_requirement_id", "executor_type", "qa_kind", "verdict",
-    "execution_status", "score", "confidence", "raw_result", "duration_ms",
+    "execution_status", "case_outcome", "capture_degraded_reason",
+    "score", "confidence", "raw_result", "duration_ms",
     "started_at", "completed_at", "created_at",
 )

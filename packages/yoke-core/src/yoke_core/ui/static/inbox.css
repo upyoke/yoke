@@ -1,0 +1,196 @@
+.universe-app-root .inbox-panels {
+  display: grid;
+  gap: 14px;
+}
+
+.universe-app-root .inbox-panels > .panel {
+  margin: 0;
+}
+
+.universe-app-root .inbox-panel-hint {
+  margin-left: auto;
+  color: var(--yoke-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.universe-app-root .panel-body.inbox-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 13px 15px;
+}
+
+.universe-app-root .inbox-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 50px;
+  padding: 9px 15px;
+  border-bottom: 1px solid var(--yoke-border);
+  background: transparent;
+  transition: background-color 120ms ease;
+}
+
+.universe-app-root .inbox-row:last-child {
+  border-bottom: 0;
+}
+
+.universe-app-root .inbox-row[role="link"] {
+  cursor: pointer;
+}
+
+.universe-app-root .inbox-row[role="link"]:hover {
+  background: var(--yoke-hover);
+}
+
+.universe-app-root .inbox-row[role="link"]:focus-visible {
+  outline: 2px solid var(--yoke-accent);
+  outline-offset: -2px;
+}
+
+.universe-app-root .inbox-icon {
+  display: grid;
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 8px;
+  color: var(--yoke-accent);
+  background: var(--yoke-accent-weak);
+  font-size: 15px;
+}
+
+.universe-app-root .inbox-row-main {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.universe-app-root .inbox-row-title {
+  color: var(--yoke-ink);
+  font-size: 12.5px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.universe-app-root a.inbox-row-title:hover {
+  color: var(--yoke-accent);
+  text-decoration: underline;
+}
+
+.universe-app-root .inbox-row-subtitle {
+  overflow: hidden;
+  margin-top: 2px;
+  color: var(--yoke-muted);
+  font-size: 11.5px;
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.universe-app-root .inbox-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.universe-app-root .inbox-row:has(
+  :is(.inbox-note-composer, .inbox-row-error)
+) {
+  flex-wrap: wrap;
+}
+
+.universe-app-root .inbox-note-composer {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto auto;
+  flex: 1 1 100%;
+  gap: 7px;
+  margin: 2px 0 1px 41px;
+}
+
+.universe-app-root .inbox-note {
+  min-height: 34px;
+  resize: vertical;
+}
+
+.universe-app-root .inbox-note.invalid {
+  border-color: var(--yoke-crit);
+}
+
+.universe-app-root .inbox-row-error {
+  flex: 1 1 100%;
+  margin: 0 0 0 41px;
+  font-size: 11.5px;
+}
+
+.universe-app-root .inbox-panel-error {
+  margin: 0;
+  font-size: 11.5px;
+}
+
+.universe-app-root .inbox-action {
+  min-height: 27px;
+  padding: 5px 9px;
+  font-size: 11.5px;
+}
+
+.universe-app-root .inbox-read {
+  flex: 0 0 auto;
+  padding: 2px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--yoke-accent);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.universe-app-root .inbox-read:not(:disabled) {
+  background: var(--yoke-accent-weak);
+}
+
+.universe-app-root .inbox-read:disabled {
+  cursor: default;
+  opacity: .45;
+}
+
+.universe-app-root .inbox-read-all {
+  margin-left: auto;
+}
+
+.universe-app-root .inbox-empty {
+  margin: 0;
+  padding: 6px 2px;
+}
+
+@media (max-width: 720px) {
+  .universe-app-root .inbox-row {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .universe-app-root .inbox-row-main {
+    min-width: calc(100% - 42px);
+  }
+
+  .universe-app-root .inbox-row-subtitle {
+    white-space: normal;
+  }
+
+  .universe-app-root .inbox-actions,
+  .universe-app-root .inbox-read {
+    margin-left: 41px;
+  }
+
+  .universe-app-root .inbox-note-composer {
+    grid-template-columns: 1fr auto;
+  }
+
+  .universe-app-root .inbox-note {
+    grid-column: 1 / -1;
+  }
+}

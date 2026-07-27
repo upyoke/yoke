@@ -1,9 +1,9 @@
 # Ouroboros Field-Note Channel
 
-Canonical long-form reference for the field-note channel. Auto-generated from `runtime/api/domain/field_note_text.py` constants; do not edit the block between markers by hand.
+Canonical long-form reference for the field-note channel. Auto-generated from `packages/yoke-contracts/src/yoke_contracts/field_note_text.py` constants; do not edit the block between markers by hand.
 
 <!-- BEGIN GENERATED: field-note-directive -->
-When you hit a recipe gap or notice a minor bug not worth a ticket, file a field-note immediately — before retrying, before moving on.
+When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
 
 Copy-paste recipe:
 
@@ -55,7 +55,7 @@ Copy-paste recipe:
 
 ### Stale doc reference noticed during unrelated work (`--kind observation`)
 
-**When to fire:** Reading a doc, skill, or packet during unrelated work surfaced a stale or wrong reference. Not in current scope, not worth a ticket.
+**When to fire:** Reading a doc, skill, or packet during unrelated work surfaced a stale or wrong reference. Not in current scope; capture it as a supporting record.
 
 **Example evidence:** .yoke/docs/lifecycle.md still references `polish-implementation`; the live status name is `polishing-implementation`.
 

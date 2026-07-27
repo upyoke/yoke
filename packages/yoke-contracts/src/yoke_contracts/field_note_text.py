@@ -13,7 +13,7 @@ The field-note channel covers two scopes in one fast-capture surface:
   each other.
 * **Minor bug observations** — a stale doc reference, an orphan row from a
   race, surprising behavior in an unrelated surface noticed during current
-  work. Not in current scope. Not worth a full ticket today.
+  work. Not in current scope. Best held as a supporting record today.
 
 This module carries:
 
@@ -39,7 +39,7 @@ from typing import NamedTuple
 
 
 DIRECTIVE: str = (
-    "When you hit a recipe gap or notice a minor bug not worth a ticket, "
+    "When you hit a recipe gap or notice a minor bug best held as a supporting record, "
     "file a field-note immediately — before retrying, before moving on."
 )
 
@@ -62,7 +62,7 @@ EVIDENCE_MAX_CHARS: int = 4000
 
 KIND_OBSERVATION_DEFINITION: str = (
     "minor bug, surprise, or stale reference noticed during unrelated work. "
-    "Not in current scope. Not worth a ticket today."
+    "Not in current scope. Best held as a supporting record today."
 )
 
 
@@ -176,7 +176,8 @@ FAILURE_MODES: tuple[FailureMode, ...] = (
         ),
         when_to_fire=(
             "Reading a doc, skill, or packet during unrelated work surfaced a "
-            "stale or wrong reference. Not in current scope, not worth a ticket."
+            "stale or wrong reference. Not in current scope; capture it as a "
+            "supporting record."
         ),
     ),
     FailureMode(
@@ -211,7 +212,7 @@ _DECISION_TREE: str = (
     "  Did you observe a minor bug or surprise unrelated to current scope?\n"
     "    yes -> --kind observation  (stale doc reference, orphan row, surprising\n"
     "                                behavior in an unrelated surface; not in\n"
-    "                                current scope, not worth a ticket today)\n"
+    "                                current scope; use a supporting record)\n"
     "    no  -> Did the recipe exist?\n"
     "             no  -> --kind new       (no skill, packet, --help, or doc\n"
     "                                     taught it)\n"
@@ -245,7 +246,7 @@ _PREAMBLE: str = (
     "    the workflow, or two teaching surfaces contradicted each other.\n"
     "  - Minor bug observations: stale doc reference, orphan row from a race,\n"
     "    surprising behavior in an unrelated surface. Not in current scope.\n"
-    "    Not worth a full ticket today.\n"
+    "    Best held as a supporting record today.\n"
 )
 
 

@@ -7,7 +7,7 @@ lifecycle transitions where the contract is enforced:
 
 * :func:`check_idea_to_refining_idea_gate`
   Profile schema + opportunistic scanner + attestation presence +
-  model+flow cross-reference + cross-ticket overlap.  On pass, callers
+  model+flow cross-reference + cross-item overlap.  On pass, callers
   stamp ``db_compatibility_attestation.frozen_at`` to lock authored
   fields.  This gate proves *intent*, not artifacts: declared migration
   module slugs do not need to resolve to files on disk.  Apply-audit
@@ -26,7 +26,7 @@ lifecycle transitions where the contract is enforced:
   live artifacts) the rollback backup file presence and the absence of
   stale in-progress audit rows.
 
-Tickets whose ``db_mutation_profile.state`` is ``none`` pass every gate
+Work items whose ``db_mutation_profile.state`` is ``none`` pass every gate
 trivially — absence-as-opt-out.
 
 This module is the public front door — it imports each public name

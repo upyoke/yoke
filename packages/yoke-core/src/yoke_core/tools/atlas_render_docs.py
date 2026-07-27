@@ -48,6 +48,13 @@ _FIELD_NOTE_SECTION_RE = re.compile(
     re.MULTILINE | re.DOTALL,
 )
 _FIELD_NOTE_PLACEHOLDER = "## 6. Field-note hotspots\n\n_<live DB section, stripped for diff>_\n\n"
+_FIELD_NOTE_SUMMARY_RE = re.compile(
+    r"^- Recent field-notes inspected: \d+$",
+    re.MULTILINE,
+)
+_FIELD_NOTE_SUMMARY_PLACEHOLDER = (
+    "- Recent field-notes inspected: <live DB count>"
+)
 
 
 def _render_summary(report: Dict[str, Any]) -> List[str]:
@@ -91,15 +98,20 @@ def _render_summary(report: Dict[str, Any]) -> List[str]:
 
 def _render_wrapped_roster(report: Dict[str, Any]) -> List[str]:
     out = ["## 2. Wrapped operation roster", ""]
+    cli_rows = [
+        row
+        for row in report["yoke_cli"]["rows"]
+        if row.get("dispatch_kind", "dispatcher") == "dispatcher"
+    ]
     out.append(
-        f"Wrapped `yoke <subcommand>` adapters: **{report['yoke_cli']['count']}** "
+        f"Wrapped dispatcher-backed `yoke <subcommand>` adapters: "
+        f"**{len(cli_rows)}** "
         f"(operation tracker confirms {report['operation_tracker']['by_status'].get('wrapped', 0)} "
         "wrapped rows)."
     )
     out.append("")
-    cli_rows = report["yoke_cli"]["rows"]
     if not cli_rows:
-        out.append("_No `yoke` subcommands registered._")
+        out.append("_No dispatcher-backed `yoke` subcommands registered._")
         out.append("")
         return out
     help_per = report["help_pages"]["per_subcommand"]
@@ -208,6 +220,10 @@ def write(target_root: Path, *, body: str, output: Path | None = None) -> Path:
 
 def _normalise(body: str) -> str:
     body = _TIMESTAMP_LINE_RE.sub(_TIMESTAMP_PLACEHOLDER, body)
+    body = _FIELD_NOTE_SUMMARY_RE.sub(
+        _FIELD_NOTE_SUMMARY_PLACEHOLDER,
+        body,
+    )
     return _FIELD_NOTE_SECTION_RE.sub(_FIELD_NOTE_PLACEHOLDER, body)
 
 

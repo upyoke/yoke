@@ -135,7 +135,6 @@ from yoke_cli.commands.adapters.epic_state import (
 )
 from yoke_cli.commands.adapters.qa import (
     qa_requirement_waive,
-    qa_requirement_auto_create_for_item,
     qa_requirement_update,
     qa_run_record_verdict,
 )
@@ -159,6 +158,7 @@ from yoke_cli.commands.adapters.qa_read import (
     qa_run_get,
     qa_run_list,
 )
+from yoke_cli.commands.flag_adapter_product_exports import PRODUCT_ADAPTER_EXPORTS
 from yoke_cli.commands.adapters.doctor import (
     doctor_last_run_get,
     doctor_run,
@@ -193,8 +193,6 @@ from yoke_cli.commands.adapters.projects_write import (
     projects_update,
 )
 from yoke_cli.commands.adapters.project_structure_read import (
-    project_structure_command_definitions_get,
-    project_structure_command_definitions_list,
     project_structure_deploy_defaults_get,
 )
 from yoke_cli.commands.adapters.projects_secret import (
@@ -403,7 +401,6 @@ __all__ = [
     "epic_tasks_list",
     "qa_requirement_update",
     "qa_requirement_waive",
-    "qa_requirement_auto_create_for_item",
     "qa_run_record_verdict",
     "qa_browser_context_get",
     "qa_run_add",
@@ -463,8 +460,6 @@ __all__ = [
     "identity_link_set",
     "identity_autojoin_set",
     "project_structure_patch_apply",
-    "project_structure_command_definitions_get",
-    "project_structure_command_definitions_list",
     "project_structure_deploy_defaults_get",
     "events_emit",
     "events_query",
@@ -553,3 +548,5 @@ __all__ = [
     "frontier_list",
     "ADAPTER_USAGE",
 ]
+globals().update(PRODUCT_ADAPTER_EXPORTS)
+__all__.extend(PRODUCT_ADAPTER_EXPORTS)

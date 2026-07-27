@@ -92,7 +92,6 @@ class ItemObject(BaseModel):
     frozen: bool = False
     github_issue: Optional[str] = None
     deployed_to: Optional[str] = None
-    worktree: Optional[str] = None
     project: Optional[str] = None
     deployment_flow: Optional[str] = None
     deploy_stage: Optional[str] = None

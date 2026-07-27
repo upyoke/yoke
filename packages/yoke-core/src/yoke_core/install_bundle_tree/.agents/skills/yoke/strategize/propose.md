@@ -47,21 +47,21 @@ When an approved finding says current work has pulled a later-generation concept
 
 When an approved finding says a planned surface looks temporary, draft one of two shapes:
 
-- **Pull forward / consume existing primitive:** Name the existing or current-slice primitive (`path_claims`, `coordination_leases`, events ledger, actors, phase runs, execution journal, compiled packet, etc.) and make the ticket consume it.
-- **Declare deletion target:** If the surface is intentionally temporary, require the ticket to name the exact later slice or primitive that deletes or absorbs it.
+- **Pull forward / consume existing primitive:** Name the existing or current-slice primitive (`path_claims`, `coordination_leases`, events ledger, actors, phase runs, execution journal, compiled packet, etc.) and make the work item consume it.
+- **Declare deletion target:** If the surface is intentionally temporary, require the work item to name the exact later slice or primitive that deletes or absorbs it.
 
-Avoid changes that merely move a phrase from one generation to another without changing the implementation instruction. The output should tell the next ticket author what to build, what not to build yet, and what future surface consumes the v0.
+Avoid changes that merely move a phrase from one generation to another without changing the implementation instruction. The output should tell the next work item author what to build, what not to build yet, and what future surface consumes the v0.
 
 ### 1b1. LANDSCAPE.md Editorial Rules
 
-`LANDSCAPE.md` is explicitly a legibility artifact, not an append-only release-notes feed. When drafting changes that land in `LANDSCAPE.md` — whether they come from factual drift, missing context, or the LANDSCAPE Editorial Pressure findings from the research phase — apply these additional drafting rules on top of the minimal-diff principle above:
+`.yoke/strategy/LANDSCAPE.md` is explicitly a legibility artifact, not an append-only release-notes feed. When drafting changes that land in `.yoke/strategy/LANDSCAPE.md` — whether they come from factual drift, missing context, or the LANDSCAPE Editorial Pressure findings from the research phase — apply these additional drafting rules on top of the minimal-diff principle above:
 
 - **Weave first, add second.** A new signal should be woven into the existing paragraph or bullet about the same theme, competitor, or capability. A net-new bullet or paragraph is the fallback, not the default. If a related section already exists, the first draft attempt must rewrite that section; only escalate to an additional bullet if the existing prose genuinely cannot absorb the update.
 - **Rewrite when the theme is the same.** When a new development sharpens, updates, narrows, or contradicts the same strategic theme an existing paragraph already covers, rewrite that paragraph instead of appending a fresh bullet beside it. A slightly larger rewrite of one section is preferable to multiple tiny append-only additions when the goal is to keep the file legible.
 - **Summarize, don't enumerate.** When several recent developments point at the same theme (same actor, same shift, same capability class), combine them into one synthesized update. Do not produce one bullet per development. Repeated small movements become a higher-level statement that preserves the insight without preserving the list.
 - **Consolidate before adding when a section is already dense.** If the research phase flagged a section as overgrown, dense, or duplicated, the first change for that section must be a consolidation pass (merge, retire, or rewrite to a sharper synthesis). Only after consolidation should any net-new content be proposed, and only if the consolidated section still has room for it.
 - **Retire stale and table-stakes observations.** When rewriting a section, actively drop entries that have become stale, superseded, or baseline industry behavior. Retirement is a valid change type for LANDSCAPE.md — a change whose Proposed content is "(remove)" or "(folded into paragraph X)" is not a failure of drafting, it is editorial discipline.
-- **Justify every net-new bullet or paragraph.** Any change whose Type is `add` against `LANDSCAPE.md` must carry an explicit justification in the Rationale field explaining why the signal could not be woven into an existing section and why a new bullet or paragraph is the clearest strategic shape. "The finding said to add it" is not a justification. If the justification is weak, convert the change to a rewrite of an adjacent section.
+- **Justify every net-new bullet or paragraph.** Any change whose Type is `add` against `.yoke/strategy/LANDSCAPE.md` must carry an explicit justification in the Rationale field explaining why the signal could not be woven into an existing section and why a new bullet or paragraph is the clearest strategic shape. "The finding said to add it" is not a justification. If the justification is weak, convert the change to a rewrite of an adjacent section.
 - **Preserve legitimate new signal.** Editorial discipline is a filter on shape, not on substance. Do not drop real new signal just because the section is already long — instead, weave, consolidate, or retire adjacent content to make room for the sharper synthesis.
 
 When a LANDSCAPE.md change applies one of these rules, record it explicitly in the change entry's Rationale field so the approval checkpoint can see the editorial move (e.g., "woven into existing paragraph X", "consolidated three bullets into one", "retired table-stakes observation").
@@ -86,7 +86,7 @@ For each proposed change, produce:
 **Rationale:** {why this change, referencing the evidence from the finding; for LANDSCAPE.md adds, include explicit justification for why the signal could not be woven}
 ```
 
-The `consolidate` and `retire` types are first-class editorial moves for `LANDSCAPE.md` (and any other SML file whose legibility is threatened by accumulation). Do not collapse them into `remove` — the distinction matters for the approval checkpoint, which reads the change type to understand the editorial intent.
+The `consolidate` and `retire` types are first-class editorial moves for `.yoke/strategy/LANDSCAPE.md` (and any other SML file whose legibility is threatened by accumulation). Do not collapse them into `remove` — the distinction matters for the approval checkpoint, which reads the change type to understand the editorial intent.
 
 ### 1d. Group Changes by File
 

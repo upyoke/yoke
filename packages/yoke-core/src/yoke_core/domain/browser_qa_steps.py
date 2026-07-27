@@ -22,6 +22,7 @@ from __future__ import annotations
 import os
 from typing import Any, Dict, Optional
 
+from yoke_contracts.api.function_call import ActorContext
 
 _SCREENSHOT_ACTIONS = frozenset({"screenshot"})
 
@@ -70,22 +71,22 @@ def _dispatch_qa_write(
     function_id: str,
     requirement_id: int,
     payload: Dict[str, Any],
+    actor: Optional[ActorContext] = None,
 ) -> Optional[Dict[str, Any]]:
     """Dispatch one qa write; return the result payload or None on failure."""
-    # Lazy import: the structured-API adapter sits above the domain layer
-    # (same pattern as browser_qa_scenario._fetch_browser_context).
     from yoke_contracts.api.function_call import TargetRef
-    from yoke_core.api.service_client_structured_api_adapter import (
-        call_dispatcher,
+    from yoke_core.domain.qa_composed_dispatch import (
+        call_qa_function,
     )
 
     try:
-        response = call_dispatcher(
+        response = call_qa_function(
             function_id=function_id,
             target=TargetRef(
                 kind="qa_requirement", qa_requirement_id=int(requirement_id),
             ),
             payload=payload,
+            actor=actor,
         )
     except Exception:
         return None
@@ -99,6 +100,8 @@ def _record_run(
     qa_kind: str,
     verdict: Optional[str] = None,
     raw_result: Optional[str] = None,
+    *,
+    actor: Optional[ActorContext] = None,
 ) -> Optional[int]:
     """Record a qa_run via ``qa.run.add``. Returns the run id or None."""
     payload: Dict[str, Any] = {
@@ -109,7 +112,9 @@ def _record_run(
         payload["verdict"] = verdict
     if raw_result is not None:
         payload["raw_result"] = raw_result
-    result = _dispatch_qa_write("qa.run.add", req_id, payload)
+    result = _dispatch_qa_write(
+        "qa.run.add", req_id, payload, actor=actor,
+    )
     if result is None:
         return None
     run_id = result.get("qa_run_id")
@@ -123,6 +128,7 @@ def _complete_run(
     raw_result: Optional[str] = None,
     *,
     execution_status: Optional[str] = None,
+    actor: Optional[ActorContext] = None,
 ) -> None:
     """Finalize a qa_run via ``qa.run.complete``.
 
@@ -138,7 +144,9 @@ def _complete_run(
         payload["execution_status"] = execution_status
     if raw_result is not None:
         payload["raw_result"] = raw_result
-    _dispatch_qa_write("qa.run.complete", requirement_id, payload)
+    _dispatch_qa_write(
+        "qa.run.complete", requirement_id, payload, actor=actor,
+    )
 
 
 def _record_artifact(
@@ -148,6 +156,8 @@ def _record_artifact(
     content_type: str,
     artifact_handle: Dict[str, Any],
     metadata: str,
+    *,
+    actor: Optional[ActorContext] = None,
 ) -> Optional[int]:
     """Record a qa_artifact via ``qa.artifact.add``. Returns the id or None."""
     result = _dispatch_qa_write(
@@ -160,6 +170,7 @@ def _record_artifact(
             "artifact_handle": artifact_handle,
             "metadata": metadata,
         },
+        actor=actor,
     )
     if result is None:
         return None
@@ -172,6 +183,8 @@ def _presign_artifact(
     requirement_id: int,
     filename: str,
     content_type: str,
+    *,
+    actor: Optional[ActorContext] = None,
 ) -> Optional[Dict[str, Any]]:
     """Mint a presigned PUT via ``qa.artifact.presign`` (None on any miss)."""
     return _dispatch_qa_write(
@@ -182,6 +195,7 @@ def _presign_artifact(
             "filename": filename,
             "content_type": content_type,
         },
+        actor=actor,
     )
 
 
@@ -210,6 +224,8 @@ def _durable_artifact_handle(
     requirement_id: int,
     file_path: str,
     content_type: str,
+    *,
+    actor: Optional[ActorContext] = None,
 ) -> Dict[str, Any]:
     """Return the handle to record for one on-disk capture.
 
@@ -223,6 +239,7 @@ def _durable_artifact_handle(
     filename = os.path.basename(str(file_path))
     presigned = _bqa._presign_artifact(
         run_id, requirement_id, filename, content_type,
+        actor=actor,
     )
     if presigned:
         upload_url = presigned.get("upload_url")

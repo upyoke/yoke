@@ -113,27 +113,67 @@ def test_check_a_anchor_positive_qa_requirements_required(
 # --- AC-7 Anchor distinguisher (column in neighbouring bullet, not target) ---
 
 
-def test_check_a_anchor_distinguisher_worktree_in_epic_tasks_bullet(
+def test_check_a_anchor_distinguisher_lane_link_in_epic_tasks_bullet(
     tmp_path, monkeypatch, conn
 ):
-    """`worktree` lives in epic_tasks bullet, not items bullet — fire."""
+    """A task lane link in the neighbouring bullet does not satisfy items."""
 
     rel = ".agents/skills/yoke/test/dummy.md"
-    _write(tmp_path, rel, "Inspect items.worktree when activating.\n")
+    _write(tmp_path, rel, "Inspect items.item_worktree_id when activating.\n")
     _install_repo(monkeypatch, tmp_path)
     _install_targets(monkeypatch, {"main_agent": (rel,)})
     packet = _GOOD_ENVELOPE_BLOCK + _packet_section(
         "core",
         [
             ("items", "`id, title, status`\n"),
-            ("epic_tasks", "`id, epic_id, task_num, worktree`\n"),
+            ("epic_tasks", "`id, epic_id, task_num, item_worktree_id`\n"),
         ],
     )
     _install_packet(monkeypatch, {"main_agent": packet})
 
     rec = _run(conn)
     assert rec.results[0].result == "WARN"
-    assert "missing column items.worktree" in _detail(rec)
+    assert "missing column items.item_worktree_id" in _detail(rec)
+
+
+def test_check_a_accepts_exact_compact_role_projection(
+    tmp_path,
+    monkeypatch,
+    conn,
+):
+    """A qualified compact fact covers a table outside the role topic set."""
+    rel = ".agents/skills/yoke/test/dummy.md"
+    _write(tmp_path, rel, "Inspect deployment_runs.status before closing.\n")
+    _install_repo(monkeypatch, tmp_path)
+    _install_targets(monkeypatch, {"main_agent": (rel,)})
+    packet = (
+        _GOOD_ENVELOPE_BLOCK
+        + "Deployment hint: deployment_runs.status records progress.\n"
+    )
+    _install_packet(monkeypatch, {"main_agent": packet})
+
+    assert _run(conn).results[0].result == "PASS"
+
+
+def test_check_a_rejects_longer_compact_column_token(
+    tmp_path,
+    monkeypatch,
+    conn,
+):
+    """``status_code`` cannot satisfy an exact ``status`` packet fact."""
+    rel = ".agents/skills/yoke/test/dummy.md"
+    _write(tmp_path, rel, "Inspect deployment_runs.status before closing.\n")
+    _install_repo(monkeypatch, tmp_path)
+    _install_targets(monkeypatch, {"main_agent": (rel,)})
+    packet = (
+        _GOOD_ENVELOPE_BLOCK
+        + "Deployment hint: deployment_runs.status_code records progress.\n"
+    )
+    _install_packet(monkeypatch, {"main_agent": packet})
+
+    rec = _run(conn)
+    assert rec.results[0].result == "WARN"
+    assert "deployment_runs" in _detail(rec)
 
 
 # --- AC-7 Check B (main_agent envelope) ---

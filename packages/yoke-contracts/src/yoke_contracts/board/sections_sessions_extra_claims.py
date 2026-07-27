@@ -93,7 +93,7 @@ def _path_claims_for_items(
 ) -> List[Tuple]:
     """Fetch typed item-owned path_claims for the given ``item_ids``.
 
-    Normal ticket file ownership is the typed ``owner_kind='item'``
+    Normal work-item file ownership is the typed ``owner_kind='item'``
     (with the legacy ``item_id`` column kept populated for cutover
     compatibility). Active-session rendering rolls these in so the
     Claims column reflects the same file authority everyone else
@@ -235,7 +235,7 @@ def build_session_keycaps(
         db, session_id, active_only=active_only,
     )
 
-    # Normal ticket file ownership lives on path_claims.item_id and is
+    # Normal work-item file ownership lives on path_claims.item_id and is
     # independent of session attribution. Roll item-linked claims for the
     # session's active work-claim items in alongside the session-linked
     # rows so the Claims column reflects file authority even when the

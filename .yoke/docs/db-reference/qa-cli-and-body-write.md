@@ -7,7 +7,8 @@ Operator-facing CLI for the QA platform tables and the canonical body write/rend
 Python owner: `yoke_core.domain.qa`. Public command examples use the installed
 Yoke CLI, which dispatches the registered `qa.*` function ids:
 
-- `yoke qa requirement add|add-batch|auto-create-for-item|list|get|update ...`
+- `yoke qa requirement add|add-batch|list|get|update ...`
+- `yoke qa plan materialize --item PREFIX-N --transition T`
 - `yoke qa run add|complete|record-verdict|list ...`
 - `yoke qa artifact presign|add ...`
 - `yoke qa gate-summary ...`
@@ -21,6 +22,14 @@ not an agent-facing command recipe. Full platform documentation:
 # Add an item-bound review requirement
 yoke qa requirement add \
  --item YOK-N --qa-kind implementation_review --qa-phase verification
+
+# Bind a method case to a stage in the item's pinned workflow
+yoke qa requirement add \
+ --item YOK-N --method-id browser-check --qa-phase verification \
+ --workflow-transition reviewing-implementation \
+ --instructions "Inspect the workflow view." \
+ --expected-outcome "The workflow view is correct." \
+ --method-config '{"steps":[{"action":"navigate","route":"/workflows"}]}'
 
 # List requirements
 yoke qa requirement list --item YOK-N
@@ -54,9 +63,9 @@ yoke qa gate-summary --item YOK-N --target reviewed-implementation --json
 
 | Subcommand | Args | Description |
 |---|---|---|
-| `yoke qa requirement add` | `--item PREFIX-N --qa-kind K --qa-phase P [opts]` | Insert one item-attached requirement |
+| `yoke qa requirement add` | `--item PREFIX-N (--qa-kind K \| --method-id M) --qa-phase P [--workflow-transition STAGE] [opts]` | Insert one item-attached requirement, optionally bound to a pinned workflow stage |
 | `yoke qa requirement add-batch` | `--item PREFIX-N (--rows-file PATH \| --stdin)` | Insert item-attached requirements atomically |
-| `yoke qa requirement auto-create-for-item` | `--item PREFIX-N` | Materialize default requirements for one item |
+| `yoke qa plan materialize` | `--item PREFIX-N --transition T` | Materialize project-default and item-attached plan cases |
 | `yoke qa requirement list` | `[--item PREFIX-N \| --epic-id N \| --deployment-run-id ID]` | List requirements |
 | `yoke qa requirement get` | `--requirement-id N` | Get one requirement |
 | `yoke qa requirement update` | `--requirement-id N --field FIELD (--value VALUE \| --null)` | Update one mutable field |
@@ -108,10 +117,9 @@ execute_structured_write() writes the structured field to DB
 
 Reading `items get YOK-N body` renders on demand from all structured fields. When you already have a real artifact file, the same command can read from a body file instead of stdin.
 
-Valid structured fields are:
-`spec`, `design_spec`, `technical_plan`, `worktree_plan`, `shepherd_log`, `shepherd_caveats`, `test_results`, `deploy_log`, and `browser_qa_metadata`.
-
-`browser_qa_metadata` is JSON-shape — every write routes through `yoke_core.domain.browser_qa_metadata.validate_json_string` so malformed payloads never reach the DB, and the canonical stored form is a compact sorted-key JSON object. Non-browser items hold the explicit negative-default object, not NULL.
+Valid structured fields are `spec`, `design_spec`, `technical_plan`,
+`worktree_plan`, `shepherd_log`, `shepherd_caveats`, `test_results`, and
+`deploy_log`.
 
 Shepherd subagents (PM, Architect) write structured content during lifecycle transitions (e.g., spec, technical plan, shepherd log/caveats) using the same path.
 

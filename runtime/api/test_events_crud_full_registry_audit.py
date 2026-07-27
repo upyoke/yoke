@@ -66,6 +66,7 @@ class TestRegistryAudit:
 
     def test_audit_stale_entries(self, test_db):
         """Registry entries with no recent events are stale."""
+        test_db.execute("DELETE FROM event_registry")
         test_db.execute(
             "INSERT INTO event_registry (event_name, event_kind, event_type, owner_service, description, status) "
             "VALUES ('StaleEvent', 'lifecycle', 'test', 'cli', 'Never emitted', 'active')"
@@ -95,6 +96,7 @@ class TestRegistryAudit:
 
     def test_audit_no_issues(self, test_db):
         """When registry and events match, no issues."""
+        test_db.execute("DELETE FROM event_registry")
         test_db.execute(
             "INSERT INTO event_registry (event_name, event_kind, event_type, owner_service, description, status) "
             "VALUES ('MatchedEvent', 'lifecycle', 'test', 'cli', 'Matched', 'active')"

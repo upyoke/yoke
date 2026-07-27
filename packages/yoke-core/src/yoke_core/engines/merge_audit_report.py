@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import re
 from typing import List, Optional
 
 from yoke_core.domain import db_backend
@@ -23,9 +22,10 @@ def _p(conn) -> str:
 def _epic_worktrees_sql(conn) -> str:
     p = _p(conn)
     return (
-        "SELECT worktree FROM epic_tasks "
-        f"WHERE epic_id = {p} AND worktree IS NOT NULL "
-        "GROUP BY worktree ORDER BY MIN(task_num)"
+        "SELECT iw.branch AS worktree FROM epic_tasks t "
+        "JOIN item_worktrees iw ON iw.id=t.item_worktree_id "
+        f"WHERE t.epic_id = {p} AND iw.state = 'active' "
+        "GROUP BY iw.branch ORDER BY MIN(t.task_num)"
     )
 
 
@@ -53,7 +53,6 @@ def generate_report(epic_filter: Optional[int] = None) -> str:
     _worktree_path_for_branch = ma._worktree_path_for_branch
     _worktree_dirty_files = ma._worktree_dirty_files
     _has_merge_tree = ma._has_merge_tree
-    _list_sun_branches = ma._list_sun_branches
     _check_conflict = ma._check_conflict
     _now_iso = ma._now_iso
 
@@ -72,14 +71,17 @@ def generate_report(epic_filter: Optional[int] = None) -> str:
     if epic_filter is not None:
         epic_ids_rows = query_rows(
             conn,
-            f"SELECT DISTINCT epic_id FROM epic_tasks WHERE epic_id = {_p(conn)} "
-            "AND worktree IS NOT NULL",
+            "SELECT DISTINCT t.epic_id FROM epic_tasks t JOIN item_worktrees iw "
+            f"ON iw.id=t.item_worktree_id WHERE t.epic_id = {_p(conn)} "
+            "AND iw.state = 'active'",
             (epic_filter,),
         )
     else:
         epic_ids_rows = query_rows(
             conn,
-            "SELECT DISTINCT epic_id FROM epic_tasks WHERE worktree IS NOT NULL ORDER BY epic_id",
+            "SELECT DISTINCT t.epic_id FROM epic_tasks t JOIN item_worktrees iw "
+            "ON iw.id=t.item_worktree_id WHERE iw.state = 'active' "
+            "ORDER BY t.epic_id",
         )
 
     epic_ids = [row["epic_id"] for row in epic_ids_rows]
@@ -224,18 +226,20 @@ def generate_report(epic_filter: Optional[int] = None) -> str:
     has_standalone = False
 
     if epic_filter is None:
-        sun_branches = _list_sun_branches(repo_root)
-        for ibranch in sun_branches:
-            m = re.match(r"^YOK-(\d+)$", ibranch)
-            if not m:
+        standalone_rows = query_rows(
+            conn,
+            "SELECT iw.branch, i.id, i.title, i.status "
+            "FROM item_worktrees iw JOIN items i ON i.id = iw.item_id "
+            "WHERE i.status = 'done' AND NOT EXISTS ("
+            "SELECT 1 FROM epic_tasks t WHERE t.epic_id = i.id"
+            ") ORDER BY i.id, iw.id",
+        )
+        for standalone in standalone_rows:
+            ibranch = str(standalone["branch"])
+            if not _branch_exists(repo_root, ibranch):
                 continue
-            isun = int(m.group(1))
-
-            istatus = query_scalar(
-                conn, f"SELECT status FROM items WHERE id = {_p(conn)}", (isun,)
-            )
-            if istatus != "done":
-                continue
+            isun = int(standalone["id"])
+            istatus = str(standalone["status"])
 
             if not has_standalone:
                 lines.append("## Standalone Issue Branches")
@@ -243,9 +247,7 @@ def generate_report(epic_filter: Optional[int] = None) -> str:
                 lines.append("|--------|------|--------|---------------|")
                 has_standalone = True
 
-            ititle = query_scalar(
-                conn, f"SELECT title FROM items WHERE id = {_p(conn)}", (isun,)
-            ) or ""
+            ititle = str(standalone["title"] or "")
             iahead = _commits_ahead(repo_root, ibranch)
             lines.append(f"| {ibranch} | YOK-{isun}: {ititle} | {istatus} | {iahead} |")
 
@@ -308,16 +310,14 @@ def generate_report(epic_filter: Optional[int] = None) -> str:
                 continue
             total_branches += 1
             wt_total = query_scalar(
-                conn,
-                f"SELECT COUNT(*) FROM epic_tasks WHERE epic_id = {_p(conn)} "
-                f"AND worktree = {_p(conn)}",
-                (eid, wt),
+                conn, "SELECT COUNT(*) FROM epic_tasks t JOIN item_worktrees iw "
+                f"ON iw.id=t.item_worktree_id WHERE t.epic_id = {_p(conn)} "
+                f"AND iw.branch = {_p(conn)}", (eid, wt),
             ) or 0
             wt_done = query_scalar(
-                conn,
-                f"SELECT COUNT(*) FROM epic_tasks WHERE epic_id = {_p(conn)} "
-                f"AND worktree = {_p(conn)} "
-                f"AND status IN ({terminal_success_sql})",
+                conn, "SELECT COUNT(*) FROM epic_tasks t JOIN item_worktrees iw "
+                f"ON iw.id=t.item_worktree_id WHERE t.epic_id = {_p(conn)} "
+                f"AND iw.branch = {_p(conn)} AND t.status IN ({terminal_success_sql})",
                 (eid, wt),
             ) or 0
             if wt_done == wt_total:

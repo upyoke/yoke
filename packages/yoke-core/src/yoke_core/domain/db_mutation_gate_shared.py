@@ -38,9 +38,9 @@ class GateOutcome:
     escalations: List[Dict[str, Any]] = field(default_factory=list)
 
 
-# Statuses considered "non-terminal" for the cross-ticket overlap check.
-# Tickets in any of these states still hold a claim against affected
-# surfaces; once a ticket reaches a terminal state its declared profile
+# Statuses considered "non-terminal" for the cross-item overlap check.
+# Work items in any of these states still hold a claim against affected
+# surfaces; once a work item reaches a terminal state its declared profile
 # no longer participates in overlap detection.
 _NON_TERMINAL_STATUSES = frozenset({
     "idea",

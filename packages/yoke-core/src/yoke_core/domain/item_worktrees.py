@@ -55,7 +55,7 @@ def list_item_worktrees(
     marker = _placeholder(conn)
     state_clause = " AND state = 'active'" if active_only else ""
     cursor = conn.execute(
-        "SELECT id, item_id, session_id, branch, path, lane_role, state, "
+        "SELECT id, item_id, branch, path, lane_role, state, "
         "created_at, updated_at, released_at FROM item_worktrees "
         f"WHERE item_id = {marker}{state_clause} ORDER BY id",
         (int(item_id),),
@@ -81,7 +81,6 @@ def record_item_worktree(
     branch: str,
     path: Optional[str],
     lane_role: str,
-    session_id: Optional[str] = None,
     validate_policy: bool = True,
 ) -> dict[str, Any]:
     """Create or refresh one active lane while preserving released history."""
@@ -122,10 +121,10 @@ def record_item_worktree(
     if existing is not None:
         conn.execute(
             "UPDATE item_worktrees "
-            f"SET session_id = {marker}, path = {marker}, "
+            f"SET path = {marker}, "
             f"lane_role = {marker}, updated_at = {marker} "
             f"WHERE id = {marker}",
-            (session_id, clean_path, lane_role, now, int(existing["id"])),
+            (clean_path, lane_role, now, int(existing["id"])),
         )
     else:
         if lane_role in {LANE_IMPLEMENTATION, LANE_INTEGRATION}:
@@ -138,13 +137,12 @@ def record_item_worktree(
             )
         conn.execute(
             "INSERT INTO item_worktrees "
-            "(item_id, session_id, branch, path, lane_role, state, "
+            "(item_id, branch, path, lane_role, state, "
             "created_at, updated_at, released_at) "
-            f"VALUES ({', '.join(marker for _ in range(5))}, "
+            f"VALUES ({', '.join(marker for _ in range(4))}, "
             f"'active', {marker}, {marker}, NULL)",
             (
                 int(item_id),
-                session_id,
                 clean_branch,
                 clean_path,
                 lane_role,
@@ -185,24 +183,22 @@ def record_worker_item_worktree(
     item_id: int,
     branch: str,
     path: Optional[str],
-    session_id: Optional[str] = None,
-) -> None:
+) -> dict[str, Any]:
     """Record a worker lane and materialize its required integration peer."""
-    record_item_worktree(
+    worker = record_item_worktree(
         conn,
         item_id=item_id,
         branch=branch,
         path=path,
         lane_role=LANE_WORKER,
-        session_id=session_id,
     )
     runtime = load_item_workflow_runtime(conn, int(item_id))
     policy = worktree_lane_policy(runtime)
     if LANE_INTEGRATION not in policy.required_roles:
-        return
+        return worker
     active = list_item_worktrees(conn, int(item_id), active_only=True)
     if any(row["lane_role"] == LANE_INTEGRATION for row in active):
-        return
+        return worker
     integration_branch = f"YOK-{item_id}"
     if any(row["branch"] == integration_branch for row in active):
         integration_branch += "-integration"
@@ -212,8 +208,21 @@ def record_worker_item_worktree(
         branch=integration_branch,
         path=None,
         lane_role=LANE_INTEGRATION,
-        session_id=session_id,
     )
+    return worker
+
+
+def primary_item_worktree(
+    conn: Any,
+    item_id: int,
+    *,
+    lane_role: Optional[str] = None,
+) -> Optional[dict[str, Any]]:
+    """Return one active lane, optionally constrained to a lane role."""
+    rows = list_item_worktrees(conn, int(item_id), active_only=True)
+    if lane_role is not None:
+        rows = [row for row in rows if row["lane_role"] == lane_role]
+    return rows[0] if rows else None
 
 
 def validate_item_worktree_roles(conn: Any, item_id: int) -> None:
@@ -240,6 +249,7 @@ def validate_item_worktree_roles(conn: Any, item_id: int) -> None:
 __all__ = [
     "LANE_ROLES",
     "list_item_worktrees",
+    "primary_item_worktree",
     "record_item_worktree",
     "record_worker_item_worktree",
     "release_item_worktrees",

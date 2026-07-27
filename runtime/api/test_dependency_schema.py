@@ -13,6 +13,11 @@ from __future__ import annotations
 
 from typing import Any
 
+from yoke_core.domain.item_worktree_schema import (
+    ITEM_WORKTREES_INDEX_SQL,
+    ITEM_WORKTREES_TABLE_SQL,
+)
+
 
 PROJECTS_SCHEMA = """
 CREATE TABLE IF NOT EXISTS projects (
@@ -34,7 +39,8 @@ ON CONFLICT (id) DO NOTHING;
 """
 
 
-ITEMS_SCHEMA = """
+ITEMS_SCHEMA = (
+    """
 CREATE TABLE IF NOT EXISTS items (
   id INTEGER PRIMARY KEY,
   title TEXT NOT NULL,
@@ -50,7 +56,6 @@ CREATE TABLE IF NOT EXISTS items (
   blocked_reason TEXT,
   github_issue TEXT,
   deployed_to TEXT,
-  worktree TEXT,
   merged_at TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
@@ -65,6 +70,9 @@ CREATE TABLE IF NOT EXISTS items (
   deploy_stage TEXT
 );
 """
+    + ITEM_WORKTREES_TABLE_SQL
+    + ITEM_WORKTREES_INDEX_SQL
+)
 
 
 ITEM_DEPENDENCIES_SCHEMA = """

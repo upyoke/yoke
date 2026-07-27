@@ -18,43 +18,20 @@ from yoke_core.domain.workflow_definition_codec import (
 from yoke_core.domain.workflow_definition_validation import (
     validate_workflow_definition,
 )
+from yoke_core.domain.workflow_registry_rows import (
+    version_by_id as _version_by_id,
+    version_row as _version_row,
+    workflow_row as _workflow_row,
+)
 from yoke_core.domain.workflow_registry_sql import (
     marker as _marker,
     row_dict as _row_dict,
     rows_dict as _rows_dict,
 )
-
-
-def _workflow_row(conn: Any, workflow_id: str) -> Optional[dict]:
-    marker = _marker(conn)
-    cursor = conn.execute(
-        f"SELECT * FROM workflows WHERE id = {marker}",
-        (workflow_id,),
-    )
-    return _row_dict(cursor, cursor.fetchone())
-
-
-def _version_row(
-    conn: Any,
-    workflow_id: str,
-    version: int,
-) -> Optional[dict]:
-    marker = _marker(conn)
-    cursor = conn.execute(
-        "SELECT * FROM workflow_versions "
-        f"WHERE workflow_id = {marker} AND version = {marker}",
-        (workflow_id, version),
-    )
-    return _row_dict(cursor, cursor.fetchone())
-
-
-def _version_by_id(conn: Any, version_id: int) -> Optional[dict]:
-    marker = _marker(conn)
-    cursor = conn.execute(
-        f"SELECT * FROM workflow_versions WHERE id = {marker}",
-        (version_id,),
-    )
-    return _row_dict(cursor, cursor.fetchone())
+from yoke_core.domain.workflow_registry_versions import (
+    get_workflow_version,
+    set_current_workflow_version,
+)
 
 
 def _insert_version(
@@ -124,6 +101,18 @@ def converge_builtin_workflows(conn: Any) -> None:
             raise WorkflowRegistryError(
                 f"built-in workflow id {workflow_id!r} is owned by "
                 f"{existing_workflow['source']!r}"
+            )
+        else:
+            conn.execute(
+                f"UPDATE workflows SET name = {marker}, "
+                f"description = {marker}, updated_at = {marker} "
+                f"WHERE id = {marker}",
+                (
+                    workflow["name"],
+                    workflow["description"],
+                    now,
+                    workflow_id,
+                ),
             )
 
         version = int(fixture["version"])
@@ -199,6 +188,7 @@ def publish_workflow_version(
     workflow_id: str,
     definition: Mapping[str, Any],
     published_by_actor_id: Optional[int] = None,
+    expected_current_version: Optional[int] = None,
 ) -> dict:
     """Validate, append, and select a new immutable workflow version."""
     marker = _marker(conn)
@@ -210,6 +200,14 @@ def publish_workflow_version(
     workflow, current = _current_definition(conn, workflow_id)
     if workflow["status"] != "active":
         raise WorkflowRegistryError(f"workflow {workflow_id!r} is disabled")
+    if (
+        expected_current_version is not None
+        and int(current["version"]) != int(expected_current_version)
+    ):
+        raise WorkflowRegistryError(
+            f"workflow {workflow_id!r} current version changed from "
+            f"{expected_current_version} to {current['version']}; refresh first"
+        )
     previous = _decode_definition(current["definition_json"])
     validate_workflow_definition(definition, previous=previous)
     cursor = conn.execute(
@@ -241,35 +239,6 @@ def publish_workflow_version(
         "version": next_version,
         "version_id": int(published["id"]),
         "definition_digest": published["definition_digest"],
-    }
-
-
-def set_current_workflow_version(
-    conn: Any,
-    *,
-    workflow_id: str,
-    version: int,
-) -> dict:
-    """Select an existing immutable version for subsequently created items."""
-    marker = _marker(conn)
-    workflow = _workflow_row(conn, workflow_id)
-    if workflow is None:
-        raise WorkflowRegistryError(f"unknown workflow {workflow_id!r}")
-    target = _version_row(conn, workflow_id, version)
-    if target is None:
-        raise WorkflowRegistryError(
-            f"unknown workflow version {workflow_id}@{version}"
-        )
-    conn.execute(
-        f"UPDATE workflows SET current_version_id = {marker}, "
-        f"updated_at = {marker} WHERE id = {marker}",
-        (int(target["id"]), iso8601_now(), workflow_id),
-    )
-    conn.commit()
-    return {
-        "workflow_id": workflow_id,
-        "version": int(target["version"]),
-        "version_id": int(target["id"]),
     }
 
 
@@ -329,6 +298,7 @@ __all__ = [
     "canonical_definition_json",
     "converge_builtin_workflows",
     "definition_digest",
+    "get_workflow_version",
     "list_current_workflows",
     "publish_workflow_version",
     "resolve_current_workflow_pin",

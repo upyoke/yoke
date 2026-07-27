@@ -55,9 +55,17 @@ def _insert_item(conn, item_id, title="", status="idea", worktree=None):
         title = f"Item {item_id}"
     _now = "2026-01-01T00:00:00Z"
     conn.execute(
-        "INSERT INTO items (id, title, status, worktree, created_at, updated_at) VALUES (%s, %s, %s, %s, %s, %s)",
-        (item_id, title, status, worktree, _now, _now),
+        "INSERT INTO items (id, title, status, created_at, updated_at) "
+        "VALUES (%s, %s, %s, %s, %s)",
+        (item_id, title, status, _now, _now),
     )
+    if worktree:
+        conn.execute(
+            "INSERT INTO item_worktrees "
+            "(item_id, branch, path, lane_role, state, created_at, updated_at) "
+            "VALUES (%s, %s, NULL, 'implementation', 'active', %s, %s)",
+            (item_id, worktree, _now, _now),
+        )
 
 
 def _insert_dep(conn, dependent, blocking,

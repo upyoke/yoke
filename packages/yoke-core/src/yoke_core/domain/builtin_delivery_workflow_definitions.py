@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from yoke_core.domain.workflow_definition_builders import (
+    WORKFLOW_PATH_CLAIMS_REQUIRED,
+    WORKFLOW_PATH_CLAIMS_REQUIRED_PER_TASK,
     definition_fixture,
     executor_binding,
     gate_ref,
@@ -20,10 +22,10 @@ from yoke_core.domain.workflow_gate_catalog import (
 )
 
 _INTAKE_STAGES = (
-    workflow_stage("idea", "Idea"),
+    workflow_stage("idea", "idea"),
     workflow_stage(
         "refining-idea",
-        "Refining idea",
+        "refining idea",
         (
             gate_ref(GATE_DB_CLAIM_PROSE),
             gate_ref(GATE_DB_MUTATION, "joint"),
@@ -31,26 +33,30 @@ _INTAKE_STAGES = (
     ),
     workflow_stage(
         "refined-idea",
-        "Refined idea",
+        "refined idea",
         (
             gate_ref(GATE_DB_CLAIM_PROSE),
             gate_ref(GATE_ARCHITECTURE_IMPACT),
         ),
     ),
 )
-_IMPLEMENTATION_CLOSE_STAGES = (
-    workflow_stage(
+def _reviewing_implementation_stage(description: str) -> dict:
+    return workflow_stage(
         "reviewing-implementation",
-        "Reviewing implementation",
+        "reviewing implementation",
         (
             gate_ref(GATE_DB_CLAIM_PROSE),
             gate_ref(GATE_DB_MUTATION, "evidence"),
             gate_ref(GATE_ARCHITECTURE_IMPACT),
         ),
-    ),
+        description,
+    )
+
+
+_IMPLEMENTATION_CLOSE_STAGES = (
     workflow_stage(
         "reviewed-implementation",
-        "Reviewed implementation",
+        "reviewed implementation",
         (
             gate_ref(GATE_ARCHITECTURE_IMPACT),
             gate_ref(GATE_PATH_CLAIM_BOUNDARY),
@@ -59,12 +65,12 @@ _IMPLEMENTATION_CLOSE_STAGES = (
     ),
     workflow_stage(
         "polishing-implementation",
-        "Polishing implementation",
+        "polishing implementation",
         (gate_ref(GATE_ARCHITECTURE_IMPACT),),
     ),
     workflow_stage(
         "implemented",
-        "Implemented",
+        "implemented",
         (
             gate_ref(GATE_DB_CLAIM_PROSE),
             gate_ref(GATE_DB_MUTATION, "polish"),
@@ -75,7 +81,7 @@ _IMPLEMENTATION_CLOSE_STAGES = (
     ),
     workflow_stage(
         "release",
-        "Release",
+        "release",
         (
             gate_ref(GATE_ARCHITECTURE_IMPACT),
             gate_ref(GATE_PATH_CLAIM_BOUNDARY),
@@ -88,29 +94,34 @@ ISSUE_WORKFLOW_DEFINITION = definition_fixture(
     workflow_id="issue",
     name="Issue",
     description=(
-        "One scoped implementation lane with planning, review, QA, and delivery."
+        "One scoped implementation lane with planning, review, QA and delivery."
     ),
     stages=(
         *_INTAKE_STAGES,
         workflow_stage(
             "implementing",
-            "Implementing",
+            "implementing",
             (
                 gate_ref(GATE_CHECK_HARD_BLOCKS),
                 gate_ref(GATE_CLAIM_ACTIVATION),
                 gate_ref(GATE_ARCHITECTURE_IMPACT),
             ),
-            "One implementation lane builds against the item's acceptance criteria.",
+            "One implementation lane in an isolated worktree; the engineer "
+            "builds against the spec and acceptance criteria.",
+        ),
+        _reviewing_implementation_stage(
+            "The in-worktree review loop — the work is checked against the "
+            "acceptance criteria before it can leave the lane.",
         ),
         *_IMPLEMENTATION_CLOSE_STAGES,
         workflow_stage(
             "done",
-            "Done",
+            "done",
             (
                 gate_ref(GATE_ARCHITECTURE_IMPACT),
                 gate_ref(GATE_QA_VERIFICATION),
             ),
-            "The item is merged, delivered, and closed.",
+            "Merged and delivered through the selected flow; the item closes.",
         ),
     ),
     entry_surfaces=("harness_skill", "promotion"),
@@ -126,7 +137,7 @@ ISSUE_WORKFLOW_DEFINITION = definition_fixture(
     ),
     policies={
         "ownership": "single_item_claim",
-        "path_claims": "required",
+        "path_claims": WORKFLOW_PATH_CLAIMS_REQUIRED,
         "worktrees": "single_implementation_lane",
         "parallelism": "inside_item",
         "generated_children": "none",
@@ -148,49 +159,60 @@ EPIC_WORKFLOW_DEFINITION = definition_fixture(
         *_INTAKE_STAGES,
         workflow_stage(
             "planning",
-            "Planning",
+            "planning",
             (gate_ref(GATE_ARCHITECTURE_IMPACT),),
-            "The plan is decomposed into tasks, interfaces, budgets, and lanes.",
+            "The Architect decomposes the epic into tasks — file budgets, "
+            "interface contracts, and worktree lanes.",
         ),
         workflow_stage(
             "plan-drafted",
-            "Plan drafted",
+            "plan drafted",
             (gate_ref(GATE_ARCHITECTURE_IMPACT),),
+            "The task plan is drafted and awaits the refine pass before it "
+            "can be committed.",
         ),
         workflow_stage(
             "refining-plan",
-            "Refining plan",
+            "refining plan",
             (gate_ref(GATE_ARCHITECTURE_IMPACT),),
+            "The plan is refined against the spec — simplify lenses and "
+            "readiness repair — before it commits.",
         ),
         workflow_stage(
             "planned",
-            "Planned",
+            "planned",
             (
                 gate_ref(GATE_DB_CLAIM_PROSE),
                 gate_ref(GATE_ARCHITECTURE_IMPACT),
                 gate_ref(GATE_PLAN_SIMULATION),
             ),
-            "The committed task plan has passed cross-task simulation.",
+            "The plan is committed and has passed the simulator; the tasks "
+            "are ready to fan out into worktree lanes.",
         ),
         workflow_stage(
             "implementing",
-            "Implementing",
+            "implementing",
             (
                 gate_ref(GATE_CHECK_HARD_BLOCKS),
                 gate_ref(GATE_CLAIM_ACTIVATION),
                 gate_ref(GATE_ARCHITECTURE_IMPACT),
             ),
-            "Task lanes execute in parallel and the main session integrates them.",
+            "Parallel task lanes execute against the plan, each in its own "
+            "worktree, with the main session integrating.",
+        ),
+        _reviewing_implementation_stage(
+            "Integrated task work is reviewed across the whole epic before "
+            "the set can advance.",
         ),
         *_IMPLEMENTATION_CLOSE_STAGES,
         workflow_stage(
             "done",
-            "Done",
+            "done",
             (
                 gate_ref(GATE_ARCHITECTURE_IMPACT),
                 gate_ref(GATE_QA_VERIFICATION),
             ),
-            "Every task is integrated, delivered, and closed.",
+            "Every task merged, integrated, and delivered; the epic closes.",
         ),
     ),
     entry_surfaces=("harness_skill",),
@@ -206,7 +228,7 @@ EPIC_WORKFLOW_DEFINITION = definition_fixture(
     ),
     policies={
         "ownership": "item_claim_and_task_lanes",
-        "path_claims": "required_per_task",
+        "path_claims": WORKFLOW_PATH_CLAIMS_REQUIRED_PER_TASK,
         "worktrees": "worker_and_integration_lanes",
         "parallelism": "task_graph",
         "generated_children": "epic_tasks",

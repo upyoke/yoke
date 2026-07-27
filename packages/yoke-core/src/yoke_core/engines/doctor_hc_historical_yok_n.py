@@ -110,7 +110,10 @@ def hc_historical_yok_n_cruft(conn, args: DoctorArgs, rec: RecordCollector) -> N
             rel = hit.path.resolve().relative_to(repo_root_resolved)
         except ValueError:
             rel = hit.path
-        lines.append(f"- {rel}:{hit.line}: {hit.ticket} (status={hit.status}) — {hit.context[:120]}")
+        lines.append(
+            f"- {rel}:{hit.line}: {hit.work_item} "
+            f"(status={hit.status}) — {hit.context[:120]}"
+        )
     extra = ""
     if len(live_hits) > 40:
         extra = f"\n- … {len(live_hits) - 40} more references (run `python3 -m yoke_core.domain.lint_yok_n_cruft` for the full list)."

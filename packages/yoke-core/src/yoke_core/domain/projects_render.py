@@ -15,7 +15,7 @@ import shutil
 from dataclasses import dataclass
 from typing import List, Optional, Sequence, Tuple
 
-from yoke_core.domain import command_definitions as cmd_defs
+from yoke_core.domain import qa_command_plans
 from yoke_core.domain.db_helpers import connect, query_one
 from yoke_core.domain.project_checkout_locations import checkout_for_project
 from yoke_core.domain.project_identity import resolve_project
@@ -29,7 +29,7 @@ from yoke_core.domain.project_identity import resolve_project
 # agents as authoritative.  The CLI output contract is ``project=<slug>`` header
 # followed by ``<scope>=<status>|<detail>`` lines, one per canonical scope
 # (``quick``, ``full``, ``e2e``, ``smoke``).  ``scope`` maps directly to the
-# ``command_definitions`` family keyed_set entry key.
+# migrated Command-plan scope.
 
 # Interpreter wrappers whose next token is expected to be a script path.
 _INTERPRETER_WRAPPERS = ("sh", "bash", "python", "python3", "node")
@@ -41,15 +41,15 @@ _PACKAGE_MANAGERS = ("npm", "npx", "yarn")
 # Order matches the four-tier test model:
 #   quick = fast unit-ish suite, full = everything, e2e = real-deployment,
 #   smoke = shallow real-stack checks.
-_VALIDATION_SCOPES: Tuple[str, ...] = cmd_defs.SCOPES
+_VALIDATION_SCOPES: Tuple[str, ...] = qa_command_plans.REGISTERED_SCOPES
 
 
 @dataclass
 class TestCommandResult:
-    """Validation outcome for one ``command_definitions`` scope.
+    """Validation outcome for one migrated Command-plan scope.
 
     The ``scope`` field is one of the canonical values exported from
-    :mod:`yoke_core.domain.command_definitions`: ``quick``, ``full``,
+    :mod:`yoke_core.domain.qa_command_plans`: ``quick``, ``full``,
     ``e2e``, ``smoke``.
     """
 
@@ -83,7 +83,7 @@ def _validate_test_command(
     value: Optional[str],
     repo_path: str,
 ) -> TestCommandResult:
-    """Validate a command string for a single ``command_definitions`` scope.
+    """Validate a command string for a single migrated Command-plan scope.
 
     * Empty/null/whitespace-only ⇒ ``empty``.
     * Chained commands are split on ``&&`` and ``;`` and evaluated in order.
@@ -185,7 +185,7 @@ def validate_project_test_commands(
     project_id: str,
     db_path: Optional[str] = None,
 ) -> List[TestCommandResult]:
-    """Validate every command_definitions scope for *project_id*.
+    """Validate every migrated Command-plan scope for *project_id*.
 
     Raises:
         LookupError: when the project row does not exist.
@@ -215,7 +215,9 @@ def validate_project_test_commands(
     finally:
         conn.close()
 
-    commands = cmd_defs.list_commands(project_id, db_path=db_path)
+    commands = qa_command_plans.list_registered_commands(
+        project_id, db_path=db_path,
+    )
     return [
         _validate_test_command(scope, commands.get(scope), repo_path)
         for scope in _VALIDATION_SCOPES

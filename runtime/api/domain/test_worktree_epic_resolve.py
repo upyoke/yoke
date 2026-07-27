@@ -8,8 +8,8 @@ import sys
 from unittest.mock import patch
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.item_worktrees import record_item_worktree
 from yoke_core.domain.project_seed_test_helpers import SEED_PROJECT_IDS
-from yoke_core.domain.schema_init_apply import execute_schema_script
 from yoke_core.domain.worktree import resolve_item_worktree
 from yoke_core.domain.worktree_test_helpers import pin_test_item_workflow
 from runtime.api.fixtures.file_test_db import connect_test_db
@@ -24,9 +24,9 @@ def _add_item_and_project(conn, epic_id: int, git_repo) -> None:
     p = _placeholder(conn)
     conn.execute(
         "INSERT INTO items "
-        "(id, title, type, status, worktree, project_id, project_sequence) "
-        f"VALUES ({p}, 'Epic', 'epic', 'reviewed-implementation', {p}, {p}, {p})",
-        (epic_id, f"YOK-{epic_id}", SEED_PROJECT_IDS["yoke"], epic_id),
+        "(id, title, type, status, project_id, project_sequence) "
+        f"VALUES ({p}, 'Epic', 'epic', 'reviewed-implementation', {p}, {p})",
+        (epic_id, SEED_PROJECT_IDS["yoke"], epic_id),
     )
     pin_test_item_workflow(conn, epic_id, "epic")
     register_machine_checkout(
@@ -54,32 +54,28 @@ class TestResolveEpicWorktree:
         path_b = _add_git_worktree(git_repo, branch_b)
 
         conn = connect_test_db(yoke_db)
-        execute_schema_script(conn, """
-            CREATE TABLE epic_dispatch_chains (
-                id INTEGER PRIMARY KEY,
-                epic_id TEXT,
-                worktree TEXT,
-                worktree_path TEXT,
-                queue TEXT,
-                current_index INTEGER,
-                current_task TEXT
-            );
-        """)
         _add_item_and_project(conn, epic_id, git_repo)
         p = _placeholder(conn)
         for task, branch, path in (("001", branch_a, path_a), ("002", branch_b, path_b)):
+            lane = record_item_worktree(
+                conn,
+                item_id=epic_id,
+                branch=branch,
+                path=str(path),
+                lane_role="worker",
+            )
             conn.execute(
                 "INSERT INTO epic_dispatch_chains "
-                "(epic_id, worktree, worktree_path, queue, current_index, current_task) "
-                f"VALUES ({p}, {p}, {p}, {p}, 0, {p})",
-                (str(epic_id), branch, str(path), f'["{task}"]', task),
+                "(epic_id, item_worktree_id, queue, current_index, current_task) "
+                f"VALUES ({p}, {p}, {p}, 0, {p})",
+                (str(epic_id), lane["id"], f'["{task}"]', task),
             )
         conn.commit()
         conn.close()
 
         result = resolve_item_worktree(f"YOK-{epic_id}", db_path=yoke_db)
 
-        assert result.scope == "epic-tasks"
+        assert result.scope == "item-lanes"
         assert result.exists is True
         assert result.has_multiple is True
         assert result.paths == (str(path_a), str(path_b))
@@ -93,33 +89,28 @@ class TestResolveEpicWorktree:
         path = _add_git_worktree(git_repo, branch)
 
         conn = connect_test_db(yoke_db)
-        execute_schema_script(conn, """
-            CREATE TABLE epic_tasks (
-                id INTEGER PRIMARY KEY,
-                epic_id TEXT,
-                task_num INTEGER,
-                title TEXT,
-                status TEXT,
-                worktree TEXT,
-                branch TEXT,
-                worktree_path TEXT
-            );
-        """)
         _add_item_and_project(conn, epic_id, git_repo)
         p = _placeholder(conn)
+        lane = record_item_worktree(
+            conn,
+            item_id=epic_id,
+            branch=branch,
+            path=str(path),
+            lane_role="worker",
+        )
         for task_num in (1, 2):
             conn.execute(
                 "INSERT INTO epic_tasks "
-                "(epic_id, task_num, title, status, worktree, branch, worktree_path) "
-                f"VALUES ({p}, {p}, {p}, 'reviewed-implementation', {p}, {p}, {p})",
-                (str(epic_id), task_num, f"Task {task_num}", branch, branch, str(path)),
+                "(epic_id, task_num, title, status, item_worktree_id) "
+                f"VALUES ({p}, {p}, {p}, 'reviewed-implementation', {p})",
+                (str(epic_id), task_num, f"Task {task_num}", lane["id"]),
             )
         conn.commit()
         conn.close()
 
         result = resolve_item_worktree(f"YOK-{epic_id}", db_path=yoke_db)
 
-        assert result.scope == "epic-tasks"
+        assert result.scope == "item-lanes"
         assert result.exists is True
         assert result.has_multiple is False
         assert result.path == str(path)
@@ -136,20 +127,21 @@ class TestResolveEpicWorktree:
         path_b = _add_git_worktree(git_repo, branch_b)
 
         conn = connect_test_db(yoke_db)
-        conn.execute(
-            "CREATE TABLE epic_dispatch_chains "
-            "(epic_id TEXT, worktree TEXT, worktree_path TEXT)"
-        )
         _add_item_and_project(conn, epic_id, git_repo)
         p = _placeholder(conn)
-        conn.execute(
-            f"INSERT INTO epic_dispatch_chains VALUES ({p}, {p}, {p})",
-            (str(epic_id), branch_a, str(path_a)),
-        )
-        conn.execute(
-            f"INSERT INTO epic_dispatch_chains VALUES ({p}, {p}, {p})",
-            (str(epic_id), branch_b, str(path_b)),
-        )
+        for branch, path in ((branch_a, path_a), (branch_b, path_b)):
+            lane = record_item_worktree(
+                conn,
+                item_id=epic_id,
+                branch=branch,
+                path=str(path),
+                lane_role="worker",
+            )
+            conn.execute(
+                "INSERT INTO epic_dispatch_chains "
+                f"(epic_id, item_worktree_id) VALUES ({p}, {p})",
+                (str(epic_id), lane["id"]),
+            )
         conn.commit()
         conn.close()
 
@@ -169,7 +161,7 @@ class TestResolveEpicWorktree:
 
         captured = capsys.readouterr()
         assert exit_code == 1
-        assert "resolves to 2 task worktrees" in captured.err
+        assert "resolves to 2 active worktree lanes" in captured.err
         assert paths_exit == 0
         assert str(path_a) in captured.out
         assert str(path_b) in captured.out

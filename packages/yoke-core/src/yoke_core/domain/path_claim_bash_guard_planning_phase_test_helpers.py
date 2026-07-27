@@ -50,7 +50,13 @@ def _apply_widener_schema() -> None:
             " workflow_id TEXT NOT NULL,"
             " workflow_version_id INTEGER NOT NULL,"
             " status TEXT NOT NULL,"
-            " worktree TEXT, project_id INTEGER, project_sequence INTEGER);"
+            " project_id INTEGER, project_sequence INTEGER);"
+            "CREATE TABLE IF NOT EXISTS item_worktrees("
+            " id INTEGER PRIMARY KEY, item_id INTEGER NOT NULL,"
+            " branch TEXT NOT NULL, path TEXT, lane_role TEXT NOT NULL,"
+            " state TEXT NOT NULL DEFAULT 'active',"
+            " created_at TEXT NOT NULL, updated_at TEXT NOT NULL,"
+            " released_at TEXT);"
             "CREATE TABLE IF NOT EXISTS workflow_versions("
             " id INTEGER PRIMARY KEY, workflow_id TEXT NOT NULL,"
             " version INTEGER NOT NULL, definition_json TEXT NOT NULL,"
@@ -109,14 +115,14 @@ def _seed(
     )
     conn.execute(
         "INSERT INTO items("
-        "id,workflow_id,workflow_version_id,status,worktree,"
+        "id,workflow_id,workflow_version_id,status,"
         "project_id,project_sequence)"
-        f" VALUES ({p},{p},{p},{p},NULL,1,{p}) "
+        f" VALUES ({p},{p},{p},{p},1,{p}) "
         "ON CONFLICT (id) DO UPDATE SET "
         "workflow_id=excluded.workflow_id, "
         "workflow_version_id=excluded.workflow_version_id, "
         "status=excluded.status, "
-        "worktree=excluded.worktree, project_id=excluded.project_id, "
+        "project_id=excluded.project_id, "
         "project_sequence=excluded.project_sequence",
         (
             item_id,

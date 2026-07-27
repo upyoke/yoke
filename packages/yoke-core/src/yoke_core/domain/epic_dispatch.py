@@ -19,7 +19,6 @@ from yoke_core.domain.epic_parsing import (
     _placeholder,
 )
 from yoke_core.domain.item_worktrees import record_worker_item_worktree
-from yoke_core.domain.schema_common import _table_exists
 
 
 def dispatch_chain_upsert(
@@ -42,14 +41,19 @@ def dispatch_chain_upsert(
     ts = _now_iso()
 
     p = _placeholder(conn)
+    lane = record_worker_item_worktree(
+        conn,
+        item_id=int(epic_id),
+        branch=worktree,
+        path=worktree_path or None,
+    )
     conn.execute(
         f"""INSERT INTO epic_dispatch_chains
-           (epic_id, worktree, worktree_path, queue, current_index,
+           (epic_id, item_worktree_id, queue, current_index,
             current_task, current_attempt, max_attempts, no_chain,
             started_at, last_updated)
-           VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p})
-           ON CONFLICT(epic_id, worktree) DO UPDATE SET
-             worktree_path=excluded.worktree_path,
+           VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p})
+           ON CONFLICT(epic_id, item_worktree_id) DO UPDATE SET
              queue=excluded.queue,
              current_index=excluded.current_index,
              current_task=excluded.current_task,
@@ -60,8 +64,7 @@ def dispatch_chain_upsert(
              last_updated=excluded.last_updated""",
         (
             str(epic_id),
-            worktree,
-            worktree_path,
+            int(lane["id"]),
             queue,
             current_index,
             current_task,
@@ -72,13 +75,6 @@ def dispatch_chain_upsert(
             ts,
         ),
     )
-    if _table_exists(conn, "item_worktrees"):
-        record_worker_item_worktree(
-            conn,
-            item_id=int(epic_id),
-            branch=worktree,
-            path=worktree_path or None,
-        )
     conn.commit()
     return f"Upserted dispatch chain: {epic_id}/{worktree}"
 
@@ -97,14 +93,18 @@ def dispatch_chain_update(
     p = _placeholder(conn)
     count = query_scalar(
         conn,
-        f"SELECT COUNT(*) FROM epic_dispatch_chains WHERE epic_id={p} AND worktree={p}",
+        "SELECT COUNT(*) FROM epic_dispatch_chains c "
+        "JOIN item_worktrees iw ON iw.id = c.item_worktree_id "
+        f"WHERE c.epic_id={p} AND iw.branch={p}",
         (str(epic_id), worktree),
     )
     if count == 0:
         raise LookupError(f"dispatch chain '{epic_id}/{worktree}' not found")
 
     conn.execute(
-        f"UPDATE epic_dispatch_chains SET {field}={p} WHERE epic_id={p} AND worktree={p}",
+        f"UPDATE epic_dispatch_chains SET {field}={p} WHERE id IN ("
+        "SELECT c.id FROM epic_dispatch_chains c JOIN item_worktrees iw "
+        f"ON iw.id=c.item_worktree_id WHERE c.epic_id={p} AND iw.branch={p})",
         (value, str(epic_id), worktree),
     )
     conn.commit()
@@ -120,8 +120,8 @@ def dispatch_chain_refresh_for_activation(
     """Refresh a chain row at the start of a fresh dispatch.
 
     Conduct's per-task activation (entry-activation-resolution.md S6f) sets
-    ``epic_tasks.status='implementing'`` and persists per-task worktree
-    fields, but does not touch ``epic_dispatch_chains``. Without a refresh
+    ``epic_tasks.status='implementing'`` and links the task's universal lane,
+    but does not touch ``epic_dispatch_chains``. Without a refresh
     the chain row keeps the prior plan-sync's ``current_attempt`` /
     ``last_updated`` values, which downstream consumers (telemetry,
     scheduler views) misread as yesterday's dispatch.
@@ -143,7 +143,8 @@ def dispatch_chain_refresh_for_activation(
 
     chain_count = query_scalar(
         conn,
-        f"SELECT COUNT(*) FROM epic_dispatch_chains WHERE epic_id={p} AND worktree={p}",
+        "SELECT COUNT(*) FROM epic_dispatch_chains c JOIN item_worktrees iw "
+        f"ON iw.id=c.item_worktree_id WHERE c.epic_id={p} AND iw.branch={p}",
         (str(epic_id), worktree),
     )
     if chain_count == 0:
@@ -153,7 +154,8 @@ def dispatch_chain_refresh_for_activation(
     conn.execute(
         "UPDATE epic_dispatch_chains "
         f"SET current_task={p}, current_attempt={p}, last_updated={p} "
-        f"WHERE epic_id={p} AND worktree={p}",
+        "WHERE id IN (SELECT c.id FROM epic_dispatch_chains c "
+        f"JOIN item_worktrees iw ON iw.id=c.item_worktree_id WHERE c.epic_id={p} AND iw.branch={p})",
         (str(task_num), attempt, ts, str(epic_id), worktree),
     )
     conn.commit()
@@ -172,7 +174,8 @@ def dispatch_chain_advance(conn, epic_id: str, worktree: str) -> str:
     p = _placeholder(conn)
     row = query_one(
         conn,
-        f"SELECT current_index, queue FROM epic_dispatch_chains WHERE epic_id={p} AND worktree={p}",
+        "SELECT c.current_index, c.queue FROM epic_dispatch_chains c "
+        f"JOIN item_worktrees iw ON iw.id=c.item_worktree_id WHERE c.epic_id={p} AND iw.branch={p}",
         (str(epic_id), worktree),
     )
     if row is None:
@@ -218,7 +221,9 @@ def dispatch_chain_advance(conn, epic_id: str, worktree: str) -> str:
     conn.execute(
         f"""UPDATE epic_dispatch_chains
            SET current_index={p}, current_task={p}, last_updated={p}
-           WHERE epic_id={p} AND worktree={p}""",
+           WHERE id IN (SELECT c.id FROM epic_dispatch_chains c
+             JOIN item_worktrees iw ON iw.id=c.item_worktree_id
+             WHERE c.epic_id={p} AND iw.branch={p})""",
         (next_index, next_task, ts, str(epic_id), worktree),
     )
     conn.commit()

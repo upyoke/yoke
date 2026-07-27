@@ -108,7 +108,7 @@ def _run(conn: Any) -> RecordCollector:
 
 def test_cutoff_suppresses_pre_cutoff_event_ids(env, patch_cutoff):
     """Pre-cutoff violations grandfather to PASS — historical residue
-    after the writer-side prevention tickets land."""
+    after the writer-side prevention work items land."""
     conn = env["conn"]
     holder, other = _sid("a"), _sid("b")
     _add_session(conn, holder)

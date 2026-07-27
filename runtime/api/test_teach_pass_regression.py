@@ -100,10 +100,10 @@ def test_function_call_stanza_names_canonical_models(body: str) -> None:
 
 
 _JSON_NESTED_COLUMNS_REQUIRED = (
-    "items.browser_qa_metadata", "items.db_mutation_profile",
+    "items.db_mutation_profile",
     "items.db_compatibility_attestation", "harness_sessions.offer_envelope",
     "qa_requirements.capability_requirements",
-    "qa_requirements.success_policy", "epic_tasks.dependencies",
+    "qa_requirements.success_policy",
 )
 
 
@@ -112,6 +112,14 @@ def test_json_nested_schema_renders(body: str, column: str) -> None:
     assert column in body, (
         f"JSON-nested-field schema for {column} must render in the packet."
     )
+
+
+def test_epic_task_dependencies_are_not_taught_as_json(body: str) -> None:
+    assert (
+        "dependencies is comma-separated TEXT containing prerequisite "
+        "task_num values from the same epic, not JSON"
+    ) in body
+    assert "JSON array of bare task_num integers" not in body
 
 
 def test_parse_item_id_accepts_int_internal_id_and_rejects_unscoped_strings() -> None:
@@ -134,7 +142,7 @@ def test_worktree_unresolved_denial_embeds_preflight_command() -> None:
     )
     assert ("python3 -m yoke_core.domain.worktree_preflight --item YOK-123"
             in narrative)
-    assert "items.worktree" in narrative
+    assert "item_worktrees row" in narrative
     assert "path-claim-widen" not in narrative
     assert "path-claims widen" not in narrative
 

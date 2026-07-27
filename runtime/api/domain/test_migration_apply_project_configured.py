@@ -16,6 +16,10 @@ from typing import Any, Iterator
 import pytest
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.item_worktree_schema import (
+    ITEM_WORKTREES_INDEX_SQL,
+    ITEM_WORKTREES_TABLE_SQL,
+)
 from yoke_core.domain.migration_apply_contract import ModuleResolutionError
 from yoke_core.domain.migration_apply_runners import (
     RUNNER_KIND_GOVERNED_MODULE,
@@ -34,6 +38,7 @@ from yoke_core.domain.worktree_validation_recipes import (
     UnknownValidationRecipe,
     dispatch as dispatch_recipe,
 )
+from runtime.api.fixtures.backlog_inserts import insert_item_worktree
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
 from runtime.api.fixtures.file_test_db import (
     connect_test_db,
@@ -81,7 +86,9 @@ def _apply_default_worktree_schema() -> None:
             "id INTEGER PRIMARY KEY, slug TEXT UNIQUE, "
             "name TEXT, public_item_prefix TEXT DEFAULT 'YOK'); "
             "CREATE TABLE items (id INTEGER PRIMARY KEY, project_id INTEGER, "
-            "project_sequence INTEGER, worktree TEXT);"
+            "project_sequence INTEGER);"
+            + ITEM_WORKTREES_TABLE_SQL
+            + ITEM_WORKTREES_INDEX_SQL
         )
         conn.commit()
     finally:
@@ -104,8 +111,14 @@ def _seeded_default_worktree_db(tmp_path: Path) -> Iterator[Any]:
                 (2, "externalwebapp", "ExternalWebapp"),
             )
             conn.execute(
-                "INSERT INTO items (id, project_id, project_sequence, worktree) VALUES "
-                "(101, 2, 101, 'YOK-101'), (102, 2, 102, NULL)"
+                "INSERT INTO items (id, project_id, project_sequence) VALUES "
+                "(101, 2, 101), (102, 2, 102)"
+            )
+            insert_item_worktree(
+                conn,
+                item_id=101,
+                branch="YOK-101",
+                lane_role="implementation",
             )
             register_machine_checkout(tmp_path / "machine-config", tmp_path / "externalwebapp", 2)
             conn.commit()
@@ -280,12 +293,12 @@ class TestDefaultWorktreePath:
     now prefers the item's machine-local project worktree.
     """
 
-    def test_prefers_item_worktree_over_cwd(self, tmp_path: Path) -> None:
+    def test_prefers_active_item_lane_over_cwd(self, tmp_path: Path) -> None:
         with _seeded_default_worktree_db(tmp_path) as conn:
             resolved = default_worktree_path(conn, 101)
         assert resolved == tmp_path / "externalwebapp" / ".worktrees" / "YOK-101"
 
-    def test_falls_back_to_cwd_when_item_has_no_worktree(
+    def test_falls_back_to_cwd_when_item_has_no_active_lane(
         self, tmp_path: Path
     ) -> None:
         with _seeded_default_worktree_db(tmp_path) as conn:

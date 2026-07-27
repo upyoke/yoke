@@ -11,7 +11,7 @@ argument-hint: "{epic-id}"
 Translate an item spec into a technical implementation plan.
 
 <!-- BEGIN GENERATED: field-note-directive -->
-When you hit a recipe gap or notice a minor bug not worth a ticket, file a field-note immediately — before retrying, before moving on.
+When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
 Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->
@@ -39,13 +39,28 @@ yoke sessions touch \
 ```
 
 1. **Resolve the backlog item:**
- Resolve by `id` first (if `{epic-id}` is `YOK-N`, strip the prefix to get the numeric `id` — for epic items, that numeric `id` IS the same value referenced as `epic_id` in `epic_tasks`), otherwise by title slug:
+ Resolve prefixed, zero-padded, or bare numeric input through the registered
+ item reader. Keep the accepted input as `_plan_item_ref`; the reader's `id`
+ field is the normalized numeric `items.id` required by `epic_tasks.epic_id`:
  ```bash
- yoke db read --format lines "SELECT id, title, workflow_id, workflow_version_id, status FROM items WHERE id={N-from-YOK-if-provided} OR lower(replace(title,' ','-'))=lower('{epic-id}') ORDER BY CASE WHEN id={N-from-YOK-if-provided} THEN 0 ELSE 1 END LIMIT 1;"
+ _plan_item_ref="{epic-id}"
+ _epic_id=$(yoke items get "$_plan_item_ref" id 2>/dev/null) || _epic_id=""
+ yoke items get "$_plan_item_ref" title workflow_id workflow_version_id status
  ```
+ If the item reader does not resolve because the input is a title slug, list
+ the two planning-capable workflows through the registered collection reader:
+ ```bash
+ yoke items list --workflow epic --fields "id,project_sequence,title,workflow_id,workflow_version_id,status" --limit 1000
+ yoke items list --workflow issue --fields "id,project_sequence,title,workflow_id,workflow_version_id,status" --limit 1000
+ ```
+ Match the row whose lowercase title with spaces replaced by `-` equals
+ `{epic-id}`. Set `_epic_id` from its `id` field and `_plan_item_ref` to
+ `YOK-{project_sequence}`. Do not treat the public sequence as the internal
+ id.
+
  If you also need the rendered body, fetch it separately (it is a virtual rendered field, not an `items` column):
  ```bash
- yoke items get YOK-{N} body
+ yoke items get "$_plan_item_ref" body
  ```
  If no item found, stop: "No backlog item found for `{epic-id}`. Create one with `/yoke idea` first."
  Verify the item is in a planning-eligible lifecycle state:
@@ -57,16 +72,14 @@ yoke sessions touch \
  - `epic` → **epic plan mode** (full task decomposition)
  - `issue` → **issue plan mode** (lightweight `technical_plan` field only)
 
- ```bash
- _epic_id={resolved numeric item ID from step 1}
- # Use _epic_id (numeric item ID) for all registered epic-task commands below.
- ```
+ Use `_plan_item_ref` for item-targeted commands and `_epic_id` for all
+ registered epic-task commands below.
 
 2. **PRD quality gate (pre-planning validation):**
  Run the registered PRD validator to ensure the item body meets minimum quality standards before the Architect runs. This applies to both epic and issue mode.
 
  ```bash
- yoke readiness prd-validate "YOK-{N}"
+ yoke readiness prd-validate "$_plan_item_ref"
  ```
 
  **If exit code is 1 (FAIL-level issues):** stop and present the validation report to the user. Do NOT proceed to the Architect. The report includes specific fix guidance for each failing check.
@@ -86,24 +99,27 @@ yoke sessions touch \
 3. **Check for existing plan data (epic mode only):**
  If plan mode is `issue`, skip this step (issues do not use `epic_tasks`).
 
- If plan mode is `epic`, check whether `epic_tasks` rows already exist for this epic in the DB:
+ If plan mode is `epic`, read the current task rows through the registered
+ epic-task reader, using the normalized numeric `_epic_id` resolved in step 1:
  ```bash
- _existing_tasks=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_tasks WHERE epic_id={epic-id}'")
+ yoke epic-tasks list --epic "$_epic_id"
  ```
 
- **If `_existing_tasks` > 0 AND any tasks have status other than `planning` or `planned`:** stop with:
+ The reader prints one pipe-delimited row per task, with status in the third
+ field. **If any rows exist AND any task has a status other than `planning` or
+ `planned`:** stop with:
  > This epic already has tasks in progress. Re-planning is not supported.
 
- **If `_existing_tasks` > 0 AND all tasks are `planning` or `planned`** (prior interrupted run): ask user: **Resume** or **Restart**?
+**If rows exist AND all tasks are `planning` or `planned`** (prior interrupted run): ask user: **Resume** or **Restart**?
  - **Resume:** Skip to step 11 (review gate) to re-present the plan from the existing DB data.
  - **Restart:** list the existing tasks, then remove each planning/planned task through the registered task owner and start fresh:
  ```bash
- yoke epic-tasks list --epic "{epic-id}"
- yoke workflow-item epic-task remove --epic "{epic-id}" --task-num "{each task_num}" --reason "plan restart"
+ yoke epic-tasks list --epic "$_epic_id"
+ yoke workflow-item epic-task remove --epic "$_epic_id" --task-num "{each task_num}" --reason "plan restart"
  ```
  Then continue normally to step 4.
 
- **If `_existing_tasks` is 0:** continue normally.
+ **If the reader prints no rows:** continue normally.
 
 4. **Scan the codebase** using the Explore subagent (fast, read-only, Haiku):
  - Current architecture and patterns
@@ -126,7 +142,7 @@ yoke sessions touch \
 5. **Read inputs:**
  - The item's design spec (if it exists):
  ```bash
- _design_body=$(yoke items get YOK-{N} design_spec)
+ _design_body=$(yoke items get "$_plan_item_ref" design_spec)
  ```
  - Contents of `/docs/` for project context
 
@@ -172,7 +188,7 @@ yoke sessions touch \
 
  c. **Add file entries** for each file in the task's Files Touched
     section through `yoke workflow-item epic-task file-add --epic
-    "{epic-id}" --task-num "{task_num}" --file-path "{file_path}"
+    "$_epic_id" --task-num "{task_num}" --file-path "{file_path}"
     --action "{action}"` (where `{action}` is `create`, `modify`, or
     `delete`).
 
@@ -209,12 +225,12 @@ yoke sessions touch \
  - **Issue mode:** Show the generated `technical_plan` content and ask for confirmation.
  - **Epic mode:** Show task table, worktree plan, and any L-sized tasks for scrutiny:
  ```bash
- yoke epic-tasks list --epic "{epic-id}"
+ yoke epic-tasks list --epic "$_epic_id"
  ```
 
  For deep review of specific tasks:
  ```bash
- yoke workflow-item epic-task body-get --epic "{epic-id}" --task-num "{task_num}"
+ yoke workflow-item epic-task body-get --epic "$_epic_id" --task-num "{task_num}"
  ```
 
  Ask for explicit user confirmation.
@@ -223,8 +239,8 @@ yoke sessions touch \
  - Issue mode: do not update status; stop.
  - Epic mode: list the tasks, remove each planning/planned task through the registered owner, and stop:
  ```bash
- yoke epic-tasks list --epic "{epic-id}"
- yoke workflow-item epic-task remove --epic "{epic-id}" --task-num "{each task_num}" --reason "plan rejected"
+ yoke epic-tasks list --epic "$_epic_id"
+ yoke workflow-item epic-task remove --epic "$_epic_id" --task-num "{each task_num}" --reason "plan rejected"
  ```
  Do NOT update backlog status. Stop here.
 

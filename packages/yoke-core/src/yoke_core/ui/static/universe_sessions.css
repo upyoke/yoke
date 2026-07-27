@@ -1,0 +1,203 @@
+/* Sessions follows the product prototype's compact harness card: runtime
+   identity and directive first, assignment in the middle, operator last. */
+.universe-app-root .sessions-action-status {
+  margin: 0 0 12px;
+  color: var(--yoke-muted);
+  font-size: 12px;
+}
+
+.universe-app-root .sessions-empty {
+  margin: 0;
+  padding: 18px 15px;
+  color: var(--yoke-muted);
+  font-size: 12.5px;
+  font-style: italic;
+}
+
+.universe-app-root .session-card:hover {
+  border-color: color-mix(
+    in srgb,
+    var(--yoke-border) 55%,
+    var(--yoke-accent)
+  );
+  box-shadow: var(--yoke-shadow);
+}
+
+.universe-app-root .session-top {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  margin-bottom: 10px;
+}
+
+.universe-app-root .session-harness.h-machine {
+  background: var(--yoke-ink-2);
+}
+
+.universe-app-root .session-harness.h-other {
+  background: var(--yoke-idle);
+}
+
+.universe-app-root .session-executor {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--yoke-ink);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.universe-app-root .session-top .pill {
+  margin-left: auto;
+}
+
+.universe-app-root .session-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  color: var(--yoke-muted);
+  font-size: 12.5px;
+}
+
+.universe-app-root .session-work,
+.universe-app-root .session-runtime {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.universe-app-root .session-work {
+  flex-wrap: wrap;
+  color: var(--yoke-ink);
+}
+
+.universe-app-root .session-lock {
+  flex: 0 0 auto;
+  color: var(--yoke-warn);
+}
+
+.universe-app-root .session-lock.attached {
+  color: var(--yoke-accent);
+}
+
+.universe-app-root .session-item-link,
+.universe-app-root .session-model,
+.universe-app-root .session-id {
+  font-family: var(--yoke-font-mono);
+}
+
+.universe-app-root a.session-item-link {
+  color: var(--yoke-accent);
+  text-decoration: none;
+}
+
+.universe-app-root a.session-item-link:hover {
+  text-decoration: underline;
+}
+
+.universe-app-root .session-item-title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.universe-app-root .session-work-role,
+.universe-app-root .session-lane,
+.universe-app-root .session-machine {
+  display: inline-flex;
+  flex: 0 0 auto;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--yoke-surface-2);
+  color: var(--yoke-muted);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.universe-app-root .session-age .ago {
+  color: inherit;
+}
+
+.universe-app-root .session-foot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin-top: 11px;
+  padding-top: 10px;
+  border-top: 1px solid var(--yoke-border);
+  color: var(--yoke-muted);
+  font-size: 11px;
+}
+
+.universe-app-root .session-actor-avatar {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--yoke-accent);
+  color: #fff;
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.universe-app-root .session-operator {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.universe-app-root .session-local-mark {
+  color: var(--yoke-accent);
+}
+
+.universe-app-root .session-footer-separator {
+  color: var(--yoke-border);
+}
+
+.universe-app-root .session-id {
+  overflow: hidden;
+  color: var(--yoke-ink-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.universe-app-root .labelled-fact {
+  min-width: 0;
+}
+
+.universe-app-root .labelled-fact-label,
+.universe-app-root .labelled-fact-value {
+  display: block;
+}
+
+.universe-app-root .labelled-fact-label {
+  margin-bottom: 3px;
+  color: var(--yoke-muted);
+  font-size: 10px;
+  letter-spacing: .055em;
+  text-transform: uppercase;
+}
+
+.universe-app-root .labelled-fact-value {
+  overflow-wrap: anywhere;
+  color: var(--yoke-ink);
+  font-size: 12px;
+}
+
+.universe-app-root .ownership-badge {
+  display: inline-flex;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--yoke-accent) 12%, transparent);
+  color: var(--yoke-accent);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}

@@ -8,6 +8,7 @@ import pytest
 
 from yoke_core.domain import browser_qa
 from yoke_core.domain.browser_qa_test_helpers import (
+    _browser_check_steps,
     _patch_external_deps,
     _run_scenario,
     _seed_item,
@@ -62,13 +63,12 @@ class TestScreenshotStorageHardBlock:
         """AC-1: screenshot step with no artifact path returned fails the run."""
         _seed_item(db_path, 600)
         _seed_requirement(
-            db_path, 600, "browser_smoke",
+            db_path, 600, "browser-check",
             {
                 "base_url": "http://localhost:9999",
-                "steps": [
-                    {"action": "navigate", "route": "/"},
+                "steps": _browser_check_steps(
                     {"action": "screenshot", "capture": True, "label": "home"},
-                ],
+                ),
             },
         )
 
@@ -88,12 +88,12 @@ class TestScreenshotStorageHardBlock:
         """AC-2: returned artifact path that doesn't exist on disk fails the run."""
         _seed_item(db_path, 601)
         _seed_requirement(
-            db_path, 601, "browser_smoke",
+            db_path, 601, "browser-check",
             {
                 "base_url": "http://localhost:9999",
-                "steps": [
+                "steps": _browser_check_steps(
                     {"action": "screenshot", "capture": True, "label": "login"},
-                ],
+                ),
             },
         )
 
@@ -113,13 +113,13 @@ class TestScreenshotStorageHardBlock:
         """AC-3: expected>recorded screenshots fails the run even if steps succeeded."""
         _seed_item(db_path, 602)
         _seed_requirement(
-            db_path, 602, "browser_smoke",
+            db_path, 602, "browser-check",
             {
                 "base_url": "http://localhost:9999",
-                "steps": [
+                "steps": _browser_check_steps(
                     {"action": "screenshot", "capture": True, "label": "page1"},
                     {"action": "screenshot", "capture": True, "label": "page2"},
-                ],
+                ),
             },
         )
 
@@ -131,6 +131,7 @@ class TestScreenshotStorageHardBlock:
         result = _run_scenario(
             db_path, 602,
             execute_step_responses=[
+                {"success": True, "artifacts": []},
                 {"success": True, "artifacts": [str(shot1)]},
                 {"success": True, "artifacts": [nonexistent]},
             ],
@@ -144,13 +145,13 @@ class TestScreenshotStorageHardBlock:
         """AC-3: when all expected screenshots are recorded, run passes."""
         _seed_item(db_path, 603)
         _seed_requirement(
-            db_path, 603, "browser_smoke",
+            db_path, 603, "browser-check",
             {
                 "base_url": "http://localhost:9999",
-                "steps": [
+                "steps": _browser_check_steps(
                     {"action": "screenshot", "capture": True, "label": "page1"},
                     {"action": "screenshot", "capture": True, "label": "page2"},
-                ],
+                ),
             },
         )
 
@@ -162,6 +163,7 @@ class TestScreenshotStorageHardBlock:
         result = _run_scenario(
             db_path, 603,
             execute_step_responses=[
+                {"success": True, "artifacts": []},
                 {"success": True, "artifacts": [str(shot1)]},
                 {"success": True, "artifacts": [str(shot2)]},
             ],
@@ -175,13 +177,12 @@ class TestScreenshotStorageHardBlock:
         """AC-6: navigate/click steps without screenshot requirement pass normally."""
         _seed_item(db_path, 604)
         _seed_requirement(
-            db_path, 604, "browser_smoke",
+            db_path, 604, "browser-check",
             {
                 "base_url": "http://localhost:9999",
-                "steps": [
-                    {"action": "navigate", "route": "/"},
-                    {"action": "click", "selector": "#button"},
-                ],
+                "steps": _browser_check_steps(
+                    {"action": "click", "target": "#button"},
+                ),
             },
         )
 
@@ -205,6 +206,7 @@ class TestScreenshotStorageHardBlock:
             result = browser_qa.execute_scenario(
                 item_id=605,
                 project="testproj",
+                requirement_id=-1,
                 base_url="http://localhost:9999",
             )
         finally:
@@ -228,13 +230,12 @@ class TestDataEnvelopeUnwrapping:
         shot_file = tmp_path / "wrapped.png"
         shot_file.write_bytes(b"PNG")
         _seed_requirement(
-            db_path, 700, "browser_smoke",
+            db_path, 700, "browser-check",
             {
                 "base_url": "http://localhost:9999",
-                "steps": [
-                    {"action": "navigate", "route": "/"},
+                "steps": _browser_check_steps(
                     {"action": "screenshot", "capture": True, "label": "wrapped"},
-                ],
+                ),
             },
         )
 
@@ -248,9 +249,9 @@ class TestDataEnvelopeUnwrapping:
             ],
         )
 
-        # capture success => runs[].verdict is empty + execution_status='captured'
+        # Browser check decides automatically after capture succeeds.
         assert result.verdict == "pass"
-        assert result.runs[0].verdict == ""
+        assert result.runs[0].verdict == "pass"
         assert result.runs[0].execution_status == "captured"
         assert result.runs[0].recorded_screenshots == 1
 
@@ -260,25 +261,26 @@ class TestDataEnvelopeUnwrapping:
         shot_file = tmp_path / "flat.png"
         shot_file.write_bytes(b"PNG")
         _seed_requirement(
-            db_path, 701, "browser_smoke",
+            db_path, 701, "browser-check",
             {
                 "base_url": "http://localhost:9999",
-                "steps": [
+                "steps": _browser_check_steps(
                     {"action": "screenshot", "capture": True, "label": "flat"},
-                ],
+                ),
             },
         )
 
         result = _run_scenario(
             db_path, 701,
             execute_step_responses=[
+                {"success": True, "artifacts": []},
                 {"success": True, "artifacts": [str(shot_file)]},
             ],
         )
 
-        # capture success => runs[].verdict is empty + execution_status='captured'
+        # Browser check decides automatically after capture succeeds.
         assert result.verdict == "pass"
-        assert result.runs[0].verdict == ""
+        assert result.runs[0].verdict == "pass"
         assert result.runs[0].execution_status == "captured"
         assert result.runs[0].recorded_screenshots == 1
 
@@ -286,18 +288,19 @@ class TestDataEnvelopeUnwrapping:
         """AC-06: data.success=false fails the step even when outer success=true."""
         _seed_item(db_path, 702)
         _seed_requirement(
-            db_path, 702, "browser_smoke",
+            db_path, 702, "browser-check",
             {
                 "base_url": "http://localhost:9999",
-                "steps": [
+                "steps": _browser_check_steps(
                     {"action": "screenshot", "capture": True, "label": "fail"},
-                ],
+                ),
             },
         )
 
         result = _run_scenario(
             db_path, 702,
             execute_step_responses=[
+                {"success": True, "artifacts": []},
                 {"success": True, "data": {"success": False, "error": "render_timeout"}},
             ],
         )
@@ -310,18 +313,19 @@ class TestDataEnvelopeUnwrapping:
         """AC-02: wrapped response with empty artifacts still triggers no_screenshot_artifact."""
         _seed_item(db_path, 703)
         _seed_requirement(
-            db_path, 703, "browser_smoke",
+            db_path, 703, "browser-check",
             {
                 "base_url": "http://localhost:9999",
-                "steps": [
+                "steps": _browser_check_steps(
                     {"action": "screenshot", "capture": True, "label": "empty"},
-                ],
+                ),
             },
         )
 
         result = _run_scenario(
             db_path, 703,
             execute_step_responses=[
+                {"success": True, "artifacts": []},
                 {"success": True, "data": {"success": True, "artifacts": []}},
             ],
         )

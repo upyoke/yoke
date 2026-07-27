@@ -37,7 +37,6 @@ CREATE TABLE IF NOT EXISTS items (
     track_seq INTEGER,
     github_issue TEXT,
     deployed_to TEXT,
-    worktree TEXT,
     merged_at TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
@@ -45,25 +44,36 @@ CREATE TABLE IF NOT EXISTS items (
     project_id INTEGER NOT NULL DEFAULT 1,
     project_sequence INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS item_worktrees (
+    id INTEGER PRIMARY KEY,
+    item_id INTEGER NOT NULL,
+    branch TEXT NOT NULL,
+    path TEXT,
+    lane_role TEXT NOT NULL,
+    state TEXT NOT NULL DEFAULT 'active',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    released_at TEXT,
+    FOREIGN KEY (item_id) REFERENCES items(id)
+);
 CREATE TABLE IF NOT EXISTS epic_tasks (
     id INTEGER PRIMARY KEY,
     epic_id INTEGER NOT NULL,
     task_num INTEGER NOT NULL,
     title TEXT,
-    worktree TEXT,
+    item_worktree_id INTEGER,
     context_estimate TEXT,
     dependencies TEXT,
     status TEXT DEFAULT 'planned',
     dispatch_attempts INTEGER DEFAULT 0,
     body TEXT,
     github_issue TEXT,
-    branch TEXT,
-    worktree_path TEXT,
     blocked_by TEXT,
     max_attempts INTEGER DEFAULT 5,
     agent_id TEXT,
     last_heartbeat TEXT,
-    UNIQUE(epic_id, task_num)
+    UNIQUE(epic_id, task_num),
+    FOREIGN KEY (item_worktree_id) REFERENCES item_worktrees(id)
 );
 CREATE TABLE IF NOT EXISTS events (
     id INTEGER PRIMARY KEY,

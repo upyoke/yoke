@@ -33,6 +33,9 @@ from yoke_core.domain.deployment_runs_crud_mutate import (
 )
 from yoke_core.domain.deployment_runs_preview import cmd_resolve_target_env
 from yoke_core.domain.deployment_runs_validation import cmd_validate_composition
+from yoke_core.domain.deployment_item_flow_resolution import (
+    lookup_item_project_and_flow as _lookup_item_project_and_flow,
+)
 
 
 # Phase identifiers for the structured handle.
@@ -79,24 +82,6 @@ class StartForItemResult:
             out["error"] = self.error
             out["error_phase"] = self.error_phase
         return out
-
-
-def _lookup_item_project_and_flow(item_id: int) -> tuple:
-    """Return (project, deployment_flow) for ``item_id`` from Postgres authority."""
-    from yoke_core.domain import db_helpers
-
-    conn = db_helpers.connect()
-    try:
-        row = conn.execute(
-            "SELECT p.slug AS project, i.deployment_flow FROM items i "
-            "LEFT JOIN projects p ON p.id = i.project_id WHERE i.id = %s",
-            (item_id,),
-        ).fetchone()
-    finally:
-        conn.close()
-    if row is None:
-        return None, None
-    return row[0], row[1]
 
 
 def _resolve_remote_release_head(

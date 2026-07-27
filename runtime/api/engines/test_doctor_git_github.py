@@ -19,6 +19,7 @@ from yoke_contracts.github_app_installation_permissions import (
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 from runtime.api.api_workflow_test_helpers import install_workflow_registry_and_pin_items
+from yoke_core.domain.item_worktree_schema import ITEM_WORKTREES_TABLE_SQL
 
 from yoke_core.engines._project_identity_test_helpers import (
     _insert_item,
@@ -55,7 +56,6 @@ def _make_conn():
             rework_count INTEGER,
             deployed_to TEXT,
             updated_at TEXT,
-            worktree TEXT,
             deployment_flow TEXT
         );
 
@@ -66,7 +66,7 @@ def _make_conn():
             status TEXT,
             last_heartbeat TEXT,
             dispatch_attempts INTEGER DEFAULT 0,
-            worktree TEXT,
+            item_worktree_id INTEGER,
             github_issue TEXT,
             PRIMARY KEY (epic_id, task_num)
         );
@@ -97,7 +97,7 @@ def _make_conn():
             reviewed_at TEXT,
             archived_at TEXT
         );
-    """))
+    """) + ITEM_WORKTREES_TABLE_SQL)
     install_workflow_registry_and_pin_items(conn)
     return conn
 

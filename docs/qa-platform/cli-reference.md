@@ -23,8 +23,8 @@ yoke qa requirement add \
 # Add multiple item-bound requirements
 yoke qa requirement add-batch --item YOK-N --rows-file qa-requirements.json
 
-# Let project/item policy materialize defaults
-yoke qa requirement auto-create-for-item --item YOK-N
+# Materialize project-default and item-attached plan cases
+yoke qa plan materialize --item YOK-N --transition reviewing-implementation
 
 # List requirements for an item, epic, or deployment run
 yoke qa requirement list --item YOK-N
@@ -60,7 +60,7 @@ yoke qa artifact add \
 |---|---|---|
 | `yoke qa requirement add` | `--item PREFIX-N --qa-kind K --qa-phase P [opts]` | Insert one item-attached requirement |
 | `yoke qa requirement add-batch` | `--item PREFIX-N (--rows-file PATH \| --stdin)` | Insert item-attached requirements atomically |
-| `yoke qa requirement auto-create-for-item` | `--item PREFIX-N` | Materialize policy/default requirements |
+| `yoke qa plan materialize` | `--item PREFIX-N --transition T` | Materialize project-default and item-attached plan cases |
 | `yoke qa requirement list` | `[--item PREFIX-N \| --epic-id N \| --deployment-run-id ID]` | List requirements |
 | `yoke qa requirement get` | `--requirement-id N` | Get one requirement |
 | `yoke qa requirement update` | `--requirement-id N --field FIELD (--value VALUE \| --null)` | Update one mutable field |

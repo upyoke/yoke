@@ -1,14 +1,7 @@
-"""Per-requirement step-loop orchestration for Browser QA.
+"""Per-requirement Browser QA loop.
 
-Owns ``_process_requirement`` — the per-``qa_requirement`` step loop that
-``execute_scenario`` calls once per browser-kind row. The loop owns the
-``_mark_capture_failed`` closure (the closure's ``nonlocal`` over the
-loop-local execution-status/verdict/error variables is load-bearing).
-
-All sibling-helper calls go through the parent ``yoke_core.domain.browser_qa``
-module (lazy-imported) so test patches via
-``mock.patch.object(browser_qa, "<helper>", ...)`` take effect against this
-caller without rebinding sibling-local names.
+Sibling calls resolve through :mod:`yoke_core.domain.browser_qa` so its stable
+test-patching surface remains effective after the implementation split.
 """
 
 from __future__ import annotations
@@ -18,12 +11,18 @@ import os
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
+from yoke_contracts.browser_qa_contract import (
+    BROWSER_CHECK_METHOD,
+    BROWSER_INSPECTION_METHOD,
+    browser_method_contract_violation,
+    is_browser_assertion,
+)
+from yoke_contracts.api.function_call import ActorContext
 from yoke_core.domain.browser_qa_results import RunResult
 from yoke_core.domain.qa_artifacts import (
     artifact_directory,
     build_metadata,
 )
-
 
 @dataclass
 class RequirementOutcome:
@@ -49,6 +48,7 @@ def _process_requirement(
     base_url: str,
     code_identity: Dict[str, str],
     freshness_validated: bool,
+    actor: Optional[ActorContext] = None,
 ) -> RequirementOutcome:
     """Process a single qa_requirement row end-to-end.
 
@@ -63,22 +63,37 @@ def _process_requirement(
 
     req_id = req_row["id"]
     qa_kind = req_row["qa_kind"]
-    success_policy_raw = req_row["success_policy"]
+    method_id = req_row.get("method_id")
+    method_config_raw = req_row["method_config"]
 
-    _bqa._log(f"Processing requirement {req_id} (kind: {qa_kind})...")
+    method_label = {
+        "browser-check": "Browser check",
+        "browser-inspection": "Browser inspection",
+    }.get(method_id, "legacy Browser case")
+    _bqa._log(f"Processing requirement {req_id} ({method_label})...")
 
-    # Parse success_policy
+    # Parse the materialized method configuration.
     steps = []
-    if success_policy_raw:
+    if method_config_raw:
         try:
-            policy_data = json.loads(success_policy_raw)
-            steps = policy_data.get("steps", [])
+            method_config = json.loads(method_config_raw)
+            steps = method_config.get("steps", [])
         except json.JSONDecodeError:
             pass
 
-    if not steps:
+    violation = (
+        browser_method_contract_violation(str(method_id or ""), steps)
+        if steps else None
+    )
+    if not steps or violation is not None:
+        error_code = violation.code if violation else "missing_steps"
+        note = (
+            violation.message
+            if violation else "method_config missing 'steps' array"
+        )
+        error = f"malformed_method_config:{error_code}"
         _bqa._log(
-            f"WARNING: No steps found in success_policy for requirement {req_id}"
+            f"WARNING: Invalid method_config for requirement {req_id}: {note}"
         )
 
         # Record error run
@@ -90,16 +105,17 @@ def _process_requirement(
                 code_identity=code_identity,
                 freshness_validated=freshness_validated,
                 verdict="error",
-                errors="malformed_success_policy:missing_steps",
-                note="Skipped: success_policy missing 'steps' array",
+                errors=error,
+                note=f"Skipped: {note}",
             ),
+            actor=actor,
         )
         run_result = RunResult(
             requirement_id=req_id,
             qa_kind=qa_kind,
             verdict="error",
             qa_run_id=run_id,
-            errors="malformed_success_policy:missing_steps",
+            errors=error,
             code_identity=dict(code_identity),
         )
         return RequirementOutcome(run_result=run_result, skipped=True)
@@ -117,6 +133,7 @@ def _process_requirement(
             freshness_validated=freshness_validated,
             note="started",
         ),
+        actor=actor,
     )
     _bqa._log(f"Created qa_run {run_id}")
 
@@ -135,6 +152,8 @@ def _process_requirement(
     current_route = "/"
     expected_screenshots = 0
     recorded_screenshots = 0
+    expected_assertions = 0
+    passed_assertions = 0
     env_failure = False
 
     def _mark_capture_failed(reason: str) -> None:
@@ -144,6 +163,9 @@ def _process_requirement(
         step_errors += reason
 
     for step_idx, step in enumerate(steps):
+        assertion_expected = is_browser_assertion(step)
+        if assertion_expected:
+            expected_assertions += 1
         # Update current route from navigate steps
         if isinstance(step, dict) and step.get("action") == "navigate":
             route = step.get("route", "")
@@ -230,12 +252,13 @@ def _process_requirement(
             # local handle on the capture path.
             handle = _bqa._durable_artifact_handle(
                 run_id, req_id, str(apath), "image/png",
+                actor=actor,
             )
             metadata = build_metadata(step_idx, qa_kind, item_id, current_route)
 
             art_id = _bqa._record_artifact(
                 run_id, req_id, "screenshot", "image/png",
-                handle, json.dumps(metadata),
+                handle, json.dumps(metadata), actor=actor,
             )
             if art_id:
                 # The capture stays on this machine's disk either way;
@@ -252,6 +275,8 @@ def _process_requirement(
 
         if not step_had_artifact_failure:
             _bqa._log(f"  Step {step_idx}: OK")
+            if assertion_expected:
+                passed_assertions += 1
 
     # Completeness check: expected vs. recorded screenshots.
     if (
@@ -268,8 +293,19 @@ def _process_requirement(
             f"recorded={recorded_screenshots};"
         )
 
-    # finalize with execution_status. verdict is NULL on success
-    # (awaiting inspection) and 'fail' on capture failure.
+    # Browser checks decide automatically when every declared step succeeds.
+    # Browser inspections capture evidence and explicitly enter review.
+    if run_verdict is None and method_id == BROWSER_CHECK_METHOD:
+        if passed_assertions == expected_assertions:
+            run_verdict = "pass"
+        else:
+            _mark_capture_failed(
+                "assertion_completeness:"
+                f"expected={expected_assertions},passed={passed_assertions};"
+            )
+    elif run_verdict is None and method_id == BROWSER_INSPECTION_METHOD:
+        run_verdict = "inconclusive"
+
     _bqa._complete_run(
         run_id,
         req_id,
@@ -287,6 +323,7 @@ def _process_requirement(
             expected_screenshots=expected_screenshots,
             recorded_screenshots=recorded_screenshots,
         ),
+        actor=actor,
     )
     _bqa._log(
         f"Requirement {req_id}: execution_status={run_execution_status}, "

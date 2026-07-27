@@ -202,6 +202,21 @@ def _apply_schema_and_seed() -> None:
 
         ensure_workflow_schema(conn)
         converge_builtin_workflows(conn)
+        from yoke_core.domain.auth_schema import create_auth_tables
+        from yoke_core.domain.events_schema import ensure_event_schema
+        from yoke_core.domain.org_schema import seed_default_org
+        from yoke_core.domain.schema_init_actor_path_claim_tables import (
+            create_actor_identity_tables,
+        )
+        from yoke_core.domain.decision_request_schema import (
+            create_decision_request_tables,
+        )
+
+        create_actor_identity_tables(conn)
+        create_auth_tables(conn)
+        seed_default_org(conn)
+        ensure_event_schema(conn)
+        create_decision_request_tables(conn)
         _seed_rows(conn)
         _sync_postgres_sequences(conn)
         conn.commit()

@@ -16,54 +16,18 @@ import pytest
 from yoke_core.domain import backlog
 from yoke_core.domain import backlog_updates
 from runtime.api.test_backlog import (
-    _conn,
     _item_field,
-    _p,
     _patch_externals,
     _seed_item,
-    tmp_db,  # noqa: F401 — re-exported fixture
+    tmp_db as tmp_db,
 )
 
 
-def _seed_dependency(path, dependent, blocking, gate_point="activation", satisfaction="status:done"):
-    """Insert an item_dependencies row for close-path reconciliation tests."""
-    conn = _conn(path)
-    p = _p(conn)
-    conn.execute(
-        "INSERT INTO item_dependencies "
-        "(dependent_item, blocking_item, gate_point, satisfaction, "
-        "source, rationale, evidence_json, created_at) "
-        f"VALUES ({p}, {p}, {p}, {p}, 'test', 'seeded by test', '{{}}', '2026-01-01T00:00:00Z')",
-        (dependent, blocking, gate_point, satisfaction),
-    )
-    conn.commit()
-    conn.close()
-
-
-def _dependency_rows(path, *, dependent=None, blocking=None):
-    """Return rows matching the given direction filter."""
-    conn = _conn(path)
-    p = _p(conn)
-    select = "SELECT dependent_item, blocking_item, gate_point, satisfaction FROM item_dependencies "
-    if dependent is not None and blocking is not None:
-        rows = conn.execute(
-            select + f"WHERE dependent_item = {p} AND blocking_item = {p} ORDER BY gate_point",
-            (dependent, blocking),
-        ).fetchall()
-    elif dependent is not None:
-        rows = conn.execute(
-            select + f"WHERE dependent_item = {p} ORDER BY blocking_item, gate_point",
-            (dependent,),
-        ).fetchall()
-    elif blocking is not None:
-        rows = conn.execute(
-            select + f"WHERE blocking_item = {p} ORDER BY dependent_item, gate_point",
-            (blocking,),
-        ).fetchall()
-    else:
-        rows = conn.execute(select + "ORDER BY id").fetchall()
-    conn.close()
-    return [tuple(r) for r in rows]
+from runtime.api.backlog_dependency_test_support import (
+    _dependency_rows,
+    _seed_active_item_lane,
+    _seed_dependency,
+)
 
 
 class TestExecuteCloseDependencyReconciliation:
@@ -82,8 +46,7 @@ class TestExecuteCloseDependencyReconciliation:
         )
 
         out = io.StringIO()
-        with _patch_externals(), \
-             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
+        with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
             result = backlog.execute_close(1270, "wontfix", out=out)
 
         assert result["success"] is True
@@ -109,8 +72,7 @@ class TestExecuteCloseDependencyReconciliation:
         )
 
         out = io.StringIO()
-        with _patch_externals(), \
-             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
+        with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
             result = backlog.execute_close(
                 1218, "duplicate", resolution_ref="YOK-1185", out=out
             )
@@ -127,7 +89,9 @@ class TestExecuteCloseDependencyReconciliation:
         ]
         assert recon["preserved_ambiguous"] == []
 
-    def test_close_removes_absorbed_inbound_rows_with_numeric_resolution_ref(self, tmp_db):
+    def test_close_removes_absorbed_inbound_rows_with_numeric_resolution_ref(
+        self, tmp_db
+    ):
         """Numeric refs should normalize to YOK-N before absorbed-row matching."""
         _seed_item(tmp_db, id=1218, status="refined-idea")
         _seed_item(tmp_db, id=1185, status="implementing")
@@ -140,8 +104,7 @@ class TestExecuteCloseDependencyReconciliation:
         )
 
         out = io.StringIO()
-        with _patch_externals(), \
-             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
+        with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
             result = backlog.execute_close(
                 1218, "duplicate", resolution_ref="1185", out=out
             )
@@ -172,15 +135,12 @@ class TestExecuteCloseDependencyReconciliation:
         )
 
         out = io.StringIO()
-        with _patch_externals(), \
-             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
+        with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
             result = backlog.execute_close(1269, "obsolete", out=out)
 
         assert result["success"] is True
         preserved = _dependency_rows(tmp_db, blocking="YOK-1269")
-        assert preserved == [
-            ("YOK-1270", "YOK-1269", "integration", "fact:merged")
-        ]
+        assert preserved == [("YOK-1270", "YOK-1269", "integration", "fact:merged")]
 
         out_text = out.getvalue()
         assert "Warning" in out_text
@@ -205,8 +165,7 @@ class TestExecuteCloseDependencyReconciliation:
         _seed_item(tmp_db, id=10, status="idea")
 
         out = io.StringIO()
-        with _patch_externals(), \
-             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
+        with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
             result = backlog.execute_close(10, "wontfix", out=out)
 
         assert result["success"] is True
@@ -238,8 +197,7 @@ class TestExecuteCloseDependencyReconciliation:
         )
 
         out = io.StringIO()
-        with _patch_externals(), \
-             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
+        with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
             result = backlog.execute_close(
                 50, "duplicate", resolution_ref="YOK-70", out=out
             )
@@ -275,13 +233,15 @@ class TestExecuteCloseDependencyReconciliation:
         )
 
         out = io.StringIO()
-        with _patch_externals(), \
-             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}), \
-             mock.patch.object(
-                 backlog_updates,
-                 "_update_item_multi",
-                 side_effect=RuntimeError("boom"),
-             ):
+        with (
+            _patch_externals(),
+            mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}),
+            mock.patch.object(
+                backlog_updates,
+                "_update_item_multi",
+                side_effect=RuntimeError("boom"),
+            ),
+        ):
             with pytest.raises(RuntimeError, match="boom"):
                 backlog.execute_close(1270, "wontfix", out=out)
 
@@ -289,22 +249,22 @@ class TestExecuteCloseDependencyReconciliation:
         assert _item_field(tmp_db, 1270, "status") == "refined-idea"
         # Outbound row must still be present (rollback on connection close).
         rows = _dependency_rows(tmp_db, dependent="YOK-1270")
-        assert rows == [
-            ("YOK-1270", "YOK-1269", "integration", "fact:merged")
-        ]
+        assert rows == [("YOK-1270", "YOK-1269", "integration", "fact:merged")]
 
     def test_existing_guards_still_block_reconciliation(self, tmp_db):
-        """AC-6: delivery-tail, merge-evidence, worktree guards still stop
+        """AC-6: delivery-tail, merge-evidence, and active-lane guards still stop
         the close before reconciliation touches item_dependencies."""
         # delivery-tail
         _seed_item(tmp_db, id=1, status="implemented")
         _seed_dependency(
-            tmp_db, dependent="YOK-99", blocking="YOK-1",
-            gate_point="integration", satisfaction="fact:merged",
+            tmp_db,
+            dependent="YOK-99",
+            blocking="YOK-1",
+            gate_point="integration",
+            satisfaction="fact:merged",
         )
         out = io.StringIO()
-        with _patch_externals(), \
-             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
+        with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
             result = backlog.execute_close(1, "wontfix", out=out)
         assert result["success"] is False
         # Row is untouched.
@@ -315,27 +275,32 @@ class TestExecuteCloseDependencyReconciliation:
         # merge-evidence
         _seed_item(tmp_db, id=2, merged_at="2026-01-01T00:00:00Z")
         _seed_dependency(
-            tmp_db, dependent="YOK-2", blocking="YOK-77",
-            gate_point="activation", satisfaction="status:done",
+            tmp_db,
+            dependent="YOK-2",
+            blocking="YOK-77",
+            gate_point="activation",
+            satisfaction="status:done",
         )
         out = io.StringIO()
-        with _patch_externals(), \
-             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
+        with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
             result = backlog.execute_close(2, "obsolete", out=out)
         assert result["success"] is False
         assert _dependency_rows(tmp_db, dependent="YOK-2") == [
             ("YOK-2", "YOK-77", "activation", "status:done")
         ]
 
-        # active worktree
-        _seed_item(tmp_db, id=3, worktree="YOK-3")
+        # active item lane
+        _seed_item(tmp_db, id=3)
+        _seed_active_item_lane(tmp_db, item_id=3, branch="YOK-3")
         _seed_dependency(
-            tmp_db, dependent="YOK-3", blocking="YOK-88",
-            gate_point="activation", satisfaction="status:done",
+            tmp_db,
+            dependent="YOK-3",
+            blocking="YOK-88",
+            gate_point="activation",
+            satisfaction="status:done",
         )
         out = io.StringIO()
-        with _patch_externals(), \
-             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
+        with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
             result = backlog.execute_close(3, "obsolete", out=out)
         assert result["success"] is False
         assert _dependency_rows(tmp_db, dependent="YOK-3") == [

@@ -27,29 +27,6 @@ from yoke_core.domain.render_body_test_helpers import (
 )
 
 
-class TestBrowserQaMetadataInvisibleInBody:
-    def test_browser_qa_metadata_not_rendered_into_body(self, tmp_path: Path) -> None:
-        """browser_qa_metadata is intentionally excluded from the body renderer.
-
-        Metadata must stay internal — operators scrolling items get YOK-N body
-        must never see the raw JSON. Only spec/design/plan/etc. surfaces.
-        """
-        from yoke_core.domain.browser_qa_metadata import NEGATIVE_DEFAULT_JSON
-
-        with _init_db(tmp_path) as db_path:
-            conn = _connect(db_path)
-            _seed_item(conn, 9, "Invisible metadata test")
-            _set_field(conn, 9, "browser_qa_metadata", NEGATIVE_DEFAULT_JSON)
-            _set_field(conn, 9, "spec", "# Spec\nVisible spec content.")
-            try:
-                body = render_body.build_body(conn, 9) or ""
-            finally:
-                conn.close()
-            assert "Visible spec content." in body
-            assert "browser_qa_metadata" not in body
-            assert "browser_testable" not in body
-
-
 class TestBuildBody:
     def test_orders_sections_and_strips_duplicate_headings(self, tmp_path: Path) -> None:
         with _init_db(tmp_path) as db_path:

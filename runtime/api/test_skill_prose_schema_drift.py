@@ -4,7 +4,7 @@ the cleanup swept four classes of confabulated column references out of the
 conduct/idea/do/refine skill prose plus the harness-substrate / commands
 docs. This test is the structural backstop that catches any future drift
 back in. Each test grounds against a small fixed file-set scope; widen
-the scope via a follow-up ticket, not opportunistically here.
+the scope via a follow-up work item, not opportunistically here.
 """
 from __future__ import annotations
 

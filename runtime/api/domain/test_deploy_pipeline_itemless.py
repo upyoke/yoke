@@ -144,8 +144,8 @@ class TestResolveAndVerifyBranch:
 
     def test_item_less_skips_item_read_and_verification(self):
         with mock.patch.object(
-            deploy_pipeline_gates, "_yoke_db",
-        ) as yoke_db, mock.patch.object(
+            deploy_pipeline_gates, "_active_item_lane_branch",
+        ) as lane_branch, mock.patch.object(
             deploy_pipeline_gates, "_verify_branch_merged",
         ) as verify:
             ok, first_item, branch = (
@@ -154,13 +154,15 @@ class TestResolveAndVerifyBranch:
                 )
             )
         assert (ok, first_item, branch) == (True, "", "")
-        yoke_db.assert_not_called()
+        lane_branch.assert_not_called()
         verify.assert_not_called()
 
     def test_member_items_resolve_branch_and_verify(self, tmp_path):
         (tmp_path / ".git").mkdir()
         with mock.patch.object(
-            deploy_pipeline_gates, "_yoke_db", return_value="feature-x",
+            deploy_pipeline_gates,
+            "_active_item_lane_branch",
+            return_value="feature-x",
         ), mock.patch.object(
             deploy_pipeline_gates, "_verify_branch_merged",
             return_value=(True, ""),
@@ -178,7 +180,9 @@ class TestResolveAndVerifyBranch:
     def test_failed_verification_propagates_not_ok(self, tmp_path, capsys):
         (tmp_path / ".git").mkdir()
         with mock.patch.object(
-            deploy_pipeline_gates, "_yoke_db", return_value="feature-x",
+            deploy_pipeline_gates,
+            "_active_item_lane_branch",
+            return_value="feature-x",
         ), mock.patch.object(
             deploy_pipeline_gates, "_verify_branch_merged",
             return_value=(False, "Blocked: not on main"),

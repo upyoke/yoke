@@ -115,9 +115,9 @@ def verify_destructive_post_state(
 
     return [
         (
-            f"destructive post-state mismatch for ticket claim "
+            f"destructive post-state mismatch for work-item claim "
             f"(migration modules: {module_label}): the authoritative DB "
-            f"still exposes surfaces the ticket claims to have retired.\n"
+            f"still exposes surfaces the work item claims to have retired.\n"
             f"{chr(10).join(bullets)}\n"
             f"Likely causes:\n"
             f"  * stale init/bootstrap repair logic re-added the surface "

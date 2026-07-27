@@ -12,10 +12,7 @@ from typing import Iterable, Iterator, List, Tuple
 
 import pytest
 
-from yoke_core.domain.schema_api_context_json_schemas import (
-    ACCESS_PATTERN_NOTE,
-    JSON_NESTED_SCHEMAS,
-)
+from yoke_core.domain.schema_api_context_json_schemas import JSON_NESTED_SCHEMAS
 from yoke_core.engines import doctor_hc_tier_schema_bleed as mod
 from yoke_core.engines.doctor_hc_tier_schema_bleed import (
     HC_SLUG,
@@ -122,22 +119,63 @@ def test_epic_tasks_depends_on_in_tier4_fires(tmp_path, monkeypatch, conn):
     assert "confabulation" in detail
 
 
-def test_json_nested_browser_testable_in_tier5_fires(tmp_path, monkeypatch, conn):
-    """Class B: ``items get YOK-N browser_testable`` — WARN names parent column."""
+@pytest.mark.parametrize(
+    "qualified",
+    (
+        "deployment_flows.stages",
+        "projects.github_sync_mode",
+        "projects.github_sync_mode.repair",
+    ),
+)
+def test_physical_column_wins_function_token_collision(
+    tmp_path,
+    monkeypatch,
+    conn,
+    qualified,
+):
+    """A registered function token cannot hide a real leading table.column."""
 
-    rel = ".agents/skills/yoke/refine/SKILL.md"
-    body = (
-        "# Refine\n\n"
-        "Check the flag with `db_router items get YOK-42 browser_testable`.\n"
+    rel = ".agents/skills/yoke/conduct/SKILL.md"
+    _make_fixture_repo(
+        tmp_path,
+        {rel: f"Inspect {qualified} before dispatch.\n"},
+        {rel: 5},
     )
-    _make_fixture_repo(tmp_path, {rel: body}, {rel: 5})
     _install_iter(monkeypatch, tmp_path, {rel: 5})
 
     rec = _run(conn)
     assert rec.results[0].result == "WARN"
-    detail = _detail(rec)
-    assert "items.browser_qa_metadata" in detail
-    assert ACCESS_PATTERN_NOTE in detail
+    table_column = ".".join(qualified.split(".")[:2])
+    assert table_column in _detail(rec)
+
+
+@pytest.mark.parametrize(
+    "qualified",
+    (
+        "items.body",
+        "items.spec",
+        "items.design_spec",
+        "items.technical_plan",
+        "items.worktree_plan",
+    ),
+)
+def test_item_public_field_reference_is_not_raw_schema_bleed(
+    tmp_path,
+    monkeypatch,
+    conn,
+    qualified,
+):
+    """Agent-facing item projections are not table-shape teaching."""
+
+    rel = "runtime/agents/architect.md"
+    _make_fixture_repo(
+        tmp_path,
+        {rel: f"Read {qualified} through the item API.\n"},
+        {rel: 4},
+    )
+    _install_iter(monkeypatch, tmp_path, {rel: 4})
+
+    assert _run(conn).results[0].result == "PASS"
 
 
 # ---------------------------------------------------------------------------
@@ -205,6 +243,28 @@ def test_see_the_worktree_column_packet_stanza_passes(tmp_path, monkeypatch, con
     assert rec.results[0].result == "PASS"
 
 
+@pytest.mark.parametrize(
+    "body",
+    [
+        "Call items.structured_field.replace through the registered dispatcher.\n",
+        "The items.structured_field family owns structured item updates.\n",
+        "Read the guide at .agents/skills/yoke/onboard/environments.md.\n",
+    ],
+)
+def test_non_schema_dotted_syntax_passes(
+    tmp_path,
+    monkeypatch,
+    conn,
+    body,
+):
+    """Function ids, function families, and file names are not columns."""
+    rel = ".agents/skills/yoke/conduct/SKILL.md"
+    _make_fixture_repo(tmp_path, {rel: body}, {rel: 5})
+    _install_iter(monkeypatch, tmp_path, {rel: 5})
+
+    assert _run(conn).results[0].result == "PASS"
+
+
 # ---------------------------------------------------------------------------
 # AC-6 Edges — archive exemption, empty file, fenced code block.
 # ---------------------------------------------------------------------------
@@ -250,25 +310,6 @@ def test_fenced_sql_block_does_not_fire(tmp_path, monkeypatch, conn):
 
     rec = _run(conn)
     assert rec.results[0].result == "PASS"
-
-
-def test_fenced_block_still_fires_class_b(tmp_path, monkeypatch, conn):
-    """Class B applies inside fences too — a fenced ``items get`` example
-    with a nested-field shape is still wrong teaching."""
-
-    rel = ".yoke/docs/commands.md"
-    body = (
-        "# Commands\n\n"
-        "```bash\n"
-        "db_router items get YOK-42 browser_testable\n"
-        "```\n"
-    )
-    _make_fixture_repo(tmp_path, {rel: body}, {rel: 2})
-    _install_iter(monkeypatch, tmp_path, {rel: 2})
-
-    rec = _run(conn)
-    assert rec.results[0].result == "WARN"
-    assert "items.browser_qa_metadata" in _detail(rec)
 
 
 # ---------------------------------------------------------------------------

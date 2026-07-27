@@ -22,7 +22,6 @@ _SCHEMA = """
         title TEXT,
         type TEXT DEFAULT 'issue',
         status TEXT DEFAULT 'implemented',
-        worktree TEXT,
         project_id INTEGER DEFAULT 1,
         project_sequence INTEGER NOT NULL,
         deployment_flow TEXT,

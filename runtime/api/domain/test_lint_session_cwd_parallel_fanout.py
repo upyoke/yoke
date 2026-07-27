@@ -167,8 +167,8 @@ class TestParallelFanoutLint:
             targets=(rogue_target,),
         )
         assert verdict.allow is False
-        # The session's only resolved authority is items.worktree
-        # itself — exactly one row, no sibling inheritance.
+        # The session's only resolved authority is the primary item lane:
+        # exactly one row, with no sibling inheritance.
         assert len(verdict.claims) == 1
         assert verdict.claims[0].task_num is None
         assert verdict.claims[0].worktree_path == str(

@@ -51,7 +51,7 @@ substitute for this gate.
 
 `ephemeral-verify` only proves the preview deployment workflow completed and a
 preview URL was surfaced. It does **not** satisfy unsatisfied item-level
-`browser_smoke`, `browser_diff`, or `e2e` verification requirements by itself.
+Browser method cases or `e2e` verification requirements by itself.
 
 ### 7b. Advance to release
 
@@ -80,9 +80,19 @@ if [ -n "$_item_flow" ] && [ "$_item_flow" != "null" ]; then
  _has_eph_verify=$(printf '%s' "$_stages_json" | grep -c '"ephemeral-verify"') || true
 
  if [ "$_has_eph_verify" -gt 0 ]; then
- # Skip if conduct/polish already satisfied the ephemeral QA gate
+ # Skip if conduct/polish already satisfied a Browser method case. The
+ # method_id IS NULL branch is compatibility-only: the Browser metadata
+ # contraction admitted active legacy rows, so those rows must remain
+ # readable until they naturally leave the active lifecycle.
  _already_passed_eph=$(yoke db read --format lines \
- "SELECT COUNT(*) FROM qa_runs qr JOIN qa_requirements qreq ON qr.qa_requirement_id = qreq.id WHERE qreq.item_id = {N} AND qreq.qa_kind IN ('browser_smoke', 'browser_diff') AND qreq.qa_phase = 'verification' AND qr.verdict = 'pass'" 2>/dev/null) || _already_passed_eph="0"
+ "SELECT COUNT(*) FROM qa_runs qr \
+ JOIN qa_requirements qreq ON qr.qa_requirement_id = qreq.id \
+ WHERE qreq.item_id = {N} \
+ AND qreq.qa_phase = 'verification' \
+ AND (qreq.method_id IN ('browser-check', 'browser-inspection') \
+ OR (qreq.method_id IS NULL \
+ AND qreq.qa_kind IN ('browser_smoke', 'browser_diff'))) \
+ AND qr.verdict = 'pass'" 2>/dev/null) || _already_passed_eph="0"
 
  if [ -n "$_already_passed_eph" ] && [ "$_already_passed_eph" -gt 0 ]; then
  echo " Skipping pre-merge ephemeral-verify: already satisfied before usher"

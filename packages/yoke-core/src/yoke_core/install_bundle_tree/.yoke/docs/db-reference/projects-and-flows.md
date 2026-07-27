@@ -4,7 +4,11 @@ Schemas for the project registry, the Project Structure aggregate, sites/environ
 
 ## Table: projects
 
-Registered projects that Yoke can manage. The `projects` table holds only shared identity and repo metadata; machine-local checkout paths live in machine config. Per-project structured settings (test commands, deployment-flow default, merge verification policy, context routing) live in the Project Structure aggregate (see below).
+Registered projects that Yoke can manage. The `projects` table holds only
+shared identity and repo metadata; machine-local checkout paths live in
+machine config. Per-project structure and routing declarations live in the
+Project Structure aggregate. Executable verification lives in project QA
+plans.
 
 Every registered slug uses the same project commands and capability resolution. A project name never unlocks behavior: specialized delivery comes from that project's capability rows, environments, and workflow definitions. Checkout-local or direct-module recipes are valid only when their surface explicitly declares a source-dev/admin boundary.
 
@@ -20,15 +24,13 @@ created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline
 
 **Per-project GitHub sync switch** — new projects start `backlog_only`, which keeps the project's backlog DB-only: every backlog→GitHub issue sync surface skips the project (logged skip, not an auth failure), `yoke resync` excludes it from fetch/classification/repair, and explicit issue-creating operations refuse. Reader: `yoke_core.domain.projects_github_sync_mode`; flip via `yoke projects update ... --github-sync-mode <mode>`. Enabling requires an active verified App binding. Dry-run or normalize legacy effective-enabled rows with `yoke projects github-sync-mode repair [--apply]`. The verified App binding is outbound repository authority; `github_repo` is its compatibility display projection. Full semantics and safe repository-rebinding order live in [github-sync.md](../github-sync.md).
 
-**Project-level test commands** — read the `quick`, `full`, `e2e`, and `smoke` scopes via `python3 -m yoke_core.domain.command_definitions get <project> <scope>` or, from Python, `yoke_core.domain.command_definitions.list_commands(project_id)`. Entries live in `project_structure` with `family='command_definitions'` and `attachment_value='project'`. An absent or empty entry means "no command defined" for that scope.
-
 **Project-level deployment-flow default** — read the project default via `yoke project-structure deploy-defaults get --project <project>` or, from Python, `yoke_core.domain.deploy_defaults.get_default_flow(project_id)`. Entries live in `project_structure` with `family='deploy_defaults'`, `attachment_value='project'`, payload `{"deployment_flow": "<flow-id>"}`. Absence is a valid state; callers treat it as "no project default" and fall back to inference.
-
-**Project-level merge verification policy** — read the project's pre-merge verification policy via `python3 -m yoke_core.domain.merge_verification get <project>` or, from Python, `yoke_core.domain.merge_verification.get_policy(project_id)`. Entries live in `project_structure` with `family='merge_verification'`, `attachment_value='project'`, payload `{"command": "<shell command>", "timeout_seconds": <positive integer>}`. Absence is a valid state; the merge engine emits an explicit `[phase:tests] no merge policy configured for project '<id>' — skipping project tests` log line and runs nothing in that case. The merge engine reads this family alone — it never falls back to `command_definitions.{quick, full, e2e, smoke}`. The four agent-facing scopes in `command_definitions` describe the project's test suites for Tester/Engineer dispatch and doctor health checks; `merge_verification` is the merge gate, isolated from agent test selection by construction. Set explicitly via `python3 -m yoke_core.domain.merge_verification set <project> "<command>" --timeout-seconds <seconds>`; command and timeout are both project policy.
 
 **Project-level context routing** — read the project-wide always-included docs and per-topic doc lists via `python3 -m yoke_core.domain.context_routing get-always <project>`, `... get-topic <project> <topic>`, and `... list-topics <project>`. From Python: `yoke_core.domain.context_routing.{get_always_docs, get_topic_docs, list_topics, get_topic_map}`. Entries live in `project_structure` with `family='context_routing'`, `attachment_value='project'`, `entry_key='always'` for the project-wide set or any other topic name for topic-keyed sets, payload `{"docs": ["<repo-relative-path>", ...]}`. Absence is a valid state; consumers treat missing entries as "no routing configured for that key" and fall back to discovery heuristics.
 
-Seed data: a fresh universe seeds no project rows — projects enter through onboarding (`yoke projects create` / `yoke project install`). `merge_verification` is optional for all projects; projects without that family entry skip merge-time project tests until an operator records an explicit merge policy.
+Seed data: a fresh universe seeds no project rows — projects enter through
+onboarding (`yoke projects create` / `yoke project install`). QA plan
+attachments declare which project checks run at each workflow transition.
 
 ### Deployment Flow Defaulting Rules
 
@@ -45,7 +47,7 @@ Items receive a `deployment_flow` via a two-tiered enforcement model:
 - Operator must explicitly choose a flow before the item can reach `planned`
 - `HC-missing-flow` doctor check surfaces items missing flows at WARN severity
 
-Branch-triggered auto-deploy behaviour (the `{branch: flow_id}` trigger map that once lived on `projects`) is not a live truth source in Yoke. Actions runners and similar substrates may still perform deploys, but Yoke chooses which flow runs for which ticket/run. If future branch-level guardrails (for example, "this branch is allowed to deploy production") become necessary, they will land as explicit policy rather than as branch-triggered flow selection.
+Branch-triggered auto-deploy behaviour (the `{branch: flow_id}` trigger map that once lived on `projects`) is not a live truth source in Yoke. Actions runners and similar substrates may still perform deploys, but Yoke chooses which flow runs for which work item or run. If future branch-level guardrails (for example, "this branch is allowed to deploy production") become necessary, they will land as explicit policy rather than as branch-triggered flow selection.
 
 ## Project Structure aggregate
 
@@ -65,9 +67,14 @@ project_structure   -- family entries with identity
 
 **Families (fully instantiated):**
 
-`areas`, `mappings`, `test_roots`, `verification_profiles`, `ownership_defaults`, `integration_targets`, `command_definitions`, `deploy_defaults`, `merge_verification`, `context_routing`.
+`architecture_model`, `areas`, `context_routing`, `deploy_defaults`,
+`integration_targets`, `mappings`, `ownership_defaults`, `test_roots`,
+`verification_profiles`.
 
-`command_definitions` is keyed by scope (`quick`, `full`, `e2e`, `smoke`); `deploy_defaults` and `merge_verification` are project-attached singletons; `context_routing` is a project-attached keyed_set whose payload is `{"docs": [str, ...]}` and whose reserved `entry_key="always"` denotes the project-wide always-included set (any other `entry_key` is a topic name).
+`deploy_defaults` and `architecture_model` are project-attached singletons.
+`context_routing` is a project-attached keyed set whose payload is
+`{"docs": [str, ...]}` and whose reserved `entry_key="always"` denotes the
+project-wide always-included set.
 
 Path-attached operating context lives in `path_context_values` (per-target, keyed by family) under the path-context substrate. Project Structure contains only the project-level families listed above.
 

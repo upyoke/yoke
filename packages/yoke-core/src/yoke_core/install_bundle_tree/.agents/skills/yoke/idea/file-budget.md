@@ -68,7 +68,7 @@ and the implementation falls into a recurring trap: attempting a
 net-positive edit to a 350-line file fails `file_line_check` and forces
 an emergency refactor mid-implementation.
 
-## Project-relative path rule (cross-project tickets)
+## Project-relative path rule (cross-project work items)
 
 All paths in `## File Budget` and in the `--paths` argument of the path-claim are **project-relative**. Validation resolves the local filesystem root from this machine's checkout mapping or explicit work/session context for the item's `project_id`; `path_targets.project_id` is the discriminator that lets identically-named paths coexist across projects.
 

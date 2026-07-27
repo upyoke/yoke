@@ -2,7 +2,7 @@
 
 Policy (``AGENTS.md`` "Code Conventions"): inline ``YOK-N`` references are
 reserved for *active state* — a current bug ID, a pending migration, a
-``TODO`` tied to an open item, or a gate/guard keyed on the ticket.
+``TODO`` tied to an open item, or a gate/guard keyed on the work item.
 Historical provenance ("we added this in YOK-X") belongs in commit messages,
 not in code or docs.
 
@@ -16,7 +16,7 @@ CLI usage::
     python3 -m yoke_core.domain.lint_yok_n_cruft [PATH ...]
     python3 -m yoke_core.domain.lint_yok_n_cruft --json
 
-The scanner core (scope rules, exemptions, ticket-status lookup,
+The scanner core (scope rules, exemptions, work-item status lookup,
 allowed-context predicate, and :func:`scan` itself) lives in
 :mod:`yoke_core.domain.lint_yok_n_cruft_scan`. This module owns the CLI
 parser, output formatter, and the public re-export of the data classes /
@@ -54,15 +54,15 @@ def _resolve_repo_root() -> Path:
 def _emit_json(result: LintResult, repo_root: Path) -> None:
     payload = {
         "scanned_files": result.scanned_files,
-        "ticket_lookups": result.ticket_lookups,
-        "unknown_tickets": sorted(result.unknown_tickets),
+        "work_item_lookups": result.work_item_lookups,
+        "unknown_work_items": sorted(result.unknown_work_items),
         "hits": [
             {
                 "path": str(h.path.resolve().relative_to(repo_root.resolve()))
                 if h.path.resolve().is_relative_to(repo_root.resolve())
                 else str(h.path),
                 "line": h.line,
-                "ticket": h.ticket,
+                "work_item": h.work_item,
                 "status": h.status,
                 "context": h.context,
             }
@@ -86,7 +86,10 @@ def _emit_human(result: LintResult, repo_root: Path, *, quiet_pass: bool) -> Non
             rel = hit.path.resolve().relative_to(repo_root.resolve())
         except ValueError:
             rel = hit.path
-        print(f"{rel}:{hit.line}: {hit.ticket} (status={hit.status}) — {hit.context}")
+        print(
+            f"{rel}:{hit.line}: {hit.work_item} "
+            f"(status={hit.status}) — {hit.context}"
+        )
     summary = (
         f"\n{len(result.hits)} cruft reference(s) across {len({h.path for h in result.hits})} "
         f"file(s). Scanned {result.scanned_files} file(s)."
@@ -99,7 +102,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         prog="python3 -m yoke_core.domain.lint_yok_n_cruft",
         description=(
             "Flag historical YOK-N references in live prose surfaces whose "
-            "referenced ticket is done and whose context is not an allowed "
+            "referenced work item is done and whose context is not an allowed "
             "exemption."
         ),
     )

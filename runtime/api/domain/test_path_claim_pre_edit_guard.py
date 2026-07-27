@@ -118,8 +118,7 @@ class TestWorktreeUnresolved:
         )
         assert v.outcome == "deny" and v.failure_mode == "worktree-unresolved"
         n = v.narrative
-        assert "items.worktree" in n and "worktree_preflight" in n
-        assert "yoke_core.cli.db_router items update" in n
+        assert "item_worktrees row" in n and "worktree_preflight" in n
         assert "claims path widen" not in n
 
 

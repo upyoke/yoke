@@ -42,11 +42,13 @@ class TestDispatchRetry:
 
     def test_retry_cycle(self, env):
         """Implementing->reviewing->implementing increments dispatch_attempts."""
-        env.exec_sql("""
-            INSERT INTO epic_tasks
-                (epic_id, task_num, title, worktree, status, dispatch_attempts, github_issue)
-            VALUES (42, 5, 'Retry task', 'feature/retry', 'planned', 0, '#200');
-        """)
+        env.insert_task(
+            "planned",
+            task_num=5,
+            title="Retry task",
+            github_issue="#200",
+            dispatch_attempts=0,
+        )
         env.insert_task("planned")
         env.init_git()
 

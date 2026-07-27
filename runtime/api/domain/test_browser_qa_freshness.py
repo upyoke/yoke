@@ -17,6 +17,7 @@ import pytest
 
 from yoke_core.domain import browser_qa, db_backend
 from yoke_core.domain.browser_qa_test_helpers import (
+    _browser_verdict_assertion,
     _patch_external_deps,
     _run_scenario,
     _seed_item,
@@ -138,9 +139,15 @@ class TestDeployedShaFreshness:
     def test_execute_scenario_blocks_on_sha_mismatch(self, db_path: str) -> None:
         """AC-1/AC-2: execute_scenario hard-blocks when SHA doesn't match."""
         _seed_item(db_path, 500)
-        _seed_requirement(
-            db_path, 500, "browser_smoke",
-            {"base_url": "http://localhost:9999", "steps": [{"action": "navigate"}]},
+        req_id = _seed_requirement(
+            db_path, 500, "browser-check",
+            {
+                "base_url": "http://localhost:9999",
+                "steps": [
+                    {"action": "navigate", "route": "/"},
+                    _browser_verdict_assertion(),
+                ],
+            },
         )
         _seed_ephemeral_env(db_path, "testproj", "YOK-500", deployed_sha="stale_sha")
 
@@ -151,6 +158,7 @@ class TestDeployedShaFreshness:
             result = browser_qa.execute_scenario(
                 item_id=500,
                 project="testproj",
+                requirement_id=req_id,
                 base_url="http://localhost:9999",
                 expected_branch="YOK-500",
                 expected_sha="fresh_sha",
@@ -165,14 +173,21 @@ class TestDeployedShaFreshness:
     def test_execute_scenario_rejects_partial_freshness_inputs(self, db_path: str) -> None:
         """Polish: partial freshness args must fail closed instead of skipping validation."""
         _seed_item(db_path, 502)
-        _seed_requirement(
-            db_path, 502, "browser_smoke",
-            {"base_url": "http://localhost:9999", "steps": [{"action": "navigate"}]},
+        req_id = _seed_requirement(
+            db_path, 502, "browser-check",
+            {
+                "base_url": "http://localhost:9999",
+                "steps": [
+                    {"action": "navigate", "route": "/"},
+                    _browser_verdict_assertion(),
+                ],
+            },
         )
 
         result = browser_qa.execute_scenario(
             item_id=502,
             project="testproj",
+            requirement_id=req_id,
             base_url="http://localhost:9999",
             expected_branch="YOK-502",
         )
@@ -184,8 +199,14 @@ class TestDeployedShaFreshness:
         """Backward compat: omitting expected_branch/sha skips freshness check."""
         _seed_item(db_path, 501)
         _seed_requirement(
-            db_path, 501, "browser_smoke",
-            {"base_url": "http://localhost:9999", "steps": [{"action": "navigate"}]},
+            db_path, 501, "browser-check",
+            {
+                "base_url": "http://localhost:9999",
+                "steps": [
+                    {"action": "navigate", "route": "/"},
+                    _browser_verdict_assertion(),
+                ],
+            },
         )
 
         result = _run_scenario(
@@ -194,39 +215,18 @@ class TestDeployedShaFreshness:
         )
         assert result.verdict == "pass"
 
-    def test_main_forwards_expected_branch_and_sha(self) -> None:
-        """AC-1: CLI wires expected freshness args into execute_scenario."""
-        with mock.patch(
-            "yoke_core.domain.browser_qa.execute_scenario",
-            return_value=browser_qa.ScenarioResult(),
-        ) as mock_execute:
-            exit_code = browser_qa.main([
-                "--item-id", "100",
-                "--project", "test",
-                "--expected-branch", "YOK-100",
-                "--expected-sha", "abc123",
-            ])
-
-        assert exit_code == 0
-        mock_execute.assert_called_once_with(
-            item_id=100,
-            project="test",
-            base_url="",
-            expected_branch="YOK-100",
-            expected_sha="abc123",
-        )
-
     def test_execute_scenario_records_code_identity_in_raw_result(
         self, tmp_path: Path, db_path: str
     ) -> None:
         """Browser QA runs persist the branch/SHA they executed against."""
         _seed_item(db_path, 503)
         req_id = _seed_requirement(
-            db_path, 503, "browser_smoke",
+            db_path, 503, "browser-check",
             {
                 "base_url": "http://localhost:9999",
                 "steps": [
                     {"action": "navigate", "route": "/"},
+                    _browser_verdict_assertion(),
                     {"action": "screenshot", "capture": True, "label": "home"},
                 ],
             },
@@ -248,6 +248,7 @@ class TestDeployedShaFreshness:
             result = browser_qa.execute_scenario(
                 item_id=503,
                 project="testproj",
+                requirement_id=req_id,
                 base_url="http://localhost:9999",
                 expected_branch="YOK-503",
                 expected_sha="sha503",

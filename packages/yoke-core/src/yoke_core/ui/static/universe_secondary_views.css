@@ -1,0 +1,270 @@
+@import url("./universe_secondary_activity.css");
+@import url("./universe_sessions.css");
+@import url("./universe_overview_legacy.css");
+
+/* Secondary universe screens: dense facts, cards, timelines and progress. */
+
+.universe-app-root .table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+}
+
+.universe-app-root .table-wrap > table {
+  min-width: 100%;
+}
+
+.universe-app-root .panel-body:has(> .table-wrap) {
+  padding: 0;
+}
+
+.universe-app-root .panel-body:has(> .table-wrap) > :not(.table-wrap) {
+  margin: 13px 15px;
+}
+
+.universe-app-root .metric-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+  gap: 1px;
+  margin-bottom: 18px;
+  overflow: hidden;
+  border: 1px solid var(--yoke-border);
+  border-radius: var(--yoke-radius);
+  background: var(--yoke-border);
+}
+
+.universe-app-root .metric {
+  min-width: 0;
+  padding: 13px 15px;
+  background: var(--yoke-surface);
+}
+
+.universe-app-root .metric strong,
+.universe-app-root .metric span {
+  display: block;
+}
+
+.universe-app-root .metric strong {
+  font: 650 22px/1 var(--yoke-font-sans);
+  color: var(--yoke-ink);
+}
+
+.universe-app-root .metric span {
+  margin-top: 5px;
+  color: var(--yoke-muted);
+  font-size: 11px;
+  letter-spacing: .055em;
+  text-transform: uppercase;
+}
+
+.universe-app-root .metric[data-tone="bad"] strong { color: var(--yoke-crit); }
+.universe-app-root .metric[data-tone="warn"] strong { color: var(--yoke-warn); }
+.universe-app-root .metric[data-tone="good"] strong { color: var(--yoke-good); }
+
+.universe-app-root .workflow-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border: 0;
+  border-radius: 5px;
+  background: var(--yoke-surface-2);
+  color: var(--yoke-ink-2);
+  font-size: 10.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.universe-app-root .stage-progress {
+  display: inline;
+}
+
+.universe-app-root .stage-progress-label {
+  margin-left: 7px;
+  color: var(--yoke-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.universe-app-root .stage-progress-track {
+  display: inline-flex;
+  gap: 2px;
+  vertical-align: 0;
+}
+
+.universe-app-root .stage-progress-segment {
+  display: block;
+  width: 9px;
+  height: 5px;
+  flex: 0 0 auto;
+  border-radius: 2px;
+  background: var(--yoke-surface-2);
+}
+
+.universe-app-root .stage-progress-segment.is-complete {
+  background: var(--yoke-accent);
+}
+
+/* Frontier is the steering surface from the prototype: four independent
+   facts, then a ranked runnable table and a blocked-with-reasons table.
+   Commands stay copyable text; the browser never promises to run a skill. */
+.universe-app-root .frontier-stats > .metric-strip {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 22px;
+  overflow: visible;
+  border: 0;
+  background: transparent;
+}
+
+.universe-app-root .frontier-stats .metric {
+  padding: 13px 15px;
+  border: 1px solid var(--yoke-border);
+  border-radius: var(--yoke-radius);
+}
+
+.universe-app-root .frontier-session-count {
+  display: inline;
+  margin-left: 4px;
+  color: var(--yoke-muted);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.universe-app-root .frontier-panel-detail {
+  margin-left: auto;
+  color: var(--yoke-muted);
+  font-size: 11.5px;
+  font-weight: 400;
+}
+
+.universe-app-root .frontier-ready-panel .frontier-table {
+  min-width: 100%;
+}
+
+.universe-app-root .frontier-blocked-panel .frontier-table {
+  min-width: 100%;
+}
+
+.universe-app-root .frontier-ready-panel .frontier-table th:nth-child(5) {
+  width: 96px;
+}
+
+.universe-app-root .frontier-rank-cell {
+  width: 30px;
+  padding-right: 0;
+}
+
+.universe-app-root .frontier-rank {
+  display: inline-block;
+  width: 26px;
+  color: var(--yoke-muted);
+  font: 600 12px/1 var(--yoke-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.universe-app-root .frontier-item {
+  min-width: 0;
+}
+
+.universe-app-root .frontier-item-title {
+  display: block;
+  color: var(--yoke-ink);
+  font-weight: 550;
+}
+
+.universe-app-root .frontier-item-ref {
+  display: block;
+  margin-top: 2px;
+  color: var(--yoke-muted);
+  font-size: 11px;
+}
+
+.universe-app-root .frontier-project {
+  color: var(--yoke-muted);
+}
+
+.universe-app-root .frontier-why {
+  color: var(--yoke-muted);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+.universe-app-root .frontier-command-cell {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.universe-app-root code.frontier-command {
+  color: var(--yoke-ink-2);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+.universe-app-root .frontier-waiting-on {
+  color: var(--yoke-muted);
+  white-space: nowrap;
+}
+
+.universe-app-root .frontier-empty {
+  padding: 22px 15px;
+  font-style: normal;
+}
+
+.universe-app-root .session-card {
+  min-width: 0;
+  padding: 13px 14px;
+  border: 1px solid var(--yoke-border);
+  border-radius: var(--yoke-radius);
+  background: var(--yoke-surface);
+  transition: box-shadow .14s ease, border-color .14s ease;
+}
+
+.universe-app-root .session-harness {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.universe-app-root .session-harness.h-claude {
+  background: var(--yoke-h-claude);
+}
+
+.universe-app-root .session-harness.h-codex {
+  background: var(--yoke-h-codex);
+}
+
+@media (max-width: 760px) {
+  .universe-app-root .frontier-stats > .metric-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 18px;
+  }
+  .universe-app-root .frontier-view .table-wrap {
+    touch-action: pan-x;
+  }
+  .universe-app-root .overview-state-grid { grid-template-columns: repeat(3, 1fr); }
+  .universe-app-root .overview-state:nth-child(3) { border-right: 0; }
+  .universe-app-root .overview-state:nth-child(-n+3) { border-bottom: 1px solid var(--yoke-border); }
+  .universe-app-root .momentum-grid { grid-template-columns: 1fr; }
+  .universe-app-root .project-settings-grid { grid-template-columns: 1fr; }
+  .universe-app-root .sessions-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 18px;
+  }
+  .universe-app-root .session-grid { grid-template-columns: 1fr; }
+  .universe-app-root .event-entry { grid-template-columns: 14px minmax(0, 1fr); }
+  .universe-app-root .event-time {
+    grid-column: 2;
+    text-align: left;
+  }
+  .universe-app-root .event-rail { grid-column: 1; grid-row: 1 / span 2; }
+}

@@ -45,7 +45,6 @@ def insert_item(
     blocked_reason: Optional[str] = None,
     github_issue: Optional[str] = None,
     deployed_to: Optional[str] = None,
-    worktree: Optional[str] = None,
     body: Optional[str] = None,
     created_at: Optional[str] = None,
     updated_at: Optional[str] = None,
@@ -89,16 +88,16 @@ def insert_item(
                 id, title, workflow_id, workflow_version_id,
                 status, priority, flow,
                 rework_count, frozen, blocked, blocked_reason,
-                github_issue, deployed_to, worktree,
+                github_issue, deployed_to,
                 created_at, updated_at, source,
                 project_id, project_sequence, deployment_flow
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 item_id, title, workflow_id, workflow_version_id,
                 status, priority, flow,
                 rework_count, frozen, blocked, blocked_reason,
-                github_issue, deployed_to, worktree,
+                github_issue, deployed_to,
                 created_at, updated_at, source,
                 project_identity.id, project_sequence, deployment_flow,
             ),

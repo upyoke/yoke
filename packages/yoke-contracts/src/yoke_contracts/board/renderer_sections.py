@@ -15,7 +15,7 @@ from yoke_contracts.board.sections_render import EpicTaskRow
 
 
 # Glyphs + labels are owned by board_emoji (stats box shares the same bucket
-# vocabulary). "Active" and "Frozen" drop the legacy "Tickets"/"Freezer" wording.
+# vocabulary). "Active" and "Frozen" drop the legacy backlog-label wording.
 _SECTIONS = [
     ("active", E.ACTIVE_LABEL, E.ACTIVE_EMOJI),
     ("blocked", E.BLOCKED_LABEL, E.BLOCKED_EMOJI),

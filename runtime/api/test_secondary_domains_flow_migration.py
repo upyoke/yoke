@@ -31,7 +31,7 @@ def _seed_yoke_capability(conn, models=("primary",)):
         "CREATE TABLE IF NOT EXISTS project_capabilities ("
         "id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL REFERENCES projects(id), "
         "type TEXT NOT NULL, "
-        "config TEXT NOT NULL, settings TEXT DEFAULT '{}', "
+        "settings TEXT DEFAULT '{}', "
         "verified_at TEXT, created_at TEXT NOT NULL, "
         "UNIQUE(project_id, type))"
     )
@@ -71,12 +71,12 @@ def _seed_yoke_capability(conn, models=("primary",)):
         }, sort_keys=True)
     conn.execute(
         "INSERT INTO project_capabilities "
-        "(project_id, type, config, settings, created_at) "
-        "VALUES (%s, %s, %s, %s, %s) "
+        "(project_id, type, settings, created_at) "
+        "VALUES (%s, %s, %s, %s) "
         "ON CONFLICT(project_id, type) DO UPDATE SET "
-        "config=excluded.config, settings=excluded.settings, "
+        "settings=excluded.settings, "
         "created_at=excluded.created_at",
-        (1, "migration_model", raw, raw, "2026-04-23T00:00:00Z"),
+        (1, "migration_model", raw, "2026-04-23T00:00:00Z"),
     )
     conn.commit()
 

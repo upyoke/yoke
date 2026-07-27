@@ -165,7 +165,7 @@ class TestEventEmission:
 
     def test_event_emission_failure_rolls_back_amendment(self, db_conn):
         insert_item(db_conn, id=602, status="refining-idea")
-        db_conn.execute("DROP TABLE events")
+        db_conn.execute("DROP TABLE events CASCADE")
         with pytest.raises(DbClaimAmendmentError) as exc_info:
             amend(
                 602,

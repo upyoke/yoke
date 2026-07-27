@@ -11,6 +11,7 @@ import pytest
 
 from yoke_core.domain import epic
 from runtime.api.conftest import insert_item
+from runtime.api.fixtures.backlog import insert_item_worktree
 
 TEST_EPIC_ID = 42
 TEST_EPIC_REF = f"YOK-{TEST_EPIC_ID}"
@@ -84,8 +85,12 @@ class TestDispatchChains:
         chain = epic.dispatch_chain_get(test_db, "42", "feature-wt1")
         fields = chain.split("|")
         assert fields[1] == "42"  # epic_id
-        assert fields[2] == "feature-wt1"  # worktree
-        assert fields[3] == TEST_EPIC_WORKTREE_PATH  # worktree_path
+        lane = test_db.execute(
+            "SELECT id, path FROM item_worktrees "
+            "WHERE item_id=42 AND branch='feature-wt1'"
+        ).fetchone()
+        assert fields[2] == str(lane["id"])
+        assert lane["path"] == TEST_EPIC_WORKTREE_PATH
 
     def test_get_not_found(self, test_db):
         with pytest.raises(LookupError, match="not found"):
@@ -96,7 +101,7 @@ class TestDispatchChains:
         epic.dispatch_chain_upsert(test_db, "42", "wt1", data)
         epic.dispatch_chain_update(test_db, "42", "wt1", "current_task", "2")
         chain = epic.dispatch_chain_get(test_db, "42", "wt1")
-        assert "2" in chain.split("|")[6]  # current_task
+        assert chain.split("|")[5] == "2"  # current_task
 
     def test_update_invalid_field(self, test_db):
         data = {"queue": [1, 2]}
@@ -141,10 +146,17 @@ class TestDispatchChains:
     def test_csv_queue_fallback(self, test_db):
         """Queue stored as CSV string instead of JSON array."""
         p = _p(test_db)
+        lane = insert_item_worktree(
+            test_db,
+            item_id=TEST_EPIC_ID,
+            branch="wt-csv",
+            lane_role="worker",
+        )
         test_db.execute(
-            "INSERT INTO epic_dispatch_chains (epic_id, worktree, queue, current_index, current_task) "
+            "INSERT INTO epic_dispatch_chains "
+            "(epic_id, item_worktree_id, queue, current_index, current_task) "
             f"VALUES ({p}, {p}, {p}, {p}, {p})",
-            ("42", "wt-csv", "10,20,30", 0, "10"),
+            ("42", lane["id"], "10,20,30", 0, "10"),
         )
         test_db.commit()
         result = epic.dispatch_chain_advance(test_db, "42", "wt-csv")

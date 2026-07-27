@@ -74,11 +74,14 @@ AWS access keys are not a supported GitHub Actions credential path.
 
 Yoke has three layers of protection against this anti-pattern:
 
-1. **PreToolUse Write hook** (`lint-write-path.sh`): Blocks Write tool calls that would create workflow YAML files containing `secrets.*` in `if:` conditions.
+1. **PreToolUse Write policy** (`yoke_core.domain.lint_write_path`): Blocks
+   file writes that would create workflow YAML containing `secrets.*` in
+   `if:` conditions.
 
 2. **PreToolUse Bash hook** (`yoke_core.domain.lint_db_cmd`, legacy stable check id `lint-sqlite-cmd`, Check 8): Blocks Bash commands that write workflow content with this pattern via heredocs, cat, tee, or redirects.
 
-3. ~~Standalone lint script~~ (`lint-workflow-secrets.sh`): Deleted. Superseded by `lint-write-path.sh` Check 2.
+3. The same Python policy is the single owner for this write-side check; there
+   is no separate workflow-secret lint script to keep in sync.
 
 ### Safe Uses of secrets.*
 

@@ -1,4 +1,4 @@
-"""db_mutation_gate — cross-ticket overlap detection (pure-function tests).
+"""db_mutation_gate — cross-item overlap detection (pure-function tests).
 
 The original module covered every flavor of gate. It is now split across
 sibling files so each authored file stays under the 350-line limit. The joint

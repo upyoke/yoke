@@ -41,7 +41,7 @@ CREATE TABLE items (
     priority TEXT DEFAULT 'medium',
     flow TEXT, rework_count INTEGER DEFAULT 0,
     frozen INTEGER DEFAULT 0, github_issue INTEGER,
-    deployed_to TEXT, worktree TEXT, merged_at TEXT,
+    deployed_to TEXT, merged_at TEXT,
     created_at TEXT, updated_at TEXT, source TEXT,
     deployment_flow TEXT, deploy_stage TEXT,
     UNIQUE(project_id, project_sequence)

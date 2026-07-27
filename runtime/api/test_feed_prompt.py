@@ -29,7 +29,7 @@ class TestFeedSkillContract:
         text = _read(_FEED_DIR / "SKILL.md")
         assert "[YOK-N ...]" in text
         assert "_scope_ids" in text
-        assert "stale-ticket refresh" in text
+        assert "stale-work-item refresh" in text
 
     def test_gather_reads_structured_fields_and_recent_landings(self):
         text = _read(_FEED_DIR / "gather.md")
@@ -40,14 +40,14 @@ class TestFeedSkillContract:
         assert 'git log --oneline -30' in text
         assert 'git log --oneline --since="3 days ago"' in text
         assert "git diff <commit>~1..<commit> --stat" in text
-        assert "These tickets need updating because X landed and changed Y." in text
+        assert "These work items need updating because X landed and changed Y." in text
 
     def test_decide_requires_recent_landing_update_assessment(self):
         text = _read(_FEED_DIR / "decide.md")
         assert "_items_to_update" in text
         assert "Did any recently landed work change a file" in text
         assert "_decision_outcomes" in text
-        assert "Split/materialization work was suppressed by --no-new-tickets." in text
+        assert "Split/materialization work was suppressed by --no-new-items." in text
 
     def test_materialize_updates_existing_items_via_structured_fields(self):
         text = _read(_FEED_DIR / "materialize.md")
@@ -65,7 +65,7 @@ class TestFeedSkillContract:
     def test_summarize_reports_manual_feed_sections(self):
         text = _read(_FEED_DIR / "summarize.md")
         assert "What landed and what it changed:" in text
-        assert "Tickets that need updating:" in text
+        assert "Work items that need updating:" in text
         assert "Decision outcomes:" in text
         assert "Dependency rows added/updated/removed:" in text
         assert "Coding waves:" in text

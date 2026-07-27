@@ -168,7 +168,7 @@ class TestExecuteUpdate:
         assert _item_field(tmp_db, 10, "status") == "reviewing-implementation"
 
     def test_release_blocks_browser_pass_against_stale_sha(self, tmp_db, tmp_path):
-        _seed_item(tmp_db, id=10, status="implemented", worktree="YOK-10", project="testproj")
+        _seed_item(tmp_db, id=10, status="implemented", project="testproj")
         req_id = _seed_qa_requirement(
             tmp_db,
             item_id=10,

@@ -82,11 +82,6 @@ class TestDoctorRunScope(unittest.TestCase):
                 fn=_record("checkout"),
             ),
             HealthCheck(
-                slug="installer-live-tui-import-boundary",
-                name="Installer source HC",
-                fn=_record("installer"),
-            ),
-            HealthCheck(
                 slug="platform-namespace-boundary",
                 name="Platform source HC",
                 fn=_record("platform"),

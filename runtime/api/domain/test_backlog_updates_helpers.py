@@ -189,7 +189,7 @@ class TestProseVsClaimGate:
         item_id = 31
         insert_item(
             conn, id=item_id, status="refining-idea",
-            spec="The ticket will ALTER TABLE items to add a new column.",
+            spec="The work item will ALTER TABLE items to add a new column.",
             db_mutation_profile='{"state":"none"}',
         )
         outcome = _run_prose_vs_claim_check(item_id=item_id, db_path=db_path)

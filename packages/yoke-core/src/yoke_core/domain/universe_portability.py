@@ -20,6 +20,16 @@ from psycopg import conninfo, pq, sql
 
 from yoke_core.domain import postgres_binaries, postgres_cluster, universe_archive_output
 from yoke_core.domain.source_authority_connect_policy import FENCE_STATE_SCHEMA
+from yoke_core.domain.universe_portability_content_contract import (
+    ARCHIVE_COLUMN_RENAMES as _ARCHIVE_COLUMN_RENAMES,
+    ARCHIVE_FORBIDDEN_SEQUENCE_DATA as _ARCHIVE_FORBIDDEN_SEQUENCE_DATA,
+    ARCHIVE_FORBIDDEN_TABLE_DATA as _ARCHIVE_FORBIDDEN_TABLE_DATA,
+    ARCHIVE_OMITTABLE_TARGET_COLUMNS as _ARCHIVE_OMITTABLE_TARGET_COLUMNS,
+    ARCHIVE_OMITTABLE_TARGET_SEQUENCES as _ARCHIVE_OMITTABLE_TARGET_SEQUENCES,
+    ARCHIVE_OMITTABLE_TARGET_TABLES as _ARCHIVE_OMITTABLE_TARGET_TABLES,
+    USER_CONTENT_COUNT_SQL as _USER_CONTENT_COUNT_SQL,
+    USER_CONTENT_TABLES,
+)
 
 
 _log = logging.getLogger("yoke.universe.portability")
@@ -136,98 +146,6 @@ _DUMPED_BY_RE = re.compile(r"^;\s+Dumped by pg_dump version:\s+(.+)$", re.M)
 # trusted schema owns every object and column; this manifest names only
 # previously shipped, lossless schema evolutions that the loader may bridge.
 # Any unlisted table or column drift remains a compatibility error.
-_ARCHIVE_OMITTABLE_TARGET_TABLES = frozenset(
-    {"capability_secrets", "strategy_doc_revisions"})
-_ARCHIVE_OMITTABLE_TARGET_SEQUENCES = frozenset(
-    {"capability_secrets_id_seq", "strategy_doc_revisions_id_seq"})
-_ARCHIVE_FORBIDDEN_TABLE_DATA = frozenset({"capability_secrets"})
-_ARCHIVE_FORBIDDEN_SEQUENCE_DATA = frozenset({"capability_secrets_id_seq"})
-_ARCHIVE_OMITTABLE_TARGET_COLUMNS = {
-    "project_github_repo_bindings": frozenset(
-        {"last_sync_at", "last_sync_outcome", "last_sync_error"}),
-}
-_ARCHIVE_COLUMN_RENAMES = {("qa_artifacts", "storage_path"): "artifact_handle"}
-
-# A freshly born universe has identity, role, permission, and bootstrap event
-# rows.  These tables represent user-created work; any row makes the hosted
-# target non-empty and therefore ineligible for overwrite.
-USER_CONTENT_TABLES: tuple[str, ...] = (
-    "actor_invites",
-    "actor_project_roles",
-    "api_token_audit",
-    "api_tokens",
-    "capability_secrets",
-    "caveat_dispositions",
-    "coordination_leases",
-    "deployment_run_items",
-    "deployment_run_qa",
-    "projects",
-    "items",
-    "item_activity_days",
-    "item_dependencies",
-    "item_sections",
-    "item_status_transitions",
-    "epic_dispatch_chains",
-    "epic_progress_notes",
-    "epic_task_files",
-    "epic_tasks",
-    "release_entries",
-    "qa_artifacts",
-    "qa_requirements",
-    "qa_runs",
-    "strategy_docs",
-    "strategy_doc_revisions",
-    "strategy_checkpoints",
-    "strategize_landed_carry",
-    "deployment_runs",
-    "ephemeral_environments",
-    "environments",
-    "events",
-    "function_call_ledger",
-    "github_app_installations",
-    "github_workflow_dispatch_intents",
-    "harness_sessions",
-    "merge_locks",
-    "ouroboros_entries",
-    "path_claim_amendments",
-    "path_claim_overrides",
-    "path_claim_targets",
-    "path_claims",
-    "path_context_values",
-    "path_integrity_failures",
-    "path_integrity_fixtures",
-    "path_integrity_repairs",
-    "path_integrity_runs",
-    "path_moves",
-    "path_snapshot_entries",
-    "path_snapshot_symlink_facts",
-    "path_snapshot_sync_upload_chunks",
-    "path_snapshot_sync_uploads",
-    "path_snapshots",
-    "path_targets",
-    "project_capabilities",
-    "project_github_repo_bindings",
-    "project_onboarding_checklist_rows",
-    "project_onboarding_runs",
-    "session_tool_calls",
-    "shepherd_verdicts",
-    "sites",
-    "web_sessions",
-    "work_claims",
-    "wrapup_reports",
-)
-_USER_CONTENT_COUNT_SQL = {
-    # Hosted birth admits the sole founding admin through the normal invite
-    # ladder, leaving exactly one accepted receipt. Pending/revoked invites or
-    # any additional accepted identity are user-created work.
-    "actor_invites": (
-        "SELECT COUNT(*) FILTER (WHERE status <> 'accepted') + "
-        "GREATEST(COUNT(*) FILTER (WHERE status = 'accepted') - 1, 0) "
-        "FROM actor_invites"
-    ),
-}
-
-
 class UniversePortabilityError(RuntimeError):
     """A portable archive operation was refused or failed safely."""
 

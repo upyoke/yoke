@@ -23,16 +23,13 @@ Per-project: the target project resolves like every strategy handler
 (``target.project_id`` → session inference → typed error), and every
 read, CAS write, claim check, and re-render is scoped to that project.
 
-Claim interplay: ingest never *requires* the STRATEGIZE/FEED process
-claim (no lock ceremony for an editor fix), but it BOUNCES when a
-*foreign* session holds the project's live claim — a strategize/feed
-session owns that project's write window, and racing it from a file
-edit is exactly the lost update the claim exists to prevent. A direct
-terminal ingest with no harness session has no matching holder identity,
-so any live claim is foreign; the claim holder itself may ingest. With
-replace claim-gated and CAS-checked and
-ingest foreign-claim-refused and CAS-checked, no pair of writers can
-silently interleave. Events share the ``StrategyDocReplaced`` name with
+Claim interplay: an execution document with an active item-owned claim
+may only be ingested by the session holding its owning Blitz item's
+live work claim. Other changed documents do not require a STRATEGIZE/
+FEED process claim, but ingest bounces when a foreign session holds the
+project's live strategy window. The item-owned gate therefore protects
+the execution document while the process gate and CAS protect ordinary
+corpus edits. Events share the ``StrategyDocReplaced`` name with
 ``source=ingest`` (replace emits ``source=replace``).
 """
 
@@ -56,6 +53,10 @@ from yoke_core.domain.handlers.strategy_docs_project import (
     resolve_request_project,
 )
 from yoke_core.domain.strategy_docs_header import StrategyHeaderError
+from yoke_core.domain.strategy_execution import (
+    StrategyDocClaimAuthorizationError,
+    authorize_strategy_doc_write,
+)
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionError,
@@ -131,22 +132,6 @@ def handle_ingest(request: FunctionCallRequest) -> HandlerOutcome:
             project, perr = resolve_request_project(conn, request)
             if perr is not None:
                 return perr
-            if not payload.dry_run:
-                holder = foreign_strategy_claim_holder(
-                    conn, session_id, project.slug,
-                )
-                if holder is not None:
-                    return _err(
-                        "ingest_blocked_by_live_process_claim",
-                        "a strategize/feed session currently owns project "
-                        f"{project.slug!r}'s strategy write window (session "
-                        f"{holder!r} holds the live STRATEGIZE/FEED process "
-                        "work-claim) — ingesting file edits under it risks "
-                        "the lost update the claim exists to prevent. Wait "
-                        "for that session to finish (or release its claim), "
-                        "re-render to pick up its writes, re-apply your "
-                        "edits, then ingest again.",
-                    )
             plans = _ingest.plan_ingest(
                 conn, project_id=project.id,
                 files=[entry.model_dump() for entry in payload.files],
@@ -154,14 +139,60 @@ def handle_ingest(request: FunctionCallRequest) -> HandlerOutcome:
             if payload.dry_run:
                 docs = _ingest.dry_run_report(plans)
             else:
+                unclaimed_change = False
+                try:
+                    for plan in plans:
+                        if plan.changed and not authorize_strategy_doc_write(
+                            conn,
+                            project_id=project.id,
+                            slug=plan.slug,
+                            session_id=session_id,
+                        ):
+                            unclaimed_change = True
+                except StrategyDocClaimAuthorizationError as exc:
+                    return _err("strategy_document_claim_denied", str(exc))
+                if unclaimed_change:
+                    holder = foreign_strategy_claim_holder(
+                        conn, session_id, project.slug,
+                    )
+                    if holder is not None:
+                        return _err(
+                            "ingest_blocked_by_live_process_claim",
+                            "a strategize/feed session currently owns project "
+                            f"{project.slug!r}'s strategy write window (session "
+                            f"{holder!r} holds the live STRATEGIZE/FEED process "
+                            "work-claim) — ingesting file edits under it risks "
+                            "the lost update the claim exists to prevent. Wait "
+                            "for that session to finish (or release its claim), "
+                            "re-render to pick up its writes, re-apply your "
+                            "edits, then ingest again.",
+                        )
                 actor_id = _numeric_actor_id(request.actor.actor_id)
                 docs = _ingest.execute_ingest(
-                    conn, plans, project_id=project.id, actor_id=actor_id,
+                    conn,
+                    plans,
+                    project_id=project.id,
+                    actor_id=actor_id,
+                    session_id=session_id,
                 )
                 # All docs in one ingest share the requesting actor; resolve
                 # its display label once (inside the live conn) so the
                 # write-back header matches render_file_map's output.
                 ingest_label = actor_render_label(conn, actor_id)
+                if actor_id is not None:
+                    from yoke_core.domain.strategy_review_requests import (
+                        ensure_current_strategy_revision_review,
+                    )
+
+                    for doc in docs:
+                        if doc["status"] == "written":
+                            ensure_current_strategy_revision_review(
+                                conn,
+                                project_id=project.id,
+                                slug=str(doc["slug"]),
+                                originator_actor_id=actor_id,
+                                session_id=session_id,
+                            )
     except _docs.UnknownStrategyDocError as exc:
         return _err("unknown_slug", str(exc))
     except _docs.StrategyDocMissingError as exc:

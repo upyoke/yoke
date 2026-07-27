@@ -44,44 +44,51 @@ def _terminal_owner(
     marker = _p(conn)
     owners: set[_Owner] = set()
     try:
-        rows = conn.execute(
-            f"SELECT id, status FROM items WHERE worktree = {marker}",
-            (branch,),
-        ).fetchall()
-        for row in rows:
-            if str(_row_value(row, "status", 1)) not in _ITEM_TERMINAL:
-                return None
-            owners.add(_Owner("item", int(_row_value(row, "id", 0))))
-
-        rows = conn.execute(
-            "SELECT epic_id, task_num, status FROM epic_tasks "
-            f"WHERE worktree = {marker}",
-            (branch,),
-        ).fetchall()
-        for row in rows:
-            if str(_row_value(row, "status", 2)) not in TASK_TERMINAL_SUCCESS:
-                return None
-            owners.add(
-                _Owner(
-                    "epic_task",
-                    int(_row_value(row, "epic_id", 0)),
-                    int(_row_value(row, "task_num", 1)),
-                )
-            )
-
+        where = f"iw.branch = {marker}"
+        params: tuple[Any, ...] = (branch,)
         if path is not None:
-            rows = conn.execute(
-                "SELECT edc.epic_id, i.status FROM epic_dispatch_chains edc "
-                "JOIN items i ON i.id = edc.epic_id "
-                f"WHERE edc.worktree = {marker} OR edc.worktree_path = {marker}",
-                (branch, str(path)),
+            where += f" OR iw.path = {marker}"
+            params = (branch, str(path))
+        rows = conn.execute(
+            "SELECT iw.id AS lane_id, iw.item_id, i.status "
+            "FROM item_worktrees iw JOIN items i ON i.id = iw.item_id "
+            f"WHERE {where}",
+            params,
+        ).fetchall()
+        for row in rows:
+            lane_id = int(_row_value(row, "lane_id", 0))
+            item_id = int(_row_value(row, "item_id", 1))
+            task_rows = conn.execute(
+                "SELECT epic_id, task_num, status FROM epic_tasks "
+                f"WHERE item_worktree_id = {marker}",
+                (lane_id,),
             ).fetchall()
-            for row in rows:
-                if str(_row_value(row, "status", 1)) not in _ITEM_TERMINAL:
+            if not task_rows:
+                if str(_row_value(row, "status", 2)) not in _ITEM_TERMINAL:
+                    return None
+                owners.add(_Owner("item", item_id))
+                continue
+            for task_row in task_rows:
+                if (
+                    str(_row_value(task_row, "status", 2))
+                    not in TASK_TERMINAL_SUCCESS
+                ):
                     return None
                 owners.add(
-                    _Owner("item", int(_row_value(row, "epic_id", 0)))
+                    _Owner(
+                        "epic_task",
+                        int(_row_value(task_row, "epic_id", 0)),
+                        int(_row_value(task_row, "task_num", 1)),
+                    )
                 )
+        if not rows:
+            return None
+        if any(owner.item_id not in {
+            int(_row_value(row, "item_id", 1)) for row in rows
+        } for owner in owners):
+            # A task link whose parent disagrees with the universal lane owner
+            # is corrupt; pruning must preserve it for diagnosis.
+            return None
     except Exception:  # noqa: BLE001 - missing/stale DB shape means preserve
         return None
     return next(iter(owners)) if len(owners) == 1 else None

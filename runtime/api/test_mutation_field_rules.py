@@ -27,10 +27,6 @@ from yoke_core.domain.mutations import (
 )
 from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
 
-TEST_ITEM_ID = 42
-TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"
-
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -287,16 +283,14 @@ class TestPrepareUpdateBasic:
         expected = {
             "status", "frozen", "blocked", "blocked_reason",
             "priority", "project", "deployment_flow", "deployed_to", "title",
-            "worktree",
         }
         assert SUPPORTED_UPDATE_FIELDS == expected
 
-    def test_worktree_update_can_clear_pointer(self):
-        item = _make_item(worktree="YOK-1215")
+    def test_worktree_update_is_not_a_scalar_mutation(self):
+        item = _make_item()
         result = prepare_update(item=item, field_name="worktree", value="")
-        assert result.success is True
-        assert result.field_writes["worktree"] == ""
-        assert "updated_at" in result.field_writes
+        assert result.success is False
+        assert result.error_code == "UNSUPPORTED_FIELD"
 
     def test_title_update_valid(self):
         item = _make_item()

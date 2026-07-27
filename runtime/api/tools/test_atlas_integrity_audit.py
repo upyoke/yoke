@@ -63,10 +63,49 @@ class TestTopLevelShape:
     def test_yoke_cli_has_count_and_rows(self, report: dict) -> None:
         sc = report["yoke_cli"]
         assert sc["count"] >= 1
+        assert sum(sc["by_dispatch_kind"].values()) == sc["count"]
         for row in sc["rows"]:
             assert row["cli_form"].startswith("yoke ")
             assert "." in row["function_id"]
             assert row["family"] == row["function_id"].split(".", 1)[0]
+            assert row["dispatch_kind"] in {"dispatcher", "client_local"}
+        sessions_init = next(
+            row for row in sc["rows"] if row["function_id"] == "sessions.init"
+        )
+        assert sessions_init["dispatch_kind"] == "client_local"
+
+    def test_cli_dispatch_counts_match_tracker_dispositions(
+        self, report: dict
+    ) -> None:
+        cli_rows = report["yoke_cli"]["rows"]
+        tracker_rows = report["operation_tracker"]["rows"]
+        dispatcher_forms = {
+            row["cli_form"]
+            for row in cli_rows
+            if row["dispatch_kind"] == "dispatcher"
+        }
+        client_local_forms = {
+            row["cli_form"]
+            for row in cli_rows
+            if row["dispatch_kind"] == "client_local"
+        }
+        wrapped_forms = {
+            row["shell_form"]
+            for row in tracker_rows
+            if row["status"] == "wrapped"
+        }
+        permanent_forms = {
+            row["shell_form"]
+            for row in tracker_rows
+            if row["status"] == "permanent"
+        }
+
+        assert wrapped_forms == dispatcher_forms
+        assert client_local_forms <= permanent_forms
+        assert report["yoke_cli"]["by_dispatch_kind"] == {
+            "client_local": len(client_local_forms),
+            "dispatcher": len(dispatcher_forms),
+        }
 
     def test_operation_tracker_status_buckets(self, report: dict) -> None:
         ot = report["operation_tracker"]

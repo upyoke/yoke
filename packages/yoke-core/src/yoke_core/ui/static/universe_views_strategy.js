@@ -1,36 +1,176 @@
 import { buildUniverseRoute } from "./universe_navigation.js";
 import {
+  button,
+} from "./workflow_view_primitives.js";
+import {
+  documentReviewView,
+  historyReviewView,
+} from "./strategy_view_primitives.js";
+import {
+  stateActionsPanel,
+  strategyReviewCallout,
+  strategyStats,
+  strategyWriteActivity,
+} from "./strategy_view_summary.js";
+import {
   el,
   loadScopedSection,
   loadSection,
-  renderTable,
   scopeBuckets,
   section,
-  withProjectColumn,
+  statePill,
 } from "./universe_view_support.js";
+import { relativeTime } from "./universe_time.js";
+
+function executionLabel(doc) {
+  if (doc.execution_state === "claimed") {
+    return `claimed · ${doc.execution_item_ref || `item ${doc.execution_item_id}`}`;
+  }
+  return doc.archived ? "archived" : doc.execution_state || "available";
+}
+
+function scopeLabel(scope, slugById) {
+  if (scope === "all") return "across all projects";
+  const projects = scope.map(
+    (projectId) => slugById.get(String(projectId)) || String(projectId),
+  );
+  return `scoped to ${projects.join(" + ")}`;
+}
+
+function strategyCell(documentNode, tag, className, text) {
+  return el(documentNode, tag, className, text);
+}
+
+function eventCameFromControl(event, row) {
+  let target = event.target;
+  while (target && target !== row) {
+    if (["A", "BUTTON", "INPUT", "SELECT", "TEXTAREA", "TIME"].includes(
+      String(target.tagName || "").toUpperCase(),
+    )) return true;
+    target = target.parentNode;
+  }
+  return false;
+}
+
+function makeRowNavigable(documentNode, row, href, label) {
+  row.tabIndex = 0;
+  row.setAttribute("role", "link");
+  row.setAttribute("aria-label", `Open ${label}`);
+  row.addEventListener("click", (event) => {
+    if (eventCameFromControl(event, row)) return;
+    documentNode.defaultView.location.hash = href;
+  });
+  row.addEventListener("keydown", (event) => {
+    if (eventCameFromControl(event, row)) return;
+    if (!["Enter", " "].includes(event.key)) return;
+    if (typeof event.preventDefault === "function") event.preventDefault();
+    documentNode.defaultView.location.hash = href;
+  });
+}
+
+function renderStrategyTable(documentNode, body, docs) {
+  if (docs.length === 0) {
+    body.appendChild(el(
+      documentNode, "p", "empty", "No strategy documents yet.",
+    ));
+    return;
+  }
+  const table = el(documentNode, "table", "items strategy-corpus-table");
+  const head = el(documentNode, "tr");
+  for (const label of [
+    "Doc", "Purpose / ancestry", "Last editor", "Last write",
+    "Revisions", "Execution",
+  ]) {
+    head.appendChild(el(documentNode, "th", null, label));
+  }
+  table.appendChild(head);
+  for (const doc of docs) {
+    const row = el(documentNode, "tr", "strategy-corpus-row");
+    const href = buildUniverseRoute(
+      "strategy", doc.project_id, doc.slug,
+    );
+
+    const slugCell = el(documentNode, "td", "mono");
+    const slug = el(documentNode, "a", "row-link strategy-doc-link", doc.slug);
+    slug.href = href;
+    slugCell.appendChild(slug);
+    if (doc.archived) {
+      const archived = statePill(documentNode, "archived");
+      archived.className += " strategy-archived";
+      slugCell.appendChild(archived);
+    }
+    row.appendChild(slugCell);
+
+    const purpose = el(documentNode, "td");
+    purpose.appendChild(strategyCell(
+      documentNode, "div", "strategy-doc-title", doc.title,
+    ));
+    const ancestry = el(documentNode, "div", "strategy-doc-ancestry");
+    if (doc.parent_slug) {
+      ancestry.appendChild(strategyCell(
+        documentNode, "span", null, "child of ",
+      ));
+      ancestry.appendChild(strategyCell(
+        documentNode, "span", "mono", doc.parent_slug,
+      ));
+    } else {
+      ancestry.textContent = "top-level strategy";
+    }
+    purpose.appendChild(ancestry);
+    row.appendChild(purpose);
+
+    const editor = el(documentNode, "td", "strategy-editor");
+    if (doc.updated_by) {
+      editor.appendChild(strategyCell(
+        documentNode, "span", "strategy-editor-avatar",
+        String(doc.updated_by).slice(0, 1),
+      ));
+      editor.appendChild(strategyCell(
+        documentNode, "span", "strategy-editor-name", doc.updated_by,
+      ));
+    }
+    row.appendChild(editor);
+    const lastWrite = el(documentNode, "td", "strategy-last-write");
+    lastWrite.appendChild(relativeTime(documentNode, doc.updated_at));
+    row.appendChild(lastWrite);
+    row.appendChild(strategyCell(
+      documentNode, "td", "mono strategy-revision-count", doc.revisions,
+    ));
+    const execution = el(documentNode, "td");
+    const state = statePill(
+      documentNode,
+      doc.archived ? "archived" : doc.execution_state || "available",
+      executionLabel(doc),
+    );
+    if (state) execution.appendChild(state);
+    row.appendChild(execution);
+    makeRowNavigable(documentNode, row, href, doc.slug);
+    table.appendChild(row);
+  }
+  body.appendChild(table);
+}
 
 export function renderStrategyView(context, main, scope) {
-  const panel = section(context.document, "Strategy");
-  main.replaceChildren(panel);
+  const documentNode = context.document;
+  const statsHost = el(documentNode, "div", "strategy-stats-host");
+  const callout = strategyReviewCallout(documentNode);
+  const panel = section(documentNode, "Strategy corpus", { showRaw: false });
+  const writesHost = el(documentNode, "div", "strategy-writes-host");
+  main.replaceChildren(statsHost, callout, panel, writesHost);
   const projects = context.projects();
-  // The strategy read refuses without a project, so "all" fans out into one
-  // call per roster project rather than one unfiltered call.
   const buckets = scopeBuckets(scope, projects, true);
   const slugById = new Map(
     projects.map((row) => [String(row.id), row.slug || String(row.id)]),
   );
   loadScopedSection(
-    context, panel,
+    context,
+    panel,
     buckets.map((bucket) => ({
-      functionId: "strategy.doc.list",
+      functionId: "strategy.surface.list",
       payload: {},
-      // Strategy docs are project-scoped through the target, not the payload.
       target: { kind: "global", project_id: String(bucket) },
     })),
     (body, callResults) => {
-      // The read carries no per-row project, so each row wears the label of
-      // the bucket that requested it — never a guess. The bucket id also
-      // rides along so a row link can name its project in the route.
       const docs = callResults.flatMap((callResult, index) => (
         ((callResult.envelope.result || {}).docs || []).map((doc) => ({
           ...doc,
@@ -38,59 +178,121 @@ export function renderStrategyView(context, main, scope) {
           project_id: buckets[index],
         }))
       ));
-      // Every bucket served its complete corpus, so the merged length is
-      // the fetched total.
-      panel.setCount(docs.length);
-      renderTable(body, docs, withProjectColumn([
-        { label: "slug", value: (doc) => doc.slug },
-        { label: "title", value: (doc) => doc.title },
-        // The engine resolves the last editor to a label when it knows
-        // one; an unattributed doc shows nothing, never a placeholder.
-        { label: "owner", value: (doc) => doc.updated_by },
-        { label: "last write", value: (doc) => doc.updated_at },
-        // Raw bytes exactly as served — the number is the engine's.
-        { label: "size", value: (doc) => doc.bytes },
-        {
-          label: "status", pill: true,
-          value: (doc) => (doc.archived ? "archived" : "active"),
-        },
-      ], scope, (doc) => doc.project), "no strategy docs yet",
-      (doc) => buildUniverseRoute("strategy", doc.project_id, doc.slug));
+      panel.setCount(scopeLabel(scope, slugById));
+      statsHost.replaceChildren(strategyStats(documentNode, docs));
+      const writes = callResults.flatMap(
+        (callResult) => (callResult.envelope.result || {}).writes || [],
+      );
+      writesHost.replaceChildren(
+        strategyWriteActivity(documentNode, writes),
+      );
+      renderStrategyTable(documentNode, body, docs);
     },
   );
 }
 
-// One strategy doc, body included — the drill-in the corpus table opens.
-// The doc content is the plan itself, so it renders the same way an item
-// body does: served text, monospace, no client-side rewriting.
-export function renderStrategyDocDetailView(context, main, projectId, slug) {
+function renderDetail(context, main, projectId, doc) {
   const documentNode = context.document;
-  const panel = section(documentNode, slug);
-  main.replaceChildren(panel);
+  let selectedTab = "document";
+  const host = el(documentNode, "div", "strategy-detail");
+  const heading = el(documentNode, "div", "item-detail-heading");
+  const headingCopy = el(documentNode, "div", "item-detail-heading-copy");
+  headingCopy.appendChild(el(documentNode, "h1", null, doc.slug));
+  heading.appendChild(headingCopy);
+  const actions = stateActionsPanel(
+    context,
+    projectId,
+    doc,
+    () => renderStrategyDocDetailView(
+      context, main, projectId, doc.slug,
+    ),
+  );
+  const tabs = el(documentNode, "div", "strategy-tabs");
+  tabs.setAttribute("role", "tablist");
+  const content = el(documentNode, "div", "strategy-tab-content");
+  content.id = "strategy-tab-content";
+  content.setAttribute("role", "tabpanel");
+  const draw = () => {
+    tabs.replaceChildren();
+    const definitions = [
+      ["document", "Document"],
+      ["history", "History"],
+    ];
+    for (const [index, [id, label]] of definitions.entries()) {
+      const tab = button(
+        documentNode,
+        label,
+        `workflow-tab${selectedTab === id ? " selected" : ""}`,
+      );
+      tab.id = `strategy-tab-${id}`;
+      tab.setAttribute("role", "tab");
+      tab.setAttribute("aria-selected", String(selectedTab === id));
+      tab.setAttribute("aria-controls", content.id);
+      tab.tabIndex = selectedTab === id ? 0 : -1;
+      tab.addEventListener("click", () => {
+        selectedTab = id;
+        draw();
+      });
+      tab.addEventListener("keydown", (event) => {
+        const delta = event.key === "ArrowRight"
+          ? 1 : event.key === "ArrowLeft" ? -1 : 0;
+        if (!delta && !["Home", "End"].includes(event.key)) return;
+        if (typeof event.preventDefault === "function") event.preventDefault();
+        const next = event.key === "Home"
+          ? 0
+          : event.key === "End"
+            ? definitions.length - 1
+            : (index + delta + definitions.length) % definitions.length;
+        selectedTab = definitions[next][0];
+        draw();
+        const selected = tabs.children[next];
+        if (typeof selected?.focus === "function") selected.focus();
+      });
+      tabs.appendChild(tab);
+    }
+    content.setAttribute("aria-labelledby", `strategy-tab-${selectedTab}`);
+    content.replaceChildren(
+      selectedTab === "history"
+        ? historyReviewView(
+          context,
+          projectId,
+          doc,
+          () => renderStrategyDocDetailView(
+            context, main, projectId, doc.slug,
+          ),
+        )
+        : documentReviewView(documentNode, doc),
+    );
+  };
+  draw();
+  host.appendChild(heading);
+  host.appendChild(actions);
+  host.appendChild(tabs);
+  host.appendChild(content);
+  main.replaceChildren(host);
+}
+
+export function renderStrategyDocDetailView(
+  context,
+  main,
+  projectId,
+  slug,
+) {
+  const loading = section(
+    context.document, String(slug), { showRaw: false },
+  );
+  main.replaceChildren(loading);
   loadSection(
-    context, panel,
-    "strategy.doc.get",
+    context,
+    loading,
+    "strategy.surface.get",
     { slug: String(slug) },
-    (body, callResult) => {
-      const doc = callResult.envelope.result || {};
-      const summary = el(documentNode, "table", "items kv");
-      for (const [label, value] of [
-        ["project", doc.project_slug],
-        ["last write", doc.updated_at],
-        ["status", doc.archived_at ? "archived" : "active"],
-      ]) {
-        const tr = el(documentNode, "tr");
-        tr.appendChild(el(documentNode, "th", null, label));
-        tr.appendChild(el(documentNode, "td", null, String(value ?? "")));
-        summary.appendChild(tr);
-      }
-      body.appendChild(summary);
-      const content = String(doc.content || "").trim();
-      body.appendChild(el(
-        documentNode, content ? "pre" : "p",
-        content ? "item-body" : "empty",
-        content || "no content yet",
-      ));
+    (_body, callResult) => {
+      const result = callResult.envelope.result || {};
+      renderDetail(context, main, projectId, {
+        ...(result.document || {}),
+        project_slug: result.project_slug,
+      });
     },
     { kind: "global", project_id: String(projectId) },
   );

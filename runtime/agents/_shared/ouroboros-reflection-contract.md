@@ -13,7 +13,7 @@ Each end-of-session sweep question maps to exactly one `category` value. Use the
 
 ## Canonical Entry Block
 
-Include reflections in the final response using the exact delimited block below. The PostToolUse Agent-tool hook (`runtime/api/domain/reflection_capture_hook.py`) parses this block automatically when the subagent's `Agent` tool call returns; the multi-shape parser in `runtime/api/domain/reflection_capture_shapes.py` accepts shapes A..H plus a freeform fallback, but the canonical shape below is the one PMs / PDs / Engineers / Testers / Simulators / Architects / Boss / Conduct teach to keep the parser benchmark clean:
+Include reflections in the final response using the exact delimited block below. The PostToolUse Agent-tool hook (`packages/yoke-core/src/yoke_core/domain/reflection_capture_hook.py`) parses this block automatically when the subagent's `Agent` tool call returns; the multi-shape parser in `packages/yoke-core/src/yoke_core/domain/reflection_capture_shapes.py` accepts shapes A..H plus a freeform fallback, but the canonical shape below is the one PMs / PDs / Engineers / Testers / Simulators / Architects / Boss / Conduct teach to keep the parser benchmark clean:
 
 - **Outer envelope:** one `---REFLECTION-START---` line and one `---REFLECTION-END---` line per response.
 - **Each entry:** a `---BEGIN ENTRY---` line, four field-led rows (`timestamp:`, `agent:`, `context:`, `category:`) in any order, the body, and a `---END ENTRY---` line.

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from runtime.api.cli.product_boundary_test_support import (
@@ -12,25 +11,6 @@ from runtime.api.cli.product_boundary_test_support import (
     _repo_pythonpath,
     _run_product_cli,
 )
-
-
-def _https_config(token_file: Path) -> dict[str, object]:
-    token_file.write_text("tok\n", encoding="utf-8")
-    return {
-        "schema_version": 1,
-        "active_env": "stage",
-        "connections": {
-            "stage": {
-                "transport": "https",
-                "api_url": "http://127.0.0.1:9",
-                "credential_source": {
-                    "kind": "token_file",
-                    "path": str(token_file),
-                },
-            },
-        },
-    }
-
 
 def test_qa_browser_help_does_not_import_source_authority(tmp_path: Path) -> None:
     run = _run_product_cli(
@@ -44,7 +24,7 @@ def test_qa_browser_help_does_not_import_source_authority(tmp_path: Path) -> Non
     _assert_clean_client_boundary(run)
 
 
-def test_qa_browser_run_uses_https_dispatch_without_core_import(
+def test_aggregate_qa_browser_run_is_not_a_product_command(
     tmp_path: Path,
 ) -> None:
     run = _run_product_cli(
@@ -60,12 +40,11 @@ def test_qa_browser_run_uses_https_dispatch_without_core_import(
             "--base-url",
             "http://127.0.0.1:1",
         ],
-        config_payload=_https_config(tmp_path / "token.txt"),
     )
 
     assert run.returncode == 2
-    assert json.loads(run.stdout)["note"] == "context_unavailable"
-    assert "qa.browser_context.get failed" in run.stderr
+    assert run.stdout == ""
+    assert "unknown subcommand" in run.stderr
     _assert_clean_client_boundary(run)
 
 

@@ -1,5 +1,7 @@
 'use strict';
 
+const { parseAriaSnapshot } = require('./aria_snapshot_parser');
+
 /**
  * Accessibility snapshot and ref system.
  *
@@ -7,7 +9,8 @@
  *   accessibilitySnapshot(page) -> { tree, refs, url, timestamp }
  *   buildRefMap(page)           -> { [refId]: locatorString }
  *
- * The accessibility tree is captured via page.accessibility.snapshot().
+ * The accessibility tree is captured via page.ariaSnapshot() and converted
+ * from Playwright's YAML representation into the runtime's JSON tree contract.
  * Interactive elements are annotated with stable integer ref IDs.
  * Ref assignment priority: data-testid > ARIA role+name > semantic CSS > positional fallback.
  */
@@ -243,8 +246,9 @@ function annotateTree(node, refsByKey) {
  * @returns {Promise<{ tree: Object[], refs: Object, url: string, timestamp: string }>}
  */
 async function accessibilitySnapshot(page) {
-  // Capture the accessibility tree
-  const snapshot = await page.accessibility.snapshot();
+  // Playwright 1.60 exposes the accessibility tree through the supported
+  // ARIA snapshot surface; the removed page.accessibility API is unavailable.
+  const snapshot = await page.ariaSnapshot();
 
   // Query DOM for interactive elements and build ref map
   const elements = await queryInteractiveElements(page);
@@ -264,8 +268,8 @@ async function accessibilitySnapshot(page) {
   }
 
   // Annotate the accessibility tree with ref IDs
-  const annotatedTree = snapshot ? annotateTree(snapshot, refsByKey) : null;
-  const tree = annotatedTree && annotatedTree.children ? annotatedTree.children : [];
+  const tree = parseAriaSnapshot(snapshot)
+    .map(node => annotateTree(node, refsByKey));
 
   return {
     tree,
@@ -275,4 +279,4 @@ async function accessibilitySnapshot(page) {
   };
 }
 
-module.exports = { accessibilitySnapshot, buildRefMap };
+module.exports = { accessibilitySnapshot, buildRefMap, parseAriaSnapshot };

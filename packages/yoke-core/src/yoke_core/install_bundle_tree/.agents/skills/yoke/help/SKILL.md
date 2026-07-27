@@ -8,7 +8,7 @@ description: Show the Yoke command reference and quick-start guide.
 Display the Yoke command reference.
 
 <!-- BEGIN GENERATED: field-note-directive -->
-When you hit a recipe gap or notice a minor bug not worth a ticket, file a field-note immediately — before retrying, before moving on.
+When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
 Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->
@@ -23,10 +23,12 @@ Yoke -- Your operating system for software delivery
 COMMANDS
  /yoke do Autonomous orchestrator — decision engine picks next action
  /yoke charge Direct-mode: pick up next runnable item from frontier
- /yoke feed [--no-new-tickets] Direct-mode: maintain frontier dependency graph and optionally materialize new work from strategy layer
+ /yoke feed [--no-new-items] Direct-mode: maintain frontier dependency graph and optionally materialize new work from strategy layer
  /yoke strategize Direct-mode: guided SML review (research, propose, approve)
  /yoke onboard [--project P] [--run-id RUN] Make a wired project execution-ready (strategy, profile, Packs, hosting, envs, gated first deploy, seeded work)
- /yoke idea {title} Capture a new backlog item
+ /yoke idea [--workflow issue|epic|blitz] {title} Capture a new backlog item
+ /yoke dash "instruction" | YOK-N File and execute instruction-sized work, or resume a Dash
+ /yoke blitz YOK-N Execute a refined Blitz from its single linked strategy document
  /yoke shepherd YOK-N Drive an epic through quality-gated planning to planned
  /yoke conduct YOK-N Engineer/Tester loop for a single epic
  /yoke usher [YOK-N] Merge and deploy implemented/release items
@@ -76,6 +78,14 @@ TYPICAL FLOW
  5. /yoke usher YOK-N -> merge -> deploy -> done
 
  Epics use /yoke shepherd and /yoke conduct for their planning and implementation loop.
+
+ DASH FLOW
+ /yoke dash "fix the focused behavior" -> file, execute, verify, merge, record evidence
+
+ BLITZ FLOW
+ 1. /yoke idea --workflow blitz "my document-led plan" -> Blitz at idea
+ 2. /yoke refine YOK-N -> link exactly one execution strategy document -> refined-idea
+ 3. /yoke blitz YOK-N -> execute integrated slices -> reconcile document -> done
 
 DEPENDENCY INSPECTION
  Authoritative dependency data lives in the item_dependencies table.

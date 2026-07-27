@@ -1,0 +1,256 @@
+/* Interactive workbench-frame controls: search, actor identity, and footer. */
+
+.universe-app-root .shell-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.universe-app-root .header-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: min(280px, 32vw);
+  min-width: 190px;
+  padding: 0 8px 0 10px;
+  border: 1px solid var(--yoke-border);
+  border-radius: 8px;
+  background: var(--yoke-surface);
+  color: var(--yoke-muted);
+}
+.universe-app-root .header-search:focus-within {
+  border-color: var(--yoke-accent-line);
+  box-shadow: 0 0 0 3px var(--yoke-accent-weak);
+}
+.universe-app-root .header-search-input {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  padding: 6px 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--yoke-ink);
+  font: inherit;
+  font-size: 12.5px;
+}
+.universe-app-root .header-search-input::placeholder {
+  color: var(--yoke-muted);
+  opacity: 1;
+}
+.universe-app-root .header-search-key,
+.universe-app-root .keyboard-help kbd {
+  flex: 0 0 auto;
+  padding: 1px 5px;
+  border: 1px solid var(--yoke-border);
+  border-radius: 4px;
+  background: var(--yoke-bg);
+  color: var(--yoke-muted);
+  font-family: var(--yoke-font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+}
+.universe-app-root .header-search-results {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 7px);
+  left: 0;
+  width: min(440px, calc(100vw - 36px));
+  max-height: min(420px, calc(100vh - 90px));
+  overflow-y: auto;
+  padding: 5px;
+  border: 1px solid var(--yoke-border);
+  border-radius: 10px;
+  background: var(--yoke-bg);
+  box-shadow: var(--yoke-shadow);
+}
+.universe-app-root .header-search-result {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr);
+  gap: 9px;
+  padding: 8px 9px;
+  border-radius: 7px;
+  color: var(--yoke-ink);
+  text-decoration: none;
+}
+.universe-app-root .header-search-result:hover,
+.universe-app-root .header-search-result.active {
+  background: var(--yoke-hover);
+}
+.universe-app-root .header-search-kind {
+  color: var(--yoke-muted);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.universe-app-root .header-search-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+.universe-app-root .header-search-label,
+.universe-app-root .header-search-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.universe-app-root .header-search-label {
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.universe-app-root .header-search-meta,
+.universe-app-root .header-search-status {
+  color: var(--yoke-muted);
+  font-size: 11px;
+}
+.universe-app-root .header-search-status {
+  margin: 0;
+  padding: 10px;
+}
+
+.universe-app-root .header-spacer {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.universe-app-root .actor-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--yoke-ink);
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.universe-app-root .actor-avatar {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--yoke-surface-2);
+  color: var(--yoke-muted);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.universe-app-root .actor-kind {
+  padding: 1px 5px;
+  border: 1px dashed var(--yoke-accent-line);
+  border-radius: 5px;
+  color: var(--yoke-muted);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.universe-app-root .app-footer {
+  position: relative;
+  grid-column: 2;
+  grid-row: 2;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+  height: 34px;
+  padding: 0 18px;
+  border-top: 1px solid var(--yoke-border);
+  background: var(--yoke-bg);
+  color: var(--yoke-muted);
+  font-size: 11.5px;
+}
+.universe-app-root .app-footer-mark {
+  color: var(--yoke-muted);
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+.universe-app-root .app-footer-environment,
+.universe-app-root .app-footer-version {
+  font-family: var(--yoke-font-mono);
+  font-size: 11px;
+}
+.universe-app-root .app-footer-links {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-left: auto;
+}
+.universe-app-root .app-footer-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--yoke-muted);
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+.universe-app-root .app-footer-link:hover {
+  color: var(--yoke-ink);
+}
+.universe-app-root .keyboard-help {
+  position: absolute;
+  right: 14px;
+  bottom: calc(100% + 8px);
+  z-index: 25;
+  width: 286px;
+  padding: 8px 12px;
+  border: 1px solid var(--yoke-border);
+  border-radius: 9px;
+  background: var(--yoke-bg);
+  box-shadow: var(--yoke-shadow);
+}
+.universe-app-root .keyboard-help-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 5px 0;
+  color: var(--yoke-ink-2);
+  font-size: 11.5px;
+}
+.universe-app-root .keyboard-help-row kbd {
+  min-width: 74px;
+  text-align: center;
+}
+
+@media (max-width: 760px) {
+  .universe-app-root .header-search {
+    width: min(220px, 42vw);
+    min-width: 0;
+  }
+  .universe-app-root .actor-name,
+  .universe-app-root .actor-kind,
+  .universe-app-root .app-footer-mark {
+    display: none;
+  }
+  .universe-app-root .app-footer {
+    grid-column: 1;
+    grid-row: 3;
+    gap: 8px;
+    padding-inline: 12px;
+  }
+}
+
+@media (max-width: 560px) {
+  .universe-app-root .header-search {
+    display: none;
+  }
+  .universe-app-root .header-search-key,
+  .universe-app-root .app-footer-environment {
+    display: none;
+  }
+  .universe-app-root .app-footer-links {
+    width: 100%;
+    justify-content: space-between;
+    margin-left: 0;
+  }
+}

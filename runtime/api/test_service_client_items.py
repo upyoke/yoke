@@ -23,7 +23,7 @@ CREATE TABLE items (
     status TEXT NOT NULL DEFAULT 'idea', priority TEXT NOT NULL DEFAULT 'medium',
     flow TEXT DEFAULT 'accelerated', rework_count INTEGER DEFAULT 0,
     frozen INTEGER DEFAULT 0, blocked INTEGER DEFAULT 0, blocked_reason TEXT,
-    github_issue TEXT, deployed_to TEXT, worktree TEXT, merged_at TEXT,
+    github_issue TEXT, deployed_to TEXT, merged_at TEXT,
     created_at TEXT NOT NULL, updated_at TEXT NOT NULL, source TEXT NOT NULL DEFAULT '2',
     project_id INTEGER NOT NULL REFERENCES projects(id),
     project_sequence INTEGER NOT NULL,
@@ -210,13 +210,13 @@ class TestValidateTransition:
         forward_pairs = [
             ("idea", "refining-idea"),
             ("refining-idea", "refined-idea"),
-            # Issue-workflow-type transitions
+            # Issue workflow transitions
             ("refined-idea", "implementing"),
             ("implementing", "reviewing-implementation"),
             ("reviewing-implementation", "reviewed-implementation"),
             ("reviewed-implementation", "polishing-implementation"),
             ("polishing-implementation", "implemented"),
-            # Epic-workflow-type transitions
+            # Epic workflow transitions
             ("refined-idea", "planning"),
             ("planning", "planned"),
             ("implemented", "release"),

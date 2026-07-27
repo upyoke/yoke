@@ -19,24 +19,24 @@ from yoke_core.domain.db_helpers import query_scalar
 # ---------------------------------------------------------------------------
 
 TASK_COLUMNS = [
-    "id", "epic_id", "task_num", "title", "worktree",
+    "id", "epic_id", "task_num", "title", "item_worktree_id",
     "context_estimate", "dependencies", "status", "dispatch_attempts",
 ]
 
 DISPATCH_CHAIN_COLUMNS = [
-    "id", "epic_id", "worktree", "worktree_path", "queue",
+    "id", "epic_id", "item_worktree_id", "queue",
     "current_index", "current_task", "current_attempt", "max_attempts",
     "no_chain", "started_at", "last_updated",
 ]
 
 TASK_FIELD_WHITELIST = frozenset({
-    "title", "worktree", "context_estimate", "dependencies", "status",
-    "dispatch_attempts", "body", "github_issue", "branch", "worktree_path",
+    "title", "item_worktree_id", "context_estimate", "dependencies", "status",
+    "dispatch_attempts", "body", "github_issue",
     "blocked_by", "max_attempts", "agent_id", "last_heartbeat",
 })
 
 CHAIN_FIELD_WHITELIST = frozenset({
-    "worktree_path", "queue", "current_index", "current_task",
+    "queue", "current_index", "current_task",
     "current_attempt", "max_attempts", "no_chain", "started_at",
     "last_updated",
 })

@@ -13,20 +13,20 @@ from __future__ import annotations
 
 import os
 import sys
-from typing import List, Optional
+from typing import Optional
 
 from yoke_core.domain.db_helpers import (
     connect,
     iso8601_now,
     query_one,
-    query_rows,
     query_scalar,
 )
 from yoke_core.domain.qa_constants import (  # noqa: F401  (re-exported)
-    VALID_BROWSER_QA_KINDS,
     _coalesce,
+    is_browser_method_requirement,
     _normalize_qa_kind,
     _pipe_row,
+    case_outcome_for_verdict,
 )
 from yoke_core.domain import qa_events
 from yoke_core.domain.qa_artifact_ops import (  # noqa: F401  (re-exported)
@@ -36,10 +36,14 @@ from yoke_core.domain.qa_artifact_ops import (  # noqa: F401  (re-exported)
     linked_artifact_handle,
 )
 from yoke_core.domain.qa_run_batch import cmd_run_add_batch  # noqa: F401  (re-exported)
+from yoke_core.domain.qa_run_reads import (  # noqa: F401  (re-exported)
+    _RUN_SELECT,
+    cmd_run_get,
+    cmd_run_list,
+)
 from yoke_core.domain.qa_evidence_bridge import (  # noqa: F401  (re-exported)
     cmd_satisfy_screenshot_evidence,
 )
-
 
 # Backward-compat aliases for the parent shim's existing API. Internal
 # callers (and qa.py re-exports) reference the underscore-prefixed names;
@@ -50,39 +54,38 @@ _emit_qa_run_event = qa_events.emit_qa_run_event
 _linked_artifact_handle = linked_artifact_handle
 
 
-_RUN_SELECT = (
-    "id, qa_requirement_id, executor_type, qa_kind, COALESCE(verdict,''), "
-    "COALESCE(CAST(score AS TEXT),''), COALESCE(CAST(confidence AS TEXT),''), "
-    "COALESCE(raw_result,''), COALESCE(CAST(duration_ms AS TEXT),''), "
-    "COALESCE(started_at,''), COALESCE(completed_at,''), created_at"
-)
-
-
 def _resolve_qa_kind(
-    db_path: Optional[str], requirement_id: int, qa_kind: Optional[str],
+    db_path: Optional[str],
+    requirement_id: int,
+    qa_kind: Optional[str],
 ) -> str:
     """Derive qa_kind from the requirement; reject mismatches."""
     _peek = connect(path=db_path)
     try:
         stored = query_scalar(
-            _peek, "SELECT qa_kind FROM qa_requirements WHERE id = %s",
+            _peek,
+            "SELECT qa_kind FROM qa_requirements WHERE id = %s",
             (requirement_id,),
         )
     finally:
         _peek.close()
     if not stored:
-        print(f"Error: requirement_id {requirement_id} not found in "
-              "qa_requirements", file=sys.stderr)
+        print(
+            f"Error: requirement_id {requirement_id} not found in qa_requirements",
+            file=sys.stderr,
+        )
         sys.exit(2)
     canonical = _normalize_qa_kind(str(stored))
     if not qa_kind:
         return canonical
     supplied = _normalize_qa_kind(qa_kind)
     if supplied != canonical:
-        print(f"Error: --qa-kind '{supplied}' does not match the "
-              f"requirement's stored kind '{canonical}'. Omit --qa-kind "
-              "to use the requirement's kind, or fix the argument.",
-              file=sys.stderr)
+        print(
+            f"Error: --qa-kind '{supplied}' does not match the "
+            f"requirement's stored kind '{canonical}'. Omit --qa-kind "
+            "to use the requirement's kind, or fix the argument.",
+            file=sys.stderr,
+        )
         sys.exit(2)
     return supplied
 
@@ -111,14 +114,23 @@ def cmd_run_add(
         sys.exit(2)
     qa_kind = _resolve_qa_kind(db_path, requirement_id, qa_kind)
 
-    # Reject agent executor for browser QA kinds
-    if executor_type == "agent":
-        if qa_kind in VALID_BROWSER_QA_KINDS:
-            print(f"Error: executor_type 'agent' is not allowed for qa_kind '{qa_kind}' -- use browser_substrate", file=sys.stderr)
-            sys.exit(2)
-
     conn = connect(path=db_path)
     try:
+        method_id = query_scalar(
+            conn,
+            "SELECT method_id FROM qa_requirements WHERE id = %s",
+            (requirement_id,),
+        )
+        if executor_type == "agent" and is_browser_method_requirement(
+            method_id, qa_kind
+        ):
+            print(
+                "Error: executor_type 'agent' is not allowed for Browser "
+                "method cases -- use browser_substrate",
+                file=sys.stderr,
+            )
+            sys.exit(2)
+
         # Reject agent executor for ac_verification with screenshot evidence
         if executor_type == "agent" and qa_kind == "ac_verification":
             req_policy = query_scalar(
@@ -163,16 +175,30 @@ def cmd_run_add(
 
         sql = """INSERT INTO qa_runs
                   (qa_requirement_id, executor_type, qa_kind, verdict,
-                   execution_status, score, confidence, raw_result,
+                   execution_status, case_outcome, score, confidence, raw_result,
                    duration_ms, started_at, completed_at, created_at)
-                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id"""
-        cur = conn.execute(sql, (
-            requirement_id, executor_type, qa_kind, verdict,
-            execution_status, score, confidence, raw_result, duration_ms,
-            now_iso, completed_at_value, now_iso,
-        ))
+                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id"""
+        cur = conn.execute(
+            sql,
+            (
+                requirement_id,
+                executor_type,
+                qa_kind,
+                verdict,
+                execution_status,
+                case_outcome_for_verdict(verdict),
+                score,
+                confidence,
+                raw_result,
+                duration_ms,
+                now_iso,
+                completed_at_value,
+                now_iso,
+            ),
+        )
         inserted_id = int(cur.fetchone()[0])
         from yoke_core.domain.item_activity import touch_for_qa_requirement
+
         touch_for_qa_requirement(conn, requirement_id)  # R1 item activity
         conn.commit()
         if verdict is not None:
@@ -209,7 +235,14 @@ def cmd_run_add(
             conn.execute(
                 """INSERT INTO qa_artifacts (qa_run_id, artifact_type, content_type, artifact_handle, metadata, created_at)
                    VALUES (%s, %s, %s, %s, %s, %s)""",
-                (inserted_id, "screenshot", _content_type, _handle, None, iso8601_now()),
+                (
+                    inserted_id,
+                    "screenshot",
+                    _content_type,
+                    _handle,
+                    None,
+                    iso8601_now(),
+                ),
             )
             conn.commit()
     finally:
@@ -253,7 +286,11 @@ def cmd_run_complete(
     conn = connect(path=db_path)
     try:
         # Verify the run exists
-        row = query_one(conn, "SELECT qa_requirement_id, executor_type, qa_kind FROM qa_runs WHERE id = %s", (run_id,))
+        row = query_one(
+            conn,
+            "SELECT qa_requirement_id, executor_type, qa_kind FROM qa_runs WHERE id = %s",
+            (run_id,),
+        )
         if row is None:
             print(f"Error: run {run_id} not found", file=sys.stderr)
             sys.exit(1)
@@ -261,8 +298,8 @@ def cmd_run_complete(
         params: list = [iso8601_now()]
         set_parts = ["completed_at = %s"]
         if verdict is not None:
-            set_parts.append("verdict = %s")
-            params.append(verdict)
+            set_parts.extend(("verdict = %s", "case_outcome = %s"))
+            params.extend((verdict, case_outcome_for_verdict(verdict)))
         if execution_status is not None:
             set_parts.append("execution_status = %s")
             params.append(execution_status)
@@ -274,11 +311,15 @@ def cmd_run_complete(
             params.append(duration_ms)
 
         params.append(run_id)
-        conn.execute(f"UPDATE qa_runs SET {', '.join(set_parts)} WHERE id = %s", tuple(params))
+        conn.execute(
+            f"UPDATE qa_runs SET {', '.join(set_parts)} WHERE id = %s", tuple(params)
+        )
         conn.commit()
 
         if verdict is not None:
-            check = query_scalar(conn, "SELECT verdict FROM qa_runs WHERE id = %s", (run_id,))
+            check = query_scalar(
+                conn, "SELECT verdict FROM qa_runs WHERE id = %s", (run_id,)
+            )
             if check != verdict:
                 print(f"Error: run {run_id} update failed", file=sys.stderr)
                 sys.exit(1)
@@ -297,54 +338,3 @@ def cmd_run_complete(
 
     print(run_id)
     return run_id
-
-
-def cmd_run_list(
-    *,
-    db_path: Optional[str] = None,
-    requirement_id: Optional[int] = None,
-) -> List[str]:
-    """List runs (pipe-delimited). Returns list of formatted lines."""
-    conn = connect(path=db_path)
-    try:
-        where = "1=1"
-        params: tuple = ()
-        if requirement_id is not None:
-            where = "qa_requirement_id = %s"
-            params = (requirement_id,)
-
-        rows = query_rows(conn, f"SELECT {_RUN_SELECT} FROM qa_runs WHERE {where} ORDER BY id", params)
-    finally:
-        conn.close()
-
-    lines = []
-    for row in rows:
-        line = _pipe_row(row)
-        print(line)
-        lines.append(line)
-    return lines
-
-
-def cmd_run_get(
-    run_id: int,
-    *,
-    db_path: Optional[str] = None,
-) -> str:
-    """Get a single run (pipe-delimited). Returns the formatted line."""
-    if run_id is None:
-        print("Usage: qa run-get <id>", file=sys.stderr)
-        sys.exit(2)
-
-    conn = connect(path=db_path)
-    try:
-        row = query_one(conn, f"SELECT {_RUN_SELECT} FROM qa_runs WHERE id = %s", (run_id,))
-    finally:
-        conn.close()
-
-    if row is None:
-        print(f"Error: run {run_id} not found", file=sys.stderr)
-        sys.exit(1)
-
-    line = _pipe_row(row)
-    print(line)
-    return line

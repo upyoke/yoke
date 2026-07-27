@@ -2,7 +2,9 @@
 
 Covers the two argument-validation checks (epic lookup via DB, then bare item ref detection). Executed before any of the Preflight phases.
 
-**Context variables** (consumed by later phases): `{epic-id}` (numeric, `YOK-` stripped).
+**Context variables** (consumed by later phases): `{epic-id}` (operator
+input), `_epic_ref` (the accepted public/project-local ref), `_epic_id`
+(normalized numeric `items.id`).
 
 ---
 
@@ -10,29 +12,40 @@ Covers the two argument-validation checks (epic lookup via DB, then bare item re
 
 **Execute these checks before any Steps below. Stop immediately if a check fails.**
 
-### Epic validation via DB (check DB first)
+### Resolve and validate the epic
 
-Strip any `YOK-` prefix (case-insensitive) from `{epic-id}` to get the numeric ID, then query the DB to verify it resolves to a known epic:
+Resolve the operator input through the registered item reader. This preserves
+project-scoped public-reference semantics for prefixed, zero-padded, and bare
+numeric input while producing the numeric id required by epic-task commands:
+
 ```bash
-_epic_task_count=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_tasks WHERE epic_id={epic-id}'")
+_epic_ref="{epic-id}"
+_epic_id=$(yoke items get "$_epic_ref" id 2>/dev/null) || _epic_id=""
+_epic_workflow_id=$(yoke items get "$_epic_ref" workflow_id 2>/dev/null) || _epic_workflow_id=""
 ```
 
-Evaluate the result:
-- If `_epic_task_count` is greater than 0: the epic is valid and has tasks — proceed to the Preflight phase.
-- If `_epic_task_count` is 0: check whether the ID exists with the Epic
-  workflow binding (query `SELECT COUNT(*) FROM items WHERE id={epic-id} AND
-  workflow_id='epic' LIMIT 1`). If it exists (count > 0), print a soft warning
-  and exit without error:
+If `_epic_id` is non-empty and `_epic_workflow_id` is `epic`, list its task
+rows through the registered reader:
+
+```bash
+yoke epic-tasks list --epic "$_epic_id"
+```
+
+- If the reader prints one or more task rows, proceed to Preflight.
+- If it prints no task rows, print a soft warning and exit without error:
  > No tasks found for epic `{epic-id}` — nothing to merge.
-- If neither check finds the epic: fall through to bare item ref detection below.
+- If the item resolves but its workflow is not `epic`, fall through to bare
+  item-ref detection below.
+- If the item does not resolve, fall through to the unknown-input check below.
 
 ### Bare item ref detection (only if the epic lookup found no epic)
 
-If the epic lookup did not find a matching epic AND `{epic-id}` looks like a bare item ref (`YOK-N` or bare numeric ID), print:
+If the resolved item is not an epic, or the unresolved `{epic-id}` looks like
+a bare item ref (`YOK-N` or bare numeric ID), print:
 
 > Error: `/yoke merge` does not accept individual item refs. Use `/yoke advance YOK-N done` to complete standalone items.
 
-If `{epic-id}` does not match any known epic and does not look like a bare item ref either, print:
+If `{epic-id}` does not resolve and does not look like a bare item ref, print:
 
 > Error: `/yoke merge` is only for epic pipelines. `{epic-id}` does not match any known epic.
 >

@@ -38,7 +38,7 @@ class MigrationApplyError(Exception):
 
 
 class ProfileNotApplyError(MigrationApplyError):
-    """Raised when the ticket is not configured for the apply flow."""
+    """Raised when the work item is not configured for the apply flow."""
 
 
 class CompatibilityClassError(MigrationApplyError):

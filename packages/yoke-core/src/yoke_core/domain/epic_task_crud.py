@@ -25,6 +25,8 @@ from yoke_core.domain.epic_parsing import (
     _require_task_exists,
 )
 from yoke_core.domain.item_activity import touch_item_activity
+from yoke_core.domain.item_worktrees import record_worker_item_worktree
+from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.item_status_transitions import record_task_transition
 from yoke_core.domain.lifecycle import (
     ALL_TASK_STATUSES,
@@ -50,19 +52,25 @@ def task_upsert(
             f"epic task title exceeds 100 characters ({len(title)}). "
             "Shorten it or move details to the body."
         )
+    lane_id = None
+    item_exists = _table_exists(conn, "items") and conn.execute(
+        f"SELECT 1 FROM items WHERE id={_placeholder(conn)}", (int(epic_id),)
+    ).fetchone() is not None
+    if worktree.strip() and item_exists:
+        lane_id = int(record_worker_item_worktree(
+            conn, item_id=int(epic_id), branch=worktree, path=None,
+        )["id"])
     p = _placeholder(conn)
     conn.execute(
         f"""INSERT INTO epic_tasks
-           (epic_id, task_num, title, worktree, context_estimate, dependencies, status)
+           (epic_id, task_num, title, item_worktree_id, context_estimate, dependencies, status)
            VALUES ({p}, {p}, {p}, {p}, {p}, {p}, 'planning')
            ON CONFLICT(epic_id, task_num) DO UPDATE SET
              title=excluded.title,
-             worktree=CASE WHEN excluded.worktree = '' OR excluded.worktree IS NULL
-                           THEN epic_tasks.worktree
-                           ELSE excluded.worktree END,
+             item_worktree_id=COALESCE(excluded.item_worktree_id, epic_tasks.item_worktree_id),
              context_estimate=excluded.context_estimate,
              dependencies=excluded.dependencies""",
-        (str(epic_id), task_num, title, worktree, context_estimate, dependencies),
+        (str(epic_id), task_num, title, lane_id, context_estimate, dependencies),
     )
     touch_item_activity(conn, item_id=epic_id)
     touch_epic_task_activity(conn, epic_id=epic_id, task_num=task_num)

@@ -38,7 +38,7 @@ Extracted from `dispatch-context.md`. Engineer and Tester prompt templates and d
 	 Commit incrementally on the worktree branch.
 	 Run tests before finishing. If Project Test Commands are provided above, use those instead of guessing CLI invocations.
 
-	 CODEBASE-READER NAMING: Assume future readers of the codebase will NOT have the ephemeral planning artifacts you are working from. Treat the task/spec/plan as scaffolding, not naming source material. New or renamed files, modules, helpers, tests, docs, commands, events, config keys, symbols, headings, and comments must describe current function, purpose, mechanics, or domain role to someone who can only see the repository. Do not copy ticket IDs, plan names, initiative labels, phase/task/thread numbers, AC/FR identifiers, branch/worktree names, or implementation-batch wording into live code or current-state docs unless the identifier is itself a runtime/domain concept.
+	 CODEBASE-READER NAMING: Assume future readers of the codebase will NOT have the ephemeral planning artifacts you are working from. Treat the task/spec/plan as scaffolding, not naming source material. New or renamed files, modules, helpers, tests, docs, commands, events, config keys, symbols, headings, and comments must describe current function, purpose, mechanics, or domain role to someone who can only see the repository. Do not copy work item IDs, plan names, initiative labels, phase/task/thread numbers, AC/FR identifiers, branch/worktree names, or implementation-batch wording into live code or current-state docs unless the identifier is itself a runtime/domain concept.
 
 	 {If task body/spec mentions schema, column, migration, ALTER TABLE, CREATE TABLE, ADD COLUMN, or DROP TABLE:
 	 DB MIGRATION PROTOCOL: This task involves schema changes. You MUST follow the migration protocol in your agent definition (## DB Schema Changes section). Key steps: use the source-dev backup helper BEFORE any DDL, then update the project registry, Doctor, db-reference.md, and registered `yoke` wrappers. The lint hook will block unacknowledged DDL in `yoke db read` (which is read-only).}
@@ -182,7 +182,7 @@ fi
  Tester agent definition for the full procedure.
 
 	 Review the engineer's work against the acceptance criteria in the spec.
-	 Check codebase-reader naming: new or renamed surfaces must describe current function/purpose/mechanics rather than the ticket, plan, phase, task, AC, branch, worktree, or batch that produced them.
+	 Check codebase-reader naming: new or renamed surfaces must describe current function/purpose/mechanics rather than the work item, plan, phase, task, AC, branch, worktree, or batch that produced them.
 	 Run tests. Return a verdict line:
  VERDICT: PASS or VERDICT: FAIL followed by details.
 
@@ -237,7 +237,7 @@ fi
 	 Tester agent definition for the full procedure.
 
 	 Review the engineer's work against the acceptance criteria in the spec.
-	 Check codebase-reader naming: new or renamed surfaces must describe current function/purpose/mechanics rather than the ticket, plan, phase, task, AC, branch, worktree, or batch that produced them.
+	 Check codebase-reader naming: new or renamed surfaces must describe current function/purpose/mechanics rather than the work item, plan, phase, task, AC, branch, worktree, or batch that produced them.
 	 Run tests. Return a verdict line:
  VERDICT: PASS or VERDICT: FAIL followed by details.
 

@@ -1,15 +1,15 @@
 ---
 name: idea
 description: Create a new backlog item with a YOK-N ID. Infers project, workflow, priority, and flow from context.
-argument-hint: "{title}"
+argument-hint: "[--dry-run] [--workflow issue|epic|blitz] {title}"
 ---
 
-# /yoke idea [--dry-run] {title}
+# /yoke idea [--dry-run] [--workflow issue|epic|blitz] {title}
 
 Create a new backlog item and assign it the next available YOK-N ID.
 
 <!-- BEGIN GENERATED: field-note-directive -->
-When you hit a recipe gap or notice a minor bug not worth a ticket, file a field-note immediately — before retrying, before moving on.
+When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
 Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->
@@ -17,17 +17,21 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 ## Arguments
 
 - `--dry-run` — Preview what would be created without modifying files or syncing to GitHub (optional, must be first argument)
+- `--workflow issue|epic|blitz` — Select the workflow explicitly. Use
+  `blitz` for a substantial document-led plan that refinement will link to
+  one execution strategy document. Dash work enters through `/yoke dash`,
+  not this flag.
 - `{title}` — Short title for the item (required)
 
 ## Philosophy
 
-**Maximalist body quality.** Every item body should be a perfect cold-start context for the PM agent that reads it next. Include concrete examples of the problem, verified code references (file paths, function names), observed behavior, and expected behavior. A title-only ticket with no body forces the PM to re-investigate from scratch — wasting an entire agent session (P-2, P-48).
+**Maximalist body quality.** Every item body should be a perfect cold-start context for the PM agent that reads it next. Include concrete examples of the problem, verified code references (file paths, function names), observed behavior, and expected behavior. A title-only work item with no body forces the PM to re-investigate from scratch — wasting an entire agent session (P-2, P-48).
 
-**File tickets for root causes.** When the operator describes a failure, investigate before filing. Query the events table (`yoke events tail --limit 20`) for recent telemetry. Frame the ticket as what could have PREVENTED the failure — missing guardrails, insufficient dispatch context, file too large for agent to read (P-50), missing code-level enforcement (P-26) — not "the agent made a mistake."
+**File work items for root causes.** When the operator describes a failure, investigate before filing. Query the events table (`yoke events tail --limit 20`) for recent telemetry. Frame the work item as what could have PREVENTED the failure — missing guardrails, insufficient dispatch context, file too large for agent to read (P-50), missing code-level enforcement (P-26) — not "the agent made a mistake."
 
 **No such thing as "agent error."** Frame every observed failure as a systemic root cause (truncated context, missing instructions, stale references, corrupted input), not as an agent mistake. The full rule — surfaces it covers, banned phrases, and the systemic-framing pattern — lives in `AGENTS.md`'s `## Code Conventions` section. This SKILL does not restate it.
 
-**Artifact writes are work writes.** Ticket/spec/body/File Budget/path-claim/GitHub issue-body edits authored by idea are shared coordination state — same ownership invariant as code edits. Hold the work claim on the item before mutating any of those surfaces. Session ids returned by `who-claims` are coordination identifiers, not authority to mutate as that holder; copying a holder session id into another session does not grant capability over that holder's claim.
+**Artifact writes are work writes.** Work item/spec/body/File Budget/path-claim/GitHub issue-body edits authored by idea are shared coordination state — same ownership invariant as code edits. Hold the work claim on the item before mutating any of those surfaces. Session ids returned by `who-claims` are coordination identifiers, not authority to mutate as that holder; copying a holder session id into another session does not grant capability over that holder's claim.
 
 ## Steps
 
@@ -55,8 +59,15 @@ yoke sessions touch --mode idea
 
 ## Notes
 
-- **`/yoke idea` is a harness skill entrypoint, not a `yoke` CLI subcommand.** Invoke it as the `/yoke idea` slash command — there is no `yoke idea` CLI adapter, so `yoke idea --help` returns `unknown subcommand`. The `yoke <subcommand>` CLI wraps item/claim/lifecycle operations; ticket *intake* is a skill flow, not a CLI verb.
-- Status is always `idea` for new items. Use `/yoke shepherd` to drive the item through the quality-gated lifecycle.
+- **`/yoke idea` is a harness skill entrypoint, not a `yoke` CLI subcommand.** Invoke it as the `/yoke idea` slash command — there is no `yoke idea` CLI adapter, so `yoke idea --help` returns `unknown subcommand`. The `yoke <subcommand>` CLI wraps item/claim/lifecycle operations; work item *intake* is a skill flow, not a CLI verb.
+- An explicit `/yoke idea --workflow blitz "{title}"` selection is passed to
+  the registered `items.create` function as `workflow: "blitz"` with
+  `entry_surface: "harness_skill"`. The new item still starts at `idea`;
+  refinement must link exactly one execution strategy document before
+  `/yoke blitz` begins at `refined-idea`.
+- Status is always `idea` for new items. Follow the workflow-specific
+  handoff in `infer-and-create.md`: Issue and Epic use `/yoke shepherd`;
+  Blitz uses `/yoke refine` and then `/yoke blitz`.
 - The YOK-N ID is permanent — it never changes even after GitHub sync.
 - Items are auto-synced to GitHub on creation. If GitHub sync is unavailable, the item is created locally and can be synced later through the internal item sync repair path; do not teach that repair path as normal product flow.
 - This is a write command — it creates a file and inserts a DB row.

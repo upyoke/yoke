@@ -1,22 +1,8 @@
-"""Regression tests for YOK-1704 task 5: HTTP routes that mutate
-``items.status`` must emit ``ItemStatusChanged``.
+"""Status-event contracts for item HTTP routes.
 
-Two routes historically bypassed ``backlog.execute_update`` (the canonical
-emitter) and wrote status directly:
-
-- ``POST /v1/items/{id}/approve`` (``yoke_core.api.routes.items_approve``):
-  every UPDATE drives the item to ``status='release'``. Without the fix,
-  the lifecycle ledger sees no event for that transition and
-  ``HC-lifecycle-continuity`` records a violation.
-
-- ``PATCH /v1/items/{id}`` (``yoke_core.api.routes.items_write``): callers
-  can patch any subset of fields including ``status``; the route batches
-  field writes into one UPDATE statement.
-
-The fix routes both through the canonical emission helper
-``yoke_core.domain.backlog_rendering._emit_event``. Tests assert the
-emit fires on a real transition AND does not fire when the item is
-already at the target status (idempotency).
+The compatibility approval route only exposes an Inbox request and never
+mutates item status. The general item-write route emits ``ItemStatusChanged``
+for genuine status transitions and remains quiet for idempotent writes.
 """
 
 from __future__ import annotations
@@ -53,9 +39,8 @@ def _item_status_change_calls(mock_emit):
     ]
 
 
-class TestApproveEmitsItemStatusChanged:
-    """``POST /v1/items/{id}/approve`` must emit ``ItemStatusChanged``
-    when the approval transitions an item into ``status='release'``."""
+class TestApproveDoesNotBypassInbox:
+    """The retired item route may request approval, never move item state."""
 
     def test_emit_fires_when_status_actually_transitions(self, client, test_db):
         # Seeded item 4 is at status='release' — seed a sibling item under
@@ -83,20 +68,9 @@ class TestApproveEmitsItemStatusChanged:
         ) as mock_emit:
             resp = client.post("/v1/items/4/approve", json={})
 
-        assert resp.status_code == 200
+        assert resp.status_code == 409
         emit_calls = _item_status_change_calls(mock_emit)
-        # Item 4 was already at 'release' so MUST NOT emit. Item 8 was at
-        # 'implemented' so MUST emit a single transition event.
-        assert len(emit_calls) == 1, (
-            f"expected one ItemStatusChanged for the transitioning "
-            f"sibling, got {mock_emit.call_args_list}"
-        )
-        args = emit_calls[0].args
-        assert args[0] == "ItemStatusChanged"
-        assert args[1] == 8
-        assert args[2]["from_status"] == "implemented"
-        assert args[2]["to_status"] == "release"
-        assert args[2]["source"] == "items-approve"
+        assert emit_calls == []
 
     def test_emit_skipped_when_already_at_release(self, client, test_db):
         # Seeded item 4 is already at status='release'. Approving it
@@ -107,7 +81,7 @@ class TestApproveEmitsItemStatusChanged:
         ) as mock_emit:
             resp = client.post("/v1/items/4/approve", json={})
 
-        assert resp.status_code == 200
+        assert resp.status_code == 409
         emit_calls = _item_status_change_calls(mock_emit)
         assert emit_calls == [], (
             f"approval of an already-release item must not emit "

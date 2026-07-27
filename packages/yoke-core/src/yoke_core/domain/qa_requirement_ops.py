@@ -14,7 +14,6 @@ parent ``qa_requirements`` shim.
 
 from __future__ import annotations
 
-import json
 import sys
 from typing import List, Optional
 
@@ -26,7 +25,6 @@ from yoke_core.domain.db_helpers import (
 )
 from yoke_core.domain.qa_constants import (
     VALID_BLOCKING_MODES,
-    VALID_BROWSER_QA_KINDS,
     VALID_QA_PHASES,
     _REQ_SELECT,
     _normalize_qa_phase,
@@ -241,8 +239,8 @@ def cmd_requirement_update(
     surface needs to change.
 
     Validates enum fields (``blocking_mode``, ``qa_phase``) against the
-    canonical constants. Validates ``success_policy`` as JSON when the existing
-    row is a browser QA kind.
+    canonical constants. Method-backed case configuration is immutable and is
+    not part of this generic aggregate-requirement update surface.
 
     Emits a ``QARequirementUpdated`` lifecycle event carrying the field name
     and the new value. The prior value is not logged to keep event size small
@@ -299,20 +297,6 @@ def cmd_requirement_update(
         if existing is None:
             print(f"Error: requirement {req_id} not found", file=sys.stderr)
             sys.exit(1)
-
-        # Browser QA policy fields must be JSON to survive round-tripping
-        # through the executor.
-        if field == "success_policy" and existing["qa_kind"] in VALID_BROWSER_QA_KINDS:
-            if value is not None and value != "":
-                try:
-                    json.loads(value)
-                except json.JSONDecodeError as exc:
-                    print(
-                        f"Error: success_policy must be valid JSON for qa_kind="
-                        f"{existing['qa_kind']}: {exc}",
-                        file=sys.stderr,
-                    )
-                    sys.exit(2)
 
         conn.execute(
             f"UPDATE qa_requirements SET {field} = %s WHERE id = %s",

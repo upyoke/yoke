@@ -15,6 +15,8 @@ from yoke_core.domain.handlers.workflows_versioning import (
     handle_workflows_current_set,
     handle_workflows_item_get,
     handle_workflows_item_migrate,
+    handle_workflows_policy_defaults_publish,
+    handle_workflows_version_get,
 )
 from yoke_core.domain.workflow_registry import publish_workflow_version
 
@@ -24,10 +26,11 @@ def _request(
     *,
     target: TargetRef,
     payload: dict | None = None,
+    actor_id: str | None = None,
 ) -> FunctionCallRequest:
     return FunctionCallRequest(
         function=function,
-        actor=ActorContext(actor_id=None, session_id="test-session"),
+        actor=ActorContext(actor_id=actor_id, session_id="test-session"),
         target=target,
         payload=payload or {},
     )
@@ -66,6 +69,37 @@ def test_current_set_changes_only_new_item_default(test_db):
     assert outcome.result_payload["version"] == 1
 
 
+def test_version_get_and_policy_default_publish(test_db):
+    version = handle_workflows_version_get(
+        _request(
+            "workflows.version.get",
+            target=TargetRef(kind="global"),
+            payload={"workflow_id": "dash", "version": 1},
+        )
+    )
+    assert version.primary_success
+    assert version.result_payload["current"] is True
+    assert version.result_payload["definition"]["policies"]["path_claims"] == (
+        "optional"
+    )
+
+    published = handle_workflows_policy_defaults_publish(
+        _request(
+            "workflows.policy_defaults.publish",
+            target=TargetRef(kind="global"),
+            payload={
+                "workflow_id": "dash",
+                "expected_current_version": 1,
+                "path_claims_default": True,
+            },
+            actor_id="1",
+        )
+    )
+    assert published.primary_success
+    assert published.result_payload["version"] == 2
+    assert published.result_payload["path_claims_default"] is True
+
+
 def test_item_migrate_moves_only_compatible_target(test_db):
     insert_item(test_db, id=942, workflow_id="issue", status="idea")
     definition = builtin_workflow_definition("issue")["definition"]
@@ -91,6 +125,16 @@ def test_versioning_handlers_validate_targets():
         _request(
             "workflows.item.get",
             target=TargetRef(kind="global"),
+        )
+    )
+    assert not outcome.primary_success
+    assert outcome.error.code == "target_invalid"
+
+    outcome = handle_workflows_version_get(
+        _request(
+            "workflows.version.get",
+            target=TargetRef(kind="item", item_id=1),
+            payload={"workflow_id": "issue", "version": 1},
         )
     )
     assert not outcome.primary_success

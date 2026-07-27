@@ -4,7 +4,7 @@ Extracted from ``doctor_hc_meta`` to keep that module under the file-line cap.
 This sibling owns the post-done-state hygiene HCs:
 
 - ``hc_undeployed_done`` — done items missing ``deployed_to`` on projects with flows.
-- ``hc_orphaned_done_items`` — done items with worktree still set (bypass signal).
+- ``hc_orphaned_done_items`` — done items with active lanes (bypass signal).
 - ``hc_deferred_items`` — deferral language hygiene on done epics.
 
 ``doctor.py`` continues to import these symbols via ``doctor_hc_meta`` for
@@ -133,20 +133,21 @@ def hc_undeployed_done(conn, args: DoctorArgs, rec: RecordCollector) -> None:
 def hc_orphaned_done_items(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     """HC-orphaned-done-items: Done items with signs of bypassed ceremony.
 
-    DB-only portion: done items with worktree still set.
+    DB-only portion: done items with universal lanes still active.
     (Branch check requires git and is deferred to a later task.)
     """
     issues: List[str] = []
     rows = query_rows(
         conn,
-        "SELECT id, title, worktree FROM items "
-        "WHERE status = 'done' "
-        "AND worktree IS NOT NULL AND worktree <> '' AND worktree <> 'null' "
-        "ORDER BY id",
+        "SELECT i.id, i.title, iw.branch, iw.path FROM items i "
+        "JOIN item_worktrees iw ON iw.item_id = i.id "
+        "WHERE i.status = 'done' AND iw.state = 'active' "
+        "ORDER BY i.id, iw.id",
     )
     for row in rows:
         issues.append(
-            f"- YOK-{row['id']} ({row['title']}): worktree still set to '{row['worktree']}' "
+            f"- YOK-{row['id']} ({row['title']}): worktree lane "
+            f"'{row['branch']}' remains active "
             f"— ceremony may have been bypassed"
         )
 

@@ -1,6 +1,6 @@
 """Unified DB-claim amendment workflow.
 
-Sanctioned surface for reading, validating, and updating a ticket's DB
+Sanctioned surface for reading, validating, and updating a work item's DB
 claim as a single unit over the two existing storage fields
 (``db_mutation_profile`` and ``db_compatibility_attestation``).
 

@@ -12,7 +12,7 @@ not a satisfaction step — the gate verdict still belongs to
 Target semantics mirror the corresponding gate:
 
 - ``reviewed-implementation``: ``qa_phase = 'verification'`` blocking-
-  mode requirements. Browser kinds (``browser_smoke``, ``browser_diff``)
+  mode requirements. Browser method cases
   require a substrate-executed passing run with at least one artifact
   (matches :func:`yoke_core.domain.qa_browser_evidence_check.\
 check_browser_evidence_present`); other kinds satisfy on any passing
@@ -31,7 +31,7 @@ import sys
 from typing import Any, Dict, Optional, Sequence
 
 from yoke_core.domain.db_helpers import connect, query_one, query_rows, resolve_db_path
-from yoke_core.domain.qa_constants import VALID_BROWSER_QA_KINDS
+from yoke_core.domain.qa_constants import is_browser_method_requirement
 from yoke_core.domain.qa_gate_definitions import GateTarget
 from yoke_core.domain.qa_gate_helpers import _qa_tables_exist
 
@@ -53,11 +53,12 @@ def _is_satisfied(
     waived_at: Optional[str],
     has_substrate_run: bool,
     has_pass_run: bool,
+    method_id: Optional[str] = None,
 ) -> bool:
     """Per-requirement satisfaction rule shared with the gate."""
     if waived_at:
         return True
-    if qa_kind in VALID_BROWSER_QA_KINDS:
+    if is_browser_method_requirement(method_id, qa_kind):
         return has_substrate_run
     return has_pass_run
 
@@ -112,7 +113,7 @@ def render_gate_summary(
     phase = _phase_filter(transition_name)
 
     sql = (
-        "SELECT id, qa_kind, qa_phase, blocking_mode, waived_at "
+        "SELECT id, qa_kind, method_id, qa_phase, blocking_mode, waived_at "
         f"FROM qa_requirements WHERE {where}"
     )
     if phase:
@@ -130,6 +131,9 @@ def render_gate_summary(
         for r in req_rows:
             req_id = int(r["id"])
             qa_kind = str(r["qa_kind"])
+            method_id = (
+                str(r["method_id"]) if r["method_id"] is not None else None
+            )
             blocking_mode = str(r["blocking_mode"])
             waived_at = r["waived_at"]
 
@@ -173,12 +177,13 @@ def render_gate_summary(
 
             satisfied = _is_satisfied(
                 qa_kind=qa_kind,
+                method_id=method_id,
                 waived_at=waived_at,
                 has_substrate_run=substrate_row is not None,
                 has_pass_run=pass_row is not None,
             )
 
-            if qa_kind in VALID_BROWSER_QA_KINDS:
+            if is_browser_method_requirement(method_id, qa_kind):
                 evidence = substrate_row or pass_row or latest_row
             else:
                 evidence = pass_row or latest_row
@@ -186,6 +191,7 @@ def render_gate_summary(
             summary["requirements"].append({
                 "id": req_id,
                 "qa_kind": qa_kind,
+                "method_id": method_id,
                 "qa_phase": str(r["qa_phase"]),
                 "blocking_mode": blocking_mode,
                 "waived_at": str(waived_at) if waived_at else None,
@@ -195,7 +201,7 @@ def render_gate_summary(
 
             if not satisfied and blocking_mode == "blocking":
                 summary["blocking_unsatisfied_count"] += 1
-                if qa_kind in VALID_BROWSER_QA_KINDS:
+                if is_browser_method_requirement(method_id, qa_kind):
                     summary["browser_unsatisfied_count"] += 1
                 if qa_kind == E2E_QA_KIND:
                     summary["e2e_unsatisfied_count"] += 1
@@ -229,7 +235,8 @@ def _format_text(summary: Dict[str, Any]) -> str:
         marker = "OK" if req["satisfied"] else "NO"
         waived = " (waived)" if req["waived_at"] else ""
         lines.append(
-            f"    {marker} #{req['id']} {req['qa_kind']} "
+            f"    {marker} #{req['id']} "
+            f"{req['method_id'] or req['qa_kind']} "
             f"phase={req['qa_phase']} blocking_mode={req['blocking_mode']}{waived}"
         )
         latest = req["latest_run"]

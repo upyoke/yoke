@@ -2,18 +2,14 @@
 
 from __future__ import annotations
 
-import io
 import sys
-from contextlib import redirect_stdout
 from typing import Any, Dict, List, Optional
 
 from yoke_core.domain.db_helpers import connect, query_scalar
+from yoke_core.domain.deploy_ephemeral_verify import dispatch_ephemeral_verify
+from yoke_core.domain.deploy_pipeline_labels import item_label as _item_label
 from yoke_core.domain.deploy_pipeline_github_workflow import (
     _dispatch_github_actions_workflow,
-)
-from yoke_core.domain.deploy_pipeline_reporting import (
-    _emit_run_event,
-    _resolve_script_dir,
 )
 from yoke_core.domain.deploy_cli_manifest_gate import (
     verify_deployed_cli_manifest,
@@ -69,8 +65,11 @@ def _dispatch_executor(
         )
 
         return _dispatch_migration_apply(
-            stage, run_id=run_id, member_items=member_items,
-            project=project, sd=sd,
+            stage,
+            run_id=run_id,
+            member_items=member_items,
+            project=project,
+            sd=sd,
         )
     if kind:
         print(f"Error: unknown stage kind '{kind}'", file=sys.stderr)
@@ -85,7 +84,9 @@ def _dispatch_executor(
     if executor == "health-check":
         return (
             _dispatch_health_check(
-                config, project, target_env,
+                config,
+                project,
+                target_env,
                 project_repo_path=product_repo_path or project_repo_path,
                 image_tag=str(config.get("image_tag", "") or image_tag or ""),
             ),
@@ -126,26 +127,36 @@ def _dispatch_executor(
         )
     if executor == "ephemeral-verify":
         return _dispatch_ephemeral_verify(
-            config, name=name, run_id=run_id, member_items=member_items,
-            github_repo=github_repo, project=project,
-            project_repo_path=project_repo_path, branch=branch,
-            first_item=first_item, sd=sd,
+            config,
+            name=name,
+            run_id=run_id,
+            member_items=member_items,
+            github_repo=github_repo,
+            project=project,
+            project_repo_path=project_repo_path,
+            branch=branch,
+            first_item=first_item,
+            sd=sd,
         ), ""
     if executor == "human-approval":
-        print(f"Awaiting human approval for stage '{name}'")
-        _emit_run_event(
-            "DeploymentRunStageCompleted", "completed",
-            {"run_id": run_id, "stage": name, "result": "skipped", "reason": "awaiting-approval"},
-            member_items=member_items, project=project, sd=sd,
+        from yoke_core.domain.deployment_approval_requests import (
+            dispatch_deployment_stage_approval,
         )
-        return -2, ""
+
+        return dispatch_deployment_stage_approval(run_id, name)
     if executor == "github-actions-workflow":
         return _dispatch_github_actions_workflow(
-            config, name=name, run_id=run_id, member_items=member_items,
-            github_repo=github_repo, project=project,
+            config,
+            name=name,
+            run_id=run_id,
+            member_items=member_items,
+            github_repo=github_repo,
+            project=project,
             project_repo_path=project_repo_path,
-            timeout_min=timeout_min, fresh=fresh,
-            gate_branch=gate_branch, sd=sd,
+            timeout_min=timeout_min,
+            fresh=fresh,
+            gate_branch=gate_branch,
+            sd=sd,
             release_lineage=release_lineage,
             product_repo_path=product_repo_path,
             image_tag=str(config.get("image_tag", "") or image_tag or ""),
@@ -153,21 +164,6 @@ def _dispatch_executor(
 
     print(f"Error: unknown executor type '{executor}'", file=sys.stderr)
     return 1, ""
-
-
-def _item_label(first_item: str) -> str:
-    """Public item ref for ephemeral tracking, or empty for item-less runs."""
-    if not first_item:
-        return ""
-    from yoke_core.domain.project_identity import render_item_ref
-
-    conn = connect()
-    try:
-        return render_item_ref(conn, int(first_item))
-    except Exception:
-        return str(first_item)
-    finally:
-        conn.close()
 
 
 def _dispatch_health_check(
@@ -232,7 +228,9 @@ def _dispatch_health_check(
 
         try:
             expected_build = resolve_image_tag(
-                CommandRunner(), project_repo_path, "",
+                CommandRunner(),
+                project_repo_path,
+                "",
                 declared_branch=env.git_branch,
             )
         except Exception as exc:
@@ -277,74 +275,17 @@ def _dispatch_ephemeral_verify(
     sd: Optional[str] = None,
 ) -> int:
     """Handle ephemeral-verify executor."""
-    sd = sd or _resolve_script_dir()
-
-    all_passed = True
-    conn = connect()
-    try:
-        for item_id in member_items:
-            count = query_scalar(
-                conn,
-                "SELECT COUNT(*) FROM qa_runs qr "
-                "JOIN qa_requirements qreq ON qr.qa_requirement_id = qreq.id "
-                "WHERE qreq.item_id = %s AND qreq.qa_kind IN ('browser_smoke', 'browser_diff') "
-                "AND qreq.qa_phase = 'verification' AND qr.verdict = 'pass'",
-                (item_id,),
-            )
-            if not count:
-                all_passed = False
-                break
-    finally:
-        conn.close()
-
-    if all_passed:
-        print("  Skipping ephemeral-verify: all member items already passed ephemeral QA during conduct")
-        return 0
-
-    workflow = config.get("workflow", "")
-    if not github_repo:
-        print(f"Error: no github_repo configured for project '{project}'", file=sys.stderr)
-        return 1
-    if not branch or branch == "null":
-        print(f"Error: no branch available for YOK-{first_item} -- cannot verify ephemeral deploy", file=sys.stderr)
-        return 1
-
-    from yoke_core.domain.ephemeral_substrate import (
-        EphemeralPolicyError,
-        load_ephemeral_policy,
+    return dispatch_ephemeral_verify(
+        config,
+        name=name,
+        run_id=run_id,
+        member_items=member_items,
+        github_repo=github_repo,
+        project=project,
+        branch=branch,
+        first_item=first_item,
+        executors=_executors,
+        connect_fn=connect,
+        query_scalar_fn=query_scalar,
+        sd=sd,
     )
-
-    try:
-        domain = load_ephemeral_policy(project).preview_domain
-    except EphemeralPolicyError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
-        return 1
-    if not workflow:
-        print("Error: ephemeral-verify stage missing 'workflow' field in flow definition", file=sys.stderr)
-        return 1
-
-    buf = io.StringIO()
-    try:
-        with redirect_stdout(buf):
-            rc = _executors.exec_ephemeral_verify(
-                github_repo, branch, workflow, domain, "", project=project,
-            )
-    except Exception as exc:  # pragma: no cover
-        print(f"Error: exec_ephemeral_verify raised: {exc}", file=sys.stderr)
-        return 1
-
-    output = buf.getvalue().strip()
-    if output:
-        print(output)
-
-    if rc == 0:
-        for line in output.split("\n"):
-            if line.startswith("EPHEMERAL_URL="):
-                _emit_run_event(
-                    "DeploymentRunStageCompleted", "completed",
-                    {"run_id": run_id, "stage": name, "result": "success", "preview_url": line.split("=", 1)[1]},
-                    member_items=member_items, project=project, sd=sd,
-                )
-                return -3
-
-    return rc

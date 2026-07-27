@@ -11,7 +11,7 @@ Longer term, Yoke becomes a central clearinghouse for company operations — rec
 ---
 
 <!-- BEGIN GENERATED: field-note-directive -->
-When you hit a recipe gap or notice a minor bug not worth a ticket, file a field-note immediately — before retrying, before moving on.
+When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
 Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->
@@ -164,15 +164,24 @@ Yoke supports an operator-driven planning loop: ask the agent to inspect current
 
 ## Core Concepts
 
-### Item Types
+### Workflows
 
-| Type      | What it is                                    | Decomposes into tasks?                     |
-| --------- | --------------------------------------------- | ------------------------------------------ |
-| **Issue** | Single unit of work (bug, feature, config)    | No                                         |
-| **Epic**  | Large work that the Architect decomposes      | Yes — into tasks with worktree assignments |
-| **Task**  | Sub-item of an epic, created by the Architect | No                                         |
+| Workflow | What it is | Normal entry |
+| --- | --- | --- |
+| **Dash** | One instruction that can be filed and executed in seconds | Web New Item, `yoke dash`, or `/yoke dash` |
+| **Blitz** | A substantial document-led plan executed as integrated slices | `/yoke idea`, then `/yoke blitz` |
+| **Issue** | A bounded change whose item body is the specification | `/yoke idea`, then refine/advance |
+| **Epic** | Work that the Architect decomposes into task lanes | `/yoke idea`, then shepherd/conduct |
 
-The rendered item body is the spec view — no separate PRD files. `items get YOK-N body` renders the authoritative spec from structured fields. One artifact, one lifecycle, one source of truth.
+Every work item is pinned to an immutable numbered workflow version. The
+definition supplies its stages, entry checks, posture, and executors; selecting
+a new current version affects future items only. See
+[docs/workflows.md](docs/workflows.md) for workflow selection, version
+operations, Dash/Blitz execution, and project mechanics.
+
+The rendered item body is the spec view — no separate PRD files.
+`yoke items get YOK-N body` renders the authoritative spec from structured fields. One
+artifact, one lifecycle, one source of truth.
 
 ### The Seven Agents
 
@@ -228,6 +237,9 @@ Stage executor types: `auto`, `health-check`, `script`, `human-approval`, `githu
 | Command                         | Purpose                                                                                  |
 | ------------------------------- | ---------------------------------------------------------------------------------------- |
 | `/yoke idea {title}`          | Create a backlog item.                                                                   |
+| `yoke dash {title} {instruction}` | File an instruction-sized Dash from the CLI.                                         |
+| `/yoke dash {instruction \| YOK-N}` | File-and-execute or resume a Dash.                                                  |
+| `/yoke blitz YOK-N`           | Execute a document-led Blitz in integrated slices.                                       |
 | `/yoke conduct YOK-N`          | Execute: sync → engineer → test → simulate → merge.                                     |
 | `/yoke shepherd YOK-N`        | Advance: idea → refined-idea (or planned for epics).                                     |
 | `/yoke usher [YOK-N]`         | Deployment pipeline. Halts on capability gaps and approval gates.                        |
@@ -242,7 +254,7 @@ Stage executor types: `auto`, `health-check`, `script`, `human-approval`, `githu
 | Command                            | Purpose                                               |
 | ---------------------------------- | ----------------------------------------------------- |
 | `/yoke doctor`                   | 40+ health checks. `--fix` for auto-repair.           |
-| `/yoke curate`                   | Process agent learnings → tickets + patterns.         |
+| `/yoke curate`                   | Process agent learnings → work items + patterns.       |
 | `/yoke resync`                   | GitHub bidirectional sync.                            |
 | `/yoke freeze YOK-N`             | Park an item.                                         |
 | `/yoke thaw YOK-N`               | Unfreeze.                                             |
@@ -282,9 +294,9 @@ runtime/api/
 
 ## Ouroboros — Self-Improvement
 
-Every subagent answers three questions at session end: What went wrong? What process improvements? What game-changing ideas? Observations log to `ouroboros_entries`. A health scanner (`/yoke doctor`) runs 40+ checks. A system simulator (`/yoke simulate --system`) traces coherence gaps. A curator (`/yoke curate`) clusters learnings into tickets.
+Every subagent answers three questions at session end: What went wrong? What process improvements? What game-changing ideas? Observations log to `ouroboros_entries`. A health scanner (`/yoke doctor`) runs 40+ checks. A system simulator (`/yoke simulate --system`) traces coherence gaps. A curator (`/yoke curate`) clusters learnings into work items.
 
-The flywheel: agents work → reflections capture learnings → curator creates tickets → tickets fix structural issues → faster delivery each cycle.
+The flywheel: agents work → reflections capture learnings → curator creates work items → work items fix structural issues → faster delivery each cycle.
 
 ---
 

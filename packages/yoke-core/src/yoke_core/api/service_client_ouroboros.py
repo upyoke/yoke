@@ -11,12 +11,12 @@ Usage::
     field-note-log --kind new         --evidence-file /tmp/missing-recipe.md
     field-note-log --kind unclear     --evidence "purpose unclear for ..." \\
                                       --correlation-id polish-run-2025-05-20
-    field-note-log --kind observation --evidence "minor bug not worth a ticket: ..."
+    field-note-log --kind observation --evidence "minor bug best held as a supporting record: ..."
 
 ``--kind`` is one of ``failed`` (a recipe ran and produced the wrong
 result), ``new`` (an agent needed a recipe that did not exist),
 ``unclear`` (a recipe was present but its purpose was unclear), or
-``observation`` (a minor bug or signal not worth a full ticket).
+``observation`` (a minor bug or signal best held as a supporting record).
 """
 
 from __future__ import annotations

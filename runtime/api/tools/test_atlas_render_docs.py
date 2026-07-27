@@ -126,7 +126,7 @@ _REPORT: dict = {
         {"id": "open-one", "kind": "promise-vs-live", "surface": "s1",
          "claim": "c1", "live_truth": "lt1", "resolution_hint": "h1",
          "status": "open"},
-        {"id": "resolved-one", "kind": "ticket-promise-vs-live", "surface": "s2",
+        {"id": "resolved-one", "kind": "work-item-promise-vs-live", "surface": "s2",
          "claim": "c2", "live_truth": "lt2", "resolution_hint": "h2",
          "status": "resolved", "resolution_note": "n"},
     ],
@@ -193,6 +193,42 @@ class TestRender:
         assert "yoke claims work acquire" in body
         assert "yoke lifecycle transition" in body
 
+    def test_client_local_cli_row_renders_only_as_permanent_boundary(
+        self,
+        report: dict,
+    ) -> None:
+        report["yoke_cli"]["count"] = 4
+        report["yoke_cli"]["rows"].append({
+            "cli_tokens": ["sessions", "init"],
+            "cli_form": "yoke sessions init",
+            "function_id": "sessions.init",
+            "family": "sessions",
+            "has_usage_line": True,
+            "usage": "sessions init",
+            "dispatch_kind": "client_local",
+        })
+        report["operation_tracker"]["count"] = 6
+        report["operation_tracker"]["by_status"]["permanent"] = 2
+        report["operation_tracker"]["rows"].append({
+            "shell_form": "yoke sessions init",
+            "family": "sessions",
+            "status": "permanent",
+            "reason": "tool_shaped",
+            "proposed_function_id": None,
+        })
+        report["help_pages"]["per_subcommand"]["sessions init"] = {
+            "exit_code": 0,
+            "body": "sessions init help",
+            "stderr": "",
+            "has_usage_line": True,
+        }
+        rendered = ard.render(report)
+        wrapped, permanent = rendered.split(
+            "## 3. Permanent command-shaped boundary roster", maxsplit=1
+        )
+        assert "yoke sessions init" not in wrapped
+        assert permanent.count("yoke sessions init") == 1
+
     def test_pending_roster_lists_proposed_function_id(self, body: str) -> None:
         assert "something.list.run" in body
 
@@ -240,6 +276,7 @@ class TestStaleness:
         (docs_dir / "atlas.md").write_text(first, encoding="utf-8")
         # Mutate live DB read state only — field-note counts change.
         report["field_notes"]["count"] = 99
+        report["summary"]["field_notes_recent"] = 99
         report["field_notes"]["rows"].append({
             "id": 3, "timestamp": "2026-01-03", "agent": "newbie",
             "category": "observation", "project": "yoke", "excerpt": "z",

@@ -21,7 +21,7 @@ the implementation phase has already handed off.
 Behaviour:
 
 - Branch doesn't match ``YOK-N`` → skip (commits on main, branch
-  without ticket, etc.).
+  without a work item, etc.).
 - Item row missing → skip (exploratory ``YOK-N`` branch with no DB
   presence).
 - DB unreachable → skip (do not block on environment issues).

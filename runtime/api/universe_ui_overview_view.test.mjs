@@ -6,107 +6,11 @@ import {
   FakeDocument,
   allNodes,
   byClass,
-  cellText,
   response,
   settle,
 } from "./universe_ui_dom_test_support.mjs";
 
-// A one-project universe that answers every read the Overview composes. Rows
-// are shaped like the engine's, so the summary panels render the same columns
-// their full screens do.
-function overviewClient(overrides = {}) {
-  const requests = [];
-  const answers = {
-    "frontier.list": {
-      ready_rows: [
-        {
-          item_id: "YOK-9", workflow_id: "issue", workflow_version_id: 1, project: "yoke",
-          status: "planned", priority: "high", rank: 1,
-          next_step: "advance", run_command: "yoke advance YOK-9",
-          why_ready: "no blockers",
-        },
-        {
-          item_id: "YOK-8", workflow_id: "issue", workflow_version_id: 1, project: "yoke",
-          status: "refined-idea", priority: "medium", rank: 2,
-          next_step: "conduct", run_command: "yoke conduct YOK-8",
-          why_ready: "claims free",
-        },
-      ],
-      blocked_rows: [
-        {
-          item_id: "YOK-7", project: "yoke", blocking_item: "YOK-9",
-          gate_point: "activation", why: "waits for YOK-9",
-        },
-      ],
-    },
-    "sessions.list": {
-      rows: [
-        {
-          session_id: "s-run", liveness: "active", execution_lane: "primary",
-          mode: "charge", actor_id: 2, actor_kind: "human", actor_label: "Ben",
-          claims: [], current_item: "YOK-9", activity_at: "now",
-        },
-      ],
-    },
-    "strategy.doc.list": {
-      docs: [{
-        slug: "MISSION", title: "why", updated_by: "ben",
-        updated_at: "today", bytes: 10, archived: false,
-      }],
-    },
-    "deployment_runs.list": {
-      rows: [{
-        id: "run-1", flow: "yoke-hosted-stage", target_env: "stage",
-        current_stage: "complete", status: "succeeded", created_at: "1h",
-      }],
-    },
-    "events.query.run": {
-      rows: [{
-        created_at: "30s", event_name: "YokeFunctionCalled",
-        event_kind: "function", severity: "info", actor_id: "codex",
-      }],
-    },
-    "doctor.last_run.get": {
-      never_run: false, ran_at: "today", total: 44, pass_count: 42,
-      warn_count: 2, fail_count: 0,
-      results: [
-        { hc: "HC-title-length", name: "titles", severity: "pass" },
-        { hc: "HC-stale-migration", name: "migrations", severity: "warn" },
-      ],
-    },
-    "overview.activation.get": { dismiss_available: false, modules: [] },
-    ...overrides,
-  };
-  return {
-    requests,
-    async call(request) {
-      requests.push(request);
-      if (request.function === "organizations.get") {
-        return { status: 200, envelope: { success: true, result: { name: "Yoke" } } };
-      }
-      if (request.function === "projects.list") {
-        return {
-          status: 200,
-          envelope: {
-            success: true,
-            result: { rows: [{ id: 1, slug: "yoke", name: "Yoke" }] },
-          },
-        };
-      }
-      if (request.function in answers) {
-        return { status: 200, envelope: { success: true, result: answers[request.function] } };
-      }
-      throw new Error(`unexpected function ${request.function}`);
-    },
-  };
-}
-
-function panelTitles(root) {
-  return byClass(root, "panel-header")
-    .map((header) => byClass(header, "panel-count").length
-      ? header.children[0].children[0].textContent
-      : header.children[0].textContent);
-}
+import { overviewClient } from "./universe_ui_overview_view_test_support.mjs";
 
 test("Overview is no longer a stub: it composes the six section reads", async (t) => {
   const originalFetch = globalThis.fetch;
@@ -122,13 +26,27 @@ test("Overview is no longer a stub: it composes the six section reads", async (t
 
   // The coming-soon stub is gone; the six summary panels stand in its place.
   assert.equal(byClass(root, "stub-panel").length, 0);
-  const titles = allNodes(root)
-    .filter((node) => node.tagName === "H2")
-    .map((node) => node.textContent);
-  assert.deepEqual(titles, [
-    "❖ Strategy", "⚡ Frontier", "◈ Sessions",
-    "⬈ Delivery", "≋ Events", "♥ Doctor",
-  ]);
+  assert.deepEqual(
+    byClass(root, "overview-section-icon").map((node) => node.textContent),
+    ["❖", "⚡", "◈", "⬈", "≋", "♥"],
+  );
+  assert.deepEqual(
+    byClass(root, "overview-section-title").map((node) => node.textContent),
+    ["Strategy", "Frontier", "Sessions", "Delivery", "Events", "Doctor"],
+  );
+  assert.equal(byClass(root, "overview-section-heading").length, 6);
+  assert.match(
+    allNodes(root).map((node) => node.textContent).join(" "),
+    /2 runnable · 1 blocked/,
+  );
+  assert.doesNotMatch(
+    allNodes(root).map((node) => node.textContent).join(" "),
+    /workflow type/,
+  );
+  assert.match(
+    allNodes(root).map((node) => node.textContent).join(" "),
+    /Your Yoke universe at a glance/,
+  );
 
   // The prototype's hierarchy is present: one signal masthead and a compact
   // final row for pulse + health.
@@ -139,11 +57,27 @@ test("Overview is no longer a stub: it composes the six section reads", async (t
   assert.deepEqual(
     byClass(root, "overview-section-detail").map((node) => node.textContent),
     [
-      "direction and recent strategy", "what can run now, and why",
-      "who is working", "what is shipping", "the pulse · newest first",
-      "the floor · current health",
+      "where this universe has been, and where VISION points it",
+      "what can run now, and why",
+      "this machine",
+      "what is shipping, and where it stands",
+      "the pulse · newest first",
+      "the floor · invariants that hold",
     ],
   );
+  assert.deepEqual(
+    byClass(root, "overview-section").map((panel) =>
+      byClass(panel, "panel-count")[0]?.textContent || null),
+    [
+      null,
+      "· 2 runnable · 1 blocked",
+      "· 1 live",
+      "· 1 runs",
+      "· 1",
+      "· 2 warnings",
+    ],
+  );
+  assert.equal(byClass(root, "raw-toggle").length, 6);
 
   // Each section replays the read its full screen runs, plus exactly one
   // Overview-owned read: the activation-module derivation.
@@ -151,7 +85,7 @@ test("Overview is no longer a stub: it composes the six section reads", async (t
   for (const functionId of [
     "frontier.list", "sessions.list", "strategy.doc.list",
     "deployment_runs.list", "events.query.run", "doctor.last_run.get",
-    "overview.activation.get",
+    "overview.activation.get", "overview.vitals.get",
   ]) {
     assert.ok(called.has(functionId), functionId);
   }
@@ -199,7 +133,7 @@ test("the Overview jump strip maps and scrolls to all six summaries", async (t) 
   mounted.unmount();
 });
 
-test("the stat tiles fill from the reads, and never invent a number", async (t) => {
+test("the masthead projects state and 120-day momentum as distinct signals", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
@@ -210,141 +144,154 @@ test("the stat tiles fill from the reads, and never invent a number", async (t) 
   const mounted = mountUniverseApp(root, { client: overviewClient() });
   await settle();
 
-  // Tiles read: ready (2 ready_rows), live sessions (1), blocked (1
-  // blocked_row), checks passing (doctor pass_count 42).
-  const tiles = byClass(root, "stat");
+  assert.equal(byClass(root, "stat").length, 0);
+  const stateRows = byClass(root, "overview-state-row");
+  assert.deepEqual(stateRows.map((node) => [
+    byClass(node, "overview-state-icon")[0].textContent,
+    byClass(node, "overview-state-label")[0].textContent,
+    byClass(node, "overview-state-value")[0].textContent,
+  ]), [
+    ["🎫", "Active", "3"], ["💧", "Pipeline", "2"],
+    ["🌱", "Backlog", "4"], ["⛔", "Blocked", "1"],
+    ["🧊", "Frozen", "0"], ["✅", "Done", "2,828"],
+  ]);
   assert.deepEqual(
-    tiles.map((tile) => byClass(tile, "n")[0].textContent),
-    ["2", "1", "1", "42"],
+    stateRows.map((node) => byClass(node, "overview-state-meter")[0]
+      .children[0].style.width),
+    ["2%", "2%", "2%", "2%", "0%", "100%"],
   );
+  assert.equal(byClass(root, "overview-momentum-total").length, 0);
   assert.deepEqual(
-    tiles.map((tile) => byClass(tile, "l")[0].textContent),
-    ["ready to run", "live sessions", "blocked", "checks passing"],
+    byClass(root, "overview-sparkline-line").map(
+      (line) => line.attributes.get("data-series"),
+    ),
+    ["activity", "code", "issues", "strategy"],
   );
-  assert.deepEqual(
-    tiles.map((tile) => tile.attributes.get("data-signal")),
-    ["ready", "sessions", "blocked", "healthy"],
+  assert.equal(
+    byClass(root, "overview-streak")[0].textContent,
+    "🔥 active 2 of last 2 days",
+  );
+  assert.match(
+    byClass(root, "overview-sync")[0].textContent,
+    /momentum window 120 days · last sync unavailable/,
   );
   mounted.unmount();
 });
 
-test("the Delivery summary keeps the engine's newest-first receipt order", async (t) => {
+test("Strategy and Frontier preserve the prototype anatomy with truthful facts", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
   documentNode.defaultView.location.hash = "#/overview?project=1";
   const root = documentNode.createElement("div");
-  const runs = ["023", "022", "021", "020", "019", "018"].map((suffix) => ({
-    id: `run-20260717-${suffix}`,
-    flow: "yoke-hosted-stage-no-ci-gate",
-    target_env: "stage",
-    current_stage: "complete",
-    status: "succeeded",
-    created_at: `2026-07-17T${suffix}:00:00Z`,
+
+  const mounted = mountUniverseApp(root, { client: overviewClient() });
+  await settle();
+
+  assert.equal(byClass(root, "overview-zen-row").length, 1);
+  assert.equal(byClass(root, "overview-zen-past").length, 1);
+  assert.equal(byClass(root, "overview-zen-now")[0].textContent, "🔸");
+  assert.equal(byClass(root, "overview-zen-queued").length, 1);
+  assert.equal(byClass(root, "overview-zen-vision").length, 2);
+  assert.equal(byClass(root, "overview-zen-dot").length, 5);
+  const visionDots = byClass(root, "overview-zen-vision-dot");
+  assert.equal(visionDots.length, 2);
+  assert.equal(
+    visionDots.every((dot) =>
+      dot.parentNode.classList.contains("overview-zen-vision")),
+    true,
+  );
+  assert.deepEqual(
+    byClass(root, "overview-zen-label").map((node) => node.textContent),
+    ["registry", "items"],
+  );
+  assert.equal(
+    byClass(root, "overview-zen-queued")[0].children[0].textContent,
+    "3 queued",
+  );
+  assert.deepEqual(
+    byClass(root, "overview-zen-vision").map(
+      (node) => byClass(node, "overview-zen-zone-label")[0].textContent,
+    ),
+    ["web steering", "multi-actor"],
+  );
+  const docBadge = byClass(root, "overview-doc-badge")[0];
+  assert.equal(docBadge.href, "#/strategy/MISSION?project=1");
+  assert.equal(byClass(root, "overview-doc-total")[0].textContent, "1 doc");
+
+  const frontierTable = byClass(root, "overview-frontier-table")[0];
+  assert.deepEqual(
+    frontierTable.children[0].children[0].children.map(
+      (header) => header.textContent,
+    ),
+    ["#", "Item", "Project", "Progress", "Why it can run", "Run in your harness"],
+  );
+  assert.equal(byClass(root, "overview-ready-row").length, 2);
+  assert.deepEqual(
+    byClass(root, "overview-rank").map((node) => node.textContent),
+    ["1", "2"],
+  );
+  const readyRow = byClass(root, "overview-ready-row")[0];
+  assert.equal(readyRow.attributes.get("role"), "link");
+  readyRow.dispatchEvent(new Event("click"));
+  assert.equal(documentNode.defaultView.location.hash, "#/frontier?project=1");
+  assert.deepEqual(
+    byClass(root, "overview-command").map((node) => node.textContent),
+    ["yoke advance YOK-9", "yoke conduct YOK-8"],
+  );
+  assert.equal(
+    byClass(root, "overview-command").every((node) => node.tagName === "CODE"),
+    true,
+  );
+  assert.equal(byClass(root, "overview-blocked-row").length, 1);
+  assert.equal(byClass(root, "overview-age-cells")[0].children.length, 3);
+  assert.match(
+    byClass(root, "overview-workflow-counts")[0].textContent,
+    /issue 3/,
+  );
+  mounted.unmount();
+});
+
+test("Overview keeps the prototype's six-document and seven-session summary density", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = () => response(200, {});
+  const documentNode = new FakeDocument();
+  documentNode.defaultView.location.hash = "#/overview?project=1";
+  const root = documentNode.createElement("div");
+  const docs = Array.from({ length: 17 }, (_, index) => ({
+    slug: `DOC-${String(index + 1).padStart(2, "0")}`,
+    title: `Document ${index + 1}`,
+    updated_at: `2026-07-${String(26 - index).padStart(2, "0")}T12:00:00Z`,
+    execution_state: index === 0 ? "claimed" : "available",
+  }));
+  const sessions = Array.from({ length: 8 }, (_, index) => ({
+    session_id: `session-${index + 1}`,
+    liveness: "active",
+    project: "yoke",
+    executor: "codex",
+    model: "gpt-5.6-sol",
+    execution_lane: "DARIUS",
+    mode: "charge",
+    actor_id: 2,
+    actor_kind: "human",
+    activity_at: "2026-07-26T12:00:00Z",
   }));
 
   const mounted = mountUniverseApp(root, {
-    client: overviewClient({ "deployment_runs.list": { rows: runs } }),
+    client: overviewClient({
+      "strategy.doc.list": { docs },
+      "sessions.list": { rows: sessions },
+    }),
   });
   await settle();
 
-  const deliveryPanel = byClass(root, "panel")[3];
-  const receiptRows = allNodes(deliveryPanel)
-    .filter((node) => node.tagName === "TR")
-    .slice(1)
-    .map((row) => cellText(row.children[0]));
-  assert.deepEqual(receiptRows, [
-    "run-20260717-023", "run-20260717-022", "run-20260717-021",
-    "run-20260717-020", "run-20260717-019",
-  ]);
-  const environments = byClass(root, "overview-environment");
-  assert.equal(environments.length, 1);
+  assert.equal(byClass(root, "overview-doc-badge").length, 6);
   assert.equal(
-    environments[0].textContent,
-    "stage · succeeded · 2026-07-17T023:00:00Z",
+    byClass(root, "overview-doc-total")[0].textContent,
+    "17 docs · 1 claimed",
   );
-  assert.equal(environments[0].attributes.get("data-status"), "succeeded");
+  assert.equal(byClass(root, "overview-session-row").length, 7);
   mounted.unmount();
-});
-
-test("a doctor run that never ran leaves the checks tile an em dash", async (t) => {
-  const originalFetch = globalThis.fetch;
-  t.after(() => { globalThis.fetch = originalFetch; });
-  globalThis.fetch = () => response(200, {});
-  const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/overview?project=1";
-  const root = documentNode.createElement("div");
-  const client = overviewClient({ "doctor.last_run.get": { never_run: true } });
-
-  const mounted = mountUniverseApp(root, { client });
-  await settle();
-
-  // The other tiles resolve; the checks tile has no honest number to show.
-  const checksTile = byClass(root, "stat")[3];
-  assert.equal(byClass(checksTile, "l")[0].textContent, "checks passing");
-  assert.equal(byClass(checksTile, "n")[0].textContent, "—");
-  const text = allNodes(root).map((node) => node.textContent || "").join(" ");
-  assert.ok(text.includes("doctor has not run yet"));
-  mounted.unmount();
-});
-
-// The who-column names the actor, or the member when the host maps one.
-test("the Sessions summary names the actor, and a member directory renames it", async (t) => {
-  const originalFetch = globalThis.fetch;
-  t.after(() => { globalThis.fetch = originalFetch; });
-  globalThis.fetch = () => response(200, {});
-
-  const sessionsSummaryCells = async (capabilities) => {
-    const documentNode = new FakeDocument();
-    documentNode.defaultView.location.hash = "#/overview?project=1";
-    const root = documentNode.createElement("div");
-    const client = overviewClient({
-      "sessions.list": {
-        rows: [
-          {
-            session_id: "s-ben", liveness: "active", execution_lane: "primary",
-            mode: "charge", actor_id: 2, actor_kind: "human",
-            actor_label: "ben", current_item: "YOK-9",
-          },
-          {
-            session_id: "s-ci", liveness: "stale", execution_lane: "primary",
-            mode: "wait", actor_id: 7, actor_kind: "system",
-            actor_label: "preview-ci", current_item: null,
-          },
-          {
-            session_id: "s-ended", liveness: "ended", execution_lane: "primary",
-            mode: "wait", actor_id: 8, actor_kind: "system",
-            actor_label: "old-worker", current_item: null,
-          },
-        ],
-      },
-    });
-    const mounted = mountUniverseApp(root, {
-      client, ...(capabilities ? { capabilities } : {}),
-    });
-    await settle();
-    // Read the third panel's header label and who-cells.
-    const sessionsPanel = byClass(root, "panel")[2];
-    const header = allNodes(sessionsPanel)
-      .filter((node) => node.tagName === "TH")
-      .map((node) => node.textContent);
-    const whoCells = allNodes(sessionsPanel)
-      .filter((node) => node.tagName === "TR")
-      .slice(1)
-      .map((tr) => cellText(tr.children[1]));
-    mounted.unmount();
-    return { header, whoCells };
-  };
-
-  const actorMode = await sessionsSummaryCells(null);
-  assert.equal(actorMode.header[1], "actor");
-  assert.deepEqual(actorMode.whoCells, ["ben", "preview-ci · system"]);
-
-  // Hosted mode uses mapped members; unmapped machines keep their actor.
-  const memberMode = await sessionsSummaryCells({
-    data: { memberDirectory: { 2: "Ben Bauman" } },
-  });
-  assert.equal(memberMode.header[1], "member");
-  assert.deepEqual(memberMode.whoCells, ["Ben Bauman", "preview-ci · system"]);
 });

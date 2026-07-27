@@ -25,7 +25,7 @@ yoke strategy doc get VISION
 yoke strategy doc get MASTER-PLAN
 ```
 
-Skip this section entirely when `_no_new_tickets` is true and the run is truly graph-refresh-only. Otherwise retain the full content of each doc in context. Pay special attention to:
+Skip this section entirely when `_no_new_items` is true and the run is truly graph-refresh-only. Otherwise retain the full content of each doc in context. Pay special attention to:
 - **MASTER-PLAN.md** generation/wave structure -- identifies what is next to materialize
 - **VISION.md** near-term priorities and capability targets
 - **LANDSCAPE.md** competitive and technical constraints that affect sequencing
@@ -109,7 +109,7 @@ For each recently landed change, record:
 - whether the change invalidates assumptions in any target item's body/spec/design_spec/technical_plan/worktree_plan
 
 Produce a concrete landed-impact list:
-- `These tickets need updating because X landed and changed Y.`
+- `These work items need updating because X landed and changed Y.`
 - Do not skip this step. This is the core value of feed.
 
 ## 1.7 Inspect Shared Surfaces And Hot Spots
@@ -125,7 +125,7 @@ Focus on:
 
 ## 1.8 Re-Read MASTER-PLAN.md Structure
 
-Re-examine `MASTER-PLAN.md` specifically for generation/wave structure:
+Re-examine `.yoke/strategy/MASTER-PLAN.md` specifically for generation/wave structure:
 - Identify the current generation and its completion state
 - Identify what the next generation/wave contains
 - Identify which items from the plan are already materialized in the backlog

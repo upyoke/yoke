@@ -3,7 +3,7 @@
 Path strings in the File Budget and function-owner refs are project-
 relative; the existence checks in ``idea_readiness_check`` resolve them
 against this machine's mapped checkout for the item project so external-
-project tickets do not silently skip the existence check against the
+project work items do not silently skip the existence check against the
 wrong tree. Lives in a sibling module to keep the parent
 ``idea_readiness_check.py`` under the 350-line cap.
 """

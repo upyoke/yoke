@@ -64,12 +64,22 @@ _MAKE_CONN_DDL = textwrap.dedent("""\
             rework_count INTEGER,
             deployed_to TEXT,
             updated_at TEXT,
-            worktree TEXT,
             spec TEXT,
             deployment_flow TEXT,
             blocked INTEGER DEFAULT 0,
             blocked_reason TEXT,
             frozen INTEGER DEFAULT 0
+        );
+        CREATE TABLE item_worktrees (
+            id INTEGER PRIMARY KEY,
+            item_id INTEGER NOT NULL,
+            branch TEXT NOT NULL,
+            path TEXT,
+            lane_role TEXT NOT NULL,
+            state TEXT NOT NULL DEFAULT 'active',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            released_at TEXT
         );
 
         CREATE TABLE epic_tasks (

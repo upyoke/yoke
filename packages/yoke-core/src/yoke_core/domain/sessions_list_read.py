@@ -62,6 +62,12 @@ SESSION_LIST_FIELDS = (
     "offered_at",
     "ended_at",
     "current_item",
+    "current_item_title",
+    "current_item_workflow_id",
+    "current_item_workflow_version_id",
+    "work_role",
+    "owns_current_item",
+    "claim_started_at",
     "claims",
 )
 
@@ -108,23 +114,59 @@ def _claim_target_display(claim: Dict[str, Any]) -> str:
     return str(claim.get("process_key") or "")
 
 
-def _active_claims_by_session(conn: Any) -> Dict[str, List[Dict[str, Any]]]:
+def _active_claims_by_session(
+    conn: Any,
+) -> Tuple[
+    Dict[str, List[Dict[str, Any]]],
+    Dict[str, List[Dict[str, Any]]],
+]:
     rows = conn.execute(
-        "SELECT session_id, target_kind, item_id, epic_id, task_num, "
-        "process_key, conflict_group, claimed_at, reason "
-        "FROM work_claims WHERE released_at IS NULL "
-        "ORDER BY claimed_at ASC",
+        "SELECT wc.session_id, wc.target_kind, wc.item_id, wc.epic_id, "
+        "wc.task_num, wc.process_key, wc.conflict_group, wc.claimed_at, "
+        "wc.reason, COALESCE(task_lane.lane_role, item_lane.lane_role) "
+        "AS lane_role "
+        "FROM work_claims wc "
+        "LEFT JOIN epic_tasks et ON wc.target_kind = 'epic_task' "
+        "AND et.epic_id = wc.epic_id AND et.task_num = wc.task_num "
+        "LEFT JOIN item_worktrees task_lane "
+        "ON task_lane.id = et.item_worktree_id "
+        "AND task_lane.state = 'active' "
+        "LEFT JOIN item_worktrees item_lane ON item_lane.id = ("
+        "SELECT iw.id FROM item_worktrees iw "
+        "WHERE wc.target_kind = 'item' AND iw.item_id = wc.item_id "
+        "AND iw.state = 'active' "
+        "ORDER BY CASE iw.lane_role WHEN 'integration' THEN 0 "
+        "WHEN 'implementation' THEN 1 ELSE 2 END, iw.id LIMIT 1"
+        ") "
+        "WHERE wc.released_at IS NULL ORDER BY wc.claimed_at ASC",
     ).fetchall()
     grouped: Dict[str, List[Dict[str, Any]]] = {}
+    roles: Dict[str, List[Dict[str, Any]]] = {}
     for row in rows:
         claim = dict(row)
-        grouped.setdefault(str(claim["session_id"]), []).append({
-            "target_kind": str(claim.get("target_kind") or ""),
-            "target": _claim_target_display(claim),
-            "claimed_at": claim.get("claimed_at"),
-            "reason": claim.get("reason"),
-        })
-    return grouped
+        session_id = str(claim["session_id"])
+        grouped.setdefault(session_id, []).append(
+            {
+                "target_kind": str(claim.get("target_kind") or ""),
+                "target": _claim_target_display(claim),
+                "claimed_at": claim.get("claimed_at"),
+                "reason": claim.get("reason"),
+            }
+        )
+        claimed_item = (
+            claim.get("item_id")
+            if claim.get("target_kind") == "item"
+            else claim.get("epic_id")
+        )
+        roles.setdefault(session_id, []).append(
+            {
+                "target_kind": str(claim.get("target_kind") or ""),
+                "item_id": int(claimed_item) if claimed_item is not None else None,
+                "lane_role": claim.get("lane_role"),
+                "claimed_at": claim.get("claimed_at"),
+            }
+        )
+    return grouped, roles
 
 
 def _actor_label(conn: Any, cache: Dict[int, str], actor_id: Any) -> Optional[str]:
@@ -156,8 +198,7 @@ def list_sessions(
     """
     if liveness is not None and liveness not in LIVENESS_STATES:
         raise ValueError(
-            f"liveness must be one of {', '.join(LIVENESS_STATES)}; "
-            f"got {liveness!r}"
+            f"liveness must be one of {', '.join(LIVENESS_STATES)}; got {liveness!r}"
         )
     bounded_limit = max(1, min(int(limit), MAX_SESSIONS_LIST_LIMIT))
 
@@ -183,10 +224,14 @@ def list_sessions(
             "s.mode, s.workspace, s.project_id, pr.slug AS project, "
             "s.offered_at, s.last_heartbeat, s.last_tool_call_at, "
             "s.ended_at, s.current_item_id, s.actor_id, "
-            "a.kind AS actor_kind "
+            "a.kind AS actor_kind, i.title AS current_item_title, "
+            "i.workflow_id AS current_item_workflow_id, "
+            "i.workflow_version_id AS current_item_workflow_version_id "
             "FROM harness_sessions s "
             "LEFT JOIN projects pr ON pr.id = s.project_id "
             "LEFT JOIN actors a ON a.id = s.actor_id "
+            "LEFT JOIN items i ON CAST(i.id AS TEXT) = "
+            "CAST(s.current_item_id AS TEXT) "
             f"{where} "
             "ORDER BY GREATEST(COALESCE(s.last_tool_call_at, ''), "
             "s.last_heartbeat) DESC "
@@ -194,18 +239,20 @@ def list_sessions(
             tuple(params),
         ).fetchall()
 
-        claims_by_session = _active_claims_by_session(conn)
+        claims_by_session, roles_by_session = _active_claims_by_session(conn)
         label_cache: Dict[int, str] = {}
         result: List[Dict[str, Any]] = []
         for raw in rows:
             row = dict(raw)
             activity_at, _parsed = _latest_activity(
-                row.get("last_heartbeat"), row.get("last_tool_call_at"),
+                row.get("last_heartbeat"),
+                row.get("last_tool_call_at"),
             )
             if row.get("ended_at"):
                 state = LIVENESS_ENDED
             elif activity_is_stale(
-                activity_at, executor=row.get("executor"),
+                activity_at,
+                executor=row.get("executor"),
             ):
                 state = LIVENESS_STALE
             else:
@@ -214,30 +261,73 @@ def list_sessions(
                 continue
             session_id = str(row["session_id"])
             current_item = row.get("current_item_id")
-            result.append({
-                "session_id": session_id,
-                "liveness": state,
-                "activity_at": activity_at,
-                "execution_lane": row.get("execution_lane"),
-                "mode": row.get("mode"),
-                "actor_id": row.get("actor_id"),
-                "actor_kind": row.get("actor_kind"),
-                "actor_label": _actor_label(
-                    conn, label_cache, row.get("actor_id"),
-                ),
-                "project_id": row.get("project_id"),
-                "project": row.get("project"),
-                "executor": row.get("executor"),
-                "model": row.get("model"),
-                "workspace": row.get("workspace"),
-                "offered_at": row.get("offered_at"),
-                "ended_at": row.get("ended_at"),
-                "current_item": (
-                    display_claim_item_id(str(current_item))
-                    if current_item else None
-                ),
-                "claims": claims_by_session.get(session_id, []),
-            })
+            current_item_display = (
+                display_claim_item_id(str(current_item)) if current_item else None
+            )
+            claims = claims_by_session.get(session_id, [])
+            item_claims = [
+                claim
+                for claim in claims
+                if claim.get("target_kind") == "item"
+                and claim.get("target") == current_item_display
+            ]
+            owns_current_item = bool(item_claims)
+            current_item_num = int(current_item) if current_item is not None else None
+            held_roles = [
+                claim
+                for claim in roles_by_session.get(session_id, [])
+                if claim.get("item_id") == current_item_num
+            ]
+            task_roles = [
+                claim.get("lane_role")
+                for claim in held_roles
+                if claim.get("target_kind") == "epic_task" and claim.get("lane_role")
+            ]
+            item_roles = [
+                claim.get("lane_role")
+                for claim in held_roles
+                if claim.get("target_kind") == "item" and claim.get("lane_role")
+            ]
+            work_role = next(iter(task_roles or item_roles), None)
+            if not work_role and current_item_display:
+                work_role = "item" if owns_current_item else "attached"
+            result.append(
+                {
+                    "session_id": session_id,
+                    "liveness": state,
+                    "activity_at": activity_at,
+                    "execution_lane": row.get("execution_lane"),
+                    "mode": row.get("mode"),
+                    "actor_id": row.get("actor_id"),
+                    "actor_kind": row.get("actor_kind"),
+                    "actor_label": _actor_label(
+                        conn,
+                        label_cache,
+                        row.get("actor_id"),
+                    ),
+                    "project_id": row.get("project_id"),
+                    "project": row.get("project"),
+                    "executor": row.get("executor"),
+                    "model": row.get("model"),
+                    "workspace": row.get("workspace"),
+                    "offered_at": row.get("offered_at"),
+                    "ended_at": row.get("ended_at"),
+                    "current_item": current_item_display,
+                    "current_item_title": row.get("current_item_title"),
+                    "current_item_workflow_id": row.get(
+                        "current_item_workflow_id",
+                    ),
+                    "current_item_workflow_version_id": row.get(
+                        "current_item_workflow_version_id",
+                    ),
+                    "work_role": work_role,
+                    "owns_current_item": owns_current_item,
+                    "claim_started_at": (
+                        item_claims[0].get("claimed_at") if item_claims else None
+                    ),
+                    "claims": claims,
+                }
+            )
         return result
     finally:
         conn.close()

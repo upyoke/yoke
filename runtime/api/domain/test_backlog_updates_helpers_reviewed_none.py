@@ -83,7 +83,7 @@ def _profile(
 class TestProseVsClaimReviewedNegativeClaim:
     """Lifecycle-level regression for the reviewed-negative-claim escape.
 
-    Reproduces the pattern: meta-tickets about DB governance cite
+    Reproduces the pattern: meta work items about DB governance cite
     ``ALTER TABLE`` / ``ADD COLUMN`` / ``migration_audit`` in plain prose
     and must still advance once the ``db_claim.amend`` workflow has stamped
     the reviewed-negative attestation onto the profile JSON.
@@ -95,8 +95,8 @@ class TestProseVsClaimReviewedNegativeClaim:
         insert_item(
             conn, id=item_id, status="refining-idea",
             spec=(
-                "This ticket changes the prose-vs-claim gate so "
-                "meta-tickets can discuss ALTER TABLE, ADD COLUMN, "
+                "This work item changes the prose-vs-claim gate so "
+                "meta work items can discuss ALTER TABLE, ADD COLUMN, "
                 "DROP COLUMN, and migration_audit without being blocked."
             ),
             db_mutation_profile=_profile(

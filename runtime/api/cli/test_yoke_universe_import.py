@@ -1,4 +1,4 @@
-"""Tests for the ticketless local-universe import product command."""
+"""Tests for the itemless local-universe import product command."""
 
 from __future__ import annotations
 

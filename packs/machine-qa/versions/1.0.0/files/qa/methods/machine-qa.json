@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "methods": [
+    {
+      "id": "terminal-check",
+      "name": "Terminal check",
+      "description": "Scripted PTY interaction with any terminal program; transcript and checkpoint expectations produce an automatic verdict.",
+      "executor_id": "host_control",
+      "required_capability_kind": "test-machine",
+      "verdict_path": "automatic",
+      "verdict_contract": "all declared transcript checkpoints are reached and pass",
+      "evidence_contract": "step transcript and checkpoint expectations",
+      "concurrency_mode": "serial"
+    },
+    {
+      "id": "terminal-inspection",
+      "name": "Terminal inspection",
+      "description": "Capture the real Terminal at declared checkpoints, then judge the captures against the expected outcome.",
+      "executor_id": "host_control",
+      "required_capability_kind": "test-machine",
+      "verdict_path": "agent",
+      "verdict_contract": "agent inspection of paired Terminal capture against expected outcome",
+      "evidence_contract": "paired text and Terminal screenshots with explicit degraded-capture reason",
+      "concurrency_mode": "serial"
+    },
+    {
+      "id": "machine-state-check",
+      "name": "Machine state check",
+      "description": "Run argv-shaped shell assertions on the controlled host for files, services, auth bindings, or other provisioning claims.",
+      "executor_id": "host_control",
+      "required_capability_kind": "test-machine",
+      "verdict_path": "automatic",
+      "verdict_contract": "every host assertion exits with its declared status",
+      "evidence_contract": "assertion argv, redacted output, exit status, and secret scan",
+      "concurrency_mode": "serial"
+    }
+  ]
+}

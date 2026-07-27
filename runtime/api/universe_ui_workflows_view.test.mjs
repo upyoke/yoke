@@ -2,112 +2,22 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  mountUniverseApp,
-} from "../../packages/yoke-core/src/yoke_core/ui/static/app.js";
-import {
-  FakeDocument,
   allNodes,
   byClass,
-  cellText,
-  response,
   settle,
 } from "./universe_ui_dom_test_support.mjs";
+import {
+  classText,
+  mountWorkflows,
+  panelTitles,
+  workflowFixture,
+  workflowsClient,
+} from "./universe_ui_workflows_test_support.mjs";
 
-function okEnvelope(result) {
-  return { status: 200, envelope: { success: true, result } };
-}
-
-// Invented registry vocabulary proves the view renders served definitions,
-// labels, placements, catalog strings, and policy rather than client constants.
-function definitionFixture(flows) {
-  return {
-    family: "work-items",
-    workflows: [{
-      id: "rally",
-      name: "Rally",
-      description: "Coordinate a small release train.",
-      source: "pack",
-      status: "disabled",
-      current_version: 3,
-      versions: [{ version: 1 }, { version: 3 }],
-      definition: {
-        stages: [
-          { id: "draft", label: "Drafted", gates: [] },
-          {
-            id: "prove", label: "Proving",
-            gates: [{ id: "evidence_check", mode: "strict" }],
-            description: "Collect the declared proof.",
-          },
-          { id: "ship", label: "Shipped", gates: [] },
-        ],
-        policies: {
-          ownership: "paired",
-          item_knobs: ["extra proof", "approval"],
-        },
-      },
-    }],
-    gate_catalog: [
-      {
-        id: "evidence_check",
-        name: "Evidence check",
-        source_kind: "status_gate",
-        availability: "live",
-        description: "The declared proof must exist.",
-      },
-    ],
-    flows,
-  };
-}
-
-function workflowsClient(flows) {
-  const requests = [];
-  return {
-    requests,
-    async call(request) {
-      requests.push(request);
-      if (request.function === "organizations.get") {
-        return okEnvelope({ name: "Yoke" });
-      }
-      if (request.function === "projects.list") {
-        return okEnvelope({ rows: [{ id: 1, slug: "yoke", name: "Yoke" }] });
-      }
-      if (request.function === "workflows.definition.get") {
-        return okEnvelope(definitionFixture(flows));
-      }
-      throw new Error(`unexpected function ${request.function}`);
-    },
-  };
-}
-
-async function mountWorkflows(t, client) {
-  const originalFetch = globalThis.fetch;
-  t.after(() => { globalThis.fetch = originalFetch; });
-  globalThis.fetch = () => response(200, {});
-  const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/workflows";
-  const root = documentNode.createElement("div");
-  const mounted = mountUniverseApp(root, { client });
-  await settle();
-  return { root, mounted };
-}
-
-function panelTitles(root) {
-  return allNodes(root)
-    .filter((node) => node.tagName === "H2")
-    .map((node) => node.textContent);
-}
-
-test("Workflows renders the registry from one served read", async (t) => {
-  const client = workflowsClient([
-    {
-      id: "demo-release", name: "Demo Release", target_env: "prod",
-      status: "disabled", on_failure: "halt",
-      stage_names: ["build", "verify"], project: "yoke",
-    },
-  ]);
+test("Workflows renders the registry as the lifecycle experience", async (t) => {
+  const client = workflowsClient();
   const { root, mounted } = await mountWorkflows(t, client);
 
-  // The definition is universe-wide, so the read names no project at all.
   assert.deepEqual(
     client.requests.find(
       (request) => request.function === "workflows.definition.get",
@@ -116,70 +26,261 @@ test("Workflows renders the registry from one served read", async (t) => {
   );
   assert.deepEqual(
     panelTitles(root),
-    ["Workflows", "Stages", "Gate catalog", "Posture"],
+    ["Stages", "Execution posture", "Mechanics", "Version history"],
   );
-
-  // Nothing on this screen takes a project, so it draws no picker — and no
-  // note explaining a picker that is not there.
-  assert.equal(byClass(root, "scope-bar").length, 0);
-  assert.equal(byClass(root, "scope-chip").length, 0);
-  assert.equal(byClass(root, "view-note").length, 0);
-
-  const cells = allNodes(root)
-    .filter((node) => node.tagName === "TD")
-    .map(cellText);
-  assert.deepEqual(cells, [
-    "Rally", "rally", "v3", "v1 · v3", "disabled", "pack",
-    "Coordinate a small release train.",
-    "Rally", "1/3", "draft", "Drafted", "", "",
-    "Rally", "2/3", "prove", "Proving", "evidence_check:strict",
-    "Collect the declared proof.",
-    "Rally", "3/3", "ship", "Shipped", "", "",
-    "evidence_check", "Evidence check", "status_gate", "live",
-    "The declared proof must exist.",
-    "Rally", "ownership", "paired",
-    "Rally", "item_knobs", "extra proof · approval",
+  assert.deepEqual(classText(root, "workflow-tab"), ["Rally"]);
+  assert.deepEqual(classText(root, "workflow-stage-label"), [
+    "Drafted", "Proving", "Shipped",
+  ]);
+  assert.deepEqual(classText(root, "workflow-stage-detail-label"), ["Drafted"]);
+  assert.equal(byClass(root, "workflow-stage-guide").length, 0);
+  assert.deepEqual(classText(root, "workflow-stage-count"), [
+    "entry", "1 check",
+  ]);
+  assert.deepEqual(classText(root, "workflow-detail-row-title"), [
+    "CLI", "Harness", "Executor", "Testing", "Approvals", "Delivery",
+  ]);
+  assert.deepEqual(classText(root, "workflow-home-link"), [
+    "QA →", "Inbox →", "Delivery →",
+  ]);
+  assert.deepEqual(classText(root, "workflow-posture-value"), [
+    "one active item claim",
+    "required from file budget",
+    "one implementation lane",
+    "inside the item only",
+    "governed migrations on every change",
+  ]);
+  assert.deepEqual(classText(root, "workflow-version-title"), [
+    "v3 · current", "v1",
+  ]);
+  assert.deepEqual(classText(root, "workflow-version-description"), [
+    "edited here",
+    "Readable and eligible to become current again.",
   ]);
 
-  // The cells above are the whole rendered table set, so the served flows
-  // reach no row here — they belong to Delivery's Flows facet. (The panels'
-  // raw-JSON toggles still carry them: that shows the response envelope the
-  // panel rendered from, verbatim, which is the point of the toggle.)
-  const rendered = allNodes(root).filter(
-    (node) => node.tagName === "TD" && cellText(node).includes("demo-release"),
+  assert.equal(
+    allNodes(root).filter((node) => node.tagName === "TABLE").length,
+    0,
   );
-  assert.deepEqual(rendered, []);
+  assert.equal(byClass(root, "raw-toggle").length, 0);
+  assert.equal(byClass(root, "scope-bar").length, 0);
   mounted.unmount();
 });
 
-test("a failed read fails every panel instead of sticking at loading", async (t) => {
-  const originalFetch = globalThis.fetch;
-  t.after(() => { globalThis.fetch = originalFetch; });
-  globalThis.fetch = () => response(200, {});
-  const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/workflows";
-  const root = documentNode.createElement("div");
-  const client = {
-    async call(request) {
-      if (request.function === "organizations.get") {
-        return okEnvelope({ name: "Yoke" });
-      }
-      if (request.function === "projects.list") {
-        return okEnvelope({ rows: [{ id: 1, slug: "yoke", name: "Yoke" }] });
-      }
-      return {
-        status: 500,
-        envelope: { success: false, error: { message: "definition read broke" } },
-      };
-    },
-  };
-  const mounted = mountUniverseApp(root, { client });
-  await settle();
+test("Dash entry surfaces use the prototype filing copy", async (t) => {
+  const dash = workflowFixture({
+    id: "dash",
+    name: "Dash",
+    currentVersion: 1,
+  });
+  dash.definition.entry_surfaces = [
+    "web_form", "cli", "harness_skill", "promotion",
+  ];
+  const { root, mounted } = await mountWorkflows(
+    t, workflowsClient([dash]),
+  );
 
-  const errors = byClass(root, "error");
-  assert.equal(errors.length, 4);
-  for (const node of errors) {
-    assert.ok(node.textContent.includes("definition read broke"));
-  }
+  assert.deepEqual(
+    classText(root, "workflow-detail-row-title").slice(0, 4),
+    [
+      "Enter a Dash on the web",
+      "CLI",
+      "Harness",
+      "Promote from field note",
+    ],
+  );
+  assert.deepEqual(classText(root, "workflow-entry-command"), [
+    'yoke dash "<title>" "<instruction>"',
+    '/yoke dash "<instruction>"',
+  ]);
+  assert.deepEqual(classText(root, "workflow-entry-note"), [
+    "agent authors title and files for you",
+  ]);
+  assert.equal(
+    byClass(root, "workflow-entry-note")[0].classList.contains("block"),
+    true,
+  );
+  const newItemLink = byClass(root, "workflow-entry-link")[0];
+  assert.equal(newItemLink.href, "#/items/new");
+  assert.equal(
+    newItemLink.parentNode.classList.contains("workflow-detail-row"),
+    true,
+  );
+  mounted.unmount();
+});
+
+test("workflows open on the definition's first stage", async (t) => {
+  const dash = workflowFixture({
+    id: "dash",
+    name: "Dash",
+    currentVersion: 1,
+    stages: [
+      { id: "idea", label: "Idea", gates: [] },
+      {
+        id: "implementing",
+        label: "Implementing",
+        gates: [{ id: "evidence_check" }],
+      },
+      { id: "done", label: "Done", gates: [] },
+    ],
+  });
+  const { root, mounted } = await mountWorkflows(
+    t, workflowsClient([dash]),
+  );
+
+  assert.deepEqual(
+    classText(root, "workflow-stage-detail-label"),
+    ["idea"],
+  );
+  assert.equal(
+    byClass(root, "workflow-stage")[0].attributes.get("aria-pressed"),
+    "true",
+  );
+  byClass(root, "workflow-stage")[1].dispatchEvent(new Event("click"));
+  assert.deepEqual(
+    classText(root, "workflow-stage-detail-label"),
+    ["implementing"],
+  );
+  mounted.unmount();
+});
+
+test("selecting a stage opens its served description and gate cards", async (t) => {
+  const { root, mounted } = await mountWorkflows(t, workflowsClient());
+  const proving = byClass(root, "workflow-stage")[1];
+  proving.dispatchEvent(new Event("click"));
+
+  assert.deepEqual(
+    classText(root, "workflow-stage-description"),
+    ["Collect the declared proof."],
+  );
+  assert.deepEqual(classText(root, "workflow-stage-detail-label"), ["Proving"]);
+  assert.deepEqual(classText(root, "workflow-detail-row-title").slice(0, 1), [
+    "Evidence check — strict",
+  ]);
+  assert.deepEqual(classText(root, "workflow-detail-row-description").slice(0, 1), [
+    "The declared proof must exist.",
+  ]);
+  assert.deepEqual(classText(root, "workflow-detail-id").slice(0, 1), [
+    "evidence_check",
+  ]);
+  assert.equal(byClass(root, "workflow-stage")[1].attributes.get("aria-pressed"), "true");
+  mounted.unmount();
+});
+
+test("disabled workflows remain selectable and render their registry state", async (t) => {
+  const workflows = [
+    workflowFixture({
+      id: "dash",
+      name: "Dash",
+      currentVersion: 1,
+      status: "active",
+    }),
+    workflowFixture({
+      id: "rally",
+      name: "Rally",
+      currentVersion: 3,
+      status: "disabled",
+    }),
+  ];
+  const { documentNode, root, mounted } = await mountWorkflows(
+    t, workflowsClient(workflows),
+  );
+
+  assert.deepEqual(classText(root, "workflow-tab"), ["Dash", "Rally"]);
+  assert.deepEqual(classText(root, "workflow-tab-status"), ["disabled"]);
+  assert.equal(
+    byClass(root, "workflow-tab")[1].classList.contains("disabled"),
+    true,
+  );
+  assert.equal(
+    byClass(root, "workflow-tab")[1].attributes.get("aria-label"),
+    "Rally workflow · disabled",
+  );
+
+  byClass(root, "workflow-tab")[1].dispatchEvent(new Event("click"));
+  documentNode.defaultView.dispatchEvent(new Event("hashchange"));
+  await settle();
+  assert.equal(
+    byClass(root, "workflow-tab")[1].attributes.get("aria-selected"),
+    "true",
+  );
+  assert.deepEqual(classText(root, "workflow-status"), ["disabled"]);
+  assert.deepEqual(classText(root, "workflow-version"), ["current · v3"]);
+  mounted.unmount();
+});
+
+test("approval summaries use display labels while registry ids stay internal", async (t) => {
+  const workflow = workflowFixture();
+  workflow.definition.policies.approval_defaults = {
+    prove: { roles: ["owner"], actors: [] },
+  };
+  const { root, mounted } = await mountWorkflows(
+    t, workflowsClient([workflow]),
+  );
+
+  const descriptions = classText(root, "workflow-detail-row-description");
+  assert.ok(descriptions.includes("Proving → project owner"));
+  assert.equal(descriptions.includes("prove → project owner"), false);
+  mounted.unmount();
+});
+
+test("Blitz mechanics link back to Strategy with the prototype executor copy", async (t) => {
+  const blitz = workflowFixture({
+    id: "blitz",
+    name: "Blitz",
+    currentVersion: 1,
+    executorBindings: [
+      {
+        executor_id: "refine",
+        from_stage_id: "draft",
+        through_stage_id: "prove",
+      },
+      {
+        executor_id: "blitz",
+        from_stage_id: "prove",
+        through_stage_id: "ship",
+      },
+    ],
+  });
+  const { root, mounted } = await mountWorkflows(
+    t, workflowsClient([blitz]),
+  );
+
+  assert.ok(classText(root, "workflow-detail-row-description").includes(
+    "Run /yoke refine then /yoke blitz in a supported harness like Claude " +
+    "Code or Codex — blitz executes the linked document directly, in " +
+    "continuous slices; nothing is copied.",
+  ));
+  assert.equal(
+    byClass(root, "workflow-home-link").find(
+      (node) => node.textContent === "Strategy →",
+    )?.href,
+    "#/strategy",
+  );
+  mounted.unmount();
+});
+
+test("built-in executor copy follows the served binding signature", async (t) => {
+  const dash = workflowFixture({
+    id: "dash",
+    name: "Dash",
+    currentVersion: 1,
+    executorBindings: [{
+      executor_id: "alternate",
+      from_stage_id: "draft",
+      through_stage_id: "ship",
+    }],
+  });
+  const { root, mounted } = await mountWorkflows(
+    t, workflowsClient([dash]),
+  );
+
+  const descriptions = classText(root, "workflow-detail-row-description");
+  assert.ok(descriptions.includes(
+    "Run /yoke alternate in a supported harness.",
+  ));
+  assert.equal(descriptions.some((copy) => copy.includes(
+    "it runs the whole item: survey, worktree, execute, verify, merge, evidence",
+  )), false);
   mounted.unmount();
 });

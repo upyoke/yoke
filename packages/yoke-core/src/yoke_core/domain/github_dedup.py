@@ -5,7 +5,7 @@ GitHub issues by exact bracketed title prefix before creating a new issue.
 GitHub's full-text title search is fuzzy on bracketed and numeric tokens, so a
 token match is not a guarantee of an exact bracketed-prefix match — e.g.
 searching ``[YOK-XXXX] in:title`` returns issues whose title merely contains
-``1500`` as a substring (such as another ticket whose title contains
+``1500`` as a substring (such as another work item whose title contains
 ``1000-1500 lines``). This helper centralizes the REST call and exact-prefix
 post-filter so the same protection runs at every dedup call site.
 

@@ -28,7 +28,7 @@ TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"
 # Minimal-schema strategy for ``init_test_db``
 # ---------------------------------------------------------------------------
 
-# The worktree suites only need the ``items`` + ``projects`` tables; routing
+# The worktree suites use a compact current-schema subset; routing
 # through the backend factory (``db_backend.connect()``) lands the schema on
 # the repointed per-test Postgres DB.
 _YOKE_DB_DDL = textwrap.dedent("""\
@@ -47,12 +47,29 @@ _YOKE_DB_DDL = textwrap.dedent("""\
         type TEXT DEFAULT 'issue',
         status TEXT DEFAULT 'idea',
         priority TEXT DEFAULT 'medium',
-        worktree TEXT,
         project_id INTEGER NOT NULL DEFAULT 1 REFERENCES projects(id),
         project_sequence INTEGER NOT NULL,
         created_at TEXT DEFAULT '2026-01-01T00:00:00Z',
         updated_at TEXT DEFAULT '2026-01-01T00:00:00Z',
         UNIQUE(project_id, project_sequence)
+    );
+    CREATE TABLE IF NOT EXISTS epic_tasks (
+        id INTEGER PRIMARY KEY,
+        epic_id INTEGER NOT NULL,
+        task_num INTEGER NOT NULL,
+        title TEXT,
+        status TEXT,
+        item_worktree_id INTEGER,
+        UNIQUE(epic_id, task_num)
+    );
+    CREATE TABLE IF NOT EXISTS epic_dispatch_chains (
+        id INTEGER PRIMARY KEY,
+        epic_id INTEGER NOT NULL,
+        item_worktree_id INTEGER,
+        queue TEXT,
+        current_index INTEGER DEFAULT 0,
+        current_task TEXT,
+        UNIQUE(epic_id, item_worktree_id)
     );
 """)
 
@@ -66,9 +83,13 @@ def apply_yoke_db_schema() -> None:
     conn = db_backend.connect()
     try:
         execute_schema_script(conn, _YOKE_DB_DDL)
+        from yoke_core.domain.item_worktree_schema import (
+            ensure_item_worktree_schema,
+        )
         from yoke_core.domain.workflow_registry import converge_builtin_workflows
         from yoke_core.domain.workflow_schema import ensure_workflow_schema
 
+        ensure_item_worktree_schema(conn)
         ensure_workflow_schema(conn)
         converge_builtin_workflows(conn)
         p = "%s" if db_backend.connection_is_postgres(conn) else "?"
@@ -137,7 +158,7 @@ def git_repo(tmp_path):
 
 @pytest.fixture
 def yoke_db(tmp_path: Path) -> Iterator[str]:
-    """Yield a minimal yoke.db (``items`` + ``projects``) on either backend.
+    """Yield a minimal current-schema worktree database on either backend.
 
     ``init_test_db`` provisions a disposable per-test Postgres database and
     repoints YOKE_PG_DSN at it for the context's lifetime, so backend-routed

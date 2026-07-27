@@ -44,7 +44,7 @@ WORKTREE_SOURCE_PYTHONPATH_PREFIX = (
 OPERATIONAL_COMMANDS: list[dict] = [
     {
         "topic": "core",
-        "purpose": "Cancel / stop / fail a ticket (terminal-exceptional)",
+        "purpose": "Cancel / stop / fail a work item (terminal-exceptional)",
         "recipe": (
             "yoke claims work acquire --item YOK-N "
             "--reason 'superseded by YOK-X'\n"
@@ -61,7 +61,7 @@ OPERATIONAL_COMMANDS: list[dict] = [
     {
         "topic": "core",
         "purpose": (
-            "Move a ticket forward in lifecycle (claim → transition → release)"
+            "Move a work item forward in lifecycle (claim → transition → release)"
         ),
         "recipe": (
             "yoke claims work acquire --item YOK-N --reason transition\n"
@@ -78,7 +78,7 @@ OPERATIONAL_COMMANDS: list[dict] = [
     },
     {
         "topic": "core",
-        "purpose": "Append to a ticket's Progress Log (canonical agent shape)",
+        "purpose": "Append to a work item's Progress Log (canonical agent shape)",
         "recipe": (
             "yoke claims work acquire --item YOK-N "
             "--reason progress-log-append\n"

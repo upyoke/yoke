@@ -1,73 +1,74 @@
 # Advance — Browser QA Execution Gate
 
-Called by the advance router when target is `reviewed-implementation`, `implemented`, or `polishing-implementation`. Runs browser scenario orchestrator and screenshot evaluation. Skip if target is not one of those three statuses.
+Called at a workflow transition that has attached Browser-method cases. The
+same flow executes both built-in methods:
 
-**Context variables** (set by router): `{N}`, `_item_project`
+- `browser-check`: assertions produce an automatic verdict.
+- `browser-inspection`: capture produces evidence and a review request; a human
+  resolves it to passed, failed, or waived.
 
-**This gate is re-entrant:** Retrying the same `/yoke advance YOK-{N} <target>` boundary re-executes the orchestrator. A new passing run satisfies the gate.
+The gate is re-entrant. Materialization is idempotent and rerunning a case
+records a new run.
 
----
-
-## Check Unsatisfied Browser Requirements (step 5d.a)
-
-Use the typed `yoke qa gate-summary` surface (function id `qa.gate_summary.run`; works over https) — it shares satisfaction semantics with the verification gate (`yoke_core.domain.qa_gates.check_verification_gate`), so callers do not write raw `qa_requirements` SQL here:
-
-```bash
-_qa_target="reviewed-implementation"
-[ "{_target}" = "implemented" ] && _qa_target="implemented"
-[ "{_target}" = "polishing-implementation" ] && _qa_target="implemented"
-_qa_summary_json=$(yoke qa gate-summary --item "YOK-{N}" --target "$_qa_target")
-_unsatisfied_browser=$(printf '%s' "$_qa_summary_json" | python3 -c "import json,sys; print(json.load(sys.stdin)['browser_unsatisfied_count'])")
-```
-
-If `0`, skip — all blocking browser requirements satisfied. Proceed to finalize.
-
-## Resolve Ephemeral URL (step 5d.b)
-
-The registered `qa.browser_context.get` read returns the branch's latest
-recorded preview URL alongside the freshness sha — no raw SQL, works over
-https from any project:
+## 1. Materialize and select Browser cases
 
 ```bash
-_item_project=$(yoke items get {N} project 2>/dev/null) || true
-_eph_url=""
-if [ -n "$_item_project" ] && [ "$_item_project" != "null" ]; then
- _ctx_json=$(yoke qa browser-context get --item {N} --project "$_item_project" --expected-branch "YOK-{N}" --json)
- _eph_url=$(printf '%s' "$_ctx_json" | python3 -c "import json,sys; print((json.load(sys.stdin).get('result') or {}).get('ephemeral_url') or '')")
-fi
+yoke qa plan materialize \
+  --item "YOK-{N}" \
+  --transition "{_target}" \
+  --json
+yoke qa requirement list --item "YOK-{N}" --json
 ```
 
-Surface URL:
-> **Browser QA execution:** Found {count} unsatisfied browser requirement(s). Ephemeral URL: `{_eph_url}`
+Select unsatisfied, non-waived rows for this transition whose `method_id` is
+`browser-check` or `browser-inspection`. Plan-backed and explicit ad hoc method
+cases use the same execution path. If none exist, return to the router.
 
-If empty: warn no URL found.
+Do not infer Browser work from an item metadata flag and do not create
+kind-specific requirements. The method contract is the authority.
 
-## Deployment Checks (redeploy-check step–workflow-poll)
+## 2. Resolve the target URL and freshness identity
 
-Read and follow: `browser-qa-checks.md`
+Use the registered item and ephemeral-environment reads:
 
-Covers: push branch, "Everything up-to-date" short-circuit, deploy SHA tracking, workflow run polling, env status update after poll, and failed-deploy log retrieval.
+```bash
+_item_project=$(yoke items get {N} project)
+_item_branch=$(yoke items get {N} worktree)
+yoke ephemeral-env get "$_item_project" "$_item_branch" --json
+```
 
-## Orchestrator, Evaluation, and Escalation (step 5d.c–5d-eval)
+Read the environment URL and deployed SHA. Read the worktree HEAD through
+`git -C "{WORKTREE_PATH}" rev-parse HEAD`. If the deployment is absent or its
+SHA is stale, run the project's normal deployment path and retry this gate.
+Do not execute Browser cases against an unknown build.
 
-Read and follow: `browser-qa-escalation.md`
+## 3. Execute each case
 
-Covers: manual screenshot fallback, browser orchestrator invocation, result evaluation, screenshot-evidence completeness gate, visible-defect scan, AC consistency check, and `yoke qa screenshot-evidence satisfy`.
+```bash
+yoke qa case run \
+  --requirement-id <requirement-id> \
+  --base-url "<environment-url>" \
+  --expected-branch "<worktree-branch>" \
+  --expected-sha "<worktree-head-sha>"
+```
 
-## Artifact Address Resolution
+The shared runner starts the Browser substrate, executes only the named case,
+records the run, stores screenshot/trace evidence, and returns its outcome.
+Do not add another run manually.
 
-When reviewing screenshots or locating artifact evidence, prefer the browser
-orchestrator stdout JSON and the registered QA reads (`yoke qa requirement
-list`, `yoke qa requirement get`, and `yoke qa run list`). Each row's typed
-`artifact_handle` resolves to its honest address: a filesystem path for
-`local`-backend handles (in-session captures live on this machine's disk — the
-orchestrator's stdout JSON also lists them), or an `s3://bucket/key` object URI
-for uploaded `s3`-backend handles.
+- `pass`: continue.
+- `fail` or executor error: block, fix the defect or environment, then rerun
+  the same requirement.
+- `inconclusive` / `needs_review`: leave the transition blocked and surface
+  the generated QA review request in the Inbox. Approval marks the case passed;
+  rejection marks it failed; waiver uses the ordinary requirement waiver.
 
-There is not yet a registered QA artifact-list wrapper. The DB-router
-artifact-list helper is source-dev/admin only; do not teach it as a normal
-product-flow recipe.
+## 4. Confirm the union gate
 
----
+After all Browser cases are resolved, use the typed gate summary for the
+transition. Continue only when the union of every blocking materialized and ad
+hoc requirement passes or is waived.
 
-After browser QA passes, return to router for finalize phase.
+Evidence review uses `yoke qa artifact read --requirement-id N --artifact-id N`.
+That surface returns inline local evidence or a short-lived durable URL and
+reports non-portable/on-machine evidence explicitly.

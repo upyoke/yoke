@@ -42,7 +42,7 @@ SYNTHETIC_ITEM_ID = 9999
 SYNTHETIC_ITEM_REF = f"YOK-{SYNTHETIC_ITEM_ID}"
 
 # Real incident session ids. They are session identifiers, not
-# drifting ticket ids, so they are safe as literals.
+# drifting work-item ids, so they are safe as literals.
 SESSION_A = "019e1f0d-7f82-72d2-85ee-b46947b2a6fd"
 SESSION_B = "019e1f0a-a6a2-7321-835f-9772a881820b"
 

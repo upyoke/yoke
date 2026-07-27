@@ -28,8 +28,8 @@ def apply_field_validators(field: str, content: str) -> str:
       so heredoc-authored specs that intentionally contain column-0 code
       blocks are untouched. Other structured fields keep byte-exact
       round-trip.
-    - ``browser_qa_metadata`` / ``db_mutation_profile`` /
-      ``db_compatibility_attestation``: route through their validators
+    - ``db_mutation_profile`` / ``db_compatibility_attestation``:
+      route through their validators
       and store canonical JSON so round-trip reads are stable.
     - ``architecture_impact``: validate enum value.
     """
@@ -39,9 +39,6 @@ def apply_field_validators(field: str, content: str) -> str:
     if not (content and content.strip()):
         return content
 
-    if field == "browser_qa_metadata":
-        from yoke_core.domain.browser_qa_metadata import validate_json_string
-        return validate_json_string(content)
     if field == "db_mutation_profile":
         from yoke_core.domain.db_mutation_profile import validate_json_string
         return validate_json_string(content)

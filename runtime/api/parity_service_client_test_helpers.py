@@ -112,6 +112,7 @@ def _apply_write_parity_schema() -> None:
     try:
         apply_fixture_ddl(conn, SERVICE_CLIENT_PARITY_SCHEMA + WRITE_PARITY_SCHEMA_EXTRAS)
         _install_workflow_registry(conn)
+        _install_decision_substrate(conn)
         seed_service_client_parity_data(conn)
         _resync_items_identity_sequence(conn)
     finally:
@@ -126,6 +127,7 @@ def _apply_read_parity_schema() -> None:
     try:
         apply_fixture_ddl(conn, SERVICE_CLIENT_PARITY_SCHEMA)
         _install_workflow_registry(conn)
+        _install_decision_substrate(conn)
         seed_service_client_parity_data(conn)
         _resync_items_identity_sequence(conn)
     finally:
@@ -138,6 +140,24 @@ def _install_workflow_registry(conn) -> None:
 
     ensure_workflow_schema(conn)
     converge_builtin_workflows(conn)
+
+
+def _install_decision_substrate(conn) -> None:
+    from yoke_core.domain.auth_schema import create_auth_tables
+    from yoke_core.domain.decision_request_schema import (
+        create_decision_request_tables,
+    )
+    from yoke_core.domain.events_schema import ensure_event_schema
+    from yoke_core.domain.org_schema import seed_default_org
+    from yoke_core.domain.schema_init_actor_path_claim_tables import (
+        create_actor_identity_tables,
+    )
+
+    create_actor_identity_tables(conn)
+    create_auth_tables(conn)
+    seed_default_org(conn)
+    ensure_event_schema(conn)
+    create_decision_request_tables(conn)
 
 
 def _override_db_readonly(db_path: str):

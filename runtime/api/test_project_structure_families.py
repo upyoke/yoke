@@ -1,6 +1,6 @@
 """Family-specific tests for ``yoke_core.domain.project_structure``.
 
-``command_definitions`` concretization, ``context_routing`` concretization,
+``context_routing`` concretization,
 write/read round-trip, and atomicity.
 
 Constitution invariants and envelope validation live in
@@ -87,57 +87,6 @@ class TestContextRoutingFamily:
         with pytest.raises(ps.ValidationError, match="entry_key is required"):
             ps.apply_patch(
                 "test", ops=[_put("context_routing", "project", {"docs": ["AGENTS.md"]})],
-                db_path=initialized_db,
-            )
-
-
-class TestCommandDefinitionsFamily:
-    def test_put_accepts_valid_scope(self, initialized_db: str):
-        result = ps.apply_patch(
-            "test",
-            ops=[_put("command_definitions", "project",
-                      {"command": "pytest tests/"}, entry_key="quick")],
-            db_path=initialized_db,
-        )
-        structure = ps.read_structure("test", family="command_definitions",
-                                      db_path=initialized_db)
-        assert len(structure["entries"]) == 1
-        assert structure["entries"][0]["entry_key"] == "quick"
-        assert structure["entries"][0]["payload"] == {"command": "pytest tests/"}
-
-    @pytest.mark.parametrize("scope", list(ps.COMMAND_DEFINITIONS_SCOPES))
-    def test_every_canonical_scope_is_accepted(self, initialized_db: str, scope: str):
-        result = ps.apply_patch(
-            "test",
-            ops=[_put("command_definitions", "project",
-                      {"command": f"cmd-for-{scope}"}, entry_key=scope)],
-            db_path=initialized_db,
-        )
-
-    def test_unknown_scope_rejected(self, initialized_db: str):
-        with pytest.raises(ps.ValidationError, match="entry_key must be one of"):
-            ps.apply_patch(
-                "test",
-                ops=[_put("command_definitions", "project",
-                          {"command": "cmd"}, entry_key="integration")],
-                db_path=initialized_db,
-            )
-
-    def test_payload_must_contain_command_string(self, initialized_db: str):
-        with pytest.raises(ps.ValidationError, match="'command' string"):
-            ps.apply_patch(
-                "test",
-                ops=[_put("command_definitions", "project",
-                          {}, entry_key="quick")],
-                db_path=initialized_db,
-            )
-
-    def test_payload_rejects_non_string_command(self, initialized_db: str):
-        with pytest.raises(ps.ValidationError, match="'command' string"):
-            ps.apply_patch(
-                "test",
-                ops=[_put("command_definitions", "project",
-                          {"command": 42}, entry_key="full")],
                 db_path=initialized_db,
             )
 

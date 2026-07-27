@@ -38,7 +38,7 @@ class TestCleanupMetadata:
             for call in update.call_args_list
         )
 
-    def test_completed_cleanup_clears_worktree_authority(self, dt_db):
+    def test_completed_cleanup_avoids_retired_scalar_update(self, dt_db):
         db_path, _ = dt_db
         repo_root = db_path.parent
         _insert_item(db_path, 79, status="implemented", worktree="YOK-79")
@@ -51,7 +51,7 @@ class TestCleanupMetadata:
         ):
             assert done_transition.run(79) == 0
 
-        assert any(
+        assert not any(
             call.args[1:3] == ("worktree", "null")
             for call in update.call_args_list
         )

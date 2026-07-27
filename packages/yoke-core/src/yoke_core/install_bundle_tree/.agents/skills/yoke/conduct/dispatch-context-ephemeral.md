@@ -57,7 +57,16 @@ The record is created with `status=pending` (the default). Store `_env_id` for u
 
 #### E2. Trigger the Declared Delivery Model
 
-Branch on the validated policy's `trigger`; no project-slug branch is allowed.
+Resolve the immutable code identity before triggering either delivery model:
+
+```bash
+_expected_browser_branch="${_worktree_branch}"
+_expected_browser_sha=$(git -C "${_worktree_path}" rev-parse HEAD)
+```
+
+The same branch and SHA must identify the deployed build and every Browser
+case invocation later in E4. Branch on the validated policy's `trigger`; no
+project-slug branch is allowed.
 
 For `github-push`:
 
@@ -117,84 +126,49 @@ E2E target: {_ephemeral_url}
 Run E2E tests against this URL: {_cmd_e2e}
 ```
 
-**Browser scenario execution instructions.** If the item has
-unsatisfied browser QA requirements (`browser_smoke` or
-`browser_diff`), append browser execution instructions to the Tester
-prompt. Read browser requirements via the registered
-`qa.requirement.list` surface — `yoke qa requirement list --item
-"YOK-${_id}"` — and filter the result rows to `qa_kind IN
-('browser_smoke','browser_diff')`.
+**Browser case execution instructions.** Read the materialized requirements
+with `yoke qa requirement list --item "YOK-${_id}" --json`. If it contains an
+unsatisfied, non-waived case whose `method_id` is `browser-check` or
+`browser-inspection`, append Browser execution instructions to the Tester
+prompt. Method identity, not `qa_kind` or item metadata, selects this path.
 
-```bash
-_browser_reqs=$(yoke qa browser-context get --item "${_id}" \
-  --project "${_project}" --json \
-  | python3 -c "import json,sys; print(json.dumps(json.load(sys.stdin)['result']['requirements']))")
-```
-
-If `_browser_reqs` is non-empty AND `_ephemeral_url` is not `"none"` and not `"pending"`, append this block to the Tester prompt:
+If Browser method cases exist AND `_ephemeral_url` is not `"none"` and not
+`"pending"`, append this block to the Tester prompt:
 
 ```
 ## Browser Scenario Execution
 
-This item has browser QA requirements that must be executed against the ephemeral environment.
+This item has Browser method cases that must be executed against the ephemeral environment.
 Ephemeral URL: {_ephemeral_url}
+Expected branch: {_expected_browser_branch}
+Expected HEAD SHA: {_expected_browser_sha}
 
-**You MUST execute browser scenarios using the canonical orchestrator**:
+**Execute each materialized case with the shared case runner**:
 ```
-yoke qa browser run \
- --item {_id} --project {_project} --base-url {_ephemeral_url}
-```
-
-The orchestrator will:
-1. Fetch browser_smoke / browser_diff scenarios via qa.browser_context.get
-2. Validate the ephemeral URL is reachable
-3. Start the browser daemon if needed
-4. Execute each scenario step via the machine-local browser daemon
-5. Save screenshots to scratch-backed QA artifact storage
-6. Record qa_run with executor_type='browser_substrate' and qa_artifact
-   rows through qa.run.add / qa.run.complete / qa.artifact.add
-
-**Before running the orchestrator**, you may refine the scenario
-steps. Read the current scenarios via `yoke qa browser-context get
---item {_id} --project {_project} --json` (the
-`result.requirements[*].success_policy` payloads carry the scenario
-steps). To refine a
-scenario (update steps, add assertions, fix routes), use executor
-vocabulary:
-- Actions: navigate, click, fill_form, assert, screenshot, wait_for,
-  scroll, hover, select
-- Fields: route (not url), target (not selector), capture: true on
-  screenshot steps
-
-Persist the refined scenario back to the requirement via the
-`qa.requirement.update` function call (envelope in
-[`../idea/body-and-sync-functions.md`](../idea/body-and-sync-functions.md)):
-`target = {kind: "qa_requirement", qa_requirement_id:
-<requirement_id>}`, `payload = {success_policy: <refined_json>}`.
-The handler updates the requirement row atomically; never issue a raw
-UPDATE against `qa_requirements` from skill prose.
-
-**After the orchestrator completes:**
-- Exit 0 = all scenarios passed. Include the JSON summary in your report.
-- Exit 1 = one or more scenarios failed. Report the failures. This does NOT automatically
- fail your overall verdict — use your judgement based on the failure nature.
-- Exit 2 = operator env setup failure (URL unreachable, auto-bootstrap failed).
- **HARD STOP** — immediately fail your verdict with a clear message:
- "FAIL — browser QA blocked by operator environment issue (exit 2). Auto-bootstrap
- failed — escalate to operator."
- Do NOT continue testing other ACs — the environment must be fixed first.
-
-Browser evidence is written directly to qa_runs. Both your
-review verdict AND the orchestrator's qa_runs must exist for the item to advance.
+yoke qa case run \
+  --requirement-id <requirement-id> \
+  --base-url "{_ephemeral_url}" \
+  --expected-branch "{_expected_browser_branch}" \
+  --expected-sha "{_expected_browser_sha}"
 ```
 
-If `_browser_reqs` is non-empty but `_ephemeral_url` is `"none"` or `"pending"`, append a warning instead:
+The runner validates reachability and freshness, starts the Browser substrate,
+executes only the named case, records the run, and stores its evidence. A
+`browser-check` returns an automatic pass/fail. A `browser-inspection` creates
+a review request after capture and remains unresolved until that request is
+approved, rejected, or the requirement is waived. Do not add a second run
+manually, do not rewrite the materialized case snapshot, and do not omit the
+expected branch or SHA from any case invocation.
+```
+
+If Browser method cases exist but `_ephemeral_url` is `"none"` or `"pending"`,
+append a warning instead:
 ```
 ## Browser QA Notice
 
-This item has browser QA requirements (browser_smoke/browser_diff) but no ephemeral
-URL is available ({_ephemeral_url}). Browser scenarios cannot be executed.
-The item will not be able to advance past the QA gate without browser evidence.
+This item has Browser method cases but no ephemeral URL is available
+({_ephemeral_url}). The cases cannot execute, so the transition remains
+blocked until the environment is available.
 ```
 
 #### E5. Update to Stopped After Tester

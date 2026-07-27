@@ -84,7 +84,7 @@ def _staged_files() -> Optional[list[str]]:
 
 
 def _active_worktree_items() -> Optional[list[str]]:
-    """Return ``id|title`` rows for in-flight worktree-backed items."""
+    """Return ``id|title`` rows for in-flight items with active lanes."""
     try:
         from yoke_contracts.api.function_call import TargetRef
         from yoke_core.api.service_client_structured_api_adapter import (
@@ -92,9 +92,9 @@ def _active_worktree_items() -> Optional[list[str]]:
         )
 
         response = call_dispatcher(
-            function_id="items.list.run",
+            function_id="items.overview.list",
             target=TargetRef(kind="global"),
-            payload={"fields": ["id", "title", "status", "worktree"]},
+            payload={"limit": 1000},
             timeout_s=2.0,
         )
         if not response.success:
@@ -106,7 +106,7 @@ def _active_worktree_items() -> Optional[list[str]]:
     return [
         f"{row['id']}|{row['title']}"
         for row in rows
-        if (row.get("worktree") or "").strip()
+        if row.get("worktrees")
         and row.get("status") not in terminal
     ]
 
@@ -138,7 +138,7 @@ def _format_reason(
         "are allowed on main.\n\n"
         "Options:\n"
         "  1. Continue work in the existing item worktree\n"
-        "  2. File a separate ticket: /yoke idea\n"
+        "  2. File a separate work item: /yoke idea\n"
         "  3. Override: add # lint:no-main-check to the command"
     ) % (impl_files, active_list)
     return append_field_note_footer(body, rule_id="lint-main-commit")

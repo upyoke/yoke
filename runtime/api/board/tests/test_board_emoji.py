@@ -120,7 +120,7 @@ class TestCelebrationPropagatesToSections:
     def test_done_header_and_row_use_celebration(self, test_db):
         done_item = ItemRow(
             1, "YOK-1", "Shipped it", "issue", "medium", "done", "—",
-            None, "", "yoke", "",
+            None, "yoke", "",
         )
         buckets = {"done": [done_item]}
         lines, _ = render_board_sections(
@@ -135,7 +135,7 @@ class TestCelebrationPropagatesToSections:
     def test_no_celebration_uses_check(self, test_db):
         done_item = ItemRow(
             1, "YOK-1", "Shipped it", "issue", "medium", "done", "—",
-            None, "", "yoke", "",
+            None, "yoke", "",
         )
         lines, _ = render_board_sections(
             test_db, BoardConfig(), "yoke", {"done": [done_item]}, {}, {}, None,

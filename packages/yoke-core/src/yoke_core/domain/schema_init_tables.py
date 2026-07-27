@@ -18,7 +18,10 @@ from yoke_core.domain.github_workflow_dispatch_intents import (
     GITHUB_WORKFLOW_DISPATCH_INTENTS_CREATE_SQL,
 )
 from yoke_core.domain.items_constants import DEFAULT_ITEM_ACTOR_ID
-from yoke_core.domain.item_worktree_schema import ensure_item_worktree_schema
+from yoke_core.domain.item_worktree_schema import (
+    ensure_epic_item_worktree_references,
+    ensure_item_worktree_schema,
+)
 from yoke_core.domain.projects_restart_schema import _projects_table_sql
 from yoke_core.domain.strategy_docs_schema import (
     STRATEGY_DOC_REVISIONS_CREATE_TABLE_SQL,
@@ -45,10 +48,6 @@ def create_core_tables(conn: Any) -> None:
           blocked_reason TEXT,
           github_issue TEXT,
           deployed_to TEXT,
-          -- issue-only by convention; epic worktrees live on epic_dispatch_chains.worktree.
-          -- "Active worktree for session+item" reads route through
-          -- path_claim_active_claim_lookup._resolve_active_worktree.
-          worktree TEXT,
           merged_at TEXT,
           created_at TEXT NOT NULL,
           updated_at TEXT NOT NULL,
@@ -160,7 +159,7 @@ def create_core_tables(conn: Any) -> None:
           epic_id INTEGER NOT NULL,
           task_num INTEGER NOT NULL,
           title TEXT,
-          worktree TEXT,
+          item_worktree_id INTEGER,
           context_estimate TEXT,
           dependencies TEXT,
           status TEXT DEFAULT 'planning' CHECK(status IN ({_VALID_TASK_STATUSES_SQL})),
@@ -179,8 +178,7 @@ def create_core_tables(conn: Any) -> None:
         CREATE TABLE IF NOT EXISTS epic_dispatch_chains (
           id INTEGER PRIMARY KEY,
           epic_id INTEGER NOT NULL,
-          worktree TEXT NOT NULL,
-          worktree_path TEXT,
+          item_worktree_id INTEGER,
           queue TEXT,
           current_index INTEGER DEFAULT 0,
           current_task TEXT,
@@ -189,7 +187,7 @@ def create_core_tables(conn: Any) -> None:
           no_chain INTEGER DEFAULT 0,
           started_at TEXT,
           last_updated TEXT,
-          UNIQUE(epic_id, worktree)
+          UNIQUE(epic_id, item_worktree_id)
         );
         CREATE TABLE IF NOT EXISTS epic_progress_notes (
           id INTEGER PRIMARY KEY,
@@ -278,6 +276,7 @@ def create_core_tables(conn: Any) -> None:
     """,
     )
     ensure_item_worktree_schema(conn)
+    ensure_epic_item_worktree_references(conn)
     create_session_tables(conn)
 
 

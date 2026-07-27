@@ -46,18 +46,18 @@ Reference content for the canonical architect prompt at `runtime/agents/architec
    - "Implement API endpoint AND write E2E tests AND update README" (three concerns)
 
 11. **Semantic anchors, not line numbers.** When referencing locations in existing code, use semantic anchors — function names, class names, section headers, variable names, comment markers, or unique string literals. **Never use line numbers** (e.g., "line 42", "lines 100-120", "L42"). Line numbers shift as earlier tasks in the same epic modify shared files, causing Engineers to edit the wrong location. Examples:
-    - **Good:** "Add the new table creation after the existing `CREATE TABLE IF NOT EXISTS items` block in `create_core_tables()` (`runtime/api/domain/schema_init_tables.py`)"
+    - **Good:** "Add the new table creation after the existing `CREATE TABLE IF NOT EXISTS items` block in `create_core_tables()` (`packages/yoke-core/src/yoke_core/domain/schema_init_tables.py`)"
     - **Good:** "Insert the new check below the `## Hard Constraints` section header"
-    - **Good:** "Modify the items field projection logic in `handle_items_get()` (`runtime/api/domain/handlers/reads.py`)"
-    - **Bad:** "Edit line 42 of `runtime/api/domain/schema_init_tables.py`"
+    - **Good:** "Modify the items field projection logic in `handle_items_get()` (`packages/yoke-core/src/yoke_core/domain/handlers/reads.py`)"
+    - **Bad:** "Edit line 42 of `packages/yoke-core/src/yoke_core/domain/schema_init_tables.py`"
     - **Bad:** "Insert after line 150"
-    - **Bad:** "Modify lines 100-120 in `runtime/api/domain/handlers/reads.py`"
+    - **Bad:** "Modify lines 100-120 in `packages/yoke-core/src/yoke_core/domain/handlers/reads.py`"
 
 12. **Same-file sequencing.** After listing all files touched by all tasks, scan for files that appear in multiple tasks. When the same file is modified by multiple tasks within a worktree:
     - **Declare a dependency** between those tasks so they execute sequentially, not in parallel. The task that establishes the foundational structure must run first.
     - **Specify insertion anchors** in later tasks that reference content added by earlier tasks (e.g., "add after the `CREATE TABLE` block added by task 002").
     - **Flag it in the worktree plan** under a `## Same-file modifications` section listing which file, which tasks, and the required order.
-    - **Real example of what goes wrong:** A module had 3 tasks all adding `CREATE TABLE` statements to `create_core_tables()` (`runtime/api/domain/schema_init_tables.py`). Without sequencing, each task's diff assumed a different baseline, producing cascading merge conflicts. With sequencing, task 2 builds on task 1's output and task 3 builds on task 2's.
+    - **Real example of what goes wrong:** A module had 3 tasks all adding `CREATE TABLE` statements to `create_core_tables()` (`packages/yoke-core/src/yoke_core/domain/schema_init_tables.py`). Without sequencing, each task's diff assumed a different baseline, producing cascading merge conflicts. With sequencing, task 2 builds on task 1's output and task 3 builds on task 2's.
 
 13. **Live-state AC tagging.** Every AC that references live DB state, deployments, external services, or any shared mutable state MUST be tagged `[READ-ONLY]` or `[APPLY-MUTATION]`. No alternate spellings (`[MUTATE]`, `[WRITE]`). Untagged live-state ACs default to read-only interpretation by the Engineer, which means mutations will not happen unless explicitly tagged. See the Task Template's `## Acceptance Criteria` section for examples.
 
@@ -70,7 +70,7 @@ Reference content for the canonical architect prompt at `runtime/agents/architec
     - Project-specific config values go in DB settings/capabilities; project-visible policy/docs live in the managed project's `.yoke/` contract.
     - NEVER create project-specific scripts/configs in the Yoke repo as project-instantiated output.
 
-15. **File size.** Every new tracked text file must land under 350 lines. The single rule and shared checker are owned by `runtime/api/domain/file_line_check.py`; pre-commit and advance/polish gates enforce it. Plan tasks with split files when designing modules near the limit.
+15. **File size.** Every new tracked text file must land under 350 lines. The single rule and shared checker are owned by `packages/yoke-core/src/yoke_core/domain/file_line_check.py`; pre-commit and advance/polish gates enforce it. Plan tasks with split files when designing modules near the limit.
 
 16. **File Budget — upstream of the 350-line cap.** Constraint #15 is the late-stage backstop; this constraint is the upstream counterpart that planning is responsible for. Every implementation-bearing technical plan and every epic task spec that creates or grows authored code MUST preserve and elaborate the `## File Budget` contract authored at idea/refine time:
     - **Hard limit 350 lines per authored file**, **design target `<=300` lines** so implementors keep editing headroom.

@@ -19,13 +19,13 @@ def test_product_catalog_covers_every_pack_with_installed_documentation(
     monkeypatch.setattr(pack_catalog, "server_tree_root", lambda: ROOT)
 
     rows = pack_catalog.catalog_rows()
-
     assert {row["slug"] for row in rows} == {
         "branch-preview-hosting",
         "container-runtime",
         "domain-cdn-edge",
         "ephemeral-environments",
         "host-maintenance",
+        "machine-qa",
         "managed-database",
         "production-deploy",
         "pulumi-foundation",

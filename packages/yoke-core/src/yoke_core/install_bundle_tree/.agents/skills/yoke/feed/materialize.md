@@ -43,7 +43,7 @@ Rules:
 - If acceptance criteria changed, fold that change into the appropriate
   structured field instead of leaving it as a note elsewhere.
 - If scope shifted because landed work subsumed or invalidated part of
-  the ticket, state that explicitly in the updated field content.
+  the work item, state that explicitly in the updated field content.
 
 ### 3A.2 Cancellation Recommendations
 
@@ -63,7 +63,7 @@ _updated_items.append({
  yok_id: "YOK-N",
  title: "<title>",
  fields_updated: ["spec", "technical_plan"],
- reason: "<what landed and why this ticket changed>",
+ reason: "<what landed and why this work item changed>",
  recommend_cancel: true|false,
  cancellation_reason: "<why>" # only when applicable
 })
@@ -138,7 +138,7 @@ Create items one at a time, not in batch. After each creation:
 - Confirm the strategic provenance section is in the body
 - Then proceed to the next item
 
-Prefer fewer, sharper tickets over many vague ones. If the decide phase produced more than 5 items to materialize, pause after the first 3 and reassess whether the remaining items are truly ready for materialization or should stay in the SML.
+Prefer fewer, sharper work items over many vague ones. If the decide phase produced more than 5 items to materialize, pause after the first 3 and reassess whether the remaining items are truly ready for materialization or should stay in the SML.
 
 ## Branch C: Sharpen Frontier (`_decision = "sharpen_frontier"`)
 
@@ -166,7 +166,7 @@ The recommendation must be specific enough that an operator can act on it withou
 ### 3B.2 No Direct Mutations
 
 This branch does NOT:
-- Create new items when `_no_new_tickets` suppressed splitting/materialization
+- Create new items when `_no_new_items` suppressed splitting/materialization
 - Create new items for split recommendations unless the operator is in full feed mode and the decision explicitly calls for that work
 - Modify existing items
 - Invoke `/yoke refine` or `/yoke shepherd`

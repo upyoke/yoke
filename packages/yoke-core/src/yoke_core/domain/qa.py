@@ -34,11 +34,11 @@ from __future__ import annotations
 # ---------------------------------------------------------------------------
 
 from yoke_core.domain.qa_constants import (  # noqa: F401
+    BROWSER_METHOD_IDS,
     VALID_QA_PHASES,
     VALID_BLOCKING_MODES,
     VALID_REQUIREMENT_SOURCES,
     VALID_VERDICTS,
-    VALID_BROWSER_QA_KINDS,
     _coalesce,
     _normalize_qa_phase,
     _normalize_qa_kind,

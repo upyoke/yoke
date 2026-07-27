@@ -1,10 +1,4 @@
-"""Tests for HC-project-verification-configured.
-
-Covers: silent self-skip on missing structure table, PASS when a project has a
-command_definitions command OR only a merge_verification policy, WARN when a
-project has neither (the real bare-install state), the inert list excludes
-configured projects, and an empty command payload counts as inert.
-"""
+"""Tests for HC-project-verification-configured."""
 
 from __future__ import annotations
 
@@ -31,9 +25,12 @@ def _make_conn() -> Any:
     return _disposable_pg_db(
         "CREATE TABLE projects ("
         " id INTEGER PRIMARY KEY, slug TEXT UNIQUE NOT NULL);"
-        "CREATE TABLE project_structure ("
+        "CREATE TABLE qa_plans ("
         " id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL, "
-        " family TEXT NOT NULL, payload TEXT);"
+        " retired_at TEXT);"
+        "CREATE TABLE qa_plan_cases ("
+        " id INTEGER PRIMARY KEY, plan_id INTEGER NOT NULL, "
+        " method_id TEXT NOT NULL, method_config TEXT NOT NULL);"
     )
 
 
@@ -47,36 +44,31 @@ def _add_project(conn, pid, slug) -> None:
     conn.execute("INSERT INTO projects (id, slug) VALUES (%s, %s)", (pid, slug))
 
 
-def _add_structure(conn, sid, pid, family, payload) -> None:
+def _add_command_case(conn, sid, pid, payload) -> None:
     conn.execute(
-        "INSERT INTO project_structure (id, project_id, family, payload) "
-        "VALUES (%s, %s, %s, %s)",
-        (sid, pid, family, payload),
+        "INSERT INTO qa_plans (id, project_id) VALUES (%s, %s)",
+        (sid, pid),
+    )
+    conn.execute(
+        "INSERT INTO qa_plan_cases "
+        "(id, plan_id, method_id, method_config) "
+        "VALUES (%s, %s, 'command', %s)",
+        (sid, sid, payload),
     )
 
 
-def test_self_skip_when_structure_table_missing() -> None:
+def test_self_skip_when_plan_tables_missing() -> None:
     conn = _disposable_pg_db("CREATE TABLE projects (id INTEGER, slug TEXT)")
     assert _record(conn).results == []
 
 
-def test_pass_when_project_has_command_definitions() -> None:
+def test_pass_when_project_has_command_plan() -> None:
     conn = _make_conn()
     _add_project(conn, 1, "yoke")
-    _add_structure(conn, 1, 1, "command_definitions", '{"command":"pytest"}')
+    _add_command_case(conn, 1, 1, '{"command":"pytest"}')
     rec = _record(conn)
     assert rec.results[0].result == "PASS"
     assert rec.results[0].check_id == CHECK_ID
-
-
-def test_pass_when_project_has_only_merge_verification() -> None:
-    conn = _make_conn()
-    _add_project(conn, 1, "buzz")
-    _add_structure(
-        conn, 1, 1, "merge_verification",
-        '{"command":"npm test","timeout_seconds":600}',
-    )
-    assert _record(conn).results[0].result == "PASS"
 
 
 def test_warn_when_project_has_neither() -> None:
@@ -90,11 +82,11 @@ def test_warn_when_project_has_neither() -> None:
 def test_warn_excludes_configured_projects() -> None:
     conn = _make_conn()
     _add_project(conn, 1, "yoke")
-    _add_structure(conn, 1, 1, "command_definitions", '{"command":"pytest"}')
+    _add_command_case(conn, 1, 1, '{"command":"pytest"}')
     _add_project(conn, 2, "platform")
     rec = _record(conn)
     assert rec.results[0].result == "WARN"
-    inert_line = rec.results[0].detail.split("policy: ", 1)[1].split("\n")[0]
+    inert_line = rec.results[0].detail.split("case: ", 1)[1].split("\n")[0]
     assert "platform" in inert_line
     assert "yoke" not in inert_line
 
@@ -102,5 +94,5 @@ def test_warn_excludes_configured_projects() -> None:
 def test_empty_command_payload_is_inert() -> None:
     conn = _make_conn()
     _add_project(conn, 1, "empty")
-    _add_structure(conn, 1, 1, "command_definitions", '{"command":""}')
+    _add_command_case(conn, 1, 1, '{"command":""}')
     assert _record(conn).results[0].result == "WARN"

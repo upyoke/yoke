@@ -21,6 +21,8 @@ from yoke_core.domain import deploy_qa_recorder
 from yoke_core.domain.deploy_pipeline_executors import (
     _dispatch_executor,
 )
+from yoke_core.domain import deploy_pipeline_completion
+from yoke_core.domain.deploy_pipeline_environment import release_control_plane_env
 from yoke_core.domain.deploy_pipeline_gates import (
     _resolve_and_verify_branch,
     resolve_flow_gate_branch,
@@ -36,30 +38,13 @@ from yoke_core.domain.deploy_pipeline_reporting import (
 )
 from yoke_core.domain.project_checkout_locations import checkout_for_project
 from yoke_core.domain.deploy_product_source import DeployProductSourceError, validate_itemless_product_source
-from yoke_contracts.machine_config.schema import (
-    DB_ADMIN_ENV_SUFFIX,
-    ENV_OVERRIDE,
-)
 
 
 EXIT_SUCCESS = 0
 EXIT_STAGE_FAILED = 1
 EXIT_AWAITING_APPROVAL = 2
 EXIT_USAGE = 3
-def _normalize_release_control_plane_env(value: str) -> str:
-    """Return the environment label for release-run metadata authority."""
-    label = value.strip()
-    if label.endswith(DB_ADMIN_ENV_SUFFIX):
-        return label[: -len(DB_ADMIN_ENV_SUFFIX)]
-    return label
-
-
-def _release_control_plane_env() -> str:
-    """Describe where deployment run metadata is being written."""
-    active_env = os.environ.get(ENV_OVERRIDE, "")
-    if active_env.strip():
-        return _normalize_release_control_plane_env(active_env)
-    return "unbound"
+_release_control_plane_env = release_control_plane_env
 
 
 def run_pipeline(
@@ -169,7 +154,7 @@ def run_pipeline(
     target_env = "" if target_env == "null" else target_env
     print(
         "Deployment authority: "
-        f"release_control_plane={_release_control_plane_env()} "
+        f"release_control_plane={release_control_plane_env()} "
         f"target_env={target_env or '<unset>'} "
         f"flow={flow_id} run={run_id}"
     )
@@ -309,6 +294,7 @@ def run_pipeline(
                 {"run_id": run_id, "stage": s_name, "flow": flow_id},
                 member_items=member_items, project=project, sd=sd,
             )
+            deploy_pipeline_completion.notify_failure(run_id)
             print(f"Error: stage '{s_name}' failed (exit code: {exec_rc})", file=sys.stderr)
             return EXIT_STAGE_FAILED
 
@@ -351,6 +337,7 @@ def run_pipeline(
         {"run_id": run_id, "flow": flow_id, "project": project},
         member_items=member_items, project=project, sd=sd,
     )
+    deploy_pipeline_completion.notify_success(run_id)
 
     # Auto-set deployed_to (item-bound; no-op for item-less runs)
     if target_env and member_items:

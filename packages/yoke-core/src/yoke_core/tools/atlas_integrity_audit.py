@@ -51,7 +51,7 @@ SEED_CONTRADICTIONS: List[Dict[str, str]] = [
     },
     {
         "id": "claims-work-holder-get-flag-vs-positional",
-        "kind": "ticket-promise-vs-live",
+        "kind": "work-item-promise-vs-live",
         "surface": "yoke claims work holder-get",
         "claim": "Claim-holder docs promised `yoke claims work holder-get --item YOK-N`",
         "live_truth": "live `yoke claims work holder-get` accepts positional <YOK-N>",

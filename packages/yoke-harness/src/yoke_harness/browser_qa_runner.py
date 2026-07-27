@@ -1,4 +1,4 @@
-"""Scenario orchestration for product browser QA."""
+"""Low-level execution for one materialized Browser method case."""
 
 from __future__ import annotations
 
@@ -24,6 +24,7 @@ from yoke_harness.browser_qa_results import (
 def execute_scenario(
     *,
     item_id: int | str,
+    requirement_id: int,
     project: str,
     dispatcher: Dispatcher,
     base_url: str = "",
@@ -43,7 +44,7 @@ def execute_scenario(
     log(f"Fetching browser QA context for item {item_id} (qa.browser_context.get)...")
     try:
         context = fetch_browser_context(
-            dispatcher, item_id, project, expected_branch,
+            dispatcher, item_id, project, requirement_id, expected_branch,
         )
     except Exception as exc:
         log(f"ERROR: {exc}")
@@ -75,7 +76,7 @@ def execute_scenario(
         return result
     base_url = resolve_base_url(req_rows, base_url)
     if not base_url:
-        log("ERROR: No --base-url provided and no base_url in success_policy")
+        log("ERROR: No --base-url provided and no base_url in method_config")
         result.verdict = "error"
         result.note = "no_base_url"
         return result
@@ -111,6 +112,11 @@ def execute_scenario(
             result.executed += 1
         if outcome.capture_failed:
             result.verdict = "fail"
+        elif (
+            outcome.run_result.verdict == "inconclusive"
+            and result.verdict == "pass"
+        ):
+            result.verdict = "inconclusive"
         if outcome.env_failure:
             log("Aborting remaining requirements due to env setup failure")
             break
@@ -126,6 +132,7 @@ def fetch_browser_context(
     dispatcher: Dispatcher,
     item_id: int | str,
     project: str,
+    requirement_id: int,
     expected_branch: Optional[str] = None,
 ) -> Dict[str, Any]:
     try:
@@ -136,7 +143,10 @@ def fetch_browser_context(
             item_ref=str(item_id).strip(),
             project_id=project,
         )
-    payload: Dict[str, Any] = {"project": project}
+    payload: Dict[str, Any] = {
+        "project": project,
+        "requirement_id": int(requirement_id),
+    }
     if expected_branch:
         payload["expected_branch"] = expected_branch
     response = dispatcher("qa.browser_context.get", target, payload)
@@ -150,11 +160,11 @@ def fetch_browser_context(
 def resolve_base_url(req_rows: List[Dict[str, Any]], base_url: str) -> str:
     if base_url:
         return base_url
-    first_policy = req_rows[0].get("success_policy")
-    if not first_policy:
+    first_config = req_rows[0].get("method_config")
+    if not first_config:
         return ""
     try:
-        return str(json.loads(first_policy).get("base_url", ""))
+        return str(json.loads(first_config).get("base_url", ""))
     except json.JSONDecodeError:
         return ""
 

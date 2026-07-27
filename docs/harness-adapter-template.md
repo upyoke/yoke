@@ -150,7 +150,7 @@ A harness with `command_source: "shared_yoke_registry"` inherits the shared oper
 
 ### Shared registry plus manifest limitations
 
-For harnesses with a manifest, Yoke core derives the effective `downstream_paths` server-side from the shared registry and then applies limitations from the coarse harness manifest. Surface-specific executor values normalize back to the family manifest (`codex-desktop` -> `runtime/harness/codex/manifest.json`, `claude-vscode` -> `runtime/harness/claude-code/manifest.json`). A harness's session-offer-time `supported_paths` argument is ignored for Yoke-owned harnesses. The shared registry is the command/path source; the manifest is the limitation and affordance declaration; the session offer is the transport.
+For harnesses with a manifest, Yoke core derives the effective `downstream_paths` server-side from the shared registry and then applies limitations from the coarse harness manifest. Surface-specific executor values normalize back to the family manifest (`codex-desktop` -> `runtime/harness/codex/manifest.json`, `claude-vscode` -> `runtime/harness/claude/manifest.json`). A harness's session-offer-time `supported_paths` argument is ignored for Yoke-owned harnesses. The shared registry is the command/path source; the manifest is the limitation and affordance declaration; the session offer is the transport.
 
 **Shared Yoke code is the command/path source of truth for Yoke-owned harnesses.** A harness that does not ship a manifest falls into the backward-compat branch — an empty effective list is treated as "all downstream paths supported". Adapters that want truthful fallback enforcement should either add a manifest under `runtime/harness/{executor}/manifest.json` (or explicitly normalize surface-specific executors back to a coarse family manifest) or, for non-Yoke-owned adapters, continue to pass `supported_paths` explicitly at session-offer time.
 
@@ -183,7 +183,7 @@ The session offer currently accepts these parameters (from `yoke_core.api.servic
 
 ### Backward compatibility
 
-When no manifest exists for the executor (e.g., `claude-code` today), Yoke treats the harness as supporting all downstream paths. This preserves existing Claude Code sessions without requiring a manifest. Adding a manifest later is opt-in and only changes the effective `supported_paths` set when the manifest declares explicit limitations.
+When no manifest exists for an external executor, Yoke treats the harness as supporting all downstream paths. Both Yoke-owned executor families ship manifests today: `claude-code` resolves to `runtime/harness/claude/manifest.json`, while `codex` resolves to `runtime/harness/codex/manifest.json`.
 
 ---
 

@@ -1,16 +1,90 @@
-"""Recorded lane resolution shared by item worktree readers."""
+"""Universal lane resolution shared by item worktree consumers.
+
+Operational readers resolve active rows. Audit and pruning callers may opt
+into released history explicitly; no reader falls back to retired worktree
+columns on ``items`` or generated-child tables.
+"""
 
 from __future__ import annotations
 
 import os
+from typing import Any, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.worktree_paths import _run, is_git_worktree
+
+_ACTIVE_LANE_ORDER = (
+    "CASE lane_role WHEN 'integration' THEN 0 "
+    "WHEN 'implementation' THEN 1 WHEN 'worker' THEN 2 ELSE 3 END"
+)
 
 
 def _placeholder(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
+
+
+def primary_item_worktree_branch_sql(item_id_expression: str) -> str:
+    """Return a correlated SQL expression for an item's primary active branch."""
+    return (
+        "(SELECT iw.branch FROM item_worktrees iw "
+        f"WHERE iw.item_id = {item_id_expression} AND iw.state = 'active' "
+        f"ORDER BY {_ACTIVE_LANE_ORDER}, iw.id LIMIT 1)"
+    )
+
+
+def recorded_item_worktree_records(
+    conn: Any,
+    item_id: int,
+    repo_root: str,
+    worktrees_dir: str,
+    *,
+    active_only: bool = True,
+    lane_role: Optional[str] = None,
+) -> list[dict[str, Any]]:
+    """Return resolved universal lane rows in operational priority order."""
+    marker = _placeholder(conn)
+    clauses = [f"item_id = {marker}"]
+    params: list[Any] = [int(item_id)]
+    if active_only:
+        clauses.append("state = 'active'")
+    if lane_role is not None:
+        clauses.append(f"lane_role = {marker}")
+        params.append(lane_role)
+    rows = conn.execute(
+        "SELECT id, item_id, branch, COALESCE(path, '') AS path, "
+        "lane_role, state, created_at, updated_at, released_at "
+        "FROM item_worktrees WHERE "
+        + " AND ".join(clauses)
+        + f" ORDER BY {_ACTIVE_LANE_ORDER}, id",
+        tuple(params),
+    ).fetchall()
+    records: list[dict[str, Any]] = []
+    seen_paths: set[str] = set()
+    for row in rows:
+        values = dict(row) if hasattr(row, "keys") else {
+            "id": row[0],
+            "item_id": row[1],
+            "branch": row[2],
+            "path": row[3],
+            "lane_role": row[4],
+            "state": row[5],
+            "created_at": row[6],
+            "updated_at": row[7],
+            "released_at": row[8],
+        }
+        branch, path = _complete_lane(
+            str(values.get("branch") or ""),
+            str(values.get("path") or ""),
+            repo_root,
+            worktrees_dir,
+        )
+        if not path or path in seen_paths:
+            continue
+        seen_paths.add(path)
+        values["branch"] = branch
+        values["path"] = path
+        records.append(values)
+    return records
 
 
 def recorded_item_worktree_lanes(
@@ -18,17 +92,20 @@ def recorded_item_worktree_lanes(
     item_id: int,
     repo_root: str,
     worktrees_dir: str,
+    *,
+    active_only: bool = True,
 ) -> tuple[list[tuple[str, str]], str]:
-    """Return recorded lanes and the scope naming their storage source."""
-    universal = _universal_lanes(
-        conn, item_id, repo_root, worktrees_dir,
+    """Return universal branch/path pairs and their stable scope label."""
+    records = recorded_item_worktree_records(
+        conn,
+        item_id,
+        repo_root,
+        worktrees_dir,
+        active_only=active_only,
     )
-    if universal:
-        return universal, "item-lanes"
-    return (
-        _legacy_task_lanes(conn, item_id, repo_root, worktrees_dir),
-        "epic-tasks",
-    )
+    return [
+        (str(row["branch"]), str(row["path"])) for row in records
+    ], "item-lanes"
 
 
 def resolve_live_branch(path: str, fallback: str) -> str:
@@ -39,73 +116,6 @@ def resolve_live_branch(path: str, fallback: str) -> str:
     if result.returncode == 0 and result.stdout.strip():
         return result.stdout.strip()
     return fallback
-
-
-def _universal_lanes(
-    conn,
-    item_id: int,
-    repo_root: str,
-    worktrees_dir: str,
-) -> list[tuple[str, str]]:
-    if not _table_exists(conn, "item_worktrees"):
-        return []
-    marker = _placeholder(conn)
-    rows = conn.execute(
-        "SELECT branch, COALESCE(path, '') AS path "
-        "FROM item_worktrees "
-        f"WHERE item_id = {marker} AND state = 'active' "
-        "ORDER BY CASE lane_role WHEN 'integration' THEN 0 "
-        "WHEN 'implementation' THEN 1 ELSE 2 END, id",
-        (int(item_id),),
-    ).fetchall()
-    return _dedupe([
-        _complete_lane(
-            row["branch"], row["path"], repo_root, worktrees_dir,
-        )
-        for row in rows
-    ])
-
-
-def _legacy_task_lanes(
-    conn,
-    item_id: int,
-    repo_root: str,
-    worktrees_dir: str,
-) -> list[tuple[str, str]]:
-    lanes: list[tuple[str, str]] = []
-    marker = _placeholder(conn)
-    if _table_exists(conn, "epic_dispatch_chains"):
-        rows = conn.execute(
-            "SELECT COALESCE(worktree, '') AS branch, "
-            "COALESCE(worktree_path, '') AS path "
-            "FROM epic_dispatch_chains "
-            f"WHERE epic_id = {marker} "
-            "AND COALESCE(worktree, '') <> '' ORDER BY worktree",
-            (str(item_id),),
-        ).fetchall()
-        lanes.extend(
-            _complete_lane(
-                row["branch"], row["path"], repo_root, worktrees_dir,
-            )
-            for row in rows
-        )
-    if not lanes and _table_exists(conn, "epic_tasks"):
-        rows = conn.execute(
-            "SELECT COALESCE(NULLIF(branch, ''), "
-            "NULLIF(worktree, ''), '') AS branch, "
-            "COALESCE(worktree_path, '') AS path FROM epic_tasks "
-            f"WHERE epic_id = {marker} AND ("
-            "COALESCE(NULLIF(branch, ''), NULLIF(worktree, ''), '') <> '' "
-            "OR COALESCE(worktree_path, '') <> '') ORDER BY task_num",
-            (str(item_id),),
-        ).fetchall()
-        lanes.extend(
-            _complete_lane(
-                row["branch"], row["path"], repo_root, worktrees_dir,
-            )
-            for row in rows
-        )
-    return _dedupe(lanes)
 
 
 def _complete_lane(
@@ -123,16 +133,9 @@ def _complete_lane(
     return branch, path
 
 
-def _dedupe(
-    lanes: list[tuple[str, str]],
-) -> list[tuple[str, str]]:
-    unique: list[tuple[str, str]] = []
-    seen: set[str] = set()
-    for branch, path in lanes:
-        if path and path not in seen:
-            seen.add(path)
-            unique.append((branch, path))
-    return unique
-
-
-__all__ = ["recorded_item_worktree_lanes", "resolve_live_branch"]
+__all__ = [
+    "primary_item_worktree_branch_sql",
+    "recorded_item_worktree_lanes",
+    "recorded_item_worktree_records",
+    "resolve_live_branch",
+]

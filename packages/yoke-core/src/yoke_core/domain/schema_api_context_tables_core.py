@@ -20,7 +20,6 @@ CORE_TABLES: dict[str, dict] = {
             ("project_id", "INTEGER"),
             ("project_sequence", "INTEGER"),
             ("github_issue", "TEXT"),
-            ("worktree", "TEXT"),
             ("frozen", "INTEGER"),
             ("blocked", "INTEGER"),
             ("blocked_reason", "TEXT"),
@@ -58,13 +57,13 @@ CORE_TABLES: dict[str, dict] = {
             "`items get YOK-N body` or read the structured-field columns "
             "directly): spec, design_spec, technical_plan, worktree_plan, "
             "shepherd_log, shepherd_caveats, test_results, deploy_log, "
-            "browser_qa_metadata, db_mutation_profile, "
+            "db_mutation_profile, "
             "db_compatibility_attestation, architecture_impact, "
             "resolution, resolution_ref, resolution_comment, "
             "spec_updated_at, spec_updated_by, rework_count, merged_at, "
-            "deployed_to. items.worktree is a temporary compatibility "
-            "projection of the primary branch; authoritative lane ownership "
-            "lives in item_worktrees."
+            "deployed_to. Worktree branches and paths live exclusively in "
+            "item_worktrees; task and dispatch rows reference those lanes "
+            "through item_worktree_id."
         ),
     },
     **ITEM_WORKTREE_TABLES,
@@ -77,7 +76,7 @@ CORE_TABLES: dict[str, dict] = {
             ("status", "TEXT"),
             ("body", "TEXT"),
             ("dependencies", "TEXT"),
-            ("worktree", "TEXT"),
+            ("item_worktree_id", "INTEGER"),
             ("last_activity_at", "TEXT"),
         ],
         "notes": (
@@ -87,8 +86,10 @@ CORE_TABLES: dict[str, dict] = {
             "mutation surface (status transitions, body/field updates, "
             "progress notes, epic-task claim acquire/release); "
             "chain_head_freshness reads it for /yoke conduct re-entry. "
-            "The worktree fields are temporary compatibility projections; "
-            "authoritative lane ownership lives in item_worktrees. "
+            "dependencies is comma-separated TEXT containing prerequisite "
+            "task_num values from the same epic, not JSON. "
+            "item_worktree_id references the authoritative lane in "
+            "item_worktrees. "
             "Task recency previously lived only in task-scoped event rows "
             "— read this column, never the events ledger (telemetry-only); "
             "NULL means no mutation recorded."
@@ -98,8 +99,7 @@ CORE_TABLES: dict[str, dict] = {
         "columns": [
             ("id", "INTEGER"),
             ("epic_id", "INTEGER"),
-            ("worktree", "TEXT"),
-            ("worktree_path", "TEXT"),
+            ("item_worktree_id", "INTEGER"),
             ("queue", "TEXT"),
             ("current_index", "INTEGER"),
             ("current_task", "TEXT"),
@@ -110,8 +110,8 @@ CORE_TABLES: dict[str, dict] = {
             ("last_updated", "TEXT"),
         ],
         "notes": (
-            "One row per epic-task fan-out worktree. Unique on "
-            "(epic_id, worktree). queue is a JSON array of task_nums; "
+            "One row per epic-task fan-out lane. Unique on "
+            "(epic_id, item_worktree_id). queue is a JSON array of task_nums; "
             "current_task is the head task being worked. Conduct's "
             "task activation refreshes current_task / current_attempt / "
             "last_updated when it sets epic_tasks.status='implementing' "

@@ -149,7 +149,7 @@ class TestDetectDbQueryFailure:
         assert result is None
 
     def test_structured_field_read_with_historical_error_text_does_not_fire(self):
-        """reading a ticket body / spec / docs file via a
+        """reading a work-item body / spec / docs file via a
         structured ``db_router items get`` command must not emit the
         stale-schema hard-stop just because the rendered content contains
         historical ``Error: no such column`` example text. The hint is

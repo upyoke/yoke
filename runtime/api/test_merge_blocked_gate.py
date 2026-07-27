@@ -26,8 +26,7 @@ def conn():
         CREATE TABLE items (
             id INTEGER PRIMARY KEY,
             blocked INTEGER DEFAULT 0,
-            blocked_reason TEXT,
-            worktree TEXT
+            blocked_reason TEXT
         );
         """,
     )
@@ -39,8 +38,8 @@ def conn():
 def test_merge_refuses_blocked_item(conn):
     """Merge preflight reads items.blocked via the gate evaluator."""
     conn.execute(
-        "INSERT INTO items (id, blocked, blocked_reason, worktree) "
-        "VALUES (10, 1, 'merge-test reason', 'YOK-10')"
+        "INSERT INTO items (id, blocked, blocked_reason) "
+        "VALUES (10, 1, 'merge-test reason')"
     )
     decision = evaluate(conn, 10)
     assert decision.blocked is True
@@ -50,8 +49,8 @@ def test_merge_refuses_blocked_item(conn):
 def test_done_transition_refuses_blocked_item(conn):
     """Done-transition gate reads items.blocked via the same evaluator."""
     conn.execute(
-        "INSERT INTO items (id, blocked, blocked_reason, worktree) "
-        "VALUES (20, 1, 'done-test reason', 'YOK-20')"
+        "INSERT INTO items (id, blocked, blocked_reason) "
+        "VALUES (20, 1, 'done-test reason')"
     )
     decision = evaluate(conn, 20)
     assert decision.blocked is True
@@ -63,8 +62,8 @@ def test_done_transition_refuses_blocked_item(conn):
 
 def test_unblocked_item_passes_both_gates(conn):
     conn.execute(
-        "INSERT INTO items (id, blocked, blocked_reason, worktree) "
-        "VALUES (30, 0, NULL, 'YOK-30')"
+        "INSERT INTO items (id, blocked, blocked_reason) "
+        "VALUES (30, 0, NULL)"
     )
     decision = evaluate(conn, 30)
     assert decision.blocked is False

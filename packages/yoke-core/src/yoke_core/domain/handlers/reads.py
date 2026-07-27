@@ -11,7 +11,7 @@ All function ids registered from these modules carry
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from pydantic import BaseModel, Field
 
@@ -173,8 +173,11 @@ def handle_epic_tasks_list(request: FunctionCallRequest) -> HandlerOutcome:
     try:
         p = _p(conn)
         rows = conn.execute(
-            "SELECT id, epic_id, task_num, title, status, worktree, dependencies "
-            f"FROM epic_tasks WHERE epic_id = {p} ORDER BY task_num ASC",
+            "SELECT et.id, et.epic_id, et.task_num, et.title, et.status, "
+            "et.item_worktree_id, et.dependencies, iw.id, iw.branch, iw.path, "
+            "iw.lane_role, iw.state FROM epic_tasks et "
+            "LEFT JOIN item_worktrees iw ON iw.id = et.item_worktree_id "
+            f"WHERE et.epic_id = {p} ORDER BY et.task_num ASC",
             (str(epic_id),),
         ).fetchall()
     finally:
@@ -186,8 +189,19 @@ def handle_epic_tasks_list(request: FunctionCallRequest) -> HandlerOutcome:
             "task_num": int(r[2]),
             "title": str(r[3] or ""),
             "status": str(r[4] or ""),
-            "worktree": str(r[5] or ""),
+            "item_worktree_id": int(r[5]) if r[5] is not None else None,
             "dependencies": str(r[6] or ""),
+            "lane": (
+                {
+                    "id": int(r[7]),
+                    "branch": str(r[8] or ""),
+                    "path": str(r[9] or ""),
+                    "lane_role": str(r[10] or ""),
+                    "state": str(r[11] or ""),
+                }
+                if r[7] is not None
+                else None
+            ),
         }
         for r in rows
     ]

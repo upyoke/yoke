@@ -31,7 +31,7 @@ import json
 import os
 import sys
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from yoke_core.domain.worktree_paths import _normalize_repo_root
 from yoke_core.domain.worktree_preflight_steps import (
@@ -95,6 +95,7 @@ def run_preflight(
     session_id: str = "",
     actual_cwd: str = "",
     no_worktree: bool = False,
+    prepare_path_claims: Optional[Callable[[], Optional[str]]] = None,
 ) -> WorktreePreflightOutcome:
     """Run the harness-universal advance implementation-entry preflight."""
     branch = f"YOK-{item_id}"
@@ -159,6 +160,14 @@ def run_preflight(
         if "already" in claim_msg.lower()
         else "work-claim:acquired"
     )
+    if prepare_path_claims is not None:
+        preparation_error = prepare_path_claims()
+        if preparation_error:
+            out.ok = False
+            out.block_kind = BLOCK_PATH_CLAIM
+            out.narrative = preparation_error
+            return out
+        out.actions_taken.append("path-claim:prepared")
 
     # Step 2 — path-claim activation. Substrate DB-lock contention is
     # classified distinctly from upstream coordination failures so the

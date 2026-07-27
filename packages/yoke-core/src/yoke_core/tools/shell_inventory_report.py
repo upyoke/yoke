@@ -39,7 +39,7 @@ def load_shell_files(root: Path) -> list[ShellFile]:
             line_count = len(path.read_text(encoding="utf-8", errors="ignore").splitlines())
         except OSError:
             line_count = 0
-        category, owner_hint, disposition, ticket, why_not_python = classify(path, relpath)
+        category, owner_hint, disposition, owner_lane, why_not_python = classify(path, relpath)
         owner = owner_hint if owner_hint != "Yoke runtime" else infer_owner(path)
         home = candidate_home(path)
         function_rows = parse_functions(path, home, disposition)
@@ -55,7 +55,7 @@ def load_shell_files(root: Path) -> list[ShellFile]:
                 category=category,
                 owner=owner,
                 disposition=disposition,
-                ticket=ticket,
+                owner_lane=owner_lane,
                 why_not_python=why_not_python,
                 candidate_home=home,
                 function_rows=function_rows,
@@ -196,7 +196,7 @@ def _execution_plan_lines() -> list[str]:
           deletes. Do not defer branch-green cleanup wholesale to integration.
         - Worker lanes do not touch the shared integration surfaces above.
 
-        #### Existing Tickets To Reuse
+        #### Existing Work Items To Reuse
 
         - `shell-test-runner-retirement` is no longer a side quest. It is Wave 3's shell-test
           harness / API-runner lane.
@@ -266,7 +266,7 @@ def render_markdown(root: Path, shell_files: list[ShellFile]) -> str:
     for file in shell_files:
         lines.append(
             f"| `{file.relpath}` | {file.line_count} | {file.caller_count} | {file.category} | "
-            f"{file.owner} | {file.disposition} | {file.ticket} | {file.why_not_python} |"
+            f"{file.owner} | {file.disposition} | {file.owner_lane} | {file.why_not_python} |"
         )
 
     function_files = [file for file in shell_files if file.function_rows]

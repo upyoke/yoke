@@ -12,9 +12,9 @@ Suppression: append ``# doc-drift-allow:<reason>`` (or the inline
 HTML-comment form ``<!-- doc-drift-allow:<reason> -->``) to a line to
 record an intentional negative example.
 
-Pre-existing drift in files claimed by other live tickets is
+Pre-existing drift in files claimed by other live work items is
 grandfathered via ``_KNOWN_LEGACY_OFFENDERS``; drain the allowlist as
-the owning tickets land.
+the owning work items land.
 """
 
 from __future__ import annotations
@@ -42,9 +42,9 @@ SUPPRESSION_MARKER = "# doc-drift-allow:"
 _SUPPRESSION_SIGIL = "doc-drift-allow:"
 
 
-# Pre-existing drift in files claimed by other live tickets. Each entry
+# Pre-existing drift in files claimed by other live work items. Each entry
 # is ``(rule_label, "<relative-path>:<line>")``. Drain the allowlist as
-# the owning tickets land.
+# the owning work items land.
 _KNOWN_LEGACY_OFFENDERS: frozenset = frozenset(
     {
         # merge/post-merge.md — no active sibling claim, but file is part
@@ -278,7 +278,7 @@ class TestSkillDocFencedCommandLint:
     Narrow scope: only commands matching the YOK-1748 drift class are
     pushed through the lints. Other write-shape adapters
     (``qa requirement-add-batch --json-file``, ``epic simulation-upsert``,
-    etc.) are governed by their own tickets.
+    etc.) are governed by their own work items.
     """
 
     @pytest.mark.parametrize(

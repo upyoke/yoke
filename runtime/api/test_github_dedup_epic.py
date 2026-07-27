@@ -229,7 +229,7 @@ class TestSyncEpicTasksDedup:
 
         fuzzy = _issue(
             3543,
-            "[YOK-1498] unrelated decomp ticket (1000-1500 lines)",
+            "[YOK-1498] unrelated decomposition work item (1000-1500 lines)",
         )
         epic_created = _issue(9001, "[YOK-1500] Epic title")
         task_created = _issue(9002, "[YOK-1500] 001 First task")

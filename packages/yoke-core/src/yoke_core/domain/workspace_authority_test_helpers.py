@@ -35,12 +35,19 @@ def conn():
             id INTEGER PRIMARY KEY, slug TEXT UNIQUE
         );
         CREATE TABLE items (
-            id INTEGER PRIMARY KEY, worktree TEXT, project_id INTEGER,
+            id INTEGER PRIMARY KEY, project_id INTEGER,
             status TEXT, workflow_id TEXT, workflow_version_id INTEGER
+        );
+        CREATE TABLE item_worktrees (
+            id INTEGER PRIMARY KEY, item_id INTEGER NOT NULL,
+            branch TEXT NOT NULL, path TEXT, lane_role TEXT NOT NULL,
+            state TEXT NOT NULL DEFAULT 'active',
+            created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+            released_at TEXT
         );
         CREATE TABLE epic_tasks (
             epic_id INTEGER NOT NULL, task_num INTEGER NOT NULL,
-            worktree TEXT, PRIMARY KEY (epic_id, task_num)
+            item_worktree_id INTEGER, PRIMARY KEY (epic_id, task_num)
         );
         CREATE TABLE work_claims (
             id INTEGER PRIMARY KEY, session_id TEXT, target_kind TEXT,
@@ -102,13 +109,25 @@ def _seed_item(conn, item_id: int, branch: str | None, project: str = "yoke") ->
 
     workflow_id, workflow_version_id = resolve_current_workflow_pin(conn, "issue")
     conn.execute(
-        "INSERT INTO items (id, worktree, project_id, workflow_id, "
-        "workflow_version_id) VALUES (%s, %s, %s, %s, %s)",
+        "INSERT INTO items (id, project_id, workflow_id, "
+        "workflow_version_id) VALUES (%s, %s, %s, %s)",
         (
-            item_id, branch, _project_id(project), workflow_id,
+            item_id, _project_id(project), workflow_id,
             workflow_version_id,
         ),
     )
+    if branch is not None:
+        conn.execute(
+            "INSERT INTO item_worktrees "
+            "(item_id, branch, lane_role, state, created_at, updated_at) "
+            "VALUES (%s, %s, 'implementation', 'active', %s, %s)",
+            (
+                item_id,
+                branch,
+                "2026-01-01T00:00:00Z",
+                "2026-01-01T00:00:00Z",
+            ),
+        )
     conn.commit()
 
 

@@ -134,45 +134,6 @@ class TestRequirementAdd:
         conn.close()
         assert json.loads(row[0])["threshold"] == 0.95
 
-    def test_add_browser_smoke_requires_success_policy(self, db_path):
-        """Browser QA kinds must have success_policy with steps array."""
-        with pytest.raises(SystemExit):
-            qa.cmd_requirement_add(
-                db_path=db_path,
-                item_id=100,
-                qa_kind="browser_smoke",
-                qa_phase="verification",
-            )
-
-    def test_add_browser_smoke_valid_policy(self, db_path, capsys):
-        policy = json.dumps({
-            "steps": [
-                {"action": "navigate", "route": "/"},
-                {"action": "screenshot", "capture": True},
-            ]
-        })
-        req_id = qa.cmd_requirement_add(
-            db_path=db_path,
-            item_id=100,
-            qa_kind="browser_smoke",
-            qa_phase="verification",
-            success_policy=policy,
-        )
-        assert req_id >= 1
-
-    def test_add_browser_smoke_missing_action(self, db_path):
-        """Steps without 'action' field are rejected."""
-        policy = json.dumps({"steps": [{"route": "/"}]})
-        with pytest.raises(SystemExit):
-            qa.cmd_requirement_add(
-                db_path=db_path,
-                item_id=100,
-                qa_kind="browser_smoke",
-                qa_phase="verification",
-                success_policy=policy,
-            )
-
-
 class TestRequirementList:
     """cmd_requirement_list: filter by attachment target."""
 

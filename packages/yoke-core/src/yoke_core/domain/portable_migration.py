@@ -28,6 +28,10 @@ from yoke_core.domain.migration_apply_manifest import (
     validate_manifest_payload,
 )
 from yoke_core.domain.migration_apply_verify import run_baseline_verify
+from yoke_core.domain.migration_source_digest import (
+    MigrationSourceDigestError,
+    migration_source_digest,
+)
 
 
 _MODULE_NAMESPACE = "yoke_core.domain.migrations"
@@ -135,7 +139,10 @@ def load_packaged_modules(manifest: PortableManifest) -> tuple[ModuleType, ...]:
             raise PortableMigrationError(
                 f"packaged migration module {identifier!r} source is unsafe"
             )
-        actual_digest = hashlib.sha256(source_path.read_bytes()).hexdigest()
+        try:
+            actual_digest = migration_source_digest(source_path)
+        except MigrationSourceDigestError as exc:
+            raise PortableMigrationError(str(exc)) from exc
         expected_digest = manifest.module_sources[identifier]["sha256"]
         if actual_digest != expected_digest:
             raise PortableMigrationError(

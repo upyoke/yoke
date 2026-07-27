@@ -4,9 +4,6 @@ Each test injects a bad shape into a tmp fixture and exercises one HC via
 ``iter_tier_paths`` / ``render_role_packet`` / ``SKILL_SCAN_TARGETS`` /
 ``_run_help`` monkeypatches; no live repo paths are read. Coverage floor
 (>=15 distinct shapes) is enforced by ``test_distinct_bad_shape_count``.
-:data:`BASELINE_KNOWN_RESIDUE` captures observed-WARN signatures an
-earlier cleanup chain didn't reach; the clean-baseline guard subtracts
-them.
 """
 
 from __future__ import annotations
@@ -26,25 +23,6 @@ from yoke_core.engines.doctor_registry_tier_discipline import (
     TIER_DISCIPLINE_HEALTH_CHECKS,
 )
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
-
-
-# BASELINE_KNOWN_RESIDUE — substring patterns the live-repo run surfaces
-# today that the cleanup chain didn't reach. Subtracted by the
-# clean-baseline guard (fix cycle 1 GAP #9). Function-id-style noun phrases
-# (`items.structured_field`, `items.scalar`, `items.body`, etc.) still
-# trip Class A without a sanctioned cross-reference prefix; the post-merge
-# refinement ticket drains the remaining residue.
-BASELINE_KNOWN_RESIDUE: Dict[str, Tuple[str, ...]] = {
-    "tier-schema-bleed": (
-        "items.structured_field", "items.section", "items.progress_log",
-        "items.scalar", "items.body", "project_structure.patch",
-        "epic_tasks.list", "items.py",
-    ),
-    "tier-cli-shape-bleed": ("drifted",),
-    "packet-tier-completeness": (),
-    "progressive-disclosure-direction": ("tier-direction",),
-    "tier-module-path-resolution": ("does not resolve",),
-}
 
 
 @pytest.fixture
@@ -113,7 +91,7 @@ def test_registry_bundle_order_and_count():
 # HC-tier-schema-bleed Class A — (table.column, kind). `real` = column
 # exists on table (restated truth); `fake` = non-existent column.
 _CLASS_A_CASES = [
-    ("items.worktree", "real"),
+    ("item_worktrees.branch", "real"),
     ("epic_progress_notes.note_num", "real"),
     ("qa_requirements.qa_kind", "real"),
     ("path_targets.path_string", "real"),
@@ -143,7 +121,6 @@ def test_schema_bleed_class_a(tmp_path, monkeypatch, conn, table_col, kind):
 
 # HC-tier-schema-bleed Class B — JSON nested field accessed as top-level.
 _CLASS_B_CASES = [
-    ("browser_testable", "items", "browser_qa_metadata"),
     ("migration_strategy", "items", "db_mutation_profile"),
 ]
 

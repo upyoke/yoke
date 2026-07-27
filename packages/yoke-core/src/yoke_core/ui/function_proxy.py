@@ -6,8 +6,8 @@ names for its callers. The proxy admits a closed set of function ids:
 
 * :data:`UI_READ_FUNCTION_ALLOWLIST` — read-only by construction, with
   one documented exception (:data:`UI_ACTIVATION_LATCH_FUNCTIONS`).
-* :data:`UI_MUTATION_FUNCTION_ALLOWLIST` — the per-actor Overview
-  dismissal pair, dispatched as the resolved local operator actor.
+* :data:`UI_MUTATION_FUNCTION_ALLOWLIST` — the bounded browser action
+  roster, dispatched as the resolved local operator actor.
 
 Everything else is refused with 403 before the dispatcher sees it. The
 browser envelope's own actor claim is never trusted: only the
@@ -26,13 +26,19 @@ from typing import Any, Dict, Optional, Tuple
 UI_READ_FUNCTION_ALLOWLIST = frozenset({
     "organizations.get",
     "projects.list",
+    "projects.get",
     "projects.capabilities.list",
     "projects.github_binding.status",
     "items.get.run",
     "items.list.run",
+    "items.overview.list",
+    "items.detail.get",
     "epic_tasks.list.run",
     "strategy.doc.list",
     "strategy.doc.get",
+    "strategy.surface.list",
+    "strategy.surface.get",
+    "strategy.revision.diff",
     "ouroboros.entry.list",
     "board.data.get",
     "deployment_runs.list",
@@ -40,13 +46,24 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset({
     "frontier.list",
     "events.query.run",
     "doctor.last_run.get",
+    "qa.method.list",
+    "qa.method.get",
+    "qa.plan.list",
+    "qa.plan.get",
+    "qa.activity.list",
+    "qa.artifact.read",
+    "inbox.list",
     "workflows.definition.get",
+    "workflows.mechanics.get",
+    "workflows.version.get",
+    "test_machine.get",
     # Documented exception to "no side effects": the Overview activation
     # read latches newly satisfied module activations into
     # overview_activation_facts — universe-scoped, monotone, idempotent,
     # and carrying no actor attribution. See
     # UI_ACTIVATION_LATCH_FUNCTIONS.
     "overview.activation.get",
+    "overview.vitals.get",
 })
 
 #: Read-allowlist members whose one sanctioned side effect is the
@@ -57,13 +74,35 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset({
 #: dismissal flags then match what the dismissal writes would do.
 UI_ACTIVATION_LATCH_FUNCTIONS = frozenset({"overview.activation.get"})
 
-#: The only mutations the local proxy may dispatch: the per-actor
-#: Overview module dismissal pair. Both act as the resolved local
-#: operator actor (:mod:`yoke_core.ui.local_operator_actor`) and are
+#: Reads whose result is defined for the resolved local operator rather than
+#: an anonymous browser process.
+UI_ACTOR_BOUND_READ_FUNCTIONS = frozenset({
+    "inbox.list",
+    "test_machine.get",
+    "workflows.mechanics.get",
+})
+
+#: The only mutations the local proxy may dispatch. All act as the resolved
+#: local operator actor (:mod:`yoke_core.ui.local_operator_actor`) and are
 #: refused when no operator resolves; every other mutation stays 403.
 UI_MUTATION_FUNCTION_ALLOWLIST = frozenset({
     "overview.module.dismiss",
     "overview.module.restore",
+    "workflows.current.set",
+    "workflows.policy_defaults.publish",
+    "workflows.testing_default.set",
+    "workflows.delivery_default.set",
+    "workflows.approval_defaults.publish",
+    "test_machine.settings_replace",
+    "test_machine.verify",
+    "decision_requests.resolve",
+    "notifications.read",
+    "notifications.read_all",
+    "qa.case.rerun",
+    "qa.case.waive",
+    "items.create",
+    "sessions.reclaim_stale",
+    "strategy.revision.restore",
 })
 
 
@@ -99,21 +138,28 @@ def proxy_function_call(
     # server-side. Reads that surface per-actor dismissal state bind the
     # operator when one resolves; mutations refuse without one.
     operator_actor_id: Optional[str] = None
-    if is_mutation or function_id in UI_ACTIVATION_LATCH_FUNCTIONS:
+    if (
+        is_mutation
+        or function_id in UI_ACTIVATION_LATCH_FUNCTIONS
+        or function_id in UI_ACTOR_BOUND_READ_FUNCTIONS
+    ):
         from yoke_core.ui.local_operator_actor import (
             resolve_local_operator_actor,
         )
 
         resolved = resolve_local_operator_actor()
         operator_actor_id = None if resolved is None else str(resolved)
-        if is_mutation and operator_actor_id is None:
+        if (
+            (is_mutation or function_id in UI_ACTOR_BOUND_READ_FUNCTIONS)
+            and operator_actor_id is None
+        ):
             return (
                 {"error": {
                     "code": "operator_actor_unresolved",
                     "message": (
                         "this universe has no unambiguous local "
-                        "operator actor, so per-actor dismissal "
-                        "writes are refused"
+                        "operator actor, so this per-actor operation "
+                        "is refused"
                     ),
                 }},
                 403,
@@ -151,6 +197,7 @@ def proxy_function_call(
 
 __all__ = [
     "UI_ACTIVATION_LATCH_FUNCTIONS",
+    "UI_ACTOR_BOUND_READ_FUNCTIONS",
     "UI_MUTATION_FUNCTION_ALLOWLIST",
     "UI_READ_FUNCTION_ALLOWLIST",
     "proxy_function_call",

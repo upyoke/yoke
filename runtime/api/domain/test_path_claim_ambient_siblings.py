@@ -154,7 +154,7 @@ class TestRender:
         _seed_item(
             conn,
             item_id=100,
-            title="A reasonably long ticket title that should still fit",
+            title="A reasonably long work-item title that should still fit",
         )
         target = seed_target(conn, path_string="runtime/api/domain")
         register(

@@ -1,5 +1,4 @@
-"""Tests for the tool-shaped ``yoke qa browser`` family routing
-(``run`` token resolution, the ``screenshot`` manual-fallback capture)."""
+"""Tests for Browser substrate tooling and the retired aggregate token."""
 
 from __future__ import annotations
 
@@ -8,21 +7,14 @@ import json
 from contextlib import redirect_stderr, redirect_stdout
 from unittest.mock import patch
 
-from yoke_contracts.api.function_call import FunctionCallResponse
-from yoke_cli.commands.qa_browser import (
-    qa_browser_run,
-    qa_browser_screenshot,
-)
+from yoke_cli.commands.qa_browser import qa_browser_screenshot
 from yoke_cli.commands.tool_shaped import resolve_tool_shaped
 
 
 class TestTokenRouting:
-    def test_run_token_resolves(self):
+    def test_aggregate_run_token_does_not_resolve(self):
         resolved = resolve_tool_shaped(["qa", "browser", "run", "--item", "X-1"])
-        assert resolved is not None
-        adapter, rest = resolved
-        assert adapter is qa_browser_run
-        assert rest == ["--item", "X-1"]
+        assert resolved is None
 
     def test_screenshot_token_resolves(self):
         resolved = resolve_tool_shaped(
@@ -47,7 +39,7 @@ class TestScreenshotAdapter:
 
     def test_daemon_unavailable_exits_two_with_teaching(self):
         with patch(
-            "yoke_harness.browser_qa.ensure_daemon_running",
+            "yoke_harness.browser_qa_daemon.ensure_daemon_running",
             return_value="daemon start failed after retries",
         ):
             rc, _out, err = self._run(
@@ -67,7 +59,7 @@ class TestScreenshotAdapter:
             return {"ok": True, "outputPath": output_path}
 
         with patch(
-            "yoke_harness.browser_qa.ensure_daemon_running",
+            "yoke_harness.browser_qa_daemon.ensure_daemon_running",
             return_value=None,
         ), patch(
             "yoke_harness.browser_client.snapshot_screenshot",
@@ -88,7 +80,7 @@ class TestScreenshotAdapter:
 
     def test_capture_runtime_error_exits_one(self):
         with patch(
-            "yoke_harness.browser_qa.ensure_daemon_running",
+            "yoke_harness.browser_qa_daemon.ensure_daemon_running",
             return_value=None,
         ), patch(
             "yoke_harness.browser_client.snapshot_screenshot",
@@ -101,75 +93,16 @@ class TestScreenshotAdapter:
         assert "daemon http 500" in err
 
 
-class TestRunAdapter:
-    def _run(self, *argv: str):
-        out, err = io.StringIO(), io.StringIO()
-        with redirect_stdout(out), redirect_stderr(err):
-            rc = qa_browser_run(list(argv))
-        return rc, out.getvalue(), err.getvalue()
-
-    def test_run_auto_added_project_flag_reaches_context_dispatch_target(self):
-        calls = []
-
-        def fake_dispatcher(*, function_id, target, payload, actor):
-            calls.append(
-                (
-                    function_id,
-                    target.kind,
-                    target.item_ref,
-                    target.project_id,
-                    payload,
-                    actor.session_id,
-                )
-            )
-            return FunctionCallResponse(
-                success=True,
-                function=function_id,
-                version="v1",
-                result={"item_id": 1732, "requirements": []},
-            )
-
-        with patch(
-            "yoke_cli.commands.qa_browser.ensure_handlers_loaded",
-            return_value=None,
-        ), patch(
-            "yoke_cli.commands.qa_browser.call_dispatcher",
-            side_effect=fake_dispatcher,
-        ):
-            rc, out, _err = self._run(
-                "--item", "EXT-1732", "--project", "externalwebapp",
-                "--base-url", "http://127.0.0.1:3000",
-            )
-
-        assert rc == 2
-        assert json.loads(out) == {
-            "verdict": "pass",
-            "runs": [],
-            "note": "no_browser_requirements",
-        }
-        assert [
-            (function, kind, item_ref, project_id, payload)
-            for function, kind, item_ref, project_id, payload, _ in calls
-        ] == [
-            (
-                "qa.browser_context.get",
-                "item",
-                "EXT-1732",
-                "externalwebapp",
-                {"project": "externalwebapp"},
-            ),
-        ]
-
-
 class TestOperationInventory:
-    def test_browser_tokens_are_permanent_tool_shaped(self):
+    def test_case_and_screenshot_tokens_are_permanent_tool_shaped(self):
         from yoke_cli import operation_inventory as inv
 
         for shell_form in (
-            "yoke qa browser run",
+            "yoke qa case run",
             "yoke qa browser screenshot",
         ):
             entry = inv.lookup(shell_form)
             assert entry is not None, shell_form
             assert entry.status == inv.PERMANENT
             assert entry.reason == inv.REASON_TOOL_SHAPED
+        assert inv.lookup("yoke qa browser run") is None

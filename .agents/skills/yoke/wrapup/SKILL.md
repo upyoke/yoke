@@ -6,12 +6,12 @@ argument-hint: "(no arguments)"
 
 # /yoke wrapup
 
-Structured end-of-session wrap-up. Reviews the session's work, logs ouroboros reflections, captures unfinished business, and offers to file tickets for discovered issues.
+Structured end-of-session wrap-up. Reviews the session's work, logs ouroboros reflections, captures unfinished business, and offers to file work items for discovered issues.
 
 This is the bookend to session-start — if we enforce how sessions begin, we enforce how they end.
 
 <!-- BEGIN GENERATED: field-note-directive -->
-When you hit a recipe gap or notice a minor bug not worth a ticket, file a field-note immediately — before retrying, before moving on.
+When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
 Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->
@@ -136,18 +136,18 @@ cat << 'ENTRY_EOF' | yoke ouroboros entry insert --stdin \
 
  Write one entry per distinct observation. Do not combine unrelated observations into a single entry.
 
-6. **Offer to file tickets:**
+6. **Offer to file work items:**
 
  For each problem or friction point in the "What Went Wrong" and "What Took Too Long" sections, ask the user:
 
  ```
- File a ticket for this?
+ File a work item for this?
  - {problem summary}
  ```
 
- If the user approves, use `/yoke idea` to create the ticket. The ouroboros entries from step 5 serve as the raw log; tickets are the actionable follow-up.
+ If the user approves, use `/yoke idea` to create the work item. The ouroboros entries from step 5 serve as the raw log; work items are the actionable follow-up.
 
- If there are no problems or friction points worth ticketing, skip this step.
+ If there are no problems or friction points worth creating a work item for, skip this step.
 
 7. **Update item continuity fields:**
 
@@ -198,7 +198,7 @@ cat << 'ENTRY_EOF' | yoke ouroboros entry insert --stdin \
  ## Summary
  - Items: {list of YOK-N transitions}
  - Ouroboros entries: {count}
- - Tickets filed: {list or "none"}
+ - Work items filed: {list or "none"}
  ```
 
  Then save to the authoritative DB through the registered wrapup surface. Use a session timestamp in `{YYYY-MM-DD}-{HHmm}` format (current UTC time):
@@ -226,7 +226,7 @@ cat << 'ENTRY_EOF' | yoke ouroboros entry insert --stdin \
  ## Ouroboros Entries Logged
  - {count} entries ({N} problems, {N} friction, {N} ideas, ...)
 
- ## Tickets Filed
+ ## Work items Filed
  - YOK-{N}: {title}
  - (or: none)
 
@@ -249,7 +249,7 @@ cat << 'ENTRY_EOF' | yoke ouroboros entry insert --stdin \
 
 - This command is entirely prompt-driven — no shell scripts needed. You (the session agent) review your own conversation history and synthesize the report.
 - Speed matters — the user is ending a session, not starting a project. Aim for 2-3 minutes, not 10.
-- The ouroboros entries are raw observations. `/yoke curate` handles clustering, ticket promotion, and archiving later.
+- The ouroboros entries are raw observations. `/yoke curate` handles clustering, work item promotion, and archiving later.
 - Do not attempt to curate during wrapup — just log raw and move on.
 - If the session was trivial (e.g., single small fix, no problems), keep the wrapup proportionally brief. A one-item session doesn't need a 5-section report.
 - The "What Went Wrong" section should include root causes, not just symptoms. "Tests failed" is not useful. "Tests failed because the mock gh wasn't on PATH in the test harness" is useful.

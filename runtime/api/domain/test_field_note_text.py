@@ -27,13 +27,14 @@ def test_evidence_max_chars_is_shared_contract() -> None:
 def test_kind_observation_definition_is_canonical_text() -> None:
     assert fnt.KIND_OBSERVATION_DEFINITION == (
         "minor bug, surprise, or stale reference noticed during unrelated work. "
-        "Not in current scope. Not worth a ticket today."
+        "Not in current scope. Best held as a supporting record today."
     )
 
 
 def test_directive_canonical_text() -> None:
     assert fnt.DIRECTIVE == (
-        "When you hit a recipe gap or notice a minor bug not worth a ticket, "
+        "When you hit a recipe gap or notice a minor bug best held as a "
+        "supporting record, "
         "file a field-note immediately — before retrying, before moving on."
     )
 

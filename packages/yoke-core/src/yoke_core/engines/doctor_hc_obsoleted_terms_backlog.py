@@ -45,15 +45,15 @@ _ITEM_FIELDS: tuple[str, ...] = (
 
 _LINE_PREVIEW_LIMIT = 160
 
-# Obsoleting-ticket self-exemption. When an obsoleted-term label embeds a
-# ``YOK-N`` marker naming the retiring ticket, mentions of the term inside
-# that ticket's own backlog fields are the meta-content describing the
-# retirement, not live residue. Without this exemption every rename ticket
-# would create a structural catch-22 — the very ticket retiring a symbol
+# Obsoleting-item self-exemption. When an obsoleted-term label embeds a
+# ``YOK-N`` marker naming the retiring work item, mentions of the term inside
+# that work item's own backlog fields are the meta-content describing the
+# retirement, not live residue. Without this exemption every rename work item
+# would create a structural catch-22 — the very work item retiring a symbol
 # could never PASS the HC because it must spell the symbol out in its own
 # description. Parsing ``YOK-N`` out of the label lets the scanner skip hits
-# whose source item id matches the retiring ticket id.
-_LABEL_TICKET_PATTERN = re.compile(r"\bYOK-(\d+)\b")
+# whose source item id matches the retiring work-item id.
+_LABEL_WORK_ITEM_PATTERN = re.compile(r"\bYOK-(\d+)\b")
 
 
 def _terminal_status_params() -> tuple[str, ...]:
@@ -69,16 +69,16 @@ def _compile(patterns: Sequence[str]) -> list[Tuple[str, re.Pattern[str]]]:
     return [(p, re.compile(p)) for p in patterns]
 
 
-def _obsoleting_ticket_id(label: str) -> int | None:
+def _obsoleting_work_item_id(label: str) -> int | None:
     """Extract the YOK-N item id from an obsoleted-term label, if present.
 
-    Labels that embed the retiring ticket id (``"... (YOK-N retired — ...)"``)
+    Labels that embed the retiring work-item id (``"... (YOK-N retired — ...)"``)
     let the scanner key the self-exemption to that item id. Labels without
     a ``YOK-N`` token return ``None`` — no self-exemption applies (those
-    terms were retired by an earlier untracked migration or a non-ticket
-    cleanup).
+    terms were retired by an earlier untracked migration or a
+    work-item-independent cleanup).
     """
-    match = _LABEL_TICKET_PATTERN.search(label)
+    match = _LABEL_WORK_ITEM_PATTERN.search(label)
     if match is None:
         return None
     return int(match.group(1))
@@ -97,7 +97,7 @@ def _scan_text(
     HC report renders file-tree hits and backlog-field hits side-by-side
     without per-source formatting branches.
 
-    ``source_item_id`` enables the obsoleting-ticket self-exemption: when a
+    ``source_item_id`` enables the obsoleting-item self-exemption: when a
     pattern's label names the same YOK-N as the source item, the hit is
     skipped. The exemption applies only to backlog fields (this module's
     scope); the file-tree scanner in ``doctor_hc_obsoleted_terms`` has no
@@ -111,7 +111,7 @@ def _scan_text(
             if compiled_pattern.search(line):
                 label = labels.get(pattern_src, pattern_src)
                 if source_item_id is not None:
-                    obsoleting_id = _obsoleting_ticket_id(label)
+                    obsoleting_id = _obsoleting_work_item_id(label)
                     if obsoleting_id == source_item_id:
                         continue
                 preview = line.rstrip()[:_LINE_PREVIEW_LIMIT]

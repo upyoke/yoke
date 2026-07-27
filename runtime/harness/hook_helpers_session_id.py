@@ -15,7 +15,7 @@ import subprocess
 from pathlib import Path
 from typing import Any, Optional, Tuple
 
-from yoke_core.domain.db_helpers import BUSY_TIMEOUT_MS
+from yoke_core.domain.db_helpers import BUSY_TIMEOUT_MS  # noqa: F401
 
 
 # ---------------------------------------------------------------------------
@@ -147,9 +147,8 @@ def resolve_dispatch_context(
 
     Returns ``(epic_id, task_num, item_id)`` or ``None`` if no match.
 
-    Queries epic_dispatch_chains for a chain whose worktree_path matches the
-    given agent directory.  Falls back to prefix match and non-epic item
-    worktree match.
+    Queries dispatch chains through their universal lane path. Falls back to
+    a prefix match and then to unique active item-lane ownership.
     """
     if not agent_dir:
         return None
@@ -159,11 +158,13 @@ def resolve_dispatch_context(
 
         conn = _connect(db_path)
 
-        # Exact match on worktree_path
+        # Exact match on the universal lane path.
         row = conn.execute(
-            """SELECT epic_id, COALESCE(current_task, ''), epic_id
-               FROM epic_dispatch_chains
-               WHERE worktree_path = %s
+            """SELECT c.epic_id, COALESCE(c.current_task, ''), c.epic_id
+               FROM epic_dispatch_chains c
+               JOIN item_worktrees iw ON iw.id = c.item_worktree_id
+               WHERE iw.path = %s
+                 AND iw.state = 'active'
                  AND current_task IS NOT NULL
                  AND current_task <> ''
                LIMIT 1""",
@@ -175,9 +176,11 @@ def resolve_dispatch_context(
 
         # prefix match for nested subdirs
         row = conn.execute(
-            """SELECT epic_id, COALESCE(current_task, ''), epic_id
-               FROM epic_dispatch_chains
-               WHERE %s LIKE worktree_path || %s
+            """SELECT c.epic_id, COALESCE(c.current_task, ''), c.epic_id
+               FROM epic_dispatch_chains c
+               JOIN item_worktrees iw ON iw.id = c.item_worktree_id
+               WHERE %s LIKE iw.path || %s
+                 AND iw.state = 'active'
                  AND current_task IS NOT NULL
                  AND current_task <> ''
                LIMIT 1""",
@@ -187,15 +190,17 @@ def resolve_dispatch_context(
             conn.close()
             return (str(row[0]), str(row[1]), str(row[2]))
 
-        # Fallback: non-epic items by worktree basename
+        # Fallback: unique active item ownership by branch or exact path.
         wt_basename = os.path.basename(agent_dir)
         rows = conn.execute(
-            """SELECT id FROM items
-               WHERE status NOT IN ('done', 'cancelled')
-                 AND worktree = %s
-                 AND type <> 'epic'
+            """SELECT DISTINCT i.id
+               FROM items i
+               JOIN item_worktrees iw ON iw.item_id = i.id
+               WHERE i.status NOT IN ('done', 'cancelled')
+                 AND iw.state = 'active'
+                 AND (iw.branch = %s OR iw.path = %s)
                LIMIT 2""",
-            (wt_basename,),
+            (wt_basename, agent_dir),
         ).fetchall()
         conn.close()
 

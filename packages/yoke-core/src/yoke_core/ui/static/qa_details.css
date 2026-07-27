@@ -1,0 +1,272 @@
+.qa-detail-grid,
+.qa-plan-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(260px, .75fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.qa-detail-grid > .panel,
+.qa-detail-stack > .panel {
+  margin-bottom: 0;
+}
+
+.qa-key-values {
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr);
+  gap: 1px;
+  margin: 0;
+  overflow: hidden;
+  background: var(--yoke-border);
+}
+
+.qa-key-values dt,
+.qa-key-values dd {
+  margin: 0;
+  padding: 11px 15px;
+  background: var(--yoke-surface);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.qa-key-values dt {
+  color: var(--yoke-muted);
+  font-size: 12px;
+}
+
+.qa-executor-contract {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.qa-executor-contract small {
+  color: var(--yoke-muted);
+}
+
+.qa-capability-contract,
+.qa-case-capability {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.qa-plan-links,
+.qa-attachment {
+  display: grid;
+  gap: 8px;
+}
+
+.qa-plan-link,
+.qa-attachment,
+.qa-evidence {
+  padding: 10px 12px;
+  border: 1px solid var(--yoke-border);
+  border-radius: 8px;
+}
+
+.qa-plan-link {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  color: inherit;
+  text-decoration: none;
+}
+
+.qa-plan-link:hover {
+  border-color: var(--yoke-accent);
+}
+
+.qa-plan-link > span:first-child,
+.qa-attachment {
+  display: grid;
+  gap: 3px;
+}
+
+.qa-plan-outcome {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+  color: var(--yoke-muted);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+.qa-plan-button {
+  color: var(--yoke-link);
+  font-family: var(--yoke-font-mono);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.qa-clickable-row {
+  cursor: pointer;
+}
+
+.qa-method-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.qa-method-glyph {
+  color: var(--yoke-accent);
+  font-size: 15px;
+}
+
+.qa-baseline-count,
+.qa-evidence-count {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: var(--yoke-surface-2);
+  color: var(--yoke-muted);
+  font-size: 10.5px;
+}
+
+.qa-host-baseline {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: var(--yoke-surface-2);
+  color: var(--yoke-muted);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.qa-table-wrap {
+  max-width: 100%;
+  margin: -13px -15px;
+  overflow-x: auto;
+}
+
+.qa-table-wrap table {
+  min-width: 720px;
+}
+
+.qa-case-panel-body .qa-table-wrap {
+  margin: 0;
+  margin-bottom: 0;
+}
+
+.universe-app-root .qa-case-panel-body {
+  padding: 0;
+}
+
+.qa-plan-empty {
+  padding: 14px;
+}
+
+.qa-case-panel-body .qa-case-table {
+  width: 100%;
+  min-width: 100%;
+}
+
+.qa-case-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 118px;
+}
+
+.qa-case-actions .btn,
+.qa-action-dialog .btn {
+  padding: 3px 8px;
+  border: 1px solid var(--yoke-border);
+  border-radius: 7px;
+  background: var(--yoke-bg);
+  color: var(--yoke-ink);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.qa-action-dialog .btn.primary {
+  border-color: var(--yoke-accent);
+  background: var(--yoke-accent);
+  color: white;
+}
+
+.qa-case-action-status,
+.qa-action-error {
+  color: var(--yoke-crit);
+  font-size: 11px;
+}
+
+.qa-union {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 12px 14px;
+  border-top: 1px solid var(--yoke-border);
+  color: var(--yoke-muted);
+  font-size: 12px;
+}
+
+.qa-attachment,
+.qa-evidence {
+  margin-bottom: 8px;
+}
+
+.qa-inline-command {
+  padding: 2px 5px;
+  border-radius: 5px;
+  background: var(--yoke-surface-2);
+}
+
+.qa-panel-note {
+  padding: 11px 14px;
+  border-top: 1px solid var(--yoke-border);
+  color: var(--yoke-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.qa-panel-context {
+  margin-left: auto;
+  text-align: right;
+}
+
+@media (max-width: 860px) {
+  .qa-detail-grid,
+  .qa-plan-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .qa-panel-context {
+    display: none;
+  }
+
+  .qa-key-values {
+    grid-template-columns: 1fr;
+  }
+
+  .qa-key-values dt {
+    padding-bottom: 4px;
+  }
+
+  .qa-key-values dd {
+    padding-top: 4px;
+  }
+
+  .qa-plan-link {
+    grid-template-columns: 1fr;
+    gap: 9px;
+  }
+
+  .qa-plan-outcome {
+    justify-content: flex-start;
+  }
+
+  .qa-union {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

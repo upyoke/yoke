@@ -111,7 +111,7 @@ def test_emit_event_persists_canonical_context_fields() -> None:
 
 def test_emit_event_reports_missing_events_table() -> None:
     with test_database() as conn:
-        conn.execute("DROP TABLE events")
+        conn.execute("DROP TABLE events CASCADE")
         conn.commit()
         result = _emit(conn)
 

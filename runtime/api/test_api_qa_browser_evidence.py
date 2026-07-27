@@ -29,12 +29,16 @@ def _request(function_id: str, item_id: int, payload=None) -> FunctionCallReques
 
 
 def _seed_evidence_fixture(conn, *, item_id: int = 42) -> None:
-    """One browser requirement + one ac_verification row needing evidence."""
+    """One Browser method case + one aggregate row needing evidence."""
     insert_item(conn, id=item_id, title="T", status="reviewing-implementation")
     insert_qa_requirement(
-        conn, id=10, item_id=item_id, qa_kind="browser_smoke",
+        conn, id=10, item_id=item_id, qa_kind="plan_case",
         qa_phase="verification", blocking_mode="blocking",
         success_policy='{"base_url": "http://localhost:9", "steps": []}',
+    )
+    conn.execute(
+        "UPDATE qa_requirements SET method_id='browser-inspection' "
+        "WHERE id=10",
     )
     insert_qa_requirement(
         conn, id=11, item_id=item_id, qa_kind="ac_verification",
@@ -48,7 +52,7 @@ def _insert_capture_run(conn, *, verdict, execution_status="captured") -> None:
     conn.execute(
         "INSERT INTO qa_runs (qa_requirement_id, executor_type, qa_kind, "
         "verdict, execution_status, created_at) "
-        "VALUES (10, 'browser_substrate', 'browser_smoke', %s, %s, %s)",
+        "VALUES (10, 'browser_substrate', 'plan_case', %s, %s, %s)",
         (verdict, execution_status, "2026-01-01T00:00:00Z"),
     )
     conn.commit()
@@ -98,7 +102,7 @@ class TestSatisfy(unittest.TestCase):
             )
         self.assertFalse(outcome.primary_success)
         self.assertEqual(outcome.error.code, "capture_not_verified")
-        self.assertIn("qa.run.complete", outcome.error.message)
+        self.assertIn("shared case execution/review flow", outcome.error.message)
 
     def test_bridges_verified_capture_to_ac_pass(self):
         with test_database() as conn:
@@ -123,9 +127,13 @@ class TestSatisfy(unittest.TestCase):
         with test_database() as conn:
             insert_item(conn, id=42, title="T", status="reviewing-implementation")
             insert_qa_requirement(
-                conn, id=10, item_id=42, qa_kind="browser_smoke",
+                conn, id=10, item_id=42, qa_kind="plan_case",
                 qa_phase="verification", blocking_mode="blocking",
                 success_policy="",
+            )
+            conn.execute(
+                "UPDATE qa_requirements SET method_id='browser-inspection' "
+                "WHERE id=10",
             )
             conn.commit()
             _insert_capture_run(conn, verdict="pass")

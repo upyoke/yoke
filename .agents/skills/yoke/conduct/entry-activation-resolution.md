@@ -218,7 +218,7 @@ for _task_id in $_task_ids; do
 done
 ```
 
-The lane worktrees are now provisioned and `items.worktree` (branch slug) is set on the parent. The same harness session continues with the Engineer/Tester loop — no manual relaunch, no parent-stop, no `HarnessSessionEnded`. Each subagent dispatch (in `dispatch-context.md`) acquires its own `work_claim` on the parent epic, which is what `lint_session_cwd` reads to authorize writes under the dispatched lane. Multi-lane fan-out does not race a session envelope because no envelope exists; each lane stands on its own work-claim.
+The lane worktrees are now provisioned as active `item_worktrees` rows owned by the parent item. The same harness session continues with the Engineer/Tester loop — no manual relaunch, no parent-stop, no `HarnessSessionEnded`. Each subagent dispatch (in `dispatch-context.md`) acquires its own `work_claim` on the parent epic, which is what `lint_session_cwd` reads to authorize writes under the dispatched lane. Multi-lane fan-out does not race a session envelope because no envelope exists; each lane stands on its own work-claim.
 
 Build context block (same as `dispatch-context.md` 5f-epic.6):
 ```

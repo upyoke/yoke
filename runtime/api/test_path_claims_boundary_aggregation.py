@@ -12,8 +12,6 @@ import os
 import subprocess
 from pathlib import Path
 
-import pytest
-
 from runtime.api.fixtures.file_test_db import init_test_db
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
 from yoke_core.domain import path_claims_gate_boundary as _gate
@@ -45,7 +43,14 @@ def _make_branch_apply_schema(repo_root: Path):
         try:
             conn.execute(
                 "CREATE TABLE items ("
-                "id INTEGER PRIMARY KEY, worktree TEXT, project_id INTEGER)"
+                "id INTEGER PRIMARY KEY, project_id INTEGER)"
+            )
+            conn.execute(
+                "CREATE TABLE item_worktrees ("
+                "id INTEGER PRIMARY KEY, item_id INTEGER NOT NULL, "
+                "branch TEXT NOT NULL, path TEXT, lane_role TEXT NOT NULL, "
+                "state TEXT NOT NULL, created_at TEXT NOT NULL, "
+                "updated_at TEXT NOT NULL, released_at TEXT)"
             )
             conn.execute(
                 "CREATE TABLE projects ("
@@ -59,7 +64,13 @@ def _make_branch_apply_schema(repo_root: Path):
                 "INSERT INTO projects (id, slug) VALUES (3, 'demo')",
             )
             register_machine_checkout(repo_root.parent / "machine-config", repo_root, 3)
-            conn.execute("INSERT INTO items VALUES (9, 'YOK-9', 3)")
+            conn.execute("INSERT INTO items VALUES (9, 3)")
+            conn.execute(
+                "INSERT INTO item_worktrees VALUES "
+                "(1, 9, 'YOK-9', %s, 'implementation', 'active', "
+                "'2026-05-01T00:00:00Z', '2026-05-01T00:00:00Z', NULL)",
+                (str(repo_root / ".worktrees" / "YOK-9"),),
+            )
             conn.execute("INSERT INTO path_claims VALUES (1, 9, 'active')")
             conn.execute("INSERT INTO path_claims VALUES (2, 9, 'active')")
             conn.commit()
@@ -276,16 +287,23 @@ class TestAggregationGitignoreFilter:
                 )
                 conn.execute(
                     "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, "
-                    "created_at, updated_at, project_id, project_sequence, "
-                    "worktree) VALUES "
-                    "(%s, %s, 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'medium', %s, %s, 3, 701, "
-                    "'feature')",
+                    "created_at, updated_at, project_id, project_sequence) VALUES "
+                    "(%s, %s, 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), "
+                    "'idea', 'medium', %s, %s, 3, 701)",
                     (
                         701,
                         "demo",
                         "2026-05-01T00:00:00Z",
                         "2026-05-01T00:00:00Z",
                     ),
+                )
+                conn.execute(
+                    "INSERT INTO item_worktrees "
+                    "(item_id, branch, path, lane_role, state, "
+                    "created_at, updated_at) "
+                    "VALUES (%s, 'feature', %s, 'implementation', 'active', "
+                    "'2026-05-01T00:00:00Z', '2026-05-01T00:00:00Z')",
+                    (701, str(project_root / ".worktrees" / "feature")),
                 )
                 conn.execute(
                     "INSERT INTO path_targets "

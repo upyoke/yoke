@@ -1,9 +1,7 @@
-"""Tests for yoke_core.domain.items — update_structured_field,
-browser_qa_metadata structured-field validation, and update_item_multi."""
+"""Tests for structured item fields and multi-field updates."""
 
 from __future__ import annotations
 
-import json
 import os
 import sys
 
@@ -129,98 +127,6 @@ class TestUpdateStructuredField:
         ).fetchone()
         conn.close()
         assert row[0] is None
-
-
-class TestBrowserQaMetadataStructuredField:
-    """browser_qa_metadata rides the structured-field write path with validation."""
-
-    def test_browser_qa_metadata_is_structured(self):
-        from yoke_core.domain.items import (
-            LARGE_TEXT_FIELDS,
-            STRUCTURED_FIELDS,
-            CONTENT_FIELDS,
-        )
-        assert "browser_qa_metadata" in STRUCTURED_FIELDS
-        assert "browser_qa_metadata" in LARGE_TEXT_FIELDS
-        # Metadata is operational state, not narrative content.
-        assert "browser_qa_metadata" not in CONTENT_FIELDS
-
-    def test_rejects_invalid_json(self, db_with_item):
-        from yoke_core.domain.browser_qa_metadata import BrowserQaMetadataError
-
-        with pytest.raises(BrowserQaMetadataError, match="malformed JSON"):
-            update_structured_field(
-                1, "browser_qa_metadata", "{not json", db_path=db_with_item,
-            )
-
-    def test_rejects_schema_violation(self, db_with_item):
-        from yoke_core.domain.browser_qa_metadata import BrowserQaMetadataError
-
-        payload = json.dumps({
-            "browser_testable": "true",  # wrong type
-            "visual_outcome": False,
-            "browser_routes": [],
-            "browser_timing_hints_ms": [],
-        })
-        with pytest.raises(BrowserQaMetadataError):
-            update_structured_field(
-                1, "browser_qa_metadata", payload, db_path=db_with_item,
-            )
-
-    def test_rejects_contradiction(self, db_with_item):
-        from yoke_core.domain.browser_qa_metadata import BrowserQaMetadataError
-
-        payload = json.dumps({
-            "browser_testable": False,
-            "visual_outcome": True,
-            "browser_routes": [],
-            "browser_timing_hints_ms": [],
-        })
-        with pytest.raises(BrowserQaMetadataError, match="contradicts"):
-            update_structured_field(
-                1, "browser_qa_metadata", payload, db_path=db_with_item,
-            )
-
-    def test_writes_canonical_json(self, db_with_item):
-        # Input is intentionally denormalized: mixed-case route, unsorted,
-        # duplicate routes, out-of-order timings, and non-alphabetic key order.
-        payload = json.dumps({
-            "browser_timing_hints_ms": [7000, 2000, 2000],
-            "browser_routes": ["/Login/", "/login", "/forgot-password"],
-            "visual_outcome": True,
-            "browser_testable": True,
-        })
-        update_structured_field(
-            1, "browser_qa_metadata", payload, db_path=db_with_item,
-        )
-        stored = query_item(1, "browser_qa_metadata", db_path=db_with_item)
-        # Canonical form: sorted keys, deduped/sorted lists, normalized routes
-        assert stored == (
-            '{"browser_routes":["/forgot-password","/login"],'
-            '"browser_testable":true,'
-            '"browser_timing_hints_ms":[2000,7000],'
-            '"visual_outcome":true}'
-        )
-
-    def test_does_not_track_spec_updated_at(self, db_with_item):
-        """browser_qa_metadata is not a CONTENT_FIELD — no spec_updated_* touched."""
-        payload = json.dumps({
-            "browser_testable": False,
-            "visual_outcome": False,
-            "browser_routes": [],
-            "browser_timing_hints_ms": [],
-        })
-        update_structured_field(
-            1, "browser_qa_metadata", payload,
-            source="idea", db_path=db_with_item,
-        )
-        conn = connect_test_db(db_with_item)
-        row = conn.execute(
-            "SELECT spec_updated_at, spec_updated_by FROM items WHERE id = 1"
-        ).fetchone()
-        conn.close()
-        assert row[0] is None
-        assert row[1] is None
 
 
 class TestUpdateItemMulti:

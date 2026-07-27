@@ -96,7 +96,8 @@ class TestUnsupportedFieldRegression:
         """The domain mutation layer should reject all fields outside the
         supported update surface."""
         from yoke_core.domain.mutations import (
-            SUPPORTED_UPDATE_FIELDS, prepare_update, ItemState,
+            ItemState,
+            prepare_update,
         )
 
         item = ItemState(
@@ -104,12 +105,9 @@ class TestUnsupportedFieldRegression:
             status="implementing", priority="medium",
         )
 
-        # worktree is a supported update field (advance worktree-phase writes it);
-        # the documented update surface sits alongside the structured content
-        # fields like spec/technical_plan which use their own write path.
         unsupported_fields = ["body", "source", "epic", "type", "github_issue",
                               "created_at", "updated_at", "flow",
-                              "merged_at", "rework_count"]
+                              "merged_at", "rework_count", "worktree"]
 
         for field_name in unsupported_fields:
             result = prepare_update(item=item, field_name=field_name, value="test")
@@ -126,7 +124,6 @@ class TestUnsupportedFieldRegression:
         expected = {
             "status", "frozen", "blocked", "blocked_reason",
             "priority", "project", "deployment_flow", "deployed_to", "title",
-            "worktree",
         }
         assert SUPPORTED_UPDATE_FIELDS == expected, (
             f"SUPPORTED_UPDATE_FIELDS has drifted: "

@@ -23,6 +23,7 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
+from yoke_core.domain.handlers.event_presentation import present_event
 
 
 # Payload key -> events filter flag. Keys mirror the ``events`` table
@@ -118,7 +119,8 @@ def _validated_limit(
         return None, HandlerOutcome(
             primary_success=False,
             error=FunctionError(
-                code="payload_invalid", message="limit must be an int 1..1000",
+                code="payload_invalid",
+                message="limit must be an int 1..1000",
                 jsonpath="$.payload.limit",
             ),
         )
@@ -126,7 +128,8 @@ def _validated_limit(
         return None, HandlerOutcome(
             primary_success=False,
             error=FunctionError(
-                code="payload_invalid", message="limit out of bounds (1..1000)",
+                code="payload_invalid",
+                message="limit out of bounds (1..1000)",
                 jsonpath="$.payload.limit",
             ),
         )
@@ -165,11 +168,16 @@ def _where_from_payload(
     try:
         where, params = _build_where(args)
     except ValueError as exc:
-        return "", [], HandlerOutcome(
-            primary_success=False,
-            error=FunctionError(
-                code="payload_invalid", message=str(exc),
-                jsonpath="$.payload",
+        return (
+            "",
+            [],
+            HandlerOutcome(
+                primary_success=False,
+                error=FunctionError(
+                    code="payload_invalid",
+                    message=str(exc),
+                    jsonpath="$.payload",
+                ),
             ),
         )
 
@@ -189,31 +197,80 @@ def _where_from_payload(
     return where, list(params), None
 
 
-def _select_rows(
-    where: str, params: List[Any], limit: int
-) -> List[Dict[str, Any]]:
-    """Newest-first typed projection over the canonical 24-column set."""
+def _select_rows(where: str, params: List[Any], limit: int) -> List[Dict[str, Any]]:
+    """Newest-first typed projection plus readable presentation facts."""
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.events_select import (
         _EVT_SELECT_COLS,
         EVT_COLUMN_NAMES,
     )
+    from yoke_contracts.item_ref import format_item_ref
 
     conn = connect()
     try:
-        rows = conn.execute(
+        raw_rows = conn.execute(
             f"SELECT {_EVT_SELECT_COLS}, envelope FROM events {where} "
             f"ORDER BY created_at DESC, id DESC LIMIT %s",
             (*params, limit),
         ).fetchall()
+        names = (*EVT_COLUMN_NAMES, "envelope")
+        rows = [
+            {
+                name: ("" if value is None else str(value))
+                for name, value in zip(names, tuple(row))
+            }
+            for row in raw_rows
+        ]
+        item_ids = sorted(
+            {
+                int(row["item_id"])
+                for row in rows
+                if str(row.get("item_id") or "").isdigit()
+            }
+        )
+        item_facts: Dict[int, Dict[str, Any]] = {}
+        if item_ids:
+            markers = ", ".join("%s" for _ in item_ids)
+            facts = conn.execute(
+                "SELECT i.id, i.project_id, i.project_sequence, p.slug, "
+                "p.public_item_prefix "
+                "FROM items i JOIN projects p ON p.id = i.project_id "
+                f"WHERE i.id IN ({markers})",
+                tuple(item_ids),
+            ).fetchall()
+            for fact in facts:
+                item_id = int(fact["id"])
+                item_facts[item_id] = {
+                    "project_id": int(fact["project_id"]),
+                    "ref": format_item_ref(
+                        str(fact["slug"]),
+                        str(fact["public_item_prefix"] or ""),
+                        fact["project_sequence"],
+                        item_id=item_id,
+                    ),
+                }
+        actor_ids = sorted(
+            {
+                int(row["actor_id"])
+                for row in rows
+                if str(row.get("actor_id") or "").isdigit()
+            }
+        )
+        actor_labels: Dict[int, str] = {}
+        if actor_ids:
+            markers = ", ".join("%s" for _ in actor_ids)
+            actors = conn.execute(
+                "SELECT a.id, COALESCE(dl.label, a.system_component, "
+                "'actor ' || CAST(a.id AS TEXT)) AS label "
+                "FROM actors a LEFT JOIN actor_labels dl "
+                "ON dl.actor_id = a.id AND dl.surface = 'display' "
+                f"WHERE a.id IN ({markers})",
+                tuple(actor_ids),
+            ).fetchall()
+            actor_labels = {int(actor["id"]): str(actor["label"]) for actor in actors}
     finally:
         conn.close()
-    names = (*EVT_COLUMN_NAMES, "envelope")
-    return [
-        {name: ("" if value is None else str(value))
-         for name, value in zip(names, tuple(row))}
-        for row in rows
-    ]
+    return [present_event(row, item_facts, actor_labels) for row in rows]
 
 
 def handle_events_query(request: FunctionCallRequest) -> HandlerOutcome:
@@ -248,7 +305,8 @@ def handle_events_count(request: FunctionCallRequest) -> HandlerOutcome:
     conn = connect()
     try:
         row = conn.execute(
-            f"SELECT COUNT(*) FROM events {where}", tuple(params),
+            f"SELECT COUNT(*) FROM events {where}",
+            tuple(params),
         ).fetchone()
     finally:
         conn.close()
@@ -274,9 +332,16 @@ def handle_events_anomalies(request: FunctionCallRequest) -> HandlerOutcome:
 
 
 __all__ = [
-    "EventsQueryRequest", "EventsQueryResponse", "handle_events_query",
-    "EventsTailRequest", "EventsTailResponse", "handle_events_tail",
-    "EventsCountRequest", "EventsCountResponse", "handle_events_count",
-    "EventsAnomaliesRequest", "EventsAnomaliesResponse",
+    "EventsQueryRequest",
+    "EventsQueryResponse",
+    "handle_events_query",
+    "EventsTailRequest",
+    "EventsTailResponse",
+    "handle_events_tail",
+    "EventsCountRequest",
+    "EventsCountResponse",
+    "handle_events_count",
+    "EventsAnomaliesRequest",
+    "EventsAnomaliesResponse",
     "handle_events_anomalies",
 ]

@@ -4,11 +4,17 @@ from __future__ import annotations
 
 import json
 import subprocess
-from datetime import datetime, timezone
 
 import pytest
 
-from yoke_core.domain import db_backend, item_execution_status
+from runtime.api.domain.item_execution_status_test_support import (
+    NOW,
+    add_item as _add_item,
+    core_db as core_db,
+)
+from runtime.api.fixtures.file_test_db import connect_test_db
+from runtime.api.fixtures.machine_config_test import register_machine_checkout
+from yoke_core.domain import item_execution_status
 from yoke_core.domain.item_execution_status import (
     build_projection,
     main,
@@ -22,73 +28,10 @@ from yoke_core.domain.item_execution_status_helpers import (
     normalize_item_id,
     parse_iso,
 )
-from yoke_core.domain.schema_init_apply import execute_schema_script
 from yoke_core.domain.workflow_registry_sql import marker as _p
-from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
-from runtime.api.fixtures.machine_config_test import register_machine_checkout
-
-NOW = datetime(2026, 5, 8, 12, 0, 0, tzinfo=timezone.utc)
-
-_CORE_SCHEMA = """
-CREATE TABLE projects (id INTEGER PRIMARY KEY, slug TEXT UNIQUE, name TEXT, public_item_prefix TEXT DEFAULT 'YOK');
-CREATE TABLE items (id INTEGER PRIMARY KEY, title TEXT NOT NULL,
-    status TEXT DEFAULT 'idea',
-    project_id INTEGER DEFAULT 1, project_sequence INTEGER NOT NULL, worktree TEXT, spec TEXT);
-CREATE TABLE work_claims (id INTEGER PRIMARY KEY, session_id TEXT,
-    target_kind TEXT, item_id INTEGER, claim_type TEXT,
-    claimed_at TEXT, last_heartbeat TEXT, released_at TEXT);
-CREATE TABLE path_claims (id INTEGER PRIMARY KEY, state TEXT,
-    blocked_reason TEXT, item_id INTEGER);
-CREATE TABLE item_sections (item_id INTEGER, section_name TEXT,
-    content TEXT, updated_at TEXT, PRIMARY KEY (item_id, section_name));
-CREATE TABLE item_status_transitions (id INTEGER PRIMARY KEY,
-    item_id INTEGER NOT NULL, task_num INTEGER, from_status TEXT,
-    to_status TEXT NOT NULL, source TEXT, session_id TEXT,
-    actor_id INTEGER, project_id INTEGER, created_at TEXT NOT NULL);
-"""
-
-
-def _apply_core_schema() -> None:
-    """``apply_schema`` strategy building ``_CORE_SCHEMA`` natively."""
-    conn = db_backend.connect()
-    try:
-        execute_schema_script(conn, _CORE_SCHEMA)
-        from yoke_core.domain.workflow_registry import converge_builtin_workflows
-        from yoke_core.domain.workflow_schema import ensure_workflow_schema
-
-        ensure_workflow_schema(conn)
-        converge_builtin_workflows(conn)
-        conn.execute("INSERT INTO projects (id, slug, name, public_item_prefix) VALUES (1, 'yoke', 'Yoke', 'YOK')")
-        conn.commit()
-    finally:
-        conn.close()
-
-
-@pytest.fixture
-def core_db(tmp_path):
-    with init_test_db(tmp_path, apply_schema=_apply_core_schema) as db_path:
-        yield db_path
 
 
 _conn = connect_test_db
-
-
-def _add_item(conn, item_id, **kwargs) -> None:
-    p = "%s"
-    cols = {"title": "Test", "workflow_id": "issue", "status": "implementing",
-            "project_id": 1, "project_sequence": item_id, "worktree": None, "spec": None}
-    cols.update(kwargs)
-    from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
-
-    _, version_id = resolve_current_workflow_pin(conn, cols["workflow_id"])
-    fields = ("title", "status", "project_id", "project_sequence", "worktree", "spec")
-    conn.execute(
-        "INSERT INTO items(id, title, status, project_id, "
-        "project_sequence, worktree, spec, workflow_id, workflow_version_id)"
-        f" VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p})",
-        (item_id, *(cols[f] for f in fields), cols["workflow_id"], version_id),
-    )
-    conn.commit()
 
 
 def test_helpers_handle_z_naive_garbage_and_clamp() -> None:
@@ -110,9 +53,7 @@ def test_normalize_item_id_strips_sun_prefix() -> None:
 
 
 def test_latest_progress_entry_handles_no_headline_separator() -> None:
-    headline, ts = latest_progress_entry(
-        "## 2026-05-08T11:00:00Z entry\nbody only\n"
-    )
+    headline, ts = latest_progress_entry("## 2026-05-08T11:00:00Z entry\nbody only\n")
     assert headline is None
     assert ts == "2026-05-08T11:00:00Z"
 
@@ -135,8 +76,7 @@ def test_no_claim_no_path_claims_no_progress_log(core_db, tmp_path) -> None:
             "INSERT INTO item_status_transitions"
             "(item_id, from_status, to_status, source, created_at) "
             f"VALUES ({p}, {p}, {p}, {p}, {p})",
-            (10, "idea", "refining-idea", "backlog-registry",
-             "2026-05-08T11:59:00Z"),
+            (10, "idea", "refining-idea", "backlog-registry", "2026-05-08T11:59:00Z"),
         )
         conn.commit()
     finally:
@@ -164,8 +104,14 @@ def test_active_claim_includes_holder_age_and_heartbeat(core_db) -> None:
             "INSERT INTO work_claims(session_id, target_kind, item_id, "
             "claim_type, claimed_at, last_heartbeat) "
             f"VALUES ({p},{p},{p},{p},{p},{p})",
-            ("session-A", "item", 20, "exclusive",
-             "2026-05-08T11:30:00Z", "2026-05-08T11:58:00Z"),
+            (
+                "session-A",
+                "item",
+                20,
+                "exclusive",
+                "2026-05-08T11:30:00Z",
+                "2026-05-08T11:58:00Z",
+            ),
         )
         conn.commit()
     finally:
@@ -183,8 +129,11 @@ def test_path_claims_counts_and_latest_blocker(core_db) -> None:
     try:
         _add_item(conn, 30)
         for state, reason in [
-            ("planned", None), ("active", None), ("released", None),
-            ("blocked", "waiting on YOK-99"), ("blocked", "newer reason"),
+            ("planned", None),
+            ("active", None),
+            ("released", None),
+            ("blocked", "waiting on YOK-99"),
+            ("blocked", "newer reason"),
         ]:
             conn.execute(
                 "INSERT INTO path_claims(state, blocked_reason, item_id) "
@@ -198,7 +147,11 @@ def test_path_claims_counts_and_latest_blocker(core_db) -> None:
     pc = proj["path_claims"]
     assert pc["total"] == 5
     assert pc["state_counts"] == {
-        "planned": 1, "active": 1, "blocked": 2, "released": 1}
+        "planned": 1,
+        "active": 1,
+        "blocked": 2,
+        "released": 1,
+    }
     assert pc["latest_blocker_reason"] == "newer reason"
     assert any("blocked" in w for w in proj["warnings"])
 
@@ -269,7 +222,13 @@ def test_file_budget_prefers_existing_worktree(core_db, tmp_path) -> None:
         _add_item(conn, 60, worktree="YOK-60", spec=spec_text)
     finally:
         conn.close()
-    subprocess.run(["git", "init"], cwd=tmp_path, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.run(
+        ["git", "init"],
+        cwd=tmp_path,
+        check=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
     wt_src = tmp_path / ".worktrees" / "YOK-60" / "src"
     wt_src.mkdir(parents=True)
     (wt_src / "new.py").write_text("x\n" * 12)
@@ -279,7 +238,14 @@ def test_file_budget_prefers_existing_worktree(core_db, tmp_path) -> None:
     assert proj["file_budget"]["paths"][0]["line_count"] == 12
 
 
-_WRITABLE = ("items", "work_claims", "path_claims", "item_sections", "item_status_transitions")
+_WRITABLE = (
+    "items",
+    "item_worktrees",
+    "work_claims",
+    "path_claims",
+    "item_sections",
+    "item_status_transitions",
+)
 
 
 def _row_counts(conn) -> dict:

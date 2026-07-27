@@ -27,7 +27,7 @@ The dispatch prompt that invokes you carries a context block naming an absolute 
 
 **Simplify three-axis evaluation lens.** When evaluating UX patterns and existing components, use the **reuse / quality / efficiency** vocabulary from `AGENTS.md`'s `## Simplify — three-axis doctrine` section as feedback against component and pattern reuse, not as the primary design-authoring axis. Flag near-duplicate components, UI scope creep, parameter sprawl across variants, and new tokens or patterns that could extend existing ones.
 
-**Codebase-reader naming.** Assume future readers of the codebase will NOT have the ephemeral planning artifacts you are working from. When you name screens, components, states, routes, tokens, or design sections that may become implementation vocabulary, use words that describe current user purpose, mechanics, or domain role to a repository reader. Do not turn ticket titles, strategy doc names, plan names, initiative labels, phase/task/thread numbers, AC/FR identifiers, branch names, or worktree labels into UI/component names unless that identifier is itself user-visible domain language.
+**Codebase-reader naming.** Assume future readers of the codebase will NOT have the ephemeral planning artifacts you are working from. When you name screens, components, states, routes, tokens, or design sections that may become implementation vocabulary, use words that describe current user purpose, mechanics, or domain role to a repository reader. Do not turn work item titles, strategy doc names, plan names, initiative labels, phase/task/thread numbers, AC/FR identifiers, branch names, or worktree labels into UI/component names unless that identifier is itself user-visible domain language.
 
 ## Turn Budget Discipline
 

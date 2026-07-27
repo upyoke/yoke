@@ -14,7 +14,6 @@ from yoke_core.domain import db_backend
 from yoke_core.domain import project_settings
 from yoke_core.domain.epic_task_sync import _placeholder
 from yoke_core.domain.item_worktrees import record_worker_item_worktree
-from yoke_core.domain.schema_common import _table_exists
 
 
 def _generate_dispatch_chains(
@@ -42,10 +41,15 @@ def _generate_dispatch_chains(
 
     for wt_branch in unique_branches:
         p = _placeholder(conn)
+        wt_slug = wt_branch.replace("/", "-")
+        chain_path = f"{repo_root}/{worktrees_dir}/{wt_slug}"
         # Check if chain already exists
+        lane = record_worker_item_worktree(
+            conn, item_id=int(epic_name), branch=wt_branch, path=chain_path,
+        )
         existing = conn.execute(
-            f"SELECT id FROM epic_dispatch_chains WHERE epic_id = {p} AND worktree = {p}",
-            (epic_name, wt_branch),
+            f"SELECT id FROM epic_dispatch_chains WHERE epic_id = {p} AND item_worktree_id = {p}",
+            (epic_name, int(lane["id"])),
         ).fetchone()
         if existing:
             print(
@@ -55,9 +59,6 @@ def _generate_dispatch_chains(
 
         # Collect task IDs for this worktree
         task_nums = [tn for wb, tn in worktree_map if wb == wt_branch]
-        wt_slug = wt_branch.replace("/", "-")
-        chain_path = f"{repo_root}/{worktrees_dir}/{wt_slug}"
-
         timestamp = datetime.datetime.now(datetime.timezone.utc).strftime(
             "%Y-%m-%dT%H:%M:%SZ"
         )
@@ -67,27 +68,19 @@ def _generate_dispatch_chains(
         try:
             conn.execute(
                 f"""INSERT INTO epic_dispatch_chains
-                   (epic_id, worktree, worktree_path, queue,
+                   (epic_id, item_worktree_id, queue,
                     current_index, current_task, current_attempt,
                     max_attempts, no_chain, started_at, last_updated)
-                   VALUES ({p}, {p}, {p}, {p}, 0, {p}, 0, {p}, 0, '', {p})""",
+                   VALUES ({p}, {p}, {p}, 0, {p}, 0, {p}, 0, '', {p})""",
                 (
                     epic_name,
-                    wt_branch,
-                    chain_path,
+                    int(lane["id"]),
                     queue_json,
                     first_task,
                     max_attempts,
                     timestamp,
                 ),
             )
-            if _table_exists(conn, "item_worktrees"):
-                record_worker_item_worktree(
-                    conn,
-                    item_id=int(epic_name),
-                    branch=wt_branch,
-                    path=chain_path,
-                )
             conn.commit()
         except db_backend.operational_error_types(conn):
             conn.rollback()

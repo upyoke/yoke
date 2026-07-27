@@ -7,7 +7,7 @@ declares, and what Yoke actually does with each one.
 For the operator runbook (registration, private-key custody, rotation) see
 [GitHub App Operations](github-app-operations.md). For the connection model
 see [GitHub Connection Layers](github-connections.md). For the backlog↔issue
-mirror see [GitHub Sync](github-sync.md). The machine-checked source of truth
+mirror see [GitHub Sync](../.yoke/docs/github-sync.md). The machine-checked source of truth
 for the permission set is
 `packages/yoke-contracts/src/yoke_contracts/github_app_installation_permissions.py`.
 
@@ -116,7 +116,7 @@ mirror — no extra permission needed. Only fires when a project has sync
 enabled; new projects default to `backlog_only`, which does zero issue writes.
 
 **Pull requests: write** — **Opening** a pull request from the worktree branch
-into your default branch when you ship a ticket (`/yoke usher`), plus the
+into your default branch when you ship a work item (`/yoke usher`), plus the
 agent-driven "open a PR" command. This permission is specifically for
 *creating* PRs; merging the PR is authorized by Contents: write, and the
 find-PR and mergeability reads run at Pull requests: read.
@@ -259,4 +259,4 @@ defects — they are recorded here so the decision is deliberate.
 - Connection model (identity / installation / binding):
   [GitHub Connection Layers](github-connections.md)
 - Backlog↔issue mirror and the per-project sync switch:
-  [GitHub Sync](github-sync.md)
+  [GitHub Sync](../.yoke/docs/github-sync.md)

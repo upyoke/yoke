@@ -253,7 +253,7 @@ def test_discover_uses_context_routing_testing_topic(temp_project):
         "yoke_core.domain.context_routing.get_topic_docs",
         return_value=["docs/TESTING.md"],
     ), mock.patch(
-        "yoke_core.domain.command_definitions.get_command",
+        "yoke_core.domain.qa_command_plans.get_registered_command",
         return_value=None,
     ):
         result = discover_test_surfaces(1)

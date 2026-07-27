@@ -150,18 +150,18 @@ class TestRecovery:
         assert done is True
         assert resume is False
 
-    def test_partial_completion_detected(self):
+    def test_lane_absence_alone_is_not_recovery(self):
         done, resume = done_transition._check_recovery("implementing", "")
         assert done is False
-        assert resume is True
+        assert resume is False
 
     def test_normal_flow_no_recovery(self):
         done, resume = done_transition._check_recovery("implementing", "YOK-9999")
         assert done is False
         assert resume is False
 
-    def test_done_with_worktree_not_recovery(self):
-        """Unusual state: done but worktree still set — not a clean completion."""
+    def test_done_with_active_lane_not_clean_completion(self):
+        """A terminal item with an active lane still needs reconciliation."""
         done, resume = done_transition._check_recovery("done", "YOK-9999")
         assert done is False
         assert resume is False

@@ -29,7 +29,7 @@ If `_critical_count = 0` AND `_warning_count = 0`:
 - Return `AUTOFIX_CLEAN`.
 
 If `_critical_count = 0` AND `_recommendation = "PROCEED"`:
-- Safety net: caller should have handled this. Print: `WARNING: Autofix invoked with PROCEED recommendation and no CRITICALs. This should have been handled by the ticket-filing path in the caller. Returning AUTOFIX_CLEAN.`
+- Safety net: caller should have handled this. Print: `WARNING: Autofix invoked with PROCEED recommendation and no CRITICALs. This should have been handled by the work-item filing path in the caller. Returning AUTOFIX_CLEAN.`
 - Return `AUTOFIX_CLEAN`.
 
 ### AF2a. Pre-Route by Fix Level

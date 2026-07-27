@@ -105,7 +105,7 @@ class TestStatusToBoardBucket:
             "implemented", frozen_value=1, has_active_run=True
         ) == FROZEN_BUCKET
 
-    # --- Issue-workflow-type direct mappings ---
+    # --- Issue workflow direct mappings ---
 
     def test_refining_idea_maps_to_planning(self):
         assert status_to_board_bucket("refining-idea") == "planning"
@@ -128,7 +128,7 @@ class TestStatusToBoardBucket:
     def test_implemented_maps_to_implemented(self):
         assert status_to_board_bucket("implemented") == "implemented"
 
-    # --- Epic-workflow-type direct mappings ---
+    # --- Epic workflow direct mappings ---
 
     def test_planning_maps_to_planning(self):
         """AC-3: status_to_board_bucket('planning') returns 'planning'."""

@@ -108,7 +108,6 @@ def _build_parser() -> argparse.ArgumentParser:
     p_ins.add_argument("--blocked-reason", default=None)
     p_ins.add_argument("--github-issue", default=None)
     p_ins.add_argument("--deployed-to", default=None)
-    p_ins.add_argument("--worktree", default=None)
     p_ins.add_argument("--body", default=None)
     p_ins.add_argument("--body-file", default=None, help="Read body from file")
     p_ins.add_argument("--created-at", default=None)
@@ -182,7 +181,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 "frozen": args.frozen,
                 "blocked": args.blocked, "blocked_reason": args.blocked_reason,
                 "github_issue": args.github_issue,
-                "deployed_to": args.deployed_to, "worktree": args.worktree,
+                "deployed_to": args.deployed_to,
                 "body": body, "created_at": args.created_at,
                 "updated_at": args.updated_at, "source": args.source,
                 "project": args.project, "deployment_flow": args.deployment_flow,

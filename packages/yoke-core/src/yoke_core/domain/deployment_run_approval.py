@@ -1,7 +1,7 @@
-"""Run-first deployment approval authority.
+"""Resolve a deployment run stage through the shared Inbox authority.
 
-The deployment run is authoritative. Item ``deploy_stage`` values are display
-caches and advance in the same transaction when a run has member items.
+The deployment runner consumes the resolved decision and remains the only
+surface that advances run and member-item deployment state.
 """
 
 from __future__ import annotations
@@ -21,14 +21,28 @@ class RunApproval:
     next_stage: str
     approved_at: str
     member_item_ids: tuple[int, ...]
+    decision_request_id: Optional[int] = None
 
 
 class RunApprovalRejected(ValueError):
     """The requested run cannot be approved in its current state."""
 
 
-def approve_run(run_id: str) -> RunApproval:
-    """Atomically approve the run's current human-approval stage."""
+def approve_run(
+    run_id: str,
+    *,
+    actor_id: int,
+    session_id: str = "",
+    note: Optional[str] = None,
+) -> RunApproval:
+    """Resolve the run stage's Inbox decision without moving run state."""
+    from yoke_core.domain.decision_request_resolution import (
+        resolve_decision_request,
+    )
+    from yoke_core.domain.deployment_approval_requests import (
+        ensure_deployment_stage_approval,
+    )
+
     conn = connect()
     try:
         run = query_one(
@@ -72,17 +86,20 @@ def approve_run(run_id: str) -> RunApproval:
             (run_id,),
         )
         member_item_ids = tuple(int(row["item_id"]) for row in rows)
-        conn.execute(
-            "UPDATE deployment_runs SET current_stage=%s WHERE id=%s",
-            (next_stage, run_id),
+        request, _ = ensure_deployment_stage_approval(
+            conn,
+            run_id=run_id,
+            session_id=session_id,
         )
-        if member_item_ids:
-            conn.execute(
-                "UPDATE items SET deploy_stage=%s, status='release', updated_at=%s "
-                "WHERE id = ANY(%s)",
-                (next_stage, approved_at, list(member_item_ids)),
-            )
-        conn.commit()
+        resolve_decision_request(
+            conn,
+            int(request["id"]),
+            actor_id=actor_id,
+            action="approve",
+            note=note,
+            session_id=session_id,
+            resolved_at=approved_at,
+        )
         return RunApproval(
             run_id=run_id,
             project=str(run["project"]),
@@ -90,6 +107,7 @@ def approve_run(run_id: str) -> RunApproval:
             next_stage=next_stage,
             approved_at=approved_at,
             member_item_ids=member_item_ids,
+            decision_request_id=int(request["id"]),
         )
     except Exception:
         conn.rollback()

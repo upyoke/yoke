@@ -39,14 +39,18 @@ class TestAutoDerive:
     def test_all_terminal_derives_reviewing(self, env):
         """TEST 27: all tasks terminal success -> parent reviewing-implementation."""
         self._setup_epic_with_tasks(env)
-        env.exec_sql("""
-            INSERT INTO epic_tasks
-                (epic_id, task_num, title, worktree, status, dispatch_attempts, github_issue)
-            VALUES
-                (42, 1, 'Task one', 'f/t', 'done', 1, '#100'),
-                (42, 2, 'Task two', 'f/t', 'reviewed-implementation', 1, '#101'),
-                (42, 3, 'Task three', 'f/t', 'implementing', 1, '#102');
-        """)
+        for task_num, status in (
+            (1, "done"),
+            (2, "reviewed-implementation"),
+            (3, "implementing"),
+        ):
+            env.insert_task(
+                status,
+                task_num=task_num,
+                title=f"Task {task_num}",
+                github_issue=f"#10{task_num - 1}",
+                dispatch_attempts=1,
+            )
         env.init_git()
         r = env.run(
             "42", "003", "done",
@@ -61,14 +65,18 @@ class TestAutoDerive:
     def test_in_flight_promotes_planned_parent(self, env):
         """TEST 28: mixed tasks promote planned parent to implementing."""
         self._setup_epic_with_tasks(env, "planned")
-        env.exec_sql("""
-            INSERT INTO epic_tasks
-                (epic_id, task_num, title, worktree, status, dispatch_attempts, github_issue)
-            VALUES
-                (42, 1, 'Task one', 'f/t', 'done', 1, '#100'),
-                (42, 2, 'Task two', 'f/t', 'planned', 0, '#101'),
-                (42, 3, 'Task three', 'f/t', 'planned', 0, '#102');
-        """)
+        for task_num, status, attempts in (
+            (1, "done", 1),
+            (2, "planned", 0),
+            (3, "planned", 0),
+        ):
+            env.insert_task(
+                status,
+                task_num=task_num,
+                title=f"Task {task_num}",
+                github_issue=f"#10{task_num - 1}",
+                dispatch_attempts=attempts,
+            )
         env.init_git()
         r = env.run("42", "002", "implementing")
         assert r.returncode == 0
@@ -155,15 +163,14 @@ class TestReleaseFinalize:
 
     def _epic_at_release_with_tasks(self, env, task_statuses):
         env.exec_sql("UPDATE items SET status='release' WHERE id=42")
-        values = ",\n".join(
-            f"(42, {num}, 'Task {num}', 'f/t', '{st}', 1, '#10{num}')"
-            for num, st in enumerate(task_statuses, start=1)
-        )
-        env.exec_sql(
-            "INSERT INTO epic_tasks"
-            " (epic_id, task_num, title, worktree, status, dispatch_attempts, github_issue)"
-            f" VALUES {values};"
-        )
+        for num, status in enumerate(task_statuses, start=1):
+            env.insert_task(
+                status,
+                task_num=num,
+                title=f"Task {num}",
+                github_issue=f"#10{num}",
+                dispatch_attempts=1,
+            )
 
     def _spy_engine(self, monkeypatch, *, returns=0):
         calls = []

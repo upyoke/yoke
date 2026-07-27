@@ -11,6 +11,7 @@ from unittest import mock
 import pytest
 
 from yoke_core.domain.project_scratch_dir import hook_marker_path
+from yoke_core.domain.item_worktree_schema import ITEM_WORKTREES_TABLE_SQL
 from runtime.api.fixtures.file_test_db import init_test_db
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 from runtime.harness import hook_helpers, hook_helpers_markers
@@ -70,6 +71,13 @@ def _harness_event_isolation(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _harness_authority_selection_isolation(monkeypatch):
+    """Keep an operator's selected universe out of synthetic hook bindings."""
+    monkeypatch.delenv("YOKE_ENV", raising=False)
+    yield
+
+
+@pytest.fixture(autouse=True)
 def _no_batch_connection(monkeypatch):
     """Pin the telemetry flush to its no-shared-connection path.
 
@@ -102,17 +110,16 @@ def dispatch_db(tmp_path):
             apply_fixture_ddl(conn, """
         CREATE TABLE epic_dispatch_chains (
             epic_id INTEGER,
-            worktree_path TEXT,
+            item_worktree_id INTEGER,
             current_task TEXT
         );
         CREATE TABLE items (
             id INTEGER PRIMARY KEY,
             title TEXT,
             type TEXT DEFAULT 'issue',
-            status TEXT DEFAULT 'implementing',
-            worktree TEXT
+            status TEXT DEFAULT 'implementing'
         );
-    """)
+    """ + ITEM_WORKTREES_TABLE_SQL)
         finally:
             conn.close()
 

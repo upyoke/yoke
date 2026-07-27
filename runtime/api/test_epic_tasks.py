@@ -50,11 +50,11 @@ class TestTaskUpsert:
         assert row["status"] == "implementing"
         assert row["title"] == "Updated title"
 
-    def test_upsert_preserves_worktree_when_empty(self, db):
+    def test_upsert_leaves_lane_unassigned_when_parent_item_is_absent(self, db):
         epic.task_upsert(db, "42", 1, "Task", TEST_ITEM_REF, "", "")
         epic.task_upsert(db, "42", 1, "Task updated", "", "", "")
-        row = db.execute("SELECT worktree FROM epic_tasks WHERE epic_id='42' AND task_num=1").fetchone()
-        assert row["worktree"] == TEST_ITEM_REF
+        row = db.execute("SELECT item_worktree_id FROM epic_tasks WHERE epic_id='42' AND task_num=1").fetchone()
+        assert row["item_worktree_id"] is None
 
     def test_title_length_limit(self, db):
         with pytest.raises(ValueError, match="100 characters"):

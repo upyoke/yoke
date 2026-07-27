@@ -4,7 +4,7 @@ A project can declare a ``migration_model`` capability while no
 ``deployment_flow`` on the project carries a matching ``migration_apply``
 stage at ``lifecycle_phase='implementing'``. The lifecycle gate in
 ``yoke_core.domain.db_mutation_gate_idea`` then refuses
-``idea → refining-idea`` for every ticket with a real
+``idea → refining-idea`` for every work item with a real
 ``db_mutation_profile`` against that model — with no upstream signal at
 install or authoring time.
 
@@ -127,7 +127,7 @@ def hc_project_flow_migration_apply_coverage(
             if not matches:
                 issues.append(
                     f"- project '{project}': declared model '{model_name}' has "
-                    f"no migration_apply stage on any project flow. Tickets "
+                    f"no migration_apply stage on any project flow. Work items "
                     f"with a real db_mutation_profile against this model jam "
                     f"at idea. Add the stage to one of: {flow_list}."
                 )
@@ -139,7 +139,8 @@ def hc_project_flow_migration_apply_coverage(
                     f"- project '{project}': declared model '{model_name}' has "
                     f"migration_apply stage(s) on flow(s) {covering} but never "
                     f"at lifecycle_phase='implementing' (found: {sorted(phases)}). "
-                    "Only 'implementing' is wired in governed DB-mutation gate; tickets with a real "
+                    "Only 'implementing' is wired in governed DB-mutation gate; "
+                    "work items with a real "
                     "db_mutation_profile against this model jam at idea."
                 )
 

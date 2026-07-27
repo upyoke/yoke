@@ -204,28 +204,28 @@ class TestEpicTaskRows:
 class TestTaskExpandedCount:
     def test_no_epics(self):
         items = [
-            ItemRow(3, "YOK-1", "T1", "issue", "medium", "implementing", "—", None, "", "yoke", ""),
-            ItemRow(3, "YOK-2", "T2", "issue", "medium", "implementing", "—", None, "", "yoke", ""),
+            ItemRow(3, "YOK-1", "T1", "issue", "medium", "implementing", "—", None, "yoke", ""),
+            ItemRow(3, "YOK-2", "T2", "issue", "medium", "implementing", "—", None, "yoke", ""),
         ]
         assert task_expanded_count(items, {}) == 2
 
     def test_epic_with_tasks(self):
         items = [
-            ItemRow(3, "YOK-1", "T1", "issue", "medium", "implementing", "—", None, "", "yoke", ""),
-            ItemRow(3, "YOK-2", "Epic", "epic", "medium", "implementing", "2/5 (40%)", 2, "", "yoke", ""),
+            ItemRow(3, "YOK-1", "T1", "issue", "medium", "implementing", "—", None, "yoke", ""),
+            ItemRow(3, "YOK-2", "Epic", "epic", "medium", "implementing", "2/5 (40%)", 2, "yoke", ""),
         ]
         epic_counts = {2: 5}
         assert task_expanded_count(items, epic_counts) == 6
 
     def test_epic_without_tasks(self):
         items = [
-            ItemRow(3, "YOK-1", "Epic", "epic", "medium", "implementing", "—", 1, "", "yoke", ""),
+            ItemRow(3, "YOK-1", "Epic", "epic", "medium", "implementing", "—", 1, "yoke", ""),
         ]
         assert task_expanded_count(items, {}) == 1
 
     def test_epic_no_epic_id(self):
         items = [
-            ItemRow(3, "YOK-1", "Epic", "epic", "medium", "implementing", "—", None, "", "yoke", ""),
+            ItemRow(3, "YOK-1", "Epic", "epic", "medium", "implementing", "—", None, "yoke", ""),
         ]
         assert task_expanded_count(items, {5: 10}) == 1
 
@@ -298,7 +298,7 @@ class TestRenderSection:
     def test_section_format(self, test_db):
         items = [
             ItemRow(1, "YOK-1", "Critical item", "issue", "critical", "implementing",
-                    "—", None, "", "yoke", "2024-01-01"),
+                    "—", None, "yoke", "2024-01-01"),
         ]
         result = render_section("Active", items, {}, test_db, "\U0001f535", 7)
         lines = result.split("\n")
@@ -319,7 +319,7 @@ class TestRenderSection:
 
         items = [
             ItemRow(3, "YOK-200", "My Epic", "epic", "medium", "implementing",
-                    "1/2 (50%)", 200, "", "yoke", "2024-01-01"),
+                    "1/2 (50%)", 200, "yoke", "2024-01-01"),
         ]
         epic_counts = {200: 2}
         result = render_section("Active", items, epic_counts, test_db, "\U0001f535", 7)
@@ -337,7 +337,7 @@ class TestRenderSection:
 
         items = [
             ItemRow(3, "YOK-300", "Big Epic", "epic", "medium", "implementing",
-                    "1/3 (33%)", 300, "", "yoke", ""),
+                    "1/3 (33%)", 300, "yoke", ""),
         ]
         epic_counts = {300: 3}
         result = render_section("Active", items, epic_counts, test_db, "\U0001f535", 7)

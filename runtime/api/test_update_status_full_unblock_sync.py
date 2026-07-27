@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import textwrap
 
 import pytest
 
@@ -23,14 +22,21 @@ class TestAutoUnblock:
     """Tests 23, 29, 30 — blocked tasks auto-unblock on dependency completion."""
 
     def _setup_blocked_pair(self, env):
-        env.exec_sql("""
-            INSERT INTO epic_tasks
-                (epic_id, task_num, title, worktree, status, dispatch_attempts,
-                 dependencies, github_issue)
-            VALUES
-                (42, 1, 'First task', 'feature/test', 'implementing', 1, '', '#100'),
-                (42, 2, 'Blocked task', 'feature/test', 'blocked', 0, '001', '#101');
-        """)
+        env.insert_task(
+            "implementing",
+            task_num=1,
+            title="First task",
+            github_issue="#100",
+            dispatch_attempts=1,
+        )
+        env.insert_task(
+            "blocked",
+            task_num=2,
+            title="Blocked task",
+            github_issue="#101",
+            dispatch_attempts=0,
+            dependencies="001",
+        )
         env.init_git()
 
     def test_auto_unblock_from_db(self, env):

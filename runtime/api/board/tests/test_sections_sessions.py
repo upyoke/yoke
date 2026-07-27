@@ -4,7 +4,7 @@ Covers:
 
 * :func:`_render_claim_target` — the existing INTEGER ``item_id`` coercion.
 * :func:`build_session_keycaps` — the three keycap shapes contributed by
-  this ticket (work-claim only, work+path-claim decoration, orphan path-
+  this work item (work-claim only, work+path-claim decoration, orphan path-
   claim parens shape, lease keycap, same-item path-claim roll-up,
   multi-item path-claim separation, ``item_id IS NULL`` process anchor
   fallback, and closed-session ``(release_reason)`` decoration).

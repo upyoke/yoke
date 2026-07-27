@@ -17,8 +17,7 @@ on validation failure; handlers return a structured ``FunctionError`` instead.
 
 from __future__ import annotations
 
-import json
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel
 
@@ -61,7 +60,6 @@ def handle_qa_requirement_update(request: FunctionCallRequest) -> HandlerOutcome
     from yoke_core.domain.db_helpers import connect, query_one
     from yoke_core.domain.qa_constants import (
         VALID_BLOCKING_MODES,
-        VALID_BROWSER_QA_KINDS,
         VALID_QA_PHASES,
         _normalize_qa_phase,
     )
@@ -124,22 +122,6 @@ def handle_qa_requirement_update(request: FunctionCallRequest) -> HandlerOutcome
         )
         if existing is None:
             return _error("not_found", f"requirement {req_id} not found")
-        if (
-            field == "success_policy"
-            and existing["qa_kind"] in VALID_BROWSER_QA_KINDS
-            and value is not None
-            and value != ""
-        ):
-            try:
-                json.loads(value)
-            except json.JSONDecodeError as exc:
-                return _error(
-                    "payload_invalid",
-                    f"success_policy must be valid JSON for "
-                    f"qa_kind={existing['qa_kind']}: {exc}",
-                    jsonpath="$.payload.value",
-                )
-
         p = _p(conn)
         conn.execute(
             f"UPDATE qa_requirements SET {field} = {p} WHERE id = {p}",
@@ -170,130 +152,8 @@ def handle_qa_requirement_update(request: FunctionCallRequest) -> HandlerOutcome
     )
 
 
-# ---------------------------------------------------------------------------
-# qa.requirement.auto_create_for_item
-# ---------------------------------------------------------------------------
-
-
-class QaRequirementAutoCreateForItemRequest(BaseModel):
-    """Empty payload — the handler reads everything it needs from ``target``."""
-
-
-class QaRequirementAutoCreateForItemResponse(BaseModel):
-    item_id: int
-    requirement_id: Optional[int] = None
-    outcome: str
-
-
-def handle_qa_requirement_auto_create_for_item(
-    request: FunctionCallRequest,
-) -> HandlerOutcome:
-    """Seed the workflow's default ``ac_verification`` requirement.
-
-    Outcomes (``result_payload.outcome``):
-
-    * ``created`` — a new ``ac_verification`` row was inserted.
-    * ``existing`` — an unwaived requirement already covered the item.
-    * ``browser_testable_noop`` — the item is browser-testable; nothing inserted.
-    * ``not_applicable`` — workflow policy or browser signals say no requirement.
-    """
-    from yoke_core.domain import qa_requirements_auto
-
-    target = request.target
-    item_id = target.item_id
-    if item_id is None:
-        return _error(
-            "target_invalid",
-            "qa.requirement.auto_create_for_item requires target.item_id",
-        )
-
-    from yoke_core.domain.db_helpers import connect
-
-    conn = connect()
-    try:
-        existing = qa_requirements_auto._existing_requirement(conn, int(item_id))
-        if existing is not None:
-            return HandlerOutcome(
-                result_payload={
-                    "item_id": int(item_id),
-                    "requirement_id": existing,
-                    "outcome": "existing",
-                },
-                primary_success=True,
-            )
-        p = _p(conn)
-        row = conn.execute(
-            "SELECT i.*, p.slug AS project FROM items i "
-            "LEFT JOIN projects p ON p.id = i.project_id "
-            f"WHERE i.id={p}", (int(item_id),),
-        ).fetchone()
-        if row is None:
-            return _error("not_found", f"item {item_id} not found")
-        item = dict(row)
-        from yoke_core.domain.workflow_runtime import (
-            load_item_workflow_runtime,
-        )
-
-        workflow = load_item_workflow_runtime(conn, int(item_id))
-        qa_policy = str(workflow.policies["qa"])
-        if qa_policy != "project_transition_defaults":
-            return HandlerOutcome(
-                result_payload={
-                    "item_id": int(item_id),
-                    "requirement_id": None,
-                    "outcome": "not_applicable",
-                },
-                primary_success=True,
-            )
-        if qa_requirements_auto._metadata_is_browser_testable(item):
-            return HandlerOutcome(
-                result_payload={
-                    "item_id": int(item_id),
-                    "requirement_id": None,
-                    "outcome": "browser_testable_noop",
-                },
-                primary_success=True,
-            )
-        if not qa_requirements_auto._should_create(
-            item,
-            qa_policy=qa_policy,
-        ):
-            return HandlerOutcome(
-                result_payload={
-                    "item_id": int(item_id),
-                    "requirement_id": None,
-                    "outcome": "not_applicable",
-                },
-                primary_success=True,
-            )
-    finally:
-        conn.close()
-
-    req_id = qa_requirements_auto.auto_create_for_item(int(item_id))
-    if req_id is None:
-        return HandlerOutcome(
-            result_payload={
-                "item_id": int(item_id),
-                "requirement_id": None,
-                "outcome": "not_applicable",
-            },
-            primary_success=True,
-        )
-    return HandlerOutcome(
-        result_payload={
-            "item_id": int(item_id),
-            "requirement_id": int(req_id),
-            "outcome": "created",
-        },
-        primary_success=True,
-    )
-
-
 __all__ = [
     "QaRequirementUpdateRequest", "QaRequirementUpdateResponse",
     "handle_qa_requirement_update",
-    "QaRequirementAutoCreateForItemRequest",
-    "QaRequirementAutoCreateForItemResponse",
-    "handle_qa_requirement_auto_create_for_item",
     "_error",
 ]

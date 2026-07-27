@@ -18,6 +18,7 @@ from yoke_core.domain.portable_migration import (
     parse_manifest_text,
     row_counts,
 )
+from yoke_core.domain.migration_source_digest import migration_source_digest
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -171,6 +172,47 @@ def test_packaged_module_digest_must_match_manifest(monkeypatch, tmp_path) -> No
     monkeypatch.setattr(
         "yoke_core.domain.portable_migration.importlib.import_module",
         lambda _name: module,
+    )
+
+    with pytest.raises(PortableMigrationError, match="digest differs"):
+        load_packaged_modules(manifest)
+
+
+def test_packaged_module_dependency_drift_must_match_manifest(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    manifest = parse_manifest_text(MANIFEST.read_text(encoding="utf-8"))
+    source = tmp_path / "root.py"
+    dependency = tmp_path / "helper.py"
+    source.write_text(
+        "from yoke_core.domain.migrations.helper import run\n"
+        "def apply(conn):\n"
+        "    return run(conn)\n",
+        encoding="utf-8",
+    )
+    dependency.write_text("def run(conn):\n    return conn\n", encoding="utf-8")
+    manifest = replace(
+        manifest,
+        module_sources={
+            "events_actor_identity": {
+                "path": "root.py",
+                "sha256": migration_source_digest(source),
+            }
+        },
+    )
+    module = SimpleNamespace(
+        __name__="package.changed_dependency",
+        __file__=str(source),
+        apply=lambda _conn: None,
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.portable_migration.importlib.import_module",
+        lambda _name: module,
+    )
+    dependency.write_text(
+        "def run(conn):\n    return (conn, 'changed')\n",
+        encoding="utf-8",
     )
 
     with pytest.raises(PortableMigrationError, match="digest differs"):

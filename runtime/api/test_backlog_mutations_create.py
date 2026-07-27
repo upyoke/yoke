@@ -41,7 +41,7 @@ class TestInsertItem:
     def test_basic_insert(self, test_db):
         backlog._insert_item(
             test_db, 99, "Test", "idea", "medium",
-            "accelerated", 0, 0, None, None, None,
+            "accelerated", 0, 0, None, None,
             "# Test\n", "2024-01-01T00:00:00Z", "2024-01-01T00:00:00Z",
             "user", 1, 99, None,
         )
@@ -54,7 +54,7 @@ class TestInsertItem:
         with pytest.raises(db_backend.integrity_error_types()):
             backlog._insert_item(
                 test_db, 50, "Dup", "idea", "medium",
-                "accelerated", 0, 0, None, None, None,
+                "accelerated", 0, 0, None, None,
                 "body", "2024-01-01T00:00:00Z", "2024-01-01T00:00:00Z",
                 "user", 1, 50, None,
             )
@@ -62,7 +62,7 @@ class TestInsertItem:
     def test_owner_defaults_to_source(self, test_db):
         backlog._insert_item(
             test_db, 101, "Owner-default", "idea", "medium",
-            "accelerated", 0, 0, None, None, None,
+            "accelerated", 0, 0, None, None,
             None, "2024-01-01T00:00:00Z", "2024-01-01T00:00:00Z",
             "7", 1, 101, None,
         )
@@ -76,7 +76,7 @@ class TestInsertItem:
     def test_explicit_owner_overrides_source(self, test_db):
         backlog._insert_item(
             test_db, 102, "Owner-override", "idea", "medium",
-            "accelerated", 0, 0, None, None, None,
+            "accelerated", 0, 0, None, None,
             None, "2024-01-01T00:00:00Z", "2024-01-01T00:00:00Z",
             "7", 1, 102, None,
             owner="9",
@@ -98,10 +98,12 @@ class TestUpdateItemField:
         assert row[0] == "New"
 
     def test_update_null(self, test_db):
-        insert_item(test_db, id=10, worktree="YOK-10")
-        backlog._update_item_field(test_db, 10, "worktree", None)
+        insert_item(test_db, id=10, blocked_reason="waiting")
+        backlog._update_item_field(test_db, 10, "blocked_reason", None)
         p = _p(test_db)
-        row = test_db.execute(f"SELECT worktree FROM items WHERE id={p}", (10,)).fetchone()
+        row = test_db.execute(
+            f"SELECT blocked_reason FROM items WHERE id={p}", (10,)
+        ).fetchone()
         assert row[0] is None
 
     def test_update_boolean_field(self, test_db):
@@ -125,13 +127,15 @@ class TestUpdateItemMulti:
         assert row[1] == "high"
 
     def test_multi_with_null(self, test_db):
-        insert_item(test_db, id=10, worktree="YOK-10")
+        insert_item(test_db, id=10, blocked_reason="waiting")
         backlog._update_item_multi(test_db, 10, {
-            "worktree": None,
+            "blocked_reason": None,
             "frozen": False,
         })
         p = _p(test_db)
-        row = test_db.execute(f"SELECT worktree, frozen FROM items WHERE id={p}", (10,)).fetchone()
+        row = test_db.execute(
+            f"SELECT blocked_reason, frozen FROM items WHERE id={p}", (10,)
+        ).fetchone()
         assert row[0] is None
         assert row[1] == 0
 

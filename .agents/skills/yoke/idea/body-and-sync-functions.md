@@ -69,7 +69,7 @@ The envelope shape is identical for every function id:
 
 Replace an entire structured field (`spec`, `design_spec`,
 `technical_plan`, `worktree_plan`, `shepherd_log`, `shepherd_caveats`,
-`test_results`, `deploy_log`, `browser_qa_metadata`):
+`test_results`, `deploy_log`):
 
 ```json
 {

@@ -13,7 +13,7 @@ inadvertently writes generated content into the main checkout.
 Scope shape:
 
 * ``IN_SCOPE_WRITERS`` enumerates the modules the HC currently
-  enforces. Every writer retrofitted by the originating ticket is
+  enforces. Every writer retrofitted by the originating work item is
   listed here and must call the helper — the HC FAILs otherwise.
 * Future writers added to ``IN_SCOPE_WRITERS`` get the same
   enforcement automatically.

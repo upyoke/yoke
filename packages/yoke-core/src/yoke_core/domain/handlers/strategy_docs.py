@@ -15,16 +15,13 @@ id; the dispatcher's session inference is the fallback) and resolves
 server-side via
 :mod:`yoke_core.domain.handlers.strategy_docs_project`.
 
-Write gate (``strategy.doc.replace``): the registry claim-verification
-matrix models item/epic claim kinds, not process claims, so this
-handler enforces its boundary internally (the
-``claims_work_release_session_scoped`` precedent). The calling session
+Write gate (``strategy.doc.replace``): an execution document with an
+active item-owned claim may only be revised by the session holding its
+owning Blitz item's live work claim. For an unclaimed document, the
+legacy project strategy window remains in force: the calling session
 must hold an ACTIVE ``work_claims`` row with ``target_kind='process'``
-whose ``conflict_group`` is the TARGET PROJECT's strategy control
-plane group (``STRATEGIZE`` or ``FEED`` both satisfy it — the match is
-on the shared conflict group). A missing claim returns the typed error
-code ``strategy_claim_required`` whose message teaches the acquire
-recipe.
+whose ``conflict_group`` is the TARGET PROJECT's strategy control-plane
+group (``STRATEGIZE`` or ``FEED`` both satisfy it).
 
 ``strategy.render.run`` does no file I/O: it returns the
 per-doc rendered file texts and the CALLER writes them — the CLI
@@ -44,7 +41,6 @@ from yoke_core.domain import strategy_docs as _docs
 from yoke_core.domain.handlers.strategy_docs_claims import (
     CLAIM_ACQUIRE_RECIPE,
     foreign_strategy_claim_holder,  # noqa: F401 — re-export for ingest/tests
-    session_holds_strategy_claim,
 )
 from yoke_core.domain.handlers.strategy_docs_models import (
     DocGetRequest,
@@ -63,10 +59,6 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionError,
     HandlerOutcome,
-)
-from yoke_core.domain.work_processes import (
-    PROCESS_STRATEGIZE,
-    conflict_group_for,
 )
 
 STRATEGY_DOC_REPLACED_EVENT_NAME = "StrategyDocReplaced"
@@ -178,63 +170,11 @@ def emit_doc_replaced(
 
 
 def handle_doc_replace(request: FunctionCallRequest) -> HandlerOutcome:
-    payload, err = _validate(request, DocReplaceRequest, "strategy.doc.replace")
-    if err is not None:
-        return err
-    session_id = request.actor.session_id
-    if not session_id:
-        return _bad_request("actor.session_id is required", jsonpath="$.actor.session_id")
-
-    from yoke_core.domain.db_helpers import connect
-
-    with connect() as conn:
-        project, perr = resolve_request_project(conn, request)
-        if perr is not None:
-            return perr
-        if not session_holds_strategy_claim(conn, session_id, project.slug):
-            group = conflict_group_for(PROCESS_STRATEGIZE, project.slug)
-            return _err(
-                "strategy_claim_required",
-                "strategy.doc.replace requires the calling session to hold "
-                f"an active process work-claim in conflict group {group!r} "
-                "(process STRATEGIZE or FEED). Acquire it first: "
-                f"{CLAIM_ACQUIRE_RECIPE}",
-            )
-        try:
-            result = _docs.replace_doc(
-                conn,
-                project.id,
-                payload.slug,
-                payload.content,
-                _numeric_actor_id(request.actor.actor_id),
-                base_updated_at=payload.base_updated_at,
-                force=payload.force,
-            )
-        except _docs.UnknownStrategyDocError as exc:
-            return _err("unknown_slug", str(exc))
-        except _docs.StrategyDocMissingError as exc:
-            return _err("doc_not_seeded", str(exc))
-        except _docs.EmptyStrategyDocError as exc:
-            return _err("empty_content_refused", str(exc))
-        except _docs.StrategyHeaderError as exc:
-            return _err("invalid_strategy_header", str(exc))
-        except _docs.StrategyDocShrinkError as exc:
-            return _err("shrink_guard_refused", str(exc))
-        except _docs.StrategyDocConflictError as exc:
-            return _err("replace_conflict", str(exc))
-
-    if not result.get("unchanged"):
-        # No-op writes (identical content) don't advance the row, so there is
-        # nothing to announce — skip the StrategyDocReplaced event.
-        emit_doc_replaced(
-            session_id=session_id, project=project, result=result, source="replace",
-        )
-    return HandlerOutcome(
-        result_payload=DocReplaceResponse(
-            project_id=project.id, project_slug=project.slug, **result,
-        ).model_dump(),
-        primary_success=True,
+    from yoke_core.domain.handlers.strategy_doc_replace import (
+        handle_doc_replace as replace,
     )
+
+    return replace(request)
 
 
 def handle_render(request: FunctionCallRequest) -> HandlerOutcome:

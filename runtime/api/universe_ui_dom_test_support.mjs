@@ -164,8 +164,8 @@ export function injectedClient(label) {
       if (request.function === "items.list.run") {
         return okResult({ rows: [] });
       }
-      if (request.function === "strategy.doc.list") {
-        return okResult({ docs: [] });
+      if (request.function === "strategy.surface.list") {
+        return okResult({ docs: [], writes: [] });
       }
       throw new Error(`unexpected function ${request.function}`);
     },

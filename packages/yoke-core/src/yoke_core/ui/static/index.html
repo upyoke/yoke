@@ -11,6 +11,14 @@
   <link rel="stylesheet" href="./assets/shell.css">
   <link rel="stylesheet" href="./assets/app.css">
   <link rel="stylesheet" href="./assets/activation.css">
+  <link rel="stylesheet" href="./assets/workflows.css">
+  <link rel="stylesheet" href="./assets/workflow_controls.css">
+  <link rel="stylesheet" href="./assets/workflow_mechanics.css">
+  <link rel="stylesheet" href="./assets/test_machine.css">
+  <link rel="stylesheet" href="./assets/qa.css">
+  <link rel="stylesheet" href="./assets/inbox.css">
+  <link rel="stylesheet" href="./assets/items.css">
+  <link rel="stylesheet" href="./assets/strategy.css">
 </head>
 <body class="local-universe-page">
   <div id="universe-root"></div>
@@ -22,6 +30,13 @@
     // not the engine — supplies the onboarding machine fact.
     import { mountUniverseApp } from "./assets/app.js";
     mountUniverseApp(document.getElementById("universe-root"), {
+      // The loopback door authenticates a machine session rather than an
+      // account. Until the server projects the resolved actor, name that
+      // fact honestly instead of presenting the organization as the viewer.
+      currentActor: { kind: "human", label: "local actor" },
+      environmentLabel: "local universe",
+      versionLabel: "version unavailable",
+      docsUrl: "https://github.com/upyoke/yoke/tree/main/docs",
       capabilities: {
         data: {
           portability: { mode: "local", sectionOwned: false },

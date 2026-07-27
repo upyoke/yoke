@@ -46,7 +46,7 @@ class PipelineUpdateStatusResponse(BaseModel):
 class ProceedTriageHandoffRequest(BaseModel):
     recommendation: str = "PROCEED"
     gap_summary: str = ""
-    filed_ticket_ids: List[str] = Field(default_factory=list)
+    filed_item_ids: List[str] = Field(default_factory=list)
     session_id: Optional[str] = None
 
 
@@ -164,7 +164,7 @@ def handle_proceed_triage_handoff(request: FunctionCallRequest) -> HandlerOutcom
             epic_id,
             recommendation=payload.recommendation,
             gap_summary=payload.gap_summary,
-            filed_ticket_ids=payload.filed_ticket_ids,
+            filed_item_ids=payload.filed_item_ids,
             session_id=session_id,
         )
     result = ProceedTriageHandoffResponse(

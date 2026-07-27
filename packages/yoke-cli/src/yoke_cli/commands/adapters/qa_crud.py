@@ -26,10 +26,12 @@ from yoke_cli.commands._helpers import (
 
 
 QA_REQUIREMENT_ADD_USAGE = (
-    "yoke qa requirement add --item PREFIX-N --qa-kind KIND "
+    "yoke qa requirement add --item PREFIX-N "
+    "(--qa-kind KIND | --method-id METHOD) "
     "--qa-phase PHASE [--target-env E] [--blocking-mode M] "
     "[--requirement-source S] [--success-policy JSON-OR-TEXT] "
-    "[--capability-requirements C] [--suite-id ID] [--session-id S] [--json]"
+    "[--capability-requirements C] [--suite-id ID] "
+    "[--workflow-transition STAGE] [--session-id S] [--json]"
 )
 
 _REQUIREMENT_ADD_HELP_DEEP = """\
@@ -43,21 +45,27 @@ Worked examples:
     --blocking-mode blocking --requirement-source ac_derived
 
   yoke qa requirement add --item YOK-N \\
-    --qa-kind browser_smoke --qa-phase verification \\
-    --requirement-source ac_derived --capability-requirements browser-qa \\
-    --success-policy '{"steps":[{"action":"navigate","route":"/login"},
+    --method-id browser-inspection --qa-phase verification \\
+    --instructions "Open the login route and capture its ready state." \\
+    --expected-outcome "The login form is aligned and usable." \\
+    --method-config '{"steps":[{"action":"navigate","route":"/login"},
       {"action":"screenshot","capture":true,"name":"login"}]}'
 
 Flag matrix:
 
   flag                        required  default    value shape
   --item                      yes       —          PREFIX-N or number
-  --qa-kind                   yes       —          ac_verification | browser_smoke | browser_diff | e2e | implementation_review | ...
+  --qa-kind                   one-of    —          ad hoc legacy/plumbing discriminator
+  --method-id                 one-of    —          registered QA method id
   --qa-phase                  yes       —          verification | post_deploy | manual_acceptance
   --target-env                no        —          env name
   --blocking-mode             no        blocking   blocking | non_blocking
   --requirement-source        no        explicit   explicit | seeded_default | ac_derived | flow_derived
-  --success-policy            no        —          browser kinds REQUIRE {"steps":[...]} JSON
+  --instructions              method    —          what the case executes
+  --expected-outcome          method    —          observable passing outcome
+  --method-config             method    —          method-specific JSON object
+  --workflow-transition      no        —          pinned workflow stage id
+  --success-policy            no        —          aggregate/ad hoc policy
   --capability-requirements   no        —          capability slug (e.g. browser-qa)
   --suite-id                  no        —          suite id string
   --session-id                no        ambient    opaque session id (operator-debug)
@@ -78,8 +86,15 @@ def qa_requirement_add(args: List[str]) -> int:
     )
     parser.add_argument("--item", required=True,
                         help="Target item (PREFIX-N or number).")
-    parser.add_argument("--qa-kind", dest="qa_kind", required=True,
-                        help="Requirement kind (verification surface).")
+    case_kind = parser.add_mutually_exclusive_group(required=True)
+    case_kind.add_argument(
+        "--qa-kind", dest="qa_kind",
+        help="Requirement kind (verification plumbing).",
+    )
+    case_kind.add_argument(
+        "--method-id", dest="method_id",
+        help="Registered method for an executable case.",
+    )
     parser.add_argument("--qa-phase", dest="qa_phase", required=True,
                         help="Lifecycle phase the requirement gates.")
     parser.add_argument("--target-env", dest="target_env", default=None,
@@ -98,22 +113,44 @@ def qa_requirement_add(args: List[str]) -> int:
                         help="Capability slug the executor needs.")
     parser.add_argument("--suite-id", dest="suite_id", default=None,
                         help="Optional suite id.")
+    parser.add_argument("--instructions", default=None,
+                        help="Method case instructions.")
+    parser.add_argument("--expected-outcome", dest="expected_outcome",
+                        default=None, help="Method case passing outcome.")
+    parser.add_argument("--method-config", dest="method_config", default=None,
+                        help="Method-specific JSON object.")
+    parser.add_argument(
+        "--workflow-transition", dest="workflow_transition_id", default=None,
+        help="Pinned workflow stage this requirement governs.",
+    )
     add_session_arg(parser); add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, QA_REQUIREMENT_ADD_USAGE)
     if parsed is None:
         return 2
     payload: Dict[str, Any] = {
-        "qa_kind": parsed.qa_kind,
         "qa_phase": parsed.qa_phase,
         "blocking_mode": parsed.blocking_mode,
         "requirement_source": parsed.requirement_source,
     }
+    if parsed.qa_kind is not None:
+        payload["qa_kind"] = parsed.qa_kind
+    if parsed.method_id is not None:
+        payload["method_id"] = parsed.method_id
     for key in (
         "target_env", "success_policy", "capability_requirements", "suite_id",
+        "instructions", "expected_outcome", "workflow_transition_id",
     ):
         value = getattr(parsed, key)
         if value is not None:
             payload[key] = value
+    if parsed.method_config is not None:
+        try:
+            method_config = json.loads(parsed.method_config)
+        except json.JSONDecodeError as exc:
+            return usage_error(f"--method-config must be valid JSON: {exc}")
+        if not isinstance(method_config, dict):
+            return usage_error("--method-config must be a JSON object")
+        payload["method_config"] = method_config
     return dispatch_and_emit(
         function_id="qa.requirement.add",
         target=item_target("item", parsed.item, parsed.project),
@@ -130,18 +167,19 @@ QA_REQUIREMENT_ADD_BATCH_USAGE = (
 _REQUIREMENT_ADD_BATCH_HELP_DEEP = """\
 Insert several qa_requirements rows for ONE item in one transaction.
 Claim-gated like `yoke qa requirement add`. Input is a JSON array of
-row objects with the same fields as the add flags (qa_kind, qa_phase,
-target_env, blocking_mode, requirement_source, success_policy,
-capability_requirements, suite_id). Rows may omit item_id; a row naming
+row objects with the same fields as the add flags (qa_kind or method_id,
+qa_phase, method case contract, target_env, blocking_mode,
+requirement_source, success_policy, capability_requirements, suite_id).
+Rows may omit item_id; a row naming
 a different item or any epic/deployment-run attachment is rejected.
 
-Worked example (browser seeding):
+Worked example:
 
-  python3 -c "
-  import json
-  from yoke_core.domain.qa_requirements import build_browser_requirements_from_metadata
-  print(json.dumps(build_browser_requirements_from_metadata(1833, 'http://localhost:3000', include_diff=True)))
-  " | yoke qa requirement add-batch --item YOK-N --stdin
+  printf '%s' '[{"method_id":"browser-check","qa_phase":"verification",
+  "instructions":"Check /login","expected_outcome":"Login renders",
+  "method_config":{"steps":[{"action":"navigate","route":"/login"},
+  {"action":"assert","selector":"form"}]}}]' |
+  yoke qa requirement add-batch --item YOK-N --stdin
 
 Flag matrix:
 

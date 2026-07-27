@@ -26,30 +26,18 @@ from yoke_core.domain.qa_artifact_handle import (
     parse_handle,
 )
 from yoke_core.domain.qa_gate_definitions import GateResult
+from yoke_core.domain.qa_constants import browser_requirement_predicate
 
 
 _REMEDIATION_LINES = (
     "",
-    "  Remediation (manual screenshot fallback):",
-    "  1. Take a screenshot manually:",
-    "       python3 -m yoke_core.domain.browser_client snapshot screenshot <URL> --output <path.png>",
-    "  2. Record a passing browser_substrate run for the requirement:",
-    "       yoke qa run add \\",
-    "         --requirement-id <REQ_ID> --executor-type browser_substrate \\",
-    "         --qa-kind <REQ_KIND> --verdict pass \\",
-    "         --raw-result 'Manual screenshot captured and verified'",
-    "  3. Link the screenshot artifact to the run (explicit local handle):",
-    "       yoke qa artifact add \\",
-    "         --requirement-id <REQ_ID> --run-id <RUN_ID> \\",
-    "         --artifact-type screenshot --content-type image/png \\",
-    "         --artifact-handle '{\"backend\":\"local\",\"path\":\"<path.png>\"}'",
-    "  Or use the one-step operator-debug helper (checkout only; records the",
-    "  explicit local artifact handle for you):",
-    "       python3 -m yoke_core.cli.db_router qa run-add \\",
-    "         --requirement-id <REQ_ID> --executor-type browser_substrate \\",
-    "         --qa-kind <REQ_KIND> --verdict pass \\",
-    "         --raw-result 'Manual screenshot captured and verified' \\",
-    "         --artifact-path <path.png>",
+    "  Remediation:",
+    "  Re-run each named materialized case through the shared executor:",
+    "       yoke qa case run --requirement-id <REQ_ID> --base-url <URL> \\",
+    "         --expected-branch <BRANCH> --expected-sha <SHA>",
+    "  For substrate diagnosis only, capture the URL without recording a",
+    "  parallel QA verdict:",
+    "       yoke qa browser screenshot <URL> --output <path.png>",
 )
 
 
@@ -68,7 +56,8 @@ def check_browser_evidence_present(
     name: str,
     transition_name: str,
 ) -> Optional[GateResult]:
-    """Verify each blocking browser requirement has substrate evidence."""
+    """Verify each blocking Browser method case has substrate evidence."""
+    browser_where = browser_requirement_predicate("r")
     browser_no_evidence = query_scalar(
         conn,
         f"""
@@ -77,7 +66,7 @@ def check_browser_evidence_present(
           AND r.qa_phase = 'verification'
           AND r.blocking_mode = 'blocking'
           AND r.waived_at IS NULL
-          AND r.qa_kind IN ('browser_smoke', 'browser_diff')
+          AND {browser_where}
           AND EXISTS (
             SELECT 1 FROM qa_runs qr
             WHERE qr.qa_requirement_id = r.id
@@ -105,8 +94,8 @@ def check_browser_evidence_present(
         return None
 
     errors = [
-        f"Error: Cannot transition {name} to '{transition_name}' -- {browser_no_evidence} browser requirement(s) lack substrate evidence.",
-        "  Browser requirements (browser_smoke, browser_diff) must have a passing run with:",
+        f"Error: Cannot transition {name} to '{transition_name}' -- {browser_no_evidence} Browser method case(s) lack substrate evidence.",
+        "  Browser check and Browser inspection cases must have a passing run with:",
         "    - executor_type other than 'agent' (use 'browser_substrate')",
         "    - At least one qa_artifact (screenshot, diff_image, etc.)",
         f"  Remediation: run `/yoke advance {name} {transition_name}` which executes browser QA automatically before updating status.",
@@ -114,12 +103,12 @@ def check_browser_evidence_present(
     rows = query_rows(
         conn,
         f"""
-        SELECT r.id, r.qa_kind FROM qa_requirements r
+        SELECT r.id, r.method_id FROM qa_requirements r
         WHERE {where}
           AND r.qa_phase = 'verification'
           AND r.blocking_mode = 'blocking'
           AND r.waived_at IS NULL
-          AND r.qa_kind IN ('browser_smoke', 'browser_diff')
+          AND {browser_where}
           AND NOT EXISTS (
             SELECT 1 FROM qa_runs qr2
             WHERE qr2.qa_requirement_id = r.id
@@ -135,7 +124,7 @@ def check_browser_evidence_present(
     )
     for row in rows:
         errors.append(
-            f"  - Requirement #{row['id']} ({row['qa_kind']}): no substrate-executed run with artifacts"
+            f"  - Requirement #{row['id']} ({row['method_id'] or 'legacy Browser case'}): no substrate-executed run with artifacts"
         )
     errors.extend(_REMEDIATION_LINES)
     return GateResult(passed=False, errors=errors)
@@ -154,17 +143,18 @@ def check_browser_artifact_disk(
 ) -> Optional[GateResult]:
     """Verify recorded browser artifact handles name evidence that exists."""
     phase_and = _phase_and(qa_phase)
+    browser_where = browser_requirement_predicate("r")
 
     if qa_phase == "verification":
         # Empty/null-handle pre-check is verification-only.
         fake_rows = query_rows(
             conn,
             f"""
-            SELECT DISTINCT r.id, r.qa_kind FROM qa_requirements r
+            SELECT DISTINCT r.id, r.method_id FROM qa_requirements r
             WHERE {where}{phase_and}
               AND r.blocking_mode = 'blocking'
               AND r.waived_at IS NULL
-              AND r.qa_kind IN ('browser_smoke', 'browser_diff')
+              AND {browser_where}
               AND EXISTS (
                 SELECT 1 FROM qa_runs qr
                 JOIN qa_artifacts qa ON qa.qa_run_id = qr.id
@@ -190,7 +180,7 @@ def check_browser_artifact_disk(
             ]
             for row in fake_rows:
                 errors.append(
-                    f"  - Requirement #{row['id']} ({row['qa_kind']}): artifact has no artifact_handle"
+                    f"  - Requirement #{row['id']} ({row['method_id'] or 'legacy Browser case'}): artifact has no artifact_handle"
                 )
             return GateResult(passed=False, errors=errors)
 
@@ -204,7 +194,7 @@ def check_browser_artifact_disk(
         JOIN qa_requirements r ON qr.qa_requirement_id = r.id
         WHERE r.blocking_mode = 'blocking'{phase_and}
           AND r.waived_at IS NULL
-          AND r.qa_kind IN ('browser_smoke', 'browser_diff')
+          AND {browser_where}
           AND qr.verdict = 'pass'
           AND qr.executor_type <> 'agent'
           AND qa.artifact_handle IS NOT NULL

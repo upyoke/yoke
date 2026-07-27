@@ -248,15 +248,15 @@ class TestRecoveryGapAbsorption:
         assert code == 8
         assert "evidence-only" in stderr_output
         assert "--no-worktree" in stderr_output
-        # Field-note 8728: recovery hint teaches the canonical agent shape
-        # (`yoke items scalar update --null`), not the legacy db_router
-        # write that silently stores the literal string "null".
-        assert "yoke items scalar update" in stderr_output
-        assert "--field worktree" in stderr_output
-        assert "--null" in stderr_output
-        # Ensure the broken shape is gone.
+        assert "release the active lane" in stderr_output
+        assert "no-worktree entry path" in stderr_output
+        assert (
+            "/yoke advance YOK-99 implementing --no-worktree"
+            in stderr_output
+        )
+        assert "yoke items scalar update" not in stderr_output
+        assert "--field worktree" not in stderr_output
         assert "db_router items update" not in stderr_output
-        assert "worktree null\n" not in stderr_output
 
     def test_deployment_flow_guard_variants_all_documented(self):
         """All exit 7 variants must be reachable in the guard surfaces."""

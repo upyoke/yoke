@@ -134,7 +134,7 @@ class TestCmdInit:
             "spec_updated_at", "spec_updated_by",
         ):
             assert col in cols, f"items table missing column: {col}"
-        for retired_col in ("body", "body_generated_at", "type"):
+        for retired_col in ("body", "body_generated_at", "type", "worktree"):
             assert retired_col not in cols, f"items table still has retired column: {retired_col}"
 
     def test_items_has_db_mutation_profile_with_negative_default(self, tmp_path: Path) -> None:
@@ -220,11 +220,15 @@ class TestCmdInit:
             conn.close()
 
         for col in (
-            "body", "github_issue", "branch", "worktree_path",
+            "body", "github_issue", "item_worktree_id",
             "blocked_by", "max_attempts", "agent_id", "last_heartbeat",
             "last_activity_at",
         ):
             assert col in cols, f"epic_tasks missing column: {col}"
+        for retired_col in ("worktree", "branch", "worktree_path"):
+            assert retired_col not in cols, (
+                f"epic_tasks still has retired column: {retired_col}"
+            )
 
     def test_claim_chain_state_columns_present(self, tmp_path: Path) -> None:
         """claim-reason / release-intent / chain-state columns."""

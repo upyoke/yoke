@@ -1,7 +1,7 @@
 """Per-file classification for the shell migration inventory.
 
 Owns the ``ShellFile`` dataclass and the helpers that translate a path into
-the inventory's ``(category, owner, disposition, ticket, why_not_python)``
+the inventory's ``(category, owner, disposition, owner_lane, why_not_python)``
 columns. The routing tables this consumes live in ``shell_inventory_rules``;
 the zero-shell closeout lane map lives in ``shell_inventory_closeout``.
 """
@@ -14,26 +14,26 @@ from pathlib import Path
 
 from yoke_core.tools.shell_inventory_rules import (
     COMPATIBILITY_SHIMS,
-    DB_WRAPPER_TICKETS,
+    DB_WRAPPER_LANES,
     EXTERNAL_ARTIFACT_PREFIXES,
     FUNCTION_HOME_OVERRIDES,
     FUNCTION_RATIONALE_OVERRIDES,
     HARNESS_BOUNDARY_PREFIXES,
     KEEP_BOUNDARY,
     ORCHESTRATION_TARGETS,
-    ORCHESTRATION_TICKETS,
+    ORCHESTRATION_LANES,
     OWNER_LABELS,
     PYTHON_HOME,
     THIN_COMPATIBILITY_SHIMS,
     THIN_MARKERS,
-    UTILITY_TICKET_OVERRIDES,
+    UTILITY_LANE_OVERRIDES,
     WRITE_AUTHORITY,
-    WRITE_AUTHORITY_TICKETS,
+    WRITE_AUTHORITY_LANES,
 )
 from yoke_core.tools.shell_inventory_closeout import (
     ZERO_SHELL_CLOSEOUT_RUNNER_RELPATHS,
-    closeout_ticket_for_non_test,
-    closeout_ticket_for_test,
+    closeout_lane_for_non_test,
+    closeout_lane_for_test,
 )
 
 
@@ -47,7 +47,7 @@ class ShellFile:
     category: str
     owner: str
     disposition: str
-    ticket: str
+    owner_lane: str
     why_not_python: str
     candidate_home: str
     function_rows: list[tuple[str, str, str, str]]
@@ -92,27 +92,27 @@ _CLOSEOUT_DISPOSITIONS = {
 }
 
 
-def _closeout_disposition(ticket: str | None, flavor: str) -> tuple[str, str] | None:
-    return _CLOSEOUT_DISPOSITIONS.get(flavor, _CLOSEOUT_DISPOSITIONS["shim"]) if ticket else None
+def _closeout_disposition(owner_lane: str | None, flavor: str) -> tuple[str, str] | None:
+    return _CLOSEOUT_DISPOSITIONS.get(flavor, _CLOSEOUT_DISPOSITIONS["shim"]) if owner_lane else None
 
 
 def classify(path: Path, relpath: str) -> tuple[str, str, str, str, str]:
     basename = path.name
     lower = basename.lower()
-    closeout_ticket = closeout_ticket_for_non_test(relpath)
+    closeout_lane = closeout_lane_for_non_test(relpath)
 
     if relpath.startswith(".agents/skills/yoke/scripts/tests/"):
-        disposition, note = _closeout_disposition(closeout_ticket_for_test(relpath), "test")
+        disposition, note = _closeout_disposition(closeout_lane_for_test(relpath), "test")
         return (
             "shell test",
             "Shell test harness",
             disposition,
-            closeout_ticket_for_test(relpath),
+            closeout_lane_for_test(relpath),
             note,
         )
 
     if relpath in ZERO_SHELL_CLOSEOUT_RUNNER_RELPATHS:
-        disposition, note = _closeout_disposition(closeout_ticket, "shim") or (
+        disposition, note = _closeout_disposition(closeout_lane, "shim") or (
             "contingent shell coverage",
             "Shell-native test harness coverage still exists here today.",
         )
@@ -120,12 +120,12 @@ def classify(path: Path, relpath: str) -> tuple[str, str, str, str, str]:
             "shell test harness",
             "Shell test harness",
             disposition,
-            closeout_ticket or "n/a",
+            closeout_lane or "n/a",
             note,
         )
 
     if _is_external_artifact(relpath):
-        disposition, note = _closeout_disposition(closeout_ticket, "external") or (
+        disposition, note = _closeout_disposition(closeout_lane, "external") or (
             "exempt external artifact",
             "Template, vendored, or emitted external/runtime shell artifact; not repo-internal control-plane migration scope.",
         )
@@ -133,12 +133,12 @@ def classify(path: Path, relpath: str) -> tuple[str, str, str, str, str]:
             "external shell artifact",
             "Project/runtime artifact",
             disposition,
-            closeout_ticket or "n/a",
+            closeout_lane or "n/a",
             note,
         )
 
     if _is_harness_runtime_boundary(relpath):
-        disposition, note = _closeout_disposition(closeout_ticket, "runtime") or (
+        disposition, note = _closeout_disposition(closeout_lane, "runtime") or (
             "keep shell boundary",
             "Harness/install runtime entrypoints remain a legitimate shell boundary even after Python owns the semantics.",
         )
@@ -146,12 +146,12 @@ def classify(path: Path, relpath: str) -> tuple[str, str, str, str, str]:
             "runtime shell boundary",
             "Hook runtime",
             disposition,
-            closeout_ticket or "n/a",
+            closeout_lane or "n/a",
             note,
         )
 
     if basename == "browser-worker.sh":
-        disposition, note = _closeout_disposition(closeout_ticket, "runtime") or (
+        disposition, note = _closeout_disposition(closeout_lane, "runtime") or (
             "keep shell boundary",
             "SSH tunnel lifecycle and remote daemon bootstrap are intentionally shell-owned runtime boundary work.",
         )
@@ -159,13 +159,13 @@ def classify(path: Path, relpath: str) -> tuple[str, str, str, str, str]:
             "runtime shell boundary",
             "Browser QA",
             disposition,
-            closeout_ticket or "n/a",
+            closeout_lane or "n/a",
             note,
         )
 
     if _looks_like_thin_launcher(path, relpath):
         owner = infer_owner(path)
-        disposition, note = _closeout_disposition(closeout_ticket, "shim") or (
+        disposition, note = _closeout_disposition(closeout_lane, "shim") or (
             "keep shell boundary",
             "Semantic ownership is already in Python; keep this shell shim only while direct shell callers still exist.",
         )
@@ -173,7 +173,7 @@ def classify(path: Path, relpath: str) -> tuple[str, str, str, str, str]:
             "shell compatibility shim",
             owner,
             disposition,
-            closeout_ticket or "n/a",
+            closeout_lane or "n/a",
             note,
         )
 
@@ -182,7 +182,7 @@ def classify(path: Path, relpath: str) -> tuple[str, str, str, str, str]:
             "control-plane write orchestration",
             "Backlog write path" if basename != "emit-event.sh" else "Event platform",
             "migrate to Python",
-            WRITE_AUTHORITY_TICKETS.get(basename, "github-sync-write-authority-retirement"),
+            WRITE_AUTHORITY_LANES.get(basename, "github-sync-write-authority-retirement"),
             "Still owns write-side side effects, lifecycle mutation orchestration, or GitHub sync glue.",
         )
 
@@ -212,7 +212,7 @@ def classify(path: Path, relpath: str) -> tuple[str, str, str, str, str]:
             "shell orchestration",
             owner,
             "migrate to Python",
-            ORCHESTRATION_TICKETS.get(basename, "unmapped-shell-retirement"),
+            ORCHESTRATION_LANES.get(basename, "unmapped-shell-retirement"),
             "Still bundles multi-step orchestration and should be decomposed before a Python cutover.",
         )
 
@@ -231,7 +231,7 @@ def classify(path: Path, relpath: str) -> tuple[str, str, str, str, str]:
             owner = "Backlog registry"
         else:
             owner = "Hook runtime" if "observe" in lower or "doctor" in lower else "Deployment pipeline"
-        disposition, note = _closeout_disposition(closeout_ticket, "runtime") or (
+        disposition, note = _closeout_disposition(closeout_lane, "runtime") or (
             "keep shell boundary",
             "Shell is still the right boundary for process launch, hooks, or host-level execution.",
         )
@@ -239,12 +239,12 @@ def classify(path: Path, relpath: str) -> tuple[str, str, str, str, str]:
             "runtime shell boundary",
             owner,
             disposition,
-            closeout_ticket or "n/a",
+            closeout_lane or "n/a",
             note,
         )
 
     if basename.endswith("-db.sh"):
-        disposition, note = _closeout_disposition(closeout_ticket, "runtime") or (
+        disposition, note = _closeout_disposition(closeout_lane, "runtime") or (
             (
                 "keep shell boundary"
                 if basename == "yoke-db.sh"
@@ -260,8 +260,8 @@ def classify(path: Path, relpath: str) -> tuple[str, str, str, str, str]:
             "shell-native DB wrapper",
             "Domain DB wrapper",
             disposition,
-            closeout_ticket
-            or ("n/a" if basename == "yoke-db.sh" else DB_WRAPPER_TICKETS.get(basename, "unmapped-shell-retirement")),
+            closeout_lane
+            or ("n/a" if basename == "yoke-db.sh" else DB_WRAPPER_LANES.get(basename, "unmapped-shell-retirement")),
             note,
         )
 
@@ -270,7 +270,7 @@ def classify(path: Path, relpath: str) -> tuple[str, str, str, str, str]:
             "shell test",
             "Shell test harness",
             "contingent shell coverage",
-            closeout_ticket_for_test(relpath),
+            closeout_lane_for_test(relpath),
             "Exercises shell-native entrypoints and wrapper contracts that still exist today, but should be deleted or replaced as shell authority disappears.",
         )
 
@@ -278,7 +278,7 @@ def classify(path: Path, relpath: str) -> tuple[str, str, str, str, str]:
         "shell utility",
         "Yoke runtime",
         "migrate to Python",
-        closeout_ticket or UTILITY_TICKET_OVERRIDES.get(basename, "TBD"),
+        closeout_lane or UTILITY_LANE_OVERRIDES.get(basename, "TBD"),
         "No permanent shell-boundary justification is documented yet.",
     )
 

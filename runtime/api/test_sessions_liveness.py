@@ -242,12 +242,12 @@ def test_no_direct_heartbeat_read_outside_canonical_helper():
 # ---------------------------------------------------------------------------
 # No new event name introduced. Asserts the events catalog
 # (audit registry) does NOT gain a "SessionLiveness*" or
-# "HeartbeatRefresh*" name for this ticket.
+# "HeartbeatRefresh*" name for this work item.
 # ---------------------------------------------------------------------------
 
 
 def test_no_new_event_name_introduced():
-    """AC-12: this ticket does not introduce a new event name.
+    """AC-12: this work item does not introduce a new event name.
 
     Liveness reuses the existing ``HarnessToolCallCompleted`` /
     ``HarnessToolCallFailed`` events; no ``SessionLiveness*`` /

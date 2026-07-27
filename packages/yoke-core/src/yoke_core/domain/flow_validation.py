@@ -48,7 +48,7 @@ def _validate_migration_apply_stage(i: int, stage: dict) -> None:
     Optional keys: ``name`` (operator-visible label; overrides the
     pipeline's kind-derived stage name — see
     ``deploy_pipeline_reporting._parse_stages``). The governed apply
-    itself runs inside the ticket lifecycle; the pipeline stage verifies
+    itself runs inside the work-item lifecycle; the pipeline stage verifies
     its evidence (``deploy_pipeline_migration``).
     """
     # Executor/kind exclusivity takes precedence over generic

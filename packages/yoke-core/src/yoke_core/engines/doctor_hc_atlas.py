@@ -4,8 +4,10 @@ Enforces only contradictions the audit can prove without judgment:
 
 * A tracker row classed ``wrapped`` is missing from
   :data:`yoke_cli.commands.registry.SUBCOMMAND_REGISTRY`.
-* A wrapped CLI row maps to a function id missing from the live
-  dispatcher registry.
+* A dispatcher-backed CLI row maps to a function id missing from the
+  live dispatcher registry.
+* A client-local CLI row lacks its permanent command-boundary
+  classification.
 * A registered ``yoke`` subcommand exposes no usable ``--help`` text.
 * ``docs/atlas.md`` is stale relative to a freshly-rendered body.
 * ``docs/function-inventory.md`` is still present AND still claims an
@@ -17,7 +19,7 @@ Everything else lives in the audit report as data, not enforcement.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Iterable, List
+from typing import Any, List
 
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
@@ -47,6 +49,11 @@ def _check_wrapped_tracker_in_cli(
     report: dict, fails: List[str]
 ) -> None:
     cli_forms = {row["cli_form"] for row in report["yoke_cli"]["rows"]}
+    dispatcher_rows = [
+        row
+        for row in report["yoke_cli"]["rows"]
+        if row.get("dispatch_kind", "dispatcher") == "dispatcher"
+    ]
     wrapped_rows = [
         r for r in report["operation_tracker"]["rows"] if r["status"] == "wrapped"
     ]
@@ -56,15 +63,28 @@ def _check_wrapped_tracker_in_cli(
             f"- wrapped tracker row `{shell_form}` is missing from the "
             "`yoke` subcommand registry"
         )
-    if len(wrapped_rows) != report["yoke_cli"]["count"]:
+    if len(wrapped_rows) != len(dispatcher_rows):
         fails.append(
-            "- wrapped tracker row count ({tracker}) <> yoke CLI subcommand "
-            "count ({cli}); tracker classification or subcommand registry is "
-            "drifting".format(
+            "- wrapped tracker row count ({tracker}) <> dispatcher-backed "
+            "yoke CLI subcommand count ({cli}); tracker classification or "
+            "subcommand registry is drifting".format(
                 tracker=len(wrapped_rows),
-                cli=report["yoke_cli"]["count"],
+                cli=len(dispatcher_rows),
             )
         )
+    permanent_forms = {
+        row["shell_form"]
+        for row in report["operation_tracker"]["rows"]
+        if row["status"] == "permanent"
+    }
+    for row in report["yoke_cli"]["rows"]:
+        if row.get("dispatch_kind", "dispatcher") != "client_local":
+            continue
+        if row["cli_form"] not in permanent_forms:
+            fails.append(
+                f"- client-local CLI row `{row['cli_form']}` is missing its "
+                "permanent command-shaped boundary classification"
+            )
 
 
 def _check_cli_function_ids_registered(
@@ -75,6 +95,7 @@ def _check_cli_function_ids_registered(
     }
     missing = [
         row for row in report["yoke_cli"]["rows"]
+        if row.get("dispatch_kind", "dispatcher") == "dispatcher"
         if row["function_id"] not in registry_ids
     ]
     for row in missing:

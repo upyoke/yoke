@@ -126,6 +126,20 @@ class TestQaRequirementAdd:
         assert rc == 2
         assert _CAPTURED_REQUESTS == []
 
+    def test_dispatches_workflow_transition_binding(self) -> None:
+        rc = _run(
+            _stub_ok, "qa", "requirement", "add", "--item", "1833",
+            "--method-id", "browser-check", "--qa-phase", "verification",
+            "--instructions", "Inspect the item.", "--expected-outcome",
+            "The item is correct.", "--method-config",
+            '{"steps":[{"action":"navigate","route":"/items/1833"}]}',
+            "--workflow-transition", "reviewing-implementation",
+        )
+        assert rc == 0
+        assert _CAPTURED_REQUESTS[-1].payload[
+            "workflow_transition_id"
+        ] == "reviewing-implementation"
+
     def test_claim_denial_propagates_exit_one(self) -> None:
         rc = _run(
             _stub_fail, "qa", "requirement", "add", "--item", "1833",

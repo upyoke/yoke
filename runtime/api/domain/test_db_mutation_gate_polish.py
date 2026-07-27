@@ -129,7 +129,7 @@ class TestPolishGateTestResults:
     blocks them hours later at usher time (the
     MergeBlockedNoVerificationEvidence path).
 
-    The filter is ``command_definitions.quick`` presence
+    The filter is a migrated quick Command plan
     (project-agnostic), not a hardcoded project allowlist. Projects with
     a registered quick command are enforced; projects without one pass
     through.
@@ -142,7 +142,7 @@ class TestPolishGateTestResults:
             return command_by_project.get(project_id)
 
         monkeypatch.setattr(
-            "yoke_core.domain.db_mutation_gate_polish.command_definitions.get_command",
+            "yoke_core.domain.db_mutation_gate_polish.qa_command_plans.get_registered_command",
             _fake_get_command,
         )
 
@@ -200,7 +200,7 @@ class TestPolishGateTestResults:
     ) -> None:
         """AC-5: filter is presence-based, not a hardcoded allowlist.
 
-        The day any other project lands a registered ``command_definitions.quick``
+        The day any other project lands a registered quick Command plan,
         the gate begins enforcing for that project with zero code change.
         """
         conn, repo_path = gate_db

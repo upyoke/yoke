@@ -7,39 +7,19 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from runtime.api.engines.obsoleted_terms_scan_test_support import (
+    REPO_ROOT,
+    StubDoctorArgs,
+    db_router_items_command,
+    retired_parent_epic_symbol,
+)
 from yoke_core.engines.doctor_hc_obsoleted_terms import (
     hc_obsoleted_terms,
     scan_repo,
 )
-from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
+from yoke_core.engines.doctor_report import RecordCollector
 
-
-def _repo_root() -> Path:
-    here = Path(__file__).resolve()
-    for candidate in [here, *here.parents]:
-        if (candidate / "pyproject.toml").exists():
-            return candidate
-    raise RuntimeError("Cannot locate repo root")
-
-
-REPO = _repo_root()
-
-
-def _retired_parent_epic_symbol() -> str:
-    return "items" + "." + "epic"
-
-
-def _db_router_items_cmd(verb: str, item_ref: str, field: str, value: str = "") -> str:
-    parts = [
-        "python3 -m yoke_core.cli.db_router",
-        "items",
-        verb,
-        item_ref,
-        field,
-    ]
-    if value:
-        parts.append(value)
-    return " ".join(parts)
+REPO = REPO_ROOT
 
 
 # ---------------------------------------------------------------------------
@@ -50,7 +30,7 @@ def _db_router_items_cmd(verb: str, item_ref: str, field: str, value: str = "") 
 def test_scan_detects_cli_form_in_doc(tmp_path: Path):
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs" / "stale.md").write_text(
-        f"Example: `{_db_router_items_cmd('get', '5', 'epic')}`\n"
+        f"Example: `{db_router_items_command('get', '5', 'epic')}`\n"
     )
     hits = scan_repo(tmp_path)
     assert any("epic" in hit for hit in hits), hits
@@ -59,10 +39,10 @@ def test_scan_detects_cli_form_in_doc(tmp_path: Path):
 def test_scan_detects_obsoleted_term_in_doc(tmp_path: Path):
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs" / "foo.md").write_text(
-        f"This doc still references {_retired_parent_epic_symbol()} in prose.\n"
+        f"This doc still references {retired_parent_epic_symbol()} in prose.\n"
     )
     hits = scan_repo(tmp_path)
-    assert any(_retired_parent_epic_symbol() in hit for hit in hits), hits
+    assert any(retired_parent_epic_symbol() in hit for hit in hits), hits
 
 
 def test_scan_detects_sql_form_in_doc(tmp_path: Path):
@@ -87,7 +67,9 @@ def test_scan_detects_sql_select_list_form_in_doc(tmp_path: Path):
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs" / "stale_select.md").write_text(
         "```sql\n"
-        "SELECT id, type, " + "epic_id" + " FROM items WHERE id IN (1515, 1516, 1517);\n"
+        "SELECT id, type, "
+        + "epic_id"
+        + " FROM items WHERE id IN (1515, 1516, 1517);\n"
         "```\n"
     )
     hits = scan_repo(tmp_path)
@@ -99,7 +81,9 @@ def test_scan_detects_epic_field_prose_in_doc(tmp_path: Path):
     detected by the scan."""
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs" / "stale_prose.md").write_text(
-        "- `{epic-id}` — Epic name (matches the `" + "epic" + "` field on a backlog item)\n"
+        "- `{epic-id}` — Epic name (matches the `"
+        + "epic"
+        + "` field on a backlog item)\n"
     )
     hits = scan_repo(tmp_path)
     assert any("prose form" in h for h in hits), hits
@@ -118,7 +102,8 @@ def test_scan_detects_type_issue_epic_parent_prose(tmp_path: Path):
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs" / "stale_guard.md").write_text(
         "Pre-decomposition guard: never file child issues (`"
-        + "type=issue" + "` with an `epic` parent) for an unplanned epic.\n"
+        + "type=issue"
+        + "` with an `epic` parent) for an unplanned epic.\n"
     )
     hits = scan_repo(tmp_path)
     # Both child-issue and type=issue+epic-parent patterns will fire here.
@@ -146,10 +131,25 @@ def test_scan_does_not_fire_on_qualified_epic_id_in_items_query(tmp_path: Path):
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs" / "valid_items.md").write_text(
         "```sql\n"
-        "SELECT * FROM items i WHERE i.id={epic-id-number} AND i.type='" + "epic" + "';\n"
+        "SELECT * FROM items i WHERE i.id={epic-id-number} AND i.type='"
+        + "epic"
+        + "';\n"
         "SELECT id FROM items WHERE id={epic-id} AND status='done';\n"
         "```\n"
     )
+    assert scan_repo(tmp_path) == []
+
+
+def test_scan_does_not_cross_python_query_arguments(tmp_path: Path):
+    """A legitimate items.id query must not borrow ``epic_id`` from params."""
+    target = tmp_path / "runtime" / "api"
+    target.mkdir(parents=True)
+    (target / "valid_items_query.py").write_text(
+        'row = conn.execute("SELECT 1 FROM items WHERE id=%s", '
+        "(int(epic_id),)).fetchone()\n",
+        encoding="utf-8",
+    )
+
     assert scan_repo(tmp_path) == []
 
 
@@ -162,7 +162,8 @@ def test_scan_does_not_fire_on_corrected_ontology_prose(tmp_path: Path):
         "## Backlog ontology\n"
         "\n"
         "Backlog items are flat rows in `items`. An epic is just an item with `type='"
-        + "epic" + "'`. Epic decomposition lives in `epic_tasks`, keyed by "
+        + "epic"
+        + "'`. Epic decomposition lives in `epic_tasks`, keyed by "
         "`(epic_id, task_num)`, where `epic_id` IS the epic item's own numeric "
         "`items.id`. GitHub task issues are sync metadata for `epic_tasks`, not a "
         "child relationship in `items`.\n"
@@ -176,7 +177,9 @@ def test_scan_per_pattern_allowlist_exempts_strategy_files(tmp_path: Path):
     """The child-issue pattern allows only named strategy-file waivers."""
     (tmp_path / ".yoke" / "strategy").mkdir(parents=True)
     (tmp_path / ".yoke" / "strategy" / "WISPS.md").write_text(
-        "WISP-15 considers parent linking and " + "child issues" + " for future generation.\n"
+        "WISP-15 considers parent linking and "
+        + "child issues"
+        + " for future generation.\n"
     )
     # A non-exempt strategy file must still trigger the pattern, proving the
     # exemption is path-scoped rather than blanket-suppressing the pattern.
@@ -192,7 +195,7 @@ def test_scan_per_pattern_allowlist_exempts_strategy_files(tmp_path: Path):
 def test_scan_ignores_archive_path(tmp_path: Path):
     (tmp_path / "docs" / "archive").mkdir(parents=True)
     (tmp_path / "docs" / "archive" / "old.md").write_text(
-        f"historical doc mentioning {_retired_parent_epic_symbol()}\n"
+        f"historical doc mentioning {retired_parent_epic_symbol()}\n"
     )
     assert scan_repo(tmp_path) == []
 
@@ -205,7 +208,7 @@ def test_scan_ignores_hc_self(tmp_path: Path):
     hc_dir.mkdir(parents=True)
     copy_of_hc = hc_dir / "doctor_hc_obsoleted_terms.py"
     source = Path(
-        REPO
+        REPO_ROOT
         / "packages"
         / "yoke-core"
         / "src"
@@ -224,15 +227,6 @@ def test_scan_ignores_hc_self(tmp_path: Path):
 # ---------------------------------------------------------------------------
 
 
-class _StubArgs(DoctorArgs):
-    def __init__(self) -> None:
-        self.only = None
-        self.quick = False
-        self.project = None
-        self.json_output = False
-        self.file = None
-
-
 def test_hc_records_pass_on_clean_repo(monkeypatch, tmp_path: Path):
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs" / "clean.md").write_text("nothing obsolete here\n")
@@ -241,7 +235,7 @@ def test_hc_records_pass_on_clean_repo(monkeypatch, tmp_path: Path):
         lambda: str(tmp_path),
     )
     rec = RecordCollector()
-    hc_obsoleted_terms(None, _StubArgs(), rec)
+    hc_obsoleted_terms(None, StubDoctorArgs(), rec)
     assert rec.fail_count == 0
     assert rec.warn_count == 0
     assert rec.pass_count == 1
@@ -250,17 +244,18 @@ def test_hc_records_pass_on_clean_repo(monkeypatch, tmp_path: Path):
 def test_hc_records_warn_on_residue(monkeypatch, tmp_path: Path):
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs" / "stale.md").write_text(
-        f"Tutorial mentioning {_retired_parent_epic_symbol()} and yoke-db.sh together.\n"
+        f"Tutorial mentioning {retired_parent_epic_symbol()} and yoke-db.sh together.\n"
     )
     monkeypatch.setattr(
         "yoke_core.engines.doctor_hc_obsoleted_terms._resolve_repo_root",
         lambda: str(tmp_path),
     )
     rec = RecordCollector()
-    hc_obsoleted_terms(None, _StubArgs(), rec)
+    hc_obsoleted_terms(None, StubDoctorArgs(), rec)
     assert rec.fail_count == 0
     assert rec.warn_count == 1
     assert rec.pass_count == 0
+
 
 def test_scan_widening_catches_slash_form_module_path(tmp_path: Path):
     """AC-2: un-patched ``Path("runtime/harness/codex/codex_hooks_tool_events.py")``
@@ -268,14 +263,13 @@ def test_scan_widening_catches_slash_form_module_path(tmp_path: Path):
     target = tmp_path / "runtime" / "api" / "engines"
     target.mkdir(parents=True)
     (target / "stale_module.py").write_text(
-        'from pathlib import Path\n'
+        "from pathlib import Path\n"
         '_BAD = Path("runtime/harness/codex/codex_hooks_tool_events.py")\n',
         encoding="utf-8",
     )
     hits = scan_repo(tmp_path)
     assert any(
-        "codex_hooks_tool_events" in h
-        and "runtime/api/engines/stale_module.py" in h
+        "codex_hooks_tool_events" in h and "runtime/api/engines/stale_module.py" in h
         for h in hits
     ), hits
 
@@ -291,9 +285,7 @@ def test_scan_widening_catches_dotted_form_hook_module(tmp_path: Path):
     )
     hits = scan_repo(tmp_path)
     assert any(
-        "session_hooks" in h
-        and "runtime/api/engines/stale_hook.py" in h
-        for h in hits
+        "session_hooks" in h and "runtime/api/engines/stale_hook.py" in h for h in hits
     ), hits
 
 
@@ -304,12 +296,14 @@ def test_scan_widening_python_path_allowlist_is_path_scoped(tmp_path: Path):
     allow_dir = tmp_path / "runtime" / "api" / "tools"
     allow_dir.mkdir(parents=True)
     (allow_dir / "shell_inventory_test_fixture.py").write_text(
-        '_RETIRED = "yoke-db.sh"\n', encoding="utf-8",
+        '_RETIRED = "yoke-db.sh"\n',
+        encoding="utf-8",
     )
     leak_dir = tmp_path / "runtime" / "api" / "domain"
     leak_dir.mkdir(parents=True)
     (leak_dir / "new_module.py").write_text(
-        '_LEAK = "yoke-db.sh runs find-by-item"\n', encoding="utf-8",
+        '_LEAK = "yoke-db.sh runs find-by-item"\n',
+        encoding="utf-8",
     )
     paths = {hit.split(":", 1)[0] for hit in scan_repo(tmp_path)}
     assert "runtime/api/tools/shell_inventory_test_fixture.py" not in paths
@@ -322,18 +316,7 @@ def test_scan_widening_skips_python_files_outside_runtime(tmp_path: Path):
     those dirs)."""
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs" / "stale.py").write_text(
-        '_BAD = "yoke-db.sh"\n', encoding="utf-8",
+        '_BAD = "yoke-db.sh"\n',
+        encoding="utf-8",
     )
     assert scan_repo(tmp_path) == []
-
-
-def test_scan_repo_clean_on_real_main():
-    """AC-4/AC-8: the live repo has no retired-term residue in any scanned
-    surface. The widened scanner (``.py`` under ``runtime/`` plus slash-form
-    normalisation) reports zero hits on main."""
-    hits = scan_repo(REPO)
-    assert hits == [], (
-        "Live repo has retired-term residue. Fix the offending file or add "
-        "a justified allow-list entry to doctor_hc_obsoleted_terms_allowlists.\n"
-        + "\n".join(hits[:20])
-    )

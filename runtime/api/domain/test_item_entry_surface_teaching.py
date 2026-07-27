@@ -131,7 +131,7 @@ def test_every_bash_capable_agent_body_teaches_item_entry() -> None:
         lower = body.lower()
         assert "/yoke idea" in body, f"{name} missing /yoke idea"
         assert (
-            "do not create tickets" in lower
-            or "do not call `backlog-cli add`" in lower
+            "do not call `backlog-cli add`" in lower
             or "do not call lower-level create surfaces" in lower
+            or "do not create work items yourself" in lower
         ), f"{name} missing explicit item-entry teaching"

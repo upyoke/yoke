@@ -31,7 +31,7 @@ For each drift point found, record:
 
 ### 1a1. MASTER-PLAN Frontier Order + Prerequisite Validation
 
-Beyond narrative drift review, run the deterministic MASTER-PLAN validator. It extracts the ordered frontier entries from `MASTER-PLAN.md` and the prerequisite/enabling prose relationships around them, then cross-checks both against live item statuses.
+Beyond narrative drift review, run the deterministic MASTER-PLAN validator. It extracts the ordered frontier entries from `.yoke/strategy/MASTER-PLAN.md` and the prerequisite/enabling prose relationships around them, then cross-checks both against live item statuses.
 
 ```bash
 yoke strategy master-plan-check --plan-path "$REPO_ROOT/.yoke/strategy/MASTER-PLAN.md"
@@ -45,7 +45,7 @@ Read the output and fold it into the rest of the landscape analysis:
 
 If the validator prints `No concrete frontier or prerequisite-prose contradictions detected`, the plan is coherent with live state on those two specific axes — still scan narratively for the other drift categories above.
 
-The validator is read-only and never mutates the plan. It reads the local rendered view at `.yoke/strategy/MASTER-PLAN.md` (a gitignored cache that `yoke strategy doc replace` re-renders on each write); if `HC-strategy-render-staleness` has flagged stale views, run `yoke strategy render --target-root "$REPO_ROOT"` first so the validator sees the DB authority's current content. Any edits to `MASTER-PLAN.md` still flow through the propose and approve phases as with any other SML change.
+The validator is read-only and never mutates the plan. It reads the local rendered view at `.yoke/strategy/MASTER-PLAN.md` (a gitignored cache that `yoke strategy doc replace` re-renders on each write); if `HC-strategy-render-staleness` has flagged stale views, run `yoke strategy render --target-root "$REPO_ROOT"` first so the validator sees the DB authority's current content. Any edits to `.yoke/strategy/MASTER-PLAN.md` still flow through the propose and approve phases as with any other SML change.
 
 ### 1b. Missing Context
 
@@ -58,7 +58,7 @@ Identify important recent developments that have no SML representation at all:
 
 ### 1b1. Future-Concept Pull-Forward Drift
 
-Apply the `MASTER-PLAN.md` future-concept pull-forward principle while reading the plan. Generation boundaries are sequencing aids, not architecture boundaries. Look for current or recently-landed work that already creates machinery the plan names in later generations: `actor_id`, `session_id`, `heartbeat_at`, ownership, leases, claims, approvals, overrides, evidence, run records, execution journals, compiled packets, route-around facts, resource locks, and shared-state coordination.
+Apply the `.yoke/strategy/MASTER-PLAN.md` future-concept pull-forward principle while reading the plan. Generation boundaries are sequencing aids, not architecture boundaries. Look for current or recently-landed work that already creates machinery the plan names in later generations: `actor_id`, `session_id`, `heartbeat_at`, ownership, leases, claims, approvals, overrides, evidence, run records, execution journals, compiled packets, route-around facts, resource locks, and shared-state coordination.
 
 Flag both directions:
 
@@ -88,9 +88,9 @@ If the operator chose "general coherence review," skip this step (the full analy
 
 ### 1e. LANDSCAPE Editorial Pressure
 
-`LANDSCAPE.md` is meant to be "gathered and kept legible" — a compact strategic synthesis, not an append-only release-notes feed. Research must treat section growth and density as first-class review dimensions, not just factual correctness, so later phases do not default to appending another bullet.
+`.yoke/strategy/LANDSCAPE.md` is meant to be "gathered and kept legible" — a compact strategic synthesis, not an append-only release-notes feed. Research must treat section growth and density as first-class review dimensions, not just factual correctness, so later phases do not default to appending another bullet.
 
-Run this pass against `LANDSCAPE.md` alongside the drift analysis above. Flag anything that pulls the file toward accumulation instead of synthesis:
+Run this pass against `.yoke/strategy/LANDSCAPE.md` alongside the drift analysis above. Flag anything that pulls the file toward accumulation instead of synthesis:
 
 - **Overgrown or dense sections.** Sections that have grown to the point where a reader has to scan many bullets to extract the strategic point. Candidate signal: lots of sibling bullets covering the same theme, long lists with no synthesis sentence, or a section that now occupies a disproportionate share of the file relative to its strategic weight.
 - **Duplicated or near-duplicate observations.** Two or more bullets or paragraphs saying essentially the same thing about the same actor, capability, or trend. These should be merged into one sharper statement.
@@ -100,7 +100,7 @@ Run this pass against `LANDSCAPE.md` alongside the drift analysis above. Flag an
 
 For each editorial-pressure finding, record:
 
-- Which `LANDSCAPE.md` section
+- Which `.yoke/strategy/LANDSCAPE.md` section
 - What the current content looks like (brief excerpt or bullet count)
 - The proposed editorial move: **weave**, **consolidate**, **retire**, **summarize**, or **rewrite**
 - A one-line rationale explaining why that move keeps the file legible
@@ -133,7 +133,7 @@ Organize all findings into a structured format that cleanly separates facts from
 ### Future-Concept Pull-Forward
 | # | Current Surface | Later Concept | Required Move | SML Change |
 |---|-----------------|---------------|---------------|------------|
-| 1 | {surface/ticket} | {concept} | pull forward / consume existing primitive / declare deletion target | {file + section} |
+| 1 | {surface/work item} | {concept} | pull forward / consume existing primitive / declare deletion target | {file + section} |
 | ...
 
 ### Contradictions

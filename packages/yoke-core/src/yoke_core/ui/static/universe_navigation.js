@@ -1,113 +1,11 @@
-// Stable workbench destinations and their project-scope contracts.
+import {
+  NAV,
+  SCOPE_MULTI,
+  SCOPE_NONE,
+  SCOPE_SINGLE,
+} from "./universe_destinations.js";
 
-export const SCOPE_MULTI = "multi";
-export const SCOPE_SINGLE = "single";
-export const SCOPE_NONE = "none";
-
-export const NAV = [
-  {
-    id: "overview", icon: "⊞", label: "Overview", scope: SCOPE_MULTI,
-    summary: "Where it is headed, what is running, what is shipping, and whether it is healthy.",
-  },
-  {
-    id: "inbox", icon: "✉", label: "Inbox", scope: SCOPE_MULTI,
-    summary: "What needs you to know about it or act on it.",
-  },
-  { id: "strategy", icon: "❖", label: "Strategy", scope: SCOPE_MULTI },
-  {
-    id: "frontier", icon: "⚡", label: "Frontier", scope: SCOPE_MULTI,
-    summary: "What runs next and why, and what a waiting item waits on.",
-  },
-  { id: "items", icon: "≣", label: "Items", scope: SCOPE_MULTI },
-  {
-    id: "sessions", icon: "◈", label: "Sessions", scope: SCOPE_MULTI,
-    summary:
-      "Each session: who runs it, what it holds, and how alive it is.",
-  },
-  {
-    id: "delivery", icon: "⬈", label: "Delivery", scope: SCOPE_MULTI,
-    summary: "Environments, flows and runs, with databases and infrastructure.",
-    // Delivery is one concept asked five ways, so its second route segment
-    // names a tab rather than a drill-in row.
-    tabs: [
-      {
-        id: "runs", label: "Runs",
-        summary: "Each run of a flow against a target environment.",
-      },
-      {
-        id: "environments", label: "Environments",
-        summary: "The deploy targets runs ship to.",
-      },
-      {
-        id: "flows", label: "Flows",
-        summary: "The pipeline definitions runs execute.",
-      },
-      {
-        id: "databases", label: "Databases",
-        summary:
-          "Declared database models, their posture, and the apply records.",
-      },
-      {
-        id: "infrastructure", label: "Infrastructure",
-        summary:
-          "What backs an environment and its latest operational state.",
-      },
-    ],
-  },
-  {
-    id: "qa", icon: "◉", label: "QA", scope: SCOPE_MULTI,
-    summary: "Quality gates and the evidence they collected.",
-  },
-  {
-    id: "workflows", icon: "⚗", label: "Workflows", scope: SCOPE_NONE,
-    summary: "What done means for a type of work, and the parts that compose it.",
-  },
-  {
-    id: "capabilities", icon: "⚿", label: "Capabilities", scope: SCOPE_MULTI,
-    summary: "What Yoke can reach on your behalf, and when it last verified it.",
-  },
-  { id: "events", icon: "≋", label: "Events", scope: SCOPE_MULTI },
-  {
-    id: "doctor", icon: "♥", label: "Doctor", scope: SCOPE_MULTI,
-    summary: "The health checks and what they found.",
-  },
-  { id: "ouroboros", icon: "∞", label: "Ouroboros", scope: SCOPE_MULTI },
-  { id: "projects", icon: "▤", label: "Projects", scope: SCOPE_NONE },
-  {
-    id: "access", icon: "⚇", label: "Access", scope: SCOPE_NONE,
-    summary: "Who and what may act here, at the universe and per project.",
-  },
-  // Host-fed destinations: the workbench routes them and draws their page
-  // head, but their body is a host-supplied section, so each entry shows in
-  // the nav exactly when the host supplies its content.
-  {
-    id: "members", icon: "⚉", label: "Members", scope: SCOPE_NONE,
-    summary: "The people in your organization, managed by the hosting platform.",
-    hostFed: true,
-  },
-  {
-    id: "billing", icon: "❒", label: "Billing", scope: SCOPE_NONE,
-    summary: "Your plan and payments, managed by the hosting platform.",
-    hostFed: true,
-  },
-  {
-    id: "packs", icon: "◫", label: "Packs", scope: SCOPE_SINGLE,
-    summary:
-      "Reusable capabilities whose installed code belongs to the project.",
-  },
-  {
-    id: "github", icon: "⎇", label: "GitHub", scope: SCOPE_SINGLE,
-    summary: "How this project binds to its repository, and how they sync.",
-  },
-  {
-    id: "project", icon: "⚙", label: "Project", scope: SCOPE_SINGLE,
-    summary: "Settings for one project.",
-  },
-  {
-    id: "organization", icon: "⛭", label: "Organization", scope: SCOPE_NONE,
-    summary: "This organization and its universe, including export and import.",
-  },
-];
+export { NAV, SCOPE_MULTI, SCOPE_NONE, SCOPE_SINGLE };
 
 export function navEntry(view) {
   return NAV.find((entry) => entry.id === view) || NAV[0];
@@ -117,22 +15,23 @@ export function universeNavScope(view) {
   return navEntry(view).scope;
 }
 
-// `#/<view>[/<segment>][?project=<id>[,<id>…]]`. The query value stays a raw
+// `#/<view>[/<segment>[/<detail>]][?project=<id>[,<id>…]]`. The query stays raw
 // string here — `scopeForEntry` interprets it against the view's declared
 // scope kind (a multi view reads a comma-joined set, a single view one id).
 // The optional second segment belongs to the view, and each view declares
-// what it means — one meaning, never both:
+// what it means:
 //  * a view with a `tabs` roster reads it as a tab: one facet of the view's
-//    single concept. An absent or unknown segment resolves to the first tab,
-//    so `#/delivery` lands on the default facet without a hash rewrite.
+//    single concept. A tab may use the third segment for one of its own
+//    durable drill-ins, so `#/qa/methods/browser-check` is shareable without
+//    turning a method into a top-level destination.
 //  * every other view reads it as a drill-in: one row of the view, reached
-//    from that row and carrying a breadcrumb back.
+//    from that row.
 // Neither a tab nor a drill-in is a nav destination of its own — it has no
 // entry, and its parent view stays the active one.
 export function parseUniverseRoute(hash) {
   const raw = String(hash || "").replace(/^#\/?/, "");
   const [pathPart, queryPart] = raw.split("?");
-  const [viewPart, segmentPart] = pathPart.split("/");
+  const [viewPart, segmentPart, detailPart] = pathPart.split("/");
   const view = NAV.some((entry) => entry.id === viewPart)
     ? viewPart : NAV[0].id;
   const project = new URLSearchParams(queryPart || "").get("project");
@@ -142,7 +41,12 @@ export function parseUniverseRoute(hash) {
     // encoded or unknown one simply resolves to the default facet.
     const tab = tabs.some((item) => item.id === segmentPart)
       ? segmentPart : tabs[0].id;
-    return { view, tab, detail: null, project };
+    const detail = (
+      view === viewPart
+      && tab === segmentPart
+      && detailPart
+    ) ? decodeURIComponent(detailPart) : null;
+    return { view, tab, detail, project };
   }
   // An unknown view falls back to the first destination, and its detail
   // segment falls with it rather than being carried onto a view that never
@@ -152,17 +56,24 @@ export function parseUniverseRoute(hash) {
   return { view, tab: null, detail, project };
 }
 
-export function buildUniverseRoute(view, project, segment = null) {
+export function buildUniverseRoute(
+  view,
+  project,
+  segment = null,
+  detail = null,
+) {
   const resolvedView = NAV.some((entry) => entry.id === view)
     ? view : NAV[0].id;
   const segmentPart = (resolvedView === view && segment)
     ? `/${encodeURIComponent(segment)}` : "";
+  const detailPart = segmentPart && detail
+    ? `/${encodeURIComponent(detail)}` : "";
   // Commas separate the members of a project set and stay literal so the
   // route reads the way it was written; everything else percent-encodes.
   const query = project
     ? `?project=${encodeURIComponent(project).replace(/%2C/g, ",")}`
     : "";
-  return `#/${resolvedView}${segmentPart}${query}`;
+  return `#/${resolvedView}${segmentPart}${detailPart}${query}`;
 }
 
 export function knownProjectId(projects, candidate) {
@@ -203,9 +114,11 @@ export function serializeScope(scope) {
 export function scopeForEntry(entry, routeProject, projects, selections) {
   if (entry.scope === SCOPE_NONE) return null;
   if (entry.scope === SCOPE_MULTI) {
-    const resolved = knownProjectSet(projects, routeProject) ||
-      rememberedMultiScope(projects, selections.get(entry.id)) ||
-      "all";
+    const resolved = routeProject === "all"
+      ? "all"
+      : knownProjectSet(projects, routeProject) ||
+        rememberedMultiScope(projects, selections.get(entry.id)) ||
+        "all";
     selections.set(entry.id, resolved);
     return resolved;
   }
@@ -312,7 +225,7 @@ export function createScopePicker(options) {
     const selected = multi
       ? Array.isArray(scope) && scope.includes(projectId)
       : String(scope) === projectId;
-    chip(row.name || row.slug || projectId, selected, () => {
+    chip(row.slug || row.name || projectId, selected, () => {
       apply(multi ? toggledScope(scope, projectId, projects) : projectId);
     });
   }

@@ -1,0 +1,175 @@
+.universe-app-root .overview-zen-zone-label {
+  position: absolute;
+  top: 22px;
+  left: 50%;
+  max-width: 96%;
+  overflow: hidden;
+  color: var(--yoke-muted);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+.universe-app-root .overview-zen-note {
+  margin: 2px 0 0 25px;
+  color: var(--yoke-muted);
+  font-size: 10.5px;
+}
+.universe-app-root .overview-doc-strip {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 13px 15px;
+  flex-wrap: wrap;
+}
+.universe-app-root .overview-doc-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 9px;
+  border-radius: 8px;
+  background: var(--yoke-surface-2);
+  color: var(--yoke-ink-2);
+  font-size: 11.5px;
+  text-decoration: none;
+}
+.universe-app-root .overview-doc-badge:hover {
+  color: var(--yoke-accent);
+  background: var(--yoke-accent-weak);
+}
+.universe-app-root .overview-doc-badge:focus-visible {
+  outline: 2px solid var(--yoke-accent);
+  outline-offset: 2px;
+}
+.universe-app-root .overview-doc-age {
+  color: inherit;
+  font-size: 11px;
+  opacity: .65;
+}
+.universe-app-root .overview-doc-total {
+  margin-left: auto;
+  color: var(--yoke-muted);
+  font-size: 11.5px;
+}
+
+.universe-app-root .overview-lane {
+  display: inline-flex;
+  padding: 2px 6px;
+  border: 1px solid var(--yoke-border);
+  border-radius: 5px;
+  color: var(--yoke-ink-2);
+  font-size: 10.5px;
+}
+.universe-app-root .overview-claim {
+  font-family: var(--yoke-font-mono);
+  white-space: nowrap;
+}
+.universe-app-root .overview-section .overview-compact-row {
+  grid-template-columns: minmax(90px, .7fr) minmax(0, 1.3fr) auto;
+  gap: 10px;
+  margin: 0;
+  padding: 9px 15px;
+  border-bottom: 1px solid var(--yoke-border);
+}
+.universe-app-root .overview-section .overview-compact-row:last-child {
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--yoke-border);
+}
+.universe-app-root .overview-ended-session {
+  color: var(--yoke-muted);
+  font-family: var(--yoke-font-mono);
+}
+.universe-app-root .overview-delivery-stages .delivery-stage-bar {
+  min-width: 90px;
+  margin: 0;
+  padding: 0;
+}
+.universe-app-root .overview-delivery-stages .delivery-stage {
+  min-width: 18px;
+}
+.universe-app-root .overview-delivery-stages .delivery-stage i {
+  margin-bottom: 0;
+}
+.universe-app-root .overview-delivery-stages .delivery-stage > span {
+  display: none;
+}
+.universe-app-root .overview-run-status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+.universe-app-root .overview-environments {
+  gap: 18px;
+  padding: 9px 15px;
+}
+.universe-app-root .overview-environment-fact {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.universe-app-root .overview-environment-fact strong {
+  color: var(--yoke-ink);
+  font-weight: 600;
+}
+
+.universe-app-root .overview-pulse-source {
+  width: 118px;
+  min-width: 0;
+  flex: 0 0 118px;
+  overflow: hidden;
+  color: var(--yoke-muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.universe-app-root .overview-pulse-event {
+  display: block;
+  overflow: hidden;
+  font-size: 12.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.universe-app-root .overview-pulse-context {
+  display: block;
+  margin-top: 2px;
+  overflow: hidden;
+  color: var(--yoke-muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.universe-app-root .overview-pulse-row > .ago {
+  flex: 0 0 auto;
+  color: var(--yoke-muted);
+  font-size: 11px;
+}
+.universe-app-root .overview-doctor-rollup {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 13px 15px;
+  border-bottom: 1px solid var(--yoke-border);
+  font-size: 13px;
+  flex-wrap: wrap;
+}
+.universe-app-root .overview-doctor-fact {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+.universe-app-root .overview-doctor-fact[data-tone="good"] {
+  color: var(--yoke-good);
+}
+.universe-app-root .overview-doctor-fact[data-tone="warn"] {
+  color: var(--yoke-warn);
+}
+.universe-app-root .overview-doctor-fact[data-tone="crit"] {
+  color: var(--yoke-crit);
+}
+.universe-app-root .overview-doctor-summary {
+  color: var(--yoke-muted);
+}
+.universe-app-root .overview-health-name {
+  display: block;
+}

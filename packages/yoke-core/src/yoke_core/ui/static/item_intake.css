@@ -1,0 +1,101 @@
+/* Web-fileable item intake and workflow-declared posture controls. */
+
+.universe-app-root .item-new {
+  max-width: 720px;
+}
+
+.universe-app-root .item-new .page-head {
+  gap: 14px;
+}
+
+.universe-app-root .item-form {
+  display: grid;
+  gap: 18px;
+}
+
+.universe-app-root .item-form > .panel {
+  margin-bottom: 0;
+}
+
+.universe-app-root .item-form-field {
+  display: grid;
+  gap: 6px;
+}
+
+.universe-app-root .item-form-help {
+  max-width: 60ch;
+}
+
+.universe-app-root .item-form-control {
+  padding: 6px 9px;
+  resize: vertical;
+}
+
+.universe-app-root .item-project-value {
+  color: var(--yoke-ink);
+  font-size: 14px;
+}
+
+.universe-app-root textarea.item-form-control {
+  height: 64px;
+  min-height: 64px;
+}
+
+.universe-app-root .item-setting-icon {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 8px;
+  color: var(--yoke-accent);
+  background: var(--yoke-accent-weak);
+  font-weight: 700;
+}
+
+.universe-app-root .item-setting-row {
+  gap: 9px;
+}
+
+.universe-app-root .item-setting-copy strong {
+  font-size: 12.5px;
+  font-weight: 580;
+}
+
+.universe-app-root .item-setting-select {
+  max-width: 210px;
+  padding: 6px 8px;
+  flex: 0 0 auto;
+}
+
+.universe-app-root .item-form-actions {
+  justify-content: flex-end;
+}
+
+.universe-app-root .item-form-actions .item-button {
+  min-width: 150px;
+}
+
+.universe-app-root .item-new .item-button {
+  line-height: 1.45;
+}
+
+.universe-app-root .item-form-outcome {
+  margin: -8px 0 0;
+  font-size: 12px;
+}
+
+@media (max-width: 640px) {
+  .universe-app-root .item-setting-row {
+    flex-wrap: wrap;
+  }
+
+  .universe-app-root .item-setting-select {
+    max-width: calc(100% - 40px);
+    margin-left: 40px;
+  }
+
+  .universe-app-root .item-form-actions .item-button {
+    width: 100%;
+  }
+}

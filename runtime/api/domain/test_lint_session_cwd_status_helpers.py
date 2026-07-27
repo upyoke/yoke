@@ -12,9 +12,9 @@ from __future__ import annotations
 import psycopg
 
 from runtime.api.domain.lint_session_cwd_test_helpers import (
-    seed_item,
     seed_item_claim,
 )
+from runtime.api.fixtures.backlog import insert_item, insert_item_worktree
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
 from runtime.api.fixtures.pg_testdb import (
     connect_test_database,
@@ -32,11 +32,16 @@ from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
 # validator's status gate must fail open against it.
 _SCHEMA_WITHOUT_ITEM_STATUS = """
 CREATE TABLE projects (id INTEGER PRIMARY KEY, slug TEXT UNIQUE);
-CREATE TABLE items (id INTEGER PRIMARY KEY, worktree TEXT,
-                    project_id INTEGER);
+CREATE TABLE items (id INTEGER PRIMARY KEY, project_id INTEGER);
+CREATE TABLE item_worktrees (
+    id INTEGER PRIMARY KEY, item_id INTEGER NOT NULL,
+    branch TEXT NOT NULL, path TEXT, lane_role TEXT NOT NULL,
+    state TEXT NOT NULL DEFAULT 'active',
+    created_at TEXT NOT NULL, updated_at TEXT NOT NULL, released_at TEXT
+);
 CREATE TABLE epic_tasks (
     epic_id INTEGER NOT NULL, task_num INTEGER NOT NULL,
-    worktree TEXT, PRIMARY KEY (epic_id, task_num)
+    item_worktree_id INTEGER, PRIMARY KEY (epic_id, task_num)
 );
 CREATE TABLE work_claims (
     id INTEGER PRIMARY KEY, session_id TEXT, target_kind TEXT,
@@ -53,7 +58,17 @@ class TestValidatorFailOpen:
             repo = tmp_path / "repo"
             (repo / ".worktrees" / "YOK-9001").mkdir(parents=True)
             register_machine_checkout(tmp_path / "machine-config", repo, 1)
-            seed_item(seed_conn, item_id=9001, branch="YOK-9001")
+            insert_item(
+                seed_conn,
+                id=9001,
+                status="implementing",
+                workflow_id="issue",
+            )
+            insert_item_worktree(
+                seed_conn,
+                item_id=9001,
+                branch="YOK-9001",
+            )
             seed_item_claim(seed_conn, "sid-1", 9001)
             # A bare psycopg connection returns tuple rows (no ``keys``);
             # ``test_database`` repointed the ambient DSN at its database.
@@ -88,8 +103,19 @@ class TestValidatorFailOpen:
         )
         register_machine_checkout(tmp_path / "machine-config", repo, 1)
         c.execute(
-            "INSERT INTO items (id, worktree, project_id) VALUES (%s, %s, %s)",
-            (9001, "YOK-9001", 1),
+            "INSERT INTO items (id, project_id) VALUES (%s, %s)",
+            (9001, 1),
+        )
+        c.execute(
+            "INSERT INTO item_worktrees "
+            "(item_id, branch, lane_role, state, created_at, updated_at) "
+            "VALUES (%s, %s, 'implementation', 'active', %s, %s)",
+            (
+                9001,
+                "YOK-9001",
+                "2026-01-01T00:00:00Z",
+                "2026-01-01T00:00:00Z",
+            ),
         )
         c.execute(
             "INSERT INTO work_claims (session_id, target_kind, item_id) "

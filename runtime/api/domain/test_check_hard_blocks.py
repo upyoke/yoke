@@ -81,11 +81,11 @@ class TestIsSatisfied(unittest.TestCase):
         self.assertTrue(mod._is_satisfied("fact:merged", item, None))
 
     def test_fact_merged_via_release_status(self) -> None:
-        item = self._item("release", merged_at=None, worktree=None)
+        item = self._item("release", merged_at=None)
         self.assertTrue(mod._is_satisfied("fact:merged", item, None))
 
     def test_fact_merged_unmet(self) -> None:
-        item = self._item("implementing", merged_at=None, worktree=None)
+        item = self._item("implementing", merged_at=None)
         self.assertFalse(mod._is_satisfied("fact:merged", item, None))
 
     def test_unknown_satisfaction_fails_safe(self) -> None:
@@ -123,17 +123,16 @@ class TestEvaluateBlockers(unittest.TestCase):
         item_id: int,
         title: str,
         status: str = "idea",
-        worktree: str = None,
         project_id: int = 1,
         merged_at: str = None,
     ) -> None:
         conn = connect_test_db(self.db_path)
         p = _p(conn)
         conn.execute(
-            "INSERT INTO items (id, title, status, priority, worktree, "
+            "INSERT INTO items (id, title, status, priority, "
             "project_id, project_sequence, merged_at) "
-            f"VALUES ({p}, {p}, {p}, 'medium', {p}, {p}, {p}, {p})",
-            (item_id, title, status, worktree, project_id, item_id, merged_at),
+            f"VALUES ({p}, {p}, {p}, 'medium', {p}, {p}, {p})",
+            (item_id, title, status, project_id, item_id, merged_at),
         )
         conn.commit()
         conn.close()

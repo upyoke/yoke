@@ -14,7 +14,7 @@ lifecycle interpreter validates every transition from the item's immutable
 workflow version; this skill coordinates the surrounding operator journey.
 
 <!-- BEGIN GENERATED: field-note-directive -->
-When you hit a recipe gap or notice a minor bug not worth a ticket, file a field-note immediately — before retrying, before moving on.
+When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
 Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->
@@ -89,10 +89,24 @@ The skip module validates the current status, emits both the canonical `ItemStat
 
 Extract the numeric part from the argument (strip `YOK-` prefix, leading zeros).
 
+Resolve the item's immutable workflow pin through `workflows.item.get` (item
+target, empty payload). Its `workflow_id` and logical `workflow_version` result
+fields are the inputs to `workflows.version.get` (global target, payload
+`{"workflow_id": "<id>", "version": <number>}`) whenever the definition is
+needed. Never use the registry's current-version pointer to navigate an existing
+item.
+
 ```bash
-_workflow_id=$(yoke items get {N} workflow_id)
-_workflow_version_id=$(yoke items get {N} workflow_version_id)
-_status=$(yoke items get {N} status)
+_item_workflow_json=$(yoke workflows item get YOK-{N} --json) || {
+ echo "Item YOK-{N} not found."
+ exit 1
+}
+_workflow_id=$(printf '%s' "$_item_workflow_json" | python3 -c 'import json,sys
+print(json.load(sys.stdin)["result"]["workflow_id"])')
+_workflow_version=$(printf '%s' "$_item_workflow_json" | python3 -c 'import json,sys
+print(json.load(sys.stdin)["result"]["workflow_version"])')
+_status=$(printf '%s' "$_item_workflow_json" | python3 -c 'import json,sys
+print(json.load(sys.stdin)["result"]["status"])')
 _title=$(yoke items get {N} title)
 ```
 
@@ -121,15 +135,13 @@ if [ "$_arg" = "implementation" ]; then
 elif [ -n "$_arg" ]; then
  _target="$_arg"
 else
- _definition_json=$(yoke workflows definition get --json)
- _prog=$(printf '%s' "$_definition_json" | python3 -c 'import json,sys
+ _pinned_definition_json=$(yoke workflows version get "$_workflow_id" "$_workflow_version" --json) || {
+  echo "The pinned workflow version $_workflow_id@$_workflow_version could not be read."
+  exit 1
+ }
+ _prog=$(printf '%s' "$_pinned_definition_json" | python3 -c 'import json,sys
 envelope=json.load(sys.stdin)
-workflow_id=sys.argv[1]
-version_id=int(sys.argv[2])
-workflow=next((row for row in envelope["result"]["workflows"] if row["id"] == workflow_id and int(row["current_version_id"]) == version_id), None)
-if workflow is None:
- raise SystemExit("the pinned workflow version is not present in the served definition read")
-print(" ".join(stage["id"] for stage in workflow["definition"]["stages"]))' "$_workflow_id" "$_workflow_version_id")
+print(" ".join(stage["id"] for stage in envelope["result"]["definition"]["stages"]))')
  _target=$(printf '%s\n' $_prog | awk -v cur="$_status" 'found==1{print; exit} $0==cur{found=1}')
 fi
 
@@ -253,23 +265,26 @@ The phase reference docs ([`preflight.md`](preflight.md), [`activation.md`](acti
 - Applies to: target = `reviewed-implementation`, `implemented`, or `polishing-implementation`
 - Skip for all other targets
 
-**Project E2E:** Read `.agents/skills/yoke/advance/project-e2e.md`
-- Applies to: target = `reviewed-implementation`, `implemented`, or `polishing-implementation`
-- Runs the project's `e2e` scope of the `command_definitions` family (real end-to-end against the deployed backend) with `BASE_URL` injected from the ephemeral URL — or self-skips when no `e2e` command is defined (e.g., projects whose browser integration tests live under the `full` scope and which have no real E2E configured yet)
-- Skip for all other targets
-
-**Parallel phase-read note (reviewed/implemented/polishing path):** When both browser QA and project E2E apply, the agent MAY read `browser-qa.md` and `project-e2e.md` in a single parallel tool call before executing either, since both docs are needed and neither depends on the other's content. Execution order remains sequential (browser QA before project E2E) — only the doc reads are parallelizable.
+**Deployed-stack QA:** Read `.agents/skills/yoke/advance/project-e2e.md`
+- Applies to: workflow transition = `release`
+- Materializes attached QA plans and executes every `Command` case whose project-owned configuration declares the migrated `e2e` scope, with `BASE_URL` supplied from the ephemeral environment
+- Self-skips when no deployed-stack plan is attached; skip for all other transitions
 
 **Finalize:** Read `.agents/skills/yoke/advance/finalize.md`
 - Applies to: all non-implementing transitions that reach this point
 - Handles: status update, GitHub sync, commit, report, implementation-complete next-step guidance, implementing sub-skill handoff (implementing-target callers reach the sub-skill handoff via the orchestrator's success exit; this doc still documents the handoff contract for both paths)
 
-## Parallel-Safe Query Groups
+## Query Ordering and Parallel-Safe Groups
 
-The following DB query groups are independent and can be run as parallel Bash tool calls:
+Respect the ordering constraints below. Only reads explicitly described as
+independent may run in parallel.
 
-**Step 1 — Item lookup:**
-- `items get {N} workflow_id workflow_version_id`, `items get {N} status`, `items get {N} title` — all independent, batch in one message
+**Step 1 — Pinned workflow lookup:**
+- Call `workflows.item.get` first. Its `workflow_id` and logical
+  `workflow_version` select the exact `workflows.version.get` read used for
+  auto-advance navigation; never substitute the current workflow definition.
+- After `workflows.item.get` returns, the pinned `workflows.version.get` read
+  and `items get {N} title` are independent and may run in parallel.
 
 **Preflight — Reconciliation gate:**
 - `items get {N} deployment_flow`, `items get {N} project`, `items get {N} github_issue` — all independent reads

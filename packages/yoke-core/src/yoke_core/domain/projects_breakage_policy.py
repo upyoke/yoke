@@ -13,7 +13,7 @@ Allowed values::
 The column is added and seeded by the
 ``project_model_simplification`` one-shot migration.  This reader
 tolerates a pre-migration schema (column absent) so the joint gate can
-admit the very ticket whose migration introduces the column — the
+admit the very work item whose migration introduces the column — the
 fallback is the documented ``founder_cutover`` default.
 """
 
@@ -48,7 +48,7 @@ def resolve_breakage_policy(conn: Any, project: str) -> str:
     Reads ``projects.breakage_policy`` when the column exists and the
     project row has a non-null value.  Falls back to the documented
     ``founder_cutover`` default when the column is absent or the row is
-    missing — this lets the very ticket whose migration adds the column
+    missing — this lets the very work item whose migration adds the column
     still pass its joint gate.
 
     Raises :class:`BreakagePolicyError` when the column exists but the

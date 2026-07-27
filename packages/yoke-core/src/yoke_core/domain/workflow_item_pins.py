@@ -19,7 +19,7 @@ def backfill_legacy_item_workflow_pins(conn: Any) -> int:
     """Pin every unpinned legacy item without changing its current stage.
 
     The helper remains on the boot-convergence path after the cutover. It is
-    therefore deliberately idempotent: once the legacy ``items.type`` column
+    therefore deliberately idempotent: once the legacy classification column
     has been contracted, a fully pinned database is a no-op.
     """
     partial = conn.execute(

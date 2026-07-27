@@ -9,7 +9,6 @@ from yoke_contracts.api.function_call import (
 
 from yoke_core.domain.handlers.deployment_common import (
     error,
-    pipe_rows,
     pipe_to_dict,
     require_global,
     run_id,
@@ -154,7 +153,10 @@ def handle_deployment_run_list(request: FunctionCallRequest) -> HandlerOutcome:
     from yoke_core.domain.deployment_runs_crud_query import (
         DEFAULT_RUN_LIST_LIMIT,
         MAX_RUN_LIST_LIMIT,
-        cmd_list,
+    )
+    from yoke_core.domain.deployment_run_list_read import (
+        RUN_PRESENTATION_FIELDS,
+        list_deployment_runs,
     )
     from yoke_core.domain.deployment_runs_schema import RUN_FIELDS
 
@@ -165,11 +167,15 @@ def handle_deployment_run_list(request: FunctionCallRequest) -> HandlerOutcome:
             f"limit must be from 1 to {MAX_RUN_LIST_LIMIT}",
             jsonpath="$.payload.limit",
         )
-    raw = cmd_list(project=project, status=status, limit=resolved_limit)
+    rows = list_deployment_runs(
+        project=project,
+        status=status,
+        limit=resolved_limit,
+    )
     return HandlerOutcome(
         result_payload={
-            "fields": list(RUN_FIELDS),
-            "rows": pipe_rows(raw, RUN_FIELDS),
+            "fields": [*RUN_FIELDS, *RUN_PRESENTATION_FIELDS],
+            "rows": rows,
             "limit": resolved_limit,
         },
         primary_success=True,
@@ -241,9 +247,19 @@ def handle_deployment_run_approve(request: FunctionCallRequest) -> HandlerOutcom
     )
 
     try:
-        approval = approve_run(resolved_run_id)
+        actor_id = request.actor.actor_id
+        if actor_id is None or not str(actor_id).isdigit():
+            return error("permission_denied", "a numeric actor_id is required")
+        approval = approve_run(
+            resolved_run_id,
+            actor_id=int(actor_id),
+            session_id=request.actor.session_id,
+            note=note,
+        )
     except LookupError as exc:
         return error("not_found", str(exc), jsonpath="$.target.workflow_run_id")
+    except PermissionError as exc:
+        return error("permission_denied", str(exc))
     except RunApprovalRejected as exc:
         return error("invalid_state", str(exc))
     event_id = emit_run_approval(
@@ -263,6 +279,7 @@ def handle_deployment_run_approve(request: FunctionCallRequest) -> HandlerOutcom
             "approver_session_id": request.actor.session_id,
             "note": note,
             "member_item_ids": list(approval.member_item_ids),
+            "decision_request_id": approval.decision_request_id,
             "event_id": event_id,
         },
         primary_success=True,

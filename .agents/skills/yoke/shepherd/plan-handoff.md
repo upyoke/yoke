@@ -59,7 +59,7 @@ The Architect reads the item spec and plan from the DB (structured fields first,
 
  If you defer any work from scope during planning (e.g., "deferred to a follow-up",
  "out of scope for this epic"), update the ## Deferred Items section in the item body
- with a table entry for each deferral: | Description | Reason | Ticket (UNFILED) |.
+ with a table entry for each deferral: | Description | Reason | Work item (UNFILED) |.
  If no ## Deferred Items section exists yet, create one.
 
  Return: Technical Plan section, task content, Worktree Plan section.

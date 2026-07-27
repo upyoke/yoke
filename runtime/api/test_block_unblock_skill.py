@@ -18,6 +18,7 @@ operator surface fires the field write.
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -29,6 +30,7 @@ from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 
 
 _LABEL_REST_STATE = "yoke_core.domain.backlog_github_state_sync._label_rest"
+_SKILL_ROOT = Path(__file__).resolve().parents[2] / ".agents" / "skills" / "yoke"
 
 
 def _ok_resolver(*args, **kwargs):
@@ -131,3 +133,25 @@ def test_block_rejects_invalid_value():
     )
     assert not result["success"]
     assert "blocked" in (result.get("error") or "").lower()
+
+
+@pytest.mark.parametrize(
+    ("skill_name", "reason", "release_reason"),
+    (
+        ("block", "block", "block-complete"),
+        ("unblock", "unblock", "unblock-complete"),
+    ),
+)
+def test_skill_claim_surrounds_scalar_mutations(
+    skill_name: str, reason: str, release_reason: str,
+) -> None:
+    text = (_SKILL_ROOT / skill_name / "SKILL.md").read_text(encoding="utf-8")
+
+    acquire = text.index("yoke claims work acquire")
+    first_update = text.index("yoke items scalar update")
+    last_update = text.rindex("yoke items scalar update")
+    release = text.index("yoke claims work release")
+
+    assert acquire < first_update <= last_update < release
+    assert f'--item "YOK-{{N}}" --reason {reason}' in text
+    assert f'--item "YOK-{{N}}" --reason {release_reason}' in text

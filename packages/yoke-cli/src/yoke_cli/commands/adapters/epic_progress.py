@@ -131,9 +131,10 @@ def epic_tasks_list(args: List[str]) -> int:
 
     def _human_writer(response, stdout, stderr) -> None:
         for task in (response.result or {}).get("tasks", []):
+            lane = task.get("lane") or {}
             stdout.write(
                 f"{task.get('task_num', '')}|{task.get('title', '')}|"
-                f"{task.get('status', '')}|{task.get('worktree', '')}|"
+                f"{task.get('status', '')}|{lane.get('branch', '')}|"
                 f"{task.get('dependencies', '')}\n"
             )
 

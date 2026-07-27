@@ -18,11 +18,11 @@ You may add structure, headings, cross-references, or clarifying notes. You must
 
 Every new body carries a `## Simplify Pre-Check` block applying the simplify three-axis vocabulary at the idea stage. The vocabulary lives in `AGENTS.md`'s `## Simplify — three-axis doctrine` section: **reuse**, **quality**, **efficiency**. The pre-check is **advisory, not a blocker** — its structural presence at intake matters more than its depth. A one-line "no concerns" entry under each axis is a valid first pass.
 
-- **Reuse** — does an existing ticket, completed feature, Pack, helper, skill, or command surface already cover this outcome? If unsure, name what was searched.
+- **Reuse** — does an existing work item, completed feature, Pack, helper, skill, or command surface already cover this outcome? If unsure, name what was searched.
 - **Quality** — is this one concrete outcome, or a bundle that should split or become an epic? Are there explicit non-goals that prevent scope creep?
 - **Efficiency** — is this speculative transitional work ("do X so maybe later we can do Y") when Y is not committed? Or the cheapest valuable path?
 - **Future-concept lens** — if the idea mentions actors, sessions, heartbeats, ownership, leases, claims, approvals, overrides, evidence, runs, journals, packets, locks, or shared-state coordination, should it consume/pull forward an end-state primitive instead of creating a temporary local surface?
-- **Codebase-reader naming** — assume future readers will not have the ticket, strategy doc, plan, phase, task, or AC that produced this work. Any proposed file, module, helper, test, doc, command, event, config key, or symbol must be named for current function/purpose/mechanics, not for planning-artifact provenance.
+- **Codebase-reader naming** — assume future readers will not have the work item, strategy doc, plan, phase, task, or AC that produced this work. Any proposed file, module, helper, test, doc, command, event, config key, or symbol must be named for current function/purpose/mechanics, not for planning-artifact provenance.
 
 Compose the block as part of the body content the user provided. Example:
 
@@ -40,7 +40,7 @@ Compose the block as part of the body content the user provided. Example:
 
 The full File Budget contract — required structure, current line counts, sibling-module plan when any file is at-cap, File Budget vs path-claim consistency — lives in [`file-budget.md`](file-budget.md). Read it once and keep applying its rules to every implementation-bearing intake.
 
-File Budget paths and responsibility notes must pass the codebase-reader naming rule from `AGENTS.md`: do not name expected files after the ticket, strategy doc, plan, phase, task, AC, branch, or worktree that produced the work. Name the file by the current responsibility a future repository reader will see.
+File Budget paths and responsibility notes must pass the codebase-reader naming rule from `AGENTS.md`: do not name expected files after the work item, strategy doc, plan, phase, task, AC, branch, or worktree that produced the work. Name the file by the current responsibility a future repository reader will see.
 
 **Single-pass File Budget + path-claim authoring.** The File Budget
 section (here) and the path claim registered in section 9b are **two
@@ -54,7 +54,7 @@ either. The release-after-pass gate at section 10b runs
 mismatch leaves the draft claim held and blocks creation from
 finishing.
 
-Every new body for an **implementation-bearing** ticket carries a `## File Budget` section. The hard limit is 350 lines per authored file (owned by `yoke_core.domain.file_line_check`); the design target is `<=300` lines so implementors have editing headroom without crossing the cap mid-iteration. Idea-time the budget can be rough — the goal is to force the sizing question into the artifact before refinement, planning, and implementation, so an Engineer is never asked to invent a large module from scratch.
+Every new body for an **implementation-bearing** work item carries a `## File Budget` section. The hard limit is 350 lines per authored file (owned by `yoke_core.domain.file_line_check`); the design target is `<=300` lines so implementors have editing headroom without crossing the cap mid-iteration. Idea-time the budget can be rough — the goal is to force the sizing question into the artifact before refinement, planning, and implementation, so an Engineer is never asked to invent a large module from scratch.
 
 Three valid shapes — pick the one that matches what the operator described:
 
@@ -78,7 +78,7 @@ visible before acceptance criteria. Three valid examples:
 ```markdown
 ## File Budget
 
-UNRESOLVED — this ticket creates/grows authored code but the file shape is not yet known. `/yoke refine` MUST resolve the expected implementation shape before this item advances past `refining-idea`.
+UNRESOLVED — this work item creates/grows authored code but the file shape is not yet known. `/yoke refine` MUST resolve the expected implementation shape before this item advances past `refining-idea`.
 ```
 
 ```markdown
@@ -127,7 +127,7 @@ place.
 Ask the user explicitly:
 > Do you want to add a description? (Yes / No)
 
-If yes, collect the description and run the same body-write flow. If no, still write a minimal spec containing `# {title}` plus `## Simplify Pre-Check` with one-line entries for reuse, quality, efficiency, the future-concept lens, and codebase-reader naming (for example, `no concerns from title-only intake`) AND a `## File Budget` section using the appropriate shape from the section above. The pre-check is advisory; the File Budget is mandatory for any implementation-bearing intake. A title-only ticket whose nature is genuinely unknown should record the File Budget as `UNRESOLVED` so refine resolves it before implementation, or `N/A` with a reason if the operator confirmed no authored code will change.
+If yes, collect the description and run the same body-write flow. If no, still write a minimal spec containing `# {title}` plus `## Simplify Pre-Check` with one-line entries for reuse, quality, efficiency, the future-concept lens, and codebase-reader naming (for example, `no concerns from title-only intake`) AND a `## File Budget` section using the appropriate shape from the section above. The pre-check is advisory; the File Budget is mandatory for any implementation-bearing intake. A title-only work item whose nature is genuinely unknown should record the File Budget as `UNRESOLVED` so refine resolves it before implementation, or `N/A` with a reason if the operator confirmed no authored code will change.
 
 Important: do not edit a rendered body directly. Always update via the
 structured-field function calls — `items.structured_field.replace` for
@@ -139,7 +139,7 @@ full rewrites, `items.structured_field.append_addendum` /
 
 After the body has been written and verified (step 8 complete), classify and persist the DB claim against the **finished spec**, not against the title-only draft. This is the same amendment workflow `/yoke refine`, `/yoke advance`, and `/yoke polish` use later — there is no separate "first classification" path.
 
-**Why bucket discipline matters:** The prose-vs-claim gate honors any `DbClaimAmended` event with `state="none"` and `validation_result="pass"` as cleared evidence regardless of the reason text. The three-bucket discipline below is therefore the only signal that distinguishes reviewed-none meta-tickets from silent deferral bypasses; getting the bucket right at idea time is load-bearing.
+**Why bucket discipline matters:** The prose-vs-claim gate honors any `DbClaimAmended` event with `state="none"` and `validation_result="pass"` as cleared evidence regardless of the reason text. The three-bucket discipline below is therefore the only signal that distinguishes reviewed-none meta work items from silent deferral bypasses; getting the bucket right at idea time is load-bearing.
 
 1. Run the prose-vs-claim detector against the freshly written spec/body:
 
@@ -164,20 +164,20 @@ After the body has been written and verified (step 8 complete), classify and per
    matched triggers, then asks one ternary question. The buckets are
    mutually exclusive, and `state="none"` is **not** a valid deferral
    path for real governed mutation — pick the bucket that actually
-   describes this ticket's deliverables. Canonical prompt:
+   describes this work item's deliverables. Canonical prompt:
 
    > Spec declares governed DB vocabulary (`{triggers}`). Pick one:
    >
    > 1. **Real governed mutation, declare now** (Bucket 1) — gather model, mutation intent, migration module slug, compatibility class, and (for `pre_merge_safe`) the four authored attestation fields. Dispatch `db_claim.amend` with the unified declared `claim` payload (see [.yoke/docs/db-reference.md](../../../../.yoke/docs/db-reference.md)).
    > 2. **Real governed mutation, blocker for refine** (Bucket 2) — append a `DB Claim Blocker (idea-time)` section via `items.structured_field.section_upsert` listing known + missing facts. Do NOT call `db-claim-amend`; do NOT dispatch `db_claim.amend` — the implicit `{"state":"none"}` default plus the missing event signals `/yoke refine` to block at `GATE_DB_CLAIM_PROSE_MISMATCH` until a declared payload lands.
-   > 3. **Meta-ticket about DB governance** (Bucket 3) — the ticket cites DB vocabulary but its own deliverables do not mutate any governed authoritative DB (skill prose, gate composition, prose-classifier patterns, audit-trail vocabulary). Dispatch `db_claim.amend` with `payload.claim = {state: "none"}` and `payload.reason = "idea: ticket discusses DB governance vocabulary but performs no governed DB mutation; reviewed-none"`. The literal `; reviewed-none` suffix is the canonical signal — do not paraphrase.
+   > 3. **Meta work item about DB governance** (Bucket 3) — the work item cites DB vocabulary but its own deliverables do not mutate any governed authoritative DB (skill prose, gate composition, prose-classifier patterns, audit-trail vocabulary). Dispatch `db_claim.amend` with `payload.claim = {state: "none"}` and `payload.reason = "idea: work item discusses DB governance vocabulary but performs no governed DB mutation; reviewed-none"`. The literal `; reviewed-none` suffix is the canonical signal — do not paraphrase.
 
    Bucket 2 blocker section template:
 
    ```
    ## DB Claim Blocker (idea-time)
 
-   This ticket performs governed DB mutation but the declared claim could not be authored at idea time. `/yoke refine` MUST dispatch `db_claim.amend` with a declared `claim` payload before this item can advance past `refining-idea`.
+   This work item performs governed DB mutation but the declared claim could not be authored at idea time. `/yoke refine` MUST dispatch `db_claim.amend` with a declared `claim` payload before this item can advance past `refining-idea`.
 
    Known facts:
    - Authoritative DB / model: {known-or-unknown}
@@ -206,7 +206,7 @@ event on the blocker path is the desired behavior.
    `mutation_intent="apply"` and one or more `migration_modules`, the
    spec must carry an explicit retire-the-module acceptance criterion
    whose timing matches the project's install topology (per `AGENTS.md`
-   `## Cutover-ticket AC wording`). Read the topology and generate the
+   `## Cutover-work-item AC wording`). Read the topology and generate the
    right clause automatically — the operator does not hand-author this.
    See [`body-and-sync-functions.md`](body-and-sync-functions.md) under
    "Retire-AC clause" for the full topology + payload recipe; the
@@ -214,24 +214,7 @@ event on the blocker path is the desired behavior.
    `items.structured_field.section_append` function call (heading
    `Acceptance Criteria`) so the rest of the spec body is preserved.
 
-## 9. Persist Browser QA Metadata
-
-Every new item gets its inferred `browser_qa_metadata` object written to the DB before body sync. Non-browser tickets use the explicit negative object — `null` or empty string is not permitted.
-
-Route the write through the same structured-field function call as
-`spec` so validation, event emission, and rebuild semantics all apply:
-dispatch `items.structured_field.replace` with
-`payload = {field: "browser_qa_metadata", content: <_browser_qa_metadata_json>, source: "idea"}`
-(see [`body-and-sync-functions.md`](body-and-sync-functions.md)).
-
-The validator at
-`yoke_core.domain.browser_qa_metadata.validate_json_string` runs
-inside the handler. A malformed or contradictory object rejects the
-write entirely; investigate the failure and re-run `infer-and-create.md`
-step `g` before retrying. Do NOT fall back to writing the raw JSON via
-ad-hoc SQL.
-
-## 9b. Path-Claim Required
+## 9. Path-Claim Required
 
 Every new issue or epic MUST carry either a non-terminal path claim with declared coverage OR a non-terminal `mode='exception'` row with a non-empty `exception_reason`. Item-driven registers land `owner_kind='item'` automatically; the registering session is recorded as provenance (`registered_by_session_id`), never authority. The catch-up audit (`yoke_core.domain.path_integrity_invariants_claim_coverage.check_path_claim_coverage`) and the per-item gate (`yoke_core.domain.path_claim_required_gate.evaluate`) read the same condition; idea calls the gate inline so the operator knows immediately whether creation is complete.
 
@@ -289,15 +272,10 @@ yoke claims path required-gate YOK-{id-number}
 
 ## 10. Sync Body To GitHub
 
-Before syncing, seed the default unit-test QA requirement for non-browser
-issue tickets. This is idempotent and no-ops for browser-testable items or
-items that already have an AC verification requirement:
-
-```bash
-yoke qa requirement auto-create-for-item --item YOK-{id-number}
-```
-
-`yoke qa requirement auto-create-for-item --help` documents the worked example, outcome vocabulary, and flag matrix.
+Body sync does not derive QA requirements from item type or Browser posture.
+Project-default and item-attached plans materialize at their declared lifecycle
+transitions. Use `qa.requirement.add` only for an explicitly authored,
+item-specific requirement outside those plans.
 
 If step 8 wrote body content, push it to the linked GitHub issue via
 the `items sync-body` CLI — this is the explicit GitHub-side-effect
@@ -311,11 +289,7 @@ yoke items github-sync YOK-{id-number}
 ```
 
 Skip this step only if the user explicitly declined to add a
-description and the item remains title-only. The metadata write in
-step 9 intentionally does not post a GitHub status comment, does not
-modify labels, and does not trigger a GitHub body resync — the
-rendered body excludes `browser_qa_metadata` so the body hash stays
-stable across metadata edits.
+description and the item remains title-only.
 
 ## 10b. Pre-Handoff Readiness Check
 
@@ -333,7 +307,7 @@ The check runs three validations:
 
 * Every `module.function_name` reference in the spec resolves to a real `def function_name`.
 * File Budget records current `wc -l` for every existing-file edit target, and any file >=330 lines has a sibling-module plan.
-* File Budget and path-claim coverage agree on which files this ticket touches (the single-validated-step invariant — see section 9b for the authoring rule).
+* File Budget and path-claim coverage agree on which files this work item touches (the single-validated-step invariant — see section 9b for the authoring rule).
 
 **Gate classification: `repair-before-block`.** Idea-time readiness is advisory in scope (it surfaces gaps but does not mutate path claims itself) and **blocking in ordering** (the draft claim cannot release until the check passes). The mandatory repair pass is at `/yoke refine` entry, where the readiness handler distinguishes recoverable claim-coverage codes (`FILE_BUDGET_NOT_IN_CLAIM`, `CLAIM_NOT_IN_FILE_BUDGET`) from unrecoverable ones and routes recoverable cases to `claims.path.widen` / `claims.path.amend` — or, when explicit removal is appropriate, the operator-debug surface `path-claims narrow --keep-paths <kept>` — rather than releasing the work claim. The idea-time check stays declarative; refine is the first place where the spec is settled enough for safe automatic widening.
 

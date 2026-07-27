@@ -17,10 +17,15 @@ from yoke_core.domain.workflow_definition_validation import (
 )
 from yoke_core.domain.workflow_registry import (
     WorkflowRegistryError,
+    converge_builtin_workflows,
+    get_workflow_version,
     list_current_workflows,
     publish_workflow_version,
     resolve_current_workflow_pin,
     set_current_workflow_version,
+)
+from yoke_core.domain.workflow_policy_defaults import (
+    publish_workflow_policy_defaults,
 )
 from yoke_core.domain.workflow_item_versioning import (
     inspect_item_workflow_pin,
@@ -57,6 +62,31 @@ def test_schema_boot_seeds_immutable_builtin_versions(test_db):
     assert all(row["current_version_id"] for row in workflows)
     assert all(len(row["versions"]) == 1 for row in workflows)
     assert all(row["definition_digest"] for row in workflows)
+
+
+def test_convergence_refreshes_builtin_display_copy_without_new_version(
+    test_db,
+):
+    expected = builtin_workflow_definition("dash")["workflow"]
+    test_db.execute(
+        "UPDATE workflows SET name = 'Old', description = 'Old copy' "
+        "WHERE id = 'dash'"
+    )
+    test_db.commit()
+
+    converge_builtin_workflows(test_db)
+
+    row = test_db.execute(
+        "SELECT name, description FROM workflows WHERE id = 'dash'"
+    ).fetchone()
+    version_count = test_db.execute(
+        "SELECT COUNT(*) FROM workflow_versions WHERE workflow_id = 'dash'"
+    ).fetchone()
+    assert tuple(row) == (
+        expected["name"],
+        expected["description"],
+    )
+    assert int(version_count[0]) == 1
 
 
 @pytest.mark.parametrize(
@@ -170,6 +200,71 @@ def test_publish_pins_existing_items_and_can_roll_back_new_item_default(test_db)
         "issue",
         version_one_id,
     )
+
+
+def test_version_read_and_current_selection_use_optimistic_version(test_db):
+    changed = _definition()
+    changed["stages"][0]["label"] = "Filed"
+    publish_workflow_version(
+        test_db,
+        workflow_id="issue",
+        definition=changed,
+    )
+
+    first = get_workflow_version(
+        test_db,
+        workflow_id="issue",
+        version=1,
+    )
+    assert first["current"] is False
+    assert first["definition"]["stages"][0]["label"] == "idea"
+
+    with pytest.raises(WorkflowRegistryError, match="refresh first"):
+        set_current_workflow_version(
+            test_db,
+            workflow_id="issue",
+            version=1,
+            expected_current_version=1,
+        )
+    selected = set_current_workflow_version(
+        test_db,
+        workflow_id="issue",
+        version=1,
+        expected_current_version=2,
+    )
+    assert selected["version"] == 1
+
+
+def test_editable_path_claim_default_publishes_an_immutable_version(test_db):
+    result = publish_workflow_policy_defaults(
+        test_db,
+        workflow_id="dash",
+        expected_current_version=1,
+        path_claims_default=True,
+        published_by_actor_id=1,
+    )
+    assert result["version"] == 2
+    assert result["path_claims_default"] is True
+    first = get_workflow_version(test_db, workflow_id="dash", version=1)
+    second = get_workflow_version(test_db, workflow_id="dash", version=2)
+    assert first["definition"]["policies"]["path_claims"] == "optional"
+    assert second["definition"]["policies"]["path_claims"] == "required"
+    assert second["current"] is True
+
+    with pytest.raises(WorkflowRegistryError, match="refresh first"):
+        publish_workflow_policy_defaults(
+            test_db,
+            workflow_id="dash",
+            expected_current_version=1,
+            path_claims_default=False,
+        )
+    with pytest.raises(WorkflowRegistryError, match="does not expose"):
+        publish_workflow_policy_defaults(
+            test_db,
+            workflow_id="issue",
+            expected_current_version=1,
+            path_claims_default=False,
+        )
 
 
 def test_current_definition_change_does_not_repin_existing_item(test_db):

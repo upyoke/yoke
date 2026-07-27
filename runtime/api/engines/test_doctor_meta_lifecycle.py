@@ -8,6 +8,7 @@ Schema scaffolding is shared via _doctor_meta_test_helpers (private module).
 
 from __future__ import annotations
 
+from runtime.api.fixtures.backlog import insert_item_worktree
 from yoke_core.engines._doctor_meta_test_helpers import (
     _args,
     _insert_item,
@@ -35,8 +36,12 @@ class TestEpicTaskWorktree:
             status="implementing",
         )
         conn.execute(
-            "INSERT INTO epic_tasks (id, epic_id, task_num, title, worktree, status) "
-            "VALUES (1, 1, 1, 'Task', 'YOK-1', 'implementing')"
+            "INSERT INTO epic_tasks "
+            "(id, epic_id, task_num, title, item_worktree_id, status) "
+            "VALUES (1, 1, 1, 'Task', %s, 'implementing')",
+            (insert_item_worktree(
+                conn, item_id=1, branch="YOK-1", lane_role="worker"
+            )["id"],),
         )
         rec = RecordCollector()
         hc_epic_task_worktree(conn, _args(), rec)
@@ -53,7 +58,8 @@ class TestEpicTaskWorktree:
             status="implementing",
         )
         conn.execute(
-            "INSERT INTO epic_tasks (id, epic_id, task_num, title, worktree, status) "
+            "INSERT INTO epic_tasks "
+            "(id, epic_id, task_num, title, item_worktree_id, status) "
             "VALUES (1, 1, 1, 'Task', NULL, 'implementing')"
         )
         rec = RecordCollector()

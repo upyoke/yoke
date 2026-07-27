@@ -4,7 +4,7 @@ A ``{"kind": "migration_apply", "model_name": M, "lifecycle_phase": P}``
 stage binds the project's governed migration contract into a deployment
 flow.  The governed apply itself (rehearse → lease → backup → live-apply,
 with the mandatory operator checkpoint between the two units) runs inside
-the ticket lifecycle at the declared ``lifecycle_phase`` — never inside
+the work-item lifecycle at the declared ``lifecycle_phase`` — never inside
 the deploy pipeline, which executes only after member items have left
 that phase (``run_pipeline`` transitions items ``implemented → release``
 on start).

@@ -48,7 +48,6 @@ def dt_db(tmp_path, monkeypatch):
             title TEXT,
             type TEXT DEFAULT 'issue',
             status TEXT DEFAULT 'implementing',
-            worktree TEXT,
             github_issue TEXT,
             project_id INTEGER NOT NULL,
             project_sequence INTEGER NOT NULL,
@@ -57,6 +56,17 @@ def dt_db(tmp_path, monkeypatch):
             deployed_to TEXT,
             merged_at TEXT,
             frozen INTEGER DEFAULT 0
+        );
+        CREATE TABLE item_worktrees (
+            id INTEGER PRIMARY KEY,
+            item_id INTEGER NOT NULL,
+            branch TEXT NOT NULL,
+            path TEXT,
+            lane_role TEXT NOT NULL,
+            state TEXT NOT NULL DEFAULT 'active',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            released_at TEXT
         );
         CREATE TABLE epic_tasks (
             epic_id TEXT,
@@ -197,11 +207,11 @@ def _insert_item(db_path, item_id, **kwargs):
         "title": f"Test item {item_id}",
         "type": "issue",
         "status": "implementing",
-        "worktree": f"YOK-{item_id}",
         "project_id": _project_id(project),
         "project_sequence": item_id,
     }
     defaults.update(kwargs)
+    worktree = defaults.pop("worktree", f"YOK-{item_id}")
     conn = connect_dt_db(db_path)
     from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
 
@@ -215,5 +225,18 @@ def _insert_item(db_path, item_id, **kwargs):
     p = "%s" if db_backend.connection_is_postgres(conn) else "?"
     placeholders = ", ".join([p] * (1 + len(defaults)))
     conn.execute(f"INSERT INTO items ({cols}) VALUES ({placeholders})", vals)
+    if worktree:
+        conn.execute(
+            "INSERT INTO item_worktrees "
+            "(item_id, branch, lane_role, state, created_at, updated_at) "
+            f"VALUES ({p}, {p}, {p}, 'active', {p}, {p})",
+            (
+                item_id,
+                worktree,
+                "integration" if workflow_id == "epic" else "implementation",
+                "2026-01-01T00:00:00Z",
+                "2026-01-01T00:00:00Z",
+            ),
+        )
     conn.commit()
     conn.close()

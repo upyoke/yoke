@@ -9,7 +9,7 @@ argument-hint: "[project] [--fix] [--file path]"
 Run the Ouroboros system health scan. Checks the Yoke installation for consistency, drift, and breakage. When a project is specified, runs additional project-specific diagnostics. Branded as the **Ouroboros Health Report**.
 
 <!-- BEGIN GENERATED: field-note-directive -->
-When you hit a recipe gap or notice a minor bug not worth a ticket, file a field-note immediately — before retrying, before moving on.
+When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
 Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->
@@ -150,7 +150,7 @@ Do not leave the `DOCTOR` claim active after any post-claim stop.
  git worktree prune
  ```
 
- **All other warnings/failures:** Report only. These require human review, code changes, or the normal issue/ticket pipeline. Display a note:
+ **All other warnings/failures:** Report only. These require human review, code changes, or the normal issue/work item pipeline. Display a note:
  ```
  The following issues require manual attention:
  {list non-fixable issues from the report}
@@ -185,7 +185,7 @@ Do not leave the `DOCTOR` claim active after any post-claim stop.
 
  If there were failures that could not be auto-fixed:
  ```
- {N} issues remain. File tickets via /yoke idea and fix through the normal pipeline.
+ {N} issues remain. File work items via /yoke idea and fix through the normal pipeline.
  ```
 
 ## Notes

@@ -11,7 +11,7 @@ Freeze a backlog item. Freezing removes the item from the board's normal status-
 Use this when an item is blocked, deprioritized, or parked temporarily and you don't want it cluttering the active board.
 
 <!-- BEGIN GENERATED: field-note-directive -->
-When you hit a recipe gap or notice a minor bug not worth a ticket, file a field-note immediately — before retrying, before moving on.
+When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
 Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->
@@ -77,12 +77,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
        --item "YOK-{N}" --reason freeze-complete
    ```
 
-8. **Commit the changes.**
-   ```bash
-   git diff --cached --quiet || git commit -m "YOK-{N}: freeze"
-   ```
-
-9. **Report:**
+8. **Report:**
  > **YOK-{N}** ({title}): frozen
  >
  > The item retains its `{STATUS}` status but is now hidden from the active board.

@@ -50,9 +50,20 @@ CREATE TABLE epic_tasks (
   task_num INTEGER,
   title TEXT,
   status TEXT,
-  worktree TEXT,
+  item_worktree_id INTEGER,
   github_issue TEXT,
   last_heartbeat TEXT
+);
+CREATE TABLE item_worktrees (
+  id INTEGER PRIMARY KEY,
+  item_id INTEGER NOT NULL,
+  branch TEXT NOT NULL,
+  path TEXT,
+  lane_role TEXT NOT NULL,
+  state TEXT NOT NULL DEFAULT 'active',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  released_at TEXT
 );
 """
 
@@ -114,8 +125,10 @@ def test_validation_uses_postgres_authority_without_file_marker(
             conn,
             """
             INSERT INTO items (id, project_id, project_sequence) VALUES (42, 1, 42);
-            INSERT INTO epic_tasks (epic_id, task_num, title, status, worktree, github_issue, last_heartbeat)
-            VALUES ('42', 1, 'Task one', 'implemented', '', '', NULL);
+            INSERT INTO epic_tasks
+              (epic_id, task_num, title, status, item_worktree_id,
+               github_issue, last_heartbeat)
+            VALUES ('42', 1, 'Task one', 'implemented', NULL, '', NULL);
             """
         )
         conn.commit()
@@ -148,8 +161,10 @@ def test_numeric_epic_validation_passes_with_github_auth_missing(tmp_path, monke
             conn,
             """
             INSERT INTO items (id, project_id, project_sequence) VALUES (42, 1, 42);
-            INSERT INTO epic_tasks (epic_id, task_num, title, status, worktree, github_issue, last_heartbeat)
-            VALUES ('42', 1, 'Task one', 'implemented', '', '', NULL);
+            INSERT INTO epic_tasks
+              (epic_id, task_num, title, status, item_worktree_id,
+               github_issue, last_heartbeat)
+            VALUES ('42', 1, 'Task one', 'implemented', NULL, '', NULL);
             """
         )
         conn.commit()
@@ -205,10 +220,27 @@ def test_reports_missing_worktree_and_stale_heartbeat(tmp_path, monkeypatch, cap
         )
         conn.execute(
             f"""
-            INSERT INTO epic_tasks (epic_id, task_num, title, status, worktree, github_issue, last_heartbeat)
-            VALUES ({p}, 1, 'Task one', 'implementing', {p}, '', '2020-01-01T00:00:00Z')
+            INSERT INTO item_worktrees
+              (id, item_id, branch, path, lane_role, state,
+               created_at, updated_at)
+            VALUES (1, {p}, {p}, {p}, 'worker', 'active',
+                    '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')
             """,
-            (str(TEST_EPIC_ID), TEST_WORKTREE),
+            (
+                TEST_EPIC_ID,
+                TEST_WORKTREE,
+                str(tmp_path / ".worktrees" / TEST_WORKTREE),
+            ),
+        )
+        conn.execute(
+            f"""
+            INSERT INTO epic_tasks
+              (epic_id, task_num, title, status, item_worktree_id,
+               github_issue, last_heartbeat)
+            VALUES ({p}, 1, 'Task one', 'implementing', 1, '',
+                    '2020-01-01T00:00:00Z')
+            """,
+            (str(TEST_EPIC_ID),),
         )
         conn.commit()
 
@@ -225,9 +257,12 @@ def test_reports_missing_worktree_and_stale_heartbeat(tmp_path, monkeypatch, cap
         )
 
         rc = run_validation(tmp_path, "42", out=_Writer(out), err=_Writer(err))
-    assert rc == 1
+    assert rc == 1, "".join(out)
     text = "".join(out)
-    assert f"Worktree missing: {TEST_WORKTREE}" in text
+    assert (
+        f"Worktree missing: {tmp_path / '.worktrees' / TEST_WORKTREE}"
+        in text
+    )
     assert "may be stale" in text
 
 
@@ -257,8 +292,10 @@ def test_cross_project_github_checks_use_rest(tmp_path, monkeypatch):
             INSERT INTO items (id, project_id, project_sequence) VALUES (42, 100, 42);
             INSERT INTO projects (id, slug, name, github_repo, public_item_prefix)
             VALUES (100, 'acme', 'Acme', 'stale-owner/stale-repo', 'YOK');
-            INSERT INTO epic_tasks (epic_id, task_num, title, status, worktree, github_issue, last_heartbeat)
-            VALUES ('42', 1, 'Task one', 'implemented', '', '#123', NULL);
+            INSERT INTO epic_tasks
+              (epic_id, task_num, title, status, item_worktree_id,
+               github_issue, last_heartbeat)
+            VALUES ('42', 1, 'Task one', 'implemented', NULL, '#123', NULL);
             """
         )
         conn.commit()

@@ -33,7 +33,7 @@ def task_get(conn, epic_id: str, task_num: int) -> str:
     """Get one task row (pipe-delimited)."""
     row = query_one(
         conn,
-        """SELECT id, epic_id, task_num, title, worktree,
+        """SELECT id, epic_id, task_num, title, item_worktree_id,
                   context_estimate, dependencies, status, dispatch_attempts
            FROM epic_tasks WHERE epic_id={p} AND task_num={p}""".format(p=_p(conn)),
         (int(epic_id), task_num),
@@ -47,7 +47,7 @@ def task_list(conn, epic_id: str) -> str:
     """List all tasks for an epic (pipe-delimited, one per line)."""
     rows = query_rows(
         conn,
-        """SELECT id, epic_id, task_num, title, worktree,
+        """SELECT id, epic_id, task_num, title, item_worktree_id,
                   context_estimate, dependencies, status, dispatch_attempts
            FROM epic_tasks WHERE epic_id={p}
            ORDER BY task_num ASC""".format(p=_p(conn)),
@@ -91,8 +91,7 @@ def dispatch_chain_get(conn, epic_id: str, worktree: str) -> str:
     """Get a dispatch chain row (pipe-delimited)."""
     row = query_one(
         conn,
-        """SELECT id, epic_id, worktree,
-                  COALESCE(worktree_path,'') as worktree_path,
+        """SELECT c.id, c.epic_id, c.item_worktree_id,
                   COALESCE(queue,'') as queue,
                   current_index,
                   COALESCE(current_task,'') as current_task,
@@ -100,8 +99,9 @@ def dispatch_chain_get(conn, epic_id: str, worktree: str) -> str:
                   no_chain,
                   COALESCE(started_at,'') as started_at,
                   COALESCE(last_updated,'') as last_updated
-           FROM epic_dispatch_chains
-           WHERE epic_id={p} AND worktree={p}""".format(p=_p(conn)),
+           FROM epic_dispatch_chains c JOIN item_worktrees iw
+             ON iw.id=c.item_worktree_id
+           WHERE c.epic_id={p} AND iw.branch={p}""".format(p=_p(conn)),
         (int(epic_id), worktree),
     )
     if row is None:
@@ -113,8 +113,7 @@ def dispatch_chain_list(conn, epic_id: str) -> str:
     """List all dispatch chains for an epic (pipe-delimited)."""
     rows = query_rows(
         conn,
-        """SELECT id, epic_id, worktree,
-                  COALESCE(worktree_path,'') as worktree_path,
+        """SELECT c.id, c.epic_id, c.item_worktree_id,
                   COALESCE(queue,'') as queue,
                   current_index,
                   COALESCE(current_task,'') as current_task,
@@ -122,9 +121,9 @@ def dispatch_chain_list(conn, epic_id: str) -> str:
                   no_chain,
                   COALESCE(started_at,'') as started_at,
                   COALESCE(last_updated,'') as last_updated
-           FROM epic_dispatch_chains
-           WHERE epic_id={p}
-           ORDER BY id ASC""".format(p=_p(conn)),
+           FROM epic_dispatch_chains c
+           WHERE c.epic_id={p}
+           ORDER BY c.id ASC""".format(p=_p(conn)),
         (int(epic_id),),
     )
     return _pipe_rows(rows, DISPATCH_CHAIN_COLUMNS)

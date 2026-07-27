@@ -27,7 +27,7 @@ Quick reference for the columns most often mis-named in agent SQL. The DB-comman
 - `shepherd_verdicts`: use `item` (NOT `item_id`), `transition` (NOT `gate`).
 - `ouroboros_entries`: content is in `body` (NOT `entry`), use `created_at` (NOT `timestamp`).
 - `project_capabilities`: use `type` (NOT `capability`/`name`/`capability_type`), `config` for full JSON (may contain secrets), `settings` for non-sensitive JSON.
-- `projects`: use `id` (NOT `project_id`/`name`) and `github_repo` (NOT `repo_url`/`github_url`). Checkout paths are machine-local config, not `projects` columns. Ticket-level deployment-flow defaulting lives in the `deploy_defaults` Project Structure family, not as a column on `projects`.
+- `projects`: use `id` (NOT `project_id`/`name`) and `github_repo` (NOT `repo_url`/`github_url`). Checkout paths are machine-local config, not `projects` columns. Work-item-level deployment-flow defaulting lives in the `deploy_defaults` Project Structure family, not as a column on `projects`.
 - **Domain names**: `epic` (NOT `epics`), `events registry` (NOT `registry`), `runs` (NOT `deploy-events`); board rebuild is `yoke board rebuild`.
 - **Live-claim holder lookup** (often mis-guessed): `python3 -m runtime.harness.harness_sessions who-claims <item-id>`. Do not guess owner/session columns or retired per-item claim tables; the typed `work_claims` model uses `target_kind` plus the matching specialized columns. See [qa-and-sessions.md § Live claim-holder lookup](db-reference/qa-and-sessions.md).
 
@@ -52,9 +52,16 @@ When this reference changes (a new column, a renamed table, a new wrapper comman
 - `core` — control plane + structured fields (`epic_tasks`, `epic_progress_notes`, `events`) plus item-dependency wrapper recipes (`shepherd dependency-list`, `dependency-add`, `dependency-update`, `dependency-remove`).
 - `claims` — `harness_sessions`, `work_claims`, `path_claims` plus the `who-claims` / `path-claim-list` / `release-work-claim` wrappers.
 - `qa` — `qa_requirements`, `qa_runs`, the QA discovery wrappers (`yoke qa requirement list`, `yoke qa run list`, `yoke qa run add`), and the reviewed-implementation gate preview surfaced through `/yoke advance YOK-N reviewed-implementation`. The packet teaches that running the test suite alone does not satisfy the gate — agents must route reviewed-implementation transitions through `/yoke advance YOK-N reviewed-implementation`, never raw `items update`.
-- `project` — `project_structure` aggregate plus the `command_definitions` wrappers (`get <project> <scope>`, `list <project>`, `scopes`). The packet teaches that there is no top-level `command_definitions` table — raw `... FROM command_definitions WHERE ...` queries fail; route through `yoke_core.domain.command_definitions` instead.
+- `project` — `project_structure` declarations plus project QA plans and
+  deployment defaults. Executable verification belongs to immutable QA plan
+  cases, not Project Structure command fields.
 
-**Per-role topic assignments** live in `schema_api_context_seed.ROLE_TOPICS`. Role keys are layer-explicit: `main_agent`, `architect_agent`, `engineer_agent`, `tester_agent`, `simulator_agent`, and `boss_agent`. Engineer and Tester receive all four topics (they run tests, record QA verdicts, and consume project test commands). Main Agent, Architect, Simulator, and Boss receive `core` + `claims` only — they investigate, plan, trace, and review without invoking the QA gate or `command_definitions` directly. `harness_contract` is the separate manifest/bootstrap substrate contract, not a `schema_api_context` role. The doctrine is mirrored in `docs/agents.md`.
+**Per-role topic assignments** live in `schema_api_context_seed.ROLE_TOPICS`.
+Role keys are layer-explicit: `main_agent`, `architect_agent`,
+`engineer_agent`, `tester_agent`, `simulator_agent`, and `boss_agent`.
+Engineer and Tester receive the project and QA topics needed to materialize and
+execute plan cases. `harness_contract` is a separate manifest/bootstrap
+substrate contract. The doctrine is mirrored in `docs/agents.md`.
 
 ## Topic Index
 
@@ -94,7 +101,7 @@ Columns (and tables) retired across a project's governed migration lifecycle are
 
 It feeds three downstream checks:
 
-- The `check_implementing_to_reviewing_implementation_gate` evidence gate performs a post-state verification against the authoritative DB. If a ticket's `db_mutation_profile.affected_surfaces[].columns` names a retired column and that column is still present on the authoritative DB, the advance is blocked with remediation.
+- The `check_implementing_to_reviewing_implementation_gate` evidence gate performs a post-state verification against the authoritative DB. If a work item's `db_mutation_profile.affected_surfaces[].columns` names a retired column and that column is still present on the authoritative DB, the advance is blocked with remediation.
 - Idempotent `ALTER TABLE ... ADD COLUMN` call sites in init/bootstrap modules consult `yoke_core.domain.retired_schema_registry.guard_add_column` before executing. A registered column skips the `ADD COLUMN` and emits a WARN `RetiredSchemaResurrectionAttempt` event.
 - Doctor health check `HC-retired-schema-resurrection` (`yoke_core.engines.doctor_hc_retired_schema`) verifies each registered column is actually absent on the authoritative DB and surfaces drift as WARN.
 
@@ -104,7 +111,7 @@ Adding a new retirement: the governed cutover lands first (authoritative DB no l
 
 | Domain | Python owner | Responsibility |
 |---|---|---|
-| `items` | `yoke_core.api.service_client_items` / `yoke_core.api.service_client backlog-cli` | Backlog item CRUD and structured-field writes (`spec`, `design_spec`, `technical_plan`, `worktree_plan`, `shepherd_log`, `shepherd_caveats`, `test_results`, `deploy_log`, `browser_qa_metadata`) |
+| `items` | `yoke_core.api.service_client_items` / `yoke_core.api.service_client backlog-cli` | Backlog item CRUD and structured-field writes (`spec`, `design_spec`, `technical_plan`, `worktree_plan`, `shepherd_log`, `shepherd_caveats`, `test_results`, `deploy_log`) |
 | `epic` | `yoke_core.domain.epic` | Epic task management |
 | `sections` | `yoke_core.domain.item_sections` | Item sections CRUD (`item_sections` table) |
 | `shepherd` | `yoke_core.domain.shepherd` | Shepherd verdicts and dependency operations |
@@ -122,7 +129,7 @@ Adding a new retirement: the governed cutover lands first (authoritative DB no l
 
 Run `yoke --help` to enumerate the registered product-facing commands.
 
-New backlog-ticket intake goes through `/yoke idea`; lower-level item
+New work-item intake goes through `/yoke idea`; lower-level item
 creation adapters are internal to that workflow or test/dry-run surfaces.
 
 **Examples:**
@@ -155,13 +162,11 @@ yoke shepherd dependency-list YOK-N
 yoke items get YOK-N spec
 yoke items get YOK-N design_spec
 yoke items get YOK-N technical_plan
-yoke items get YOK-N browser_qa_metadata
 
 # Structured field writes
 # Each CLI adapter constructs a FunctionCallRequest internally and dispatches through the same registry.
 printf '%s' "$SPEC_CONTENT" | yoke items structured-field replace YOK-N --field spec --stdin
 printf '%s' "$DESIGN_CONTENT" | yoke items structured-field replace YOK-N --field design_spec --stdin
-printf '%s' "$BROWSER_QA_JSON" | yoke items structured-field replace YOK-N --field browser_qa_metadata --stdin
 
 # Item sections
 yoke items section upsert YOK-N --section "Goals" --content-file /tmp/goals.md --ordering 100
@@ -265,7 +270,7 @@ The `coordination_leases.lease_id` join already linked the audit row to the leas
 
 ## Cross-worktree migration apply (`--module-path-override`)
 
-`yoke_core.domain.migration_apply` exposes a sanctioned cross-worktree override for the two-unit `rehearse` / `live-apply` contract. The override sources the migration module from an active feature-worktree checkout instead of the model's default `runner.config.modules_dir` so a feature ticket can apply the module it authored without staging it on `main` first. See AGENTS.md `## Governed DB Mutation` for the surrounding contract.
+`yoke_core.domain.migration_apply` exposes a sanctioned cross-worktree override for the two-unit `rehearse` / `live-apply` contract. The override sources the migration module from an active feature-worktree checkout instead of the model's default `runner.config.modules_dir` so a feature work item can apply the module it authored without staging it on `main` first. See AGENTS.md `## Governed DB Mutation` for the surrounding contract.
 
 CLI shape (both subcommands):
 
@@ -303,7 +308,6 @@ Some `TEXT` columns carry JSON payloads. These columns are `TEXT` today and beco
 |---|---|---|
 | `events` | `envelope` | full event envelope JSON; readers route JSON-field reads through `yoke_core.domain.sql_json.json_get` |
 | `events` | `anomaly_flags` | array payload per `docs/event-contract.md` (today a comma-separated string; migrates to JSON array on cutover) |
-| `items` | `browser_qa_metadata` | validated JSON object per `yoke_core.domain.browser_qa_metadata.validate_json_string` |
 | `qa_runs` | `raw_result` | JSON-encoded tool output per `.yoke/docs/qa-platform.md` |
 | `qa_artifacts` | `metadata` | JSON metadata envelope per `.yoke/docs/qa-platform.md` |
 | `deployment_flows` | `stages` | JSON array of stage objects |

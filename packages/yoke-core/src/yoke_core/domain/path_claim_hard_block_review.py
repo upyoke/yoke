@@ -48,7 +48,7 @@ PATH_CLAIM_AUTHORING_SOURCES: frozenset[str] = frozenset({"idea", "refine"})
 # path evidence — a repo file path/root file, or a structured shared_paths
 # field — before the review treats it as path-claim hard-block authoring.
 # Plain conceptual prose like "overlaps path-claim guidance" is too broad:
-# those rows may encode legitimate sequencing between related tickets.
+# those rows may encode legitimate sequencing between related work items.
 _PATH_EVIDENCE_PATTERNS: tuple[re.Pattern, ...] = (
     re.compile(r"\bshared_paths?\s*=", re.IGNORECASE),
 )

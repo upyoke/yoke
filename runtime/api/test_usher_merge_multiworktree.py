@@ -7,14 +7,11 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
-
-from yoke_core.domain.worktree_test_helpers import (  # noqa: F401
-    git_repo,
-    yoke_db,
-)
+from runtime.api.fixtures.backlog import insert_item_worktree
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
+
+pytest_plugins = ("yoke_core.domain.worktree_test_helpers",)
 
 SKILL_ROOT = Path(__file__).parents[2] / ".agents" / "skills" / "yoke"
 MERGE_MD = SKILL_ROOT / "usher" / "merge.md"
@@ -28,12 +25,12 @@ def _resolver_env(db_path: str) -> dict[str, str]:
 def _add_item_and_project(conn, epic_id: int, git_repo) -> None:
     conn.execute(
         "INSERT INTO items "
-        "(id, title, workflow_id, workflow_version_id, status, worktree, "
+        "(id, title, workflow_id, workflow_version_id, status, "
         "project_id, project_sequence) "
         "VALUES (%s, 'Epic', 'epic', "
         "(SELECT current_version_id FROM workflows WHERE id='epic'), "
-        "'reviewed-implementation', %s, 1, %s)",
-        (epic_id, f"YOK-{epic_id}", epic_id),
+        "'reviewed-implementation', 1, %s)",
+        (epic_id, epic_id),
     )
     register_machine_checkout(git_repo.parent / "machine-config", git_repo, 1)
 
@@ -85,14 +82,14 @@ class TestMergeMdEpicDelegation:
 
 
 class TestMergeMdWorktreeIteration:
-    """AC-2: usher/merge.md uses resolver for ephemeral-verify branch, not items.worktree."""
+    """usher/merge.md resolves every ephemeral-verification lane."""
 
     def test_no_direct_worktree_field_read_for_ephemeral(self):
         """The ephemeral-verify branch resolution must use the resolver, not db_router worktree."""
         text = MERGE_MD.read_text()
         # The old single-field read (without resolver) was on one line; check it is gone
         assert "items get YOK-{N} worktree" not in text, (
-            "merge.md still reads items.worktree directly for ephemeral-verify branch — "
+            "merge.md still reads the retired item-level branch projection — "
             "must use worktree_item_resolve instead"
         )
 
@@ -265,18 +262,20 @@ class TestResolverCLI:
         path_b = _add_git_worktree(git_repo, branch_b)
 
         conn = connect_test_db(yoke_db)
-        conn.execute(
-            "CREATE TABLE epic_dispatch_chains "
-            "(epic_id TEXT, worktree TEXT, worktree_path TEXT)"
-        )
         _add_item_and_project(conn, epic_id, git_repo)
-        conn.execute(
-            "INSERT INTO epic_dispatch_chains VALUES (%s, %s, %s)",
-            (str(epic_id), branch_a, str(path_a)),
+        insert_item_worktree(
+            conn,
+            item_id=epic_id,
+            branch=branch_a,
+            lane_role="worker",
+            path=str(path_a),
         )
-        conn.execute(
-            "INSERT INTO epic_dispatch_chains VALUES (%s, %s, %s)",
-            (str(epic_id), branch_b, str(path_b)),
+        insert_item_worktree(
+            conn,
+            item_id=epic_id,
+            branch=branch_b,
+            lane_role="worker",
+            path=str(path_b),
         )
         conn.commit()
         conn.close()
