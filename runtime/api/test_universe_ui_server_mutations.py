@@ -194,17 +194,17 @@ class TestProxyMutations:
             "function": "workflows.policy_defaults.publish",
             "payload": {
                 "workflow_id": "dash",
-                "expected_current_version": 1,
+                "expected_current_version": 2,
                 "path_claims_default": True,
             },
         })
         assert response.status_code == 200
         envelope = response.json()
         assert envelope["success"] is True, envelope
-        assert envelope["result"]["version"] == 2
+        assert envelope["result"]["version"] == 3
         row = test_db.execute(
             "SELECT published_by_actor_id FROM workflow_versions "
-            "WHERE workflow_id = 'dash' AND version = 2"
+            "WHERE workflow_id = 'dash' AND version = 3"
         ).fetchone()
         assert int(row[0]) == operator
 

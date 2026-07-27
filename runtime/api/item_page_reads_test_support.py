@@ -178,8 +178,13 @@ def _connection() -> sqlite3.Connection:
     conn.execute("INSERT INTO projects VALUES (7, 'acme', 'Acme', 'ACM')")
     conn.execute("INSERT INTO workflows VALUES ('dash', 'Dash')")
     conn.execute(
-        "INSERT INTO workflow_versions VALUES (?, 'dash', 1, ?, ?)",
-        (11, json.dumps(definition), definition_digest(definition)),
+        "INSERT INTO workflow_versions VALUES (?, 'dash', ?, ?, ?)",
+        (
+            11,
+            fixture["version"],
+            json.dumps(definition),
+            definition_digest(definition),
+        ),
     )
     conn.execute(
         """

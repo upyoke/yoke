@@ -1,13 +1,24 @@
-"""Contract tests for the first published built-in workflow definitions."""
+"""Contract tests for current and historical built-in workflow definitions."""
 
 from __future__ import annotations
 
+from copy import deepcopy
+
+import pytest
+
 from yoke_core.domain.builtin_workflow_definitions import (
+    BUILTIN_WORKFLOW_PREFERRED_VERSION,
     BUILTIN_WORKFLOW_IDS,
     ENTRY_SURFACE_IDS,
     REGISTERED_WORKFLOW_EXECUTOR_IDS,
     builtin_workflow_definition,
     builtin_workflow_definitions,
+    builtin_workflow_version_history,
+)
+from yoke_core.domain.workflow_definition_codec import definition_digest
+from yoke_core.domain.workflow_definition_validation import (
+    WorkflowDefinitionError,
+    validate_workflow_definition,
 )
 from yoke_core.domain.workflow_gate_catalog import workflow_gate_catalog
 
@@ -170,13 +181,17 @@ EXPECTED_GATE_DESCRIPTIONS = {
         "passed, an approval resolved."
     ),
 }
+VERSION_ONE_DIGESTS = {
+    "issue": "a663bad503664557c9990a9f3ea281c123864f4f8c13e4573dc1996181c64fa8",
+    "epic": "e122cee5d947bf2e822fb66ad0fda0aaab218281e48731ae32fec0647785dfaf",
+    "blitz": "d14b977565f7580cc43cee2c27b9b3eaf1a425514314903bf86bc274ab394571",
+    "dash": "6222fc5bb143909574ae5c305b2ef35849f5d4598a73a6d4b28c8bcf4d414931",
+}
 
 
 def _stage_ids(workflow_id: str) -> tuple[str, ...]:
     fixture = builtin_workflow_definition(workflow_id)
-    return tuple(
-        stage["id"] for stage in fixture["definition"]["stages"]
-    )
+    return tuple(stage["id"] for stage in fixture["definition"]["stages"])
 
 
 def _gate_pairs(workflow_id: str) -> set[tuple[str, str]]:
@@ -188,13 +203,90 @@ def _gate_pairs(workflow_id: str) -> set[tuple[str, str]]:
     }
 
 
-def test_builtin_roster_and_first_versions_are_fixed():
+def _replace_stage_id(definition: dict, before: str, after: str) -> None:
+    for stage in definition["stages"]:
+        if stage["id"] == before:
+            stage["id"] = after
+    definition["terminal_stage_ids"] = [
+        after if value == before else value
+        for value in definition["terminal_stage_ids"]
+    ]
+    for rows in ("transitions", "executor_bindings"):
+        for row in definition[rows]:
+            for key in ("from_stage_id", "to_stage_id", "through_stage_id"):
+                if row.get(key) == before:
+                    row[key] = after
+
+
+def test_builtin_roster_and_immutable_history_are_fixed():
     fixtures = builtin_workflow_definitions()
-    assert tuple(row["workflow"]["id"] for row in fixtures) == (
-        BUILTIN_WORKFLOW_IDS
-    )
-    assert {row["version"] for row in fixtures} == {1}
+    history = builtin_workflow_version_history()
+    assert tuple(row["workflow"]["id"] for row in fixtures) == BUILTIN_WORKFLOW_IDS
+    assert {row["version"] for row in fixtures} == {
+        BUILTIN_WORKFLOW_PREFERRED_VERSION
+    }
     assert {row["workflow"]["source"] for row in fixtures} == {"built_in"}
+    assert {
+        row["workflow"]["id"]: definition_digest(row["definition"])
+        for row in history
+    } == VERSION_ONE_DIGESTS
+    assert all(
+        "approval_defaults" not in row["definition"]["policies"]
+        for row in history
+    )
+    assert all(
+        row["definition"]["policies"]["approval_defaults"] == {}
+        for row in fixtures
+    )
+    for row in (*history, *fixtures):
+        validate_workflow_definition(row["definition"])
+
+
+@pytest.mark.parametrize(
+    "mutate, match",
+    [
+        (
+            lambda value: value["stages"][0]["gates"].append({"id": "unknown"}),
+            "unknown gate",
+        ),
+        (
+            lambda value: value["executor_bindings"][0].update(
+                executor_id="unknown"
+            ),
+            "unknown executor",
+        ),
+        (
+            lambda value: value["stages"][1].update(
+                label=value["stages"][0]["label"]
+            ),
+            "labels must be unique",
+        ),
+        (
+            lambda value: value["policies"].update(unknown="value"),
+            "keys mismatch",
+        ),
+    ],
+)
+def test_invalid_definitions_fail_closed(mutate, match):
+    definition = builtin_workflow_definition("issue")["definition"]
+    mutate(definition)
+    with pytest.raises(WorkflowDefinitionError, match=match):
+        validate_workflow_definition(definition)
+
+
+def test_structural_stage_change_requires_complete_mapping():
+    previous = builtin_workflow_definition("issue")["definition"]
+    changed = deepcopy(previous)
+    _replace_stage_id(changed, "release", "delivering")
+    with pytest.raises(WorkflowDefinitionError, match="stage_mapping"):
+        validate_workflow_definition(changed, previous=previous)
+    changed["stage_mapping"] = {
+        stage["id"]: (
+            "delivering" if stage["id"] == "release" else stage["id"]
+        )
+        for stage in previous["stages"]
+    }
+    validate_workflow_definition(changed, previous=previous)
 
 
 def test_short_workflows_make_coverage_holes_and_closures_explicit():

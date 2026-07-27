@@ -1,10 +1,8 @@
-"""Current definitions for the Blitz and Dash direct-execution workflows."""
+"""Previously published Blitz and Dash workflow definitions."""
 
 from __future__ import annotations
 
 from yoke_core.domain.workflow_definition_builders import (
-    BUILTIN_WORKFLOW_PREFERRED_VERSION,
-    WORKFLOW_PATH_CLAIMS_OPTIONAL,
     definition_fixture,
     executor_binding,
     gate_ref,
@@ -23,10 +21,10 @@ from yoke_core.domain.workflow_gate_catalog import (
 )
 
 _REFINEMENT_STAGES = (
-    workflow_stage("idea", "idea"),
+    workflow_stage("idea", "Idea"),
     workflow_stage(
         "refining-idea",
-        "refining idea",
+        "Refining idea",
         (
             gate_ref(GATE_DB_CLAIM_PROSE),
             gate_ref(GATE_DB_MUTATION, "joint"),
@@ -34,7 +32,7 @@ _REFINEMENT_STAGES = (
     ),
     workflow_stage(
         "refined-idea",
-        "refined idea",
+        "Refined idea",
         (
             gate_ref(GATE_DB_CLAIM_PROSE),
             gate_ref(GATE_ARCHITECTURE_IMPACT),
@@ -42,51 +40,43 @@ _REFINEMENT_STAGES = (
     ),
 )
 
-BLITZ_WORKFLOW_DEFINITION = definition_fixture(
+BLITZ_WORKFLOW_VERSION_ONE = definition_fixture(
     workflow_id="blitz",
     name="Blitz",
     description=(
-        "Execute a strategy document directly; the item is only its "
-        "coordination shell. Releases happen continuously inside implementing; "
-        "the close reconciles the document."
+        "Execute one strategy document directly with continuous slice delivery."
     ),
-    version=BUILTIN_WORKFLOW_PREFERRED_VERSION,
     stages=(
         *_REFINEMENT_STAGES,
         workflow_stage(
             "implementing",
-            "implementing",
+            "Implementing",
             (
                 gate_ref(GATE_DOC_CLAIM_ACTIVATION),
                 gate_ref(GATE_CONFLICT_SURVEY),
                 gate_ref(GATE_ARCHITECTURE_IMPACT),
             ),
-            "The continuous slice loop — the linked document is executed "
-            "directly, and each slice may merge, migrate, and deploy; there "
-            "is no separate release stage.",
+            "The linked document drives a continuous loop of integrated slices.",
         ),
         workflow_stage(
             "reviewing-implementation",
-            "reviewing implementation",
+            "Reviewing implementation",
             (
                 gate_ref(GATE_DB_CLAIM_PROSE),
                 gate_ref(GATE_DB_MUTATION, "evidence"),
                 gate_ref(GATE_ARCHITECTURE_IMPACT),
             ),
-            "The once-per-item close — the full suite runs and the document "
-            "records what was completed, what changed, what remains, the "
-            "evidence, and how the parent strategy was reconciled.",
+            "The complete result and its evidence are reconciled in the document.",
         ),
         workflow_stage(
             "done",
-            "done",
+            "Done",
             (
                 gate_ref(GATE_ARCHITECTURE_IMPACT),
                 gate_ref(GATE_QA_VERIFICATION),
                 gate_ref(GATE_DOC_COMPLETION),
             ),
-            "The execution document states completion and parent "
-            "reconciliation; that evidence is the entry gate.",
+            "The document records completion and parent reconciliation.",
         ),
     ),
     entry_surfaces=("harness_skill",),
@@ -96,7 +86,7 @@ BLITZ_WORKFLOW_DEFINITION = definition_fixture(
     ),
     policies={
         "ownership": "session_item_and_document_claim",
-        "path_claims": WORKFLOW_PATH_CLAIMS_OPTIONAL,
+        "path_claims": "optional",
         "worktrees": "worker_lanes_optional_integration",
         "parallelism": "maximum_safe_slices",
         "generated_children": "none",
@@ -110,58 +100,52 @@ BLITZ_WORKFLOW_DEFINITION = definition_fixture(
             "deployment",
         ],
     },
-    approval_defaults={},
 )
 
-DASH_WORKFLOW_DEFINITION = definition_fixture(
+DASH_WORKFLOW_VERSION_ONE = definition_fixture(
     workflow_id="dash",
     name="Dash",
     description=(
-        "A short instruction you file in seconds — filing is the spec; "
-        "an agent executes it end-to-end."
+        "A short instruction filed in seconds and executed end to end."
     ),
-    version=BUILTIN_WORKFLOW_PREFERRED_VERSION,
     stages=(
-        workflow_stage("idea", "idea"),
+        workflow_stage("idea", "Idea"),
         workflow_stage(
             "implementing",
-            "implementing",
+            "Implementing",
             (
                 gate_ref(GATE_WORK_CLAIM_ACTIVATION),
                 gate_ref(GATE_CONFLICT_SURVEY),
                 gate_ref(GATE_ARCHITECTURE_IMPACT),
             ),
-            "The agent surveys for conflicts, takes a worktree, and executes "
-            "the instruction in one pass.",
+            "The executor surveys conflicts and completes the instruction.",
         ),
         workflow_stage(
             "reviewing-implementation",
-            "reviewing implementation",
+            "Reviewing implementation",
             (
                 gate_ref(GATE_DB_CLAIM_PROSE),
                 gate_ref(GATE_DB_MUTATION, "evidence"),
                 gate_ref(GATE_ARCHITECTURE_IMPACT),
             ),
-            "The verification close — the agent self-checks, plus any case a "
-            "tightened posture knob added.",
+            "The executor self-checks plus any item-declared verification.",
         ),
         workflow_stage(
             "done",
-            "done",
+            "Done",
             (
                 gate_ref(GATE_ARCHITECTURE_IMPACT),
                 gate_ref(GATE_QA_VERIFICATION),
                 gate_ref(GATE_DASH_EVIDENCE),
             ),
-            "Result and verification evidence are recorded on the item; "
-            "delivery, when enabled, ran as an after-merge action.",
+            "The result and verification evidence are recorded on the item.",
         ),
     ),
     entry_surfaces=("web_form", "cli", "harness_skill", "promotion"),
     executor_bindings=(executor_binding("dash", "idea", "done"),),
     policies={
         "ownership": "exclusive_session_work_claim",
-        "path_claims": WORKFLOW_PATH_CLAIMS_OPTIONAL,
+        "path_claims": "optional",
         "worktrees": "single_implementation_lane",
         "parallelism": "none",
         "generated_children": "none",
@@ -175,7 +159,6 @@ DASH_WORKFLOW_DEFINITION = definition_fixture(
             "deployment",
         ],
     },
-    approval_defaults={},
 )
 
-__all__ = ["BLITZ_WORKFLOW_DEFINITION", "DASH_WORKFLOW_DEFINITION"]
+__all__ = ["BLITZ_WORKFLOW_VERSION_ONE", "DASH_WORKFLOW_VERSION_ONE"]

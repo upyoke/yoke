@@ -1,11 +1,8 @@
-"""Current definitions for the Issue and Epic delivery workflows."""
+"""Previously published Issue and Epic workflow definitions."""
 
 from __future__ import annotations
 
 from yoke_core.domain.workflow_definition_builders import (
-    BUILTIN_WORKFLOW_PREFERRED_VERSION,
-    WORKFLOW_PATH_CLAIMS_REQUIRED,
-    WORKFLOW_PATH_CLAIMS_REQUIRED_PER_TASK,
     definition_fixture,
     executor_binding,
     gate_ref,
@@ -23,10 +20,10 @@ from yoke_core.domain.workflow_gate_catalog import (
 )
 
 _INTAKE_STAGES = (
-    workflow_stage("idea", "idea"),
+    workflow_stage("idea", "Idea"),
     workflow_stage(
         "refining-idea",
-        "refining idea",
+        "Refining idea",
         (
             gate_ref(GATE_DB_CLAIM_PROSE),
             gate_ref(GATE_DB_MUTATION, "joint"),
@@ -34,30 +31,26 @@ _INTAKE_STAGES = (
     ),
     workflow_stage(
         "refined-idea",
-        "refined idea",
+        "Refined idea",
         (
             gate_ref(GATE_DB_CLAIM_PROSE),
             gate_ref(GATE_ARCHITECTURE_IMPACT),
         ),
     ),
 )
-def _reviewing_implementation_stage(description: str) -> dict:
-    return workflow_stage(
+_IMPLEMENTATION_CLOSE_STAGES = (
+    workflow_stage(
         "reviewing-implementation",
-        "reviewing implementation",
+        "Reviewing implementation",
         (
             gate_ref(GATE_DB_CLAIM_PROSE),
             gate_ref(GATE_DB_MUTATION, "evidence"),
             gate_ref(GATE_ARCHITECTURE_IMPACT),
         ),
-        description,
-    )
-
-
-_IMPLEMENTATION_CLOSE_STAGES = (
+    ),
     workflow_stage(
         "reviewed-implementation",
-        "reviewed implementation",
+        "Reviewed implementation",
         (
             gate_ref(GATE_ARCHITECTURE_IMPACT),
             gate_ref(GATE_PATH_CLAIM_BOUNDARY),
@@ -66,12 +59,12 @@ _IMPLEMENTATION_CLOSE_STAGES = (
     ),
     workflow_stage(
         "polishing-implementation",
-        "polishing implementation",
+        "Polishing implementation",
         (gate_ref(GATE_ARCHITECTURE_IMPACT),),
     ),
     workflow_stage(
         "implemented",
-        "implemented",
+        "Implemented",
         (
             gate_ref(GATE_DB_CLAIM_PROSE),
             gate_ref(GATE_DB_MUTATION, "polish"),
@@ -82,7 +75,7 @@ _IMPLEMENTATION_CLOSE_STAGES = (
     ),
     workflow_stage(
         "release",
-        "release",
+        "Release",
         (
             gate_ref(GATE_ARCHITECTURE_IMPACT),
             gate_ref(GATE_PATH_CLAIM_BOUNDARY),
@@ -91,39 +84,33 @@ _IMPLEMENTATION_CLOSE_STAGES = (
     ),
 )
 
-ISSUE_WORKFLOW_DEFINITION = definition_fixture(
+ISSUE_WORKFLOW_VERSION_ONE = definition_fixture(
     workflow_id="issue",
     name="Issue",
     description=(
-        "One scoped implementation lane with planning, review, QA and delivery."
+        "One scoped implementation lane with planning, review, QA, and delivery."
     ),
-    version=BUILTIN_WORKFLOW_PREFERRED_VERSION,
     stages=(
         *_INTAKE_STAGES,
         workflow_stage(
             "implementing",
-            "implementing",
+            "Implementing",
             (
                 gate_ref(GATE_CHECK_HARD_BLOCKS),
                 gate_ref(GATE_CLAIM_ACTIVATION),
                 gate_ref(GATE_ARCHITECTURE_IMPACT),
             ),
-            "One implementation lane in an isolated worktree; the engineer "
-            "builds against the spec and acceptance criteria.",
-        ),
-        _reviewing_implementation_stage(
-            "The in-worktree review loop — the work is checked against the "
-            "acceptance criteria before it can leave the lane.",
+            "One implementation lane builds against the item's acceptance criteria.",
         ),
         *_IMPLEMENTATION_CLOSE_STAGES,
         workflow_stage(
             "done",
-            "done",
+            "Done",
             (
                 gate_ref(GATE_ARCHITECTURE_IMPACT),
                 gate_ref(GATE_QA_VERIFICATION),
             ),
-            "Merged and delivered through the selected flow; the item closes.",
+            "The item is merged, delivered, and closed.",
         ),
     ),
     entry_surfaces=("harness_skill", "promotion"),
@@ -139,7 +126,7 @@ ISSUE_WORKFLOW_DEFINITION = definition_fixture(
     ),
     policies={
         "ownership": "single_item_claim",
-        "path_claims": WORKFLOW_PATH_CLAIMS_REQUIRED,
+        "path_claims": "required",
         "worktrees": "single_implementation_lane",
         "parallelism": "inside_item",
         "generated_children": "none",
@@ -148,75 +135,62 @@ ISSUE_WORKFLOW_DEFINITION = definition_fixture(
         "delivery": "release_stage",
         "item_posture_allowlist": ["verification", "approval", "deployment"],
     },
-    approval_defaults={},
 )
 
-EPIC_WORKFLOW_DEFINITION = definition_fixture(
+EPIC_WORKFLOW_VERSION_ONE = definition_fixture(
     workflow_id="epic",
     name="Epic",
     description=(
         "Planned task decomposition with parallel worktree lanes and an "
         "integration boundary."
     ),
-    version=BUILTIN_WORKFLOW_PREFERRED_VERSION,
     stages=(
         *_INTAKE_STAGES,
         workflow_stage(
             "planning",
-            "planning",
+            "Planning",
             (gate_ref(GATE_ARCHITECTURE_IMPACT),),
-            "The Architect decomposes the epic into tasks — file budgets, "
-            "interface contracts, and worktree lanes.",
+            "The plan is decomposed into tasks, interfaces, budgets, and lanes.",
         ),
         workflow_stage(
             "plan-drafted",
-            "plan drafted",
+            "Plan drafted",
             (gate_ref(GATE_ARCHITECTURE_IMPACT),),
-            "The task plan is drafted and awaits the refine pass before it "
-            "can be committed.",
         ),
         workflow_stage(
             "refining-plan",
-            "refining plan",
+            "Refining plan",
             (gate_ref(GATE_ARCHITECTURE_IMPACT),),
-            "The plan is refined against the spec — simplify lenses and "
-            "readiness repair — before it commits.",
         ),
         workflow_stage(
             "planned",
-            "planned",
+            "Planned",
             (
                 gate_ref(GATE_DB_CLAIM_PROSE),
                 gate_ref(GATE_ARCHITECTURE_IMPACT),
                 gate_ref(GATE_PLAN_SIMULATION),
             ),
-            "The plan is committed and has passed the simulator; the tasks "
-            "are ready to fan out into worktree lanes.",
+            "The committed task plan has passed cross-task simulation.",
         ),
         workflow_stage(
             "implementing",
-            "implementing",
+            "Implementing",
             (
                 gate_ref(GATE_CHECK_HARD_BLOCKS),
                 gate_ref(GATE_CLAIM_ACTIVATION),
                 gate_ref(GATE_ARCHITECTURE_IMPACT),
             ),
-            "Parallel task lanes execute against the plan, each in its own "
-            "worktree, with the main session integrating.",
-        ),
-        _reviewing_implementation_stage(
-            "Integrated task work is reviewed across the whole epic before "
-            "the set can advance.",
+            "Task lanes execute in parallel and the main session integrates them.",
         ),
         *_IMPLEMENTATION_CLOSE_STAGES,
         workflow_stage(
             "done",
-            "done",
+            "Done",
             (
                 gate_ref(GATE_ARCHITECTURE_IMPACT),
                 gate_ref(GATE_QA_VERIFICATION),
             ),
-            "Every task merged, integrated, and delivered; the epic closes.",
+            "Every task is integrated, delivered, and closed.",
         ),
     ),
     entry_surfaces=("harness_skill",),
@@ -232,7 +206,7 @@ EPIC_WORKFLOW_DEFINITION = definition_fixture(
     ),
     policies={
         "ownership": "item_claim_and_task_lanes",
-        "path_claims": WORKFLOW_PATH_CLAIMS_REQUIRED_PER_TASK,
+        "path_claims": "required_per_task",
         "worktrees": "worker_and_integration_lanes",
         "parallelism": "task_graph",
         "generated_children": "epic_tasks",
@@ -241,7 +215,6 @@ EPIC_WORKFLOW_DEFINITION = definition_fixture(
         "delivery": "release_stage",
         "item_posture_allowlist": ["verification", "approval", "deployment"],
     },
-    approval_defaults={},
 )
 
-__all__ = ["EPIC_WORKFLOW_DEFINITION", "ISSUE_WORKFLOW_DEFINITION"]
+__all__ = ["EPIC_WORKFLOW_VERSION_ONE", "ISSUE_WORKFLOW_VERSION_ONE"]

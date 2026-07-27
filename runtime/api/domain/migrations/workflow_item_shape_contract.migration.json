@@ -10,12 +10,13 @@
     ],
     "compatibility_class": "pre_merge_breaking",
     "migration_strategy": "hard_cutover",
-    "migration_strategy_justification": "The immutable workflow pin becomes the only item behavior authority after the additive registry and pin backfill are applied.",
+    "migration_strategy_justification": "The immutable workflow pin becomes the only item behavior authority after the additive registry and pin backfill are applied, and the code-owned built-in revisions become the defaults for subsequent items.",
     "schema_kinds": [
       "destructive"
     ],
     "data_kinds": [
-      "drop"
+      "drop",
+      "fill"
     ],
     "affected_surfaces": [
       {
@@ -26,14 +27,33 @@
           "workflow_id",
           "workflow_version_id"
         ]
+      },
+      {
+        "table": "workflows",
+        "columns": [
+          "current_version_id"
+        ]
+      },
+      {
+        "table": "workflow_versions",
+        "columns": [
+          "workflow_id",
+          "version",
+          "definition_schema_version",
+          "definition_json",
+          "definition_digest",
+          "published_at",
+          "published_by_actor_id",
+          "immutable_at"
+        ]
       }
     ],
-    "count_preserving": true
+    "count_preserving": false
   },
   "module_sources": {
     "workflow_item_shape_contract": {
       "path": "packages/yoke-core/src/yoke_core/domain/migrations/workflow_item_shape_contract.py",
-      "sha256": "0f41dc918ca332280f5774d1b617bb2bdda72895edc7f8dbc8558de84b11ebb2"
+      "sha256": "3dc4942b5b9334c6625070dc08da9e58ab6b4690c3452b9df9027b2180b055f9"
     }
   },
   "attestation": {
@@ -60,13 +80,14 @@
       }
     ],
     "invariants": [
-      "The items row count is unchanged by the shape contraction.",
+      "The items row count is unchanged even when missing code-owned workflow revisions are appended.",
       "Every item retains a complete immutable workflow pin and a stage accepted by that version.",
-      "Workflow pin columns are required, the superseded classification is absent, and item stages have no fixed database vocabulary."
+      "Workflow pin columns are required, the superseded classification is absent, and item stages have no fixed database vocabulary.",
+      "Each built-in workflow selects the code-owned immutable revision for subsequently created items without repinning existing items."
     ],
     "rehearsal_commands": [
       "PYTHONPATH=packages/yoke-contracts/src:packages/yoke-cli/src:packages/yoke-core/src:packages/yoke-harness/src:. python3 -m pytest runtime/api/domain/migrations/test_workflow_item_shape_contract.py runtime/api/test_api_items_create.py runtime/api/test_items_create_function.py runtime/api/test_schema_init.py -q"
     ],
-    "residual_risk_notes": "The migration takes an exclusive items-table lock, validates every immutable pin and stage before DDL, preserves row count, and is deliberately merge-boundary breaking because older code still reads the superseded column."
+    "residual_risk_notes": "The migration takes an exclusive items-table lock, validates every immutable pin and stage before DDL, preserves the items row count, and may append one code-owned revision per built-in workflow before selecting it without changing existing item pins. Overall affected-table row counts are therefore intentionally not preserved. It remains deliberately merge-boundary breaking because older code still reads the superseded column."
   }
 }

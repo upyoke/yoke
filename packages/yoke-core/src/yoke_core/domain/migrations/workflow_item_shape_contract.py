@@ -5,12 +5,20 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.builtin_workflow_definitions import (
+    builtin_workflow_definitions,
+)
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 from yoke_core.domain.workflow_runtime import (
     ENGINE_EXCEPTIONAL_STAGE_IDS,
     load_item_workflow_runtime,
 )
-from yoke_core.domain.workflow_registry import WorkflowRegistryError
+from yoke_core.domain.workflow_registry import (
+    WorkflowRegistryError,
+    canonical_definition_json,
+    definition_digest,
+    select_current_builtin_workflow_versions,
+)
 
 MIGRATION_NAME = "workflow_item_shape_contract"
 _RETIRED_CLASSIFICATION_COLUMN = "type"
@@ -81,8 +89,32 @@ def _assert_column_required(conn: Any, column: str) -> None:
         raise AssertionError(f"items.{column} must be NOT NULL")
 
 
+def _assert_current_builtin_definitions(conn: Any) -> None:
+    rows = conn.execute(
+        "SELECT w.id, v.definition_json, v.definition_digest "
+        "FROM workflows w "
+        "JOIN workflow_versions v ON v.id = w.current_version_id "
+        "WHERE w.source = 'built_in'"
+    ).fetchall()
+    actual = {
+        str(row[0]): (str(row[1]), str(row[2]))
+        for row in rows
+    }
+    for fixture in builtin_workflow_definitions():
+        workflow_id = str(fixture["workflow"]["id"])
+        definition = fixture["definition"]
+        expected = (
+            canonical_definition_json(definition),
+            definition_digest(definition),
+        )
+        if actual.get(workflow_id) != expected:
+            raise AssertionError(
+                f"workflow {workflow_id!r} does not select its code-owned revision"
+            )
+
+
 def apply(conn: Any) -> None:
-    """Remove superseded item shape after validating immutable pins."""
+    """Contract item shape and select code-owned built-in revisions."""
     if not db_backend.connection_is_postgres(conn):
         raise RuntimeError("workflow item shape contraction requires PostgreSQL")
     if not _table_exists(conn, "items"):
@@ -110,6 +142,7 @@ def apply(conn: Any) -> None:
             f"{_quote_identifier(_RETIRED_CLASSIFICATION_COLUMN)}"
         )
 
+    select_current_builtin_workflow_versions(conn)
     after = int(conn.execute("SELECT COUNT(*) FROM items").fetchone()[0])
     if after != before:
         raise AssertionError(f"items row count changed from {before} to {after}")
@@ -126,6 +159,7 @@ def invariants(conn: Any) -> None:
     for column in _PIN_COLUMNS:
         _assert_column_required(conn, column)
     _assert_valid_pins_and_stages(conn)
+    _assert_current_builtin_definitions(conn)
 
 
 __all__ = ["MIGRATION_NAME", "apply", "invariants"]

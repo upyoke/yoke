@@ -30,17 +30,20 @@ export function workflowFixture({
         version: 1,
         definition_digest: `${id}-first`,
         published_at: "2026-07-20T12:00:00Z",
+        published_by_actor_id: null,
       }]
       : [
         {
           version: 1,
           definition_digest: `${id}-first`,
           published_at: "2026-07-20T12:00:00Z",
+          published_by_actor_id: null,
         },
         {
           version: currentVersion,
           definition_digest: `${id}-current`,
           published_at: "2026-07-25T12:00:00Z",
+          published_by_actor_id: 1,
         },
       ]
   );
@@ -103,6 +106,13 @@ function definitionFixture(workflows = [workflowFixture()]) {
 export function workflowsClient(workflows) {
   const requests = [];
   const rows = structuredClone(workflows || [workflowFixture()]);
+  for (const workflow of rows) {
+    for (const version of workflow.versions || []) {
+      version.definition = structuredClone(
+        version.definition || workflow.definition,
+      );
+    }
+  }
   return {
     requests,
     async call(request) {
@@ -137,7 +147,7 @@ export function workflowsClient(workflows) {
           workflow_id: workflow.id,
           ...version,
           current: Number(workflow.current_version) === Number(version.version),
-          definition: structuredClone(workflow.definition),
+          definition: structuredClone(version.definition),
         });
       }
       if (request.function === "workflows.policy_defaults.publish") {
@@ -145,13 +155,18 @@ export function workflowsClient(workflows) {
           (row) => row.id === request.payload.workflow_id,
         );
         const nextVersion = Number(workflow.current_version) + 1;
-        workflow.definition.policies.path_claims =
+        const definition = structuredClone(workflow.definition);
+        definition.policies.path_claims =
           request.payload.path_claims_default ? "required" : "optional";
         workflow.current_version = nextVersion;
+        workflow.published_at = "2026-07-26T12:00:00Z";
+        workflow.definition = definition;
         workflow.versions.push({
           version: nextVersion,
           definition_digest: `${workflow.id}-v${nextVersion}`,
           published_at: "2026-07-26T12:00:00Z",
+          published_by_actor_id: 1,
+          definition: structuredClone(definition),
         });
         return okEnvelope({
           workflow_id: workflow.id,
@@ -165,7 +180,12 @@ export function workflowsClient(workflows) {
         const workflow = rows.find(
           (row) => row.id === request.payload.workflow_id,
         );
-        workflow.current_version = Number(request.payload.version);
+        const version = workflow.versions.find(
+          (row) => Number(row.version) === Number(request.payload.version),
+        );
+        workflow.current_version = Number(version.version);
+        workflow.published_at = version.published_at;
+        workflow.definition = structuredClone(version.definition);
         return okEnvelope({
           workflow_id: workflow.id,
           version: workflow.current_version,

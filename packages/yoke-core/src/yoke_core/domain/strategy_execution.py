@@ -162,9 +162,11 @@ def active_strategy_doc_claim(
             "c.registered_by_actor_id, c.registered_by_session_id, "
             "c.registered_at, i.title AS item_title, i.status AS item_status, "
             "i.workflow_id, i.workflow_version_id, "
+            "v.version AS workflow_version, "
             "i.project_sequence, p.slug AS project_slug, p.public_item_prefix "
             "FROM strategy_doc_claims c "
             "JOIN items i ON i.id = c.owning_item_id "
+            "JOIN workflow_versions v ON v.id = i.workflow_version_id "
             "JOIN projects p ON p.id = i.project_id "
             f"WHERE {where} AND c.released_at IS NULL",
             params,

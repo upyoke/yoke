@@ -91,6 +91,34 @@ const EXPECTED_DESCRIPTION_COPY = {
   },
 };
 
+const EXPECTED_VERSION_ONE_DESCRIPTIONS = {
+  dash: {
+    implementing: "The executor surveys conflicts and completes the instruction.",
+    "reviewing-implementation":
+      "The executor self-checks plus any item-declared verification.",
+    done: "The result and verification evidence are recorded on the item.",
+  },
+  blitz: {
+    implementing:
+      "The linked document drives a continuous loop of integrated slices.",
+    "reviewing-implementation":
+      "The complete result and its evidence are reconciled in the document.",
+    done: "The document records completion and parent reconciliation.",
+  },
+  issue: {
+    implementing:
+      "One implementation lane builds against the item's acceptance criteria.",
+    done: "The item is merged, delivered, and closed.",
+  },
+  epic: {
+    planning: "The plan is decomposed into tasks, interfaces, budgets, and lanes.",
+    planned: "The committed task plan has passed cross-task simulation.",
+    implementing:
+      "Task lanes execute in parallel and the main session integrates them.",
+    done: "Every task is integrated, delivered, and closed.",
+  },
+};
+
 const EXPECTED_GATE_COPY = {
   db_claim_prose:
     "The item's declared DB claim must agree with what its own text describes — prose about migrations alongside a claim of none is refused.",
@@ -133,6 +161,11 @@ function gateKey(gate) {
   return gate.mode ? `${gate.id}:${gate.mode}` : gate.id;
 }
 
+function historicalLabel(stageId) {
+  const label = stageId.replaceAll("-", " ");
+  return `${label.slice(0, 1).toUpperCase()}${label.slice(1)}`;
+}
+
 test("the hosted visual fixture preserves built-in gate placement", async () => {
   const response = await hostedFrameWorkflowClient().call({
     function: "workflows.definition.get",
@@ -159,6 +192,12 @@ test("the hosted visual fixture serves the specification-owned copy", async () =
   assert.equal(response.status, 200);
 
   for (const workflow of response.envelope.result.workflows) {
+    assert.equal(workflow.current_version, 2, workflow.id);
+    assert.deepEqual(
+      workflow.versions.map((version) => version.version),
+      [1, 2],
+      workflow.id,
+    );
     const expected = EXPECTED_DESCRIPTION_COPY[workflow.id];
     const { workflow: workflowDescription, ...stageDescriptions } = expected;
     assert.equal(workflow.description, workflowDescription, workflow.id);
@@ -179,4 +218,65 @@ test("the hosted visual fixture serves the specification-owned copy", async () =
     assert.equal(catalog[gateId].description, description, gateId);
     assert.equal(catalog[gateId].availability, "live", gateId);
   }
+});
+
+test("the hosted visual fixture serves distinct immutable version definitions", async () => {
+  const client = hostedFrameWorkflowClient();
+  for (const workflowId of ["dash", "blitz", "issue", "epic"]) {
+    const historical = await client.call({
+      function: "workflows.version.get",
+      payload: { workflow_id: workflowId, version: 1 },
+    });
+    const current = await client.call({
+      function: "workflows.version.get",
+      payload: { workflow_id: workflowId, version: 2 },
+    });
+    const historicalDefinition = historical.envelope.result.definition;
+    const currentDefinition = current.envelope.result.definition;
+
+    assert.deepEqual(
+      historicalDefinition.stages.map((stage) => stage.label),
+      historicalDefinition.stages.map((stage) => historicalLabel(stage.id)),
+      workflowId,
+    );
+    assert.deepEqual(
+      Object.fromEntries(
+        historicalDefinition.stages
+          .filter((stage) => stage.description)
+          .map((stage) => [stage.id, stage.description]),
+      ),
+      EXPECTED_VERSION_ONE_DESCRIPTIONS[workflowId],
+      workflowId,
+    );
+    assert.equal(
+      Object.hasOwn(historicalDefinition.policies, "approval_defaults"),
+      false,
+      workflowId,
+    );
+    assert.deepEqual(currentDefinition.policies.approval_defaults, {}, workflowId);
+    assert.notDeepEqual(historicalDefinition, currentDefinition, workflowId);
+  }
+});
+
+test("the hosted visual fixture attributes locally published versions", async () => {
+  const client = hostedFrameWorkflowClient();
+  const published = await client.call({
+    function: "workflows.policy_defaults.publish",
+    payload: {
+      workflow_id: "dash",
+      expected_current_version: 2,
+      path_claims_default: true,
+    },
+  });
+  assert.equal(published.status, 200);
+
+  const version = await client.call({
+    function: "workflows.version.get",
+    payload: { workflow_id: "dash", version: 3 },
+  });
+  assert.equal(version.envelope.result.published_by_actor_id, 1);
+  assert.equal(
+    version.envelope.result.definition.policies.path_claims,
+    "required",
+  );
 });

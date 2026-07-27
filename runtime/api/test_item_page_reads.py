@@ -40,7 +40,7 @@ def test_detail_read_assembles_real_workflow_lanes_and_proof(monkeypatch):
     assert item["public_ref"] == "ACM-22"
     assert item["title"] == "Fix the footer"
     assert item["workflow"]["id"] == "dash"
-    assert item["workflow"]["version"] == 1
+    assert item["workflow"]["version"] == 2
     assert item["workflow"]["stage_label"] == "reviewing implementation"
     assert item["workflow"]["executor_id"] == "dash"
     assert item["workflow"]["next_executor_id"] is None

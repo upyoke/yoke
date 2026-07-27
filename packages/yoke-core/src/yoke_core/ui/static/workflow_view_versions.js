@@ -123,7 +123,7 @@ function versionRow(documentNode, workflow, version, actions) {
     "div",
     "workflow-version-description",
     current
-      ? Number(version.version) > 1
+      ? version.published_by_actor_id != null
         ? "edited here"
         : "New items pin this version."
       : "Readable and eligible to become current again.",

@@ -5,8 +5,9 @@ from __future__ import annotations
 from typing import Any, Mapping, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.builtin_workflow_definitions import (
-    builtin_workflow_definitions,
+from yoke_core.domain.builtin_workflow_version_convergence import (
+    converge_builtin_workflows as _converge_builtin_workflows,
+    select_current_builtin_workflow_versions as _select_builtin_versions,
 )
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.workflow_definition_codec import (
@@ -73,85 +74,12 @@ def _insert_version(
 
 def converge_builtin_workflows(conn: Any) -> None:
     """Insert missing built-ins without mutating published versions."""
-    now = iso8601_now()
-    marker = _marker(conn)
-    for fixture in builtin_workflow_definitions():
-        workflow = fixture["workflow"]
-        workflow_id = str(workflow["id"])
-        definition = fixture["definition"]
-        validate_workflow_definition(definition)
-        existing_workflow = _workflow_row(conn, workflow_id)
-        if existing_workflow is None:
-            conn.execute(
-                "INSERT INTO workflows "
-                "(id, name, description, source, status, current_version_id, "
-                "created_at, updated_at) "
-                f"VALUES ({marker}, {marker}, {marker}, {marker}, "
-                f"'active', NULL, {marker}, {marker})",
-                (
-                    workflow_id,
-                    workflow["name"],
-                    workflow["description"],
-                    workflow["source"],
-                    now,
-                    now,
-                ),
-            )
-        elif existing_workflow["source"] != "built_in":
-            raise WorkflowRegistryError(
-                f"built-in workflow id {workflow_id!r} is owned by "
-                f"{existing_workflow['source']!r}"
-            )
-        else:
-            conn.execute(
-                f"UPDATE workflows SET name = {marker}, "
-                f"description = {marker}, updated_at = {marker} "
-                f"WHERE id = {marker}",
-                (
-                    workflow["name"],
-                    workflow["description"],
-                    now,
-                    workflow_id,
-                ),
-            )
+    _converge_builtin_workflows(conn, insert_version=_insert_version)
 
-        version = int(fixture["version"])
-        existing_version = _version_row(conn, workflow_id, version)
-        digest = definition_digest(definition)
-        if existing_version is None:
-            existing_version = _insert_version(
-                conn,
-                workflow_id=workflow_id,
-                version=version,
-                definition=definition,
-                published_by_actor_id=None,
-            )
-        elif existing_version["definition_digest"] != digest:
-            raise WorkflowRegistryError(
-                f"published built-in {workflow_id}@{version} differs from "
-                "the code-owned definition"
-            )
 
-        current = _workflow_row(conn, workflow_id)
-        if current is None:
-            raise WorkflowRegistryError(f"workflow {workflow_id!r} is missing")
-        current_id = current.get("current_version_id")
-        if current_id is None:
-            conn.execute(
-                f"UPDATE workflows SET current_version_id = {marker}, "
-                f"updated_at = {marker} WHERE id = {marker}",
-                (int(existing_version["id"]), now, workflow_id),
-            )
-        else:
-            current_version = _version_by_id(conn, int(current_id))
-            if (
-                current_version is None
-                or current_version["workflow_id"] != workflow_id
-            ):
-                raise WorkflowRegistryError(
-                    f"workflow {workflow_id!r} has an invalid current version"
-                )
-    conn.commit()
+def select_current_builtin_workflow_versions(conn: Any) -> dict[str, int]:
+    """Select code-owned revisions without changing existing item pins."""
+    return _select_builtin_versions(conn, insert_version=_insert_version)
 
 
 def _current_definition(conn: Any, workflow_id: str) -> tuple[dict, dict]:
@@ -248,7 +176,7 @@ def list_current_workflows(conn: Any) -> list[dict]:
         "SELECT w.id, w.name, w.description, w.source, w.status, "
         "w.current_version_id, v.version, v.definition_schema_version, "
         "v.definition_json, v.definition_digest, v.published_at, "
-        "v.immutable_at "
+        "v.published_by_actor_id, v.immutable_at "
         "FROM workflows w "
         "JOIN workflow_versions v ON v.id = w.current_version_id "
         "ORDER BY w.name, w.id"
@@ -256,7 +184,7 @@ def list_current_workflows(conn: Any) -> list[dict]:
     rows = _rows_dict(workflow_cursor)
     version_cursor = conn.execute(
         "SELECT id, workflow_id, version, definition_digest, published_at, "
-        "immutable_at FROM workflow_versions "
+        "published_by_actor_id, immutable_at FROM workflow_versions "
         "ORDER BY workflow_id, version"
     )
     version_rows = _rows_dict(version_cursor)
@@ -269,6 +197,7 @@ def list_current_workflows(conn: Any) -> list[dict]:
             "version": int(version_row["version"]),
             "definition_digest": version_row["definition_digest"],
             "published_at": version_row["published_at"],
+            "published_by_actor_id": version_row["published_by_actor_id"],
             "immutable_at": version_row["immutable_at"],
         })
     result: list[dict] = []
@@ -286,6 +215,7 @@ def list_current_workflows(conn: Any) -> list[dict]:
             ),
             "definition_digest": row["definition_digest"],
             "published_at": row["published_at"],
+            "published_by_actor_id": row["published_by_actor_id"],
             "immutable_at": row["immutable_at"],
             "definition": _decode_definition(row["definition_json"]),
             "versions": versions_by_workflow.get(str(row["id"]), []),
@@ -302,5 +232,6 @@ __all__ = [
     "list_current_workflows",
     "publish_workflow_version",
     "resolve_current_workflow_pin",
+    "select_current_builtin_workflow_versions",
     "set_current_workflow_version",
 ]
