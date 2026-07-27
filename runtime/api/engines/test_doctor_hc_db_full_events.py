@@ -117,7 +117,7 @@ class TestHCShepherdLifecycleFull:
 
     def _insert_epic(self, conn, epic_id, status):
         insert_item(conn, id=epic_id, title=f"Test epic {epic_id}",
-                    type="epic", status=status, spec="body")
+                    workflow_id="epic", status=status, spec="body")
 
     def _insert_verdict(self, conn, item_ref, transition, verdict):
         conn.execute(
@@ -153,7 +153,7 @@ class TestHCShepherdLifecycleFull:
     def test_non_epic_excluded(self, test_db):
         """Test 4: Non-epic items excluded."""
         insert_item(test_db, id=40, title="Non-epic implementing test",
-                    type="issue", status="implementing", spec="body")
+                    workflow_id="issue", status="implementing", spec="body")
         rec = _run_hc(hc_shepherd_lifecycle, test_db)
         assert "YOK-40" not in _result(rec).detail
 

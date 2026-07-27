@@ -193,8 +193,10 @@ def scheduler_db(tmp_path):
             (7, "Done issue", "issue", "done", "high"),
             (8, "Refined epic", "epic", "refined-idea", "medium"),
         ]
-        for item_id, title, item_type, status, priority in items:
-            workflow_id, workflow_version_id = _workflow_pin(conn, item_type)
+        for item_id, title, requested_workflow_id, status, priority in items:
+            workflow_id, workflow_version_id = _workflow_pin(
+                conn, requested_workflow_id,
+            )
             conn.execute(
                 """INSERT INTO items
                    (id, title, workflow_id, workflow_version_id, status, priority, project_id,

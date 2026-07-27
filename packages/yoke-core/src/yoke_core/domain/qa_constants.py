@@ -48,9 +48,7 @@ def is_browser_method_requirement(
 def browser_requirement_predicate(alias: str = "r") -> str:
     """Return the SQL predicate for Browser method cases plus legacy rows."""
     method_values = ", ".join(f"'{value}'" for value in BROWSER_METHOD_IDS)
-    legacy_values = ", ".join(
-        f"'{value}'" for value in _LEGACY_BROWSER_QA_KINDS
-    )
+    legacy_values = ", ".join(f"'{value}'" for value in _LEGACY_BROWSER_QA_KINDS)
     return (
         f"({alias}.method_id IN ({method_values}) OR "
         f"({alias}.method_id IS NULL AND "
@@ -72,6 +70,7 @@ def case_outcome_for_verdict(verdict: Optional[str]) -> Optional[str]:
 # ---------------------------------------------------------------------------
 # Tiny shared formatting helpers
 # ---------------------------------------------------------------------------
+
 
 def _coalesce(val: Any, default: str = "") -> str:
     """Return *val* as a string, or *default* when None."""
@@ -107,12 +106,37 @@ def _pipe_row(row, cols: Optional[Sequence[str]] = None) -> str:
 # presentation); the typed function-call handlers select the same roster
 # natively. Keep the two adjacent definitions in lockstep.
 REQ_COLUMNS = (
-    "id", "item_id", "epic_id", "task_num", "deployment_run_id",
-    "qa_kind", "qa_phase", "target_env", "blocking_mode",
-    "requirement_source", "success_policy", "capability_requirements",
-    "suite_id", "waived_at", "waiver_rationale", "waiver_source",
-    "plan_id", "plan_case_key", "method_id", "host_baseline",
-    "workflow_transition_id", "instructions", "expected_outcome",
+    "id",
+    "item_id",
+    "epic_id",
+    "task_num",
+    "deployment_run_id",
+    "qa_kind",
+    "qa_phase",
+    "target_env",
+    "blocking_mode",
+    "requirement_source",
+    "success_policy",
+    "capability_requirements",
+    "suite_id",
+    "waived_at",
+    "waiver_rationale",
+    "waiver_source",
+    "plan_id",
+    "plan_case_key",
+    "case_position",
+    "baseline_position",
+    "method_id",
+    "method_name",
+    "executor_id",
+    "required_capability_kind",
+    "verdict_path",
+    "host_baseline",
+    "entry_surface",
+    "required_completion",
+    "workflow_transition_id",
+    "instructions",
+    "expected_outcome",
     "method_config",
     "created_at",
 )
@@ -125,8 +149,14 @@ _REQ_SELECT = (
     "COALESCE(capability_requirements,''), COALESCE(suite_id,''), "
     "COALESCE(waived_at,''), COALESCE(waiver_rationale,''), "
     "COALESCE(waiver_source,''), COALESCE(CAST(plan_id AS TEXT),''), "
-    "COALESCE(plan_case_key,''), COALESCE(method_id,''), "
-    "COALESCE(host_baseline,''), COALESCE(workflow_transition_id,''), "
+    "COALESCE(plan_case_key,''), "
+    "COALESCE(CAST(case_position AS TEXT),''), "
+    "COALESCE(CAST(baseline_position AS TEXT),''), "
+    "COALESCE(method_id,''), COALESCE(method_name,''), "
+    "COALESCE(executor_id,''), COALESCE(required_capability_kind,''), "
+    "COALESCE(verdict_path,''), COALESCE(host_baseline,''), "
+    "COALESCE(entry_surface,''), COALESCE(required_completion,''), "
+    "COALESCE(workflow_transition_id,''), "
     "COALESCE(instructions,''), COALESCE(expected_outcome,''), "
     "COALESCE(method_config,''), created_at"
 )
@@ -137,8 +167,19 @@ _REQ_SELECT = (
 # ``execution_status`` and omits it; the typed surface includes it because
 # the browser-QA capture flow branches on it.
 RUN_COLUMNS = (
-    "id", "qa_requirement_id", "executor_type", "qa_kind", "verdict",
-    "execution_status", "case_outcome", "capture_degraded_reason",
-    "score", "confidence", "raw_result", "duration_ms",
-    "started_at", "completed_at", "created_at",
+    "id",
+    "qa_requirement_id",
+    "executor_type",
+    "qa_kind",
+    "verdict",
+    "execution_status",
+    "case_outcome",
+    "capture_degraded_reason",
+    "score",
+    "confidence",
+    "raw_result",
+    "duration_ms",
+    "started_at",
+    "completed_at",
+    "created_at",
 )

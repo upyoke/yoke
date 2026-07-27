@@ -21,16 +21,25 @@ def _upsert_item_sql(conn) -> str:
     p = _p(conn)
     return (
         "INSERT INTO items "
-        "(id, title, status, project_id, project_sequence, deployment_flow, "
-        "created_at, updated_at) "
-        f"VALUES ({p}, 'test', {p}, {p}, {p}, {p}, {p}, {p}) "
+        "(id, title, workflow_id, workflow_version_id, status, project_id, "
+        "project_sequence, deployment_flow, created_at, updated_at) "
+        f"VALUES ({p}, 'test', {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}) "
         "ON CONFLICT (id) DO UPDATE SET "
-        "title = excluded.title, status = excluded.status, "
+        "title = excluded.title, "
+        "workflow_id = excluded.workflow_id, "
+        "workflow_version_id = excluded.workflow_version_id, "
+        "status = excluded.status, "
         "project_id = excluded.project_id, "
         "project_sequence = excluded.project_sequence, "
         "deployment_flow = excluded.deployment_flow, "
         "created_at = excluded.created_at, updated_at = excluded.updated_at"
     )
+
+
+def _issue_workflow_pin(conn) -> tuple[str, int]:
+    from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
+
+    return resolve_current_workflow_pin(conn, "issue")
 
 
 def _project_id(project: str) -> int:
@@ -42,10 +51,13 @@ class TestValidateComposition:
 
     def _insert_item(self, db_path, item_id, status="implemented", project="yoke", flow=None):
         conn = _conn(db_path)
+        workflow_id, workflow_version_id = _issue_workflow_pin(conn)
         conn.execute(
             _upsert_item_sql(conn),
             (
                 item_id,
+                workflow_id,
+                workflow_version_id,
                 status,
                 _project_id(project),
                 item_id,
@@ -189,10 +201,13 @@ class TestCheckBatchCompatibility:
 
     def _insert_item(self, db_path, item_id, status="implemented", project="yoke", flow=None):
         conn = _conn(db_path)
+        workflow_id, workflow_version_id = _issue_workflow_pin(conn)
         conn.execute(
             _upsert_item_sql(conn),
             (
                 item_id,
+                workflow_id,
+                workflow_version_id,
                 status,
                 _project_id(project),
                 item_id,

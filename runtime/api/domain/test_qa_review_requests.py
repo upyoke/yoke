@@ -55,10 +55,12 @@ def test_inconclusive_review_request_resolves_to_human_verdict(test_db):
     ).fetchone()[0]
     requirement_id = test_db.execute(
         "INSERT INTO qa_requirements "
-        "(item_id, plan_id, plan_case_key, method_id, qa_kind, qa_phase, "
-        "blocking_mode, created_at) "
+        "(item_id, plan_id, plan_case_key, method_id, method_name, "
+        "executor_id, required_capability_kind, verdict_path, qa_kind, "
+        "qa_phase, blocking_mode, created_at) "
         "VALUES (%s, %s, 'checkout-flow', 'browser-inspection', "
-        "'plan_case', 'verification', 'blocking', "
+        "'Browser inspection', 'browser_substrate', 'browser-control', "
+        "'agent', 'plan_case', 'verification', 'blocking', "
         "'2026-07-26T00:00:00Z') RETURNING id",
         (9501, plan_id),
     ).fetchone()[0]

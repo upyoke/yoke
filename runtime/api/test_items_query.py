@@ -87,7 +87,10 @@ class TestQueryItem:
         assert result == "false"
 
     def test_frozen_maps_to_true(self, db_path):
-        insert_item(item_id=2, title="Frozen", frozen=1, db_path=db_path)
+        insert_item(
+            item_id=2, title="Frozen", workflow="issue",
+            frozen=1, db_path=db_path,
+        )
         result = query_item(2, "frozen", db_path=db_path)
         assert result == "true"
 
@@ -115,6 +118,7 @@ class TestQueryItemRow:
         insert_item(
             item_id=3,
             title="Multiline",
+            workflow="issue",
             db_path=db_path,
         )
         update_structured_field(3, "spec", "line1\nline2\nline3", db_path=db_path)
@@ -140,17 +144,21 @@ class TestInsertItem:
         assert query_item(10, "source", db_path=db_path) == "test"
 
     def test_insert_with_minimal_fields(self, db_path):
-        insert_item(item_id=11, title="Minimal", db_path=db_path)
+        insert_item(item_id=11, title="Minimal", workflow="issue", db_path=db_path)
         assert query_item(11, "title", db_path=db_path) == "Minimal"
 
     def test_insert_with_minimal_fields_stores_null_spec(self, db_path):
-        insert_item(item_id=12, title="No spec", db_path=db_path)
+        insert_item(item_id=12, title="No spec", workflow="issue", db_path=db_path)
         # No spec content set; COALESCE returns ''
         assert query_item(12, "spec", db_path=db_path) == ""
 
     def test_duplicate_id_raises(self, db_with_item):
         with pytest.raises(db_backend.integrity_error_types()):
-            insert_item(item_id=1, title="Dup", db_path=db_with_item)
+            insert_item(item_id=1, title="Dup", workflow="issue", db_path=db_with_item)
+
+    def test_insert_requires_workflow(self, db_path):
+        with pytest.raises(ValueError, match="workflow is required"):
+            insert_item(item_id=13, title="Unclassified", db_path=db_path)
 
 
 class TestUpdateItemField:

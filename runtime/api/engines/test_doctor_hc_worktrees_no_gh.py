@@ -48,7 +48,7 @@ def _make_conn() -> Any:
         pg_testdb.connect_test_database(name), name,
     )
     apply_fixture_ddl(conn, textwrap.dedent("""\
-        CREATE TABLE items (id INTEGER PRIMARY KEY, title TEXT, type TEXT,
+        CREATE TABLE items (id INTEGER PRIMARY KEY, title TEXT,
             status TEXT, project_id INTEGER DEFAULT 1, github_issue TEXT);
         CREATE TABLE epic_tasks (epic_id TEXT, task_num INTEGER, title TEXT,
             github_issue TEXT, PRIMARY KEY (epic_id, task_num));

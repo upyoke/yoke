@@ -18,6 +18,9 @@ import pytest
 
 from yoke_core.domain import deployment_runs as dr
 from yoke_core.domain import db_backend
+from runtime.api.api_workflow_test_helpers import (
+    install_workflow_registry_and_pin_items,
+)
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 
@@ -49,7 +52,6 @@ _SCHEMA_DDL = """
     CREATE TABLE IF NOT EXISTS items (
         id INTEGER PRIMARY KEY,
         title TEXT NOT NULL DEFAULT '',
-        type TEXT NOT NULL DEFAULT 'issue',
         status TEXT NOT NULL DEFAULT 'idea',
         priority TEXT NOT NULL DEFAULT 'medium',
         project_id INTEGER NOT NULL DEFAULT 1,
@@ -88,6 +90,7 @@ def _apply_schema() -> None:
     conn = db_backend.connect()
     try:
         apply_fixture_ddl(conn, _SCHEMA_DDL)
+        install_workflow_registry_and_pin_items(conn)
     finally:
         conn.close()
     dr.cmd_init()

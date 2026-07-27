@@ -89,6 +89,11 @@ class TestCreateItem:
         assert data["error"]["code"] == "VALIDATION_ERROR"
         assert "title" in data["error"]["message"].lower()
 
+    def test_create_item_missing_workflow(self, client):
+        resp = client.post("/v1/items", json={"title": "Unclassified"})
+        assert resp.status_code == 422
+        assert "workflow" in json.dumps(resp.json()).lower()
+
     def test_create_item_title_too_long(self, client):
         """Title limit is 100 characters (matches TITLE_MAX_LENGTH)."""
         resp = client.post("/v1/items", json={

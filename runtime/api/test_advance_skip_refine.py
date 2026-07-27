@@ -201,7 +201,7 @@ def test_real_execute_update_path_refine(tmp_db):  # noqa: F811
     _seed_item(
         tmp_db,
         id=991,
-        type="issue",
+        workflow_id="issue",
         status="refining-idea",
         project="yoke",
     )

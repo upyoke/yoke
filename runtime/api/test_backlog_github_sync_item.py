@@ -60,7 +60,7 @@ def _fake_issue(
 class TestSyncItem:
     def test_already_synced_updates_labels_and_body(self):
         db = _make_db()
-        insert_item(db, id=20, type="issue", status="idea", project="externalwebapp", github_issue="#100")
+        insert_item(db, id=20, workflow_id="issue", status="idea", project="externalwebapp", github_issue="#100")
         stdout = io.StringIO()
         with patch.object(
             item_create, "resolve_project_github_auth", side_effect=_ok_resolver,
@@ -76,7 +76,7 @@ class TestSyncItem:
 
     def test_already_synced_epic_also_syncs_child_tasks(self):
         db = _make_db()
-        insert_item(db, id=21, type="epic", status="implementing", project="externalwebapp", github_issue="#100")
+        insert_item(db, id=21, workflow_id="epic", status="implementing", project="externalwebapp", github_issue="#100")
         insert_epic_task(db, epic_id=21, task_num=1, title="Task 1", status="planned")
         stdout = io.StringIO()
         with patch.object(
@@ -98,7 +98,7 @@ class TestSyncItem:
         insert_item(
             db,
             id=20,
-            type="issue",
+            workflow_id="issue",
             status="idea",
             priority="high",
             project="externalwebapp",
@@ -130,7 +130,7 @@ class TestSyncItem:
         insert_item(
             db,
             id=20,
-            type="issue",
+            workflow_id="issue",
             status="idea",
             project="externalwebapp",
             spec="Test body content",
@@ -161,7 +161,7 @@ class TestSyncItem:
         insert_item(
             db,
             id=22,
-            type="epic",
+            workflow_id="epic",
             status="planning",
             priority="high",
             project="externalwebapp",
@@ -196,7 +196,7 @@ class TestSyncItem:
 
     def test_dry_run_skips(self):
         db = _make_db()
-        insert_item(db, id=20, type="issue", status="idea", project="externalwebapp")
+        insert_item(db, id=20, workflow_id="issue", status="idea", project="externalwebapp")
         stdout = io.StringIO()
         with patch.object(
             item_create, "resolve_project_github_auth", side_effect=_ok_resolver,
@@ -229,7 +229,7 @@ class TestSyncItem:
         insert_item(
             db,
             id=23,
-            type="issue",
+            workflow_id="issue",
             status="idea",
             priority="medium",
             project="externalwebapp",
@@ -275,7 +275,7 @@ class TestSyncItemCompactMirror:
         db = _make_db()
         huge_spec = "a" * (body_budget.GITHUB_BODY_BUDGET_BYTES + 100)
         insert_item(
-            db, id=30, type="issue", status="idea", project="externalwebapp",
+            db, id=30, workflow_id="issue", status="idea", project="externalwebapp",
             priority="medium", spec=huge_spec,
         )
         stdout = io.StringIO()
@@ -305,7 +305,7 @@ class TestSyncItemCompactMirror:
         db = _make_db()
         huge_spec = "a" * (body_budget.GITHUB_BODY_BUDGET_BYTES + 100)
         insert_item(
-            db, id=31, type="issue", status="idea", project="externalwebapp",
+            db, id=31, workflow_id="issue", status="idea", project="externalwebapp",
             github_issue="#205", spec=huge_spec,
         )
         stdout = io.StringIO()
@@ -328,7 +328,7 @@ class TestSyncItemCompactMirror:
         before any dedup search, label seeding, or REST call."""
         db = _make_db()
         insert_item(
-            db, id=32, type="issue", status="idea", project="externalwebapp",
+            db, id=32, workflow_id="issue", status="idea", project="externalwebapp",
             spec="body",
         )
         stderr = io.StringIO()

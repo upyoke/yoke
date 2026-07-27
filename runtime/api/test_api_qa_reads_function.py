@@ -1,8 +1,7 @@
 """Unit tests for the qa read handlers —
 qa.requirement.{list,get}, qa.run.{list,get}, qa.gate_summary.run.
 
-Direct handler calls against the isolated Postgres fixture (same
-pattern as ``runtime/api/test_api_qa_browser_evidence.py``).
+Direct handler calls against the isolated Postgres fixture.
 """
 
 from __future__ import annotations
@@ -65,7 +64,7 @@ class TestRequirementList(unittest.TestCase):
 
     def test_epic_filter_via_payload(self):
         with test_database() as conn:
-            insert_item(conn, id=50, title="E", type="epic", status="planning")
+            insert_item(conn, id=50, title="E", workflow_id="epic", status="planning")
             insert_qa_requirement(
                 conn, id=20, item_id=None, epic_id=50, task_num=2,
                 qa_kind="implementation_review", qa_phase="verification",
@@ -241,7 +240,7 @@ class TestGateSummary(unittest.TestCase):
 
     def test_epic_task_target(self):
         with test_database() as conn:
-            insert_item(conn, id=50, title="E", type="epic", status="planning")
+            insert_item(conn, id=50, title="E", workflow_id="epic", status="planning")
             insert_qa_requirement(
                 conn, id=20, item_id=None, epic_id=50, task_num=2,
                 qa_kind="implementation_review", qa_phase="verification",

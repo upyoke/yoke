@@ -2,46 +2,62 @@
 
 from __future__ import annotations
 
-ARCHIVE_OMITTABLE_TARGET_TABLES = frozenset({
-    "addressed_event_deliveries",
-    "capability_secrets",
-    "decision_request_actor_authorities",
-    "decision_request_role_authorities",
-    "decision_requests",
-    "item_strategy_docs",
-    "ouroboros_entry_dispositions",
-    "qa_methods",
-    "qa_plan_cases",
-    "qa_plan_item_attachments",
-    "qa_plan_project_defaults",
-    "qa_plans",
-    "strategy_doc_claims",
-    "strategy_doc_revisions",
-    "test_machine_verifications",
-})
+ARCHIVE_OMITTABLE_TARGET_TABLES = frozenset(
+    {
+        "addressed_event_deliveries",
+        "capability_secrets",
+        "decision_request_actor_authorities",
+        "decision_request_role_authorities",
+        "decision_requests",
+        "item_strategy_docs",
+        "ouroboros_entry_dispositions",
+        "qa_methods",
+        "qa_plan_cases",
+        "qa_plan_item_attachments",
+        "qa_plan_project_defaults",
+        "qa_plans",
+        "strategy_doc_claims",
+        "strategy_doc_revisions",
+        "test_machine_verifications",
+    }
+)
 
-ARCHIVE_OMITTABLE_TARGET_SEQUENCES = frozenset({
-    "capability_secrets_id_seq",
-    "strategy_doc_revisions_id_seq",
-})
+ARCHIVE_OMITTABLE_TARGET_SEQUENCES = frozenset(
+    {
+        "capability_secrets_id_seq",
+        "strategy_doc_revisions_id_seq",
+    }
+)
 ARCHIVE_FORBIDDEN_TABLE_DATA = frozenset({"capability_secrets"})
 ARCHIVE_FORBIDDEN_SEQUENCE_DATA = frozenset({"capability_secrets_id_seq"})
 ARCHIVE_OMITTABLE_TARGET_COLUMNS = {
-    "project_github_repo_bindings": frozenset({
-        "last_sync_at",
-        "last_sync_error",
-        "last_sync_outcome",
-    }),
-    "qa_requirements": frozenset({
-        "expected_outcome",
-        "host_baseline",
-        "instructions",
-        "method_config",
-        "method_id",
-        "plan_case_key",
-        "plan_id",
-        "workflow_transition_id",
-    }),
+    "project_github_repo_bindings": frozenset(
+        {
+            "last_sync_at",
+            "last_sync_error",
+            "last_sync_outcome",
+        }
+    ),
+    "qa_requirements": frozenset(
+        {
+            "baseline_position",
+            "case_position",
+            "entry_surface",
+            "executor_id",
+            "expected_outcome",
+            "host_baseline",
+            "instructions",
+            "method_config",
+            "method_id",
+            "method_name",
+            "plan_case_key",
+            "plan_id",
+            "required_capability_kind",
+            "required_completion",
+            "verdict_path",
+            "workflow_transition_id",
+        }
+    ),
     "qa_runs": frozenset({"capture_degraded_reason", "case_outcome"}),
     "strategy_doc_revisions": frozenset({"session_id"}),
     "strategy_docs": frozenset({"parent_slug"}),

@@ -106,7 +106,8 @@ class TestCascadeMappingRules:
         insert_epic_task(db, epic_id=42, task_num=3, title="T3", status="implementing")
 
         # Direct DB update to avoid update-status.sh subprocess
-        result = epic.cascade_task_status.__wrapped__(db, "42", "planning", "plan-drafted") if hasattr(epic.cascade_task_status, '__wrapped__') else None
+        if hasattr(epic.cascade_task_status, "__wrapped__"):
+            epic.cascade_task_status.__wrapped__(db, "42", "planning", "plan-drafted")
         # Since cascade calls update-status.sh via subprocess, we test the mapping logic
         key = ("planning", "plan-drafted")
         assert key in epic._CASCADE_MAP
@@ -134,13 +135,13 @@ class TestCascadeMappingRules:
 
 class TestOrphanCheck:
     def test_finds_orphans(self, db):
-        insert_item(db, id=TEST_ITEM_ID, title="My epic", type="epic", spec="No plan here")
+        insert_item(db, id=TEST_ITEM_ID, title="My epic", workflow_id="epic", spec="No plan here")
         insert_epic_task(db, epic_id=TEST_ITEM_ID, task_num=1, title="Task")
         result = epic.orphan_check(db)
         assert TEST_ITEM_REF in result
 
     def test_no_orphans(self, db):
-        insert_item(db, id=TEST_ITEM_ID, title="My epic", type="epic", technical_plan="Actual tech plan content")
+        insert_item(db, id=TEST_ITEM_ID, title="My epic", workflow_id="epic", technical_plan="Actual tech plan content")
         insert_epic_task(db, epic_id=TEST_ITEM_ID, task_num=1, title="Task")
         result = epic.orphan_check(db)
         assert result == ""

@@ -4,8 +4,9 @@ Called by the advance router when the workflow transition is `release`.
 Materializes and executes the project's attached deployed-stack QA plan cases.
 Skip for every other transition.
 
-For an epic, execute the release case on each task lane through Conduct; the
-parent item has no single worktree and must not substitute the main checkout.
+For `worktrees=worker_and_integration_lanes`, execute the release case on each
+task lane through the pinned `conduct` executor; the parent item has no single
+worktree and must not substitute the main checkout.
 
 The deployed-stack case uses the shared `Command` method. Its project-owned
 configuration declares the exact command and that `BASE_URL` is required. The

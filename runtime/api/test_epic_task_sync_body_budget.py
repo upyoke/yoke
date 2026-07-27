@@ -45,7 +45,7 @@ def epic_conn(tmp_path):
             title="Big epic",
             status="planning",
             project="yoke",
-            type="epic",
+            workflow_id="epic",
         )
         try:
             yield conn

@@ -3,31 +3,17 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from types import SimpleNamespace
-from unittest import mock
 
-import pytest
-
-from runtime.api.fixtures.backlog_inserts import insert_item
-from yoke_contracts.api.function_call import ActorContext
+from runtime.api.domain.machine_qa_baseline_group_test_support import (
+    materialize_installer_campaign,
+)
 from yoke_core.domain.handlers.test_machine_case import (
     _record_machine_case_result,
 )
-from yoke_core.domain.machine_qa_case_execution import (
-    MachineCaseDispatchError,
-    execute_materialized_machine_case,
-)
 from yoke_core.domain.machine_qa_execution import MachineCaseResult
-from yoke_core.domain.machine_qa_local_execution import (
-    LocalHostControlSubmission,
-)
-from yoke_core.domain.migrations.installer_campaign_plan_rows import apply
 from yoke_core.domain.qa_artifact_handle import local_handle, parse_handle
 from yoke_core.domain.qa_case_execution_context import (
     get_case_execution_context,
-)
-from yoke_core.domain.qa_plan_attachments import (
-    attach_plan_to_item,
-    materialize_for_item,
 )
 from yoke_core.domain.ssh_mac_terminal_capture import verify_terminal_bridge
 from yoke_core.domain.ssh_mac_host_control import SshMacHostControl
@@ -69,9 +55,14 @@ def test_required_terminal_completion_has_distinct_not_reached_outcome(
     control.material = SimpleNamespace(
         settings={"resource_name": "mac-mini-lab"},
     )
-    control._run = lambda *_args, **_kwargs: SimpleNamespace(
+    control._run = lambda command, **_kwargs: SimpleNamespace(
         returncode=0,
-        stdout="",
+        stdout=(
+            "tmux"
+            if command == "if command -v tmux >/dev/null 2>&1; then printf tmux; "
+            "elif command -v screen >/dev/null 2>&1; then printf screen; fi"
+            else ""
+        ),
         stderr="",
     )
     monkeypatch.setattr(
@@ -79,7 +70,7 @@ def test_required_terminal_completion_has_distinct_not_reached_outcome(
         lambda: tmp_path,
     )
     monkeypatch.setattr(
-        "yoke_core.domain.ssh_mac_host_control.wait_for_text",
+        "yoke_core.domain.ssh_mac_terminal_legacy.wait_for_text",
         lambda *_args, **_kwargs: None,
     )
 
@@ -94,198 +85,17 @@ def test_required_terminal_completion_has_distinct_not_reached_outcome(
     assert result.error_code == "terminal_completion_not_reached"
 
 
-def test_machine_leaf_dispatches_begin_then_submit_for_target() -> None:
-    case = {
-        "requirement_id": 41,
-        "executor_id": "host_control",
-        "method_id": "machine-state-check",
-        "project": "yoke",
-        "method_config": {"assertions": [{"argv": ["/usr/bin/true"]}]},
-        "entry_surface": None,
-        "required_completion": None,
-    }
-    begin = SimpleNamespace(
-        success=True,
-        result={
-            "state": "ready",
-            "execution": {"server": "issued-contract"},
-        },
-        error=None,
-    )
-    submit = SimpleNamespace(
-        success=True,
-        result={
-            "requirement_id": 41,
-            "executor_id": "host_control",
-            "verdict": "pass",
-        },
-        error=None,
-    )
-    with (
-        mock.patch(
-            "yoke_core.api.service_client_structured_api_adapter.call_dispatcher",
-            side_effect=[begin, submit],
-        ) as dispatch,
-        mock.patch(
-            "yoke_core.domain.ssh_mac_host_control.register_ssh_mac_host_control",
-        ),
-        mock.patch(
-            "yoke_core.domain.machine_qa_local_execution.execute_machine_case_contract",
-            return_value=LocalHostControlSubmission(
-                payload={
-                    "lease_id": 17,
-                    "contract_digest": "digest",
-                    "results": [],
-                }
-            ),
-        ) as execute_local,
-    ):
-        result = execute_materialized_machine_case(
-            case,
-            actor=ActorContext(
-                actor_id="2",
-                session_id="session-machine-case",
-            ),
-        )
-
-    assert result["requirement_id"] == 41
-    assert execute_local.call_args.args == ({"server": "issued-contract"},)
-    requests = [call.kwargs for call in dispatch.call_args_list]
-    assert [request["function_id"] for request in requests] == [
-        "test_machine.case.begin",
-        "test_machine.case.submit",
-    ]
-    assert [request["target"].qa_requirement_id for request in requests] == [41, 41]
-    assert requests[0]["payload"] == {}
-    assert requests[1]["payload"] == {
-        "lease_id": 17,
-        "contract_digest": "digest",
-        "results": [],
-    }
-
-
-def test_machine_leaf_local_failure_dispatches_abort() -> None:
-    case = {
-        "requirement_id": 41,
-        "executor_id": "host_control",
-        "method_id": "machine-state-check",
-        "project": "yoke",
-        "method_config": {"assertions": [{"argv": ["/usr/bin/true"]}]},
-        "entry_surface": None,
-        "required_completion": None,
-    }
-    begin = SimpleNamespace(
-        success=True,
-        result={
-            "state": "ready",
-            "execution": {
-                "lease_id": 18,
-                "contract_digest": "digest-18",
-            },
-        },
-        error=None,
-    )
-    abort = SimpleNamespace(
-        success=True,
-        result={
-            "lease_id": 18,
-            "released": True,
-            "reason": "local_execution_failed",
-        },
-        error=None,
-    )
-    with (
-        mock.patch(
-            "yoke_core.api.service_client_structured_api_adapter.call_dispatcher",
-            side_effect=[begin, abort],
-        ) as dispatch,
-        mock.patch(
-            "yoke_core.domain.ssh_mac_host_control.register_ssh_mac_host_control",
-        ),
-        mock.patch(
-            "yoke_core.domain.machine_qa_local_execution.execute_machine_case_contract",
-            side_effect=RuntimeError("local control unavailable"),
-        ),
-    ):
-        with pytest.raises(
-            MachineCaseDispatchError,
-            match="server lease was released",
-        ):
-            execute_materialized_machine_case(
-                case,
-                actor=ActorContext(
-                    actor_id="2",
-                    session_id="session-machine-case",
-                ),
-            )
-
-    requests = [call.kwargs for call in dispatch.call_args_list]
-    assert [request["function_id"] for request in requests] == [
-        "test_machine.case.begin",
-        "test_machine.case.abort",
-    ]
-    assert requests[1]["payload"] == {
-        "lease_id": 18,
-        "contract_digest": "digest-18",
-        "reason": "local_execution_failed",
-    }
-
-
-def test_machine_leaf_refuses_non_machine_executor() -> None:
-    with mock.patch(
-        "yoke_core.api.service_client_structured_api_adapter.call_dispatcher",
-    ) as dispatch:
-        try:
-            execute_materialized_machine_case(
-                {
-                    "requirement_id": 41,
-                    "executor_id": "worktree_run",
-                    "method_id": "command",
-                }
-            )
-        except MachineCaseDispatchError as exc:
-            assert "not a registered Machine QA case" in str(exc)
-        else:
-            raise AssertionError("non-Machine executor was dispatched")
-    dispatch.assert_not_called()
-
-
 def test_machine_result_records_exact_outcome_and_canonical_artifacts(
     test_db,
     tmp_path: Path,
     monkeypatch,
 ) -> None:
     monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path / "scratch"))
-    apply(test_db)
-    insert_item(
-        test_db,
-        id=42,
-        title="Verify installer campaign",
-        workflow_id="issue",
-        status="implementing",
-    )
-    plan_id = int(
-        test_db.execute(
-            "SELECT id FROM qa_plans WHERE slug='installer-campaign'"
-        ).fetchone()[0]
-    )
-    attach_plan_to_item(
-        test_db,
-        plan_id=plan_id,
-        item_id=42,
-        transition_id="reviewing-implementation",
-    )
-    materialized = materialize_for_item(
-        test_db,
-        item_id=42,
-        transition_id="reviewing-implementation",
-    )
-    requirement_id = int(
-        test_db.execute(
-            "SELECT id FROM qa_requirements "
-            "WHERE id=ANY(%s) AND plan_case_key='path-001'",
-            (materialized["created_requirement_ids"],),
-        ).fetchone()[0]
+    materialized = materialize_installer_campaign(test_db, item_id=42)
+    requirement_id = next(
+        int(row["id"])
+        for row in materialized
+        if row["plan_case_key"] == "default-add-yoke-to-my-path"
     )
     case = get_case_execution_context(
         test_db,

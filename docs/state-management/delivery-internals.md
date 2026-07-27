@@ -1,6 +1,11 @@
 # Delivery Lifecycle Internals
 
-Detail pages for the delivery pipeline owned by the Usher. The high-level ownership boundary (`implemented → release → done`) and the handoff from Polish lives in [state-management.md](../state-management.md#delivery-lifecycle); this file covers the run mechanics, halt states, executor types, and ephemeral environments referenced from there.
+Detail pages for the deployment-run pipeline used when an item's pinned
+workflow version binds the `usher` executor and declares
+`policies.delivery=release_stage`. The high-level handoff lives in
+[state-management.md](../state-management.md#delivery-lifecycle); this file
+covers the run mechanics, halt states, deployment executor types, and
+ephemeral environments referenced from there.
 
 ## Deployment Runs
 
@@ -10,7 +15,10 @@ into a single pipeline execution for delivery.
 
 **Run statuses:** `created → executing → succeeded | failed | cancelled`
 
-**Item lifecycle during a run:**
+**Member-item lifecycle during a run:** The current `release_stage`
+definitions use `implemented`, `release`, and `done` for their Usher binding.
+Those names are definition-owned, not a universal item progression.
+
 - Items remain at `implemented` while the run is `created` (queued but not executing)
 - Items transition to `release` when the run starts `executing`
 - Items transition to `done` when the run `succeeded` and all blocking `post_deploy` and `manual_acceptance` QA is satisfied
@@ -19,7 +27,12 @@ into a single pipeline execution for delivery.
 
 ## Halt States
 
-> **Vocabulary note:** Halt states (`awaiting-approval`, `needs-capability`) are **run-level conditions**, not item lifecycle statuses. Items at a halted run remain at `status=release`. The canonical halt-state registry is `packages/yoke-core/src/yoke_core/domain/approval.py`. The canonical lifecycle registry is `packages/yoke-core/src/yoke_core/domain/lifecycle.py`.
+> **Vocabulary note:** Halt states (`awaiting-approval`,
+> `needs-capability`) are **run-level conditions**, not item lifecycle
+> statuses. Members of the current `release_stage` workflows remain at their
+> definition's `release` stage while halted. The halt-state registry is
+> `yoke_core.domain.approval`; item stage, gate, and policy authority comes
+> from the pinned version interpreted by `yoke_core.domain.workflow_runtime`.
 
 Two conditions act as halt states during deployment run execution (items at these halt states remain at `status=release`):
 
@@ -81,10 +94,11 @@ The Python pipeline owner is `yoke_core.domain.deploy_pipeline`. The pipeline di
 
 **Yoke core health-check:** Env-resolved Yoke core health checks prove three things before the release is healthy: public `/v1/health` responds, the response echoes the request id, and the response `build` matches the image tag the pipeline deployed. After that passes, the health stage fetches the target HTTPS env's `/v1/cli/manifest` and compares it to this checkout's local CLI manifest. A release fails if the deployed API is missing a local wrapped subcommand such as `strategy.doc.create`; the fix is to deploy/update the Yoke API, not to bypass the HTTPS path.
 
-## Usher State Machine
+## Current `release_stage` Usher State Machine
 
 ```
-Entry: item.status = 'implemented'
+Entry: the pinned definition's active executor is `usher`
+       and its current built-in handoff stage is `implemented`
 
 1. Create deployment_run (status = 'created')
 2. Enroll items via deployment_run_items for item-bound delivery; skip for environment-level deploys
@@ -112,11 +126,17 @@ On final stage complete:
 
 ## No-Flow Fast Path
 
-Items without a deployment flow (or with an `internal`-type flow) skip the multi-stage pipeline. The Usher transitions them directly from `implemented` to `done`.
+For current `release_stage` definitions, items without a deployment flow (or
+with an `internal`-type flow) skip the multi-stage pipeline. Usher closes its
+bound segment directly from `implemented` to `done`. Other delivery policies
+do not inherit this fast path.
 
 ## Ephemeral Environments
 
-Ephemeral environments are a **conduct-phase capability**, not a deployment flow stage. They provide a live preview environment for testing during the `implementing → reviewing-implementation` phase:
+Ephemeral environments are an implementation-executor capability, not a
+deployment-flow stage. The current task-graph workflow uses them inside its
+definition-bound `conduct` segment, commonly while moving from
+`implementing` toward `reviewing-implementation`:
 
 - **Creation:** GitHub Actions spins up an ephemeral environment on branch push (triggered by the CI workflow, not by the Usher).
 - **Tracking:** Yoke tracks active environments in the `ephemeral_environments` DB table (keyed by branch name).

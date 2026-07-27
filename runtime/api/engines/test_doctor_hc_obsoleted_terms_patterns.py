@@ -12,7 +12,6 @@ tests live in ``test_doctor_hc_obsoleted_terms_scan.py``.
 from __future__ import annotations
 
 import re
-from pathlib import Path
 
 from yoke_core.engines.doctor_hc_obsoleted_terms import (
     _PER_PATTERN_PATH_ALLOWLIST,
@@ -21,6 +20,16 @@ from yoke_core.engines.doctor_hc_obsoleted_terms import (
     _RETIRED_PARENT_EPIC_SQL_SELECT_PATTERN,
     _RETIRED_PARENT_EPIC_SQL_PATTERN,
     _RETIRED_TYPE_ISSUE_EPIC_PARENT_PATTERN,
+)
+from yoke_core.engines.doctor_hc_obsoleted_terms_browser import (
+    RETIRED_BROWSER_HARNESS_FACADE_PATTERN,
+    RETIRED_BROWSER_HARNESS_RUNNER_PATTERN,
+    RETIRED_SCREENSHOT_BRIDGE_CLI_PATTERN,
+    RETIRED_SCREENSHOT_BRIDGE_FUNCTION_PATTERN,
+    RETIRED_SCREENSHOT_BRIDGE_HANDLER_PATTERN,
+    RETIRED_SCREENSHOT_BRIDGE_HELPER_PATTERN,
+    RETIRED_SCREENSHOT_BRIDGE_MODULE_PATTERN,
+    RETIRED_SCREENSHOT_BRIDGE_RAW_CLI_PATTERN,
 )
 from runtime.api.engines.test_doctor_hc_obsoleted_terms import (
     _AUTHORIZED_DECLARATION_PATHS,
@@ -188,6 +197,40 @@ def test_strategy_files_are_in_per_pattern_allowlist():
     """The child-issue pattern keeps narrow strategy-file waivers."""
     allow = _PER_PATTERN_PATH_ALLOWLIST.get(_RETIRED_CHILD_ISSUE_PATTERN, ())
     assert ".yoke/strategy/WISPS.md" in allow
+
+
+def test_retired_browser_execution_paths_are_detected():
+    samples = {
+        RETIRED_BROWSER_HARNESS_FACADE_PATTERN: (
+            "from " + "yoke_harness" + "." + "browser_qa import execute_scenario"
+        ),
+        RETIRED_BROWSER_HARNESS_RUNNER_PATTERN: (
+            "from " + "yoke_harness" + "." + "browser_qa_runner import execute_scenario"
+        ),
+        RETIRED_SCREENSHOT_BRIDGE_MODULE_PATTERN: (
+            "from " + "yoke_core" + "." + "domain.qa_evidence_bridge import satisfy"
+        ),
+        RETIRED_SCREENSHOT_BRIDGE_HANDLER_PATTERN: (
+            "owner_module="
+            + "'yoke_core.domain.handlers."
+            + "qa_browser_"
+            + "evidence'"
+        ),
+        RETIRED_SCREENSHOT_BRIDGE_FUNCTION_PATTERN: (
+            "function=" + "'qa" + "." + "screenshot_evidence.satisfy'"
+        ),
+        RETIRED_SCREENSHOT_BRIDGE_CLI_PATTERN: (
+            "run `yoke qa " + "screenshot-evidence satisfy" + " --item YOK-1`"
+        ),
+        RETIRED_SCREENSHOT_BRIDGE_RAW_CLI_PATTERN: (
+            "python3 -m yoke_core.domain.qa " + "satisfy-" + "screenshot-evidence"
+        ),
+        RETIRED_SCREENSHOT_BRIDGE_HELPER_PATTERN: (
+            "qa." + "cmd_satisfy_" + "screenshot_evidence(item_id=1)"
+        ),
+    }
+    for pattern, sample in samples.items():
+        assert re.search(pattern, sample), (pattern, sample)
 
 
 # ---------------------------------------------------------------------------

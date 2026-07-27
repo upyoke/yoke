@@ -7,6 +7,9 @@ import json
 import pytest
 
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
+from runtime.api.api_workflow_test_helpers import (
+    install_workflow_registry_and_pin_items,
+)
 from yoke_core.domain import db_backend
 from yoke_core.domain.item_worktree_schema import ITEM_WORKTREES_TABLE_SQL
 from yoke_core.domain.schema_init_apply import execute_schema_script
@@ -16,7 +19,6 @@ CREATE TABLE projects (id INTEGER PRIMARY KEY, slug TEXT UNIQUE, name TEXT, publ
 CREATE TABLE items (
     id INTEGER PRIMARY KEY,
     title TEXT,
-    type TEXT DEFAULT 'issue',
     status TEXT DEFAULT 'implementing',
     project_id INTEGER DEFAULT 1, project_sequence INTEGER NOT NULL
 );
@@ -73,7 +75,7 @@ def apply_qa_schema() -> None:
         conn.execute(
             "INSERT INTO items (id, title, project_sequence) VALUES (42, 'Test item', 42)"
         )
-        conn.commit()
+        install_workflow_registry_and_pin_items(conn)
     finally:
         conn.close()
 

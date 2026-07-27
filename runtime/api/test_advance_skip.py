@@ -327,7 +327,7 @@ def test_real_execute_update_path_polish(tmp_db):
     _seed_item(
         tmp_db,
         id=990,
-        type="issue",
+        workflow_id="issue",
         status="reviewed-implementation",
         project="yoke",
     )

@@ -18,7 +18,11 @@ from typing import Callable, Mapping, MutableMapping, Optional, Sequence
 import psycopg
 from psycopg import conninfo, pq, sql
 
-from yoke_core.domain import postgres_binaries, postgres_cluster, universe_archive_output
+from yoke_core.domain import (
+    postgres_binaries,
+    postgres_cluster,
+    universe_archive_output,
+)
 from yoke_core.domain.source_authority_connect_policy import FENCE_STATE_SCHEMA
 from yoke_core.domain.universe_portability_content_contract import (
     ARCHIVE_COLUMN_RENAMES as _ARCHIVE_COLUMN_RENAMES,
@@ -141,6 +145,7 @@ _TOC_KINDS = tuple(
 _TOC_ROW_RE = re.compile(r"^\d+;\s+\d+\s+\d+\s+(.+)$")
 _DUMPED_FROM_RE = re.compile(r"^;\s+Dumped from database version:\s+(.+)$", re.M)
 _DUMPED_BY_RE = re.compile(r"^;\s+Dumped by pg_dump version:\s+(.+)$", re.M)
+
 
 # Portable archives are data contracts across engine releases.  The current
 # trusted schema owns every object and column; this manifest names only
@@ -484,8 +489,8 @@ def _file_sha256(path: Path) -> str:
 
 def _catalog_digest(catalog: str) -> str:
     tables, sequences = _catalog_data_targets(catalog)
-    canonical = "\n".join(sorted(tables)) + "\n--sequences--\n" + "\n".join(
-        sorted(sequences)
+    canonical = (
+        "\n".join(sorted(tables)) + "\n--sequences--\n" + "\n".join(sorted(sequences))
     )
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
@@ -546,15 +551,15 @@ def dump_universe(
     pump_errors: list[BaseException] = []
     try:
         argv = [
-                executable,
-                "--format=custom",
-                "--no-owner",
-                "--no-privileges",
-                "--no-comments",
-                "--no-security-labels",
-                "--exclude-table=public.capability_secrets",
-                f"--exclude-schema={FENCE_STATE_SCHEMA}",
-            ]
+            executable,
+            "--format=custom",
+            "--no-owner",
+            "--no-privileges",
+            "--no-comments",
+            "--no-security-labels",
+            "--exclude-table=public.capability_secrets",
+            f"--exclude-schema={FENCE_STATE_SCHEMA}",
+        ]
         if snapshot is not None:
             argv.append(f"--snapshot={snapshot}")
         process = subprocess.Popen(
@@ -692,9 +697,7 @@ def _reset_restore_target(conn: object) -> None:
     }
     for name, kind in relations:
         conn.execute(  # type: ignore[attr-defined]
-            sql.SQL(drop_templates[str(kind)]).format(
-                sql.Identifier(str(name))
-            )
+            sql.SQL(drop_templates[str(kind)]).format(sql.Identifier(str(name)))
         )
     routines = conn.execute(  # type: ignore[attr-defined]
         "SELECT proc.oid::regprocedure::text, proc.prokind::text"
@@ -992,10 +995,7 @@ def _apply_restore_stream(
     expected_tables = set(target_columns)
     missing_tables = expected_tables - allowed_tables
     extra_tables = allowed_tables - expected_tables
-    if (
-        not missing_tables.issubset(_ARCHIVE_OMITTABLE_TARGET_TABLES)
-        or extra_tables
-    ):
+    if not missing_tables.issubset(_ARCHIVE_OMITTABLE_TARGET_TABLES) or extra_tables:
         raise ArchiveCompatibilityError(
             "the universe archive TABLE DATA catalog does not match the"
             " deployed schema"
@@ -1488,10 +1488,9 @@ def converge_and_validate_restored_universe(
     from yoke_core.domain import db_backend, universe_capability_compatibility
     from yoke_core.domain.actor_permissions import seed_roles_and_permissions
     from yoke_core.domain.environment_bootstrap import run_init_chain_at_dsn
-    from yoke_core.domain.schema_fingerprint import (
-        fingerprint_portable_postgres_schema,
-    )
+    from yoke_core.domain.schema_fingerprint import fingerprint_portable_postgres_schema
     from yoke_core.domain.flow_init import create_or_replace_item_progress_view
+    from yoke_core.domain import qa_requirement_snapshot_convergence as snapshots
     from yoke_core.domain.schema_migrations import _ensure_qa_runs_verdict_trigger
     from yoke_core.domain.schema_init import converge_core_schema
     from yoke_core.domain.schema_readiness import missing_readiness_tables
@@ -1514,17 +1513,18 @@ def converge_and_validate_restored_universe(
     )
     conn = db_backend.connect_psycopg(bounded_dsn)
     try:
-        # Some legacy convergence steps own explicit commits, so they cannot
-        # run inside psycopg's nested ``transaction()`` context.  The database
-        # is isolated staging authority at this point; the archive restore was
-        # already atomic, and callers drop staging on any validation failure.
+        # Legacy convergence steps own commits and cannot run inside psycopg's
+        # nested transaction context. This staging database is discarded on
+        # validation failure; the archive restore was already atomic.
         converge_core_schema(conn)
         seed_roles_and_permissions(conn)
-        # Views and executable schema are deliberately omitted from uploaded
-        # TOCs. Recreate the sole canonical view and QA trigger/function from
-        # trusted deployed code before the exact fingerprint check.
+        # Uploaded TOCs omit views and executable schema. Recreate the canonical
+        # view and QA trigger/function from trusted code before fingerprinting.
         create_or_replace_item_progress_view(conn)
         _ensure_qa_runs_verdict_trigger(conn)
+        snapshots.converge_restored_requirement_snapshots(
+            conn, ArchiveCompatibilityError
+        )
         conn.commit()
         organizations = conn.execute(
             "SELECT slug FROM organizations ORDER BY id"

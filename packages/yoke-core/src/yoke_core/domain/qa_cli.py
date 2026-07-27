@@ -16,7 +16,6 @@ from yoke_core.domain.qa_execution import (
     cmd_run_complete,
     cmd_run_get,
     cmd_run_list,
-    cmd_satisfy_screenshot_evidence,
 )
 from yoke_core.domain.qa_gate_summary import dispatch_from_args as _gs_dispatch, register_subparser as _register_gate_summary
 from yoke_core.domain import qa_requirement_policy_validation as _qap
@@ -193,11 +192,6 @@ def _build_parser() -> argparse.ArgumentParser:
     bp = sub.add_parser("baseline-promote")
     bp.add_argument("id", type=int)
 
-    # satisfy-screenshot-evidence
-    ss = sub.add_parser("satisfy-screenshot-evidence")
-    ss.add_argument("--item-id", type=int, required=True)
-    ss.add_argument("--evidence", default="Browser QA screenshot evaluation passed -- screenshots consistent with acceptance criteria")
-
     _register_gate_summary(sub)
 
     return p
@@ -337,11 +331,5 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
         cmd_baseline_get(args.route, args.viewport, db_path=db_path)
     elif args.subcmd == "baseline-promote":
         cmd_baseline_promote(args.id, db_path=db_path)
-    elif args.subcmd == "satisfy-screenshot-evidence":
-        cmd_satisfy_screenshot_evidence(
-            db_path=db_path,
-            item_id=args.item_id,
-            evidence=args.evidence,
-        )
     elif args.subcmd == "gate-summary":
         sys.exit(_gs_dispatch(args, db_path))

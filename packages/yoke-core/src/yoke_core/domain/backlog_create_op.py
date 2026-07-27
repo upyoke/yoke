@@ -118,11 +118,14 @@ def execute_create(
 
     Returns a result dict with 'success', 'item_id', 'error', etc.
 
-    ``workflow`` temporarily defaults to ``issue`` while intake callers
-    finish the registry cutover. Persistent production creates require a
-    typed entry surface allowed by the selected workflow version.
+    ``workflow`` is required because the registry has no implicit selection.
+    Persistent production creates require a typed entry surface allowed by
+    the selected workflow version.
     """
     from yoke_core.domain import mutations
+
+    if not workflow or not workflow.strip():
+        return {"success": False, "error": "workflow is required"}
 
     if project is None:
         project = checkout_project_context()
@@ -176,7 +179,7 @@ def execute_create(
         from yoke_core.domain.workflow_runtime import load_workflow_runtime
 
         workflow_id, workflow_version_id = resolve_current_workflow_pin(
-            conn, workflow or "issue",
+            conn, workflow,
         )
         workflow_runtime = load_workflow_runtime(
             conn,

@@ -125,7 +125,7 @@ class TestAC4EpicVerdictRequired:
 
     def test_missing_verdict_blocks_epic(self, dt_db):
         db_path, _ = dt_db
-        _insert_item(db_path, 731, type="epic", deployment_flow="")
+        _insert_item(db_path, 731, workflow_id="epic", deployment_flow="")
 
         allowed, reason = check_done_preconditions(731, "", True)
 
@@ -137,7 +137,7 @@ class TestAC4EpicVerdictRequired:
 
     def test_ready_verdict_allows_epic(self, dt_db):
         db_path, _ = dt_db
-        _insert_item(db_path, 732, type="epic", deployment_flow="")
+        _insert_item(db_path, 732, workflow_id="epic", deployment_flow="")
         _seed_verdict(db_path, 732, verdict="READY")
 
         allowed, reason = check_done_preconditions(732, "", True)
@@ -147,7 +147,7 @@ class TestAC4EpicVerdictRequired:
 
     def test_caveats_verdict_allows_epic(self, dt_db):
         db_path, _ = dt_db
-        _insert_item(db_path, 733, type="epic", deployment_flow="")
+        _insert_item(db_path, 733, workflow_id="epic", deployment_flow="")
         _seed_verdict(db_path, 733, verdict="CAVEATS")
 
         allowed, reason = check_done_preconditions(733, "", True)
@@ -158,7 +158,7 @@ class TestAC4EpicVerdictRequired:
     def test_blocked_verdict_does_not_satisfy_epic(self, dt_db):
         """A BLOCKED verdict is not READY/CAVEATS — must still block."""
         db_path, _ = dt_db
-        _insert_item(db_path, 734, type="epic", deployment_flow="")
+        _insert_item(db_path, 734, workflow_id="epic", deployment_flow="")
         _seed_verdict(db_path, 734, verdict="BLOCKED")
 
         allowed, reason = check_done_preconditions(734, "", True)
@@ -172,7 +172,7 @@ class TestAC4EpicVerdictRequired:
     def test_issues_do_not_require_verdict(self, dt_db):
         """Issues never need the shepherd verdict — only epics."""
         db_path, _ = dt_db
-        _insert_item(db_path, 735, type="issue", deployment_flow="")
+        _insert_item(db_path, 735, workflow_id="issue", deployment_flow="")
 
         allowed, reason = check_done_preconditions(735, "", False)
 

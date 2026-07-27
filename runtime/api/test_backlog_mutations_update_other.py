@@ -1,9 +1,9 @@
-"""ExecuteUpdate sub-scenarios: priority, nonexistent items, shell-fallback fields, project migration.
+"""ExecuteUpdate sub-scenarios: priority, invalid fields, and project migration.
 
 Covers the non-status field write paths: simple priority updates, error
-handling for unknown items / unknown fields, the shell-fallback writers
-(``type``, ``deploy_stage``), and the project-field path that triggers a
-GitHub issue migration before the DB write.
+handling for unknown items / unknown fields, the ``deploy_stage`` writer,
+and the project-field path that triggers a GitHub issue migration before
+the DB write.
 """
 
 # The shared pytest fixture intentionally shares its name with test parameters.

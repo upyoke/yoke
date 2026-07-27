@@ -16,9 +16,9 @@ An attachable operating system for software delivery: specialized subagents, Pos
 - **Test:** "Did the skill say ask?" not "would the harness ask?" Silent → harness default; unsure → reread the skill.
 
 ## Project Scoping — Hard Rule
-- **One work item = one project.** The `project` field = where code deploys (`project=external-webapp` → External webapp repo, `project=yoke` → Yoke repo); scope is defined by where changes land, not where the idea came from. Never mix deploy targets in one item/epic. All work items live in the Yoke backlog regardless of target.
+- **One work item = one project.** The `project` field = where code deploys (`project=external-webapp` → External webapp repo, `project=yoke` → Yoke repo); scope is defined by where changes land, not where the idea came from. Never mix deploy targets in one item or its generated task graph. All work items live in the Yoke backlog regardless of target.
 - **Cross-project work → split, one work item per project.** Ambiguous target → ask; never silently default to `yoke` for work targeting an external system.
-- **Pattern B exception:** Pack-driven work where Yoke publishes a reusable capability and proves it in another repo (e.g. "publish a Pack update + apply it in External webapp") → one `project=yoke` work item, multi-repo scope in the body. Install/update/deploy/verify steps are scoped downstream (refine for issues, shepherd for epics), never at idea.
+- **Pattern B exception:** Pack-driven work where Yoke publishes a reusable capability and proves it in another repo (e.g. "publish a Pack update + apply it in External webapp") → one `project=yoke` work item, multi-repo scope in the body. Install/update/deploy/verify steps are scoped by the executors and policies in the selected workflow version, never at idea.
 
 ## Pack-First Capabilities — Hard Rule
 - **If your project distributes reusable capabilities, package them as Packs.** Reusable ops workflows, deployment tooling, and infrastructure patterns live in a focused `packs/<slug>/` bundle with immutable versions, explicit files, settings, dependencies, documentation, and verification.
@@ -31,11 +31,7 @@ An attachable operating system for software delivery: specialized subagents, Pos
 - **Yoke control-plane DB authority is Postgres, never a constructed file path.** From any checkout or linked worktree, use registered `yoke <subcommand>` commands or the function-call surface for reads/writes; everyday raw diagnostic SELECTs use `yoke db read "SELECT ..."`. Lower-level break-glass query paths remain source-dev/operator-debug only, not the agent-default read path. Never infer authority by appending a legacy DB filename to `$PWD`, `CLAUDE_PROJECT_DIR`, or a worktree path.
 - **A linked worktree is not a Yoke control plane.** Paths under `.worktrees/<branch>/` are code execution surfaces. Do not read or write worktree-local legacy DB files; control-plane reads and writes go through the connected Postgres authority.
 - **Worktree-local DBs are validation surfaces only when explicitly surfaced.** If a migration model provisions a validation DB, use the emitted Postgres env bindings. Do not substitute that DB for `/yoke` control-plane reads, item queries, events, or project metadata.
-- **Environment settings are projected, never dumped.** Read only explicit
-  scalar leaves with `yoke projects environment-settings get --project <slug>
-  --environment-id <id> --path <key.path>`; the registered read refuses root or
-  container projections, and merge receipts return changed paths rather than
-  the settings document. Never inventory `environments.settings` as a whole.
+- **Environment settings are projected, never dumped.** Read only explicit scalar leaves with `yoke projects environment-settings get --project <slug> --environment-id <id> --path <key.path>`; the registered read refuses root or container projections, and merge receipts return changed paths rather than the settings document. Never inventory `environments.settings` as a whole.
 
 ## Deployment Runs — Hard Rule
 - **Flow id != run id; item-bound delivery uses Usher/start-for-item.** A hosted flow definition id is not a run id; run ids look like `run-YYYYMMDD-NNN`, and `/yoke usher YOK-N` creates runs through `runs start-for-item`, writes `deployment_run_items`, executes the pipeline, then moves members to `done`.
@@ -91,7 +87,7 @@ An attachable operating system for software delivery: specialized subagents, Pos
 - **Bash tool shell hazards:** in zsh, `VAR=X; cmd "$VAR" | pipe` can expand incorrectly — capture command output first with `$()`. Single-quote literal `rg`/`grep` patterns; backticks inside double quotes still run command substitution. Put `rg` options (including `--glob`) before the pattern and path operands. Never pass an optional unmatched path glob such as `docs/deploy*` directly to zsh; enumerate candidates with `rg --files` or quote a pattern consumed by the tool. Quote URL arguments containing `?` (unquoted `?` globs). Never name shell vars `path`/`status` (zsh specials — `path` shadows `$PATH`, `status` is read-only). `python3`, never `python`. `mktemp` templates must END in `XXXXXX`.
 - **Title length limit:** all item and epic task titles must be <=100 characters. The Python backlog layer and `HC-title-length` enforce this.
 - **Work-item entry surfaces.** Every create selects a workflow and a typed entry surface (`web_form`, `cli`, `harness_skill`, or `promotion`); the pinned immutable workflow version must allow that surface. `/yoke idea` drives the registered `items.create` function through `harness_skill`, while product forms and operator commands use their own typed surfaces. Dry-run and test-isolated DB targets may omit the surface.
-- **Epic decomposition belongs to the Architect.** Do not pre-file additional issues that you imagine as part of an unplanned epic. Epic decomposition lives in `epic_tasks`, populated by the Architect during shepherd planning.
+- **Generated-task decomposition belongs to the Architect.** Do not pre-file separate backlog items as imagined child tasks. When a pinned workflow declares `policies.generated_children=epic_tasks`, decomposition lives in `epic_tasks` and is populated by the Architect inside the registered planning executor.
 - **Tier-discipline doctrine.** The seven teaching tiers and their backstop HCs (`HC-tier-schema-bleed`, `-tier-cli-shape-bleed`, `-packet-tier-completeness`, `-progressive-disclosure-direction`, `-tier-module-path-resolution`) are documented at `docs/archive/decisions/teaching-tier-discipline-audit.md`.
 - **Inline-short + `--help`-deep teaching.** Every Atlas-taught operation carries one short copy-paste recipe + one-sentence directive everywhere agents read (packet, agent body, skill, CLI footer, recovery hint, denial message); the deep home (variants, examples, flag matrix, decision tree) is the operation's `<cmd> --help`. Carve-outs: `agent_executes_via_harness` families (git, gh) and tool wrappers (`watch_pytest`/`watch_doctor`/`watch_merge`) have no Yoke `--help`, so inline carries the full recipe. Anti-pattern teaching lives only in denial messages. Enforcement deferred.
 
@@ -120,33 +116,22 @@ Full envelope shape, claim-verification matrix, and the per-family function id r
 
 - **Full-field replace (`items.structured_field.replace`):** writes complete content to `spec`, `design_spec`, `technical_plan`, `worktree_plan`, `shepherd_log`, `shepherd_caveats`, `test_results`, or `deploy_log`. Routes through the structured-write path (preserves empty/shrinkage/freeze guards, reports old/new line counts), and with matching `options` syncs the rendered body to GitHub + rebuilds the board. CLI adapter: `printf '%s' "$content" | yoke items structured-field replace YOK-N --field spec --stdin`.
 
-  ```jsonc
-  {
-    "function": "items.structured_field.replace",
-    "request_id": "<uuid>",
-    "actor":  {"session_id": "<harness_sessions.session_id>"},
-    "target": {"kind": "item", "item_id": 42},
-    "payload": {"field": "spec", "content": "# Spec\n\n..."},
-    "options": {"sync_github_body": true, "rebuild_board": true}
-  }
+  ```json
+  {"function":"items.structured_field.replace","request_id":"<uuid>","actor":{"session_id":"<harness_sessions.session_id>"},"target":{"kind":"item","item_id":42},"payload":{"field":"spec","content":"# Spec\n\n..."},"options":{"sync_github_body":true,"rebuild_board":true}}
   ```
 
 - **Additive transforms (`items.structured_field.append_addendum` / `section_upsert` / `section_append`):** preserve existing content, appending a `## heading`-led block (`append_addendum`, `section_append`) or rewriting one in place (`section_upsert`). The agent path is the function call; the read-transform-in-shell-then-pipe-back pattern is blocked by the structured-field-transform lint (suppression `# lint:no-structured-transform-check` is audit-only — still denies). CLI adapter: `printf '%s' "$content" | yoke items structured-field append-addendum YOK-N --field spec --heading "..." --source refine --stdin`.
 
 - **Epic-task content (`workflow_item.epic_task.*`):** body replace, split, reassign, add, remove, metadata update; progress notes via `workflow_item.epic_progress_note.append`. The dispatcher resolves the parent epic from `target.kind="epic_task"` and verifies the session holds the epic's work claim. CLI adapter: `printf '%s' "<task body>" | yoke workflow-item epic-task body-replace --epic 833 --task-num 5 --stdin`.
 
-- **Do not misuse epic-only fields on issues.** `shepherd_log`, `shepherd_caveats`, and `worktree_plan` are conceptually epic-only. Writing to them on an issue is misuse — readers will treat the content as authoritative shepherd output. For in-flight execution context on an issue, use the **Progress Log** section (next bullet).
+- **Do not misuse task-graph planning fields.** `shepherd_log`, `shepherd_caveats`, and `worktree_plan` are reserved for items whose pinned workflow policies generate `epic_tasks`. Writing them on a workflow with `generated_children=none` is misuse — readers will treat the content as authoritative planning output. For in-flight execution context on any item, use the **Progress Log** section (next bullet).
 
 ## Progress Log — long-running execution context on items
 
-For session-continuity context on an item that future agents need to pick up — what's done so far, decisions made, dead ends explored, where to resume after compaction or session swap — write to a **Progress Log** section on the item (works for both issues and epics). Agents call `items.progress_log.append`, which handles the read-then-upsert-with-`ordering=200` convention internally:
+For session-continuity context on an item that future agents need to pick up — what's done so far, decisions made, dead ends explored, where to resume after compaction or session swap — write to a **Progress Log** section on the item (works for every workflow). Agents call `items.progress_log.append`, which handles the read-then-upsert-with-`ordering=200` convention internally:
 
-```jsonc
-{
-  "function": "items.progress_log.append",
-  "target":   {"kind": "item", "item_id": 42},
-  "payload":  {"headline": "kicked off engineer dispatch", "body": "..." }
-}
+```json
+{"function":"items.progress_log.append","target":{"kind":"item","item_id":42},"payload":{"headline":"kicked off engineer dispatch","body":"..."}}
 ```
 
 CLI adapter: `yoke items section get YOK-N --section "Progress Log"` to read; `yoke items section upsert YOK-N --section "Progress Log" --content-file /tmp/progress-log.md --ordering 200` to write (destructive — read first when appending; the function call above does the read-merge-write internally). Reading the existing Progress Log into a shell variable / temp file and piping back into `items section upsert` is structured-field-transform shell choreography that the PreToolUse lint refuses by default.
@@ -278,15 +263,16 @@ Six HCs enforce the model: `HC-architecture-unclassified-path`, `HC-architecture
 Self-improvement loop: observe -> log to DB (`ouroboros_entries`) -> `/yoke curate` -> `/yoke doctor` -> `/yoke simulate --system`. Wrapup reports live in `wrapup_reports`. Health reports and wrapup views are generated local output; the DB remains the source of truth.
 
 ## Lifecycle & Routing
-- Canonical human guide: `.yoke/docs/lifecycle.md` (progressions, command boundaries, issue vs epic families). Backed by the Yoke lifecycle engine.
-- `/yoke refine` owns `idea -> refining-idea -> refined-idea` and `plan-drafted -> refining-plan -> planned`. `/yoke shepherd` is epic-only and owns `refined-idea -> planning -> plan-drafted`.
-- Issue flow: `/yoke refine` -> `/yoke advance ... implementation` (worktree) -> review loop in the same worktree -> `/yoke polish` -> `/yoke usher`. Epic flow: `/yoke refine` -> `/yoke shepherd` -> `/yoke refine` -> `/yoke conduct` -> `/yoke polish` -> `/yoke usher`.
+- Canonical human guide: `.yoke/docs/lifecycle.md`. Each item pins immutable `workflow_id` / `workflow_version_id`; that definition owns ordered stages, transitions, target-stage gates, policies, entry surfaces, and registered executor bindings.
+- Never route by a remembered workflow name or copied progression. Read `yoke workflows item get YOK-N`, then `yoke workflows version get WORKFLOW VERSION`; the binding whose half-open interval contains the live stage selects `/yoke <executor_id>`.
+- A binding's `through_stage_id` is a fresh command/claim handoff. Worktree and generated-task shape come from `policies.worktrees`, `policies.parallelism`, and `policies.generated_children`, not from a workflow-id branch.
 - `/yoke do` routing (session offer, `NextAction`, chainability, `supported_paths`) is owned by `.yoke/docs/session-offer-contract.md` and `.yoke/docs/charge-frontier.md`. Yoke core derives harness capabilities server-side from the harness manifest — harnesses do not self-report `YOKE_SUPPORTED_PATHS`.
 
 ## Worktree Discipline
 - NEVER use `--no-worktree` unless the user explicitly asks. NEVER write implementation code on main.
-- Issues enter a worktree via `/yoke advance YOK-N implementation`; the same session that ran preflight + claim continues into implementation/review — no relaunch, no parent-session stop, no claim handoff. Authority over the worktree is the work-claim (validated per call by `lint_session_cwd`); the launcher `cd` is convenience. The review loop (`reviewing-implementation` → `reviewed-implementation`) stays in that session. Epics enter via `/yoke conduct YOK-N` once the plan is `planned`; conduct may create multiple task worktrees, each subagent dispatch acquiring its own work-claim. `/yoke polish YOK-N` finishes the worktree set → `implemented`; `/yoke usher YOK-N` owns merge/deploy. Never jump `implementing` → `done` — the path is `reviewing-implementation → reviewed-implementation → polishing-implementation → implemented → release → done` (or `implemented → done` for no-run delivery).
-- Planning activities (`idea`, `refine`, `shepherd`, `freeze/thaw`, `plan`) go directly to main.
+- When the pinned definition selects `advance` with `worktrees=single_implementation_lane`, the same session that ran preflight and acquired the claim continues through that bound implementation/review segment. When it selects `conduct` with generated tasks and worker/integration lanes, each dispatched lane acquires its own work claim. Authority over every lane is the work claim (validated per call by `lint_session_cwd`); launcher `cd` behavior is only convenience.
+- Do not jump across a binding or invent a destination stage. The active executor advances only inside its pinned half-open segment; the next executor starts at `through_stage_id` as a fresh command entrypoint. Delivery stages and no-run shortcuts apply only when the pinned delivery policy and executor binding declare them.
+- Pre-implementation authoring activities run on main unless their pinned policy explicitly provisions a lane.
 
 ## Commit Discipline
 - Commit after EVERY completed change — status updates, board rebuilds, doc changes, not just code. Never fabricate or expand a full commit hash from a visible short SHA: resolve it from the exact checkout with `git -C <checkout> rev-parse HEAD` and verify it with `git -C <checkout> cat-file -e '<sha>^{commit}'`.
@@ -335,7 +321,7 @@ All paths below are repo-relative from the repo root.
 - Agents (canonical bodies): `runtime/agents/{agent}.md`. Claude adapters at `runtime/harness/claude/agents/yoke-*.md`, generated by `yoke agents render`; runtime `.claude/agents` symlinks into the canonical dir.
 - Prompt philosophy: `docs/prompt-philosophy.md`.
 - Backlog state: item content is read via `yoke items get YOK-N body` (virtual rendered field). No `.md` files are generated.
-- Browser: packaged daemon sources in `runtime/browser_runtime/`, materialized to the machine runtime `~/.yoke/browser-runtime/` (node_modules + daemon state live there, never in a repo); Python owners under `yoke_core.domain.browser_*` + `yoke_core.domain.browser_runtime_home`.
+- Browser: packaged daemon sources live only in `packages/yoke-harness/src/yoke_harness/browser_runtime/` and `yoke_harness.browser_runtime_home` hash-materializes them to `~/.yoke/browser-runtime/` (node_modules + daemon state live there, never in a repo). Harness CLI uses `yoke_harness.browser_*`; core QA execution uses `yoke_core.domain.browser_*` over that same runtime owner. `yoke_core.domain.browser_runtime_home` is compatibility-only, not an owner.
 - Harness adapters: `runtime/harness/{harness-id}/` with manifests plus hook configs. Codex sessions are driven by `.codex/hooks.json` and `codex app <repo>`; there is no separate entry launcher.
 - Machine config: `~/.yoke/config.json`. Project-local Yoke surfaces: `.yoke/`. Docs: `docs/`. Item design specifications live in `items.design_spec`.
 - Hook configuration source: `runtime/harness/claude/settings.json` and `runtime/harness/codex/hooks.json`, surfaced to each harness via the `.claude/settings.json` and `.codex/hooks.json` symlinks.

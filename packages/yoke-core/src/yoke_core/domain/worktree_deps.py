@@ -218,11 +218,6 @@ def _find_nested(root: str, filename: str, max_depth: int = 3) -> Optional[str]:
         # Skip node_modules
         if "node_modules" in dirnames:
             dirnames.remove("node_modules")
-        # Skip the packaged Browser QA runtime sources: npm installs for
-        # that tree run in the machine runtime dir
-        # (~/.yoke/browser-runtime/), never inside a checkout.
-        if rel == "runtime" and "browser_runtime" in dirnames:
-            dirnames.remove("browser_runtime")
         if filename in filenames:
             return os.path.join(dirpath, filename)
     return None

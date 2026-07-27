@@ -32,20 +32,9 @@ def build_stop_event_context(ctx: StopContext) -> str:
     payload: dict[str, Any] = {
         "hook": "agent_stop",
         "auto_committed": ctx.auto_committed,
-        "dispatch_type": ctx.dispatch_type,
         "stop_reason": ctx.stop_reason,
     }
 
-    if ctx.epic_id:
-        try:
-            payload["epic_id"] = int(ctx.epic_id)
-        except ValueError:
-            payload["epic_id"] = ctx.epic_id
-    if ctx.task_num:
-        try:
-            payload["task_num"] = int(ctx.task_num)
-        except ValueError:
-            payload["task_num"] = ctx.task_num
     if ctx.final_status:
         payload["final_status"] = ctx.final_status
 
@@ -78,9 +67,7 @@ def emit_harness_session_stopped(script_dir: str, session_id: str, ctx: StopCont
             "project": "yoke",
             "context": context_obj,
         }
-        if ctx.epic_id:
-            kwargs["item_id"] = ctx.epic_id
-        elif ctx.item_id:
+        if ctx.item_id:
             kwargs["item_id"] = ctx.item_id
         if ctx.task_num:
             try:

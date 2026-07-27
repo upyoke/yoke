@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+import sys
 from typing import Any, Dict, Optional
 
 from yoke_harness import browser_client
-from yoke_harness.browser_qa_results import log
+
+
+def _log(message: str) -> None:
+    """Write one browser-runtime diagnostic without runner-layer coupling."""
+    print(f"[browser-runtime] {message}", file=sys.stderr)
 
 
 def ensure_daemon_running() -> Optional[str]:
@@ -14,7 +19,7 @@ def ensure_daemon_running() -> Optional[str]:
         try:
             browser_client.daemon_health(state=state, timeout=1)
         except RuntimeError as exc:
-            log(
+            _log(
                 "Browser daemon process is alive but not ready; "
                 f"recovering endpoint={state.endpoint} pid={state.pid}: {exc}"
             )
@@ -25,10 +30,10 @@ def ensure_daemon_running() -> Optional[str]:
         else:
             return None
     last_error: Optional[str] = None
-    log("Browser daemon not running, starting...")
+    _log("Browser daemon not running, starting...")
     for attempt in range(1, 4):
         if attempt > 1:
-            log(f"Retry {attempt}/3: cleaning up stale state...")
+            _log(f"Retry {attempt}/3: cleaning up stale state...")
             try:
                 browser_client.daemon_stop()
             except Exception:
@@ -40,11 +45,11 @@ def ensure_daemon_running() -> Optional[str]:
                 if attempt == 1
                 else f"Browser daemon started on retry {attempt}"
             )
-            log(message)
+            _log(message)
             return None
         except RuntimeError as exc:
             last_error = str(exc)
-            log(f"Browser daemon startup failed (attempt {attempt}/3): {exc}")
+            _log(f"Browser daemon startup failed (attempt {attempt}/3): {exc}")
     diagnostics = collect_daemon_diagnostics()
     parts = [f"Browser daemon failed to start after 3 attempts: {last_error}"]
     if diagnostics.get("stderr_tail"):

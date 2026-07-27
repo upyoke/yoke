@@ -78,7 +78,7 @@ def create_item(req: _main.CreateItemRequest) -> _main.ItemObject | JSONResponse
         from yoke_core.domain.workflow_runtime import load_workflow_runtime
 
         workflow_id, workflow_version_id = resolve_current_workflow_pin(
-            conn, req.workflow or "issue",
+            conn, req.workflow,
         )
         workflow = load_workflow_runtime(
             conn,
@@ -216,8 +216,6 @@ def update_item(item_id: int, req: _main.UpdateItemRequest) -> _main.ItemObject 
 
         gate = GateContext()
         if "status" in updates:
-            target_status = updates["status"]
-
             if workflow.policies["generated_children"] == "epic_tasks":
                 task_count_row = conn.execute(
                     f"SELECT COUNT(*) as cnt FROM epic_tasks WHERE epic_id = {p}",

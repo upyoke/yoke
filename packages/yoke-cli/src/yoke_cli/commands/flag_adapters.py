@@ -144,8 +144,6 @@ from yoke_cli.commands.adapters.qa_browser import (
     qa_browser_context_get,
     qa_run_add,
     qa_run_complete,
-    qa_screenshot_evidence_pending_count,
-    qa_screenshot_evidence_satisfy,
 )
 from yoke_cli.commands.adapters.qa_crud import (
     qa_requirement_add,
@@ -407,8 +405,6 @@ __all__ = [
     "qa_run_complete",
     "qa_artifact_add",
     "qa_artifact_presign",
-    "qa_screenshot_evidence_pending_count",
-    "qa_screenshot_evidence_satisfy",
     "qa_requirement_list",
     "qa_requirement_get",
     "qa_requirement_add",

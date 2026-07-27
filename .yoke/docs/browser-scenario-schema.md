@@ -40,7 +40,8 @@ override it.
 }
 ```
 
-The step vocabulary matches `runtime/browser_runtime/src/step-executor.js`.
+The step vocabulary matches
+`packages/yoke-harness/src/yoke_harness/browser_runtime/src/step-executor.js`.
 There is no translation layer.
 
 ## Action reference
@@ -127,7 +128,8 @@ yoke qa case run \
 `browser-inspection` captures evidence and returns an inconclusive/review
 outcome until a reviewer resolves it.
 
-The executor writes the run and evidence. Do not create a second run manually.
+The executor writes the run and evidence on the materialized Browser
+requirement. Do not create a second requirement or run to mirror that result.
 When an inspection flow needs the low-level completion surface, it uses:
 
 ```bash
@@ -137,12 +139,8 @@ yoke qa run complete \
   --verdict pass
 ```
 
-Screenshot evidence can satisfy the related AC-verification requirement only
-after review:
-
-```bash
-yoke qa screenshot-evidence satisfy --item YOK-N
-```
+Review resolves that same Browser requirement to pass, fail, or waived. There
+is no screenshot-to-AC bridge; the Browser case itself is the blocking proof.
 
 ## Evidence and gates
 

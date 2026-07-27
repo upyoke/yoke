@@ -1,17 +1,22 @@
-"""Recipe regressions for normalized epic-task reads in plan and merge."""
+"""Recipe regressions for normalized generated-task reads in plan and merge."""
 
 from runtime.api.skill_doc_regressions_test_helpers import SKILLS, _read
 
 
-def test_plan_reuses_the_resolved_numeric_epic_id() -> None:
+def test_plan_reuses_the_pinned_numeric_item_id_for_generated_tasks() -> None:
     text = _read(SKILLS / "plan" / "SKILL.md")
 
-    assert '_epic_id=$(yoke items get "$_plan_item_ref" id' in text
-    assert "yoke items list --workflow epic" in text
-    assert "yoke items list --workflow issue" in text
-    assert 'yoke epic-tasks list --epic "$_epic_id"' in text
-    assert 'yoke workflow-item epic-task remove --epic "$_epic_id"' in text
-    assert 'yoke workflow-item epic-task body-get --epic "$_epic_id"' in text
+    assert '_plan_item_id=$(printf \'%s\' "$_plan_pin_json"' in text
+    assert '["result"]["item_id"]' in text
+    assert "remembered workflow\nnames" in text
+    assert "yoke items list --workflow epic" not in text
+    assert "yoke items list --workflow issue" not in text
+    assert 'yoke epic-tasks list --epic "$_plan_item_id"' in text
+    assert 'yoke workflow-item epic-task remove --epic "$_plan_item_id"' in text
+    assert (
+        'yoke workflow-item epic-task body-get --epic\n'
+        '  "$_plan_item_id" --task-num N'
+    ) in text
     assert "{N-from-YOK-if-provided}" not in text
     assert "epic_id={epic-id}'" not in text
     assert '--epic "{epic-id}"' not in text

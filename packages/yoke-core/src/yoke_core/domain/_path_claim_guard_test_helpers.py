@@ -12,7 +12,7 @@ from yoke_core.domain.schema_init_apply import execute_schema_script
 
 _LIVE_DDL = (
     "CREATE TABLE projects(id INTEGER PRIMARY KEY,slug TEXT UNIQUE NOT NULL);"
-    "CREATE TABLE items(id INTEGER PRIMARY KEY,type TEXT NOT NULL,project_id INTEGER);"
+    "CREATE TABLE items(id INTEGER PRIMARY KEY,status TEXT NOT NULL,project_id INTEGER);"
     "CREATE TABLE item_worktrees(id INTEGER PRIMARY KEY,item_id INTEGER NOT NULL,"
     "branch TEXT NOT NULL,path TEXT,lane_role TEXT NOT NULL,state TEXT NOT NULL,"
     "created_at TEXT,updated_at TEXT,released_at TEXT);"
@@ -69,11 +69,11 @@ def live_db(tmp_path):
             _, version_id = resolve_current_workflow_pin(conn, workflow_id)
             conn.execute(
                 "INSERT INTO items "
-                "(id,type,project_id,workflow_id,workflow_version_id) "
+                "(id,status,project_id,workflow_id,workflow_version_id) "
                 f"VALUES({p},{p},{p},{p},{p})",
                 (
                     kw["item_id"],
-                    workflow_id,
+                    str(kw.get("status", "implementing")),
                     1,
                     workflow_id,
                     version_id,

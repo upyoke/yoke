@@ -57,23 +57,22 @@ def _seed_item(
     worktree=None,
     worktree_path=None,
     project: str = "yoke",
-    item_type: str = "issue",
+    workflow_id: str = "issue",
 ) -> None:
     p = _placeholder(conn)
     conn.execute(
         "INSERT INTO items "
-        "(id, title, type, status, project_id, project_sequence) "
-        f"VALUES ({p}, {p}, {p}, {p}, {p}, {p})",
+        "(id, title, status, project_id, project_sequence) "
+        f"VALUES ({p}, {p}, {p}, {p}, {p})",
         (
             item_id,
             title,
-            item_type,
             status,
             _project_id(project),
             item_id,
         ),
     )
-    pin_test_item_workflow(conn, item_id, item_type)
+    pin_test_item_workflow(conn, item_id, workflow_id)
     if worktree:
         record_item_worktree(
             conn,

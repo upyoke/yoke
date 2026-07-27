@@ -1,0 +1,42 @@
+"""Compatibility imports for the client-side Test Mac reset contract."""
+
+from yoke_harness.ssh_mac_full_reset_contract import (
+    EVIDENCE_SOURCE_PATH,
+    FULL_RESET_MARKER,
+    FULL_RESET_REMOTE_PATH,
+    FullResetPathContract,
+    HOMEBREW_PATH,
+    INSTALLER_TEMP_PATH,
+    LEGACY_BASELINE_BEGIN,
+    LEGACY_BASELINE_END,
+    RESET_RELATIVE_DIRECTORIES,
+    RESET_RELATIVE_FILES,
+    RESET_TEMP_FILES,
+    RESET_TOOL_AUXILIARY_FILES,
+    RETAINED_EVIDENCE_DIRECTORY,
+    STARTUP_FILE_NAMES,
+    TOKEN_BACKUP_DIRECTORY,
+    TOKEN_LOCATIONS,
+    resolve_full_reset_path_contract,
+)
+
+
+__all__ = [
+    "EVIDENCE_SOURCE_PATH",
+    "FULL_RESET_MARKER",
+    "FULL_RESET_REMOTE_PATH",
+    "FullResetPathContract",
+    "HOMEBREW_PATH",
+    "INSTALLER_TEMP_PATH",
+    "LEGACY_BASELINE_BEGIN",
+    "LEGACY_BASELINE_END",
+    "RETAINED_EVIDENCE_DIRECTORY",
+    "RESET_RELATIVE_DIRECTORIES",
+    "RESET_RELATIVE_FILES",
+    "RESET_TEMP_FILES",
+    "RESET_TOOL_AUXILIARY_FILES",
+    "STARTUP_FILE_NAMES",
+    "TOKEN_BACKUP_DIRECTORY",
+    "TOKEN_LOCATIONS",
+    "resolve_full_reset_path_contract",
+]

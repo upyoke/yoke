@@ -66,19 +66,32 @@ class TestMergeMdEpicDelegation:
             "merge.md is missing the /yoke merge {N} delegation for epics"
         )
 
-    def test_issue_path_still_present(self):
-        """merge.md must retain the issue merge-worktree path."""
+    def test_single_lane_path_still_present(self):
+        """merge.md must retain the single-lane merge-worktree path."""
         text = self._read_merge_md()
         assert "merge-worktree -- YOK-{N}" in text, (
-            "merge.md lost the issue merge-worktree call — issue path must be retained"
+            "merge.md lost the single-lane merge-worktree call"
         )
 
-    def test_7e_scoped_to_issues(self):
-        """merge.md step 7e must document that exit-code handling is issue-only."""
+    def test_7e_scoped_to_single_lane_policy(self):
+        """merge.md step 7e must scope watcher exits to the single-lane policy."""
         text = self._read_merge_md()
-        assert "issue items only" in text.lower(), (
-            "merge.md step 7e does not scope exit-code handling to issue items"
+        assert "worktrees=single_implementation_lane" in text, (
+            "merge.md step 7e does not scope exit handling to the lane policy"
         )
+
+    def test_merge_selection_uses_pinned_policy_not_workflow_name(self):
+        text = self._read_merge_md()
+        for required in (
+            "yoke workflows item get",
+            "yoke workflows version get",
+            "_usher_generated_children",
+            "_usher_worktree_policy",
+            "_usher_parallelism",
+            "executor_bindings",
+        ):
+            assert required in text
+        assert 'if [ "$_item_workflow_id" = "epic" ]' not in text
 
 
 class TestMergeMdWorktreeIteration:

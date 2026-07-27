@@ -16,11 +16,11 @@ from yoke_contracts.api.function_call import (
 )
 
 
-class CaseExecutionGetRequest(BaseModel):
+class CaseExecutionBeginRequest(BaseModel):
     pass
 
 
-class CaseExecutionGetResponse(BaseModel):
+class CaseExecutionBeginResponse(BaseModel):
     case: Dict[str, Any]
 
 
@@ -94,17 +94,13 @@ def _handler_for(function_id: str):
     )
 
     return {
-        "qa.case_execution.get": handle_case_execution_get,
+        "qa.case_execution.begin": handle_case_execution_begin,
         "qa.browser_context.get": qa_browser.handle_qa_browser_context_get,
         "qa.run.add": qa_browser_writes.handle_qa_run_add,
         "qa.run.complete": qa_browser_writes.handle_qa_run_complete,
         "qa.artifact.add": qa_browser_writes.handle_qa_artifact_add,
-        "qa.artifact.presign": (
-            qa_artifact_presign.handle_qa_artifact_presign
-        ),
-        "qa.requirement.waive": (
-            qa_requirement_waive.handle_qa_requirement_waive
-        ),
+        "qa.artifact.presign": (qa_artifact_presign.handle_qa_artifact_presign),
+        "qa.requirement.waive": (qa_requirement_waive.handle_qa_requirement_waive),
         "test_machine.case_execute": test_machine_case.handle_case_execute,
     }.get(function_id)
 
@@ -147,14 +143,14 @@ def _composed_call(
     )
 
 
-def handle_case_execution_get(
+def handle_case_execution_begin(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
     requirement_id = request.target.qa_requirement_id
     if request.target.kind != "qa_requirement" or requirement_id is None:
         return _error(
             "target_invalid",
-            "qa.case_execution.get requires target.kind='qa_requirement'",
+            f"{request.function} requires target.kind='qa_requirement'",
             "$.target",
         )
     from yoke_core.domain.db_helpers import connect
@@ -166,7 +162,8 @@ def handle_case_execution_get(
     try:
         with connect() as conn:
             result = get_case_execution_context(
-                conn, requirement_id=int(requirement_id),
+                conn,
+                requirement_id=int(requirement_id),
             )
     except QaCaseExecutionError as exc:
         return _error("not_found", str(exc), "$.target.qa_requirement_id")
@@ -178,7 +175,8 @@ def handle_case_execution_get(
 
 def handle_case_rerun(request: FunctionCallRequest) -> HandlerOutcome:
     requirement_id, invalid = _requirement_id(
-        request, function_id="qa.case.rerun",
+        request,
+        function_id="qa.case.rerun",
     )
     if invalid is not None:
         return invalid
@@ -212,7 +210,8 @@ def handle_case_rerun(request: FunctionCallRequest) -> HandlerOutcome:
 
 def handle_case_waive(request: FunctionCallRequest) -> HandlerOutcome:
     requirement_id, invalid = _requirement_id(
-        request, function_id="qa.case.waive",
+        request,
+        function_id="qa.case.waive",
     )
     if invalid is not None:
         return invalid
@@ -221,26 +220,28 @@ def handle_case_waive(request: FunctionCallRequest) -> HandlerOutcome:
     except Exception as exc:
         return _error("payload_invalid", str(exc), "$.payload")
 
-    nested = request.model_copy(update={
-        "function": "qa.requirement.waive",
-        "payload": {
-            "rationale": body.rationale,
-            "source": "operator",
-            "force": True,
-        },
-    })
+    nested = request.model_copy(
+        update={
+            "function": "qa.requirement.waive",
+            "payload": {
+                "rationale": body.rationale,
+                "source": "operator",
+                "force": True,
+            },
+        }
+    )
     outcome = _handler_for("qa.requirement.waive")(nested)
     return outcome
 
 
 __all__ = [
-    "CaseExecutionGetRequest",
-    "CaseExecutionGetResponse",
+    "CaseExecutionBeginRequest",
+    "CaseExecutionBeginResponse",
     "CaseRerunRequest",
     "CaseRerunResponse",
     "CaseWaiveRequest",
     "CaseWaiveResponse",
-    "handle_case_execution_get",
+    "handle_case_execution_begin",
     "handle_case_rerun",
     "handle_case_waive",
 ]

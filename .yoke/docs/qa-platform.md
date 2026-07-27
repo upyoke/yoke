@@ -8,8 +8,8 @@ surface (`qa.requirement.add`, `qa.requirement.add_batch`,
 `qa.plan.materialize`, `qa.run.add`,
 `qa.run.complete`, `qa.run.record_verdict`, `qa.run.list`,
 `qa.artifact.presign`, `qa.artifact.add`, `qa.gate_summary.run`,
-`qa.browser_context.get`, `qa.screenshot_evidence.pending_count`, and
-`qa.screenshot_evidence.satisfy`). The public `yoke qa ...` commands in
+`qa.browser_context.get`, and `qa.case_execution.begin`). The public
+`yoke qa ...` commands in
 [qa-platform/cli-reference.md](qa-platform/cli-reference.md) are the retained
 operator/debug adapters that dispatch the matching function ids. See
 [.yoke/docs/db-reference/functions.md](db-reference/functions.md) for the envelope

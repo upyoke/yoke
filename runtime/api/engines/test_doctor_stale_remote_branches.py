@@ -46,7 +46,7 @@ class TestHcStaleRemoteBranches:
     def test_stale_branch_warns(self, mock_run, mock_root):
         conn = _make_conn()
         _seed_project(conn, "yoke")
-        _insert_item(conn, TEST_ITEM_ID, "Done item", type="issue", status="done")
+        _insert_item(conn, TEST_ITEM_ID, "Done item", workflow_id="issue", status="done")
         mock_run.side_effect = [
             _make_completed(stdout=f"abc123\trefs/heads/{TEST_ITEM_REF}\n"),
             _make_completed(stdout=f"abc123\trefs/heads/{TEST_ITEM_REF}\n"),
@@ -64,7 +64,7 @@ class TestHcStaleRemoteBranches:
     ):
         conn = _make_conn()
         _seed_project(conn, "yoke")
-        _insert_item(conn, TEST_ITEM_ID, "Done item", type="issue", status="done")
+        _insert_item(conn, TEST_ITEM_ID, "Done item", workflow_id="issue", status="done")
         mock_run.side_effect = [
             _make_completed(stdout=f"abc123\trefs/heads/{TEST_ITEM_REF}\n"),
         ]
@@ -103,7 +103,7 @@ class TestHcStaleRemoteBranches:
     ):
         conn = _make_conn()
         _seed_project(conn, "yoke")
-        _insert_item(conn, TEST_ITEM_ID, "Done item", type="issue", status="done")
+        _insert_item(conn, TEST_ITEM_ID, "Done item", workflow_id="issue", status="done")
         conn.execute(
             "INSERT INTO work_claims "
             "(id, session_id, target_kind, item_id, released_at) "
@@ -134,7 +134,7 @@ class TestHcStaleRemoteBranches:
     ):
         conn = _make_conn()
         _seed_project(conn, "yoke")
-        _insert_item(conn, TEST_ITEM_ID, "Done item", type="issue", status="done")
+        _insert_item(conn, TEST_ITEM_ID, "Done item", workflow_id="issue", status="done")
         conn.execute("DROP TABLE path_claims")
         mock_run.side_effect = [
             _make_completed(stdout=f"abc123\trefs/heads/{TEST_ITEM_REF}\n"),
@@ -165,7 +165,7 @@ class TestHcStaleRemoteBranches:
             TEST_ITEM_ID,
             "Done ExternalWebapp item",
             project="externalwebapp",
-            type="issue",
+            workflow_id="issue",
             status="done",
         )
         monkeypatch.setattr(

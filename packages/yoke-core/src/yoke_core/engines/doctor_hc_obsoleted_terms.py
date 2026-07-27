@@ -42,6 +42,7 @@ from yoke_core.engines.doctor_hc_obsoleted_terms_allowlists import (
     YOKE_DB_AUDIT_PATHS,
 )
 from yoke_core.engines.doctor_hc_obsoleted_terms_backlog import scan_backlog_fields
+from yoke_core.engines import doctor_hc_obsoleted_terms_browser as _browser_terms
 from yoke_core.engines import doctor_hc_obsoleted_terms_packs as _pack_terms
 from yoke_core.engines.doctor_obsoleted_scan_scope import (
     SCAN_DIRS_BY_EXT,
@@ -171,6 +172,7 @@ OBSOLETED_TERM_PATTERNS: tuple[str, ...] = (
     _RETIRED_QA_AUTO_MODULE_PATTERN,
     _RETIRED_QA_AUTO_FUNCTION_PATTERN,
     _RETIRED_QA_AUTO_CLI_PATTERN,
+    *_browser_terms.BROWSER_RETIREMENT_PATTERNS,
     *_pack_terms.PACK_RETIREMENT_PATTERNS,
 )
 
@@ -201,6 +203,7 @@ OBSOLETED_TERM_LABELS: dict[str, str] = {
     _RETIRED_QA_AUTO_MODULE_PATTERN: "retired QA auto-requirement module",
     _RETIRED_QA_AUTO_FUNCTION_PATTERN: "retired QA auto-requirement function",
     _RETIRED_QA_AUTO_CLI_PATTERN: "retired QA auto-requirement command",
+    **_browser_terms.BROWSER_RETIREMENT_LABELS,
     **_pack_terms.PACK_RETIREMENT_LABELS,
 }
 
@@ -221,6 +224,7 @@ _PER_PATTERN_PATH_ALLOWLIST: dict[str, tuple[str, ...]] = {
     ),
     r"yoke-db\.sh": YOKE_DB_AUDIT_PATHS,
     r"runtime\.harness\.codex\.codex_hooks\b": CODEX_HOOKS_AUDIT_PATHS,
+    **_browser_terms.BROWSER_RETIREMENT_PATH_ALLOWLIST,
 }
 
 _SELF_PATH = Path(__file__).resolve()

@@ -1,11 +1,9 @@
-"""Doc regression guards for AGENTS.md `## Lifecycle & Routing` wording.
+"""Regression guards for AGENTS.md workflow-version routing doctrine.
 
-Sibling of `test_lifecycle_routing_docs.py`. The harness-neutral lifecycle
-truth lives in AGENTS.md (`## Lifecycle & Routing` plus the discipline
-sections), not in the Claude-specific `runtime/harness/claude/rules/session.md`.
-This test guards that doc against drifting back to a flat
-`advance -> worktree -> done` shape and ensures it explicitly names
-polish/usher and the issue/epic family split.
+The harness-neutral lifecycle truth lives in AGENTS.md (`## Lifecycle &
+Routing` plus the discipline sections), not in a harness-specific session
+file. These checks prevent routing from drifting back to copied command
+families or a flat status progression.
 """
 
 from __future__ import annotations
@@ -33,9 +31,7 @@ def _read(path: Path) -> str:
 
 
 class TestLifecycleRoutingSection:
-    """AGENTS.md `## Lifecycle & Routing` must keep the full issue + epic flows
-    visible — no collapse to `advance -> work -> done`, polish + usher named,
-    shepherd + conduct named for epics."""
+    """AGENTS.md must route through the item's immutable workflow pin."""
 
     @pytest.fixture
     def text(self) -> str:
@@ -43,9 +39,7 @@ class TestLifecycleRoutingSection:
 
     @pytest.fixture
     def section_body(self, text: str) -> str:
-        match = re.search(
-            r"## Lifecycle & Routing\b(.*?)(?=\n## |\Z)", text, re.DOTALL
-        )
+        match = re.search(r"## Lifecycle & Routing\b(.*?)(?=\n## |\Z)", text, re.DOTALL)
         assert match, "AGENTS.md missing `## Lifecycle & Routing` section"
         return match.group(1)
 
@@ -59,17 +53,22 @@ class TestLifecycleRoutingSection:
             "'/yoke advance ... → work → advance done' sequence"
         )
 
-    def test_section_names_polish_and_usher(self, section_body: str) -> None:
-        assert "/yoke polish" in section_body, (
-            "Lifecycle & Routing must reference /yoke polish"
-        )
-        assert "/yoke usher" in section_body, (
-            "Lifecycle & Routing must reference /yoke usher"
-        )
+    def test_section_names_immutable_pin_and_exact_version(
+        self, section_body: str
+    ) -> None:
+        assert "`workflow_id` / `workflow_version_id`" in section_body
+        assert "yoke workflows item get YOK-N" in section_body
+        assert "yoke workflows version get WORKFLOW VERSION" in section_body
 
-    def test_section_splits_issue_and_epic_families(self, section_body: str) -> None:
-        assert "Issue" in section_body and "Epic" in section_body, (
-            "Lifecycle & Routing must split issue and epic command families"
-        )
-        assert "/yoke shepherd" in section_body
-        assert "/yoke conduct" in section_body
+    def test_section_routes_by_executor_binding(self, section_body: str) -> None:
+        assert "half-open interval" in section_body
+        assert "/yoke <executor_id>" in section_body
+        assert "`through_stage_id`" in section_body
+
+    def test_section_uses_policies_not_item_type(self, section_body: str) -> None:
+        assert "`policies.worktrees`" in section_body
+        assert "`policies.parallelism`" in section_body
+        assert "`policies.generated_children`" in section_body
+        assert "not from a workflow-id branch" in section_body
+        assert "Issue command family" not in section_body
+        assert "Epic command family" not in section_body

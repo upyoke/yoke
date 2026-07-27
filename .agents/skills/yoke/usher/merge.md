@@ -30,6 +30,49 @@ yoke items get YOK-{N} status
 - `release` → skip merge, proceed to deploy phase (already merged)
 - Not `implemented` → skip with warning
 
+Resolve the item's immutable workflow pin once for the merge decision. Use the
+logical version returned by `workflows.item.get` to read the exact definition;
+never substitute the registry's current version:
+
+```bash
+_usher_pin_json=$(yoke workflows item get YOK-{N} --json) || exit 1
+_usher_workflow_id=$(printf '%s' "$_usher_pin_json" | python3 -c \
+ 'import json,sys; print(json.load(sys.stdin)["result"]["workflow_id"])')
+_usher_workflow_version=$(printf '%s' "$_usher_pin_json" | python3 -c \
+ 'import json,sys; print(json.load(sys.stdin)["result"]["workflow_version"])')
+_usher_status=$(printf '%s' "$_usher_pin_json" | python3 -c \
+ 'import json,sys; print(json.load(sys.stdin)["result"]["status"])')
+_usher_definition_json=$(yoke workflows version get \
+ "$_usher_workflow_id" "$_usher_workflow_version" --json) || exit 1
+_usher_generated_children=$(printf '%s' "$_usher_definition_json" | python3 -c \
+ 'import json,sys; print(json.load(sys.stdin)["result"]["definition"]["policies"]["generated_children"])')
+_usher_worktree_policy=$(printf '%s' "$_usher_definition_json" | python3 -c \
+ 'import json,sys; print(json.load(sys.stdin)["result"]["definition"]["policies"]["worktrees"])')
+_usher_parallelism=$(printf '%s' "$_usher_definition_json" | python3 -c \
+ 'import json,sys; print(json.load(sys.stdin)["result"]["definition"]["policies"]["parallelism"])')
+_usher_current_executor=$(printf '%s' "$_usher_definition_json" | python3 -c '
+import json,sys
+status=sys.argv[1]
+definition=json.load(sys.stdin)["result"]["definition"]
+stages=[stage["id"] for stage in definition["stages"]]
+position=stages.index(status)
+for binding in definition["executor_bindings"]:
+    start=stages.index(binding["from_stage_id"])
+    stop=stages.index(binding["through_stage_id"])
+    if start <= position < stop:
+        print(binding["executor_id"])
+        break
+' "$_usher_status")
+[ "$_usher_current_executor" = "usher" ] || {
+ echo "BLOCK: pinned executor $_usher_current_executor owns stage $_usher_status, not usher"
+ exit 1
+}
+```
+
+The interpreter uses the runtime's half-open interval
+(`from_stage_id <= current < through_stage_id`) and halts unless the current
+stage resolves to executor `usher`.
+
 ### 7a2. Re-verify blocking verification QA
 
 Before usher advances an item into `release`, confirm that all blocking
@@ -102,7 +145,7 @@ if [ -n "$_item_flow" ] && [ "$_item_flow" != "null" ]; then
  _item_project=$(yoke items get {N} project 2>/dev/null) || true
  _ev_github_repo=$(yoke projects github-binding status \
  --project "$_item_project" --field github_repo 2>/dev/null) || true
- # For epics, iterate all lanes; for issues, the resolver returns one branch.
+ # The resolver returns every lane allowed by the pinned worktree policy.
  _ev_branches=$(python3 -m yoke_core.domain.worktree_item_resolve YOK-{N} --branches 2>/dev/null) || true
  if [ -z "$_ev_branches" ]; then
  echo "BLOCK: no worktree branch resolved for YOK-{N}"
@@ -149,35 +192,44 @@ Track `_pre_merge_verified` and `_eph_next_stage` for deploy phase.
 
 ### 7d. Execute merge
 
-**Epic items delegate to `/yoke merge {N}` — never call `merge_worktree` directly for epics**:
+Select the merge engine from the pinned child/lane policies:
+
 ```bash
-_item_workflow_id=$(yoke items get {N} workflow_id)
-if [ "$_item_workflow_id" = "epic" ]; then
- # Epics may have multiple worktree lanes; /yoke merge handles all lanes in
- # dependency-safe order, runs per-branch merge_worktree, and does bookkeeping.
- # Do NOT call merge_worktree directly on the epic ref — it only covers one lane.
+if [ "$_usher_generated_children" = "epic_tasks" ] \
+ && [ "$_usher_worktree_policy" = "worker_and_integration_lanes" ] \
+ && [ "$_usher_parallelism" = "task_graph" ]; then
+ # The task-graph policy may have multiple lanes. /yoke merge handles every
+ # lane in dependency-safe order and owns the parent-item bookkeeping.
+ # Do not call merge-worktree directly on the parent ref; that covers one lane.
  /yoke merge {N}
- # /yoke merge sets exit code; treat non-zero as merge failure for this item.
-else
- # Issue-merge boundary call. YOKE_DONE_TRANSITION is the engine-owned
+elif [ "$_usher_generated_children" = "none" ] \
+ && [ "$_usher_worktree_policy" = "single_implementation_lane" ]; then
+ # Single-lane merge boundary call. YOKE_DONE_TRANSITION is the engine-owned
  # standalone-branch contract documented by packages/yoke-core/src/yoke_core/engines/merge_worktree_prepare.py;
  # `done_transition` sets the same env var internally when it dispatches to
- # merge_worktree. Setting it here on the issue-merge boundary is the
+ # merge_worktree. Setting it here on the single-lane merge boundary is the
  # documented call shape, not an ad-hoc bypass. The companion `# lint:no-guard-check`
  # is recorded as audit evidence so reviewers can grep the call site.
  YOKE_DONE_TRANSITION=1 python3 -m yoke_core.tools.watch_merge merge-worktree -- YOK-{N} # lint:no-guard-check
+else
+ echo "BLOCK: unsupported pinned merge policy: children=$_usher_generated_children worktrees=$_usher_worktree_policy parallelism=$_usher_parallelism"
+ exit 1
 fi
 ```
 
-**Engine contract:** `YOKE_DONE_TRANSITION=1` is the standalone-branch boundary the merge engine recognises (see `packages/yoke-core/src/yoke_core/engines/merge_worktree_prepare.py` lines 141-147 for the guard, `packages/yoke-core/src/yoke_core/engines/done_transition_merge_ops.py` line 124 for the internal-engine setter). The watcher call above invokes the same engine contract on the issue boundary because issue items have no done-transition intermediary.
+**Engine contract:** `YOKE_DONE_TRANSITION=1` is the standalone-branch boundary the merge engine recognises (see `packages/yoke-core/src/yoke_core/engines/merge_worktree_prepare.py` lines 141-147 for the guard, `packages/yoke-core/src/yoke_core/engines/done_transition_merge_ops.py` line 124 for the internal-engine setter). The watcher call above invokes the same engine contract on the single-lane boundary because that policy has no task-graph merge intermediary.
 
 **Streaming-wrapper form:** A merge is a long command, so per the Command Output streaming rule it normally runs under the watcher wrapper. `watch_merge merge-worktree` maps to `yoke_core.engines.merge_worktree`, but the wrapper **inherits the parent environment and does NOT auto-set or propagate `YOKE_DONE_TRANSITION=1`** — set it explicitly in the env prefix of the wrapper invocation too: `YOKE_DONE_TRANSITION=1 python3 -m yoke_core.tools.watch_merge merge-worktree -- YOK-{N}`. (`python3 -m yoke_core.tools.watch_merge --print-streaming-pair merge-worktree -- YOK-{N}` prints the background + Monitor pair; prepend `YOKE_DONE_TRANSITION=1` to the printed background command.)
 
-**IMPROVISATION GUARD:** If lint blocks despite the audit comment, **STOP**. NEVER substitute raw done-transition or any other entrypoint for the issue-merge call.
+**IMPROVISATION GUARD:** If lint blocks despite the audit comment, **STOP**. NEVER substitute raw done-transition or any other entrypoint for the single-lane merge call.
 
 ### 7e. Handle merge result
 
-**Scope:** This section applies to **issue items only**. Epic items use `/yoke merge {N}` (step 7d) which owns its own exit-code contract and merge loop — its failure mode is a non-zero exit from the `/yoke merge` invocation; revert to `implemented` and halt on any non-zero.
+**Scope:** This section applies only to
+`worktrees=single_implementation_lane`. The task-graph policy uses `/yoke merge
+{N}` (step 7d), which owns its exit-code contract and lane loop; treat any
+non-zero exit from that invocation as merge failure, revert to `implemented`,
+and halt.
 
 The merge watcher preserves the merge engine's small set of documented exit codes. Aligned this list with the real engine contract: any **unknown non-zero exit** is treated as a hard failure and the item is rolled back to `implemented` — never left stranded in `release`. Exit 6 is the one **recoverable** non-zero outcome: a retryable merge-lock coordination condition that must NOT roll the item back.
 

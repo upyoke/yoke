@@ -22,6 +22,9 @@ from runtime.api.auth_test_helpers import mint_api_auth_context
 from yoke_core.domain import db_backend
 from yoke_core.domain import events as events_module
 from yoke_core.domain import yoke_function_dispatch as dispatch_module
+from runtime.api.api_workflow_test_helpers import (
+    install_workflow_registry_and_pin_items,
+)
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 from yoke_core.domain.yoke_function_registry import (
     reset_registry_for_tests,
@@ -36,7 +39,6 @@ CREATE TABLE items (
     project_id INTEGER NOT NULL DEFAULT 1,
     project_sequence INTEGER NOT NULL,
     title TEXT DEFAULT '',
-    type TEXT DEFAULT 'issue',
     status TEXT DEFAULT 'idea',
     priority TEXT DEFAULT 'medium',
     flow TEXT, rework_count INTEGER DEFAULT 0,
@@ -59,6 +61,7 @@ def _apply_schema() -> None:
     conn = db_backend.connect()
     try:
         apply_fixture_ddl(conn, _SCHEMA)
+        install_workflow_registry_and_pin_items(conn)
     finally:
         conn.close()
 
@@ -99,10 +102,27 @@ class TestItemRefOverHttpBoundary(unittest.TestCase):
                         if db_backend.connection_is_postgres(conn)
                         else "?"
                     )
+                    from yoke_core.domain.workflow_registry import (
+                        resolve_current_workflow_pin,
+                    )
+
+                    workflow_id, workflow_version_id = (
+                        resolve_current_workflow_pin(conn, "issue")
+                    )
                     conn.execute(
-                        "INSERT INTO items (id, project_id, project_sequence,"
-                        f" title, status) VALUES ({p}, {p}, {p}, {p}, {p})",
-                        (9001, 1, 4242, "relay backstop", "done"),
+                        "INSERT INTO items "
+                        "(id, project_id, project_sequence, title, "
+                        "workflow_id, workflow_version_id, status) "
+                        f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p})",
+                        (
+                            9001,
+                            1,
+                            4242,
+                            "relay backstop",
+                            workflow_id,
+                            workflow_version_id,
+                            "done",
+                        ),
                     )
                     conn.commit()
                 finally:

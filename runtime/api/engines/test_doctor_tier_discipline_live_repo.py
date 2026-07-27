@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from yoke_core.engines import doctor_hc_packet_tier_completeness as packet_mod
@@ -30,7 +31,21 @@ def test_live_schema_teaching_does_not_misclassify_function_surfaces() -> None:
         assert function_surface not in detail
 
 
-def test_live_cli_teaching_uses_supported_shapes() -> None:
+def test_live_cli_teaching_uses_supported_shapes(monkeypatch) -> None:
+    source_roots = [
+        str(REPO_ROOT / "packages" / package / "src")
+        for package in (
+            "yoke-core",
+            "yoke-cli",
+            "yoke-contracts",
+            "yoke-harness",
+        )
+    ]
+    inherited = os.environ.get("PYTHONPATH")
+    if inherited:
+        source_roots.append(inherited)
+    monkeypatch.setenv("PYTHONPATH", os.pathsep.join(source_roots))
+
     findings = cli_mod._scan_all(REPO_ROOT)
     assert not findings, "\n".join(findings)
 

@@ -5,7 +5,9 @@ argument-hint: "{YOK-N} [status]"
 ---
 
 # Sub-skill called by conduct, usher, do/loop, and routed dispatch.
-# The `implementation` form (`/yoke advance YOK-N implementation`) is also operator-facing — it is the issue implementation entry per .yoke/docs/lifecycle.md and is advertised in every Yoke-owned harness manifest. Other advance targets remain internal-only.
+# The `implementation` form (`/yoke advance YOK-N implementation`) is also
+# operator-facing for workflows whose pinned definition binds `advance` across
+# implementation entry. Other advance targets remain internal-only.
 
 # /yoke advance {YOK-N} [status]
 
@@ -25,9 +27,9 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 - `[status]` — Optional target status or advance-target name. If omitted, advances to the next status in the lifecycle. The advance target `implementation` is end-to-end **in the same harness session**: worktree creation is a pure filesystem + DB operation (not a session boundary), the work-claim acquired in preflight is the session's authority over the new worktree, and the same session continues into the implementation sub-skill ([implementing/implementation.md](implementing/implementation.md)) and the review loop until `reviewed-implementation`. No parent-session stop, no claim release on worktree entry, no manual relaunch from the worktree. Stopping at `implementing` and announcing `/yoke polish` (or any later step) as "next" remains the hand-off-to-operator anti-pattern this contract exists to prevent.
 - `--env <name>` — Optional. Update the item's `deployed_to` field. Valid environments are resolved per-project from DB tables (`environments` via `sites`, `deployment_flows.target_env`, `project_capabilities`). Can be combined with a status advance or used standalone on an already-done item.
 - `--no-worktree` — Optional. Skip worktree creation when advancing to `implementing`. The item will remain on the current branch with no isolation. Use this for evidence-only / validation / proof items that intentionally make no repo changes; the done-transition empty-branch guard only applies when a worktree branch exists.
-- `--force` — Optional. Override the file-level collision blocker, epic task existence gate, epic task completion gate, or merge verification gate.
+- `--force` — Optional. Override the file-level collision blocker, generated-task existence/completion gates, or merge verification gate.
 - `--skip-polish` — Optional. Operator-asserted fast path from `reviewed-implementation` directly to `implemented`. Dispatches through the advance skill's internal skip handler (`yoke_core.domain.advance_skip`; no registered product CLI wrapper) — collapses `reviewed-implementation -> polishing-implementation -> implemented` into one sanctioned call, emits a `SkipHopPerformed` event, and releases the item claim with reason `handoff-to-usher`. Requires current status `reviewed-implementation`. Use when the mission deliberately skips the polish phase (for example theme-swap missions from [.yoke/strategy/PROMPTS.md](../../../../.yoke/strategy/PROMPTS.md) that declare `SKIP: refine and polish phases`). Do NOT pass a target status with this flag — the flag owns the target.
-- `--skip-refine` — Optional. Operator-asserted fast path past a refining phase. Dispatches through the same internal skip handler (`yoke_core.domain.advance_skip`; no registered product CLI wrapper) — advances `idea/refining-idea -> refined-idea` (issue/epic) or `plan-drafted/refining-plan -> planned` (epic), routed by current status. Emits a `SkipHopPerformed` event. Requires current status `idea`, `refining-idea`, `plan-drafted`, or `refining-plan`. Use when refine deliberation is unnecessary (low-risk content swaps, copy edits). Do NOT pass a target status with this flag.
+- `--skip-refine` — Optional. Operator-asserted fast path across a pinned `refine` executor segment's gate-free bookkeeping rungs. The internal skip handler (`yoke_core.domain.advance_skip`; no registered product CLI wrapper) validates the current stage against its allowlist and advances to that binding's handoff. It emits a `SkipHopPerformed` event. Use when refine deliberation is unnecessary (low-risk content swaps, copy edits). Do NOT pass a target status with this flag.
 
 Both skip flags:
 - Are operator-discoverable via `/yoke advance --help` and via `/yoke do` routing when the mission declares a skip.
@@ -89,28 +91,10 @@ The skip module validates the current status, emits both the canonical `ItemStat
 
 Extract the numeric part from the argument (strip `YOK-` prefix, leading zeros).
 
-Resolve the item's immutable workflow pin through `workflows.item.get` (item
-target, empty payload). Its `workflow_id` and logical `workflow_version` result
-fields are the inputs to `workflows.version.get` (global target, payload
-`{"workflow_id": "<id>", "version": <number>}`) whenever the definition is
-needed. Never use the registry's current-version pointer to navigate an existing
-item.
-
-```bash
-_item_workflow_json=$(yoke workflows item get YOK-{N} --json) || {
- echo "Item YOK-{N} not found."
- exit 1
-}
-_workflow_id=$(printf '%s' "$_item_workflow_json" | python3 -c 'import json,sys
-print(json.load(sys.stdin)["result"]["workflow_id"])')
-_workflow_version=$(printf '%s' "$_item_workflow_json" | python3 -c 'import json,sys
-print(json.load(sys.stdin)["result"]["workflow_version"])')
-_status=$(printf '%s' "$_item_workflow_json" | python3 -c 'import json,sys
-print(json.load(sys.stdin)["result"]["status"])')
-_title=$(yoke items get {N} title)
-```
-
-If empty → stop: `Item YOK-{N} not found.`
+Read and follow [`workflow-context.md`](workflow-context.md). It resolves the
+exact pin and exports `_status`, `_pinned_definition_json`,
+`_generated_children`, `_worktree_policy`, `_parallelism_policy`, and
+`_current_executor`. Do not continue unless the read succeeds.
 
 When the requested advance target is `implementation`, map it to the canonical status `implementing` for lifecycle comparisons. `implementation` is the advance-target name (the sub-skill path); `implementing` is the DB status. Keep using `implementation` as the advance target in operator-facing examples and routed `/yoke do` invocations.
 
@@ -135,15 +119,26 @@ if [ "$_arg" = "implementation" ]; then
 elif [ -n "$_arg" ]; then
  _target="$_arg"
 else
- _pinned_definition_json=$(yoke workflows version get "$_workflow_id" "$_workflow_version" --json) || {
-  echo "The pinned workflow version $_workflow_id@$_workflow_version could not be read."
-  exit 1
- }
  _prog=$(printf '%s' "$_pinned_definition_json" | python3 -c 'import json,sys
 envelope=json.load(sys.stdin)
 print(" ".join(stage["id"] for stage in envelope["result"]["definition"]["stages"]))')
  _target=$(printf '%s\n' $_prog | awk -v cur="$_status" 'found==1{print; exit} $0==cur{found=1}')
 fi
+
+_target_executor=$(printf '%s' "$_pinned_definition_json" | python3 -c '
+import json,sys
+status=sys.argv[1]
+definition=json.load(sys.stdin)["result"]["definition"]
+stages=[stage["id"] for stage in definition["stages"]]
+position=stages.index(status)
+for binding in definition["executor_bindings"]:
+    start=stages.index(binding["from_stage_id"])
+    stop=stages.index(binding["through_stage_id"])
+    if start <= position < stop:
+        print(binding["executor_id"])
+        break
+' "$_target")
+```
 
 For claim-holding targets (`implementing`, `reviewing-implementation`, `polishing-implementation`), call `claims.work.acquire` so the handler establishes the work claim and sets the DB-backed active-item attribution in one transaction:
 
@@ -175,7 +170,7 @@ stage table.
 Then determine the target:
 
 - **Explicit target = current status:** Re-entry request.
- - If target resolves to `implementing` → read and follow **worktree re-entry** (step 3 below), then continue the issue implementation loop. Do **not** stop after surfacing the worktree path.
+ - If target resolves to `implementing` → read and follow **worktree re-entry** (step 3 below), then continue the pinned executor's implementation loop. Do **not** stop after surfacing the worktree path.
  - If target is `reviewing-implementation` → re-entry into review phase. Use **worktree re-entry** (step 3) to recover the worktree, then continue the review loop in that worktree. Do **not** ask the operator whether to review now.
  - If target is `reviewed-implementation` → reviewed-implementation re-entry. Delegate to the reviewed-implementation boundary message in [`finalize.md`](finalize.md) (`## Pre-Release Next-Step Guidance`) and **stop**. Do not advertise `/yoke polish` from inside the advance flow — the routed loop owns the polish handoff.
  - Otherwise → `Cannot advance YOK-{N} from '{current}' to '{target}' — not a valid forward transition.`
@@ -202,7 +197,6 @@ When the advance target triggers re-entry into the current worktree:
 Locates the existing worktree, prepares `WORKTREE_PATH`, and resumes the implementation/review loop. Do **not** stop after surfacing the path.
 
 ```bash
-_item_workflow_id=$(yoke items get {N} workflow_id 2>/dev/null) || true
 _item_project=$(yoke items get {N} project 2>/dev/null)
 if [ -n "$_item_project" ] && [ "$_item_project" != "null" ] && [ "$_item_project" != "" ]; then
  _wt_repo=$(yoke projects get --project "$_item_project" --field repo_path)
@@ -210,19 +204,20 @@ else
  _wt_repo=$(git rev-parse --show-toplevel)
 fi
 
-	# For multi-worktree epics, advance cannot select a task worktree — redirect to /yoke conduct.
-	if [ "$_item_workflow_id" = "epic" ]; then
-	 # Internal source-dev/admin resolver; no registered product CLI wrapper exists.
-	 _wt_all_branches=$(python3 -m yoke_core.domain.worktree_item_resolve YOK-{N} --branches 2>/dev/null) || true
- _wt_worktree_count=$(printf '%s\n' "$_wt_all_branches" | grep -c .) || true
- if [ "${_wt_worktree_count:-0}" -gt 1 ]; then
- echo "CONTRACT ERROR: YOK-{N} is an epic with ${_wt_worktree_count} active worktrees."
- echo "Use /yoke conduct YOK-{N} to re-enter or advance specific task worktrees."
- exit 1
- fi
- _wt_branch=$(printf '%s\n' "$_wt_all_branches" | head -1)
-else
+if [ "$_worktree_policy" = "single_implementation_lane" ]; then
  _wt_branch=$(yoke items get {N} worktree 2>/dev/null)
+elif [ "$_worktree_policy" = "worker_and_integration_lanes" ] \
+ || [ "$_worktree_policy" = "worker_lanes_optional_integration" ]; then
+ if [ "$_current_executor" = "conduct" ]; then
+  echo "CONTRACT ERROR: the pinned conduct executor owns YOK-{N}'s task lanes."
+  echo "Use /yoke conduct YOK-{N} to re-enter or advance a generated task lane."
+ else
+  echo "CONTRACT ERROR: executor $_current_executor owns a multi-lane policy that advance cannot select."
+ fi
+ exit 1
+else
+ echo "CONTRACT ERROR: unsupported pinned worktree policy $_worktree_policy."
+ exit 1
 fi
 ```
 
@@ -232,7 +227,7 @@ fi
 - If `_wt_branch` empty → create new worktree, update DB, set `WORKTREE_PATH`, and continue.
 
 After `WORKTREE_PATH` is ready:
-- If current status is `implementing`, continue with step 4 as the normal issue implementation loop.
+- If current status is `implementing`, continue with step 4 as the normal single-lane implementation loop selected by the pinned `advance` binding.
 - If current status is `reviewing-implementation`, resume the review loop in the same worktree immediately:
  1. Review the current branch against the spec and acceptance criteria.
  2. Make any follow-up fixes in that same worktree.
@@ -244,6 +239,11 @@ After `WORKTREE_PATH` is ready:
 ### 4. Phase Dispatch
 
 **Implementation entry (`_target = "implementing"`) is orchestrator-driven.** When `_target` resolves to `implementing` (the `/yoke advance YOK-N implementation` path), invoke the canonical orchestrator instead of reading and executing each phase doc inline:
+
+Before invocation, require `_target_executor=advance` and
+`_worktree_policy=single_implementation_lane`. Route `conduct` to `/yoke
+conduct YOK-{N}` and halt on every other mismatch; this engine is an
+executor-specific contract, not a generic transition shortcut.
 
 The skill-router internal entrypoint is the advance implementation-entry engine
 for `YOK-{N}`. This engine is not a product CLI wrapper; the operator surface is
@@ -258,8 +258,13 @@ The phase reference docs ([`preflight.md`](preflight.md), [`activation.md`](acti
 **Non-implementing targets** (manual advance to `reviewing-implementation`, `reviewed-implementation`, `polishing-implementation`, `implemented`, `release`, `done`, or any planning-phase target) still run through the legacy phase docs below. The orchestrator only covers implementation entry today; the post-implementation phases retain their existing doc-driven flow.
 
 **Preflight Gates:** Read `.agents/skills/yoke/advance/preflight.md`
-- Applies to: all non-implementing transitions (hard-block dep, AC, coverage gates, epic gates, merge verification, done redirect)
-- Epic gates only run for epic items; merge gate only for `release` target; done redirect only for `done` target
+- Applies to: all non-implementing transitions (hard-block dependency, AC,
+  coverage, pinned-executor handoff, generated-task, merge-verification, and
+  done-redirect gates).
+- Generated-task gates run only when
+  `policies.generated_children=epic_tasks`; executor-specific gates run only
+  when the target path crosses that pinned binding. Merge and done gates remain
+  target-stage-specific.
 
 **Browser QA:** Read `.agents/skills/yoke/advance/browser-qa.md`
 - Applies to: target = `reviewed-implementation`, `implemented`, or `polishing-implementation`

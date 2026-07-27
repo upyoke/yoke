@@ -1,14 +1,19 @@
 ---
 name: shepherd
-description: "Advance an epic from refined-idea to plan-drafted through quality-gated transitions"
+description: "Execute a pinned Shepherd planning segment through its quality gates"
 argument-hint: "{YOK-N}"
 ---
 
 # /yoke shepherd {YOK-N}
 
-Shepherd an epic through the pipeline from `refined-idea` to `plan-drafted`, applying Boss quality gates at every transition. Each step is: Worker produces artifact -> Boss reviews -> persist verdict -> advance or retry.
+Execute the `shepherd` segment registered by the item's immutable workflow
+version, applying Boss quality gates at every transition. Each step is: Worker
+produces artifact -> Boss reviews -> persist verdict -> advance or retry.
 
-Shepherd is **epic-only**. Issues route through `/yoke refine` (idea → refined-idea) and `/yoke advance` (refined-idea → implementing). The `idea` → `refined-idea` transition is handled by `/yoke refine`, not shepherd.
+Shepherd is selected by an active `executor_bindings` interval, not by an item
+type or workflow id. This implementation supports the generated-task planning
+contract (`generated_children=epic_tasks`) and verifies the exact pinned
+segment before it writes anything.
 
 > Standalone mode (`/yoke shepherd YOK-N`) is the primary usage. The `--subagent` mode is retained for backward compatibility and potential future use.
 
@@ -51,7 +56,7 @@ The shepherd must not let item body content pollute its orchestration context.
 3. Subagents read body content independently from the DB.
 4. If body text must appear inline, wrap it in explicit data fences.
 5. Re-anchor between transitions so the shepherd stays in orchestrator mode.
-6. For session-continuity context that successor agents need to resume after compaction, write to the **Progress Log** section on the epic item — see `AGENTS.md > Progress Log — long-running execution context on items`. Use this for shepherd-level state (which gates have run, which subagents are dispatched, which open questions remain) rather than `shepherd_log` (which is the structured verdict surface, not an execution scratchpad).
+6. For session-continuity context that successor agents need to resume after compaction, write to the **Progress Log** section on the task-graph parent item — see `AGENTS.md > Progress Log — long-running execution context on items`. Use this for shepherd-level state (which gates have run, which subagents are dispatched, which open questions remain) rather than `shepherd_log` (which is the structured verdict surface, not an execution scratchpad).
 
 ## Steps
 
@@ -61,34 +66,93 @@ Extract the numeric ID from `YOK-N` and detect standalone vs subagent mode.
 
 ### 2. Read Item
 
-Load:
+Load the immutable item pin and then its exact logical version:
 
 ```bash
 _num={N}
-_workflow_id=$(yoke items get $_num workflow_id)
-_item_status=$(yoke items get $_num status)
+_item_pin_json=$(yoke workflows item get "YOK-$_num" --json) || {
+ echo "Item YOK-{N} not found."
+ exit 1
+}
+_workflow_id=$(printf '%s' "$_item_pin_json" | python3 -c \
+ 'import json,sys; print(json.load(sys.stdin)["result"]["workflow_id"])')
+_workflow_version=$(printf '%s' "$_item_pin_json" | python3 -c \
+ 'import json,sys; print(json.load(sys.stdin)["result"]["workflow_version"])')
+_item_status=$(printf '%s' "$_item_pin_json" | python3 -c \
+ 'import json,sys; print(json.load(sys.stdin)["result"]["status"])')
 _title=$(yoke items get $_num title)
+_pinned_definition_json=$(yoke workflows version get \
+ "$_workflow_id" "$_workflow_version" --json) || {
+ echo "Pinned workflow $_workflow_id@$_workflow_version is unavailable."
+ exit 1
+}
 ```
 
 If any query returns empty, stop with `Item YOK-{N} not found.`
 
-**Workflow binding gate:** If `_workflow_id` is not `epic`, reject
-immediately:
-> Error: /yoke shepherd is not the registered executor for workflow
-> '{_workflow_id}' on YOK-{N}.
->
-> Issue refinement routes through /yoke refine.
-> Issue implementation routes through /yoke advance.
-> Issue polish routes through /yoke polish.
->
-> Run '/yoke refine YOK-{N}' to refine this issue.
+Interpret the ordered stages, the unique Shepherd binding, and its policy
+contract from that response:
 
-**Status gate:** If `_item_status` is `idea` or `refining-idea`, reject:
-> Error: YOK-{N} is at '{_item_status}' — shepherd requires epics at 'refined-idea' or later.
->
-> Run '/yoke refine YOK-{N}' first to advance to refined-idea.
+```bash
+_shepherd_context_json=$(printf '%s' "$_pinned_definition_json" | python3 -c '
+import json,sys
+status=sys.argv[1]
+definition=json.load(sys.stdin)["result"]["definition"]
+stages=[stage["id"] for stage in definition["stages"]]
+position=stages.index(status)
+bindings=definition["executor_bindings"]
+shepherd=[row for row in bindings if row["executor_id"] == "shepherd"]
+if len(shepherd) != 1:
+    raise SystemExit("definition must contain exactly one shepherd binding")
+binding=shepherd[0]
+start=stages.index(binding["from_stage_id"])
+stop=stages.index(binding["through_stage_id"])
+current=""
+for row in bindings:
+    row_start=stages.index(row["from_stage_id"])
+    row_stop=stages.index(row["through_stage_id"])
+    if row_start <= position < row_stop:
+        current=row["executor_id"]
+        break
+policies=definition["policies"]
+segment=stages[start:stop + 1]
+supported=(
+    policies["generated_children"] == "epic_tasks"
+    and policies["parallelism"] == "task_graph"
+    and segment == ["refined-idea", "planning", "plan-drafted"]
+)
+location="before" if position < start else ("after" if position >= stop else "active")
+print(json.dumps({
+    "current_executor": current,
+    "source_stage": binding["from_stage_id"],
+    "through_stage": binding["through_stage_id"],
+    "location": location,
+    "supported": supported,
+}))
+' "$_item_status") || {
+ echo "Cannot interpret the pinned Shepherd segment for YOK-{N}."
+ exit 1
+}
+_current_executor=$(printf '%s' "$_shepherd_context_json" | python3 -c \
+ 'import json,sys; print(json.load(sys.stdin)["current_executor"])')
+_shepherd_source_stage=$(printf '%s' "$_shepherd_context_json" | python3 -c \
+ 'import json,sys; print(json.load(sys.stdin)["source_stage"])')
+_shepherd_through_stage=$(printf '%s' "$_shepherd_context_json" | python3 -c \
+ 'import json,sys; print(json.load(sys.stdin)["through_stage"])')
+_shepherd_location=$(printf '%s' "$_shepherd_context_json" | python3 -c \
+ 'import json,sys; print(json.load(sys.stdin)["location"])')
+_shepherd_supported=$(printf '%s' "$_shepherd_context_json" | python3 -c \
+ 'import json,sys; print(str(json.load(sys.stdin)["supported"]).lower())')
+```
 
-If the item is already `plan-drafted` or later in the epic progression, stop as a no-op.
+If `_shepherd_supported` is not `true`, stop with a contract error: this skill
+cannot execute the planning shape published by that pinned version.
+
+If `_shepherd_location` is `after`, stop as a no-op: the item has crossed the
+binding's `through_stage_id`. If the location is `before` or
+`_current_executor` is not `shepherd`, reject with the current registered
+executor and route to `/yoke {_current_executor} YOK-{N}`. Never infer that
+route from `_workflow_id`.
 
 After validation passes, register the work claim:
 
@@ -99,12 +163,15 @@ yoke claims work acquire \
  --item "YOK-$_num"
 ```
 
-### 3. Derive Transitions
+### 3. Derive Transitions From The Validated Binding
 
-Epic lifecycle (shepherd scope):
+The supported pinned Shepherd segment yields:
 - `refined-idea` -> `refined_idea_to_planning`, `planning_to_plan_drafted`
 - `planning` -> `planning_to_plan_drafted`
-- _(`refining-plan` is owned by `/yoke refine`, not shepherd)_
+
+These transition ids are Shepherd verdict keys for this executor contract.
+They are not a global item progression. The next executor at
+`_shepherd_through_stage` comes from the pinned definition.
 
 ### 4. Resume Logic
 
@@ -121,7 +188,8 @@ Rules:
 - NOT_READY with attempts remaining -> resume at next attempt
 - Otherwise -> execute from attempt 1
 
-If all transitions are already complete, advance the item to `plan-drafted` and finish.
+If all transitions are already complete, advance the item to
+`_shepherd_through_stage` and finish.
 
 ### 5. Execute Each Transition
 

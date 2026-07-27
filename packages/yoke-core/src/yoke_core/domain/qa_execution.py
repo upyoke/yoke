@@ -3,7 +3,7 @@
 Parent shim for the QA-execution surface. Owns ``cmd_run_add``,
 ``cmd_run_complete``, ``cmd_run_list``, and ``cmd_run_get``. Other
 execution-domain commands live in dedicated sibling modules
-(``qa_run_batch``, ``qa_artifact_ops``, ``qa_evidence_bridge``) and are
+(``qa_run_batch`` and ``qa_artifact_ops``) and are
 re-exported here so existing callers keep working unchanged. Event
 helpers come from ``qa_events``; vocab/formatting helpers from
 ``qa_constants``.
@@ -40,9 +40,6 @@ from yoke_core.domain.qa_run_reads import (  # noqa: F401  (re-exported)
     _RUN_SELECT,
     cmd_run_get,
     cmd_run_list,
-)
-from yoke_core.domain.qa_evidence_bridge import (  # noqa: F401  (re-exported)
-    cmd_satisfy_screenshot_evidence,
 )
 
 # Backward-compat aliases for the parent shim's existing API. Internal

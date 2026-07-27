@@ -38,7 +38,7 @@ def db():
 
 class TestCloseIssueAuthTranslation:
     def test_translates_missing_binding_to_sync_warning(self, db):
-        insert_item(db, id=40, type="issue", status="done", project="externalwebapp", github_issue="#60")
+        insert_item(db, id=40, workflow_id="issue", status="done", project="externalwebapp", github_issue="#60")
         stderr = io.StringIO()
 
         with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
@@ -66,7 +66,7 @@ class TestCloseIssueAuthTranslation:
 
 class TestReopenIssueAuthTranslation:
     def test_translates_missing_capability_to_sync_warning(self, db):
-        insert_item(db, id=50, type="issue", status="implementing", project="externalwebapp", github_issue="#70")
+        insert_item(db, id=50, workflow_id="issue", status="implementing", project="externalwebapp", github_issue="#70")
         stderr = io.StringIO()
 
         with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
@@ -90,7 +90,7 @@ class TestReopenIssueAuthTranslation:
 
 class TestFlagLabelAuthTranslation:
     def test_frozen_label_translates_missing_binding(self, db):
-        insert_item(db, id=60, type="issue", status="implementing", project="externalwebapp", github_issue="#80")
+        insert_item(db, id=60, workflow_id="issue", status="implementing", project="externalwebapp", github_issue="#80")
         stderr = io.StringIO()
 
         with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
@@ -109,7 +109,7 @@ class TestFlagLabelAuthTranslation:
         assert "sync_frozen_label skipped for EXT-60" in text
 
     def test_blocked_label_translates_missing_binding(self, db):
-        insert_item(db, id=70, type="issue", status="implementing", project="externalwebapp", github_issue="#90")
+        insert_item(db, id=70, workflow_id="issue", status="implementing", project="externalwebapp", github_issue="#90")
         stderr = io.StringIO()
 
         with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(

@@ -61,7 +61,6 @@ QA_COMMANDS: list[dict] = [
             "duration_ms, started_at, and completed_at."
         ),
     },
-
     {
         "topic": "qa",
         "purpose": "Add a QA requirement — ac_verification variant",
@@ -74,7 +73,7 @@ QA_COMMANDS: list[dict] = [
             "Registered write qa.requirement.add — item-claim-gated, "
             "item-attached. ac_verification omits `--success-policy` "
             "by default; stricter policy is "
-            "`{\"min_runs\":N,\"min_pass\":N}`. Several rows in one "
+            '`{"min_runs":N,"min_pass":N}`. Several rows in one '
             "transaction: pipe a JSON array to `yoke qa requirement "
             "add-batch --item PREFIX-N --stdin`. Epic-task / "
             "deployment-run attachment is operator-debug only: "
@@ -131,6 +130,23 @@ QA_COMMANDS: list[dict] = [
     },
     {
         "topic": "qa",
+        "purpose": "Execute an item's materialized QA plans in snapshot order",
+        "recipe": (
+            "yoke qa plan run --item PREFIX-N --transition TRANSITION "
+            "--base-url https://preview.example"
+        ),
+        "notes": (
+            "Begins or resumes a server-authorized execution before any "
+            "local executor runs. Stage pins the immutable roster, digest, "
+            "durable cursor, actor/session owner, and any machine lease; "
+            "each canonical result advances that cursor. Waiting runs "
+            "resume from the same cursor, while completion or abort "
+            "releases the lease. Hosted services never resolve local "
+            "executor credentials."
+        ),
+    },
+    {
+        "topic": "qa",
         "purpose": "Execute one materialized Browser method case",
         "recipe": (
             "yoke qa case run --requirement-id R "
@@ -138,10 +154,12 @@ QA_COMMANDS: list[dict] = [
             "--expected-branch BRANCH --expected-sha SHA"
         ),
         "notes": (
-            "The shared case runner fetches the immutable snapshot through "
-            "qa.case_execution.get, executes only requirement R, and owns "
-            "qa.run.add / qa.run.complete / qa.artifact.add evidence "
-            "writes. browser-check decides automatically; "
+            "The shared case runner authorizes and fetches the immutable "
+            "snapshot through qa.case_execution.begin before local work, "
+            "executes only requirement R, and owns qa.run.add / "
+            "qa.run.complete / qa.artifact.add evidence writes. An active "
+            "item claim and ambient session are required. browser-check "
+            "decides automatically; "
             "browser-inspection records inconclusive evidence and creates "
             "a review request. Never add a parallel Browser run manually."
         ),
@@ -150,8 +168,7 @@ QA_COMMANDS: list[dict] = [
         "topic": "qa",
         "purpose": "Preview the reviewed-implementation gate verdict",
         "recipe": (
-            "yoke qa gate-summary "
-            "--item PREFIX-N --target reviewed-implementation"
+            "yoke qa gate-summary --item PREFIX-N --target reviewed-implementation"
         ),
         "notes": (
             "Registered read qa.gate_summary.run. Use --item for a standalone "
@@ -182,9 +199,7 @@ QA_COMMANDS: list[dict] = [
     {
         "topic": "qa",
         "purpose": "Inspect events for an item (canonical agent shape)",
-        "recipe": (
-            "yoke events query --item YOK-N --limit 20"
-        ),
+        "recipe": ("yoke events query --item YOK-N --limit 20"),
         "notes": (
             "Add `--event-name X`, `--since ISO|'2 hours ago'`, "
             "`--until ...` for narrowing; `--session S "

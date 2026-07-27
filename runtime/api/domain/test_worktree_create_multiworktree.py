@@ -30,10 +30,10 @@ def seed_multiworktree_epic(db_path: str, epic_id: int, branches, repo_root: str
     p = _placeholder(conn)
     conn.execute(
         "INSERT INTO items "
-        "(id, title, type, status, project_id, project_sequence) "
-        f"VALUES ({p}, 'Multi-worktree epic', 'epic', 'implementing', {p}, {p}) "
+        "(id, title, status, project_id, project_sequence) "
+        f"VALUES ({p}, 'Multi-worktree epic', 'implementing', {p}, {p}) "
         "ON CONFLICT(id) DO UPDATE SET title=excluded.title, "
-        "type=excluded.type, status=excluded.status, "
+        "status=excluded.status, "
         "project_id=excluded.project_id, project_sequence=excluded.project_sequence",
         (epic_id, 1, epic_id),
     )
@@ -71,8 +71,8 @@ class TestCreateWorktreeMultiWorktree:
         conn = connect_test_db(yoke_db)
         conn.execute(
             "INSERT INTO items "
-            "(id, title, type, status, project_id, project_sequence) "
-            "VALUES (99100, 'plain issue', 'issue', 'implementing', 1, 99100)",
+            "(id, title, status, project_id, project_sequence) "
+            "VALUES (99100, 'plain issue', 'implementing', 1, 99100)",
         )
         pin_test_item_workflow(conn, 99100, "issue")
         conn.commit()
@@ -306,8 +306,8 @@ class TestCreateWorktreeMultiWorktree:
         conn = connect_test_db(yoke_db)
         conn.execute(
             "INSERT INTO items "
-            "(id, title, type, status, project_id, project_sequence) "
-            "VALUES (99208, 'empty epic', 'epic', 'implementing', 1, 99208)",
+            "(id, title, status, project_id, project_sequence) "
+            "VALUES (99208, 'empty epic', 'implementing', 1, 99208)",
         )
         pin_test_item_workflow(conn, 99208, "epic")
         conn.commit()

@@ -46,7 +46,6 @@ def _make_conn():
         CREATE TABLE items (
             id INTEGER PRIMARY KEY,
             title TEXT,
-            type TEXT,
             status TEXT,
             priority TEXT,
             project_id INTEGER DEFAULT 1,
@@ -225,7 +224,7 @@ class TestHcWrongRepoIssues:
         conn = _make_conn()
         _seed_project(conn, "externalwebapp", github_repo="example-org/externalwebapp")
         _insert_item(conn, 42, "ExternalWebapp item", project="externalwebapp",
-                     type="issue", status="idea", github_issue="#100")
+                     workflow_id="issue", status="idea", github_issue="#100")
         mock_gh_run.return_value = _make_completed(stdout="OPEN\n")
         rec = _run_hc(hc_wrong_repo_issues, conn)
         assert rec.results[0].result == "PASS"
@@ -238,7 +237,7 @@ class TestHcWrongRepoIssues:
         conn = _make_conn()
         _seed_project(conn, "externalwebapp", github_repo="example-org/externalwebapp")
         _insert_item(conn, 42, "ExternalWebapp item", project="externalwebapp",
-                     type="issue", status="idea", github_issue="#100")
+                     workflow_id="issue", status="idea", github_issue="#100")
         mock_gh_run.side_effect = [
             _make_completed(returncode=1, stdout=""),  # not in externalwebapp repo
             _make_completed(stdout="OPEN\n"),           # found in yoke repo

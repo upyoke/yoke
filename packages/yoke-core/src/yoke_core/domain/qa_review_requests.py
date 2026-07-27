@@ -21,7 +21,7 @@ def _requirement(conn: Any, requirement_id: int) -> dict[str, Any]:
     p = _p(conn)
     row = conn.execute(
         "SELECT id, item_id, epic_id, deployment_run_id, plan_id, "
-        "plan_case_key, method_id, qa_kind, success_policy "
+        "plan_case_key, method_id, method_name, qa_kind, success_policy "
         "FROM qa_requirements "
         f"WHERE id = {p}",
         (int(requirement_id),),
@@ -37,7 +37,11 @@ def _requirement(conn: Any, requirement_id: int) -> dict[str, Any]:
         if project is not None:
             value["project_id"] = int(project[0])
             value["plan_name"] = str(project[1])
-    if value.get("method_id") is not None:
+    if (
+        value.get("method_id") is not None
+        and value.get("method_name") is None
+        and value.get("plan_id") is None
+    ):
         method = conn.execute(
             f"SELECT name FROM qa_methods WHERE id = {p}",
             (str(value["method_id"]),),
@@ -61,9 +65,7 @@ def _requirement(conn: Any, requirement_id: int) -> dict[str, Any]:
         if project is not None:
             value["project_id"] = int(project[0])
     if value.get("project_id") is None:
-        raise ValueError(
-            f"QA requirement {requirement_id} has no project authority"
-        )
+        raise ValueError(f"QA requirement {requirement_id} has no project authority")
     return value
 
 
@@ -97,7 +99,8 @@ def ensure_qa_review_request(
             "run_id": int(run_id),
             "plan_id": (
                 int(requirement["plan_id"])
-                if requirement.get("plan_id") is not None else None
+                if requirement.get("plan_id") is not None
+                else None
             ),
             "qa_kind": str(requirement["qa_kind"]),
             "plan_name": requirement.get("plan_name"),

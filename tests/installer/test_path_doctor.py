@@ -76,6 +76,38 @@ def test_default_startup_file_per_shell(tmp_path):
     assert doctor.default_startup_file("fish", tmp_path) == tmp_path / ".profile"
     assert doctor.default_ssh_startup_file("zsh", tmp_path) == tmp_path / ".zshenv"
     assert doctor.default_ssh_startup_file("bash", tmp_path) == tmp_path / ".bashrc"
+    assert doctor.startup_files_for_shell("zsh", tmp_path) == (
+        tmp_path / ".zprofile",
+        tmp_path / ".zshenv",
+        tmp_path / ".zshrc",
+        tmp_path / ".zlogin",
+    )
+
+
+def test_path_state_contract_closes_xdg_tools_markers_and_startup_files(tmp_path):
+    tool_dir = tmp_path / "xdg-bin"
+    contract = doctor.resolve_path_state_contract(
+        env={
+            "HOME": str(tmp_path),
+            "SHELL": "/bin/bash",
+            "XDG_BIN_HOME": str(tool_dir),
+        }
+    )
+
+    assert contract.home == str(tmp_path)
+    assert contract.shell == "bash"
+    assert contract.shell_path == "/bin/bash"
+    assert contract.tool_bin_dir == str(tool_dir)
+    assert contract.startup_file == str(tmp_path / ".bash_profile")
+    assert contract.ssh_startup_file == str(tmp_path / ".bashrc")
+    assert contract.managed_begin == doctor.MANAGED_BEGIN
+    assert contract.managed_end == doctor.MANAGED_END
+    assert contract.tools == doctor.TOOLS
+    assert contract.yoke_bin == str(tool_dir / "yoke")
+    assert contract.tool_paths == tuple(str(tool_dir / tool) for tool in doctor.TOOLS)
+    assert contract.supported_startup_files == tuple(
+        str(path) for path in doctor.supported_startup_files(tmp_path)
+    )
 
 
 def test_diagnose_reports_off_path(tmp_path, monkeypatch):

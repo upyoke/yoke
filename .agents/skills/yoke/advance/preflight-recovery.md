@@ -2,7 +2,8 @@
 
 Extracted from `preflight.md`. Covers the implementation reconciliation gate, merge verification gate, and done transition redirect. Read and follow this file when `preflight.md` directs you here.
 
-**Context variables** (inherited from router): `{N}`, `_workflow_id`, `_status`, `_target`, `--force` flag
+**Context variables** (inherited from router): `{N}`, `_status`, `_target`,
+`_generated_children`, `_worktree_policy`, `_current_executor`, `--force` flag
 
 ---
 
@@ -12,7 +13,13 @@ Skip if target is not `implementing`.
 
 This gate runs **before** worktree/environment phases to ensure bypass-created items have required metadata before side effects.
 
-**No epic-child exemption today.** The live schema has no surviving child-item → epic backpointer (`epic_tasks` references the epic, not the child). Epic tasks that reach this gate will run the generic reconciliation path, which is benign for items whose `deployment_flow` is already populated by conduct's plan-handoff. If the exemption becomes mechanically necessary again, add a real relation first and reintroduce the carve-out — do not infer from `epic_task_files` or other indirect signals.
+**No generated-child exemption today.** The live schema has no child-item
+backpointer from an ordinary backlog row to `epic_tasks`; the generated-task
+table references its parent instead. Any ordinary item reaching this gate runs
+the generic reconciliation path, which is benign when its `deployment_flow`
+was already populated by the owning executor's handoff. If an exemption
+becomes mechanically necessary, add a real relation first; do not infer one
+from `epic_task_files` or another indirect signal.
 
 ### 1. Deployment flow: recover or block
 
@@ -126,8 +133,9 @@ else
  _merge_repo=$(git rev-parse --show-toplevel)
 fi
 
-# Resolve all branches via the authoritative resolver (handles both single-worktree issues
-# and multi-worktree epics). Each branch must be an ancestor of the item's flow gate branch
+# Resolve all branches via the authoritative resolver (handles both single
+# implementation lanes and task-graph lane sets). Each branch must be an
+# ancestor of the item's flow gate branch.
 # before release: the target env's declared deploy branch (environments.settings.git.branch),
 # which is main for prod/internal flows and stage for stage flows.
 # Resolver is source-dev/admin only; no registered product CLI wrapper exists yet.

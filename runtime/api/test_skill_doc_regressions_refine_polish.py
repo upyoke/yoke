@@ -48,24 +48,13 @@ class TestRefinePolishSkill:
     def test_documents_completed_claim_release(self, skill_doc):
         name, doc, _ = skill_doc
         text = _read_refine_skill(doc) if name == "refine" else _read_polish_skill(doc)
-        # refine teaches the canonical agent CLI verb; polish teaches the
-        # function-call surface (claims.work.release). Each branch asserts
-        # its own contract.
-        if name == "refine":
-            assert "yoke claims work release" in text
-            assert '"$ITEM_REF"' in text
-        else:
-            assert "claims.work.release" in text
+        assert "claims.work.release" in text
         assert '"completed"' in text
 
     def test_releases_claim_before_final_output(self, skill_doc):
         name, doc, final_heading = skill_doc
         text = _read_refine_skill(doc) if name == "refine" else _read_polish_skill(doc)
-        # refine teaches the canonical agent CLI verb; polish teaches the
-        # function-call surface. Pick the right anchor per skill so the
-        # ordering check still measures the same structural intent
-        # (release before final-output).
-        release_anchor = "yoke claims work release" if name == "refine" else "claims.work.release"
+        release_anchor = "claims.work.release"
         lines = text.splitlines()
         release_line = None
         final_line = None
@@ -84,18 +73,23 @@ class TestRefinePolishSkill:
 
 
 class TestRefineItemReferenceResolution:
-    """Refine delegates public/bare ref normalization to items.get."""
+    """Refine resolves item identity and behavior from the immutable pin."""
 
-    def test_refine_resolves_once_through_the_registered_item_reader(self):
-        text = _read(SKILLS / "refine" / "SKILL.md")
+    def test_refine_resolves_once_through_the_registered_pin_reader(self):
+        skill = _read(SKILLS / "refine" / "SKILL.md")
+        context = _read(SKILLS / "refine" / "workflow-context.md")
 
-        assert 'ITEM_REF="{arg}"' in text
-        assert 'ITEM_NUM=$(yoke items get "$ITEM_REF" id' in text
+        assert 'ITEM_REF="{arg}"' in context
+        assert 'ITEM_PIN_JSON=$(yoke workflows item get "$ITEM_REF"' in context
+        assert "ITEM_NUM=$(printf '%s' \"$ITEM_PIN_JSON\"" in context
+        assert '["result"]["item_id"]' in context
+        assert "ITEM_DEFINITION_JSON=$(yoke workflows version get" in context
         for field in (
-            "workflow_id",
-            "status",
             "title",
             "project",
+        ):
+            assert f'yoke items get "$ITEM_REF" {field}' in context
+        for field in (
             "body",
             "spec",
             "design_spec",
@@ -103,11 +97,13 @@ class TestRefineItemReferenceResolution:
             "worktree_plan",
             "shepherd_caveats",
         ):
-            assert f'yoke items get "$ITEM_REF" {field}' in text
-        assert '--item "$ITEM_REF"' in text
+            assert f'yoke items get "$ITEM_REF" {field}' in skill
+        assert '--item "$ITEM_REF"' in skill
 
     def test_refine_does_not_hand_parse_a_retired_prefix(self):
-        text = _read(SKILLS / "refine" / "SKILL.md")
+        text = _read(SKILLS / "refine" / "SKILL.md") + _read(
+            SKILLS / "refine" / "workflow-context.md"
+        )
 
         assert "[Ss][Uu][Nn]" not in text
         assert "s/^[Ss][Uu][Nn]-//" not in text
@@ -211,9 +207,8 @@ class TestPolishVerificationFailureOwnership:
 
 # ---------------------------------------------------------------------------
 # per-skill-family function-call expectations.
-# These assertions encode the AC-15.1 / AC-15.4 contract for refine —
-# refine prose must teach the typed function-call adapters for structured-
-# field writes, additive transforms, and DB-claim amendments. The
+# Refine prose must teach the typed function-call adapters for
+# structured-field writes, additive transforms, and DB-claim amendments. The
 # assertion class deliberately mirrors the inventory at
 # ``service_client_structured_api_adapter_inventory.py`` so the test fails
 # whenever a refine surface regresses to a non-canonical recipe.

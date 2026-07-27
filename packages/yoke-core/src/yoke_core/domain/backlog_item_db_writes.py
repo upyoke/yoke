@@ -34,9 +34,9 @@ def _insert_item(
     project_sequence: int,
     deployment_flow: Optional[str],
     *,
+    workflow_id: str,
+    workflow_version_id: int,
     owner: Optional[str] = None,
-    workflow_id: Optional[str] = None,
-    workflow_version_id: Optional[int] = None,
     instruction: Optional[str] = None,
     workflow_posture: Optional[dict[str, Any]] = None,
     commit: bool = True,
@@ -50,15 +50,6 @@ def _insert_item(
     keeps them in lockstep going forward.
     """
     owner_value = owner if owner is not None else source
-    if workflow_id is None or workflow_version_id is None:
-        from yoke_core.domain.workflow_registry import (
-            resolve_current_workflow_pin,
-        )
-
-        workflow_id, workflow_version_id = resolve_current_workflow_pin(
-            conn,
-            workflow_id or "issue",
-        )
     conn.execute(
         """INSERT INTO items (
             id, title, status, priority, flow,

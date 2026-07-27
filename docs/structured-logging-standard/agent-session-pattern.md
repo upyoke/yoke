@@ -174,13 +174,12 @@ Emitted when an agent session ends (`python3 -m yoke_core.domain.agent_stop`).
  "event_outcome": "completed",
  "source_type": "agent",
  "severity": "INFO",
+ "item_id": "42",
+ "task_num": 3,
  "context": {
  "hook": "agent_stop",
  "auto_committed": false,
- "dispatch_type": "epic",
  "stop_reason": "completed",
- "epic_id": 42,
- "task_num": 3,
  "final_status": "done"
  }
 }

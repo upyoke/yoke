@@ -245,9 +245,8 @@ def test_authored_qa_docs_teach_canonical_yoke_surfaces() -> None:
 
     assert "yoke qa run complete" in text
     assert "--requirement-id" in text
-    assert "yoke qa screenshot-evidence satisfy" in text
+    assert "yoke qa case run" in text
     assert "qa run-complete" not in text
-    assert "satisfy-screenshot-evidence" not in text
 
 
 def test_authored_claim_docs_teach_canonical_widen_surface() -> None:

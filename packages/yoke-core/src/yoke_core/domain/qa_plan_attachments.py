@@ -23,8 +23,7 @@ def _require_plan_cases(conn: Any, plan_id: int) -> None:
     )
     if row is None:
         raise QaPlanError(
-            f"QA plan {plan_id} has no cases and cannot be attached or "
-            "materialized"
+            f"QA plan {plan_id} has no cases and cannot be attached or materialized"
         )
 
 
@@ -41,9 +40,14 @@ def set_project_default(
     plan = _plan_row(conn, plan_id)
     _require_plan_cases(conn, plan_id)
     marker = _placeholder(conn)
-    if query_one(
-        conn, f"SELECT 1 FROM workflows WHERE id={marker}", (workflow_id,),
-    ) is None:
+    if (
+        query_one(
+            conn,
+            f"SELECT 1 FROM workflows WHERE id={marker}",
+            (workflow_id,),
+        )
+        is None
+    ):
         raise QaPlanError(f"workflow {workflow_id!r} not found")
     now = iso8601_now()
     conn.execute(
@@ -56,8 +60,13 @@ def set_project_default(
         "attached_at=EXCLUDED.attached_at, "
         "attached_by_actor_id=EXCLUDED.attached_by_actor_id",
         (
-            int(plan["project_id"]), workflow_id, transition_id, qa_phase,
-            plan_id, now, actor_id,
+            int(plan["project_id"]),
+            workflow_id,
+            transition_id,
+            qa_phase,
+            plan_id,
+            now,
+            actor_id,
         ),
     )
     conn.commit()
@@ -115,13 +124,15 @@ def attach_plan_to_item(
 
 
 def _attached_plans(
-    conn: Any, *, item_id: int, transition_id: str,
+    conn: Any,
+    *,
+    item_id: int,
+    transition_id: str,
 ) -> dict[int, dict]:
     marker = _placeholder(conn)
     item = query_one(
         conn,
-        "SELECT project_id, workflow_id FROM items "
-        f"WHERE id={marker}",
+        f"SELECT project_id, workflow_id FROM items WHERE id={marker}",
         (item_id,),
     )
     if item is None:
@@ -131,18 +142,18 @@ def _attached_plans(
         conn,
         "SELECT plan_id, qa_phase FROM qa_plan_project_defaults "
         f"WHERE project_id={marker} AND workflow_id={marker} "
-        f"AND transition_id={marker}",
+        f"AND transition_id={marker} ORDER BY plan_id",
         (int(item["project_id"]), str(item["workflow_id"]), transition_id),
     ):
         attachments[int(row["plan_id"])] = dict(row)
     for row in query_rows(
         conn,
         "SELECT plan_id, qa_phase FROM qa_plan_item_attachments "
-        f"WHERE item_id={marker} AND transition_id={marker}",
+        f"WHERE item_id={marker} AND transition_id={marker} ORDER BY plan_id",
         (item_id, transition_id),
     ):
         attachments[int(row["plan_id"])] = dict(row)
-    return attachments
+    return dict(sorted(attachments.items()))
 
 
 def _insert_requirement(
@@ -154,6 +165,7 @@ def _insert_requirement(
     attachment: dict,
     case: Any,
     baseline: Optional[str],
+    baseline_position: int,
     now: str,
 ) -> Optional[int]:
     marker = _placeholder(conn)
@@ -167,10 +179,12 @@ def _insert_requirement(
         "INSERT INTO qa_requirements("
         "item_id, qa_kind, qa_phase, blocking_mode, "
         "requirement_source, success_policy, capability_requirements, "
-        "plan_id, plan_case_key, method_id, host_baseline, "
+        "plan_id, plan_case_key, case_position, baseline_position, "
+        "method_id, method_name, executor_id, required_capability_kind, "
+        "verdict_path, host_baseline, entry_surface, required_completion, "
         "workflow_transition_id, instructions, expected_outcome, "
         "method_config, created_at"
-        f") VALUES ({', '.join([marker] * 16)}) "
+        f") VALUES ({', '.join([marker] * 24)}) "
         "ON CONFLICT DO NOTHING RETURNING id",
         (
             item_id,
@@ -180,11 +194,20 @@ def _insert_requirement(
             "flow_derived",
             _json({"id": policy_id, "params": params}),
             _json([case["required_capability_kind"]])
-            if case["required_capability_kind"] else _json([]),
+            if case["required_capability_kind"]
+            else _json([]),
             int(plan["id"]),
             str(case["case_key"]),
+            int(case["position"]),
+            int(baseline_position),
             str(case["method_id"]),
+            str(case["method_name"]),
+            str(case["executor_id"]),
+            case["required_capability_kind"],
+            str(case["verdict_path"]),
             baseline,
+            case["entry_surface"],
+            case["required_completion"],
             transition_id,
             str(case["instructions"]),
             str(case["expected_outcome"]),
@@ -220,11 +243,16 @@ def _existing_requirement_id(
 
 
 def materialize_for_item(
-    conn: Any, *, item_id: int, transition_id: str,
+    conn: Any,
+    *,
+    item_id: int,
+    transition_id: str,
 ) -> dict:
     """Snapshot every attached case into idempotent QA requirements."""
     attachments = _attached_plans(
-        conn, item_id=item_id, transition_id=transition_id,
+        conn,
+        item_id=item_id,
+        transition_id=transition_id,
     )
     marker = _placeholder(conn)
     created: list[int] = []
@@ -246,7 +274,8 @@ def materialize_for_item(
             continue
         cases = query_rows(
             conn,
-            "SELECT c.*, m.required_capability_kind "
+            "SELECT c.*, m.name AS method_name, m.executor_id, "
+            "m.required_capability_kind, m.verdict_path "
             "FROM qa_plan_cases c JOIN qa_methods m ON m.id=c.method_id "
             f"WHERE c.plan_id={marker} ORDER BY c.position",
             (plan_id,),
@@ -263,7 +292,7 @@ def materialize_for_item(
             continue
         for case in cases:
             baselines = json.loads(str(case["host_baselines"] or "[]")) or [None]
-            for baseline in baselines:
+            for baseline_position, baseline in enumerate(baselines, start=1):
                 requirement_id = _insert_requirement(
                     conn,
                     item_id=item_id,
@@ -272,6 +301,7 @@ def materialize_for_item(
                     attachment=attachment,
                     case=case,
                     baseline=baseline,
+                    baseline_position=baseline_position,
                     now=now,
                 )
                 if requirement_id is not None:

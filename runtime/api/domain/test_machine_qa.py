@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from yoke_cli.config import path_doctor
 from yoke_contracts.machine_config.capability_secrets import (
     TEST_MACHINE_CAPABILITY,
     TEST_MACHINE_SECRET_KEYS,
@@ -171,31 +172,43 @@ def test_active_machine_lease_projects_its_owning_work_item() -> None:
     }
 
 
-def test_baselines_verify_the_path_branch_itself_and_dirty_state_fails() -> None:
+def test_baselines_keep_full_reset_distinct_from_shell_preconfiguration() -> None:
     control = FakeHostControl()
     fresh = run_host_baseline(control, "fresh-host")
     assert fresh.ok
-    assert fresh.evidence["observed_present"] == {
-        "login": False,
-        "ssh": False,
-    }
+    assert control.full_reset_calls == 1
     assert "old" not in control.files["/Users/tester/.zprofile"]
-    assert (
-        'export PATH="$HOME/.local/bin:$PATH"'
-        in control.files["/Users/tester/.zprofile"]
-    )
+    assert ".local/bin" not in control.files["/Users/tester/.zprofile"]
     preconfigured = run_host_baseline(control, "shell-preconfigured")
     assert preconfigured.ok
     assert preconfigured.evidence["observed_present"] == {
         "login": True,
         "ssh": True,
     }
+    assert preconfigured.evidence["launcher_executable"] is True
+    path_state = path_doctor.resolve_path_state_contract(
+        env={"HOME": control.home, "SHELL": control.shell}
+    )
+    assert preconfigured.evidence["path_state"] == {
+        "launcher": path_state.yoke_bin,
+        "launcher_present": True,
+        "tool_bin_dir": path_state.tool_bin_dir,
+        "login_path_present": True,
+        "ssh_path_present": True,
+    }
+    assert preconfigured.evidence["setup_operations"] == [
+        {"id": "installer.current-release-prepare", "outcome": "passed"},
+        {"id": "machine.path-prepare", "outcome": "passed"},
+    ]
+    assert control.full_reset_calls == 2
 
-    dirty = FakeHostControl(refuse_ssh_state=True)
+    dirty = FakeHostControl(refuse_full_reset=True)
     failed = run_host_baseline(dirty, "fresh-host")
     assert not failed.ok
-    assert failed.error_code == "baseline_verification_failed"
-    assert failed.evidence["observed_present"]["ssh"] is True
+    assert failed.error_code == "test_mac_reset_failed"
+    assert failed.evidence["paths"] == [
+        {"path": "/Users/tester", "outcome": "reset-failed"}
+    ]
 
 
 def test_failed_baseline_blocks_case_and_redaction_covers_executor_evidence() -> None:
@@ -205,7 +218,7 @@ def test_failed_baseline_blocks_case_and_redaction_covers_executor_evidence() ->
         "project_id,type,settings,verified_at,created_at"
         ") VALUES(1,'test-machine','{}',NULL,'now')"
     )
-    control = FakeHostControl(refuse_ssh_state=True)
+    control = FakeHostControl(refuse_full_reset=True)
     material = MachineMaterial(
         project_id=1,
         project="yoke",

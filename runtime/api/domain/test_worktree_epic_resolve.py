@@ -24,8 +24,8 @@ def _add_item_and_project(conn, epic_id: int, git_repo) -> None:
     p = _placeholder(conn)
     conn.execute(
         "INSERT INTO items "
-        "(id, title, type, status, project_id, project_sequence) "
-        f"VALUES ({p}, 'Epic', 'epic', 'reviewed-implementation', {p}, {p})",
+        "(id, title, status, project_id, project_sequence) "
+        f"VALUES ({p}, 'Epic', 'reviewed-implementation', {p}, {p})",
         (epic_id, SEED_PROJECT_IDS["yoke"], epic_id),
     )
     pin_test_item_workflow(conn, epic_id, "epic")

@@ -17,13 +17,15 @@ def _read(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def test_state_management_names_every_builtin_workflow() -> None:
+def test_state_management_teaches_pin_selected_workflow_authority() -> None:
     text = _read(STATE)
-    for workflow in ("Dash", "Blitz", "Issue", "Epic"):
-        assert workflow in text
-    assert "Pinned workflow executor" in text
-    assert "Dash or Blitz closes directly" in text
-    assert "Issue or Epic closes through Usher delivery" in text
+    assert "pinned immutable" in text
+    assert "Do not infer a lifecycle or an item type from the workflow id" in text
+    assert "`policies.delivery=release_stage`" in text
+    assert "`continuous_slice_actions` or `after_merge_action`" in text
+    assert "There is no global backlog-item progression" in text
+    assert "Dash or Blitz closes directly" not in text
+    assert "Issue or Epic closes through Usher delivery" not in text
 
 
 def test_state_management_uses_current_item_identity_fields() -> None:

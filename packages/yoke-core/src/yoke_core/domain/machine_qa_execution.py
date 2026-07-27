@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping
 
-from yoke_core.domain import db_backend
 from yoke_core.domain.coordination_leases import (
     Lease,
     LeaseHeldError,
@@ -30,8 +28,13 @@ from yoke_core.domain.machine_qa_method_contracts import (
     MachineQaExecutionError,
     validate_machine_method_config,
 )
+from yoke_core.domain.machine_qa_result_safety import (
+    redact_machine_qa_value,
+)
 from yoke_core.domain.test_machine_capability import lease_key
-from yoke_core.domain.test_machine_schema import ensure_test_machine_schema
+from yoke_core.domain.test_machine_verification_recording import (
+    record_test_machine_verification,
+)
 
 
 @dataclass(frozen=True)
@@ -47,9 +50,7 @@ class MachineQaLeaseHeld(MachineQaExecutionError):
     """The test machine is in use and this case must remain waiting."""
 
     def __init__(self, *, lease: Lease, machine: str) -> None:
-        super().__init__(
-            f"test machine {machine!r} is in use by another execution"
-        )
+        super().__init__(f"test machine {machine!r} is in use by another execution")
         self.lease = lease
         self.machine = machine
 
@@ -80,6 +81,7 @@ class MachineQaLease:
     control: HostControl
     material: TestMachineMaterial
     lease: Lease
+    owns_lease: bool = True
     baseline: HostBaselineResult | None = None
     closed: bool = False
 
@@ -87,8 +89,8 @@ class MachineQaLease:
         if self.closed:
             raise MachineQaExecutionError("test-machine lease is closed")
         self.baseline = run_host_baseline(self.control, name)
-        if not self.baseline.ok:
-            _record_verification(
+        if not self.baseline.ok and self.conn is not None and self.owns_lease:
+            record_test_machine_verification(
                 self.conn,
                 self.material.project_id,
                 status="error",
@@ -108,7 +110,7 @@ class MachineQaLease:
         if self.closed:
             raise MachineQaExecutionError("test-machine lease is closed")
         if self.baseline is not None and not self.baseline.ok:
-            baseline_evidence = _redact(
+            baseline_evidence = redact_machine_qa_value(
                 self.baseline.evidence,
                 tuple(self.material.secrets.values()),
             )
@@ -130,23 +132,50 @@ class MachineQaLease:
             entry_surface=entry_surface,
             required_completion=required_completion,
         )
-        if method_id in {"terminal-check", "terminal-inspection"}:
-            raw = self.control.run_terminal_case(
-                entry_surface=str(entry_surface),
-                required_completion=str(required_completion),
-                steps=config["steps"],
-                capture_checkpoints=config.get("capture_checkpoints", []),
+        blocker = config.get("execution_blocker")
+        if isinstance(blocker, Mapping):
+            return MachineCaseResult(
+                case_outcome="blocked_on_precondition",
+                verdict="blocked",
+                error_code=str(blocker["code"]),
+                evidence={
+                    "executor_id": "host_control",
+                    "machine": self.material.settings["resource_name"],
+                    "baseline": self.baseline.name if self.baseline else None,
+                    "case_started": False,
+                    "precondition": {
+                        "code": str(blocker["code"]),
+                        "reason": str(blocker["reason"]),
+                    },
+                },
             )
+        if method_id in {"terminal-check", "terminal-inspection"}:
+            if "actions" in config:
+                raw = self.control.run_terminal_recipe(
+                    entry_surface=str(entry_surface),
+                    required_completion=str(required_completion),
+                    config=config,
+                )
+            else:
+                raw = self.control.run_terminal_case(
+                    entry_surface=str(entry_surface),
+                    required_completion=str(required_completion),
+                    steps=config["steps"],
+                    capture_checkpoints=config.get("capture_checkpoints", []),
+                )
         else:
             raw = self.control.run_machine_assertions(config["assertions"])
-        safe = _redact(raw.evidence, tuple(self.material.secrets.values()))
+        safe = redact_machine_qa_value(
+            raw.evidence,
+            tuple(self.material.secrets.values()),
+        )
         evidence = {
             "executor_id": "host_control",
             "machine": self.material.settings["resource_name"],
             "method_id": method_id,
             "baseline": self.baseline.name if self.baseline else None,
             "baseline_evidence": (
-                _redact(
+                redact_machine_qa_value(
                     self.baseline.evidence,
                     tuple(self.material.secrets.values()),
                 )
@@ -179,7 +208,12 @@ class MachineQaLease:
     def close(self, reason: str = "machine-qa-complete") -> None:
         if self.closed:
             return
-        release_lease(self.conn, self.lease.id, reason)
+        if self.owns_lease:
+            if self.conn is None:
+                raise MachineQaExecutionError(
+                    "owned test-machine lease has no authority connection"
+                )
+            release_lease(self.conn, self.lease.id, reason)
         self.closed = True
 
     def __enter__(self) -> "MachineQaLease":
@@ -263,16 +297,18 @@ def verify_test_machine(
         if error_code is None:
             for baseline_name in ("fresh-host", "shell-preconfigured"):
                 baseline = execution.reach_baseline(baseline_name)
-                checks.append({"name": baseline_name, "ok": baseline.ok, **baseline.evidence})
+                checks.append(
+                    {"name": baseline_name, "ok": baseline.ok, **baseline.evidence}
+                )
                 if not baseline.ok:
                     error_code = baseline.error_code
                     break
         status = "verified" if error_code is None else "error"
-        safe_checks = _redact(
+        safe_checks = redact_machine_qa_value(
             checks,
             tuple(execution.material.secrets.values()),
         )
-        _record_verification(
+        record_test_machine_verification(
             conn,
             execution.material.project_id,
             status=status,
@@ -288,52 +324,6 @@ def verify_test_machine(
     }
 
 
-def _record_verification(
-    conn: Any,
-    project_id: int,
-    *,
-    status: str,
-    checks: Sequence[Mapping[str, Any]],
-    error_code: str | None,
-) -> None:
-    ensure_test_machine_schema(conn)
-    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    now = iso8601_now()
-    receipt = json.dumps({"checks": list(checks)}, separators=(",", ":"), sort_keys=True)
-    conn.execute(
-        "INSERT INTO test_machine_verifications("
-        "project_id,status,checked_at,receipt_json,error_code,updated_at"
-        f") VALUES({marker},{marker},{marker},{marker},{marker},{marker}) "
-        "ON CONFLICT(project_id) DO UPDATE SET "
-        "status=EXCLUDED.status, checked_at=EXCLUDED.checked_at, "
-        "receipt_json=EXCLUDED.receipt_json, error_code=EXCLUDED.error_code, "
-        "updated_at=EXCLUDED.updated_at",
-        (project_id, status, now, receipt, error_code, now),
-    )
-    conn.execute(
-        "UPDATE project_capabilities SET verified_at="
-        f"{marker} WHERE project_id={marker} AND type='test-machine'",
-        (now if status == "verified" else None, project_id),
-    )
-    conn.commit()
-
-
-def _redact(value: Any, secrets: Sequence[str]) -> Any:
-    if isinstance(value, dict):
-        return {str(key): _redact(item, secrets) for key, item in value.items()}
-    if isinstance(value, list):
-        return [_redact(item, secrets) for item in value]
-    if isinstance(value, tuple):
-        return [_redact(item, secrets) for item in value]
-    if isinstance(value, str):
-        redacted = value
-        for secret in secrets:
-            if secret:
-                redacted = redacted.replace(secret, "[REDACTED]")
-        return redacted
-    return value
-
-
 __all__ = [
     "MACHINE_METHODS",
     "MachineCaseResult",
@@ -341,6 +331,8 @@ __all__ = [
     "MachineQaLease",
     "MachineQaLeaseHeld",
     "acquire_machine_qa_lease",
+    "record_test_machine_verification",
+    "redact_machine_qa_value",
     "validate_machine_method_config",
     "verify_test_machine",
 ]

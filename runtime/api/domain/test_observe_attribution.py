@@ -9,8 +9,10 @@ from __future__ import annotations
 import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from unittest import mock
 
+from runtime.api.workflow_version_test_helpers import publish_issue_completion_stage
 from yoke_core.domain.observe_test_helpers import (
     _fresh_now,
     observe_attribution_db,
@@ -190,6 +192,46 @@ class TestSessionAttribution(unittest.TestCase):
             # session_current should win over active_fallback
             self.assertEqual(item_id, "42")
             self.assertEqual(source, "session_current")
+
+    def test_active_fallback_uses_generated_children_policy(self):
+        from yoke_core.domain.observe import _resolve_main_session_attribution
+
+        with observe_attribution_db() as (db_path, project_dir):
+            conn = connect_test_db(db_path)
+            publish_issue_completion_stage(conn, generated_children="epic_tasks")
+            seed_item(conn, 78, status="implementing")
+            conn.commit()
+            conn.close()
+
+            item_id, source = _resolve_main_session_attribution(
+                db_path, project_dir,
+            )
+            self.assertIsNone(item_id)
+            self.assertIsNone(source)
+
+    def test_worktree_fallback_uses_pinned_terminal_stage(self):
+        from yoke_core.domain.observe_normalization import _resolve_dispatch_context
+
+        with observe_attribution_db() as (db_path, project_dir):
+            conn = connect_test_db(db_path)
+            publish_issue_completion_stage(conn)
+            seed_item(conn, 79, status="archived")
+            conn.execute(
+                "INSERT INTO item_worktrees "
+                "(id, item_id, branch, path, lane_role, state, created_at, updated_at) "
+                "VALUES (79, 79, %s, %s, 'implementation', 'active', "
+                "'2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')",
+                (Path(project_dir).name, project_dir),
+            )
+            conn.commit()
+            conn.close()
+
+            item_id, task_id, source = _resolve_dispatch_context(
+                db_path, project_dir,
+            )
+            self.assertIsNone(item_id)
+            self.assertIsNone(task_id)
+            self.assertIsNone(source)
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 # Shared Tester Dispatch Template
 
 Referenced by:
-- `conduct/dispatch-context.md` (issue item prompt template, epic task prompt template)
+- `conduct/dispatch-context.md` (item-level and generated-task prompt templates)
 - `advance/implementing/SKILL.md` (ad-hoc Tester dispatch outside conduct)
 
 This file defines the **minimum structured context** that any Tester dispatch MUST include. Without this context, the Tester agent improvises its validation approach — guessing test commands, missing changed files, and producing suboptimal results (see).
@@ -75,9 +75,10 @@ and stays on the shell surface:
 
 ```bash
 # {_wt_branch} comes from the items.get.run response above.
-# Convention: Tester dispatch is for issue items. For epic tasks,
-# conduct dispatches a Tester per task with the task's own worktree
-# branch — not this template's {N}.
+# Convention: this item-level branch lookup is for a
+# single_implementation_lane policy. For generated tasks, conduct
+# dispatches a Tester per task with the task's own worktree branch
+# rather than the parent item's primary worktree.
 if [ -n "$_wt_branch" ] && [ "$_wt_branch" != "null" ]; then
  _changed_files=$(git diff --name-only main..."$_wt_branch" 2>/dev/null) || true
  _diff_stat=$(git diff --stat main..."$_wt_branch" 2>/dev/null) || true
@@ -179,6 +180,6 @@ Ephemeral URL: {_ephemeral_url}
 
 ## Conduct vs. advance usage
 
-**Conduct** (`dispatch-context.md`): Populates this context as part of its structured `5f-project` sub-step and the issue/epic Tester prompt templates. The context is built during the conduct batch preparation phase with additional retry-specific fields (per-attempt diffs, dispatch chain tracking).
+**Conduct** (`dispatch-context.md`): Populates this context as part of its structured `5f-project` sub-step and the item-level/generated-task Tester prompt templates. The context is built during conduct batch preparation with additional retry-specific fields (per-attempt diffs, dispatch chain tracking).
 
 **Advance** (`advance/implementing/SKILL.md`): References this template when the implementing agent needs to dispatch a Tester for ad-hoc validation outside the conduct pipeline. The advance flow builds the context inline using the same DB queries documented above.

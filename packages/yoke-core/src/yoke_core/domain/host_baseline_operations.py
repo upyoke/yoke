@@ -3,16 +3,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Callable
 
 from yoke_cli.config import path_doctor
 
 from yoke_core.domain.host_control_executor import HostControl
-
-
-BASELINE_BEGIN = "# >>> BEGIN YOKE TEST HOST BASELINE >>>"
-BASELINE_END = "# <<< END YOKE TEST HOST BASELINE <<<"
+from yoke_core.domain.installer_campaign_recipe_operations import (
+    installed_yoke,
+    prepared_path,
+)
 
 
 @dataclass(frozen=True)
@@ -23,88 +22,68 @@ class HostBaselineResult:
     error_code: str | None = None
 
 
-def _strip_block(text: str, begin: str, end: str) -> str:
-    lines: list[str] = []
-    skipping = False
-    for line in text.splitlines(keepends=True):
-        marker = line.strip()
-        if marker == begin:
-            skipping = True
-            continue
-        if marker == end:
-            skipping = False
-            continue
-        if not skipping:
-            lines.append(line)
-    return "".join(lines)
-
-
-def _baseline_block(tool_dir: str, *, present: bool) -> str:
-    quoted = tool_dir.replace("\\", "\\\\").replace('"', '\\"')
-    zsh_action = (
-        'path=("$__yoke_test_bin" $path)'
-        if present else
-        'path=("${(@)path:#$__yoke_test_bin}")'
-    )
-    sh_action = (
-        'PATH="$__yoke_test_bin:$PATH"'
-        if present else
-        'PATH="$(printf \'%s\' "$PATH" | '
-        'awk -v bin="$__yoke_test_bin" -v RS=: -v ORS=: '
-        '\'$0 != bin\' | sed \'s/:$//\')"'
-    )
-    return "\n".join((
-        BASELINE_BEGIN,
-        f'__yoke_test_bin="{quoted}"',
-        'if [ -n "${ZSH_VERSION:-}" ]; then',
-        f"  {zsh_action}",
-        "else",
-        f"  {sh_action}",
-        "fi",
-        "export PATH",
-        "unset __yoke_test_bin",
-        BASELINE_END,
-    ))
-
-
-def _startup_paths(control: HostControl) -> tuple[Path, ...]:
-    home = Path(control.home)
-    shell = Path(control.shell).name or "zsh"
-    candidates = [
-        path_doctor.default_startup_file(shell, home),
-        path_doctor.default_ssh_startup_file(shell, home),
-    ]
-    return tuple(dict.fromkeys(path for path in candidates if path is not None))
-
-
-def _tool_dir(control: HostControl) -> str:
+def _path_state(control: HostControl) -> path_doctor.PathStateContract:
     env = {"HOME": control.home}
     if control.xdg_bin_home:
         env["XDG_BIN_HOME"] = control.xdg_bin_home
-    return path_doctor.tool_bin_dir(env)
+    env["SHELL"] = control.shell
+    return path_doctor.resolve_path_state_contract(env=env)
 
 
-def _reach_path_state(
-    control: HostControl,
-    *,
-    name: str,
-    present: bool,
-) -> HostBaselineResult:
-    tool_dir = _tool_dir(control)
-    paths = _startup_paths(control)
-    block = _baseline_block(tool_dir, present=present)
+def reach_fresh_host(control: HostControl) -> HostBaselineResult:
+    """Reach the registered full-reset baseline for the dedicated Test Mac."""
     try:
-        for path in paths:
-            existing = control.read_text(str(path)) or ""
-            without_product = path_doctor._strip_managed_block(existing)
-            clean = _strip_block(without_product, BASELINE_BEGIN, BASELINE_END)
-            if clean and not clean.endswith("\n"):
-                clean += "\n"
-            control.write_text(str(path), clean + block + "\n")
+        result = control.reset_installer_test_host()
+    except Exception:
+        return HostBaselineResult(
+            name="fresh-host",
+            ok=False,
+            evidence={"paths": []},
+            error_code="baseline_operation_failed",
+        )
+    return HostBaselineResult(
+        name="fresh-host",
+        ok=result.ok,
+        evidence=result.evidence,
+        error_code=result.error_code,
+    )
+
+
+def reach_shell_preconfigured(control: HostControl) -> HostBaselineResult:
+    """Install the current release and verify both shell PATH surfaces."""
+    name = "shell-preconfigured"
+    reset = reach_fresh_host(control)
+    if not reset.ok:
+        return HostBaselineResult(
+            name=name,
+            ok=False,
+            evidence={
+                "operation": name,
+                "reset": reset.evidence,
+                "case_started": False,
+            },
+            error_code=reset.error_code,
+        )
+    try:
+        fixture = control.create_fixture_operation_executor()
+        setup = fixture.execute_setup_operations(
+            [
+                installed_yoke(evidence_name=name),
+                prepared_path(evidence_name=name),
+            ]
+        )
+        cleanup_attempts = [fixture.close()]
+        if not cleanup_attempts[0].ok:
+            cleanup_attempts.append(fixture.close())
+        path_state = _path_state(control)
+        tool_dir = path_state.tool_bin_dir
         observed = {
-            surface: list(control.probe_path(surface))
-            for surface in ("login", "ssh")
+            surface: list(control.probe_path(surface)) for surface in ("login", "ssh")
         }
+        launcher = path_state.yoke_bin
+        launcher_check = control.run_machine_assertions(
+            [{"argv": ["/usr/bin/test", "-x", launcher]}]
+        )
     except Exception:
         return HostBaselineResult(
             name=name,
@@ -112,42 +91,48 @@ def _reach_path_state(
             error_code="baseline_operation_failed",
             evidence={
                 "operation": name,
-                "startup_files": [str(path) for path in paths],
-                "verified_property": "tool directory membership in shell PATH",
-                "expected_present": present,
+                "reset": reset.evidence,
+                "verified_property": (
+                    "current Yoke launcher is executable and its tool "
+                    "directory is present in login and SSH shell PATH"
+                ),
             },
         )
-    checks = {
-        surface: (tool_dir in entries)
-        for surface, entries in observed.items()
+    path_checks = {
+        surface: tool_dir in entries for surface, entries in observed.items()
     }
-    ok = all(value is present for value in checks.values())
+    cleanup_ok = bool(cleanup_attempts) and cleanup_attempts[-1].ok
+    ok = setup.ok and cleanup_ok and launcher_check.ok and all(path_checks.values())
     return HostBaselineResult(
         name=name,
         ok=ok,
         error_code=None if ok else "baseline_verification_failed",
         evidence={
             "operation": name,
-            "startup_files": [str(path) for path in paths],
+            "reset": reset.evidence,
+            "setup_operations": setup.evidence.get("operations", []),
+            "cleanup_attempts": [
+                {
+                    "outcome": "passed" if attempt.ok else "failed",
+                    "operations": attempt.evidence.get("operations", []),
+                }
+                for attempt in cleanup_attempts
+            ],
             "tool_bin_dir": tool_dir,
-            "verified_property": "tool directory membership in shell PATH",
-            "expected_present": present,
-            "observed_present": checks,
+            "launcher_executable": launcher_check.ok,
+            "path_state": {
+                "launcher": launcher,
+                "launcher_present": launcher_check.ok,
+                "tool_bin_dir": tool_dir,
+                "login_path_present": path_checks["login"],
+                "ssh_path_present": path_checks["ssh"],
+            },
+            "verified_property": (
+                "current Yoke launcher is executable and its tool directory "
+                "is present in login and SSH shell PATH"
+            ),
+            "observed_present": path_checks,
         },
-    )
-
-
-def reach_fresh_host(control: HostControl) -> HostBaselineResult:
-    """Reach and verify the branch where shells do not inherit Yoke's bin dir."""
-    return _reach_path_state(control, name="fresh-host", present=False)
-
-
-def reach_shell_preconfigured(control: HostControl) -> HostBaselineResult:
-    """Reach and verify the branch where shells already inherit the tool dir."""
-    return _reach_path_state(
-        control,
-        name="shell-preconfigured",
-        present=True,
     )
 
 
@@ -166,8 +151,6 @@ def run_host_baseline(control: HostControl, name: str) -> HostBaselineResult:
 
 
 __all__ = [
-    "BASELINE_BEGIN",
-    "BASELINE_END",
     "HOST_BASELINE_OPERATIONS",
     "HostBaselineResult",
     "reach_fresh_host",

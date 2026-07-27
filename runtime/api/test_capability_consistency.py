@@ -4,17 +4,16 @@ The Yoke-owned harness contract is that command/path truth flows from the
 shared Yoke registry, with each harness manifest only declaring identity and
 explicit substrate limitations. This module locks the agreement so that:
 
-1. The shared registry declares every command-boundary that the issue
-   lifecycle requires (``/yoke idea``, ``/yoke do``, ``/yoke refine``,
-   ``/yoke advance``, ``/yoke polish``, ``/yoke usher``).
+1. The shared registry declares the registered operator entrypoints used by
+   current immutable workflow-version executor bindings.
 2. ``CODEX.md`` lists the same entrypoints and downstream paths in its
    operator-facing tables.
 3. ``CODEX.md``, ``docs/OVERVIEW.md``, and ``docs/harness-bootstrap.md``
-   never simultaneously claim that ``/yoke advance`` is required (by the
-   issue lifecycle) and unsupported (by the harness).
+   never claim that the registered ``/yoke advance`` entrypoint is unsupported
+   by the harness.
 4. Harness-shared bootstrap doctrine treats ``/yoke advance YOK-N
-   implementation`` as the operator-facing issue implementation entry, not
-   as an internal-only sub-skill.
+   implementation`` as an operator-facing entrypoint, not as an internal-only
+   sub-skill.
 
 These checks operate on the tracked filesystem (manifest JSON + markdown
 files) without touching the database, git, or any network.
@@ -54,11 +53,9 @@ def _read(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
-# Required by the issue lifecycle for any harness that supports issues
-# end-to-end. The four other entrypoints (``/yoke idea``, ``/yoke do``,
-# ``/yoke refine``, ``/yoke polish``, ``/yoke usher``) round out the
-# operator-facing happy path.
-ISSUE_LIFECYCLE_ENTRYPOINTS = {
+# Registered command capabilities are independent of which immutable workflow
+# versions currently bind them.
+SHARED_WORKFLOW_ENTRYPOINTS = {
     "/yoke idea",
     "/yoke do",
     "/yoke refine",
@@ -67,7 +64,7 @@ ISSUE_LIFECYCLE_ENTRYPOINTS = {
     "/yoke usher",
 }
 
-ISSUE_LIFECYCLE_DOWNSTREAM_PATHS = {
+SHARED_WORKFLOW_DOWNSTREAM_PATHS = {
     "shepherd",
     "refine",
     "advance",
@@ -108,13 +105,12 @@ def advance_skill_md() -> str:
 
 class TestSharedRegistryAdvertisesAdvance:
     """The shared registry must list ``/yoke advance`` so capability truth
-    aligns with the operator-facing issue lifecycle."""
+    aligns with registered workflow executor bindings."""
 
     def test_advance_in_entrypoints(self):
         entrypoints = shared_entrypoints()
         assert "/yoke advance" in entrypoints, (
-            "shared registry must advertise /yoke advance as an entrypoint "
-            "(issue lifecycle requires it as the implementation entry)"
+            "shared registry must advertise /yoke advance as an entrypoint"
         )
 
     def test_advance_in_downstream_paths(self):
@@ -123,18 +119,18 @@ class TestSharedRegistryAdvertisesAdvance:
             "shared registry must advertise 'advance' as a downstream path"
         )
 
-    def test_full_issue_lifecycle_in_entrypoints(self):
+    def test_registered_workflow_commands_in_entrypoints(self):
         entrypoints = set(shared_entrypoints())
-        missing = ISSUE_LIFECYCLE_ENTRYPOINTS - entrypoints
+        missing = SHARED_WORKFLOW_ENTRYPOINTS - entrypoints
         assert not missing, (
-            f"shared registry is missing issue lifecycle entrypoints: {missing}"
+            f"shared registry is missing workflow entrypoints: {missing}"
         )
 
-    def test_full_issue_lifecycle_in_downstream_paths(self):
+    def test_registered_workflow_commands_in_downstream_paths(self):
         paths = set(shared_downstream_paths())
-        missing = ISSUE_LIFECYCLE_DOWNSTREAM_PATHS - paths
+        missing = SHARED_WORKFLOW_DOWNSTREAM_PATHS - paths
         assert not missing, (
-            f"shared registry is missing issue lifecycle downstream paths: {missing}"
+            f"shared registry is missing workflow downstream paths: {missing}"
         )
 
     def test_codex_manifest_does_not_copy_command_truth(self, codex_manifest):
@@ -170,9 +166,7 @@ class TestCodexMdMatchesRegistry:
             codex_md,
             re.DOTALL,
         )
-        assert match, (
-            "CODEX.md missing '### Supported downstream paths' section"
-        )
+        assert match, "CODEX.md missing '### Supported downstream paths' section"
         section = match.group(1)
         # Pull the table lines that look like ``| `name` | … |``.
         rows = re.findall(r"^\|\s*`([^`]+)`\s*\|", section, re.MULTILINE)
@@ -192,9 +186,7 @@ class TestCodexMdMatchesRegistry:
         )
         assert match, "CODEX.md missing '### Limitations' section"
         section = match.group(1)
-        limitation_bullets = re.findall(
-            r"^- `(/yoke \S+)`", section, re.MULTILINE
-        )
+        limitation_bullets = re.findall(r"^- `(/yoke \S+)`", section, re.MULTILINE)
         assert "/yoke advance" not in limitation_bullets, (
             f"CODEX.md still lists /yoke advance as a structural limitation "
             f"(bullets found: {limitation_bullets})"
@@ -271,9 +263,7 @@ class TestHarnessBootstrapClassifiesAdvance:
             "/yoke advance YOK-N implementation as an operator-facing entry"
         )
 
-    def test_tier_2_clarifies_advance_is_dual_classified(
-        self, harness_bootstrap_md
-    ):
+    def test_tier_2_clarifies_advance_is_dual_classified(self, harness_bootstrap_md):
         # The Tier 2 section is between '### Tier 2: Internal sub-skills' and
         # the next '###' heading.
         match = re.search(
@@ -281,9 +271,7 @@ class TestHarnessBootstrapClassifiesAdvance:
             harness_bootstrap_md,
             re.DOTALL,
         )
-        assert match, (
-            "harness-bootstrap.md missing '### Tier 2: Internal sub-skills'"
-        )
+        assert match, "harness-bootstrap.md missing '### Tier 2: Internal sub-skills'"
         section = match.group(1)
         # The section must call out that the `implementation` form is also
         # operator-facing so Tier 1 vs Tier 2 stays honest.
@@ -295,38 +283,36 @@ class TestHarnessBootstrapClassifiesAdvance:
 
 class TestAdvanceSkillNotInternalOnly:
     """The ``advance`` skill body must not claim it is purely internal —
-    that wording contradicts the issue lifecycle and the harness manifest."""
+    that wording contradicts the workflow executor registry and harness
+    manifest."""
 
     def test_skill_does_not_claim_not_operator_facing(self, advance_skill_md):
         assert "Not operator-facing" not in advance_skill_md, (
             ".agents/skills/yoke/advance/SKILL.md still claims the skill is "
-            "'Not operator-facing'; /yoke advance YOK-N implementation IS "
-            "the issue implementation entry."
+            "'Not operator-facing'; /yoke advance YOK-N implementation is "
+            "a registered operator entrypoint."
         )
 
 
 class TestLifecycleDocsAlignWithManifest:
-    """The lifecycle command-family doc must continue to name ``/yoke
-    advance ... implementation`` as the issue implementation entry. This
-    locks the agreement: lifecycle says "use advance", manifests say
-    "we support advance", harness docs say "we support advance"."""
+    """Lifecycle docs must derive commands from immutable executor bindings."""
 
-    def test_lifecycle_md_names_advance_implementation_entry(self, lifecycle_md):
-        assert "/yoke advance YOK-N implementation" in lifecycle_md, (
-            ".yoke/docs/lifecycle.md must continue to name "
-            "/yoke advance YOK-N implementation as the issue implementation entry"
-        )
+    def test_lifecycle_md_names_registered_executor_resolution(self, lifecycle_md):
+        assert "immutable workflow version" in lifecycle_md
+        assert "executor_bindings" in lifecycle_md
+        assert "/yoke <executor_id>" in lifecycle_md
 
-    def test_lifecycle_command_boundary_table_includes_advance(self, lifecycle_md):
+    def test_lifecycle_registered_executor_table_includes_advance(self, lifecycle_md):
         match = re.search(
-            r"## Command Boundary Summary\b(.*?)(?=\n## )",
+            r"## Registered Executor Boundaries\b(.*?)(?=\n## )",
             lifecycle_md,
             re.DOTALL,
         )
-        assert match, ".yoke/docs/lifecycle.md missing '## Command Boundary Summary'"
-        section = match.group(1)
-        assert "/yoke advance" in section, (
-            "lifecycle.md Command Boundary Summary must list /yoke advance"
+        assert match, (
+            ".yoke/docs/lifecycle.md missing '## Registered Executor Boundaries'"
         )
-
-
+        section = match.group(1)
+        assert "`advance`" in section, (
+            "lifecycle.md registered executor table must list advance"
+        )
+        assert "from_stage_id <= current_stage < through_stage_id" in section

@@ -25,7 +25,7 @@ from runtime.api.skill_doc_regressions_test_helpers import (
 
 
 class TestAdvanceFinalizeSkill:
-    """Advance finalize docs must require a refined source for implementation entry."""
+    """Advance finalize must derive implementation entry from the exact pin."""
 
     @pytest.fixture
     def finalize_doc(self) -> Path:
@@ -33,10 +33,10 @@ class TestAdvanceFinalizeSkill:
         assert doc.is_file()
         return doc
 
-    def test_implementation_entry_requires_refined_source(self, finalize_doc: Path):
+    def test_implementation_entry_requires_pinned_advance_source(self, finalize_doc: Path):
         text = _read(finalize_doc)
         section = re.search(
-            r"## Implementation-entry requires a refined source.*?(?=^## Update Status)",
+            r"## Implementation-entry requires the pinned advance source.*?(?=^## Update Status)",
             text,
             re.MULTILINE | re.DOTALL,
         )
@@ -45,10 +45,11 @@ class TestAdvanceFinalizeSkill:
         )
         section_text = section.group(0)
         # advance_hop was deleted as dead code: the router dispatches a single
-        # adjacent transition (refined-idea / planned -> implementing) and
-        # --skip-refine owns the pre-refine bookkeeping fast-forward.
+        # The router dispatches one adjacent transition from the pinned
+        # advance binding source; --skip-refine owns bookkeeping fast-forward.
         assert "advance_hop" not in section_text
-        assert "refined-idea" in section_text
+        assert "from_stage_id" in section_text
+        assert "single_implementation_lane" in section_text
         assert "--skip-refine" in section_text
         # Raw intermediate status writes stay claim-protected.
         assert "ClaimVerificationDenied" in section_text
@@ -56,7 +57,7 @@ class TestAdvanceFinalizeSkill:
     def test_implementation_entry_drops_raw_intermediate_examples(self, finalize_doc: Path):
         text = _read(finalize_doc)
         section = re.search(
-            r"## Implementation-entry requires a refined source.*?(?=^## Update Status)",
+            r"## Implementation-entry requires the pinned advance source.*?(?=^## Update Status)",
             text,
             re.MULTILINE | re.DOTALL,
         )
@@ -199,16 +200,17 @@ class TestAdvanceTeachesFunctionCallAdapters:
       for the target status (no intermediate-hop helper).
     """
 
-    def test_finalize_teaches_refined_source_and_skip_refine(self):
+    def test_finalize_teaches_pinned_source_and_skip_refine(self):
         text = _read(SKILLS / "advance" / "finalize.md")
         # advance_hop was deleted (dead code); finalize.md must teach the
-        # replacement contract — a refined source plus the --skip-refine
+        # replacement contract — a pinned binding source plus --skip-refine
         # fast-forward — and must not resurrect the removed module name.
         assert "advance_hop" not in text, (
             "advance/finalize.md must not reference the deleted advance_hop module."
         )
         assert "--skip-refine" in text
-        assert "refined-idea" in text
+        assert "from_stage_id" in text
+        assert "_worktree_policy" in text
 
     def test_finalize_teaches_release_work_claim_adapter(self):
         text = _read(SKILLS / "advance" / "finalize.md")
@@ -219,10 +221,7 @@ class TestAdvanceTeachesFunctionCallAdapters:
 
     def test_finalize_teaches_scalar_update_adapter(self):
         text = _read(SKILLS / "advance" / "finalize.md")
-        # ``items update {N} deployed_to ...`` dispatches through
-        # ``items.scalar.update``; this is the retained CLI shape after
-        # the function-call cutover.
-        assert "items update" in text and "deployed_to" in text, (
-            "advance/finalize.md must teach the deployed_to scalar "
-            "update via items update (function id: items.scalar.update)."
+        assert "items.scalar.update" in text and "deployed_to" in text, (
+            "advance/finalize.md must teach deployed_to through the "
+            "typed items.scalar.update function call."
         )

@@ -3,13 +3,18 @@
 from __future__ import annotations
 
 import json
-import re
 from typing import Any, Mapping
 
 from yoke_contracts.machine_config.capability_secrets import (
     TEST_MACHINE_CAPABILITY,
     TEST_MACHINE_SECRET_KEYS,
 )
+from yoke_contracts.machine_config.test_machine import (
+    TestMachineCapabilityError,
+    validate_test_machine_resource_name,
+    validate_test_machine_settings,
+)
+from yoke_contracts.machine_qa_execution import VERIFICATION_BASELINES
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.capability_machine_secrets import (
@@ -33,42 +38,8 @@ TEST_MACHINE_FEATURES = (
     "screenshots",
     "post-install shell",
 )
-TEST_MACHINE_BASELINES = ("fresh-host", "shell-preconfigured")
+TEST_MACHINE_BASELINES = VERIFICATION_BASELINES
 _LEASE_PREFIX = "QA_HOST:"
-_SLUG = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$")
-_USER = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9._-]{0,63}$")
-_SETTING_KEYS = frozenset({"resource_name", "host", "user", "operating_notes"})
-
-
-class TestMachineCapabilityError(ValueError):
-    """The test-machine declaration or update is invalid."""
-
-
-def validate_test_machine_settings(payload: Mapping[str, Any]) -> dict[str, str]:
-    """Return the canonical, non-secret settings document."""
-    if set(payload) != _SETTING_KEYS:
-        missing = sorted(_SETTING_KEYS - set(payload))
-        unknown = sorted(set(payload) - _SETTING_KEYS)
-        detail = []
-        if missing:
-            detail.append("missing " + ", ".join(missing))
-        if unknown:
-            detail.append("unknown " + ", ".join(unknown))
-        raise TestMachineCapabilityError(
-            "test-machine settings require exactly resource_name, host, user, "
-            "and operating_notes (" + "; ".join(detail) + ")"
-        )
-    values = {key: str(payload[key] or "").strip() for key in _SETTING_KEYS}
-    if not _SLUG.fullmatch(values["resource_name"]):
-        raise TestMachineCapabilityError("resource_name is not a safe resource label")
-    host = values["host"]
-    if not host or len(host) > 253 or any(ch.isspace() for ch in host):
-        raise TestMachineCapabilityError("host must be a non-empty host name")
-    if not _USER.fullmatch(values["user"]):
-        raise TestMachineCapabilityError("user is not a safe remote user name")
-    if len(values["operating_notes"]) > 500:
-        raise TestMachineCapabilityError("operating_notes must be at most 500 characters")
-    return {key: values[key] for key in sorted(values)}
 
 
 def validate_test_machine_json(raw_json: str) -> str:
@@ -90,9 +61,7 @@ def validate_test_machine_json(raw_json: str) -> str:
 
 def lease_key(resource_name: str) -> str:
     """Exclusive coordination key for one physical test resource."""
-    if not _SLUG.fullmatch(str(resource_name or "")):
-        raise TestMachineCapabilityError("resource_name is not a safe resource label")
-    return _LEASE_PREFIX + str(resource_name)
+    return _LEASE_PREFIX + validate_test_machine_resource_name(resource_name)
 
 
 def _lease_item(
@@ -101,10 +70,7 @@ def _lease_item(
     session_id: str,
 ) -> dict[str, Any] | None:
     """Return the work item whose execution owns a machine lease, if known."""
-    if not all(
-        _table_exists(conn, table)
-        for table in ("work_claims", "items")
-    ):
+    if not all(_table_exists(conn, table) for table in ("work_claims", "items")):
         return None
     required_columns = {
         "work_claims": (
@@ -252,8 +218,7 @@ def test_machine_detail(conn: Any, *, project: str) -> dict[str, Any]:
     receipt = json.loads(str(verification[2] or "{}")) if verification else {}
     lease = active_lease(conn, identity.id, lease_key(settings["resource_name"]))
     lease_item = (
-        _lease_item(conn, session_id=lease.session_id)
-        if lease is not None else None
+        _lease_item(conn, session_id=lease.session_id) if lease is not None else None
     )
     methods = conn.execute(
         "SELECT id,name,source_ref FROM qa_methods "
@@ -298,7 +263,8 @@ def test_machine_detail(conn: Any, *, project: str) -> dict[str, Any]:
                 "heartbeat_at": lease.heartbeat_at,
                 "item": lease_item,
             }
-            if lease is not None else None
+            if lease is not None
+            else None
         ),
         "methods": [
             {"id": str(row[0]), "name": str(row[1]), "source_ref": row[2]}

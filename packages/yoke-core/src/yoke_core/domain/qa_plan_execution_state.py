@@ -1,0 +1,328 @@
+"""Durable authority for ordered QA plan execution and resume."""
+
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from typing import Any, Mapping
+from uuid import uuid4
+
+from yoke_core.domain import db_backend
+from yoke_core.domain.coordination_leases import heartbeat_lease, release_lease
+from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.qa_plan_execution_store import (
+    QaPlanExecutionStateError,
+    build_execution_roster,
+    canonical,
+    converge_plan_execution_insert_race,
+    live_plan_execution_id,
+    lock_plan_execution,
+    marker,
+    plan_execution_view,
+    require_plan_execution_owner,
+    resume_owned_plan_execution,
+    roster_digest,
+    same_owner,
+    select_plan_execution,
+)
+
+
+PLAN_EXECUTION_STALE_SECONDS = 30 * 60
+_TERMINAL_EXECUTION_STATES = frozenset({"completed", "aborted", "error"})
+
+
+def _is_stale(value: Any, *, now: datetime) -> bool:
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return True
+    return (now - parsed.astimezone(timezone.utc)).total_seconds() > (
+        PLAN_EXECUTION_STALE_SECONDS
+    )
+
+
+def _release_stale_execution(
+    conn: Any,
+    execution: Mapping[str, Any],
+    *,
+    now: str,
+) -> None:
+    lease_id = execution.get("machine_lease_id")
+    if lease_id is not None:
+        release_lease(conn, int(lease_id), "qa-plan-execution-stale")
+    placeholder = marker(conn)
+    conn.execute(
+        "UPDATE qa_plan_executions SET state='aborted',completed_at="
+        f"{placeholder},release_reason='stale-heartbeat',machine_lease_id=NULL "
+        f"WHERE id={placeholder}",
+        (now, str(execution["id"])),
+    )
+    conn.commit()
+
+
+def begin_plan_execution(
+    conn: Any,
+    *,
+    item_id: int,
+    transition_id: str,
+    actor_id: str | None,
+    session_id: str,
+) -> dict[str, Any]:
+    """Create or resume the one live execution for an item transition."""
+    if not str(session_id or "").strip():
+        raise QaPlanExecutionStateError(
+            "ordered QA plan execution requires an owning session"
+        )
+    roster = build_execution_roster(
+        conn,
+        item_id=item_id,
+        transition_id=transition_id,
+    )
+    digest = roster_digest(roster)
+    existing_id = live_plan_execution_id(
+        conn,
+        item_id=item_id,
+        transition_id=transition_id,
+    )
+    if existing_id is not None:
+        existing = lock_plan_execution(conn, existing_id)
+        if existing["state"] in {"active", "waiting"}:
+            if same_owner(existing, actor_id=actor_id, session_id=session_id):
+                return resume_owned_plan_execution(conn, existing, digest=digest)
+            now_dt = datetime.now(timezone.utc)
+            if not _is_stale(existing["heartbeat_at"], now=now_dt):
+                conn.rollback()
+                raise QaPlanExecutionStateError(
+                    "another actor or session owns the active QA plan execution"
+                )
+            _release_stale_execution(conn, existing, now=iso8601_now())
+
+    execution_id = str(uuid4())
+    now = iso8601_now()
+    placeholder = marker(conn)
+    try:
+        conn.execute(
+            "INSERT INTO qa_plan_executions("
+            "id,item_id,transition_id,actor_id,session_id,roster_digest,"
+            "roster_json,cursor_ordinal,state,created_at,heartbeat_at"
+            f") VALUES ({', '.join([placeholder] * 11)})",
+            (
+                execution_id,
+                int(item_id),
+                transition_id,
+                actor_id,
+                session_id,
+                digest,
+                canonical(roster),
+                0,
+                "active",
+                now,
+                now,
+            ),
+        )
+    except db_backend.integrity_error_types(conn) as exc:
+        return converge_plan_execution_insert_race(
+            conn,
+            item_id=item_id,
+            transition_id=transition_id,
+            actor_id=actor_id,
+            session_id=session_id,
+            digest=digest,
+            cause=exc,
+        )
+    conn.commit()
+    return select_plan_execution(conn, execution_id, lock=False)
+
+
+def expected_plan_case(
+    execution: Mapping[str, Any],
+    *,
+    ordinal: int,
+    requirement_id: int,
+    allow_replay: bool = False,
+) -> dict[str, Any]:
+    """Validate an ordinal and return its immutable roster case."""
+    cursor = int(execution["cursor_ordinal"])
+    if ordinal != cursor and not (allow_replay and ordinal < cursor):
+        raise QaPlanExecutionStateError(
+            f"QA plan execution expects ordinal {cursor}, not {ordinal}"
+        )
+    roster = execution["roster"]
+    if ordinal < 0 or ordinal >= len(roster):
+        raise QaPlanExecutionStateError("QA plan execution ordinal is out of range")
+    case = dict(roster[ordinal])
+    if int(case["requirement_id"]) != int(requirement_id):
+        raise QaPlanExecutionStateError(
+            "QA plan execution ordinal targets a different requirement"
+        )
+    return case
+
+
+def advance_plan_execution(
+    conn: Any,
+    execution: dict[str, Any],
+    *,
+    ordinal: int,
+    requirement_id: int,
+    result: Mapping[str, Any],
+    commit: bool = True,
+) -> dict[str, Any]:
+    """Record one idempotent result and advance the durable cursor."""
+    case = expected_plan_case(
+        execution,
+        ordinal=ordinal,
+        requirement_id=requirement_id,
+        allow_replay=True,
+    )
+    placeholder = marker(conn)
+    existing_cursor = conn.execute(
+        "SELECT requirement_id,result_json FROM qa_plan_execution_results "
+        f"WHERE execution_id={placeholder} AND ordinal={placeholder}",
+        (str(execution["id"]), int(ordinal)),
+    )
+    existing_row = existing_cursor.fetchone()
+    if existing_row is None:
+        existing = None
+    elif hasattr(existing_row, "keys"):
+        existing = {
+            "requirement_id": existing_row["requirement_id"],
+            "result_json": existing_row["result_json"],
+        }
+    else:
+        existing = {
+            "requirement_id": existing_row[0],
+            "result_json": existing_row[1],
+        }
+    encoded = canonical(dict(result))
+    if existing is not None:
+        if (
+            int(existing["requirement_id"]) != int(requirement_id)
+            or str(existing["result_json"]) != encoded
+        ):
+            raise QaPlanExecutionStateError(
+                "QA plan execution replay does not match its recorded result"
+            )
+        return case
+    if execution["state"] != "active":
+        raise QaPlanExecutionStateError("QA plan execution is not active")
+    now = iso8601_now()
+    conn.execute(
+        "INSERT INTO qa_plan_execution_results("
+        "execution_id,ordinal,requirement_id,result_json,completed_at"
+        f") VALUES ({', '.join([placeholder] * 5)})",
+        (str(execution["id"]), ordinal, requirement_id, encoded, now),
+    )
+    conn.execute(
+        "UPDATE qa_plan_executions SET cursor_ordinal="
+        f"{placeholder},heartbeat_at={placeholder} WHERE id={placeholder}",
+        (ordinal + 1, now, str(execution["id"])),
+    )
+    execution["cursor_ordinal"] = ordinal + 1
+    execution["heartbeat_at"] = now
+    if commit:
+        conn.commit()
+    return case
+
+
+def heartbeat_plan_execution(
+    conn: Any,
+    execution: dict[str, Any],
+) -> None:
+    """Refresh execution and held-machine liveness together."""
+    if execution["state"] != "active":
+        raise QaPlanExecutionStateError("QA plan execution is not active")
+    placeholder = marker(conn)
+    now = iso8601_now()
+    conn.execute(
+        "UPDATE qa_plan_executions SET heartbeat_at="
+        f"{placeholder} WHERE id={placeholder}",
+        (now, str(execution["id"])),
+    )
+    if execution.get("machine_lease_id") is not None:
+        heartbeat_lease(conn, int(execution["machine_lease_id"]), now=now)
+    else:
+        conn.commit()
+    execution["heartbeat_at"] = now
+
+
+def set_plan_machine_lease(
+    conn: Any,
+    execution: dict[str, Any],
+    *,
+    lease_id: int,
+) -> None:
+    """Attach the server-acquired Test Mac lease to the durable plan."""
+    placeholder = marker(conn)
+    now = iso8601_now()
+    cursor = conn.execute(
+        "UPDATE qa_plan_executions SET machine_lease_id="
+        f"{placeholder},heartbeat_at={placeholder} WHERE id={placeholder} "
+        "AND state='active' AND machine_lease_id IS NULL",
+        (int(lease_id), now, str(execution["id"])),
+    )
+    if cursor.rowcount != 1:
+        conn.rollback()
+        raise QaPlanExecutionStateError(
+            "QA plan execution cannot attach the machine lease"
+        )
+    conn.commit()
+    execution["machine_lease_id"] = int(lease_id)
+    execution["heartbeat_at"] = now
+
+
+def finish_plan_execution(
+    conn: Any,
+    execution: dict[str, Any],
+    *,
+    state: str,
+    reason: str,
+) -> None:
+    """Finalize the execution and idempotently release its machine lease."""
+    if state not in {"completed", "aborted", "error", "waiting"}:
+        raise QaPlanExecutionStateError(f"invalid final execution state {state!r}")
+    current_state = str(execution["state"])
+    if current_state == state:
+        return
+    if current_state in _TERMINAL_EXECUTION_STATES:
+        raise QaPlanExecutionStateError(
+            "QA plan execution is already terminal as "
+            f"{current_state!r}; transition to {state!r} refused"
+        )
+    if state == "completed" and int(execution["cursor_ordinal"]) != len(
+        execution["roster"]
+    ):
+        raise QaPlanExecutionStateError(
+            "QA plan execution cannot complete before every case advances"
+        )
+    if execution.get("machine_lease_id") is not None:
+        release_lease(conn, int(execution["machine_lease_id"]), reason)
+    placeholder = marker(conn)
+    now = iso8601_now()
+    completed_at = None if state == "waiting" else now
+    conn.execute(
+        "UPDATE qa_plan_executions SET state="
+        f"{placeholder},completed_at={placeholder},heartbeat_at={placeholder},"
+        f"release_reason={placeholder},machine_lease_id=NULL "
+        f"WHERE id={placeholder}",
+        (state, completed_at, now, reason, str(execution["id"])),
+    )
+    conn.commit()
+    execution["state"] = state
+    execution["machine_lease_id"] = None
+    execution["completed_at"] = completed_at
+    execution["release_reason"] = reason
+
+
+__all__ = [
+    "PLAN_EXECUTION_STALE_SECONDS",
+    "QaPlanExecutionStateError",
+    "advance_plan_execution",
+    "begin_plan_execution",
+    "build_execution_roster",
+    "expected_plan_case",
+    "finish_plan_execution",
+    "heartbeat_plan_execution",
+    "lock_plan_execution",
+    "plan_execution_view",
+    "require_plan_execution_owner",
+    "set_plan_machine_lease",
+]

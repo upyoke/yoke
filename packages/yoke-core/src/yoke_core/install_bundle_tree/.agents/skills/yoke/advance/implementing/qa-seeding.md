@@ -6,9 +6,12 @@ Seeds QA requirements before implementation begins. Called by the active router 
 
 ---
 
-## QA Lifecycle for Non-Conduct Items
+## QA Lifecycle for the Advance Executor
 
-When advancing a non-epic item to `implementing`, the implementing agent is responsible for the full QA loop: seed -> implement -> test -> record. This ensures the done-gate has data to check.
+When the pinned `advance` binding enters `implementing` under
+`single_implementation_lane`, the implementing agent is responsible for the
+full QA loop: seed -> implement -> test -> record. This ensures the done gate
+has data to check.
 
 ### a. Seed QA Requirements (before coding)
 
@@ -31,7 +34,7 @@ yoke qa requirement add \
   --success-policy "{brief description of what passing looks like}"
 ```
 
-The write is item-claim-gated; the advance session already holds the work claim, so it dispatches cleanly. Operator-debug fallback inside a checkout: `python3 -m yoke_core.domain.qa requirement-add --item-id {N} ...` (also the only surface for epic-task / deployment-run-attached requirements).
+The write is item-claim-gated; the advance session already holds the work claim, so it dispatches cleanly. Operator-debug fallback inside a checkout: `python3 -m yoke_core.domain.qa requirement-add --item-id {N} ...` (also the only surface for generated-task / deployment-run-attached requirements).
 
 The `--success-policy` field is a human-readable description of what "pass"
 means (e.g., "test suite passes with zero failures", "config change verified

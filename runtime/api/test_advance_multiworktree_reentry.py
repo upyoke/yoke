@@ -14,35 +14,38 @@ TESTER_TEMPLATE_MD = SKILL_ROOT / "shared" / "tester-dispatch-template.md"
 
 
 class TestAdvanceSkillReentry:
-    """AC-3: advance/SKILL.md uses resolver for re-entry, guards multi-worktree epics."""
+    """Advance re-entry follows the worktree policy selected by the item pin."""
 
     def _read(self) -> str:
         return ADVANCE_SKILL_MD.read_text()
 
-    def test_resolver_used_in_reentry(self):
-        """Re-entry must use the universal lane resolver."""
+    def test_single_lane_reentry_reads_the_item_worktree(self):
+        """A single implementation lane may use the item's primary worktree."""
         text = self._read()
-        assert "worktree_item_resolve" in text, (
-            "advance/SKILL.md does not use worktree_item_resolve for re-entry"
+        assert (
+            'if [ "$_worktree_policy" = "single_implementation_lane" ]; then'
+            in text
         )
+        assert "_wt_branch=$(yoke items get {N} worktree" in text
 
-    def test_multi_worktree_contract_error(self):
-        """Re-entry for a multi-worktree epic must emit CONTRACT ERROR and redirect."""
+    def test_multi_lane_contract_error(self):
+        """A multi-lane policy must emit CONTRACT ERROR and redirect."""
         text = self._read()
         assert "CONTRACT ERROR" in text, (
-            "advance/SKILL.md is missing the CONTRACT ERROR guard for multi-worktree epics"
+            "advance/SKILL.md is missing the CONTRACT ERROR guard for "
+            "multi-lane worktree policies"
         )
 
     def test_redirect_to_conduct(self):
-        """Multi-worktree epic re-entry must redirect to /yoke conduct."""
+        """Conduct-owned multi-lane re-entry must redirect to /yoke conduct."""
         text = self._read()
         assert "/yoke conduct" in text, (
-            "advance/SKILL.md does not redirect multi-worktree epics to /yoke conduct"
+            "advance/SKILL.md does not redirect conduct-owned lanes to /yoke conduct"
         )
 
 
 class TestPreflightChecksGate:
-    """AC-4, AC-5, AC-10: Epic Task Completion Gate fires only at implemented/release."""
+    """The Epic Task Completion Gate fires only at implemented or release."""
 
     def _read(self) -> str:
         return PREFLIGHT_CHECKS_MD.read_text()
@@ -84,22 +87,24 @@ class TestPreflightChecksGate:
         )
 
 
-class TestAC9Surfaces:
-    """AC-9: issue-only surfaces are guarded or documented."""
+class TestLanePolicySurfaces:
+    """Single-lane surfaces are guarded by the pinned worktree policy."""
 
-    def test_finalize_epic_guard(self):
-        """finalize.md WORKTREE_PATH fallback must skip for epics."""
+    def test_finalize_single_lane_guard(self):
+        """The finalize WORKTREE_PATH fallback is single-lane only."""
         text = FINALIZE_MD.read_text()
-        assert "epic" in text, (
-            "finalize.md does not guard the WORKTREE_PATH fallback against epic items"
+        assert (
+            '[ "$_worktree_policy" = "single_implementation_lane" ]'
+            in text
         )
+        assert "_finalize_workflow_id" not in text
 
-    def test_project_e2e_epic_guard(self):
-        """project-e2e.md worktree preference must skip for epics."""
+    def test_project_e2e_multi_lane_guard(self):
+        """Deployed-stack QA delegates a multi-lane policy to conduct."""
         text = PROJECT_E2E_MD.read_text()
-        assert "epic" in text, (
-            "project-e2e.md does not guard the worktree path preference against epic items"
-        )
+        assert "worktrees=worker_and_integration_lanes" in text
+        assert "pinned `conduct` executor" in text
+        assert "parent item has no single" in text
 
     def test_preflight_recovery_uses_resolver(self):
         """preflight-recovery.md Merge Verification Gate must use the resolver."""
@@ -121,9 +126,9 @@ class TestAC9Surfaces:
             "preflight-recovery.md must expand the resolved branch list in the here-doc"
         )
 
-    def test_tester_template_convention_documented(self):
-        """tester-dispatch-template.md must document the issue-only convention."""
+    def test_tester_template_lane_convention_documented(self):
+        """The Tester template distinguishes item-level and task lanes."""
         text = TESTER_TEMPLATE_MD.read_text()
-        assert "issue" in text.lower(), (
-            "tester-dispatch-template.md does not document the issue-only convention"
-        )
+        assert "single_implementation_lane" in text
+        assert "For generated tasks" in text
+        assert "task's own worktree branch" in text

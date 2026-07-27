@@ -35,8 +35,8 @@ from yoke_core.domain.project_identity import (
 def insert_item(
     item_id: int,
     title: Optional[str] = None,
-    workflow: Optional[str] = "issue",
-    status: Optional[str] = "idea",
+    workflow: Optional[str] = None,
+    status: Optional[str] = None,
     priority: Optional[str] = "medium",
     flow: Optional[str] = None,
     rework_count: Optional[int] = 0,
@@ -62,6 +62,10 @@ def insert_item(
 
     Raises the active database driver's error on failure.
     """
+    selected_workflow = (workflow or "").strip()
+    if not selected_workflow:
+        raise ValueError("workflow is required")
+
     now = _now_utc()
     if created_at is None:
         created_at = now
@@ -78,8 +82,16 @@ def insert_item(
 
         workflow_id, workflow_version_id = resolve_current_workflow_pin(
             conn,
-            workflow or "issue",
+            selected_workflow,
         )
+        if status is None:
+            from yoke_core.domain.workflow_runtime import load_workflow_runtime
+
+            status = load_workflow_runtime(
+                conn,
+                workflow_id=workflow_id,
+                workflow_version_id=workflow_version_id,
+            ).stage_ids[0]
         if project_sequence is None:
             project_sequence = allocate_project_sequence(conn, project_identity.id)
         conn.execute(

@@ -97,14 +97,42 @@ class TestGetSessionId:
 # ---------------------------------------------------------------------------
 
 
+def _insert_dispatch_item(
+    conn,
+    *,
+    item_id: int,
+    title: str,
+    workflow_id: str,
+) -> None:
+    from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
+
+    resolved_workflow_id, workflow_version_id = resolve_current_workflow_pin(
+        conn,
+        workflow_id,
+    )
+    conn.execute(
+        "INSERT INTO items "
+        "(id, title, workflow_id, workflow_version_id, status) "
+        "VALUES (%s, %s, %s, %s, 'implementing')",
+        (
+            item_id,
+            title,
+            resolved_workflow_id,
+            workflow_version_id,
+        ),
+    )
+
+
 class TestResolveDispatchContext:
     def test_exact_worktree_match(self, dispatch_db):
         from yoke_core.domain.db_helpers import connect
 
         conn = connect(dispatch_db)
-        conn.execute(
-            "INSERT INTO items (id, title, type, status) VALUES (%s, %s, %s, %s)",
-            (100, "Epic", "epic", "implementing"),
+        _insert_dispatch_item(
+            conn,
+            item_id=100,
+            title="Epic",
+            workflow_id="epic",
         )
         conn.execute(
             "INSERT INTO item_worktrees "
@@ -135,9 +163,11 @@ class TestResolveDispatchContext:
         from yoke_core.domain.db_helpers import connect
 
         conn = connect(dispatch_db)
-        conn.execute(
-            "INSERT INTO items (id, title, type, status) VALUES (%s, %s, %s, %s)",
-            (200, "Epic", "epic", "implementing"),
+        _insert_dispatch_item(
+            conn,
+            item_id=200,
+            title="Epic",
+            workflow_id="epic",
         )
         conn.execute(
             "INSERT INTO item_worktrees "
@@ -168,9 +198,11 @@ class TestResolveDispatchContext:
         from yoke_core.domain.db_helpers import connect
 
         conn = connect(dispatch_db)
-        conn.execute(
-            "INSERT INTO items (id, title, type, status) VALUES (%s, %s, %s, %s)",
-            (9001, "Test item", "issue", "implementing"),
+        _insert_dispatch_item(
+            conn,
+            item_id=9001,
+            title="Test item",
+            workflow_id="issue",
         )
         conn.execute(
             "INSERT INTO item_worktrees "

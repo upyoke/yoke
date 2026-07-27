@@ -100,8 +100,10 @@ Provision the host once before saving the capability:
 2. Enable **System Settings → General → Sharing → Remote Login** for that user,
    install the operator public key in `~/.ssh/authorized_keys`, and verify a
    batch SSH login. Do not expose SSH with router port forwarding.
-3. Install `tmux`, which `host_control` uses to retain the real terminal
-   session while driving and capturing it.
+3. Verify either `tmux` or GNU Screen is available with
+   `command -v tmux || command -v screen`. `host_control` detects the backend,
+   preferring `tmux` when both exist. The dedicated Test Mac uses its existing
+   `screen` command; do not add Homebrew or `tmux` only for this integration.
 4. In **System Settings → Privacy & Security**, grant the logged-in
    Terminal.app Automation access to Terminal and Screen Recording access.
    Keep the Mac logged in and unlocked for screenshots. These are interactive
@@ -131,6 +133,18 @@ is not ready until connectivity and terminal-control checks pass.
 Secret values never belong in settings JSON, workflow definitions, item
 bodies, prompts, logs, captures, or artifacts. The executor receives resolved
 secrets only for its subprocess and must redact them from evidence.
+
+The registered `fresh-host` baseline performs the complete installer reset as
+the dedicated test user, using only guaranteed macOS shell primitives. It
+removes Yoke and uv state, launchers, temporary installer files, managed and
+handwritten tool-path startup entries, and the children of `~/code`. It
+preserves stage and production token bytes opaquely in mode-restricted
+`~/yoke-smoke-tokens`, relocates prior campaign evidence into a mode-restricted
+`~/yoke-smoke-evidence/reset.*` directory, and then proves `.yoke`, command
+resolution, and the split login PATH are clean before emitting
+`YOKE_MAC_WIPE_OK`. It never removes `.ssh` or Command Line Tools; returning a
+Mac to a no-Command-Line-Tools state remains a separate destructive operator
+decision.
 
 ## Evidence
 

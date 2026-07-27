@@ -4,14 +4,80 @@ from __future__ import annotations
 
 from yoke_core.domain.handlers import test_machine as _handlers
 from yoke_core.domain.handlers import test_machine_case as _case
+from yoke_core.domain.handlers import test_machine_execution_abort as _abort
+from yoke_core.domain.handlers import test_machine_plan_case as _plan_case
 
 
 def register(registry) -> None:
-    from yoke_core.domain.ssh_mac_host_control import (
-        register_ssh_mac_host_control,
+    registry.register(
+        "test_machine.plan_case.begin",
+        _plan_case.handle_plan_case_begin,
+        _plan_case.TestMachinePlanCaseBeginRequest,
+        _plan_case.TestMachinePlanCaseBeginResponse,
+        stability="stable",
+        owner_module=__name__,
+        target_kinds=["item"],
+        side_effects=[
+            "qa_plan_execution_write",
+            "coordination_lease",
+        ],
+        emitted_event_names=["LeaseAcquired", "YokeFunctionCalled"],
+        guardrails=[
+            "item_claim_required",
+            "actor_session_bound",
+            "durable_plan_cursor",
+            "serial_plan_lease",
+            "secret_free_contract",
+        ],
+        adapter_status="internal",
+        claim_required_kind="item",
+        ambient_session_required=True,
     )
-
-    register_ssh_mac_host_control()
+    registry.register(
+        "test_machine.plan_case.submit",
+        _plan_case.handle_plan_case_submit,
+        _plan_case.TestMachinePlanCaseSubmitRequest,
+        _plan_case.TestMachinePlanCaseSubmitResponse,
+        stability="stable",
+        owner_module=__name__,
+        target_kinds=["item"],
+        side_effects=[
+            "qa_plan_execution_write",
+            "coordination_lease_heartbeat",
+            "qa_run_write",
+            "qa_artifact_write",
+        ],
+        emitted_event_names=[
+            "LeaseHeartbeated",
+            "QARunCompleted",
+            "YokeFunctionCalled",
+        ],
+        guardrails=[
+            "item_claim_required",
+            "actor_session_bound",
+            "durable_plan_cursor",
+            "immutable_case_context",
+            "contract_digest",
+            "secret_free_result",
+        ],
+        adapter_status="internal",
+        claim_required_kind="item",
+        ambient_session_required=True,
+    )
+    registry.register(
+        "test_machine.baseline_group.abort",
+        _abort.handle_baseline_group_abort,
+        _abort.TestMachineCaseAbortRequest,
+        _abort.TestMachineExecutionAbortResponse,
+        stability="stable",
+        owner_module=__name__,
+        target_kinds=["qa_requirement"],
+        side_effects=["coordination_lease_release"],
+        emitted_event_names=["LeaseReleased", "YokeFunctionCalled"],
+        guardrails=["actor_owned_lease", "contract_digest"],
+        adapter_status="internal",
+        claim_required_kind="item",
+    )
     registry.register(
         "test_machine.baseline_group_execute",
         _case.handle_baseline_group_execute,
@@ -20,25 +86,25 @@ def register(registry) -> None:
         stability="stable",
         owner_module=__name__,
         target_kinds=["qa_requirement"],
-        side_effects=[
-            "host_control",
-            "coordination_lease",
-            "qa_run_write",
-            "qa_artifact_write",
-        ],
-        emitted_event_names=[
-            "QARunStarted",
-            "QARunCompleted",
-            "YokeFunctionCalled",
-        ],
+        side_effects=[],
+        emitted_event_names=["YokeFunctionCalled"],
         guardrails=[
-            "materialized_case_reread",
-            "server_discovered_baseline_group",
-            "serial_lease",
-            "lease_waiting_state",
-            "registered_baseline",
-            "secret_redaction",
+            "credential_owning_client_required",
         ],
+        adapter_status="internal",
+        claim_required_kind="item",
+    )
+    registry.register(
+        "test_machine.case.abort",
+        _abort.handle_case_abort,
+        _abort.TestMachineCaseAbortRequest,
+        _abort.TestMachineExecutionAbortResponse,
+        stability="stable",
+        owner_module=__name__,
+        target_kinds=["qa_requirement"],
+        side_effects=["coordination_lease_release"],
+        emitted_event_names=["LeaseReleased", "YokeFunctionCalled"],
+        guardrails=["actor_owned_lease", "contract_digest"],
         adapter_status="internal",
         claim_required_kind="item",
     )
@@ -50,23 +116,95 @@ def register(registry) -> None:
         stability="stable",
         owner_module=__name__,
         target_kinds=["qa_requirement"],
+        side_effects=[],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=[
+            "credential_owning_client_required",
+        ],
+        adapter_status="internal",
+        claim_required_kind="item",
+    )
+    registry.register(
+        "test_machine.baseline_group.begin",
+        _case.handle_baseline_group_begin,
+        _case.TestMachineBaselineGroupExecuteRequest,
+        _case.TestMachineBaselineGroupBeginResponse,
+        stability="stable",
+        owner_module=__name__,
+        target_kinds=["qa_requirement"],
+        side_effects=["coordination_lease", "qa_run_write"],
+        emitted_event_names=["LeaseAcquired", "QARunStarted", "YokeFunctionCalled"],
+        guardrails=[
+            "materialized_case_reread",
+            "server_discovered_baseline_group",
+            "serial_lease",
+            "lease_waiting_state",
+            "secret_free_contract",
+        ],
+        adapter_status="internal",
+        claim_required_kind="item",
+    )
+    registry.register(
+        "test_machine.baseline_group.submit",
+        _case.handle_baseline_group_submit,
+        _case.TestMachineBaselineGroupSubmitRequest,
+        _case.TestMachineBaselineGroupExecuteResponse,
+        stability="stable",
+        owner_module=__name__,
+        target_kinds=["qa_requirement"],
         side_effects=[
-            "host_control",
-            "coordination_lease",
+            "coordination_lease_release",
             "qa_run_write",
             "qa_artifact_write",
         ],
-        emitted_event_names=[
-            "QARunStarted",
-            "QARunCompleted",
-            "YokeFunctionCalled",
+        emitted_event_names=["LeaseReleased", "QARunCompleted", "YokeFunctionCalled"],
+        guardrails=[
+            "actor_owned_lease",
+            "immutable_case_context",
+            "contract_digest",
+            "secret_free_result",
         ],
+        adapter_status="internal",
+        claim_required_kind="item",
+    )
+    registry.register(
+        "test_machine.case.begin",
+        _case.handle_case_begin,
+        _case.TestMachineCaseExecuteRequest,
+        _case.TestMachineCaseBeginResponse,
+        stability="stable",
+        owner_module=__name__,
+        target_kinds=["qa_requirement"],
+        side_effects=["coordination_lease", "qa_run_write"],
+        emitted_event_names=["LeaseAcquired", "QARunStarted", "YokeFunctionCalled"],
         guardrails=[
             "materialized_case_reread",
             "serial_lease",
             "lease_waiting_state",
-            "registered_baseline",
-            "secret_redaction",
+            "secret_free_contract",
+        ],
+        adapter_status="internal",
+        claim_required_kind="item",
+    )
+    registry.register(
+        "test_machine.case.submit",
+        _case.handle_case_submit,
+        _case.TestMachineCaseSubmitRequest,
+        _case.TestMachineCaseExecuteResponse,
+        stability="stable",
+        owner_module=__name__,
+        target_kinds=["qa_requirement"],
+        side_effects=[
+            "coordination_lease_release",
+            "qa_run_write",
+            "qa_artifact_write",
+        ],
+        emitted_event_names=["LeaseReleased", "QARunCompleted", "YokeFunctionCalled"],
+        guardrails=[
+            "actor_owned_lease",
+            "immutable_case_context",
+            "contract_digest",
+            "secret_free_result",
         ],
         adapter_status="internal",
         claim_required_kind="item",
@@ -108,10 +246,60 @@ def register(registry) -> None:
         stability="stable",
         owner_module=__name__,
         target_kinds=["global"],
-        side_effects=["host_control", "coordination_lease", "verification_write"],
+        side_effects=[],
         emitted_event_names=["YokeFunctionCalled"],
-        guardrails=["serial_lease", "secret_redaction", "registered_baselines"],
+        guardrails=["credential_owning_client_required"],
         adapter_status="live",
+        claim_required_kind=None,
+    )
+    registry.register(
+        "test_machine.verify.abort",
+        _abort.handle_verify_abort,
+        _abort.TestMachineVerifyAbortRequest,
+        _abort.TestMachineExecutionAbortResponse,
+        stability="stable",
+        owner_module=__name__,
+        target_kinds=["global"],
+        side_effects=["coordination_lease_release"],
+        emitted_event_names=["LeaseReleased", "YokeFunctionCalled"],
+        guardrails=["actor_owned_lease", "contract_digest"],
+        adapter_status="internal",
+        claim_required_kind=None,
+    )
+    registry.register(
+        "test_machine.verify.begin",
+        _handlers.handle_verify_begin,
+        _handlers.TestMachineVerifyBeginRequest,
+        _handlers.TestMachineVerifyBeginResponse,
+        stability="stable",
+        owner_module=__name__,
+        target_kinds=["global"],
+        side_effects=["coordination_lease"],
+        emitted_event_names=["LeaseAcquired", "YokeFunctionCalled"],
+        guardrails=[
+            "serial_lease",
+            "secret_free_contract",
+            "registered_baselines",
+        ],
+        adapter_status="internal",
+        claim_required_kind=None,
+    )
+    registry.register(
+        "test_machine.verify.submit",
+        _handlers.handle_verify_submit,
+        _handlers.TestMachineVerifySubmitRequest,
+        _handlers.TestMachineVerifyResponse,
+        stability="stable",
+        owner_module=__name__,
+        target_kinds=["global"],
+        side_effects=["verification_write", "coordination_lease_release"],
+        emitted_event_names=["LeaseReleased", "YokeFunctionCalled"],
+        guardrails=[
+            "actor_owned_lease",
+            "contract_digest",
+            "secret_free_result",
+        ],
+        adapter_status="internal",
         claim_required_kind=None,
     )
 

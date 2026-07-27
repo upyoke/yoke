@@ -78,8 +78,8 @@ def test_blitz_creates_and_registers_a_real_default_worker_lane(
         ensure_item_worktree_schema(conn)
         conn.execute(
             "INSERT INTO items "
-            "(id, title, type, status, project_id, project_sequence) "
-            "VALUES (99220, 'Direct document execution', 'blitz', "
+            "(id, title, status, project_id, project_sequence) "
+            "VALUES (99220, 'Direct document execution', "
             "'refined-idea', 1, 99220)",
         )
         pin_test_item_workflow(conn, 99220, "blitz")

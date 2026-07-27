@@ -185,8 +185,6 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **249** (operation track
 | qa | `yoke qa run get` | `qa.run.get` | ok |
 | qa | `yoke qa run list` | `qa.run.list` | ok |
 | qa | `yoke qa run record-verdict` | `qa.run.record_verdict` | ok |
-| qa | `yoke qa screenshot-evidence pending-count` | `qa.screenshot_evidence.pending_count` | ok |
-| qa | `yoke qa screenshot-evidence satisfy` | `qa.screenshot_evidence.satisfy` | ok |
 | readiness | `yoke readiness check` | `readiness.check.run` | ok |
 | readiness | `yoke readiness prd-validate` | `readiness.prd_validate.run` | ok |
 | readiness | `yoke readiness repair-claim-coverage` | `readiness.repair_claim_coverage` | ok |

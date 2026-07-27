@@ -80,8 +80,8 @@ def observe_attribution_db() -> Iterator[Tuple[str, str]]:
 def seed_item(conn, item_id: int, *, status: str, workflow: str = "issue") -> None:
     """Insert one ``items`` row with the canonical NOT NULL columns populated.
 
-    Attribution only reads ``id`` / ``status`` / ``type``; the remaining NOT NULL
-    columns carry deterministic fixture values.
+    Attribution only reads ``id`` / ``status`` / ``workflow_id``; the remaining
+    NOT NULL columns carry deterministic fixture values.
     """
     now = "2026-01-01T00:00:00Z"
     p = _p(conn)

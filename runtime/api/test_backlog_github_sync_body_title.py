@@ -62,7 +62,7 @@ class TestSyncBody:
         insert_item(
             db,
             id=60,
-            type="issue",
+            workflow_id="issue",
             status="idea",
             project="externalwebapp",
             github_issue="#80",
@@ -97,7 +97,7 @@ class TestSyncBody:
         """AC-11: small body → full mode; mirror is NOT used."""
         db = _make_db()
         insert_item(
-            db, id=60, type="issue", status="idea", project="externalwebapp",
+            db, id=60, workflow_id="issue", status="idea", project="externalwebapp",
             github_issue="#80", spec="# Tiny body",
         )
         stdout = io.StringIO()
@@ -125,7 +125,7 @@ class TestSyncBody:
         db = _make_db()
         huge_spec = "a" * (body_budget.GITHUB_BODY_BUDGET_BYTES + 100)
         insert_item(
-            db, id=60, type="issue", status="idea", project="externalwebapp",
+            db, id=60, workflow_id="issue", status="idea", project="externalwebapp",
             github_issue="#80", spec=huge_spec,
         )
         stdout = io.StringIO()
@@ -155,7 +155,7 @@ class TestSyncBody:
         when the resolver raises a ProjectGithubAuthError subclass."""
         db = _make_db()
         insert_item(
-            db, id=60, type="issue", status="idea", project="externalwebapp",
+            db, id=60, workflow_id="issue", status="idea", project="externalwebapp",
             github_issue="#80", spec="some body",
         )
         stderr = io.StringIO()
@@ -190,7 +190,7 @@ class TestSyncBody:
 
     def test_noop_when_no_github_issue(self):
         db = _make_db()
-        insert_item(db, id=60, type="issue", status="idea", project="externalwebapp")
+        insert_item(db, id=60, workflow_id="issue", status="idea", project="externalwebapp")
         with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch.object(
             body_title_sync.github_rest, "update_issue",
         ) as update_issue:
@@ -201,7 +201,7 @@ class TestSyncBody:
 
     def test_dry_run_skips(self):
         db = _make_db()
-        insert_item(db, id=60, type="issue", status="idea", project="externalwebapp", github_issue="#80")
+        insert_item(db, id=60, workflow_id="issue", status="idea", project="externalwebapp", github_issue="#80")
         stdout = io.StringIO()
         with patch.object(backlog_github_sync, "_dry_run", return_value=True):
             rc = backlog_github_sync.sync_body("60", conn=db, stdout=stdout)
@@ -221,7 +221,7 @@ class TestSyncTitle:
         insert_item(
             db,
             id=70,
-            type="issue",
+            workflow_id="issue",
             status="idea",
             project="externalwebapp",
             github_issue="#90",
@@ -249,7 +249,7 @@ class TestSyncTitle:
 
     def test_noop_when_no_github_issue(self):
         db = _make_db()
-        insert_item(db, id=70, type="issue", status="idea", project="externalwebapp")
+        insert_item(db, id=70, workflow_id="issue", status="idea", project="externalwebapp")
         with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch.object(
             body_title_sync.github_rest, "update_issue",
         ) as update_issue:

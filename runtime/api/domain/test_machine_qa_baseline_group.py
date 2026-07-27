@@ -14,8 +14,6 @@ from runtime.api.domain.machine_qa_baseline_group_test_support import (
 from runtime.api.domain.machine_qa_test_support import FakeHostControl
 from yoke_cli.commands.adapters import test_machine as test_machine_cli
 from yoke_contracts.api.function_call import FunctionCallResponse
-from yoke_core.domain.actor_permissions import PERM_ITEMS_WRITE
-from yoke_core.domain.function_authz_scope import PROJECT, classify
 from yoke_core.domain.handlers.test_machine_case import (
     handle_baseline_group_begin,
     handle_baseline_group_execute,
@@ -43,19 +41,19 @@ def test_baseline_group_begin_local_submit_executes_server_discovered_cases(
     fresh = [row for row in rows if row["host_baseline"] == "fresh-host"]
     shell = [row for row in rows if row["host_baseline"] == "shell-preconfigured"]
     assert [row["plan_case_key"] for row in fresh] == [
-        "path-001",
-        "path-002",
-        "path-003",
-        "path-005",
-        "path-006",
-        "mac-011",
+        "default-add-yoke-to-my-path",
+        "preview-then-add",
+        "skip-path-repair",
+        "ssh-only-path-missing",
+        "re-run-after-path-fix",
+        "full-curl-bash-in-terminal-app-wizard-left-by-quit",
     ]
     assert [row["plan_case_key"] for row in shell] == [
-        "path-004",
-        "state-008",
-        "mac-007",
-        "mac-010",
-        "mac-012",
+        "already-on-path",
+        "one-shot-ssh-command-after-path-repair",
+        "one-shot-ssh-path-after-full-onboard",
+        "path-repair-writes-both-startup-files",
+        "re-run-the-installer-from-a-fresh-login-shell-after-path-repair",
     ]
     assert {row["id"] for row in fresh}.isdisjoint({row["id"] for row in shell})
 
@@ -88,19 +86,63 @@ def test_baseline_group_begin_local_submit_executes_server_discovered_cases(
     finally:
         clear_host_control_factory()
 
-    assert submitted.primary_success
+    assert submitted.primary_success, submitted.error
     assert submitted.result_payload["requirement_ids"] == expected_ids
     assert submitted.result_payload["baseline_ok"] is True
     assert [
         result["requirement_id"] for result in submitted.result_payload["results"]
     ] == expected_ids
-    assert control.case_calls == len(expected_ids)
+    assert control.case_calls == sum(
+        result["case_outcome"] != "blocked_on_precondition"
+        for result in submission.payload["results"]
+    )
+    assert control.full_reset_calls == 1
     assert (
         test_db.execute(
             "SELECT COUNT(*) FROM coordination_leases WHERE released_at IS NULL"
         ).fetchone()[0]
         == 0
     )
+
+
+def test_baseline_group_uses_snapshot_order_not_surrogate_id(
+    test_db: Any,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    rows = materialize_installer_campaign(test_db, item_id=4210)
+    fresh = [row for row in rows if row["host_baseline"] == "fresh-host"]
+    configure_test_machine(test_db, tmp_path, monkeypatch)
+    for offset, row in enumerate(fresh):
+        test_db.execute(
+            "UPDATE qa_requirements SET case_position=%s WHERE id=%s",
+            (100 - offset, int(row["id"])),
+        )
+    expected_ids = [int(row["id"]) for row in reversed(fresh)]
+
+    begun = handle_baseline_group_begin(
+        baseline_group_request(
+            int(fresh[0]["id"]),
+            function="test_machine.baseline_group.begin",
+        )
+    )
+
+    assert begun.primary_success
+    execution = begun.result_payload["execution"]
+    assert [case["requirement_id"] for case in execution["cases"]] == expected_ids
+
+    aborted = handle_baseline_group_abort(
+        baseline_group_request(
+            int(fresh[0]["id"]),
+            function="test_machine.baseline_group.abort",
+            payload={
+                "lease_id": execution["lease_id"],
+                "contract_digest": execution["contract_digest"],
+                "reason": "client_cancelled",
+            },
+        )
+    )
+    assert aborted.primary_success
 
 
 def test_cli_verify_orchestrates_begin_and_submit_over_active_transport(
@@ -134,11 +176,7 @@ def test_cli_verify_orchestrates_begin_and_submit_over_active_transport(
     monkeypatch.setattr(test_machine_cli, "ensure_handlers_loaded", lambda: None)
     monkeypatch.setattr(test_machine_cli, "call_dispatcher", dispatch)
     monkeypatch.setattr(
-        "yoke_core.domain.ssh_mac_host_control.register_ssh_mac_host_control",
-        lambda: None,
-    )
-    monkeypatch.setattr(
-        "yoke_core.domain.machine_qa_local_execution.execute_verification_contract",
+        "yoke_harness.test_machine_verification.execute_verification_contract",
         lambda contract: LocalHostControlSubmission(
             payload={
                 "lease_id": 9,
@@ -169,7 +207,7 @@ def test_failed_local_group_baseline_submits_every_case_as_blocked(
     rows = materialize_installer_campaign(test_db, item_id=4202)
     fresh = [row for row in rows if row["host_baseline"] == "fresh-host"]
     configure_test_machine(test_db, tmp_path, monkeypatch)
-    control = FakeHostControl(refuse_ssh_state=True)
+    control = FakeHostControl(refuse_full_reset=True)
     register_host_control_factory(lambda _material: control)
     try:
         begun = handle_baseline_group_begin(
@@ -199,10 +237,27 @@ def test_failed_local_group_baseline_submits_every_case_as_blocked(
     assert all(
         result["case_outcome"] == "blocked_on_precondition"
         and result["verdict"] == "inconclusive"
-        and result["error_code"] == "baseline_verification_failed"
+        and result["error_code"] == "test_mac_reset_failed"
         for result in submitted.result_payload["results"]
     )
     assert control.case_calls == 0
+    assert control.full_reset_calls == 1
+    verification = test_db.execute(
+        "SELECT status,error_code,receipt_json FROM test_machine_verifications "
+        "WHERE project_id=1"
+    ).fetchone()
+    assert verification["status"] == "error"
+    assert verification["error_code"] == "test_mac_reset_failed"
+    receipt = json.loads(verification["receipt_json"])
+    assert receipt["checks"][0]["name"] == "fresh-host"
+    assert receipt["checks"][0]["ok"] is False
+    assert (
+        test_db.execute(
+            "SELECT verified_at FROM project_capabilities "
+            "WHERE project_id=1 AND type='test-machine'"
+        ).fetchone()["verified_at"]
+        is None
+    )
 
 
 def test_baseline_group_begin_ignores_client_membership_and_abort_releases(
@@ -266,52 +321,3 @@ def test_baseline_group_begin_ignores_client_membership_and_abort_releases(
         ).fetchone()[0]
         == 0
     )
-
-
-def test_baseline_group_two_phase_functions_keep_item_claim_guardrails() -> None:
-    from yoke_core.domain.handlers.__init_register__ import (
-        register_all_handlers,
-    )
-    from yoke_core.domain.yoke_function_registry import (
-        lookup,
-        reset_registry_for_tests,
-    )
-
-    reset_registry_for_tests()
-    try:
-        register_all_handlers()
-        direct = lookup("test_machine.baseline_group_execute")
-        begin = lookup("test_machine.baseline_group.begin")
-        submit = lookup("test_machine.baseline_group.submit")
-        abort = lookup("test_machine.baseline_group.abort")
-        assert all(entry is not None for entry in (direct, begin, submit, abort))
-        assert all(
-            entry.target_kinds == ("qa_requirement",)
-            and entry.claim_required_kind == "item"
-            and entry.adapter_status == "internal"
-            for entry in (direct, begin, submit, abort)
-        )
-        assert direct.guardrails == ("credential_owning_client_required",)
-        assert "server_discovered_baseline_group" in begin.guardrails
-        assert "lease_waiting_state" in begin.guardrails
-        assert "immutable_case_context" in submit.guardrails
-        assert "actor_owned_lease" in abort.guardrails
-    finally:
-        reset_registry_for_tests()
-
-
-def test_machine_case_two_phase_is_project_write_authorized() -> None:
-    for function_id in (
-        "test_machine.case.begin",
-        "test_machine.case.submit",
-        "test_machine.case.abort",
-    ):
-        spec = classify(
-            function_id,
-            side_effects=True,
-            project_permission=None,
-        )
-        assert (spec.scope, spec.permission_key) == (
-            PROJECT,
-            PERM_ITEMS_WRITE,
-        )

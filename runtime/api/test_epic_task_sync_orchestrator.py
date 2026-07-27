@@ -29,7 +29,7 @@ class TestSyncEpicTasks:
         insert_item(
             db,
             id=10,
-            type="epic",
+            workflow_id="epic",
             status="implementing",
             project="externalwebapp",
             spec="Epic body here",
@@ -85,7 +85,7 @@ class TestSyncEpicTasks:
         insert_item(
             db,
             id=10,
-            type="epic",
+            workflow_id="epic",
             status="implementing",
             project="externalwebapp",
             spec="Epic body here",
@@ -125,7 +125,7 @@ class TestSyncEpicTasks:
         insert_item(
             db,
             id=10,
-            type="epic",
+            workflow_id="epic",
             status="implementing",
             project="externalwebapp",
             spec="Epic body",
@@ -168,7 +168,7 @@ class TestSyncEpicTasks:
 
     def test_sync_dry_run_skips_github(self, db):
         insert_item(
-            db, id=10, type="epic", status="implementing", project="externalwebapp"
+            db, id=10, workflow_id="epic", status="implementing", project="externalwebapp"
         )
         insert_epic_task(
             db, epic_id="10", task_num=1, title="Task one", status="planned"
@@ -189,7 +189,7 @@ class TestSyncEpicTasks:
         insert_item(
             db,
             id=10,
-            type="epic",
+            workflow_id="epic",
             status="implementing",
             project="externalwebapp",
             spec="body",
@@ -226,7 +226,7 @@ class TestSyncEpicTasks:
         insert_item(
             db,
             id=10,
-            type="epic",
+            workflow_id="epic",
             status="implementing",
             project="externalwebapp",
             spec="body",

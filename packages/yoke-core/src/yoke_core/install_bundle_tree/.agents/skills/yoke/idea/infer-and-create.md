@@ -32,9 +32,9 @@ Run this exact template:
 rg -n "def _run_.*_gate|def check_.*_gate|GATE_[A-Z_]+" packages/ runtime/
 ```
 
-Pick the verified owner from the grep output and cite the resolved path/function in the spec — do not infer from a generic filename like `lifecycle.py` (which owns status vocabulary and progression, not gate composition). If the grep returns zero matches for the family the spec is targeting, treat the absence as a clarification question rather than a guess.
+Pick the verified owner from the grep output and cite the resolved path/function in the spec — do not infer from a generic filename like `lifecycle.py`. Item stage, progression, and gate placement belong to immutable workflow definitions interpreted by `workflow_runtime.py`; `lifecycle.py` is only the compatibility front door for the independent epic-task vocabulary. If the grep returns zero matches for the family the spec is targeting, treat the absence as a clarification question rather than a guess.
 
-This rule applies to gates, error codes (`GATE_*` constants), and any composition surface the spec proposes to extend or modify. Pure status/progression edits to `lifecycle.py` are still legitimate when the spec is changing the lifecycle vocabulary itself, but proposed gate composition belongs in the helper that grep names.
+This rule applies to gates, error codes (`GATE_*` constants), and any composition surface the spec proposes to extend or modify. Item-lifecycle changes target the workflow registry/definition owner; epic-task vocabulary changes target `task_lifecycle.py`. Proposed gate composition belongs in the live helper that grep names.
 
 #### Prevention 2b — grep for ANY function the spec proposes to modify
 
@@ -114,30 +114,59 @@ If a flow applies, set `_deployment_flow` to its registered id (e.g., `yoke-inte
 
 ### c. Infer workflow
 
-If the operator supplied `--workflow`, validate it before inference:
+Read the active registry definitions before validating or inferring:
 
-- Accept only `issue`, `epic`, or `blitz`.
-- Set `{workflow}` to that exact value and do not replace it with an inferred
-  workflow.
-- Reject `dash` with the direct route: use `/yoke dash "instruction"` so the
-  stored instruction and direct-execution contract are created atomically.
-- For `blitz`, preserve the workflow's two registered executor boundaries:
-  `/yoke refine` takes the item from `idea` through `refined-idea` and links
-  exactly one execution strategy document; `/yoke blitz` executes that
-  document from `refined-idea` through `done`. Intake does not copy the plan
-  into the item body or bypass refinement.
+```bash
+_workflow_catalog_json=$(yoke workflows definition get \
+ --project "${_project}" --json) || {
+ echo "Cannot read the workflow registry."
+ exit 1
+}
+```
 
-Without `--workflow`, default to `issue`. Only recommend `epic` when the work
-clearly needs:
+The relevant rows are `result.workflows[]`. A candidate must be active and its
+current definition must include `harness_skill` in `entry_surfaces`.
+
+If the operator supplied `--workflow`:
+
+- Match that exact registry id. Do not replace it with an inferred workflow.
+- Reject an unknown, disabled, or entry-surface-incompatible row.
+- Read its ordered `stages`, `executor_bindings`, and `policies`; do not branch
+  on the workflow id.
+- If its initial stage is owned directly by the `dash` executor, route to
+  `/yoke dash "instruction"` so filing and the direct-execution contract are
+  created atomically.
+- If its bindings hand from `refine` to `blitz`, preserve that registered
+  boundary: refinement links exactly one execution strategy document, then
+  Blitz executes it. Intake does not copy the plan into the item body or
+  bypass refinement.
+
+Without `--workflow`, classify the eligible definitions by policy:
+
+- Prefer the unique smallest implementation workflow with
+  `generated_children=none`, `worktrees=single_implementation_lane`, and an
+  `advance` executor binding.
+- Recommend the unique task-graph workflow with
+  `generated_children=epic_tasks` and `parallelism=task_graph` only when the
+  work clearly needs:
 - Multiple parallel worktrees
 - A spec plus task decomposition
 - More than ~2 hours of focused work
 
-If the work is borderline, ask ONE binary question: "This looks like it might need task decomposition. Epic or Issue workflow?"
+If the work is borderline, ask one binary question using the two matched
+workflow display names: "This looks like it might need task decomposition.
+Use {task-graph workflow} or {single-lane workflow}?"
 
-Otherwise, auto-select `issue`. Never ask for clearly simple items.
+If either policy shape has zero or multiple eligible matches, ask the operator
+to select from those registry rows instead of guessing. Workflow ids such as
+`issue` and `epic` are built-in registry keys, not item types or lifecycle
+branches.
 
-**Pre-decomposition guard:** Never file additional issues attached to an epic that has not yet reached `planned` status. Backlog items are flat rows in `items`; epic decomposition lives in `epic_tasks`, populated by the Architect during shepherd planning.
+**Pre-decomposition guard:** Never file separate backlog items as a parent's
+imagined child decomposition. Backlog items are flat rows in `items`. When the
+selected definition declares `generated_children=epic_tasks`, the Architect
+populates those rows inside the registered planning executor; do not gate this
+rule on a remembered item status.
 
 ### d. Infer priority from language
 
@@ -348,12 +377,16 @@ Dry-run mode: print what would be persisted instead of mutating state.
 
 Read the created item from the DB and display a confirmation. If GitHub issue creation succeeded, include the linked issue number. If dependencies were detected, include them in the confirmation output.
 
-For Issue and Epic items, preserve the existing handoff:
+Read the created item's immutable pin with `yoke workflows item get`, read that
+exact version with `yoke workflows version get`, and resolve the active
+half-open executor binding. Print the definition-owned handoff:
+
 ```text
-Next step: /yoke shepherd YOK-{N}
+Next step: /yoke {executor_id} YOK-{N}
 ```
 
-For a Blitz, end with the refinement and execution handoff instead:
+If the definition's later binding is `blitz`, also print the refinement and
+execution handoff:
 
 ```text
 Next step: /yoke refine YOK-{N}
@@ -363,4 +396,6 @@ reaches refined-idea: /yoke blitz YOK-{N}
 
 The link is the registered `strategy.execution.link` operation. Do not start
 `/yoke blitz`, generate child items, or treat the intake body as the live
-execution plan before that link exists.
+execution plan before that link exists. For every other workflow, recompute the
+next executor at each binding boundary instead of printing a workflow-name
+progression from memory.

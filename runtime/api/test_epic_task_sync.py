@@ -102,7 +102,7 @@ def _stub_project_github_auth():
 class TestSyncTaskLabel:
     def test_missing_issue_is_silent(self, db):
         """When the task has no github_issue, the label sync is a noop."""
-        insert_item(db, id=1246, type="epic", status="implementing", project="externalwebapp")
+        insert_item(db, id=1246, workflow_id="epic", status="implementing", project="externalwebapp")
         insert_epic_task(db, epic_id=1246, task_num=1, title="Task 1", status="implementing")
 
         with patch(f"{_LABEL_REST}.ensure_label") as ensure, patch(
@@ -123,7 +123,7 @@ class TestSyncTaskLabel:
     def test_label_sync_reconciles_status_labels(
         self, db, _stub_project_github_auth,
     ):
-        insert_item(db, id=1246, type="epic", status="implementing", project="externalwebapp")
+        insert_item(db, id=1246, workflow_id="epic", status="implementing", project="externalwebapp")
         insert_epic_task(
             db,
             epic_id=1246,
@@ -163,7 +163,7 @@ class TestSyncTaskLabel:
         )
 
     def test_label_sync_uses_verified_repo_over_stale_project_projection(self, db):
-        insert_item(db, id=1247, type="epic", status="implementing", project="externalwebapp")
+        insert_item(db, id=1247, workflow_id="epic", status="implementing", project="externalwebapp")
         insert_epic_task(
             db, epic_id=1247, task_num=1, title="Task 1",
             status="implementing", github_issue="#78",
@@ -200,7 +200,7 @@ class TestSyncTaskBody:
         """A body sync against a project with a resolved GitHub App auth routes the
         validator (existence check) and the body-write step through the
         typed ``github_rest.*`` surface — no argv shim involved."""
-        insert_item(db, id=1246, type="epic", status="implementing", project="externalwebapp")
+        insert_item(db, id=1246, workflow_id="epic", status="implementing", project="externalwebapp")
         insert_epic_task(
             db,
             epic_id=1246,
@@ -240,7 +240,7 @@ class TestSyncTaskBody:
         assert stderr.getvalue() == ""
 
     def test_body_validation_failure_is_not_reported_as_repo_mismatch(self, db):
-        insert_item(db, id=1246, type="epic", status="implementing", project="externalwebapp")
+        insert_item(db, id=1246, workflow_id="epic", status="implementing", project="externalwebapp")
         insert_epic_task(
             db,
             epic_id=1246,
@@ -274,7 +274,7 @@ class TestSyncTaskBody:
 
 class TestSyncProgress:
     def test_progress_sync_routes_to_project_repo_and_marks_synced(self, db):
-        insert_item(db, id=1246, type="epic", status="implementing", project="externalwebapp")
+        insert_item(db, id=1246, workflow_id="epic", status="implementing", project="externalwebapp")
         insert_epic_task(
             db,
             epic_id=1246,
@@ -308,7 +308,7 @@ class TestSyncProgress:
         assert "Synced 1 new progress note(s) for epic '1246'" in stdout.getvalue()
 
     def test_progress_sync_without_conn_uses_backend_connect(self, db):
-        insert_item(db, id=1246, type="epic", status="implementing", project="externalwebapp")
+        insert_item(db, id=1246, workflow_id="epic", status="implementing", project="externalwebapp")
         insert_epic_task(
             db,
             epic_id=1246,

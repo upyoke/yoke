@@ -20,6 +20,9 @@ from yoke_core.domain.qa_gates import (
     check_reviewed_implementation_gate,
 )
 from yoke_core.domain.schema_init_apply import execute_schema_script
+from runtime.api.api_workflow_test_helpers import (
+    install_workflow_registry_and_pin_items,
+)
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 
 TEST_ITEM_ID = 42
@@ -36,7 +39,6 @@ CREATE TABLE projects (
 CREATE TABLE items (
     id INTEGER PRIMARY KEY,
     title TEXT,
-    type TEXT DEFAULT 'issue',
     status TEXT DEFAULT 'implementing',
     project_id INTEGER DEFAULT 1,
     project_sequence INTEGER NOT NULL
@@ -97,7 +99,7 @@ def _apply_qa_schema() -> None:
             "(id, slug, name, public_item_prefix) "
             "VALUES (1, 'yoke', 'Yoke', 'YOK')",
         )
-        conn.commit()
+        install_workflow_registry_and_pin_items(conn)
     finally:
         conn.close()
 
@@ -116,7 +118,7 @@ def qa_db(tmp_path):
                 "INSERT INTO items (id, title, project_sequence) "
                 "VALUES (42, 'Test item', 42)",
             )
-            conn.commit()
+            install_workflow_registry_and_pin_items(conn)
             conn.close()
             yield db_path
 

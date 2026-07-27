@@ -35,7 +35,7 @@ def db():
     behavior expectations.
     """
     with test_database() as conn:
-        insert_item(conn, id=42, type="epic", status="planning", title="Epic Title")
+        insert_item(conn, id=42, workflow_id="epic", status="planning", title="Epic Title")
         insert_epic_task(
             conn, epic_id=42, task_num=1, title="Task One",
             status="planning", body="",

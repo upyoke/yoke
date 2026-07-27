@@ -15,7 +15,6 @@ from unittest import mock
 
 import pytest
 
-from yoke_core.domain import db_backend
 from yoke_core.domain import backlog_updates_helpers as helpers
 from yoke_core.domain.backlog_authoritative_status_gate import (
     _run_authoritative_status_gate,
@@ -240,7 +239,7 @@ class TestProseVsClaimGate:
         prose-check coverage as `refined-idea`."""
         conn, db_path = helper_db
         insert_item(
-            conn, id=34, type="epic", status="refining-plan",
+            conn, id=34, workflow_id="epic", status="refining-plan",
             technical_plan="Plan introduces a governed migration on items.",
             db_mutation_profile='{"state":"none"}',
         )

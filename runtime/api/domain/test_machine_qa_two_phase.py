@@ -279,11 +279,7 @@ def test_cli_verify_local_failure_aborts_server_lease(
     monkeypatch.setattr(test_machine_cli, "ensure_handlers_loaded", lambda: None)
     monkeypatch.setattr(test_machine_cli, "call_dispatcher", dispatch)
     monkeypatch.setattr(
-        "yoke_core.domain.ssh_mac_host_control.register_ssh_mac_host_control",
-        lambda: None,
-    )
-    monkeypatch.setattr(
-        "yoke_core.domain.machine_qa_local_execution.execute_verification_contract",
+        "yoke_harness.test_machine_verification.execute_verification_contract",
         lambda _contract: (_ for _ in ()).throw(
             RuntimeError("local control unavailable")
         ),

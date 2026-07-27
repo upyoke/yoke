@@ -52,14 +52,16 @@ def _materialized_command_requirement(conn) -> int:
     replace_plan_cases(
         conn,
         plan_id=plan["id"],
-        cases=[{
-            "case_key": "backend",
-            "position": 1,
-            "method_id": "command",
-            "instructions": "Run backend checks.",
-            "expected_outcome": "The command exits successfully.",
-            "method_config": {"command": "printf 'composed-case-output'"},
-        }],
+        cases=[
+            {
+                "case_key": "backend",
+                "position": 1,
+                "method_id": "command",
+                "instructions": "Run backend checks.",
+                "expected_outcome": "The command exits successfully.",
+                "method_config": {"command": "printf 'composed-case-output'"},
+            }
+        ],
     )
     set_project_default(
         conn,
@@ -68,7 +70,9 @@ def _materialized_command_requirement(conn) -> int:
         transition_id="implemented",
     )
     materialized = materialize_for_item(
-        conn, item_id=42, transition_id="implemented",
+        conn,
+        item_id=42,
+        transition_id="implemented",
     )
     return int(materialized["created_requirement_ids"][0])
 
@@ -89,47 +93,6 @@ def _case_request(
     )
 
 
-def test_materialized_case_context_carries_immutable_executor_snapshot() -> None:
-    with test_database() as conn:
-        insert_item(conn, id=42, title="Run verification", workflow_id="issue")
-        plan = create_plan(
-            conn,
-            project="yoke",
-            slug="command-verification",
-            name="Command verification",
-        )
-        replace_plan_cases(
-            conn,
-            plan_id=plan["id"],
-            cases=[{
-                "case_key": "backend",
-                "position": 1,
-                "method_id": "command",
-                "instructions": "Run backend tests.",
-                "expected_outcome": "The suite exits successfully.",
-                "method_config": {"command": "python3 -m pytest"},
-            }],
-        )
-        set_project_default(
-            conn,
-            plan_id=plan["id"],
-            workflow_id="issue",
-            transition_id="implemented",
-        )
-        materialized = materialize_for_item(
-            conn, item_id=42, transition_id="implemented",
-        )
-        context = get_case_execution_context(
-            conn,
-            requirement_id=materialized["created_requirement_ids"][0],
-        )
-
-    assert context["method_id"] == "command"
-    assert context["executor_id"] == "worktree_run"
-    assert context["case_key"] == "backend"
-    assert context["method_config"] == {"command": "python3 -m pytest"}
-
-
 def test_ad_hoc_method_case_uses_the_same_execution_context() -> None:
     with test_database() as conn:
         insert_item(conn, id=42, title="Inspect login", workflow_id="issue")
@@ -143,17 +106,20 @@ def test_ad_hoc_method_case_uses_the_same_execution_context() -> None:
             (
                 "Capture the login page.",
                 "The form is visually aligned.",
-                json.dumps({
-                    "steps": [
-                        {"action": "navigate", "route": "/login"},
-                        {"action": "screenshot", "capture": True},
-                    ],
-                }),
+                json.dumps(
+                    {
+                        "steps": [
+                            {"action": "navigate", "route": "/login"},
+                            {"action": "screenshot", "capture": True},
+                        ],
+                    }
+                ),
                 "2026-07-26T00:00:00Z",
             ),
         ).fetchone()
         context = get_case_execution_context(
-            conn, requirement_id=int(row["id"]),
+            conn,
+            requirement_id=int(row["id"]),
         )
 
     assert context["plan_id"] is None
@@ -206,14 +172,18 @@ def test_command_case_records_verdict_and_output_artifact(
         ),
     ):
         result = qa_case_execution.execute_case(
-            41, base_url="https://preview.example", actor=actor,
+            41,
+            base_url="https://preview.example",
+            actor=actor,
         )
 
     assert result["verdict"] == "pass"
     assert result["case_outcome"] == "passed"
     assert result["run_id"] == 77
     assert [call[0] for call in calls] == [
-        "qa.run.add", "qa.artifact.add", "qa.run.complete",
+        "qa.run.add",
+        "qa.artifact.add",
+        "qa.run.complete",
     ]
     assert all(call[3] == actor for call in calls)
     assert calls[0][2]["executor_type"] == "worktree_run"
@@ -221,9 +191,12 @@ def test_command_case_records_verdict_and_output_artifact(
     assert calls[2][2]["verdict"] == "pass"
     handle = calls[1][2]["artifact_handle"]
     assert handle["backend"] == "local"
-    assert Path(handle["path"]).read_text(encoding="utf-8").find(
-        "case-output:https://preview.example"
-    ) >= 0
+    assert (
+        Path(handle["path"])
+        .read_text(encoding="utf-8")
+        .find("case-output:https://preview.example")
+        >= 0
+    )
 
 
 def test_browser_case_executes_only_the_target_requirement() -> None:
@@ -250,7 +223,9 @@ def test_browser_case_executes_only_the_target_requirement() -> None:
         ) as execute,
     ):
         result = qa_case_execution.execute_case(
-            41, base_url="https://preview.example", actor=actor,
+            41,
+            base_url="https://preview.example",
+            actor=actor,
         )
 
     assert result["verdict"] == "pass"
@@ -277,9 +252,13 @@ def test_doorman_rerun_composes_case_writes_without_a_harness_claim(
             "_execution_checkout",
             return_value=tmp_path,
         ):
-            outcome = case_handlers.handle_case_rerun(_case_request(
-                "qa.case.rerun", requirement_id, {},
-            ))
+            outcome = case_handlers.handle_case_rerun(
+                _case_request(
+                    "qa.case.rerun",
+                    requirement_id,
+                    {},
+                )
+            )
         run = conn.execute(
             "SELECT executor_type, verdict, case_outcome "
             "FROM qa_runs WHERE qa_requirement_id = %s",
@@ -301,11 +280,13 @@ def test_doorman_rerun_composes_case_writes_without_a_harness_claim(
 def test_doorman_waive_records_operator_rationale_without_a_harness_claim() -> None:
     with test_database() as conn:
         requirement_id = _materialized_command_requirement(conn)
-        outcome = case_handlers.handle_case_waive(_case_request(
-            "qa.case.waive",
-            requirement_id,
-            {"rationale": "Equivalent external proof was reviewed."},
-        ))
+        outcome = case_handlers.handle_case_waive(
+            _case_request(
+                "qa.case.waive",
+                requirement_id,
+                {"rationale": "Equivalent external proof was reviewed."},
+            )
+        )
         row = conn.execute(
             "SELECT waived_at, waiver_rationale, waiver_source "
             "FROM qa_requirements WHERE id = %s",

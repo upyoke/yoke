@@ -17,8 +17,8 @@ refuses anything not in `state='active'`). Operators previously had to
 discover by runtime error that activation was a separate manual step;
 this phase performs it automatically.
 
-**Context variables** (set by router): `{N}`, `_workflow_id`, `_status`,
-`_target`, `_item_project`, `--force` flag
+**Context variables** (set by router): `{N}`, `_worktree_policy`,
+`_current_executor`, `_status`, `_target`, `_item_project`, `--force` flag
 
 **Enforcement owner:** `yoke_core.domain.advance_path_claim_activation`
 
@@ -28,7 +28,8 @@ this phase performs it automatically.
 
 Run when:
 - target is `implementing` (the implementation entry transition), and
-- the pinned workflow selects item-level implementation, and
+- the pinned workflow selects `single_implementation_lane` under the
+  `advance` executor, and
 - the actor has at least one non-terminal `path_claims` row for the item.
 
 Skip when:

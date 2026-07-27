@@ -10,8 +10,6 @@ Browser run command:
 * ``qa.run.complete`` — finalize a run in place.
 * ``qa.artifact.add`` — insert a ``qa_artifacts`` row (typed handle).
 * ``qa.artifact.presign`` — mint a presigned S3 PUT for one artifact.
-* ``qa.screenshot_evidence.pending_count`` / ``qa.screenshot_evidence.satisfy``
-  — the advance gate's evidence pre-check and bridge.
 """
 
 from __future__ import annotations
@@ -271,75 +269,10 @@ def qa_artifact_presign(args: List[str]) -> int:
     )
 
 
-QA_SCREENSHOT_EVIDENCE_PENDING_COUNT_USAGE = (
-    "yoke qa screenshot-evidence pending-count --item PREFIX-N "
-    "[--session-id S] [--json]"
-)
-
-
-def qa_screenshot_evidence_pending_count(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(
-        prog="yoke qa screenshot-evidence pending-count",
-        description=QA_SCREENSHOT_EVIDENCE_PENDING_COUNT_USAGE,
-    )
-    parser.add_argument("--item", required=True,
-                        help="Target item (PREFIX-N or project-local number).")
-    add_session_arg(parser)
-    add_json_arg(parser)
-    parsed = parse_or_usage_error(
-        parser, args, QA_SCREENSHOT_EVIDENCE_PENDING_COUNT_USAGE,
-    )
-    if parsed is None:
-        return 2
-    return dispatch_and_emit(
-        function_id="qa.screenshot_evidence.pending_count",
-        target=item_target("item", parsed.item, parsed.project),
-        payload={},
-        session_id=parsed.session_id, json_mode=parsed.json_mode,
-    )
-
-
-QA_SCREENSHOT_EVIDENCE_SATISFY_USAGE = (
-    "yoke qa screenshot-evidence satisfy --item PREFIX-N "
-    "[--evidence TEXT] [--session-id S] [--json]"
-)
-
-
-def qa_screenshot_evidence_satisfy(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(
-        prog="yoke qa screenshot-evidence satisfy",
-        description=QA_SCREENSHOT_EVIDENCE_SATISFY_USAGE,
-    )
-    parser.add_argument("--item", required=True,
-                        help="Target item (PREFIX-N or project-local number).")
-    parser.add_argument("--evidence", default=None,
-                        help="Evidence text recorded on the bridged runs.")
-    add_session_arg(parser)
-    add_json_arg(parser)
-    parsed = parse_or_usage_error(
-        parser, args, QA_SCREENSHOT_EVIDENCE_SATISFY_USAGE,
-    )
-    if parsed is None:
-        return 2
-    payload: Dict[str, Any] = {}
-    if parsed.evidence is not None:
-        payload["evidence"] = parsed.evidence
-    return dispatch_and_emit(
-        function_id="qa.screenshot_evidence.satisfy",
-        target=item_target("item", parsed.item, parsed.project),
-        payload=payload,
-        session_id=parsed.session_id, json_mode=parsed.json_mode,
-    )
-
-
 __all__ = [
     "QA_BROWSER_CONTEXT_GET_USAGE", "QA_RUN_ADD_USAGE",
     "QA_RUN_COMPLETE_USAGE", "QA_ARTIFACT_ADD_USAGE",
     "QA_ARTIFACT_PRESIGN_USAGE",
-    "QA_SCREENSHOT_EVIDENCE_PENDING_COUNT_USAGE",
-    "QA_SCREENSHOT_EVIDENCE_SATISFY_USAGE",
     "qa_browser_context_get", "qa_run_add", "qa_run_complete",
     "qa_artifact_add", "qa_artifact_presign",
-    "qa_screenshot_evidence_pending_count",
-    "qa_screenshot_evidence_satisfy",
 ]

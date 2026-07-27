@@ -116,7 +116,7 @@ class TestResolveRepoRoot:
 
 
 def test_update_item_direct_exercises_real_backlog_update(tmp_db):
-    _seed_item(tmp_db, id=44, type="issue", status="implemented", project="yoke")
+    _seed_item(tmp_db, id=44, workflow_id="issue", status="implemented", project="yoke")
     _seed_session(tmp_db, session_id="sess-1")
     _seed_claim(tmp_db, session_id="sess-1", item_id="44")
 

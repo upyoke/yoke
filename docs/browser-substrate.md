@@ -3,8 +3,8 @@
 The browser substrate provides a reusable browser capability for interactive browsing, scenario replay, and diff-aware QA. It consists of a Node.js daemon (Playwright), Python client modules, and integration with Yoke's QA artifact pipeline.
 
 The daemon is machine substrate, not repo content: its JS sources ship inside
-the Python package at `runtime/browser_runtime/` and
-`yoke_core.domain.browser_runtime_home` materializes them into the
+`packages/yoke-harness/src/yoke_harness/browser_runtime/`, and
+`yoke_harness.browser_runtime_home` materializes them into the
 machine-level runtime directory `~/.yoke/browser-runtime/`, where npm
 dependencies, Playwright browsers, and daemon state live. Project repos never
 receive a browser source tree, `node_modules`, or daemon state.
@@ -38,16 +38,16 @@ All JS paths below are the packaged sources; the daemon runs from their material
 
 | Component | Location | Purpose |
 |-----------|----------|---------|
-| Browser daemon | `runtime/browser_runtime/src/daemon.js` | Node.js process managing Playwright browser lifecycle |
-| HTTP server | `runtime/browser_runtime/src/server.js` | Express server with bearer auth, routes for all primitives |
-| Browser manager | `runtime/browser_runtime/src/browser-manager.js` | Playwright browser launch, page management, close |
-| Snapshot engine | `runtime/browser_runtime/src/snapshot.js` | Accessibility tree extraction with ref annotation |
-| Screenshot engine | `runtime/browser_runtime/src/screenshot.js` | Annotated screenshots with numbered ref badges |
-| Diff engine | `runtime/browser_runtime/src/diff.js` | Pixel-level image comparison via pixelmatch |
-| Step executor | `runtime/browser_runtime/src/step-executor.js` | scenario step execution |
-| Snapshot routes | `runtime/browser_runtime/src/routes/snapshot-routes.js` | HTTP routes for snapshot/screenshot/diff |
-| Exec routes | `runtime/browser_runtime/src/routes/exec-routes.js` | HTTP routes for step execution |
-| `yoke_core.domain.browser_runtime_home` | `packages/yoke-core/src/yoke_core/domain/browser_runtime_home.py` | Machine runtime dir + hash-gated materialization of the packaged sources |
+| Browser daemon | `packages/yoke-harness/src/yoke_harness/browser_runtime/src/daemon.js` | Node.js process managing Playwright browser lifecycle |
+| HTTP server | `packages/yoke-harness/src/yoke_harness/browser_runtime/src/server.js` | Express server with bearer auth, routes for all primitives |
+| Browser manager | `packages/yoke-harness/src/yoke_harness/browser_runtime/src/browser-manager.js` | Playwright browser launch, page management, close |
+| Snapshot engine | `packages/yoke-harness/src/yoke_harness/browser_runtime/src/snapshot.js` | Accessibility tree extraction with ref annotation |
+| Screenshot engine | `packages/yoke-harness/src/yoke_harness/browser_runtime/src/screenshot.js` | Annotated screenshots with numbered ref badges |
+| Diff engine | `packages/yoke-harness/src/yoke_harness/browser_runtime/src/diff.js` | Pixel-level image comparison via pixelmatch |
+| Step executor | `packages/yoke-harness/src/yoke_harness/browser_runtime/src/step-executor.js` | Scenario step execution |
+| Snapshot routes | `packages/yoke-harness/src/yoke_harness/browser_runtime/src/routes/snapshot-routes.js` | HTTP routes for snapshot/screenshot/diff |
+| Exec routes | `packages/yoke-harness/src/yoke_harness/browser_runtime/src/routes/exec-routes.js` | HTTP routes for step execution |
+| `yoke_harness.browser_runtime_home` | `packages/yoke-harness/src/yoke_harness/browser_runtime_home.py` | Single machine-runtime and hash-gated materialization owner |
 | `yoke_core.domain.browser_client` | `packages/yoke-core/src/yoke_core/domain/browser_client.py` | Python daemon client: state, HTTP, lifecycle, exec, snapshot |
 | `yoke_core.domain.browser_qa` | `packages/yoke-core/src/yoke_core/domain/browser_qa.py` | Internal per-requirement Browser scenario orchestration used by the shared case runner |
 | `yoke_core.domain.browser_worker` | `packages/yoke-core/src/yoke_core/domain/browser_worker.py` | Remote browser worker via SSH tunnel |
@@ -320,7 +320,7 @@ The deferred set:
 - **pngjs** for PNG encoding/decoding
 - **Express** for the daemon HTTP server
 
-All Node.js dependencies are declared in `runtime/browser_runtime/package.json` and installed into `~/.yoke/browser-runtime/node_modules`. They do not pollute any repo's dependencies.
+All Node.js dependencies are declared in `packages/yoke-harness/src/yoke_harness/browser_runtime/package.json` and installed into `~/.yoke/browser-runtime/node_modules`. They do not pollute any repo's dependencies.
 
 ## Setup
 
@@ -343,7 +343,7 @@ readiness any time with `yoke qa browser status`.
 
 - [Browser Scenario Schema](../.yoke/docs/browser-scenario-schema.md) —
   `method_config` shape for Browser method cases
-- `runtime/browser_runtime/README.md` — Quick-start guide and usage examples
+- `packages/yoke-harness/src/yoke_harness/browser_runtime/README.md` — Quick-start guide and usage examples
 - `.agents/skills/yoke/advance/browser-qa.md` — browser execution gate on the `implemented` / `polishing-implementation` path
 - `.agents/skills/yoke/advance/implementing/SKILL.md` — AC-aware browser scenario seeding
 - `.agents/skills/yoke/conduct/dispatch-context.md` — Tester browser execution dispatch (conduct path)
