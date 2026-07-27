@@ -104,27 +104,29 @@ Provision the host once before saving the capability:
    session while driving and capturing it.
 4. In **System Settings → Privacy & Security**, grant the logged-in
    Terminal.app Automation access to Terminal and Screen Recording access.
-   Keep the Mac logged in and unlocked for screenshots.
+   Keep the Mac logged in and unlocked for screenshots. These are interactive
+   macOS permission grants on the host, not credentials or tokens that Yoke
+   stores.
 5. Disable automatic system and display sleep for the test interval. Restore
    the operator's normal sleep policy when the dedicated test interval ends.
 
 The saved settings document contains exactly `resource_name`, `host`, `user`,
-and `operating_notes`. It contains no credentials. Store every credential key
-shown by `yoke test-machine get` on the machine that runs `host_control`; for
-example:
+and `operating_notes`. It contains no credentials. `ssh_private_key` is the
+only Test Mac credential. Store it on the machine that runs `host_control`:
 
 ```text
-printf '%s' "$SECRET_VALUE" | yoke projects capability secret set \
+printf '%s' "$SSH_PRIVATE_KEY" | yoke projects capability secret set \
   --project <project> --cap-type test-machine \
-  --key <ssh_private_key|screen_control_token|sudo_password> --value-stdin
+  --key ssh_private_key --value-stdin
 ```
 
-The private key value is the key material, not a path. Yoke writes these values
-to capability-owned machine-local files with restricted permissions. Do not
-copy them to the remote host, the project checkout, or control-plane settings.
-After provisioning or changing any setting or credential, run
-`yoke test-machine verify`; the capability is not ready until connectivity and
-terminal-control checks pass.
+The private key value is the key material, not a path. Yoke writes it to a
+capability-owned machine-local file with restricted permissions. Do not copy
+it to the remote host, the project checkout, or control-plane settings. Host
+baselines run as the dedicated test user and do not invoke `sudo`; no sudo
+credential is required. After provisioning or changing any setting, SSH key,
+or required macOS permission, run `yoke test-machine verify`; the capability
+is not ready until connectivity and terminal-control checks pass.
 
 Secret values never belong in settings JSON, workflow definitions, item
 bodies, prompts, logs, captures, or artifacts. The executor receives resolved
