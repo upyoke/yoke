@@ -5,6 +5,8 @@ import json
 from collections import Counter
 from pathlib import Path
 
+import psycopg
+
 from yoke_core.domain.migration_apply_manifest import validate_manifest_payload
 from yoke_core.domain.installer_campaign_catalog import (
     INSTALLER_CAMPAIGN_SCENARIOS,
@@ -164,3 +166,11 @@ def test_migration_replaces_catalog_and_reapplies_without_semantic_drift(
 
     assert _campaign_state(test_db) == first_state
     assert len(first_state) == len(EXPECTED_CASE_KEYS)
+
+
+def test_migration_accepts_default_psycopg_tuple_rows(test_db) -> None:
+    with psycopg.connect(test_db.info.dsn) as tuple_conn:
+        apply(tuple_conn)
+        invariants(tuple_conn)
+        apply(tuple_conn)
+        invariants(tuple_conn)
