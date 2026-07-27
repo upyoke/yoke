@@ -7,6 +7,7 @@ from typing import Any
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_one, query_rows
+from yoke_core.domain.project_identity import row_value
 from yoke_core.domain.qa_plan_attachments import set_project_default
 from yoke_core.domain.qa_plan_management import create_plan, replace_plan_cases
 from yoke_core.domain.workflow_registry import list_current_workflows
@@ -71,7 +72,7 @@ def _plan_for_scope(
             ),
         )["id"])
     else:
-        plan_id = int(existing["id"])
+        plan_id = int(row_value(existing, "id", 0))
         conn.execute(
             f"UPDATE qa_plans SET retired_at=NULL WHERE id={marker}",
             (plan_id,),
@@ -123,7 +124,7 @@ def _plan_for_merge_verification(
             ),
         )["id"])
     else:
-        plan_id = int(existing["id"])
+        plan_id = int(row_value(existing, "id", 0))
         conn.execute(
             f"UPDATE qa_plans SET retired_at=NULL WHERE id={marker}",
             (plan_id,),
@@ -243,26 +244,28 @@ def migrate_registered_commands(
     migrated: list[dict] = []
     skipped: list[dict] = []
     for row in rows:
-        scope = str(row["scope"])
-        command = _command(row["payload"])
+        scope = str(row_value(row, "scope", 2))
+        command = _command(row_value(row, "payload", 3))
         if scope not in COMMAND_SCOPE_POLICIES or not command:
             skipped.append({
-                "project": str(row["project"]),
+                "project": str(row_value(row, "project", 1)),
                 "scope": scope,
                 "reason": "unsupported_scope_or_empty_command",
             })
             continue
         migrated.append(ensure_registered_command_plan(
             conn,
-            project_id=int(row["project_id"]),
-            project=str(row["project"]),
+            project_id=int(row_value(row, "project_id", 0)),
+            project=str(row_value(row, "project", 1)),
             scope=scope,
             command=command,
         ))
     migrated_merge_verification: list[dict] = []
     for row in merge_rows:
         try:
-            payload = json.loads(str(row["payload"] or "{}"))
+            payload = json.loads(
+                str(row_value(row, "payload", 2) or "{}")
+            )
         except (TypeError, ValueError):
             payload = {}
         command = (
@@ -279,15 +282,15 @@ def migrate_registered_commands(
             or timeout_seconds < 1
         ):
             skipped.append({
-                "project": str(row["project"]),
+                "project": str(row_value(row, "project", 1)),
                 "scope": "merge_verification",
                 "reason": "invalid_command_or_timeout",
             })
             continue
         plan_id = _plan_for_merge_verification(
             conn,
-            project_id=int(row["project_id"]),
-            project=str(row["project"]),
+            project_id=int(row_value(row, "project_id", 0)),
+            project=str(row_value(row, "project", 1)),
             command=command,
             timeout_seconds=timeout_seconds,
         )
@@ -304,7 +307,7 @@ def migrate_registered_commands(
             )
             attached_workflows.append(workflow_id)
         migrated_merge_verification.append({
-            "project": str(row["project"]),
+            "project": str(row_value(row, "project", 1)),
             "plan_id": plan_id,
             "transition_id": "release",
             "workflow_ids": attached_workflows,
@@ -318,7 +321,8 @@ def migrate_registered_commands(
     if retire_legacy and (rows or merge_rows):
         marker = _p(conn)
         project_ids = sorted({
-            int(row["project_id"]) for row in [*rows, *merge_rows]
+            int(row_value(row, "project_id", 0))
+            for row in [*rows, *merge_rows]
         })
         for project_id in project_ids:
             cursor = conn.execute(

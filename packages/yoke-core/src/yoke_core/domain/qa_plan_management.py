@@ -8,7 +8,6 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import query_one, query_rows
 from yoke_core.domain.project_identity import resolve_project
 
 
@@ -32,6 +31,27 @@ def _next_updated_at() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 
 
+def _row_dict(cursor: Any, row: Any) -> Optional[dict[str, Any]]:
+    """Normalize mapping, name-aware, and positional database rows."""
+    if row is None:
+        return None
+    if hasattr(row, "keys"):
+        return {str(key): row[key] for key in row.keys()}
+    columns = [
+        str(getattr(column, "name", None) or column[0])
+        for column in cursor.description
+    ]
+    return dict(zip(columns, row))
+
+
+def _rows_dict(cursor: Any) -> list[dict[str, Any]]:
+    return [
+        row
+        for raw in cursor.fetchall()
+        if (row := _row_dict(cursor, raw)) is not None
+    ]
+
+
 def _project_id(conn: Any, project: str) -> int:
     identity = resolve_project(conn, project, required=False)
     if identity is None:
@@ -41,11 +61,11 @@ def _project_id(conn: Any, project: str) -> int:
 
 def _plan_row(conn: Any, plan_id: int) -> Any:
     marker = _placeholder(conn)
-    row = query_one(
-        conn,
+    cursor = conn.execute(
         f"SELECT * FROM qa_plans WHERE id={marker}",
         (int(plan_id),),
     )
+    row = _row_dict(cursor, cursor.fetchone())
     if row is None:
         raise QaPlanError(f"QA plan {plan_id} not found")
     if row["retired_at"] is not None:
@@ -74,7 +94,7 @@ def create_plan(
     marker = _placeholder(conn)
     now = _next_updated_at()
     try:
-        row = conn.execute(
+        cursor = conn.execute(
             "INSERT INTO qa_plans("
             "project_id, slug, name, description, success_policy_id, "
             "success_policy_params, created_at, updated_at"
@@ -89,7 +109,8 @@ def create_plan(
                 now,
                 now,
             ),
-        ).fetchone()
+        )
+        row = _row_dict(cursor, cursor.fetchone())
     except Exception as exc:
         if "qa_plans_project_id_slug" in str(exc) or "unique" in str(exc).lower():
             raise QaPlanError(
@@ -97,8 +118,9 @@ def create_plan(
             ) from exc
         raise
     conn.commit()
+    assert row is not None
     return {
-        "id": int(row["id"] if isinstance(row, dict) else row[0]),
+        "id": int(row["id"]),
         "project_id": project_id,
         "project": project,
         "slug": slug,
@@ -190,14 +212,14 @@ def _validated_plan_cases(
     cases = _validated_cases(cases)
     marker = _placeholder(conn)
     method_ids = list(dict.fromkeys(case["method_id"] for case in cases))
-    method_rows = query_rows(
-        conn,
+    cursor = conn.execute(
         "SELECT id, executor_id, verdict_path, project_id "
         "FROM qa_methods WHERE id IN ("
         + ", ".join([marker] * len(method_ids))
         + ")",
         tuple(method_ids),
     )
+    method_rows = _rows_dict(cursor)
     contracts = {
         str(row["id"]): row
         for row in method_rows

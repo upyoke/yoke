@@ -4,6 +4,9 @@ import hashlib
 import json
 from pathlib import Path
 
+import psycopg
+
+from runtime.api.fixtures.pg_testdb import dsn_for_test_database
 from yoke_core.domain.migration_apply_manifest import validate_manifest_payload
 from yoke_core.domain.migrations.qa_command_plan_cutover import (
     apply,
@@ -50,8 +53,8 @@ def _cutover_state(conn) -> dict[str, list[tuple]]:
     }
 
 
-def test_cutover_moves_commands_removes_legacy_and_reapplies_cleanly(test_db) -> None:
-    test_db.execute(
+def _seed_legacy_commands(conn) -> None:
+    conn.execute(
         "INSERT INTO project_structure("
         "project_id, family, attachment_value, attachment_kind, entry_key, "
         "payload, created_at, updated_at"
@@ -59,7 +62,7 @@ def test_cutover_moves_commands_removes_legacy_and_reapplies_cleanly(test_db) ->
         "'2026-07-26T00:00:00Z', '2026-07-26T00:00:00Z')",
         (json.dumps({"command": "python3 -m pytest -q"}),),
     )
-    test_db.execute(
+    conn.execute(
         "INSERT INTO project_structure("
         "project_id, family, attachment_value, attachment_kind, entry_key, "
         "payload, created_at, updated_at"
@@ -70,7 +73,11 @@ def test_cutover_moves_commands_removes_legacy_and_reapplies_cleanly(test_db) ->
             "timeout_seconds": 1800,
         }),),
     )
-    test_db.commit()
+    conn.commit()
+
+
+def test_cutover_moves_commands_removes_legacy_and_reapplies_cleanly(test_db) -> None:
+    _seed_legacy_commands(test_db)
 
     apply(test_db)
     invariants(test_db)
@@ -101,3 +108,14 @@ def test_cutover_moves_commands_removes_legacy_and_reapplies_cleanly(test_db) ->
     invariants(test_db)
 
     assert _cutover_state(test_db) == first_state
+
+
+def test_cutover_accepts_default_psycopg_tuple_rows(test_db) -> None:
+    dsn = dsn_for_test_database(test_db.info.dbname)
+    with psycopg.connect(dsn) as tuple_conn:
+        _seed_legacy_commands(tuple_conn)
+        apply(tuple_conn)
+        invariants(tuple_conn)
+        _seed_legacy_commands(tuple_conn)
+        apply(tuple_conn)
+        invariants(tuple_conn)
