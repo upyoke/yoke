@@ -178,6 +178,43 @@ test("a failed mechanics save restores the editor controls", async (t) => {
   mounted.unmount();
 });
 
+test("mechanics dialogs trap focus, close on Escape, and restore the opener", async (t) => {
+  const client = mechanicsClient();
+  const { documentNode, root, mounted } = await mountWorkflows(t, client);
+  const trigger = buttonByText(root, "Set universe defaults for Dash");
+  trigger.focus();
+  trigger.dispatchEvent(new Event("click"));
+
+  const cancel = buttonByText(root, "Cancel");
+  const confirm = buttonByText(root, "Save universe default");
+  assert.equal(documentNode.activeElement, cancel);
+
+  const forward = new Event("keydown");
+  Object.defineProperty(forward, "key", { value: "Tab" });
+  documentNode.defaultView.dispatchEvent(forward);
+  assert.equal(documentNode.activeElement, confirm);
+
+  const wrap = new Event("keydown");
+  Object.defineProperty(wrap, "key", { value: "Tab" });
+  documentNode.defaultView.dispatchEvent(wrap);
+  assert.equal(documentNode.activeElement.tagName, "SELECT");
+
+  const backward = new Event("keydown");
+  Object.defineProperties(backward, {
+    key: { value: "Tab" },
+    shiftKey: { value: true },
+  });
+  documentNode.defaultView.dispatchEvent(backward);
+  assert.equal(documentNode.activeElement, confirm);
+
+  const escape = new Event("keydown");
+  Object.defineProperty(escape, "key", { value: "Escape" });
+  documentNode.defaultView.dispatchEvent(escape);
+  assert.equal(byClass(root, "workflow-dialog").length, 0);
+  assert.equal(documentNode.activeElement, trigger);
+  mounted.unmount();
+});
+
 test("Testing and Delivery editors stay project-owned and can apply broadly", async (t) => {
   const client = mechanicsClient();
   const { root, mounted } = await mountWorkflows(t, client);
