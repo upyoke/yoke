@@ -238,7 +238,7 @@
 }
 
 .universe-app-root .issue-detail .item-detail-grid {
-  grid-template-columns: minmax(0, 0.445fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
 }
 
 .universe-app-root .item-epic-tasks table.items td:nth-child(2) {

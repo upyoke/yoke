@@ -195,9 +195,13 @@ function renderDetail(context, main, projectId, doc) {
   const documentNode = context.document;
   let selectedTab = "document";
   const host = el(documentNode, "div", "strategy-detail");
-  const heading = el(documentNode, "div", "item-detail-heading");
-  const headingCopy = el(documentNode, "div", "item-detail-heading-copy");
-  headingCopy.appendChild(el(documentNode, "h1", null, doc.slug));
+  const heading = el(
+    documentNode, "div", "page-head item-detail-heading",
+  );
+  const headingCopy = el(
+    documentNode, "div", "h item-detail-heading-copy",
+  );
+  headingCopy.appendChild(el(documentNode, "h1", "title", doc.slug));
   heading.appendChild(headingCopy);
   const actions = stateActionsPanel(
     context,

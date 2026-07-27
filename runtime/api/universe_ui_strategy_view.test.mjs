@@ -186,9 +186,12 @@ test("Strategy detail exposes document, history, diff, restore, and review", asy
   );
   await settle();
   let rendered = text(main);
+  assert.equal(byClass(main, "page-head").length, 1);
   assert.match(rendered, /State & actions/);
   assert.match(rendered, /Approve revision 2/);
   assert.match(rendered, /Author through a harness/);
+  assert.match(rendered, /Inspect documents, compare revisions/);
+  assert.doesNotMatch(rendered, /\bcomments?\b/i);
   assert.match(rendered, /item-owned\s+·\s+YOK-2001/);
   assert.match(rendered, /Blitz v2/);
   assert.match(rendered, /Purpose/);

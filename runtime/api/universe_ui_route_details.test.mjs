@@ -99,13 +99,16 @@ test("a strategy doc drill-in reads the body through strategy.surface.get", asyn
   assert.deepEqual(docRequest.target, { kind: "global", project_id: "1" });
   assert.deepEqual(docRequest.payload, { slug: "PLAN-1" });
 
-  // The served body renders for review, and the breadcrumb is the whole head.
+  // The served body renders for review beneath the breadcrumb and its own
+  // shared detail page head.
   const text = allNodes(root).map((node) => node.textContent || "").join(" ");
   assert.ok(text.includes("The plan"));
   assert.ok(text.includes("One spine."));
   assert.ok(text.includes("State & actions"));
   assert.equal(byClass(root, "breadcrumb").length, 1);
-  assert.equal(byClass(root, "page-head").length, 0);
+  assert.equal(byClass(root, "page-head").length, 1);
+  assert.equal(byClass(root, "page-head")[0].children[0].className, "h item-detail-heading-copy");
+  assert.equal(byClass(root, "page-head")[0].children[0].children[0].className, "title");
   mounted.unmount();
 });
 
