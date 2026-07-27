@@ -1,8 +1,15 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from runtime.api.fixtures.backlog_inserts import insert_item
+from yoke_contracts.machine_config.capability_secrets import (
+    TEST_MACHINE_CAPABILITY,
+)
+from yoke_core.domain.capability_machine_secrets import (
+    store_machine_capability_secret,
+)
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -13,6 +20,17 @@ from yoke_core.domain.qa_plan_attachments import (
     attach_plan_to_item,
     materialize_for_item,
 )
+from yoke_core.domain.test_machine_capability import (
+    replace_test_machine_settings,
+)
+
+
+TEST_MACHINE_SETTINGS = {
+    "resource_name": "mac-mini-lab",
+    "host": "test-mac.local",
+    "user": "yoke-test",
+    "operating_notes": "",
+}
 
 
 class OpenFixtureConnection:
@@ -28,11 +46,42 @@ class OpenFixtureConnection:
         pass
 
 
+def configure_test_machine(
+    conn: Any,
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
+    monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path / "scratch"))
+    store_machine_capability_secret(
+        "yoke",
+        TEST_MACHINE_CAPABILITY,
+        "ssh_private_key",
+        "top-secret",
+    )
+    replace_test_machine_settings(
+        conn,
+        project="yoke",
+        settings=TEST_MACHINE_SETTINGS,
+        base_settings=None,
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.db_helpers.connect",
+        lambda: OpenFixtureConnection(conn),
+    )
+
+
 def materialize_installer_campaign(
     conn: Any,
     *,
     item_id: int,
 ) -> list[dict[str, Any]]:
+    from yoke_core.domain.schema_init_tables import create_governed_tables
+
+    # The composed Postgres fixture predates the shared coordination primitive.
+    # Apply its canonical production schema before exercising two-phase
+    # host-control execution, which acquires a coordination lease at begin.
+    create_governed_tables(conn)
     apply(conn)
     insert_item(
         conn,
@@ -71,10 +120,11 @@ def materialize_installer_campaign(
 def baseline_group_request(
     requirement_id: int,
     *,
+    function: str = "test_machine.baseline_group_execute",
     payload: dict[str, Any] | None = None,
 ) -> FunctionCallRequest:
     return FunctionCallRequest(
-        function="test_machine.baseline_group_execute",
+        function=function,
         actor=ActorContext(
             actor_id="2",
             session_id="session-machine-group",
