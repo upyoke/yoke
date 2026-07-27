@@ -14,13 +14,13 @@ function successful(result) {
   return { status: 200, envelope: { success: true, result } };
 }
 
-test("Packs shows receipt truth and previews one selected Pack without writing", async (t) => {
+test("Packs is a universe catalog whose preview keeps an explicit project", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
 
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/packs?project=7";
+  documentNode.defaultView.location.hash = "#/packs";
   const root = documentNode.createElement("div");
   const requests = [];
   const client = {
@@ -30,9 +30,30 @@ test("Packs shows receipt truth and previews one selected Pack without writing",
         return successful({ name: "Example" });
       }
       if (request.function === "projects.list") {
-        return successful({ rows: [{ id: 7, slug: "demo", name: "Demo" }] });
+        return successful({ rows: [
+          { id: 7, slug: "demo", name: "Demo" },
+          { id: 8, slug: "second", name: "Second" },
+        ] });
       }
       if (request.function === "packs.list") {
+        if (request.payload.project === "8") {
+          return successful({
+            project_id: 8,
+            project_slug: "second",
+            repository_report: null,
+            packs: [{
+              slug: "container-runtime",
+              name: "Container runtime",
+              description: "Runs a web application in local containers.",
+              status: "installed",
+              installed_version: "1.0.0",
+              latest_version: "1.0.0",
+              dependencies: [],
+              documentation: "docs/packs/container-runtime/README.md",
+              file_count: 4,
+            }],
+          });
+        }
         assert.deepEqual(request.payload, { project: "7" });
         return successful({
           project_id: 7,
@@ -98,7 +119,10 @@ test("Packs shows receipt truth and previews one selected Pack without writing",
   const mounted = mountUniverseApp(root, { client });
   await settle();
   const screenText = allNodes(root).map((node) => node.textContent || "").join(" ");
-  assert.ok(screenText.includes("Repository report: 2026-07-17T10:00:00Z (stale)"));
+  assert.ok(screenText.includes(
+    "demo: repository report 2026-07-17T10:00:00Z (stale)",
+  ));
+  assert.ok(screenText.includes("second: no repository receipt reported"));
   assert.ok(screenText.includes("Runs a web application in local containers."));
   assert.ok(screenText.includes(
     "Deploys a reviewed release and supports urgent hotfixes.",
@@ -106,7 +130,15 @@ test("Packs shows receipt truth and previews one selected Pack without writing",
   assert.ok(screenText.includes("container-runtime: missing"));
   assert.deepEqual(
     byClass(root, "pack-preview-action").map((node) => node.textContent),
-    ["Inspect get", "Inspect update"],
+    ["Inspect get", "Inspect update", "Inspect update"],
+  );
+  assert.equal(byClass(root, "scope-bar").length, 0);
+  assert.deepEqual(
+    requests.filter((request) => request.function === "packs.list"),
+    [
+      { function: "packs.list", payload: { project: "7" } },
+      { function: "packs.list", payload: { project: "8" } },
+    ],
   );
 
   byClass(root, "pack-preview-action")[1].dispatchEvent(new Event("click"));

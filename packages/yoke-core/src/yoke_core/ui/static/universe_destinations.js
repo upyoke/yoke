@@ -97,17 +97,7 @@ export const NAV = [
     summary: "Who and what may act here, at the universe and per project.",
   },
   {
-    id: "members", icon: "⚉", label: "Members", scope: SCOPE_NONE,
-    summary: "The people in your organization, managed by the hosting platform.",
-    hostFed: true,
-  },
-  {
-    id: "billing", icon: "❒", label: "Billing", scope: SCOPE_NONE,
-    summary: "Your plan and payments, managed by the hosting platform.",
-    hostFed: true,
-  },
-  {
-    id: "packs", icon: "◫", label: "Packs", scope: SCOPE_SINGLE,
+    id: "packs", icon: "◫", label: "Packs", scope: SCOPE_NONE,
     summary:
       "Reusable capabilities whose installed code belongs to the project.",
   },
@@ -116,11 +106,21 @@ export const NAV = [
     summary: "How this project binds to its repository, and how they sync.",
   },
   {
-    id: "project", icon: "⚙", label: "Project", scope: SCOPE_SINGLE,
+    id: "project", icon: "⚙", label: "Project settings", scope: SCOPE_SINGLE,
     summary: "Settings for one project.",
   },
   {
-    id: "organization", icon: "⛭", label: "Organization", scope: SCOPE_NONE,
+    id: "organization", icon: "⛭", label: "Universe settings", scope: SCOPE_NONE,
     summary: "This organization and its universe, including export and import.",
+  },
+  {
+    id: "members", icon: "⚉", label: "Members", scope: SCOPE_NONE,
+    summary: "The people in your organization, managed by the hosting platform.",
+    hostFed: true,
+  },
+  {
+    id: "billing", icon: "▧", label: "Billing", scope: SCOPE_NONE,
+    summary: "Your plan and payments, managed by the hosting platform.",
+    hostFed: true,
   },
 ];

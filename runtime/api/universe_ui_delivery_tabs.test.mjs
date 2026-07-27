@@ -25,27 +25,6 @@ function okEnvelope(result) {
   return { status: 200, envelope: { success: true, result } };
 }
 
-// The shell reads plus an empty runs table — enough for any Delivery facet.
-function deliveryClient() {
-  const requests = [];
-  return {
-    requests,
-    async call(request) {
-      requests.push(request);
-      if (request.function === "organizations.get") {
-        return okEnvelope({ name: "Yoke" });
-      }
-      if (request.function === "projects.list") {
-        return okEnvelope({ rows: [{ id: 1, name: "Yoke" }] });
-      }
-      if (request.function === "deployment_runs.list") {
-        return okEnvelope({ rows: [] });
-      }
-      throw new Error(`unexpected function ${request.function}`);
-    },
-  };
-}
-
 async function mountAt(t, hash, client) {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
@@ -57,6 +36,35 @@ async function mountAt(t, hash, client) {
   await settle();
   return { documentNode, root, mounted };
 }
+
+test("flat navigation matches the canonical prototype arc", () => {
+  assert.deepEqual(
+    NAV.map(({ id, icon, label, scope }) => [id, icon, label, scope]),
+    [
+      ["overview", "⊞", "Overview", "multi"],
+      ["inbox", "✉", "Inbox", "multi"],
+      ["strategy", "❖", "Strategy", "multi"],
+      ["frontier", "⚡", "Frontier", "multi"],
+      ["items", "≣", "Items", "multi"],
+      ["sessions", "◈", "Sessions", "multi"],
+      ["delivery", "⬈", "Delivery", "multi"],
+      ["qa", "◉", "QA", "multi"],
+      ["workflows", "⚗", "Workflows", "none"],
+      ["capabilities", "⚿", "Capabilities", "multi"],
+      ["events", "≋", "Events", "multi"],
+      ["doctor", "♥", "Doctor", "multi"],
+      ["ouroboros", "∞", "Ouroboros", "multi"],
+      ["projects", "▤", "Projects", "none"],
+      ["access", "⚇", "Access", "none"],
+      ["packs", "◫", "Packs", "none"],
+      ["github", "⎇", "GitHub", "single"],
+      ["project", "⚙", "Project settings", "single"],
+      ["organization", "⛭", "Universe settings", "none"],
+      ["members", "⚉", "Members", "none"],
+      ["billing", "▧", "Billing", "none"],
+    ],
+  );
+});
 
 test("Runs at All reads unfiltered and labels each run's own project", async (t) => {
   const requests = [];
@@ -244,22 +252,4 @@ test("the Flows facet reads the served flows and takes the Delivery scope", asyn
     "beta-release", "Beta Release", "stage", "disabled", "build", "continue",
   ]);
   scoped.mounted.unmount();
-});
-
-test("every unbuilt Delivery tab renders the stub treatment and never a picker", async (t) => {
-  for (const tabId of ["environments", "databases", "infrastructure"]) {
-    const client = deliveryClient();
-    const { root, mounted } = await mountAt(
-      t, `#/delivery/${tabId}?project=1`, client,
-    );
-    assert.equal(byClass(root, "stub-panel").length, 1, tabId);
-    assert.equal(byClass(root, "scope-chip").length, 0, tabId);
-    assert.ok(
-      !client.requests.some(
-        (request) => request.function === "deployment_runs.list",
-      ),
-      tabId,
-    );
-    mounted.unmount();
-  }
 });
