@@ -17,6 +17,9 @@ import sys
 from typing import Iterable, Optional, Tuple
 
 from yoke_core.domain.db_helpers import connect
+from yoke_core.domain.denial_field_note_footer import (  # noqa: F401
+    append_field_note_footer,
+)
 from yoke_core.domain.lint_claim_ownership_denials import (
     RECENT_DENIAL_LOOKBACK_SECONDS,  # noqa: F401
     recent_claim_denial_holder,

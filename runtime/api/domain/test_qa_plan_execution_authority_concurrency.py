@@ -38,22 +38,6 @@ from yoke_core.domain.qa_plan_execution_store import (
 )
 
 
-class _InsertBarrierConnection:
-    def __init__(self, inner: Any, barrier: threading.Barrier):
-        self._inner = inner
-        self._barrier = barrier
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._inner, name)
-
-    def execute(self, statement: Any, params: Any = None) -> Any:
-        if str(statement).startswith("INSERT INTO qa_plan_executions("):
-            self._barrier.wait(timeout=10)
-        if params is None:
-            return self._inner.execute(statement)
-        return self._inner.execute(statement, params)
-
-
 def _begin_race(
     *,
     item_id: int,
@@ -69,8 +53,9 @@ def _begin_race(
         def begin(index: int) -> None:
             actor_id, session_id = owners[index]
             try:
+                barrier.wait(timeout=10)
                 execution = begin_plan_execution(
-                    _InsertBarrierConnection(connections[index], barrier),
+                    connections[index],
                     item_id=item_id,
                     transition_id="implemented",
                     actor_id=actor_id,

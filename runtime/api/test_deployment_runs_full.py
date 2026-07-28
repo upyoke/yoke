@@ -24,35 +24,10 @@ from yoke_core.domain import deployment_runs_crud_mutate as mutate
 from yoke_core.domain.schema_common import _get_tables
 from runtime.api.test_deployment_runs_full_helpers import (  # noqa: F401
     _conn,
+    _insert_delivery_ready_item,
     _placeholder,
     db_path,
 )
-
-
-def _insert_delivery_ready_item(db_path, item_id):
-    from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
-
-    conn = _conn(db_path)
-    try:
-        workflow_id, workflow_version_id = resolve_current_workflow_pin(
-            conn,
-            "issue",
-        )
-        conn.execute(
-            "INSERT INTO items ("
-            "id, title, workflow_id, workflow_version_id, status, "
-            "project_id, project_sequence, deployment_flow, "
-            "created_at, updated_at"
-            ") VALUES ("
-            "%s, 'deployment member', %s, %s, 'implemented', "
-            "1, %s, 'yoke-internal', "
-            "'2026-07-28T00:00:00Z', '2026-07-28T00:00:00Z'"
-            ")",
-            (item_id, workflow_id, workflow_version_id, item_id),
-        )
-        conn.commit()
-    finally:
-        conn.close()
 
 
 class TestInit:

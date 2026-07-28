@@ -76,6 +76,7 @@ _SCHEMA_DDL = """
         created_at TEXT NOT NULL,
         UNIQUE(dependent_item, blocking_item, gate_point)
     );
+
 """
 
 
@@ -115,3 +116,29 @@ def _conn(db_path: str):
 
 def _placeholder(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
+
+
+def _insert_delivery_ready_item(db_path: str, item_id: int) -> None:
+    from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
+
+    conn = _conn(db_path)
+    try:
+        workflow_id, workflow_version_id = resolve_current_workflow_pin(
+            conn,
+            "issue",
+        )
+        conn.execute(
+            "INSERT INTO items ("
+            "id, title, workflow_id, workflow_version_id, status, "
+            "project_id, project_sequence, deployment_flow, "
+            "created_at, updated_at"
+            ") VALUES ("
+            "%s, 'deployment member', %s, %s, 'implemented', "
+            "1, %s, 'yoke-internal', "
+            "'2026-07-28T00:00:00Z', '2026-07-28T00:00:00Z'"
+            ")",
+            (item_id, workflow_id, workflow_version_id, item_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
