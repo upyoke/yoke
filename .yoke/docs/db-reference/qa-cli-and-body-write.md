@@ -21,7 +21,8 @@ not an agent-facing command recipe. Full platform documentation:
 ```sh
 # Add an item-bound review requirement
 yoke qa requirement add \
- --item YOK-N --qa-kind implementation_review --qa-phase verification
+ --item YOK-N --qa-kind implementation_review --qa-phase verification \
+ --workflow-transition reviewed-implementation
 
 # Bind a method case to a stage in the item's pinned workflow
 yoke qa requirement add \
@@ -63,8 +64,8 @@ yoke qa gate-summary --item YOK-N --target reviewed-implementation --json
 
 | Subcommand | Args | Description |
 |---|---|---|
-| `yoke qa requirement add` | `--item PREFIX-N (--qa-kind K \| --method-id M) --qa-phase P [--workflow-transition STAGE] [opts]` | Insert one item-attached requirement, optionally bound to a pinned workflow stage |
-| `yoke qa requirement add-batch` | `--item PREFIX-N (--rows-file PATH \| --stdin)` | Insert item-attached requirements atomically |
+| `yoke qa requirement add` | `--item PREFIX-N (--qa-kind K \| --method-id M) --qa-phase P --workflow-transition STAGE [opts]` | Insert one requirement bound to a QA-gated stage in the item's pinned workflow |
+| `yoke qa requirement add-batch` | `--item PREFIX-N (--rows-file PATH \| --stdin)` | Insert item-attached requirements atomically; every row requires `workflow_transition_id` |
 | `yoke qa plan materialize` | `--item PREFIX-N --transition T` | Materialize project-default and item-attached plan cases |
 | `yoke qa requirement list` | `[--item PREFIX-N \| --epic-id N \| --deployment-run-id ID]` | List requirements |
 | `yoke qa requirement get` | `--requirement-id N` | Get one requirement |

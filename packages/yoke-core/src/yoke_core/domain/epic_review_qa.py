@@ -23,29 +23,40 @@ from yoke_core.domain.epic_parsing import (
     _placeholder,
     _require_task_exists,
 )
+from yoke_core.domain.qa_workflow_binding_validation import (
+    item_transition_for_gate,
+)
+from yoke_core.domain.workflow_gate_catalog import (
+    GATE_PLAN_SIMULATION,
+    GATE_QA_VERIFICATION,
+)
 
 
 def _qa_req_add(**kwargs) -> int:
     """Call _qa_requirement_add_silent via the parent module so patches intercept."""
     import yoke_core.domain.epic as _epic_mod
+
     return _epic_mod._qa_requirement_add_silent(**kwargs)
 
 
 def _qa_run_add(**kwargs) -> int:
     """Call _qa_run_add_silent via the parent module so patches intercept."""
     import yoke_core.domain.epic as _epic_mod
+
     return _epic_mod._qa_run_add_silent(**kwargs)
 
 
 def _epic_connect():
     """Call connect() via the parent module so patches on epic.connect intercept."""
     import yoke_core.domain.epic as _epic_mod
+
     return _epic_mod.connect()
 
 
 # ---------------------------------------------------------------------------
 # Review requirement helpers
 # ---------------------------------------------------------------------------
+
 
 def _ensure_implementation_review_requirement(
     conn,
@@ -87,6 +98,11 @@ def _ensure_implementation_review_requirement(
     if existing and existing != 0:
         return int(existing)
 
+    workflow_transition_id = item_transition_for_gate(
+        conn,
+        item_id=int(epic_id),
+        gate_id=GATE_QA_VERIFICATION,
+    )
     try:
         return _qa_req_add(
             epic_id=int(epic_id),
@@ -97,6 +113,7 @@ def _ensure_implementation_review_requirement(
             blocking_mode="blocking",
             requirement_source="explicit",
             success_policy='{"type":"deterministic","criteria":"verdict_pass"}',
+            workflow_transition_id=workflow_transition_id,
         )
     except SystemExit as exc:
         raise RuntimeError(
@@ -154,12 +171,16 @@ def _auto_transition_review_task(
 def _ensure_review_req(conn, epic_id, task_num, *, scripts_dir=None) -> int:
     """Call _ensure_implementation_review_requirement via the parent module so patches intercept."""
     import yoke_core.domain.epic as _epic_mod
-    return _epic_mod._ensure_implementation_review_requirement(conn, epic_id, task_num, scripts_dir=scripts_dir)
+
+    return _epic_mod._ensure_implementation_review_requirement(
+        conn, epic_id, task_num, scripts_dir=scripts_dir
+    )
 
 
 # ---------------------------------------------------------------------------
 # Simulation upsert
 # ---------------------------------------------------------------------------
+
 
 def simulation_upsert(
     conn,
@@ -211,6 +232,12 @@ def simulation_upsert(
         req_id = None
 
     if req_id is None:
+        gate_id = GATE_PLAN_SIMULATION if phase == "plan" else GATE_QA_VERIFICATION
+        workflow_transition_id = item_transition_for_gate(
+            conn,
+            item_id=int(epic_id),
+            gate_id=gate_id,
+        )
         try:
             req_id = _qa_req_add(
                 item_id=int(epic_id),
@@ -220,6 +247,7 @@ def simulation_upsert(
                 blocking_mode="blocking",
                 requirement_source="explicit",
                 success_policy=success_policy,
+                workflow_transition_id=workflow_transition_id,
             )
         except SystemExit as exc:
             raise RuntimeError(

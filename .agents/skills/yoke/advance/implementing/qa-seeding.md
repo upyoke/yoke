@@ -29,18 +29,20 @@ yoke qa requirement add \
   --item YOK-{N} \
   --qa-kind ac_verification \
   --qa-phase verification \
+  --workflow-transition reviewed-implementation \
   --blocking-mode blocking \
   --requirement-source ac_derived \
   --success-policy "{brief description of what passing looks like}"
 ```
 
-The write is item-claim-gated; the advance session already holds the work claim, so it dispatches cleanly. Operator-debug fallback inside a checkout: `python3 -m yoke_core.domain.qa requirement-add --item-id {N} ...` (also the only surface for generated-task / deployment-run-attached requirements).
+The write is item-claim-gated; the advance session already holds the work claim, so it dispatches cleanly. The transition must name the QA-gated stage in the item's pinned workflow. Operator-debug fallback inside a checkout: `python3 -m yoke_core.domain.qa requirement-add --item-id {N} --workflow-transition reviewed-implementation ...` (also the only surface for generated-task / deployment-run-attached requirements; a deployment-run attachment may omit the transition).
 
 The `--success-policy` field is a human-readable description of what "pass"
 means (e.g., "test suite passes with zero failures", "config change verified
 in output"). If no plan is attached and the item has no acceptance criteria,
 seed at minimum one explicit requirement with
 `--qa-kind implementation_review` and
+`--workflow-transition reviewed-implementation` and
 `--success-policy "Implementation matches the item title/description"`.
 
 ### Browser case authoring

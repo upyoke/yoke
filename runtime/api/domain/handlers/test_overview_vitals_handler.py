@@ -10,6 +10,9 @@ from datetime import datetime, timezone
 from unittest.mock import patch
 
 from runtime.api.frontier_test_helpers import insert_item
+from runtime.api.workflow_version_test_helpers import (
+    publish_issue_completion_stage,
+)
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -188,6 +191,25 @@ def test_an_epic_with_no_tasks_still_counts_as_one(test_db):
     test_db.commit()
 
     assert _vitals()["state_counts"]["active"] == 1
+
+
+def test_task_expansion_follows_the_pinned_policy_not_workflow_identity(test_db):
+    _reset(test_db)
+    publish_issue_completion_stage(
+        test_db,
+        stage_id="archived",
+        generated_children="epic_tasks",
+    )
+    insert_item(test_db, 8803, status="implementing", workflow="issue")
+    for task_num in (1, 2):
+        test_db.execute(
+            "INSERT INTO epic_tasks (epic_id, task_num, title) "
+            "VALUES (%s, %s, %s)",
+            (8803, task_num, f"task {task_num}"),
+        )
+    test_db.commit()
+
+    assert _vitals()["state_counts"]["active"] == 2
 
 
 def test_the_issues_meter_counts_delivery_not_intake(test_db):

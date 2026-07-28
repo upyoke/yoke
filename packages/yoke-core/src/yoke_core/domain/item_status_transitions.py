@@ -58,11 +58,7 @@ def _now_iso() -> str:
 
 def ensure_schema(conn: Any) -> None:
     """Create the table + index if missing (minimal test DBs). Idempotent."""
-    ddl = (
-        _TABLE_DDL_POSTGRES
-        if db_backend.connection_is_postgres(conn)
-        else _TABLE_DDL
-    )
+    ddl = _TABLE_DDL_POSTGRES if db_backend.connection_is_postgres(conn) else _TABLE_DDL
     conn.execute(ddl)
     conn.execute(_INDEX_DDL)
     conn.commit()
@@ -152,7 +148,9 @@ def _record(
         from yoke_core.domain.claim_chain_state import touch_epic_task_activity
 
         touch_epic_task_activity(
-            conn, epic_id=numeric_item, task_num=task_num,
+            conn,
+            epic_id=numeric_item,
+            task_num=task_num,
         )
     return True
 
@@ -229,8 +227,6 @@ def record_and_emit_item_status_change(
     emitter. Shared by the backlog update/close executors and the HTTP
     write/approve routes so the pairing stays identical everywhere.
     """
-    import sys
-
     record_item_transition(
         conn,
         item_id=item_id,
@@ -239,6 +235,26 @@ def record_and_emit_item_status_change(
         source=source,
     )
     conn.commit()
+    emit_item_status_change(
+        item_id=item_id,
+        from_status=from_status,
+        to_status=to_status,
+        source=source,
+        out=out,
+    )
+
+
+def emit_item_status_change(
+    *,
+    item_id: int,
+    from_status: str,
+    to_status: str,
+    source: str,
+    out: Any = None,
+) -> None:
+    """Emit post-commit status telemetry for an already-recorded transition."""
+    import sys
+
     from yoke_core.domain import backlog_rendering
 
     backlog_rendering._emit_event(
@@ -290,6 +306,7 @@ def latest_transition(conn: Any, item_id: Any) -> Optional[Dict[str, Any]]:
 
 __all__ = [
     "ensure_schema",
+    "emit_item_status_change",
     "latest_transition",
     "record_and_emit_item_status_change",
     "record_item_transition",

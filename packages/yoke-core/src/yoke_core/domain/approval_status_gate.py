@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from typing import Optional
 
+from yoke_core.domain.approval_gate import (
+    _item_context,
+    _matches_transition_snapshot,
+)
 from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.decision_requests import list_subject_requests
 from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
@@ -36,6 +40,7 @@ def evaluate(
             "item_transition",
             f"{int(item_id)}:{target_status}",
         )
+        item = _item_context(conn, int(item_id))
     finally:
         conn.close()
     latest = history[0] if history else None
@@ -43,6 +48,7 @@ def evaluate(
         latest is not None
         and latest["status"] == "resolved"
         and latest["resolution_action"] == "approve"
+        and _matches_transition_snapshot(latest, item, target_status)
     ):
         return None
     request = f" {latest['id']}" if latest is not None else ""

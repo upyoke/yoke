@@ -75,7 +75,12 @@ def register(registry) -> None:
         _inbox.DecisionMutationResponse,
         side_effects=["decision_requests_withdraw"],
         events=["DecisionRequestWithdrawn"],
-        guardrails=["subject_ended", "never_silent_expiry"],
+        guardrails=[
+            "actor_required",
+            "live_authority_union",
+            "subject_ended",
+            "never_silent_expiry",
+        ],
     )
     _register(
         registry,

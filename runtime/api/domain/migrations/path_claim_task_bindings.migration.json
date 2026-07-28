@@ -1,0 +1,69 @@
+{
+  "version": 1,
+  "project": "yoke",
+  "profile": {
+    "state": "declared",
+    "model_name": "primary",
+    "mutation_intent": "apply",
+    "migration_modules": [
+      "path_claim_task_bindings"
+    ],
+    "compatibility_class": "pre_merge_safe",
+    "migration_strategy": "expand_contract",
+    "migration_strategy_justification": "Create task bindings only after universal worktree lanes exist, then backfill exclusively from complete persisted epic_task_files budgets; ambiguous legacy task ownership is a hard preflight refusal.",
+    "schema_kinds": [
+      "additive"
+    ],
+    "data_kinds": [
+      "fill"
+    ],
+    "affected_surfaces": [
+      {
+        "table": "path_claim_task_bindings",
+        "columns": [
+          "claim_id",
+          "epic_id",
+          "task_num",
+          "bound_at"
+        ]
+      }
+    ],
+    "count_preserving": false
+  },
+  "module_sources": {
+    "path_claim_task_bindings": {
+      "path": "packages/yoke-core/src/yoke_core/domain/migrations/path_claim_task_bindings.py",
+      "sha256": "675e560f18944c8a6a91bdff6cc46ffbf7d05ac5197940b181a70f9175610e3d"
+    }
+  },
+  "attestation": {
+    "pre_merge_readers_writers": [
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/path_claim_task_bindings.py",
+        "symbol": "bind_claim_to_task",
+        "role": "writer"
+      },
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/path_claim_task_coverage.py",
+        "symbol": "evaluate_task_coverage",
+        "role": "reader"
+      },
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/path_claim_task_session_coverage.py",
+        "symbol": "effective_paths_for_session",
+        "role": "reader"
+      }
+    ],
+    "invariants": [
+      "Every binding references an existing item-owned path claim and an existing generated Epic task.",
+      "Task bindings carry no registering-session or work-claim authority and survive session handoff.",
+      "workflow_item_worktree_records applies first and every migrated task has valid worker-lane ownership.",
+      "Legacy bindings derive only from complete persisted epic_task_files budgets; empty, partial, cross-project, or unmapped claims refuse migration.",
+      "Repeat apply preserves existing rows and every nonterminal required-per-task item either remains pre-planning with no tasks or passes complete task coverage."
+    ],
+    "rehearsal_commands": [
+      "PYTHONPATH=packages/yoke-contracts/src:packages/yoke-cli/src:packages/yoke-core/src:packages/yoke-harness/src:. python3 -m pytest runtime/api/domain/migrations/test_path_claim_task_bindings.py runtime/api/domain/test_path_claim_task_enforcement.py runtime/api/domain/test_path_claim_task_registration.py runtime/api/domain/test_path_claim_task_session_coverage.py -q"
+    ],
+    "residual_risk_notes": "The migration is additive and idempotent after readiness. It deliberately refuses the known live legacy Epics whose tasks have no persisted epic_task_files rather than inferring authority from prose, branches, or a bind-all fallback; those budgets must be repaired before apply."
+  }
+}

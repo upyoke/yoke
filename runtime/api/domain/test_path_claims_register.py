@@ -1,5 +1,6 @@
 # ruff: noqa: F811
 """Coverage for the item-facing path-claim registration on-ramp."""
+
 from __future__ import annotations
 
 import pytest
@@ -11,6 +12,7 @@ from yoke_core.domain._path_claims_test_helpers import (  # noqa: F401
 )
 from yoke_core.domain.path_claims import (
     InvalidActor,
+    InvalidWorkflowBinding,
     get_claim,
 )
 from yoke_core.domain.path_claims_register import (
@@ -34,7 +36,9 @@ def _seed_item(
     project: str = "yoke",
     title: str = "test item",
 ) -> int:
-    project_id = int(project) if str(project).isdigit() else _PROJECT_IDS.get(project, 1)
+    project_id = (
+        int(project) if str(project).isdigit() else _PROJECT_IDS.get(project, 1)
+    )
     conn.execute(
         "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, "
         "created_at, updated_at, project_id, project_sequence) "
@@ -108,6 +112,33 @@ class TestRegisterForItem:
                 paths=["runtime/api/domain"],
                 actor_id=actor,
             )
+
+    def test_terminal_item_cannot_reuse_existing_claim(self, conn):
+        actor = local_human(conn)
+        item_id = _seed_item(conn, item_id=9002)
+        seed_target(conn, path_string="runtime/api/domain")
+        claim_id = register_for_item(
+            conn,
+            item_id=item_id,
+            integration_target="main",
+            paths=["runtime/api/domain"],
+            actor_id=actor,
+        )
+        conn.execute(
+            "UPDATE items SET status='done' WHERE id=%s",
+            (item_id,),
+        )
+        conn.commit()
+
+        with pytest.raises(InvalidWorkflowBinding, match="terminal"):
+            register_for_item(
+                conn,
+                item_id=item_id,
+                integration_target="main",
+                paths=["runtime/api/domain"],
+                actor_id=actor,
+            )
+        assert get_claim(conn, claim_id)["state"] == "planned"
 
     def test_unknown_path_raises_resolver_error(self, conn):
         actor = local_human(conn)

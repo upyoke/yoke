@@ -255,10 +255,17 @@ yoke claims path required-gate YOK-{N}
 Branch on the result:
 
 - **verdict=pass** — no action required; continue to step 5. If refine narrows the File Budget (drops files, identifies a no-claim posture), record the planned narrow-down as a critique item; the actual `path-claims narrow` runs in step 6.
+- **verdict=pass with pre-task deferral** — for a
+  `required_per_task` Epic with no generated tasks, do not register or widen an
+  item-level claim. Shepherd owns materialization from persisted task budgets.
 - **verdict=block** — STOP. Author or amend the claim before proceeding. Three options, picked from the same decision matrix as idea. The canonical product CLI is `yoke claims path register …`; checkout-local db-router registration is operator-debug fallback only.
   1. Register a new exclusive claim (`yoke claims path register --paths …`) when the File Budget names existing files.
   2. Register with `--allow-planned` when the File Budget names future files.
   3. Register a no-claim exception (`--mode exception --reason "..."`) when refine determines the item legitimately touches no repo surface.
+
+  For `required_per_task` with generated tasks, repair each failing task with
+  `yoke claims path register --item YOK-N --task-num <N> ...`; an unbound
+  parent claim never satisfies this verdict.
 
   When registration fails due to overlap with a non-terminal claim owned by another item, classify the overlap via `yoke claims path coordination-decision-build` and author either `--gate-point coordination_only` (compatible overlap with no lifecycle gate, default for independent same-file edits) or explicit `--gate-point activation` with directional rationale (order-dependent edits). See [`readiness-repair.md`](readiness-repair.md) `## Cross-item overlap repair`.
 

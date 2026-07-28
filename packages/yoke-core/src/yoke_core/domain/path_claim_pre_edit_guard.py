@@ -1,32 +1,8 @@
-"""Pre-edit / pre-write / pre-apply_patch path-claim guard.
+"""Path-claim guard for edit, write, and apply-patch tool events.
 
-Pure function: given a normalized :class:`ToolEventRecord` and the
-active session's path claim, return ``(allow|deny, narrative)``.
-
-The deny narrative includes the canonical ``yoke claims path widen``
-template so the operator's first move is always one mechanical
-remediation. Two failure modes share the deny shape:
-
-* ``out-of-claim`` — the resolved path is not within any covered root of
-  the active claim.
-* ``wrong-cwd`` — the resolved path is within the claim's coverage by
-  string match, but its physical location is in main's checkout (or a
-  different worktree) than the worktree the claim was issued for.
-
-Cwd resolution: prefer the hook payload's ``cwd``; fall back to
-``os.getcwd()`` only when the payload omits it (a WARN telemetry event
-records the fallback).
-
-Public surface:
-
-- :class:`Verdict` — ``outcome`` / ``failure_mode`` / ``narrative``.
-- :func:`evaluate` — lane K imports this directly for the Codex
-  ``apply_patch`` hook handler. Lane R consumes it via the universal
-  policy pipeline (``decide_for_record``).
-- :func:`decide_for_record` — :mod:`harness_policy_pipeline` adapter.
-- The shared ``(target_path, cwd)`` resolver lives in
-  :mod:`yoke_core.domain.path_claim_target_resolver` and is reused
-  by :mod:`yoke_core.domain.path_claim_bash_guard`.
+The pure evaluator distinguishes out-of-claim from wrong-worktree writes and
+returns the canonical claim-widening remediation. Cwd comes from the event,
+with an observable fallback to the process cwd.
 """
 
 from __future__ import annotations
@@ -44,10 +20,12 @@ from yoke_core.domain.observe_normalization import (
     TOOL_KIND_WRITE,
     ToolEventRecord,
 )
+from yoke_core.domain.path_claim_task_active_scope import (
+    resolve_claim_scope_for_target,
+)
 from yoke_core.domain.path_claim_target_resolver import (
     ClaimContext,
     Failure,
-    OUT_OF_CLAIM,
     WORKTREE_UNRESOLVED,
     WRONG_CWD,
     evaluate_target,
@@ -110,16 +88,18 @@ def evaluate_payload(
 
     cwd, _ = _resolve_cwd(record)
 
-    if claim is None:
-        claim = resolve_active_claim_for_session(
-            session_id=record.session_id, conn=conn,
-        )
-    if claim is None:
-        return Verdict(outcome="allow")
-
-    ctx = ClaimContext.from_claim(claim)
-
     for target_path in paths:
+        current_claim = resolve_claim_scope_for_target(
+            conn=conn,
+            claim=claim,
+            session_id=record.session_id,
+            target_path=target_path,
+            cwd=cwd,
+            resolver=resolve_active_claim_for_session,
+        )
+        if current_claim is None:
+            continue
+        ctx = ClaimContext.from_claim(current_claim)
         failure = evaluate_target(
             target_path=target_path,
             cwd=cwd,
@@ -178,10 +158,14 @@ def _format_narrative(
         )
 
         return worktree_unresolved_narrative(
-            tool_kind=tool_kind, target_path=target_path, ctx=ctx,
+            tool_kind=tool_kind,
+            target_path=target_path,
+            ctx=ctx,
         )
     template = widen_template(
-        claim_id=ctx.claim_id, item_id=ctx.item_id, target_path=target_path,
+        claim_id=ctx.claim_id,
+        item_id=ctx.item_id,
+        target_path=target_path,
     )
     expected_wt = failure.effective_worktree_path or ctx.worktree_path
     if failure.mode == WRONG_CWD:
@@ -292,7 +276,9 @@ def evaluate(record: HookContext) -> HookDecision:
     tool_record = build_tool_event_record(
         tool_name=str(payload.get("tool_name") or ""),
         tool_input=tool_input if isinstance(tool_input, dict) else {},
-        session_id=str(payload.get("session_id") or os.environ.get("YOKE_SESSION_ID") or ""),
+        session_id=str(
+            payload.get("session_id") or os.environ.get("YOKE_SESSION_ID") or ""
+        ),
         tool_use_id=payload.get("tool_use_id"),
         turn_id=payload.get("turn_id") or payload.get("message_id"),
         cwd=str(payload.get("cwd") or payload.get("project_dir") or ""),
@@ -305,7 +291,10 @@ def evaluate(record: HookContext) -> HookDecision:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     envelope = json.dumps(_build_deny_response(verdict.narrative))
     return HookDecision(
-        outcome=Outcome.DENY, message=envelope, block=True, next=Next.STOP,
+        outcome=Outcome.DENY,
+        message=envelope,
+        block=True,
+        next=Next.STOP,
         audit_fields={
             "failure_mode": verdict.failure_mode,
             "target_path": verdict.target_path,
@@ -324,8 +313,11 @@ def main() -> int:
         return 0
     cwd, sid = payload.get("cwd"), payload.get("session_id")
     record = HookContext(
-        event_name="PreToolUse", executor_family="claude", executor_surface="claude",
-        payload=payload, tool_name=str(payload.get("tool_name") or ""),
+        event_name="PreToolUse",
+        executor_family="claude",
+        executor_surface="claude",
+        payload=payload,
+        tool_name=str(payload.get("tool_name") or ""),
         cwd=cwd if isinstance(cwd, str) else None,
         session_id=sid if isinstance(sid, str) else None,
     )

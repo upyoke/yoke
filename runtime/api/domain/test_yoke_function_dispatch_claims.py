@@ -86,14 +86,17 @@ class _ClaimMatrixSuite(unittest.TestCase):
         self._patchers = [
             patch.object(events_module, "emit_event"),
             patch.object(
-                dispatch_module, "_idempotency_lookup",
+                dispatch_module,
+                "_idempotency_lookup",
                 lambda *_a, **_k: None,
             ),
             # Bind ambient session to the same id the test envelopes use so the
             # dispatcher's actor-identity gate stays out of the way and the
             # verify_claim matrix below is what actually runs.
             patch.dict(
-                "os.environ", {"YOKE_SESSION_ID": "s-1"}, clear=False,
+                "os.environ",
+                {"YOKE_SESSION_ID": "s-1"},
+                clear=False,
             ),
         ]
         for p in self._patchers:
@@ -110,8 +113,12 @@ class TestClaimRequiredPaths(_ClaimMatrixSuite):
 
     def test_none_kind_runs_handler_regardless(self):
         register(
-            "noclaim.family.op", _ok_handler, _Req, _Resp,
-            **_stable_kwargs(), claim_required_kind=None,
+            "noclaim.family.op",
+            _ok_handler,
+            _Req,
+            _Resp,
+            **_stable_kwargs(),
+            claim_required_kind=None,
         )
         with patch.object(claims_module, "who_claims_for_item", return_value=None):
             resp = dispatch(_make_request("noclaim.family.op"))
@@ -119,11 +126,16 @@ class TestClaimRequiredPaths(_ClaimMatrixSuite):
 
     def test_item_kind_passes_when_session_matches(self):
         register(
-            "itemclaim.family.op", _ok_handler, _Req, _Resp,
-            **_stable_kwargs(), claim_required_kind="item",
+            "itemclaim.family.op",
+            _ok_handler,
+            _Req,
+            _Resp,
+            **_stable_kwargs(),
+            claim_required_kind="item",
         )
         with patch.object(
-            claims_module, "who_claims_for_item",
+            claims_module,
+            "who_claims_for_item",
             return_value={"id": 1, "session_id": "s-1"},
         ):
             resp = dispatch(_make_request("itemclaim.family.op"))
@@ -131,86 +143,127 @@ class TestClaimRequiredPaths(_ClaimMatrixSuite):
 
     def test_item_kind_fails_on_mismatch(self):
         register(
-            "itemclaim2.family.op", _ok_handler, _Req, _Resp,
-            **_stable_kwargs(), claim_required_kind="item",
+            "itemclaim2.family.op",
+            _ok_handler,
+            _Req,
+            _Resp,
+            **_stable_kwargs(),
+            claim_required_kind="item",
         )
         with patch.object(
-            claims_module, "who_claims_for_item",
+            claims_module,
+            "who_claims_for_item",
             return_value={"id": 1, "session_id": "OTHER"},
         ):
             resp = dispatch(_make_request("itemclaim2.family.op"))
         self.assertFalse(resp.success)
         assert resp.error is not None
         self.assertEqual(resp.error.code, "claim_required")
+        self.assertIn("yoke claims work acquire", resp.error.message)
+        self.assertNotIn("service_client", resp.error.message)
 
     def test_item_kind_fails_when_no_claim(self):
         register(
-            "itemclaim3.family.op", _ok_handler, _Req, _Resp,
-            **_stable_kwargs(), claim_required_kind="item",
+            "itemclaim3.family.op",
+            _ok_handler,
+            _Req,
+            _Resp,
+            **_stable_kwargs(),
+            claim_required_kind="item",
         )
         with patch.object(
-            claims_module, "who_claims_for_item", return_value=None,
+            claims_module,
+            "who_claims_for_item",
+            return_value=None,
         ):
             resp = dispatch(_make_request("itemclaim3.family.op"))
         self.assertFalse(resp.success)
         assert resp.error is not None
         self.assertEqual(resp.error.code, "claim_required")
+        self.assertIn("yoke claims work acquire", resp.error.message)
+        self.assertNotIn("service_client", resp.error.message)
 
     def test_epic_kind_resolves_epic_id(self):
         register(
-            "epicclaim.family.op", _ok_handler, _Req, _Resp,
+            "epicclaim.family.op",
+            _ok_handler,
+            _Req,
+            _Resp,
             **_stable_kwargs(target_kinds=["epic_task"]),
             claim_required_kind="epic",
         )
         with patch.object(
-            claims_module, "who_claims_for_item",
+            claims_module,
+            "who_claims_for_item",
             return_value={"id": 7, "session_id": "s-1"},
         ):
-            resp = dispatch(_make_request(
-                "epicclaim.family.op",
-                kind="epic_task", item_id=0, epic_id=1665, task_num=1,
-            ))
+            resp = dispatch(
+                _make_request(
+                    "epicclaim.family.op",
+                    kind="epic_task",
+                    item_id=0,
+                    epic_id=1665,
+                    task_num=1,
+                )
+            )
         self.assertTrue(resp.success)
 
     def test_self_only_kind_passes_when_owner_matches(self):
         register(
-            "selfclaim.family.op", _ok_handler, _Req, _Resp,
+            "selfclaim.family.op",
+            _ok_handler,
+            _Req,
+            _Resp,
             **_stable_kwargs(target_kinds=["claim"]),
             claim_required_kind="self_only",
         )
         with patch.object(
-            claims_module, "_claim_row_for_id",
+            claims_module,
+            "_claim_row_for_id",
             return_value={"id": 99, "session_id": "s-1"},
         ):
             req = _make_request(
                 "selfclaim.family.op",
-                kind="claim", item_id=0, claim_id=99,
+                kind="claim",
+                item_id=0,
+                claim_id=99,
             )
             resp = dispatch(req)
         self.assertTrue(resp.success)
 
     def test_self_only_kind_fails_on_mismatch(self):
         register(
-            "selfclaim2.family.op", _ok_handler, _Req, _Resp,
+            "selfclaim2.family.op",
+            _ok_handler,
+            _Req,
+            _Resp,
             **_stable_kwargs(target_kinds=["claim"]),
             claim_required_kind="self_only",
         )
         with patch.object(
-            claims_module, "_claim_row_for_id",
+            claims_module,
+            "_claim_row_for_id",
             return_value={"id": 99, "session_id": "OTHER"},
         ):
             req = _make_request(
                 "selfclaim2.family.op",
-                kind="claim", item_id=0, claim_id=99,
+                kind="claim",
+                item_id=0,
+                claim_id=99,
             )
             resp = dispatch(req)
         self.assertFalse(resp.success)
         assert resp.error is not None
         self.assertEqual(resp.error.code, "claim_required")
+        self.assertIn("yoke claims work acquire", resp.error.message)
+        self.assertNotIn("service_client", resp.error.message)
 
     def test_operator_override_passes_for_operator(self):
         register(
-            "opclaim.family.op", _ok_handler, _Req, _Resp,
+            "opclaim.family.op",
+            _ok_handler,
+            _Req,
+            _Resp,
             **_stable_kwargs(target_kinds=["global"]),
             claim_required_kind="operator_override",
         )
@@ -221,7 +274,10 @@ class TestClaimRequiredPaths(_ClaimMatrixSuite):
 
     def test_operator_override_fails_for_non_operator(self):
         register(
-            "opclaim2.family.op", _ok_handler, _Req, _Resp,
+            "opclaim2.family.op",
+            _ok_handler,
+            _Req,
+            _Resp,
             **_stable_kwargs(target_kinds=["global"]),
             claim_required_kind="operator_override",
         )

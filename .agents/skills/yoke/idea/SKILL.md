@@ -50,6 +50,11 @@ yoke sessions touch --mode idea
 3. **Path Closure.** Before idea exits, the File Budget and the path-claim must be complete and consistent. The exit condition:
  - Every file the implementer will edit is enumerated in `## File Budget`, one path per line, with its line allocation. **Counts and approximations are not acceptable** — phrases like "roughly 30 files", "every caller", "all importers", "the survey shows N matches" must be expanded into a literal path list before exit. If you can't list them, the work isn't ready.
  - The path-claim's declared paths cover everything in the File Budget (verified by `yoke readiness check`).
+ - For an Epic pinned to `path_claims=required_per_task`, intake is the
+   exception: keep the full parent File Budget, but defer claim registration
+   until Shepherd persists generated tasks and `epic_task_files`. Never mint
+   an unbound parent claim as a substitute; the required gate reports this
+   pre-task state as a deliberate deferral.
  - Use whatever investigative work the spec demands — grep, sub-agents, codebase reading — to produce the full enumeration. The deliverable is the populated File Budget + matching claim, not a description of the work.
  - **Claim overlap does NOT narrow scope.** If a required file is already covered by another item's active or non-terminal path claim, the file stays in the File Budget and in this item's path-claim attempt. Active path claims are coordination/dependency/blocking facts — never permission to omit a required file. If registration conflicts, surface the conflict and route to the canonical resolution protocol at [`path-claim-blocking.md`](path-claim-blocking.md). The default shape is `coordination_only` (compatibility edge, no lifecycle gate) for independent same-file edits; order-dependent overlaps use directional `activation` instead. The full shape list, the columns they touch, and the resolution order live in `path-claim-blocking.md` and your `path_claims` packet stanza; this SKILL does not restate either surface. See `AGENTS.md` `## Path Claims — Hard Rule` for the full doctrine.
 

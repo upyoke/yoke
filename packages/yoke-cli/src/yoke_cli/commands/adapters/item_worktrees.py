@@ -30,6 +30,15 @@ ITEM_WORKTREES_GET_USAGE = (
     "[--field branch|path|lane-role|state|id] "
     "[--session-id S] [--json]"
 )
+ITEM_WORKTREES_LIST_USAGE = (
+    "yoke item-worktrees list <PREFIX-N> "
+    "[--project P] [--session-id S] [--json]"
+)
+ITEM_WORKTREES_PATH_RECORD_USAGE = (
+    "yoke item-worktrees path-record <PREFIX-N> --worktree-id ID "
+    "--branch BRANCH --path ABSOLUTE_PATH "
+    "[--project P] [--session-id S] [--json]"
+)
 ITEM_WORKTREES_RELEASE_USAGE = (
     "yoke item-worktrees release <PREFIX-N> --all-active "
     f"--reason {EVIDENCE_ONLY_RECOVERY_REASON} "
@@ -163,6 +172,81 @@ def item_worktrees_get(args: List[str]) -> int:
     )
 
 
+def item_worktrees_list(args: List[str]) -> int:
+    """Read every active item-owned worktree lane."""
+    parser = argparse.ArgumentParser(
+        prog="yoke item-worktrees list",
+        description=ITEM_WORKTREES_LIST_USAGE,
+    )
+    parser.add_argument(
+        "item",
+        help="Item id (PREFIX-N or project-local number).",
+    )
+    add_session_arg(parser)
+    add_json_arg(parser)
+    parsed = parse_or_usage_error(parser, args, ITEM_WORKTREES_LIST_USAGE)
+    if parsed is None:
+        return 2
+
+    def _human_writer(response, stdout, _stderr) -> None:
+        for lane in (response.result or {}).get("worktrees") or []:
+            print(
+                "|".join([
+                    str(lane.get("id") or ""),
+                    str(lane.get("lane_role") or ""),
+                    str(lane.get("branch") or ""),
+                    str(lane.get("path") or ""),
+                    str(lane.get("state") or ""),
+                ]),
+                file=stdout,
+            )
+
+    return dispatch_and_emit(
+        function_id="item_worktrees.list",
+        target=item_target("item", parsed.item, parsed.project),
+        payload={},
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
+        human_writer=_human_writer,
+    )
+
+
+def item_worktrees_path_record(args: List[str]) -> int:
+    """Record a local path against an unchanged authoritative lane."""
+    parser = argparse.ArgumentParser(
+        prog="yoke item-worktrees path-record",
+        description=ITEM_WORKTREES_PATH_RECORD_USAGE,
+    )
+    parser.add_argument(
+        "item",
+        help="Item id (PREFIX-N or project-local number).",
+    )
+    parser.add_argument("--worktree-id", type=int, required=True)
+    parser.add_argument("--branch", required=True)
+    parser.add_argument("--path", required=True)
+    add_session_arg(parser)
+    add_json_arg(parser)
+    parsed = parse_or_usage_error(
+        parser,
+        args,
+        ITEM_WORKTREES_PATH_RECORD_USAGE,
+    )
+    if parsed is None:
+        return 2
+
+    return dispatch_and_emit(
+        function_id="item_worktrees.path_record",
+        target=item_target("item", parsed.item, parsed.project),
+        payload={"path": parsed.path},
+        preconditions={
+            "worktree_id": parsed.worktree_id,
+            "branch": parsed.branch,
+        },
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
+    )
+
+
 def item_worktrees_release(args: List[str]) -> int:
     """Release every active lane for one claimed item."""
     parser = argparse.ArgumentParser(
@@ -227,7 +311,11 @@ def item_worktrees_release(args: List[str]) -> int:
 
 __all__ = [
     "ITEM_WORKTREES_GET_USAGE",
+    "ITEM_WORKTREES_LIST_USAGE",
+    "ITEM_WORKTREES_PATH_RECORD_USAGE",
     "ITEM_WORKTREES_RELEASE_USAGE",
     "item_worktrees_get",
+    "item_worktrees_list",
+    "item_worktrees_path_record",
     "item_worktrees_release",
 ]

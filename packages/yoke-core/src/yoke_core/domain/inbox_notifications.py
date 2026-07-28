@@ -13,7 +13,9 @@ from yoke_core.domain.decision_request_contract import (
     ITEM_BLOCK_STATE_CHANGED,
     ITEM_BLOCKED_EVENT,
     ITEM_UNBLOCKED_EVENT,
+    REQUEST_CREATED_EVENT,
     REQUEST_RESOLVED_EVENT,
+    REQUEST_WITHDRAWN_EVENT,
 )
 
 _PRODUCER_NAMES = {
@@ -29,6 +31,107 @@ def _p(conn: Any) -> str:
 
 def _row_dict(row: Any) -> dict[str, Any]:
     return {key: row[key] for key in row.keys()}
+
+
+def _registered_event(
+    conn: Any,
+    event_id: str,
+) -> tuple[str, Mapping[str, Any], str]:
+    p = _p(conn)
+    row = conn.execute(
+        f"SELECT event_name, envelope, created_at FROM events WHERE event_id = {p}",
+        (event_id,),
+    ).fetchone()
+    if row is None:
+        raise LookupError(f"registered producer event {event_id!r} does not exist")
+    try:
+        envelope = json.loads(row[1] or "{}")
+    except (TypeError, json.JSONDecodeError):
+        envelope = {}
+    context = envelope.get("context") if isinstance(envelope, Mapping) else {}
+    return (
+        str(row[0]),
+        context if isinstance(context, Mapping) else {},
+        str(row[2]),
+    )
+
+
+def addressed_actor_ids_for_registered_event(
+    conn: Any,
+    *,
+    event_id: str,
+    notification_kind: str | None = None,
+    event_context: Mapping[str, Any] | None = None,
+) -> tuple[int, ...]:
+    """Resolve one event's recipients at the shared addressing chokepoint."""
+    event_name, stored_context, _ = _registered_event(conn, event_id)
+    context = dict(stored_context)
+    if event_context:
+        context.update(event_context)
+
+    if event_name in {REQUEST_CREATED_EVENT, REQUEST_WITHDRAWN_EVENT}:
+        request_id = context.get("request_id")
+        if request_id is None:
+            raise ValueError(f"{event_name} needs request_id")
+        from yoke_core.domain.decision_requests import (
+            decision_request_authority_actor_ids,
+        )
+
+        return decision_request_authority_actor_ids(conn, int(request_id))
+
+    recipients: set[int] = set()
+    if notification_kind == DECISION_RESOLVED:
+        if event_name != REQUEST_RESOLVED_EVENT:
+            raise ValueError(
+                f"{event_name!r} cannot produce {notification_kind!r} notifications"
+            )
+        request_id = context.get("request_id")
+        if request_id is None:
+            raise ValueError("decision resolution event needs request_id")
+        p = _p(conn)
+        row = conn.execute(
+            f"SELECT originator_actor_id FROM decision_requests WHERE id = {p}",
+            (int(request_id),),
+        ).fetchone()
+        if row is None:
+            raise LookupError(f"decision request {request_id} does not exist")
+        if row[0] is not None:
+            recipients.add(int(row[0]))
+    elif notification_kind == DEPLOYMENT_RUN_COMPLETED:
+        if event_name not in _PRODUCER_NAMES[notification_kind]:
+            raise ValueError(
+                f"{event_name!r} cannot produce {notification_kind!r} notifications"
+            )
+        explicit_recipients = event_context is not None and (
+            "initiator_actor_id" in event_context
+            or "stage_approver_actor_ids" in event_context
+        )
+        run_id = str(context.get("run_id") or "")
+        if run_id and not explicit_recipients:
+            from yoke_core.domain.deployment_approval_requests import (
+                deployment_completion_actor_ids,
+            )
+
+            recipients.update(
+                deployment_completion_actor_ids(conn, run_id=run_id)
+            )
+        else:
+            initiator = context.get("initiator_actor_id")
+            approvers = context.get("stage_approver_actor_ids") or []
+            if initiator is not None:
+                recipients.add(int(initiator))
+            recipients.update(int(value) for value in approvers)
+    elif notification_kind == ITEM_BLOCK_STATE_CHANGED:
+        if event_name not in _PRODUCER_NAMES[notification_kind]:
+            raise ValueError(
+                f"{event_name!r} cannot produce {notification_kind!r} notifications"
+            )
+        owner = context.get("owner_actor_id")
+        if owner is not None:
+            recipients.add(int(owner))
+    else:
+        raise ValueError(f"unknown in-app notification kind {notification_kind!r}")
+    return tuple(sorted(recipients))
 
 
 def fan_out_in_app_notification(
@@ -77,40 +180,43 @@ def fan_out_registered_event(
     reason: str,
     created_at: str,
 ) -> int:
-    """Resolve the exact v1 recipients at the single fan-out chokepoint."""
-    recipients: list[int] = []
-    if notification_kind == DECISION_RESOLVED:
-        request_id = event_context.get("request_id")
-        if request_id is None:
-            raise ValueError("decision resolution event needs request_id")
-        p = _p(conn)
-        row = conn.execute(
-            f"SELECT originator_actor_id FROM decision_requests WHERE id = {p}",
-            (int(request_id),),
-        ).fetchone()
-        if row is None:
-            raise LookupError(f"decision request {request_id} does not exist")
-        if row[0] is not None:
-            recipients.append(int(row[0]))
-    elif notification_kind == DEPLOYMENT_RUN_COMPLETED:
-        initiator = event_context.get("initiator_actor_id")
-        approvers = event_context.get("stage_approver_actor_ids") or []
-        if initiator is not None:
-            recipients.append(int(initiator))
-        recipients.extend(int(value) for value in approvers)
-    elif notification_kind == ITEM_BLOCK_STATE_CHANGED:
-        owner = event_context.get("owner_actor_id")
-        if owner is not None:
-            recipients.append(int(owner))
-    else:
-        raise ValueError(f"unknown in-app notification kind {notification_kind!r}")
+    """Compatibility wrapper around the transaction-bound dispatch seam."""
+    return dispatch_addressed_event(
+        conn,
+        event_id=event_id,
+        notification_kind=notification_kind,
+        reason=reason,
+        created_at=created_at,
+        event_context=event_context,
+    )
+
+
+def dispatch_addressed_event(
+    conn: Any,
+    *,
+    event_id: str,
+    notification_kind: str,
+    reason: str,
+    created_at: str | None = None,
+    event_context: Mapping[str, Any] | None = None,
+) -> int:
+    """Resolve and materialize in-app recipients without committing."""
+    recipients = addressed_actor_ids_for_registered_event(
+        conn,
+        event_id=event_id,
+        notification_kind=notification_kind,
+        event_context=event_context,
+    )
+    event_created_at = created_at
+    if event_created_at is None:
+        _, _, event_created_at = _registered_event(conn, event_id)
     return fan_out_in_app_notification(
         conn,
         event_id=event_id,
         notification_kind=notification_kind,
         recipient_actor_ids=recipients,
         reason=reason,
-        created_at=created_at,
+        created_at=event_created_at,
     )
 
 
@@ -212,6 +318,8 @@ def mark_all_notifications_read(
 
 
 __all__ = [
+    "addressed_actor_ids_for_registered_event",
+    "dispatch_addressed_event",
     "fan_out_in_app_notification",
     "fan_out_registered_event",
     "mark_all_notifications_read",

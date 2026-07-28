@@ -67,18 +67,25 @@ QA_COMMANDS: list[dict] = [
         "recipe": (
             "yoke qa requirement add "
             "--item PREFIX-N --qa-kind ac_verification --qa-phase verification "
-            "--blocking-mode blocking --requirement-source ac_derived"
+            "--blocking-mode blocking --requirement-source ac_derived "
+            "--workflow-transition reviewed-implementation"
         ),
         "notes": (
             "Registered write qa.requirement.add — item-claim-gated, "
-            "item-attached. ac_verification omits `--success-policy` "
+            "item-attached. `--workflow-transition` is required and must "
+            "name a stage in the item's pinned workflow that carries or "
+            "precedes a qa_verification gate. ac_verification omits "
+            "`--success-policy` "
             "by default; stricter policy is "
             '`{"min_runs":N,"min_pass":N}`. Several rows in one '
             "transaction: pipe a JSON array to `yoke qa requirement "
-            "add-batch --item PREFIX-N --stdin`. Epic-task / "
-            "deployment-run attachment is operator-debug only: "
+            "add-batch --item PREFIX-N --stdin`; every row must include "
+            "`workflow_transition_id`. Epic-task attachment is "
+            "operator-debug only and requires the same binding: "
             "`python3 -m yoke_core.domain.qa requirement-add "
-            "--epic-id E --task-num K ...`."
+            "--epic-id E --task-num K --workflow-transition STAGE ...`. "
+            "Deployment-run attachment is operator-debug only and may "
+            "omit the transition because the run owns its delivery context."
         ),
     },
     {

@@ -12,8 +12,8 @@ from __future__ import annotations
 import pytest
 
 from yoke_core.domain._path_claims_test_helpers import (
-    conn,  # noqa: F401
     local_human,
+    seed_item,
 )
 from yoke_core.domain.path_claims import (
     IncompatibleOverlap,
@@ -28,17 +28,23 @@ from yoke_core.domain.path_claims_overlap import (
 from yoke_core.domain.path_registry import KIND_FILE
 from yoke_core.domain.path_targets_planning import plan_path_target
 
+pytest_plugins = ("yoke_core.domain._path_claims_test_helpers",)
+
 
 class TestExpandLineage:
     def test_includes_ancestors_and_descendants(self, conn):
         leaf = plan_path_target(
-            conn, project_id=1,
-            path_string="a/b/c.py", kind=KIND_FILE, item_id=1,
+            conn,
+            project_id=1,
+            path_string="a/b/c.py",
+            kind=KIND_FILE,
+            item_id=1,
         )
         expanded = expand_lineage(conn, [leaf])
         rows = conn.execute(
             "SELECT id, path_string FROM path_targets WHERE id IN ("
-            + ",".join("%s" for _ in expanded) + ")",
+            + ",".join("%s" for _ in expanded)
+            + ")",
             tuple(expanded),
         ).fetchall()
         paths = {r["path_string"] for r in rows}
@@ -47,8 +53,10 @@ class TestExpandLineage:
     def test_expands_many_targets_with_one_graph_scan(self, conn):
         leaves = [
             plan_path_target(
-                conn, project_id=1,
-                path_string=f"bulk/path_{idx}.py", kind=KIND_FILE,
+                conn,
+                project_id=1,
+                path_string=f"bulk/path_{idx}.py",
+                kind=KIND_FILE,
                 item_id=1,
             )
             for idx in range(120)
@@ -79,82 +87,134 @@ class TestExpandLineage:
 class TestRegisterDescendantConflict:
     def test_directory_then_file_conflicts(self, conn):
         actor = local_human(conn)
+        seed_item(conn, item_id=1)
+        seed_item(conn, item_id=2)
         leaf = plan_path_target(
-            conn, project_id=1,
-            path_string="a/b/c.py", kind=KIND_FILE, item_id=1,
+            conn,
+            project_id=1,
+            path_string="a/b/c.py",
+            kind=KIND_FILE,
+            item_id=1,
         )
         ab = conn.execute(
             "SELECT id FROM path_targets WHERE path_string='a/b'"
         ).fetchone()[0]
         register(
-            conn, actor_id=actor, integration_target="main",
-            target_ids=[ab], item_id=1,
+            conn,
+            actor_id=actor,
+            integration_target="main",
+            target_ids=[ab],
+            item_id=1,
         )
         with pytest.raises(IncompatibleOverlap):
             register(
-                conn, actor_id=actor, integration_target="main",
-                target_ids=[leaf], item_id=2,
+                conn,
+                actor_id=actor,
+                integration_target="main",
+                target_ids=[leaf],
+                item_id=2,
             )
 
     def test_file_then_directory_conflicts(self, conn):
         actor = local_human(conn)
+        seed_item(conn, item_id=1)
+        seed_item(conn, item_id=2)
         leaf = plan_path_target(
-            conn, project_id=1,
-            path_string="a/b/c.py", kind=KIND_FILE, item_id=1,
+            conn,
+            project_id=1,
+            path_string="a/b/c.py",
+            kind=KIND_FILE,
+            item_id=1,
         )
         ab = conn.execute(
             "SELECT id FROM path_targets WHERE path_string='a/b'"
         ).fetchone()[0]
         register(
-            conn, actor_id=actor, integration_target="main",
-            target_ids=[leaf], item_id=1,
+            conn,
+            actor_id=actor,
+            integration_target="main",
+            target_ids=[leaf],
+            item_id=1,
         )
         with pytest.raises(IncompatibleOverlap):
             register(
-                conn, actor_id=actor, integration_target="main",
-                target_ids=[ab], item_id=2,
+                conn,
+                actor_id=actor,
+                integration_target="main",
+                target_ids=[ab],
+                item_id=2,
             )
 
     def test_disjoint_subtrees_do_not_conflict(self, conn):
         actor = local_human(conn)
+        seed_item(conn, item_id=1)
+        seed_item(conn, item_id=2)
         a_file = plan_path_target(
-            conn, project_id=1,
-            path_string="a/x.py", kind=KIND_FILE, item_id=1,
+            conn,
+            project_id=1,
+            path_string="a/x.py",
+            kind=KIND_FILE,
+            item_id=1,
         )
         b_file = plan_path_target(
-            conn, project_id=1,
-            path_string="b/y.py", kind=KIND_FILE, item_id=2,
+            conn,
+            project_id=1,
+            path_string="b/y.py",
+            kind=KIND_FILE,
+            item_id=2,
         )
         register(
-            conn, actor_id=actor, integration_target="main",
-            target_ids=[a_file], item_id=1,
+            conn,
+            actor_id=actor,
+            integration_target="main",
+            target_ids=[a_file],
+            item_id=1,
         )
         register(
-            conn, actor_id=actor, integration_target="main",
-            target_ids=[b_file], item_id=2,
+            conn,
+            actor_id=actor,
+            integration_target="main",
+            target_ids=[b_file],
+            item_id=2,
         )
 
     def test_exception_claim_never_conflicts(self, conn):
         actor = local_human(conn)
+        seed_item(conn, item_id=10)
+        seed_item(conn, item_id=11)
         # Exception lands first — should not block subsequent real claim.
         register_exception(
-            conn, actor_id=actor, integration_target="main",
-            target_ids=[], exception_reason="meta", item_id=10,
+            conn,
+            actor_id=actor,
+            integration_target="main",
+            target_ids=[],
+            exception_reason="meta",
+            item_id=10,
         )
         leaf = plan_path_target(
-            conn, project_id=1,
-            path_string="real.py", kind=KIND_FILE, item_id=11,
+            conn,
+            project_id=1,
+            path_string="real.py",
+            kind=KIND_FILE,
+            item_id=11,
         )
         register(
-            conn, actor_id=actor, integration_target="main",
-            target_ids=[leaf], item_id=11,
+            conn,
+            actor_id=actor,
+            integration_target="main",
+            target_ids=[leaf],
+            item_id=11,
         )
 
     def test_classify_overlap_returns_incompatible_via_descendant(self, conn):
         actor = local_human(conn)
+        seed_item(conn, item_id=1)
         plan_path_target(
-            conn, project_id=1,
-            path_string="x/y/z.py", kind=KIND_FILE, item_id=1,
+            conn,
+            project_id=1,
+            path_string="x/y/z.py",
+            kind=KIND_FILE,
+            item_id=1,
         )
         xy = conn.execute(
             "SELECT id FROM path_targets WHERE path_string='x/y'"
@@ -164,12 +224,17 @@ class TestRegisterDescendantConflict:
         ).fetchone()[0]
         # Register the directory claim first.
         register(
-            conn, actor_id=actor, integration_target="main",
-            target_ids=[xy], item_id=1,
+            conn,
+            actor_id=actor,
+            integration_target="main",
+            target_ids=[xy],
+            item_id=1,
         )
         # Classifier called directly with the leaf set.
         result = classify_overlap(
-            conn, target_ids=[leaf], integration_target="main",
+            conn,
+            target_ids=[leaf],
+            integration_target="main",
         )
         assert result is OverlapClassification.INCOMPATIBLE
 
@@ -178,6 +243,7 @@ class TestRenameCoverage:
     def test_observed_source_plus_planned_destination_can_co_exist(self, conn):
         """AC-14: a rename plan claims observed source + planned destination."""
         actor = local_human(conn)
+        seed_item(conn, item_id=1)
         # Seed an observed source row directly.
         cur = conn.execute(
             "INSERT INTO path_targets "
@@ -189,13 +255,20 @@ class TestRenameCoverage:
         )
         old_id = cur.fetchone()[0]
         new_id = plan_path_target(
-            conn, project_id=1,
-            path_string="new.py", kind=KIND_FILE, item_id=1,
+            conn,
+            project_id=1,
+            path_string="new.py",
+            kind=KIND_FILE,
+            item_id=1,
         )
         cid = register(
-            conn, actor_id=actor, integration_target="main",
-            target_ids=[old_id, new_id], item_id=1,
+            conn,
+            actor_id=actor,
+            integration_target="main",
+            target_ids=[old_id, new_id],
+            item_id=1,
         )
         from yoke_core.domain.path_claims import get_claim
+
         claim = get_claim(conn, cid)
         assert sorted(claim["target_ids"]) == sorted([old_id, new_id])

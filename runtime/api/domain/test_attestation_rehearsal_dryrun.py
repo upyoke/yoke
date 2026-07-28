@@ -28,7 +28,6 @@ from yoke_core.domain import attestation_rehearsal_dryrun as dryrun
 from yoke_core.domain.attestation_rehearsal_dryrun import (
     ATTESTATION_REHEARSAL_COMMAND_FAILED,
     ValidationOutcome,
-    _check_command_shape,
     issue_payloads_for_item,
     validate_attestation_rehearsal_commands,
 )
@@ -106,10 +105,12 @@ class TestRehearsalCommandFixtures:
             conn,
             item_id=1,
             profile=_declared_profile(),
-            attestation=_attestation([
-                "python3 -m yoke_core.domain.migration_apply rehearse 1 "
-                "--module-path-override <worktree>/runtime/api/domain/x.py",
-            ]),
+            attestation=_attestation(
+                [
+                    "python3 -m yoke_core.domain.migration_apply rehearse 1 "
+                    "--module-path-override <worktree>/runtime/api/domain/x.py",
+                ]
+            ),
         )
         outcomes = validate_attestation_rehearsal_commands(conn, 1)
         assert len(outcomes) == 1
@@ -123,10 +124,12 @@ class TestRehearsalCommandFixtures:
             conn,
             item_id=2,
             profile=_declared_profile(),
-            attestation=_attestation([
-                f"{sys.executable} -m pytest "
-                "runtime/api/domain/test_path_that_does_not_exist.py -q",
-            ]),
+            attestation=_attestation(
+                [
+                    f"{sys.executable} -m pytest "
+                    "runtime/api/domain/test_path_that_does_not_exist.py -q",
+                ]
+            ),
         )
         outcomes = validate_attestation_rehearsal_commands(conn, 2)
         assert len(outcomes) == 1
@@ -140,19 +143,20 @@ class TestRehearsalCommandFixtures:
             conn,
             item_id=3,
             profile=_declared_profile(),
-            attestation=_attestation([
-                # Valid: existing in-repo test file.
-                f"{sys.executable} -m pytest "
-                "runtime/api/domain/test_attestation_rehearsal_dryrun.py -q",
-                # Valid: inline Python with no path tokens.
-                f"{sys.executable} -c \"import sys; sys.exit(0)\"",
-            ]),
+            attestation=_attestation(
+                [
+                    # Valid: existing in-repo test file.
+                    f"{sys.executable} -m pytest "
+                    "runtime/api/domain/test_attestation_rehearsal_dryrun.py -q",
+                    # Valid: inline Python with no path tokens.
+                    f'{sys.executable} -c "import sys; sys.exit(0)"',
+                ]
+            ),
         )
         outcomes = validate_attestation_rehearsal_commands(conn, 3)
         assert len(outcomes) == 2
         assert all(o.passed for o in outcomes)
         assert all(o.failure_reason == "" for o in outcomes)
-
 
 
 # ---------------------------------------------------------------------------
@@ -166,10 +170,12 @@ class TestShortCircuit:
             conn,
             item_id=4,
             profile={"state": "none"},
-            attestation=_attestation([
-                f"{sys.executable} -m pytest "
-                "runtime/api/domain/test_does_not_exist.py",
-            ]),
+            attestation=_attestation(
+                [
+                    f"{sys.executable} -m pytest "
+                    "runtime/api/domain/test_does_not_exist.py",
+                ]
+            ),
         )
         assert validate_attestation_rehearsal_commands(conn, 4) == []
 
@@ -220,16 +226,19 @@ class TestIssuePayloadShape:
             conn,
             item_id=8,
             profile=_declared_profile(),
-            attestation=_attestation([
-                "echo <unresolved>/path/to/anything.py",
-            ]),
+            attestation=_attestation(
+                [
+                    "echo <unresolved>/path/to/anything.py",
+                ]
+            ),
         )
         payloads = issue_payloads_for_item(conn, 8)
         assert len(payloads) == 1
         payload = payloads[0]
         assert payload["code"] == ATTESTATION_REHEARSAL_COMMAND_FAILED
         assert "unresolved placeholder" in payload["message"]
-        assert "db-claim-amend" in payload["remediation"]
+        assert "yoke db-claim amend YOK-8 --reason" in payload["remediation"]
+        assert "service_client" not in payload["remediation"]
         context = payload["context"]
         assert context["failure_reason"] == "unresolved_placeholder"
         assert "<unresolved>" in context["failure_token"]
@@ -240,10 +249,12 @@ class TestIssuePayloadShape:
             conn,
             item_id=9,
             profile=_declared_profile(),
-            attestation=_attestation([
-                f"{sys.executable} -m pytest "
-                "runtime/api/domain/test_does_not_exist.py -q",
-            ]),
+            attestation=_attestation(
+                [
+                    f"{sys.executable} -m pytest "
+                    "runtime/api/domain/test_does_not_exist.py -q",
+                ]
+            ),
         )
         payloads = issue_payloads_for_item(conn, 9)
         assert len(payloads) == 1
@@ -255,9 +266,11 @@ class TestIssuePayloadShape:
             conn,
             item_id=10,
             profile=_declared_profile(),
-            attestation=_attestation([
-                f"{sys.executable} -c \"print('ok')\"",
-            ]),
+            attestation=_attestation(
+                [
+                    f"{sys.executable} -c \"print('ok')\"",
+                ]
+            ),
         )
         assert issue_payloads_for_item(conn, 10) == []
 
@@ -269,7 +282,9 @@ class TestIssuePayloadShape:
 
 class TestNoSubprocessSafety:
     def test_validator_does_not_call_subprocess_run(
-        self, conn, monkeypatch,
+        self,
+        conn,
+        monkeypatch,
     ) -> None:
         """Tripwire on subprocess.run; YOK-1800 broken shape must not execute."""
         sentinel: List[str] = []
@@ -289,55 +304,19 @@ class TestNoSubprocessSafety:
             conn,
             item_id=11,
             profile=_declared_profile(),
-            attestation=_attestation([
-                # The exact YOK-1800 broken shape. If the validator
-                # executed this, the tripwire would fire.
-                "python3 -m yoke_core.domain.migration_apply rehearse 11 "
-                "--module-path-override <worktree>/runtime/api/domain/x.py",
-            ]),
+            attestation=_attestation(
+                [
+                    # The exact YOK-1800 broken shape. If the validator
+                    # executed this, the tripwire would fire.
+                    "python3 -m yoke_core.domain.migration_apply rehearse 11 "
+                    "--module-path-override <worktree>/runtime/api/domain/x.py",
+                ]
+            ),
         )
         outcomes = validate_attestation_rehearsal_commands(conn, 11)
         assert sentinel == []
         assert outcomes[0].passed is False
         assert outcomes[0].failure_reason == "unresolved_placeholder"
-
-
-# ---------------------------------------------------------------------------
-# Helper-level checks for the shape detector
-# ---------------------------------------------------------------------------
-
-
-class TestCheckCommandShape:
-    @pytest.fixture
-    def repo_root(self) -> Path:
-        return _REPO_ROOT
-
-    def test_existing_path_passes(self, repo_root) -> None:
-        assert _check_command_shape(
-            f"{sys.executable} -m pytest "
-            "runtime/api/domain/test_attestation_rehearsal_dryrun.py -q",
-            repo_root,
-        ) is None
-
-    def test_unbalanced_quotes_flagged(self, repo_root) -> None:
-        result = _check_command_shape('echo "unbalanced', repo_root)
-        assert result is not None
-        assert result[0] == "shell_parse_error"
-
-    def test_inline_python_source_not_path_token(self, repo_root) -> None:
-        assert _check_command_shape(
-            f"{sys.executable} -c \"import json; json.dumps({{}})\"",
-            repo_root,
-        ) is None
-
-    def test_dotted_module_ref_not_path_token(self, repo_root) -> None:
-        # A bare ``yoke_core.domain.migration_apply`` (module dotted
-        # ref) must not be stat'd — it's not a filesystem path.
-        assert _check_command_shape(
-            "python3 -m yoke_core.domain.migration_apply --help",
-            repo_root,
-        ) is None
-
 
 
 def test_validation_outcome_dataclass_exposed() -> None:

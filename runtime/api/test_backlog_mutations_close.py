@@ -1,6 +1,7 @@
+# ruff: noqa: F811
 """Mutation tests — execute_close.
 
-Covers reason validation, delivery-tail/worktree-lane/merge guards, idempotent
+Cover reason validation, delivery-tail/merge guards, terminal lane cleanup, idempotent
 re-close, resolution-ref normalization, and the dry-run skip path that
 suppresses GitHub side effects but still rebuilds the board.
 """
@@ -35,13 +36,27 @@ def _seed_active_item_lane(path, *, item_id: int, branch: str) -> None:
         conn.close()
 
 
+def _item_lane_state(path, *, item_id: int, branch: str) -> str:
+    conn = _conn(path)
+    try:
+        row = conn.execute(
+            "SELECT state FROM item_worktrees WHERE item_id=%s AND branch=%s",
+            (item_id, branch),
+        ).fetchone()
+        return str(row[0])
+    finally:
+        conn.close()
+
+
 class TestExecuteClose:
     def test_basic_close_sets_resolution(self, tmp_db):
         _seed_item(tmp_db, id=10, status="idea", frozen=1)
         out = io.StringIO()
 
-        with _patch_externals() as patched, \
-             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
+        with (
+            _patch_externals() as patched,
+            mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}),
+        ):
             result = backlog.execute_close(
                 item_id=10,
                 reason="duplicate",
@@ -66,8 +81,7 @@ class TestExecuteClose:
         _seed_item(tmp_db, id=10, status="idea")
         out = io.StringIO()
 
-        with _patch_externals(), \
-             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
+        with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
             result = backlog.execute_close(
                 item_id=10,
                 reason="duplicate",
@@ -82,8 +96,10 @@ class TestExecuteClose:
         _seed_item(tmp_db, id=10, status="cancelled", resolution="obsolete")
         out = io.StringIO()
 
-        with _patch_externals() as patched, \
-             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
+        with (
+            _patch_externals() as patched,
+            mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}),
+        ):
             result = backlog.execute_close(10, "obsolete", out=out)
 
         assert result["success"] is True
@@ -96,8 +112,7 @@ class TestExecuteClose:
         _seed_item(tmp_db, id=10)
         out = io.StringIO()
 
-        with _patch_externals(), \
-             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
+        with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
             result = backlog.execute_close(10, "badvalue", out=out)
 
         assert result["success"] is False
@@ -107,8 +122,7 @@ class TestExecuteClose:
         _seed_item(tmp_db, id=10, status="implemented")
         out = io.StringIO()
 
-        with _patch_externals(), \
-             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
+        with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
             result = backlog.execute_close(10, "wontfix", out=out)
 
         assert result["success"] is False
@@ -118,36 +132,45 @@ class TestExecuteClose:
         _seed_item(tmp_db, id=10, merged_at="2026-01-01T00:00:00Z")
         out = io.StringIO()
 
-        with _patch_externals(), \
-             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
+        with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
             result = backlog.execute_close(10, "obsolete", out=out)
 
         assert result["success"] is False
         assert "merge evidence" in result["error"]
 
-    def test_close_rejects_active_worktree(self, tmp_db):
+    def test_close_releases_active_worktree(self, tmp_db):
         _seed_item(tmp_db, id=10)
         _seed_active_item_lane(tmp_db, item_id=10, branch="YOK-10")
         out = io.StringIO()
 
-        with _patch_externals(), \
-             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
+        with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
             result = backlog.execute_close(10, "obsolete", out=out)
 
-        assert result["success"] is False
-        assert "active worktree" in result["error"]
+        assert result["success"] is True
+        assert _item_field(tmp_db, 10, "status") == "cancelled"
+        assert (
+            _item_lane_state(
+                tmp_db,
+                item_id=10,
+                branch="YOK-10",
+            )
+            == "released"
+        )
 
     def test_close_emits_item_status_changed_event(self, tmp_db):
         _seed_item(tmp_db, id=10, status="idea")
         out = io.StringIO()
 
-        with _patch_externals() as patched, \
-             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
+        with (
+            _patch_externals() as patched,
+            mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}),
+        ):
             result = backlog.execute_close(10, "obsolete", out=out)
 
         assert result["success"] is True
         emit_calls = [
-            call for call in patched["_emit_event"].call_args_list
+            call
+            for call in patched["_emit_event"].call_args_list
             if call.args[0] == "ItemStatusChanged"
         ]
         assert len(emit_calls) == 1, (
@@ -164,12 +187,14 @@ class TestExecuteClose:
         _seed_item(tmp_db, id=10, status="idea")
         out = io.StringIO()
 
-        with _patch_externals(), \
-             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}), \
-             mock.patch(
-                 "yoke_core.domain.backlog_close_op.cancel_claims_on_item_terminal",
-                 return_value=2,
-             ) as cancel_mock:
+        with (
+            _patch_externals(),
+            mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}),
+            mock.patch(
+                "yoke_core.domain.path_claims_item_hook.cancel_claims_on_item_terminal",
+                return_value=2,
+            ) as cancel_mock,
+        ):
             result = backlog.execute_close(10, "obsolete", out=out)
 
         assert result["success"] is True
@@ -177,22 +202,26 @@ class TestExecuteClose:
         _, kwargs = cancel_mock.call_args
         assert kwargs["item_id"] == 10
         assert kwargs["new_status"] == "cancelled"
+        assert kwargs["commit"] is False
         assert "Cancelled 2 non-terminal path claim(s) for YOK-10" in out.getvalue()
 
     def test_close_noop_skips_event_and_hook(self, tmp_db):
         _seed_item(tmp_db, id=10, status="cancelled", resolution="obsolete")
         out = io.StringIO()
 
-        with _patch_externals() as patched, \
-             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}), \
-             mock.patch(
-                 "yoke_core.domain.backlog_close_op.cancel_claims_on_item_terminal",
-             ) as cancel_mock:
+        with (
+            _patch_externals() as patched,
+            mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}),
+            mock.patch(
+                "yoke_core.domain.path_claims_item_hook.cancel_claims_on_item_terminal",
+            ) as cancel_mock,
+        ):
             result = backlog.execute_close(10, "obsolete", out=out)
 
         assert result.get("noop") is True
         emit_calls = [
-            call for call in patched["_emit_event"].call_args_list
+            call
+            for call in patched["_emit_event"].call_args_list
             if call.args[0] == "ItemStatusChanged"
         ]
         assert emit_calls == []
@@ -202,9 +231,13 @@ class TestExecuteClose:
         _seed_item(tmp_db, id=10)
         out = io.StringIO()
 
-        with _patch_externals() as patched, \
-             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}), \
-             mock.patch("yoke_core.domain.backlog_updates._is_dry_run", return_value=True):
+        with (
+            _patch_externals() as patched,
+            mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}),
+            mock.patch(
+                "yoke_core.domain.backlog_updates._is_dry_run", return_value=True
+            ),
+        ):
             result = backlog.execute_close(10, "wontfix", out=out)
 
         assert result["success"] is True

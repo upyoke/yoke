@@ -98,6 +98,7 @@ yoke qa requirement add \
   --item YOK-N \
   --method-id browser-check \
   --qa-phase verification \
+  --workflow-transition reviewed-implementation \
   --instructions "Open /login and inspect the form" \
   --expected-outcome "The login form is visible and usable" \
   --method-config '{"steps":[{"action":"navigate","route":"/login"},{"action":"assert","target":"[data-testid=login-form]","check":"visible"},{"action":"screenshot","capture":true}]}'

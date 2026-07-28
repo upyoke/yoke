@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from yoke_core.domain.lifecycle import (
+from yoke_core.domain.task_lifecycle import (
     ALL_TASK_STATUSES,
     TASK_TERMINAL_SUCCESS,
     TERMINAL_FAILURE,

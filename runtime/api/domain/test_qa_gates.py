@@ -41,6 +41,25 @@ class TestCheckVerificationEntry:
         result = check_verification_entry(target, qa_db)
         assert not result.passed
         assert any("no qa_requirements found" in e for e in result.errors)
+        assert any(
+            "--workflow-transition reviewed-implementation" in error
+            for error in result.errors
+        )
+
+    def test_epic_task_recovery_names_the_derived_transition(self, qa_db):
+        target = GateTarget.parse("833:5")
+        with mock.patch(
+            "yoke_core.domain.qa_gates.item_transition_for_gate",
+            return_value="qa-review",
+        ):
+            result = check_verification_entry(target, qa_db)
+
+        assert not result.passed
+        assert any(
+            "python3 -m yoke_core.domain.qa requirement-add" in error
+            and "--workflow-transition qa-review" in error
+            for error in result.errors
+        )
 
     def test_tc_bypass_flag(self, qa_db, monkeypatch):
         monkeypatch.setenv("YOKE_QA_GATE_BYPASS", "1")

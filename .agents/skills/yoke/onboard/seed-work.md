@@ -58,7 +58,8 @@ plan, keep the ad hoc requirement surface:
 ```bash
 yoke qa requirement add --item {ITEM} --qa-kind ac_verification \
   --qa-phase verification --blocking-mode blocking \
-  --requirement-source explicit
+  --requirement-source explicit \
+  --workflow-transition reviewed-implementation
 ```
 
 Mark the row with the created ids as evidence:

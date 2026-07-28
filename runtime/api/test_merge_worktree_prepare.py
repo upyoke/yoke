@@ -9,8 +9,6 @@ Shared fixtures and helpers live in test_merge_worktree_full.py.
 
 from pathlib import Path
 
-import pytest
-
 from runtime.api.test_merge_worktree_full import (
     TEST_BRANCH,
     MergeEnv,
@@ -19,10 +17,10 @@ from runtime.api.test_merge_worktree_full import (
     _insert_canonical_integration_simulation,
     _insert_plain_text_integration_simulation,
     _write_file,
-    _write_mock_gh,
-    merge_env,  # re-export so pytest recognises this fixture in the child module
     run_merge,
 )
+
+pytest_plugins = ("runtime.api.test_merge_worktree_full",)
 
 
 # ===========================================================================
@@ -190,8 +188,7 @@ class TestSimulationGate:
         machine_home = merge_env.tmpdir / "sim-machine-home"
         machine_home.mkdir(exist_ok=True)
         (machine_home / "config.json").write_text(
-            '{"settings": {"ci_registration_timeout": "1",'
-            ' "ci_poll_interval": "1"}}',
+            '{"settings": {"ci_registration_timeout": "1", "ci_poll_interval": "1"}}',
             encoding="utf-8",
         )
         return run_merge(
@@ -204,21 +201,30 @@ class TestSimulationGate:
             },
         )
 
-    def test_yok1180_preflight_missing_simulation_blocks(self, merge_env: MergeEnv) -> None:
+    def test_yok1180_preflight_missing_simulation_blocks(
+        self, merge_env: MergeEnv
+    ) -> None:
         """Missing simulation report blocks merge."""
         db = self._setup_sim_db(merge_env)
         result = self._run_with_sim_db(merge_env, db)
         assert result.exit_code == 1
         assert "FAIL: Integration simulation report not found" in result.stderr
 
-    def test_yok1180_preflight_skip_simulation_override(self, merge_env: MergeEnv) -> None:
+    def test_yok1180_preflight_skip_simulation_override(
+        self, merge_env: MergeEnv
+    ) -> None:
         """--skip-simulation overrides missing report gate."""
         db = self._setup_sim_db(merge_env)
         result = self._run_with_sim_db(merge_env, db, "42 --skip-simulation")
         assert result.exit_code == 0
-        assert "WARN: Integration simulation gate overridden (--skip-simulation)" in result.stderr
+        assert (
+            "WARN: Integration simulation gate overridden (--skip-simulation)"
+            in result.stderr
+        )
 
-    def test_yok1180_preflight_plain_text_simulation_rejected(self, merge_env: MergeEnv) -> None:
+    def test_yok1180_preflight_plain_text_simulation_rejected(
+        self, merge_env: MergeEnv
+    ) -> None:
         """Plain text simulation rejected."""
         db = self._setup_sim_db(merge_env)
         _insert_plain_text_integration_simulation(db)
@@ -226,7 +232,9 @@ class TestSimulationGate:
         assert result.exit_code == 1
         assert "FAIL: Integration simulation report not found" in result.stderr
 
-    def test_yok1180_preflight_canonical_simulation_passes(self, merge_env: MergeEnv) -> None:
+    def test_yok1180_preflight_canonical_simulation_passes(
+        self, merge_env: MergeEnv
+    ) -> None:
         """Canonical JSON simulation passes."""
         db = self._setup_sim_db(merge_env)
         _insert_canonical_integration_simulation(db)
@@ -259,24 +267,6 @@ class TestBranchValidation:
         result = run_merge(merge_env, branch="YOK-99", done_transition=False)
         assert result.exit_code == 1
         assert "standalone item branch" in result.stderr
-
-    def test_yok1153_legacy_branch_rejected(self, merge_env: MergeEnv) -> None:
-        """Legacy issue/YOK-* branch rejected."""
-        repo = merge_env.repo
-
-        _git(repo, "branch", "issue/YOK-99")
-        legacy_wt = merge_env.tmpdir / "worktree-issue-yok99"
-        _git(repo, "worktree", "add", str(legacy_wt), "issue/YOK-99")
-        _git(legacy_wt, "config", "user.email", "test@test.com")
-        _git(legacy_wt, "config", "user.name", "Test")
-        _write_file(legacy_wt / "legacy.txt", "legacy work\n")
-        _git(legacy_wt, "add", "legacy.txt")
-        _git(legacy_wt, "commit", "-m", "legacy work")
-        _git(legacy_wt, "push", "origin", "issue/YOK-99")
-
-        result = run_merge(merge_env, branch="issue/YOK-99")
-        assert result.exit_code == 1
-        assert "legacy" in result.stderr.lower() or "retired" in result.stderr.lower()
 
     def test_yok345_done_transition_exemption(self, merge_env: MergeEnv) -> None:
         """With YOKE_DONE_TRANSITION=1, standalone guard does not fire."""

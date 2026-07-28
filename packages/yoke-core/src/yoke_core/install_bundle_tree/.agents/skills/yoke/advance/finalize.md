@@ -36,15 +36,18 @@ Never hand-write intermediate `items scalar update --field status` hops to climb
 ### Skip-flag bookkeeping hops
 
 `yoke_core.domain.advance_skip_core` owns the operator-asserted skip routing:
-`_REFINE_ROUTING` defines the bookkeeping hops, while
-`_REFINE_TARGETS_ALLOWED` and `_POLISH_TRANSIT_ALLOWED` are the exact
-claim-bypass allowlists. Each allowlist stays disjoint from any rung that
-carries a real gate, so claim-bypass is only ever granted for bookkeeping
-moves.
+`_executor_skip_route` reads the item's pinned `executor_bindings`, ordered
+stages, and declared `transitions`. It selects the active `refine` segment or
+the entry to the `polish` segment, derives every hop through that binding's
+handoff, and supplies that route as the exact claim-bypass allowlist. Never
+infer these hops from `workflow_id` or a built-in stage sequence.
 
 The operator-facing `--skip-polish` and `--skip-refine` flags (documented in `SKILL.md` step 0) dispatch to `advance_skip` and return before reaching this finalize step — they handle the full lifecycle themselves (hops, events, claim release):
 
-- `--skip-polish` → `advance_skip.skip_polish`: `reviewed-implementation` → `polishing-implementation` → `implemented` with `YOKE_CLAIM_BYPASS=skip-polish`. Claim releases with reason `handoff-to-usher`.
+- `--skip-polish` → `advance_skip.skip_polish`: traverses the pinned `polish`
+  binding from its `from_stage_id` through its `through_stage_id` with
+  `YOKE_CLAIM_BYPASS=skip-polish`. Claim releases with reason
+  `handoff-to-usher`.
 - `--skip-refine` → `advance_skip.skip_refine`: traverses only the
   allowlisted bookkeeping rungs in the active refine segment with
   `YOKE_CLAIM_BYPASS=skip-refine`. Claim releases opportunistically with

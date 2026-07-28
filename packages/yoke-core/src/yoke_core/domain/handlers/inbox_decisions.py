@@ -210,6 +210,9 @@ def handle_decision_withdraw(request: FunctionCallRequest) -> HandlerOutcome:
     invalid = _require_global(request, "decision_requests.withdraw")
     if invalid is not None:
         return invalid
+    actor_id = _actor_id(request, "decision_requests.withdraw")
+    if isinstance(actor_id, HandlerOutcome):
+        return actor_id
     try:
         model = DecisionWithdrawRequest.model_validate(request.payload or {})
     except Exception as exc:
@@ -219,22 +222,23 @@ def handle_decision_withdraw(request: FunctionCallRequest) -> HandlerOutcome:
         withdraw_decision_request,
     )
 
-    raw_actor = (request.actor.actor_id or "").strip()
     conn = db_helpers.connect()
     try:
         row = withdraw_decision_request(
             conn,
             model.request_id,
             reason=model.reason,
-            actor_id=int(raw_actor) if raw_actor.isdigit() else None,
+            actor_id=actor_id,
             session_id=request.actor.session_id,
         )
-    except LookupError as exc:
+    except (LookupError, PermissionError, ValueError) as exc:
         conn.rollback()
-        return _error("not_found", str(exc))
-    except ValueError as exc:
-        conn.rollback()
-        return _error("invalid_state", str(exc))
+        code = (
+            "permission_denied" if isinstance(exc, PermissionError) else "invalid_state"
+        )
+        if isinstance(exc, LookupError):
+            code = "not_found"
+        return _error(code, str(exc))
     finally:
         conn.close()
     return HandlerOutcome(
@@ -323,10 +327,8 @@ def _mark_read(
 def handle_notification_read(request: FunctionCallRequest) -> HandlerOutcome:
     return _mark_read(request, all_rows=False)
 
-
 def handle_notifications_read_all(request: FunctionCallRequest) -> HandlerOutcome:
     return _mark_read(request, all_rows=True)
-
 
 __all__ = [
     "DecisionCreateRequest",

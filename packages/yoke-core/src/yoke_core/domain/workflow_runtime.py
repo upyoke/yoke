@@ -206,9 +206,10 @@ class WorkflowRuntime:
             GATE_CLAIM_ACTIVATION,
         )
 
-        return self.policies[
-            "path_claims"
-        ] == "required" and GATE_CLAIM_ACTIVATION in self.gate_ids_for_stage(
+        return self.policies["path_claims"] in {
+            "required",
+            "required_per_task",
+        } and GATE_CLAIM_ACTIVATION in self.gate_ids_for_stage(
             self.next_stage_id(stage_id)
         )
 

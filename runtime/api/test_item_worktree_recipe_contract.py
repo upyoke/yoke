@@ -119,25 +119,46 @@ def test_tester_reads_the_lane_through_the_registered_function(
 def test_wrapup_reads_active_lanes_from_item_worktrees(root: Path) -> None:
     text = (root / "wrapup/SKILL.md").read_text()
 
-    assert "JOIN item_worktrees iw ON iw.item_id = i.id" in text
-    assert "iw.state = 'active'" in text
-    assert "iw.branch" in text
-    assert "iw.lane_role" in text
+    assert "yoke items overview list --json" in text
+    assert "`result.rows`" in text
+    assert "`worktrees` array is non-empty" in text
+    assert "`public_ref`" in text
+    assert "`branch`" in text
+    assert "`lane_role`" in text
+    assert "JOIN item_worktrees" not in text
+    assert "- YOK-{N}: {title} ({status}, branch:" not in text
 
 
 @pytest.mark.parametrize(
     "reference",
     (SOURCE_FUNCTION_REFERENCE, PACKAGED_FUNCTION_REFERENCE),
 )
-def test_function_reference_documents_lane_read_and_guarded_release(
+def test_function_reference_documents_transport_aware_lane_operations(
     reference: Path,
 ) -> None:
     text = reference.read_text()
 
+    assert "`item_worktrees.create`" in text
+    assert "sole policy-required default lane" in text
     assert "`item_worktrees.get`" in text
+    assert "`item_worktrees.list`" in text
+    assert "`item_worktrees.path_record`" in text
+    assert "either local Postgres or HTTPS" in text
+    assert "lane-id/branch stale-state preconditions" in text
     assert "`item_worktrees.release`" in text
     assert "fresh clean-lane attestation" in text
     assert "modified tracked, untracked, or ignored files" in text
+
+
+@pytest.mark.parametrize("root", (SOURCE_SKILLS, PACKAGED_SKILLS))
+def test_blitz_registers_explicit_additional_lanes(root: Path) -> None:
+    text = (root / "blitz/SKILL.md").read_text()
+
+    assert "yoke item-worktrees create ITEM --lane-role worker --branch BRANCH" in text
+    assert "--lane-role integration" in text
+    assert "rerun the ordinary worktree preparation" in text
+    assert "yoke item-worktrees list ITEM --json" in text
+    assert "over either HTTPS or machine-local" in text
 
 
 @pytest.mark.parametrize("root", (SOURCE_SKILLS, PACKAGED_SKILLS))

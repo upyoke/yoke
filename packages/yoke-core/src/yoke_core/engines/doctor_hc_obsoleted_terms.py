@@ -136,6 +136,7 @@ _RETIRED_ITEM_PREFIX_PATTERN = r"\bSUN-\d+\b"
 _RETIRED_QA_AUTO_MODULE_PATTERN = r"\byoke_core\.domain\.qa_requirements_auto\b"
 _RETIRED_QA_AUTO_FUNCTION_PATTERN = r"\bqa\.requirement\.auto_create_for_item\b"
 _RETIRED_QA_AUTO_CLI_PATTERN = r"\byoke\s+qa\s+requirement\s+auto-create-for-item\b"
+_RETIRED_WORK_ITEM_SYNONYM_PATTERN = r"\b" + "tick" + r"ets?\b"
 
 OBSOLETED_TERM_PATTERNS: tuple[str, ...] = (
     _RETIRED_PARENT_EPIC_SYMBOL_PATTERN,
@@ -172,6 +173,7 @@ OBSOLETED_TERM_PATTERNS: tuple[str, ...] = (
     _RETIRED_QA_AUTO_MODULE_PATTERN,
     _RETIRED_QA_AUTO_FUNCTION_PATTERN,
     _RETIRED_QA_AUTO_CLI_PATTERN,
+    _RETIRED_WORK_ITEM_SYNONYM_PATTERN,
     *_browser_terms.BROWSER_RETIREMENT_PATTERNS,
     *_pack_terms.PACK_RETIREMENT_PATTERNS,
 )
@@ -203,6 +205,7 @@ OBSOLETED_TERM_LABELS: dict[str, str] = {
     _RETIRED_QA_AUTO_MODULE_PATTERN: "retired QA auto-requirement module",
     _RETIRED_QA_AUTO_FUNCTION_PATTERN: "retired QA auto-requirement function",
     _RETIRED_QA_AUTO_CLI_PATTERN: "retired QA auto-requirement command",
+    _RETIRED_WORK_ITEM_SYNONYM_PATTERN: "retired work-item synonym",
     **_browser_terms.BROWSER_RETIREMENT_LABELS,
     **_pack_terms.PACK_RETIREMENT_LABELS,
 }
@@ -221,6 +224,10 @@ _PER_PATTERN_PATH_ALLOWLIST: dict[str, tuple[str, ...]] = {
         # before managed parallel execution exists. Removing the entry would
         # destroy a strategic deferral artifact.
         ".yoke/strategy/WISPS.md",
+    ),
+    _RETIRED_WORK_ITEM_SYNONYM_PATTERN: (
+        # Strategy documents are planning evidence, not live product teaching.
+        ".yoke/strategy/",
     ),
     r"yoke-db\.sh": YOKE_DB_AUDIT_PATHS,
     r"runtime\.harness\.codex\.codex_hooks\b": CODEX_HOOKS_AUDIT_PATHS,

@@ -1,6 +1,7 @@
 """Registry rows for workflow-aware product surfaces."""
 
 from yoke_cli.commands.adapters import (
+    item_worktree_create,
     item_worktrees,
     qa_catalog,
     qa_plan_edit,
@@ -72,9 +73,21 @@ TEST_MACHINE_SUBCOMMAND_REGISTRY = {
 }
 
 ITEM_WORKTREE_SUBCOMMAND_REGISTRY = {
+    ("item-worktrees", "create"): (
+        "item_worktrees.create",
+        item_worktree_create.item_worktrees_create,
+    ),
     ("item-worktrees", "get"): (
         "item_worktrees.get",
         item_worktrees.item_worktrees_get,
+    ),
+    ("item-worktrees", "list"): (
+        "item_worktrees.list",
+        item_worktrees.item_worktrees_list,
+    ),
+    ("item-worktrees", "path-record"): (
+        "item_worktrees.path_record",
+        item_worktrees.item_worktrees_path_record,
     ),
     ("item-worktrees", "release"): (
         "item_worktrees.release",

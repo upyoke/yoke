@@ -27,9 +27,6 @@ from yoke_core.domain.workflow_runtime import (
 
 INVARIANT_PATH_CLAIM_COVERAGE = "path_claim_coverage"
 
-_NON_TERMINAL_CLAIM_STATES = ("planned", "blocked", "active")
-
-
 FailureRow = Tuple[Optional[int], dict]
 
 
@@ -37,9 +34,7 @@ def _p(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def check_path_claim_coverage(
-    conn: Any, project_id: int | str
-) -> List[FailureRow]:
+def check_path_claim_coverage(conn: Any, project_id: int | str) -> List[FailureRow]:
     """Return failures for non-terminal items lacking claim coverage.
 
     Every non-terminal item with non-optional workflow path claims must
@@ -55,9 +50,6 @@ def check_path_claim_coverage(
         return []
     resolved_project_id = resolve_project_id(conn, project_id)
     p = _p(conn)
-    placeholders_claim_states = ",".join(
-        p for _ in _NON_TERMINAL_CLAIM_STATES
-    )
     rows = conn.execute(
         f"""
         SELECT i.id, i.status, i.workflow_id, i.workflow_version_id,
@@ -65,60 +57,54 @@ def check_path_claim_coverage(
           FROM items i
           JOIN workflow_versions v ON v.id = i.workflow_version_id
          WHERE i.project_id = {p}
-           AND NOT EXISTS (
-               SELECT 1
-                 FROM path_claims pc
-                WHERE pc.item_id = i.id
-                  AND pc.state IN ({placeholders_claim_states})
-                  AND (
-                      (
-                          pc.mode <> 'exception'
-                          AND EXISTS (
-                              SELECT 1
-                                FROM path_claim_targets pct
-                               WHERE pct.claim_id = pc.id
-                          )
-                      )
-                      OR (
-                          pc.mode = 'exception'
-                          AND COALESCE(TRIM(pc.exception_reason), '') <> ''
-                      )
-                  )
-           )
         ORDER BY i.id
         """,
-        (
-            resolved_project_id,
-            *_NON_TERMINAL_CLAIM_STATES,
-        ),
+        (resolved_project_id,),
     ).fetchall()
     failures: List[FailureRow] = []
     for row in rows:
-        runtime = workflow_runtime_from_row({
-            "workflow_id": row[2],
-            "workflow_version_id": row[3],
-            "version": row[4],
-            "definition_json": row[5],
-            "definition_digest": row[6],
-        })
+        runtime = workflow_runtime_from_row(
+            {
+                "workflow_id": row[2],
+                "workflow_version_id": row[3],
+                "version": row[4],
+                "definition_json": row[5],
+                "definition_digest": row[6],
+            }
+        )
         if (
             str(row[1]) in runtime.terminal_stage_ids
             or str(row[1]) in ENGINE_TERMINAL_STAGE_IDS
             or runtime.policies["path_claims"] == "optional"
         ):
             continue
-        failures.append((
-            int(row[0]),
-            {
-                "item_id": int(row[0]),
-                "item_status": str(row[1]),
-                "workflow_id": runtime.workflow_id,
-                "reason": (
-                    "non-terminal item lacks any non-terminal path claim or "
-                    "active no-claim exception"
-                ),
-            },
-        ))
+        if runtime.policies["path_claims"] == "required_per_task":
+            from yoke_core.domain.path_claim_task_coverage import (
+                evaluate_task_coverage,
+            )
+
+            coverage = evaluate_task_coverage(conn, int(row[0]))
+            if coverage.verdict == "pass" or coverage.no_tasks:
+                continue
+            reason = coverage.reason
+        else:
+            from yoke_core.domain.path_claim_required_gate import evaluate
+
+            gate = evaluate(conn, int(row[0]))
+            if gate["verdict"] == "pass":
+                continue
+            reason = str(gate["reason"])
+        failures.append(
+            (
+                int(row[0]),
+                {
+                    "item_id": int(row[0]),
+                    "item_status": str(row[1]),
+                    "workflow_id": runtime.workflow_id,
+                    "reason": (reason),
+                },
+            )
+        )
     return failures
 
 

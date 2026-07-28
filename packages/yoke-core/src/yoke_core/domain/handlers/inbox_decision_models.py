@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class InboxListRequest(BaseModel):
@@ -34,6 +34,15 @@ class DecisionCreateRequest(BaseModel):
     role_authorities: List[DecisionRoleAuthority] = Field(default_factory=list)
     named_actor_ids: List[int] = Field(default_factory=list)
     subject_context: Dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("kind")
+    @classmethod
+    def exclude_lifecycle_gate_requests(cls, value: str) -> str:
+        if value == "lifecycle_transition_approval":
+            raise ValueError(
+                "lifecycle approvals are created only by the lifecycle gate"
+            )
+        return value
 
 
 class DecisionMutationResponse(BaseModel):

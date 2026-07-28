@@ -48,13 +48,13 @@ __all__ = [
 STALE_TERMS: tuple[str, ...] = (
     # NOTE: `owner_session_id` is a real path_claims column carrying
     # typed session-owned authority — do not add it back to STALE_TERMS.
-    "claim_" "session_id",
-    "item_" "claims",
-    "work_claims" ".target_id",
-    "qa_kind=" "'review'",
-    "--qa-kind " "review",
-    ".agents/skills/yoke/" "scripts/python3 -m yoke_core.cli." "db_router qa",
-    "blocker_" "item_id",
+    "claim_session_id",
+    "item_claims",
+    "work_claims.target_id",
+    "qa_kind='review'",
+    "--qa-kind review",
+    ".agents/skills/yoke/scripts/python3 -m yoke_core.cli.db_router qa",
+    "blocker_item_id",
 )
 
 
@@ -128,6 +128,7 @@ TOPIC_TABLES: dict[str, tuple[str, ...]] = {
         "work_claims",
         "path_claims",
         "path_claim_targets",
+        "path_claim_task_bindings",
         "path_targets",
         "path_claim_amendments",
         "actors",

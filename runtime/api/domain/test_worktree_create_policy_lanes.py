@@ -14,6 +14,7 @@ from yoke_core.domain import direct_workflow_worktree_preflight
 from yoke_core.domain import dash_path_claim_posture
 from yoke_core.domain.item_worktree_schema import ensure_item_worktree_schema
 from yoke_core.domain.item_worktrees import list_item_worktrees
+from yoke_core.domain import worktree_create
 from yoke_core.domain.worktree import create_worktree
 from yoke_core.domain.worktree_test_helpers import pin_test_item_workflow
 
@@ -28,7 +29,10 @@ def test_epic_creates_integration_lane_and_each_worker(
         "epic-99200-tests",
     ]
     entries = seed_multiworktree_epic(
-        yoke_db, 99200, branches, str(git_repo),
+        yoke_db,
+        99200,
+        branches,
+        str(git_repo),
     )
 
     result = create_worktree(
@@ -44,9 +48,7 @@ def test_epic_creates_integration_lane_and_each_worker(
     assert result.worktrees[0].lane_role == "integration"
     assert result.worktrees[0].branch == "YOK-99200"
     assert {
-        entry.branch
-        for entry in result.worktrees
-        if entry.lane_role == "worker"
+        entry.branch for entry in result.worktrees if entry.lane_role == "worker"
     } == set(branches)
     for branch, path in entries:
         assert os.path.isdir(path), f"missing worktree at {path}"
@@ -104,10 +106,49 @@ def test_blitz_creates_and_registers_a_real_default_worker_lane(
         rows = list_item_worktrees(conn, 99220, active_only=True)
     finally:
         conn.close()
-    assert [
-        (row["branch"], row["lane_role"])
-        for row in rows
-    ] == [("YOK-99220", "worker")]
+    assert [(row["branch"], row["lane_role"]) for row in rows] == [
+        ("YOK-99220", "worker")
+    ]
+
+
+def test_worktree_creation_reports_lane_persistence_failure(
+    git_repo,
+    yoke_db,
+    monkeypatch,
+):
+    conn = connect_test_db(yoke_db)
+    try:
+        ensure_item_worktree_schema(conn)
+        conn.execute(
+            "INSERT INTO items "
+            "(id, title, status, project_id, project_sequence) "
+            "VALUES (99222, 'Persistence boundary', "
+            "'refined-idea', 1, 99222)",
+        )
+        pin_test_item_workflow(conn, 99222, "blitz")
+        conn.commit()
+    finally:
+        conn.close()
+
+    def refuse_persistence(*_args, **_kwargs):
+        raise RuntimeError("registry unavailable")
+
+    monkeypatch.setattr(
+        worktree_create,
+        "persist_item_worktrees",
+        refuse_persistence,
+    )
+    result = worktree_create.create_worktree(
+        99222,
+        repo_root=str(git_repo),
+        config_path=_config_path(git_repo),
+        db_path=yoke_db,
+    )
+
+    assert result.created is True
+    assert result.error is not None
+    assert "item-lane persistence failed" in result.error
+    assert os.path.isdir(result.path)
 
 
 def test_dash_path_claim_uses_the_live_work_claim_session(monkeypatch):

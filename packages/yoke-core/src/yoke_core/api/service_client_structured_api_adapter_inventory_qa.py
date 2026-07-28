@@ -103,7 +103,7 @@ QA_ADAPTERS: List[AdapterEntry] = [
         "--qa-phase PHASE [--target-env E] [--blocking-mode M] "
         "[--requirement-source S] [--success-policy JSON-OR-TEXT] "
         "[--capability-requirements C] [--suite-id ID] "
-        "[--workflow-transition STAGE] [--session-id S] [--json]",
+        "--workflow-transition STAGE [--session-id S] [--json]",
     ),
     AdapterEntry(
         "qa.requirement.add_batch",

@@ -36,6 +36,11 @@ class TestResumeBlockNoticeRendering(_PgReacquireTestCase):
         self.assertIn("YOK-17 (item)", rendered)
         self.assertIn("1 auto-reacquired", rendered)
         self.assertIn("1 NOT auto-reacquired", rendered)
+        self.assertIn(
+            'yoke claims work acquire --item YOK-N --reason "<intent>"',
+            rendered,
+        )
+        self.assertNotIn("service_client", rendered)
 
     def test_conflict_only_notice_is_advisory_marker_and_clears(self) -> None:
         from yoke_core.domain.sessions_resume_block import render_and_mark
@@ -45,12 +50,14 @@ class TestResumeBlockNoticeRendering(_PgReacquireTestCase):
 
         conn = self.conn
         _insert_session(conn, "sess-r")
-        notice = json.dumps({
-            "reactivated_at": _iso(),
-            "released_claims": [{"target_kind": "item", "item_id": 18}],
-            "reacquired_count": 0,
-            "conflict_count": 1,
-        })
+        notice = json.dumps(
+            {
+                "reactivated_at": _iso(),
+                "released_claims": [{"target_kind": "item", "item_id": 18}],
+                "reacquired_count": 0,
+                "conflict_count": 1,
+            }
+        )
         conn.execute(
             "UPDATE harness_sessions SET pending_resume_notice = %s "
             "WHERE session_id = 'sess-r'",
@@ -62,23 +69,25 @@ class TestResumeBlockNoticeRendering(_PgReacquireTestCase):
             "emit_harness_session_resume_block_shown",
         ) as marker:
             block = render_and_mark(
-                conn, "sess-r", harness_event="UserPromptSubmit",
+                conn,
+                "sess-r",
+                harness_event="UserPromptSubmit",
             )
         self.assertIn("YOK-18 (item)", block)
         kwargs = marker.call_args.kwargs
         self.assertFalse(kwargs["reacquired"])
         self.assertTrue(kwargs["advisory_only"])
         # Render-once: the notice clears; a second render is empty.
-        self.assertIsNone(
-            lookup_unacknowledged_resume_block(conn, "sess-r")
-        )
+        self.assertIsNone(lookup_unacknowledged_resume_block(conn, "sess-r"))
         with mock.patch(
             "yoke_core.domain.sessions_resume_block."
             "emit_harness_session_resume_block_shown",
         ):
             self.assertEqual(
                 render_and_mark(
-                    conn, "sess-r", harness_event="UserPromptSubmit",
+                    conn,
+                    "sess-r",
+                    harness_event="UserPromptSubmit",
                 ),
                 "",
             )
@@ -91,13 +100,16 @@ class TestResumeBlockNoticeRendering(_PgReacquireTestCase):
         conn = self.conn
         _insert_session(conn, "sess-w")
         _insert_released_claim(conn, "sess-w", 700, released_age_s=10)
-        with mock.patch(
-            "yoke_core.domain.events.emit_event"
-        ), mock.patch(
-            "yoke_core.domain.sessions_lifecycle_reactivation._emit_session_event"
+        with (
+            mock.patch("yoke_core.domain.events.emit_event"),
+            mock.patch(
+                "yoke_core.domain.sessions_lifecycle_reactivation._emit_session_event"
+            ),
         ):
             emit_reactivated_with_released_claims(
-                conn, "sess-w", reacquire_window_s=300,
+                conn,
+                "sess-w",
+                reacquire_window_s=300,
             )
         notice = lookup_unacknowledged_resume_block(conn, "sess-w")
         self.assertIsNotNone(notice)

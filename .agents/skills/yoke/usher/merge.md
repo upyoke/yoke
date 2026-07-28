@@ -272,7 +272,7 @@ Halt-class release step (all four halt branches — operator/debug adapter; disp
 ```bash
 # <halt-class> is usher-halt-merge-failure for exits 1, 4, 5;
 # usher-halt-unexpected for any other non-zero exit.
-yoke claims work release --item YOK-{N} --reason <halt-class>
+yoke claims work release --item YOK-{N} --reason "<halt-class>"
 ```
 
 If the release call itself fails, the halt summary MUST say the release failed and include the failure class / holder when available; do not print a clean recovery summary while the claim is still live.

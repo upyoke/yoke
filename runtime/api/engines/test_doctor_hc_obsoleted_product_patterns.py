@@ -21,6 +21,7 @@ from .test_doctor_hc_obsoleted_terms import (
 _RETIRED_PRODUCT_NAME = "sun" + "day"
 _RETIRED_PRODUCT_DOMAIN = _RETIRED_PRODUCT_NAME + "do"
 _RETIRED_ITEM_PREFIX = "SU" + "N"
+_RETIRED_WORK_ITEM_SYNONYM = "tick" + "et"
 
 
 def test_patterns_stored_as_escaped_regex():
@@ -54,6 +55,7 @@ def test_patterns_compile_and_match_bare_term():
         + r"item\b": "qa.requirement.auto_create_for_" + "item",
         r"\byoke\s+qa\s+requirement\s+auto-create-for-"
         + r"item\b": "yoke qa requirement auto-create-for-" + "item",
+        r"\b" + "tick" + r"ets?\b": _RETIRED_WORK_ITEM_SYNONYM,
     }
     for pat, sample in expected.items():
         assert re.compile(pat).search(sample), (
@@ -153,6 +155,27 @@ def test_scan_flags_retired_item_prefix_in_doc(tmp_path: Path):
     )
     hits = scan_repo(tmp_path)
     assert any("retired item prefix" in h for h in hits), hits
+
+
+def test_scan_flags_retired_work_item_synonym_in_live_prose(tmp_path: Path):
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "stale_work_item_name.md").write_text(
+        "File a " + _RETIRED_WORK_ITEM_SYNONYM + " for this change.\n"
+    )
+    hits = scan_repo(tmp_path)
+    assert any("retired work-item synonym" in h for h in hits), hits
+
+
+def test_scan_ignores_retired_work_item_synonym_in_strategy_evidence(
+    tmp_path: Path,
+):
+    strategy = tmp_path / ".yoke" / "strategy"
+    strategy.mkdir(parents=True)
+    (strategy / "PLAN.md").write_text(
+        "Future " + _RETIRED_WORK_ITEM_SYNONYM + " candidates.\n"
+    )
+
+    assert scan_repo(tmp_path) == []
 
 
 def test_live_tree_clean_for_retired_product_token_patterns():

@@ -1,11 +1,4 @@
-"""Write-side helpers for the ``items`` table.
-
-Owns ``insert_item``, ``update_item_field``, ``update_item_multi``, and
-``update_structured_field``. Validation, content normalization, and
-freeze-immutability checks live in
-:mod:`yoke_core.domain.items_writes_validation` to keep this module
-small.
-"""
+"""Write-side item helpers; validation lives in ``items_writes_validation``."""
 
 from __future__ import annotations
 
@@ -27,10 +20,34 @@ from yoke_core.domain.items_writes_validation import (
     check_freeze_guards,
     check_shrinkage_guard,
 )
+from yoke_core.domain.deployment_flow_validator import (
+    require_flow_for_item_binding,
+)
 from yoke_core.domain.project_identity import (
     allocate_project_sequence,
     resolve_project,
 )
+from yoke_core.domain.workflow_item_binding_lock import (
+    lock_item_workflow_bindings,
+)
+
+
+_WORKFLOW_CONTROLLED_FIELDS = frozenset(
+    {"status", "workflow_id", "workflow_posture", "workflow_version_id"}
+)
+_WORKFLOW_BINDING_FIELDS = frozenset({"deployment_flow"})
+
+
+def _reject_workflow_controlled_fields(fields: set[str]) -> None:
+    denied = sorted(fields & _WORKFLOW_CONTROLLED_FIELDS)
+    if not denied:
+        return
+    raise ValueError(
+        f"Field(s) {', '.join(denied)} require a canonical workflow surface; "
+        "use lifecycle.transition.execute for status or "
+        "workflows.item-version.migrate for workflow pins."
+    )
+
 
 def insert_item(
     item_id: int,
@@ -74,6 +91,7 @@ def insert_item(
 
     conn = connect(db_path)
     try:
+        require_flow_for_item_binding(conn, deployment_flow, project)
         project_identity = resolve_project(conn, project)
         assert project_identity is not None
         from yoke_core.domain.workflow_registry import (
@@ -106,12 +124,25 @@ def insert_item(
             ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
-                item_id, title, workflow_id, workflow_version_id,
-                status, priority, flow,
-                rework_count, frozen, blocked, blocked_reason,
-                github_issue, deployed_to,
-                created_at, updated_at, source,
-                project_identity.id, project_sequence, deployment_flow,
+                item_id,
+                title,
+                workflow_id,
+                workflow_version_id,
+                status,
+                priority,
+                flow,
+                rework_count,
+                frozen,
+                blocked,
+                blocked_reason,
+                github_issue,
+                deployed_to,
+                created_at,
+                updated_at,
+                source,
+                project_identity.id,
+                project_sequence,
+                deployment_flow,
             ),
         )
         conn.commit()
@@ -144,6 +175,7 @@ def update_item_field(
             "spec, design_spec, technical_plan, worktree_plan, "
             "shepherd_log, shepherd_caveats, test_results, deploy_log"
         )
+    _reject_workflow_controlled_fields({field})
 
     # Route structured fields to the dedicated function
     if field in STRUCTURED_FIELDS:
@@ -174,6 +206,9 @@ def update_item_field(
 
     conn = connect(db_path)
     try:
+        if field in _WORKFLOW_BINDING_FIELDS:
+            require_flow_for_item_binding(conn, value)
+            lock_item_workflow_bindings(conn, (int(item_id),))
         conn.execute(
             f"UPDATE items SET {field} = %s, updated_at = %s WHERE id = %s",
             (value, now, item_id),
@@ -270,6 +305,7 @@ def update_item_multi(
             "Raw body writes are no longer supported. "
             "items.body is a rendered projection."
         )
+    _reject_workflow_controlled_fields(set(pairs))
 
     now = _now_utc()
     set_clauses: List[str] = []
@@ -300,6 +336,9 @@ def update_item_multi(
     conn = connect(db_path)
     try:
         conn.execute("BEGIN TRANSACTION")
+        if set(pairs) & _WORKFLOW_BINDING_FIELDS:
+            require_flow_for_item_binding(conn, pairs["deployment_flow"])
+            lock_item_workflow_bindings(conn, (int(item_id),))
         conn.execute(sql, tuple(params))
         conn.commit()
     except Exception:

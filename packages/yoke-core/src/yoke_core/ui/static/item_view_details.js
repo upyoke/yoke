@@ -1,3 +1,4 @@
+import { buildUniverseRoute } from "./universe_navigation.js";
 import {
   el,
   loadSection,
@@ -5,6 +6,7 @@ import {
   section,
 } from "./universe_view_support.js";
 import {
+  actionLink,
   commandPanel,
   detailColumns,
   factsPanel,
@@ -16,6 +18,7 @@ import {
   verificationPanel,
   withoutMarkdownSections,
 } from "./item_view_primitives.js";
+import { workflowPanel } from "./workflow_view_primitives.js";
 
 function issuePanels(documentNode, item) {
   const spec = item.narrative.spec || item.narrative.body;
@@ -112,7 +115,34 @@ function epicPanels(context, documentNode, item) {
   );
 }
 
+function sourceFieldNotePanel(documentNode, item) {
+  const note = item.source_field_note;
+  if (!note) return null;
+  const { panel, body } = workflowPanel(
+    documentNode,
+    "Promoted from field note",
+    { detail: note.category },
+  );
+  body.appendChild(el(
+    documentNode,
+    "p",
+    "item-muted",
+    note.context || "The note remains the supporting observation.",
+  ));
+  body.appendChild(actionLink(
+    documentNode,
+    `Open field note #${note.entry_id}`,
+    buildUniverseRoute(
+      "ouroboros",
+      note.project_id || item.project.id,
+      String(note.entry_id),
+    ),
+  ));
+  return panel;
+}
+
 function dashPanels(documentNode, item) {
+  const origin = sourceFieldNotePanel(documentNode, item);
   return detailColumns(
     documentNode,
     [
@@ -126,6 +156,7 @@ function dashPanels(documentNode, item) {
     ],
     [
       factsPanel(documentNode, item),
+      ...(origin ? [origin] : []),
       posturePanel(documentNode, item),
       commandPanel(documentNode, item),
     ],

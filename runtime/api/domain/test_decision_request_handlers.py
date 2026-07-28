@@ -39,6 +39,15 @@ def test_registration_leaf_declares_every_engine_action():
     )
     assert read_all[0][2] is inbox_decisions.NotificationsReadAllRequest
     assert "project_scope_exact" in read_all[1]["guardrails"]
+    withdraw = next(
+        row for row in registry.rows if row[0][0] == "decision_requests.withdraw"
+    )
+    assert withdraw[1]["guardrails"] == [
+        "actor_required",
+        "live_authority_union",
+        "subject_ended",
+        "never_silent_expiry",
+    ]
 
 
 def test_browser_actions_fail_closed_without_a_bound_actor():
@@ -51,3 +60,22 @@ def test_browser_actions_fail_closed_without_a_bound_actor():
     )
     assert outcome.primary_success is False
     assert outcome.error.code == "actor_required"
+
+
+def test_generic_create_cannot_mint_lifecycle_approvals():
+    outcome = inbox_decisions.handle_decision_create(
+        FunctionCallRequest(
+            function="decision_requests.create",
+            actor=ActorContext(actor_id="1", session_id="browser"),
+            target=TargetRef(kind="global"),
+            payload={
+                "kind": "lifecycle_transition_approval",
+                "subject_type": "item_transition",
+                "subject_key": "42:done",
+                "project_id": 1,
+                "named_actor_ids": [1],
+            },
+        )
+    )
+    assert outcome.primary_success is False
+    assert outcome.error.jsonpath == "$.payload"

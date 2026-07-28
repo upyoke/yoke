@@ -1,9 +1,11 @@
 # ruff: noqa: F811
 """Backlog create/update validation against the deployment_flows registry."""
+
 from __future__ import annotations
 
 import io
 import os
+import threading
 from unittest import mock
 
 from runtime.api.backlog_mutations_test_helpers import (
@@ -179,6 +181,68 @@ class TestExecuteUpdateDeploymentFlowValidation:
                 out=out,
             )
         assert result["success"] is True
+
+    def test_update_serializes_flow_binding_before_delete(self, tmp_db, monkeypatch):
+        from runtime.api.fixtures.pg_testdb import connect_test_database
+        from yoke_core.domain import mutations
+        from yoke_core.domain.flow_crud import cmd_delete
+
+        _seed_flows(tmp_db)
+        conn = connect_test_db(tmp_db)
+        insert_item(conn, id=47, project="yoke", deployment_flow=None)
+        delete_conn = connect_test_database(str(conn.info.dbname))
+        conn.close()
+        update_ready = threading.Event()
+        release_update = threading.Event()
+        delete_done = threading.Event()
+        outcome = {}
+        original_prepare = mutations.prepare_update
+
+        def pause_before_write(*args, **kwargs):
+            if kwargs.get("field_name") == "deployment_flow":
+                update_ready.set()
+                assert release_update.wait(timeout=10)
+            return original_prepare(*args, **kwargs)
+
+        def update_item():
+            outcome["update"] = backlog.execute_update(
+                item_id=47,
+                field="deployment_flow",
+                value="yoke-internal",
+                no_github=True,
+                out=io.StringIO(),
+            )
+
+        def delete_flow():
+            try:
+                outcome["delete"] = cmd_delete(delete_conn, "yoke-internal")
+            except Exception as exc:
+                outcome["delete_error"] = exc
+            finally:
+                delete_done.set()
+
+        monkeypatch.setattr(mutations, "prepare_update", pause_before_write)
+        update_worker = threading.Thread(target=update_item)
+        delete_worker = threading.Thread(target=delete_flow)
+        try:
+            with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
+                update_worker.start()
+                assert update_ready.wait(timeout=10)
+                delete_worker.start()
+                assert not delete_done.wait(timeout=0.2)
+                release_update.set()
+                update_worker.join(timeout=10)
+                delete_worker.join(timeout=10)
+        finally:
+            release_update.set()
+            delete_conn.close()
+
+        assert not update_worker.is_alive()
+        assert not delete_worker.is_alive()
+        assert outcome["update"]["success"] is True
+        assert isinstance(outcome["delete_error"], ValueError)
+        assert "still reference" in str(outcome["delete_error"])
+        assert _item_field(tmp_db, 47, "deployment_flow") == "yoke-internal"
 
     def test_update_null_sentinel_clears_flow(self, tmp_db):
         _seed_flows(tmp_db)

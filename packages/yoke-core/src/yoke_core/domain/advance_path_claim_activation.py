@@ -2,14 +2,8 @@
 
 Runs between the path-claim-required gate (declaration at idea/refine)
 and the worktree door-lock check (``state='active'`` at worktree-open).
-For every ``path_claims`` row matching ``(item_id, actor_id)`` whose
-state is ``planned``, routes through
-:func:`yoke_core.domain.path_claims_register.activate_with_events`
-with the integration-target snapshot from
-:mod:`yoke_core.domain.path_claims_integration_resolver`. Blocked
-claims surface a clear error naming the upstream claim id — no
-automatic upgrade. Harness-neutral: same logic is reachable from
-every harness preflight or direct CLI dispatch.
+Planned rows route through the canonical activation/event surface.
+Blocked rows name the upstream claim instead of upgrading automatically.
 """
 
 from __future__ import annotations
@@ -22,6 +16,9 @@ from yoke_core.domain.advance_path_claim_activation_events import (
 )
 from yoke_core.domain.advance_path_claim_activation_retry import (
     resolve_integration_head_with_retry,
+)
+from yoke_core.domain.advance_path_claim_task_activation import (
+    task_activation_block_reason,
 )
 from yoke_core.domain import db_backend
 from yoke_core.domain.path_claims import PathClaimError, get_claim
@@ -56,7 +53,8 @@ class ActivationResult:
     @property
     def activated_claim_ids(self) -> List[int]:
         return [
-            o.claim_id for o in self.outcomes
+            o.claim_id
+            for o in self.outcomes
             if o.state_before == "planned" and o.state_after == "active"
         ]
 
@@ -65,9 +63,7 @@ def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def _claim_project(
-    conn: Any, claim_id: int
-) -> tuple[Optional[str], Optional[int]]:
+def _claim_project(conn: Any, claim_id: int) -> tuple[Optional[str], Optional[int]]:
     p = _p(conn)
     row = conn.execute(
         "SELECT p.slug, i.project_id FROM path_claims pc "
@@ -84,9 +80,7 @@ def _claim_project(
     )
 
 
-def _list_claims_for_session(
-    conn: Any, *, item_id: int, actor_id: int
-) -> List[Any]:
+def _list_claims_for_session(conn: Any, *, item_id: int, actor_id: int) -> List[Any]:
     p = _p(conn)
     rows = conn.execute(
         "SELECT id, state, blocked_reason, integration_target "
@@ -173,12 +167,14 @@ def run_activation_phase(
     ``PathClaimActivationBlocked`` event; active claims are no-ops;
     diverged refs surface via :attr:`diverged_error`.
     """
-    repair_coordination_only_blocked(conn, item_id=item_id, actor_id=actor_id)
     result = ActivationResult(item_id=item_id, actor_id=actor_id)
+    task_block = task_activation_block_reason(conn, item_id)
+    if task_block:
+        result.blocked_errors.append(task_block)
+        return result
+    repair_coordination_only_blocked(conn, item_id=item_id, actor_id=actor_id)
     emitted_keys: set = set()
-    for row in _list_claims_for_session(
-        conn, item_id=item_id, actor_id=actor_id
-    ):
+    for row in _list_claims_for_session(conn, item_id=item_id, actor_id=actor_id):
         claim_id = int(row[0])
         state = str(row[1])
         blocked_reason = row[2]
@@ -309,13 +305,14 @@ def main(argv: Optional[List[str]] = None) -> int:
         actor_value = actor_row[0]
         if actor_value in (None, ""):
             print(
-                "BLOCKED: item has no owner/source actor for "
-                "path-claim activation",
+                "BLOCKED: item has no owner/source actor for path-claim activation",
                 file=sys.stderr,
             )
             return 1
         other_session = check_work_claim_ownership(
-            conn, item_id=item_id, session_id=str(args.session_id or ""),
+            conn,
+            item_id=item_id,
+            session_id=str(args.session_id or ""),
         )
         if other_session:
             print(
@@ -346,4 +343,5 @@ def main(argv: Optional[List[str]] = None) -> int:
 
 if __name__ == "__main__":
     import sys as _sys
+
     raise SystemExit(main(_sys.argv[1:]))

@@ -17,28 +17,17 @@ def skip_refine(
 ) -> dict:
     """Advance past an idea or plan refining phase in one sanctioned call."""
     current_status, workflow = core._lookup_item(item_id)
-    if current_status not in core._REFINE_ROUTING:
-        raise ValueError(
-            f"--skip-refine requires current status in "
-            f"{sorted(core._REFINE_ROUTING)!r}, got {current_status!r}. "
-            "This flag replaces a refining phase - it has no meaning at "
-            "other statuses."
-        )
-
-    hops, skipped_phase = core._REFINE_ROUTING[current_status]
-    target = hops[-1]
-
-    if not workflow.accepts_stage(target):
-        raise ValueError(
-            f"Target stage {target!r} is not declared by "
-            f"{workflow.workflow_id}@{workflow.version}; refusing to advance."
-        )
+    route = core._executor_skip_route(
+        workflow,
+        current_status,
+        executor_id="refine",
+    )
 
     hops_written = core._walk_hops(
         item_id,
-        hops=hops,
+        hops=route.hops,
         bypass_reason=core.BYPASS_SKIP_REFINE,
-        allowlist=core._REFINE_TARGETS_ALLOWED,
+        allowlist=route.allowed_hops,
         out=out,
     )
 
@@ -46,8 +35,8 @@ def skip_refine(
         item_id,
         via=core.BYPASS_SKIP_REFINE,
         from_status=current_status,
-        to_status=target,
-        skipped_phase=skipped_phase,
+        to_status=route.to_stage,
+        skipped_phase=route.skipped_phase,
         out=out,
     )
 
@@ -62,8 +51,8 @@ def skip_refine(
         "success": True,
         "via": core.BYPASS_SKIP_REFINE,
         "from_status": current_status,
-        "to_status": target,
-        "skipped_phase": skipped_phase,
+        "to_status": route.to_stage,
+        "skipped_phase": route.skipped_phase,
         "hops_written": hops_written,
         "claim_release": release_result,
     }

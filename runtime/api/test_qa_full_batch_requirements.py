@@ -14,6 +14,7 @@ import pytest
 
 from yoke_core.domain import db_backend, qa
 from runtime.api.qa_full_test_helpers import conn_with_rows, make_qa_db_file
+from runtime.api.qa_transition_test_support import QA_GATED_TRANSITION
 
 
 @pytest.fixture()
@@ -31,13 +32,29 @@ class TestRequirementAddBatch:
 
     def test_happy_path_inserts_multiple(self, db_path, capsys, tmp_path):
         payload = [
-            {"item_id": 100, "qa_kind": "ac_verification", "qa_phase": "verification",
-             "success_policy": "Test policy A"},
-            {"item_id": 100, "qa_kind": "ac_verification", "qa_phase": "verification",
-             "success_policy": "Test policy B"},
-            {"item_id": 200, "qa_kind": "smoke", "qa_phase": "verification",
-             "blocking_mode": "non_blocking", "requirement_source": "seeded_default",
-             "success_policy": "Smoke passes"},
+            {
+                "item_id": 100,
+                "qa_kind": "ac_verification",
+                "qa_phase": "verification",
+                "success_policy": "Test policy A",
+                "workflow_transition_id": QA_GATED_TRANSITION,
+            },
+            {
+                "item_id": 100,
+                "qa_kind": "ac_verification",
+                "qa_phase": "verification",
+                "success_policy": "Test policy B",
+                "workflow_transition_id": QA_GATED_TRANSITION,
+            },
+            {
+                "item_id": 200,
+                "qa_kind": "smoke",
+                "qa_phase": "verification",
+                "blocking_mode": "non_blocking",
+                "requirement_source": "seeded_default",
+                "success_policy": "Smoke passes",
+                "workflow_transition_id": QA_GATED_TRANSITION,
+            },
         ]
         json_file = str(tmp_path / "reqs.json")
         with open(json_file, "w") as f:
@@ -54,14 +71,21 @@ class TestRequirementAddBatch:
         # Verify rows exist in DB
         conn = _conn(db_path)
         for rid in ids:
-            row = conn.execute("SELECT * FROM qa_requirements WHERE id = %s", (rid,)).fetchone()
+            row = conn.execute(
+                "SELECT * FROM qa_requirements WHERE id = %s", (rid,)
+            ).fetchone()
             assert row is not None
         conn.close()
 
     def test_returns_json_array(self, db_path, capsys, tmp_path):
         payload = [
-            {"item_id": 100, "qa_kind": "ac_verification", "qa_phase": "verification",
-             "success_policy": "AC check"},
+            {
+                "item_id": 100,
+                "qa_kind": "ac_verification",
+                "qa_phase": "verification",
+                "success_policy": "AC check",
+                "workflow_transition_id": QA_GATED_TRANSITION,
+            },
         ]
         json_file = str(tmp_path / "single.json")
         with open(json_file, "w") as f:
@@ -76,7 +100,9 @@ class TestRequirementAddBatch:
     def test_rejects_non_array(self, db_path, tmp_path):
         json_file = str(tmp_path / "obj.json")
         with open(json_file, "w") as f:
-            json.dump({"item_id": 100, "qa_kind": "smoke", "qa_phase": "verification"}, f)
+            json.dump(
+                {"item_id": 100, "qa_kind": "smoke", "qa_phase": "verification"}, f
+            )
 
         with pytest.raises(SystemExit) as exc:
             qa.cmd_requirement_add_batch(db_path=db_path, json_file=json_file)
@@ -105,7 +131,10 @@ class TestRequirementAddBatch:
 
     def test_rejects_no_attachment_target(self, db_path, tmp_path):
         payload = [
-            {"qa_kind": "smoke", "qa_phase": "verification"},  # no item_id/epic_id/deployment_run_id
+            {
+                "qa_kind": "smoke",
+                "qa_phase": "verification",
+            },  # no item_id/epic_id/deployment_run_id
         ]
         json_file = str(tmp_path / "no_target.json")
         with open(json_file, "w") as f:
@@ -126,10 +155,22 @@ class TestRequirementAddBatch:
 
     def test_rolls_back_on_insert_failure(self, db_path, tmp_path):
         payload = [
-            {"item_id": 100, "qa_kind": "ac_verification", "qa_phase": "verification",
-             "blocking_mode": "blocking", "success_policy": "Test policy A"},
-            {"item_id": 100, "qa_kind": "ac_verification", "qa_phase": "verification",
-             "blocking_mode": "invalid_mode", "success_policy": "Test policy B"},
+            {
+                "item_id": 100,
+                "qa_kind": "ac_verification",
+                "qa_phase": "verification",
+                "blocking_mode": "blocking",
+                "success_policy": "Test policy A",
+                "workflow_transition_id": QA_GATED_TRANSITION,
+            },
+            {
+                "item_id": 100,
+                "qa_kind": "ac_verification",
+                "qa_phase": "verification",
+                "blocking_mode": "invalid_mode",
+                "success_policy": "Test policy B",
+                "workflow_transition_id": QA_GATED_TRANSITION,
+            },
         ]
         json_file = str(tmp_path / "rollback.json")
         with open(json_file, "w") as f:
@@ -143,12 +184,24 @@ class TestRequirementAddBatch:
         conn.close()
         assert count == 0
 
-    def test_emits_one_event_per_created_requirement(self, db_path, capsys, tmp_path, monkeypatch):
+    def test_emits_one_event_per_created_requirement(
+        self, db_path, capsys, tmp_path, monkeypatch
+    ):
         payload = [
-            {"item_id": 100, "qa_kind": "ac_verification", "qa_phase": "verification",
-             "success_policy": "Test policy A"},
-            {"item_id": 100, "qa_kind": "ac_verification", "qa_phase": "verification",
-             "success_policy": "Test policy B"},
+            {
+                "item_id": 100,
+                "qa_kind": "ac_verification",
+                "qa_phase": "verification",
+                "success_policy": "Test policy A",
+                "workflow_transition_id": QA_GATED_TRANSITION,
+            },
+            {
+                "item_id": 100,
+                "qa_kind": "ac_verification",
+                "qa_phase": "verification",
+                "success_policy": "Test policy B",
+                "workflow_transition_id": QA_GATED_TRANSITION,
+            },
         ]
         json_file = str(tmp_path / "events.json")
         with open(json_file, "w") as f:
@@ -174,8 +227,14 @@ class TestRequirementAddBatch:
 
     def test_epic_task_attachment(self, db_path, capsys, tmp_path):
         payload = [
-            {"epic_id": 50, "task_num": 1, "qa_kind": "integration", "qa_phase": "verification",
-             "success_policy": "Task integration passes"},
+            {
+                "epic_id": 50,
+                "task_num": 1,
+                "qa_kind": "integration",
+                "qa_phase": "verification",
+                "success_policy": "Task integration passes",
+                "workflow_transition_id": QA_GATED_TRANSITION,
+            },
         ]
         json_file = str(tmp_path / "epic.json")
         with open(json_file, "w") as f:
@@ -185,7 +244,9 @@ class TestRequirementAddBatch:
         assert len(ids) == 1
 
         conn = _conn(db_path)
-        row = conn.execute("SELECT epic_id, task_num FROM qa_requirements WHERE id = %s", (ids[0],)).fetchone()
+        row = conn.execute(
+            "SELECT epic_id, task_num FROM qa_requirements WHERE id = %s", (ids[0],)
+        ).fetchone()
         assert row["epic_id"] == 50
         assert row["task_num"] == 1
         conn.close()

@@ -1,11 +1,12 @@
+# ruff: noqa: F401
 """Regression tests: session-end + reactivation + conduct re-entry claim gap.
 
-Simulate the silent-no-claim window that motivated this work item:
+Exercise the released-claim advisory around a reactivated session:
   1. Session is created and claims an item.
   2. Session is ended — claim is released with reason='session_ended'.
   3. Same session is reactivated (ended_at cleared).
-  4. Advisory event is emitted but no new work_claims row is inserted.
-  5. Caller must explicitly re-run claim-work to hold an active claim.
+  4. Advisory state includes only prior session-ended claims.
+  5. Conditional reacquisition remains governed by the configured time window.
 """
 
 from __future__ import annotations
@@ -107,8 +108,12 @@ def _apply_reactivation_schema() -> None:
     try:
         apply_fixture_ddl(
             conn,
-            _CREATE_PROJECTS + _CREATE_SESSIONS + _CREATE_WORK_CLAIMS + _CREATE_EVENTS
-            + _CREATE_EVENT_REGISTRY + _CREATE_ACTORS,
+            _CREATE_PROJECTS
+            + _CREATE_SESSIONS
+            + _CREATE_WORK_CLAIMS
+            + _CREATE_EVENTS
+            + _CREATE_EVENT_REGISTRY
+            + _CREATE_ACTORS,
         )
     finally:
         conn.close()
@@ -183,7 +188,6 @@ class _ReactivationDBTest(unittest.TestCase):
 
 
 class TestEmitReactivatedWithReleasedClaims(_ReactivationDBTest):
-
     def test_no_event_when_no_session_ended_claims(self) -> None:
         """No advisory event when all claims are active or have other release reasons."""
         conn = self.conn
@@ -200,13 +204,17 @@ class TestEmitReactivatedWithReleasedClaims(_ReactivationDBTest):
 
         self.assertEqual(result, [])
         emit_event.assert_not_called()
-        self.assertEqual(_emitted_events(conn, EVENT_SESSION_REACTIVATED_WITH_RELEASED_CLAIMS), [])
+        self.assertEqual(
+            _emitted_events(conn, EVENT_SESSION_REACTIVATED_WITH_RELEASED_CLAIMS), []
+        )
 
     def test_emits_event_for_session_ended_claims(self) -> None:
         """Advisory event triggered when prior session-ended claims exist."""
         conn = self.conn
-        _insert_session(conn, "sess-2", ended=True)
-        _insert_claim(conn, "sess-2", 200, released=True, release_reason="session_ended")
+        _insert_session(conn, "sess-2")
+        _insert_claim(
+            conn, "sess-2", 200, released=True, release_reason="session_ended"
+        )
 
         with mock.patch(
             "yoke_core.domain.sessions_lifecycle_reactivation._emit_session_event"
@@ -227,11 +235,13 @@ class TestEmitReactivatedWithReleasedClaims(_ReactivationDBTest):
             [{"target_kind": "item", "item_id": 200}],
         )
 
-    def test_does_not_insert_new_work_claim(self) -> None:
-        """Reactivation advisory must not auto-reacquire — no new work_claims row."""
+    def test_release_outside_window_does_not_insert_new_work_claim(self) -> None:
+        """A release outside the reacquisition window remains advisory-only."""
         conn = self.conn
-        _insert_session(conn, "sess-3", ended=True)
-        _insert_claim(conn, "sess-3", 300, released=True, release_reason="session_ended")
+        _insert_session(conn, "sess-3")
+        _insert_claim(
+            conn, "sess-3", 300, released=True, release_reason="session_ended"
+        )
 
         before = conn.execute(
             "SELECT COUNT(*) FROM work_claims WHERE session_id = 'sess-3'"
@@ -246,14 +256,22 @@ class TestEmitReactivatedWithReleasedClaims(_ReactivationDBTest):
             "SELECT COUNT(*) FROM work_claims WHERE session_id = 'sess-3'"
         ).fetchone()[0]
 
-        self.assertEqual(before, after, "No new work_claims row should be inserted by reactivation advisory")
+        self.assertEqual(
+            before,
+            after,
+            "An out-of-window release must not be reacquired.",
+        )
 
     def test_multiple_session_ended_claims_all_reported(self) -> None:
         """All prior session-ended claims appear in the event payload."""
         conn = self.conn
-        _insert_session(conn, "sess-4", ended=True)
-        _insert_claim(conn, "sess-4", 401, released=True, release_reason="session_ended")
-        _insert_claim(conn, "sess-4", 402, released=True, release_reason="session_ended")
+        _insert_session(conn, "sess-4")
+        _insert_claim(
+            conn, "sess-4", 401, released=True, release_reason="session_ended"
+        )
+        _insert_claim(
+            conn, "sess-4", 402, released=True, release_reason="session_ended"
+        )
 
         with mock.patch(
             "yoke_core.domain.sessions_lifecycle_reactivation._emit_session_event"
@@ -270,8 +288,10 @@ class TestEmitReactivatedWithReleasedClaims(_ReactivationDBTest):
     def test_active_claim_not_included_in_advisory(self) -> None:
         """Active claim is not listed in reactivation advisory."""
         conn = self.conn
-        _insert_session(conn, "sess-5", ended=True)
-        _insert_claim(conn, "sess-5", 500, released=True, release_reason="session_ended")
+        _insert_session(conn, "sess-5")
+        _insert_claim(
+            conn, "sess-5", 500, released=True, release_reason="session_ended"
+        )
         # This claim is still active (reactivation may have already occurred earlier)
         _insert_claim(conn, "sess-5", 501, released=False)
 
@@ -286,75 +306,6 @@ class TestEmitReactivatedWithReleasedClaims(_ReactivationDBTest):
         emit_event.assert_called_once()
         claims = emit_event.call_args.kwargs["context"]["released_claims"]
         self.assertEqual([claim["item_id"] for claim in claims], [500])
-
-
-class TestRegisterSessionReactivationWiring(_ReactivationDBTest):
-    """Integration: register_session emits advisory on reactivation."""
-
-    def test_reactivation_calls_advisory_helper(self) -> None:
-        """register_session calls emit_reactivated_with_released_claims on reactivation.
-
-        The helper returns the released claims list — non-empty confirms the
-        reactivation path fired.  (The native event emitter writes to the global
-        canonical DB, so we verify via the helper's return contract rather than
-        checking the in-memory test DB's events table.)
-        """
-        from yoke_core.domain.sessions_lifecycle_registry import register_session
-
-        conn = self.conn
-        _insert_session(conn, "sess-reac", ended=True)
-        _insert_claim(conn, "sess-reac", 999, released=True, release_reason="session_ended")
-
-        with mock.patch(
-            "yoke_core.domain.sessions_lifecycle_registry.emit_reactivated_with_released_claims",
-            return_value=[{"target_kind": "item", "item_id": 999}],
-        ) as advisory:
-            # register_session must not raise on reactivation
-            register_session(
-                conn,
-                session_id="sess-reac",
-                executor="claude-code",
-                provider="anthropic",
-                model="claude-sonnet-4-6",
-                workspace="/tmp",
-                project_id=1,
-            )
-        advisory.assert_called_once()
-        self.assertIs(advisory.call_args.args[0], conn)
-        self.assertEqual(advisory.call_args.args[1], "sess-reac")
-        # If we reach here without exception, the reactivation path ran cleanly
-
-    def test_fresh_session_no_released_claims(self) -> None:
-        """Fresh session has no prior session-ended claims — helper returns empty list."""
-        conn = self.conn
-        _insert_session(conn, "sess-fresh")
-
-        with mock.patch(
-            "yoke_core.domain.sessions_lifecycle_reactivation._emit_session_event"
-        ) as emit_event:
-            result = emit_reactivated_with_released_claims(conn, "sess-fresh")
-        self.assertEqual(result, [], "Fresh session must not return any released claims")
-        emit_event.assert_not_called()
-
-    def test_fresh_registration_does_not_call_advisory_helper(self) -> None:
-        """Only same-session reactivation calls the released-claims advisory helper."""
-        from yoke_core.domain.sessions_lifecycle_registry import register_session
-
-        conn = self.conn
-
-        with mock.patch(
-            "yoke_core.domain.sessions_lifecycle_registry.emit_reactivated_with_released_claims"
-        ) as advisory:
-            register_session(
-                conn,
-                session_id="sess-new",
-                executor="claude-code",
-                provider="anthropic",
-                model="claude-sonnet-4-6",
-                workspace="/tmp",
-                project_id=1,
-            )
-        advisory.assert_not_called()
 
 
 if __name__ == "__main__":

@@ -8,23 +8,21 @@ from typing import Any, Optional
 from yoke_core.domain.db_helpers import iso8601_now, query_one, query_rows
 from yoke_core.domain.qa_plan_management import (
     QaPlanError,
-    _json,
     _placeholder,
     _plan_row,
 )
-
-
-def _require_plan_cases(conn: Any, plan_id: int) -> None:
-    marker = _placeholder(conn)
-    row = query_one(
-        conn,
-        f"SELECT 1 FROM qa_plan_cases WHERE plan_id={marker} LIMIT 1",
-        (int(plan_id),),
-    )
-    if row is None:
-        raise QaPlanError(
-            f"QA plan {plan_id} has no cases and cannot be attached or materialized"
-        )
+from yoke_core.domain.qa_plan_requirement_snapshot import (
+    existing_requirement_id,
+    insert_requirement,
+)
+from yoke_core.domain.qa_plan_attachment_validation import (
+    require_plan_cases,
+    validate_item_transition,
+)
+from yoke_core.domain.workflow_item_binding_lock import (
+    lock_item_workflow_bindings,
+    rollback_workflow_binding_write_errors,
+)
 
 
 def set_project_default(
@@ -38,7 +36,7 @@ def set_project_default(
 ) -> dict:
     """Attach one of a transition's project-default plans."""
     plan = _plan_row(conn, plan_id)
-    _require_plan_cases(conn, plan_id)
+    require_plan_cases(conn, plan_id)
     marker = _placeholder(conn)
     if (
         query_one(
@@ -91,7 +89,7 @@ def attach_plan_to_item(
 ) -> dict:
     """Add an item-specific plan attachment after enforcing project scope."""
     plan = _plan_row(conn, plan_id)
-    _require_plan_cases(conn, plan_id)
+    require_plan_cases(conn, plan_id)
     marker = _placeholder(conn)
     item = query_one(
         conn,
@@ -102,19 +100,30 @@ def attach_plan_to_item(
         raise QaPlanError(f"item {item_id} not found")
     if int(item["project_id"]) != int(plan["project_id"]):
         raise QaPlanError("plan and item must belong to the same project")
-    now = iso8601_now()
-    conn.execute(
-        "INSERT INTO qa_plan_item_attachments("
-        "item_id, transition_id, qa_phase, plan_id, attached_at, "
-        "attached_by_actor_id"
-        f") VALUES ({', '.join([marker] * 6)}) "
-        "ON CONFLICT(item_id, transition_id, plan_id) DO UPDATE SET "
-        "qa_phase=EXCLUDED.qa_phase, attached_at=EXCLUDED.attached_at, "
-        "attached_by_actor_id=EXCLUDED.attached_by_actor_id",
-        (item_id, transition_id, qa_phase, plan_id, now, actor_id),
+    lock_item_workflow_bindings(conn, (int(item_id),))
+    transition_id = validate_item_transition(
+        conn,
+        item_id=int(item_id),
+        transition_id=transition_id,
     )
-    if commit:
-        conn.commit()
+    now = iso8601_now()
+    try:
+        conn.execute(
+            "INSERT INTO qa_plan_item_attachments("
+            "item_id, transition_id, qa_phase, plan_id, attached_at, "
+            "attached_by_actor_id"
+            f") VALUES ({', '.join([marker] * 6)}) "
+            "ON CONFLICT(item_id, transition_id, plan_id) DO UPDATE SET "
+            "qa_phase=EXCLUDED.qa_phase, attached_at=EXCLUDED.attached_at, "
+            "attached_by_actor_id=EXCLUDED.attached_by_actor_id",
+            (item_id, transition_id, qa_phase, plan_id, now, actor_id),
+        )
+        if commit:
+            conn.commit()
+    except Exception:
+        if commit:
+            conn.rollback()
+        raise
     return {
         "plan_id": int(plan_id),
         "item_id": int(item_id),
@@ -156,99 +165,37 @@ def _attached_plans(
     return dict(sorted(attachments.items()))
 
 
-def _insert_requirement(
+def has_attached_plans(
     conn: Any,
     *,
     item_id: int,
     transition_id: str,
-    plan: Any,
-    attachment: dict,
-    case: Any,
-    baseline: Optional[str],
-    baseline_position: int,
-    now: str,
-) -> Optional[int]:
-    marker = _placeholder(conn)
-    policy_id = case["success_policy_id"] or plan["success_policy_id"]
-    params = (
-        json.loads(str(case["success_policy_params"]))
-        if case["success_policy_params"] is not None
-        else json.loads(str(plan["success_policy_params"]))
+) -> bool:
+    """Whether materialization has any effective work for this transition."""
+    return bool(
+        _attached_plans(
+            conn,
+            item_id=int(item_id),
+            transition_id=str(transition_id),
+        )
     )
-    row = conn.execute(
-        "INSERT INTO qa_requirements("
-        "item_id, qa_kind, qa_phase, blocking_mode, "
-        "requirement_source, success_policy, capability_requirements, "
-        "plan_id, plan_case_key, case_position, baseline_position, "
-        "method_id, method_name, executor_id, required_capability_kind, "
-        "verdict_path, host_baseline, entry_surface, required_completion, "
-        "workflow_transition_id, instructions, expected_outcome, "
-        "method_config, created_at"
-        f") VALUES ({', '.join([marker] * 24)}) "
-        "ON CONFLICT DO NOTHING RETURNING id",
-        (
-            item_id,
-            "plan_case",
-            str(attachment["qa_phase"]),
-            "blocking",
-            "flow_derived",
-            _json({"id": policy_id, "params": params}),
-            _json([case["required_capability_kind"]])
-            if case["required_capability_kind"]
-            else _json([]),
-            int(plan["id"]),
-            str(case["case_key"]),
-            int(case["position"]),
-            int(baseline_position),
-            str(case["method_id"]),
-            str(case["method_name"]),
-            str(case["executor_id"]),
-            case["required_capability_kind"],
-            str(case["verdict_path"]),
-            baseline,
-            case["entry_surface"],
-            case["required_completion"],
-            transition_id,
-            str(case["instructions"]),
-            str(case["expected_outcome"]),
-            str(case["method_config"]),
-            now,
-        ),
-    ).fetchone()
-    if row is None:
-        return None
-    return int(row["id"] if isinstance(row, dict) else row[0])
 
 
-def _existing_requirement_id(
-    conn: Any,
-    *,
-    item_id: int,
-    plan_id: int,
-    case_key: str,
-    baseline: Optional[str],
-    transition_id: str,
-) -> Optional[int]:
-    marker = _placeholder(conn)
-    row = query_one(
-        conn,
-        "SELECT id FROM qa_requirements "
-        f"WHERE item_id={marker} AND plan_id={marker} "
-        f"AND plan_case_key={marker} "
-        f"AND COALESCE(host_baseline, '')={marker} "
-        f"AND workflow_transition_id={marker}",
-        (item_id, plan_id, case_key, baseline or "", transition_id),
-    )
-    return int(row["id"]) if row is not None else None
-
-
+@rollback_workflow_binding_write_errors
 def materialize_for_item(
     conn: Any,
     *,
     item_id: int,
     transition_id: str,
+    commit: bool = True,
 ) -> dict:
     """Snapshot every attached case into idempotent QA requirements."""
+    lock_item_workflow_bindings(conn, (int(item_id),))
+    transition_id = validate_item_transition(
+        conn,
+        item_id=int(item_id),
+        transition_id=transition_id,
+    )
     attachments = _attached_plans(
         conn,
         item_id=item_id,
@@ -293,7 +240,7 @@ def materialize_for_item(
         for case in cases:
             baselines = json.loads(str(case["host_baselines"] or "[]")) or [None]
             for baseline_position, baseline in enumerate(baselines, start=1):
-                requirement_id = _insert_requirement(
+                requirement_id = insert_requirement(
                     conn,
                     item_id=item_id,
                     transition_id=transition_id,
@@ -307,7 +254,7 @@ def materialize_for_item(
                 if requirement_id is not None:
                     created.append(requirement_id)
                     continue
-                requirement_id = _existing_requirement_id(
+                requirement_id = existing_requirement_id(
                     conn,
                     item_id=item_id,
                     plan_id=plan_id,
@@ -317,7 +264,8 @@ def materialize_for_item(
                 )
                 if requirement_id is not None:
                     existing.append(requirement_id)
-    conn.commit()
+    if commit:
+        conn.commit()
     return {
         "item_id": int(item_id),
         "transition_id": transition_id,
@@ -329,6 +277,7 @@ def materialize_for_item(
 
 __all__ = [
     "attach_plan_to_item",
+    "has_attached_plans",
     "materialize_for_item",
     "set_project_default",
 ]

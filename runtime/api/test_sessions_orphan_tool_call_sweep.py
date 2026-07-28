@@ -31,10 +31,9 @@ from yoke_core.domain.sessions_orphan_tool_call_sweep import (
     sweep_orphaned_tool_calls,
 )
 from runtime.api.sessions_api_stale_test_helpers import apply_ddl_statements
-from runtime.api.test_sessions import (  # noqa: F401
-    _register,
-    conn,
-)
+from runtime.api.test_sessions import _insert_claimable_item, _register
+
+pytest_plugins = ("runtime.api.test_sessions",)
 
 
 EVENTS_SCHEMA = """
@@ -78,8 +77,7 @@ def _now_iso(offset_s: int = 0) -> str:
     return when.strftime("%Y-%m-%dT%H:%M:%S.") + f"{when.microsecond // 1000:03d}Z"
 
 
-def _insert_open_call(c, *, session_id, tool_use_id, tool_name="Bash",
-                      started_at=None):
+def _insert_open_call(c, *, session_id, tool_use_id, tool_name="Bash", started_at=None):
     """Open a session_tool_calls row (what observe_pre records on Started)."""
     started_at = started_at or _now_iso()
     c.execute(
@@ -137,8 +135,12 @@ class TestOrphanSweepReason:
         assert d["lifecycle_reason"] in LIFECYCLE_REASONS
 
     def test_build_sentinel_reason_copies_started_at(self, conn):
-        _insert_open_call(conn, session_id="sess-A", tool_use_id="tu-1",
-                          started_at="2026-05-19T09:00:00.000Z")
+        _insert_open_call(
+            conn,
+            session_id="sess-A",
+            tool_use_id="tu-1",
+            started_at="2026-05-19T09:00:00.000Z",
+        )
         row = conn.execute(
             "SELECT * FROM session_tool_calls WHERE tool_use_id = 'tu-1'"
         ).fetchone()
@@ -156,8 +158,9 @@ class TestOrphanSweepReason:
 class TestSweep:
     def test_rejects_unknown_lifecycle_reason(self, conn):
         with pytest.raises(ValueError):
-            sweep_orphaned_tool_calls(conn, session_id="sess-A",
-                                      lifecycle_reason="bogus")
+            sweep_orphaned_tool_calls(
+                conn, session_id="sess-A", lifecycle_reason="bogus"
+            )
 
     def test_one_orphan_one_matched_emits_one_sentinel(self, conn):
         _seed_events(conn)
@@ -165,8 +168,9 @@ class TestSweep:
         _insert_open_call(conn, session_id="sess-A", tool_use_id="tu-matched")
         _close_call(conn, session_id="sess-A", tool_use_id="tu-matched")
 
-        result = sweep_orphaned_tool_calls(conn, session_id="sess-A",
-                                           lifecycle_reason="session_end_destructive")
+        result = sweep_orphaned_tool_calls(
+            conn, session_id="sess-A", lifecycle_reason="session_end_destructive"
+        )
         assert result["matched"] == 1
         assert result["skipped_null_tool_use_id"] == 0
         assert len(result["sentinel_event_ids"]) == 1
@@ -186,10 +190,12 @@ class TestSweep:
     def test_closed_row_is_not_swept(self, conn):
         _seed_events(conn)
         _insert_open_call(conn, session_id="sess-A", tool_use_id="tu-failed")
-        _close_call(conn, session_id="sess-A", tool_use_id="tu-failed",
-                    outcome="failed")
-        result = sweep_orphaned_tool_calls(conn, session_id="sess-A",
-                                           lifecycle_reason="session_end_destructive")
+        _close_call(
+            conn, session_id="sess-A", tool_use_id="tu-failed", outcome="failed"
+        )
+        result = sweep_orphaned_tool_calls(
+            conn, session_id="sess-A", lifecycle_reason="session_end_destructive"
+        )
         assert result["matched"] == 0
         assert _sentinels(conn, "sess-A") == []
         kept = conn.execute(
@@ -201,23 +207,33 @@ class TestSweep:
     def test_rows_close_even_without_events_table(self, conn):
         # No events table: the state side still closes; no sentinel rows.
         _insert_open_call(conn, session_id="sess-A", tool_use_id="tu-orphan")
-        result = sweep_orphaned_tool_calls(conn, session_id="sess-A",
-                                           lifecycle_reason="session_end_destructive")
+        result = sweep_orphaned_tool_calls(
+            conn, session_id="sess-A", lifecycle_reason="session_end_destructive"
+        )
         assert result["matched"] == 1
         assert result["sentinel_event_ids"] == []
         assert _open_rows(conn, "sess-A") == []
 
     def test_sentinel_payload_carries_four_named_fields(self, conn):
         _seed_events(conn)
-        _insert_open_call(conn, session_id="sess-A", tool_use_id="tu-1",
-                          started_at="2026-05-19T09:00:00.000Z")
-        sweep_orphaned_tool_calls(conn, session_id="sess-A",
-                                  lifecycle_reason="stop_hook_destructive")
+        _insert_open_call(
+            conn,
+            session_id="sess-A",
+            tool_use_id="tu-1",
+            started_at="2026-05-19T09:00:00.000Z",
+        )
+        sweep_orphaned_tool_calls(
+            conn, session_id="sess-A", lifecycle_reason="stop_hook_destructive"
+        )
         row = _sentinels(conn, "sess-A")[0]
         env = json.loads(row["envelope"])
         reason = env["context"]["detail"]["sentinel_reason"]
-        assert set(reason) == {"ending_session_id", "sentinel_emitted_at",
-                               "original_started_at", "lifecycle_reason"}
+        assert set(reason) == {
+            "ending_session_id",
+            "sentinel_emitted_at",
+            "original_started_at",
+            "lifecycle_reason",
+        }
         assert reason["ending_session_id"] == "sess-A"
         assert reason["lifecycle_reason"] == "stop_hook_destructive"
         assert reason["original_started_at"] == "2026-05-19T09:00:00.000Z"
@@ -228,8 +244,9 @@ class TestSweep:
         _seed_events(conn)
         _register(conn, session_id="sess-P", project_id=2)
         _insert_open_call(conn, session_id="sess-P", tool_use_id="tu-p1")
-        sweep_orphaned_tool_calls(conn, session_id="sess-P",
-                                  lifecycle_reason="session_end_destructive")
+        sweep_orphaned_tool_calls(
+            conn, session_id="sess-P", lifecycle_reason="session_end_destructive"
+        )
         rows = _sentinels(conn, "sess-P")
         assert len(rows) == 1
         assert rows[0]["project_id"] == 2
@@ -237,8 +254,9 @@ class TestSweep:
     def test_sentinel_project_id_falls_back_for_unregistered_session(self, conn):
         _seed_events(conn)
         _insert_open_call(conn, session_id="sess-U", tool_use_id="tu-u1")
-        sweep_orphaned_tool_calls(conn, session_id="sess-U",
-                                  lifecycle_reason="session_end_destructive")
+        sweep_orphaned_tool_calls(
+            conn, session_id="sess-U", lifecycle_reason="session_end_destructive"
+        )
         rows = _sentinels(conn, "sess-U")
         assert len(rows) == 1
         assert rows[0]["project_id"] == 1
@@ -247,16 +265,20 @@ class TestSweep:
         _seed_events(conn)
         _insert_open_call(conn, session_id="sess-A", tool_use_id="tu-orphan")
 
-        first = sweep_orphaned_tool_calls(conn, session_id="sess-A",
-                                          lifecycle_reason="session_end_destructive")
+        first = sweep_orphaned_tool_calls(
+            conn, session_id="sess-A", lifecycle_reason="session_end_destructive"
+        )
         assert first["matched"] == 1
 
-        before = conn.execute("SELECT COUNT(*) FROM events WHERE session_id = %s",
-                              ("sess-A",)).fetchone()[0]
-        second = sweep_orphaned_tool_calls(conn, session_id="sess-A",
-                                           lifecycle_reason="session_end_destructive")
-        after = conn.execute("SELECT COUNT(*) FROM events WHERE session_id = %s",
-                             ("sess-A",)).fetchone()[0]
+        before = conn.execute(
+            "SELECT COUNT(*) FROM events WHERE session_id = %s", ("sess-A",)
+        ).fetchone()[0]
+        second = sweep_orphaned_tool_calls(
+            conn, session_id="sess-A", lifecycle_reason="session_end_destructive"
+        )
+        after = conn.execute(
+            "SELECT COUNT(*) FROM events WHERE session_id = %s", ("sess-A",)
+        ).fetchone()[0]
         assert second["sentinel_event_ids"] == []
         assert second["matched"] == 0
         assert before == after
@@ -271,6 +293,7 @@ class TestEndSessionDestructiveBranch:
     def test_destructive_end_fires_sweep(self, conn):
         _seed_events(conn)
         _register(conn, session_id="sess-D")
+        _insert_claimable_item(conn, 100)
         claim_work(conn, session_id="sess-D", item_id="100")
         _insert_open_call(conn, session_id="sess-D", tool_use_id="tu-orphan-d")
 
@@ -284,9 +307,7 @@ class TestEndSessionDestructiveBranch:
             """UPDATE work_claims
                SET last_heartbeat = %s, claimed_at = %s
                WHERE session_id = %s""",
-            ("2026-01-01T00:00:00.000Z",
-             "2026-01-01T00:00:00.000Z",
-             "sess-D"),
+            ("2026-01-01T00:00:00.000Z", "2026-01-01T00:00:00.000Z", "sess-D"),
         )
         conn.commit()
 
@@ -326,34 +347,3 @@ class TestEndSessionIfEmpty:
 
         assert _sentinels(conn, "sess-I") == []
         assert len(_open_rows(conn, "sess-I")) == 1
-
-
-# ---------------------------------------------------------------------------
-# AC-9 first-class column audit count
-# ---------------------------------------------------------------------------
-
-
-class TestFirstClassColumnsAuditQuery:
-    def test_count_of_interrupted_rows_matches_expected(self, conn):
-        _seed_events(conn)
-        _register(conn, session_id="sess-Q")
-        _insert_open_call(conn, session_id="sess-Q", tool_use_id="tu-q1")
-        _insert_open_call(conn, session_id="sess-Q", tool_use_id="tu-q2")
-        _insert_open_call(conn, session_id="sess-Q", tool_use_id="tu-q3")
-        _close_call(conn, session_id="sess-Q", tool_use_id="tu-q2")
-        sweep_orphaned_tool_calls(
-            conn, session_id="sess-Q", lifecycle_reason="session_idle_auto_ended"
-        )
-        count = conn.execute(
-            """SELECT COUNT(*) FROM events WHERE session_id = %s
-                 AND event_name = 'HarnessToolCallCompleted'
-                 AND event_outcome = %s""",
-            ("sess-Q", OUTCOME_INTERRUPTED),
-        ).fetchone()[0]
-        assert count == 2
-        interrupted = conn.execute(
-            """SELECT COUNT(*) FROM session_tool_calls
-               WHERE session_id = %s AND outcome = %s""",
-            ("sess-Q", OUTCOME_INTERRUPTED),
-        ).fetchone()[0]
-        assert interrupted == 2

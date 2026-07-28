@@ -22,10 +22,10 @@ REGISTER_DESCRIPTION = (
     "  python3 -m yoke_core.api.service_client path-claim-register \\\n"
     "    --item YOK-N --integration-target main \\\n"
     "    --paths runtime/api/domain/foo.py,runtime/api/domain/test_foo.py\n\n"
-    "Exception mode (operator no-claim justification on no paths):\n"
-    "  python3 -m yoke_core.api.service_client path-claim-register \\\n"
+    "Exception mode (canonical no-claim justification on no paths):\n"
+    "  yoke claims path register \\\n"
     "    --item YOK-N --mode exception \\\n"
-    "    --reason \"evidence-only work item; no repo changes\"\n"
+    '    --exception-reason "evidence-only work item; no repo changes"\n'
 )
 
 
@@ -35,16 +35,16 @@ WIDEN_DESCRIPTION = (
     "Worked example (canonical agent shape):\n"
     "  yoke claims path widen --claim-id 138 --item YOK-N \\\n"
     "    --add-paths runtime/api/domain/foo_helper.py \\\n"
-    "    --reason \"implementation discovered helper sibling\"\n\n"
+    '    --reason "implementation discovered helper sibling"\n\n'
     "Operator-debug fallback inside a Yoke checkout:\n"
     "  python3 -m yoke_core.api.service_client path-claim-widen \\\n"
     "    --item YOK-N \\\n"
     "    --paths runtime/api/domain/foo_helper.py \\\n"
-    "    --reason \"implementation discovered helper sibling\"\n\n"
+    '    --reason "implementation discovered helper sibling"\n\n'
     "Planned (not-yet-on-disk) paths require ``--allow-planned``:\n"
     "  python3 -m yoke_core.api.service_client path-claim-widen \\\n"
     "    --item YOK-N --paths runtime/api/service_client_new.py \\\n"
-    "    --allow-planned --reason \"new adapter module\"\n"
+    '    --allow-planned --reason "new adapter module"\n'
 )
 
 

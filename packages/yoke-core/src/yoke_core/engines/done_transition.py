@@ -35,7 +35,6 @@ from yoke_core.engines.done_transition_gates import (  # noqa: F401
     _get_latest_run_status,
     _check_run_stage_consistency,
     _check_run_qa_gates,
-    _cascade_release_to_children,
 )
 from yoke_core.engines.done_transition_cascade import (  # noqa: F401
     _populate_merged_at,
@@ -57,6 +56,7 @@ from yoke_core.engines.done_transition_finalize import (  # noqa: F401
     _finalize_done_local_side_effects,
 )
 from yoke_core.engines.done_transition_runner import run
+
 
 def main(argv: list[str] | None = None) -> int:
     """Parse CLI arguments and run the done-transition state machine."""
@@ -107,6 +107,7 @@ def main(argv: list[str] | None = None) -> int:
         skip_deploy=skip_deploy,
         skip_qa=skip_qa,
     )
+
 
 if __name__ == "__main__":
     sys.exit(main())

@@ -34,6 +34,10 @@ from yoke_core.domain.path_claims_amend_overlap import (
     chosen_serial_upstream,
     classify_widen_overlap,
 )
+from yoke_core.domain.workflow_item_binding_lock import (
+    lock_path_claim_workflow_binding,
+    rollback_workflow_binding_write_errors,
+)
 
 
 _TERMINAL_STATES = ("released", "cancelled")
@@ -118,9 +122,7 @@ def _validate_amendable(claim: dict) -> None:
         )
 
 
-def _resolved_targets(
-    conn: Any, claim_id: int
-) -> List[int]:
+def _resolved_targets(conn: Any, claim_id: int) -> List[int]:
     p = _p(conn)
     return [
         int(r[0])
@@ -132,9 +134,7 @@ def _resolved_targets(
     ]
 
 
-def _validate_target_ids(
-    conn: Any, target_ids: Iterable[int]
-) -> List[int]:
+def _validate_target_ids(conn: Any, target_ids: Iterable[int]) -> List[int]:
     ids = [int(t) for t in target_ids]
     if not ids:
         raise InvalidTargetSet("amend requires at least one target_id")
@@ -154,6 +154,7 @@ def _validate_target_ids(
     return ids
 
 
+@rollback_workflow_binding_write_errors
 def widen(
     conn: Any,
     *,
@@ -162,8 +163,10 @@ def widen(
     reason: str,
     repo_path: Optional[str] = None,
     worktree_head: Optional[str] = None,
+    commit: bool = True,
 ) -> int:
     """Add ``add_target_ids`` to a non-terminal claim's coverage."""
+    lock_path_claim_workflow_binding(conn, claim_id)
     claim = get_claim(conn, claim_id)
     _validate_amendable(claim)
     add_ids = _validate_target_ids(conn, add_target_ids)
@@ -171,19 +174,25 @@ def widen(
     truly_new = [tid for tid in add_ids if tid not in existing]
     if not truly_new:
         amendment_id = _record_amendment(
-            conn, claim_id=claim_id, kind="widen",
+            conn,
+            claim_id=claim_id,
+            kind="widen",
             payload={
-                "added": [], "requested": add_ids,
+                "added": [],
+                "requested": add_ids,
                 "no_op_reason": "all requested targets already declared",
             },
             reason=reason,
         )
-        conn.commit()
+        if commit:
+            conn.commit()
         return amendment_id
     union = sorted(existing | set(truly_new))
     item_id = claim["item_id"]
     decision = classify_widen_overlap(
-        conn, claim_id=claim_id, candidate_target_ids=union,
+        conn,
+        claim_id=claim_id,
+        candidate_target_ids=union,
         integration_target=str(claim["integration_target"]),
         candidate_item_id=int(item_id) if item_id is not None else None,
         current_claim_state=str(claim["state"]),
@@ -197,9 +206,13 @@ def widen(
         from yoke_core.domain.path_claims_amend_stale_base import (
             check_stale_base_on_new_claim,
         )
+
         check_stale_base_on_new_claim(
-            conn, claim_id=claim_id, new_target_ids=truly_new,
-            repo_path=repo_path, worktree_head=worktree_head,
+            conn,
+            claim_id=claim_id,
+            new_target_ids=truly_new,
+            repo_path=repo_path,
+            worktree_head=worktree_head,
         )
     now = _now()
     p = _p(conn)
@@ -222,13 +235,18 @@ def widen(
     if decision.overlapping_claim_ids:
         payload["overlapping_claim_ids"] = decision.overlapping_claim_ids
     amendment_id = _record_amendment(
-        conn, claim_id=claim_id, kind="widen",
-        payload=payload, reason=reason,
+        conn,
+        claim_id=claim_id,
+        kind="widen",
+        payload=payload,
+        reason=reason,
     )
-    conn.commit()
+    if commit:
+        conn.commit()
     return amendment_id
 
 
+@rollback_workflow_binding_write_errors
 def narrow(
     conn: Any,
     *,
@@ -239,6 +257,7 @@ def narrow(
     worktree_head: Optional[str] = None,
 ) -> int:
     """Remove ``drop_target_ids`` from a non-terminal claim's coverage."""
+    lock_path_claim_workflow_binding(conn, claim_id)
     claim = get_claim(conn, claim_id)
     _validate_amendable(claim)
     drop_ids = _validate_target_ids(conn, drop_target_ids)
@@ -297,16 +316,17 @@ def narrow(
     from yoke_core.domain.path_targets_materialization import (
         abandon_planned_targets_without_open_claim,
     )
+
     abandon_planned_targets_without_open_claim(
-        conn, target_ids=drop_ids, reason=reason,
+        conn,
+        target_ids=drop_ids,
+        reason=reason,
     )
     conn.commit()
     return amendment_id
 
 
-def _project_for_claim(
-    conn: Any, claim: dict
-) -> Optional[int]:
+def _project_for_claim(conn: Any, claim: dict) -> Optional[int]:
     item_id = claim.get("item_id")
     if item_id is None:
         return None
@@ -321,7 +341,8 @@ def _project_for_claim(
     return int(project_id) if project_id else None
 
 
-__all__ = ["AmendmentError", "AmendmentNotFound", "CannotAmendClaim",
-           "ClaimNotFound", "IllegalTransition", "IncompatibleOverlap",
-           "InvalidTargetSet", "NarrowWouldOrphanCommittedWork",
-           "cancel_amendment", "narrow", "widen"]
+__all__ = [
+    "AmendmentError", "AmendmentNotFound", "CannotAmendClaim", "ClaimNotFound",
+    "IllegalTransition", "IncompatibleOverlap", "InvalidTargetSet",
+    "NarrowWouldOrphanCommittedWork", "cancel_amendment", "narrow", "widen",
+]

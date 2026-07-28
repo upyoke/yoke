@@ -9,6 +9,7 @@ import pytest
 from yoke_core.domain import qa
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.qa_test_helpers import make_qa_db_file
+from runtime.api.qa_transition_test_support import add_bound_requirement
 
 
 @pytest.fixture()
@@ -24,7 +25,10 @@ class TestHelpers:
         assert qa._route_slug("/Dashboard") == "dashboard"
 
     def test_baseline_path(self) -> None:
-        assert qa._baseline_path("/settings/profile", 1920, 1080) == "test/baselines/settings-profile-1920x1080.png"
+        assert (
+            qa._baseline_path("/settings/profile", 1920, 1080)
+            == "test/baselines/settings-profile-1920x1080.png"
+        )
 
 
 class TestCLI:
@@ -43,7 +47,9 @@ class TestCLI:
     def test_requirement_list_via_cli(
         self, db_path: str, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        qa.cmd_requirement_add(db_path=db_path, item_id=42, qa_kind="test", qa_phase="verification")
+        add_bound_requirement(
+            db_path=db_path, item_id=42, qa_kind="test", qa_phase="verification"
+        )
         monkeypatch.setenv("YOKE_DB", db_path)
         lines = qa.cmd_requirement_list(item_id=42, db_path=db_path)
         assert len(lines) == 1
@@ -57,6 +63,7 @@ class TestCLI:
         assert exc.value.code == 0
         out = capsys.readouterr().out
         assert "--requirement-source" in out
+        assert "--workflow-transition" in out
         for source in qa.VALID_REQUIREMENT_SOURCES:
             assert source in out
         assert "Executable cases are" in out
@@ -74,17 +81,19 @@ class TestCLI:
         monkeypatch.setenv("YOKE_DB", db_path)
 
         with pytest.raises(SystemExit) as exc:
-            qa.main([
-                "requirement-add",
-                "--item-id",
-                "42",
-                "--qa-kind",
-                "ac_verification",
-                "--qa-phase",
-                "verification",
-                "--requirement-source",
-                "agent",
-            ])
+            qa.main(
+                [
+                    "requirement-add",
+                    "--item-id",
+                    "42",
+                    "--qa-kind",
+                    "ac_verification",
+                    "--qa-phase",
+                    "verification",
+                    "--requirement-source",
+                    "agent",
+                ]
+            )
 
         assert exc.value.code == 2
         err = capsys.readouterr().err
@@ -96,3 +105,27 @@ class TestCLI:
         count = conn.execute("SELECT COUNT(*) FROM qa_requirements").fetchone()[0]
         conn.close()
         assert count == 0
+
+    def test_item_requirement_add_requires_workflow_transition(
+        self,
+        db_path: str,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        monkeypatch.setenv("YOKE_DB", db_path)
+
+        with pytest.raises(SystemExit) as exc:
+            qa.main(
+                [
+                    "requirement-add",
+                    "--item-id",
+                    "42",
+                    "--qa-kind",
+                    "ac_verification",
+                    "--qa-phase",
+                    "verification",
+                ]
+            )
+
+        assert exc.value.code == 2
+        assert "--workflow-transition is required" in capsys.readouterr().err

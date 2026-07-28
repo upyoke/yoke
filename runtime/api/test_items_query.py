@@ -79,17 +79,27 @@ class TestQueryItem:
 
     def test_frozen_zero_maps_to_false(self, db_path):
         """frozen=0 should return 'false'."""
-        insert_item(item_id=3, title="Not frozen", workflow="issue",
-                    status="idea", priority="medium", frozen=0,
-                    created_at="2026-01-01T00:00:00Z",
-                    updated_at="2026-01-01T00:00:00Z", db_path=db_path)
+        insert_item(
+            item_id=3,
+            title="Not frozen",
+            workflow="issue",
+            status="idea",
+            priority="medium",
+            frozen=0,
+            created_at="2026-01-01T00:00:00Z",
+            updated_at="2026-01-01T00:00:00Z",
+            db_path=db_path,
+        )
         result = query_item(3, "frozen", db_path=db_path)
         assert result == "false"
 
     def test_frozen_maps_to_true(self, db_path):
         insert_item(
-            item_id=2, title="Frozen", workflow="issue",
-            frozen=1, db_path=db_path,
+            item_id=2,
+            title="Frozen",
+            workflow="issue",
+            frozen=1,
+            db_path=db_path,
         )
         result = query_item(2, "frozen", db_path=db_path)
         assert result == "true"
@@ -162,9 +172,27 @@ class TestInsertItem:
 
 
 class TestUpdateItemField:
-    def test_update_status(self, db_with_item):
-        update_item_field(1, "status", "implementing", db_path=db_with_item)
-        assert query_item(1, "status", db_path=db_with_item) == "implementing"
+    @pytest.mark.parametrize(
+        "field",
+        [
+            "status",
+            "workflow_id",
+            "workflow_posture",
+            "workflow_version_id",
+        ],
+    )
+    def test_workflow_controlled_fields_require_canonical_surface(
+        self,
+        db_with_item,
+        field,
+    ):
+        with pytest.raises(ValueError, match="lifecycle.transition.execute"):
+            update_item_field(
+                1,
+                field,
+                "replacement",
+                db_path=db_with_item,
+            )
 
     def test_update_sets_updated_at(self, db_with_item):
         old_ts = query_item(1, "updated_at", db_path=db_with_item)

@@ -24,13 +24,13 @@ from yoke_core.domain.work_processes import (
     conflict_group_for,
 )
 
-CLAIM_ACQUIRE_RECIPE = (
-    "yoke claims work acquire --process STRATEGIZE --reason <why>"
-)
+CLAIM_ACQUIRE_RECIPE = 'yoke claims work acquire --process STRATEGIZE --reason "<why>"'
 
 
 def session_holds_strategy_claim(
-    conn: Any, session_id: str, project_slug: str,
+    conn: Any,
+    session_id: str,
+    project_slug: str,
 ) -> bool:
     """True when the session holds the project's live STRATEGIZE/FEED claim."""
     group = conflict_group_for(PROCESS_STRATEGIZE, project_slug)
@@ -44,7 +44,9 @@ def session_holds_strategy_claim(
 
 
 def foreign_strategy_claim_holder(
-    conn: Any, session_id: str, project_slug: str,
+    conn: Any,
+    session_id: str,
+    project_slug: str,
 ) -> Optional[str]:
     """Return another session's id when it holds the project's live claim.
 

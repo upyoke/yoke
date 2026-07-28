@@ -13,6 +13,7 @@ from .sessions_analytics import (
     EVENT_WORK_RELEASED,
     SessionError,
 )
+from .sessions_claim_lifecycle_lock import lock_session_rows_for_claim_lifecycle
 from .sessions_lifecycle_registry import _get_claim, _get_session
 from .sessions_queries import (
     _now_iso,
@@ -20,6 +21,17 @@ from .sessions_queries import (
     normalize_claim_item_id,
 )
 from .sessions_render_attribution import clear_current_item, set_current_item
+from .workflow_item_binding_lock import (
+    lock_item_workflow_bindings,
+    lock_work_claims_workflow_bindings,
+    rollback_workflow_binding_write_errors,
+)
+from .workflow_item_binding_validation import (
+    WorkflowItemBindingError,
+    validate_work_claim_target,
+)
+from .work_claim_targets import from_row as work_claim_target_from_row
+
 
 def find_stale_sessions(
     conn: Any,
@@ -51,6 +63,7 @@ def find_stale_sessions(
     return result
 
 
+@rollback_workflow_binding_write_errors
 def reclaim_stale_session(
     conn: Any,
     session_id: str,
@@ -62,13 +75,10 @@ def reclaim_stale_session(
     """
     now = _now_iso()
 
-    row = conn.execute(
-        "SELECT ended_at FROM harness_sessions WHERE session_id = %s",
-        (session_id,),
-    ).fetchone()
-    if row is None:
+    session_rows = lock_session_rows_for_claim_lifecycle(conn, (session_id,))
+    if session_id not in session_rows:
         raise SessionError("NOT_FOUND", f"Session '{session_id}' not found.")
-    if row["ended_at"] is not None:
+    if session_rows[session_id] is not None:
         raise SessionError(
             "SESSION_ENDED",
             f"Session '{session_id}' has already ended.",
@@ -81,25 +91,41 @@ def reclaim_stale_session(
            ORDER BY claimed_at ASC, id ASC""",
         (session_id,),
     ).fetchall()
-
-    clear_current_item(conn, session_id)
-
-    conn.execute(
-        """UPDATE work_claims SET released_at = %s, release_reason = 'reclaimed'
-           WHERE session_id = %s AND released_at IS NULL""",
-        (now, session_id),
+    lock_work_claims_workflow_bindings(
+        conn, (int(claim_row["id"]) for claim_row in active_claim_rows)
     )
+    active_claim_rows = conn.execute(
+        """SELECT id, item_id, task_num FROM work_claims
+           WHERE session_id = %s AND released_at IS NULL
+           ORDER BY claimed_at ASC, id ASC""",
+        (session_id,),
+    ).fetchall()
+
+    clear_current_item(conn, session_id, commit=False)
+
+    released_claim_rows = []
+    for claim_row in active_claim_rows:
+        cursor = conn.execute(
+            "UPDATE work_claims SET released_at = %s, "
+            "release_reason = 'reclaimed' "
+            "WHERE id = %s AND released_at IS NULL",
+            (now, claim_row["id"]),
+        )
+        if cursor.rowcount:
+            released_claim_rows.append(claim_row)
     conn.execute(
         "UPDATE harness_sessions SET ended_at = %s WHERE session_id = %s",
         (now, session_id),
     )
     conn.commit()
 
-    for claim_row in active_claim_rows:
+    for claim_row in released_claim_rows:
         _sa._emit_session_event(
             EVENT_WORK_RECLAIMED,
             session_id=session_id,
-            item_id=str(claim_row["item_id"]) if claim_row["item_id"] is not None else None,
+            item_id=str(claim_row["item_id"])
+            if claim_row["item_id"] is not None
+            else None,
             task_num=claim_row["task_num"],
             context={
                 "claim_id": claim_row["id"],
@@ -110,6 +136,7 @@ def reclaim_stale_session(
     return _get_session(conn, session_id)
 
 
+@rollback_workflow_binding_write_errors
 def release_claims_for_done_item(
     conn: Any,
     item_id: str,
@@ -129,6 +156,7 @@ def release_claims_for_done_item(
     if not normalized.isdigit():
         return 0
     item_id_int = int(normalized)
+    lock_item_workflow_bindings(conn, (item_id_int,))
 
     unreleased = conn.execute(
         """SELECT wc.id, wc.session_id, wc.item_id, wc.task_num
@@ -149,7 +177,9 @@ def release_claims_for_done_item(
         _sa._emit_session_event(
             EVENT_WORK_RELEASED,
             session_id=claim_row["session_id"],
-            item_id=str(claim_row["item_id"]) if claim_row["item_id"] is not None else None,
+            item_id=str(claim_row["item_id"])
+            if claim_row["item_id"] is not None
+            else None,
             task_num=claim_row["task_num"],
             context={
                 "claim_id": claim_row["id"],
@@ -158,9 +188,7 @@ def release_claims_for_done_item(
             },
         )
 
-    if released:
-        conn.commit()
-
+    conn.commit()
     return released
 
 
@@ -171,6 +199,7 @@ def _resolve_effective_ttl(
 ) -> int:
     """Return the effective stale-session TTL for an executor."""
     from .sessions_analytics import EXECUTOR_STALE_TTL_OVERRIDES_MINUTES
+
     if not executor:
         return base_ttl_minutes
     table = overrides if overrides is not None else EXECUTOR_STALE_TTL_OVERRIDES_MINUTES
@@ -191,6 +220,7 @@ def _resolve_effective_ttl(
 # ---------------------------------------------------------------------------
 
 
+@rollback_workflow_binding_write_errors
 def handoff_claim(
     conn: Any,
     claim_id: int,
@@ -203,7 +233,33 @@ def handoff_claim(
     """
     now = _now_iso()
 
-    # Read original claim
+    # Discover the immutable source session without taking the claim lock.
+    # The actual claim state is re-read after the canonical
+    # session -> item -> claim lock sequence.
+    discovered_claim = conn.execute(
+        "SELECT * FROM work_claims WHERE id = %s",
+        (claim_id,),
+    ).fetchone()
+    if discovered_claim is None:
+        raise SessionError("NOT_FOUND", f"Claim {claim_id} not found.")
+    discovered = _row_to_dict(discovered_claim)
+
+    session_rows = lock_session_rows_for_claim_lifecycle(
+        conn,
+        (str(discovered["session_id"]), target_session_id),
+    )
+    if target_session_id not in session_rows:
+        raise SessionError(
+            "NOT_FOUND",
+            f"Target session '{target_session_id}' not found.",
+        )
+    if session_rows[target_session_id] is not None:
+        raise SessionError(
+            "SESSION_ENDED",
+            f"Target session '{target_session_id}' has already ended.",
+        )
+
+    lock_work_claims_workflow_bindings(conn, (claim_id,))
     old_claim = conn.execute(
         "SELECT * FROM work_claims WHERE id = %s",
         (claim_id,),
@@ -216,22 +272,13 @@ def handoff_claim(
             "ALREADY_RELEASED",
             f"Claim {claim_id} has already been released.",
         )
-
-    # Validate target session
-    target = conn.execute(
-        "SELECT ended_at FROM harness_sessions WHERE session_id = %s",
-        (target_session_id,),
-    ).fetchone()
-    if target is None:
-        raise SessionError(
-            "NOT_FOUND",
-            f"Target session '{target_session_id}' not found.",
+    try:
+        validate_work_claim_target(
+            conn,
+            work_claim_target_from_row(old_dict),
         )
-    if target["ended_at"] is not None:
-        raise SessionError(
-            "SESSION_ENDED",
-            f"Target session '{target_session_id}' has already ended.",
-        )
+    except WorkflowItemBindingError as exc:
+        raise SessionError("INVALID_CLAIM", str(exc)) from exc
 
     # Release old claim
     conn.execute(
@@ -261,12 +308,16 @@ def handoff_claim(
             now,
         ),
     )
-    clear_current_item(conn, old_dict["session_id"])
+    clear_current_item(conn, old_dict["session_id"], commit=False)
     if old_dict.get("target_kind") == "item" and old_dict["item_id"] is not None:
-        set_current_item(conn, target_session_id, str(old_dict["item_id"]))
-    conn.commit()
-
+        set_current_item(
+            conn,
+            target_session_id,
+            str(old_dict["item_id"]),
+            commit=False,
+        )
     new_claim_id = int(cursor.fetchone()[0])
+    conn.commit()
     item_id_for_event = (
         str(old_dict["item_id"])
         if old_dict.get("target_kind") == "item" and old_dict["item_id"] is not None

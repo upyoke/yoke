@@ -201,7 +201,7 @@ yoke events anomalies --min-severity WARN
 
 # QA requirements and runs
 # Item-bound review requirement / run (full schema in db-reference/qa-cli-and-body-write.md)
-yoke qa requirement add --item YOK-N --qa-kind implementation_review --qa-phase verification
+yoke qa requirement add --item YOK-N --qa-kind implementation_review --qa-phase verification --workflow-transition reviewed-implementation
 yoke qa requirement list --item YOK-N
 yoke qa requirement update --requirement-id 1 --field blocking_mode --value non_blocking
 yoke qa run add --requirement-id 1 --executor-type agent --qa-kind implementation_review --verdict pass

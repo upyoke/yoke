@@ -192,14 +192,48 @@ def test_clean_lane_attestation_counts_ignored_files_as_dirty(tmp_path) -> None:
     assert "not clean" in error
 
 
-def test_registry_usage_and_inventory_expose_both_operations() -> None:
+def test_list_and_path_record_build_registered_envelopes(monkeypatch) -> None:
+    captured = _capture_dispatch(monkeypatch)
+
+    assert item_worktrees.item_worktrees_list(["YOK-955"]) == 0
+    assert captured["function_id"] == "item_worktrees.list"
+    assert captured["payload"] == {}
+
+    captured.clear()
+    assert item_worktrees.item_worktrees_path_record([
+        "YOK-955",
+        "--worktree-id", "44",
+        "--branch", "blitz/docs",
+        "--path", "/tmp/blitz-docs",
+    ]) == 0
+    assert captured["function_id"] == "item_worktrees.path_record"
+    assert captured["payload"] == {"path": "/tmp/blitz-docs"}
+    assert captured["preconditions"] == {
+        "worktree_id": 44,
+        "branch": "blitz/docs",
+    }
+
+
+def test_registry_usage_and_inventory_expose_lane_operations() -> None:
     assert SUBCOMMAND_REGISTRY[("item-worktrees", "get")][0] == ("item_worktrees.get")
+    assert SUBCOMMAND_REGISTRY[("item-worktrees", "list")][0] == (
+        "item_worktrees.list"
+    )
+    assert SUBCOMMAND_REGISTRY[("item-worktrees", "path-record")][0] == (
+        "item_worktrees.path_record"
+    )
     assert SUBCOMMAND_REGISTRY[("item-worktrees", "release")][0] == (
         "item_worktrees.release"
     )
     assert ADAPTER_USAGE["item_worktrees.get"].startswith("yoke item-worktrees get")
+    assert ADAPTER_USAGE["item_worktrees.list"].startswith("yoke item-worktrees list")
+    assert ADAPTER_USAGE["item_worktrees.path_record"].startswith(
+        "yoke item-worktrees path-record"
+    )
     assert ADAPTER_USAGE["item_worktrees.release"].startswith(
         "yoke item-worktrees release"
     )
     assert operation_inventory.is_wrapped("yoke item-worktrees get")
+    assert operation_inventory.is_wrapped("yoke item-worktrees list")
+    assert operation_inventory.is_wrapped("yoke item-worktrees path-record")
     assert operation_inventory.is_wrapped("yoke item-worktrees release")

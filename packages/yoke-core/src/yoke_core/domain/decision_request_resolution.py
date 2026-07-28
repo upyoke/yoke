@@ -11,17 +11,25 @@ from yoke_core.domain.decision_request_contract import (
     REQUEST_WITHDRAWN_EVENT,
 )
 from yoke_core.domain.decision_request_events import append_decision_event
+from yoke_core.domain.decision_request_subject_state import (
+    require_decision_request_subject_ended,
+)
 from yoke_core.domain.decision_requests import (
     _authority_reason,
     _p,
     _request_row,
 )
-from yoke_core.domain.inbox_notifications import fan_out_registered_event
+from yoke_core.domain.inbox_notifications import dispatch_addressed_event
 
 
 def resolve_decision_request(
-    conn: Any, request_id: int, *, actor_id: int, action: str,
-    note: Optional[str] = None, session_id: str = "",
+    conn: Any,
+    request_id: int,
+    *,
+    actor_id: int,
+    action: str,
+    note: Optional[str] = None,
+    session_id: str = "",
     resolved_at: Optional[str] = None,
 ) -> dict[str, Any]:
     """Resolve after re-evaluating the role/name authority union."""
@@ -67,24 +75,39 @@ def resolve_decision_request(
                 resolved_at=stamp,
             )
     event_id = append_decision_event(
-        conn, REQUEST_RESOLVED_EVENT, actor_id=actor_id, session_id=session_id,
-        project_id=request["project_id"], org_id=request["org_id"],
-        context={"request_id": request_id, "kind": request["kind"],
-                 "action": action, "note": note}, created_at=stamp,
+        conn,
+        REQUEST_RESOLVED_EVENT,
+        actor_id=actor_id,
+        session_id=session_id,
+        project_id=request["project_id"],
+        org_id=request["org_id"],
+        context={
+            "request_id": request_id,
+            "kind": request["kind"],
+            "action": action,
+            "note": note,
+        },
+        created_at=stamp,
     )
     if request["originator_actor_id"] is not None:
-        fan_out_registered_event(
-            conn, event_id=event_id, notification_kind=DECISION_RESOLVED,
-            event_context={"request_id": request_id},
-            reason=f"{request['kind']} {action}", created_at=stamp,
+        dispatch_addressed_event(
+            conn,
+            event_id=event_id,
+            notification_kind=DECISION_RESOLVED,
+            reason=f"{request['kind']} {action}",
+            created_at=stamp,
         )
     conn.commit()
     return _request_row(conn, request_id)
 
 
 def withdraw_decision_request(
-    conn: Any, request_id: int, *, reason: str,
-    actor_id: Optional[int] = None, session_id: str = "",
+    conn: Any,
+    request_id: int,
+    *,
+    reason: str,
+    actor_id: Optional[int] = None,
+    session_id: str = "",
     withdrawn_at: Optional[str] = None,
 ) -> dict[str, Any]:
     """Withdraw an open request explicitly when its subject ends."""
@@ -93,8 +116,18 @@ def withdraw_decision_request(
     request = _request_row(conn, request_id)
     if request["status"] != "pending":
         raise ValueError(f"decision request {request_id} is {request['status']}")
+    if actor_id is None or _authority_reason(conn, request_id, actor_id) is None:
+        raise PermissionError(
+            f"actor {actor_id} is not authorized to withdraw "
+            f"decision request {request_id}"
+        )
     p = _p(conn)
     stamp = withdrawn_at or iso8601_now()
+    subject_end_evidence = require_decision_request_subject_ended(
+        conn,
+        request,
+        observed_at=stamp,
+    )
     cursor = conn.execute(
         "UPDATE decision_requests SET status = 'withdrawn', "
         f"withdrawal_reason = {p}, withdrawn_at = {p} "
@@ -104,10 +137,19 @@ def withdraw_decision_request(
     if int(cursor.rowcount or 0) != 1:
         raise ValueError(f"decision request {request_id} is no longer pending")
     append_decision_event(
-        conn, REQUEST_WITHDRAWN_EVENT, actor_id=actor_id, session_id=session_id,
-        project_id=request["project_id"], org_id=request["org_id"],
-        context={"request_id": request_id, "kind": request["kind"],
-                 "reason": reason.strip()}, created_at=stamp,
+        conn,
+        REQUEST_WITHDRAWN_EVENT,
+        actor_id=actor_id,
+        session_id=session_id,
+        project_id=request["project_id"],
+        org_id=request["org_id"],
+        context={
+            "request_id": request_id,
+            "kind": request["kind"],
+            "reason": reason.strip(),
+            "subject_end_evidence": subject_end_evidence,
+        },
+        created_at=stamp,
     )
     conn.commit()
     return _request_row(conn, request_id)

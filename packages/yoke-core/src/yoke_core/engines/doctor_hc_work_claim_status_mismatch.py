@@ -51,13 +51,14 @@ def _heartbeat_age_minutes(value: Optional[str], now: datetime) -> Optional[floa
 
 
 def hc_work_claim_status_mismatch(
-    conn: Any, args: DoctorArgs, rec: RecordCollector,
+    conn: Any,
+    args: DoctorArgs,
+    rec: RecordCollector,
 ) -> None:
     """Report leaked item claims that disagree with the item's status role."""
     for table in _REQUIRED_TABLES:
         if not _base._table_exists(conn, table):
-            rec.record(_HC_NAME, _HC_DESC, "PASS",
-                       f"{table} table missing — skipping")
+            rec.record(_HC_NAME, _HC_DESC, "PASS", f"{table} table missing — skipping")
             return
 
     ttl_minutes = get_int("session_stale_ttl_minutes", _DEFAULT_STALE_TTL_MINUTES)
@@ -66,8 +67,9 @@ def hc_work_claim_status_mismatch(
     try:
         rows = conn.execute(_SCAN_SQL).fetchall()
     except db_backend.database_error_types(conn) as exc:
-        rec.record(_HC_NAME, _HC_DESC, "PASS",
-                   f"required columns missing — skipping: {exc}")
+        rec.record(
+            _HC_NAME, _HC_DESC, "PASS", f"required columns missing — skipping: {exc}"
+        )
         return
 
     findings: list[str] = []
@@ -103,11 +105,11 @@ def hc_work_claim_status_mismatch(
 
     summary = (
         f"- {len(findings)} active item work-claim(s) held on a status whose "
-        f"canonical role does not match the holder session. Release with the "
-        f"halt-class reason (`usher-halt-*` for release items) or operator "
-        f"release for stale idea drafts: "
-        f"`python3 -m yoke_core.api.service_client release-work-claim "
-        f"--item YOK-N --reason <terminal-intent>`."
+        f"canonical role does not match the holder session. Ask the holder "
+        f"to run `yoke claims work release --item YOK-N --reason "
+        f"<terminal-intent>` (use an `usher-halt-*` reason for release "
+        f"items). Foreign stranded claims require the Atlas-named operator "
+        f"break-glass release surface."
     )
     issues = [summary] + findings[:_LIST_PREVIEW]
     if len(findings) > _LIST_PREVIEW:

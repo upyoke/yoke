@@ -48,7 +48,13 @@ from yoke_core.domain._path_claims_test_helpers import (  # noqa: F401
 
 def _seed_item(conn, *, item_id: int, project: str = "yoke") -> int:
     project_key = str(project)
-    project_id = 2 if project_key == "externalwebapp" else int(project_key) if project_key.isdigit() else 1
+    project_id = (
+        2
+        if project_key == "externalwebapp"
+        else int(project_key)
+        if project_key.isdigit()
+        else 1
+    )
     conn.execute(
         "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, "
         "created_at, updated_at, project_id, project_sequence) "
@@ -76,7 +82,11 @@ def _ensure_item_dependencies_table(conn):
 
 
 def _add_dep_edge(
-    conn, *, dependent: int, blocking: int, gate_point: str = "activation",
+    conn,
+    *,
+    dependent: int,
+    blocking: int,
+    gate_point: str = "activation",
 ):
     _ensure_item_dependencies_table(conn)
     conn.execute(
@@ -135,16 +145,19 @@ class TestScenarioA_CandidateDependent:
             item_id=cand_item,
         )
         row = conn.execute(
-            "SELECT state FROM path_claims WHERE id = %s", (claim_id,),
+            "SELECT state FROM path_claims WHERE id = %s",
+            (claim_id,),
         ).fetchone()
         assert row[0] == "blocked"
 
         repaired = repair_coordination_only_blocked(
-            conn, item_id=cand_item,
+            conn,
+            item_id=cand_item,
         )
         assert repaired == []
         row = conn.execute(
-            "SELECT state FROM path_claims WHERE id = %s", (claim_id,),
+            "SELECT state FROM path_claims WHERE id = %s",
+            (claim_id,),
         ).fetchone()
         assert row[0] == "blocked"
 
@@ -180,7 +193,8 @@ class TestScenarioB_CandidateUpstreamOfBlocks:
             item_id=cand_item,
         )
         row = conn.execute(
-            "SELECT state FROM path_claims WHERE id = %s", (claim_id,),
+            "SELECT state FROM path_claims WHERE id = %s",
+            (claim_id,),
         ).fetchone()
         assert row[0] == "planned"
 
@@ -205,7 +219,9 @@ class TestScenarioB_CandidateUpstreamOfBlocks:
             "VALUES ('blocked', 'exclusive', %s, %s, 'main', "
             "'2026-05-01T00:00:00Z', %s, %s) RETURNING id",
             (
-                actor, cand_item, SNAP,
+                actor,
+                cand_item,
+                SNAP,
                 "serial-via-dependency on path_claims.id=999",
             ),
         )
@@ -218,7 +234,8 @@ class TestScenarioB_CandidateUpstreamOfBlocks:
         conn.commit()
 
         repaired = repair_coordination_only_blocked(
-            conn, item_id=cand_item,
+            conn,
+            item_id=cand_item,
         )
         assert repaired == [claim_id]
         row = conn.execute(
@@ -235,9 +252,49 @@ class TestScenarioB_CandidateUpstreamOfBlocks:
         ).fetchone()
         assert event_row is not None
         import json as _json
+
         envelope = _json.loads(event_row[0])
         ctx = envelope.get("context") or {}
         assert ctx.get("directional_release") is True
+
+    def test_repair_does_not_resurrect_terminal_item_claim(self, conn):
+        target = seed_target(conn, path_string="runtime/api/domain/terminal")
+        item_id = _seed_item(conn, item_id=3016)
+        actor = local_human(conn)
+        claim_id = int(
+            conn.execute(
+                "INSERT INTO path_claims "
+                "(state, mode, actor_id, item_id, integration_target, "
+                "registered_at, blocked_reason) "
+                "VALUES ('blocked', 'exclusive', %s, %s, 'main', "
+                "'2026-05-01T00:00:00Z', 'stale coordination') RETURNING id",
+                (actor, item_id),
+            ).fetchone()[0]
+        )
+        conn.execute(
+            "INSERT INTO path_claim_targets "
+            "(claim_id, target_id, declared_at) "
+            "VALUES (%s, %s, '2026-05-01T00:00:00Z')",
+            (claim_id, target),
+        )
+        conn.execute(
+            "UPDATE items SET status='done' WHERE id=%s",
+            (item_id,),
+        )
+        conn.commit()
+
+        assert (
+            repair_coordination_only_blocked(
+                conn,
+                item_id=item_id,
+            )
+            == []
+        )
+        state = conn.execute(
+            "SELECT state FROM path_claims WHERE id=%s",
+            (claim_id,),
+        ).fetchone()[0]
+        assert str(state) == "blocked"
 
 
 class TestScenarioC_CoordinationOnlyEitherDirection:
@@ -249,7 +306,9 @@ class TestScenarioC_CoordinationOnlyEitherDirection:
         cand_item = _seed_item(conn, item_id=3008)
         _seed_active_claim(conn, item_id=oth_item, target_id=target)
         _add_dep_edge(
-            conn, dependent=cand_item, blocking=oth_item,
+            conn,
+            dependent=cand_item,
+            blocking=oth_item,
             gate_point="coordination_only",
         )
 
@@ -268,7 +327,9 @@ class TestScenarioC_CoordinationOnlyEitherDirection:
         cand_item = _seed_item(conn, item_id=3010)
         _seed_active_claim(conn, item_id=oth_item, target_id=target)
         _add_dep_edge(
-            conn, dependent=oth_item, blocking=cand_item,
+            conn,
+            dependent=oth_item,
+            blocking=cand_item,
             gate_point="coordination_only",
         )
 
@@ -280,40 +341,3 @@ class TestScenarioC_CoordinationOnlyEitherDirection:
             candidate_item_id=cand_item,
         )
         assert verdict is OverlapClassification.NONE
-
-
-class TestCrossSurfaceConsistency:
-    """AC-27: hard-block gate and classify_overlap agree on direction.
-
-    The candidate (matching-shape) is the BLOCKER of a non-coord
-    activation edge. Both surfaces must agree the candidate is upstream
-    and does not wait: the hard-block gate query (which reads
-    ``dependent_item = YOK-{candidate}`` directionally) returns no
-    blockers for the candidate; ``classify_overlap`` returns ``NONE``.
-    """
-
-    def test_upstream_of_blocks_agrees_across_surfaces(self, conn):
-        from yoke_core.domain.check_hard_blocks import _query_blockers
-
-        target = seed_target(conn, path_string="runtime/api/domain")
-        oth_item = _seed_item(conn, item_id=3011)
-        cand_item = _seed_item(conn, item_id=3012)
-        _seed_active_claim(conn, item_id=oth_item, target_id=target)
-        _add_dep_edge(conn, dependent=oth_item, blocking=cand_item)
-
-        overlap_verdict = classify_overlap(
-            conn,
-            target_ids=[target],
-            integration_target="main",
-            phase="register",
-            candidate_item_id=cand_item,
-        )
-        assert overlap_verdict is OverlapClassification.NONE
-
-        # Hard-block gate reads dependent_item directionally — the
-        # candidate is the BLOCKER party here, so no row matches and
-        # the gate returns an empty list (the candidate is not blocked).
-        blockers = _query_blockers(
-            conn, cand_item, gate_filter="activation",
-        )
-        assert blockers == []

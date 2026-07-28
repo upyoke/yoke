@@ -18,6 +18,9 @@ from yoke_core.domain.workflow_behavior import (
     worktree_lane_policy,
 )
 from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
+from yoke_core.domain.workflow_item_binding_lock import (
+    lock_item_workflow_bindings,
+)
 
 
 _RECOVERY_STATUS = "implemented"
@@ -149,6 +152,7 @@ def handle_release(request: FunctionCallRequest) -> HandlerOutcome:
     )
 
     with db_helpers.connect() as conn:
+        lock_item_workflow_bindings(conn, (item_id,))
         marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
         item = conn.execute(
             f"SELECT status FROM items WHERE id = {marker}",

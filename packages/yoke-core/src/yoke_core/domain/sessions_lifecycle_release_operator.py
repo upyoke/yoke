@@ -16,14 +16,54 @@ from typing import Any, Dict, Optional
 
 from . import db_backend
 from . import sessions_analytics as _sa
-from .sessions_analytics import EVENT_OPERATOR_CLAIM_OVERRIDE, EVENT_WORK_RELEASED, SessionError
+from .sessions_analytics import (
+    EVENT_OPERATOR_CLAIM_OVERRIDE,
+    EVENT_WORK_RELEASED,
+    SessionError,
+)
+from .sessions_claim_lifecycle_lock import lock_session_rows_for_claim_lifecycle
 from .sessions_queries import _now_iso, normalize_claim_item_id
+from .workflow_item_binding_lock import (
+    lock_item_workflow_bindings,
+    lock_work_claims_workflow_bindings,
+    rollback_workflow_binding_write_errors,
+)
 
 
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
+def _claim_by_id(conn: Any, claim_id: int, p: str) -> Any:
+    return conn.execute(
+        "SELECT id, session_id, target_kind, item_id, epic_id, task_num, "
+        "process_key, released_at "
+        f"FROM work_claims WHERE id = {p}",
+        (claim_id,),
+    ).fetchone()
+
+
+def _active_item_claim(
+    conn: Any,
+    item_id: int,
+    session_id: Optional[str],
+    p: str,
+) -> Any:
+    query_parts = [
+        "SELECT id, session_id, target_kind, item_id, epic_id, task_num, "
+        "process_key, released_at "
+        f"FROM work_claims WHERE target_kind='item' AND item_id = {p} "
+        "AND released_at IS NULL"
+    ]
+    params: list[Any] = [item_id]
+    if session_id:
+        query_parts.append(f"AND session_id = {p}")
+        params.append(session_id)
+    query_parts.append("ORDER BY claimed_at DESC, id DESC LIMIT 1")
+    return conn.execute(" ".join(query_parts), params).fetchone()
+
+
+@rollback_workflow_binding_write_errors
 def operator_override_release_claim(
     conn: Any,
     item_id: str,
@@ -53,12 +93,14 @@ def operator_override_release_claim(
     p = _p(conn)
 
     if claim_id is not None:
-        row = conn.execute(
-            "SELECT id, session_id, target_kind, item_id, epic_id, task_num, "
-            "process_key, released_at "
-            f"FROM work_claims WHERE id = {p}",
-            (claim_id,),
-        ).fetchone()
+        discovered = _claim_by_id(conn, claim_id, p)
+        if discovered is None:
+            raise SessionError("NOT_FOUND", f"Claim {claim_id} not found.")
+        found_session_id = str(discovered["session_id"] or "")
+        if found_session_id:
+            lock_session_rows_for_claim_lifecycle(conn, (found_session_id,))
+        lock_work_claims_workflow_bindings(conn, (claim_id,))
+        row = _claim_by_id(conn, claim_id, p)
         if row is None:
             raise SessionError("NOT_FOUND", f"Claim {claim_id} not found.")
         if row["released_at"] is not None:
@@ -68,25 +110,42 @@ def operator_override_release_claim(
             )
         found_session_id = row["session_id"]
     else:
-        query_parts = [
-            "SELECT id, session_id, target_kind, item_id, epic_id, task_num, "
-            "process_key, released_at "
-            f"FROM work_claims WHERE target_kind='item' AND item_id = {p} "
-            "AND released_at IS NULL"
-        ]
-        params: list = [item_id_int]
-        if session_id:
-            query_parts.append(f"AND session_id = {p}")
-            params.append(session_id)
-        query_parts.append("ORDER BY claimed_at DESC, id DESC LIMIT 1")
-
-        row = conn.execute(" ".join(query_parts), params).fetchone()
+        discovered = _active_item_claim(
+            conn,
+            item_id_int,
+            session_id,
+            p,
+        )
+        if discovered is None:
+            raise SessionError(
+                "NOT_FOUND",
+                f"No active claim found for item {item_id}"
+                + (f" in session {session_id}" if session_id else "")
+                + ".",
+            )
+        discovered_session_id = str(discovered["session_id"] or "")
+        if discovered_session_id:
+            lock_session_rows_for_claim_lifecycle(
+                conn,
+                (discovered_session_id,),
+            )
+        lock_item_workflow_bindings(conn, (item_id_int,))
+        row = _active_item_claim(conn, item_id_int, session_id, p)
         if row is None:
             raise SessionError(
                 "NOT_FOUND",
                 f"No active claim found for item {item_id}"
                 + (f" in session {session_id}" if session_id else "")
                 + ".",
+            )
+        if (
+            int(row["id"]) != int(discovered["id"])
+            or str(row["session_id"] or "") != discovered_session_id
+        ):
+            raise SessionError(
+                "CLAIM_CHANGED",
+                f"Active claim holder changed while preparing the override "
+                f"for item {item_id}; retry the command.",
             )
         found_session_id = row["session_id"]
 
@@ -105,8 +164,11 @@ def operator_override_release_claim(
                 f"recent_item_id = {p}, recent_item_recorded_at = {p}, "
                 "current_item_id = NULL, current_item_set_at = NULL "
                 f"WHERE session_id = {p}",
-                (current_row["current_item_id"],
-                 current_row["current_item_set_at"], found_session_id),
+                (
+                    current_row["current_item_id"],
+                    current_row["current_item_set_at"],
+                    found_session_id,
+                ),
             )
 
     conn.execute(
@@ -119,7 +181,9 @@ def operator_override_release_claim(
     from .claim_chain_state import record_release_intent
 
     record_release_intent(
-        conn, claim_id=int(found_claim_id), intent="operator-override",
+        conn,
+        claim_id=int(found_claim_id),
+        intent="operator-override",
     )
     conn.commit()
 

@@ -1,8 +1,12 @@
 """Tests for runtime.harness.harness_sessions."""
+
 from __future__ import annotations
 
 from unittest.mock import patch
 
+import pytest
+
+from runtime.api.fixtures.backlog import insert_item
 from yoke_core.domain import db_backend
 
 
@@ -15,10 +19,17 @@ def _p(conn) -> str:
 
 
 class TestHarnessSessions:
+    @pytest.fixture(autouse=True)
+    def _seed_claim_targets(self, test_db):
+        insert_item(test_db, id=TEST_ITEM_ID, status="refined-idea")
+        insert_item(test_db, id=10, status="refined-idea")
+
     def test_begin_and_list(self, test_db):
         from runtime.harness.harness_sessions import cmd_begin, cmd_list
-        result = cmd_begin(test_db, "sess-1", "claude", "anthropic",
-                           "opus-4", "/workspace")
+
+        result = cmd_begin(
+            test_db, "sess-1", "claude", "anthropic", "opus-4", "/workspace"
+        )
         assert "Began session" in result
 
         listed = cmd_list(test_db)
@@ -26,6 +37,7 @@ class TestHarnessSessions:
 
     def test_touch(self, test_db):
         from runtime.harness.harness_sessions import cmd_begin, cmd_touch
+
         cmd_begin(test_db, "s1", "claude", "anthropic", "opus", "/ws")
         result = cmd_touch(test_db, "s1")
         assert "Heartbeat" in result
@@ -37,6 +49,7 @@ class TestHarnessSessions:
             cmd_list_claims,
             cmd_release,
         )
+
         cmd_begin(test_db, "s1", "claude", "anthropic", "opus", "/ws")
         result = cmd_claim(test_db, "s1", "item", item_id=TEST_ITEM_ID)
         assert "Claimed" in result
@@ -51,6 +64,7 @@ class TestHarnessSessions:
 
     def test_idempotent_claim(self, test_db):
         from runtime.harness.harness_sessions import cmd_begin, cmd_claim
+
         cmd_begin(test_db, "s1", "claude", "anthropic", "opus", "/ws")
         cmd_claim(test_db, "s1", "item", item_id=TEST_ITEM_ID)
         result = cmd_claim(test_db, "s1", "item", item_id=TEST_ITEM_ID)
@@ -58,13 +72,19 @@ class TestHarnessSessions:
 
     def test_end_session(self, test_db):
         from runtime.harness.harness_sessions import cmd_begin, cmd_end, cmd_list
+
         cmd_begin(test_db, "s1", "claude", "anthropic", "opus", "/ws")
         cmd_end(test_db, "s1")
         listed = cmd_list(test_db)
         assert "s1" not in listed
 
     def test_who_claims(self, test_db):
-        from runtime.harness.harness_sessions import cmd_begin, cmd_claim, cmd_who_claims
+        from runtime.harness.harness_sessions import (
+            cmd_begin,
+            cmd_claim,
+            cmd_who_claims,
+        )
+
         cmd_begin(test_db, "s1", "claude", "anthropic", "opus", "/ws")
         cmd_claim(test_db, "s1", "item", item_id=10)
         result = cmd_who_claims(test_db, "YOK-10")
@@ -73,6 +93,7 @@ class TestHarnessSessions:
 
     def test_get(self, test_db):
         from runtime.harness.harness_sessions import cmd_begin, cmd_get
+
         cmd_begin(test_db, "s1", "claude", "anthropic", "opus", "/ws")
         result = cmd_get(test_db, "s1")
         assert "claude" in result
@@ -134,8 +155,7 @@ class TestCmdBeginCanonicalizesExecutor:
     def test_canonical_inbound_keeps_display_null(self, test_db):
         from runtime.harness.harness_sessions import cmd_begin
 
-        cmd_begin(test_db, "sess-canonical", "claude-code", "anthropic",
-                  "opus", "/ws")
+        cmd_begin(test_db, "sess-canonical", "claude-code", "anthropic", "opus", "/ws")
         executor, display = self._stored_executor(test_db, "sess-canonical")
         assert executor == "claude-code"
         assert display is None
@@ -143,8 +163,7 @@ class TestCmdBeginCanonicalizesExecutor:
     def test_unknown_executor_passes_through_with_null_display(self, test_db):
         from runtime.harness.harness_sessions import cmd_begin
 
-        cmd_begin(test_db, "sess-custom", "my-custom-tool", "anthropic",
-                  "opus", "/ws")
+        cmd_begin(test_db, "sess-custom", "my-custom-tool", "anthropic", "opus", "/ws")
         executor, display = self._stored_executor(test_db, "sess-custom")
         assert executor == "my-custom-tool"
         assert display is None
@@ -154,8 +173,7 @@ class TestCmdBeginCanonicalizesExecutor:
         from runtime.harness.harness_sessions import cmd_begin
         import json
 
-        cmd_begin(test_db, "sess-evt", "claude-desktop", "anthropic",
-                  "opus", "/ws")
+        cmd_begin(test_db, "sess-evt", "claude-desktop", "anthropic", "opus", "/ws")
         payload = json.loads(mock_emit.call_args.args[3])
         assert payload["executor"] == "claude-code"
         assert payload["executor_display_name"] == "claude-desktop"
@@ -165,8 +183,9 @@ class TestCmdBeginCanonicalizesExecutor:
         from runtime.harness.harness_sessions import cmd_begin
         import json
 
-        cmd_begin(test_db, "sess-evt-noalias", "claude-code", "anthropic",
-                  "opus", "/ws")
+        cmd_begin(
+            test_db, "sess-evt-noalias", "claude-code", "anthropic", "opus", "/ws"
+        )
         payload = json.loads(mock_emit.call_args.args[3])
         assert payload["executor"] == "claude-code"
         assert "executor_display_name" not in payload

@@ -9,6 +9,10 @@ from typing import Any, Mapping, Optional
 from yoke_contracts.item_ref import format_item_ref
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.field_note_dash_promotion_reads import (
+    promoted_dash_by_field_note_ids,
+    source_field_note_for_dash,
+)
 from yoke_core.domain.schema_init_apply import execute_schema_script
 
 
@@ -265,5 +269,7 @@ __all__ = [
     "FieldNotePromotionError",
     "FieldNotePromotionInProgress",
     "ensure_field_note_dash_promotion_schema",
+    "promoted_dash_by_field_note_ids",
     "promote_field_note_to_dash",
+    "source_field_note_for_dash",
 ]

@@ -23,6 +23,7 @@ class TestDeploymentFlowGuardInvalidFlow:
                 skip_deploy=False,
                 item_project="yoke",
                 old_status="implemented",
+                delivery_stage_id="ship-ready",
             )
         out = capsys.readouterr().out
         assert result == (7, "implemented")
@@ -40,6 +41,7 @@ class TestDeploymentFlowGuardInvalidFlow:
                 skip_deploy=False,
                 item_project="yoke",
                 old_status="implemented",
+                delivery_stage_id="ship-ready",
             )
         out = capsys.readouterr().out
         assert result == (7, "implemented")
@@ -55,6 +57,7 @@ class TestDeploymentFlowGuardInvalidFlow:
                 skip_deploy=False,
                 item_project="yoke",
                 old_status="implemented",
+                delivery_stage_id="ship-ready",
             )
         out = capsys.readouterr().out
         assert result == (7, "implemented")
@@ -63,10 +66,13 @@ class TestDeploymentFlowGuardInvalidFlow:
 
 class TestDeploymentFlowGuardRegisteredButMissingEvidence:
     def test_registered_flow_skip_deploy_no_evidence_preserves_message(self, capsys):
-        with _patch_registered_flows(["externalwebapp-prod-release"]), mock.patch.object(
-            done_transition_deploy_gates,
-            "_check_deployment_evidence",
-            return_value=False,
+        with (
+            _patch_registered_flows(["externalwebapp-prod-release"]),
+            mock.patch.object(
+                done_transition_deploy_gates,
+                "_check_deployment_evidence",
+                return_value=False,
+            ),
         ):
             result = done_transition._check_deployment_flow_guard(
                 item_id=520,
@@ -74,6 +80,7 @@ class TestDeploymentFlowGuardRegisteredButMissingEvidence:
                 skip_deploy=True,
                 item_project="yoke",
                 old_status="implemented",
+                delivery_stage_id="ship-ready",
             )
         out = capsys.readouterr().out
         assert result == (7, "implemented")
@@ -90,5 +97,6 @@ class TestDeploymentFlowGuardRegisteredButMissingEvidence:
                 skip_deploy=False,
                 item_project="yoke",
                 old_status="implemented",
+                delivery_stage_id="ship-ready",
             )
         assert result is None

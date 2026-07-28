@@ -14,6 +14,7 @@ from runtime.api.qa_test_helpers import (
     make_basic_requirement,
     make_qa_db_file,
 )
+from runtime.api.qa_transition_test_support import add_bound_requirement
 
 
 @pytest.fixture()
@@ -29,21 +30,33 @@ def req_id(db_path: str) -> int:
 
 class TestRequirementList:
     def test_list_all(self, db_path: str) -> None:
-        qa.cmd_requirement_add(db_path=db_path, item_id=10, qa_kind="a", qa_phase="verification")
-        qa.cmd_requirement_add(db_path=db_path, item_id=20, qa_kind="b", qa_phase="verification")
+        add_bound_requirement(
+            db_path=db_path, item_id=10, qa_kind="a", qa_phase="verification"
+        )
+        add_bound_requirement(
+            db_path=db_path, item_id=20, qa_kind="b", qa_phase="verification"
+        )
         lines = qa.cmd_requirement_list(db_path=db_path)
         assert len(lines) == 2
 
     def test_filter_by_item_id(self, db_path: str) -> None:
-        qa.cmd_requirement_add(db_path=db_path, item_id=10, qa_kind="a", qa_phase="verification")
-        qa.cmd_requirement_add(db_path=db_path, item_id=20, qa_kind="b", qa_phase="verification")
+        add_bound_requirement(
+            db_path=db_path, item_id=10, qa_kind="a", qa_phase="verification"
+        )
+        add_bound_requirement(
+            db_path=db_path, item_id=20, qa_kind="b", qa_phase="verification"
+        )
         lines = qa.cmd_requirement_list(db_path=db_path, item_id=10)
         assert len(lines) == 1
         assert "|a|" in lines[0]
 
     def test_filter_by_epic_id(self, db_path: str) -> None:
-        qa.cmd_requirement_add(db_path=db_path, epic_id=5, task_num=1, qa_kind="e", qa_phase="verification")
-        qa.cmd_requirement_add(db_path=db_path, item_id=99, qa_kind="x", qa_phase="verification")
+        add_bound_requirement(
+            db_path=db_path, epic_id=5, task_num=1, qa_kind="e", qa_phase="verification"
+        )
+        add_bound_requirement(
+            db_path=db_path, item_id=99, qa_kind="x", qa_phase="verification"
+        )
         lines = qa.cmd_requirement_list(db_path=db_path, epic_id=5)
         assert len(lines) == 1
 
@@ -62,28 +75,41 @@ class TestRequirementGet:
 
 class TestRequirementWaive:
     def test_waive_non_blocking(self, db_path: str) -> None:
-        rid = qa.cmd_requirement_add(
-            db_path=db_path, item_id=10, qa_kind="unit_test",
-            qa_phase="verification", blocking_mode="non_blocking",
+        rid = add_bound_requirement(
+            db_path=db_path,
+            item_id=10,
+            qa_kind="unit_test",
+            qa_phase="verification",
+            blocking_mode="non_blocking",
         )
         qa.cmd_requirement_waive(rid, "not needed", db_path=db_path)
         conn = connect_test_db(db_path)
-        row = conn.execute("SELECT waived_at, waiver_rationale, waiver_source FROM qa_requirements WHERE id = %s", (rid,)).fetchone()
+        row = conn.execute(
+            "SELECT waived_at, waiver_rationale, waiver_source FROM qa_requirements WHERE id = %s",
+            (rid,),
+        ).fetchone()
         conn.close()
         assert row[0] is not None  # waived_at set
         assert row[1] == "not needed"
         assert row[2] == "agent"  # default source
 
-    def test_waive_blocking_without_force_exits(self, db_path: str, req_id: int) -> None:
+    def test_waive_blocking_without_force_exits(
+        self, db_path: str, req_id: int
+    ) -> None:
         """Blocking requirements refuse waive without --force."""
         with pytest.raises(SystemExit) as exc:
             qa.cmd_requirement_waive(req_id, "skip it", db_path=db_path)
         assert exc.value.code == 1
 
     def test_waive_blocking_with_force(self, db_path: str, req_id: int) -> None:
-        qa.cmd_requirement_waive(req_id, "operator decision", db_path=db_path, source="operator", force=True)
+        qa.cmd_requirement_waive(
+            req_id, "operator decision", db_path=db_path, source="operator", force=True
+        )
         conn = connect_test_db(db_path)
-        row = conn.execute("SELECT waiver_rationale, waiver_source FROM qa_requirements WHERE id = %s", (req_id,)).fetchone()
+        row = conn.execute(
+            "SELECT waiver_rationale, waiver_source FROM qa_requirements WHERE id = %s",
+            (req_id,),
+        ).fetchone()
         conn.close()
         assert row[0] == "operator decision"
         assert row[1] == "operator"
@@ -103,7 +129,9 @@ class TestRequirementUpdate:
     """AC-1: qa requirement-update mirrors the shape of items update."""
 
     def test_update_blocking_mode(self, db_path: str, req_id: int) -> None:
-        qa.cmd_requirement_update(req_id, "blocking_mode", "non_blocking", db_path=db_path)
+        qa.cmd_requirement_update(
+            req_id, "blocking_mode", "non_blocking", db_path=db_path
+        )
         conn = connect_test_db(db_path)
         row = conn.execute(
             "SELECT blocking_mode FROM qa_requirements WHERE id = %s", (req_id,)
@@ -121,29 +149,33 @@ class TestRequirementUpdate:
         assert row[0] == "staging"
 
     def test_update_success_policy_json(self, db_path: str) -> None:
-        rid = qa.cmd_requirement_add(
+        rid = add_bound_requirement(
             db_path=db_path,
             item_id=42,
             qa_kind="browser_smoke",
             qa_phase="verification",
-            success_policy=json.dumps({
+            success_policy=json.dumps(
+                {
+                    "type": "browser_scenario",
+                    "base_url": "https://x.test",
+                    "steps": [
+                        {"action": "navigate", "route": "/"},
+                        {"action": "screenshot", "capture": True},
+                    ],
+                }
+            ),
+        )
+        new_policy = json.dumps(
+            {
                 "type": "browser_scenario",
                 "base_url": "https://x.test",
                 "steps": [
-                    {"action": "navigate", "route": "/"},
+                    {"action": "navigate", "route": "/login"},
+                    {"action": "delay", "duration": 3000},
                     {"action": "screenshot", "capture": True},
                 ],
-            }),
+            }
         )
-        new_policy = json.dumps({
-            "type": "browser_scenario",
-            "base_url": "https://x.test",
-            "steps": [
-                {"action": "navigate", "route": "/login"},
-                {"action": "delay", "duration": 3000},
-                {"action": "screenshot", "capture": True},
-            ],
-        })
         qa.cmd_requirement_update(rid, "success_policy", new_policy, db_path=db_path)
         conn = connect_test_db(db_path)
         row = conn.execute(
@@ -154,7 +186,9 @@ class TestRequirementUpdate:
         assert decoded["steps"][0]["route"] == "/login"
         assert decoded["steps"][1]["duration"] == 3000
 
-    def test_update_qa_phase_normalizes_synonyms(self, db_path: str, req_id: int) -> None:
+    def test_update_qa_phase_normalizes_synonyms(
+        self, db_path: str, req_id: int
+    ) -> None:
         qa.cmd_requirement_update(req_id, "qa_phase", "post_deploy", db_path=db_path)
         conn = connect_test_db(db_path)
         row = conn.execute(
@@ -166,15 +200,21 @@ class TestRequirementUpdate:
     def test_update_rejects_qa_kind(self, db_path: str, req_id: int) -> None:
         """AC-1: qa_kind is excluded explicitly — the error must call it out."""
         with pytest.raises(SystemExit) as exc:
-            qa.cmd_requirement_update(req_id, "qa_kind", "browser_smoke", db_path=db_path)
+            qa.cmd_requirement_update(
+                req_id, "qa_kind", "browser_smoke", db_path=db_path
+            )
         assert exc.value.code == 2
 
     def test_update_rejects_unknown_field(self, db_path: str, req_id: int) -> None:
         with pytest.raises(SystemExit) as exc:
-            qa.cmd_requirement_update(req_id, "created_at", "2026-01-01", db_path=db_path)
+            qa.cmd_requirement_update(
+                req_id, "created_at", "2026-01-01", db_path=db_path
+            )
         assert exc.value.code == 2
 
-    def test_update_rejects_invalid_blocking_mode(self, db_path: str, req_id: int) -> None:
+    def test_update_rejects_invalid_blocking_mode(
+        self, db_path: str, req_id: int
+    ) -> None:
         with pytest.raises(SystemExit) as exc:
             qa.cmd_requirement_update(req_id, "blocking_mode", "never", db_path=db_path)
         assert exc.value.code == 2

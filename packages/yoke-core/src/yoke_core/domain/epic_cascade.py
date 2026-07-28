@@ -19,6 +19,7 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_one, query_rows
 from yoke_core.domain.epic_parsing import _now_iso, _placeholder
 from yoke_core.domain.item_status_transitions import record_task_transition
+from yoke_core.domain.schema_common import _column_exists, _table_exists
 
 
 # Cascade map: (from_parent, to_parent) -> (task_from, task_to)
@@ -27,8 +28,14 @@ _CASCADE_MAP = {
     ("planning", "plan-drafted"): ("planning", "plan-drafted"),
     ("plan-drafted", "refining-plan"): ("plan-drafted", "refining-plan"),
     ("refining-plan", "planned"): ("refining-plan", "planned"),
-    ("reviewed-implementation", "polishing-implementation"): ("reviewed-implementation", "polishing-implementation"),
-    ("polishing-implementation", "implemented"): ("polishing-implementation", "implemented"),
+    ("reviewed-implementation", "polishing-implementation"): (
+        "reviewed-implementation",
+        "polishing-implementation",
+    ),
+    ("polishing-implementation", "implemented"): (
+        "polishing-implementation",
+        "implemented",
+    ),
     ("implemented", "release"): ("implemented", "release"),
     ("release", "done"): ("release", "done"),
     # Reverse cascades
@@ -36,8 +43,14 @@ _CASCADE_MAP = {
     ("planned", "refining-plan"): ("planned", "refining-plan"),
     ("refining-plan", "plan-drafted"): ("refining-plan", "plan-drafted"),
     ("planned", "plan-drafted"): ("planned", "plan-drafted"),
-    ("polishing-implementation", "reviewed-implementation"): ("polishing-implementation", "reviewed-implementation"),
-    ("implemented", "polishing-implementation"): ("implemented", "polishing-implementation"),
+    ("polishing-implementation", "reviewed-implementation"): (
+        "polishing-implementation",
+        "reviewed-implementation",
+    ),
+    ("implemented", "polishing-implementation"): (
+        "implemented",
+        "polishing-implementation",
+    ),
     ("release", "implemented"): ("release", "implemented"),
     ("done", "release"): ("done", "release"),
 }
@@ -141,7 +154,12 @@ def _emit_task_status_changed(
     )
 
 
-def _emit_task_status_changed_best_effort(conn, **kwargs) -> None:
+def _emit_task_status_changed_best_effort(
+    conn,
+    *,
+    preserve_outer_transaction: bool = False,
+    **kwargs,
+) -> None:
     """Emit cascade telemetry without rolling back the task status update."""
     try:
         conn.execute("SAVEPOINT epic_cascade_event")
@@ -152,6 +170,8 @@ def _emit_task_status_changed_best_effort(conn, **kwargs) -> None:
             conn.execute("ROLLBACK TO SAVEPOINT epic_cascade_event")
             conn.execute("RELEASE SAVEPOINT epic_cascade_event")
         except db_backend.database_error_types(conn):
+            if preserve_outer_transaction:
+                raise
             conn.rollback()
 
 
@@ -162,6 +182,7 @@ def cascade_task_status(
     to_parent: str,
     *,
     scripts_dir: Optional[str] = None,
+    commit: bool = True,
 ) -> str:
     """Cascade parent status change to eligible tasks.
 
@@ -189,23 +210,22 @@ def cascade_task_status(
     session_id = _resolve_session_id()
     project = _cascade_project(conn, epic_id)
 
-    try:
-        conn.execute("SELECT 1 FROM events LIMIT 1")
-        emit_events = True
-    except db_backend.database_error_types(conn):
-        conn.rollback()
-        emit_events = False
+    emit_events = _table_exists(conn, "events")
+    has_heartbeat = _column_exists(
+        conn,
+        "epic_tasks",
+        "last_heartbeat",
+    )
 
     p = _placeholder(conn)
     for row in rows:
         tnum = row["task_num"]
-        try:
+        if has_heartbeat:
             conn.execute(
                 f"UPDATE epic_tasks SET status = {p}, last_heartbeat = {p} WHERE epic_id = {p} AND task_num = {p}",
                 (task_to, heartbeat, str(epic_id), tnum),
             )
-        except db_backend.database_error_types(conn):
-            conn.rollback()
+        else:
             conn.execute(
                 f"UPDATE epic_tasks SET status = {p} WHERE epic_id = {p} AND task_num = {p}",
                 (task_to, str(epic_id), tnum),
@@ -226,6 +246,7 @@ def cascade_task_status(
 
         _emit_task_status_changed_best_effort(
             conn,
+            preserve_outer_transaction=not commit,
             session_id=session_id,
             project=project,
             epic_id=str(epic_id),
@@ -235,5 +256,6 @@ def cascade_task_status(
             note=note,
         )
 
-    conn.commit()
+    if commit:
+        conn.commit()
     return str(len(rows))

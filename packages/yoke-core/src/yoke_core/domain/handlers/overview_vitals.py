@@ -32,6 +32,7 @@ from yoke_contracts.board.status import status_to_board_bucket
 from yoke_core.domain.handlers.overview_strategy_timeline import (
     strategy_timelines as _strategy_timelines,
 )
+from yoke_core.domain.workflow_runtime import workflow_runtime_from_row
 
 
 class OverviewVitalsRequest(BaseModel):
@@ -150,30 +151,35 @@ def _state_counts(conn: Any, project_ids: list[int]) -> Dict[str, int]:
         )
         else "FALSE"
     )
-    # An epic stands for the work it contains, so the terminal board's
-    # stats box counts it as its tasks rather than as one row. Match that
-    # here or the two surfaces disagree on every universe using epics.
+    # A task-graph workflow stands for the work it contains, so the terminal
+    # board's stats box counts it as its tasks rather than as one row.
     task_units = (
         "(SELECT COUNT(*) FROM epic_tasks et WHERE et.epic_id = i.id)"
         if _table_exists(conn, "epic_tasks")
         else "0"
     )
     rows = conn.execute(
-        "SELECT i.id, i.status, i.frozen, i.blocked, i.workflow_id, "
+        "SELECT i.id, i.status, i.frozen, i.blocked, "
+        "i.workflow_id, i.workflow_version_id, v.version, "
+        "v.definition_json, v.definition_digest, "
         f"{active_run} AS has_active_run, {task_units} AS task_units "
-        f"FROM items i WHERE i.project_id IN ({_markers(project_ids)})",
+        "FROM items i "
+        "JOIN workflow_versions v ON v.id = i.workflow_version_id "
+        f"WHERE i.project_id IN ({_markers(project_ids)})",
         tuple(project_ids),
     ).fetchall()
     for row in rows:
+        workflow = workflow_runtime_from_row(row)
         bucket = status_to_board_bucket(
             str(row["status"]),
             row["frozen"],
             bool(row["has_active_run"]),
-            str(row["workflow_id"]),
-            row["blocked"],
+            blocked_value=row["blocked"],
+            workflow_definition=workflow.definition,
         )
         tasks = int(row["task_units"] or 0)
-        expanded = tasks if str(row["workflow_id"]) == "epic" and tasks else 1
+        expands_tasks = workflow.policies.get("generated_children") == "epic_tasks"
+        expanded = tasks if expands_tasks and tasks else 1
         counts[_STATE_GROUPS.get(bucket, "unknown")] += expanded
     return dict(counts)
 

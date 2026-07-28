@@ -12,7 +12,8 @@ Scope: the typed surface is **item-attached only** — ``target.kind="item"``
 is the claim anchor (``claim_required_kind="item"`` matches the V3 qa
 write gating). Epic-task-attached and deployment-run-attached creation
 keep the operator-debug domain CLI
-(``python3 -m yoke_core.domain.qa requirement-add --epic-id ...``)
+(``python3 -m yoke_core.domain.qa requirement-add --epic-id ...
+--workflow-transition STAGE``)
 because the dispatcher claim matrix verifies one claim target per call.
 
 ``add_batch`` accepts rows for the TARGET item only: rows may omit
@@ -39,6 +40,9 @@ from yoke_core.domain.handlers.qa_requirement_method_validation import (
 from yoke_core.domain.handlers.qa_requirement_transition_validation import (
     validate_workflow_transition,
 )
+from yoke_core.domain.workflow_item_binding_lock import (
+    lock_item_workflow_bindings,
+)
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     HandlerOutcome,
@@ -58,7 +62,7 @@ class QaRequirementAddRequest(BaseModel):
     instructions: Optional[str] = None
     expected_outcome: Optional[str] = None
     method_config: Optional[Dict[str, Any]] = None
-    workflow_transition_id: Optional[str] = None
+    workflow_transition_id: str
 
 
 class QaRequirementAddResponse(BaseModel):
@@ -166,6 +170,7 @@ def handle_qa_requirement_add(request: FunctionCallRequest) -> HandlerOutcome:
 
     conn = connect()
     try:
+        lock_item_workflow_bindings(conn, (int(item_id),))
         invalid = validate_method_requirement(conn, row, "$.payload")
         if invalid is not None:
             return invalid
@@ -278,6 +283,7 @@ def handle_qa_requirement_add_batch(
     inserted_ids: List[int] = []
     try:
         try:
+            lock_item_workflow_bindings(conn, (int(item_id),))
             p = _p(conn)
             now_iso = iso8601_now()
             for row in normalized:

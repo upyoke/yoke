@@ -12,17 +12,23 @@ Exit codes: 0 success, 1 error/not-found, 2 usage error.
 
 from __future__ import annotations
 
-import sys
-from typing import List, Optional
+from typing import Optional
 
 from yoke_core.domain.db_helpers import (
-    connect,
     iso8601_now,
     query_one,
     query_rows,
     query_scalar,
 )
 from yoke_core.domain.project_identity import resolve_project_id
+from yoke_core.domain.ephemeral_environment_item_binding import (
+    INACTIVE_ENVIRONMENT_STATUSES,
+    prepare_create_item_binding,
+    prepare_update_item_binding,
+)
+from yoke_core.domain.workflow_item_binding_lock import (
+    rollback_workflow_binding_write_errors,
+)
 
 _SELECT_COLS = (
     "ee.id, p.slug AS project, ee.branch, ee.item, ee.workflow_run_id, "
@@ -86,33 +92,12 @@ _GET_FIELDS = frozenset(
     }
 )
 
-_USAGE = """\
-Usage: ephemeral-env <subcmd> [args...]
-
-Subcommands:
-  create <project> <branch> [--item X] [--workflow-run-id Y] [--github-ref Z]
-  update <id> <field> <value>
-  get <project> <branch>
-  get-by-id <id> [field]
-  list [--project X] [--status Y]
-  cleanup [--max-age-hours N]
-"""
-
-
-def _cli_error(msg: str, code: int = 1) -> None:
-    print(msg, file=sys.stderr)
-    sys.exit(code)
-
-
-def _cli_usage_error(msg: str) -> None:
-    print(msg, file=sys.stderr)
-    sys.exit(2)
-
 
 def _format_row(row) -> str:
     return "|".join("" if v is None else str(v) for v in tuple(row))
 
 
+@rollback_workflow_binding_write_errors
 def cmd_create(
     conn,
     project: str,
@@ -123,6 +108,12 @@ def cmd_create(
 ) -> str:
     now = iso8601_now()
     project_id = resolve_project_id(conn, project)
+    item = prepare_create_item_binding(
+        conn,
+        item_ref=item,
+        project=project,
+        branch=branch,
+    )
     conn.execute(
         "INSERT INTO ephemeral_environments "
         "(project_id, branch, item, workflow_run_id, github_ref, status, "
@@ -143,20 +134,22 @@ def cmd_create(
     return str(row_id)
 
 
+@rollback_workflow_binding_write_errors
 def cmd_update(conn, env_id: int, field: str, value: str) -> str:
     if field not in _UPDATE_FIELDS:
         raise ValueError(
             f"unknown field '{field}'. Valid fields: {' '.join(sorted(_UPDATE_FIELDS))}"
         )
 
-    exists = query_scalar(
-        conn, "SELECT COUNT(*) FROM ephemeral_environments WHERE id=%s", (env_id,)
+    value = prepare_update_item_binding(
+        conn,
+        env_id=int(env_id),
+        field=field,
+        value=value,
     )
-    if not exists:
-        raise LookupError(f"ephemeral environment '{env_id}' not found")
 
     # Auto-set stopped_at for terminal statuses
-    if field == "status" and value in ("stopped", "failed"):
+    if field == "status" and value in INACTIVE_ENVIRONMENT_STATUSES:
         conn.execute(
             f"UPDATE ephemeral_environments SET {field}=%s, stopped_at=%s WHERE id=%s",
             (value, iso8601_now(), env_id),
@@ -222,7 +215,7 @@ def cmd_get_by_id(conn, env_id: int, field: Optional[str] = None) -> str:
 
 
 def cmd_list(conn, project: Optional[str] = None, status: Optional[str] = None) -> str:
-    conditions: List[str] = []
+    conditions: list[str] = []
     params: list = []
     if project:
         conditions.append("ee.project_id=%s")
@@ -268,97 +261,10 @@ def cmd_cleanup(conn, max_age_hours: int = 24) -> str:
     return str(count or 0)
 
 
-def main(argv: Optional[List[str]] = None) -> None:
-    args = argv if argv is not None else sys.argv[1:]
+def main(argv: Optional[list[str]] = None) -> None:
+    from yoke_core.domain.ephemeral_env_cli import main as cli_main
 
-    if not args:
-        _cli_usage_error(_USAGE)
-
-    subcmd = args[0]
-    rest = args[1:]
-
-    conn = connect()
-
-    try:
-        if subcmd == "create":
-            if len(rest) < 2:
-                _cli_usage_error(
-                    "Usage: ephemeral-env create <project> <branch> "
-                    "[--item X] [--workflow-run-id Y] [--github-ref Z]"
-                )
-            project = rest[0]
-            branch = rest[1]
-            item = ""
-            workflow_run_id = ""
-            github_ref = ""
-            i = 2
-            while i < len(rest):
-                if rest[i] == "--item" and i + 1 < len(rest):
-                    item = rest[i + 1]
-                    i += 2
-                elif rest[i] == "--workflow-run-id" and i + 1 < len(rest):
-                    workflow_run_id = rest[i + 1]
-                    i += 2
-                elif rest[i] == "--github-ref" and i + 1 < len(rest):
-                    github_ref = rest[i + 1]
-                    i += 2
-                else:
-                    _cli_error(f"Error: unknown flag '{rest[i]}'", 2)
-            print(cmd_create(conn, project, branch, item, workflow_run_id, github_ref))
-
-        elif subcmd == "update":
-            if len(rest) < 3:
-                _cli_usage_error("Usage: ephemeral-env update <id> <field> <value>")
-            print(cmd_update(conn, int(rest[0]), rest[1], rest[2]))
-
-        elif subcmd == "get":
-            if len(rest) < 2:
-                _cli_usage_error("Usage: ephemeral-env get <project> <branch>")
-            print(cmd_get(conn, rest[0], rest[1]))
-
-        elif subcmd == "get-by-id":
-            if not rest:
-                _cli_usage_error("Usage: ephemeral-env get-by-id <id> [field]")
-            field = rest[1] if len(rest) > 1 else None
-            print(cmd_get_by_id(conn, int(rest[0]), field))
-
-        elif subcmd == "list":
-            project = None
-            status = None
-            i = 0
-            while i < len(rest):
-                if rest[i] == "--project" and i + 1 < len(rest):
-                    project = rest[i + 1]
-                    i += 2
-                elif rest[i] == "--status" and i + 1 < len(rest):
-                    status = rest[i + 1]
-                    i += 2
-                else:
-                    i += 1
-            result = cmd_list(conn, project, status)
-            if result:
-                print(result)
-
-        elif subcmd == "cleanup":
-            max_age = 24
-            i = 0
-            while i < len(rest):
-                if rest[i] == "--max-age-hours" and i + 1 < len(rest):
-                    max_age = int(rest[i + 1])
-                    i += 2
-                else:
-                    i += 1
-            print(cmd_cleanup(conn, max_age))
-
-        else:
-            _cli_usage_error(_USAGE)
-
-    except LookupError as e:
-        _cli_error(f"Error: {e}", 1)
-    except ValueError as e:
-        _cli_error(f"Error: {e}", 2)
-    finally:
-        conn.close()
+    cli_main(argv)
 
 
 if __name__ == "__main__":

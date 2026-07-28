@@ -7,6 +7,8 @@ file-line gate. Register-side coverage lives in
 helpers come from ``_path_claims_test_helpers``.
 """
 
+# ruff: noqa: F811
+
 from __future__ import annotations
 
 import pytest
@@ -15,11 +17,13 @@ from yoke_core.domain._path_claims_test_helpers import (
     SNAP,
     conn,  # noqa: F401  (pytest fixture)
     local_human,
+    seed_item,
     seed_target,
 )
 from yoke_core.domain.path_claims import (
     ClaimNotFound,
     IllegalTransition,
+    InvalidWorkflowBinding,
     UpstreamNotReleased,
     activate,
     cancel,
@@ -73,6 +77,27 @@ class TestActivate:
         cancel(conn, claim_id=claim_id, reason="scope-changed")
         with pytest.raises(IllegalTransition):
             activate(conn, claim_id=claim_id, base_commit_sha=SNAP)
+
+    def test_activate_rejects_claim_owned_by_terminal_item(self, conn):
+        actor = local_human(conn)
+        item_id = seed_item(conn, item_id=711, status="idea")
+        target = seed_target(conn, path_string="runtime/api/domain")
+        claim_id = register(
+            conn,
+            actor_id=actor,
+            integration_target="main",
+            target_ids=[target],
+            item_id=item_id,
+        )
+        conn.execute(
+            "UPDATE items SET status='done' WHERE id=%s",
+            (item_id,),
+        )
+        conn.commit()
+
+        with pytest.raises(InvalidWorkflowBinding, match="terminal"):
+            activate(conn, claim_id=claim_id, base_commit_sha=SNAP)
+        assert get_claim(conn, claim_id)["state"] == "planned"
 
     def test_activate_blocked_requires_released_upstream(self, conn):
         actor = local_human(conn)
@@ -232,6 +257,7 @@ class TestReleaseAndCancel:
 
     def test_cancel_abandons_unclaimed_planned_targets(self, conn):
         actor = local_human(conn)
+        seed_item(conn, item_id=1)
         target = plan_path_target(
             conn,
             project_id=1,

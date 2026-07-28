@@ -20,9 +20,10 @@ from runtime.api.backlog_mutations_test_helpers import (
     _seed_item,
     _seed_session,
     _session_attribution,
-    tmp_db,  # noqa: F401 — re-exported fixture
 )
 from yoke_core.domain import backlog
+
+pytest_plugins = ("runtime.api.backlog_mutations_test_helpers",)
 
 
 class TestExecuteUpdate:
@@ -33,8 +34,10 @@ class TestExecuteUpdate:
         _seed_session(tmp_db)
         _seed_claim(tmp_db, item_id="10")
         out = io.StringIO()
-        with _patch_externals() as patched, \
-             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
+        with (
+            _patch_externals() as patched,
+            mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}),
+        ):
             result = backlog.execute_update(
                 item_id=10,
                 field="status",
@@ -62,8 +65,7 @@ class TestExecuteUpdate:
         conn.commit()
         conn.close()
         out = io.StringIO()
-        with _patch_externals(), \
-             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
+        with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
             result = backlog.execute_update(
                 item_id=10,
                 field="status",
@@ -79,8 +81,10 @@ class TestExecuteUpdate:
     def test_status_update_denied_without_session_id(self, tmp_db):
         _seed_item(tmp_db, id=10, status="idea")
         out = io.StringIO()
-        with _patch_externals(), \
-             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}, clear=False):
+        with (
+            _patch_externals(),
+            mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}, clear=False),
+        ):
             os.environ.pop("YOKE_SESSION_ID", None)
             os.environ.pop("CLAUDE_SESSION_ID", None)
             os.environ.pop("CODEX_THREAD_ID", None)
@@ -100,8 +104,7 @@ class TestExecuteUpdate:
         _seed_session(tmp_db, session_id="sess-2")
         _seed_claim(tmp_db, session_id="sess-2", item_id="10")
         out = io.StringIO()
-        with _patch_externals(), \
-             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
+        with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
             result = backlog.execute_update(
                 item_id=10,
                 field="status",
@@ -123,8 +126,7 @@ class TestExecuteUpdate:
         _seed_session(tmp_db, session_id="sess-2")
 
         required_hints = (
-            "python3 -m yoke_core.api.service_client claim-work",
-            "--item YOK-10",
+            'yoke claims work acquire --item YOK-10 --reason "<intent>"',
             "python3 -m yoke_core.engines.repair_status",
             "YOKE_CLAIM_BYPASS",
         )
@@ -133,20 +135,24 @@ class TestExecuteUpdate:
             for snippet in required_hints:
                 assert snippet in error, f"missing {snippet!r} in {error!r}"
 
-        with _patch_externals(), \
-             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}, clear=False):
+        with (
+            _patch_externals(),
+            mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}, clear=False),
+        ):
             os.environ.pop("YOKE_SESSION_ID", None)
             os.environ.pop("CLAUDE_SESSION_ID", None)
             os.environ.pop("CODEX_THREAD_ID", None)
             os.environ.pop("YOKE_CLAIM_BYPASS", None)
             no_session = backlog.execute_update(
-                item_id=10, field="status", value="refining-idea", out=io.StringIO(),
+                item_id=10,
+                field="status",
+                value="refining-idea",
+                out=io.StringIO(),
             )
         assert no_session["success"] is False
         _assert_hints(no_session["error"])
 
-        with _patch_externals(), \
-             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
+        with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
             no_claim = backlog.execute_update(
                 item_id=10,
                 field="status",
@@ -158,8 +164,7 @@ class TestExecuteUpdate:
         _assert_hints(no_claim["error"])
 
         _seed_claim(tmp_db, session_id="sess-2", item_id="10")
-        with _patch_externals(), \
-             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
+        with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
             wrong_session = backlog.execute_update(
                 item_id=10,
                 field="status",
@@ -173,11 +178,13 @@ class TestExecuteUpdate:
     def test_status_update_bypass_allows_claimless_transition(self, tmp_db):
         _seed_item(tmp_db, id=10, status="idea")
         out = io.StringIO()
-        with _patch_externals(), \
-             mock.patch.dict(
-                 os.environ,
-                 {"YOKE_DB": tmp_db, "YOKE_CLAIM_BYPASS": "test-bypass"},
-             ):
+        with (
+            _patch_externals(),
+            mock.patch.dict(
+                os.environ,
+                {"YOKE_DB": tmp_db, "YOKE_CLAIM_BYPASS": "test-bypass"},
+            ),
+        ):
             result = backlog.execute_update(
                 item_id=10,
                 field="status",
@@ -203,8 +210,7 @@ class TestExecuteUpdate:
         conn.close()
 
         out = io.StringIO()
-        with _patch_externals(), \
-             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
+        with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
             result = backlog.execute_update(
                 item_id=10,
                 field="status",
@@ -234,8 +240,7 @@ class TestExecuteUpdate:
         conn.close()
 
         out = io.StringIO()
-        with _patch_externals(), \
-             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
+        with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
             result = backlog.execute_update(
                 item_id=10,
                 field="status",
@@ -248,7 +253,9 @@ class TestExecuteUpdate:
         assert "no active claim on YOK-10" in result["error"]
         assert _item_field(tmp_db, 10, "status") == "reviewed-implementation"
 
-    def test_release_transition_denied_after_handoff_release_for_same_session(self, tmp_db):
+    def test_release_transition_denied_after_handoff_release_for_same_session(
+        self, tmp_db
+    ):
         _seed_item(tmp_db, id=10, status="implemented")
         _seed_session(tmp_db)
         _seed_claim(tmp_db, item_id="10")
@@ -264,8 +271,7 @@ class TestExecuteUpdate:
         conn.close()
 
         out = io.StringIO()
-        with _patch_externals(), \
-             mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
+        with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
             result = backlog.execute_update(
                 item_id=10,
                 field="status",

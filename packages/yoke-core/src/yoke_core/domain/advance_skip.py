@@ -20,19 +20,6 @@ from typing import Optional
 from yoke_core.domain.advance_skip_core import (
     BYPASS_SKIP_POLISH,
     BYPASS_SKIP_REFINE,
-    _POLISH_END,
-    _POLISH_START,
-    _POLISH_TRANSIT,
-    _POLISH_TRANSIT_ALLOWED,
-    _REFINE_ROUTING,
-    _REFINE_TARGETS_ALLOWED,
-    _do_execute_update,
-    _lookup_item,
-    _walk_hops,
-)
-from yoke_core.domain.advance_skip_finalize import (
-    _emit_skip_event,
-    _release_claim,
 )
 from yoke_core.domain.advance_skip_polish import skip_polish
 from yoke_core.domain.advance_skip_refine import skip_refine

@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from yoke_core.domain import db_backend
+from yoke_core.engines.done_transition_item_context import format_workflow_route
 
 
 def _parent():
     from yoke_core.engines import done_transition as _dt
+
     return _dt
 
 
@@ -25,8 +27,6 @@ def _finalize_done_local_side_effects(
     print("\n=== Step 6c/6d/7/10: Local done finalization ===")
     try:
         with _parent()._connect() as conn:
-            released = _release_done_claims(conn, item_id)
-            rows = _stop_ephemeral_envs(conn, item_id)
             deployed_to = _resolve_deployed_to(conn, item_id, env_name)
             if deployed_to:
                 p = _p(conn)
@@ -49,45 +49,11 @@ def _finalize_done_local_side_effects(
         print(f"Advisory: local done finalization failed: {exc}")
         return
 
-    claim_msg = (
-        f"released {released} work claim(s)" if released else "no orphaned claims"
+    deploy_msg = (
+        f"deployed_to={deployed_to}" if deployed_to else "deployed_to unchanged"
     )
-    env_msg = f"stopped {rows} ephemeral env(s)" if rows else "no active ephemeral envs"
-    deploy_msg = f"deployed_to={deployed_to}" if deployed_to else "deployed_to unchanged"
     note_msg = "release note upserted" if release_note else "release note skipped"
-    print(f"Local finalization: {claim_msg}; {env_msg}; {deploy_msg}; {note_msg}.")
-
-
-def _release_done_claims(conn, item_id: int) -> int:
-    from yoke_core.domain import sessions as _sessions_domain
-
-    try:
-        return int(_sessions_domain.release_claims_for_done_item(conn, f"YOK-{item_id}"))
-    except db_backend.operational_error_types(conn):
-        return 0
-
-
-def _stop_ephemeral_envs(conn, item_id: int) -> int:
-    from yoke_core.domain.db_helpers import iso8601_now
-
-    try:
-        p = _p(conn)
-        rows = conn.execute(
-            "SELECT id FROM ephemeral_environments "
-            f"WHERE item = {p} AND status <> 'stopped'",
-            (f"YOK-{item_id}",),
-        ).fetchall()
-    except db_backend.operational_error_types(conn):
-        return 0
-    if not rows:
-        return 0
-    for row in rows:
-        conn.execute(
-            f"UPDATE ephemeral_environments SET status = 'stopped', stopped_at = {p} "
-            f"WHERE id = {p}",
-            (iso8601_now(), int(row[0])),
-        )
-    return len(rows)
+    print(f"Local finalization: {deploy_msg}; {note_msg}.")
 
 
 def _resolve_deployed_to(conn, item_id: int, env_name: str) -> str:
@@ -134,4 +100,65 @@ def _insert_release_note(
     return True
 
 
-__all__ = ["_finalize_done_local_side_effects"]
+def finish_done_transition(
+    done_transition,
+    result,
+    *,
+    result_file: str,
+    item_id: int,
+    title: str,
+    old_status: str,
+    workflow,
+    repo_root,
+    merge_ran: bool,
+) -> int:
+    """Rebuild, persist, push, and report a successful done transition."""
+    print("\n=== Step 11: Rebuild board ===")
+    done_transition._rebuild_board_direct()
+    result.add_step("11")
+
+    print("\n=== Step 12: Commit ===")
+    commit_ran = False
+    diff = done_transition._run_git(["diff", "--cached", "--quiet"], capture=True)
+    if diff.returncode != 0:
+        commit = done_transition._run_git(
+            ["commit", "-m", f"YOK-{item_id}: {old_status} -> done"]
+        )
+        commit_ran = commit.returncode == 0
+        if commit_ran:
+            from yoke_core.engines.done_transition_snapshot import (
+                ensure_snapshot_for_item,
+            )
+
+            ensure_snapshot_for_item(item_id)
+    result.add_step("12")
+
+    print("\n=== Step 13: Push ===")
+    if commit_ran or merge_ran:
+        push_branch = done_transition._get_base_branch("", repo_root)
+        push = done_transition._run_git(["push", "origin", push_branch])
+        if push.returncode != 0:
+            print("Push failed - attempting rebase and retry...")
+            done_transition._run_git(["pull", "--rebase", "origin", push_branch])
+            retry = done_transition._run_git(["push", "origin", push_branch])
+            if retry.returncode != 0:
+                print(
+                    "Warning: git push failed after done-transition commit. "
+                    "Local is ahead of origin."
+                )
+    else:
+        print("No merge commit or done-transition commit produced - skipping push.")
+    result.add_step("13")
+
+    print("\n=== Step 14: Report ===")
+    print("==========================================")
+    print(f"YOK-{item_id} ({title}): {old_status} -> done")
+    print("==========================================\n")
+    print(format_workflow_route(workflow))
+    result.add_step("14")
+    result.write(result_file)
+    print(f"RESULT_FILE={result_file}")
+    return 0
+
+
+__all__ = ["_finalize_done_local_side_effects", "finish_done_transition"]

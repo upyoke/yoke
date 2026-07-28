@@ -48,6 +48,8 @@ _QA_SUPPORT_SCHEMA = """
     VALUES (100, 'Test item', 'implementing', 1, 100, '2026-04-20T00:00:00Z', '2026-04-20T00:00:00Z');
     INSERT INTO items (id, title, status, project_id, project_sequence, created_at, updated_at)
     VALUES (200, 'Another item', 'implementing', 1, 200, '2026-04-20T00:00:00Z', '2026-04-20T00:00:00Z');
+    INSERT INTO items (id, title, status, project_id, project_sequence, created_at, updated_at)
+    VALUES (50, 'Test epic', 'implementing', 1, 50, '2026-04-20T00:00:00Z', '2026-04-20T00:00:00Z');
 
     CREATE TABLE IF NOT EXISTS epic_tasks (
         id INTEGER PRIMARY KEY,
@@ -75,7 +77,10 @@ def _apply_qa_full_schema() -> None:
     conn = db_backend.connect()
     try:
         execute_schema_script(conn, _QA_SUPPORT_SCHEMA)
-        install_workflow_registry_and_pin_items(conn)
+        install_workflow_registry_and_pin_items(
+            conn,
+            workflow_id_by_item={50: "epic"},
+        )
     finally:
         conn.close()
     qa.cmd_init()

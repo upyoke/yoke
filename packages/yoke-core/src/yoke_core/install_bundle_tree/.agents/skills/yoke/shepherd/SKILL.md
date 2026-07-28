@@ -126,6 +126,7 @@ print(json.dumps({
     "current_executor": current,
     "source_stage": binding["from_stage_id"],
     "through_stage": binding["through_stage_id"],
+    "path_claims": policies["path_claims"],
     "location": location,
     "supported": supported,
 }))
@@ -139,6 +140,8 @@ _shepherd_source_stage=$(printf '%s' "$_shepherd_context_json" | python3 -c \
  'import json,sys; print(json.load(sys.stdin)["source_stage"])')
 _shepherd_through_stage=$(printf '%s' "$_shepherd_context_json" | python3 -c \
  'import json,sys; print(json.load(sys.stdin)["through_stage"])')
+_path_claim_policy=$(printf '%s' "$_shepherd_context_json" | python3 -c \
+ 'import json,sys; print(json.load(sys.stdin)["path_claims"])')
 _shepherd_location=$(printf '%s' "$_shepherd_context_json" | python3 -c \
  'import json,sys; print(json.load(sys.stdin)["location"])')
 _shepherd_supported=$(printf '%s' "$_shepherd_context_json" | python3 -c \

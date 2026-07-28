@@ -24,6 +24,10 @@ from yoke_core.domain.qa_plan_execution_store import (
     same_owner,
     select_plan_execution,
 )
+from yoke_core.domain.workflow_item_binding_lock import (
+    lock_item_workflow_bindings,
+    rollback_workflow_binding_write_errors,
+)
 
 
 PLAN_EXECUTION_STALE_SECONDS = 30 * 60
@@ -59,6 +63,7 @@ def _release_stale_execution(
     conn.commit()
 
 
+@rollback_workflow_binding_write_errors
 def begin_plan_execution(
     conn: Any,
     *,
@@ -72,6 +77,7 @@ def begin_plan_execution(
         raise QaPlanExecutionStateError(
             "ordered QA plan execution requires an owning session"
         )
+    lock_item_workflow_bindings(conn, (int(item_id),))
     roster = build_execution_roster(
         conn,
         item_id=item_id,
@@ -95,6 +101,13 @@ def begin_plan_execution(
                     "another actor or session owns the active QA plan execution"
                 )
             _release_stale_execution(conn, existing, now=iso8601_now())
+            lock_item_workflow_bindings(conn, (int(item_id),))
+            roster = build_execution_roster(
+                conn,
+                item_id=item_id,
+                transition_id=transition_id,
+            )
+            digest = roster_digest(roster)
 
     execution_id = str(uuid4())
     now = iso8601_now()

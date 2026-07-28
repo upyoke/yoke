@@ -106,6 +106,7 @@ USER_CONTENT_TABLES: tuple[str, ...] = (
     "ouroboros_entries",
     "path_claim_amendments",
     "path_claim_overrides",
+    "path_claim_task_bindings",
     "path_claim_targets",
     "path_claims",
     "path_context_values",

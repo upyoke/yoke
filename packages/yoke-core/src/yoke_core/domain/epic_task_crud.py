@@ -28,7 +28,7 @@ from yoke_core.domain.item_activity import touch_item_activity
 from yoke_core.domain.item_worktrees import record_worker_item_worktree
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.item_status_transitions import record_task_transition
-from yoke_core.domain.lifecycle import (
+from yoke_core.domain.task_lifecycle import (
     ALL_TASK_STATUSES,
     TASK_TERMINAL_SUCCESS,
     is_valid_task_status,

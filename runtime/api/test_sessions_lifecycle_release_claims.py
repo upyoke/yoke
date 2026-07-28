@@ -13,6 +13,19 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from unittest.mock import patch
 
+from runtime.api.fixtures.backlog import insert_item
+from runtime.api.test_sessions import _register
+from yoke_core.domain.sessions import (
+    EVENT_HARNESS_SESSION_END_RELEASED_CLAIMS,
+    EVENT_HARNESS_SESSION_ENDED,
+    SessionError,
+    claim_work,
+    end_session,
+    update_chain_checkpoint,
+)
+
+pytest_plugins = ("runtime.api.test_sessions",)
+
 
 def _age_heartbeat(conn, session_id: str, seconds: int) -> None:
     """Backdate ``last_heartbeat`` on the session and its active claims.
@@ -23,9 +36,11 @@ def _age_heartbeat(conn, session_id: str, seconds: int) -> None:
     should set up the chain checkpoint directly via
     ``update_chain_checkpoint``.
     """
-    ts = (datetime.now(timezone.utc) - timedelta(seconds=seconds)).isoformat(
-        timespec="microseconds"
-    ).replace("+00:00", "Z")
+    ts = (
+        (datetime.now(timezone.utc) - timedelta(seconds=seconds))
+        .isoformat(timespec="microseconds")
+        .replace("+00:00", "Z")
+    )
     conn.execute(
         "UPDATE harness_sessions SET last_heartbeat = %s WHERE session_id = %s",
         (ts, session_id),
@@ -38,20 +53,6 @@ def _age_heartbeat(conn, session_id: str, seconds: int) -> None:
     conn.commit()
 
 
-from runtime.api.test_sessions import (
-    _register,
-    conn,  # noqa: F401  (Postgres-backed pytest fixture)
-)
-from yoke_core.domain.sessions import (
-    EVENT_HARNESS_SESSION_END_RELEASED_CLAIMS,
-    EVENT_HARNESS_SESSION_ENDED,
-    SessionError,
-    claim_work,
-    end_session,
-    update_chain_checkpoint,
-)
-
-
 PRIMARY_ITEM_ID = 9999
 SECONDARY_ITEM_ID = 7777
 PRIMARY_ITEM_REF = f"YOK-{PRIMARY_ITEM_ID}"
@@ -60,6 +61,11 @@ SECONDARY_ITEM_REF = f"YOK-{SECONDARY_ITEM_ID}"
 
 class TestSessionEndReleaseClaims:
     """SessionEnd hook auto-releases claims when release_claims=True."""
+
+    @pytest.fixture(autouse=True)
+    def _seed_claim_targets(self, conn):
+        for item_id in (PRIMARY_ITEM_ID, SECONDARY_ITEM_ID):
+            insert_item(conn, id=item_id, workflow_id="issue")
 
     @patch("yoke_core.domain.sessions_analytics._emit_session_event")
     def test_release_claims_true_releases_and_ends(self, mock_emit, conn):
@@ -85,7 +91,8 @@ class TestSessionEndReleaseClaims:
         assert reason["release_reason"] == "session_ended"
         # HarnessSessionEndReleasedClaims event emitted
         release_events = [
-            c for c in mock_emit.call_args_list
+            c
+            for c in mock_emit.call_args_list
             if c[0][0] == EVENT_HARNESS_SESSION_END_RELEASED_CLAIMS
         ]
         assert len(release_events) == 1
@@ -94,7 +101,8 @@ class TestSessionEndReleaseClaims:
         assert len(ctx["claim_details"]) == 1
         # HarnessSessionEnded event also emitted
         ended_events = [
-            c for c in mock_emit.call_args_list
+            c
+            for c in mock_emit.call_args_list
             if c[0][0] == EVENT_HARNESS_SESSION_ENDED
         ]
         assert len(ended_events) == 1
@@ -133,7 +141,8 @@ class TestSessionEndReleaseClaims:
 
         # No release event emitted
         release_events = [
-            c for c in mock_emit.call_args_list
+            c
+            for c in mock_emit.call_args_list
             if c[0][0] == EVENT_HARNESS_SESSION_END_RELEASED_CLAIMS
         ]
         assert len(release_events) == 0
@@ -149,8 +158,11 @@ class TestSessionEndReleaseClaims:
         _register(conn)
         claim_work(conn, session_id="sess-1", item_id=PRIMARY_ITEM_REF)
         update_chain_checkpoint(
-            conn, "sess-1",
-            step=1, action="charge", chainable=True,
+            conn,
+            "sess-1",
+            step=1,
+            action="charge",
+            chainable=True,
             handler_outcome="completed",
         )
         with pytest.raises(SessionError) as exc_info:
@@ -190,7 +202,8 @@ class TestSessionEndReleaseClaims:
         assert active["cnt"] == 0
 
         release_events = [
-            c for c in mock_emit.call_args_list
+            c
+            for c in mock_emit.call_args_list
             if c[0][0] == EVENT_HARNESS_SESSION_END_RELEASED_CLAIMS
         ]
         assert len(release_events) == 1
@@ -211,8 +224,11 @@ class TestSessionEndReleaseClaims:
         _register(conn)
         claim_work(conn, session_id="sess-1", item_id=PRIMARY_ITEM_REF)
         update_chain_checkpoint(
-            conn, "sess-1",
-            step=1, action="charge", chainable=True,
+            conn,
+            "sess-1",
+            step=1,
+            action="charge",
+            chainable=True,
             handler_outcome="completed",
         )
         mock_emit.reset_mock()
@@ -234,15 +250,19 @@ class TestSessionEndReleaseClaims:
         assert active["cnt"] == 0
 
         release_events = [
-            c for c in mock_emit.call_args_list
+            c
+            for c in mock_emit.call_args_list
             if c[0][0] == EVENT_HARNESS_SESSION_END_RELEASED_CLAIMS
         ]
         assert len(release_events) == 1
         release_ctx = release_events[0][1]["context"]
-        assert release_ctx["agent_presence_evidence"]["chain_override_authorized"] is True
+        assert (
+            release_ctx["agent_presence_evidence"]["chain_override_authorized"] is True
+        )
 
         ended_events = [
-            c for c in mock_emit.call_args_list
+            c
+            for c in mock_emit.call_args_list
             if c[0][0] == EVENT_HARNESS_SESSION_ENDED
         ]
         assert len(ended_events) == 1
@@ -251,6 +271,4 @@ class TestSessionEndReleaseClaims:
         assert ended_ctx["chain_end_rationale"] == (
             "operator: stale session, ending per request"
         )
-        assert (
-            ended_ctx["agent_presence_evidence"]["chain_override_authorized"] is True
-        )
+        assert ended_ctx["agent_presence_evidence"]["chain_override_authorized"] is True

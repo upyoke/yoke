@@ -11,7 +11,7 @@ import os
 import sys
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.lifecycle import is_valid_task_status
+from yoke_core.domain.task_lifecycle import is_valid_task_status
 
 
 def _p(conn) -> str:

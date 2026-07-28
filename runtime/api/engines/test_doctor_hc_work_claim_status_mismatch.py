@@ -62,9 +62,20 @@ def _result(conn):
     return rec.results[-1]
 
 
-def _seed(conn, *, session_id="s", mode="usher", minutes_ago=1.0,
-          ended=False, item_id=100, status="release", claim_id=1,
-          released_at=None, target_kind="item", **extra):
+def _seed(
+    conn,
+    *,
+    session_id="s",
+    mode="usher",
+    minutes_ago=1.0,
+    ended=False,
+    item_id=100,
+    status="release",
+    claim_id=1,
+    released_at=None,
+    target_kind="item",
+    **extra,
+):
     p = _p(conn)
     conn.execute(
         "INSERT INTO harness_sessions (session_id, mode, ended_at, last_heartbeat) "
@@ -80,10 +91,16 @@ def _seed(conn, *, session_id="s", mode="usher", minutes_ago=1.0,
         "epic_id, task_num, process_key, claimed_at, last_heartbeat, released_at) "
         f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p})",
         (
-            claim_id, session_id, target_kind,
+            claim_id,
+            session_id,
+            target_kind,
             item_id if target_kind == "item" else None,
-            extra.get("epic_id"), extra.get("task_num"), extra.get("process_key"),
-            _iso_ago(5), _iso_ago(1), released_at,
+            extra.get("epic_id"),
+            extra.get("task_num"),
+            extra.get("process_key"),
+            _iso_ago(5),
+            _iso_ago(1),
+            released_at,
         ),
     )
     conn.commit()
@@ -118,19 +135,31 @@ def test_passes_on_missing_or_minimal_schema(ddl):
         {"session_id": "s-idea", "mode": "idea", "status": "idea"},
         {"session_id": "s-refine", "mode": "refine", "status": "idea"},
         {"session_id": "s-eng", "mode": "advance", "status": "implementing"},
-        {"session_id": "s-polish", "mode": "polish",
-         "status": "polishing-implementation"},
         {
-            "session_id": "s-old", "mode": "polish", "status": "release",
+            "session_id": "s-polish",
+            "mode": "polish",
+            "status": "polishing-implementation",
+        },
+        {
+            "session_id": "s-old",
+            "mode": "polish",
+            "status": "release",
             "released_at": _iso_ago(2),
         },
         {
-            "session_id": "s-task", "mode": "advance", "status": "release",
-            "target_kind": "epic_task", "epic_id": 700, "task_num": 1,
+            "session_id": "s-task",
+            "mode": "advance",
+            "status": "release",
+            "target_kind": "epic_task",
+            "epic_id": 700,
+            "task_num": 1,
         },
         {
-            "session_id": "s-proc", "mode": "advance", "status": "release",
-            "target_kind": "process", "process_key": "DOCTOR_PIPELINE",
+            "session_id": "s-proc",
+            "mode": "advance",
+            "status": "release",
+            "target_kind": "process",
+            "process_key": "DOCTOR_PIPELINE",
         },
     ],
 )
@@ -151,9 +180,19 @@ def test_passes_for_valid_or_out_of_scope_claims(conn, kwargs):
     ],
 )
 def test_warns_for_mismatched_claims(
-    conn, session_id, mode, status, minutes_ago, ended, item_id, expected):
-    _seed(conn, session_id=session_id, mode=mode, status=status,
-          minutes_ago=minutes_ago, ended=ended, item_id=item_id)
+    conn, session_id, mode, status, minutes_ago, ended, item_id, expected
+):
+    _seed(
+        conn,
+        session_id=session_id,
+        mode=mode,
+        status=status,
+        minutes_ago=minutes_ago,
+        ended=ended,
+        item_id=item_id,
+    )
     result = _result(conn)
     assert result.result == "WARN"
     assert expected in result.detail
+    assert "yoke claims work release --item YOK-N" in result.detail
+    assert "service_client" not in result.detail

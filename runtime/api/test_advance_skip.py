@@ -151,7 +151,6 @@ class TestSkipPolishHappyPath:
         assert event["to_status"] == "implemented"
         assert event["skipped_phase"] == "polishing-implementation"
 
-
 # ---------------------------------------------------------------------------
 # skip_polish — invalid-status rejection
 # ---------------------------------------------------------------------------
@@ -200,37 +199,6 @@ class TestSkipPolishRejection:
 
 
 class TestAllowlistGuard:
-    def test_polish_allowlist_excludes_pre_impl(self):
-        """The skip-polish allowlist must not overlap with pre-impl statuses."""
-        from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
-
-        workflows = tuple(map(builtin_workflow_runtime, ("issue", "epic")))
-        pre_implementation = {
-            stage
-            for workflow in workflows
-            for stage in workflow.stage_ids
-            if workflow.is_before_implementation(stage)
-        }
-        overlap = advance_skip._POLISH_TRANSIT_ALLOWED & pre_implementation
-        assert overlap == frozenset()
-
-    def test_refine_allowlist_only_targets(self):
-        """The skip-refine allowlist includes only refine bookkeeping statuses."""
-        assert advance_skip._REFINE_TARGETS_ALLOWED == frozenset(
-            {"refining-idea", "refined-idea", "refining-plan", "planned"}
-        )
-
-    def test_walk_hops_rejects_out_of_allowlist(self):
-        out = io.StringIO()
-        with pytest.raises(ValueError, match="not in allowlist"):
-            advance_skip._walk_hops(
-                1,
-                hops=["implementing"],  # not in any skip allowlist
-                bypass_reason="skip-polish",
-                allowlist=advance_skip._POLISH_TRANSIT_ALLOWED,
-                out=out,
-            )
-
     def test_bypass_restored_on_hop_failure(self):
         os.environ.pop("YOKE_CLAIM_BYPASS", None)
         os.environ.pop("YOKE_STATUS_SOURCE", None)

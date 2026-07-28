@@ -44,6 +44,7 @@ def write_pending_resume_notice(
     released_claims: List[Dict[str, Any]],
     reacquired_count: int,
     conflict_count: int,
+    commit: bool = True,
 ) -> bool:
     """Persist the pending slim-resume-block payload on the session row.
 
@@ -59,11 +60,11 @@ def write_pending_resume_notice(
         "conflict_count": int(conflict_count),
     }
     conn.execute(
-        "UPDATE harness_sessions SET pending_resume_notice = %s "
-        "WHERE session_id = %s",
+        "UPDATE harness_sessions SET pending_resume_notice = %s WHERE session_id = %s",
         (json.dumps(notice, separators=(",", ":")), session_id),
     )
-    conn.commit()
+    if commit:
+        conn.commit()
     return True
 
 
@@ -79,8 +80,7 @@ def lookup_unacknowledged_resume_block(
     if not _column_present(conn):
         return None
     row = conn.execute(
-        "SELECT pending_resume_notice FROM harness_sessions "
-        "WHERE session_id = %s",
+        "SELECT pending_resume_notice FROM harness_sessions WHERE session_id = %s",
         (session_id,),
     ).fetchone()
     if row is None:

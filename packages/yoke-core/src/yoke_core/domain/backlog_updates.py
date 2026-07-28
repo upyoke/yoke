@@ -60,10 +60,8 @@ from yoke_core.domain.backlog_queries import _is_dry_run  # noqa: F401
 # ---------------------------------------------------------------------------
 from yoke_core.domain.backlog_close_op import execute_close  # noqa: F401
 from yoke_core.domain.backlog_create_op import execute_create  # noqa: F401
-from yoke_core.domain.backlog_update_op import (  # noqa: F401
-    execute_batch_update,
-    execute_update,
-)
+from yoke_core.domain.backlog_update_op import execute_batch_update  # noqa: F401
+from yoke_core.domain.backlog_update_retry import execute_update  # noqa: F401
 from yoke_core.domain.backlog_structured_write_op import (  # noqa: F401
     execute_structured_write,
 )
@@ -72,6 +70,7 @@ from yoke_core.domain.backlog_structured_write_op import (  # noqa: F401
 def main(argv=None) -> int:
     """CLI entry point — delegates to backlog_updates_cli."""
     from yoke_core.domain.backlog_updates_cli import main as _cli_main
+
     return _cli_main(argv)
 
 
@@ -101,4 +100,5 @@ __all__ = [
 
 if __name__ == "__main__":
     import sys
+
     sys.exit(main())

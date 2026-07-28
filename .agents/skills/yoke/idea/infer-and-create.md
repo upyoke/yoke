@@ -24,7 +24,7 @@ No path is written into the spec from naming intuition. If verification still fa
 
 ### Prevention 2 — grep for gate/owner symbols before naming a control-plane file
 
-When the spec proposes a control-plane implementation surface — a lifecycle gate, status-write gate, QA gate composition, or error-code owner — the agent first runs the canonical grep template against the live tree and cites the verified owner from the output. Naming intuition is not enough: gate composition is consolidated in helpers like `_run_authoritative_status_gate` (in `yoke_core.domain.backlog_updates_helpers`) and `check_verification_gate` (in `yoke_core.domain.qa_gates`), not in vocabulary-only files like `yoke_core.domain.lifecycle`.
+When the spec proposes a control-plane implementation surface — a lifecycle gate, status-write gate, QA gate composition, or error-code owner — the agent first runs the canonical grep template against the live tree and cites the verified owner from the output. Naming intuition is not enough: gate composition is consolidated in helpers like `_run_authoritative_status_gate` (in `yoke_core.domain.backlog_updates_helpers`) and `check_verification_gate` (in `yoke_core.domain.qa_gates`), not in vocabulary-only files like `yoke_core.domain.task_lifecycle`.
 
 Run this exact template:
 
@@ -32,7 +32,7 @@ Run this exact template:
 rg -n "def _run_.*_gate|def check_.*_gate|GATE_[A-Z_]+" packages/ runtime/
 ```
 
-Pick the verified owner from the grep output and cite the resolved path/function in the spec — do not infer from a generic filename like `lifecycle.py`. Item stage, progression, and gate placement belong to immutable workflow definitions interpreted by `workflow_runtime.py`; `lifecycle.py` is only the compatibility front door for the independent epic-task vocabulary. If the grep returns zero matches for the family the spec is targeting, treat the absence as a clarification question rather than a guess.
+Pick the verified owner from the grep output and cite the resolved path/function in the spec — do not infer from a generic filename. Item stage, progression, and gate placement belong to immutable workflow definitions interpreted by `workflow_runtime.py`; independent epic-task vocabulary lives in `task_lifecycle.py`. If the grep returns zero matches for the family the spec is targeting, treat the absence as a clarification question rather than a guess.
 
 This rule applies to gates, error codes (`GATE_*` constants), and any composition surface the spec proposes to extend or modify. Item-lifecycle changes target the workflow registry/definition owner; epic-task vocabulary changes target `task_lifecycle.py`. Proposed gate composition belongs in the live helper that grep names.
 

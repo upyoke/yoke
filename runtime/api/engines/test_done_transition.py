@@ -81,9 +81,7 @@ class TestTransitionResult:
     def test_load_discovery_metadata_reads_unreviewed_count(self, tmp_path):
         metadata = tmp_path / "discovery.txt"
         metadata.write_text(
-            "DISCOVERY_FILE=/tmp/discovery\n"
-            "UNREVIEWED_OUROBOROS=3\n"
-            "---\n"
+            "DISCOVERY_FILE=/tmp/discovery\nUNREVIEWED_OUROBOROS=3\n---\n"
         )
 
         unreviewed = done_transition._load_discovery_metadata(metadata)
@@ -97,7 +95,9 @@ class TestTransitionResult:
             calls.append(kwargs)
             return 0
 
-        with mock.patch.object(done_transition, "_update_item_direct", side_effect=fake_update):
+        with mock.patch.object(
+            done_transition, "_update_item_direct", side_effect=fake_update
+        ):
             assert done_transition._update_status_to_done(42, skip_qa=False)
 
         assert calls
@@ -106,11 +106,17 @@ class TestTransitionResult:
 
 class TestResolveRepoRoot:
     def test_uses_python_path_helper(self, tmp_path):
-        with mock.patch("yoke_core.engines.done_transition_gates.resolve_main_root", return_value=str(tmp_path)):
+        with mock.patch(
+            "yoke_core.engines.done_transition_gates.resolve_main_root",
+            return_value=str(tmp_path),
+        ):
             assert done_transition._resolve_repo_root() == tmp_path
 
     def test_returns_empty_path_on_failure(self, capsys):
-        with mock.patch("yoke_core.engines.done_transition_gates.resolve_main_root", side_effect=RuntimeError("boom")):
+        with mock.patch(
+            "yoke_core.engines.done_transition_gates.resolve_main_root",
+            side_effect=RuntimeError("boom"),
+        ):
             assert done_transition._resolve_repo_root() == Path()
         assert "path resolution failed" in capsys.readouterr().err
 
@@ -120,12 +126,14 @@ def test_update_item_direct_exercises_real_backlog_update(tmp_db):
     _seed_session(tmp_db, session_id="sess-1")
     _seed_claim(tmp_db, session_id="sess-1", item_id="44")
 
-    with _patch_externals(), \
-         mock.patch.dict(
-             os.environ,
-             {"YOKE_DB": tmp_db, "YOKE_SESSION_ID": "sess-1"},
-             clear=False,
-         ):
+    with (
+        _patch_externals(),
+        mock.patch.dict(
+            os.environ,
+            {"YOKE_DB": tmp_db, "YOKE_SESSION_ID": "sess-1"},
+            clear=False,
+        ),
+    ):
         rc = done_transition._update_item_direct(
             44,
             "status",
@@ -203,7 +211,9 @@ class TestDeploymentEvidence:
             "INSERT INTO deployment_runs (id, project_id, status, created_at) "
             "VALUES ('r1', 1, 'succeeded', '2025-01-01')"
         )
-        conn.execute("INSERT INTO deployment_run_items (run_id, item_id) VALUES ('r1', 50)")
+        conn.execute(
+            "INSERT INTO deployment_run_items (run_id, item_id) VALUES ('r1', 50)"
+        )
         conn.commit()
         conn.close()
 
@@ -222,7 +232,9 @@ class TestDeploymentEvidence:
             "INSERT INTO deployment_runs (id, project_id, status, created_at) "
             "VALUES ('r2', 1, 'failed', '2025-01-01')"
         )
-        conn.execute("INSERT INTO deployment_run_items (run_id, item_id) VALUES ('r2', 52)")
+        conn.execute(
+            "INSERT INTO deployment_run_items (run_id, item_id) VALUES ('r2', 52)"
+        )
         conn.commit()
         conn.close()
 
@@ -233,13 +245,16 @@ class TestDeploymentFlowGuard:
     """TC-deploy-flow-guard: Post-merge deployment flow semantics."""
 
     def test_skip_deploy_without_evidence_returns_exit_7(self):
-        with mock.patch(
-            "yoke_core.domain.deployment_flow_validator.list_registered_flow_ids",
-            return_value=["externalwebapp-prod-release"],
-        ), mock.patch.object(
-            done_transition_deploy_gates,
-            "_check_deployment_evidence",
-            return_value=False,
+        with (
+            mock.patch(
+                "yoke_core.domain.deployment_flow_validator.list_registered_flow_ids",
+                return_value=["externalwebapp-prod-release"],
+            ),
+            mock.patch.object(
+                done_transition_deploy_gates,
+                "_check_deployment_evidence",
+                return_value=False,
+            ),
         ):
             result = done_transition._check_deployment_flow_guard(
                 item_id=207,
@@ -247,18 +262,22 @@ class TestDeploymentFlowGuard:
                 skip_deploy=True,
                 item_project="yoke",
                 old_status="implemented",
+                delivery_stage_id="ship-ready",
             )
 
         assert result == (7, "implemented")
 
-    def test_no_evidence_fallback_sets_release_and_returns_exit_7(self):
-        with mock.patch(
-            "yoke_core.domain.deployment_flow_validator.list_registered_flow_ids",
-            return_value=["externalwebapp-prod-release"],
-        ), mock.patch.object(
-            done_transition_deploy_gates,
-            "_get_latest_run_status",
-            return_value=(None, None),
+    def test_no_evidence_fallback_uses_definition_delivery_stage(self):
+        with (
+            mock.patch(
+                "yoke_core.domain.deployment_flow_validator.list_registered_flow_ids",
+                return_value=["externalwebapp-prod-release"],
+            ),
+            mock.patch.object(
+                done_transition_deploy_gates,
+                "_get_latest_run_status",
+                return_value=(None, None),
+            ),
         ):
             with mock.patch.object(
                 done_transition,
@@ -271,14 +290,15 @@ class TestDeploymentFlowGuard:
                     skip_deploy=False,
                     item_project="yoke",
                     old_status="implemented",
+                    delivery_stage_id="ship-ready",
                 )
 
-        assert result == (7, "release")
+        assert result == (7, "ship-ready")
         upd.assert_called_once()
         args, kwargs = upd.call_args
         assert args[0] == 226
         assert args[1] == "status"
-        assert args[2] == "release"
+        assert args[2] == "ship-ready"
         assert kwargs["env_overrides"] == {"YOKE_STATUS_SOURCE": "done-transition"}
         assert kwargs["rebuild_board"] is False
 

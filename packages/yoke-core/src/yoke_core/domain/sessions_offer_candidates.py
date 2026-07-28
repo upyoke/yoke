@@ -19,11 +19,11 @@ from .scheduler_skip_reasons import SKIP_REASON_STALE_LIFECYCLE_POST_CLAIM
 from .sessions_analytics import SessionError
 from .sessions_lifecycle import claim_work
 from .sessions_lifecycle_release import release_item_claim_for_execution
+from .sessions_offer_candidate_snapshot import revalidate_candidate_snapshot
 from .sessions_offer_claim_pin import recompute_and_pin_for_claim
 from .sessions_offer_revalidation import (
     holder_session_for_item,
     record_offer_skip,
-    revalidate_candidate_status,
 )
 from .sessions_queries import normalize_claim_item_id
 from .sessions_queries_chain import read_chain_skip_memory
@@ -79,12 +79,15 @@ def acquire_claim_from_candidates(
 
     for attempt_idx in range(max_attempts):
         candidate = candidates[attempt_idx]
-        valid, current_status = revalidate_candidate_status(
+        validation = revalidate_candidate_snapshot(
             conn,
             item_id=candidate.item_id,
             expected_status=candidate.status,
+            expected_workflow_id=candidate.workflow_id,
+            expected_workflow_version_id=candidate.workflow_version_id,
         )
-        if not valid:
+        current_status = validation.status
+        if not validation.matches:
             record_offer_skip(
                 conn,
                 session_id=session_id,
@@ -113,10 +116,15 @@ def acquire_claim_from_candidates(
                 item_id=candidate.item_id,
                 claim_type="exclusive",
             )
-            post_valid, post_current = revalidate_candidate_status(
-                conn, item_id=candidate.item_id, expected_status=candidate.status
+            post_validation = revalidate_candidate_snapshot(
+                conn,
+                item_id=candidate.item_id,
+                expected_status=candidate.status,
+                expected_workflow_id=candidate.workflow_id,
+                expected_workflow_version_id=candidate.workflow_version_id,
             )
-            if not post_valid:
+            post_current = post_validation.status
+            if not post_validation.matches:
                 released_claim_id = (new_claim or {}).get("id")
                 release_item_claim_for_execution(
                     conn, session_id, str(candidate.item_id), "offer-override"

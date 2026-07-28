@@ -24,13 +24,15 @@ import json
 
 import pytest
 
+from runtime.api.fixtures.backlog import insert_item
 from runtime.api.test_sessions import _register  # noqa: F401  (plain helper)
 from runtime.api.sessions_api_stale_test_helpers import (
     _ago_minutes,
     _now_literal,
     apply_ddl_statements,
-    conn,  # noqa: F401  (backend-aware pytest fixture)
 )
+
+pytest_plugins = ("runtime.api.sessions_api_stale_test_helpers",)
 
 
 # Events table fixture used by cmd_claim's conflict snapshot AND by the
@@ -85,6 +87,8 @@ _EVENTS_TABLE_FOR_CLAIM_RACE = """
 @pytest.fixture
 def race_conn(conn):
     apply_ddl_statements(conn, _EVENTS_TABLE_FOR_CLAIM_RACE)
+    for item_id in (4001, 4002, 4003, 4004):
+        insert_item(conn, id=item_id, status="refined-idea")
     return conn
 
 
@@ -115,7 +119,8 @@ def _seed_holder_with_claim(
     _register(conn, session_id=holder_session_id, executor=holder_executor)
     holder_hb = (
         _ago_minutes(holder_heartbeat_ago_min)
-        if holder_heartbeat_ago_min > 0 else _now_literal()
+        if holder_heartbeat_ago_min > 0
+        else _now_literal()
     )
     conn.execute(
         """UPDATE harness_sessions
@@ -125,7 +130,8 @@ def _seed_holder_with_claim(
     )
     claim_hb = (
         _ago_minutes(claim_heartbeat_ago_min)
-        if claim_heartbeat_ago_min > 0 else _now_literal()
+        if claim_heartbeat_ago_min > 0
+        else _now_literal()
     )
     conn.execute(
         """INSERT INTO work_claims
@@ -140,6 +146,7 @@ def _attempt_claim(conn, attempting_session_id: str, item_id: int):
     """Run cmd_claim from a fresh session and return its outcome."""
     _register(conn, session_id=attempting_session_id)
     from runtime.harness.harness_sessions_claims_acquire import cmd_claim
+
     return cmd_claim(
         conn,
         attempting_session_id,
@@ -198,8 +205,8 @@ class TestCmdClaimReclaimRace:
             c,
             holder_session_id="holder-A",
             item_id=4002,
-            holder_heartbeat_ago_min=1,        # session heartbeated recently
-            claim_heartbeat_ago_min=30,        # claim row is stale
+            holder_heartbeat_ago_min=1,  # session heartbeated recently
+            claim_heartbeat_ago_min=30,  # claim row is stale
         )
         _insert_tool_event(c, "holder-A", ago_minutes=25)
 
@@ -263,9 +270,9 @@ class TestCmdClaimReclaimRace:
             c,
             holder_session_id="holder-A",
             item_id=4003,
-            holder_heartbeat_ago_min=1,        # would be fresh
+            holder_heartbeat_ago_min=1,  # would be fresh
             claim_heartbeat_ago_min=1,
-            holder_ended_at=_now_literal(),    # but ended_at is set
+            holder_ended_at=_now_literal(),  # but ended_at is set
         )
         _insert_tool_event(c, "holder-A", ago_minutes=1)
 

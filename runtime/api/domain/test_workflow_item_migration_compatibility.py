@@ -5,11 +5,8 @@ from copy import deepcopy
 import pytest
 
 from runtime.api.fixtures.backlog import (
-    insert_deployment_run,
-    insert_item,
-    insert_item_worktree,
-    insert_qa_requirement,
-    insert_qa_run,
+    insert_deployment_run, insert_item, insert_item_worktree,
+    insert_qa_requirement, insert_qa_run,
 )
 from yoke_core.domain.approval_gate import evaluate_lifecycle_approval
 from yoke_core.domain.builtin_workflow_definitions import (
@@ -95,6 +92,7 @@ def _publish_pair(test_db, *, case: str = "") -> tuple[dict, dict]:
         workflow_id="issue",
         definition=target_definition,
     )
+    _seed_path_claim(test_db)
     return source, target
 
 
@@ -151,9 +149,15 @@ def _seed_path_claim(test_db) -> None:
     test_db.execute(
         "INSERT INTO path_claims ("
         "state, mode, actor_id, item_id, owner_kind, owner_item_id, "
-        "integration_target, registered_at"
-        ") VALUES ('active', 'exclusive', %s, %s, 'item', %s, 'main', %s)",
-        (actor_id, ITEM_ID, ITEM_ID, iso8601_now()),
+        "integration_target, registered_at, exception_reason"
+        ") VALUES ('active', 'exception', %s, %s, 'item', %s, 'main', %s, %s)",
+        (
+            actor_id,
+            ITEM_ID,
+            ITEM_ID,
+            iso8601_now(),
+            "migration compatibility fixture",
+        ),
     )
     test_db.commit()
 
@@ -237,8 +241,6 @@ def _seed_delivery(test_db) -> None:
 def _seed_case(test_db, case: str) -> None:
     if case == "work_claim":
         _seed_work_claim(test_db)
-    elif case == "path_claim":
-        _seed_path_claim(test_db)
     elif case == "worktree":
         insert_item_worktree(
             test_db,
@@ -270,7 +272,6 @@ def _pin(test_db) -> tuple[int, str]:
 def test_label_only_migration_preserves_all_live_bindings(test_db):
     source, target = _publish_pair(test_db)
     _seed_work_claim(test_db)
-    _seed_path_claim(test_db)
     insert_item_worktree(
         test_db,
         item_id=ITEM_ID,

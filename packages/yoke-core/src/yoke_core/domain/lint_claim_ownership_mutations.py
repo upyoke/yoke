@@ -14,70 +14,110 @@ from __future__ import annotations
 import json
 import re
 import sys
-from datetime import datetime, timedelta, timezone
 from typing import Iterable, Optional, Tuple
 
 from yoke_core.domain.db_helpers import connect
-from yoke_core.domain.denial_field_note_footer import append_field_note_footer
+from yoke_core.domain.lint_claim_ownership_denials import (
+    RECENT_DENIAL_LOOKBACK_SECONDS,  # noqa: F401
+    recent_claim_denial_holder,
+    recent_denial_reason as _recent_denial_reason,
+    spoof_reason as _spoof_reason,
+)
 from runtime.harness.hook_runner.types import HookContext, HookDecision, Next, Outcome
 
 
 CHECK_ID = "claim_ownership_mutation"
 HOOK_NAME = "lint-claim-ownership-mutations"
-RECENT_DENIAL_LOOKBACK_SECONDS = 1800
+_SERVICE_CLIENT_MUTATIONS: frozenset[str] = frozenset(
+    (
+        "claim-work release-work-claim claim-release release-all-claims "
+        "release-done-claims path-claim-register path-claim-widen "
+        "path-claim-narrow path-claim-release path-claim-cancel "
+        "path-claim-override path-claim-activate path-claim-cancel-amendment "
+        "path-claim-unblock-stranded "
+        "execute-structured-write execute-update execute-update-cli "
+        "execute-create execute-create-cli execute-batch-update "
+        "execute-batch-update-cli execute-close update-item db-claim-amend "
+        "backlog-github coordination-lease-acquire coordination-lease-release "
+        "coordination-lease-heartbeat"
+    ).split()
+)
 
-_SERVICE_CLIENT_MUTATIONS: frozenset[str] = frozenset((
-    "claim-work release-work-claim claim-release release-all-claims "
-    "release-done-claims path-claim-register path-claim-widen "
-    "path-claim-narrow path-claim-release path-claim-cancel "
-    "path-claim-override path-claim-activate path-claim-cancel-amendment "
-    "path-claim-unblock-stranded "
-    "execute-structured-write execute-update execute-update-cli "
-    "execute-create execute-create-cli execute-batch-update "
-    "execute-batch-update-cli execute-close update-item db-claim-amend "
-    "backlog-github coordination-lease-acquire coordination-lease-release "
-    "coordination-lease-heartbeat"
-).split())
-
-_BACKLOG_CLI_MUTATIONS: frozenset[str] = frozenset((
-    "add update batch-update sync-item sync-labels sync-body post-comment "
-    "close close-issue backfill-oversized-bodies freeze thaw block "
-    "unblock rebuild-board"
-).split())
+_BACKLOG_CLI_MUTATIONS: frozenset[str] = frozenset(
+    (
+        "add update batch-update sync-item sync-labels sync-body post-comment "
+        "close close-issue backfill-oversized-bodies freeze thaw block "
+        "unblock rebuild-board"
+    ).split()
+)
 
 _DB_ROUTER_MUTATING_PATHS: tuple[tuple[str, ...], ...] = (
-    ("items", "update"), ("items", "sync-item"),
-    ("sections", "upsert"), ("sections", "delete"), ("sections", "rename"),
-    ("qa", "requirement-add"), ("qa", "requirement-add-batch"),
-    ("qa", "requirement-update"), ("qa", "run-add"),
-    ("path-claims", "widen"), ("path-claims", "narrow"),
+    ("items", "update"),
+    ("items", "sync-item"),
+    ("sections", "upsert"),
+    ("sections", "delete"),
+    ("sections", "rename"),
+    ("qa", "requirement-add"),
+    ("qa", "requirement-add-batch"),
+    ("qa", "requirement-update"),
+    ("qa", "run-add"),
+    ("path-claims", "widen"),
+    ("path-claims", "narrow"),
     ("path-claims", "release"),
     ("harness-sessions", "release-claim"),
 )
 
-_BARE_MODULE_MUTATIONS: frozenset[str] = frozenset((
-    "yoke_core.domain.item_field_transform "
-    "yoke_core.domain.epic "
-    "yoke_core.domain.item_section_upsert "
-    "yoke_core.domain.path_claim_register"
-).split())
+_BARE_MODULE_MUTATIONS: frozenset[str] = frozenset(
+    (
+        "yoke_core.domain.item_field_transform "
+        "yoke_core.domain.epic "
+        "yoke_core.domain.item_section_upsert "
+        "yoke_core.domain.path_claim_register"
+    ).split()
+)
 
-_READ_ONLY_SUBSTRINGS: tuple[str, ...] = tuple((
-    "who-claims path-claim-list path-claim-get path-claim-conflicts "
-    "path-claim-boundary actors-list actors-get session-offer "
-    "session-heartbeat session-touch session-end-if-empty "
-    "session-checkpoint-read harness-capabilities ownership-guard"
-).split())
+_READ_ONLY_SUBSTRINGS: tuple[str, ...] = tuple(
+    (
+        "who-claims path-claim-list path-claim-get path-claim-conflicts "
+        "path-claim-boundary actors-list actors-get session-offer "
+        "session-heartbeat session-touch session-end-if-empty "
+        "session-checkpoint-read harness-capabilities ownership-guard"
+    ).split()
+)
 
 _DB_ROUTER_READ_ONLY_PATHS: tuple[tuple[str, ...], ...] = (
-    ("items", "get"), ("items", "row"), ("items", "list"),
-    ("items", "count"), ("items", "progress"),
-    ("sections", "get"), ("sections", "list"),
-    ("query",), ("events", "list"), ("events", "get"),
-    ("shepherd", "dependency-list"), ("projects", "get"),
+    ("items", "get"),
+    ("items", "row"),
+    ("items", "list"),
+    ("items", "count"),
+    ("items", "progress"),
+    ("sections", "get"),
+    ("sections", "list"),
+    ("query",),
+    ("events", "list"),
+    ("events", "get"),
+    ("shepherd", "dependency-list"),
+    ("projects", "get"),
     ("harness-sessions", "who-claims"),
-    ("path-claims", "list"), ("path-claims", "get"),
+    ("path-claims", "list"),
+    ("path-claims", "get"),
 )
+
+
+def _recent_claim_denial_holder(
+    db_path: Optional[str],
+    session_id: str,
+    item_id: int,
+    lookback_seconds: int = RECENT_DENIAL_LOOKBACK_SECONDS,
+) -> Optional[str]:
+    """Compatibility seam for callers that patch this module's connector."""
+    return recent_claim_denial_holder(
+        db_path,
+        session_id,
+        item_id,
+        lookback_seconds,
+        connector=connect,
+    )
 
 _PYTHON_M_RE = re.compile(r"python3?\s+-m\s+([\w.]+)\b")
 _SESSION_ID_FLAG_RE = re.compile(r"--session-id[=\s]+([^\s]+)")
@@ -88,13 +128,16 @@ _SHELL_BOUNDARIES = frozenset({"&&", "||", ";", "|", ">", "<", "2>&1"})
 
 def _extract_command(payload: dict) -> str:
     tool_input = (
-        payload.get("tool_input") or payload.get("toolInput")
-        or payload.get("input") or {}
+        payload.get("tool_input")
+        or payload.get("toolInput")
+        or payload.get("input")
+        or {}
     )
     if not isinstance(tool_input, dict):
         tool_input = {}
     for candidate in (
-        tool_input.get("command"), tool_input.get("cmd"),
+        tool_input.get("command"),
+        tool_input.get("cmd"),
         payload.get("command"),
     ):
         if isinstance(candidate, str) and candidate:
@@ -107,7 +150,7 @@ def _positional_tokens_after(command: str, module: str, count: int = 3) -> list[
     if idx < 0:
         return []
     out: list[str] = []
-    for raw in command[idx + len(module):].strip().split():
+    for raw in command[idx + len(module) :].strip().split():
         if raw.startswith("-"):
             continue
         if raw in _SHELL_BOUNDARIES:
@@ -128,7 +171,9 @@ def _is_read_only_command(command: str) -> bool:
         tokens = _positional_tokens_after(command, module)
         return bool(tokens and tokens[0] in _READ_ONLY_SUBSTRINGS)
     if module == "yoke_core.cli.db_router":
-        return _matches_path(_positional_tokens_after(command, module), _DB_ROUTER_READ_ONLY_PATHS)
+        return _matches_path(
+            _positional_tokens_after(command, module), _DB_ROUTER_READ_ONLY_PATHS
+        )
     return False
 
 
@@ -186,69 +231,15 @@ def _resolve_db_path() -> Optional[str]:
     return None
 
 
-def _recent_claim_denial_holder(
-    db_path: Optional[str], session_id: str, item_id: int,
-    lookback_seconds: int = RECENT_DENIAL_LOOKBACK_SECONDS,
-) -> Optional[str]:
-    """Return the live foreign holder after a recent same-item claim attempt.
-
-    Two-step check against first-class state (the events ledger is
-    telemetry-only): (1) ``session_tool_calls.command_summary`` shows this
-    session recently ran ``claim-work`` naming the item; (2) ``work_claims``
-    shows a live exclusive holder other than this session. Step 2 reading
-    live claims is sharper than the historical response-text scan — a
-    holder that released since the denial no longer blocks.
-    """
-    # Lexical ISO cutoff keeps the lookup native and parameter-safe.
-    if not session_id:
-        return None
-    cutoff = datetime.now(timezone.utc) - timedelta(seconds=int(lookback_seconds))
-    conn = None
-    try:
-        conn = connect(db_path or None)
-        rows = conn.execute(
-            "SELECT command_summary FROM session_tool_calls "
-            "WHERE session_id=%s AND tool_name='Bash' "
-            "AND command_summary IS NOT NULL "
-            "AND started_at > %s ORDER BY started_at DESC LIMIT 100",
-            (session_id, cutoff.strftime("%Y-%m-%dT%H:%M:%SZ")),
-        ).fetchall()
-
-        item_token, item_bare = f"YOK-{item_id}", str(item_id)
-        attempted = False
-        for row in rows:
-            command = row[0]
-            if not isinstance(command, str) or "claim-work" not in command:
-                continue
-            if item_token in command or f"--item {item_bare}" in command:
-                attempted = True
-                break
-        if not attempted:
-            return None
-
-        holder_row = conn.execute(
-            "SELECT session_id FROM work_claims "
-            "WHERE target_kind='item' AND item_id=%s "
-            "AND released_at IS NULL AND claim_type='exclusive' "
-            "AND session_id <> %s LIMIT 1",
-            (item_id, session_id),
-        ).fetchone()
-        return holder_row[0] if holder_row else None
-    except Exception:  # fail open: a DB hiccup must never block the user
-        return None
-    finally:
-        if conn is not None:
-            try:
-                conn.close()
-            except Exception:
-                pass
-
-
 def _emit_denial(payload: dict, reason: str) -> None:
     try:
         from runtime.harness.hook_runner.telemetry import emit_denial_event
+
         emit_denial_event(
-            hook=HOOK_NAME, tool="Bash", check_id=CHECK_ID, reason=reason,
+            hook=HOOK_NAME,
+            tool="Bash",
+            check_id=CHECK_ID,
+            reason=reason,
             session_id=str(payload.get("session_id") or ""),
             tool_use_id=str(payload.get("tool_use_id") or ""),
             turn_id=str(payload.get("turn_id") or payload.get("message_id") or ""),
@@ -256,28 +247,6 @@ def _emit_denial(payload: dict, reason: str) -> None:
         )
     except Exception:
         pass
-
-def _spoof_reason(family: str, foreign_session: str) -> str:
-    return append_field_note_footer(
-        "BLOCKED: claim-boundary bypass attempt.\n\n"
-        f"Mutation family: {family}\nForeign --session-id: {foreign_session}\n\n"
-        "Artifact writes are work writes. Passing another session's id via "
-        "--session-id from an ambient session is spoofing — the ambient "
-        "session is the only valid owner. Foreign operator override for a "
-        "stranded claim: `service_client claim-release --item YOK-N --claim-id <id> --reason <operator rationale>`.",
-        rule_id="lint-claim-ownership-mutations")
-
-
-def _recent_denial_reason(family: str, item_id: int, holder: str) -> str:
-    return append_field_note_footer(
-        "BLOCKED: claim-boundary bypass after live claim denial.\n\n"
-        f"Mutation family: {family}\nItem: YOK-{item_id}\n"
-        f"Live holder: {holder}\n\n"
-        "A recent claim-work in this session was denied with "
-        "'already claimed by session' for the same item. Subsequent "
-        f"mutating shapes against YOK-{item_id} from this session are "
-        "blocked until the holder releases or hands off.",
-        rule_id="lint-claim-ownership-mutations")
 
 
 def evaluate_payload(payload: dict) -> Optional[Tuple[str, str]]:
@@ -316,10 +285,20 @@ def evaluate(record: HookContext) -> HookDecision:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     reason, family = verdict
     _emit_denial(payload, reason)
-    envelope = {"hookSpecificOutput": {"hookEventName": "PreToolUse",
-        "permissionDecision": "deny", "permissionDecisionReason": reason}}
-    return HookDecision(outcome=Outcome.DENY, message=json.dumps(envelope),
-        audit_fields={"reason": reason, "family": family}, block=True, next=Next.STOP)
+    envelope = {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "deny",
+            "permissionDecisionReason": reason,
+        }
+    }
+    return HookDecision(
+        outcome=Outcome.DENY,
+        message=json.dumps(envelope),
+        audit_fields={"reason": reason, "family": family},
+        block=True,
+        next=Next.STOP,
+    )
 
 
 def main() -> int:
@@ -332,8 +311,10 @@ def main() -> int:
     cwd, sid = payload.get("cwd"), payload.get("session_id")
     record = HookContext(
         event_name="PreToolUse",
-        executor_family="claude", executor_surface="claude",
-        payload=payload, tool_name="Bash",
+        executor_family="claude",
+        executor_surface="claude",
+        payload=payload,
+        tool_name="Bash",
         command_body=_extract_command(payload) or None,
         cwd=cwd if isinstance(cwd, str) else None,
         session_id=sid if isinstance(sid, str) else None,

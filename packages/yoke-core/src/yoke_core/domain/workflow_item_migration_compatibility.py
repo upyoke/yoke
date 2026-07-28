@@ -7,6 +7,10 @@ from typing import Any
 
 from yoke_core.domain.runs import ACTIVE_RUN_STATUSES
 from yoke_core.domain.schema_common import _column_exists, _table_exists
+from yoke_core.domain.workflow_runtime import (
+    ENGINE_TERMINAL_STAGE_IDS,
+    WorkflowRuntime,
+)
 from yoke_core.domain.workflow_definition_builders import (
     WORKFLOW_PATH_CLAIMS_OPTIONAL,
     WORKFLOW_PATH_CLAIMS_REQUIRED,
@@ -20,7 +24,6 @@ from yoke_core.domain.workflow_item_migration_common import (
 from yoke_core.domain.workflow_item_migration_review_bindings import (
     review_binding_conflicts,
 )
-from yoke_core.domain.workflow_runtime import WorkflowRuntime
 
 
 _LIVE_PATH_CLAIM_STATES = ("planned", "blocked", "active")
@@ -69,6 +72,8 @@ def _claim_conflicts(
                 f"{source_executor!r}, not {target_executor!r}"
             )
 
+    source_path_policy = str(source.policies["path_claims"])
+    target_path_policy = str(target.policies["path_claims"])
     if _table_exists(conn, "path_claims"):
         states = ", ".join(bind for _ in _LIVE_PATH_CLAIM_STATES)
         if all(
@@ -87,8 +92,6 @@ def _claim_conflicts(
             f"SELECT id FROM path_claims WHERE state IN ({states}) AND {owner} LIMIT 1",
             (*_LIVE_PATH_CLAIM_STATES, *owner_params),
         ).fetchall()
-        source_path_policy = str(source.policies["path_claims"])
-        target_path_policy = str(target.policies["path_claims"])
         if rows and (
             _PATH_CLAIM_SCOPE[source_path_policy]
             != _PATH_CLAIM_SCOPE[target_path_policy]
@@ -98,6 +101,27 @@ def _claim_conflicts(
                 f"{_PATH_CLAIM_SCOPE[source_path_policy]!r}, not "
                 f"{_PATH_CLAIM_SCOPE[target_path_policy]!r}"
             )
+        if (
+            target_path_policy == WORKFLOW_PATH_CLAIMS_REQUIRED_PER_TASK
+            and source_path_policy != WORKFLOW_PATH_CLAIMS_REQUIRED_PER_TASK
+        ):
+            conflicts.append(
+                "target per-task path-claim policy cannot reuse item-scoped "
+                "coverage without a persisted task-to-claim binding"
+            )
+        if (
+            target_path_policy != WORKFLOW_PATH_CLAIMS_OPTIONAL
+            and target_stage not in target.terminal_stage_ids
+            and target_stage not in ENGINE_TERMINAL_STAGE_IDS
+        ):
+            from yoke_core.domain.path_claim_required_gate import evaluate
+
+            coverage = evaluate(conn, item_id)
+            if coverage["verdict"] != "pass":
+                conflicts.append(
+                    "target path-claim policy requires current coverage: "
+                    f"{coverage['reason']}"
+                )
     return conflicts
 
 

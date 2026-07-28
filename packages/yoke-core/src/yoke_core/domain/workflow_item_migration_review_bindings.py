@@ -6,13 +6,18 @@ from collections.abc import Mapping
 from typing import Any
 
 from yoke_core.domain.schema_common import _column_exists, _table_exists
+from yoke_core.domain.qa_workflow_binding_validation import (
+    qa_enforcement_signature,
+)
 from yoke_core.domain.workflow_gate_catalog import (
     GATE_APPROVAL,
     GATE_QA_VERIFICATION,
 )
 from yoke_core.domain.workflow_item_migration_common import (
     dict_rows,
+    gate_set_signature,
     gate_signature,
+    mapped_stage,
     marker,
     source_stage_for_target,
     stored_stage_conflict,
@@ -184,9 +189,18 @@ def _qa_conflicts(
         if stage_conflict:
             conflicts.append(stage_conflict)
             continue
-        source_gate = gate_signature(source, stage_id, GATE_QA_VERIFICATION)
-        target_gate = gate_signature(target, stage_id, GATE_QA_VERIFICATION)
-        if not source_gate or source_gate != target_gate:
+        source_enforcement = qa_enforcement_signature(source, stage_id)
+        target_enforcement = qa_enforcement_signature(target, stage_id)
+        if not source_enforcement or not target_enforcement:
+            conflicts.append(f"{label} QA gate semantics changed")
+            continue
+        mapped_source_enforcement = tuple(
+            (mapped_stage(source, target, gate_stage), mode)
+            for gate_stage, mode in source_enforcement
+        )
+        if mapped_source_enforcement != target_enforcement or source.policies.get(
+            "qa"
+        ) != target.policies.get("qa"):
             conflicts.append(f"{label} QA gate semantics changed")
     return conflicts
 
@@ -208,6 +222,25 @@ def _reached_gate_conflicts(
     conflicts: list[str] = []
     for stage_id in reached_stages:
         source_stage = source_stage_for_target(source, target, stage_id)
+        source_gates = (
+            gate_set_signature(source, source_stage)
+            if source_stage is not None
+            else frozenset()
+        )
+        target_gates = gate_set_signature(target, stage_id)
+        for gate_id, mode in sorted(
+            target_gates - source_gates,
+            key=lambda value: (value[0], value[1] or ""),
+        ):
+            if gate_id in {GATE_APPROVAL, GATE_QA_VERIFICATION}:
+                continue
+            mode_suffix = f" mode {mode!r}" if mode is not None else ""
+            detail = f"an unsatisfied {gate_id!r} gate{mode_suffix}"
+            conflicts.append(
+                f"target introduces {detail} at reached stage "
+                f"{stage_id!r} for item {item_id}"
+            )
+
         source_approval = (
             _approval_semantics(
                 source,

@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from runtime.api.fixtures.backlog_inserts import insert_item
+from yoke_core.domain.field_note_dash_promotion import (
+    ensure_field_note_dash_promotion_schema,
+)
 from yoke_core.domain.handlers import ouroboros_reads
 from yoke_core.domain.ouroboros_entries import cmd_insert_entry, cmd_mark_reviewed
 from yoke_contracts.api.function_call import (
@@ -62,6 +66,51 @@ class TestOuroborosEntryList:
         assert not outcome.primary_success
         assert outcome.error.code == "payload_invalid"
 
+    def test_promoted_field_note_links_to_the_created_dash(self, test_db):
+        ensure_field_note_dash_promotion_schema(test_db)
+        entry_id = _seed_entry(
+            test_db,
+            timestamp="2026-01-03T00:00:00Z",
+            body="Turn this observation into focused work.",
+            project="yoke",
+        )
+        insert_item(
+            test_db,
+            id=5090,
+            workflow_id="dash",
+            title="Follow up on the observation",
+        )
+        test_db.execute(
+            "INSERT INTO ouroboros_entry_dispositions "
+            "(entry_id, disposition_kind, state, item_id, title, instruction, "
+            "created_at, updated_at) VALUES "
+            "(%s, 'promote_to_dash', 'completed', 5090, "
+            "'Follow up on the observation', "
+            "'Turn this observation into focused work.', "
+            "'2026-01-03T01:00:00Z', '2026-01-03T01:00:00Z')",
+            (entry_id,),
+        )
+        test_db.commit()
+
+        outcome = ouroboros_reads.handle_ouroboros_entry_list(
+            _request("ouroboros.entry.list", {"project": "yoke"})
+        )
+
+        promoted = next(
+            entry["promoted_dash"]
+            for entry in outcome.result_payload["entries"]
+            if entry["id"] == entry_id
+        )
+        assert promoted["item_id"] == 5090
+        assert promoted["item_ref"] == "YOK-5090"
+        assert promoted["project_id"] == 1
+        assert promoted["title"] == "Follow up on the observation"
+        detail = ouroboros_reads.handle_ouroboros_entry_get(
+            _request("ouroboros.entry.get", {"entry_id": entry_id})
+        )
+        assert detail.primary_success
+        assert detail.result_payload["entry"]["promoted_dash"] == promoted
+
 
 class TestOuroborosEntryGet:
     def test_returns_full_entry(self, test_db):
@@ -79,6 +128,7 @@ class TestOuroborosEntryGet:
         # them only at pipe-row render time).
         assert entry["body"] == "line one\nline two"
         assert "archived_at" in entry
+        assert entry["promoted_dash"] is None
 
     def test_not_found(self, test_db):
         outcome = ouroboros_reads.handle_ouroboros_entry_get(

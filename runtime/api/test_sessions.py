@@ -137,7 +137,6 @@ def _create_schema(conn) -> None:
     converge_builtin_workflows(conn)
 
 
-
 def _apply_on_backend(build) -> None:
     """``init_test_db`` applier: run ``build(conn)`` against the backend conn."""
     c = db_backend.connect()
@@ -187,6 +186,13 @@ def _register(conn, session_id="sess-1", **kwargs):
     )
     defaults.update(kwargs)
     return register_session(conn, session_id=session_id, **defaults)
+
+
+def _insert_claimable_item(conn, item_id: int) -> None:
+    """Seed a real workflow-pinned issue item for claim lifecycle tests."""
+    from runtime.api.fixtures.backlog import insert_item
+
+    insert_item(conn, id=int(item_id), workflow_id="issue")
 
 
 # ---------------------------------------------------------------------------
@@ -269,9 +275,7 @@ def ownership_conn(tmp_path):
         ws = str(tmp_path)
         (tmp_path / ".yoke" / "strategy").mkdir(parents=True, exist_ok=True)
         for sml_file in ("MISSION.md", "LANDSCAPE.md", "VISION.md", "MASTER-PLAN.md"):
-            (tmp_path / ".yoke" / "strategy" / sml_file).write_text(
-                f"# {sml_file}\n"
-            )
+            (tmp_path / ".yoke" / "strategy" / sml_file).write_text(f"# {sml_file}\n")
         try:
             yield c, ws
         finally:

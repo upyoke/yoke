@@ -29,9 +29,8 @@ VALID_STAGE_KINDS = frozenset({"migration_apply"})
 
 # Lifecycle phases accepted for ``kind: "migration_apply"`` at governed DB-mutation gate.  Other
 # phases are schema-reserved; the validator rejects them as "not yet
-# supported in this slice."  Aligned with
-# :data:`yoke_core.domain.lifecycle` terminology — ``implementing`` is
-# the only wired option until future substrate unlocks more.
+# supported in this slice." ``implementing`` is the only wired option until
+# future substrate unlocks more.
 VALID_MIGRATION_APPLY_LIFECYCLE_PHASES = frozenset({"implementing"})
 _ALL_LIFECYCLE_PHASES = frozenset({
     "implementing", "reviewing-implementation",

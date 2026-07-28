@@ -28,7 +28,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 - `--env <name>` — Optional. Update the item's `deployed_to` field. Valid environments are resolved per-project from DB tables (`environments` via `sites`, `deployment_flows.target_env`, `project_capabilities`). Can be combined with a status advance or used standalone on an already-done item.
 - `--no-worktree` — Optional. Skip worktree creation when advancing to `implementing`. The item will remain on the current branch with no isolation. Use this for evidence-only / validation / proof items that intentionally make no repo changes; the done-transition empty-branch guard only applies when a worktree branch exists.
 - `--force` — Optional. Override the file-level collision blocker, generated-task existence/completion gates, or merge verification gate.
-- `--skip-polish` — Optional. Operator-asserted fast path from `reviewed-implementation` directly to `implemented`. Dispatches through the advance skill's internal skip handler (`yoke_core.domain.advance_skip`; no registered product CLI wrapper) — collapses `reviewed-implementation -> polishing-implementation -> implemented` into one sanctioned call, emits a `SkipHopPerformed` event, and releases the item claim with reason `handoff-to-usher`. Requires current status `reviewed-implementation`. Use when the mission deliberately skips the polish phase (for example theme-swap missions from [.yoke/strategy/PROMPTS.md](../../../../.yoke/strategy/PROMPTS.md) that declare `SKIP: refine and polish phases`). Do NOT pass a target status with this flag — the flag owns the target.
+- `--skip-polish` — Optional. Operator-asserted fast path across the pinned `polish` executor segment. Dispatches through the advance skill's internal skip handler (`yoke_core.domain.advance_skip`; no registered product CLI wrapper), derives the hops from the binding's `from_stage_id`, `through_stage_id`, ordered stages, and transitions, emits a `SkipHopPerformed` event, and releases the item claim with reason `handoff-to-usher`. Requires the current status to equal that pinned binding's entry stage. Use when the mission deliberately skips the polish phase (for example theme-swap missions from [.yoke/strategy/PROMPTS.md](../../../../.yoke/strategy/PROMPTS.md) that declare `SKIP: refine and polish phases`). Do NOT pass a target status with this flag — the flag owns the target.
 - `--skip-refine` — Optional. Operator-asserted fast path across a pinned `refine` executor segment's gate-free bookkeeping rungs. The internal skip handler (`yoke_core.domain.advance_skip`; no registered product CLI wrapper) validates the current stage against its allowlist and advances to that binding's handoff. It emits a `SkipHopPerformed` event. Use when refine deliberation is unnecessary (low-risk content swaps, copy edits). Do NOT pass a target status with this flag.
 
 Both skip flags:
@@ -103,7 +103,12 @@ advance-skill plumbing, not an agent-facing product command; the operator surfac
 is `/yoke advance YOK-{N} --skip-polish` or `/yoke advance YOK-{N}
 --skip-refine`.
 
-The skip module validates the current status, emits both the canonical `ItemStatusChanged` events (with `source=skip-polish` / `source=skip-refine`) and a sibling `SkipHopPerformed` event, rebuilds the board after the final hop, and handles the claim lifecycle (`handoff-to-usher` for `--skip-polish`, `finalize-exit` for `--skip-refine`).
+The skip module validates the current status against the pinned executor
+binding, derives its hops from that definition's ordered stages and declared
+transitions, emits both the canonical `ItemStatusChanged` events (with
+`source=skip-polish` / `source=skip-refine`) and a sibling `SkipHopPerformed`
+event, rebuilds the board after the final hop, and handles the claim lifecycle
+(`handoff-to-usher` for `--skip-polish`, `finalize-exit` for `--skip-refine`).
 
 **Do not combine `--skip-polish` / `--skip-refine` with an explicit target status, `--env`, `--no-worktree`, or `--force`.** Each skip flag owns the target — combining with a different target silently drops the other argument. Pass them alone.
 

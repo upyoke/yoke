@@ -183,7 +183,7 @@ def task_expanded_count(
     """
     count = len(items)
     for item in items:
-        if item.workflow_id == "epic" and item.epic_id is not None:
+        if item.epic_id is not None:
             tc = epic_task_counts.get(item.epic_id, 0)
             if tc > 0:
                 count += tc - 1  # replace 1 epic with N tasks
@@ -255,8 +255,8 @@ def render_section(
             f"{item.priority} | {item.workflow_id} | {item.progress} | {item.title} |"
         )
 
-        # Expand epic tasks as sub-rows
-        if item.workflow_id == "epic" and item.epic_id is not None:
+        # Expand generated child tasks as sub-rows.
+        if item.epic_id is not None:
             if epic_task_rows_by_epic is None:
                 sub_rows = epic_task_rows(db, item.epic_id, rid_padded, celebration)
             else:

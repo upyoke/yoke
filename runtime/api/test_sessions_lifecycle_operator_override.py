@@ -10,10 +10,8 @@ import os
 import pytest
 from unittest.mock import patch
 
-from runtime.api.test_sessions import (
-    _register,
-    conn,  # noqa: F401  (Postgres-backed pytest fixture)
-)
+from runtime.api.fixtures.backlog import insert_item
+from runtime.api.test_sessions import _register
 from yoke_core.domain.sessions import (
     EVENT_OPERATOR_CLAIM_OVERRIDE,
     EVENT_WORK_RELEASED,
@@ -22,17 +20,26 @@ from yoke_core.domain.sessions import (
     operator_override_release_claim,
 )
 
+pytest_plugins = ("runtime.api.test_sessions",)
+
 
 class TestOperatorOverrideReleaseClaim:
     """FR-4: Human-only operator override."""
+
+    @pytest.fixture(autouse=True)
+    def _seed_claim_items(self, conn):
+        for item_id in (10, 20):
+            insert_item(conn, id=item_id, workflow_id="issue")
 
     def test_ac7_release_targeted_claim(self, conn):
         """AC-7: Override releases only the targeted claim atomically."""
         _register(conn)
         c1 = claim_work(conn, session_id="sess-1", item_id="YOK-10")
-        c2 = claim_work(conn, session_id="sess-1", item_id="YOK-20")
+        claim_work(conn, session_id="sess-1", item_id="YOK-20")
         result = operator_override_release_claim(
-            conn, "YOK-10", "stranded after crash",
+            conn,
+            "YOK-10",
+            "stranded after crash",
         )
         assert result["released"] is True
         assert result["claim_id"] == c1["id"]
@@ -59,7 +66,9 @@ class TestOperatorOverrideReleaseClaim:
         assert EVENT_WORK_RELEASED in event_names
         assert EVENT_OPERATOR_CLAIM_OVERRIDE in event_names
         # Check WorkReleased has operator-override intent
-        wr_call = [c for c in mock_emit.call_args_list if c[0][0] == EVENT_WORK_RELEASED][0]
+        wr_call = [
+            c for c in mock_emit.call_args_list if c[0][0] == EVENT_WORK_RELEASED
+        ][0]
         assert wr_call[1]["context"]["release_reason_intent"] == "operator-override"
 
     def test_ac7_rejects_hook_context(self, conn):
@@ -81,7 +90,10 @@ class TestOperatorOverrideReleaseClaim:
         _register(conn)
         c = claim_work(conn, session_id="sess-1", item_id="YOK-10")
         result = operator_override_release_claim(
-            conn, "YOK-10", "by claim id", claim_id=c["id"],
+            conn,
+            "YOK-10",
+            "by claim id",
+            claim_id=c["id"],
         )
         assert result["released"] is True
         assert result["claim_id"] == c["id"]

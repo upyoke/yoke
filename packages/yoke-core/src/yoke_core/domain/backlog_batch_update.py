@@ -21,7 +21,7 @@ def execute_batch_update(
     out: TextIO = sys.stdout,
 ) -> dict:
     """Apply one field update across multiple items."""
-    from yoke_core.domain.backlog_update_op import execute_update
+    from yoke_core.domain.backlog_update_retry import execute_update
 
     updated_count = 0
     for item_id in item_ids:

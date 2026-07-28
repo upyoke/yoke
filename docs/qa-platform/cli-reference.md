@@ -18,6 +18,7 @@ operator-readable Atlas of registered surfaces.
 yoke qa requirement add \
  --item YOK-N --qa-kind implementation_review --qa-phase verification \
  --blocking-mode blocking --requirement-source explicit \
+ --workflow-transition reviewed-implementation \
  --success-policy '{"type":"deterministic","criteria":"verdict_pass"}'
 
 # Add multiple item-bound requirements
@@ -72,10 +73,18 @@ yoke qa artifact add \
 yoke qa artifact read --requirement-id 1 --artifact-id 10 --json
 ```
 
+Every item-attached requirement must name a stage in the item's pinned
+workflow through `--workflow-transition`. The stage must carry, or precede,
+a `qa_verification` gate. Every `add-batch` row therefore includes
+`"workflow_transition_id":"<stage>"`; the command-level item flag does not
+default that field. Deployment-run-attached requirements are the one exception:
+their operator-debug creation path may omit a workflow transition because the
+run owns its delivery context.
+
 | Command | Args | Description |
 |---|---|---|
-| `yoke qa requirement add` | `--item PREFIX-N --qa-kind K --qa-phase P [opts]` | Insert one item-attached requirement |
-| `yoke qa requirement add-batch` | `--item PREFIX-N (--rows-file PATH \| --stdin)` | Insert item-attached requirements atomically |
+| `yoke qa requirement add` | `--item PREFIX-N --qa-kind K --qa-phase P --workflow-transition T [opts]` | Insert one transition-bound item requirement |
+| `yoke qa requirement add-batch` | `--item PREFIX-N (--rows-file PATH \| --stdin)` | Insert item requirements atomically; every row requires `workflow_transition_id` |
 | `yoke qa plan materialize` | `--item PREFIX-N --transition T` | Materialize project-default and item-attached plan cases |
 | `yoke qa plan run` | `--item PREFIX-N --transition T [executor opts]` | Begin or resume one server-authorized roster and durable cursor, then execute its cases locally |
 | `yoke qa case run` | `--requirement-id N [executor opts]` | Authorize and execute one immutable case snapshot locally |

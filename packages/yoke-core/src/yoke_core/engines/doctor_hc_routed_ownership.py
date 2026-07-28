@@ -40,9 +40,8 @@ _LIST_PREVIEW = 10
 _SCHEDULABLE_STATUSES = (
     "idea", "refining-idea", "refined-idea",
     "planning", "plan-drafted", "refining-plan", "planned",
-    "implementing", "reviewing-implementation",
-    "reviewed-implementation", "polishing-implementation",
-    "implemented", "release",
+    "implementing", "reviewing-implementation", "reviewed-implementation",
+    "polishing-implementation", "implemented", "release",
 )
 
 
@@ -52,8 +51,7 @@ def _p(conn) -> str:
 
 def _required_tables_present(conn: Any) -> bool:
     return all(
-        _base._table_exists(conn, t)
-        for t in ("harness_sessions", "work_claims")
+        _base._table_exists(conn, t) for t in ("harness_sessions", "work_claims")
     )
 
 
@@ -67,8 +65,7 @@ def _column_present(conn: Any, table: str, column: str) -> bool:
 
 
 def _emit_warn(
-    rec: RecordCollector, name: str, desc: str,
-    summary: str, lines: List[str],
+    rec: RecordCollector, name: str, desc: str, summary: str, lines: List[str]
 ) -> None:
     issues = [summary] + lines[:_LIST_PREVIEW]
     if len(lines) > _LIST_PREVIEW:
@@ -111,19 +108,25 @@ def _live_non_terminal_releases(conn: Any) -> List[Any]:
 
 
 def hc_routed_ownership_live_frame_no_defense(
-    conn: Any, args: DoctorArgs, rec: RecordCollector,
+    conn: Any, args: DoctorArgs, rec: RecordCollector
 ) -> None:
     """WARN when a live non-terminal release is missing from the defense map."""
     if not _required_tables_present(conn):
-        rec.record(_HC_LIVE_FRAME_NAME, _HC_LIVE_FRAME_DESC, "PASS",
-                   "required tables missing — skipping")
+        rec.record(
+            _HC_LIVE_FRAME_NAME,
+            _HC_LIVE_FRAME_DESC,
+            "PASS",
+            "required tables missing — skipping",
+        )
         return
 
     window_s = get_seconds("session_reactivation_reacquire_window_s", 300)
     # Call oracle with requesting_session_id=None so no live session
     # is filtered from the defense map (self-exclusion trap).
     defended = routed_ownership_exclusions(
-        conn, window_s=window_s, requesting_session_id=None,
+        conn,
+        window_s=window_s,
+        requesting_session_id=None,
     )
     defended_items: Dict[int, dict] = {}
     for d in defended.values():
@@ -152,24 +155,33 @@ def hc_routed_ownership_live_frame_no_defense(
     summary = (
         f"- {missing_count} live session(s) with a recent non-terminal "
         "release that the routed-ownership defense does NOT name. The "
-        "second session may re-route the same item. Operator recovery: "
-        "`python3 -m yoke_core.api.service_client release-work-claim "
-        "--allow-non-terminal --item YOK-N --reason '...'`."
+        "second session may re-route the same item. Holder recovery: "
+        "`yoke claims work acquire --item YOK-N --reason "
+        "routed-ownership-recovery`; inspect any new holder with "
+        "`yoke claims work holder-get YOK-N` before coordinating."
     )
     _emit_warn(rec, _HC_LIVE_FRAME_NAME, _HC_LIVE_FRAME_DESC, summary, lines)
 
 
 def hc_routed_ownership_non_terminal_release_still_schedulable(
-    conn: Any, args: DoctorArgs, rec: RecordCollector,
+    conn: Any, args: DoctorArgs, rec: RecordCollector
 ) -> None:
     """WARN when a non-terminal-released item remains effectively routable."""
     if not _required_tables_present(conn):
-        rec.record(_HC_STILL_SCHED_NAME, _HC_STILL_SCHED_DESC, "PASS",
-                   "required tables missing — skipping")
+        rec.record(
+            _HC_STILL_SCHED_NAME,
+            _HC_STILL_SCHED_DESC,
+            "PASS",
+            "required tables missing — skipping",
+        )
         return
     if not _base._table_exists(conn, "items"):
-        rec.record(_HC_STILL_SCHED_NAME, _HC_STILL_SCHED_DESC, "PASS",
-                   "items table missing — skipping")
+        rec.record(
+            _HC_STILL_SCHED_NAME,
+            _HC_STILL_SCHED_DESC,
+            "PASS",
+            "items table missing — skipping",
+        )
         return
 
     rows = _live_non_terminal_releases(conn)
@@ -179,7 +191,9 @@ def hc_routed_ownership_non_terminal_release_still_schedulable(
 
     window_s = get_seconds("session_reactivation_reacquire_window_s", 300)
     defended = routed_ownership_exclusions(
-        conn, window_s=window_s, requesting_session_id=None,
+        conn,
+        window_s=window_s,
+        requesting_session_id=None,
     )
     defended_item_ids: set[int] = set()
     for detail in defended.values():
@@ -203,7 +217,8 @@ def hc_routed_ownership_non_terminal_release_still_schedulable(
         if int(item_id) in defended_item_ids:
             continue
         match = conn.execute(
-            routable_sql, (int(item_id), *_SCHEDULABLE_STATUSES),
+            routable_sql,
+            (int(item_id), *_SCHEDULABLE_STATUSES),
         ).fetchone()
         if match is None:
             continue
@@ -263,16 +278,24 @@ WHERE hs.last_chain_step IS NOT NULL
 
 
 def hc_offer_envelope_clobber_lost_chain(
-    conn: Any, args: DoctorArgs, rec: RecordCollector,
+    conn: Any, args: DoctorArgs, rec: RecordCollector
 ) -> None:
     """WARN when a session's chain_checkpoint was clobbered by a later offer."""
     if not _required_tables_present(conn):
-        rec.record(_HC_CLOBBER_NAME, _HC_CLOBBER_DESC, "PASS",
-                   "required tables missing — skipping")
+        rec.record(
+            _HC_CLOBBER_NAME,
+            _HC_CLOBBER_DESC,
+            "PASS",
+            "required tables missing — skipping",
+        )
         return
     if not _column_present(conn, "harness_sessions", "last_chain_step"):
-        rec.record(_HC_CLOBBER_NAME, _HC_CLOBBER_DESC, "PASS",
-                   "chain-state columns missing — skipping")
+        rec.record(
+            _HC_CLOBBER_NAME,
+            _HC_CLOBBER_DESC,
+            "PASS",
+            "chain-state columns missing — skipping",
+        )
         return
 
     lines: List[str] = []

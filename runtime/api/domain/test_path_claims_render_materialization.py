@@ -8,10 +8,9 @@ in the rendered Path Claims section).
 
 from __future__ import annotations
 
-
 from yoke_core.domain._path_claims_test_helpers import (
-    conn,  # noqa: F401
     local_human,
+    seed_item,
 )
 from yoke_core.domain.path_claims import register
 from yoke_core.domain.path_claims_exception import register_exception
@@ -25,17 +24,26 @@ from yoke_core.domain.path_targets_planning import (
     plan_tentative_path_target,
 )
 
+pytest_plugins = ("yoke_core.domain._path_claims_test_helpers",)
+
 
 class TestRender:
     def test_planned_target_renders_with_state_tag(self, conn):
         actor = local_human(conn)
+        seed_item(conn, item_id=42)
         future = plan_path_target(
-            conn, project_id=1,
-            path_string="future.py", kind=KIND_FILE, item_id=42,
+            conn,
+            project_id=1,
+            path_string="future.py",
+            kind=KIND_FILE,
+            item_id=42,
         )
         register(
-            conn, actor_id=actor, integration_target="main",
-            target_ids=[future], item_id=42,
+            conn,
+            actor_id=actor,
+            integration_target="main",
+            target_ids=[future],
+            item_id=42,
         )
         rendered = render_path_claims_section(conn, 42)
         assert "(planned)" in rendered
@@ -43,6 +51,7 @@ class TestRender:
 
     def test_observed_target_renders_without_state_tag(self, conn):
         actor = local_human(conn)
+        seed_item(conn, item_id=43)
         cur = conn.execute(
             "INSERT INTO path_targets "
             "(project_id, kind, path_string, generation, created_at, "
@@ -53,8 +62,11 @@ class TestRender:
         )
         observed_id = cur.fetchone()[0]
         register(
-            conn, actor_id=actor, integration_target="main",
-            target_ids=[observed_id], item_id=43,
+            conn,
+            actor_id=actor,
+            integration_target="main",
+            target_ids=[observed_id],
+            item_id=43,
         )
         rendered = render_path_claims_section(conn, 43)
         assert "observed.py" in rendered
@@ -63,9 +75,13 @@ class TestRender:
 
     def test_exception_claim_renders_dedicated_block_with_reason(self, conn):
         actor = local_human(conn)
+        seed_item(conn, item_id=44)
         register_exception(
-            conn, actor_id=actor, integration_target="main",
-            target_ids=[], exception_reason="validation-only work item",
+            conn,
+            actor_id=actor,
+            integration_target="main",
+            target_ids=[],
+            exception_reason="validation-only work item",
             item_id=44,
         )
         rendered = render_path_claims_section(conn, 44)
@@ -75,17 +91,27 @@ class TestRender:
 
     def test_mixed_claims_render_both_blocks(self, conn):
         actor = local_human(conn)
+        seed_item(conn, item_id=45)
         future = plan_path_target(
-            conn, project_id=1,
-            path_string="leaf.py", kind=KIND_FILE, item_id=45,
+            conn,
+            project_id=1,
+            path_string="leaf.py",
+            kind=KIND_FILE,
+            item_id=45,
         )
         register(
-            conn, actor_id=actor, integration_target="main",
-            target_ids=[future], item_id=45,
+            conn,
+            actor_id=actor,
+            integration_target="main",
+            target_ids=[future],
+            item_id=45,
         )
         register_exception(
-            conn, actor_id=actor, integration_target="main",
-            target_ids=[], exception_reason="follow-up exception",
+            conn,
+            actor_id=actor,
+            integration_target="main",
+            target_ids=[],
+            exception_reason="follow-up exception",
             item_id=45,
         )
         rendered = render_path_claims_section(conn, 45)
@@ -95,13 +121,20 @@ class TestRender:
 
     def test_tentative_target_renders_with_state_tag(self, conn):
         actor = local_human(conn)
+        seed_item(conn, item_id=46)
         tentative = plan_tentative_path_target(
-            conn, project_id=1,
-            path_string="maybe.py", kind=KIND_FILE, item_id=46,
+            conn,
+            project_id=1,
+            path_string="maybe.py",
+            kind=KIND_FILE,
+            item_id=46,
         )
         register(
-            conn, actor_id=actor, integration_target="main",
-            target_ids=[tentative], item_id=46,
+            conn,
+            actor_id=actor,
+            integration_target="main",
+            target_ids=[tentative],
+            item_id=46,
         )
         rendered = render_path_claims_section(conn, 46)
         assert "(tentative)" in rendered
@@ -109,44 +142,72 @@ class TestRender:
         assert "(planned)" not in rendered
 
     def test_missing_materialization_state_key_renders_planned(self):
-        rendered = "\n".join(_render_claim({
-            "id": 100, "state": "planned", "integration_target": "main",
-            "declared_targets": [{"path_string": "future.py"}],
-        }))
+        rendered = "\n".join(
+            _render_claim(
+                {
+                    "id": 100,
+                    "state": "planned",
+                    "integration_target": "main",
+                    "declared_targets": [{"path_string": "future.py"}],
+                }
+            )
+        )
         assert "`future.py` (planned)" in rendered
         assert "`future.py` (observed)" not in rendered
 
     def test_null_materialization_state_renders_planned(self):
-        rendered = "\n".join(_render_claim({
-            "id": 101, "state": "planned", "integration_target": "main",
-            "declared_targets": [
-                {"path_string": "future.py", "materialization_state": None}
-            ],
-        }))
+        rendered = "\n".join(
+            _render_claim(
+                {
+                    "id": 101,
+                    "state": "planned",
+                    "integration_target": "main",
+                    "declared_targets": [
+                        {"path_string": "future.py", "materialization_state": None}
+                    ],
+                }
+            )
+        )
         assert "`future.py` (planned)" in rendered
 
     def test_empty_materialization_state_renders_planned(self):
-        rendered = "\n".join(_render_claim({
-            "id": 102, "state": "planned", "integration_target": "main",
-            "declared_targets": [
-                {"path_string": "future.py", "materialization_state": ""}
-            ],
-        }))
+        rendered = "\n".join(
+            _render_claim(
+                {
+                    "id": 102,
+                    "state": "planned",
+                    "integration_target": "main",
+                    "declared_targets": [
+                        {"path_string": "future.py", "materialization_state": ""}
+                    ],
+                }
+            )
+        )
         assert "`future.py` (planned)" in rendered
 
     def test_tentative_distinguishes_from_planned_in_same_claim(self, conn):
         actor = local_human(conn)
+        seed_item(conn, item_id=47)
         planned = plan_path_target(
-            conn, project_id=1,
-            path_string="definite.py", kind=KIND_FILE, item_id=47,
+            conn,
+            project_id=1,
+            path_string="definite.py",
+            kind=KIND_FILE,
+            item_id=47,
         )
         tentative = plan_tentative_path_target(
-            conn, project_id=1,
-            path_string="possible.py", kind=KIND_FILE, item_id=47,
+            conn,
+            project_id=1,
+            path_string="possible.py",
+            kind=KIND_FILE,
+            item_id=47,
         )
         register(
-            conn, actor_id=actor, integration_target="main",
-            target_ids=[planned, tentative], item_id=47,
+            conn,
+            actor_id=actor,
+            integration_target="main",
+            target_ids=[planned, tentative],
+            item_id=47,
         )
         rendered = render_path_claims_section(conn, 47)
         assert "definite.py` (planned)" in rendered

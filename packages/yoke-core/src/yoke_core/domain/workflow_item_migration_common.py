@@ -94,8 +94,20 @@ def gate_signature(
     )
 
 
+def gate_set_signature(
+    runtime: WorkflowRuntime,
+    stage_id: str,
+) -> frozenset[tuple[str, str | None]]:
+    """Return every exact mode-bearing gate reference at one stage."""
+    return frozenset(
+        (str(gate["id"]), gate.get("mode"))
+        for gate in runtime.gates_for_stage(stage_id)
+    )
+
+
 __all__ = [
     "dict_rows",
+    "gate_set_signature",
     "gate_signature",
     "mapped_stage",
     "marker",
