@@ -149,12 +149,15 @@ def handle_revision_restore(request: FunctionCallRequest) -> HandlerOutcome:
                     project_id=project.id,
                     slug=payload.slug,
                     originator_actor_id=actor_id,
+                    reviewer_actor_id=payload.reviewer_actor_id,
                     session_id=str(request.actor.session_id or ""),
                 )
         except StrategyDocRevisionMissingError as exc:
             return _error("unknown_revision", str(exc))
         except StrategyDocConflictError as exc:
             return _error("restore_conflict", str(exc))
+        except LookupError as exc:
+            return _error("reviewer_not_found", str(exc))
     _emit(REVISION_RESTORED_EVENT, request, project.slug, result)
     return HandlerOutcome(
         result_payload=StrategyRevisionRestoreResponse(

@@ -10,7 +10,7 @@
     ],
     "compatibility_class": "pre_merge_safe",
     "migration_strategy": "expand_contract",
-    "migration_strategy_justification": "The executable method and plan readers land before the Markdown catalog and its loaders are removed.",
+    "migration_strategy_justification": "The existing installer-campaign rows are atomically replaced by the approved exact ten-case Machine QA contract.",
     "schema_kinds": [],
     "data_kinds": [
       "fill"
@@ -45,7 +45,7 @@
   "module_sources": {
     "installer_campaign_plan_rows": {
       "path": "packages/yoke-core/src/yoke_core/domain/migrations/installer_campaign_plan_rows.py",
-      "sha256": "7f58ff7e54f664ef36571d797c803dfc5cb8487d53bc7b1eed07f513aedc091c"
+      "sha256": "6504fa4be34d2aa22cae1e8fe221cc85d5095419887fe119b10020039cbe7d95"
     }
   },
   "attestation": {
@@ -67,11 +67,15 @@
       }
     ],
     "invariants": [
-      "The yoke project owns exactly one installer-campaign plan with all 188 absorbed source scenarios under name-slug keys.",
-      "Every source id, catalog section, declared host profile or precondition, flow, and expected outcome survives in the code-owned case contract.",
-      "The roster contains five Terminal checks, 180 Terminal inspections, and three safe Machine state checks.",
-      "Every interactive Terminal inspection declares input, entry surface, required completion, and a capture checkpoint.",
-      "The migration digest transitively binds the code-owned catalog digest."
+      "The yoke project owns exactly one installer-campaign plan with ten semantic cases in the approved order.",
+      "The method split is exactly four Terminal checks, three Terminal inspections, and three Machine state checks.",
+      "Exactly two cases declare host baselines: path-on-shell and cold-start-hosted each declare fresh-host and shell-preconfigured, yielding exactly twelve materialized requirements.",
+      "path-on-shell precedes cold-start-hosted so each shared baseline is inspected before the installer mutates it.",
+      "welcome-frame is baseline-free and launches the real public installer with a process-local minimal macOS system PATH that deterministically excludes user-installed uv/uvx before consent.",
+      "Every case is executable: there are zero execution blockers, zero synthetic credential fixtures, and every Terminal case has a bounded entry surface and required completion.",
+      "Hosted browser flows wait for operator approval, send Enter to poll, capture the connected token-success frame, and only then continue to machine GitHub; direct machine-only flows auto-route to Review after backlog-only.",
+      "The hosted journey uses the current browser-approval path against Stage, while apply-handoff proves the distinct local Apply, report, successful exit, and public-installer parent handoff.",
+      "The migration digest binds the exact ten-case source contract."
     ],
     "rehearsal_commands": [
       "PYTHONPATH=packages/yoke-contracts/src:packages/yoke-cli/src:packages/yoke-core/src:packages/yoke-harness/src:. python3 -m pytest runtime/api/domain/migrations/test_installer_campaign_plan_rows.py runtime/api/domain/test_machine_qa.py runtime/api/domain/test_qa_case_execution.py runtime/api/domain/test_machine_qa_baseline_group.py runtime/api/domain/test_machine_qa_case_execution.py -q"

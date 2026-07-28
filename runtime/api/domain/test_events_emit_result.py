@@ -38,6 +38,33 @@ def test_emit_event_returns_ok_result_and_event_id() -> None:
         assert json.loads(row["envelope"])["context"]["detail"]["source"] == "test"
 
 
+def test_caller_owned_event_write_rolls_back_with_caller_transaction() -> None:
+    with test_database() as conn:
+        result = _emit(conn)
+        assert result.ok is True
+
+        conn.rollback()
+
+        row = conn.execute(
+            "SELECT 1 FROM events WHERE event_id=%s",
+            (result.event_id,),
+        ).fetchone()
+        assert row is None
+
+
+def test_emitter_owned_connection_commits_event() -> None:
+    with test_database() as conn:
+        result = _emit()
+        assert result.ok is True
+
+        row = conn.execute(
+            "SELECT event_name FROM events WHERE event_id=%s",
+            (result.event_id,),
+        ).fetchone()
+        assert row is not None
+        assert str(row["event_name"]) == "TestEmitResult"
+
+
 def test_emit_event_resolves_actor_id_from_session() -> None:
     with test_database() as conn:
         conn.execute(
@@ -95,8 +122,7 @@ def test_emit_event_persists_canonical_context_fields() -> None:
 
         assert result.ok is True
         row = conn.execute(
-            "SELECT org_id, environment, envelope "
-            "FROM events WHERE event_id=%s",
+            "SELECT org_id, environment, envelope FROM events WHERE event_id=%s",
             (result.event_id,),
         ).fetchone()
         assert row["org_id"] == "org-1"

@@ -33,7 +33,10 @@ from .sessions_analytics import (
     emit_post_decision_telemetry,
     ensure_session_event_registry_entries,
 )
-from .sessions_cleanup import clean_stale_harness_sessions, cleanup_never_engaged_sessions
+from .sessions_cleanup import (
+    clean_stale_harness_sessions,
+    cleanup_never_engaged_sessions,
+)
 from .sessions_lifecycle import (
     _canonical_release_reason,
     _get_claim,
@@ -76,6 +79,7 @@ from .sessions_queries_chain import (
 from .sessions_render import (
     _resolve_effective_ttl,
     clear_current_item,
+    clear_terminal_item_focuses,
     end_session,
     end_session_if_empty,
     find_stale_sessions,
@@ -156,6 +160,7 @@ __all__ = [
     "set_current_item",
     "get_session_attribution",
     "clear_current_item",
+    "clear_terminal_item_focuses",
     "end_session",
     "end_session_if_empty",
     "find_stale_sessions",

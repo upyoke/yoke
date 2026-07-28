@@ -25,12 +25,11 @@ from __future__ import annotations
 
 import json
 
-import pytest
 from unittest.mock import patch
 
 from runtime.api.test_sessions import (
+    _insert_claimable_item,
     _register,
-    conn,  # noqa: F401  (pytest fixture)
 )
 from yoke_core.domain.sessions import (
     claim_work,
@@ -39,6 +38,8 @@ from yoke_core.domain.sessions import (
     update_chain_checkpoint,
 )
 from yoke_core.domain.sessions_render_end import _chain_pending_state
+
+pytest_plugins = ("runtime.api.test_sessions",)
 
 
 ITEM_ID = "100"
@@ -59,11 +60,16 @@ def _setup_chain_checkpoint(
     """Register a session with a chain checkpoint and optional active claim."""
     _register(conn, session_id=session_id)
     if with_claim:
+        _insert_claimable_item(conn, int(item_id.removeprefix("YOK-")))
         claim_work(conn, session_id=session_id, item_id=item_id)
     update_chain_checkpoint(
-        conn, session_id,
-        step=step, action="charge", chainable=chainable,
-        handler_outcome=handler_outcome, item_id=item_id,
+        conn,
+        session_id,
+        step=step,
+        action="charge",
+        chainable=chainable,
+        handler_outcome=handler_outcome,
+        item_id=item_id,
     )
     row = conn.execute(
         "SELECT offer_envelope FROM harness_sessions WHERE session_id=%s",
@@ -89,7 +95,9 @@ class TestChainPendingState:
         assert state.step == 0
 
     def test_chainable_within_budget_is_pending(self, conn):
-        _setup_chain_checkpoint(conn, session_id="sess-pending", step=1, max_chain_steps=3)
+        _setup_chain_checkpoint(
+            conn, session_id="sess-pending", step=1, max_chain_steps=3
+        )
         state = _chain_pending_state(conn, "sess-pending")
         assert state.pending is True
         assert state.chainable is True
@@ -100,15 +108,20 @@ class TestChainPendingState:
         assert state.action == "charge"
 
     def test_chainable_at_budget_exhaustion_is_not_pending(self, conn):
-        _setup_chain_checkpoint(conn, session_id="sess-exhausted", step=3, max_chain_steps=3)
+        _setup_chain_checkpoint(
+            conn, session_id="sess-exhausted", step=3, max_chain_steps=3
+        )
         state = _chain_pending_state(conn, "sess-exhausted")
         assert state.pending is False
         assert state.chainable is True
 
     def test_non_chainable_checkpoint_is_not_pending(self, conn):
         _setup_chain_checkpoint(
-            conn, session_id="sess-nonchain",
-            step=1, chainable=False, handler_outcome="blocked",
+            conn,
+            session_id="sess-nonchain",
+            step=1,
+            chainable=False,
+            handler_outcome="blocked",
         )
         state = _chain_pending_state(conn, "sess-nonchain")
         assert state.pending is False
@@ -116,8 +129,11 @@ class TestChainPendingState:
 
     def test_chainable_terminal_outcome_is_not_pending(self, conn):
         _setup_chain_checkpoint(
-            conn, session_id="sess-blocked",
-            step=1, chainable=True, handler_outcome="blocked",
+            conn,
+            session_id="sess-blocked",
+            step=1,
+            chainable=True,
+            handler_outcome="blocked",
         )
         state = _chain_pending_state(conn, "sess-blocked")
         assert state.pending is False
@@ -160,8 +176,11 @@ class TestEndSessionIfEmptyShapes:
         return ``chain_pending`` with a ``next_action`` resume hint.
         """
         _setup_chain_checkpoint(
-            conn, session_id="sess-pending-clean",
-            step=1, max_chain_steps=3, with_claim=True,
+            conn,
+            session_id="sess-pending-clean",
+            step=1,
+            max_chain_steps=3,
+            with_claim=True,
         )
         claim_row = conn.execute(
             "SELECT id FROM work_claims WHERE session_id='sess-pending-clean' AND released_at IS NULL"
@@ -169,8 +188,10 @@ class TestEndSessionIfEmptyShapes:
         release_claim(conn, claim_row["id"], reason="handed_off")
 
         captured: list[dict] = []
-        with patch("yoke_core.domain.events.emit_event",
-                   side_effect=lambda name, **kw: captured.append({"name": name, **kw})):
+        with patch(
+            "yoke_core.domain.events.emit_event",
+            side_effect=lambda name, **kw: captured.append({"name": name, **kw}),
+        ):
             with patch("yoke_core.domain.sessions_analytics._emit_session_event"):
                 result = end_session_if_empty(conn, "sess-pending-clean")
 
@@ -217,8 +238,11 @@ class TestEndSessionIfEmptyShapes:
     def test_no_claim_at_budget_exhaustion_returns_ended(self, _emit, conn):
         """Shape (d) — chain budget exhausted; the session is genuinely empty."""
         _setup_chain_checkpoint(
-            conn, session_id="sess-exhausted-end",
-            step=3, max_chain_steps=3, with_claim=False,
+            conn,
+            session_id="sess-exhausted-end",
+            step=3,
+            max_chain_steps=3,
+            with_claim=False,
         )
         result = end_session_if_empty(conn, "sess-exhausted-end")
         assert result["status"] == "ended"
@@ -228,14 +252,21 @@ class TestEndSessionIfEmptyShapes:
     def test_triggered_by_threads_through_to_event(self, _emit, conn):
         """Custom ``triggered_by`` is preserved on the JSON return and the event."""
         _setup_chain_checkpoint(
-            conn, session_id="sess-codex-stop",
-            step=1, max_chain_steps=3, with_claim=False,
+            conn,
+            session_id="sess-codex-stop",
+            step=1,
+            max_chain_steps=3,
+            with_claim=False,
         )
         captured: list[dict] = []
-        with patch("yoke_core.domain.events.emit_event",
-                   side_effect=lambda name, **kw: captured.append({"name": name, **kw})):
+        with patch(
+            "yoke_core.domain.events.emit_event",
+            side_effect=lambda name, **kw: captured.append({"name": name, **kw}),
+        ):
             result = end_session_if_empty(
-                conn, "sess-codex-stop", triggered_by="codex-stop-hook",
+                conn,
+                "sess-codex-stop",
+                triggered_by="codex-stop-hook",
             )
         assert result["triggered_by"] == "codex-stop-hook"
         deferred = [c for c in captured if c["name"] == "ChainEndDeferred"]
@@ -243,7 +274,9 @@ class TestEndSessionIfEmptyShapes:
         assert deferred[0]["context"]["triggered_by"] == "codex-stop-hook"
 
     @patch("yoke_core.domain.sessions_analytics._emit_session_event")
-    def test_chain_pending_session_remains_reclaimable_via_stale_window(self, _emit, conn):
+    def test_chain_pending_session_remains_reclaimable_via_stale_window(
+        self, _emit, conn
+    ):
         """The 60-minute heartbeat-stale safety net still applies.
 
         A session in ``chain_pending`` whose heartbeat is older than the
@@ -253,8 +286,11 @@ class TestEndSessionIfEmptyShapes:
         post-handoff turn boundary.
         """
         _setup_chain_checkpoint(
-            conn, session_id="sess-abandoned",
-            step=1, max_chain_steps=3, with_claim=False,
+            conn,
+            session_id="sess-abandoned",
+            step=1,
+            max_chain_steps=3,
+            with_claim=False,
         )
         # First call — session is preserved as chain_pending.
         result = end_session_if_empty(conn, "sess-abandoned")
@@ -266,9 +302,11 @@ class TestEndSessionIfEmptyShapes:
         ).fetchone()
         assert row["ended_at"] is None
         # And the chain checkpoint is intact for the next session-offer to read.
-        env = json.loads(conn.execute(
-            "SELECT offer_envelope FROM harness_sessions WHERE session_id='sess-abandoned'"
-        ).fetchone()["offer_envelope"])
+        env = json.loads(
+            conn.execute(
+                "SELECT offer_envelope FROM harness_sessions WHERE session_id='sess-abandoned'"
+            ).fetchone()["offer_envelope"]
+        )
         assert env["chain_checkpoint"]["chainable"] is True
         assert env["chain_checkpoint"]["step"] == 1
 
@@ -279,8 +317,11 @@ class TestNextActionResumeHint:
     @patch("yoke_core.domain.sessions_analytics._emit_session_event")
     def test_next_action_increments_step(self, _emit, conn):
         _setup_chain_checkpoint(
-            conn, session_id="sess-next",
-            step=2, max_chain_steps=3, with_claim=False,
+            conn,
+            session_id="sess-next",
+            step=2,
+            max_chain_steps=3,
+            with_claim=False,
         )
         result = end_session_if_empty(conn, "sess-next")
         assert result["status"] == "chain_pending"
@@ -289,8 +330,11 @@ class TestNextActionResumeHint:
     @patch("yoke_core.domain.sessions_analytics._emit_session_event")
     def test_next_action_preserves_step_for_non_useful_outcome(self, _emit, conn):
         _setup_chain_checkpoint(
-            conn, session_id="sess-next-non-useful",
-            step=2, max_chain_steps=3, with_claim=False,
+            conn,
+            session_id="sess-next-non-useful",
+            step=2,
+            max_chain_steps=3,
+            with_claim=False,
             handler_outcome="slice_committed",
         )
         result = end_session_if_empty(conn, "sess-next-non-useful")

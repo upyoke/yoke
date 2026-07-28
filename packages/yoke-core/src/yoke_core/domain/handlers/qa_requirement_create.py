@@ -12,7 +12,8 @@ Scope: the typed surface is **item-attached only** — ``target.kind="item"``
 is the claim anchor (``claim_required_kind="item"`` matches the V3 qa
 write gating). Epic-task-attached and deployment-run-attached creation
 keep the operator-debug domain CLI
-(``python3 -m yoke_core.domain.qa requirement-add --epic-id ...``)
+(``python3 -m yoke_core.domain.qa requirement-add --epic-id ...
+--workflow-transition STAGE``)
 because the dispatcher claim matrix verifies one claim target per call.
 
 ``add_batch`` accepts rows for the TARGET item only: rows may omit
@@ -24,33 +25,27 @@ after commit (mirrors the CLI contract).
 
 from __future__ import annotations
 
-import json
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
 from yoke_core.domain.handlers.qa import _error, _p
+from yoke_core.domain.handlers.qa_requirement_insert import (
+    INSERT_SQL,
+    insert_params,
+)
 from yoke_core.domain.handlers.qa_requirement_method_validation import (
     validate_method_requirement,
 )
 from yoke_core.domain.handlers.qa_requirement_transition_validation import (
     validate_workflow_transition,
 )
+from yoke_core.domain.workflow_item_binding_lock import (
+    lock_item_workflow_bindings,
+)
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     HandlerOutcome,
-)
-
-
-_INSERT_SQL = (
-    "INSERT INTO qa_requirements "
-    "(item_id, epic_id, task_num, deployment_run_id, qa_kind, qa_phase, "
-    "target_env, blocking_mode, requirement_source, success_policy, "
-    "capability_requirements, suite_id, method_id, instructions, "
-    "expected_outcome, method_config, workflow_transition_id, created_at) "
-    "VALUES ({p}, NULL, NULL, NULL, {p}, {p}, {p}, {p}, {p}, {p}, "
-    "{p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}) "
-    "RETURNING id"
 )
 
 
@@ -67,12 +62,13 @@ class QaRequirementAddRequest(BaseModel):
     instructions: Optional[str] = None
     expected_outcome: Optional[str] = None
     method_config: Optional[Dict[str, Any]] = None
-    workflow_transition_id: Optional[str] = None
+    workflow_transition_id: str
 
 
 class QaRequirementAddResponse(BaseModel):
     requirement_id: int
     item_id: int
+
 
 def _validate_row(row: Dict[str, Any], jsonpath: str) -> Optional[HandlerOutcome]:
     """Shared add/add-batch row validation. Returns an error outcome or None.
@@ -93,11 +89,14 @@ def _validate_row(row: Dict[str, Any], jsonpath: str) -> Optional[HandlerOutcome
     method_id = row.get("method_id")
     qa_kind = row.get("qa_kind")
     if (
-        isinstance(method_id, str) and method_id.strip()
-        and isinstance(qa_kind, str) and qa_kind.strip()
+        isinstance(method_id, str)
+        and method_id.strip()
+        and isinstance(qa_kind, str)
+        and qa_kind.strip()
     ):
         return _error(
-            "payload_invalid", "qa_kind and method_id are mutually exclusive",
+            "payload_invalid",
+            "qa_kind and method_id are mutually exclusive",
             jsonpath=jsonpath,
         )
     qa_phase = row.get("qa_phase")
@@ -106,12 +105,14 @@ def _validate_row(row: Dict[str, Any], jsonpath: str) -> Optional[HandlerOutcome
         row["qa_kind"] = "method_case"
     elif not isinstance(qa_kind, str) or not qa_kind:
         return _error(
-            "payload_invalid", "qa_kind or method_id is required",
+            "payload_invalid",
+            "qa_kind or method_id is required",
             jsonpath=f"{jsonpath}.qa_kind",
         )
     if not isinstance(qa_phase, str) or not qa_phase:
         return _error(
-            "payload_invalid", "qa_phase is required",
+            "payload_invalid",
+            "qa_phase is required",
             jsonpath=f"{jsonpath}.qa_phase",
         )
     if not row.get("method_id"):
@@ -132,41 +133,21 @@ def _validate_row(row: Dict[str, Any], jsonpath: str) -> Optional[HandlerOutcome
     )
     if source_errors:
         return _error(
-            "payload_invalid", "; ".join(source_errors),
+            "payload_invalid",
+            "; ".join(source_errors),
             jsonpath=f"{jsonpath}.requirement_source",
         )
     policy_errors = validate_success_policy(
-        row["qa_kind"], row.get("success_policy"),
+        row["qa_kind"],
+        row.get("success_policy"),
     )
     if policy_errors:
         return _error(
-            "payload_invalid", "; ".join(policy_errors),
+            "payload_invalid",
+            "; ".join(policy_errors),
             jsonpath=f"{jsonpath}.success_policy",
         )
     return None
-
-
-def _insert_params(item_id: int, row: Dict[str, Any], now_iso: str) -> tuple:
-    return (
-        int(item_id),
-        row["qa_kind"],
-        row["qa_phase"],
-        row.get("target_env"),
-        str(row.get("blocking_mode") or "blocking"),
-        str(row.get("requirement_source") or "explicit"),
-        row.get("success_policy"),
-        row.get("capability_requirements"),
-        row.get("suite_id"),
-        row.get("method_id"),
-        row.get("instructions"),
-        row.get("expected_outcome"),
-        (
-            json.dumps(row["method_config"], sort_keys=True)
-            if row.get("method_id") else None
-        ),
-        row.get("workflow_transition_id"),
-        now_iso,
-    )
 
 
 def handle_qa_requirement_add(request: FunctionCallRequest) -> HandlerOutcome:
@@ -189,18 +170,22 @@ def handle_qa_requirement_add(request: FunctionCallRequest) -> HandlerOutcome:
 
     conn = connect()
     try:
+        lock_item_workflow_bindings(conn, (int(item_id),))
         invalid = validate_method_requirement(conn, row, "$.payload")
         if invalid is not None:
             return invalid
         invalid = validate_workflow_transition(
-            conn, item_id=int(item_id), row=row, jsonpath="$.payload",
+            conn,
+            item_id=int(item_id),
+            row=row,
+            jsonpath="$.payload",
         )
         if invalid is not None:
             return invalid
         p = _p(conn)
         cur = conn.execute(
-            _INSERT_SQL.format(p=p),
-            _insert_params(int(item_id), row, iso8601_now()),
+            INSERT_SQL.format(p=p),
+            insert_params(int(item_id), row, iso8601_now()),
         )
         inserted_id = int(cur.fetchone()[0])
         conn.commit()
@@ -212,8 +197,10 @@ def handle_qa_requirement_add(request: FunctionCallRequest) -> HandlerOutcome:
             qa_kind=row["qa_kind"],
             qa_phase=row["qa_phase"],
             target_row={
-                "item_id": int(item_id), "epic_id": None,
-                "task_num": None, "deployment_run_id": None,
+                "item_id": int(item_id),
+                "epic_id": None,
+                "task_num": None,
+                "deployment_run_id": None,
             },
         )
     finally:
@@ -221,7 +208,8 @@ def handle_qa_requirement_add(request: FunctionCallRequest) -> HandlerOutcome:
 
     return HandlerOutcome(
         result_payload={
-            "requirement_id": inserted_id, "item_id": int(item_id),
+            "requirement_id": inserted_id,
+            "item_id": int(item_id),
         },
         primary_success=True,
     )
@@ -234,6 +222,7 @@ class QaRequirementAddBatchRequest(BaseModel):
 class QaRequirementAddBatchResponse(BaseModel):
     requirement_ids: List[int]
     item_id: int
+
 
 def handle_qa_requirement_add_batch(
     request: FunctionCallRequest,
@@ -251,7 +240,8 @@ def handle_qa_requirement_add_batch(
     rows = payload.get("rows")
     if not isinstance(rows, list) or not rows:
         return _error(
-            "payload_invalid", "rows must be a non-empty array",
+            "payload_invalid",
+            "rows must be a non-empty array",
             jsonpath="$.payload.rows",
         )
 
@@ -262,7 +252,8 @@ def handle_qa_requirement_add_batch(
         jsonpath = f"$.payload.rows[{idx}]"
         if not isinstance(raw, dict):
             return _error(
-                "payload_invalid", f"row {idx} is not an object",
+                "payload_invalid",
+                f"row {idx} is not an object",
                 jsonpath=jsonpath,
             )
         row = dict(raw)
@@ -292,11 +283,14 @@ def handle_qa_requirement_add_batch(
     inserted_ids: List[int] = []
     try:
         try:
+            lock_item_workflow_bindings(conn, (int(item_id),))
             p = _p(conn)
             now_iso = iso8601_now()
             for row in normalized:
                 invalid = validate_method_requirement(
-                    conn, row, f"$.payload.rows[{len(inserted_ids)}]",
+                    conn,
+                    row,
+                    f"$.payload.rows[{len(inserted_ids)}]",
                 )
                 if invalid is not None:
                     conn.rollback()
@@ -311,8 +305,8 @@ def handle_qa_requirement_add_batch(
                     conn.rollback()
                     return invalid
                 cur = conn.execute(
-                    _INSERT_SQL.format(p=p),
-                    _insert_params(int(item_id), row, now_iso),
+                    INSERT_SQL.format(p=p),
+                    insert_params(int(item_id), row, now_iso),
                 )
                 inserted_ids.append(int(cur.fetchone()[0]))
             conn.commit()
@@ -328,8 +322,10 @@ def handle_qa_requirement_add_batch(
                 qa_kind=row["qa_kind"],
                 qa_phase=row["qa_phase"],
                 target_row={
-                    "item_id": int(item_id), "epic_id": None,
-                    "task_num": None, "deployment_run_id": None,
+                    "item_id": int(item_id),
+                    "epic_id": None,
+                    "task_num": None,
+                    "deployment_run_id": None,
                 },
             )
     finally:
@@ -337,14 +333,18 @@ def handle_qa_requirement_add_batch(
 
     return HandlerOutcome(
         result_payload={
-            "requirement_ids": inserted_ids, "item_id": int(item_id),
+            "requirement_ids": inserted_ids,
+            "item_id": int(item_id),
         },
         primary_success=True,
     )
 
+
 __all__ = [
-    "QaRequirementAddRequest", "QaRequirementAddResponse",
+    "QaRequirementAddRequest",
+    "QaRequirementAddResponse",
     "handle_qa_requirement_add",
-    "QaRequirementAddBatchRequest", "QaRequirementAddBatchResponse",
+    "QaRequirementAddBatchRequest",
+    "QaRequirementAddBatchResponse",
     "handle_qa_requirement_add_batch",
 ]

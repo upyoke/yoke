@@ -45,30 +45,51 @@ _GATED_TARGETS = ("reviewed-implementation", "implemented", "release")
 _NON_TERMINAL = ("planned", "blocked", "active")
 
 
+class PinnedPathClaimPolicyUnreadable(RuntimeError):
+    """A real workflow pin exists but cannot resolve to a policy."""
+
+
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def _resolve_repo_path(
-    conn: Any, item_id: int
-) -> Optional[str]:
+def _resolve_repo_path(conn: Any, item_id: int) -> Optional[str]:
     candidate = item_worktree_path(conn, item_id)
     if candidate is None or not candidate.is_dir():
         return None
     return str(candidate)
 
 
-def _claim_ids_for_item(
-    conn: Any, item_id: int
-) -> List[int]:
+def _claim_ids_for_item(conn: Any, item_id: int) -> List[int]:
     p = _p(conn)
     try:
-        rows = conn.execute(
-            "SELECT id FROM path_claims "
-            f"WHERE item_id = {p} AND state IN ('planned', 'blocked', 'active') "
-            "ORDER BY id",
-            (item_id,),
-        ).fetchall()
+        from yoke_core.domain.path_claim_task_bindings import (
+            pinned_task_claim_policy,
+        )
+
+        task_scoped = pinned_task_claim_policy(conn, item_id)
+    except Exception as exc:
+        raise PinnedPathClaimPolicyUnreadable(
+            f"cannot resolve pinned path-claim policy for YOK-{item_id}: {exc}"
+        ) from exc
+    try:
+        if task_scoped:
+            rows = conn.execute(
+                "SELECT DISTINCT pc.id FROM path_claims pc "
+                "JOIN path_claim_task_bindings b ON b.claim_id = pc.id "
+                f"WHERE b.epic_id = {p} "
+                "AND pc.state IN ('planned', 'blocked', 'active') "
+                "ORDER BY pc.id",
+                (item_id,),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT id FROM path_claims "
+                f"WHERE item_id = {p} "
+                "AND state IN ('planned', 'blocked', 'active') "
+                "ORDER BY id",
+                (item_id,),
+            ).fetchall()
     except db_backend.operational_error_types(conn):
         return []
     return [int(r[0]) for r in rows]
@@ -95,7 +116,14 @@ def check_boundary_for_item(
         repo_path = _resolve_repo_path(conn, item_id)
         if repo_path is None:
             return None
-        claim_ids = _claim_ids_for_item(conn, item_id)
+        try:
+            claim_ids = _claim_ids_for_item(conn, item_id)
+        except PinnedPathClaimPolicyUnreadable as exc:
+            return {
+                "success": False,
+                "error_code": "GATE_PATH_CLAIM_BOUNDARY",
+                "error": str(exc),
+            }
         if not claim_ids:
             return None
 
@@ -130,7 +158,9 @@ def check_boundary_for_item(
         for claim_id in claim_ids:
             try:
                 result = boundary_check_for_claim(
-                    conn, claim_id=claim_id, repo_path=repo_path,
+                    conn,
+                    claim_id=claim_id,
+                    repo_path=repo_path,
                 )
             except IntegrationTargetDiverged as exc:
                 hard_errors.append(f"claim {claim_id}: {exc}")
@@ -141,9 +171,7 @@ def check_boundary_for_item(
             union_declared.update(result.declared_paths or [])
             union_touched.update(result.touched_paths or [])
             if result.status is BoundaryCheckStatus.CONFLICT:
-                offending_paths = (
-                    result.undeclared_paths or result.uncommitted_paths
-                )
+                offending_paths = result.undeclared_paths or result.uncommitted_paths
                 conflict_results.append((claim_id, result, offending_paths))
                 rejections.append(
                     f"claim {claim_id} ({result.integration_target}): "

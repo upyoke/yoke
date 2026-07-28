@@ -41,6 +41,9 @@ Tables created (idempotent):
 * ``path_claim_targets`` — junction between a claim and the canonical
   path targets it declares coverage over. References ``path_targets`` by
   id (the registry the verifier already owns).
+* ``path_claim_task_bindings`` — durable task scope for an item-owned claim.
+  The binding references an Epic task but carries no session/work-claim
+  authority, so coverage survives worker handoff.
 * ``path_claim_amendments`` — append-only amendment history for a claim.
   Stores the amendment kind and a JSON payload describing what changed,
   so future revalidation/override layers have the trail they need.
@@ -83,6 +86,7 @@ _REQUIRED_TABLES = (
     "actor_labels",
     "path_claims",
     "path_claim_targets",
+    "path_claim_task_bindings",
     "path_claim_amendments",
     "path_claim_overrides",
 )
@@ -116,6 +120,22 @@ _ACTOR_IDENTITY_SQL = """
             ON actor_labels(actor_id);
 """
 
+_PATH_CLAIM_TASK_BINDING_SQL = """
+        CREATE TABLE IF NOT EXISTS path_claim_task_bindings (
+            claim_id INTEGER NOT NULL REFERENCES path_claims(id) ON DELETE CASCADE,
+            epic_id INTEGER NOT NULL,
+            task_num INTEGER NOT NULL,
+            bound_at TEXT NOT NULL,
+            PRIMARY KEY(claim_id, epic_id, task_num),
+            FOREIGN KEY (epic_id, task_num)
+                REFERENCES epic_tasks(epic_id, task_num) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_path_claim_task_bindings_task
+            ON path_claim_task_bindings(epic_id, task_num);
+        CREATE INDEX IF NOT EXISTS idx_path_claim_task_bindings_claim
+            ON path_claim_task_bindings(claim_id);
+"""
+
 
 def create_actor_identity_tables(conn: Any) -> None:
     """Create durable actor identity tables and indexes (idempotent)."""
@@ -126,7 +146,9 @@ def create_actor_identity_tables(conn: Any) -> None:
 def create_actor_path_claim_tables(conn: Any) -> None:
     """Create the actor and path-claim tables and indexes (idempotent)."""
     create_actor_identity_tables(conn)
-    execute_schema_script(conn, """
+    execute_schema_script(
+        conn,
+        """
         CREATE TABLE IF NOT EXISTS path_claims (
             id INTEGER PRIMARY KEY,
             state TEXT NOT NULL DEFAULT 'planned'
@@ -219,8 +241,21 @@ def create_actor_path_claim_tables(conn: Any) -> None:
         );
         CREATE INDEX IF NOT EXISTS idx_path_claim_overrides_pair
             ON path_claim_overrides(path_claim_id, blocking_claim_id);
-    """)
+    """,
+    )
+    create_path_claim_task_binding_table(conn, commit=False)
     conn.commit()
+
+
+def create_path_claim_task_binding_table(
+    conn: Any,
+    *,
+    commit: bool = True,
+) -> None:
+    """Create durable item-claim to Epic-task scope (idempotent)."""
+    execute_schema_script(conn, _PATH_CLAIM_TASK_BINDING_SQL)
+    if commit:
+        conn.commit()
 
 
 def required_tables() -> tuple[str, ...]:
@@ -235,5 +270,6 @@ def required_tables() -> tuple[str, ...]:
 __all__ = [
     "create_actor_identity_tables",
     "create_actor_path_claim_tables",
+    "create_path_claim_task_binding_table",
     "required_tables",
 ]

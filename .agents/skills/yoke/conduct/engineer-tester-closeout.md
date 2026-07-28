@@ -30,7 +30,8 @@ Invoked from `engineer-tester-dispatch.md` after Tester returns. Covers Tester a
    --epic-id "${_epic_id}" --task-num "${_task_id}" \
    --reason "tester return YOK-${N} task ${_task_id}"; then
   echo "WARN: failed to release epic_task claim for (epic_id=${_epic_id}, task_num=${_task_id})."
-  echo "Inspect with 'python3 -m runtime.harness.harness_sessions who-claims YOK-${_epic_id}' before proceeding."
+  echo "Inspect with 'yoke claims work holder-list --session-id-filter \"${YOKE_SESSION_ID}\" --json'."
+  echo "Match target_kind=epic_task, epic_id=${_epic_id}, task_num=${_task_id}; do not substitute a parent item claim."
  fi
  ```
 

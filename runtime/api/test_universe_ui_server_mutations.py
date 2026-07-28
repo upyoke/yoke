@@ -10,6 +10,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from yoke_core.domain.actors import seed_human_actor, set_actor_label
+from yoke_core.domain.builtin_workflow_definitions import (
+    BUILTIN_WORKFLOW_PREFERRED_VERSION,
+)
 from yoke_core.ui import local_operator_actor, server as ui_server
 
 
@@ -194,17 +197,19 @@ class TestProxyMutations:
             "function": "workflows.policy_defaults.publish",
             "payload": {
                 "workflow_id": "dash",
-                "expected_current_version": 2,
+                "expected_current_version": BUILTIN_WORKFLOW_PREFERRED_VERSION,
                 "path_claims_default": True,
             },
         })
         assert response.status_code == 200
         envelope = response.json()
         assert envelope["success"] is True, envelope
-        assert envelope["result"]["version"] == 3
+        expected_version = BUILTIN_WORKFLOW_PREFERRED_VERSION + 1
+        assert envelope["result"]["version"] == expected_version
         row = test_db.execute(
             "SELECT published_by_actor_id FROM workflow_versions "
-            "WHERE workflow_id = 'dash' AND version = 3"
+            "WHERE workflow_id = 'dash' AND version = %s",
+            (expected_version,),
         ).fetchone()
         assert int(row[0]) == operator
 

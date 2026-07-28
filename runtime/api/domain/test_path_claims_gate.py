@@ -11,8 +11,8 @@ import pytest
 
 from yoke_core.domain._path_claims_test_helpers import (
     SNAP,
-    conn,  # noqa: F401  (pytest fixture)
     local_human,
+    seed_item,
     seed_target,
 )
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
@@ -28,6 +28,8 @@ from yoke_core.domain.path_claims_gate import (
     gate_state_for_item,
 )
 
+pytest_plugins = ("yoke_core.domain._path_claims_test_helpers",)
+
 
 class TestGateStateForItem:
     def test_no_claims_means_clear_gate(self, conn):
@@ -35,6 +37,7 @@ class TestGateStateForItem:
 
     def test_all_active_means_clear_gate(self, conn):
         actor = local_human(conn)
+        seed_item(conn, item_id=42)
         target = seed_target(conn, path_string="runtime/api/domain")
         claim_id = register(
             conn,
@@ -48,6 +51,7 @@ class TestGateStateForItem:
 
     def test_all_terminal_means_clear_gate(self, conn):
         actor = local_human(conn)
+        seed_item(conn, item_id=42)
         target = seed_target(conn, path_string="runtime/api/domain")
         claim_id = register(
             conn,
@@ -62,6 +66,7 @@ class TestGateStateForItem:
 
     def test_planned_claim_blocks_gate(self, conn):
         actor = local_human(conn)
+        seed_item(conn, item_id=42)
         target = seed_target(conn, path_string="runtime/api/domain")
         claim_id = register(
             conn,
@@ -74,6 +79,7 @@ class TestGateStateForItem:
 
     def test_blocked_claim_blocks_gate(self, conn):
         actor = local_human(conn)
+        seed_item(conn, item_id=42)
         target = seed_target(conn, path_string="runtime/api/domain")
         upstream = register(
             conn,
@@ -99,6 +105,7 @@ class TestCheckWorktreeCreateGate:
 
     def test_planned_claim_raises(self, conn):
         actor = local_human(conn)
+        seed_item(conn, item_id=42)
         target = seed_target(conn, path_string="runtime/api/domain")
         register(
             conn,
@@ -112,6 +119,7 @@ class TestCheckWorktreeCreateGate:
 
     def test_active_then_release_clears_gate(self, conn):
         actor = local_human(conn)
+        seed_item(conn, item_id=42)
         target = seed_target(conn, path_string="runtime/api/domain")
         claim_id = register(
             conn,
@@ -127,6 +135,7 @@ class TestCheckWorktreeCreateGate:
 
     def test_cancel_clears_gate(self, conn):
         actor = local_human(conn)
+        seed_item(conn, item_id=42)
         target = seed_target(conn, path_string="runtime/api/domain")
         claim_id = register(
             conn,

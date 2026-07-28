@@ -1,4 +1,10 @@
-"""Machine-level home for the product Browser QA runtime."""
+"""Authoritative packaged source and machine home for the Browser QA runtime.
+
+Both the harness CLI and core QA execution materialize this package into
+``~/.yoke/browser-runtime``. Keeping the package, source hash, and copy logic
+here prevents a second caller from replacing the machine runtime with a
+different packaged tree.
+"""
 
 from __future__ import annotations
 
@@ -14,7 +20,7 @@ from yoke_cli.config import machine_config
 RUNTIME_DIR_NAME = "browser-runtime"
 HASH_MARKER_NAME = ".source-hash"
 _RESOURCE_PACKAGE = "yoke_harness.browser_runtime"
-_SOURCE_DIRS = ("src",)
+_SOURCE_DIRS = ("src", "tests")
 _SOURCE_FILES = ("package.json", "package-lock.json", "README.md")
 
 

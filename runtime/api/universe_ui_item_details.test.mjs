@@ -68,7 +68,8 @@ test("Epic detail reports task completion and its narrower fact spine", async ()
     .filter((node) => node.tagName === "TH")
     .map((node) => node.textContent);
   assert.deepEqual(labels, [
-    "Project", "Workflow", "Status", "Owner", "Created",
+    "Project", "Workflow", "Status", "Owner",
+    "File budget", "Path claims", "Created",
   ]);
   assert.equal(
     byClass(byClass(root, "item-facts")[0], "row-link")[0].href,
@@ -76,11 +77,14 @@ test("Epic detail reports task completion and its narrower fact spine", async ()
   );
   assert.deepEqual(
     byClass(root, "item-posture-label").map((node) => node.textContent),
-    ["Path claims", "Worktrees", "Parallelism", "Migrations"],
+    ["File Budget", "Path claims", "Worktrees", "Parallelism", "Migrations"],
   );
   assert.deepEqual(
     byClass(root, "item-posture-value").map((node) => node.textContent),
-    ["required · per task", "worker + integration", "task graph", "governed"],
+    [
+      "required per task", "required per task",
+      "worker + integration lanes", "task graph", "governed",
+    ],
   );
 });
 
@@ -177,15 +181,22 @@ for (const workflowId of ["issue", "dash"]) {
     assert.deepEqual(
       byClass(root, "item-posture-label").map((node) => node.textContent),
       workflowId === "dash"
-        ? ["Child items", "Path claims", "Worktrees", "Migrations"]
-        : ["Path claims", "Worktrees", "Parallelism", "Migrations"],
+        ? [
+          "Child items", "File Budget", "Path claims",
+          "Worktrees", "Migrations",
+        ]
+        : [
+          "File Budget", "Path claims", "Worktrees",
+          "Parallelism", "Migrations",
+        ],
     );
     assert.deepEqual(
       byClass(root, "item-posture-value").map((node) => node.textContent),
       workflowId === "dash"
-        ? ["none", "optional", "one", "governed"]
+        ? ["never generated", "optional", "optional", "one", "governed"]
         : [
-          "required · file budget", "one lane", "inside item", "governed",
+          "required", "required", "one implementation lane",
+          "inside the item only", "governed",
         ],
     );
     assert.deepEqual(
@@ -195,11 +206,11 @@ for (const workflowId of ["issue", "dash"]) {
       workflowId === "dash"
         ? [
           "Project", "Workflow", "Status", "Owner", "Claim",
-          "Path claims", "Worktree", "Created",
+          "File budget", "Path claims", "Worktree", "Created",
         ]
         : [
           "Project", "Workflow", "Status", "Owner", "Claim",
-          "File budget", "Worktree", "Created",
+          "File budget", "Path claims", "Worktree", "Created",
         ],
     );
     assert.equal(
@@ -218,3 +229,69 @@ for (const workflowId of ["issue", "dash"]) {
     );
   });
 }
+
+test("legacy item facts use central effective policies when raw File Budget is absent", async () => {
+  const documentNode = new FakeDocument();
+  const root = documentNode.createElement("div");
+  const legacy = detailItem("issue");
+  legacy.workflow.version = 1;
+  delete legacy.workflow.policies.file_budget;
+  legacy.workflow.policies.path_claims = "optional";
+  legacy.workflow.effective_policies.file_budget = "required";
+  legacy.workflow.effective_policies.path_claims = "required";
+  legacy.file_budget = { total: 0, paths: [] };
+  legacy.path_claims = { total: 0, states: {} };
+
+  renderItemDetailView(itemContext(documentNode, async () => ({
+    status: 200,
+    envelope: {
+      success: true,
+      result: { item: legacy },
+    },
+  })), root, "7", "ACM-22");
+  await settle();
+
+  const rendered = itemText(root);
+  assert.match(rendered, /File budget\s+none recorded/);
+  assert.match(rendered, /Path claims\s+none/);
+  assert.deepEqual(
+    byClass(root, "item-posture-label").map((node) => node.textContent),
+    ["File Budget", "Path claims", "Worktrees", "Parallelism", "Migrations"],
+  );
+  assert.deepEqual(
+    byClass(root, "item-posture-value").map((node) => node.textContent),
+    [
+      "required", "required", "one implementation lane",
+      "inside the item only", "governed",
+    ],
+  );
+});
+
+test("promoted Dash detail links back to its source field note", async () => {
+  const documentNode = new FakeDocument();
+  const root = documentNode.createElement("div");
+  const dash = detailItem("dash");
+  dash.source_field_note = {
+    entry_id: 22890,
+    category: "field-note-observation",
+    context: "curate",
+    project_id: 7,
+  };
+  renderItemDetailView(itemContext(documentNode, async (request) => ({
+    status: 200,
+    envelope: {
+      success: true,
+      result: { item: dash },
+    },
+  })), root, "7", "ACM-22");
+  await settle();
+
+  assert.match(itemText(root), /Promoted from field note/);
+  assert.match(itemText(root), /Open field note #22890/);
+  assert.equal(
+    byClass(root, "item-action").find(
+      (node) => node.textContent === "Open field note #22890",
+    ).href,
+    "#/ouroboros/22890?project=7",
+  );
+});

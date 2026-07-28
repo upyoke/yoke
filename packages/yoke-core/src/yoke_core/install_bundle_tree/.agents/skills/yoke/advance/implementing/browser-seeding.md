@@ -29,6 +29,7 @@ yoke qa requirement add \
   --item "YOK-{N}" \
   --method-id browser-check \
   --qa-phase verification \
+  --workflow-transition reviewed-implementation \
   --instructions "<route and behavior to exercise>" \
   --expected-outcome "<observable passing outcome>" \
   --method-config '{"steps":[...]}'

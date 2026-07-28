@@ -6,16 +6,24 @@ import json
 from unittest import mock
 
 from yoke_cli.commands import qa_case
-from yoke_core.domain import qa_case_execution_cli
+from yoke_core.domain import qa_case_execution_cli, qa_plan_execution_cli
+
+
+TEST_ITEM_ID = 42
+TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"
 
 
 def test_qa_case_run_delegates_to_engine_module() -> None:
     completed = mock.Mock(returncode=7)
     with mock.patch.object(qa_case.subprocess, "run", return_value=completed) as run:
-        code = qa_case.qa_case_run([
-            "--requirement-id", "41",
-            "--base-url", "https://preview.example",
-        ])
+        code = qa_case.qa_case_run(
+            [
+                "--requirement-id",
+                "41",
+                "--base-url",
+                "https://preview.example",
+            ]
+        )
 
     assert code == 7
     command = run.call_args.args[0]
@@ -40,10 +48,14 @@ def test_engine_cli_executes_case_and_emits_result(capsys) -> None:
             "run_id": 7,
         },
     ) as execute:
-        code = qa_case_execution_cli.run([
-            "--requirement-id", "41",
-            "--base-url", "https://preview.example",
-        ])
+        code = qa_case_execution_cli.run(
+            [
+                "--requirement-id",
+                "41",
+                "--base-url",
+                "https://preview.example",
+            ]
+        )
 
     assert code == 0
     assert json.loads(capsys.readouterr().out)["run_id"] == 7
@@ -66,3 +78,126 @@ def test_engine_cli_returns_prerequisite_exit_for_error(capsys) -> None:
 
     assert code == 2
     assert json.loads(capsys.readouterr().out)["verdict"] == "error"
+
+
+def test_qa_plan_run_delegates_to_engine_module() -> None:
+    completed = mock.Mock(returncode=3)
+    with mock.patch.object(qa_case.subprocess, "run", return_value=completed) as run:
+        code = qa_case.qa_plan_run(
+            [
+                "--item",
+                TEST_ITEM_REF,
+                "--transition",
+                "implemented",
+            ]
+        )
+
+    assert code == 3
+    command = run.call_args.args[0]
+    assert command[1:] == [
+        "-m",
+        "yoke_core.domain.qa_plan_execution_cli",
+        "--item",
+        TEST_ITEM_REF,
+        "--transition",
+        "implemented",
+    ]
+    assert run.call_args.kwargs == {"check": False}
+
+
+def test_plan_engine_cli_reuses_one_session_actor(capsys) -> None:
+    with mock.patch.object(
+        qa_plan_execution_cli,
+        "execute_plan",
+        return_value={
+            "item_id": TEST_ITEM_ID,
+            "transition_id": "implemented",
+            "state": "passed",
+            "requirement_count": 2,
+            "executed_count": 2,
+            "results": [],
+        },
+    ) as execute:
+        code = qa_plan_execution_cli.run(
+            [
+                "--item",
+                TEST_ITEM_REF,
+                "--transition",
+                "implemented",
+                "--session-id",
+                "plan-session",
+            ]
+        )
+
+    assert code == 0
+    assert json.loads(capsys.readouterr().out)["state"] == "passed"
+    assert execute.call_args.kwargs["actor"].session_id == "plan-session"
+
+
+def test_plan_engine_cli_accepts_deployment_run_subject(capsys) -> None:
+    with mock.patch.object(
+        qa_plan_execution_cli,
+        "execute_plan",
+        return_value={
+            "item_id": None,
+            "deployment_run_id": "run-20260728-901",
+            "transition_id": None,
+            "state": "passed",
+            "requirement_count": 1,
+            "executed_count": 1,
+            "results": [],
+        },
+    ) as execute:
+        code = qa_plan_execution_cli.run(
+            [
+                "--deployment-run-id",
+                "run-20260728-901",
+                "--plan",
+                "installer-campaign",
+                "--project",
+                "yoke",
+                "--session-id",
+                "deployment-plan-session",
+            ]
+        )
+
+    assert code == 0
+    assert (
+        json.loads(capsys.readouterr().out)["deployment_run_id"] == "run-20260728-901"
+    )
+    assert execute.call_args.kwargs["item_ref"] is None
+    assert execute.call_args.kwargs["deployment_run_id"] == "run-20260728-901"
+    assert execute.call_args.kwargs["plan"] == "installer-campaign"
+
+
+def test_plan_engine_cli_blocks_on_precondition_and_preserves_state(capsys) -> None:
+    with mock.patch.object(
+        qa_plan_execution_cli,
+        "execute_plan",
+        return_value={
+            "item_id": TEST_ITEM_ID,
+            "transition_id": "implemented",
+            "state": "blocked_on_precondition",
+            "requirement_count": 2,
+            "executed_count": 2,
+            "results": [
+                {
+                    "requirement_id": 41,
+                    "case_outcome": "blocked_on_precondition",
+                }
+            ],
+        },
+    ):
+        code = qa_plan_execution_cli.run(
+            [
+                "--item",
+                TEST_ITEM_REF,
+                "--transition",
+                "implemented",
+                "--session-id",
+                "plan-session",
+            ]
+        )
+
+    assert code == 1
+    assert json.loads(capsys.readouterr().out)["state"] == "blocked_on_precondition"

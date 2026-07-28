@@ -19,6 +19,8 @@ Recipe shape doctrine (current):
     Remaining source-dev/admin or break-glass tools (``db_router query``,
     ``atlas_render_docs``, and ``backlog-cli`` families) are labelled
     explicitly as operator-debug surfaces inside a Yoke checkout.
+    The operational sibling owns the ``yoke ouroboros field-note append``
+    recovery recipe.
 
 Pure data only — no I/O, no DB connections, no imports beyond stdlib.
 """
@@ -180,31 +182,6 @@ CORE_COMMANDS: list[dict] = [
             "`--reason TEXT` is always required. Pick exactly one shape: "
             "`--state none` (convenience shortcut for the negative-default "
             "claim), `--payload <JSON>`, `--payload-file PATH`, or `--stdin`."
-        ),
-    },
-    {
-        "topic": "core",
-        "purpose": "Find the registered surface for a Yoke operation",
-        "recipe": (
-            "yoke --help\n"
-            "yoke ouroboros field-note append --kind new "
-            "--evidence 'Missing CLI adapter for <function_id>'"
-        ),
-        "notes": (
-            "Every Yoke-owned operation is a registered function id with a "
-            "`yoke <subcommand>` adapter. The per-family function id "
-            "reference is `.yoke/docs/db-reference/functions.md`; each "
-            "adapter's own `--help` is the deep surface for its variants, "
-            "flag matrix, and decision tree. A few families (git, gh, and "
-            "the watcher wrappers) stay command-shaped on purpose. "
-            "**When you hit a recipe gap (missing adapter, wrong recipe, "
-            "unclear help), fire `yoke ouroboros field-note append` "
-            "immediately — before retrying, before moving on.** "
-            "Run `yoke ouroboros field-note append --help` for the "
-            "worked failure modes and decision tree. Agents reach "
-            "Yoke via the CLI; "
-            "direct runtime.api imports from `python3 -c` are "
-            "operator-debug surfaces only."
         ),
     },
     {

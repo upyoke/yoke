@@ -13,7 +13,7 @@ of fix-and-retry.
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
 from . import db_backend
 from .db_helpers import connect
@@ -34,13 +34,13 @@ from .workflow_runtime import load_item_workflow_runtime
 
 
 _REVIEWED_IMPLEMENTATION_TARGET = "reviewed-implementation"
-_ACTIVATION_GATE_IDS = frozenset({
-    GATE_WORK_CLAIM_ACTIVATION,
-    GATE_DOC_CLAIM_ACTIVATION,
-})
-_NON_BYPASSABLE_ACTIVATION_GATE_IDS = (
-    _ACTIVATION_GATE_IDS | {GATE_CONFLICT_SURVEY}
+_ACTIVATION_GATE_IDS = frozenset(
+    {
+        GATE_WORK_CLAIM_ACTIVATION,
+        GATE_DOC_CLAIM_ACTIVATION,
+    }
 )
+_NON_BYPASSABLE_ACTIVATION_GATE_IDS = _ACTIVATION_GATE_IDS | {GATE_CONFLICT_SURVEY}
 
 
 def _run_authoritative_status_gate(
@@ -51,6 +51,7 @@ def _run_authoritative_status_gate(
     qa_bypass: bool,
     force: bool,
     session_id: Optional[str] = None,
+    conn: Optional[Any] = None,
 ) -> Optional[dict]:
     """Run the authoritative QA + governed-DB-mutation gates for status writes.
 
@@ -91,11 +92,14 @@ def _run_authoritative_status_gate(
         if file_line_result is not None:
             return file_line_result
 
-    conn = connect(db_path)
-    try:
+    if conn is None:
+        workflow_conn = connect(db_path)
+        try:
+            workflow = load_item_workflow_runtime(workflow_conn, item_id)
+        finally:
+            workflow_conn.close()
+    else:
         workflow = load_item_workflow_runtime(conn, item_id)
-    finally:
-        conn.close()
     if workflow.workflow_id == "dash":
         from yoke_core.domain.dash_posture_gate import evaluate as evaluate_posture
 
@@ -110,7 +114,8 @@ def _run_authoritative_status_gate(
     gate_refs = workflow.gates_for_stage(target_status)
     if bypass_non_activation:
         gate_refs = tuple(
-            ref for ref in gate_refs
+            ref
+            for ref in gate_refs
             if str(ref["id"]) in _NON_BYPASSABLE_ACTIVATION_GATE_IDS
         )
         if not gate_refs:
@@ -128,6 +133,7 @@ def _run_authoritative_status_gate(
             target_status=target_status,
             db_path=db_path,
             session_id=session_id,
+            conn=conn,
         )
         if result is None:
             continue
@@ -154,6 +160,7 @@ def _evaluate_definition_gate(
     target_status: str,
     db_path: str,
     session_id: Optional[str] = None,
+    conn: Optional[Any] = None,
 ) -> Optional[dict]:
     """Dispatch one definition-owned gate reference to registered code."""
     from yoke_core.domain import backlog_updates_helpers as _helpers
@@ -170,11 +177,13 @@ def _evaluate_definition_gate(
             db_path=db_path,
             gate_kind_override=str(mode or ""),
             include_prose=False,
+            conn=conn,
         )
     if gate_id == GATE_ARCHITECTURE_IMPACT:
         from yoke_core.domain.backlog_architecture_gate_runner import (
             _run_architecture_impact_gate,
         )
+
         return _run_architecture_impact_gate(
             item_id=item_id,
             target_status=target_status,
@@ -198,6 +207,7 @@ def _evaluate_definition_gate(
             definition_selected=True,
         )
     from yoke_core.domain import direct_workflow_gate_dispatch
+
     if direct_workflow_gate_dispatch.handles(gate_id):
         return direct_workflow_gate_dispatch.evaluate(
             gate_id=gate_id,
@@ -205,6 +215,7 @@ def _evaluate_definition_gate(
             target_status=target_status,
             db_path=db_path,
             session_id=session_id,
+            conn=conn,
         )
     if gate_id in {GATE_CHECK_HARD_BLOCKS, GATE_CLAIM_ACTIVATION}:
         return None
@@ -237,15 +248,12 @@ def _evaluate_qa_verification(
     Returns the canonical failure payload, or ``None`` when the gate is
     satisfied or unavailable for this target.
     """
-    if (
-        not definition_selected
-        and target_status not in {
-            "reviewed-implementation",
-            "implemented",
-            "release",
-            "done",
-        }
-    ):
+    if not definition_selected and target_status not in {
+        "reviewed-implementation",
+        "implemented",
+        "release",
+        "done",
+    }:
         return None
     try:
         from yoke_core.domain import qa_gates
@@ -312,8 +320,7 @@ def _evaluate_plan_simulation(
             "success": False,
             "error_code": "GATE_PLAN_SIM_UNAVAILABLE",
             "error": (
-                "Cannot advance to 'planned' -- QA gate helpers are "
-                "unavailable."
+                "Cannot advance to 'planned' -- QA gate helpers are unavailable."
             ),
         }
 

@@ -23,7 +23,6 @@ def _row_to_item(row: Any, include_body: bool = False) -> ItemObject:
     """Convert a DB row to an ItemObject."""
     d = dict(row)
     d["frozen"] = bool(d.get("frozen", 0))
-    d.pop("epic", None)
     if not include_body:
         d.pop("body", None)
     return ItemObject(**d)

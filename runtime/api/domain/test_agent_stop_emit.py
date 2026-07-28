@@ -18,36 +18,26 @@ from yoke_core.domain.agent_stop import (
 class TestBuildStopEventContext:
     def test_context_is_valid_json(self):
         ctx = StopContext(
-            epic_id="1",
+            item_id="1",
             task_num="2",
             final_status="implementing",
             auto_committed=True,
-            dispatch_type="epic",
         )
         payload = json.loads(build_stop_event_context(ctx))
-        assert payload["hook"] == "agent_stop"
-        assert payload["auto_committed"] is True
-        assert payload["dispatch_type"] == "epic"
-        assert payload["epic_id"] == 1
-        assert payload["task_num"] == 2
-        assert payload["final_status"] == "implementing"
-        assert payload["stop_reason"] == "auto_committed"
+        assert payload == {
+            "hook": "agent_stop",
+            "auto_committed": True,
+            "stop_reason": "auto_committed",
+            "final_status": "implementing",
+        }
 
     def test_empty_context_omits_optional_fields(self):
         payload = json.loads(build_stop_event_context(StopContext()))
-        assert "epic_id" not in payload
-        assert "task_num" not in payload
-        assert "final_status" not in payload
-        assert payload["auto_committed"] is False
-        assert payload["dispatch_type"] == "issue"
-        assert payload["stop_reason"] == "unexpected_stop"
-
-    def test_non_numeric_epic_id_kept_as_string(self):
-        ctx = StopContext(epic_id="not-a-number", task_num="alpha", final_status="")
-        payload = json.loads(build_stop_event_context(ctx))
-        assert payload["epic_id"] == "not-a-number"
-        assert payload["task_num"] == "alpha"
-        assert payload["stop_reason"] == "unexpected_stop"
+        assert payload == {
+            "hook": "agent_stop",
+            "auto_committed": False,
+            "stop_reason": "unexpected_stop",
+        }
 
     def test_stop_reason_completed_for_terminal_status(self):
         ctx = StopContext(final_status="done")
@@ -111,20 +101,19 @@ class TestEmitHarnessSessionStopped:
     """
 
     def test_swallows_native_emitter_failure(self, tmp_path: Path):
-        ctx = StopContext(epic_id="1", task_num="1", final_status="done")
+        ctx = StopContext(item_id="1", task_num="1", final_status="done")
         with patch(
             "yoke_core.domain.events.emit_event",
             side_effect=RuntimeError("boom"),
         ):
             emit_harness_session_stopped(str(tmp_path), "sess-1", ctx)
 
-    def test_emit_includes_epic_and_task_ids(self, tmp_path: Path):
+    def test_emit_includes_item_and_task_ids(self, tmp_path: Path):
         ctx = StopContext(
-            epic_id="1",
+            item_id="1",
             task_num="2",
             final_status="implementing",
             auto_committed=True,
-            dispatch_type="epic",
         )
         with patch("yoke_core.domain.events.emit_event") as mock_emit:
             emit_harness_session_stopped(str(tmp_path), "sess-1", ctx)
@@ -138,14 +127,23 @@ class TestEmitHarnessSessionStopped:
         assert kwargs["session_id"] == "sess-1"
 
     def test_emit_uses_completed_outcome_for_done(self, tmp_path: Path):
-        ctx = StopContext(epic_id="1", task_num="2", final_status="done")
+        ctx = StopContext(item_id="1", task_num="2", final_status="done")
         with patch("yoke_core.domain.events.emit_event") as mock_emit:
             emit_harness_session_stopped(str(tmp_path), "sess-1", ctx)
         mock_emit.assert_called_once()
         assert mock_emit.call_args.kwargs["outcome"] == "completed"
 
-    def test_emit_includes_issue_item_id(self, tmp_path: Path):
-        ctx = StopContext(item_id="42", dispatch_type="issue", auto_committed=True)
+    def test_emit_includes_item_id_without_task_number(self, tmp_path: Path):
+        ctx = StopContext(item_id="42", auto_committed=True)
+        with patch("yoke_core.domain.events.emit_event") as mock_emit:
+            emit_harness_session_stopped(str(tmp_path), "sess-1", ctx)
+        mock_emit.assert_called_once()
+        kwargs = mock_emit.call_args.kwargs
+        assert kwargs["item_id"] == "42"
+        assert "task_num" not in kwargs
+
+    def test_emit_omits_non_numeric_task_number(self, tmp_path: Path):
+        ctx = StopContext(item_id="42", task_num="alpha")
         with patch("yoke_core.domain.events.emit_event") as mock_emit:
             emit_harness_session_stopped(str(tmp_path), "sess-1", ctx)
         mock_emit.assert_called_once()

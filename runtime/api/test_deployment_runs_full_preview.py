@@ -14,6 +14,7 @@ import pytest
 from yoke_core.domain import deployment_runs as dr
 from runtime.api.test_deployment_runs_full_helpers import (  # noqa: F401
     _conn,
+    _insert_delivery_ready_item,
     _placeholder,
     db_path,
 )
@@ -66,6 +67,7 @@ class TestCheckPreviewOccupancy:
 
     def test_occupancy_shows_items(self, db_path):
         rid = dr.cmd_create_run("yoke", "yoke-internal", db_path=db_path)
+        _insert_delivery_ready_item(db_path, TEST_ITEM_ID)
         dr.cmd_add_item(rid, TEST_ITEM_ID, db_path=db_path)
         dr.cmd_preview_claim(rid, "yoke", "preview-1", db_path=db_path)
         result = dr.cmd_check_preview_occupancy("yoke", "preview-1", db_path=db_path)

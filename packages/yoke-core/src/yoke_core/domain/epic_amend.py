@@ -1,32 +1,7 @@
-"""Typed domain helpers for ``/yoke amend`` workflow-item operations.
+"""Transactional helpers for workflow-item task amendment.
 
-Lifted from the terminal-choreography recipes in
-``.agents/skills/yoke/amend/SKILL.md`` into typed Python so the
-``workflow_item.epic_task.*`` handler family can wrap a single canonical
-domain surface. Each helper accepts the existing ``epic_task_crud`` /
-``epic_progress_notes`` primitives plus a live DB connection and performs
-the multi-step renumber / cascade / metadata mutation inside a single
-transaction.
-
-Public surface:
-
-- :class:`SplitResult`, :class:`ReassignResult`, :class:`AddResult`,
-  :class:`RemoveResult`, :class:`MetadataUpdateResult` — typed
-  dataclass returns naming the structured outcome of each helper.
-- :func:`task_split` — split a parent task into child rows, preserve
-  sibling dependencies (sibling references to the parent become the
-  first child), drop the parent row, all in a single transaction.
-- :func:`task_reassign` — relink a task to an active universal lane.
-- :func:`task_add` — append a new task at the next free task_num.
-- :func:`task_remove` — drop a task row and cascade-remove dependency
-  references in sibling ``dependencies`` columns.
-- :func:`task_metadata_update` — patch a whitelisted scalar metadata
-  field set (title, context_estimate, dependencies, etc.).
-
-These helpers are the absorption target for the amend skill's
-terminal choreography. When the execution journal lands, the
-``workflow_item`` family is absorbed into the journal-emit path and
-this module is consumed inline.
+Adds, reassigns, removes, updates, and splits tasks through canonical task,
+worktree-lane, dependency, and claim-binding primitives.
 """
 
 from __future__ import annotations
@@ -39,6 +14,7 @@ from yoke_core.domain.epic_task_crud import (
     task_update_field,
     task_upsert,
 )
+from yoke_core.domain.path_claim_task_bindings import delete_task_bindings
 
 
 @dataclass
@@ -83,9 +59,9 @@ class MetadataUpdateResult:
     updated_fields: Dict[str, str] = field(default_factory=dict)
 
 
-_METADATA_WHITELIST = frozenset({
-    "title", "context_estimate", "dependencies", "github_issue", "max_attempts",
-})
+_METADATA_WHITELIST = frozenset(
+    {"title", "context_estimate", "dependencies", "github_issue", "max_attempts"}
+)
 
 
 def _split_deps(value: Optional[str]) -> List[str]:
@@ -130,7 +106,10 @@ def task_add(
     epic_key = str(epic_id)
     task_num = _next_task_num(conn, epic_key)
     task_upsert(
-        conn, epic_key, task_num, title,
+        conn,
+        epic_key,
+        task_num,
+        title,
         worktree=worktree,
         context_estimate=context_estimate,
         dependencies=dependencies,
@@ -138,8 +117,7 @@ def task_add(
     if body:
         p = _placeholder(conn)
         conn.execute(
-            f"UPDATE epic_tasks SET body = {p} "
-            f"WHERE epic_id = {p} AND task_num = {p}",
+            f"UPDATE epic_tasks SET body = {p} WHERE epic_id = {p} AND task_num = {p}",
             (body, epic_key, task_num),
         )
         conn.commit()
@@ -147,7 +125,10 @@ def task_add(
 
 
 def task_reassign(
-    conn, epic_id: int, task_num: int, new_worktree: str,
+    conn,
+    epic_id: int,
+    task_num: int,
+    new_worktree: str,
 ) -> ReassignResult:
     """Reassign a task through its active universal worktree lane."""
     if not new_worktree:
@@ -164,8 +145,12 @@ def task_reassign(
     if row is not None:
         old = (row[0] if not hasattr(row, "keys") else row["branch"]) or ""
     from yoke_core.domain.item_worktrees import record_worker_item_worktree
+
     lane = record_worker_item_worktree(
-        conn, item_id=int(epic_id), branch=new_worktree, path=None,
+        conn,
+        item_id=int(epic_id),
+        branch=new_worktree,
+        path=None,
     )
     task_update_field(conn, epic_key, task_num, "item_worktree_id", str(lane["id"]))
     return ReassignResult(
@@ -176,7 +161,10 @@ def task_reassign(
 
 
 def task_remove(
-    conn, epic_id: int, task_num: int, reason: str = "",
+    conn,
+    epic_id: int,
+    task_num: int,
+    reason: str = "",
 ) -> RemoveResult:
     """Delete a task row and cascade-remove its ``task_num`` from sibling
     ``dependencies`` columns. The whole operation runs in one transaction.
@@ -210,6 +198,11 @@ def task_remove(
                 (joined, epic_key, int(sib_num)),
             )
             cascade[int(sib_num)] = joined
+        delete_task_bindings(
+            conn,
+            item_id=epic_id,
+            task_num=task_num,
+        )
         conn.execute(
             f"DELETE FROM epic_tasks WHERE epic_id = {p} AND task_num = {p}",
             (epic_key, task_num),
@@ -222,7 +215,10 @@ def task_remove(
 
 
 def task_metadata_update(
-    conn, epic_id: int, task_num: int, fields: Dict[str, str],
+    conn,
+    epic_id: int,
+    task_num: int,
+    fields: Dict[str, str],
 ) -> MetadataUpdateResult:
     """Patch one or more whitelisted scalar fields on a task row.
 
@@ -251,7 +247,10 @@ def task_metadata_update(
 
 
 def task_split(
-    conn, epic_id: int, task_num: int, children: List[Dict[str, str]],
+    conn,
+    epic_id: int,
+    task_num: int,
+    children: List[Dict[str, str]],
 ) -> SplitResult:
     """Split a parent task into ``len(children)`` new task rows.
 
@@ -279,7 +278,10 @@ def task_split(
         for idx, child in enumerate(children):
             child_num = next_num + idx
             task_upsert(
-                conn, epic_key, child_num, child["title"],
+                conn,
+                epic_key,
+                child_num,
+                child["title"],
                 worktree=child.get("worktree", ""),
                 context_estimate=child.get("context_estimate", ""),
                 dependencies=child.get("dependencies", ""),
@@ -316,6 +318,11 @@ def task_split(
                 (joined, epic_key, int(sib_num)),
             )
             deps_updates[int(sib_num)] = joined
+        delete_task_bindings(
+            conn,
+            item_id=epic_id,
+            task_num=task_num,
+        )
         conn.execute(
             f"DELETE FROM epic_tasks WHERE epic_id = {p} AND task_num = {p}",
             (epic_key, task_num),
@@ -332,8 +339,7 @@ def task_split(
 
 
 __all__ = [
-    "SplitResult", "ReassignResult", "AddResult",
-    "RemoveResult", "MetadataUpdateResult",
-    "task_add", "task_reassign", "task_remove",
+    "SplitResult", "ReassignResult", "AddResult", "RemoveResult",
+    "MetadataUpdateResult", "task_add", "task_reassign", "task_remove",
     "task_metadata_update", "task_split",
 ]

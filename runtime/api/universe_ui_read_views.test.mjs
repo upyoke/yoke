@@ -158,7 +158,19 @@ test("Ouroboros reads observations and keeps review state visible", async (t) =>
             success: true,
             result: {
               entries: [
-                { timestamp: "now", category: "observation", agent: "tester", context: "open", reviewed_at: null },
+                {
+                  id: 22,
+                  timestamp: "now",
+                  category: "field-note-observation",
+                  agent: "tester",
+                  context: "open",
+                  reviewed_at: null,
+                  promoted_dash: {
+                    item_ref: "YOK-90",
+                    item_id: 90,
+                    project_id: 1,
+                  },
+                },
                 { timestamp: "then", category: "failed", agent: "doctor", context: "closed", reviewed_at: "later" },
               ],
             },
@@ -180,8 +192,85 @@ test("Ouroboros reads observations and keeps review state visible", async (t) =>
     .filter((node) => node.tagName === "TD")
     .map(cellText);
   assert.deepEqual(cells, [
-    "now", "observation", "tester", "open", "",
-    "then", "failed", "doctor", "closed", "later",
+    "now", "field-note-observation", "tester", "open", "", "YOK-90",
+    "then", "failed", "doctor", "closed", "later", "",
   ]);
+  assert.equal(
+    byClass(root, "row-link").find((node) => node.textContent === "YOK-90").href,
+    "#/items/YOK-90?project=1",
+  );
+  mounted.unmount();
+});
+
+test("Ouroboros field-note drill-in keeps its promoted Dash reachable", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = () => response(200, {});
+  const documentNode = new FakeDocument();
+  documentNode.defaultView.location.hash = "#/ouroboros/22?project=1";
+  const root = documentNode.createElement("div");
+  const requests = [];
+  const client = {
+    async call(request) {
+      requests.push(request);
+      if (request.function === "organizations.get") {
+        return {
+          status: 200,
+          envelope: { success: true, result: { name: "Yoke" } },
+        };
+      }
+      if (request.function === "projects.list") {
+        return {
+          status: 200,
+          envelope: {
+            success: true,
+            result: { rows: [{ id: 1, slug: "yoke", name: "Yoke" }] },
+          },
+        };
+      }
+      if (request.function === "ouroboros.entry.get") {
+        return {
+          status: 200,
+          envelope: {
+            success: true,
+            result: {
+              entry: {
+                id: 22,
+                category: "field-note-observation",
+                agent: "tester",
+                context: "curate",
+                body: "Turn this observation into focused work.",
+                promoted_dash: {
+                  item_ref: "YOK-90",
+                  item_id: 90,
+                  project_id: 1,
+                },
+              },
+            },
+          },
+        };
+      }
+      throw new Error(`unexpected function ${request.function}`);
+    },
+  };
+
+  const mounted = mountUniverseApp(root, { client });
+  await settle();
+
+  assert.deepEqual(
+    requests.find((request) => request.function === "ouroboros.entry.get"),
+    {
+      function: "ouroboros.entry.get",
+      payload: { entry_id: 22, project: "1" },
+    },
+  );
+  assert.match(
+    allNodes(root).map((node) => node.textContent || "").join(" "),
+    /Turn this observation into focused work\./,
+  );
+  assert.equal(
+    byClass(root, "item-action")[0].href,
+    "#/items/YOK-90?project=1",
+  );
   mounted.unmount();
 });

@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, Mapping, Protocol, Sequence
+from typing import TYPE_CHECKING, Any, Callable, Mapping, Protocol, Sequence
 
 from yoke_contracts.machine_config.capability_secrets import (
     TEST_MACHINE_CAPABILITY,
     TEST_MACHINE_SECRET_KEYS,
 )
+from yoke_harness.test_machine_types import HostActionResult
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.capability_machine_secrets import (
@@ -21,14 +22,10 @@ from yoke_core.domain.test_machine_capability import (
     validate_test_machine_settings,
 )
 
-
-@dataclass(frozen=True)
-class HostActionResult:
-    """A secret-free executor result safe to persist as QA evidence."""
-
-    ok: bool
-    evidence: dict[str, Any]
-    error_code: str | None = None
+if TYPE_CHECKING:
+    from yoke_core.domain.machine_qa_fixture_operations import (
+        MachineQaFixtureOperationExecutor,
+    )
 
 
 class HostControl(Protocol):
@@ -46,6 +43,12 @@ class HostControl(Protocol):
 
     def write_text(self, path: str, content: str) -> None: ...
 
+    def create_fixture_operation_executor(
+        self,
+    ) -> "MachineQaFixtureOperationExecutor": ...
+
+    def reset_installer_test_host(self) -> HostActionResult: ...
+
     def probe_path(self, surface: str) -> Sequence[str]: ...
 
     def run_terminal_case(
@@ -55,6 +58,14 @@ class HostControl(Protocol):
         required_completion: str,
         steps: Sequence[Mapping[str, Any]],
         capture_checkpoints: Sequence[str],
+    ) -> HostActionResult: ...
+
+    def run_terminal_recipe(
+        self,
+        *,
+        entry_surface: str,
+        required_completion: str,
+        config: Mapping[str, Any],
     ) -> HostActionResult: ...
 
     def run_machine_assertions(
@@ -81,6 +92,22 @@ class TestMachineMaterial:
         )
 
 
+@dataclass(frozen=True)
+class TestMachineContract:
+    """Secret-free capability settings issued by the control plane."""
+
+    project_id: int
+    project: str
+    settings: dict[str, str]
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "project_id": self.project_id,
+            "project": self.project,
+            "settings": dict(self.settings),
+        }
+
+
 HostControlFactory = Callable[[TestMachineMaterial], HostControl]
 _factory: HostControlFactory | None = None
 
@@ -97,8 +124,12 @@ def clear_host_control_factory() -> None:
     _factory = None
 
 
-def materialize_test_machine(conn: Any, *, project: str) -> TestMachineMaterial:
-    """Resolve settings and machine-local secrets without returning them to UI."""
+def load_test_machine_contract(
+    conn: Any,
+    *,
+    project: str,
+) -> TestMachineContract:
+    """Resolve server-authoritative settings without touching local secrets."""
     identity = resolve_project(conn, project, required=False)
     if identity is None:
         raise TestMachineCapabilityError(f"project {project!r} not found")
@@ -115,12 +146,38 @@ def materialize_test_machine(conn: Any, *, project: str) -> TestMachineMaterial:
     import json
 
     settings = validate_test_machine_settings(json.loads(str(row[0])))
+    return TestMachineContract(
+        project_id=int(identity.id),
+        project=identity.slug,
+        settings=settings,
+    )
+
+
+def materialize_test_machine_contract(
+    contract: TestMachineContract | Mapping[str, Any],
+) -> TestMachineMaterial:
+    """Attach the one required credential on the executing client machine."""
+    if isinstance(contract, TestMachineContract):
+        normalized = contract
+    else:
+        try:
+            normalized = TestMachineContract(
+                project_id=int(contract["project_id"]),
+                project=str(contract["project"]),
+                settings=validate_test_machine_settings(
+                    dict(contract["settings"]),
+                ),
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise TestMachineCapabilityError(
+                "host-control contract contains invalid project settings"
+            ) from exc
     secrets: dict[str, str] = {}
     secret_paths: dict[str, str] = {}
     missing: list[str] = []
     for key in sorted(TEST_MACHINE_SECRET_KEYS):
         value = read_machine_capability_secret(
-            identity.slug,
+            normalized.project,
             TEST_MACHINE_CAPABILITY,
             key,
         )
@@ -128,42 +185,66 @@ def materialize_test_machine(conn: Any, *, project: str) -> TestMachineMaterial:
             missing.append(key)
         else:
             secrets[key] = value
-            secret_paths[key] = str(machine_capability_secret_path(
-                identity.slug,
-                TEST_MACHINE_CAPABILITY,
-                key,
-            ))
+            secret_paths[key] = str(
+                machine_capability_secret_path(
+                    normalized.project,
+                    TEST_MACHINE_CAPABILITY,
+                    key,
+                )
+            )
     if missing:
         raise TestMachineCapabilityError(
             "test-machine is missing machine-local credential references: "
             + ", ".join(missing)
         )
     return TestMachineMaterial(
-        project_id=int(identity.id),
-        project=identity.slug,
-        settings=settings,
+        project_id=normalized.project_id,
+        project=normalized.project,
+        settings=normalized.settings,
         secrets=secrets,
         secret_paths=secret_paths,
     )
 
 
-def resolve_host_control(conn: Any, *, project: str) -> tuple[HostControl, TestMachineMaterial]:
-    """Materialize the configured adapter or fail closed."""
+def materialize_test_machine(conn: Any, *, project: str) -> TestMachineMaterial:
+    """Resolve settings and required machine-local secrets for local execution."""
+    return materialize_test_machine_contract(
+        load_test_machine_contract(conn, project=project),
+    )
+
+
+def resolve_contract_host_control(
+    contract: TestMachineContract | Mapping[str, Any],
+) -> tuple[HostControl, TestMachineMaterial]:
+    """Materialize a server-issued contract on the credential-owning machine."""
     if _factory is None:
         raise TestMachineCapabilityError(
             "host_control executor is not registered on this machine"
         )
-    material = materialize_test_machine(conn, project=project)
+    material = materialize_test_machine_contract(contract)
     return _factory(material), material
+
+
+def resolve_host_control(
+    conn: Any, *, project: str
+) -> tuple[HostControl, TestMachineMaterial]:
+    """Materialize the configured adapter or fail closed."""
+    return resolve_contract_host_control(
+        load_test_machine_contract(conn, project=project),
+    )
 
 
 __all__ = [
     "HostActionResult",
     "HostControl",
     "HostControlFactory",
+    "TestMachineContract",
     "TestMachineMaterial",
     "clear_host_control_factory",
+    "load_test_machine_contract",
     "materialize_test_machine",
+    "materialize_test_machine_contract",
     "register_host_control_factory",
+    "resolve_contract_host_control",
     "resolve_host_control",
 ]

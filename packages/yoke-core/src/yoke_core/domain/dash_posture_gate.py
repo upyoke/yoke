@@ -22,6 +22,22 @@ from yoke_core.domain.item_posture_bindings import (
 from yoke_core.domain.schema_common import _table_exists
 
 
+def approval_policy_for_posture(
+    *,
+    workflow_id: str,
+    posture: Mapping[str, Any],
+    target_status: str,
+) -> Optional[dict[str, list[Any]]]:
+    """Return the explicit owner gate selected by Dash approval posture."""
+    if (
+        workflow_id != "dash"
+        or target_status != "done"
+        or posture.get("approval_on_done") is not True
+    ):
+        return None
+    return {"roles": ["owner"], "actors": []}
+
+
 def approval_policy_for_transition(
     conn: Any,
     *,
@@ -30,11 +46,11 @@ def approval_policy_for_transition(
 ) -> Optional[dict[str, list[Any]]]:
     """Return the explicit v1 owner authority for approval-on-done."""
     item = _item(conn, item_id)
-    if str(item["workflow_id"]) != "dash" or target_status != "done":
-        return None
-    if _posture(item).get("approval_on_done") is not True:
-        return None
-    return {"roles": ["owner"], "actors": []}
+    return approval_policy_for_posture(
+        workflow_id=str(item["workflow_id"]),
+        posture=_posture(item),
+        target_status=target_status,
+    )
 
 
 def _verification_gate(
@@ -244,6 +260,7 @@ def evaluate(
 
 
 __all__ = [
+    "approval_policy_for_posture",
     "approval_policy_for_transition",
     "evaluate",
 ]

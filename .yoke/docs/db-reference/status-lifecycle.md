@@ -2,7 +2,7 @@
 
 Item-level and epic-task-level status lifecycles, with valid transitions, derivation rules, and gate enforcement points. Cross-link back from [db-reference.md](../db-reference.md) for entry points, the domain catalog, and the per-table reference.
 
-## Item Status Lifecycle (items table)
+## Item Workflow Lifecycle (`items` table)
 
 Every item pins `workflow_id` and `workflow_version_id`. The immutable
 definition owns its ordered stages, terminal stages, gates, policies, and
@@ -10,39 +10,50 @@ registered executor bindings. Read the authoritative definitions with
 `yoke workflows definition get`; do not reconstruct stage tables from this
 reference.
 
-An item can also be set to `cancelled`, `stopped`, or `failed` at any point.
+The runtime additionally recognizes the engine-owned exceptional stages
+`cancelled`, `stopped`, `failed`, and `blocked`. Item-level `blocked` is
+retained only as compatibility vocabulary; normal blocking uses the orthogonal
+flag described below.
 
 > Item-level `blocked` is not a lifecycle status. Use the orthogonal `items.blocked` flag (set via `/yoke block YOK-N "<reason>"`, cleared via `/yoke unblock YOK-N`) — the flag preserves the lifecycle status. Epic-task `status='blocked'` semantics use the lifecycle status. Full architectural-why (yoke source repo): `docs/archive/decisions/blocked-flag-retirement.md`.
 
-| Status | Description | Board Placement |
-|--------|-------------|-----------------|
-| `idea` | Raw idea, not yet specified. | Backlog section |
-| `refining-idea` | Idea is being refined into a specification. | Pipeline section |
-| `refined-idea` | Specification complete, ready for design/planning. | Pipeline section |
-| `planning` | (Epic only) Being decomposed into tasks. | Pipeline section |
-| `refining-plan` | (Epic only) Plan is being refined. | Pipeline section |
-| `planned` | (Epic only) Broken into tasks, estimated. | Pipeline section |
-| `implementing` | Currently being worked on. | Active section |
-| `reviewing-implementation` | Meaningful implementation review and follow-up fixes are in progress. | Active section |
-| `reviewed-implementation` | Implementation review passed; waiting for finishing review. | Active section |
-| `polishing-implementation` | Finishing review is in progress. | Active section |
-| `implemented` | Implementation and finishing review are complete; awaiting deployment. | Active section |
-| `release` | Enrolled in a deployment run that is executing. | Active section |
-| `done` | Deployment run succeeded and all blocking QA satisfied (or no deployment flow). | Done section |
-| `cancelled` | Abandoned. Not shown on board by default. | Not displayed |
+The item-level lifecycle is therefore a definition shape, not a global status
+table:
+
+| Definition field | Runtime meaning |
+|---|---|
+| `stages` | Ordered ids, display labels, descriptions, and target-stage gate references |
+| `terminal_stage_ids` | Successful terminal stages for this version |
+| `transitions` | Declared graph edges between stages |
+| `executor_bindings` | Registered executors covering contiguous half-open stage intervals |
+| `policies` | Ownership, worktree, task-child, QA, approval, and delivery behavior |
+| `entry_surfaces` | Create surfaces permitted to pin this workflow version |
+
+`yoke workflows definition get` serves current selections and the gate
+catalog. `yoke workflows item get YOK-N` plus
+`yoke workflows version get WORKFLOW VERSION` serves the exact authority for
+an existing item. Board buckets are a projection over item stage and workflow
+context; they do not define valid transitions.
 
 **Transition enforcement:** `yoke lifecycle transition` loads the item's pinned
-definition, verifies stage membership and forward order, invokes the
-definition-owned gates, and dispatches registered policy behavior. The
-`yoke_core.engines.done_transition` script handles the delivery tail selected
-by that policy.
+definition, validates target-stage membership, evaluates the gate references
+attached to that target, and dispatches policy behavior through the canonical
+status-write path. Ordered stages and declared edges drive navigation and
+forward-transition checks. Executor ownership comes from the binding whose
+interval contains the live stage, not from the workflow id or a copied status
+table.
 
-**Shepherd gates:** Certain transitions require Shepherd approval before advancing: `refined_idea_to_planning` (epics) and `planning_to_plan_drafted`. The Shepherd records verdicts in the `shepherd_verdicts` table. The `idea` to `refined-idea` transition is handled by `/yoke refine`, not shepherd.
+`shepherd_verdicts` records artifacts produced while a definition-bound
+`shepherd` segment runs. Those records do not create lifecycle authority:
+the pinned version still owns the segment endpoints and all target-stage gate
+references.
 
 ## Epic Task Status Lifecycle (epic_tasks table)
 
-Epic task rows use the implementation-family vocabulary selected by the Epic
-workflow's task-graph policy. The canonical task status values are:
+`epic_tasks` rows are persisted children of an item whose pinned workflow
+declares `policies.generated_children=epic_tasks`. Their lifecycle vocabulary
+is independently canonical and remains valid regardless of the parent
+workflow's registry id:
 
 ### Lifecycle Diagram
 
@@ -103,9 +114,10 @@ Terminal success (TASK_TERMINAL_SUCCESS): `{reviewed-implementation, polishing-i
 
 `yoke_core.domain.update_status` follows the same canonical-only contract. Non-canonical inputs fail immediately instead of being normalized.
 
-### Auto-Derivation of Parent Epic Status
+### Auto-Derivation of Parent Item Status
 
-When a task status changes, `yoke_core.domain.update_status` automatically recomputes the parent epic's item status from the aggregate task states:
+When a task status changes, `yoke_core.domain.update_status` automatically
+recomputes the task-graph parent item's status from aggregate task states:
 
 | Condition | Derived Parent Status |
 |---|---|
@@ -114,11 +126,18 @@ When a task status changes, `yoke_core.domain.update_status` automatically recom
 | All tasks in TASK_TERMINAL_SUCCESS | `reviewing-implementation` |
 | Mixed terminal: some `failed`/`stopped` + some success | `implementing` (operator intervention needed) |
 
-**Guard:** Auto-derivation only fires when the parent epic's current status is `planned`, `implementing`, `reviewing-implementation`, or `reviewed-implementation`. If the parent has been manually advanced beyond `reviewed-implementation` (e.g., to `release` or `done`), auto-derivation does not override it. This prevents completed epics from regressing.
+**Guard:** Auto-derivation only fires when the parent item's current status is
+`planned`, `implementing`, `reviewing-implementation`, or
+`reviewed-implementation`. If the parent has advanced beyond that range, the
+task updater does not derive it backward.
 
 ### Board Progress
 
-`yoke board rebuild` computes epic progress as terminal-success tasks (TASK_TERMINAL_SUCCESS: `reviewed-implementation`, `polishing-implementation`, `implemented`, `release`, or `done`) out of total tasks. These statuses count toward the progress percentage displayed on the board.
+`yoke board rebuild` computes generated-task progress as terminal-success
+tasks (TASK_TERMINAL_SUCCESS: `reviewed-implementation`,
+`polishing-implementation`, `implemented`, `release`, or `done`) out of total
+tasks. These statuses count toward the progress percentage displayed on the
+parent item.
 
 ### Merge Pre-Flight
 
@@ -126,8 +145,14 @@ The merge pre-flight check PF-3 (owned by `yoke_core.engines.merge_worktree_prep
 
 ### Auto-Unblock
 
-When a task transitions to a terminal-success state, `yoke_core.domain.update_status` checks all `blocked` tasks in the same epic. If all of a blocked task's dependencies have reached terminal success, the blocked task is automatically transitioned to `implementing`.
+When a task transitions to a terminal-success state,
+`yoke_core.domain.update_status` checks all `blocked` siblings. If every
+dependency has reached terminal success, the task returns to `planned`;
+Conduct later authors the separate `planned -> implementing` transition when
+it dispatches that task.
 
 ### Dispatch
 
-The conduct skill dispatches tasks in `planned` status. Tasks in any other status are skipped during dispatch.
+The current `conduct` executor dispatches generated tasks in `planned` status.
+Parent-item routing to Conduct still depends on the parent's pinned
+`executor_bindings` and task-graph policies.

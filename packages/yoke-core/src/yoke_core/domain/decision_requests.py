@@ -10,9 +10,14 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.decision_request_contract import (
     DECISION_KINDS,
+    LIFECYCLE_TRANSITION_APPROVAL,
     REQUEST_CREATED_EVENT,
 )
 from yoke_core.domain.decision_request_events import append_decision_event
+from yoke_core.domain.workflow_item_binding_lock import (
+    lock_item_workflow_bindings,
+    rollback_workflow_binding_write_errors,
+)
 
 
 @dataclass(frozen=True)
@@ -33,7 +38,8 @@ def _row_dict(row: Any) -> dict[str, Any]:
 def _request_row(conn: Any, request_id: int) -> dict[str, Any]:
     p = _p(conn)
     row = conn.execute(
-        f"SELECT * FROM decision_requests WHERE id = {p}", (request_id,),
+        f"SELECT * FROM decision_requests WHERE id = {p}",
+        (request_id,),
     ).fetchone()
     if row is None:
         raise LookupError(f"decision request {request_id} does not exist")
@@ -45,7 +51,8 @@ def _request_row(conn: Any, request_id: int) -> dict[str, Any]:
     result["blocking"] = bool(result["blocking"])
     result["actions"] = list(DECISION_KINDS[result["kind"]].actions)
     result["role_authorities"] = [
-        _row_dict(value) for value in conn.execute(
+        _row_dict(value)
+        for value in conn.execute(
             "SELECT scope_kind, scope_id, role_name "
             "FROM decision_request_role_authorities "
             f"WHERE request_id = {p} ORDER BY role_name, scope_id",
@@ -53,7 +60,8 @@ def _request_row(conn: Any, request_id: int) -> dict[str, Any]:
         ).fetchall()
     ]
     result["named_actor_ids"] = [
-        int(value[0]) for value in conn.execute(
+        int(value[0])
+        for value in conn.execute(
             "SELECT actor_id FROM decision_request_actor_authorities "
             f"WHERE request_id = {p} ORDER BY actor_id",
             (request_id,),
@@ -79,7 +87,8 @@ def _validate_scope(
     project_org_id = None
     if project_id is not None:
         project = conn.execute(
-            f"SELECT org_id FROM projects WHERE id = {p}", (project_id,),
+            f"SELECT org_id FROM projects WHERE id = {p}",
+            (project_id,),
         ).fetchone()
         if project is None:
             raise LookupError(f"project {project_id} does not exist")
@@ -103,6 +112,7 @@ def _validate_scope(
             )
 
 
+@rollback_workflow_binding_write_errors
 def create_decision_request(
     conn: Any,
     *,
@@ -132,9 +142,19 @@ def create_decision_request(
     if not roles and not actors:
         raise ValueError("at least one role or named actor authority is required")
     _validate_scope(
-        conn, kind=kind, project_id=project_id, org_id=org_id,
+        conn,
+        kind=kind,
+        project_id=project_id,
+        org_id=org_id,
         role_authorities=roles,
     )
+    if kind == LIFECYCLE_TRANSITION_APPROVAL and subject_type == "item_transition":
+        parts = subject_key.split(":")
+        if len(parts) != 2 or not parts[0].isdigit() or not parts[1].strip():
+            raise ValueError(
+                "lifecycle approval subject_key must be '<item_id>:<stage_id>'"
+            )
+        lock_item_workflow_bindings(conn, (int(parts[0]),))
     p = _p(conn)
     stamp = created_at or iso8601_now()
     cursor = conn.execute(
@@ -144,9 +164,15 @@ def create_decision_request(
         f"VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, 'pending', {p}) "
         "ON CONFLICT DO NOTHING RETURNING id",
         (
-            kind, subject_type, subject_key,
+            kind,
+            subject_type,
+            subject_key,
             json.dumps(dict(subject_context or {}), separators=(",", ":")),
-            project_id, org_id, originator_actor_id, int(spec.blocking), stamp,
+            project_id,
+            org_id,
+            originator_actor_id,
+            int(spec.blocking),
+            stamp,
         ),
     )
     inserted = cursor.fetchone()
@@ -159,7 +185,9 @@ def create_decision_request(
                 "(request_id, scope_kind, scope_id, role_name) "
                 f"VALUES ({p}, {p}, {p}, {p})",
                 (
-                    request_id, authority.scope_kind, authority.scope_id,
+                    request_id,
+                    authority.scope_kind,
+                    authority.scope_id,
                     authority.role_name,
                 ),
             )
@@ -170,10 +198,18 @@ def create_decision_request(
                 (request_id, actor_id),
             )
         append_decision_event(
-            conn, REQUEST_CREATED_EVENT, actor_id=originator_actor_id,
-            session_id=session_id, project_id=project_id, org_id=org_id,
-            context={"request_id": request_id, "kind": kind,
-                     "subject_type": subject_type, "subject_key": subject_key},
+            conn,
+            REQUEST_CREATED_EVENT,
+            actor_id=originator_actor_id,
+            session_id=session_id,
+            project_id=project_id,
+            org_id=org_id,
+            context={
+                "request_id": request_id,
+                "kind": kind,
+                "subject_type": subject_type,
+                "subject_key": subject_key,
+            },
             created_at=stamp,
         )
         conn.commit()
@@ -187,11 +223,14 @@ def create_decision_request(
         if row is None:
             raise RuntimeError("decision request idempotency race did not converge")
         request_id = int(row[0])
+        conn.commit()
     return _request_row(conn, request_id), created
 
 
 def _authority_reason(
-    conn: Any, request_id: int, actor_id: int,
+    conn: Any,
+    request_id: int,
+    actor_id: int,
 ) -> Optional[str]:
     p = _p(conn)
     named = conn.execute(
@@ -222,12 +261,14 @@ def _authority_reason(
 
 
 def decision_request_authority_actor_ids(
-    conn: Any, request_id: int,
+    conn: Any,
+    request_id: int,
 ) -> tuple[int, ...]:
     """Resolve live role holders plus frozen named actors for event fan-out."""
     p = _p(conn)
     actor_ids = {
-        int(row[0]) for row in conn.execute(
+        int(row[0])
+        for row in conn.execute(
             "SELECT actor_id FROM decision_request_actor_authorities "
             f"WHERE request_id = {p}",
             (request_id,),
@@ -253,7 +294,9 @@ def decision_request_authority_actor_ids(
 
 
 def list_subject_requests(
-    conn: Any, subject_type: str, subject_key: str,
+    conn: Any,
+    subject_type: str,
+    subject_key: str,
 ) -> list[dict[str, Any]]:
     """Return the immutable lifecycle history for one typed subject."""
     p = _p(conn)
@@ -267,8 +310,10 @@ def list_subject_requests(
 
 
 def pending_requests_for_actor(
-    conn: Any, actor_id: int,
-    *, project_ids: Optional[Iterable[int]] = None,
+    conn: Any,
+    actor_id: int,
+    *,
+    project_ids: Optional[Iterable[int]] = None,
 ) -> list[dict[str, Any]]:
     """Evaluate live role predicates and frozen names for one actor."""
     allowed_projects = (
@@ -295,7 +340,6 @@ def pending_requests_for_actor(
         result.append(request)
     result.sort(key=lambda value: not value["asked_of_you"])
     return result
-
 
 __all__ = [
     "RoleAuthority",

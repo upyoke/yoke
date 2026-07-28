@@ -70,7 +70,7 @@ substrate contract. The doctrine is mirrored in `docs/agents.md`.
 - [projects-and-flows.md](db-reference/projects-and-flows.md) — `projects`, the Project Structure aggregate (state/entries/audit), `sites`, `environments`, `project_capabilities`, `capability_secrets`, `capability_templates`, `deployment_flows`. Includes deployment-flow defaulting rules and seed data.
 - [events-and-deployments.md](db-reference/events-and-deployments.md) — `events`, `severity_config`, `event_registry`, `deployment_runs`, `deployment_run_items`, `deployment_run_qa`, `deployment_preview_environments`, `ephemeral_environments`. Includes the branch-naming contract.
 - [qa-cli-and-body-write.md](db-reference/qa-cli-and-body-write.md) — qa domain CLI subcommand reference, the structured-field body write path, error propagation, project-aware GitHub sync, canonical write pattern.
-- [status-lifecycle.md](db-reference/status-lifecycle.md) — issue/epic item progressions, epic-task lifecycle, valid transitions, parent-status auto-derivation, board progress, merge pre-flight, auto-unblock, dispatch.
+- [status-lifecycle.md](db-reference/status-lifecycle.md) — immutable workflow-version stage, gate, policy, and executor authority; plus the independent epic-task lifecycle, parent-status auto-derivation, board progress, merge pre-flight, auto-unblock, and dispatch.
 - [functions.md](db-reference/functions.md) — Yoke function-call surface: envelope, registry, claim-verification matrix, and the function ids that own structured-field writes, epic-task amendment, lifecycle transitions, claim mutation, QA writes, and orchestration. The operator-readable Atlas of those surfaces is the yoke source-repo doc `docs/atlas.md`.
 
 ## Entry points
@@ -201,7 +201,7 @@ yoke events anomalies --min-severity WARN
 
 # QA requirements and runs
 # Item-bound review requirement / run (full schema in db-reference/qa-cli-and-body-write.md)
-yoke qa requirement add --item YOK-N --qa-kind implementation_review --qa-phase verification
+yoke qa requirement add --item YOK-N --qa-kind implementation_review --qa-phase verification --workflow-transition reviewed-implementation
 yoke qa requirement list --item YOK-N
 yoke qa requirement update --requirement-id 1 --field blocking_mode --value non_blocking
 yoke qa run add --requirement-id 1 --executor-type agent --qa-kind implementation_review --verdict pass

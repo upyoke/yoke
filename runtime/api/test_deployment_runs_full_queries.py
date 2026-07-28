@@ -8,7 +8,10 @@ Split from ``test_deployment_runs_full.py``.
 from __future__ import annotations
 
 from yoke_core.domain import deployment_runs as dr
-from runtime.api.test_deployment_runs_full_helpers import db_path  # noqa: F401
+from runtime.api.test_deployment_runs_full_helpers import (  # noqa: F401
+    _insert_delivery_ready_item,
+    db_path,
+)
 
 
 class TestList:
@@ -51,6 +54,8 @@ class TestItems:
 
     def test_items_ordered(self, db_path):
         rid = dr.cmd_create_run("yoke", "yoke-internal", db_path=db_path)
+        _insert_delivery_ready_item(db_path, 200)
+        _insert_delivery_ready_item(db_path, 100)
         dr.cmd_add_item(rid, 200, db_path=db_path)
         dr.cmd_add_item(rid, 100, db_path=db_path)
         result = dr.cmd_items(rid, db_path=db_path)
@@ -65,6 +70,7 @@ class TestFindByItem:
 
     def test_find_by_item(self, db_path):
         rid = dr.cmd_create_run("yoke", "yoke-internal", db_path=db_path)
+        _insert_delivery_ready_item(db_path, 42)
         dr.cmd_add_item(rid, 42, db_path=db_path)
         result = dr.cmd_find_by_item(42, db_path=db_path)
         assert rid in result
@@ -72,6 +78,7 @@ class TestFindByItem:
     def test_find_by_item_with_status(self, db_path):
         r1 = dr.cmd_create_run("yoke", "yoke-internal", db_path=db_path)
         r2 = dr.cmd_create_run("yoke", "yoke-internal", db_path=db_path)
+        _insert_delivery_ready_item(db_path, 42)
         dr.cmd_add_item(r1, 42, db_path=db_path)
         dr.cmd_add_item(r2, 42, db_path=db_path)
         dr.cmd_update(r1, "status", "executing", db_path=db_path)

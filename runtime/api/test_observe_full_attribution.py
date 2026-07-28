@@ -109,8 +109,8 @@ class TestAttributionResolution:
         conn = connect_test_db(attribution_db.db_path)
         conn.execute(
             "INSERT INTO items (id, workflow_id, workflow_version_id, status) "
-            "VALUES (77, 'task', "
-            "(SELECT current_version_id FROM workflows WHERE id='task'), "
+            "VALUES (77, 'issue', "
+            "(SELECT current_version_id FROM workflows WHERE id='issue'), "
             "'implementing')"
         )
         conn.commit()

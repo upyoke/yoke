@@ -11,7 +11,10 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
+import pytest
+
 from runtime.api.test_sessions import (
+    _insert_claimable_items,
     _register,
     conn,
     ownership_conn,
@@ -28,6 +31,11 @@ from yoke_core.domain.sessions import (
     set_session_mode,
 )
 from runtime.api.test_constants import TEST_MODEL_ID
+
+
+@pytest.fixture(autouse=True)
+def _claimable_query_items(conn):
+    _insert_claimable_items(conn, 1, 2, 100, 9999)
 
 
 # ---------------------------------------------------------------------------

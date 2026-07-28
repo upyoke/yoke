@@ -5,7 +5,7 @@ underlying contract they execute against ``items update``:
 
 - Setting ``blocked=true`` flips ``items.blocked`` to 1, preserves the
   lifecycle ``status``, and (when GitHub mocks are wired) the
-  ``backlog_update_op.execute_update`` side-effect path calls
+  ``backlog_updates.execute_update`` side-effect path calls
   ``sync_blocked_label``.
 - Setting ``blocked=false`` flips back to 0 and removes the label.
 - Independent reason field round-trips intact.
@@ -24,7 +24,7 @@ from unittest.mock import patch
 import pytest
 
 from runtime.api.backlog_github_sync_test_helpers import GH_PATCH
-from yoke_core.domain import backlog_github_state_sync, backlog_update_op, db_backend
+from yoke_core.domain import backlog_github_state_sync, backlog_updates, db_backend
 from yoke_core.domain.project_github_auth import ProjectGithubAuth
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 
@@ -44,7 +44,7 @@ def _ok_resolver(*args, **kwargs):
 def _patch_db_path(monkeypatch, tmp_path):
     """Backend-aware per-test DB for the block/unblock contract.
 
-    backlog_update_op.execute_update opens its own connection through the
+    backlog_updates.execute_update opens its own connection through the
     backend factory; init_test_db points that factory at this per-test DB
     (YOKE_DB on SQLite, the repointed YOKE_PG_DSN on Postgres) for the
     test's lifetime so the update lands on the same row the test seeded.
@@ -82,7 +82,7 @@ def test_block_sets_flag_and_preserves_status():
     ), patch(f"{_LABEL_REST_STATE}.ensure_label"), patch(
         f"{_LABEL_REST_STATE}.add_labels",
     ), patch(f"{_LABEL_REST_STATE}.remove_label"):
-        result = backlog_update_op.execute_update(
+        result = backlog_updates.execute_update(
             42, "blocked", "true", no_github=False, rebuild_board=False,
         )
     assert result["success"], result
@@ -104,7 +104,7 @@ def test_unblock_clears_flag_and_preserves_status():
     ), patch(f"{_LABEL_REST_STATE}.ensure_label"), patch(
         f"{_LABEL_REST_STATE}.add_labels",
     ), patch(f"{_LABEL_REST_STATE}.remove_label"):
-        result = backlog_update_op.execute_update(
+        result = backlog_updates.execute_update(
             43, "blocked", "false", no_github=False, rebuild_board=False,
         )
     assert result["success"], result
@@ -116,7 +116,7 @@ def test_unblock_clears_flag_and_preserves_status():
 
 def test_blocked_reason_round_trips():
     db = _setup_item(item_id=44, status="implementing")
-    result = backlog_update_op.execute_update(
+    result = backlog_updates.execute_update(
         44, "blocked_reason", "Awaiting external sign-off",
         no_github=True, rebuild_board=False,
     )
@@ -128,7 +128,7 @@ def test_blocked_reason_round_trips():
 
 def test_block_rejects_invalid_value():
     _setup_item(item_id=45, status="implementing")
-    result = backlog_update_op.execute_update(
+    result = backlog_updates.execute_update(
         45, "blocked", "maybe", no_github=True, rebuild_board=False,
     )
     assert not result["success"]

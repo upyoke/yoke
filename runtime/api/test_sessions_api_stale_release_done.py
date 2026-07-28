@@ -1,3 +1,4 @@
+# ruff: noqa: F811
 """TestReleaseClaimsForDoneItem: AC-1, AC-2, AC-5 foreign-claim cleanup."""
 
 from __future__ import annotations
@@ -6,7 +7,11 @@ from unittest.mock import patch
 
 import pytest
 
-from runtime.api.test_sessions import _register, conn  # noqa: F401  (pytest fixture)
+from runtime.api.test_sessions import (
+    _insert_claimable_items,
+    _register,
+    conn,  # noqa: F401
+)
 from yoke_core.domain import db_backend
 from yoke_core.domain.sessions import (
     EVENT_WORK_RELEASED,
@@ -19,6 +24,10 @@ from runtime.api.sessions_api_stale_test_helpers import _now_literal
 
 class TestReleaseClaimsForDoneItem:
     """Tests for item-done foreign-claim cleanup."""
+
+    @pytest.fixture(autouse=True)
+    def _claimable_items(self, conn):
+        _insert_claimable_items(conn, 1187, 9999)
 
     def test_releases_unreleased_claims_on_done_item(self, conn):
         """AC-1: When an item transitions to done, any unreleased exclusive

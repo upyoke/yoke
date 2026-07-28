@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from typing import Any
 
 from yoke_core.domain import db_backend
@@ -17,6 +18,38 @@ def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
+def lock_deployment_flow_rows(
+    conn: Any,
+    flow_ids: Iterable[str],
+    *,
+    binding: bool,
+) -> dict[str, tuple[int, str, str]]:
+    """Lock flow rows in stable order for definitions or new references."""
+    normalized = tuple(sorted({str(flow_id) for flow_id in flow_ids}))
+    if not normalized:
+        return {}
+    suffix = ""
+    if db_backend.connection_is_postgres(conn):
+        suffix = " FOR SHARE" if binding else " FOR UPDATE"
+    rows: dict[str, tuple[int, str, str]] = {}
+    for flow_id in normalized:
+        row = conn.execute(
+            "SELECT id, project_id, status, "
+            "COALESCE(target_env, '') AS target_env "
+            f"FROM deployment_flows WHERE id = {_p(conn)}{suffix}",
+            (flow_id,),
+        ).fetchone()
+        if row is None:
+            continue
+        row_id = str(row["id"] if hasattr(row, "keys") else row[0])
+        rows[row_id] = (
+            int(row["project_id"] if hasattr(row, "keys") else row[1]),
+            str(row["status"] if hasattr(row, "keys") else row[2]),
+            str((row["target_env"] if hasattr(row, "keys") else row[3]) or ""),
+        )
+    return rows
+
+
 def require_flow_for_new_run(
     conn: Any,
     flow_id: str,
@@ -24,22 +57,12 @@ def require_flow_for_new_run(
     project_id: int | None = None,
 ) -> tuple[int, str]:
     """Return project and target env when a flow accepts new runs."""
-    p = _p(conn)
-    row = conn.execute(
-        "SELECT project_id, status, "
-        "COALESCE(target_env, '') FROM deployment_flows "
-        f"WHERE id = {p}",
-        (flow_id,),
-    ).fetchone()
+    row = lock_deployment_flow_rows(conn, (flow_id,), binding=True).get(flow_id)
     if row is None:
         raise LookupError(f"deployment flow '{flow_id}' not found")
-    flow_project_id = int(row[0])
-    status = str(row[1])
-    target_env = str(row[2] or "")
+    flow_project_id, status, target_env = row
     if project_id is not None and flow_project_id != project_id:
-        raise ValueError(
-            f"deployment flow '{flow_id}' belongs to another project"
-        )
+        raise ValueError(f"deployment flow '{flow_id}' belongs to another project")
     if status != FLOW_STATUS_ACTIVE:
         raise ValueError(
             f"deployment flow '{flow_id}' is {status} and cannot start new runs"
@@ -79,6 +102,7 @@ __all__ = [
     "FLOW_STATUS_DISABLED",
     "FLOW_STATUSES",
     "assert_flow_definition_mutable",
+    "lock_deployment_flow_rows",
     "require_flow_for_new_run",
     "validate_flow_status",
 ]

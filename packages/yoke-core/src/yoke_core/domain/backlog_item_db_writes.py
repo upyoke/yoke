@@ -12,7 +12,11 @@ from yoke_core.domain.backlog_queries import (
     INTEGER_FIELDS,
     _now_iso,
 )
+from yoke_core.domain.deployment_flow_validator import (
+    require_flow_for_item_binding,
+)
 from yoke_core.domain.project_identity import resolve_project_id
+from yoke_core.domain import workflow_item_binding_lock
 
 
 def _insert_item(
@@ -34,9 +38,9 @@ def _insert_item(
     project_sequence: int,
     deployment_flow: Optional[str],
     *,
+    workflow_id: str,
+    workflow_version_id: int,
     owner: Optional[str] = None,
-    workflow_id: Optional[str] = None,
-    workflow_version_id: Optional[int] = None,
     instruction: Optional[str] = None,
     workflow_posture: Optional[dict[str, Any]] = None,
     commit: bool = True,
@@ -49,16 +53,8 @@ def _insert_item(
     not pass it. The migration backfills both columns and the writer
     keeps them in lockstep going forward.
     """
+    require_flow_for_item_binding(conn, deployment_flow)
     owner_value = owner if owner is not None else source
-    if workflow_id is None or workflow_version_id is None:
-        from yoke_core.domain.workflow_registry import (
-            resolve_current_workflow_pin,
-        )
-
-        workflow_id, workflow_version_id = resolve_current_workflow_pin(
-            conn,
-            workflow_id or "issue",
-        )
     conn.execute(
         """INSERT INTO items (
             id, title, status, priority, flow,
@@ -74,14 +70,27 @@ def _insert_item(
             %s, %s
         )""",
         (
-            item_id, title, status, priority, flow,
-            rework_count, frozen,
-            github_issue, deployed_to,
-            created_at, updated_at, source, owner_value,
-            project_id, project_sequence, deployment_flow,
-            workflow_id, workflow_version_id,
+            item_id,
+            title,
+            status,
+            priority,
+            flow,
+            rework_count,
+            frozen,
+            github_issue,
+            deployed_to,
+            created_at,
+            updated_at,
+            source,
+            owner_value,
+            project_id,
+            project_sequence,
+            deployment_flow,
+            workflow_id,
+            workflow_version_id,
             json.dumps(workflow_posture or {}, sort_keys=True),
-            instruction, updated_at if instruction else None,
+            instruction,
+            updated_at if instruction else None,
             source if instruction else None,
         ),
     )
@@ -89,6 +98,7 @@ def _insert_item(
         conn.commit()
 
 
+@workflow_item_binding_lock.rollback_workflow_binding_write_errors
 def _update_item_field(
     conn: Any,
     item_id: int,
@@ -100,6 +110,9 @@ def _update_item_field(
     Handles type coercion: None -> NULL, bool -> int, etc.
     """
     now = _now_iso()
+    if field == "deployment_flow":
+        require_flow_for_item_binding(conn, value)
+        workflow_item_binding_lock.lock_item_workflow_bindings(conn, (item_id,))
     if field == "project":
         field = "project_id"
         value = resolve_project_id(conn, value)
@@ -131,12 +144,18 @@ def _update_item_field(
     conn.commit()
 
 
+@workflow_item_binding_lock.rollback_workflow_binding_write_errors
 def _update_item_multi(
     conn: Any,
     item_id: int,
     field_writes: dict[str, Any],
+    *,
+    commit: bool = True,
 ) -> None:
-    """Apply multiple field writes in a single transaction."""
+    """Apply multiple field writes, optionally inside a caller transaction."""
+    if "deployment_flow" in field_writes:
+        require_flow_for_item_binding(conn, field_writes["deployment_flow"])
+        workflow_item_binding_lock.lock_item_workflow_bindings(conn, (int(item_id),))
     now = _now_iso()
     sets = []
     params: list[Any] = []
@@ -174,7 +193,8 @@ def _update_item_multi(
 
     sql = f"UPDATE items SET {', '.join(sets)} WHERE id = %s"
     conn.execute(sql, tuple(params))
-    conn.commit()
+    if commit:
+        conn.commit()
 
 
 __all__ = ["_insert_item", "_update_item_field", "_update_item_multi"]

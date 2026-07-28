@@ -15,29 +15,29 @@ def skip_polish(
     session_id: Optional[str] = None,
     out: TextIO = sys.stdout,
 ) -> dict:
-    """Advance an item from ``reviewed-implementation`` to ``implemented``."""
-    current_status, _workflow = core._lookup_item(item_id)
-    if current_status != core._POLISH_START:
-        raise ValueError(
-            f"--skip-polish requires current status {core._POLISH_START!r}, "
-            f"got {current_status!r}. Reach {core._POLISH_START!r} via the "
-            "normal review loop before invoking --skip-polish."
-        )
+    """Advance across the pinned workflow's polish executor segment."""
+    current_status, workflow = core._lookup_item(item_id)
+    route = core._executor_skip_route(
+        workflow,
+        current_status,
+        executor_id="polish",
+        require_entry=True,
+    )
 
     hops_written = core._walk_hops(
         item_id,
-        hops=[core._POLISH_TRANSIT, core._POLISH_END],
+        hops=route.hops,
         bypass_reason=core.BYPASS_SKIP_POLISH,
-        allowlist=core._POLISH_TRANSIT_ALLOWED,
+        allowlist=route.allowed_hops,
         out=out,
     )
 
     finalize._emit_skip_event(
         item_id,
         via=core.BYPASS_SKIP_POLISH,
-        from_status=core._POLISH_START,
-        to_status=core._POLISH_END,
-        skipped_phase=core._POLISH_TRANSIT,
+        from_status=current_status,
+        to_status=route.to_stage,
+        skipped_phase=route.skipped_phase,
         out=out,
     )
 
@@ -51,9 +51,9 @@ def skip_polish(
     return {
         "success": True,
         "via": core.BYPASS_SKIP_POLISH,
-        "from_status": core._POLISH_START,
-        "to_status": core._POLISH_END,
-        "skipped_phase": core._POLISH_TRANSIT,
+        "from_status": current_status,
+        "to_status": route.to_stage,
+        "skipped_phase": route.skipped_phase,
         "hops_written": hops_written,
         "claim_release": release_result,
     }

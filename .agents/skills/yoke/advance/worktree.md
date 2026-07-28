@@ -2,11 +2,17 @@
 
 > **Orchestrator role:** For implementation-entry advances, the advance implementation-entry orchestrator ([`packages/yoke-core/src/yoke_core/engines/advance_implementation_entry.py`](../../../../packages/yoke-core/src/yoke_core/engines/advance_implementation_entry.py)) calls `worktree_preflight.run_preflight` directly and emits the outcome as `AdvancePhaseCompleted{phase="worktree"}`. The doc below remains the canonical contract for the worktree-preflight envelope and exit codes — the orchestrator's reference. The CLI invocation below remains valid for operators reconciling worktree state outside the orchestrator.
 
-Called by the advance router when target status is `implementing` (including issue `implementation` entry). Owns collision detection, dirty-main protection, canonical/legacy worktree recognition, and worktree creation. The session's write authority over the new worktree is its work-claim (acquired in Step 1), validated per tool call by `lint_session_cwd`.
+Called by the advance router when target status is `implementing` and the
+pinned definition binds `advance` to a single implementation lane. Owns
+collision detection, dirty-main protection, canonical/legacy worktree
+recognition, and worktree creation. The session's write authority over the new
+worktree is its work-claim (acquired in Step 1), validated per tool call by
+`lint_session_cwd`.
 
 This phase is **Python-owned** through `yoke_core.domain.worktree_preflight`. The skill prose no longer hand-authors any of the shell snippets that previously routed agents through guard-hostile shapes (`db_router query -separator "|"`, manual `.worktrees/` `ls`, project shell-variable lookup, dirty-tree compound).
 
-**Context variables** (set by router): `{N}`, `_workflow_id`, `--no-worktree` flag, `--force` flag
+**Context variables** (set by router): `{N}`, `_worktree_policy`,
+`_current_executor`, `--no-worktree` flag, `--force` flag
 
 **Enforcement owner:** `yoke_core.domain.worktree_preflight` (orchestrator + CLI), with step helpers in `yoke_core.domain.worktree_preflight_steps`.
 
@@ -78,7 +84,7 @@ The helper resolves absolute roots via `yoke_core.domain.worktree_item_resolve`,
 applies safe default excludes (`.git`, `.worktrees`, cache dirs, virtualenvs,
 `node_modules`, `dist`, `build`), prefers `rg` when present and falls back
 to a tested Python implementation. Output shape is `<path>:<line>:<match>`;
-multi-worktree epic items prefix each match with the worktree root.
+multi-lane task-graph items prefix each match with the worktree root.
 
 Single-file `grep PATTERN /absolute/path/file` and other single-target
 read-only inspection pass `lint_session_cwd` because their target paths
@@ -92,7 +98,7 @@ worktree` when the recursive walk is the point.
 - **Step 2 — Path-claim activation.** Delegates to `yoke_core.domain.advance_path_claim_activation` (the path-claim activation CLI). Diverged refs and blocked claims propagate to the caller verbatim.
 - **Step 3 — Worktree resolution.** Canonical `YOK-N` is reused idempotently.
 - **Step 3 — Dirty-main guard.** Runs **only** when this call would create a new worktree. Tracked or staged dirt blocks as `dirty-tracked`; untracked non-gitignored files block as `dirty-untracked`. Re-entry into an existing worktree never touches main and is never blocked by main dirt.
-- **Step 4 — Worktree creation + DB write.** `create_worktree` records branch + status on the item. The session continues — no scope envelope, no parent-stop, no claim release, no relaunch. The work-claim acquired in Step 1 is the session's authority over the new worktree, validated per tool call by `lint_session_cwd`.
+- **Step 4 — Worktree creation + DB write.** `create_worktree` records the branch, path, and implementation role in `item_worktrees`; implementation entry records status on the item. The session continues — no scope envelope, no parent-stop, no claim release, no relaunch. The work-claim acquired in Step 1 is the session's authority over the new worktree, validated per tool call by `lint_session_cwd`.
 - **Step 5 — Envelope rendering.** Emits descriptive `semantic_scope`, `physical_cwd_mode`, and an optional advisory note if the harness cwd is static at main (informational only — the work-claim is what authorizes writes).
 
 ## Failure handling
@@ -103,7 +109,7 @@ For `work-claim-conflict`, the right remediation is to coordinate with the holde
 
 ## --no-worktree
 
-Pass `--no-worktree` only for evidence-only items that intentionally make no repo changes. The envelope sets `semantic_scope=main`, omits `physical_cwd_mode`, and records `worktree:skipped` in `actions_taken`. The downstream done-transition empty-branch guard is satisfied because no worktree is recorded on the item.
+Pass `--no-worktree` only for evidence-only items that intentionally make no repo changes. The envelope sets `semantic_scope=main`, omits `physical_cwd_mode`, and records `worktree:skipped` in `actions_taken`. The downstream done-transition empty-branch guard is satisfied because no active implementation lane is recorded in `item_worktrees`.
 
 ---
 

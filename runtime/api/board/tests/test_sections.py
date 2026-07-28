@@ -212,7 +212,7 @@ class TestTaskExpandedCount:
     def test_epic_with_tasks(self):
         items = [
             ItemRow(3, "YOK-1", "T1", "issue", "medium", "implementing", "—", None, "yoke", ""),
-            ItemRow(3, "YOK-2", "Epic", "epic", "medium", "implementing", "2/5 (40%)", 2, "yoke", ""),
+            ItemRow(3, "YOK-2", "Task graph", "portfolio", "medium", "implementing", "2/5 (40%)", 2, "yoke", ""),
         ]
         epic_counts = {2: 5}
         assert task_expanded_count(items, epic_counts) == 6
@@ -318,7 +318,7 @@ class TestRenderSection:
         insert_task(test_db, 200, 2, "Sub task 2", "implementing")
 
         items = [
-            ItemRow(3, "YOK-200", "My Epic", "epic", "medium", "implementing",
+            ItemRow(3, "YOK-200", "Task graph", "portfolio", "medium", "implementing",
                     "1/2 (50%)", 200, "yoke", "2024-01-01"),
         ]
         epic_counts = {200: 2}

@@ -40,9 +40,9 @@ from yoke_cli.operation_inventory_strategy_event import (
     PERMANENT_ROWS as STRATEGY_EVENT_PERMANENT_ROWS,
     WRAPPED_ROWS as STRATEGY_EVENT_WRAPPED_ROWS,
 )
+
 WRAPPED_ROWS: Tuple[_Row, ...] = (
     # Baseline wrapped item and claim operations.
-    _w("yoke items get", "items.read"),
     # Idea-intake create over the function-call surface (works on https);
     # replaces the local-only `db_router items add` fallback.
     _w("yoke items create", "items.create"),
@@ -106,8 +106,6 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke qa run complete", "qa.run"),
     _w("yoke qa artifact add", "qa.artifact"),
     _w("yoke qa artifact presign", "qa.artifact"),
-    _w("yoke qa screenshot-evidence pending-count", "qa.screenshot_evidence"),
-    _w("yoke qa screenshot-evidence satisfy", "qa.screenshot_evidence"),
     # dispatcher-backed qa CRUD conversion: requirement reads + item-attached
     # creation + run list + the gate-entry summary. The db_router gate-summary
     # leg was checkout-shaped and broke over https; qa.gate_summary.run is the
@@ -410,12 +408,7 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
 )
 PENDING_ROWS: Tuple[_Row, ...] = (
     # qa family: fully converted. Reads/creation/gate-summary registered
-    # by the dispatcher-backed qa CRUD slice (wrapped rows above). Two prior
-    # pending rows reconciled without minting ids: `qa run-add` is
-    # already wrapped as qa.run.add by the browser-QA family, and
-    # `qa run-satisfy-screenshot-evidence` duplicate-collapsed into the
-    # registered qa.screenshot_evidence.satisfy (same guard, SQL, and
-    # insert as qa_evidence_bridge.cmd_satisfy_screenshot_evidence).
+    # by the dispatcher-backed qa CRUD slice (wrapped rows above).
     # events read family: `events list` was dispositioned as covered by
     # the registered `events.query.run` (its request model carries every
     # list filter incl. --current-episode); tail/count/anomalies are

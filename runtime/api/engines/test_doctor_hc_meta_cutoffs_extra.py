@@ -57,7 +57,7 @@ class TestCrossProjectCommitsCutoff:
         _seed_project(conn, project)
         _insert_item(
             conn, item_id, f"Item {item_id}", project=project,
-            type="issue", status="done",
+            workflow_id="issue", status="done",
         )
         conn.commit()
 

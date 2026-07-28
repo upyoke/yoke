@@ -45,9 +45,11 @@ yoke qa case run \
   --expected-sha "<worktree-head-sha>"
 ```
 
-The runner fetches the immutable case through `qa.case_execution.get`, starts
-the Browser substrate, executes only the named requirement, records its run,
-and stores screenshot and trace evidence. Do not add a second run manually.
+The runner authorizes and fetches the immutable case through
+`qa.case_execution.begin` before starting the Browser substrate, executes only
+the named requirement, records its run, and stores screenshot and trace
+evidence. The item claim and ambient session must already be active. Do not add
+a second run manually.
 
 ## Interpret the result
 

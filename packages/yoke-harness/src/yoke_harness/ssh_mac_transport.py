@@ -1,0 +1,232 @@
+"""Client-side SSH transport and host primitives for the dedicated Test Mac."""
+
+from __future__ import annotations
+
+import base64
+from pathlib import Path
+import shlex
+import subprocess
+from typing import Any, Mapping, Sequence
+
+from yoke_cli.config.path_doctor import (
+    PathStateContract,
+    resolve_path_state_contract,
+)
+from yoke_harness.ssh_mac_full_reset import execute_full_test_mac_reset
+from yoke_harness.ssh_mac_terminal_capture import (
+    detect_terminal_backend,
+    verify_terminal_bridge,
+)
+from yoke_harness.test_machine_types import HostActionResult
+
+
+SSH_OPTIONS = (
+    "StrictHostKeyChecking=accept-new",
+    "UserKnownHostsFile=/dev/null",
+    "ConnectTimeout=10",
+    "BatchMode=yes",
+)
+
+
+class SshMacTransport:
+    """Bounded SSH operations shared by Test Machine client adapters."""
+
+    def __init__(
+        self,
+        *,
+        settings: Mapping[str, str],
+        key_path: str | Path,
+    ) -> None:
+        self._key_path = Path(key_path)
+        self._host = str(settings["host"])
+        self._user = str(settings["user"])
+        facts = self._host_facts()
+        self.home = str(facts["home"])
+        self.shell = str(facts["shell"])
+        self.xdg_bin_home = str(facts.get("xdg_bin_home") or "") or None
+        path_env = {"HOME": self.home, "SHELL": self.shell}
+        if self.xdg_bin_home:
+            path_env["XDG_BIN_HOME"] = self.xdg_bin_home
+        self.path_state: PathStateContract = resolve_path_state_contract(env=path_env)
+
+    def _ssh_argv(self, command: str) -> list[str]:
+        return [
+            "ssh",
+            "-i",
+            str(self._key_path),
+            *[part for option in SSH_OPTIONS for part in ("-o", option)],
+            f"{self._user}@{self._host}",
+            command,
+        ]
+
+    def _run(
+        self,
+        command: str,
+        *,
+        input_text: str | None = None,
+        timeout: int = 60,
+    ) -> subprocess.CompletedProcess[str]:
+        argv = self._ssh_argv(command)
+        try:
+            return subprocess.run(
+                argv,
+                input=input_text,
+                text=True,
+                capture_output=True,
+                timeout=timeout,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return subprocess.CompletedProcess(
+                argv,
+                returncode=124,
+                stdout="",
+                stderr="host_control subprocess unavailable",
+            )
+
+    def _host_facts(self) -> dict[str, Any]:
+        script = (
+            'print -r -- "$HOME"; '
+            'print -r -- "${SHELL:-/bin/zsh}"; '
+            'print -r -- "${XDG_BIN_HOME:-}"'
+        )
+        result = self._run(
+            "/bin/zsh -fc " + shlex.quote(script),
+            timeout=20,
+        )
+        if result.returncode:
+            raise RuntimeError("host_control connection failed")
+        values = result.stdout.split("\n")
+        if len(values) < 3 or not values[0]:
+            raise RuntimeError("host_control returned incomplete host facts")
+        return {
+            "home": values[0],
+            "shell": values[1] or "/bin/zsh",
+            "xdg_bin_home": values[2] or None,
+        }
+
+    @staticmethod
+    def _zsh_command(script: str, *args: str) -> str:
+        return (
+            "/bin/zsh -fc "
+            + shlex.quote(script)
+            + " yoke-host-control "
+            + shlex.join(args)
+        )
+
+    def check_connection(self) -> HostActionResult:
+        result = self._run("/usr/bin/true", timeout=20)
+        return HostActionResult(
+            ok=result.returncode == 0,
+            error_code=None if result.returncode == 0 else "ssh_unavailable",
+            evidence={
+                "transport": "ssh",
+                "host": self._host,
+                "user": self._user,
+                "executor_materialized": result.returncode == 0,
+            },
+        )
+
+    def check_terminal_bridge(self) -> HostActionResult:
+        backend = detect_terminal_backend(self._run)
+        if backend is None:
+            return HostActionResult(
+                ok=False,
+                error_code="terminal_bridge_unavailable",
+                evidence={
+                    "pty": False,
+                    "terminal_backend": None,
+                    "terminal_control": False,
+                    "screenshot_capture": False,
+                },
+            )
+        ok, evidence, error_code = verify_terminal_bridge(
+            self._run,
+            backend=backend,
+        )
+        return HostActionResult(
+            ok=ok,
+            error_code=error_code,
+            evidence={"terminal_backend": backend, **evidence},
+        )
+
+    def reset_installer_test_host(self) -> HostActionResult:
+        """Reach the registered clean Test Mac baseline without exposing tokens."""
+        return execute_full_test_mac_reset(
+            run_remote=self._run,
+            upload_text=self._upload_full_reset_script,
+            home=self.home,
+            path_state=self.path_state,
+        )
+
+    def _upload_full_reset_script(self, path: str, content: str) -> None:
+        writer = 'umask 077; /bin/cat > "$1"'
+        result = self._run(
+            self._zsh_command(writer, path),
+            input_text=content,
+        )
+        if result.returncode:
+            raise RuntimeError("host_control reset script upload failed")
+
+    def _upload_bytes(self, path: str, content: bytes) -> bool:
+        writer = (
+            'target="$1"; '
+            '[[ "$target" == /* ]] || exit 64; '
+            'parent="${target:h}"; '
+            '/bin/mkdir -p "$parent" || exit 65; '
+            'temporary="${target}.yoke-upload.$$"; '
+            "trap '/bin/rm -f \"$temporary\"' EXIT HUP INT TERM; "
+            "umask 077; "
+            '/usr/bin/base64 -D > "$temporary" || exit 66; '
+            '/bin/chmod 600 "$temporary" || exit 67; '
+            '/bin/mv -f "$temporary" "$target" || exit 68; '
+            "trap - EXIT HUP INT TERM"
+        )
+        result = self._run(
+            self._zsh_command(writer, path),
+            input_text=base64.b64encode(content).decode("ascii"),
+        )
+        return result.returncode == 0
+
+    def probe_path(self, surface: str) -> Sequence[str]:
+        flag = "-lic" if surface == "login" else "-c"
+        probe = "printf '%s' \"$PATH\""
+        result = self._run(
+            f"{shlex.quote(self.shell)} {flag} {shlex.quote(probe)}",
+            timeout=20,
+        )
+        if result.returncode:
+            raise RuntimeError(f"host_control {surface} PATH probe failed")
+        return tuple(entry for entry in result.stdout.strip().split(":") if entry)
+
+    def run_machine_assertions(
+        self,
+        assertions: Sequence[Mapping[str, Any]],
+    ) -> HostActionResult:
+        rows: list[dict[str, Any]] = []
+        for assertion in assertions:
+            argv = [str(value) for value in assertion["argv"]]
+            expected = int(assertion.get("expected_exit", 0))
+            result = self._run(" ".join(shlex.quote(value) for value in argv))
+            rows.append(
+                {
+                    "argv": argv,
+                    "expected_exit": expected,
+                    "exit_code": result.returncode,
+                    "stdout": result.stdout,
+                    "stderr": result.stderr,
+                }
+            )
+            if result.returncode != expected:
+                return HostActionResult(
+                    False,
+                    {"assertions": rows, "secret_scan": "pending-redaction"},
+                    "machine_assertion_failed",
+                )
+        return HostActionResult(
+            True,
+            {"assertions": rows, "secret_scan": "passed-after-redaction"},
+        )
+
+
+__all__ = ["SSH_OPTIONS", "SshMacTransport"]

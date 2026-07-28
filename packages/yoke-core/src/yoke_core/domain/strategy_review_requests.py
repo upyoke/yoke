@@ -18,6 +18,7 @@ def ensure_strategy_revision_review(
     slug: str,
     revision: int,
     originator_actor_id: Optional[int],
+    reviewer_actor_id: Optional[int] = None,
     session_id: str = "",
 ) -> tuple[dict[str, Any], bool]:
     """Create or reuse a nonblocking review request for one revision."""
@@ -29,6 +30,16 @@ def ensure_strategy_revision_review(
         ).fetchone()
         if exists is None:
             actor_id = None
+    named_actor_ids: list[int] = []
+    if reviewer_actor_id is not None:
+        marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+        reviewer = conn.execute(
+            f"SELECT 1 FROM actors WHERE id = {marker}",
+            (int(reviewer_actor_id),),
+        ).fetchone()
+        if reviewer is None:
+            raise LookupError(f"reviewer actor {reviewer_actor_id} does not exist")
+        named_actor_ids.append(int(reviewer_actor_id))
     return create_decision_request(
         conn,
         kind="strategy_revision_review",
@@ -40,6 +51,7 @@ def ensure_strategy_revision_review(
             RoleAuthority("project", int(project_id), "owner"),
             RoleAuthority("project", int(project_id), "operator"),
         ],
+        named_actor_ids=named_actor_ids,
         subject_context={
             "slug": slug,
             "revision": int(revision),
@@ -55,6 +67,7 @@ def ensure_current_strategy_revision_review(
     project_id: int,
     slug: str,
     originator_actor_id: Optional[int],
+    reviewer_actor_id: Optional[int] = None,
     session_id: str = "",
 ) -> tuple[dict[str, Any], bool]:
     """Resolve the current immutable revision, then request its review."""
@@ -72,6 +85,7 @@ def ensure_current_strategy_revision_review(
         slug=slug,
         revision=int(row[0]),
         originator_actor_id=originator_actor_id,
+        reviewer_actor_id=reviewer_actor_id,
         session_id=session_id,
     )
 

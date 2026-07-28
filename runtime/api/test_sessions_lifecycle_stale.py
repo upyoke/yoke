@@ -4,10 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from runtime.api.test_sessions import (
-    _register,
-    conn,  # noqa: F401  (pytest fixture)
-)
+from runtime.api.fixtures.backlog import insert_item
+from runtime.api.test_sessions import _register
 from yoke_core.domain.sessions import (
     SessionError,
     claim_work,
@@ -17,6 +15,14 @@ from yoke_core.domain.sessions import (
     reclaim_stale_session,
     release_claim,
 )
+
+pytest_plugins = ("runtime.api.test_sessions",)
+
+
+@pytest.fixture(autouse=True)
+def _seed_claim_items(conn):
+    for item_id in (1, 2, 9999):
+        insert_item(conn, id=item_id, workflow_id="issue")
 
 
 # ---------------------------------------------------------------------------
@@ -43,6 +49,7 @@ class TestStaleDetection:
 
     def test_same_day_iso_heartbeat_is_stale(self, conn):
         from datetime import datetime, timedelta, timezone
+
         _register(conn)
         stale_iso = (datetime.now(timezone.utc) - timedelta(minutes=30)).strftime(
             "%Y-%m-%dT%H:%M:%SZ"

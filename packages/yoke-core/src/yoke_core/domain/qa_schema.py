@@ -19,7 +19,11 @@ from __future__ import annotations
 from typing import Optional
 
 from yoke_core.domain.db_helpers import connect, query_scalar
+from yoke_core.domain.qa_plan_execution_schema import (
+    QA_PLAN_EXECUTION_SCHEMA_SQL,
+)
 from yoke_core.domain.schema_common import (
+    _column_exists,
     _get_check_constraint_defs,
     _table_exists,
 )
@@ -30,7 +34,8 @@ from yoke_core.domain.schema_init_apply import execute_schema_script
 # QA schema
 # ---------------------------------------------------------------------------
 
-_QA_SCHEMA = """
+_QA_SCHEMA = (
+    """
 CREATE TABLE IF NOT EXISTS qa_requirements (
     id INTEGER PRIMARY KEY,
     item_id INTEGER,
@@ -50,8 +55,16 @@ CREATE TABLE IF NOT EXISTS qa_requirements (
     waiver_source TEXT,
     plan_id INTEGER,
     plan_case_key TEXT,
+    case_position INTEGER,
+    baseline_position INTEGER,
     method_id TEXT,
+    method_name TEXT,
+    executor_id TEXT,
+    required_capability_kind TEXT,
+    verdict_path TEXT,
     host_baseline TEXT,
+    entry_surface TEXT,
+    required_completion TEXT,
     workflow_transition_id TEXT,
     instructions TEXT,
     expected_outcome TEXT,
@@ -102,6 +115,8 @@ CREATE TABLE IF NOT EXISTS qa_artifacts (
 );
 CREATE INDEX IF NOT EXISTS idx_qa_artifacts_run ON qa_artifacts(qa_run_id);
 """
+    + QA_PLAN_EXECUTION_SCHEMA_SQL
+)
 
 _QA_REQUIREMENTS_TABLE = "qa_requirements"
 _QA_PHASE_CURRENT_VALUE = "verification"
@@ -110,6 +125,7 @@ _QA_PHASE_CURRENT_VALUE = "verification"
 # ---------------------------------------------------------------------------
 # Init / migration
 # ---------------------------------------------------------------------------
+
 
 def cmd_init(*, db_path: Optional[str] = None) -> None:
     """Create QA tables (idempotent)."""
@@ -133,13 +149,13 @@ def _qa_requirements_structurally_stale(conn) -> bool:
     """Detect stale QA vocabulary constraints through native schema probes."""
     constraint_defs = _get_check_constraint_defs(conn, _QA_REQUIREMENTS_TABLE)
     qa_phase_defs = [
-        definition
-        for definition in constraint_defs
-        if "qa_phase" in definition
+        definition for definition in constraint_defs if "qa_phase" in definition
     ]
     if not qa_phase_defs:
         return False
-    return not any(_QA_PHASE_CURRENT_VALUE in definition for definition in qa_phase_defs)
+    return not any(
+        _QA_PHASE_CURRENT_VALUE in definition for definition in qa_phase_defs
+    )
 
 
 def _migrate_qa_vocab(conn) -> None:
@@ -147,18 +163,27 @@ def _migrate_qa_vocab(conn) -> None:
     if not _table_exists(conn, _QA_REQUIREMENTS_TABLE):
         return
 
-    legacy_phase_count = query_scalar(
-        conn,
-        "SELECT COUNT(*) FROM qa_requirements WHERE qa_phase='validation'",
-    ) or 0
-    legacy_kind_count = query_scalar(
-        conn,
-        "SELECT COUNT(*) FROM qa_requirements WHERE qa_kind='review'",
-    ) or 0
-    legacy_run_kind_count = query_scalar(
-        conn,
-        "SELECT COUNT(*) FROM qa_runs WHERE qa_kind='review'",
-    ) or 0
+    legacy_phase_count = (
+        query_scalar(
+            conn,
+            "SELECT COUNT(*) FROM qa_requirements WHERE qa_phase='validation'",
+        )
+        or 0
+    )
+    legacy_kind_count = (
+        query_scalar(
+            conn,
+            "SELECT COUNT(*) FROM qa_requirements WHERE qa_kind='review'",
+        )
+        or 0
+    )
+    legacy_run_kind_count = (
+        query_scalar(
+            conn,
+            "SELECT COUNT(*) FROM qa_runs WHERE qa_kind='review'",
+        )
+        or 0
+    )
 
     structural_stale = _qa_requirements_structurally_stale(conn)
     needs_rebuild = (
@@ -170,9 +195,34 @@ def _migrate_qa_vocab(conn) -> None:
     if not needs_rebuild:
         return
 
+    snapshot_columns = (
+        "plan_id",
+        "plan_case_key",
+        "case_position",
+        "baseline_position",
+        "method_id",
+        "method_name",
+        "executor_id",
+        "required_capability_kind",
+        "verdict_path",
+        "host_baseline",
+        "entry_surface",
+        "required_completion",
+        "workflow_transition_id",
+        "instructions",
+        "expected_outcome",
+        "method_config",
+    )
+    snapshot_select = ",\n            ".join(
+        column
+        if _column_exists(conn, _QA_REQUIREMENTS_TABLE, column)
+        else f"NULL AS {column}"
+        for column in snapshot_columns
+    )
+
     execute_schema_script(
         conn,
-        """
+        f"""
         ALTER TABLE qa_requirements RENAME TO qa_requirements_old;
 
         CREATE TABLE qa_requirements (
@@ -194,8 +244,16 @@ def _migrate_qa_vocab(conn) -> None:
             waiver_source TEXT,
             plan_id INTEGER,
             plan_case_key TEXT,
+            case_position INTEGER,
+            baseline_position INTEGER,
             method_id TEXT,
+            method_name TEXT,
+            executor_id TEXT,
+            required_capability_kind TEXT,
+            verdict_path TEXT,
             host_baseline TEXT,
+            entry_surface TEXT,
+            required_completion TEXT,
             workflow_transition_id TEXT,
             instructions TEXT,
             expected_outcome TEXT,
@@ -212,9 +270,11 @@ def _migrate_qa_vocab(conn) -> None:
             id, item_id, epic_id, task_num, deployment_run_id, qa_kind, qa_phase,
             target_env, blocking_mode, requirement_source, success_policy,
             capability_requirements, suite_id, waived_at, waiver_rationale,
-            waiver_source, plan_id, plan_case_key, method_id, host_baseline,
-            workflow_transition_id, instructions, expected_outcome,
-            method_config, created_at
+            waiver_source, plan_id, plan_case_key, case_position,
+            baseline_position, method_id, method_name, executor_id,
+            required_capability_kind, verdict_path, host_baseline,
+            entry_surface, required_completion, workflow_transition_id,
+            instructions, expected_outcome, method_config, created_at
         )
         SELECT
             id,
@@ -233,14 +293,7 @@ def _migrate_qa_vocab(conn) -> None:
             waived_at,
             waiver_rationale,
             waiver_source,
-            NULL,
-            NULL,
-            NULL,
-            NULL,
-            NULL,
-            NULL,
-            NULL,
-            NULL,
+            {snapshot_select},
             created_at
         FROM qa_requirements_old;
 
@@ -249,5 +302,5 @@ def _migrate_qa_vocab(conn) -> None:
         UPDATE qa_runs
         SET qa_kind='implementation_review'
         WHERE qa_kind='review';
-        """
+        """,
     )

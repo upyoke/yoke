@@ -46,7 +46,6 @@ def dt_db(tmp_path, monkeypatch):
         CREATE TABLE items (
             id INTEGER PRIMARY KEY,
             title TEXT,
-            type TEXT DEFAULT 'issue',
             status TEXT DEFAULT 'implementing',
             github_issue TEXT,
             project_id INTEGER NOT NULL,
@@ -205,7 +204,7 @@ def _insert_item(db_path, item_id, **kwargs):
     project = kwargs.pop("project", "yoke")
     defaults = {
         "title": f"Test item {item_id}",
-        "type": "issue",
+        "workflow_id": "issue",
         "status": "implementing",
         "project_id": _project_id(project),
         "project_sequence": item_id,
@@ -215,7 +214,7 @@ def _insert_item(db_path, item_id, **kwargs):
     conn = connect_dt_db(db_path)
     from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
 
-    workflow_id = str(defaults["type"])
+    workflow_id = str(defaults["workflow_id"])
     _, version_id = resolve_current_workflow_pin(conn, workflow_id)
     defaults["workflow_id"] = workflow_id
     defaults["workflow_version_id"] = version_id

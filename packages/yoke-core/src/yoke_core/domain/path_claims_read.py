@@ -19,9 +19,7 @@ def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def _path_strings_for(
-    conn: Any, target_ids: Iterable[int]
-) -> List[str]:
+def _path_strings_for(conn: Any, target_ids: Iterable[int]) -> List[str]:
     """Resolve target ids to readable project-relative paths."""
     cache = {}
     out: List[str] = []
@@ -40,9 +38,7 @@ def _path_strings_for(
     return out
 
 
-def _target_details_for(
-    conn: Any, target_ids: Iterable[int]
-) -> List[dict]:
+def _target_details_for(conn: Any, target_ids: Iterable[int]) -> List[dict]:
     """Resolve target ids to dicts for dispatch JSON and body rendering."""
     ids = list(target_ids)
     if not ids:
@@ -65,19 +61,20 @@ def _target_details_for(
     out: List[dict] = []
     for tid in ids:
         out.append(
-            cache.get(int(tid), {
-                "target_id": int(tid),
-                "path_string": f"<unknown target {tid}>",
-                "kind": "unknown",
-                "materialization_state": "unknown",
-            })
+            cache.get(
+                int(tid),
+                {
+                    "target_id": int(tid),
+                    "path_string": f"<unknown target {tid}>",
+                    "kind": "unknown",
+                    "materialization_state": "unknown",
+                },
+            )
         )
     return out
 
 
-def _amendments_for(
-    conn: Any, claim_id: int
-) -> List[dict]:
+def _amendments_for(conn: Any, claim_id: int) -> List[dict]:
     """Return the amendment history for one claim, oldest first."""
     p = _p(conn)
     rows = conn.execute(
@@ -135,7 +132,9 @@ def _blocking_conflicts_for(
     expanded_set = set(expanded_targets)
     for cand_id, cand_state in candidates:
         if state != "blocked" and _pair_is_serial(
-            conn, claim_id=claim_id, blocking_claim_id=int(cand_id),
+            conn,
+            claim_id=claim_id,
+            blocking_claim_id=int(cand_id),
         ):
             continue
         overlap_ids = [
@@ -162,7 +161,10 @@ def _blocking_conflicts_for(
 
 
 def _pair_is_serial(
-    conn: Any, *, claim_id: int, blocking_claim_id: int,
+    conn: Any,
+    *,
+    claim_id: int,
+    blocking_claim_id: int,
 ) -> bool:
     """Return True when the pair is ordered by dep graph or override."""
     from yoke_core.domain.path_claims_dependency_resolver import (
@@ -184,14 +186,17 @@ def _pair_is_serial(
     )
 
 
-def claim_projection(
-    conn: Any, claim_id: int
-) -> dict:
+def claim_projection(conn: Any, claim_id: int) -> dict:
     """Return the rich, agent-readable projection for one claim."""
     base = get_claim(conn, claim_id)
     target_ids = [int(t) for t in base.get("target_ids") or []]
     paths = _path_strings_for(conn, target_ids)
     target_details = _target_details_for(conn, target_ids)
+    from yoke_core.domain.path_claim_task_bindings import (
+        task_bindings_for_claim,
+    )
+
+    task_bindings = task_bindings_for_claim(conn, claim_id)
     amendments = _amendments_for(conn, claim_id)
     conflicts = _blocking_conflicts_for(
         conn,
@@ -204,6 +209,7 @@ def claim_projection(
         **base,
         "declared_paths": paths,
         "declared_targets": target_details,
+        "task_bindings": task_bindings,
         "amendments": amendments,
         "blocking_conflicts": conflicts,
     }

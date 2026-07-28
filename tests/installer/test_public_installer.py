@@ -116,7 +116,7 @@ def test_install_command_honors_base_url_for_index_host() -> None:
     assert installer._uv_index_config_text() == (
         "[[index]]\n"
         'name = "yoke-private"\n'
-        "url = \"https://api.stage.upyoke.com/simple/\"\n"
+        'url = "https://api.stage.upyoke.com/simple/"\n'
         "ignore-error-codes = [403]\n"
     )
     assert command.count("--config-file") == 0
@@ -400,4 +400,4 @@ def test_uv_install_failure_redacts_index_credentials(tmp_path: Path) -> None:
     assert "installer-user" not in message
     assert "installer-user" not in rendered
     assert "https://example.invalid/simple/yoke-cli/" in message
-    assert "curl -fsSL https://example.invalid/install | bash" in rendered
+    assert "curl -fsSL https://example.invalid/install | sh" in rendered

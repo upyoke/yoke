@@ -23,6 +23,66 @@ from yoke_core.domain.deployment_runs_schema import (
 )
 from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.deployment_flow_state import require_flow_for_new_run
+from yoke_core.domain.workflow_item_binding_lock import (
+    lock_item_workflow_bindings,
+)
+from yoke_core.domain.workflow_delivery_binding_validation import (
+    validate_deployment_run_item,
+    validate_deployment_run_items,
+)
+
+_RUN_MEMBERSHIP_LOCK_RETRIES = 5
+
+
+def _lock_run(conn, run_id: str) -> Optional[str]:
+    suffix = " FOR UPDATE" if db_backend.connection_is_postgres(conn) else ""
+    row = conn.execute(
+        f"SELECT status FROM deployment_runs WHERE id=%s{suffix}",
+        (run_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    return str(row["status"] if hasattr(row, "keys") else row[0])
+
+
+def _require_composable_run(conn, run_id: str) -> None:
+    status = _lock_run(conn, run_id)
+    if status is None:
+        raise LookupError(f"deployment run '{run_id}' not found")
+    if status != "created":
+        raise ValueError(
+            f"deployment run '{run_id}' is {status}; membership is mutable "
+            "only while status='created'"
+        )
+
+
+def _run_item_ids(conn, run_id: str) -> tuple[int, ...]:
+    rows = conn.execute(
+        "SELECT item_id FROM deployment_run_items WHERE run_id=%s ORDER BY item_id",
+        (run_id,),
+    ).fetchall()
+    return tuple(
+        int(row["item_id"]) if hasattr(row, "keys") else int(row[0]) for row in rows
+    )
+
+
+def _lock_run_with_stable_membership(
+    conn,
+    run_id: str,
+) -> tuple[Optional[str], tuple[int, ...]]:
+    """Lock workflow bindings before the run and reject a stale member snapshot."""
+    for _attempt in range(_RUN_MEMBERSHIP_LOCK_RETRIES):
+        item_ids = _run_item_ids(conn, run_id)
+        lock_item_workflow_bindings(conn, item_ids)
+        status = _lock_run(conn, run_id)
+        if status is None:
+            return None, ()
+        if _run_item_ids(conn, run_id) == item_ids:
+            return status, item_ids
+        conn.rollback()
+    raise RuntimeError(
+        f"deployment run '{run_id}' membership changed repeatedly while locking"
+    )
 
 
 def cmd_next_id(db_path: Optional[str] = None) -> str:
@@ -63,12 +123,12 @@ def cmd_create_run(
     conn = connect(db_path)
     try:
         if db_backend.connection_is_postgres(conn):
-            conn.execute(
-                "LOCK TABLE deployment_runs IN SHARE ROW EXCLUSIVE MODE"
-            )
+            conn.execute("LOCK TABLE deployment_runs IN SHARE ROW EXCLUSIVE MODE")
         project_id = resolve_project_id(conn, project)
         _flow_project_id, flow_default = require_flow_for_new_run(
-            conn, flow, project_id=project_id,
+            conn,
+            flow,
+            project_id=project_id,
         )
         # If no target_env, resolve from flow's target_env column
         if not target_env:
@@ -84,13 +144,18 @@ def cmd_create_run(
             "(id, project_id, flow, target_env, release_lineage, created_by, created_at) "
             "VALUES (%s, %s, %s, %s, %s, %s, %s) "
             "ON CONFLICT (id) DO NOTHING RETURNING id",
-            (run_id, project_id, flow, target_env or None, release_lineage or None,
-             created_by, iso8601_now()),
+            (
+                run_id,
+                project_id,
+                flow,
+                target_env or None,
+                release_lineage or None,
+                created_by,
+                iso8601_now(),
+            ),
         ).fetchone()
         if inserted is None:
-            raise RuntimeError(
-                f"deployment run ID {run_id} was claimed concurrently"
-            )
+            raise RuntimeError(f"deployment run ID {run_id} was claimed concurrently")
         conn.commit()
         return run_id
     finally:
@@ -101,6 +166,13 @@ def cmd_add_item(run_id: str, item_id: int, db_path: Optional[str] = None) -> st
     """Add item to run. Returns confirmation message."""
     conn = connect(db_path)
     try:
+        lock_item_workflow_bindings(conn, (int(item_id),))
+        _require_composable_run(conn, run_id)
+        validate_deployment_run_item(
+            conn,
+            run_id=run_id,
+            item_id=int(item_id),
+        )
         conn.execute(
             "INSERT INTO deployment_run_items (run_id, item_id, added_at) "
             "VALUES (%s, %s, %s)",
@@ -116,6 +188,8 @@ def cmd_remove_item(run_id: str, item_id: int, db_path: Optional[str] = None) ->
     """Remove item from run. Returns confirmation message."""
     conn = connect(db_path)
     try:
+        lock_item_workflow_bindings(conn, (int(item_id),))
+        _require_composable_run(conn, run_id)
         conn.execute(
             "DELETE FROM deployment_run_items WHERE run_id=%s AND item_id=%s",
             (run_id, item_id),
@@ -144,23 +218,32 @@ def cmd_update(
 
     conn = connect(db_path)
     try:
-        exists = query_scalar(
-            conn, "SELECT COUNT(*) FROM deployment_runs WHERE id=%s", (run_id,)
-        )
-        if not exists:
-            return f"Error: deployment run '{run_id}' not found"
-
         if field == "status":
+            status, item_ids = _lock_run_with_stable_membership(conn, run_id)
+            if status is None:
+                return f"Error: deployment run '{run_id}' not found"
             if value not in VALID_STATUSES:
                 return f"Error: invalid status '{value}'"
+            if value in {"created", "executing"}:
+                try:
+                    validate_deployment_run_items(
+                        conn,
+                        run_id=run_id,
+                        item_ids=item_ids,
+                    )
+                except ValueError as exc:
+                    return f"Error: {exc}"
 
             # Cross-field consistency guard for status=succeeded
             if value == "succeeded":
-                cur_stage = query_scalar(
-                    conn,
-                    "SELECT COALESCE(current_stage, '') FROM deployment_runs WHERE id=%s",
-                    (run_id,),
-                ) or ""
+                cur_stage = (
+                    query_scalar(
+                        conn,
+                        "SELECT COALESCE(current_stage, '') FROM deployment_runs WHERE id=%s",
+                        (run_id,),
+                    )
+                    or ""
+                )
 
                 if cur_stage:
                     # Reject if current_stage ends in '-failed'
@@ -218,6 +301,8 @@ def cmd_update(
                 )
                 conn.commit()
                 return None
+        elif _lock_run(conn, run_id) is None:
+            return f"Error: deployment run '{run_id}' not found"
 
         conn.execute(
             f"UPDATE deployment_runs SET {field}=%s WHERE id=%s",

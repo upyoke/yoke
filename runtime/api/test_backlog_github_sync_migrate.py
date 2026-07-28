@@ -63,7 +63,7 @@ class TestMigrateIssueToRepo:
     def test_successful_migration(self):
         db = _make_db()
         insert_item(
-            db, id=90, type="issue", status="idea",
+            db, id=90, workflow_id="issue", status="idea",
             project="yoke", github_issue="#200",
         )
         stdout = io.StringIO()
@@ -126,7 +126,7 @@ class TestMigrateIssueToRepo:
     def test_migration_with_comments(self):
         db = _make_db()
         insert_item(
-            db, id=91, type="issue", status="idea",
+            db, id=91, workflow_id="issue", status="idea",
             project="yoke", github_issue="#201",
         )
         stdout = io.StringIO()
@@ -161,7 +161,7 @@ class TestMigrateIssueToRepo:
     def test_migration_closed_issue_matches_state(self):
         db = _make_db()
         insert_item(
-            db, id=92, type="issue", status="done",
+            db, id=92, workflow_id="issue", status="done",
             project="yoke", github_issue="#202",
         )
         stdout = io.StringIO()

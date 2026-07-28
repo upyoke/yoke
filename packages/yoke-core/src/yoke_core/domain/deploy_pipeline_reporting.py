@@ -1,9 +1,4 @@
-"""Deployment pipeline reporting helpers — subprocess wrappers, events, GH poll.
-
-Extracted from :mod:`yoke_core.domain.deploy_pipeline` as the
-reporting/status output slice. Gate logic (gate-branch resolution, merged
-gate, CI gate) lives in :mod:`yoke_core.domain.deploy_pipeline_gates`.
-"""
+"""Deployment pipeline subprocess, event, status, and GitHub-poll helpers."""
 
 from __future__ import annotations
 
@@ -23,10 +18,6 @@ from yoke_contracts.machine_config.schema import (
 GITHUB_ACTIONS_RELAY_ENV = "YOKE_GITHUB_ACTIONS_RELAY_ENV"
 GITHUB_ACTIONS_LOCAL_AUTHORITY_ENV = "YOKE_GITHUB_ACTIONS_LOCAL_AUTHORITY"
 
-
-# ---------------------------------------------------------------------------
-# Low-level subprocess helpers
-# ---------------------------------------------------------------------------
 
 def _run_cmd(cmd: List[str], timeout: int = 60) -> subprocess.CompletedProcess:
     return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
@@ -155,10 +146,6 @@ def _github_actions(
     )
 
 
-# ---------------------------------------------------------------------------
-# Script-dir / DB dispatch helpers
-# ---------------------------------------------------------------------------
-
 def _resolve_script_dir() -> str:
     from yoke_core.api.repo_root import find_repo_root
 
@@ -237,7 +224,17 @@ def _emit_run_event(
     project: str = "yoke",
     sd: Optional[str] = None,
 ) -> None:
-    """Emit deployment run event, one per member item."""
+    """Emit stage events per item and one canonical addressed terminal event."""
+    if name in {"DeploymentRunSucceeded", "DeploymentRunFailed"}:
+        from yoke_core.domain.deploy_pipeline_completion import emit_completion
+
+        emit_completion(
+            str(context["run_id"]),
+            name,
+            outcome,
+            context,
+        )
+        return
     ctx_json = json.dumps(context)
     targets = member_items if member_items else [""]
     for item_id in targets:

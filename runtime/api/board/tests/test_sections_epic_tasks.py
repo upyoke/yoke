@@ -48,8 +48,8 @@ class TestRenderSectionPrecomputedEpicTaskRows:
             ItemRow(
                 3,
                 "YOK-201",
-                "My Epic",
-                "epic",
+                "Task graph",
+                "portfolio",
                 "medium",
                 "implementing",
                 "1/2 (50%)",

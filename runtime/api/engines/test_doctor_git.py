@@ -275,7 +275,7 @@ class TestHcCrossProjectCommits:
         conn = _make_conn()
         _seed_project(conn, "externalwebapp")
         _insert_item(conn, 42, "ExternalWebapp fix", project="externalwebapp",
-                     type="issue", status="done")
+                     workflow_id="issue", status="done")
         mock_run.side_effect = [
             # git log for the item
             _make_completed(stdout="aabbccddee\n"),
@@ -292,7 +292,7 @@ class TestHcCrossProjectCommits:
         conn = _make_conn()
         _seed_project(conn, "externalwebapp")
         _insert_item(conn, 42, "ExternalWebapp fix", project="externalwebapp",
-                     type="issue", status="done")
+                     workflow_id="issue", status="done")
         mock_run.side_effect = [
             # git log for the item
             _make_completed(stdout="aabbccddee\n"),

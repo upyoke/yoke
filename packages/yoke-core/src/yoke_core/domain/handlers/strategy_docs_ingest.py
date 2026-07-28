@@ -94,6 +94,14 @@ class IngestRequest(BaseModel):
             "teaching only — the handler does no file I/O."
         ),
     )
+    reviewer_actor_id: Optional[int] = Field(
+        None,
+        gt=0,
+        description=(
+            "Optional named reviewer for each written revision; project roles "
+            "remain fallback authority."
+        ),
+    )
 
 
 class IngestResponse(BaseModel):
@@ -191,6 +199,7 @@ def handle_ingest(request: FunctionCallRequest) -> HandlerOutcome:
                                 project_id=project.id,
                                 slug=str(doc["slug"]),
                                 originator_actor_id=actor_id,
+                                reviewer_actor_id=payload.reviewer_actor_id,
                                 session_id=session_id,
                             )
     except _docs.UnknownStrategyDocError as exc:
@@ -201,6 +210,8 @@ def handle_ingest(request: FunctionCallRequest) -> HandlerOutcome:
         return _err("empty_content_refused", str(exc))
     except StrategyHeaderError as exc:
         return _err("ingest_header_invalid", str(exc))
+    except LookupError as exc:
+        return _err("reviewer_not_found", str(exc))
 
     bodies = {plan.slug: plan.file_body for plan in plans}
     archived_by_slug = {plan.slug: plan.archived for plan in plans}

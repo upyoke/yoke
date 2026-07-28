@@ -18,6 +18,9 @@ import pytest
 
 from yoke_core.domain import deployment_runs as dr
 from yoke_core.domain import db_backend
+from runtime.api.api_workflow_test_helpers import (
+    install_workflow_registry_and_pin_items,
+)
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 
@@ -49,7 +52,6 @@ _SCHEMA_DDL = """
     CREATE TABLE IF NOT EXISTS items (
         id INTEGER PRIMARY KEY,
         title TEXT NOT NULL DEFAULT '',
-        type TEXT NOT NULL DEFAULT 'issue',
         status TEXT NOT NULL DEFAULT 'idea',
         priority TEXT NOT NULL DEFAULT 'medium',
         project_id INTEGER NOT NULL DEFAULT 1,
@@ -74,6 +76,7 @@ _SCHEMA_DDL = """
         created_at TEXT NOT NULL,
         UNIQUE(dependent_item, blocking_item, gate_point)
     );
+
 """
 
 
@@ -88,6 +91,7 @@ def _apply_schema() -> None:
     conn = db_backend.connect()
     try:
         apply_fixture_ddl(conn, _SCHEMA_DDL)
+        install_workflow_registry_and_pin_items(conn)
     finally:
         conn.close()
     dr.cmd_init()
@@ -112,3 +116,29 @@ def _conn(db_path: str):
 
 def _placeholder(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
+
+
+def _insert_delivery_ready_item(db_path: str, item_id: int) -> None:
+    from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
+
+    conn = _conn(db_path)
+    try:
+        workflow_id, workflow_version_id = resolve_current_workflow_pin(
+            conn,
+            "issue",
+        )
+        conn.execute(
+            "INSERT INTO items ("
+            "id, title, workflow_id, workflow_version_id, status, "
+            "project_id, project_sequence, deployment_flow, "
+            "created_at, updated_at"
+            ") VALUES ("
+            "%s, 'deployment member', %s, %s, 'implemented', "
+            "1, %s, 'yoke-internal', "
+            "'2026-07-28T00:00:00Z', '2026-07-28T00:00:00Z'"
+            ")",
+            (item_id, workflow_id, workflow_version_id, item_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()

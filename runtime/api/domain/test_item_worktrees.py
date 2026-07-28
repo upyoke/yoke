@@ -17,6 +17,9 @@ from yoke_core.domain.workflow_behavior import (
     LANE_INTEGRATION,
     LANE_WORKER,
 )
+from yoke_core.domain.workflow_item_binding_validation import (
+    WorkflowItemBindingError,
+)
 
 
 def test_single_lane_record_refresh_and_release(test_db):
@@ -90,5 +93,24 @@ def test_active_path_cannot_be_owned_by_two_items(test_db):
             item_id=925,
             branch="YOK-925",
             path="/tmp/shared-item-worktree",
+            lane_role=LANE_IMPLEMENTATION,
+        )
+
+
+@pytest.mark.parametrize("status", ["done", "cancelled", "stopped"])
+def test_terminal_item_cannot_recreate_active_lane(test_db, status):
+    insert_item(
+        test_db,
+        id=926,
+        workflow_id="issue",
+        status=status,
+    )
+
+    with pytest.raises(WorkflowItemBindingError, match="is terminal"):
+        record_item_worktree(
+            test_db,
+            item_id=926,
+            branch=f"YOK-926-{status}",
+            path=None,
             lane_role=LANE_IMPLEMENTATION,
         )

@@ -2,6 +2,7 @@
 """Shared fixtures for the board renderer test suite."""
 from __future__ import annotations
 
+import json
 import textwrap
 from datetime import datetime, timedelta
 from functools import partial
@@ -19,6 +20,9 @@ from yoke_core.board.tests.helpers import (
     insert_task,
     insert_transition,
     insert_zen_items,
+)
+from yoke_core.domain.builtin_workflow_definitions import (
+    builtin_workflow_definition,
 )
 from runtime.api.fixtures.file_test_db import (
     apply_inline_ddl,
@@ -58,6 +62,13 @@ _SCHEMA_DDL = textwrap.dedent("""\
         github_repo TEXT DEFAULT '',
         public_item_prefix TEXT DEFAULT 'YOK',
         created_at TEXT DEFAULT '2025-01-01'
+    );
+
+    CREATE TABLE workflow_versions (
+        id INTEGER PRIMARY KEY,
+        workflow_id TEXT NOT NULL,
+        version INTEGER NOT NULL,
+        definition_json TEXT NOT NULL
     );
 
     CREATE TABLE epic_tasks (
@@ -136,6 +147,17 @@ def test_db_path(tmp_path):
         tmp_path,
         apply_schema=partial(apply_inline_ddl, _SCHEMA_DDL),
     ) as db_path:
+        conn = connect_test_db(db_path)
+        for version_id, workflow_id in ((1, "issue"), (2, "epic")):
+            definition = builtin_workflow_definition(workflow_id)["definition"]
+            conn.execute(
+                "INSERT INTO workflow_versions "
+                "(id, workflow_id, version, definition_json) "
+                "VALUES (%s, %s, 1, %s)",
+                (version_id, workflow_id, json.dumps(definition)),
+            )
+        conn.commit()
+        conn.close()
         yield db_path
 
 

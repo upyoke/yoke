@@ -27,7 +27,7 @@ class TestSyncEpicTasks:
         insert_item(
             db,
             id=10,
-            type="epic",
+            workflow_id="epic",
             status="implementing",
             project="externalwebapp",
             spec="body",
@@ -69,7 +69,7 @@ class TestSyncEpicTasks:
         insert_item(
             db,
             id=10,
-            type="epic",
+            workflow_id="epic",
             status="implementing",
             project="externalwebapp",
             spec="body",

@@ -79,15 +79,28 @@ class TestQueryItem:
 
     def test_frozen_zero_maps_to_false(self, db_path):
         """frozen=0 should return 'false'."""
-        insert_item(item_id=3, title="Not frozen", workflow="issue",
-                    status="idea", priority="medium", frozen=0,
-                    created_at="2026-01-01T00:00:00Z",
-                    updated_at="2026-01-01T00:00:00Z", db_path=db_path)
+        insert_item(
+            item_id=3,
+            title="Not frozen",
+            workflow="issue",
+            status="idea",
+            priority="medium",
+            frozen=0,
+            created_at="2026-01-01T00:00:00Z",
+            updated_at="2026-01-01T00:00:00Z",
+            db_path=db_path,
+        )
         result = query_item(3, "frozen", db_path=db_path)
         assert result == "false"
 
     def test_frozen_maps_to_true(self, db_path):
-        insert_item(item_id=2, title="Frozen", frozen=1, db_path=db_path)
+        insert_item(
+            item_id=2,
+            title="Frozen",
+            workflow="issue",
+            frozen=1,
+            db_path=db_path,
+        )
         result = query_item(2, "frozen", db_path=db_path)
         assert result == "true"
 
@@ -115,6 +128,7 @@ class TestQueryItemRow:
         insert_item(
             item_id=3,
             title="Multiline",
+            workflow="issue",
             db_path=db_path,
         )
         update_structured_field(3, "spec", "line1\nline2\nline3", db_path=db_path)
@@ -140,23 +154,45 @@ class TestInsertItem:
         assert query_item(10, "source", db_path=db_path) == "test"
 
     def test_insert_with_minimal_fields(self, db_path):
-        insert_item(item_id=11, title="Minimal", db_path=db_path)
+        insert_item(item_id=11, title="Minimal", workflow="issue", db_path=db_path)
         assert query_item(11, "title", db_path=db_path) == "Minimal"
 
     def test_insert_with_minimal_fields_stores_null_spec(self, db_path):
-        insert_item(item_id=12, title="No spec", db_path=db_path)
+        insert_item(item_id=12, title="No spec", workflow="issue", db_path=db_path)
         # No spec content set; COALESCE returns ''
         assert query_item(12, "spec", db_path=db_path) == ""
 
     def test_duplicate_id_raises(self, db_with_item):
         with pytest.raises(db_backend.integrity_error_types()):
-            insert_item(item_id=1, title="Dup", db_path=db_with_item)
+            insert_item(item_id=1, title="Dup", workflow="issue", db_path=db_with_item)
+
+    def test_insert_requires_workflow(self, db_path):
+        with pytest.raises(ValueError, match="workflow is required"):
+            insert_item(item_id=13, title="Unclassified", db_path=db_path)
 
 
 class TestUpdateItemField:
-    def test_update_status(self, db_with_item):
-        update_item_field(1, "status", "implementing", db_path=db_with_item)
-        assert query_item(1, "status", db_path=db_with_item) == "implementing"
+    @pytest.mark.parametrize(
+        "field",
+        [
+            "status",
+            "workflow_id",
+            "workflow_posture",
+            "workflow_version_id",
+        ],
+    )
+    def test_workflow_controlled_fields_require_canonical_surface(
+        self,
+        db_with_item,
+        field,
+    ):
+        with pytest.raises(ValueError, match="lifecycle.transition.execute"):
+            update_item_field(
+                1,
+                field,
+                "replacement",
+                db_path=db_with_item,
+            )
 
     def test_update_sets_updated_at(self, db_with_item):
         old_ts = query_item(1, "updated_at", db_path=db_with_item)

@@ -71,7 +71,9 @@ def registered_scalar(test_db):
         register(**entry)
     p_event = patch.object(events_module, "emit_event")
     p_idem = patch.object(
-        dispatch_module, "_idempotency_lookup", return_value=None,
+        dispatch_module,
+        "_idempotency_lookup",
+        return_value=None,
     )
     p_event.start()
     p_idem.start()
@@ -97,7 +99,9 @@ def _post_scalar(test_db, envelope, claim_row=_UNSET):
     """
     target = _claim_held() if claim_row is _UNSET else claim_row
     with patch.object(
-        claims_module, "who_claims_for_item", return_value=target,
+        claims_module,
+        "who_claims_for_item",
+        return_value=target,
     ):
         with _client_for_db(test_db["db_path"]) as client:
             return client.post("/v1/functions/call", json=envelope)
@@ -130,10 +134,13 @@ def _clear_process_session_env(monkeypatch):
 
 
 class TestScalarUpdateRoutesThroughPrepareUpdate:
-    """AC-5.1: function-call surface shares the PATCH route's gate path."""
+    """The function-call surface owns canonical status mutation gates."""
 
     def test_status_field_writes_db_row(
-        self, registered_scalar, test_db, monkeypatch,
+        self,
+        registered_scalar,
+        test_db,
+        monkeypatch,
     ):
         # Seed qa_requirement so the reviewing-implementation gate is happy.
         conn = connect_test_db(test_db["db_path"])
@@ -153,7 +160,9 @@ class TestScalarUpdateRoutesThroughPrepareUpdate:
         resp = _post_scalar(
             test_db,
             _scalar_envelope(
-                1, field="status", value="reviewing-implementation",
+                1,
+                field="status",
+                value="reviewing-implementation",
                 qa_bypass=True,
             ),
         )
@@ -188,7 +197,10 @@ class TestScalarUpdateGateMapping:
     """AC-5.2: gate-unmet codes collapse to lifecycle_gate_unmet (HTTP 422)."""
 
     def test_status_gate_unmet_returns_lifecycle_gate_unmet(
-        self, registered_scalar, test_db, monkeypatch,
+        self,
+        registered_scalar,
+        test_db,
+        monkeypatch,
     ):
         # Item 1 is in 'implementing' with no qa_requirements seeded, so a
         # reviewing-implementation transition triggers GATE_QA_REVIEWING in
@@ -198,7 +210,9 @@ class TestScalarUpdateGateMapping:
         resp = _post_scalar(
             test_db,
             _scalar_envelope(
-                1, field="status", value="reviewing-implementation",
+                1,
+                field="status",
+                value="reviewing-implementation",
             ),
         )
         assert resp.status_code == 422, resp.text
@@ -207,7 +221,9 @@ class TestScalarUpdateGateMapping:
         assert body["error"]["code"] == "lifecycle_gate_unmet"
 
     def test_invalid_priority_returns_validation_error(
-        self, registered_scalar, test_db,
+        self,
+        registered_scalar,
+        test_db,
     ):
         resp = _post_scalar(
             test_db,
@@ -233,7 +249,9 @@ class TestScalarUpdateFrozenRejection:
         assert resp.json()["error"]["code"] == "frozen"
 
     def test_frozen_field_toggle_is_allowed_even_when_frozen(
-        self, registered_scalar, test_db,
+        self,
+        registered_scalar,
+        test_db,
     ):
         """The frozen field itself is exempt so operators can thaw items."""
         conn = connect_test_db(test_db["db_path"])
@@ -241,7 +259,8 @@ class TestScalarUpdateFrozenRejection:
         conn.commit()
         conn.close()
         resp = _post_scalar(
-            test_db, _scalar_envelope(1, field="frozen", value=False),
+            test_db,
+            _scalar_envelope(1, field="frozen", value=False),
         )
         assert resp.status_code == 200, resp.text
         assert resp.json()["success"]
@@ -252,12 +271,15 @@ class TestScalarUpdateClaimRequired:
 
     def test_claim_required_kind_is_item(self, registered_scalar):
         from yoke_core.domain.yoke_function_registry import lookup
+
         entry = lookup("items.scalar.update")
         assert entry is not None
         assert entry.claim_required_kind == "item"
 
     def test_call_without_claim_returns_claim_required(
-        self, registered_scalar, test_db,
+        self,
+        registered_scalar,
+        test_db,
     ):
         """Session without an active claim sees error.code='claim_required'."""
         resp = _post_scalar(
@@ -269,7 +291,9 @@ class TestScalarUpdateClaimRequired:
         assert resp.json()["error"]["code"] == "claim_required"
 
     def test_call_with_mismatched_session_returns_claim_required(
-        self, registered_scalar, test_db,
+        self,
+        registered_scalar,
+        test_db,
     ):
         """Session id mismatch is rejected with claim_required."""
         resp = _post_scalar(

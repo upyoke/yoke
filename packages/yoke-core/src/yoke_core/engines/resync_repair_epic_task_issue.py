@@ -25,7 +25,7 @@ from yoke_core.domain import db_backend
 from yoke_core.domain import github_rest
 from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.epic import task_get_body
-from yoke_core.domain.lifecycle import TASK_TERMINAL_SUCCESS
+from yoke_core.domain.task_lifecycle import TASK_TERMINAL_SUCCESS
 
 
 @dataclass(frozen=True)

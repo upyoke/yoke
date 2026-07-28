@@ -9,19 +9,29 @@ from .sessions_analytics import (
     EVENT_HARNESS_SESSION_ENDED,
     SessionError,
 )
-from .sessions_lifecycle_destructive_guard import handle_release_claims_branch
+from .sessions_claim_lifecycle_lock import lock_session_rows_for_claim_lifecycle
+from .sessions_lifecycle_destructive_guard import (
+    emit_release_claims_branch_event,
+    prepare_release_claims_branch,
+)
 from .sessions_lifecycle_registry import _get_session
 from .sessions_orphan_tool_call_sweep import sweep_orphaned_tool_calls
 from .sessions_queries import _now_iso
 from .sessions_render_attribution import clear_current_item
 from .sessions_render_end_chain_pending import (
     chain_pending_state as _chain_pending_state,
-    last_released_at as _last_released_at,
-    next_action_command as _next_action_command,
-    next_offer_step as _next_offer_step,
 )
-from .sessions_render_end_claim_release import release_session_claims
+from .sessions_render_end_claim_release import (
+    emit_session_claim_releases_post_commit,
+    release_session_claims_transactional,
+)
+from .workflow_item_binding_lock import (
+    lock_work_claims_workflow_bindings,
+    rollback_workflow_binding_write_errors,
+)
 
+
+@rollback_workflow_binding_write_errors
 def end_session(
     conn: Any,
     session_id: str,
@@ -77,13 +87,10 @@ def end_session(
     """
     now = _now_iso()
 
-    row = conn.execute(
-        "SELECT ended_at FROM harness_sessions WHERE session_id = %s",
-        (session_id,),
-    ).fetchone()
-    if row is None:
+    session_rows = lock_session_rows_for_claim_lifecycle(conn, (session_id,))
+    if session_id not in session_rows:
         raise SessionError("NOT_FOUND", f"Session '{session_id}' not found.")
-    if row["ended_at"] is not None:
+    if session_rows[session_id] is not None:
         raise SessionError(
             "SESSION_ENDED",
             f"Session '{session_id}' has already ended.",
@@ -107,18 +114,18 @@ def end_session(
             "to end anyway.",
         )
 
-    if state.pending and chain_override_authorized:
-        from .scheduler_events import emit_chain_decline_overridden
-
-        emit_chain_decline_overridden(
-            session_id=session_id,
-            checkpoint_step=state.step,
-            max_chain_steps=state.max_chain_steps,
-            rationale=rationale,
-            action=state.action,
-            item_id=state.item_id,
-        )
-
+    active_claim_rows = conn.execute(
+        """SELECT id, target_kind, item_id, epic_id, task_num,
+                  process_key, conflict_group
+           FROM work_claims
+           WHERE session_id = %s AND released_at IS NULL
+           ORDER BY claimed_at ASC, id ASC""",
+        (session_id,),
+    ).fetchall()
+    lock_work_claims_workflow_bindings(
+        conn,
+        (int(claim_row["id"]) for claim_row in active_claim_rows),
+    )
     active_claim_rows = conn.execute(
         """SELECT id, target_kind, item_id, epic_id, task_num,
                   process_key, conflict_group
@@ -141,20 +148,35 @@ def end_session(
     #     cascade through the existing release behavior.
     presence_evidence: Optional[Dict[str, Any]] = None
     released_claims: List[Dict[str, Any]] = []
+    post_commit_receipts: List[Dict[str, Any]] = []
+    destructive_event_context: Optional[Dict[str, Any]] = None
+    destructive_released_count = 0
     if active_claim_rows:
         if release_claims:
-            presence_evidence = handle_release_claims_branch(
-                conn,
-                session_id,
-                force=force,
-                active_claim_rows=active_claim_rows,
-                chain_override_authorized=chain_override_authorized,
+            presence_evidence, destructive_event_context = (
+                prepare_release_claims_branch(
+                    conn,
+                    session_id,
+                    force=force,
+                    active_claim_rows=active_claim_rows,
+                    chain_override_authorized=chain_override_authorized,
+                )
             )
+            staged_releases, post_commit_receipts = (
+                release_session_claims_transactional(
+                    conn,
+                    session_id,
+                    active_claim_rows=active_claim_rows,
+                )
+            )
+            destructive_released_count = len(staged_releases)
         else:
-            released_claims = release_session_claims(
-                conn,
-                session_id,
-                active_claim_rows=active_claim_rows,
+            released_claims, post_commit_receipts = (
+                release_session_claims_transactional(
+                    conn,
+                    session_id,
+                    active_claim_rows=active_claim_rows,
+                )
             )
 
     # No active claims — safe to end. Both branches above release claims
@@ -163,10 +185,11 @@ def end_session(
     # vs. CLI entry beyond the harness's own audit trail.
     if active_claim_rows:
         sweep_orphaned_tool_calls(
-            conn, session_id=session_id,
+            conn,
+            session_id=session_id,
             lifecycle_reason="session_end_destructive",
         )
-    clear_current_item(conn, session_id)
+    clear_current_item(conn, session_id, commit=False)
 
     # Mark session as ended
     conn.execute(
@@ -174,6 +197,31 @@ def end_session(
         (now, session_id),
     )
     conn.commit()
+
+    if state.pending and chain_override_authorized:
+        from .scheduler_events import emit_chain_decline_overridden
+
+        emit_chain_decline_overridden(
+            session_id=session_id,
+            checkpoint_step=state.step,
+            max_chain_steps=state.max_chain_steps,
+            rationale=rationale,
+            action=state.action,
+            item_id=state.item_id,
+        )
+    if destructive_event_context is not None:
+        emit_release_claims_branch_event(
+            session_id,
+            released_count=destructive_released_count,
+            context=destructive_event_context,
+        )
+    elif released_claims:
+        emit_session_claim_releases_post_commit(
+            conn,
+            session_id,
+            released=released_claims,
+            post_commit_receipts=post_commit_receipts,
+        )
 
     end_context: Dict[str, Any] = {
         "reason": "session_ended",
@@ -198,121 +246,4 @@ def end_session(
     return session_row
 
 
-def end_session_if_empty(
-    conn: Any,
-    session_id: str,
-    *,
-    triggered_by: str = "stop-hook",
-) -> Dict[str, Any]:
-    """End a session only when it has no active unreleased claims AND no chain-pending budget.
-
-    This shared lifecycle primitive lets harness stop/session-end hooks clean up
-    idle sessions without breaking ownership continuity. Sessions that still
-    hold claims, or whose persisted chain checkpoint is chainable within
-    budget, remain active and are reported as skipped.
-
-    Returns a plain dict with a stable status:
-      - ``ended`` when the session was closed
-      - ``has_claims`` when active claims prevented cleanup
-      - ``chain_pending`` when no claims remain but a chainable checkpoint
-        still has budget — the loop intentionally released its claim mid-chain
-        (e.g. the advance/finalize ``handoff-to-polish`` step); cleanup
-        defers and emits ``ChainEndDeferred`` so the next agent turn can
-        resume via session-offer
-      - ``already_ended`` when the session was already inactive
-      - ``not_found`` when the session does not exist
-    """
-    row = conn.execute(
-        "SELECT ended_at FROM harness_sessions WHERE session_id = %s",
-        (session_id,),
-    ).fetchone()
-    if row is None:
-        return {
-            "session_id": session_id,
-            "status": "not_found",
-            "ended": False,
-            "active_claim_count": 0,
-        }
-    if row["ended_at"] is not None:
-        return {
-            "session_id": session_id,
-            "status": "already_ended",
-            "ended": False,
-            "active_claim_count": 0,
-        }
-
-    claim_count = conn.execute(
-        """SELECT COUNT(*) AS cnt
-           FROM work_claims
-           WHERE session_id = %s AND released_at IS NULL""",
-        (session_id,),
-    ).fetchone()["cnt"]
-    if claim_count:
-        return {
-            "session_id": session_id,
-            "status": "has_claims",
-            "ended": False,
-            "active_claim_count": int(claim_count),
-        }
-
-    state = _chain_pending_state(conn, session_id)
-    if state.pending:
-        from .scheduler_events import emit_chain_end_deferred
-
-        last_release_at = _last_released_at(conn, session_id)
-        next_action = _next_action_command(
-            conn,
-            session_id,
-            _next_offer_step(state),
-        )
-
-        emit_chain_end_deferred(
-            session_id=session_id,
-            triggered_by=triggered_by,
-            checkpoint_step=state.step,
-            max_chain_steps=state.max_chain_steps,
-            handler_outcome=state.handler_outcome,
-            chainable=state.chainable,
-            action=state.action,
-            item_id=state.item_id,
-            last_release_at=last_release_at,
-        )
-
-        return {
-            "session_id": session_id,
-            "status": "chain_pending",
-            "ended": False,
-            "active_claim_count": 0,
-            "checkpoint_step": state.step,
-            "max_chain_steps": state.max_chain_steps,
-            "handler_outcome": state.handler_outcome,
-            "chainable": state.chainable,
-            "action": state.action,
-            "item_id": state.item_id,
-            "last_release_at": last_release_at,
-            "triggered_by": triggered_by,
-            "next_action": next_action,
-        }
-
-    clear_current_item(conn, session_id)
-    now = _now_iso()
-    conn.execute(
-        "UPDATE harness_sessions SET ended_at = %s WHERE session_id = %s",
-        (now, session_id),
-    )
-    conn.commit()
-
-    _sa._emit_session_event(
-        EVENT_HARNESS_SESSION_ENDED,
-        session_id=session_id,
-        context={"reason": "session_empty_auto_ended"},
-    )
-
-    session = _get_session(conn, session_id)
-    return {
-        "session_id": session_id,
-        "status": "ended",
-        "ended": True,
-        "active_claim_count": 0,
-        "session": session,
-    }
+from .sessions_render_end_if_empty import end_session_if_empty  # noqa: E402,F401

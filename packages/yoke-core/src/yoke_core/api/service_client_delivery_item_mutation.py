@@ -29,7 +29,7 @@ from yoke_core.api.service_client_shared import (
 def cmd_create_item(args: list[str]) -> int:
     """Validate and prepare an item creation.
 
-    Usage: create-item --title TITLE [--workflow WORKFLOW] [--priority PRIORITY]
+    Usage: create-item --title TITLE --workflow WORKFLOW [--priority PRIORITY]
                        [--project PROJECT] [--deployment-flow FLOW]
                        [--status STATUS] [--entry-surface SURFACE]
 
@@ -44,7 +44,7 @@ def cmd_create_item(args: list[str]) -> int:
     Exit 1: validation error, JSON error on stdout
     """
     title = None
-    workflow_id = "issue"
+    workflow_id = None
     priority = "medium"
     project = None
     deployment_flow = None
@@ -78,8 +78,8 @@ def cmd_create_item(args: list[str]) -> int:
             print(f"Unknown argument: {args[i]}", file=sys.stderr)
             return 2
 
-    if title is None:
-        print("Usage: create-item --title TITLE [--workflow WORKFLOW] [--priority PRIORITY] "
+    if title is None or workflow_id is None:
+        print("Usage: create-item --title TITLE --workflow WORKFLOW [--priority PRIORITY] "
               "[--project PROJECT] [--deployment-flow FLOW] "
               "[--status STATUS] [--entry-surface SURFACE]",
               file=sys.stderr)

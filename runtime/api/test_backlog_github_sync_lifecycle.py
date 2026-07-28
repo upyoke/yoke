@@ -41,7 +41,7 @@ def _issue(number: int = 60, state: str = "OPEN") -> github_rest.Issue:
 class TestPostComment:
     def test_posts_comment_and_updates_label(self):
         db = _make_db()
-        insert_item(db, id=30, type="issue", status="implementing", project="externalwebapp", github_issue="#50")
+        insert_item(db, id=30, workflow_id="issue", status="implementing", project="externalwebapp", github_issue="#50")
         stdout = io.StringIO()
 
         with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
@@ -77,7 +77,7 @@ class TestPostComment:
     def test_issue_validation_failure_is_nonzero(self):
         db = _make_db()
         insert_item(
-            db, id=31, type="issue", status="implementing",
+            db, id=31, workflow_id="issue", status="implementing",
             project="externalwebapp", github_issue="#51",
         )
         stderr = io.StringIO()
@@ -100,7 +100,7 @@ class TestPostComment:
 
     def test_noop_when_no_github_issue(self):
         db = _make_db()
-        insert_item(db, id=30, type="issue", status="idea", project="externalwebapp")
+        insert_item(db, id=30, workflow_id="issue", status="idea", project="externalwebapp")
         with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch.object(
             backlog_github_comments.github_rest, "post_comment",
         ) as post_comment:
@@ -111,7 +111,7 @@ class TestPostComment:
 
     def test_dry_run_skips(self):
         db = _make_db()
-        insert_item(db, id=30, type="issue", status="idea", project="externalwebapp", github_issue="#50")
+        insert_item(db, id=30, workflow_id="issue", status="idea", project="externalwebapp", github_issue="#50")
         stdout = io.StringIO()
         with patch.object(backlog_github_sync, "_dry_run", return_value=True):
             rc = backlog_github_sync.post_comment("30", "idea", "implementing", conn=db, stdout=stdout)
@@ -128,7 +128,7 @@ class TestPostComment:
 class TestCloseIssue:
     def test_closes_open_issue(self):
         db = _make_db()
-        insert_item(db, id=40, type="issue", status="done", project="externalwebapp", github_issue="#60")
+        insert_item(db, id=40, workflow_id="issue", status="done", project="externalwebapp", github_issue="#60")
         stdout = io.StringIO()
 
         with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
@@ -165,7 +165,7 @@ class TestCloseIssue:
 
     def test_already_closed_is_noop(self):
         db = _make_db()
-        insert_item(db, id=40, type="issue", status="done", project="externalwebapp", github_issue="#60")
+        insert_item(db, id=40, workflow_id="issue", status="done", project="externalwebapp", github_issue="#60")
         stdout = io.StringIO()
 
         with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
@@ -197,7 +197,7 @@ class TestCloseIssue:
 
     def test_noop_when_no_github_issue(self):
         db = _make_db()
-        insert_item(db, id=40, type="issue", status="done", project="externalwebapp")
+        insert_item(db, id=40, workflow_id="issue", status="done", project="externalwebapp")
         stdout = io.StringIO()
         with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch.object(
             backlog_github_state_sync.github_rest, "set_issue_state",
@@ -217,7 +217,7 @@ class TestCloseIssue:
 class TestReopenIssue:
     def test_reopens_closed_issue(self):
         db = _make_db()
-        insert_item(db, id=50, type="issue", status="implementing", project="externalwebapp", github_issue="#70")
+        insert_item(db, id=50, workflow_id="issue", status="implementing", project="externalwebapp", github_issue="#70")
         stdout = io.StringIO()
 
         with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
@@ -240,7 +240,7 @@ class TestReopenIssue:
 
     def test_already_open_is_noop(self):
         db = _make_db()
-        insert_item(db, id=50, type="issue", status="implementing", project="externalwebapp", github_issue="#70")
+        insert_item(db, id=50, workflow_id="issue", status="implementing", project="externalwebapp", github_issue="#70")
         stdout = io.StringIO()
 
         with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
@@ -260,7 +260,7 @@ class TestReopenIssue:
 
     def test_dry_run_skips(self):
         db = _make_db()
-        insert_item(db, id=50, type="issue", status="implementing", project="externalwebapp", github_issue="#70")
+        insert_item(db, id=50, workflow_id="issue", status="implementing", project="externalwebapp", github_issue="#70")
         stdout = io.StringIO()
         with patch.object(backlog_github_sync, "_dry_run", return_value=True):
             rc = backlog_github_sync.reopen_issue("50", conn=db, stdout=stdout)

@@ -5,7 +5,7 @@ Front door for the gate that ``/yoke refine``, ``/yoke advance``, and
 spec/body of an item names governed DB mutation while the stored
 ``db_mutation_profile.state`` is still ``"none"``, the gate blocks and
 points the caller at the canonical amendment surface
-(``python3 -m yoke_core.api.service_client db-claim-amend``).
+(``yoke db-claim amend YOK-N``).
 
 This file owns the public composition surface:
 
@@ -92,8 +92,8 @@ def _build_recovery_line(item_id: Optional[int], triggers: Sequence[str]) -> str
     return (
         f"prose names governed DB mutation ({quoted}) but the stored "
         f"db_mutation_profile is state='none'.  Amend the DB claim before "
-        f"advancing: python3 -m yoke_core.api.service_client db-claim-amend "
-        f"--item {target} --reason \"<why>\" --payload '<unified-claim-json>'"
+        f'advancing: yoke db-claim amend {target} --reason "<why>" '
+        f"--payload '<unified-claim-json>'"
     )
 
 
@@ -126,9 +126,7 @@ def check(
     has_declared = _claim_is_declared(profile_raw)
     structural_hit = any(label in _STRUCTURAL_TRIGGER_LABELS for label in labels)
     negative_claim_detected = (
-        bool(labels)
-        and not structural_hit
-        and _has_explicit_negative_db_claim(prose)
+        bool(labels) and not structural_hit and _has_explicit_negative_db_claim(prose)
     )
     reviewed_negative = _claim_reviewed_negative(profile_raw)
     blocks = (
@@ -187,9 +185,7 @@ def check_item(
             (item_id,),
         ).fetchone()
         if row is None:
-            return ProseClaimCheck(
-                triggers=[], has_declared_claim=False, blocks=False
-            )
+            return ProseClaimCheck(triggers=[], has_declared_claim=False, blocks=False)
         prose_chunks: List[str] = []
         for col in fields:
             value = row[col] if hasattr(row, "keys") else row[cols.index(col)]
@@ -239,9 +235,13 @@ def _cli_main(argv: Optional[Sequence[str]] = None) -> int:
     check_p = sub.add_parser("check-item", help="Run check_item against a stored item.")
     check_p.add_argument("item", help="Backlog item ref (PREFIX-N).")
 
-    detect_p = sub.add_parser("detect", help="Pure detection over prose from stdin or file.")
+    detect_p = sub.add_parser(
+        "detect", help="Pure detection over prose from stdin or file."
+    )
     detect_p.add_argument(
-        "source", nargs="?", default="-",
+        "source",
+        nargs="?",
+        default="-",
         help="Path to read, or '-' for stdin. Defaults to stdin.",
     )
 
@@ -254,11 +254,16 @@ def _cli_main(argv: Optional[Sequence[str]] = None) -> int:
         try:
             item_id = int(raw)
         except ValueError:
-            print(json.dumps({
-                "success": False,
-                "code": "USAGE",
-                "message": f"invalid item id {args.item!r}",
-            }), file=sys.stderr)
+            print(
+                json.dumps(
+                    {
+                        "success": False,
+                        "code": "USAGE",
+                        "message": f"invalid item id {args.item!r}",
+                    }
+                ),
+                file=sys.stderr,
+            )
             return 2
         outcome = check_item(item_id)
         payload = {
@@ -282,6 +287,7 @@ def _cli_main(argv: Optional[Sequence[str]] = None) -> int:
             prose = sys.stdin.read()
         else:
             from pathlib import Path
+
             prose = Path(args.source).read_text(encoding="utf-8")
         triggers = detect_triggers(prose)
         payload = {

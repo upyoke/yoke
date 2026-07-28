@@ -122,8 +122,7 @@ BUILTIN_QA_METHODS = (
         "id": "browser-check",
         "name": "Browser check",
         "description": (
-            "Playwright-style assertions against declared routes; "
-            "automatic verdict."
+            "Playwright-style assertions against declared routes; automatic verdict."
         ),
         "executor_id": "browser_substrate",
         "required_capability_kind": "browser-control",
@@ -152,8 +151,16 @@ BUILTIN_QA_METHODS = (
 _REQUIREMENT_COLUMNS = (
     ("plan_id", "INTEGER REFERENCES qa_plans(id)"),
     ("plan_case_key", "TEXT"),
+    ("case_position", "INTEGER"),
+    ("baseline_position", "INTEGER"),
     ("method_id", "TEXT REFERENCES qa_methods(id)"),
+    ("method_name", "TEXT"),
+    ("executor_id", "TEXT"),
+    ("required_capability_kind", "TEXT"),
+    ("verdict_path", "TEXT"),
     ("host_baseline", "TEXT"),
+    ("entry_surface", "TEXT"),
+    ("required_completion", "TEXT"),
     ("workflow_transition_id", "TEXT"),
     ("instructions", "TEXT"),
     ("expected_outcome", "TEXT"),
@@ -179,11 +186,22 @@ def _seed_builtin_methods(conn: Any) -> None:
     marker = _placeholder(conn)
     now = iso8601_now()
     columns = (
-        "id", "name", "description", "source_kind", "source_ref",
-        "project_id", "executor_id", "required_capability_kind",
-        "verdict_path", "verdict_contract", "evidence_contract",
-        "success_policy_id", "success_policy_params", "concurrency_mode",
-        "created_at", "updated_at",
+        "id",
+        "name",
+        "description",
+        "source_kind",
+        "source_ref",
+        "project_id",
+        "executor_id",
+        "required_capability_kind",
+        "verdict_path",
+        "verdict_contract",
+        "evidence_contract",
+        "success_policy_id",
+        "success_policy_params",
+        "concurrency_mode",
+        "created_at",
+        "updated_at",
     )
     values = ", ".join([marker] * len(columns))
     assignments = ", ".join(
@@ -245,6 +263,14 @@ def create_qa_catalog_tables(conn: Any) -> None:
         "item_id, plan_id, plan_case_key, "
         "COALESCE(host_baseline, ''), workflow_transition_id"
         ") WHERE item_id IS NOT NULL AND plan_id IS NOT NULL"
+    )
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS "
+        "idx_qa_requirement_deployment_materialization "
+        "ON qa_requirements("
+        "deployment_run_id, plan_id, plan_case_key, "
+        "COALESCE(host_baseline, '')"
+        ") WHERE deployment_run_id IS NOT NULL AND plan_id IS NOT NULL"
     )
     _seed_builtin_methods(conn)
     conn.commit()

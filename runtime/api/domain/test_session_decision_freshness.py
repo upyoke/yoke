@@ -138,14 +138,14 @@ def freshness_uses_test_db(test_db, monkeypatch):
 class TestEvaluateFreshness:
     def test_unchanged_when_status_matches(self, test_db):
         _insert_session(test_db)
-        insert_item(test_db, id=4001, type="issue", status="refined-idea")
+        insert_item(test_db, id=4001, workflow_id="issue", status="refined-idea")
         v = _eval(test_db, item_id=4001)
         assert v.outcome is FreshnessOutcome.UNCHANGED
         assert v.current_status == "refined-idea"
 
     def test_rewrite_when_status_advances_but_serviceable(self, test_db):
         _insert_session(test_db)
-        insert_item(test_db, id=4002, type="issue", status="implementing")
+        insert_item(test_db, id=4002, workflow_id="issue", status="implementing")
         v = _eval(test_db, item_id=4002, scheduler_context={
             "status": "refined-idea", "next_step": "advance",
             "title": "carried-through",
@@ -161,7 +161,7 @@ class TestEvaluateFreshness:
 
     def test_unserviceable_releases_claim_and_skips(self, test_db):
         _insert_session(test_db)
-        insert_item(test_db, id=4003, type="issue", status="reviewed-implementation")
+        insert_item(test_db, id=4003, workflow_id="issue", status="reviewed-implementation")
         _insert_claim(test_db, item_id=4003)
         assert _active_claim_count(test_db, 4003) == 1
         v = _eval(test_db, item_id=4003)
@@ -203,14 +203,14 @@ class TestEvaluateFreshness:
 
     def test_unserviceable_when_path_not_supported(self, test_db):
         _insert_session(test_db)
-        insert_item(test_db, id=4004, type="issue", status="implementing")
+        insert_item(test_db, id=4004, workflow_id="issue", status="implementing")
         _insert_claim(test_db, item_id=4004)
         v = _eval(test_db, item_id=4004, supported_paths=("polish",))
         assert v.outcome is FreshnessOutcome.UNSERVICEABLE
         assert v.current_next_step == "advance"
 
     def test_failopen_when_session_not_registered(self, test_db):
-        insert_item(test_db, id=4005, type="issue", status="refined-idea")
+        insert_item(test_db, id=4005, workflow_id="issue", status="refined-idea")
         v = _eval(test_db, item_id=4005)
         assert v.outcome is FreshnessOutcome.UNAVAILABLE
 
@@ -219,7 +219,7 @@ class TestResumeFreshness:
     def test_resume_branch_freshness_rewrite(self, freshness_uses_test_db):
         test_db = freshness_uses_test_db
         _insert_session(test_db)
-        insert_item(test_db, id=4101, type="issue", status="reviewing-implementation")
+        insert_item(test_db, id=4101, workflow_id="issue", status="reviewing-implementation")
         offer = _make_offer(supported_paths=["advance", "polish"])
         frontier = FrontierState()
         claim = ClaimedWork(
@@ -241,7 +241,7 @@ class TestResumeFreshness:
     def test_resume_branch_freshness_unserviceable(self, freshness_uses_test_db):
         test_db = freshness_uses_test_db
         _insert_session(test_db)
-        insert_item(test_db, id=4102, type="issue", status="reviewed-implementation")
+        insert_item(test_db, id=4102, workflow_id="issue", status="reviewed-implementation")
         _insert_claim(test_db, item_id=4102)
         offer = _make_offer(supported_paths=["advance"])
         frontier = FrontierState()
@@ -265,7 +265,7 @@ class TestChargeIntegration:
     def test_charge_integration_rewrite(self, freshness_uses_test_db):
         test_db = freshness_uses_test_db
         _insert_session(test_db)
-        insert_item(test_db, id=4201, type="issue", status="implementing")
+        insert_item(test_db, id=4201, workflow_id="issue", status="implementing")
         offer = _make_offer(supported_paths=["advance"])
         frontier = _charge_frontier(4201, status="refined-idea")
         result = decide_charge_action(offer, frontier, offer.session_id, None)
@@ -278,7 +278,7 @@ class TestChargeIntegration:
     def test_charge_integration_unserviceable_returns_wait(self, freshness_uses_test_db):
         test_db = freshness_uses_test_db
         _insert_session(test_db)
-        insert_item(test_db, id=4202, type="issue", status="reviewed-implementation")
+        insert_item(test_db, id=4202, workflow_id="issue", status="reviewed-implementation")
         _insert_claim(test_db, item_id=4202)
         offer = _make_offer(supported_paths=["advance"])
         frontier = _charge_frontier(4202, status="refined-idea")

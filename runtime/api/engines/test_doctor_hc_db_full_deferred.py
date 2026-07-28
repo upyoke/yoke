@@ -43,14 +43,14 @@ class TestHCDeferredItemsFull:
 
     def test_pass_no_done_epics(self, test_db):
         """Test 1: PASS when no done epics."""
-        insert_item(test_db, id=10, title="Active epic test", type="epic",
+        insert_item(test_db, id=10, title="Active epic test", workflow_id="epic",
                     status="implementing", spec="Some body content")
         rec = _run_hc(hc_deferred_items, test_db)
         assert _result(rec).result == "PASS"
 
     def test_pass_done_epic_clean_body(self, test_db):
         """Test 2: PASS for done epic with clean body."""
-        insert_item(test_db, id=20, title="Clean done epic test", type="epic",
+        insert_item(test_db, id=20, title="Clean done epic test", workflow_id="epic",
                     status="done", spec="This is a clean epic body with no deferrals.")
         rec = _run_hc(hc_deferred_items, test_db)
         assert "YOK-20" not in _result(rec).detail
@@ -69,7 +69,7 @@ class TestHCDeferredItemsFull:
 
             ## Shepherd Log
             Done.""")
-        insert_item(test_db, id=30, title="Done epic with unfiled test", type="epic",
+        insert_item(test_db, id=30, title="Done epic with unfiled test", workflow_id="epic",
                     status="done", spec=body)
         rec = _run_hc(hc_deferred_items, test_db)
         r = _result(rec)
@@ -92,7 +92,7 @@ class TestHCDeferredItemsFull:
 
             ## Shepherd Log
             Done.""")
-        insert_item(test_db, id=40, title="Done epic all filed test", type="epic",
+        insert_item(test_db, id=40, title="Done epic all filed test", workflow_id="epic",
                     status="done", spec=body)
         rec = _run_hc(hc_deferred_items, test_db)
         assert "YOK-40" not in _result(rec).detail
@@ -109,7 +109,7 @@ class TestHCDeferredItemsFull:
 
             ## Shepherd Log
             Done.""")
-        insert_item(test_db, id=50, title="Done epic deferral language test", type="epic",
+        insert_item(test_db, id=50, title="Done epic deferral language test", workflow_id="epic",
                     status="done", spec=body)
         rec = _run_hc(hc_deferred_items, test_db)
         r = _result(rec)
@@ -128,14 +128,14 @@ class TestHCDeferredItemsFull:
 
             ## Shepherd Log
             Done.""")
-        insert_item(test_db, id=60, title="Done epic deferral with ref test", type="epic",
+        insert_item(test_db, id=60, title="Done epic deferral with ref test", workflow_id="epic",
                     status="done", spec=body)
         rec = _run_hc(hc_deferred_items, test_db)
         assert "YOK-60" not in _result(rec).detail
 
     def test_non_epic_done_excluded(self, test_db):
         """Test 7: Non-epic done items excluded."""
-        insert_item(test_db, id=70, title="Non-epic done item test", type="issue",
+        insert_item(test_db, id=70, title="Non-epic done item test", workflow_id="issue",
                     status="done", spec="This was deferred to a follow-up item.")
         rec = _run_hc(hc_deferred_items, test_db)
         assert "YOK-70" not in _result(rec).detail
@@ -143,7 +143,7 @@ class TestHCDeferredItemsFull:
     def test_deferral_in_code_block_excluded(self, test_db):
         """Test 8: Deferral language inside code blocks excluded."""
         body = "## Problem\nSome problem.\n\n```\nThis was deferred to a follow-up item.\n```\n\n## Shepherd Log\nDone."
-        insert_item(test_db, id=80, title="Done epic code block test", type="epic",
+        insert_item(test_db, id=80, title="Done epic code block test", workflow_id="epic",
                     status="done", spec=body)
         rec = _run_hc(hc_deferred_items, test_db)
         assert "YOK-80" not in _result(rec).detail
@@ -159,14 +159,14 @@ class TestHCDeferredItemsFull:
             | Description | Reason | Work item |
             |---|---|---|
             | Remove column | Risk | UNFILED |""")
-        insert_item(test_db, id=90, title="Done epic warn severity test", type="epic",
+        insert_item(test_db, id=90, title="Done epic warn severity test", workflow_id="epic",
                     status="done", spec=body)
         rec = _run_hc(hc_deferred_items, test_db)
         assert _result(rec).result == "WARN"
 
     def test_active_epic_not_flagged(self, test_db):
         """Test 10: Active epic with deferral language not flagged (only done checked)."""
-        insert_item(test_db, id=100, title="Active epic deferral test", type="epic",
+        insert_item(test_db, id=100, title="Active epic deferral test", workflow_id="epic",
                     status="implementing",
                     spec="This was deferred to a follow-up item.")
         rec = _run_hc(hc_deferred_items, test_db)

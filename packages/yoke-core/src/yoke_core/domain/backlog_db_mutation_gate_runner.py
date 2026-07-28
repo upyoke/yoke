@@ -30,13 +30,15 @@ _DB_MUTATION_GATE_TARGETS = {
 # still ``state="none"``.  Heavy-gate targets are also included so the
 # joint/evidence/polish dispatch composes the prose check alongside
 # their existing checks.
-_PROSE_CHECK_TARGETS = frozenset({
-    "refining-idea",
-    "refined-idea",
-    "planned",
-    "reviewing-implementation",
-    "implemented",
-})
+_PROSE_CHECK_TARGETS = frozenset(
+    {
+        "refining-idea",
+        "refined-idea",
+        "planned",
+        "reviewing-implementation",
+        "implemented",
+    }
+)
 
 
 def _p(conn: Any) -> str:
@@ -119,6 +121,7 @@ def _run_db_mutation_gate(
     db_path: str,
     gate_kind_override: Optional[str] = None,
     include_prose: bool = True,
+    conn: Optional[Any] = None,
 ) -> Optional[dict]:
     """Dispatch to the appropriate governed-DB-mutation gate per target.
 
@@ -130,7 +133,8 @@ def _run_db_mutation_gate(
     """
     if include_prose and target_status in _PROSE_CHECK_TARGETS:
         prose_result = _run_prose_vs_claim_check(
-            item_id=item_id, db_path=db_path,
+            item_id=item_id,
+            db_path=db_path,
         )
         if prose_result is not None:
             return prose_result
@@ -148,19 +152,26 @@ def _run_db_mutation_gate(
     except ImportError:
         return None
 
-    conn = connect(db_path)
+    gate_conn = conn if conn is not None else connect(db_path)
     try:
         if gate_kind == "joint":
             outcome = db_mutation_gate.check_idea_to_refining_idea_gate(
-                item_id, conn=conn,
+                item_id,
+                conn=gate_conn,
             )
         elif gate_kind == "evidence":
-            outcome = db_mutation_gate.check_implementing_to_reviewing_implementation_gate(
-                item_id, conn=conn,
+            outcome = (
+                db_mutation_gate.check_implementing_to_reviewing_implementation_gate(
+                    item_id,
+                    conn=gate_conn,
+                )
             )
         elif gate_kind == "polish":
-            outcome = db_mutation_gate.check_polishing_implementation_to_implemented_gate(
-                item_id, conn=conn,
+            outcome = (
+                db_mutation_gate.check_polishing_implementation_to_implemented_gate(
+                    item_id,
+                    conn=gate_conn,
+                )
             )
         else:  # pragma: no cover - exhaustive
             return None
@@ -186,13 +197,17 @@ def _run_db_mutation_gate(
         # gate also stamps on pass so any surviving direct-to-refining
         # path still engages the downstream authored-field
         # immutability invariants for pre_merge_safe attestations.
-        if gate_kind == "joint" and _profile_declares_mutation(conn, item_id):
+        if gate_kind == "joint" and _profile_declares_mutation(
+            gate_conn,
+            item_id,
+        ):
             db_mutation_gate.stamp_attestation_frozen_at(
                 item_id,
-                conn=conn,
+                conn=gate_conn,
                 extra_escalations=outcome.escalations or None,
+                commit=conn is None,
             )
-    except db_backend.operational_error_types(conn) as exc:
+    except db_backend.operational_error_types(gate_conn) as exc:
         # Tests that stage a minimal legacy schema may lack the
         # project_capabilities/migration_audit columns the gate inspects.
         # In that case the contract has nothing to enforce — opt out.
@@ -200,7 +215,8 @@ def _run_db_mutation_gate(
             return None
         raise
     finally:
-        conn.close()
+        if conn is None:
+            gate_conn.close()
 
     return None
 

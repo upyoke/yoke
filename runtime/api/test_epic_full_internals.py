@@ -57,27 +57,27 @@ class TestCascadeTaskStatus:
 class TestOrphanCheck:
     def test_finds_orphans(self, test_db):
         # Epic 201: has tasks but no Technical Plan
-        insert_item(test_db, id=201, title="Epic 201", type="epic", spec="Just a description")
+        insert_item(test_db, id=201, title="Epic 201", workflow_id="epic", spec="Just a description")
         insert_epic_task(test_db, epic_id=201, task_num=1, title="Task 1")
 
         # Epic 202: has tasks but null body
-        insert_item(test_db, id=202, title="Epic 202", type="epic", spec=None)
+        insert_item(test_db, id=202, title="Epic 202", workflow_id="epic", spec=None)
         insert_epic_task(test_db, epic_id=202, task_num=1, title="Task 1")
 
         # Epic 200: has tasks AND Technical Plan (not orphan)
-        insert_item(test_db, id=200, title="Epic 200", type="epic",
+        insert_item(test_db, id=200, title="Epic 200", workflow_id="epic",
                      technical_plan="Plan details here.")
         insert_epic_task(test_db, epic_id=200, task_num=1, title="Task 1")
 
         result = epic.orphan_check(test_db)
-        lines = [l for l in result.strip().split("\n") if l]
+        lines = [line for line in result.strip().split("\n") if line]
         assert len(lines) == 2
         assert "YOK-201" in result
         assert "YOK-202" in result
         assert "YOK-200" not in result
 
     def test_no_orphans(self, test_db):
-        insert_item(test_db, id=200, title="Epic 200", type="epic",
+        insert_item(test_db, id=200, title="Epic 200", workflow_id="epic",
                      technical_plan="Plan details.")
         insert_epic_task(test_db, epic_id=200, task_num=1, title="Task 1")
         result = epic.orphan_check(test_db)

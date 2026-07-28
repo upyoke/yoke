@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from yoke_core.domain import epic
 from yoke_contracts.api.function_call import (
@@ -35,6 +35,14 @@ class PhaseRequest(BaseModel):
 class FileAddRequest(BaseModel):
     file_path: str = Field(..., min_length=1)
     action: str = ""
+
+    @field_validator("file_path")
+    @classmethod
+    def _nonblank_file_path(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("file_path must name a nonblank path")
+        return normalized
 
 
 class HistoryInsertRequest(BaseModel):

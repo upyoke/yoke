@@ -27,13 +27,13 @@ _SQLITE_SCHEMA_HINT_RE = re.compile(
 )
 
 _POSTGRES_COLUMN_HINT_RE = re.compile(
-    r'^(?:(?:psycopg(?:2)?\.)?errors\.UndefinedColumn:\s*|ERROR:\s*)?'
+    r"^(?:(?:psycopg(?:2)?\.)?errors\.UndefinedColumn:\s*|ERROR:\s*)?"
     r'column\s+["\']?([\w.]+)["\']?\s+does not exist',
     re.IGNORECASE | re.MULTILINE,
 )
 
 _POSTGRES_TABLE_HINT_RE = re.compile(
-    r'^(?:(?:psycopg(?:2)?\.)?errors\.UndefinedTable:\s*|ERROR:\s*)?'
+    r"^(?:(?:psycopg(?:2)?\.)?errors\.UndefinedTable:\s*|ERROR:\s*)?"
     r'relation\s+["\']?([\w.]+)["\']?\s+does not exist',
     re.IGNORECASE | re.MULTILINE,
 )
@@ -96,10 +96,8 @@ def _schema_hint_message(kind: str, name: str) -> str:
         "(top-level Yoke session), `architect_agent`, `engineer_agent`, "
         "`tester_agent`, `simulator_agent`, or `boss_agent`.\n"
         "- For live claim-holder lookups use "
-        "`python3 -m runtime.harness.harness_sessions who-claims <item-id>` "
-        "(also `python3 -m yoke_core.cli.db_router harness-sessions "
-        "who-claims <item-id>`), not raw SQL on guessed session/claim "
-        "columns.\n"
+        "`yoke claims work holder-get YOK-N`, not raw SQL on guessed "
+        "session/claim columns.\n"
         "- The generated packet and its drift tests reject the known stale "
         "session-owner, claim-session, item-claim, and generic target-column "
         "guesses that do not exist in Yoke's schema.\n"
@@ -160,4 +158,6 @@ def detect_db_query_failure(command: str, output: str) -> Optional[str]:
         )
 
     return "\n".join(messages) if messages else None
+
+
 __all__ = ("detect_db_query_failure",)

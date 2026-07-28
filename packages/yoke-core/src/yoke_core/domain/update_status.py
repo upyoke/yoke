@@ -37,7 +37,7 @@ from typing import Any, Optional, TextIO
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import connect, query_one, query_scalar
 from yoke_core.domain.github_constraints import is_real_issue_num
-from yoke_core.domain.lifecycle import is_valid_task_status
+from yoke_core.domain.task_lifecycle import is_valid_task_status
 
 # Re-export shared low-level helpers so existing callers see no change.
 from yoke_core.domain.update_status_helpers import (  # noqa: F401

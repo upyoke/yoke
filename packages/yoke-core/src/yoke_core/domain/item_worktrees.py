@@ -13,6 +13,9 @@ from yoke_core.domain.workflow_behavior import (
     worktree_lane_policy,
 )
 from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
+from yoke_core.domain.workflow_item_binding_lock import (
+    lock_item_workflow_bindings,
+)
 
 LANE_ROLES = frozenset(
     {
@@ -88,6 +91,12 @@ def record_item_worktree(
     clean_path = (path or "").strip() or None
     if not clean_branch:
         raise ValueError("item worktree branch must be non-empty")
+    lock_item_workflow_bindings(conn, (int(item_id),))
+    from yoke_core.domain.item_terminal_resources import (
+        ensure_item_accepts_active_resources,
+    )
+
+    ensure_item_accepts_active_resources(conn, int(item_id))
     if validate_policy:
         _validate_role_for_item(conn, int(item_id), lane_role)
     elif lane_role not in LANE_ROLES:
@@ -155,6 +164,66 @@ def record_item_worktree(
     return next(row for row in rows if row["branch"] == clean_branch)
 
 
+def record_released_item_worktree_history(
+    conn: Any,
+    *,
+    item_id: int,
+    branch: str,
+    path: Optional[str],
+    lane_role: str,
+) -> dict[str, Any]:
+    """Persist migration history without ever creating an active lane."""
+    clean_branch = branch.strip()
+    clean_path = (path or "").strip() or None
+    if not clean_branch:
+        raise ValueError("item worktree branch must be non-empty")
+    if lane_role not in LANE_ROLES:
+        raise ValueError(f"unknown item worktree lane role {lane_role!r}")
+    lock_item_workflow_bindings(conn, (int(item_id),))
+    marker = _placeholder(conn)
+    now = iso8601_now()
+    existing = _dict_row(
+        conn.execute(
+            "SELECT id FROM item_worktrees "
+            f"WHERE item_id={marker} AND branch={marker} "
+            "ORDER BY CASE WHEN state='active' THEN 0 ELSE 1 END, id DESC "
+            "LIMIT 1",
+            (int(item_id), clean_branch),
+        )
+    )
+    if existing is None:
+        cursor = conn.execute(
+            "INSERT INTO item_worktrees "
+            "(item_id, branch, path, lane_role, state, created_at, "
+            "updated_at, released_at) "
+            f"VALUES ({', '.join(marker for _ in range(4))}, "
+            f"'released', {marker}, {marker}, {marker}) RETURNING id",
+            (
+                int(item_id),
+                clean_branch,
+                clean_path,
+                lane_role,
+                now,
+                now,
+                now,
+            ),
+        )
+        lane_id = int(cursor.fetchone()[0])
+    else:
+        lane_id = int(existing["id"])
+        conn.execute(
+            "UPDATE item_worktrees SET path="
+            f"{marker}, lane_role={marker}, state='released', "
+            f"updated_at={marker}, released_at={marker} WHERE id={marker}",
+            (clean_path, lane_role, now, now, lane_id),
+        )
+    return next(
+        row
+        for row in list_item_worktrees(conn, int(item_id))
+        if int(row["id"]) == lane_id
+    )
+
+
 def release_item_worktrees(
     conn: Any,
     *,
@@ -162,6 +231,7 @@ def release_item_worktrees(
     branch: Optional[str] = None,
 ) -> int:
     """Release one branch or every active lane owned by an item."""
+    lock_item_workflow_bindings(conn, (int(item_id),))
     marker = _placeholder(conn)
     params: list[Any] = [iso8601_now(), iso8601_now(), int(item_id)]
     branch_clause = ""
@@ -250,6 +320,7 @@ __all__ = [
     "LANE_ROLES",
     "list_item_worktrees",
     "primary_item_worktree",
+    "record_released_item_worktree_history",
     "record_item_worktree",
     "record_worker_item_worktree",
     "release_item_worktrees",

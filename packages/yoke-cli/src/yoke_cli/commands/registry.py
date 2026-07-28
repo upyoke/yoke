@@ -150,14 +150,6 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
         "qa.artifact.presign",
         _adapters.qa_artifact_presign,
     ),
-    ("qa", "screenshot-evidence", "pending-count"): (
-        "qa.screenshot_evidence.pending_count",
-        _adapters.qa_screenshot_evidence_pending_count,
-    ),
-    ("qa", "screenshot-evidence", "satisfy"): (
-        "qa.screenshot_evidence.satisfy",
-        _adapters.qa_screenshot_evidence_satisfy,
-    ),
     ("qa", "requirement", "list"): (
         "qa.requirement.list",
         _adapters.qa_requirement_list,

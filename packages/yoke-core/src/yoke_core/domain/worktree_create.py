@@ -20,7 +20,9 @@ from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.project_checkout_locations import checkout_for_project
 from yoke_core.domain.worktree_create_db import (
     check_path_claim_gate,
+    item_worktree_authority_is_https,
     persist_item_worktrees,
+    prepare_authoritative_item_worktrees,
 )
 from yoke_core.domain.worktree_create_plan import (
     WorktreeCreationEntry,
@@ -141,18 +143,36 @@ def create_worktree(
     )
     worktrees_dir = os.path.join(repo_root, wt_dir)
 
-    # --- Per-item path-claim activation gate ---
+    hosted_lane_authority = (
+        db_path is None and item_worktree_authority_is_https()
+    )
+    authoritative_lanes = None
+
+    # --- Per-item path-claim activation gate / hosted lane preparation ---
     # The gate is item-level: one claim covers every worktree's path.
     # Skips silently when no claims exist, all claims are terminal, or the
     # path_claims table itself is absent (minimal fixture).
-    gate_err = check_path_claim_gate(item_id, db_path)
-    if gate_err:
-        return CreateWorktreeResult(
-            path="",
-            branch=fallback_branch,
-            created=False,
-            error=gate_err,
-        )
+    if hosted_lane_authority:
+        try:
+            authoritative_lanes = prepare_authoritative_item_worktrees(
+                int(item_id),
+            )
+        except Exception as exc:  # noqa: BLE001 - preserve relay failure detail
+            return CreateWorktreeResult(
+                path="",
+                branch=fallback_branch,
+                created=False,
+                error=f"authoritative worktree lane preparation failed: {exc}",
+            )
+    else:
+        gate_err = check_path_claim_gate(item_id, db_path)
+        if gate_err:
+            return CreateWorktreeResult(
+                path="",
+                branch=fallback_branch,
+                created=False,
+                error=gate_err,
+            )
 
     if db_path is None:
         db_path = _resolve_db_path_for_worktrees(
@@ -163,6 +183,7 @@ def create_worktree(
         repo_root,
         wt_dir,
         db_path,
+        authoritative_lanes=authoritative_lanes,
     )
 
     # --- All-worktree preflight (no side effects yet) ---
@@ -227,11 +248,27 @@ def create_worktree(
     # --- Stable primary result plus universal lane persistence ---
     primary = plan.primary or plan.worktrees[0]
     any_created = any(entry.created for entry in plan.worktrees)
-    persist_item_worktrees(
-        int(item_id),
-        [(entry.branch, entry.path, entry.lane_role) for entry in plan.worktrees],
-        db_path,
-    )
+    try:
+        persist_item_worktrees(
+            int(item_id),
+            [
+                (entry.lane_id, entry.branch, entry.path, entry.lane_role)
+                for entry in plan.worktrees
+            ],
+            db_path,
+        )
+    except Exception as exc:  # noqa: BLE001 - preserve physical lane evidence
+        return CreateWorktreeResult(
+            path=primary.path,
+            branch=primary.branch,
+            created=any_created,
+            error=(
+                "worktree provisioning completed but item-lane persistence "
+                f"failed: {exc}"
+            ),
+            worktrees=tuple(plan.worktrees),
+            failed_branch=primary.branch,
+        )
     return CreateWorktreeResult(
         path=primary.path,
         branch=primary.branch,

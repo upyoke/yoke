@@ -1,3 +1,4 @@
+# ruff: noqa: F811
 """Parity tests — item-get, item-row, and item-progress CLI commands."""
 
 from __future__ import annotations
@@ -157,15 +158,23 @@ class TestItemProgressCLI:
             )
             conn.execute(
                 "CREATE TABLE items (id INTEGER PRIMARY KEY, title TEXT, "
-                "type TEXT DEFAULT 'issue', status TEXT DEFAULT 'idea', "
+                "status TEXT DEFAULT 'idea', "
                 "priority TEXT DEFAULT 'medium', created_at TEXT, "
                 "updated_at TEXT, source TEXT DEFAULT '2', "
                 "project_id INTEGER DEFAULT 1, project_sequence INTEGER)"
             )
+            from runtime.api.api_workflow_test_helpers import (
+                install_workflow_registry_and_pin_items,
+            )
+
+            install_workflow_registry_and_pin_items(conn)
             conn.execute(
                 "INSERT INTO items "
-                "(id, title, created_at, updated_at, project_id, project_sequence) "
-                "VALUES (1, 'Test', '2026-01-01', '2026-01-01', 1, 1)"
+                "(id, title, workflow_id, workflow_version_id, created_at, "
+                "updated_at, project_id, project_sequence) "
+                "VALUES (1, 'Test', 'issue', "
+                "(SELECT current_version_id FROM workflows WHERE id='issue'), "
+                "'2026-01-01', '2026-01-01', 1, 1)"
             )
             conn.commit()
             conn.close()

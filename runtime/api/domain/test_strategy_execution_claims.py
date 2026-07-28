@@ -36,8 +36,6 @@ from yoke_core.domain.strategy_execution import (
     link_execution_document,
     release_strategy_doc_claim,
 )
-
-
 @pytest.fixture
 def tmp_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     with strategy_test_database(tmp_path, monkeypatch) as db_path:
@@ -194,7 +192,7 @@ def test_item_owned_claim_survives_session_handoff(tmp_db: str) -> None:
     assert claim["owning_item_id"] == 2001
     assert claim["workflow_id"] == "blitz"
     assert int(claim["workflow_version_id"]) > 0
-    assert int(claim["workflow_version"]) == 2
+    assert int(claim["workflow_version"]) == 3
     assert appended["revision"] == 2
     assert surface["execution_document"]["revisions"][0]["session_id"] == (
         "worker-session"
@@ -284,9 +282,12 @@ def test_blitz_completion_evidence_stays_in_the_document(tmp_db: str) -> None:
         _seed_doc(
             conn,
             "CLOSEOUT",
-            "# Closeout\n\n## Completion and parent reconciliation\n\n"
-            "Completed the work. Verification evidence is recorded. "
-            "No remaining work; the parent was reconciled.\n",
+            "# Closeout\n\n## Blitz Completion\n\n"
+            "- Completed: shipped the execution result.\n"
+            "- Changed: no departures from the starting plan.\n"
+            "- Remaining: nothing remains.\n"
+            "- Verification identities: pytest run-20260728-001.\n"
+            "- Parent reconciliation: parent revision 14 was updated.\n",
         )
         _seed_blitz_item(conn, 2001, 2001)
         link_execution_document(

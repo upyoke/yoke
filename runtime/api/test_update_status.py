@@ -171,7 +171,7 @@ class TestAutoUnblock:
 
 class TestAutoDerive:
     def test_all_tasks_terminal_derives_reviewing(self, test_db):
-        insert_item(test_db, id=42, title="Epic", type="epic", status="implementing")
+        insert_item(test_db, id=42, title="Epic", workflow_id="epic", status="implementing")
         insert_epic_task(test_db, epic_id=42, task_num=1, status="reviewed-implementation")
         insert_epic_task(test_db, epic_id=42, task_num=2, status="done")
         out = io.StringIO()
@@ -192,7 +192,7 @@ class TestAutoDerive:
         assert call_kwargs["value"] == "reviewing-implementation"
 
     def test_in_flight_derives_implementing(self, test_db):
-        insert_item(test_db, id=42, title="Epic", type="epic", status="planned")
+        insert_item(test_db, id=42, title="Epic", workflow_id="epic", status="planned")
         insert_epic_task(test_db, epic_id=42, task_num=1, status="implementing")
         insert_epic_task(test_db, epic_id=42, task_num=2, status="planned")
         out = io.StringIO()
@@ -209,7 +209,7 @@ class TestAutoDerive:
         mock_exec.assert_called_once()
 
     def test_all_planned_derives_planned(self, test_db):
-        insert_item(test_db, id=42, title="Epic", type="epic", status="implementing")
+        insert_item(test_db, id=42, title="Epic", workflow_id="epic", status="implementing")
         insert_epic_task(test_db, epic_id=42, task_num=1, status="planned")
         insert_epic_task(test_db, epic_id=42, task_num=2, status="planned")
         out = io.StringIO()
@@ -224,7 +224,7 @@ class TestAutoDerive:
         assert "planned" in out.getvalue()
 
     def test_no_derive_when_parent_is_done(self, test_db):
-        insert_item(test_db, id=42, title="Epic", type="epic", status="done")
+        insert_item(test_db, id=42, title="Epic", workflow_id="epic", status="done")
         insert_epic_task(test_db, epic_id=42, task_num=1, status="implementing")
         out = io.StringIO()
         err = io.StringIO()
@@ -238,7 +238,7 @@ class TestAutoDerive:
         assert out.getvalue() == ""
 
     def test_no_derive_when_same_status(self, test_db):
-        insert_item(test_db, id=42, title="Epic", type="epic", status="implementing")
+        insert_item(test_db, id=42, title="Epic", workflow_id="epic", status="implementing")
         insert_epic_task(test_db, epic_id=42, task_num=1, status="implementing")
         out = io.StringIO()
         err = io.StringIO()
@@ -251,7 +251,7 @@ class TestAutoDerive:
         assert not mock_exec.called
 
     def test_planned_plus_blocked_derives_planned(self, test_db):
-        insert_item(test_db, id=42, title="Epic", type="epic", status="implementing")
+        insert_item(test_db, id=42, title="Epic", workflow_id="epic", status="implementing")
         insert_epic_task(test_db, epic_id=42, task_num=1, status="planned")
         insert_epic_task(test_db, epic_id=42, task_num=2, status="blocked")
         out = io.StringIO()
@@ -270,7 +270,7 @@ class TestAutoDeriveWriteErrors:
     """auto_derive_epic_status error paths with shell-fixture injection."""
 
     def test_write_failure_warns(self, test_db):
-        insert_item(test_db, id=42, title="Epic", type="epic", status="implementing")
+        insert_item(test_db, id=42, title="Epic", workflow_id="epic", status="implementing")
         insert_epic_task(test_db, epic_id=42, task_num=1, status="done")
         insert_epic_task(test_db, epic_id=42, task_num=2, status="reviewed-implementation")
         insert_epic_task(test_db, epic_id=42, task_num=3, status="reviewed-implementation")
@@ -289,7 +289,7 @@ class TestAutoDeriveWriteErrors:
         assert _item_field(test_db, 42, "status") == "implementing"
 
     def test_postwrite_verify_mismatch_warns(self, test_db):
-        insert_item(test_db, id=42, title="Epic", type="epic", status="implementing")
+        insert_item(test_db, id=42, title="Epic", workflow_id="epic", status="implementing")
         insert_epic_task(test_db, epic_id=42, task_num=1, status="done")
         insert_epic_task(test_db, epic_id=42, task_num=2, status="reviewed-implementation")
         insert_epic_task(test_db, epic_id=42, task_num=3, status="reviewed-implementation")
@@ -310,7 +310,7 @@ class TestAutoDeriveWriteErrors:
         assert _item_field(test_db, 42, "status") == "implementing"
 
     def test_execute_update_raises_logs_warning(self, test_db):
-        insert_item(test_db, id=42, title="Epic", type="epic", status="implementing")
+        insert_item(test_db, id=42, title="Epic", workflow_id="epic", status="implementing")
         insert_epic_task(test_db, epic_id=42, task_num=1, status="reviewed-implementation")
         insert_epic_task(test_db, epic_id=42, task_num=2, status="done")
         out = io.StringIO()

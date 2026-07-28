@@ -13,11 +13,11 @@ class TestImportStructure:
 
     def test_domain_importable_from_package(self):
         """All domain modules should be importable via package path."""
-        from yoke_core.domain import lifecycle as lc
         from yoke_core.domain import approval as ap
         from yoke_core.domain import board as bd
         from yoke_core.domain import queries as qr
         from yoke_core.domain import runs as rn
+        from yoke_core.domain import task_lifecycle as lc
 
         # Spot check: each module has its key exports
         assert hasattr(lc, "TaskStatus")
@@ -34,18 +34,21 @@ class TestImportStructure:
     def test_domain_init_provides_docstring(self):
         """Domain __init__.py should have a module docstring."""
         from yoke_core import domain
+
         assert domain.__doc__ is not None
         assert "domain" in domain.__doc__.lower()
 
     def test_main_module_importable(self):
         """The main FastAPI app should be importable via package path."""
         from yoke_core.api.main import app as yoke_app
+
         assert yoke_app is not None
         assert yoke_app.title == "Yoke API"
 
     def test_service_client_importable(self):
         """The service client module should be importable via package path."""
         from yoke_core.api.service_client import COMMANDS
+
         assert "approve-check" in COMMANDS
         assert "active-queue" in COMMANDS
         assert "classify-status" in COMMANDS
@@ -63,7 +66,11 @@ class TestDeploymentRunRegression:
 
     def test_active_run_status_constants(self):
         """Active and terminal run status sets should be disjoint and complete."""
-        from yoke_core.domain.runs import ACTIVE_RUN_STATUSES, TERMINAL_RUN_STATUSES, RunStatus
+        from yoke_core.domain.runs import (
+            ACTIVE_RUN_STATUSES,
+            TERMINAL_RUN_STATUSES,
+            RunStatus,
+        )
 
         all_run_statuses = {s.value for s in RunStatus}
         assert ACTIVE_RUN_STATUSES & TERMINAL_RUN_STATUSES == set(), (
@@ -78,8 +85,11 @@ class TestDeploymentRunRegression:
         from yoke_core.domain.runs import DeploymentRun, advance_run_stage
 
         run = DeploymentRun(
-            id="test-run", project="yoke", flow="test-flow",
-            status="executing", current_stage="stage-1",
+            id="test-run",
+            project="yoke",
+            flow="test-flow",
+            status="executing",
+            current_stage="stage-1",
         )
         result = advance_run_stage(run, ["stage-1", "stage-2", "stage-3"])
         assert result.advanced is True
@@ -90,8 +100,11 @@ class TestDeploymentRunRegression:
         from yoke_core.domain.runs import DeploymentRun, advance_run_stage
 
         run = DeploymentRun(
-            id="test-run", project="yoke", flow="test-flow",
-            status="executing", current_stage="stage-3",
+            id="test-run",
+            project="yoke",
+            flow="test-flow",
+            status="executing",
+            current_stage="stage-3",
         )
         result = advance_run_stage(run, ["stage-1", "stage-2", "stage-3"])
         assert result.advanced is True
@@ -102,8 +115,11 @@ class TestDeploymentRunRegression:
         from yoke_core.domain.runs import DeploymentRun, advance_run_stage
 
         run = DeploymentRun(
-            id="test-run", project="yoke", flow="test-flow",
-            status="succeeded", current_stage="stage-1",
+            id="test-run",
+            project="yoke",
+            flow="test-flow",
+            status="succeeded",
+            current_stage="stage-1",
         )
         result = advance_run_stage(run, ["stage-1", "stage-2"])
         assert result.advanced is False

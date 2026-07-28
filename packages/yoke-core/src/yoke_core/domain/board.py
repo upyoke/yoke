@@ -31,9 +31,8 @@ Status-to-bucket mapping rules (in priority order):
     idea                    -> idea  (backlog bucket)
     unknown                 -> unknown
 
-Workflow-aware overrides (when ``workflow_id`` is provided):
-    epic + refined-idea        -> planning (issue default: refined)
-    epic + reviewing-implementation -> implementing (issue default: reviewing)
+Shared stage ids derive their bucket from the pinned workflow definition's
+executor bindings and policies. Workflow identity is display metadata only.
 
 Note: ``items.blocked`` and ``path_claims.state='blocked'`` are unrelated
 concepts that share the word; ``items.blocked`` is the item-level routing
@@ -47,7 +46,7 @@ by project with frontier/project state projection.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Mapping, Optional, Sequence
 
 # Status -> board-bucket vocabulary moved to the shipped yoke_contracts.board
 # tier so the board render ships core-free; re-exported here for existing callers.
@@ -134,6 +133,7 @@ class ItemForBoard:
     blocked_value: Any = None
     has_active_run: bool = False
     workflow_id: Optional[str] = None
+    workflow_definition: Optional[Mapping[str, Any]] = None
 
 
 def project_board(
@@ -168,6 +168,7 @@ def project_board(
             has_active_run=item_data.has_active_run,
             workflow_id=item_data.workflow_id,
             blocked_value=item_data.blocked_value,
+            workflow_definition=item_data.workflow_definition,
         )
 
         # Skip frozen and unknown items from normal display.

@@ -13,11 +13,8 @@ from __future__ import annotations
 import pytest
 from unittest.mock import patch
 
-
-from runtime.api.test_sessions import (
-    _register,
-    conn,  # noqa: F401  (Postgres-backed pytest fixture)
-)
+from runtime.api.fixtures.backlog import insert_item
+from runtime.api.test_sessions import _register
 from yoke_core.domain.sessions import (
     EVENT_HARNESS_SESSION_END_RELEASED_CLAIMS,
     EVENT_HARNESS_SESSION_ENDED,
@@ -27,11 +24,18 @@ from yoke_core.domain.sessions import (
     update_chain_checkpoint,
 )
 
+pytest_plugins = ("runtime.api.test_sessions",)
+
 
 PRIMARY_ITEM_ID = 9999
 SECONDARY_ITEM_ID = 7777
 PRIMARY_ITEM_REF = f"YOK-{PRIMARY_ITEM_ID}"
 SECONDARY_ITEM_REF = f"YOK-{SECONDARY_ITEM_ID}"
+
+
+def _seed_claim_targets(conn, *item_ids: int) -> None:
+    for item_id in item_ids:
+        insert_item(conn, id=item_id, workflow_id="issue")
 
 
 def _active_claim_count(conn, session_id: str) -> int:
@@ -44,6 +48,10 @@ def _active_claim_count(conn, session_id: str) -> int:
 
 class TestNoFlagsAutoRelease:
     """end_session (no flags) auto-releases active claims before ending."""
+
+    @pytest.fixture(autouse=True)
+    def _seed_standard_claim_targets(self, conn):
+        _seed_claim_targets(conn, PRIMARY_ITEM_ID, SECONDARY_ITEM_ID)
 
     def test_ac1_no_flags_releases_active_claim_and_ends(self, conn):
         """AC-1: no-flags end_session auto-releases active claims and ends."""
@@ -91,8 +99,11 @@ class TestNoFlagsAutoRelease:
         """AC-3: CHAIN_PENDING guard still fires before the auto-release path."""
         _register(conn, session_id="sess-cp")
         update_chain_checkpoint(
-            conn, "sess-cp",
-            step=1, action="charge", chainable=True,
+            conn,
+            "sess-cp",
+            step=1,
+            action="charge",
+            chainable=True,
             handler_outcome="completed",
         )
         with pytest.raises(SessionError) as exc_info:
@@ -118,7 +129,8 @@ class TestNoFlagsAutoRelease:
         end_session(conn, "sess-1")
 
         release_events = [
-            c for c in mock_emit.call_args_list
+            c
+            for c in mock_emit.call_args_list
             if c[0][0] == EVENT_HARNESS_SESSION_END_RELEASED_CLAIMS
         ]
         assert len(release_events) == 1
@@ -129,7 +141,8 @@ class TestNoFlagsAutoRelease:
         assert ctx["released_claims"][0]["item_id"] == PRIMARY_ITEM_ID
 
         ended_events = [
-            c for c in mock_emit.call_args_list
+            c
+            for c in mock_emit.call_args_list
             if c[0][0] == EVENT_HARNESS_SESSION_ENDED
         ]
         assert len(ended_events) == 1
@@ -157,6 +170,7 @@ class TestNoFlagsAutoRelease:
         end_session call succeeds, releases the claim, and leaves the
         session ended.
         """
+        _seed_claim_targets(conn, *(100 + i for i in range(6)))
         for i in range(6):
             sid = f"ghost-{i}"
             _register(conn, session_id=sid)

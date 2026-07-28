@@ -206,10 +206,10 @@ class WorkflowRuntime:
             GATE_CLAIM_ACTIVATION,
         )
 
-        return self.policies[
-            "path_claims"
-        ] == "required" and GATE_CLAIM_ACTIVATION in self.gate_ids_for_stage(
-            self.next_stage_id(stage_id)
+        return (
+            self.policies["path_claims"] == "required"
+            and GATE_CLAIM_ACTIVATION
+            in self.gate_ids_for_stage(self.next_stage_id(stage_id))
         )
 
     def allows_entry_surface(self, entry_surface: str) -> bool:

@@ -25,6 +25,7 @@ from yoke_core.domain.workflow_registry import publish_workflow_version
 ADVANCE_SKILL = (
     Path(__file__).parents[2] / ".agents" / "skills" / "yoke" / "advance" / "SKILL.md"
 )
+ADVANCE_WORKFLOW_CONTEXT = ADVANCE_SKILL.with_name("workflow-context.md")
 
 
 def _request(
@@ -47,10 +48,8 @@ def _next_stage(definition: dict, current: str) -> str:
 
 
 def test_advance_teaches_item_pin_then_exact_version_read() -> None:
-    text = ADVANCE_SKILL.read_text()
-    lookup_start = text.index("### 1. Parse and Lookup")
-    lookup_end = text.index("### 2. Determine Target Status")
-    lookup = text[lookup_start:lookup_end]
+    skill = ADVANCE_SKILL.read_text()
+    lookup = ADVANCE_WORKFLOW_CONTEXT.read_text()
 
     item_read = lookup.index("yoke workflows item get YOK-{N} --json")
     version_read = lookup.index(
@@ -58,19 +57,20 @@ def test_advance_teaches_item_pin_then_exact_version_read() -> None:
     )
 
     assert item_read < version_read
+    assert "[`workflow-context.md`](workflow-context.md)" in skill
     assert "yoke workflows definition get" not in lookup
     assert "current_version_id" not in lookup
 
 
 def test_advance_has_no_stale_current_definition_lookup_residue() -> None:
-    text = ADVANCE_SKILL.read_text()
+    text = ADVANCE_SKILL.read_text() + ADVANCE_WORKFLOW_CONTEXT.read_text()
 
     assert "yoke workflows definition get" not in text
     assert "current_version_id" not in text
     assert "items get {N} workflow_id workflow_version_id" not in text
-    assert "**Step 1 — Pinned workflow lookup:**" in text
-    assert "Call `workflows.item.get` first." in text
-    assert "exact `workflows.version.get` read" in text
+    assert "exact pin" in text
+    assert "registry key for the exact version read" in text
+    assert "no behavior branches on its value" in text
 
 
 def test_existing_item_uses_pinned_definition_after_new_version_becomes_current(

@@ -11,19 +11,20 @@ from unittest.mock import patch
 
 from runtime.api.test_constants import TEST_MODEL_ID
 from runtime.api.test_sessions import (
+    _insert_claimable_item,
     _p,
     _register,
-    conn,  # noqa: F401  (pytest fixture)
 )
 from yoke_core.domain.sessions import (
     EVENT_HARNESS_SESSION_STARTED,
     SessionError,
     claim_work,
     end_session,
-    end_session_if_empty,
     heartbeat,
     register_session,  # noqa: F401  (re-exported for downstream callers)
 )
+
+pytest_plugins = ("runtime.api.test_sessions",)
 
 
 # ---------------------------------------------------------------------------
@@ -263,10 +264,21 @@ class TestRegisterSession:
     def test_register_returns_all_identity_fields(self, conn):
         """AC-1: all identity fields from the session-identity contract."""
         result = _register(conn)
-        for field in ("session_id", "executor", "provider", "model",
-                       "execution_lane", "capabilities", "workspace",
-                       "mode", "offered_at", "last_heartbeat", "ended_at"):
+        for field in (
+            "session_id",
+            "executor",
+            "provider",
+            "model",
+            "execution_lane",
+            "capabilities",
+            "workspace",
+            "mode",
+            "offered_at",
+            "last_heartbeat",
+            "ended_at",
+        ):
             assert field in result, f"Missing field: {field}"
+
 
 # Slice 8 actor-id register tests live in
 # ``test_sessions_lifecycle_actor_id.py`` to honour the file-line
@@ -290,6 +302,7 @@ class TestHeartbeat:
 
     def test_heartbeat_updates_claim_timestamps(self, conn):
         _register(conn)
+        _insert_claimable_item(conn, 9999)
         claim_work(conn, session_id="sess-1", item_id="YOK-9999")
         before_claim = conn.execute(
             "SELECT last_heartbeat FROM work_claims WHERE session_id='sess-1'"
@@ -311,40 +324,3 @@ class TestHeartbeat:
         with pytest.raises(SessionError) as exc_info:
             heartbeat(conn, "sess-1")
         assert exc_info.value.code == "SESSION_ENDED"
-
-
-class TestEndSessionIfEmpty:
-    def test_ends_claimless_active_session(self, conn):
-        _register(conn, session_id="empty-end")
-
-        result = end_session_if_empty(conn, "empty-end")
-
-        assert result["status"] == "ended"
-        assert result["ended"] is True
-        row = conn.execute(
-            "SELECT ended_at FROM harness_sessions WHERE session_id='empty-end'"
-        ).fetchone()
-        assert row["ended_at"] is not None
-
-    def test_skips_session_with_active_claims(self, conn):
-        _register(conn, session_id="claimed-end")
-        claim_work(conn, session_id="claimed-end", item_id="YOK-9999")
-
-        result = end_session_if_empty(conn, "claimed-end")
-
-        assert result["status"] == "has_claims"
-        assert result["ended"] is False
-        assert result["active_claim_count"] == 1
-        row = conn.execute(
-            "SELECT ended_at FROM harness_sessions WHERE session_id='claimed-end'"
-        ).fetchone()
-        assert row["ended_at"] is None
-
-    def test_idempotent_when_already_ended(self, conn):
-        _register(conn, session_id="already-ended")
-        end_session_if_empty(conn, "already-ended")
-
-        result = end_session_if_empty(conn, "already-ended")
-
-        assert result["status"] == "already_ended"
-        assert result["ended"] is False

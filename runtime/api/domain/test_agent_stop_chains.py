@@ -39,9 +39,8 @@ class TestProcessDispatchChains:
 
         assert ctx.item_id == ""
         assert ctx.auto_committed is False
-        assert ctx.dispatch_type == "issue"
 
-    def test_issue_basename_triggers_auto_commit(self, tmp_path: Path):
+    def test_item_basename_triggers_auto_commit(self, tmp_path: Path):
         """When ``agent_dir`` basename is ``YOK-<num>`` and differs from
         ``project_root``, dirty worktree work is auto-committed and the
         item id is captured on the context.
@@ -65,7 +64,7 @@ class TestProcessDispatchChains:
         assert ctx.auto_committed is True
         assert ctx.auto_commit_file_count == 1
 
-    def test_issue_basename_clean_worktree_no_commit(self, tmp_path: Path):
+    def test_item_basename_clean_worktree_no_commit(self, tmp_path: Path):
         """Clean YOK-named worktree records item_id but does not commit."""
         project_root = tmp_path / "repo"
         project_root.mkdir()

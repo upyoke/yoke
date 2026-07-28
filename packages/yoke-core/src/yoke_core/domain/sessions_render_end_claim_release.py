@@ -24,8 +24,15 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from . import sessions_analytics as _sa
-from .sessions_analytics import EVENT_HARNESS_SESSION_END_RELEASED_CLAIMS
-from .sessions_lifecycle_release import release_work_claim_for_execution
+from .sessions_analytics import (
+    EVENT_HARNESS_SESSION_END_RELEASED_CLAIMS,
+    SessionError,
+)
+from .sessions_lifecycle_release import (
+    _POST_COMMIT_RECEIPT_KEY,
+    emit_work_release_post_commit,
+    release_work_claim_for_execution,
+)
 from .work_claim_targets import (
     TARGET_KIND_EPIC_TASK,
     TARGET_KIND_ITEM,
@@ -54,67 +61,67 @@ def _describe_target(target: WorkClaimTarget) -> Dict[str, Any]:
     return desc
 
 
-def release_session_claims(
+def _release_session_claim_rows(
     conn: Any,
     session_id: str,
     *,
     active_claim_rows,
-    release_reason: str = SESSION_ENDED_RELEASE_REASON,
-    via: str = NO_FLAGS_RELEASE_VIA,
-) -> List[Dict[str, Any]]:
-    """Release each active work-claim and return the JSON-safe payload.
-
-    Routes each release through :func:`release_work_claim_for_execution`
-    with ``allow_non_terminal=True`` so process-owned path-claim cascade
-    and target-kind semantics are consistent with every other claim
-    release path. Emits one aggregate
-    ``HarnessSessionEndReleasedClaims`` event covering the release
-    outcome — mirrors the destructive-guard branch so audit callers find
-    session-end claim releases under one canonical event name regardless
-    of which session-end branch ran.
-
-    ``release_reason`` defaults to ``"session_ended"`` (the no-flags
-    ``end_session`` path). The session-scoped agent-handoff primitive
-    (:mod:`claims_work_release_session_scoped`) passes
-    ``"agent_handoff_session_scoped"`` so the event's
-    ``release_reason_intent`` distinguishes operator intent without
-    breaking the schema-enum ``work_claims.release_reason`` (the
-    schema-enum value is the canonicalized mapping handled inside
-    :func:`release_work_claim_for_execution`). ``via`` matches the
-    aggregate event's ``context.via`` field for the same audit purpose.
-
-    Returns one entry per released claim with stable JSON-safe keys:
-    ``claim_id``, ``target_kind``, and the target-kind identifiers
-    (``item_id`` / ``epic_id`` + ``task_num`` / ``process_key`` +
-    ``conflict_group``). Released claims are returned in their input
-    order so callers can correlate against ``active_claim_rows``.
-
-    A release that returns ``released=False`` (the typed path already
-    emitted ``ItemClaimReleaseFailed`` for audit) is omitted from the
-    return list — a single failing release does not strand the others.
-    """
+    release_reason: str,
+    commit: bool,
+) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+    """Release claim rows, optionally deferring their success telemetry."""
     released: List[Dict[str, Any]] = []
+    post_commit_receipts: List[Dict[str, Any]] = []
     for row in active_claim_rows:
-        target = from_row({
-            "target_kind": row["target_kind"],
-            "item_id": row["item_id"],
-            "epic_id": row["epic_id"],
-            "task_num": row["task_num"],
-            "process_key": row["process_key"],
-            "conflict_group": row["conflict_group"],
-        })
+        target = from_row(
+            {
+                "target_kind": row["target_kind"],
+                "item_id": row["item_id"],
+                "epic_id": row["epic_id"],
+                "task_num": row["task_num"],
+                "process_key": row["process_key"],
+                "conflict_group": row["conflict_group"],
+            }
+        )
         result = release_work_claim_for_execution(
             conn,
             session_id,
             target,
             release_reason,
             allow_non_terminal=True,
+            commit=commit,
         )
         if not result.get("released"):
+            if not commit:
+                raise SessionError(
+                    "CLAIM_RELEASE_FAILED",
+                    f"Could not release locked claim {row['id']} while ending "
+                    f"session '{session_id}'.",
+                )
             continue
         entry = _describe_target(target)
         entry["claim_id"] = result["claim_id"]
         released.append(entry)
+        receipt = result.get(_POST_COMMIT_RECEIPT_KEY)
+        if receipt is not None:
+            post_commit_receipts.append(receipt)
+    return released, post_commit_receipts
+
+
+def emit_session_claim_releases_post_commit(
+    conn: Any,
+    session_id: str,
+    *,
+    released: List[Dict[str, Any]],
+    post_commit_receipts: List[Dict[str, Any]],
+    release_reason: str = SESSION_ENDED_RELEASE_REASON,
+    via: str = NO_FLAGS_RELEASE_VIA,
+    emit_individual: bool = True,
+) -> None:
+    """Emit deferred per-claim and aggregate events after a batch commit."""
+    if emit_individual:
+        for receipt in post_commit_receipts:
+            emit_work_release_post_commit(conn, receipt)
 
     if released:
         first_item: Optional[str] = None
@@ -134,6 +141,57 @@ def release_session_claims(
             },
         )
 
+
+def release_session_claims_transactional(
+    conn: Any,
+    session_id: str,
+    *,
+    active_claim_rows,
+    release_reason: str = SESSION_ENDED_RELEASE_REASON,
+) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+    """Stage all session claim releases in the caller-owned transaction."""
+    return _release_session_claim_rows(
+        conn,
+        session_id,
+        active_claim_rows=active_claim_rows,
+        release_reason=release_reason,
+        commit=False,
+    )
+
+
+def release_session_claims(
+    conn: Any,
+    session_id: str,
+    *,
+    active_claim_rows,
+    release_reason: str = SESSION_ENDED_RELEASE_REASON,
+    via: str = NO_FLAGS_RELEASE_VIA,
+) -> List[Dict[str, Any]]:
+    """Release each active work-claim and return the JSON-safe payload.
+
+    Routes each release through :func:`release_work_claim_for_execution`
+    with ``allow_non_terminal=True`` so process-owned path-claim cascade
+    and target-kind semantics are consistent with every other claim
+    release path. The default remains backwards compatible: each typed
+    release commits and emits success telemetry before the aggregate event.
+    Session end uses :func:`release_session_claims_transactional` so every
+    release, the terminal session row, and focus cleanup commit together.
+    """
+    released, post_commit_receipts = _release_session_claim_rows(
+        conn,
+        session_id,
+        active_claim_rows=active_claim_rows,
+        release_reason=release_reason,
+        commit=True,
+    )
+    emit_session_claim_releases_post_commit(
+        conn,
+        session_id,
+        released=released,
+        post_commit_receipts=post_commit_receipts,
+        release_reason=release_reason,
+        via=via,
+    )
     return released
 
 
@@ -141,5 +199,7 @@ __all__ = [
     "AGENT_HANDOFF_RELEASE_VIA",
     "NO_FLAGS_RELEASE_VIA",
     "SESSION_ENDED_RELEASE_REASON",
+    "emit_session_claim_releases_post_commit",
     "release_session_claims",
+    "release_session_claims_transactional",
 ]

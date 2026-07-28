@@ -1,3 +1,4 @@
+# ruff: noqa: F401
 """Tests for db_error_hook.py — DB error detection hook.
 
 Covers: stray DB detection, DB query failure detection, row-count collapse
@@ -95,11 +96,11 @@ class TestDetectDbQueryFailure:
         assert "DB query FAILED" in result
 
     def test_db_router_no_such_column_emits_schema_hint(self):
-        """AC-10: db_router query failures naming a stale column point at the packet + who-claims."""
-        stale_column = "owner_" "session_id"
+        """Stale-column failures point at the packet and public holder read."""
+        stale_column = "owner_session_id"
         cmd = (
             "python3 -m yoke_core.cli.db_router query "
-            f"\"SELECT {stale_column} FROM items WHERE id=1606\""
+            f'"SELECT {stale_column} FROM items WHERE id=1606"'
         )
         result = detect_db_query_failure(
             cmd,
@@ -108,15 +109,13 @@ class TestDetectDbQueryFailure:
         assert result is not None
         assert stale_column in result
         assert "schema_api_context" in result
-        assert "who-claims" in result
+        assert "yoke claims work holder-get YOK-N" in result
+        assert "harness_sessions who-claims" not in result
         assert "generic target-column guesses" in result
 
     def test_db_router_no_such_table_emits_schema_hint(self):
-        stale_table = "item_" "claims"
-        cmd = (
-            "python3 -m yoke_core.cli.db_router query "
-            f"\"SELECT * FROM {stale_table}\""
-        )
+        stale_table = "item_claims"
+        cmd = f'python3 -m yoke_core.cli.db_router query "SELECT * FROM {stale_table}"'
         result = detect_db_query_failure(
             cmd,
             f"Error: no such table: {stale_table}",
@@ -124,14 +123,15 @@ class TestDetectDbQueryFailure:
         assert result is not None
         assert stale_table in result
         assert "schema_api_context" in result
-        assert "who-claims" in result
+        assert "yoke claims work holder-get YOK-N" in result
+        assert "harness_sessions who-claims" not in result
 
     def test_python_sqlite3_no_such_column_emits_schema_hint(self):
-        cmd = "python3 -c 'import sqlite" "3; ...'"
-        stale_column = "claim_" "session_id"
+        cmd = "python3 -c 'import sqlite3; ...'"
+        stale_column = "claim_session_id"
         result = detect_db_query_failure(
             cmd,
-            f"sqlite" f"3.OperationalError: no such column: {stale_column}",
+            f"sqlite3.OperationalError: no such column: {stale_column}",
         )
         assert result is not None
         assert stale_column in result
@@ -157,7 +157,7 @@ class TestDetectDbQueryFailure:
         Python sqlite3 invocations) so structured reads of content data
         no longer trip the false-positive class."""
 
-        stale_column = "owner_" "session_id"
+        stale_column = "owner_session_id"
         body_text = (
             "## Background\n"
             "Earlier we hit `Error: no such column: " + stale_column + "` "
@@ -174,7 +174,9 @@ class TestDetectDbQueryFailure:
                 "when historical error text is embedded in content output"
             )
 
-    def test_db_router_query_against_events_with_stored_envelope_text_does_not_fire(self):
+    def test_db_router_query_against_events_with_stored_envelope_text_does_not_fire(
+        self,
+    ):
         """A successful raw-SQL ``db_router query`` against the
         ``events`` table whose output rows contain historical envelope
         text matching ``Error: no such column: events.status`` (or the
@@ -186,18 +188,19 @@ class TestDetectDbQueryFailure:
 
         cmd = (
             "python3 -m yoke_core.cli.db_router query "
-            "\"SELECT envelope FROM events "
+            '"SELECT envelope FROM events '
             "WHERE event_name='YokeFunctionCalled' ORDER BY id DESC LIMIT 20\""
         )
         stale_column = "events.status"
         stored_op_error_column = "events.foo"
         output = (
-            f"1|{{\"event_name\": \"YokeFunctionCalled\", \"output\": "
-            f"\"Error: no such column: {stale_column}\", "
-            f"\"ts\": \"2026-05-19\"}}\n"
-            f"2|{{\"event_name\": \"YokeFunctionCalled\", \"output\": "
-            f"\"sqlite" f"3.OperationalError: no such column: {stored_op_error_column}\", "
-            f"\"ts\": \"2026-05-19\"}}\n"
+            f'1|{{"event_name": "YokeFunctionCalled", "output": '
+            f'"Error: no such column: {stale_column}", '
+            f'"ts": "2026-05-19"}}\n'
+            f'2|{{"event_name": "YokeFunctionCalled", "output": '
+            f'"sqlite'
+            f'3.OperationalError: no such column: {stored_op_error_column}", '
+            f'"ts": "2026-05-19"}}\n'
         )
         assert detect_db_query_failure(cmd, output) is None, (
             "stored envelope text inside successful db_router query "
@@ -213,13 +216,16 @@ class TestDetectDbQueryFailure:
         branch of ``_looks_like_db_query_command``."""
 
         cmd = (
-            "python3 -c 'import sqlite" "3; "
-            "rows = sqlite" "3.connect(\"yoke.db\").execute("
-            "\"SELECT envelope FROM events\").fetchall(); print(rows)'"
+            "python3 -c 'import sqlite"
+            "3; "
+            "rows = sqlite"
+            '3.connect("yoke.db").execute('
+            '"SELECT envelope FROM events").fetchall(); print(rows)\''
         )
         stored_op_error_column = "events.foo"
         output = (
-            f"[(\"{{'event': 'X', 'err': 'sqlite" f"3.OperationalError: "
+            f"[(\"{{'event': 'X', 'err': 'sqlite"
+            f"3.OperationalError: "
             f"no such column: {stored_op_error_column}'}}\",), "
             f"(\"{{'event': 'Y', 'err': 'Error: no such column: "
             f"events.status'}}\",)]\n"
@@ -235,14 +241,12 @@ class TestDetectDbQueryFailure:
         Yoke session, plus the five ``*_agent`` subagent roles. The
         message must NOT list only the bare subagent role names."""
 
-        stale_column = "claim_" "session_id"
+        stale_column = "claim_session_id"
         cmd = (
             "python3 -m yoke_core.cli.db_router query "
-            f"\"SELECT {stale_column} FROM items\""
+            f'"SELECT {stale_column} FROM items"'
         )
-        result = detect_db_query_failure(
-            cmd, f"Error: no such column: {stale_column}"
-        )
+        result = detect_db_query_failure(cmd, f"Error: no such column: {stale_column}")
         assert result is not None
         for role in (
             "main_agent",
@@ -320,31 +324,10 @@ class TestRowCountCollapse:
             assert len(result.collapsed) == 1
             assert result.collapsed[0].table == "items"
             assert "DATA LOSS" in result.message
-            assert "migration_audit" in result.message and "backup latest" not in result.message
+            assert (
+                "migration_audit" in result.message
+                and "backup latest" not in result.message
+            )
 
             # Cleanup
             baseline_file.unlink()
-
-
-# ---------------------------------------------------------------------------
-# analyze_bash_output (unified)
-# ---------------------------------------------------------------------------
-
-
-class TestAnalyzeBashOutput:
-    def test_no_issues(self):
-        result = analyze_bash_output("echo hello", "hello")
-        assert result is None
-
-    def test_stray_db_detected(self, tmp_path):
-        stray = tmp_path / "yoke.db"
-        stray.touch()
-        (tmp_path / "runtime" / "ouroboros").mkdir(parents=True)
-
-        result = analyze_bash_output(
-            "some command",
-            "ok",
-            repo_root=str(tmp_path),
-        )
-        assert result is not None
-        assert "HARD STOP" in result

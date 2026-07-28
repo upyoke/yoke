@@ -18,7 +18,14 @@ from datetime import datetime, timezone
 from typing import Any, List, Sequence
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.path_claims import PathClaimError, get_claim
+from yoke_core.domain.path_claims import (
+    PathClaimError,
+    get_claim,
+)
+from yoke_core.domain.workflow_item_binding_lock import (
+    lock_path_claim_workflow_binding,
+    rollback_workflow_binding_write_errors,
+)
 
 
 class AmendmentNotFound(PathClaimError):
@@ -62,9 +69,7 @@ def _record_cancel(
     return int(cur.fetchone()[0])
 
 
-def _existing_targets(
-    conn: Any, claim_id: int
-) -> List[int]:
+def _existing_targets(conn: Any, claim_id: int) -> List[int]:
     p = _p(conn)
     return [
         int(r[0])
@@ -76,9 +81,7 @@ def _existing_targets(
     ]
 
 
-def _undo_widen(
-    conn: Any, claim_id: int, payload: dict
-) -> None:
+def _undo_widen(conn: Any, claim_id: int, payload: dict) -> None:
     added_ids = [int(t) for t in payload.get("added") or []]
     if not added_ids:
         return
@@ -91,9 +94,7 @@ def _undo_widen(
     )
 
 
-def _undo_narrow(
-    conn: Any, claim_id: int, payload: dict
-) -> None:
+def _undo_narrow(conn: Any, claim_id: int, payload: dict) -> None:
     removed_ids = [int(t) for t in payload.get("removed") or []]
     if not removed_ids:
         return
@@ -125,6 +126,7 @@ def _undo_narrow(
         )
 
 
+@rollback_workflow_binding_write_errors
 def cancel_amendment(
     conn: Any,
     *,
@@ -133,6 +135,7 @@ def cancel_amendment(
     reason: str,
 ) -> int:
     """Append a ``cancel`` record that names the amendment being undone."""
+    lock_path_claim_workflow_binding(conn, claim_id)
     get_claim(conn, claim_id)
     p = _p(conn)
     row = conn.execute(

@@ -30,9 +30,10 @@ function postureRows(workflow) {
   const policies = workflow.definition?.policies || {};
   const rows = [
     ["Ownership", "ownership", policies.ownership],
+    ["File Budget", "file_budget", policies.file_budget],
     ["Path claims", "path_claims", policies.path_claims],
     ["Worktrees", "worktrees", policies.worktrees],
-  ];
+  ].filter((row) => row[2] !== undefined);
   if (policies.parallelism !== "none") {
     rows.push(["Parallelism", "parallelism", policies.parallelism]);
   }

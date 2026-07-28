@@ -20,14 +20,25 @@ from yoke_core.domain.items_writes import insert_item, update_structured_field
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 
 
+ITEM_WORKFLOW = "issue"
+
+
 def _p(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
 def _seed_item_with_spec(
-    db_path: str, item_id: int, title: str, spec: str,
+    db_path: str,
+    item_id: int,
+    title: str,
+    spec: str,
 ) -> None:
-    insert_item(item_id=item_id, title=title, db_path=db_path)
+    insert_item(
+        item_id=item_id,
+        title=title,
+        workflow=ITEM_WORKFLOW,
+        db_path=db_path,
+    )
     if spec:
         update_structured_field(item_id, "spec", spec, db_path=db_path)
 
@@ -255,7 +266,12 @@ def test_build_coordination_context_missing_item_raises_value_error(env):
 def test_build_coordination_context_empty_spec_passes_through(env):
     conn = env["conn"]
     # Insert the candidate without writing a spec.
-    insert_item(item_id=150, title="Sparse candidate", db_path=env["db_path"])
+    insert_item(
+        item_id=150,
+        title="Sparse candidate",
+        workflow=ITEM_WORKFLOW,
+        db_path=env["db_path"],
+    )
     _seed_item_with_spec(env["db_path"], 250, "Other", "o")
     _seed_path_target(conn, path_string="AGENTS.md")
     claim_id = _seed_claim(conn, item_id=250)

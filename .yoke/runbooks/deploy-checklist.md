@@ -10,6 +10,9 @@ Run through before activating deploy flows for a new environment.
 
 - [ ] The intended source commit is on `main`, and `stage` contains the same
       Yoke content before an attended dual-environment release.
+- [ ] When Stage or physical QA gates Production, that evidence is complete
+      before the Production run is created, and both runs bind the same full
+      source commit.
 - [ ] The selected active flow comes from `.yoke/deployment-flows.json` and
       names the exact target environment; disabled historical flows are not
       reused.

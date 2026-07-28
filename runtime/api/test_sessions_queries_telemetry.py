@@ -89,7 +89,6 @@ class TestPostDecisionTelemetry:
         conn.execute(
             """UPDATE items
                SET status = 'refined-idea',
-                   type = 'issue',
                    project_id = 2
                WHERE id = 100"""
         )

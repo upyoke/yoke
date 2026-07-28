@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Optional, Sequence
 
-from yoke_core.domain import db_backend
+from yoke_core.domain import db_backend, workflow_item_binding_lock
 from yoke_core.domain.actors import validate_actor_id
 from yoke_core.domain.path_claim_owner import (
     derive_owner_from_signals,
@@ -28,6 +28,7 @@ class IncompatibleOverlap(PathClaimError): ...
 class UpstreamNotReleased(PathClaimError): ...
 class ClaimNotFound(PathClaimError): ...
 class IllegalTransition(PathClaimError): ...
+class InvalidWorkflowBinding(PathClaimError): ...
 
 
 _TERMINAL_STATES = ("released", "cancelled")
@@ -37,7 +38,8 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _p(conn) -> str: return "%s" if db_backend.connection_is_postgres(conn) else "?"
+def _p(conn) -> str:
+    return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
 def _validate_targets(conn: Any, target_ids: Sequence[int]) -> None:
@@ -87,6 +89,8 @@ def _blocked_upstream_id(row: Any) -> Optional[int]:
     except ValueError:
         return None
 
+
+@workflow_item_binding_lock.rollback_workflow_binding_write_errors
 def register(
     conn: Any,
     *,
@@ -100,24 +104,23 @@ def register(
     exception_reason: Optional[str] = None,
     work_claim_id: Optional[int] = None,
     candidate_item_id: Optional[int] = None,
+    task_num: Optional[int] = None,
+    commit: bool = True,
 ) -> int:
     """Register a planned path claim; return its row id.
 
     ``candidate_item_id`` lets overlap classification serialize dependents.
     """
     if mode == "parallel":
-        raise InvalidMode(
-            "parallel mode is not supported; use exclusive"
-        )
+        raise InvalidMode("parallel mode is not supported; use exclusive")
     if mode not in ("exclusive", "exception"):
-        raise InvalidMode(
-            f"unknown mode {mode!r}; expected 'exclusive' or 'exception'"
-        )
+        raise InvalidMode(f"unknown mode {mode!r}; expected 'exclusive' or 'exception'")
     if not validate_actor_id(conn, actor_id):
         raise InvalidActor(f"actor_id {actor_id} does not exist")
 
     if mode == "exception":
         from yoke_core.domain.path_claims_exception import register_exception
+
         return register_exception(
             conn,
             actor_id=actor_id,
@@ -126,9 +129,21 @@ def register(
             exception_reason=exception_reason,
             session_id=session_id,
             item_id=item_id,
+            task_num=task_num,
+            commit=commit,
         )
 
     _validate_targets(conn, target_ids)
+    workflow_item_binding_lock.lock_optional_item_workflow_binding(conn, item_id)
+    from yoke_core.domain.workflow_item_binding_validation import (
+        WorkflowItemBindingError,
+        validate_item_path_claim_scope,
+    )
+
+    try:
+        validate_item_path_claim_scope(conn, item_id, task_num=task_num)
+    except WorkflowItemBindingError as exc:
+        raise InvalidWorkflowBinding(str(exc)) from exc
 
     effective_candidate_item_id = candidate_item_id or item_id
     classification = classify_overlap(
@@ -151,9 +166,13 @@ def register(
         blocked_reason = f"serial-via-dependency on path_claims.id={upstream_claim_id}"
     elif is_serial:
         blocked_reason = "serial-via-dependency"
-    oc = owner_columns_or_null(derive_owner_from_signals(
-        item_id=item_id, work_claim_id=work_claim_id, session_id=session_id,
-    ))
+    oc = owner_columns_or_null(
+        derive_owner_from_signals(
+            item_id=item_id,
+            work_claim_id=work_claim_id,
+            session_id=session_id,
+        )
+    )
     now = _now()
     cur = conn.execute(
         "INSERT INTO path_claims (state, mode, actor_id, session_id, item_id, "
@@ -164,10 +183,23 @@ def register(
         f"VALUES ({_p(conn)}, {_p(conn)}, {_p(conn)}, {_p(conn)}, {_p(conn)}, "
         f"{_p(conn)}, {_p(conn)}, {_p(conn)}, {_p(conn)}, {_p(conn)}, "
         f"{_p(conn)}, {_p(conn)}, {_p(conn)}, {_p(conn)}, {_p(conn)}) RETURNING id",
-        (initial_state, mode, actor_id, session_id, item_id, work_claim_id,
-         oc["owner_kind"], oc["owner_item_id"], oc["owner_session_id"],
-         oc["owner_work_claim_id"], actor_id, session_id,
-         integration_target, now, blocked_reason),
+        (
+            initial_state,
+            mode,
+            actor_id,
+            session_id,
+            item_id,
+            work_claim_id,
+            oc["owner_kind"],
+            oc["owner_item_id"],
+            oc["owner_session_id"],
+            oc["owner_work_claim_id"],
+            actor_id,
+            session_id,
+            integration_target,
+            now,
+            blocked_reason,
+        ),
     )
     claim_id = int(cur.fetchone()[0])
     for target_id in target_ids:
@@ -176,7 +208,8 @@ def register(
             f"VALUES ({_p(conn)}, {_p(conn)}, {_p(conn)})",
             (claim_id, int(target_id), now),
         )
-    conn.commit()
+    if commit:
+        conn.commit()
     return claim_id
 
 
@@ -193,7 +226,29 @@ def activate(
     re-classified at activate time. ``blocked`` claims require their
     named upstream to be in state ``released``.
     """
+    workflow_item_binding_lock.lock_path_claim_workflow_binding(
+        conn,
+        int(claim_id),
+    )
     row = _fetch_claim(conn, claim_id)
+    owner_kind = row["owner_kind"]
+    owner_item_id = (
+        row["owner_item_id"]
+        if owner_kind == "item"
+        else row["item_id"]
+        if owner_kind is None
+        else None
+    )
+    if owner_item_id is not None:
+        from yoke_core.domain.workflow_item_binding_validation import (
+            WorkflowItemBindingError,
+            item_binding_runtime_state,
+        )
+
+        try:
+            item_binding_runtime_state(conn, int(owner_item_id))
+        except WorkflowItemBindingError as exc:
+            raise InvalidWorkflowBinding(str(exc)) from exc
     state = row["state"]
     if state == "active":
         return  # idempotent — door lock already held
@@ -202,9 +257,7 @@ def activate(
             f"cannot activate claim {claim_id} from terminal state {state!r}"
         )
     if state not in ("planned", "blocked"):
-        raise IllegalTransition(
-            f"cannot activate claim {claim_id} from {state!r}"
-        )
+        raise IllegalTransition(f"cannot activate claim {claim_id} from {state!r}")
 
     targets = [
         int(t[0])
@@ -232,7 +285,10 @@ def activate(
                 f"claim {claim_id} is blocked; pass upstream_claim_id to activate"
             )
         expected_upstream = _blocked_upstream_id(row)
-        if expected_upstream is not None and int(upstream_claim_id) != expected_upstream:
+        if (
+            expected_upstream is not None
+            and int(upstream_claim_id) != expected_upstream
+        ):
             raise UpstreamNotReleased(
                 f"claim {claim_id} is blocked by upstream claim "
                 f"{expected_upstream}, not {upstream_claim_id}"
@@ -255,65 +311,6 @@ def activate(
     conn.commit()
 
 
-def release(
-    conn: Any,
-    *,
-    claim_id: int,
-    reason: str,
-) -> None:
-    """Release the door lock idempotently. Cancelled claims reject."""
-    row = _fetch_claim(conn, claim_id)
-    state = row["state"]
-    if state == "released":
-        return
-    if state == "cancelled":
-        raise IllegalTransition(
-            f"cannot release claim {claim_id} after cancel"
-        )
-    conn.execute(
-        f"UPDATE path_claims SET state='released', released_at={_p(conn)}, "
-        f"release_reason={_p(conn)} WHERE id = {_p(conn)}",
-        (_now(), reason, claim_id),
-    )
-    conn.commit()
-
-
-def cancel(
-    conn: Any,
-    *,
-    claim_id: int,
-    reason: str,
-) -> None:
-    """Cancel a non-terminal claim idempotently. Released claims reject."""
-    row = _fetch_claim(conn, claim_id)
-    state = row["state"]
-    if state == "cancelled":
-        return
-    if state == "released":
-        raise IllegalTransition(
-            f"cannot cancel claim {claim_id} after release"
-        )
-    target_ids = [
-        int(r[0])
-        for r in conn.execute(
-            f"SELECT target_id FROM path_claim_targets WHERE claim_id = {_p(conn)}",
-            (claim_id,),
-        )
-    ]
-    conn.execute(
-        f"UPDATE path_claims SET state='cancelled', cancelled_at={_p(conn)}, "
-        f"cancel_reason={_p(conn)} WHERE id = {_p(conn)}",
-        (_now(), reason, claim_id),
-    )
-    from yoke_core.domain.path_targets_materialization import (
-        abandon_planned_targets_without_open_claim,
-    )
-    abandon_planned_targets_without_open_claim(
-        conn, target_ids=target_ids, reason=reason,
-    )
-    conn.commit()
-
-
 def get_claim(conn: Any, claim_id: int) -> dict:
     """Return a claim row as a dict, including its declared target ids."""
     row = _fetch_claim(conn, claim_id)
@@ -332,18 +329,11 @@ def get_claim(conn: Any, claim_id: int) -> dict:
     return out
 
 
+from yoke_core.domain.path_claims_terminal import cancel, release  # noqa: E402
+
+
 __all__ = [
-    "ClaimNotFound",
-    "IllegalTransition",
-    "IncompatibleOverlap",
-    "InvalidActor",
-    "InvalidMode",
-    "InvalidTargetSet",
-    "PathClaimError",
-    "UpstreamNotReleased",
-    "activate",
-    "cancel",
-    "get_claim",
-    "register",
-    "release",
+    "ClaimNotFound", "IllegalTransition", "IncompatibleOverlap", "InvalidActor",
+    "InvalidMode", "InvalidTargetSet", "InvalidWorkflowBinding", "PathClaimError",
+    "UpstreamNotReleased", "activate", "cancel", "get_claim", "register", "release",
 ]

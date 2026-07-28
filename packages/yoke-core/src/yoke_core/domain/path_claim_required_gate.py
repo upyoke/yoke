@@ -38,7 +38,8 @@ def _p(conn: Any) -> str:
 
 
 def evaluate(
-    conn: Any, item_id: int,
+    conn: Any,
+    item_id: int,
 ) -> Dict[str, object]:
     """Return ``{verdict, reason, satisfying_claims}`` for the gate.
 
@@ -47,6 +48,63 @@ def evaluate(
     lists the claim ids that pass the gate (empty when blocked) so
     consumers can audit which row carried the coverage.
     """
+    try:
+        from yoke_core.domain.workflow_effective_policies import (
+            load_item_effective_workflow_policies,
+        )
+
+        effective = load_item_effective_workflow_policies(conn, item_id)
+    except Exception as exc:
+        return {
+            "verdict": GATE_BLOCK,
+            "reason": (
+                f"item YOK-{item_id} has an unreadable pinned path-claim policy: {exc}"
+            ),
+            "satisfying_claims": [],
+        }
+    if not effective.requires_path_claims:
+        return {
+            "verdict": GATE_PASS,
+            "reason": (
+                f"item YOK-{item_id} effective workflow policy makes "
+                "path claims optional"
+            ),
+            "satisfying_claims": [],
+        }
+    return evaluate_required_coverage(
+        conn,
+        item_id,
+        task_scoped=effective.path_claims == "required_per_task",
+    )
+
+
+def evaluate_required_coverage(
+    conn: Any,
+    item_id: int,
+    *,
+    task_scoped: bool = False,
+) -> Dict[str, object]:
+    """Evaluate concrete claim coverage without applying workflow opt-outs."""
+    if task_scoped:
+        from yoke_core.domain.path_claim_task_coverage import (
+            evaluate_task_coverage,
+        )
+
+        result = evaluate_task_coverage(conn, item_id)
+        if result.no_tasks:
+            return {
+                "verdict": GATE_PASS,
+                "reason": (
+                    f"item YOK-{item_id} defers task-scoped path coverage "
+                    "until planning persists generated tasks"
+                ),
+                "satisfying_claims": [],
+            }
+        return {
+            "verdict": (GATE_PASS if result.verdict == GATE_PASS else GATE_BLOCK),
+            "reason": result.reason,
+            "satisfying_claims": list(result.satisfying_claims),
+        }
     p = _p(conn)
     placeholders = ",".join(p for _ in _NON_TERMINAL_STATES)
     rows = conn.execute(
@@ -80,11 +138,11 @@ def evaluate(
         # status so the operator sees one coherent diagnostic across
         # path_claim_required_gate and evaluate-gate.
         blocked_addenda = _describe_blocked_satisfying_claims(
-            conn, satisfying,
+            conn,
+            satisfying,
         )
         base_reason = (
-            f"item YOK-{item_id} has {len(satisfying)} satisfying "
-            f"claim row(s)"
+            f"item YOK-{item_id} has {len(satisfying)} satisfying claim row(s)"
         )
         if blocked_addenda:
             reason = base_reason + " — " + "; ".join(blocked_addenda)
@@ -100,11 +158,12 @@ def evaluate(
         "reason": (
             f"item YOK-{item_id} has no non-terminal path claim and no "
             f"active no-claim exception. Register coverage with "
-            f"`python3 -m yoke_core.api.service_client path-claim-register "
+            f"`yoke claims path register "
             f"--item YOK-{item_id} --integration-target main "
-            f"--paths <comma-separated paths> [--allow-planned]` or "
-            f"record a no-claim exception with `--mode exception "
-            f"--reason \"<why this item touches no repo surface>\"`."
+            f'--paths "<comma-separated paths>" [--allow-planned]` or '
+            f"record one with `yoke claims path register --item YOK-{item_id} "
+            f"--mode exception --exception-reason "
+            f'"<why this item touches no repo surface>"`.'
         ),
         "satisfying_claims": [],
     }
@@ -120,7 +179,8 @@ def is_satisfied(conn: Any, item_id: int) -> bool:
 
 
 def items_missing_coverage(
-    conn: Any, candidate_ids: Iterable[int],
+    conn: Any,
+    candidate_ids: Iterable[int],
 ) -> list[int]:
     """Return the subset of ``candidate_ids`` that fail the gate.
 
@@ -138,7 +198,8 @@ def items_missing_coverage(
 
 
 def _describe_blocked_satisfying_claims(
-    conn: Any, claim_ids: list[int],
+    conn: Any,
+    claim_ids: list[int],
 ) -> list[str]:
     """Render diagnostic strings for blocked satisfying claims.
 
@@ -168,9 +229,7 @@ def _describe_blocked_satisfying_claims(
             (upstream_id,),
         ).fetchone()
         if upstream_row is None:
-            out.append(
-                f"path claim {cid} blocked on path claim {upstream_id}"
-            )
+            out.append(f"path claim {cid} blocked on path claim {upstream_id}")
             continue
         up_item = upstream_row[0]
         up_status = upstream_row[1]
@@ -180,9 +239,7 @@ def _describe_blocked_satisfying_claims(
                 f"(YOK-{int(up_item)}, status: {up_status or 'unknown'})"
             )
         else:
-            out.append(
-                f"path claim {cid} blocked on path claim {upstream_id}"
-            )
+            out.append(f"path claim {cid} blocked on path claim {upstream_id}")
     return out
 
 
@@ -194,7 +251,7 @@ def _extract_upstream_claim_id(blocked_reason: str) -> int | None:
     idx = blocked_reason.find(needle)
     if idx < 0:
         return None
-    tail = blocked_reason[idx + len(needle):].strip()
+    tail = blocked_reason[idx + len(needle) :].strip()
     digits = ""
     for ch in tail:
         if ch.isdigit():
@@ -257,6 +314,7 @@ __all__ = [
     "GATE_BLOCK",
     "GATE_PASS",
     "evaluate",
+    "evaluate_required_coverage",
     "is_satisfied",
     "items_missing_coverage",
     "main",

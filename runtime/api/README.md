@@ -78,9 +78,13 @@ Returns all backlog items. Supports optional query parameter filters.
 | `project` | string | Filter by project (e.g., `yoke`, `external-webapp`) |
 | `status` | string | Filter by status (e.g., `implementing`, `idea`, `done`) |
 
-Valid statuses (canonical delivery lifecycle, sourced from `packages/yoke-core/src/yoke_core/domain/lifecycle.py`): `idea`, `planned`, `release`, `done`, `cancelled`, `blocked`, `stopped`, `failed`, `refining-idea`, `refined-idea`, `implementing`, `reviewing-implementation`, `reviewed-implementation`, `polishing-implementation`, `implemented`, `planning`, `plan-drafted`, `refining-plan`.
-
-**Canonical-only validation:** Retired status aliases are rejected at the API boundary. Callers must use canonical statuses such as `implementing`, `reviewing-implementation`, `implemented`, `release`, and `done`.
+Valid filter values are the union of stage ids from every immutable published
+workflow version, plus the engine-owned exceptional stages. The API derives
+that vocabulary with
+`yoke_core.domain.workflow_stage_vocabulary.published_workflow_stage_ids`;
+it does not use one fixed delivery progression. Retired aliases are rejected.
+An individual item's valid stages and order still come only from its pinned
+`workflow_id` / `workflow_version_id`.
 
 ```bash
 # All items
@@ -94,31 +98,7 @@ curl "http://localhost:8765/v1/items?project=yoke&status=implementing"
 ```
 
 ```json
-{
-  "items": [
-    {
-      "id": 42,
-      "title": "Example item",
-      "type": "issue",
-      "status": "implementing",
-      "priority": "high",
-      "flow": "accelerated",
-      "rework_count": 0,
-      "frozen": false,
-      "github_issue": "#123",
-      "deployed_to": null,
-      "worktree": "YOK-N",
-      "project": "yoke",
-      "deployment_flow": null,
-      "deploy_stage": null,
-      "source": "2",
-      "created_at": "2026-03-08T03:41:07Z",
-      "updated_at": "2026-03-09T14:56:18Z",
-      "merged_at": null
-    }
-  ],
-  "count": 1
-}
+{"items":[{"id":42,"title":"Example item","workflow_id":"dash","workflow_version_id":8,"workflow_version":2,"stage_index":1,"status":"implementing","priority":"high","flow":"accelerated","rework_count":0,"frozen":false,"github_issue":"#123","deployed_to":null,"project":"yoke","deployment_flow":null,"deploy_stage":null,"source":"2","created_at":"2026-03-08T03:41:07Z","updated_at":"2026-03-09T14:56:18Z","merged_at":null}],"count":1}
 ```
 
 Note: `body` is excluded from list responses to keep payload sizes manageable. Use the single-item endpoint to retrieve the body.
@@ -182,7 +162,9 @@ curl "http://localhost:8765/v1/board?project=external-webapp"
 }
 ```
 
-Board columns use the canonical board display order from `packages/yoke-core/src/yoke_core/domain/lifecycle.py` (`STATUS_BOARD_ORDER`). Retired statuses are treated as data bugs and are not normalized at render time.
+Board columns use `yoke_core.domain.board.BOARD_COLUMNS`, backed by the shared
+`yoke_contracts.board` projection. Bucket selection may use both status and
+workflow context; board order is display policy, not lifecycle authority.
 
 Returns an empty board (no columns, zero stats) when no items exist for the project.
 
@@ -192,27 +174,32 @@ Returns an empty board (no columns, zero stats) when no items exist for the proj
 POST /v1/items
 ```
 
-Creates a new backlog item by invoking `python3 -m yoke_core.api.service_client backlog-cli add` via subprocess. This reuses the same validation and side effects (board rebuild, git commit) as the CLI.
+Creates a new backlog item through the shared mutation layer. The request
+selects an active registered workflow, pins its current immutable version, and
+uses the route-owned `web_form` entry surface. The selected definition must
+allow that surface.
 
 | Field | Type | Required | Default | Validation |
 |-------|------|----------|---------|------------|
-| `title` | string | yes | -- | Non-empty, max 200 characters |
-| `type` | string | yes | -- | `epic` or `issue` |
+| `title` | string | yes | -- | Non-empty, max 100 characters |
+| `workflow` | string | yes | -- | Active registered workflow whose current version allows `web_form` |
 | `priority` | string | no | `medium` | `high`, `medium`, or `low` |
+| `project` | string | no | `yoke` | Registered project slug |
+| `deployment_flow` | string | no | `null` | Flow registered to the selected project |
 
 ```bash
 curl -X POST http://localhost:8765/v1/items \
   -H "Content-Type: application/json" \
-  -d '{"title": "New feature idea", "type": "issue", "priority": "high"}'
+  -d '{"title": "Check production health", "workflow": "dash", "priority": "high"}'
 ```
 
 Returns `201` with the full item object on success. Possible error responses:
 
 | Status | Code | Cause |
 |--------|------|-------|
-| 422 | `VALIDATION_ERROR` | Missing/invalid title, type, or priority |
-| 500 | `SUBPROCESS_ERROR` | backlog-cli add failed |
-| 503 | `DB_BUSY` | Database locked or subprocess timed out |
+| 403 | `ENTRY_SURFACE_DENIED` | Workflow does not permit `web_form` creation |
+| 422 | `VALIDATION_ERROR` | Missing/invalid title, workflow, project, flow, or priority |
+| 503 | `DB_BUSY` | Database is temporarily unavailable |
 
 ### Approve Gate
 
@@ -297,7 +284,8 @@ The API is a **parallel consumer** of the same connected Postgres authority as t
 
 - **Read endpoints** use the backend connection factory in read-oriented domain helpers.
 - **Write endpoints** use the same Postgres authority and surface constraint/connection failures as API errors.
-- **`POST /items`** delegates to `python3 -m yoke_core.api.service_client backlog-cli add` via subprocess
+- **`POST /items`** uses the shared mutation layer and pins the selected
+  workflow version after enforcing its `web_form` entry policy.
 
 No authentication is required for v1 (localhost-only).
 
@@ -307,11 +295,13 @@ See `runtime/api/board/README.md` for module-level documentation, CLI usage, and
 
 ### Domain Layer
 
-All business logic lives in `runtime/api/domain/`:
+Shared business logic lives in the installed `yoke_core.domain` package:
 
 | Module | Responsibility |
 |--------|---------------|
-| `lifecycle.py` | Canonical delivery-item lifecycle: statuses, progression, terminal/exceptional checks |
+| `workflow_runtime.py` | Immutable item pin interpretation: stages, gates, policies, and executor bindings |
+| `workflow_stage_vocabulary.py` | Published stage-id union used by collection filters |
+| `task_lifecycle.py` | Independent canonical lifecycle vocabulary for `epic_tasks` rows |
 | `approval.py` | Halt states, approval actions, flow-stage parsing, approval resolution |
 | `runs.py` | Deployment-run lookup, status validation, stage advancement |
 | `queries.py` | Item filters, frozen semantics, active-queue/pending-work analysis |

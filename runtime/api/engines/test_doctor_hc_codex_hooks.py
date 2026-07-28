@@ -8,6 +8,7 @@ The apply-patch smoke HCs live in ``test_doctor_hc_apply_patch``.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -117,6 +118,22 @@ def test_semver_tuple_orders_pre_release_below_release():
     assert _semver_tuple("0.118.0-alpha.2") < _semver_tuple("0.118.0")
     assert _semver_tuple("0.118.0-alpha.2") < _semver_tuple("0.118.1")
     assert _semver_tuple("0.118.0") < _semver_tuple("0.119.0")
+
+
+def test_user_facing_hook_floor_matches_manifest() -> None:
+    root = Path(__file__).resolve().parents[3]
+    manifest = json.loads(
+        (root / "runtime/harness/codex/manifest.json").read_text(encoding="utf-8")
+    )
+    floor = mod._parse_floor(manifest["runtime_minimums"]["hook_enhanced"])
+    assert floor is not None
+    for relative_path in (
+        "docs/OVERVIEW.md",
+        "docs/hook-parity-map.md",
+        "runtime/harness/codex/SMOKE-TEST.md",
+    ):
+        text = (root / relative_path).read_text(encoding="utf-8")
+        assert f">= {floor}" in text, relative_path
 
 
 # ---------------------------------------------------------------------------

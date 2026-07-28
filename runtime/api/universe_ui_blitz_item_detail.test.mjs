@@ -21,6 +21,8 @@ test("Blitz detail route renders the full execution-document composition", async
   const root = documentNode.createElement("div");
   const requests = [];
   const blitz = detailItem("blitz");
+  blitz.workflow.policies.file_budget = "required";
+  blitz.workflow.policies.path_claims = "required";
   blitz.worktrees.push({
     branch: "codex/footer-proof",
     lane_role: "worker",
@@ -72,6 +74,7 @@ test("Blitz detail route renders the full execution-document composition", async
   assert.match(rendered, /Verification/);
   assert.match(rendered, /Item details/);
   assert.match(rendered, /Live claim/);
+  assert.match(rendered, /File budget\s+none · workflow default/);
   assert.match(rendered, /Path claims\s+none · workflow default/);
   assert.match(rendered, /Child items none/);
   assert.match(rendered, /Parallelism 2 lanes/);
@@ -81,11 +84,14 @@ test("Blitz detail route renders the full execution-document composition", async
   assert.doesNotMatch(rendered, /Build one shell/);
   assert.deepEqual(
     byClass(root, "item-posture-label").map((node) => node.textContent),
-    ["Child items", "Parallelism", "Integration", "Migrations"],
+    [
+      "Child items", "File Budget", "Path claims",
+      "Parallelism", "Integration", "Migrations",
+    ],
   );
   assert.deepEqual(
     byClass(root, "item-posture-value").map((node) => node.textContent),
-    ["none", "2 lanes", "main session", "governed"],
+    ["none", "optional", "optional", "2 lanes", "main session", "governed"],
   );
   const lanePills = byClass(root, "pill").filter(
     (node) => ["active", "committed"].includes(

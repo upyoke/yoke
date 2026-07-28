@@ -15,7 +15,7 @@ from typing import Any, Optional, TextIO
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_one, query_rows
-from yoke_core.domain.lifecycle import TASK_TERMINAL_SUCCESS
+from yoke_core.domain.task_lifecycle import TASK_TERMINAL_SUCCESS
 
 
 def _p(conn: Any) -> str:

@@ -21,7 +21,6 @@ from yoke_core.domain import deploy_qa_recorder
 from yoke_core.domain.deploy_pipeline_executors import (
     _dispatch_executor,
 )
-from yoke_core.domain import deploy_pipeline_completion
 from yoke_core.domain.deploy_pipeline_environment import release_control_plane_env
 from yoke_core.domain.deploy_pipeline_gates import (
     _resolve_and_verify_branch,
@@ -294,7 +293,6 @@ def run_pipeline(
                 {"run_id": run_id, "stage": s_name, "flow": flow_id},
                 member_items=member_items, project=project, sd=sd,
             )
-            deploy_pipeline_completion.notify_failure(run_id)
             print(f"Error: stage '{s_name}' failed (exit code: {exec_rc})", file=sys.stderr)
             return EXIT_STAGE_FAILED
 
@@ -337,7 +335,6 @@ def run_pipeline(
         {"run_id": run_id, "flow": flow_id, "project": project},
         member_items=member_items, project=project, sd=sd,
     )
-    deploy_pipeline_completion.notify_success(run_id)
 
     # Auto-set deployed_to (item-bound; no-op for item-less runs)
     if target_env and member_items:

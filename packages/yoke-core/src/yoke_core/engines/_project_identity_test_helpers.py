@@ -59,9 +59,6 @@ def _insert_item(
     p = _p(conn)
     from yoke_core.domain.schema_common import _column_exists
 
-    legacy_workflow_id = fields.pop("type", None)
-    if legacy_workflow_id is not None:
-        fields.setdefault("workflow_id", legacy_workflow_id)
     data = {
         "id": item_id,
         "title": title,

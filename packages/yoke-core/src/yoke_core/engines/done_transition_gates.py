@@ -8,11 +8,18 @@ from typing import Optional, Tuple
 
 from yoke_core.domain.qa_gates import check_epic_simulation_gate
 from yoke_core.domain.worktree import resolve_main_root
+from yoke_core.engines.done_transition_merge_guards import (  # noqa: F401
+    _check_merge_guard,
+    _handle_resume_from_step6,
+    _verify_recovery_evidence,
+)
 
 
 def _parent():
     from yoke_core.engines import done_transition as _dt
+
     return _dt
+
 
 def _resolve_repo_root() -> Path:
     """Enforce repo-root CWD using the Python path resolver."""
@@ -21,7 +28,10 @@ def _resolve_repo_root() -> Path:
     except RuntimeError:
         root = ""
     if not root or not Path(root).is_dir():
-        print("Error: Cannot determine repo root — path resolution failed.", file=sys.stderr)
+        print(
+            "Error: Cannot determine repo root — path resolution failed.",
+            file=sys.stderr,
+        )
         return Path()
     return Path(root)
 
@@ -46,7 +56,10 @@ def _resolve_project_context(
                 project_repo = Path(checkout)
         except Exception:
             pass
-        db_val = (_projects.cmd_get(item_project, field="default_branch", db_path=db_path) or "").strip()
+        db_val = (
+            _projects.cmd_get(item_project, field="default_branch", db_path=db_path)
+            or ""
+        ).strip()
         if db_val and db_val != "null":
             default_branch = db_val
     return project_repo, default_branch
@@ -64,8 +77,10 @@ def _get_base_branch(default_branch: str, repo_root: "Path | None" = None) -> st
 def _check_simulation_gate(item_id: int, skip: bool) -> Optional[int]:
     """Check integration simulation gate for epics. Returns exit code or None."""
     if skip:
-        print("WARNING: Integration simulation gate bypassed via --skip-simulation "
-              f"for YOK-{item_id}")
+        print(
+            "WARNING: Integration simulation gate bypassed via --skip-simulation "
+            f"for YOK-{item_id}"
+        )
         return None
 
     gate = check_epic_simulation_gate(item_id, None)
@@ -73,137 +88,6 @@ def _check_simulation_gate(item_id: int, skip: bool) -> Optional[int]:
         return None
     gate.emit_errors()
     return 3
-
-
-def _check_merge_guard(
-    lane_branch: str,
-    project_repo: Path,
-    base_branch: str,
-) -> bool:
-    """Check if branch is already merged. Returns True if already merged.
-
-    Ancestry and squash-merge signals are evaluated against
-    ``origin/{base_branch}`` after a fetch, not the local base ref. A local
-    base can lead origin (e.g., a prior rebase tip-matched the branch),
-    which would otherwise false-positive and cause done-transition to skip a
-    merge that hasn't landed yet — the operator then has to recover the
-    worktree and rerun the merge engine. Mirrors merge_worktree_runner's
-    own already-merged guard.
-    """
-    if not lane_branch:
-        return False
-    # Branch missing locally — assume already merged and cleaned up.
-    verify = _parent()._run_git(
-        ["-C", str(project_repo), "rev-parse", "--verify", lane_branch],
-        capture=True,
-    )
-    if verify.returncode != 0:
-        print(f"Merge guard: branch '{lane_branch}' not found locally "
-              "(likely already merged and cleaned up) — skipping merge step.")
-        return True
-    # Fetch origin so ancestry/squash signals reflect production state.
-    _parent()._run_git(
-        ["-C", str(project_repo), "fetch", "origin", base_branch],
-        capture=True,
-    )
-    target_ref = f"origin/{base_branch}"
-    origin_check = _parent()._run_git(
-        ["-C", str(project_repo), "rev-parse", "--verify", target_ref],
-        capture=True,
-    )
-    if origin_check.returncode != 0:
-        # No origin ref available (e.g., test env without remote) — fall
-        # back to local base. Better than no check at all.
-        target_ref = base_branch
-    ancestry = _parent()._run_git(
-        ["-C", str(project_repo), "merge-base", "--is-ancestor",
-         lane_branch, target_ref],
-        capture=True,
-    )
-    if ancestry.returncode == 0:
-        print(f"Merge guard: branch '{lane_branch}' is merged to "
-              f"{target_ref} — skipping merge step.")
-        return True
-    log_check = _parent()._run_git(
-        ["-C", str(project_repo), "log", "--oneline",
-         f"--grep={lane_branch}", target_ref],
-        capture=True,
-    )
-    first_line = (log_check.stdout or "").strip().split("\n")[0] if log_check.stdout else ""
-    if first_line:
-        print(f"Merge guard: squash-merge detected for branch '{lane_branch}' "
-              f"on {target_ref} — skipping merge step.")
-        return True
-    print(f"Merge guard: branch '{lane_branch}' not yet merged to "
-          f"{target_ref} — Step 4 will merge.")
-    return False
-
-
-def _verify_recovery_evidence(
-    item_id: int,
-    project_repo: Path,
-    base_branch: str,
-) -> bool:
-    """Defense-in-depth for _check_recovery's resume_from_step6 path.
-
-    A prior run may complete the merge but not reach the status update.
-    That run leaves a squash-merge commit referencing YOK-N on
-    origin/{base_branch}; (b) does not. Returning False refuses the
-    fraudulent recovery and forces the operator to restore worktree state
-    explicitly.
-    """
-    _parent()._run_git(
-        ["-C", str(project_repo), "fetch", "origin", base_branch],
-        capture=True,
-    )
-    target_ref = f"origin/{base_branch}"
-    origin_check = _parent()._run_git(
-        ["-C", str(project_repo), "rev-parse", "--verify", target_ref],
-        capture=True,
-    )
-    if origin_check.returncode != 0:
-        target_ref = base_branch
-    log_check = _parent()._run_git(
-        ["-C", str(project_repo), "log", "--oneline",
-         f"--grep=YOK-{item_id}", target_ref],
-        capture=True,
-    )
-    return bool((log_check.stdout or "").strip())
-
-
-def _handle_resume_from_step6(
-    item_id: int,
-    project_repo: Path,
-    base_branch: str,
-    old_status: str,
-    result,
-    result_file: str,
-) -> Optional[int]:
-    """Verify recovery evidence and emit pre-flight messages, or fail.
-
-    Returns None when evidence is present (caller proceeds to step 6).
-    Returns a TransitionResult.fail() exit code when evidence is absent
-    (caller returns it immediately). All user-facing output is emitted
-    here so the runner stays a compact dispatcher.
-    """
-    if not _verify_recovery_evidence(item_id, project_repo, base_branch):
-        print(
-            f"\nError: YOK-{item_id} has no active worktree lane and no merge "
-            f"evidence found on origin/{base_branch}.\n"
-            "State is inconsistent — refusing to skip merge step.\n"
-            "If the branch was merged out-of-band, push the merge commit "
-            "to origin and retry. Otherwise recreate the item worktree lane "
-            f"with `yoke worktree preflight YOK-{item_id}`.",
-            file=sys.stderr,
-        )
-        print(f"RESULT_FILE={result_file}")
-        return result.fail(result_file, 2, "2d-recovery-no-evidence")
-    print(
-        f"Pre-flight: merge already completed (no active lane), status is "
-        f"'{old_status}'."
-    )
-    print("Resuming from step 6 (status update and post-merge steps).")
-    return None
 
 
 def _check_empty_branch(
@@ -222,35 +106,49 @@ def _check_empty_branch(
     if verify.returncode != 0:
         return None
     count_result = _parent()._run_git(
-        ["-C", str(project_repo), "rev-list", "--count",
-         f"{base_branch}..{lane_branch}"],
+        [
+            "-C",
+            str(project_repo),
+            "rev-list",
+            "--count",
+            f"{base_branch}..{lane_branch}",
+        ],
         capture=True,
     )
     count = int((count_result.stdout or "0").strip() or "0")
     if count == 0:
         print("", file=sys.stderr)
         print("=== Empty worktree branch guard ===", file=sys.stderr)
-        print(f"Blocked: Branch '{lane_branch}' has no commits beyond "
-              f"'{base_branch}'.", file=sys.stderr)
-        print("No implementation work was done — cannot transition to done.",
-              file=sys.stderr)
+        print(
+            f"Blocked: Branch '{lane_branch}' has no commits beyond '{base_branch}'.",
+            file=sys.stderr,
+        )
+        print(
+            "No implementation work was done — cannot transition to done.",
+            file=sys.stderr,
+        )
         print("", file=sys.stderr)
         print("Either:", file=sys.stderr)
-        print("  - Implement the item's acceptance criteria in the worktree, "
-              "then retry", file=sys.stderr)
-        print("  - If this item is intentionally evidence-only, release the "
-              "active lane and retry through the workflow's no-worktree "
-              "entry path.", file=sys.stderr)
-        print("    Future evidence-only items should enter implementing with "
-              f"/yoke advance YOK-{item_id} implementing --no-worktree.",
-              file=sys.stderr)
+        print(
+            "  - Implement the item's acceptance criteria in the worktree, then retry",
+            file=sys.stderr,
+        )
+        print(
+            "  - If this item is intentionally evidence-only, release the "
+            "active lane and retry through the workflow's no-worktree "
+            "entry path.",
+            file=sys.stderr,
+        )
+        print(
+            "    Future evidence-only items should enter implementing with "
+            f"/yoke advance YOK-{item_id} implementing --no-worktree.",
+            file=sys.stderr,
+        )
         return 8
     return None
 
 
-def _check_recovery(
-    old_status: str, lane_branch: str
-) -> Tuple[bool, bool]:
+def _check_recovery(old_status: str, lane_branch: str) -> Tuple[bool, bool]:
     """Detect recovery state. Returns (already_done, resume_from_step6)."""
     if old_status == "done" and not lane_branch:
         return True, False
@@ -268,6 +166,7 @@ def _check_blocked_flag(item_id: int) -> Optional[int]:
     """
     try:
         from yoke_core.domain.advance_blocked_gate import evaluate as _eval
+
         conn = _parent()._connect()
         try:
             decision = _eval(conn, item_id)
@@ -286,17 +185,24 @@ def _check_blocked_flag(item_id: int) -> Optional[int]:
     return 9
 
 
-def _check_deployment_redirect(deploy_flow: str, skip_deploy: bool, item_id: int) -> Optional[int]:
+def _check_deployment_redirect(
+    deploy_flow: str, skip_deploy: bool, item_id: int
+) -> Optional[int]:
     """Pre-merge deployment flow redirect. Returns exit code or None."""
     is_internal = deploy_flow.endswith("-internal") if deploy_flow else False
     if deploy_flow and not is_internal and not skip_deploy:
-        print(f"\n=== Deployment flow redirect ===")
+        print("\n=== Deployment flow redirect ===")
         print(f"Item YOK-{item_id} has deployment flow '{deploy_flow}'.")
-        print(f"Use '/yoke usher YOK-{item_id}' to merge and deploy through the pipeline.")
-        print(f"If deployment was handled out-of-band, use "
-              f"'/yoke advance YOK-{item_id} done --skip-deploy'.")
+        print(
+            f"Use '/yoke usher YOK-{item_id}' to merge and deploy through the pipeline."
+        )
+        print(
+            f"If deployment was handled out-of-band, use "
+            f"'/yoke advance YOK-{item_id} done --skip-deploy'."
+        )
         return 7
     return None
+
 
 from yoke_core.engines.done_transition_deploy_gates import (  # noqa: E402,F401
     _check_deployment_flow_guard,
@@ -304,5 +210,4 @@ from yoke_core.engines.done_transition_deploy_gates import (  # noqa: E402,F401
     _get_latest_run_status,
     _check_run_stage_consistency,
     _check_run_qa_gates,
-    _cascade_release_to_children,
 )

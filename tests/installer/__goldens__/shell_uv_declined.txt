@@ -7,4 +7,4 @@
 [38;2;210;153;34m☀[0m   [38;2;86;211;100mcurl -LsSf https://astral.sh/uv/install.sh | sh[0m
 
 [38;2;210;153;34m☀[0m [38;2;230;237;243mThen rerun:[0m
-[38;2;210;153;34m☀[0m   [38;2;86;211;100mcurl -fsSL https://api.upyoke.com/install | bash[0m
+[38;2;210;153;34m☀[0m   [38;2;86;211;100mcurl -fsSL https://upyoke.com/install | sh[0m

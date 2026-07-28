@@ -119,6 +119,29 @@ the `db_router epic file-add` operator-debug shell write surface
 remains the current path (the `workflow_item.epic_task_file.*`
 family is not yet exposed).
 
+When `_path_claim_policy` is `required_per_task`, materialize task scope
+only after every task and file entry above is persisted. For each eligible
+task (exclude `stopped` and `failed`), read its exact `epic_task_files`
+rows. A non-empty budget registers concrete task scope:
+
+```bash
+yoke claims path register --item "YOK-$_num" --task-num "<N>" \
+  --paths "<comma-separated persisted file_path values>" --allow-planned
+```
+
+An empty budget must use an explicit task-bound exception instead:
+
+```bash
+yoke claims path register --item "YOK-$_num" --task-num "<N>" \
+  --mode exception --exception-reason \
+  "Architect persisted no repository file budget for this task"
+```
+
+Never infer task ownership from task prose or branches and never bind the
+parent claim to every task. After all registrations, run
+`yoke claims path required-gate "YOK-$_num" --json`; any verdict other than
+`pass` is NOT_READY and blocks the handoff to `plan-drafted`.
+
 ### 5. Run Simulator loop (max `MAX_SIMULATOR_FIX_CYCLES` fix cycles)
 
 **Dispatch:** descriptor `DispatchDescriptor(role="simulator")` rendered via `yoke_core.domain.dispatch_descriptors.render_for_harness(descriptor, harness_id)`. Result-schema markers: `SIMULATION: CLEAN|GAPS FOUND`, `---REFLECTION-START---`. The descriptor's `prompt: |` block is filled with:

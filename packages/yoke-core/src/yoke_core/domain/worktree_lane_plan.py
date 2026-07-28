@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from typing import List, Optional, Tuple
+from typing import Any, List, Mapping, Optional, Sequence, Tuple
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.workflow_behavior import (
@@ -38,7 +38,9 @@ def resolve_worktree_lanes_for_item(
     repo_root: str,
     worktrees_dir: str,
     db_path: Optional[str] = None,
-) -> List[Tuple[str, str, str]]:
+    *,
+    authoritative_lanes: Optional[Sequence[Mapping[str, Any]]] = None,
+) -> List[Tuple[str, ...]]:
     """Resolve branches and lane roles from the pinned workflow policy."""
     fallback_path = os.path.join(
         repo_root,
@@ -46,6 +48,28 @@ def resolve_worktree_lanes_for_item(
         f"YOK-{item_id}",
     )
     fallback = [(f"YOK-{item_id}", fallback_path, LANE_IMPLEMENTATION)]
+    if authoritative_lanes is not None:
+        role_order = {
+            LANE_INTEGRATION: 0,
+            LANE_IMPLEMENTATION: 1,
+            LANE_WORKER: 2,
+        }
+        rows = sorted(
+            authoritative_lanes,
+            key=lambda row: (
+                role_order.get(str(row.get("lane_role") or ""), 3),
+                int(row.get("id") or 0),
+            ),
+        )
+        return [
+            (
+                str(row.get("branch") or ""),
+                os.path.join(repo_root, worktrees_dir, str(row.get("branch") or "")),
+                str(row.get("lane_role") or ""),
+                int(row.get("id") or 0),
+            )
+            for row in rows
+        ]
     from yoke_core.domain.db_helpers import connect
 
     try:
@@ -65,7 +89,7 @@ def resolve_worktree_lanes_for_item(
         runtime = load_item_workflow_runtime(conn, int(item_id))
         policy = worktree_lane_policy(runtime)
         existing_rows = conn.execute(
-            "SELECT branch, COALESCE(path, '') AS path, lane_role "
+            "SELECT id, branch, COALESCE(path, '') AS path, lane_role "
             "FROM item_worktrees "
             f"WHERE item_id = {marker} AND state = 'active' "
             "ORDER BY CASE lane_role "
@@ -83,23 +107,26 @@ def resolve_worktree_lanes_for_item(
                         worktrees_dir,
                     ),
                     row["lane_role"],
+                    int(row["id"]),
                 )
                 for row in existing_rows
             ]
-            present_roles = {lane_role for _, _, lane_role in resolved}
+            present_roles = {str(row[2]) for row in resolved}
             if (
                 LANE_INTEGRATION in policy.required_roles
                 and LANE_INTEGRATION not in present_roles
             ):
                 resolved.insert(
                     0,
-                    (f"YOK-{item_id}", fallback_path, LANE_INTEGRATION),
+                    (f"YOK-{item_id}", fallback_path, LANE_INTEGRATION, 0),
                 )
             return resolved
         if LANE_IMPLEMENTATION in policy.allowed_roles:
-            return fallback
+            return [
+                (f"YOK-{item_id}", fallback_path, LANE_IMPLEMENTATION, 0),
+            ]
         if policy.required_roles == frozenset({LANE_WORKER}):
-            return [(f"YOK-{item_id}", fallback_path, LANE_WORKER)]
+            return [(f"YOK-{item_id}", fallback_path, LANE_WORKER, 0)]
         return []
     finally:
         conn.close()

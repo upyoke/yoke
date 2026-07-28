@@ -8,7 +8,7 @@ Every work item gets a stable global integer `items.id`. Its user-facing
 reference combines the owning project's `public_item_prefix` with the item's
 per-project `project_sequence` (for example, `YOK-42`). Both identities persist
 through the item's entire lifecycle. The registry is the single source of
-truth for Dash, Blitz, Issue, and Epic items.
+truth for every registered workflow and immutable workflow-version pin.
 
 ### ID System
 
@@ -21,58 +21,52 @@ truth for Dash, Blitz, Issue, and Epic items.
   project-local namespace.
 - **Stability:** neither identity changes. A GitHub issue number is separate
   metadata in `github_issue`.
-- **Tasks within epics** keep plan-order numbering (001, 002) — internal to epic, not global YOK-N IDs.
+- **Generated tasks** stored in `epic_tasks` keep plan-order numbering
+  (001, 002) — internal to their parent item, not global YOK-N IDs.
 
 ### Workflows
 
-| Workflow | Description | Stages |
-|---|---|---|
-| `dash` | Instruction-sized work whose filing is the specification | `idea → implementing → reviewing-implementation → done` |
-| `blitz` | Document-led execution of one strategy document | `idea → refining-idea → refined-idea → implementing → reviewing-implementation → done` |
-| `issue` | A bounded change whose item body is the specification | `idea → refining-idea → refined-idea → implementing → reviewing-implementation → reviewed-implementation → polishing-implementation → implemented → release → done` |
-| `epic` | Work that needs Architect decomposition and task lanes | `idea → refining-idea → refined-idea → planning → plan-drafted → refining-plan → planned → implementing → reviewing-implementation → reviewed-implementation → polishing-implementation → implemented → release → done` |
-
 Every item stores `workflow_id` and `workflow_version_id`. Its pinned immutable
-definition is the authority for valid stages, order, entry checks, posture,
-and registered executors. Do not infer a lifecycle from the workflow id.
+definition is the authority for:
+
+- ordered `stages`, `transitions`, and `terminal_stage_ids`;
+- gates referenced by each target stage;
+- allowed `entry_surfaces`;
+- `executor_bindings`, interpreted as half-open
+  `from_stage_id <= current_stage < through_stage_id` intervals; and
+- policies for artifacts, worktrees, generated children, parallelism, path
+  claims, approvals, and delivery.
+
+Do not infer a lifecycle or an item type from the workflow id.
 Selecting a different current version affects future items only; moving an
 existing item is explicit and compatibility-checked. See
 [workflows.md](workflows.md).
 
-Issue and Epic items reach `implemented` and enter the **delivery lifecycle**
-owned by Usher, which manages `implemented → release → done` through
-deployment runs. Dash delivery is an after-merge action when selected; Blitz
-delivers continuously inside `implementing`. Two deployment-run halt states
-(`needs-capability`, `awaiting-approval`) may interrupt a delivery flow. They
-are not item stages.
+Current definitions with `policies.delivery=release_stage` bind `usher` across
+their delivery tail and may use deployment runs. Definitions with
+`continuous_slice_actions` or `after_merge_action` use different delivery
+semantics and do not inherit that tail. Two deployment-run halt states
+(`needs-capability`, `awaiting-approval`) may interrupt a run. They are not
+item stages.
 
 ### Status Vocabulary
 
-| Status | Owned by | Meaning |
-|--------|----------|---------|
-| `idea` | Human / Refine | Filed, not yet defined |
-| `refining-idea` | Refine (`/yoke refine`) | PM is writing the spec |
-| `refined-idea` | Refine (`/yoke refine`) | PM + Boss have specified it, ready to advance (issues) or shepherd (epics) |
-| `planning` | Shepherd (epics only) | Architect is decomposing |
-| `plan-drafted` | Shepherd (epics only) | Architect's initial plan + task decomposition captured, awaiting plan refinement |
-| `refining-plan` | Refine (`/yoke refine`, epics only) | Plan under refinement after critique/simulation |
-| `planned` | Refine (epics only) | Architecture decomposed and approved, ready to conduct |
-| `implementing` | Workflow executor | Work is executing in registered worktree lanes |
-| `reviewing-implementation` | Workflow executor | Workflow-specific verification and close |
-| `reviewed-implementation` | Advance (issues) / Conduct (epics) | Review complete, ready for polish |
-| `polishing-implementation` | Polish (`/yoke polish`) | Final polish in progress |
-| `implemented` | Polish (`/yoke polish`) | Polish complete, awaiting deployment handoff |
-| `release` | Usher | Enrolled in an executing deployment run |
-| `done` | Pinned workflow executor | The workflow's registered close executor satisfied its final gates: Dash or Blitz closes directly; Issue or Epic closes through Usher delivery |
-| `cancelled` | Human | Explicitly cancelled |
+An item's `status` is its current stage id. The same id may appear in several
+definitions, but its order, target-stage gates, and executor owner are always
+read from the item's exact pin. A stage name alone never selects a command.
 
-> **Ownership note:** `/yoke refine` owns idea refinement for Issue, Epic, and
-> Blitz, and plan refinement for Epic. `/yoke shepherd` is the Epic bridge
-> from `refined-idea` through planning. `/yoke dash` owns Dash execution and
-> `/yoke blitz` owns Blitz execution after refinement. See
-> [workflows.md](workflows.md) for the operator boundary.
+The runtime also recognizes the engine-exceptional ids `cancelled`, `stopped`,
+`blocked`, and `failed`. Operational item blocking uses the orthogonal
+`blocked` / `blocked_reason` fields and preserves the pinned stage; the
+exceptional `blocked` id remains an engine compatibility state. The
+`epic_tasks` table has its own canonical status vocabulary below, including
+task-level `blocked`.
 
-**Note:** `needs-capability` and `awaiting-approval` are **halt states** on the deployment run, not item statuses. Items at these halt states remain at `status=release`. The `current_stage` field on the `deployment_runs` row tracks position within the deployment pipeline. See Delivery Lifecycle below for details.
+**Note:** `needs-capability` and `awaiting-approval` are **halt states** on the
+deployment run, not item statuses. In a compatible `release_stage` workflow,
+the item remains at its pinned delivery stage while halted. The
+`current_stage` field on the `deployment_runs` row tracks position within the
+deployment pipeline. See Delivery Lifecycle below for details.
 
 ### Item Fields
 
@@ -85,7 +79,7 @@ Items are read via `yoke items get YOK-N <field>`. The `body` field is a virtual
 - `title` — human-readable title
 - `project_id` — integer project authority
 - `project_sequence` — stable sequence within that project
-- `workflow_id` — stable workflow identity (`dash`, `blitz`, `issue`, `epic`)
+- `workflow_id` — stable workflow-registry identity; it is not an item type
 - `workflow_version_id` — immutable definition version pinned at creation
 - `status` — current stage id, validated against the pinned version
 - `priority` — `high`, `medium`, or `low`
@@ -110,58 +104,58 @@ reused.
 
 ## Backlog Item Lifecycle
 
-When a backlog item flows through the Yoke pipeline, these status transitions happen automatically:
+Every ordinary transition is interpreted against the item's exact immutable
+pin:
 
-| Event | Command | Backlog Status | Backlog Fields Updated |
-|-------|---------|----------------|----------------------|
-| Spec refinement started | `/yoke refine` | → `refining-idea` | structured spec field populated |
-| Spec approved | `/yoke refine` | → `refined-idea` | — |
-| Planning started (epics) | `/yoke shepherd` | → `planning` | — |
-| Plan drafted (epics) | `/yoke shepherd` | → `plan-drafted` | epic task decomposition captured |
-| Plan refinement (epics) | `/yoke refine` | → `refining-plan` → `planned` | `technical_plan` / `worktree_plan` updated |
-| Implementation started | `/yoke advance YOK-N implementation` (issues) / `/yoke conduct YOK-N` (epics) | → `implementing` | worktree created |
-| Implementation review | Review loop in same worktree | → `reviewing-implementation` | — |
-| Implementation review complete | Review passes | → `reviewed-implementation` | — |
-| Polish complete | `/yoke polish` | → `polishing-implementation` → `implemented` | — |
-| Merged to main | `/yoke usher YOK-N` (handles merge + deploy) | `merged_at` set | — |
-| Usher creates run | `/yoke usher YOK-N` (accepts `implemented` status) | — | Deployment run created |
-| Run starts executing | Usher starts deployment pipeline | → `release` | Run status set to `executing` |
-| Capability missing | Usher executor exits code 2 | remains `release` | Run halted at `needs-capability` |
-| Approval needed | Usher hits approval gate | remains `release` | Run halted at `awaiting-approval` |
-| Approval granted | `/yoke approve YOK-N` | remains `release` | Run's `current_stage` advanced |
-| Deployment complete | Usher completes all stages + blocking QA satisfied | → `done` | Run status set to `succeeded` |
+1. Load `workflow_id` and `workflow_version_id` from the item.
+2. Load that version and validate the requested source and target against its
+   ordered `transitions`.
+3. Evaluate the gate references attached to the target stage.
+4. Resolve the current owner from the one active `executor_bindings` interval.
+5. Apply definition policies for artifacts, claims, lanes, generated
+   children, approvals, and delivery.
 
-**Deployment flow architecture:** Post-merge deployment is managed by the Usher skill via deployment runs (`deployment_runs` table). Each run references a `deployment_flow`. Item-bound runs operate on one or more items through `deployment_run_items`; environment-level Yoke deploys may intentionally operate on zero items. Stage authority lives on the run (`current_stage`), not on individual items. See `.yoke/docs/db-reference.md` for the `deployment_runs`, `deployment_run_items`, `deployment_run_qa`, `deployment_flows`, `sites`, `environments`, and `project_capabilities` table schemas.
+Use `yoke workflows item get YOK-N` and then
+`yoke workflows version get WORKFLOW VERSION` when diagnosing a live item.
+Publishing a new preferred version does not alter the in-flight pin.
+
+For a compatible `release_stage` definition, the registered delivery executor
+may create a deployment run. Each run references a `deployment_flow`.
+Item-bound runs operate on one or more items through
+`deployment_run_items`; environment-level runs may intentionally operate on
+zero items. Run execution may move the item through the definition's delivery
+stages, while `needs-capability` and `awaiting-approval` remain run halt states.
+Stage authority for the run itself lives on `deployment_runs.current_stage`.
+See `.yoke/docs/db-reference.md` for the `deployment_runs`,
+`deployment_run_items`, `deployment_run_qa`, `deployment_flows`, `sites`,
+`environments`, and `project_capabilities` table schemas.
 
 Specs, plans, and review artifacts live in structured item fields (`spec`, `technical_plan`, `worktree_plan`, `shepherd_log`, `test_results`, etc.). `items.body` is a virtual rendered field assembled on demand from these structured fields — not stored in the DB, not a write target.
 
 ## Delivery Lifecycle
 
-After an Issue or Epic completes implementation and reaches `implemented`,
-ownership transfers from Conduct/Polish to the **Usher** skill. Usher manages
-that pinned definition's `implemented → release → done` transition by creating
-and executing deployment runs. Dash and Blitz never enter this boundary:
-their registered direct executors close them at `done`.
+Delivery behavior is policy-owned. A definition with
+`policies.delivery=release_stage` may bind `usher` across an
+`implemented → release → done` tail and use deployment runs. A definition
+with `continuous_slice_actions` or `after_merge_action` keeps delivery inside
+its registered direct executor instead.
 
-### Usher Ownership Boundary
+### Release-stage executor boundary
 
-For the built-in Issue and Epic definitions, Usher owns the delivery lifecycle
-exclusively. It does not touch anything pre-merge. The boundary is:
+For a current compatible definition, the `usher` binding begins at
+`implemented` and owns the delivery tail exclusively. Earlier implementation
+and finishing work belongs to whichever bindings cover those stages; shared
+stage ids do not imply `advance`, `conduct`, or `polish`.
 
-- **Advance / Conduct** owns: `implementing → reviewing-implementation → reviewed-implementation` (implementation and review loop in the existing worktree lane set)
-- **Polish** owns: `reviewed-implementation → polishing-implementation → implemented` (finishing review, cleanup, verification, and local polish commits across the changed lanes)
-- **Usher** owns: `implemented → release → done` (creates deployment runs, executes stages; halt states `needs-capability` / `awaiting-approval` may interrupt the flow while item remains at `status=release`)
+The `through_stage_id` of every binding is a fresh command and claim handoff.
+The previous executor releases its claim at the boundary, and the next
+registered executor starts through its own entrypoint. For a `release_stage`
+tail, `/yoke usher YOK-N` manages merge, deployment, verification, and the
+terminal transition. Operators still control merge ordering, batching, and
+deployment timing.
 
-The handoff occurs when an item reaches `implemented` status. By default, `implemented` is a manual planning boundary — the operator decides when and how to usher items:
-
-- **Default:** The advance finalize phase stops at `implemented` with next-step guidance: run `/yoke usher YOK-N` to merge and deploy. The operator controls merge ordering, batching (ushering multiple items together), and deployment timing.
-- **Fresh command entrypoint required:** Even when the operator already knows usher should run next, `/yoke usher` starts as its own command entrypoint and claims the item itself. Advance/polish must stop at their handoff boundary instead of carrying claim ownership across commands.
-- **Conduct-managed items:** The conduct pipeline outputs the same next-step instructions.
-
-For Issue and Epic, done transitions are handled by `/yoke usher YOK-N`,
-which manages the full pipeline: merge → deploy → verify → done-transition.
-Dash and Blitz use `/yoke dash` and `/yoke blitz` respectively because their
-pinned definitions bind those executors directly through `done`.
+Definitions without an `usher` binding do not enter this boundary and do not
+inherit its `release` stage or no-flow shortcut.
 
 ### Delivery Pipeline Internals
 
@@ -173,8 +167,10 @@ Run mechanics, halt states, executor types, and ephemeral environments live in [
 - **Human approval gate** — `/yoke approve` flow.
 - **Executor dispatch** — `auto`, `script`, `health-check`, `human-approval`, `github-actions-workflow`.
 - **Usher state machine** — full state diagram.
-- **No-flow fast path** — `implemented → done` direct transition.
-- **Ephemeral environments** — conduct-phase preview environments tracked in `ephemeral_environments`.
+- **No-flow fast path** — the `implemented → done` shortcut for a compatible
+  `release_stage` definition.
+- **Ephemeral environments** — implementation-executor preview environments
+  tracked in `ephemeral_environments` when the pinned policies enable them.
 
 ## Epic Task State (DB table: `epic_tasks`)
 
@@ -224,50 +220,32 @@ Plus: failed, blocked, stopped
 - Auto-unblock: when a task completes, `yoke_core.domain.update_status` scans blocked tasks in the same epic and unblocks those whose deps are all met
 - Auto-promote: when an epic transitions to `done`, `yoke_core.engines.done_transition` Step 6b promotes any remaining terminal-success tasks (`reviewed-implementation`, `polishing-implementation`, `implemented`, `release`) to `done` via `yoke_core.domain.update_status`. This ensures all tasks reach `done` status when their parent epic is done.
 
-## Backlog Item Status Flow
+## Pinned Item Stage Flow
 
-**Dash items:**
-```
-idea → implementing → reviewing-implementation → done
-```
+There is no global backlog-item progression and no Issue/Epic item-type
+branch. The row's `workflow_id` is a registry key; the immutable
+`workflow_version_id` selects the only authoritative ordered stage graph.
 
-**Blitz items:**
-```
-idea → refining-idea → refined-idea → implementing → reviewing-implementation → done
-```
+For a live item:
 
-**Issue items:**
-```
-idea → refining-idea → refined-idea → implementing → reviewing-implementation → reviewed-implementation → polishing-implementation → implemented → release → done
-```
+1. Read the pin with `yoke workflows item get YOK-N`.
+2. Read the exact definition with
+   `yoke workflows version get WORKFLOW VERSION`.
+3. Find the active half-open executor binding for the current stage.
+4. Invoke `/yoke <executor_id>`.
+5. Let the target-stage gate references and definition policies decide whether
+   the transition can commit.
 
-**Epic items:**
-```
-idea → refining-idea → refined-idea → planning → plan-drafted → refining-plan → planned → implementing → reviewing-implementation → reviewed-implementation → polishing-implementation → implemented → release → done
-```
+A binding ends at its `through_stage_id`; reaching that stage hands the item to
+the next executor rather than granting the current command ownership of the
+rest of the graph. Definitions may reuse familiar ids such as `idea`,
+`planned`, `implemented`, `release`, and `done`, but documentation must not
+copy those ids into a workflow-independent progression.
 
-- `idea` → `refining-idea`: `/yoke refine` starts spec refinement
-- `refining-idea` → `refined-idea`: `/yoke refine` completes spec refinement
-- Dash `idea` → `done`: `/yoke dash` owns execution, verification, optional
-  after-merge delivery, and close through the intermediate stages.
-- Blitz `refined-idea` → `done`: `/yoke blitz` owns continuous-slice delivery
-  and the final document reconciliation through the intermediate stages.
-- `refined-idea` → `planning`: `/yoke shepherd` starts epic planning
-- `planning` → `plan-drafted`: `/yoke shepherd` captures the initial task/worktree plan
-- `plan-drafted` → `refining-plan`: `/yoke refine` starts plan refinement
-- `refining-plan` → `planned`: `/yoke refine` completes plan refinement
-- `refined-idea` → `implementing`: `/yoke advance YOK-N implementation` creates or re-enters the issue worktree
-- `planned` → `implementing`: `/yoke conduct YOK-N` starts epic implementation from the approved plan
-- `implementing` → `reviewing-implementation`: engineering work is submitted for review
-- `reviewing-implementation` → `reviewed-implementation`: Review complete
-- `reviewed-implementation` → `polishing-implementation`: `/yoke polish` started
-- `polishing-implementation` → `implemented`: `/yoke polish` complete
-- `implemented` → `release`: Deployment run starts executing
-- `implemented` → `done`: No-flow items go directly to done
-- `release` → `done`: Run succeeded + all blocking QA satisfied
-- `cancelled`: any status → `cancelled` (human override)
-
-**Delivery halt states:** During the `release → done` transition, the Usher may encounter `needs-capability` or `awaiting-approval` conditions on the deployment run. The item's `status` remains `release` while halted. After the operator resolves the halt, the Usher resumes the deployment run.
+During a compatible `release_stage` delivery tail, the executor may encounter
+`needs-capability` or `awaiting-approval` on the deployment run. The item
+remains at the pinned delivery stage while halted; after resolution, the
+registered delivery executor resumes the run.
 
 ## Dispatch Chain (DB table: `epic_dispatch_chains`)
 
@@ -291,7 +269,8 @@ never duplicates its branch or filesystem path.
 | `last_updated` | TEXT | ISO timestamp |
 
 **How auto-chaining works:**
-1. The orchestrator (conduct or dispatch) queries for existing chain record via the epic dispatch-chain reader
+1. The generated-task executor selected by the parent item's pinned binding
+   queries for the existing chain record via the epic dispatch-chain reader
 2. If current task is `implementing` → recovering from crash
 3. If current task is already in terminal success (`implemented` or `done`) → advance `current_index`, start next
 4. Before executing next, check dependencies. If unmet → set `blocked`, stop chain
@@ -304,26 +283,27 @@ Queried live from the `epic_tasks` DB table by the board renderer and status-upd
 - Tasks grouped by worktree with status, issue link, dispatch attempts
 - Tasks sorted by `task_num` (plan order), not by issue number
 
-## Cross-Epic Board (`.yoke/BOARD.md`)
+## Cross-Item Board (`.yoke/BOARD.md`)
 
 BOARD.md is 100% auto-generated by the Python board pipeline. Per-item context goes in backlog item structured fields (read via `items get YOK-N body`). The board section between `<!-- YOKE:BOARD:START -->` and `<!-- YOKE:BOARD:END -->` markers is regenerated on every backlog mutation and status change.
 
-Flat kanban: one item, one row, one place. Shows all backlog items grouped by status:
-- **Active** — `implementing`, `reviewing-implementation`, `reviewed-implementation`, `polishing-implementation`, `implemented`, `release` (work in progress)
-- **Pipeline** — `refining-idea`, `refined-idea`, `planning`, `plan-drafted`, `refining-plan`, `planned` (moving through the spec pipeline)
-- **Backlog** — `idea` (raw captures, not yet spec'd)
-- **Done** — `done` (finished)
+The board is a presentation projection, not lifecycle authority. It classifies
+each item's pinned stage and orthogonal blocked/frozen/run state through
+`yoke_contracts.board.status`; `yoke_core.domain.board.BOARD_COLUMNS` owns the
+API column order. Unknown published stages remain visible as unknown instead
+of being silently assigned a lifecycle meaning.
 
 Each row shows public reference, title, workflow, priority, status, and
-progress (task counts for epics from the `epic_tasks` DB table). Per-epic task
-detail is queried live from the DB through Yoke core.
+progress (generated-task counts when `epic_tasks` rows exist). Task detail is
+queried live from the DB through Yoke core.
 
 Rebuilt on every status change and backlog mutation via the Python backlog and board surfaces.
 
 ## GitHub Integration
 
-### Epic tasks
-- Each epic → parent Issue (labeled `workflow:epic`)
+### Generated epic tasks
+- The parent backlog item and its generated tasks are represented as linked
+  GitHub issues
 - Each task → child Issue (labeled `type:task`, `status:{status}`, `worktree:{branch}`)
 - Linked via `gh-sub-issue` (falls back to checkbox list)
 - Status transitions → label swap + comment via `yoke_core.domain.update_status`
@@ -335,7 +315,8 @@ Rebuilt on every status change and backlog mutation via the Python backlog and b
   `priority:{high|medium|low}`; the workflow value comes from the item's
   pinned registry identity
 - Issue number stored in `github_issue` field (e.g., `#8`)
-- `/yoke advance` posts status-change comments to linked issues via `post-comment`
+- registered lifecycle executors post status-change comments to linked issues
+  through the sync surface
 - Idempotent: `sync-item` skips if `github_issue` is already set
 
 ## Stable Local IDs

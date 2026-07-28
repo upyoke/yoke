@@ -56,6 +56,33 @@ test("the four workflow tabs and lifecycle shapes follow the prototype", async (
   mounted.unmount();
 });
 
+test("workflow posture follows the selected immutable version", async (t) => {
+  const historical = prototypeWorkflow("dash");
+  historical.current_version = 2;
+  historical.definition = structuredClone(historical.versions[1].definition);
+  const oldView = await mountWorkflows(
+    t, workflowsClient([historical]),
+  );
+  assert.equal(
+    byClass(oldView.root, "workflow-posture-label").some(
+      (node) => node.children.at(-1)?.textContent === "File Budget",
+    ),
+    false,
+  );
+  oldView.mounted.unmount();
+
+  const currentView = await mountWorkflows(
+    t, workflowsClient([prototypeWorkflow("dash")]),
+  );
+  assert.equal(
+    byClass(currentView.root, "workflow-posture-label").some(
+      (node) => node.children.at(-1)?.textContent === "File Budget",
+    ),
+    true,
+  );
+  currentView.mounted.unmount();
+});
+
 test("workflow tabs switch immediately and remember each selected stage", async (t) => {
   const client = workflowsClient([
     prototypeWorkflow("dash"),

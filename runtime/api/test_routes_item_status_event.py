@@ -1,8 +1,8 @@
 """Status-event contracts for item HTTP routes.
 
 The compatibility approval route only exposes an Inbox request and never
-mutates item status. The general item-write route emits ``ItemStatusChanged``
-for genuine status transitions and remains quiet for idempotent writes.
+mutates item status. The general item-write route rejects status patches,
+leaving lifecycle transitions to the authenticated function surface.
 """
 
 from __future__ import annotations
@@ -34,7 +34,8 @@ def client(test_db):
 
 def _item_status_change_calls(mock_emit):
     return [
-        c for c in mock_emit.call_args_list
+        c
+        for c in mock_emit.call_args_list
         if c.args and c.args[0] == "ItemStatusChanged"
     ]
 
@@ -63,9 +64,7 @@ class TestApproveDoesNotBypassInbox:
         conn.commit()
         conn.close()
 
-        with patch(
-            "yoke_core.domain.backlog_rendering._emit_event"
-        ) as mock_emit:
+        with patch("yoke_core.domain.backlog_rendering._emit_event") as mock_emit:
             resp = client.post("/v1/items/4/approve", json={})
 
         assert resp.status_code == 409
@@ -76,9 +75,7 @@ class TestApproveDoesNotBypassInbox:
         # Seeded item 4 is already at status='release'. Approving it
         # advances deploy_stage but does not transition status, so the
         # canonical emit MUST stay quiet.
-        with patch(
-            "yoke_core.domain.backlog_rendering._emit_event"
-        ) as mock_emit:
+        with patch("yoke_core.domain.backlog_rendering._emit_event") as mock_emit:
             resp = client.post("/v1/items/4/approve", json={})
 
         assert resp.status_code == 409
@@ -89,43 +86,27 @@ class TestApproveDoesNotBypassInbox:
         )
 
 
-class TestPatchEmitsItemStatusChanged:
-    """``PATCH /v1/items/{id}`` must emit ``ItemStatusChanged`` when the
-    patch transitions ``status``, and stay quiet for non-status patches
-    or no-op same-status patches."""
+class TestPatchStatusBoundary:
+    """PATCH status writes are denied and therefore never emit."""
 
-    def test_emit_fires_on_status_transition(self, client, test_db):
+    def test_status_transition_is_denied_without_emit(self, client, test_db):
         # Item 1 is at status='implementing' per the test fixture seed.
-        # ``implementing -> implemented`` is one of the lifecycle hops the
-        # PATCH route's mutation layer accepts without a QA gate against
-        # this fixture's empty qa_requirements set.
-        with patch(
-            "yoke_core.domain.backlog_rendering._emit_event"
-        ) as mock_emit:
+        # The route must reject even a workflow-valid lifecycle hop.
+        with patch("yoke_core.domain.backlog_rendering._emit_event") as mock_emit:
             resp = client.patch(
                 "/v1/items/1",
                 json={"status": "implemented"},
             )
 
-        assert resp.status_code == 200, resp.text
+        assert resp.status_code == 409, resp.text
+        assert resp.json()["error"]["code"] == "STATUS_UPDATE_REQUIRES_LIFECYCLE"
         emit_calls = _item_status_change_calls(mock_emit)
-        assert len(emit_calls) == 1, (
-            f"PATCH status transition must emit exactly one "
-            f"ItemStatusChanged; got {mock_emit.call_args_list}"
-        )
-        args = emit_calls[0].args
-        assert args[0] == "ItemStatusChanged"
-        assert args[1] == 1
-        assert args[2]["from_status"] == "implementing"
-        assert args[2]["to_status"] == "implemented"
-        assert args[2]["source"] == "items-patch"
+        assert emit_calls == []
 
     def test_emit_skipped_for_non_status_patch(self, client, test_db):
         # Patch only priority — no status field in the request, so no
         # ItemStatusChanged emit.
-        with patch(
-            "yoke_core.domain.backlog_rendering._emit_event"
-        ) as mock_emit:
+        with patch("yoke_core.domain.backlog_rendering._emit_event") as mock_emit:
             resp = client.patch(
                 "/v1/items/1",
                 json={"priority": "low"},
@@ -143,15 +124,13 @@ class TestPatchEmitsItemStatusChanged:
         # transition, no emit. The patch may be accepted or rejected by
         # the mutation-layer gate; in either case the emit must stay
         # quiet because there is no real transition.
-        with patch(
-            "yoke_core.domain.backlog_rendering._emit_event"
-        ) as mock_emit:
+        with patch("yoke_core.domain.backlog_rendering._emit_event") as mock_emit:
             resp = client.patch(
                 "/v1/items/1",
                 json={"status": "implementing"},
             )
 
-        assert resp.status_code in (200, 409, 422)
+        assert resp.status_code == 409
         emit_calls = _item_status_change_calls(mock_emit)
         assert emit_calls == [], (
             f"same-status patch must not emit ItemStatusChanged; "

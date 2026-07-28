@@ -94,7 +94,6 @@ def _parse_context_payload(raw: Optional[str], *, label: str) -> Any:
             "hook",
             "check_id",
             "final_status",
-            "dispatch_type",
             "tool_name",
             "command",
             "file_path",

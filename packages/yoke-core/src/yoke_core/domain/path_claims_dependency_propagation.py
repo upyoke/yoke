@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
-import os
 from typing import Any, List, Optional, Set
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.path_claims_dependency_binding_lock import (
+    lock_candidate_item_bindings,
+)
+from yoke_core.domain.path_claims_dependency_events import (
+    emit_blocked_reason_refreshed as _emit_blocked_reason_refreshed,
+)
 
 
 def _p(conn: Any) -> str:
@@ -33,20 +38,23 @@ def _strip_sun(text: str) -> str:
 def _item_status(conn: Any, item_id: int) -> str:
     p = _p(conn)
     row = conn.execute(
-        f"SELECT status FROM items WHERE id = {p}", (item_id,),
+        f"SELECT status FROM items WHERE id = {p}",
+        (item_id,),
     ).fetchone()
     return str(row[0]) if row and row[0] else ""
 
 
 def _direct_downstream_claims(
-    conn: Any, released_claim_id: int,
+    conn: Any,
+    released_claim_id: int,
 ) -> List[int]:
     """Return blocked claims that directly named ``released_claim_id``."""
     rows = conn.execute(
         "SELECT id, blocked_reason FROM path_claims WHERE state = 'blocked'",
     ).fetchall()
     return [
-        int(r[0]) for r in rows
+        int(r[0])
+        for r in rows
         if _blocked_reason_claim_id(str(r[1] or "")) == released_claim_id
     ]
 
@@ -66,7 +74,8 @@ def _blocked_reason_claim_id(blocked_reason: str) -> int | None:
 
 
 def _dep_satisfied_downstream_claims(
-    conn: Any, released_claim_id: int,
+    conn: Any,
+    released_claim_id: int,
 ) -> List[int]:
     """Return blocked claims whose dep edge is now satisfied."""
     blocking_item_id = _claim_owning_item(conn, released_claim_id)
@@ -75,8 +84,7 @@ def _dep_satisfied_downstream_claims(
     blocking_status = _item_status(conn, blocking_item_id)
     try:
         edges = conn.execute(
-            "SELECT dependent_item, blocking_item, satisfaction "
-            "FROM item_dependencies"
+            "SELECT dependent_item, blocking_item, satisfaction FROM item_dependencies"
         ).fetchall()
     except db_backend.operational_error_types(conn):
         return []
@@ -106,11 +114,15 @@ def _dep_satisfied_downstream_claims(
 
 
 def _select_surviving_upstream(
-    conn: Any, *, downstream_claim_id: int,
-    integration_target: str, serial_only: bool = False,
+    conn: Any,
+    *,
+    downstream_claim_id: int,
+    integration_target: str,
+    serial_only: bool = False,
 ) -> Optional[int]:
     """Pick a surviving overlap, optionally restricted to forward serial."""
     from yoke_core.domain.path_claims_overlap import expand_lineage
+
     p = _p(conn)
     rows = conn.execute(
         f"SELECT target_id FROM path_claim_targets WHERE claim_id = {p}",
@@ -139,6 +151,7 @@ def _select_surviving_upstream(
         from yoke_core.domain.path_claims_dependency_resolver_coordination import (
             has_forward_serial_edge,
         )
+
         for (cid,) in candidates:
             upstream_item = _claim_owning_item(conn, int(cid))
             if upstream_item is not None and has_forward_serial_edge(
@@ -151,42 +164,11 @@ def _select_surviving_upstream(
     return int(candidates[0][0])
 
 
-def _emit_blocked_reason_refreshed(
-    conn: Any, *, claim_id: int, item_id: Optional[int],
-    prior_blocked_reason: str, new_blocked_reason: str,
-    released_claim_id: int,
-) -> None:
-    try:
-        from yoke_core.domain.events import emit_event as _native_emit
-    except ImportError:
-        return
-    session_id = next(
-        (os.environ[n] for n in (
-            "YOKE_SESSION_ID", "CLAUDE_SESSION_ID", "CODEX_THREAD_ID",
-        ) if os.environ.get(n)),
-        "",
-    )
-    try:
-        _native_emit(
-            "PathClaimBlockedReasonRefreshed",
-            event_kind="lifecycle", event_type="path_claim",
-            source_type="system", session_id=session_id,
-            severity="INFO", outcome="completed",
-            project="yoke", item_id=item_id,
-            context={
-                "claim_id": claim_id,
-                "prior_blocked_reason": prior_blocked_reason,
-                "new_blocked_reason": new_blocked_reason,
-                "released_claim_id": released_claim_id,
-            },
-            conn=conn,
-        )
-    except Exception:
-        return
-
-
 def propagate_release_unblock(
-    conn: Any, *, released_claim_id: int,
+    conn: Any,
+    *,
+    released_claim_id: int,
+    commit: bool = True,
 ) -> List[int]:
     """Re-classify downstream blocked claims after a release."""
     from yoke_core.domain.path_claims_overlap import (
@@ -198,22 +180,38 @@ def propagate_release_unblock(
         set(_direct_downstream_claims(conn, released_claim_id))
         | set(_dep_satisfied_downstream_claims(conn, released_claim_id))
     )
+    if not candidates:
+        return []
+    p = _p(conn)
+    from yoke_core.domain.workflow_item_binding_validation import (
+        WorkflowItemBindingError,
+        item_binding_runtime_state,
+    )
+
+    lock_candidate_item_bindings(conn, candidates)
     flipped: List[int] = []
     for claim_id in candidates:
-        p = _p(conn)
         row = conn.execute(
-            f"SELECT state, integration_target FROM path_claims WHERE id = {p}",
+            "SELECT state, integration_target, item_id FROM path_claims "
+            f"WHERE id = {p}",
             (claim_id,),
         ).fetchone()
         if row is None or str(row[0]) != "blocked":
             continue
         integration_target = str(row[1])
+        owning_item_id = int(row[2]) if row[2] is not None else None
+        if owning_item_id is not None:
+            try:
+                item_binding_runtime_state(conn, owning_item_id)
+            except WorkflowItemBindingError:
+                continue
         target_rows = conn.execute(
             f"SELECT target_id FROM path_claim_targets WHERE claim_id = {p}",
             (claim_id,),
         ).fetchall()
         owning_item_id = conn.execute(
-            f"SELECT item_id FROM path_claims WHERE id = {p}", (claim_id,),
+            f"SELECT item_id FROM path_claims WHERE id = {p}",
+            (claim_id,),
         ).fetchone()
         candidate_item_id = (
             int(owning_item_id[0])
@@ -230,39 +228,50 @@ def propagate_release_unblock(
             phase="register",
         )
         if outcome is OverlapClassification.NONE:
-            conn.execute(
+            cursor = conn.execute(
                 "UPDATE path_claims SET state = 'planned', "
-                f"blocked_reason = NULL WHERE id = {p}",
+                f"blocked_reason = NULL WHERE id = {p} "
+                "AND state = 'blocked'",
                 (claim_id,),
             )
-            flipped.append(claim_id)
+            if int(cursor.rowcount or 0) == 1:
+                flipped.append(claim_id)
         elif outcome is OverlapClassification.SERIAL_VIA_DEPENDENCY:
             refreshed = _refresh_blocked_reason(
-                conn, claim_id=claim_id,
+                conn,
+                claim_id=claim_id,
                 integration_target=integration_target,
                 released_claim_id=released_claim_id,
                 serial_only=True,
             )
             if not refreshed:
-                conn.execute(
+                cursor = conn.execute(
                     "UPDATE path_claims SET state = 'planned', "
-                    f"blocked_reason = NULL WHERE id = {p}",
+                    f"blocked_reason = NULL WHERE id = {p} "
+                    "AND state = 'blocked'",
                     (claim_id,),
                 )
-                flipped.append(claim_id)
+                if int(cursor.rowcount or 0) == 1:
+                    flipped.append(claim_id)
         else:
             _refresh_blocked_reason(
-                conn, claim_id=claim_id,
+                conn,
+                claim_id=claim_id,
                 integration_target=integration_target,
                 released_claim_id=released_claim_id,
             )
-    conn.commit()
+    if commit:
+        conn.commit()
     return flipped
 
 
 def _refresh_blocked_reason(
-    conn: Any, *, claim_id: int, integration_target: str,
-    released_claim_id: int, serial_only: bool = False,
+    conn: Any,
+    *,
+    claim_id: int,
+    integration_target: str,
+    released_claim_id: int,
+    serial_only: bool = False,
 ) -> bool:
     """Refresh blocked_reason to a surviving upstream when one remains."""
     p = _p(conn)
@@ -275,7 +284,8 @@ def _refresh_blocked_reason(
     if _blocked_reason_claim_id(prior) != released_claim_id:
         return False
     new_id = _select_surviving_upstream(
-        conn, downstream_claim_id=claim_id,
+        conn,
+        downstream_claim_id=claim_id,
         integration_target=integration_target,
         serial_only=serial_only,
     )
@@ -289,8 +299,11 @@ def _refresh_blocked_reason(
         (new_reason, claim_id),
     )
     _emit_blocked_reason_refreshed(
-        conn, claim_id=claim_id, item_id=item_id,
-        prior_blocked_reason=prior, new_blocked_reason=new_reason,
+        conn,
+        claim_id=claim_id,
+        item_id=item_id,
+        prior_blocked_reason=prior,
+        new_blocked_reason=new_reason,
         released_claim_id=released_claim_id,
     )
     return True
@@ -310,9 +323,7 @@ def unblock_stranded_for_released(
         ).fetchone()
         if released is None or str(released[0]) != "released":
             return []
-        return list(
-            propagate_release_unblock(conn, released_claim_id=int(claim_id))
-        )
+        return list(propagate_release_unblock(conn, released_claim_id=int(claim_id)))
 
     rows = conn.execute(
         "SELECT id FROM path_claims WHERE state = 'released' ORDER BY id",
@@ -320,9 +331,7 @@ def unblock_stranded_for_released(
     flipped: List[int] = []
     for row in rows:
         released_id = int(row[0])
-        flipped.extend(
-            propagate_release_unblock(conn, released_claim_id=released_id)
-        )
+        flipped.extend(propagate_release_unblock(conn, released_claim_id=released_id))
     return flipped
 
 

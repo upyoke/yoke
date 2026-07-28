@@ -8,8 +8,8 @@ surface (`qa.requirement.add`, `qa.requirement.add_batch`,
 `qa.plan.materialize`, `qa.run.add`,
 `qa.run.complete`, `qa.run.record_verdict`, `qa.run.list`,
 `qa.artifact.presign`, `qa.artifact.add`, `qa.gate_summary.run`,
-`qa.browser_context.get`, `qa.screenshot_evidence.pending_count`, and
-`qa.screenshot_evidence.satisfy`). The public `yoke qa ...` commands in
+`qa.browser_context.get`, and `qa.case_execution.begin`). The public
+`yoke qa ...` commands in
 [qa-platform/cli-reference.md](qa-platform/cli-reference.md) are the retained
 operator/debug adapters that dispatch the matching function ids. See
 [.yoke/docs/db-reference/functions.md](db-reference/functions.md) for the envelope
@@ -243,7 +243,26 @@ An epic parent item cannot become `reviewed-implementation` until:
 
 ### Deployment Run Requirements
 
-Deployment runs materialize run-level requirements when the run is created. These are flow- or release-scoped post-deploy requirements that prove release health.
+Deployment runs may materialize a named project plan as run-level
+requirements. These are flow- or release-scoped post-deploy requirements
+that prove release health:
+
+```text
+yoke qa plan run \
+  --deployment-run-id <run-id> \
+  --plan <plan-slug> \
+  --project <project>
+```
+
+The run is the durable execution subject. Materialization and execution do
+not create a synthetic item: the immutable roster, serial Test Mac lease,
+QA runs, artifacts, and verdicts all remain bound through
+`qa_requirements.deployment_run_id`.
+Run-scoped proof reads stay equally explicit: `qa.plan.get` accepts
+`deployment_run_id` and filters every case proof to that subject,
+`qa.activity.list` returns (and may filter by) the same field, and
+`qa.artifact.read` resolves authorized local or durable evidence through the
+run's owning project.
 
 ## Browser Methods
 

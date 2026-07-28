@@ -32,6 +32,12 @@ def _p(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
+def _issue_pin(conn):
+    from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
+
+    return resolve_current_workflow_pin(conn, "issue")
+
+
 # ---------------------------------------------------------------------------
 # DB Helpers (use test_db fixture for in-memory tests)
 # ---------------------------------------------------------------------------
@@ -39,11 +45,13 @@ def _p(conn) -> str:
 
 class TestInsertItem:
     def test_basic_insert(self, test_db):
+        workflow_id, workflow_version_id = _issue_pin(test_db)
         backlog._insert_item(
             test_db, 99, "Test", "idea", "medium",
             "accelerated", 0, 0, None, None,
             "# Test\n", "2024-01-01T00:00:00Z", "2024-01-01T00:00:00Z",
             "user", 1, 99, None,
+            workflow_id=workflow_id, workflow_version_id=workflow_version_id,
         )
         p = _p(test_db)
         row = test_db.execute(f"SELECT title FROM items WHERE id={p}", (99,)).fetchone()
@@ -51,20 +59,24 @@ class TestInsertItem:
 
     def test_duplicate_raises(self, test_db):
         insert_item(test_db, id=50)
+        workflow_id, workflow_version_id = _issue_pin(test_db)
         with pytest.raises(db_backend.integrity_error_types()):
             backlog._insert_item(
                 test_db, 50, "Dup", "idea", "medium",
                 "accelerated", 0, 0, None, None,
                 "body", "2024-01-01T00:00:00Z", "2024-01-01T00:00:00Z",
                 "user", 1, 50, None,
+                workflow_id=workflow_id, workflow_version_id=workflow_version_id,
             )
 
     def test_owner_defaults_to_source(self, test_db):
+        workflow_id, workflow_version_id = _issue_pin(test_db)
         backlog._insert_item(
             test_db, 101, "Owner-default", "idea", "medium",
             "accelerated", 0, 0, None, None,
             None, "2024-01-01T00:00:00Z", "2024-01-01T00:00:00Z",
             "7", 1, 101, None,
+            workflow_id=workflow_id, workflow_version_id=workflow_version_id,
         )
         p = _p(test_db)
         row = test_db.execute(
@@ -74,11 +86,13 @@ class TestInsertItem:
         assert row[1] == "7"
 
     def test_explicit_owner_overrides_source(self, test_db):
+        workflow_id, workflow_version_id = _issue_pin(test_db)
         backlog._insert_item(
             test_db, 102, "Owner-override", "idea", "medium",
             "accelerated", 0, 0, None, None,
             None, "2024-01-01T00:00:00Z", "2024-01-01T00:00:00Z",
             "7", 1, 102, None,
+            workflow_id=workflow_id, workflow_version_id=workflow_version_id,
             owner="9",
         )
         p = _p(test_db)
@@ -146,7 +160,11 @@ class TestUpdateItemMulti:
 
 
 class TestExecuteCreate:
-    def test_basic_create(self, tmp_db):
+    def test_create_requires_workflow(self):
+        result = backlog.execute_create(title="Unclassified")
+        assert result == {"success": False, "error": "workflow is required"}
+
+    def test_basic_create(self, tmp_db):  # noqa: F811
         out = io.StringIO()
         with _patch_externals() as patched, \
              mock.patch.dict(
@@ -166,7 +184,7 @@ class TestExecuteCreate:
         assert _item_field(tmp_db, result["item_id"], "status") == "idea"
         patched["_rebuild_board"].assert_called_once_with(out)
 
-    def test_create_validation_failure(self, tmp_db):
+    def test_create_validation_failure(self, tmp_db):  # noqa: F811
         out = io.StringIO()
         with _patch_externals(), \
              mock.patch.dict(
@@ -180,7 +198,7 @@ class TestExecuteCreate:
             )
         assert result["success"] is False
 
-    def test_create_dry_run(self, tmp_db):
+    def test_create_dry_run(self, tmp_db):  # noqa: F811
         out = io.StringIO()
         with _patch_externals() as patched, \
              mock.patch.dict(
@@ -198,7 +216,7 @@ class TestExecuteCreate:
         assert "[DRY-RUN]" in out.getvalue()
         patched["_rebuild_board"].assert_not_called()
 
-    def test_create_sets_session_current_item(self, tmp_db):
+    def test_create_sets_session_current_item(self, tmp_db):  # noqa: F811
         _seed_session(tmp_db)
         out = io.StringIO()
         with _patch_externals(), \

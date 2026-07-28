@@ -1,4 +1,19 @@
-"""Authoritative state and momentum facts for the universe Overview."""
+"""Authoritative state and momentum facts for the universe Overview.
+
+These are the same signals the terminal board prints, so the two have to
+agree: an operator reading `yoke board` and the same universe's Overview
+must not see different numbers for the same scope. That constrains what
+each measure may count — state counts expand an epic into its tasks, and
+the issues meter counts work reaching a terminal success rather than work
+being filed — because the board's own meters are defined that way.
+
+Two signals match in direction but not in grain, because the board reads
+them from somewhere a server cannot. Code volume is lines changed per
+day from a local checkout's commit cache, counted here as the git-shaped
+rows in the event stream; strategy volume is bytes authored, counted here
+as revisions written. Both rise and fall with the board's, but neither is
+the same magnitude, so read them as trends rather than totals.
+"""
 
 from __future__ import annotations
 
@@ -17,6 +32,7 @@ from yoke_contracts.board.status import status_to_board_bucket
 from yoke_core.domain.handlers.overview_strategy_timeline import (
     strategy_timelines as _strategy_timelines,
 )
+from yoke_core.domain.workflow_runtime import workflow_runtime_from_row
 
 
 class OverviewVitalsRequest(BaseModel):
@@ -135,21 +151,36 @@ def _state_counts(conn: Any, project_ids: list[int]) -> Dict[str, int]:
         )
         else "FALSE"
     )
+    # A task-graph workflow stands for the work it contains, so the terminal
+    # board's stats box counts it as its tasks rather than as one row.
+    task_units = (
+        "(SELECT COUNT(*) FROM epic_tasks et WHERE et.epic_id = i.id)"
+        if _table_exists(conn, "epic_tasks")
+        else "0"
+    )
     rows = conn.execute(
-        "SELECT i.id, i.status, i.frozen, i.blocked, i.workflow_id, "
-        f"{active_run} AS has_active_run "
-        f"FROM items i WHERE i.project_id IN ({_markers(project_ids)})",
+        "SELECT i.id, i.status, i.frozen, i.blocked, "
+        "i.workflow_id, i.workflow_version_id, v.version, "
+        "v.definition_json, v.definition_digest, "
+        f"{active_run} AS has_active_run, {task_units} AS task_units "
+        "FROM items i "
+        "JOIN workflow_versions v ON v.id = i.workflow_version_id "
+        f"WHERE i.project_id IN ({_markers(project_ids)})",
         tuple(project_ids),
     ).fetchall()
     for row in rows:
+        workflow = workflow_runtime_from_row(row)
         bucket = status_to_board_bucket(
             str(row["status"]),
             row["frozen"],
             bool(row["has_active_run"]),
-            str(row["workflow_id"]),
-            row["blocked"],
+            blocked_value=row["blocked"],
+            workflow_definition=workflow.definition,
         )
-        counts[_STATE_GROUPS.get(bucket, "unknown")] += 1
+        tasks = int(row["task_units"] or 0)
+        expands_tasks = workflow.policies.get("generated_children") == "epic_tasks"
+        expanded = tasks if expands_tasks and tasks else 1
+        counts[_STATE_GROUPS.get(bucket, "unknown")] += expanded
     return dict(counts)
 
 
@@ -175,15 +206,37 @@ def _day_counts(
             params,
         ).fetchall():
             series[str(row["day"])]["activity"] = int(row["total"])
-    for row in conn.execute(
-        "SELECT SUBSTRING(created_at, 1, 10) AS day, COUNT(*) AS total "
-        "FROM items "
-        f"WHERE project_id IN ({markers}) "
-        "AND SUBSTRING(created_at, 1, 10) >= %s "
-        "GROUP BY SUBSTRING(created_at, 1, 10)",
-        params,
-    ).fetchall():
-        series[str(row["day"])]["issues"] = int(row["total"])
+    if _table_exists(conn, "item_status_transitions"):
+        # Work inside an epic moves tasks, not the epic row, so a
+        # task-only day registers no item activity at all without this.
+        # Each (day, item, task) counts once, matching the board.
+        for row in conn.execute(
+            "SELECT day, COUNT(*) AS total FROM ("
+            "  SELECT SUBSTRING(t.created_at, 1, 10) AS day, "
+            "         t.item_id AS item_id, t.task_num AS task_num "
+            "  FROM item_status_transitions t "
+            f"  WHERE t.project_id IN ({markers}) "
+            "  AND t.task_num IS NOT NULL "
+            "  AND SUBSTRING(t.created_at, 1, 10) >= %s "
+            "  GROUP BY 1, 2, 3"
+            ") touched GROUP BY day",
+            params,
+        ).fetchall():
+            series[str(row["day"])]["activity"] += int(row["total"])
+    if _table_exists(conn, "item_status_transitions"):
+        # Delivery, not intake: the board's issues meter counts work
+        # reaching a terminal success, and counting items created instead
+        # would trend opposite to it on any day of heavy grooming.
+        for row in conn.execute(
+            "SELECT SUBSTRING(t.created_at, 1, 10) AS day, COUNT(*) AS total "
+            "FROM item_status_transitions t "
+            f"WHERE t.project_id IN ({markers}) "
+            "AND t.to_status IN ('done', 'passed') "
+            "AND SUBSTRING(t.created_at, 1, 10) >= %s "
+            "GROUP BY SUBSTRING(t.created_at, 1, 10)",
+            params,
+        ).fetchall():
+            series[str(row["day"])]["issues"] = int(row["total"])
     if _table_exists(conn, "strategy_doc_revisions"):
         for row in conn.execute(
             "SELECT SUBSTRING(created_at, 1, 10) AS day, COUNT(*) AS total "

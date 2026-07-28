@@ -12,6 +12,8 @@ Retained historical name. Called by `advance/SKILL.md` after the item is at `imp
 - `{NNN}` — zero-padded filename (e.g., `939`)
 - `{title}` — item title
 - `{WORKTREE_PATH}` — absolute worktree path
+- `{_current_executor}` — must be `advance`
+- `{_worktree_policy}` — must be `single_implementation_lane`
 
 **Exact-path worktree anchor:** All subsequent file operations — Read, Edit, Write, Grep, Glob — MUST use absolute paths rooted at `{WORKTREE_PATH}`, not the main repo. The worktree is an isolated copy; reading a file at the main repo path and then editing it at the worktree path will fail because the Read tool's cached content won't match the worktree copy. Always resolve paths from `{WORKTREE_PATH}` for both investigation and modification.
 
@@ -27,7 +29,9 @@ yoke claims path list --item YOK-{N} --state planned --state active --state bloc
 
 Mentally diff the declared coverage against the files you are about to touch. If any file is not covered by a non-terminal claim, widen first with a specific rationale, then edit. This is a recurring checklist item, not a once-at-entry declaration. A future PreToolUse advisory on `Write`/`Edit` is the natural follow-up enforcement layer; blocking enforcement remains the end-of-implementation boundary gate.
 
-For **epic items managed by conduct**, skip this QA seeding — the tester agent handles requirements and runs through the conduct pipeline.
+This sub-skill is entered only after the parent verifies the pinned `advance`
+binding and `single_implementation_lane` policy. A task-graph item owned by
+`conduct` never reaches this router; that executor's Tester owns its QA loop.
 
 ## Phase Dispatch
 
@@ -35,7 +39,7 @@ Read and follow each phase file in order. All phases share the context variables
 
 | Phase | File | When |
 |---|---|---|
-| 1. QA Seeding | `implementing/qa-seeding.md` | Always (non-epic items) |
+| 1. QA Seeding | `implementing/qa-seeding.md` | Always |
 | 1b. Browser Seeding | `implementing/browser-seeding.md` | Browser-testable items only (called from qa-seeding.md) |
 | 2. Project Context Preflight | `implementing/project-context.md` | Always (self-skips only for projectless/no-context items) |
 | 3. Test Commands & QA Recording | `implementing/test-and-record.md` | Always |

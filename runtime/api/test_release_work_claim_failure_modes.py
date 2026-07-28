@@ -1,3 +1,4 @@
+# ruff: noqa: F811
 """Tests for the canonical release failure-mode cases.
 
 Covers the failure-mode disambiguation added to
@@ -18,6 +19,8 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
+import pytest
+
 from yoke_core.domain.sessions import (
     claim_work,
     release_item_claim_for_execution,
@@ -27,7 +30,11 @@ from yoke_core.domain.sessions_lifecycle_release_failure import (
     RELEASE_FAILURE_ITEM_NOT_FOUND,
     RELEASE_FAILURE_NOT_OWNED,
 )
-from runtime.api.test_sessions import _register, conn  # noqa: F401  (pytest fixture)
+from runtime.api.test_sessions import (
+    _insert_claimable_items,
+    _register,
+    conn,  # noqa: F401
+)
 
 
 _FAILED_EVENT = "ItemClaimReleaseFailed"
@@ -57,6 +64,10 @@ def _event_context(mock_emit, event_name: str) -> dict:
 class TestReleaseFailureModes:
     """Four canonical release result cases."""
 
+    @pytest.fixture(autouse=True)
+    def _claimable_items(self, conn):
+        _insert_claimable_items(conn, 700, 710, 720)
+
     def test_cross_session_release_returns_not_owned_with_holder(self, conn):
         owner_sid = "owner-sess"
         intruder_sid = "intruder-sess"
@@ -85,7 +96,7 @@ class TestReleaseFailureModes:
         assert ctx["caller_session_id"] == intruder_sid
         assert ctx["holder_session_id"] == owner_sid
         assert ctx["failure_reason"] == RELEASE_FAILURE_NOT_OWNED
-        assert ctx["target_status"] is None
+        assert ctx["target_status"] == "idea"
         assert ctx["release_reason_intent"] == "handoff-to-polish"
 
         # Original claim untouched.

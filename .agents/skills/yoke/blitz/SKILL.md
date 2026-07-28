@@ -26,6 +26,7 @@ commands taught later are adapters for these envelopes:
 | Function id | Target and payload | CLI adapter |
 |---|---|---|
 | `items.detail.get` | Item target; empty payload | `yoke items detail get ITEM --json` |
+| `workflows.item.get` | Item target; empty payload; centrally resolved effective policies | `yoke workflows item get ITEM --json` |
 | `strategy.execution.get` | Blitz item target; empty payload | `yoke strategy execution get ITEM --json` |
 | `strategy.doc.get` | Project target; `slug` | `yoke strategy doc get SLUG --project PROJECT --json` |
 | `direct_workflow.blitz.survey` | Item target; `paths` plus optional `integration_target` | `yoke direct-workflow blitz survey ITEM --path PATH --json` |
@@ -60,9 +61,10 @@ function id for it.
 - The item claim owns execution. The item-owned document claim owns plan
   revision. Other sessions may use only the append-only `Slice Log` and
   `Live Status` coordination surface.
-- The default Blitz is claim-less at path level. It still surveys before
-  activation and before every slice merge, yields to registered claims,
-  and runs every write in a registered isolated worktree.
+- The default Blitz has File Budget and path claims off. It still obeys the
+  universal 350-line authored-file limit, surveys before activation and every
+  slice merge, yields to registered claims, and runs every write in a
+  registered isolated worktree.
 - The main session owns slice boundaries, integration order, full
   verification, document completion, and parent reconciliation.
 - Core invariants run on every action. A continuous delivery model never
@@ -76,6 +78,7 @@ Read both projections:
 
 ```text
 yoke items detail get ITEM --json
+yoke workflows item get ITEM --json
 yoke strategy execution get ITEM --json
 ```
 
@@ -91,6 +94,16 @@ dependencies, delivery actions, verification, unresolved decisions, and
 parent-strategy relationship. If the document cannot cold-start an
 executor, stop for plan repair; do not fabricate scope.
 
+Read effective `file_budget` and `path_claims` independently from
+`workflows.item.get` at `result.effective_policies.file_budget` and
+`result.effective_policies.path_claims`. `optional` is off; `required` and
+`required_per_task` apply at their reported scopes. Never reconstruct these
+values from raw policies or posture: the central projection owns historical
+compatibility and allowed tightening. When File Budget is enabled, require
+the execution document to carry an enumerated `## File Budget`; the document
+remains the authority, so do not copy it into the item body. When disabled,
+do not require that section. The universal 350-line check always applies.
+
 ### 2. Survey before activation
 
 Translate the document's affected areas into likely file or directory
@@ -104,6 +117,16 @@ Registered claims always win. Coordinate every collision in the execution
 document's append-only surfaces. Wait, reorder slices, or enable and
 register path claims when the document needs stronger serialization.
 Never omit a required area to obtain a clear survey.
+
+Apply the two axes as a four-state matrix:
+
+- both on: pair File Budget edit targets with complete claim coverage;
+- budget off / claims on: derive claim paths from the execution document and
+  survey;
+- budget on / claims off: use the budget for sizing and conflict evidence
+  without registering a claim;
+- both off: the document and survey define execution scope without either
+  artifact.
 
 ### 3. Claim, isolate, and activate atomically
 
@@ -128,12 +151,29 @@ untracked document edit.
 
 ### 4. Build an integration map
 
-The preparation call creates and registers the default worker lane. Keep
-execution sequential in that lane unless additional worker lanes and an
-explicit integration lane have been registered through the universal
-item-worktree surface. The item owns every registered lane; the main session
-holds the item work claim while coordinating integration. Never parallelize
-by inventing an unregistered branch or directory. Every worker brief must name:
+The preparation call ensures the default worker lane through the active
+authority, materializes every registered active lane on this machine, and
+records each exact local path back through the guarded function-call surface.
+Keep execution sequential in the default lane unless additional worker lanes
+and an explicit integration lane have been registered through the universal
+item-worktree surface:
+
+```text
+yoke item-worktrees create ITEM --lane-role worker --branch BRANCH
+```
+
+Repeat the same registered call with `--lane-role integration` for the one
+explicit integration lane, then rerun the ordinary worktree preparation to
+materialize every pathless registration over either HTTPS or machine-local
+Postgres. Verify the authoritative set and its recorded paths with:
+
+```text
+yoke item-worktrees list ITEM --json
+```
+
+The item owns every registered lane; the main session holds the item work claim
+while coordinating integration. Never parallelize by inventing an unregistered
+branch or directory. Every worker brief must name:
 
 - its outcome and exact file responsibility;
 - its registered worktree;
@@ -207,6 +247,19 @@ Revise the linked strategy document so it explicitly records:
 - what remains, including an explicit statement when nothing remains;
 - verification and delivery evidence with stable identities;
 - how the parent strategy was reconciled, or that no parent exists.
+
+Use this exact document-owned closeout shape so the completion gate can
+distinguish terminal evidence from planning prose:
+
+```markdown
+## Blitz Completion
+
+- Completed: <delivered outcomes>
+- Changed: <departures from the starting plan, or none>
+- Remaining: <open work, or nothing remains>
+- Verification identities: <commands, receipts, runs, commits, or artifacts>
+- Parent reconciliation: <parent update and revision, or no parent exists>
+```
 
 Append a final Slice Log entry naming the document revision and the final
 verification result. Re-read `yoke strategy execution get ITEM --json` and

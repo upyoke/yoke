@@ -247,7 +247,8 @@ def _create_epic_tasks_db(db_path: Path, task_status: str = "implementing") -> N
         CREATE TABLE IF NOT EXISTS items (
             id INTEGER PRIMARY KEY,
             title TEXT NOT NULL DEFAULT '',
-            type TEXT NOT NULL DEFAULT 'issue',
+            workflow_id TEXT,
+            workflow_version_id INTEGER,
             status TEXT NOT NULL DEFAULT 'idea',
             project_id INTEGER NOT NULL DEFAULT 1,
             project_sequence INTEGER NOT NULL DEFAULT 42,
@@ -257,6 +258,11 @@ def _create_epic_tasks_db(db_path: Path, task_status: str = "implementing") -> N
         );
         """
     )
+    from runtime.api.api_workflow_test_helpers import (
+        install_workflow_registry_and_pin_items,
+    )
+
+    install_workflow_registry_and_pin_items(conn)
     _seed_yoke_project_with_github_app(
         conn,
         repo_path="/tmp",

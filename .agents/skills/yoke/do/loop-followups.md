@@ -52,30 +52,30 @@ D and stop the loop, never release a claim this session no longer owns.
 
 ### Step D: Session Cleanup
 
-**The harness owns session lifetime — the loop does NOT terminate the session itself.** Session lifetime is harness-owned: the `Stop` and `SessionEnd` hooks run the hook-runner cleanup helpers. The agent surface has no business terminating the session — agents that want to surrender their work without terminating the session use the positive primitive:
+**The harness owns session lifetime — the loop does NOT terminate the session itself.** Before returning control at any terminal Step D handoff, explicitly release every active claim this session still owns:
 
 ```bash
 yoke claims work release --all-mine
 ```
 
-This releases every active claim THIS session still holds with canonical reason `agent_handoff_session_scoped`, leaving the session row alive for the harness Stop hook to finalize cleanly. Use it when the loop has reached a clean handoff point and wants to free the work claim explicitly — most chain steps already release through their own routed handler, so calling this is rare.
+This idempotently releases the calling session's active claims with canonical reason `agent_handoff_session_scoped` and leaves the session row alive for the harness cleanup hook. Run it on every Step D path even when a routed handler normally releases its own claim.
 
 The PreToolUse lint `lint_no_agent_session_end` refuses agent-dispatched session-shutdown helper invocations; `AGENTS.md` explains the doctrine under "Operational primitives".
 
-**Audit-only context — what the hook path emits.** When the harness Stop / SessionEnd hooks invoke their cleanup helper internally, the aggregate `HarnessSessionEndReleasedClaims` event records each released claim with `context.via="no_flags"`; per-claim `WorkReleased` events fire through the typed release path. The new `--all-mine` primitive emits the same envelope shape with `context.via="agent_handoff_session_scoped"` so downstream audit callers distinguish the two paths.
+**Stop and SessionEnd never release active claims.** Their cleanup is non-destructive: it closes only an already claim-free session whose persisted checkpoint has no remaining chain budget. The explicit `--all-mine` handoff emits release evidence with `context.via="agent_handoff_session_scoped"`.
 
-**Honest checkpointing still matters — it controls how the Stop hook resolves.** When `Stop` / `SessionEnd` fires, the hook runner reads the persisted chain checkpoint and either:
+**Honest checkpointing still matters — it controls how the cleanup hook resolves.** When Stop or SessionEnd fires, the hook runner reads the persisted chain checkpoint and either:
 
-- Closes the session when the checkpoint records `chainable=false` or exhausted budget (`step ≥ max_chain_steps`).
+- Closes the session only when no active claims remain and the checkpoint records `chainable=false` or exhausted budget (`step ≥ max_chain_steps`).
 - Defers via `ChainEndDeferred` when `chainable=true` with budget remaining (the next agent turn picks up).
 
-A useful step that leaves budget remaining but the loop wants the harness to clean up next must update the checkpoint to `chainable=false` (the honest signal that no further work is queued) before the harness fires Stop. `YOKE_SESSION_ID` remains stable across loop iterations (set once in Step A) so the same session record receives every checkpoint write.
+A useful step that leaves budget remaining but the loop wants the harness to clean up next must update the checkpoint to `chainable=false` (the honest signal that no further work is queued) and explicitly release its claims through Step D before the harness fires Stop. `YOKE_SESSION_ID` remains stable across loop iterations (set once in Step A) so the same session record receives every checkpoint write.
 
 **Operator-mediated abort with budget remaining** — when a harness-restart / crash-recovery / operator-asserted abort needs to bypass the chain-pending guard on a hook-driven cleanup, the hook runner accepts `--override-chain-end --chain-end-rationale "<why>"` on its internal invocation. The override emits `ChainDeclineOverridden` for audit. This is an operator escape hatch, not an agent shape — the loop never authors it.
 
-The Stop hook (`python3 -m runtime.harness.hook_runner Stop`) takes a different path: it uses the non-destructive idle-cleanup helper (no force, no override). Two cleanup preconditions must hold before the helper closes a session:
+The Stop and SessionEnd hooks use the non-destructive idle-cleanup helper (no force, no override). Two cleanup preconditions must hold before the helper closes a session:
 
-- **No claims held** — the active-claim guard. Claimed-but-stale sessions are left alone for the reclaim path.
+- **No claims held** — the active-claim guard. Hooks do not release claims; claimed-but-stale sessions are left alone for the reclaim path.
 - **No chain-pending budget** — the chain-pending guard. When the loop has released its work claim mid-chain (`advance/finalize` step 6b's `handoff-to-polish` / `handoff-to-usher`) but the persisted checkpoint still has `chainable=true` and `step < max_chain_steps`, the helper returns `status='chain_pending'`, emits `ChainEndDeferred`, and leaves the session alive. The JSON return carries a `next_action` string — the canonical resume command — so the next agent turn (or an inspecting operator) can resume via `yoke sessions offer` without re-deriving the loop entry shape. The configured stale-heartbeat window (`session_stale_ttl_minutes` in machine config; per-executor overrides via `session_stale_ttl_minutes_<executor>_override`) remains the safety net for genuinely abandoned chains; the next `yoke sessions offer` reclaim path emits `WorkReclaimed` as today.
 
 ## Chain Summary Rendering
@@ -98,15 +98,17 @@ classes of statement appear in those summaries:
 
 - **Narrative claims** — what the loop attempted, what it decided, what it
   declined. These describe the chain's history and may stay free-form.
-- **State claims** — anything that names a DB-resident work item field for an item
-  the chain touched. The item status, worktree, deployed-to, and deployment-flow
-  fields — and every other column on the item row (see your ``items`` packet
-  stanza) — count as state. So do the matching fields on the epic-task row
-  (see your ``epic_tasks`` packet stanza) for touched epic tasks.
+- **State claims** — anything that names canonical persisted state for an item
+  the chain touched. Item status, deployed-to, deployment-flow, and every other
+  column on the item row (see your ``items`` packet stanza) count as state. The
+  active worktree branch is separate `item_worktrees` lane state. Matching fields
+  on the epic-task row (see your ``epic_tasks`` packet stanza) also count.
 
 **Contract: before composing any state claim about a touched item, re-read the
 canonical value with ``yoke items get <YOK-N>
-<field>`` in the same turn and quote only what the read returned.** For
+<field>`` in the same turn and quote only what the read returned. Read an active
+lane branch with ``yoke item-worktrees get <YOK-N> --lane-role implementation
+--field branch``.** For
 epic-task state claims, use the matching canonical router read for the
 ``(epic_id, task_num)`` row before quoting the value. Free-form narrative about
 decisions and intent is allowed; state claims must be evidence-bound.
@@ -161,7 +163,7 @@ To confirm the contract is doing its job, simulate the failure shape:
    ``escalate``, or chain-budget exhaustion).
 4. Immediately before composing the summary prose, run
    ``yoke items get <YOK-N> status`` and
-   ``yoke items get <YOK-N> worktree``.
+   ``yoke item-worktrees get <YOK-N> --lane-role implementation --field branch``.
 5. Quote those values verbatim in the state claim. The summary must report
    ``implementing`` and the worktree branch — not the pre-preflight
    ``refined-idea`` that lives in the agent's intent memory.
@@ -169,7 +171,7 @@ To confirm the contract is doing its job, simulate the failure shape:
 If the summary names a field other than the four common ones above (for
 example the deployment-flow field after a reconciliation auto-fill, or
 the deployed-to field after ``--env`` — see your ``items`` packet stanza),
-apply the same rule: one fresh ``db_router items get`` per named field,
+apply the same rule: one fresh ``yoke items get`` per named field,
 quoted verbatim.
 
 ## Live-Claim Recovery: Canonical Holder Lookup

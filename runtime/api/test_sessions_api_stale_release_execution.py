@@ -7,7 +7,11 @@ from unittest.mock import patch
 
 import pytest
 
-from runtime.api.test_sessions import _register, conn  # noqa: F401  (pytest fixture)
+from runtime.api.test_sessions import (
+    _insert_claimable_items,
+    _register,
+    conn,  # noqa: F401
+)
 from runtime.api.test_dependency_schema import ITEMS_SCHEMA
 from yoke_core.domain.sessions import (
     EVENT_WORK_RELEASED,
@@ -32,6 +36,10 @@ def _seed_issue_workflow(conn) -> None:
 
 class TestReleaseItemClaimForExecution:
     """AC-7: execution-owned atomic release+focus-clear."""
+
+    @pytest.fixture(autouse=True)
+    def _claimable_items(self, conn):
+        _insert_claimable_items(conn, 500, 510, 520, 700, 900)
 
     def test_releases_and_clears_focus_together(self, conn):
         from yoke_core.domain.sessions import release_item_claim_for_execution

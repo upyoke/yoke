@@ -19,9 +19,16 @@ from yoke_core.domain.path_claim_owner import (
     owner_columns_for_writer,
 )
 from yoke_core.domain.path_claims import (
-    InvalidActor,
     InvalidTargetSet,
     _now,
+)
+from yoke_core.domain.workflow_item_binding_lock import (
+    lock_optional_item_workflow_binding,
+    rollback_workflow_binding_write_errors,
+)
+from yoke_core.domain.workflow_item_binding_validation import (
+    WorkflowItemBindingError,
+    validate_item_path_claim_scope,
 )
 
 
@@ -29,6 +36,7 @@ def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
+@rollback_workflow_binding_write_errors
 def register_exception(
     conn: Any,
     *,
@@ -38,6 +46,8 @@ def register_exception(
     exception_reason: Optional[str],
     session_id: Optional[str] = None,
     item_id: Optional[int] = None,
+    task_num: Optional[int] = None,
+    commit: bool = True,
 ) -> int:
     """Insert a ``mode='exception'`` claim row and return its id.
 
@@ -52,9 +62,14 @@ def register_exception(
             "exceptions record a no-claim justification, not coverage"
         )
     if not (exception_reason or "").strip():
-        raise InvalidTargetSet(
-            "mode='exception' requires a non-empty exception_reason"
-        )
+        raise InvalidTargetSet("mode='exception' requires a non-empty exception_reason")
+    lock_optional_item_workflow_binding(conn, item_id)
+    try:
+        validate_item_path_claim_scope(conn, item_id, task_num=task_num)
+    except WorkflowItemBindingError as exc:
+        from yoke_core.domain.path_claims import InvalidWorkflowBinding
+
+        raise InvalidWorkflowBinding(str(exc)) from exc
     now = _now()
     if item_id is not None:
         owner = Owner(kind=OWNER_KIND_ITEM, item_id=int(item_id))
@@ -78,18 +93,24 @@ def register_exception(
                    {p}, {p}, {p}, {p}, {p}, {p})
            RETURNING id""",
         (
-            actor_id, session_id, item_id,
+            actor_id,
+            session_id,
+            item_id,
             owner_cols["owner_kind"],
             owner_cols["owner_item_id"],
             owner_cols["owner_session_id"],
             owner_cols["owner_work_claim_id"],
-            actor_id, session_id,
+            actor_id,
+            session_id,
             integration_target,
-            now, now, exception_reason.strip(),
+            now,
+            now,
+            exception_reason.strip(),
         ),
     )
     claim_id = int(cur.fetchone()[0])
-    conn.commit()
+    if commit:
+        conn.commit()
     return claim_id
 
 

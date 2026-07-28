@@ -76,6 +76,29 @@ case-level overrides, and project-local methods can only be used by plans in
 that same project. Case rerun and waiver stay case-scoped, and the transition
 consumes the union of all materialized outcomes.
 
+A deployment run can instead own one named plan directly, without inventing
+an item or workflow transition:
+
+```text
+yoke qa plan run \
+  --deployment-run-id <run-id> \
+  --plan <plan-slug> \
+  --project <project>
+```
+
+The command verifies that the run and plan belong to the same project,
+idempotently snapshots the plan cases onto
+`qa_requirements.deployment_run_id`, and executes the server-issued roster.
+The durable cursor and serial Test Mac lease are bound to that deployment
+run; normal QA runs, artifacts, and verdicts remain attached to the
+materialized requirements. Host control always uses the registered
+two-phase execution protocol.
+When reading the result, pass `deployment_run_id` to `qa.plan.get` to avoid
+mixing another item or run's latest proof into the plan view.
+`qa.activity.list` includes that field on every row and accepts it as an
+optional filter; `qa.artifact.read` resolves evidence from the run's owning
+project without an item join.
+
 ## Capabilities and secrets
 
 A capability is the configured resource a method may need. Its availability
@@ -100,35 +123,51 @@ Provision the host once before saving the capability:
 2. Enable **System Settings → General → Sharing → Remote Login** for that user,
    install the operator public key in `~/.ssh/authorized_keys`, and verify a
    batch SSH login. Do not expose SSH with router port forwarding.
-3. Install `tmux`, which `host_control` uses to retain the real terminal
-   session while driving and capturing it.
+3. Verify either `tmux` or GNU Screen is available with
+   `command -v tmux || command -v screen`. `host_control` detects the backend,
+   preferring `tmux` when both exist. The dedicated Test Mac uses its existing
+   `screen` command; do not add Homebrew or `tmux` only for this integration.
 4. In **System Settings → Privacy & Security**, grant the logged-in
    Terminal.app Automation access to Terminal and Screen Recording access.
-   Keep the Mac logged in and unlocked for screenshots.
+   Keep the Mac logged in and unlocked for screenshots. These are interactive
+   macOS permission grants on the host, not credentials or tokens that Yoke
+   stores.
 5. Disable automatic system and display sleep for the test interval. Restore
    the operator's normal sleep policy when the dedicated test interval ends.
 
 The saved settings document contains exactly `resource_name`, `host`, `user`,
-and `operating_notes`. It contains no credentials. Store every credential key
-shown by `yoke test-machine get` on the machine that runs `host_control`; for
-example:
+and `operating_notes`. It contains no credentials. `ssh_private_key` is the
+only Test Mac credential. Store it on the machine that runs `host_control`:
 
 ```text
-printf '%s' "$SECRET_VALUE" | yoke projects capability secret set \
+printf '%s' "$SSH_PRIVATE_KEY" | yoke projects capability secret set \
   --project <project> --cap-type test-machine \
-  --key <ssh_private_key|screen_control_token|sudo_password> --value-stdin
+  --key ssh_private_key --value-stdin
 ```
 
-The private key value is the key material, not a path. Yoke writes these values
-to capability-owned machine-local files with restricted permissions. Do not
-copy them to the remote host, the project checkout, or control-plane settings.
-After provisioning or changing any setting or credential, run
-`yoke test-machine verify`; the capability is not ready until connectivity and
-terminal-control checks pass.
+The private key value is the key material, not a path. Yoke writes it to a
+capability-owned machine-local file with restricted permissions. Do not copy
+it to the remote host, the project checkout, or control-plane settings. Host
+baselines run as the dedicated test user and do not invoke `sudo`; no sudo
+credential is required. After provisioning or changing any setting, SSH key,
+or required macOS permission, run `yoke test-machine verify`; the capability
+is not ready until connectivity and terminal-control checks pass.
 
 Secret values never belong in settings JSON, workflow definitions, item
 bodies, prompts, logs, captures, or artifacts. The executor receives resolved
 secrets only for its subprocess and must redact them from evidence.
+
+The registered `fresh-host` baseline performs the complete installer reset as
+the dedicated test user, using only guaranteed macOS shell primitives. It
+removes Yoke and uv state, launchers, temporary installer files, managed and
+handwritten tool-path startup entries, and the children of `~/code`. It
+preserves stage and production token bytes opaquely in mode-restricted
+`~/yoke-smoke-tokens`, relocates prior campaign evidence into a mode-restricted
+`~/yoke-smoke-evidence/reset.*` directory, and then proves `.yoke`, command
+resolution, and the split login PATH are clean before emitting
+`YOKE_MAC_WIPE_OK`. It never removes `.ssh` or Command Line Tools; returning a
+Mac to a no-Command-Line-Tools state remains a separate destructive operator
+decision.
 
 ## Evidence
 

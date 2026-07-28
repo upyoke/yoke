@@ -44,7 +44,7 @@ def _seed_epic_item(test_db):
     insert_item(
         test_db,
         id=TEST_EPIC_ID,
-        type="epic",
+        workflow_id="epic",
         status="planned",
         project="yoke",
     )

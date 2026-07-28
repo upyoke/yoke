@@ -52,7 +52,7 @@ def test_sync_done_item_batches_body_labels_and_close():
     insert_item(
         db,
         id=70,
-        type="issue",
+        workflow_id="issue",
         status="done",
         project="externalwebapp",
         github_issue="#700",
@@ -120,7 +120,7 @@ def test_sync_done_item_uses_compact_mirror_when_body_exceeds_budget():
     insert_item(
         db,
         id=72,
-        type="issue",
+        workflow_id="issue",
         status="done",
         project="externalwebapp",
         github_issue="#4114",

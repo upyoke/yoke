@@ -15,28 +15,28 @@ def test_project_summary_counts_active_work_and_distinct_blocked_items(test_db):
         test_db,
         id=601,
         title="Implementation in flight",
-        type="issue",
+        workflow_id="issue",
         status="implementing",
     )
     insert_item(
         test_db,
         id=602,
         title="Review in flight",
-        type="issue",
+        workflow_id="issue",
         status="reviewing-implementation",
     )
     insert_item(
         test_db,
         id=603,
         title="Terminal work",
-        type="issue",
+        workflow_id="issue",
         status="done",
     )
     insert_item(
         test_db,
         id=604,
         title="Operator hold",
-        type="issue",
+        workflow_id="issue",
         status="refined-idea",
         blocked=1,
         blocked_reason="waiting on a decision",

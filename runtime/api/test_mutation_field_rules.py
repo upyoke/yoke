@@ -233,7 +233,7 @@ class TestPrepareCreate:
         )
         assert result.success is False
         assert result.error_code == "VALIDATION_ERROR"
-        assert "not a valid stage for workflow issue@2" in result.error
+        assert "not a valid stage for workflow issue@3" in result.error
 
     def test_create_with_valid_epic_status_override(self):
         """valid epic status override sets status in field_writes."""

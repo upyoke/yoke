@@ -16,8 +16,13 @@ const POLICY_VALUE_COPY = {
       "exclusive work claim by harness session",
   },
   path_claims: {
-    required: "required from file budget",
-    required_per_task: "required per task budget",
+    required: "required",
+    required_per_task: "required per task",
+    optional: "optional",
+  },
+  file_budget: {
+    required: "required",
+    required_per_task: "required per task",
     optional: "optional",
   },
   worktrees: {

@@ -8,7 +8,6 @@ cascades epic tasks, and triggers the post-DB GitHub sync side effects.
 
 from __future__ import annotations
 
-import os
 import sys
 from typing import Optional, TextIO
 
@@ -23,20 +22,14 @@ from yoke_core.domain.backlog_authoritative_status_gate import (
     _run_authoritative_status_gate,
 )
 from yoke_core.domain.backlog_batch_update import execute_batch_update
-from yoke_core.domain.backlog_epic_task_cascade import _cascade_epic_tasks
-from yoke_core.domain.backlog_item_db_writes import _update_item_multi
 from yoke_core.domain.backlog_post_write_sync import run_post_db_sync
 from yoke_core.domain.backlog_project_issue_migration import (
     _maybe_migrate_project_issue,
 )
-from yoke_core.domain.backlog_session_attribution import (
-    _maybe_set_session_current_item,
-)
 from yoke_core.domain.backlog_unsupported_field_writes import _apply_shell_fallback
 from yoke_core.domain.backlog_status_claim_verification import _verify_status_claim
 from yoke_core.domain.deployment_flow_validator import (
-    normalize_deployment_flow_value,
-    validate_and_lookup_flow_project,
+    normalize_deployment_flow_value, validate_and_lookup_flow_project,
 )
 from yoke_core.domain.item_block_notifications import (
     emit_item_block_state_change_if_needed,
@@ -44,7 +37,7 @@ from yoke_core.domain.item_block_notifications import (
 from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 
 
-def execute_update(
+def _execute_update_once(
     item_id: int,
     field: str,
     value: str,
@@ -56,14 +49,10 @@ def execute_update(
     rebuild_board: bool = True,
     no_github: bool = False,
     out: TextIO = sys.stdout,
+    expected_status: Optional[str] = None,
+    originator_actor_id: Optional[int] = None,
 ) -> dict:
-    """Full item update: validate → UPDATE → side effects → sync.
-
-    Caller-supplied gates such as done-nonce, force, and QA bypass are
-    folded into the mutation-layer context before the write.
-
-    Returns a result dict with 'success', 'error', etc.
-    """
+    """Validate, write, and execute side effects for one update attempt."""
     from yoke_core.domain import mutations
 
     db_path = _resolve_write_db_path()
@@ -72,6 +61,41 @@ def execute_update(
     sync_fail_count = 0
 
     try:
+        validated_workflow_version_id = None
+        validated_source_status = None
+        approval_request_id = None
+        if field == "status":
+            from yoke_core.domain.workflow_status_transition_preflight import (
+                prepare_status_transition,
+            )
+
+            preflight = prepare_status_transition(
+                conn,
+                item_id=item_id,
+                target_status=value,
+                originator_actor_id=originator_actor_id,
+                session_id=session_id or "",
+                expected_status=expected_status,
+            )
+            if preflight.failure is not None:
+                return preflight.failure
+            validated_workflow_version_id = preflight.workflow_version_id
+            validated_source_status = preflight.source_status
+            approval_request_id = preflight.approval_request_id
+            from yoke_core.domain.backlog_status_write_precondition import (
+                lock_status_write_precondition,
+            )
+
+            stale = lock_status_write_precondition(
+                conn,
+                item_id=item_id,
+                observed_status=str(validated_source_status),
+                observed_workflow_version_id=int(validated_workflow_version_id),
+                expected_status=expected_status,
+                expected_workflow_version_id=validated_workflow_version_id,
+            )
+            if stale is not None:
+                return stale
         # Load item state
         row = conn.execute(
             "SELECT i.*, p.slug AS project FROM items i JOIN projects p ON p.id = i.project_id WHERE i.id = %s",
@@ -79,6 +103,34 @@ def execute_update(
         ).fetchone()
         if row is None:
             return {"success": False, "error": f"Item YOK-{item_id} not found"}
+
+        flow_project = None
+        if field == "deployment_flow":
+            from yoke_core.domain.workflow_item_binding_lock import (
+                lock_item_workflow_bindings,
+            )
+
+            value = normalize_deployment_flow_value(value)
+            flow_project, flow_err = validate_and_lookup_flow_project(
+                conn,
+                value,
+                dict(row).get("project"),
+                lock_binding=True,
+            )
+            if flow_err:
+                return {
+                    "success": False,
+                    "error": flow_err,
+                    "error_code": "VALIDATION_ERROR",
+                }
+            lock_item_workflow_bindings(conn, (int(item_id),))
+            row = conn.execute(
+                "SELECT i.*, p.slug AS project FROM items i JOIN projects p "
+                "ON p.id = i.project_id WHERE i.id = %s",
+                (item_id,),
+            ).fetchone()
+            if row is None:
+                return {"success": False, "error": f"Item YOK-{item_id} not found"}
 
         item_dict = dict(row)
         workflow = load_item_workflow_runtime(conn, item_id)
@@ -104,6 +156,8 @@ def execute_update(
             force=force,
             qa_bypass=qa_bypass,
         )
+        if field == "deployment_flow":
+            gate.flow_project = flow_project
 
         target_status = value if field == "status" else None
         if target_status and workflow.policies["generated_children"] == "epic_tasks":
@@ -153,19 +207,6 @@ def execute_update(
                     unsatisfied_all["cnt"] if unsatisfied_all else 0
                 )
 
-        if field == "deployment_flow":
-            value = normalize_deployment_flow_value(value)
-            flow_project, flow_err = validate_and_lookup_flow_project(
-                conn, value, item_dict.get("project")
-            )
-            if flow_err:
-                return {
-                    "success": False,
-                    "error": flow_err,
-                    "error_code": "VALIDATION_ERROR",
-                }
-            gate.flow_project = flow_project
-
         # Deployed-to validation
         if field == "deployed_to" and value:
             item_project = item_dict.get("project") or "yoke"
@@ -201,7 +242,7 @@ def execute_update(
                     "success": False,
                     "error": (
                         f"Claim verification denied for YOK-{item_id}: {claim_reason}\n"
-                        f"  Claim first: python3 -m yoke_core.api.service_client claim-work --item YOK-{item_id}\n"
+                        f'  Claim first: yoke claims work acquire --item YOK-{item_id} --reason "<intent>"\n'
                         "  Incident recovery: python3 -m yoke_core.engines.repair_status (emits audit events)\n"
                         "  Audit bypass: set YOKE_CLAIM_BYPASS=<source> for sanctioned system transitions"
                     ),
@@ -225,100 +266,58 @@ def execute_update(
                 qa_bypass=qa_bypass,
                 force=force,
                 session_id=session_id,
+                conn=conn,
             )
             if authoritative_gate_result is not None:
                 return authoritative_gate_result
 
         old_status = item_dict["status"] if field == "status" else None
-        field_writes = mutation_result.field_writes
-        filtered_writes = {
-            k: v
-            for k, v in field_writes.items()
-            if k != "updated_at"  # The DB write helper owns updated_at.
-        }
+        from yoke_core.domain.backlog_status_write_precondition import (
+            apply_prepared_item_writes,
+        )
 
-        if filtered_writes:
-            _update_item_multi(conn, item_id, filtered_writes)
-        if field == "status" and value == "done":
-            from yoke_core.domain.item_worktrees import release_item_worktrees
+        stale = apply_prepared_item_writes(
+            conn,
+            item_id=item_id,
+            field=field,
+            value=value,
+            item=item_dict,
+            field_writes=mutation_result.field_writes,
+            expected_status=expected_status,
+            expected_workflow_version_id=validated_workflow_version_id,
+        )
+        if stale is not None:
+            return stale
 
-            release_item_worktrees(conn, item_id=item_id)
+        from yoke_core.domain.backlog_update_effects import (
+            run_post_commit_update_effects,
+            run_transactional_update_effects,
+        )
+
+        effect_receipt = run_transactional_update_effects(
+            conn,
+            item_id=item_id,
+            field=field,
+            value=value,
+            old_status=old_status,
+            mutation_events=mutation_result.events,
+            session_id=session_id,
+            out=out,
+            approval_request_id=approval_request_id,
+            workflow_version_id=validated_workflow_version_id,
+            actor_id=originator_actor_id,
+        )
+        if field == "status":
             conn.commit()
+        print(f"Updated: YOK-{item_id} {field} → {value}", file=out)
+        run_post_commit_update_effects(
+            conn,
+            receipt=effect_receipt,
+            out=out,
+        )
         emit_item_block_state_change_if_needed(
             conn, item=item_dict, field=field, value=value, session_id=session_id
         )
-
-        print(f"Updated: YOK-{item_id} {field} → {value}", file=out)
-
-        # Rework detection message
-        for event in mutation_result.events:
-            if event.kind.value == "rework_incremented":
-                rw_count = event.detail.get("rework_count", "")
-                if rw_count:
-                    print(
-                        f"Rework detected: YOK-{item_id} rework_count → {rw_count}",
-                        file=out,
-                    )
-
-        # Record the transition (state) + emit ItemStatusChanged (telemetry)
-        if field == "status" and old_status and old_status != value:
-            from yoke_core.domain.item_status_transitions import (
-                record_and_emit_item_status_change,
-            )
-
-            record_and_emit_item_status_change(
-                conn,
-                item_id=item_id,
-                from_status=old_status,
-                to_status=value,
-                source=os.environ.get("YOKE_STATUS_SOURCE", "backlog-registry"),
-                out=out,
-            )
-
-        # Epic task cascade
-        if field == "status" and old_status and old_status != value:
-            _cascade_epic_tasks(conn, item_id, old_status, value, out)
-            _maybe_set_session_current_item(conn, item_id, session_id)
-
-        if field == "status" and value in ("cancelled", "stopped", "release", "done"):
-            try:
-                if value in ("cancelled", "stopped"):
-                    from yoke_core.domain.path_claims_item_hook import (
-                        cancel_claims_on_item_terminal as _hook,
-                    )
-
-                    _verb = "Cancelled"
-                elif (
-                    value == "done"
-                    or os.environ.get("YOKE_STATUS_SOURCE") == "done-transition"
-                    or os.environ.get("YOKE_CLAIM_BYPASS", "").startswith(
-                        "deploy-pipeline:"
-                    )
-                ):
-                    from yoke_core.domain.path_claims_item_hook_release import (
-                        release_claims_on_item_terminal as _hook,
-                    )
-
-                    _verb = "Released"
-                else:
-                    _hook = None
-                if _hook is not None:
-                    _n = _hook(conn, item_id=item_id, new_status=value)
-                    if _n:
-                        print(
-                            f"{_verb} {_n} non-terminal path claim(s) "
-                            f"for YOK-{item_id}",
-                            file=out,
-                        )
-            except Exception:  # noqa: BLE001 - best-effort cleanup
-                pass
-
-        if field == "status" and value == "done":
-            print(
-                f"Done cleanup: YOK-{item_id} frozen→false, blocked→false, "
-                "active worktree lanes→released",
-                file=out,
-            )
     finally:
         conn.close()
 
@@ -344,4 +343,4 @@ def execute_update(
     return {"success": True}
 
 
-__all__ = ["execute_update", "execute_batch_update"]
+__all__ = ["_execute_update_once", "execute_batch_update"]

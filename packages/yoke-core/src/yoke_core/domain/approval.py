@@ -7,9 +7,7 @@ The shell export ``.agents/skills/yoke/scripts/approval-vocabulary.sh`` is a
 generated compatibility layer for shell callers and must stay aligned with this
 module's constants and helpers.
 
-Scope: SHARED control-plane semantics that apply across all workflow families.
-Unlike lifecycle.py (workflow-family-local to software delivery), approval and
-halt-state semantics are inherited by every workflow family.
+Scope: SHARED control-plane semantics inherited by every workflow family.
 """
 
 from __future__ import annotations

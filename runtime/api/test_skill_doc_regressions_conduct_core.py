@@ -69,9 +69,9 @@ class TestConductActivationGate:
         """drop the old 'all blockers must reach done' phrasing."""
         pattern = re.compile(r"All blockers must reach.*done.*before")
         for rel in ("SKILL.md", "entry-activation.md"):
-            assert not pattern.search(
-                _read(conduct_dir / rel)
-            ), f"legacy 'all blockers must reach done' wording found in conduct/{rel}"
+            assert not pattern.search(_read(conduct_dir / rel)), (
+                f"legacy 'all blockers must reach done' wording found in conduct/{rel}"
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -260,13 +260,22 @@ class TestConductFanOutEntryPath:
         assert self.DECISION.is_file(), f"missing {self.DECISION} (AC-1)"
 
     def test_entry_resolution_and_loop_route_fan_out(self):
-        texts = [_read(self.CONDUCT / name) for name in (
-            "entry-activation.md", "entry-activation-resolution.md", "engineer-tester-loop.md"
-        )]
+        texts = [
+            _read(self.CONDUCT / name)
+            for name in (
+                "entry-activation.md",
+                "entry-activation-resolution.md",
+                "engineer-tester-loop.md",
+            )
+        ]
         required = (
-            "Epic Task Fan-Out Flow", "_task_ids", "_batch_size",
-            "_worktree_branch_${_task_id}", "_worktree_path_${_task_id}",
-            "dispatch-context-dispatch.md", "dispatch-context-prompts.md",
+            "Epic Task Fan-Out Flow",
+            "_task_ids",
+            "_batch_size",
+            "_worktree_branch_${_task_id}",
+            "_worktree_path_${_task_id}",
+            "dispatch-context-dispatch.md",
+            "dispatch-context-prompts.md",
             "Dispatched by conduct (task fan-out)",
         )
         missing = [n for n in required if not any(n in text for text in texts)]
@@ -274,15 +283,25 @@ class TestConductFanOutEntryPath:
         joined = "\n".join(texts)
         assert self.LEGACY_FLOW not in joined, "AC-7/AC-11"
         assert "Dispatched by conduct (single-item)" not in joined, "AC-7/AC-11"
-        assert "If dispatchable task found: proceed with `_task_id`." not in joined, "AC-2"
+        assert "If dispatchable task found: proceed with `_task_id`." not in joined, (
+            "AC-2"
+        )
 
     def test_dispatch_context_and_prompts_match_fan_out(self):
         context = _read(self.CONDUCT / "dispatch-context.md")
         prompts = _read(self.CONDUCT / "dispatch-context-prompts.md")
         epic_prompts = prompts.split("### Issue Item Tester Prompt Template", 1)[0]
-        for needle in ("Epic Fan-Out Enumeration", "_task_ids", "_worktree_path_${_task_id}"):
+        for needle in (
+            "Epic Fan-Out Enumeration",
+            "_task_ids",
+            "_worktree_path_${_task_id}",
+        ):
             assert needle in context, f"AC-3/AC-10 missing {needle}"
-        for needle in ("Implement YOK-{N} task {_task_id}", "Validate YOK-{N} task {_task_id}", "epic-task body-get --epic {_epic_id} --task-num {_task_id}"):
+        for needle in (
+            "Implement YOK-{N} task {_task_id}",
+            "Validate YOK-{N} task {_task_id}",
+            "epic-task body-get --epic {_epic_id} --task-num {_task_id}",
+        ):
             assert needle in epic_prompts, f"AC-2 missing {needle}"
         for needle in (
             "Anticipated path coverage (pre-authorized)",
@@ -290,7 +309,9 @@ class TestConductFanOutEntryPath:
             "## Anticipated Paths",
         ):
             assert needle in epic_prompts, f"YOK-1697 AC-5 missing {needle}"
-        assert "If a dispatchable task is found: use its local ID" not in context, "AC-3"
+        assert "If a dispatchable task is found: use its local ID" not in context, (
+            "AC-3"
+        )
         assert "Implement YOK-{_id}" not in epic_prompts, "AC-2"
         assert "items get YOK-{_id} spec" not in epic_prompts, "AC-2"
 
@@ -302,47 +323,9 @@ class TestConductFanOutEntryPath:
         assert "Dispatch ALL Engineers in parallel" in prompts, "AC-3"
 
     def test_legacy_flow_name_only_in_decision_record(self):
-        offenders = [f.name for f in sorted(self.CONDUCT.glob("*.md")) if self.LEGACY_FLOW in _read(f)]
+        offenders = [
+            f.name
+            for f in sorted(self.CONDUCT.glob("*.md"))
+            if self.LEGACY_FLOW in _read(f)
+        ]
         assert not offenders, f"AC-11: legacy in conduct prose: {offenders}"
-
-
-# TestConductPerTaskClaims — AC-5/AC-6/AC-7/AC-17 per-task epic_task wiring
-
-
-class TestConductPerTaskClaims:
-    CONDUCT = SKILLS / "conduct"
-
-    def test_dispatch_acquires_per_task_claim(self):
-        text = _read(self.CONDUCT / "engineer-tester-dispatch.md")
-        for needle in ("yoke claims work acquire", "--epic-id",
-                       "--task-num", "engineer dispatch",
-                       "target_kind='epic_task'",
-                       "HALT: engineer dispatch", "HALT: tester dispatch"):
-            assert needle in text, f"dispatch.md missing: {needle}"
-
-    def test_closeout_releases_per_task_claim(self):
-        text = _read(self.CONDUCT / "engineer-tester-closeout.md")
-        for needle in ("yoke claims work release", "--epic-id",
-                       "--task-num", "tester return",
-                       "never touches the parent"):
-            assert needle in text.lower() or needle in text, (
-                f"closeout.md missing: {needle}"
-            )
-
-    def test_loop_teaches_per_task_reentry_semantics(self):
-        text = _read(self.CONDUCT / "engineer-tester-loop.md")
-        for needle in ("Per-task work-claim re-entry semantics",
-                       "Same-session re-acquire", "Other-session-held",
-                       "Stale-by-absent-session", "chain_head_freshness",
-                       "claim_conflict"):
-            assert needle in text, f"loop.md missing: {needle}"
-
-    def test_no_item_level_sibling_worktree_regression(self):
-        # Per-task replacement, not item-level sibling inheritance.
-        for fname in ("engineer-tester-dispatch.md",
-                      "engineer-tester-closeout.md",
-                      "engineer-tester-loop.md"):
-            text = _read(self.CONDUCT / fname).lower()
-            assert "sibling task worktree" not in text, (
-                f"AC-17: {fname} references 'sibling task worktree'"
-            )

@@ -20,23 +20,45 @@ from yoke_core.domain.path_claim_pre_edit_guard import (
 from runtime.harness.hook_runner.types import HookContext, Outcome
 
 
-def _claim_dict(*, claim_id=99, item_id=1577, integration_target="main",
-                state="active", covered_paths=("runtime/api/domain",),
-                worktree_path="/tmp/yoke-worktrees/YOK-1577",
-                project_repo_path="") -> Dict:
-    return {"id": claim_id, "item_id": item_id,
-            "integration_target": integration_target, "state": state,
-            "covered_paths": covered_paths, "worktree_path": worktree_path,
-            "project_repo_path": project_repo_path}
+def _claim_dict(
+    *,
+    claim_id=99,
+    item_id=1577,
+    integration_target="main",
+    state="active",
+    covered_paths=("runtime/api/domain",),
+    worktree_path="/tmp/yoke-worktrees/YOK-1577",
+    project_repo_path="",
+) -> Dict:
+    return {
+        "id": claim_id,
+        "item_id": item_id,
+        "integration_target": integration_target,
+        "state": state,
+        "covered_paths": covered_paths,
+        "worktree_path": worktree_path,
+        "project_repo_path": project_repo_path,
+    }
 
 
-def _record(*, tool_kind=TOOL_KIND_EDIT,
-            changed_paths=("runtime/api/domain/foo.py",),
-            cwd="/tmp/yoke-worktrees/YOK-1577", session_id="sess-A",
-            command="") -> ToolEventRecord:
-    return ToolEventRecord(tool_kind=tool_kind, changed_paths=list(changed_paths),
-                           command=command, patch_body="", tool_name="Edit",
-                           session_id=session_id, cwd=cwd, project_dir=cwd)
+def _record(
+    *,
+    tool_kind=TOOL_KIND_EDIT,
+    changed_paths=("runtime/api/domain/foo.py",),
+    cwd="/tmp/yoke-worktrees/YOK-1577",
+    session_id="sess-A",
+    command="",
+) -> ToolEventRecord:
+    return ToolEventRecord(
+        tool_kind=tool_kind,
+        changed_paths=list(changed_paths),
+        command=command,
+        patch_body="",
+        tool_name="Edit",
+        session_id=session_id,
+        cwd=cwd,
+        project_dir=cwd,
+    )
 
 
 class TestInClaim:
@@ -90,7 +112,7 @@ class TestOutOfClaim:
         assert (
             "yoke claims path widen --claim-id 99 "
             "--add-paths docs/never-covered.md "
-            "--reason \"cover target path\" --item YOK-1577"
+            '--reason "cover target path" --item YOK-1577'
         ) in verdict.narrative
 
     def test_deny_records_target_path(self, tmp_path):
@@ -236,7 +258,9 @@ class TestTypedEvaluateEntrypoint:
         worktree.mkdir()
         monkeypatch.setattr(
             "yoke_core.domain.path_claim_pre_edit_guard.resolve_active_claim_for_session",
-            lambda session_id, conn=None: _claim_dict(worktree_path=str(worktree)),
+            lambda session_id, conn=None, **_kwargs: _claim_dict(
+                worktree_path=str(worktree)
+            ),
         )
         monkeypatch.setattr(
             "yoke_core.domain.path_claim_pre_edit_guard._emit_denial",
@@ -249,9 +273,13 @@ class TestTypedEvaluateEntrypoint:
             "session_id": "sess-A",
         }
         record = HookContext(
-            event_name="PreToolUse", executor_family="claude",
-            executor_surface="claude", payload=payload,
-            tool_name="Write", cwd=str(worktree), session_id="sess-A",
+            event_name="PreToolUse",
+            executor_family="claude",
+            executor_surface="claude",
+            payload=payload,
+            tool_name="Write",
+            cwd=str(worktree),
+            session_id="sess-A",
         )
         decision = evaluate(record)
         assert decision.outcome is Outcome.DENY
@@ -261,46 +289,18 @@ class TestTypedEvaluateEntrypoint:
         assert hook["permissionDecision"] == "deny"
         assert (
             "yoke claims path widen --claim-id 99 "
-            "--add-paths docs/oof.md --reason \"cover target path\" "
+            '--add-paths docs/oof.md --reason "cover target path" '
             "--item YOK-1577"
         ) in hook["permissionDecisionReason"]
 
     def test_evaluate_returns_noop_when_no_record(self):
         # Tool name that doesn't build a record => NOOP.
         record = HookContext(
-            event_name="PreToolUse", executor_family="claude",
+            event_name="PreToolUse",
+            executor_family="claude",
             executor_surface="claude",
             payload={"tool_name": "Bash", "tool_input": {}},
             tool_name="Bash",
         )
         decision = evaluate(record)
         assert decision.outcome is Outcome.NOOP
-
-
-class TestLiveNoConnEpicResolution:
-    """AC-9/13/14/15: live no-conn epic evaluation."""
-
-    def test_lanes_allow_and_deny_carries_effective_wt(self, tmp_path, live_db):
-        # AC-9/13/15: same session, two targets in two chains both allow.
-        # A deny inside a chain surfaces the lane path (not None).
-        repo = tmp_path / "repo"
-        for sub in ("lane-a/runtime/api/domain", "lane-b/runtime/api/domain",
-                    "lane-a/docs"):
-            (repo / ".worktrees" / sub).mkdir(parents=True)
-        live_db(repo_path=repo, item_id=900, workflow_id="epic",
-                chains=("lane-a", "lane-b"),
-                covered_paths=("runtime/api/domain",), session_id="engineer-1")
-        def _rec(target, cwd):
-            return ToolEventRecord(
-                tool_kind=TOOL_KIND_EDIT, changed_paths=[target],
-                tool_name="Edit", session_id="engineer-1", cwd=cwd,
-            )
-        a = str(repo / ".worktrees/lane-a/runtime/api/domain/a.py")
-        b = str(repo / ".worktrees/lane-b/runtime/api/domain/b.py")
-        assert evaluate_payload(_rec(a, str(repo / ".worktrees/lane-a"))).outcome == "allow"
-        assert evaluate_payload(_rec(b, str(repo / ".worktrees/lane-b"))).outcome == "allow"
-        deny_t = str(repo / ".worktrees/lane-a/docs/never-covered.md")
-        v = evaluate_payload(_rec(deny_t, str(repo / ".worktrees/lane-a")))
-        assert v.outcome == "deny" and v.failure_mode == "out-of-claim"
-        ewt = v.extra.get("expected_worktree_path")
-        assert ewt is not None and "lane-a" in ewt

@@ -58,7 +58,7 @@ class TestFlagDerivedSelection:
         sync_body, labelled ``source=flag+oversized``."""
         db = _make_db()
         insert_item(
-            db, id=1704, type="issue", status="idea", project="externalwebapp",
+            db, id=1704, workflow_id="issue", status="idea", project="externalwebapp",
             github_issue="#4114", spec=_huge_spec(),
         )
         _flag_compact_pending(db, 1704)
@@ -90,7 +90,7 @@ class TestFlagDerivedSelection:
         body replaces the compact mirror (sync_body clears the flag)."""
         db = _make_db()
         insert_item(
-            db, id=1665, type="issue", status="idea", project="externalwebapp",
+            db, id=1665, workflow_id="issue", status="idea", project="externalwebapp",
             github_issue="#3987", spec="# tiny body that fits under budget",
         )
         _flag_compact_pending(db, 1665)
@@ -123,7 +123,7 @@ class TestFlagDerivedSelection:
         candidate — there is no mirror to repair."""
         db = _make_db()
         insert_item(
-            db, id=9999, type="issue", status="idea", project="externalwebapp",
+            db, id=9999, workflow_id="issue", status="idea", project="externalwebapp",
             spec="# small",
         )
         _flag_compact_pending(db, 9999)
@@ -145,7 +145,7 @@ class TestRecordSyncMode:
     def test_compact_sets_flag_and_full_clears_it(self):
         db = _make_db()
         insert_item(
-            db, id=77, type="issue", status="idea", project="externalwebapp",
+            db, id=77, workflow_id="issue", status="idea", project="externalwebapp",
             github_issue="#77", spec="# body",
         )
         body_budget.record_sync_mode(db, 77, "compact")

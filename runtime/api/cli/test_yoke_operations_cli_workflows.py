@@ -126,6 +126,11 @@ def test_current_set_and_item_migrate_build_typed_payloads() -> None:
             "--path-claims", "on",
             "--expected-current-version", "1",
         ]) == 0
+        assert workflows_policy_defaults_publish([
+            "dash",
+            "--file-budget", "on",
+            "--expected-current-version", "2",
+        ]) == 0
 
     assert calls[0]["function_id"] == "workflows.current.set"
     assert calls[0]["payload"] == {
@@ -143,4 +148,10 @@ def test_current_set_and_item_migrate_build_typed_payloads() -> None:
         "workflow_id": "dash",
         "expected_current_version": 1,
         "path_claims_default": True,
+    }
+    assert calls[4]["function_id"] == "workflows.policy_defaults.publish"
+    assert calls[4]["payload"] == {
+        "workflow_id": "dash",
+        "expected_current_version": 2,
+        "file_budget_default": True,
     }

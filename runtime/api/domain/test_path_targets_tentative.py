@@ -15,7 +15,7 @@ from typing import Any
 import pytest
 
 from yoke_core.domain import db_backend
-from yoke_core.domain._path_claims_test_helpers import conn  # noqa: F401
+from yoke_core.domain._path_claims_test_helpers import seed_item
 from yoke_core.domain.path_claims import register
 from yoke_core.domain.path_claims_overlap import (
     OverlapClassification,
@@ -49,6 +49,11 @@ def _state_of(c: Any, target_id: int) -> str:
         (target_id,),
     ).fetchone()
     return "" if row is None else str(row[0])
+
+
+def _seed_issue_items(c: Any, *item_ids: int) -> None:
+    for item_id in item_ids:
+        seed_item(c, item_id=item_id)
 
 
 class TestStateConstants:
@@ -102,6 +107,7 @@ class TestPlanTentative:
     """AC-2 — callers can register tentative paths without broad parents."""
 
     def test_plan_mints_tentative_row(self, conn):
+        _seed_issue_items(conn, 101)
         target_id = plan_tentative_path_target(
             conn, project_id=1,
             path_string="future_predicted.py", kind=KIND_FILE,
@@ -110,6 +116,7 @@ class TestPlanTentative:
         assert _state_of(conn, target_id) == TENTATIVE
 
     def test_existing_observed_is_reused_not_downgraded(self, conn):
+        _seed_issue_items(conn, 102)
         row = conn.execute(
             "INSERT INTO path_targets "
             "(project_id, kind, path_string, generation, created_at, "
@@ -128,6 +135,7 @@ class TestPlanTentative:
         assert _state_of(conn, observed_id) == OBSERVED
 
     def test_existing_planned_is_not_downgraded_to_tentative(self, conn):
+        _seed_issue_items(conn, 103, 104)
         planned_id = plan_path_target(
             conn, project_id=1,
             path_string="committed_path.py", kind=KIND_FILE,
@@ -152,6 +160,7 @@ class TestPlanTentative:
         round-trip. Tentative coverage upgrades only via explicit
         amend / re-register-without-tentative_paths.
         """
+        _seed_issue_items(conn, 105)
         tentative_id = plan_tentative_path_target(
             conn, project_id=1,
             path_string="sticky_tentative.py", kind=KIND_FILE,
@@ -166,6 +175,7 @@ class TestPlanTentative:
         assert _state_of(conn, tentative_id) == TENTATIVE
 
     def test_resolve_or_plan_with_tentative_paths_kwarg(self, conn):
+        _seed_issue_items(conn, 106)
         target_ids = resolve_or_plan_paths_to_target_ids(
             conn, 1,
             ["definite.py", "maybe.py"],
@@ -184,6 +194,7 @@ class TestOverlapDetection:
     def test_tentative_target_overlap_blocks_second_claim(self, conn):
         from yoke_core.domain._path_claims_test_helpers import local_human
 
+        _seed_issue_items(conn, 201)
         actor = local_human(conn)
         tentative_id = plan_tentative_path_target(
             conn, project_id=1,
@@ -207,6 +218,7 @@ class TestMaterialization:
     """AC-4 — tentative targets promote to observed when seen."""
 
     def test_find_planned_match_returns_tentative_row(self, conn):
+        _seed_issue_items(conn, 301)
         target_id = plan_tentative_path_target(
             conn, project_id=1,
             path_string="future_observed.py", kind=KIND_FILE,
@@ -223,6 +235,7 @@ class TestMaterialization:
         assert match == target_id
 
     def test_materialize_promotes_tentative_to_observed(self, conn):
+        _seed_issue_items(conn, 302)
         target_id = plan_tentative_path_target(
             conn, project_id=1,
             path_string="will_be_observed.py", kind=KIND_FILE,
@@ -235,6 +248,7 @@ class TestMaterialization:
         assert _state_of(conn, target_id) == OBSERVED
 
     def test_abandon_tentative_target_succeeds(self, conn):
+        _seed_issue_items(conn, 303)
         target_id = plan_tentative_path_target(
             conn, project_id=1,
             path_string="will_be_abandoned.py", kind=KIND_FILE,

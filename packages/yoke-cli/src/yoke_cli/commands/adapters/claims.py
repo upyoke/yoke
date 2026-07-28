@@ -22,6 +22,10 @@ from yoke_cli.commands._helpers import (
     split_comma,
     usage_error,
 )
+from yoke_cli.commands.adapters.claims_path_register_args import (
+    CLAIM_PATH_REGISTER_USAGE,
+    parse_path_register_args,
+)
 from yoke_cli.commands.adapters.project_snapshot import (
     sync_local_snapshot_for_write,
 )
@@ -29,10 +33,14 @@ from yoke_contracts.api.function_call import TargetRef
 
 
 __all__ = [
-    "claims_work_acquire", "claims_work_release",
-    "claims_path_register", "claims_path_widen",
-    "CLAIM_WORK_ACQUIRE_USAGE", "CLAIM_WORK_RELEASE_USAGE",
-    "CLAIM_PATH_REGISTER_USAGE", "CLAIM_PATH_WIDEN_USAGE",
+    "claims_work_acquire",
+    "claims_work_release",
+    "claims_path_register",
+    "claims_path_widen",
+    "CLAIM_WORK_ACQUIRE_USAGE",
+    "CLAIM_WORK_RELEASE_USAGE",
+    "CLAIM_PATH_REGISTER_USAGE",
+    "CLAIM_PATH_WIDEN_USAGE",
 ]
 
 
@@ -51,18 +59,20 @@ def claims_work_acquire(args: List[str]) -> int:
         prog="yoke claims work acquire",
         description=CLAIM_WORK_ACQUIRE_USAGE,
     )
-    parser.add_argument("--item", default=None,
-                        help="Item id (PREFIX-N or project-local number).")
-    parser.add_argument("--epic-id", default=None,
-                        help="Parent epic id for an epic-task claim.")
-    parser.add_argument("--task-num", default=None,
-                        help="Task number within the epic.")
-    parser.add_argument("--process", default=None,
-                        help="Process key for a process claim.")
-    parser.add_argument("--project", default=None,
-                        help="Project context for bare numeric item refs.")
-    parser.add_argument("--reason", default=None,
-                        help="Optional intent / rationale.")
+    parser.add_argument(
+        "--item", default=None, help="Item id (PREFIX-N or project-local number)."
+    )
+    parser.add_argument(
+        "--epic-id", default=None, help="Parent epic id for an epic-task claim."
+    )
+    parser.add_argument("--task-num", default=None, help="Task number within the epic.")
+    parser.add_argument(
+        "--process", default=None, help="Process key for a process claim."
+    )
+    parser.add_argument(
+        "--project", default=None, help="Project context for bare numeric item refs."
+    )
+    parser.add_argument("--reason", default=None, help="Optional intent / rationale.")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, CLAIM_WORK_ACQUIRE_USAGE)
@@ -121,8 +131,7 @@ CLAIM_WORK_RELEASE_USAGE = (
 )
 
 _SELECTOR_ERR = (
-    "exactly one of --claim-id, --item, --epic-id+--task-num, or "
-    "--all-mine is required"
+    "exactly one of --claim-id, --item, --epic-id+--task-num, or --all-mine is required"
 )
 
 
@@ -131,22 +140,30 @@ def claims_work_release(args: List[str]) -> int:
         prog="yoke claims work release",
         description=CLAIM_WORK_RELEASE_USAGE,
     )
-    parser.add_argument("--claim-id", default=None,
-                        help="work_claims.id to release.")
-    parser.add_argument("--item", default=None,
-                        help="Release this session's active claim on the item.")
-    parser.add_argument("--epic-id", default=None,
-                        help="Parent epic id (pair with --task-num).")
-    parser.add_argument("--task-num", default=None,
-                        help="Task number within the epic (pair with --epic-id).")
+    parser.add_argument("--claim-id", default=None, help="work_claims.id to release.")
     parser.add_argument(
-        "--all-mine", action="store_true",
-        help=("Release every active claim this session still holds without "
-              "ending the session (canonical reason "
-              "'agent_handoff_session_scoped')."),
+        "--item", default=None, help="Release this session's active claim on the item."
     )
     parser.add_argument(
-        "--reason", default=None,
+        "--epic-id", default=None, help="Parent epic id (pair with --task-num)."
+    )
+    parser.add_argument(
+        "--task-num",
+        default=None,
+        help="Task number within the epic (pair with --epic-id).",
+    )
+    parser.add_argument(
+        "--all-mine",
+        action="store_true",
+        help=(
+            "Release every active claim this session still holds without "
+            "ending the session (canonical reason "
+            "'agent_handoff_session_scoped')."
+        ),
+    )
+    parser.add_argument(
+        "--reason",
+        default=None,
         help="Required with --claim-id, --item, or --epic-id+--task-num.",
     )
     add_session_arg(parser)
@@ -158,13 +175,12 @@ def claims_work_release(args: List[str]) -> int:
     epic_id_set = parsed.epic_id is not None
     task_num_set = parsed.task_num is not None
     if epic_id_set != task_num_set:
-        return usage_error(
-            "--epic-id and --task-num must be provided together"
-        )
+        return usage_error("--epic-id and --task-num must be provided together")
     epic_task_selector = epic_id_set and task_num_set
 
     selector_count = sum(
-        bool(x) for x in (
+        bool(x)
+        for x in (
             parsed.claim_id is not None,
             parsed.item is not None,
             epic_task_selector,
@@ -203,18 +219,20 @@ def claims_work_release(args: List[str]) -> int:
         payload["claim_id"] = claim_id
     elif parsed.item is not None:
         target_ref = item_target(
-            "item", parsed.item, getattr(parsed, "project", None),
+            "item",
+            parsed.item,
+            getattr(parsed, "project", None),
         )
     else:
         try:
             epic_id = int(parsed.epic_id)
             task_num = int(parsed.task_num)
         except ValueError:
-            return usage_error(
-                "--epic-id and --task-num must be integers"
-            )
+            return usage_error("--epic-id and --task-num must be integers")
         target_ref = TargetRef(
-            kind="epic_task", epic_id=epic_id, task_num=task_num,
+            kind="epic_task",
+            epic_id=epic_id,
+            task_num=task_num,
         )
 
     return dispatch_and_emit(
@@ -230,45 +248,12 @@ def claims_work_release(args: List[str]) -> int:
 # claims.path.register / widen
 # ---------------------------------------------------------------------------
 
-CLAIM_PATH_REGISTER_USAGE = (
-    "yoke claims path register --item PREFIX-N --paths PATH1,PATH2,... "
-    "[--mode exclusive|shared] [--exception-reason TEXT] [--allow-planned] "
-    "[--integration-target NAME] [--session-id S] [--json]"
-)
-
 
 def claims_path_register(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(
-        prog="yoke claims path register",
-        description=CLAIM_PATH_REGISTER_USAGE,
-    )
-    parser.add_argument("--item", required=True,
-                        help="Item id (PREFIX-N or project-local number).")
-    parser.add_argument("--paths", required=True,
-                        help="Comma-separated list of repo-relative paths.")
-    parser.add_argument("--mode", default="exclusive",
-                        help="exclusive (default) or shared.")
-    parser.add_argument("--exception-reason", default=None,
-                        help="Reason text when claiming inside an exempt directory.")
-    parser.add_argument("--allow-planned", action="store_true",
-                        help="Permit claim registration for not-yet-committed paths.")
-    parser.add_argument("--integration-target", default=None,
-                        help="Override integration target classification (advanced).")
-    add_session_arg(parser)
-    add_json_arg(parser)
-    parsed = parse_or_usage_error(parser, args, CLAIM_PATH_REGISTER_USAGE)
-    if parsed is None:
-        return 2
-
-    payload: Dict[str, Any] = {
-        "paths": split_comma(parsed.paths),
-        "mode": parsed.mode,
-        "allow_planned": bool(parsed.allow_planned),
-    }
-    if parsed.exception_reason:
-        payload["exception_reason"] = parsed.exception_reason
-    if parsed.integration_target:
-        payload["integration_target"] = parsed.integration_target
+    parsed_result = parse_path_register_args(args)
+    if isinstance(parsed_result, int):
+        return parsed_result
+    parsed = parsed_result.parsed
     sync_local_snapshot_for_write(
         project=parsed.project,
         integration_target=parsed.integration_target,
@@ -277,7 +262,7 @@ def claims_path_register(args: List[str]) -> int:
     return dispatch_and_emit(
         function_id="claims.path.register",
         target=item_target("item", parsed.item, parsed.project),
-        payload=payload,
+        payload=parsed_result.payload,
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
     )
@@ -296,16 +281,28 @@ def claims_path_widen(args: List[str]) -> int:
         description=CLAIM_PATH_WIDEN_USAGE,
     )
     parser.add_argument("--claim-id", required=True, help="path_claims.id to widen.")
-    parser.add_argument("--add-paths", required=True,
-                        help="Comma-separated list of repo-relative paths to add.")
+    parser.add_argument(
+        "--add-paths",
+        required=True,
+        help="Comma-separated list of repo-relative paths to add.",
+    )
     parser.add_argument("--reason", required=True, help="Reason for widening.")
-    parser.add_argument("--item", required=True,
-                        help="Owning item id (PREFIX-N or project-local number); required for target ref.")
-    parser.add_argument("--allow-planned", action="store_true",
-                        help="Permit widen coverage over not-yet-committed paths.")
-    parser.add_argument("--directory-paths", default=None,
-                        help="Comma-separated subset of --add-paths to mark as "
-                             "directory targets (requires --allow-planned).")
+    parser.add_argument(
+        "--item",
+        required=True,
+        help="Owning item id (PREFIX-N or project-local number); required for target ref.",
+    )
+    parser.add_argument(
+        "--allow-planned",
+        action="store_true",
+        help="Permit widen coverage over not-yet-committed paths.",
+    )
+    parser.add_argument(
+        "--directory-paths",
+        default=None,
+        help="Comma-separated subset of --add-paths to mark as "
+        "directory targets (requires --allow-planned).",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, CLAIM_PATH_WIDEN_USAGE)
@@ -326,7 +323,8 @@ def claims_path_widen(args: List[str]) -> int:
     if parsed.directory_paths:
         payload["directory_paths"] = split_comma(parsed.directory_paths)
     sync_local_snapshot_for_write(
-        project=parsed.project, integration_target=None,
+        project=parsed.project,
+        integration_target=None,
         session_id=parsed.session_id,
     )
     return dispatch_and_emit(

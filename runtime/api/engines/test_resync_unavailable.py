@@ -191,9 +191,11 @@ class TestEngineMultiProjectPartialAuthFailure:
         )
         conn.execute(
             "INSERT INTO items "
-            "(id, title, status, priority, type, source, spec, frozen, "
+            "(id, title, status, priority, workflow_id, workflow_version_id, "
+            "source, spec, frozen, "
             "github_issue, project_id, project_sequence, created_at, updated_at) "
-            "VALUES (500, 'ExternalWebapp item', 'idea', 'medium', 'issue', 'manual', "
+            "VALUES (500, 'ExternalWebapp item', 'idea', 'medium', 'issue', "
+            "(SELECT current_version_id FROM workflows WHERE id='issue'), 'manual', "
             "'ExternalWebapp body', 0, '#500', 2, 1, '2026-01-01', '2026-01-01')"
         )
         conn.commit()
