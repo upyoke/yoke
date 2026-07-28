@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 import pytest
 import shlex
@@ -52,6 +53,89 @@ def test_zsh_program_closes_home_validation_failure_to_a_phase_marker() -> None:
     assert result.returncode == 1
     assert result.stdout.strip() == (
         RESET_FAILURE_PREFIX + RESET_PHASES["validate_home"]
+    )
+
+
+def test_zsh_program_verifies_shells_without_inheriting_dirty_path(
+    tmp_path: Path,
+) -> None:
+    binary = zsh_binary()
+    if binary is None:
+        pytest.skip("zsh is required to execute the macOS reset program")
+    home = tmp_path / "test-home"
+    home.mkdir()
+    path_state = path_doctor.resolve_path_state_contract(
+        env={"HOME": str(home), "SHELL": binary}
+    )
+    tool_bin = Path(path_state.tool_bin_dir)
+    dirty_env = {
+        **os.environ,
+        "PATH": f"{tool_bin}:{os.environ.get('PATH', '')}",
+    }
+    lines = (
+        _function_program(),
+        _assignment("home", str(home)),
+        _assignment("shell_path", binary),
+        _assignment("clean_shell_path", "/usr/bin:/bin:/usr/sbin:/sbin"),
+        _assignment("tool_bin_dir", str(tool_bin)),
+        "tools=(definitely-no-yoke-reset-tool)",
+        "tool_file_suffixes=(.local/bin/yoke .local/bin/uv .local/bin/uvx)",
+        "verify_shell_resolution",
+    )
+
+    result = subprocess.run(
+        [binary],
+        input="\n".join(lines),
+        text=True,
+        capture_output=True,
+        check=False,
+        env=dirty_env,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_zsh_program_routes_step_failure_through_closed_phase_marker(
+    tmp_path: Path,
+) -> None:
+    binary = zsh_binary()
+    if binary is None:
+        pytest.skip("zsh is required to execute the macOS reset program")
+    home = tmp_path / "test-home"
+    home.mkdir()
+    scratch = home / "scratch"
+    lines = (
+        _function_program(),
+        _assignment("home", str(home)),
+        _assignment("reset_failure_prefix", RESET_FAILURE_PREFIX),
+        _assignment("reset_recovery_failure_marker", "YOKE_RESET_RECOVERY_FAILED"),
+        _assignment(
+            "reset_phase_verify_shell_resolution",
+            RESET_PHASES["verify_shell_resolution"],
+        ),
+        _assignment("reset_phase_recovery", RESET_PHASES["recovery"]),
+        _assignment("stage_backup_temporary", str(scratch / "stage-backup")),
+        _assignment("prod_backup_temporary", str(scratch / "prod-backup")),
+        _assignment("stage_restore_temporary", str(scratch / "stage-restore")),
+        _assignment("prod_restore_temporary", str(scratch / "prod-restore")),
+        "startup_file_suffixes=()",
+        "tokens_restored=1",
+        'reset_step="$reset_phase_verify_shell_resolution"',
+        "trap finish EXIT",
+        'run_reset_step "$reset_phase_verify_shell_resolution" false',
+    )
+
+    result = subprocess.run(
+        [binary],
+        input="\n".join(lines),
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert result.stdout.strip() == (
+        RESET_FAILURE_PREFIX + RESET_PHASES["verify_shell_resolution"]
     )
 
 

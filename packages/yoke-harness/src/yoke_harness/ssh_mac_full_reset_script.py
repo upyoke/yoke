@@ -44,6 +44,7 @@ def render_full_reset_script(contract: FullResetPathContract) -> str:
             f"retained_evidence_name={shlex.quote(RETAINED_EVIDENCE_DIRECTORY)}",
             f"homebrew_path={shlex.quote(HOMEBREW_PATH)}",
             f"shell_path={shlex.quote(contract.shell_path)}",
+            "clean_shell_path=/usr/bin:/bin:/usr/sbin:/sbin",
             f"tool_bin_suffix={shlex.quote(contract.tool_bin_suffix)}",
             "tool_bin_home_reference="
             + shlex.quote(f"$HOME/{contract.tool_bin_suffix}"),
