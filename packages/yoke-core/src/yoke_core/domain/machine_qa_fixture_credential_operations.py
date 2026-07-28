@@ -6,6 +6,8 @@ from collections.abc import Mapping
 from pathlib import PurePosixPath
 from typing import Any
 
+from yoke_contracts.machine_qa_execution import HOST_TEST_COMMAND
+
 from yoke_core.domain.machine_qa_fixture_assets import FIXTURE_ROOT
 from yoke_core.domain.machine_qa_fixture_runtime import (
     AuthStateRestore,
@@ -71,7 +73,7 @@ class MachineQaFixtureCredentialOperations:
         backup = f"{_INTERNAL_RESTORE_ROOT}/stage.token"
         self._delete(backup)
         self._run(shell_command("/bin/mkdir", "-p", _INTERNAL_RESTORE_ROOT))
-        returncode = self._invoke(shell_command("/usr/bin/test", "-f", target))
+        returncode = self._invoke(shell_command(HOST_TEST_COMMAND, "-f", target))
         if returncode not in (0, 1):
             raise RemoteFixtureFailure
         restore = TokenRestore(
@@ -117,9 +119,9 @@ class MachineQaFixtureCredentialOperations:
         config_path = f"{self.home}/.yoke/config.json"
         secrets_path = f"{self.home}/.yoke/secrets"
         backup_root = f"{_INTERNAL_RESTORE_ROOT}/auth-{len(self._restores)}"
-        config_status = self._invoke(shell_command("/usr/bin/test", "-f", config_path))
+        config_status = self._invoke(shell_command(HOST_TEST_COMMAND, "-f", config_path))
         secrets_status = self._invoke(
-            shell_command("/usr/bin/test", "-d", secrets_path)
+            shell_command(HOST_TEST_COMMAND, "-d", secrets_path)
         )
         if config_status not in (0, 1) or secrets_status not in (0, 1):
             raise RemoteFixtureFailure

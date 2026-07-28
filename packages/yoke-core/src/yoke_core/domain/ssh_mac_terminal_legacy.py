@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 import shlex
 from typing import Any, Mapping, Sequence
@@ -14,7 +13,9 @@ from yoke_core.domain.ssh_mac_terminal_capture import (
     RunRemote,
     capture_screen,
     close_terminal_session,
+    close_terminal_window,
     detect_terminal_backend,
+    open_terminal_window,
     send_terminal_input,
     wait_for_text,
 )
@@ -46,6 +47,7 @@ def execute_legacy_terminal_case(
     captured: list[dict[str, Any]] = []
     matched: list[str] = []
     degraded: list[str] = []
+    terminal_window_id: int | None = None
     try:
         if backend == "tmux":
             start = f"tmux new-session -d -s {shlex.quote(session)} " + shlex.quote(
@@ -69,8 +71,11 @@ def execute_legacy_terminal_case(
             if backend == "tmux"
             else f"screen -r {session}"
         )
-        apple = 'tell application "Terminal" to do script ' + json.dumps(attach)
-        if run("/usr/bin/osascript -e " + shlex.quote(apple)).returncode:
+        terminal_window_id = open_terminal_window(
+            run,
+            command=attach,
+        )
+        if terminal_window_id is None:
             return HostActionResult(
                 False,
                 {
@@ -162,6 +167,7 @@ def execute_legacy_terminal_case(
             backend=backend,
             session=session,
         )
+        close_terminal_window(run, window_id=terminal_window_id)
 
 
 __all__ = ["execute_legacy_terminal_case"]

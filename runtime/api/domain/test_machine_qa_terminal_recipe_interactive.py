@@ -42,6 +42,8 @@ def test_interactive_recipe_rejects_a_known_unexpected_exit_code(
         commands.append(command)
         if command.startswith("if command -v tmux"):
             return completed(command, stdout="screen")
+        if "return id of front window" in command:
+            return completed(command, stdout="445")
         if " hardcopy -h " in command:
             return completed(command, stdout="ready")
         if command.startswith("cat /tmp/yoke-qa-"):
@@ -61,10 +63,9 @@ def test_interactive_recipe_rejects_a_known_unexpected_exit_code(
     assert result.ok is False
     assert result.error_code == "terminal_recipe_assertion_failed"
     assert "return code 7 not in expected set" in result.evidence["assertion_failures"]
-    assert commands[-2:] == [
-        "screen -S yoke-qa-cccccccccccc -X quit",
-        "rm -f /tmp/yoke-qa-cccccccccccc.exit",
-    ]
+    assert commands[-3] == "screen -S yoke-qa-cccccccccccc -X quit"
+    assert "close window id 445" in commands[-2]
+    assert commands[-1] == "rm -f /tmp/yoke-qa-cccccccccccc.exit"
 
 
 def test_interactive_recipe_uses_action_wait_then_global_fallback(
@@ -103,6 +104,8 @@ def test_interactive_recipe_uses_action_wait_then_global_fallback(
     ) -> subprocess.CompletedProcess[str]:
         if command.startswith("if command -v tmux"):
             return completed(command, stdout="screen")
+        if "return id of front window" in command:
+            return completed(command, stdout="445")
         if " hardcopy -h " in command:
             return completed(command, stdout="ready")
         if command.startswith("cat /tmp/yoke-qa-"):
@@ -159,6 +162,8 @@ def test_interactive_recipe_resizes_the_created_native_session(
         commands.append(command)
         if command.startswith("if command -v tmux"):
             return completed(command, stdout=backend)
+        if "return id of front window" in command:
+            return completed(command, stdout="445")
         if "capture-pane" in command or " hardcopy -h " in command:
             return completed(command, stdout="ready")
         if command.startswith("cat /tmp/yoke-qa-"):

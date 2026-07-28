@@ -27,6 +27,10 @@ def test_terminal_bridge_verification_exercises_all_control_surfaces() -> None:
         stdout = (
             "yoke-terminal-bridge-ready"
             if command.startswith("tmux capture-pane")
+            else "445"
+            if "return id of front window" in command
+            else "cG5n"
+            if command.startswith("/bin/test -s ")
             else ""
         )
         return SimpleNamespace(returncode=0, stdout=stdout, stderr="")
@@ -41,8 +45,17 @@ def test_terminal_bridge_verification_exercises_all_control_surfaces() -> None:
         "screenshot_capture": True,
         "sample_artifact_retained": False,
     }
-    assert any("/usr/bin/osascript" in command for command in commands)
-    assert any("/usr/sbin/screencapture" in command for command in commands)
+    terminal_capture = next(
+        command
+        for command in commands
+        if "/usr/bin/osascript" in command and "/usr/sbin/screencapture" in command
+    )
+    assert 'tell application "Terminal"' in terminal_capture
+    assert not any(
+        command.startswith("/usr/sbin/screencapture") for command in commands
+    )
+    assert any(command.startswith("/bin/test -s ") for command in commands)
+    assert sum("close window id " in command for command in commands) == 2
     assert any(command.startswith("rm -f ") for command in commands)
     assert any(command.startswith("tmux kill-session") for command in commands)
 
@@ -61,6 +74,8 @@ def test_required_terminal_completion_has_distinct_not_reached_outcome(
             "tmux"
             if command == "if command -v tmux >/dev/null 2>&1; then printf tmux; "
             "elif command -v screen >/dev/null 2>&1; then printf screen; fi"
+            else "445"
+            if "return id of front window" in command
             else ""
         ),
         stderr="",

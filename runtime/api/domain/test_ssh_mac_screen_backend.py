@@ -62,11 +62,15 @@ def test_check_terminal_bridge_reports_screen_backend(
         commands.append(command)
         if command == _BACKEND_PROBE:
             return _completed(command, stdout="screen")
+        if "return id of front window" in command:
+            return _completed(command, stdout="445")
         if " hardcopy -h " in command:
             return _completed(
                 command,
                 stdout="yoke-terminal-bridge-ready\n",
             )
+        if command.startswith("/bin/test -s "):
+            return _completed(command, stdout="cG5n")
         return _completed(command)
 
     monkeypatch.setattr(
@@ -100,7 +104,17 @@ def test_check_terminal_bridge_reports_screen_backend(
     assert "-DmS" not in start
     assert any(f"screen -r {session}" in command for command in commands)
     assert any(" hardcopy -h " in command for command in commands)
-    assert commands[-1] == f"screen -S {session} -X quit"
+    terminal_capture = next(
+        command
+        for command in commands
+        if "/usr/bin/osascript" in command and "/usr/sbin/screencapture" in command
+    )
+    assert 'tell application "Terminal"' in terminal_capture
+    assert not any(
+        command.startswith("/usr/sbin/screencapture") for command in commands
+    )
+    assert any(command == f"screen -S {session} -X quit" for command in commands)
+    assert sum("close window id 445" in command for command in commands) == 2
 
 
 def test_terminal_case_uses_screen_input_hardcopy_and_cleanup(
@@ -119,6 +133,8 @@ def test_terminal_case_uses_screen_input_hardcopy_and_cleanup(
         commands.append(command)
         if command == _BACKEND_PROBE:
             return _completed(command, stdout="screen")
+        if "return id of front window" in command:
+            return _completed(command, stdout="445")
         if " hardcopy -h " in command:
             return _completed(command, stdout=f"setup\n{expected}\n")
         return _completed(command)
@@ -191,4 +207,5 @@ def test_terminal_case_uses_screen_input_hardcopy_and_cleanup(
         == f"screen -S {session} -p 0 -X hardcopy -h {transcript_path}; "
         f"cat {transcript_path} 2>/dev/null; rm -f {transcript_path}"
     )
-    assert commands[-1] == f"screen -S {session} -X quit"
+    assert any(command == f"screen -S {session} -X quit" for command in commands)
+    assert commands[-1].find("close window id 445") >= 0

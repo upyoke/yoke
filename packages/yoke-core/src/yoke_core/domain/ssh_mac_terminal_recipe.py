@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 import shlex
 import time
@@ -18,7 +17,9 @@ from yoke_core.domain.ssh_mac_terminal_capture import (
     RunRemote,
     capture_screen,
     close_terminal_session,
+    close_terminal_window,
     detect_terminal_backend,
+    open_terminal_window,
     resize_terminal_session,
 )
 from yoke_core.domain.ssh_mac_terminal_recipe_support import (
@@ -73,6 +74,7 @@ def _run_interactive_recipe(
     captures: list[dict[str, Any]] = []
     degraded: list[str] = []
     reached: list[str] = []
+    terminal_window_id: int | None = None
     try:
         if run(start, timeout=20).returncode:
             return HostActionResult(
@@ -97,11 +99,11 @@ def _run_interactive_recipe(
             if backend == "tmux"
             else f"screen -r {session}"
         )
-        apple = 'tell application "Terminal" to do script ' + json.dumps(attach)
-        if run(
-            "/usr/bin/osascript -e " + shlex.quote(apple),
-            timeout=20,
-        ).returncode:
+        terminal_window_id = open_terminal_window(
+            run,
+            command=attach,
+        )
+        if terminal_window_id is None:
             return HostActionResult(
                 False,
                 {"terminal_backend": backend, "staged_files": staged},
@@ -191,6 +193,7 @@ def _run_interactive_recipe(
             backend=backend,
             session=session,
         )
+        close_terminal_window(run, window_id=terminal_window_id)
         run(f"rm -f {shlex.quote(status_path)}", timeout=10)
 
 

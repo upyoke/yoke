@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Callable
 
 from yoke_cli.config import path_doctor
+from yoke_contracts.machine_qa_execution import HOST_TEST_COMMAND
 
 from yoke_core.domain.host_control_executor import HostControl
 from yoke_core.domain.installer_campaign_recipe_operations import (
@@ -82,7 +83,7 @@ def reach_shell_preconfigured(control: HostControl) -> HostBaselineResult:
         }
         launcher = path_state.yoke_bin
         launcher_check = control.run_machine_assertions(
-            [{"argv": ["/usr/bin/test", "-x", launcher]}]
+            [{"argv": [HOST_TEST_COMMAND, "-x", launcher]}]
         )
     except Exception:
         return HostBaselineResult(

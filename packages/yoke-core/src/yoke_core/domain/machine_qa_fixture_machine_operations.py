@@ -6,6 +6,8 @@ from collections.abc import Mapping
 import json
 from typing import Any
 
+from yoke_contracts.machine_qa_execution import HOST_TEST_COMMAND
+
 from yoke_core.domain.machine_qa_fixture_assets import (
     FIXTURE_ROOT,
     STARTUP_MARKER_ASSERTION_PATH,
@@ -112,7 +114,7 @@ class MachineQaFixtureMachineOperations:
         config_path = f"{self.home}/.yoke/config.json"
         if (
             parameters["require_existing_token"]
-            and self._invoke(shell_command("/usr/bin/test", "-f", token_path)) != 0
+            and self._invoke(shell_command(HOST_TEST_COMMAND, "-f", token_path)) != 0
         ):
             raise RemoteFixtureFailure
         self._run(

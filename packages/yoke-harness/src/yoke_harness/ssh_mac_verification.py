@@ -17,6 +17,7 @@ from yoke_contracts.machine_config.capability_secrets import (
     TEST_MACHINE_SECRET_KEYS,
 )
 from yoke_contracts.machine_qa_execution import (
+    HOST_TEST_COMMAND,
     HostControlExecutionContract,
     VERIFICATION_BASELINES,
 )
@@ -121,7 +122,7 @@ class SshMacVerificationControl(SshMacTransport):
             }
             launcher = self.path_state.yoke_bin
             launcher_check = self.run_machine_assertions(
-                [{"argv": ["/usr/bin/test", "-x", launcher]}]
+                [{"argv": [HOST_TEST_COMMAND, "-x", launcher]}]
             )
         except Exception:
             return HostActionResult(
