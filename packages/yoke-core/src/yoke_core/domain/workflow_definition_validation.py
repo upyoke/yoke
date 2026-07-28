@@ -258,12 +258,9 @@ def _validate_policies(definition: Mapping[str, Any]) -> None:
             "policies.item_posture_allowlist has unknown values: "
             f"{sorted(unknown)}"
         )
-    if "file_budget" in posture and (
-        schema_version == 1
-        or policies["file_budget"] != WORKFLOW_FILE_BUDGET_OPTIONAL
-    ):
+    if "file_budget" in posture and schema_version == 1:
         raise WorkflowDefinitionError(
-            "file_budget posture requires a schema-v2 optional policy"
+            "file_budget posture requires a schema-v2 policy"
         )
     task_scoped = (
         policies["path_claims"] == WORKFLOW_PATH_CLAIMS_REQUIRED_PER_TASK

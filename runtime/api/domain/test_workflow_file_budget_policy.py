@@ -97,7 +97,7 @@ def test_schema_one_rejects_file_budget_posture_allowlist():
     definition["schema_version"] = 1
     definition["policies"].pop("file_budget")
 
-    with pytest.raises(WorkflowDefinitionError, match="schema-v2 optional"):
+    with pytest.raises(WorkflowDefinitionError, match="schema-v2 policy"):
         validate_workflow_definition(definition)
 
 
@@ -114,14 +114,20 @@ def test_task_scoped_axis_requires_generated_tasks(axis):
         validate_workflow_definition(definition)
 
 
-def test_file_budget_posture_allowlist_requires_optional_policy():
+def test_file_budget_posture_rejects_redundant_tightening():
     definition = deepcopy(
         builtin_workflow_definition("dash")["definition"]
     )
     definition["policies"]["file_budget"] = "required"
 
-    with pytest.raises(WorkflowDefinitionError, match="schema-v2 optional"):
-        validate_workflow_definition(definition)
+    validate_workflow_definition(definition)
+    with pytest.raises(ItemPostureError, match="only tightens an optional"):
+        validate_item_posture(
+            None,
+            definition=definition,
+            project_id=1,
+            posture={"file_budget": True},
+        )
 
 
 def test_file_budget_posture_only_tightens_allowlisted_optional_workflow(test_db):
