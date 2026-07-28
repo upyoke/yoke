@@ -181,10 +181,7 @@ def execute_plan(
     state = "passed"
     for recorded in recorded_results:
         state = _aggregate_state(state, recorded)
-    from yoke_core.domain.qa_case_execution import (
-        QaCaseExecutionError,
-        execute_case_context,
-    )
+    from yoke_core.domain.qa_case_execution import execute_case_context
 
     for ordinal in range(cursor, len(requirements)):
         requirement = requirements[ordinal]
@@ -274,7 +271,7 @@ def execute_plan(
                     },
                     actor=resolved_actor,
                 )
-        except (QaCaseExecutionError, RuntimeError, ValueError, OSError) as exc:
+        except BaseException as exc:
             failed = {
                 "requirement_id": requirement_id,
                 **order,
@@ -294,6 +291,8 @@ def execute_plan(
                 )
             except QaPlanExecutionError:
                 pass
+            if not isinstance(exc, Exception):
+                raise
             state = "error"
             break
         results.append(normalized)
