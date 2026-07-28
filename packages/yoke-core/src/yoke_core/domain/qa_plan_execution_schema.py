@@ -117,6 +117,19 @@ def converge_qa_plan_execution_schema(conn: Any) -> None:
         raise RuntimeError(
             "QA plan execution records require the deployed qa_requirements table"
         )
+    if _table_exists(conn, QA_PLAN_EXECUTION_TABLE):
+        from yoke_core.domain import db_backend
+
+        if db_backend.connection_is_postgres(conn):
+            from yoke_core.domain.migrations.qa_plan_execution_deployment_subject import (
+                apply as expand_deployment_subject,
+                invariants as assert_deployment_subject,
+            )
+
+            try:
+                assert_deployment_subject(conn)
+            except AssertionError:
+                expand_deployment_subject(conn)
     execute_schema_script(conn, QA_PLAN_EXECUTION_SCHEMA_SQL)
 
 
