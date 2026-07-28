@@ -146,7 +146,7 @@ place.
 Ask the user explicitly:
 > Do you want to add a description? (Yes / No)
 
-If yes, collect the description and run the same body-write flow. If no, still write a minimal spec containing `# {title}` plus `## Simplify Pre-Check` with one-line entries for reuse, quality, efficiency, the future-concept lens, and codebase-reader naming (for example, `no concerns from title-only intake`) AND a `## File Budget` section using the appropriate shape from the section above. The pre-check is advisory; the File Budget is mandatory for any implementation-bearing intake. A title-only work item whose nature is genuinely unknown should record the File Budget as `UNRESOLVED` so refine resolves it before implementation, or `N/A` with a reason if the operator confirmed no authored code will change.
+If yes, collect the description and run the same body-write flow. If no, still write a minimal spec containing `# {title}` plus `## Simplify Pre-Check` with one-line entries for reuse, quality, efficiency, the future-concept lens, and codebase-reader naming (for example, `no concerns from title-only intake`). When effective File Budget is enabled, also include `## File Budget` using the appropriate shape from the section above: a title-only work item whose nature is genuinely unknown records `UNRESOLVED` so refine resolves it before implementation, or `N/A` with a reason if the operator confirmed no authored code will change. When File Budget is off, omit that section.
 
 Important: do not edit a rendered body directly. Always update via the
 structured-field function calls — `items.structured_field.replace` for

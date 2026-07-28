@@ -52,8 +52,8 @@ Only when both effective axes are enabled may Conduct compare or pair task
 File Budgets with claims. With budget off and claims on, claim paths come from
 the task execution document/spec and dispatch survey. With budget on and
 claims off, task budgets provide sizing and conflict evidence without claim
-activation. The 350-line authored-file check and Engineer receipt remain
-universal in all postures.
+activation. With both off, Conduct requires neither artifact. The 350-line
+authored-file check and Engineer receipt remain universal in all postures.
 
 ## Autonomous Execution Mode
 
@@ -61,8 +61,8 @@ After every subagent returns, the conduct skill MUST immediately continue to the
 
 Worktree creation/activation is a pure filesystem + DB operation: active
 `item_worktrees` lane rows are recorded, enabled path claims activate, and the
-same harness session continues directly into the Engineer/Tester loop — no
-manual relaunch, no parent-session stop, no claim handoff to a fresh session,
+same harness session continues directly into the Engineer/Tester loop —
+no manual relaunch, no parent-session stop, no claim handoff to a fresh session,
 no scope envelope.
 
 ## Thin Conduct Principle

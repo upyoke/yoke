@@ -71,11 +71,10 @@ function worktreeFact(documentNode, item) {
 
 function fileBudgetFact(documentNode, item) {
   const budget = item.file_budget || { total: 0, paths: [] };
-  const policy = item.workflow?.policies?.file_budget;
-  const tightened = item.workflow?.item_posture?.file_budget === true;
+  const policy = item.workflow?.effective_policies?.file_budget;
   if (!Number(budget.total)) {
     if (policy === "required_per_task") return "per task";
-    if (policy === "optional" && !tightened) return "none · workflow default";
+    if (policy === "optional") return "none · workflow default";
     return "none recorded";
   }
   const label = `${budget.total} ${Number(budget.total) === 1 ? "file" : "files"}`;
@@ -88,11 +87,10 @@ function fileBudgetFact(documentNode, item) {
 
 function pathClaimsFact(item) {
   const claims = item.path_claims || { total: 0, states: {} };
-  const policy = item.workflow?.policies?.path_claims;
-  const tightened = item.workflow?.item_posture?.path_claims === true;
+  const policy = item.workflow?.effective_policies?.path_claims;
   if (!Number(claims.total)) {
     if (policy === "required_per_task") return "per task";
-    if (policy === "optional" && !tightened) return "none · workflow default";
+    if (policy === "optional") return "none · workflow default";
     return "none";
   }
   const states = Object.entries(claims.states || {})
@@ -115,7 +113,7 @@ export function factsPanel(documentNode, item) {
     appendFact(documentNode, table, "Claim", claimFact(documentNode, item.claim));
   }
   if (
-    item.workflow?.policies?.file_budget !== undefined ||
+    item.workflow?.effective_policies?.file_budget !== undefined ||
     Number(item.file_budget?.total)
   ) {
     appendFact(
@@ -126,7 +124,7 @@ export function factsPanel(documentNode, item) {
     );
   }
   if (
-    item.workflow?.policies?.path_claims !== undefined ||
+    item.workflow?.effective_policies?.path_claims !== undefined ||
     Number(item.path_claims?.total)
   ) {
     appendFact(
@@ -160,13 +158,14 @@ const POSTURE_LABELS = {
 export function posturePanel(documentNode, item) {
   const { panel, body } = workflowPanel(documentNode, "Execution posture");
   const grid = el(documentNode, "div", "item-posture-grid");
-  const policies = item.workflow.policies || {};
-  const itemPosture = item.workflow.item_posture || {};
+  const effectivePolicies = item.workflow.effective_policies || {};
   const workflowId = String(item.workflow.id || "").toLowerCase();
   const preferredKeys = workflowId === "dash"
     ? ["generated_children", "file_budget", "path_claims", "worktrees"]
     : ["file_budget", "path_claims", "worktrees", "parallelism"];
-  const keys = preferredKeys.filter((key) => policies[key] !== undefined);
+  const keys = preferredKeys.filter(
+    (key) => effectivePolicies[key] !== undefined,
+  );
   for (const key of keys) {
     const cell = el(documentNode, "div", "item-posture-cell");
     cell.appendChild(el(
@@ -179,9 +178,7 @@ export function posturePanel(documentNode, item) {
       itemPostureValue(
         workflowId,
         key,
-        ["file_budget", "path_claims"].includes(key) && itemPosture[key]
-          ? "required"
-          : policies[key],
+        effectivePolicies[key],
       ),
     ));
     grid.appendChild(cell);

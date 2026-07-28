@@ -131,7 +131,8 @@ do not require or invent the section. When `PATH_CLAIMS_POLICY` is
 non-`optional` and budget is
 off, the survey itself is the claim-path source. When both are enabled, pair
 their enumerations. When budget is on and claims are off, use the budget for
-sizing and conflict evidence without registering a claim.
+sizing and conflict evidence without registering a claim. When both are off,
+the stored instruction and survey define scope without either artifact.
 
 For every reported contact:
 

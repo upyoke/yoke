@@ -21,6 +21,8 @@ test("Blitz detail route renders the full execution-document composition", async
   const root = documentNode.createElement("div");
   const requests = [];
   const blitz = detailItem("blitz");
+  blitz.workflow.policies.file_budget = "required";
+  blitz.workflow.policies.path_claims = "required";
   blitz.worktrees.push({
     branch: "codex/footer-proof",
     lane_role: "worker",

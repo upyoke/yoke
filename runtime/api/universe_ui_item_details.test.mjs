@@ -230,6 +230,43 @@ for (const workflowId of ["issue", "dash"]) {
   });
 }
 
+test("legacy item facts use central effective policies when raw File Budget is absent", async () => {
+  const documentNode = new FakeDocument();
+  const root = documentNode.createElement("div");
+  const legacy = detailItem("issue");
+  legacy.workflow.version = 1;
+  delete legacy.workflow.policies.file_budget;
+  legacy.workflow.policies.path_claims = "optional";
+  legacy.workflow.effective_policies.file_budget = "required";
+  legacy.workflow.effective_policies.path_claims = "required";
+  legacy.file_budget = { total: 0, paths: [] };
+  legacy.path_claims = { total: 0, states: {} };
+
+  renderItemDetailView(itemContext(documentNode, async () => ({
+    status: 200,
+    envelope: {
+      success: true,
+      result: { item: legacy },
+    },
+  })), root, "7", "ACM-22");
+  await settle();
+
+  const rendered = itemText(root);
+  assert.match(rendered, /File budget\s+none recorded/);
+  assert.match(rendered, /Path claims\s+none/);
+  assert.deepEqual(
+    byClass(root, "item-posture-label").map((node) => node.textContent),
+    ["File Budget", "Path claims", "Worktrees", "Parallelism", "Migrations"],
+  );
+  assert.deepEqual(
+    byClass(root, "item-posture-value").map((node) => node.textContent),
+    [
+      "required", "required", "one implementation lane",
+      "inside the item only", "governed",
+    ],
+  );
+});
+
 test("promoted Dash detail links back to its source field note", async () => {
   const documentNode = new FakeDocument();
   const root = documentNode.createElement("div");

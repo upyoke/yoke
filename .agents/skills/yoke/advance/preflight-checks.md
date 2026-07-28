@@ -149,7 +149,8 @@ Also skip unless `_effective_file_budget_policy` **and**
 Budget/path-claim parity exists only in
 that combination. With budget off and claims on, claim coverage comes from the
 execution artifact or survey. With budget on and claims off, the budget is
-sizing/conflict evidence and there is no claim coverage gate.
+sizing/conflict evidence and there is no claim coverage gate. With both off,
+skip both artifact gates; the universal 350-line check still applies.
 
 Applies to targets `implementing`, `reviewing-implementation`, `reviewed-implementation`, `polishing-implementation`, `implemented`, and `release` — any status at or past implementation entry. **If `--force`:** skip with warning.
 

@@ -131,8 +131,7 @@ function blitzFactsPanel(documentNode, item) {
   const claim = item.claim;
   const pathClaims = item.path_claims || { total: 0 };
   const fileBudget = item.file_budget || { total: 0, paths: [] };
-  const policies = item.workflow.policies || {};
-  const posture = item.workflow.item_posture || {};
+  const effectivePolicies = item.workflow.effective_policies || {};
   const workflow = el(documentNode, "span", "item-inline");
   workflow.appendChild(el(
     documentNode,
@@ -180,7 +179,7 @@ function blitzFactsPanel(documentNode, item) {
       "File budget",
       fileBudget.total
         ? `${fileBudget.total} ${fileBudget.total === 1 ? "file" : "files"}`
-        : policies.file_budget === "optional" && !posture.file_budget
+        : effectivePolicies.file_budget === "optional"
           ? "none · workflow default"
           : "none recorded",
     ],
@@ -188,7 +187,7 @@ function blitzFactsPanel(documentNode, item) {
       "Path claims",
       pathClaims.total
         ? `${pathClaims.total} registered${claimStates ? ` · ${claimStates}` : ""}`
-        : policies.path_claims === "optional" && !posture.path_claims
+        : effectivePolicies.path_claims === "optional"
           ? "none · workflow default"
           : "none",
     ],
@@ -227,17 +226,15 @@ function blitzPosturePanel(documentNode, item) {
   const { panel, body } = workflowPanel(documentNode, "Execution posture");
   const grid = el(documentNode, "div", "item-posture-grid");
   const lanes = item.worktrees || [];
-  const policies = item.workflow.policies || {};
-  const posture = item.workflow.item_posture || {};
+  const effectivePolicies = item.workflow.effective_policies || {};
   grid.appendChild(postureCell(documentNode, "Child items", "none"));
   for (const [label, key] of [
     ["File Budget", "file_budget"],
     ["Path claims", "path_claims"],
   ]) {
-    if (policies[key] === undefined) continue;
-    const value = posture[key] === true ? "required" : policies[key];
+    if (effectivePolicies[key] === undefined) continue;
     grid.appendChild(postureCell(
-      documentNode, label, readablePolicyValue(key, value),
+      documentNode, label, readablePolicyValue(key, effectivePolicies[key]),
     ));
   }
   grid.appendChild(postureCell(

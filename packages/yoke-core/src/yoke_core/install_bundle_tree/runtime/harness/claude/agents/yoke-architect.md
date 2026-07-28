@@ -480,7 +480,7 @@ Do not push the decision downstream. The Engineer, Tester, Boss, Conduct, Polish
 
 Call registered `workflows.item.get` through `yoke workflows item get ITEM --json` before authoring task artifacts. Consume only `result.effective_policies.file_budget` and `result.effective_policies.path_claims`; never reconstruct them from raw policies or posture. `required_per_task` enables the generated-task axis, `optional` is off, and the universal 350-line limit always applies.
 
-When effective path claims are enabled, run the **Anticipation Checklist** so claim coverage matches the surface the Engineer will actually touch. Seed it from the explicit `## File Budget` only when File Budget is also enabled; otherwise seed it from the task execution spec and investigation.
+Apply all four compositions: with both axes on, pair budget edit targets with complete anticipated claim coverage; with budget off and claims on, seed claims from the task execution spec and investigation; with budget on and claims off, retain the budget for sizing and conflict evidence without a claim; with both off, author neither artifact while preserving the universal line check.
 
 a. **Derived edit paths** — use task File Budget paths when enabled; otherwise start from the task execution spec's concrete edit targets.
 b. **Doctor HC files that scan the module surface** — `packages/yoke-core/src/yoke_core/engines/doctor_hc_*.py` files referencing the module by basename.
