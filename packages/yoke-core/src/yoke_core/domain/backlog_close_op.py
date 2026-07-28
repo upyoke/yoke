@@ -1,6 +1,6 @@
 """Backlog close operation — `execute_close` cancels an item through the
 structured cancellation path: validates the resolution reason, refuses
-to cancel items past review, reconciles
+to cancel items past review or with active worktree lanes, reconciles
 `item_dependencies` rows, writes the status + resolution payload, and
 posts the GitHub close + status comment.
 """
@@ -17,6 +17,7 @@ from yoke_core.domain.backlog_queries import (
     _resolve_write_db_path,
 )
 from yoke_core.domain import backlog_rendering as _rendering
+from yoke_core.domain.item_worktrees import list_item_worktrees
 
 
 def _p(conn) -> str:
@@ -101,6 +102,17 @@ def execute_close(
                 "error": (
                     f"YOK-{item_id} has merged_at set ({merged_at}). "
                     "Cannot close items with merge evidence."
+                ),
+            }
+
+        active_lanes = list_item_worktrees(conn, item_id, active_only=True)
+        if active_lanes:
+            branches = ", ".join(str(lane["branch"]) for lane in active_lanes)
+            return {
+                "success": False,
+                "error": (
+                    f"YOK-{item_id} has active worktree lanes ({branches}). "
+                    "Complete or release those lanes before cancellation."
                 ),
             }
 
