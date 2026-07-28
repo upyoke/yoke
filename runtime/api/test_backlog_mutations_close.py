@@ -138,7 +138,7 @@ class TestExecuteClose:
         assert result["success"] is False
         assert "merge evidence" in result["error"]
 
-    def test_close_releases_active_worktree(self, tmp_db):
+    def test_close_rejects_active_worktree(self, tmp_db):
         _seed_item(tmp_db, id=10)
         _seed_active_item_lane(tmp_db, item_id=10, branch="YOK-10")
         out = io.StringIO()
@@ -146,15 +146,16 @@ class TestExecuteClose:
         with _patch_externals(), mock.patch.dict(os.environ, {"YOKE_DB": tmp_db}):
             result = backlog.execute_close(10, "obsolete", out=out)
 
-        assert result["success"] is True
-        assert _item_field(tmp_db, 10, "status") == "cancelled"
+        assert result["success"] is False
+        assert "active worktree lanes (YOK-10)" in result["error"]
+        assert _item_field(tmp_db, 10, "status") == "idea"
         assert (
             _item_lane_state(
                 tmp_db,
                 item_id=10,
                 branch="YOK-10",
             )
-            == "released"
+            == "active"
         )
 
     def test_close_emits_item_status_changed_event(self, tmp_db):
