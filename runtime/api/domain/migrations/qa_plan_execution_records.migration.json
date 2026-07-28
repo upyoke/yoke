@@ -20,6 +20,7 @@
         "columns": [
           "id",
           "item_id",
+          "deployment_run_id",
           "transition_id",
           "actor_id",
           "session_id",
@@ -73,7 +74,7 @@
     ],
     "invariants": [
       "The migration creates only qa_plan_executions, qa_plan_execution_results, and their declared indexes.",
-      "At most one active or waiting execution exists for an item and transition through idx_qa_plan_executions_active.",
+      "At most one active or waiting execution exists for an item and transition through idx_qa_plan_executions_active, or for a deployment run through idx_qa_plan_executions_deployment_active.",
       "Every stored result is keyed by execution and ordinal and indexed by requirement through idx_qa_plan_execution_results_requirement.",
       "Repeated apply preserves every execution and result row and leaves transaction control with the caller.",
       "The production and fixture schemas agree on columns, types, checks, primary keys, and explicit indexes."
