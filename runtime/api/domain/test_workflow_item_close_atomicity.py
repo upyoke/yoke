@@ -15,7 +15,7 @@ from runtime.api.domain.test_workflow_item_migration_obligations import (
     _publish_policy_pair,
 )
 from runtime.api.fixtures.pg_testdb import connect_test_database
-from yoke_core.domain import backlog_close_op
+from yoke_core.domain import backlog_close_op, backlog_updates
 from yoke_core.domain.workflow_item_binding_lock import (
     lock_item_workflow_bindings,
 )
@@ -41,7 +41,7 @@ def test_migration_first_serializes_structured_cancellation(
         "connect",
         lambda _path=None: close_conn,
     )
-    monkeypatch.setenv("YOKE_DRY_RUN", "1")
+    monkeypatch.setattr(backlog_updates, "_is_dry_run", lambda: True)
     close_started = threading.Event()
     close_done = threading.Event()
     outcomes: dict[str, Any] = {}

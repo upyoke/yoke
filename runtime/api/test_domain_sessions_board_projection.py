@@ -10,6 +10,9 @@ from yoke_core.domain.board import (
     ItemForBoard,
     project_board,
 )
+from yoke_core.domain.builtin_workflow_definitions import (
+    builtin_workflow_definition,
+)
 
 
 class TestItemForBoard:
@@ -50,12 +53,18 @@ class TestProjectBoard:
         has_active_run: bool = False,
         workflow_id: str | None = None,
     ) -> ItemForBoard:
+        workflow_definition = (
+            builtin_workflow_definition(workflow_id)["definition"]
+            if workflow_id is not None
+            else None
+        )
         return ItemForBoard(
             item={"id": item_id, "status": status},
             status=status,
             frozen_value=frozen,
             has_active_run=has_active_run,
             workflow_id=workflow_id,
+            workflow_definition=workflow_definition,
         )
 
     def test_basic_grouping(self):

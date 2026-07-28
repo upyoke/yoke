@@ -110,7 +110,8 @@ def _claim_conflicts(
                 "coverage without a persisted task-to-claim binding"
             )
         if (
-            target_path_policy != WORKFLOW_PATH_CLAIMS_OPTIONAL
+            source_path_policy != target_path_policy
+            and target_path_policy != WORKFLOW_PATH_CLAIMS_OPTIONAL
             and target_stage not in target.terminal_stage_ids
             and target_stage not in ENGINE_TERMINAL_STAGE_IDS
         ):
