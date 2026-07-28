@@ -1,6 +1,7 @@
 """Registry rows for workflow-aware product surfaces."""
 
 from yoke_cli.commands.adapters import (
+    inbox_decisions,
     item_worktree_create,
     item_worktrees,
     qa_catalog,
@@ -72,6 +73,14 @@ TEST_MACHINE_SUBCOMMAND_REGISTRY = {
     ),
 }
 
+INBOX_DECISION_SUBCOMMAND_REGISTRY = {
+    ("inbox", "list"): ("inbox.list", inbox_decisions.inbox_list),
+    ("decision-requests", "resolve"): (
+        "decision_requests.resolve",
+        inbox_decisions.decision_requests_resolve,
+    ),
+}
+
 ITEM_WORKTREE_SUBCOMMAND_REGISTRY = {
     ("item-worktrees", "create"): (
         "item_worktrees.create",
@@ -97,6 +106,7 @@ ITEM_WORKTREE_SUBCOMMAND_REGISTRY = {
 
 PRODUCT_SURFACE_SUBCOMMAND_REGISTRY = {
     **DIRECT_WORKFLOW_SUBCOMMAND_REGISTRY,
+    **INBOX_DECISION_SUBCOMMAND_REGISTRY,
     **ITEM_PAGE_SUBCOMMAND_REGISTRY,
     **ITEM_WORKTREE_SUBCOMMAND_REGISTRY,
     **PROJECT_STRUCTURE_SUBCOMMAND_REGISTRY,
@@ -110,6 +120,7 @@ PRODUCT_SURFACE_SUBCOMMAND_ALIAS_REGISTRY = {
 
 
 __all__ = [
+    "INBOX_DECISION_SUBCOMMAND_REGISTRY",
     "PRODUCT_SURFACE_SUBCOMMAND_ALIAS_REGISTRY",
     "PRODUCT_SURFACE_SUBCOMMAND_REGISTRY",
 ]

@@ -2,6 +2,7 @@
 
 from yoke_cli.commands.adapters import (
     direct_workflow_usage,
+    inbox_decisions,
     item_pages,
     item_worktree_create,
     item_worktrees,
@@ -35,6 +36,7 @@ USAGE_BY_FUNCTION_ID = {
         projects_capabilities_read.PROJECTS_CAPABILITIES_LIST_USAGE
     ),
     **direct_workflow_usage.USAGE_BY_FUNCTION_ID,
+    **inbox_decisions.USAGE_BY_FUNCTION_ID,
     **item_pages.USAGE_BY_FUNCTION_ID,
     **qa_catalog.USAGE_BY_FUNCTION_ID,
     **qa_plan_edit.USAGE_BY_FUNCTION_ID,
