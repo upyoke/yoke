@@ -236,6 +236,11 @@ _SETTLE_ATTEMPTS = 8
 
 async def _stable_screenshot(pilot: Any, app: OnboardWizardApp, title: str) -> str:
     """Export the screen once it stops changing between consecutive frames."""
+    # A quiet message queue is not sufficient when Textual still has scheduled
+    # UI work: two immediate exports can agree on the same intermediate
+    # scrollbar style. Drain scheduled animations and their follow-up screen
+    # messages before treating repeated SVG bytes as evidence of stability.
+    await pilot.wait_for_scheduled_animations()
     previous = app.export_screenshot(title=title)
     for _ in range(_SETTLE_ATTEMPTS):
         await pilot.pause()

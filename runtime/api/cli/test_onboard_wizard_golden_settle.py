@@ -29,6 +29,10 @@ class _App:
 class _Pilot:
     def __init__(self) -> None:
         self.pauses = 0
+        self.scheduled_animation_waits = 0
+
+    async def wait_for_scheduled_animations(self) -> None:
+        self.scheduled_animation_waits += 1
 
     async def pause(self) -> None:
         self.pauses += 1
@@ -45,6 +49,7 @@ def test_returns_as_soon_as_two_frames_agree() -> None:
 
     assert result == "settled"
     assert app.exports == 2
+    assert pilot.scheduled_animation_waits == 1
     assert pilot.pauses == 1
 
 
@@ -54,6 +59,7 @@ def test_keeps_waiting_while_the_screen_is_still_changing() -> None:
     result, app, pilot = _settle(["half-drawn", "scrolling", "final", "final"])
 
     assert result == "final"
+    assert pilot.scheduled_animation_waits == 1
     assert pilot.pauses == 3
 
 
@@ -64,5 +70,6 @@ def test_gives_up_bounded_rather_than_hanging() -> None:
 
     result, _app, pilot = _settle(never_settles)
 
+    assert pilot.scheduled_animation_waits == 1
     assert pilot.pauses == support._SETTLE_ATTEMPTS
     assert result == f"frame-{support._SETTLE_ATTEMPTS}"
