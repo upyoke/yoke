@@ -16,7 +16,16 @@
   display: grid;
   grid-template-rows: var(--yoke-header-height) minmax(0, 1fr);
   width: 100%;
-  height: 100%;
+  /* The frame owns its height rather than inheriting it. `height: 100%`
+     hands that decision to whatever the host wraps the mount root in, and a
+     wrapper that declares only min-height leaves the percentage indefinite:
+     the grid then sizes to its content, so the footer row rides up under the
+     fold on a short page and a long one scrolls the host document instead of
+     the content pane. A host that stacks its own chrome above the frame, or
+     seats it in a shorter pane, insets it by setting --yoke-app-frame-height
+     on the mount root or any ancestor — never by sizing an ancestor and
+     hoping the percentage resolves. */
+  height: var(--yoke-app-frame-height, 100dvh);
   min-height: 0;
   overflow: hidden;
   font-family: var(--yoke-font-sans);
