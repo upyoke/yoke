@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 
-from runtime.api.domain.ssh_mac_full_reset_test_support import FakeResetTransport
+from runtime.api.domain.ssh_mac_full_reset_test_support import (
+    FakeResetTransport,
+    run_zsh_syntax_if_available,
+)
 from yoke_cli.config import path_doctor
 from yoke_core.domain.ssh_mac_full_reset import execute_full_test_mac_reset
 from yoke_core.domain.ssh_mac_full_reset_contract import (
@@ -106,14 +108,9 @@ def test_reset_renders_contained_xdg_and_bash_shell_contract() -> None:
 
     assert result.ok
     script = transport.uploads[FULL_RESET_REMOTE_PATH]
-    syntax = subprocess.run(
-        ["/bin/zsh", "-n"],
-        input=script,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
-    assert syntax.returncode == 0, syntax.stderr
+    syntax = run_zsh_syntax_if_available(script)
+    if syntax is not None:
+        assert syntax.returncode == 0, syntax.stderr
     assert "shell_path=/bin/bash" in script
     assert "tool_bin_suffix='Library/Yoke Bin'" in script
     assert result.evidence["path_state"] == {
@@ -128,15 +125,9 @@ def test_reset_renders_contained_xdg_and_bash_shell_contract() -> None:
 def test_remote_program_uses_no_clt_interpreter_and_preserves_evidence_opaquely() -> (
     None
 ):
-    syntax = subprocess.run(
-        ["/bin/zsh", "-n"],
-        input=FULL_RESET_SCRIPT,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
-
-    assert syntax.returncode == 0, syntax.stderr
+    syntax = run_zsh_syntax_if_available(FULL_RESET_SCRIPT)
+    if syntax is not None:
+        assert syntax.returncode == 0, syntax.stderr
     assert FULL_RESET_SCRIPT.startswith("#!/bin/zsh\n")
     assert "python" not in FULL_RESET_SCRIPT.casefold()
     assert "/usr/bin/env" not in FULL_RESET_SCRIPT

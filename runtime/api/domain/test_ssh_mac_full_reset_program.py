@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from pathlib import Path
+import pytest
 import shlex
 import stat
 import subprocess
 
+from runtime.api.domain.ssh_mac_full_reset_test_support import zsh_binary
 from yoke_cli.config import path_doctor
 from yoke_core.domain.ssh_mac_full_reset_contract import (
     EVIDENCE_SOURCE_PATH,
@@ -32,6 +34,9 @@ def _assignment(name: str, value: str) -> str:
 def test_zsh_program_opaquely_moves_evidence_and_restores_token_bytes(
     tmp_path: Path,
 ) -> None:
+    binary = zsh_binary()
+    if binary is None:
+        pytest.skip("zsh is required to execute the macOS reset program")
     home = tmp_path / "test-home"
     home.mkdir()
     evidence = home / EVIDENCE_SOURCE_PATH / "campaign" / "report.json"
@@ -108,7 +113,7 @@ def test_zsh_program_opaquely_moves_evidence_and_restores_token_bytes(
     )
 
     result = subprocess.run(
-        ["/bin/zsh"],
+        [binary],
         input="\n".join(lines),
         text=True,
         capture_output=True,

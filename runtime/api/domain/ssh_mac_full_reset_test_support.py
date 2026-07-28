@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import shlex
+import shutil
+import subprocess
 from types import SimpleNamespace
 
 from yoke_core.domain.ssh_mac_full_reset_contract import FULL_RESET_REMOTE_PATH
@@ -35,4 +37,27 @@ class FakeResetTransport:
         return SimpleNamespace(returncode=0, stdout="")
 
 
-__all__ = ["FakeResetTransport"]
+def zsh_binary() -> str | None:
+    """Return an available zsh interpreter for macOS-program checks."""
+    return shutil.which("zsh")
+
+
+def run_zsh_syntax_if_available(script: str) -> subprocess.CompletedProcess | None:
+    """Syntax-check a zsh program when the current host provides zsh."""
+    binary = zsh_binary()
+    if binary is None:
+        return None
+    return subprocess.run(
+        [binary, "-n"],
+        input=script,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+
+__all__ = [
+    "FakeResetTransport",
+    "run_zsh_syntax_if_available",
+    "zsh_binary",
+]
