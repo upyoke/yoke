@@ -100,6 +100,31 @@ def test_pending_lifecycle_create_and_replay_are_idempotent(conn) -> None:
     ] == ["DecisionRequestCreated"]
 
 
+@pytest.mark.parametrize("state", ("approved", "denied", "expired", "withdrawn"))
+def test_pending_originator_cannot_apply_admin_terminal_state(conn, state) -> None:
+    approvals.apply_machine_approval_lifecycle(
+        conn,
+        auth_request_id="5b234860-c927-46ab-b19a-9fb36df056aa",
+        org_id=1,
+        state="pending",
+        occurred_at="2026-07-28T12:00:00Z",
+        actor_id=1,
+        context={"expires_at": "2026-07-28T12:10:00Z"},
+    )
+
+    with pytest.raises(PermissionError, match="not authorized"):
+        approvals.apply_machine_approval_lifecycle(
+            conn,
+            auth_request_id="5b234860-c927-46ab-b19a-9fb36df056aa",
+            org_id=1,
+            state=state,
+            occurred_at="2026-07-28T12:02:00Z",
+            actor_id=1,
+            context={},
+            reason="terminal observation",
+        )
+
+
 def _pending(conn, *, org_id: int = 1):
     return approvals.apply_machine_approval_lifecycle(
         conn,
@@ -111,6 +136,41 @@ def _pending(conn, *, org_id: int = 1):
         context={"expires_at": "2026-07-28T12:10:00Z"},
         session_id="platform-delivery",
     )[0]
+
+
+@pytest.mark.parametrize(
+    ("status", "action"),
+    (("approved", "approve"), ("denied", "deny")),
+)
+def test_terminal_first_observation_replays_without_pending_regression(
+    conn, status: str, action: str,
+) -> None:
+    kwargs = {
+        "auth_request_id": "5b234860-c927-46ab-b19a-9fb36df056aa",
+        "org_id": 1,
+        "state": status,
+        "occurred_at": "2026-07-28T12:02:00Z",
+        "actor_id": 5,
+        "context": {"expires_at": "2026-07-28T12:10:00Z"},
+        "session_id": "platform-delivery",
+    }
+    resolved, created, applied = approvals.apply_machine_approval_lifecycle(
+        conn, **kwargs,
+    )
+    replay, replay_created, replay_applied = (
+        approvals.apply_machine_approval_lifecycle(conn, **kwargs)
+    )
+
+    assert resolved is not None
+    assert replay is not None
+    assert resolved["resolution_action"] == replay["resolution_action"] == action
+    assert (created, applied) == (True, True)
+    assert (replay_created, replay_applied) == (False, False)
+    with pytest.raises(ValueError, match=f"already {status}, not pending"):
+        approvals.apply_machine_approval_lifecycle(
+            conn,
+            **{**kwargs, "state": "pending"},
+        )
 
 
 @pytest.mark.parametrize(

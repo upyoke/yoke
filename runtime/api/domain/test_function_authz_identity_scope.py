@@ -147,7 +147,7 @@ def test_project_owner_is_not_enough_for_identity_admin(conn):
     assert denied.error is not None
 
 
-def test_machine_lifecycle_uses_identity_card_org_admin(conn):
+def test_machine_lifecycle_allows_a_bound_member_to_create_pending(conn):
     org_id = _default_org(conn)
     admin = _new_actor(conn)
     grant_actor_org_role(
@@ -157,7 +157,7 @@ def test_machine_lifecycle_uses_identity_card_org_admin(conn):
         role_name=ROLE_ADMIN,
         granted_by_actor_id=admin,
     )
-    outsider = _new_actor(conn)
+    member = _new_actor(conn)
     entry = _entry("machine_approval.lifecycle.apply")
 
     assert check_dispatch_permission(
@@ -165,13 +165,16 @@ def test_machine_lifecycle_uses_identity_card_org_admin(conn):
         entry,
         _request(admin, "machine_approval.lifecycle.apply"),
     ).error is None
-    denied = check_dispatch_permission(
+    allowed = check_dispatch_permission(
         conn,
         entry,
-        _request(outsider, "machine_approval.lifecycle.apply"),
+        _request(
+            member,
+            "machine_approval.lifecycle.apply",
+            {"state": "pending"},
+        ),
     )
-    assert denied.error is not None
-    assert denied.error.error.code == "permission_denied"
+    assert allowed.error is None
 
 
 def test_org_context_falls_back_to_identity_card_org_without_yoke_project(conn):
