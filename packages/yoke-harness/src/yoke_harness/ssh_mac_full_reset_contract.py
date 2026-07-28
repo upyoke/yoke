@@ -14,6 +14,21 @@ from yoke_cli.config.path_doctor import (
 
 FULL_RESET_MARKER = "YOKE_MAC_WIPE_OK"
 FULL_RESET_REMOTE_PATH = "/tmp/yoke-machine-qa-full-reset.zsh"
+RESET_FAILURE_PREFIX = "YOKE_RESET_FAILED_"
+RESET_RECOVERY_FAILURE_MARKER = "YOKE_RESET_RECOVERY_FAILED"
+RESET_PHASES = {
+    "validate_home": "VALIDATE_HOME",
+    "preserve_tokens": "PRESERVE_TOKENS",
+    "remove_registered_state": "REMOVE_REGISTERED_STATE",
+    "uninstall_homebrew_uv": "UNINSTALL_HOMEBREW_UV",
+    "clean_startup_files": "CLEAN_STARTUP_FILES",
+    "verify_shell_resolution": "VERIFY_SHELL_RESOLUTION",
+    "restore_tokens": "RESTORE_TOKENS",
+    "cleanup_scratch": "CLEANUP_SCRATCH",
+    "emit_outcomes": "EMIT_OUTCOMES",
+    "recovery": "RECOVERY",
+    "complete": "COMPLETE",
+}
 TOKEN_BACKUP_DIRECTORY = "yoke-smoke-tokens"
 EVIDENCE_SOURCE_PATH = ".yoke/installer-smoke-evidence"
 RETAINED_EVIDENCE_DIRECTORY = "yoke-smoke-evidence"
@@ -141,6 +156,9 @@ __all__ = [
     "INSTALLER_TEMP_PATH",
     "LEGACY_BASELINE_BEGIN",
     "LEGACY_BASELINE_END",
+    "RESET_FAILURE_PREFIX",
+    "RESET_PHASES",
+    "RESET_RECOVERY_FAILURE_MARKER",
     "RETAINED_EVIDENCE_DIRECTORY",
     "RESET_RELATIVE_DIRECTORIES",
     "RESET_RELATIVE_FILES",

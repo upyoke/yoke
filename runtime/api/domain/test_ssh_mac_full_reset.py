@@ -136,6 +136,70 @@ def test_reset_fails_closed_on_extra_output_and_always_cleans_script() -> None:
     }
 
 
+def test_reset_reports_allowlisted_failure_phase_without_remote_output() -> None:
+    transport = FakeResetTransport(
+        "YOKE_RESET_FAILED_VERIFY_SHELL_RESOLUTION",
+        reset_returncode=1,
+    )
+
+    result = execute_full_test_mac_reset(
+        run_remote=transport.run,
+        upload_text=transport.upload,
+        home="/Users/tester",
+    )
+
+    assert not result.ok
+    assert result.error_code == "test_mac_reset_verify_shell_resolution_failed"
+    assert result.evidence == {
+        "paths": [
+            {"path": "/Users/tester", "outcome": "reset-failed"},
+            {"path": FULL_RESET_REMOTE_PATH, "outcome": "removed"},
+        ],
+        "reset_phase": "verify_shell_resolution",
+        "recovery_cleanup": "completed",
+    }
+
+
+def test_reset_reports_recovery_failure_without_secret_detail() -> None:
+    transport = FakeResetTransport(
+        "\n".join(
+            (
+                "YOKE_RESET_FAILED_REMOVE_REGISTERED_STATE",
+                "YOKE_RESET_RECOVERY_FAILED",
+            )
+        ),
+        reset_returncode=1,
+    )
+
+    result = execute_full_test_mac_reset(
+        run_remote=transport.run,
+        upload_text=transport.upload,
+        home="/Users/tester",
+    )
+
+    assert not result.ok
+    assert result.error_code == "test_mac_reset_recovery_failed"
+    assert result.evidence["reset_phase"] == "remove_registered_state"
+    assert result.evidence["recovery_cleanup"] == "failed"
+
+
+def test_reset_rejects_unregistered_failure_output() -> None:
+    transport = FakeResetTransport(
+        "YOKE_RESET_FAILED_secret-detail",
+        reset_returncode=1,
+    )
+
+    result = execute_full_test_mac_reset(
+        run_remote=transport.run,
+        upload_text=transport.upload,
+        home="/Users/tester",
+    )
+
+    assert not result.ok
+    assert result.error_code == "test_mac_reset_failed"
+    assert set(result.evidence) == {"paths"}
+
+
 def test_existing_retained_evidence_is_reported_without_claiming_a_new_move() -> None:
     transport = FakeResetTransport(
         "\n".join(

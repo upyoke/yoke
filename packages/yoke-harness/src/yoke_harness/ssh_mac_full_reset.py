@@ -18,6 +18,9 @@ from yoke_harness.ssh_mac_full_reset_contract import (
     FULL_RESET_REMOTE_PATH,
     FullResetPathContract,
     HOMEBREW_PATH,
+    RESET_FAILURE_PREFIX,
+    RESET_PHASES,
+    RESET_RECOVERY_FAILURE_MARKER,
     RESET_RELATIVE_DIRECTORIES,
     RESET_TEMP_FILES,
     RETAINED_EVIDENCE_DIRECTORY,
@@ -104,6 +107,20 @@ def _closed_outcomes(stdout: str) -> dict[str, str] | None:
     ):
         return None
     return {**token_outcomes, "evidence": evidence_outcome}
+
+
+def _failure_outcome(stdout: str) -> tuple[str, bool] | None:
+    lines = tuple(line.strip() for line in stdout.splitlines() if line.strip())
+    if len(lines) not in {1, 2} or not lines[0].startswith(RESET_FAILURE_PREFIX):
+        return None
+    phase = lines[0].removeprefix(RESET_FAILURE_PREFIX)
+    phase_names = {value: name for name, value in RESET_PHASES.items()}
+    if phase not in phase_names:
+        return None
+    recovery_failed = len(lines) == 2
+    if recovery_failed and lines[1] != RESET_RECOVERY_FAILURE_MARKER:
+        return None
+    return phase_names[phase], recovery_failed
 
 
 def _success_evidence(
@@ -232,6 +249,7 @@ def execute_full_test_mac_reset(
     reset_ok = False
     error_code = "test_mac_reset_failed"
     outcomes: dict[str, str] | None = None
+    failure_outcome: tuple[str, bool] | None = None
     try:
         preclean = run_remote(
             _command("/bin/rm", "-f", "--", FULL_RESET_REMOTE_PATH),
@@ -256,6 +274,15 @@ def execute_full_test_mac_reset(
                         reset_ok = True
                     else:
                         error_code = "test_mac_reset_output_invalid"
+                else:
+                    failure_outcome = _failure_outcome(str(result.stdout))
+                    if failure_outcome is not None:
+                        phase, recovery_failed = failure_outcome
+                        error_code = (
+                            "test_mac_reset_recovery_failed"
+                            if recovery_failed
+                            else f"test_mac_reset_{phase}_failed"
+                        )
     except Exception:
         error_code = "test_mac_reset_adapter_failed"
 
@@ -273,17 +300,26 @@ def execute_full_test_mac_reset(
 
     if reset_ok and outcomes is not None:
         return HostActionResult(True, _success_evidence(reset_contract, outcomes))
+    failure_evidence: dict[str, object] = {
+        "paths": [
+            {"path": home, "outcome": "reset-failed"},
+            {
+                "path": FULL_RESET_REMOTE_PATH,
+                "outcome": "removed" if cleanup_ok else "cleanup-failed",
+            },
+        ]
+    }
+    if failure_outcome is not None:
+        phase, recovery_failed = failure_outcome
+        failure_evidence.update(
+            {
+                "reset_phase": phase,
+                "recovery_cleanup": "failed" if recovery_failed else "completed",
+            }
+        )
     return HostActionResult(
         False,
-        {
-            "paths": [
-                {"path": home, "outcome": "reset-failed"},
-                {
-                    "path": FULL_RESET_REMOTE_PATH,
-                    "outcome": "removed" if cleanup_ok else "cleanup-failed",
-                },
-            ]
-        },
+        failure_evidence,
         error_code,
     )
 
