@@ -28,7 +28,7 @@ def validate_method_requirement(
     p = _p(conn)
     method = query_one(
         conn,
-        "SELECT executor_id, verdict_path, required_capability_kind "
+        "SELECT name, executor_id, verdict_path, required_capability_kind "
         f"FROM qa_methods WHERE id={p}",
         (str(method_id),),
     )
@@ -54,7 +54,9 @@ def validate_method_requirement(
         )
     config_method = str(method_id)
     if config_method not in {
-        "command", "browser-check", "browser-inspection",
+        "command",
+        "browser-check",
+        "browser-inspection",
     }:
         if method["executor_id"] == "worktree_run":
             config_method = "command"
@@ -66,11 +68,13 @@ def validate_method_requirement(
             )
     try:
         row["method_config"] = validate_method_config(
-            config_method, row.get("method_config"),
+            config_method,
+            row.get("method_config"),
         )
     except QaMethodConfigError as exc:
         return _error(
-            "payload_invalid", str(exc),
+            "payload_invalid",
+            str(exc),
             jsonpath=f"{jsonpath}.method_config",
         )
     capability = method["required_capability_kind"]
@@ -78,6 +82,10 @@ def validate_method_requirement(
         [str(capability)] if capability else [],
         sort_keys=True,
     )
+    row["method_name"] = str(method["name"])
+    row["executor_id"] = str(method["executor_id"])
+    row["required_capability_kind"] = capability
+    row["verdict_path"] = str(method["verdict_path"])
     return None
 
 

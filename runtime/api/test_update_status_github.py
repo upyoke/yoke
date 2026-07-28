@@ -191,7 +191,7 @@ class TestGitHubClose:
 
 class TestEpicCheckbox:
     def test_checkbox_on_terminal_success(self, test_db):
-        insert_item(test_db, id=42, title="Epic", type="epic", github_issue="#100")
+        insert_item(test_db, id=42, title="Epic", workflow_id="epic", github_issue="#100")
         insert_epic_task(
             test_db, epic_id=42, task_num=1,
             status="reviewed-implementation", github_issue="#200",
@@ -218,7 +218,7 @@ class TestEpicCheckbox:
         assert "Checked off" in out.getvalue()
 
     def test_no_checkbox_on_non_terminal(self, test_db):
-        insert_item(test_db, id=42, title="Epic", type="epic", github_issue="#100")
+        insert_item(test_db, id=42, title="Epic", workflow_id="epic", github_issue="#100")
         insert_epic_task(
             test_db, epic_id=42, task_num=1, status="implementing",
             github_issue="#200",
@@ -244,7 +244,7 @@ class TestEpicCheckbox:
         assert not called
 
     def test_checkbox_dry_run(self, test_db):
-        insert_item(test_db, id=42, title="Epic", type="epic", github_issue="#100")
+        insert_item(test_db, id=42, title="Epic", workflow_id="epic", github_issue="#100")
         out = io.StringIO()
         called = []
 
@@ -270,7 +270,7 @@ class TestEpicCheckbox:
         assert not called
 
     def test_checkbox_rejects_mismatched_repo_projection(self, test_db):
-        insert_item(test_db, id=42, title="Epic", type="epic", github_issue="#100")
+        insert_item(test_db, id=42, title="Epic", workflow_id="epic", github_issue="#100")
         err = io.StringIO()
 
         with mock.patch(
@@ -305,13 +305,13 @@ class TestRepoResolution:
             "github_repo = excluded.github_repo"
         )
         test_db.commit()
-        insert_item(test_db, id=42, title="Epic", type="epic", project="externalwebapp")
+        insert_item(test_db, id=42, title="Epic", workflow_id="epic", project="externalwebapp")
         project, repo = update_status._resolve_repo_for_epic(test_db, "42")
         assert project == "externalwebapp"
         assert repo == "example-org/externalwebapp"
 
     def test_resolve_no_project(self, test_db):
-        insert_item(test_db, id=42, title="Epic", type="epic", project="yoke")
+        insert_item(test_db, id=42, title="Epic", workflow_id="epic", project="yoke")
         project, repo = update_status._resolve_repo_for_epic(test_db, "42")
         assert project == "yoke"
 

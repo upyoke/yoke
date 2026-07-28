@@ -87,7 +87,8 @@ def _read_mode(payload: object | None = None) -> str:
     from yoke_core.domain import lint_config
 
     return lint_config.resolve_mode_for_payload(
-        "lint_no_agent_runtime_api_import_from_c", payload,
+        "lint_no_agent_runtime_api_import_from_c",
+        payload,
     )
 
 
@@ -112,7 +113,15 @@ def _iter_python_c_bodies(command: str):
             if arg == "-c" and j + 1 < n:
                 yield tokens[j + 1]
                 break
-            if arg.startswith("-") and arg not in ("-W", "-X", "-O", "-OO", "-u", "-q", "-v"):
+            if arg.startswith("-") and arg not in (
+                "-W",
+                "-X",
+                "-O",
+                "-OO",
+                "-u",
+                "-q",
+                "-v",
+            ):
                 if arg == "-m" or arg == "--":
                     break
                 continue
@@ -126,12 +135,12 @@ def _body_imports_runtime(body: str) -> bool:
 
 def _format_reason(suppression_seen: bool, mode: str) -> str:
     body = (
-        "BLOCKED: `python3 -c \"from yoke_core...\"` is not the agent-facing shape "
+        'BLOCKED: `python3 -c "from yoke_core..."` is not the agent-facing shape '
         "for Yoke operations.\n\n"
         "The unified `yoke` CLI and HTTP function-call surface cover every "
-        "operation the dispatcher exposes — reaching for `python3 -c \"...\"` "
+        'operation the dispatcher exposes — reaching for `python3 -c "..."` '
         "bypasses claim-aware gates, telemetry, and help-text affordances.\n\n"
-        "This rule targets ONLY `python3 -c \"...\"` import one-liners. "
+        'This rule targets ONLY `python3 -c "..."` import one-liners. '
         "`python3 -m <module>` module invocations (e.g. the `/yoke do` "
         "`python3 -m yoke_core.tools.session_init` bootstrap) are a sanctioned "
         "execution shape and are never blocked by this rule.\n\n"
@@ -147,7 +156,6 @@ def _format_reason(suppression_seen: bool, mode: str) -> str:
         "  2. Operator-debug fallback inside a Yoke checkout — for\n"
         "     function ids not yet wrapped under the `yoke` CLI:\n"
         "       python3 -m yoke_core.cli.db_router items get YOK-N status\n"
-        "       python3 -m yoke_core.api.service_client claim-work --item YOK-N\n"
         "  3. HTTP function-call surface — any registered function id:\n"
         "       python3 -m yoke_core.tools.api_server start\n"
         "       curl -sS -X POST http://localhost:8765/v1/functions/call \\\n"
@@ -164,11 +172,12 @@ def _format_reason(suppression_seen: bool, mode: str) -> str:
         body = body + "\n\n[mode=warn] this hook would block in deny mode."
     elif suppression_seen:
         body = (
-            body
-            + f"\n\nSuppression token `{SUPPRESSION_TOKEN}` is recorded as audit "
-              "evidence (outcome=suppression_attempted) but does NOT unblock."
+            body + f"\n\nSuppression token `{SUPPRESSION_TOKEN}` is recorded as audit "
+            "evidence (outcome=suppression_attempted) but does NOT unblock."
         )
-    return append_field_note_footer(body, rule_id="lint-no-agent-runtime-api-import-from-c")
+    return append_field_note_footer(
+        body, rule_id="lint-no-agent-runtime-api-import-from-c"
+    )
 
 
 def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:
@@ -206,11 +215,16 @@ def _emit_audit_event(payload: dict, reason: str, mode: str, outcome: str) -> No
     audit_reason = f"[mode={mode}] {reason}" if mode == "warn" else reason
     try:
         emit_denial_event(
-            hook=HOOK_NAME, tool="Bash", check_id=CHECK_ID, reason=audit_reason,
+            hook=HOOK_NAME,
+            tool="Bash",
+            check_id=CHECK_ID,
+            reason=audit_reason,
             session_id=sid if isinstance(sid, str) else "",
             tool_use_id=tu if isinstance(tu, str) else "",
             turn_id=turn if isinstance(turn, str) else "",
-            command_snippet=_extract_command(payload), outcome=outcome)
+            command_snippet=_extract_command(payload),
+            outcome=outcome,
+        )
     except Exception:
         pass
 
@@ -225,21 +239,37 @@ def evaluate(record: HookContext) -> HookDecision:
     _emit_audit_event(payload, reason, mode, outcome)
     audit = {"mode": mode, "reason": reason, "audit_outcome": outcome}
     if mode == "deny":
-        envelope = json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse",
-            "permissionDecision": "deny", "permissionDecisionReason": reason}})
-        return HookDecision(outcome=Outcome.DENY, message=envelope,
-            audit_fields=audit, block=True, next=Next.STOP)
+        envelope = json.dumps(
+            {
+                "hookSpecificOutput": {
+                    "hookEventName": "PreToolUse",
+                    "permissionDecision": "deny",
+                    "permissionDecisionReason": reason,
+                }
+            }
+        )
+        return HookDecision(
+            outcome=Outcome.DENY,
+            message=envelope,
+            audit_fields=audit,
+            block=True,
+            next=Next.STOP,
+        )
     return HookDecision(outcome=Outcome.WARN, message="", audit_fields=audit)
 
 
 def _build_context_from_payload(payload: dict) -> HookContext:
     cwd, sid = payload.get("cwd"), payload.get("session_id")
-    return HookContext(event_name="PreToolUse", executor_family="claude",
-        executor_surface="claude", payload=payload,
+    return HookContext(
+        event_name="PreToolUse",
+        executor_family="claude",
+        executor_surface="claude",
+        payload=payload,
         tool_name=_extract_tool_name(payload) or None,
         command_body=_extract_command(payload) or None,
         cwd=cwd if isinstance(cwd, str) else None,
-        session_id=sid if isinstance(sid, str) else None)
+        session_id=sid if isinstance(sid, str) else None,
+    )
 
 
 def main() -> int:

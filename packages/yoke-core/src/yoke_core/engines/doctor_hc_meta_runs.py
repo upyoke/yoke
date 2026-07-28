@@ -18,6 +18,8 @@ from typing import List
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_rows, query_scalar
+from yoke_core.domain.workflow_behavior import generates_task_graph
+from yoke_core.domain.workflow_runtime import workflow_runtime_from_row
 
 import yoke_core.engines.doctor_report as _base
 
@@ -40,6 +42,21 @@ _DEFERRED_ITEM_FIELDS = (
     "test_results",
     "deploy_log",
 )
+
+_PINNED_WORKFLOW_COLUMNS = (
+    "i.workflow_id, i.workflow_version_id, v.version, "
+    "v.definition_json, v.definition_digest"
+)
+
+
+def _completed_workflow_rows(rows, *, task_graph_only: bool = False):
+    for row in rows:
+        runtime = workflow_runtime_from_row(row)
+        if row["status"] not in runtime.terminal_stage_ids:
+            continue
+        if task_graph_only and not generates_task_graph(runtime):
+            continue
+        yield row
 
 
 def _available_item_columns(conn) -> set[str]:
@@ -85,12 +102,13 @@ def hc_undeployed_done(conn, args: DoctorArgs, rec: RecordCollector) -> None:
 
     rows = query_rows(
         conn,
-        "SELECT i.id, i.deployed_to, i.updated_at, i.project_id, "
-        "COALESCE(p.slug, 'yoke') AS project "
-        "FROM items i LEFT JOIN projects p ON p.id = i.project_id "
-        "WHERE i.status='done'",
+        "SELECT i.id, i.status, i.deployed_to, i.updated_at, i.project_id, "
+        "COALESCE(p.slug, 'yoke') AS project, "
+        + _PINNED_WORKFLOW_COLUMNS
+        + " FROM items i LEFT JOIN projects p ON p.id = i.project_id "
+        "JOIN workflow_versions v ON v.id = i.workflow_version_id",
     )
-    for row in rows:
+    for row in _completed_workflow_rows(rows):
         item_id = row["id"]
         if min_item_id is not None and item_id < min_item_id:
             continue
@@ -139,12 +157,15 @@ def hc_orphaned_done_items(conn, args: DoctorArgs, rec: RecordCollector) -> None
     issues: List[str] = []
     rows = query_rows(
         conn,
-        "SELECT i.id, i.title, iw.branch, iw.path FROM items i "
+        "SELECT i.id, i.status, i.title, iw.branch, iw.path, "
+        + _PINNED_WORKFLOW_COLUMNS
+        + " FROM items i "
         "JOIN item_worktrees iw ON iw.item_id = i.id "
-        "WHERE i.status = 'done' AND iw.state = 'active' "
+        "JOIN workflow_versions v ON v.id = i.workflow_version_id "
+        "WHERE iw.state = 'active' "
         "ORDER BY i.id, iw.id",
     )
-    for row in rows:
+    for row in _completed_workflow_rows(rows):
         issues.append(
             f"- YOK-{row['id']} ({row['title']}): worktree lane "
             f"'{row['branch']}' remains active "
@@ -165,12 +186,18 @@ def hc_deferred_items(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     issues: List[str] = []
     available = _available_item_columns(conn)
     fields = [field for field in _DEFERRED_ITEM_FIELDS if field in available]
-    select_cols = ["id", *fields]
+    select_cols = [
+        "i.id",
+        "i.status",
+        _PINNED_WORKFLOW_COLUMNS,
+        *[f"i.{field}" for field in fields],
+    ]
     rows = query_rows(
         conn,
         "SELECT "
         + ", ".join(select_cols)
-        + " FROM items WHERE workflow_id='epic' AND status='done' ORDER BY id",
+        + " FROM items i JOIN workflow_versions v ON v.id = i.workflow_version_id "
+        "ORDER BY i.id",
     )
 
     deferral_patterns = [
@@ -181,7 +208,7 @@ def hc_deferred_items(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         re.compile(r"out of scope for this epic", re.IGNORECASE),
     ]
 
-    for row in rows:
+    for row in _completed_workflow_rows(rows, task_graph_only=True):
         body = _deferred_item_text(conn, row, fields)
         if not body:
             continue

@@ -3,12 +3,16 @@
 Public callable surface invoked by the front-door CLI in
 :mod:`yoke_core.domain.flow` and by the ``db_router flows`` namespace.
 """
+
 from __future__ import annotations
 
 from typing import Optional
 
 from yoke_core.domain.db_helpers import (
-    iso8601_now, query_one, query_rows, query_scalar,
+    iso8601_now,
+    query_one,
+    query_rows,
+    query_scalar,
 )
 from yoke_core.domain.flow_cross_reference import (
     _validate_flow_stages_cross_reference,
@@ -17,14 +21,29 @@ from yoke_core.domain.flow_validation import validate_stages
 from yoke_core.domain.deployment_flow_state import (
     FLOW_STATUS_ACTIVE,
     assert_flow_definition_mutable,
+    lock_deployment_flow_rows,
     validate_flow_status,
 )
 from yoke_core.domain.project_identity import resolve_project
+from yoke_core.domain.workflow_item_binding_lock import (
+    lock_item_workflow_bindings,
+    rollback_workflow_binding_write_errors,
+)
 
-_FLOW_FIELDS = frozenset({
-    "id", "project", "name", "description", "stages",
-    "on_failure", "created_at", "target_env", "done_description", "status",
-})
+_FLOW_FIELDS = frozenset(
+    {
+        "id",
+        "project",
+        "name",
+        "description",
+        "stages",
+        "on_failure",
+        "created_at",
+        "target_env",
+        "done_description",
+        "status",
+    }
+)
 
 _SELECT_COLS = (
     "df.id, p.slug AS project, df.name, df.description, df.stages, "
@@ -36,9 +55,15 @@ def _format_row(row) -> str:
     return "|".join("" if v is None else str(v) for v in tuple(row))
 
 
-def cmd_create(conn, flow_id: str, project: str, name: str,
-               description: str, stages_json: str,
-               on_failure: str = "halt") -> str:
+def cmd_create(
+    conn,
+    flow_id: str,
+    project: str,
+    name: str,
+    description: str,
+    stages_json: str,
+    on_failure: str = "halt",
+) -> str:
     validate_stages(stages_json)
     ident = resolve_project(conn, project)
     assert ident is not None
@@ -47,8 +72,7 @@ def cmd_create(conn, flow_id: str, project: str, name: str,
         "INSERT INTO deployment_flows "
         "(id, project_id, name, description, stages, on_failure, created_at) "
         "VALUES (%s, %s, %s, %s, %s, %s, %s)",
-        (flow_id, ident.id, name, description, stages_json, on_failure,
-         iso8601_now()),
+        (flow_id, ident.id, name, description, stages_json, on_failure, iso8601_now()),
     )
     conn.commit()
     return f"Created deployment flow: {flow_id}"
@@ -89,7 +113,10 @@ def cmd_get(conn, flow_id: str, field: Optional[str] = None) -> str:
 
 
 def cmd_list(
-    conn, project: Optional[str] = None, *, include_disabled: bool = False,
+    conn,
+    project: Optional[str] = None,
+    *,
+    include_disabled: bool = False,
 ) -> str:
     status_clause = "" if include_disabled else " AND df.status='active'"
     if project:
@@ -122,7 +149,10 @@ def cmd_stages(conn, flow_id: str) -> str:
 
 
 def cmd_update_stages(
-    conn, flow_id: str, stages_json: str, description: Optional[str] = None,
+    conn,
+    flow_id: str,
+    stages_json: str,
+    description: Optional[str] = None,
 ) -> str:
     """Replace a flow's stage list (and optionally its description).
 
@@ -131,16 +161,17 @@ def cmd_update_stages(
     live flow row can never hold an undispatchable stage shape.
     """
     validate_stages(stages_json)
-    assert_flow_definition_mutable(conn, flow_id)
-    row = query_one(
+    locked = lock_deployment_flow_rows(
         conn,
-        "SELECT project_id FROM deployment_flows WHERE id=%s",
         (flow_id,),
+        binding=False,
     )
-    if row is None:
+    flow = locked.get(flow_id)
+    if flow is None:
         raise LookupError(f"deployment flow '{flow_id}' not found")
+    assert_flow_definition_mutable(conn, flow_id)
     _validate_flow_stages_cross_reference(
-        conn, row[0], stages_json, flow_id=flow_id
+        conn, int(flow[0]), stages_json, flow_id=flow_id
     )
     conn.execute(
         "UPDATE deployment_flows SET stages=%s WHERE id=%s",
@@ -171,6 +202,7 @@ def cmd_set_status(conn, flow_id: str, status: str) -> str:
     return f"Deployment flow '{flow_id}' is now {normalized}"
 
 
+@rollback_workflow_binding_write_errors
 def cmd_delete(conn, flow_id: str, repoint_items_to: Optional[str] = None) -> str:
     """Delete a flow; optionally repoint items that referenced it first.
 
@@ -178,18 +210,27 @@ def cmd_delete(conn, flow_id: str, repoint_items_to: Optional[str] = None) -> st
     target was given, so a flow retirement never leaves silent dangling
     ``items.deployment_flow`` references.
     """
-    exists = query_scalar(
-        conn, "SELECT 1 FROM deployment_flows WHERE id=%s", (flow_id,)
-    )
-    if exists is None:
+    flow_ids = (flow_id, repoint_items_to) if repoint_items_to else (flow_id,)
+    locked_flows = lock_deployment_flow_rows(conn, flow_ids, binding=False)
+    if flow_id not in locked_flows:
         raise LookupError(f"deployment flow '{flow_id}' not found")
     assert_flow_definition_mutable(conn, flow_id)
 
-    referencing = query_scalar(
+    referencing_rows = query_rows(
         conn,
-        "SELECT COUNT(*) FROM items WHERE deployment_flow=%s",
+        "SELECT id, project_id FROM items WHERE deployment_flow=%s ORDER BY id",
         (flow_id,),
-    ) or 0
+    )
+    referencing_ids = tuple(
+        int(row["id"]) if hasattr(row, "keys") else int(row[0])
+        for row in referencing_rows
+    )
+    referencing_projects = {
+        int(row["project_id"] if hasattr(row, "keys") else row[1])
+        for row in referencing_rows
+    }
+    lock_item_workflow_bindings(conn, referencing_ids)
+    referencing = len(referencing_ids)
     repointed = 0
     if referencing:
         if not repoint_items_to:
@@ -197,14 +238,20 @@ def cmd_delete(conn, flow_id: str, repoint_items_to: Optional[str] = None) -> st
                 f"{referencing} item(s) still reference flow '{flow_id}'; "
                 "pass --repoint-items-to <flow-id> to retarget them"
             )
-        target = query_scalar(
-            conn,
-            "SELECT 1 FROM deployment_flows WHERE id=%s AND status=%s",
-            (repoint_items_to, FLOW_STATUS_ACTIVE),
-        )
-        if target is None:
+        if repoint_items_to == flow_id:
+            raise ValueError("repoint target must differ from the deleted flow")
+        target = locked_flows.get(repoint_items_to)
+        if target is None or target[1] != FLOW_STATUS_ACTIVE:
             raise LookupError(
-                f"repoint target flow '{repoint_items_to}' not found"
+                f"active repoint target flow '{repoint_items_to}' not found"
+            )
+        source_project_id = int(locked_flows[flow_id][0])
+        target_project_id = int(target[0])
+        if target_project_id != source_project_id:
+            raise ValueError("repoint target must belong to the deleted flow's project")
+        if referencing_projects != {source_project_id}:
+            raise ValueError(
+                "referencing items do not all belong to the deleted flow's project"
             )
         conn.execute(
             "UPDATE items SET deployment_flow=%s WHERE deployment_flow=%s",
@@ -215,8 +262,6 @@ def cmd_delete(conn, flow_id: str, repoint_items_to: Optional[str] = None) -> st
     conn.execute("DELETE FROM deployment_flows WHERE id=%s", (flow_id,))
     conn.commit()
     suffix = (
-        f" ({repointed} item(s) repointed to '{repoint_items_to}')"
-        if repointed
-        else ""
+        f" ({repointed} item(s) repointed to '{repoint_items_to}')" if repointed else ""
     )
     return f"Deleted deployment flow '{flow_id}'{suffix}"

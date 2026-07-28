@@ -32,7 +32,7 @@ def db():
 
 class TestPostCommentAuthTranslation:
     def test_translates_missing_binding_to_sync_warning(self, db):
-        insert_item(db, id=30, type="issue", status="implementing", project="externalwebapp", github_issue="#50")
+        insert_item(db, id=30, workflow_id="issue", status="implementing", project="externalwebapp", github_issue="#50")
         stderr = io.StringIO()
 
         with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
@@ -55,7 +55,7 @@ class TestPostCommentAuthTranslation:
         assert "github-binding bind" in text
 
     def test_translates_missing_capability(self, db):
-        insert_item(db, id=31, type="issue", status="implementing", project="externalwebapp", github_issue="#51")
+        insert_item(db, id=31, workflow_id="issue", status="implementing", project="externalwebapp", github_issue="#51")
         stderr = io.StringIO()
 
         with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(

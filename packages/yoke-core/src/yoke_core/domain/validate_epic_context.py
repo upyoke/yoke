@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any, Optional, TextIO
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.lifecycle import TASK_TERMINAL_SUCCESS
+from yoke_core.domain.task_lifecycle import TASK_TERMINAL_SUCCESS
 
 
 _NUMERIC_REF_RE = re.compile(r"^(?:[Yy][Oo][Kk]-)?([0-9]+)$")

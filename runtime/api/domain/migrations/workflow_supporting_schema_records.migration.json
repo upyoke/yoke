@@ -247,7 +247,7 @@
         "role": "writer"
       },
       {
-        "path": "packages/yoke-core/src/yoke_core/domain/strategy_execution.py",
+        "path": "packages/yoke-core/src/yoke_core/domain/strategy_execution_linking.py",
         "symbol": "link_execution_document",
         "role": "reader"
       },

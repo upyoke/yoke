@@ -50,7 +50,7 @@ on shell variables persisting across separate tool invocations.
 The enhanced artifact must encode the mandatory-check findings from
 step 5. Do not stop at cleaner wording if the artifact still lacks
 verified references, blast-radius discovery, cleanup coverage,
-failure/recovery coverage, or resolved issue-level open questions.
+failure/recovery coverage, or resolved item-level open questions.
 
 **Subtraction detection check (mandatory before writing).** Before
 writing any field, diff the enhanced content against the original. If
@@ -64,10 +64,11 @@ content by abstracting it into vague prose.
 references verified against the codebase, contradictory requirements,
 scope conflicts with active work items), do NOT dispatch the write.
 Instead, stop and surface the issues to the operator. Do NOT advance
-status. The item stays at `refining-idea` or `refining-plan` until the
-operator resolves the issue.
+status. The item stays at `REFINE_ACTIVE_STATUS` until the operator resolves
+the issue.
 
-**File Budget escalation.** If the work item is implementation-bearing AND
+**File Budget escalation.** Apply this only when effective File Budget is
+enabled. If the work item is implementation-bearing AND
 the File Budget cannot be resolved during this refine pass — the file
 shape is genuinely unknown, the touched source files are already over
 the 300-line design target with no obvious split, or a proposed task
@@ -75,15 +76,15 @@ owns multiple responsibilities that cannot be reduced without operator
 input — do NOT silently advance. Surface the blocker to the operator
 with the exact set of files in question (including current line counts)
 and the resolution options (split before implementation, expand the
-budget with justification, descope, or split the work item). The item
-stays at `refining-idea` (issue) or `refining-plan` (epic) until the
-operator resolves it.
+budget with justification, descope, or split the work item). The item stays at
+`REFINE_ACTIVE_STATUS` until the operator resolves it.
 
-**Obvious File Budget repair.** Do not escalate when reference
+**Obvious File Budget repair.** When File Budget is enabled, do not escalate when reference
 verification finds one obvious live owner for the missing path and adding
 that path does not change the project, deployment target, or behavior
-scope. Add the verified file to the File Budget, widen the path claim
-with the evidence-backed reason, and continue refinement. Escalate only
+scope. Add the verified file to the File Budget; widen the path claim with
+the evidence-backed reason only when effective path claims are also enabled;
+otherwise retain the budget as sizing/conflict evidence. Escalate only
 when there are multiple plausible owners, the repair would change scope,
 or the overlap/dependency decision is genuinely ambiguous.
 
@@ -132,7 +133,7 @@ failure/recovery coverage where applicable.
 
 ### 7b. Link And Verify A Blitz Execution Document
 
-When `ITEM_WORKFLOW_ID=blitz`, read and follow
+When `ITEM_NEXT_EXECUTOR=blitz`, read and follow
 [`blitz-execution-document.md`](blitz-execution-document.md). Select exactly
 one project strategy document, invoke the registered
 `strategy.execution.link` operation through
@@ -160,39 +161,25 @@ Before status advancement, capture the details you will present after cleanup is
 
 ### 9. Advance Status on Success
 
-After all refinement work is verified complete, advance status based on
-the entry phase determined in step 1b. Dispatch the
-`lifecycle.transition.execute` function call with `target = {kind:
-"item", item_id: N}`.
+After all refinement work is verified, dispatch
+`lifecycle.transition.execute` with `target = {kind: "item", item_id: N}` and
+`payload = {target_status: REFINE_TARGET_STATUS, source_status:
+REFINE_ACTIVE_STATUS}`. These stage ids came from the active pinned `refine`
+binding; do not reconstruct them from a workflow name.
 
-**Idea refinement** (entry was `idea` or `refining-idea`): advance to
-`refined-idea`. Payload: `{target_status: "refined-idea",
-source_status: "refining-idea"}`.
+Final output should include:
 
-For Issue and Epic, final output should include:
+> **YOK-{N}** refined: `REFINE_ACTIVE_STATUS` -> `REFINE_TARGET_STATUS`
+> Next executor: `/yoke {ITEM_NEXT_EXECUTOR}`
 
-> **YOK-{N}** refined: `refining-idea` -> `refined-idea`
-> The scheduler will route this item to `/yoke shepherd` (epic) or `/yoke advance` (issue) for implementation.
-
-For Blitz, final output must include the verified linked slug:
-
-> **YOK-{N}** refined: `refining-idea` -> `refined-idea`
-> Execution document: `{SLUG}`
-> Next step: `/yoke blitz YOK-{N}`
-
-**Plan refinement** (entry was `refining-plan`, epic only): advance to
-`planned`. Payload: `{target_status: "planned", source_status:
-"refining-plan"}`. Final output:
-
-> **YOK-{N}** plan refined: `refining-plan` -> `planned`
-> The scheduler will route this item to `/yoke conduct` for implementation.
+When `ITEM_NEXT_EXECUTOR=blitz`, include the verified execution-document slug
+and the exact `/yoke blitz YOK-{N}` handoff.
 
 GitHub body sync runs implicitly on the lifecycle transition; explicit
 re-sync is not required.
 
 **If any step above failed:** Do NOT advance status. Leave the item at
-its current status (`refining-idea` or `refining-plan`) and report the
-failure.
+`REFINE_ACTIVE_STATUS` and report the failure.
 
 **If the advance fails with `GATE_DB_CLAIM_PROSE_MISMATCH`:** the
 spec/body declares governed DB mutation but the stored
@@ -250,9 +237,9 @@ After status advancement and claim release, emit:
 {Brief summary of what changed and why}
 ```
 
-Include the applicable status transition note from step 9.
-For Blitz, also include the linked execution-document slug and the
-`/yoke blitz YOK-{N}` handoff.
+Include the served status transition and next-executor note from step 9. When
+`ITEM_NEXT_EXECUTOR=blitz`, also include the linked execution-document slug
+and `/yoke blitz YOK-{N}` handoff.
 
 ### 12. Completion
 
@@ -260,8 +247,8 @@ Refinement is complete when:
 - All non-empty artifacts have been evaluated
 - Identified issues have been addressed in the appropriate structured fields
 - Every updated field has been re-read successfully after the write
-- Status has been advanced to `refined-idea` (idea refinement) or `planned` (plan refinement)
-- A Blitz has exactly one execution strategy document linked and verified
+- Status has been advanced to `REFINE_TARGET_STATUS`
+- A `blitz` next-executor handoff has exactly one execution strategy document linked and verified
   through `strategy.execution.get`
 - The item claim has been released with reason `completed`
 - The operator has been shown what changed in the final output

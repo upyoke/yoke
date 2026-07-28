@@ -187,7 +187,7 @@ class TestEmitSessionResumedFromReactivation(_PgResumptionTestCase):
 
     def test_emits_resumption_event_when_session_ended_claims_exist(self) -> None:
         conn = self.conn
-        _insert_session(conn, "sess-resume", ended=True)
+        _insert_session(conn, "sess-resume")
         _insert_claim(
             conn, "sess-resume", 700, released=True, release_reason="session_ended",
         )

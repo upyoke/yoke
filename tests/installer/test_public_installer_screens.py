@@ -6,6 +6,7 @@ live in ``test_installer_goldens.py``; these tests cover the logic — version
 normalization, the already-installed/failure branches, and PATH advice — across
 combinations a single golden does not.
 """
+
 from __future__ import annotations
 
 import io
@@ -164,8 +165,8 @@ def test_failure_screen_prints_reason_and_rerun(tmp_path: Path) -> None:
     assert "☀ Install failed" in rendered
     assert "✗ Couldn't install Yoke." in rendered
     assert "error: failed to resolve yoke-cli from the index" in rendered
-    assert f"curl -fsSL {release['base_url']}/install | bash" in rendered
-    assert "curl -fsSL https://api.upyoke.com/install | bash" not in rendered
+    assert f"curl -fsSL {release['base_url']}/install | sh" in rendered
+    assert "curl -fsSL https://upyoke.com/install | sh" not in rendered
     # The success screen never renders on a failed install.
     assert "☀ Starting Yoke onboard…" not in rendered
 
@@ -204,7 +205,7 @@ def test_channel_resolution_failure_prints_reason_and_rerun() -> None:
     assert "missing-channel" in rendered
     assert "HTTP Error 403" in rendered
     assert "Try again:" in rendered
-    assert "curl -fsSL https://api.stage.upyoke.com/install | bash" in rendered
+    assert "curl -fsSL https://api.stage.upyoke.com/install | sh" in rendered
     assert "Traceback" not in rendered
 
 
@@ -235,5 +236,5 @@ def test_latest_channel_failure_points_to_stage_distribution_origin() -> None:
     assert runner.commands == []
     assert "https://api.stage.upyoke.com" in rendered
     assert "pre-stable releases" in rendered
-    assert "curl -fsSL https://api.stage.upyoke.com/install | bash" in rendered
-    assert "curl -fsSL https://api.upyoke.com/install | bash" not in rendered
+    assert "curl -fsSL https://api.stage.upyoke.com/install | sh" in rendered
+    assert "curl -fsSL https://upyoke.com/install | sh" not in rendered

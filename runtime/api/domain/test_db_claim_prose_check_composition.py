@@ -40,7 +40,7 @@ class TestCheckComposition:
         assert outcome.blocks is True
         assert "ALTER TABLE" in outcome.triggers
         assert f"YOK-{item_id}" in outcome.recovery
-        assert "db-claim-amend" in outcome.recovery
+        assert "yoke db-claim amend" in outcome.recovery
 
     def test_explicit_negative_claim_suppresses_vocabulary_only_hits(self):
         item_id = 88
@@ -88,19 +88,24 @@ class TestCheckComposition:
             profile_raw='{"state":"none"}',
             item_id=item_id,
         )
-        assert "python3 -m yoke_core.api.service_client db-claim-amend" in outcome.recovery
-        assert f"--item YOK-{item_id}" in outcome.recovery
+        assert f"yoke db-claim amend YOK-{item_id}" in outcome.recovery
+        assert "--reason \"<why>\" --payload '<unified-claim-json>'" in outcome.recovery
+        assert "service_client" not in outcome.recovery
 
     def test_no_profile_means_no_declared_claim(self):
         outcome = check(
-            "ALTER TABLE x", profile_raw=None, item_id=1,
+            "ALTER TABLE x",
+            profile_raw=None,
+            item_id=1,
         )
         assert outcome.has_declared_claim is False
         assert outcome.blocks is True
 
     def test_malformed_profile_treated_as_undeclared(self):
         outcome = check(
-            "ALTER TABLE x", profile_raw="{not-json", item_id=1,
+            "ALTER TABLE x",
+            profile_raw="{not-json",
+            item_id=1,
         )
         assert outcome.has_declared_claim is False
         assert outcome.blocks is True

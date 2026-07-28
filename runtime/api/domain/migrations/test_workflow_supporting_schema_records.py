@@ -18,10 +18,6 @@ from yoke_core.domain.machine_qa_pack import (
     load_machine_qa_methods,
 )
 from yoke_core.domain.migration_apply_manifest import validate_manifest_payload
-from yoke_core.domain.migrations.installer_campaign_plan_rows import (
-    apply as apply_installer_campaign,
-    invariants as installer_campaign_invariants,
-)
 from yoke_core.domain.migrations.workflow_supporting_schema_records import (
     MIGRATION_NAME,
     apply,
@@ -173,7 +169,7 @@ def test_apply_propagates_absent_schema_and_repeat_apply_is_stable(test_db) -> N
     assert seeded_counts == {table: _count(test_db, table) for table in seeded_counts}
 
 
-def test_apply_repairs_machine_methods_before_installer_plan_validation(
+def test_apply_repairs_machine_methods_after_catalog_drift(
     test_db,
 ) -> None:
     _remove_supporting_schema(test_db)
@@ -191,6 +187,3 @@ def test_apply_repairs_machine_methods_before_installer_plan_validation(
     apply(test_db)
     invariants(test_db)
     assert _machine_method_state(test_db) == _expected_machine_method_state()
-
-    apply_installer_campaign(test_db)
-    installer_campaign_invariants(test_db)

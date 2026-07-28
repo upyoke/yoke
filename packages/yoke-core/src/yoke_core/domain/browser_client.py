@@ -22,7 +22,7 @@ The implementation is split across this parent and three sibling modules:
 The parent retains the ``DaemonState`` dataclass, the path helpers
 (``_browser_dir`` / ``_state_file_path`` — both anchored on the
 machine-level runtime directory owned by
-``yoke_core.domain.browser_runtime_home``, never a repo path), the
+``yoke_harness.browser_runtime_home``, never a repo path), the
 HTTP request layer (``daemon_request`` / ``daemon_status`` /
 ``daemon_health`` / ``daemon_running``), ``execute_step``,
 ``_parse_viewport``, ``_log``, and the ``main()`` argparse entry point.
@@ -78,7 +78,7 @@ from yoke_cli.transport.bounded_json_http import (
     request_json,
 )
 from yoke_cli.transport.response_limits import DEFAULT_JSON_RESPONSE_LIMIT_BYTES
-from yoke_core.domain import browser_runtime_home
+from yoke_harness import browser_runtime_home
 from yoke_core.domain.browser_client_cli import _cli_daemon, _cli_exec, _cli_snapshot
 from yoke_core.domain.browser_client_lifecycle import (  # noqa: F401
     daemon_start,

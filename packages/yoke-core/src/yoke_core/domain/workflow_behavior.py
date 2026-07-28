@@ -6,10 +6,15 @@ from dataclasses import dataclass
 
 from yoke_core.domain.workflow_gate_catalog import GATE_PLAN_SIMULATION
 from yoke_core.domain.workflow_runtime import WorkflowRuntime
+from yoke_contracts.item_worktrees import (
+    ITEM_WORKTREE_LANE_IMPLEMENTATION,
+    ITEM_WORKTREE_LANE_INTEGRATION,
+    ITEM_WORKTREE_LANE_WORKER,
+)
 
-LANE_IMPLEMENTATION = "implementation"
-LANE_WORKER = "worker"
-LANE_INTEGRATION = "integration"
+LANE_IMPLEMENTATION = ITEM_WORKTREE_LANE_IMPLEMENTATION
+LANE_WORKER = ITEM_WORKTREE_LANE_WORKER
+LANE_INTEGRATION = ITEM_WORKTREE_LANE_INTEGRATION
 
 
 @dataclass(frozen=True)
@@ -64,6 +69,23 @@ def release_note_category(runtime: WorkflowRuntime) -> str:
     return "improvements"
 
 
+def delivery_redirect_stage(runtime: WorkflowRuntime) -> str | None:
+    """Return the definition-owned stage that waits on delivery evidence."""
+    if runtime.policies["delivery"] != "release_stage":
+        return None
+    predecessors = {
+        str(edge["from_stage_id"])
+        for edge in runtime.definition["transitions"]
+        if str(edge["to_stage_id"]) in runtime.terminal_stage_ids
+    }
+    if len(predecessors) != 1:
+        raise ValueError(
+            f"workflow {runtime.workflow_id}@{runtime.version} must have one "
+            "delivery-stage predecessor"
+        )
+    return predecessors.pop()
+
+
 def worktree_lane_policy(runtime: WorkflowRuntime) -> WorktreeLanePolicy:
     """Interpret the definition's worktree policy as lane-role constraints."""
     policy_id = str(runtime.policies["worktrees"])
@@ -83,6 +105,7 @@ __all__ = [
     "LANE_INTEGRATION",
     "LANE_WORKER",
     "WorktreeLanePolicy",
+    "delivery_redirect_stage",
     "generates_task_graph",
     "release_note_category",
     "requires_plan_simulation",

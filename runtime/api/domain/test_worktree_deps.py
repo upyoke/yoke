@@ -7,7 +7,6 @@ limit.
 from __future__ import annotations
 
 from pathlib import Path
-from unittest import mock
 
 import pytest
 
@@ -129,22 +128,6 @@ class TestNestedDetectorRespectsPath:
         captured = capsys.readouterr()
         assert specs == []
         assert "npm not on PATH" in captured.err
-
-    def test_packaged_browser_runtime_is_never_detected(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        """The packaged Browser QA sources (runtime/browser_runtime/) must
-        never queue an npm install — that tree installs into the machine
-        runtime dir, not into a checkout."""
-        monkeypatch.setattr(
-            worktree_deps.shutil, "which", lambda name: "/usr/bin/" + name
-        )
-        packaged = tmp_path / "runtime" / "browser_runtime"
-        packaged.mkdir(parents=True)
-        (packaged / "package-lock.json").write_text("{}")
-        (packaged / "package.json").write_text("{}")
-        specs = detect_deps(str(tmp_path))
-        assert specs == []
 
     def test_skip_when_pip_not_on_path(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys,

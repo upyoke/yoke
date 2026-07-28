@@ -7,6 +7,8 @@ from typing import Any, Mapping, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.workflow_definition_builders import (
+    WORKFLOW_FILE_BUDGET_OPTIONAL,
+    WORKFLOW_FILE_BUDGET_REQUIRED,
     WORKFLOW_PATH_CLAIMS_OPTIONAL,
     WORKFLOW_PATH_CLAIMS_REQUIRED,
 )
@@ -23,6 +25,7 @@ def publish_workflow_policy_defaults(
     *,
     workflow_id: str,
     expected_current_version: int,
+    file_budget_default: Optional[bool] = None,
     path_claims_default: Optional[bool] = None,
     approval_defaults: Optional[Mapping[str, Any]] = None,
     published_by_actor_id: Optional[int] = None,
@@ -41,6 +44,7 @@ def publish_workflow_policy_defaults(
             f"{expected_current_version} to {current_version}; refresh first"
         )
     supplied = sum((
+        file_budget_default is not None,
         path_claims_default is not None,
         approval_defaults is not None,
     ))
@@ -64,7 +68,28 @@ def publish_workflow_policy_defaults(
     # bounded default the operator edited.
     policies.setdefault("approval_defaults", {})
     result_fields: dict[str, Any]
-    if path_claims_default is not None:
+    if file_budget_default is not None:
+        existing = str(policies["file_budget"])
+        if "file_budget" not in set(policies["item_posture_allowlist"]):
+            raise WorkflowRegistryError(
+                f"workflow {workflow_id!r} does not expose File Budget "
+                "as an operator-editable default"
+            )
+        if existing not in {
+            WORKFLOW_FILE_BUDGET_OPTIONAL,
+            WORKFLOW_FILE_BUDGET_REQUIRED,
+        }:
+            raise WorkflowRegistryError(
+                f"workflow {workflow_id!r} File Budget policy {existing!r} "
+                "is not an editable default"
+            )
+        policies["file_budget"] = (
+            WORKFLOW_FILE_BUDGET_REQUIRED
+            if file_budget_default
+            else WORKFLOW_FILE_BUDGET_OPTIONAL
+        )
+        result_fields = {"file_budget_default": bool(file_budget_default)}
+    elif path_claims_default is not None:
         existing = str(policies["path_claims"])
         if "path_claims" not in set(policies["item_posture_allowlist"]):
             raise WorkflowRegistryError(

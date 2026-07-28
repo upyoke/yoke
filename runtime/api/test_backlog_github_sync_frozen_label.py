@@ -30,7 +30,7 @@ def _ok_resolver(*args, **kwargs):
 class TestSyncFrozenLabel:
     def test_missing_issue_is_silent(self):
         db = _make_db()
-        insert_item(db, id=7, type="issue", status="implementing", project="externalwebapp")
+        insert_item(db, id=7, workflow_id="issue", status="implementing", project="externalwebapp")
         with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
             f"{_LABEL_REST_STATE}.ensure_label",
         ) as ensure, patch(
@@ -50,7 +50,7 @@ class TestSyncFrozenLabel:
         insert_item(
             db,
             id=7,
-            type="issue",
+            workflow_id="issue",
             status="implementing",
             project="externalwebapp",
             github_issue="#42",
@@ -85,7 +85,7 @@ class TestSyncFrozenLabel:
         insert_item(
             db,
             id=7,
-            type="issue",
+            workflow_id="issue",
             status="implementing",
             project="externalwebapp",
             github_issue="#42",
@@ -116,7 +116,7 @@ class TestSyncFrozenLabel:
         insert_item(
             db,
             id=8,
-            type="issue",
+            workflow_id="issue",
             status="implementing",
             project="externalwebapp",
             github_issue="#43",

@@ -1,9 +1,8 @@
-"""Doc regression guards for lifecycle + routing truth.
+"""Doc regression guards for workflow-version lifecycle and routing truth.
 
-Lifecycle/routing doctrine parity: the runtime already ships the current
-lifecycle and routing contracts, but several human-readable surfaces still carried
-stale claims. This module locks in the consolidated doc state so the
-drift cannot silently regress.
+The runtime interprets every live item through its immutable workflow pin.
+These tests keep the human-readable surfaces aligned with that authority while
+preserving the independent generated-task lifecycle.
 
 These are grep-style assertions against tracked markdown/JSON files in
 the repo. They do not touch the database, git, or any network.
@@ -80,41 +79,51 @@ class TestBootstrapSpec:
 
 
 class TestLifecycleDoc:
-    """AC-1: lifecycle.md is the canonical human lifecycle guide."""
+    """The lifecycle guide must teach immutable workflow-version authority."""
 
     @pytest.fixture
     def text(self) -> str:
         return _read(YOKE_DOCS / "lifecycle.md")
 
-    def test_has_issue_command_family(self, text):
-        assert "Issue command family" in text or "issue command family" in text.lower()
+    def test_names_immutable_item_pin(self, text):
+        assert "`workflow_id` / `workflow_version_id` pin" in text
+        assert "exact pinned version" in text
 
-    def test_has_epic_command_family(self, text):
-        assert "Epic command family" in text or "epic command family" in text.lower()
+    def test_definition_owns_lifecycle_shape(self, text):
+        assert "Definitions own ordered stages" in text
+        assert "target-stage gate" in text
+        assert re.search(r"registered\s+executor bindings", text)
+        assert "Do not copy a progression" in text
 
-    def test_refine_owns_idea_refinement(self, text):
-        # The command-boundary summary must name refine as the owner of idea refinement.
-        assert "/yoke refine" in text
-        assert "idea -> refining-idea -> refined-idea" in text or "idea → refining-idea → refined-idea" in text
+    def test_executor_boundary_is_half_open(self, text):
+        assert "## Registered Executor Boundaries" in text
+        assert "from_stage_id <= current_stage < through_stage_id" in text
+        assert "/yoke <executor_id>" in text
 
-    def test_shepherd_is_epic_only(self, text):
-        # Shepherd must be labeled epic-only for refined-idea -> plan-drafted.
-        assert "/yoke shepherd" in text
-        # Look for "epic" and "shepherd" in the same command-boundary table row / prose.
-        assert re.search(r"shepherd.*epic", text, re.IGNORECASE) or re.search(
-            r"epic.*shepherd", text, re.IGNORECASE
+    def test_shepherd_is_policy_bound(self, text):
+        assert "`shepherd`" in text
+        assert "compatible generated-task policy" in text
+        assert "epic-only" not in text.lower()
+        assert "epic command family" not in text.lower()
+
+    def test_epic_task_lifecycle_remains_independent(self, text):
+        match = re.search(
+            r"## Canonical Epic Task Progression\b(.*?)(?=\n## |\Z)",
+            text,
+            re.DOTALL,
         )
-
-    def test_polish_owns_reviewed_to_implemented(self, text):
-        assert "/yoke polish" in text
-        assert "reviewed-implementation" in text
-        assert "polishing-implementation" in text
-        assert "implemented" in text
+        assert match, "lifecycle.md missing canonical epic-task progression"
+        section = match.group(1)
+        assert "planning" in section
+        assert "reviewed-implementation" in section
+        assert "polishing-implementation" in section
+        assert "release" in section
+        assert "done" in section
 
     def test_handoff_boundaries_require_fresh_entrypoints(self, text):
         assert "fresh command entrypoints" in text or "fresh command entrypoint" in text
-        assert "/yoke polish" in text
-        assert "/yoke usher" in text
+        assert "through_stage_id" in text
+        assert "next executor" in text
 
     def test_routes_to_canonical_routing_docs(self, text):
         assert "session-offer-contract.md" in text
@@ -143,7 +152,9 @@ class TestCommandsDoc:
         # Slice the refine section up to the next top-level ### heading.
         section_start = match.start()
         next_heading = re.search(r"\n### \w", text[section_start + 1 :])
-        section_end = section_start + 1 + (next_heading.start() if next_heading else len(text))
+        section_end = (
+            section_start + 1 + (next_heading.start() if next_heading else len(text))
+        )
         section = text[section_start:section_end]
         assert "does not advance status" not in section, (
             "commands.md refine section still claims refine 'does not advance status'"
@@ -158,7 +169,9 @@ class TestCommandsDoc:
         assert match, "commands.md missing '### polish' section"
         section_start = match.start()
         next_heading = re.search(r"\n### \w", text[section_start + 1 :])
-        section_end = section_start + 1 + (next_heading.start() if next_heading else len(text))
+        section_end = (
+            section_start + 1 + (next_heading.start() if next_heading else len(text))
+        )
         section = text[section_start:section_end]
         assert "does not advance status" not in section, (
             "commands.md polish section still claims polish 'does not advance status'"
@@ -167,7 +180,9 @@ class TestCommandsDoc:
             "reviewed-implementation" in section
             and "polishing-implementation" in section
             and "implemented" in section
-        ), "commands.md polish section must describe reviewed-implementation -> polishing-implementation -> implemented"
+        ), (
+            "commands.md polish section must describe reviewed-implementation -> polishing-implementation -> implemented"
+        )
         assert "fresh `/yoke usher` command entrypoint" in section, (
             "commands.md polish section must say usher begins as a fresh command entrypoint"
         )
@@ -188,74 +203,48 @@ class TestCommandsDoc:
 
 
 class TestStateManagementDoc:
-    """AC-3: state-management.md must not misstate idea-refinement
-    ownership or flatten the issue/epic split."""
+    """State-management.md must derive item state from immutable pins."""
 
     @pytest.fixture
     def text(self) -> str:
         return _read(DOCS / "state-management.md")
 
-    def test_refining_idea_not_owned_by_shepherd(self, text):
-        """The ownership table row for refining-idea must not claim Shepherd."""
-        # Match the status table row.
-        pattern = re.compile(r"^\|\s*`refining-idea`\s*\|\s*([^|]+?)\s*\|", re.MULTILINE)
-        match = pattern.search(text)
-        assert match, "state-management.md missing refining-idea ownership table row"
-        owner = match.group(1)
-        assert "Shepherd" not in owner, (
-            f"state-management.md still claims Shepherd owns refining-idea (got: {owner!r})"
-        )
-        assert "Refine" in owner or "refine" in owner, (
-            f"state-management.md refining-idea owner must be Refine (got: {owner!r})"
-        )
+    def test_definition_fields_own_item_state(self, text):
+        assert "`workflow_id` and `workflow_version_id`" in text
+        assert "ordered `stages`, `transitions`, and `terminal_stage_ids`" in text
+        assert "gates referenced by each target stage" in text
+        assert "`executor_bindings`, interpreted as half-open" in text
 
-    def test_refined_idea_not_owned_by_shepherd(self, text):
-        pattern = re.compile(r"^\|\s*`refined-idea`\s*\|\s*([^|]+?)\s*\|", re.MULTILINE)
-        match = pattern.search(text)
-        assert match, "state-management.md missing refined-idea ownership table row"
-        owner = match.group(1)
-        assert "Shepherd" not in owner, (
-            f"state-management.md still claims Shepherd owns refined-idea (got: {owner!r})"
-        )
+    def test_item_flow_has_no_workflow_id_branch(self, text):
+        assert "## Pinned Item Stage Flow" in text
+        assert "There is no global backlog-item progression" in text
+        assert "no Issue/Epic item-type" in text
+        for stale_heading in (
+            "**Dash items:**",
+            "**Blitz items:**",
+            "**Issue items:**",
+            "**Epic items:**",
+        ):
+            assert stale_heading not in text
 
-    def test_spec_refinement_no_longer_uses_shepherd(self, text):
-        """The Backlog Item Lifecycle transitions table must not say
-        /yoke shepherd starts spec refinement — that belongs to /yoke refine."""
-        # Look for the stale pattern: "Spec refinement started | `/yoke shepherd`".
-        assert not re.search(
-            r"Spec refinement started\s*\|\s*`/yoke shepherd`", text
-        ), "state-management.md still says /yoke shepherd starts spec refinement"
-        assert "Shepherd starts spec refinement" not in text, (
-            "state-management.md still contains stale prose claiming Shepherd starts spec refinement"
-        )
+    def test_live_routing_reads_exact_version(self, text):
+        assert "yoke workflows item get YOK-N" in text
+        assert "yoke workflows version get WORKFLOW VERSION" in text
+        assert "Find the active half-open executor binding" in text
+        assert "Invoke `/yoke <executor_id>`" in text
 
-    def test_usher_boundary_keeps_polish_as_pre_usher_owner(self, text):
-        """The delivery-lifecycle ownership boundary must keep polish, not
-        conduct/advance, as the owner of reviewed-implementation -> implemented."""
+    def test_release_boundary_is_policy_and_binding_owned(self, text):
         match = re.search(
-            r"### Usher Ownership Boundary\b(.*?)(?=\n### |\Z)", text, re.DOTALL
-        )
-        assert match, "state-management.md missing '### Usher Ownership Boundary' section"
-        section = match.group(1)
-        assert "Polish" in section, (
-            "state-management.md Usher Ownership Boundary must name Polish as a separate owner"
-        )
-        assert (
-            "reviewed-implementation" in section
-            and "polishing-implementation" in section
-            and "implemented" in section
-        ), (
-            "state-management.md Usher Ownership Boundary must describe the "
-            "reviewed-implementation -> polishing-implementation -> implemented handoff"
-        )
-        assert not re.search(
-            r"Conduct/Advance.*polishing-implementation.*implemented",
-            section,
+            r"### Release-stage executor boundary\b(.*?)(?=\n### |\Z)",
+            text,
             re.DOTALL,
-        ), (
-            "state-management.md Usher Ownership Boundary still assigns the "
-            "polishing-implementation -> implemented transition to Conduct/Advance"
         )
+        assert match, "state-management.md missing release-stage executor boundary"
+        section = match.group(1)
+        assert "`usher` binding" in section
+        assert "`through_stage_id`" in section
+        assert re.search(r"shared\s+stage ids do not imply", section)
+        assert "Definitions without an `usher` binding" in section
 
     def test_state_management_uses_structured_fields_not_raw_body_claim(self, text):
         assert "Specs live directly in backlog item bodies." not in text, (
@@ -274,15 +263,14 @@ class TestStateManagementDoc:
         section = match.group(1)
         assert "reviewed-implementation" in section
         assert "polishing-implementation" in section
-        assert not re.search(
-            r"reviewing-implementation\s*→\s*implemented", section
-        ), "state-management.md Epic Task Status Flow still skips reviewed-implementation/polish"
+        assert not re.search(r"reviewing-implementation\s*→\s*implemented", section), (
+            "state-management.md Epic Task Status Flow still skips reviewed-implementation/polish"
+        )
 
-    def test_backlog_item_flow_splits_issue_and_epic_implementation_entry(self, text):
-        assert "refined-idea / `planned` → `implementing`" not in text
-        assert "refined-idea / planned → implementing" not in text
-        assert "/yoke advance YOK-N implementation" in text
-        assert "/yoke conduct YOK-N" in text
+    def test_backlog_item_flow_uses_workflow_pin(self, text):
+        assert "`workflow_id` is a registry key" in text
+        assert "`workflow_version_id` selects the only authoritative" in text
+        assert "target-stage gate references" in text
 
 
 # ---------------------------------------------------------------------------

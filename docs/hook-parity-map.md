@@ -24,7 +24,7 @@ Behaviors in this tier work in any harness, including wrapper-only mode with zer
 
 ### Cross-harness (tested hook subset)
 
-Behaviors in this tier use hooks that have been verified in both Claude Code and Codex (>= 0.118.0-alpha.2). They provide optional enhancements over the Tier 1 baseline. Correctness never depends on them.
+Behaviors in this tier use hooks that have been verified in both Claude Code and Codex (>= 0.128.0-alpha.1). They provide optional enhancements over the Tier 1 baseline. Correctness never depends on them.
 
 | Hook event | Yoke behavior | Claude Code | Codex (tested) |
 |------------|----------------|-------------|-----------------|
@@ -35,7 +35,7 @@ Behaviors in this tier use hooks that have been verified in both Claude Code and
 | `PostToolUse` (Bash matcher) | Python-owned telemetry, DB-query failure detection, and Bash failure classification. Claude Code delivers explicit failures via `PostToolUseFailure`; Codex does not — see below for how Codex failure telemetry is recovered inside the `PostToolUse` handler. | `.claude/settings.json` hook commands | Via `.codex/hooks.json` + `/bin/zsh -lc 'env YOKE_EXECUTOR=codex YOKE_PROVIDER=openai yoke hook evaluate PostToolUse'` |
 | `PostToolUseFailure` (Bash matcher) | Python-owned telemetry for Bash tool failures — `HarnessToolCallFailed` classification with nonzero exit semantics. | `.claude/settings.json` hook commands | **Not supported by Codex.** OpenAI's hooks docs do not list this event; live Codex sessions confirm it never fires. Codex Bash failure telemetry is recovered inside the `PostToolUse` handler via (1) `Exit code N` parsing of `tool_response` content, (2) a hard-failure text fallback for `No such file or directory` / `command not found` / `Permission denied`, and (3) last-resort transcript reconciliation against `transcript_path` — matching `tool_use_id` to the rollout's `call_id` to recover silent nonzero exits like `false` or `exit 7`. |
 
-**Runtime floor:** Codex hook-enhanced mode requires Codex >= 0.118.0-alpha.2 with hook support. The proven Desktop setup is the repo-local hook pack in `.codex/hooks.json` plus a clean app relaunch. When the runtime floor is not met, the adapter falls back to wrapper-only mode (Tier 1) silently.
+**Runtime floor:** Codex hook-enhanced mode requires Codex >= 0.128.0-alpha.1 with hook support. The proven Desktop setup is the repo-local hook pack in `.codex/hooks.json` plus a clean app relaunch. When the runtime floor is not met, the adapter falls back to wrapper-only mode (Tier 1) silently.
 
 **Cross-harness hook dispatch:** the per-event command lines in the rendered manifests (`runtime/harness/claude/settings.json`, `runtime/harness/codex/hooks.json`) collapse to a single `yoke hook evaluate <event>` invocation per `(event, matcher)` pair — for example, `yoke hook evaluate PreToolUse` and `yoke hook evaluate UserPromptSubmit`. The CLI currently delegates to the local `runtime.harness.hook_runner` implementation, which walks the universal ordering chain inside the process; the manifest no longer enumerates per-lint module command lines or injects a repo-root `PYTHONPATH`.
 

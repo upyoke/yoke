@@ -105,6 +105,7 @@ def run_preflight(
         from yoke_core.domain.worktree_paths import (
             _resolve_repo_root_from_cwd,
         )
+
         if project:
             from yoke_core.domain.db_helpers import connect
             from yoke_core.domain.project_checkout_locations import checkout_for_project
@@ -128,6 +129,7 @@ def run_preflight(
     try:
         from yoke_core.domain.advance_blocked_gate import evaluate as _eval_blocked
         from yoke_core.domain.db_helpers import connect as _connect_db
+
         _conn = _connect_db()
         try:
             decision = _eval_blocked(_conn, item_id)
@@ -192,9 +194,7 @@ def run_preflight(
             )
         return out
     out.actions_taken.append(
-        f"path-claim:activated={activated_ids}"
-        if activated_ids
-        else "path-claim:no-op"
+        f"path-claim:activated={activated_ids}" if activated_ids else "path-claim:no-op"
     )
 
     # Step 3 — worktree resolution / creation.
@@ -228,6 +228,7 @@ def run_preflight(
         # does NOT cover this call site. Patch `worktree_create.create_worktree`
         # (or scope `repo_root` to a tempdir) to keep tests off the real repo.
         from yoke_core.domain.worktree_create import create_worktree
+
         create_result = create_worktree(
             item_id=item_id,
             project=project,
@@ -238,6 +239,7 @@ def run_preflight(
             out.block_kind = BLOCK_CREATE_FAILED
             out.narrative = f"create_worktree failed: {create_result.error}"
             return out
+        out.branch = create_result.branch
         out.worktree_path = create_result.path
         out.actions_taken.append(
             "worktree:created" if create_result.created else "worktree:reused"
@@ -267,7 +269,7 @@ def _parse_item_id(value: str) -> int:
     raw = value.strip()
     for prefix in ("YOK-", "yok-"):
         if raw.startswith(prefix):
-            raw = raw[len(prefix):]
+            raw = raw[len(prefix) :]
             break
     raw = raw.lstrip("0") or "0"
     return int(raw)

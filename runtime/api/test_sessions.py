@@ -137,7 +137,6 @@ def _create_schema(conn) -> None:
     converge_builtin_workflows(conn)
 
 
-
 def _apply_on_backend(build) -> None:
     """``init_test_db`` applier: run ``build(conn)`` against the backend conn."""
     c = db_backend.connect()
@@ -187,6 +186,44 @@ def _register(conn, session_id="sess-1", **kwargs):
     )
     defaults.update(kwargs)
     return register_session(conn, session_id=session_id, **defaults)
+
+
+def _insert_claimable_item(conn, item_id: int) -> None:
+    """Seed a real workflow-pinned issue item for claim lifecycle tests."""
+    from runtime.api.fixtures.backlog import insert_item
+
+    insert_item(conn, id=int(item_id), workflow_id="issue")
+
+
+def _insert_claimable_items(conn, *item_ids: int) -> None:
+    """Seed several real issue items without duplicating an existing fixture row."""
+    from runtime.api.fixtures.backlog import insert_item
+
+    for item_id in item_ids:
+        if conn.execute("SELECT 1 FROM items WHERE id=%s", (int(item_id),)).fetchone():
+            continue
+        insert_item(conn, id=int(item_id), workflow_id="issue")
+
+
+def _insert_claimable_epic_task(conn, epic_id: int, task_num: int) -> None:
+    """Seed a real workflow-pinned epic and one generated task claim target."""
+    from runtime.api.fixtures.backlog import insert_epic_task, insert_item
+    from yoke_core.domain.schema_common import _table_exists
+
+    if not conn.execute(
+        "SELECT 1 FROM items WHERE id=%s", (int(epic_id),)
+    ).fetchone():
+        insert_item(conn, id=int(epic_id), workflow_id="epic", status="implementing")
+    if _table_exists(conn, "epic_tasks") and not conn.execute(
+        "SELECT 1 FROM epic_tasks WHERE epic_id=%s AND task_num=%s",
+        (int(epic_id), int(task_num)),
+    ).fetchone():
+        insert_epic_task(
+            conn,
+            epic_id=int(epic_id),
+            task_num=int(task_num),
+            status="implementing",
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -269,9 +306,7 @@ def ownership_conn(tmp_path):
         ws = str(tmp_path)
         (tmp_path / ".yoke" / "strategy").mkdir(parents=True, exist_ok=True)
         for sml_file in ("MISSION.md", "LANDSCAPE.md", "VISION.md", "MASTER-PLAN.md"):
-            (tmp_path / ".yoke" / "strategy" / sml_file).write_text(
-                f"# {sml_file}\n"
-            )
+            (tmp_path / ".yoke" / "strategy" / sml_file).write_text(f"# {sml_file}\n")
         try:
             yield c, ws
         finally:

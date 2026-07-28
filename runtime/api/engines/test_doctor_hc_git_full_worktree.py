@@ -22,7 +22,6 @@ from yoke_core.engines._doctor_hc_git_test_helpers import (
 )
 from yoke_core.engines.doctor import (
     DoctorArgs,
-    RecordCollector,
     _should_run_hc,
     HEALTH_CHECKS,
     hc_stale_remote_branches,
@@ -142,7 +141,7 @@ class TestStaleRemoteBranches:
         """T1: PASS when no remote branches for done items."""
         conn = _make_conn()
         _seed_project(conn, "yoke")
-        _insert_item(conn, 10, "Done item", type="issue", status="done")
+        _insert_item(conn, 10, "Done item", workflow_id="issue", status="done")
         mock_run.side_effect = [
             _completed(stdout=""),  # ls-remote for yoke
             _completed(stdout=""),  # ls-remote for default
@@ -156,7 +155,7 @@ class TestStaleRemoteBranches:
         """T2: Stale remote branch YOK-N detected for done item."""
         conn = _make_conn()
         _seed_project(conn, "yoke")
-        _insert_item(conn, 20, "Done item", type="issue", status="done")
+        _insert_item(conn, 20, "Done item", workflow_id="issue", status="done")
         mock_run.side_effect = [
             _completed(stdout="abc123\trefs/heads/YOK-20\n"),
             _completed(stdout="abc123\trefs/heads/YOK-20\n"),
@@ -171,7 +170,7 @@ class TestStaleRemoteBranches:
         """T3: Active item with remote branch NOT flagged."""
         conn = _make_conn()
         _seed_project(conn, "yoke")
-        _insert_item(conn, 50, "Active item", type="issue", status="implementing")
+        _insert_item(conn, 50, "Active item", workflow_id="issue", status="implementing")
         mock_run.side_effect = [
             _completed(stdout="abc123\trefs/heads/YOK-50\n"),
             _completed(stdout="abc123\trefs/heads/YOK-50\n"),
@@ -186,7 +185,7 @@ class TestStaleRemoteBranches:
         """T6: Cancelled item with remote branch IS flagged."""
         conn = _make_conn()
         _seed_project(conn, "yoke")
-        _insert_item(conn, 60, "Cancelled", type="issue", status="cancelled")
+        _insert_item(conn, 60, "Cancelled", workflow_id="issue", status="cancelled")
         mock_run.side_effect = [
             _completed(stdout="abc123\trefs/heads/YOK-60\n"),
             _completed(stdout="abc123\trefs/heads/YOK-60\n"),

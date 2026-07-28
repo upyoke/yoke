@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
+from yoke_core.domain.workflow_definition_builders import (
+    WORKFLOW_FILE_BUDGET_OPTIONAL,
+)
+
 
 class ItemPostureError(ValueError):
     """Raised when a requested posture exceeds its workflow definition."""
@@ -72,6 +76,14 @@ def validate_item_posture(
                 conn, project_id=project_id, raw=value,
             )
             continue
+        if (
+            key == "file_budget"
+            and definition["policies"]["file_budget"]
+            != WORKFLOW_FILE_BUDGET_OPTIONAL
+        ):
+            raise ItemPostureError(
+                "file_budget posture only tightens an optional workflow policy"
+            )
         if value is not True:
             raise ItemPostureError(
                 f"{key} posture must be true when selected; omit it otherwise"

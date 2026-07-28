@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
@@ -13,6 +13,12 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_core.domain import db_helpers
 from yoke_core.domain.pydantic_validation_safety import safe_validation_message
+from yoke_core.domain.machine_qa_execution_contract import (
+    HostControlExecutionContract,
+)
+from yoke_core.domain.machine_qa_submission_artifacts import (
+    ensure_secret_free_result,
+)
 from yoke_core.domain.test_machine_capability import (
     TestMachineCapabilityError,
     replace_test_machine_settings,
@@ -65,6 +71,25 @@ class TestMachineVerifyResponse(BaseModel):
     error_code: str | None
 
 
+class TestMachineVerifyBeginRequest(TestMachineGetRequest):
+    pass
+
+
+class TestMachineVerifyBeginResponse(BaseModel):
+    execution: HostControlExecutionContract
+
+
+class TestMachineVerifySubmitRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    project: str
+    lease_id: int = Field(ge=1)
+    contract_digest: str = Field(min_length=1)
+    status: Literal["verified", "error"]
+    checks: list[dict[str, Any]]
+    error_code: str | None = None
+
+
 def handle_get(request: FunctionCallRequest) -> HandlerOutcome:
     try:
         parsed = TestMachineGetRequest(**(request.payload or {}))
@@ -106,19 +131,156 @@ def handle_verify(request: FunctionCallRequest) -> HandlerOutcome:
         parsed = TestMachineGetRequest(**(request.payload or {}))
     except ValidationError as exc:
         return _invalid(exc)
-    from yoke_core.domain.machine_qa_execution import verify_test_machine
+    return _failure(
+        "host_control_client_required",
+        "test-machine verification cannot execute on the hosted control "
+        "plane; run `yoke test-machine verify --project "
+        f"{parsed.project}` from a credential-owning harness or CLI machine",
+    )
+
+
+def handle_verify_begin(request: FunctionCallRequest) -> HandlerOutcome:
+    try:
+        parsed = TestMachineVerifyBeginRequest.model_validate(
+            request.payload or {},
+        )
+    except ValidationError as exc:
+        return _invalid(exc)
+    from yoke_core.domain.machine_qa_execution_protocol import (
+        MachineQaProtocolError,
+        begin_host_control_execution,
+    )
 
     conn = db_helpers.connect()
     try:
-        result = verify_test_machine(
+        contract = begin_host_control_execution(
             conn,
             project=parsed.project,
             session_id=request.actor.session_id,
             actor_id=request.actor.actor_id,
+            operation="verify",
+            checks=("connection", "terminal_bridge"),
+            baselines=("fresh-host", "shell-preconfigured"),
         )
-    except (TestMachineCapabilityError, ValueError) as exc:
+    except (MachineQaProtocolError, TestMachineCapabilityError) as exc:
         conn.rollback()
         return _failure("test_machine_verification_failed", str(exc))
+    finally:
+        conn.close()
+    return HandlerOutcome(
+        primary_success=True,
+        result_payload={
+            "execution": contract.model_dump(mode="json"),
+        },
+    )
+
+
+def _validate_verification_result(
+    parsed: TestMachineVerifySubmitRequest,
+    contract: HostControlExecutionContract,
+) -> None:
+    expected_names = [*contract.checks, *contract.baselines]
+    observed_names: list[str] = []
+    observed_ok: list[bool] = []
+    for check in parsed.checks:
+        if not isinstance(check.get("name"), str):
+            raise ValueError("verification check is missing its registered name")
+        if not isinstance(check.get("ok"), bool):
+            raise ValueError("verification check is missing its boolean result")
+        observed_names.append(str(check["name"]))
+        observed_ok.append(bool(check["ok"]))
+    if not observed_names or observed_names != expected_names[: len(observed_names)]:
+        raise ValueError(
+            "verification result does not follow the issued check sequence"
+        )
+    if parsed.status == "verified":
+        if (
+            observed_names != expected_names
+            or not all(observed_ok)
+            or parsed.error_code is not None
+        ):
+            raise ValueError("verified result must pass every issued check")
+    elif (
+        not str(parsed.error_code or "").strip()
+        or not all(observed_ok[:-1])
+        or observed_ok[-1]
+    ):
+        raise ValueError("error result must identify its first failed check")
+    ensure_secret_free_result(parsed.model_dump(mode="json"))
+
+
+def handle_verify_submit(request: FunctionCallRequest) -> HandlerOutcome:
+    try:
+        parsed = TestMachineVerifySubmitRequest.model_validate(
+            request.payload or {},
+        )
+    except ValidationError as exc:
+        return _invalid(exc)
+    from yoke_core.domain.machine_qa_execution_protocol import (
+        MachineQaProtocolError,
+        commit_deferred_connection,
+        complete_host_control_execution,
+        validate_host_control_submission,
+    )
+    from yoke_core.domain.test_machine_verification_recording import (
+        record_test_machine_verification,
+        recorded_test_machine_verification,
+    )
+
+    conn = db_helpers.connect()
+    try:
+        lease, contract = validate_host_control_submission(
+            conn,
+            project=parsed.project,
+            session_id=request.actor.session_id,
+            actor_id=request.actor.actor_id,
+            lease_id=parsed.lease_id,
+            contract_digest=parsed.contract_digest,
+            operation="verify",
+            checks=("connection", "terminal_bridge"),
+            baselines=("fresh-host", "shell-preconfigured"),
+            allow_recorded_replay=True,
+        )
+        _validate_verification_result(parsed, contract)
+        recorded = recorded_test_machine_verification(
+            conn,
+            contract.project_id,
+            lease_id=lease.id,
+            contract_digest=parsed.contract_digest,
+        )
+        if recorded is None:
+            if not lease.is_active:
+                raise ValueError(
+                    "host-control lease is released without a recorded verification"
+                )
+            recorded = record_test_machine_verification(
+                commit_deferred_connection(conn),
+                contract.project_id,
+                status=parsed.status,
+                checks=parsed.checks,
+                error_code=parsed.error_code,
+                lease_id=lease.id,
+                contract_digest=parsed.contract_digest,
+            )
+        if lease.is_active:
+            complete_host_control_execution(
+                conn,
+                lease,
+                reason="test-machine-verification-complete",
+            )
+        else:
+            conn.commit()
+        result = {"project": contract.project, **recorded}
+    except (
+        MachineQaProtocolError,
+        TestMachineCapabilityError,
+        ValueError,
+    ) as exc:
+        conn.rollback()
+        return _failure("test_machine_verification_submit_failed", str(exc))
+    except Exception:
+        conn.rollback()
+        raise
     finally:
         conn.close()
     return HandlerOutcome(primary_success=True, result_payload=result)
@@ -140,8 +302,13 @@ __all__ = [
     "TestMachineResponse",
     "TestMachineSettingsReplaceRequest",
     "TestMachineSettingsReplaceResponse",
+    "TestMachineVerifyBeginRequest",
+    "TestMachineVerifyBeginResponse",
     "TestMachineVerifyResponse",
+    "TestMachineVerifySubmitRequest",
     "handle_get",
     "handle_settings_replace",
     "handle_verify",
+    "handle_verify_begin",
+    "handle_verify_submit",
 ]

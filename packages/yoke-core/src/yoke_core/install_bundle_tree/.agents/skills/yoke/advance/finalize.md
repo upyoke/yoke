@@ -4,17 +4,31 @@
 
 Called by the advance router after all gates and phase-specific work complete. Updates status, syncs GitHub, commits, and reports.
 
-**Context variables** (set by router): `{N}`, `{NNN}` (zero-padded), `_title`, `_status` (old), `_target` (new), `--env` value, `WORKTREE_PATH` (absolute path to item worktree, set by worktree phase or re-entry; empty/unset when advancing on main or with `--no-worktree`)
+**Context variables** (set by router): `{N}`, `{NNN}` (zero-padded),
+`_title`, `_status` (old), `_target` (new), `_current_executor`,
+`_target_executor`, `_worktree_policy`, `_pinned_definition_json`, `--env`
+value, `WORKTREE_PATH` (absolute path to item worktree, set by worktree phase
+or re-entry; empty/unset when advancing on main or with `--no-worktree`)
 
 ---
 
-## Implementation-entry requires a refined source (step 5f)
+## Implementation-entry requires the pinned advance source (step 5f)
 
-Implementation-entry advance expects the item exactly one rung before `implementing` — `refined-idea` (issue) or `planned` (epic) — and the orchestrator dispatches that single `lifecycle.transition.execute` (the "Update Status" step below). The advance router does **not** walk intermediate pre-implementation rungs: an item still at `idea` / `refining-idea` (or an epic mid-planning) is not advanced straight to `implementing` in one call.
+Implementation-entry orchestration is valid only when the exact pinned
+definition assigns target `implementing` to executor `advance` and
+`policies.worktrees=single_implementation_lane`. Locate that binding in
+`executor_bindings`; its `from_stage_id` is the required source. The
+orchestrator dispatches the single adjacent `lifecycle.transition.execute`
+from that source to `implementing`. It does not walk earlier stages.
 
-To move a pre-refine item toward implementation, reach a refined source first, then advance:
+If the target belongs to `conduct` or another executor, stop and route to that
+pinned command. Do not infer implementation ownership from `workflow_id`.
 
-- Run `/yoke refine` — the normal path; it authors the spec/plan and lands `refined-idea` / `planned`.
+To move an earlier item toward implementation, reach the pinned `advance`
+binding's source first, then advance:
+
+- Run the executor currently selected by the pinned definition; `/yoke refine`
+  owns any active refine segment.
 - Or pass `--skip-refine` to fast-forward the gate-free bookkeeping rungs when refine deliberation is unnecessary (see below).
 
 Never hand-write intermediate `items scalar update --field status` hops to climb toward `implementing`: raw status writes are claim-protected and rejected with `ClaimVerificationDenied`. The sanctioned bookkeeping fast-forward is `--skip-refine`.
@@ -22,16 +36,22 @@ Never hand-write intermediate `items scalar update --field status` hops to climb
 ### Skip-flag bookkeeping hops
 
 `yoke_core.domain.advance_skip_core` owns the operator-asserted skip routing:
-`_REFINE_ROUTING` defines the bookkeeping hops, while
-`_REFINE_TARGETS_ALLOWED` and `_POLISH_TRANSIT_ALLOWED` are the exact
-claim-bypass allowlists. Each allowlist stays disjoint from any rung that
-carries a real gate, so claim-bypass is only ever granted for bookkeeping
-moves.
+`_executor_skip_route` reads the item's pinned `executor_bindings`, ordered
+stages, and declared `transitions`. It selects the active `refine` segment or
+the entry to the `polish` segment, derives every hop through that binding's
+handoff, and supplies that route as the exact claim-bypass allowlist. Never
+infer these hops from `workflow_id` or a built-in stage sequence.
 
 The operator-facing `--skip-polish` and `--skip-refine` flags (documented in `SKILL.md` step 0) dispatch to `advance_skip` and return before reaching this finalize step — they handle the full lifecycle themselves (hops, events, claim release):
 
-- `--skip-polish` → `advance_skip.skip_polish`: `reviewed-implementation` → `polishing-implementation` → `implemented` with `YOKE_CLAIM_BYPASS=skip-polish`. Claim releases with reason `handoff-to-usher`.
-- `--skip-refine` → `advance_skip.skip_refine`: `idea`/`refining-idea` → `refined-idea` or `plan-drafted`/`refining-plan` → `planned` (epic) with `YOKE_CLAIM_BYPASS=skip-refine`. Claim releases opportunistically with reason `finalize-exit`.
+- `--skip-polish` → `advance_skip.skip_polish`: traverses the pinned `polish`
+  binding from its `from_stage_id` through its `through_stage_id` with
+  `YOKE_CLAIM_BYPASS=skip-polish`. Claim releases with reason
+  `handoff-to-usher`.
+- `--skip-refine` → `advance_skip.skip_refine`: traverses only the
+  allowlisted bookkeeping rungs in the active refine segment with
+  `YOKE_CLAIM_BYPASS=skip-refine`. Claim releases opportunistically with
+  reason `finalize-exit`.
 
 Both emit a `SkipHopPerformed` event alongside the canonical `ItemStatusChanged` events. Ouroboros distinguishes skipped hops via the `via` field (`skip-polish` or `skip-refine`) and the `skipped_phase` field on the event envelope. The distinct bypass reasons keep the pre-implementation safety invariant intact: claim-bypass is granted only for the narrowly-allowlisted bookkeeping hops, never for a real gate transition.
 
@@ -121,9 +141,10 @@ The status-change comment and body sync are downstream side effects of the `life
 **WORKTREE_PATH resolution fallback:** If `WORKTREE_PATH` was not propagated from the worktree phase (agent context loss, re-entry via backward compat path), resolve it from the DB before committing. This prevents accidental main-branch commits when a worktree exists.
 
 ```bash
-_finalize_workflow_id=$(yoke items get {N} workflow_id 2>/dev/null) || true
-if [ -z "$WORKTREE_PATH" ] && [ "$_finalize_workflow_id" != "epic" ]; then
- _wt_branch=$(yoke items get {N} worktree 2>/dev/null)
+if [ -z "$WORKTREE_PATH" ] \
+ && [ "$_worktree_policy" = "single_implementation_lane" ]; then
+ _wt_branch=$(yoke item-worktrees get YOK-{N} \
+  --lane-role implementation --field branch 2>/dev/null)
  if [ -n "$_wt_branch" ] && [ "$_wt_branch" != "null" ]; then
  _item_project=$(yoke items get {N} project 2>/dev/null)
  if [ -n "$_item_project" ] && [ "$_item_project" != "null" ] && [ "$_item_project" != "" ]; then
@@ -220,22 +241,50 @@ Emit this block as regular output text (not a comment or hidden metadata). The b
 
 ## Pre-Release Next-Step Guidance
 
-**If target was `implemented` (issue or epic items):** `implemented` is the pre-release success state — it means implementation complete, ready for release. The claim was already released in step 6b with reason `handoff-to-usher`. This is a command boundary: do **not** continue merge/deploy work by mutating later statuses in the same finalize flow. Emit:
+**If target was `implemented`:** `implemented` is the pre-release success state
+— implementation is complete and ready for the pinned `usher` segment. The
+claim was already released in step 6b with reason `handoff-to-usher`. This is a
+command boundary: do **not** continue merge/deploy work by mutating later
+statuses in the same finalize flow. Emit:
  > **Next step:** Run `/yoke usher YOK-{N}` to merge and deploy.
 
 If the operator explicitly wants usher next, start `/yoke usher YOK-{N}` as a fresh command entrypoint so usher can claim the item itself.
 
-**If target was `reviewing-implementation` (issue items):** The item has entered the review phase. This is still implementation work in the same worktree, not a new manual-only checkpoint. Do **not** stop here during an autonomous `/yoke advance` or `/yoke do` run. Stay in the existing worktree, perform the review/fix/verify loop immediately, and when the branch is actually ready for `reviewed-implementation` run:
+**If target was `reviewing-implementation` and the pinned `advance` binding
+still owns the stage:** The item has entered the review phase. This is still
+implementation work in the same implementation-lane worktree, not a new
+manual-only checkpoint. Do **not** stop here during an autonomous `/yoke
+advance` or `/yoke do` run. Stay in the existing worktree, perform the
+review/fix/verify loop immediately, and when the branch is actually ready for
+`reviewed-implementation` run:
  > `/yoke advance YOK-{N} reviewed-implementation`
 
 Only emit a blocking summary and stop if some real blocker prevents the review loop from continuing.
 
-**If target was `reviewed-implementation` (issue or epic items):** Meaningful implementation review is complete. The claim was already released in step 6b with reason `handoff-to-polish`. This is a command boundary: stop the inner advance flow here and do **not** continue directly into polish from the same finalize pass; polish is a fresh command entrypoint that must claim the item itself. When the advance is running inside a routed `/yoke do` chain, return to the loop's chain decision step (`/yoke do` Step C) so the loop can re-offer (typically into polish). When the advance is invoked directly outside `/yoke do`, emit exactly one boundary message and stop the turn:
+**If target was `reviewed-implementation`:** Meaningful implementation review
+is complete and the pinned definition hands the item to `polish`. The claim
+was already released in step 6b with reason `handoff-to-polish`. This is a
+command boundary: stop the inner advance flow here and do **not** continue
+directly into polish from the same finalize pass; polish is a fresh command
+entrypoint that must claim the item itself. When the advance is running inside
+a routed `/yoke do` chain, return to the loop's chain decision step (`/yoke do`
+Step C) so the loop can re-offer. When invoked directly outside `/yoke do`,
+emit exactly one boundary message and stop the turn:
  > **Next step:** Return to `/yoke do` Step C (chain decision) so the routed loop can pick up the next step, or stop and leave the item ready for a fresh command entrypoint. Direct operator invocation of any command remains available outside the routed flow.
 
-**Test pass is not gate satisfaction.** A green test suite means the implementation behaves as expected; the **reviewed-implementation gate** (run by the advance to `reviewed-implementation`) checks something different — that every blocking `qa_requirements` row for the item has a passing `qa_runs` entry recorded. Both must hold. If you have just finished implementation work and tests are passing, summarize that as "tests pass" — never "all gates pass" — until the routed `/yoke advance YOK-N reviewed-implementation` actually completes its phase dispatch (browser QA + project E2E + the reviewed-implementation gate) and updates status. To preview the gate verdict before transitioning, use the registered summary surface: `yoke qa gate-summary --item YOK-N --target reviewed-implementation` for a standalone issue, or `yoke qa gate-summary --epic-id <epic_id> --task-num <task_num> --target reviewed-implementation` for an epic task. Direct `items update ... status reviewed-implementation` is rejected by the gate even when tests are green.
+**Test pass is not gate satisfaction.** A green test suite means the
+implementation behaves as expected; the **reviewed-implementation gate**
+checks something different — that every blocking `qa_requirements` row has a
+passing `qa_runs` entry. Both must hold. Summarize a green suite as "tests
+pass", never "all gates pass", until the routed transition completes its QA
+phase and status write. Preview with `yoke qa gate-summary --item YOK-N
+--target reviewed-implementation` for an item-level lane, or `yoke qa
+gate-summary --epic-id <parent_id> --task-num <task_num> --target
+reviewed-implementation` for a generated task. Direct status writes remain
+rejected even when tests are green.
 
-**If target was `polishing-implementation` (issue or epic items):** Routed polish is actively in progress or has been resumed. The session keeps its claim. Emit:
+**If target was `polishing-implementation`:** Routed polish is actively in
+progress or has been resumed. The session keeps its claim. Emit:
  > **Next step:** Continue `/yoke polish YOK-{N}` until it advances to `implemented`.
 
 ## Implementation-entry Sub-skill Handoff
@@ -246,4 +295,7 @@ Pass `{N}`, `{NNN}`, `{_title}`, `{WORKTREE_PATH}`. The current session holds
 the work-claim on YOK-{N} (acquired in preflight) and has provisioned the
 worktree — both newly created and re-entered worktrees are same-session, no
 relaunch. The sub-skill handles QA seeding + implementation kickoff.
+Also pass `_current_executor=advance` and
+`_worktree_policy=single_implementation_lane`; the sub-skill treats those as
+entry invariants.
 **Return after sub-skill completes.**

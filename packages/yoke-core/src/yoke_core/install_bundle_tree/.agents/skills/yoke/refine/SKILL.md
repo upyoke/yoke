@@ -26,15 +26,15 @@ Refine always advances status on successful completion, whether invoked directly
 
 ### Lifecycle transitions
 
-**Idea refinement (issue, epic, and Blitz):**
-- `idea` -> `refining-idea` (set at start of work)
-- `refining-idea` -> `refined-idea` (set on successful completion)
+Resolve the active `refine` segment from the item's immutable workflow pin.
+Interpret `executor_bindings` against the ordered `stages` with the runtime's
+half-open interval (`from_stage_id <= current < through_stage_id`). This skill
+supports the refine executor's three-rung contract: binding source → one
+in-progress stage → binding handoff. Use those served stage ids for entry,
+re-entry, and completion; never select a branch from a literal workflow id.
 
-**Plan refinement (epic only):**
-- `plan-drafted` -> `refining-plan` (set at start of work)
-- `refining-plan` -> `planned` (set on successful completion)
-
-If refine fails or is interrupted, the item must NOT auto-advance past its current status. The item stays at its current status (`idea`, `refining-idea`, `plan-drafted`, or `refining-plan`).
+If refine fails or is interrupted, the item must not advance past its current
+served stage.
 
 ## Constraints
 
@@ -58,9 +58,9 @@ If refine fails or is interrupted, the item must NOT auto-advance past its curre
 
 ## QA Preparation
 
-Refine does not derive QA requirements from an item's workflow type or Browser
-posture. Project-default and item-attached plans materialize at their declared
-lifecycle transitions. Add an explicit item-specific requirement through
+Refine does not derive QA requirements from an item's selected workflow or
+Browser posture. Project-default and item-attached plans materialize at their
+declared lifecycle transitions. Add an explicit item-specific requirement through
 `qa.requirement.add` only when the refined verification contract calls for
 coverage outside those attached plans.
 
@@ -74,7 +74,7 @@ Every rewrite is a lossy transformation. Refine does not rewrite — it enhances
 
 ### Escalate, don't correct
 
-If the spec contains a major error — wrong file references, contradictory requirements, a fundamentally flawed approach, scope that conflicts with existing work — do NOT silently fix it. **Stop and surface the issue to the operator.** The operator may have context you don't. Refine is not authorized to make judgment calls about what the operator "really meant" when the spec contradicts reality. Do NOT advance status. Leave the item at `refining-idea` or `refining-plan` and report what you found.
+If the spec contains a major error — wrong file references, contradictory requirements, a fundamentally flawed approach, scope that conflicts with existing work — do NOT silently fix it. **Stop and surface the issue to the operator.** The operator may have context you don't. Refine is not authorized to make judgment calls about what the operator "really meant" when the spec contradicts reality. Do NOT advance status. Leave the item at `REFINE_ACTIVE_STATUS` and report what you found.
 
 ### Corollaries (reinforcing the cardinal rule)
 
@@ -112,36 +112,19 @@ If the spec contains a major error — wrong file references, contradictory requ
 
 ### 1. Parse And Lookup
 
-Resolve the repo root and look up the item through the unified DB router.
-
-```bash
-MAIN_ROOT=$(git rev-parse --show-toplevel)
-ITEM_REF="{arg}"
-ITEM_NUM=$(yoke items get "$ITEM_REF" id 2>/dev/null) || ITEM_NUM=""
-ITEM_WORKFLOW_ID=$(yoke items get "$ITEM_REF" workflow_id 2>/dev/null) || ITEM_WORKFLOW_ID=""
-ITEM_STATUS=$(yoke items get "$ITEM_REF" status 2>/dev/null) || ITEM_STATUS=""
-ITEM_TITLE=$(yoke items get "$ITEM_REF" title 2>/dev/null) || ITEM_TITLE=""
-ITEM_PROJECT=$(yoke items get "$ITEM_REF" project 2>/dev/null) || ITEM_PROJECT=""
-```
-
-If any of those reads come back empty, stop with:
-> Item YOK-{N} not found.
+Read and follow [`workflow-context.md`](workflow-context.md). It resolves the
+exact pin and exports `ITEM_*`, `REFINE_SOURCE_STATUS`,
+`REFINE_ACTIVE_STATUS`, `REFINE_TARGET_STATUS`, and
+`REFINE_ARTIFACT_SCOPE`. Do not continue unless its executor guard passes.
 
 ### 1b. Claim and Set Entry Status
 
-Determine the refinement phase from the registered executor binding and current
-status:
+The workflow-context interpreter already proved the current stage belongs to
+exactly one pinned `refine` binding:
 
-**Idea refinement (issue, epic, and Blitz):**
-- If status is `idea`: advance to `refining-idea` before starting work.
-- If status is `refining-idea`: proceed without changing status (re-entry support).
-
-**Plan refinement (epic only):**
-- If `ITEM_WORKFLOW_ID` is `epic` and status is `plan-drafted`: advance to `refining-plan` before starting work. Record that the entry phase is plan refinement so step 9 advances to `planned` instead of `refined-idea`.
-- If `ITEM_WORKFLOW_ID` is `epic` and status is `refining-plan`: proceed without changing status (re-entry support). Record that the entry phase is plan refinement so step 9 advances to `planned` instead of `refined-idea`.
-
-If the item is at any other status, stop with:
-> **Cannot refine YOK-{N}:** Item is at `{status}`, expected `idea` or `refining-idea` for idea refinement, or `plan-drafted` or `refining-plan` for epic plan refinement.
+- At `REFINE_SOURCE_STATUS`, transition to `REFINE_ACTIVE_STATUS` before work.
+- At `REFINE_ACTIVE_STATUS`, proceed without a status write (re-entry).
+- Any other stage was rejected in step 1.
 
 Register the work claim BEFORE the status transition (claim-before-status ordering). The session stamp uses the registered session wrapper. This prevents the scheduler from offering the same item while refine is actively working on it, and ensures the subsequent status mutation passes claim verification:
 
@@ -154,64 +137,28 @@ yoke claims work acquire \
  --item "$ITEM_REF"
 ```
 
-For idea refinement, run the internal pre-handoff readiness gate before the
-entry status mutation. Read and follow
+For `REFINE_ARTIFACT_SCOPE=item_artifact`, run the internal pre-handoff
+readiness gate before the entry status mutation. The effective flags resolved
+from the immutable pin control its checks: File Budget validation runs only
+when `ITEM_FILE_BUDGET_POLICY` is non-`optional`, path-claim required checks run only when
+`ITEM_PATH_CLAIMS_POLICY` is non-`optional`, and coverage parity runs only when both are
+true. Read and follow
 [`readiness-repair.md`](readiness-repair.md) for the full classifier
 table (`pass` / `pure_stale_count` auto-fix / `FILE_BUDGET_NOT_IN_CLAIM`
 auto-widen / `mixed_stale_count` continuation / `unrecoverable`
-terminal block), the routing rationale, and the `/yoke do`
-chain-step contract. The recipe inlined below mirrors the phase doc:
+terminal block), the routing rationale, exact registered commands, claim
+release behavior, and `/yoke do` chain-step contract. Run it only when
+`REFINE_ARTIFACT_SCOPE=item_artifact` and
+`ITEM_STATUS=REFINE_SOURCE_STATUS`.
 
-```bash
-if [ "$ITEM_STATUS" = "idea" ]; then
- _readiness_json=$(yoke readiness check "$ITEM_REF" 2>/dev/null) || true
- _advisories=$(printf '%s' "$_readiness_json" | python3 -c "
-import json, sys
-data = json.loads(sys.stdin.read() or '{}')
-print('\\n'.join(a.get('message','') for a in data.get('advisories', []) if a.get('message')))
-")
- if [ -n "$_advisories" ]; then
-  printf 'Readiness advisories:\\n%s\\n' "$_advisories"
- fi
- _class=$(printf '%s' "$_readiness_json" | python3 -c "
-import json, sys
-data = json.loads(sys.stdin.read() or '{}')
-print(data.get('classification', 'unrecoverable'))
-")
- case "$_class" in
-  pass) ;;
-  pure_stale_count)
-   yoke readiness repair-stale-count --item "$ITEM_REF" || {
-    yoke sessions checkpoint --step 1 --action refine --chainable false --outcome blocked --item-id "$ITEM_REF"
-    yoke claims work release \
-     --item "$ITEM_REF" --reason "readiness-check-blocked" >/dev/null 2>&1 || true
-    exit 1
-   }
-   ;;
-  mixed_stale_count)
-   yoke readiness repair-claim-coverage --item "$ITEM_REF" || {
-    printf 'Recoverable readiness gaps not auto-repaired; continuing into refine for repair:\n%s\n' "$_readiness_json"
-   }
-   ;;
-  unrecoverable)
-   printf '%s\n' "$_readiness_json"
-   yoke sessions checkpoint --step 1 --action refine --chainable false --outcome blocked --item-id "$ITEM_REF"
-   yoke claims work release \
-    --item "$ITEM_REF" --reason "readiness-check-blocked" >/dev/null 2>&1 || true
-   exit 1
-   ;;
- esac
-fi
-```
-
-Then set the entry status via the `lifecycle.transition.execute`
+Then set the entry status, when needed, via the
+`lifecycle.transition.execute`
 function call (envelope in
 [`../idea/body-and-sync-functions.md`](../idea/body-and-sync-functions.md)):
 
-- For `idea -> refining-idea`: `payload = {target_status:
-  "refining-idea", source_status: "idea"}`.
-- For `plan-drafted -> refining-plan` (epic only): `payload =
-  {target_status: "refining-plan", source_status: "plan-drafted"}`.
+- At `REFINE_SOURCE_STATUS`, use `payload = {target_status:
+  REFINE_ACTIVE_STATUS, source_status: REFINE_SOURCE_STATUS}`.
+- At `REFINE_ACTIVE_STATUS`, do not emit a no-op transition.
 
 ### 2. Gather Artifacts
 
@@ -228,7 +175,8 @@ WORKTREE_PLAN=$(yoke items get "$ITEM_REF" worktree_plan 2>/dev/null) || true
 SHEPHERD_CAVEATS=$(yoke items get "$ITEM_REF" shepherd_caveats 2>/dev/null) || true
 ```
 
-For planned epics, also inspect the current task decomposition:
+When `REFINE_ARTIFACT_SCOPE=generated_task_plan`, also inspect the persisted
+child decomposition selected by `ITEM_GENERATED_CHILDREN=epic_tasks`:
 
 ```bash
 MAIN_ROOT=$(git rev-parse --show-toplevel)
@@ -289,17 +237,31 @@ Carry ALL survey findings into the critique in step 5. Staleness and overlap are
 
 Pick the field(s) to refine based on the current status and whatever structured content actually exists:
 
-- `idea` / `refining-idea` / `refined-idea` / `defined` / `designed`: focus on `spec` first, then `design_spec` if the item already has UX or flow detail.
-- For a Blitz, also identify the one strategy document that will remain the
+- For `REFINE_ARTIFACT_SCOPE=item_artifact`, focus on `spec` first, then
+  `design_spec` if the item already has UX or flow detail.
+- When `ITEM_NEXT_EXECUTOR=blitz`, also identify the one strategy document that will remain the
   live execution plan. Apply the document-readiness rubric in
   `review-rubric.md`; do not treat the item body as the execution document.
-- `planned` / `refining-plan`: focus on `technical_plan`, `worktree_plan`, and for epics also cross-check the stored epic tasks against the written plan.
+- For `REFINE_ARTIFACT_SCOPE=generated_task_plan`, focus on `technical_plan`
+  and `worktree_plan`, and cross-check stored `epic_tasks` against the written
+  plan.
 - Any status with substantive `shepherd_caveats`: refine `shepherd_caveats` so open questions and deferrals are crisp and actionable.
 - If no structured field exists yet, refine the authoritative fallback (`body`) but keep the resulting content ready to migrate into structured fields later.
 
-### 4b. Path-Claim Re-Check
+### 4b. Effective File Budget And Path-Claim Re-Check
 
-Refine is the second of two structural opportunities (idea is the first) to confirm that the item's path-claim coverage matches the refined File Budget. Run the internal gate before critique so the critique has the latest claim state to reason against:
+Use `ITEM_FILE_BUDGET_POLICY`, `ITEM_PATH_CLAIMS_POLICY`, and their scoped
+policies resolved from the immutable pin in step 1:
+
+- Both enabled: confirm path-claim coverage matches the refined File Budget.
+- Budget off / claims on: derive claim paths from the item spec or linked
+  execution document; do not create a File Budget as a proxy.
+- Budget on / claims off: refine the budget for sizing and conflict evidence;
+  do not register a claim.
+- Both off: skip artifact/gate requirements for both axes.
+
+The universal 350-line authored-file limit remains enforced in every posture.
+Run the path-claim gate only when effective path claims are enabled:
 
 ```bash
 yoke claims path required-gate YOK-{N}
@@ -307,49 +269,93 @@ yoke claims path required-gate YOK-{N}
 
 Branch on the result:
 
-- **verdict=pass** — no action required; continue to step 5. If refine narrows the File Budget (drops files, identifies a no-claim posture), record the planned narrow-down as a critique item; the actual `path-claims narrow` runs in step 6.
+- **verdict=pass** — no action required; continue to step 5. When both axes
+  are enabled and refine narrows the File Budget, record the planned claim
+  narrow-down as a critique item; the actual `path-claims narrow` runs in
+  step 6.
+- **verdict=pass with pre-task deferral** — for a
+  `required_per_task` Epic with no generated tasks, do not register or widen an
+  item-level claim. Shepherd owns materialization from persisted task budgets.
 - **verdict=block** — STOP. Author or amend the claim before proceeding. Three options, picked from the same decision matrix as idea. The canonical product CLI is `yoke claims path register …`; checkout-local db-router registration is operator-debug fallback only.
-  1. Register a new exclusive claim (`yoke claims path register --paths …`) when the File Budget names existing files.
-  2. Register with `--allow-planned` when the File Budget names future files.
+  1. Register a new exclusive claim (`yoke claims path register --paths …`)
+     from the enabled File Budget or, when budget is off, the derived
+     execution touch set.
+  2. Register with `--allow-planned` when that source names future files.
   3. Register a no-claim exception (`--mode exception --reason "..."`) when refine determines the item legitimately touches no repo surface.
+
+  For `required_per_task` with generated tasks, repair each failing task with
+  `yoke claims path register --item YOK-N --task-num <N> ...`; an unbound
+  parent claim never satisfies this verdict.
 
   When registration fails due to overlap with a non-terminal claim owned by another item, classify the overlap via `yoke claims path coordination-decision-build` and author either `--gate-point coordination_only` (compatible overlap with no lifecycle gate, default for independent same-file edits) or explicit `--gate-point activation` with directional rationale (order-dependent edits). See [`readiness-repair.md`](readiness-repair.md) `## Cross-item overlap repair`.
 
-If refine widens the File Budget mid-pass (discovers additional files), use `yoke claims path widen --claim-id <id> --add-paths <added> --reason "<why widening>" --item YOK-N` rather than registering a fresh claim — widen preserves the audit trail in `path_claim_amendments`. If refine narrows, use the checkout-local `path-claims narrow` operator-debug/refine disposition; no public narrow wrapper is registered yet. Prefer the `--keep-paths` form because it names the paths that stay (`--reason` is required); use `--drop-paths` when the goal is to remove specific files from a wider claim instead.
+When both axes are enabled and refine widens the File Budget mid-pass
+(discovers additional files), use `yoke claims path widen --claim-id <id>
+--add-paths <added> --reason "<why widening>" --item YOK-N` rather than
+registering a fresh claim — widen preserves the audit trail in
+`path_claim_amendments`. If refine narrows, use the checkout-local
+`path-claims narrow` operator-debug/refine disposition; no public narrow
+wrapper is registered yet. Prefer the `--keep-paths` form because it names
+the paths that stay (`--reason` is required); use `--drop-paths` when the goal
+is to remove specific files from a wider claim instead.
 
-The claim re-check is **blocking**: refine MUST NOT advance the item past `refining-idea` (or `refining-plan` for epics) while the gate returns `block`. The lifecycle event gate `GATE_DB_CLAIM_PROSE_MISMATCH` only covers DB-mutation claims; this gate is the path-claim equivalent and runs alongside it.
+The claim re-check is **blocking**: refine MUST NOT advance the item past
+`REFINE_ACTIVE_STATUS` while the gate returns `block`. The lifecycle event
+gate `GATE_DB_CLAIM_PROSE_MISMATCH` only covers DB-mutation claims; this gate
+is the path-claim equivalent and runs alongside it.
 
 ### 5. Critique
 
-Read [`review-rubric.md`](review-rubric.md) for the full critique dimensions, mandatory checks (approved decisions inventory, user-provided input inventory, staleness/overlap, events forensics, reference verification, blast radius discovery, cleanup coverage, failure/recovery coverage, open-question closure, prompt/file-size awareness, **File Budget readiness**), and artifact-specific evaluation rubrics for body/spec, design spec, technical plan/worktree plan, and shepherd caveats. Emit the structured critique as described there. The File Budget rubric is first-class — implementation-bearing items must not advance to `refined-idea` (issue) or `planned` (epic) with a missing, vague, or unresolved File Budget; see `update-protocol.md`'s **File Budget escalation** for the operator handoff path when refine cannot resolve it.
+Read [`review-rubric.md`](review-rubric.md) for the full critique dimensions,
+mandatory checks, and artifact-specific rubrics. Emit its structured critique.
+When effective File Budget is enabled, its rubric is first-class: an
+implementation-bearing item must not advance to `REFINE_TARGET_STATUS` with a
+missing, vague, or unresolved File Budget; see `update-protocol.md`'s
+**File Budget escalation**. When disabled, skip section authoring while still
+critiquing the plan against the universal 350-line cap.
 
 ### 6-12. Apply Improvements, Verify, Link Blitz Plan, Advance, Release, Final Output
 
 Read [`update-protocol.md`](update-protocol.md) for the full update protocol: applying additive improvements (step 6), verifying writes (step 7), capturing the final summary (step 8), advancing status on success (step 9), releasing the item claim (step 10), final output (step 11), and completion criteria (step 12).
 
-When `ITEM_WORKFLOW_ID=blitz`, read and follow
+When `ITEM_NEXT_EXECUTOR=blitz`, read and follow
 [`blitz-execution-document.md`](blitz-execution-document.md) after step 7 and
 before step 9. Refine is not complete until the registered link write has
 been verified through `strategy.execution.get`.
 
-### Final phase — Path Closure (before status advance)
+### Final phase — Policy-Aware Path Closure (before status advance)
 
-Refine MUST NOT advance status (`refining-idea -> refined-idea` or `refining-plan -> planned`) until the File Budget and the path-claim are complete and consistent. Run the readiness check once more after critique-driven updates have landed and before the status mutation in step 9:
+Refine MUST NOT advance from `REFINE_ACTIVE_STATUS` to
+`REFINE_TARGET_STATUS` until every enabled axis is complete. Run the readiness
+check once more after critique-driven updates and before the status mutation
+in step 9:
 
 ```bash
 yoke readiness check {N}
 ```
 
-The exit condition is the same as idea's path closure:
+The exit condition is the same as idea's policy-aware path closure:
 
-- Every file the implementer will edit is enumerated in `## File Budget`, one path per line. **Counts and approximations ("roughly 30 files", "every caller", "all importers") are not acceptable** in place of enumerated paths. If the spec contains such prose, the refine pass must expand it — investigate (grep / sub-agents / codebase reading) and write the enumeration into the spec body.
-- The path-claim's declared paths cover everything in the File Budget. Step 4b already gated entry; this final pass catches drift introduced by critique edits in step 6.
+- When File Budget is enabled, every file the implementer will edit is
+  enumerated in `## File Budget`, one path per line. **Counts and
+  approximations ("roughly 30 files", "every caller", "all importers") are
+  not acceptable** in place of enumerated paths.
+- When path claims are enabled, coverage is complete from the enabled File
+  Budget or, when budget is off, from the execution artifact/investigation.
+- Only when both axes are enabled does this phase require parity between them.
 - The readiness check returns exit 0.
 
 If the check fails or the spec still contains unexpanded prose substitutes for enumeration, do NOT advance. Either complete the enumeration in this pass or stop and surface the gap to the operator. The boundary gate at advance time exists as a tripwire, not as a fallback for refine skipping closure.
 
-**Only physical files belong in `## File Budget` list-item backticks.** Function ids (`items.section.upsert`), event names, command surfaces, and other operational references go in the surrounding spec prose — not in the `- ` list-item backticks the readiness parser inspects. The dotted-identifier carve-out in `yoke_core.domain.file_budget_paths` silently drops them, but refine should strip them out of the budget entirely so the next reader sees only enumerated paths.
+When File Budget is enabled, **only physical files belong in `## File
+Budget` list-item backticks.** Function ids (`items.section.upsert`), event
+names, command surfaces, and other operational references go in the
+surrounding spec prose.
 
 ### Multi-turn refine session continuity
 
-Refine writes go to the structured fields the protocol names (`spec`, `design_spec`, `technical_plan`, `worktree_plan`, `shepherd_caveats` for epics). Those are intent/design surfaces — NOT scratchpads for in-flight refinement state. If your refine pass spans multiple turns (large epic plan revision, multi-section critique cycle), write checkpoint notes to the **Progress Log** section on the item — see `AGENTS.md > Progress Log — long-running execution context on items`. Successor agents read it on cold start to learn what's already been critiqued, what's pending, and which decisions are settled.
+Refine writes go to the structured fields the protocol names (`spec`,
+`design_spec`, `technical_plan`, `worktree_plan`, `shepherd_caveats`). Those
+are intent/design surfaces, not scratchpads for in-flight state. If a pass
+spans multiple turns, write checkpoint notes to the item's **Progress Log**;
+successor agents use it to learn what is complete, pending, and settled.

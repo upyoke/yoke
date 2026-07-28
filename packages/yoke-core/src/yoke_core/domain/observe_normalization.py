@@ -1,13 +1,4 @@
-"""Attribution and normalization helpers for observe telemetry.
-
-Also exposes :class:`ToolEventRecord` — the universal tool-event schema
-the shared policy pipeline dispatches on. ``tool_kind`` is one of
-``bash`` / ``write`` / ``edit`` / ``apply_patch``; ``changed_paths`` is
-the repo-relative paths the tool will mutate. The builder
-(``build_tool_event_record``) and the ``tool_name -> tool_kind`` mapping
-live in :mod:`harness_policy_pipeline` to keep this attribution module
-under the file budget.
-"""
+"""Attribution and normalization helpers for observe telemetry."""
 
 from __future__ import annotations
 
@@ -31,6 +22,8 @@ from yoke_core.domain.observe_tool_event import (
     TOOL_KINDS,
     ToolEventRecord,
 )
+from yoke_core.domain.workflow_behavior import generates_task_graph
+from yoke_core.domain.workflow_runtime import ENGINE_TERMINAL_STAGE_IDS, workflow_runtime_from_row
 
 if TYPE_CHECKING:
     # Imported only for annotations: observe_parsing imports this module at
@@ -106,7 +99,6 @@ def _resolve_dispatch_context(
                 "dispatch",
             )
 
-        # deliberate case-sensitive match — worktree paths are POSIX-case-sensitive
         chain_row = conn.execute(
             """SELECT c.epic_id, c.current_task
                FROM epic_dispatch_chains c
@@ -127,15 +119,20 @@ def _resolve_dispatch_context(
 
         worktree = Path(normalized_project).name
         fallback_rows = conn.execute(
-            """SELECT DISTINCT i.id
+            """SELECT DISTINCT i.id, i.status, i.workflow_id, i.workflow_version_id,
+                      v.version, v.definition_json, v.definition_digest
                FROM items i
                JOIN item_worktrees iw ON iw.item_id = i.id
-               WHERE i.status NOT IN ('done', 'cancelled')
-                 AND iw.state = 'active'
+               JOIN workflow_versions v ON v.id = i.workflow_version_id
+               WHERE iw.state = 'active'
                  AND (iw.branch = {p} OR iw.path = {p})
-               LIMIT 2""".format(p=_p(conn)),
+               """.format(p=_p(conn)),
             (worktree, normalized_project),
         ).fetchall()
+        fallback_rows = [
+            row for row in fallback_rows if str(row["status"]) not in
+            workflow_runtime_from_row(row).terminal_stage_ids | ENGINE_TERMINAL_STAGE_IDS
+        ]
         if len(fallback_rows) == 1:
             return normalize_event_item_id(str(fallback_rows[0][0])), None, "worktree"
     except Exception:
@@ -153,7 +150,7 @@ def _resolve_main_session_attribution(
 
     Resolution order:
       1. session_current  — current_item_id from harness_sessions (DB-backed)
-      2. active_fallback  — single active non-epic item query
+      2. active_fallback  — single active item without generated child tasks
       3. session_recent   — recent_item_id from harness_sessions (DB-backed, 30-min window)
     """
     normalized_project = _normalize_dir(project_dir)
@@ -190,10 +187,12 @@ def _resolve_main_session_attribution(
                         str(current_item_id)
                     ), "session_current"
 
-        # Single active non-epic item
         active_rows = conn.execute(
-            """SELECT id FROM items
-               WHERE status IN (
+            """SELECT i.id, i.status, i.workflow_id, i.workflow_version_id,
+                      v.version, v.definition_json, v.definition_digest
+               FROM items i
+               JOIN workflow_versions v ON v.id = i.workflow_version_id
+               WHERE i.status IN (
                  'implementing',
                  'reviewing-implementation',
                  'reviewed-implementation',
@@ -201,9 +200,12 @@ def _resolve_main_session_attribution(
                  'implemented',
                  'release'
                )
-                 AND workflow_id <> 'epic'
-               LIMIT 2"""
+               """
         ).fetchall()
+        active_rows = [
+            row for row in active_rows
+            if not generates_task_graph(workflow_runtime_from_row(row))
+        ]
         if len(active_rows) == 1:
             return normalize_event_item_id(str(active_rows[0][0])), "active_fallback"
 

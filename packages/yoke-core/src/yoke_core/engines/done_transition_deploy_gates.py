@@ -15,6 +15,7 @@ from yoke_core.domain import db_backend
 
 def _parent():
     from yoke_core.engines import done_transition as _dt
+
     return _dt
 
 
@@ -28,6 +29,7 @@ def _check_deployment_flow_guard(
     skip_deploy: bool,
     item_project: str,
     old_status: str,
+    delivery_stage_id: str | None,
 ) -> Optional[Tuple[int, str]]:
     """Post-merge deployment flow guard.
 
@@ -65,11 +67,15 @@ def _check_deployment_flow_guard(
         has_evidence = _check_deployment_evidence(item_id)
         if not has_evidence:
             print("\n=== Deployment evidence guard ===")
-            print(f"Blocked: --skip-deploy passed for YOK-{item_id} but no "
-                  "successful deployment evidence found.")
-            print(f"\nItem has deployment flow '{deploy_flow}' — cannot transition "
-                  "to done without evidence that the deployment pipeline ran "
-                  "successfully.")
+            print(
+                f"Blocked: --skip-deploy passed for YOK-{item_id} but no "
+                "successful deployment evidence found."
+            )
+            print(
+                f"\nItem has deployment flow '{deploy_flow}' — cannot transition "
+                "to done without evidence that the deployment pipeline ran "
+                "successfully."
+            )
             print(f"Run '/yoke usher YOK-{item_id}' to deploy first.")
             return 7, old_status
         print(f"Deployment evidence verified for YOK-{item_id}.")
@@ -89,44 +95,47 @@ def _check_deployment_flow_guard(
             qa_error = _check_run_qa_gates(run_id)
             if qa_error:
                 return 7, old_status
-            print("Deployment flow guard: run succeeded, QA satisfied — proceeding to done.")
+            print(
+                "Deployment flow guard: run succeeded, QA satisfied — proceeding to done."
+            )
             return None
         elif run_status in ("created", "executing"):
             print("\n=== Deployment run guard ===")
-            print(f"Blocked: Item YOK-{item_id} has a deployment run at "
-                  f"status '{run_status}'.")
+            print(
+                f"Blocked: Item YOK-{item_id} has a deployment run at "
+                f"status '{run_status}'."
+            )
             print("\nThe deployment pipeline has not completed yet.")
-            print(f"Wait for the deployment run to finish, or run "
-                  f"'/yoke usher YOK-{item_id}' to retry.")
+            print(
+                f"Wait for the deployment run to finish, or run "
+                f"'/yoke usher YOK-{item_id}' to retry."
+            )
             return 7, old_status
         elif run_status in ("failed", "cancelled"):
             print("\n=== Deployment run guard ===")
-            print(f"Blocked: Item YOK-{item_id} has a deployment run at "
-                  f"status '{run_status}'.")
+            print(
+                f"Blocked: Item YOK-{item_id} has a deployment run at "
+                f"status '{run_status}'."
+            )
             print("\nThe deployment pipeline did not succeed.")
-            print(f"Run '/yoke usher YOK-{item_id}' to create a new "
-                  "deployment run.")
+            print(f"Run '/yoke usher YOK-{item_id}' to create a new deployment run.")
             return 7, old_status
         else:
-            print(f"Warning: unexpected run status '{run_status}' for "
-                  f"YOK-{item_id}, falling back to deploy_stage check.")
+            print(
+                f"Warning: unexpected run status '{run_status}' for "
+                f"YOK-{item_id}, falling back to deploy_stage check."
+            )
 
     if not run_status:
         # No runs recorded — no deployment evidence.
         print("\n=== Deployment evidence guard ===")
-        print(f"Blocked: Item YOK-{item_id} has deployment flow "
-              f"'{deploy_flow}' but no deployment evidence.")
+        print(
+            f"Blocked: Item YOK-{item_id} has deployment flow "
+            f"'{deploy_flow}' but no deployment evidence."
+        )
         print("\nThe deployment pipeline was never executed for this item.")
         print(f"Run '/yoke usher YOK-{item_id}' to deploy first.")
-        # Set status to release
-        _parent()._update_item_direct(
-            item_id,
-            "status",
-            "release",
-            env_overrides={"YOKE_STATUS_SOURCE": "done-transition"},
-            rebuild_board=False,
-        )
-        return 7, "release"
+        return _redirect_to_delivery_stage(item_id, old_status, delivery_stage_id)
 
     # deploy_stage check for runless deployment evidence.
     if not run_status or run_status != "succeeded":
@@ -134,26 +143,38 @@ def _check_deployment_flow_guard(
         if deploy_stage == "complete":
             print("Deployment flow guard: deploy_stage=complete — proceeding to done.")
             return None
-        # Set to release and redirect
         print("\n=== Deployment flow guard ===")
-        print(f"Item YOK-{item_id} has deployment flow '{deploy_flow}' "
-              f"(deploy_stage='{deploy_stage}').")
-        print("Merge completed successfully. Setting status to 'release'.")
-        _parent()._update_item_direct(
-            item_id,
-            "status",
-            "release",
-            env_overrides={"YOKE_STATUS_SOURCE": "done-transition"},
-            rebuild_board=False,
+        print(
+            f"Item YOK-{item_id} has deployment flow '{deploy_flow}' "
+            f"(deploy_stage='{deploy_stage}')."
         )
-        # Cascade release to reviewed-implementation child tasks
-        _cascade_release_to_children(item_id)
-        _parent()._rebuild_board_direct()
-        print(f"\nNext step: run '/yoke usher YOK-{item_id}' to execute "
-              "the deployment pipeline.")
-        return 7, "release"
+        return _redirect_to_delivery_stage(item_id, old_status, delivery_stage_id)
 
     return None
+
+
+def _redirect_to_delivery_stage(
+    item_id: int,
+    old_status: str,
+    delivery_stage_id: str | None,
+) -> Tuple[int, str]:
+    """Move to the pinned definition's delivery stage when it declares one."""
+    if delivery_stage_id is None:
+        return 7, old_status
+    print(f"Merge completed successfully. Setting status to '{delivery_stage_id}'.")
+    _parent()._update_item_direct(
+        item_id,
+        "status",
+        delivery_stage_id,
+        env_overrides={"YOKE_STATUS_SOURCE": "done-transition"},
+        rebuild_board=False,
+    )
+    _parent()._rebuild_board_direct()
+    print(
+        f"\nNext step: run '/yoke usher YOK-{item_id}' to execute "
+        "the deployment pipeline."
+    )
+    return 7, delivery_stage_id
 
 
 def _check_deployment_evidence(item_id: int) -> bool:
@@ -195,8 +216,10 @@ def _check_run_stage_consistency(run_id: str) -> bool:
     if row and str(row[0]).endswith("-failed"):
         stage = row[0]
         print("\n=== Deployment stage guard ===")
-        print(f"Blocked: Deployment run '{run_id}' has status=succeeded but "
-              f"current_stage='{stage}'.")
+        print(
+            f"Blocked: Deployment run '{run_id}' has status=succeeded but "
+            f"current_stage='{stage}'."
+        )
         print("\nThis is a contradictory state — the stage indicates failure.")
         return True
     return False
@@ -215,47 +238,12 @@ def _check_run_qa_gates(run_id: str) -> bool:
         ).fetchall()
     if rows:
         print("\n=== Deployment QA guard ===")
-        print(f"Blocked: Deployment run '{run_id}' succeeded but blocking "
-              "QA checks are unsatisfied:")
+        print(
+            f"Blocked: Deployment run '{run_id}' succeeded but blocking "
+            "QA checks are unsatisfied:"
+        )
         for r in rows:
             print(f"  - {r[0]}")
         print("\nSatisfy all blocking QA checks before transitioning to done.")
         return True
     return False
-
-
-def _cascade_release_to_children(item_id: int) -> None:
-    """Cascade release status to reviewed-implementation child tasks."""
-    from yoke_core.domain import epic as _epic_domain
-    from yoke_core.domain.workflow_behavior import generates_task_graph
-    from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
-
-    epic_name = str(item_id)
-    with _parent()._connect() as conn:
-        if not generates_task_graph(load_item_workflow_runtime(conn, item_id)):
-            return
-        task_list_output = _epic_domain.task_list(conn, epic_name)
-    if not task_list_output:
-        return
-    for line in task_list_output.strip().split("\n"):
-        if not line.strip():
-            continue
-        parts = line.split("|")
-        if len(parts) < 8:
-            continue
-        task_num = parts[2].strip()
-        task_status = parts[7].strip()
-        if task_status == "reviewed-implementation":
-            _parent()._update_task_status_direct(
-                epic_name,
-                task_num,
-                "release",
-                f"Parent YOK-{item_id} set to release",
-                env_overrides={
-                    "YOKE_CLAIM_BYPASS": f"done-cascade:YOK-{item_id}",
-                },
-                no_rebuild=True,
-                no_github=False,
-                no_derive=False,
-            )
-            print(f"  Cascaded: task {task_num} (reviewed-implementation -> release)")

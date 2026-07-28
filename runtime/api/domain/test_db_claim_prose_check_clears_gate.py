@@ -111,7 +111,7 @@ class TestReviewedNegativeClaimClearsGate:
         assert outcome.blocks is True
         assert outcome.reviewed_negative_claim_detected is False
         assert "ALTER TABLE" in outcome.triggers
-        assert "db-claim-amend" in outcome.recovery
+        assert "yoke db-claim amend" in outcome.recovery
 
     def test_amend_to_none_stamps_and_clears_end_to_end(self, db_conn):
         """The real ``db_claim.amend`` workflow stamps the attestation the

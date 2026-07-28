@@ -10,6 +10,9 @@ from yoke_core.domain.db_helpers import (
     query_rows,
     query_scalar,
 )
+from yoke_core.domain.field_note_dash_promotion import (
+    promoted_dash_by_field_note_ids,
+)
 from yoke_core.domain.project_identity import resolve_project_id
 
 __all__ = [
@@ -118,7 +121,7 @@ def list_entry_rows(
         f"{where} ORDER BY o.id {order_by}{limit_clause}",
         tuple(params),
     )
-    return [
+    entries = [
         {
             name: (int(value) if name == "id"
                    else "" if value is None else str(value))
@@ -126,6 +129,12 @@ def list_entry_rows(
         }
         for row in rows
     ]
+    promotions = promoted_dash_by_field_note_ids(
+        conn, (entry["id"] for entry in entries),
+    )
+    for entry in entries:
+        entry["promoted_dash"] = promotions.get(entry["id"])
+    return entries
 
 
 def cmd_list_entries(
@@ -159,11 +168,15 @@ def get_entry_row(conn, entry_id: int) -> Optional[dict]:
     if row is None:
         return None
     names = (*ENTRY_LIST_COLUMNS, "archived_at")
-    return {
+    entry = {
         name: (int(value) if name == "id"
                else "" if value is None else str(value))
         for name, value in zip(names, tuple(row))
     }
+    entry["promoted_dash"] = promoted_dash_by_field_note_ids(
+        conn, [entry_id],
+    ).get(entry_id)
+    return entry
 
 
 def cmd_mark_reviewed(conn, entry_id: int) -> str:

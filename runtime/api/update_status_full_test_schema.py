@@ -32,6 +32,8 @@ CREATE TABLE IF NOT EXISTS items (
     flow TEXT DEFAULT 'accelerated',
     rework_count INTEGER DEFAULT 0,
     frozen INTEGER DEFAULT 0,
+    blocked INTEGER DEFAULT 0,
+    blocked_reason TEXT,
     sprint TEXT,
     track TEXT,
     track_seq INTEGER,
@@ -41,8 +43,10 @@ CREATE TABLE IF NOT EXISTS items (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     source TEXT NOT NULL DEFAULT '2',
+    owner TEXT,
     project_id INTEGER NOT NULL DEFAULT 1,
-    project_sequence INTEGER NOT NULL
+    project_sequence INTEGER NOT NULL,
+    workflow_posture TEXT NOT NULL DEFAULT '{}'
 );
 CREATE TABLE IF NOT EXISTS item_worktrees (
     id INTEGER PRIMARY KEY,

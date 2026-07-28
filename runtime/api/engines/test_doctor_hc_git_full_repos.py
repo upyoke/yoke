@@ -61,7 +61,7 @@ class TestWrongRepoIssues:
             42,
             "ExternalWebapp item",
             project="externalwebapp",
-            type="issue",
+            workflow_id="issue",
             status="implementing",
             github_issue="#100",
         )
@@ -89,7 +89,7 @@ class TestWrongRepoIssues:
             662,
             "ExternalWebapp wrong repo",
             project="externalwebapp",
-            type="issue",
+            workflow_id="issue",
             status="implementing",
             github_issue="#1520",
         )
@@ -125,7 +125,7 @@ class TestWrongRepoIssues:
             conn,
             100,
             "Yoke item",
-            type="issue",
+            workflow_id="issue",
             status="implementing",
             github_issue="#100",
         )
@@ -162,7 +162,7 @@ class TestWrongRepoIssues:
                 conn,
                 200 + i,
                 "Yoke item",
-                type="issue",
+                workflow_id="issue",
                 status="implementing",
                 github_issue=f"#{300 + i}",
             )
@@ -172,7 +172,7 @@ class TestWrongRepoIssues:
                 400 + i,
                 "ExternalWebapp item",
                 project="externalwebapp",
-                type="issue",
+                workflow_id="issue",
                 status="implementing",
                 github_issue=f"#{500 + i}",
             )
@@ -212,7 +212,7 @@ class TestWrongRepoIssues:
             conn,
             100,
             "Yoke item",
-            type="issue",
+            workflow_id="issue",
             status="implementing",
             github_issue="#100",
         )
@@ -221,7 +221,7 @@ class TestWrongRepoIssues:
             200,
             "ExternalWebapp item",
             project="externalwebapp",
-            type="issue",
+            workflow_id="issue",
             status="implementing",
             github_issue="#50",
         )
@@ -254,7 +254,7 @@ class TestWrongRepoIssues:
             701,
             "ExternalWebapp item",
             project="externalwebapp",
-            type="issue",
+            workflow_id="issue",
             status="implementing",
             github_issue="#91",
         )

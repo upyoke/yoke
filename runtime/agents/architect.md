@@ -117,13 +117,13 @@ order-dependent pair, use `gate_point=activation` with
 
 Do not push the decision downstream. The Engineer, Tester, Boss, Conduct, Polish, Advance, and Usher phases do NOT author coordination edges — runtime collisions there route back to `/yoke refine`, not into ad-hoc edge creation.
 
-### Step 5.6: Anticipation Checklist for path-claim sizing
+### Step 5.6: Effective File-Scope Posture And Claim Anticipation
 
-Before declaring each task's path-claim, run the **Anticipation Checklist** so the claim's coverage matches the surface the Engineer will actually touch — not just the explicit `## File Budget`. The Engineer's commit-time widening discipline is the downstream safety net; this step is the plan-time upstream counterpart that keeps the safety net from firing on every cross-cutting task.
+Call registered `workflows.item.get` through `yoke workflows item get ITEM --json` before authoring task artifacts. Consume only `result.effective_policies.file_budget` and `result.effective_policies.path_claims`; never reconstruct them from raw policies or posture. `required_per_task` enables the generated-task axis, `optional` is off, and the universal 350-line limit always applies.
 
-The checklist names five categories per task. For each renamed, rewired, or significantly edited identifier in the task, enumerate:
+Apply all four compositions: with both axes on, pair budget edit targets with complete anticipated claim coverage; with budget off and claims on, seed claims from the task execution spec and investigation; with budget on and claims off, retain the budget for sizing and conflict evidence without a claim; with both off, author neither artifact while preserving the universal line check.
 
-a. **Explicit File Budget paths** — already in the task body's `## File Budget`. Start here.
+a. **Derived edit paths** — use task File Budget paths when enabled; otherwise start from the task execution spec's concrete edit targets.
 b. **Doctor HC files that scan the module surface** — `packages/yoke-core/src/yoke_core/engines/doctor_hc_*.py` files referencing the module by basename.
 c. **Transitive callers of every renamed/rewired function** — every Python module that does `from <module> import` or `import <module>`.
 d. **Test files importing the rewired module via deeper paths** — `test_*.py` files outside the explicit budget that still pull in the module.
@@ -139,11 +139,11 @@ rg -ln "from\s+<dotted.module>\s+import|import\s+<dotted.module>" packages/ runt
 
 The same checklist is available programmatically via the read-only helper `yoke_core.domain.architect_plan_anticipation` — call `build_anticipation_list(epic_id, task_num, file_budget_paths)` and read `result.file_budget / doctor_hcs / transitive_callers / test_modules`. The helper is **read-only**: it produces an anticipation list, never mutates a path-claim. The Architect still authors the claim by hand.
 
-**Land the anticipated paths in the task's path-claim at plan time** alongside the explicit File Budget, not after the Engineer's first commit-time widen. When you cannot decide whether an anticipated path is genuinely in-scope, surface it under `## Plan Caveats` for refine/operator review rather than dropping it from the claim and waiting for the Engineer to discover it.
+**Land anticipated paths in the task claim at plan time when path claims are enabled.** If File Budget is enabled too, preserve conditional parity for its explicit edit targets. With claims off, retain anticipation as conflict evidence and do not register a claim.
 
 #### Worked example — `*-callers-a`-style rewire
 
-A task that rewires `packages/yoke-core/src/yoke_core/domain/sample_auth.py` has an explicit File Budget of two paths (the module and its co-located test). Running the Anticipation Checklist discovers four more: a doctor HC scanning the module surface (`packages/yoke-core/src/yoke_core/engines/doctor_hc_sample_auth.py`), three transitive callers across orchestration and adapter layers, and one deeper test importer. The resulting path-claim lists **six paths instead of two** — the Engineer never hits the commit-time widening trap for the doctor HC or the cross-layer callers. The integration regression at `runtime/api/test_architect_anticipation_integration.py` exercises exactly this shape.
+With both axes enabled, a task that rewires `packages/yoke-core/src/yoke_core/domain/sample_auth.py` has an explicit File Budget of two paths (the module and its co-located test). Running the Anticipation Checklist discovers four more: a doctor HC scanning the module surface (`packages/yoke-core/src/yoke_core/engines/doctor_hc_sample_auth.py`), three transitive callers across orchestration and adapter layers, and one deeper test importer. The resulting path-claim lists **six paths instead of two** — the Engineer never hits the commit-time widening trap for the doctor HC or the cross-layer callers. The integration regression at `runtime/api/test_architect_anticipation_integration.py` exercises exactly this shape.
 
 ## Technical Plan Template
 

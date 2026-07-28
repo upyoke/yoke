@@ -31,27 +31,28 @@ def _json_object(raw: Any) -> dict:
 
 
 def get_case_execution_context(
-    conn: Any, *, requirement_id: int,
+    conn: Any,
+    *,
+    requirement_id: int,
 ) -> dict[str, Any]:
     """Return the client-local executor contract for a method-backed case."""
     marker = _p(conn)
     row = query_one(
         conn,
-        "SELECT q.id AS requirement_id, q.item_id, q.plan_id, "
+        "SELECT q.id AS requirement_id, q.item_id, q.deployment_run_id, "
+        "q.plan_id, "
         "q.plan_case_key, q.method_id, q.qa_kind, q.instructions, "
         "q.expected_outcome, q.method_config, q.host_baseline, "
-        "q.workflow_transition_id, c.entry_surface, "
-        "c.required_completion, "
+        "q.workflow_transition_id, q.entry_surface, "
+        "q.required_completion, q.method_name, q.executor_id, "
+        "q.required_capability_kind, q.verdict_path, "
         f"{primary_item_worktree_branch_sql('i.id')} AS lane_branch, "
         "p.id AS project_id, "
-        "p.slug AS project, m.name AS method_name, m.executor_id, "
-        "m.required_capability_kind, m.verdict_path "
+        "p.slug AS project "
         "FROM qa_requirements q "
-        "LEFT JOIN qa_plan_cases c "
-        "ON c.plan_id=q.plan_id AND c.case_key=q.plan_case_key "
-        "JOIN items i ON i.id=q.item_id "
-        "JOIN projects p ON p.id=i.project_id "
-        "JOIN qa_methods m ON m.id=q.method_id "
+        "LEFT JOIN items i ON i.id=q.item_id "
+        "LEFT JOIN deployment_runs dr ON dr.id=q.deployment_run_id "
+        "JOIN projects p ON p.id=COALESCE(i.project_id, dr.project_id) "
         f"WHERE q.id={marker} AND q.waived_at IS NULL",
         (int(requirement_id),),
     )
@@ -63,9 +64,34 @@ def get_case_execution_context(
         raise QaCaseExecutionError(
             "shared case execution requires a method-backed requirement"
         )
-    plan_id = (
-        int(row["plan_id"]) if row["plan_id"] is not None else None
-    )
+    plan_id = int(row["plan_id"]) if row["plan_id"] is not None else None
+    method_snapshot = {
+        "method_name": row["method_name"],
+        "executor_id": row["executor_id"],
+        "required_capability_kind": row["required_capability_kind"],
+        "verdict_path": row["verdict_path"],
+    }
+    if not all(
+        str(method_snapshot[key] or "").strip()
+        for key in ("method_name", "executor_id", "verdict_path")
+    ):
+        if plan_id is not None:
+            raise QaCaseExecutionError(
+                "materialized QA case execution snapshot is incomplete; "
+                "apply the QA requirement snapshot migration"
+            )
+        method = query_one(
+            conn,
+            "SELECT name AS method_name, executor_id, "
+            "required_capability_kind, verdict_path FROM qa_methods "
+            f"WHERE id={marker}",
+            (str(row["method_id"]),),
+        )
+        if method is None:
+            raise QaCaseExecutionError(
+                f"ad-hoc QA method {row['method_id']!r} is not registered"
+            )
+        method_snapshot = dict(method)
     case_key = (
         str(row["plan_case_key"])
         if row["plan_case_key"]
@@ -73,14 +99,15 @@ def get_case_execution_context(
     )
     return {
         "requirement_id": int(row["requirement_id"]),
-        "item_id": int(row["item_id"]),
+        "item_id": (int(row["item_id"]) if row["item_id"] is not None else None),
+        "deployment_run_id": row["deployment_run_id"],
         "plan_id": plan_id,
         "case_key": case_key,
         "method_id": str(row["method_id"]),
-        "method_name": str(row["method_name"]),
-        "executor_id": str(row["executor_id"]),
-        "required_capability_kind": row["required_capability_kind"],
-        "verdict_path": str(row["verdict_path"]),
+        "method_name": str(method_snapshot["method_name"]),
+        "executor_id": str(method_snapshot["executor_id"]),
+        "required_capability_kind": method_snapshot["required_capability_kind"],
+        "verdict_path": str(method_snapshot["verdict_path"]),
         "qa_kind": str(row["qa_kind"]),
         "instructions": str(row["instructions"] or ""),
         "expected_outcome": str(row["expected_outcome"] or ""),

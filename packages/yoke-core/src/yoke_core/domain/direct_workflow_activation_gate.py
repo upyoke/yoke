@@ -109,18 +109,20 @@ def evaluate_work_claim_activation(
     target_status: str,
     db_path: str,
     session_id: Optional[str],
+    conn: Optional[Any] = None,
 ) -> Optional[dict]:
     """Require the real Dash item claim and implementation worktree."""
-    conn = connect(db_path)
+    gate_conn = conn if conn is not None else connect(db_path)
     try:
         return _activation_prerequisites(
-            conn,
+            gate_conn,
             item_id=item_id,
             session_id=session_id,
             gate_name="WORK_CLAIM_ACTIVATION",
         )
     finally:
-        conn.close()
+        if conn is None:
+            gate_conn.close()
 
 
 def evaluate_doc_claim_activation(
@@ -129,23 +131,24 @@ def evaluate_doc_claim_activation(
     target_status: str,
     db_path: str,
     session_id: Optional[str],
+    conn: Optional[Any] = None,
 ) -> Optional[dict]:
     """Acquire the linked Blitz document after activation prerequisites pass."""
-    conn = connect(db_path)
+    gate_conn = conn if conn is not None else connect(db_path)
     try:
         blocked = _activation_prerequisites(
-            conn,
+            gate_conn,
             item_id=item_id,
             session_id=session_id,
             gate_name="DOC_CLAIM_ACTIVATION",
         )
         if blocked is not None:
             return blocked
-        existing = active_strategy_doc_claim(conn, item_id=int(item_id))
+        existing = active_strategy_doc_claim(gate_conn, item_id=int(item_id))
         if existing is not None:
             return None
         marker = _marker(conn)
-        actor_row = conn.execute(
+        actor_row = gate_conn.execute(
             f"SELECT actor_id FROM harness_sessions WHERE session_id = {marker}",
             (str(session_id),),
         ).fetchone()
@@ -155,10 +158,11 @@ def evaluate_doc_claim_activation(
             else (actor_row["actor_id"] if hasattr(actor_row, "keys") else actor_row[0])
         )
         acquire_strategy_doc_claim(
-            conn,
+            gate_conn,
             item_id=int(item_id),
             session_id=str(session_id),
             actor_id=None if actor_id is None else int(actor_id),
+            commit=conn is None,
         )
         return None
     except StrategyDocClaimConflictError as exc:
@@ -174,7 +178,8 @@ def evaluate_doc_claim_activation(
             "Link one execution document and prepare the Blitz worktree.",
         )
     finally:
-        conn.close()
+        if conn is None:
+            gate_conn.close()
 
 
 __all__ = [

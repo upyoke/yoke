@@ -1,3 +1,4 @@
+# ruff: noqa: F811
 """Session lifecycle tests for the chain-end override contract.
 
 Sibling of ``test_sessions_lifecycle_chain.py``. Covers the structural
@@ -15,6 +16,7 @@ import pytest
 from unittest.mock import patch
 
 from runtime.api.test_sessions import (
+    _insert_claimable_item,
     _register,
     conn,  # noqa: F401  (pytest fixture)
 )
@@ -34,11 +36,16 @@ ITEM_REF = f"YOK-{ITEM_ID}"
 def _setup_chain_pending(conn, session_id="sess-chain"):
     """Register a session with a chainable checkpoint at step 1/3 + claim."""
     _register(conn, session_id=session_id)
+    _insert_claimable_item(conn, int(ITEM_ID))
     claim_work(conn, session_id=session_id, item_id=ITEM_REF)
     update_chain_checkpoint(
-        conn, session_id,
-        step=1, action="charge", chainable=True,
-        handler_outcome="completed", item_id=ITEM_REF,
+        conn,
+        session_id,
+        step=1,
+        action="charge",
+        chainable=True,
+        handler_outcome="completed",
+        item_id=ITEM_REF,
     )
     row = conn.execute(
         "SELECT offer_envelope FROM harness_sessions WHERE session_id=%s",
@@ -74,7 +81,9 @@ class TestChainEndOverrideContract:
         assert exc_info.value.code == "CHAIN_PENDING"
 
     @patch("yoke_core.domain.sessions_analytics._emit_session_event")
-    def test_override_chain_end_without_rationale_does_not_bypass(self, mock_emit, conn):
+    def test_override_chain_end_without_rationale_does_not_bypass(
+        self, mock_emit, conn
+    ):
         """Empty rationale is treated as missing — guard still fires."""
         _setup_chain_pending(conn)
         claim_row = conn.execute(
@@ -129,6 +138,42 @@ class TestChainEndOverrideContract:
         assert ctx["item_id"] == ITEM_ID
         assert ctx["override_flag"] == "force_chain_end"
 
+    def test_override_event_waits_for_successful_end_commit(self, conn):
+        """A failed end transaction cannot leave override success telemetry."""
+        from yoke_core.domain import sessions_render_end as _sre
+
+        _setup_chain_pending(conn)
+        claim_row = conn.execute(
+            "SELECT id FROM work_claims "
+            "WHERE session_id='sess-chain' AND released_at IS NULL"
+        ).fetchone()
+        release_claim(conn, claim_row["id"], reason="completed")
+        captured: list[dict] = []
+        with (
+            patch.object(
+                _sre,
+                "clear_current_item",
+                side_effect=RuntimeError("end interrupted before commit"),
+            ),
+            patch(
+                "yoke_core.domain.events.emit_event",
+                side_effect=lambda name, **kw: captured.append({"name": name, **kw}),
+            ),
+        ):
+            with pytest.raises(RuntimeError, match="interrupted before commit"):
+                end_session(
+                    conn,
+                    "sess-chain",
+                    override_chain_end=True,
+                    chain_end_rationale="failure-injection proof",
+                )
+
+        assert not [c for c in captured if c["name"] == "ChainDeclineOverridden"]
+        ended_at = conn.execute(
+            "SELECT ended_at FROM harness_sessions WHERE session_id='sess-chain'"
+        ).fetchone()["ended_at"]
+        assert ended_at is None
+
     def test_end_session_uses_shared_chain_pending_state_helper(self, conn):
         """AC-2: ``_end_session`` reads the chain checkpoint via the shared helper.
 
@@ -147,7 +192,8 @@ class TestChainEndOverrideContract:
 
         original_state = _sre._chain_pending_state(conn, "sess-helper")
         with patch.object(
-            _sre, "_chain_pending_state",
+            _sre,
+            "_chain_pending_state",
             return_value=original_state,
         ) as mock_state:
             with patch("yoke_core.domain.sessions_analytics._emit_session_event"):

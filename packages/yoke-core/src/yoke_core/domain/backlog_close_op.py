@@ -7,7 +7,6 @@ posts the GitHub close + status comment.
 
 from __future__ import annotations
 
-import os
 import sys
 from typing import Optional, TextIO
 
@@ -18,13 +17,7 @@ from yoke_core.domain.backlog_queries import (
     _resolve_write_db_path,
 )
 from yoke_core.domain import backlog_rendering as _rendering
-from yoke_core.domain.path_claims_item_hook import (
-    cancel_claims_on_item_terminal,
-)
-from yoke_core.domain.item_worktrees import (
-    list_item_worktrees,
-    release_item_worktrees,
-)
+from yoke_core.domain.item_worktrees import list_item_worktrees
 
 
 def _p(conn) -> str:
@@ -57,6 +50,11 @@ def execute_close(
     conn = connect(db_path)
     try:
         p = _p(conn)
+        from yoke_core.domain.workflow_item_binding_lock import (
+            lock_item_workflow_bindings,
+        )
+
+        lock_item_workflow_bindings(conn, (int(item_id),))
         row = conn.execute(
             "SELECT i.*, p.slug AS project FROM items i "
             "LEFT JOIN projects p ON p.id = i.project_id "
@@ -83,7 +81,12 @@ def execute_close(
                 "error": f"YOK-{item_id} is already done — cannot close a delivered item.",
             }
 
-        if status in {"reviewed-implementation", "polishing-implementation", "implemented", "release"}:
+        if status in {
+            "reviewed-implementation",
+            "polishing-implementation",
+            "implemented",
+            "release",
+        }:
             return {
                 "success": False,
                 "error": (
@@ -156,7 +159,10 @@ def execute_close(
             dependent_item = row[0]
             gate_point = row[1]
             satisfaction = row[2]
-            if normalized_resolution_ref and dependent_item == normalized_resolution_ref:
+            if (
+                normalized_resolution_ref
+                and dependent_item == normalized_resolution_ref
+            ):
                 conn.execute(
                     "DELETE FROM item_dependencies "
                     f"WHERE dependent_item = {p} AND blocking_item = {p} "
@@ -185,6 +191,7 @@ def execute_close(
         # ``backlog_updates._update_item_multi`` to inject failures; looking
         # up the shim binding at call time preserves that contract.
         from yoke_core.domain import backlog_updates as _bu
+
         _bu._update_item_multi(
             conn,
             item_id,
@@ -195,40 +202,35 @@ def execute_close(
                 "resolution_ref": normalized_resolution_ref,
                 "resolution_comment": resolution_comment,
             },
+            commit=False,
         )
-        release_item_worktrees(conn, item_id=item_id)
+        from yoke_core.domain.backlog_update_effects import (
+            run_post_commit_update_effects,
+            run_transactional_update_effects,
+        )
+
+        effect_receipt = run_transactional_update_effects(
+            conn,
+            item_id=item_id,
+            field="status",
+            value="cancelled",
+            old_status=old_status,
+            mutation_events=(),
+            session_id=None,
+            out=out,
+            status_source="execute-close",
+        )
         conn.commit()
 
-        print(f"Updated: YOK-{item_id} status → cancelled (resolution: {reason})", file=out)
-
-        # Audit-trail + claim-cleanup parity with the canonical writer in
-        # backlog_update_op.execute_update. Without these, a status mutation
-        # from execute_close leaves no ItemStatusChanged event and strands
-        # any non-terminal path claims attached to the item.
-        if old_status != "cancelled":
-            from yoke_core.domain.item_status_transitions import (
-                record_and_emit_item_status_change,
-            )
-            record_and_emit_item_status_change(
-                conn,
-                item_id=item_id,
-                from_status=old_status,
-                to_status="cancelled",
-                source=os.environ.get("YOKE_STATUS_SOURCE", "execute-close"),
-                out=out,
-            )
-        try:
-            _n = cancel_claims_on_item_terminal(
-                conn, item_id=item_id, new_status="cancelled"
-            )
-            if _n:
-                print(
-                    f"Cancelled {_n} non-terminal path claim(s) "
-                    f"for YOK-{item_id}",
-                    file=out,
-                )
-        except Exception:  # noqa: BLE001 - best-effort cleanup
-            pass
+        print(
+            f"Updated: YOK-{item_id} status → cancelled (resolution: {reason})",
+            file=out,
+        )
+        run_post_commit_update_effects(
+            conn,
+            receipt=effect_receipt,
+            out=out,
+        )
         if removed_outbound:
             print(
                 f"Reconciled: removed {len(removed_outbound)} outbound "
@@ -262,8 +264,12 @@ def execute_close(
         # Lazy import: tests patch ``backlog_updates._is_dry_run``; looking
         # up the shim binding at call time preserves that contract.
         from yoke_core.domain import backlog_updates as _bu
+
         if _bu._is_dry_run():
-            print(f"[DRY-RUN] Skipping GitHub: close + comment for YOK-{item_id}", file=out)
+            print(
+                f"[DRY-RUN] Skipping GitHub: close + comment for YOK-{item_id}",
+                file=out,
+            )
         else:
             _rendering._post_comment(item_id, old_status, "cancelled", out)
             _rendering._close_issue(item_id, out)

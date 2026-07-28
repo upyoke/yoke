@@ -9,12 +9,16 @@ from __future__ import annotations
 
 import io
 import os
+from copy import deepcopy
+from dataclasses import replace
 from unittest import mock
 
 import pytest
 
 from yoke_core.domain import advance_skip
+from yoke_core.domain import advance_skip_core
 from yoke_core.domain import advance_skip_finalize
+from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
 from runtime.api.advance_skip_test_helpers import (
     _CallRecorder,
     _enter_all,
@@ -141,6 +145,53 @@ class TestSkipRefineHappyPath:
 
         assert seen_reasons == ["finalize-exit"]
 
+    def test_route_uses_pinned_refine_segment_transitions(self):
+        workflow = builtin_workflow_runtime("issue")
+        definition = deepcopy(workflow.definition)
+        refined_index = next(
+            index
+            for index, stage in enumerate(definition["stages"])
+            if stage["id"] == "refined-idea"
+        )
+        definition["stages"].insert(
+            refined_index,
+            {"id": "validating-idea", "label": "validating idea", "gates": []},
+        )
+        definition["transitions"] = [
+            transition
+            for transition in definition["transitions"]
+            if transition
+            != {
+                "from_stage_id": "refining-idea",
+                "to_stage_id": "refined-idea",
+            }
+        ]
+        definition["transitions"].extend(
+            [
+                {
+                    "from_stage_id": "refining-idea",
+                    "to_stage_id": "validating-idea",
+                },
+                {
+                    "from_stage_id": "validating-idea",
+                    "to_stage_id": "refined-idea",
+                },
+            ]
+        )
+        pinned = replace(workflow, definition=definition)
+
+        route = advance_skip_core._executor_skip_route(
+            pinned,
+            "idea",
+            executor_id="refine",
+        )
+
+        assert route.hops == (
+            "refining-idea",
+            "validating-idea",
+            "refined-idea",
+        )
+
 
 # ---------------------------------------------------------------------------
 # skip_refine — invalid-stage and workflow rejection
@@ -165,7 +216,7 @@ class TestSkipRefineRejection:
         patches = _patch_core(bad_status, "epic")
         _enter_all(patches)
         try:
-            with pytest.raises(ValueError, match="refining"):
+            with pytest.raises(ValueError, match="skip-refine"):
                 advance_skip.skip_refine(300, out=io.StringIO())
         finally:
             _exit_all(patches)
@@ -175,7 +226,7 @@ class TestSkipRefineRejection:
         patches = _patch_core("refining-plan", "issue")
         _enter_all(patches)
         try:
-            with pytest.raises(ValueError, match="not declared by issue@2"):
+            with pytest.raises(ValueError, match="not declared by issue@3"):
                 advance_skip.skip_refine(301, out=io.StringIO())
         finally:
             _exit_all(patches)
@@ -185,7 +236,7 @@ class TestSkipRefineRejection:
         patches = _patch_core("plan-drafted", "issue")
         _enter_all(patches)
         try:
-            with pytest.raises(ValueError, match="not declared by issue@2"):
+            with pytest.raises(ValueError, match="not declared by issue@3"):
                 advance_skip.skip_refine(302, out=io.StringIO())
         finally:
             _exit_all(patches)
@@ -201,7 +252,7 @@ def test_real_execute_update_path_refine(tmp_db):  # noqa: F811
     _seed_item(
         tmp_db,
         id=991,
-        type="issue",
+        workflow_id="issue",
         status="refining-idea",
         project="yoke",
     )

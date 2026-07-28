@@ -17,6 +17,10 @@ from yoke_core.domain.mutations import (
 )
 from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.api.service_client import _resolve_deploy_envs
+from yoke_core.api.routes.item_delivery_binding_update import (
+    lock_and_validate_delivery_binding,
+    prospective_project_for_update,
+)
 
 # Module-level import so test patches against ``yoke_core.api.main.*`` take effect.
 import yoke_core.api.main as _main
@@ -78,7 +82,8 @@ def create_item(req: _main.CreateItemRequest) -> _main.ItemObject | JSONResponse
         from yoke_core.domain.workflow_runtime import load_workflow_runtime
 
         workflow_id, workflow_version_id = resolve_current_workflow_pin(
-            conn, req.workflow or "issue",
+            conn,
+            req.workflow,
         )
         workflow = load_workflow_runtime(
             conn,
@@ -87,7 +92,9 @@ def create_item(req: _main.CreateItemRequest) -> _main.ItemObject | JSONResponse
         )
     except WorkflowRegistryError as exc:
         return _main._error_response(
-            422, "VALIDATION_ERROR", str(exc),
+            422,
+            "VALIDATION_ERROR",
+            str(exc),
         )
     finally:
         conn.close()
@@ -105,7 +112,11 @@ def create_item(req: _main.CreateItemRequest) -> _main.ItemObject | JSONResponse
     )
 
     if not result.success:
-        return _main._error_response(422, result.error_code or "VALIDATION_ERROR", result.error or "Unknown error")
+        return _main._error_response(
+            422,
+            result.error_code or "VALIDATION_ERROR",
+            result.error or "Unknown error",
+        )
 
     from yoke_core.domain.item_entry_surface import enforce_item_entry_allowed
 
@@ -115,7 +126,9 @@ def create_item(req: _main.CreateItemRequest) -> _main.ItemObject | JSONResponse
     )
     if intake_block:
         return _main._error_response(
-            403, "ENTRY_SURFACE_DENIED", intake_block,
+            403,
+            "ENTRY_SURFACE_DENIED",
+            intake_block,
         )
 
     field_writes = dict(result.field_writes)
@@ -125,14 +138,26 @@ def create_item(req: _main.CreateItemRequest) -> _main.ItemObject | JSONResponse
     conn = _main.get_db_readwrite()
     try:
         p = _p(conn)
+        if deployment_flow:
+            _locked_project, flow_err = validate_and_lookup_flow_project(
+                conn,
+                deployment_flow,
+                req.project,
+                lock_binding=True,
+            )
+            if flow_err:
+                return _main._error_response(422, "VALIDATION_ERROR", flow_err)
         _translate_project_write(conn, field_writes)
         field_writes["project_sequence"] = _next_project_sequence(
-            conn, int(field_writes["project_id"]),
+            conn,
+            int(field_writes["project_id"]),
         )
         columns = list(field_writes.keys())
         col_str = ", ".join(columns)
         values = [
-            int(field_writes[c]) if isinstance(field_writes[c], bool) else field_writes[c]
+            int(field_writes[c])
+            if isinstance(field_writes[c], bool)
+            else field_writes[c]
             for c in columns
         ]
         placeholders = ", ".join([p] * len(columns))
@@ -143,19 +168,19 @@ def create_item(req: _main.CreateItemRequest) -> _main.ItemObject | JSONResponse
         item_id = cursor.fetchone()[0]
         conn.commit()
 
-        row = conn.execute(
-            _item_read_sql(conn), (item_id,)
-        ).fetchone()
+        row = conn.execute(_item_read_sql(conn), (item_id,)).fetchone()
         if row is None:
             return _main._error_response(
-                500, "INTERNAL_ERROR",
+                500,
+                "INTERNAL_ERROR",
                 f"Item YOK-{item_id} was created but could not be read back",
             )
         return _main._row_to_item(row, include_body=True)
     except db_backend.operational_error_types(conn) as exc:
         if "database is locked" in str(exc).lower():
             return _main._error_response(
-                503, "DB_BUSY",
+                503,
+                "DB_BUSY",
                 "Database is locked. Retry after a short delay.",
             )
         raise
@@ -164,24 +189,34 @@ def create_item(req: _main.CreateItemRequest) -> _main.ItemObject | JSONResponse
 
 
 @router.patch("/items/{item_id}", response_model=_main.ItemObject)
-def update_item(item_id: int, req: _main.UpdateItemRequest) -> _main.ItemObject | JSONResponse:
+def update_item(
+    item_id: int, req: _main.UpdateItemRequest
+) -> _main.ItemObject | JSONResponse:
     """Update one or more fields on an existing item."""
-    updates = {
-        k: v for k, v in req.model_dump().items()
-        if v is not None
-    }
+    updates = {k: v for k, v in req.model_dump().items() if v is not None}
 
     if not updates:
         return _main._error_response(
-            422, "VALIDATION_ERROR",
+            422,
+            "VALIDATION_ERROR",
             "At least one field must be provided for update.",
         )
 
     unsupported = set(updates.keys()) - SUPPORTED_UPDATE_FIELDS
     if unsupported:
         return _main._error_response(
-            422, "UNSUPPORTED_FIELD",
+            422,
+            "UNSUPPORTED_FIELD",
             f"Field(s) {', '.join(sorted(unsupported))} not in supported update surface.",
+        )
+    if "status" in updates:
+        return _main._error_response(
+            409,
+            "STATUS_UPDATE_REQUIRES_LIFECYCLE",
+            (
+                "PATCH cannot update item status. Use the authenticated "
+                "lifecycle.transition.execute function surface."
+            ),
         )
 
     conn = _main.get_db_readwrite()
@@ -190,7 +225,27 @@ def update_item(item_id: int, req: _main.UpdateItemRequest) -> _main.ItemObject 
         row = conn.execute(_item_read_sql(conn), (item_id,)).fetchone()
         if row is None:
             return _main._error_response(
-                404, "NOT_FOUND",
+                404,
+                "NOT_FOUND",
+                f"Item with id {item_id} not found",
+            )
+        flow_project = None
+        if "project" in updates or "deployment_flow" in updates:
+            row, flow_project, binding_error = lock_and_validate_delivery_binding(
+                conn,
+                item_id=item_id,
+                updates=updates,
+                initial_row=row,
+                read_item=lambda db, target_id: db.execute(
+                    _item_read_sql(db), (target_id,)
+                ).fetchone(),
+            )
+            if binding_error:
+                return _main._error_response(422, "VALIDATION_ERROR", binding_error)
+        if row is None:
+            return _main._error_response(
+                404,
+                "NOT_FOUND",
                 f"Item with id {item_id} not found",
             )
 
@@ -198,7 +253,12 @@ def update_item(item_id: int, req: _main.UpdateItemRequest) -> _main.ItemObject 
         from yoke_core.domain.workflow_runtime import (
             load_item_workflow_runtime,
         )
+
         workflow = load_item_workflow_runtime(conn, item_id)
+        prospective_project = prospective_project_for_update(
+            updates,
+            item_dict,
+        )
         item_state = ItemState(
             id=item_dict["id"],
             title=item_dict["title"],
@@ -206,7 +266,7 @@ def update_item(item_id: int, req: _main.UpdateItemRequest) -> _main.ItemObject 
             priority=item_dict["priority"],
             rework_count=item_dict.get("rework_count", 0),
             frozen=bool(item_dict.get("frozen", 0)),
-            project=item_dict.get("project"),
+            project=prospective_project,
             deployment_flow=item_dict.get("deployment_flow"),
             deploy_stage=item_dict.get("deploy_stage"),
             deployed_to=item_dict.get("deployed_to"),
@@ -215,69 +275,11 @@ def update_item(item_id: int, req: _main.UpdateItemRequest) -> _main.ItemObject 
         )
 
         gate = GateContext()
-        if "status" in updates:
-            target_status = updates["status"]
-
-            if workflow.policies["generated_children"] == "epic_tasks":
-                task_count_row = conn.execute(
-                    f"SELECT COUNT(*) as cnt FROM epic_tasks WHERE epic_id = {p}",
-                    (item_dict["id"],),
-                ).fetchone()
-                gate.epic_task_count = task_count_row["cnt"] if task_count_row else 0
-
-            gate.has_merged_at = bool(item_dict.get("merged_at"))
-
-            qa_req_row = conn.execute(
-                f"SELECT COUNT(*) as cnt FROM qa_requirements WHERE item_id = {p}",
-                (item_dict["id"],),
-            ).fetchone()
-            gate.qa_requirement_count = qa_req_row["cnt"] if qa_req_row else 0
-
-            if gate.qa_requirement_count > 0:
-                unsatisfied_val = conn.execute(
-                    f"""SELECT COUNT(*) as cnt FROM qa_requirements qr
-                       WHERE qr.item_id = {p} AND qr.qa_phase IN ('validation','verification')
-                       AND qr.success_policy = 'blocking'
-                       AND NOT EXISTS (
-                           SELECT 1 FROM qa_runs qrun
-                           WHERE qrun.qa_requirement_id = qr.id
-                           AND qrun.verdict IN ('pass', 'waiver')
-                       )""",
-                    (item_dict["id"],),
-                ).fetchone()
-                gate.unsatisfied_verification_blocking = unsatisfied_val["cnt"] if unsatisfied_val else 0
-
-                unsatisfied_all = conn.execute(
-                    f"""SELECT COUNT(*) as cnt FROM qa_requirements qr
-                       WHERE qr.item_id = {p} AND qr.success_policy = 'blocking'
-                       AND NOT EXISTS (
-                           SELECT 1 FROM qa_runs qrun
-                           WHERE qrun.qa_requirement_id = qr.id
-                           AND qrun.verdict IN ('pass', 'waiver')
-                       )""",
-                    (item_dict["id"],),
-                ).fetchone()
-                gate.unsatisfied_all_blocking = unsatisfied_all["cnt"] if unsatisfied_all else 0
-
         if "deployment_flow" in updates and updates["deployment_flow"]:
-            from yoke_core.domain.deployment_flow_validator import (
-                normalize_deployment_flow_value,
-                validate_and_lookup_flow_project,
-            )
-
-            updates["deployment_flow"] = normalize_deployment_flow_value(
-                updates["deployment_flow"]
-            )
-            flow_project, flow_err = validate_and_lookup_flow_project(
-                conn, updates["deployment_flow"], item_dict.get("project")
-            )
-            if flow_err:
-                return _main._error_response(422, "VALIDATION_ERROR", flow_err)
             gate.flow_project = flow_project
 
         if "deployed_to" in updates and updates["deployed_to"]:
-            project = item_dict.get("project") or "yoke"
-            resolved_envs = _resolve_deploy_envs(conn, project)
+            resolved_envs = _resolve_deploy_envs(conn, prospective_project)
             gate.valid_deploy_envs = resolved_envs if resolved_envs is not None else []
 
         combined_writes: Dict[str, Any] = {}
@@ -290,17 +292,13 @@ def update_item(item_id: int, req: _main.UpdateItemRequest) -> _main.ItemObject 
             )
             if not result.success:
                 return _main._error_response(
-                    422 if result.error_code in ("VALIDATION_ERROR", "UNSUPPORTED_FIELD") else 409,
+                    422
+                    if result.error_code in ("VALIDATION_ERROR", "UNSUPPORTED_FIELD")
+                    else 409,
                     result.error_code or "VALIDATION_ERROR",
                     result.error or "Unknown error",
                 )
             combined_writes.update(result.field_writes)
-
-        # Capture pre-write status so we can emit ItemStatusChanged once
-        # after commit if the PATCH actually transitions status. The route
-        # bypasses ``backlog.execute_update`` (which would otherwise own
-        # the emit), so the route owns the emit itself.
-        prior_status = str(item_dict.get("status") or "")
 
         if combined_writes:
             _translate_project_write(conn, combined_writes)
@@ -309,8 +307,7 @@ def update_item(item_id: int, req: _main.UpdateItemRequest) -> _main.ItemObject 
             # bools as 0/1. SQLite adapts bool->int implicitly (byte-identical),
             # but Postgres rejects a bool bound to an integer column.
             values = [
-                int(v) if isinstance(v, bool) else v
-                for v in combined_writes.values()
+                int(v) if isinstance(v, bool) else v for v in combined_writes.values()
             ] + [item_id]
             conn.execute(
                 f"UPDATE items SET {', '.join(set_parts)} WHERE id = {p}",
@@ -318,27 +315,13 @@ def update_item(item_id: int, req: _main.UpdateItemRequest) -> _main.ItemObject 
             )
             conn.commit()
 
-        new_status = combined_writes.get("status")
-        if new_status and prior_status and prior_status != new_status:
-            from yoke_core.domain.item_status_transitions import (
-                record_and_emit_item_status_change,
-            )
-            record_and_emit_item_status_change(
-                conn,
-                item_id=item_id,
-                from_status=prior_status,
-                to_status=new_status,
-                source="items-patch",
-            )
-
-        row = conn.execute(
-            _item_read_sql(conn), (item_id,)
-        ).fetchone()
+        row = conn.execute(_item_read_sql(conn), (item_id,)).fetchone()
         return _main._row_to_item(row, include_body=True)
     except db_backend.operational_error_types(conn) as exc:
         if "database is locked" in str(exc).lower():
             return _main._error_response(
-                503, "DB_BUSY",
+                503,
+                "DB_BUSY",
                 "Database is locked. Retry after a short delay.",
             )
         raise

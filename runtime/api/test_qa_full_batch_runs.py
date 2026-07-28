@@ -14,6 +14,7 @@ import pytest
 
 from yoke_core.domain import db_backend, qa
 from runtime.api.qa_full_test_helpers import conn_with_rows, make_qa_db_file
+from runtime.api.qa_transition_test_support import add_bound_requirement
 
 
 @pytest.fixture()
@@ -29,10 +30,15 @@ def _conn(db_path: str):
 class TestRunAddBatch:
     """cmd_run_add_batch: bulk insert in one transaction."""
 
-    def _seed_requirement(self, db_path, capsys, item_id=100, qa_kind="ac_verification"):
-        req_id = qa.cmd_requirement_add(
-            db_path=db_path, item_id=item_id, qa_kind=qa_kind,
-            qa_phase="verification", success_policy="test policy",
+    def _seed_requirement(
+        self, db_path, capsys, item_id=100, qa_kind="ac_verification"
+    ):
+        req_id = add_bound_requirement(
+            db_path=db_path,
+            item_id=item_id,
+            qa_kind=qa_kind,
+            qa_phase="verification",
+            success_policy="test policy",
         )
         capsys.readouterr()
         return req_id
@@ -42,10 +48,20 @@ class TestRunAddBatch:
         req2 = self._seed_requirement(db_path, capsys, item_id=200)
 
         payload = [
-            {"requirement_id": req1, "executor_type": "agent", "qa_kind": "ac_verification",
-             "verdict": "pass", "raw_result": "All tests pass"},
-            {"requirement_id": req2, "executor_type": "agent", "qa_kind": "ac_verification",
-             "verdict": "pass", "raw_result": "Verified in output"},
+            {
+                "requirement_id": req1,
+                "executor_type": "agent",
+                "qa_kind": "ac_verification",
+                "verdict": "pass",
+                "raw_result": "All tests pass",
+            },
+            {
+                "requirement_id": req2,
+                "executor_type": "agent",
+                "qa_kind": "ac_verification",
+                "verdict": "pass",
+                "raw_result": "Verified in output",
+            },
         ]
         json_file = str(tmp_path / "runs.json")
         with open(json_file, "w") as f:
@@ -69,8 +85,13 @@ class TestRunAddBatch:
         req_id = self._seed_requirement(db_path, capsys)
 
         payload = [
-            {"requirement_id": req_id, "executor_type": "agent", "qa_kind": "ac_verification",
-             "verdict": "pass", "raw_result": "OK"},
+            {
+                "requirement_id": req_id,
+                "executor_type": "agent",
+                "qa_kind": "ac_verification",
+                "verdict": "pass",
+                "raw_result": "OK",
+            },
         ]
         json_file = str(tmp_path / "single_run.json")
         with open(json_file, "w") as f:
@@ -85,7 +106,9 @@ class TestRunAddBatch:
     def test_rejects_non_array(self, db_path, tmp_path):
         json_file = str(tmp_path / "obj.json")
         with open(json_file, "w") as f:
-            json.dump({"requirement_id": 1, "executor_type": "agent", "qa_kind": "smoke"}, f)
+            json.dump(
+                {"requirement_id": 1, "executor_type": "agent", "qa_kind": "smoke"}, f
+            )
 
         with pytest.raises(SystemExit) as exc:
             qa.cmd_run_add_batch(db_path=db_path, json_file=json_file)
@@ -125,10 +148,20 @@ class TestRunAddBatch:
         req_id = self._seed_requirement(db_path, capsys)
 
         payload = [
-            {"requirement_id": req_id, "executor_type": "agent", "qa_kind": "ac_verification",
-             "verdict": "pass", "raw_result": "All tests pass"},
-            {"requirement_id": req_id, "executor_type": "agent", "qa_kind": "ac_verification",
-             "verdict": "not_a_real_verdict", "raw_result": "Should fail"},
+            {
+                "requirement_id": req_id,
+                "executor_type": "agent",
+                "qa_kind": "ac_verification",
+                "verdict": "pass",
+                "raw_result": "All tests pass",
+            },
+            {
+                "requirement_id": req_id,
+                "executor_type": "agent",
+                "qa_kind": "ac_verification",
+                "verdict": "not_a_real_verdict",
+                "raw_result": "Should fail",
+            },
         ]
         json_file = str(tmp_path / "rollback.json")
         with open(json_file, "w") as f:
@@ -142,15 +175,27 @@ class TestRunAddBatch:
         conn.close()
         assert count == 0
 
-    def test_emits_one_event_per_created_run(self, db_path, capsys, tmp_path, monkeypatch):
+    def test_emits_one_event_per_created_run(
+        self, db_path, capsys, tmp_path, monkeypatch
+    ):
         req1 = self._seed_requirement(db_path, capsys)
         req2 = self._seed_requirement(db_path, capsys, item_id=200)
 
         payload = [
-            {"requirement_id": req1, "executor_type": "agent", "qa_kind": "ac_verification",
-             "verdict": "pass", "raw_result": "All tests pass"},
-            {"requirement_id": req2, "executor_type": "agent", "qa_kind": "ac_verification",
-             "verdict": "pass", "raw_result": "Verified in output"},
+            {
+                "requirement_id": req1,
+                "executor_type": "agent",
+                "qa_kind": "ac_verification",
+                "verdict": "pass",
+                "raw_result": "All tests pass",
+            },
+            {
+                "requirement_id": req2,
+                "executor_type": "agent",
+                "qa_kind": "ac_verification",
+                "verdict": "pass",
+                "raw_result": "Verified in output",
+            },
         ]
         json_file = str(tmp_path / "events.json")
         with open(json_file, "w") as f:
@@ -178,8 +223,12 @@ class TestRunAddBatch:
         req_id = self._seed_requirement(db_path, capsys, qa_kind="smoke")
 
         payload = [
-            {"requirement_id": req_id, "executor_type": "agent", "qa_kind": "browser_smoke",
-             "verdict": "pass"},
+            {
+                "requirement_id": req_id,
+                "executor_type": "agent",
+                "qa_kind": "browser_smoke",
+                "verdict": "pass",
+            },
         ]
         json_file = str(tmp_path / "browser.json")
         with open(json_file, "w") as f:
@@ -193,9 +242,14 @@ class TestRunAddBatch:
         req_id = self._seed_requirement(db_path, capsys)
 
         payload = [
-            {"requirement_id": req_id, "executor_type": "agent", "qa_kind": "ac_verification",
-             "verdict": "pass", "raw_result": "Screenshot OK",
-             "artifact_path": "/tmp/screenshot.png"},
+            {
+                "requirement_id": req_id,
+                "executor_type": "agent",
+                "qa_kind": "ac_verification",
+                "verdict": "pass",
+                "raw_result": "Screenshot OK",
+                "artifact_path": "/tmp/screenshot.png",
+            },
         ]
         json_file = str(tmp_path / "artifact.json")
         with open(json_file, "w") as f:
@@ -205,7 +259,9 @@ class TestRunAddBatch:
         assert len(ids) == 1
 
         conn = _conn(db_path)
-        art = conn.execute("SELECT * FROM qa_artifacts WHERE qa_run_id = %s", (ids[0],)).fetchone()
+        art = conn.execute(
+            "SELECT * FROM qa_artifacts WHERE qa_run_id = %s", (ids[0],)
+        ).fetchone()
         assert art is not None
         handle = json.loads(art["artifact_handle"])
         assert handle == {"backend": "local", "path": "/tmp/screenshot.png"}

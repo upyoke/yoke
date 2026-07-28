@@ -19,6 +19,7 @@ Within a single registration cycle,
 still raises :class:`RegistryDuplicateError` on real id collisions —
 the guard short-circuits only the already-fully-registered case.
 """
+
 from __future__ import annotations
 
 import threading
@@ -40,6 +41,7 @@ from yoke_core.domain.handlers import (
     _register_identity,
     _register_inbox,
     _register_install,
+    _register_item_worktrees,
     _register_items_create,
     _register_items_github_sync,
     _register_items_scalar_lifecycle,
@@ -80,6 +82,7 @@ _DOMAIN_REGISTRARS = (
     _register_items_github_sync,
     _register_epic_tasks,
     _register_items_scalar_lifecycle,
+    _register_item_worktrees,
     item_page_read_registration,
     _register_machine_config,
     _register_onboard_checklist,

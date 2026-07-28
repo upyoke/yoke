@@ -5,15 +5,23 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from . import db_backend
-from . import sessions_analytics as _sa
-from .sessions_analytics import EVENT_WORK_RELEASED
+from . import sessions_analytics as _sa  # noqa: F401 - patch-compatible event seam
+from .sessions_claim_lifecycle_lock import lock_session_rows_for_claim_lifecycle
 from .sessions_lifecycle_release_failure import (
     RELEASE_FAILURE_DOMAIN_ERROR,
     diagnose_target_release_miss,
     emit_target_release_failed,
     read_item_status,
 )
-from .sessions_lifecycle_release_precondition import emit_release_refused, evaluate_release_precondition
+from .sessions_lifecycle_release_precondition import (
+    emit_release_refused,
+    evaluate_release_precondition,
+)
+from .sessions_lifecycle_release_events import (
+    POST_COMMIT_RECEIPT_KEY as _POST_COMMIT_RECEIPT_KEY,
+    build_work_release_post_commit_receipt,
+    emit_work_release_post_commit,
+)
 from .sessions_queries import _now_iso, normalize_claim_item_id
 from .workflow_runtime import load_item_workflow_runtime
 from .work_claim_targets import (
@@ -23,6 +31,7 @@ from .work_claim_targets import (
     WorkClaimTarget,
     make_item_target,
 )
+from . import workflow_item_binding_lock as binding_lock
 
 _RELEASE_REASON_SCHEMA_MAP: Dict[str, str] = {
     "handoff-to-polish": "handed_off",
@@ -109,6 +118,7 @@ def release_item_claim_for_execution(
     return release_work_claim_for_execution(conn, session_id, target, reason)
 
 
+@binding_lock.rollback_workflow_binding_write_errors
 def release_work_claim_for_execution(
     conn: Any,
     session_id: str,
@@ -116,6 +126,7 @@ def release_work_claim_for_execution(
     reason: str,
     *,
     allow_non_terminal: bool = False,
+    commit: bool = True,
 ) -> Dict[str, Any]:
     """Release an execution-owned typed claim and clear focus atomically.
 
@@ -126,13 +137,19 @@ def release_work_claim_for_execution(
     "failure_reason", "holder_session_id", "target_status", ...}`` AND
     emits ``ItemClaimReleaseFailed`` with the same payload. Validation
     failures still raise ``ValueError`` for the caller after emitting.
-    Generic attribution helpers must NOT be substituted here.
+    Generic attribution helpers must NOT be substituted here. ``commit=False``
+    is reserved for an enclosing session-end transaction; it returns a private
+    post-commit telemetry receipt instead of emitting success events.
     """
+    lock_session_rows_for_claim_lifecycle(conn, (session_id,))
+    binding_lock.lock_work_claim_target_workflow_binding(conn, target)
     now = _now_iso()
     claim_row = _find_active_claim(conn, session_id, target)
     target_label = target.render()
 
     if claim_row is None:
+        if commit:
+            conn.commit()
         failure_reason, holder = diagnose_target_release_miss(conn, target)
         target_status: Optional[str] = None
         if target.kind == TARGET_KIND_ITEM and target.item_id is not None:
@@ -157,11 +174,22 @@ def release_work_claim_for_execution(
 
     claim_id = claim_row["id"]
     precondition = evaluate_release_precondition(
-        conn, session_id=session_id, target=target,
-        release_reason_intent=reason, allow_non_terminal=allow_non_terminal)
+        conn,
+        session_id=session_id,
+        target=target,
+        release_reason_intent=reason,
+        allow_non_terminal=allow_non_terminal,
+    )
     if not precondition.allowed:
-        return emit_release_refused(session_id=session_id, target=target,
-            claim_id=int(claim_id), reason=reason, precondition=precondition)
+        if commit:
+            conn.commit()
+        return emit_release_refused(
+            session_id=session_id,
+            target=target,
+            claim_id=int(claim_id),
+            reason=reason,
+            precondition=precondition,
+        )
     canonical_reason = _canonical_release_reason(reason)
     if target.kind == TARGET_KIND_ITEM and target.item_id is not None:
         try:
@@ -194,51 +222,27 @@ def release_work_claim_for_execution(
     record_release_intent(conn, claim_id=int(claim_id), intent=reason)
     if target.kind == TARGET_KIND_EPIC_TASK:
         touch_epic_task_activity(
-            conn, epic_id=target.epic_id, task_num=target.task_num, at=now,
+            conn,
+            epic_id=target.epic_id,
+            task_num=target.task_num,
+            at=now,
         )
     if target.kind == TARGET_KIND_PROCESS:
         _release_linked_path_claims(conn, claim_id, now, canonical_reason)
-    conn.commit()
 
-    item_id_for_event: Optional[str] = None
-    task_num_for_event: Optional[int] = None
-    context: Dict[str, Any] = {
-        "claim_id": claim_id,
-        "release_reason": canonical_reason,
-        "release_reason_intent": reason,
-        "execution_owned": True,
-        "target_kind": target.kind,
-    }
-    if target.kind == TARGET_KIND_ITEM:
-        item_id_for_event = str(target.item_id)
-    elif target.kind == TARGET_KIND_EPIC_TASK:
-        item_id_for_event = str(target.epic_id)
-        task_num_for_event = target.task_num
-    else:
-        context["process_key"] = target.process_key
-        context["conflict_group"] = target.conflict_group
-
-    _sa._emit_session_event(
-        EVENT_WORK_RELEASED,
+    receipt = build_work_release_post_commit_receipt(
         session_id=session_id,
-        item_id=item_id_for_event,
-        task_num=task_num_for_event,
-        context=context,
+        target=target,
+        claim_id=int(claim_id),
+        canonical_reason=canonical_reason,
+        reason=reason,
+        released_at=now,
     )
+    if commit:
+        conn.commit()
+        emit_work_release_post_commit(conn, receipt)
 
-    if target.kind == TARGET_KIND_ITEM and target.item_id is not None:
-        from .idea_claim_events import emit_if_idea_release
-
-        emit_if_idea_release(
-            conn,
-            session_id=session_id,
-            target_item_id=int(target.item_id),
-            claim_id=int(claim_id),
-            release_reason_intent=reason,
-            released_at=now,
-        )
-
-    return {
+    result = {
         "released": True,
         "claim_id": claim_id,
         "reason_intent": reason,
@@ -246,6 +250,9 @@ def release_work_claim_for_execution(
         "target_kind": target.kind,
         "target_label": target_label,
     }
+    if not commit:
+        result[_POST_COMMIT_RECEIPT_KEY] = receipt
+    return result
 
 
 def _find_active_claim(
@@ -279,7 +286,9 @@ def _find_active_claim(
 
 
 def _maybe_clear_current_item(
-    conn: Any, session_id: str, item_id_text: str,
+    conn: Any,
+    session_id: str,
+    item_id_text: str,
 ) -> None:
     """Clear current_item_id only when the focus points at this claim's item."""
     current_row = conn.execute(
@@ -296,7 +305,11 @@ def _maybe_clear_current_item(
             f"recent_item_id = {_p(conn)}, recent_item_recorded_at = {_p(conn)}, "
             "current_item_id = NULL, current_item_set_at = NULL "
             f"WHERE session_id = {_p(conn)}",
-            (current_row["current_item_id"], current_row["current_item_set_at"], session_id),
+            (
+                current_row["current_item_id"],
+                current_row["current_item_set_at"],
+                session_id,
+            ),
         )
 
 
@@ -332,7 +345,6 @@ def _release_linked_path_claims(
         )
         released_ids.append(cid)
     return released_ids
-
 
 from .sessions_lifecycle_release_bulk import release_all_claims  # noqa: E402,F401
 from .sessions_lifecycle_release_operator import operator_override_release_claim  # noqa: E402,F401

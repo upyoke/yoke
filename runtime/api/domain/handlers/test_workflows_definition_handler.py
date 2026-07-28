@@ -83,7 +83,7 @@ class TestWorkflowRegistry:
         assert all(row["definition_digest"] for row in by_id.values())
         assert all(
             [version["version"] for version in row["versions"]]
-            == [1, BUILTIN_WORKFLOW_PREFERRED_VERSION]
+            == [1, 2, BUILTIN_WORKFLOW_PREFERRED_VERSION]
             for row in by_id.values()
         )
         issue_stages = by_id["issue"]["definition"]["stages"]

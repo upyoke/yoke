@@ -13,77 +13,25 @@ logic is re-implemented here.
 
 from __future__ import annotations
 
-from typing import Any, List, Optional
-
-from pydantic import BaseModel, Field
+from typing import Any, Optional
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.handlers.claims_path_models import (
+    OverrideRequest,
+    OverrideResponse,
+    RegisterRequest,
+    RegisterResponse,
+    ReleaseRequest,
+    ReleaseResponse,
+    WidenRequest,
+    WidenResponse,
+)
 from yoke_core.domain.path_claim_register import render_overlap_denial_for_register
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionError,
     HandlerOutcome,
 )
-
-
-class RegisterRequest(BaseModel):
-    item_id: Optional[int] = None
-    integration_target: Optional[str] = None
-    paths: List[str] = Field(default_factory=list)
-    mode: str = "exclusive"
-    exception_reason: Optional[str] = None
-    allow_planned: bool = False
-    directory_paths: Optional[List[str]] = None
-    tentative_paths: Optional[List[str]] = None
-    upstream_claim_id: Optional[int] = None
-    actor_id: Optional[int] = None
-
-
-class RegisterResponse(BaseModel):
-    claim_id: int
-
-
-class WidenRequest(BaseModel):
-    claim_id: int
-    add_target_ids: List[int] = Field(default_factory=list)
-    add_paths: List[str] = Field(default_factory=list)
-    reason: str = Field(..., min_length=1)
-    repo_path: Optional[str] = None
-    worktree_head: Optional[str] = None
-    allow_planned: bool = False
-    directory_paths: Optional[List[str]] = None
-
-
-class WidenResponse(BaseModel):
-    amendment_id: int
-
-
-class ReleaseRequest(BaseModel):
-    claim_id: int
-    reason: str = Field(..., min_length=1)
-
-
-class ReleaseResponse(BaseModel):
-    claim_id: int
-    state: str
-    released_at: Optional[str] = None
-
-
-class OverrideRequest(BaseModel):
-    path_claim_id: int
-    override_point: str = "creation"
-    integration_target: str
-    actor_id: int
-    actor_reason: str = Field(..., min_length=1)
-    blocking_claim_id: Optional[int] = None
-    blocking_path_targets: Optional[List[int]] = None
-    conflict_reason: Optional[str] = None
-    item_id: Optional[int] = None
-    project: Optional[str] = None
-
-
-class OverrideResponse(BaseModel):
-    override_event_id: Optional[str] = None
 
 
 def _err(code: str, message: str, *, jsonpath: Optional[str] = None) -> HandlerOutcome:
@@ -95,6 +43,7 @@ def _err(code: str, message: str, *, jsonpath: Optional[str] = None) -> HandlerO
 
 def _connect_rw() -> Any:
     from yoke_core.domain import db_helpers
+
     return db_helpers.connect()
 
 
@@ -137,6 +86,10 @@ def handle_register(request: FunctionCallRequest) -> HandlerOutcome:
         )
 
     from yoke_core.domain.path_claims import PathClaimError
+    from yoke_core.domain.path_claim_task_bindings import (
+        PathClaimTaskBindingError,
+    )
+    from yoke_core.domain.path_claim_task_registration import register_for_task
     from yoke_core.domain.path_claims_register import (
         DefaultActorUnavailable,
         ItemHasNoProject,
@@ -158,8 +111,11 @@ def handle_register(request: FunctionCallRequest) -> HandlerOutcome:
         except PathClaimRegistrationError as exc:
             return _err("integration_target_invalid", str(exc))
         try:
-            claim_id = register_for_item(
-                conn,
+            registrar = (
+                register_for_task if body.task_num is not None else register_for_item
+            )
+            kwargs = dict(
+                conn=conn,
                 item_id=int(body.item_id),
                 integration_target=integration_target,
                 paths=list(body.paths),
@@ -172,14 +128,22 @@ def handle_register(request: FunctionCallRequest) -> HandlerOutcome:
                 directory_paths=body.directory_paths,
                 tentative_paths=body.tentative_paths,
             )
+            if body.task_num is not None:
+                kwargs["task_num"] = int(body.task_num)
+            claim_id = registrar(**kwargs)
         except (ItemNotFound, ItemHasNoProject) as exc:
             return _err("item_not_found", str(exc))
         except DefaultActorUnavailable as exc:
             return _err("actor_unavailable", str(exc))
+        except PathClaimTaskBindingError as exc:
+            return _err("task_binding_invalid", str(exc))
         except PathClaimError as exc:
             message = render_overlap_denial_for_register(
-                conn, exc=exc, item_id=int(body.item_id),
-                integration_target=integration_target, paths=list(body.paths),
+                conn,
+                exc=exc,
+                item_id=int(body.item_id),
+                integration_target=integration_target,
+                paths=list(body.paths),
                 allow_planned=body.allow_planned,
                 session_id=request.actor.session_id,
             )
@@ -214,9 +178,7 @@ def handle_widen(request: FunctionCallRequest) -> HandlerOutcome:
                         (int(body.claim_id),),
                     ).fetchone()
                     item_id_attr = (
-                        int(row[0])
-                        if row is not None and row[0] is not None
-                        else None
+                        int(row[0]) if row is not None and row[0] is not None else None
                     )
                     resolved_ids = resolve_or_plan_paths_to_target_ids(
                         conn,
@@ -229,7 +191,9 @@ def handle_widen(request: FunctionCallRequest) -> HandlerOutcome:
                     )
                 else:
                     resolved_ids = resolve_paths_to_target_ids(
-                        conn, project, list(body.add_paths),
+                        conn,
+                        project,
+                        list(body.add_paths),
                     )
                 add_ids = list(dict.fromkeys(add_ids + list(resolved_ids)))
             except PathResolveError as exc:

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from yoke_core.domain import schema_api_context as sac
 
 
@@ -32,14 +34,24 @@ def test_qa_packet_lists_live_qa_requirements_columns() -> None:
         "waiver_source",
         "plan_id",
         "plan_case_key",
+        "case_position",
+        "baseline_position",
         "method_id",
+        "method_name",
+        "executor_id",
+        "required_capability_kind",
+        "verdict_path",
         "host_baseline",
+        "entry_surface",
+        "required_completion",
         "workflow_transition_id",
         "instructions",
         "expected_outcome",
         "method_config",
     ):
-        assert column in body, f"qa_requirements column {column!r} missing from qa packet"
+        assert column in body, (
+            f"qa_requirements column {column!r} missing from qa packet"
+        )
 
 
 def test_qa_packet_lists_live_qa_runs_columns() -> None:
@@ -71,19 +83,42 @@ def test_qa_packet_carries_requirement_add_ac_verification_example() -> None:
     assert (
         "yoke qa requirement add "
         "--item PREFIX-N --qa-kind ac_verification --qa-phase verification "
-        "--blocking-mode blocking --requirement-source ac_derived"
+        "--blocking-mode blocking --requirement-source ac_derived "
+        "--workflow-transition reviewed-implementation"
     ) in body
+    assert "`--workflow-transition` is required" in body
+    assert "precedes a qa_verification gate" in body
     assert '{"min_runs":N,"min_pass":N}' in body
-    # Epic-task / deployment-run attachment stays operator-debug.
-    assert "requirement-add --epic-id E --task-num K" in body
+    assert "every row must include `workflow_transition_id`" in body
+    # Epic-task / deployment-run attachment stays operator-debug; only the
+    # deployment-run form may omit a workflow binding.
+    assert (
+        "requirement-add --epic-id E --task-num K --workflow-transition STAGE"
+    ) in body
+    assert "Deployment-run attachment is operator-debug only" in body
+    assert "may omit the transition" in body
+
+
+@pytest.mark.parametrize("role", ("engineer_agent", "tester_agent"))
+def test_qa_executor_packets_require_transition_bound_creation(role: str) -> None:
+    body = sac.render_role_packet(role)
+    assert (
+        "yoke qa requirement add "
+        "--item PREFIX-N --qa-kind ac_verification --qa-phase verification "
+        "--blocking-mode blocking --requirement-source ac_derived "
+        "--workflow-transition reviewed-implementation"
+    ) in body
+    assert "every row must include `workflow_transition_id`" in body
+    assert (
+        "requirement-add --epic-id E --task-num K --workflow-transition STAGE"
+    ) in body
 
 
 def test_qa_packet_carries_plan_case_materialization_example() -> None:
     body = sac.render_topic_packet("qa")
     assert "Materialize attached QA plan cases for a transition" in body
     assert (
-        "yoke qa plan materialize --item PREFIX-N "
-        "--transition reviewed-implementation"
+        "yoke qa plan materialize --item PREFIX-N --transition reviewed-implementation"
     ) in body
     for field in (
         "method_id",
@@ -95,10 +130,7 @@ def test_qa_packet_carries_plan_case_materialization_example() -> None:
 
 def test_qa_packet_carries_run_add_agent_ac_verification_example() -> None:
     body = sac.render_topic_packet("qa")
-    assert (
-        "Add a QA run verdict — agent × ac_verification (inline raw_result)"
-        in body
-    )
+    assert "Add a QA run verdict — agent × ac_verification (inline raw_result)" in body
     assert (
         "yoke qa run add "
         "--requirement-id R --executor-type agent "
@@ -115,10 +147,23 @@ def test_qa_packet_carries_per_requirement_browser_case_run_example() -> None:
         "--base-url https://preview.example "
         "--expected-branch BRANCH --expected-sha SHA"
     ) in body
-    assert "qa.case_execution.get" in body
+    assert "qa.case_execution.begin" in body
     assert "executes only requirement R" in body
     assert "browser-check decides automatically" in body
     assert "browser-inspection records inconclusive evidence" in body
+
+
+def test_qa_packet_carries_ordered_plan_run_example() -> None:
+    body = sac.render_topic_packet("qa")
+    assert "Execute an item's materialized QA plans in snapshot order" in body
+    assert (
+        "yoke qa plan run --item PREFIX-N --transition TRANSITION "
+        "--base-url https://preview.example"
+    ) in body
+    assert "server-authorized execution before any local executor runs" in body
+    assert "immutable roster, digest, durable cursor" in body
+    assert "Waiting runs resume from the same cursor" in body
+    assert "completion or abort releases the lease" in body
 
 
 def test_qa_packet_drops_retired_browser_execution_teaching() -> None:

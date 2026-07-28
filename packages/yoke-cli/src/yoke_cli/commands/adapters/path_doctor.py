@@ -128,7 +128,8 @@ def path_fix(args: List[str]) -> int:
             print("No changes made.")
             return 0
 
-    changed = any(doctor.apply_fix(item, bindir) for item in target_list)
+    changes = [doctor.apply_fix(item, bindir) for item in target_list]
+    changed = any(changes)
     resolved = doctor.verify_fresh_login(shell)
     ssh_resolved = doctor.verify_ssh_command(shell)
     verified = all(res.path for res in resolved if res.name in ("uv", "yoke"))

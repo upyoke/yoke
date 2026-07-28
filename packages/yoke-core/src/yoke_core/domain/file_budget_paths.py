@@ -66,6 +66,17 @@ _TOP_LEVEL_BUILD_CONFIG_FILES = frozenset({
     "vite.config.ts",
     "yarn.lock",
 })
+_NO_REPO_SCOPE = re.compile(
+    r"^\s*-\s*N/A\s+[—-]\s+(.+?)\s*$",
+    re.IGNORECASE,
+)
+_UNRESOLVED_BUDGET_VALUES = frozenset({
+    "none",
+    "tbd",
+    "todo",
+    "unknown",
+    "unresolved",
+})
 
 
 def is_path_token(candidate: str) -> bool:
@@ -119,6 +130,38 @@ def extract_file_budget_paths(spec_text: str) -> List[str]:
     return paths
 
 
+def extract_file_budget_section(spec_text: str) -> str | None:
+    """Return the File Budget section body, or ``None`` when absent."""
+    if not spec_text:
+        return None
+    in_section = False
+    lines: list[str] = []
+    for line in spec_text.splitlines():
+        stripped = line.strip()
+        if _LEVEL2_HEADER.match(stripped):
+            if in_section:
+                break
+            in_section = bool(_FILE_BUDGET_HEADER.match(stripped))
+            continue
+        if in_section:
+            lines.append(line)
+    return "\n".join(lines).strip()
+
+
+def has_resolved_file_budget(spec_text: str) -> bool:
+    """Whether a section names paths or a reasoned no-repo-scope exception."""
+    section = extract_file_budget_section(spec_text)
+    if section is None:
+        return False
+    if extract_file_budget_paths(spec_text):
+        return True
+    for line in section.splitlines():
+        match = _NO_REPO_SCOPE.match(line)
+        if match and match.group(1).strip().casefold() not in _UNRESOLVED_BUDGET_VALUES:
+            return True
+    return False
+
+
 def extract_file_budget_paths_set(spec_text: str) -> Set[str]:
     """Set-shaped convenience for callers that compare against claim sets."""
     return set(extract_file_budget_paths(spec_text))
@@ -126,6 +169,8 @@ def extract_file_budget_paths_set(spec_text: str) -> Set[str]:
 
 __all__ = [
     "extract_file_budget_paths",
+    "extract_file_budget_section",
     "extract_file_budget_paths_set",
+    "has_resolved_file_budget",
     "is_path_token",
 ]

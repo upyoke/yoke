@@ -8,12 +8,18 @@ from typing import Any
 from yoke_contracts.item_ref import format_item_ref
 from yoke_core.domain import db_backend, db_helpers
 from yoke_core.domain.file_budget_paths import extract_file_budget_paths
+from yoke_core.domain.field_note_dash_promotion import (
+    source_field_note_for_dash,
+)
 from yoke_core.domain.item_page_claims import active_item_claims
 from yoke_core.domain.item_detail_qa import qa_plan_attachments, qa_rows
 from yoke_core.domain.item_worktrees import list_item_worktrees
 from yoke_core.domain.render_body import build_body
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.workflow_behavior import worktree_lane_policy
+from yoke_core.domain.workflow_effective_policies import (
+    resolve_effective_workflow_policies,
+)
 from yoke_core.domain.workflow_runtime import workflow_runtime_from_row
 
 _NARRATIVE_FIELDS = (
@@ -88,6 +94,7 @@ def _workflow_model(row: dict[str, Any]) -> dict[str, Any]:
     runtime = workflow_runtime_from_row(row)
     policy = worktree_lane_policy(runtime)
     item_posture = json.loads(str(row.get("workflow_posture") or "{}"))
+    effective = resolve_effective_workflow_policies(runtime, item_posture)
     stage_id = str(row["status"])
     stage_is_defined = runtime.stage_index(stage_id) is not None
     next_stage_id = runtime.next_stage_id(stage_id)
@@ -107,6 +114,7 @@ def _workflow_model(row: dict[str, Any]) -> dict[str, Any]:
             else None
         ),
         "policies": dict(runtime.policies),
+        "effective_policies": dict(effective.values),
         "item_posture": item_posture,
         "allowed_lane_roles": sorted(policy.allowed_roles),
         "required_lane_roles": sorted(policy.required_roles),
@@ -177,6 +185,7 @@ def get_item_detail(item_id: int) -> dict[str, Any]:
             },
             "narrative": narrative,
             "progress_log": _progress_log(conn, item_id),
+            "source_field_note": source_field_note_for_dash(conn, item_id),
             "qa_requirements": qa_requirements,
             "qa_plan_attachments": qa_plan_attachments(
                 conn,

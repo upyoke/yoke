@@ -103,6 +103,7 @@ def register(registry) -> None:
             "stage_mapping_required",
             "posture_compatibility",
             "lane_policy_compatibility",
+            "live_binding_compatibility",
         ],
         adapter_status="live",
         claim_required_kind="operator_override",

@@ -57,19 +57,26 @@ def _local_result(row, handle: dict) -> dict:
     from yoke_core.domain.project_checkout_locations import (
         checkout_for_project_id,
     )
-    from yoke_core.domain.qa_artifacts import artifact_directory
+    from yoke_core.domain.qa_artifacts import (
+        artifact_directory,
+        case_artifact_subject,
+    )
 
     checkout = checkout_for_project_id(int(row["project_id"]))
     scratch = artifact_directory(
-        str(row["project"]), int(row["item_id"]), int(row["run_id"]),
+        str(row["project"]),
+        case_artifact_subject(dict(row)),
+        int(row["run_id"]),
         create=False,
     )
     roots = [scratch]
     if checkout is not None:
         roots.append(checkout)
     raw_path = Path(str(handle["path"])).expanduser()
-    path = raw_path if raw_path.is_absolute() else (
-        checkout / raw_path if checkout is not None else raw_path
+    path = (
+        raw_path
+        if raw_path.is_absolute()
+        else (checkout / raw_path if checkout is not None else raw_path)
     )
     machine = _machine_label(row["metadata"])
     if not path.is_absolute() or not _inside(path, roots):
@@ -107,7 +114,9 @@ def _s3_result(conn, row, handle: dict) -> tuple[dict, Optional[HandlerOutcome]]
     from yoke_core.domain.s3_presign import presign_s3_url
 
     configured = resolve_artifacts_bucket(
-        conn, int(row["project_id"]), row["target_env"],
+        conn,
+        int(row["project_id"]),
+        row["target_env"],
     )
     if configured is None or configured[1] != str(handle["bucket"]):
         return {
@@ -157,11 +166,14 @@ def handle_qa_artifact_read(
             conn,
             "SELECT a.id, a.content_type, a.artifact_handle, a.metadata, "
             "a.qa_run_id AS run_id, r.qa_requirement_id, q.item_id, "
-            "q.target_env, i.project_id, p.slug AS project "
+            "q.deployment_run_id, q.target_env, "
+            "COALESCE(i.project_id, d.project_id) AS project_id, "
+            "p.slug AS project "
             "FROM qa_artifacts a JOIN qa_runs r ON r.id=a.qa_run_id "
             "JOIN qa_requirements q ON q.id=r.qa_requirement_id "
-            "JOIN items i ON i.id=q.item_id "
-            "JOIN projects p ON p.id=i.project_id "
+            "LEFT JOIN items i ON i.id=q.item_id "
+            "LEFT JOIN deployment_runs d ON d.id=q.deployment_run_id "
+            "JOIN projects p ON p.id=COALESCE(i.project_id, d.project_id) "
             f"WHERE a.id={marker}",
             (payload.artifact_id,),
         )

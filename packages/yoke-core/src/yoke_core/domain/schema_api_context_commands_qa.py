@@ -61,25 +61,31 @@ QA_COMMANDS: list[dict] = [
             "duration_ms, started_at, and completed_at."
         ),
     },
-
     {
         "topic": "qa",
         "purpose": "Add a QA requirement — ac_verification variant",
         "recipe": (
             "yoke qa requirement add "
             "--item PREFIX-N --qa-kind ac_verification --qa-phase verification "
-            "--blocking-mode blocking --requirement-source ac_derived"
+            "--blocking-mode blocking --requirement-source ac_derived "
+            "--workflow-transition reviewed-implementation"
         ),
         "notes": (
             "Registered write qa.requirement.add — item-claim-gated, "
-            "item-attached. ac_verification omits `--success-policy` "
+            "item-attached. `--workflow-transition` is required and must "
+            "name a stage in the item's pinned workflow that carries or "
+            "precedes a qa_verification gate. ac_verification omits "
+            "`--success-policy` "
             "by default; stricter policy is "
-            "`{\"min_runs\":N,\"min_pass\":N}`. Several rows in one "
+            '`{"min_runs":N,"min_pass":N}`. Several rows in one '
             "transaction: pipe a JSON array to `yoke qa requirement "
-            "add-batch --item PREFIX-N --stdin`. Epic-task / "
-            "deployment-run attachment is operator-debug only: "
+            "add-batch --item PREFIX-N --stdin`; every row must include "
+            "`workflow_transition_id`. Epic-task attachment is "
+            "operator-debug only and requires the same binding: "
             "`python3 -m yoke_core.domain.qa requirement-add "
-            "--epic-id E --task-num K ...`."
+            "--epic-id E --task-num K --workflow-transition STAGE ...`. "
+            "Deployment-run attachment is operator-debug only and may "
+            "omit the transition because the run owns its delivery context."
         ),
     },
     {
@@ -122,11 +128,41 @@ QA_COMMANDS: list[dict] = [
             "--raw-result 'Full backend pytest passed: N passed, K skipped.'"
         ),
         "notes": (
-            "Registered write qa.run.add — item-claim-gated. "
+            "Registered write qa.run.add — item claims remain required for "
+            "item-backed requirements; deployment-run requirements use their "
+            "server-resolved run subject. "
             "`--raw-result` is a literal string; `--qa-kind` defaults "
             "to the requirement's kind (mismatch is a hard error). "
             "For multi-line evidence, read the file and pass the literal "
             "content through `--raw-result`."
+        ),
+    },
+    {
+        "topic": "qa",
+        "purpose": "Execute an item's materialized QA plans in snapshot order",
+        "recipe": (
+            "yoke qa plan run --item PREFIX-N --transition TRANSITION "
+            "--base-url https://preview.example"
+        ),
+        "notes": (
+            "Begins or resumes a server-authorized execution before any "
+            "local executor runs. Stage pins the immutable roster, digest, "
+            "durable cursor, actor/session owner, and any machine lease; "
+            "each canonical result advances that cursor. Waiting runs "
+            "resume from the same cursor, while completion or abort "
+            "releases the lease. Hosted services never resolve local "
+            "executor credentials."
+        ),
+    },
+    {
+        "topic": "qa",
+        "purpose": (
+            "Execute a named project plan on its real deployment-run subject "
+            "(never a synthetic item or host_control bypass)"
+        ),
+        "recipe": (
+            "yoke qa plan run --deployment-run-id RUN "
+            "--plan installer-campaign --project yoke"
         ),
     },
     {
@@ -138,20 +174,24 @@ QA_COMMANDS: list[dict] = [
             "--expected-branch BRANCH --expected-sha SHA"
         ),
         "notes": (
-            "The shared case runner fetches the immutable snapshot through "
-            "qa.case_execution.get, executes only requirement R, and owns "
-            "qa.run.add / qa.run.complete / qa.artifact.add evidence "
-            "writes. browser-check decides automatically; "
+            "The shared case runner authorizes and fetches the immutable "
+            "snapshot through qa.case_execution.begin before local work, "
+            "executes only requirement R, and owns qa.run.add / "
+            "qa.run.complete / qa.artifact.add evidence writes. An active "
+            "item claim and ambient session are required. browser-check "
+            "decides automatically; "
             "browser-inspection records inconclusive evidence and creates "
-            "a review request. Never add a parallel Browser run manually."
+            "a review request. Item-backed cases require the active item "
+            "claim; deployment-run cases require project permission and the "
+            "bound execution session. Never add a parallel Browser run "
+            "manually."
         ),
     },
     {
         "topic": "qa",
         "purpose": "Preview the reviewed-implementation gate verdict",
         "recipe": (
-            "yoke qa gate-summary "
-            "--item PREFIX-N --target reviewed-implementation"
+            "yoke qa gate-summary --item PREFIX-N --target reviewed-implementation"
         ),
         "notes": (
             "Registered read qa.gate_summary.run. Use --item for a standalone "
@@ -182,9 +222,7 @@ QA_COMMANDS: list[dict] = [
     {
         "topic": "qa",
         "purpose": "Inspect events for an item (canonical agent shape)",
-        "recipe": (
-            "yoke events query --item YOK-N --limit 20"
-        ),
+        "recipe": ("yoke events query --item YOK-N --limit 20"),
         "notes": (
             "Add `--event-name X`, `--since ISO|'2 hours ago'`, "
             "`--until ...` for narrowing; `--session S "

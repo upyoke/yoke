@@ -87,13 +87,8 @@ from yoke_core.api.main_route_adapters import (  # noqa: F401
 # and avoid two-hop indirection.
 # ---------------------------------------------------------------------------
 
-from yoke_core.domain import (  # noqa: F401
-    approval,
-    board,
-    lifecycle,
-    queries,
-    runs,
-)
+from yoke_core.domain import approval, board, queries, runs  # noqa: F401
+from yoke_core.domain import task_lifecycle as lifecycle  # noqa: F401
 from yoke_core.domain.approval import FlowStage, parse_flow_stages  # noqa: F401
 from yoke_core.domain.dependency_planning import (  # noqa: F401
     evaluate_item_gate,
@@ -208,8 +203,7 @@ def _ensure_db_initialized() -> None:
         bad_rows = invalid_item_workflow_stages(conn)
         if bad_rows:
             details = ", ".join(
-                f"YOK-{item_id}={stage}"
-                for item_id, stage, _reason in bad_rows[:10]
+                f"YOK-{item_id}={stage}" for item_id, stage, _reason in bad_rows[:10]
             )
             raise RuntimeError(
                 f"{len(bad_rows)} items have invalid workflow pins or stages "

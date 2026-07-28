@@ -117,6 +117,17 @@ class TestCreateParity:
         cli_data = json.loads(cli_result.stdout)
         assert cli_data["success"] is False
 
+    def test_create_missing_workflow_rejected_both(self, write_parity_env):
+        client = write_parity_env["client"]
+        db_path = write_parity_env["db_path"]
+
+        assert client.post("/v1/items", json={"title": "Unclassified"}).status_code == 422
+        cli_result = _run_service_client(
+            db_path, "create-item", "--title", "Unclassified",
+        )
+        assert cli_result.returncode == 2
+        assert "--workflow WORKFLOW" in cli_result.stderr
+
     def test_create_invalid_priority_rejected_both(self, write_parity_env):
         """Both surfaces should reject an invalid priority."""
         client = write_parity_env["client"]

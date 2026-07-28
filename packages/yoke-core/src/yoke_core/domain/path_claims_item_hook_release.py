@@ -1,10 +1,8 @@
 """Item-lifecycle release hook for path claims.
 
 Sibling of :mod:`path_claims_item_hook` that owns the *release*
-counterpart to its sibling's *cancel* behaviour. Called from the
-canonical status-write path in
-:mod:`yoke_core.domain.backlog_update_op` after the item's new
-status has been committed.
+counterpart to its sibling's *cancel* behaviour. The canonical status-write
+path runs it before commit on the same connection.
 
 Why a sibling instead of expanding ``path_claims_item_hook.py``?
 The cancel hook is small but the release path adds structural
@@ -19,7 +17,7 @@ also keeps each at a comfortable distance from the 350-line cap.
 Behaviour:
 
 * When the new status is ``release`` or ``done``, every non-
-  terminal claim attached to the item is *released* (not
+  non-terminal item-owned claim is *released* (not
   cancelled) with ``release_reason='item-release'`` /
   ``release_reason='item-done'``. Each release emits the
   ``PathClaimReleased`` event through
@@ -27,42 +25,43 @@ Behaviour:
 * Each successful release re-runs downstream unblock propagation so
   serial claims blocked on the released claim can move back to
   ``planned`` when no live overlap remains.
-* The hook is fail-open against minimal-fixture environments that
-  lack the ``path_claims`` table — it returns ``None`` silently
-  without raising.
-* ``release`` is the primary trigger: it marks merge-complete and
+* The caller chooses the transaction boundary. Canonical status writes pass
+  ``commit=False`` so item status and claim release commit together.
+* ``release`` is the merge-boundary trigger: it marks merge-complete and
   is the moment item-linked work has actually landed in the
   ``integration_target``. ``done`` is a backstop so a fast-path
   done transition (or any flow that bypasses ``release``) cannot
   leave a non-terminal claim behind.
-* Releases are best-effort per claim; one claim's failure does
-  not unwind the rest of the iteration.
+* Pinned workflow terminal ids are accepted dynamically; ``done`` has no
+  privileged meaning when a version declares a different terminal stage.
 """
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from typing import Any, List, Optional
 
 from yoke_core.domain import db_backend
 
 
-_TERMINAL_STATES = ("release", "done")
+_MERGE_BOUNDARY_STATES = ("release",)
 
 
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def _non_terminal_claim_ids_for_item(
-    conn: Any, item_id: int
-) -> List[int]:
+def _non_terminal_claim_ids_for_item(conn: Any, item_id: int) -> List[int]:
     try:
         p = _p(conn)
         rows = conn.execute(
             "SELECT id FROM path_claims "
-            f"WHERE item_id = {p} AND state IN "
+            "WHERE ("
+            f"(owner_kind = 'item' AND owner_item_id = {p}) OR "
+            f"(owner_kind IS NULL AND item_id = {p})"
+            ") AND state IN "
             "('planned', 'blocked', 'active')",
-            (item_id,),
+            (item_id, item_id),
         ).fetchall()
     except db_backend.operational_error_types(conn):
         return []
@@ -74,6 +73,10 @@ def release_claims_on_item_terminal(
     *,
     item_id: int,
     new_status: str,
+    terminal_statuses: Iterable[str] = (),
+    propagate: bool = True,
+    released_claim_ids: Optional[List[int]] = None,
+    commit: bool = True,
 ) -> Optional[int]:
     """Release every non-terminal path claim attached to ``item_id``.
 
@@ -82,7 +85,25 @@ def release_claims_on_item_terminal(
     not one of the terminal-release triggers (``release`` /
     ``done``).
     """
-    if new_status not in _TERMINAL_STATES:
+    allowed_terminal_statuses = set(terminal_statuses)
+    if not allowed_terminal_statuses:
+        try:
+            from yoke_core.domain.workflow_runtime import (
+                load_item_workflow_runtime,
+            )
+
+            allowed_terminal_statuses.update(
+                load_item_workflow_runtime(
+                    conn,
+                    int(item_id),
+                ).terminal_stage_ids
+            )
+        except Exception:
+            pass
+    if (
+        new_status not in _MERGE_BOUNDARY_STATES
+        and new_status not in allowed_terminal_statuses
+    ):
         return None
 
     claim_ids = _non_terminal_claim_ids_for_item(conn, item_id)
@@ -113,10 +134,19 @@ def release_claims_on_item_terminal(
     released = 0
     for claim_id in claim_ids:
         try:
-            _release_claim(conn, claim_id=claim_id, reason=reason)
+            _release_claim(
+                conn,
+                claim_id=claim_id,
+                reason=reason,
+                commit=commit,
+            )
         except IllegalTransition:
+            if not commit:
+                raise
             continue
         released += 1
+        if released_claim_ids is not None:
+            released_claim_ids.append(claim_id)
         if _events is not None:
             try:
                 _events.emit_released(
@@ -126,10 +156,12 @@ def release_claims_on_item_terminal(
                 )
             except Exception:
                 pass
-        if propagate_release_unblock is not None:
+        if propagate and propagate_release_unblock is not None:
             try:
                 propagate_release_unblock(
-                    conn, released_claim_id=claim_id,
+                    conn,
+                    released_claim_id=claim_id,
+                    commit=commit,
                 )
             except Exception:
                 pass

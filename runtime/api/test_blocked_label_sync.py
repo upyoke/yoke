@@ -44,7 +44,7 @@ def _ok_resolver(*args, **kwargs):
 
 def test_sync_blocked_label_adds_label_when_true():
     db = _make_db()
-    insert_item(db, id=30, type="issue", status="implementing",
+    insert_item(db, id=30, workflow_id="issue", status="implementing",
                 project="externalwebapp", github_issue="#50")
     stdout = io.StringIO()
 
@@ -76,7 +76,7 @@ def test_sync_blocked_label_adds_label_when_true():
 
 def test_sync_blocked_label_removes_label_when_false():
     db = _make_db()
-    insert_item(db, id=31, type="issue", status="refined-idea",
+    insert_item(db, id=31, workflow_id="issue", status="refined-idea",
                 project="externalwebapp", github_issue="#51")
     stdout = io.StringIO()
 
@@ -104,7 +104,7 @@ def test_sync_blocked_label_removes_label_when_false():
 
 def test_full_sync_labels_adds_blocked_label_when_flagged():
     db = _make_db()
-    insert_item(db, id=34, type="issue", status="implementing",
+    insert_item(db, id=34, workflow_id="issue", status="implementing",
                 project="externalwebapp", github_issue="#54")
     db.execute("UPDATE items SET blocked = 1 WHERE id = 34")
     db.commit()
@@ -132,7 +132,7 @@ def test_full_sync_labels_adds_blocked_label_when_flagged():
 
 def test_full_sync_labels_removes_blocked_and_legacy_status_labels_when_unblocked():
     db = _make_db()
-    insert_item(db, id=35, type="issue", status="implementing",
+    insert_item(db, id=35, workflow_id="issue", status="implementing",
                 project="externalwebapp", github_issue="#55")
 
     with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
@@ -158,7 +158,7 @@ def test_full_sync_labels_removes_blocked_and_legacy_status_labels_when_unblocke
 
 def test_sync_blocked_label_dry_run():
     db = _make_db()
-    insert_item(db, id=32, type="issue", status="idea",
+    insert_item(db, id=32, workflow_id="issue", status="idea",
                 project="externalwebapp", github_issue="#52")
     stdout = io.StringIO()
 
@@ -184,7 +184,7 @@ def test_sync_blocked_label_dry_run():
 
 def test_sync_blocked_label_noop_without_github_issue():
     db = _make_db()
-    insert_item(db, id=33, type="issue", status="idea", project="externalwebapp")
+    insert_item(db, id=33, workflow_id="issue", status="idea", project="externalwebapp")
     with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
         f"{_LABEL_REST_STATE}.ensure_label",
     ) as ensure, patch(

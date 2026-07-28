@@ -25,39 +25,56 @@ class TestUpdateParity:
     """Verify that API PATCH /v1/items/{id} and service-client update-item
     produce identical validation results for the supported update surface."""
 
-    def test_update_status_accepted_both(self, write_parity_env):
-        """Both surfaces should accept a valid status transition."""
+    def test_patch_status_denied_and_canonical_cli_accepted(
+        self,
+        write_parity_env,
+    ):
+        """PATCH denies status while the canonical update surface accepts it."""
         client = write_parity_env["client"]
         db_path = write_parity_env["db_path"]
 
         # Item 1 is at status=implementing (task), transition to blocked
         api_resp = client.patch("/v1/items/1", json={"status": "blocked"})
-        assert api_resp.status_code == 200
-        assert api_resp.json()["status"] == "blocked"
+        assert api_resp.status_code == 409
+        assert api_resp.json()["error"]["code"] == "STATUS_UPDATE_REQUIRES_LIFECYCLE"
 
         # Now update via CLI (item 3 is issue at idea, move to refining-idea
         # — a valid Issue workflow transition).
         cli_result = _run_service_client(
-            db_path, "update-item", "3",
-            "--field", "status", "--value", "refining-idea",
+            db_path,
+            "update-item",
+            "3",
+            "--field",
+            "status",
+            "--value",
+            "refining-idea",
         )
         assert cli_result.returncode == 0
         cli_data = json.loads(cli_result.stdout)
         assert cli_data["success"] is True
 
-    def test_update_invalid_status_rejected_both(self, write_parity_env):
-        """Both surfaces should reject an invalid status value."""
+    def test_patch_status_denial_precedes_value_validation(
+        self,
+        write_parity_env,
+    ):
+        """PATCH consistently denies status; canonical CLI validates values."""
         client = write_parity_env["client"]
         db_path = write_parity_env["db_path"]
 
         # API
         api_resp = client.patch("/v1/items/1", json={"status": "bogus"})
-        assert api_resp.status_code == 422
+        assert api_resp.status_code == 409
+        assert api_resp.json()["error"]["code"] == "STATUS_UPDATE_REQUIRES_LIFECYCLE"
 
         # CLI
         cli_result = _run_service_client(
-            db_path, "update-item", "1",
-            "--field", "status", "--value", "bogus",
+            db_path,
+            "update-item",
+            "1",
+            "--field",
+            "status",
+            "--value",
+            "bogus",
         )
         assert cli_result.returncode == 1
         cli_data = json.loads(cli_result.stdout)
@@ -73,8 +90,13 @@ class TestUpdateParity:
         assert api_resp.json()["title"] == "New title"
 
         cli_result = _run_service_client(
-            db_path, "update-item", "3",
-            "--field", "title", "--value", "CLI title",
+            db_path,
+            "update-item",
+            "3",
+            "--field",
+            "title",
+            "--value",
+            "CLI title",
         )
         assert cli_result.returncode == 0
         cli_data = json.loads(cli_result.stdout)
@@ -90,8 +112,13 @@ class TestUpdateParity:
         assert api_resp.status_code == 422
 
         cli_result = _run_service_client(
-            db_path, "update-item", "1",
-            "--field", "title", "--value", long_title,
+            db_path,
+            "update-item",
+            "1",
+            "--field",
+            "title",
+            "--value",
+            long_title,
         )
         assert cli_result.returncode == 1
         cli_data = json.loads(cli_result.stdout)
@@ -107,8 +134,13 @@ class TestUpdateParity:
         assert api_resp.status_code == 200
 
         cli_result = _run_service_client(
-            db_path, "update-item", "3",
-            "--field", "priority", "--value", "high",
+            db_path,
+            "update-item",
+            "3",
+            "--field",
+            "priority",
+            "--value",
+            "high",
         )
         assert cli_result.returncode == 0
 
@@ -121,8 +153,13 @@ class TestUpdateParity:
         assert api_resp.status_code == 422
 
         cli_result = _run_service_client(
-            db_path, "update-item", "1",
-            "--field", "priority", "--value", "urgent",
+            db_path,
+            "update-item",
+            "1",
+            "--field",
+            "priority",
+            "--value",
+            "urgent",
         )
         assert cli_result.returncode == 1
 
@@ -135,8 +172,13 @@ class TestUpdateParity:
         assert api_resp.status_code == 404
 
         cli_result = _run_service_client(
-            db_path, "update-item", "9999",
-            "--field", "title", "--value", "No item",
+            db_path,
+            "update-item",
+            "9999",
+            "--field",
+            "title",
+            "--value",
+            "No item",
         )
         assert cli_result.returncode == 1
         cli_data = json.loads(cli_result.stdout)
@@ -151,7 +193,12 @@ class TestUpdateParity:
         assert api_resp.status_code == 200
 
         cli_result = _run_service_client(
-            db_path, "update-item", "3",
-            "--field", "frozen", "--value", "true",
+            db_path,
+            "update-item",
+            "3",
+            "--field",
+            "frozen",
+            "--value",
+            "true",
         )
         assert cli_result.returncode == 0

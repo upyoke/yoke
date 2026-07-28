@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -23,10 +23,12 @@ class MethodGetRequest(ProjectReadRequest):
 
 class PlanGetRequest(ProjectReadRequest):
     plan_id: int
+    deployment_run_id: Optional[str] = Field(default=None, min_length=1)
 
 
 class ActivityListRequest(ProjectReadRequest):
     limit: int = Field(default=100, ge=1, le=500)
+    deployment_run_id: Optional[str] = Field(default=None, min_length=1)
 
 
 class RowsResponse(BaseModel):
@@ -59,7 +61,8 @@ def _error(code: str, message: str, jsonpath: str) -> HandlerOutcome:
 
 
 def _payload(
-    request: FunctionCallRequest, model: type[BaseModel],
+    request: FunctionCallRequest,
+    model: type[BaseModel],
 ) -> tuple[BaseModel | None, HandlerOutcome | None]:
     if request.target.kind != "global":
         return None, _error(
@@ -105,7 +108,8 @@ def handle_method_get(request: FunctionCallRequest) -> HandlerOutcome:
     except LookupError as exc:
         return _error("not_found", str(exc), "$.payload.method_id")
     return HandlerOutcome(
-        result_payload={"method": method}, primary_success=True,
+        result_payload={"method": method},
+        primary_success=True,
     )
 
 
@@ -133,7 +137,11 @@ def handle_plan_get(request: FunctionCallRequest) -> HandlerOutcome:
 
     try:
         with connect() as conn:
-            plan = get_plan(conn, plan_id=payload.plan_id)
+            plan = get_plan(
+                conn,
+                plan_id=payload.plan_id,
+                deployment_run_id=payload.deployment_run_id,
+            )
     except LookupError as exc:
         return _error("not_found", str(exc), "$.payload.plan_id")
     if plan["project"] != payload.project:
@@ -151,7 +159,10 @@ def handle_activity_list(request: FunctionCallRequest) -> HandlerOutcome:
     try:
         with connect() as conn:
             result = read_activity(
-                conn, project=payload.project, limit=payload.limit,
+                conn,
+                project=payload.project,
+                deployment_run_id=payload.deployment_run_id,
+                limit=payload.limit,
             )
     except LookupError as exc:
         return _error("not_found", str(exc), "$.payload.project")

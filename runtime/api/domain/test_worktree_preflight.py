@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from types import SimpleNamespace
 
 import pytest
@@ -11,23 +10,31 @@ from yoke_core.domain import worktree_preflight as wp
 from yoke_core.domain import worktree_preflight_steps as steps
 
 
-@pytest.fixture
-def repo_layout(tmp_path):
+def _build_repo_layout(tmp_path):
     """Build a minimal git-initialized repo+worktree layout for orchestrator tests."""
     import subprocess
 
     repo = tmp_path / "main"
     repo.mkdir(parents=True)
     subprocess.run(
-        ["git", "init", "--quiet", str(repo)], check=True, capture_output=True,
+        ["git", "init", "--quiet", str(repo)],
+        check=True,
+        capture_output=True,
     )
     worktrees = repo / ".worktrees"
     worktree = worktrees / "YOK-9001"
     worktrees.mkdir(parents=True)
     worktree.mkdir()
     return SimpleNamespace(
-        root=str(repo), worktree=str(worktree), worktrees=str(worktrees),
+        root=str(repo),
+        worktree=str(worktree),
+        worktrees=str(worktrees),
     )
+
+
+@pytest.fixture
+def repo_layout(tmp_path):
+    return _build_repo_layout(tmp_path)
 
 
 def _patch_steps(
@@ -55,11 +62,12 @@ class TestReEntryWithExistingWorktree:
         self, repo_layout, monkeypatch
     ):
         from yoke_core.domain import worktree_create
+
         _patch_steps(
             monkeypatch,
             create_result=worktree_create.CreateWorktreeResult(
                 path=repo_layout.worktree,
-                branch="YOK-9001",
+                branch="YOK-9001-integration",
                 created=False,
             ),
         )
@@ -70,6 +78,7 @@ class TestReEntryWithExistingWorktree:
             actual_cwd=repo_layout.root,
         )
         assert outcome.ok is True
+        assert outcome.branch == "YOK-9001-integration"
         assert outcome.worktree_path == repo_layout.worktree
         assert outcome.semantic_scope == "worktree"
         assert outcome.physical_cwd_mode == steps.CWD_MODE_STATIC
@@ -80,6 +89,7 @@ class TestReEntryWithExistingWorktree:
 
     def test_matched_cwd_omits_static_note(self, repo_layout, monkeypatch):
         from yoke_core.domain import worktree_create
+
         _patch_steps(
             monkeypatch,
             create_result=worktree_create.CreateWorktreeResult(
@@ -102,15 +112,19 @@ class TestReEntryWithExistingWorktree:
 
 class TestBlocks:
     def test_path_claim_preparation_runs_between_work_claim_and_activation(
-        self, repo_layout, monkeypatch,
+        self,
+        repo_layout,
+        monkeypatch,
     ):
         calls = []
         monkeypatch.setattr(
-            wp, "claim_work",
+            wp,
+            "claim_work",
             lambda _item_id: (calls.append("work") or True, "acquired"),
         )
         monkeypatch.setattr(
-            wp, "activate_path_claims",
+            wp,
+            "activate_path_claims",
             lambda _item_id: (
                 calls.append("activate") or True,
                 "",
@@ -129,7 +143,9 @@ class TestBlocks:
         assert "path-claim:prepared" in outcome.actions_taken
 
     def test_path_claim_preparation_refusal_stops_before_activation(
-        self, repo_layout, monkeypatch,
+        self,
+        repo_layout,
+        monkeypatch,
     ):
         _patch_steps(monkeypatch)
         monkeypatch.setattr(
@@ -183,16 +199,16 @@ class TestBlocks:
         assert outcome.block_kind == steps.BLOCK_PATH_CLAIM
         assert "claim 39 is blocked" in outcome.narrative
 
-    def test_dirty_main_blocks_only_when_creating_new(
-        self, tmp_path, monkeypatch
-    ):
+    def test_dirty_main_blocks_only_when_creating_new(self, tmp_path, monkeypatch):
         # No worktree directory exists -> create path. Dirty main must block.
         import subprocess
 
         repo = tmp_path / "main"
         repo.mkdir()
         subprocess.run(
-            ["git", "init", "--quiet", str(repo)], check=True, capture_output=True,
+            ["git", "init", "--quiet", str(repo)],
+            check=True,
+            capture_output=True,
         )
         (repo / ".worktrees").mkdir(parents=True)
         _patch_steps(
@@ -212,6 +228,7 @@ class TestBlocks:
     def test_dirty_main_does_not_block_re_entry(self, repo_layout, monkeypatch):
         # Worktree already exists -> reuse; dirty main is irrelevant.
         from yoke_core.domain import worktree_create
+
         _patch_steps(
             monkeypatch,
             dirty_outcome=(True, steps.BLOCK_DIRTY_TRACKED, ["foo.py"]),
@@ -232,15 +249,15 @@ class TestBlocks:
 
 
 class TestNoWorktreeMode:
-    def test_no_worktree_skips_creation_and_scope(
-        self, repo_layout, monkeypatch
-    ):
+    def test_no_worktree_skips_creation_and_scope(self, repo_layout, monkeypatch):
         # If create_worktree is consulted with --no-worktree, that's a
         # logic error — the orchestrator must skip it entirely.
         from yoke_core.domain import worktree_create
 
         def _explode(**_kwargs):
-            raise AssertionError("create_worktree must not be called when no_worktree=True")
+            raise AssertionError(
+                "create_worktree must not be called when no_worktree=True"
+            )
 
         monkeypatch.setattr(worktree_create, "create_worktree", _explode)
         _patch_steps(monkeypatch)
@@ -271,12 +288,22 @@ class TestEnvelope:
         )
         envelope = outcome.to_envelope()
         required = {
-            "ok", "item_id", "branch", "worktree_path", "semantic_scope",
-            "physical_cwd_mode", "actions_taken", "notes",
+            "ok",
+            "item_id",
+            "branch",
+            "worktree_path",
+            "semantic_scope",
+            "physical_cwd_mode",
+            "actions_taken",
+            "notes",
         }
         for field in (
-            "item_id", "branch", "worktree_path", "semantic_scope",
-            "physical_cwd_mode", "actions_taken",
+            "item_id",
+            "branch",
+            "worktree_path",
+            "semantic_scope",
+            "physical_cwd_mode",
+            "actions_taken",
             "notes",
         ):
             assert field in envelope, f"missing {field}"
@@ -297,45 +324,3 @@ class TestEnvelope:
             "narrative": "conflict",
             "item_id": 9001,
         }
-
-
-class TestCli:
-    def test_parse_item_id_strips_sun_prefix(self):
-        assert wp._parse_item_id("YOK-1599") == 1599
-        assert wp._parse_item_id("yok-9001") == 9001
-        assert wp._parse_item_id("0042") == 42
-        assert wp._parse_item_id("9001") == 9001
-
-    def test_main_returns_2_on_invalid_item(self, capsys):
-        rc = wp.main(["--item", "not-a-number"])
-        assert rc == 2
-        captured = capsys.readouterr()
-        assert "Invalid --item" in captured.err
-
-    def test_main_emits_envelope_json_on_success(
-        self, repo_layout, monkeypatch, capsys
-    ):
-        from yoke_core.domain import worktree_create
-
-        _patch_steps(
-            monkeypatch,
-            create_result=worktree_create.CreateWorktreeResult(
-                path=repo_layout.worktree,
-                branch="YOK-9001",
-                created=False,
-            ),
-        )
-
-        # Force orchestrator to use repo_layout.root rather than $PWD.
-        monkeypatch.setattr(
-            "yoke_core.domain.worktree_paths._resolve_repo_root_from_cwd",
-            lambda: repo_layout.root,
-        )
-        monkeypatch.chdir(repo_layout.root)
-        rc = wp.main(["--item", "YOK-9001", "--session-id", "sess"])
-        assert rc == 0
-        out = capsys.readouterr().out
-        envelope = json.loads(out)
-        assert envelope["ok"] is True
-        assert envelope["item_id"] == 9001
-        assert envelope["worktree_path"] == repo_layout.worktree

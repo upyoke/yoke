@@ -162,6 +162,32 @@ class TestClassifyItems:
         assert len(epic_items) == 1
         assert epic_items[0].progress == "1/2 (50%)"
 
+    def test_generated_children_policy_survives_workflow_rename(self, test_db):
+        insert_item(test_db, 101, status="implementing", workflow_id="epic")
+        test_db.execute(
+            "UPDATE items SET workflow_id = %s WHERE id = %s",
+            ("portfolio", 101),
+        )
+        insert_task(test_db, 101, 1, "T1", "done")
+        result = classify_items(test_db, "yoke")
+        item = next(row for row in result["active"] if row.id == "YOK-101")
+        assert item.workflow_id == "portfolio"
+        assert item.epic_id == 101
+        assert item.progress == "1/1 (100%)"
+
+    def test_workflow_name_does_not_enable_generated_children(self, test_db):
+        insert_item(test_db, 102, status="implementing", workflow_id="issue")
+        test_db.execute(
+            "UPDATE items SET workflow_id = %s WHERE id = %s",
+            ("epic", 102),
+        )
+        insert_task(test_db, 102, 1, "Unowned child", "done")
+        result = classify_items(test_db, "yoke")
+        item = next(row for row in result["active"] if row.id == "YOK-102")
+        assert item.workflow_id == "epic"
+        assert item.epic_id is None
+        assert item.progress == "—"
+
     def test_project_scope_filter(self, test_db):
         insert_item(test_db, 1, status="implementing", project="yoke")
         insert_item(test_db, 2, status="implementing", project="externalwebapp")

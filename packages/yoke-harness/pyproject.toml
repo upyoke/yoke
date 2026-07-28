@@ -35,4 +35,7 @@ where = ["src"]
     "README.md",
     "src/*.js",
     "src/**/*.js",
+    "tests/*.js",
+    "tests/**/*.js",
+    "tests/fixtures/*.html",
 ]

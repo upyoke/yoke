@@ -1,3 +1,4 @@
+# ruff: noqa: E402, F811
 """Claim acquisition, release, and handoff-boundary tests for harness sessions."""
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ from runtime.api.test_sessions import (
     _register,
     conn,  # noqa: F401  (pytest fixture)
 )
+from runtime.api.fixtures.backlog import insert_item
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.sessions_api_stale_test_helpers import (
     EVENTS_TABLE_FOR_STALE_DETECTION,
@@ -31,6 +33,12 @@ from yoke_core.domain.sessions import (
     release_all_claims,
     release_claim,
 )
+
+
+@pytest.fixture(autouse=True)
+def _seed_claim_items(conn):
+    for item_id in (1, 2, 99, 9999):
+        insert_item(conn, id=item_id, workflow_id="issue")
 
 
 # ---------------------------------------------------------------------------
@@ -166,12 +174,15 @@ class TestClaimWork:
         and commits a competing claim from a second connection just before the
         first INSERT, so the gated ``WHERE NOT EXISTS`` inserts zero rows.
         """
+
         class _RaceConn:
             def __init__(self, inner, db_path):
                 self._inner, self._db_path, self._injected = inner, db_path, False
 
             def execute(self, sql, params=()):
-                if not self._injected and " ".join(sql.split()).startswith("INSERT INTO work_claims"):
+                if not self._injected and " ".join(sql.split()).startswith(
+                    "INSERT INTO work_claims"
+                ):
                     self._injected = True
                     side = connect_test_db(self._db_path)
                     try:
@@ -179,7 +190,12 @@ class TestClaimWork:
                             "INSERT INTO work_claims (session_id, target_kind, item_id, "
                             "claim_type, claimed_at, last_heartbeat) "
                             "VALUES (%s, 'item', %s, 'exclusive', %s, %s)",
-                            ("sess-2", 9999, "2026-04-03T00:00:00Z", "2026-04-03T00:00:00Z"),
+                            (
+                                "sess-2",
+                                9999,
+                                "2026-04-03T00:00:00Z",
+                                "2026-04-03T00:00:00Z",
+                            ),
                         )
                         side.commit()
                     finally:
@@ -189,9 +205,12 @@ class TestClaimWork:
             def __getattr__(self, name):
                 return getattr(self._inner, name)
 
-        with init_test_db(tmp_path, apply_schema=lambda: _apply_on_backend(_create_schema)):
+        with init_test_db(
+            tmp_path, apply_schema=lambda: _apply_on_backend(_create_schema)
+        ):
             db_path = str(tmp_path / "claim-race.db")
             seed = connect_test_db(db_path)
+            insert_item(seed, id=9999, workflow_id="issue")
             _register(seed, session_id="sess-1")
             _register(seed, session_id="sess-2")
             seed.close()
@@ -278,70 +297,3 @@ class TestClaimRelease:
         release_claim(conn, c2["id"], reason="completed")
         result = end_session(conn, "sess-1")
         assert result["ended_at"] is not None
-
-
-# ---------------------------------------------------------------------------
-# Handoff claim boundary tests
-# ---------------------------------------------------------------------------
-
-
-class TestHandoffClaimBoundary:
-    """Explicit handoffs remain hard command boundaries."""
-
-    def test_handoff_release_leaves_no_active_claim(self, conn):
-        """A handoff release no longer grants implicit same-session ownership."""
-        _register(conn)
-        c = claim_work(conn, session_id="sess-1", item_id="YOK-99")
-        release_claim(conn, c["id"], reason="handed_off")
-
-        active = get_claim_for_work_unit(conn, item_id="99")
-        assert active is None
-
-    def test_same_session_can_claim_again_explicitly_after_handoff(self, conn):
-        """The downstream command can still claim the handed-off item explicitly."""
-        _register(conn)
-        c = claim_work(conn, session_id="sess-1", item_id="YOK-99")
-        release_claim(conn, c["id"], reason="handed_off")
-
-        new_claim = claim_work(conn, session_id="sess-1", item_id="YOK-99")
-        assert new_claim["session_id"] == "sess-1"
-
-    def test_different_session_can_claim_after_handoff(self, conn):
-        """A new command/session may claim the item after the handoff release."""
-        _register(conn, session_id="sess-1")
-        _register(conn, session_id="sess-2")
-        c = claim_work(conn, session_id="sess-1", item_id="YOK-99")
-        release_claim(conn, c["id"], reason="handed_off")
-
-        c2 = claim_work(conn, session_id="sess-2", item_id="YOK-99")
-        assert c2["session_id"] == "sess-2"
-
-    def test_completed_release_remains_terminal(self, conn):
-        """Completed releases are not resumable without a fresh success path."""
-        _register(conn)
-        c = claim_work(conn, session_id="sess-1", item_id="YOK-99")
-        release_claim(conn, c["id"], reason="completed")
-
-        active = get_claim_for_work_unit(conn, item_id="99")
-        assert active is None
-
-    def test_standard_handoff_still_releases_correctly(self, conn):
-        """AC-04: standard flow releases the claim, no auto-reacquire by
-        a different session picking up polish."""
-        from yoke_core.domain.sessions import release_item_claim_for_execution
-
-        _register(conn)
-        claim_work(conn, session_id="sess-1", item_id="YOK-99")
-        result = release_item_claim_for_execution(
-            conn, "sess-1", "YOK-99", "handoff-to-polish"
-        )
-        assert result["released"] is True
-
-        # Claim is now released
-        active = get_claim_for_work_unit(conn, item_id="99")
-        assert active is None
-
-        # A different session can now claim it
-        _register(conn, session_id="sess-2")
-        c2 = claim_work(conn, session_id="sess-2", item_id="YOK-99")
-        assert c2["session_id"] == "sess-2"

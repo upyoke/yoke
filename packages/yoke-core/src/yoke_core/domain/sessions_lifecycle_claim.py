@@ -1,69 +1,30 @@
-"""Session work-claim acquisition and direct claim release.
-
-Typed-target schema: every active claim populates exactly one of
-``(target_kind='item', item_id)``, ``(target_kind='epic_task', epic_id,
-task_num)``, or ``(target_kind='process', process_key, conflict_group)``
-— CHECK-enforced. This module owns the typed acquire path + a direct
-release helper."""
+"""Typed session work-claim acquisition and direct claim release."""
 
 from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
 from . import db_backend
-from . import sessions_analytics as _sa
-from .sessions_analytics import EVENT_WORK_CLAIMED, EVENT_WORK_RELEASED, SessionError
+from .sessions_analytics import SessionError
+from .sessions_claim_lifecycle_lock import lock_session_rows_for_claim_lifecycle
+from .sessions_lifecycle_claim_events import emit_work_claimed
 from .sessions_lifecycle_registry import _get_claim
 from .sessions_queries import _now_iso, normalize_claim_item_id
 from .work_claim_targets import (
     TARGET_KIND_EPIC_TASK,
     TARGET_KIND_ITEM,
-    TARGET_KIND_PROCESS,
     WorkClaimTarget,
     make_item_target,
+)
+from . import workflow_item_binding_lock as binding_lock
+from .workflow_item_binding_validation import (
+    WorkflowItemBindingError,
+    validate_work_claim_target,
 )
 
 
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
-def _emit_work_claimed(
-    session_id: str,
-    claim_id: int,
-    target: WorkClaimTarget,
-    *,
-    linked_path_claim_ids: Optional[list[int]] = None,
-    reason: Optional[str] = None,
-) -> None:
-    context: Dict[str, Any] = {
-        "claim_id": claim_id,
-        "target_kind": target.kind,
-        "claim_type": "exclusive",
-    }
-    if reason:
-        context["claim_reason_intent"] = reason
-    item_id_for_event: Optional[str] = None
-    task_num_for_event: Optional[int] = None
-    if target.kind == TARGET_KIND_ITEM:
-        context["item_id"] = str(target.item_id)
-        item_id_for_event = str(target.item_id)
-    elif target.kind == TARGET_KIND_EPIC_TASK:
-        context["epic_id"] = target.epic_id
-        context["task_num"] = target.task_num
-        item_id_for_event = str(target.epic_id)
-        task_num_for_event = target.task_num
-    else:
-        context["process_key"] = target.process_key
-        context["conflict_group"] = target.conflict_group
-        context["linked_path_claim_ids"] = list(linked_path_claim_ids or [])
-    _sa._emit_session_event(
-        EVENT_WORK_CLAIMED,
-        session_id=session_id,
-        item_id=item_id_for_event,
-        task_num=task_num_for_event,
-        context=context,
-    )
 
 
 def _self_claim_clause(target: WorkClaimTarget, p: str) -> tuple[str, list[Any]]:
@@ -179,6 +140,7 @@ def _resolve_active_holder(
     return winner["session_id"]
 
 
+@binding_lock.rollback_workflow_binding_write_errors
 def claim_work(
     conn: Any,
     *,
@@ -217,20 +179,6 @@ def claim_work(
     self_clause, self_params = _self_claim_clause(target, p)
     conflict_clause, conflict_params = _conflict_clause(target, p)
 
-    dup = conn.execute(
-        f"SELECT id FROM work_claims "
-        f"WHERE session_id = {p} AND {self_clause} AND released_at IS NULL "
-        f"ORDER BY claimed_at DESC, id DESC LIMIT 1",
-        [session_id, *self_params],
-    ).fetchone()
-    if dup is not None:
-        claim_id = int(dup["id"] if hasattr(dup, "keys") else dup[0])
-        conn.commit()
-        row = _get_claim(conn, claim_id)
-        # Acquisition registers no linked path claims (pure process lock).
-        row["linked_path_claim_ids"] = []
-        return row
-
     sess_row = conn.execute(
         f"SELECT ended_at FROM harness_sessions WHERE session_id = {p}",
         (session_id,),
@@ -262,12 +210,45 @@ def claim_work(
                 except Exception:
                     pass
             pass
-        conflict = conn.execute(
-            f"SELECT session_id FROM work_claims "
-            f"WHERE {conflict_clause} AND released_at IS NULL AND session_id <> {p} "
-            f"LIMIT 1",
-            [*conflict_params, session_id],
-        ).fetchone()
+
+    # The preflight stale-cleanup transaction may touch claim rows. Finish it
+    # before entering the canonical session -> item -> claim lock order used
+    # by the acquisition transaction.
+    conn.commit()
+    session_rows = lock_session_rows_for_claim_lifecycle(conn, (session_id,))
+    if session_id not in session_rows:
+        raise SessionError("NOT_FOUND", f"Session '{session_id}' not found.")
+    if session_rows[session_id] is not None:
+        raise SessionError(
+            "SESSION_ENDED",
+            f"Session '{session_id}' has already ended.",
+        )
+
+    binding_lock.lock_work_claim_target_workflow_binding(conn, target)
+    try:
+        validate_work_claim_target(conn, target)
+    except WorkflowItemBindingError as exc:
+        raise SessionError("INVALID_CLAIM", str(exc)) from exc
+    dup = conn.execute(
+        f"SELECT id FROM work_claims "
+        f"WHERE session_id = {p} AND {self_clause} AND released_at IS NULL "
+        f"ORDER BY claimed_at DESC, id DESC LIMIT 1",
+        [session_id, *self_params],
+    ).fetchone()
+    if dup is not None:
+        claim_id = int(dup["id"] if hasattr(dup, "keys") else dup[0])
+        conn.commit()
+        row = _get_claim(conn, claim_id)
+        # Acquisition registers no linked path claims (pure process lock).
+        row["linked_path_claim_ids"] = []
+        return row
+
+    conflict = conn.execute(
+        f"SELECT session_id FROM work_claims "
+        f"WHERE {conflict_clause} AND released_at IS NULL AND session_id <> {p} "
+        f"LIMIT 1",
+        [*conflict_params, session_id],
+    ).fetchone()
 
     if conflict is not None:
         raise SessionError(
@@ -275,7 +256,6 @@ def claim_work(
             f"Work unit already has an active exclusive claim by session "
             f"'{conflict['session_id']}'.",
         )
-
     integrity_errors = db_backend.integrity_error_types(conn)
     try:
         claim_id = _insert_typed_claim(conn, session_id, target, now)
@@ -300,9 +280,18 @@ def claim_work(
             f"'{winner_id}'.",
         )
     if target.kind == TARGET_KIND_ITEM:
-        set_current_item(conn, session_id, str(target.item_id))
+        set_current_item(
+            conn,
+            session_id,
+            str(target.item_id),
+            commit=False,
+        )
     # Acquire reason is first-class claim state.
-    from yoke_core.domain.claim_chain_state import record_claim_reason, touch_epic_task_activity
+    from yoke_core.domain.claim_chain_state import (
+        record_claim_reason,
+        touch_epic_task_activity,
+    )
+
     record_claim_reason(conn, claim_id=claim_id, reason=reason)
     # Claim acquire is real item activity for board freshness.
     _activity_target = (
@@ -310,26 +299,28 @@ def claim_work(
     )
     if _activity_target is not None:
         from yoke_core.domain.item_activity import touch_item_activity
+
         touch_item_activity(conn, item_id=_activity_target)
     if target.kind == TARGET_KIND_EPIC_TASK:
         # An epic-task acquire is task activity for chain-head freshness.
         touch_epic_task_activity(
-            conn, epic_id=target.epic_id, task_num=target.task_num, at=now,
+            conn,
+            epic_id=target.epic_id,
+            task_num=target.task_num,
+            at=now,
         )
     conn.commit()
-    _emit_work_claimed(
-        session_id, claim_id, target,
-        linked_path_claim_ids=[], reason=reason,
+    emit_work_claimed(
+        session_id,
+        claim_id,
+        target,
+        linked_path_claim_ids=[],
+        reason=reason,
     )
     row = _get_claim(conn, claim_id)
     # Acquisition registers no linked path claims (pure process lock).
     row["linked_path_claim_ids"] = []
     return row
-
-
-# ---------------------------------------------------------------------------
-# Claim release
-# ---------------------------------------------------------------------------
 
 
 def release_claim(

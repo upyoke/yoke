@@ -33,7 +33,8 @@ Use the registered item and ephemeral-environment reads:
 
 ```bash
 _item_project=$(yoke items get {N} project)
-_item_branch=$(yoke items get {N} worktree)
+_item_branch=$(yoke item-worktrees get YOK-{N} \
+  --lane-role implementation --field branch)
 yoke ephemeral-env get "$_item_project" "$_item_branch" --json
 ```
 

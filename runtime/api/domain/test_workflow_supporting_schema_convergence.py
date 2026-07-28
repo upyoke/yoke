@@ -28,6 +28,14 @@ def test_boot_converges_supporting_schema_and_code_owned_seeds(test_db) -> None:
         assert _table_exists(test_db, table), table
 
     for table, column in (
+        ("qa_requirements", "case_position"),
+        ("qa_requirements", "baseline_position"),
+        ("qa_requirements", "entry_surface"),
+        ("qa_requirements", "required_completion"),
+        ("qa_requirements", "method_name"),
+        ("qa_requirements", "executor_id"),
+        ("qa_requirements", "required_capability_kind"),
+        ("qa_requirements", "verdict_path"),
         ("qa_requirements", "workflow_transition_id"),
         ("qa_runs", "case_outcome"),
         ("strategy_docs", "parent_slug"),

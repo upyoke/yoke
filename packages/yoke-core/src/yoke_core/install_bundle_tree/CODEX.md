@@ -30,8 +30,8 @@ Codex sessions use the shared Yoke operator surface unless the Codex manifest de
 | `/yoke idea "title"` | File a new backlog item |
 | `/yoke do` | Start an autonomous session (routes through session offer) |
 | `/yoke refine YOK-N` | Critique and improve item artifacts (no worktree, no code) |
-| `/yoke advance YOK-N implementation` | Issue implementation entry — opens worktree and starts the implementation/review loop |
-| `/yoke conduct YOK-N` | Drive an epic through its planned tasks via shared dispatch descriptors |
+| `/yoke advance YOK-N implementation` | Drive a pinned `advance` segment in its registered single worktree lane |
+| `/yoke conduct YOK-N` | Drive a pinned generated-task segment via shared dispatch descriptors |
 | `/yoke polish YOK-N` | Review and finish implementation in existing worktree |
 | `/yoke usher YOK-N [--dry-run]` | Merge/deploy handoff for implemented items; use dry-run first for Codex validation |
 
@@ -43,8 +43,8 @@ Codex supports these downstream paths (derived server-side from the shared Yoke 
 |------|-------------|
 | `shepherd` | Drive an item through quality-gated lifecycle to ready |
 | `refine` | Critique and improve item artifacts |
-| `advance` | Lifecycle transitions, including the issue implementation-entry path |
-| `conduct` | Epic execution loop that dispatches Engineer / Tester / Architect / Simulator |
+| `advance` | Definition-bound single-lane lifecycle execution |
+| `conduct` | Definition-bound task-graph loop that dispatches Engineer / Tester / Architect / Simulator |
 | `polish` | Review and finish implementation in existing worktree |
 | `usher` | Merge and deploy implemented/release items through the top-level operator flow |
 
@@ -89,7 +89,14 @@ Codex hooks (when available) are optional enhancements that improve ergonomics a
 
 ## Lifecycle & Routing
 
-The canonical lifecycle guide is [.yoke/docs/lifecycle.md](.yoke/docs/lifecycle.md). It defines the issue and epic progressions, the command boundaries for `refine` / `shepherd` / `advance` / `conduct` / `polish` / `usher`, and how review loops operate inside a worktree. Read it once at bootstrap and treat it as the source of truth for "which command moves which status" before guessing from derivative docs.
+The canonical lifecycle guide is
+[.yoke/docs/lifecycle.md](.yoke/docs/lifecycle.md). It explains how immutable
+workflow versions own stages, transitions, target-stage gates, policies, and
+registered executor bindings. For a live item, read
+`yoke workflows item get YOK-N` and then
+`yoke workflows version get WORKFLOW VERSION`; the pinned definition, not the
+guide or a workflow-name branch, is the source of truth for which executor
+owns the current stage.
 
 Routing for `/yoke do` (session offer, `NextAction` directives, chainability, supported-path derivation) lives in [.yoke/docs/session-offer-contract.md](.yoke/docs/session-offer-contract.md) and [.yoke/docs/charge-frontier.md](.yoke/docs/charge-frontier.md). Yoke core derives Codex's supported-path set server-side from the shared registry plus any manifest limitations; the adapter does not self-report capabilities via `YOKE_SUPPORTED_PATHS`.
 

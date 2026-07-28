@@ -90,17 +90,16 @@ class TestFileBudgetRefineRubric:
         assert "350" in text
         assert "300" in text
 
-    def test_review_rubric_covers_issue_and_epic_paths(self, docs):
+    def test_review_rubric_covers_served_artifact_scopes(self, docs):
         text = _read(docs["review_rubric"])
-        assert "Issue idea refinement" in text
-        assert "Epic plan refinement" in text
+        assert "Item-artifact refinement" in text
+        assert "Generated-task-plan refinement" in text
 
-    def test_update_protocol_has_file_budget_escalation(self, docs):
+    def test_update_protocol_keeps_escalation_at_the_served_stage(self, docs):
         text = _read(docs["update_protocol"])
         assert "File Budget escalation" in text
-        # Escalation keeps the item at refining-idea / refining-plan.
-        assert "refining-idea" in text
-        assert "refining-plan" in text
+        assert "REFINE_ACTIVE_STATUS" in text
+        assert "do not reconstruct them from a workflow name" in text
 
     def test_skill_md_points_to_rubric_and_escalation(self, docs):
         text = _read(docs["skill"])
@@ -237,26 +236,28 @@ class TestRefineRecoverableReadinessRepair:
         assert "recoverable" in combined
 
     def test_refine_routes_recoverable_to_canonical_claims_widen(self, docs):
-        text = _read(docs["refine_skill"])
+        skill = _read(docs["refine_skill"])
+        repair = _read(docs["refine_readiness_repair"])
         # The repair is canonical `yoke claims path widen` and preserves
         # path_claim_amendments, dispatched via the wrapped readiness command.
-        assert "yoke claims path widen" in text
-        assert "yoke readiness repair-claim-coverage" in text
-        assert "--claim-id" in text
-        assert "--add-paths" in text
-        assert "--reason" in text
-        assert "--item YOK-N" in text
+        assert "yoke claims path widen" in skill
+        assert "yoke readiness repair-claim-coverage" in repair
+        assert "--claim-id" in skill
+        assert "--add-paths" in skill
+        assert "--reason" in skill
+        assert "--item YOK-N" in skill
+        assert '--item "$ITEM_NUM"' in repair
         # Step 4b's narrow remediation must name the explicit keep/drop
         # flag pair, not the bare `--paths` form. `--keep-paths` is the
         # safe default for File Budget reconciliation; `--drop-paths`
         # remains documented for explicit removal.
-        assert "path-claims narrow" in text
-        assert "--keep-paths" in text
-        assert "--drop-paths" in text
+        assert "path-claims narrow" in skill
+        assert "--keep-paths" in skill
+        assert "--drop-paths" in skill
         # Anti-regression: the legacy phrasing that taught operators to
         # put kept paths into a drop flag must not return.
-        assert "narrow <id> --paths <kept>" not in text
-        assert "narrow <id> --paths <" not in text
+        assert "narrow <id> --paths <kept>" not in skill
+        assert "narrow <id> --paths <" not in skill
 
     def test_idea_body_and_sync_names_explicit_narrow_flags(self, docs):
         text = _read(docs["idea_body_and_sync"])
@@ -270,7 +271,7 @@ class TestRefineRecoverableReadinessRepair:
         assert "narrow <id> --paths <" not in text
 
     def test_refine_does_not_unconditionally_release_on_readiness(self, docs):
-        text = _read(docs["refine_skill"])
+        text = _read(docs["refine_readiness_repair"])
         # Anti-regression for the original bug: a bare
         # `if [ "$?" -ne 0 ]; then ... release-work-claim ... exit 1`
         # block with no classification is exactly the contradiction this
@@ -288,7 +289,8 @@ class TestRefineRecoverableReadinessRepair:
         skill = _read(docs["refine_skill"])
         repair = _read(docs["refine_readiness_repair"])
         assert "pure_stale_count" in skill
-        assert "yoke readiness repair-stale-count" in skill
+        assert "[`readiness-repair.md`](readiness-repair.md)" in skill
+        assert "yoke readiness repair-stale-count" in repair
         assert "STALE_LINE_COUNT" in repair
         assert "classify_readiness_issues" in repair
         # The phase doc must explain why the helper exists (chain step
@@ -331,9 +333,9 @@ class TestRefineRecoverableReadinessRepair:
         assert "yoke claims path widen" in pre_bash
 
     def test_idea_body_and_sync_teaches_structured_field_function_adapter(self):
-        """task 015: idea body-and-sync teaches the typed function-
-        call adapter for structured-field writes, not raw-recipe shell
-        choreography. The retained CLI is the function-covered adapter
+        """Idea body-and-sync teaches the typed function-call adapter
+        for structured-field writes, not raw-recipe shell choreography.
+        The retained CLI is the function-covered adapter
         ``yoke items structured-field replace --stdin`` (dispatches through
         ``items.structured_field.replace``).
         """

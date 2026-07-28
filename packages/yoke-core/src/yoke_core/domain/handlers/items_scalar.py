@@ -1,12 +1,11 @@
 """Handler for the ``items.scalar.update`` function id.
 
-Delegates to :func:`yoke_core.domain.backlog.execute_update` so the
-function-call surface and the existing PATCH /v1/items/{id} route share
-one gate path (:func:`yoke_core.domain.mutations.prepare_update` plus
-the authoritative status gate, claim verification, epic-task cascade,
-and GitHub-sync side effects). The handler does NOT duplicate gate
-logic — it only translates the typed envelope into the existing call
-shape and maps the legacy result back to :class:`HandlerOutcome`.
+Delegates to :func:`yoke_core.domain.backlog.execute_update` so typed
+status updates share one gate path: workflow preflight, mutation
+preparation, authoritative gates, claim verification, epic-task cascade,
+and GitHub-sync side effects. The handler does NOT duplicate gate logic;
+it only translates the envelope into the canonical call shape and maps
+the legacy result back to :class:`HandlerOutcome`.
 
 Frozen-item rejection: if the item is frozen and the caller is
 not toggling ``frozen`` itself (and has not opted into ``force``), the
@@ -54,7 +53,9 @@ class ScalarUpdateRequest(BaseModel):
     """
 
     field: str = Field(..., description="One of mutations.SUPPORTED_UPDATE_FIELDS.")
-    value: Any = Field(..., description="New value for the field; type depends on field.")
+    value: Any = Field(
+        ..., description="New value for the field; type depends on field."
+    )
     done_nonce_verified: bool = False
     force: bool = False
     qa_bypass: bool = False
@@ -79,16 +80,21 @@ class ScalarUpdateResponse(BaseModel):
 # collapse to ``lifecycle_gate_unmet`` across every QA /
 # epic-merge / done-ceremony gate; field-validation codes remain
 # ``validation_error`` for the route layer to map to HTTP 422.
-_GATE_CODES = frozenset({
-    "GATE_QA_REVIEWING", "GATE_QA_IMPLEMENTED", "GATE_QA_RELEASE",
-    "GATE_QA_DONE", "GATE_EPIC_TASKS", "GATE_EPIC_MERGE", "GATE_DONE_NONCE",
-})
+_GATE_CODES = frozenset(
+    {
+        "GATE_QA_REVIEWING",
+        "GATE_QA_IMPLEMENTED",
+        "GATE_QA_RELEASE",
+        "GATE_QA_DONE",
+        "GATE_EPIC_TASKS",
+        "GATE_EPIC_MERGE",
+        "GATE_DONE_NONCE",
+    }
+)
 
 
 def _map_error_code(legacy_code: Optional[str]) -> str:
-    if legacy_code and (
-        legacy_code in _GATE_CODES or legacy_code.startswith("GATE_")
-    ):
+    if legacy_code and (legacy_code in _GATE_CODES or legacy_code.startswith("GATE_")):
         return "lifecycle_gate_unmet"
     if legacy_code == "UNSUPPORTED_FIELD":
         return "unsupported_field"
@@ -110,7 +116,9 @@ def _error_outcome(code: str, message: str) -> HandlerOutcome:
 # ---------------------------------------------------------------------------
 
 
-def _frozen_block(item_id: int, payload: ScalarUpdateRequest) -> Optional[HandlerOutcome]:
+def _frozen_block(
+    item_id: int, payload: ScalarUpdateRequest
+) -> Optional[HandlerOutcome]:
     """Return an outcome rejecting writes to a frozen item, or None.
 
     The shared mutation layer treats ``frozen`` as a settable boolean
@@ -121,10 +129,12 @@ def _frozen_block(item_id: int, payload: ScalarUpdateRequest) -> Optional[Handle
     if payload.force or payload.field == "frozen":
         return None
     from yoke_core.domain import db_helpers
+
     with db_helpers.connect() as conn:
         p = _p(conn)
         row = conn.execute(
-            f"SELECT frozen FROM items WHERE id = {p}", (int(item_id),),
+            f"SELECT frozen FROM items WHERE id = {p}",
+            (int(item_id),),
         ).fetchone()
     if row is None:
         return None
@@ -161,6 +171,7 @@ def handle_scalar_update(request: FunctionCallRequest) -> HandlerOutcome:
         return blocked
 
     from yoke_core.domain import backlog
+    from yoke_core.domain.actor_project_visibility import numeric_actor_id
 
     captured = io.StringIO()
     result: Dict[str, Any] = backlog.execute_update(
@@ -172,6 +183,7 @@ def handle_scalar_update(request: FunctionCallRequest) -> HandlerOutcome:
         qa_bypass=payload.qa_bypass,
         session_id=request.actor.session_id,
         out=captured,
+        originator_actor_id=numeric_actor_id(request.actor.actor_id),
     )
 
     if not result.get("success"):
@@ -209,11 +221,14 @@ REGISTRATIONS: List[Dict[str, Any]] = [
         "owner_module": "yoke_core.domain.handlers.items_scalar",
         "target_kinds": ["item"],
         "side_effects": [
-            "render_body", "rebuild_board", "github_sync",
+            "render_body",
+            "rebuild_board",
+            "github_sync",
             "emit_item_status_changed",
         ],
         "emitted_event_names": [
-            "YokeFunctionCalled", "ItemStatusChanged",
+            "YokeFunctionCalled",
+            "ItemStatusChanged",
         ],
         "guardrails": ["claim_required", "frozen_item_block"],
         "adapter_status": "live",

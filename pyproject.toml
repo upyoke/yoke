@@ -99,19 +99,6 @@ include = ["runtime*"]
 
 [tool.setuptools.package-data]
 "yoke_core.domain" = ["retired_schema_surfaces.yaml"]
-# Packaged Browser QA runtime sources — materialized to ~/.yoke/browser-runtime
-# by yoke_core.domain.browser_runtime_home at first daemon use.
-"runtime.browser_runtime" = [
-    "package.json",
-    "package-lock.json",
-    "README.md",
-    "src/*.js",
-    "src/**/*.js",
-    "tests/*.js",
-    "tests/**/*.js",
-    "tests/fixtures/*.html",
-    "tests/fixtures/*.png",
-]
 
 [tool.pytest.ini_options]
 testpaths = ["runtime/api", "tests"]

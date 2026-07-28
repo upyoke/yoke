@@ -20,14 +20,20 @@ from typing import Any, Dict, List
 from . import db_backend
 from . import sessions_analytics as _sa
 from .sessions_analytics import EVENT_WORK_RELEASED, SessionError
+from .sessions_claim_lifecycle_lock import lock_session_rows_for_claim_lifecycle
 from .sessions_lifecycle_registry import _get_claim
 from .sessions_queries import _now_iso
+from .workflow_item_binding_lock import (
+    lock_work_claims_workflow_bindings,
+    rollback_workflow_binding_write_errors,
+)
 
 
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
+@rollback_workflow_binding_write_errors
 def release_claim_by_id(
     conn: Any,
     claim_id: int,
@@ -51,6 +57,17 @@ def release_claim_by_id(
     now = _now_iso()
     canonical_reason = _canonical_release_reason(reason)
 
+    discovered = conn.execute(
+        f"SELECT session_id FROM work_claims WHERE id = {_p(conn)}",
+        (claim_id,),
+    ).fetchone()
+    if discovered is None:
+        raise SessionError("NOT_FOUND", f"Claim {claim_id} not found.")
+    source_session_id = str(discovered["session_id"] or "")
+    if source_session_id:
+        lock_session_rows_for_claim_lifecycle(conn, (source_session_id,))
+
+    lock_work_claims_workflow_bindings(conn, (claim_id,))
     row = conn.execute(
         "SELECT session_id, target_kind, item_id, epic_id, task_num, "
         "process_key, conflict_group, released_at "
@@ -77,7 +94,10 @@ def release_claim_by_id(
     record_release_intent(conn, claim_id=claim_id, intent=reason)
     if row["target_kind"] == "epic_task" and row["epic_id"] is not None:
         touch_epic_task_activity(
-            conn, epic_id=row["epic_id"], task_num=row["task_num"], at=now,
+            conn,
+            epic_id=row["epic_id"],
+            task_num=row["task_num"],
+            at=now,
         )
 
     linked_path_claim_ids: List[int] = []
@@ -88,28 +108,31 @@ def release_claim_by_id(
 
     if row["target_kind"] == "item" and row["item_id"] is not None:
         _maybe_clear_current_item(
-            conn, str(row["session_id"] or ""), str(row["item_id"]),
+            conn,
+            str(row["session_id"] or ""),
+            str(row["item_id"]),
         )
 
     # Deliberate claim release is real item activity (R1 board-activity
     # semantics); process-target releases are not item-scoped.
     _activity_target = (
-        row["item_id"] if row["target_kind"] == "item" else
-        (row["epic_id"] if row["target_kind"] == "epic_task" else None)
+        row["item_id"]
+        if row["target_kind"] == "item"
+        else (row["epic_id"] if row["target_kind"] == "epic_task" else None)
     )
     if _activity_target is not None:
         from yoke_core.domain.item_activity import touch_item_activity
+
         touch_item_activity(conn, item_id=_activity_target)
 
     conn.commit()
 
     item_id_for_event = (
-        str(row["item_id"]) if row["target_kind"] == "item" and row["item_id"] is not None
+        str(row["item_id"])
+        if row["target_kind"] == "item" and row["item_id"] is not None
         else (str(row["epic_id"]) if row["target_kind"] == "epic_task" else None)
     )
-    task_num_for_event = (
-        row["task_num"] if row["target_kind"] == "epic_task" else None
-    )
+    task_num_for_event = row["task_num"] if row["target_kind"] == "epic_task" else None
     context: Dict[str, Any] = {
         "claim_id": claim_id,
         "release_reason": canonical_reason,

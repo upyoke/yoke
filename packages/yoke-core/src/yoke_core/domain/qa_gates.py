@@ -8,8 +8,7 @@ browser-evidence presence and artifact-disk existence live in
 continue to work.
 
 CLI usage: ``python3 -m yoke_core.domain.qa_gates <subcmd> [args...]``.
-Subcommands: ``check-verification-entry``, ``check-reviewed-implementation-gate``,
-``check-done-gate``, ``check-epic-simulation-gate``. Target format: item ID
+Subcommands include verification entry/review, done, and epic simulation. Target: item ID
 (``42``) or epic task (``833:5``). Exit codes: 0 pass, 1 fail, 2 usage.
 """
 
@@ -30,10 +29,17 @@ from yoke_core.domain.qa_gate_definitions import (  # noqa: F401
     GateResult,
     LatestCodeRef,
 )
+from yoke_core.domain.qa_gate_requirement_teaching import (
+    missing_verification_requirement_errors,
+)
 from yoke_core.domain.qa_plan_gate import check_plan_simulation_satisfied  # noqa: F401
 from yoke_core.domain.qa_simulation_gate import (  # noqa: F401  (re-export)
     check_epic_simulation_gate,
 )
+from yoke_core.domain.qa_workflow_binding_validation import (
+    item_transition_for_gate,
+)
+from yoke_core.domain.workflow_gate_catalog import GATE_QA_VERIFICATION
 
 from yoke_core.domain.qa_gate_helpers import (  # noqa: F401
     _browser_freshness_errors,
@@ -53,6 +59,7 @@ from yoke_core.domain.qa_gate_helpers import (  # noqa: F401
 # Gate checks
 # ---------------------------------------------------------------------------
 
+
 def check_verification_entry(target: GateTarget, db_path: str) -> GateResult:
     """Verify at least one qa_requirements row exists for the target."""
     if os.environ.get("YOKE_QA_GATE_BYPASS") == "1":
@@ -69,26 +76,28 @@ def check_verification_entry(target: GateTarget, db_path: str) -> GateResult:
         count = query_scalar(
             conn, f"SELECT COUNT(*) FROM qa_requirements WHERE {where}", params
         )
+        if not count or count == 0:
+            transition_id = item_transition_for_gate(
+                conn,
+                item_id=(
+                    int(target.item_id)
+                    if target.item_id is not None
+                    else int(target.epic_id)
+                ),
+                gate_id=GATE_QA_VERIFICATION,
+            )
     finally:
         conn.close()
 
     if not count or count == 0:
-        errors = [
-            f"Error: Cannot transition {name} to 'reviewing-implementation' -- no qa_requirements found.",
-            "  Add at least one QA requirement before moving to reviewing-implementation:",
-        ]
-        if target.item_id is not None:
-            errors.append(
-                f"  yoke qa requirement add --item YOK-{target.item_id} --qa-kind implementation_review --qa-phase verification"
-            )
-        else:
-            # Epic-task attachment has no typed adapter (item-claim-gated
-            # surface is item-attached only) — the domain CLI is the
-            # supported shape here.
-            errors.append(
-                f"  python3 -m yoke_core.domain.qa requirement-add --epic-id {target.epic_id} --task-num {target.task_num} --qa-kind implementation_review --qa-phase verification"
-            )
-        return GateResult(passed=False, errors=errors)
+        return GateResult(
+            passed=False,
+            errors=missing_verification_requirement_errors(
+                target=target,
+                target_name=name,
+                transition_id=transition_id,
+            ),
+        )
 
     return GateResult(passed=True)
 
@@ -135,7 +144,9 @@ def check_verification_gate(
                 f"  Remediation: run `/yoke advance {name} {transition_name}` which executes browser QA and project E2E phases automatically before updating status.",
             ]
             for row in rows:
-                errors.append(f"  - Requirement #{row['id']} ({row['qa_kind']}): no passing run")
+                errors.append(
+                    f"  - Requirement #{row['id']} ({row['qa_kind']}): no passing run"
+                )
             return GateResult(passed=False, errors=errors)
 
         # (2) Browser-evidence-presence
@@ -192,9 +203,7 @@ def check_verification_gate(
     return GateResult(passed=True)
 
 
-def check_reviewed_implementation_gate(
-    target: GateTarget, db_path: str
-) -> GateResult:
+def check_reviewed_implementation_gate(target: GateTarget, db_path: str) -> GateResult:
     """Verify all blocking verification-phase requirements are satisfied."""
     return check_verification_gate(
         target,
@@ -312,9 +321,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--db", help="Legacy connection token override")
     sub = parser.add_subparsers(dest="subcmd")
     for cmd in _TARGET_GATES:
-        sub.add_parser(cmd).add_argument(
-            "target", help="Item ID or epic_id:task_num"
-        )
+        sub.add_parser(cmd).add_argument("target", help="Item ID or epic_id:task_num")
     p_es = sub.add_parser("check-epic-simulation-gate")
     p_es.add_argument("epic_id", type=int, help="Epic item ID")
 

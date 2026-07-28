@@ -11,8 +11,8 @@ from __future__ import annotations
 
 import pytest
 
-
-from runtime.api.test_sessions import _register, conn  # noqa: F401  (Postgres-backed pytest fixture)
+from runtime.api.fixtures.backlog import insert_item
+from runtime.api.test_sessions import _register
 from yoke_core.domain.sessions import (
     claim_work,
     end_session,
@@ -26,6 +26,14 @@ from yoke_core.domain.work_claim_targets import (
     TARGET_KIND_EPIC_TASK,
     TARGET_KIND_ITEM,
 )
+
+pytest_plugins = ("runtime.api.test_sessions",)
+
+
+@pytest.fixture(autouse=True)
+def _seed_claim_targets(conn):
+    for item_id in (501, 777):
+        insert_item(conn, id=item_id, workflow_id="issue")
 
 
 def _claim_rows(conn, session_id: str):
@@ -53,7 +61,9 @@ class TestReleaseSessionClaims:
 
         rows = _claim_rows(conn, "sess-1")
         released = release_session_claims(
-            conn, "sess-1", active_claim_rows=rows,
+            conn,
+            "sess-1",
+            active_claim_rows=rows,
         )
 
         assert len(released) == 1
@@ -87,7 +97,9 @@ class TestReleaseSessionClaims:
 
         rows = _claim_rows(conn, "sess-1")
         released = release_session_claims(
-            conn, "sess-1", active_claim_rows=rows,
+            conn,
+            "sess-1",
+            active_claim_rows=rows,
         )
 
         assert len(released) == 1

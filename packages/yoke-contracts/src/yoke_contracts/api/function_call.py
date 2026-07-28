@@ -57,7 +57,9 @@ class ActorContext(BaseModel):
         default=None,
         description="Stable actor identity; resolved server-side from session_id when omitted.",
     )
-    session_id: str = Field(..., description="Harness session id, used for claim verification.")
+    session_id: str = Field(
+        ..., description="Harness session id, used for claim verification."
+    )
 
 
 class TargetRef(BaseModel):
@@ -81,6 +83,7 @@ class TargetRef(BaseModel):
         "path_claim",
         "project_structure",
         "qa_requirement",
+        "deployment_run",
         "workflow_run",
         "global",
     ]
@@ -94,6 +97,7 @@ class TargetRef(BaseModel):
     db_claim_id: Optional[int] = None
     project_id: Optional[str] = None
     qa_requirement_id: Optional[int] = None
+    deployment_run_id: Optional[str] = None
     workflow_run_id: Optional[str] = None
 
 
@@ -131,7 +135,8 @@ class FunctionError(BaseModel):
             return self
         if existing:
             object.__setattr__(
-                self, "recovery_hint",
+                self,
+                "recovery_hint",
                 f"{existing}\n\n{_FIELD_NOTE_FOOTER}",
             )
         else:

@@ -37,9 +37,9 @@ class ItemCreateRequest(BaseModel):
     """
 
     title: str = Field(..., description="Item title (<=100 chars).")
-    workflow: Optional[str] = Field(
-        None,
-        description="Workflow id; temporarily defaults to issue.",
+    workflow: str = Field(
+        ...,
+        description="Workflow id selected from the active workflow registry.",
     )
     priority: Optional[str] = Field(
         None, description="Priority bucket; defaults to the project's configured default."

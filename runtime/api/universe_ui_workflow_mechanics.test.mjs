@@ -23,6 +23,7 @@ function dashFixture() {
     currentVersion: 1,
     policies: {
       ownership: "exclusive_session_work_claim",
+      file_budget: "optional",
       path_claims: "optional",
       worktrees: "single_implementation_lane",
       parallelism: "none",
@@ -32,7 +33,8 @@ function dashFixture() {
       approval_defaults: {},
       delivery: "after_merge_action",
       item_posture_allowlist: [
-        "verification", "path_claims", "approval_on_done", "deployment",
+        "verification", "file_budget", "path_claims",
+        "approval_on_done", "deployment",
       ],
     },
   });

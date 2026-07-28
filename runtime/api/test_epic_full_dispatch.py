@@ -66,7 +66,7 @@ class TestDispatchChains:
     @pytest.fixture(autouse=True)
     def _seed_parent_item(self, test_db):
         insert_item(
-            test_db, id=TEST_EPIC_ID, type="epic", status="planned", project="yoke"
+            test_db, id=TEST_EPIC_ID, workflow_id="epic", status="planned", project="yoke"
         )
 
     def test_upsert_and_get(self, test_db):

@@ -23,7 +23,12 @@ def _init_db(tmp_path: Path) -> str:
 
 
 def _seed_item(db_path: str, item_id: int, title: str) -> None:
-    items.insert_item(item_id=item_id, title=title, db_path=db_path)
+    items.insert_item(
+        item_id=item_id,
+        title=title,
+        workflow="issue",
+        db_path=db_path,
+    )
 
 
 def test_spec_write_dedents_uniform_leading_prefix(tmp_path: Path) -> None:

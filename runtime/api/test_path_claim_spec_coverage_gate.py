@@ -13,6 +13,7 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.actors import seed_canonical_actors, seed_human_actor
 from yoke_core.domain.path_claim_spec_coverage_gate import (
     CoverageResult,
+    _format_block_message,
     evaluate,
     extract_file_budget_paths,
 )
@@ -29,9 +30,7 @@ from yoke_core.domain.workflow_registry import converge_builtin_workflows
 @pytest.fixture
 def conn(monkeypatch):
     name = pg_testdb.create_test_database()
-    monkeypatch.setenv(
-        db_backend.PG_DSN_ENV, pg_testdb.dsn_for_test_database(name)
-    )
+    monkeypatch.setenv(db_backend.PG_DSN_ENV, pg_testdb.dsn_for_test_database(name))
     c = pg_testdb.connect_test_database(name)
     create_core_tables(c)
     converge_builtin_workflows(c)
@@ -114,6 +113,7 @@ def _seed_active_claim(
 
 
 # -------- parser tests --------
+
 
 class TestExtractFileBudgetPaths:
     def test_extracts_from_basic_section(self):
@@ -217,18 +217,14 @@ class TestSharedParserParity:
         from yoke_core.domain import idea_readiness_check as readiness
         from yoke_core.domain import path_claim_spec_coverage_gate as gate
 
-        assert (
-            gate.extract_file_budget_paths
-            is shared.extract_file_budget_paths
-        ), (
+        assert gate.extract_file_budget_paths is shared.extract_file_budget_paths, (
             "the gate's public extract_file_budget_paths must be the "
             "shared symbol — no second regex allowlist allowed"
         )
         # readiness exposes a set-shaped wrapper (legacy API); it must
         # delegate to the shared set-helper, not to a private regex.
         assert (
-            readiness._extract_file_budget_paths
-            is shared.extract_file_budget_paths_set
+            readiness._extract_file_budget_paths is shared.extract_file_budget_paths_set
         ), (
             "readiness._extract_file_budget_paths must alias the shared "
             "set-helper — no divergent local extractor"
@@ -240,6 +236,7 @@ class TestSharedParserParity:
         from yoke_core.domain.idea_readiness_check import (
             _extract_file_budget_paths as readiness_extract,
         )
+
         spec = (
             "## File Budget\n\n"
             "- `.yoke/lint-config` — extensionless target.\n"
@@ -253,6 +250,7 @@ class TestSharedParserParity:
 
 
 # -------- evaluate() tests --------
+
 
 class TestEvaluate:
     def test_pass_when_claim_covers_all_budget(self, conn):
@@ -268,7 +266,10 @@ class TestEvaluate:
         t1 = _seed_target(conn, "runtime/api/domain/foo.py")
         t2 = _seed_target(conn, ".yoke/docs/lifecycle.md")
         claim_id = _seed_active_claim(
-            conn, item_id=item_id, actor_id=actor, target_ids=[t1, t2],
+            conn,
+            item_id=item_id,
+            actor_id=actor,
+            target_ids=[t1, t2],
         )
 
         result = evaluate(item_id, conn=conn)
@@ -278,7 +279,8 @@ class TestEvaluate:
         assert result.missing_paths == []
         assert result.active_claim_ids == [claim_id]
         assert set(result.claim_paths) == {
-            "runtime/api/domain/foo.py", ".yoke/docs/lifecycle.md",
+            "runtime/api/domain/foo.py",
+            ".yoke/docs/lifecycle.md",
         }
         assert result.no_claims is False
 
@@ -294,13 +296,20 @@ class TestEvaluate:
         )
         t1 = _seed_target(conn, "runtime/api/domain/foo.py")
         _seed_active_claim(
-            conn, item_id=item_id, actor_id=actor, target_ids=[t1],
+            conn,
+            item_id=item_id,
+            actor_id=actor,
+            target_ids=[t1],
         )
 
         result = evaluate(item_id, conn=conn)
 
         assert result.is_blocked is True
         assert result.missing_paths == ["runtime/api/domain/bar.py"]
+        message = _format_block_message(result)
+        assert "yoke claims path widen --claim-id" in message
+        assert f"--item YOK-{item_id}" in message
+        assert "service_client" not in message
 
     def test_noop_when_no_claim_rows(self, conn):
         item_id = _seed_item(
@@ -320,7 +329,10 @@ class TestEvaluate:
         item_id = _seed_item(conn, spec="## Source\n\nrandom text")
         t1 = _seed_target(conn, "runtime/api/domain/foo.py")
         _seed_active_claim(
-            conn, item_id=item_id, actor_id=actor, target_ids=[t1],
+            conn,
+            item_id=item_id,
+            actor_id=actor,
+            target_ids=[t1],
         )
 
         result = evaluate(item_id, conn=conn)

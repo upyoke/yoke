@@ -54,7 +54,7 @@ def test_missing_app_auth_is_nonzero(
     insert_item(
         conn,
         id=91,
-        type="issue",
+        workflow_id="issue",
         status="implementing",
         project="externalwebapp",
         github_issue="#191",

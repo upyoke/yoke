@@ -1,3 +1,4 @@
+# ruff: noqa: F811
 """Persistence + concurrency tests for service_client session-offer.
 
 Basic offer + lane resolution → test_service_client_sessions_offer.py
@@ -9,7 +10,6 @@ from __future__ import annotations
 
 import json
 
-from yoke_core.domain import db_backend
 from runtime.api.fixtures.file_test_db import connect_test_db
 from yoke_core.domain.sessions_offer_envelope_merge import merge_offer_envelope
 from runtime.api.test_constants import TEST_MODEL_ID
@@ -44,9 +44,11 @@ def _seed_second_runnable(db_path):
     conn = connect_test_db(db_path)
     conn.execute(
         "INSERT INTO items "
-        "(id, title, type, status, priority, project_id, project_sequence, "
-        " created_at, updated_at, source, frozen) "
-        "VALUES (20, 'Second runnable', 'issue', 'refined-idea', "
+        "(id, title, workflow_id, workflow_version_id, status, priority, "
+        "project_id, project_sequence, created_at, updated_at, source, frozen) "
+        "VALUES (20, 'Second runnable', 'issue', "
+        "(SELECT current_version_id FROM workflows WHERE id='issue'), "
+        "'refined-idea', "
         " 'high', 1, 20, '2026-03-01', '2026-03-01', 'user', 0)"
     )
     conn.commit()

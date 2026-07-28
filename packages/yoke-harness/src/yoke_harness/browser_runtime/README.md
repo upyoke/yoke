@@ -1,9 +1,11 @@
 # Yoke Browser Automation Runtime
 
-This package carries the Node.js daemon sources and npm manifests for the
-installed Yoke browser QA client. The daemon is materialized on demand into
-`~/.yoke/browser-runtime/`, where `node_modules/`, Playwright browsers, and
-daemon state live. Project repositories never receive a browser source tree.
+This package is the single source for the Node.js daemon, its focused tests,
+and npm manifests. `yoke_harness.browser_runtime_home` materializes it on
+demand into `~/.yoke/browser-runtime/`, where `node_modules/`, Playwright
+browsers, and daemon state live. Both the harness CLI and core QA execution use
+that materializer and source hash; project repositories never receive a
+browser source tree.
 
 The product entry points are:
 
@@ -13,10 +15,9 @@ yoke qa case run --requirement-id N --base-url URL \
 yoke qa browser screenshot URL --output /tmp/capture.png
 ```
 
-`yoke-harness` owns the local daemon/client substrate. The shared case runner
-executes one materialized Browser check or Browser inspection requirement and
-dispatches its DB-backed legs through registered `qa.*` function-call
-surfaces. Screenshot is diagnostic tooling and records no QA verdict.
+`yoke-harness` owns the local daemon/client substrate. The core case runner
+executes Browser check and Browser inspection requirements against that same
+daemon; screenshot remains diagnostic tooling and records no QA verdict.
 
 ## Prerequisites
 

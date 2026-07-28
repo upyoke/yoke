@@ -19,7 +19,7 @@ CREATE TABLE projects (
     public_item_prefix TEXT NOT NULL DEFAULT 'YOK'
 );
 CREATE TABLE items (
-    id INTEGER PRIMARY KEY, title TEXT NOT NULL, type TEXT NOT NULL DEFAULT 'issue',
+    id INTEGER PRIMARY KEY, title TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'idea', priority TEXT NOT NULL DEFAULT 'medium',
     flow TEXT DEFAULT 'accelerated', rework_count INTEGER DEFAULT 0,
     frozen INTEGER DEFAULT 0, blocked INTEGER DEFAULT 0, blocked_reason TEXT,
@@ -223,7 +223,9 @@ class TestValidateTransition:
             ("release", "done"),
         ]
         for from_s, to_s in forward_pairs:
-            result = _run_client(["validate-transition", from_s, to_s])
+            result = _run_client([
+                "validate-transition", from_s, to_s, "--workflow", "epic",
+            ])
             assert result.returncode == 0, f"{from_s}->{to_s} should be forward"
 
     def test_backward_transitions(self):
@@ -235,11 +237,15 @@ class TestValidateTransition:
             ("release", "implementing"),
         ]
         for from_s, to_s in backward_pairs:
-            result = _run_client(["validate-transition", from_s, to_s])
+            result = _run_client([
+                "validate-transition", from_s, to_s, "--workflow", "epic",
+            ])
             assert result.returncode == 1, f"{from_s}->{to_s} should not be forward"
 
     def test_exceptional_status_not_in_progression(self):
-        result = _run_client(["validate-transition", "implementing", "blocked"])
+        result = _run_client([
+            "validate-transition", "implementing", "blocked", "--workflow", "epic",
+        ])
         assert result.returncode == 1, "blocked is exceptional, not in progression"
 
     def test_issue_workflow_forward(self):
@@ -255,31 +261,24 @@ class TestValidateTransition:
         result = _run_client(["validate-transition", "refined-idea", "planning", "--workflow", "epic"])
         assert result.returncode == 0, "refined-idea->planning is forward for epics"
 
-    def test_workflow_omitted_preserves_default(self):
-        # Without --workflow, the compatibility validator defaults to epic.
+    def test_workflow_is_required(self):
         result = _run_client(["validate-transition", "refined-idea", "planning"])
-        assert result.returncode == 0, "default (no flag) should accept planning"
+        assert result.returncode == 2
+        assert "--workflow WORKFLOW" in result.stderr
 
-    def test_workflow_flag_is_resolved(self):
-        """The CLI resolves the selected workflow before validating."""
-        from unittest.mock import patch
-        from yoke_core.api import service_client
-        from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
+    def test_workflow_flag_uses_current_registry_version(self, test_db):
+        from runtime.api.workflow_version_test_helpers import publish_issue_completion_stage
 
-        calls = []
-
-        def spy(workflow_id):
-            calls.append(workflow_id)
-            return builtin_workflow_runtime(workflow_id)
-
-        with patch(
-            "yoke_core.domain.workflow_runtime.builtin_workflow_runtime",
-            side_effect=spy,
-        ):
-            service_client.cmd_validate_transition(
-                ["idea", "refining-idea", "--workflow", "issue"],
-            )
-        assert calls == ["issue"]
+        conn = connect_test_db(test_db["db_path"])
+        try:
+            publish_issue_completion_stage(conn)
+        finally:
+            conn.close()
+        result = _run_client(
+            ["validate-transition", "done", "archived", "--workflow", "issue"],
+            db_path=test_db["db_path"],
+        )
+        assert result.returncode == 0
 
     def test_unknown_argument_returns_2(self):
         result = _run_client(["validate-transition", "idea", "refining-idea", "--bad-flag"])

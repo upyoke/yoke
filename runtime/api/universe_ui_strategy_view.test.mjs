@@ -15,6 +15,15 @@ import {
   settle,
 } from "./universe_ui_dom_test_support.mjs";
 
+const BLITZ_POLICIES = {
+  file_budget: "optional",
+  path_claims: "optional",
+  worktrees: "worker_lanes_optional_integration",
+  parallelism: "maximum_safe_slices",
+  generated_children: "none",
+  delivery: "continuous",
+};
+
 function text(root) {
   return allNodes(root).map((node) => node.textContent || "").join(" ");
 }
@@ -294,13 +303,8 @@ test("Blitz detail is a thin system-fact shell around the live document", async 
       version: 1,
       stage_label: "implementing",
       executor_id: "blitz",
-      policies: {
-        path_claims: "optional",
-        worktrees: "worker_lanes_optional_integration",
-        parallelism: "maximum_safe_slices",
-        generated_children: "none",
-        delivery: "continuous",
-      },
+      policies: { ...BLITZ_POLICIES },
+      effective_policies: { ...BLITZ_POLICIES },
     },
     claim: { session_id: "session-a", actor_label: "ben" },
     worktrees: [

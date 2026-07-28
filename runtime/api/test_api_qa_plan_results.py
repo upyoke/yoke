@@ -246,4 +246,8 @@ def test_activity_handler_preserves_the_additive_summary_contract() -> None:
         outcome.result_payload,
     )
     assert validated.summary.total == 10
-    assert read.call_args.kwargs == {"project": "yoke", "limit": 6}
+    assert read.call_args.kwargs == {
+        "project": "yoke",
+        "deployment_run_id": None,
+        "limit": 6,
+    }

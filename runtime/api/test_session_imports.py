@@ -44,38 +44,46 @@ def _make_offer(**overrides):
 class TestImportHygiene:
     """Existing domain imports must continue to work after adding session module."""
 
-    def test_lifecycle_importable(self):
-        from yoke_core.domain import lifecycle
-        assert hasattr(lifecycle, "TaskStatus")
+    def test_task_lifecycle_importable(self):
+        from yoke_core.domain import task_lifecycle
+
+        assert hasattr(task_lifecycle, "TaskStatus")
 
     def test_approval_importable(self):
         from yoke_core.domain import approval
+
         assert hasattr(approval, "ApprovalResolution")
 
     def test_mutations_importable(self):
         from yoke_core.domain import mutations
+
         assert hasattr(mutations, "ItemState")
 
     def test_runs_importable(self):
         from yoke_core.domain import runs
+
         assert hasattr(runs, "DeploymentRun")
 
     def test_queries_importable(self):
         from yoke_core.domain import queries
+
         assert hasattr(queries, "ItemFilter")
 
     def test_board_importable(self):
         from yoke_core.domain import board
+
         assert hasattr(board, "project_board")
 
     def test_session_importable(self):
         from yoke_core.domain import session
+
         assert hasattr(session, "SessionOffer")
         assert hasattr(session, "NextAction")
         assert hasattr(session, "ActionKind")
 
     def test_decision_engine_importable(self):
         from yoke_core.domain import session
+
         assert hasattr(session, "decide_next_action")
         assert hasattr(session, "FrontierState")
         assert hasattr(session, "ClaimedWork")

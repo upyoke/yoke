@@ -84,19 +84,33 @@ class TestEmptyBranchGuard:
         _insert_item(db_path, 42, status="implemented")
 
         with (
-            mock.patch.object(done_transition, "_resolve_repo_root", return_value=repo_root),
-            mock.patch.object(done_transition, "_resolve_project_context", return_value=(repo_root, "")),
+            mock.patch.object(
+                done_transition, "_resolve_repo_root", return_value=repo_root
+            ),
+            mock.patch.object(
+                done_transition,
+                "_resolve_project_context",
+                return_value=(repo_root, ""),
+            ),
             mock.patch.object(done_transition, "_get_base_branch", return_value="main"),
             mock.patch.object(done_transition, "_check_merge_guard", return_value=True),
-            mock.patch.object(done_transition, "_verify_recovery_evidence", return_value=True),
+            mock.patch.object(
+                done_transition, "_verify_recovery_evidence", return_value=True
+            ),
             mock.patch.object(done_transition, "_check_empty_branch") as mock_empty,
             mock.patch.object(done_transition, "_cleanup_stale_branches"),
-            mock.patch.object(done_transition, "_verify_cwd_after_merge", return_value=repo_root),
+            mock.patch.object(
+                done_transition, "_verify_cwd_after_merge", return_value=repo_root
+            ),
             mock.patch.object(done_transition, "_schema_gate"),
-            mock.patch.object(done_transition, "_check_deployment_flow_guard", return_value=None),
+            mock.patch.object(
+                done_transition, "_check_deployment_flow_guard", return_value=None
+            ),
             mock.patch.object(done_transition, "_cross_project_commit_guard"),
             mock.patch.object(done_transition, "_populate_merged_at"),
-            mock.patch.object(done_transition, "_update_status_to_done", return_value=True),
+            mock.patch.object(
+                done_transition, "_update_status_to_done", return_value=True
+            ),
             mock.patch.object(done_transition, "_finalize_done_local_side_effects"),
             mock.patch.object(done_transition, "_update_item_direct", return_value=0),
             mock.patch.object(done_transition, "_rebuild_board_direct"),
@@ -112,14 +126,19 @@ class TestSimulationGate:
     """TC-simulation-gate: Integration simulation gate for epics."""
 
     def test_skip_simulation_passes(self, dt_db):
-        with mock.patch("yoke_core.engines.done_transition_gates.check_epic_simulation_gate") as mock_gate:
+        with mock.patch(
+            "yoke_core.engines.done_transition_gates.check_epic_simulation_gate"
+        ) as mock_gate:
             code = done_transition._check_simulation_gate(42, skip=True)
         assert code is None
         mock_gate.assert_not_called()
 
     def test_passing_gate_returns_none(self, dt_db):
         gate = mock.Mock(passed=True)
-        with mock.patch("yoke_core.engines.done_transition_gates.check_epic_simulation_gate", return_value=gate) as mock_gate:
+        with mock.patch(
+            "yoke_core.engines.done_transition_gates.check_epic_simulation_gate",
+            return_value=gate,
+        ) as mock_gate:
             code = done_transition._check_simulation_gate(42, skip=False)
         assert code is None
         gate.emit_errors.assert_not_called()
@@ -127,21 +146,24 @@ class TestSimulationGate:
 
     def test_failing_gate_blocks_and_emits_errors(self, dt_db):
         gate = mock.Mock(passed=False)
-        with mock.patch("yoke_core.engines.done_transition_gates.check_epic_simulation_gate", return_value=gate):
+        with mock.patch(
+            "yoke_core.engines.done_transition_gates.check_epic_simulation_gate",
+            return_value=gate,
+        ):
             code = done_transition._check_simulation_gate(43, skip=False)
         assert code == 3
         gate.emit_errors.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
-# Ephemeral env cleanup tests
+# Local finalization boundary tests
 # ---------------------------------------------------------------------------
 
 
 class TestLocalDoneFinalization:
-    """TC-ephemeral-cleanup: local done finalization."""
+    """Terminal resources are already closed by the status transaction."""
 
-    def test_marks_non_stopped_envs(self, dt_db, capsys):
+    def test_does_not_repeat_terminal_resource_cleanup(self, dt_db, capsys):
         db_path, _ = dt_db
         _insert_item(db_path, 60)
         conn = connect_dt_db(db_path)
@@ -165,14 +187,14 @@ class TestLocalDoneFinalization:
         )
 
         captured = capsys.readouterr()
-        assert "stopped 1 ephemeral env(s)" in captured.out
+        assert "ephemeral env" not in captured.out
         conn = connect_dt_db(db_path)
         status, stopped_at = conn.execute(
             "SELECT status, stopped_at FROM ephemeral_environments WHERE id = 1"
         ).fetchone()
         conn.close()
-        assert status == "stopped"
-        assert stopped_at
+        assert status == "running"
+        assert stopped_at is None
 
 
 # ---------------------------------------------------------------------------
@@ -187,27 +209,42 @@ class TestCLIParsing:
         with mock.patch.object(done_transition, "run", return_value=0) as mock_run:
             done_transition.main(["42"])
         mock_run.assert_called_once_with(
-            42, env_name="", skip_simulation=False,
-            skip_deploy=False, skip_qa=False,
+            42,
+            env_name="",
+            skip_simulation=False,
+            skip_deploy=False,
+            skip_qa=False,
         )
 
     def test_sun_prefix_stripped(self, dt_db):
         with mock.patch.object(done_transition, "run", return_value=0) as mock_run:
             done_transition.main(["YOK-042"])
         mock_run.assert_called_once_with(
-            42, env_name="", skip_simulation=False,
-            skip_deploy=False, skip_qa=False,
+            42,
+            env_name="",
+            skip_simulation=False,
+            skip_deploy=False,
+            skip_qa=False,
         )
 
     def test_all_flags(self, dt_db):
         with mock.patch.object(done_transition, "run", return_value=0) as mock_run:
-            done_transition.main([
-                "99", "--env", "staging",
-                "--skip-simulation", "--skip-deploy", "--skip-qa",
-            ])
+            done_transition.main(
+                [
+                    "99",
+                    "--env",
+                    "staging",
+                    "--skip-simulation",
+                    "--skip-deploy",
+                    "--skip-qa",
+                ]
+            )
         mock_run.assert_called_once_with(
-            99, env_name="staging", skip_simulation=True,
-            skip_deploy=True, skip_qa=True,
+            99,
+            env_name="staging",
+            skip_simulation=True,
+            skip_deploy=True,
+            skip_qa=True,
         )
 
     def test_missing_item_returns_usage_error(self, dt_db, capsys):
@@ -250,10 +287,7 @@ class TestRecoveryGapAbsorption:
         assert "--no-worktree" in stderr_output
         assert "release the active lane" in stderr_output
         assert "no-worktree entry path" in stderr_output
-        assert (
-            "/yoke advance YOK-99 implementing --no-worktree"
-            in stderr_output
-        )
+        assert "/yoke advance YOK-99 implementing --no-worktree" in stderr_output
         assert "yoke items scalar update" not in stderr_output
         assert "--field worktree" not in stderr_output
         assert "db_router items update" not in stderr_output
@@ -261,6 +295,7 @@ class TestRecoveryGapAbsorption:
     def test_deployment_flow_guard_variants_all_documented(self):
         """All exit 7 variants must be reachable in the guard surfaces."""
         import inspect
+
         # Redirect path lives in its own function
         redirect_src = inspect.getsource(done_transition._check_deployment_redirect)
         assert "deployment flow" in redirect_src
@@ -270,53 +305,6 @@ class TestRecoveryGapAbsorption:
         assert "skip_deploy" in guard_src
         assert "deploy_stage" in guard_src
 
-
-# ---------------------------------------------------------------------------
-# Merge guard tests
-# ---------------------------------------------------------------------------
-
-
-class TestMergeGuard:
-    """TC-merge-guard: Branch merge detection."""
-
-    def test_no_worktree_not_merged(self):
-        result = done_transition._check_merge_guard("", Path("/tmp"), "main")
-        assert result is False
-
-    def test_missing_branch_treated_as_merged(self):
-        with mock.patch.object(done_transition, "_run_git") as mock_git:
-            mock_git.return_value = mock.Mock(returncode=128, stdout="")
-            result = done_transition._check_merge_guard(
-                "YOK-9999", Path("/tmp"), "main"
-            )
-        assert result is True
-
-    def test_ancestry_check_detects_merged(self):
-        with mock.patch.object(done_transition, "_run_git") as mock_git:
-            mock_git.side_effect = [
-                mock.Mock(returncode=0, stdout="abc\n"),  # rev-parse branch
-                mock.Mock(returncode=0, stdout=""),       # fetch origin main
-                mock.Mock(returncode=0, stdout="def\n"),  # rev-parse origin/main
-                mock.Mock(returncode=0, stdout=""),       # ancestry vs origin/main
-            ]
-            result = done_transition._check_merge_guard(
-                "YOK-9999", Path("/tmp"), "main"
-            )
-        assert result is True
-
-    def test_squash_merge_detected(self):
-        with mock.patch.object(done_transition, "_run_git") as mock_git:
-            mock_git.side_effect = [
-                mock.Mock(returncode=0, stdout="abc\n"),  # rev-parse branch
-                mock.Mock(returncode=0, stdout=""),       # fetch origin main
-                mock.Mock(returncode=0, stdout="def\n"),  # rev-parse origin/main
-                mock.Mock(returncode=1, stdout=""),       # ancestry fails
-                mock.Mock(returncode=0, stdout="abc123 Merge YOK-9999\n"),  # log grep
-            ]
-            result = done_transition._check_merge_guard(
-                "YOK-9999", Path("/tmp"), "main"
-            )
-        assert result is True
 
 # Origin-ref ancestry coverage and `_verify_recovery_evidence` tests live in
 # test_done_transition_origin_evidence.py.

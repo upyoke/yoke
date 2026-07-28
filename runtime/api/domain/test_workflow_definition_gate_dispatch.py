@@ -45,9 +45,7 @@ from yoke_core.domain.workflow_behavior import (
 
 def _gate_ids(workflow_id: str, stage_id: str) -> tuple[str, ...]:
     definition = builtin_workflow_definition(workflow_id)["definition"]
-    stage = next(
-        stage for stage in definition["stages"] if stage["id"] == stage_id
-    )
+    stage = next(stage for stage in definition["stages"] if stage["id"] == stage_id)
     return tuple(gate["id"] for gate in stage["gates"])
 
 
@@ -245,7 +243,7 @@ def test_blitz_lifecycle_claims_refuses_conflict_and_releases_terminally(
     direct_db_path: str,
     monkeypatch: pytest.MonkeyPatch,
 ):
-    from yoke_core.domain import backlog, backlog_architecture_gate_runner
+    from yoke_core.domain import backlog_architecture_gate_runner
 
     monkeypatch.setattr(
         backlog_architecture_gate_runner,
@@ -321,25 +319,29 @@ def test_blitz_lifecycle_claims_refuses_conflict_and_releases_terminally(
     assert conflict["error_code"] == "GATE_DOC_CLAIM_ACTIVATION_CONFLICT"
     assert "item 2180" in conflict["error"]
 
-    monkeypatch.setattr(
-        backlog,
-        "execute_update",
-        lambda **_kwargs: {"success": True},
+    outcome = handle_transition(
+        FunctionCallRequest(
+            function="lifecycle.transition.execute",
+            actor=ActorContext(session_id="blitz-owner", actor_id="1"),
+            target=TargetRef(kind="item", item_id=2180, project_id="yoke"),
+            payload={
+                "source_status": "refined-idea",
+                "target_status": "cancelled",
+                "reason": "Direct execution cancelled",
+            },
+        )
     )
-    outcome = handle_transition(FunctionCallRequest(
-        function="lifecycle.transition.execute",
-        actor=ActorContext(session_id="blitz-owner", actor_id="1"),
-        target=TargetRef(kind="item", item_id=2180, project_id="yoke"),
-        payload={
-            "source_status": "refined-idea",
-            "target_status": "cancelled",
-            "reason": "Direct execution cancelled",
-        },
-    ))
     assert outcome.primary_success is True, outcome.error
     conn = connect_test_db(direct_db_path)
     try:
         assert active_strategy_doc_claim(conn, item_id=2180) is None
         assert list_item_worktrees(conn, 2180, active_only=True) == []
+        released = conn.execute(
+            "SELECT released_at, release_reason, release_reason_intent "
+            "FROM work_claims WHERE target_kind='item' AND item_id=2180",
+        ).fetchone()
+        assert released[0] is not None
+        assert str(released[1]) == "released"
+        assert str(released[2]) == "item-terminal:cancelled"
     finally:
         conn.close()

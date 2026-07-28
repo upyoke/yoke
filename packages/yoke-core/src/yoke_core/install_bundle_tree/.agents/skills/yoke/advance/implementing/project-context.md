@@ -8,7 +8,8 @@ Surfaces project documentation before the text-sensitive test audit and file dis
 
 ## a. Query project context metadata
 
-This phase is the issue implementation entry path's own context loader. It does not depend on the conduct path.
+This phase is the pinned `advance` executor's own single-lane context loader.
+It does not depend on the `conduct` task-graph path.
 
 ```bash
 _item_project=$(yoke items get {N} project 2>/dev/null)

@@ -2,7 +2,9 @@
 
 Extracted from `preflight.md`. Covers the individual gate checks run before implementation work begins. Read and follow this file when `preflight.md` directs you here.
 
-**Context variables** (inherited from router): `{N}`, `_workflow_id`, `_status`, `_target`, `--force` flag
+**Context variables** (inherited from router): `{N}`, `_status`, `_target`,
+`_current_executor`, `_target_executor`, `_generated_children`,
+`_worktree_policy`, `_pinned_definition_json`, `--force` flag
 
 ---
 
@@ -62,8 +64,8 @@ If no blockers (kernel says `is_blocked=false` or check-hard-blocks exits 0), pr
 
 ## AC Presence Gate (step 4-ac)
 
-Skip if `_workflow_id` is `epic` (its executor uses shepherd's Gate 0 for AC
-enforcement).
+Skip if `_generated_children` is `epic_tasks`; the generated-task executor
+enforces task-level ACs before dispatch.
 
 Skip if target is `idea`, `refining-idea`, `refined-idea`, `planning`, `refining-plan`, or `planned` (pre-implementation statuses where ACs are not yet required).
 
@@ -137,14 +139,24 @@ If the report contains `skipped=true` (helper unavailable, item id not found, et
 
 ## Spec Coverage Gate (step 4-cov)
 
-Skip if `_workflow_id` is `epic` (its executor uses shepherd's path-claim
-handoff). Skip if target is `idea`, `refining-idea`, `refined-idea`,
+Skip if `_generated_children` is `epic_tasks`; its planning executor owns the
+per-task path-claim handoff. Skip if target is `idea`, `refining-idea`, `refined-idea`,
 `planning`, `refining-plan`, or `planned` (claim widening can still happen
 during refine).
 
+Also skip unless `_effective_file_budget_policy` **and**
+`_effective_path_claims_policy` are both non-`optional`. File
+Budget/path-claim parity exists only in
+that combination. With budget off and claims on, claim coverage comes from the
+execution artifact or survey. With budget on and claims off, the budget is
+sizing/conflict evidence and there is no claim coverage gate. With both off,
+skip both artifact gates; the universal 350-line check still applies.
+
 Applies to targets `implementing`, `reviewing-implementation`, `reviewed-implementation`, `polishing-implementation`, `implemented`, and `release` — any status at or past implementation entry. **If `--force`:** skip with warning.
 
-The path-claim-required gate (run by `/yoke refine`) verifies *that* a claim exists; this gate verifies that the claim's declared paths cover everything the spec body's `## File Budget` section promises. The seam exists because deferred-coverage path widening (held until upstream blockers release) is currently authored as prose ("widen claim onto X once YOK-Y releases") with no automated reconciliation. This gate catches the drift at the moment it bites.
+The path-claim-required gate (run by `/yoke refine` when enabled) verifies
+*that* a claim exists; this gate verifies that the claim's declared paths
+cover everything the enabled `## File Budget` section promises.
 
 ```bash
 # Internal coverage-gate helper: evaluate path-claim/spec coverage for YOK-{N}.
@@ -161,19 +173,22 @@ If `_cov_exit` is 0, proceed silently. The gate self-skips when:
 
 **Gate classification: `block-by-design`.** At implementation entry the worktree is about to be created; widening a claim onto additional paths *after* the worktree exists risks mutating coverage while edits are already landing, and refine is no longer reachable to author the claim repair (the item has moved past `refining-idea`). The earlier opportunities to repair are already wired: `/yoke idea` and `/yoke refine` both run `idea_readiness_check` and refine's entry handler auto-widens for pure `FILE_BUDGET_NOT_IN_CLAIM` against the existing non-terminal exclusive claim. The sanctioned remediation when this gate fires is either (a) fix the gap upstream by re-running `/yoke refine` on the item before re-attempting advance, or (b) when the spec is genuinely settled and only the claim is wrong, run `yoke claims path widen --claim-id <id> --add-paths <added> --reason "<why widening>" --item YOK-N` directly before re-running advance — the helper's stderr already prints that command. `--force` does not bypass this gate.
 
-## Epic Advisory (step 5)
+## Pinned-Executor Advisory (step 5)
 
-If `_workflow_id` is `epic` and the target stage has a dedicated registered
-executor (`refined-idea` → shepherd, `planned` → plan, `implementing` →
-conduct), print:
-> Note: Epics normally advance via pipeline commands (`/yoke shepherd`, `/yoke plan`, `/yoke conduct`). Advancing manually.
+If `_target_executor` is non-empty and differs from `_current_executor`, print:
+> Note: The pinned workflow assigns target stage `{_target}` to
+> `/{_target_executor}`. Advancing manually through `/yoke advance`.
 
 Proceed anyway — manual override is valid.
 
-## Shepherd Lifecycle Gate (step 5-shep, epics only)
+## Shepherd Executor Gate (step 5-shep)
 
-Skip if `_workflow_id` is not `epic`. Ensures items bound to shepherd passed
-that executor pipeline.
+Read the ordered stages and `executor_bindings` from
+`_pinned_definition_json`. Apply this gate only when the definition contains a
+`shepherd` binding, the target is at or beyond that binding's handoff, and the
+current stage is still before the implementation executor has started. This is
+an executor-specific domain guard: workflows with no `shepherd` binding skip
+it.
 
 **Pre-check:** Skip if current status is `implementing` or later. Also skip if current is `idea` and target is `implementing` (deliberate bypass).
 
@@ -192,34 +207,44 @@ _gate_reason=$(python3 -m yoke_core.domain.shepherd_gate check "YOK-{N}")
 _gate_exit=$?
 ```
 
-`planning_to_plan_drafted` is the terminal verdict shepherd writes before handing off to refine. The helper also accepts the legacy `planned_to_ready` transition for epics that passed the pre-2026-04-07 pipeline; no modern producer writes that name.
+`planning_to_plan_drafted` is the terminal verdict the `shepherd` executor
+writes before its pinned handoff. The helper also accepts the legacy
+`planned_to_ready` transition for items that passed the pre-2026-04-07
+pipeline; no modern producer writes that name.
 
 If `_gate_exit` is non-zero (no qualifying verdict), **block** with `$_gate_reason` followed by this remediation:
 > **Blocked:** YOK-{N} has no qualifying shepherd verdict for the Shepherd Lifecycle Gate.
 >
 > Inspect the verdict history directly: `yoke db read --format lines "SELECT id, transition, verdict, created_at FROM shepherd_verdicts WHERE item='YOK-{N}' ORDER BY id DESC"`.
 >
-> If the modern verdict (`planning_to_plan_drafted`) is missing but the epic's status is `plan-drafted` or later, the upstream shepherd run did not emit it — re-run `/yoke shepherd YOK-{N}` only if the epic is still at `refined-idea`, otherwise file a follow-up work item against the shepherd producer path. Modern shepherd does not re-run against plan-drafted or later statuses.
+> If the modern verdict (`planning_to_plan_drafted`) is missing after the
+> pinned shepherd handoff, the upstream shepherd run did not emit it. Re-run
+> `/yoke shepherd YOK-{N}` only while the current stage still belongs to that
+> binding; otherwise file a follow-up work item against the shepherd producer.
 
 Do NOT update status.
 
-## Epic Task Existence Gate (step 5-gate, epics targeting `planned` or `implementing`)
+## Generated-Task Existence Gate (step 5-gate)
 
-Skip if not epic or target is not `planned`/`implementing`. **If `--force`:** skip with warning.
+Apply only when `_generated_children=epic_tasks` and the target is at or beyond
+the `conduct` binding's `from_stage_id`. Skip for definitions without that
+binding. **If `--force`:** skip with warning.
 
 ```bash
 # Convention: see your `epic_tasks` packet stanza for the epic_id column shape.
-# For epic items the epic's own numeric ID IS {N} (mirrors shepherd/plan-handoff.md:23).
-# Never YOK-prefix this value.
+# The generated-task parent is the item's own numeric ID. Never YOK-prefix it.
 _epic_id={N}
 _task_count=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_tasks WHERE epic_id=${_epic_id}")
 ```
 
 If `_task_count` is 0, **block**: point to `/yoke plan YOK-{N}`.
 
-## Epic Task Completion Gate (step 5a, epics targeting `implemented` or `release`)
+## Generated-Task Completion Gate (step 5a)
 
-Skip if not epic, or if target is `implementing`, `reviewing-implementation`, `reviewed-implementation`, or `polishing-implementation`. This gate applies only when the entire epic is crossing into `implemented` or `release` — not when a single task lane is advancing through its own review cycle. **If `--force`:** skip with warning.
+Apply only when `_generated_children=epic_tasks` and the target stage is owned
+by `usher` or is terminal. Earlier executor segments skip it; a single task
+lane advancing through review never triggers the parent-item gate.
+**If `--force`:** skip with warning.
 
 ```bash
 # Convention: see your `epic_tasks` packet stanza for the epic_id column shape; bare integer, never YOK-prefixed.
@@ -232,9 +257,10 @@ _done=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_tasks WHERE epic_
 - `_total` = `_done` → allow
 - Otherwise → **block**, list incomplete tasks
 
-## Deferred Items Gate (step 5a-defer, epics targeting `done`)
+## Deferred Items Gate (step 5a-defer)
 
-Skip if not epic or target is not `done`. **If `--force`:** skip with warning.
+Apply only when `_generated_children=epic_tasks` and `_target` is one of the
+pinned definition's `terminal_stage_ids`. **If `--force`:** skip with warning.
 
 **a.** Read deferred items SILENTLY from `item_sections` table:
 ```bash
@@ -248,7 +274,10 @@ fi
 
 **b.** If UNFILED entries found → **block** with remediation to file via `/yoke idea`.
 
-**c.** Scan spec for deferral language outside `## Deferred Items` (patterns: "deferred to follow-up", "out of scope for this epic", etc.). Exclude lines with YOK-N refs, lines in fenced code blocks, lines inside the Deferred Items section.
+**c.** Scan spec for deferral language outside `## Deferred Items` (patterns:
+"deferred to follow-up", "out of scope for this item", etc.). Exclude lines
+with YOK-N refs, lines in fenced code blocks, and lines inside the Deferred
+Items section.
 
 If untracked deferral language found → **block**.
 

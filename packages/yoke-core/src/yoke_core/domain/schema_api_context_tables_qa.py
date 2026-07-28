@@ -31,8 +31,16 @@ QA_TABLES: dict[str, dict] = {
             ("waiver_source", "TEXT"),
             ("plan_id", "INTEGER"),
             ("plan_case_key", "TEXT"),
+            ("case_position", "INTEGER"),
+            ("baseline_position", "INTEGER"),
             ("method_id", "TEXT"),
+            ("method_name", "TEXT"),
+            ("executor_id", "TEXT"),
+            ("required_capability_kind", "TEXT"),
+            ("verdict_path", "TEXT"),
             ("host_baseline", "TEXT"),
+            ("entry_surface", "TEXT"),
+            ("required_completion", "TEXT"),
             ("workflow_transition_id", "TEXT"),
             ("instructions", "TEXT"),
             ("expected_outcome", "TEXT"),
@@ -53,10 +61,12 @@ QA_TABLES: dict[str, dict] = {
             "there is no `kind` and no `requirement_type` column; "
             "requirement provenance is `requirement_source` (`explicit` / "
             "`ac_derived` / ...). Materialized executable cases instead "
-            "carry `method_id`, `instructions`, `expected_outcome`, and "
-            "an immutable `method_config` snapshot. Execute each snapshot "
-            "through `yoke qa case run --requirement-id <id>`; never "
-            "replace method_config during execution. "
+            "carry immutable case ordering, executor, entry-surface, "
+            "completion, instructions, expected-outcome, and method-config "
+            "snapshots. Execute a transition's ordered set through "
+            "`yoke qa plan run --item PREFIX-N --transition T`, or one "
+            "snapshot through `yoke qa case run --requirement-id <id>`; "
+            "never replace snapshot fields during execution. "
             "Canonical unsatisfied-verification SELECT: "
             "`SELECT qr.id, qr.qa_kind, qr.method_id, qr.expected_outcome, "
             "qr.method_config, qr.blocking_mode "
@@ -102,9 +112,9 @@ QA_TABLES: dict[str, dict] = {
             "Browser method execution shape: `yoke qa case run "
             "--requirement-id R --base-url URL --expected-branch BRANCH "
             "--expected-sha SHA`. The runner reads the immutable case "
-            "through qa.case_execution.get and owns the qa.run.add / "
-            "qa.run.complete / qa.artifact.add evidence writes for that "
-            "single requirement."
+            "through the write-authorized qa.case_execution.begin before "
+            "local work and owns the qa.run.add / qa.run.complete / "
+            "qa.artifact.add evidence writes for that single requirement."
         ),
     },
     "qa_artifacts": {

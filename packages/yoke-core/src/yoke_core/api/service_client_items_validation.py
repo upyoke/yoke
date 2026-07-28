@@ -108,17 +108,16 @@ def cmd_validate_status(args: list[str]) -> int:
 def cmd_validate_transition(args: list[str]) -> int:
     """Validate that a status transition is a forward progression step.
 
-    Usage: validate-transition <from-status> <to-status> [--workflow WORKFLOW]
+    Usage: validate-transition <from-status> <to-status> --workflow WORKFLOW
     Exit 0 if forward, exit 1 if not.
-    When --workflow is omitted, uses the built-in epic workflow.
     """
     if len(args) < 2:
-        print("Usage: validate-transition <from-status> <to-status> [--workflow WORKFLOW]", file=sys.stderr)
+        print("Usage: validate-transition <from-status> <to-status> --workflow WORKFLOW", file=sys.stderr)
         return 2
 
     from_status = args[0]
     to_status = args[1]
-    workflow_id = "epic"
+    workflow_id = None
 
     i = 2
     while i < len(args):
@@ -129,13 +128,29 @@ def cmd_validate_transition(args: list[str]) -> int:
             print(f"Unknown argument: {args[i]}", file=sys.stderr)
             return 2
 
-    from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
+    if workflow_id is None:
+        print("Usage: validate-transition <from-status> <to-status> --workflow WORKFLOW", file=sys.stderr)
+        return 2
 
+    from yoke_core.domain.workflow_registry import (
+        WorkflowRegistryError,
+        resolve_current_workflow_pin,
+    )
+    from yoke_core.domain.workflow_runtime import load_workflow_runtime
+
+    conn = _get_db_readonly()
     try:
-        workflow = builtin_workflow_runtime(workflow_id)
-    except KeyError:
-        print(f"unknown workflow: {workflow_id}", file=sys.stderr)
+        resolved_id, version_id = resolve_current_workflow_pin(conn, workflow_id)
+        workflow = load_workflow_runtime(
+            conn,
+            workflow_id=resolved_id,
+            workflow_version_id=version_id,
+        )
+    except WorkflowRegistryError as exc:
+        print(str(exc), file=sys.stderr)
         return 1
+    finally:
+        conn.close()
     if workflow.is_forward_transition(from_status, to_status):
         print("forward")
         return 0

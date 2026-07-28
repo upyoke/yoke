@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "project": "yoke",
+  "profile": {
+    "state": "declared",
+    "model_name": "primary",
+    "mutation_intent": "apply",
+    "migration_modules": [
+      "qa_requirement_execution_snapshot"
+    ],
+    "compatibility_class": "pre_merge_safe",
+    "migration_strategy": "additive_only",
+    "schema_kinds": [
+      "additive"
+    ],
+    "data_kinds": [
+      "fill"
+    ],
+    "affected_surfaces": [
+      {
+        "table": "qa_requirements",
+        "columns": [
+          "case_position",
+          "baseline_position",
+          "entry_surface",
+          "required_completion",
+          "method_name",
+          "executor_id",
+          "required_capability_kind",
+          "verdict_path"
+        ]
+      }
+    ],
+    "count_preserving": true
+  },
+  "module_sources": {
+    "qa_requirement_execution_snapshot": {
+      "path": "packages/yoke-core/src/yoke_core/domain/migrations/qa_requirement_execution_snapshot.py",
+      "sha256": "17d792acd141ebdcab0be0e52ea90bcd5a766a7d4a6c85da5fdf90b326211155"
+    }
+  },
+  "attestation": {
+    "pre_merge_readers_writers": [
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/qa_catalog_schema.py",
+        "symbol": "create_qa_catalog_tables",
+        "role": "writer"
+      },
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/qa_plan_attachments.py",
+        "symbol": "materialize_for_item",
+        "role": "writer"
+      },
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/qa_case_execution_context.py",
+        "symbol": "get_case_execution_context",
+        "role": "reader"
+      },
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/qa_plan_execution.py",
+        "symbol": "ordered_plan_requirements",
+        "role": "reader"
+      }
+    ],
+    "invariants": [
+      "Every method-backed requirement carries immutable method name, executor, capability, and verdict metadata.",
+      "Every plan-backed requirement carries positive case and baseline positions.",
+      "Plan-backed positions are unique within an item, transition, and plan.",
+      "Ad-hoc method requirements remain executable without synthetic plan positions.",
+      "Repeat apply preserves row counts and existing complete snapshots."
+    ],
+    "rehearsal_commands": [
+      "PYTHONPATH=packages/yoke-contracts/src:packages/yoke-cli/src:packages/yoke-core/src:packages/yoke-harness/src:. python3 -m pytest runtime/api/domain/migrations/test_qa_requirement_execution_snapshot.py runtime/api/domain/test_qa_case_execution.py runtime/api/domain/test_qa_plan_execution.py -q"
+    ],
+    "residual_risk_notes": "The additive backfill can only recover pre-snapshot case position and entry metadata from the final mutable plan catalog. It refuses rows whose source case or method no longer exists instead of fabricating an execution contract."
+  }
+}

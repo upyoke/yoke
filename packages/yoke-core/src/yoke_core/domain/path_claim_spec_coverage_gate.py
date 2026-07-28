@@ -87,7 +87,8 @@ def _read_spec_text(conn: Any, item_id: int) -> str:
     marker = _p(conn)
     if "spec" in columns:
         row = conn.execute(
-            f"SELECT spec FROM items WHERE id = {marker}", (item_id,),
+            f"SELECT spec FROM items WHERE id = {marker}",
+            (item_id,),
         ).fetchone()
         if row is not None:
             text = row["spec"] if hasattr(row, "keys") else row[0]
@@ -110,7 +111,8 @@ def _read_spec_text(conn: Any, item_id: int) -> str:
 
 
 def _active_claim_coverage(
-    conn: Any, item_id: int,
+    conn: Any,
+    item_id: int,
 ) -> tuple[List[int], List[str]]:
     """Return (claim_ids, declared_paths) for non-terminal claims."""
     marker = _p(conn)
@@ -120,8 +122,7 @@ def _active_claim_coverage(
         f"AND state IN ({placeholders}) ORDER BY id",
         (item_id, *_NON_TERMINAL_CLAIM_STATES),
     ).fetchall()
-    claim_ids = [int(r["id"] if hasattr(r, "keys") else r[0])
-                 for r in claim_rows]
+    claim_ids = [int(r["id"] if hasattr(r, "keys") else r[0]) for r in claim_rows]
     if not claim_ids:
         return [], []
     target_placeholders = ",".join(marker for _ in claim_ids)
@@ -133,8 +134,7 @@ def _active_claim_coverage(
         f"ORDER BY pt.path_string",
         tuple(claim_ids),
     ).fetchall()
-    paths = [r["path_string"] if hasattr(r, "keys") else r[0]
-             for r in target_rows]
+    paths = [r["path_string"] if hasattr(r, "keys") else r[0] for r in target_rows]
     return claim_ids, paths
 
 
@@ -159,6 +159,32 @@ def evaluate(
     if conn is None:
         conn = _connect_raw()
     try:
+        from yoke_core.domain.workflow_effective_policies import (
+            load_item_effective_workflow_policies,
+        )
+
+        effective = load_item_effective_workflow_policies(conn, item_id)
+        if not effective.requires_budget_claim_parity:
+            return CoverageResult(item_id=item_id, is_blocked=False)
+        task_scoped = effective.path_claims == "required_per_task"
+        if task_scoped:
+            from yoke_core.domain.path_claim_task_coverage import (
+                bound_task_claim_targets,
+                evaluate_task_coverage,
+                item_task_budget_paths,
+            )
+
+            coverage = evaluate_task_coverage(conn, item_id)
+            claim_ids, claim_paths = bound_task_claim_targets(conn, item_id)
+            return CoverageResult(
+                item_id=item_id,
+                is_blocked=coverage.verdict != "pass",
+                file_budget_paths=list(item_task_budget_paths(conn, item_id)),
+                claim_paths=list(claim_paths),
+                missing_paths=list(coverage.uncovered_paths),
+                active_claim_ids=list(claim_ids),
+                no_claims=not claim_ids,
+            )
         spec = _read_spec_text(conn, item_id)
         budget_paths = extract_file_budget_paths(spec)
         if not budget_paths:
@@ -215,13 +241,12 @@ def _format_block_message(result: CoverageResult) -> str:
         target_id = result.active_claim_ids[0]
         added = ",".join(result.missing_paths)
         lines.append(
-            "Remediation: widen the active claim onto the missing paths, "
-            "for example:"
+            "Remediation: widen the active claim onto the missing paths, for example:"
         )
         lines.append(
-            f"  python3 -m yoke_core.api.service_client path-claim-widen "
-            f"{target_id} --paths \"{added}\" "
-            f"--reason \"...\" [--allow-planned]"
+            f"  yoke claims path widen --claim-id {target_id} "
+            f'--add-paths "{added}" --reason "..." '
+            f"--item YOK-{result.item_id} [--allow-planned]"
         )
         lines.append(
             "Use --allow-planned when the file does not yet exist on "
@@ -240,7 +265,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("item_id", help="Item id (bare integer or YOK-N)")
     parser.add_argument(
-        "--json", action="store_true",
+        "--json",
+        action="store_true",
         help="Emit JSON instead of human-readable text.",
     )
     args = parser.parse_args(argv)
@@ -251,8 +277,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         item_id = int(raw)
     except (TypeError, ValueError):
-        print(f"ERROR: cannot parse item id '{args.item_id}'",
-              file=sys.stderr)
+        print(f"ERROR: cannot parse item id '{args.item_id}'", file=sys.stderr)
         return 2
 
     result = evaluate(item_id)

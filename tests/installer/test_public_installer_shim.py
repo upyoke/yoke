@@ -42,8 +42,7 @@ def test_missing_uv_without_curl_prints_manual_and_rerun(tmp_path: Path) -> None
     assert "Install curl first" in result.stderr
     assert "curl -LsSf https://astral.sh/uv/install.sh | sh" in result.stderr
     assert (
-        "curl -fsSL https://example.invalid/install | bash -s -- --yes"
-        in result.stderr
+        "curl -fsSL https://example.invalid/install | sh -s -- --yes" in result.stderr
     )
 
 
@@ -107,7 +106,7 @@ def test_declining_uv_consent_prints_manual_and_rerun(tmp_path: Path) -> None:
     assert "Yoke's only prerequisite — uv/uvx — isn't installed yet." in result.stdout
     assert "uv/uvx is required to install Yoke." in result.stdout
     assert "curl -LsSf https://astral.sh/uv/install.sh | sh" in result.stdout
-    assert "curl -fsSL https://example.invalid/install | bash" in result.stdout
+    assert "curl -fsSL https://example.invalid/install | sh" in result.stdout
 
 
 def test_missing_uv_installs_via_astral_on_consent(tmp_path: Path) -> None:
@@ -159,7 +158,9 @@ def test_missing_uv_installs_via_astral_on_consent(tmp_path: Path) -> None:
     [(("--yes",), ""), ((), "y\n")],
 )
 def test_uv_installer_override_metacharacters_never_execute(
-    tmp_path: Path, args: tuple[str, ...], input_text: str,
+    tmp_path: Path,
+    args: tuple[str, ...],
+    input_text: str,
 ) -> None:
     bin_dir = _bin(tmp_path)
     sentinel = tmp_path / "interpolation-ran"
@@ -304,8 +305,7 @@ def test_interactive_success_auto_launches_onboard_without_gate(tmp_path: Path) 
     prompt_out.write_text("", encoding="utf-8")
     write_executable(
         bin_dir / "yoke",
-        "#!/bin/sh\n"
-        f"printf 'yoke %s\\n' \"$*\" >> '{onboard_log}'\n",
+        f"#!/bin/sh\nprintf 'yoke %s\\n' \"$*\" >> '{onboard_log}'\n",
     )
 
     result = run_shim(

@@ -55,7 +55,25 @@ Exit-code dispatch:
 - **Exit 4:** User files at risk — **HARD STOP**. Revert to `implemented`. Report: `[Route A] YOK-{N}: user files at risk (exit 4). Reverted to implemented. Manual review required.`
 - **Exit 7:** Deployment flow guard. The item has a deployment flow that requires pipeline execution, but `--skip-deploy` was passed. Revert to `implemented`. Report: `[Route A] YOK-{N}: deployment flow guard (exit 7). This item needs Route B (deployment pipeline), not Route A. Reverted to implemented. Re-run usher without --skip-deploy or verify the item's deployment_flow field.`
 - **Exit 8:** Empty worktree branch — the item's worktree branch has no commits diverging from the project's default branch. This is the evidence-only guard. Revert to `implemented`. Report: `[Route A] YOK-{N}: empty worktree branch (exit 8). This is an evidence-only item with no code changes. Reverted to implemented.`
-  **Recovery:** The canonical remediation is the evidence-only path — the item should have been advanced with `--no-worktree` (which sets `worktree = NULL`), or the operator should clear the worktree field by calling `items.scalar.update` with `payload.field="worktree"`, `payload.value=null`. Then re-run `/yoke usher YOK-{N}`.
+  **Recovery:** The canonical remediation is the evidence-only path — future items should enter implementing with `--no-worktree`. Only after the rollback to `implemented`, read the registered lane path and prove it contains no modified tracked, untracked, or ignored files:
+  ```bash
+  _wt_path=$(yoke item-worktrees get YOK-{N} \
+   --lane-role implementation --field path)
+  if [ -z "$_wt_path" ] || [ "$_wt_path" = "null" ] || [ ! -d "$_wt_path" ]; then
+   echo "Blocked: the registered worktree path cannot be verified."
+   exit 1
+  fi
+  _wt_dirty=$(git -C "$_wt_path" status --porcelain \
+   --ignored=matching --untracked-files=all)
+  _wt_git_rc=$?
+  if [ "$_wt_git_rc" -ne 0 ] || [ -n "$_wt_dirty" ]; then
+   echo "Blocked: preserve or commit every worktree file before lane release."
+   exit 1
+  fi
+  yoke item-worktrees release YOK-{N} --all-active \
+   --reason evidence-only-recovery
+  ```
+  The release adapter repeats the branch and cleanliness checks. The server accepts only this fixed recovery reason, an `implemented` item with exactly one active implementation lane, and an attestation matching that lane. Then re-run `/yoke usher YOK-{N}`.
 - **Exit 99:** Self-modifying bootstrap — the underlying done-transition engine re-executes itself. This is handled internally by the launcher and should never surface to usher. If it does, treat as unexpected and apply the catch-all below.
 - **Any other non-zero exit (catch-all):** Unexpected failure. Revert to `implemented` so the item is never stranded in `release`. Report: `[Route A] YOK-{N}: unexpected done-transition failure (exit {code}). Reverted to implemented. Investigate the done-transition output above.`
 

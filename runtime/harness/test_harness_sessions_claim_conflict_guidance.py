@@ -17,7 +17,12 @@ from __future__ import annotations
 import pytest
 
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
-from runtime.api.test_sessions import EMIT_PATH_TABLES, _register, conn  # noqa: F401
+from runtime.api.test_sessions import (
+    EMIT_PATH_TABLES,
+    _insert_claimable_item,
+    _register,
+    conn,  # noqa: F401
+)
 from runtime.harness.harness_sessions_claims import (
     WHO_CLAIMS_NON_HOLDER_WARNING_TEMPLATE,
     cmd_who_claims,
@@ -43,6 +48,7 @@ def conflicting_claim(conn):  # noqa: F811  (reuse imported pytest fixture)
     minimal events table would fail the emit INSERT and poison the txn on PG.
     """
     apply_fixture_ddl(conn, EMIT_PATH_TABLES)
+    _insert_claimable_item(conn, ITEM_ID)
     _register(conn, session_id=HOLDER_SESSION_ID)
     _register(conn, session_id=OTHER_SESSION_ID)
     cmd_claim(conn, HOLDER_SESSION_ID, "item", item_id=ITEM_ID)

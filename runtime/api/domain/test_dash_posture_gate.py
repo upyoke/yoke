@@ -14,20 +14,15 @@ from runtime.api.fixtures.backlog_inserts import (
     insert_qa_run,
 )
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
-from yoke_contracts.api.function_call import (
-    ActorContext,
-    FunctionCallRequest,
-    TargetRef,
-)
 from yoke_core.domain.dash_execution import record_dash_evidence
 from yoke_core.domain.dash_path_claim_posture import ensure_survey_path_claim
 from yoke_core.domain.dash_posture_gate import evaluate
 from yoke_core.domain.db_helpers import iso8601_now
-from yoke_core.domain.handlers.lifecycle_transition import (
-    _prepare_definition_gates,
-)
 from yoke_core.domain.item_posture_bindings import (
     ITEM_POSTURE_VERIFICATION_TRANSITION,
+)
+from yoke_core.domain.workflow_status_transition_preflight import (
+    prepare_status_transition,
 )
 
 
@@ -253,19 +248,19 @@ def test_approval_on_done_creates_and_requires_project_owner_request(
         _insert_dash(conn, item_id=2303, posture={"approval_on_done": True})
     finally:
         conn.close()
-    request = FunctionCallRequest(
-        function="lifecycle.transition.execute",
-        actor=ActorContext(actor_id="901", session_id="dash-session"),
-        target=TargetRef(kind="item", item_id=2303),
-        payload={},
-    )
-    blocked = _prepare_definition_gates(
-        request,
-        item_id=2303,
-        target_status="done",
-    )
-    assert blocked is not None
-    assert blocked.error.code == "approval_required"
+    conn = connect_test_db(dash_db_path)
+    try:
+        preflight = prepare_status_transition(
+            conn,
+            item_id=2303,
+            target_status="done",
+            originator_actor_id=901,
+            session_id="dash-session",
+        )
+    finally:
+        conn.close()
+    assert preflight.failure is not None
+    assert preflight.failure["error_code"] == "GATE_APPROVAL_REQUIRED"
 
     conn = connect_test_db(dash_db_path)
     try:

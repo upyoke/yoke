@@ -71,11 +71,13 @@ def render_resume_block_lines(notice: Dict[str, Any]) -> List[str]:
         _claim_summary_line(notice),
     ]
     lines.extend(_reacquire_outcome_lines(notice))
-    lines.extend([
-        "To resume work explicitly:",
-        "  /yoke do                # let the scheduler decide",
-        "  python3 -m yoke_core.api.service_client claim-work --item YOK-N",
-    ])
+    lines.extend(
+        [
+            "To resume work explicitly:",
+            "  /yoke do                # let the scheduler decide",
+            '  yoke claims work acquire --item YOK-N --reason "<intent>"',
+        ]
+    )
     return lines
 
 
@@ -108,7 +110,8 @@ def _main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(prog="sessions-resume-block")
     parser.add_argument("--session-id", required=True)
     parser.add_argument(
-        "--harness-event", required=True,
+        "--harness-event",
+        required=True,
         choices=("UserPromptSubmit", "SessionStart"),
     )
     parsed = parser.parse_args(argv)
@@ -123,7 +126,9 @@ def _main(argv: Optional[List[str]] = None) -> int:
         return 0
     try:
         block = render_and_mark(
-            conn, parsed.session_id, harness_event=parsed.harness_event,
+            conn,
+            parsed.session_id,
+            harness_event=parsed.harness_event,
         )
     finally:
         try:

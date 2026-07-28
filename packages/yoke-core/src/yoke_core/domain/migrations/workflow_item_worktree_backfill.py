@@ -6,7 +6,11 @@ from typing import Any, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now
-from yoke_core.domain.item_worktrees import list_item_worktrees, record_item_worktree
+from yoke_core.domain.item_worktrees import (
+    list_item_worktrees,
+    record_item_worktree,
+    record_released_item_worktree_history,
+)
 from yoke_core.domain.migrations.workflow_item_worktree_sources import (
     ItemLaneSource,
     WorkerLaneSource,
@@ -88,20 +92,22 @@ def _record_lane(
                     (path, iso8601_now(), int(prior[0])),
                 )
             return int(prior[0])
-    lane = record_item_worktree(
-        conn,
-        item_id=item_id,
-        branch=branch,
-        path=effective_path,
-        lane_role=lane_role,
-        validate_policy=False,
-    )
-    if released and lane["state"] == "active":
-        now = iso8601_now()
-        conn.execute(
-            "UPDATE item_worktrees SET state='released', released_at="
-            f"{marker}, updated_at={marker} WHERE id={marker}",
-            (now, now, int(lane["id"])),
+    if released:
+        lane = record_released_item_worktree_history(
+            conn,
+            item_id=item_id,
+            branch=branch,
+            path=effective_path,
+            lane_role=lane_role,
+        )
+    else:
+        lane = record_item_worktree(
+            conn,
+            item_id=item_id,
+            branch=branch,
+            path=effective_path,
+            lane_role=lane_role,
+            validate_policy=False,
         )
     return int(lane["id"])
 

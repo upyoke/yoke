@@ -194,8 +194,6 @@ from yoke_cli.commands.adapters.qa_browser import (
     QA_BROWSER_CONTEXT_GET_USAGE,
     QA_RUN_ADD_USAGE,
     QA_RUN_COMPLETE_USAGE,
-    QA_SCREENSHOT_EVIDENCE_PENDING_COUNT_USAGE,
-    QA_SCREENSHOT_EVIDENCE_SATISFY_USAGE,
 )
 from yoke_cli.commands.adapters.board import BOARD_REBUILD_USAGE
 from yoke_cli.commands.adapters.render import (
@@ -239,9 +237,7 @@ from yoke_cli.commands.adapters.sessions import (
 )
 from yoke_cli.commands.adapters.frontier_read import FRONTIER_LIST_USAGE
 from yoke_cli.commands.adapters.sessions_read import SESSIONS_LIST_USAGE
-from yoke_cli.commands.adapters.projects_capabilities_read import (
-    PROJECTS_CAPABILITIES_LIST_USAGE,
-)
+
 __all__ = ["ADAPTER_USAGE"]
 
 # Function-id → usage-line map consumed by the entrypoint's grouped
@@ -297,8 +293,6 @@ ADAPTER_USAGE: Dict[str, str] = {
     "qa.run.complete": QA_RUN_COMPLETE_USAGE,
     "qa.artifact.add": QA_ARTIFACT_ADD_USAGE,
     "qa.artifact.presign": QA_ARTIFACT_PRESIGN_USAGE,
-    "qa.screenshot_evidence.pending_count": QA_SCREENSHOT_EVIDENCE_PENDING_COUNT_USAGE,
-    "qa.screenshot_evidence.satisfy": QA_SCREENSHOT_EVIDENCE_SATISFY_USAGE,
     "qa.requirement.list": QA_REQUIREMENT_LIST_USAGE,
     "qa.requirement.get": QA_REQUIREMENT_GET_USAGE,
     "qa.requirement.add": QA_REQUIREMENT_ADD_USAGE,
@@ -328,7 +322,6 @@ ADAPTER_USAGE: Dict[str, str] = {
     "projects.site.create": PROJECTS_SITE_CREATE_USAGE,
     "projects.environment.create": PROJECTS_ENVIRONMENT_CREATE_USAGE,
     "projects.capability.has": PROJECTS_CAPABILITY_HAS_USAGE,
-    "projects.capabilities.list": PROJECTS_CAPABILITIES_LIST_USAGE,
     "projects.capability_settings.get": PROJECTS_CAPABILITY_SETTINGS_GET_USAGE,
     "projects.capability_settings.set": PROJECTS_CAPABILITY_SETTINGS_SET_USAGE,
     "projects.capability_settings.merge": PROJECTS_CAPABILITY_SETTINGS_MERGE_USAGE,

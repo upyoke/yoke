@@ -55,6 +55,7 @@ ATTESTATION_REHEARSAL_COMMAND_FAILED = "ATTESTATION_REHEARSAL_COMMAND_FAILED"
 def _p(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
+
 # Operator placeholders that survived refine (e.g. ``<worktree>``) — the
 # production runner can't substitute them and the shell either treats
 # the `<` as redirection or carries the literal through to argv.
@@ -96,7 +97,8 @@ def _read_profile(conn: Any, item_id: int) -> Optional[Dict[str, Any]]:
     p = _p(conn)
     try:
         row = conn.execute(
-            f"SELECT db_mutation_profile FROM items WHERE id = {p}", (item_id,),
+            f"SELECT db_mutation_profile FROM items WHERE id = {p}",
+            (item_id,),
         ).fetchone()
     except db_backend.operational_error_types(conn=conn):
         return None
@@ -106,7 +108,8 @@ def _read_profile(conn: Any, item_id: int) -> Optional[Dict[str, Any]]:
 
 
 def _read_attestation(
-    conn: Any, item_id: int,
+    conn: Any,
+    item_id: int,
 ) -> Optional[Dict[str, Any]]:
     p = _p(conn)
     try:
@@ -124,7 +127,9 @@ def _read_attestation(
 def _resolve_repo_root() -> Path:
     proc = subprocess.run(
         ["git", "rev-parse", "--show-toplevel"],
-        capture_output=True, text=True, check=False,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     if proc.returncode == 0 and proc.stdout.strip():
         return Path(proc.stdout.strip())
@@ -156,7 +161,9 @@ def _repo_relative_token(token: str) -> str:
 
 
 def _check_command_shape(
-    command: str, repo_root: Path, planned_paths: Optional[Set[str]] = None,
+    command: str,
+    repo_root: Path,
+    planned_paths: Optional[Set[str]] = None,
 ) -> Optional[Tuple[str, str]]:
     """Return ``(failure_reason, failure_token)`` or ``None`` for PASS.
 
@@ -185,7 +192,8 @@ def _check_command_shape(
 
 
 def validate_attestation_rehearsal_commands(
-    conn: Any, item_id: int,
+    conn: Any,
+    item_id: int,
 ) -> List[ValidationOutcome]:
     """Parse-and-stat every ``rehearsal_commands`` entry.
 
@@ -215,17 +223,19 @@ def validate_attestation_rehearsal_commands(
             results.append(ValidationOutcome(command=str(cmd), passed=True))
             continue
         reason, token = failure
-        results.append(ValidationOutcome(
-            command=str(cmd), passed=False,
-            failure_reason=reason, failure_token=token,
-        ))
+        results.append(
+            ValidationOutcome(
+                command=str(cmd),
+                passed=False,
+                failure_reason=reason,
+                failure_token=token,
+            )
+        )
     return results
 
 
 _FAILURE_MESSAGE_PREFIX = {
-    "unresolved_placeholder": (
-        "rehearsal command contains unresolved placeholder"
-    ),
+    "unresolved_placeholder": ("rehearsal command contains unresolved placeholder"),
     "missing_path": "rehearsal command references missing path",
     "shell_parse_error": "rehearsal command fails to shell-parse",
     "recursive_migration_apply_self_call": (
@@ -236,7 +246,8 @@ _FAILURE_MESSAGE_PREFIX = {
 
 
 def issue_payloads_for_item(
-    conn: Any, item_id: int,
+    conn: Any,
+    item_id: int,
 ) -> List[Dict[str, Any]]:
     """Return one ``Issue``-shaped dict per failing rehearsal command."""
     payloads: List[Dict[str, Any]] = []
@@ -244,26 +255,28 @@ def issue_payloads_for_item(
         if outcome.passed:
             continue
         prefix = _FAILURE_MESSAGE_PREFIX.get(
-            outcome.failure_reason, "rehearsal command failed shape check",
+            outcome.failure_reason,
+            "rehearsal command failed shape check",
         )
-        payloads.append({
-            "code": ATTESTATION_REHEARSAL_COMMAND_FAILED,
-            "message": (
-                f"{prefix} `{outcome.failure_token}`: {outcome.command}"
-            ),
-            "remediation": (
-                "amend the attestation's rehearsal_commands via the "
-                "db_claim.amend function id (CLI adapter: "
-                "`python3 -m yoke_core.api.service_client db-claim-amend`) "
-                "so each command shell-parses and every referenced "
-                "in-repo path exists on the worktree"
-            ),
-            "context": {
-                "command": outcome.command,
-                "failure_reason": outcome.failure_reason,
-                "failure_token": outcome.failure_token,
-            },
-        })
+        payloads.append(
+            {
+                "code": ATTESTATION_REHEARSAL_COMMAND_FAILED,
+                "message": (f"{prefix} `{outcome.failure_token}`: {outcome.command}"),
+                "remediation": (
+                    "amend the attestation's rehearsal_commands via the "
+                    "db_claim.amend function id (CLI adapter: "
+                    f'`yoke db-claim amend YOK-{item_id} --reason "<why>" '
+                    "--payload '<unified-claim-json>'`) "
+                    "so each command shell-parses and every referenced "
+                    "in-repo path exists on the worktree"
+                ),
+                "context": {
+                    "command": outcome.command,
+                    "failure_reason": outcome.failure_reason,
+                    "failure_token": outcome.failure_token,
+                },
+            }
+        )
     return payloads
 
 
@@ -277,6 +290,7 @@ def verify_attestation_rehearsal_commands(conn: Any, item_id: int):
     expect the wrapper at its named location.
     """
     from yoke_core.domain.idea_readiness_check import Issue
+
     return [Issue(**p) for p in issue_payloads_for_item(conn, item_id)]
 
 

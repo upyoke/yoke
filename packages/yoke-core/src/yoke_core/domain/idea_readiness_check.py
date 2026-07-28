@@ -20,12 +20,10 @@ import argparse
 import json
 import re
 import subprocess
-import sys
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any, List, Optional
 
-from yoke_core.domain.file_budget_paths import extract_file_budget_paths_set as _extract_file_budget_paths
+from yoke_core.domain.file_budget_paths import extract_file_budget_paths_set
 from yoke_core.domain.attestation_rehearsal_dryrun import verify_attestation_rehearsal_commands
 from yoke_core.domain import db_backend
 from yoke_core.domain.idea_readiness_check_architecture import verify_architecture_impact_resolved
@@ -35,11 +33,13 @@ from yoke_core.domain.idea_readiness_check_refs import (
     is_module_or_planned_ref,
     module_file_candidates as _module_file_candidates,
 )
-from yoke_core.domain.idea_readiness_check_repo_root import _resolve_repo_root, _resolve_repo_root_for_item
+from yoke_core.domain.idea_readiness_check_repo_root import _resolve_repo_root_for_item
 from yoke_core.domain.idea_readiness_symlink_advisory import collect_symlink_advisories
 
 LINE_CAP = 350
 SIBLING_REQUIRED_THRESHOLD = 330
+
+_extract_file_budget_paths = extract_file_budget_paths_set
 
 
 def _p(conn) -> str:
@@ -103,8 +103,8 @@ def verify_function_owners(
                     f"not exist"
                 ),
                 remediation=(
-                    f"verify the module path; if the function lives "
-                    f"elsewhere update the spec accordingly"
+                    "verify the module path; if the function lives "
+                    "elsewhere update the spec accordingly"
                 ),
                 context={"reference": full_path, "module_path": relative},
             ))
@@ -183,9 +183,9 @@ def verify_file_budget_line_counts(
                         f"has no sibling-module plan"
                     ),
                     remediation=(
-                        f"declare an explicit sibling-module plan in "
-                        f"the spec, e.g. "
-                        f"`runtime/api/domain/<sibling>.py (new)`"
+                        "declare an explicit sibling-module plan in "
+                        "the spec, e.g. "
+                        "`runtime/api/domain/<sibling>.py (new)`"
                     ),
                     context={"path": rel, "lines": actual},
                 ))
@@ -196,44 +196,35 @@ def verify_file_budget_claim_consistency(
     conn: Any, item_id: int,
 ) -> List[Issue]:
     """Confirm File Budget paths and path-claim targets agree."""
-    spec_text = _read_spec_for_item(conn, item_id)
-    if not spec_text:
+    from yoke_core.domain.idea_readiness_file_budget_claims import (
+        verify_claim_consistency,
+    )
+
+    return verify_claim_consistency(
+        conn, item_id,
+        spec_text=_read_spec_for_item(conn, item_id),
+        issue_type=Issue,
+    )
+
+
+def verify_effective_file_budget_claim_consistency(
+    conn: Any,
+    item_id: int,
+) -> List[Issue]:
+    """Apply parity only when both effective workflow axes require it."""
+    from yoke_core.domain.file_budget_required_gate import (
+        workflow_policy_schema_available,
+    )
+    from yoke_core.domain.workflow_effective_policies import (
+        load_item_effective_workflow_policies,
+    )
+
+    if not workflow_policy_schema_available(conn):
         return []
-    file_budget_paths = _extract_file_budget_paths(spec_text)
-    claim_paths = _claim_declared_paths(conn, item_id)
-    if not file_budget_paths and not claim_paths:
+    effective = load_item_effective_workflow_policies(conn, item_id)
+    if not effective.requires_budget_claim_parity:
         return []
-    in_budget_not_in_claim = file_budget_paths - claim_paths
-    in_claim_not_in_budget = claim_paths - file_budget_paths
-    issues: List[Issue] = []
-    for path in sorted(in_budget_not_in_claim):
-        issues.append(Issue(
-            code="FILE_BUDGET_NOT_IN_CLAIM",
-            message=(
-                f"File Budget names {path} but the path-claim does not "
-                f"declare it"
-            ),
-            remediation=(
-                f"widen the claim to include {path} (or remove from "
-                f"File Budget if the file is referenced as context, "
-                f"not as an edit target)"
-            ),
-            context={"path": path},
-        ))
-    for path in sorted(in_claim_not_in_budget):
-        issues.append(Issue(
-            code="CLAIM_NOT_IN_FILE_BUDGET",
-            message=(
-                f"path-claim declares {path} but the File Budget does "
-                f"not name it"
-            ),
-            remediation=(
-                f"add {path} to the File Budget (or narrow the claim "
-                f"if the file is no longer touched)"
-            ),
-            context={"path": path},
-        ))
-    return issues
+    return verify_file_budget_claim_consistency(conn, item_id)
 
 
 def run_all_checks(
@@ -245,9 +236,20 @@ def run_all_checks(
     )
     spec_text = _read_spec_for_item(conn, item_id)
     issues: List[Issue] = []
+    from yoke_core.domain.file_budget_required_gate import (
+        evaluate as evaluate_file_budget,
+    )
+
+    budget_gate = evaluate_file_budget(conn, item_id)
+    if budget_gate["verdict"] != "pass":
+        issues.append(Issue(
+            code="MISSING_FILE_BUDGET",
+            message=str(budget_gate["reason"]),
+            remediation="Declare the File Budget required by the pinned workflow.",
+        ))
     issues.extend(verify_function_owners(spec_text, conn, item_id))
     issues.extend(verify_file_budget_line_counts(spec_text, conn, item_id))
-    issues.extend(verify_file_budget_claim_consistency(conn, item_id))
+    issues.extend(verify_effective_file_budget_claim_consistency(conn, item_id))
     issues.extend(verify_architecture_impact_resolved(conn, item_id))
     issues.extend(verify_attestation_rehearsal_commands(conn, item_id))
     issues.extend(probe_cross_item_overlap(conn, item_id))
@@ -265,24 +267,6 @@ def run_all_advisories(
         spec_text,
         repo_root=_resolve_repo_root_for_item(conn, item_id),
     )
-
-
-def _claim_declared_paths(
-    conn: Any, item_id: int,
-) -> set:
-    p = _p(conn)
-    try:
-        rows = conn.execute(
-            "SELECT pt.path_string FROM path_claim_targets pct "
-            "JOIN path_claims pc ON pc.id = pct.claim_id "
-            "JOIN path_targets pt ON pt.id = pct.target_id "
-            f"WHERE pc.item_id = {p} AND pc.state IN "
-            "('planned', 'blocked', 'active') AND pt.kind = 'file'",
-            (item_id,),
-        ).fetchall()
-    except db_backend.operational_error_types(conn=conn):
-        return set()
-    return {str(r[0]) for r in rows}
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -345,6 +329,7 @@ __all__ = [
     "run_all_checks",
     "verify_attestation_rehearsal_commands",
     "verify_file_budget_claim_consistency",
+    "verify_effective_file_budget_claim_consistency",
     "verify_file_budget_line_counts",
     "verify_function_owners",
 ]

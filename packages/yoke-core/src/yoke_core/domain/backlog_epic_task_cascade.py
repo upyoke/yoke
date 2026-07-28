@@ -17,6 +17,9 @@ def _cascade_epic_tasks(
     old_status: str,
     new_status: str,
     out: TextIO = sys.stderr,
+    *,
+    commit: bool = True,
+    strict: bool = False,
 ) -> None:
     """Cascade status change to epic tasks if item is an epic.
 
@@ -30,9 +33,15 @@ def _cascade_epic_tasks(
 
     try:
         result_text = epic_domain.cascade_task_status(
-            conn, str(item_id), old_status, new_status
+            conn,
+            str(item_id),
+            old_status,
+            new_status,
+            commit=commit,
         )
     except Exception as exc:  # pragma: no cover - defensive
+        if strict:
+            raise
         print(f"Epic task cascade failed for YOK-{item_id}: {exc}", file=out)
         return
 

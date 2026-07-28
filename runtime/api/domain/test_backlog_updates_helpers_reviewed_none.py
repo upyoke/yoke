@@ -18,7 +18,6 @@ from pathlib import Path
 
 import pytest
 
-from yoke_core.domain import db_backend
 from yoke_core.domain.backlog_updates_helpers import (
     _run_db_mutation_gate,
     _run_prose_vs_claim_check,
@@ -139,7 +138,7 @@ class TestProseVsClaimReviewedNegativeClaim:
         )
         assert outcome is not None
         assert outcome["error_code"] == "GATE_DB_CLAIM_PROSE_MISMATCH"
-        assert "db-claim-amend" in outcome["error"]
+        assert "yoke db-claim amend" in outcome["error"]
         assert "ALTER TABLE" in outcome["error"]
 
     def test_explicit_false_attestation_still_blocks(self, helper_db) -> None:

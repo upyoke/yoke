@@ -10,9 +10,8 @@ Sibling modules: ``qa_constants`` (vocab + helpers), ``qa_requirement_ops``
 
 from __future__ import annotations
 
-import json
 import sys
-from typing import List, Optional
+from typing import Optional
 
 from yoke_core.domain.db_helpers import connect, iso8601_now
 from yoke_core.domain.qa_constants import (
@@ -39,6 +38,9 @@ from yoke_core.domain.qa_requirement_ops import (
     cmd_requirement_update,
     cmd_requirement_waive,
 )
+from yoke_core.domain.qa_cli_transition_binding import require_cli_workflow_transition
+from yoke_core.domain.qa_cli_requirement_insert import INSERT_SQL, insert_params
+from yoke_core.domain.qa_requirement_batch import cmd_requirement_add_batch
 
 __all__ = (
     # Vocabulary constants and helpers (sourced from qa_constants)
@@ -68,6 +70,7 @@ __all__ = (
 # requirement-add
 # ---------------------------------------------------------------------------
 
+
 def cmd_requirement_add(
     *,
     db_path: Optional[str] = None,
@@ -83,6 +86,7 @@ def cmd_requirement_add(
     success_policy: Optional[str] = None,
     capability_requirements: Optional[str] = None,
     suite_id: Optional[str] = None,
+    workflow_transition_id: Optional[str] = None,
 ) -> int:
     """Insert a qa_requirement row. Returns the new ID."""
     # Validate required fields
@@ -104,10 +108,16 @@ def cmd_requirement_add(
     if deployment_run_id is not None:
         targets += 1
     if targets == 0:
-        print("Error: must specify one of --item-id, (--epic-id + --task-num), or --deployment-run-id", file=sys.stderr)
+        print(
+            "Error: must specify one of --item-id, (--epic-id + --task-num), or --deployment-run-id",
+            file=sys.stderr,
+        )
         sys.exit(2)
     if targets > 1:
-        print("Error: must specify exactly one of --item-id, (--epic-id + --task-num), or --deployment-run-id", file=sys.stderr)
+        print(
+            "Error: must specify exactly one of --item-id, (--epic-id + --task-num), or --deployment-run-id",
+            file=sys.stderr,
+        )
         sys.exit(2)
     if epic_id is not None and task_num is None:
         print("Error: --epic-id requires --task-num", file=sys.stderr)
@@ -118,21 +128,38 @@ def cmd_requirement_add(
 
     conn = connect(path=db_path)
     try:
+        from yoke_core.domain.workflow_item_binding_lock import (
+            lock_item_workflow_bindings,
+        )
+
+        binding_item_id = item_id if item_id is not None else epic_id
+        if binding_item_id is not None:
+            lock_item_workflow_bindings(conn, (int(binding_item_id),))
+            workflow_transition_id = require_cli_workflow_transition(
+                conn,
+                item_id=int(binding_item_id),
+                transition_id=workflow_transition_id,
+            )
+        row = {
+            "qa_kind": qa_kind,
+            "qa_phase": qa_phase,
+            "target_env": target_env,
+            "blocking_mode": blocking_mode,
+            "requirement_source": requirement_source,
+            "success_policy": success_policy,
+            "capability_requirements": capability_requirements,
+            "suite_id": suite_id,
+            "workflow_transition_id": workflow_transition_id,
+        }
         cur = conn.execute(
-            """INSERT INTO qa_requirements
-               (item_id, epic_id, task_num, deployment_run_id,
-                qa_kind, qa_phase, target_env, blocking_mode,
-                requirement_source, success_policy,
-                capability_requirements, suite_id, created_at)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
-            (
-                item_id,
-                epic_id if epic_id is not None else None,
-                task_num if task_num is not None else None,
-                deployment_run_id,
-                qa_kind, qa_phase, target_env, blocking_mode,
-                requirement_source, success_policy,
-                capability_requirements, suite_id, iso8601_now(),
+            INSERT_SQL,
+            insert_params(
+                item_id=item_id,
+                epic_id=epic_id,
+                task_num=task_num,
+                deployment_run_id=deployment_run_id,
+                row=row,
+                created_at=iso8601_now(),
             ),
         )
         inserted_id = int(cur.fetchone()[0])
@@ -140,6 +167,7 @@ def cmd_requirement_add(
         _qa_target = item_id if item_id is not None else epic_id
         if _qa_target is not None:
             from yoke_core.domain.item_activity import touch_item_activity
+
             touch_item_activity(conn, item_id=_qa_target)
         conn.commit()
         emit_qa_requirement_event(
@@ -149,157 +177,18 @@ def cmd_requirement_add(
             requirement_id=inserted_id,
             qa_kind=qa_kind,
             qa_phase=qa_phase,
-            target_row={"item_id": item_id, "epic_id": epic_id, "task_num": task_num,
-                        "deployment_run_id": deployment_run_id},
+            target_row={
+                "item_id": item_id,
+                "epic_id": epic_id,
+                "task_num": task_num,
+                "deployment_run_id": deployment_run_id,
+            },
         )
     finally:
         conn.close()
 
     print(inserted_id)
     return inserted_id
-
-
-# ---------------------------------------------------------------------------
-# requirement-add-batch
-# ---------------------------------------------------------------------------
-
-def cmd_requirement_add_batch(
-    *,
-    db_path: Optional[str] = None,
-    json_file: str,
-) -> List[int]:
-    """Insert multiple qa_requirement rows in one transaction. Returns list of new IDs.
-
-    The JSON file must contain an array of objects with the same fields as
-    requirement-add: item_id, epic_id, task_num, deployment_run_id, qa_kind,
-    qa_phase, target_env, blocking_mode, requirement_source, success_policy,
-    capability_requirements, suite_id.
-
-    Rolls back the entire batch if any row fails validation.
-    Emits per-row QA lifecycle events.
-    """
-    # Read and parse JSON file
-    try:
-        with open(json_file, "r") as f:
-            payload = json.load(f)
-    except (OSError, json.JSONDecodeError) as exc:
-        print(f"Error: cannot read/parse --json-file: {exc}", file=sys.stderr)
-        sys.exit(2)
-
-    if not isinstance(payload, list):
-        print("Error: --json-file must contain a JSON array", file=sys.stderr)
-        sys.exit(2)
-
-    if len(payload) == 0:
-        print("Error: --json-file array is empty", file=sys.stderr)
-        sys.exit(2)
-
-    # Pre-validate every row before opening the transaction
-    for idx, row in enumerate(payload):
-        if not isinstance(row, dict):
-            print(f"Error: row {idx} is not an object", file=sys.stderr)
-            sys.exit(2)
-
-        qa_kind = row.get("qa_kind")
-        qa_phase = row.get("qa_phase")
-        if not qa_kind:
-            print(f"Error: row {idx} missing required field 'qa_kind'", file=sys.stderr)
-            sys.exit(2)
-        if not qa_phase:
-            print(f"Error: row {idx} missing required field 'qa_phase'", file=sys.stderr)
-            sys.exit(2)
-
-        # Validate exactly one attachment target
-        targets = 0
-        if row.get("item_id") is not None:
-            targets += 1
-        if row.get("epic_id") is not None and row.get("task_num") is not None:
-            targets += 1
-        if row.get("deployment_run_id") is not None:
-            targets += 1
-        if targets == 0:
-            print(f"Error: row {idx} must specify one of item_id, (epic_id + task_num), or deployment_run_id", file=sys.stderr)
-            sys.exit(2)
-        if targets > 1:
-            print(f"Error: row {idx} must specify exactly one attachment target", file=sys.stderr)
-            sys.exit(2)
-
-        # Normalize in-place for the insert phase
-        row["qa_phase"] = _normalize_qa_phase(qa_phase)
-        row["qa_kind"] = _normalize_qa_kind(qa_kind)
-
-        _exit_policy_errors(
-            validate_requirement_source(
-                row.get("requirement_source", "explicit"),
-                label=f"row {idx}",
-            )
-        )
-        _exit_policy_errors(
-            validate_success_policy(
-                row["qa_kind"],
-                row.get("success_policy"),
-                label=f"row {idx}",
-            )
-        )
-
-    # All rows validated — insert in one transaction
-    conn = connect(path=db_path)
-    inserted_ids: List[int] = []
-    try:
-        for row in payload:
-            cur = conn.execute(
-                """INSERT INTO qa_requirements
-                   (item_id, epic_id, task_num, deployment_run_id,
-                    qa_kind, qa_phase, target_env, blocking_mode,
-                    requirement_source, success_policy,
-                    capability_requirements, suite_id, created_at)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
-                (
-                    row.get("item_id"),
-                    row.get("epic_id"),
-                    row.get("task_num"),
-                    row.get("deployment_run_id"),
-                    row["qa_kind"],
-                    row["qa_phase"],
-                    row.get("target_env"),
-                    row.get("blocking_mode", "blocking"),
-                    row.get("requirement_source", "explicit"),
-                    row.get("success_policy"),
-                    row.get("capability_requirements"),
-                    row.get("suite_id"),
-                    iso8601_now(),
-                ),
-            )
-            inserted_ids.append(int(cur.fetchone()[0]))
-        # QA requirement writes are real item activity.
-        from yoke_core.domain.item_activity import touch_item_activity
-        for row in payload:
-            _qa_target = (
-                row.get("item_id") if row.get("item_id") is not None
-                else row.get("epic_id")
-            )
-            if _qa_target is not None:
-                touch_item_activity(conn, item_id=_qa_target)
-        conn.commit()
-
-        # Emit per-row events after commit
-        for i, row in enumerate(payload):
-            emit_qa_requirement_event(
-                conn,
-                db_path=db_path,
-                event_name="QARequirementCreated",
-                requirement_id=inserted_ids[i],
-                qa_kind=row["qa_kind"],
-                qa_phase=row["qa_phase"],
-            )
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        conn.close()
-
-    print(json.dumps(inserted_ids))
-    return inserted_ids
 
 
 def _exit_policy_errors(errors: list[str]) -> None:

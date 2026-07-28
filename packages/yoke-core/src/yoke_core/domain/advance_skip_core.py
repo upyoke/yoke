@@ -3,31 +3,100 @@
 from __future__ import annotations
 
 import os
-from typing import TextIO
+from dataclasses import dataclass
+from typing import Sequence, TextIO
 
 from yoke_core.domain.workflow_runtime import WorkflowRuntime
 
 
-_POLISH_START = "reviewed-implementation"
-_POLISH_TRANSIT = "polishing-implementation"
-_POLISH_END = "implemented"
-
-_REFINE_ROUTING: dict[str, tuple[list[str], str]] = {
-    "idea": (["refining-idea", "refined-idea"], "refining-idea"),
-    "refining-idea": (["refined-idea"], "refining-idea"),
-    "plan-drafted": (["refining-plan", "planned"], "refining-plan"),
-    "refining-plan": (["planned"], "refining-plan"),
-}
-
 BYPASS_SKIP_POLISH = "skip-polish"
 BYPASS_SKIP_REFINE = "skip-refine"
 
-_POLISH_TRANSIT_ALLOWED: frozenset[str] = frozenset({_POLISH_TRANSIT, _POLISH_END})
-_REFINE_TARGETS_ALLOWED: frozenset[str] = frozenset(
-    status
-    for hops, _skipped_phase in _REFINE_ROUTING.values()
-    for status in hops
-)
+
+@dataclass(frozen=True)
+class _SkipRoute:
+    """One definition-owned executor segment to fast-forward."""
+
+    to_stage: str
+    skipped_phase: str
+    hops: tuple[str, ...]
+
+    @property
+    def allowed_hops(self) -> frozenset[str]:
+        return frozenset(self.hops)
+
+
+def _executor_skip_route(
+    workflow: WorkflowRuntime,
+    current_stage: str,
+    *,
+    executor_id: str,
+    require_entry: bool = False,
+) -> _SkipRoute:
+    """Build a skip route from the pinned definition's executor binding."""
+    position = workflow.stage_index(current_stage)
+    if position is None:
+        raise ValueError(
+            f"Current stage {current_stage!r} is not declared by "
+            f"{workflow.workflow_id}@{workflow.version}."
+        )
+
+    entry_stages: list[str] = []
+    selected: tuple[int, int] | None = None
+    for binding in workflow.definition["executor_bindings"]:
+        if str(binding["executor_id"]) != executor_id:
+            continue
+        start = workflow.stage_index(str(binding["from_stage_id"]))
+        stop = workflow.stage_index(str(binding["through_stage_id"]))
+        if start is None or stop is None:
+            continue
+        entry_stages.append(workflow.stage_ids[start])
+        if start <= position < stop:
+            selected = (start, stop)
+            break
+
+    if selected is None:
+        raise ValueError(
+            f"--skip-{executor_id} requires a stage owned by the pinned "
+            f"{executor_id!r} executor; valid entry stages are "
+            f"{sorted(entry_stages)!r}, got {current_stage!r}."
+        )
+
+    start, stop = selected
+    if require_entry and position != start:
+        raise ValueError(
+            f"--skip-{executor_id} requires current status "
+            f"{workflow.stage_ids[start]!r}, got {current_stage!r}."
+        )
+
+    route_stages = workflow.stage_ids[position : stop + 1]
+    declared_transitions = {
+        (str(edge["from_stage_id"]), str(edge["to_stage_id"]))
+        for edge in workflow.definition["transitions"]
+    }
+    undeclared = [
+        pair
+        for pair in zip(route_stages, route_stages[1:])
+        if pair not in declared_transitions
+    ]
+    if undeclared:
+        raise ValueError(
+            f"Pinned {workflow.workflow_id}@{workflow.version} does not declare "
+            f"the skip route transitions {undeclared!r}."
+        )
+
+    hops = route_stages[1:]
+    if not hops:
+        raise ValueError(
+            f"Pinned {workflow.workflow_id}@{workflow.version} has no stages "
+            f"to skip for executor {executor_id!r} from {current_stage!r}."
+        )
+    skipped_phase = hops[0] if position == start else current_stage
+    return _SkipRoute(
+        to_stage=route_stages[-1],
+        skipped_phase=skipped_phase,
+        hops=hops,
+    )
 
 
 def _lookup_item(item_id: int) -> tuple[str, WorkflowRuntime]:
@@ -77,7 +146,7 @@ def _do_execute_update(
 
 def _walk_hops(
     item_id: int,
-    hops: list[str],
+    hops: Sequence[str],
     *,
     bypass_reason: str,
     allowlist: frozenset[str],

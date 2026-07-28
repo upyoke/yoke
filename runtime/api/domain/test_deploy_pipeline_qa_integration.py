@@ -13,6 +13,9 @@ import pytest
 from yoke_core.domain import db_backend
 from yoke_core.domain import deploy_qa_recorder
 from yoke_core.domain.schema_init_apply import execute_schema_script
+from runtime.api.api_workflow_test_helpers import (
+    install_workflow_registry_and_pin_items,
+)
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 
 
@@ -20,7 +23,6 @@ _SCHEMA = """
     CREATE TABLE items (
         id INTEGER PRIMARY KEY,
         title TEXT,
-        type TEXT DEFAULT 'issue',
         status TEXT DEFAULT 'implemented',
         project_id INTEGER DEFAULT 1,
         project_sequence INTEGER NOT NULL,
@@ -132,7 +134,7 @@ def _apply_schema() -> None:
             "(id, slug, name, github_repo, public_item_prefix) "
             "VALUES (1, 'yoke', 'Yoke', 'upyoke/yoke', 'YOK')",
         )
-        conn.commit()
+        install_workflow_registry_and_pin_items(conn)
     finally:
         conn.close()
 
@@ -188,10 +190,26 @@ def _seed_run(conn, run_id="run-test-001", project="yoke", flow="flow-test",
 
 def _seed_item(conn, item_id=42, title="Test item", status="implemented",
                project="yoke", flow="flow-test"):
+    from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
+
+    workflow_id, workflow_version_id = resolve_current_workflow_pin(
+        conn, "issue",
+    )
     conn.execute(
-        "INSERT INTO items (id, title, status, project_id, project_sequence, deployment_flow) "
-        "VALUES (%s, %s, %s, %s, %s, %s)",
-        (item_id, title, status, 1, item_id, flow),
+        "INSERT INTO items "
+        "(id, title, workflow_id, workflow_version_id, status, project_id, "
+        "project_sequence, deployment_flow) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+        (
+            item_id,
+            title,
+            workflow_id,
+            workflow_version_id,
+            status,
+            1,
+            item_id,
+            flow,
+        ),
     )
     conn.commit()
 

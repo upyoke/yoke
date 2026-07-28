@@ -16,6 +16,14 @@ from yoke_core.domain.strategy_docs_schema import (
 from yoke_core.domain.strategy_execution import _marker, _row
 
 COORDINATION_SECTIONS = frozenset({"Slice Log", "Live Status"})
+_COMPLETION_SECTION_TITLES = frozenset({"completion", "blitz completion"})
+_COMPLETION_FIELD_PATTERNS = {
+    "completion": r"completed",
+    "changes": r"changed",
+    "remaining_work": r"remaining",
+    "verification": r"verification identities?",
+    "parent_reconciliation": r"parent reconciliation",
+}
 
 
 def _append_to_markdown_section(
@@ -126,6 +134,32 @@ def append_strategy_coordination(
     }
 
 
+def _blitz_completion_section(content: str) -> str:
+    lines = content.splitlines()
+    heading_pattern = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
+    start = None
+    level = 0
+    for index, line in enumerate(lines):
+        match = heading_pattern.match(line)
+        if (
+            match
+            and match.group(2).strip().casefold()
+            in _COMPLETION_SECTION_TITLES
+        ):
+            start = index + 1
+            level = len(match.group(1))
+            break
+    if start is None:
+        return ""
+    end = len(lines)
+    for index in range(start, len(lines)):
+        match = heading_pattern.match(lines[index])
+        if match and len(match.group(1)) <= level:
+            end = index
+            break
+    return "\n".join(lines[start:end])
+
+
 def blitz_completion_evidence(conn: Any, item_id: int) -> dict[str, Any]:
     """Derive the document-owned evidence needed to close a Blitz."""
     marker = _marker(conn)
@@ -142,14 +176,15 @@ def blitz_completion_evidence(conn: Any, item_id: int) -> dict[str, Any]:
             "satisfied": False,
             "missing": ["execution_document"],
         }
-    content = str(row["content"])
+    completion = _blitz_completion_section(str(row["content"]))
     checks = {
-        "completion": bool(re.search(r"\bcomplet(?:e|ed|ion)\b", content, re.I)),
-        "remaining_work": bool(re.search(r"\bremain(?:s|ing)?\b", content, re.I)),
-        "verification": bool(re.search(r"\b(?:verification|evidence|proof)\b", content, re.I)),
-        "parent_reconciliation": bool(
-            re.search(r"\bparent\b[\s\S]{0,80}\breconcil", content, re.I)
-        ),
+        name: bool(
+            re.search(
+                rf"(?im)^\s*[-*]\s*{label}\s*:\s*\S.+$",
+                completion,
+            )
+        )
+        for name, label in _COMPLETION_FIELD_PATTERNS.items()
     }
     missing = [name for name, present in checks.items() if not present]
     return {

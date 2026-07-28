@@ -38,29 +38,48 @@ Compose the block as part of the body content the user provided. Example:
 
 ### File Budget (upstream of the 350-line cap)
 
-The full File Budget contract — required structure, current line counts, sibling-module plan when any file is at-cap, File Budget vs path-claim consistency — lives in [`file-budget.md`](file-budget.md). Read it once and keep applying its rules to every implementation-bearing intake.
+The full File Budget contract — effective-policy resolution, required
+structure, current line counts, sibling-module plan when any file is at-cap,
+and conditional File Budget/path-claim consistency — lives in
+[`file-budget.md`](file-budget.md). Read it once.
+
+Before composing the body, read the registered effective-policy projection:
+
+```text
+yoke workflows item get ITEM --json
+```
+
+Consume `result.effective_policies.file_budget` and
+`result.effective_policies.path_claims`. `required` is on at item scope,
+`required_per_task` is on at generated-task scope, and `optional` is off.
+Do not index raw `policies.file_budget` or combine raw policy and posture
+locally: schema-v1/v2 compatibility and allowed tightening are owned by
+`workflows.item.get`.
+- The 350-line authored-file limit is universal and never depends on either
+  policy.
 
 File Budget paths and responsibility notes must pass the codebase-reader naming rule from `AGENTS.md`: do not name expected files after the work item, strategy doc, plan, phase, task, AC, branch, or worktree that produced the work. Name the file by the current responsibility a future repository reader will see.
 
-**Single-pass File Budget + path-claim authoring.** The File Budget
-section (here) and the path claim registered in section 9b are **two
-faces of the same enumeration** — the same list of files appears in
-both. Author them together in one pass: when you write a path into the
-File Budget, add it to the path-claim `--paths` set in the same pass.
-When the path-claim attempt blocks on an overlap, keep the path in both
-surfaces and route to `path-claim-blocking.md` rather than narrowing
-either. The release-after-pass gate at section 10b runs
-`idea_readiness_check` to verify the two surfaces agree; a
-mismatch leaves the draft claim held and blocks creation from
-finishing.
+**Pair only when both axes are enabled.** In that posture, author the File
+Budget and path claim together from the same enumeration. When File Budget is
+off and path claims are on, derive the claim set from the investigated
+execution scope. When File Budget is on and path claims are off, keep the
+budget for sizing and conflict evidence and do not register a claim. When
+both are off, author neither artifact. An overlap never removes a required
+path from any enabled surface.
 
-Every new body for an **implementation-bearing** work item carries a `## File Budget` section. The hard limit is 350 lines per authored file (owned by `yoke_core.domain.file_line_check`); the design target is `<=300` lines so implementors have editing headroom without crossing the cap mid-iteration. Idea-time the budget can be rough — the goal is to force the sizing question into the artifact before refinement, planning, and implementation, so an Engineer is never asked to invent a large module from scratch.
+When effective File Budget is enabled, every new body for an
+**implementation-bearing** work item carries a `## File Budget` section. The
+hard limit is 350 lines per authored file (owned by
+`yoke_core.domain.file_line_check`); the design target is `<=300` lines so
+implementors have editing headroom without crossing the cap mid-iteration.
+When policy is off, omit the section without weakening the universal cap.
 
 Three valid shapes — pick the one that matches what the operator described:
 
 1. **Implementation-bearing, known shape** — name the likely files/modules and a one-line single responsibility for each.
 2. **Implementation-bearing, unknown shape** — record the work as creating/growing authored code AND mark the budget unresolved so `/yoke refine` is forced to resolve it before `refined-idea`.
-3. **Non-code (docs-only / config-only / no authored-code growth)** — record `N/A` plus a one-line reason. If implementation later discovers authored-code work, refine/advance must add a real File Budget before coding begins.
+3. **Non-code (docs-only / config-only / no authored-code growth)** — record `N/A` plus a one-line reason. If implementation later discovers authored-code work while effective File Budget is enabled, refine/advance must add a real File Budget before coding begins.
 
 Compose the block immediately after `## Simplify Pre-Check` so it is
 visible before acceptance criteria. Three valid examples:
@@ -84,7 +103,7 @@ UNRESOLVED — this work item creates/grows authored code but the file shape is 
 ```markdown
 ## File Budget
 
-N/A — docs-only updates to README. If implementation discovers authored-code changes, refine/advance must add a real File Budget before coding.
+N/A — docs-only updates to README. If implementation discovers authored-code changes while effective File Budget is enabled, refine/advance must add a real File Budget before coding.
 ```
 
 The File Budget is upstream guidance, not a write-time denial —
@@ -127,7 +146,7 @@ place.
 Ask the user explicitly:
 > Do you want to add a description? (Yes / No)
 
-If yes, collect the description and run the same body-write flow. If no, still write a minimal spec containing `# {title}` plus `## Simplify Pre-Check` with one-line entries for reuse, quality, efficiency, the future-concept lens, and codebase-reader naming (for example, `no concerns from title-only intake`) AND a `## File Budget` section using the appropriate shape from the section above. The pre-check is advisory; the File Budget is mandatory for any implementation-bearing intake. A title-only work item whose nature is genuinely unknown should record the File Budget as `UNRESOLVED` so refine resolves it before implementation, or `N/A` with a reason if the operator confirmed no authored code will change.
+If yes, collect the description and run the same body-write flow. If no, still write a minimal spec containing `# {title}` plus `## Simplify Pre-Check` with one-line entries for reuse, quality, efficiency, the future-concept lens, and codebase-reader naming (for example, `no concerns from title-only intake`). When effective File Budget is enabled, also include `## File Budget` using the appropriate shape from the section above: a title-only work item whose nature is genuinely unknown records `UNRESOLVED` so refine resolves it before implementation, or `N/A` with a reason if the operator confirmed no authored code will change. When File Budget is off, omit that section.
 
 Important: do not edit a rendered body directly. Always update via the
 structured-field function calls — `items.structured_field.replace` for
@@ -214,9 +233,18 @@ event on the blocker path is the desired behavior.
    `items.structured_field.section_append` function call (heading
    `Acceptance Criteria`) so the rest of the spec body is preserved.
 
-## 9. Path-Claim Required
+## 9. Path-Claim Policy
 
-Every new issue or epic MUST carry either a non-terminal path claim with declared coverage OR a non-terminal `mode='exception'` row with a non-empty `exception_reason`. Item-driven registers land `owner_kind='item'` automatically; the registering session is recorded as provenance (`registered_by_session_id`), never authority. The catch-up audit (`yoke_core.domain.path_integrity_invariants_claim_coverage.check_path_claim_coverage`) and the per-item gate (`yoke_core.domain.path_claim_required_gate.evaluate`) read the same condition; idea calls the gate inline so the operator knows immediately whether creation is complete.
+Only an item whose effective path-claims axis is enabled must carry a
+non-terminal claim with declared coverage or a non-terminal
+`mode='exception'` row with a non-empty `exception_reason`. Item-driven
+registers land `owner_kind='item'` automatically; the registering session is
+recorded as provenance (`registered_by_session_id`), never authority.
+
+If path claims are off, skip registration and the required gate. A File
+Budget may still be enabled and remains valid sizing/conflict evidence. If
+path claims are on while File Budget is off, derive the complete `--paths`
+set from the execution document, spec, and investigation.
 
 ### Decide the claim shape
 
@@ -229,6 +257,12 @@ Use the simplest form that matches reality:
 | Item legitimately touches no repo surface (validation-only, evidence-only, meta) | `register --mode exception --reason "<concrete justification>"` |
 
 ### Register the claim
+
+If the effective path-claims value is `required_per_task` and no
+generated tasks exist yet, skip item-level registration here. Task ownership
+cannot be inferred at intake; Shepherd registers each task only after its
+persisted `epic_task_files` budget exists. Continue to the required gate below,
+which returns a deliberate pre-task deferral as `verdict=pass`.
 
 Dispatch `claims.path.register` (envelope in
 [`body-and-sync-functions.md`](body-and-sync-functions.md)) with
@@ -262,7 +296,8 @@ fit (do NOT mutate `status` to `'blocked'`).
 Roll-back is acceptable only before any GitHub issue has been synced. The forbidden state is a normal synced issue at `status='idea'` / `status='refined-idea'` with zero claim, no exception, and the item-level `blocked` field unset (see your `items` packet stanza) — the catch-up audit surfaces it and refine refuses to advance it past `refining-idea`.
 ### Verify before exiting idea
 
-After registering, confirm coverage by running the gate:
+When effective path claims are enabled, after registering or deliberately
+deferring per-task coverage, confirm the posture by running the gate:
 
 ```bash
 yoke claims path required-gate YOK-{id-number}
@@ -303,11 +338,11 @@ yoke readiness check {id-number}
 * **`verdict=pass`** — readiness passed; proceed to section 10c and release the draft claim, then display the creation confirmation.
 * **`verdict=block`** — print the structured remediation block, **leave the draft claim held**, leave the item at `idea` (do NOT print "next step: /yoke refine"), and surface the remediation so the operator can fix the artifact before refine sees it. Do NOT call `claims.work.release` on the failure path — the held claim is the live-race fix; releasing it on a failed artifact lets a second harness's `yoke sessions offer` route `/yoke refine` against the unfinished spec.
 
-The check runs three validations:
+The check runs the validations enabled by the effective posture:
 
 * Every `module.function_name` reference in the spec resolves to a real `def function_name`.
-* File Budget records current `wc -l` for every existing-file edit target, and any file >=330 lines has a sibling-module plan.
-* File Budget and path-claim coverage agree on which files this work item touches (the single-validated-step invariant — see section 9b for the authoring rule).
+* When File Budget is enabled, it records current `wc -l` for every existing-file edit target, and any file >=330 lines has a sibling-module plan.
+* When both File Budget and path claims are enabled, their coverage agrees at the applicable item/task scope.
 
 **Gate classification: `repair-before-block`.** Idea-time readiness is advisory in scope (it surfaces gaps but does not mutate path claims itself) and **blocking in ordering** (the draft claim cannot release until the check passes). The mandatory repair pass is at `/yoke refine` entry, where the readiness handler distinguishes recoverable claim-coverage codes (`FILE_BUDGET_NOT_IN_CLAIM`, `CLAIM_NOT_IN_FILE_BUDGET`) from unrecoverable ones and routes recoverable cases to `claims.path.widen` / `claims.path.amend` — or, when explicit removal is appropriate, the operator-debug surface `path-claims narrow --keep-paths <kept>` — rather than releasing the work claim. The idea-time check stays declarative; refine is the first place where the spec is settled enough for safe automatic widening.
 

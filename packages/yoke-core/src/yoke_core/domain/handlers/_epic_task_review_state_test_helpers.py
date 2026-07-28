@@ -14,7 +14,7 @@ from unittest.mock import patch
 
 import pytest
 
-from runtime.api.conftest import insert_epic_task
+from runtime.api.conftest import insert_epic_task, insert_item
 from yoke_core.domain.handlers import (
     workflow_item_epic_task_review as review_handlers,
     workflow_item_epic_task_state as state_handlers,
@@ -62,6 +62,13 @@ def db(tmp_path):
 
 @pytest.fixture
 def db_with_task(db):
+    insert_item(
+        db,
+        id=EPIC_ID,
+        title="Synthetic epic",
+        workflow_id="epic",
+        status="planning",
+    )
     insert_epic_task(
         db, epic_id=EPIC_ID, task_num=1, title="First task",
         status="planning", body="task body line",

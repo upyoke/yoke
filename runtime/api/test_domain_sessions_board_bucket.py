@@ -7,6 +7,13 @@ from yoke_core.domain.board import (
     UNKNOWN_BUCKET,
     status_to_board_bucket,
 )
+from yoke_core.domain.builtin_workflow_definitions import (
+    builtin_workflow_definition,
+)
+
+
+def _definition(workflow_id: str):
+    return builtin_workflow_definition(workflow_id)["definition"]
 
 
 class TestStatusToBoardBucket:
@@ -138,23 +145,108 @@ class TestStatusToBoardBucket:
         """AC-4: status_to_board_bucket('refining-plan') returns 'planning'."""
         assert status_to_board_bucket("refining-plan") == "planning"
 
-    # --- Type-aware overrides ---
+    # --- Pinned-definition projection ---
 
     def test_epic_refined_idea_maps_to_planning(self):
         """AC-1: epic + refined-idea -> planning."""
-        assert status_to_board_bucket("refined-idea", workflow_id="epic") == "planning"
+        assert status_to_board_bucket(
+            "refined-idea",
+            workflow_definition=_definition("epic"),
+        ) == "planning"
 
     def test_issue_refined_idea_maps_to_refined(self):
         """AC-2: issue + refined-idea -> refined."""
-        assert status_to_board_bucket("refined-idea", workflow_id="issue") == "refined"
+        assert status_to_board_bucket(
+            "refined-idea",
+            workflow_definition=_definition("issue"),
+        ) == "refined"
 
     def test_epic_reviewing_implementation_maps_to_implementing(self):
         """AC-5: epic + reviewing-implementation -> implementing."""
-        assert status_to_board_bucket("reviewing-implementation", workflow_id="epic") == "implementing"
+        assert status_to_board_bucket(
+            "reviewing-implementation",
+            workflow_definition=_definition("epic"),
+        ) == "implementing"
 
     def test_issue_reviewing_implementation_maps_to_reviewing(self):
         """Issue + reviewing-implementation -> reviewing (default)."""
-        assert status_to_board_bucket("reviewing-implementation", workflow_id="issue") == "reviewing"
+        assert status_to_board_bucket(
+            "reviewing-implementation",
+            workflow_definition=_definition("issue"),
+        ) == "reviewing"
+
+    def test_identity_does_not_override_a_pinned_definition(self):
+        assert status_to_board_bucket(
+            "refined-idea",
+            workflow_id="epic",
+            workflow_definition=_definition("issue"),
+        ) == "refined"
+
+    def test_arbitrary_stage_ids_follow_declared_executor_segments(self):
+        stage_ids = (
+            "captured",
+            "shaping",
+            "ready-to-build",
+            "building",
+            "quality-review",
+            "quality-approved",
+            "finishing",
+            "ready-to-ship",
+            "shipping",
+            "closed",
+        )
+        definition = {
+            "stages": [{"id": stage_id} for stage_id in stage_ids],
+            "terminal_stage_ids": ["closed"],
+            "executor_bindings": [
+                {
+                    "executor_id": "refine",
+                    "from_stage_id": "captured",
+                    "through_stage_id": "ready-to-build",
+                },
+                {
+                    "executor_id": "advance",
+                    "from_stage_id": "ready-to-build",
+                    "through_stage_id": "quality-approved",
+                },
+                {
+                    "executor_id": "polish",
+                    "from_stage_id": "quality-approved",
+                    "through_stage_id": "ready-to-ship",
+                },
+                {
+                    "executor_id": "usher",
+                    "from_stage_id": "ready-to-ship",
+                    "through_stage_id": "closed",
+                },
+            ],
+            "policies": {"generated_children": "none"},
+        }
+
+        assert status_to_board_bucket(
+            "shaping", workflow_definition=definition
+        ) == "planning"
+        assert status_to_board_bucket(
+            "ready-to-build", workflow_definition=definition
+        ) == "refined"
+        assert status_to_board_bucket(
+            "building", workflow_definition=definition
+        ) == "implementing"
+        assert status_to_board_bucket(
+            "quality-review", workflow_definition=definition
+        ) == "reviewing"
+        assert status_to_board_bucket(
+            "finishing", workflow_definition=definition
+        ) == "reviewing"
+        assert status_to_board_bucket(
+            "ready-to-ship", workflow_definition=definition
+        ) == "implemented"
+        assert status_to_board_bucket(
+            "shipping", workflow_definition=definition
+        ) == "release"
+        assert status_to_board_bucket(
+            "closed", workflow_definition=definition
+        ) == "done"
 
     def test_no_item_type_legacy_active_is_unknown(self):
         """AC-8: legacy active status no longer has a compatibility mapping."""

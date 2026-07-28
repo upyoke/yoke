@@ -128,7 +128,7 @@ class TestSyncEpicTasksDedup:
         reused (no create call).
         """
         insert_item(
-            epic_db, id=10, type="epic", status="implementing", project="externalwebapp",
+            epic_db, id=10, workflow_id="epic", status="implementing", project="externalwebapp",
             spec="Epic body", github_issue="#99",
         )
         insert_epic_task(epic_db, epic_id="10", task_num=1, title="Some task",
@@ -156,7 +156,7 @@ class TestSyncEpicTasksDedup:
         call site.
         """
         insert_item(
-            epic_db, id=1500, type="epic", status="implementing", project="externalwebapp",
+            epic_db, id=1500, workflow_id="epic", status="implementing", project="externalwebapp",
             spec="Epic body", github_issue="#99",
         )
         insert_epic_task(epic_db, epic_id="1500", task_num=1, title="Decomp lower",
@@ -190,7 +190,7 @@ class TestSyncEpicTasksDedup:
         no github_issue, the parent dedup search reuses an issue whose
         title starts with the exact bracketed prefix ``[YOK-N]``.
         """
-        insert_item(epic_db, id=10, type="epic", status="implementing",
+        insert_item(epic_db, id=10, workflow_id="epic", status="implementing",
                     project="externalwebapp", spec="Epic body")
         insert_epic_task(epic_db, epic_id="10", task_num=1, title="First task",
                          status="planned", body="body")
@@ -221,7 +221,7 @@ class TestSyncEpicTasksDedup:
         """AC-5 (epic parent path, fuzzy non-reuse) + AC-3 regression at
         the parent call site.
         """
-        insert_item(epic_db, id=1500, type="epic", status="implementing",
+        insert_item(epic_db, id=1500, workflow_id="epic", status="implementing",
                     project="externalwebapp", spec="Epic body")
         insert_epic_task(epic_db, epic_id="1500", task_num=1, title="First task",
                          status="planned", body="body")

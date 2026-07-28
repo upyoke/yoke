@@ -5,7 +5,7 @@
 # shim, so this shell layer carries no Python/Node/git/browser prerequisite
 # logic. The consent prompt this file shows is the uv/uvx install prompt, led by
 # a branded welcome banner (figlet + tagline, color when the terminal supports
-# it; a single plain line otherwise). It prefers /dev/tty for `curl ... | bash`;
+# it; a single plain line otherwise). It prefers /dev/tty for `curl ... | sh`;
 # for script-file invocation, piped stdin is safe to use because stdin is not
 # the script body.
 
@@ -418,10 +418,13 @@ uv_manual_install_command() {
 
 rerun_install_command() {
   display_base_url=$(safe_base_url_for_display)
+  if [ "$display_base_url" = "https://api.upyoke.com" ]; then
+    display_base_url="https://${display_base_url#https://api.}"
+  fi
   if [ -n "$yes" ]; then
-    printf 'curl -fsSL %s/install | bash -s -- --yes' "$display_base_url"
+    printf 'curl -fsSL %s/install | sh -s -- --yes' "$display_base_url"
   else
-    printf 'curl -fsSL %s/install | bash' "$display_base_url"
+    printf 'curl -fsSL %s/install | sh' "$display_base_url"
   fi
 }
 

@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Dict, List, Optional
+from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
+from yoke_core.domain.machine_approval_requests import (
+    MachineApprovalLifecycleStatus,
+)
 
 
 class InboxListRequest(BaseModel):
@@ -35,10 +40,44 @@ class DecisionCreateRequest(BaseModel):
     named_actor_ids: List[int] = Field(default_factory=list)
     subject_context: Dict[str, Any] = Field(default_factory=dict)
 
+    @field_validator("kind")
+    @classmethod
+    def exclude_lifecycle_gate_requests(cls, value: str) -> str:
+        if value == "lifecycle_transition_approval":
+            raise ValueError(
+                "lifecycle approvals are created only by the lifecycle gate"
+            )
+        return value
+
 
 class DecisionMutationResponse(BaseModel):
     request: Dict[str, Any]
     created: Optional[bool] = None
+
+
+class MachineApprovalLifecycleRequest(BaseModel):
+    authorization_id: UUID
+    state: MachineApprovalLifecycleStatus
+    occurred_at: datetime
+    expires_at: Optional[datetime] = None
+    reason: Optional[str] = Field(default=None, min_length=1, max_length=1000)
+
+    @model_validator(mode="after")
+    def require_state_evidence(self):
+        timestamps = (self.occurred_at, self.expires_at)
+        if any(value is not None and value.utcoffset() is None for value in timestamps):
+            raise ValueError("machine authorization timestamps require a timezone")
+        if self.state == "pending" and self.expires_at is None:
+            raise ValueError("pending machine authorization requires expires_at")
+        if self.state == "withdrawn" and not self.reason:
+            raise ValueError("withdrawn machine authorization requires a reason")
+        return self
+
+
+class MachineApprovalLifecycleResponse(BaseModel):
+    request: Optional[Dict[str, Any]] = None
+    created: bool
+    applied: bool
 
 
 class DecisionResolveRequest(BaseModel):
@@ -74,6 +113,8 @@ __all__ = [
     "DecisionWithdrawRequest",
     "InboxListRequest",
     "InboxListResponse",
+    "MachineApprovalLifecycleRequest",
+    "MachineApprovalLifecycleResponse",
     "NotificationReadRequest",
     "NotificationReadResponse",
     "NotificationsReadAllRequest",

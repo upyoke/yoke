@@ -44,6 +44,7 @@ def _list_activity(
     conn: Any,
     *,
     identity: Optional[Any],
+    deployment_run_id: Optional[str] = None,
     limit: int = 100,
 ) -> list[dict]:
     marker = _placeholder(conn)
@@ -52,12 +53,16 @@ def _list_activity(
     if identity is not None:
         where += f" AND p.project_id={marker}"
         params.append(int(identity.id))
+    if deployment_run_id is not None:
+        where += f" AND q.deployment_run_id={marker}"
+        params.append(deployment_run_id)
     params.append(max(1, min(int(limit), 500)))
     rows = query_rows(
         conn,
         "SELECT q.id AS requirement_id, q.plan_id, q.plan_case_key, "
+        "q.deployment_run_id, "
         "q.host_baseline, q.waived_at, p.slug AS plan, pr.slug AS project, "
-        "m.id AS method_id, m.name AS method_name, r.id AS run_id, "
+        "q.method_id, q.method_name, r.id AS run_id, "
         "r.verdict, r.case_outcome, r.capture_degraded_reason, "
         "r.raw_result, "
         "COALESCE(r.completed_at, r.created_at, q.created_at) AS happened_at, "
@@ -65,7 +70,6 @@ def _list_activity(
         "AS evidence_count "
         "FROM qa_requirements q JOIN qa_plans p ON p.id=q.plan_id "
         "JOIN projects pr ON pr.id=p.project_id "
-        "LEFT JOIN qa_methods m ON m.id=q.method_id "
         "LEFT JOIN qa_runs r ON r.id=("
         "SELECT rr.id FROM qa_runs rr WHERE rr.qa_requirement_id=q.id "
         "ORDER BY rr.created_at DESC, rr.id DESC LIMIT 1"
@@ -86,6 +90,7 @@ def _list_activity(
             {
                 "requirement_id": int(row["requirement_id"]),
                 "run_id": run_id,
+                "deployment_run_id": row["deployment_run_id"],
                 "plan_id": int(row["plan_id"]),
                 "plan": str(row["plan"]),
                 "project": str(row["project"]),
@@ -117,6 +122,7 @@ def _activity_summary(
     conn: Any,
     *,
     identity: Optional[Any],
+    deployment_run_id: Optional[str],
     day: Optional[date],
 ) -> dict[str, Any]:
     activity_day = day or datetime.now(timezone.utc).date()
@@ -128,6 +134,9 @@ def _activity_summary(
     if identity is not None:
         where += f" AND p.project_id={marker}"
         params.append(int(identity.id))
+    if deployment_run_id is not None:
+        where += f" AND q.deployment_run_id={marker}"
+        params.append(deployment_run_id)
     where += f" AND {happened_at}>={marker} AND {happened_at}<{marker}"
     params.extend([activity_day.isoformat(), next_day.isoformat()])
     rows = query_rows(
@@ -152,11 +161,13 @@ def list_activity(
     conn: Any,
     *,
     project: Optional[str] = None,
+    deployment_run_id: Optional[str] = None,
     limit: int = 100,
 ) -> list[dict]:
     return _list_activity(
         conn,
         identity=_project_row(conn, project),
+        deployment_run_id=deployment_run_id,
         limit=limit,
     )
 
@@ -165,16 +176,23 @@ def read_activity(
     conn: Any,
     *,
     project: Optional[str] = None,
+    deployment_run_id: Optional[str] = None,
     limit: int = 100,
     day: Optional[date] = None,
 ) -> dict[str, Any]:
     """Return recent rows plus untruncated outcome counts for one UTC day."""
     identity = _project_row(conn, project)
     return {
-        "rows": _list_activity(conn, identity=identity, limit=limit),
+        "rows": _list_activity(
+            conn,
+            identity=identity,
+            deployment_run_id=deployment_run_id,
+            limit=limit,
+        ),
         "summary": _activity_summary(
             conn,
             identity=identity,
+            deployment_run_id=deployment_run_id,
             day=day,
         ),
     }

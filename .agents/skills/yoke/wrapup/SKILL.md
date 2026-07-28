@@ -47,16 +47,23 @@ yoke sessions touch \
 2. **Check for in-flight worktrees:**
 
  ```bash
- yoke db read --format lines "SELECT id, title, worktree, status FROM items WHERE status NOT IN ('idea','done','cancelled','failed','stopped') AND worktree IS NOT NULL AND worktree <> '';"
+ yoke items overview list --json
  ```
+
+ Read `result.rows`. Keep rows whose `worktrees` array is non-empty and
+ whose `status` is not `idea`, `done`, `cancelled`, `failed`, or `stopped`.
+ Each nested worktree is active by contract. Render one line per nested
+ worktree using the row's `public_ref`, `title`, and `status`, plus the
+ worktree's `branch` and `lane_role`. Use `public_ref` exactly as returned;
+ never synthesize a project-local reference from the global item id.
 
  If any items are still active with worktrees, warn:
 
  ```
  ⚠ In-flight worktrees still open:
- - YOK-{N}: {title} ({status}, branch: {worktree})
+ - {public_ref}: {title} ({status}, branch: {branch}, lane: {lane_role})
 
- These have uncommitted work on separate branches. Consider advancing them to done or documenting their state in the appropriate structured item fields before ending the session.
+ These items still own active worktree lanes. Verify and advance them, or document their state in the appropriate structured item fields before ending the session.
  ```
 
 3. **Gather session context:**

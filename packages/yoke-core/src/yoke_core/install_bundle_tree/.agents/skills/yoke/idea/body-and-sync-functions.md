@@ -158,9 +158,9 @@ One mutation per call against any value in
 
 `source_status` is an optional precondition the handler verifies before
 writing. The dispatcher routes through the canonical lifecycle gate so
-structured-write checks (DB claim prose vs claim, File Budget vs path
-claim, AC presence, etc.) all fire and the matching `ItemStatusChanged`
-event is emitted.
+effective-policy checks fire: DB claim prose vs claim, conditional File
+Budget/path-claim parity only when both axes are enabled, AC presence, and
+the matching `ItemStatusChanged` event.
 
 ## Workflow item: epic-task body and metadata (`workflow_item.epic_task.*`)
 

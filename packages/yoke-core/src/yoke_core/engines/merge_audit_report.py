@@ -7,7 +7,7 @@ from typing import List, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import connect, query_rows, query_one, query_scalar
-from yoke_core.domain.lifecycle import sql_task_terminal_success_list
+from yoke_core.domain.task_lifecycle import sql_task_terminal_success_list
 
 
 # One row per distinct worktree branch for an epic, ordered by the earliest

@@ -44,8 +44,10 @@ def _p(conn: Any) -> str:
 
 
 def _emit_repair_event(
-    conn: Any, *,
-    claim_id: int, item_id: int,
+    conn: Any,
+    *,
+    claim_id: int,
+    item_id: int,
     prior_blocked_reason: str,
     directional_release: bool,
 ) -> None:
@@ -54,18 +56,28 @@ def _emit_repair_event(
     except ImportError:
         return
     session_id = next(
-        (os.environ[n] for n in (
-            "YOKE_SESSION_ID", "CLAUDE_SESSION_ID", "CODEX_THREAD_ID",
-        ) if os.environ.get(n)),
+        (
+            os.environ[n]
+            for n in (
+                "YOKE_SESSION_ID",
+                "CLAUDE_SESSION_ID",
+                "CODEX_THREAD_ID",
+            )
+            if os.environ.get(n)
+        ),
         "",
     )
     try:
         _native_emit(
             "PathClaimCoordinationOnlyRepaired",
-            event_kind="lifecycle", event_type="path_claim",
-            source_type="system", session_id=session_id,
-            severity="INFO", outcome="completed",
-            project="yoke", item_id=item_id,
+            event_kind="lifecycle",
+            event_type="path_claim",
+            source_type="system",
+            session_id=session_id,
+            severity="INFO",
+            outcome="completed",
+            project="yoke",
+            item_id=item_id,
             context={
                 "claim_id": claim_id,
                 "prior_blocked_reason": prior_blocked_reason,
@@ -158,7 +170,8 @@ def repair_coordination_only_blocked(
     Returns the list of claim ids that were repaired.
     """
     from yoke_core.domain.path_claims_overlap import (
-        OverlapClassification, classify_overlap,
+        OverlapClassification,
+        classify_overlap,
     )
 
     where = "state = 'blocked'"
@@ -177,6 +190,18 @@ def repair_coordination_only_blocked(
     ).fetchall()
     if not rows:
         return []
+    from yoke_core.domain.workflow_item_binding_lock import (
+        lock_item_workflow_bindings,
+    )
+    from yoke_core.domain.workflow_item_binding_validation import (
+        WorkflowItemBindingError,
+        item_binding_runtime_state,
+    )
+
+    lock_item_workflow_bindings(
+        conn,
+        (int(row[1]) for row in rows if row[1] is not None),
+    )
 
     repaired: List[int] = []
     for row in rows:
@@ -184,6 +209,11 @@ def repair_coordination_only_blocked(
         owning_item_id = int(row[1]) if row[1] is not None else None
         integration_target = str(row[2])
         prior_reason = str(row[3] or "")
+        if owning_item_id is not None:
+            try:
+                item_binding_runtime_state(conn, owning_item_id)
+            except WorkflowItemBindingError:
+                continue
         target_rows = conn.execute(
             f"SELECT target_id FROM path_claim_targets WHERE claim_id = {p}",
             (claim_id,),
@@ -207,11 +237,14 @@ def repair_coordination_only_blocked(
                     candidate_item_id=owning_item_id,
                 )
             )
-            conn.execute(
+            cursor = conn.execute(
                 "UPDATE path_claims SET state = 'planned', "
-                f"blocked_reason = NULL WHERE id = {p}",
+                f"blocked_reason = NULL WHERE id = {p} "
+                "AND state = 'blocked'",
                 (claim_id,),
             )
+            if int(cursor.rowcount or 0) != 1:
+                continue
             repaired.append(claim_id)
             if owning_item_id is not None:
                 _emit_repair_event(

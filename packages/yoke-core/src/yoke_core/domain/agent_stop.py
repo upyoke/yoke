@@ -1,19 +1,8 @@
 """SubagentStop hook CLI front door.
 
-Historical note: an earlier version of this module supported a ``--role``
-flag that activated a role-aware output gate (engineer = submission-receipt
-present; tester = qa_runs review row present). The gate refused subagent
-termination on miss via Claude's ``{"decision":"block","reason":"..."}``
-wire shape. The binding the gate relied on (`(parent session_id,
-CLAUDE_PROJECT_DIR)` → `(epic_id, task_num)`) couldn't be satisfied for
-subagents — they inherit the parent's CLAUDE_PROJECT_DIR (always the main
-repo root), never a worktree — so the resolver returned ``None`` for every
-real-world dispatch and the conservative-block path refused every
-termination. The user-facing failure mode the gate aimed at (Tester emits
-text VERDICT but skips ``epic review-insert``) is caught by the conduct
-closeout flow, which is the load-bearing layer on both Claude and Codex.
-This module now only handles the issue-flow auto-commit on SubagentStop and
-emits the ``HarnessSessionStopped`` event.
+The hook applies the safety-net auto-commit to ``YOK-N`` item worktrees and
+emits ``HarnessSessionStopped``. Workflow behavior comes from each item's
+pinned definition; task-scoped telemetry uses ``item_id + task_num``.
 """
 
 from __future__ import annotations
@@ -77,7 +66,7 @@ def run_hook(role: Optional[str] = None) -> None:
     The ``role`` argument is accepted for backward compatibility with any
     surviving configurations that still pass ``--role``; it is ignored.
     """
-    del role  # gate removed — see module docstring
+    del role  # accepted only for configuration compatibility
     try:
         from runtime.harness.hook_helpers import find_project_root, get_session_id, resolve_yoke_db
 

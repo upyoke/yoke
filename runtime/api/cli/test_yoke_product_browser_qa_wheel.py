@@ -61,3 +61,6 @@ def test_product_wheel_runs_browser_qa_setup_and_status(
     assert setup_payload["dry_run"] is True
     assert setup_payload["readiness"]["daemon"]["status"] == "not_running"
     assert setup_payload["runtime_dir"].endswith("/.yoke/browser-runtime")
+    runtime_dir = Path(setup_payload["runtime_dir"])
+    assert (runtime_dir / "src" / "aria_snapshot_parser.js").is_file()
+    assert (runtime_dir / "tests" / "snapshot.test.js").is_file()

@@ -47,7 +47,7 @@ def insert_item(
     ts = created_at or _now()
     uts = updated_at or ts
     extra = dict(kwargs)
-    schema_workflow_id = str(extra.pop("type", workflow_id))
+    selected_workflow_id = str(workflow_id)
     cols = {
         "id": id,
         "title": title,
@@ -56,8 +56,6 @@ def insert_item(
         "created_at": ts,
         "updated_at": uts,
     }
-    if _table_has_column(conn, "items", "type"):
-        cols["type"] = schema_workflow_id
     if _table_has_column(conn, "items", "project_id"):
         cols["project_id"] = extra.pop(
             "project_id", _ensure_project_id(conn, project, ts=ts)
@@ -70,13 +68,13 @@ def insert_item(
         and "workflow_id" not in extra
         and "workflow_version_id" not in extra
     ):
-        pin = current_workflow_pin_if_available(conn, schema_workflow_id)
+        pin = current_workflow_pin_if_available(conn, selected_workflow_id)
         if pin is not None:
             pinned_workflow_id, workflow_version_id = pin
             cols["workflow_id"] = pinned_workflow_id
             cols["workflow_version_id"] = workflow_version_id
         else:
-            cols["workflow_id"] = schema_workflow_id
+            cols["workflow_id"] = selected_workflow_id
     cols.update(extra)
     col_names = ", ".join(cols.keys())
     p = _placeholder(conn)

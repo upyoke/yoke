@@ -135,6 +135,7 @@ ISSUE_WORKFLOW_VERSION_ONE = definition_fixture(
         "delivery": "release_stage",
         "item_posture_allowlist": ["verification", "approval", "deployment"],
     },
+    schema_version=1,
 )
 
 EPIC_WORKFLOW_VERSION_ONE = definition_fixture(
@@ -215,6 +216,7 @@ EPIC_WORKFLOW_VERSION_ONE = definition_fixture(
         "delivery": "release_stage",
         "item_posture_allowlist": ["verification", "approval", "deployment"],
     },
+    schema_version=1,
 )
 
 __all__ = ["EPIC_WORKFLOW_VERSION_ONE", "ISSUE_WORKFLOW_VERSION_ONE"]

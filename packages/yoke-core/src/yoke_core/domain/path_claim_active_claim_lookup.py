@@ -34,6 +34,9 @@ from yoke_core.domain.project_checkout_locations import (
 from yoke_core.domain.path_claim_item_worktree_paths import (
     universal_item_worktree_paths,
 )
+from yoke_core.domain.path_claim_task_active_scope import (
+    effective_targets_for_claim_session,
+)
 
 
 _NON_TERMINAL_CLAIM_STATES = ("active", "planned", "blocked")
@@ -56,6 +59,8 @@ def resolve_active_claim_for_session(
     *,
     session_id: str,
     conn: Optional[Any] = None,
+    target_path: str = "",
+    cwd: str = "",
 ) -> Optional[Dict[str, Any]]:
     """Return the active claim attached to ``session_id`` as a dict.
 
@@ -76,7 +81,12 @@ def resolve_active_claim_for_session(
         except Exception:
             return None
     try:
-        return _resolve_active_claim(conn, session_id=session_id)
+        return _resolve_active_claim(
+            conn,
+            session_id=session_id,
+            target_path=target_path,
+            cwd=cwd,
+        )
     finally:
         if own_conn and conn is not None:
             try:
@@ -85,7 +95,13 @@ def resolve_active_claim_for_session(
                 pass
 
 
-def _resolve_active_claim(conn: Any, *, session_id: str) -> Optional[Dict[str, Any]]:
+def _resolve_active_claim(
+    conn: Any,
+    *,
+    session_id: str,
+    target_path: str = "",
+    cwd: str = "",
+) -> Optional[Dict[str, Any]]:
     """DB-side resolution; safe against missing tables (returns None).
 
     Prefers typed owner columns. A NULL ``owner_kind`` row (pre-
@@ -156,15 +172,26 @@ def _resolve_active_claim(conn: Any, *, session_id: str) -> Optional[Dict[str, A
     )
     state = str(row[3] if not hasattr(row, "keys") else row["state"])
 
-    covered = _covered_paths_for_claim(conn, claim_id)
+    parsed_item_id = _coerce_int(item_id)
+    covered_targets = _covered_targets_for_claim(conn, claim_id)
+    if parsed_item_id is not None:
+        covered_targets = effective_targets_for_claim_session(
+            conn,
+            item_id=parsed_item_id,
+            session_id=session_id,
+            target_path=target_path,
+            cwd=cwd,
+            parent_targets=covered_targets,
+        )
     paths = _paths_for_item(conn, item_id) if item_id else {}
 
     return {
         "id": claim_id,
-        "item_id": _coerce_int(item_id),
+        "item_id": parsed_item_id,
         "integration_target": integration_target,
         "state": state,
-        "covered_paths": covered,
+        "covered_paths": [path for path, _kind in covered_targets],
+        "covered_target_kinds": covered_targets,
         "task_lanes": paths.get("task_lanes", False),
         "worktree_path": paths.get("worktree_path"),
         "project_repo_path": paths.get("project_repo_path"),
@@ -186,10 +213,13 @@ def _current_item_for_session(conn: Any, session_id: str) -> Optional[int]:
     return _coerce_int(raw)
 
 
-def _covered_paths_for_claim(conn: Any, claim_id: int) -> List[str]:
+def _covered_targets_for_claim(
+    conn: Any,
+    claim_id: int,
+) -> List[Tuple[str, str]]:
     try:
         rows = conn.execute(
-            "SELECT pt.path_string FROM path_claim_targets pct "
+            "SELECT pt.path_string, pt.kind FROM path_claim_targets pct "
             "JOIN path_targets pt ON pt.id = pct.target_id "
             f"WHERE pct.claim_id = {_p(conn)} "
             "ORDER BY pct.id",
@@ -197,7 +227,7 @@ def _covered_paths_for_claim(conn: Any, claim_id: int) -> List[str]:
         ).fetchall()
     except db_backend.database_error_types(conn):
         return []
-    return [str(r[0]) for r in rows]
+    return [(str(r[0]), str(r[1])) for r in rows]
 
 
 def _paths_for_item(
@@ -287,6 +317,4 @@ def _resolve_active_worktree(
     return _pick_chain_for_target(target_path or "", info.get("chain_worktrees", ()))
 
 
-__all__ = [
-    "resolve_active_claim_for_session",
-]
+__all__ = ["resolve_active_claim_for_session"]

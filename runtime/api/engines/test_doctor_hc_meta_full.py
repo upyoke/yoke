@@ -41,7 +41,7 @@ class TestUndeployedDone:
         conn = _make_conn()
         _seed_project(conn, "yoke")
         _insert_item(
-            conn, 1, "Done", type="issue", status="done",
+            conn, 1, "Done", workflow_id="issue", status="done",
             created_at="2025-01-01T00:00:00Z",
             updated_at="2025-01-01T00:00:00Z",
         )
@@ -54,7 +54,7 @@ class TestUndeployedDone:
         _seed_project(conn, "yoke")
         _insert_deployment_flow(conn, "f1")
         _insert_item(
-            conn, 1, "Undeployed", type="issue", status="done",
+            conn, 1, "Undeployed", workflow_id="issue", status="done",
             created_at="2025-01-01T00:00:00Z",
             updated_at="2025-01-01T00:00:00Z",
         )
@@ -68,7 +68,7 @@ class TestUndeployedDone:
         _seed_project(conn, "yoke")
         _insert_deployment_flow(conn, "f1")
         _insert_item(
-            conn, 1, "Deployed", type="issue", status="done",
+            conn, 1, "Deployed", workflow_id="issue", status="done",
             deployed_to="local",
             created_at="2025-01-01T00:00:00Z",
             updated_at="2025-01-01T00:00:00Z",
@@ -83,12 +83,12 @@ class TestUndeployedDone:
         _seed_project(conn, "externalwebapp")
         _insert_deployment_flow(conn, "f1", project="externalwebapp")
         _insert_item(
-            conn, 1, "ExternalWebapp done", project="externalwebapp", type="issue", status="done",
+            conn, 1, "ExternalWebapp done", project="externalwebapp", workflow_id="issue", status="done",
             created_at="2025-01-01T00:00:00Z",
             updated_at="2025-01-01T00:00:00Z",
         )
         _insert_item(
-            conn, 2, "Yoke done", type="issue", status="done",
+            conn, 2, "Yoke done", workflow_id="issue", status="done",
             created_at="2025-01-01T00:00:00Z",
             updated_at="2025-01-01T00:00:00Z",
         )

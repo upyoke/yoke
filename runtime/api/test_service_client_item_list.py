@@ -25,7 +25,7 @@ def _seed_items_conn(conn: Any) -> Any:
             title=f"Item {item_id}",
             status="idea",
             priority="medium",
-            type="issue",
+            workflow_id="issue",
             source="user",
             frozen=0,
             project="yoke",

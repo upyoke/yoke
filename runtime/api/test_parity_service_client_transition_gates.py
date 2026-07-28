@@ -64,6 +64,7 @@ class TestTransitionParity:
             # CLI
             result = _run_service_client(
                 db_path, "validate-transition", from_s, to_s,
+                "--workflow", "epic",
             )
             assert result.returncode == 0, (
                 f"CLI should accept {from_s} -> {to_s}"
@@ -87,6 +88,7 @@ class TestTransitionParity:
             # CLI
             result = _run_service_client(
                 db_path, "validate-transition", from_s, to_s,
+                "--workflow", "epic",
             )
             assert result.returncode == 1, (
                 f"CLI should reject {from_s} -> {to_s}"
@@ -105,6 +107,7 @@ class TestTransitionParity:
             assert not workflow.is_forward_transition(from_s, to_s)
             result = _run_service_client(
                 db_path, "validate-transition", from_s, to_s,
+                "--workflow", "epic",
             )
             assert result.returncode == 1
 

@@ -23,7 +23,6 @@ from yoke_core.engines.merge_worktree import (
 )
 
 
-
 class TestParseArgs:
     def test_branch_only(self):
         args = parse_args(["YOK-9999"])
@@ -44,7 +43,15 @@ class TestParseArgs:
         assert args.epic_ref == "YOK-100"
 
     def test_flags(self):
-        args = parse_args(["--local", "--force-lock", "--keep-remote", "--skip-simulation", "YOK-9999"])
+        args = parse_args(
+            [
+                "--local",
+                "--force-lock",
+                "--keep-remote",
+                "--skip-simulation",
+                "YOK-9999",
+            ]
+        )
         assert args.local_merge is True
         assert args.force_lock is True
         assert args.keep_remote is True
@@ -73,18 +80,6 @@ class TestValidateArgs:
         args = MergeArgs(branch="YOK-9999")
         err = validate_args(args)
         assert err is None
-
-    def test_legacy_issue_branch(self):
-        args = MergeArgs(branch="issue/YOK-9999")
-        err = validate_args(args)
-        assert err is not None
-        assert "legacy" in err
-
-    def test_legacy_epic_branch(self):
-        args = MergeArgs(branch="epic/YOK-9999")
-        err = validate_args(args)
-        assert err is not None
-        assert "legacy" in err
 
 
 # ---------------------------------------------------------------------------
@@ -197,7 +192,9 @@ class TestConflictClassification:
     def test_unknown_file(self):
         ctx = self._make_ctx()
         # Mock is_additive_conflict to return False
-        with mock.patch.object(merge_worktree, "is_additive_conflict", return_value=False):
+        with mock.patch.object(
+            merge_worktree, "is_additive_conflict", return_value=False
+        ):
             info = classify_conflict("src/app.js", ctx)
         assert info.classification == "overlapping (needs agent judgement)"
         assert info.auto_resolvable is False
@@ -240,9 +237,7 @@ class TestYokeManaged:
 
     def test_simulation_report_managed(self):
         assert (
-            merge_worktree.is_yoke_managed_pattern(
-                "ouroboros/simulation-YOK-9999.md"
-            )
+            merge_worktree.is_yoke_managed_pattern("ouroboros/simulation-YOK-9999.md")
             is True
         )
 
@@ -264,7 +259,4 @@ class TestYokeManaged:
         # could drift from yoke_core.domain.classify_dirty_files.
         from yoke_core.domain import classify_dirty_files as domain_cdf
 
-        assert (
-            merge_worktree.YOKE_MANAGED_PATTERNS
-            is domain_cdf.YOKE_MANAGED_PATTERNS
-        )
+        assert merge_worktree.YOKE_MANAGED_PATTERNS is domain_cdf.YOKE_MANAGED_PATTERNS

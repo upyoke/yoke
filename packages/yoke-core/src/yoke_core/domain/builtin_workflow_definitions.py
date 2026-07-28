@@ -36,11 +36,33 @@ _BUILTIN_WORKFLOW_DEFINITIONS = (
     BLITZ_WORKFLOW_DEFINITION,
     DASH_WORKFLOW_DEFINITION,
 )
+
+
+def _version_two_fixture(current: Dict[str, Any]) -> Dict[str, Any]:
+    """Reconstruct the exact schema-v1 definition published as version 2."""
+    fixture = deepcopy(current)
+    fixture["version"] = 2
+    definition = fixture["definition"]
+    definition["schema_version"] = 1
+    policies = definition["policies"]
+    policies.pop("file_budget")
+    policies["item_posture_allowlist"] = [
+        value
+        for value in policies["item_posture_allowlist"]
+        if value != "file_budget"
+    ]
+    return fixture
+
+
 _BUILTIN_WORKFLOW_VERSION_HISTORY = (
     ISSUE_WORKFLOW_VERSION_ONE,
     EPIC_WORKFLOW_VERSION_ONE,
     BLITZ_WORKFLOW_VERSION_ONE,
     DASH_WORKFLOW_VERSION_ONE,
+    *tuple(
+        _version_two_fixture(fixture)
+        for fixture in _BUILTIN_WORKFLOW_DEFINITIONS
+    ),
 )
 
 

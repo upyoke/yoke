@@ -21,6 +21,28 @@ export function itemText(root) {
 }
 
 export function detailItem(workflowId) {
+  const directWorkflow = ["dash", "blitz"].includes(workflowId);
+  const fileBudgetPolicy = directWorkflow
+    ? "optional"
+    : workflowId === "epic" ? "required_per_task" : "required";
+  const pathClaimsPolicy = directWorkflow
+    ? "optional"
+    : workflowId === "epic" ? "required_per_task" : "required";
+  const policies = {
+    file_budget: fileBudgetPolicy,
+    path_claims: pathClaimsPolicy,
+    worktrees: workflowId === "epic"
+      ? "worker_and_integration_lanes"
+      : workflowId === "blitz"
+        ? "worker_lanes_optional_integration"
+        : "single_implementation_lane",
+    parallelism: workflowId === "epic"
+      ? "task_graph"
+      : workflowId === "blitz" ? "maximum_safe_slices"
+        : workflowId === "issue" ? "inside_item" : "none",
+    generated_children: workflowId === "epic" ? "epic_tasks" : "none",
+    delivery: "after_merge_action",
+  };
   return {
     id: 51,
     public_ref: "ACM-22",
@@ -48,15 +70,11 @@ export function detailItem(workflowId) {
         ? "polish" : workflowId === "epic" ? "conduct" : workflowId,
       item_posture: {
         verification: true,
+        file_budget: false,
         path_claims: false,
       },
-      policies: {
-        path_claims: workflowId === "dash" ? "optional" : "required",
-        worktrees: "single_implementation_lane",
-        parallelism: "none",
-        generated_children: "none",
-        delivery: "after_merge_action",
-      },
+      policies,
+      effective_policies: { ...policies },
     },
     claim: {
       actor_label: "Codex",

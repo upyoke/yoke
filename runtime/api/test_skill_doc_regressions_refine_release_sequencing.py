@@ -1,4 +1,4 @@
-"""task 006 — refine release-sequencing doc regression.
+"""Refine readiness-release sequencing doc regression.
 
 Each shell stanza in the refine skill bundle that calls
 ``yoke claims work release --reason readiness-check-blocked`` must be
@@ -10,7 +10,7 @@ evidence branch), so the structural runtime invariant — not prose-only
 timing discipline — keeps refine's release flow valid.
 
 Discovery is content-anchored: the test iterates every fenced ``bash``
-block in the two refine skill files, finds each ``yoke claims work
+block in the delegated readiness-repair document, finds each ``yoke claims work
 release --reason readiness-check-blocked`` site, and asserts a preceding
 checkpoint write inside that same block. Line numbers from the task
 body are informational only — upstream merges may shift them without
@@ -28,7 +28,6 @@ from runtime.api.skill_doc_regressions_test_helpers import SKILLS, _read
 
 
 REFINE_SKILL_FILES = (
-    SKILLS / "refine" / "SKILL.md",
     SKILLS / "refine" / "readiness-repair.md",
 )
 
@@ -92,6 +91,10 @@ class TestRefineReleaseSequencing:
     site in the refine skill bundle must be preceded by a
     yoke sessions checkpoint --chainable false in the same shell block."""
 
+    def test_refine_skill_delegates_to_the_release_owner(self):
+        text = _read(SKILLS / "refine" / "SKILL.md")
+        assert "[`readiness-repair.md`](readiness-repair.md)" in text
+
     def test_at_least_one_release_site_exists(self, refine_doc):
         """Anti-regression guard: if the discovery anchor stops matching,
         every other assertion in this file becomes vacuously true. Fail
@@ -121,9 +124,8 @@ class TestRefineReleaseSequencing:
                     f"{_RELEASE_REASON} at offset {release_offset} in "
                     "its shell block has no preceding "
                     "yoke sessions checkpoint --chainable false call in the "
-                    "same block. Required by YOK-1674 task 006 so the "
-                    "release is terminal-classified by Task 004's "
-                    "runtime precondition."
+                    "same block, so the release is not terminal-classified "
+                    "by the runtime precondition."
                 )
         # Discovery sanity for this specific file: at least one site.
         assert any_site, (

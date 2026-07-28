@@ -45,7 +45,7 @@
   "module_sources": {
     "workflow_item_worktree_records": {
       "path": "packages/yoke-core/src/yoke_core/domain/migrations/workflow_item_worktree_records.py",
-      "sha256": "7011cdc5bfa8f06bfa2eb18f7af4e6769b83e4e32b3b743f0eee727769961f9a"
+      "sha256": "9bb20543592a080f4ab2daad3f2911ebe567d63f8c3cb9cf818623e8c71f95a1"
     }
   },
   "attestation": {

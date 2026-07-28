@@ -8,7 +8,12 @@ Extracted from `dispatch-context.md`. Contains artifact formats, output capture,
 
 ## Anticipated path coverage (pre-authorized)
 
-When the Architect declares each task's path-claim, the plan-time **Anticipation Checklist** (`runtime/agents/architect.md` § *Anticipation Checklist*) widens claim coverage to include cross-cutting surfaces beyond the explicit File Budget — doctor HCs that scan the module, transitive callers, and deeper test importers. The Architect persists the resulting anticipated-paths set as a per-task `## Anticipated Paths` block in the task body. The read-only helper `yoke_core.domain.architect_plan_anticipation.build_anticipation_list` produces the categorised list that backs that block.
+When effective path claims are enabled, the Architect runs the plan-time
+**Anticipation Checklist** (`runtime/agents/architect.md` § *Anticipation
+Checklist*) and widens claim coverage to include cross-cutting surfaces.
+When File Budget is also enabled, its explicit paths seed that checklist;
+otherwise the task execution spec does. The Architect persists the resulting
+anticipated paths in the task body.
 
 The Engineer prompt template surfaces this block under the heading `Anticipated path coverage (pre-authorized)` (see `dispatch-context-prompts.md` step 5g). It is **read-only context for the Engineer**:
 

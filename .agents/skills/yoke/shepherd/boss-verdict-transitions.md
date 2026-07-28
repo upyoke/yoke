@@ -147,6 +147,7 @@ if [ "$_transition" = "refined_idea_to_planning" ] && { [ "$_verdict" = "READY" 
  --item "YOK-$_num" \
  --qa-kind "ac_verification" \
  --qa-phase "verification" \
+ --workflow-transition "reviewed-implementation" \
  --blocking-mode "blocking" \
  --requirement-source "ac_derived" \
  --success-policy "$_ac_desc" >/dev/null 2>&1 || true
@@ -162,6 +163,7 @@ if [ "$_transition" = "refined_idea_to_planning" ] && { [ "$_verdict" = "READY" 
  --item "YOK-$_num" \
  --qa-kind "implementation_review" \
  --qa-phase "verification" \
+ --workflow-transition "reviewed-implementation" \
  --blocking-mode "blocking" \
  --requirement-source "seeded_default" \
  --success-policy "Implementation matches the item spec" >/dev/null 2>&1 || true

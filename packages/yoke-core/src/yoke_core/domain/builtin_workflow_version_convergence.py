@@ -67,7 +67,7 @@ def _matches_compatible_current_at_version_one(
     except WorkflowRegistryError:
         return False
     return (
-        definition_digest(decoded) == accepted_digest
+        definition_digest(decoded) == str(existing["definition_digest"])
         and canonical_definition_json(decoded) == str(existing["definition_json"])
     )
 
