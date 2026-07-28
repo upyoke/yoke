@@ -18,6 +18,7 @@ QA_PLAN_EXECUTION_RESULT_TABLE = "qa_plan_execution_results"
 QA_PLAN_EXECUTION_COLUMNS = (
     "id",
     "item_id",
+    "deployment_run_id",
     "transition_id",
     "actor_id",
     "session_id",
@@ -41,6 +42,10 @@ QA_PLAN_EXECUTION_RESULT_COLUMNS = (
 QA_PLAN_EXECUTION_INDEXES = (
     (QA_PLAN_EXECUTION_TABLE, "idx_qa_plan_executions_active"),
     (
+        QA_PLAN_EXECUTION_TABLE,
+        "idx_qa_plan_executions_deployment_active",
+    ),
+    (
         QA_PLAN_EXECUTION_RESULT_TABLE,
         "idx_qa_plan_execution_results_requirement",
     ),
@@ -53,8 +58,9 @@ _QA_PLAN_EXECUTION_FOREIGN_KEYS = """,
 QA_PLAN_EXECUTION_SCHEMA_SQL = f"""
 CREATE TABLE IF NOT EXISTS qa_plan_executions (
     id TEXT PRIMARY KEY,
-    item_id INTEGER NOT NULL,
-    transition_id TEXT NOT NULL,
+    item_id INTEGER,
+    deployment_run_id TEXT,
+    transition_id TEXT,
     actor_id TEXT,
     session_id TEXT NOT NULL,
     roster_digest TEXT NOT NULL,
@@ -67,11 +73,20 @@ CREATE TABLE IF NOT EXISTS qa_plan_executions (
     created_at TEXT NOT NULL,
     heartbeat_at TEXT NOT NULL,
     completed_at TEXT,
-    release_reason TEXT
+    release_reason TEXT,
+    CHECK (
+        (item_id IS NOT NULL AND deployment_run_id IS NULL
+            AND transition_id IS NOT NULL) OR
+        (item_id IS NULL AND deployment_run_id IS NOT NULL
+            AND transition_id IS NULL)
+    )
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_qa_plan_executions_active
     ON qa_plan_executions(item_id, transition_id)
-    WHERE state IN ('active','waiting');
+    WHERE item_id IS NOT NULL AND state IN ('active','waiting');
+CREATE UNIQUE INDEX IF NOT EXISTS idx_qa_plan_executions_deployment_active
+    ON qa_plan_executions(deployment_run_id)
+    WHERE deployment_run_id IS NOT NULL AND state IN ('active','waiting');
 
 CREATE TABLE IF NOT EXISTS qa_plan_execution_results (
     execution_id TEXT NOT NULL,

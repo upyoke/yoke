@@ -19,6 +19,9 @@ from yoke_core.domain.qa_plan_attachment_validation import (
     require_plan_cases,
     validate_item_transition,
 )
+from yoke_core.domain.qa_deployment_plan_materialization import (
+    materialize_deployment_plan,
+)
 from yoke_core.domain.workflow_item_binding_lock import (
     lock_item_workflow_bindings,
     rollback_workflow_binding_write_errors,
@@ -275,9 +278,30 @@ def materialize_for_item(
     }
 
 
+def materialize_for_deployment_run(
+    conn: Any,
+    *,
+    deployment_run_id: str,
+    plan: str,
+    project: Optional[str] = None,
+    commit: bool = True,
+) -> dict:
+    """Snapshot one named project plan onto a real deployment run."""
+    return materialize_deployment_plan(
+        conn,
+        deployment_run_id=deployment_run_id,
+        plan=plan,
+        project=project,
+        commit=commit,
+        insert_requirement_fn=insert_requirement,
+        existing_requirement_id_fn=existing_requirement_id,
+    )
+
+
 __all__ = [
     "attach_plan_to_item",
     "has_attached_plans",
+    "materialize_for_deployment_run",
     "materialize_for_item",
     "set_project_default",
 ]

@@ -41,7 +41,7 @@ def register(registry) -> None:
             _plan.PlanExecutionStateResponse,
             stability="stable",
             owner_module="yoke_core.domain.handlers.qa_plan_execution",
-            target_kinds=["item"],
+            target_kinds=["item", "deployment_run"],
             side_effects=[
                 "qa_plan_execution_write",
                 "coordination_lease_heartbeat_or_release",
@@ -49,14 +49,14 @@ def register(registry) -> None:
             emitted_event_names=["YokeFunctionCalled"],
             guardrails=[
                 "project_scope_required",
-                "item_claim_required",
+                "qa_subject_authority",
                 "immutable_snapshot_order",
                 "actor_session_bound",
             ],
             adapter_status=(
                 "live" if function_id == "qa.plan_execution.begin" else "internal"
             ),
-            claim_required_kind="item",
+            claim_required_kind="qa_subject",
             ambient_session_required=True,
         )
     registry.register(
@@ -75,7 +75,7 @@ def register(registry) -> None:
             "item_claim_required",
         ],
         adapter_status="live",
-        claim_required_kind="item",
+        claim_required_kind="qa_subject",
         ambient_session_required=True,
     )
     registry.register(

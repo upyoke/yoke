@@ -13,7 +13,9 @@ QA_CASE_RUN_USAGE = (
     "[--timeout-seconds N]"
 )
 QA_PLAN_RUN_USAGE = (
-    "yoke qa plan run --item PREFIX-N --transition TRANSITION "
+    "yoke qa plan run "
+    "(--item PREFIX-N --transition TRANSITION | "
+    "--deployment-run-id RUN --plan PLAN --project P) "
     "[--project P] [--base-url URL] "
     "[--expected-branch BRANCH --expected-sha SHA] "
     "[--timeout-seconds N] [--session-id S]"

@@ -6,8 +6,6 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
 
-from pydantic import BaseModel, ValidationError
-
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
 from yoke_core.domain.handlers.test_machine import _failure
 from yoke_core.domain.handlers.test_machine_plan_case_models import (
@@ -15,6 +13,10 @@ from yoke_core.domain.handlers.test_machine_plan_case_models import (
     TestMachinePlanCaseBeginResponse,
     TestMachinePlanCaseSubmitRequest,
     TestMachinePlanCaseSubmitResponse,
+)
+from yoke_core.domain.handlers.test_machine_plan_case_request import (
+    parse_plan_case_request,
+    target_plan_subject,
 )
 from yoke_core.domain.machine_qa_submission_recording import (
     MachineQaArtifactRollback,
@@ -26,30 +28,12 @@ from yoke_core.domain.machine_qa_submission_recording import (
 from yoke_core.domain.test_machine_capability import TestMachineCapabilityError
 
 
-def _target_item(
-    request: FunctionCallRequest,
-    function_id: str,
-) -> int | HandlerOutcome:
-    if request.target.kind != "item" or request.target.item_id is None:
-        return _failure(
-            "target_invalid",
-            f"{function_id} requires target.kind='item'",
-        )
-    return int(request.target.item_id)
-
-
-def _parse(model: type[BaseModel], payload: Any) -> BaseModel | HandlerOutcome:
-    try:
-        return model.model_validate(payload or {})
-    except ValidationError as exc:
-        return _failure("payload_invalid", str(exc))
-
-
 def _owned_case(
     conn: Any,
     request: FunctionCallRequest,
     parsed: TestMachinePlanCaseBeginRequest,
-    item_id: int,
+    item_id: int | None,
+    deployment_run_id: str | None,
     *,
     replay: bool,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -63,6 +47,7 @@ def _owned_case(
     require_plan_execution_owner(
         execution,
         item_id=item_id,
+        deployment_run_id=deployment_run_id,
         actor_id=request.actor.actor_id,
         session_id=request.actor.session_id,
     )
@@ -125,10 +110,11 @@ def _contract_args(
 
 
 def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
-    target = _target_item(request, "test_machine.plan_case.begin")
+    target = target_plan_subject(request, "test_machine.plan_case.begin")
     if isinstance(target, HandlerOutcome):
         return target
-    parsed = _parse(TestMachinePlanCaseBeginRequest, request.payload)
+    item_id, deployment_run_id = target
+    parsed = parse_plan_case_request(TestMachinePlanCaseBeginRequest, request.payload)
     if isinstance(parsed, HandlerOutcome):
         return parsed
     assert isinstance(parsed, TestMachinePlanCaseBeginRequest)
@@ -150,7 +136,14 @@ def handle_plan_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
 
     conn = connect()
     try:
-        execution, case = _owned_case(conn, request, parsed, target, replay=False)
+        execution, case = _owned_case(
+            conn,
+            request,
+            parsed,
+            item_id,
+            deployment_run_id,
+            replay=False,
+        )
         arguments = _contract_args(execution, case, ordinal=parsed.ordinal)
         lease_id = execution.get("machine_lease_id")
         try:
@@ -228,10 +221,11 @@ def _normalized_result(
 
 
 def handle_plan_case_submit(request: FunctionCallRequest) -> HandlerOutcome:
-    target = _target_item(request, "test_machine.plan_case.submit")
+    target = target_plan_subject(request, "test_machine.plan_case.submit")
     if isinstance(target, HandlerOutcome):
         return target
-    parsed = _parse(TestMachinePlanCaseSubmitRequest, request.payload)
+    item_id, deployment_run_id = target
+    parsed = parse_plan_case_request(TestMachinePlanCaseSubmitRequest, request.payload)
     if isinstance(parsed, HandlerOutcome):
         return parsed
     assert isinstance(parsed, TestMachinePlanCaseSubmitRequest)
@@ -248,7 +242,14 @@ def handle_plan_case_submit(request: FunctionCallRequest) -> HandlerOutcome:
     conn = connect()
     artifact_rollback = MachineQaArtifactRollback()
     try:
-        execution, case = _owned_case(conn, request, parsed, target, replay=True)
+        execution, case = _owned_case(
+            conn,
+            request,
+            parsed,
+            item_id,
+            deployment_run_id,
+            replay=True,
+        )
         arguments = _contract_args(execution, case, ordinal=parsed.ordinal)
         lease, contract = validate_host_control_submission(
             conn,

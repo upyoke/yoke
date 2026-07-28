@@ -32,7 +32,8 @@ class MachineQaCaseContract(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     requirement_id: int = Field(ge=1)
-    item_id: int = Field(ge=1)
+    item_id: int | None = Field(default=None, ge=1)
+    deployment_run_id: str | None = None
     plan_id: int | None
     case_key: str
     method_id: str
@@ -53,6 +54,14 @@ class MachineQaCaseContract(BaseModel):
     lane_branch: str | None
     case_position: int | None = Field(default=None, ge=1)
     baseline_position: int | None = Field(default=None, ge=1)
+
+    @model_validator(mode="after")
+    def _one_subject(self) -> "MachineQaCaseContract":
+        if (self.item_id is None) == (self.deployment_run_id is None):
+            raise ValueError(
+                "Machine QA case requires one item or deployment-run subject"
+            )
+        return self
 
 
 class HostControlExecutionContract(BaseModel):

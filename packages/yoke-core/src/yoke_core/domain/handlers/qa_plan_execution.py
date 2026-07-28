@@ -16,7 +16,7 @@ from yoke_contracts.api.function_call import (
 class PlanExecutionBeginRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    transition_id: str = Field(min_length=1)
+    transition_id: str | None = Field(default=None, min_length=1)
 
 
 class PlanExecutionStateRequest(BaseModel):
@@ -37,8 +37,9 @@ class PlanExecutionAbortRequest(PlanExecutionStateRequest):
 
 class PlanExecutionStateResponse(BaseModel):
     execution_id: str
-    item_id: int
-    transition_id: str
+    item_id: int | None = None
+    deployment_run_id: str | None = None
+    transition_id: str | None = None
     state: str
     roster_digest: str
     cursor_ordinal: int
@@ -54,17 +55,19 @@ def _error(code: str, message: str, jsonpath: str) -> HandlerOutcome:
     )
 
 
-def _item_id(
+def _subject(
     request: FunctionCallRequest,
     function_id: str,
-) -> int | HandlerOutcome:
-    if request.target.kind != "item" or request.target.item_id is None:
-        return _error(
-            "target_invalid",
-            f"{function_id} requires target.kind='item'",
-            "$.target",
-        )
-    return int(request.target.item_id)
+) -> tuple[int | None, str | None] | HandlerOutcome:
+    if request.target.kind == "item" and request.target.item_id is not None:
+        return int(request.target.item_id), None
+    if request.target.kind == "deployment_run" and request.target.deployment_run_id:
+        return None, str(request.target.deployment_run_id)
+    return _error(
+        "target_invalid",
+        f"{function_id} requires an item or deployment-run target",
+        "$.target",
+    )
 
 
 def _parse(model: type[BaseModel], payload: Any) -> BaseModel | HandlerOutcome:
@@ -78,9 +81,10 @@ def handle_plan_execution_begin(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
     """Authorize first, then create or resume the durable plan cursor."""
-    target = _item_id(request, "qa.plan_execution.begin")
+    target = _subject(request, "qa.plan_execution.begin")
     if isinstance(target, HandlerOutcome):
         return target
+    item_id, deployment_run_id = target
     parsed = _parse(PlanExecutionBeginRequest, request.payload)
     if isinstance(parsed, HandlerOutcome):
         return parsed
@@ -97,7 +101,8 @@ def handle_plan_execution_begin(
     try:
         execution = begin_plan_execution(
             conn,
-            item_id=target,
+            item_id=item_id,
+            deployment_run_id=deployment_run_id,
             transition_id=parsed.transition_id,
             actor_id=request.actor.actor_id,
             session_id=request.actor.session_id,
@@ -115,9 +120,10 @@ def _owned_execution(
     request: FunctionCallRequest,
     parsed: PlanExecutionStateRequest,
 ) -> tuple[Any, dict[str, Any]] | HandlerOutcome:
-    target = _item_id(request, request.function)
+    target = _subject(request, request.function)
     if isinstance(target, HandlerOutcome):
         return target
+    item_id, deployment_run_id = target
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.qa_plan_execution_state import (
         lock_plan_execution,
@@ -129,7 +135,8 @@ def _owned_execution(
         execution = lock_plan_execution(conn, parsed.execution_id)
         require_plan_execution_owner(
             execution,
-            item_id=target,
+            item_id=item_id,
+            deployment_run_id=deployment_run_id,
             actor_id=request.actor.actor_id,
             session_id=request.actor.session_id,
         )

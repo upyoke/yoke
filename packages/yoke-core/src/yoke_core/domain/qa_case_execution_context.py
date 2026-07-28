@@ -39,7 +39,8 @@ def get_case_execution_context(
     marker = _p(conn)
     row = query_one(
         conn,
-        "SELECT q.id AS requirement_id, q.item_id, q.plan_id, "
+        "SELECT q.id AS requirement_id, q.item_id, q.deployment_run_id, "
+        "q.plan_id, "
         "q.plan_case_key, q.method_id, q.qa_kind, q.instructions, "
         "q.expected_outcome, q.method_config, q.host_baseline, "
         "q.workflow_transition_id, q.entry_surface, "
@@ -49,8 +50,9 @@ def get_case_execution_context(
         "p.id AS project_id, "
         "p.slug AS project "
         "FROM qa_requirements q "
-        "JOIN items i ON i.id=q.item_id "
-        "JOIN projects p ON p.id=i.project_id "
+        "LEFT JOIN items i ON i.id=q.item_id "
+        "LEFT JOIN deployment_runs dr ON dr.id=q.deployment_run_id "
+        "JOIN projects p ON p.id=COALESCE(i.project_id, dr.project_id) "
         f"WHERE q.id={marker} AND q.waived_at IS NULL",
         (int(requirement_id),),
     )
@@ -97,7 +99,8 @@ def get_case_execution_context(
     )
     return {
         "requirement_id": int(row["requirement_id"]),
-        "item_id": int(row["item_id"]),
+        "item_id": (int(row["item_id"]) if row["item_id"] is not None else None),
+        "deployment_run_id": row["deployment_run_id"],
         "plan_id": plan_id,
         "case_key": case_key,
         "method_id": str(row["method_id"]),

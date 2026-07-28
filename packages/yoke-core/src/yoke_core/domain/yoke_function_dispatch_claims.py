@@ -25,6 +25,10 @@ from yoke_contracts.api.function_call import (
     FunctionCallResponse,
     FunctionError,
 )
+from yoke_core.domain.yoke_function_dispatch_qa_claims import (
+    resolve_qa_requirement_item_id as _resolve_qa_requirement_item_id,
+    resolve_qa_requirement_subject as _qa_requirement_subject,
+)
 from yoke_core.domain.yoke_function_registry import RegistryEntry
 
 
@@ -100,52 +104,6 @@ def _claim_error(
         error=FunctionError(code=code, message=message),
         event_ids=[],
     )
-
-
-def _resolve_qa_requirement_item_id(
-    qa_requirement_id: int,
-) -> tuple[Optional[int], Optional[str], Optional[str]]:
-    """Resolve ``item_id`` from a ``qa_requirements`` row.
-
-    Returns a ``(item_id, error_code, error_message)`` triple:
-
-    - ``(int, None, None)`` on success.
-    - ``(None, "not_found", msg)`` when the row is absent.
-    - ``(None, "claim_required", msg)`` when ``item_id`` is NULL on the
-      row (global qa requirements have no item to claim against) or the
-      lookup fails outright.
-    """
-    try:
-        from yoke_core.domain import db_helpers
-
-        with db_helpers.connect() as conn:
-            p = _placeholder(conn)
-            row = conn.execute(
-                f"SELECT item_id FROM qa_requirements WHERE id = {p}",
-                (int(qa_requirement_id),),
-            ).fetchone()
-    except Exception as exc:
-        return (
-            None,
-            "claim_required",
-            (
-                f"failed to resolve qa_requirement_id={qa_requirement_id} "
-                f"to item_id: {exc}"
-            ),
-        )
-    if row is None:
-        return None, "not_found", (f"qa_requirement_id={qa_requirement_id} not found")
-    item_id = row[0]
-    if item_id is None:
-        return (
-            None,
-            "claim_required",
-            (
-                f"qa_requirement_id={qa_requirement_id} has no item_id; "
-                "global qa requirements cannot be claim-verified against an item"
-            ),
-        )
-    return int(item_id), None, None
 
 
 def _claim_row_for_id(claim_id: int) -> Optional[Dict[str, Any]]:
@@ -233,6 +191,44 @@ def verify_claim(
     target = request.target
     fid = entry.function_id
     ver = entry.version
+
+    if kind == "qa_subject":
+        if target.kind == "deployment_run" and target.deployment_run_id:
+            return None
+        target_id = target.item_id if target.kind == "item" else None
+        if target.kind == "qa_requirement" and target.qa_requirement_id is not None:
+            target_id, deployment_run_id, err_code, err_msg = _qa_requirement_subject(
+                target.qa_requirement_id
+            )
+            if err_code is not None:
+                return _claim_error(
+                    request,
+                    fid,
+                    ver,
+                    err_code,
+                    err_msg or "",
+                )
+            if deployment_run_id is not None:
+                return None
+        if target_id is None:
+            return _claim_error(
+                request,
+                fid,
+                ver,
+                "claim_required",
+                "QA operation target has no item or deployment-run subject",
+            )
+        row = who_claims_for_item(int(target_id))
+        claim_session = str((row or {}).get("session_id") or "")
+        if not row or claim_session != actor_session:
+            return _claim_error(
+                request,
+                fid,
+                ver,
+                "claim_required",
+                f"no active claim by session {actor_session!r} on item {target_id}",
+            )
+        return None
 
     if kind in ("item", "epic"):
         target_id = target.item_id if kind == "item" else target.epic_id

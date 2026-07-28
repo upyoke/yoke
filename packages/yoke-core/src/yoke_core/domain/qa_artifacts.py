@@ -27,7 +27,7 @@ from yoke_core.domain.qa_artifact_handle import (
 
 def artifact_directory(
     project: str,
-    item_id: int,
+    subject_id: int | str,
     run_id: int,
     *,
     create: bool = True,
@@ -36,7 +36,7 @@ def artifact_directory(
 
     return project_scratch_dir.storage_dir(
         QA_ARTIFACT_STORAGE_KIND,
-        str(int(item_id)),
+        safe_segment(str(subject_id)),
         str(int(run_id)),
         project=project,
         create=create,
@@ -45,7 +45,7 @@ def artifact_directory(
 
 def artifact_file_path(
     project: str,
-    item_id: int,
+    subject_id: int | str,
     run_id: int,
     filename: str,
     *,
@@ -55,12 +55,23 @@ def artifact_file_path(
 
     return project_scratch_dir.storage_path(
         QA_ARTIFACT_STORAGE_KIND,
-        str(int(item_id)),
+        safe_segment(str(subject_id)),
         str(int(run_id)),
         safe_segment(filename),
         project=project,
         create_parent=create_parent,
     )
+
+
+def case_artifact_subject(case: dict[str, Any]) -> int | str:
+    """Return a collision-safe storage segment for one QA case subject."""
+    item_id = case.get("item_id")
+    deployment_run_id = case.get("deployment_run_id")
+    if item_id is not None and deployment_run_id is None:
+        return int(item_id)
+    if item_id is None and deployment_run_id is not None:
+        return f"deployment-run-{safe_segment(str(deployment_run_id))}"
+    raise ValueError("QA case must name exactly one artifact subject")
 
 
 def build_metadata(

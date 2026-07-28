@@ -1,5 +1,4 @@
-"""Dispatch-path tests for ``yoke qa requirement update`` and
-``yoke qa run record-verdict``."""
+"""Dispatch-path tests for QA requirement, run, and plan commands."""
 
 from __future__ import annotations
 
@@ -24,15 +23,20 @@ _CAPTURED_REQUESTS: List[FunctionCallRequest] = []
 def _stub_ok(request: FunctionCallRequest) -> FunctionCallResponse:
     _CAPTURED_REQUESTS.append(request)
     return FunctionCallResponse(
-        success=True, function=request.function, version=request.version,
-        request_id=request.request_id, result={"echo": True},
+        success=True,
+        function=request.function,
+        version=request.version,
+        request_id=request.request_id,
+        result={"echo": True},
     )
 
 
 def _stub_fail(request: FunctionCallRequest) -> FunctionCallResponse:
     _CAPTURED_REQUESTS.append(request)
     return FunctionCallResponse(
-        success=False, function=request.function, version=request.version,
+        success=False,
+        function=request.function,
+        version=request.version,
         request_id=request.request_id,
         error=FunctionError(code="payload_invalid", message="stub"),
     )
@@ -49,9 +53,7 @@ def _run(stub, *argv: str, session_id: str = "test-session") -> int:
             "yoke_core.domain.yoke_function_dispatch.dispatch",
             side_effect=stub,
         ):
-            with patch(
-                "yoke_cli.commands._helpers.ensure_handlers_loaded"
-            ):
+            with patch("yoke_cli.commands._helpers.ensure_handlers_loaded"):
                 with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
                     return cli_main(list(argv))
 
@@ -59,9 +61,16 @@ def _run(stub, *argv: str, session_id: str = "test-session") -> int:
 class TestQaRequirementUpdate:
     def test_dispatches_with_value(self) -> None:
         rc = _run(
-            _stub_ok, "qa", "requirement", "update",
-            "--requirement-id", "55", "--field", "blocking_mode",
-            "--value", "required",
+            _stub_ok,
+            "qa",
+            "requirement",
+            "update",
+            "--requirement-id",
+            "55",
+            "--field",
+            "blocking_mode",
+            "--value",
+            "required",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
@@ -72,8 +81,15 @@ class TestQaRequirementUpdate:
 
     def test_dispatches_with_null(self) -> None:
         rc = _run(
-            _stub_ok, "qa", "requirement", "update",
-            "--requirement-id", "55", "--field", "skip_reason", "--null",
+            _stub_ok,
+            "qa",
+            "requirement",
+            "update",
+            "--requirement-id",
+            "55",
+            "--field",
+            "skip_reason",
+            "--null",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
@@ -81,16 +97,28 @@ class TestQaRequirementUpdate:
 
     def test_missing_value_selector_returns_two(self) -> None:
         rc = _run(
-            _stub_ok, "qa", "requirement", "update",
-            "--requirement-id", "55", "--field", "blocking_mode",
+            _stub_ok,
+            "qa",
+            "requirement",
+            "update",
+            "--requirement-id",
+            "55",
+            "--field",
+            "blocking_mode",
         )
         assert rc == 2
         assert _CAPTURED_REQUESTS == []
 
     def test_missing_field_returns_two(self) -> None:
         rc = _run(
-            _stub_ok, "qa", "requirement", "update",
-            "--requirement-id", "55", "--value", "x",
+            _stub_ok,
+            "qa",
+            "requirement",
+            "update",
+            "--requirement-id",
+            "55",
+            "--value",
+            "x",
         )
         assert rc == 2
 
@@ -98,10 +126,16 @@ class TestQaRequirementUpdate:
 class TestQaRequirementWaive:
     def test_dispatches_operator_force(self) -> None:
         rc = _run(
-            _stub_ok, "qa", "requirement", "waive",
-            "--requirement-id", "55",
-            "--rationale", "operator accepted deployment risk",
-            "--source", "operator",
+            _stub_ok,
+            "qa",
+            "requirement",
+            "waive",
+            "--requirement-id",
+            "55",
+            "--rationale",
+            "operator accepted deployment risk",
+            "--source",
+            "operator",
             "--force",
         )
         assert rc == 0
@@ -117,8 +151,12 @@ class TestQaRequirementWaive:
 
     def test_rejects_missing_rationale(self) -> None:
         rc = _run(
-            _stub_ok, "qa", "requirement", "waive",
-            "--requirement-id", "55",
+            _stub_ok,
+            "qa",
+            "requirement",
+            "waive",
+            "--requirement-id",
+            "55",
         )
         assert rc == 2
         assert _CAPTURED_REQUESTS == []
@@ -127,9 +165,16 @@ class TestQaRequirementWaive:
 class TestQaRunRecordVerdict:
     def test_dispatches_minimal(self) -> None:
         rc = _run(
-            _stub_ok, "qa", "run", "record-verdict",
-            "--requirement-id", "55", "--executor-type", "pytest",
-            "--verdict", "pass",
+            _stub_ok,
+            "qa",
+            "run",
+            "record-verdict",
+            "--requirement-id",
+            "55",
+            "--executor-type",
+            "pytest",
+            "--verdict",
+            "pass",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
@@ -140,29 +185,93 @@ class TestQaRunRecordVerdict:
 
     def test_dispatches_with_optional_fields(self) -> None:
         rc = _run(
-            _stub_ok, "qa", "run", "record-verdict",
-            "--requirement-id", "55", "--executor-type", "pytest",
-            "--verdict", "fail", "--raw-result", "trace...",
-            "--duration-ms", "1200",
+            _stub_ok,
+            "qa",
+            "run",
+            "record-verdict",
+            "--requirement-id",
+            "55",
+            "--executor-type",
+            "pytest",
+            "--verdict",
+            "fail",
+            "--raw-result",
+            "trace...",
+            "--duration-ms",
+            "1200",
         )
         assert rc == 0
         req = _CAPTURED_REQUESTS[-1]
         assert req.payload == {
-            "executor_type": "pytest", "verdict": "fail",
-            "raw_result": "trace...", "duration_ms": 1200,
+            "executor_type": "pytest",
+            "verdict": "fail",
+            "raw_result": "trace...",
+            "duration_ms": 1200,
         }
 
     def test_missing_verdict_returns_two(self) -> None:
         rc = _run(
-            _stub_ok, "qa", "run", "record-verdict",
-            "--requirement-id", "55", "--executor-type", "pytest",
+            _stub_ok,
+            "qa",
+            "run",
+            "record-verdict",
+            "--requirement-id",
+            "55",
+            "--executor-type",
+            "pytest",
         )
         assert rc == 2
 
     def test_dispatch_failure_propagates_exit_one(self) -> None:
         rc = _run(
-            _stub_fail, "qa", "run", "record-verdict",
-            "--requirement-id", "55", "--executor-type", "pytest",
-            "--verdict", "pass",
+            _stub_fail,
+            "qa",
+            "run",
+            "record-verdict",
+            "--requirement-id",
+            "55",
+            "--executor-type",
+            "pytest",
+            "--verdict",
+            "pass",
         )
         assert rc == 1
+
+
+class TestQaDeploymentPlanMaterialize:
+    def test_dispatches_real_deployment_run_subject(self) -> None:
+        rc = _run(
+            _stub_ok,
+            "qa",
+            "plan",
+            "materialize",
+            "--deployment-run-id",
+            "run-20260728-901",
+            "--plan",
+            "installer-campaign",
+            "--project",
+            "yoke",
+        )
+        assert rc == 0
+        req = _CAPTURED_REQUESTS[-1]
+        assert req.function == "qa.plan.materialize"
+        assert req.target.kind == "deployment_run"
+        assert req.target.deployment_run_id == "run-20260728-901"
+        assert req.target.project_id == "yoke"
+        assert req.payload == {
+            "transition_id": None,
+            "plan": "installer-campaign",
+            "project": "yoke",
+        }
+
+    def test_requires_named_plan_and_project(self) -> None:
+        rc = _run(
+            _stub_ok,
+            "qa",
+            "plan",
+            "materialize",
+            "--deployment-run-id",
+            "run-20260728-901",
+        )
+        assert rc == 2
+        assert _CAPTURED_REQUESTS == []

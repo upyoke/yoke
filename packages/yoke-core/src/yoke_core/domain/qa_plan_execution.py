@@ -18,24 +18,36 @@ from yoke_core.domain.qa_plan_execution_result_state import (
     remember_baseline_group_results as _remember_baseline_group_results,
     validated_baseline_group_results as _validated_baseline_group_results,
 )
+from yoke_core.domain.qa_plan_execution_target import build_plan_execution_target
 
 
 def ordered_plan_requirements(
     conn: Any,
     *,
-    item_id: int,
-    transition_id: str,
+    item_id: int | None = None,
+    transition_id: str | None = None,
+    deployment_run_id: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Return Stage-authoritative execution order for one item transition."""
+    """Return server-authoritative execution order for one QA subject."""
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    if (item_id is None) == (deployment_run_id is None):
+        raise QaPlanExecutionError("exactly one QA plan execution subject is required")
+    if item_id is not None:
+        where = f"item_id={marker} AND workflow_transition_id={marker}"
+        params: tuple[Any, ...] = (int(item_id), str(transition_id))
+        subject = f"item {item_id} transition {transition_id!r}"
+    else:
+        where = f"deployment_run_id={marker}"
+        params = (str(deployment_run_id),)
+        subject = f"deployment run {deployment_run_id!r}"
     cursor = conn.execute(
         "SELECT id AS requirement_id, plan_id, plan_case_key AS case_key, "
         "case_position, baseline_position, host_baseline, method_id, "
         "executor_id FROM qa_requirements "
-        f"WHERE item_id={marker} AND workflow_transition_id={marker} "
+        f"WHERE {where} "
         "AND plan_id IS NOT NULL AND waived_at IS NULL "
         "ORDER BY plan_id, case_position, baseline_position, id",
-        (int(item_id), transition_id),
+        params,
     )
     columns = [
         str(getattr(column, "name", None) or column[0]) for column in cursor.description
@@ -49,10 +61,7 @@ def ordered_plan_requirements(
         for row in cursor.fetchall()
     ]
     if not requirements:
-        raise QaPlanExecutionError(
-            f"item {item_id} has no materialized QA plan cases for "
-            f"transition {transition_id!r}"
-        )
+        raise QaPlanExecutionError(f"{subject} has no materialized QA plan cases")
     for row in requirements:
         requirement_id = int(row["requirement_id"])
         if (
@@ -74,8 +83,7 @@ def ordered_plan_requirements(
 def _call_plan_function(
     *,
     function_id: str,
-    item_ref: str,
-    project: Optional[str],
+    target: TargetRef,
     payload: dict[str, Any],
     actor: ActorContext,
 ) -> dict[str, Any]:
@@ -83,11 +91,7 @@ def _call_plan_function(
 
     response = call_qa_function(
         function_id=function_id,
-        target=TargetRef(
-            kind="item",
-            item_ref=str(item_ref),
-            project_id=project,
-        ),
+        target=target,
         payload=payload,
         actor=actor,
     )
@@ -108,8 +112,10 @@ def _execution_actor(actor: Optional[ActorContext]) -> ActorContext:
 
 def execute_plan(
     *,
-    item_ref: str,
-    transition_id: str,
+    item_ref: Optional[str] = None,
+    transition_id: Optional[str] = None,
+    deployment_run_id: Optional[str] = None,
+    plan: Optional[str] = None,
     project: Optional[str] = None,
     base_url: str = "",
     expected_branch: Optional[str] = None,
@@ -119,12 +125,25 @@ def execute_plan(
     actor: Optional[ActorContext] = None,
 ) -> dict[str, Any]:
     """Resume and execute one server-authorized immutable ordered roster."""
+    target, begin_payload = build_plan_execution_target(
+        item_ref=item_ref,
+        transition_id=transition_id,
+        deployment_run_id=deployment_run_id,
+        plan=plan,
+        project=project,
+    )
     resolved_actor = _execution_actor(actor)
+    if deployment_run_id:
+        _call_plan_function(
+            function_id="qa.plan.materialize",
+            target=target,
+            payload={"plan": plan, "project": project},
+            actor=resolved_actor,
+        )
     execution = _call_plan_function(
         function_id="qa.plan_execution.begin",
-        item_ref=item_ref,
-        project=project,
-        payload={"transition_id": transition_id},
+        target=target,
+        payload=begin_payload,
         actor=resolved_actor,
     )
     requirements = execution.get("requirements")
@@ -175,8 +194,7 @@ def execute_plan(
             durable_group: list[dict[str, Any]] | None = None
             _call_plan_function(
                 function_id="qa.plan_execution.heartbeat",
-                item_ref=item_ref,
-                project=project,
+                target=target,
                 payload={"execution_id": execution_id},
                 actor=resolved_actor,
             )
@@ -247,8 +265,7 @@ def execute_plan(
             if advance_result:
                 _call_plan_function(
                     function_id="qa.plan_execution.advance",
-                    item_ref=item_ref,
-                    project=project,
+                    target=target,
                     payload={
                         "execution_id": execution_id,
                         "ordinal": ordinal,
@@ -268,8 +285,7 @@ def execute_plan(
             try:
                 _call_plan_function(
                     function_id="qa.plan_execution.abort",
-                    item_ref=item_ref,
-                    project=project,
+                    target=target,
                     payload={
                         "execution_id": execution_id,
                         "reason": "case-execution-or-recording-error",
@@ -288,14 +304,16 @@ def execute_plan(
     if len(results) == len(requirements) and state not in {"error", "waiting"}:
         _call_plan_function(
             function_id="qa.plan_execution.complete",
-            item_ref=item_ref,
-            project=project,
+            target=target,
             payload={"execution_id": execution_id},
             actor=resolved_actor,
         )
     return {
         "execution_id": execution_id,
-        "item_id": int(execution["item_id"]),
+        "item_id": (
+            int(execution["item_id"]) if execution.get("item_id") is not None else None
+        ),
+        "deployment_run_id": execution.get("deployment_run_id"),
         "transition_id": transition_id,
         "state": state,
         "requirement_count": len(requirements),

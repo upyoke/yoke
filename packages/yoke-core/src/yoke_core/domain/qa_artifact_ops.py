@@ -71,28 +71,40 @@ def linked_artifact_handle(
     try:
         req_row = query_one(
             conn,
-            "SELECT item_id FROM qa_requirements WHERE id = %s",
+            "SELECT item_id,deployment_run_id FROM qa_requirements WHERE id = %s",
             (requirement_id,),
         )
-        if req_row is None or req_row["item_id"] is None:
+        if req_row is None:
+            return serialize_handle(local_handle(str(source_path)))
+        if req_row["item_id"] is not None:
+            project_row = query_one(
+                conn,
+                "SELECT p.slug AS project FROM items i "
+                "JOIN projects p ON p.id=i.project_id WHERE i.id=%s",
+                (int(req_row["item_id"]),),
+            )
+        elif req_row["deployment_run_id"] is not None:
+            project_row = query_one(
+                conn,
+                "SELECT p.slug AS project FROM deployment_runs dr "
+                "JOIN projects p ON p.id=dr.project_id WHERE dr.id=%s",
+                (str(req_row["deployment_run_id"]),),
+            )
+        else:
+            project_row = None
+        if project_row is None or not project_row["project"]:
             return serialize_handle(local_handle(str(source_path)))
 
-        item_id = int(req_row["item_id"])
-        item_row = query_one(
-            conn,
-            "SELECT p.slug AS project FROM items i "
-            "LEFT JOIN projects p ON p.id = i.project_id "
-            "WHERE i.id = %s",
-            (item_id,),
+        from yoke_core.domain.qa_artifacts import (
+            artifact_file_path,
+            case_artifact_subject,
         )
-        if item_row is None or not item_row["project"]:
-            return serialize_handle(local_handle(str(source_path)))
-        project = str(item_row["project"])
-
-        from yoke_core.domain.qa_artifacts import artifact_file_path
 
         target_path = artifact_file_path(
-            project, item_id, run_id, source_path.name,
+            str(project_row["project"]),
+            case_artifact_subject(dict(req_row)),
+            run_id,
+            source_path.name,
         )
         if source_path.resolve() != target_path.resolve():
             shutil.copy2(source_path, target_path)
@@ -183,7 +195,11 @@ def cmd_artifact_list(
             if run_id is not None:
                 where = "qa_run_id = %s"
                 params = (run_id,)
-            rows = query_rows(conn, f"SELECT {_ART_SELECT} FROM qa_artifacts WHERE {where} ORDER BY id", params)
+            rows = query_rows(
+                conn,
+                f"SELECT {_ART_SELECT} FROM qa_artifacts WHERE {where} ORDER BY id",
+                params,
+            )
     finally:
         conn.close()
 

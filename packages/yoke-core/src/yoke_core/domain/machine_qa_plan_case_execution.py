@@ -14,7 +14,7 @@ class MachinePlanCaseDispatchError(RuntimeError):
 def _dispatch(
     function_id: str,
     *,
-    item_id: int,
+    target: TargetRef,
     actor: ActorContext,
     payload: dict[str, Any],
 ) -> dict[str, Any]:
@@ -22,7 +22,7 @@ def _dispatch(
 
     response = call_qa_function(
         function_id=function_id,
-        target=TargetRef(kind="item", item_id=int(item_id)),
+        target=target,
         payload=payload,
         actor=actor,
     )
@@ -42,11 +42,20 @@ def execute_plan_machine_case(
 ) -> dict[str, Any]:
     """Run one server-issued host case without releasing the plan lease."""
     requirement_id = int(case.get("requirement_id") or 0)
-    item_id = int(case.get("item_id") or 0)
-    if requirement_id < 1 or item_id < 1:
+    item_id = case.get("item_id")
+    deployment_run_id = case.get("deployment_run_id")
+    if requirement_id < 1 or bool(item_id) == bool(deployment_run_id):
         raise MachinePlanCaseDispatchError(
-            "plan-scoped Machine QA requires item and requirement ids"
+            "plan-scoped Machine QA requires one subject and a requirement id"
         )
+    target = (
+        TargetRef(kind="item", item_id=int(item_id))
+        if item_id is not None
+        else TargetRef(
+            kind="deployment_run",
+            deployment_run_id=str(deployment_run_id),
+        )
+    )
     request = {
         "execution_id": execution_id,
         "ordinal": int(ordinal),
@@ -54,7 +63,7 @@ def execute_plan_machine_case(
     }
     begun = _dispatch(
         "test_machine.plan_case.begin",
-        item_id=item_id,
+        target=target,
         actor=actor,
         payload=request,
     )
@@ -83,7 +92,7 @@ def execute_plan_machine_case(
         submission = execute_machine_case_contract(execution)
         submitted = _dispatch(
             "test_machine.plan_case.submit",
-            item_id=item_id,
+            target=target,
             actor=actor,
             payload={**request, **submission.payload},
         )

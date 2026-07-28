@@ -6,9 +6,9 @@ into ``qa_runs`` and emitting ``QARunCompleted`` through
 in :func:`yoke_core.domain.qa_execution.cmd_run_add` without the CLI
 sys.exit branches.
 
-``claim_required_kind="item"`` — the active claim is on the target item;
-the qa_requirement row resolves to that item via its item_id (or
-epic_id+task_num for epic-attached requirements).
+``claim_required_kind="qa_subject"`` resolves an item-backed requirement to
+its active item claim and permits a deployment-run-backed requirement through
+the run's project authorization.
 """
 
 from __future__ import annotations

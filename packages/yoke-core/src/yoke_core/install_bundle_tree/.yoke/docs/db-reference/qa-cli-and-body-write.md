@@ -9,6 +9,7 @@ Yoke CLI, which dispatches the registered `qa.*` function ids:
 
 - `yoke qa requirement add|add-batch|list|get|update ...`
 - `yoke qa plan materialize --item PREFIX-N --transition T`
+- `yoke qa plan run --deployment-run-id RUN --plan PLAN --project P`
 - `yoke qa run add|complete|record-verdict|list ...`
 - `yoke qa artifact presign|add ...`
 - `yoke qa gate-summary ...`
@@ -53,6 +54,10 @@ yoke workflow-item epic-task review-insert \
 # List runs
 yoke qa run list --requirement-id 1
 
+# Materialize and execute a named plan against a real deployment run
+yoke qa plan run \
+ --deployment-run-id run-YYYYMMDD-NNN --plan installer-campaign --project yoke
+
 # Attach an artifact
 yoke qa artifact add \
  --requirement-id 1 --run-id 1 --artifact-type screenshot \
@@ -66,7 +71,8 @@ yoke qa gate-summary --item YOK-N --target reviewed-implementation --json
 |---|---|---|
 | `yoke qa requirement add` | `--item PREFIX-N (--qa-kind K \| --method-id M) --qa-phase P --workflow-transition STAGE [opts]` | Insert one requirement bound to a QA-gated stage in the item's pinned workflow |
 | `yoke qa requirement add-batch` | `--item PREFIX-N (--rows-file PATH \| --stdin)` | Insert item-attached requirements atomically; every row requires `workflow_transition_id` |
-| `yoke qa plan materialize` | `--item PREFIX-N --transition T` | Materialize project-default and item-attached plan cases |
+| `yoke qa plan materialize` | `--item PREFIX-N --transition T` or `--deployment-run-id RUN --plan PLAN --project P` | Materialize attached item plans or one named deployment-run plan |
+| `yoke qa plan run` | `--item PREFIX-N --transition T` or `--deployment-run-id RUN --plan PLAN --project P` | Execute one server-issued durable roster against its real subject |
 | `yoke qa requirement list` | `[--item PREFIX-N \| --epic-id N \| --deployment-run-id ID]` | List requirements |
 | `yoke qa requirement get` | `--requirement-id N` | Get one requirement |
 | `yoke qa requirement update` | `--requirement-id N --field FIELD (--value VALUE \| --null)` | Update one mutable field |

@@ -47,8 +47,12 @@ def _run(*argv: str, stdin: str = "") -> tuple[int, FunctionCallRequest]:
 
 def test_method_and_plan_reads_keep_project_context_in_payload() -> None:
     result, request = _run(
-        "qa", "method", "get", "browser-check",
-        "--project", "yoke",
+        "qa",
+        "method",
+        "get",
+        "browser-check",
+        "--project",
+        "yoke",
     )
     assert result == 0
     assert request.function == "qa.method.get"
@@ -59,26 +63,76 @@ def test_method_and_plan_reads_keep_project_context_in_payload() -> None:
     }
 
     result, request = _run(
-        "qa", "plan", "get", "17", "--project", "yoke",
+        "qa",
+        "plan",
+        "get",
+        "17",
+        "--project",
+        "yoke",
     )
     assert result == 0
     assert request.function == "qa.plan.get"
     assert request.payload == {"project": "yoke", "plan_id": 17}
 
+    result, request = _run(
+        "qa",
+        "plan",
+        "get",
+        "17",
+        "--project",
+        "yoke",
+        "--deployment-run-id",
+        "run-20260728-906",
+    )
+    assert result == 0
+    assert request.payload == {
+        "project": "yoke",
+        "plan_id": 17,
+        "deployment_run_id": "run-20260728-906",
+    }
+
+    result, request = _run(
+        "qa",
+        "activity",
+        "list",
+        "--project",
+        "yoke",
+        "--deployment-run-id",
+        "run-20260728-906",
+    )
+    assert result == 0
+    assert request.payload == {
+        "project": "yoke",
+        "deployment_run_id": "run-20260728-906",
+        "limit": 100,
+    }
+
 
 def test_project_method_register_maps_the_complete_contract() -> None:
     result, request = _run(
-        "qa", "project-method", "register",
-        "--project", "yoke",
-        "--slug", "accessibility-scan",
-        "--name", "Accessibility scan",
-        "--description", "Exercise the rendered page.",
-        "--executor", "browser_substrate",
-        "--verdict-path", "agent",
-        "--verdict-contract", "Report pass or fail.",
-        "--evidence-contract", "Attach a screenshot.",
-        "--concurrency-mode", "serial",
-        "--success-policy-params", '{"minimum_score": 90}',
+        "qa",
+        "project-method",
+        "register",
+        "--project",
+        "yoke",
+        "--slug",
+        "accessibility-scan",
+        "--name",
+        "Accessibility scan",
+        "--description",
+        "Exercise the rendered page.",
+        "--executor",
+        "browser_substrate",
+        "--verdict-path",
+        "agent",
+        "--verdict-contract",
+        "Report pass or fail.",
+        "--evidence-contract",
+        "Attach a screenshot.",
+        "--concurrency-mode",
+        "serial",
+        "--success-policy-params",
+        '{"minimum_score": 90}',
     )
     assert result == 0
     assert request.function == "qa.project_method.register"
@@ -99,9 +153,13 @@ def test_project_method_register_maps_the_complete_contract() -> None:
 
 def test_case_replace_reads_a_json_array_from_stdin() -> None:
     result, request = _run(
-        "qa", "plan-cases", "replace",
-        "--project", "yoke",
-        "--plan-id", "17",
+        "qa",
+        "plan-cases",
+        "replace",
+        "--project",
+        "yoke",
+        "--plan-id",
+        "17",
         "--stdin",
         stdin=(
             '[{"case_key":"full","position":1,"method_id":"command",'
@@ -117,22 +175,34 @@ def test_case_replace_reads_a_json_array_from_stdin() -> None:
 
 def test_project_default_and_item_attachment_use_distinct_targets() -> None:
     result, default_request = _run(
-        "qa", "project-default", "set",
-        "--project", "yoke",
-        "--plan-id", "17",
-        "--workflow", "issue",
-        "--transition", "reviewed-implementation",
+        "qa",
+        "project-default",
+        "set",
+        "--project",
+        "yoke",
+        "--plan-id",
+        "17",
+        "--workflow",
+        "issue",
+        "--transition",
+        "reviewed-implementation",
     )
     assert result == 0
     assert default_request.function == "qa.project_default.set"
     assert default_request.target.kind == "global"
 
     result, item_request = _run(
-        "qa", "item-plan", "attach",
-        "--project", "yoke",
-        "--item", TEST_ITEM_REF,
-        "--plan-id", "17",
-        "--transition", "reviewed-implementation",
+        "qa",
+        "item-plan",
+        "attach",
+        "--project",
+        "yoke",
+        "--item",
+        TEST_ITEM_REF,
+        "--plan-id",
+        "17",
+        "--transition",
+        "reviewed-implementation",
     )
     assert result == 0
     assert item_request.function == "qa.item_plan.attach"
@@ -143,9 +213,13 @@ def test_project_default_and_item_attachment_use_distinct_targets() -> None:
 
 def test_artifact_read_uses_requirement_target() -> None:
     result, request = _run(
-        "qa", "artifact", "read",
-        "--requirement-id", "31",
-        "--artifact-id", "4",
+        "qa",
+        "artifact",
+        "read",
+        "--requirement-id",
+        "31",
+        "--artifact-id",
+        "4",
     )
     assert result == 0
     assert request.function == "qa.artifact.read"
@@ -161,10 +235,16 @@ def test_case_replace_rejects_non_array_json_without_dispatch() -> None:
         redirect_stdout(io.StringIO()),
         redirect_stderr(io.StringIO()),
     ):
-        result = cli_main([
-            "qa", "plan-cases", "replace",
-            "--project", "yoke",
-            "--plan-id", "17",
-            "--stdin",
-        ])
+        result = cli_main(
+            [
+                "qa",
+                "plan-cases",
+                "replace",
+                "--project",
+                "yoke",
+                "--plan-id",
+                "17",
+                "--stdin",
+            ]
+        )
     assert result == 2
