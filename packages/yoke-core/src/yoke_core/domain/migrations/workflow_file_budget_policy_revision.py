@@ -55,8 +55,10 @@ def _item_pins(conn: Any) -> tuple[tuple[int, str, int], ...]:
     )
 
 
-def _assert_known_previous_currents(conn: Any) -> None:
-    expected = _expected_definition_pairs(builtin_workflow_version_history())
+def _assert_known_currents(conn: Any) -> None:
+    expected = _expected_definition_pairs(
+        builtin_workflow_version_history() + builtin_workflow_definitions()
+    )
     selected = _selected_definition_pairs(conn)
     if set(selected) != set(expected):
         raise AssertionError("built-in workflow roster is incomplete")
@@ -67,7 +69,7 @@ def _assert_known_previous_currents(conn: Any) -> None:
     ]
     if unknown:
         raise AssertionError(
-            "built-in workflow current is not an exact v1/v2 definition: "
+            "built-in workflow current is not an exact code-owned definition: "
             + ", ".join(sorted(unknown))
         )
 
@@ -89,7 +91,7 @@ def apply(conn: Any) -> None:
     if not db_backend.connection_is_postgres(conn):
         raise RuntimeError("workflow policy revision requires PostgreSQL")
     before = _item_pins(conn)
-    _assert_known_previous_currents(conn)
+    _assert_known_currents(conn)
     converge_builtin_workflows(conn)
     select_current_builtin_workflow_versions(conn)
     if _item_pins(conn) != before:
