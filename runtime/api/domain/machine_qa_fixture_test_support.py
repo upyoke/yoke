@@ -6,6 +6,7 @@ import shlex
 from types import SimpleNamespace
 from typing import Callable
 
+from yoke_contracts.machine_qa_execution import HOST_TEST_COMMAND
 from yoke_core.domain.machine_qa_fixture_operations import (
     MachineQaFixtureOperationExecutor,
 )
@@ -36,9 +37,9 @@ class FakeRemote:
             )
         argv = shlex.split(command)
         returncode = 0
-        if argv[:2] == ["/usr/bin/test", "-f"]:
+        if argv[:2] == [HOST_TEST_COMMAND, "-f"]:
             returncode = 0 if argv[2] in self.existing else 1
-        elif argv[:2] == ["/usr/bin/test", "-d"]:
+        elif argv[:2] == [HOST_TEST_COMMAND, "-d"]:
             returncode = 0 if argv[2] in self.directories else 1
         elif argv[:3] == ["/bin/rm", "-rf", "--"]:
             for path in argv[3:]:

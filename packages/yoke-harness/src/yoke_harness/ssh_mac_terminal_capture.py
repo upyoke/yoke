@@ -14,6 +14,8 @@ from uuid import uuid4
 
 RunRemote = Callable[..., subprocess.CompletedProcess[str]]
 TerminalBackend = str
+_TERMINAL_CAPTURE_TIMEOUT_SECONDS = 10
+_TERMINAL_CAPTURE_POLL_SECONDS = 0.1
 
 
 def detect_terminal_backend(run: RunRemote) -> TerminalBackend | None:
@@ -107,6 +109,83 @@ def resize_terminal_session(
     return run(command, timeout=10).returncode == 0
 
 
+def open_terminal_window(
+    run: RunRemote,
+    *,
+    command: str,
+) -> int | None:
+    """Run one command in a new Terminal window and return that window's id."""
+    apple = "\n".join(
+        [
+            'tell application "Terminal"',
+            f"do script {json.dumps(command)}",
+            "return id of front window",
+            "end tell",
+        ]
+    )
+    result = run(
+        "/usr/bin/osascript -e " + shlex.quote(apple),
+        timeout=20,
+    )
+    try:
+        window_id = int(result.stdout.strip())
+    except (AttributeError, TypeError, ValueError):
+        return None
+    return window_id if result.returncode == 0 and window_id > 0 else None
+
+
+def close_terminal_window(
+    run: RunRemote,
+    *,
+    window_id: int | None,
+) -> None:
+    """Best-effort cleanup for one Terminal window opened by this executor."""
+    if window_id is None:
+        return
+    apple = "\n".join(
+        [
+            'tell application "Terminal"',
+            f"if exists window id {window_id} then",
+            f"close window id {window_id}",
+            "end if",
+            "end tell",
+        ]
+    )
+    run(
+        "/usr/bin/osascript -e " + shlex.quote(apple),
+        timeout=20,
+    )
+
+
+def _terminal_screenshot_payload(
+    run: RunRemote,
+    *,
+    remote: str,
+) -> str | None:
+    """Capture through Terminal.app so macOS applies its Screen Recording grant."""
+    shell_command = f"/usr/sbin/screencapture -x {shlex.quote(remote)}"
+    window_id = open_terminal_window(
+        run,
+        command=shell_command,
+    )
+    if window_id is None:
+        return None
+    try:
+        deadline = time.monotonic() + _TERMINAL_CAPTURE_TIMEOUT_SECONDS
+        while time.monotonic() < deadline:
+            encoded = run(
+                f"/bin/test -s {shlex.quote(remote)} && "
+                f"/usr/bin/base64 < {shlex.quote(remote)}",
+                timeout=10,
+            )
+            if encoded.returncode == 0 and encoded.stdout.strip():
+                return encoded.stdout
+            time.sleep(_TERMINAL_CAPTURE_POLL_SECONDS)
+        return None
+    finally:
+        close_terminal_window(run, window_id=window_id)
+
+
 def verify_terminal_bridge(
     run: RunRemote,
     *,
@@ -122,6 +201,7 @@ def verify_terminal_bridge(
         "screenshot_capture": False,
         "sample_artifact_retained": False,
     }
+    terminal_window_id: int | None = None
     try:
         started = run(
             _start_session_command(
@@ -135,12 +215,11 @@ def verify_terminal_bridge(
             return False, checks, "terminal_bridge_unavailable"
         checks["pty"] = True
         attach = _attach_command(backend, session=session)
-        apple = 'tell application "Terminal" to do script ' + json.dumps(attach)
-        attached = run(
-            "/usr/bin/osascript -e " + shlex.quote(apple),
-            timeout=20,
+        terminal_window_id = open_terminal_window(
+            run,
+            command=attach,
         )
-        if attached.returncode:
+        if terminal_window_id is None:
             return False, checks, "terminal_bridge_unavailable"
         checks["terminal_control"] = (
             wait_for_text(
@@ -152,12 +231,9 @@ def verify_terminal_bridge(
             )
             is not None
         )
-        captured = run(
-            f"/usr/sbin/screencapture -x {shlex.quote(remote)}; "
-            f"test -s {shlex.quote(remote)}",
-            timeout=30,
+        checks["screenshot_capture"] = (
+            _terminal_screenshot_payload(run, remote=remote) is not None
         )
-        checks["screenshot_capture"] = captured.returncode == 0
         ok = all(
             checks[key] for key in ("pty", "terminal_control", "screenshot_capture")
         )
@@ -173,6 +249,7 @@ def verify_terminal_bridge(
             backend=backend,
             session=session,
         )
+        close_terminal_window(run, window_id=terminal_window_id)
 
 
 def wait_for_text(
@@ -212,18 +289,16 @@ def capture_screen(
     evidence_root: Path,
 ) -> Path | None:
     remote = f"/tmp/{session}-{key}.png"
-    result = run(
-        f"/usr/sbin/screencapture -x {shlex.quote(remote)} && "
-        f"/usr/bin/base64 < {shlex.quote(remote)}; "
-        f"rm -f {shlex.quote(remote)}",
-        timeout=30,
-    )
-    if result.returncode or not result.stdout.strip():
-        return None
     try:
-        payload = base64.b64decode(result.stdout)
-    except ValueError:
-        return None
+        encoded = _terminal_screenshot_payload(run, remote=remote)
+        if encoded is None:
+            return None
+        try:
+            payload = base64.b64decode(encoded)
+        except ValueError:
+            return None
+    finally:
+        run(f"rm -f {shlex.quote(remote)}", timeout=10)
     path = evidence_root / f"{key}.png"
     path.write_bytes(payload)
     return path
@@ -233,8 +308,10 @@ __all__ = [
     "RunRemote",
     "TerminalBackend",
     "capture_screen",
+    "close_terminal_window",
     "close_terminal_session",
     "detect_terminal_backend",
+    "open_terminal_window",
     "resize_terminal_session",
     "send_terminal_input",
     "verify_terminal_bridge",

@@ -15,6 +15,7 @@ from yoke_contracts.machine_config.test_machine import (
 
 
 HOST_CONTROL_PROTOCOL = "host-control-v1"
+HOST_TEST_COMMAND = "/bin/test"
 VERIFICATION_CHECKS = ("connection", "terminal_bridge")
 VERIFICATION_BASELINES = ("fresh-host", "shell-preconfigured")
 HostControlOperation = Literal[
@@ -200,6 +201,7 @@ def issue_execution_contract(
 
 __all__ = [
     "HOST_CONTROL_PROTOCOL",
+    "HOST_TEST_COMMAND",
     "HostControlExecutionContract",
     "HostControlOperation",
     "MachineQaCaseContract",
