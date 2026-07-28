@@ -73,6 +73,7 @@ export const STAGES = {
 const POLICY = {
   dash: {
     ownership: "exclusive_session_work_claim",
+    file_budget: "optional",
     path_claims: "optional",
     worktrees: "single_implementation_lane",
     parallelism: "none",
@@ -81,11 +82,13 @@ const POLICY = {
     approvals: "none",
     delivery: "after_merge_action",
     item_posture_allowlist: [
-      "verification", "path_claims", "approval_on_done", "deployment",
+      "verification", "file_budget", "path_claims",
+      "approval_on_done", "deployment",
     ],
   },
   blitz: {
     ownership: "session_item_and_document_claim",
+    file_budget: "optional",
     path_claims: "optional",
     worktrees: "worker_lanes_optional_integration",
     parallelism: "maximum_safe_slices",
@@ -93,10 +96,11 @@ const POLICY = {
     qa: "item_attachments",
     approvals: "optional_named_gate",
     delivery: "continuous_slice_actions",
-    item_posture_allowlist: ["verification"],
+    item_posture_allowlist: ["verification", "file_budget", "path_claims"],
   },
   issue: {
     ownership: "single_item_claim",
+    file_budget: "required",
     path_claims: "required",
     worktrees: "single_implementation_lane",
     parallelism: "inside_item",
@@ -108,6 +112,7 @@ const POLICY = {
   },
   epic: {
     ownership: "item_claim_and_task_lanes",
+    file_budget: "required_per_task",
     path_claims: "required_per_task",
     worktrees: "worker_and_integration_lanes",
     parallelism: "task_graph",
@@ -131,7 +136,7 @@ export function prototypeWorkflow(id) {
     id,
     name: `${id[0].toUpperCase()}${id.slice(1)}`,
     description: DESCRIPTIONS[id],
-    currentVersion: 1,
+    currentVersion: 3,
     stages: STAGES[id].map((stageId, index) => ({
       id: stageId,
       label: stageId,
@@ -151,6 +156,35 @@ export function prototypeWorkflow(id) {
     : id === "issue"
       ? ["harness_skill", "promotion"]
       : ["harness_skill"];
+  const currentDefinition = structuredClone(workflow.definition);
+  const historicalDefinition = structuredClone(currentDefinition);
+  delete historicalDefinition.policies.file_budget;
+  historicalDefinition.policies.item_posture_allowlist = (
+    historicalDefinition.policies.item_posture_allowlist || []
+  ).filter((key) => key !== "file_budget");
+  workflow.versions = [
+    {
+      version: 1,
+      definition_digest: `${id}-v1`,
+      published_at: "2026-07-20T12:00:00Z",
+      published_by_actor_id: null,
+      definition: structuredClone(historicalDefinition),
+    },
+    {
+      version: 2,
+      definition_digest: `${id}-v2`,
+      published_at: "2026-07-24T12:00:00Z",
+      published_by_actor_id: null,
+      definition: structuredClone(historicalDefinition),
+    },
+    {
+      version: 3,
+      definition_digest: `${id}-v3`,
+      published_at: "2026-07-28T12:00:00Z",
+      published_by_actor_id: null,
+      definition: currentDefinition,
+    },
+  ];
   return workflow;
 }
 

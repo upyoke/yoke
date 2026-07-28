@@ -11,6 +11,10 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
+from yoke_core.domain.handlers.qa_plan_materialize import (
+    MaterializeRequest,
+    handle_materialize,
+)
 
 
 class PlanCreateRequest(BaseModel):
@@ -77,10 +81,6 @@ class ItemAttachRequest(BaseModel):
     qa_phase: str = "verification"
 
 
-class MaterializeRequest(BaseModel):
-    transition_id: str = Field(..., min_length=1)
-
-
 class MutationResponse(BaseModel):
     result: Dict[str, Any]
 
@@ -130,7 +130,9 @@ def _project_matches(conn: Any, *, plan_id: int, project: str) -> None:
 
 def handle_plan_create(request: FunctionCallRequest) -> HandlerOutcome:
     payload, error = _payload(
-        request, PlanCreateRequest, target_kind="global",
+        request,
+        PlanCreateRequest,
+        target_kind="global",
     )
     if error is not None:
         return error
@@ -149,7 +151,9 @@ def handle_project_method_register(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
     payload, error = _payload(
-        request, ProjectMethodRegisterRequest, target_kind="global",
+        request,
+        ProjectMethodRegisterRequest,
+        target_kind="global",
     )
     if error is not None:
         return error
@@ -171,7 +175,9 @@ def handle_plan_cases_replace(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
     payload, error = _payload(
-        request, PlanCasesReplaceRequest, target_kind="global",
+        request,
+        PlanCasesReplaceRequest,
+        target_kind="global",
     )
     if error is not None:
         return error
@@ -184,10 +190,14 @@ def handle_plan_cases_replace(
     try:
         with connect() as conn:
             _project_matches(
-                conn, plan_id=payload.plan_id, project=payload.project,
+                conn,
+                plan_id=payload.plan_id,
+                project=payload.project,
             )
             result = replace_plan_cases(
-                conn, plan_id=payload.plan_id, cases=payload.cases,
+                conn,
+                plan_id=payload.plan_id,
+                cases=payload.cases,
             )
     except QaPlanError as exc:
         return _error("incompatible", str(exc), "$.payload")
@@ -198,7 +208,9 @@ def handle_project_default_set(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
     payload, error = _payload(
-        request, ProjectDefaultSetRequest, target_kind="global",
+        request,
+        ProjectDefaultSetRequest,
+        target_kind="global",
     )
     if error is not None:
         return error
@@ -209,11 +221,15 @@ def handle_project_default_set(
     try:
         with connect() as conn:
             _project_matches(
-                conn, plan_id=payload.plan_id, project=payload.project,
+                conn,
+                plan_id=payload.plan_id,
+                project=payload.project,
             )
             data = payload.model_dump(exclude={"project"})
             result = set_project_default(
-                conn, actor_id=_actor_id(request), **data,
+                conn,
+                actor_id=_actor_id(request),
+                **data,
             )
     except QaPlanError as exc:
         return _error("incompatible", str(exc), "$.payload")
@@ -222,7 +238,9 @@ def handle_project_default_set(
 
 def handle_item_attach(request: FunctionCallRequest) -> HandlerOutcome:
     payload, error = _payload(
-        request, ItemAttachRequest, target_kind="item",
+        request,
+        ItemAttachRequest,
+        target_kind="item",
     )
     if error is not None:
         return error
@@ -236,7 +254,9 @@ def handle_item_attach(request: FunctionCallRequest) -> HandlerOutcome:
     try:
         with connect() as conn:
             _project_matches(
-                conn, plan_id=payload.plan_id, project=payload.project,
+                conn,
+                plan_id=payload.plan_id,
+                project=payload.project,
             )
             result = attach_plan_to_item(
                 conn,
@@ -245,31 +265,6 @@ def handle_item_attach(request: FunctionCallRequest) -> HandlerOutcome:
                 transition_id=payload.transition_id,
                 qa_phase=payload.qa_phase,
                 actor_id=_actor_id(request),
-            )
-    except QaPlanError as exc:
-        return _error("incompatible", str(exc), "$.payload")
-    return HandlerOutcome(result_payload={"result": result}, primary_success=True)
-
-
-def handle_materialize(request: FunctionCallRequest) -> HandlerOutcome:
-    payload, error = _payload(
-        request, MaterializeRequest, target_kind="item",
-    )
-    if error is not None:
-        return error
-    item_id = request.target.item_id
-    if item_id is None:
-        return _error("target_invalid", "item id is required", "$.target")
-    from yoke_core.domain.db_helpers import connect
-    from yoke_core.domain.qa_plan_attachments import materialize_for_item
-    from yoke_core.domain.qa_plan_management import QaPlanError
-
-    try:
-        with connect() as conn:
-            result = materialize_for_item(
-                conn,
-                item_id=int(item_id),
-                transition_id=payload.transition_id,
             )
     except QaPlanError as exc:
         return _error("incompatible", str(exc), "$.payload")

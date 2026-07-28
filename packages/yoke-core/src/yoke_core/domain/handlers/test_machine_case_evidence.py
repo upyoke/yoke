@@ -39,7 +39,10 @@ def record_machine_case_result(
         parse_handle,
         serialize_handle,
     )
-    from yoke_core.domain.qa_artifacts import artifact_file_path
+    from yoke_core.domain.qa_artifacts import (
+        artifact_file_path,
+        case_artifact_subject,
+    )
 
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     verdict = {
@@ -107,9 +110,10 @@ def record_machine_case_result(
         recorded.append(int(artifact[0]))
 
     if not waiting:
+        artifact_subject = case_artifact_subject(case)
         evidence_path = artifact_file_path(
             str(case["project"]),
-            int(case["item_id"]),
+            artifact_subject,
             run_id,
             "machine-evidence.json",
         )
@@ -137,7 +141,7 @@ def record_machine_case_result(
                 if source.is_file():
                     target = artifact_file_path(
                         str(case["project"]),
-                        int(case["item_id"]),
+                        artifact_subject,
                         run_id,
                         f"{key}.png",
                     )

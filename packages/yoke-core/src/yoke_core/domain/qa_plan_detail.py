@@ -30,11 +30,18 @@ def _case_result(
     plan_id: int,
     case_key: str,
     host_baseline: str | None,
+    deployment_run_id: str | None,
 ) -> dict:
     marker = _placeholder(conn)
+    deployment_filter = ""
+    params: tuple[Any, ...] = (plan_id, case_key, host_baseline or "")
+    if deployment_run_id is not None:
+        deployment_filter = f" AND q.deployment_run_id={marker}"
+        params += (deployment_run_id,)
     row = query_one(
         conn,
-        "SELECT q.id AS requirement_id, q.host_baseline, q.waived_at, "
+        "SELECT q.id AS requirement_id, q.host_baseline, "
+        "q.deployment_run_id, q.waived_at, "
         "r.id AS run_id, r.verdict, r.case_outcome, "
         "r.capture_degraded_reason, "
         "COALESCE(r.completed_at, r.created_at, q.created_at) AS happened_at "
@@ -44,13 +51,15 @@ def _case_result(
         "ORDER BY rr.created_at DESC, rr.id DESC LIMIT 1"
         f") WHERE q.plan_id={marker} AND q.plan_case_key={marker} "
         f"AND COALESCE(q.host_baseline, '')={marker} "
+        f"{deployment_filter} "
         "ORDER BY happened_at DESC, q.id DESC LIMIT 1",
-        (plan_id, case_key, host_baseline or ""),
+        params,
     )
     if row is None:
         return {
             "requirement_id": None,
             "run_id": None,
+            "deployment_run_id": deployment_run_id,
             "host_baseline": host_baseline,
             "outcome": "not_run",
             "evidence": [],
@@ -76,6 +85,7 @@ def _case_result(
     return {
         "requirement_id": int(row["requirement_id"]),
         "run_id": int(row["run_id"]) if row["run_id"] is not None else None,
+        "deployment_run_id": row["deployment_run_id"],
         "host_baseline": row["host_baseline"],
         "outcome": _outcome(row),
         "capture_degraded_reason": row["capture_degraded_reason"],
@@ -84,7 +94,12 @@ def _case_result(
     }
 
 
-def get_plan(conn: Any, *, plan_id: int) -> dict:
+def get_plan(
+    conn: Any,
+    *,
+    plan_id: int,
+    deployment_run_id: str | None = None,
+) -> dict:
     """Return one plan with ordered cases, attachments and union verdict."""
     marker = _placeholder(conn)
     row = query_one(
@@ -96,6 +111,16 @@ def get_plan(conn: Any, *, plan_id: int) -> dict:
     )
     if row is None:
         raise LookupError(f"QA plan {plan_id} not found")
+    if deployment_run_id is not None:
+        run = query_one(
+            conn,
+            f"SELECT project_id FROM deployment_runs WHERE id={marker}",
+            (deployment_run_id,),
+        )
+        if run is None or int(run["project_id"]) != int(row["project_id"]):
+            raise LookupError(
+                f"deployment run {deployment_run_id!r} not found for QA plan {plan_id}"
+            )
     case_rows = query_rows(
         conn,
         "SELECT c.*, m.name AS method_name, m.executor_id, "
@@ -107,10 +132,7 @@ def get_plan(conn: Any, *, plan_id: int) -> dict:
     capability_contexts = _capability_contexts(
         conn,
         project_id=int(row["project_id"]),
-        capability_kinds={
-            case["required_capability_kind"]
-            for case in case_rows
-        },
+        capability_kinds={case["required_capability_kind"] for case in case_rows},
     )
     cases = []
     proofs = []
@@ -122,6 +144,7 @@ def get_plan(conn: Any, *, plan_id: int) -> dict:
                 int(plan_id),
                 str(case["case_key"]),
                 host_baseline,
+                deployment_run_id,
             )
             for host_baseline in (host_baselines or [None])
         ]
@@ -143,7 +166,8 @@ def get_plan(conn: Any, *, plan_id: int) -> dict:
             "method_config": _decode(case["method_config"], {}),
             "success_policy_id": case["success_policy_id"],
             "success_policy_params": _decode(
-                case["success_policy_params"], None,
+                case["success_policy_params"],
+                None,
             ),
             "host_baselines": host_baselines,
             "entry_surface": case["entry_surface"],
@@ -159,8 +183,7 @@ def get_plan(conn: Any, *, plan_id: int) -> dict:
         outcome = str(proof["outcome"])
         counts[outcome] = counts.get(outcome, 0) + 1
     satisfied = bool(proofs) and all(
-        proof["outcome"] in {"passed", "waived"}
-        for proof in proofs
+        proof["outcome"] in {"passed", "waived"} for proof in proofs
     )
     return {
         "id": int(row["id"]),
@@ -174,6 +197,7 @@ def get_plan(conn: Any, *, plan_id: int) -> dict:
         "created_at": str(row["created_at"]),
         "updated_at": str(row["updated_at"]),
         "retired_at": row["retired_at"],
+        "deployment_run_id": deployment_run_id,
         "cases": cases,
         "attachments": _attachment_rows(conn, int(plan_id)),
         "union": {"satisfied": satisfied, "counts": counts},

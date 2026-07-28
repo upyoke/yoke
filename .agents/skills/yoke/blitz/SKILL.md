@@ -26,6 +26,7 @@ commands taught later are adapters for these envelopes:
 | Function id | Target and payload | CLI adapter |
 |---|---|---|
 | `items.detail.get` | Item target; empty payload | `yoke items detail get ITEM --json` |
+| `workflows.item.get` | Item target; empty payload; centrally resolved effective policies | `yoke workflows item get ITEM --json` |
 | `strategy.execution.get` | Blitz item target; empty payload | `yoke strategy execution get ITEM --json` |
 | `strategy.doc.get` | Project target; `slug` | `yoke strategy doc get SLUG --project PROJECT --json` |
 | `direct_workflow.blitz.survey` | Item target; `paths` plus optional `integration_target` | `yoke direct-workflow blitz survey ITEM --path PATH --json` |
@@ -60,9 +61,10 @@ function id for it.
 - The item claim owns execution. The item-owned document claim owns plan
   revision. Other sessions may use only the append-only `Slice Log` and
   `Live Status` coordination surface.
-- The default Blitz is claim-less at path level. It still surveys before
-  activation and before every slice merge, yields to registered claims,
-  and runs every write in a registered isolated worktree.
+- The default Blitz has File Budget and path claims off. It still obeys the
+  universal 350-line authored-file limit, surveys before activation and every
+  slice merge, yields to registered claims, and runs every write in a
+  registered isolated worktree.
 - The main session owns slice boundaries, integration order, full
   verification, document completion, and parent reconciliation.
 - Core invariants run on every action. A continuous delivery model never
@@ -76,6 +78,7 @@ Read both projections:
 
 ```text
 yoke items detail get ITEM --json
+yoke workflows item get ITEM --json
 yoke strategy execution get ITEM --json
 ```
 
@@ -91,6 +94,16 @@ dependencies, delivery actions, verification, unresolved decisions, and
 parent-strategy relationship. If the document cannot cold-start an
 executor, stop for plan repair; do not fabricate scope.
 
+Read effective `file_budget` and `path_claims` independently from
+`workflows.item.get` at `result.effective_policies.file_budget` and
+`result.effective_policies.path_claims`. `optional` is off; `required` and
+`required_per_task` apply at their reported scopes. Never reconstruct these
+values from raw policies or posture: the central projection owns historical
+compatibility and allowed tightening. When File Budget is enabled, require
+the execution document to carry an enumerated `## File Budget`; the document
+remains the authority, so do not copy it into the item body. When disabled,
+do not require that section. The universal 350-line check always applies.
+
 ### 2. Survey before activation
 
 Translate the document's affected areas into likely file or directory
@@ -104,6 +117,16 @@ Registered claims always win. Coordinate every collision in the execution
 document's append-only surfaces. Wait, reorder slices, or enable and
 register path claims when the document needs stronger serialization.
 Never omit a required area to obtain a clear survey.
+
+Apply the two axes as a four-state matrix:
+
+- both on: pair File Budget edit targets with complete claim coverage;
+- budget off / claims on: derive claim paths from the execution document and
+  survey;
+- budget on / claims off: use the budget for sizing and conflict evidence
+  without registering a claim;
+- both off: the document and survey define execution scope without either
+  artifact.
 
 ### 3. Claim, isolate, and activate atomically
 

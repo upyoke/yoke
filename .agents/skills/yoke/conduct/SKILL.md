@@ -32,11 +32,38 @@ Run '/yoke advance YOK-{N} implementation' to begin issue implementation.
 Check the workflow binding early (in S2 or before the status gate) and halt
 before any worktree or status mutation.
 
+## Effective File-Scope Posture
+
+Before requiring task budgets, activating claims, or pairing either surface,
+call registered `workflows.item.get` through
+`yoke workflows item get ITEM --json`. Consume
+`result.effective_policies.file_budget` and
+`result.effective_policies.path_claims` directly:
+
+- `required_per_task` applies at generated-task scope;
+- `required` applies at item scope;
+- `optional` is off.
+
+Do not reconstruct either axis from raw policies or posture. The central
+projection owns historical schema compatibility and allowed posture
+tightening.
+
+Only when both effective axes are enabled may Conduct compare or pair task
+File Budgets with claims. With budget off and claims on, claim paths come from
+the task execution document/spec and dispatch survey. With budget on and
+claims off, task budgets provide sizing and conflict evidence without claim
+activation. With both off, Conduct requires neither artifact. The 350-line
+authored-file check and Engineer receipt remain universal in all postures.
+
 ## Autonomous Execution Mode
 
 After every subagent returns, the conduct skill MUST immediately continue to the next step. Do not summarize, do not wait for user input. Each subagent return is a transition point, not a stopping point.
 
-Worktree creation/activation is a pure filesystem + DB operation: active `item_worktrees` lane rows are recorded, path claims activate, and the same harness session continues directly into the Engineer/Tester loop — no manual relaunch, no parent-session stop, no claim handoff to a fresh session, no scope envelope. The parent session's authority over each activated worktree is the work-claim it (or its subagent) holds on that item; `lint_session_cwd` reads `work_claims` per tool call and validates target paths against the claimed worktree set + main control plane + free-path allowlist. The orchestrator does control-plane reads (`epic_progress_notes`, `yoke events query`, board rebuilds) freely from the same session — no bounce-throughs.
+Worktree creation/activation is a pure filesystem + DB operation: active
+`item_worktrees` lane rows are recorded, enabled path claims activate, and the
+same harness session continues directly into the Engineer/Tester loop —
+no manual relaunch, no parent-session stop, no claim handoff to a fresh session,
+no scope envelope.
 
 ## Thin Conduct Principle
 

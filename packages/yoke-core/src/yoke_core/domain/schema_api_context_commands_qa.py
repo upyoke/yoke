@@ -128,7 +128,9 @@ QA_COMMANDS: list[dict] = [
             "--raw-result 'Full backend pytest passed: N passed, K skipped.'"
         ),
         "notes": (
-            "Registered write qa.run.add — item-claim-gated. "
+            "Registered write qa.run.add — item claims remain required for "
+            "item-backed requirements; deployment-run requirements use their "
+            "server-resolved run subject. "
             "`--raw-result` is a literal string; `--qa-kind` defaults "
             "to the requirement's kind (mismatch is a hard error). "
             "For multi-line evidence, read the file and pass the literal "
@@ -154,6 +156,17 @@ QA_COMMANDS: list[dict] = [
     },
     {
         "topic": "qa",
+        "purpose": (
+            "Execute a named project plan on its real deployment-run subject "
+            "(never a synthetic item or host_control bypass)"
+        ),
+        "recipe": (
+            "yoke qa plan run --deployment-run-id RUN "
+            "--plan installer-campaign --project yoke"
+        ),
+    },
+    {
+        "topic": "qa",
         "purpose": "Execute one materialized Browser method case",
         "recipe": (
             "yoke qa case run --requirement-id R "
@@ -168,7 +181,10 @@ QA_COMMANDS: list[dict] = [
             "item claim and ambient session are required. browser-check "
             "decides automatically; "
             "browser-inspection records inconclusive evidence and creates "
-            "a review request. Never add a parallel Browser run manually."
+            "a review request. Item-backed cases require the active item "
+            "claim; deployment-run cases require project permission and the "
+            "bound execution session. Never add a parallel Browser run "
+            "manually."
         ),
     },
     {

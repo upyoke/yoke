@@ -28,15 +28,23 @@ def baseline_group_cases(
         )
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     method_ids = sorted(MACHINE_METHODS)
+    item_id = anchor.get("item_id")
+    deployment_run_id = anchor.get("deployment_run_id")
+    if bool(item_id) == bool(deployment_run_id):
+        raise ValueError("baseline-group requirement has no unique QA subject")
+    subject_column = "item_id" if item_id is not None else "deployment_run_id"
+    subject_value: int | str = (
+        int(item_id) if item_id is not None else str(deployment_run_id)
+    )
     rows = conn.execute(
         "SELECT id FROM qa_requirements "
-        f"WHERE item_id={marker} AND plan_id={marker} "
+        f"WHERE {subject_column}={marker} AND plan_id={marker} "
         f"AND COALESCE(workflow_transition_id, '')={marker} "
         f"AND host_baseline={marker} AND waived_at IS NULL "
         f"AND method_id IN ({', '.join(marker for _ in method_ids)}) "
         "ORDER BY case_position, baseline_position, id",
         (
-            int(anchor["item_id"]),
+            subject_value,
             int(plan_id),
             str(anchor.get("workflow_transition_id") or ""),
             baseline,
@@ -53,7 +61,8 @@ def baseline_group_cases(
         )
     if any(
         not _is_machine_case(case)
-        or int(case["item_id"]) != int(anchor["item_id"])
+        or case.get("item_id") != anchor.get("item_id")
+        or case.get("deployment_run_id") != anchor.get("deployment_run_id")
         or int(case["plan_id"]) != int(plan_id)
         or str(case.get("workflow_transition_id") or "")
         != str(anchor.get("workflow_transition_id") or "")

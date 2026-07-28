@@ -22,7 +22,8 @@ WORKFLOWS_VERSION_GET_USAGE = (
     "yoke workflows version get WORKFLOW VERSION [--session-id S] [--json]"
 )
 WORKFLOWS_POLICY_DEFAULTS_PUBLISH_USAGE = (
-    "yoke workflows policy-defaults publish WORKFLOW --path-claims on|off "
+    "yoke workflows policy-defaults publish WORKFLOW "
+    "(--file-budget on|off | --path-claims on|off) "
     "--expected-current-version N [--session-id S] [--json]"
 )
 
@@ -107,7 +108,9 @@ def workflows_policy_defaults_publish(args: List[str]) -> int:
         description=WORKFLOWS_POLICY_DEFAULTS_PUBLISH_USAGE,
     )
     parser.add_argument("workflow")
-    parser.add_argument("--path-claims", choices=("on", "off"), required=True)
+    policy = parser.add_mutually_exclusive_group(required=True)
+    policy.add_argument("--file-budget", choices=("on", "off"))
+    policy.add_argument("--path-claims", choices=("on", "off"))
     parser.add_argument("--expected-current-version", type=int, required=True)
     add_session_arg(parser)
     add_json_arg(parser)
@@ -119,21 +122,32 @@ def workflows_policy_defaults_publish(args: List[str]) -> int:
 
     def _human_writer(response, stdout, stderr) -> None:
         result = response.result or {}
-        path_claims = "on" if result.get("path_claims_default") else "off"
+        key = (
+            "file_budget_default"
+            if result.get("file_budget_default") is not None
+            else "path_claims_default"
+        )
+        label = "file-budget" if key == "file_budget_default" else "path-claims"
+        value = "on" if result.get(key) else "off"
         print(
             f"workflow-defaults-published|"
             f"{result.get('workflow_id') or ''}|"
-            f"{result.get('version') or ''}|path-claims={path_claims}",
+            f"{result.get('version') or ''}|{label}={value}",
             file=stdout,
         )
 
+    policy_payload = (
+        {"file_budget_default": parsed.file_budget == "on"}
+        if parsed.file_budget is not None
+        else {"path_claims_default": parsed.path_claims == "on"}
+    )
     return dispatch_and_emit(
         function_id="workflows.policy_defaults.publish",
         target=TargetRef(kind="global"),
         payload={
             "workflow_id": parsed.workflow,
             "expected_current_version": parsed.expected_current_version,
-            "path_claims_default": parsed.path_claims == "on",
+            **policy_payload,
         },
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,

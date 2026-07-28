@@ -7,18 +7,19 @@ selecting another current version affects new items only.
 
 ## Built-in workflows
 
-| Workflow | Use it for | Normal entry |
-|---|---|---|
-| **Dash** | One instruction that can be filed and executed in seconds | Web New Item, `yoke dash`, or `/yoke dash` |
-| **Blitz** | A substantial document-led plan executed as integrated slices | `/yoke idea --workflow blitz "<title>"`, `/yoke refine`, then `/yoke blitz` |
-| **Issue** | A bounded change whose item body is the specification | `/yoke idea`, then refine/advance |
-| **Epic** | Work that needs Architect decomposition and task lanes | `/yoke idea`, then shepherd/conduct |
+| Workflow | Use it for | File Budget / path claims | Normal entry |
+|---|---|---|---|
+| **Dash** | One instruction that can be filed and executed in seconds | optional off / optional off | Web New Item, `yoke dash`, or `/yoke dash` |
+| **Blitz** | A substantial document-led plan executed as integrated slices | optional off / optional off | `/yoke idea --workflow blitz "<title>"`, `/yoke refine`, then `/yoke blitz` |
+| **Issue** | A bounded change whose item body is the specification | required / required | `/yoke idea`, then refine/advance |
+| **Epic** | Work that needs Architect decomposition and task lanes | required per task / required per task | `/yoke idea`, then shepherd/conduct |
 
 Choose the smallest workflow whose structure matches the work. Tightening an
-item can add verification, claims, approval, or delivery requirements where
-the workflow allows it. Tightening never removes a workflow gate or a core
-invariant. If the structure itself is wrong, create the work under the right
-workflow instead of trying to loosen the current one.
+item can independently add File Budget, verification, claims, approval, or
+delivery requirements where the workflow allows it. File Budget and path
+claims are separate axes: parity applies only when both are enabled. The
+350-line authored-file limit is universal even when File Budget is off.
+Tightening never removes a workflow gate or core invariant.
 
 ## Inspect definitions and item pins
 

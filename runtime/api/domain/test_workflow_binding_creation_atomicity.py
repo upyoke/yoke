@@ -70,6 +70,7 @@ def test_migration_first_rejects_an_epic_task_claim_under_item_only_policy(
     def item_only(definition: dict[str, Any]) -> None:
         definition["policies"]["ownership"] = "single_item_claim"
         definition["policies"]["generated_children"] = "none"
+        definition["policies"]["file_budget"] = "optional"
 
     target = _publish(
         test_db,
@@ -141,6 +142,7 @@ def test_reactivation_does_not_restore_a_claim_disallowed_by_new_pin(
     def item_only(definition: dict[str, Any]) -> None:
         definition["policies"]["ownership"] = "single_item_claim"
         definition["policies"]["generated_children"] = "none"
+        definition["policies"]["file_budget"] = "optional"
 
     target = _publish(
         test_db,
@@ -310,6 +312,7 @@ def test_item_path_claim_rejects_task_scoped_current_pin(test_db: Any) -> None:
 
     def per_task(definition: dict[str, Any]) -> None:
         definition["policies"]["path_claims"] = "required_per_task"
+        definition["policies"]["generated_children"] = "epic_tasks"
 
     target = _publish(
         test_db,

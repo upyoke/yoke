@@ -202,6 +202,7 @@ test("the editable path-claims default publishes a new immutable version", async
     }],
     policies: {
       ownership: "exclusive_session_work_claim",
+      file_budget: "optional",
       path_claims: "optional",
       worktrees: "single_implementation_lane",
       parallelism: "none",
@@ -276,6 +277,7 @@ test("a failed path-claims publish restores its dialog controls", async (t) => {
     currentVersion: 1,
     policies: {
       ownership: "exclusive_session_work_claim",
+      file_budget: "optional",
       path_claims: "optional",
       worktrees: "single_implementation_lane",
       parallelism: "none",

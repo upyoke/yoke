@@ -25,6 +25,8 @@ class WorkflowItemPinResponse(BaseModel):
     definition_digest: str
     status: str
     workflow_posture: Dict[str, Any]
+    policies: Dict[str, Any]
+    effective_policies: Dict[str, Any]
     worktree_policy: str
     allowed_lane_roles: List[str]
     required_lane_roles: List[str]
@@ -64,7 +66,8 @@ class WorkflowVersionGetResponse(BaseModel):
 class WorkflowPolicyDefaultsPublishRequest(BaseModel):
     workflow_id: str
     expected_current_version: int
-    path_claims_default: bool
+    file_budget_default: Optional[bool] = None
+    path_claims_default: Optional[bool] = None
 
 
 class WorkflowPolicyDefaultsPublishResponse(BaseModel):
@@ -72,7 +75,8 @@ class WorkflowPolicyDefaultsPublishResponse(BaseModel):
     version: int
     version_id: int
     definition_digest: str
-    path_claims_default: bool
+    file_budget_default: Optional[bool] = None
+    path_claims_default: Optional[bool] = None
 
 
 class WorkflowItemMigrateRequest(BaseModel):
@@ -219,6 +223,7 @@ def handle_workflows_policy_defaults_publish(
                 conn,
                 workflow_id=payload.workflow_id,
                 expected_current_version=payload.expected_current_version,
+                file_budget_default=payload.file_budget_default,
                 path_claims_default=payload.path_claims_default,
                 published_by_actor_id=actor_id,
             )

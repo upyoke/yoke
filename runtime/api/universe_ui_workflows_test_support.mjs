@@ -75,6 +75,7 @@ export function workflowFixture({
       }],
       policies: policies || {
         ownership: "single_item_claim",
+        file_budget: "required",
         path_claims: "required",
         worktrees: "single_implementation_lane",
         parallelism: "inside_item",

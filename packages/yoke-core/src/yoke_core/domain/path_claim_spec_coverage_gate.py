@@ -159,11 +159,14 @@ def evaluate(
     if conn is None:
         conn = _connect_raw()
     try:
-        from yoke_core.domain.path_claim_task_bindings import (
-            pinned_task_claim_policy,
+        from yoke_core.domain.workflow_effective_policies import (
+            load_item_effective_workflow_policies,
         )
 
-        task_scoped = pinned_task_claim_policy(conn, item_id)
+        effective = load_item_effective_workflow_policies(conn, item_id)
+        if not effective.requires_budget_claim_parity:
+            return CoverageResult(item_id=item_id, is_blocked=False)
+        task_scoped = effective.path_claims == "required_per_task"
         if task_scoped:
             from yoke_core.domain.path_claim_task_coverage import (
                 bound_task_claim_targets,

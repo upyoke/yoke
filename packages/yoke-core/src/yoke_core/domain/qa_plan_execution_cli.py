@@ -22,8 +22,11 @@ def run(args: List[str]) -> int:
             "plan/case/baseline order through their registered executors."
         ),
     )
-    parser.add_argument("--item", required=True)
-    parser.add_argument("--transition", required=True)
+    subject = parser.add_mutually_exclusive_group(required=True)
+    subject.add_argument("--item")
+    subject.add_argument("--deployment-run-id")
+    parser.add_argument("--transition")
+    parser.add_argument("--plan")
     parser.add_argument("--project")
     parser.add_argument("--base-url", default="")
     parser.add_argument("--expected-branch")
@@ -33,6 +36,16 @@ def run(args: List[str]) -> int:
     parsed = parser.parse_args(args)
     if bool(parsed.expected_branch) != bool(parsed.expected_sha):
         parser.error("--expected-branch and --expected-sha must be paired")
+    if parsed.item and not parsed.transition:
+        parser.error("--item requires --transition")
+    if parsed.item and parsed.plan:
+        parser.error("--item uses attached plans and does not accept --plan")
+    if parsed.deployment_run_id and not parsed.plan:
+        parser.error("--deployment-run-id requires --plan")
+    if parsed.deployment_run_id and parsed.transition:
+        parser.error("--deployment-run-id does not accept --transition")
+    if parsed.deployment_run_id and not parsed.project:
+        parser.error("--deployment-run-id requires --project")
 
     from yoke_core.api.service_client_structured_api_adapter import build_actor
 
@@ -41,6 +54,8 @@ def run(args: List[str]) -> int:
         result = execute_plan(
             item_ref=parsed.item,
             transition_id=parsed.transition,
+            deployment_run_id=parsed.deployment_run_id,
+            plan=parsed.plan,
             project=parsed.project,
             base_url=parsed.base_url,
             expected_branch=parsed.expected_branch,

@@ -18,8 +18,9 @@ Public surface:
 - :func:`lookup`, :func:`list_entries`, :func:`schema_for`.
 - :func:`reset_registry_for_tests` — test-only reset hook.
 
-The five values the dispatcher accepts for ``claim_required_kind`` are
-``None``, ``"item"``, ``"epic"``, ``"self_only"``, ``"operator_override"``.
+The six values the dispatcher accepts for ``claim_required_kind`` are
+``None``, ``"item"``, ``"epic"``, ``"qa_subject"``, ``"self_only"``,
+``"operator_override"``.
 Any other string raises :class:`RegistryValidationError` at import time.
 """
 
@@ -34,13 +35,12 @@ from yoke_contracts.api.function_call import validate_function_id
 
 
 _STABILITY_VALUES = frozenset({"stable", "beta", "deprecated", "internal"})
-_ADAPTER_STATUS_VALUES = frozenset(
-    {"live", "deprecated", "retired", "internal"}
-)
+_ADAPTER_STATUS_VALUES = frozenset({"live", "deprecated", "retired", "internal"})
 _CLAIM_REQUIRED_KIND_VALUES: Tuple[Optional[str], ...] = (
     None,
     "item",
     "epic",
+    "qa_subject",
     "self_only",
     "operator_override",
 )

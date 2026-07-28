@@ -27,13 +27,13 @@ ITEM_ID = 948
 def _stage(definition: dict, stage_id: str) -> dict:
     return next(stage for stage in definition["stages"] if stage["id"] == stage_id)
 
-
 def _mutate_target(definition: dict, case: str) -> None:
     policies = definition["policies"]
     if case == "work_claim":
         policies["ownership"] = "exclusive_session_work_claim"
     elif case == "path_claim":
         policies["path_claims"] = "required_per_task"
+        policies["generated_children"] = "epic_tasks"
     elif case == "worktree":
         policies["worktrees"] = "worker_and_integration_lanes"
     elif case == "approval":

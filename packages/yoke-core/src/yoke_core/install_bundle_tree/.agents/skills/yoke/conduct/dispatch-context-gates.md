@@ -158,7 +158,7 @@ These gates run after each Engineer returns, before advancing to Tester dispatch
  - Accept only `PASS` or explicit `SKIP` for `test_plan`, `files_touched`, and `edited_tests`.
  - Require `clean_worktree: PASS`.
  - For epic items, require `progress_notes: PASS` whenever `HEAD` differs from `ATTEMPT_BASELINE_{_id}`; only `SKIP` when no new commit landed during this attempt. For issue items, require an explicit skip reason.
- - Require `file_budget: PASS` when the submission created or grew authored code and every authored file is at or below 350 lines per `yoke_core.domain.file_line_check`; `file_budget: SKIP` is valid only when no authored code was created or grown. Missing, malformed, `FAIL`, or `UNKNOWN` values fail the gate.
+ - Require `file_budget: PASS` when the submission created or grew authored code and every authored file is at or below the universal 350-line limit per `yoke_core.domain.file_line_check`; `file_budget: SKIP` is valid only when no authored code was created or grown. This receipt check applies even when effective File Budget policy is off; it attests the line limit, not the presence of a `## File Budget` section. Missing, malformed, `FAIL`, or `UNKNOWN` values fail the gate.
  - If the receipt command exits nonzero because the block is missing, any key is missing, or any required line is `FAIL` / malformed / `UNKNOWN`, immediately re-dispatch Engineer for that same item and same attempt using the **submit-only remediation contract**. Do NOT increment `_attempt_{_id}`; this is submission-discipline remediation, not a Tester retry.
 
  **Submit-only remediation contract:** When re-dispatching Engineer for a failed submission, the remediation prompt MUST include these constraints:

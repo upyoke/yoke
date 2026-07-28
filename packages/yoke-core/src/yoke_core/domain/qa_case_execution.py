@@ -174,11 +174,14 @@ def _command_result(
     )
     run_id = int(run["qa_run_id"])
     from yoke_core.domain.qa_artifact_handle import local_handle
-    from yoke_core.domain.qa_artifacts import artifact_file_path
+    from yoke_core.domain.qa_artifacts import (
+        artifact_file_path,
+        case_artifact_subject,
+    )
 
     output_path = artifact_file_path(
         str(case["project"]),
-        int(case["item_id"]),
+        case_artifact_subject(case),
         run_id,
         "command-output.txt",
     )

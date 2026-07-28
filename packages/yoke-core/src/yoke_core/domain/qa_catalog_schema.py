@@ -264,6 +264,14 @@ def create_qa_catalog_tables(conn: Any) -> None:
         "COALESCE(host_baseline, ''), workflow_transition_id"
         ") WHERE item_id IS NOT NULL AND plan_id IS NOT NULL"
     )
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS "
+        "idx_qa_requirement_deployment_materialization "
+        "ON qa_requirements("
+        "deployment_run_id, plan_id, plan_case_key, "
+        "COALESCE(host_baseline, '')"
+        ") WHERE deployment_run_id IS NOT NULL AND plan_id IS NOT NULL"
+    )
     _seed_builtin_methods(conn)
     conn.commit()
 

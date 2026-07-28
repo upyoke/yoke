@@ -16,21 +16,21 @@ def register(registry) -> None:
         _plan_case.TestMachinePlanCaseBeginResponse,
         stability="stable",
         owner_module=__name__,
-        target_kinds=["item"],
+        target_kinds=["item", "deployment_run"],
         side_effects=[
             "qa_plan_execution_write",
             "coordination_lease",
         ],
         emitted_event_names=["LeaseAcquired", "YokeFunctionCalled"],
         guardrails=[
-            "item_claim_required",
+            "qa_subject_authority",
             "actor_session_bound",
             "durable_plan_cursor",
             "serial_plan_lease",
             "secret_free_contract",
         ],
         adapter_status="internal",
-        claim_required_kind="item",
+        claim_required_kind="qa_subject",
         ambient_session_required=True,
     )
     registry.register(
@@ -40,7 +40,7 @@ def register(registry) -> None:
         _plan_case.TestMachinePlanCaseSubmitResponse,
         stability="stable",
         owner_module=__name__,
-        target_kinds=["item"],
+        target_kinds=["item", "deployment_run"],
         side_effects=[
             "qa_plan_execution_write",
             "coordination_lease_heartbeat",
@@ -53,7 +53,7 @@ def register(registry) -> None:
             "YokeFunctionCalled",
         ],
         guardrails=[
-            "item_claim_required",
+            "qa_subject_authority",
             "actor_session_bound",
             "durable_plan_cursor",
             "immutable_case_context",
@@ -61,7 +61,7 @@ def register(registry) -> None:
             "secret_free_result",
         ],
         adapter_status="internal",
-        claim_required_kind="item",
+        claim_required_kind="qa_subject",
         ambient_session_required=True,
     )
     registry.register(
@@ -76,7 +76,7 @@ def register(registry) -> None:
         emitted_event_names=["LeaseReleased", "YokeFunctionCalled"],
         guardrails=["actor_owned_lease", "contract_digest"],
         adapter_status="internal",
-        claim_required_kind="item",
+        claim_required_kind="qa_subject",
     )
     registry.register(
         "test_machine.baseline_group_execute",
@@ -92,7 +92,7 @@ def register(registry) -> None:
             "credential_owning_client_required",
         ],
         adapter_status="internal",
-        claim_required_kind="item",
+        claim_required_kind="qa_subject",
     )
     registry.register(
         "test_machine.case.abort",
@@ -106,7 +106,7 @@ def register(registry) -> None:
         emitted_event_names=["LeaseReleased", "YokeFunctionCalled"],
         guardrails=["actor_owned_lease", "contract_digest"],
         adapter_status="internal",
-        claim_required_kind="item",
+        claim_required_kind="qa_subject",
     )
     registry.register(
         "test_machine.case_execute",
@@ -122,7 +122,7 @@ def register(registry) -> None:
             "credential_owning_client_required",
         ],
         adapter_status="internal",
-        claim_required_kind="item",
+        claim_required_kind="qa_subject",
     )
     registry.register(
         "test_machine.baseline_group.begin",
@@ -142,7 +142,7 @@ def register(registry) -> None:
             "secret_free_contract",
         ],
         adapter_status="internal",
-        claim_required_kind="item",
+        claim_required_kind="qa_subject",
     )
     registry.register(
         "test_machine.baseline_group.submit",
@@ -165,7 +165,7 @@ def register(registry) -> None:
             "secret_free_result",
         ],
         adapter_status="internal",
-        claim_required_kind="item",
+        claim_required_kind="qa_subject",
     )
     registry.register(
         "test_machine.case.begin",
@@ -184,7 +184,7 @@ def register(registry) -> None:
             "secret_free_contract",
         ],
         adapter_status="internal",
-        claim_required_kind="item",
+        claim_required_kind="qa_subject",
     )
     registry.register(
         "test_machine.case.submit",
@@ -207,7 +207,7 @@ def register(registry) -> None:
             "secret_free_result",
         ],
         adapter_status="internal",
-        claim_required_kind="item",
+        claim_required_kind="qa_subject",
     )
     registry.register(
         "test_machine.get",

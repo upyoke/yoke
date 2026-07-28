@@ -1,9 +1,18 @@
-# Idea — File Budget Section
+# Idea — File Budget Policy And Section
 
-The File Budget section of every spec records the existing files the
+File Budget is a workflow policy axis independent of path claims. Read its
+central effective value from
+`workflows.item.get` → `result.effective_policies.file_budget` before
+authoring this section. `required` enables it on the item,
+`required_per_task` enables it on each generated task, and `optional` is
+off. Never derive the effective value from raw pinned policies or posture.
+
+When enabled, the File Budget section records the existing files the
 implementation will touch, their current line counts, and an explicit
-sibling-module plan when any file is at or above 330 lines (the cap
-minus 20-line headroom).
+sibling-module plan when any file is at or above 330 lines (the cap minus
+20-line headroom). When disabled, omit the section; the universal 350-line
+authored-file limit still applies through
+`yoke_core.domain.file_line_check`.
 
 **Edit targets only.** A file appears in `## File Budget` only if the
 implementation will create, modify, or delete it. Context-only references
@@ -15,8 +24,8 @@ as an edit target and enforces `FILE_BUDGET_NOT_IN_CLAIM`: a context-only
 mention triggers a false-positive remediation prompt. Keep the Budget
 to the actual blast radius.
 
-The pre-handoff readiness check at idea exit and refine entry validates
-this section through the registered readiness surface:
+When enabled, the pre-handoff readiness check at idea exit and refine entry
+validates this section through the registered readiness surface:
 
 ```bash
 yoke readiness check <item_id>
@@ -80,9 +89,9 @@ When `project != yoke` (e.g. `project=external-webapp` checked out at `/Users/de
 
 ## File Budget vs path-claim consistency
 
-Every file in the File Budget MUST appear in the item's path-claim
-declared coverage, and vice versa. The readiness check enforces the
-intersection:
+Parity is conditional, not universal. Only when both effective axes are
+enabled must every File Budget path appear in the path claim's declared
+coverage and vice versa. The readiness check then enforces the intersection:
 
 - `FILE_BUDGET_NOT_IN_CLAIM` — File Budget names a file the claim does
   not declare. Widen the claim or remove the file from the Budget if
@@ -91,7 +100,7 @@ intersection:
   not name. Add the file to the Budget or narrow the claim if it is
   no longer touched.
 
-The mismatch class is a recurring one: under-enumerated File Budget,
-claim copies that under-enumeration, refine has to surface the gap
-manually. The readiness check at idea exit catches this before refine
-sees it.
+When File Budget is off and path claims are on, derive claim paths from the
+execution document, instruction, or investigated spec scope. When File Budget
+is on and path claims are off, the budget remains sizing and conflict evidence
+and no claim is registered. When both are off, neither artifact is required.

@@ -52,7 +52,7 @@ This is the broader version of the gate template that catches the "spec named `y
 
 ## 1b. Active Path Claim Conflicts Are Coordination, Not Scope
 
-**Rule:** claimed paths do not narrow work item scope. When inference (or later body drafting) discovers that a required file is already covered by another item's active or non-terminal path claim, do **not** remove the file from the work item, do **not** rewrite the spec to avoid the overlap, and do **not** narrow the File Budget to whatever paths happen to be unclaimed. Active path claims are coordination/dependency/blocking facts about who currently coordinates work on a path — they never authorize omitting a required file from a new work item. "Avoid the overlap" never means "omit the required file."
+**Rule:** claimed paths do not narrow work item scope. When inference (or later body drafting) discovers that a required file is already covered by another item's active or non-terminal path claim, do **not** remove the file from the work item, do **not** rewrite the spec to avoid the overlap, and do **not** narrow any enabled File Budget to whatever paths happen to be unclaimed. Active path claims are coordination/dependency/blocking facts about who currently coordinates work on a path — they never authorize omitting a required file from a new work item. "Avoid the overlap" never means "omit the required file."
 
 The accepted remediations when an overlap is observed are:
 
@@ -63,7 +63,10 @@ The accepted remediations when an overlap is observed are:
 - Ask the holder to narrow or cancel their claim.
 - Use operator override (`path-claim-override`) only as a last resort.
 
-Keep every required file in the File Budget and in this item's path-claim attempt regardless of overlap. The path-claim workflow handles the conflict downstream; idea intake does not. See `AGENTS.md` `## Path Claims — Hard Rule` for the full rule.
+Keep every required file in the execution artifact and in each enabled File
+Budget or path-claim surface regardless of overlap. The path-claim workflow
+handles the conflict downstream; idea intake does not. See `AGENTS.md`
+`## Path Claims — Hard Rule` for the full rule.
 
 ## 2. Research And Infer All Fields From Context
 

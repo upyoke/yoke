@@ -93,7 +93,8 @@ unprotected unless both layers below hold:
   step 5b acquires a draft work claim with reason `draft-in-progress`
   immediately after `items add` returns the YOK-N id, and
   `body-and-sync.md` step 10b releases it with reason `idea-complete`
-  once the spec/body, AC normalization, and File Budget have landed.
+  once the spec/body, AC normalization, and every enabled File Budget or
+  path-claim artifact has landed.
   The release path canonicalizes `idea-complete` → `handed_off` for
   schema storage and preserves the original intent on the `WorkReleased`
   event. While the draft claim is held, another harness's

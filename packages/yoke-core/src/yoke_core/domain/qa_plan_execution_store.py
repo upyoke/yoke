@@ -29,10 +29,11 @@ def roster_digest(roster: list[dict[str, Any]]) -> str:
 def build_execution_roster(
     conn: Any,
     *,
-    item_id: int,
-    transition_id: str,
+    item_id: int | None = None,
+    transition_id: str | None = None,
+    deployment_run_id: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Capture the complete immutable execution context in Stage order."""
+    """Capture the complete immutable execution context in server order."""
     from yoke_core.domain.qa_case_execution_context import (
         get_case_execution_context,
     )
@@ -42,6 +43,7 @@ def build_execution_roster(
         conn,
         item_id=item_id,
         transition_id=transition_id,
+        deployment_run_id=deployment_run_id,
     )
     roster: list[dict[str, Any]] = []
     for ordinal, order in enumerate(ordered):
@@ -80,16 +82,27 @@ def _first_value(row: Any, key: str) -> Any:
 def live_plan_execution_id(
     conn: Any,
     *,
-    item_id: int,
-    transition_id: str,
+    item_id: int | None = None,
+    transition_id: str | None = None,
+    deployment_run_id: str | None = None,
 ) -> str | None:
     """Return the current live execution id across supported row factories."""
     placeholder = marker(conn)
+    if (item_id is None) == (deployment_run_id is None):
+        raise QaPlanExecutionStateError(
+            "exactly one QA plan execution subject is required"
+        )
+    if item_id is not None:
+        where = f"item_id={placeholder} AND transition_id={placeholder}"
+        params: tuple[Any, ...] = (int(item_id), str(transition_id))
+    else:
+        where = f"deployment_run_id={placeholder}"
+        params = (str(deployment_run_id),)
     cursor = conn.execute(
         "SELECT id FROM qa_plan_executions "
-        f"WHERE item_id={placeholder} AND transition_id={placeholder} "
+        f"WHERE {where} "
         "AND state IN ('active','waiting') ORDER BY created_at DESC LIMIT 1",
-        (int(item_id), transition_id),
+        params,
     )
     row = cursor.fetchone()
     return None if row is None else str(_first_value(row, "id"))
@@ -115,7 +128,8 @@ def select_plan_execution(
     if row is None:
         raise QaPlanExecutionStateError(f"QA plan execution {execution_id!r} not found")
     row["cursor_ordinal"] = int(row["cursor_ordinal"])
-    row["item_id"] = int(row["item_id"])
+    if row.get("item_id") is not None:
+        row["item_id"] = int(row["item_id"])
     if row.get("machine_lease_id") is not None:
         row["machine_lease_id"] = int(row["machine_lease_id"])
     try:
@@ -182,8 +196,9 @@ def resume_owned_plan_execution(
 def converge_plan_execution_insert_race(
     conn: Any,
     *,
-    item_id: int,
-    transition_id: str,
+    item_id: int | None,
+    transition_id: str | None,
+    deployment_run_id: str | None = None,
     actor_id: str | None,
     session_id: str,
     digest: str,
@@ -195,6 +210,7 @@ def converge_plan_execution_insert_race(
         conn,
         item_id=item_id,
         transition_id=transition_id,
+        deployment_run_id=deployment_run_id,
     )
     if concurrent_id is None:
         conn.rollback()
@@ -217,13 +233,26 @@ def converge_plan_execution_insert_race(
 def require_plan_execution_owner(
     execution: Mapping[str, Any],
     *,
-    item_id: int,
+    item_id: int | None = None,
+    deployment_run_id: str | None = None,
     actor_id: str | None,
     session_id: str,
 ) -> None:
-    """Bind every execution mutation to its item, actor, and session."""
-    if int(execution["item_id"]) != int(item_id):
+    """Bind every execution mutation to its subject, actor, and session."""
+    if (item_id is None) == (deployment_run_id is None):
+        raise QaPlanExecutionStateError(
+            "exactly one QA plan execution subject is required"
+        )
+    if item_id is not None and (
+        execution.get("item_id") is None or int(execution["item_id"]) != int(item_id)
+    ):
         raise QaPlanExecutionStateError("QA plan execution belongs to a different item")
+    if deployment_run_id is not None and str(
+        execution.get("deployment_run_id") or ""
+    ) != str(deployment_run_id):
+        raise QaPlanExecutionStateError(
+            "QA plan execution belongs to a different deployment run"
+        )
     if not same_owner(
         execution,
         actor_id=actor_id,
@@ -267,8 +296,11 @@ def plan_execution_view(
     """Return the secret-free resume contract exposed to a client."""
     return {
         "execution_id": str(execution["id"]),
-        "item_id": int(execution["item_id"]),
-        "transition_id": str(execution["transition_id"]),
+        "item_id": (
+            int(execution["item_id"]) if execution.get("item_id") is not None else None
+        ),
+        "deployment_run_id": execution.get("deployment_run_id"),
+        "transition_id": execution.get("transition_id"),
         "state": str(execution["state"]),
         "roster_digest": str(execution["roster_digest"]),
         "cursor_ordinal": int(execution["cursor_ordinal"]),

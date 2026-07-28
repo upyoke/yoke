@@ -22,7 +22,7 @@ def register(registry) -> None:
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=["claim_required"],
         adapter_status="live",
-        claim_required_kind="item",
+        claim_required_kind="qa_subject",
     )
     registry.register(
         "qa.artifact.presign",
@@ -36,7 +36,7 @@ def register(registry) -> None:
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=["claim_required"],
         adapter_status="live",
-        claim_required_kind="item",
+        claim_required_kind="qa_subject",
     )
     registry.register(
         "qa.artifact.read",

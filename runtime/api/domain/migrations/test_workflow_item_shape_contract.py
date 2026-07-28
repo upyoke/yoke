@@ -79,6 +79,8 @@ def _reset_to_fixed_builtin_history(
     expected: dict[str, tuple[str, str]] = {}
     timestamp = "2026-07-25T00:00:00Z"
     for fixture in builtin_workflow_version_history():
+        if int(fixture["version"]) != 1:
+            continue
         workflow = fixture["workflow"]
         definition = fixture["definition"]
         workflow_id = str(workflow["id"])

@@ -4,7 +4,7 @@ from yoke_core.domain.actor_permissions import PERM_ITEMS_WRITE
 from yoke_core.domain.function_authz_scope import PROJECT, classify
 
 
-def test_baseline_group_two_phase_functions_keep_item_claim_guardrails() -> None:
+def test_baseline_group_two_phase_functions_keep_qa_subject_guardrails() -> None:
     from yoke_core.domain.handlers.__init_register__ import register_all_handlers
     from yoke_core.domain.yoke_function_registry import (
         lookup,
@@ -21,7 +21,7 @@ def test_baseline_group_two_phase_functions_keep_item_claim_guardrails() -> None
         assert all(entry is not None for entry in (direct, begin, submit, abort))
         assert all(
             entry.target_kinds == ("qa_requirement",)
-            and entry.claim_required_kind == "item"
+            and entry.claim_required_kind == "qa_subject"
             and entry.adapter_status == "internal"
             for entry in (direct, begin, submit, abort)
         )

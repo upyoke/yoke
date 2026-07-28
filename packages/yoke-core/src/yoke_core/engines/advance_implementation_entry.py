@@ -1,15 +1,7 @@
-"""Advance — implementation-entry orchestrator.
+"""Implementation entry: gates, worktree, environment, and status finalize.
 
-Composes preflight gates -> ``worktree_preflight.run_preflight`` (claim
-+ activation + worktree) -> ephemeral environment (capability-gated,
-delegated to ``advance_implementation_environment``) -> finalize
-(status flip via ``lifecycle.transition.execute``). Each phase emits an
-``AdvancePhaseCompleted`` event. Idempotent re-entry against an
-already-implementing item reuses claim + worktree and skips the flip.
-
-CLI: ``python3 -m yoke_core.engines.advance_implementation_entry
---item YOK-N [--no-worktree] [--force] [--qa-bypass] [--session-id X]``.
-Exit codes: 0 success, 1 sanctioned block, 2 bad input.
+CLI: ``python3 -m yoke_core.engines.advance_implementation_entry --item
+YOK-N [--no-worktree] [--force] [--qa-bypass] [--session-id X]``.
 """
 
 from __future__ import annotations
@@ -122,6 +114,7 @@ def _run_preflight_gates(item_id: int, *, force: bool) -> Tuple[bool, str]:
         return True, ""
     from yoke_core.domain import check_hard_blocks
     from yoke_core.domain import check_ac_presence
+    from yoke_core.domain import file_budget_required_gate
     from yoke_core.domain import path_claim_spec_coverage_gate
 
     blockers = check_hard_blocks.evaluate_blockers(
@@ -137,6 +130,10 @@ def _run_preflight_gates(item_id: int, *, force: bool) -> Tuple[bool, str]:
             f"YOK-{item_id} has no acceptance criteria. Add "
             f"`## Acceptance Criteria` with `- [ ] AC-N: ...` checkboxes."
         )
+    with db_helpers.connect() as conn:
+        budget = file_budget_required_gate.evaluate(conn, item_id)
+    if budget["verdict"] != "pass":
+        return False, f"BLOCKED: {budget['reason']}"
     cov = path_claim_spec_coverage_gate.evaluate(item_id)
     if cov.is_blocked:
         return False, (

@@ -435,13 +435,13 @@ order-dependent pair, use `gate_point=activation` with
 
 Do not push the decision downstream. The Engineer, Tester, Boss, Conduct, Polish, Advance, and Usher phases do NOT author coordination edges — runtime collisions there route back to `/yoke refine`, not into ad-hoc edge creation.
 
-### Step 5.6: Anticipation Checklist for path-claim sizing
+### Step 5.6: Effective File-Scope Posture And Claim Anticipation
 
-Before declaring each task's path-claim, run the **Anticipation Checklist** so the claim's coverage matches the surface the Engineer will actually touch — not just the explicit `## File Budget`. The Engineer's commit-time widening discipline is the downstream safety net; this step is the plan-time upstream counterpart that keeps the safety net from firing on every cross-cutting task.
+Call registered `workflows.item.get` through `yoke workflows item get ITEM --json` before authoring task artifacts. Consume only `result.effective_policies.file_budget` and `result.effective_policies.path_claims`; never reconstruct them from raw policies or posture. `required_per_task` enables the generated-task axis, `optional` is off, and the universal 350-line limit always applies.
 
-The checklist names five categories per task. For each renamed, rewired, or significantly edited identifier in the task, enumerate:
+Apply all four compositions: with both axes on, pair budget edit targets with complete anticipated claim coverage; with budget off and claims on, seed claims from the task execution spec and investigation; with budget on and claims off, retain the budget for sizing and conflict evidence without a claim; with both off, author neither artifact while preserving the universal line check.
 
-a. **Explicit File Budget paths** — already in the task body's `## File Budget`. Start here.
+a. **Derived edit paths** — use task File Budget paths when enabled; otherwise start from the task execution spec's concrete edit targets.
 b. **Doctor HC files that scan the module surface** — `packages/yoke-core/src/yoke_core/engines/doctor_hc_*.py` files referencing the module by basename.
 c. **Transitive callers of every renamed/rewired function** — every Python module that does `from <module> import` or `import <module>`.
 d. **Test files importing the rewired module via deeper paths** — `test_*.py` files outside the explicit budget that still pull in the module.
@@ -457,11 +457,11 @@ rg -ln "from\\s+<dotted.module>\\s+import|import\\s+<dotted.module>" packages/ r
 
 The same checklist is available programmatically via the read-only helper `yoke_core.domain.architect_plan_anticipation` — call `build_anticipation_list(epic_id, task_num, file_budget_paths)` and read `result.file_budget / doctor_hcs / transitive_callers / test_modules`. The helper is **read-only**: it produces an anticipation list, never mutates a path-claim. The Architect still authors the claim by hand.
 
-**Land the anticipated paths in the task's path-claim at plan time** alongside the explicit File Budget, not after the Engineer's first commit-time widen. When you cannot decide whether an anticipated path is genuinely in-scope, surface it under `## Plan Caveats` for refine/operator review rather than dropping it from the claim and waiting for the Engineer to discover it.
+**Land anticipated paths in the task claim at plan time when path claims are enabled.** If File Budget is enabled too, preserve conditional parity for its explicit edit targets. With claims off, retain anticipation as conflict evidence and do not register a claim.
 
 #### Worked example — `*-callers-a`-style rewire
 
-A task that rewires `packages/yoke-core/src/yoke_core/domain/sample_auth.py` has an explicit File Budget of two paths (the module and its co-located test). Running the Anticipation Checklist discovers four more: a doctor HC scanning the module surface (`packages/yoke-core/src/yoke_core/engines/doctor_hc_sample_auth.py`), three transitive callers across orchestration and adapter layers, and one deeper test importer. The resulting path-claim lists **six paths instead of two** — the Engineer never hits the commit-time widening trap for the doctor HC or the cross-layer callers. The integration regression at `runtime/api/test_architect_anticipation_integration.py` exercises exactly this shape.
+With both axes enabled, a task that rewires `packages/yoke-core/src/yoke_core/domain/sample_auth.py` has an explicit File Budget of two paths (the module and its co-located test). Running the Anticipation Checklist discovers four more: a doctor HC scanning the module surface (`packages/yoke-core/src/yoke_core/engines/doctor_hc_sample_auth.py`), three transitive callers across orchestration and adapter layers, and one deeper test importer. The resulting path-claim lists **six paths instead of two** — the Engineer never hits the commit-time widening trap for the doctor HC or the cross-layer callers. The integration regression at `runtime/api/test_architect_anticipation_integration.py` exercises exactly this shape.
 
 ## Technical Plan Template
 
@@ -842,12 +842,21 @@ Reference content for the canonical architect prompt at `runtime/agents/architec
 
 15. **File size.** Every new tracked text file must land under 350 lines. The single rule and shared checker are owned by `packages/yoke-core/src/yoke_core/domain/file_line_check.py`; pre-commit and advance/polish gates enforce it. Plan tasks with split files when designing modules near the limit.
 
-16. **File Budget — upstream of the 350-line cap.** Constraint #15 is the late-stage backstop; this constraint is the upstream counterpart that planning is responsible for. Every implementation-bearing technical plan and every epic task spec that creates or grows authored code MUST preserve and elaborate the `## File Budget` contract authored at idea/refine time:
+16. **File Budget — independent policy upstream of the 350-line cap.**
+    Consume both central `workflows.item.get` effective policies before
+    authoring either task surface; never reconstruct them from raw definition
+    or posture. Constraint #15 is universal. When the
+    effective File Budget policy is `required_per_task`, every
+    implementation-bearing technical plan and generated task that creates or
+    grows authored code MUST preserve and elaborate the task `## File Budget`
+    contract:
     - **Hard limit 350 lines per authored file**, **design target `<=300` lines** so implementors keep editing headroom.
     - Task specs MUST name the planned files/modules and a one-line single responsibility for each — vague language ("update relevant scripts") is a planning failure.
     - Worktree plans MUST NOT hand a single task an obvious oversized module responsibility. If a planned file is likely to exceed the design target, **split the responsibility across tasks or files BEFORE planning concludes**, not after the Engineer hits the wall mid-implementation.
     - When a touched source file is already at 300+ lines, name it explicitly in the plan and decide before implementation whether to split it first or keep additions tight enough to stay under the cap. Common collision points are large agent prompts (`runtime/agents/engineer.md`, `runtime/agents/tester.md`), large skill files, and shared domain modules.
-    - The plan's File Budget reasoning is what Engineer dispatch and the implementation re-anchor consume — it must arrive at the implementor before the first new file is written.
+    - Pair budget paths with claim coverage only when effective path claims are
+      also enabled. With claims off, use the budget for sizing and conflict
+      evidence without registering claims.
 
 ## Documentation File Checklist
 

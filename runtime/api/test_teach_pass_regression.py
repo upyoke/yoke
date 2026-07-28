@@ -18,7 +18,7 @@ from yoke_core.domain.path_claim_bash_guard_narrative import (
     worktree_unresolved_narrative,
 )
 from yoke_core.domain.path_claim_register import compose_overlap_denial
-from yoke_core.domain.path_claim_required_gate import evaluate
+from yoke_core.domain.path_claim_required_gate import evaluate_required_coverage
 from yoke_core.domain.path_claim_target_resolver import ClaimContext
 from yoke_core.domain.yok_n_parser import parse_item_id
 
@@ -220,7 +220,7 @@ def test_claim_required_gate_embeds_register_command() -> None:
             "CREATE TABLE path_claim_targets ("
             "claim_id INTEGER, target_id INTEGER);",
         )
-        result = evaluate(conn, 123)
+        result = evaluate_required_coverage(conn, 123)
     finally:
         conn.close()
         drop_test_database(db_name)

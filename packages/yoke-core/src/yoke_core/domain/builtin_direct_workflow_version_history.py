@@ -100,6 +100,7 @@ BLITZ_WORKFLOW_VERSION_ONE = definition_fixture(
             "deployment",
         ],
     },
+    schema_version=1,
 )
 
 DASH_WORKFLOW_VERSION_ONE = definition_fixture(
@@ -159,6 +160,7 @@ DASH_WORKFLOW_VERSION_ONE = definition_fixture(
             "deployment",
         ],
     },
+    schema_version=1,
 )
 
 __all__ = ["BLITZ_WORKFLOW_VERSION_ONE", "DASH_WORKFLOW_VERSION_ONE"]

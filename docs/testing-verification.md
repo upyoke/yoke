@@ -76,6 +76,29 @@ case-level overrides, and project-local methods can only be used by plans in
 that same project. Case rerun and waiver stay case-scoped, and the transition
 consumes the union of all materialized outcomes.
 
+A deployment run can instead own one named plan directly, without inventing
+an item or workflow transition:
+
+```text
+yoke qa plan run \
+  --deployment-run-id <run-id> \
+  --plan <plan-slug> \
+  --project <project>
+```
+
+The command verifies that the run and plan belong to the same project,
+idempotently snapshots the plan cases onto
+`qa_requirements.deployment_run_id`, and executes the server-issued roster.
+The durable cursor and serial Test Mac lease are bound to that deployment
+run; normal QA runs, artifacts, and verdicts remain attached to the
+materialized requirements. Host control always uses the registered
+two-phase execution protocol.
+When reading the result, pass `deployment_run_id` to `qa.plan.get` to avoid
+mixing another item or run's latest proof into the plan view.
+`qa.activity.list` includes that field on every row and accepts it as an
+optional filter; `qa.artifact.read` resolves evidence from the run's owning
+project without an item join.
+
 ## Capabilities and secrets
 
 A capability is the configured resource a method may need. Its availability

@@ -39,7 +39,8 @@ WORKFLOW_ADAPTERS = [
         function_id="workflows.policy_defaults.publish",
         cli_invocation=(
             "yoke workflows policy-defaults publish WORKFLOW "
-            "--path-claims on|off --expected-current-version N "
+            "(--file-budget on|off | --path-claims on|off) "
+            "--expected-current-version N "
             "[--session-id S] [--json]"
         ),
         notes="Publishes a new immutable version from constrained policy defaults.",

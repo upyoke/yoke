@@ -3,122 +3,32 @@
 from __future__ import annotations
 
 import base64
-import json
-from urllib.parse import parse_qs, urlsplit
 from unittest.mock import patch
+from urllib.parse import parse_qs, urlsplit
 
 from fastapi.testclient import TestClient
 
 from runtime.api.auth_test_helpers import mint_api_auth_context
-from runtime.api.fixtures.backlog_inserts import (
-    insert_item,
-    insert_qa_requirement,
-)
 from runtime.api.fixtures.pg_testdb import test_database
-from yoke_contracts.api.function_call import (
-    ActorContext,
-    FunctionCallRequest,
-    TargetRef,
+from runtime.api.qa_artifact_read_test_support import (
+    CREDS,
+    artifact_read_request,
+    seed_artifact,
+    seed_deployment_artifact,
+    seed_s3_configuration,
 )
 from yoke_core.domain.handlers.qa_artifact_read import (
     handle_qa_artifact_read,
 )
 from yoke_core.domain.handlers.__init_register__ import register_all_handlers
-from yoke_core.domain.s3_presign import AwsCredentials
 from yoke_core.domain.yoke_function_registry import reset_registry_for_tests
-
-
-_CREDS = AwsCredentials(
-    access_key_id="AKIDEXAMPLE",
-    secret_access_key="secret",
-)
-
-
-def _request(requirement_id: int, artifact_id: int) -> FunctionCallRequest:
-    return FunctionCallRequest(
-        function="qa.artifact.read",
-        actor=ActorContext(actor_id="op", session_id="s-1"),
-        target=TargetRef(
-            kind="qa_requirement",
-            qa_requirement_id=requirement_id,
-        ),
-        payload={"artifact_id": artifact_id},
-    )
-
-
-def _seed_artifact(
-    conn,
-    *,
-    handle: dict,
-    metadata: dict | None = None,
-) -> int:
-    insert_item(conn, id=42, title="Evidence owner")
-    insert_qa_requirement(
-        conn,
-        id=10,
-        item_id=42,
-        qa_kind="command",
-        qa_phase="verification",
-        blocking_mode="blocking",
-    )
-    run = conn.execute(
-        "INSERT INTO qa_runs("
-        "qa_requirement_id, executor_type, qa_kind, verdict, created_at"
-        ") VALUES (10, 'worktree_run', 'command', 'pass', "
-        "'2026-07-26T12:00:00Z') RETURNING id",
-    ).fetchone()
-    artifact = conn.execute(
-        "INSERT INTO qa_artifacts("
-        "qa_run_id, artifact_type, content_type, artifact_handle, metadata, "
-        "created_at"
-        ") VALUES (%s, 'output', 'text/plain', %s, %s, "
-        "'2026-07-26T12:00:00Z') RETURNING id",
-        (
-            run["id"],
-            json.dumps(handle),
-            json.dumps(metadata or {}),
-        ),
-    ).fetchone()
-    conn.commit()
-    return int(artifact["id"])
-
-
-def _seed_s3_configuration(conn, *, bucket: str) -> None:
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS sites ("
-        "id TEXT PRIMARY KEY, project_id INTEGER NOT NULL, name TEXT NOT NULL,"
-        "description TEXT, created_at TEXT NOT NULL, settings TEXT DEFAULT '{}')"
-    )
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS environments ("
-        "id TEXT PRIMARY KEY, site TEXT NOT NULL, name TEXT NOT NULL,"
-        "url TEXT, deploy_method TEXT, deploy_command TEXT,"
-        "health_check_url TEXT, config_notes TEXT, last_deployed_at TEXT,"
-        "created_at TEXT NOT NULL, settings TEXT DEFAULT '{}')"
-    )
-    conn.execute(
-        "INSERT INTO sites (id, project_id, name, created_at) "
-        "VALUES ('site-1', 1, 'core', '2026-07-28T00:00:00Z')"
-    )
-    conn.execute(
-        "INSERT INTO environments (id, site, name, settings, created_at) "
-        "VALUES ('env-prod', 'site-1', 'prod', %s, "
-        "'2026-07-28T00:00:00Z')",
-        (json.dumps({"artifacts": {"bucket": bucket}}),),
-    )
-    conn.execute(
-        "INSERT INTO project_capabilities (project_id, type, settings) "
-        "VALUES (1, 'aws-admin', %s)",
-        (json.dumps({"region": "us-east-1"}),),
-    )
-    conn.commit()
 
 
 def test_local_evidence_inside_checkout_is_returned_inline(tmp_path) -> None:
     evidence = tmp_path / "qa-output.txt"
     evidence.write_bytes(b"full captured output")
     with test_database() as conn:
-        artifact_id = _seed_artifact(
+        artifact_id = seed_artifact(
             conn,
             handle={"backend": "local", "path": str(evidence)},
         )
@@ -132,7 +42,7 @@ def test_local_evidence_inside_checkout_is_returned_inline(tmp_path) -> None:
                 return_value=tmp_path / ".qa",
             ),
         ):
-            outcome = handle_qa_artifact_read(_request(10, artifact_id))
+            outcome = handle_qa_artifact_read(artifact_read_request(10, artifact_id))
 
     assert outcome.primary_success
     assert outcome.result_payload["disposition"] == "ready"
@@ -146,7 +56,7 @@ def test_local_evidence_inside_checkout_is_returned_inline(tmp_path) -> None:
 
 def test_missing_machine_local_evidence_is_reported_honestly(tmp_path) -> None:
     with test_database() as conn:
-        artifact_id = _seed_artifact(
+        artifact_id = seed_artifact(
             conn,
             handle={
                 "backend": "local",
@@ -164,7 +74,7 @@ def test_missing_machine_local_evidence_is_reported_honestly(tmp_path) -> None:
                 return_value=tmp_path / ".qa",
             ),
         ):
-            outcome = handle_qa_artifact_read(_request(10, artifact_id))
+            outcome = handle_qa_artifact_read(artifact_read_request(10, artifact_id))
 
     assert outcome.primary_success
     assert outcome.result_payload["disposition"] == "evidence_on_machine"
@@ -172,20 +82,60 @@ def test_missing_machine_local_evidence_is_reported_honestly(tmp_path) -> None:
     assert "content_base64" not in outcome.result_payload
 
 
+def test_deployment_run_local_evidence_is_read_from_its_subject_root(
+    tmp_path,
+) -> None:
+    evidence = tmp_path / "deployment-output.txt"
+    evidence.write_bytes(b"deployment proof")
+    with test_database() as conn:
+        artifact_id = seed_deployment_artifact(
+            conn,
+            handle={"backend": "local", "path": str(evidence)},
+        )
+        requirement_id = int(
+            conn.execute(
+                "SELECT qa_requirement_id FROM qa_runs "
+                "WHERE id=(SELECT qa_run_id FROM qa_artifacts WHERE id=%s)",
+                (artifact_id,),
+            ).fetchone()[0]
+        )
+        with (
+            patch(
+                "yoke_core.domain.project_checkout_locations.checkout_for_project_id",
+                return_value=tmp_path,
+            ),
+            patch(
+                "yoke_core.domain.qa_artifacts.artifact_directory",
+                return_value=tmp_path / ".qa",
+            ) as artifact_root,
+        ):
+            outcome = handle_qa_artifact_read(
+                artifact_read_request(requirement_id, artifact_id)
+            )
+
+    assert outcome.primary_success, outcome.error
+    assert outcome.result_payload["disposition"] == "ready"
+    assert (
+        base64.b64decode(outcome.result_payload["content_base64"])
+        == b"deployment proof"
+    )
+    assert artifact_root.call_args.args[1] == ("deployment-run-run-20260728-903")
+
+
 def test_s3_evidence_returns_authorized_presigned_download() -> None:
     bucket = "yoke-prod-artifacts"
     key = "qa-artifacts/yoke/42/1/output.txt"
     with test_database() as conn:
-        artifact_id = _seed_artifact(
+        artifact_id = seed_artifact(
             conn,
             handle={"backend": "s3", "bucket": bucket, "key": key},
         )
-        _seed_s3_configuration(conn, bucket=bucket)
+        seed_s3_configuration(conn, bucket=bucket)
         with patch(
             "yoke_core.domain.handlers.qa_artifact_presign._capability_credentials",
-            return_value=_CREDS,
+            return_value=CREDS,
         ):
-            outcome = handle_qa_artifact_read(_request(10, artifact_id))
+            outcome = handle_qa_artifact_read(artifact_read_request(10, artifact_id))
 
     assert outcome.primary_success
     result = outcome.result_payload
@@ -209,21 +159,21 @@ def test_s3_read_matches_real_http_function_boundary() -> None:
     register_all_handlers()
     try:
         with test_database() as conn:
-            artifact_id = _seed_artifact(
+            artifact_id = seed_artifact(
                 conn,
                 handle={"backend": "s3", "bucket": bucket, "key": key},
             )
-            _seed_s3_configuration(conn, bucket=bucket)
+            seed_s3_configuration(conn, bucket=bucket)
             auth = mint_api_auth_context(conn)
             client = TestClient(app)
             client.headers.update(auth.headers)
             with patch(
                 "yoke_core.domain.handlers.qa_artifact_presign._capability_credentials",
-                return_value=_CREDS,
+                return_value=CREDS,
             ):
                 response = client.post(
                     "/v1/functions/call",
-                    json=_request(10, artifact_id).model_dump(mode="json"),
+                    json=artifact_read_request(10, artifact_id).model_dump(mode="json"),
                 )
     finally:
         reset_registry_for_tests()
@@ -247,7 +197,7 @@ def test_local_read_matches_real_http_function_boundary(tmp_path) -> None:
     register_all_handlers()
     try:
         with test_database() as conn:
-            artifact_id = _seed_artifact(
+            artifact_id = seed_artifact(
                 conn,
                 handle={"backend": "local", "path": str(evidence)},
             )
@@ -267,7 +217,7 @@ def test_local_read_matches_real_http_function_boundary(tmp_path) -> None:
             ):
                 response = client.post(
                     "/v1/functions/call",
-                    json=_request(10, artifact_id).model_dump(mode="json"),
+                    json=artifact_read_request(10, artifact_id).model_dump(mode="json"),
                 )
     finally:
         reset_registry_for_tests()
@@ -283,11 +233,11 @@ def test_local_read_matches_real_http_function_boundary(tmp_path) -> None:
 
 def test_artifact_read_refuses_a_different_requirement() -> None:
     with test_database() as conn:
-        artifact_id = _seed_artifact(
+        artifact_id = seed_artifact(
             conn,
             handle={"backend": "local", "path": "qa-output.txt"},
         )
-        outcome = handle_qa_artifact_read(_request(999, artifact_id))
+        outcome = handle_qa_artifact_read(artifact_read_request(999, artifact_id))
 
     assert not outcome.primary_success
     assert outcome.error.code == "target_invalid"

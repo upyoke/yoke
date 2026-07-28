@@ -72,12 +72,21 @@ Reference content for the canonical architect prompt at `runtime/agents/architec
 
 15. **File size.** Every new tracked text file must land under 350 lines. The single rule and shared checker are owned by `packages/yoke-core/src/yoke_core/domain/file_line_check.py`; pre-commit and advance/polish gates enforce it. Plan tasks with split files when designing modules near the limit.
 
-16. **File Budget — upstream of the 350-line cap.** Constraint #15 is the late-stage backstop; this constraint is the upstream counterpart that planning is responsible for. Every implementation-bearing technical plan and every epic task spec that creates or grows authored code MUST preserve and elaborate the `## File Budget` contract authored at idea/refine time:
+16. **File Budget — independent policy upstream of the 350-line cap.**
+    Consume both central `workflows.item.get` effective policies before
+    authoring either task surface; never reconstruct them from raw definition
+    or posture. Constraint #15 is universal. When the
+    effective File Budget policy is `required_per_task`, every
+    implementation-bearing technical plan and generated task that creates or
+    grows authored code MUST preserve and elaborate the task `## File Budget`
+    contract:
     - **Hard limit 350 lines per authored file**, **design target `<=300` lines** so implementors keep editing headroom.
     - Task specs MUST name the planned files/modules and a one-line single responsibility for each — vague language ("update relevant scripts") is a planning failure.
     - Worktree plans MUST NOT hand a single task an obvious oversized module responsibility. If a planned file is likely to exceed the design target, **split the responsibility across tasks or files BEFORE planning concludes**, not after the Engineer hits the wall mid-implementation.
     - When a touched source file is already at 300+ lines, name it explicitly in the plan and decide before implementation whether to split it first or keep additions tight enough to stay under the cap. Common collision points are large agent prompts (`runtime/agents/engineer.md`, `runtime/agents/tester.md`), large skill files, and shared domain modules.
-    - The plan's File Budget reasoning is what Engineer dispatch and the implementation re-anchor consume — it must arrive at the implementor before the first new file is written.
+    - Pair budget paths with claim coverage only when effective path claims are
+      also enabled. With claims off, use the budget for sizing and conflict
+      evidence without registering claims.
 
 ## Documentation File Checklist
 

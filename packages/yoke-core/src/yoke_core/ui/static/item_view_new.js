@@ -52,6 +52,7 @@ export function renderNewItemView(context, main, projectId) {
     const verificationStageId = "reviewing-implementation";
     const state = {
       verification: false,
+      file_budget: false,
       path_claims: false,
       approval_on_done: false,
       deployment: false,
@@ -131,6 +132,11 @@ export function renderNewItemView(context, main, projectId) {
               : "no plans or ad hoc methods are available for this project",
         ],
         [
+          "file_budget", "▤", "File Budget",
+          `plans the files this ${selected.name || selected.id} touches ` +
+          "for sizing and conflict evidence before implementation",
+        ],
+        [
           "path_claims", "⛉", "Path claims",
           `reserves the files this ${selected.name || selected.id} touches, ` +
           "so overlapping work serializes instead of colliding at merge",
@@ -197,7 +203,7 @@ export function renderNewItemView(context, main, projectId) {
             ? { kind: "plan", plan_id: Number(id) }
             : { kind: "ad_hoc", method_id: id };
         }
-        for (const key of ["path_claims", "deployment"]) {
+        for (const key of ["file_budget", "path_claims", "deployment"]) {
           if (state[key]) posture[key] = true;
         }
         if (state.approval_on_done) {

@@ -1,6 +1,9 @@
 """Item overview and detail read-model tests."""
 
 from yoke_core.domain import item_detail_read, item_overview_read
+from yoke_core.domain.builtin_workflow_definitions import (
+    builtin_workflow_definition,
+)
 from runtime.api.item_page_reads_test_support import _connection
 
 
@@ -43,11 +46,20 @@ def test_detail_read_assembles_real_workflow_lanes_and_proof(monkeypatch):
     assert item["public_ref"] == "ACM-22"
     assert item["title"] == "Fix the footer"
     assert item["workflow"]["id"] == "dash"
-    assert item["workflow"]["version"] == 2
+    assert item["workflow"]["version"] == builtin_workflow_definition("dash")[
+        "version"
+    ]
     assert item["workflow"]["stage_label"] == "reviewing implementation"
     assert item["workflow"]["executor_id"] == "dash"
     assert item["workflow"]["next_executor_id"] is None
-    assert item["workflow"]["item_posture"] == {"verification": True}
+    assert item["workflow"]["item_posture"] == {
+        "verification": True,
+        "file_budget": True,
+    }
+    assert item["workflow"]["policies"]["file_budget"] == "optional"
+    assert item["workflow"]["policies"]["path_claims"] == "optional"
+    assert item["workflow"]["effective_policies"]["file_budget"] == "required"
+    assert item["workflow"]["effective_policies"]["path_claims"] == "optional"
     assert item["claim"]["actor_label"] == "Codex"
     assert item["worktrees"][0]["branch"] == "codex/footer"
     assert item["path_claims"] == {"total": 1, "states": {"planned": 1}}

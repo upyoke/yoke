@@ -134,38 +134,6 @@ def test_resolve_session_id_priority(monkeypatch):
     assert orch._resolve_session_id(None) == ""
 
 
-def test_preflight_force_skips_all():
-    ok, narrative = orch._run_preflight_gates(42, force=True)
-    assert ok is True and narrative == ""
-
-
-@pytest.mark.parametrize("blockers,acs,coverage_missing,want_fragment", [
-    (["BLOCKED|YOK-99|implementing|t|activation|merged"], (3, 0, "t"), [],
-     "Blocked by dependencies"),
-    ([], (0, 0, "t"), [], "acceptance criteria"),
-    ([], (3, 0, "t"), ["runtime/api/x.py"], "File Budget"),
-])
-def test_preflight_blocks_for_each_gate(
-    blockers, acs, coverage_missing, want_fragment,
-):
-    class _Cov:
-        is_blocked = bool(coverage_missing)
-        missing_paths = coverage_missing
-
-    with mock.patch(
-        "yoke_core.domain.check_hard_blocks.evaluate_blockers",
-        return_value=blockers,
-    ), mock.patch(
-        "yoke_core.domain.check_ac_presence.evaluate_item",
-        return_value=acs,
-    ), mock.patch(
-        "yoke_core.domain.path_claim_spec_coverage_gate.evaluate",
-        return_value=_Cov(),
-    ):
-        ok, narrative = orch._run_preflight_gates(42, force=False)
-    assert ok is False and want_fragment in narrative
-
-
 @pytest.mark.parametrize("item_in,capability,want_outcome", [
     ({}, False, "skipped:no-project"),
     ({"project": "yoke"}, False, "skipped:no-capability"),

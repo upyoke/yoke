@@ -22,7 +22,9 @@ QA_ADAPTERS: List[AdapterEntry] = [
     ),
     AdapterEntry(
         function_id="qa.plan_execution.begin",
-        cli_invocation=("yoke qa plan run --item PREFIX-N --transition TRANSITION"),
+        cli_invocation=(
+            "yoke qa plan run --deployment-run-id RUN --plan PLAN --project P"
+        ),
     ),
     _read_entry(
         function_id="qa.method.list", cli_invocation="yoke qa method list --project P"
@@ -39,11 +41,14 @@ QA_ADAPTERS: List[AdapterEntry] = [
         function_id="qa.plan.list", cli_invocation="yoke qa plan list --project P"
     ),
     _read_entry(
-        function_id="qa.plan.get", cli_invocation="yoke qa plan get PLAN_ID --project P"
+        function_id="qa.plan.get",
+        cli_invocation=(
+            "yoke qa plan get PLAN_ID --project P [--deployment-run-id RUN]"
+        ),
     ),
     _read_entry(
         function_id="qa.activity.list",
-        cli_invocation="yoke qa activity list --project P",
+        cli_invocation=("yoke qa activity list --project P [--deployment-run-id RUN]"),
     ),
     _read_entry(
         function_id="qa.artifact.read",
@@ -64,7 +69,8 @@ QA_ADAPTERS: List[AdapterEntry] = [
         "yoke qa item-plan attach --item YOK-N --project P --plan-id N --transition T",
     ),
     AdapterEntry(
-        "qa.plan.materialize", "yoke qa plan materialize --item YOK-N --transition T"
+        "qa.plan.materialize",
+        "yoke qa plan materialize --deployment-run-id RUN --plan PLAN --project P",
     ),
     AdapterEntry(
         "qa.requirement.update",

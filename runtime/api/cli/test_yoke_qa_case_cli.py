@@ -134,6 +134,42 @@ def test_plan_engine_cli_reuses_one_session_actor(capsys) -> None:
     assert execute.call_args.kwargs["actor"].session_id == "plan-session"
 
 
+def test_plan_engine_cli_accepts_deployment_run_subject(capsys) -> None:
+    with mock.patch.object(
+        qa_plan_execution_cli,
+        "execute_plan",
+        return_value={
+            "item_id": None,
+            "deployment_run_id": "run-20260728-901",
+            "transition_id": None,
+            "state": "passed",
+            "requirement_count": 1,
+            "executed_count": 1,
+            "results": [],
+        },
+    ) as execute:
+        code = qa_plan_execution_cli.run(
+            [
+                "--deployment-run-id",
+                "run-20260728-901",
+                "--plan",
+                "installer-campaign",
+                "--project",
+                "yoke",
+                "--session-id",
+                "deployment-plan-session",
+            ]
+        )
+
+    assert code == 0
+    assert (
+        json.loads(capsys.readouterr().out)["deployment_run_id"] == "run-20260728-901"
+    )
+    assert execute.call_args.kwargs["item_ref"] is None
+    assert execute.call_args.kwargs["deployment_run_id"] == "run-20260728-901"
+    assert execute.call_args.kwargs["plan"] == "installer-campaign"
+
+
 def test_plan_engine_cli_blocks_on_precondition_and_preserves_state(capsys) -> None:
     with mock.patch.object(
         qa_plan_execution_cli,

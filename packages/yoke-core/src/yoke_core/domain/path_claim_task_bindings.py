@@ -15,7 +15,9 @@ from yoke_core.domain.schema_common import _column_exists, _table_exists
 from yoke_core.domain.workflow_item_binding_lock import (
     lock_optional_item_workflow_binding,
 )
-from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
+from yoke_core.domain.workflow_effective_policies import (
+    load_item_effective_workflow_policies,
+)
 
 
 REQUIRED_PER_TASK = "required_per_task"
@@ -44,8 +46,9 @@ def validate_task_binding_target(
     locked = lock_optional_item_workflow_binding(conn, int(item_id))
     if locked and int(item_id) not in locked:
         raise PathClaimTaskBindingError(f"item {item_id} does not exist")
-    runtime = load_item_workflow_runtime(conn, int(item_id))
-    if str(runtime.policies["path_claims"]) != REQUIRED_PER_TASK:
+    effective = load_item_effective_workflow_policies(conn, int(item_id))
+    runtime = effective.runtime
+    if effective.path_claims != REQUIRED_PER_TASK:
         raise PathClaimTaskBindingError(
             f"workflow {runtime.workflow_id}@{runtime.version} does not use "
             "task-scoped path claims"
@@ -70,8 +73,8 @@ def validate_task_binding_target(
 
 def item_uses_task_scoped_claims(conn: Any, item_id: int) -> bool:
     """Whether the item's immutable workflow pin requires per-task scope."""
-    runtime = load_item_workflow_runtime(conn, int(item_id))
-    return str(runtime.policies["path_claims"]) == REQUIRED_PER_TASK
+    effective = load_item_effective_workflow_policies(conn, int(item_id))
+    return effective.path_claims == REQUIRED_PER_TASK
 
 
 def pinned_task_claim_policy(conn: Any, item_id: int) -> bool | None:

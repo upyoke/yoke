@@ -12,6 +12,8 @@ from yoke_core.domain.workflow_runtime import (
     WorkflowRuntime,
 )
 from yoke_core.domain.workflow_definition_builders import (
+    WORKFLOW_FILE_BUDGET_OPTIONAL,
+    WORKFLOW_FILE_BUDGET_REQUIRED_PER_TASK,
     WORKFLOW_PATH_CLAIMS_OPTIONAL,
     WORKFLOW_PATH_CLAIMS_REQUIRED,
     WORKFLOW_PATH_CLAIMS_REQUIRED_PER_TASK,
@@ -23,6 +25,9 @@ from yoke_core.domain.workflow_item_migration_common import (
 )
 from yoke_core.domain.workflow_item_migration_review_bindings import (
     review_binding_conflicts,
+)
+from yoke_core.domain.workflow_effective_policies import (
+    resolve_effective_workflow_policies,
 )
 
 
@@ -42,6 +47,7 @@ def _claim_conflicts(
     target: WorkflowRuntime,
     source_stage: str,
     target_stage: str,
+    posture: Mapping[str, Any],
 ) -> list[str]:
     conflicts: list[str] = []
     bind = marker(conn)
@@ -72,8 +78,12 @@ def _claim_conflicts(
                 f"{source_executor!r}, not {target_executor!r}"
             )
 
-    source_path_policy = str(source.policies["path_claims"])
-    target_path_policy = str(target.policies["path_claims"])
+    source_path_policy = resolve_effective_workflow_policies(
+        source, posture,
+    ).path_claims
+    target_path_policy = resolve_effective_workflow_policies(
+        target, posture,
+    ).path_claims
     if _table_exists(conn, "path_claims"):
         states = ", ".join(bind for _ in _LIVE_PATH_CLAIM_STATES)
         if all(
@@ -115,15 +125,63 @@ def _claim_conflicts(
             and target_stage not in target.terminal_stage_ids
             and target_stage not in ENGINE_TERMINAL_STAGE_IDS
         ):
-            from yoke_core.domain.path_claim_required_gate import evaluate
+            from yoke_core.domain.path_claim_required_gate import (
+                evaluate_required_coverage,
+            )
 
-            coverage = evaluate(conn, item_id)
+            coverage = evaluate_required_coverage(
+                conn,
+                item_id,
+                task_scoped=(
+                    target_path_policy
+                    == WORKFLOW_PATH_CLAIMS_REQUIRED_PER_TASK
+                ),
+            )
             if coverage["verdict"] != "pass":
                 conflicts.append(
                     "target path-claim policy requires current coverage: "
                     f"{coverage['reason']}"
                 )
     return conflicts
+
+
+def _file_budget_conflicts(
+    conn: Any,
+    *,
+    item_id: int,
+    source: WorkflowRuntime,
+    target: WorkflowRuntime,
+    target_stage: str,
+    posture: Mapping[str, Any],
+) -> list[str]:
+    source_policy = resolve_effective_workflow_policies(
+        source, posture,
+    ).file_budget
+    target_policy = resolve_effective_workflow_policies(
+        target, posture,
+    ).file_budget
+    if (
+        source_policy == target_policy
+        or target_policy == WORKFLOW_FILE_BUDGET_OPTIONAL
+        or target_stage in target.terminal_stage_ids
+        or target_stage in ENGINE_TERMINAL_STAGE_IDS
+    ):
+        return []
+    from yoke_core.domain.file_budget_required_gate import (
+        evaluate_required_budget,
+    )
+
+    coverage = evaluate_required_budget(
+        conn,
+        item_id,
+        task_scoped=target_policy == WORKFLOW_FILE_BUDGET_REQUIRED_PER_TASK,
+    )
+    if coverage["verdict"] == "pass":
+        return []
+    return [
+        "target File Budget policy requires current coverage: "
+        f"{coverage['reason']}"
+    ]
 
 
 def _terminal_executor_bindings(
@@ -244,7 +302,16 @@ def item_migration_binding_conflicts(
         target=target,
         source_stage=source_stage,
         target_stage=target_stage,
+        posture=posture,
     )
+    conflicts.extend(_file_budget_conflicts(
+        conn,
+        item_id=item_id,
+        source=source,
+        target=target,
+        target_stage=target_stage,
+        posture=posture,
+    ))
     conflicts.extend(
         review_binding_conflicts(
             conn,
