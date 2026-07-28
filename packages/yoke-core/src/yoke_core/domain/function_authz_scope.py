@@ -301,7 +301,7 @@ def permission_key_for(entry: RegistryEntry) -> str | None:
         return PERM_PROJECT_ADMIN
     if fid == DB_READ_FUNCTION_ID:
         return PERM_DB_READ_RAW
-    if fid.startswith("items.") or fid.startswith("workflow_item."):
+    if fid.startswith(("items.", "workflow_item.", "item_worktrees.")):
         return PERM_ITEMS_WRITE if entry.side_effects else PERM_ITEMS_READ
     if fid.startswith("direct_workflow."):
         return PERM_ITEMS_WRITE

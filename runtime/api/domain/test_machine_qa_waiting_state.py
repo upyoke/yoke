@@ -15,18 +15,24 @@ from yoke_core.domain.actor_permissions import PERM_ITEMS_WRITE
 from yoke_core.domain.coordination_leases import Lease
 from yoke_core.domain.function_authz_scope import PROJECT, classify
 from yoke_core.domain.handlers.test_machine_case import (
-    handle_baseline_group_execute,
-    handle_case_execute,
-)
-from yoke_core.domain.host_control_executor import (
-    TestMachineMaterial as MachineMaterial,
+    handle_baseline_group_begin,
+    handle_case_begin,
 )
 from yoke_core.domain.machine_qa_case_execution import (
     execute_materialized_machine_baseline_group,
 )
+from yoke_core.domain.machine_qa_local_execution import (
+    LocalHostControlSubmission,
+)
 from yoke_core.domain.machine_qa_execution import (
     MachineQaLeaseHeld,
     acquire_machine_qa_lease,
+)
+from yoke_core.domain.machine_qa_execution_protocol import (
+    MachineQaProtocolLeaseHeld,
+)
+from yoke_core.domain.host_control_executor import (
+    TestMachineMaterial as MachineMaterial,
 )
 
 
@@ -87,13 +93,13 @@ def test_held_lease_becomes_structured_machine_waiting_state(
     }
 
 
-def test_group_lease_contention_records_nonterminal_waiting_cases(
+def test_group_begin_lease_contention_records_nonterminal_waiting_cases(
     test_db,
     monkeypatch,
 ) -> None:
     rows = materialize_installer_campaign(test_db, item_id=4203)
     fresh = [row for row in rows if row["host_baseline"] == "fresh-host"]
-    held = MachineQaLeaseHeld(
+    held = MachineQaProtocolLeaseHeld(
         lease=Lease(
             id=17,
             project_id=1,
@@ -117,26 +123,33 @@ def test_group_lease_contention_records_nonterminal_waiting_cases(
         lambda: OpenFixtureConnection(test_db),
     )
     monkeypatch.setattr(
-        "yoke_core.domain.machine_qa_execution.acquire_machine_qa_lease",
+        "yoke_core.domain.machine_qa_execution_protocol.begin_host_control_execution",
         acquire,
     )
 
-    outcome = handle_baseline_group_execute(baseline_group_request(int(fresh[0]["id"])))
+    outcome = handle_baseline_group_begin(
+        baseline_group_request(
+            int(fresh[0]["id"]),
+            function="test_machine.baseline_group.begin",
+        )
+    )
 
     assert outcome.primary_success
     assert acquisitions == 1
-    assert outcome.result_payload["baseline_ok"] is None
+    assert outcome.result_payload["state"] == "waiting"
+    result_payload = outcome.result_payload["result"]
+    assert result_payload["baseline_ok"] is None
     expected_ids = [int(row["id"]) for row in fresh]
-    assert outcome.result_payload["requirement_ids"] == expected_ids
+    assert result_payload["requirement_ids"] == expected_ids
     assert [
-        result["requirement_id"] for result in outcome.result_payload["results"]
+        result["requirement_id"] for result in result_payload["results"]
     ] == expected_ids
     assert all(
         result["case_outcome"] == "waiting"
         and result["verdict"] is None
         and result["evidence_count"] == 0
         and result["lease_context"]["id"] == 17
-        for result in outcome.result_payload["results"]
+        for result in result_payload["results"]
     )
     runs = test_db.execute(
         "SELECT qa_requirement_id,verdict,case_outcome,completed_at,"
@@ -162,13 +175,13 @@ def test_group_lease_contention_records_nonterminal_waiting_cases(
     assert artifact_count == 0
 
 
-def test_single_case_lease_contention_preserves_rerun_identity(
+def test_single_case_begin_contention_preserves_rerun_identity(
     test_db,
     monkeypatch,
 ) -> None:
     rows = materialize_installer_campaign(test_db, item_id=4204)
     target = next(row for row in rows if row["host_baseline"] == "shell-preconfigured")
-    held = MachineQaLeaseHeld(
+    held = MachineQaProtocolLeaseHeld(
         lease=Lease(
             id=18,
             project_id=1,
@@ -183,22 +196,23 @@ def test_single_case_lease_contention_preserves_rerun_identity(
         lambda: OpenFixtureConnection(test_db),
     )
     monkeypatch.setattr(
-        "yoke_core.domain.machine_qa_execution.acquire_machine_qa_lease",
+        "yoke_core.domain.machine_qa_execution_protocol.begin_host_control_execution",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(held),
     )
-    request = baseline_group_request(int(target["id"])).model_copy(
-        update={
-            "function": "test_machine.case_execute",
-        }
+    request = baseline_group_request(
+        int(target["id"]),
+        function="test_machine.case.begin",
     )
 
-    outcome = handle_case_execute(request)
+    outcome = handle_case_begin(request)
 
     assert outcome.primary_success
-    assert outcome.result_payload["requirement_id"] == int(target["id"])
-    assert outcome.result_payload["case_outcome"] == "waiting"
-    assert outcome.result_payload["verdict"] is None
-    assert outcome.result_payload["lease_context"]["id"] == 18
+    assert outcome.result_payload["state"] == "waiting"
+    result = outcome.result_payload["result"]
+    assert result["requirement_id"] == int(target["id"])
+    assert result["case_outcome"] == "waiting"
+    assert result["verdict"] is None
+    assert result["lease_context"]["id"] == 18
 
 
 def test_waiting_case_cli_returns_retryable_exit_with_structured_result(
@@ -230,10 +244,18 @@ def test_waiting_case_cli_returns_retryable_exit_with_structured_result(
     assert json.loads(capsys.readouterr().out) == result
 
 
-def test_baseline_group_client_sends_only_an_anchor(
+def test_baseline_group_client_dispatches_begin_then_submit_for_anchor(
     monkeypatch,
 ) -> None:
-    response = SimpleNamespace(
+    begin = SimpleNamespace(
+        success=True,
+        result={
+            "state": "ready",
+            "execution": {"server": "issued-contract"},
+        },
+        error=None,
+    )
+    submit = SimpleNamespace(
         success=True,
         result={
             "anchor_requirement_id": 41,
@@ -245,11 +267,26 @@ def test_baseline_group_client_sends_only_an_anchor(
 
     def dispatch(**kwargs: Any) -> SimpleNamespace:
         calls.append(dict(kwargs))
-        return response
+        return begin if len(calls) == 1 else submit
 
     monkeypatch.setattr(
         "yoke_core.domain.qa_composed_dispatch.call_qa_function",
         dispatch,
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.ssh_mac_host_control.register_ssh_mac_host_control",
+        lambda: None,
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.machine_qa_local_execution.execute_machine_case_contract",
+        lambda contract: LocalHostControlSubmission(
+            payload={
+                "lease_id": 17,
+                "contract_digest": "digest",
+                "baseline_ok": True,
+                "results": [],
+            }
+        ),
     )
     result = execute_materialized_machine_baseline_group(
         {
@@ -267,38 +304,32 @@ def test_baseline_group_client_sends_only_an_anchor(
     )
 
     assert result["requirement_ids"] == [41, 42]
-    assert calls[0]["function_id"] == ("test_machine.baseline_group_execute")
-    assert calls[0]["target"].qa_requirement_id == 41
+    assert [call["function_id"] for call in calls] == [
+        "test_machine.baseline_group.begin",
+        "test_machine.baseline_group.submit",
+    ]
+    assert [call["target"].qa_requirement_id for call in calls] == [41, 41]
     assert calls[0]["payload"] == {}
+    assert calls[1]["payload"] == {
+        "lease_id": 17,
+        "contract_digest": "digest",
+        "baseline_ok": True,
+        "results": [],
+    }
 
 
-def test_baseline_group_execution_is_project_write_authorized() -> None:
-    spec = classify(
-        "test_machine.baseline_group_execute",
-        side_effects=True,
-        project_permission=None,
-    )
-    assert (spec.scope, spec.permission_key) == (PROJECT, PERM_ITEMS_WRITE)
-
-
-def test_baseline_group_is_registered_as_internal_item_claim_execution() -> None:
-    from yoke_core.domain.handlers.__init_register__ import (
-        register_all_handlers,
-    )
-    from yoke_core.domain.yoke_function_registry import (
-        lookup,
-        reset_registry_for_tests,
-    )
-
-    reset_registry_for_tests()
-    try:
-        register_all_handlers()
-        entry = lookup("test_machine.baseline_group_execute")
-        assert entry is not None
-        assert entry.target_kinds == ("qa_requirement",)
-        assert entry.claim_required_kind == "item"
-        assert entry.adapter_status == "internal"
-        assert "server_discovered_baseline_group" in entry.guardrails
-        assert "lease_waiting_state" in entry.guardrails
-    finally:
-        reset_registry_for_tests()
+def test_baseline_group_two_phase_is_project_write_authorized() -> None:
+    for function_id in (
+        "test_machine.baseline_group.begin",
+        "test_machine.baseline_group.submit",
+        "test_machine.baseline_group.abort",
+    ):
+        spec = classify(
+            function_id,
+            side_effects=True,
+            project_permission=None,
+        )
+        assert (spec.scope, spec.permission_key) == (
+            PROJECT,
+            PERM_ITEMS_WRITE,
+        )

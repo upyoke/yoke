@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-07-27T07:56:56Z_
+_Audit generated_at: 2026-07-28T06:01:28Z_
 
 ## 1. Summary
 
-- Function ids registered: **286**
-- Internal dispatch-only functions without CLI adapters: **16**
-- `yoke` CLI subcommands: **269** (269 carry usable `--help`)
-- Operation tracker: **249 wrapped**, 96 permanent, 0 pending
-- Skill-body recipes: 264 total (215 template-skipped, 0 failing)
+- Function ids registered: **303**
+- Internal dispatch-only functions without CLI adapters: **31**
+- `yoke` CLI subcommands: **270** (270 carry usable `--help`)
+- Operation tracker: **250 wrapped**, 96 permanent, 0 pending
+- Skill-body recipes: 266 total (216 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped dispatcher-backed `yoke <subcommand>` adapters: **249** (operation tracker confirms 249 wrapped rows).
+Wrapped dispatcher-backed `yoke <subcommand>` adapters: **250** (operation tracker confirms 250 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -93,6 +93,9 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **249** (operation track
 | identity | `yoke identity invite list` | `identity.invite.list` | ok |
 | identity | `yoke identity invite revoke` | `identity.invite.revoke` | ok |
 | identity | `yoke identity link set` | `identity.link.set` | ok |
+| item_worktrees | `yoke item-worktrees create` | `item_worktrees.create` | ok |
+| item_worktrees | `yoke item-worktrees get` | `item_worktrees.get` | ok |
+| item_worktrees | `yoke item-worktrees release` | `item_worktrees.release` | ok |
 | items | `yoke items create` | `items.create` | ok |
 | items | `yoke dash` | `items.create` | ok |
 | items | `yoke items detail get` | `items.detail.get` | ok |
@@ -185,8 +188,6 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **249** (operation track
 | qa | `yoke qa run get` | `qa.run.get` | ok |
 | qa | `yoke qa run list` | `qa.run.list` | ok |
 | qa | `yoke qa run record-verdict` | `qa.run.record_verdict` | ok |
-| qa | `yoke qa screenshot-evidence pending-count` | `qa.screenshot_evidence.pending_count` | ok |
-| qa | `yoke qa screenshot-evidence satisfy` | `qa.screenshot_evidence.satisfy` | ok |
 | readiness | `yoke readiness check` | `readiness.check.run` | ok |
 | readiness | `yoke readiness prd-validate` | `readiness.prd_validate.run` | ok |
 | readiness | `yoke readiness repair-claim-coverage` | `readiness.repair_claim_coverage` | ok |
@@ -379,8 +380,8 @@ _No pending handler-registration rows._
 
 | path glob | count |
 |---|---|
-| .agents/skills/yoke/**/*.md | 128 |
-| packages/yoke-core/src/yoke_core/domain/schema_api_context*.py | 26 |
+| .agents/skills/yoke/**/*.md | 130 |
+| packages/yoke-core/src/yoke_core/domain/schema_api_context*.py | 27 |
 | runtime/agents/*.md | 8 |
 | runtime/harness/claude/agents/yoke-*.md | 7 |
 | runtime/harness/codex/agents/yoke-*.toml | 7 |

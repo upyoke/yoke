@@ -90,6 +90,44 @@ def _format_claim_details(active_claim_rows) -> list[dict]:
     ]
 
 
+def prepare_release_claims_branch(
+    conn: Any,
+    session_id: str,
+    *,
+    force: bool,
+    active_claim_rows,
+    chain_override_authorized: bool = False,
+) -> tuple[dict, dict]:
+    """Build evidence and event context without releasing or emitting."""
+    evidence = evaluate_destructive_end(
+        conn,
+        session_id,
+        chain_override_authorized=chain_override_authorized,
+    ).as_dict()
+    return evidence, {
+        "claim_details": _format_claim_details(active_claim_rows),
+        "force": force,
+        "agent_presence_evidence": evidence,
+    }
+
+
+def emit_release_claims_branch_event(
+    session_id: str,
+    *,
+    released_count: int,
+    context: dict,
+) -> None:
+    """Emit the destructive release aggregate after its transaction commits."""
+    from . import sessions_analytics as _sa
+    from .sessions_analytics import EVENT_HARNESS_SESSION_END_RELEASED_CLAIMS
+
+    _sa._emit_session_event(
+        EVENT_HARNESS_SESSION_END_RELEASED_CLAIMS,
+        session_id=session_id,
+        context={"released_count": released_count, **context},
+    )
+
+
 def handle_release_claims_branch(
     conn: Any,
     session_id: str,
@@ -105,34 +143,32 @@ def handle_release_claims_branch(
     agent_presence_evidence payload for inclusion on the
     ``HarnessSessionEnded`` envelope.
     """
-    from . import sessions_analytics as _sa
-    from .sessions_analytics import EVENT_HARNESS_SESSION_END_RELEASED_CLAIMS
     from .sessions_lifecycle_release import release_all_claims
 
-    claim_details = _format_claim_details(active_claim_rows)
-    evidence = evaluate_destructive_end(
+    evidence, event_context = prepare_release_claims_branch(
         conn,
         session_id,
+        force=force,
+        active_claim_rows=active_claim_rows,
         chain_override_authorized=chain_override_authorized,
     )
     released_count = release_all_claims(
-        conn, session_id, reason="session_ended",
+        conn,
+        session_id,
+        reason="session_ended",
     )
-    _sa._emit_session_event(
-        EVENT_HARNESS_SESSION_END_RELEASED_CLAIMS,
-        session_id=session_id,
-        context={
-            "released_count": released_count,
-            "claim_details": claim_details,
-            "force": force,
-            "agent_presence_evidence": evidence.as_dict(),
-        },
+    emit_release_claims_branch_event(
+        session_id,
+        released_count=released_count,
+        context=event_context,
     )
-    return evidence.as_dict()
+    return evidence
 
 
 __all__ = [
     "AgentPresenceEvidence",
+    "emit_release_claims_branch_event",
     "evaluate_destructive_end",
     "handle_release_claims_branch",
+    "prepare_release_claims_branch",
 ]

@@ -18,15 +18,61 @@ ITEMS_ADAPTERS = [
         cli_invocation="yoke items detail get ITEM --project P",
     ),
     AdapterEntry(
+        function_id="item_worktrees.create",
+        cli_invocation=(
+            "yoke item-worktrees create <PREFIX-N> "
+            "[--lane-role worker|integration --branch BRANCH] "
+            "[--project P] [--session-id S] [--json]"
+        ),
+        notes=(
+            "Ensure the sole policy-required default lane, or register one "
+            "explicit policy-allowed additional lane."
+        ),
+    ),
+    read_entry(
+        function_id="item_worktrees.list",
+        cli_invocation=(
+            "yoke item-worktrees list <PREFIX-N> "
+            "[--project P] [--session-id S] [--json]"
+        ),
+    ),
+    AdapterEntry(
+        function_id="item_worktrees.path_record",
+        cli_invocation=(
+            "yoke item-worktrees path-record <PREFIX-N> --worktree-id ID "
+            "--branch BRANCH --path ABSOLUTE_PATH "
+            "[--project P] [--session-id S] [--json]"
+        ),
+        notes=(
+            "Record a materialized local path with active-lane id and "
+            "unchanged-branch preconditions."
+        ),
+    ),
+    read_entry(
+        function_id="item_worktrees.get",
+        cli_invocation=(
+            "yoke item-worktrees get <PREFIX-N> [--lane-role ROLE] "
+            "[--field branch|path|lane-role|state|id] "
+            "[--session-id S] [--json]"
+        ),
+    ),
+    AdapterEntry(
+        function_id="item_worktrees.release",
+        cli_invocation=(
+            "yoke item-worktrees release <PREFIX-N> --all-active "
+            "--reason evidence-only-recovery [--session-id S] [--json]"
+        ),
+        notes="Guarded release of one attested clean evidence-only lane.",
+    ),
+    AdapterEntry(
         function_id="items.create",
         cli_invocation=(
-            "yoke items create TITLE WORKFLOW "
-            "--entry-surface harness_skill --project P"
+            "yoke items create TITLE WORKFLOW --entry-surface harness_skill --project P"
         ),
         notes="Workflow-selected creation through a registered entry surface.",
         canonical_skill_invocation=(
-            "yoke items create \"{title}\" {workflow} "
-            "--entry-surface harness_skill --project \"${_project}\""
+            'yoke items create "{title}" {workflow} '
+            '--entry-surface harness_skill --project "${_project}"'
         ),
     ),
     AdapterEntry(
@@ -78,8 +124,7 @@ ITEMS_ADAPTERS = [
     AdapterEntry(
         function_id="items.scalar.update",
         cli_invocation=(
-            "python3 -m yoke_core.cli.db_router items update YOK-N "
-            "<field> <value>"
+            "python3 -m yoke_core.cli.db_router items update YOK-N <field> <value>"
         ),
     ),
     AdapterEntry(

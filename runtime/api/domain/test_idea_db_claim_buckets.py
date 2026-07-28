@@ -119,12 +119,13 @@ class TestInferAndCreatePreventions:
             "packages/ runtime/"
         ) in text
 
-    def test_prevention_2_warns_against_lifecycle_py_intuition(self):
-        """The common mistake (naming ``lifecycle.py`` for gate
-        composition) must be called out so future agents recognize the
-        anti-pattern in their own drafts."""
+    def test_prevention_2_names_current_lifecycle_owners(self):
+        """Gate and vocabulary guidance names only current owners."""
         text = _read(_INFER_AND_CREATE)
-        assert "lifecycle.py" in text
+        assert "workflow_runtime.py" in text
+        assert "task_lifecycle.py" in text
+        retired_module = "yoke_core.domain." + "life" + "cycle"
+        assert retired_module not in text
 
     def test_duplicate_check_reads_board_and_recent_commits_first(self):
         """The idea duplicate pass must look at human-context surfaces

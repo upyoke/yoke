@@ -230,6 +230,12 @@ Use the simplest form that matches reality:
 
 ### Register the claim
 
+If the pinned definition declares `path_claims=required_per_task` and no
+generated tasks exist yet, skip item-level registration here. Task ownership
+cannot be inferred at intake; Shepherd registers each task only after its
+persisted `epic_task_files` budget exists. Continue to the required gate below,
+which returns a deliberate pre-task deferral as `verdict=pass`.
+
 Dispatch `claims.path.register` (envelope in
 [`body-and-sync-functions.md`](body-and-sync-functions.md)) with
 `target = {kind: "item", item_id: <id>}` and one of these payload
@@ -262,7 +268,8 @@ fit (do NOT mutate `status` to `'blocked'`).
 Roll-back is acceptable only before any GitHub issue has been synced. The forbidden state is a normal synced issue at `status='idea'` / `status='refined-idea'` with zero claim, no exception, and the item-level `blocked` field unset (see your `items` packet stanza) — the catch-up audit surfaces it and refine refuses to advance it past `refining-idea`.
 ### Verify before exiting idea
 
-After registering, confirm coverage by running the gate:
+After registering or deliberately deferring per-task coverage, confirm the
+posture by running the gate:
 
 ```bash
 yoke claims path required-gate YOK-{id-number}

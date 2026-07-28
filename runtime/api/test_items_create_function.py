@@ -203,6 +203,11 @@ class TestItemsCreateHandler:
         assert outcome.primary_success is False
         assert outcome.error.code == "invalid_payload"
 
+    def test_invalid_payload_missing_workflow(self):
+        outcome = handle_item_create(_request({"title": "Unclassified"}))
+        assert outcome.primary_success is False
+        assert outcome.error.code == "invalid_payload"
+        assert "workflow" in outcome.error.message
 
 # ---------------------------------------------------------------------------
 # End-to-end through the real execute_create (disposable DB)

@@ -239,7 +239,7 @@ class CreateItemRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     title: str
-    workflow: Optional[str] = None
+    workflow: str
     priority: str = "medium"
     project: Optional[str] = None
     deployment_flow: Optional[str] = None

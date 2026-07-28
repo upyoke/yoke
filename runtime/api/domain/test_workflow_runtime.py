@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+from copy import deepcopy
+from dataclasses import replace
+
 import pytest
 from psycopg.rows import tuple_row
 
+from yoke_core.domain.workflow_behavior import delivery_redirect_stage
 from yoke_core.domain.workflow_registry import (
     WorkflowRegistryError,
     resolve_current_workflow_pin,
@@ -56,6 +60,28 @@ def test_runtime_interprets_epic_executor_segments(test_db):
     assert runtime.executor_for_stage("refined-idea") == "shepherd"
     assert runtime.executor_for_stage("plan-drafted") == "refine"
     assert runtime.executor_for_stage("planned") == "conduct"
+
+
+def test_delivery_redirect_stage_comes_from_pinned_transition_graph(test_db):
+    runtime = load_item_workflow_runtime(test_db, _create(test_db))
+    definition = deepcopy(runtime.definition)
+    for stage in definition["stages"]:
+        if stage["id"] == "release":
+            stage["id"] = "ship-ready"
+            stage["label"] = "ship ready"
+    for transition in definition["transitions"]:
+        for field in ("from_stage_id", "to_stage_id"):
+            if transition[field] == "release":
+                transition[field] = "ship-ready"
+    custom_runtime = replace(runtime, definition=definition)
+
+    assert delivery_redirect_stage(custom_runtime) == "ship-ready"
+
+
+def test_non_release_delivery_policy_has_no_redirect_stage(test_db):
+    runtime = load_item_workflow_runtime(test_db, _create(test_db, "dash"))
+
+    assert delivery_redirect_stage(runtime) is None
 
 
 def test_runtime_exposes_definition_owned_gate_placement(test_db):

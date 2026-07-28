@@ -9,6 +9,7 @@ import pytest
 from yoke_core.domain import qa
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.qa_test_helpers import make_qa_db_file
+from runtime.api.qa_transition_test_support import add_bound_requirement
 
 
 @pytest.fixture()
@@ -19,7 +20,7 @@ def db_path(tmp_path: Path):
 
 class TestRequirementAdd:
     def test_add_with_item_id(self, db_path: str) -> None:
-        rid = qa.cmd_requirement_add(
+        rid = add_bound_requirement(
             db_path=db_path,
             item_id=10,
             qa_kind="unit_test",
@@ -29,7 +30,7 @@ class TestRequirementAdd:
         assert rid > 0
 
     def test_add_with_epic_id(self, db_path: str) -> None:
-        rid = qa.cmd_requirement_add(
+        rid = add_bound_requirement(
             db_path=db_path,
             epic_id=5,
             task_num=3,
@@ -49,7 +50,7 @@ class TestRequirementAdd:
 
     def test_missing_qa_kind_exits(self, db_path: str) -> None:
         with pytest.raises(SystemExit) as exc:
-            qa.cmd_requirement_add(
+            add_bound_requirement(
                 db_path=db_path,
                 item_id=10,
                 qa_kind="",
@@ -59,7 +60,7 @@ class TestRequirementAdd:
 
     def test_missing_target_exits(self, db_path: str) -> None:
         with pytest.raises(SystemExit) as exc:
-            qa.cmd_requirement_add(
+            add_bound_requirement(
                 db_path=db_path,
                 qa_kind="unit_test",
                 qa_phase="verification",
@@ -68,7 +69,7 @@ class TestRequirementAdd:
 
     def test_multiple_targets_exits(self, db_path: str) -> None:
         with pytest.raises(SystemExit) as exc:
-            qa.cmd_requirement_add(
+            add_bound_requirement(
                 db_path=db_path,
                 item_id=10,
                 deployment_run_id="run-abc",
@@ -79,7 +80,7 @@ class TestRequirementAdd:
 
     def test_epic_id_without_task_num_exits(self, db_path: str) -> None:
         with pytest.raises(SystemExit) as exc:
-            qa.cmd_requirement_add(
+            add_bound_requirement(
                 db_path=db_path,
                 epic_id=5,
                 qa_kind="unit_test",
@@ -88,7 +89,7 @@ class TestRequirementAdd:
         assert exc.value.code == 2
 
     def test_optional_fields_stored(self, db_path: str) -> None:
-        rid = qa.cmd_requirement_add(
+        rid = add_bound_requirement(
             db_path=db_path,
             item_id=10,
             qa_kind="unit_test",
@@ -100,7 +101,10 @@ class TestRequirementAdd:
             suite_id="suite-abc",
         )
         conn = connect_test_db(rid and db_path)
-        row = conn.execute("SELECT target_env, blocking_mode, requirement_source, capability_requirements, suite_id FROM qa_requirements WHERE id = %s", (rid,)).fetchone()
+        row = conn.execute(
+            "SELECT target_env, blocking_mode, requirement_source, capability_requirements, suite_id FROM qa_requirements WHERE id = %s",
+            (rid,),
+        ).fetchone()
         conn.close()
         assert row[0] == "staging"
         assert row[1] == "non_blocking"
@@ -108,9 +112,11 @@ class TestRequirementAdd:
         assert row[3] == '{"browser": true}'
         assert row[4] == "suite-abc"
 
-    def test_invalid_requirement_source_exits_before_sqlite(self, db_path: str, capsys) -> None:
+    def test_invalid_requirement_source_exits_before_sqlite(
+        self, db_path: str, capsys
+    ) -> None:
         with pytest.raises(SystemExit) as exc:
-            qa.cmd_requirement_add(
+            add_bound_requirement(
                 db_path=db_path,
                 item_id=10,
                 qa_kind="unit_test",
@@ -128,7 +134,7 @@ class TestRequirementAdd:
         assert count == 0
 
     def test_legacy_aliases_normalize_to_current_vocab(self, db_path: str) -> None:
-        rid = qa.cmd_requirement_add(
+        rid = add_bound_requirement(
             db_path=db_path,
             item_id=10,
             qa_kind="review",

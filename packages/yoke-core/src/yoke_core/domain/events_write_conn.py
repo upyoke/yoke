@@ -1,9 +1,9 @@
-"""Short-lived own-connection event INSERT for the native emitter.
+"""Event INSERT helpers for owned and caller-managed connections.
 
 Extracted from :mod:`yoke_core.domain.events` to keep that module under the
-file-line cap. Owns the branch the emitter takes when no caller-managed
-connection is supplied: open a backend-appropriate connection, insert one
-event row, commit, close.
+file-line cap. The owned-connection helper commits its short transaction.
+The caller-managed helper deliberately leaves the transaction boundary to
+its caller so domain state and its event evidence can commit atomically.
 
 Backend routing: when the Postgres backend is selected, route through
 the shared backend factory (:func:`yoke_core.domain.db_backend.connect`) even
@@ -79,9 +79,9 @@ def write_event_row(
 def write_event_row_on_conn(conn: Any, insert_sql: str, params: Sequence[Any]) -> bool:
     """Insert one event row on a caller-owned connection.
 
-    Missing optional event tables are raised back to the native emitter, but the
-    Postgres transaction state is restored before that best-effort failure is
-    swallowed.
+    Never commits the caller's transaction. Missing optional event tables are
+    raised back to the native emitter, but the Postgres transaction state is
+    restored before that best-effort failure is swallowed.
     """
     if not db_backend.connection_is_postgres(conn):
         insert_sql = insert_sql.replace("%s", "?")
@@ -95,7 +95,6 @@ def write_event_row_on_conn(conn: Any, insert_sql: str, params: Sequence[Any]) -
         conn.execute(insert_sql, params)
         if use_savepoint:
             conn.execute(f"RELEASE SAVEPOINT {savepoint}")
-        conn.commit()
         return True
     except db_backend.database_error_types(conn):
         if savepoint_created:

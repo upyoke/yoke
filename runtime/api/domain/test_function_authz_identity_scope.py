@@ -147,6 +147,36 @@ def test_project_owner_is_not_enough_for_identity_admin(conn):
     assert denied.error is not None
 
 
+def test_machine_lifecycle_allows_a_bound_member_to_create_pending(conn):
+    org_id = _default_org(conn)
+    admin = _new_actor(conn)
+    grant_actor_org_role(
+        conn,
+        actor_id=admin,
+        org_id=org_id,
+        role_name=ROLE_ADMIN,
+        granted_by_actor_id=admin,
+    )
+    member = _new_actor(conn)
+    entry = _entry("machine_approval.lifecycle.apply")
+
+    assert check_dispatch_permission(
+        conn,
+        entry,
+        _request(admin, "machine_approval.lifecycle.apply"),
+    ).error is None
+    allowed = check_dispatch_permission(
+        conn,
+        entry,
+        _request(
+            member,
+            "machine_approval.lifecycle.apply",
+            {"state": "pending"},
+        ),
+    )
+    assert allowed.error is None
+
+
 def test_org_context_falls_back_to_identity_card_org_without_yoke_project(conn):
     # Simulate a fresh self-host universe: no projects registered at all.
     conn.execute("DELETE FROM actor_project_roles")

@@ -42,12 +42,16 @@ def insert_item(db: BoardDB, item_id: int, **kwargs) -> None:
     }
     defaults.update(kwargs)
     db.execute(
-        "INSERT INTO items (id, title, workflow_id, status, priority, frozen,"
+        "INSERT INTO items (id, title, workflow_id, workflow_version_id, "
+        "status, priority, frozen,"
         " project_id, project_sequence, updated_at, created_at)"
-        " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        " VALUES (%s, %s, %s, "
+        "(SELECT id FROM workflow_versions WHERE workflow_id = %s "
+        "ORDER BY version DESC LIMIT 1), %s, %s, %s, %s, %s, %s, %s)",
         (
             item_id,
             defaults["title"],
+            defaults["workflow_id"],
             defaults["workflow_id"],
             defaults["status"],
             defaults["priority"],
@@ -66,11 +70,13 @@ def insert_item_raw(db_path: str, items: list) -> None:
     for item_id, title, status, workflow_id, project, frozen, created_at, updated_at in items:
         conn.execute(
             "INSERT INTO items "
-            "(id, title, status, workflow_id, project_id, project_sequence, "
-            "frozen, created_at, updated_at)"
-            " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            "(id, title, status, workflow_id, workflow_version_id, project_id, "
+            "project_sequence, frozen, created_at, updated_at)"
+            " VALUES (%s, %s, %s, %s, "
+            "(SELECT id FROM workflow_versions WHERE workflow_id = %s "
+            "ORDER BY version DESC LIMIT 1), %s, %s, %s, %s, %s)",
             (
-                item_id, title, status, workflow_id, project_id(project),
+                item_id, title, status, workflow_id, workflow_id, project_id(project),
                 item_id, frozen, created_at, updated_at,
             ),
         )

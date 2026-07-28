@@ -10,6 +10,10 @@ from __future__ import annotations
 import unittest
 
 from yoke_core.domain.handlers import qa_requirement_create
+from yoke_core.domain.qa_workflow_binding_validation import (
+    item_transition_for_gate,
+)
+from yoke_core.domain.workflow_gate_catalog import GATE_QA_VERIFICATION
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -33,6 +37,17 @@ def _request(function_id: str, item_id, payload) -> FunctionCallRequest:
     )
 
 
+def _bound_row(conn, item_id: int, payload: dict) -> dict:
+    return {
+        **payload,
+        "workflow_transition_id": item_transition_for_gate(
+            conn,
+            item_id=item_id,
+            gate_id=GATE_QA_VERIFICATION,
+        ),
+    }
+
+
 class TestRequirementAdd(unittest.TestCase):
     def test_inserts_item_attached_row(self):
         with test_database() as conn:
@@ -41,12 +56,12 @@ class TestRequirementAdd(unittest.TestCase):
             outcome = qa_requirement_create.handle_qa_requirement_add(
                 _request(
                     "qa.requirement.add", 42,
-                    {
+                    _bound_row(conn, 42, {
                         "qa_kind": "ac_verification",
                         "qa_phase": "verification",
                         "requirement_source": "ac_derived",
                         "success_policy": "AC-1 verified end to end",
-                    },
+                    }),
                 ),
             )
             self.assertTrue(outcome.primary_success, outcome.error)
@@ -69,7 +84,7 @@ class TestRequirementAdd(unittest.TestCase):
             outcome = qa_requirement_create.handle_qa_requirement_add(
                 _request(
                     "qa.requirement.add", 42,
-                    {
+                    _bound_row(conn, 42, {
                         "method_id": "browser-check",
                         "qa_phase": "verification",
                         "instructions": "Check the login page.",
@@ -84,7 +99,7 @@ class TestRequirementAdd(unittest.TestCase):
                                 },
                             ],
                         },
-                    },
+                    }),
                 ),
             )
             self.assertTrue(outcome.primary_success, outcome.error)
@@ -105,7 +120,11 @@ class TestRequirementAdd(unittest.TestCase):
             outcome = qa_requirement_create.handle_qa_requirement_add(
                 _request(
                     "qa.requirement.add", 42,
-                    {"qa_kind": "review", "qa_phase": "validation"},
+                    _bound_row(
+                        conn,
+                        42,
+                        {"qa_kind": "review", "qa_phase": "validation"},
+                    ),
                 ),
             )
             self.assertTrue(outcome.primary_success, outcome.error)
@@ -187,11 +206,11 @@ class TestRequirementAddBatch(unittest.TestCase):
                     "qa.requirement.add_batch", 42,
                     {
                         "rows": [
-                            {
+                            _bound_row(conn, 42, {
                                 "qa_kind": "ac_verification",
                                 "qa_phase": "verification",
-                            },
-                            {
+                            }),
+                            _bound_row(conn, 42, {
                                 "method_id": "browser-check",
                                 "qa_phase": "verification",
                                 "instructions": "Check the page.",
@@ -206,7 +225,7 @@ class TestRequirementAddBatch(unittest.TestCase):
                                         },
                                     ],
                                 },
-                            },
+                            }),
                         ],
                     },
                 ),
@@ -228,15 +247,15 @@ class TestRequirementAddBatch(unittest.TestCase):
                     "qa.requirement.add_batch", 42,
                     {
                         "rows": [
-                            {
+                            _bound_row(conn, 42, {
                                 "qa_kind": "ac_verification",
                                 "qa_phase": "verification",
-                            },
+                            }),
                             # Browser method without its case contract.
-                            {
+                            _bound_row(conn, 42, {
                                 "method_id": "browser-check",
                                 "qa_phase": "verification",
-                            },
+                            }),
                         ],
                     },
                 ),

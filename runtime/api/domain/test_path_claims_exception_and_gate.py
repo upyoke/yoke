@@ -80,6 +80,7 @@ def _seed_item(
 class TestExceptionRegister:
     def test_exception_lands_in_active_with_reason(self, conn):
         actor = local_human(conn)
+        _seed_item(conn, item_id=42)
         cid = register_exception(
             conn,
             actor_id=actor,
@@ -89,8 +90,8 @@ class TestExceptionRegister:
             item_id=42,
         )
         row = conn.execute(
-            "SELECT mode, state, exception_reason FROM path_claims "
-            "WHERE id = %s", (cid,),
+            "SELECT mode, state, exception_reason FROM path_claims WHERE id = %s",
+            (cid,),
         ).fetchone()
         assert row["mode"] == "exception"
         assert row["state"] == "active"
@@ -101,24 +102,35 @@ class TestExceptionRegister:
         target = seed_target(conn, path_string="x.py")
         with pytest.raises(InvalidTargetSet):
             register_exception(
-                conn, actor_id=actor, integration_target="main",
-                target_ids=[target], exception_reason="x",
+                conn,
+                actor_id=actor,
+                integration_target="main",
+                target_ids=[target],
+                exception_reason="x",
             )
 
     def test_exception_rejects_empty_reason(self, conn):
         actor = local_human(conn)
         with pytest.raises(InvalidTargetSet):
             register_exception(
-                conn, actor_id=actor, integration_target="main",
-                target_ids=[], exception_reason="   ",
+                conn,
+                actor_id=actor,
+                integration_target="main",
+                target_ids=[],
+                exception_reason="   ",
             )
 
     def test_register_dispatches_to_exception_helper(self, conn):
         actor = local_human(conn)
+        _seed_item(conn, item_id=99)
         cid = register(
-            conn, actor_id=actor, integration_target="main",
-            target_ids=[], mode="exception",
-            exception_reason="meta-only work item", item_id=99,
+            conn,
+            actor_id=actor,
+            integration_target="main",
+            target_ids=[],
+            mode="exception",
+            exception_reason="meta-only work item",
+            item_id=99,
         )
         row = conn.execute(
             "SELECT mode, exception_reason FROM path_claims WHERE id = %s",
@@ -148,8 +160,11 @@ class TestClaimRequiredGate:
         target = seed_target(conn, path_string="a.py")
         _seed_item(conn, item_id=100)
         register(
-            conn, actor_id=actor, integration_target="main",
-            target_ids=[target], item_id=100,
+            conn,
+            actor_id=actor,
+            integration_target="main",
+            target_ids=[target],
+            item_id=100,
         )
         result = evaluate(conn, 100)
         assert result["verdict"] == GATE_PASS
@@ -158,8 +173,12 @@ class TestClaimRequiredGate:
         actor = local_human(conn)
         _seed_item(conn, item_id=101)
         register_exception(
-            conn, actor_id=actor, integration_target="main",
-            target_ids=[], exception_reason="meta-only", item_id=101,
+            conn,
+            actor_id=actor,
+            integration_target="main",
+            target_ids=[],
+            exception_reason="meta-only",
+            item_id=101,
         )
         result = evaluate(conn, 101)
         assert result["verdict"] == GATE_PASS
@@ -175,11 +194,15 @@ class TestClaimRequiredGate:
         target = seed_target(conn, path_string="b.py")
         _seed_item(conn, item_id=201)
         cid = register(
-            conn, actor_id=actor, integration_target="main",
-            target_ids=[target], item_id=201,
+            conn,
+            actor_id=actor,
+            integration_target="main",
+            target_ids=[target],
+            item_id=201,
         )
         conn.execute(
-            "UPDATE path_claims SET state='released' WHERE id=%s", (cid,),
+            "UPDATE path_claims SET state='released' WHERE id=%s",
+            (cid,),
         )
         conn.commit()
         assert is_satisfied(conn, 201) is False
@@ -204,8 +227,11 @@ class TestClaimRequiredGate:
         for item_id in (300, 301, 302):
             _seed_item(conn, item_id=item_id)
         register(
-            conn, actor_id=actor, integration_target="main",
-            target_ids=[target], item_id=300,
+            conn,
+            actor_id=actor,
+            integration_target="main",
+            target_ids=[target],
+            item_id=300,
         )
         missing = items_missing_coverage(conn, [300, 301, 302])
         assert missing == [301, 302]
@@ -222,8 +248,11 @@ class TestCatchUpAudit:
         actor = local_human(conn)
         target = seed_target(conn, path_string="covered.py")
         register(
-            conn, actor_id=actor, integration_target="main",
-            target_ids=[target], item_id=400,
+            conn,
+            actor_id=actor,
+            integration_target="main",
+            target_ids=[target],
+            item_id=400,
         )
         failures = check_path_claim_coverage(conn, "yoke")
         failure_ids = {f[0] for f in failures}
@@ -235,8 +264,12 @@ class TestCatchUpAudit:
         _seed_item(conn, item_id=410)
         actor = local_human(conn)
         register_exception(
-            conn, actor_id=actor, integration_target="main",
-            target_ids=[], exception_reason="meta", item_id=410,
+            conn,
+            actor_id=actor,
+            integration_target="main",
+            target_ids=[],
+            exception_reason="meta",
+            item_id=410,
         )
         failures = check_path_claim_coverage(conn, "yoke")
         assert 410 not in {f[0] for f in failures}

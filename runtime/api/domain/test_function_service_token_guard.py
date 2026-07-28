@@ -59,6 +59,26 @@ def test_lifecycle_accepts_the_hosted_service_token() -> None:
         reset_registry_for_tests()
 
 
+def test_machine_lifecycle_accepts_member_and_service_authority() -> None:
+    reset_registry_for_tests()
+    register_all_handlers()
+    try:
+        entry = lookup("machine_approval.lifecycle.apply")
+        envelope = {"function": "machine_approval.lifecycle.apply"}
+        assert _service_token_guard_response(
+            envelope,
+            entry,
+            _auth("doorman:user-7"),
+        ) is None
+        assert _service_token_guard_response(
+            envelope,
+            entry,
+            _auth(INITIAL_ADMIN_TOKEN_NAME),
+        ) is None
+    finally:
+        reset_registry_for_tests()
+
+
 def test_service_only_functions_do_not_depend_on_the_yoke_project() -> None:
     reset_registry_for_tests()
     register_all_handlers()

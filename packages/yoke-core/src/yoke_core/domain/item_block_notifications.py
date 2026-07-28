@@ -12,7 +12,7 @@ from yoke_core.domain.decision_request_contract import (
     ITEM_UNBLOCKED_EVENT,
 )
 from yoke_core.domain.decision_request_events import append_decision_event
-from yoke_core.domain.inbox_notifications import fan_out_registered_event
+from yoke_core.domain.inbox_notifications import dispatch_addressed_event
 from yoke_core.domain.schema_common import _table_exists
 
 
@@ -74,14 +74,14 @@ def emit_item_block_state_notification(
             "item_ref": item_ref,
             "blocked": blocked,
             "reason": reason,
+            "owner_actor_id": owner_actor_id,
         },
         created_at=stamp,
     )
-    inserted = fan_out_registered_event(
+    inserted = dispatch_addressed_event(
         conn,
         event_id=event_id,
         notification_kind=ITEM_BLOCK_STATE_CHANGED,
-        event_context={"owner_actor_id": owner_actor_id},
         reason=reason,
         created_at=stamp,
     )

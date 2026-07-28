@@ -13,7 +13,7 @@ Yoke uses harness-native hook points to keep orchestration deterministic — sta
 | Pre-tool observer (emits `HarnessToolCallStarted` so PostToolUse can compute `duration_ms`) | `yoke_core.domain.observe_pre` |
 | Post-tool telemetry (emits `HarnessToolCallCompleted` / `HarnessToolCallFailed` / `HarnessToolCallStructuredExit` / `HarnessLifecycleMutationDetected`, runs anomaly detection, computes `duration_ms`) | `yoke_core.domain.observe` for `PostToolUse` |
 | DB error annotation | `yoke_core.domain.db_error_hook` |
-| Subagent stop (Issue-flow auto-commit safety net, `HarnessSessionStopped`) | `yoke_core.domain.agent_stop` |
+| Subagent stop (item-worktree auto-commit safety net, `HarnessSessionStopped`) | `yoke_core.domain.agent_stop` |
 | Emergency status repair | `yoke_core.engines.repair_status` |
 
 The `yoke hook evaluate` CLI is the stable boundary project hook configs call; the spelling is identical on every transport. Other Python modules above are internal policy/telemetry owners executed behind the runner, not copy-paste hook config commands.
@@ -21,9 +21,9 @@ The `yoke hook evaluate` CLI is the stable boundary project hook configs call; t
 `Stop` and `SessionEnd` call `end_session_if_empty`: they preserve an active
 session when it still owns unreleased work claims or has a resumable chain
 checkpoint. They do not drain claims. `SubagentStop` has a different local
-responsibility: it can safety-net auto-commit uncommitted Issue-lane work and
-then emits `HarnessSessionStopped`; it does not terminate the parent session
-or release its claims.
+responsibility: it can safety-net auto-commit uncommitted work in a `YOK-N`
+item worktree and then emits `HarnessSessionStopped`; it does not terminate
+the parent session or release its claims.
 
 ## Transport
 
@@ -38,7 +38,7 @@ or release its claims.
 
 **Local-state policies always evaluate client-side; the server evaluates the rest.** Policies whose verdict needs the client machine (client git state, bound-workspace env, on-disk file content, the hook script dir) cannot run on the server: `runtime.harness.hook_runner.remote_policy.LOCAL_STATE_POLICIES` classifies them, the relay client evaluates exactly that subset before posting, and server-side evaluation skips each one with its module id recorded in the response's `degraded` list — the marker means "delegated to the client", not "protection off". Per-policy fail-open/fail-closed semantics are byte-identical to local transport because the client subset runs the same chain machinery. Payload-only and DB-backed policies (command-shape lints, path-claim and session-cwd guards, heartbeat, telemetry) run server-side as-is — the control-plane DB is the server's own authority. The request's `agent_type` (from `YOKE_HOOK_AGENT_TYPE` on the client) and client-owned identity fields (`entrypoint`, real `model`, `execution_lane`) merge into the payload on both sides so subagent-context detection and session registration keep working. The server binds the verified bearer-token actor to relay-registered `harness_sessions` rows (`actor_id` mirrors what local registration resolves from the machine actor).
 
-**SubagentStop disposition.** SubagentStop is registered per-subagent in agent adapter frontmatter and invokes the `yoke_core.domain.agent_stop` owner directly — it does not route through `yoke hook evaluate`, so the https transport does not carry it. It stays local on purpose: its load-bearing work is the issue-flow auto-commit of the subagent's worktree, which is client-machine git state no server can act on. The chain registry's `SubagentStop -> session_dispatch` entry is the runner-side fallback for harnesses that route it through the shared runner; `session_dispatch` is itself classified local-state, so over https it evaluates client-side like the rest of the subset.
+**SubagentStop disposition.** SubagentStop is registered per-subagent in agent adapter frontmatter and invokes the `yoke_core.domain.agent_stop` owner directly — it does not route through `yoke hook evaluate`, so the https transport does not carry it. It stays local on purpose: its load-bearing work is the auto-commit of the subagent's item worktree, which is client-machine git state no server can act on. The chain registry's `SubagentStop -> session_dispatch` entry is the runner-side fallback for harnesses that route it through the shared runner; `session_dispatch` is itself classified local-state, so over https it evaluates client-side like the rest of the subset.
 
 ## Where hooks are configured
 
@@ -65,4 +65,4 @@ The agent stop hook (`yoke_core.domain.agent_stop`) emits `HarnessSessionStopped
 - `auto_committed` — the hook detected uncommitted work and committed it as a safety net before the agent exited.
 - `unexpected_stop` — the agent exited without reaching a clean terminal state and no auto-commit fired.
 
-Agent context (epic/task references, final task status, auto-commit metadata) rides along on the same event so session reconstruction has everything it needs in one row.
+Work-unit identity (`item_id` plus optional `task_num`), final task status, and auto-commit metadata ride along on the same event so session reconstruction has everything it needs in one row.

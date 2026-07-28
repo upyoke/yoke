@@ -10,6 +10,7 @@ from typing import Any, Optional
 
 def _parent():
     from yoke_core.engines import merge_worktree as _mw
+
     return _mw
 
 
@@ -19,6 +20,7 @@ _TASK_TERMINAL_SUCCESS = ("done", "reviewed-implementation", "implemented", "rel
 @dataclass
 class MergeArgs:
     """Parsed command-line arguments."""
+
     branch: str
     target: str = "main"
     epic_ref: Optional[str] = None
@@ -31,6 +33,7 @@ class MergeArgs:
 @dataclass
 class MergeContext:
     """Accumulated state during the merge workflow."""
+
     args: MergeArgs
     repo_root: str = ""
     yoke_repo_root: str = ""
@@ -48,20 +51,28 @@ class MergeContext:
     target_sha_at_validation: Optional[str] = None
 
     # File classification patterns
-    doc_files: list[str] = field(default_factory=lambda: [
-        "AGENTS.md", "CLAUDE.md", "README.md", "docs/*",
-    ])
-    yoke_gen_files: list[str] = field(default_factory=lambda: [
-        # Generated view conflict classification for project-local board
-        # render outputs. State truth remains in Postgres.
-        ".yoke/BOARD.md",
-        ".yoke/BOARD.md.ts",
-    ])
+    doc_files: list[str] = field(
+        default_factory=lambda: [
+            "AGENTS.md",
+            "CLAUDE.md",
+            "README.md",
+            "docs/*",
+        ]
+    )
+    yoke_gen_files: list[str] = field(
+        default_factory=lambda: [
+            # Generated view conflict classification for project-local board
+            # render outputs. State truth remains in Postgres.
+            ".yoke/BOARD.md",
+            ".yoke/BOARD.md.ts",
+        ]
+    )
 
 
 @dataclass
 class ConflictInfo:
     """Per-file conflict classification."""
+
     path: str
     classification: str  # "generated", "doc", "yoke-gen", "additive", "overlapping"
     auto_resolvable: bool
@@ -80,6 +91,7 @@ def _p(conn) -> str:
 def _matches_glob(filepath: str, patterns: list[str]) -> bool:
     """Check if filepath matches any of the given glob patterns."""
     import fnmatch
+
     for pattern in patterns:
         if fnmatch.fnmatch(filepath, pattern):
             return True
@@ -94,10 +106,6 @@ def validate_args(args: MergeArgs) -> Optional[str]:
             "[--local] [--keep-remote] [--skip-simulation] <branch> "
             "[target-branch] [epic-ref]"
         )
-
-    # Reject retired branch naming.
-    if args.branch.startswith("issue/YOK-") or args.branch.startswith("epic/YOK-"):
-        return f"Error: legacy branch naming '{args.branch}' is retired."
 
     return None
 
@@ -174,8 +182,7 @@ def resolve_context(args: MergeArgs) -> MergeContext:
                 checkout = checkout_for_project(conn, ctx.project)
                 if checkout is None:
                     raise RuntimeError(
-                        f"project '{ctx.project}' has no machine-local "
-                        "checkout mapping"
+                        f"project '{ctx.project}' has no machine-local checkout mapping"
                     )
                 ctx.repo_root = str(checkout)
                 # Resolve default branch for non-yoke projects
@@ -208,18 +215,21 @@ def resolve_context(args: MergeArgs) -> MergeContext:
 def _find_worktree(branch: str, repo_root: str) -> str:
     """Find the worktree path for a branch, or fall back to repo root."""
     mw = _parent()
-    result = mw._run_git(["worktree", "list", "--porcelain"], cwd=repo_root, capture=True)
+    result = mw._run_git(
+        ["worktree", "list", "--porcelain"], cwd=repo_root, capture=True
+    )
     if result.returncode != 0:
         return repo_root
 
     current_wt = ""
     for line in result.stdout.splitlines():
         if line.startswith("worktree "):
-            current_wt = line[len("worktree "):]
+            current_wt = line[len("worktree ") :]
         elif line == f"branch refs/heads/{branch}":
             return current_wt
 
     return repo_root
+
 
 from yoke_core.engines.merge_worktree_prepare_preflight import preflight_checks  # noqa: E402,F401
 from yoke_core.engines.merge_worktree_prepare_state import (  # noqa: E402,F401

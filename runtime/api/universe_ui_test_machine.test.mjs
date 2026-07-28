@@ -130,7 +130,7 @@ test("Test Mac detail matches capability, lease, method, and receipt prototype",
   assert.deepEqual(
     byClass(main, "test-machine-secret").map((node) =>
       text(byClass(node, "mono")[0])),
-    ["ssh_private_key", "sudo_password", "screen_control_token"],
+    ["ssh_private_key"],
   );
   assert.deepEqual(
     byClass(main, "test-machine-kv").flatMap((node) =>
@@ -232,18 +232,23 @@ test("settings modal keeps secrets terminal-only and invalidates through typed w
   assert.match(rendered, /Secret values never enter the browser/);
   assert.match(
     rendered,
-    /replacement happens through the registered terminal surface with --value-stdin/,
+    /The SSH key is the only credential/,
+  );
+  assert.match(
+    rendered,
+    /macOS Automation and Screen Recording are host permissions, not tokens/,
   );
   assert.match(
     rendered,
     /capability secret set --project yoke --cap-type test-machine/,
   );
+  assert.match(rendered, /--key ssh_private_key --value-stdin/);
   assert.match(rendered, /executor subprocess only/);
-  assert.match(rendered, /used only by registered host-baseline operations/);
-  assert.match(rendered, /Terminal automation bridge/);
+  assert.doesNotMatch(rendered, /sudo_password/);
+  assert.doesNotMatch(rendered, /screen_control_token/);
   assert.match(rendered, /stored/);
-  assert.match(rendered, /missing/);
   assert.match(rendered, /registered executor operations/);
+  assert.equal(byClass(main, "test-machine-command").length, 1);
   assert.equal(
     byClass(byClass(main, "test-machine-command")[0], "good").length,
     1,

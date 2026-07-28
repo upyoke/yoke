@@ -45,9 +45,7 @@ def _repo_root() -> Path:
         try:
             from yoke_core.domain.worktree import resolve_yoke_root
 
-            return Path(
-                resolve_yoke_root(yoke_root_env=yoke_root)
-            ).parent
+            return Path(resolve_yoke_root(yoke_root_env=yoke_root)).parent
         except (ImportError, RuntimeError):
             pass
 
@@ -145,6 +143,7 @@ def _emit_event(
     """Emit a task github-sync event via the native Python emitter."""
     try:
         from yoke_core.domain.events import emit_event as _native_emit
+
         try:
             context_obj = json.loads(context_json)
         except (ValueError, TypeError):
@@ -193,7 +192,7 @@ def _verify_claim(epic_id: str, task_num: str, *, stderr: TextIO) -> None:
             file=stderr,
         )
         print(
-            f"  Claim first: python3 -m yoke_core.api.service_client claim-work --item YOK-{epic_id}",
+            f'  Claim first: yoke claims work acquire --item YOK-{epic_id} --reason "<intent>"',
             file=stderr,
         )
         print(
@@ -226,6 +225,7 @@ def _history_insert(
 
     try:
         from yoke_core.domain.events import emit_event as _native_emit
+
         _native_emit(
             "TaskStatusChanged",
             event_kind="lifecycle",

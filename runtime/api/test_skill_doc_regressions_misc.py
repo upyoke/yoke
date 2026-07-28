@@ -295,7 +295,7 @@ class TestCanonicalOwnerPaths:
     def test_hook_docs_preserve_claim_ownership_at_session_end(self):
         text = _read(REPO / "docs" / "hooks.md")
         assert "They do not drain claims." in text
-        assert "Issue-flow auto-commit" in text
+        assert "item-worktree auto-commit" in text
         assert "HarnessSessionStopped" in text
 
     def test_session_workspace_comment_is_functional(self):

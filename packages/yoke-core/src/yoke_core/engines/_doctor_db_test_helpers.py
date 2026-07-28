@@ -54,7 +54,6 @@ _MAKE_CONN_DDL = textwrap.dedent("""\
         CREATE TABLE items (
             id INTEGER PRIMARY KEY,
             title TEXT,
-            type TEXT,
             status TEXT,
             priority TEXT,
             project_id INTEGER DEFAULT 1,

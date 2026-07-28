@@ -36,7 +36,16 @@ def db(tmp_path):
 
 @pytest.fixture
 def db_with_task(db):
-    insert_epic_task(db, epic_id=TEST_ITEM_ID, task_num=1, title="First task", status="planning")
+    insert_item(
+        db,
+        id=TEST_ITEM_ID,
+        title="Test epic",
+        workflow_id="epic",
+        status="implementing",
+    )
+    insert_epic_task(
+        db, epic_id=TEST_ITEM_ID, task_num=1, title="First task", status="planning"
+    )
     return db
 
 
@@ -73,7 +82,10 @@ class TestParseSimulationResult:
         assert epic._parse_simulation_result("## Result: CLEAN") == "CLEAN"
 
     def test_result_header_gaps(self):
-        assert epic._parse_simulation_result("## Result: GAPS FOUND (3 issues)") == "GAPS FOUND"
+        assert (
+            epic._parse_simulation_result("## Result: GAPS FOUND (3 issues)")
+            == "GAPS FOUND"
+        )
 
     def test_count_format_with_gaps(self):
         body = "## Result: 2 critical, 1 warnings, 0 notes"
@@ -106,7 +118,8 @@ class TestCascadeMappingRules:
         insert_epic_task(db, epic_id=42, task_num=3, title="T3", status="implementing")
 
         # Direct DB update to avoid update-status.sh subprocess
-        result = epic.cascade_task_status.__wrapped__(db, "42", "planning", "plan-drafted") if hasattr(epic.cascade_task_status, '__wrapped__') else None
+        if hasattr(epic.cascade_task_status, "__wrapped__"):
+            epic.cascade_task_status.__wrapped__(db, "42", "planning", "plan-drafted")
         # Since cascade calls update-status.sh via subprocess, we test the mapping logic
         key = ("planning", "plan-drafted")
         assert key in epic._CASCADE_MAP
@@ -134,13 +147,25 @@ class TestCascadeMappingRules:
 
 class TestOrphanCheck:
     def test_finds_orphans(self, db):
-        insert_item(db, id=TEST_ITEM_ID, title="My epic", type="epic", spec="No plan here")
+        insert_item(
+            db,
+            id=TEST_ITEM_ID,
+            title="My epic",
+            workflow_id="epic",
+            spec="No plan here",
+        )
         insert_epic_task(db, epic_id=TEST_ITEM_ID, task_num=1, title="Task")
         result = epic.orphan_check(db)
         assert TEST_ITEM_REF in result
 
     def test_no_orphans(self, db):
-        insert_item(db, id=TEST_ITEM_ID, title="My epic", type="epic", technical_plan="Actual tech plan content")
+        insert_item(
+            db,
+            id=TEST_ITEM_ID,
+            title="My epic",
+            workflow_id="epic",
+            technical_plan="Actual tech plan content",
+        )
         insert_epic_task(db, epic_id=TEST_ITEM_ID, task_num=1, title="Task")
         result = epic.orphan_check(db)
         assert result == ""
@@ -177,7 +202,9 @@ class TestReviewGet:
 
 class TestReviewAndSimulationWrites:
     def test_review_seed_creates_requirement(self, db_with_task):
-        with patch("yoke_core.domain.epic._qa_requirement_add_silent", return_value=17) as add_req:
+        with patch(
+            "yoke_core.domain.epic._qa_requirement_add_silent", return_value=17
+        ) as add_req:
             result = epic.review_seed(db_with_task, "42", 1)
 
         assert result == "Implementation-review requirement seeded: 42/1 req_id=17"
@@ -190,6 +217,7 @@ class TestReviewAndSimulationWrites:
             blocking_mode="blocking",
             requirement_source="explicit",
             success_policy='{"type":"deterministic","criteria":"verdict_pass"}',
+            workflow_transition_id="reviewed-implementation",
         )
 
     def test_review_seed_reuses_existing_requirement(self, db_with_task):
@@ -207,12 +235,18 @@ class TestReviewAndSimulationWrites:
         assert result == "Implementation-review requirement seeded: 42/1 req_id=9"
         add_req.assert_not_called()
 
-    def test_review_insert_lowercases_verdict_and_restores_env(self, db_with_task, monkeypatch):
+    def test_review_insert_lowercases_verdict_and_restores_env(
+        self, db_with_task, monkeypatch
+    ):
         monkeypatch.setenv("KEEP_ME", "yes")
         previous = dict(os.environ)
-        with patch("yoke_core.domain.epic._ensure_implementation_review_requirement", return_value=7), patch(
-            "yoke_core.domain.epic._qa_run_add_silent"
-        ) as add_run:
+        with (
+            patch(
+                "yoke_core.domain.epic._ensure_implementation_review_requirement",
+                return_value=7,
+            ),
+            patch("yoke_core.domain.epic._qa_run_add_silent") as add_run,
+        ):
             result = epic.review_insert(db_with_task, "42", 1, "PASS", "Looks good")
 
         assert result == "Inserted review: 42/1 verdict=PASS"
@@ -228,9 +262,19 @@ class TestReviewAndSimulationWrites:
         assert os.environ == previous
 
     def test_simulation_upsert_creates_requirement_and_run(self, db):
-        with patch("yoke_core.domain.epic._qa_requirement_add_silent", return_value=23) as add_req, patch(
-            "yoke_core.domain.epic._qa_run_add_silent"
-        ) as add_run:
+        insert_item(
+            db,
+            id=TEST_ITEM_ID,
+            title="Test epic",
+            workflow_id="epic",
+            status="planning",
+        )
+        with (
+            patch(
+                "yoke_core.domain.epic._qa_requirement_add_silent", return_value=23
+            ) as add_req,
+            patch("yoke_core.domain.epic._qa_run_add_silent") as add_run,
+        ):
             result = epic.simulation_upsert(db, "42", "plan", "SIMULATION: CLEAN")
 
         assert result == "Upserted simulation: 42/plan"
@@ -242,6 +286,7 @@ class TestReviewAndSimulationWrites:
             blocking_mode="blocking",
             requirement_source="explicit",
             success_policy='{"type":"deterministic","criteria":"result_pass","phase":"plan"}',
+            workflow_transition_id="planned",
         )
         add_run.assert_called_once_with(
             requirement_id=23,
@@ -251,7 +296,9 @@ class TestReviewAndSimulationWrites:
             raw_result='{"body":"SIMULATION: CLEAN","phase":"plan"}',
         )
 
-    def test_simulation_upsert_reuses_existing_requirement_and_deletes_prior_runs(self, db):
+    def test_simulation_upsert_reuses_existing_requirement_and_deletes_prior_runs(
+        self, db
+    ):
         db.execute(
             """INSERT INTO qa_requirements
                (id, item_id, qa_kind, qa_phase, blocking_mode, requirement_source, success_policy, created_at)
@@ -267,15 +314,21 @@ class TestReviewAndSimulationWrites:
         )
         db.commit()
 
-        with patch("yoke_core.domain.epic._qa_requirement_add_silent") as add_req, patch(
-            "yoke_core.domain.epic._qa_run_add_silent"
-        ) as add_run:
-            result = epic.simulation_upsert(db, "42", "integration", "## Result: GAPS FOUND")
+        with (
+            patch("yoke_core.domain.epic._qa_requirement_add_silent") as add_req,
+            patch("yoke_core.domain.epic._qa_run_add_silent") as add_run,
+        ):
+            result = epic.simulation_upsert(
+                db, "42", "integration", "## Result: GAPS FOUND"
+            )
 
         assert result == "Upserted simulation: 42/integration"
-        assert db.execute(
-            "SELECT COUNT(*) FROM qa_runs WHERE qa_requirement_id = 11"
-        ).fetchone()[0] == 0
+        assert (
+            db.execute(
+                "SELECT COUNT(*) FROM qa_runs WHERE qa_requirement_id = 11"
+            ).fetchone()[0]
+            == 0
+        )
         add_req.assert_not_called()
         add_run.assert_called_once_with(
             requirement_id=11,

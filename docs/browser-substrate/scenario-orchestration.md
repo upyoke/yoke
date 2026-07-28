@@ -31,9 +31,10 @@ omit them to bypass freshness validation.
 
 ## Case authority
 
-`qa.case_execution.get` returns the immutable materialized case snapshot. The
-runner selects Browser execution from its registered executor and invokes the
-substrate for only the named requirement.
+`qa.case_execution.begin` authorizes and returns the immutable materialized
+case snapshot before any local Browser work. The runner selects Browser
+execution from its registered executor and invokes the substrate for only the
+named requirement.
 
 Browser cases use one of two method IDs:
 
@@ -47,7 +48,7 @@ Advance flows must not refine or replace it after materialization.
 
 ## What the runner does
 
-1. Fetches the named case through `qa.case_execution.get`.
+1. Authorizes and fetches the named case through `qa.case_execution.begin`.
 2. Resolves the target URL from `--base-url` or the case's
    `method_config.base_url`.
 3. Validates URL reachability and checks the deployed branch and SHA against

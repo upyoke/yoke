@@ -11,15 +11,20 @@ from yoke_core.domain.workflow_behavior import (
     requires_plan_simulation,
 )
 from yoke_core.engines.done_transition_item_context import (
-    format_workflow_route,
     load_done_item_context,
 )
-from yoke_core.engines.done_transition_preconditions import enforce_preconditions as _enforce_preconditions
+from yoke_core.engines.done_transition_finalize import finish_done_transition
+from yoke_core.engines.done_transition_preconditions import (
+    enforce_preconditions as _enforce_preconditions,
+)
 from yoke_core.engines.done_transition_runtime import _reseat_runtime_paths
+
 
 def _parent():
     from yoke_core.engines import done_transition as _dt
+
     return _dt
+
 
 def run(
     item_id: int,
@@ -60,7 +65,6 @@ def run(
     _finalize_done_local_side_effects = mw._finalize_done_local_side_effects
     _sync_done_item_direct = mw._sync_done_item_direct
     _apply_discovery_scan = mw._apply_discovery_scan
-    _rebuild_board_direct = mw._rebuild_board_direct
 
     result = TransitionResult(item=f"YOK-{item_id}")
     result_file = os.path.join(
@@ -92,11 +96,6 @@ def run(
     result.old_status = result.new_status = old_status
     if lane_branch in ("null", ""):
         lane_branch = ""
-    if lane_branch.startswith(("issue/YOK-", "epic/YOK-")):
-        print(f"Error: legacy worktree branch '{lane_branch}' is retired.", file=sys.stderr)
-        print("Use the zero-legacy DB convergence tool to purge legacy "
-              "worktree metadata before retrying.", file=sys.stderr)
-        return result.fail(result_file, 2, "2-legacy-worktree")
     print(f"\n=== Done transition: YOK-{item_id} ===")
     print(f"Title: {title}")
     print(f"Old status: {old_status}")
@@ -127,7 +126,9 @@ def run(
     result.add_step("2b")
 
     if not branch_already_merged:
-        empty_exit = _check_empty_branch(lane_branch, project_repo, base_branch, item_id)
+        empty_exit = _check_empty_branch(
+            lane_branch, project_repo, base_branch, item_id
+        )
         if empty_exit is not None:
             print(f"RESULT_FILE={result_file}")
             return result.fail(result_file, empty_exit, "2c-empty-branch")
@@ -138,8 +139,15 @@ def run(
     if already_done:
         return _handle_already_done(item_id, project_repo, result, result_file)
 
-    if resume_from_step6 and (rc := _handle_resume_from_step6(
-        item_id, project_repo, base_branch, old_status, result, result_file)) is not None:
+    if (
+        resume_from_step6
+        and (
+            rc := _handle_resume_from_step6(
+                item_id, project_repo, base_branch, old_status, result, result_file
+            )
+        )
+        is not None
+    ):
         return rc
 
     if not resume_from_step6:
@@ -168,21 +176,23 @@ def run(
                 merge_ran = True
             elif merge_exit in (1, 3, 4):
                 if merge_exit == 1:
-                    print(f"\nError: Merge of branch '{lane_branch}' failed.",
-                          file=sys.stderr)
+                    print(
+                        f"\nError: Merge of branch '{lane_branch}' failed.",
+                        file=sys.stderr,
+                    )
                 elif merge_exit == 3:
-                    print("\nMerge halted: agent resolution required.",
-                          file=sys.stderr)
+                    print("\nMerge halted: agent resolution required.", file=sys.stderr)
                 elif merge_exit == 4:
-                    print("\nHARD STOP: User-authored files at risk.",
-                          file=sys.stderr)
+                    print("\nHARD STOP: User-authored files at risk.", file=sys.stderr)
                 if merge_output:
                     print(merge_output, file=sys.stderr)
                 print(f"RESULT_FILE={result_file}")
                 return result.fail(result_file, merge_exit)
             else:
-                print(f"\nError: Merge exited with unexpected code {merge_exit}.",
-                      file=sys.stderr)
+                print(
+                    f"\nError: Merge exited with unexpected code {merge_exit}.",
+                    file=sys.stderr,
+                )
                 if merge_output:
                     print(merge_output, file=sys.stderr)
                 print(f"RESULT_FILE={result_file}")
@@ -191,31 +201,45 @@ def run(
             print("Branch already merged — skipping merge step.")
         else:
             if resume_from_step6:
-                print("Merge already completed in prior run — continuing "
-                      "with post-merge steps.")
+                print(
+                    "Merge already completed in prior run — continuing "
+                    "with post-merge steps."
+                )
             else:
                 branch_exists = False
                 verify = _run_git(
-                    ["-C", str(project_repo), "rev-parse", "--verify",
-                     f"YOK-{item_id}"],
+                    [
+                        "-C",
+                        str(project_repo),
+                        "rev-parse",
+                        "--verify",
+                        f"YOK-{item_id}",
+                    ],
                     capture=True,
                 )
                 if verify.returncode == 0:
                     branch_exists = True
                 else:
                     ls = _run_git(
-                        ["-C", str(project_repo), "ls-remote", "--heads",
-                         "origin", f"YOK-{item_id}"],
+                        [
+                            "-C",
+                            str(project_repo),
+                            "ls-remote",
+                            "--heads",
+                            "origin",
+                            f"YOK-{item_id}",
+                        ],
                         capture=True,
                     )
                     if ls.stdout and f"YOK-{item_id}" in ls.stdout:
                         branch_exists = True
                 if not branch_exists:
-                    print("No active worktree lane and no branch found — "
-                          "continuing without a merge.")
+                    print(
+                        "No active worktree lane and no branch found — "
+                        "continuing without a merge."
+                    )
                 else:
-                    print("No active worktree lane but branch exists — "
-                          "skipping merge.")
+                    print("No active worktree lane but branch exists — skipping merge.")
 
     result.add_step("4")
     if merge_ran:
@@ -238,8 +262,15 @@ def run(
     _schema_gate(merge_ran=merge_ran, project_repo=project_repo)
     result.add_step("5a")
 
+    from yoke_core.domain.workflow_behavior import delivery_redirect_stage
+
     deploy_guard = _check_deployment_flow_guard(
-        item_id, deploy_flow, skip_deploy, item_project, old_status,
+        item_id,
+        deploy_flow,
+        skip_deploy,
+        item_project,
+        old_status,
+        delivery_redirect_stage(workflow),
     )
     if deploy_guard is not None:
         exit_code, new_status = deploy_guard
@@ -265,8 +296,10 @@ def run(
     success = _update_status_to_done(item_id, skip_qa)
     if not success:
         verify = _query_item_field(item_id, "status")
-        print(f"Error: Status update failed after retries — item is still "
-              f"'{verify}'.", file=sys.stderr)
+        print(
+            f"Error: Status update failed after retries — item is still '{verify}'.",
+            file=sys.stderr,
+        )
         print(
             f"Re-run `python3 -m yoke_core.engines.done_transition {item_id}` "
             "to resume from step 6.",
@@ -293,49 +326,19 @@ def run(
         result.add_step(_s)
     print("\n=== Step 8: Sync done state to GitHub ===")
     from yoke_core.engines.done_transition_github_sync import apply_step_8
+
     apply_step_8(item_id, old_status, result)
     _apply_discovery_scan(item_id, result)
     for _s in ("9", "10"):
         result.add_step(_s)
-    print("\n=== Step 11: Rebuild board ===")
-    _rebuild_board_direct()
-    result.add_step("11")
-
-    print("\n=== Step 12: Commit ===")
-    commit_ran = False
-    diff = _run_git(["diff", "--cached", "--quiet"], capture=True)
-    if diff.returncode != 0:
-        commit = _run_git(["commit", "-m", f"YOK-{item_id}: {old_status} -> done"])
-        commit_ran = commit.returncode == 0
-        if commit_ran:
-            from yoke_core.engines.done_transition_snapshot import (
-                ensure_snapshot_for_item,
-            )
-            ensure_snapshot_for_item(item_id)
-    result.add_step("12")
-
-    print("\n=== Step 13: Push ===")
-    if commit_ran or merge_ran:
-        # Step 12's commit lands in the Yoke control-plane repo.
-        push_branch = _get_base_branch("", repo_root)
-        push = _run_git(["push", "origin", push_branch])
-        if push.returncode != 0:
-            print("Push failed - attempting rebase and retry...")
-            _run_git(["pull", "--rebase", "origin", push_branch])
-            retry = _run_git(["push", "origin", push_branch])
-            if retry.returncode != 0:
-                print("Warning: git push failed after done-transition commit. "
-                      "Local is ahead of origin.")
-    else:
-        print("No merge commit or done-transition commit produced - skipping push.")
-    result.add_step("13")
-
-    print("\n=== Step 14: Report ===")
-    print("==========================================")
-    print(f"YOK-{item_id} ({title}): {old_status} -> done")
-    print("==========================================\n")
-    print(format_workflow_route(workflow))
-    result.add_step("14")
-    result.write(result_file)
-    print(f"RESULT_FILE={result_file}")
-    return 0
+    return finish_done_transition(
+        mw,
+        result,
+        result_file=result_file,
+        item_id=item_id,
+        title=title,
+        old_status=old_status,
+        workflow=workflow,
+        repo_root=repo_root,
+        merge_ran=merge_ran,
+    )

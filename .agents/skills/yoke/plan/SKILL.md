@@ -1,14 +1,16 @@
 ---
 name: plan
-description: Invoke the Architect subagent to produce a technical plan. Epics get task decomposition; issues get a lightweight `technical_plan` field.
-argument-hint: "{epic-id}"
+description: Invoke the Architect subagent to produce the plan shape selected by the item's pinned workflow policies.
+argument-hint: "{item-id}"
 ---
 
-# Internal sub-skill -- called by shepherd and conduct. Not operator-facing.
+# Internal sub-skill — called by the executor that owns plan authoring.
 
-# /yoke plan {epic-id}
+# /yoke plan {item-id}
 
-Translate an item spec into a technical implementation plan.
+Translate an item spec into a technical implementation plan. The item's
+immutable workflow pin selects whether planning writes one item-level
+`technical_plan` or a persisted generated-task decomposition.
 
 <!-- BEGIN GENERATED: field-note-directive -->
 When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
@@ -18,266 +20,229 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 ## Arguments
 
-- `{epic-id}` — Planning target. Accepts:
- - `YOK-N` item ID
- - epic ID (numeric item ID)
- - title slug (lowercase title with spaces replaced by `-`)
+- `{item-id}` — A `YOK-N` reference, internal numeric item id, or lowercase
+  title slug with spaces replaced by `-`.
 
-## Philosophy
+## Authority
 
-**Be the giant.** We stand on inherited shoulders; leave a leg up for the next agent by making this artifact cold-start complete. Plan is the Architect handoff surface, so the prompt must point at the authoritative spec, relevant context, and the exact planning mode without making the Architect rediscover basics.
+Never choose plan mode from `workflow_id`. Resolve the exact item pin with
+`workflows.item.get`, read its logical version with `workflows.version.get`,
+and interpret:
 
-**Verify before decomposition.** Planning should start from validated, current specs and not from memory or stale body text. A bad planning input multiplies downstream cost across every task.
+- ordered `stages` plus half-open `executor_bindings` for the current owner;
+- `policies.generated_children` for decomposition storage;
+- `policies.worktrees` and `policies.parallelism` for lane planning;
+- stage gate ids for simulation requirements.
+
+Executor names remain valid guards because this sub-skill is an implementation
+detail of those registered executors. Workflow names are registry keys, not
+behavior branches.
 
 ## Steps
 
-Stamp the session mode so the board's active-session row reflects the live phase (default `wait` misrepresents an active plan). Use the registered session wrapper:
+### 1. Resolve the item and immutable definition
+
+Stamp the session, then resolve numeric or public references:
 
 ```bash
-yoke sessions touch \
- --mode plan
+yoke sessions touch --mode plan
+_plan_item_ref="{item-id}"
+_plan_pin_json=$(yoke workflows item get "$_plan_item_ref" --json 2>/dev/null) || _plan_pin_json=""
 ```
 
-1. **Resolve the backlog item:**
- Resolve prefixed, zero-padded, or bare numeric input through the registered
- item reader. Keep the accepted input as `_plan_item_ref`; the reader's `id`
- field is the normalized numeric `items.id` required by `epic_tasks.epic_id`:
- ```bash
- _plan_item_ref="{epic-id}"
- _epic_id=$(yoke items get "$_plan_item_ref" id 2>/dev/null) || _epic_id=""
- yoke items get "$_plan_item_ref" title workflow_id workflow_version_id status
- ```
- If the item reader does not resolve because the input is a title slug, list
- the two planning-capable workflows through the registered collection reader:
- ```bash
- yoke items list --workflow epic --fields "id,project_sequence,title,workflow_id,workflow_version_id,status" --limit 1000
- yoke items list --workflow issue --fields "id,project_sequence,title,workflow_id,workflow_version_id,status" --limit 1000
- ```
- Match the row whose lowercase title with spaces replaced by `-` equals
- `{epic-id}`. Set `_epic_id` from its `id` field and `_plan_item_ref` to
- `YOK-{project_sequence}`. Do not treat the public sequence as the internal
- id.
+If the read fails because the input is a title slug, list all visible items in
+one registered collection read:
 
- If you also need the rendered body, fetch it separately (it is a virtual rendered field, not an `items` column):
- ```bash
- yoke items get "$_plan_item_ref" body
- ```
- If no item found, stop: "No backlog item found for `{epic-id}`. Create one with `/yoke idea` first."
- Verify the item is in a planning-eligible lifecycle state:
- - Epic workflow binding: `refined-idea`, `planning`, or `plan-drafted`
- - Issue workflow binding: `refined-idea`
- If the item is still `idea` or `refining-idea`, suggest `/yoke refine YOK-{N}` first. If an epic has not yet entered planning, suggest `/yoke shepherd YOK-{N}` first.
+```bash
+yoke items list \
+ --fields "id,project_sequence,title,workflow_id,workflow_version_id,status" \
+ --limit 1000
+```
 
- Determine plan mode from `workflow_id`:
- - `epic` → **epic plan mode** (full task decomposition)
- - `issue` → **issue plan mode** (lightweight `technical_plan` field only)
+Match the normalized title, set `_plan_item_ref=YOK-{project_sequence}`, and
+repeat `workflows.item.get`. Do not filter the fallback by remembered workflow
+names and do not treat `project_sequence` as `items.id`.
 
- Use `_plan_item_ref` for item-targeted commands and `_epic_id` for all
- registered epic-task commands below.
+Extract `item_id`, `workflow_id`, logical `workflow_version`, and `status` from
+the pin:
 
-2. **PRD quality gate (pre-planning validation):**
- Run the registered PRD validator to ensure the item body meets minimum quality standards before the Architect runs. This applies to both epic and issue mode.
+```bash
+_plan_item_id=$(printf '%s' "$_plan_pin_json" | python3 -c \
+ 'import json,sys; print(json.load(sys.stdin)["result"]["item_id"])')
+_plan_workflow_id=$(printf '%s' "$_plan_pin_json" | python3 -c \
+ 'import json,sys; print(json.load(sys.stdin)["result"]["workflow_id"])')
+_plan_workflow_version=$(printf '%s' "$_plan_pin_json" | python3 -c \
+ 'import json,sys; print(json.load(sys.stdin)["result"]["workflow_version"])')
+_plan_status=$(printf '%s' "$_plan_pin_json" | python3 -c \
+ 'import json,sys; print(json.load(sys.stdin)["result"]["status"])')
+```
 
- ```bash
- yoke readiness prd-validate "$_plan_item_ref"
- ```
+Read the exact definition:
 
- **If exit code is 1 (FAIL-level issues):** stop and present the validation report to the user. Do NOT proceed to the Architect. The report includes specific fix guidance for each failing check.
+```bash
+_plan_definition_json=$(yoke workflows version get \
+ "$_plan_workflow_id" "$_plan_workflow_version" --json) || {
+ echo "Pinned workflow $_plan_workflow_id@$_plan_workflow_version is unavailable."
+ exit 1
+}
+```
 
- > PRD quality gate failed. Fix the issues above before planning.
- > After fixing, re-run `/yoke plan {epic-id}`.
+Interpret the current executor with the runtime interval
+`from_stage_id <= current < through_stage_id`. Extract
+`generated_children`, `worktrees`, and `parallelism` from `definition.policies`.
 
- **If exit code is 0 but warnings exist:** present the warnings to the user and ask for confirmation to proceed. Warn that unresolved items (e.g., Open Questions) may lead to planning gaps.
+Select mode:
 
- **Checks performed by the internal PRD validator:**
- - **PRD-1:** Problem/Why section exists and is substantive
- - **PRD-2:** Functional requirements section has at least one testable requirement
- - **PRD-3:** Success Metrics section exists with measurable criteria
- - **PRD-4:** Open Questions trigger WARN if unresolved items remain
- - **PRD-5:** Goals section exists with concrete, measurable outcomes
+- `generated_children=none` → `_plan_mode=item_plan`.
+- `generated_children=epic_tasks` and `parallelism=task_graph` →
+  `_plan_mode=task_graph`.
+- Any other child/parallelism combination → halt as unsupported; do not guess
+  a storage shape.
 
-3. **Check for existing plan data (epic mode only):**
- If plan mode is `issue`, skip this step (issues do not use `epic_tasks`).
+Apply the executor guard:
 
- If plan mode is `epic`, read the current task rows through the registered
- epic-task reader, using the normalized numeric `_epic_id` resolved in step 1:
- ```bash
- yoke epic-tasks list --epic "$_epic_id"
- ```
+- `item_plan` is authored only while the pinned current executor is `advance`.
+- `task_graph` is authored only while the pinned current executor is
+  `shepherd`.
+- Otherwise stop and route to the executor returned by the definition. In
+  particular, do not re-plan after the item has crossed into a `refine`,
+  `conduct`, `polish`, or `usher` segment.
 
- The reader prints one pipe-delimited row per task, with status in the third
- field. **If any rows exist AND any task has a status other than `planning` or
- `planned`:** stop with:
- > This epic already has tasks in progress. Re-planning is not supported.
+Use `_plan_item_ref` for item calls and the normalized numeric `_plan_item_id`
+for `epic_tasks.epic_id`.
 
-**If rows exist AND all tasks are `planning` or `planned`** (prior interrupted run): ask user: **Resume** or **Restart**?
- - **Resume:** Skip to step 11 (review gate) to re-present the plan from the existing DB data.
- - **Restart:** list the existing tasks, then remove each planning/planned task through the registered task owner and start fresh:
- ```bash
- yoke epic-tasks list --epic "$_epic_id"
- yoke workflow-item epic-task remove --epic "$_epic_id" --task-num "{each task_num}" --reason "plan restart"
- ```
- Then continue normally to step 4.
+### 2. Validate the planning input
 
- **If the reader prints no rows:** continue normally.
+Run the registered PRD validator for both modes:
 
-4. **Scan the codebase** using the Explore subagent (fast, read-only, Haiku):
- - Current architecture and patterns
- - Existing modules that might be affected
- - Testing patterns and frameworks
- - Documentation structure in `/docs`
+```bash
+yoke readiness prd-validate "$_plan_item_ref"
+```
 
- **DB column reference for subagent prompt:** When the Explore subagent may query the DB, include this in the prompt:
- > DB column cheat sheet — use these exact names in SQL:
- > - `events`: `event_name`, `event_type`, `source_type`, `created_at`, `envelope` (NOT `type`/`timestamp`/`source`/`detail`/`context`/`worker`/`payload`/`outcome`)
- > - `deployment_runs`: `id`, `current_stage`, `created_by` (NOT `run_id`/`deploy_stage`/`creator`/`item_id`)
- > - `deployment_run_items`: composite PK `run_id` + `item_id` (NO `id` column; zero rows are valid for started environment-level runs)
- > - `qa_runs`: `req_id`, `verdict` (NOT `requirement_id`)
- > - `epic_tasks`: `epic_id`, `task_num`, `dependencies` (NOT `item_id`/`task_number`/`depends_on`)
- > - `ouroboros_entries`: `body`, `created_at` (NOT `entry`/`timestamp`)
- > - `shepherd_verdicts`: `item` (NOT `item_id`), `transition` (NOT `gate`)
- > - `project_capabilities`: `type` (NOT `capability`/`name`/`capability_type`), `config`, `settings`
- > - `projects`: `id` (NOT `project_id`/`name`), `repo_path` (NOT `path`/`repo`), `github_repo` (NOT `repo_url`/`github_url`)
+- Exit 1: stop and present the report. Do not dispatch the Architect.
+- Exit 0 with warnings: present them and ask for confirmation because unresolved
+  questions can change interfaces, files, or task boundaries.
 
-5. **Read inputs:**
- - The item's design spec (if it exists):
- ```bash
- _design_body=$(yoke items get "$_plan_item_ref" design_spec)
- ```
- - Contents of `/docs/` for project context
+Read the authoritative spec and optional design input through registered item
+reads. Do not plan from cached body text:
 
-6. **Invoke the `yoke-architect` subagent** with:
- - The item ID (e.g., `YOK-N`) — the Architect reads the authoritative spec from the DB itself via `yoke items get YOK-{N} spec`. Do NOT pass inline spec content.
- - The design spec (if any)
- - Codebase context from step 4
- - `/docs` content
+```bash
+yoke items get "$_plan_item_ref" spec
+yoke items get "$_plan_item_ref" design_spec
+```
 
- **Mode-specific output contract:**
- - **Issue mode:** Architect returns a lightweight `## Technical Plan` section only (approach, key decisions, edge cases, testing strategy). No task decomposition. No worktree plan.
- - **Epic mode:** Architect returns `## Technical Plan`, task content (for `epic_tasks.body`), and `## Worktree Plan`.
+### 3. Reconcile existing generated tasks
 
-7. **Ouroboros reflection capture:**
- Search the Architect subagent's response for text between `---REFLECTION-START---` and `---REFLECTION-END---` delimiters. If found, extract all `---BEGIN ENTRY---` / `---END ENTRY---` blocks from within and persist each entry via:
- ```bash
- yoke ouroboros entry insert --agent "architect" --context "plan {epic-id}" --category "{category}" --observation "{observation}"
- ```
- If no reflection delimiters are found, silently continue.
+Skip this step for `item_plan`.
 
-8. **Write the Architect's task data to the DB (epic mode only):**
- If plan mode is `issue`, skip this step entirely. Do NOT write `epic_tasks` or `epic_task_files`.
+For `task_graph`, read persisted rows:
 
- If plan mode is `epic`, for each task produced by the Architect:
+```bash
+yoke epic-tasks list --epic "$_plan_item_id"
+```
 
- a. **Add the task row.** Dispatch the
-    `workflow_item.epic_task.add` function call (envelope in
-    [`../idea/body-and-sync-functions.md`](../idea/body-and-sync-functions.md)):
-    `target = {kind: "epic_task", epic_id: <id>, task_num: <N>}`,
-    `payload = {title, body, worktree: "YOK-{N}", context_estimate,
-    dependencies}`. The worktree assignment MUST use the canonical
-    `YOK-{N}` format (where N is the backlog item ID), regardless of
-    what the architect proposed; the handler accepts the value
-    verbatim.
+- Any task beyond planning-owned stages: stop; re-planning active work is not
+  supported.
+- Only planning-owned rows: ask **Resume** or **Restart**.
+  - Resume: retain the rows and continue at the review step.
+  - Restart: remove each row through
+    `yoke workflow-item epic-task remove --epic "$_plan_item_id" --task-num N
+    --reason "plan restart"`, then continue.
+- No rows: continue.
 
- b. **(body is written by the add call above)** — the
-    `workflow_item.epic_task.add` payload's `body` field carries the
-    generated task body content end-to-end. If you need to rewrite a
-    task body after the row exists (re-plan within the same skill
-    invocation), dispatch `workflow_item.epic_task.body_replace` with
-    `target = {kind: "epic_task", epic_id, task_num}` and `payload =
-    {body: "<full new task body>"}`.
+The `epic_tasks` name and its `epic_id` column are persisted domain contracts;
+using them does not imply a workflow-name branch.
 
- c. **Add file entries** for each file in the task's Files Touched
-    section through `yoke workflow-item epic-task file-add --epic
-    "$_epic_id" --task-num "{task_num}" --file-path "{file_path}"
-    --action "{action}"` (where `{action}` is `create`, `modify`, or
-    `delete`).
+### 4. Survey the codebase
 
-9. **Write plan content to structured fields:**
+Use the Explore subagent to inspect:
 
- - **Issue mode:**
-   - Dispatch `items.structured_field.replace` with `target = {kind:
-     "item", item_id: <id>}` and `payload = {field: "technical_plan",
-     content: "<generated plan>", source: "plan"}`. Replacing the
-     existing `technical_plan` field is fine; do not append duplicate
-     plan sections into rendered body text.
-   - Do NOT create `worktree_plan`.
-   - Do NOT create `epic_tasks` rows.
+- current architecture and reusable surfaces;
+- affected modules and file sizes;
+- test frameworks and representative tests;
+- project documentation;
+- active path claims or in-flight work touching the same files.
 
- - **Epic mode:**
-   - Dispatch `items.structured_field.replace` for both
-     `technical_plan` and `worktree_plan` (one call each).
-   - Keep task decomposition in DB tables (`epic_tasks`,
-     `epic_task_files`); those landed via the
-     `workflow_item.epic_task.add` calls in step 8.
+Ground every proposed path and symbol in the live checkout. When the Explorer
+queries task data, teach the verified physical columns:
+`epic_tasks.epic_id`, `task_num`, and `dependencies`.
 
- Note: No filesystem artifacts are created. All plan data is stored in DB-backed fields and tables.
+### 5. Dispatch the Architect
 
-10. **Update backlog item status (epic mode only):**
- Dispatch the `lifecycle.transition.execute` function call (`target =
- {kind: "item", item_id: <N>}`, `payload = {target_status: "planned",
- source_status: "<current>"}`) to advance the linked epic item to
- `planned`. In issue mode, do not move the item to `planned`; issues
- enter implementation from `refined-idea`.
+Pass:
 
-11. **Present the plan to the user for review:**
- Present mode-appropriate output:
+- `_plan_item_ref`; the Architect reads the authoritative spec with
+  `yoke items get ... spec`;
+- the optional design spec;
+- the surveyed code and documentation context;
+- the served planning mode and policies, not a workflow name.
 
- - **Issue mode:** Show the generated `technical_plan` content and ask for confirmation.
- - **Epic mode:** Show task table, worktree plan, and any L-sized tasks for scrutiny:
- ```bash
- yoke epic-tasks list --epic "$_epic_id"
- ```
+Output contract:
 
- For deep review of specific tasks:
- ```bash
- yoke workflow-item epic-task body-get --epic "$_epic_id" --task-num "{task_num}"
- ```
+- `item_plan`: one `## Technical Plan` covering approach, decisions, edge
+  cases, and test strategy. No child rows or worktree plan.
+- `task_graph`: `## Technical Plan`, one complete body per generated task, and
+  `## Worktree Plan` consistent with the served lane and parallelism policies.
 
- Ask for explicit user confirmation.
+Capture any delimited Architect Ouroboros entries with
+`yoke ouroboros entry insert --agent architect --context "plan {item-id}" ...`.
 
- **If the user rejects the plan:**
- - Issue mode: do not update status; stop.
- - Epic mode: list the tasks, remove each planning/planned task through the registered owner, and stop:
- ```bash
- yoke epic-tasks list --epic "$_epic_id"
- yoke workflow-item epic-task remove --epic "$_epic_id" --task-num "{each task_num}" --reason "plan rejected"
- ```
- Do NOT update backlog status. Stop here.
+### 6. Persist the plan
 
-11b. **Post-confirmation bookkeeping (on main):**
- On user confirmation (epic mode only): dispatch the
- `lifecycle.transition.execute` function call to advance the linked
- epic item to `planned`, then commit the cached changes with
- `git diff --cached --quiet || git commit -m "YOK-{N}: defined →
- planned"`. In issue mode, do not write any `epic_tasks` data and do
- not change lifecycle status. `epic_tasks.epic_id` is the sole live
- parent-epic relation (bare integer; matches `{N}` when the item is
- itself the epic).
+For both modes, dispatch `items.structured_field.replace` for
+`technical_plan`.
 
-12. **Recommend simulation:**
- - **Epic mode:** recommend `/yoke simulate {epic-id}` before `/yoke conduct YOK-{N}`.
- - **Issue mode:** simulation is not required (no task graph). Continue directly to `/yoke advance YOK-{N} implementation`. The Engineer reads `technical_plan` from the structured field / rendered item body.
+For `item_plan`, stop there:
 
-## Review Checklist for the User
+- do not write `worktree_plan`;
+- do not write `epic_tasks` or `epic_task_files`;
+- do not mutate lifecycle status.
 
-Remind the user to check:
-- [ ] Technical approach clarity — can implementation proceed without guessing?
-- [ ] Edge-case coverage — are risky failure paths addressed?
-- [ ] Test strategy quality — are verification steps concrete and sufficient?
-- [ ] (Epic mode only) Task sizes — are any suspiciously large?
-- [ ] (Epic mode only) Interface contracts and dependencies — do provides/expects match?
-- [ ] (Epic mode only) Cross-script contracts — do tasks that call existing scripts document data schemas, subprocess env propagation, and error model changes?
-- [ ] (Epic mode only) File overlap/worktree assignments — does parallelization look safe?
+For `task_graph`:
 
-## Notes
+1. Add each task with `workflow_item.epic_task.add`, targeting
+   `{kind: "epic_task", epic_id: _plan_item_id, task_num: N}` and supplying
+   `title`, complete `body`, worktree assignment, `context_estimate`, and
+   dependencies.
+2. Add each file through `yoke workflow-item epic-task file-add --epic
+   "$_plan_item_id" --task-num N --file-path PATH --action
+   create|modify|delete`.
+3. Dispatch `items.structured_field.replace` for `worktree_plan`.
 
-- The Architect subagent cannot write files — it produces content that this command writes to the DB.
-- Issue-mode planning is intentionally lightweight: `technical_plan` only, no task decomposition tables, and no `planned` status.
-- Epic-mode planning remains full decomposition via `epic_tasks` + `epic_task_files`.
-- This is the most important review gate. Plan quality strongly determines execution quality.
-- The user can edit epic task content via the
-  `workflow_item.epic_task.body_replace` function call after this
-  command if they want to adjust scope, acceptance criteria, or
-  interface contracts.
-- All plan data is written directly to DB-backed state on main. No plan worktrees are created.
-- If planning is interrupted (crash, context limit, user abort), existing epic task data can be resumed or restarted on the next `/yoke plan {epic-id}` invocation.
+All plan data is DB-backed. Do not create filesystem plan artifacts or invent
+another child table.
+
+### 7. Present and hand back to the owning executor
+
+Present the generated content and ask for explicit confirmation.
+
+- `item_plan`: show `technical_plan`.
+- `task_graph`: show the task table, worktree plan, dependency interfaces, and
+  any large tasks. Use `yoke workflow-item epic-task body-get --epic
+  "$_plan_item_id" --task-num N` for deep review.
+
+If rejected, leave item status unchanged. For `task_graph`, remove planning
+rows created by this attempt through the registered task owner.
+
+If accepted, leave lifecycle transition to the registered caller:
+
+- `advance` consumes the item-level plan and owns implementation entry.
+- `shepherd` runs its plan-quality gate and owns its binding handoff; the
+  subsequent pinned executor performs any plan-refinement segment.
+
+Plan must never jump directly to a remembered status such as `planned`.
+
+### 8. Simulation recommendation
+
+Inspect all served stage gates. If any gate id is `plan_simulation`, recommend
+`/yoke simulate {_plan_item_ref}` before the implementation executor runs.
+Otherwise simulation is not required by this definition.
+
+## Review checklist
+
+- Technical approach is implementable without guessing.
+- Edge cases and recovery paths are explicit.
+- Verification steps are concrete.
+- Reuse, quality, efficiency, and future-concept lenses are applied.
+- In `task_graph` mode, task sizes, interfaces, dependencies, file budgets,
+  and lane assignments are safe and complete.

@@ -122,9 +122,7 @@ class TestUpdateStructuredField:
         """Non-content fields (shepherd_log etc.) should not touch spec_updated_*."""
         update_structured_field(1, "shepherd_log", "log entry", db_path=db_with_item)
         conn = connect_test_db(db_with_item)
-        row = conn.execute(
-            "SELECT spec_updated_at FROM items WHERE id = 1"
-        ).fetchone()
+        row = conn.execute("SELECT spec_updated_at FROM items WHERE id = 1").fetchone()
         conn.close()
         assert row[0] is None
 
@@ -148,6 +146,23 @@ class TestUpdateItemMulti:
     def test_rejects_body_in_batch(self, db_with_item):
         with pytest.raises(ValueError, match="Raw body writes are no longer supported"):
             update_item_multi(1, {"body": "nope"}, db_path=db_with_item)
+
+    @pytest.mark.parametrize(
+        "field",
+        [
+            "status",
+            "workflow_id",
+            "workflow_posture",
+            "workflow_version_id",
+        ],
+    )
+    def test_rejects_workflow_controlled_fields(
+        self,
+        db_with_item,
+        field,
+    ):
+        with pytest.raises(ValueError, match="canonical workflow surface"):
+            update_item_multi(1, {field: "x"}, db_path=db_with_item)
 
     def test_rejects_empty_pairs(self, db_with_item):
         with pytest.raises(ValueError, match="No field"):

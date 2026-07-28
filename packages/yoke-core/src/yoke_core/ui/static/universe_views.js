@@ -24,7 +24,10 @@ import {
   renderItemsView,
 } from "./universe_views_items.js";
 import { renderOrganizationView } from "./universe_views_organization.js";
-import { renderOuroborosView } from "./universe_views_ouroboros.js";
+import {
+  renderOuroborosEntryDetailView,
+  renderOuroborosView,
+} from "./universe_views_ouroboros.js";
 import { renderOverviewView } from "./universe_views_overview.js";
 import { renderPacksView } from "./universe_views_packs.js";
 import {
@@ -52,6 +55,7 @@ export const DETAIL_RENDERERS = {
   items: renderItemDetailView,
   strategy: renderStrategyDocDetailView,
   capabilities: renderCapabilityDetail,
+  ouroboros: renderOuroborosEntryDetailView,
 };
 
 // Tab renderers, keyed view id → tab id. A tab is live exactly when it has a

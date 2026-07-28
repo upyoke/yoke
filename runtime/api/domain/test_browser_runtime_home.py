@@ -1,4 +1,4 @@
-"""Tests for :mod:`yoke_core.domain.browser_runtime_home`.
+"""Tests for the harness-owned Browser runtime materializer.
 
 Fully hermetic: the packaged source root and the machine home are both
 redirected into ``tmp_path`` so no test touches the real
@@ -11,7 +11,10 @@ from pathlib import Path
 
 import pytest
 
-from yoke_core.domain import browser_runtime_home
+from yoke_core.domain import browser_client as core_browser_client
+from yoke_core.domain import browser_runtime_home as core_runtime_home
+from yoke_harness import browser_runtime_home
+from yoke_harness import browser_client as harness_browser_client
 
 
 @pytest.fixture()
@@ -27,7 +30,7 @@ def fake_source(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     (source / "package.json").write_text('{"name": "yoke-browser"}\n')
     (source / "package-lock.json").write_text('{"lockfileVersion": 3}\n')
     monkeypatch.setattr(
-        browser_runtime_home, "package_source_dir", lambda: source
+        browser_runtime_home, "package_source_root", lambda: source
     )
     return source
 
@@ -126,9 +129,24 @@ class TestEnsureMaterialized:
         assert browser_runtime_home.source_hash(fake_source) != after
 
 
-class TestPackageSourceDir:
+class TestPackageSourceRoot:
     def test_resolves_to_packaged_sources(self) -> None:
-        source = browser_runtime_home.package_source_dir()
+        source = browser_runtime_home.package_source_root()
         assert source.name == "browser_runtime"
         assert (source / "src" / "daemon.js").is_file()
+        assert (source / "src" / "aria_snapshot_parser.js").is_file()
+        assert (source / "tests" / "snapshot.test.js").is_file()
         assert (source / "package.json").is_file()
+
+
+def test_core_and_harness_share_one_materializer_owner() -> None:
+    assert core_browser_client.browser_runtime_home is browser_runtime_home
+    assert harness_browser_client.browser_runtime_home is browser_runtime_home
+    assert core_runtime_home.ensure_materialized is (
+        browser_runtime_home.ensure_materialized
+    )
+    assert core_runtime_home.runtime_dir is browser_runtime_home.runtime_dir
+    assert core_runtime_home.source_hash is browser_runtime_home.source_hash
+    assert core_runtime_home.package_source_dir is (
+        browser_runtime_home.package_source_root
+    )

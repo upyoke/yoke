@@ -15,6 +15,9 @@ from pathlib import Path
 
 from yoke_core.domain import qa
 from yoke_core.domain.schema_init_apply import execute_schema_script
+from runtime.api.api_workflow_test_helpers import (
+    install_workflow_registry_and_pin_items,
+)
 from runtime.api.fixtures.file_test_db import init_test_db
 
 
@@ -33,7 +36,6 @@ _QA_SUPPORT_SCHEMA = """
     CREATE TABLE IF NOT EXISTS items (
         id INTEGER PRIMARY KEY,
         title TEXT NOT NULL DEFAULT '',
-        type TEXT NOT NULL DEFAULT 'issue',
         status TEXT NOT NULL DEFAULT 'idea',
         priority TEXT NOT NULL DEFAULT 'medium',
         project_id INTEGER NOT NULL DEFAULT 1,
@@ -46,6 +48,8 @@ _QA_SUPPORT_SCHEMA = """
     VALUES (100, 'Test item', 'implementing', 1, 100, '2026-04-20T00:00:00Z', '2026-04-20T00:00:00Z');
     INSERT INTO items (id, title, status, project_id, project_sequence, created_at, updated_at)
     VALUES (200, 'Another item', 'implementing', 1, 200, '2026-04-20T00:00:00Z', '2026-04-20T00:00:00Z');
+    INSERT INTO items (id, title, status, project_id, project_sequence, created_at, updated_at)
+    VALUES (50, 'Test epic', 'implementing', 1, 50, '2026-04-20T00:00:00Z', '2026-04-20T00:00:00Z');
 
     CREATE TABLE IF NOT EXISTS epic_tasks (
         id INTEGER PRIMARY KEY,
@@ -73,7 +77,10 @@ def _apply_qa_full_schema() -> None:
     conn = db_backend.connect()
     try:
         execute_schema_script(conn, _QA_SUPPORT_SCHEMA)
-        conn.commit()
+        install_workflow_registry_and_pin_items(
+            conn,
+            workflow_id_by_item={50: "epic"},
+        )
     finally:
         conn.close()
     qa.cmd_init()

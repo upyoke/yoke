@@ -24,7 +24,7 @@ from yoke_core.domain.gh_rest_transport import (
     request_with_retry,
     split_repo,
 )
-from yoke_core.domain.lifecycle import TASK_TERMINAL_SUCCESS
+from yoke_core.domain.task_lifecycle import TASK_TERMINAL_SUCCESS
 from yoke_core.domain.project_github_auth import (
     ProjectGithubAuthError,
     resolve_project_github_auth,

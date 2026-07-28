@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-import json
-from typing import Any, Optional
+from typing import Any, Mapping, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.decision_requests import (
@@ -141,46 +140,67 @@ def deployment_stage_approver_actor_ids(
     return tuple(int(row[0]) for row in rows)
 
 
-def fan_out_deployment_completion(
-    conn: Any,
-    *,
-    run_id: str,
-    event_id: str,
-    reason: str,
-) -> int:
-    """Address a terminal run event to its initiator and stage approvers."""
-    from yoke_core.domain.decision_request_contract import (
-        DEPLOYMENT_RUN_COMPLETED,
-    )
-    from yoke_core.domain.inbox_notifications import fan_out_registered_event
-
+def deployment_completion_actor_ids(
+    conn: Any, *, run_id: str,
+) -> tuple[int, ...]:
+    """Resolve a run's initiator and successful stage approvers."""
     p = _p(conn)
     run = conn.execute(
         f"SELECT created_by FROM deployment_runs WHERE id = {p}", (run_id,),
     ).fetchone()
     if run is None:
         raise LookupError(f"deployment run {run_id!r} does not exist")
-    event = conn.execute(
-        f"SELECT created_at FROM events WHERE event_id = {p}", (event_id,),
-    ).fetchone()
-    if event is None:
-        return 0
+    actor_ids = set(deployment_stage_approver_actor_ids(conn, run_id=run_id))
     initiator = _existing_actor_id(conn, run[0])
-    inserted = fan_out_registered_event(
-        conn,
-        event_id=event_id,
-        notification_kind=DEPLOYMENT_RUN_COMPLETED,
-        event_context={
-            "initiator_actor_id": initiator,
-            "stage_approver_actor_ids": deployment_stage_approver_actor_ids(
-                conn, run_id=run_id,
-            ),
-        },
-        reason=reason,
-        created_at=str(event[0]),
+    if initiator is not None:
+        actor_ids.add(initiator)
+    return tuple(sorted(actor_ids))
+
+
+def emit_deployment_completion(
+    conn: Any,
+    *,
+    run_id: str,
+    event_name: str,
+    outcome: str,
+    reason: str,
+    context: Mapping[str, Any],
+) -> tuple[str, int]:
+    """Append and address one terminal run event in the caller's transaction."""
+    if event_name not in {"DeploymentRunSucceeded", "DeploymentRunFailed"}:
+        raise ValueError(f"{event_name!r} is not a deployment completion event")
+    run = _run(conn, run_id)
+    from yoke_core.domain.decision_request_contract import (
+        DEPLOYMENT_RUN_COMPLETED,
     )
-    conn.commit()
-    return inserted
+    from yoke_core.domain.events import emit_event
+    from yoke_core.domain.inbox_notifications import dispatch_addressed_event
+
+    event_context = dict(context)
+    event_context["run_id"] = run_id
+    event = emit_event(
+        event_name,
+        event_kind="lifecycle",
+        event_type="deployment_run",
+        source_type="system",
+        severity="STATUS",
+        outcome=outcome,
+        project=str(run["project"]),
+        context=event_context,
+        conn=conn,
+    )
+    if not event.ok or not event.event_id:
+        raise RuntimeError(
+            f"could not append {event_name}: {event.reason or 'unknown error'}"
+        )
+    inserted = dispatch_addressed_event(
+        conn,
+        event_id=event.event_id,
+        notification_kind=DEPLOYMENT_RUN_COMPLETED,
+        reason=reason,
+        created_at=str((event.envelope or {})["created_at"]),
+    )
+    return event.event_id, inserted
 
 
 def dispatch_deployment_stage_approval(
@@ -210,44 +230,12 @@ def dispatch_deployment_stage_approval(
     return -2, ""
 
 
-def notify_latest_deployment_completion(
-    run_id: str, event_name: str, reason: str,
-) -> int:
-    """Address the just-emitted terminal run event, when one was persisted."""
-    from yoke_core.domain.db_helpers import connect
-
-    conn = connect()
-    try:
-        p = _p(conn)
-        rows = conn.execute(
-            "SELECT event_id, envelope FROM events "
-            f"WHERE event_name = {p} ORDER BY created_at DESC, id DESC LIMIT 50",
-            (event_name,),
-        ).fetchall()
-        for row in rows:
-            try:
-                envelope = json.loads(row[1] or "{}")
-            except (TypeError, json.JSONDecodeError):
-                continue
-            if str(envelope.get("context", {}).get("run_id") or "") != run_id:
-                continue
-            return fan_out_deployment_completion(
-                conn, run_id=run_id, event_id=str(row[0]), reason=reason,
-            )
-        return 0
-    except Exception:
-        conn.rollback()
-        return 0
-    finally:
-        conn.close()
-
-
 __all__ = [
+    "deployment_completion_actor_ids",
     "deployment_stage_approver_actor_ids",
     "deployment_stage_decision",
     "deployment_stage_is_approved",
     "dispatch_deployment_stage_approval",
     "ensure_deployment_stage_approval",
-    "fan_out_deployment_completion",
-    "notify_latest_deployment_completion",
+    "emit_deployment_completion",
 ]

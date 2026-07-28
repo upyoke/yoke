@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import shutil
-from typing import Any
+from typing import Any, Callable
 
 
 def _artifact_handles(value: Any) -> list[tuple[str, dict[str, Any]]]:
@@ -28,6 +28,7 @@ def record_machine_case_result(
     case: dict[str, Any],
     result: Any,
     duration_ms: int,
+    local_artifact_created: Callable[[Path], None] | None = None,
 ) -> dict[str, Any]:
     """Store the run, durable evidence, and telemetry for one machine case."""
     from yoke_core.domain import db_backend, qa_events
@@ -112,6 +113,8 @@ def record_machine_case_result(
             run_id,
             "machine-evidence.json",
         )
+        if local_artifact_created is not None:
+            local_artifact_created(evidence_path)
         evidence_path.write_text(raw_result, encoding="utf-8")
         metadata = {
             "case_key": str(case["case_key"]),
@@ -138,6 +141,8 @@ def record_machine_case_result(
                         run_id,
                         f"{key}.png",
                     )
+                    if local_artifact_created is not None:
+                        local_artifact_created(target)
                     shutil.copyfile(source, target)
                     source.unlink(missing_ok=True)
                     handle = local_handle(

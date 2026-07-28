@@ -1,12 +1,11 @@
+# ruff: noqa: F811
 """TestCleanStaleHarnessSessions: unified stale-session cleanup tests."""
 
 from __future__ import annotations
 
-import json
-
 import pytest
 
-from runtime.api.test_sessions import _register  # noqa: F401  (plain helper)
+from runtime.api.test_sessions import _insert_claimable_items, _register
 from yoke_core.domain.sessions import (
     claim_work,
     clean_stale_harness_sessions,
@@ -31,6 +30,10 @@ def _stamp_tool_activity(conn, session_id: str, ago_minutes: int) -> None:
 
 class TestCleanStaleHarnessSessions:
     """Tests for unified stale-session cleanup."""
+
+    @pytest.fixture(autouse=True)
+    def _claimable_items(self, conn):
+        _insert_claimable_items(conn, 100, 200, 300, 400, 700)
 
     @pytest.fixture
     def conn_with_events(self, conn):

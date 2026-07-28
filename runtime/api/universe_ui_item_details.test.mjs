@@ -218,3 +218,32 @@ for (const workflowId of ["issue", "dash"]) {
     );
   });
 }
+
+test("promoted Dash detail links back to its source field note", async () => {
+  const documentNode = new FakeDocument();
+  const root = documentNode.createElement("div");
+  const dash = detailItem("dash");
+  dash.source_field_note = {
+    entry_id: 22890,
+    category: "field-note-observation",
+    context: "curate",
+    project_id: 7,
+  };
+  renderItemDetailView(itemContext(documentNode, async (request) => ({
+    status: 200,
+    envelope: {
+      success: true,
+      result: { item: dash },
+    },
+  })), root, "7", "ACM-22");
+  await settle();
+
+  assert.match(itemText(root), /Promoted from field note/);
+  assert.match(itemText(root), /Open field note #22890/);
+  assert.equal(
+    byClass(root, "item-action").find(
+      (node) => node.textContent === "Open field note #22890",
+    ).href,
+    "#/ouroboros/22890?project=7",
+  );
+});

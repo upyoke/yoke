@@ -7,21 +7,18 @@ Schema scaffolding shared via _doctor_hc_db_full_test_helpers (private module).
 
 from __future__ import annotations
 
-from unittest.mock import patch
 
 from yoke_core.engines.doctor import (
     hc_reviewed_implementation_epics_no_sim,
     hc_synthetic_event_contamination,
 )
 from runtime.api.conftest import (
-    insert_deployment_run,
     insert_event,
     insert_item,
     insert_qa_requirement,
     insert_qa_run,
 )
 from yoke_core.engines._doctor_hc_db_full_test_helpers import (
-    _default_args,
     _result,
     _run_hc,
 )
@@ -149,14 +146,14 @@ class TestHCReviewedImplementationEpicsNoSimFull:
 
     def test_pass_no_reviewed_epics(self, test_db):
         """Test 1: PASS when no epics in reviewed-implementation."""
-        insert_item(test_db, id=10, title="Active epic test item", type="epic",
+        insert_item(test_db, id=10, title="Active epic test item", workflow_id="epic",
                     status="implementing")
         rec = _run_hc(hc_reviewed_implementation_epics_no_sim, test_db)
         assert _result(rec).result == "PASS"
 
     def test_pass_with_integration_simulation(self, test_db):
         """Test 2: PASS when reviewed epic has integration simulation."""
-        insert_item(test_db, id=20, title="Reviewed epic with sim test", type="epic",
+        insert_item(test_db, id=20, title="Reviewed epic with sim test", workflow_id="epic",
                     status="reviewed-implementation")
         # Use item_id as TEXT (matching the HC's CAST)
         req = insert_qa_requirement(test_db, item_id=20, qa_kind="simulation",
@@ -169,7 +166,7 @@ class TestHCReviewedImplementationEpicsNoSimFull:
 
     def test_fail_no_simulation(self, test_db):
         """Test 3: FAIL when reviewed epic has no simulation record."""
-        insert_item(test_db, id=30, title="Reviewed epic no sim test item", type="epic",
+        insert_item(test_db, id=30, title="Reviewed epic no sim test item", workflow_id="epic",
                     status="reviewed-implementation")
         rec = _run_hc(hc_reviewed_implementation_epics_no_sim, test_db)
         r = _result(rec)
@@ -178,7 +175,7 @@ class TestHCReviewedImplementationEpicsNoSimFull:
 
     def test_fail_plan_only_no_integration(self, test_db):
         """Test 4: FAIL when reviewed epic has plan sim but no integration sim."""
-        insert_item(test_db, id=40, title="Reviewed epic plan only test", type="epic",
+        insert_item(test_db, id=40, title="Reviewed epic plan only test", workflow_id="epic",
                     status="reviewed-implementation")
         req = insert_qa_requirement(test_db, item_id=40, qa_kind="simulation",
                                      qa_phase="verification",
@@ -194,7 +191,7 @@ class TestHCReviewedImplementationEpicsNoSimFull:
         """Test 5: FAIL with multiple reviewed epics without simulation."""
         for eid in (50, 51, 52):
             insert_item(test_db, id=eid, title=f"Reviewed epic {eid} test",
-                        type="epic", status="reviewed-implementation")
+                        workflow_id="epic", status="reviewed-implementation")
         rec = _run_hc(hc_reviewed_implementation_epics_no_sim, test_db)
         r = _result(rec)
         assert r.result == "FAIL"
@@ -204,20 +201,20 @@ class TestHCReviewedImplementationEpicsNoSimFull:
 
     def test_pass_other_statuses_not_flagged(self, test_db):
         """Test 6: PASS when epics in other statuses lack simulation."""
-        insert_item(test_db, id=60, title="Active epic no sim test", type="epic",
+        insert_item(test_db, id=60, title="Active epic no sim test", workflow_id="epic",
                     status="implementing")
-        insert_item(test_db, id=61, title="Done epic no sim test", type="epic",
+        insert_item(test_db, id=61, title="Done epic no sim test", workflow_id="epic",
                     status="done")
-        insert_item(test_db, id=62, title="Planned epic no sim test", type="epic",
+        insert_item(test_db, id=62, title="Planned epic no sim test", workflow_id="epic",
                     status="planned")
-        insert_item(test_db, id=63, title="Idea epic no sim test", type="epic",
+        insert_item(test_db, id=63, title="Idea epic no sim test", workflow_id="epic",
                     status="idea")
         rec = _run_hc(hc_reviewed_implementation_epics_no_sim, test_db)
         assert _result(rec).result == "PASS"
 
     def test_idempotent(self, test_db):
         """Test 7: Idempotent check (same output on consecutive runs)."""
-        insert_item(test_db, id=70, title="Reviewed epic idem test", type="epic",
+        insert_item(test_db, id=70, title="Reviewed epic idem test", workflow_id="epic",
                     status="reviewed-implementation")
         rec1 = _run_hc(hc_reviewed_implementation_epics_no_sim, test_db)
         rec2 = _run_hc(hc_reviewed_implementation_epics_no_sim, test_db)
@@ -229,7 +226,7 @@ class TestHCReviewedImplementationEpicsNoSimFull:
         import time
         for i in range(1, 21):
             insert_item(test_db, id=i, title=f"Epic {i} perf test item",
-                        type="epic", status="reviewed-implementation")
+                        workflow_id="epic", status="reviewed-implementation")
             if i % 2 == 0:
                 req = insert_qa_requirement(
                     test_db, item_id=i, qa_kind="simulation",

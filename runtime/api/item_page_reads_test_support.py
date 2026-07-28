@@ -171,6 +171,25 @@ def _connection() -> sqlite3.Connection:
           qa_run_id INTEGER,
           artifact_type TEXT
         );
+        CREATE TABLE ouroboros_entries (
+          id INTEGER PRIMARY KEY,
+          timestamp TEXT,
+          agent TEXT,
+          context TEXT,
+          category TEXT,
+          body TEXT,
+          reviewed_at TEXT,
+          project_id INTEGER
+        );
+        CREATE TABLE ouroboros_entry_dispositions (
+          entry_id INTEGER PRIMARY KEY,
+          disposition_kind TEXT,
+          state TEXT,
+          item_id INTEGER UNIQUE,
+          title TEXT,
+          instruction TEXT,
+          updated_at TEXT
+        );
         """
     )
     fixture = builtin_workflow_definition("dash")

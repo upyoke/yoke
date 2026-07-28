@@ -70,7 +70,7 @@ class TestReadyRows:
         self, test_db,
     ):
         insert_item(
-            test_db, id=11, title="in flight", type="issue",
+            test_db, id=11, title="in flight", workflow_id="issue",
             status="implementing", priority="high",
         )
         result = list_frontier()
@@ -103,11 +103,11 @@ class TestReadyRows:
 
     def test_unblocking_leverage_reaches_the_prose(self, test_db):
         insert_item(
-            test_db, id=21, title="the blocker", type="issue",
+            test_db, id=21, title="the blocker", workflow_id="issue",
             status="implementing",
         )
         insert_item(
-            test_db, id=22, title="the dependent", type="issue",
+            test_db, id=22, title="the dependent", workflow_id="issue",
             status="refining-idea",
         )
         _insert_dependency(
@@ -122,19 +122,19 @@ class TestReadyRows:
 class TestBlockedRows:
     def test_blocked_rows_name_all_three_gate_points(self, test_db):
         insert_item(
-            test_db, id=31, title="the blocker", type="issue",
+            test_db, id=31, title="the blocker", workflow_id="issue",
             status="implementing",
         )
         insert_item(
-            test_db, id=32, title="gated start", type="issue",
+            test_db, id=32, title="gated start", workflow_id="issue",
             status="refining-idea",
         )
         insert_item(
-            test_db, id=33, title="gated landing", type="issue",
+            test_db, id=33, title="gated landing", workflow_id="issue",
             status="refining-idea",
         )
         insert_item(
-            test_db, id=34, title="gated closeout", type="issue",
+            test_db, id=34, title="gated closeout", workflow_id="issue",
             status="refining-idea",
         )
         _insert_dependency(
@@ -180,7 +180,7 @@ class TestBlockedRows:
 
     def test_non_edge_wait_renders_with_empty_gate(self, test_db):
         insert_item(
-            test_db, id=41, title="operator hold", type="issue",
+            test_db, id=41, title="operator hold", workflow_id="issue",
             status="refining-idea", blocked=1,
             blocked_reason="waiting on vendor",
         )
@@ -200,11 +200,11 @@ class TestBlockedRows:
 class TestProjectScope:
     def test_project_omitted_reads_every_registered_project(self, test_db):
         insert_item(
-            test_db, id=51, title="yoke work", type="issue",
+            test_db, id=51, title="yoke work", workflow_id="issue",
             status="implementing", project="yoke",
         )
         insert_item(
-            test_db, id=52, title="other work", type="issue",
+            test_db, id=52, title="other work", workflow_id="issue",
             status="implementing", project="other",
         )
         all_rows = list_frontier()["ready_rows"]
@@ -218,11 +218,11 @@ class TestProjectScope:
 class TestEventFreeRead:
     def test_read_writes_no_event_rows(self, test_db):
         insert_item(
-            test_db, id=61, title="quiet read", type="issue",
+            test_db, id=61, title="quiet read", workflow_id="issue",
             status="implementing",
         )
         insert_item(
-            test_db, id=62, title="gated", type="issue",
+            test_db, id=62, title="gated", workflow_id="issue",
             status="refining-idea",
         )
         _insert_dependency(
@@ -239,7 +239,7 @@ class TestEventFreeRead:
         from yoke_core.domain.scheduler import compute_schedule
 
         insert_item(
-            test_db, id=71, title="telemetry keeper", type="issue",
+            test_db, id=71, title="telemetry keeper", workflow_id="issue",
             status="implementing",
         )
         before = _event_count(test_db)
@@ -250,7 +250,7 @@ class TestEventFreeRead:
 class TestHandler:
     def test_handler_returns_both_row_families(self, test_db):
         insert_item(
-            test_db, id=81, title="handled", type="issue",
+            test_db, id=81, title="handled", workflow_id="issue",
             status="implementing",
         )
         outcome = handle_frontier_list(_request())

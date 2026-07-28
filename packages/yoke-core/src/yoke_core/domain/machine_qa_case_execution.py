@@ -31,11 +31,12 @@ def _require_machine_case(case: Mapping[str, Any]) -> int:
     return requirement_id
 
 
-def _dispatch_machine_case(
+def _dispatch_machine_function(
     function_id: str,
     requirement_id: int,
     *,
     actor: ActorContext | None,
+    payload: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     from yoke_core.domain.qa_composed_dispatch import call_qa_function
 
@@ -45,7 +46,7 @@ def _dispatch_machine_case(
             kind="qa_requirement",
             qa_requirement_id=requirement_id,
         ),
-        payload={},
+        payload=dict(payload or {}),
         actor=actor,
     )
     if not response.success:
@@ -57,26 +58,138 @@ def _dispatch_machine_case(
     return dict(response.result or {})
 
 
+def _actor(actor: ActorContext | None) -> ActorContext:
+    if actor is not None:
+        return actor
+    from yoke_core.api.service_client_structured_api_adapter import build_actor
+
+    return build_actor()
+
+
+def _abort_issued_contract(
+    *,
+    abort_function: str,
+    requirement_id: int,
+    actor: ActorContext,
+    execution: dict[str, Any],
+    reason: str,
+) -> bool:
+    lease_id = execution.get("lease_id")
+    contract_digest = execution.get("contract_digest")
+    if not isinstance(lease_id, int) or not isinstance(contract_digest, str):
+        return False
+    try:
+        _dispatch_machine_function(
+            abort_function,
+            requirement_id,
+            actor=actor,
+            payload={
+                "lease_id": lease_id,
+                "contract_digest": contract_digest,
+                "reason": reason,
+            },
+        )
+    except MachineCaseDispatchError:
+        return False
+    return True
+
+
+def _execute_issued_contract(
+    *,
+    begin_function: str,
+    submit_function: str,
+    abort_function: str,
+    requirement_id: int,
+    actor: ActorContext | None,
+) -> dict[str, Any]:
+    resolved_actor = _actor(actor)
+    begun = _dispatch_machine_function(
+        begin_function,
+        requirement_id,
+        actor=resolved_actor,
+    )
+    if begun.get("state") == "waiting":
+        result = begun.get("result")
+        if not isinstance(result, dict):
+            raise MachineCaseDispatchError(
+                f"{begin_function} returned an invalid waiting result"
+            )
+        return result
+    execution = begun.get("execution")
+    if begun.get("state") != "ready" or not isinstance(execution, dict):
+        raise MachineCaseDispatchError(
+            f"{begin_function} returned no execution contract"
+        )
+    try:
+        from yoke_core.domain.machine_qa_local_execution import (
+            execute_machine_case_contract,
+        )
+        from yoke_core.domain.ssh_mac_host_control import (
+            register_ssh_mac_host_control,
+        )
+
+        register_ssh_mac_host_control()
+        submission = execute_machine_case_contract(execution)
+    except Exception as exc:
+        released = _abort_issued_contract(
+            abort_function=abort_function,
+            requirement_id=requirement_id,
+            actor=resolved_actor,
+            execution=execution,
+            reason="local_execution_failed",
+        )
+        raise MachineCaseDispatchError(
+            "local host-control execution failed "
+            f"({type(exc).__name__}); "
+            + (
+                "the server lease was released"
+                if released
+                else "automatic server-lease release also failed"
+            )
+        ) from exc
+    try:
+        submitted = _dispatch_machine_function(
+            submit_function,
+            requirement_id,
+            actor=resolved_actor,
+            payload=submission.payload,
+        )
+    except MachineCaseDispatchError:
+        _abort_issued_contract(
+            abort_function=abort_function,
+            requirement_id=requirement_id,
+            actor=resolved_actor,
+            execution=execution,
+            reason="submission_failed",
+        )
+        submission.cleanup_artifacts()
+        raise
+    submission.cleanup_artifacts()
+    return submitted
+
+
 def execute_materialized_machine_case(
     case: Mapping[str, Any],
     *,
     actor: ActorContext | None = None,
 ) -> dict[str, Any]:
-    """Rerun one immutable case without trusting client-supplied proof.
+    """Rerun one immutable case through the begin/local/submit protocol.
 
-    The server rereads the targeted requirement before controlling the host.
-    The supplied snapshot is used only to refuse an incompatible generic-runner
-    dispatch before it crosses the function boundary.
+    The server rereads the target and issues the only contract the local
+    credential-owning process may execute. The supplied snapshot is used only
+    to refuse an incompatible generic-runner dispatch before that boundary.
     """
     requirement_id = _require_machine_case(case)
-    result = _dispatch_machine_case(
-        "test_machine.case_execute",
-        requirement_id,
+    result = _execute_issued_contract(
+        begin_function="test_machine.case.begin",
+        submit_function="test_machine.case.submit",
+        abort_function="test_machine.case.abort",
+        requirement_id=requirement_id,
         actor=actor,
     )
     if int(result.get("requirement_id") or 0) != requirement_id:
         raise MachineCaseDispatchError(
-            "test_machine.case_execute returned the wrong requirement"
+            "test_machine.case.submit returned the wrong requirement"
         )
     return result
 
@@ -86,28 +199,30 @@ def execute_materialized_machine_baseline_group(
     *,
     actor: ActorContext | None = None,
 ) -> dict[str, Any]:
-    """Run the anchor's server-discovered baseline group under one lease."""
+    """Run the server-discovered baseline group locally under one lease."""
     requirement_id = _require_machine_case(case)
     if case.get("plan_id") is None or not case.get("host_baseline"):
         raise MachineCaseDispatchError(
             "Machine QA baseline-group execution requires a plan-backed "
             "case with host_baseline"
         )
-    result = _dispatch_machine_case(
-        "test_machine.baseline_group_execute",
-        requirement_id,
+    result = _execute_issued_contract(
+        begin_function="test_machine.baseline_group.begin",
+        submit_function="test_machine.baseline_group.submit",
+        abort_function="test_machine.baseline_group.abort",
+        requirement_id=requirement_id,
         actor=actor,
     )
     if int(result.get("anchor_requirement_id") or 0) != requirement_id:
         raise MachineCaseDispatchError(
-            "test_machine.baseline_group_execute returned the wrong anchor"
+            "test_machine.baseline_group.submit returned the wrong anchor"
         )
     requirement_ids = {
         int(value) for value in result.get("requirement_ids") or []
     }
     if requirement_id not in requirement_ids:
         raise MachineCaseDispatchError(
-            "test_machine.baseline_group_execute omitted its anchor"
+            "test_machine.baseline_group.submit omitted its anchor"
         )
     return result
 

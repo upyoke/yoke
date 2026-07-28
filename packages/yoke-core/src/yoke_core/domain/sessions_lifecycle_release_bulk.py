@@ -19,10 +19,16 @@ from __future__ import annotations
 from typing import Any
 
 from .claim_chain_state import record_release_intent_for_session
+from .sessions_claim_lifecycle_lock import lock_session_rows_for_claim_lifecycle
 from .sessions_queries import _now_iso
 from .sessions_render_attribution import clear_current_item
+from .workflow_item_binding_lock import (
+    lock_work_claims_workflow_bindings,
+    rollback_workflow_binding_write_errors,
+)
 
 
+@rollback_workflow_binding_write_errors
 def release_all_claims(
     conn: Any,
     session_id: str,
@@ -30,17 +36,31 @@ def release_all_claims(
 ) -> int:
     """Release all active claims for a session.  Returns count released."""
     now = _now_iso()
-    cursor = conn.execute(
-        """UPDATE work_claims SET released_at = %s, release_reason = %s
-           WHERE session_id = %s AND released_at IS NULL""",
-        (now, reason, session_id),
-    )
+    lock_session_rows_for_claim_lifecycle(conn, (session_id,))
+    rows = conn.execute(
+        "SELECT id FROM work_claims "
+        "WHERE session_id = %s AND released_at IS NULL ORDER BY id",
+        (session_id,),
+    ).fetchall()
+    claim_ids = tuple(int(row["id"]) for row in rows)
+    lock_work_claims_workflow_bindings(conn, claim_ids)
+    released = 0
+    for claim_id in claim_ids:
+        cursor = conn.execute(
+            "UPDATE work_claims SET released_at = %s, release_reason = %s "
+            "WHERE id = %s AND released_at IS NULL",
+            (now, reason, claim_id),
+        )
+        released += int(cursor.rowcount)
     record_release_intent_for_session(
-        conn, session_id=session_id, released_at=now, intent=reason,
+        conn,
+        session_id=session_id,
+        released_at=now,
+        intent=reason,
     )
-    clear_current_item(conn, session_id)
+    clear_current_item(conn, session_id, commit=False)
     conn.commit()
-    return cursor.rowcount
+    return released
 
 
 __all__ = ["release_all_claims"]

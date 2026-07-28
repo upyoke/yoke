@@ -6,22 +6,19 @@ import {
 
 export const machineSecretNotes = {
   ssh_private_key: "executor subprocess only",
-  sudo_password: "used only by registered host-baseline operations",
-  screen_control_token: "Terminal automation bridge",
 };
 
 export function orderedMachineSecrets(secrets) {
   const order = new Map(
     Object.keys(machineSecretNotes).map((key, index) => [key, index]),
   );
-  return [...(secrets || [])].sort((left, right) => {
-    const leftOrder = order.get(left.key);
-    const rightOrder = order.get(right.key);
-    if (leftOrder === undefined && rightOrder === undefined) return 0;
-    if (leftOrder === undefined) return 1;
-    if (rightOrder === undefined) return -1;
-    return leftOrder - rightOrder;
-  });
+  return [...(secrets || [])]
+    .filter((secret) => order.has(secret.key))
+    .sort((left, right) => {
+      const leftOrder = order.get(left.key);
+      const rightOrder = order.get(right.key);
+      return leftOrder - rightOrder;
+    });
 }
 
 function rejectedCallMessage(error, fallback) {
@@ -68,7 +65,7 @@ export function machineSettingsDialog(context, detail, close, saved) {
     documentNode,
     "p",
     "muted",
-    "Presence is visible here; replacement happens through the registered terminal surface with --value-stdin, so raw values never render or enter browser history.",
+    "The SSH key is the only credential; macOS Automation and Screen Recording are host permissions, not tokens. Replace it through the registered terminal surface with --value-stdin; raw values never enter browser history.",
   ));
   for (const secret of orderedMachineSecrets(detail.secrets)) {
     const row = el(documentNode, "div", "test-machine-command");

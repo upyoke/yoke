@@ -25,6 +25,9 @@ from yoke_core.domain.project_onboarding_runs import (
 )
 from yoke_core.domain.project_structure import create_project_structure_tables
 from yoke_core.domain.qa_catalog_schema import create_qa_catalog_tables
+from yoke_core.domain.qa_plan_execution_schema import (
+    converge_qa_plan_execution_schema,
+)
 from yoke_core.domain.schema_common import _connect_raw
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.schema_init_actor_path_claim_tables import (
@@ -57,9 +60,6 @@ from yoke_core.domain.test_machine_schema import ensure_test_machine_schema
 from yoke_core.domain.ui_preferences_schema import create_ui_preference_tables
 from yoke_core.domain.workflow_schema import ensure_workflow_schema
 from yoke_core.domain.workflow_registry import converge_builtin_workflows
-from yoke_core.domain.workflow_item_pins import (
-    backfill_legacy_item_workflow_pins,
-)
 
 
 def converge_core_schema(conn) -> None:
@@ -106,13 +106,10 @@ def converge_core_schema(conn) -> None:
     # Plans attach to projects, workflows and items; requirements snapshot
     # those plans, so the catalog follows all four authorities.
     create_qa_catalog_tables(conn)
+    converge_qa_plan_execution_schema(conn)
     ensure_test_machine_schema(conn)
     ensure_field_note_dash_promotion_schema(conn)
     sync_machine_qa_pack_methods(conn)
-    # Existing databases retain the legacy classification until the governed
-    # contract migration. Boot convergence must populate immutable pins before
-    # the new readers serve those rows; after contraction this is a no-op.
-    backfill_legacy_item_workflow_pins(conn)
     conn.commit()
     # Strategy authority landed on prod via a since-retired governed
     # migration; fresh envs get the table from the same DDL constant

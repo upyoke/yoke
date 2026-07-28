@@ -1,3 +1,4 @@
+# ruff: noqa: F811
 """Stale-reclaim, registry seeder, and sweep-event tests.
 
 Includes executor-aware stale-session cleanup, idempotent event-registry
@@ -12,7 +13,11 @@ from unittest.mock import patch
 
 import pytest
 
-from runtime.api.test_sessions import _create_schema, _register, conn  # noqa: F401  (pytest fixture)
+from runtime.api.test_sessions import (
+    _insert_claimable_items,
+    _register,
+    conn,  # noqa: F401
+)
 from yoke_core.domain.sessions import (
     EVENT_HARNESS_SESSION_STALE_SWEEP_COMPLETED,
     claim_work,
@@ -162,6 +167,7 @@ class TestStaleReclaimYOK1350:
     def test_emits_stale_session_reclaimed_event(self, conn_with_events):
         """AC-10: reclaim emits HarnessSessionStaleReclaimed with required fields."""
         conn = conn_with_events
+        _insert_claimable_items(conn, 777)
         _register(conn, session_id="stale-ev", executor="claude-code")
         conn.execute(
             """UPDATE harness_sessions

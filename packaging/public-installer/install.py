@@ -87,9 +87,7 @@ PIP_REQUIREMENT_SOURCE_ENV_VARS = frozenset(
     }
 )
 RESOLVER_SOURCE_ENV_VARS = frozenset(
-    UV_INDEX_ENV_VARS
-    | UV_REQUIREMENT_SOURCE_ENV_VARS
-    | PIP_REQUIREMENT_SOURCE_ENV_VARS
+    UV_INDEX_ENV_VARS | UV_REQUIREMENT_SOURCE_ENV_VARS | PIP_REQUIREMENT_SOURCE_ENV_VARS
 )
 DIAGNOSTIC_MAX_CHARS = 4000
 FAILURE_REASON_MAX_CHARS = 600
@@ -371,9 +369,7 @@ class Installer:
             and self.options.base_url == DEFAULT_BASE_URL
         ):
             retry_base_url = STAGE_BASE_URL
-        retry = _paint(
-            _rerun_command(retry_base_url), "bright", enabled=self.color
-        )
+        retry = _paint(_rerun_command(retry_base_url), "bright", enabled=self.color)
         print(f"  {retry}", file=self.stdout, flush=True)
 
     def _resolve_installed_yoke_bin(self) -> str:
@@ -478,7 +474,11 @@ def product_spec(version: str | None) -> str:
 
 
 def _rerun_command(base_url: str) -> str:
-    return f"curl -fsSL {_safe_url(base_url).rstrip('/')}/install | bash"
+    origin = _safe_url(base_url).rstrip("/")
+    if origin == DEFAULT_BASE_URL:
+        scheme, host = origin.split("://", 1)
+        origin = f"{scheme}://{host.removeprefix('api.')}"
+    return f"curl -fsSL {origin}/install | sh"
 
 
 def _product_spec_version(spec: str) -> str | None:
@@ -683,9 +683,7 @@ def _safe_url(value: str) -> str:
     except ValueError:
         port = None
     netloc = f"{host}:{port}" if port is not None else host
-    return urllib.parse.urlunsplit(
-        (parsed.scheme, netloc, parsed.path, "", "")
-    )
+    return urllib.parse.urlunsplit((parsed.scheme, netloc, parsed.path, "", ""))
 
 
 def _env_truthy(name: str) -> bool:

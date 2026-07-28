@@ -117,6 +117,7 @@ def _resolve_qa_requirement_item_id(
     """
     try:
         from yoke_core.domain import db_helpers
+
         with db_helpers.connect() as conn:
             p = _placeholder(conn)
             row = conn.execute(
@@ -124,19 +125,25 @@ def _resolve_qa_requirement_item_id(
                 (int(qa_requirement_id),),
             ).fetchone()
     except Exception as exc:
-        return None, "claim_required", (
-            f"failed to resolve qa_requirement_id={qa_requirement_id} "
-            f"to item_id: {exc}"
+        return (
+            None,
+            "claim_required",
+            (
+                f"failed to resolve qa_requirement_id={qa_requirement_id} "
+                f"to item_id: {exc}"
+            ),
         )
     if row is None:
-        return None, "not_found", (
-            f"qa_requirement_id={qa_requirement_id} not found"
-        )
+        return None, "not_found", (f"qa_requirement_id={qa_requirement_id} not found")
     item_id = row[0]
     if item_id is None:
-        return None, "claim_required", (
-            f"qa_requirement_id={qa_requirement_id} has no item_id; "
-            "global qa requirements cannot be claim-verified against an item"
+        return (
+            None,
+            "claim_required",
+            (
+                f"qa_requirement_id={qa_requirement_id} has no item_id; "
+                "global qa requirements cannot be claim-verified against an item"
+            ),
         )
     return int(item_id), None, None
 
@@ -144,6 +151,7 @@ def _resolve_qa_requirement_item_id(
 def _claim_row_for_id(claim_id: int) -> Optional[Dict[str, Any]]:
     try:
         from yoke_core.domain import db_helpers
+
         with db_helpers.connect() as conn:
             p = _placeholder(conn)
             row = conn.execute(
@@ -161,9 +169,7 @@ def _claim_row_for_id(claim_id: int) -> Optional[Dict[str, Any]]:
     }
 
 
-def _session_claim_id_for_target(
-    target: Any, actor_session: str
-) -> Optional[int]:
+def _session_claim_id_for_target(target: Any, actor_session: str) -> Optional[int]:
     """Resolve the calling session's active claim id for an item or
     epic_task shaped ``self_only`` target.
 
@@ -177,6 +183,7 @@ def _session_claim_id_for_target(
         return None
     try:
         from yoke_core.domain import db_helpers
+
         with db_helpers.connect() as conn:
             p = _placeholder(conn)
             if target.kind == "item" and target.item_id is not None:
@@ -243,18 +250,24 @@ def verify_claim(
             target_id = resolved
         if target_id is None:
             return _claim_error(
-                request, fid, ver, "claim_required",
+                request,
+                fid,
+                ver,
+                "claim_required",
                 f"claim_required_kind={kind!r} but target id is missing",
             )
         row = who_claims_for_item(int(target_id))
         claim_session = str((row or {}).get("session_id") or "")
         if not row or claim_session != actor_session:
             return _claim_error(
-                request, fid, ver, "claim_required",
+                request,
+                fid,
+                ver,
+                "claim_required",
                 f"no active claim by session {actor_session!r} on "
                 f"{kind} {target_id}; acquire one first: "
-                f"python3 -m yoke_core.api.service_client claim-work "
-                f"--item YOK-{target_id} --reason <intent>",
+                f"yoke claims work acquire "
+                f'--item YOK-{target_id} --reason "<intent>"',
             )
         return None
 
@@ -269,7 +282,10 @@ def verify_claim(
                     else f"epic_task ({target.epic_id}, {target.task_num})"
                 )
                 return _claim_error(
-                    request, fid, ver, "claim_required",
+                    request,
+                    fid,
+                    ver,
+                    "claim_required",
                     f"no active claim by session {actor_session!r} on "
                     f"{shape}; pass --claim-id explicitly or acquire one "
                     "first: yoke claims work acquire",
@@ -280,32 +296,44 @@ def verify_claim(
             return None
         if claim_id is None:
             return _claim_error(
-                request, fid, ver, "claim_required",
+                request,
+                fid,
+                ver,
+                "claim_required",
                 "claim_required_kind='self_only' but target.claim_id is missing",
             )
         row = _claim_row_for_id(int(claim_id))
         owner = str((row or {}).get("session_id") or "")
         if owner != actor_session:
             return _claim_error(
-                request, fid, ver, "claim_required",
+                request,
+                fid,
+                ver,
+                "claim_required",
                 f"claim {claim_id} not held by session {actor_session!r}; "
                 f"acquire your own claim with: "
-                f"python3 -m yoke_core.api.service_client claim-work "
-                f"--item YOK-<id> --reason <intent>",
+                f"yoke claims work acquire "
+                f'--item "YOK-<id>" --reason "<intent>"',
             )
         return None
 
     if kind == "operator_override":
         if not is_operator_session(actor_session):
             return _claim_error(
-                request, fid, ver, "operator_override_required",
+                request,
+                fid,
+                ver,
+                "operator_override_required",
                 f"session {actor_session!r} lacks operator-override authority",
             )
         return None
 
     # Defensive — registry validation makes this unreachable.
     return _claim_error(
-        request, fid, ver, "claim_required",
+        request,
+        fid,
+        ver,
+        "claim_required",
         f"unknown claim_required_kind {kind!r}",
     )
 

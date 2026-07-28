@@ -7,7 +7,7 @@ Last updated: 2026-05-29 (Step 14 split into runnable schema, protocol-schema, a
 ## Prerequisites
 
 - Codex CLI installed (any build with Bash tool support for wrapper-only)
-- For hook-enhanced mode: Codex >= 0.118.0-alpha.2, launched with `codex app <repo>`
+- For hook-enhanced mode: Codex >= 0.128.0-alpha.1, launched with `codex app <repo>`
 - Yoke repo checked out at a known-good state
 - Connected Postgres authority available (at least one backlog item for routing tests)
 
@@ -161,11 +161,11 @@ Do **not** use `externalAgentConfig/detect` as registration evidence. On codex-c
 
 ## Mode 2: Hook-Enhanced
 
-Hook-enhanced mode adds `.codex/hooks.json` hooks on top of the wrapper-only baseline. Requires Codex >= 0.118.0-alpha.2 with hook support.
+Hook-enhanced mode adds `.codex/hooks.json` hooks on top of the wrapper-only baseline. Requires Codex >= 0.128.0-alpha.1 with hook support.
 
 ### Enablement
 
-1. Verify Codex version: `codex --version` (must be >= 0.118.0-alpha.2)
+1. Verify Codex version: `codex --version` (must be >= 0.128.0-alpha.1)
 2. Verify `.codex/hooks.json` exists at repo root (symlink to `runtime/harness/codex/hooks.json`)
 3. Fully quit and relaunch Codex Desktop
 4. Open a brand-new Yoke thread in the Yoke repo after the app launches

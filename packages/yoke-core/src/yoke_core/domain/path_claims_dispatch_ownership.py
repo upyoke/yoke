@@ -56,13 +56,10 @@ class OwnershipDenial(Exception):
             who = "; no active work claim exists on this item"
         recovery = (
             "acquire the work claim first: "
-            "python3 -m yoke_core.api.service_client claim-work "
-            f"--item YOK-{self.item_id} --reason <intent>"
+            "yoke claims work acquire "
+            f'--item YOK-{self.item_id} --reason "<intent>"'
         )
-        inspect = (
-            "python3 -m runtime.harness.harness_sessions "
-            f"who-claims {self.item_id}"
-        )
+        inspect = f"yoke claims work holder-get YOK-{self.item_id}"
         return (
             f"path-claims {self.action} requires the ambient session to "
             f"hold item YOK-{self.item_id}'s work claim. "
@@ -76,8 +73,8 @@ class OwnershipDenial(Exception):
             "caller_session_id": self.caller_session_id,
             "holder_session_id": self.holder_session_id,
             "recovery": (
-                "python3 -m yoke_core.api.service_client claim-work "
-                f"--item YOK-{self.item_id} --reason <intent>"
+                "yoke claims work acquire "
+                f'--item YOK-{self.item_id} --reason "<intent>"'
             ),
         }
         if self.claim_id is not None:
@@ -97,9 +94,7 @@ def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def _item_id_for_claim(
-    conn: Any, claim_id: int
-) -> Optional[int]:
+def _item_id_for_claim(conn: Any, claim_id: int) -> Optional[int]:
     p = _p(conn)
     row = conn.execute(
         f"SELECT item_id FROM path_claims WHERE id = {p}",
@@ -111,9 +106,7 @@ def _item_id_for_claim(
     return int(value)
 
 
-def _active_holder_session_id(
-    conn: Any, item_id: int
-) -> Optional[str]:
+def _active_holder_session_id(conn: Any, item_id: int) -> Optional[str]:
     p = _p(conn)
     row = conn.execute(
         "SELECT session_id FROM work_claims "
@@ -145,9 +138,7 @@ def require_item_ownership(
     """
     if item_id is None:
         if claim_id is None:
-            raise ValueError(
-                "require_item_ownership needs item_id or claim_id"
-            )
+            raise ValueError("require_item_ownership needs item_id or claim_id")
         resolved = _item_id_for_claim(conn, int(claim_id))
         if resolved is None:
             return None
@@ -184,7 +175,10 @@ def deny_if_not_owner(
     """
     try:
         require_item_ownership(
-            conn, action=action, item_id=item_id, claim_id=claim_id,
+            conn,
+            action=action,
+            item_id=item_id,
+            claim_id=claim_id,
         )
     except OwnershipDenial as exc:
         emit_denial(exc)

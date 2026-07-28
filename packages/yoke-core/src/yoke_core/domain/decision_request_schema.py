@@ -10,6 +10,7 @@ from yoke_core.domain.decision_request_contract import (
     DECISION_REQUEST_KINDS,
     IN_APP_NOTIFICATION_KINDS,
 )
+from yoke_core.domain.schema_common import _add_column_if_not_exists
 from yoke_core.domain.schema_init_apply import execute_schema_script
 
 
@@ -21,7 +22,9 @@ def create_decision_request_tables(conn: Any) -> None:
     """Create the additive Inbox substrate on an initialized authority."""
     request_kinds = _sql_values(DECISION_REQUEST_KINDS)
     notification_kinds = _sql_values(IN_APP_NOTIFICATION_KINDS)
-    execute_schema_script(conn, f"""
+    execute_schema_script(
+        conn,
+        f"""
         CREATE TABLE IF NOT EXISTS decision_requests (
             id INTEGER PRIMARY KEY,
             kind TEXT NOT NULL CHECK(kind IN ({request_kinds})),
@@ -40,6 +43,10 @@ def create_decision_request_tables(conn: Any) -> None:
             resolved_at TEXT,
             withdrawal_reason TEXT,
             withdrawn_at TEXT,
+            consumed_at TEXT,
+            consumed_from_stage TEXT,
+            consumed_to_stage TEXT,
+            consumed_workflow_version_id INTEGER,
             created_at TEXT NOT NULL,
             CHECK (
                 (project_id IS NOT NULL AND org_id IS NULL)
@@ -90,7 +97,32 @@ def create_decision_request_tables(conn: Any) -> None:
         );
         CREATE INDEX IF NOT EXISTS idx_addressed_events_actor_unread
             ON addressed_event_deliveries(actor_id, read_at, created_at);
-    """)
+    """,
+    )
+    _add_column_if_not_exists(
+        conn,
+        "decision_requests",
+        "consumed_at",
+        "TEXT",
+    )
+    _add_column_if_not_exists(
+        conn,
+        "decision_requests",
+        "consumed_from_stage",
+        "TEXT",
+    )
+    _add_column_if_not_exists(
+        conn,
+        "decision_requests",
+        "consumed_to_stage",
+        "TEXT",
+    )
+    _add_column_if_not_exists(
+        conn,
+        "decision_requests",
+        "consumed_workflow_version_id",
+        "INTEGER",
+    )
     seed_decision_request_events(conn)
     conn.commit()
 

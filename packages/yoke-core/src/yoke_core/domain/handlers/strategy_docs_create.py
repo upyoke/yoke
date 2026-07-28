@@ -28,6 +28,11 @@ STRATEGY_DOC_CREATED_EVENT_NAME = "StrategyDocCreated"
 class DocCreateRequest(BaseModel):
     slug: str = Field(..., min_length=1, description="New strategy doc slug.")
     content: str = Field(..., description="Initial full doc content.")
+    reviewer_actor_id: int | None = Field(
+        None,
+        gt=0,
+        description="Optional named reviewer; project roles remain fallback authority.",
+    )
 
 
 class DocCreateResponse(BaseModel):
@@ -101,6 +106,7 @@ def handle_doc_create(request: FunctionCallRequest) -> HandlerOutcome:
                     project_id=project.id,
                     slug=payload.slug,
                     originator_actor_id=actor_id,
+                    reviewer_actor_id=payload.reviewer_actor_id,
                     session_id=session_id,
                 )
         except _docs.UnknownStrategyDocError as exc:

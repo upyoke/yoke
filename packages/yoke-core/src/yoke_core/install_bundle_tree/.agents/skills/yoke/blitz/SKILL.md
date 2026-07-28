@@ -128,12 +128,29 @@ untracked document edit.
 
 ### 4. Build an integration map
 
-The preparation call creates and registers the default worker lane. Keep
-execution sequential in that lane unless additional worker lanes and an
-explicit integration lane have been registered through the universal
-item-worktree surface. The item owns every registered lane; the main session
-holds the item work claim while coordinating integration. Never parallelize
-by inventing an unregistered branch or directory. Every worker brief must name:
+The preparation call ensures the default worker lane through the active
+authority, materializes every registered active lane on this machine, and
+records each exact local path back through the guarded function-call surface.
+Keep execution sequential in the default lane unless additional worker lanes
+and an explicit integration lane have been registered through the universal
+item-worktree surface:
+
+```text
+yoke item-worktrees create ITEM --lane-role worker --branch BRANCH
+```
+
+Repeat the same registered call with `--lane-role integration` for the one
+explicit integration lane, then rerun the ordinary worktree preparation to
+materialize every pathless registration over either HTTPS or machine-local
+Postgres. Verify the authoritative set and its recorded paths with:
+
+```text
+yoke item-worktrees list ITEM --json
+```
+
+The item owns every registered lane; the main session holds the item work claim
+while coordinating integration. Never parallelize by inventing an unregistered
+branch or directory. Every worker brief must name:
 
 - its outcome and exact file responsibility;
 - its registered worktree;
@@ -207,6 +224,19 @@ Revise the linked strategy document so it explicitly records:
 - what remains, including an explicit statement when nothing remains;
 - verification and delivery evidence with stable identities;
 - how the parent strategy was reconciled, or that no parent exists.
+
+Use this exact document-owned closeout shape so the completion gate can
+distinguish terminal evidence from planning prose:
+
+```markdown
+## Blitz Completion
+
+- Completed: <delivered outcomes>
+- Changed: <departures from the starting plan, or none>
+- Remaining: <open work, or nothing remains>
+- Verification identities: <commands, receipts, runs, commits, or artifacts>
+- Parent reconciliation: <parent update and revision, or no parent exists>
+```
 
 Append a final Slice Log entry naming the document revision and the final
 verification result. Re-read `yoke strategy execution get ITEM --json` and

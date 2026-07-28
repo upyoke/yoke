@@ -39,9 +39,7 @@ def _dispatch(
     if not response.success:
         code = response.error.code if response.error else "unknown"
         message = response.error.message if response.error else ""
-        raise QaCaseExecutionError(
-            f"{function_id} failed ({code}): {message}"
-        )
+        raise QaCaseExecutionError(f"{function_id} failed ({code}): {message}")
     return response.result or {}
 
 
@@ -50,15 +48,16 @@ def fetch_case_execution_context(
     *,
     actor: Optional[ActorContext] = None,
 ) -> dict:
-    """Fetch one immutable case snapshot through the registered read."""
+    """Authorize and fetch one immutable case before local side effects."""
     result = _dispatch(
-        "qa.case_execution.get", requirement_id, {}, actor=actor,
+        "qa.case_execution.begin",
+        requirement_id,
+        {},
+        actor=actor,
     )
     case = result.get("case")
     if not isinstance(case, dict):
-        raise QaCaseExecutionError(
-            "qa.case_execution.get returned no case contract"
-        )
+        raise QaCaseExecutionError("qa.case_execution.begin returned no case contract")
     return case
 
 
@@ -122,9 +121,7 @@ def _command_result(
     command_env = dict(os.environ)
     if config.get("requires_base_url"):
         if not base_url:
-            raise QaCaseExecutionError(
-                "this Command case requires --base-url"
-            )
+            raise QaCaseExecutionError("this Command case requires --base-url")
         command_env["BASE_URL"] = base_url
     started = time.monotonic()
     timed_out = False
@@ -155,13 +152,16 @@ def _command_result(
         f"$ {command}\n\n[stdout]\n{stdout}\n\n"
         f"[stderr]\n{stderr}\n\n[exit_code]\n{exit_code}\n"
     )
-    raw_result = json.dumps({
-        "command": command,
-        "cwd": str(checkout),
-        "exit_code": exit_code,
-        "timed_out": timed_out,
-        "output_tail": output[-16000:],
-    }, sort_keys=True)
+    raw_result = json.dumps(
+        {
+            "command": command,
+            "cwd": str(checkout),
+            "exit_code": exit_code,
+            "timed_out": timed_out,
+            "output_tail": output[-16000:],
+        },
+        sort_keys=True,
+    )
     run = _dispatch(
         "qa.run.add",
         int(case["requirement_id"]),
@@ -191,13 +191,17 @@ def _command_result(
             "artifact_type": "command_output",
             "content_type": "text/plain",
             "artifact_handle": local_handle(
-                str(output_path.resolve()), "text/plain",
+                str(output_path.resolve()),
+                "text/plain",
             ),
-            "metadata": json.dumps({
-                "case_key": case["case_key"],
-                "exit_code": exit_code,
-                "timed_out": timed_out,
-            }, sort_keys=True),
+            "metadata": json.dumps(
+                {
+                    "case_key": case["case_key"],
+                    "exit_code": exit_code,
+                    "timed_out": timed_out,
+                },
+                sort_keys=True,
+            ),
         },
         actor=actor,
     )
@@ -250,8 +254,8 @@ def _browser_result(
     }
 
 
-def execute_case(
-    requirement_id: int,
+def execute_case_context(
+    case: dict,
     *,
     base_url: str = "",
     expected_branch: Optional[str] = None,
@@ -260,8 +264,7 @@ def execute_case(
     checkout_path: Optional[str | Path] = None,
     actor: Optional[ActorContext] = None,
 ) -> dict:
-    """Execute one materialized case through its registered executor."""
-    case = fetch_case_execution_context(requirement_id, actor=actor)
+    """Execute a server-authorized immutable case context locally."""
     executor_id = str(case["executor_id"])
     if executor_id == "worktree_run":
         return _command_result(
@@ -290,8 +293,32 @@ def execute_case(
     )
 
 
+def execute_case(
+    requirement_id: int,
+    *,
+    base_url: str = "",
+    expected_branch: Optional[str] = None,
+    expected_sha: Optional[str] = None,
+    timeout_seconds: Optional[int] = None,
+    checkout_path: Optional[str | Path] = None,
+    actor: Optional[ActorContext] = None,
+) -> dict:
+    """Authorize, snapshot, and execute one registered materialized case."""
+    case = fetch_case_execution_context(requirement_id, actor=actor)
+    return execute_case_context(
+        case,
+        base_url=base_url,
+        expected_branch=expected_branch,
+        expected_sha=expected_sha,
+        timeout_seconds=timeout_seconds,
+        checkout_path=checkout_path,
+        actor=actor,
+    )
+
+
 __all__ = [
     "QaCaseExecutionError",
     "execute_case",
+    "execute_case_context",
     "fetch_case_execution_context",
 ]

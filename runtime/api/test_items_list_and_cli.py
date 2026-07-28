@@ -54,7 +54,10 @@ def db_with_item(db_path):
 
 class TestQueryItemsList:
     def test_returns_all_items(self, db_with_item):
-        insert_item(item_id=2, title="Second", status="idea", db_path=db_with_item)
+        insert_item(
+            item_id=2, title="Second", workflow="issue",
+            status="idea", db_path=db_with_item,
+        )
         result = query_items_list(db_path=db_with_item)
         lines = result.strip().split("\n")
         assert len(lines) == 2
@@ -63,6 +66,7 @@ class TestQueryItemsList:
         insert_item(
             item_id=2,
             title="Implementing",
+            workflow="issue",
             status="implementing",
             db_path=db_with_item,
         )
@@ -80,8 +84,8 @@ class TestQueryItemsList:
         assert "Epic" in lines[0]
 
     def test_filter_by_priority(self, db_path):
-        insert_item(item_id=1, title="High", priority="high", db_path=db_path)
-        insert_item(item_id=2, title="Low", priority="low", db_path=db_path)
+        insert_item(item_id=1, title="High", workflow="issue", priority="high", db_path=db_path)
+        insert_item(item_id=2, title="Low", workflow="issue", priority="low", db_path=db_path)
         result = query_items_list(priority="high", db_path=db_path)
         lines = result.strip().split("\n")
         assert len(lines) == 1
@@ -98,9 +102,9 @@ class TestQueryItemsList:
         assert result == ""
 
     def test_ordered_by_id(self, db_path):
-        insert_item(item_id=5, title="Fifth", db_path=db_path)
-        insert_item(item_id=3, title="Third", db_path=db_path)
-        insert_item(item_id=8, title="Eighth", db_path=db_path)
+        insert_item(item_id=5, title="Fifth", workflow="issue", db_path=db_path)
+        insert_item(item_id=3, title="Third", workflow="issue", db_path=db_path)
+        insert_item(item_id=8, title="Eighth", workflow="issue", db_path=db_path)
         result = query_items_list(db_path=db_path)
         lines = result.strip().split("\n")
         ids = [line.split("|")[0] for line in lines]
@@ -256,8 +260,14 @@ class TestCLIMain:
         body_file.write_text("Body from file")
         rc = main([
             "insert", "--id", "60", "--title", "File body",
+            "--workflow", "issue",
             "--body-file", str(body_file),
         ])
         assert rc == 0
         # body is no longer stored — rendered from structured fields
         assert query_item(60, "title", db_path=db_path) == "File body"
+
+    def test_insert_subcommand_requires_workflow(self, db_path, monkeypatch, capsys):
+        monkeypatch.setenv("YOKE_DB", db_path)
+        assert main(["insert", "--id", "61", "--title", "Unclassified"]) == 1
+        assert "workflow is required" in capsys.readouterr().err

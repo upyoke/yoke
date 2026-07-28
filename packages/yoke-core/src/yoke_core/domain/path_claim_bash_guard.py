@@ -21,6 +21,9 @@ from yoke_core.domain.observe_normalization import (
     TOOL_KIND_BASH,
     ToolEventRecord,
 )
+from yoke_core.domain.path_claim_task_active_scope import (
+    resolve_claim_scope_for_target,
+)
 from yoke_core.domain.path_claim_bash_guard_narrative import (
     ambiguous_narrative,
     format_narrative,
@@ -98,7 +101,9 @@ def evaluate_payload(
     # ``ambiguous`` and ``suppressed`` sentinels the suppression branch
     # below depends on.
     mutations = drop_planning_scratch_mutations(
-        mutations, session_id=record.session_id, conn=conn,
+        mutations,
+        session_id=record.session_id,
+        conn=conn,
     )
     if not mutations:
         return BashGuardVerdict(outcome="allow")
@@ -116,26 +121,23 @@ def evaluate_payload(
             ),
             bash_verb=_SUPPRESSED_VERB,
         )
-        _emit_denial(record=record, verdict=verdict, conn=conn,
-                     suppression=True)
+        _emit_denial(record=record, verdict=verdict, conn=conn, suppression=True)
         return verdict
 
     cwd, _ = _resolve_cwd(record)
 
-    if claim is None:
-        claim = resolve_active_claim_for_session(
-            session_id=record.session_id, conn=conn,
-        )
-
-    # Ambiguous segments fail closed — even when no claim exists, the
-    # operator opted into a guarded session by using a worktree-bound
-    # claim DB. Without a claim, allow.
-    if claim is None:
-        return BashGuardVerdict(outcome="allow")
-
-    ctx = ClaimContext.from_claim(claim)
-
     for mut in mutations:
+        current_claim = resolve_claim_scope_for_target(
+            conn=conn,
+            claim=claim,
+            session_id=record.session_id,
+            target_path=mut.target_path,
+            cwd=cwd,
+            resolver=resolve_active_claim_for_session,
+        )
+        if current_claim is None:
+            continue
+        ctx = ClaimContext.from_claim(current_claim)
         if mut.verb == _AMBIGUOUS_VERB:
             verdict = _build_ambiguous_verdict(mut, ctx)
             _emit_denial(record=record, verdict=verdict, conn=conn)
@@ -185,13 +187,8 @@ def _coerce_record(payload: Any) -> Optional[ToolEventRecord]:
         top = payload.get("command")
         if isinstance(top, str):
             command = top
-    cwd = (
-        str(payload.get("cwd") or "")
-        or (
-            str(tool_input.get("cwd") or "")
-            if isinstance(tool_input, dict)
-            else ""
-        )
+    cwd = str(payload.get("cwd") or "") or (
+        str(tool_input.get("cwd") or "") if isinstance(tool_input, dict) else ""
     )
     return ToolEventRecord(
         tool_kind=TOOL_KIND_BASH,
@@ -208,7 +205,8 @@ def _coerce_record(payload: Any) -> Optional[ToolEventRecord]:
 
 
 def _build_ambiguous_verdict(
-    mut: Mutation, ctx: ClaimContext,
+    mut: Mutation,
+    ctx: ClaimContext,
 ) -> BashGuardVerdict:
     return BashGuardVerdict(
         outcome="deny",
@@ -292,15 +290,20 @@ def evaluate(record: HookContext) -> HookDecision:
     verdict = evaluate_payload(payload)
     if verdict.outcome != "deny":
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
-    envelope = json.dumps({
-        "hookSpecificOutput": {
-            "hookEventName": "PreToolUse",
-            "permissionDecision": "deny",
-            "permissionDecisionReason": verdict.narrative,
+    envelope = json.dumps(
+        {
+            "hookSpecificOutput": {
+                "hookEventName": "PreToolUse",
+                "permissionDecision": "deny",
+                "permissionDecisionReason": verdict.narrative,
+            }
         }
-    })
+    )
     return HookDecision(
-        outcome=Outcome.DENY, message=envelope, block=True, next=Next.STOP,
+        outcome=Outcome.DENY,
+        message=envelope,
+        block=True,
+        next=Next.STOP,
         audit_fields={
             "failure_mode": verdict.failure_mode,
             "bash_verb": verdict.bash_verb,
@@ -320,8 +323,11 @@ def main() -> int:
         return 0
     cwd, sid = payload.get("cwd"), payload.get("session_id")
     record = HookContext(
-        event_name="PreToolUse", executor_family="claude", executor_surface="claude",
-        payload=payload, tool_name=str(payload.get("tool_name") or "Bash"),
+        event_name="PreToolUse",
+        executor_family="claude",
+        executor_surface="claude",
+        payload=payload,
+        tool_name=str(payload.get("tool_name") or "Bash"),
         cwd=cwd if isinstance(cwd, str) else None,
         session_id=sid if isinstance(sid, str) else None,
     )

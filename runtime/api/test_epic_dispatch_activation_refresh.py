@@ -168,7 +168,7 @@ class TestDispatchChainRefreshForActivation:
         insert_item(
             db,
             id=TEST_ITEM_ID,
-            type="epic",
+            workflow_id="epic",
             status="planned",
             project="yoke",
         )

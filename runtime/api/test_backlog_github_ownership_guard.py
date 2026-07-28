@@ -29,7 +29,7 @@ def _p(conn: Any) -> str:
 
 def _seed_item(conn: Any, item_id: int) -> None:
     insert_item(
-        conn, id=item_id, type="issue", status="implementing",
+        conn, id=item_id, workflow_id="issue", status="implementing",
         project="externalwebapp", github_issue=f"#{1000 + item_id}", spec="# stub spec",
     )
 
@@ -279,11 +279,11 @@ class TestBackfillOwnership:
         db = _make_db()
         for item_id, issue in ((80, "#180"), (81, "#181"), (82, "#182")):
             insert_item(
-                db, id=item_id, type="issue", status="implementing",
+                db, id=item_id, workflow_id="issue", status="implementing",
                 project="externalwebapp", github_issue=issue, spec=_huge_spec(),
             )
         insert_item(
-            db, id=83, type="issue", status="implementing", project="externalwebapp",
+            db, id=83, workflow_id="issue", status="implementing", project="externalwebapp",
             github_issue="#183", spec="# small",
         )
         _seed_claim(db, item_id=81, session_id="session-A")
@@ -319,7 +319,7 @@ class TestBackfillOwnership:
     def test_backfill_dry_run_skips_guard(self, monkeypatch):
         db = _make_db()
         insert_item(
-            db, id=84, type="issue", status="implementing", project="externalwebapp",
+            db, id=84, workflow_id="issue", status="implementing", project="externalwebapp",
             github_issue="#184", spec=_huge_spec(),
         )
         _seed_claim(db, item_id=84, session_id="session-B")

@@ -17,13 +17,13 @@ DB-side traversal in :func:`evaluate_target` does not currently read.
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Optional, Tuple
 
 from yoke_core.domain.path_claim_active_claim_lookup import (
     _pick_chain_for_target,
 )
+from yoke_core.domain.path_claim_target_context import ClaimContext, Failure
 
 
 # Failure mode constants — both guards reference these.
@@ -34,87 +34,11 @@ WRONG_CWD = "wrong-cwd"
 WORKTREE_UNRESOLVED = "worktree-unresolved"
 
 
-@dataclass(frozen=True)
-class ClaimContext:
-    """Readable view of an active path claim used by guards.
-
-    ``covered_paths`` is the list of repo-relative path strings the
-    claim covers (resolved from ``path_claim_targets`` via
-    ``path_targets.path_string``). For single-lane items ``worktree_path`` is
-    the absolute active lane root. For task-lane items ``worktree_path`` is
-    ``None`` and ``chain_worktrees`` carries the
-    ``((branch, absolute_path), ...)`` enumeration; the effective
-    worktree is then chosen per-evaluation by matching the inbound
-    target path against each chain root, so path-driven checks can map
-    an inbound file to the lane-local claim that actually covers it.
-    """
-
-    claim_id: int
-    item_id: Optional[int]
-    integration_target: str
-    state: str
-    covered_paths: Tuple[str, ...]
-    worktree_path: Optional[str]
-    project_repo_path: Optional[str] = None
-    project: str = "yoke"
-    task_lanes: bool = False
-    chain_worktrees: Tuple[Tuple[str, str], ...] = ()
-
-    @classmethod
-    def from_claim(cls, claim: Dict[str, Any]) -> "ClaimContext":
-        """Build a :class:`ClaimContext` from a ``get_claim``-shaped dict.
-
-        Tolerates injection-friendly callers that pass extra keys like
-        ``covered_paths`` and ``worktree_path`` directly (used by tests
-        that don't build a full DB fixture).
-        """
-        covered = tuple(claim.get("covered_paths") or ())
-        raw_chains = claim.get("chain_worktrees") or ()
-        chains: Tuple[Tuple[str, str], ...] = tuple(
-            (str(b), str(p)) for b, p in raw_chains
-        )
-        return cls(
-            claim_id=int(claim.get("id") or claim.get("claim_id") or 0),
-            item_id=_coerce_int(claim.get("item_id")),
-            integration_target=str(claim.get("integration_target") or ""),
-            state=str(claim.get("state") or ""),
-            covered_paths=covered,
-            worktree_path=claim.get("worktree_path"),
-            project_repo_path=claim.get("project_repo_path"),
-            project=str(claim.get("project") or "yoke"),
-            task_lanes=bool(claim.get("task_lanes", False)),
-            chain_worktrees=chains,
-        )
-
-
-@dataclass(frozen=True)
-class Failure:
-    """One target's failure reason, consumed by the guard's narrative.
-
-    ``effective_worktree_path`` is the worktree root used for the
-    decision. For single-lane items this equals ``ctx.worktree_path``. For
-    task-lane items it is the lane path that matched the
-    inbound target path; narratives prefer this over ``ctx.worktree_path``
-    so the operator sees the correct lane in the deny output.
-    """
-
-    mode: str  # OUT_OF_CLAIM | WRONG_CWD
-    target_path: str
-    resolved_parent: str = ""
-    effective_worktree_path: str = ""
-
-
-def _coerce_int(value: Any) -> Optional[int]:
-    if value is None:
-        return None
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return None
-
-
 def widen_template(
-    *, claim_id: Optional[int], item_id: Optional[int], target_path: str,
+    *,
+    claim_id: Optional[int],
+    item_id: Optional[int],
+    target_path: str,
 ) -> str:
     """Return the canonical ``yoke claims path widen`` remediation.
 
@@ -126,7 +50,7 @@ def widen_template(
     return (
         "yoke claims path widen "
         f"--claim-id {cid} --add-paths {target_path} "
-        f"--reason \"cover target path\" --item {item}"
+        f'--reason "cover target path" --item {item}'
     )
 
 
@@ -228,7 +152,11 @@ def _outside_claim_domain(
     return True
 
 
-def _path_within_coverage(rel_path: str, covered: Tuple[str, ...]) -> bool:
+def _path_within_coverage(
+    rel_path: str,
+    covered: Tuple[str, ...],
+    target_kinds: Tuple[Tuple[str, str], ...] = (),
+) -> bool:
     """Return True when ``rel_path`` is inside any covered root.
 
     Coverage roots may be files (exact match) or directories (prefix
@@ -236,13 +164,16 @@ def _path_within_coverage(rel_path: str, covered: Tuple[str, ...]) -> bool:
     match ``runtime/api2`` accidentally).
     """
     norm = rel_path.replace(os.sep, "/").lstrip("/")
+    kinds = {path: kind for path, kind in target_kinds}
     for root in covered:
         croot = (root or "").strip().replace(os.sep, "/").lstrip("/")
         if not croot:
             continue
         if norm == croot:
             return True
-        if norm.startswith(croot.rstrip("/") + "/"):
+        if (not target_kinds or kinds.get(root) == "directory") and norm.startswith(
+            croot.rstrip("/") + "/"
+        ):
             return True
     return False
 
@@ -280,7 +211,11 @@ def evaluate_target(
         effective_worktree=effective_wt,
     )
     rel = _make_repo_relative(target_path, rel_root or cwd)
-    in_coverage = _path_within_coverage(rel, ctx.covered_paths)
+    in_coverage = _path_within_coverage(
+        rel,
+        ctx.covered_paths,
+        ctx.covered_target_kinds,
+    )
 
     if not in_coverage:
         # Worktree-less claim: widening does not unblock; narrative

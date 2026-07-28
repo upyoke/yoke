@@ -11,7 +11,6 @@ from yoke_core.domain.handlers import (
     projects_get as _projects_get,
     qa as _qa,
     qa_browser as _qa_browser,
-    qa_browser_evidence as _qa_browser_evidence,
     qa_browser_writes as _qa_browser_writes,
     qa_requirement_waive as _qa_requirement_waive,
     qa_run as _qa_run,
@@ -225,30 +224,6 @@ def register(registry) -> None:
         emitted_event_names=[
             "YokeFunctionCalled", "QARunCaptured", "QARunCompleted",
         ],
-        guardrails=["claim_required"], adapter_status="live",
-        claim_required_kind="item",
-    )
-    registry.register(
-        "qa.screenshot_evidence.pending_count",
-        _qa_browser_evidence.handle_qa_screenshot_evidence_pending_count,
-        _qa_browser_evidence.QaScreenshotEvidencePendingCountRequest,
-        _qa_browser_evidence.QaScreenshotEvidencePendingCountResponse,
-        stability="stable",
-        owner_module="yoke_core.domain.handlers.qa_browser_evidence",
-        target_kinds=["item"], side_effects=[],
-        emitted_event_names=["YokeFunctionCalled"],
-        guardrails=[], adapter_status="live", claim_required_kind=None,
-        ambient_session_required=False,
-    )
-    registry.register(
-        "qa.screenshot_evidence.satisfy",
-        _qa_browser_evidence.handle_qa_screenshot_evidence_satisfy,
-        _qa_browser_evidence.QaScreenshotEvidenceSatisfyRequest,
-        _qa_browser_evidence.QaScreenshotEvidenceSatisfyResponse,
-        stability="stable",
-        owner_module="yoke_core.domain.handlers.qa_browser_evidence",
-        target_kinds=["item"], side_effects=["qa_runs_insert"],
-        emitted_event_names=["YokeFunctionCalled"],
         guardrails=["claim_required"], adapter_status="live",
         claim_required_kind="item",
     )

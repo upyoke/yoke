@@ -1,3 +1,4 @@
+# ruff: noqa: F811
 """Regression coverage for active item + epic-task claim uniqueness."""
 
 from __future__ import annotations
@@ -19,7 +20,14 @@ from yoke_core.domain.schema_common import _get_indexes
 from yoke_core.domain.sessions_analytics import SessionError
 from yoke_core.domain.work_claim_targets import make_epic_task_target, make_item_target
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
-from runtime.api.test_sessions import _apply_on_backend, _create_schema, _register, conn  # noqa: F401  (Postgres-backed pytest fixture)
+from runtime.api.test_sessions import (
+    _apply_on_backend,
+    _create_schema,
+    _insert_claimable_epic_task,
+    _insert_claimable_items,
+    _register,
+    conn,  # noqa: F401
+)
 
 
 def _index_names(conn) -> set[str]:
@@ -64,6 +72,8 @@ def test_claim_work_translates_integrity_error_with_holder(
     conn,
 ):
     _register_pair(conn)
+    _insert_claimable_items(conn, 777)
+    _insert_claimable_epic_task(conn, 88, 2)
 
     def fake_insert(conn, _session_id, target, _now_value):
         if target.kind == "item":
@@ -109,6 +119,8 @@ def _bootstrap_db(tmp_path: Path):
         conn = connect_test_db(db_path)
         try:
             _register_pair(conn)
+            _insert_claimable_items(conn, 9999)
+            _insert_claimable_epic_task(conn, 4242, 3)
             conn.commit()
         finally:
             conn.close()

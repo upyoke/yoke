@@ -44,7 +44,6 @@ ITEMS_SCHEMA = (
 CREATE TABLE IF NOT EXISTS items (
   id INTEGER PRIMARY KEY,
   title TEXT NOT NULL,
-  type TEXT NOT NULL DEFAULT 'issue',
   workflow_id TEXT DEFAULT 'issue',
   workflow_version_id INTEGER DEFAULT 1,
   status TEXT NOT NULL DEFAULT 'idea',

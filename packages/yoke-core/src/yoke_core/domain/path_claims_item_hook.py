@@ -1,20 +1,18 @@
 """Item-lifecycle integration hooks for path claims.
 
-Owns the side effect that fires when an item transitions to a terminal
-state that should not leave non-terminal path claims behind. Called by
-the canonical status-write path in
-:mod:`yoke_core.domain.backlog_update_op` after the item's new
-status has been committed.
+Owns the side effect that fires when an item transitions to an engine
+terminal state that must not leave non-terminal path claims behind. The
+canonical status-write path runs it before commit on the same connection.
 
 Behaviour:
 
 * When the new status is ``cancelled`` or ``stopped``, every non-
-  terminal claim attached to the item is cancelled with
+  non-terminal item-owned claim is cancelled with
   ``cancel_reason='item-cancelled'`` (or ``'item-stopped'``).
   Cancellation emits the ``PathClaimCancelled`` event for each claim
   through :mod:`yoke_core.domain.path_claims_events`.
-* The hook is fail-open against minimal-fixture environments that
-  lack the ``path_claims`` table — it returns ``None`` silently.
+* The caller chooses the transaction boundary. Canonical status writes pass
+  ``commit=False`` so item status and claim cancellation commit together.
 * Cancellations are best-effort: a single claim's failure is logged
   through the events module's WARN emission (``PathClaimCancelled``
   with a non-``completed`` outcome would mislabel the actual outcome,
@@ -36,16 +34,17 @@ def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def _non_terminal_claim_ids_for_item(
-    conn: Any, item_id: int
-) -> List[int]:
+def _non_terminal_claim_ids_for_item(conn: Any, item_id: int) -> List[int]:
     try:
         p = _p(conn)
         rows = conn.execute(
             "SELECT id FROM path_claims "
-            f"WHERE item_id = {p} AND state IN "
+            "WHERE ("
+            f"(owner_kind = 'item' AND owner_item_id = {p}) OR "
+            f"(owner_kind IS NULL AND item_id = {p})"
+            ") AND state IN "
             "('planned', 'blocked', 'active')",
-            (item_id,),
+            (item_id, item_id),
         ).fetchall()
     except db_backend.operational_error_types(conn):
         return []
@@ -57,6 +56,7 @@ def cancel_claims_on_item_terminal(
     *,
     item_id: int,
     new_status: str,
+    commit: bool = True,
 ) -> Optional[int]:
     """Cancel every non-terminal path claim attached to ``item_id``.
 
@@ -88,10 +88,15 @@ def cancel_claims_on_item_terminal(
     cancelled = 0
     for claim_id in claim_ids:
         try:
-            _cancel_claim(conn, claim_id=claim_id, reason=reason)
+            _cancel_claim(
+                conn,
+                claim_id=claim_id,
+                reason=reason,
+                commit=commit,
+            )
         except IllegalTransition:
-            # Claim moved to a different terminal state between read
-            # and cancel; skip without unwinding the rest.
+            if not commit:
+                raise
             continue
         cancelled += 1
         if _events is not None:

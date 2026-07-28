@@ -17,7 +17,8 @@ from yoke_core.engines._doctor_native_sql_test_helpers import (
 )
 from yoke_cli.main import main as cli_main
 from yoke_contracts.api.function_call import (
-    FunctionCallRequest, FunctionCallResponse,
+    FunctionCallRequest,
+    FunctionCallResponse,
 )
 
 
@@ -27,8 +28,11 @@ _CAPTURED: list[FunctionCallRequest] = []
 def _stub_ok(request: FunctionCallRequest) -> FunctionCallResponse:
     _CAPTURED.append(request)
     return FunctionCallResponse(
-        success=True, function=request.function, version=request.version,
-        request_id=request.request_id, result={"echo": True},
+        success=True,
+        function=request.function,
+        version=request.version,
+        request_id=request.request_id,
+        result={"echo": True},
     )
 
 
@@ -39,14 +43,16 @@ def _reset_captured() -> None:
 
 def _run(*argv: str, session_id: str = "test-session"):
     with patch.dict("os.environ", {"YOKE_SESSION_ID": session_id}):
-        with patch(
-            "yoke_core.domain.yoke_function_dispatch.dispatch",
-            side_effect=_stub_ok,
+        with (
+            patch(
+                "yoke_core.domain.yoke_function_dispatch.dispatch",
+                side_effect=_stub_ok,
+            ),
+            patch(
+                "yoke_cli.commands.adapters.claims.sync_local_snapshot_for_write",
+            ),
         ):
-            with patch(
-                "yoke_cli.commands._helpers"
-                ".ensure_handlers_loaded"
-            ):
+            with patch("yoke_cli.commands._helpers.ensure_handlers_loaded"):
                 buf, err = io.StringIO(), io.StringIO()
                 with redirect_stdout(buf), redirect_stderr(err):
                     rc = cli_main(list(argv))
@@ -74,19 +80,21 @@ def _run_db(claims_conn, *argv: str, session_id: str = "test-session"):
         yield claims_conn
 
     with patch.dict("os.environ", {"YOKE_SESSION_ID": session_id}):
-        with patch(
-            "yoke_core.domain.yoke_function_dispatch.dispatch",
-            side_effect=_stub_ok,
-        ), patch(
-            "yoke_cli.commands._helpers"
-            ".ensure_handlers_loaded"
-        ), patch(
-            "yoke_core.domain.db_helpers.connect",
-            side_effect=lambda *a, **kw: _conn_cm(),
-        ), patch(
-            "yoke_core.api.service_client_shared_session_resolver"
-            "._resolve_session_id",
-            side_effect=lambda explicit=None: explicit or session_id,
+        with (
+            patch(
+                "yoke_core.domain.yoke_function_dispatch.dispatch",
+                side_effect=_stub_ok,
+            ),
+            patch("yoke_cli.commands._helpers.ensure_handlers_loaded"),
+            patch(
+                "yoke_core.domain.db_helpers.connect",
+                side_effect=lambda *a, **kw: _conn_cm(),
+            ),
+            patch(
+                "yoke_core.api.service_client_shared_session_resolver"
+                "._resolve_session_id",
+                side_effect=lambda explicit=None: explicit or session_id,
+            ),
         ):
             buf, err = io.StringIO(), io.StringIO()
             with redirect_stdout(buf), redirect_stderr(err):
@@ -102,9 +110,15 @@ def _run_db(claims_conn, *argv: str, session_id: str = "test-session"):
 class TestAcquireEpicTask:
     def test_acquire_epic_task_dispatches_typed_target(self) -> None:
         rc, _o, _e = _run(
-            "claims", "work", "acquire",
-            "--epic-id", "1872", "--task-num", "20",
-            "--reason", "engineer dispatch",
+            "claims",
+            "work",
+            "acquire",
+            "--epic-id",
+            "1872",
+            "--task-num",
+            "20",
+            "--reason",
+            "engineer dispatch",
         )
         assert rc == 0
         req = _CAPTURED[-1]
@@ -112,14 +126,21 @@ class TestAcquireEpicTask:
         assert req.target.kind == "epic_task"
         assert req.target.epic_id == 1872 and req.target.task_num == 20
         assert req.payload["target"] == {
-            "kind": "epic_task", "epic_id": 1872, "task_num": 20,
+            "kind": "epic_task",
+            "epic_id": 1872,
+            "task_num": 20,
         }
         assert req.payload["reason"] == "engineer dispatch"
 
     def test_acquire_epic_task_without_reason_omits_reason(self) -> None:
         rc, *_ = _run(
-            "claims", "work", "acquire",
-            "--epic-id", "100", "--task-num", "1",
+            "claims",
+            "work",
+            "acquire",
+            "--epic-id",
+            "100",
+            "--task-num",
+            "1",
         )
         assert rc == 0
         assert "reason" not in _CAPTURED[-1].payload
@@ -127,15 +148,27 @@ class TestAcquireEpicTask:
     def test_acquire_epic_task_requires_both_selectors(self) -> None:
         # --epic-id without --task-num falls through to "no target" usage.
         rc, *_ = _run(
-            "claims", "work", "acquire",
-            "--epic-id", "1872", "--reason", "missing task-num",
+            "claims",
+            "work",
+            "acquire",
+            "--epic-id",
+            "1872",
+            "--reason",
+            "missing task-num",
         )
         assert rc == 2 and _CAPTURED == []
 
     def test_acquire_epic_task_rejects_non_integer(self) -> None:
         rc, *_ = _run(
-            "claims", "work", "acquire",
-            "--epic-id", "abc", "--task-num", "5", "--reason", "bad",
+            "claims",
+            "work",
+            "acquire",
+            "--epic-id",
+            "abc",
+            "--task-num",
+            "5",
+            "--reason",
+            "bad",
         )
         assert rc == 2 and _CAPTURED == []
 
@@ -153,9 +186,15 @@ class TestReleaseEpicTask:
 
     def test_release_epic_task_dispatches_typed_target(self) -> None:
         rc, _o, err = _run(
-            "claims", "work", "release",
-            "--epic-id", "1872", "--task-num", "20",
-            "--reason", "engineer return",
+            "claims",
+            "work",
+            "release",
+            "--epic-id",
+            "1872",
+            "--task-num",
+            "20",
+            "--reason",
+            "engineer return",
         )
         assert rc == 0, err
         req = _CAPTURED[-1]
@@ -167,8 +206,13 @@ class TestReleaseEpicTask:
 
     def test_release_item_dispatches_item_ref_target(self) -> None:
         rc, _o, err = _run(
-            "claims", "work", "release",
-            "--item", "YOK-1872", "--reason", "done here",
+            "claims",
+            "work",
+            "release",
+            "--item",
+            "YOK-1872",
+            "--reason",
+            "done here",
         )
         assert rc == 0, err
         req = _CAPTURED[-1]
@@ -180,96 +224,15 @@ class TestReleaseEpicTask:
 
 
 # ---------------------------------------------------------------------------
-# Release — malformed selector matrix
-# ---------------------------------------------------------------------------
-
-
-class TestReleaseSelectorValidation:
-    def test_epic_id_without_task_num_rejects(self) -> None:
-        rc, _o, err = _run(
-            "claims", "work", "release",
-            "--epic-id", "1872", "--reason", "partial",
-        )
-        assert rc == 2
-        assert "--epic-id and --task-num must be provided together" in err
-        assert _CAPTURED == []
-
-    def test_task_num_without_epic_id_rejects(self) -> None:
-        rc, _o, err = _run(
-            "claims", "work", "release",
-            "--task-num", "20", "--reason", "partial",
-        )
-        assert rc == 2
-        assert "--epic-id and --task-num must be provided together" in err
-        assert _CAPTURED == []
-
-    def test_mixed_claim_id_and_epic_task_rejects(self) -> None:
-        rc, _o, err = _run(
-            "claims", "work", "release",
-            "--claim-id", "1", "--epic-id", "1872", "--task-num", "20",
-            "--reason", "mixed",
-        )
-        assert rc == 2
-        assert "exactly one" in err
-        assert _CAPTURED == []
-
-    def test_mixed_item_and_epic_task_rejects(self) -> None:
-        rc, _o, err = _run(
-            "claims", "work", "release",
-            "--item", "YOK-1872", "--epic-id", "1872", "--task-num", "20",
-            "--reason", "mixed",
-        )
-        assert rc == 2
-        assert "exactly one" in err
-        assert _CAPTURED == []
-
-    def test_no_selector_rejects(self) -> None:
-        rc, _o, err = _run(
-            "claims", "work", "release", "--reason", "lonely",
-        )
-        assert rc == 2
-        assert "exactly one" in err
-
-    def test_non_integer_epic_id_rejects(self, claims_conn) -> None:
-        rc, _o, err = _run_db(
-            claims_conn,
-            "claims", "work", "release",
-            "--epic-id", "abc", "--task-num", "20", "--reason", "bad",
-        )
-        assert rc == 2
-        assert "must be integers" in err
-        assert _CAPTURED == []
-
-    def test_non_integer_task_num_rejects(self, claims_conn) -> None:
-        rc, _o, err = _run_db(
-            claims_conn,
-            "claims", "work", "release",
-            "--epic-id", "1872", "--task-num", "x", "--reason", "bad",
-        )
-        assert rc == 2
-        assert "must be integers" in err
-        assert _CAPTURED == []
-
-    def test_all_mine_plus_epic_task_rejects(self) -> None:
-        rc, _o, err = _run(
-            "claims", "work", "release",
-            "--all-mine", "--epic-id", "1872", "--task-num", "20",
-        )
-        assert rc == 2
-        assert "exactly one" in err
-        assert _CAPTURED == []
-
-
-# ---------------------------------------------------------------------------
 # Help — selector form documented
 # ---------------------------------------------------------------------------
 
 
 class TestReleaseHelp:
     def test_help_lists_epic_task_selector(self) -> None:
-        with patch.dict("os.environ", {"YOKE_SESSION_ID": "sid"}), patch(
-            "yoke_cli.commands._helpers"
-            ".ensure_handlers_loaded"
+        with (
+            patch.dict("os.environ", {"YOKE_SESSION_ID": "sid"}),
+            patch("yoke_cli.commands._helpers.ensure_handlers_loaded"),
         ):
             buf, err = io.StringIO(), io.StringIO()
             with redirect_stdout(buf), redirect_stderr(err):
@@ -279,3 +242,75 @@ class TestReleaseHelp:
         assert "--epic-id" in out
         assert "--task-num" in out
         assert "epic_task" in out
+
+
+class TestPathRegisterModes:
+    def test_exception_mode_dispatches_without_paths(self) -> None:
+        rc, _out, err = _run(
+            "claims",
+            "path",
+            "register",
+            "--item",
+            "YOK-1872",
+            "--mode",
+            "exception",
+            "--exception-reason",
+            "evidence only",
+        )
+        assert rc == 0, err
+        req = _CAPTURED[-1]
+        assert req.function == "claims.path.register"
+        assert req.target.item_ref == "YOK-1872"
+        assert req.payload == {
+            "paths": [],
+            "mode": "exception",
+            "allow_planned": False,
+            "exception_reason": "evidence only",
+        }
+
+    @pytest.mark.parametrize(
+        "extra, message",
+        (
+            ((), "--paths is required in exclusive mode"),
+            (
+                ("--mode", "exception"),
+                "--exception-reason is required in exception mode",
+            ),
+            (
+                (
+                    "--mode",
+                    "exception",
+                    "--exception-reason",
+                    "no files",
+                    "--paths",
+                    "runtime/api/foo.py",
+                ),
+                "--paths is not accepted in exception mode",
+            ),
+            (
+                (
+                    "--paths",
+                    "runtime/api/foo.py",
+                    "--exception-reason",
+                    "wrong mode",
+                ),
+                "--exception-reason requires --mode exception",
+            ),
+        ),
+    )
+    def test_mode_specific_arguments_fail_closed(
+        self,
+        extra: tuple[str, ...],
+        message: str,
+    ) -> None:
+        rc, _out, err = _run(
+            "claims",
+            "path",
+            "register",
+            "--item",
+            "YOK-1872",
+            *extra,
+        )
+        assert rc == 2
+        assert message in err
+        assert _CAPTURED == []

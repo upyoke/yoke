@@ -2,11 +2,8 @@
 
 from __future__ import annotations
 
-import pytest
-
-from yoke_core.domain._path_claims_test_helpers import (  # noqa: F401
+from yoke_core.domain._path_claims_test_helpers import (
     SNAP,
-    conn,
     local_human,
     seed_target,
 )
@@ -19,6 +16,8 @@ from yoke_core.domain.path_claims import (
 from yoke_core.domain.path_claims_item_hook import (
     cancel_claims_on_item_terminal,
 )
+
+pytest_plugins = ("yoke_core.domain._path_claims_test_helpers",)
 
 
 def _seed_item(conn, *, item_id: int):
@@ -36,15 +35,22 @@ def _seed_item(conn, *, item_id: int):
 class TestCancelClaimsOnItemTerminal:
     def test_returns_none_for_non_terminal_status(self, conn):
         result = cancel_claims_on_item_terminal(
-            conn, item_id=1, new_status="implementing",
+            conn,
+            item_id=1,
+            new_status="implementing",
         )
         assert result is None
 
     def test_returns_zero_when_no_claims_attached(self, conn):
         item_id = _seed_item(conn, item_id=14001)
-        assert cancel_claims_on_item_terminal(
-            conn, item_id=item_id, new_status="cancelled",
-        ) == 0
+        assert (
+            cancel_claims_on_item_terminal(
+                conn,
+                item_id=item_id,
+                new_status="cancelled",
+            )
+            == 0
+        )
 
     def test_cancels_planned_blocked_and_active_claims(self, conn):
         actor = local_human(conn)
@@ -53,23 +59,34 @@ class TestCancelClaimsOnItemTerminal:
         tb = seed_target(conn, path_string="src/bar.py")
         # planned
         c1 = register(
-            conn, actor_id=actor, integration_target="main",
-            target_ids=[ta], item_id=item_id,
+            conn,
+            actor_id=actor,
+            integration_target="main",
+            target_ids=[ta],
+            item_id=item_id,
         )
         # active
         c2 = register(
-            conn, actor_id=actor, integration_target="main",
-            target_ids=[tb], item_id=item_id,
+            conn,
+            actor_id=actor,
+            integration_target="main",
+            target_ids=[tb],
+            item_id=item_id,
         )
         activate(conn, claim_id=c2, base_commit_sha=SNAP)
         # blocked (overlaps active claim)
         c3 = register(
-            conn, actor_id=actor, integration_target="main",
-            target_ids=[tb], item_id=item_id,
+            conn,
+            actor_id=actor,
+            integration_target="main",
+            target_ids=[tb],
+            item_id=item_id,
             upstream_claim_id=c2,
         )
         cancelled = cancel_claims_on_item_terminal(
-            conn, item_id=item_id, new_status="cancelled",
+            conn,
+            item_id=item_id,
+            new_status="cancelled",
         )
         assert cancelled == 3
         for cid in (c1, c2, c3):
@@ -82,11 +99,16 @@ class TestCancelClaimsOnItemTerminal:
         item_id = _seed_item(conn, item_id=14003)
         target = seed_target(conn, path_string="src/foo.py")
         cid = register(
-            conn, actor_id=actor, integration_target="main",
-            target_ids=[target], item_id=item_id,
+            conn,
+            actor_id=actor,
+            integration_target="main",
+            target_ids=[target],
+            item_id=item_id,
         )
         cancel_claims_on_item_terminal(
-            conn, item_id=item_id, new_status="stopped",
+            conn,
+            item_id=item_id,
+            new_status="stopped",
         )
         claim = get_claim(conn, cid)
         assert claim["state"] == "cancelled"
@@ -98,18 +120,26 @@ class TestCancelClaimsOnItemTerminal:
         ta = seed_target(conn, path_string="src/foo.py")
         tb = seed_target(conn, path_string="src/bar.py")
         c_active = register(
-            conn, actor_id=actor, integration_target="main",
-            target_ids=[ta], item_id=item_id,
+            conn,
+            actor_id=actor,
+            integration_target="main",
+            target_ids=[ta],
+            item_id=item_id,
         )
         c_planned = register(
-            conn, actor_id=actor, integration_target="main",
-            target_ids=[tb], item_id=item_id,
+            conn,
+            actor_id=actor,
+            integration_target="main",
+            target_ids=[tb],
+            item_id=item_id,
         )
         # Release c_active first — should not be re-cancelled
         activate(conn, claim_id=c_active, base_commit_sha=SNAP)
         release(conn, claim_id=c_active, reason="merged")
         cancelled = cancel_claims_on_item_terminal(
-            conn, item_id=item_id, new_status="cancelled",
+            conn,
+            item_id=item_id,
+            new_status="cancelled",
         )
         assert cancelled == 1  # only the planned claim
         assert get_claim(conn, c_active)["state"] == "released"
@@ -121,11 +151,14 @@ class TestCancelClaimsOnItemTerminal:
         # path_claim_overrides FKs into path_claims; the whole claim family
         # is what this test simulates as absent.
         conn.execute("DROP TABLE path_claim_overrides")
+        conn.execute("DROP TABLE path_claim_task_bindings")
         conn.execute("DROP TABLE path_claims")
         conn.commit()
         item_id = _seed_item(conn, item_id=14005)
         # Should return 0 (nothing to cancel) without raising
         result = cancel_claims_on_item_terminal(
-            conn, item_id=item_id, new_status="cancelled",
+            conn,
+            item_id=item_id,
+            new_status="cancelled",
         )
         assert result in (0, None)

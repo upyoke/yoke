@@ -261,6 +261,7 @@ def dispatch_and_emit(
     timeout_s: Optional[float] = None,
     sensitive_values: tuple[str, ...] = (),
     options: Optional[Dict[str, Any]] = None,
+    preconditions: Optional[Dict[str, Any]] = None,
 ) -> int:
     ensure_handlers_loaded()
     actor = build_actor(session_id=session_id)
@@ -273,6 +274,7 @@ def dispatch_and_emit(
         timeout_s=timeout_s,
         sensitive_values=sensitive_values,
         options=options,
+        preconditions=preconditions,
     )
     return emit_response(
         response,

@@ -25,7 +25,7 @@ def db(test_db):
 
 @pytest.fixture
 def db_with_task(db):
-    insert_item(db, id=TEST_ITEM_ID, type="epic", status="planned", project="yoke")
+    insert_item(db, id=TEST_ITEM_ID, workflow_id="epic", status="planned", project="yoke")
     insert_epic_task(
         db, epic_id=TEST_ITEM_ID, task_num=1, title="First task", status="planning"
     )

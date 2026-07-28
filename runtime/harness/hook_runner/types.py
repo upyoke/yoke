@@ -2,8 +2,7 @@
 
 `HookContext` is the typed input every chain-eligible policy receives.
 `HookDecision` is the typed output every policy returns. `Outcome` and `Next`
-enumerate the closed value sets named in the epic spec's Target Architecture
-section so the runner and policies share one vocabulary.
+enumerate the closed decision vocabulary shared by the runner and policies.
 """
 
 from __future__ import annotations
@@ -36,9 +35,8 @@ class Next(str, Enum):
 class HookContext:
     """Typed input every policy receives.
 
-    Field shape mirrors the epic spec's Target Architecture section. The
-    context is intentionally minimal — anything else a policy needs is read
-    on-demand via `runtime.harness.hook_helpers_*` or `yoke_core.domain.*`.
+    The context is intentionally minimal. Anything else a policy needs is read
+    on demand via `runtime.harness.hook_helpers_*` or `yoke_core.domain.*`.
     """
 
     event_name: str

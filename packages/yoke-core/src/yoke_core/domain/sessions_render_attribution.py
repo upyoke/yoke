@@ -7,11 +7,14 @@ from typing import Any, Dict, Optional
 from .sessions_analytics import SessionError
 from .sessions_queries import _now_iso, normalize_session_item_id
 
+
 def set_current_item(
     conn: Any,
     session_id: str,
     item_id: str,
     item_status: Optional[str] = None,
+    *,
+    commit: bool = True,
 ) -> None:
     """Set the current item focus for a session.
 
@@ -54,7 +57,8 @@ def set_current_item(
         "WHERE session_id = %s",
         (item_id, now, session_id),
     )
-    conn.commit()
+    if commit:
+        conn.commit()
 
 
 def get_session_attribution(
@@ -85,6 +89,8 @@ def get_session_attribution(
 def clear_current_item(
     conn: Any,
     session_id: str,
+    *,
+    commit: bool = True,
 ) -> None:
     """Clear the current item focus, moving current to recent first.
 
@@ -115,4 +121,5 @@ def clear_current_item(
         "WHERE session_id = %s",
         (session_id,),
     )
-    conn.commit()
+    if commit:
+        conn.commit()

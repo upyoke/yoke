@@ -32,8 +32,16 @@ def test_additive_work_surfaces_accept_older_archive_shapes():
             "id",
             "plan_id",
             "plan_case_key",
+            "case_position",
+            "baseline_position",
             "method_id",
+            "method_name",
+            "executor_id",
+            "required_capability_kind",
+            "verdict_path",
             "host_baseline",
+            "entry_surface",
+            "required_completion",
             "workflow_transition_id",
             "instructions",
             "expected_outcome",
@@ -95,9 +103,9 @@ def test_user_content_counts_detects_nonempty_universe():
         conn.execute("DELETE FROM qa_methods WHERE id = 'project-method'")
         conn.execute("DELETE FROM projects WHERE id = 98999")
         conn.commit()
-        actor_id = conn.execute(
-            "SELECT id FROM actors ORDER BY id LIMIT 1"
-        ).fetchone()[0]
+        actor_id = conn.execute("SELECT id FROM actors ORDER BY id LIMIT 1").fetchone()[
+            0
+        ]
         conn.execute(
             "INSERT INTO api_tokens "
             "(id, token_hash, actor_id, name, status, created_at) "

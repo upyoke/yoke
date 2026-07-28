@@ -1,13 +1,6 @@
-"""Native Python event emitter for the Yoke event platform.
+"""Canonical event envelope and non-fatal Python emitter.
 
-Writes directly to the ``events`` table, preserving the canonical envelope
-and indexed columns from ``docs/event-contract.md`` for Python-owned
-telemetry. Event emission is non-fatal — failures are logged at DEBUG and
-swallowed so they never crash frontier computation, schedule computation,
-session offering, or next-action selection. The emitter resolves
-the DB path via :func:`yoke_core.domain.db_helpers.resolve_db_path`.
-
-Envelope, emitter, and INSERT owner; sibling isolation/argv helpers re-export here.
+Sibling modules own isolation, INSERT construction, and argv compatibility.
 """
 
 from __future__ import annotations
@@ -22,11 +15,14 @@ from typing import Any, Dict, Optional
 
 from . import db_backend
 from .auth_context import StandardAuthContext, merge_context
-from .events_crud import decompose_work_unit, normalize_event_item_id, normalize_severity
+from .events_crud import (
+    decompose_work_unit,
+    normalize_event_item_id,
+    normalize_severity,
+)
 from .events_envelope_shrink import fit_envelope_context
 from .events_isolation import (
-    SYNTHETIC_SMOKE_FLAG,
-    _anomaly_flags_contain,
+    SYNTHETIC_SMOKE_FLAG as SYNTHETIC_SMOKE_FLAG,
     _resolve_db_path,
     isolation_gate_blocks,
 )
@@ -34,7 +30,10 @@ from .events_project_identity import (
     resolve_envelope_project_id_for_event,
     resolve_item_id_for_event,
 )
-from .events_retired_name_guard import RetiredEventNameError, assert_event_name_not_retired
+from .events_retired_name_guard import (
+    RetiredEventNameError,
+    assert_event_name_not_retired,
+)
 from .events_session_actor import apply_session_actor_id
 from .events_insert_sql import _INSERT_SQL
 from .events_trace import current_trace_context
@@ -262,7 +261,13 @@ def emit_event(
 
         # Isolation gate: refuse live-ledger writes when the
         # process declares test isolation and the caller has not opted in.
-        resolved_target = db_path if db_path is not None else None if conn is not None else _resolve_db_path()
+        resolved_target = (
+            db_path
+            if db_path is not None
+            else None
+            if conn is not None
+            else _resolve_db_path()
+        )
         if isolation_gate_blocks(
             db_path=resolved_target,
             anomaly_flags=anomaly_flags,
@@ -274,7 +279,10 @@ def emit_event(
                 event_name,
             )
             return EmitResult(
-                False, envelope["event_id"], "isolation_gate_refused", envelope,
+                False,
+                envelope["event_id"],
+                "isolation_gate_refused",
+                envelope,
             )
 
         assert_event_name_not_retired(conn or resolved_target, event_name)
@@ -286,15 +294,23 @@ def emit_event(
             )
         )
         if not passes_severity:
-            return EmitResult(False, envelope["event_id"], "severity_filtered", envelope)
+            return EmitResult(
+                False, envelope["event_id"], "severity_filtered", envelope
+            )
         wrote = _write_event(envelope, db_path=db_path, conn=conn)
-        return EmitResult(wrote, envelope["event_id"], "" if wrote else "exception", envelope)
+        return EmitResult(
+            wrote, envelope["event_id"], "" if wrote else "exception", envelope
+        )
 
-    except RetiredEventNameError: raise
+    except RetiredEventNameError:
+        raise
     except Exception as exc:
         logger.debug("Native event emission failed for %s: %s", event_name, exc)
         exc_text = str(exc)
-        missing = "no such table: events" in exc_text or 'relation "events" does not exist' in exc_text
+        missing = (
+            "no such table: events" in exc_text
+            or 'relation "events" does not exist' in exc_text
+        )
         reason = "events_table_missing" if missing else "exception"
         return EmitResult(False, None, reason, None)
 
@@ -320,12 +336,12 @@ def _write_event(
     own_conn = db_backend.connect(db_path)
     try:
         apply_session_actor_id(envelope, conn=own_conn)
-        project_id = resolve_envelope_project_id_for_event(
-            own_conn, db_path, envelope
-        )
-        return write_event_row_on_conn(
+        project_id = resolve_envelope_project_id_for_event(own_conn, db_path, envelope)
+        wrote = write_event_row_on_conn(
             own_conn, _INSERT_SQL, event_insert_params(envelope, project_id)
         )
+        own_conn.commit()
+        return wrote
     finally:
         own_conn.close()
 

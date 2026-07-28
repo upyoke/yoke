@@ -4,6 +4,8 @@ Split from test_epic_cli.py: TestAutoTransitionReviewSeed,
 TestAutoTransitionReviewInsert.
 """
 
+# ruff: noqa: F811
+
 from __future__ import annotations
 
 import os
@@ -11,7 +13,7 @@ from unittest.mock import patch
 
 import pytest
 
-from runtime.api.conftest import insert_epic_task
+from runtime.api.conftest import insert_epic_task, insert_item
 from yoke_core.domain import epic
 from runtime.api.test_epic_cascade_dispatch import db_with_chain  # noqa: F401
 from runtime.api.test_epic_tasks import db, db_with_task  # noqa: F401
@@ -19,6 +21,16 @@ from runtime.api.test_epic_tasks import db, db_with_task  # noqa: F401
 
 class TestAutoTransitionReviewSeed:
     """T-3: review_seed auto-advances task implementing -> reviewing-implementation."""
+
+    @pytest.fixture(autouse=True)
+    def _workflow_pinned_epic(self, db):
+        insert_item(
+            db,
+            id=42,
+            title="Review seed epic",
+            workflow_id="epic",
+            status="implementing",
+        )
 
     def test_auto_advances_implementing_to_reviewing(self, db):
         """AC-2: review_seed auto-advances from implementing."""

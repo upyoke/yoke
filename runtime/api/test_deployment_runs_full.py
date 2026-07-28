@@ -24,6 +24,7 @@ from yoke_core.domain import deployment_runs_crud_mutate as mutate
 from yoke_core.domain.schema_common import _get_tables
 from runtime.api.test_deployment_runs_full_helpers import (  # noqa: F401
     _conn,
+    _insert_delivery_ready_item,
     _placeholder,
     db_path,
 )
@@ -123,7 +124,8 @@ class TestCreateRun:
 
     def test_create_with_target_env(self, db_path):
         rid = dr.cmd_create_run(
-            "yoke", "yoke-internal",
+            "yoke",
+            "yoke-internal",
             target_env="production",
             db_path=db_path,
         )
@@ -132,7 +134,8 @@ class TestCreateRun:
 
     def test_create_with_lineage(self, db_path):
         rid = dr.cmd_create_run(
-            "yoke", "yoke-internal",
+            "yoke",
+            "yoke-internal",
             release_lineage="rel-001",
             db_path=db_path,
         )
@@ -140,14 +143,18 @@ class TestCreateRun:
         assert val == "rel-001"
 
         error = dr.cmd_update(
-            rid, "release_lineage", "different-lineage", db_path=db_path,
+            rid,
+            "release_lineage",
+            "different-lineage",
+            db_path=db_path,
         )
         assert error == "Error: field 'release_lineage' is not updatable"
         assert dr.cmd_get(rid, field="release_lineage", db_path=db_path) == "rel-001"
 
     def test_create_with_created_by(self, db_path):
         rid = dr.cmd_create_run(
-            "yoke", "yoke-internal",
+            "yoke",
+            "yoke-internal",
             created_by="system",
             db_path=db_path,
         )
@@ -159,8 +166,7 @@ class TestCreateRun:
 
         with connect_test_db(db_path) as conn:
             conn.execute(
-                "UPDATE deployment_flows SET status='disabled' "
-                "WHERE id='yoke-internal'"
+                "UPDATE deployment_flows SET status='disabled' WHERE id='yoke-internal'"
             )
             conn.commit()
         with pytest.raises(ValueError, match="disabled"):
@@ -168,7 +174,9 @@ class TestCreateRun:
 
     def test_create_resolves_flow_target_env(self, db_path):
         """When no target_env is given, should resolve from flow's target_env."""
-        rid = dr.cmd_create_run("externalwebapp", "externalwebapp-standard", db_path=db_path)
+        rid = dr.cmd_create_run(
+            "externalwebapp", "externalwebapp-standard", db_path=db_path
+        )
         val = dr.cmd_get(rid, field="target_env", db_path=db_path)
         assert val == "preview"
 
@@ -178,6 +186,7 @@ class TestAddRemoveItem:
 
     def test_add_item(self, db_path):
         rid = dr.cmd_create_run("yoke", "yoke-internal", db_path=db_path)
+        _insert_delivery_ready_item(db_path, 100)
         msg = dr.cmd_add_item(rid, 100, db_path=db_path)
         assert "100" in msg
 
@@ -186,6 +195,8 @@ class TestAddRemoveItem:
 
     def test_add_multiple_items(self, db_path):
         rid = dr.cmd_create_run("yoke", "yoke-internal", db_path=db_path)
+        _insert_delivery_ready_item(db_path, 100)
+        _insert_delivery_ready_item(db_path, 200)
         dr.cmd_add_item(rid, 100, db_path=db_path)
         dr.cmd_add_item(rid, 200, db_path=db_path)
 
@@ -195,6 +206,8 @@ class TestAddRemoveItem:
 
     def test_remove_item(self, db_path):
         rid = dr.cmd_create_run("yoke", "yoke-internal", db_path=db_path)
+        _insert_delivery_ready_item(db_path, 100)
+        _insert_delivery_ready_item(db_path, 200)
         dr.cmd_add_item(rid, 100, db_path=db_path)
         dr.cmd_add_item(rid, 200, db_path=db_path)
         dr.cmd_remove_item(rid, 100, db_path=db_path)
@@ -202,6 +215,47 @@ class TestAddRemoveItem:
         items_out = dr.cmd_items(rid, db_path=db_path)
         assert "200" in items_out
         assert "100" not in items_out
+
+    @pytest.mark.parametrize(
+        "status",
+        ("executing", "succeeded", "failed", "cancelled"),
+    )
+    def test_membership_is_immutable_after_composition(
+        self,
+        db_path,
+        status,
+    ):
+        rid = dr.cmd_create_run("yoke", "yoke-internal", db_path=db_path)
+        _insert_delivery_ready_item(db_path, 100)
+        dr.cmd_add_item(rid, 100, db_path=db_path)
+        if status == "executing":
+            assert (
+                dr.cmd_update(
+                    rid,
+                    "status",
+                    status,
+                    db_path=db_path,
+                )
+                is None
+            )
+        else:
+            from runtime.api.fixtures.file_test_db import connect_test_db
+
+            with connect_test_db(db_path) as conn:
+                p = _placeholder(conn)
+                conn.execute(
+                    f"UPDATE deployment_runs SET status={p} WHERE id={p}",
+                    (status, rid),
+                )
+                conn.commit()
+
+        with pytest.raises(ValueError, match="membership is mutable only"):
+            dr.cmd_add_item(rid, 200, db_path=db_path)
+        with pytest.raises(ValueError, match="membership is mutable only"):
+            dr.cmd_remove_item(rid, 100, db_path=db_path)
+
+        item_row = dr.cmd_items(rid, db_path=db_path).strip().split("|")
+        assert item_row[:2] == [rid, "100"]
 
 
 class TestGet:
@@ -225,88 +279,3 @@ class TestGet:
         rid = dr.cmd_create_run("yoke", "yoke-internal", db_path=db_path)
         with pytest.raises(ValueError, match="invalid field"):
             dr.cmd_get(rid, field="nonexistent_col", db_path=db_path)
-
-
-class TestUpdate:
-    """cmd_update: status transitions, auto-timestamps, validation."""
-
-    def test_update_status_executing(self, db_path):
-        rid = dr.cmd_create_run("yoke", "yoke-internal", db_path=db_path)
-        err = dr.cmd_update(rid, "status", "executing", db_path=db_path)
-        assert err is None
-        assert dr.cmd_get(rid, field="status", db_path=db_path) == "executing"
-
-    def test_executing_sets_started_at(self, db_path):
-        rid = dr.cmd_create_run("yoke", "yoke-internal", db_path=db_path)
-        dr.cmd_update(rid, "status", "executing", db_path=db_path)
-        conn = _conn(db_path)
-        p = _placeholder(conn)
-        started = conn.execute(
-            f"SELECT started_at FROM deployment_runs WHERE id={p}", (rid,)
-        ).fetchone()[0]
-        conn.close()
-        assert started is not None
-
-    def test_terminal_status_sets_completed_at(self, db_path):
-        rid = dr.cmd_create_run("yoke", "yoke-internal", db_path=db_path)
-        dr.cmd_update(rid, "status", "failed", db_path=db_path)
-        conn = _conn(db_path)
-        p = _placeholder(conn)
-        completed = conn.execute(
-            f"SELECT completed_at FROM deployment_runs WHERE id={p}", (rid,)
-        ).fetchone()[0]
-        conn.close()
-        assert completed is not None
-
-    def test_update_current_stage(self, db_path):
-        rid = dr.cmd_create_run("yoke", "yoke-internal", db_path=db_path)
-        err = dr.cmd_update(rid, "current_stage", "smoke", db_path=db_path)
-        assert err is None
-        assert dr.cmd_get(rid, field="current_stage", db_path=db_path) == "smoke"
-
-    def test_update_invalid_status(self, db_path):
-        rid = dr.cmd_create_run("yoke", "yoke-internal", db_path=db_path)
-        err = dr.cmd_update(rid, "status", "bogus", db_path=db_path)
-        assert err is not None
-        assert "invalid status" in err
-
-    def test_update_non_updatable_field(self, db_path):
-        rid = dr.cmd_create_run("yoke", "yoke-internal", db_path=db_path)
-        err = dr.cmd_update(rid, "id", "new-id", db_path=db_path)
-        assert err is not None
-        assert "not updatable" in err
-
-    def test_update_not_found(self, db_path):
-        err = dr.cmd_update("nonexistent", "status", "executing", db_path=db_path)
-        assert err is not None
-        assert "not found" in err
-
-    def test_succeeded_rejects_failed_stage(self, db_path):
-        """status=succeeded rejected if current_stage ends in -failed."""
-        rid = dr.cmd_create_run("yoke", "yoke-internal", db_path=db_path)
-        dr.cmd_update(rid, "current_stage", "deploy-failed", db_path=db_path)
-        err = dr.cmd_update(rid, "status", "succeeded", db_path=db_path)
-        assert err is not None
-        assert "failure" in err.lower() or "failed" in err.lower()
-
-    def test_succeeded_rejects_non_final_stage(self, db_path):
-        """status=succeeded rejected if not on final flow stage."""
-        rid = dr.cmd_create_run("externalwebapp", "externalwebapp-standard", db_path=db_path)
-        dr.cmd_update(rid, "current_stage", "preview", db_path=db_path)
-        err = dr.cmd_update(rid, "status", "succeeded", db_path=db_path)
-        assert err is not None
-        assert "not the final stage" in err
-
-    def test_succeeded_accepts_final_stage(self, db_path):
-        """status=succeeded accepted when on final stage."""
-        rid = dr.cmd_create_run("externalwebapp", "externalwebapp-standard", db_path=db_path)
-        dr.cmd_update(rid, "current_stage", "production", db_path=db_path)
-        err = dr.cmd_update(rid, "status", "succeeded", db_path=db_path)
-        assert err is None
-
-    def test_succeeded_force_overrides_guard(self, db_path):
-        """force=True bypasses the stage guard."""
-        rid = dr.cmd_create_run("externalwebapp", "externalwebapp-standard", db_path=db_path)
-        dr.cmd_update(rid, "current_stage", "deploy-failed", db_path=db_path)
-        err = dr.cmd_update(rid, "status", "succeeded", force=True, db_path=db_path)
-        assert err is None

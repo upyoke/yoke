@@ -166,7 +166,7 @@ def test_refine_blitz_path_links_one_document_and_hands_off():
         ROOT / ".agents/skills/yoke/refine/blitz-execution-document.md"
     ).read_text()
 
-    assert "ITEM_WORKFLOW_ID=blitz" in refine
+    assert "ITEM_NEXT_EXECUTOR=blitz" in refine
     assert "blitz-execution-document.md" in refine
     assert "strategy.execution.link" in protocol
     for required in (

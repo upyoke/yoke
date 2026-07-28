@@ -1,16 +1,29 @@
-"""Registered execution and evidence recording for Machine QA cases."""
+"""Two-phase authority and evidence recording for Machine QA cases."""
 
 from __future__ import annotations
 
-import time
-from typing import Any
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
 from yoke_core.domain.handlers.test_machine import _failure
 from yoke_core.domain.handlers.test_machine_case_evidence import (
     record_machine_case_result as _record_machine_case_result,
+)
+from yoke_core.domain.machine_qa_execution import MachineCaseResult
+from yoke_core.domain.machine_qa_execution_contract import (
+    HostControlExecutionContract,
+)
+from yoke_core.domain.machine_qa_submission_recording import (
+    MachineQaArtifactRollback,
+    MachineCaseSubmissionResult,
+    record_submitted_case,
+    recorded_case_submission,
+    rollback_machine_submission,
+    validate_case_submission,
 )
 from yoke_core.domain.test_machine_capability import TestMachineCapabilityError
 
@@ -31,17 +44,18 @@ class TestMachineCaseExecuteResponse(BaseModel):
     lease_context: dict[str, Any] | None = None
 
 
-class TestMachineBaselineGroupExecuteRequest(BaseModel):
+class TestMachineCaseBeginResponse(BaseModel):
+    state: Literal["ready", "waiting"]
+    execution: HostControlExecutionContract | None = None
+    result: TestMachineCaseExecuteResponse | None = None
+
+
+class TestMachineCaseSubmitRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-
-class TestMachineBaselineGroupExecuteResponse(BaseModel):
-    anchor_requirement_id: int
-    plan_id: int
-    host_baseline: str
-    baseline_ok: bool | None
-    requirement_ids: list[int]
-    results: list[TestMachineCaseExecuteResponse]
+    lease_id: int = Field(ge=1)
+    contract_digest: str = Field(min_length=1)
+    results: list[MachineCaseSubmissionResult]
 
 
 def _is_machine_case(case: dict[str, Any]) -> bool:
@@ -52,252 +66,230 @@ def _is_machine_case(case: dict[str, Any]) -> bool:
     )
 
 
-def _baseline_group_cases(
-    conn: Any,
-    *,
-    anchor: dict[str, Any],
-) -> list[dict[str, Any]]:
-    """Reread one materialized baseline group from database authority."""
-    from yoke_core.domain import db_backend
-    from yoke_core.domain.machine_qa_method_contracts import MACHINE_METHODS
-    from yoke_core.domain.qa_case_execution_context import (
-        get_case_execution_context,
-    )
-
-    plan_id = anchor.get("plan_id")
-    baseline = str(anchor.get("host_baseline") or "")
-    if plan_id is None or not baseline:
-        raise ValueError(
-            "baseline-group execution requires a plan-backed Machine QA "
-            "requirement with a host baseline"
-        )
-    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    method_ids = sorted(MACHINE_METHODS)
-    method_markers = ", ".join(marker for _ in method_ids)
-    rows = conn.execute(
-        "SELECT id FROM qa_requirements "
-        f"WHERE item_id={marker} AND plan_id={marker} "
-        f"AND COALESCE(workflow_transition_id, '')={marker} "
-        f"AND host_baseline={marker} AND waived_at IS NULL "
-        f"AND method_id IN ({method_markers}) "
-        "ORDER BY id",
-        (
-            int(anchor["item_id"]),
-            int(plan_id),
-            str(anchor.get("workflow_transition_id") or ""),
-            baseline,
-            *method_ids,
-        ),
-    ).fetchall()
-    cases = [
-        get_case_execution_context(conn, requirement_id=int(row[0])) for row in rows
-    ]
-    anchor_id = int(anchor["requirement_id"])
-    if not cases or anchor_id not in {int(case["requirement_id"]) for case in cases}:
-        raise ValueError(
-            "the targeted requirement is not in its materialized baseline group"
-        )
-    for case in cases:
-        if not _is_machine_case(case):
-            raise ValueError(
-                "the materialized baseline group contains an unregistered "
-                "Machine QA case"
-            )
-        if (
-            int(case["item_id"]) != int(anchor["item_id"])
-            or int(case["plan_id"]) != int(plan_id)
-            or str(case.get("workflow_transition_id") or "")
-            != str(anchor.get("workflow_transition_id") or "")
-            or str(case.get("host_baseline") or "") != baseline
-        ):
-            raise ValueError("the materialized baseline group changed during execution")
-    return cases
-
-
-def handle_case_execute(request: FunctionCallRequest) -> HandlerOutcome:
-    try:
-        TestMachineCaseExecuteRequest.model_validate(request.payload or {})
-    except ValidationError as exc:
-        return _failure("payload_invalid", str(exc))
+def _target_requirement(
+    request: FunctionCallRequest,
+    function_id: str,
+) -> int | HandlerOutcome:
     requirement_id = request.target.qa_requirement_id
     if request.target.kind != "qa_requirement" or requirement_id is None:
         return _failure(
             "target_invalid",
-            "test_machine.case_execute requires target.kind='qa_requirement'",
+            f"{function_id} requires target.kind='qa_requirement'",
         )
-    from yoke_core.domain.db_helpers import connect
-    from yoke_core.domain.machine_qa_execution import (
-        MachineQaLeaseHeld,
-        acquire_machine_qa_lease,
+    return int(requirement_id)
+
+
+def _waiting_result(held: Any) -> MachineCaseResult:
+    return MachineCaseResult(
+        case_outcome="waiting",
+        verdict="waiting",
+        evidence={
+            "executor_id": "host_control",
+            "machine": held.machine,
+            "case_started": False,
+            "lease": {
+                "id": held.lease.id,
+                "key": held.lease.lease_key,
+                "holder_session_id": held.lease.session_id,
+                "acquired_at": held.lease.acquired_at,
+                "heartbeat_at": held.lease.heartbeat_at,
+            },
+        },
     )
-    from yoke_core.domain.machine_qa_method_contracts import (
-        MachineQaExecutionError,
+
+
+def handle_case_execute(request: FunctionCallRequest) -> HandlerOutcome:
+    """Refuse direct server-side host control in favor of the CLI protocol."""
+    target = _target_requirement(request, "test_machine.case_execute")
+    if isinstance(target, HandlerOutcome):
+        return target
+    return _failure(
+        "host_control_client_required",
+        "Machine QA cannot execute on the hosted control plane; run "
+        f"`yoke qa case run --requirement-id {target}` from a "
+        "credential-owning harness or CLI machine",
     )
+
+
+def _load_case(conn: Any, requirement_id: int) -> dict[str, Any]:
     from yoke_core.domain.qa_case_execution_context import (
-        QaCaseExecutionError,
         get_case_execution_context,
+    )
+
+    case = get_case_execution_context(
+        conn,
+        requirement_id=requirement_id,
+    )
+    if not _is_machine_case(case):
+        raise ValueError("the requirement is not a registered Machine QA case")
+    return case
+
+
+def handle_case_begin(request: FunctionCallRequest) -> HandlerOutcome:
+    target = _target_requirement(request, "test_machine.case.begin")
+    if isinstance(target, HandlerOutcome):
+        return target
+    from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.machine_qa_execution_protocol import (
+        MachineQaProtocolError,
+        MachineQaProtocolLeaseHeld,
+        begin_host_control_execution,
     )
 
     conn = connect()
     try:
-        case = get_case_execution_context(
-            conn,
-            requirement_id=int(requirement_id),
-        )
-        if not _is_machine_case(case):
-            return _failure(
-                "test_machine_case_invalid",
-                "the requirement is not a registered Machine QA case",
-            )
-        started = time.monotonic()
+        case = _load_case(conn, target)
         try:
-            with acquire_machine_qa_lease(
+            contract = begin_host_control_execution(
                 conn,
                 project=str(case["project"]),
                 session_id=request.actor.session_id,
                 actor_id=request.actor.actor_id,
-            ) as execution:
-                if case.get("host_baseline"):
-                    execution.reach_baseline(str(case["host_baseline"]))
-                result = execution.execute(
-                    method_id=str(case["method_id"]),
-                    method_config=case["method_config"],
-                    entry_surface=case.get("entry_surface"),
-                    required_completion=case.get("required_completion"),
-                )
-        except MachineQaLeaseHeld as held:
-            result = held.waiting_result()
-        payload = _record_machine_case_result(
-            conn,
-            case=case,
-            result=result,
-            duration_ms=int((time.monotonic() - started) * 1000),
-        )
-    except (
-        QaCaseExecutionError,
-        MachineQaExecutionError,
-        TestMachineCapabilityError,
-        ValueError,
-    ) as exc:
-        conn.rollback()
-        return _failure("test_machine_case_failed", str(exc))
-    finally:
-        conn.close()
-    return HandlerOutcome(primary_success=True, result_payload=payload)
-
-
-def handle_baseline_group_execute(
-    request: FunctionCallRequest,
-) -> HandlerOutcome:
-    """Execute one server-discovered baseline group under one host lease."""
-    try:
-        TestMachineBaselineGroupExecuteRequest.model_validate(
-            request.payload or {},
-        )
-    except ValidationError as exc:
-        return _failure("payload_invalid", str(exc))
-    requirement_id = request.target.qa_requirement_id
-    if request.target.kind != "qa_requirement" or requirement_id is None:
-        return _failure(
-            "target_invalid",
-            "test_machine.baseline_group_execute requires target.kind='qa_requirement'",
-        )
-    from yoke_core.domain.db_helpers import connect
-    from yoke_core.domain.machine_qa_execution import (
-        MachineQaLeaseHeld,
-        acquire_machine_qa_lease,
-    )
-    from yoke_core.domain.machine_qa_method_contracts import (
-        MachineQaExecutionError,
-    )
-    from yoke_core.domain.qa_case_execution_context import (
-        QaCaseExecutionError,
-        get_case_execution_context,
-    )
-
-    conn = connect()
-    try:
-        anchor = get_case_execution_context(
-            conn,
-            requirement_id=int(requirement_id),
-        )
-        if not _is_machine_case(anchor):
-            return _failure(
-                "test_machine_baseline_group_invalid",
-                "the requirement is not a registered Machine QA case",
+                operation="case",
+                baselines=(
+                    (str(case["host_baseline"]),) if case.get("host_baseline") else ()
+                ),
+                cases=(case,),
             )
-        cases = _baseline_group_cases(conn, anchor=anchor)
-        baseline = str(anchor["host_baseline"])
-        payloads: list[dict[str, Any]] = []
-        try:
-            with acquire_machine_qa_lease(
+        except MachineQaProtocolLeaseHeld as held:
+            result = _record_machine_case_result(
                 conn,
-                project=str(anchor["project"]),
-                session_id=request.actor.session_id,
-                actor_id=request.actor.actor_id,
-            ) as execution:
-                execution.reach_baseline(baseline)
-                for case in cases:
-                    started = time.monotonic()
-                    result = execution.execute(
-                        method_id=str(case["method_id"]),
-                        method_config=case["method_config"],
-                        entry_surface=case.get("entry_surface"),
-                        required_completion=case.get("required_completion"),
-                    )
-                    payloads.append(
-                        _record_machine_case_result(
-                            conn,
-                            case=case,
-                            result=result,
-                            duration_ms=int((time.monotonic() - started) * 1000),
-                        )
-                    )
-                baseline_ok = bool(
-                    execution.baseline is not None and execution.baseline.ok
-                )
-        except MachineQaLeaseHeld as held:
-            baseline_ok = None
-            for case in cases:
-                started = time.monotonic()
-                result = held.waiting_result()
-                payloads.append(
-                    _record_machine_case_result(
-                        conn,
-                        case=case,
-                        result=result,
-                        duration_ms=int((time.monotonic() - started) * 1000),
-                    )
-                )
-        result_payload = {
-            "anchor_requirement_id": int(requirement_id),
-            "plan_id": int(anchor["plan_id"]),
-            "host_baseline": baseline,
-            "baseline_ok": baseline_ok,
-            "requirement_ids": [int(case["requirement_id"]) for case in cases],
-            "results": payloads,
-        }
-    except (
-        QaCaseExecutionError,
-        MachineQaExecutionError,
-        TestMachineCapabilityError,
-        ValueError,
-    ) as exc:
+                case=case,
+                result=_waiting_result(held),
+                duration_ms=0,
+            )
+            return HandlerOutcome(
+                primary_success=True,
+                result_payload={"state": "waiting", "result": result},
+            )
+    except (MachineQaProtocolError, TestMachineCapabilityError, ValueError) as exc:
         conn.rollback()
-        return _failure("test_machine_baseline_group_failed", str(exc))
+        return _failure("test_machine_case_begin_failed", str(exc))
     finally:
         conn.close()
     return HandlerOutcome(
         primary_success=True,
-        result_payload=result_payload,
+        result_payload={
+            "state": "ready",
+            "execution": contract.model_dump(mode="json"),
+        },
     )
 
 
+def handle_case_submit(request: FunctionCallRequest) -> HandlerOutcome:
+    target = _target_requirement(request, "test_machine.case.submit")
+    if isinstance(target, HandlerOutcome):
+        return target
+    try:
+        parsed = TestMachineCaseSubmitRequest.model_validate(request.payload or {})
+    except ValidationError as exc:
+        return _failure("payload_invalid", str(exc))
+    from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.machine_qa_execution_protocol import (
+        MachineQaProtocolError,
+        commit_deferred_connection,
+        complete_host_control_execution,
+        validate_host_control_submission,
+    )
+
+    conn = connect()
+    artifact_rollback = MachineQaArtifactRollback()
+    try:
+        case = _load_case(conn, target)
+        lease, contract = validate_host_control_submission(
+            conn,
+            project=str(case["project"]),
+            session_id=request.actor.session_id,
+            actor_id=request.actor.actor_id,
+            lease_id=parsed.lease_id,
+            contract_digest=parsed.contract_digest,
+            operation="case",
+            baselines=tuple(contract_baseline(case)),
+            cases=(case,),
+            allow_recorded_replay=True,
+        )
+        if len(parsed.results) != 1:
+            raise ValueError("single-case submission requires exactly one result")
+        submitted_result = parsed.results[0]
+        validate_case_submission(
+            case,
+            submitted_result,
+            resource_name=contract.settings["resource_name"],
+        )
+        result = recorded_case_submission(
+            conn,
+            requirement_id=int(case["requirement_id"]),
+            lease_id=lease.id,
+            contract_digest=parsed.contract_digest,
+        )
+        if result is None:
+            if not lease.is_active:
+                raise ValueError(
+                    "host-control lease is released without a recorded case result"
+                )
+            with TemporaryDirectory(prefix="yoke-machine-qa-") as temp_dir:
+                result = record_submitted_case(
+                    commit_deferred_connection(conn),
+                    case=case,
+                    result=submitted_result,
+                    resource_name=contract.settings["resource_name"],
+                    artifact_root=Path(temp_dir),
+                    lease_id=lease.id,
+                    contract_digest=parsed.contract_digest,
+                    artifact_rollback=artifact_rollback,
+                )
+        if lease.is_active:
+            complete_host_control_execution(
+                conn,
+                lease,
+                reason="machine-qa-case-complete",
+            )
+        else:
+            conn.commit()
+        artifact_rollback.preserve()
+    except (MachineQaProtocolError, TestMachineCapabilityError, ValueError) as exc:
+        rollback_machine_submission(conn, artifact_rollback)
+        return _failure("test_machine_case_submit_failed", str(exc))
+    except Exception:
+        rollback_machine_submission(conn, artifact_rollback)
+        raise
+    finally:
+        conn.close()
+    return HandlerOutcome(primary_success=True, result_payload=result)
+
+
+def contract_baseline(case: dict[str, Any]) -> list[str]:
+    baseline = str(case.get("host_baseline") or "")
+    return [baseline] if baseline else []
+
+
+from yoke_core.domain.handlers.test_machine_baseline_group import (  # noqa: E402
+    TestMachineBaselineGroupBeginResponse,
+    TestMachineBaselineGroupExecuteRequest,
+    TestMachineBaselineGroupExecuteResponse,
+    TestMachineBaselineGroupSubmitRequest,
+    _baseline_group_cases,
+    handle_baseline_group_begin,
+    handle_baseline_group_execute,
+    handle_baseline_group_submit,
+)
+
+
 __all__ = [
+    "TestMachineBaselineGroupBeginResponse",
     "TestMachineBaselineGroupExecuteRequest",
     "TestMachineBaselineGroupExecuteResponse",
+    "TestMachineBaselineGroupSubmitRequest",
+    "TestMachineCaseBeginResponse",
     "TestMachineCaseExecuteRequest",
     "TestMachineCaseExecuteResponse",
+    "TestMachineCaseSubmitRequest",
+    "_baseline_group_cases",
+    "_record_machine_case_result",
+    "handle_baseline_group_begin",
     "handle_baseline_group_execute",
+    "handle_baseline_group_submit",
+    "handle_case_begin",
     "handle_case_execute",
+    "handle_case_submit",
 ]

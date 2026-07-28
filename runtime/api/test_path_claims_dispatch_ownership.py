@@ -181,7 +181,7 @@ class TestRegister:
         assert payload["item_id"] == ITEM_ID
         assert payload["caller_session_id"] == INTRUDER_SESSION
         assert payload["holder_session_id"] == HOLDER_SESSION
-        assert "claim-work" in payload["recovery"]
+        assert "yoke claims work acquire" in payload["recovery"]
         assert payload.get("claim_id") is None
         assert conn.execute(
             "SELECT COUNT(*) FROM path_claims"

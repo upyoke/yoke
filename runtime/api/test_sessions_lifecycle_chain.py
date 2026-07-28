@@ -1,3 +1,4 @@
+# ruff: noqa: F401, F811
 """Session lifecycle tests: chain checkpoint and CHAIN_PENDING guard.
 
 Covers update_chain_checkpoint / read_chain_checkpoint and the
@@ -19,10 +20,9 @@ import pytest
 from unittest.mock import patch
 
 from runtime.api.test_sessions import (
+    _insert_claimable_items,
     _register,
     conn,
-    ownership_conn,
-    _ensure_active_session,
 )
 from yoke_core.domain.sessions import (
     SessionError,
@@ -165,6 +165,10 @@ class TestChainCheckpoint:
 
 class TestEndSessionChainPendingGuard:
     """FR-1: end_session with CHAIN_PENDING guard."""
+
+    @pytest.fixture(autouse=True)
+    def _claimable_items(self, conn):
+        _insert_claimable_items(conn, 100, 200)
 
     def _setup_chain_pending(self, conn, session_id="sess-chain"):
         """Register a session with a chainable checkpoint at step 1/3."""

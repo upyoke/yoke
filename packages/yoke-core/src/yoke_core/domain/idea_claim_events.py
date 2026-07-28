@@ -146,11 +146,11 @@ def emit_if_idea_release(
     try:
         from yoke_core.domain.events import emit_event
 
-        emit_event(
+        result = emit_event(
             EVENT_NAME,
             event_kind="lifecycle",
             event_type="idea_claim_lifecycle",
-            source_type="api",
+            source_type="backend",
             severity="INFO",
             outcome="completed",
             session_id=session_id,
@@ -158,6 +158,9 @@ def emit_if_idea_release(
             context=payload,
             conn=conn,
         )
+        if not result.ok:
+            return False
+        conn.commit()
         return True
     except Exception:
         return False

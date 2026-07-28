@@ -1,3 +1,4 @@
+# ruff: noqa: F811
 """Regression: ``release_all_claims`` clears ``current_item_id``.
 
 Parity with the typed per-claim release path: bulk-releasing every
@@ -9,11 +10,16 @@ that does not also end the session).
 
 from __future__ import annotations
 
-from runtime.api.test_sessions import _register, conn  # noqa: F401  (pytest fixture)
+from runtime.api.test_sessions import (
+    _insert_claimable_items,
+    _register,
+    conn,  # noqa: F401
+)
 from yoke_core.domain.sessions import claim_work, release_all_claims
 
 
 def test_release_all_clears_current_item_id(conn):
+    _insert_claimable_items(conn, 1, 2)
     _register(conn)
     claim_work(conn, session_id="sess-1", item_id="YOK-1")
     claim_work(conn, session_id="sess-1", item_id="YOK-2")

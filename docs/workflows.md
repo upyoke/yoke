@@ -54,10 +54,13 @@ Moving an existing item is explicit and compatibility-checked:
 yoke workflows item migrate <PREFIX-N> --version 2 --project <project>
 ```
 
-Migration refuses a target version that lacks the item's current stage or
-conflicts with its live claims, worktrees, approvals, QA, or delivery binding.
-Selecting an older version as current is a rollback for new work, not a silent
-rewrite of active work.
+Migration permits label-only and otherwise semantically compatible changes.
+It refuses a target that cannot preserve the current stage and posture, active
+lane roles, claim ownership scope, approval or QA transition gates, or delivery
+action semantics. A target also cannot add an unsatisfied approval or QA gate
+at a stage the item has already reached. Rejection happens before the pin or
+status is written. Selecting an older version as current is a rollback for new
+work, not a silent rewrite of active work.
 
 ## Project mechanics
 

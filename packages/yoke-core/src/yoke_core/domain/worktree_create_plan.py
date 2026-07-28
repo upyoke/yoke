@@ -32,6 +32,7 @@ class WorktreeCreationEntry:
     branch: str
     path: str
     lane_role: str = LANE_IMPLEMENTATION
+    lane_id: Optional[int] = None
     created: bool = False
     preexisting: bool = False
     error: Optional[str] = None
@@ -70,11 +71,8 @@ def resolve_worktrees_for_item(
     """
     return [
         (branch, path)
-        for branch, path, _lane_role in resolve_worktree_lanes_for_item(
-            item_id,
-            repo_root,
-            wt_dir,
-            db_path,
+        for branch, path, *_rest in resolve_worktree_lanes_for_item(
+            item_id, repo_root, wt_dir, db_path,
         )
     ]
 
@@ -130,8 +128,12 @@ def preflight_worktree_plan(
         if len(raw) == 2:
             branch, path = raw
             lane_role = LANE_IMPLEMENTATION
+            lane_id = None
         elif len(raw) == 3:
             branch, path, lane_role = raw
+            lane_id = None
+        elif len(raw) == 4:
+            branch, path, lane_role, lane_id = raw
         else:
             plan.error = f"malformed worktree entry: {raw!r}"
             return plan
@@ -154,6 +156,7 @@ def preflight_worktree_plan(
             branch=branch,
             path=path,
             lane_role=lane_role,
+            lane_id=int(lane_id) if lane_id is not None else None,
         )
         preexisting, err = _classify_existing(branch, path)
         if err:

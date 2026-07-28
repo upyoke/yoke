@@ -1,25 +1,8 @@
-"""Pre-commit body for path-claim coverage enforcement.
+"""Pre-commit path-claim coverage enforcement.
 
-Refuses commits from a Yoke worktree (``.worktrees/YOK-N``) when the
-staged file set exceeds the active path-claim's declared coverage. The
-refusal names the missing paths and prints a literal ``path-claims
-widen`` remediation template.
-
-No-op when:
-
-* The commit happens outside ``.worktrees/`` (operator on main).
-* No current item resolves for the active session.
-* The active item has no non-terminal path claim. The registration
-  guard owns "must claim before mutating"; this only enforces coverage
-  for already-registered claims.
-
-Honors ``[no-path-claim-check]`` in the resolved Git dir's
-``COMMIT_EDITMSG`` (populated by ``-m`` / ``-F`` / ``--amend``
-invocations before pre-commit fires) and records a
-``PathClaimCoverageSuppressed`` event before allowing the commit.
-
-Wired into :mod:`yoke_core.domain.git_pre_commit` as one of the
-ordered checks the installed pre-commit shim runs.
+Worktree commits are refused when staged files exceed an active claim.
+Main-checkout commits, claimless items, and unresolved sessions are no-ops.
+The commit-message suppression token emits durable warning evidence.
 """
 
 from __future__ import annotations
@@ -34,6 +17,10 @@ from yoke_core.domain import db_backend, db_helpers
 from yoke_core.domain.lint_worktree_path_invariants import (
     WorktreeInvariantContext,
     resolve_active_worktree_context,
+)
+from yoke_core.domain.path_claim_commit_coverage import (
+    declared_targets_for_claim,
+    effective_commit_targets,
 )
 
 
@@ -64,7 +51,9 @@ def staged_files(repo_root: Path) -> list[str]:
 
 
 def files_outside_coverage(
-    staged_paths: Iterable[str], declared_paths: Sequence[str],
+    staged_paths: Iterable[str],
+    declared_paths: Sequence[str],
+    declared_target_kinds: Sequence[tuple[str, str]] = (),
 ) -> list[str]:
     """Return staged paths not covered by *declared_paths*.
 
@@ -73,11 +62,18 @@ def files_outside_coverage(
     ``/`` are treated as directory-prefix matchers). Order is preserved
     from the input.
     """
-    declared_files = {p for p in declared_paths if p and not p.endswith("/")}
+    kind_by_path = dict(declared_target_kinds)
+    declared_files = {
+        p for p in declared_paths if p and kind_by_path.get(p, "file") != "directory"
+    }
     declared_dirs = [
         p.rstrip("/") + "/"
         for p in declared_paths
-        if p and p.endswith("/")
+        if p
+        and (
+            kind_by_path.get(p) == "directory"
+            or (not declared_target_kinds and p.endswith("/"))
+        )
     ]
     out: list[str] = []
     for path in staged_paths:
@@ -90,7 +86,8 @@ def files_outside_coverage(
 
 
 def find_active_claim_for_item(
-    conn: Any, item_id: int,
+    conn: Any,
+    item_id: int,
 ) -> Optional[dict]:
     """Return the most recent non-terminal path-claim row for *item_id*.
 
@@ -116,24 +113,17 @@ def find_active_claim_for_item(
     claim_id = int(row["id"] if hasattr(row, "keys") else row[0])
     state = str(row["state"] if hasattr(row, "keys") else row[1])
     try:
-        p = _p(conn)
-        path_rows = conn.execute(
-            "SELECT pt.path_string FROM path_claim_targets pct "
-            "JOIN path_targets pt ON pt.id = pct.target_id "
-            f"WHERE pct.claim_id = {p} "
-            "ORDER BY pct.id",
-            (claim_id,),
-        ).fetchall()
+        declared_paths, declared_target_kinds = declared_targets_for_claim(
+            conn,
+            claim_id,
+        )
     except db_backend.operational_error_types(conn=conn):
         return None
-    declared_paths = [
-        str(r["path_string"] if hasattr(r, "keys") else r[0])
-        for r in path_rows
-    ]
     return {
         "claim_id": claim_id,
         "state": state,
         "declared_paths": declared_paths,
+        "declared_target_kinds": declared_target_kinds,
     }
 
 
@@ -148,7 +138,7 @@ def _resolve_git_dir(repo_root: Path) -> Optional[Path]:
         return None
     if not text.startswith("gitdir:"):
         return None
-    target = text[len("gitdir:"):].strip().splitlines()
+    target = text[len("gitdir:") :].strip().splitlines()
     if not target:
         return None
     path = Path(target[0].strip())
@@ -173,7 +163,9 @@ def has_suppression_token(message: str) -> bool:
 
 
 def _record_suppression_event(
-    item_id: int, claim_id: int, missing_paths: Sequence[str],
+    item_id: int,
+    claim_id: int,
+    missing_paths: Sequence[str],
 ) -> None:
     """Emit a suppression-evidence event. Best-effort; never raises."""
     try:
@@ -199,7 +191,10 @@ def _record_suppression_event(
 
 
 def format_deny(
-    *, item_id: int, claim_id: int, missing_paths: Sequence[str],
+    *,
+    item_id: int,
+    claim_id: int,
+    missing_paths: Sequence[str],
     declared_paths: Sequence[str],
 ) -> str:
     """Render the operator-facing block message for a coverage refusal."""
@@ -243,7 +238,9 @@ def _resolve_repo_root() -> Optional[Path]:
     try:
         result = subprocess.run(
             ["git", "rev-parse", "--show-toplevel"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
     except Exception:
         return None
@@ -271,7 +268,21 @@ def _decide(
     staged = staged_files(repo_root)
     if not staged:
         return 0, ""
-    missing = files_outside_coverage(staged, claim["declared_paths"])
+    paths, kinds = effective_commit_targets(
+        conn,
+        session_id=ctx.session_id,
+        item_id=ctx.item_id,
+        repo_root=repo_root,
+        declared_paths=claim["declared_paths"],
+        declared_target_kinds=claim["declared_target_kinds"],
+    )
+    claim["declared_paths"] = paths
+    claim["declared_target_kinds"] = kinds
+    missing = files_outside_coverage(
+        staged,
+        claim["declared_paths"],
+        claim["declared_target_kinds"],
+    )
     if not missing:
         return 0, ""
     if has_suppression_token(commit_message):

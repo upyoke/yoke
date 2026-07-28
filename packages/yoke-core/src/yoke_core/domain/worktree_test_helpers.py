@@ -44,7 +44,6 @@ _YOKE_DB_DDL = textwrap.dedent("""\
     CREATE TABLE IF NOT EXISTS items (
         id INTEGER PRIMARY KEY,
         title TEXT,
-        type TEXT DEFAULT 'issue',
         status TEXT DEFAULT 'idea',
         priority TEXT DEFAULT 'medium',
         project_id INTEGER NOT NULL DEFAULT 1 REFERENCES projects(id),

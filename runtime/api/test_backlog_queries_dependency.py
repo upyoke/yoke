@@ -256,6 +256,7 @@ class TestExecuteCloseDependencyReconciliation:
         the close before reconciliation touches item_dependencies."""
         # delivery-tail
         _seed_item(tmp_db, id=1, status="implemented")
+        _seed_item(tmp_db, id=99, status="refined-idea")
         _seed_dependency(
             tmp_db,
             dependent="YOK-99",
@@ -274,6 +275,7 @@ class TestExecuteCloseDependencyReconciliation:
 
         # merge-evidence
         _seed_item(tmp_db, id=2, merged_at="2026-01-01T00:00:00Z")
+        _seed_item(tmp_db, id=77, status="refined-idea")
         _seed_dependency(
             tmp_db,
             dependent="YOK-2",
@@ -291,6 +293,7 @@ class TestExecuteCloseDependencyReconciliation:
 
         # active item lane
         _seed_item(tmp_db, id=3)
+        _seed_item(tmp_db, id=88, status="refined-idea")
         _seed_active_item_lane(tmp_db, item_id=3, branch="YOK-3")
         _seed_dependency(
             tmp_db,

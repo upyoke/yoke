@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
 from yoke_core.domain.workflow_gate_catalog import (
     GATE_APPROVAL,
@@ -36,6 +36,7 @@ def evaluate(
     target_status: str,
     db_path: str,
     session_id: Optional[str],
+    conn: Optional[Any] = None,
 ) -> Optional[dict]:
     """Run one known family; callers must check :func:`handles` first."""
     if gate_id == GATE_CONFLICT_SURVEY:
@@ -59,6 +60,7 @@ def evaluate(
             target_status=target_status,
             db_path=db_path,
             session_id=session_id,
+            conn=conn,
         )
     return evaluator(
         item_id=item_id,

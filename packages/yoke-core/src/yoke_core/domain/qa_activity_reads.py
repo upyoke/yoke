@@ -57,7 +57,7 @@ def _list_activity(
         conn,
         "SELECT q.id AS requirement_id, q.plan_id, q.plan_case_key, "
         "q.host_baseline, q.waived_at, p.slug AS plan, pr.slug AS project, "
-        "m.id AS method_id, m.name AS method_name, r.id AS run_id, "
+        "q.method_id, q.method_name, r.id AS run_id, "
         "r.verdict, r.case_outcome, r.capture_degraded_reason, "
         "r.raw_result, "
         "COALESCE(r.completed_at, r.created_at, q.created_at) AS happened_at, "
@@ -65,7 +65,6 @@ def _list_activity(
         "AS evidence_count "
         "FROM qa_requirements q JOIN qa_plans p ON p.id=q.plan_id "
         "JOIN projects pr ON pr.id=p.project_id "
-        "LEFT JOIN qa_methods m ON m.id=q.method_id "
         "LEFT JOIN qa_runs r ON r.id=("
         "SELECT rr.id FROM qa_runs rr WHERE rr.qa_requirement_id=q.id "
         "ORDER BY rr.created_at DESC, rr.id DESC LIMIT 1"

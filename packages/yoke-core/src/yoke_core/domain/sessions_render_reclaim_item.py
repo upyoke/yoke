@@ -33,12 +33,17 @@ from .sessions_analytics import (
 )
 from .sessions_queries import _now_iso, normalize_claim_item_id
 from .time_sql import now_sql
+from .workflow_item_binding_lock import (
+    lock_item_workflow_bindings,
+    rollback_workflow_binding_write_errors,
+)
 
 
 def _p(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
+@rollback_workflow_binding_write_errors
 def reclaim_stale_item_claims(
     conn: Any,
     item_id: str,
@@ -54,6 +59,7 @@ def reclaim_stale_item_claims(
     if not normalized.isdigit():
         return 0
     item_id_int = int(normalized)
+    lock_item_workflow_bindings(conn, (item_id_int,))
 
     p = _p(conn)
     _minutes_modifier = f"{p} || ' minutes'"
@@ -87,7 +93,8 @@ def reclaim_stale_item_claims(
                 session_id=holder_session_id,
                 item_id=(
                     str(claim_row["item_id"])
-                    if claim_row["item_id"] is not None else None
+                    if claim_row["item_id"] is not None
+                    else None
                 ),
                 task_num=claim_row["task_num"],
                 context={
@@ -97,15 +104,11 @@ def reclaim_stale_item_claims(
                     "attempting_session_id": None,
                     "abort_reason": recheck.reason,
                     "executor": evidence_payload["executor"],
-                    "effective_ttl_minutes": evidence_payload[
-                        "effective_ttl_minutes"
-                    ],
+                    "effective_ttl_minutes": evidence_payload["effective_ttl_minutes"],
                     "original_session_last_heartbeat": evidence_payload[
                         "last_heartbeat"
                     ],
-                    "original_session_last_event_at": evidence_payload[
-                        "last_event_at"
-                    ],
+                    "original_session_last_event_at": evidence_payload["last_event_at"],
                     "reclaimed_by_item_offer": True,
                 },
             )
@@ -121,8 +124,7 @@ def reclaim_stale_item_claims(
             EVENT_WORK_RECLAIMED,
             session_id=holder_session_id,
             item_id=(
-                str(claim_row["item_id"])
-                if claim_row["item_id"] is not None else None
+                str(claim_row["item_id"]) if claim_row["item_id"] is not None else None
             ),
             task_num=claim_row["task_num"],
             context={
@@ -132,9 +134,7 @@ def reclaim_stale_item_claims(
             },
         )
 
-    if released:
-        conn.commit()
-
+    conn.commit()
     return released
 
 

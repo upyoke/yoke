@@ -235,7 +235,7 @@ Quality gate agent. Reviews worker artifacts (specs, plans, designs) at pipeline
 
 ### Hook Coverage
 
-All 7 agents have SubagentStop -> `yoke_core.domain.agent_stop` (Issue-flow
+All 7 agents have SubagentStop -> `yoke_core.domain.agent_stop` (item-worktree
 auto-commit safety net plus `HarnessSessionStopped` event emission; it does
 not drain claims or set task lifecycle state).
 

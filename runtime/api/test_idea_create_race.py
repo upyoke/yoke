@@ -1,3 +1,4 @@
+# ruff: noqa: F811
 """Pairing test for the /yoke idea -> frontier race guard.
 
 Covers the guard's three failure modes: live race, stale-heartbeat tail,
@@ -211,7 +212,7 @@ def test_layer1_dispatcher_release_canonicalizes_and_emits(
     monkeypatch.setenv("YOKE_DB", db_path)
     monkeypatch.setenv("YOKE_SESSION_ID", drafter_id)
 
-    item_num = 11
+    item_num = 10
     item_ref = f"YOK-{item_num}"
     _pre_register_session(db_path, drafter_id)
 

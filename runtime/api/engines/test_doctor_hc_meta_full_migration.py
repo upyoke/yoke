@@ -9,32 +9,21 @@ Uses disposable Postgres test databases and mock subprocess for deterministic te
 from __future__ import annotations
 
 import json
-import re
-import subprocess
 import textwrap
-from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
-import pytest
 
 from yoke_core.engines.doctor import (
-    DoctorArgs,
-    RecordCollector,
     hc_oneshot_migration_coverage,
 )
 
 from yoke_core.engines._doctor_hc_meta_full_test_helpers import (
     _NOW_ISO,
-    _args,
     _ensure_migration_audit_table,
-    _completed,
-    _iso_days_ago,
-    _iso_minutes_ago,
     _make_conn,
     _p,
     _result,
-    _results,
     _run_hc,
     _insert_item,
 )
@@ -63,7 +52,7 @@ class TestOneshotMigrationCoverage:
             conn,
             item_id,
             "T",
-            type="issue",
+            workflow_id="issue",
             status=status,
             created_at=_NOW_ISO,
             updated_at=_NOW_ISO,

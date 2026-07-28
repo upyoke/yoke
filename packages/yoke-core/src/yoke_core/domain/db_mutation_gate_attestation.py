@@ -28,6 +28,7 @@ def stamp_attestation_frozen_at(
     *,
     conn: Optional[Any] = None,
     extra_escalations: Optional[Sequence[Mapping[str, object]]] = None,
+    commit: bool = True,
 ) -> str:
     """Stamp ``db_compatibility_attestation.frozen_at``.
 
@@ -61,7 +62,8 @@ def stamp_attestation_frozen_at(
             f"UPDATE items SET db_compatibility_attestation = {p} WHERE id = {p}",
             (dca.canonical_json(normalized), item_id),
         )
-        c.commit()
+        if commit:
+            c.commit()
         return now
 
     if conn is not None:

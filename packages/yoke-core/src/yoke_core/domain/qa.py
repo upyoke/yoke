@@ -21,8 +21,7 @@ Subcommands:
     init, requirement-add, requirement-add-batch, requirement-list, requirement-get,
     requirement-update, requirement-waive, run-add, run-add-batch, run-complete,
     run-list, run-get, artifact-add, artifact-list,
-    baseline-record, baseline-list, baseline-get, baseline-promote,
-    satisfy-screenshot-evidence
+    baseline-record, baseline-list, baseline-get, baseline-promote
 
 Exit codes: 0 success, 1 error/not-found, 2 usage error.
 """
@@ -70,7 +69,6 @@ from yoke_core.domain.qa_execution import (  # noqa: F401
     cmd_run_get,
     cmd_artifact_add,
     cmd_artifact_list,
-    cmd_satisfy_screenshot_evidence,
 )
 
 from yoke_core.domain.qa_reporting import (  # noqa: F401

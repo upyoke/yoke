@@ -70,10 +70,17 @@ Epic tasks do **not** use item-only statuses such as `cancelled`.
 
 ## Ownership Boundaries
 
-### Pre-implementation shaping
+### Definition-bound segments
 
-- `idea -> refining-idea -> refined-idea` belongs to the ideation / refinement path.
-- Epic-only planning states (`planning`, `plan-drafted`, `refining-plan`, `planned`) belong to the planning path.
+At a live item stage, the owner is the registered executor binding whose
+half-open interval contains that stage:
+`from_stage_id <= current_stage < through_stage_id`. Stage names do not select
+an executor by themselves, and a workflow name is never a substitute for
+reading the pinned version.
+
+The current built-in definitions reuse stage ids such as `idea`,
+`refining-idea`, `planning`, and `planned`, but each definition decides which
+of those stages exists, their order, and the executor that owns the segment.
 
 ### `idea -> refine` handoff: two-layer guard against title-only dispatch
 
@@ -115,7 +122,9 @@ unprotected unless both layers below hold:
 - `reviewing-implementation` means coding/self-verification is complete and the branch is in the deliberate review/fix loop.
 - `reviewed-implementation` means meaningful implementation review passed and the work is queued for finishing polish.
 
-This implementation/review loop may be driven by `conduct` or by direct `advance` flows, but the stored statuses are the same.
+When a definition declares this loop, its active executor binding drives it.
+For example, current definitions bind either `advance`, `conduct`, or a direct
+executor across implementation work; the stage name alone does not choose one.
 
 **Claim continuity across transient SessionEnd.** A Claude Desktop SessionEnd
 event (laptop sleep, app reload, idle timeout) never destroys mid-flight
@@ -134,15 +143,21 @@ contract.
 
 ### Polish handoff
 
-- `polishing-implementation` means routed polish owns the finishing pass.
-- `implemented` means the branch is implementation-complete and ready for merge/deploy handoff.
+For definitions that declare and bind these stages:
+
+- `polishing-implementation` means the registered `polish` segment owns the finishing pass.
+- `implemented` means the branch is implementation-complete and ready for the next definition-bound handoff.
 
 ### Merge and deployment
 
-- `implemented -> release -> done` is the normal post-merge path for items with deployment runs.
-- `implemented -> done` is the direct path for no-flow / no-stage delivery where no run-backed release phase is needed.
+Current definitions whose `policies.delivery` is `release_stage` bind `usher`
+across their delivery tail. Their run-backed path uses
+`implemented -> release -> done`; their no-flow path closes from
+`implemented -> done`. Definitions with `continuous_slice_actions` or
+`after_merge_action` have a different tail and do not inherit those stages.
 
-`usher` owns the `implemented` through `done` boundary.
+Read the pinned definition before invoking `usher`; it owns a boundary only
+when an active executor binding says so.
 
 ## What The Statuses Mean
 
@@ -151,10 +166,10 @@ contract.
 | `idea` | Filed but not yet shaped into an execution-ready item |
 | `refining-idea` | The item is being clarified and tightened |
 | `refined-idea` | Idea-level shaping is complete |
-| `planning` | Epic-only planning has started |
-| `plan-drafted` | Initial epic plan/task decomposition exists |
+| `planning` | Planning or decomposition has started in a workflow that declares this stage |
+| `plan-drafted` | An initial plan or generated-task decomposition exists |
 | `refining-plan` | Plan is being revised after critique/simulation |
-| `planned` | Epic plan is accepted and ready for implementation entry |
+| `planned` | The plan is accepted and ready for the next bound executor |
 | `implementing` | Engineering work is actively in progress |
 | `reviewing-implementation` | Review/fix/verify loop is in progress |
 | `reviewed-implementation` | Implementation review passed; ready for polish |
@@ -169,18 +184,18 @@ contract.
 
 ## QA And Lifecycle
 
-QA evidence is recorded in `qa_requirements`, `qa_runs`, and `qa_artifacts`, not in lifecycle status names.
-
-Important consequences:
-
-- Entering `reviewing-implementation` and progressing to `reviewed-implementation` depends on QA evidence and review completion.
-- Browser screenshot QA runs as the final gate before `reviewed-implementation` and again as the final gate before `implemented`; post-deploy requirements gate the final `done` transition.
+QA evidence is recorded in `qa_requirements`, `qa_runs`, and `qa_artifacts`,
+not in lifecycle status names. A transition is QA-gated only when the target
+stage in the item's pinned definition references the `qa_verification` gate.
+Project and item attachments materialize the requirements for that transition;
+the stage name alone does not imply a fixed QA recipe.
 
 ## Post-Merge Behavior
 
 ### No-flow / internal delivery
 
-For items whose delivery does not require a run-backed deployment:
+For a current `release_stage` definition whose delivery does not require a
+run-backed deployment:
 
 ```text
 implemented -> done
@@ -190,7 +205,7 @@ The code is already live once merged, so `release` is skipped.
 
 ### Run-backed deployment flows
 
-For items enrolled in deployment runs:
+For a current `release_stage` definition enrolled in a deployment run:
 
 ```text
 implemented -> release -> done
@@ -202,60 +217,54 @@ Operationally:
 - item moves to `release` while the run is executing
 - item moves to `done` when the run succeeds and blocking post-deploy/manual-acceptance requirements are satisfied
 
-## Command Families
+## Registered Executor Boundaries
 
-Two delivery command families cover the entire item progression. Use the family
-selected by the item's pinned workflow definition; mixing executor families
-produces routing failures.
+Commands do not own global status ranges and do not apply by item type. Each
+immutable workflow version binds registered executor ids to contiguous stage
+segments. For a live item:
 
-### Issue command family
+1. Run `yoke workflows item get YOK-N` to read its workflow id, logical
+   version, and current stage.
+2. Run `yoke workflows version get WORKFLOW VERSION` to read that exact
+   definition.
+3. In ordered `stages`, find the one `executor_bindings` row whose interval
+   satisfies `from_stage_id <= current_stage < through_stage_id`.
+4. Invoke `/yoke <executor_id>` and let the definition's target-stage gate
+   references govern each transition.
 
-For `type=issue` items:
+The registered executors have these behavioral contracts; their source and
+target stages always come from the binding:
 
-```text
-/yoke refine YOK-N (idea -> refining-idea -> refined-idea)
-/yoke advance YOK-N implementation
- (refined-idea -> implementing, opens worktree in the SAME session — no relaunch; work-claim is the authority)
- continue in worktree (implementing -> reviewing-implementation -> reviewed-implementation)
-/yoke polish YOK-N (reviewed-implementation -> polishing-implementation -> implemented)
-/yoke usher YOK-N (implemented -> release -> done, or implemented -> done)
-```
+| Executor id | Segment behavior |
+|---|---|
+| `refine` | Critique and improve the artifact selected by the pinned policies |
+| `shepherd` | Run quality-gated planning for a compatible generated-task policy |
+| `advance` | Drive a single implementation lane and its review loop |
+| `conduct` | Drive generated task lanes and their integration/review loop |
+| `polish` | Perform the definition-bound finishing pass |
+| `usher` | Merge and deliver a `release_stage` workflow |
+| `dash`, `blitz` | Execute their definition-bound direct-work segments |
 
-Issues never visit `planning`, `plan-drafted`, `refining-plan`, or `planned`. `/yoke shepherd` is not part of the issue family.
+Worktree shape also comes from `policies.worktrees`,
+`policies.parallelism`, and `policies.generated_children`. A single-lane
+executor keeps implementation and review in one claimed worktree; a
+task-graph executor provisions the registered worker/integration lanes.
 
-### Epic command family
-
-For `type=epic` items:
-
-```text
-/yoke refine YOK-N (idea -> refining-idea -> refined-idea)
-/yoke shepherd YOK-N (refined-idea -> planning -> plan-drafted)
-/yoke refine YOK-N (plan-drafted -> refining-plan -> planned; plan refinement)
-/yoke conduct YOK-N (planned -> implementing; task-lane activation continues in the SAME session — each subagent dispatch acquires its own work-claim — then drives to reviewed-implementation)
-/yoke polish YOK-N (reviewed-implementation -> polishing-implementation -> implemented)
-/yoke usher YOK-N (implemented -> release -> done, or implemented -> done)
-```
-
-Epics pass through `/yoke refine` twice: once for the idea spec and again for the technical plan after Shepherd drafts it.
-
-## Command Boundary Summary
-
-| Command | Owns transitions | Applies to |
-|---|---|---|
-| `/yoke refine` | `idea -> refining-idea -> refined-idea`, `plan-drafted -> refining-plan -> planned` | issues and epics |
-| `/yoke shepherd` | `refined-idea -> planning -> plan-drafted` (quality-gated planning) | **epics only** |
-| `/yoke advance ... implementation` | `refined-idea -> implementing` (issues), `planned -> implementing` (with `--force`). Creates or re-enters the worktree unless `--no-worktree`; same harness session continues into implementation/review under the work-claim it holds on the item. | **issues only** as primary entry; epics use conduct |
-| `/yoke conduct` | `planned -> implementing -> reviewing-implementation -> reviewed-implementation`; task-lane activation provisions per-lane worktrees and each subagent dispatch acquires its own work-claim. | **epics only** (Engineer/Tester loop) |
-| `/yoke polish` | `reviewed-implementation -> polishing-implementation -> implemented` | issues and epics |
-| `/yoke usher` | `implemented -> release -> done` or `implemented -> done` | issues and epics |
-
-The review phase (`implementing -> reviewing-implementation -> reviewed-implementation`) happens in the same worktree as implementation. Issues stay under `/yoke advance` re-entry; epics stay under `/yoke conduct`. Neither command family treats `reviewing-implementation` as a manual-only checkpoint — the loop continues until review actually passes or a real blocker appears.
-
-`reviewed-implementation` and `implemented` are handoff boundaries. `/yoke polish` and `/yoke usher` start as fresh command entrypoints at those statuses; the prior command does not carry claim ownership across the boundary.
+A binding's `through_stage_id` is a handoff boundary. The next executor starts
+as a fresh command entrypoint and acquires its own claim; the prior executor
+does not carry claim ownership across the boundary.
 
 ### Claim release at handoff — visible failure
 
-The advance finalize step that hands the claim across these boundaries (`yoke_core.api.service_client release-work-claim --item YOK-N`) is best-effort: when it cannot release (cross-session mismatch, claim already terminal, item never claimed, or the underlying domain validator raised), the advance still succeeds because the status transition has already committed. But the failure is no longer silent — finalize prints a single `Warning: claim release failed for YOK-N (intent=X, exit=Y)` line, the CLI writes failure-specific detail to stderr, and an `ItemClaimReleaseFailed` event (severity WARN) carries `item_id`, `caller_session_id`, `holder_session_id`, `failure_reason` (`not_owned` / `already_terminal` / `item_not_found` / `domain_error`), `target_status`, and `release_reason_intent`. Exit codes are distinct (`3`/`4`/`5`/`6`) so wrappers can branch. Operators investigating "why didn't the claim release?" should query the events ledger first: `yoke events query --item YOK-N --event-name ItemClaimReleaseFailed`.
+The implementation-executor finalize step that hands the claim across a
+binding boundary is best-effort: when it cannot release (cross-session
+mismatch, claim already terminal, item never claimed, or the underlying
+domain validator raised), the transition remains committed. The failure is
+visible as a `Warning: claim release failed for YOK-N (intent=X, exit=Y)` line
+and an `ItemClaimReleaseFailed` event carrying the item, caller, holder,
+failure reason, target stage, and release intent. Operators investigating a
+retained claim should query the events ledger first:
+`yoke events query --item YOK-N --event-name ItemClaimReleaseFailed`.
 
 ## Routing And Session Offer
 
@@ -266,7 +275,10 @@ Routing decisions (which command to invoke for an item at a given status, which 
 - [packages/yoke-core/src/yoke_core/domain/scheduler_routing.py](/Users/dev/yoke/packages/yoke-core/src/yoke_core/domain/scheduler_routing.py) — the `next_step` function that turns a status into a command
 - [packages/yoke-core/src/yoke_core/domain/sessions.py](/Users/dev/yoke/packages/yoke-core/src/yoke_core/domain/sessions.py) — shared session-offer path that emits `HarnessSessionOffered` and `NextActionChosen`
 
-Agents reading the lifecycle should treat those files as authoritative for "which command runs next?" and use the tables above only for "which statuses does that command touch?".
+Agents reading the lifecycle should treat those files plus the item's pinned
+definition as authoritative for "which command runs next?" The tables here
+describe executor behavior and shared stage meaning; they do not define an
+item's stage graph.
 
 ## See Also
 

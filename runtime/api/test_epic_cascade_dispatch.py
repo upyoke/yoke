@@ -20,7 +20,7 @@ from runtime.api.epic_cascade_dispatch_test_support import (
 
 class TestCascadeTaskStatus:
     def test_forward_cascade_updates_tasks(self, db):
-        insert_item(db, id=42, type="epic", status="planning", project="yoke")
+        insert_item(db, id=42, workflow_id="epic", status="planning", project="yoke")
         insert_epic_task(db, epic_id=42, task_num=1, title="Task 1", status="planning")
         insert_epic_task(db, epic_id=42, task_num=2, title="Task 2", status="planning")
         insert_epic_task(db, epic_id=42, task_num=3, title="Task 3", status="planning")
@@ -39,7 +39,7 @@ class TestCascadeTaskStatus:
         assert all(row["last_heartbeat"].endswith("Z") for row in rows)
 
     def test_exceptional_states_are_preserved(self, db):
-        insert_item(db, id=42, type="epic", status="planned", project="yoke")
+        insert_item(db, id=42, workflow_id="epic", status="planned", project="yoke")
         insert_epic_task(db, epic_id=42, task_num=1, title="Task 1", status="planned")
         insert_epic_task(db, epic_id=42, task_num=2, title="Task 2", status="blocked")
         insert_epic_task(db, epic_id=42, task_num=3, title="Task 3", status="failed")
@@ -53,7 +53,7 @@ class TestCascadeTaskStatus:
         assert [row["status"] for row in rows] == ["plan-drafted", "blocked", "failed"]
 
     def test_unknown_transition_returns_zero(self, db):
-        insert_item(db, id=42, type="epic", status="planned", project="yoke")
+        insert_item(db, id=42, workflow_id="epic", status="planned", project="yoke")
         insert_epic_task(db, epic_id=42, task_num=1, title="Task 1", status="planned")
 
         result = epic.cascade_task_status(db, "42", "planned", "implementing")

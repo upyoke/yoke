@@ -2,9 +2,14 @@
 
 > **Orchestrator role:** For implementation-entry advances (`/yoke advance YOK-N implementation`), the orchestrator [`packages/yoke-core/src/yoke_core/engines/advance_implementation_entry.py`](../../../../packages/yoke-core/src/yoke_core/engines/advance_implementation_entry.py) calls the same gate helpers (`check_hard_blocks.evaluate_blockers`, `check_ac_presence.evaluate_item`, `path_claim_spec_coverage_gate.evaluate`) and reports the outcome as `AdvancePhaseCompleted{phase="preflight"}`. The prose below is the canonical contract for what each gate enforces — the orchestrator's reference, not a per-call agent recipe. The legacy doc-driven flow below still runs for non-implementing advance targets.
 
-Called by the advance router after identity/lifecycle resolution for non-implementing transitions. Runs the hard-block dependency gate, AC presence gate, active reconciliation gate, epic-specific gates, and the merge verification gate.
+Called by the advance router after identity/lifecycle resolution for
+non-implementing transitions. Runs the hard-block dependency gate, AC presence
+gate, active reconciliation gate, pinned-executor/generated-task gates, and
+the merge verification gate.
 
-**Context variables** (set by router): `{N}`, `_workflow_id`, `_status`, `_target`, `--force` flag
+**Context variables** (set by router): `{N}`, `_status`, `_target`,
+`_current_executor`, `_target_executor`, `_generated_children`,
+`_worktree_policy`, `_pinned_definition_json`, `--force` flag
 
 ---
 
@@ -16,11 +21,11 @@ Covers (in order):
 - **Hard-Block Dependency Gate** (step 4-dep): blocks if unresolved dependencies at the activation or integration gate point
 - **AC Presence Gate** (step 4-ac): blocks if no checkbox ACs found for implementation-stage targets
 - **Spec Coverage Gate** (step 4-cov): blocks when `## File Budget` lists paths the active path_claim does not cover (catches deferred-coverage drift after upstream blockers release)
-- **Epic Advisory** (step 5): informational note for manually advanced epics
-- **Shepherd Lifecycle Gate** (step 5-shep, epics only): blocks if missing shepherd's terminal verdict (`planning_to_plan_drafted`; legacy `planned_to_ready` accepted as pre-2026-04-07 compat)
-- **Epic Task Existence Gate** (step 5-gate, epics only): blocks if no tasks exist for `planned`/`implementing` targets
-- **Epic Task Completion Gate** (step 5a, epics only): blocks if tasks are incomplete for post-implementing targets
-- **Deferred Items Gate** (step 5a-defer, epics targeting `done`): blocks if unfiled deferred items
+- **Pinned-Executor Advisory** (step 5): identifies a manual transition into a different registered executor's segment
+- **Shepherd Executor Gate** (step 5-shep): applies only when the target path crosses a pinned `shepherd` binding
+- **Generated-Task Existence Gate** (step 5-gate): applies only when `generated_children=epic_tasks` and dispatch is at or beyond the `conduct` handoff
+- **Generated-Task Completion Gate** (step 5a): applies only when a task-graph parent enters its `usher` or terminal segment
+- **Deferred Items Gate** (step 5a-defer): applies only to a generated-task parent entering a pinned terminal stage
 
 ## Recovery and Redirect Gates (steps 5-recon through 5c)
 

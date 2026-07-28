@@ -44,6 +44,11 @@ class StrategyRevisionRestoreRequest(BaseModel):
     slug: str = Field(..., min_length=1)
     revision: int = Field(..., gt=0)
     base_updated_at: str = Field(..., min_length=1)
+    reviewer_actor_id: Optional[int] = Field(
+        None,
+        gt=0,
+        description="Optional named reviewer; project roles remain fallback authority.",
+    )
 
 
 class StrategyRevisionRestoreResponse(BaseModel):

@@ -11,11 +11,15 @@ from __future__ import annotations
 
 from typing import Any, Iterable, Optional
 
-from yoke_core.domain import db_backend
 from yoke_core.domain.path_claims import register as register_claim
-from yoke_core.domain.path_claims_actor_resolution import (
-    ActorResolutionUnavailable,
-    resolve_actor_for_caller,
+from yoke_core.domain.path_claims_registration_context import (
+    DefaultActorUnavailable,
+    ItemHasNoProject,
+    ItemNotFound,
+    PathClaimRegistrationError,
+    fetch_item_project_id as _fetch_item_project_id,
+    parameter_marker as _p,
+    resolve_registration_actor as _resolve_actor_for_caller,
 )
 from yoke_core.domain.path_claims_register_symlink import (
     emit_decisions as _emit_symlink_decisions,
@@ -26,66 +30,6 @@ from yoke_core.domain.path_claims_resolve import (
     UnknownPathTargets,
     resolve_paths_to_target_ids,
 )
-
-
-class PathClaimRegistrationError(Exception):
-    """Base class for on-ramp failures distinct from the lifecycle module's.
-
-    Wraps the cases the on-ramp owns end-to-end (item lookup, project
-    resolution, default-actor resolution). Lifecycle-layer failures
-    (overlap, missing actor row when explicitly specified, unknown
-    target ids when the caller passed them directly) propagate from
-    :mod:`yoke_core.domain.path_claims` unchanged so callers can
-    catch :class:`yoke_core.domain.path_claims.PathClaimError` for
-    every domain-level issue.
-    """
-
-
-class ItemNotFound(PathClaimRegistrationError):
-    """The item id does not exist or has no project field set."""
-
-
-class ItemHasNoProject(PathClaimRegistrationError):
-    """The item exists but its ``project_id`` column is null or empty."""
-
-
-class DefaultActorUnavailable(PathClaimRegistrationError):
-    """The on-ramp cannot resolve a default actor and the caller passed none."""
-
-
-def _p(conn: Any) -> str:
-    return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
-def _fetch_item_project_id(conn: Any, item_id: int) -> int:
-    p = _p(conn)
-    row = conn.execute(
-        f"SELECT project_id FROM items WHERE id = {p}",
-        (item_id,),
-    ).fetchone()
-    if row is None:
-        raise ItemNotFound(f"item id {item_id} does not exist")
-    project_id = row[0] if not hasattr(row, "keys") else row["project_id"]
-    if not project_id:
-        raise ItemHasNoProject(
-            f"item {item_id} has no project_id; cannot resolve canonical paths"
-        )
-    return int(project_id)
-
-
-def _resolve_actor_for_caller(
-    conn: Any,
-    explicit_actor_id: Optional[int],
-    *,
-    session_id: Optional[str] = None,
-) -> int:
-    """Honour an explicit actor or fall back to the writer-default actor."""
-    try:
-        return resolve_actor_for_caller(
-            conn, explicit_actor_id, session_id=session_id,
-        )
-    except ActorResolutionUnavailable as exc:
-        raise DefaultActorUnavailable(str(exc)) from exc
 
 
 def register_for_item(
@@ -102,65 +46,100 @@ def register_for_item(
     allow_planned: bool = False,
     directory_paths: Optional[Iterable[str]] = None,
     tentative_paths: Optional[Iterable[str]] = None,
+    task_num: Optional[int] = None,
+    commit: bool = True,
+    emit_events: bool = True,
 ) -> int:
     """Register a planned path claim for ``item_id`` and return its id."""
     from yoke_core.domain import path_claims_events as _events
     from yoke_core.domain.path_claims import (
         InvalidTargetSet,
+        InvalidWorkflowBinding,
         PathClaimError,
         get_claim,
     )
-
-    project_id = _fetch_item_project_id(conn, item_id)
-    path_list, symlink_decisions = _expand_symlinks_for_registration(
-        conn, project_id, paths,
+    from yoke_core.domain.workflow_item_binding_lock import (
+        lock_item_workflow_bindings,
     )
+    from yoke_core.domain.workflow_item_binding_validation import (
+        WorkflowItemBindingError,
+        validate_item_path_claim_scope,
+    )
+
+    lock_item_workflow_bindings(conn, (int(item_id),))
+    project_id = _fetch_item_project_id(conn, item_id)
+    try:
+        validate_item_path_claim_scope(
+            conn,
+            int(item_id),
+            task_num=task_num,
+        )
+    except WorkflowItemBindingError as exc:
+        raise InvalidWorkflowBinding(str(exc)) from exc
+    path_list, symlink_decisions = _expand_symlinks_for_registration(
+        conn,
+        project_id,
+        paths,
+    )
+
     def _emit_symlinks(cid):
         _emit_symlink_decisions(
-            conn, claim_id=cid, project_id=project_id, item_id=item_id,
-            session_id=session_id, decisions=symlink_decisions,
+            conn,
+            claim_id=cid,
+            project_id=project_id,
+            item_id=item_id,
+            session_id=session_id,
+            decisions=symlink_decisions,
         )
+
     resolved_upstream_claim_id: Optional[int] = None
     try:
         if mode == "exception":
             if path_list:
                 raise InvalidTargetSet(
                     "mode='exception' must not declare paths; exceptions "
-                    "record a no-claim justification, not coverage")
+                    "record a no-claim justification, not coverage"
+                )
             target_ids = []
         elif allow_planned:
-            from yoke_core.domain.path_claims_resolve import resolve_or_plan_paths_to_target_ids  # noqa: E501
+            from yoke_core.domain.path_claims_resolve import (
+                resolve_or_plan_paths_to_target_ids,
+            )  # noqa: E501
+
             target_ids = resolve_or_plan_paths_to_target_ids(
                 conn,
                 project_id,
                 path_list,
                 item_id=item_id,
                 session_id=session_id,
-                directory_paths=(
-                    list(directory_paths) if directory_paths else None
-                ),
-                tentative_paths=(
-                    list(tentative_paths) if tentative_paths else None
-                ),
+                directory_paths=(list(directory_paths) if directory_paths else None),
+                tentative_paths=(list(tentative_paths) if tentative_paths else None),
             )
         else:
             target_ids = resolve_paths_to_target_ids(
-                conn, project_id, path_list,
+                conn,
+                project_id,
+                path_list,
             )
         resolved_actor = _resolve_actor_for_caller(
-            conn, actor_id, session_id=session_id,
+            conn,
+            actor_id,
+            session_id=session_id,
         )
         if mode != "exception" and target_ids:
             from yoke_core.domain.path_claims_register_reconcile import (
                 cancel_superseded_exceptions,
                 reuse_existing_concrete_claim,
             )
+
             claim_id = reuse_existing_concrete_claim(
                 conn,
                 item_id=item_id,
                 integration_target=integration_target,
                 target_ids=target_ids,
                 project_id=project_id,
+                commit=commit,
+                emit_event=emit_events,
             )
             if claim_id is not None:
                 if allow_planned:
@@ -171,19 +150,25 @@ def register_for_item(
                     integration_target=integration_target,
                     replacement_claim_id=claim_id,
                     project_id=project_id,
+                    task_num=task_num,
+                    commit=commit,
+                    emit_event=emit_events,
                 )
-                _emit_symlinks(claim_id)
+                if emit_events:
+                    _emit_symlinks(claim_id)
                 return claim_id
         if mode != "exception" and target_ids and upstream_claim_id is None:
             from yoke_core.domain.path_claims_dependency_resolver import (
                 auto_resolve_upstream,
             )
+
             resolved_upstream_claim_id = auto_resolve_upstream(
-                conn, item_id=item_id, integration_target=integration_target,
-                paths=path_list, allow_planned=allow_planned,
-                directory_paths=(
-                    list(directory_paths) if directory_paths else None
-                ),
+                conn,
+                item_id=item_id,
+                integration_target=integration_target,
+                paths=path_list,
+                allow_planned=allow_planned,
+                directory_paths=(list(directory_paths) if directory_paths else None),
             )
         claim_id = register_claim(
             conn,
@@ -196,6 +181,8 @@ def register_for_item(
             upstream_claim_id=upstream_claim_id,
             exception_reason=exception_reason,
             candidate_item_id=item_id,
+            task_num=task_num,
+            commit=commit,
         )
         if resolved_upstream_claim_id is not None:
             p = _p(conn)
@@ -208,37 +195,44 @@ def register_for_item(
                     claim_id,
                 ),
             )
-            conn.commit()
+            if commit:
+                conn.commit()
         if mode != "exception" and allow_planned and target_ids:
             _backfill_planned_claim_id(conn, target_ids, claim_id)
         if mode != "exception" and target_ids:
             from yoke_core.domain.path_claims_register_reconcile import (
                 cancel_superseded_exceptions,
             )
+
             cancel_superseded_exceptions(
                 conn,
                 item_id=item_id,
                 integration_target=integration_target,
                 replacement_claim_id=claim_id,
                 project_id=project_id,
+                task_num=task_num,
+                commit=commit,
+                emit_event=emit_events,
             )
     except PathClaimError as exc:
-        _events.emit_registration_blocked(
-            conn=conn,
-            item_id=item_id,
-            integration_target=integration_target,
-            reason=str(exc),
-            blocking_claim_id=resolved_upstream_claim_id,
-            project=project_id,
-            session_id=session_id,
-        )
+        if emit_events:
+            _events.emit_registration_blocked(
+                conn=conn,
+                item_id=item_id,
+                integration_target=integration_target,
+                reason=str(exc),
+                blocking_claim_id=resolved_upstream_claim_id,
+                project=project_id,
+                session_id=session_id,
+            )
         raise
-    _events.emit_registered(
-        conn=conn,
-        claim=get_claim(conn, claim_id),
-        project=project_id,
-    )
-    _emit_symlinks(claim_id)
+    if emit_events:
+        _events.emit_registered(
+            conn=conn,
+            claim=get_claim(conn, claim_id),
+            project=project_id,
+        )
+        _emit_symlinks(claim_id)
     return claim_id
 
 
@@ -317,7 +311,9 @@ def activate_with_events(
         )
         raise
     _events.emit_activated(
-        conn=conn, claim=get_claim(conn, claim_id), project=project_id,
+        conn=conn,
+        claim=get_claim(conn, claim_id),
+        project=project_id,
     )
 
 

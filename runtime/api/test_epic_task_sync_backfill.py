@@ -86,7 +86,7 @@ def _stub_project_github_auth():
 
 class TestBackfillTaskTitles:
     def test_backfill_titles_updates_open_issues(self, db):
-        insert_item(db, id=1246, type="epic", status="implementing", project="externalwebapp")
+        insert_item(db, id=1246, workflow_id="epic", status="implementing", project="externalwebapp")
         insert_epic_task(
             db, epic_id=1246, task_num=1, title="Implement feature",
             status="implementing", github_issue="#201",
@@ -119,7 +119,7 @@ class TestBackfillTaskTitles:
         assert "[YOK-1246] 002 Write tests" in titles
 
     def test_backfill_titles_is_idempotent_and_skips_closed(self, db):
-        insert_item(db, id=1246, type="epic", status="implementing", project="externalwebapp")
+        insert_item(db, id=1246, workflow_id="epic", status="implementing", project="externalwebapp")
         insert_epic_task(
             db, epic_id=1246, task_num=1, title="Already correct",
             status="implementing", github_issue="#301",
@@ -150,7 +150,7 @@ class TestBackfillTaskTitles:
         update_issue.assert_not_called()
 
     def test_backfill_titles_without_conn_uses_backend_connect(self, db):
-        insert_item(db, id=1246, type="epic", status="implementing", project="externalwebapp")
+        insert_item(db, id=1246, workflow_id="epic", status="implementing", project="externalwebapp")
         insert_epic_task(
             db,
             epic_id=1246,
@@ -185,7 +185,7 @@ class TestBackfillTaskLabels:
     def test_backfill_labels_uses_db_status_and_worktree_label(
         self, db, _stub_project_github_auth,
     ):
-        insert_item(db, id=1246, type="epic", status="implementing", project="externalwebapp")
+        insert_item(db, id=1246, workflow_id="epic", status="implementing", project="externalwebapp")
         insert_epic_task(
             db, epic_id=1246, task_num=1, title="Task 1",
             status="reviewed-implementation",

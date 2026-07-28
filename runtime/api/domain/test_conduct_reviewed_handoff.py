@@ -232,7 +232,7 @@ def test_run_status_write_exercises_real_backlog_update(tmp_db):  # noqa: F811
     _seed_item(
         tmp_db,
         id=43,
-        type="epic",
+        workflow_id="epic",
         status="reviewing-implementation",
         project="yoke",
     )

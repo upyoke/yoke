@@ -7,11 +7,11 @@ from yoke_core.domain.decision_request_schema import (
 )
 from yoke_core.domain import deployment_run_approval
 from yoke_core.domain.deployment_approval_requests import (
+    emit_deployment_completion,
     deployment_stage_decision,
     deployment_stage_is_approved,
     dispatch_deployment_stage_approval,
     ensure_deployment_stage_approval,
-    fan_out_deployment_completion,
 )
 
 
@@ -127,29 +127,65 @@ def test_deployment_stage_request_is_idempotent_and_runner_consumable(
         "WHERE id='run-approval-proof'",
         (str(originator),),
     )
-    from yoke_core.domain.events import emit_event
-
-    event = emit_event(
-        "DeploymentRunSucceeded",
-        event_kind="lifecycle",
-        event_type="deployment_run",
-        source_type="system",
-        project="yoke",
-        context={"run_id": "run-approval-proof"},
-        conn=test_db,
-    )
-    assert event.ok and event.event_id
-    assert fan_out_deployment_completion(
+    event_id, inserted = emit_deployment_completion(
         test_db,
         run_id="run-approval-proof",
-        event_id=event.event_id,
+        event_name="DeploymentRunSucceeded",
+        outcome="completed",
         reason="Deployment run completed",
-    ) == len({int(originator), int(owner)})
+        context={"flow": "approval-proof"},
+    )
+    assert inserted == len({int(originator), int(owner)})
     recipients = test_db.execute(
         "SELECT actor_id FROM addressed_event_deliveries "
         "WHERE event_id=%s ORDER BY actor_id",
-        (event.event_id,),
+        (event_id,),
     ).fetchall()
     assert [int(row[0]) for row in recipients] == sorted(
         {int(originator), int(owner)}
     )
+
+
+def test_deployment_completion_event_and_deliveries_share_transaction(
+    test_db,
+):
+    create_decision_request_tables(test_db)
+    initiator = int(test_db.execute(
+        "SELECT id FROM actors ORDER BY id LIMIT 1"
+    ).fetchone()[0])
+    test_db.execute(
+        "INSERT INTO deployment_flows "
+        "(id, project_id, name, stages, created_at) "
+        "VALUES ('completion-proof', 1, 'Completion proof', '[]', "
+        "'2026-07-26T00:00:00Z')"
+    )
+    test_db.execute(
+        "INSERT INTO deployment_runs "
+        "(id, project_id, flow, target_env, status, created_by, created_at) "
+        "VALUES ('run-completion-proof', 1, 'completion-proof', 'production', "
+        "'succeeded', %s, '2026-07-26T00:00:00Z')",
+        (str(initiator),),
+    )
+    test_db.commit()
+
+    event_id, inserted = emit_deployment_completion(
+        test_db,
+        run_id="run-completion-proof",
+        event_name="DeploymentRunSucceeded",
+        outcome="completed",
+        reason="Deployment run completed",
+        context={"flow": "completion-proof"},
+    )
+    assert inserted == 1
+    assert test_db.execute(
+        "SELECT COUNT(*) FROM addressed_event_deliveries WHERE event_id=%s",
+        (event_id,),
+    ).fetchone()[0] == 1
+    test_db.rollback()
+    assert test_db.execute(
+        "SELECT COUNT(*) FROM events WHERE event_id=%s", (event_id,),
+    ).fetchone()[0] == 0
+    assert test_db.execute(
+        "SELECT COUNT(*) FROM addressed_event_deliveries WHERE event_id=%s",
+        (event_id,),
+    ).fetchone()[0] == 0

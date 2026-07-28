@@ -39,7 +39,7 @@ def _ok_resolver(*args, **kwargs):
 class TestSyncLabels:
     def test_noop_when_no_github_issue(self):
         db = _make_db()
-        insert_item(db, id=10, type="issue", status="idea", project="externalwebapp")
+        insert_item(db, id=10, workflow_id="issue", status="idea", project="externalwebapp")
         with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
             f"{_LABEL_REST_LABELS}.fetch_issue_labels",
         ) as fetch:
@@ -50,7 +50,7 @@ class TestSyncLabels:
 
     def test_dry_run_skips(self):
         db = _make_db()
-        insert_item(db, id=10, type="issue", status="idea", project="externalwebapp", github_issue="#5")
+        insert_item(db, id=10, workflow_id="issue", status="idea", project="externalwebapp", github_issue="#5")
         stdout = io.StringIO()
         with patch.object(backlog_github_sync, "_dry_run", return_value=True):
             rc = backlog_github_sync.sync_labels("10", conn=db, stdout=stdout)
@@ -63,7 +63,7 @@ class TestSyncLabels:
         insert_item(
             db,
             id=10,
-            type="issue",
+            workflow_id="issue",
             status="implementing",
             priority="high",
             project="externalwebapp",
@@ -109,7 +109,7 @@ class TestSyncLabels:
 
     def test_issue_validation_failure_is_not_green(self):
         db = _make_db()
-        insert_item(db, id=10, type="issue", status="idea", project="externalwebapp", github_issue="#5")
+        insert_item(db, id=10, workflow_id="issue", status="idea", project="externalwebapp", github_issue="#5")
         stderr = io.StringIO()
         with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch(
             f"{GH_PATCH}._validate_issue_in_repo",
@@ -176,7 +176,7 @@ class TestSyncLabels:
         insert_item(
             db,
             id=11,
-            type="issue",
+            workflow_id="issue",
             status="implementing",
             priority="high",
             project="externalwebapp",

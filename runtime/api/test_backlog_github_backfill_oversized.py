@@ -50,16 +50,16 @@ class TestIdentifiesOversizedItems:
         db = _make_db()
         # Two linked items: one tiny, one huge. Both have github_issue set.
         insert_item(
-            db, id=60, type="issue", status="idea", project="externalwebapp",
+            db, id=60, workflow_id="issue", status="idea", project="externalwebapp",
             github_issue="#80", spec="# tiny",
         )
         insert_item(
-            db, id=61, type="issue", status="idea", project="externalwebapp",
+            db, id=61, workflow_id="issue", status="idea", project="externalwebapp",
             github_issue="#81", spec=_huge_spec(),
         )
         # Third item has no github_issue and must be ignored entirely.
         insert_item(
-            db, id=62, type="issue", status="idea", project="externalwebapp",
+            db, id=62, workflow_id="issue", status="idea", project="externalwebapp",
             spec=_huge_spec(),
         )
 
@@ -91,7 +91,7 @@ class TestIdentifiesOversizedItems:
     def test_no_linked_items_returns_zero(self):
         """Empty backlog (no github_issue values) reports zero repairs, exit 0."""
         db = _make_db()
-        insert_item(db, id=60, type="issue", status="idea", project="externalwebapp")
+        insert_item(db, id=60, workflow_id="issue", status="idea", project="externalwebapp")
         stdout = io.StringIO()
 
         with patch.object(_bgs, "sync_body") as sync_mock:
@@ -108,7 +108,7 @@ class TestIdempotent:
         """AC-4: a second run sees compact mirrors under budget; no work needed."""
         db = _make_db()
         insert_item(
-            db, id=61, type="issue", status="idea", project="externalwebapp",
+            db, id=61, workflow_id="issue", status="idea", project="externalwebapp",
             github_issue="#81", spec=_huge_spec(),
         )
 
@@ -146,11 +146,11 @@ class TestSkipsOnAuthFailure:
         items still process; final exit is non-zero."""
         db = _make_db()
         insert_item(
-            db, id=61, type="issue", status="idea", project="externalwebapp",
+            db, id=61, workflow_id="issue", status="idea", project="externalwebapp",
             github_issue="#81", spec=_huge_spec(),
         )
         insert_item(
-            db, id=62, type="issue", status="idea", project="externalwebapp",
+            db, id=62, workflow_id="issue", status="idea", project="externalwebapp",
             github_issue="#82", spec=_huge_spec(),
         )
 
@@ -200,7 +200,7 @@ class TestSkipsOnAuthFailure:
         """A non-auth sync failure also drives a non-zero exit code."""
         db = _make_db()
         insert_item(
-            db, id=61, type="issue", status="idea", project="externalwebapp",
+            db, id=61, workflow_id="issue", status="idea", project="externalwebapp",
             github_issue="#81", spec=_huge_spec(),
         )
         stdout = io.StringIO()

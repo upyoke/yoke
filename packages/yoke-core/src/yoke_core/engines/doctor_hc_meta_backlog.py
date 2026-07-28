@@ -24,7 +24,7 @@ from yoke_core.domain.idea_body_completeness import is_idea_body_incomplete
 from yoke_core.domain.item_workflow_validation import (
     invalid_item_workflow_stages,
 )
-from yoke_core.domain.lifecycle import ALL_TASK_STATUSES
+from yoke_core.domain.task_lifecycle import ALL_TASK_STATUSES
 
 import yoke_core.engines.doctor_report as _base
 

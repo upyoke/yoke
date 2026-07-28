@@ -9,8 +9,10 @@ mutation gate path (``mutations.prepare_update`` →
 
 from __future__ import annotations
 
+from copy import deepcopy
 import os
 import sys
+import threading
 
 import pytest
 
@@ -47,7 +49,7 @@ class TestUpdateItem:
         assert resp.status_code == 200
         assert resp.json()["priority"] == "low"
 
-    def test_update_status(self, client, test_db):
+    def test_update_status_requires_lifecycle_surface(self, client, test_db):
         conn = connect_test_db(test_db["db_path"])
         conn.execute(
             """INSERT INTO items
@@ -60,8 +62,8 @@ class TestUpdateItem:
         conn.close()
 
         resp = client.patch("/v1/items/6", json={"status": "reviewed-implementation"})
-        assert resp.status_code == 200
-        assert resp.json()["status"] == "reviewed-implementation"
+        assert resp.status_code == 409
+        assert resp.json()["error"]["code"] == "STATUS_UPDATE_REQUIRES_LIFECYCLE"
 
     def test_update_frozen(self, client, test_db):
         resp = client.patch("/v1/items/1", json={"frozen": True})
@@ -95,22 +97,24 @@ class TestUpdateItem:
 
     def test_update_invalid_status(self, client, test_db):
         resp = client.patch("/v1/items/1", json={"status": "bogus"})
-        assert resp.status_code == 422
-        assert resp.json()["error"]["code"] == "VALIDATION_ERROR"
+        assert resp.status_code == 409
+        assert resp.json()["error"]["code"] == "STATUS_UPDATE_REQUIRES_LIFECYCLE"
 
     def test_update_multiple_fields(self, client, test_db):
         """Multiple fields in a single PATCH request."""
-        resp = client.patch("/v1/items/1", json={
-            "priority": "low",
-            "title": "Updated title",
-        })
+        resp = client.patch(
+            "/v1/items/1",
+            json={
+                "priority": "low",
+                "title": "Updated title",
+            },
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["priority"] == "low"
         assert data["title"] == "Updated title"
 
-    def test_update_uses_mutation_layer(self, client, test_db):
-        """AC: PATCH flows through shared mutation layer, not raw SQL."""
+    def test_status_denial_preserves_item_state(self, client, test_db):
         conn = connect_test_db(test_db["db_path"])
         conn.execute(
             """INSERT INTO items
@@ -122,12 +126,14 @@ class TestUpdateItem:
         conn.commit()
         conn.close()
 
-        # Rework detection: transitioning from done -> implementing increments rework_count
         resp = client.patch("/v1/items/7", json={"status": "implementing"})
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["status"] == "implementing"
-        assert data["rework_count"] == 1  # incremented by mutation layer
+        assert resp.status_code == 409
+        conn = connect_test_db(test_db["db_path"])
+        row = conn.execute(
+            "SELECT status, rework_count FROM items WHERE id = 7"
+        ).fetchone()
+        conn.close()
+        assert tuple(row) == ("done", 0)
 
     def test_update_rejects_unregistered_deployment_flow(self, client, test_db):
         """PATCH rejects an unregistered non-empty deployment_flow value."""
@@ -160,7 +166,168 @@ class TestUpdateItem:
         assert resp.status_code == 200
         assert resp.json()["deployment_flow"] is None
 
-    def test_update_deployed_to_handles_missing_project_capabilities_table(self, test_db):
+    def test_deployment_flow_patch_reloads_pin_after_migration(
+        self,
+        client,
+        test_db,
+        monkeypatch,
+    ):
+        from runtime.api.fixtures.pg_testdb import connect_test_database
+        from yoke_core.api.routes import items_write
+        from yoke_core.domain.builtin_workflow_definitions import (
+            builtin_workflow_definition,
+        )
+        from yoke_core.domain.workflow_item_binding_lock import (
+            lock_item_workflow_bindings,
+        )
+        from yoke_core.domain.workflow_item_versioning import (
+            migrate_item_workflow_pin,
+        )
+        from yoke_core.domain.workflow_registry import publish_workflow_version
+
+        conn = connect_test_db(test_db["db_path"])
+        source_definition = deepcopy(builtin_workflow_definition("issue")["definition"])
+        source_definition["stages"][0]["label"] = "PATCH migration source"
+        source_definition["policies"]["path_claims"] = "optional"
+        source = publish_workflow_version(
+            conn,
+            workflow_id="issue",
+            definition=source_definition,
+        )
+        conn.execute(
+            "UPDATE items SET workflow_version_id=%s WHERE id=1",
+            (int(source["version_id"]),),
+        )
+        conn.commit()
+        target_definition = deepcopy(source_definition)
+        target_definition["stages"][0]["label"] = "PATCH migration target"
+        target = publish_workflow_version(
+            conn,
+            workflow_id="issue",
+            definition=target_definition,
+        )
+        db_name = str(conn.info.dbname)
+        conn.close()
+        migration_conn = connect_test_database(db_name)
+        observed_pins = []
+        original_prepare = items_write.prepare_update
+
+        def record_pin(*args, **kwargs):
+            item = kwargs.get("item") or args[0]
+            observed_pins.append(item.workflow.workflow_version_id)
+            return original_prepare(*args, **kwargs)
+
+        monkeypatch.setattr(items_write, "prepare_update", record_pin)
+        request_started = threading.Event()
+        request_done = threading.Event()
+        result = {}
+
+        def patch_item():
+            request_started.set()
+            result["response"] = client.patch(
+                "/v1/items/1",
+                json={"deployment_flow": "test-approval-flow"},
+            )
+            request_done.set()
+
+        worker = threading.Thread(target=patch_item, name="deployment-flow-patch")
+        try:
+            lock_item_workflow_bindings(migration_conn, (1,))
+            worker.start()
+            assert request_started.wait(timeout=10)
+            assert not request_done.wait(timeout=0.2)
+            migrate_item_workflow_pin(
+                migration_conn,
+                item_id=1,
+                target_version=int(target["version"]),
+            )
+            worker.join(timeout=10)
+            assert not worker.is_alive()
+        finally:
+            migration_conn.close()
+
+        assert result["response"].status_code == 200
+        assert observed_pins == [int(target["version_id"])]
+
+    def test_deployment_flow_patch_serializes_before_delete(
+        self, client, test_db, monkeypatch
+    ):
+        from runtime.api.fixtures.pg_testdb import connect_test_database
+        from yoke_core.api.routes import items_write
+        from yoke_core.domain.flow_crud import cmd_delete
+
+        conn = connect_test_db(test_db["db_path"])
+        conn.execute(
+            "INSERT INTO deployment_flows "
+            "SELECT 'patch-delete-flow', project_id, 'PatchDelete', "
+            "description, stages, "
+            "on_failure, created_at, target_env, done_description, status "
+            "FROM deployment_flows WHERE id='test-approval-flow'"
+        )
+        conn.commit()
+        delete_conn = connect_test_database(str(conn.info.dbname))
+        conn.close()
+        patch_ready = threading.Event()
+        release_patch = threading.Event()
+        delete_started = threading.Event()
+        delete_done = threading.Event()
+        outcome = {}
+        original_prepare = items_write.prepare_update
+
+        def pause_before_write(*args, **kwargs):
+            if kwargs.get("field_name") == "deployment_flow":
+                patch_ready.set()
+                assert release_patch.wait(timeout=10)
+            return original_prepare(*args, **kwargs)
+
+        def patch_item():
+            outcome["response"] = client.patch(
+                "/v1/items/1",
+                json={"deployment_flow": "patch-delete-flow"},
+            )
+
+        def delete_flow():
+            delete_started.set()
+            try:
+                outcome["delete"] = cmd_delete(delete_conn, "patch-delete-flow")
+            except Exception as exc:
+                outcome["delete_error"] = exc
+            finally:
+                delete_done.set()
+
+        monkeypatch.setattr(items_write, "prepare_update", pause_before_write)
+        patch_worker = threading.Thread(target=patch_item)
+        delete_worker = threading.Thread(target=delete_flow)
+        try:
+            patch_worker.start()
+            assert patch_ready.wait(timeout=10)
+            delete_worker.start()
+            assert delete_started.wait(timeout=10)
+            assert not delete_done.wait(timeout=0.2)
+            release_patch.set()
+            patch_worker.join(timeout=10)
+            delete_worker.join(timeout=10)
+            assert not patch_worker.is_alive()
+            assert not delete_worker.is_alive()
+        finally:
+            release_patch.set()
+            delete_conn.close()
+
+        assert outcome["response"].status_code == 200
+        assert isinstance(outcome["delete_error"], ValueError)
+        assert "still reference" in str(outcome["delete_error"])
+        conn = connect_test_db(test_db["db_path"])
+        row = conn.execute("SELECT deployment_flow FROM items WHERE id=1").fetchone()
+        flow = conn.execute(
+            "SELECT id FROM deployment_flows WHERE id='patch-delete-flow'"
+        ).fetchone()
+        conn.close()
+        assert row[0] == "patch-delete-flow"
+        assert flow is not None
+
+    def test_update_deployed_to_handles_missing_project_capabilities_table(
+        self, test_db
+    ):
         conn = connect_test_db(test_db["db_path"])
         conn.execute("DROP TABLE project_capabilities")
         conn.commit()

@@ -30,6 +30,9 @@ def test_overview_enrichment_keeps_owner_and_live_claim_distinct(monkeypatch):
     assert rows[0]["stage_label"] == "reviewing implementation"
     assert rows[0]["claimed_by"]["actor_label"] == "Codex"
     assert rows[0]["claimed_by"]["session_id"] == "session-z"
+    assert rows[0]["worktrees"][0]["branch"] == "codex/footer"
+    assert rows[0]["worktrees"][0]["lane_role"] == "implementation"
+    assert rows[0]["worktrees"][0]["state"] == "active"
 
 
 def test_detail_read_assembles_real_workflow_lanes_and_proof(monkeypatch):

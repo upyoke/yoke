@@ -63,7 +63,7 @@ class TestShepherdGate:
         """Gate passes when the modern shepherd verdict is present."""
         conn = _open(tmp_db)
         try:
-            insert_item(conn, id=501, title="Modern epic", type="epic",
+            insert_item(conn, id=501, title="Modern epic", workflow_id="epic",
                         status="planned", spec="body")
             _insert_verdict(conn, "YOK-501", "planning_to_plan_drafted", "READY")
             result = shepherd_gate.check_gate(501, conn=conn)
@@ -78,7 +78,7 @@ class TestShepherdGate:
         """CAVEATS on the modern verdict is still accepted."""
         conn = _open(tmp_db)
         try:
-            insert_item(conn, id=502, title="Epic with caveats", type="epic",
+            insert_item(conn, id=502, title="Epic with caveats", workflow_id="epic",
                         status="planned", spec="body")
             _insert_verdict(conn, "YOK-502", "planning_to_plan_drafted", "CAVEATS")
             result = shepherd_gate.check_gate(502, conn=conn)
@@ -92,7 +92,7 @@ class TestShepherdGate:
         """Legacy pre-2026-04-07 verdict still satisfies the gate."""
         conn = _open(tmp_db)
         try:
-            insert_item(conn, id=503, title="Historical epic", type="epic",
+            insert_item(conn, id=503, title="Historical epic", workflow_id="epic",
                         status="done", spec="body")
             _insert_verdict(conn, "YOK-503", "planned_to_ready", "READY",
                             created_at="2026-04-03T12:00:00Z")
@@ -109,7 +109,7 @@ class TestShepherdGate:
         """Absence of any qualifying verdict blocks the gate."""
         conn = _open(tmp_db)
         try:
-            insert_item(conn, id=504, title="Unsigned epic", type="epic",
+            insert_item(conn, id=504, title="Unsigned epic", workflow_id="epic",
                         status="planned", spec="body")
             result = shepherd_gate.check_gate(504, conn=conn)
         finally:
@@ -124,7 +124,7 @@ class TestShepherdGate:
         """REJECTED or other non-accepted verdicts do not satisfy the gate."""
         conn = _open(tmp_db)
         try:
-            insert_item(conn, id=505, title="Rejected plan", type="epic",
+            insert_item(conn, id=505, title="Rejected plan", workflow_id="epic",
                         status="planned", spec="body")
             _insert_verdict(conn, "YOK-505", "planning_to_plan_drafted", "REJECTED")
             result = shepherd_gate.check_gate(505, conn=conn)
@@ -137,7 +137,7 @@ class TestShepherdGate:
         """When both verdicts exist, the modern one is the reported transition."""
         conn = _open(tmp_db)
         try:
-            insert_item(conn, id=506, title="Re-shepherded epic", type="epic",
+            insert_item(conn, id=506, title="Re-shepherded epic", workflow_id="epic",
                         status="planned", spec="body")
             _insert_verdict(conn, "YOK-506", "planned_to_ready", "READY",
                             created_at="2026-04-03T12:00:00Z")
@@ -155,7 +155,7 @@ class TestShepherdGate:
         """Multiple modern verdicts — the newest (highest id) is returned."""
         conn = _open(tmp_db)
         try:
-            insert_item(conn, id=507, title="Re-verdict epic", type="epic",
+            insert_item(conn, id=507, title="Re-verdict epic", workflow_id="epic",
                         status="planned", spec="body")
             _insert_verdict(conn, "YOK-507", "planning_to_plan_drafted", "CAVEATS",
                             created_at="2026-04-10T12:00:00Z")

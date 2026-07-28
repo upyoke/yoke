@@ -24,6 +24,7 @@ from yoke_core.domain.decision_request_contract import (
     ITEM_BLOCK_STATE_CHANGED,
 )
 from yoke_core.domain.inbox_notifications import (
+    addressed_actor_ids_for_registered_event,
     fan_out_registered_event,
     mark_all_notifications_read,
     mark_notification_read,
@@ -55,8 +56,12 @@ def _transition_request(conn):
         ],
         named_actor_ids=[3],
         subject_context={
+            "item_id": 1907,
             "item_ref": "YOK-1907",
+            "from_stage": "reviewing-implementation",
             "transition": "reviewing-implementation",
+            "workflow_id": "issue",
+            "workflow_version_id": 1,
             "title": "Fold GitHub identity into app shell",
         },
         created_at="2026-07-26T12:00:00Z",
@@ -74,6 +79,19 @@ def test_create_is_open_subject_idempotent_and_audited(conn):
     assert conn.execute("SELECT COUNT(*) FROM decision_requests").fetchone()[0] == 1
     events = conn.execute("SELECT event_name FROM events ORDER BY id").fetchall()
     assert [row[0] for row in events] == ["DecisionRequestCreated"]
+
+
+@pytest.mark.parametrize("subject_key", ("1907", "1907:", ":done", "x:done:a"))
+def test_lifecycle_request_rejects_malformed_subject_keys(conn, subject_key):
+    with pytest.raises(ValueError, match="<item_id>:<stage_id>"):
+        create_decision_request(
+            conn,
+            kind="lifecycle_transition_approval",
+            subject_type="item_transition",
+            subject_key=subject_key,
+            project_id=10,
+            role_authorities=[RoleAuthority("project", 10, "owner")],
+        )
 
 
 def test_live_role_union_named_priority_and_authorized_resolution(conn):
@@ -111,6 +129,22 @@ def test_live_role_union_named_priority_and_authorized_resolution(conn):
     assert [
         row[0] for row in conn.execute("SELECT event_name FROM events ORDER BY id")
     ] == ["DecisionRequestCreated", "DecisionRequestResolved"]
+
+
+def test_request_lifecycle_addressing_resolves_live_authority_union(conn):
+    request, _ = _transition_request(conn)
+    created_event_id = conn.execute(
+        "SELECT event_id FROM events WHERE event_name = 'DecisionRequestCreated'"
+    ).fetchone()[0]
+    assert addressed_actor_ids_for_registered_event(
+        conn, event_id=created_event_id,
+    ) == (2, 3, 5)
+
+    conn.execute("INSERT INTO actor_project_roles VALUES (4, 10, 2, 'later')")
+    assert addressed_actor_ids_for_registered_event(
+        conn, event_id=created_event_id,
+    ) == (2, 3, 4, 5)
+    assert request["named_actor_ids"] == [3]
 
 
 def test_unauthorized_resolution_refuses_without_state_change(conn):
@@ -154,11 +188,18 @@ def test_strategy_review_is_nonblocking_and_changes_need_a_note(conn):
 
 
 def test_withdrawal_is_explicit_and_audited(conn):
+    conn.execute(
+        "INSERT INTO items "
+        "(id, project_id, title, status, workflow_id, workflow_version_id) "
+        "VALUES (1907, 10, 'Item', 'reviewing-implementation', 'issue', 1)"
+    )
     request, _ = _transition_request(conn)
+    conn.execute("UPDATE items SET status = 'cancelled' WHERE id = 1907")
     withdrawn = withdraw_decision_request(
         conn,
         request["id"],
         reason="item cancelled",
+        actor_id=2,
         withdrawn_at="2026-07-26T13:00:00Z",
     )
     assert withdrawn["status"] == "withdrawn"
@@ -190,7 +231,6 @@ def test_notification_read_state_is_actor_scoped(conn):
     assert mark_all_notifications_read(conn, 1, "later") == 1
     conn.commit()
     assert notification_rows(conn, 1) == []
-
 
 def test_bulk_notification_read_preserves_hidden_project_rows(conn):
     conn.execute(
@@ -285,7 +325,6 @@ def test_registered_event_fanout_derives_exact_v1_recipients(conn):
     assert notification_rows(conn, 4)[0]["notification_kind"] == (
         "item_block_state_changed"
     )
-
 
 def test_item_block_state_is_addressed_to_accountable_owner(conn):
     item = {

@@ -18,6 +18,7 @@ operator-readable Atlas of registered surfaces.
 yoke qa requirement add \
  --item YOK-N --qa-kind implementation_review --qa-phase verification \
  --blocking-mode blocking --requirement-source explicit \
+ --workflow-transition reviewed-implementation \
  --success-policy '{"type":"deterministic","criteria":"verdict_pass"}'
 
 # Add multiple item-bound requirements
@@ -25,6 +26,19 @@ yoke qa requirement add-batch --item YOK-N --rows-file qa-requirements.json
 
 # Materialize project-default and item-attached plan cases
 yoke qa plan materialize --item YOK-N --transition reviewing-implementation
+
+# Execute the materialized cases in immutable plan/case/baseline order
+yoke qa plan run \
+ --item YOK-N --transition reviewing-implementation \
+ --base-url https://preview.example
+
+# Execute one materialized case
+yoke qa case run --requirement-id 1
+
+# Waive one requirement without claiming it passed
+yoke qa requirement waive \
+ --requirement-id 1 --rationale "Known environment limitation" \
+ --source operator --force
 
 # List requirements for an item, epic, or deployment run
 yoke qa requirement list --item YOK-N
@@ -54,25 +68,48 @@ yoke qa artifact add \
  --content-type image/png \
  --artifact-handle '{"backend":"local","path":"/tmp/screenshot.png"}' \
  --metadata '{"width":1920,"height":1080}'
+
+# Resolve one artifact through the transport-safe evidence read surface
+yoke qa artifact read --requirement-id 1 --artifact-id 10 --json
 ```
+
+Every item-attached requirement must name a stage in the item's pinned
+workflow through `--workflow-transition`. The stage must carry, or precede,
+a `qa_verification` gate. Every `add-batch` row therefore includes
+`"workflow_transition_id":"<stage>"`; the command-level item flag does not
+default that field. Deployment-run-attached requirements are the one exception:
+their operator-debug creation path may omit a workflow transition because the
+run owns its delivery context.
 
 | Command | Args | Description |
 |---|---|---|
-| `yoke qa requirement add` | `--item PREFIX-N --qa-kind K --qa-phase P [opts]` | Insert one item-attached requirement |
-| `yoke qa requirement add-batch` | `--item PREFIX-N (--rows-file PATH \| --stdin)` | Insert item-attached requirements atomically |
+| `yoke qa requirement add` | `--item PREFIX-N --qa-kind K --qa-phase P --workflow-transition T [opts]` | Insert one transition-bound item requirement |
+| `yoke qa requirement add-batch` | `--item PREFIX-N (--rows-file PATH \| --stdin)` | Insert item requirements atomically; every row requires `workflow_transition_id` |
 | `yoke qa plan materialize` | `--item PREFIX-N --transition T` | Materialize project-default and item-attached plan cases |
+| `yoke qa plan run` | `--item PREFIX-N --transition T [executor opts]` | Begin or resume one server-authorized roster and durable cursor, then execute its cases locally |
+| `yoke qa case run` | `--requirement-id N [executor opts]` | Authorize and execute one immutable case snapshot locally |
 | `yoke qa requirement list` | `[--item PREFIX-N \| --epic-id N \| --deployment-run-id ID]` | List requirements |
 | `yoke qa requirement get` | `--requirement-id N` | Get one requirement |
 | `yoke qa requirement update` | `--requirement-id N --field FIELD (--value VALUE \| --null)` | Update one mutable field |
+| `yoke qa requirement waive` | `--requirement-id N --rationale TEXT` | Authorize progress without recording a passing verdict |
 | `yoke qa run add` | `--requirement-id N --executor-type T [--qa-kind K] [--verdict V] [opts]` | Insert a started or completed run |
 | `yoke qa run complete` | `--requirement-id N --run-id N [--verdict V] [--execution-status S] [opts]` | Complete a previously recorded run |
 | `yoke qa run record-verdict` | `--requirement-id N --executor-type T --verdict V [opts]` | Record a one-shot verdict |
 | `yoke qa run list` | `[--requirement-id N]` | List runs |
 | `yoke qa artifact presign` | `--requirement-id N --run-id N --filename NAME [--content-type CT]` | Mint a durable upload target |
 | `yoke qa artifact add` | `--requirement-id N --run-id N --artifact-type T --artifact-handle JSON [opts]` | Insert artifact evidence |
+| `yoke qa artifact read` | `--requirement-id N --artifact-id N [--json]` | Resolve durable, local, or explicitly stranded evidence without exposing secrets |
 
-Exit codes follow the Yoke CLI envelope: 0 = command dispatched successfully,
-1 = dispatch/not-found failure, 2 = usage error.
+Dispatcher commands use 0 for success, 1 for a dispatch/not-found failure,
+and 2 for usage errors. The client-local case runners use 0 for pass, 1 for
+failed or review-needed evidence, 2 for execution/usage errors, and 3 when a
+leased executor is waiting and the same ordered invocation should be retried.
+Both runners require an ambient session and the active item claim. The plan
+runner obtains authorization before any checkout, subprocess, Browser, or host
+side effect, pins the complete roster and digest server-side, and advances one
+canonical result at a time. Machine cases reuse one serial lease until the plan
+completes or aborts; retrying a waiting invocation resumes from the stored
+cursor.
 
 ## Missing Public Adapters
 
@@ -82,9 +119,7 @@ registered `yoke qa ...` adapter is present in this branch:
 | Missing adapter | Disposition |
 |---|---|
 | QA init | Schema setup belongs to DB initialization/migrations, not a public QA adapter |
-| Requirement waiver | Do not teach a command recipe until a waiver adapter is registered |
-| Single-run get | Use `yoke qa run list --requirement-id N` for public reads, or add a wrapper if single-run fetch becomes product surface |
-| Artifact list | Artifact reads need a registered wrapper before docs should teach them |
+| Artifact list | Evidence is discovered through requirement/plan reads; `yoke qa artifact read` resolves one selected artifact |
 
 Public requirement creation is item-scoped. Epic-task and deployment-run
 requirements are materialized by their owning lifecycle/deployment flows; the
