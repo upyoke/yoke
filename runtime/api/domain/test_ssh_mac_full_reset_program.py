@@ -10,6 +10,10 @@ import subprocess
 
 from runtime.api.domain.ssh_mac_full_reset_test_support import zsh_binary
 from yoke_cli.config import path_doctor
+from yoke_harness.ssh_mac_full_reset_contract import (
+    RESET_FAILURE_PREFIX,
+    RESET_PHASES,
+)
 from yoke_core.domain.ssh_mac_full_reset_contract import (
     EVIDENCE_SOURCE_PATH,
     RESET_RELATIVE_DIRECTORIES,
@@ -22,13 +26,33 @@ from yoke_core.domain.ssh_mac_full_reset_script import FULL_RESET_SCRIPT
 
 
 def _function_program() -> str:
-    functions, separator, _main = FULL_RESET_SCRIPT.partition('\n[[ "$#" -eq 1 ]]\n')
+    functions, separator, _main = FULL_RESET_SCRIPT.partition(
+        '\nreset_step="$reset_phase_validate_home"\n'
+    )
     assert separator
     return functions
 
 
 def _assignment(name: str, value: str) -> str:
     return f"{name}={shlex.quote(value)}"
+
+
+def test_zsh_program_closes_home_validation_failure_to_a_phase_marker() -> None:
+    binary = zsh_binary()
+    if binary is None:
+        pytest.skip("zsh is required to execute the macOS reset program")
+
+    result = subprocess.run(
+        [binary, "-c", FULL_RESET_SCRIPT, "yoke-reset", "/tmp/not-a-test-home"],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert result.stdout.strip() == (
+        RESET_FAILURE_PREFIX + RESET_PHASES["validate_home"]
+    )
 
 
 def test_zsh_program_opaquely_moves_evidence_and_restores_token_bytes(
