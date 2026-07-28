@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import signal
 import subprocess
 import sys
 from typing import List
@@ -36,16 +37,26 @@ def qa_case_run(args: List[str]) -> int:
 
 
 def qa_plan_run(args: List[str]) -> int:
-    completed = subprocess.run(
+    process = subprocess.Popen(
         [
             sys.executable,
             "-m",
             "yoke_core.domain.qa_plan_execution_cli",
             *args,
         ],
-        check=False,
+        start_new_session=True,
     )
-    return completed.returncode
+    try:
+        return process.wait()
+    except KeyboardInterrupt:
+        if process.poll() is None:
+            process.send_signal(signal.SIGINT)
+        previous_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
+        try:
+            process.wait()
+        finally:
+            signal.signal(signal.SIGINT, previous_handler)
+        return 128 + signal.SIGINT
 
 
 TOOL_COMMANDS = {
