@@ -110,3 +110,39 @@ def test_advance_failure_aborts_and_never_reports_the_case_complete() -> None:
         "qa.plan_execution.advance",
         "qa.plan_execution.abort",
     ]
+
+
+def test_interrupt_aborts_before_propagating_to_the_operator() -> None:
+    calls: list[str] = []
+
+    def dispatch(**kwargs):
+        function_id = kwargs["function_id"]
+        calls.append(function_id)
+        if function_id == "qa.plan_execution.begin":
+            return _begin_result()
+        return {}
+
+    with (
+        mock.patch.object(
+            qa_plan_execution,
+            "_call_plan_function",
+            side_effect=dispatch,
+        ),
+        mock.patch.object(
+            qa_case_execution,
+            "execute_case_context",
+            side_effect=KeyboardInterrupt,
+        ),
+        pytest.raises(KeyboardInterrupt),
+    ):
+        qa_plan_execution.execute_plan(
+            item_ref=TEST_ITEM_REF,
+            transition_id="implemented",
+            actor=ACTOR,
+        )
+
+    assert calls == [
+        "qa.plan_execution.begin",
+        "qa.plan_execution.heartbeat",
+        "qa.plan_execution.abort",
+    ]
