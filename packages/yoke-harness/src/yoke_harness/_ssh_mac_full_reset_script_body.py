@@ -114,6 +114,12 @@ cleanup_scratch() {
   return "$failed"
 }
 
+run_reset_step() {
+  reset_step="$1"
+  shift
+  "$@" || exit 1
+}
+
 finish() {
   finish_rc=$?
   failure_step="$reset_step"
@@ -246,7 +252,7 @@ uninstall_homebrew_uv() {
 verify_shell_resolution() {
   local flag
   for flag in -lic -c; do
-    "$shell_path" "$flag" '
+    PATH="$clean_shell_path" "$shell_path" "$flag" '
       tool_bin_dir="$1"
       shift
       for tool in "$@"; do
@@ -295,21 +301,14 @@ evidence_container=""
 trap finish EXIT
 trap 'exit 1' HUP INT TERM
 
-reset_step="$reset_phase_preserve_tokens"
-preserve_tokens
-reset_step="$reset_phase_remove_registered_state"
-remove_registered_state
-reset_step="$reset_phase_uninstall_homebrew_uv"
-uninstall_homebrew_uv
-reset_step="$reset_phase_clean_startup_files"
-clean_startup_files
-reset_step="$reset_phase_verify_shell_resolution"
-verify_shell_resolution
-reset_step="$reset_phase_restore_tokens"
-restore_tokens
+run_reset_step "$reset_phase_preserve_tokens" preserve_tokens
+run_reset_step "$reset_phase_remove_registered_state" remove_registered_state
+run_reset_step "$reset_phase_uninstall_homebrew_uv" uninstall_homebrew_uv
+run_reset_step "$reset_phase_clean_startup_files" clean_startup_files
+run_reset_step "$reset_phase_verify_shell_resolution" verify_shell_resolution
+run_reset_step "$reset_phase_restore_tokens" restore_tokens
 tokens_restored=1
-reset_step="$reset_phase_cleanup_scratch"
-cleanup_scratch
+run_reset_step "$reset_phase_cleanup_scratch" cleanup_scratch
 
 stage_outcome="ABSENT"
 prod_outcome="ABSENT"
