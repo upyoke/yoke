@@ -46,9 +46,15 @@ execute both independently through the Production control-plane admin
 environment. Each flow sends a unique `yoke_dispatch_id` and disables
 head-SHA reuse, so every run receives its own GitHub Actions receipt.
 
-Do not make Stage finish before starting Production: the two trains are
-independent. A run that must not execute is marked `cancelled`; deployment
-history is never deleted or rewritten.
+Stage and Production are independent trains, so ordinary releases do not
+serialize them without a declared verification gate. When the release contract
+requires Stage or physical QA to gate Production, finish that evidence before
+creating the Production run. Bind both runs to the same full source commit;
+the release bridge then resolves the existing immutable tag and artifacts for
+that commit instead of creating a different product identity. This ordering is
+a release-policy choice, not evidence that the targets share state. A run that
+must not execute is marked `cancelled`; deployment history is never deleted or
+rewritten.
 
 ## Verification
 
