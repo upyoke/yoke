@@ -21,7 +21,9 @@ SubjectStateCheck = Callable[
     tuple[bool, str],
 ]
 
-_MACHINE_ENDED_STATES = frozenset({"expired", "cancelled", "canceled"})
+_MACHINE_ENDED_STATES = frozenset(
+    {"expired", "withdrawn", "cancelled", "canceled"}
+)
 _MACHINE_END_TIMESTAMPS = (
     "ended_at",
     "expired_at",

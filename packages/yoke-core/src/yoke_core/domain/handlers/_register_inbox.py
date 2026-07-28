@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from yoke_core.domain.handlers import inbox_decisions as _inbox
+from yoke_core.domain.handlers import inbox_decision_models as _models
+from yoke_core.domain import machine_approval_requests as _machine
 
 
 def _register(
@@ -15,6 +17,7 @@ def _register(
     side_effects,
     events,
     guardrails,
+    owner_module="yoke_core.domain.handlers.inbox_decisions",
 ) -> None:
     registry.register(
         function_id,
@@ -22,7 +25,7 @@ def _register(
         request_model,
         response_model,
         stability="stable",
-        owner_module="yoke_core.domain.handlers.inbox_decisions",
+        owner_module=owner_module,
         target_kinds=["global"],
         side_effects=side_effects,
         emitted_event_names=["YokeFunctionCalled", *events],
@@ -43,6 +46,32 @@ def register(registry) -> None:
         side_effects=[],
         events=[],
         guardrails=["actor_required", "authority_union"],
+    )
+    _register(
+        registry,
+        "machine_approval.lifecycle.apply",
+        _machine.apply_machine_approval_lifecycle_request,
+        _models.MachineApprovalLifecycleRequest,
+        _models.MachineApprovalLifecycleResponse,
+        side_effects=[
+            "decision_requests_insert",
+            "decision_requests_resolve",
+            "decision_requests_withdraw",
+            "addressed_event_deliveries_insert",
+        ],
+        events=[
+            "DecisionRequestCreated",
+            "DecisionRequestResolved",
+            "DecisionRequestWithdrawn",
+        ],
+        guardrails=[
+            "actor_required",
+            "org_scope_exact",
+            "tenant_identity_org",
+            "closed_lifecycle_state",
+            "terminal_replay_idempotent",
+        ],
+        owner_module="yoke_core.domain.machine_approval_requests",
     )
     _register(
         registry,

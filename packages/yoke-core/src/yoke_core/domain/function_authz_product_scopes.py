@@ -19,6 +19,7 @@ PRODUCT_AUTHZ_BY_ID = {
     "items.overview.list": AuthzSpec(ACTOR_SESSION, None),
     "items.detail.get": AuthzSpec(ACTOR_SESSION, None),
     "inbox.list": AuthzSpec(ACTOR_SESSION, None),
+    "machine_approval.lifecycle.apply": AuthzSpec(ORG, PERM_ORG_ADMIN),
     "decision_requests.create": AuthzSpec(ACTOR_SESSION, None),
     "decision_requests.resolve": AuthzSpec(ACTOR_SESSION, None),
     "decision_requests.withdraw": AuthzSpec(ACTOR_SESSION, None),

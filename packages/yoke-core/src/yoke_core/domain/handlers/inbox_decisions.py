@@ -21,6 +21,7 @@ from yoke_core.domain.handlers.inbox_decision_models import (
     NotificationReadResponse,
     NotificationsReadAllRequest,
 )
+from yoke_core.domain.decision_request_contract import MACHINE_APPROVAL
 
 
 def _error(
@@ -36,8 +37,7 @@ def _error(
 
 
 def _require_global(
-    request: FunctionCallRequest,
-    function_id: str,
+    request: FunctionCallRequest, function_id: str,
 ) -> Optional[HandlerOutcome]:
     if request.target.kind != "global":
         return _error(
@@ -48,10 +48,7 @@ def _require_global(
     return None
 
 
-def _actor_id(
-    request: FunctionCallRequest,
-    function_id: str,
-) -> int | HandlerOutcome:
+def _actor_id(request: FunctionCallRequest, function_id: str) -> int | HandlerOutcome:
     raw = (request.actor.actor_id or "").strip()
     if not raw.isdigit():
         return _error("actor_required", f"{function_id} requires a bound numeric actor")
@@ -87,6 +84,7 @@ def handle_inbox_list(request: FunctionCallRequest) -> HandlerOutcome:
             actor_id,
             project_ids=project_ids,
         )
+        decisions = [row for row in decisions if row["kind"] != MACHINE_APPROVAL]
         notifications = notification_rows(
             conn,
             actor_id,
