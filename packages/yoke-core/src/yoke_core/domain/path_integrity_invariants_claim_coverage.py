@@ -14,15 +14,16 @@ claim-required gate landed.
 
 from __future__ import annotations
 
+import json
 from typing import Any, List, Optional, Tuple
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.schema_common import _table_exists
-from yoke_core.domain.workflow_runtime import (
-    ENGINE_TERMINAL_STAGE_IDS,
-    workflow_runtime_from_row,
+from yoke_core.domain.workflow_effective_policies import (
+    resolve_effective_workflow_policies,
 )
+from yoke_core.domain.workflow_runtime import ENGINE_TERMINAL_STAGE_IDS, workflow_runtime_from_row
 
 
 INVARIANT_PATH_CLAIM_COVERAGE = "path_claim_coverage"
@@ -53,7 +54,8 @@ def check_path_claim_coverage(conn: Any, project_id: int | str) -> List[FailureR
     rows = conn.execute(
         f"""
         SELECT i.id, i.status, i.workflow_id, i.workflow_version_id,
-               v.version, v.definition_json, v.definition_digest
+               v.version, v.definition_json, v.definition_digest,
+               i.workflow_posture
           FROM items i
           JOIN workflow_versions v ON v.id = i.workflow_version_id
          WHERE i.project_id = {p}
@@ -72,28 +74,22 @@ def check_path_claim_coverage(conn: Any, project_id: int | str) -> List[FailureR
                 "definition_digest": row[6],
             }
         )
+        effective = resolve_effective_workflow_policies(
+            runtime,
+            json.loads(str(row[7] or "{}")),
+        )
         if (
             str(row[1]) in runtime.terminal_stage_ids
             or str(row[1]) in ENGINE_TERMINAL_STAGE_IDS
-            or runtime.policies["path_claims"] == "optional"
+            or not effective.requires_path_claims
         ):
             continue
-        if runtime.policies["path_claims"] == "required_per_task":
-            from yoke_core.domain.path_claim_task_coverage import (
-                evaluate_task_coverage,
-            )
+        from yoke_core.domain.path_claim_required_gate import evaluate
 
-            coverage = evaluate_task_coverage(conn, int(row[0]))
-            if coverage.verdict == "pass" or coverage.no_tasks:
-                continue
-            reason = coverage.reason
-        else:
-            from yoke_core.domain.path_claim_required_gate import evaluate
-
-            gate = evaluate(conn, int(row[0]))
-            if gate["verdict"] == "pass":
-                continue
-            reason = str(gate["reason"])
+        gate = evaluate(conn, int(row[0]))
+        if gate["verdict"] == "pass":
+            continue
+        reason = str(gate["reason"])
         failures.append(
             (
                 int(row[0]),

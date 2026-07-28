@@ -4,8 +4,11 @@ from __future__ import annotations
 
 from typing import Any, Dict, Iterable, Optional, Sequence
 
-WORKFLOW_DEFINITION_SCHEMA_VERSION = 1
-BUILTIN_WORKFLOW_PREFERRED_VERSION = 2
+WORKFLOW_DEFINITION_SCHEMA_VERSION = 2
+BUILTIN_WORKFLOW_PREFERRED_VERSION = 3
+WORKFLOW_FILE_BUDGET_OPTIONAL = "optional"
+WORKFLOW_FILE_BUDGET_REQUIRED = "required"
+WORKFLOW_FILE_BUDGET_REQUIRED_PER_TASK = "required_per_task"
 WORKFLOW_PATH_CLAIMS_OPTIONAL = "optional"
 WORKFLOW_PATH_CLAIMS_REQUIRED = "required"
 WORKFLOW_PATH_CLAIMS_REQUIRED_PER_TASK = "required_per_task"
@@ -82,6 +85,7 @@ def definition_fixture(
     executor_bindings: Sequence[Dict[str, str]],
     policies: Dict[str, Any],
     approval_defaults: Optional[Dict[str, Any]] = None,
+    schema_version: int = WORKFLOW_DEFINITION_SCHEMA_VERSION,
 ) -> Dict[str, Any]:
     """Build one immutable built-in workflow-version fixture."""
     stage_ids = [stage["id"] for stage in stages]
@@ -97,7 +101,7 @@ def definition_fixture(
         },
         "version": version,
         "definition": {
-            "schema_version": WORKFLOW_DEFINITION_SCHEMA_VERSION,
+            "schema_version": schema_version,
             "stages": list(stages),
             "terminal_stage_ids": [stage_ids[-1]],
             "transitions": [
@@ -117,6 +121,9 @@ __all__ = [
     "IMPLEMENTATION_WORKFLOW_EXECUTOR_IDS",
     "REGISTERED_WORKFLOW_EXECUTOR_IDS",
     "WORKFLOW_DEFINITION_SCHEMA_VERSION",
+    "WORKFLOW_FILE_BUDGET_OPTIONAL",
+    "WORKFLOW_FILE_BUDGET_REQUIRED",
+    "WORKFLOW_FILE_BUDGET_REQUIRED_PER_TASK",
     "WORKFLOW_PATH_CLAIMS_OPTIONAL",
     "WORKFLOW_PATH_CLAIMS_REQUIRED",
     "WORKFLOW_PATH_CLAIMS_REQUIRED_PER_TASK",

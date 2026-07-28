@@ -51,7 +51,7 @@ def test_conflict_survey_preserves_dot_paths_and_finds_frontier_scope(test_db):
     insert_item(
         test_db,
         id=2102,
-        workflow_id="issue",
+        workflow_id="dash",
         title="Registered work",
         spec=(
             "## File Budget\n\n"

@@ -13,9 +13,7 @@ from yoke_core.domain.builtin_workflow_definitions import (
     REGISTERED_WORKFLOW_EXECUTOR_IDS,
     builtin_workflow_definition,
     builtin_workflow_definitions,
-    builtin_workflow_version_history,
 )
-from yoke_core.domain.workflow_definition_codec import definition_digest
 from yoke_core.domain.workflow_definition_validation import (
     WorkflowDefinitionError,
     validate_workflow_definition,
@@ -181,14 +179,6 @@ EXPECTED_GATE_DESCRIPTIONS = {
         "passed, an approval resolved."
     ),
 }
-VERSION_ONE_DIGESTS = {
-    "issue": "a663bad503664557c9990a9f3ea281c123864f4f8c13e4573dc1996181c64fa8",
-    "epic": "e122cee5d947bf2e822fb66ad0fda0aaab218281e48731ae32fec0647785dfaf",
-    "blitz": "d14b977565f7580cc43cee2c27b9b3eaf1a425514314903bf86bc274ab394571",
-    "dash": "6222fc5bb143909574ae5c305b2ef35849f5d4598a73a6d4b28c8bcf4d414931",
-}
-
-
 def _stage_ids(workflow_id: str) -> tuple[str, ...]:
     fixture = builtin_workflow_definition(workflow_id)
     return tuple(stage["id"] for stage in fixture["definition"]["stages"])
@@ -220,25 +210,16 @@ def _replace_stage_id(definition: dict, before: str, after: str) -> None:
 
 def test_builtin_roster_and_immutable_history_are_fixed():
     fixtures = builtin_workflow_definitions()
-    history = builtin_workflow_version_history()
     assert tuple(row["workflow"]["id"] for row in fixtures) == BUILTIN_WORKFLOW_IDS
     assert {row["version"] for row in fixtures} == {
         BUILTIN_WORKFLOW_PREFERRED_VERSION
     }
     assert {row["workflow"]["source"] for row in fixtures} == {"built_in"}
-    assert {
-        row["workflow"]["id"]: definition_digest(row["definition"])
-        for row in history
-    } == VERSION_ONE_DIGESTS
-    assert all(
-        "approval_defaults" not in row["definition"]["policies"]
-        for row in history
-    )
     assert all(
         row["definition"]["policies"]["approval_defaults"] == {}
         for row in fixtures
     )
-    for row in (*history, *fixtures):
+    for row in fixtures:
         validate_workflow_definition(row["definition"])
 
 

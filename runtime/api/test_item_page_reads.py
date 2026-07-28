@@ -56,6 +56,10 @@ def test_detail_read_assembles_real_workflow_lanes_and_proof(monkeypatch):
         "verification": True,
         "file_budget": True,
     }
+    assert item["workflow"]["policies"]["file_budget"] == "optional"
+    assert item["workflow"]["policies"]["path_claims"] == "optional"
+    assert item["workflow"]["effective_policies"]["file_budget"] == "required"
+    assert item["workflow"]["effective_policies"]["path_claims"] == "optional"
     assert item["claim"]["actor_label"] == "Codex"
     assert item["worktrees"][0]["branch"] == "codex/footer"
     assert item["path_claims"] == {"total": 1, "states": {"planned": 1}}

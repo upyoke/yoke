@@ -75,6 +75,42 @@ def test_approval_defaults_are_normalized_and_publish_a_new_version(test_db):
     }
 
 
+def test_file_budget_default_publishes_independently(test_db):
+    published = publish_workflow_policy_defaults(
+        test_db,
+        workflow_id="dash",
+        expected_current_version=BUILTIN_WORKFLOW_PREFERRED_VERSION,
+        file_budget_default=True,
+        published_by_actor_id=2,
+    )
+
+    assert published["version"] == BUILTIN_WORKFLOW_PREFERRED_VERSION + 1
+    assert published["file_budget_default"] is True
+    before = get_workflow_version(
+        test_db,
+        workflow_id="dash",
+        version=BUILTIN_WORKFLOW_PREFERRED_VERSION,
+    )["definition"]["policies"]
+    after = get_workflow_version(
+        test_db,
+        workflow_id="dash",
+        version=BUILTIN_WORKFLOW_PREFERRED_VERSION + 1,
+    )["definition"]["policies"]
+    assert before["file_budget"] == "optional"
+    assert after["file_budget"] == "required"
+    assert after["path_claims"] == "optional"
+
+
+def test_file_budget_default_rejects_non_allowlisted_workflow(test_db):
+    with pytest.raises(WorkflowRegistryError, match="does not expose File Budget"):
+        publish_workflow_policy_defaults(
+            test_db,
+            workflow_id="issue",
+            expected_current_version=BUILTIN_WORKFLOW_PREFERRED_VERSION,
+            file_budget_default=False,
+        )
+
+
 def test_approval_defaults_reject_unknown_targets_and_empty_addresses():
     unknown = deepcopy(_definition())
     unknown["policies"]["approval_defaults"] = {

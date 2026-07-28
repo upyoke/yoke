@@ -17,6 +17,9 @@ from yoke_core.domain.item_worktrees import list_item_worktrees
 from yoke_core.domain.render_body import build_body
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.workflow_behavior import worktree_lane_policy
+from yoke_core.domain.workflow_effective_policies import (
+    resolve_effective_workflow_policies,
+)
 from yoke_core.domain.workflow_runtime import workflow_runtime_from_row
 
 _NARRATIVE_FIELDS = (
@@ -91,6 +94,7 @@ def _workflow_model(row: dict[str, Any]) -> dict[str, Any]:
     runtime = workflow_runtime_from_row(row)
     policy = worktree_lane_policy(runtime)
     item_posture = json.loads(str(row.get("workflow_posture") or "{}"))
+    effective = resolve_effective_workflow_policies(runtime, item_posture)
     stage_id = str(row["status"])
     stage_is_defined = runtime.stage_index(stage_id) is not None
     next_stage_id = runtime.next_stage_id(stage_id)
@@ -110,6 +114,7 @@ def _workflow_model(row: dict[str, Any]) -> dict[str, Any]:
             else None
         ),
         "policies": dict(runtime.policies),
+        "effective_policies": dict(effective.values),
         "item_posture": item_posture,
         "allowed_lane_roles": sorted(policy.allowed_roles),
         "required_lane_roles": sorted(policy.required_roles),

@@ -21,6 +21,9 @@ from yoke_core.domain.workflow_item_migration_compatibility import (
 from yoke_core.domain.workflow_item_binding_lock import (
     lock_item_workflow_bindings,
 )
+from yoke_core.domain.workflow_effective_policies import (
+    resolve_effective_workflow_policies,
+)
 from yoke_core.domain.workflow_runtime import (
     ENGINE_EXCEPTIONAL_STAGE_IDS,
     ENGINE_TERMINAL_STAGE_IDS,
@@ -64,6 +67,8 @@ def _inspect_item_workflow_pin(
         if _table_exists(conn, "item_worktrees")
         else []
     )
+    posture = json.loads(str(item["workflow_posture"] or "{}"))
+    effective = resolve_effective_workflow_policies(runtime, posture)
     return {
         "item_id": int(item_id),
         "workflow_id": runtime.workflow_id,
@@ -71,7 +76,9 @@ def _inspect_item_workflow_pin(
         "workflow_version_id": runtime.workflow_version_id,
         "definition_digest": runtime.definition_digest,
         "status": str(item["status"]),
-        "workflow_posture": json.loads(str(item["workflow_posture"] or "{}")),
+        "workflow_posture": posture,
+        "policies": dict(runtime.policies),
+        "effective_policies": dict(effective.values),
         "worktree_policy": str(runtime.policies["worktrees"]),
         "allowed_lane_roles": sorted(policy.allowed_roles),
         "required_lane_roles": sorted(policy.required_roles),

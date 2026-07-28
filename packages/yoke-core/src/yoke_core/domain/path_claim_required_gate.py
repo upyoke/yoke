@@ -49,11 +49,11 @@ def evaluate(
     consumers can audit which row carried the coverage.
     """
     try:
-        from yoke_core.domain.path_claim_task_bindings import (
-            pinned_task_claim_policy,
+        from yoke_core.domain.workflow_effective_policies import (
+            load_item_effective_workflow_policies,
         )
 
-        task_scoped = pinned_task_claim_policy(conn, item_id)
+        effective = load_item_effective_workflow_policies(conn, item_id)
     except Exception as exc:
         return {
             "verdict": GATE_BLOCK,
@@ -62,6 +62,29 @@ def evaluate(
             ),
             "satisfying_claims": [],
         }
+    if not effective.requires_path_claims:
+        return {
+            "verdict": GATE_PASS,
+            "reason": (
+                f"item YOK-{item_id} effective workflow policy makes "
+                "path claims optional"
+            ),
+            "satisfying_claims": [],
+        }
+    return evaluate_required_coverage(
+        conn,
+        item_id,
+        task_scoped=effective.path_claims == "required_per_task",
+    )
+
+
+def evaluate_required_coverage(
+    conn: Any,
+    item_id: int,
+    *,
+    task_scoped: bool = False,
+) -> Dict[str, object]:
+    """Evaluate concrete claim coverage without applying workflow opt-outs."""
     if task_scoped:
         from yoke_core.domain.path_claim_task_coverage import (
             evaluate_task_coverage,
@@ -291,6 +314,7 @@ __all__ = [
     "GATE_BLOCK",
     "GATE_PASS",
     "evaluate",
+    "evaluate_required_coverage",
     "is_satisfied",
     "items_missing_coverage",
     "main",

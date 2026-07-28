@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from yoke_core.domain.workflow_definition_builders import (
     BUILTIN_WORKFLOW_PREFERRED_VERSION,
+    WORKFLOW_FILE_BUDGET_OPTIONAL,
     WORKFLOW_PATH_CLAIMS_OPTIONAL,
     definition_fixture,
     executor_binding,
@@ -96,6 +97,7 @@ BLITZ_WORKFLOW_DEFINITION = definition_fixture(
     ),
     policies={
         "ownership": "session_item_and_document_claim",
+        "file_budget": WORKFLOW_FILE_BUDGET_OPTIONAL,
         "path_claims": WORKFLOW_PATH_CLAIMS_OPTIONAL,
         "worktrees": "worker_lanes_optional_integration",
         "parallelism": "maximum_safe_slices",
@@ -105,6 +107,7 @@ BLITZ_WORKFLOW_DEFINITION = definition_fixture(
         "delivery": "continuous_slice_actions",
         "item_posture_allowlist": [
             "verification",
+            "file_budget",
             "path_claims",
             "approval",
             "deployment",
@@ -161,6 +164,7 @@ DASH_WORKFLOW_DEFINITION = definition_fixture(
     executor_bindings=(executor_binding("dash", "idea", "done"),),
     policies={
         "ownership": "exclusive_session_work_claim",
+        "file_budget": WORKFLOW_FILE_BUDGET_OPTIONAL,
         "path_claims": WORKFLOW_PATH_CLAIMS_OPTIONAL,
         "worktrees": "single_implementation_lane",
         "parallelism": "none",
@@ -170,6 +174,7 @@ DASH_WORKFLOW_DEFINITION = definition_fixture(
         "delivery": "after_merge_action",
         "item_posture_allowlist": [
             "verification",
+            "file_budget",
             "path_claims",
             "approval_on_done",
             "deployment",

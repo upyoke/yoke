@@ -8,6 +8,9 @@ from typing import Any, Mapping, Optional
 from yoke_core.domain.workflow_definition_builders import (
     ENTRY_SURFACE_IDS,
     WORKFLOW_DEFINITION_SCHEMA_VERSION,
+    WORKFLOW_FILE_BUDGET_OPTIONAL,
+    WORKFLOW_FILE_BUDGET_REQUIRED,
+    WORKFLOW_FILE_BUDGET_REQUIRED_PER_TASK,
     WORKFLOW_PATH_CLAIMS_OPTIONAL,
     WORKFLOW_PATH_CLAIMS_REQUIRED,
     WORKFLOW_PATH_CLAIMS_REQUIRED_PER_TASK,
@@ -50,6 +53,11 @@ _POLICY_VALUES = {
         WORKFLOW_PATH_CLAIMS_REQUIRED_PER_TASK,
         WORKFLOW_PATH_CLAIMS_OPTIONAL,
     }),
+    "file_budget": frozenset({
+        WORKFLOW_FILE_BUDGET_REQUIRED,
+        WORKFLOW_FILE_BUDGET_REQUIRED_PER_TASK,
+        WORKFLOW_FILE_BUDGET_OPTIONAL,
+    }),
     "worktrees": frozenset({
         "single_implementation_lane",
         "worker_and_integration_lanes",
@@ -85,6 +93,7 @@ _ITEM_POSTURE_VALUES = frozenset({
     "approval",
     "approval_on_done",
     "deployment",
+    "file_budget",
     "path_claims",
     "verification",
 })
@@ -217,7 +226,11 @@ def _validate_policies(definition: Mapping[str, Any]) -> None:
         raise WorkflowDefinitionError(
             f"core invariants cannot be workflow policy: {sorted(forbidden)}"
         )
-    required = set(_POLICY_VALUES) | {"item_posture_allowlist"}
+    schema_version = int(definition["schema_version"])
+    policy_values = dict(_POLICY_VALUES)
+    if schema_version == 1:
+        policy_values.pop("file_budget")
+    required = set(policy_values) | {"item_posture_allowlist"}
     allowed = required | {"approval_defaults"}
     missing = required - set(policies)
     extra = set(policies) - allowed
@@ -226,7 +239,7 @@ def _validate_policies(definition: Mapping[str, Any]) -> None:
             f"policies keys mismatch; missing={sorted(missing)} "
             f"unknown={sorted(extra)}"
         )
-    for key, allowed in _POLICY_VALUES.items():
+    for key, allowed in policy_values.items():
         if policies[key] not in allowed:
             raise WorkflowDefinitionError(
                 f"policies.{key} has unknown value {policies[key]!r}"
@@ -290,7 +303,10 @@ def validate_workflow_definition(
     """Raise :class:`WorkflowDefinitionError` unless the definition is valid."""
     value = require_mapping(definition, "definition")
     require_exact_keys(value, _DEFINITION_KEYS, "definition")
-    if value.get("schema_version") != WORKFLOW_DEFINITION_SCHEMA_VERSION:
+    if value.get("schema_version") not in {
+        1,
+        WORKFLOW_DEFINITION_SCHEMA_VERSION,
+    }:
         raise WorkflowDefinitionError(
             "definition.schema_version is unsupported"
         )
