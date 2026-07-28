@@ -68,40 +68,66 @@ QA_ADAPTERS: List[AdapterEntry] = [
     ),
     AdapterEntry(
         "qa.requirement.update",
-        "yoke qa requirement update --requirement-id N --field FIELD --value VALUE",
+        "yoke qa requirement update --requirement-id N --field FIELD "
+        "(--value VALUE | --null) [--session-id S] [--json]",
     ),
     AdapterEntry(
         "qa.requirement.waive",
-        "yoke qa requirement waive --requirement-id N --rationale TEXT",
+        "yoke qa requirement waive --requirement-id N --rationale TEXT "
+        "[--source operator|agent] [--force] [--session-id S] [--json]",
     ),
     AdapterEntry(
-        "qa.run.record_verdict", "python3 -m yoke_core.cli.db_router qa run-add"
+        "qa.run.record_verdict",
+        "yoke qa run record-verdict --requirement-id N "
+        "--executor-type TYPE --verdict VERDICT "
+        "[--raw-result TEXT] [--duration-ms N] [--session-id S] [--json]",
     ),
-    # qa CRUD conversion slice: reads + item-attached creation
-    # + gate-entry summary; db_router forms stay operator-debug fallbacks.
+    # Public QA reads, item-attached creation, and gate-entry summary.
     _read_entry(
         function_id="qa.requirement.list",
-        cli_invocation="python3 -m yoke_core.cli.db_router qa requirement-list",
+        cli_invocation=(
+            "yoke qa requirement list [--item PREFIX-N | --epic-id N | "
+            "--deployment-run-id ID] [--session-id S] [--json]"
+        ),
     ),
     _read_entry(
         function_id="qa.requirement.get",
-        cli_invocation="python3 -m yoke_core.cli.db_router qa requirement-get",
+        cli_invocation=(
+            "yoke qa requirement get --requirement-id N [--session-id S] [--json]"
+        ),
     ),
     AdapterEntry(
-        "qa.requirement.add", "python3 -m yoke_core.cli.db_router qa requirement-add"
+        "qa.requirement.add",
+        "yoke qa requirement add --item PREFIX-N "
+        "(--qa-kind KIND | --method-id METHOD) "
+        "--qa-phase PHASE [--target-env E] [--blocking-mode M] "
+        "[--requirement-source S] [--success-policy JSON-OR-TEXT] "
+        "[--capability-requirements C] [--suite-id ID] "
+        "[--workflow-transition STAGE] [--session-id S] [--json]",
     ),
     AdapterEntry(
         "qa.requirement.add_batch",
-        "python3 -m yoke_core.cli.db_router qa requirement-add-batch",
+        "yoke qa requirement add-batch --item PREFIX-N "
+        "(--rows-file PATH | --stdin) [--session-id S] [--json]",
     ),
     _read_entry(
         function_id="qa.run.list",
-        cli_invocation="python3 -m yoke_core.cli.db_router qa run-list",
+        cli_invocation=(
+            "yoke qa run list [--requirement-id N] [--session-id S] [--json]"
+        ),
     ),
-    _read_entry(function_id="qa.run.get", cli_invocation="yoke qa run get --run-id N"),
+    _read_entry(
+        function_id="qa.run.get",
+        cli_invocation=("yoke qa run get --run-id N [--session-id S] [--json]"),
+    ),
     _read_entry(
         function_id="qa.gate_summary.run",
-        cli_invocation="python3 -m yoke_core.cli.db_router qa gate-summary",
+        cli_invocation=(
+            "yoke qa gate-summary "
+            "(--item PREFIX-N | --epic-id N --task-num K) "
+            "--target {reviewed-implementation,implemented} "
+            "[--session-id S] [--json]"
+        ),
     ),
     # Browser case DB legs consumed by the shared per-requirement runner.
     _read_entry(

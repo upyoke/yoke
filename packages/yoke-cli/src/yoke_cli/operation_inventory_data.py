@@ -40,9 +40,9 @@ from yoke_cli.operation_inventory_strategy_event import (
     PERMANENT_ROWS as STRATEGY_EVENT_PERMANENT_ROWS,
     WRAPPED_ROWS as STRATEGY_EVENT_WRAPPED_ROWS,
 )
+
 WRAPPED_ROWS: Tuple[_Row, ...] = (
     # Baseline wrapped item and claim operations.
-    _w("yoke items get", "items.read"),
     # Idea-intake create over the function-call surface (works on https);
     # replaces the local-only `db_router items add` fallback.
     _w("yoke items create", "items.create"),

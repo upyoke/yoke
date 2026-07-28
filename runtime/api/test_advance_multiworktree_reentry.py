@@ -19,14 +19,13 @@ class TestAdvanceSkillReentry:
     def _read(self) -> str:
         return ADVANCE_SKILL_MD.read_text()
 
-    def test_single_lane_reentry_reads_the_item_worktree(self):
-        """A single implementation lane may use the item's primary worktree."""
+    def test_single_lane_reentry_reads_the_active_item_worktree_lane(self):
+        """A single implementation lane reads the canonical lane model."""
         text = self._read()
-        assert (
-            'if [ "$_worktree_policy" = "single_implementation_lane" ]; then'
-            in text
-        )
-        assert "_wt_branch=$(yoke items get {N} worktree" in text
+        assert 'if [ "$_worktree_policy" = "single_implementation_lane" ]; then' in text
+        assert "_wt_branch=$(yoke item-worktrees get YOK-{N}" in text
+        assert "--lane-role implementation --field branch" in text
+        assert "yoke items get {N} worktree" not in text
 
     def test_multi_lane_contract_error(self):
         """A multi-lane policy must emit CONTRACT ERROR and redirect."""
@@ -93,10 +92,7 @@ class TestLanePolicySurfaces:
     def test_finalize_single_lane_guard(self):
         """The finalize WORKTREE_PATH fallback is single-lane only."""
         text = FINALIZE_MD.read_text()
-        assert (
-            '[ "$_worktree_policy" = "single_implementation_lane" ]'
-            in text
-        )
+        assert '[ "$_worktree_policy" = "single_implementation_lane" ]' in text
         assert "_finalize_workflow_id" not in text
 
     def test_project_e2e_multi_lane_guard(self):

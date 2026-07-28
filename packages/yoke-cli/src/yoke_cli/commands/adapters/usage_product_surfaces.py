@@ -3,6 +3,8 @@
 from yoke_cli.commands.adapters import (
     direct_workflow_usage,
     item_pages,
+    item_worktrees,
+    projects_capabilities_read,
     qa_catalog,
     qa_plan_edit,
     strategy_surfaces,
@@ -21,6 +23,11 @@ USAGE_BY_FUNCTION_ID = {
         workflows_read.WORKFLOWS_POLICY_DEFAULTS_PUBLISH_USAGE
     ),
     "workflows.version.get": workflows_read.WORKFLOWS_VERSION_GET_USAGE,
+    "item_worktrees.get": item_worktrees.ITEM_WORKTREES_GET_USAGE,
+    "item_worktrees.release": item_worktrees.ITEM_WORKTREES_RELEASE_USAGE,
+    "projects.capabilities.list": (
+        projects_capabilities_read.PROJECTS_CAPABILITIES_LIST_USAGE
+    ),
     **direct_workflow_usage.USAGE_BY_FUNCTION_ID,
     **item_pages.USAGE_BY_FUNCTION_ID,
     **qa_catalog.USAGE_BY_FUNCTION_ID,

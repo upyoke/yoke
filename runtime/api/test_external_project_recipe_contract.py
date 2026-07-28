@@ -30,8 +30,14 @@ def _teaching_files() -> list[Path]:
     # contract guards the imperative teaching surfaces (skills, agent prompts,
     # rules, packets), so the reference-doc subtree is excluded from the scan.
     reference_docs = (
-        REPO / "packages" / "yoke-core" / "src" / "yoke_core"
-        / "install_bundle_tree" / ".yoke" / "docs"
+        REPO
+        / "packages"
+        / "yoke-core"
+        / "src"
+        / "yoke_core"
+        / "install_bundle_tree"
+        / ".yoke"
+        / "docs"
     )
     files: list[Path] = []
     for root in roots:
@@ -76,6 +82,16 @@ def test_recipe_repairs_and_registered_surfaces_stay_taught() -> None:
         ("projects", "infrastructure", "list"),
     }
     assert expected <= set(registry.SUBCOMMAND_REGISTRY)
+
+
+def test_installer_session_telemetry_query_matches_runtime_schema(test_db) -> None:
+    runbook = (REPO / "docs" / "installer-session-telemetry.md").read_text(
+        encoding="utf-8"
+    )
+    match = re.search(r'yoke db read "(SELECT hs\.[^"]+)"', runbook)
+    assert match is not None
+    query = match.group(1).replace("<external-project-slug>", "yoke")
+    test_db.execute(query).fetchall()
 
 
 def test_product_schema_does_not_embed_project_delivery_topology() -> None:

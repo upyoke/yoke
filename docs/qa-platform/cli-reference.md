@@ -110,7 +110,6 @@ registered `yoke qa ...` adapter is present in this branch:
 | Missing adapter | Disposition |
 |---|---|
 | QA init | Schema setup belongs to DB initialization/migrations, not a public QA adapter |
-| Single-run get | Use `yoke qa run list --requirement-id N` for public reads, or add a wrapper if single-run fetch becomes product surface |
 | Artifact list | Evidence is discovered through requirement/plan reads; `yoke qa artifact read` resolves one selected artifact |
 
 Public requirement creation is item-scoped. Epic-task and deployment-run

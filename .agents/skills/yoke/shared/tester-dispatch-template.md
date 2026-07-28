@@ -67,14 +67,14 @@ yoke qa case run --requirement-id <qa_requirements.id>
 
 ### 3. Changed files and diff
 
-Read the item's worktree branch via the `items.get.run` function call
-(`payload = {fields: ["worktree"]}`). The response carries
-`result.fields.worktree`. Then collect the changed files and diff
+Read the item's active implementation branch via the `item_worktrees.get`
+function call (`payload = {"lane_role": "implementation"}`). The response
+carries `result.worktree.branch`. Then collect the changed files and diff
 summary via `git` — `git` is a retained-boundary external command
 and stays on the shell surface:
 
 ```bash
-# {_wt_branch} comes from the items.get.run response above.
+# {_wt_branch} comes from the item_worktrees.get response above.
 # Convention: this item-level branch lookup is for a
 # single_implementation_lane policy. For generated tasks, conduct
 # dispatches a Tester per task with the task's own worktree branch

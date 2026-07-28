@@ -142,6 +142,15 @@ The same handler accepts `items.structured_field.section_upsert` (replace a `## 
 
 The handler reads the existing `Progress Log` section, appends a timestamped entry, and upserts at `ordering=200` (the canonical Progress Log convention — see `AGENTS.md` § Progress Log).
 
+### `item_worktrees.*` — active item-owned lane reads and evidence-only recovery
+
+| Function id | claim_required_kind | Handler | Notes |
+|---|---|---|---|
+| `item_worktrees.get` | `None` (read) | `yoke_core.domain.handlers.item_worktrees.handle_get` | Returns one active lane selected by `payload.lane_role`; `result.worktree` is null when no matching lane exists. |
+| `item_worktrees.release` | `"item"` | `yoke_core.domain.handlers.item_worktrees.handle_release` | Evidence-only recovery for an `implemented` single-implementation-lane item. Requires the fixed `evidence-only-recovery` reason and a fresh clean-lane attestation matching the sole active lane. |
+
+The operator adapters are `yoke item-worktrees get PREFIX-N --lane-role implementation --field branch` and `yoke item-worktrees release PREFIX-N --all-active --reason evidence-only-recovery`. Release first verifies that the registered path is on the registered branch and has no modified tracked, untracked, or ignored files; any dirt or unverifiable path fails closed.
+
 ### `workflows.*` — immutable version and item-pin operations
 
 | Function id | claim_required_kind | Handler | Notes |
@@ -149,7 +158,7 @@ The handler reads the existing `Progress Log` section, appends a timestamped ent
 | `workflows.definition.get` | `None` (read) | `yoke_core.domain.handlers.workflows_definition` | Lists selected immutable definitions, version history, gate catalog, and deployment flows. |
 | `workflows.item.get` | `None` (read) | `yoke_core.domain.handlers.workflows_versioning` | Returns the item's exact pin, digest, stage, posture, interpreted lane policy, and active lanes. |
 | `workflows.current.set` | `"operator_override"` | same module | Selects an already-published version for subsequently created items; existing pins do not change. |
-| `workflows.item.migrate` | `"operator_override"` | same module | Explicitly migrates one item when stage mapping, posture, and active lanes are compatible. |
+| `workflows.item.migrate` | `"operator_override"` | same module | Atomically migrates one item when stage/posture, active lanes and claims, approval/QA gates, and delivery bindings remain representable; label-only changes are compatible, while retroactive unsatisfied gates are refused. |
 
 The operator adapters are `yoke workflows item get PREFIX-N`, `yoke workflows current set WORKFLOW VERSION`, and `yoke workflows item migrate PREFIX-N [--version N]`.
 

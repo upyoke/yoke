@@ -117,7 +117,7 @@ If a flow applies, set `_deployment_flow` to its registered id (e.g., `yoke-inte
 Read the active registry definitions before validating or inferring:
 
 ```bash
-_workflow_catalog_json=$(yoke workflows definition get \
+_workflow_registry_json=$(yoke workflows definition get \
  --project "${_project}" --json) || {
  echo "Cannot read the workflow registry."
  exit 1

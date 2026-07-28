@@ -12,9 +12,10 @@ yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evide
 Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->
 
-This guide preserves the Live TUI campaign mechanics for the public installer
-and `yoke onboard`. Use it when starting a new installer campaign, extending the
-scenario catalog, retaining evidence, or importing campaign results into QA.
+This guide preserves the former Live TUI campaign mechanics for the public
+installer and `yoke onboard`. Current campaigns use the registered QA plans,
+Machine methods, and Test Mac operations described in
+[`docs/testing-verification.md`](../testing-verification.md).
 
 ## Evidence Root
 

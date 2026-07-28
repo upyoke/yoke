@@ -140,7 +140,8 @@ The status-change comment and body sync are downstream side effects of the `life
 ```bash
 if [ -z "$WORKTREE_PATH" ] \
  && [ "$_worktree_policy" = "single_implementation_lane" ]; then
- _wt_branch=$(yoke items get {N} worktree 2>/dev/null)
+ _wt_branch=$(yoke item-worktrees get YOK-{N} \
+  --lane-role implementation --field branch 2>/dev/null)
  if [ -n "$_wt_branch" ] && [ "$_wt_branch" != "null" ]; then
  _item_project=$(yoke items get {N} project 2>/dev/null)
  if [ -n "$_item_project" ] && [ "$_item_project" != "null" ] && [ "$_item_project" != "" ]; then

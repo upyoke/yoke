@@ -14,11 +14,15 @@ from yoke_core.domain.workflow_behavior import (
 )
 from yoke_core.domain.workflow_definition_codec import (
     WorkflowRegistryError,
-    decode_definition,
+)
+from yoke_core.domain.workflow_item_migration_compatibility import (
+    item_migration_binding_conflicts,
 )
 from yoke_core.domain.workflow_runtime import (
     ENGINE_EXCEPTIONAL_STAGE_IDS,
+    WorkflowRuntime,
     load_item_workflow_runtime,
+    workflow_runtime_from_row,
 )
 
 
@@ -36,9 +40,11 @@ def _dict_row(cursor: Any) -> Optional[dict[str, Any]]:
     return dict(zip(columns, row))
 
 
-def inspect_item_workflow_pin(conn: Any, item_id: int) -> dict[str, Any]:
-    """Return the exact immutable version and interpreted lane policy."""
-    runtime = load_item_workflow_runtime(conn, int(item_id))
+def _inspect_item_workflow_pin(
+    conn: Any,
+    item_id: int,
+    runtime: WorkflowRuntime,
+) -> dict[str, Any]:
     marker = _placeholder(conn)
     item = _dict_row(
         conn.execute(
@@ -67,6 +73,12 @@ def inspect_item_workflow_pin(conn: Any, item_id: int) -> dict[str, Any]:
         "required_lane_roles": sorted(policy.required_roles),
         "active_lanes": lanes,
     }
+
+
+def inspect_item_workflow_pin(conn: Any, item_id: int) -> dict[str, Any]:
+    """Return the exact immutable version and interpreted lane policy."""
+    runtime = load_item_workflow_runtime(conn, int(item_id))
+    return _inspect_item_workflow_pin(conn, int(item_id), runtime)
 
 
 def _target_version_row(
@@ -132,7 +144,8 @@ def migrate_item_workflow_pin(
     target_version: Optional[int] = None,
 ) -> dict[str, Any]:
     """Move one item to a compatible version of its existing workflow."""
-    before = inspect_item_workflow_pin(conn, int(item_id))
+    source_runtime = load_item_workflow_runtime(conn, int(item_id))
+    before = _inspect_item_workflow_pin(conn, int(item_id), source_runtime)
     target = _target_version_row(
         conn,
         workflow_id=str(before["workflow_id"]),
@@ -141,7 +154,8 @@ def migrate_item_workflow_pin(
     if int(target["workflow_version_id"]) == int(before["workflow_version_id"]):
         return {"changed": False, "before": before, "after": before}
 
-    definition = decode_definition(str(target["definition_json"]))
+    target_runtime = workflow_runtime_from_row(target)
+    definition = target_runtime.definition
     posture = before["workflow_posture"]
     allowed_posture = set(definition["policies"]["item_posture_allowlist"])
     unknown_posture = set(posture) - allowed_posture
@@ -169,6 +183,21 @@ def migrate_item_workflow_pin(
         target_version=int(target["version"]),
         target_definition=definition,
     )
+    binding_conflicts = item_migration_binding_conflicts(
+        conn,
+        item_id=int(item_id),
+        source=source_runtime,
+        target=target_runtime,
+        source_stage=str(before["status"]),
+        target_stage=new_status,
+        posture=posture,
+    )
+    if binding_conflicts:
+        raise WorkflowRegistryError(
+            "target workflow version is incompatible with live item bindings: "
+            + "; ".join(binding_conflicts)
+        )
+
     marker = _placeholder(conn)
     conn.execute(
         f"UPDATE items SET workflow_version_id = {marker}, status = {marker} "

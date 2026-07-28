@@ -98,7 +98,7 @@ worktree` when the recursive walk is the point.
 - **Step 2 — Path-claim activation.** Delegates to `yoke_core.domain.advance_path_claim_activation` (the path-claim activation CLI). Diverged refs and blocked claims propagate to the caller verbatim.
 - **Step 3 — Worktree resolution.** Canonical `YOK-N` is reused idempotently.
 - **Step 3 — Dirty-main guard.** Runs **only** when this call would create a new worktree. Tracked or staged dirt blocks as `dirty-tracked`; untracked non-gitignored files block as `dirty-untracked`. Re-entry into an existing worktree never touches main and is never blocked by main dirt.
-- **Step 4 — Worktree creation + DB write.** `create_worktree` records branch + status on the item. The session continues — no scope envelope, no parent-stop, no claim release, no relaunch. The work-claim acquired in Step 1 is the session's authority over the new worktree, validated per tool call by `lint_session_cwd`.
+- **Step 4 — Worktree creation + DB write.** `create_worktree` records the branch, path, and implementation role in `item_worktrees`; implementation entry records status on the item. The session continues — no scope envelope, no parent-stop, no claim release, no relaunch. The work-claim acquired in Step 1 is the session's authority over the new worktree, validated per tool call by `lint_session_cwd`.
 - **Step 5 — Envelope rendering.** Emits descriptive `semantic_scope`, `physical_cwd_mode`, and an optional advisory note if the harness cwd is static at main (informational only — the work-claim is what authorizes writes).
 
 ## Failure handling
@@ -109,7 +109,7 @@ For `work-claim-conflict`, the right remediation is to coordinate with the holde
 
 ## --no-worktree
 
-Pass `--no-worktree` only for evidence-only items that intentionally make no repo changes. The envelope sets `semantic_scope=main`, omits `physical_cwd_mode`, and records `worktree:skipped` in `actions_taken`. The downstream done-transition empty-branch guard is satisfied because no worktree is recorded on the item.
+Pass `--no-worktree` only for evidence-only items that intentionally make no repo changes. The envelope sets `semantic_scope=main`, omits `physical_cwd_mode`, and records `worktree:skipped` in `actions_taken`. The downstream done-transition empty-branch guard is satisfied because no active implementation lane is recorded in `item_worktrees`.
 
 ---
 

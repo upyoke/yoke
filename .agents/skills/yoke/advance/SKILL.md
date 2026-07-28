@@ -49,13 +49,33 @@ Example invocations:
 
 ### Evidence-Only Items
 
-Items that require no code changes (validation, proof, guidance updates) should use `--no-worktree` when advancing to `implementing`. This sets `worktree = NULL`, which tells the done-transition engine (`packages/yoke-core/src/yoke_core/engines/done_transition.py`) to skip the empty-branch guard (exit 8).
+Items that require no code changes (validation, proof, guidance updates) should use `--no-worktree` when advancing to `implementing`. This leaves the item without an active implementation lane in `item_worktrees`, so the done-transition engine (`packages/yoke-core/src/yoke_core/engines/done_transition.py`) skips the empty-branch guard (exit 8).
 
 **If an evidence-only item was advanced WITHOUT `--no-worktree`** and later hits exit 8 during done-transition or usher, the recovery path is:
-1. Clear the worktree field by calling `items.scalar.update` with `payload.fields={"worktree": null}` against `target.kind="item"`, `item_id={N}`.
-2. Re-run the done-transition or usher command.
+1. Complete the caller's rollback to `implemented`; lane release is refused at every other status.
+2. Ensure this session holds the item claim: `yoke claims work acquire --item YOK-{N} --reason evidence-only-recovery`.
+3. Read the registered implementation-lane path and prove it has no modified tracked, untracked, or ignored files:
 
-The empty-branch guard exists to catch accidental merges of branches with no work. For items that intentionally have no code changes, the guard is a false positive — clearing the worktree field is the canonical fix.
+```bash
+_wt_path=$(yoke item-worktrees get YOK-{N} \
+ --lane-role implementation --field path)
+if [ -z "$_wt_path" ] || [ "$_wt_path" = "null" ] || [ ! -d "$_wt_path" ]; then
+ echo "Blocked: the registered worktree path cannot be verified."
+ exit 1
+fi
+_wt_dirty=$(git -C "$_wt_path" status --porcelain \
+ --ignored=matching --untracked-files=all)
+_wt_git_rc=$?
+if [ "$_wt_git_rc" -ne 0 ] || [ -n "$_wt_dirty" ]; then
+ echo "Blocked: preserve or commit every worktree file before lane release."
+ exit 1
+fi
+```
+
+4. Immediately release the attested lane: `yoke item-worktrees release YOK-{N} --all-active --reason evidence-only-recovery`. The adapter repeats the branch and cleanliness checks, and the server requires the item to remain `implemented` with exactly one active implementation lane matching the attestation.
+5. Re-run the done-transition or usher command.
+
+The empty-branch guard exists to catch accidental merges of branches with no work. For items that intentionally have no code changes, the guard is a false positive — releasing the active lane records is the canonical recovery.
 
 ## Philosophy
 
@@ -158,7 +178,7 @@ For non-claim-holding targets (`reviewed-implementation`, `implemented`, `releas
 - `claims.work.acquire` is idempotent for same-session re-claim — if the operator re-runs after a preflight failure, the response carries `result.already_owned=true` with `success=true`. No explicit release-on-failure is needed.
 - Stale claims held by other sessions auto-reclaim after the configured stale-heartbeat window (`session_stale_ttl_minutes` in machine config; per-executor overrides via `session_stale_ttl_minutes_<executor>_override`, e.g. `session_stale_ttl_minutes_codex_override`) of heartbeat silence with no events emitted from the owning session in that window, or when the owning session has ended. `WorkReclaimed` is emitted in that case. Threshold owner: `runtime/harness/harness_sessions.py` (`cmd_claim` stale-window query); resolver: `yoke_core.domain.sessions_analytics_core.DEFAULT_STALE_THRESHOLD_MINUTES` / `EXECUTOR_STALE_TTL_OVERRIDES_MINUTES`.
 - If the item is actively held by another live session, the response carries `error.code="claim_conflict"` with the holder session id — stop advance and surface the error.
-- The `python3 -m runtime.harness.hook_runner SessionEnd` hook releases all remaining claims on conversation exit as a safety net.
+- Stop and SessionEnd hooks never release active claims. At an explicit handoff, run `yoke claims work release --all-mine`; the hooks close only an already claim-free session whose checkpoint has no remaining chain budget.
 
 ### 2. Determine Target Status
 
@@ -205,7 +225,8 @@ else
 fi
 
 if [ "$_worktree_policy" = "single_implementation_lane" ]; then
- _wt_branch=$(yoke items get {N} worktree 2>/dev/null)
+ _wt_branch=$(yoke item-worktrees get YOK-{N} \
+  --lane-role implementation --field branch 2>/dev/null)
 elif [ "$_worktree_policy" = "worker_and_integration_lanes" ] \
  || [ "$_worktree_policy" = "worker_lanes_optional_integration" ]; then
  if [ "$_current_executor" = "conduct" ]; then

@@ -47,16 +47,16 @@ yoke sessions touch \
 2. **Check for in-flight worktrees:**
 
  ```bash
- yoke db read --format lines "SELECT id, title, worktree, status FROM items WHERE status NOT IN ('idea','done','cancelled','failed','stopped') AND worktree IS NOT NULL AND worktree <> '';"
+ yoke db read --format lines "SELECT i.id, i.title, iw.branch, iw.lane_role, i.status FROM items i JOIN item_worktrees iw ON iw.item_id = i.id AND iw.state = 'active' WHERE i.status NOT IN ('idea','done','cancelled','failed','stopped') ORDER BY i.id, iw.id;"
  ```
 
  If any items are still active with worktrees, warn:
 
  ```
  ⚠ In-flight worktrees still open:
- - YOK-{N}: {title} ({status}, branch: {worktree})
+ - YOK-{N}: {title} ({status}, branch: {branch}, lane: {lane_role})
 
- These have uncommitted work on separate branches. Consider advancing them to done or documenting their state in the appropriate structured item fields before ending the session.
+ These items still own active worktree lanes. Verify and advance them, or document their state in the appropriate structured item fields before ending the session.
  ```
 
 3. **Gather session context:**
