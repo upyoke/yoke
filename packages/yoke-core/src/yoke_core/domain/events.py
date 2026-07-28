@@ -22,6 +22,7 @@ from .events_crud import (
 )
 from .events_envelope_shrink import fit_envelope_context
 from .events_isolation import (
+    SYNTHETIC_SMOKE_FLAG as SYNTHETIC_SMOKE_FLAG,
     _resolve_db_path,
     isolation_gate_blocks,
 )

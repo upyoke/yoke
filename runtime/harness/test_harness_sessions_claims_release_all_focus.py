@@ -1,3 +1,4 @@
+# ruff: noqa: F811
 """Regression test: legacy harness `release-all` clears current_item_id.
 
 The CLI `release-all-claims` ends up in `cmd_release_all` via the
@@ -14,7 +15,12 @@ from __future__ import annotations
 import pytest  # noqa: F401
 
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
-from runtime.api.test_sessions import EMIT_PATH_TABLES, _register, conn  # noqa: F401
+from runtime.api.test_sessions import (
+    EMIT_PATH_TABLES,
+    _insert_claimable_items,
+    _register,
+    conn,  # noqa: F401
+)
 from runtime.harness.harness_sessions_claims import (
     cmd_claim,
     cmd_release_all,
@@ -26,6 +32,7 @@ def test_cmd_release_all_clears_current_item_id(conn):
     # event_registry schema so the emit INSERT succeeds (a minimal events
     # table would fail the INSERT and poison the transaction on Postgres).
     apply_fixture_ddl(conn, EMIT_PATH_TABLES)
+    _insert_claimable_items(conn, 4242)
     _register(conn, session_id="sess-A")
     cmd_claim(conn, "sess-A", "item", item_id=4242)
 

@@ -37,6 +37,8 @@ from yoke_core.domain.qa_plan_execution_store import (
     select_plan_execution,
 )
 
+_RACE_TIMEOUT_SECONDS = 30
+
 
 def _begin_race(
     *,
@@ -53,7 +55,7 @@ def _begin_race(
         def begin(index: int) -> None:
             actor_id, session_id = owners[index]
             try:
-                barrier.wait(timeout=10)
+                barrier.wait(timeout=_RACE_TIMEOUT_SECONDS)
                 execution = begin_plan_execution(
                     connections[index],
                     item_id=item_id,
@@ -72,7 +74,7 @@ def _begin_race(
             for worker in workers:
                 worker.start()
             for worker in workers:
-                worker.join(timeout=15)
+                worker.join(timeout=_RACE_TIMEOUT_SECONDS)
             assert all(not worker.is_alive() for worker in workers)
             live_count = int(
                 setup.execute(

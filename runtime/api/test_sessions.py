@@ -195,6 +195,37 @@ def _insert_claimable_item(conn, item_id: int) -> None:
     insert_item(conn, id=int(item_id), workflow_id="issue")
 
 
+def _insert_claimable_items(conn, *item_ids: int) -> None:
+    """Seed several real issue items without duplicating an existing fixture row."""
+    from runtime.api.fixtures.backlog import insert_item
+
+    for item_id in item_ids:
+        if conn.execute("SELECT 1 FROM items WHERE id=%s", (int(item_id),)).fetchone():
+            continue
+        insert_item(conn, id=int(item_id), workflow_id="issue")
+
+
+def _insert_claimable_epic_task(conn, epic_id: int, task_num: int) -> None:
+    """Seed a real workflow-pinned epic and one generated task claim target."""
+    from runtime.api.fixtures.backlog import insert_epic_task, insert_item
+    from yoke_core.domain.schema_common import _table_exists
+
+    if not conn.execute(
+        "SELECT 1 FROM items WHERE id=%s", (int(epic_id),)
+    ).fetchone():
+        insert_item(conn, id=int(epic_id), workflow_id="epic", status="implementing")
+    if _table_exists(conn, "epic_tasks") and not conn.execute(
+        "SELECT 1 FROM epic_tasks WHERE epic_id=%s AND task_num=%s",
+        (int(epic_id), int(task_num)),
+    ).fetchone():
+        insert_epic_task(
+            conn,
+            epic_id=int(epic_id),
+            task_num=int(task_num),
+            status="implementing",
+        )
+
+
 # ---------------------------------------------------------------------------
 # Ownership schema helpers (shared by queries and API tests)
 # ---------------------------------------------------------------------------

@@ -9,6 +9,8 @@ Shared fixtures and helpers live in test_merge_worktree_full.py.
 
 from pathlib import Path
 
+import pytest
+
 from runtime.api.test_merge_worktree_full import (
     TEST_BRANCH,
     MergeEnv,
@@ -17,10 +19,15 @@ from runtime.api.test_merge_worktree_full import (
     _insert_canonical_integration_simulation,
     _insert_plain_text_integration_simulation,
     _write_file,
+    merge_env as _shared_merge_env,
     run_merge,
 )
 
-pytest_plugins = ("runtime.api.test_merge_worktree_full",)
+
+@pytest.fixture(name="merge_env")
+def _merge_env_fixture(tmp_path, request):
+    """Expose the shared fixture without relying on plugin load order."""
+    return _shared_merge_env.__wrapped__(tmp_path, request)
 
 
 # ===========================================================================

@@ -13,6 +13,7 @@ import pytest
 from unittest.mock import patch
 
 from runtime.api.test_sessions import (
+    _insert_claimable_items,
     _register,
     _REPO_ROOT,
     conn,
@@ -63,6 +64,10 @@ class TestEventEmission:
     ``test_sessions``) so the reclaim path's ``now_sql``-derived SQL and the
     constraint-error re-raise match the active test backend.
     """
+
+    @pytest.fixture(autouse=True)
+    def _claimable_items(self, conn):
+        _insert_claimable_items(conn, 100, 101, 200, 201, 500, 501)
 
     @patch("yoke_core.domain.sessions_analytics._emit_session_event")
     def test_register_emits_event(self, mock_emit, conn):
