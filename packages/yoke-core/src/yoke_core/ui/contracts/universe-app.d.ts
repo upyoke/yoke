@@ -205,4 +205,12 @@ export declare function parseUniverseRoute(hash: string): UniverseRoute;
 export declare function buildUniverseRoute(view: UniverseRouteView | string, project?: string | null, segment?: string | null): string;
 /** The scope a view takes: see `UniverseScope`. */
 export declare function universeNavScope(view: string): UniverseScope;
+/**
+ * Mounts the app into `rootNode`, which the app then sizes itself: the
+ * frame stands the full window and anchors its footer there, so a host
+ * neither has to nor can hand it a height through an ancestor. A host that
+ * stacks chrome above the frame, or seats it in a shorter pane, sets the
+ * `--yoke-app-frame-height` custom property on the mount root or any
+ * ancestor — for example `calc(100dvh - 3rem)` beneath a 3rem host bar.
+ */
 export declare function mountUniverseApp(rootNode: HTMLElement, options?: UniverseAppOptions): UniverseAppMount;
