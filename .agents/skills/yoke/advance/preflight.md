@@ -20,7 +20,7 @@ Read and follow: `preflight-checks.md`
 Covers (in order):
 - **Hard-Block Dependency Gate** (step 4-dep): blocks if unresolved dependencies at the activation or integration gate point
 - **AC Presence Gate** (step 4-ac): blocks if no checkbox ACs found for implementation-stage targets
-- **Spec Coverage Gate** (step 4-cov): blocks when `## File Budget` lists paths the active path_claim does not cover (catches deferred-coverage drift after upstream blockers release)
+- **Spec Coverage Gate** (step 4-cov): applies only when effective File Budget and path claims are both enabled; blocks when `## File Budget` lists paths the active claim does not cover
 - **Pinned-Executor Advisory** (step 5): identifies a manual transition into a different registered executor's segment
 - **Shepherd Executor Gate** (step 5-shep): applies only when the target path crosses a pinned `shepherd` binding
 - **Generated-Task Existence Gate** (step 5-gate): applies only when `generated_children=epic_tasks` and dispatch is at or beyond the `conduct` handoff
@@ -40,8 +40,9 @@ Covers (in order):
 
 ## Path Claim Activation Handoff
 
-When target is `implementing` and the pinned definition selects item-level
-implementation, the next phase is the path-claim auto-activation step. The
+When target is `implementing`, the pinned definition selects item-level
+implementation, and `_effective_path_claims_policy` is not `optional`, the next phase is the
+path-claim auto-activation step. The
 phase doc lives at `.agents/skills/yoke/advance/activation.md` and the
 enforcement owner is `yoke_core.domain.advance_path_claim_activation`.
 

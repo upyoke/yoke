@@ -13,6 +13,7 @@ import {
 } from "./universe_view_support.js";
 import { relativeTime } from "./universe_time.js";
 import {
+  readablePolicyValue,
   workflowPanel,
 } from "./workflow_view_primitives.js";
 
@@ -129,6 +130,9 @@ function blitzFactsPanel(documentNode, item) {
   const table = el(documentNode, "table", "items kv item-facts");
   const claim = item.claim;
   const pathClaims = item.path_claims || { total: 0 };
+  const fileBudget = item.file_budget || { total: 0, paths: [] };
+  const policies = item.workflow.policies || {};
+  const posture = item.workflow.item_posture || {};
   const workflow = el(documentNode, "span", "item-inline");
   workflow.appendChild(el(
     documentNode,
@@ -173,10 +177,20 @@ function blitzFactsPanel(documentNode, item) {
     ["Owner", item.owner || "unassigned"],
     ["Live claim", liveClaim],
     [
+      "File budget",
+      fileBudget.total
+        ? `${fileBudget.total} ${fileBudget.total === 1 ? "file" : "files"}`
+        : policies.file_budget === "optional" && !posture.file_budget
+          ? "none · workflow default"
+          : "none recorded",
+    ],
+    [
       "Path claims",
       pathClaims.total
         ? `${pathClaims.total} registered${claimStates ? ` · ${claimStates}` : ""}`
-        : "none · workflow default",
+        : policies.path_claims === "optional" && !posture.path_claims
+          ? "none · workflow default"
+          : "none",
     ],
     [
       "Created",
@@ -213,7 +227,19 @@ function blitzPosturePanel(documentNode, item) {
   const { panel, body } = workflowPanel(documentNode, "Execution posture");
   const grid = el(documentNode, "div", "item-posture-grid");
   const lanes = item.worktrees || [];
+  const policies = item.workflow.policies || {};
+  const posture = item.workflow.item_posture || {};
   grid.appendChild(postureCell(documentNode, "Child items", "none"));
+  for (const [label, key] of [
+    ["File Budget", "file_budget"],
+    ["Path claims", "path_claims"],
+  ]) {
+    if (policies[key] === undefined) continue;
+    const value = posture[key] === true ? "required" : policies[key];
+    grid.appendChild(postureCell(
+      documentNode, label, readablePolicyValue(key, value),
+    ));
+  }
   grid.appendChild(postureCell(
     documentNode,
     "Parallelism",

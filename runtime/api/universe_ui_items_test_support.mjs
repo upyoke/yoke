@@ -48,13 +48,26 @@ export function detailItem(workflowId) {
         ? "polish" : workflowId === "epic" ? "conduct" : workflowId,
       item_posture: {
         verification: true,
+        file_budget: false,
         path_claims: false,
       },
       policies: {
-        path_claims: workflowId === "dash" ? "optional" : "required",
-        worktrees: "single_implementation_lane",
-        parallelism: "none",
-        generated_children: "none",
+        file_budget: ["dash", "blitz"].includes(workflowId)
+          ? "optional"
+          : workflowId === "epic" ? "required_per_task" : "required",
+        path_claims: ["dash", "blitz"].includes(workflowId)
+          ? "optional"
+          : workflowId === "epic" ? "required_per_task" : "required",
+        worktrees: workflowId === "epic"
+          ? "worker_and_integration_lanes"
+          : workflowId === "blitz"
+            ? "worker_lanes_optional_integration"
+            : "single_implementation_lane",
+        parallelism: workflowId === "epic"
+          ? "task_graph"
+          : workflowId === "blitz" ? "maximum_safe_slices"
+            : workflowId === "issue" ? "inside_item" : "none",
+        generated_children: workflowId === "epic" ? "epic_tasks" : "none",
         delivery: "after_merge_action",
       },
     },

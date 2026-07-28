@@ -67,7 +67,8 @@ Instead, stop and surface the issues to the operator. Do NOT advance
 status. The item stays at `REFINE_ACTIVE_STATUS` until the operator resolves
 the issue.
 
-**File Budget escalation.** If the work item is implementation-bearing AND
+**File Budget escalation.** Apply this only when effective File Budget is
+enabled. If the work item is implementation-bearing AND
 the File Budget cannot be resolved during this refine pass — the file
 shape is genuinely unknown, the touched source files are already over
 the 300-line design target with no obvious split, or a proposed task
@@ -78,11 +79,12 @@ and the resolution options (split before implementation, expand the
 budget with justification, descope, or split the work item). The item stays at
 `REFINE_ACTIVE_STATUS` until the operator resolves it.
 
-**Obvious File Budget repair.** Do not escalate when reference
+**Obvious File Budget repair.** When File Budget is enabled, do not escalate when reference
 verification finds one obvious live owner for the missing path and adding
 that path does not change the project, deployment target, or behavior
-scope. Add the verified file to the File Budget, widen the path claim
-with the evidence-backed reason, and continue refinement. Escalate only
+scope. Add the verified file to the File Budget; widen the path claim with
+the evidence-backed reason only when effective path claims are also enabled;
+otherwise retain the budget as sizing/conflict evidence. Escalate only
 when there are multiple plausible owners, the repair would change scope,
 or the overlap/dependency decision is genuinely ambiguous.
 

@@ -87,7 +87,11 @@ On retry attempts (`_attempt > 1`), `_has_implementation` is always false -- Eng
 
 **Engineer prompt template:** See [dispatch-context-prompts.md](dispatch-context-prompts.md) for the full Engineer prompt template.
 
-**Active path-claim coverage in the prompt.** The dispatch prompt MUST surface the Engineer's pre-authorized write budget so the Engineer can apply the proactive widen-before-write workflow without first running `path-claim-list` by hand. Pull the coverage from the live claim:
+**Active path-claim coverage in the prompt.** Apply this block only when the
+central effective path-claims axis is enabled. The dispatch prompt then
+surfaces the Engineer's pre-authorized write coverage so the Engineer can
+apply the proactive widen-before-write workflow without first running
+`path-claim-list` by hand. Pull the coverage from the live claim:
 
 ```bash
 # Single-target source of truth for the Engineer's write budget. Lists
@@ -97,7 +101,13 @@ On retry attempts (`_attempt > 1`), `_has_implementation` is always false -- Eng
 _claim_coverage=$(yoke claims path list --item YOK-${_id} --state active)
 ```
 
-Inline the resulting paths under a `## Active Path Claim Coverage` heading in the Engineer prompt. Follow this with a `## Planned (Widen Before Write)` block listing entries from the parent item's `## File Budget` that are not yet in the active claim — these are the paths the Engineer must widen onto before the first write. The Engineer's canonical body teaches the workflow; surfacing the data here removes the recovery-crawl class of failure where the Engineer creates a new file and then spends N tool calls discovering it needs to widen.
+Inline the resulting paths under a `## Active Path Claim Coverage` heading.
+When effective File Budget is also enabled, follow it with a `## Planned
+(Widen Before Write)` block listing budget entries not yet in the active
+claim. When File Budget is off, derive that planned block from the generated
+task spec/execution document and survey instead. When path claims are off,
+omit both claim blocks; an enabled File Budget remains sizing/conflict
+evidence rather than write authorization.
 
 The Tester's dispatch prompt MUST include the same `## Active Path Claim Coverage` block read-only (per the Tester no-write contract in `runtime/agents/tester.md` § *Path-Claim Awareness*) so the Tester knows which paths are in-scope for validation versus paths whose failures route back to the parent session as "uncovered fix path" findings.
 

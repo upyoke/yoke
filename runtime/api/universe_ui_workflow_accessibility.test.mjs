@@ -68,6 +68,7 @@ test("workflow mutation dialogs trap focus and restore their opener", async (t) 
     currentVersion: 1,
     policies: {
       ownership: "exclusive_session_work_claim",
+      file_budget: "optional",
       path_claims: "optional",
       worktrees: "single_implementation_lane",
       parallelism: "none",

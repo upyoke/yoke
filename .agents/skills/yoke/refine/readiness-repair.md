@@ -8,11 +8,13 @@ SKILL stays small.
 
 ## Why this exists
 
-`idea_readiness_check` emits a small set of issue codes. They are not
+`idea_readiness_check` first consumes the centrally resolved File Budget and
+path-claims posture, then emits a small set of applicable issue codes. They are not
 all equivalent — some are mechanical (a recorded line count drifted
 from the live file) and some name a real design decision (an unresolved
 function reference, a sibling-plan gap above the 330-line threshold,
-a mismatch between the File Budget and the path-claim's coverage).
+a mismatch between the File Budget and the path-claim's coverage when both
+axes are enabled).
 
 Refine used to release the work claim and exit on **any** non-empty
 readiness output. That conflated "the spec needs human judgement" with
@@ -247,9 +249,10 @@ promise — there was never a promise. Tentative is *not* a substitute
 for broad parent-directory coverage; it is exact-path coverage with a
 weaker reservation.
 
-Operator surface for refine: include the path in the spec's File
-Budget AND in the path-claim's ``--paths`` list, and additionally
-pass ``--tentative-paths`` for the subset that should mint as
+Operator surface for refine: include the path in every enabled surface. When
+both File Budget and path claims are enabled, that means the spec budget and
+the claim's ``--paths`` list. With budget off, derive it from the execution
+artifact. Additionally pass ``--tentative-paths`` for the subset that should mint as
 ``materialization_state='tentative'``. Path targets already at
 ``planned`` or ``observed`` are not downgraded — tentative declarations
 on top of stronger existing state are no-ops. To upgrade tentative to
@@ -261,7 +264,7 @@ re-resolution; see
 
 ## Symlink-aware repair advisory
 
-When a File Budget entry resolves to an in-repo symlink on disk, the
+When both axes are enabled and a File Budget entry resolves to an in-repo symlink on disk, the
 readiness-repair check surfaces a one-line authoring hint and continues
 without blocking:
 

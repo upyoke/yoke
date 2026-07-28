@@ -27,6 +27,8 @@ function-call envelope:
 |---|---|---|
 | `items.create` | Global target; Dash title, instruction, project, entry surface, and permitted posture | `yoke dash "<title>" "<instruction>" --json` |
 | `items.detail.get` | Item target; empty payload | `yoke items detail get ITEM --json` |
+| `workflows.item.get` | Item target; empty payload; centrally resolved effective policies | `yoke workflows item get ITEM --json` |
+| `items.structured_field.section_upsert` | Item target; a posture-enabled File Budget section | `yoke items structured-field section-upsert ITEM --section "File Budget" ...` |
 | `direct_workflow.dash.survey` | `paths` plus optional `integration_target` (defaults to `main`) | `yoke direct-workflow dash survey ITEM --path PATH --json` |
 | `claims.path.register` | Item target; complete paths plus mode and optional planned/exception posture | `yoke claims path register --item ITEM --paths PATHS ...` |
 | `qa.requirement.add` | Item target; selected method, executable case contract, and workflow transition | `yoke qa requirement add --item ITEM ...` |
@@ -68,6 +70,9 @@ files and prints the item; it does not execute it.
   multi-slice work, use the escalation operation, which records the
   findings, files one Issue through normal intake, links it, and cancels
   the Dash.
+- Consume the central `workflows.item.get` effective-policy projection before
+  authoring or gating File Budget and path claims. Each axis remains
+  independent; do not reconstruct it from raw policies or posture.
 - Honor every selected item-posture knob. Posture can tighten execution; it
   cannot remove a workflow gate or a governed migration invariant.
 - Do not transition to `done` until the branch is merged and the evidence
@@ -89,15 +94,23 @@ If the argument is not an item reference:
 
 3. Keep the returned item reference as `ITEM`.
 
-If the argument is a reference, use it as `ITEM`. Read the workflow-aware
-projection:
+If the argument is a reference, use it as `ITEM`. Read the item detail and
+workflow-effective projections:
 
 ```text
 yoke items detail get ITEM --json
+yoke workflows item get ITEM --json
 ```
 
 Require `workflow_id=dash`, status `idea` or a resumable Dash stage, and
-retain the stored instruction and `item_posture`.
+retain the stored instruction. Set `FILE_BUDGET_POLICY` and
+`PATH_CLAIMS_POLICY` from
+`result.effective_policies.file_budget` and
+`result.effective_policies.path_claims` in `workflows.item.get`.
+`required` is on at item scope, `required_per_task` is on at generated-task
+scope, and `optional` is off. The runtime projection owns historical
+compatibility and allowed posture tightening.
+The 350-line authored-file limit remains on in all combinations.
 
 ### 2. Infer and survey the touch set
 
@@ -111,11 +124,20 @@ Record the survey:
 yoke direct-workflow dash survey ITEM --path <path> [--path <path> ...] --json
 ```
 
+When `FILE_BUDGET_POLICY` is non-`optional`, persist the surveyed edit targets and their
+single responsibilities under `## File Budget` through
+`items.structured_field.section_upsert` before implementation. When disabled,
+do not require or invent the section. When `PATH_CLAIMS_POLICY` is
+non-`optional` and budget is
+off, the survey itself is the claim-path source. When both are enabled, pair
+their enumerations. When budget is on and claims are off, use the budget for
+sizing and conflict evidence without registering a claim.
+
 For every reported contact:
 
 - yield to active or planned registered claims;
 - coordinate with the owning item or wait when the scope is still small;
-- when path-claims posture is selected, keep the inferred set complete;
+- when effective path claims are enabled, keep the inferred set complete;
   worktree preparation registers or widens the real claim from this survey;
 - if contact repeats or the required work is no longer instruction-sized,
   follow **Escalate** below.
@@ -180,7 +202,9 @@ each selected posture knob through its shared authority:
   yoke qa case run --requirement-id <requirement-id>
   ```
 
-- `path_claims` — the lifecycle gate requires active concrete coverage now
+- `file_budget` — when selected, confirm the persisted budget covers actual
+  edit targets and remains useful sizing/conflict evidence;
+- `path_claims` — when selected, the lifecycle gate requires active concrete coverage now
   and compares the merged touched-file evidence with that coverage at done.
 - `approval_on_done` — the final transition creates a project-owner decision
   request and stays blocked until an authorized owner approves it.

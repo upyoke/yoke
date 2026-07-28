@@ -96,7 +96,14 @@ fi
  Commit incrementally on the worktree branch.
  Run tests before finishing.
 
-	 FILE BUDGET: read the `## File Budget` section in the parent item spec (and the task body for epic tasks) before creating or growing any authored file. Hard limit is 350 lines per authored file (owned by `yoke_core.domain.file_line_check`); design target is `<=300` lines. The budget lists the expected files and single responsibilities — split the work to fit existing entries before inventing new oversized modules, and surface mid-implementation when the budget is fundamentally unrealistic for the work rather than landing oversized files. End your durable submission receipt with `file_budget: PASS` (created or grew authored code AND every authored file is at or below 350 lines) or `file_budget: SKIP` (no authored code created or grown). The submission gate rejects missing, malformed, `FAIL`, or `UNKNOWN` values and re-dispatches the same attempt.
+	 FILE SIZING: when the dispatch says effective File Budget is enabled,
+	 read `## File Budget` at its item/task scope before creating or growing
+	 authored files. When disabled, do not require that section; follow the
+	 task execution scope. In every posture the hard limit is 350 lines per
+	 authored file (owned by `yoke_core.domain.file_line_check`) and the
+	 design target is `<=300`. End the durable receipt with `file_budget:
+	 PASS` when authored code grew and every authored file is within the
+	 universal limit, or `file_budget: SKIP` when none grew.
 
 	 Apply the simplify three-axis vocabulary at code-author time. See AGENTS.md "## Simplify — three-axis doctrine": reuse existing surfaces first, keep the diff to the smallest AC-satisfying shape, justify new infrastructure against what already exists, and apply the future-concept lens when the change touches actors, sessions, heartbeats, ownership, leases, claims, approvals, overrides, evidence, run records, journals, packets, locks, or shared-state coordination.}
 

@@ -210,7 +210,7 @@ def _connection() -> sqlite3.Connection:
         INSERT INTO items VALUES (
           51, 'Fix the footer', 'reviewing-implementation', 'medium', 'Rae',
           0, '', '2026-07-25T12:00:00Z', '2026-07-26T12:00:00Z', NULL,
-          '{"verification": true}',
+          '{"verification": true, "file_budget": true}',
           'Correct the footer and verify every link.
 
           ## File Budget

@@ -40,12 +40,22 @@ test("Workflows renders the registry as the lifecycle experience", async (t) => 
   assert.deepEqual(classText(root, "workflow-detail-row-title"), [
     "CLI", "Harness", "Executor", "Testing", "Approvals", "Delivery",
   ]);
+  assert.deepEqual(
+    byClass(root, "workflow-posture-label").map(
+      (node) => node.children.at(-1)?.textContent,
+    ),
+    [
+      "Ownership", "File Budget", "Path claims", "Worktrees",
+      "Parallelism", "Database changes",
+    ],
+  );
   assert.deepEqual(classText(root, "workflow-home-link"), [
     "QA →", "Inbox →", "Delivery →",
   ]);
   assert.deepEqual(classText(root, "workflow-posture-value"), [
     "one active item claim",
-    "required from file budget",
+    "required",
+    "required",
     "one implementation lane",
     "inside the item only",
     "governed migrations on every change",

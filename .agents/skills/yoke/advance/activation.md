@@ -28,6 +28,7 @@ this phase performs it automatically.
 
 Run when:
 - target is `implementing` (the implementation entry transition), and
+- the central effective path-claims policy is enabled, and
 - the pinned workflow selects `single_implementation_lane` under the
   `advance` executor, and
 - the actor has at least one non-terminal `path_claims` row for the item.
@@ -35,9 +36,8 @@ Run when:
 Skip when:
 - `--no-worktree` is passed (no worktree door-lock will fire),
 - target is not `implementing`, or
-- the item has no path claims (the path-claim-required gate has already
-  enforced declaration where it applies; not every project / workflow policy
-  carries a claim).
+- the item has no path claims because effective path claims are off (when the
+  axis is on, the path-claim-required gate has already enforced declaration).
 
 ## Invocation
 

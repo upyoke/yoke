@@ -295,6 +295,7 @@ test("Blitz detail is a thin system-fact shell around the live document", async 
       stage_label: "implementing",
       executor_id: "blitz",
       policies: {
+        file_budget: "optional",
         path_claims: "optional",
         worktrees: "worker_lanes_optional_integration",
         parallelism: "maximum_safe_slices",

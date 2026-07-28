@@ -1,7 +1,9 @@
 # Refine — Pinned Workflow Context
 
-Called by `SKILL.md` before claim acquisition. Resolves the immutable item pin,
-exact workflow definition, active `refine` binding, and child/lane policies.
+Called by `SKILL.md` before claim acquisition. Registered
+`workflows.item.get` resolves the immutable item pin and central effective
+policies; the exact definition supplies the active `refine` binding and
+child/lane policies.
 
 ```bash
 MAIN_ROOT=$(git rev-parse --show-toplevel)
@@ -15,6 +17,10 @@ ITEM_WORKFLOW_VERSION=$(printf '%s' "$ITEM_PIN_JSON" | python3 -c \
  'import json,sys; print(json.load(sys.stdin)["result"]["workflow_version"])' 2>/dev/null) || ITEM_WORKFLOW_VERSION=""
 ITEM_STATUS=$(printf '%s' "$ITEM_PIN_JSON" | python3 -c \
  'import json,sys; print(json.load(sys.stdin)["result"]["status"])' 2>/dev/null) || ITEM_STATUS=""
+ITEM_FILE_BUDGET_POLICY=$(printf '%s' "$ITEM_PIN_JSON" | python3 -c \
+ 'import json,sys; print(json.load(sys.stdin)["result"]["effective_policies"]["file_budget"])' 2>/dev/null) || ITEM_FILE_BUDGET_POLICY=""
+ITEM_PATH_CLAIMS_POLICY=$(printf '%s' "$ITEM_PIN_JSON" | python3 -c \
+ 'import json,sys; print(json.load(sys.stdin)["result"]["effective_policies"]["path_claims"])' 2>/dev/null) || ITEM_PATH_CLAIMS_POLICY=""
 ITEM_TITLE=$(yoke items get "$ITEM_REF" title 2>/dev/null) || ITEM_TITLE=""
 ITEM_PROJECT=$(yoke items get "$ITEM_REF" project 2>/dev/null) || ITEM_PROJECT=""
 ITEM_DEFINITION_JSON=$(yoke workflows version get \
@@ -91,3 +97,8 @@ ITEM_NEXT_EXECUTOR=$(printf '%s' "$REFINE_CONTEXT_JSON" | python3 -c \
 The interpreter deliberately uses the runtime's half-open interval
 (`from_stage_id <= current < through_stage_id`). `workflow_id` is only the
 registry key for the exact version read; no behavior branches on its value.
+`ITEM_FILE_BUDGET_POLICY` and `ITEM_PATH_CLAIMS_POLICY` are independent
+effective values from `workflows.item.get`. Do not reconstruct them from
+the raw definition or posture: historical schema compatibility and allowed
+posture tightening belong to the runtime projection. `optional` is off;
+`required` and `required_per_task` apply at their reported scopes.

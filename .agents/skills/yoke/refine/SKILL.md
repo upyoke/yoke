@@ -138,7 +138,11 @@ yoke claims work acquire \
 ```
 
 For `REFINE_ARTIFACT_SCOPE=item_artifact`, run the internal pre-handoff
-readiness gate before the entry status mutation. Read and follow
+readiness gate before the entry status mutation. The effective flags resolved
+from the immutable pin control its checks: File Budget validation runs only
+when `ITEM_FILE_BUDGET_POLICY` is non-`optional`, path-claim required checks run only when
+`ITEM_PATH_CLAIMS_POLICY` is non-`optional`, and coverage parity runs only when both are
+true. Read and follow
 [`readiness-repair.md`](readiness-repair.md) for the full classifier
 table (`pass` / `pure_stale_count` auto-fix / `FILE_BUDGET_NOT_IN_CLAIM`
 auto-widen / `mixed_stale_count` continuation / `unrecoverable`
@@ -244,9 +248,20 @@ Pick the field(s) to refine based on the current status and whatever structured 
 - Any status with substantive `shepherd_caveats`: refine `shepherd_caveats` so open questions and deferrals are crisp and actionable.
 - If no structured field exists yet, refine the authoritative fallback (`body`) but keep the resulting content ready to migrate into structured fields later.
 
-### 4b. Path-Claim Re-Check
+### 4b. Effective File Budget And Path-Claim Re-Check
 
-Refine is the second of two structural opportunities (idea is the first) to confirm that the item's path-claim coverage matches the refined File Budget. Run the internal gate before critique so the critique has the latest claim state to reason against:
+Use `ITEM_FILE_BUDGET_POLICY`, `ITEM_PATH_CLAIMS_POLICY`, and their scoped
+policies resolved from the immutable pin in step 1:
+
+- Both enabled: confirm path-claim coverage matches the refined File Budget.
+- Budget off / claims on: derive claim paths from the item spec or linked
+  execution document; do not create a File Budget as a proxy.
+- Budget on / claims off: refine the budget for sizing and conflict evidence;
+  do not register a claim.
+- Both off: skip artifact/gate requirements for both axes.
+
+The universal 350-line authored-file limit remains enforced in every posture.
+Run the path-claim gate only when effective path claims are enabled:
 
 ```bash
 yoke claims path required-gate YOK-{N}
@@ -254,13 +269,18 @@ yoke claims path required-gate YOK-{N}
 
 Branch on the result:
 
-- **verdict=pass** — no action required; continue to step 5. If refine narrows the File Budget (drops files, identifies a no-claim posture), record the planned narrow-down as a critique item; the actual `path-claims narrow` runs in step 6.
+- **verdict=pass** — no action required; continue to step 5. When both axes
+  are enabled and refine narrows the File Budget, record the planned claim
+  narrow-down as a critique item; the actual `path-claims narrow` runs in
+  step 6.
 - **verdict=pass with pre-task deferral** — for a
   `required_per_task` Epic with no generated tasks, do not register or widen an
   item-level claim. Shepherd owns materialization from persisted task budgets.
 - **verdict=block** — STOP. Author or amend the claim before proceeding. Three options, picked from the same decision matrix as idea. The canonical product CLI is `yoke claims path register …`; checkout-local db-router registration is operator-debug fallback only.
-  1. Register a new exclusive claim (`yoke claims path register --paths …`) when the File Budget names existing files.
-  2. Register with `--allow-planned` when the File Budget names future files.
+  1. Register a new exclusive claim (`yoke claims path register --paths …`)
+     from the enabled File Budget or, when budget is off, the derived
+     execution touch set.
+  2. Register with `--allow-planned` when that source names future files.
   3. Register a no-claim exception (`--mode exception --reason "..."`) when refine determines the item legitimately touches no repo surface.
 
   For `required_per_task` with generated tasks, repair each failing task with
@@ -269,7 +289,15 @@ Branch on the result:
 
   When registration fails due to overlap with a non-terminal claim owned by another item, classify the overlap via `yoke claims path coordination-decision-build` and author either `--gate-point coordination_only` (compatible overlap with no lifecycle gate, default for independent same-file edits) or explicit `--gate-point activation` with directional rationale (order-dependent edits). See [`readiness-repair.md`](readiness-repair.md) `## Cross-item overlap repair`.
 
-If refine widens the File Budget mid-pass (discovers additional files), use `yoke claims path widen --claim-id <id> --add-paths <added> --reason "<why widening>" --item YOK-N` rather than registering a fresh claim — widen preserves the audit trail in `path_claim_amendments`. If refine narrows, use the checkout-local `path-claims narrow` operator-debug/refine disposition; no public narrow wrapper is registered yet. Prefer the `--keep-paths` form because it names the paths that stay (`--reason` is required); use `--drop-paths` when the goal is to remove specific files from a wider claim instead.
+When both axes are enabled and refine widens the File Budget mid-pass
+(discovers additional files), use `yoke claims path widen --claim-id <id>
+--add-paths <added> --reason "<why widening>" --item YOK-N` rather than
+registering a fresh claim — widen preserves the audit trail in
+`path_claim_amendments`. If refine narrows, use the checkout-local
+`path-claims narrow` operator-debug/refine disposition; no public narrow
+wrapper is registered yet. Prefer the `--keep-paths` form because it names
+the paths that stay (`--reason` is required); use `--drop-paths` when the goal
+is to remove specific files from a wider claim instead.
 
 The claim re-check is **blocking**: refine MUST NOT advance the item past
 `REFINE_ACTIVE_STATUS` while the gate returns `block`. The lifecycle event
@@ -280,9 +308,11 @@ is the path-claim equivalent and runs alongside it.
 
 Read [`review-rubric.md`](review-rubric.md) for the full critique dimensions,
 mandatory checks, and artifact-specific rubrics. Emit its structured critique.
-The File Budget rubric is first-class: an implementation-bearing item must not
-advance to `REFINE_TARGET_STATUS` with a missing, vague, or unresolved File
-Budget; see `update-protocol.md`'s **File Budget escalation**.
+When effective File Budget is enabled, its rubric is first-class: an
+implementation-bearing item must not advance to `REFINE_TARGET_STATUS` with a
+missing, vague, or unresolved File Budget; see `update-protocol.md`'s
+**File Budget escalation**. When disabled, skip section authoring while still
+critiquing the plan against the universal 350-line cap.
 
 ### 6-12. Apply Improvements, Verify, Link Blitz Plan, Advance, Release, Final Output
 
@@ -293,26 +323,34 @@ When `ITEM_NEXT_EXECUTOR=blitz`, read and follow
 before step 9. Refine is not complete until the registered link write has
 been verified through `strategy.execution.get`.
 
-### Final phase — Path Closure (before status advance)
+### Final phase — Policy-Aware Path Closure (before status advance)
 
 Refine MUST NOT advance from `REFINE_ACTIVE_STATUS` to
-`REFINE_TARGET_STATUS` until the File Budget and path claim are complete and
-consistent. Run the readiness check once more after critique-driven updates
-and before the status mutation in step 9:
+`REFINE_TARGET_STATUS` until every enabled axis is complete. Run the readiness
+check once more after critique-driven updates and before the status mutation
+in step 9:
 
 ```bash
 yoke readiness check {N}
 ```
 
-The exit condition is the same as idea's path closure:
+The exit condition is the same as idea's policy-aware path closure:
 
-- Every file the implementer will edit is enumerated in `## File Budget`, one path per line. **Counts and approximations ("roughly 30 files", "every caller", "all importers") are not acceptable** in place of enumerated paths. If the spec contains such prose, the refine pass must expand it — investigate (grep / sub-agents / codebase reading) and write the enumeration into the spec body.
-- The path-claim's declared paths cover everything in the File Budget. Step 4b already gated entry; this final pass catches drift introduced by critique edits in step 6.
+- When File Budget is enabled, every file the implementer will edit is
+  enumerated in `## File Budget`, one path per line. **Counts and
+  approximations ("roughly 30 files", "every caller", "all importers") are
+  not acceptable** in place of enumerated paths.
+- When path claims are enabled, coverage is complete from the enabled File
+  Budget or, when budget is off, from the execution artifact/investigation.
+- Only when both axes are enabled does this phase require parity between them.
 - The readiness check returns exit 0.
 
 If the check fails or the spec still contains unexpanded prose substitutes for enumeration, do NOT advance. Either complete the enumeration in this pass or stop and surface the gap to the operator. The boundary gate at advance time exists as a tripwire, not as a fallback for refine skipping closure.
 
-**Only physical files belong in `## File Budget` list-item backticks.** Function ids (`items.section.upsert`), event names, command surfaces, and other operational references go in the surrounding spec prose — not in the `- ` list-item backticks the readiness parser inspects. The dotted-identifier carve-out in `yoke_core.domain.file_budget_paths` silently drops them, but refine should strip them out of the budget entirely so the next reader sees only enumerated paths.
+When File Budget is enabled, **only physical files belong in `## File
+Budget` list-item backticks.** Function ids (`items.section.upsert`), event
+names, command surfaces, and other operational references go in the
+surrounding spec prose.
 
 ### Multi-turn refine session continuity
 

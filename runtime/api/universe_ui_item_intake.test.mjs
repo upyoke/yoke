@@ -35,7 +35,8 @@ test("New item derives web-fileability and settings from the definition", async 
         }],
         policies: {
           item_posture_allowlist: [
-            "verification", "path_claims", "approval_on_done", "deployment",
+            "verification", "file_budget", "path_claims",
+            "approval_on_done", "deployment",
           ],
         },
       },
@@ -60,6 +61,7 @@ test("New item derives web-fileability and settings from the definition", async 
   assert.match(rendered, /Title/);
   assert.match(rendered, /Instruction/);
   assert.match(rendered, /Verification/);
+  assert.match(rendered, /File Budget/);
   assert.match(rendered, /Path claims/);
   assert.match(rendered, /Approval on done/);
   assert.match(rendered, /Deploy after merge/);
@@ -67,7 +69,7 @@ test("New item derives web-fileability and settings from the definition", async 
     byClass(root, "item-project-value").map((node) => node.textContent),
     ["🐜 acme"],
   );
-  assert.equal(byClass(root, "item-setting-row").length, 4);
+  assert.equal(byClass(root, "item-setting-row").length, 5);
   assert.deepEqual(requests.map((request) => request.function), [
     "workflows.definition.get",
     "qa.plan.list",
@@ -114,8 +116,8 @@ test("New item submits one atomic create and routes to the public ref", async ()
                 entry_surfaces: ["web_form"],
                 policies: {
                   item_posture_allowlist: [
-                    "verification", "path_claims", "approval_on_done",
-                    "deployment",
+                    "verification", "file_budget", "path_claims",
+                    "approval_on_done", "deployment",
                   ],
                 },
               },
@@ -158,6 +160,8 @@ test("New item submits one atomic create and routes to the public ref", async ()
     .dispatchEvent(new Event("click"));
   byClass(byClass(root, "item-setting-row")[3], "item-button")[0]
     .dispatchEvent(new Event("click"));
+  byClass(byClass(root, "item-setting-row")[4], "item-button")[0]
+    .dispatchEvent(new Event("click"));
   const input = allNodes(root).find((node) => node.tagName === "INPUT");
   const textarea = allNodes(root).find((node) => node.tagName === "TEXTAREA");
   input.value = "Fix the footer";
@@ -175,6 +179,7 @@ test("New item submits one atomic create and routes to the public ref", async ()
     entry_surface: "web_form",
     workflow_posture: {
       verification: { kind: "plan", plan_id: 3 },
+      file_budget: true,
       path_claims: true,
       approval_on_done: true,
       deployment: true,

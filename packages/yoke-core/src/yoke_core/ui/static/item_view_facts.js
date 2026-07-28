@@ -71,7 +71,13 @@ function worktreeFact(documentNode, item) {
 
 function fileBudgetFact(documentNode, item) {
   const budget = item.file_budget || { total: 0, paths: [] };
-  if (!Number(budget.total)) return "none recorded";
+  const policy = item.workflow?.policies?.file_budget;
+  const tightened = item.workflow?.item_posture?.file_budget === true;
+  if (!Number(budget.total)) {
+    if (policy === "required_per_task") return "per task";
+    if (policy === "optional" && !tightened) return "none · workflow default";
+    return "none recorded";
+  }
   const label = `${budget.total} ${Number(budget.total) === 1 ? "file" : "files"}`;
   const value = el(documentNode, "span", null, label);
   if (Array.isArray(budget.paths) && budget.paths.length) {
@@ -82,7 +88,13 @@ function fileBudgetFact(documentNode, item) {
 
 function pathClaimsFact(item) {
   const claims = item.path_claims || { total: 0, states: {} };
-  if (!Number(claims.total)) return "none";
+  const policy = item.workflow?.policies?.path_claims;
+  const tightened = item.workflow?.item_posture?.path_claims === true;
+  if (!Number(claims.total)) {
+    if (policy === "required_per_task") return "per task";
+    if (policy === "optional" && !tightened) return "none · workflow default";
+    return "none";
+  }
   const states = Object.entries(claims.states || {})
     .map(([state, count]) => `${count} ${state}`)
     .join(" · ");
@@ -102,20 +114,26 @@ export function factsPanel(documentNode, item) {
   if (workflowId !== "epic") {
     appendFact(documentNode, table, "Claim", claimFact(documentNode, item.claim));
   }
-  if (workflowId === "issue") {
+  if (
+    item.workflow?.policies?.file_budget !== undefined ||
+    Number(item.file_budget?.total)
+  ) {
     appendFact(
       documentNode,
       table,
       "File budget",
       fileBudgetFact(documentNode, item),
     );
-  } else if (workflowId === "dash") {
-    const pathClaims = pathClaimsFact(item);
+  }
+  if (
+    item.workflow?.policies?.path_claims !== undefined ||
+    Number(item.path_claims?.total)
+  ) {
     appendFact(
       documentNode,
       table,
       "Path claims",
-      pathClaims === "none" ? "none · workflow default" : pathClaims,
+      pathClaimsFact(item),
     );
   }
   if (!["epic", "blitz"].includes(workflowId)) {
@@ -132,6 +150,7 @@ export function factsPanel(documentNode, item) {
 }
 
 const POSTURE_LABELS = {
+  file_budget: "File Budget",
   path_claims: "Path claims",
   worktrees: "Worktrees",
   parallelism: "Parallelism",
@@ -144,9 +163,10 @@ export function posturePanel(documentNode, item) {
   const policies = item.workflow.policies || {};
   const itemPosture = item.workflow.item_posture || {};
   const workflowId = String(item.workflow.id || "").toLowerCase();
-  const keys = workflowId === "dash"
-    ? ["generated_children", "path_claims", "worktrees"]
-    : ["path_claims", "worktrees", "parallelism"];
+  const preferredKeys = workflowId === "dash"
+    ? ["generated_children", "file_budget", "path_claims", "worktrees"]
+    : ["file_budget", "path_claims", "worktrees", "parallelism"];
+  const keys = preferredKeys.filter((key) => policies[key] !== undefined);
   for (const key of keys) {
     const cell = el(documentNode, "div", "item-posture-cell");
     cell.appendChild(el(
@@ -159,7 +179,7 @@ export function posturePanel(documentNode, item) {
       itemPostureValue(
         workflowId,
         key,
-        key === "path_claims" && itemPosture.path_claims
+        ["file_budget", "path_claims"].includes(key) && itemPosture[key]
           ? "required"
           : policies[key],
       ),
@@ -179,22 +199,6 @@ export function posturePanel(documentNode, item) {
 }
 
 function itemPostureValue(workflowId, key, value) {
-  if (workflowId === "issue") {
-    if (key === "path_claims") return "required · file budget";
-    if (key === "worktrees") return "one lane";
-    if (key === "parallelism") return "inside item";
-  }
-  if (workflowId === "epic") {
-    if (key === "path_claims") return "required · per task";
-    if (key === "worktrees") return "worker + integration";
-    if (key === "parallelism") return "task graph";
-  }
-  if (workflowId === "dash") {
-    if (key === "generated_children") return "none";
-    if (key === "path_claims") {
-      return value === "required" ? "required" : "optional";
-    }
-    if (key === "worktrees") return "one";
-  }
+  if (workflowId === "dash" && key === "worktrees") return "one";
   return readablePolicyValue(key, value);
 }

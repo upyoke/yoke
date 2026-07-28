@@ -68,7 +68,8 @@ test("Epic detail reports task completion and its narrower fact spine", async ()
     .filter((node) => node.tagName === "TH")
     .map((node) => node.textContent);
   assert.deepEqual(labels, [
-    "Project", "Workflow", "Status", "Owner", "Created",
+    "Project", "Workflow", "Status", "Owner",
+    "File budget", "Path claims", "Created",
   ]);
   assert.equal(
     byClass(byClass(root, "item-facts")[0], "row-link")[0].href,
@@ -76,11 +77,14 @@ test("Epic detail reports task completion and its narrower fact spine", async ()
   );
   assert.deepEqual(
     byClass(root, "item-posture-label").map((node) => node.textContent),
-    ["Path claims", "Worktrees", "Parallelism", "Migrations"],
+    ["File Budget", "Path claims", "Worktrees", "Parallelism", "Migrations"],
   );
   assert.deepEqual(
     byClass(root, "item-posture-value").map((node) => node.textContent),
-    ["required · per task", "worker + integration", "task graph", "governed"],
+    [
+      "required per task", "required per task",
+      "worker + integration lanes", "task graph", "governed",
+    ],
   );
 });
 
@@ -177,15 +181,22 @@ for (const workflowId of ["issue", "dash"]) {
     assert.deepEqual(
       byClass(root, "item-posture-label").map((node) => node.textContent),
       workflowId === "dash"
-        ? ["Child items", "Path claims", "Worktrees", "Migrations"]
-        : ["Path claims", "Worktrees", "Parallelism", "Migrations"],
+        ? [
+          "Child items", "File Budget", "Path claims",
+          "Worktrees", "Migrations",
+        ]
+        : [
+          "File Budget", "Path claims", "Worktrees",
+          "Parallelism", "Migrations",
+        ],
     );
     assert.deepEqual(
       byClass(root, "item-posture-value").map((node) => node.textContent),
       workflowId === "dash"
-        ? ["none", "optional", "one", "governed"]
+        ? ["never generated", "optional", "optional", "one", "governed"]
         : [
-          "required · file budget", "one lane", "inside item", "governed",
+          "required", "required", "one implementation lane",
+          "inside the item only", "governed",
         ],
     );
     assert.deepEqual(
@@ -195,11 +206,11 @@ for (const workflowId of ["issue", "dash"]) {
       workflowId === "dash"
         ? [
           "Project", "Workflow", "Status", "Owner", "Claim",
-          "Path claims", "Worktree", "Created",
+          "File budget", "Path claims", "Worktree", "Created",
         ]
         : [
           "Project", "Workflow", "Status", "Owner", "Claim",
-          "File budget", "Worktree", "Created",
+          "File budget", "Path claims", "Worktree", "Created",
         ],
     );
     assert.equal(

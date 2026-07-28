@@ -144,9 +144,18 @@ per-task path-claim handoff. Skip if target is `idea`, `refining-idea`, `refined
 `planning`, `refining-plan`, or `planned` (claim widening can still happen
 during refine).
 
+Also skip unless `_effective_file_budget_policy` **and**
+`_effective_path_claims_policy` are both non-`optional`. File
+Budget/path-claim parity exists only in
+that combination. With budget off and claims on, claim coverage comes from the
+execution artifact or survey. With budget on and claims off, the budget is
+sizing/conflict evidence and there is no claim coverage gate.
+
 Applies to targets `implementing`, `reviewing-implementation`, `reviewed-implementation`, `polishing-implementation`, `implemented`, and `release` — any status at or past implementation entry. **If `--force`:** skip with warning.
 
-The path-claim-required gate (run by `/yoke refine`) verifies *that* a claim exists; this gate verifies that the claim's declared paths cover everything the spec body's `## File Budget` section promises. The seam exists because deferred-coverage path widening (held until upstream blockers release) is currently authored as prose ("widen claim onto X once YOK-Y releases") with no automated reconciliation. This gate catches the drift at the moment it bites.
+The path-claim-required gate (run by `/yoke refine` when enabled) verifies
+*that* a claim exists; this gate verifies that the claim's declared paths
+cover everything the enabled `## File Budget` section promises.
 
 ```bash
 # Internal coverage-gate helper: evaluate path-claim/spec coverage for YOK-{N}.
