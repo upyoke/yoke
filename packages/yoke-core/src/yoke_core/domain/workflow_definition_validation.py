@@ -258,6 +258,21 @@ def _validate_policies(definition: Mapping[str, Any]) -> None:
             "policies.item_posture_allowlist has unknown values: "
             f"{sorted(unknown)}"
         )
+    if "file_budget" in posture and (
+        schema_version == 1
+        or policies["file_budget"] != WORKFLOW_FILE_BUDGET_OPTIONAL
+    ):
+        raise WorkflowDefinitionError(
+            "file_budget posture requires a schema-v2 optional policy"
+        )
+    task_scoped = (
+        policies["path_claims"] == WORKFLOW_PATH_CLAIMS_REQUIRED_PER_TASK
+        or policies.get("file_budget") == WORKFLOW_FILE_BUDGET_REQUIRED_PER_TASK
+    )
+    if task_scoped and policies["generated_children"] != "epic_tasks":
+        raise WorkflowDefinitionError(
+            "required_per_task policies require generated_children=epic_tasks"
+        )
     if "approval_defaults" in policies:
         _validate_approval_defaults(definition, policies)
 

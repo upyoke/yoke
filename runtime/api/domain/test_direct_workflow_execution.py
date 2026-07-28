@@ -31,6 +31,9 @@ from yoke_core.domain.handlers.direct_workflow_execution import (
 from yoke_core.domain.handlers.field_note_dash_promotion import (
     REGISTRATIONS as PROMOTION_REGISTRATIONS,
 )
+from yoke_core.domain.strategy_execution_schema import (
+    ensure_strategy_execution_schema,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -81,6 +84,52 @@ def test_conflict_survey_preserves_dot_paths_and_finds_frontier_scope(test_db):
     assert json.loads(stored[0])["fingerprint"] == result.fingerprint
 
 
+def test_conflict_survey_reads_linked_blitz_execution_budget(test_db):
+    ensure_strategy_execution_schema(test_db)
+    insert_item(test_db, id=2103, workflow_id="dash", title="Candidate")
+    insert_item(
+        test_db,
+        id=2104,
+        workflow_id="blitz",
+        title="Document-led frontier",
+        spec="",
+    )
+    project_id = test_db.execute(
+        "SELECT project_id FROM items WHERE id = %s", (2104,),
+    ).fetchone()[0]
+    test_db.execute(
+        "INSERT INTO strategy_docs "
+        "(project_id, slug, content, updated_at) VALUES (%s, %s, %s, %s)",
+        (
+            project_id,
+            "EXECUTION-PLAN",
+            "## File Budget\n\n- `src/document-owned.py`\n",
+            "2026-07-28T00:00:00Z",
+        ),
+    )
+    test_db.execute(
+        "INSERT INTO item_strategy_docs "
+        "(item_id, project_id, strategy_doc_slug, linked_at) "
+        "VALUES (%s, %s, %s, %s)",
+        (2104, project_id, "EXECUTION-PLAN", "2026-07-28T00:00:00Z"),
+    )
+    test_db.commit()
+
+    result = survey_conflicts(
+        test_db,
+        item_id=2103,
+        touch_paths=["src/document-owned.py"],
+    )
+
+    assert result.clear is False
+    assert any(
+        blocker.kind == "frontier_scope"
+        and blocker.owner_item_id == 2104
+        for blocker in result.blockers
+    )
+    assert test_db.execute(
+        "SELECT spec FROM items WHERE id = %s", (2104,),
+    ).fetchone()[0] == ""
 def test_dash_evidence_cannot_self_attest_enabled_posture(test_db):
     insert_item(
         test_db,

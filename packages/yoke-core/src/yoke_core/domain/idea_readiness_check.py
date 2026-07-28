@@ -212,10 +212,15 @@ def verify_effective_file_budget_claim_consistency(
     item_id: int,
 ) -> List[Issue]:
     """Apply parity only when both effective workflow axes require it."""
+    from yoke_core.domain.file_budget_required_gate import (
+        workflow_policy_schema_available,
+    )
     from yoke_core.domain.workflow_effective_policies import (
         load_item_effective_workflow_policies,
     )
 
+    if not workflow_policy_schema_available(conn):
+        return []
     effective = load_item_effective_workflow_policies(conn, item_id)
     if not effective.requires_budget_claim_parity:
         return []

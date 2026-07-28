@@ -186,10 +186,22 @@ def _item_coordination_blockers(
         if _table_exists(conn, "work_claims")
         else ""
     )
+    doc_select = (
+        ", COALESCE(sd.content, '') AS execution_document"
+        if all(_table_exists(conn, table)
+               for table in ("item_strategy_docs", "strategy_docs"))
+        else ", '' AS execution_document"
+    )
+    doc_join = (
+        " LEFT JOIN item_strategy_docs isl ON isl.item_id = i.id "
+        "LEFT JOIN strategy_docs sd ON sd.project_id = isl.project_id "
+        "AND sd.slug = isl.strategy_doc_slug"
+        if "sd.content" in doc_select else ""
+    )
     rows = _dict_rows(conn.execute(
         "SELECT i.id, i.status, COALESCE(i.spec, '') AS spec"
-        f"{worktree_select}{claim_select} FROM items i"
-        f"{worktree_join}{claim_join} "
+        f"{worktree_select}{claim_select}{doc_select} FROM items i"
+        f"{worktree_join}{claim_join}{doc_join} "
         f"WHERE i.project_id = {marker} AND i.id <> {marker}",
         (int(item["project_id"]), int(item["id"])),
     ))
@@ -198,7 +210,9 @@ def _item_coordination_blockers(
     for row in rows:
         if str(row["status"]) in _TERMINAL_STATUSES:
             continue
-        declared = extract_file_budget_paths(str(row["spec"]))
+        declared = extract_file_budget_paths(
+            f"{row['spec']}\n{row['execution_document']}"
+        )
         worktree_paths = _git_touched_paths(
             str(row.get("worktree_path") or ""), integration_target,
         )

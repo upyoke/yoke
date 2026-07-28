@@ -27,8 +27,9 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from yoke_core.domain.backlog_structured_write_op import execute_structured_write
 from yoke_core.domain.idea_readiness_check import (
-    SIBLING_REQUIRED_THRESHOLD, _resolve_repo_root, _strip_sun_prefix,
+    SIBLING_REQUIRED_THRESHOLD, _strip_sun_prefix,
 )
+from yoke_core.domain.idea_readiness_check_repo_root import _resolve_repo_root
 
 
 CLASS_PASS = "pass"
@@ -317,6 +318,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     print(json.dumps(outcome.to_payload(), sort_keys=True))
     return 0 if outcome.success else 1
 
+
+attempt_claim_coverage_repair: Any
 
 __all__ = [
     "CLASS_MIXED_STALE_COUNT", "CLASS_PASS", "CLASS_PURE_STALE_COUNT",

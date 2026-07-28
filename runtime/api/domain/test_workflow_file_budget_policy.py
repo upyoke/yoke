@@ -90,6 +90,40 @@ def test_schema_two_requires_file_budget_while_history_remains_schema_one():
         validate_workflow_definition(definition)
 
 
+def test_schema_one_rejects_file_budget_posture_allowlist():
+    definition = deepcopy(
+        builtin_workflow_definition("dash")["definition"]
+    )
+    definition["schema_version"] = 1
+    definition["policies"].pop("file_budget")
+
+    with pytest.raises(WorkflowDefinitionError, match="schema-v2 optional"):
+        validate_workflow_definition(definition)
+
+
+@pytest.mark.parametrize("axis", ("file_budget", "path_claims"))
+def test_task_scoped_axis_requires_generated_tasks(axis):
+    definition = deepcopy(
+        builtin_workflow_definition("dash")["definition"]
+    )
+    definition["policies"][axis] = "required_per_task"
+    if axis == "file_budget":
+        definition["policies"]["item_posture_allowlist"].remove("file_budget")
+
+    with pytest.raises(WorkflowDefinitionError, match="generated_children"):
+        validate_workflow_definition(definition)
+
+
+def test_file_budget_posture_allowlist_requires_optional_policy():
+    definition = deepcopy(
+        builtin_workflow_definition("dash")["definition"]
+    )
+    definition["policies"]["file_budget"] = "required"
+
+    with pytest.raises(WorkflowDefinitionError, match="schema-v2 optional"):
+        validate_workflow_definition(definition)
+
+
 def test_file_budget_posture_only_tightens_allowlisted_optional_workflow(test_db):
     dash = builtin_workflow_definition("dash")["definition"]
     issue = builtin_workflow_definition("issue")["definition"]
@@ -268,6 +302,22 @@ def test_epic_requires_a_persisted_budget_for_each_generated_task(test_db):
     insert_epic_task(test_db, epic_id=3391, task_num=1)
 
     blocked = budget_gate(test_db, 3391)
+
+    assert blocked["verdict"] == "block"
+    assert blocked["missing_tasks"] == [1]
+
+
+def test_epic_ignores_whitespace_only_task_budget_path(test_db):
+    insert_item(test_db, id=3392, workflow_id="epic")
+    insert_epic_task(test_db, epic_id=3392, task_num=1)
+    test_db.execute(
+        "INSERT INTO epic_task_files "
+        "(epic_id, task_num, file_path, action) VALUES (%s, %s, %s, %s)",
+        (3392, 1, "   ", "modify"),
+    )
+    test_db.commit()
+
+    blocked = budget_gate(test_db, 3392)
 
     assert blocked["verdict"] == "block"
     assert blocked["missing_tasks"] == [1]
