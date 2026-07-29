@@ -17,6 +17,7 @@ from yoke_core.domain.migrations.qa_requirement_execution_snapshot import (
     invariants,
 )
 from yoke_core.domain.qa_plan_attachments import (
+    materialize_for_deployment_run,
     materialize_for_item,
     set_project_default,
 )
@@ -167,6 +168,29 @@ def test_apply_backfills_plan_and_ad_hoc_rows_then_reapplies_cleanly(test_db) ->
             "SELECT id, updated_at FROM qa_methods ORDER BY id"
         ).fetchall()
     ] == method_state
+
+
+def test_invariants_scope_plan_positions_to_the_deployment_run(test_db) -> None:
+    _seed_requirements(test_db)
+    for run_id in ("run-20260729-901", "run-20260729-902"):
+        test_db.execute(
+            "INSERT INTO deployment_runs("
+            "id, project_id, flow, status, created_at"
+            ") SELECT %s, project_id, 'stage', 'created', "
+            "'2026-07-29T00:00:00Z' FROM qa_plans "
+            "WHERE slug='snapshot-plan'",
+            (run_id,),
+        )
+        test_db.commit()
+        materialize_for_deployment_run(
+            test_db,
+            deployment_run_id=run_id,
+            plan="snapshot-plan",
+            project="yoke",
+        )
+
+    apply(test_db)
+    invariants(test_db)
 
 
 def test_apply_leaves_transaction_control_with_the_caller(test_db) -> None:
