@@ -16,8 +16,7 @@ from pathlib import Path
 from typing import Optional, Tuple
 
 from yoke_core.domain import project_settings, runtime_settings
-from yoke_core.domain.db_helpers import connect
-from yoke_core.domain.project_checkout_locations import checkout_for_project
+from yoke_core.domain.project_checkout_locations import checkout_for_project_slug
 from yoke_core.domain.worktree_create_db import (
     check_path_claim_gate,
     item_worktree_authority_is_https,
@@ -89,8 +88,11 @@ def create_worktree(
     # --- Resolve repo root ---
     if repo_root is None:
         if project:
-            with connect(db_path) as conn:
-                checkout = checkout_for_project(conn, project)
+            # Resolve the project slug to its machine-local checkout through
+            # the transport-aware relay so this works over an https control
+            # plane, not only a local Postgres connection. The hosted-lane
+            # path below already relays; only this slug->id read did not.
+            checkout = checkout_for_project_slug(project)
             repo_root = str(checkout) if checkout is not None else ""
             if not repo_root or not os.path.isdir(os.path.join(repo_root, ".git")):
                 return CreateWorktreeResult(

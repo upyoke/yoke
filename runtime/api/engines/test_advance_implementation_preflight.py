@@ -4,7 +4,7 @@ from unittest import mock
 
 import pytest
 
-from yoke_core.engines import advance_implementation_entry as orch
+from yoke_core.engines import advance_implementation_preflight_gates as gates
 
 
 def _coverage(paths=()):
@@ -32,7 +32,7 @@ def _preflight(
         "yoke_core.domain.check_ac_presence.evaluate_item",
         return_value=acs,
     ), mock.patch.object(
-        orch.db_helpers, "connect", connect,
+        gates.db_helpers, "connect", connect,
     ), mock.patch(
         "yoke_core.domain.file_budget_required_gate.evaluate",
         return_value=budget,
@@ -40,12 +40,12 @@ def _preflight(
         "yoke_core.domain.path_claim_spec_coverage_gate.evaluate",
         return_value=coverage,
     ) as parity_gate:
-        result = orch._run_preflight_gates(42, force=False)
+        result = gates._run_preflight_gates(42, force=False)
     return result, budget_gate, parity_gate
 
 
 def test_preflight_force_skips_all():
-    assert orch._run_preflight_gates(42, force=True) == (True, "")
+    assert gates._run_preflight_gates(42, force=True) == (True, "")
 
 
 @pytest.mark.parametrize(

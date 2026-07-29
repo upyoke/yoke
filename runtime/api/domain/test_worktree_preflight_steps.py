@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import os
-from pathlib import Path
 from types import SimpleNamespace
-from typing import List
 
-import pytest
-
+from yoke_contracts.api.function_call import (
+    FunctionCallResponse,
+    FunctionError,
+)
 from yoke_core.domain import worktree_preflight_steps as steps
 
 
@@ -141,18 +140,48 @@ class TestActivatePathClaims:
 
 
 class TestClaimWork:
-    def test_already_owned_treated_as_success(self, monkeypatch):
-        canned = [(0, '{"success": true, "claim": "(already owned)"}\n', "")]
-        fake_run, _ = _fake_run_factory(canned)
-        monkeypatch.setattr(steps, "_run", fake_run)
+    """``claim_work`` acquires the item work claim through the transport-aware
+    dispatcher (``claims.work.acquire``) rather than shelling to a local-DB
+    module, so it works over an https control plane."""
+
+    def _patch_dispatch(self, monkeypatch, response):
+        from yoke_core.api import service_client_structured_api_adapter as facade
+
+        calls = []
+
+        def fake(**kwargs):
+            calls.append(kwargs)
+            return response
+
+        monkeypatch.setattr(facade, "call_dispatcher", fake)
+        return calls
+
+    def test_acquire_success_relays_claims_work_acquire(self, monkeypatch):
+        calls = self._patch_dispatch(
+            monkeypatch,
+            FunctionCallResponse(
+                success=True, function="claims.work.acquire", version="v1",
+                result={"claim": "held"},
+            ),
+        )
         ok, msg = steps.claim_work(1599)
         assert ok is True
-        assert "already" in msg.lower()
+        assert msg  # non-empty status string
+        assert calls[0]["function_id"] == "claims.work.acquire"
+        assert calls[0]["target"].kind == "item"
+        assert calls[0]["target"].item_id == 1599
 
     def test_other_session_holding_returns_failure(self, monkeypatch):
-        canned = [(2, "", "already claimed by session 'alt'\n")]
-        fake_run, _ = _fake_run_factory(canned)
-        monkeypatch.setattr(steps, "_run", fake_run)
+        self._patch_dispatch(
+            monkeypatch,
+            FunctionCallResponse(
+                success=False, function="claims.work.acquire", version="v1",
+                error=FunctionError(
+                    code="active_claim_conflict",
+                    message="already claimed by session 'alt'",
+                ),
+            ),
+        )
         ok, msg = steps.claim_work(1599)
         assert ok is False
         assert "already claimed by session" in msg

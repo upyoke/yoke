@@ -13,38 +13,35 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
-from . import db_backend
 from .auth_context import StandardAuthContext, merge_context
 from .events_crud import (
     decompose_work_unit,
     normalize_event_item_id,
     normalize_severity,
 )
+from .events_emit_write import _write_event
 from .events_envelope_shrink import fit_envelope_context
 from .events_isolation import (
     SYNTHETIC_SMOKE_FLAG as SYNTHETIC_SMOKE_FLAG,
     _resolve_db_path,
     isolation_gate_blocks,
 )
-from .events_project_identity import (
-    resolve_envelope_project_id_for_event,
-    resolve_item_id_for_event,
-)
+from .events_project_identity import resolve_item_id_for_event
 from .events_retired_name_guard import (
     RetiredEventNameError,
     assert_event_name_not_retired,
 )
-from .events_session_actor import apply_session_actor_id
-from .events_insert_sql import _INSERT_SQL
 from .events_trace import current_trace_context
+from .events_transport_guard import (
+    TRANSPORT_NO_LOCAL_DB_REASON,
+    _active_transport_is_https,
+)
 from .events_writes import check_severity, check_severity_conn
-from .events_write_conn import event_insert_params, write_event_row_on_conn
 
 logger = logging.getLogger(__name__)
 
 MAX_ENVELOPE_BYTES = 65536
 MAX_CONTEXT_FIELD_BYTES = 2048
-
 
 @dataclass(frozen=True)
 class EmitResult:
@@ -285,6 +282,20 @@ def emit_event(
                 envelope,
             )
 
+        # Over an https control plane a local connection cannot be opened
+        # (``db_backend.connect`` would raise). When the caller manages no
+        # connection of its own, degrade to a non-ok result with a distinct
+        # reason so orchestration telemetry stays best-effort instead of
+        # surfacing a fatal RuntimeError. The important events are emitted
+        # server-side by the relayed registered functions.
+        if conn is None and db_path is None and _active_transport_is_https():
+            return EmitResult(
+                False,
+                envelope["event_id"],
+                TRANSPORT_NO_LOCAL_DB_REASON,
+                envelope,
+            )
+
         assert_event_name_not_retired(conn or resolved_target, event_name)
         passes_severity = (
             check_severity_conn(conn, event_name, source_type, envelope["severity"])
@@ -313,37 +324,6 @@ def emit_event(
         )
         reason = "events_table_missing" if missing else "exception"
         return EmitResult(False, None, reason, None)
-
-
-def _write_event(
-    envelope: Dict[str, Any],
-    *,
-    db_path: Optional[str] = None,
-    conn: Optional[Any] = None,
-) -> bool:
-    """Insert an event row into the events table.
-
-    If ``conn`` is provided, uses it directly (caller manages lifecycle).
-    Otherwise opens a short-lived connection to the resolved DB path.
-    """
-    if conn is not None:
-        apply_session_actor_id(envelope, conn=conn)
-        project_id = resolve_envelope_project_id_for_event(conn, db_path, envelope)
-        return write_event_row_on_conn(
-            conn, _INSERT_SQL, event_insert_params(envelope, project_id)
-        )
-
-    own_conn = db_backend.connect(db_path)
-    try:
-        apply_session_actor_id(envelope, conn=own_conn)
-        project_id = resolve_envelope_project_id_for_event(own_conn, db_path, envelope)
-        wrote = write_event_row_on_conn(
-            own_conn, _INSERT_SQL, event_insert_params(envelope, project_id)
-        )
-        own_conn.commit()
-        return wrote
-    finally:
-        own_conn.close()
 
 
 # Re-export the legacy argv-compat helper at the original import path.

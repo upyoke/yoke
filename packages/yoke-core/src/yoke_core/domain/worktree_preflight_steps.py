@@ -41,18 +41,35 @@ CWD_MODE_STATIC = "static"
 
 
 def claim_work(item_id: int) -> Tuple[bool, str]:
-    """Run ``service_client claim-work --item YOK-N``. Idempotent."""
-    r = _run([
-        sys.executable,
-        "-m",
-        "yoke_core.api.service_client",
-        "claim-work",
-        "--item",
-        f"YOK-{item_id}",
-    ])
-    if r.returncode == 0:
-        return True, r.stdout.strip()
-    return False, (r.stderr or r.stdout).strip()
+    """Acquire the item work claim through the connected transport.
+
+    Routes ``claims.work.acquire`` via the transport-aware dispatcher so an
+    https-connected session relays the acquisition to the control plane
+    instead of opening a local Postgres connection (which refuses on an
+    https transport). Idempotent: the acquire handler returns the session's
+    existing claim when it already holds one.
+    """
+    from yoke_contracts.api.function_call import TargetRef
+    from yoke_core.api.service_client_structured_api_adapter import (
+        call_dispatcher,
+    )
+
+    response = call_dispatcher(
+        function_id="claims.work.acquire",
+        target=TargetRef(kind="item", item_id=int(item_id)),
+        payload={
+            "target": {"kind": "item", "item_id": int(item_id)},
+            "reason": "advance worktree preflight",
+        },
+    )
+    if response.success:
+        return True, "work claim held"
+    error = response.error
+    return False, (
+        f"{error.code}: {error.message}"
+        if error is not None
+        else "work claim acquire failed"
+    )
 
 
 def classify_activation_failure(stderr: str) -> str:
