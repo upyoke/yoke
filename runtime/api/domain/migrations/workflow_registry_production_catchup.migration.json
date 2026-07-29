@@ -144,11 +144,11 @@
     },
     "workflow_item_worktree_records": {
       "path": "packages/yoke-core/src/yoke_core/domain/migrations/workflow_item_worktree_records.py",
-      "sha256": "9bb20543592a080f4ab2daad3f2911ebe567d63f8c3cb9cf818623e8c71f95a1"
+      "sha256": "0e2562fc5e041c2c7490fa1598710995c31e8ba3c4b3ba24505ca155a6b04b0b"
     },
     "workflow_item_worktree_source_fields_contract": {
       "path": "packages/yoke-core/src/yoke_core/domain/migrations/workflow_item_worktree_source_fields_contract.py",
-      "sha256": "91220fd43089fb63cf958669ed1effca8c4fa6c1b71ecbe72a0b39a94359e1f3"
+      "sha256": "18583540bc4e1186253d4b76186328157d38bc9e3e4a650bce1b3212af187ad8"
     },
     "path_claim_task_bindings": {
       "path": "packages/yoke-core/src/yoke_core/domain/migrations/path_claim_task_bindings.py",
@@ -194,7 +194,7 @@
     "invariants": [
       "The seven fleet-safe modules execute in dependency order and remain digest-identical to their standalone manifests.",
       "Built-in workflow current versions converge without repinning existing items.",
-      "Every usable legacy worktree source is represented by a universal item-worktree record before superseded fields are removed.",
+      "Every usable legacy worktree source is represented by a universal item-worktree record before superseded fields are removed, and terminal parents retain only released lane history.",
       "Task-scoped path claims bind only after universal worktree references exist.",
       "Registered command plans replace legacy project-structure command rows.",
       "Item-level Browser QA metadata is removed only after executable QA parity exists.",

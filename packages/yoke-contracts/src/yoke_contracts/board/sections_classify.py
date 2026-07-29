@@ -8,9 +8,7 @@ section-keyed structure the renderer consumes.
 
 from __future__ import annotations
 
-import json
-from collections.abc import Mapping
-from typing import Any, Dict, List, NamedTuple, Optional
+from typing import Dict, List, NamedTuple, Optional
 
 from yoke_contracts.project_contract.board_art.emoji import STATUS_EMOJI as _STATUS_EMOJI_PREFIX
 from yoke_contracts.board.board_db import BoardDBLike
@@ -148,18 +146,6 @@ class EpicStats(NamedTuple):
     progress: str  # "N/M (PP%)" or "—"
 
 
-def _definition_policies(raw_definition: Any) -> Mapping[str, Any]:
-    if isinstance(raw_definition, Mapping):
-        definition = raw_definition
-    else:
-        try:
-            definition = json.loads(str(raw_definition or "{}"))
-        except (TypeError, ValueError):
-            return {}
-    policies = definition.get("policies") or {}
-    return policies if isinstance(policies, Mapping) else {}
-
-
 def precompute_epic_stats(
     db: BoardDBLike,
     scope: str,
@@ -253,7 +239,7 @@ def classify_items(
         p.slug,
         p.public_item_prefix,
         i.project_sequence,
-        wv.definition_json
+        wv.definition_json::jsonb #>> '{{policies,generated_children}}'
     FROM items i
     LEFT JOIN projects p ON p.id = i.project_id
     LEFT JOIN workflow_versions wv ON wv.id = i.workflow_version_id
@@ -277,7 +263,7 @@ def classify_items(
             project_slug,
             public_item_prefix,
             project_sequence,
-            workflow_definition,
+            generated_children,
         ) = row
         yok_id = format_item_ref(
             project_slug,
@@ -286,10 +272,9 @@ def classify_items(
             item_id=int(item_id_raw),
         )
 
-        policies = _definition_policies(workflow_definition)
         eff_epic: Optional[int] = (
             int(numid)
-            if policies.get("generated_children") == "epic_tasks"
+            if generated_children == "epic_tasks"
             else None
         )
 

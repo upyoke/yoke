@@ -11,6 +11,7 @@ Three layers over the same disposable Postgres fixture:
 
 from __future__ import annotations
 
+import json
 import os
 from unittest import mock
 
@@ -64,6 +65,61 @@ def test_handler_returns_recorded_plan(populated_db):
         seed=11,
     )
     assert "First item" in markdown
+
+
+def test_handler_records_only_generated_children_policy(populated_db):
+    """Item rows omit the rest of each pinned workflow definition."""
+    marker = "unused-definition-payload-" + ("x" * 100_000)
+    conn = connect_test_db(populated_db)
+    try:
+        rows = conn.execute(
+            "SELECT id, definition_json FROM workflow_versions ORDER BY id"
+        ).fetchall()
+        for version_id, raw_definition in rows:
+            definition = json.loads(raw_definition)
+            definition["unused_board_payload"] = marker
+            conn.execute(
+                "UPDATE workflow_versions SET definition_json = %s WHERE id = %s",
+                (json.dumps(definition), version_id),
+            )
+        conn.execute(
+            "UPDATE items SET workflow_version_id = "
+            "CASE WHEN workflow_id = 'epic' THEN 2 ELSE 1 END"
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    outcome = orchestration.handle_board_data_get(
+        _request({"scope": "yoke", "config_values": {}})
+    )
+
+    assert outcome.primary_success
+    result = outcome.result_payload
+    encoded = json.dumps(result)
+    assert marker not in encoded
+
+    item_entry = next(
+        entry
+        for entry in result["entries"]
+        if entry["kind"] == "query"
+        and "LEFT JOIN workflow_versions wv" in entry["sql"]
+    )
+    assert "wv.definition_json::jsonb #>>" in item_entry["sql"]
+    generated_children_by_item = {
+        int(row[0]): row[-1] for row in item_entry["rows"]
+    }
+    assert generated_children_by_item[1] == "none"
+    assert generated_children_by_item[3] == "epic_tasks"
+
+    markdown = render_board_from_payload(
+        result,
+        scope="yoke",
+        config=BoardConfig(),
+        art_config=ArtConfig(),
+        seed=11,
+    )
+    assert "1/2 (50%)" in markdown
 
 
 def test_handler_rejects_unknown_config_field(populated_db):
