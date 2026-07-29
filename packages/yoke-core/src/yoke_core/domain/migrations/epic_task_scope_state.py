@@ -54,7 +54,11 @@ def apply(
         "UPDATE epic_tasks SET scope_state='pending' "
         "WHERE scope_state IS NULL"
     )
-    report = repair_legacy_task_scopes(conn, tenant_id=tenant_id)
+    report = repair_legacy_task_scopes(
+        conn,
+        tenant_id=tenant_id,
+        commit=False,
+    )
     constraint = "epic_tasks_scope_state_check"
     if db_backend.connection_is_postgres(conn):
         if not _postgres_constraint_exists(conn, constraint):
@@ -69,7 +73,6 @@ def apply(
         conn.execute(
             "ALTER TABLE epic_tasks ALTER COLUMN scope_state SET NOT NULL"
         )
-        conn.commit()
     return report
 
 

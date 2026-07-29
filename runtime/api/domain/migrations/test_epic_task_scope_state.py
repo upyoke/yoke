@@ -87,3 +87,29 @@ def test_migration_installs_valid_state_constraint_on_postgres(test_db):
             "WHERE epic_id=1710 AND task_num=1"
         )
     test_db.rollback()
+
+
+def test_apply_leaves_transaction_ownership_with_manifest_caller(test_db):
+    insert_item(test_db, id=1711, workflow_id="epic", status="planned")
+    insert_epic_task(test_db, epic_id=1711, task_num=1, status="planned")
+    test_db.execute(
+        "ALTER TABLE epic_tasks DROP CONSTRAINT epic_tasks_scope_state_check"
+    )
+    test_db.execute(
+        "ALTER TABLE epic_tasks DROP COLUMN scope_finalized_at"
+    )
+    test_db.execute("ALTER TABLE epic_tasks DROP COLUMN scope_state")
+    test_db.commit()
+
+    apply(test_db, tenant_id=4)
+    test_db.rollback()
+
+    columns = {
+        row["column_name"]
+        for row in test_db.execute(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_name='epic_tasks' "
+            "AND column_name IN ('scope_state', 'scope_finalized_at')"
+        ).fetchall()
+    }
+    assert columns == set()

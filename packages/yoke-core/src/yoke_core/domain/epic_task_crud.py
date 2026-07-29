@@ -43,6 +43,8 @@ def task_upsert(
     worktree: str = "",
     context_estimate: str = "",
     dependencies: str = "",
+    *,
+    commit: bool = True,
 ) -> str:
     """Upsert an epic task row (preserves existing fields on conflict)."""
     if not title:
@@ -79,7 +81,8 @@ def task_upsert(
     )
     touch_item_activity(conn, item_id=epic_id)
     touch_epic_task_activity(conn, epic_id=epic_id, task_num=task_num)
-    conn.commit()
+    if commit:
+        conn.commit()
     return f"Upserted task {epic_id}/{task_num}: {title}"
 
 

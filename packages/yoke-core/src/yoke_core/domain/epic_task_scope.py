@@ -13,12 +13,7 @@ SCOPE_PENDING = "pending"
 SCOPE_PATHS = "paths"
 SCOPE_NO_FILES = "no_files"
 SCOPE_LEGACY_DEFERRED = "legacy_deferred"
-SCOPE_STATES = (
-    SCOPE_PENDING,
-    SCOPE_PATHS,
-    SCOPE_NO_FILES,
-    SCOPE_LEGACY_DEFERRED,
-)
+SCOPE_STATES = (SCOPE_PENDING, SCOPE_PATHS, SCOPE_NO_FILES, SCOPE_LEGACY_DEFERRED)
 
 
 class TaskScopeIncomplete(RuntimeError):
@@ -96,6 +91,32 @@ def ensure_new_task_membership_allowed(
             f"YOK-{item_id} task membership is finalized; reopen task scope "
             f"before adding task {task_num}"
         )
+
+
+def reopen_generated_task_scopes(
+    conn: Any,
+    item_id: int,
+    *,
+    commit: bool = True,
+) -> int:
+    """Invalidate the finalized membership snapshot before amendment."""
+    if not schema_available(conn):
+        return 0
+    marker = _p(conn)
+    if conn.execute(
+        f"SELECT 1 FROM items WHERE id={marker}", (int(item_id),)
+    ).fetchone() is None:
+        return 0
+    lock_task_membership(conn, int(item_id))
+    cursor = conn.execute(
+        "UPDATE epic_tasks SET scope_finalized_at=NULL "
+        f"WHERE epic_id={marker} AND scope_finalized_at IS NOT NULL",
+        (int(item_id),),
+    )
+    changed = max(int(cursor.rowcount or 0), 0)
+    if commit:
+        conn.commit()
+    return changed
 
 
 def _rows(conn: Any, item_id: int | None = None) -> list[dict[str, Any]]:
@@ -282,6 +303,7 @@ def repair_legacy_task_scopes(
     *,
     tenant_id: str | int = "current",
     item_id: int | None = None,
+    commit: bool = True,
 ) -> TaskScopeRepairReport:
     """Idempotently type legacy task scope without guessing path ownership."""
     if not schema_available(conn):
@@ -302,7 +324,8 @@ def repair_legacy_task_scopes(
             "AND scope_state='pending'",
             (state, *pair),
         )
-    conn.commit()
+    if commit:
+        conn.commit()
     return TaskScopeRepairReport(
         tenant_id=str(tenant_id),
         path_tasks=tuple(path_tasks),
@@ -311,18 +334,12 @@ def repair_legacy_task_scopes(
 
 
 __all__ = [
-    "SCOPE_LEGACY_DEFERRED",
-    "SCOPE_NO_FILES",
-    "SCOPE_PATHS",
-    "SCOPE_PENDING",
-    "SCOPE_STATES",
+    "SCOPE_LEGACY_DEFERRED", "SCOPE_NO_FILES", "SCOPE_PATHS",
+    "SCOPE_PENDING", "SCOPE_STATES",
     "TaskScopeIncomplete",
     "TaskScopeRepairReport",
-    "finalize_generated_task_scopes",
-    "ensure_new_task_membership_allowed",
-    "lock_task_membership",
-    "repair_legacy_task_scopes",
-    "schema_available",
-    "set_no_files_scope",
+    "finalize_generated_task_scopes", "ensure_new_task_membership_allowed",
+    "lock_task_membership", "reopen_generated_task_scopes",
+    "repair_legacy_task_scopes", "schema_available", "set_no_files_scope",
     "task_scope_issues",
 ]

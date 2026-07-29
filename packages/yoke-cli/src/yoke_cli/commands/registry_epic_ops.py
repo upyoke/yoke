@@ -6,6 +6,7 @@ from typing import Callable, Dict, List, Tuple
 
 from yoke_cli.commands import flag_adapters as _adapters
 from yoke_cli.commands.adapters import epic_ops as _ops
+from yoke_cli.commands.adapters import epic_scope as _scope
 
 AdapterFn = Callable[[List[str]], int]
 
@@ -60,13 +61,16 @@ EPIC_OPS_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
         ("workflow_item.epic_task.file_add", _ops.epic_task_file_add),
     ("workflow-item", "epic-task", "scope-no-files"):
         ("workflow_item.epic_task.scope_no_files",
-         _ops.epic_task_scope_no_files),
+         _scope.epic_task_scope_no_files),
     ("workflow-item", "epic-task", "scope-finalize"):
         ("workflow_item.epic_task.scope_finalize",
-         _ops.epic_task_scope_finalize),
+         _scope.epic_task_scope_finalize),
+    ("workflow-item", "epic-task", "scope-reopen"):
+        ("workflow_item.epic_task.scope_reopen",
+         _scope.epic_task_scope_reopen),
     ("workflow-item", "epic-task", "scope-repair-legacy"):
         ("workflow_item.epic_task.scope_repair_legacy",
-         _ops.epic_task_scope_repair_legacy),
+         _scope.epic_task_scope_repair_legacy),
     ("workflow-item", "epic-task", "history-insert"):
         ("workflow_item.epic_task.history_insert",
          _ops.epic_task_history_insert),

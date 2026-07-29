@@ -30,7 +30,7 @@
   "module_sources": {
     "epic_task_scope_state": {
       "path": "packages/yoke-core/src/yoke_core/domain/migrations/epic_task_scope_state.py",
-      "sha256": "401db37ffdb59fbfa191c3d3c42a1db9967de3620691add7214883466b228413"
+      "sha256": "b129fc00e40fd1ea7a91c319196810f53eb0b2f419fb88aee4d3f359b491cc6b"
     }
   },
   "attestation": {

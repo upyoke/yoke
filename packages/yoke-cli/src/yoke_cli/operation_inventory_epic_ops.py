@@ -44,6 +44,8 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
        "workflow_item.epic_task"),
     _w("yoke workflow-item epic-task scope-finalize",
        "workflow_item.epic_task"),
+    _w("yoke workflow-item epic-task scope-reopen",
+       "workflow_item.epic_task"),
     _w("yoke workflow-item epic-task scope-repair-legacy",
        "workflow_item.epic_task"),
     _w("yoke workflow-item epic-task history-insert",

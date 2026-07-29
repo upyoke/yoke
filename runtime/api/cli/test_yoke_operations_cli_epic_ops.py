@@ -71,6 +71,24 @@ def _run(*argv: str, session_id: str = "test-session") -> int:
             {"file_path": "runtime/api/foo.py", "action": "modify"},
         ),
         (
+            ("workflow-item", "epic-task", "scope-no-files",
+             "--epic", "501", "--task-num", "3"),
+            "workflow_item.epic_task.scope_no_files",
+            {},
+        ),
+        (
+            ("workflow-item", "epic-task", "scope-finalize",
+             "--epic", "501"),
+            "workflow_item.epic_task.scope_finalize",
+            {},
+        ),
+        (
+            ("workflow-item", "epic-task", "scope-reopen",
+             "--epic", "501"),
+            "workflow_item.epic_task.scope_reopen",
+            {},
+        ),
+        (
             ("workflow-item", "epic-task", "history-insert",
              "--epic", "501", "--task-num", "3",
              "--from-status", "none", "--to-status", "planned",
@@ -177,6 +195,7 @@ def test_legacy_scope_repair_prints_task_diagnostics_and_next_steps() -> None:
                 "message": "YOK-1687 legacy task scopes typed",
                 "diagnostics": [
                     "tenant=4 item=YOK-1687 task=1 scope=legacy_deferred",
+                    "tenant=4 item=YOK-1687 task=2 scope=paths",
                 ],
             },
         )
@@ -208,3 +227,5 @@ def test_legacy_scope_repair_prints_task_diagnostics_and_next_steps() -> None:
     assert "scope-no-files" in text
     assert "scope-finalize" in text
     assert "--epic 1687 --task-num 1" in text
+    assert "tenant=4 item=YOK-1687 task=2 scope=paths" in text
+    assert "--epic 1687 --task-num 2" not in text

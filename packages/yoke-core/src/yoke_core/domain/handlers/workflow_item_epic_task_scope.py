@@ -14,6 +14,7 @@ from yoke_contracts.api.function_call import (
 from yoke_core.domain.epic_task_scope import (
     TaskScopeIncomplete,
     finalize_generated_task_scopes,
+    reopen_generated_task_scopes,
     repair_legacy_task_scopes,
     set_no_files_scope,
 )
@@ -100,6 +101,29 @@ def handle_finalize(request: FunctionCallRequest) -> HandlerOutcome:
     )
 
 
+def handle_reopen(request: FunctionCallRequest) -> HandlerOutcome:
+    target = _target(request)
+    if target is None:
+        return _bad("target must carry epic_id")
+    epic_id, _task_num = target
+    try:
+        EmptyRequest.model_validate(request.payload)
+        with _connect() as conn:
+            changed = reopen_generated_task_scopes(conn, epic_id)
+    except (LookupError, TaskScopeIncomplete, ValueError) as exc:
+        return _bad(str(exc))
+    return HandlerOutcome(
+        result_payload=ScopeResponse(
+            epic_id=epic_id,
+            message=(
+                f"YOK-{epic_id} task scope reopened; "
+                f"{changed} finalized task(s) invalidated"
+            ),
+        ).model_dump(),
+        primary_success=True,
+    )
+
+
 def handle_repair_legacy(request: FunctionCallRequest) -> HandlerOutcome:
     target = _target(request)
     if target is None:
@@ -159,6 +183,11 @@ REGISTRATIONS = [
     _entry(
         "workflow_item.epic_task.scope_finalize",
         handle_finalize,
+        EmptyRequest,
+    ),
+    _entry(
+        "workflow_item.epic_task.scope_reopen",
+        handle_reopen,
         EmptyRequest,
     ),
     _entry(

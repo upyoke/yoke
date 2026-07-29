@@ -43,22 +43,6 @@ def _write_message(response, stdout, stderr) -> None:
     stdout.write(f"{(response.result or {}).get('message', '')}\n")
 
 
-def _write_scope_repair(response, stdout, stderr) -> None:
-    result = response.result or {}
-    stdout.write(f"{result.get('message', '')}\n")
-    for diagnostic in result.get("diagnostics", []):
-        stdout.write(f"- {diagnostic}\n")
-        task_num = diagnostic.split(" task=", 1)[1].split(" ", 1)[0]
-        stdout.write(
-            "  Repair: run `file-add` or `scope-no-files` for "
-            f"--epic {result.get('epic_id')} --task-num {task_num}.\n"
-        )
-    if result.get("diagnostics"):
-        stdout.write(
-            f"Then run `scope-finalize --epic {result.get('epic_id')}`.\n"
-        )
-
-
 def _dispatch(function_id, target, payload, parsed, writer=None) -> int:
     return dispatch_and_emit(
         function_id=function_id, target=target, payload=payload,
@@ -134,90 +118,6 @@ def epic_task_file_add(args: List[str]) -> int:
         "workflow_item.epic_task.file_add", _epic_task_target(parsed),
         {"file_path": parsed.file_path, "action": parsed.action},
         parsed, _write_message,
-    )
-
-
-EPIC_TASK_SCOPE_NO_FILES_USAGE = (
-    "yoke workflow-item epic-task scope-no-files --epic N --task-num N "
-    "[--session-id S] [--json]"
-)
-
-def epic_task_scope_no_files(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(
-        prog="yoke workflow-item epic-task scope-no-files",
-        description="Declare that one generated task touches no repository files.",
-    )
-    _epic_task_flags(parser)
-    add_session_arg(parser)
-    add_json_arg(parser)
-    parsed = parse_or_usage_error(parser, args, EPIC_TASK_SCOPE_NO_FILES_USAGE)
-    if parsed is None:
-        return 2
-    return _dispatch(
-        "workflow_item.epic_task.scope_no_files",
-        _epic_task_target(parsed),
-        {},
-        parsed,
-        _write_message,
-    )
-
-
-EPIC_TASK_SCOPE_FINALIZE_USAGE = (
-    "yoke workflow-item epic-task scope-finalize --epic N "
-    "[--session-id S] [--json]"
-)
-
-def epic_task_scope_finalize(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(
-        prog="yoke workflow-item epic-task scope-finalize",
-        description="Atomically finalize explicit scope for every generated task.",
-    )
-    parser.add_argument("--epic", type=int, required=True, help="Epic id.")
-    add_session_arg(parser)
-    add_json_arg(parser)
-    parsed = parse_or_usage_error(parser, args, EPIC_TASK_SCOPE_FINALIZE_USAGE)
-    if parsed is None:
-        return 2
-    return _dispatch(
-        "workflow_item.epic_task.scope_finalize",
-        _epic_target(parsed),
-        {},
-        parsed,
-        _write_message,
-    )
-
-
-EPIC_TASK_SCOPE_REPAIR_LEGACY_USAGE = (
-    "yoke workflow-item epic-task scope-repair-legacy --epic N "
-    "[--tenant-id ID] [--session-id S] [--json]"
-)
-
-def epic_task_scope_repair_legacy(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(
-        prog="yoke workflow-item epic-task scope-repair-legacy",
-        description="Type legacy task scope without inferring path ownership.",
-    )
-    parser.add_argument("--epic", type=int, required=True, help="Epic id.")
-    parser.add_argument(
-        "--tenant-id",
-        default="current",
-        help="Tenant diagnostic identifier.",
-    )
-    add_session_arg(parser)
-    add_json_arg(parser)
-    parsed = parse_or_usage_error(
-        parser,
-        args,
-        EPIC_TASK_SCOPE_REPAIR_LEGACY_USAGE,
-    )
-    if parsed is None:
-        return 2
-    return _dispatch(
-        "workflow_item.epic_task.scope_repair_legacy",
-        _epic_target(parsed),
-        {"tenant_id": parsed.tenant_id},
-        parsed,
-        _write_scope_repair,
     )
 
 

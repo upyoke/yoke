@@ -19,6 +19,7 @@ from yoke_cli.commands.adapters.epic_task import (
 )
 from yoke_cli.commands.adapters import epic_ops as _ops
 from yoke_cli.commands.adapters import epic_review as _review
+from yoke_cli.commands.adapters import epic_scope as _scope
 from yoke_cli.commands.adapters import epic_state as _state
 
 
@@ -50,11 +51,13 @@ EPIC_USAGE: Dict[str, str] = {
         _ops.EPIC_TASK_SIMULATION_GET_USAGE,
     "workflow_item.epic_task.file_add": _ops.EPIC_TASK_FILE_ADD_USAGE,
     "workflow_item.epic_task.scope_no_files":
-        _ops.EPIC_TASK_SCOPE_NO_FILES_USAGE,
+        _scope.EPIC_TASK_SCOPE_NO_FILES_USAGE,
     "workflow_item.epic_task.scope_finalize":
-        _ops.EPIC_TASK_SCOPE_FINALIZE_USAGE,
+        _scope.EPIC_TASK_SCOPE_FINALIZE_USAGE,
+    "workflow_item.epic_task.scope_reopen":
+        _scope.EPIC_TASK_SCOPE_REOPEN_USAGE,
     "workflow_item.epic_task.scope_repair_legacy":
-        _ops.EPIC_TASK_SCOPE_REPAIR_LEGACY_USAGE,
+        _scope.EPIC_TASK_SCOPE_REPAIR_LEGACY_USAGE,
     "workflow_item.epic_task.history_insert":
         _ops.EPIC_TASK_HISTORY_INSERT_USAGE,
     "workflow_item.epic_dispatch_chain.get":
