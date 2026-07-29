@@ -34,6 +34,11 @@ def test_dash_skill_carries_the_end_to_end_execution_contract():
         "`work_claim_activation` gate",
         "successful terminal transition releases",
         "the registered Dash worktree lane",
+        # The item work claim is acquired up front (step 1), before any
+        # survey/edit work, and released at the end — mirroring idea/refine.
+        "Claim the item first.",
+        'yoke claims work acquire --item ITEM --reason "Dash execution"',
+        'yoke claims work release --item ITEM --reason "Dash completed"',
     ):
         assert required in content
     assert "/yoke idea" in content
@@ -189,6 +194,7 @@ def test_taught_dash_and_blitz_commands_are_function_id_first():
         dash: {
             "items.create": "yoke dash ",
             "items.detail.get": "yoke items detail get",
+            "claims.work.acquire": "yoke claims work acquire",
             "direct_workflow.dash.survey": (
                 "yoke direct-workflow dash survey"
             ),
