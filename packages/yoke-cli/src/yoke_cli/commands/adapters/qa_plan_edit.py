@@ -63,6 +63,7 @@ _DOCUMENT_KEYS = {
     "description",
     "success_policy_id",
     "success_policy_params",
+    "target_environment_id",
     "cases",
 }
 _CASE_KEYS = (
@@ -94,6 +95,7 @@ def _authoring_document(plan: dict[str, Any]) -> dict[str, Any]:
         "description": plan.get("description", ""),
         "success_policy_id": plan.get("success_policy_id", "all-pass"),
         "success_policy_params": plan.get("success_policy_params") or {},
+        "target_environment_id": plan.get("target_environment_id"),
         "cases": [
             {
                 key: (

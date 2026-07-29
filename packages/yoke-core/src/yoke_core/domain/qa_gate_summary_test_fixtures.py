@@ -29,6 +29,7 @@ CREATE TABLE qa_requirements (
     deployment_run_id TEXT,
     qa_kind TEXT NOT NULL,
     method_id TEXT,
+    verdict_path TEXT,
     qa_phase TEXT NOT NULL,
     blocking_mode TEXT NOT NULL DEFAULT 'blocking',
     requirement_source TEXT DEFAULT 'explicit',
@@ -42,7 +43,10 @@ CREATE TABLE qa_runs (
     executor_type TEXT,
     qa_kind TEXT,
     verdict TEXT,
+    execution_status TEXT,
+    case_outcome TEXT,
     raw_result TEXT,
+    completed_at TEXT,
     created_at TEXT
 );
 CREATE TABLE qa_artifacts (
@@ -52,6 +56,17 @@ CREATE TABLE qa_artifacts (
     content_type TEXT,
     artifact_handle TEXT,
     metadata TEXT
+);
+CREATE TABLE qa_plan_review_bundles (
+    id TEXT PRIMARY KEY,
+    state TEXT NOT NULL
+);
+CREATE TABLE qa_plan_review_verdicts (
+    bundle_id TEXT NOT NULL,
+    requirement_id INTEGER NOT NULL,
+    capture_run_id INTEGER NOT NULL,
+    review_run_id INTEGER NOT NULL,
+    verdict TEXT NOT NULL
 );
 """
 

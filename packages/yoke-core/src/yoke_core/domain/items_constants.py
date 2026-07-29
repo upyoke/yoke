@@ -69,7 +69,7 @@ CONTENT_FIELDS = frozenset({
 # queries everywhere, so this is mainly for the frozen / blocked bool mapping).
 INTEGER_FIELDS = frozenset({
     "rework_count", "frozen", "blocked", "id", "project_id",
-    "project_sequence",
+    "project_sequence", "workflow_version_id",
 })
 
 

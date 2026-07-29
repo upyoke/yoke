@@ -22,6 +22,9 @@ from yoke_core.domain.db_helpers import connect, query_scalar
 from yoke_core.domain.qa_plan_execution_schema import (
     QA_PLAN_EXECUTION_SCHEMA_SQL,
 )
+from yoke_core.domain.qa_plan_review_schema import (
+    QA_PLAN_REVIEW_SCHEMA_SQL,
+)
 from yoke_core.domain.schema_common import (
     _column_exists,
     _get_check_constraint_defs,
@@ -116,6 +119,7 @@ CREATE TABLE IF NOT EXISTS qa_artifacts (
 CREATE INDEX IF NOT EXISTS idx_qa_artifacts_run ON qa_artifacts(qa_run_id);
 """
     + QA_PLAN_EXECUTION_SCHEMA_SQL
+    + QA_PLAN_REVIEW_SCHEMA_SQL
 )
 
 _QA_REQUIREMENTS_TABLE = "qa_requirements"

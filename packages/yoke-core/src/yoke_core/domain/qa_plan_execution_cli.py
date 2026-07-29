@@ -13,6 +13,8 @@ from yoke_core.domain.qa_plan_execution import (
     execute_plan,
 )
 
+AGENT_REVIEW_REQUIRED_EXIT = 12
+
 
 def run(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
@@ -70,6 +72,13 @@ def run(args: List[str]) -> int:
     state = result.get("state")
     if state == "waiting":
         return WAITING_RETRY_EXIT
+    if state == "awaiting_agent_review":
+        print(
+            "QA capture complete; dispatch the returned typed reviewer contract "
+            "now and submit its complete verdict batch before continuing.",
+            file=sys.stderr,
+        )
+        return AGENT_REVIEW_REQUIRED_EXIT
     if state in {"failed", "needs_review", "blocked_on_precondition"}:
         return 1
     if state == "error":
@@ -81,7 +90,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     return run(list(sys.argv[1:] if argv is None else argv))
 
 
-__all__ = ["main", "run"]
+__all__ = ["AGENT_REVIEW_REQUIRED_EXIT", "main", "run"]
 
 
 if __name__ == "__main__":  # pragma: no cover - module adapter

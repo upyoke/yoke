@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Optional
 
-from yoke_contracts.api.function_call import ActorContext, TargetRef
+from yoke_contracts.api.function_call import ActorContext
 from yoke_core.domain import db_backend
 from yoke_core.domain.qa_plan_execution_result_state import (
     BASELINE_GROUP_RESULTS as _BASELINE_GROUP_RESULTS,
@@ -18,7 +18,13 @@ from yoke_core.domain.qa_plan_execution_result_state import (
     remember_baseline_group_results as _remember_baseline_group_results,
     validated_baseline_group_results as _validated_baseline_group_results,
 )
+from yoke_core.domain.qa_plan_execution_dispatch import (
+    call_plan_function,
+    execution_actor,
+)
 from yoke_core.domain.qa_plan_execution_target import build_plan_execution_target
+
+_call_plan_function = call_plan_function
 
 
 def ordered_plan_requirements(
@@ -80,36 +86,6 @@ def ordered_plan_requirements(
     return requirements
 
 
-def _call_plan_function(
-    *,
-    function_id: str,
-    target: TargetRef,
-    payload: dict[str, Any],
-    actor: ActorContext,
-) -> dict[str, Any]:
-    from yoke_core.domain.qa_composed_dispatch import call_qa_function
-
-    response = call_qa_function(
-        function_id=function_id,
-        target=target,
-        payload=payload,
-        actor=actor,
-    )
-    if not response.success:
-        code = response.error.code if response.error else "unknown"
-        message = response.error.message if response.error else ""
-        raise QaPlanExecutionError(f"{function_id} failed ({code}): {message}")
-    return dict(response.result or {})
-
-
-def _execution_actor(actor: Optional[ActorContext]) -> ActorContext:
-    if actor is not None:
-        return actor
-    from yoke_core.api.service_client_structured_api_adapter import build_actor
-
-    return build_actor()
-
-
 def execute_plan(
     *,
     item_ref: Optional[str] = None,
@@ -132,7 +108,7 @@ def execute_plan(
         plan=plan,
         project=project,
     )
-    resolved_actor = _execution_actor(actor)
+    resolved_actor = execution_actor(actor)
     if deployment_run_id:
         _call_plan_function(
             function_id="qa.plan.materialize",
@@ -164,6 +140,28 @@ def execute_plan(
         raise QaPlanExecutionError(
             "qa.plan_execution.begin returned invalid recorded results"
         )
+    execution_target = execution.get("execution_target")
+    if not isinstance(execution_target, dict):
+        raise QaPlanExecutionError(
+            "qa.plan_execution.begin returned no execution environment target"
+        )
+    target_endpoints = execution_target.get("endpoints")
+    if not isinstance(target_endpoints, dict):
+        raise QaPlanExecutionError(
+            "qa.plan_execution.begin returned invalid target endpoints"
+        )
+    allowed_base_urls = {
+        str(value).rstrip("/")
+        for key, value in target_endpoints.items()
+        if key.endswith("_url") and isinstance(value, str) and value
+    }
+    if base_url and base_url.rstrip("/") not in allowed_base_urls:
+        raise QaPlanExecutionError(
+            "explicit base_url does not belong to the execution target"
+        )
+    resolved_base_url = str(
+        target_endpoints.get("app_url") or target_endpoints.get("api_url") or ""
+    )
     recorded_results = [
         dict(entry["result"])
         for entry in stored_results
@@ -238,7 +236,7 @@ def execute_plan(
             else:
                 result = execute_case_context(
                     requirement,
-                    base_url=base_url,
+                    base_url=resolved_base_url,
                     expected_branch=expected_branch,
                     expected_sha=expected_sha,
                     timeout_seconds=timeout_seconds,
@@ -300,13 +298,24 @@ def execute_plan(
         if state in {"error", "waiting"}:
             break
 
+    review_bundle = None
     if len(results) == len(requirements) and state not in {"error", "waiting"}:
-        _call_plan_function(
-            function_id="qa.plan_execution.complete",
+        review = _call_plan_function(
+            function_id="qa.plan_review.begin",
             target=target,
             payload={"execution_id": execution_id},
             actor=resolved_actor,
         )
+        review_bundle = review.get("review_bundle")
+        if review_bundle is not None:
+            state = "awaiting_agent_review"
+        else:
+            _call_plan_function(
+                function_id="qa.plan_execution.complete",
+                target=target,
+                payload={"execution_id": execution_id},
+                actor=resolved_actor,
+            )
     return {
         "execution_id": execution_id,
         "item_id": (
@@ -318,6 +327,7 @@ def execute_plan(
         "requirement_count": len(requirements),
         "executed_count": len(results),
         "results": results,
+        "review_bundle": review_bundle,
     }
 
 

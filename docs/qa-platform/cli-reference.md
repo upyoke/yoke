@@ -32,6 +32,12 @@ yoke qa plan run \
  --item YOK-N --transition reviewing-implementation \
  --base-url https://preview.example
 
+# Submit the complete verdict batch requested by an exit-12 review descriptor
+printf '%s' '{"verdicts":[{"requirement_id":1,"verdict":"pass","rationale":"The captured frame matches the expected outcome."}]}' |
+ yoke qa plan review-submit \
+ --item-id N --execution-id <execution-id> --bundle-id <bundle-id> \
+ --bundle-digest <sha256> --stdin
+
 # Execute one materialized case
 yoke qa case run --requirement-id 1
 
@@ -87,6 +93,7 @@ run owns its delivery context.
 | `yoke qa requirement add-batch` | `--item PREFIX-N (--rows-file PATH \| --stdin)` | Insert item requirements atomically; every row requires `workflow_transition_id` |
 | `yoke qa plan materialize` | `--item PREFIX-N --transition T` | Materialize project-default and item-attached plan cases |
 | `yoke qa plan run` | `--item PREFIX-N --transition T [executor opts]` | Begin or resume one server-authorized roster and durable cursor, then execute its cases locally |
+| `yoke qa plan review-submit` | `(--item-id N \| --deployment-run-id RUN) --execution-id ID --bundle-id ID --bundle-digest SHA256 --stdin` | Persist one complete agent-verdict batch for an immutable review bundle |
 | `yoke qa case run` | `--requirement-id N [executor opts]` | Authorize and execute one immutable case snapshot locally |
 | `yoke qa requirement list` | `[--item PREFIX-N \| --epic-id N \| --deployment-run-id ID]` | List requirements |
 | `yoke qa requirement get` | `--requirement-id N` | Get one requirement |
@@ -110,6 +117,14 @@ side effect, pins the complete roster and digest server-side, and advances one
 canonical result at a time. Machine cases reuse one serial lease until the plan
 completes or aborts; retrying a waiting invocation resumes from the stored
 cursor.
+
+When the plan runner returns `state="awaiting_agent_review"` it exits `12` and
+includes `review_bundle.dispatch`. The harness must immediately dispatch the
+named reviewer subagent with that immutable bundle and prompt, then use the
+exact returned submission command. The execution remains live and the QA gate
+remains unsatisfied until submission. Pending dispatch does not create human
+work; only a submitted agent verdict of `inconclusive` creates a human Inbox
+request.
 
 ## Missing Public Adapters
 

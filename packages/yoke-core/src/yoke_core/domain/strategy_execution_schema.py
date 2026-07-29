@@ -68,8 +68,12 @@ CREATE INDEX IF NOT EXISTS idx_strategy_doc_claims_item_history
 """
 
 
-def ensure_strategy_execution_schema(conn: Any) -> None:
-    """Create ancestry, execution-link, and item-owned claim storage."""
+def ensure_strategy_execution_schema(
+    conn: Any,
+    *,
+    commit: bool = True,
+) -> None:
+    """Create storage, committing unless the caller owns the transaction."""
     execute_schema_script(conn, STRATEGY_EXECUTION_TABLE_SQL)
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     for event_name, description in STRATEGY_EXECUTION_EVENT_ROWS:
@@ -85,7 +89,8 @@ def ensure_strategy_execution_schema(conn: Any) -> None:
             "description=EXCLUDED.description, status='active'",
             (event_name, description),
         )
-    conn.commit()
+    if commit:
+        conn.commit()
 
 
 __all__ = [

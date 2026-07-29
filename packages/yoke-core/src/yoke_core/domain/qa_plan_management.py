@@ -82,6 +82,7 @@ def create_plan(
     description: str = "",
     success_policy_id: str = "all-pass",
     success_policy_params: Optional[dict] = None,
+    target_environment_id: Optional[str] = None,
 ) -> dict:
     """Create one project-scoped plan."""
     if not _SLUG_RE.fullmatch(slug):
@@ -92,13 +93,25 @@ def create_plan(
         raise QaPlanError("v1 supports only the all-pass success policy")
     project_id = _project_id(conn, project)
     marker = _placeholder(conn)
+    if target_environment_id is None:
+        from yoke_core.domain.qa_execution_environment_target import (
+            only_project_environment,
+        )
+
+        target_environment_id = only_project_environment(conn, project_id=project_id)
+    if target_environment_id is not None:
+        _validate_target_environment(
+            conn,
+            project_id=project_id,
+            environment_id=target_environment_id,
+        )
     now = _next_updated_at()
     try:
         cursor = conn.execute(
             "INSERT INTO qa_plans("
             "project_id, slug, name, description, success_policy_id, "
-            "success_policy_params, created_at, updated_at"
-            f") VALUES ({', '.join([marker] * 8)}) RETURNING id",
+            "success_policy_params, target_environment_id, created_at, updated_at"
+            f") VALUES ({', '.join([marker] * 9)}) RETURNING id",
             (
                 project_id,
                 slug,
@@ -106,6 +119,7 @@ def create_plan(
                 description,
                 success_policy_id,
                 _json(success_policy_params or {}),
+                target_environment_id,
                 now,
                 now,
             ),
@@ -113,9 +127,7 @@ def create_plan(
         row = _row_dict(cursor, cursor.fetchone())
     except Exception as exc:
         if "qa_plans_project_id_slug" in str(exc) or "unique" in str(exc).lower():
-            raise QaPlanError(
-                f"QA plan {project}/{slug} already exists"
-            ) from exc
+            raise QaPlanError(f"QA plan {project}/{slug} already exists") from exc
         raise
     conn.commit()
     assert row is not None
@@ -125,7 +137,29 @@ def create_plan(
         "project": project,
         "slug": slug,
         "name": name or slug,
+        "target_environment_id": target_environment_id,
     }
+
+
+def _validate_target_environment(
+    conn: Any,
+    *,
+    project_id: int,
+    environment_id: str,
+) -> None:
+    from yoke_core.domain.qa_execution_environment_target import (
+        QaExecutionTargetError,
+        validate_plan_target_environment,
+    )
+
+    try:
+        validate_plan_target_environment(
+            conn,
+            project_id=project_id,
+            environment_id=environment_id,
+        )
+    except QaExecutionTargetError as exc:
+        raise QaPlanError(str(exc)) from exc
 
 
 def _validated_cases(cases: list[dict]) -> list[dict]:

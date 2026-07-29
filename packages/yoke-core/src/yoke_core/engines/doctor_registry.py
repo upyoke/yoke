@@ -61,6 +61,7 @@ from yoke_core.engines.doctor_hc_meta_epic import (  # noqa: F401
 )
 from yoke_core.engines.doctor_hc_meta_epic_tasks import (  # noqa: F401
     hc_empty_task_worktree,
+    hc_epic_task_scope_state,
     hc_epic_task_worktree,
     hc_epic_task_worktree_backfill,
     hc_orphan_epic_tasks,
@@ -261,6 +262,7 @@ HEALTH_CHECKS: List[HealthCheck] = [
     HealthCheck("empty-task-worktree", "Epic tasks with empty worktree fields", hc_empty_task_worktree),
     HealthCheck("orphan-epic-tasks", "Orphan epic tasks", hc_orphan_epic_tasks),
     HealthCheck("epic-task-worktree-backfill", "Epic tasks with empty worktree fields", hc_epic_task_worktree_backfill),
+    HealthCheck("epic-task-scope-state", "Generated task scope state", hc_epic_task_scope_state),
     # DB-only: schema / integrity
     HealthCheck("schema-drift", "Schema drift detection", hc_schema_drift),
     HealthCheck("schema-script-sync", "Script-schema column contract", hc_schema_script_sync),

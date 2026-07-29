@@ -173,7 +173,9 @@ def acquire_lease(
     conn.commit()
     lease = get_lease(conn, lease_id)
     _emit_lease_event(
-        LEASE_ACQUIRED_EVENT, "INFO", lease,
+        LEASE_ACQUIRED_EVENT,
+        "INFO",
+        lease,
         context={"actor_id": actor_id},
     )
     return lease
@@ -216,6 +218,7 @@ def release_lease(
     reason: str,
     *,
     now: Optional[str] = None,
+    commit: bool = True,
 ) -> Lease:
     """Release a held lease. Idempotent — re-releasing returns unchanged."""
     now = now or iso8601_now()
@@ -228,12 +231,16 @@ def release_lease(
         f"WHERE id = {p} AND released_at IS NULL",
         (now, reason, lease_id),
     )
-    conn.commit()
+    if commit:
+        conn.commit()
     released = get_lease(conn, lease_id)
-    _emit_lease_event(
-        LEASE_RELEASED_EVENT, "INFO", released,
-        context={"release_reason": reason},
-    )
+    if commit:
+        _emit_lease_event(
+            LEASE_RELEASED_EVENT,
+            "INFO",
+            released,
+            context={"release_reason": reason},
+        )
     return released
 
 

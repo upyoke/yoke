@@ -32,9 +32,8 @@ const EXECUTOR_GLOSSES = {
 
 const OUTCOME_EXPLANATIONS = {
   needs_review:
-    "A human decision was requested — the inspection judged the evidence " +
-    "uncertain. Approve → passed, reject → failed, or waive; the gate waits " +
-    "like a failure until resolved. This also lands in your Inbox.",
+    "The recorded evidence does not yet have a conclusive verdict. Review " +
+    "and Inbox state are shown only when their executor records exist.",
   queued: "This materialized case is queued and has not started yet.",
   waiting:
     "This case is waiting for its required capability or serial lease.",
@@ -233,6 +232,7 @@ export function outcomeNode(
   outcome,
   degradedReason = null,
   displayLabel = null,
+  explanation = null,
 ) {
   const wrap = el(documentNode, "span", "qa-outcome");
   const outcomeId = String(outcome || "queued");
@@ -243,9 +243,10 @@ export function outcomeNode(
     : baseLabel;
   const pill = statePill(documentNode, display, label);
   if (pill) {
-    pill.title = degradedReason
-      ? String(degradedReason)
-      : OUTCOME_EXPLANATIONS[outcomeId] || "";
+    pill.title = [
+      explanation || OUTCOME_EXPLANATIONS[outcomeId] || "",
+      degradedReason ? `Capture degraded: ${degradedReason}` : "",
+    ].filter(Boolean).join(" ");
     wrap.appendChild(pill);
   }
   return wrap;

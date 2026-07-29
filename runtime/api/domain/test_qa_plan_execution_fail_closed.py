@@ -7,6 +7,7 @@ from unittest import mock
 import pytest
 
 from runtime.api.domain.qa_plan_execution_test_support import (
+    TEST_EXECUTION_TARGET,
     TEST_ITEM_ID,
     TEST_ITEM_REF,
 )
@@ -35,6 +36,8 @@ def _begin_result() -> dict:
         "state": "active",
         "roster_digest": "digest",
         "cursor_ordinal": 0,
+        "execution_target": TEST_EXECUTION_TARGET,
+        "execution_target_digest": "target-digest",
         "requirements": [CASE],
         "results": [],
     }
