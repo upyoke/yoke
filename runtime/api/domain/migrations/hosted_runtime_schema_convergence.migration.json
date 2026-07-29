@@ -150,7 +150,7 @@
     },
     "epic_task_scope_state": {
       "path": "packages/yoke-core/src/yoke_core/domain/migrations/epic_task_scope_state.py",
-      "sha256": "6ad67085dcf889aed8590276920a42666dc063fa7510e4e8763c5ffff45170ed"
+      "sha256": "b129fc00e40fd1ea7a91c319196810f53eb0b2f419fb88aee4d3f359b491cc6b"
     },
     "events_actor_identity": {
       "path": "packages/yoke-core/src/yoke_core/domain/migrations/events_actor_identity.py",
