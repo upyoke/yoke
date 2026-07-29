@@ -1,0 +1,73 @@
+{
+  "version": 1,
+  "project": "yoke",
+  "profile": {
+    "state": "declared",
+    "model_name": "primary",
+    "mutation_intent": "apply",
+    "migration_modules": [
+      "qa_hosted_runtime_environment"
+    ],
+    "compatibility_class": "pre_merge_safe",
+    "migration_strategy": "expand_contract",
+    "migration_strategy_justification": "A hosted Yoke tenant gains the logical Stage or Production environment that already identifies its running platform, allowing QA plans to bind without requiring unrelated project-hosting setup.",
+    "schema_kinds": [
+      "additive"
+    ],
+    "data_kinds": [
+      "fill"
+    ],
+    "affected_surfaces": [
+      {
+        "table": "sites",
+        "columns": [
+          "id",
+          "project_id",
+          "name",
+          "created_at",
+          "settings"
+        ]
+      },
+      {
+        "table": "environments",
+        "columns": [
+          "id",
+          "site",
+          "name",
+          "created_at",
+          "settings"
+        ]
+      }
+    ],
+    "count_preserving": false
+  },
+  "module_sources": {
+    "qa_hosted_runtime_environment": {
+      "path": "packages/yoke-core/src/yoke_core/domain/migrations/qa_hosted_runtime_environment.py",
+      "sha256": "d41b607902d925cb07faa700a534dfc1c1fdc913893df82b44b0a4c024aed08e"
+    }
+  },
+  "attestation": {
+    "pre_merge_readers_writers": [
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/migrations/qa_execution_environment_target.py",
+        "symbol": "_bind_missing_plan_targets",
+        "role": "writer"
+      },
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/qa_execution_environment_target.py",
+        "symbol": "resolve_plan_execution_target",
+        "role": "reader"
+      }
+    ],
+    "invariants": [
+      "Exactly one yoke project owns the hosted Yoke API site.",
+      "The Yoke API site has exactly one environment matching the Stage or Production runtime.",
+      "Repeated apply preserves an existing compatible runtime environment."
+    ],
+    "rehearsal_commands": [
+      "PYTHONPATH=packages/yoke-contracts/src:packages/yoke-cli/src:packages/yoke-core/src:packages/yoke-harness/src:. python3 -m pytest runtime/api/domain/migrations/test_qa_execution_environment_target.py -q"
+    ],
+    "residual_risk_notes": "The migration refuses unknown runtimes, site ownership collisions, and multiple runtime aliases instead of guessing. It creates only logical Yoke platform identity and does not claim project hosting is configured."
+  }
+}

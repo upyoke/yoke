@@ -24,6 +24,12 @@ from yoke_core.domain.migrations.qa_execution_environment_target import (
     apply,
     invariants,
 )
+from yoke_core.domain.migrations.qa_hosted_runtime_environment import (
+    apply as apply_hosted_runtime_environment,
+)
+from yoke_core.domain.migrations.qa_hosted_runtime_environment import (
+    invariants as hosted_runtime_environment_invariants,
+)
 from yoke_core.domain.migration_apply_manifest import validate_manifest_payload
 from yoke_core.domain.qa_execution_environment_target import (
     QaExecutionTargetError,
@@ -193,6 +199,31 @@ def test_migration_accepts_portable_tuple_row_connection(monkeypatch) -> None:
 
         target = resolve_plan_execution_target(conn, plan_id=plan_id)
         assert target["environment"]["name"] == "stage"
+
+
+def test_migration_materializes_missing_hosted_runtime_environment(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("YOKE_ENVIRONMENT", "stage")
+    with test_database() as conn:
+        conn.execute("DELETE FROM environments WHERE site='yoke-api'")
+        conn.execute("DELETE FROM sites WHERE id='yoke-api'")
+        plan_id = _unbound_installer_plan(conn)
+
+        apply_hosted_runtime_environment(conn)
+        hosted_runtime_environment_invariants(conn)
+        apply(conn)
+        invariants(conn)
+
+        target = resolve_plan_execution_target(conn, plan_id=plan_id)
+        assert target["environment"] == {
+            "id": "yoke-api-stage",
+            "name": "stage",
+        }
+        assert target["endpoints"]["app_url"] == HOSTED_STAGE_PLATFORM_URL
+
+        apply_hosted_runtime_environment(conn)
+        hosted_runtime_environment_invariants(conn)
 
 
 def test_case_guard_rejects_opposite_yoke_origin() -> None:

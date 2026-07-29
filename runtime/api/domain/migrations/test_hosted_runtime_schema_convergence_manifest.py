@@ -20,6 +20,7 @@ _MODULES = (
     "qa_requirement_execution_snapshot",
     "qa_plan_execution_records",
     "qa_plan_execution_deployment_subject",
+    "qa_hosted_runtime_environment",
     "qa_execution_environment_target",
     "qa_plan_agent_review_records",
     "epic_task_scope_state",
@@ -51,6 +52,9 @@ def test_convergence_batch_preserves_dependency_order() -> None:
     modules = tuple(_payload()["profile"]["migration_modules"])
 
     assert modules.index("qa_requirement_execution_snapshot") < modules.index(
+        "qa_execution_environment_target"
+    )
+    assert modules.index("qa_hosted_runtime_environment") < modules.index(
         "qa_execution_environment_target"
     )
     assert modules.index("qa_plan_execution_records") < modules.index(
