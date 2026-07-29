@@ -21,6 +21,7 @@ from yoke_core.domain.machine_qa_execution import MachineQaLease
 from yoke_core.domain.ssh_mac_terminal_recipe import execute_terminal_recipe
 from yoke_core.domain.ssh_mac_terminal_recipe_support import (
     capture_recipe_transcript,
+    send_recipe_keys,
 )
 
 
@@ -86,6 +87,33 @@ def test_screen_transcript_removes_hardcopy_nul_padding() -> None:
 
     assert transcript == "ready\n"
     assert "\x00" not in transcript
+
+
+def test_screen_multi_key_input_settles_before_activation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    commands: list[str] = []
+    sleeps: list[float] = []
+    monkeypatch.setattr(
+        "yoke_core.domain.ssh_mac_terminal_recipe_support.time.sleep",
+        lambda seconds: sleeps.append(float(seconds)),
+    )
+
+    def run(
+        command: str,
+        **_kwargs: object,
+    ) -> subprocess.CompletedProcess[str]:
+        commands.append(command)
+        return completed(command)
+
+    assert send_recipe_keys(
+        run,
+        backend="screen",
+        session="yoke-qa-session",
+        keys=["Down", "Down", "Enter"],
+    )
+    assert len(commands) == 3
+    assert sleeps == [0.2, 0.2]
 
 
 def test_interactive_recipe_uses_action_wait_then_global_fallback(

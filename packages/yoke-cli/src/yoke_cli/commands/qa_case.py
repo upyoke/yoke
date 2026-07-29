@@ -21,6 +21,10 @@ QA_PLAN_RUN_USAGE = (
     "[--expected-branch BRANCH --expected-sha SHA] "
     "[--timeout-seconds N] [--session-id S]"
 )
+QA_PLAN_ABORT_USAGE = (
+    "yoke qa plan abort (--item PREFIX-N | --deployment-run-id RUN) "
+    "--execution-id ID --reason TEXT [--project P] [--session-id S]"
+)
 
 
 def qa_case_run(args: List[str]) -> int:
@@ -33,6 +37,13 @@ def qa_case_run(args: List[str]) -> int:
 def qa_plan_run(args: List[str]) -> int:
     return _run_execution_module(
         "yoke_core.domain.qa_plan_execution_cli",
+        args,
+    )
+
+
+def qa_plan_abort(args: List[str]) -> int:
+    return _run_execution_module(
+        "yoke_core.domain.qa_plan_execution_abort_cli",
         args,
     )
 
@@ -62,20 +73,24 @@ def _run_execution_module(module: str, args: List[str]) -> int:
 
 TOOL_COMMANDS = {
     ("qa", "case", "run"): qa_case_run,
+    ("qa", "plan", "abort"): qa_plan_abort,
     ("qa", "plan", "run"): qa_plan_run,
 }
 
 USAGE = {
     "yoke qa case run": QA_CASE_RUN_USAGE,
+    "yoke qa plan abort": QA_PLAN_ABORT_USAGE,
     "yoke qa plan run": QA_PLAN_RUN_USAGE,
 }
 
 
 __all__ = [
     "QA_CASE_RUN_USAGE",
+    "QA_PLAN_ABORT_USAGE",
     "QA_PLAN_RUN_USAGE",
     "TOOL_COMMANDS",
     "USAGE",
     "qa_case_run",
+    "qa_plan_abort",
     "qa_plan_run",
 ]

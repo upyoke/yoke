@@ -18,6 +18,7 @@ from yoke_core.domain.ssh_mac_terminal_capture import RunRemote
 UploadBytes = Callable[[str, bytes], bool]
 _CAPTURE_ATTEMPTS = 20
 _CAPTURE_DELAY_SECONDS = 0.25
+KEY_SEQUENCE_DELAY_SECONDS = 0.2
 _KEY_BYTES = {
     "C-c": "\x03",
     "C-j": "\n",
@@ -131,7 +132,7 @@ def send_recipe_keys(
     session: str,
     keys: Sequence[str],
 ) -> bool:
-    for key in keys:
+    for index, key in enumerate(keys):
         if key.startswith("paste_file:"):
             if not _paste_file(
                 run,
@@ -140,18 +141,22 @@ def send_recipe_keys(
                 path=key.removeprefix("paste_file:"),
             ):
                 return False
-            continue
-        if backend == "tmux":
-            command = f"tmux send-keys -t {shlex.quote(session)} " + shlex.quote(key)
-            ok = run(command, timeout=10).returncode == 0
         else:
-            ok = _screen_stuff(
-                run,
-                session=session,
-                value=_KEY_BYTES.get(key, key),
-            )
-        if not ok:
-            return False
+            if backend == "tmux":
+                command = f"tmux send-keys -t {shlex.quote(session)} " + shlex.quote(
+                    key
+                )
+                ok = run(command, timeout=10).returncode == 0
+            else:
+                ok = _screen_stuff(
+                    run,
+                    session=session,
+                    value=_KEY_BYTES.get(key, key),
+                )
+            if not ok:
+                return False
+        if index + 1 < len(keys):
+            time.sleep(KEY_SEQUENCE_DELAY_SECONDS)
     return True
 
 
@@ -174,11 +179,7 @@ def capture_recipe_transcript(
     transcript = ""
     for attempt in range(_CAPTURE_ATTEMPTS):
         result = run(command, timeout=10)
-        transcript = (
-            result.stdout.replace("\x00", "")
-            if result.returncode == 0
-            else ""
-        )
+        transcript = result.stdout.replace("\x00", "") if result.returncode == 0 else ""
         if transcript.strip():
             break
         if attempt + 1 < _CAPTURE_ATTEMPTS:
