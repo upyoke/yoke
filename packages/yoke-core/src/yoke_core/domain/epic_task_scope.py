@@ -203,6 +203,7 @@ def set_no_files_scope(conn: Any, item_id: int, task_num: int) -> None:
     """Explicitly declare that one generated task touches no repository files."""
     if not schema_available(conn):
         raise TaskScopeIncomplete("epic task scope schema is unavailable")
+    lock_task_membership(conn, int(item_id))
     marker = _p(conn)
     has_paths = conn.execute(
         "SELECT 1 FROM epic_task_files "

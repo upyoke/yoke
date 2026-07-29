@@ -140,6 +140,14 @@ def file_add(
     action: str = "",
 ) -> str:
     """Add a file entry for a task."""
+    from yoke_core.domain.epic_task_scope import (
+        lock_task_membership,
+        schema_available,
+    )
+
+    has_scope_schema = schema_available(conn)
+    if has_scope_schema:
+        lock_task_membership(conn, int(epic_id))
     # Explicit ON CONFLICT upsert preserves re-add semantics under native
     # Postgres while avoiding compatibility-era rewrite assumptions.
     p = _placeholder(conn)
@@ -151,8 +159,7 @@ def file_add(
            DO UPDATE SET action = excluded.action""",
         (str(epic_id), task_num, file_path, action),
     )
-    from yoke_core.domain.epic_task_scope import schema_available
-    if schema_available(conn):
+    if has_scope_schema:
         conn.execute(
             f"UPDATE epic_tasks SET scope_state='paths', "
             f"scope_finalized_at=NULL WHERE epic_id={p} AND task_num={p}",
