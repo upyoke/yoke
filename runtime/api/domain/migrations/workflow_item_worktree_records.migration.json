@@ -45,7 +45,7 @@
   "module_sources": {
     "workflow_item_worktree_records": {
       "path": "packages/yoke-core/src/yoke_core/domain/migrations/workflow_item_worktree_records.py",
-      "sha256": "9bb20543592a080f4ab2daad3f2911ebe567d63f8c3cb9cf818623e8c71f95a1"
+      "sha256": "0e2562fc5e041c2c7490fa1598710995c31e8ba3c4b3ba24505ca155a6b04b0b"
     }
   },
   "attestation": {
@@ -74,7 +74,7 @@
     "invariants": [
       "Legacy item, task, and dispatch-chain row counts are unchanged.",
       "Null-like legacy branches remain unassigned; usable task and chain lanes reference one universal lane record.",
-      "Terminal, cancelled, and stopped sources use released lane records rather than active ownership.",
+      "Terminal parent items, terminal child sources, cancelled items, and stopped items use released lane records rather than active ownership.",
       "Divergent path text is rejected for active ownership; fully released branch history is retained without an owning path.",
       "Every active lane role is allowed and every populated lane set satisfies the item's pinned workflow policy.",
       "An active path and an active single-lane role cannot be owned twice."

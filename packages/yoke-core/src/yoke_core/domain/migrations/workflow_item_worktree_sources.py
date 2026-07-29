@@ -6,6 +6,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Optional
 
+from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 from yoke_core.domain.workflow_behavior import (
     LANE_IMPLEMENTATION,
@@ -51,13 +52,23 @@ def clean(value: Any) -> Optional[str]:
 
 
 def _terminal_source(conn: Any, item_id: int, status: Any) -> bool:
-    normalized = (clean(status) or "").casefold()
-    if normalized in _ENGINE_TERMINAL:
-        return True
-    return normalized in {
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    item_row = conn.execute(
+        f"SELECT status FROM items WHERE id = {marker}",
+        (int(item_id),),
+    ).fetchone()
+    if item_row is None:
+        raise AssertionError(f"legacy worktree source item {item_id} does not exist")
+    runtime_terminals = {
         stage.casefold()
         for stage in load_item_workflow_runtime(conn, item_id).terminal_stage_ids
     }
+    item_status = item_row["status"] if hasattr(item_row, "keys") else item_row[0]
+    return any(
+        (clean(candidate) or "").casefold()
+        in (_ENGINE_TERMINAL | runtime_terminals)
+        for candidate in (item_status, status)
+    )
 
 
 def _role_for_item(conn: Any, item_id: int) -> str:
@@ -184,8 +195,11 @@ def _chain_lane_sources(
                 item_id=item_id,
                 branch=branch,
                 path=clean(row[3]),
-                released=bool(item_tasks)
-                and all(source.released for source in item_tasks),
+                released=_terminal_source(conn, item_id, None)
+                or (
+                    bool(item_tasks)
+                    and all(source.released for source in item_tasks)
+                ),
             )
         )
     return sources
