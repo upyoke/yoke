@@ -63,7 +63,7 @@
       "The migration replaces only future qa_plan_cases specifications; materialized requirement rows, runs, artifacts, and evidence remain unchanged."
     ],
     "rehearsal_commands": [
-      "PYTHONPATH=packages/yoke-contracts/src:packages/yoke-cli/src:packages/yoke-core/src:packages/yoke-harness/src:. python3 -m pytest runtime/api/domain/migrations/test_installer_campaign_screen_ready_plan.py runtime/api/domain/migrations/test_installer_campaign_plan_rows.py runtime/api/domain/migrations/test_installer_campaign_interaction_rows.py runtime/api/domain/test_machine_qa_terminal_recipe.py runtime/api/domain/test_machine_qa_terminal_readiness.py runtime/api/domain/test_machine_qa_terminal_recipe_interactive.py -q"
+      "uv run --frozen python3 -m pytest runtime/api/domain/migrations/test_installer_campaign_screen_ready_plan.py runtime/api/domain/migrations/test_installer_campaign_plan_rows.py runtime/api/domain/migrations/test_installer_campaign_interaction_rows.py runtime/api/domain/test_machine_qa_terminal_recipe.py runtime/api/domain/test_machine_qa_terminal_readiness.py runtime/api/domain/test_machine_qa_terminal_recipe_interactive.py -q"
     ],
     "residual_risk_notes": "The physical Test Mac campaign remains the final proof. The migration is append-only relative to the completed base campaign migration and deliberately changes no already-materialized requirement or historical evidence row."
   }
