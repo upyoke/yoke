@@ -9,6 +9,7 @@ from runtime.api.domain.deployment_run_qa_plan_execution_test_support import (
     RUN_ID,
     deployment_run,
 )
+from runtime.api.domain.qa_plan_execution_test_support import TEST_EXECUTION_TARGET
 from runtime.api.fixtures.pg_testdb import test_database
 from yoke_contracts.api.function_call import (
     ActorContext,
@@ -40,6 +41,8 @@ def test_client_materializes_before_server_authorized_run_execution() -> None:
                 "state": "active",
                 "roster_digest": "digest",
                 "cursor_ordinal": 0,
+                "execution_target": TEST_EXECUTION_TARGET,
+                "execution_target_digest": "target-digest",
                 "requirements": [
                     {
                         "requirement_id": 71,
