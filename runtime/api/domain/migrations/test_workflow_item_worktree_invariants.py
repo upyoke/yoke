@@ -18,11 +18,12 @@ from yoke_core.domain.migrations.workflow_item_worktree_records import (
 
 def test_conflicting_task_and_chain_paths_are_rejected_before_backfill(test_db):
     add_legacy_epic_lane_columns(test_db)
-    insert_item(test_db, id=935, workflow_id="epic")
+    insert_item(test_db, id=935, workflow_id="epic", status="implementing")
     insert_epic_task(
         test_db,
         epic_id=935,
         task_num=1,
+        status="implementing",
         worktree="YOK-935-worker",
         branch="YOK-935-worker",
         worktree_path="/tmp/task-YOK-935-worker",

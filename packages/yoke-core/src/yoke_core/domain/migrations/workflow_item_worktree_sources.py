@@ -8,6 +8,7 @@ from typing import Any, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import _column_exists, _table_exists
+from yoke_core.domain.task_lifecycle import TaskStatus
 from yoke_core.domain.workflow_behavior import (
     LANE_IMPLEMENTATION,
     LANE_INTEGRATION,
@@ -18,6 +19,12 @@ from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 
 _ABSENT_TEXT = frozenset({"", "null"})
 _ENGINE_TERMINAL = frozenset({"cancelled", "stopped"})
+_PRE_ACTIVATION_TASK_STAGES = frozenset({
+    TaskStatus.PLANNING.value,
+    TaskStatus.PLAN_DRAFTED.value,
+    TaskStatus.REFINING_PLAN.value,
+    TaskStatus.PLANNED.value,
+})
 
 
 @dataclass(frozen=True)
@@ -71,6 +78,52 @@ def _terminal_source(conn: Any, item_id: int, status: Any) -> bool:
     )
 
 
+def _active_execution_authorities(
+    conn: Any,
+) -> Optional[tuple[set[int], set[tuple[int, int]]]]:
+    """Return active item and exact-task execution owners when available."""
+    if not _table_exists(conn, "work_claims") or not _column_exists(
+        conn, "work_claims", "released_at"
+    ):
+        return None
+    rows = conn.execute(
+        "SELECT target_kind, item_id, epic_id, task_num "
+        "FROM work_claims WHERE released_at IS NULL "
+        "AND target_kind IN ('item', 'epic_task')"
+    ).fetchall()
+    item_claims = {
+        int(row[1]) for row in rows if str(row[0]) == "item" and row[1] is not None
+    }
+    task_claims = {
+        (int(row[2]), int(row[3]))
+        for row in rows
+        if str(row[0]) == "epic_task" and row[2] is not None and row[3] is not None
+    }
+    return item_claims, task_claims
+
+
+def _worker_source_released(
+    conn: Any,
+    *,
+    item_id: int,
+    item_status: Any,
+    task_num: int,
+    task_status: Any,
+    active_authorities: Optional[tuple[set[int], set[tuple[int, int]]]],
+) -> bool:
+    if _terminal_source(conn, item_id, task_status):
+        return True
+    if (
+        (clean(item_status) or "").casefold() not in _PRE_ACTIVATION_TASK_STAGES
+        or (clean(task_status) or "").casefold() not in _PRE_ACTIVATION_TASK_STAGES
+    ):
+        return False
+    if active_authorities is None:
+        return False
+    item_claims, task_claims = active_authorities
+    return item_id not in item_claims and (item_id, task_num) not in task_claims
+
+
 def _role_for_item(conn: Any, item_id: int) -> str:
     policy = worktree_lane_policy(load_item_workflow_runtime(conn, item_id))
     if LANE_IMPLEMENTATION in policy.allowed_roles:
@@ -112,6 +165,7 @@ def _task_lane_sources(conn: Any) -> list[WorkerLaneSource]:
         if _column_exists(conn, "epic_tasks", "worktree_path")
         else "NULL"
     )
+    active_authorities = _active_execution_authorities(conn)
     sources: list[WorkerLaneSource] = []
     for row in conn.execute(
         "SELECT id, CAST(epic_id AS INTEGER), "
@@ -120,7 +174,9 @@ def _task_lane_sources(conn: Any) -> list[WorkerLaneSource]:
         + worktree_sql
         + ", "
         + path_sql
-        + ", status FROM epic_tasks ORDER BY id"
+        + ", status, task_num, "
+        "(SELECT status FROM items WHERE id=epic_tasks.epic_id) "
+        "FROM epic_tasks ORDER BY id"
     ).fetchall():
         branch_value = clean(row[2])
         worktree_value = clean(row[3])
@@ -137,6 +193,8 @@ def _task_lane_sources(conn: Any) -> list[WorkerLaneSource]:
         if branch is None:
             continue
         item_id = int(row[1])
+        if row[7] is None:
+            raise AssertionError(f"legacy worktree source item {item_id} does not exist")
         policy = worktree_lane_policy(load_item_workflow_runtime(conn, item_id))
         if LANE_WORKER not in policy.allowed_roles:
             continue
@@ -147,7 +205,14 @@ def _task_lane_sources(conn: Any) -> list[WorkerLaneSource]:
                 item_id=item_id,
                 branch=branch,
                 path=clean(row[4]),
-                released=_terminal_source(conn, item_id, row[5]),
+                released=_worker_source_released(
+                    conn,
+                    item_id=item_id,
+                    item_status=row[7],
+                    task_num=int(row[6]),
+                    task_status=row[5],
+                    active_authorities=active_authorities,
+                ),
             )
         )
     return sources
