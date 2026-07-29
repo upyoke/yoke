@@ -21,6 +21,7 @@ from runtime.api.epic_task_sync_orchestrator_test_support import (
     _stub_project_github_auth as _stub_project_github_auth,
     _stub_typed_rest_surfaces as _stub_typed_rest_surfaces,
     db as db,
+    declare_no_file_tasks,
 )
 
 
@@ -52,6 +53,7 @@ class TestSyncEpicTasks:
         )
         stdout = io.StringIO()
         stderr = io.StringIO()
+        declare_no_file_tasks(db, 10)
 
         rc = epic_task_sync.sync_epic_tasks(
             "YOK-10",
@@ -100,6 +102,7 @@ class TestSyncEpicTasks:
         )
         stdout = io.StringIO()
         stderr = io.StringIO()
+        declare_no_file_tasks(db, 10)
 
         with (
             patch(
@@ -148,6 +151,7 @@ class TestSyncEpicTasks:
             body="Task 2 body",
         )
         stdout = io.StringIO()
+        declare_no_file_tasks(db, 10)
 
         rc = epic_task_sync.sync_epic_tasks("YOK-10", conn=db, stdout=stdout)
 
@@ -174,6 +178,7 @@ class TestSyncEpicTasks:
             db, epic_id="10", task_num=1, title="Task one", status="planned"
         )
         stdout = io.StringIO()
+        declare_no_file_tasks(db, 10)
 
         with patch(
             "yoke_core.domain.epic_task_sync_github._is_dry_run", return_value=True
@@ -203,6 +208,7 @@ class TestSyncEpicTasks:
             worktree="custom-branch",
         )
         stdout = io.StringIO()
+        declare_no_file_tasks(db, 10)
 
         rc = epic_task_sync.sync_epic_tasks("YOK-10", conn=db, stdout=stdout)
 
@@ -234,6 +240,7 @@ class TestSyncEpicTasks:
         insert_epic_task(db, epic_id="10", task_num=1, title="Task", status="planned")
         stdout = io.StringIO()
         stderr = io.StringIO()
+        declare_no_file_tasks(db, 10)
 
         rc = epic_task_sync.sync_epic_tasks(
             "YOK-10",
@@ -250,6 +257,36 @@ class TestSyncEpicTasks:
         ).fetchone()
         assert row[0] == "YOK-10"
         assert "defaulting to YOK-10" in stderr.getvalue()
+
+    def test_sync_blocks_before_github_when_task_scope_is_implicit(self, db):
+        insert_item(
+            db,
+            id=10,
+            workflow_id="epic",
+            status="implementing",
+            project="externalwebapp",
+            spec="body",
+        )
+        insert_epic_task(
+            db,
+            epic_id="10",
+            task_num=1,
+            title="Task",
+            status="planned",
+        )
+        stderr = io.StringIO()
+        with patch(
+            "yoke_core.domain.epic_task_sync_github_create.github_rest.create_issue",
+        ) as create_issue:
+            rc = epic_task_sync.sync_epic_tasks(
+                "YOK-10",
+                conn=db,
+                stderr=stderr,
+            )
+
+        assert rc == 1
+        assert "task 1 has no explicit scope" in stderr.getvalue()
+        create_issue.assert_not_called()
 
     def test_main_sync_routing(self, capsys):
         """CLI 'sync' mode routes to sync_epic_tasks."""

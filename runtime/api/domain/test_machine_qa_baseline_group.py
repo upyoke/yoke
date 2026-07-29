@@ -236,7 +236,7 @@ def test_failed_local_group_baseline_submits_every_case_as_blocked(
     ] == [int(row["id"]) for row in fresh]
     assert all(
         result["case_outcome"] == "blocked_on_precondition"
-        and result["verdict"] == "inconclusive"
+        and result["verdict"] is None
         and result["error_code"] == "test_mac_reset_failed"
         for result in submitted.result_payload["results"]
     )

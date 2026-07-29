@@ -24,10 +24,11 @@ from yoke_core.domain.project_identity import resolve_project
 from yoke_core.domain.qa_activity_reads import list_activity, read_activity
 from yoke_core.domain.qa_execution_proof import qa_run_outcome
 from yoke_core.domain.qa_method_related_plans import read_method_related_plans
+from yoke_core.domain.qa_execution_environment_target import (
+    resolve_plan_execution_target,
+)
 from yoke_core.domain.workflow_runtime import workflow_runtime_from_row
 
-# Retained for the plan-detail reader while proof helpers converge on the
-# dedicated execution-proof module.
 _outcome = qa_run_outcome
 
 
@@ -311,6 +312,13 @@ def list_plans(conn: Any, *, project: Optional[str] = None) -> list[dict]:
             max(1, len(_json_value(case["host_baselines"], []))) for case in cases
         )
         last_outcome, last_at = _latest_requirement_outcome(conn, plan_id)
+        execution_target = None
+        if row["target_environment_id"]:
+            execution_target = resolve_plan_execution_target(
+                conn,
+                plan_id=plan_id,
+                require_runtime_match=False,
+            )
         result.append(
             {
                 "id": plan_id,
@@ -318,6 +326,8 @@ def list_plans(conn: Any, *, project: Optional[str] = None) -> list[dict]:
                 "slug": str(row["slug"]),
                 "name": str(row["name"]),
                 "description": str(row["description"]),
+                "target_environment_id": row["target_environment_id"],
+                "execution_target": execution_target,
                 "case_count": len(cases),
                 "materialized_requirement_count": materialized_count,
                 "method_ids": list(

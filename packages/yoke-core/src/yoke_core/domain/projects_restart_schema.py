@@ -9,6 +9,7 @@ helpers.
 from __future__ import annotations
 
 from yoke_core.domain.github_app_schema import GITHUB_APP_SCHEMA_SQL
+from yoke_core.domain.schema_init_apply import execute_schema_script
 
 
 def _projects_table_sql(*, if_not_exists: bool) -> str:
@@ -111,3 +112,11 @@ _INIT_TABLES_SQL = f"""
 
             {GITHUB_APP_SCHEMA_SQL}
         """
+
+
+def create_project_registry_tables(conn: object) -> None:
+    """Create project, site, environment, and capability authorities."""
+    execute_schema_script(conn, _INIT_TABLES_SQL)
+
+
+__all__ = ["create_project_registry_tables"]

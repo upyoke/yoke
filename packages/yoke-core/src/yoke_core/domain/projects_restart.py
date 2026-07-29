@@ -18,10 +18,9 @@ from yoke_core.domain.project_github_capability_settings import (
     normalize_github_capability_type,
 )
 from yoke_core.domain.project_github_auth_models import GITHUB_CAPABILITY_TYPE
-from yoke_core.domain.projects_restart_schema import _INIT_TABLES_SQL
+from yoke_core.domain.projects_restart_schema import create_project_registry_tables
 from yoke_core.domain.projects_seed_data import seed_all
 from yoke_core.domain.retired_schema_registry import guard_add_column
-from yoke_core.domain.schema_init_apply import execute_schema_script
 from yoke_core.domain.schema_common import (
     _column_exists as _schema_column_exists,
     _table_exists as _schema_table_exists,
@@ -150,7 +149,7 @@ def cmd_init(db_path: Optional[str] = None) -> None:
     """Create project-registry tables, run migrations, and seed data."""
     conn = connect(db_path)
     try:
-        execute_schema_script(conn, _INIT_TABLES_SQL)
+        create_project_registry_tables(conn)
 
         # --- Idempotent migrations (retired-schema-guarded ADD COLUMN) ---
         _ensure_column(

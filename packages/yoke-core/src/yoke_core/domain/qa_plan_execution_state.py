@@ -29,6 +29,9 @@ from yoke_core.domain.qa_plan_execution_store import (
     same_owner,
     select_plan_execution,
 )
+from yoke_core.domain.qa_plan_execution_target_snapshot import (
+    execution_target_for_roster,
+)
 from yoke_core.domain.workflow_item_binding_lock import (
     lock_item_workflow_bindings,
     rollback_workflow_binding_write_errors,
@@ -103,6 +106,7 @@ def begin_plan_execution(
         deployment_run_id=deployment_run_id,
     )
     digest = roster_digest(roster)
+    execution_target, execution_target_digest = execution_target_for_roster(roster)
     existing_id = live_plan_execution_id(
         conn,
         item_id=item_id,
@@ -111,7 +115,11 @@ def begin_plan_execution(
     )
     if existing_id is not None:
         existing = lock_plan_execution(conn, existing_id)
-        if existing["state"] in {"active", "waiting"}:
+        if existing["state"] in {
+            "active",
+            "waiting",
+            "awaiting_agent_review",
+        }:
             if same_owner(existing, actor_id=actor_id, session_id=session_id):
                 return resume_owned_plan_execution(conn, existing, digest=digest)
             now_dt = datetime.now(timezone.utc)
@@ -130,6 +138,9 @@ def begin_plan_execution(
                 deployment_run_id=deployment_run_id,
             )
             digest = roster_digest(roster)
+            execution_target, execution_target_digest = execution_target_for_roster(
+                roster
+            )
 
     execution_id = str(uuid4())
     now = iso8601_now()
@@ -139,8 +150,9 @@ def begin_plan_execution(
             "INSERT INTO qa_plan_executions("
             "id,item_id,deployment_run_id,transition_id,actor_id,session_id,"
             "roster_digest,"
-            "roster_json,cursor_ordinal,state,created_at,heartbeat_at"
-            f") VALUES ({', '.join([placeholder] * 12)})",
+            "roster_json,execution_target_json,execution_target_digest,"
+            "cursor_ordinal,state,created_at,heartbeat_at"
+            f") VALUES ({', '.join([placeholder] * 14)})",
             (
                 execution_id,
                 int(item_id) if item_id is not None else None,
@@ -150,6 +162,8 @@ def begin_plan_execution(
                 session_id,
                 digest,
                 canonical(roster),
+                canonical(execution_target),
+                execution_target_digest,
                 0,
                 "active",
                 now,

@@ -24,6 +24,7 @@ class PlanCreateRequest(BaseModel):
     description: str = ""
     success_policy_id: str = "all-pass"
     success_policy_params: Dict[str, Any] = Field(default_factory=dict)
+    target_environment_id: str = Field(..., min_length=1)
 
 
 class PlanCreateResponse(BaseModel):

@@ -11,6 +11,9 @@ from yoke_core.domain.handlers.workflow_item_epic_task import (
 from yoke_core.domain.handlers.workflow_item_epic_task_ops import (
     REGISTRATIONS as _EPIC_TASK_OPS_REGS,
 )
+from yoke_core.domain.handlers.workflow_item_epic_task_scope import (
+    REGISTRATIONS as _EPIC_TASK_SCOPE_REGS,
+)
 from yoke_core.domain.handlers.workflow_item_epic_dispatch_advance import (
     REGISTRATIONS as _EPIC_DISPATCH_ADVANCE_REGS,
 )
@@ -31,6 +34,7 @@ def register(registry) -> None:
         _EPIC_TASK_REGS
         + _EPIC_DISPATCH_ADVANCE_REGS
         + _EPIC_TASK_OPS_REGS
+        + _EPIC_TASK_SCOPE_REGS
         + _EPIC_TASK_REVIEW_REGS
         + _EPIC_TASK_STATE_REGS
         + _EPIC_PROGRESS_NOTE_REGS

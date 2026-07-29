@@ -82,6 +82,7 @@ BROWSER_PRIMARY_POST_CHECKS = (
 )
 
 CHOOSE_STAGE_KEYS = ("Down", "Down", "Down", "Enter")
+CHOOSE_PRODUCTION_KEYS = ("Down", "Down", "Enter")
 CHOOSE_BACKLOG_KEYS = ("Down", "Enter")
 CHOOSE_MACHINE_ONLY_KEYS = ("Down", "Down", "Down", "Down", "Enter")
 
@@ -228,6 +229,7 @@ __all__ = [
     "CHOOSE_BACKLOG_KEYS",
     "CHOOSE_MACHINE_ONLY_KEYS",
     "CHOOSE_STAGE_KEYS",
+    "CHOOSE_PRODUCTION_KEYS",
     "DUAL_HOST_BASELINES",
     "FRESH_HOST",
     "HOSTED_CONNECTED_TEXT",

@@ -28,10 +28,15 @@ def _steps_for_method(method_id: str) -> list[dict]:
 
 
 @pytest.mark.parametrize(
-    ("method_id", "expected_verdict", "scenario_verdict"),
+    (
+        "method_id",
+        "expected_verdict",
+        "scenario_verdict",
+        "stored_verdict",
+    ),
     [
-        ("browser-check", "pass", "pass"),
-        ("browser-inspection", "inconclusive", "inconclusive"),
+        ("browser-check", "pass", "pass", "pass"),
+        ("browser-inspection", "pending", "pending", None),
     ],
 )
 def test_plan_browser_method_selects_its_declared_verdict_path(
@@ -39,6 +44,7 @@ def test_plan_browser_method_selects_its_declared_verdict_path(
     method_id: str,
     expected_verdict: str,
     scenario_verdict: str,
+    stored_verdict: str | None,
 ) -> None:
     screenshot = tmp_path / "inspection.png"
     screenshot.write_bytes(b"PNG")
@@ -100,7 +106,7 @@ def test_plan_browser_method_selects_its_declared_verdict_path(
 
     assert result.verdict == scenario_verdict
     assert result.runs[0].verdict == expected_verdict
-    assert completed[0][1]["verdict"] == expected_verdict
+    assert completed[0][1]["verdict"] == stored_verdict
     assert completed[0][1]["execution_status"] == "captured"
 
 

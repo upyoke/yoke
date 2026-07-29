@@ -14,6 +14,7 @@ from runtime.api.epic_task_sync_orchestrator_test_support import (
     _stub_project_github_auth as _stub_project_github_auth,
     _stub_typed_rest_surfaces as _stub_typed_rest_surfaces,
     db as db,
+    declare_no_file_tasks,
 )
 from yoke_core.domain import epic_task_sync, github_rest
 from yoke_core.domain.project_github_auth import MissingCapability
@@ -34,6 +35,7 @@ class TestSyncEpicTasks:
         )
         insert_epic_task(db, epic_id="10", task_num=1, title="Task", status="planned")
         stderr = io.StringIO()
+        declare_no_file_tasks(db, 10)
 
         def _raise(project, **kwargs):
             assert (
@@ -92,6 +94,7 @@ class TestSyncEpicTasks:
         )
         stdout = io.StringIO()
         stderr = io.StringIO()
+        declare_no_file_tasks(db, 10)
 
         def fake_create_issue(*, project, title, body, labels, **_):
             if "workflow:epic" in labels:

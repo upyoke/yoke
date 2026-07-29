@@ -5,17 +5,20 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+from typing import Any, Callable
 
 import pytest
 
 from runtime.api.domain.migrations import (
     workflow_supporting_schema_records as source_wrapper,
 )
+from yoke_core.domain.decision_request_schema import create_decision_request_tables
 from yoke_core.domain.decision_request_contract import DECISION_EVENT_ROWS
 from yoke_core.domain.machine_qa_method_contracts import MACHINE_METHODS
 from yoke_core.domain.machine_qa_pack import (
     MACHINE_QA_PACK,
     load_machine_qa_methods,
+    sync_machine_qa_pack_methods,
 )
 from yoke_core.domain.migration_apply_manifest import validate_manifest_payload
 from yoke_core.domain.migrations.workflow_supporting_schema_records import (
@@ -24,10 +27,15 @@ from yoke_core.domain.migrations.workflow_supporting_schema_records import (
     invariants,
 )
 from yoke_core.domain.qa_catalog_schema import BUILTIN_QA_METHODS
+from yoke_core.domain.qa_catalog_schema import create_qa_catalog_tables
 from yoke_core.domain.schema_common import _column_exists, _table_exists
+from yoke_core.domain.strategy_execution_schema import (
+    ensure_strategy_execution_schema,
+)
 from yoke_core.domain.strategy_execution_events import (
     STRATEGY_EXECUTION_EVENT_ROWS,
 )
+from yoke_core.domain.test_machine_schema import ensure_test_machine_schema
 
 
 _ROOT = Path(__file__).resolve().parents[4]
@@ -46,6 +54,13 @@ _QA_REQUIREMENT_COLUMNS = (
     "workflow_transition_id",
 )
 _QA_RUN_COLUMNS = ("capture_degraded_reason", "case_outcome")
+_COMMITTING_HELPERS: tuple[Callable[..., object], ...] = (
+    ensure_strategy_execution_schema,
+    create_decision_request_tables,
+    create_qa_catalog_tables,
+    ensure_test_machine_schema,
+    sync_machine_qa_pack_methods,
+)
 
 
 def test_governed_manifest_is_valid_and_digest_bound() -> None:
@@ -60,6 +75,42 @@ def test_source_checkout_wrapper_exposes_packaged_migration() -> None:
     assert source_wrapper.MIGRATION_NAME == MIGRATION_NAME
     assert source_wrapper.apply is apply
     assert source_wrapper.invariants is invariants
+
+
+@pytest.mark.parametrize(
+    "helper",
+    _COMMITTING_HELPERS,
+    ids=lambda helper: helper.__name__,
+)
+def test_supporting_helpers_preserve_default_commit_behavior(
+    test_db: Any,
+    helper: Callable[..., object],
+) -> None:
+    marker = "supporting_helper_default_commit_probe"
+    test_db.execute(f"CREATE TABLE {marker} (id INTEGER PRIMARY KEY)")
+
+    helper(test_db)
+    test_db.rollback()
+
+    assert _table_exists(test_db, marker)
+
+
+@pytest.mark.parametrize(
+    "helper",
+    _COMMITTING_HELPERS,
+    ids=lambda helper: helper.__name__,
+)
+def test_supporting_helpers_allow_caller_owned_transactions(
+    test_db: Any,
+    helper: Callable[..., object],
+) -> None:
+    marker = "supporting_helper_caller_transaction_probe"
+    test_db.execute(f"CREATE TABLE {marker} (id INTEGER PRIMARY KEY)")
+
+    helper(test_db, commit=False)
+    test_db.rollback()
+
+    assert not _table_exists(test_db, marker)
 
 
 def _remove_supporting_schema(conn) -> None:

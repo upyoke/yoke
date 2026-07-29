@@ -292,9 +292,8 @@ def _process_requirement(
             f"screenshot_completeness:expected={expected_screenshots},"
             f"recorded={recorded_screenshots};"
         )
-
     # Browser checks decide automatically when every declared step succeeds.
-    # Browser inspections capture evidence and explicitly enter review.
+    # Browser inspections remain verdict-less until the plan's batch reviewer.
     if run_verdict is None and method_id == BROWSER_CHECK_METHOD:
         if passed_assertions == expected_assertions:
             run_verdict = "pass"
@@ -303,9 +302,6 @@ def _process_requirement(
                 "assertion_completeness:"
                 f"expected={expected_assertions},passed={passed_assertions};"
             )
-    elif run_verdict is None and method_id == BROWSER_INSPECTION_METHOD:
-        run_verdict = "inconclusive"
-
     _bqa._complete_run(
         run_id,
         req_id,
@@ -333,7 +329,11 @@ def _process_requirement(
     run_result = RunResult(
         requirement_id=req_id,
         qa_kind=qa_kind,
-        verdict=run_verdict or "",
+        verdict="pending"
+        if method_id == BROWSER_INSPECTION_METHOD
+        and run_execution_status == "captured"
+        and run_verdict is None
+        else run_verdict or "",
         qa_run_id=run_id,
         execution_status=run_execution_status,
         artifacts=run_artifacts,

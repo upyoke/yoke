@@ -274,6 +274,14 @@ def test_client_runner_preserves_order_and_actor_until_waiting() -> None:
                 "state": "active",
                 "roster_digest": "digest",
                 "cursor_ordinal": 0,
+                "execution_target": {
+                    "environment": {"name": "development"},
+                    "endpoints": {
+                        "app_url": "",
+                        "api_url": "",
+                    },
+                },
+                "execution_target_digest": "target-digest",
                 "requirements": requirements,
                 "results": [],
             }

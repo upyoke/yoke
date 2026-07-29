@@ -7,6 +7,13 @@ from typing import Any, Callable, Optional
 
 from yoke_core.domain.db_helpers import iso8601_now, query_one, query_rows
 from yoke_core.domain.qa_plan_management import QaPlanError, _placeholder
+from yoke_core.domain.qa_execution_environment_target import (
+    resolve_plan_execution_target,
+)
+from yoke_core.domain.qa_plan_requirement_snapshot import (
+    require_existing_target,
+    require_requirement_id_target,
+)
 
 
 def materialize_deployment_plan(
@@ -43,6 +50,7 @@ def materialize_deployment_plan(
     if plan_row is None:
         raise QaPlanError(f"QA plan {plan!r} not found in project {run['project']!r}")
     plan_id = int(plan_row["id"])
+    execution_target = resolve_plan_execution_target(conn, plan_id=plan_id)
     cases = query_rows(
         conn,
         "SELECT c.*, m.name AS method_name, m.executor_id, "
@@ -55,7 +63,8 @@ def materialize_deployment_plan(
         raise QaPlanError(f"QA plan {plan_id} has no cases and cannot be materialized")
     existing_rows = query_rows(
         conn,
-        "SELECT id FROM qa_requirements "
+        "SELECT id,execution_target_json,execution_target_digest "
+        "FROM qa_requirements "
         f"WHERE deployment_run_id={marker} AND plan_id={marker} "
         "ORDER BY id",
         (str(deployment_run_id), plan_id),
@@ -70,7 +79,11 @@ def materialize_deployment_plan(
             "project": str(run["project"]),
             "plan_id": plan_id,
             "created_requirement_ids": [],
-            "existing_requirement_ids": [int(row["id"]) for row in existing_rows],
+            "existing_requirement_ids": require_existing_target(
+                existing_rows,
+                execution_target=execution_target,
+                subject=f"deployment run {deployment_run_id!r}",
+            ),
         }
 
     created: list[int] = []
@@ -90,6 +103,7 @@ def materialize_deployment_plan(
                     baseline=baseline,
                     baseline_position=baseline_position,
                     now=now,
+                    execution_target=execution_target,
                 )
                 if requirement_id is not None:
                     created.append(requirement_id)
@@ -102,7 +116,14 @@ def materialize_deployment_plan(
                     baseline=baseline,
                 )
                 if requirement_id is not None:
-                    existing.append(requirement_id)
+                    existing.append(
+                        require_requirement_id_target(
+                            conn,
+                            requirement_id=requirement_id,
+                            execution_target=execution_target,
+                            subject=f"deployment run {deployment_run_id!r}",
+                        )
+                    )
         if commit:
             conn.commit()
     except Exception:

@@ -34,8 +34,11 @@ from yoke_core.domain.qa_plan_execution_state import (
     set_plan_machine_lease,
 )
 from yoke_core.domain.qa_plan_execution_store import (
+    canonical,
+    roster_digest,
     select_plan_execution,
 )
+from yoke_core.domain.qa_execution_environment_target import target_digest
 
 _RACE_TIMEOUT_SECONDS = 30
 
@@ -254,13 +257,30 @@ def test_default_sqlite_rows_advance_replay_and_finish_portably() -> None:
         conn.execute("CREATE TABLE qa_requirements (id INTEGER PRIMARY KEY)")
         converge_qa_plan_execution_schema(conn)
         conn.execute("INSERT INTO qa_requirements(id) VALUES (1)")
+        target = {"environment": {"name": "development"}}
+        digest = target_digest(target)
+        roster = [
+            {
+                "requirement_id": 1,
+                "ordinal": 0,
+                "execution_target": target,
+                "execution_target_digest": digest,
+            }
+        ]
         conn.execute(
             "INSERT INTO qa_plan_executions("
             "id,item_id,transition_id,actor_id,session_id,roster_digest,"
-            "roster_json,state,created_at,heartbeat_at"
+            "roster_json,execution_target_json,execution_target_digest,"
+            "cursor_ordinal,state,created_at,heartbeat_at"
             ") VALUES ('sqlite-execution',1,'implemented','7','sqlite-session',"
-            "'digest','[{\"requirement_id\":1,\"ordinal\":0}]','active',"
-            "'then','then')"
+            "?,?,?,?,?,'active','then','then')",
+            (
+                roster_digest(roster),
+                canonical(roster),
+                canonical(target),
+                digest,
+                0,
+            ),
         )
         conn.commit()
         execution = select_plan_execution(conn, "sqlite-execution", lock=False)

@@ -14,11 +14,15 @@ import {
   showFailure,
   tableWrap,
 } from "./qa_view_primitives.js";
+import { reviewExplanation } from "./qa_review_explanation.js";
 import { renderEvidence } from "./qa_view_evidence.js";
 import {
   rerunCase,
   waiverDialog,
 } from "./qa_plan_actions.js";
+import {
+  renderExecutionTarget,
+} from "./qa_execution_target_view.js";
 
 function evidenceCount(row) {
   const evidence = row.last_result.evidence || [];
@@ -133,6 +137,8 @@ function renderCases(context, plan, proofs, reload, overlayHost) {
         documentNode,
         row.last_result.outcome,
         row.last_result.capture_degraded_reason,
+        null,
+        reviewExplanation(row.last_result.review),
       ));
       const count = evidenceCount(row);
       if (count) {
@@ -254,6 +260,7 @@ function renderPlanDetail(context, host, plan, scope) {
   const left = el(documentNode, "div", "qa-detail-stack");
   left.appendChild(renderCases(context, plan, proofs, reload, host));
   const right = el(documentNode, "div", "qa-detail-stack");
+  right.appendChild(renderExecutionTarget(documentNode, plan));
   right.appendChild(renderAttachments(documentNode, plan));
   right.appendChild(renderEvidence(context, {
     ...plan,
@@ -268,7 +275,9 @@ function renderPlanDetail(context, host, plan, scope) {
     detailHead(
       documentNode,
       plan.slug,
-      `Test plan · ${plan.project}`,
+      `Test plan · ${plan.project} · ${
+        plan.execution_target?.environment?.name || "target unbound"
+      }`,
     ),
     grid,
   );

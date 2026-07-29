@@ -23,6 +23,16 @@ def _p(conn) -> str:
 
 
 class TestFileOperations:
+    @pytest.fixture(autouse=True)
+    def _seed_parent_item(self, test_db):
+        insert_item(
+            test_db,
+            id=TEST_EPIC_ID,
+            workflow_id="epic",
+            status="planned",
+            project="yoke",
+        )
+
     def test_add_and_list(self, test_db):
         epic.task_upsert(test_db, "42", 1, "Widget", "", "", "")
         result = epic.file_add(test_db, "42", 1, "src/widget.sh", "create")
