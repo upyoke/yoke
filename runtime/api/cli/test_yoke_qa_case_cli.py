@@ -10,6 +10,8 @@ import sys
 import time
 from unittest import mock
 
+import pytest
+
 from yoke_cli.commands import qa_case
 from yoke_core.domain import qa_case_execution_cli, qa_plan_execution_cli
 
@@ -19,8 +21,9 @@ TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"
 
 
 def test_qa_case_run_delegates_to_engine_module() -> None:
-    completed = mock.Mock(returncode=7)
-    with mock.patch.object(qa_case.subprocess, "run", return_value=completed) as run:
+    process = mock.Mock()
+    process.wait.return_value = 7
+    with mock.patch.object(qa_case.subprocess, "Popen", return_value=process) as popen:
         code = qa_case.qa_case_run(
             [
                 "--requirement-id",
@@ -31,7 +34,7 @@ def test_qa_case_run_delegates_to_engine_module() -> None:
         )
 
     assert code == 7
-    command = run.call_args.args[0]
+    command = popen.call_args.args[0]
     assert command[1:] == [
         "-m",
         "yoke_core.domain.qa_case_execution_cli",
@@ -40,7 +43,7 @@ def test_qa_case_run_delegates_to_engine_module() -> None:
         "--base-url",
         "https://preview.example",
     ]
-    assert run.call_args.kwargs == {"check": False}
+    assert popen.call_args.kwargs == {"start_new_session": True}
 
 
 def test_engine_cli_executes_case_and_emits_result(capsys) -> None:
@@ -111,7 +114,17 @@ def test_qa_plan_run_delegates_to_engine_module() -> None:
     assert popen.call_args.kwargs == {"start_new_session": True}
 
 
-def test_qa_plan_run_waits_for_interrupt_cleanup_and_returns_130() -> None:
+@pytest.mark.parametrize(
+    ("runner", "args"),
+    (
+        (qa_case.qa_case_run, ["--requirement-id", "41"]),
+        (qa_case.qa_plan_run, ["--item", TEST_ITEM_REF, "--transition", "done"]),
+    ),
+)
+def test_qa_runner_waits_for_interrupt_cleanup_and_returns_130(
+    runner,
+    args: list[str],
+) -> None:
     process = mock.Mock()
     process.wait.side_effect = [KeyboardInterrupt, 0]
     process.poll.return_value = None
@@ -124,7 +137,7 @@ def test_qa_plan_run_waits_for_interrupt_cleanup_and_returns_130() -> None:
             side_effect=[previous_handler, previous_handler],
         ) as set_signal,
     ):
-        code = qa_case.qa_plan_run(["--item", TEST_ITEM_REF, "--transition", "done"])
+        code = runner(args)
 
     assert code == 130
     assert process.wait.call_count == 2
@@ -135,12 +148,23 @@ def test_qa_plan_run_waits_for_interrupt_cleanup_and_returns_130() -> None:
     ]
 
 
-def test_qa_plan_run_preserves_child_interrupt_cleanup(tmp_path) -> None:
+@pytest.mark.parametrize(
+    ("runner_name", "module_name"),
+    (
+        ("qa_case_run", "qa_case_execution_cli"),
+        ("qa_plan_run", "qa_plan_execution_cli"),
+    ),
+)
+def test_qa_runner_preserves_child_interrupt_cleanup(
+    tmp_path,
+    runner_name: str,
+    module_name: str,
+) -> None:
     fake_package = tmp_path / "yoke_core" / "domain"
     fake_package.mkdir(parents=True)
     (fake_package.parent / "__init__.py").write_text("")
     (fake_package / "__init__.py").write_text("")
-    (fake_package / "qa_plan_execution_cli.py").write_text(
+    (fake_package / f"{module_name}.py").write_text(
         """
 import os
 from pathlib import Path
@@ -169,8 +193,8 @@ except KeyboardInterrupt:
             sys.executable,
             "-c",
             (
-                "from yoke_cli.commands.qa_case import qa_plan_run;"
-                "raise SystemExit(qa_plan_run([]))"
+                f"from yoke_cli.commands.qa_case import {runner_name};"
+                f"raise SystemExit({runner_name}([]))"
             ),
         ],
         env=environment,
