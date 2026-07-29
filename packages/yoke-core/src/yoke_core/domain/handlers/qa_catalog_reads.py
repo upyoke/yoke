@@ -144,7 +144,10 @@ def handle_plan_get(request: FunctionCallRequest) -> HandlerOutcome:
             )
     except LookupError as exc:
         return _error("not_found", str(exc), "$.payload.plan_id")
-    if plan["project"] != payload.project:
+    project_refs = {str(plan["project"])}
+    if plan.get("project_id") is not None:
+        project_refs.add(str(plan["project_id"]))
+    if str(payload.project) not in project_refs:
         return _error("not_found", "QA plan not found", "$.payload.plan_id")
     return HandlerOutcome(result_payload={"plan": plan}, primary_success=True)
 

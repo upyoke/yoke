@@ -1,0 +1,69 @@
+{
+  "version": 1,
+  "project": "yoke",
+  "profile": {
+    "state": "declared",
+    "model_name": "primary",
+    "mutation_intent": "apply",
+    "migration_modules": [
+      "installer_campaign_current_text_plan"
+    ],
+    "compatibility_class": "pre_merge_breaking",
+    "migration_strategy": "hard_cutover",
+    "migration_strategy_justification": "Remove a retired startup message from future cold-start verdict assertions while preserving the observable hosted onboarding journey.",
+    "schema_kinds": [],
+    "data_kinds": [
+      "fill"
+    ],
+    "affected_surfaces": [
+      {
+        "table": "qa_plans",
+        "columns": [
+          "updated_at"
+        ]
+      },
+      {
+        "table": "qa_plan_cases",
+        "columns": [
+          "method_config"
+        ]
+      }
+    ],
+    "count_preserving": true
+  },
+  "module_sources": {
+    "installer_campaign_current_text_plan": {
+      "path": "packages/yoke-core/src/yoke_core/domain/migrations/installer_campaign_current_text_plan.py",
+      "sha256": "2053e677198820bc3d07f3aa721464f9cd06e402f6a5197b5543fc1485120388"
+    }
+  },
+  "attestation": {
+    "pre_merge_readers_writers": [
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/qa_plan_management.py",
+        "symbol": "replace_plan_cases",
+        "role": "writer"
+      },
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/machine_qa_case_execution.py",
+        "symbol": "execute_materialized_machine_case",
+        "role": "reader"
+      },
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/ssh_mac_terminal_recipe.py",
+        "symbol": "execute_terminal_recipe",
+        "role": "reader"
+      }
+    ],
+    "invariants": [
+      "Previously applied installer campaign migration sources remain unchanged.",
+      "The installer campaign still has ten ordered cases and expands to twelve requirements.",
+      "Both cold-start baselines assert only text that remains observable in the current public installer journey.",
+      "The migration replaces only future qa_plan_cases specifications; materialized requirement rows, runs, artifacts, and evidence remain unchanged."
+    ],
+    "rehearsal_commands": [
+      "uv run --frozen python3 -m pytest runtime/api/domain/migrations/test_installer_campaign_current_text_plan.py runtime/api/domain/test_machine_qa_terminal_recipe_interactive.py runtime/api/domain/test_machine_qa_terminal_readiness.py -q"
+    ],
+    "residual_risk_notes": "The physical Test Mac Stage campaign remains the final proof, including live browser approval against the Stage application."
+  }
+}
