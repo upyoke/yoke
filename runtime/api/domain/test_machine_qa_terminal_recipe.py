@@ -57,6 +57,55 @@ def test_action_wait_seconds_rejects_values_outside_numeric_bounds(
         )
 
 
+def test_action_readiness_is_normalized_with_its_timeout() -> None:
+    config = recipe()
+    actions = config["actions"]
+    assert isinstance(actions, list)
+    actions[0]["ready_text"] = ["Review what Yoke will save.", "Apply"]
+    actions[0]["ready_timeout_seconds"] = 45
+
+    normalized = validate_terminal_recipe(
+        config,
+        required_completion="done",
+    )
+
+    assert normalized["actions"][0]["ready_text"] == [
+        "Review what Yoke will save.",
+        "Apply",
+    ]
+    assert normalized["actions"][0]["ready_timeout_seconds"] == 45.0
+
+
+def test_action_readiness_timeout_requires_source_text() -> None:
+    config = recipe()
+    actions = config["actions"]
+    assert isinstance(actions, list)
+    actions[0]["ready_timeout_seconds"] = 45
+
+    with pytest.raises(MachineQaRecipeError, match="requires ready_text"):
+        validate_terminal_recipe(
+            config,
+            required_completion="done",
+        )
+
+
+@pytest.mark.parametrize("ready_timeout_seconds", (0, 301, True, "1"))
+def test_action_readiness_timeout_rejects_invalid_values(
+    ready_timeout_seconds: object,
+) -> None:
+    config = recipe()
+    actions = config["actions"]
+    assert isinstance(actions, list)
+    actions[0]["ready_text"] = ["ready"]
+    actions[0]["ready_timeout_seconds"] = ready_timeout_seconds
+
+    with pytest.raises(MachineQaRecipeError, match="ready_timeout_seconds"):
+        validate_terminal_recipe(
+            config,
+            required_completion="done",
+        )
+
+
 def test_command_recipe_removes_staged_file_after_success(
     tmp_path: Path,
 ) -> None:
