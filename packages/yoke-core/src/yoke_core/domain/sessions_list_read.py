@@ -105,10 +105,10 @@ def _latest_activity(
     return str(raw), parsed
 
 
-def _claim_target_display(claim: Dict[str, Any]) -> str:
+def _claim_target_display(conn: Any, claim: Dict[str, Any]) -> str:
     kind = str(claim.get("target_kind") or "")
     if kind == "item":
-        return str(display_claim_item_id(str(claim.get("item_id"))) or "")
+        return str(display_claim_item_id(str(claim.get("item_id")), conn) or "")
     if kind == "epic_task":
         return f"epic {claim.get('epic_id')} task {claim.get('task_num')}"
     return str(claim.get("process_key") or "")
@@ -148,7 +148,7 @@ def _active_claims_by_session(
         grouped.setdefault(session_id, []).append(
             {
                 "target_kind": str(claim.get("target_kind") or ""),
-                "target": _claim_target_display(claim),
+                "target": _claim_target_display(conn, claim),
                 "claimed_at": claim.get("claimed_at"),
                 "reason": claim.get("reason"),
             }
@@ -262,7 +262,7 @@ def list_sessions(
             session_id = str(row["session_id"])
             current_item = row.get("current_item_id")
             current_item_display = (
-                display_claim_item_id(str(current_item)) if current_item else None
+                display_claim_item_id(str(current_item), conn) if current_item else None
             )
             claims = claims_by_session.get(session_id, [])
             item_claims = [
