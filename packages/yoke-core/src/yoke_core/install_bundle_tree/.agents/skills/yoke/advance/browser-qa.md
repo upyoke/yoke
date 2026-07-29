@@ -4,8 +4,8 @@ Called at a workflow transition that has attached Browser-method cases. The
 same flow executes both built-in methods:
 
 - `browser-check`: assertions produce an automatic verdict.
-- `browser-inspection`: capture produces evidence and a review request; a human
-  resolves it to passed, failed, or waived.
+- `browser-inspection`: capture produces evidence for the plan's batched agent
+  reviewer. Only an inconclusive agent verdict requests a human decision.
 
 The gate is re-entrant. Materialization is idempotent and rerunning a case
 records a new run.
@@ -43,26 +43,43 @@ Read the environment URL and deployed SHA. Read the worktree HEAD through
 SHA is stale, run the project's normal deployment path and retry this gate.
 Do not execute Browser cases against an unknown build.
 
-## 3. Execute each case
+## 3. Execute the ordered plan roster
 
 ```bash
-yoke qa case run \
-  --requirement-id <requirement-id> \
+yoke qa plan run \
+  --item "YOK-{N}" \
+  --transition "{_target}" \
   --base-url "<environment-url>" \
   --expected-branch "<worktree-branch>" \
   --expected-sha "<worktree-head-sha>"
 ```
 
-The shared runner starts the Browser substrate, executes only the named case,
-records the run, stores screenshot/trace evidence, and returns its outcome.
-Do not add another run manually.
+The shared runner executes every case in immutable snapshot order, records
+deterministic results, and stores Browser screenshot/trace evidence. Do not
+add another run manually.
 
-- `pass`: continue.
+For a targeted recovery after the plan runner identifies one failed
+requirement, use the same per-requirement execution contract:
+
+```bash
+yoke qa case run --requirement-id N
+```
+
+Normal transition execution remains plan-level; do not replace the ordered
+plan run with a manually assembled series of case runs.
+
+- Exit `0` / `pass`: continue.
 - `fail` or executor error: block, fix the defect or environment, then rerun
   the same requirement.
-- `inconclusive` / `needs_review`: leave the transition blocked and surface
-  the generated QA review request in the Inbox. Approval marks the case passed;
-  rejection marks it failed; waiver uses the ordinary requirement waiver.
+- Exit `12` / `awaiting_agent_review`: immediately dispatch the returned typed
+  `review_bundle.dispatch` through the harness subagent facility. Supply the
+  complete immutable bundle and exact prompt to its `subagent_type`; the
+  reviewer inspects every visual and transcript, then runs the returned
+  `submit_command` with one verdict and rationale per case. This state is
+  pending agent review, never evidence that a human request exists.
+- A submitted `pass` continues and `fail` blocks. Only submitted
+  `inconclusive` creates the human Inbox request; approval, rejection, and
+  waiver then use the ordinary review-resolution paths.
 
 ## 4. Confirm the union gate
 

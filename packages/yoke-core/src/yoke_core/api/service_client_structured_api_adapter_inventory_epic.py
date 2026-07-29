@@ -58,6 +58,26 @@ EPIC_ADAPTERS: List[AdapterEntry] = [
         "yoke workflow-item epic-task file-add --epic N --task-num N --file-path PATH [--action ACTION]",
     ),
     AdapterEntry(
+        "workflow_item.epic_task.scope_no_files",
+        "yoke workflow-item epic-task scope-no-files --epic N --task-num N "
+        "[--session-id S] [--json]",
+    ),
+    AdapterEntry(
+        "workflow_item.epic_task.scope_finalize",
+        "yoke workflow-item epic-task scope-finalize --epic N "
+        "[--session-id S] [--json]",
+    ),
+    AdapterEntry(
+        "workflow_item.epic_task.scope_reopen",
+        "yoke workflow-item epic-task scope-reopen --epic N "
+        "[--session-id S] [--json]",
+    ),
+    AdapterEntry(
+        "workflow_item.epic_task.scope_repair_legacy",
+        "yoke workflow-item epic-task scope-repair-legacy --epic N "
+        "[--tenant-id ID] [--session-id S] [--json]",
+    ),
+    AdapterEntry(
         "workflow_item.epic_task.history_insert",
         "yoke workflow-item epic-task history-insert --epic N --task-num N --from-status S --to-status S",
     ),

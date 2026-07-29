@@ -36,6 +36,7 @@ from runtime.api.update_status_test_helpers import (
 
 class TestCoreUpdate:
     def test_basic_status_update(self, test_db):
+        insert_item(test_db, id=42, workflow_id="epic", status="planned")
         insert_epic_task(test_db, epic_id=42, task_num=1, status="planned")
         rc, out, _ = _update(test_db, 42, 1, "implementing")
         assert rc == 0
@@ -49,6 +50,7 @@ class TestCoreUpdate:
         assert hb is not None
 
     def test_dispatch_attempts_incremented_on_implementing(self, test_db):
+        insert_item(test_db, id=42, workflow_id="epic", status="planned")
         insert_epic_task(test_db, epic_id=42, task_num=1, status="planned", dispatch_attempts=2)
         _update(test_db, 42, 1, "implementing")
         da = _task_field(test_db, 42, 1, "dispatch_attempts")
