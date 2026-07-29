@@ -30,7 +30,7 @@ def test_governed_manifest_is_valid_and_digest_bound():
     assert digest == source["sha256"]
 
 
-@pytest.mark.parametrize("starting_version", (1, 2))
+@pytest.mark.parametrize("starting_version", (1, 2, 3))
 def test_revision_selects_v3_without_moving_existing_pins(
     test_db,
     starting_version,
@@ -66,8 +66,14 @@ def test_revision_selects_v3_without_moving_existing_pins(
 
 def test_revision_rejects_unknown_selected_definition(test_db):
     changed = test_db.execute(
-        "SELECT id FROM workflow_versions "
-        "WHERE workflow_id = 'issue' AND version = 3"
+        "INSERT INTO workflow_versions ("
+        "workflow_id, version, definition_schema_version, definition_json, "
+        "definition_digest, published_at, published_by_actor_id, immutable_at"
+        ") SELECT workflow_id, 99, definition_schema_version, definition_json, "
+        "%s, published_at, published_by_actor_id, immutable_at "
+        "FROM workflow_versions "
+        "WHERE workflow_id = 'issue' AND version = 3 RETURNING id",
+        ("0" * 64,),
     ).fetchone()[0]
     test_db.execute(
         "UPDATE workflows SET current_version_id = %s WHERE id = 'issue'",
@@ -75,5 +81,5 @@ def test_revision_rejects_unknown_selected_definition(test_db):
     )
     test_db.commit()
 
-    with pytest.raises(AssertionError, match="not an exact v1/v2"):
+    with pytest.raises(AssertionError, match="not an exact code-owned"):
         apply(test_db)

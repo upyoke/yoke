@@ -29,6 +29,7 @@ from yoke_cli.config.onboard_destinations import (
     DESTINATION_HOSTED,
     DESTINATION_LOCAL,
     DESTINATION_SERVER,
+    hosted_environment_for_url,
     is_hosted_url,
 )
 from yoke_cli.config.onboard_destination_rows import (
@@ -48,6 +49,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing only
     from yoke_cli.config.onboard_wizard_app import _View
 
 _STORED_DESTINATION = "stored"
+
 
 class _Shell(Protocol):  # pragma: no cover - structural typing only
     result: Any
@@ -184,6 +186,11 @@ class DestinationFlow:
 
     def _route_destination(self: _Shell, choice: str) -> None:
         hosted_env = HOSTED_ROW_ENVS.get(choice)
+        if choice == DESTINATION_HOSTED and self._api_url_preset:
+            # ``--connect`` resolves both hosted platform URLs to the shared
+            # destination id. Preserve the environment carried by that exact
+            # URL instead of treating the id as the production picker row.
+            hosted_env = hosted_environment_for_url(self.result.api_url) or hosted_env
         # The hosted rows are one destination reached through two platforms;
         # the row is the environment choice.
         self.result.destination = (

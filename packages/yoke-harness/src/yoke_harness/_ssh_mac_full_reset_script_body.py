@@ -114,8 +114,15 @@ cleanup_scratch() {
   return "$failed"
 }
 
+run_reset_step() {
+  reset_step="$1"
+  shift
+  "$@" || exit 1
+}
+
 finish() {
   finish_rc=$?
+  failure_step="$reset_step"
   set +e
   trap - EXIT HUP INT TERM
   finish_failed=0
@@ -123,7 +130,14 @@ finish() {
     restore_tokens || finish_failed=1
   fi
   cleanup_scratch || finish_failed=1
-  (( finish_failed )) && finish_rc=1
+  if (( finish_failed )); then
+    (( finish_rc == 0 )) && failure_step="$reset_phase_recovery"
+    finish_rc=1
+  fi
+  if (( finish_rc != 0 )); then
+    print -r -- "$reset_failure_prefix$failure_step"
+    (( finish_failed )) && print -r -- "$reset_recovery_failure_marker"
+  fi
   exit "$finish_rc"
 }
 
@@ -238,7 +252,7 @@ uninstall_homebrew_uv() {
 verify_shell_resolution() {
   local flag
   for flag in -lic -c; do
-    "$shell_path" "$flag" '
+    PATH="$clean_shell_path" "$shell_path" "$flag" '
       tool_bin_dir="$1"
       shift
       for tool in "$@"; do
@@ -259,9 +273,16 @@ verify_shell_resolution() {
   done
 }
 
-[[ "$#" -eq 1 ]]
+reset_step="$reset_phase_validate_home"
+if [[ "$#" -ne 1 ]]; then
+  print -r -- "$reset_failure_prefix$reset_step"
+  exit 1
+fi
 home="$1"
-validate_home
+if ! validate_home; then
+  print -r -- "$reset_failure_prefix$reset_step"
+  exit 1
+fi
 tool_bin_dir="$home/$tool_bin_suffix"
 token_backup_directory="$home/$token_backup_name"
 stage_backup="$token_backup_directory/$stage_backup_name"
@@ -280,23 +301,25 @@ evidence_container=""
 trap finish EXIT
 trap 'exit 1' HUP INT TERM
 
-preserve_tokens
-remove_registered_state
-uninstall_homebrew_uv
-clean_startup_files
-verify_shell_resolution
-restore_tokens
+run_reset_step "$reset_phase_preserve_tokens" preserve_tokens
+run_reset_step "$reset_phase_remove_registered_state" remove_registered_state
+run_reset_step "$reset_phase_uninstall_homebrew_uv" uninstall_homebrew_uv
+run_reset_step "$reset_phase_clean_startup_files" clean_startup_files
+run_reset_step "$reset_phase_verify_shell_resolution" verify_shell_resolution
+run_reset_step "$reset_phase_restore_tokens" restore_tokens
 tokens_restored=1
-cleanup_scratch
+run_reset_step "$reset_phase_cleanup_scratch" cleanup_scratch
 
 stage_outcome="ABSENT"
 prod_outcome="ABSENT"
 (( stage_saved )) && stage_outcome="RESTORED"
 (( prod_saved )) && prod_outcome="RESTORED"
+reset_step="$reset_phase_emit_outcomes"
 print -r -- "YOKE_TOKEN_STAGE_$stage_outcome"
 print -r -- "YOKE_TOKEN_PROD_$prod_outcome"
 print -r -- "YOKE_INSTALLER_EVIDENCE_$evidence_outcome"
 print -r -- "$full_reset_marker"
+reset_step="$reset_phase_complete"
 """
 
 

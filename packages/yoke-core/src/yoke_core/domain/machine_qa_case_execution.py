@@ -130,7 +130,7 @@ def _execute_issued_contract(
 
         register_ssh_mac_host_control()
         submission = execute_machine_case_contract(execution)
-    except Exception as exc:
+    except BaseException as exc:
         released = _abort_issued_contract(
             abort_function=abort_function,
             requirement_id=requirement_id,
@@ -138,6 +138,8 @@ def _execute_issued_contract(
             execution=execution,
             reason="local_execution_failed",
         )
+        if not isinstance(exc, Exception):
+            raise
         raise MachineCaseDispatchError(
             "local host-control execution failed "
             f"({type(exc).__name__}); "

@@ -3,7 +3,14 @@
 from __future__ import annotations
 
 import json
+import os
+import signal
+import subprocess
+import sys
+import time
 from unittest import mock
+
+import pytest
 
 from yoke_cli.commands import qa_case
 from yoke_core.domain import qa_case_execution_cli, qa_plan_execution_cli
@@ -14,8 +21,9 @@ TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"
 
 
 def test_qa_case_run_delegates_to_engine_module() -> None:
-    completed = mock.Mock(returncode=7)
-    with mock.patch.object(qa_case.subprocess, "run", return_value=completed) as run:
+    process = mock.Mock()
+    process.wait.return_value = 7
+    with mock.patch.object(qa_case.subprocess, "Popen", return_value=process) as popen:
         code = qa_case.qa_case_run(
             [
                 "--requirement-id",
@@ -26,7 +34,7 @@ def test_qa_case_run_delegates_to_engine_module() -> None:
         )
 
     assert code == 7
-    command = run.call_args.args[0]
+    command = popen.call_args.args[0]
     assert command[1:] == [
         "-m",
         "yoke_core.domain.qa_case_execution_cli",
@@ -35,7 +43,7 @@ def test_qa_case_run_delegates_to_engine_module() -> None:
         "--base-url",
         "https://preview.example",
     ]
-    assert run.call_args.kwargs == {"check": False}
+    assert popen.call_args.kwargs == {"start_new_session": True}
 
 
 def test_engine_cli_executes_case_and_emits_result(capsys) -> None:
@@ -81,8 +89,9 @@ def test_engine_cli_returns_prerequisite_exit_for_error(capsys) -> None:
 
 
 def test_qa_plan_run_delegates_to_engine_module() -> None:
-    completed = mock.Mock(returncode=3)
-    with mock.patch.object(qa_case.subprocess, "run", return_value=completed) as run:
+    process = mock.Mock()
+    process.wait.return_value = 3
+    with mock.patch.object(qa_case.subprocess, "Popen", return_value=process) as popen:
         code = qa_case.qa_plan_run(
             [
                 "--item",
@@ -93,7 +102,7 @@ def test_qa_plan_run_delegates_to_engine_module() -> None:
         )
 
     assert code == 3
-    command = run.call_args.args[0]
+    command = popen.call_args.args[0]
     assert command[1:] == [
         "-m",
         "yoke_core.domain.qa_plan_execution_cli",
@@ -102,7 +111,111 @@ def test_qa_plan_run_delegates_to_engine_module() -> None:
         "--transition",
         "implemented",
     ]
-    assert run.call_args.kwargs == {"check": False}
+    assert popen.call_args.kwargs == {"start_new_session": True}
+
+
+@pytest.mark.parametrize(
+    ("runner", "args"),
+    (
+        (qa_case.qa_case_run, ["--requirement-id", "41"]),
+        (qa_case.qa_plan_run, ["--item", TEST_ITEM_REF, "--transition", "done"]),
+    ),
+)
+def test_qa_runner_waits_for_interrupt_cleanup_and_returns_130(
+    runner,
+    args: list[str],
+) -> None:
+    process = mock.Mock()
+    process.wait.side_effect = [KeyboardInterrupt, 0]
+    process.poll.return_value = None
+    previous_handler = object()
+    with (
+        mock.patch.object(qa_case.subprocess, "Popen", return_value=process),
+        mock.patch.object(
+            qa_case.signal,
+            "signal",
+            side_effect=[previous_handler, previous_handler],
+        ) as set_signal,
+    ):
+        code = runner(args)
+
+    assert code == 130
+    assert process.wait.call_count == 2
+    process.send_signal.assert_called_once_with(signal.SIGINT)
+    assert set_signal.call_args_list == [
+        mock.call(signal.SIGINT, signal.SIG_IGN),
+        mock.call(signal.SIGINT, previous_handler),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("runner_name", "module_name"),
+    (
+        ("qa_case_run", "qa_case_execution_cli"),
+        ("qa_plan_run", "qa_plan_execution_cli"),
+    ),
+)
+def test_qa_runner_preserves_child_interrupt_cleanup(
+    tmp_path,
+    runner_name: str,
+    module_name: str,
+) -> None:
+    fake_package = tmp_path / "yoke_core" / "domain"
+    fake_package.mkdir(parents=True)
+    (fake_package.parent / "__init__.py").write_text("")
+    (fake_package / "__init__.py").write_text("")
+    (fake_package / f"{module_name}.py").write_text(
+        """
+import os
+from pathlib import Path
+import time
+
+Path(os.environ["QA_INTERRUPT_READY"]).write_text("ready")
+try:
+    while True:
+        time.sleep(1)
+except KeyboardInterrupt:
+    time.sleep(0.4)
+    Path(os.environ["QA_INTERRUPT_CLEANUP"]).write_text("released")
+    raise
+""".lstrip()
+    )
+    ready = tmp_path / "ready"
+    cleanup = tmp_path / "cleanup"
+    environment = dict(os.environ)
+    environment["PYTHONPATH"] = os.pathsep.join(
+        [str(tmp_path), environment.get("PYTHONPATH", "")]
+    )
+    environment["QA_INTERRUPT_READY"] = str(ready)
+    environment["QA_INTERRUPT_CLEANUP"] = str(cleanup)
+    wrapper = subprocess.Popen(
+        [
+            sys.executable,
+            "-c",
+            (
+                f"from yoke_cli.commands.qa_case import {runner_name};"
+                f"raise SystemExit({runner_name}([]))"
+            ),
+        ],
+        env=environment,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    deadline = time.monotonic() + 5
+    try:
+        while not ready.exists() and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert ready.exists()
+        os.kill(wrapper.pid, signal.SIGINT)
+        wrapper.communicate(timeout=5)
+    finally:
+        if wrapper.poll() is None:
+            wrapper.kill()
+            wrapper.wait()
+
+    assert wrapper.returncode == 130
+    assert cleanup.read_text() == "released"
 
 
 def test_plan_engine_cli_reuses_one_session_actor(capsys) -> None:

@@ -51,6 +51,11 @@ def test_plan_and_activity_reads_attribute_named_deployment_run_proof() -> None:
             project="yoke",
         )
         conn.execute(
+            "UPDATE qa_requirements SET created_at='2026-07-28T11:00:00Z' "
+            "WHERE deployment_run_id=%s",
+            (deployment_run_id,),
+        )
+        conn.execute(
             "INSERT INTO qa_runs("
             "qa_requirement_id,executor_type,qa_kind,verdict,case_outcome,"
             "created_at"
@@ -125,3 +130,26 @@ def test_plan_get_handler_forwards_the_named_deployment_run() -> None:
         "plan_id": 17,
         "deployment_run_id": "run-20260728-905",
     }
+
+
+def test_plan_get_handler_accepts_the_web_project_id() -> None:
+    @contextmanager
+    def connected():
+        yield object()
+
+    request = FunctionCallRequest(
+        function="qa.plan.get",
+        actor=ActorContext(actor_id="op", session_id="s-1"),
+        target=TargetRef(kind="global"),
+        payload={"project": "1", "plan_id": 17},
+    )
+    with (
+        patch("yoke_core.domain.db_helpers.connect", connected),
+        patch(
+            "yoke_core.domain.qa_plan_detail.get_plan",
+            return_value={"project": "yoke", "project_id": 1},
+        ),
+    ):
+        outcome = activity_handlers.handle_plan_get(request)
+
+    assert outcome.primary_success

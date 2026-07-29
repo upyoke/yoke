@@ -71,6 +71,7 @@ def _stub_browser_approval(monkeypatch) -> list[str]:
     monkeypatch.setattr(hosted_machine_authorization, "open_browser", lambda _: False)
     return started
 
+
 def test_the_picker_carries_the_hosted_environment_choice(monkeypatch) -> None:
     started = _stub_browser_approval(monkeypatch)
     app, _spy = make_app(_picker_defaults(token=None))
@@ -112,6 +113,28 @@ def test_the_staging_row_points_the_connect_leg_at_stage(monkeypatch) -> None:
             assert app.result.destination == DESTINATION_HOSTED
             assert app.result.env_name == "stage"
             assert started == ["https://app.stage.upyoke.com"]
+
+    asyncio.run(scenario())
+
+
+def test_explicit_stage_connect_preset_keeps_stage_authority(monkeypatch) -> None:
+    started = _stub_browser_approval(monkeypatch)
+    app, _spy = make_app(
+        _picker_defaults(
+            destination=DESTINATION_HOSTED,
+            env_name="stage",
+            api_url="https://app.stage.upyoke.com",
+            token=None,
+        )
+    )
+
+    async def scenario() -> None:
+        async with app.run_test() as pilot:
+            await advance_past_path(pilot)
+            assert app.result.destination == DESTINATION_HOSTED
+            assert app.result.env_name == "stage"
+            assert started == ["https://app.stage.upyoke.com"]
+            assert "https://app.stage.upyoke.com/machine" in _body_text(app)
 
     asyncio.run(scenario())
 

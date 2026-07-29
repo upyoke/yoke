@@ -22,6 +22,10 @@ from yoke_core.domain.ssh_mac_terminal_capture import (
     open_terminal_window,
     resize_terminal_session,
 )
+from yoke_core.domain.ssh_mac_terminal_readiness import (
+    DEFAULT_READY_TIMEOUT_SECONDS,
+    wait_for_ready_text,
+)
 from yoke_core.domain.ssh_mac_terminal_recipe_support import (
     UploadBytes,
     capture_recipe_transcript,
@@ -117,6 +121,47 @@ def _run_interactive_recipe(
                     {"steps": captures, "terminal_backend": backend},
                     "terminal_recipe_timed_out",
                 )
+            ready_text = tuple(action.get("ready_text", ()))
+            ready_transcript: str | None = None
+            if ready_text:
+                remaining_wall_seconds = max(
+                    0.0,
+                    float(config["max_wall_seconds"]) - (time.monotonic() - started),
+                )
+                ready_timeout_seconds = min(
+                    float(
+                        action.get(
+                            "ready_timeout_seconds",
+                            DEFAULT_READY_TIMEOUT_SECONDS,
+                        )
+                    ),
+                    remaining_wall_seconds,
+                )
+                ready, ready_transcript = wait_for_ready_text(
+                    run,
+                    backend=backend,
+                    session=session,
+                    expected=ready_text,
+                    timeout_seconds=ready_timeout_seconds,
+                )
+                if not ready:
+                    captures.append(
+                        {
+                            "key": str(action["step"]),
+                            "reached": False,
+                            "transcript": ready_transcript,
+                            "waiting_for": list(ready_text),
+                        }
+                    )
+                    return HostActionResult(
+                        False,
+                        {
+                            "steps": captures,
+                            "terminal_backend": backend,
+                            "waiting_for": list(ready_text),
+                        },
+                        "terminal_action_not_ready",
+                    )
             if action["keys"] and not send_recipe_keys(
                 run,
                 backend=backend,
@@ -131,10 +176,14 @@ def _run_interactive_recipe(
             if action["keys"] or "wait_seconds" in action:
                 time.sleep(float(action.get("wait_seconds", config["step_delay"])))
             key = str(action["step"])
-            transcript = capture_recipe_transcript(
-                run,
-                backend=backend,
-                session=session,
+            transcript = (
+                ready_transcript
+                if ready_transcript is not None and not action["keys"]
+                else capture_recipe_transcript(
+                    run,
+                    backend=backend,
+                    session=session,
+                )
             )
             capture = {
                 "key": key,

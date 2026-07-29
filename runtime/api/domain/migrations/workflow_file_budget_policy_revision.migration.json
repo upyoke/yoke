@@ -41,7 +41,7 @@
   "module_sources": {
     "workflow_file_budget_policy_revision": {
       "path": "packages/yoke-core/src/yoke_core/domain/migrations/workflow_file_budget_policy_revision.py",
-      "sha256": "cd9acbfc8e85267ff30fd68cd5667642e8ca3d96add6bbc6933d2f8677a50512"
+      "sha256": "808aa57ea108d2b63b1e200ff292898c2b244d42a70e13355535aae2e2197dbc"
     }
   },
   "attestation": {
@@ -63,7 +63,7 @@
       }
     ],
     "invariants": [
-      "Every selected pre-migration built-in current is an exact code-owned version 1 or version 2 definition.",
+      "Every selected pre-migration built-in current is an exact code-owned version 1, version 2, or already-converged version 3 definition.",
       "Every built-in workflow selects the exact File Budget-aware code-owned revision after apply.",
       "Existing items retain the same workflow_id and workflow_version_id throughout apply.",
       "Every item workflow pin still resolves to an immutable version owned by the same workflow."
@@ -71,6 +71,6 @@
     "rehearsal_commands": [
       "PYTHONPATH=packages/yoke-contracts/src:packages/yoke-cli/src:packages/yoke-core/src:packages/yoke-harness/src:. python3 -m pytest runtime/api/domain/migrations/test_workflow_file_budget_policy_revision.py runtime/api/domain/test_workflow_file_budget_policy.py runtime/api/domain/test_workflow_registry.py -q"
     ],
-    "residual_risk_notes": "The migration accepts only exact code-owned v1/v2 current definitions, may append the four v3 workflow-version rows, and changes only current pointers used by future item creation. Existing item pins are compared before and after. Overall affected-table row counts are intentionally not preserved because missing immutable v3 definitions are inserted."
+    "residual_risk_notes": "The migration accepts only exact code-owned v1/v2 current definitions or the exact already-converged v3 definitions, may append the four v3 workflow-version rows, and changes only current pointers used by future item creation. Existing item pins are compared before and after. Overall affected-table row counts are intentionally not preserved because missing immutable v3 definitions are inserted."
   }
 }

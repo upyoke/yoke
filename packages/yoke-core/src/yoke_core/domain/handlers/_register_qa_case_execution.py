@@ -54,7 +54,9 @@ def register(registry) -> None:
                 "actor_session_bound",
             ],
             adapter_status=(
-                "live" if function_id == "qa.plan_execution.begin" else "internal"
+                "live"
+                if function_id in {"qa.plan_execution.begin", "qa.plan_execution.abort"}
+                else "internal"
             ),
             claim_required_kind="qa_subject",
             ambient_session_required=True,

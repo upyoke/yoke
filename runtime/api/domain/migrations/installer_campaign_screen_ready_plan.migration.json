@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "project": "yoke",
+  "profile": {
+    "state": "declared",
+    "model_name": "primary",
+    "mutation_intent": "apply",
+    "migration_modules": [
+      "installer_campaign_screen_ready_plan"
+    ],
+    "compatibility_class": "pre_merge_breaking",
+    "migration_strategy": "hard_cutover",
+    "migration_strategy_justification": "Replace the future installer campaign specification only after the engine understands bounded terminal-screen readiness fields; already-materialized requirements and their evidence remain unchanged.",
+    "schema_kinds": [],
+    "data_kinds": [
+      "fill"
+    ],
+    "affected_surfaces": [
+      {
+        "table": "qa_plans",
+        "columns": [
+          "updated_at"
+        ]
+      },
+      {
+        "table": "qa_plan_cases",
+        "columns": [
+          "method_config"
+        ]
+      }
+    ],
+    "count_preserving": true
+  },
+  "module_sources": {
+    "installer_campaign_screen_ready_plan": {
+      "path": "packages/yoke-core/src/yoke_core/domain/migrations/installer_campaign_screen_ready_plan.py",
+      "sha256": "e3c400644e4c5dc67dd731e5b3f29735046255b78a86f6c8aa1edb22be5391c2"
+    }
+  },
+  "attestation": {
+    "pre_merge_readers_writers": [
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/qa_plan_management.py",
+        "symbol": "replace_plan_cases",
+        "role": "writer"
+      },
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/machine_qa_case_execution.py",
+        "symbol": "execute_materialized_machine_case",
+        "role": "reader"
+      },
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/ssh_mac_terminal_recipe.py",
+        "symbol": "execute_terminal_recipe",
+        "role": "reader"
+      }
+    ],
+    "invariants": [
+      "The previously applied base campaign contract and migration source remain unchanged.",
+      "The installer campaign still has ten ordered cases and expands to twelve requirements.",
+      "Every dangerous post-authorization input waits for the text of its source screen and fails closed on timeout.",
+      "The hosted machine-only journey goes directly from backlog-only GitHub selection to Review without a redundant project-mode key sequence.",
+      "The migration replaces only future qa_plan_cases specifications; materialized requirement rows, runs, artifacts, and evidence remain unchanged."
+    ],
+    "rehearsal_commands": [
+      "uv run --frozen python3 -m pytest runtime/api/domain/migrations/test_installer_campaign_screen_ready_plan.py runtime/api/domain/migrations/test_installer_campaign_plan_rows.py runtime/api/domain/migrations/test_installer_campaign_interaction_rows.py runtime/api/domain/test_machine_qa_terminal_recipe.py runtime/api/domain/test_machine_qa_terminal_readiness.py runtime/api/domain/test_machine_qa_terminal_recipe_interactive.py -q"
+    ],
+    "residual_risk_notes": "The physical Test Mac campaign remains the final proof. The migration is append-only relative to the completed base campaign migration and deliberately changes no already-materialized requirement or historical evidence row."
+  }
+}

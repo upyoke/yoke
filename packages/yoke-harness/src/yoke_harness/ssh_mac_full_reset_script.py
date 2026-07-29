@@ -14,6 +14,9 @@ from yoke_harness.ssh_mac_full_reset_contract import (
     HOMEBREW_PATH,
     LEGACY_BASELINE_BEGIN,
     LEGACY_BASELINE_END,
+    RESET_FAILURE_PREFIX,
+    RESET_PHASES,
+    RESET_RECOVERY_FAILURE_MARKER,
     RESET_RELATIVE_DIRECTORIES,
     RESET_TEMP_FILES,
     RETAINED_EVIDENCE_DIRECTORY,
@@ -41,6 +44,7 @@ def render_full_reset_script(contract: FullResetPathContract) -> str:
             f"retained_evidence_name={shlex.quote(RETAINED_EVIDENCE_DIRECTORY)}",
             f"homebrew_path={shlex.quote(HOMEBREW_PATH)}",
             f"shell_path={shlex.quote(contract.shell_path)}",
+            "clean_shell_path=/usr/bin:/bin:/usr/sbin:/sbin",
             f"tool_bin_suffix={shlex.quote(contract.tool_bin_suffix)}",
             "tool_bin_home_reference="
             + shlex.quote(f"$HOME/{contract.tool_bin_suffix}"),
@@ -48,6 +52,13 @@ def render_full_reset_script(contract: FullResetPathContract) -> str:
             f"managed_end={shlex.quote(contract.managed_end)}",
             f"legacy_baseline_begin={shlex.quote(LEGACY_BASELINE_BEGIN)}",
             f"legacy_baseline_end={shlex.quote(LEGACY_BASELINE_END)}",
+            f"reset_failure_prefix={shlex.quote(RESET_FAILURE_PREFIX)}",
+            "reset_recovery_failure_marker="
+            + shlex.quote(RESET_RECOVERY_FAILURE_MARKER),
+            *(
+                f"reset_phase_{name}={shlex.quote(value)}"
+                for name, value in RESET_PHASES.items()
+            ),
             f"tools={_array(contract.tools)}",
             f"reset_relative_directories={_array(RESET_RELATIVE_DIRECTORIES)}",
             f"tool_file_suffixes={_array(contract.tool_file_suffixes)}",

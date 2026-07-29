@@ -204,6 +204,17 @@ def test_setup_failure_skips_primary_and_post_state_but_cleans_up() -> None:
     assert "primary" not in result.evidence
 
 
+def test_fixture_failure_preserves_the_reached_baseline_identity() -> None:
+    result, _execution, _events = run_lifecycle(
+        setup=action_result(False, "machine.yoke-auth-clear"),
+        baseline=SimpleNamespace(ok=True, name="fresh-host"),
+        case=case_contract(host_baseline="fresh-host"),
+    )
+
+    assert result.error_code == "fixture_setup_failed"
+    assert result.evidence["baseline"] == "fresh-host"
+
+
 def test_post_state_failure_discards_primary_evidence() -> None:
     result, execution, events = run_lifecycle(
         post_state=action_result(

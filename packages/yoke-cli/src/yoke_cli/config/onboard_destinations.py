@@ -55,6 +55,10 @@ _HOSTED_PLATFORM_URLS = tuple(
     urllib.parse.urlsplit(url)
     for url in (HOSTED_PLATFORM_URL, HOSTED_STAGE_PLATFORM_URL)
 )
+_HOSTED_ENVIRONMENTS = (
+    (ENV_PRODUCTION, urllib.parse.urlsplit(HOSTED_PLATFORM_URL)),
+    (ENV_STAGE, urllib.parse.urlsplit(HOSTED_STAGE_PLATFORM_URL)),
+)
 
 
 def is_hosted_url(api_url: object) -> bool:
@@ -74,6 +78,20 @@ def is_hosted_url(api_url: object) -> bool:
         )
         for platform in _HOSTED_PLATFORM_URLS
     )
+
+
+def hosted_environment_for_url(api_url: object) -> str | None:
+    """Return the hosted environment selected by one hosted URL."""
+    if not is_hosted_url(api_url):
+        return None
+    parsed = urllib.parse.urlsplit(str(api_url or "").strip().rstrip("/"))
+    for env_name, platform in _HOSTED_ENVIRONMENTS:
+        if (
+            parsed.scheme == platform.scheme
+            and parsed.netloc == platform.netloc
+        ):
+            return env_name
+    return None
 
 
 def matches_stored_hosted_authority(
@@ -170,6 +188,7 @@ __all__ = [
     "ENV_PRODUCTION",
     "ENV_STAGE",
     "destination_for_api_url",
+    "hosted_environment_for_url",
     "is_hosted_url",
     "matches_stored_hosted_authority",
     "resolve_choice",
