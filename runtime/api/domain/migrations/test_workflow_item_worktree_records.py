@@ -55,11 +55,12 @@ def test_backfill_preserves_legacy_rows_and_is_idempotent(test_db):
         workflow_id="issue",
         worktree="YOK-931",
     )
-    insert_item(test_db, id=932, workflow_id="epic")
+    insert_item(test_db, id=932, workflow_id="epic", status="implementing")
     insert_epic_task(
         test_db,
         epic_id=932,
         task_num=1,
+        status="implementing",
         worktree="YOK-932-worker",
         branch="YOK-932-worker",
         worktree_path="/tmp/YOK-932-worker",

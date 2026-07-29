@@ -10,7 +10,7 @@
     ],
     "compatibility_class": "pre_merge_safe",
     "migration_strategy": "expand_contract",
-    "migration_strategy_justification": "Create task bindings only after universal worktree lanes exist, then backfill exclusively from complete persisted epic_task_files budgets; ambiguous legacy task ownership is a hard preflight refusal.",
+    "migration_strategy_justification": "Create task bindings only after universal worktree lanes exist, then backfill exclusively from complete persisted epic_task_files budgets. Dormant pre-execution legacy plans with no budgets remain unbound and activation-blocked; partial budgets or any execution authority still refuse migration.",
     "schema_kinds": [
       "additive"
     ],
@@ -33,7 +33,7 @@
   "module_sources": {
     "path_claim_task_bindings": {
       "path": "packages/yoke-core/src/yoke_core/domain/migrations/path_claim_task_bindings.py",
-      "sha256": "675e560f18944c8a6a91bdff6cc46ffbf7d05ac5197940b181a70f9175610e3d"
+      "sha256": "f2821b852330e5cbc1a4fd8577bcea02ee0723599f788750eae069b65d1ed1c3"
     }
   },
   "attestation": {
@@ -58,12 +58,13 @@
       "Every binding references an existing item-owned path claim and an existing generated Epic task.",
       "Task bindings carry no registering-session or work-claim authority and survive session handoff.",
       "workflow_item_worktree_records applies first and every migrated task has valid worker-lane ownership.",
-      "Legacy bindings derive only from complete persisted epic_task_files budgets; empty, partial, cross-project, or unmapped claims refuse migration.",
-      "Repeat apply preserves existing rows and every nonterminal required-per-task item either remains pre-planning with no tasks or passes complete task coverage."
+      "Legacy bindings derive only from complete persisted epic_task_files budgets; dormant pre-execution plans with wholly empty budgets remain unbound and activation-blocked.",
+      "Partial budgets, live execution authority, cross-project targets, and unmapped claims refuse migration.",
+      "Repeat apply preserves existing rows; every nonterminal required-per-task item either has no generated tasks, is a safely deferred dormant all-empty plan, or passes complete task coverage."
     ],
     "rehearsal_commands": [
       "PYTHONPATH=packages/yoke-contracts/src:packages/yoke-cli/src:packages/yoke-core/src:packages/yoke-harness/src:. python3 -m pytest runtime/api/domain/migrations/test_path_claim_task_bindings.py runtime/api/domain/test_path_claim_task_enforcement.py runtime/api/domain/test_path_claim_task_registration.py runtime/api/domain/test_path_claim_task_session_coverage.py -q"
     ],
-    "residual_risk_notes": "The migration is additive and idempotent after readiness. It deliberately refuses the known live legacy Epics whose tasks have no persisted epic_task_files rather than inferring authority from prose, branches, or a bind-all fallback; those budgets must be repaired before apply."
+    "residual_risk_notes": "The migration is additive and idempotent. Dormant legacy plans with wholly empty epic_task_files are not assigned invented task ownership: they stay unbound and the existing activation gate blocks execution until planning persists budgets and explicit bindings. Partial legacy budgets and any active claim or work authority still hard-refuse."
   }
 }

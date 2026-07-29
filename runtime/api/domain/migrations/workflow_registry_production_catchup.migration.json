@@ -144,15 +144,15 @@
     },
     "workflow_item_worktree_records": {
       "path": "packages/yoke-core/src/yoke_core/domain/migrations/workflow_item_worktree_records.py",
-      "sha256": "0e2562fc5e041c2c7490fa1598710995c31e8ba3c4b3ba24505ca155a6b04b0b"
+      "sha256": "9bad0f01410752fec13402a19afbf6b6230cb18a16662c27fafecfda8cc25cea"
     },
     "workflow_item_worktree_source_fields_contract": {
       "path": "packages/yoke-core/src/yoke_core/domain/migrations/workflow_item_worktree_source_fields_contract.py",
-      "sha256": "18583540bc4e1186253d4b76186328157d38bc9e3e4a650bce1b3212af187ad8"
+      "sha256": "43b5f037cfb7c99b7bac7eb08e09e21ceceed3df24589beccb9d46575ba46513"
     },
     "path_claim_task_bindings": {
       "path": "packages/yoke-core/src/yoke_core/domain/migrations/path_claim_task_bindings.py",
-      "sha256": "675e560f18944c8a6a91bdff6cc46ffbf7d05ac5197940b181a70f9175610e3d"
+      "sha256": "f2821b852330e5cbc1a4fd8577bcea02ee0723599f788750eae069b65d1ed1c3"
     },
     "qa_command_plan_cutover": {
       "path": "packages/yoke-core/src/yoke_core/domain/migrations/qa_command_plan_cutover.py",
@@ -194,7 +194,7 @@
     "invariants": [
       "The seven fleet-safe modules execute in dependency order and remain digest-identical to their standalone manifests.",
       "Built-in workflow current versions converge without repinning existing items.",
-      "Every usable legacy worktree source is represented by a universal item-worktree record before superseded fields are removed, and terminal parents retain only released lane history.",
+      "Every usable legacy worktree source is represented before superseded fields are removed; terminal and unclaimed pre-activation task sources retain only released lane history.",
       "Task-scoped path claims bind only after universal worktree references exist.",
       "Registered command plans replace legacy project-structure command rows.",
       "Item-level Browser QA metadata is removed only after executable QA parity exists.",
