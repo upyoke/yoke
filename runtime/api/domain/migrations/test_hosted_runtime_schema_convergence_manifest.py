@@ -22,6 +22,9 @@ _MODULES = (
     "epic_task_scope_state",
     "events_actor_identity",
 )
+_STANDALONE_MANIFESTS = tuple(
+    Path(__file__).with_name(f"{module}.migration.json") for module in _MODULES
+)
 
 
 def _payload() -> dict[str, object]:
@@ -54,6 +57,22 @@ def test_convergence_batch_preserves_dependency_order() -> None:
         "qa_plan_agent_review_records"
     )
     assert modules[-1] == "events_actor_identity"
+
+
+def test_convergence_batch_declares_complete_surface_union() -> None:
+    combined = _payload()["profile"]["affected_surfaces"]
+    expected: dict[str, set[str]] = {}
+    for path in _STANDALONE_MANIFESTS:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        for surface in payload["profile"]["affected_surfaces"]:
+            expected.setdefault(surface["table"], set()).update(surface["columns"])
+
+    actual = {
+        surface["table"]: set(surface["columns"])
+        for surface in combined
+    }
+
+    assert actual == expected
 
 
 def test_convergence_batch_applies_as_one_ordered_unit(test_db) -> None:
