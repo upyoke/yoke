@@ -104,6 +104,7 @@ def _failed_case(
         "executor_id": "host_control",
         "machine": execution.material.settings["resource_name"],
         "method_id": case.method_id,
+        "baseline": execution.baseline.name if execution.baseline else None,
         "fixture_operations": dict(lifecycle),
     }
     if primary_failed:
