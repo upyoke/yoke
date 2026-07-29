@@ -49,6 +49,12 @@ EPIC_USAGE: Dict[str, str] = {
     "workflow_item.epic_task.simulation_get":
         _ops.EPIC_TASK_SIMULATION_GET_USAGE,
     "workflow_item.epic_task.file_add": _ops.EPIC_TASK_FILE_ADD_USAGE,
+    "workflow_item.epic_task.scope_no_files":
+        _ops.EPIC_TASK_SCOPE_NO_FILES_USAGE,
+    "workflow_item.epic_task.scope_finalize":
+        _ops.EPIC_TASK_SCOPE_FINALIZE_USAGE,
+    "workflow_item.epic_task.scope_repair_legacy":
+        _ops.EPIC_TASK_SCOPE_REPAIR_LEGACY_USAGE,
     "workflow_item.epic_task.history_insert":
         _ops.EPIC_TASK_HISTORY_INSERT_USAGE,
     "workflow_item.epic_dispatch_chain.get":

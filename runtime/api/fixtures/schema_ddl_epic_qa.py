@@ -36,6 +36,9 @@ CREATE TABLE IF NOT EXISTS epic_tasks (
             'implemented','release','done','failed','blocked','stopped'
         )),
     dispatch_attempts INTEGER DEFAULT 0,
+    scope_state TEXT NOT NULL DEFAULT 'pending'
+        CHECK(scope_state IN ('pending','paths','no_files','legacy_deferred')),
+    scope_finalized_at TEXT,
     body TEXT,
     github_issue TEXT,
     blocked_by TEXT,

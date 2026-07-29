@@ -164,6 +164,9 @@ def create_core_tables(conn: Any) -> None:
           dependencies TEXT,
           status TEXT DEFAULT 'planning' CHECK(status IN ({_VALID_TASK_STATUSES_SQL})),
           dispatch_attempts INTEGER DEFAULT 0,
+          scope_state TEXT NOT NULL DEFAULT 'pending'
+            CHECK(scope_state IN ('pending','paths','no_files','legacy_deferred')),
+          scope_finalized_at TEXT,
           UNIQUE(epic_id, task_num)
         );
         CREATE TABLE IF NOT EXISTS epic_task_files (

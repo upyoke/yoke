@@ -49,6 +49,7 @@ _EXPECTED_SCHEMA_STR = (
     "|wrapup_reports:id/INTEGER,session_timestamp/TEXT,body/TEXT,created_at/TEXT"
     "|epic_tasks:id/INTEGER,epic_id/INTEGER,task_num/INTEGER,title/TEXT,item_worktree_id/INTEGER,"
     "context_estimate/TEXT,dependencies/TEXT,status/TEXT,dispatch_attempts/INTEGER,"
+    "scope_state/TEXT,scope_finalized_at/TEXT,"
     "body/TEXT,github_issue/TEXT,blocked_by/TEXT,"
     "max_attempts/INTEGER,agent_id/TEXT,last_heartbeat/TEXT,last_activity_at/TEXT"
     "|epic_task_files:id/INTEGER,epic_id/INTEGER,task_num/INTEGER,file_path/TEXT,action/TEXT"

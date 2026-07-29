@@ -151,6 +151,13 @@ def file_add(
            DO UPDATE SET action = excluded.action""",
         (str(epic_id), task_num, file_path, action),
     )
+    from yoke_core.domain.epic_task_scope import schema_available
+    if schema_available(conn):
+        conn.execute(
+            f"UPDATE epic_tasks SET scope_state='paths', "
+            f"scope_finalized_at=NULL WHERE epic_id={p} AND task_num={p}",
+            (str(epic_id), task_num),
+        )
     conn.commit()
     return f"Added file {file_path} (action: {action}) to {epic_id}/{task_num}"
 
