@@ -15,4 +15,3 @@ eligible for the transform.
 The completed `installer_campaign_current_plan` fleet migration includes the
 settled current behavior without depending on any intermediate revision. The
 historical module can retire without replay on the remaining tenants.
-

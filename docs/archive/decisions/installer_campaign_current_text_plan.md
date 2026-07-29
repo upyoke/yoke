@@ -15,4 +15,3 @@ transform.
 The completed `installer_campaign_current_plan` fleet runs converge the same
 current transcript and complete campaign contract directly. The sequential
 revision is retired without being replayed on the remaining tenants.
-

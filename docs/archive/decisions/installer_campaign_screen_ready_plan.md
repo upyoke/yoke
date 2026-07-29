@@ -15,4 +15,3 @@ the intermediate transform there was neither portable nor necessary.
 The completed `installer_campaign_current_plan` fleet runs converge the exact
 current campaign from any eligible starting state. The intermediate migration
 is therefore retired without applying it to the remaining hosted tenants.
-

@@ -15,4 +15,3 @@ without the exact prior campaign rows.
 The completed `installer_campaign_current_plan` migration now installs the
 final contract directly while preserving materialized evidence. This
 intermediate source no longer has an applicable target.
-

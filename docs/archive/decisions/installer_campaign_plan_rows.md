@@ -16,4 +16,3 @@ The completed `installer_campaign_current_plan` fleet runs now establish the
 same final current campaign directly on every applicable tenant and safely
 no-op on tenants without the Yoke project. Applying this intermediate revision
 to the remaining tenants would add risk without changing the final state.
-
