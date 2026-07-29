@@ -240,8 +240,12 @@ def _seed_builtin_methods(conn: Any) -> None:
         )
 
 
-def create_qa_catalog_tables(conn: Any) -> None:
-    """Converge the additive QA catalog and seed the core method roster."""
+def create_qa_catalog_tables(
+    conn: Any,
+    *,
+    commit: bool = True,
+) -> None:
+    """Converge the QA catalog, committing unless the caller owns the transaction."""
     execute_schema_script(conn, QA_CATALOG_TABLES_SQL)
     _add_column_if_not_exists(
         conn,
@@ -282,7 +286,8 @@ def create_qa_catalog_tables(conn: Any) -> None:
         ") WHERE deployment_run_id IS NOT NULL AND plan_id IS NOT NULL"
     )
     _seed_builtin_methods(conn)
-    conn.commit()
+    if commit:
+        conn.commit()
 
 
 __all__ = [

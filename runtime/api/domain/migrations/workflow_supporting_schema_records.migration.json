@@ -236,7 +236,7 @@
   "module_sources": {
     "workflow_supporting_schema_records": {
       "path": "packages/yoke-core/src/yoke_core/domain/migrations/workflow_supporting_schema_records.py",
-      "sha256": "cfd98ef823b27ced5d53c6135923c73a90571dc75e5c34e5016080751b8ca9e1"
+      "sha256": "da59265b82deadea77c3516684ff5fb20ffc35b1d10b451071149392510242c9"
     }
   },
   "attestation": {

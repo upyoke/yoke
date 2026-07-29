@@ -20,10 +20,15 @@ CREATE TABLE IF NOT EXISTS test_machine_verifications (
 """
 
 
-def ensure_test_machine_schema(conn: Any) -> None:
-    """Converge the receipt table without changing capability ownership."""
+def ensure_test_machine_schema(
+    conn: Any,
+    *,
+    commit: bool = True,
+) -> None:
+    """Converge receipts, committing unless the caller owns the transaction."""
     execute_schema_script(conn, TEST_MACHINE_VERIFICATION_SQL)
-    conn.commit()
+    if commit:
+        conn.commit()
 
 
 __all__ = ["TEST_MACHINE_VERIFICATION_SQL", "ensure_test_machine_schema"]

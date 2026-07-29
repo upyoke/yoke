@@ -118,8 +118,12 @@ def load_machine_qa_methods(
     return selected, rows
 
 
-def sync_machine_qa_pack_methods(conn: Any) -> list[dict[str, str]]:
-    """Project the Pack-owned definitions into the shared method catalog."""
+def sync_machine_qa_pack_methods(
+    conn: Any,
+    *,
+    commit: bool = True,
+) -> list[dict[str, str]]:
+    """Project Pack methods, committing unless the caller owns the transaction."""
     _, methods = load_machine_qa_methods()
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     now = iso8601_now()
@@ -161,7 +165,8 @@ def sync_machine_qa_pack_methods(conn: Any) -> list[dict[str, str]]:
                 now,
             ),
         )
-    conn.commit()
+    if commit:
+        conn.commit()
     return methods
 
 

@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from yoke_core.domain.migrations import epic_task_scope_state
 from yoke_core.domain.migration_apply_manifest import validate_manifest_payload
+from yoke_core.domain.migrations import workflow_supporting_schema_records
 from yoke_core.domain.migration_source_digest import migration_source_digest
 from yoke_core.domain.portable_migration import apply_manifest, parse_manifest_text
 from yoke_core.domain.schema_common import _table_exists
@@ -93,13 +93,17 @@ def test_convergence_batch_rolls_back_every_module_when_final_module_refuses(
 ) -> None:
     manifest = parse_manifest_text(_MANIFEST.read_text(encoding="utf-8"))
     marker_table = "convergence_transaction_probe"
-    original_apply = epic_task_scope_state.apply
+    original_apply = workflow_supporting_schema_records.apply
 
     def apply_with_marker(conn) -> None:
         conn.execute(f"CREATE TABLE {marker_table} (id INTEGER PRIMARY KEY)")
         original_apply(conn)
 
-    monkeypatch.setattr(epic_task_scope_state, "apply", apply_with_marker)
+    monkeypatch.setattr(
+        workflow_supporting_schema_records,
+        "apply",
+        apply_with_marker,
+    )
     test_db.execute(
         "INSERT INTO events "
         "(event_id, source_type, session_id, event_kind, event_type, event_name, "
