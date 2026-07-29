@@ -34,7 +34,7 @@
   "module_sources": {
     "installer_campaign_project_screen_plan": {
       "path": "packages/yoke-core/src/yoke_core/domain/migrations/installer_campaign_project_screen_plan.py",
-      "sha256": "4f748e9f8c7a54dba075cb33dd59fe338dc16ef9ac9ddaf6f5b037f64d1fbdd7"
+      "sha256": "01cf67b23c25ff93942e582894700a790acb21cc2d1b59e6e03fdbaa90e65a64"
     }
   },
   "attestation": {
@@ -59,6 +59,7 @@
       "Previously applied installer campaign migration sources remain unchanged.",
       "The installer campaign still has ten ordered cases and expands to twelve requirements.",
       "The hosted machine-only journey selects Don't set up a project now only after the visible project screen is present.",
+      "The local apply-handoff assertion matches the public installer transcript and does not require an obsolete onboard-start banner.",
       "The migration replaces only future qa_plan_cases specifications; materialized requirement rows, runs, artifacts, and evidence remain unchanged."
     ],
     "rehearsal_commands": [

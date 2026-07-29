@@ -27,7 +27,7 @@ from yoke_core.domain.schema_common import _table_exists
 MIGRATION_NAME = "installer_campaign_project_screen_plan"
 PLAN_SLUG = "installer-campaign"
 CAMPAIGN_CONTRACT_SHA256 = (
-    "fa30c67ed30df5e6817de956d502865af170a66ca1a5ea263eb177b68c4c3299"
+    "c6d51ea379d2794a63904bb5371b6336a2c17180af250912392174df7c523412"
 )
 
 

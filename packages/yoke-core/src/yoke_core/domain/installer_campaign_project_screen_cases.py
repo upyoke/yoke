@@ -39,6 +39,14 @@ def _project_mode_actions(actions: list[dict[str, Any]]) -> list[dict[str, Any]]
 
 def _project_screen_case(source: dict[str, Any]) -> dict[str, Any]:
     case = deepcopy(source)
+    if case["case_key"] == "apply-handoff":
+        config = case["method_config"]
+        config["expected_text"] = [
+            text
+            for text in config["expected_text"]
+            if text != "Starting Yoke onboard"
+        ]
+        return case
     if case["case_key"] != "cold-start-hosted":
         return case
     for config in case["method_config"]["baseline_configs"].values():

@@ -72,6 +72,16 @@ def test_project_mode_input_waits_for_its_source_screen() -> None:
         ]
 
 
+def test_apply_handoff_asserts_the_observed_public_installer_flow() -> None:
+    cases = {
+        case["case_key"]: case for case in PROJECT_SCREEN_INSTALLER_CAMPAIGN_CASES
+    }
+    expected = cases["apply-handoff"]["method_config"]["expected_text"]
+    assert "Starting Yoke onboard" not in expected
+    assert "Yoke is already on your PATH." in expected
+    assert "Next: make it execution-ready." in expected
+
+
 def test_migration_replaces_only_future_case_specification(test_db) -> None:
     apply_base(test_db)
     apply_screen_ready(test_db)
