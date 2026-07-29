@@ -78,6 +78,24 @@ def resolve_destination(parsed: argparse.Namespace) -> DestinationChoice:
             return DestinationChoice(error=conflict)
         return DestinationChoice(destination=destination, env_name=LOCAL_ENV)
     env_name = parsed.env_name or os.environ.get(ENV_OVERRIDE, "").strip()
+    hosted_env = (
+        onboard_destinations.hosted_environment_for_url(parsed.api_url)
+        if destination == onboard_destinations.DESTINATION_HOSTED
+        else None
+    )
+    hosted_selectors = {
+        onboard_destinations.ENV_PRODUCTION,
+        onboard_destinations.ENV_STAGE,
+    }
+    if hosted_env and env_name in hosted_selectors and hosted_env != env_name:
+        return DestinationChoice(
+            error=(
+                f"hosted URL selects {hosted_env!r}, but --env selects "
+                f"{env_name!r}; use matching values"
+            ),
+        )
+    if hosted_env and not env_name:
+        env_name = hosted_env
     if not env_name and destination is not None:
         env_name = onboard_destinations.DEFAULT_SIGN_IN_ENV
     return DestinationChoice(destination=destination, env_name=env_name)

@@ -19,6 +19,9 @@ from yoke_core.domain.host_control_executor import (
 )
 from yoke_core.domain.machine_qa_execution import MachineQaLease
 from yoke_core.domain.ssh_mac_terminal_recipe import execute_terminal_recipe
+from yoke_core.domain.ssh_mac_terminal_recipe_support import (
+    capture_recipe_transcript,
+)
 
 
 def test_interactive_recipe_rejects_a_known_unexpected_exit_code(
@@ -66,6 +69,23 @@ def test_interactive_recipe_rejects_a_known_unexpected_exit_code(
     assert commands[-3] == "screen -S yoke-qa-cccccccccccc -X quit"
     assert "close window id 445" in commands[-2]
     assert commands[-1] == "rm -f /tmp/yoke-qa-cccccccccccc.exit"
+
+
+def test_screen_transcript_removes_hardcopy_nul_padding() -> None:
+    def run(
+        command: str,
+        **_kwargs: object,
+    ) -> subprocess.CompletedProcess[str]:
+        return completed(command, stdout="\x00ready\x00\n")
+
+    transcript = capture_recipe_transcript(
+        run,
+        backend="screen",
+        session="yoke-qa-session",
+    )
+
+    assert transcript == "ready\n"
+    assert "\x00" not in transcript
 
 
 def test_interactive_recipe_uses_action_wait_then_global_fallback(

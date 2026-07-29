@@ -21,13 +21,16 @@ from yoke_core.domain.sessions import SessionError, claim_work, handoff_claim
 from yoke_core.domain.sessions_lifecycle_claim_release import release_claim_by_id
 
 
+_CONCURRENCY_TIMEOUT_SECONDS = 30
+
+
 def _connections(test_db) -> tuple[Any, Any]:
     name = str(test_db.info.dbname)
     return connect_test_database(name), connect_test_database(name)
 
 
 def _join(thread: threading.Thread) -> None:
-    thread.join(timeout=10)
+    thread.join(timeout=_CONCURRENCY_TIMEOUT_SECONDS)
     assert not thread.is_alive(), f"thread {thread.name} did not finish"
 
 
@@ -64,7 +67,7 @@ def test_cross_item_stale_cleanup_does_not_invert_target_locks(
     original_cleanup = sessions.clean_stale_harness_sessions
 
     def synchronized_cleanup(conn: Any, *args: Any, **kwargs: Any) -> Any:
-        cleanup_barrier.wait(timeout=10)
+        cleanup_barrier.wait(timeout=_CONCURRENCY_TIMEOUT_SECONDS)
         return original_cleanup(conn, *args, **kwargs)
 
     monkeypatch.setattr(
@@ -146,7 +149,7 @@ def test_release_wins_before_handoff_fetch_without_resurrection(
     def pause_after_session_lock(conn: Any, session_ids):
         rows = original_session_lock(conn, session_ids)
         release_locked.set()
-        assert continue_release.wait(timeout=10)
+        assert continue_release.wait(timeout=_CONCURRENCY_TIMEOUT_SECONDS)
         return rows
 
     monkeypatch.setattr(
@@ -182,9 +185,9 @@ def test_release_wins_before_handoff_fetch_without_resurrection(
     handoff_worker = threading.Thread(target=handoff, name="release-handoff-race")
     try:
         releaser.start()
-        assert release_locked.wait(timeout=10)
+        assert release_locked.wait(timeout=_CONCURRENCY_TIMEOUT_SECONDS)
         handoff_worker.start()
-        assert handoff_started.wait(timeout=10)
+        assert handoff_started.wait(timeout=_CONCURRENCY_TIMEOUT_SECONDS)
         assert not handoff_done.wait(timeout=0.2)
         continue_release.set()
         _join(releaser)

@@ -174,7 +174,11 @@ def capture_recipe_transcript(
     transcript = ""
     for attempt in range(_CAPTURE_ATTEMPTS):
         result = run(command, timeout=10)
-        transcript = result.stdout if result.returncode == 0 else ""
+        transcript = (
+            result.stdout.replace("\x00", "")
+            if result.returncode == 0
+            else ""
+        )
         if transcript.strip():
             break
         if attempt + 1 < _CAPTURE_ATTEMPTS:

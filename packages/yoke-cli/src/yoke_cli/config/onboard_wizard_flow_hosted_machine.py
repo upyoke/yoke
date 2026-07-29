@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, Protocol
 from yoke_contracts.api_urls import HOSTED_PLATFORM_URL, HOSTED_STAGE_PLATFORM_URL
 
 from yoke_cli.config import hosted_machine_authorization
+from yoke_cli.config import onboard_destinations
 from yoke_cli.config import onboard_wizard_steps as steps
 from yoke_cli.config import writer
 from yoke_cli.config import yoke_token_verify
@@ -21,6 +22,27 @@ def platform_url_for_env(env_name: object) -> str:
         if str(env_name or "") == ENV_STAGE
         else HOSTED_PLATFORM_URL
     )
+
+
+def platform_url_for_connection(api_url: object, env_name: object) -> str:
+    """Platform selected by the explicit hosted authority, then its env."""
+    selected_env = onboard_destinations.hosted_environment_for_url(api_url)
+    named_env = str(env_name or "").strip()
+    hosted_selectors = {
+        onboard_destinations.ENV_PRODUCTION,
+        onboard_destinations.ENV_STAGE,
+    }
+    if (
+        selected_env
+        and named_env in hosted_selectors
+        and selected_env != named_env
+    ):
+        raise ValueError(
+            f"hosted URL selects {selected_env!r}, but environment selects "
+            f"{named_env!r}"
+        )
+    return platform_url_for_env(selected_env or named_env)
+
 
 if TYPE_CHECKING:  # pragma: no cover
     from yoke_cli.config.onboard_wizard_app import _View
@@ -68,7 +90,10 @@ class HostedMachineConnectFlow:
             title=title,
             message=message,
             work=lambda: hosted_machine_authorization.start(
-                platform_url_for_env(self.result.env_name),
+                platform_url_for_connection(
+                    self.result.api_url,
+                    self.result.env_name,
+                ),
             ),
             on_success=_success,
             on_error=lambda exc: self._goto_hosted_machine_error(str(exc)),
@@ -198,4 +223,8 @@ class HostedMachineConnectFlow:
         ))
 
 
-__all__ = ["HostedMachineConnectFlow", "platform_url_for_env"]
+__all__ = [
+    "HostedMachineConnectFlow",
+    "platform_url_for_connection",
+    "platform_url_for_env",
+]

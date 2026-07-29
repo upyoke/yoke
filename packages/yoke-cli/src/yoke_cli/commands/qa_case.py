@@ -24,24 +24,25 @@ QA_PLAN_RUN_USAGE = (
 
 
 def qa_case_run(args: List[str]) -> int:
-    completed = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "yoke_core.domain.qa_case_execution_cli",
-            *args,
-        ],
-        check=False,
+    return _run_execution_module(
+        "yoke_core.domain.qa_case_execution_cli",
+        args,
     )
-    return completed.returncode
 
 
 def qa_plan_run(args: List[str]) -> int:
+    return _run_execution_module(
+        "yoke_core.domain.qa_plan_execution_cli",
+        args,
+    )
+
+
+def _run_execution_module(module: str, args: List[str]) -> int:
     process = subprocess.Popen(
         [
             sys.executable,
             "-m",
-            "yoke_core.domain.qa_plan_execution_cli",
+            module,
             *args,
         ],
         start_new_session=True,
