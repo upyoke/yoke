@@ -1,0 +1,227 @@
+{
+  "version": 1,
+  "project": "yoke",
+  "profile": {
+    "state": "declared",
+    "model_name": "primary",
+    "mutation_intent": "apply",
+    "migration_modules": [
+      "workflow_supporting_schema_records",
+      "qa_requirement_execution_snapshot",
+      "qa_plan_execution_records",
+      "qa_plan_execution_deployment_subject",
+      "qa_execution_environment_target",
+      "qa_plan_agent_review_records",
+      "epic_task_scope_state",
+      "events_actor_identity"
+    ],
+    "compatibility_class": "pre_merge_safe",
+    "migration_strategy": "hard_cutover",
+    "migration_strategy_justification": "Converge the remaining hosted schema, immutable QA execution contracts, generated-task scope, and actor-only event identity in dependency order under one fleet receipt.",
+    "schema_kinds": [
+      "additive",
+      "destructive"
+    ],
+    "data_kinds": [
+      "fill",
+      "transform",
+      "drop"
+    ],
+    "affected_surfaces": [
+      {
+        "table": "strategy_docs",
+        "columns": [
+          "parent_slug"
+        ]
+      },
+      {
+        "table": "decision_requests",
+        "columns": [
+          "id",
+          "kind",
+          "subject_type",
+          "subject_key",
+          "status"
+        ]
+      },
+      {
+        "table": "addressed_event_deliveries",
+        "columns": [
+          "id",
+          "channel",
+          "event_id",
+          "actor_id",
+          "read_at"
+        ]
+      },
+      {
+        "table": "qa_methods",
+        "columns": [
+          "id",
+          "name",
+          "executor_id",
+          "verdict_path",
+          "evidence_contract"
+        ]
+      },
+      {
+        "table": "qa_plans",
+        "columns": [
+          "id",
+          "project_id",
+          "slug",
+          "target_environment_id"
+        ]
+      },
+      {
+        "table": "qa_plan_cases",
+        "columns": [
+          "plan_id",
+          "case_key",
+          "method_id",
+          "method_config",
+          "host_baselines"
+        ]
+      },
+      {
+        "table": "qa_requirements",
+        "columns": [
+          "deployment_run_id",
+          "case_position",
+          "baseline_position",
+          "method_name",
+          "execution_target_json",
+          "execution_target_digest"
+        ]
+      },
+      {
+        "table": "qa_plan_executions",
+        "columns": [
+          "id",
+          "item_id",
+          "deployment_run_id",
+          "state",
+          "execution_target_json",
+          "execution_target_digest"
+        ]
+      },
+      {
+        "table": "qa_plan_execution_results",
+        "columns": [
+          "execution_id",
+          "ordinal",
+          "requirement_id",
+          "result_json"
+        ]
+      },
+      {
+        "table": "qa_plan_review_bundles",
+        "columns": [
+          "id",
+          "execution_id",
+          "bundle_digest",
+          "state",
+          "reviewer_actor_id"
+        ]
+      },
+      {
+        "table": "qa_plan_review_verdicts",
+        "columns": [
+          "bundle_id",
+          "requirement_id",
+          "capture_run_id",
+          "review_run_id",
+          "verdict"
+        ]
+      },
+      {
+        "table": "epic_tasks",
+        "columns": [
+          "scope_state",
+          "scope_finalized_at"
+        ]
+      },
+      {
+        "table": "events",
+        "columns": [
+          "user_id"
+        ]
+      }
+    ],
+    "count_preserving": false
+  },
+  "module_sources": {
+    "workflow_supporting_schema_records": {
+      "path": "packages/yoke-core/src/yoke_core/domain/migrations/workflow_supporting_schema_records.py",
+      "sha256": "cfd98ef823b27ced5d53c6135923c73a90571dc75e5c34e5016080751b8ca9e1"
+    },
+    "qa_requirement_execution_snapshot": {
+      "path": "packages/yoke-core/src/yoke_core/domain/migrations/qa_requirement_execution_snapshot.py",
+      "sha256": "17d792acd141ebdcab0be0e52ea90bcd5a766a7d4a6c85da5fdf90b326211155"
+    },
+    "qa_plan_execution_records": {
+      "path": "packages/yoke-core/src/yoke_core/domain/migrations/qa_plan_execution_records.py",
+      "sha256": "7f1ea39c3238812b8e5059a2339ad0ee44d67f1b0bd5dc1b2c7a82e8cbc8a6b3"
+    },
+    "qa_plan_execution_deployment_subject": {
+      "path": "packages/yoke-core/src/yoke_core/domain/migrations/qa_plan_execution_deployment_subject.py",
+      "sha256": "06ec64433bd1055c90f8a9964f1e62ffa0f513a5ca781e3af2520da68b860a94"
+    },
+    "qa_execution_environment_target": {
+      "path": "packages/yoke-core/src/yoke_core/domain/migrations/qa_execution_environment_target.py",
+      "sha256": "fd07b281791a3c8c9738021ff81c84e01d26124410a9c27a1feb91f76e6b1323"
+    },
+    "qa_plan_agent_review_records": {
+      "path": "packages/yoke-core/src/yoke_core/domain/migrations/qa_plan_agent_review_records.py",
+      "sha256": "548282949f79c06e799b6d2f03e186eb6125a68b44200d46f0e36c21cbf7d8d6"
+    },
+    "epic_task_scope_state": {
+      "path": "packages/yoke-core/src/yoke_core/domain/migrations/epic_task_scope_state.py",
+      "sha256": "6ad67085dcf889aed8590276920a42666dc063fa7510e4e8763c5ffff45170ed"
+    },
+    "events_actor_identity": {
+      "path": "packages/yoke-core/src/yoke_core/domain/migrations/events_actor_identity.py",
+      "sha256": "d3c4e86e3ba17ecd94008d4a6ba1218bf4ca7addf9d4a302ccb48ad0d0d21de3"
+    }
+  },
+  "attestation": {
+    "pre_merge_readers_writers": [
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/qa_plan_attachments.py",
+        "symbol": "materialize_for_deployment_run",
+        "role": "writer"
+      },
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/qa_plan_execution_state.py",
+        "symbol": "begin_plan_execution",
+        "role": "writer"
+      },
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/qa_plan_review_submission.py",
+        "symbol": "submit_plan_review",
+        "role": "writer"
+      },
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/epic_task_scope.py",
+        "symbol": "repair_legacy_task_scopes",
+        "role": "writer"
+      },
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/events.py",
+        "symbol": "emit_event",
+        "role": "writer"
+      }
+    ],
+    "invariants": [
+      "The eight modules execute in dependency order and remain digest-identical to their standalone manifests.",
+      "Every active QA plan resolves one hosted environment and every new requirement and execution snapshots exactly that target.",
+      "Agent-inspected cases retain an immutable capture-to-review bundle and one durable verdict per reviewed requirement.",
+      "Legacy generated tasks receive explicit scope metadata without guessing ownership or mutating terminal workflow state.",
+      "The events row count is preserved and no retired human identity value is discarded."
+    ],
+    "rehearsal_commands": [
+      "uv run --frozen python3 -m pytest runtime/api/domain/migrations/test_hosted_runtime_schema_convergence_manifest.py -q"
+    ],
+    "residual_risk_notes": "The additive units fail closed on ambiguous QA environment or generated-task ownership. The actor-identity contraction runs last, takes an exclusive events-table lock, and refuses before destructive SQL if any retired identity remains."
+  }
+}
