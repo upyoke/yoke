@@ -5,6 +5,10 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from yoke_core.domain.machine_qa_action_readiness_contract import (
+    normalize_action_readiness,
+)
+
 
 REGISTERED_SETUP_OPERATION_IDS = frozenset(
     {
@@ -138,7 +142,15 @@ def _actions(raw: Any) -> list[dict[str, Any]]:
     for action in raw:
         if not isinstance(action, Mapping):
             raise MachineQaRecipeError("actions must be objects")
-        unknown = set(action) - {"step", "keys", "capture", "wait_seconds"}
+        allowed = {
+            "step",
+            "keys",
+            "capture",
+            "ready_text",
+            "ready_timeout_seconds",
+            "wait_seconds",
+        }
+        unknown = set(action) - allowed
         if unknown:
             raise MachineQaRecipeError(
                 f"action has unknown fields: {sorted(unknown)!r}"
@@ -159,6 +171,12 @@ def _actions(raw: Any) -> list[dict[str, Any]]:
             "keys": keys,
             "capture": capture,
         }
+        try:
+            normalized_action.update(
+                normalize_action_readiness(action, strings=_strings)
+            )
+        except ValueError as exc:
+            raise MachineQaRecipeError(str(exc)) from exc
         if "wait_seconds" in action:
             wait_seconds = action["wait_seconds"]
             if (

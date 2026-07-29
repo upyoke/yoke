@@ -68,6 +68,8 @@ PARENT_HANDOFF_TEXT = (
     "Next: make it execution-ready.",
     "run /yoke onboard",
 )
+HOSTED_CONNECTED_TEXT = ("Yoke token connected.",)
+MACHINE_GITHUB_TEXT = ("Connect GitHub?",)
 
 SECRET_SAFE_POST_CHECKS = (
     "secret_free",
@@ -87,6 +89,8 @@ def action(
     step: str,
     *keys: str,
     capture: bool = True,
+    ready_text: Sequence[str] = (),
+    ready_timeout_seconds: float | None = None,
     wait_seconds: float | None = None,
 ) -> dict[str, Any]:
     """Build one bounded terminal action."""
@@ -95,6 +99,10 @@ def action(
         row["keys"] = list(keys)
     if not capture:
         row["capture"] = False
+    if ready_text:
+        row["ready_text"] = list(ready_text)
+    if ready_timeout_seconds is not None:
+        row["ready_timeout_seconds"] = ready_timeout_seconds
     if wait_seconds is not None:
         row["wait_seconds"] = wait_seconds
     return row
@@ -103,6 +111,8 @@ def action(
 def transition(
     step: str,
     *keys: str,
+    ready_text: Sequence[str] = (),
+    ready_timeout_seconds: float | None = None,
     wait_seconds: float | None = None,
 ) -> dict[str, Any]:
     """Send input at a grounded source screen without taking a screenshot."""
@@ -110,6 +120,8 @@ def transition(
         step,
         *keys,
         capture=False,
+        ready_text=ready_text,
+        ready_timeout_seconds=ready_timeout_seconds,
         wait_seconds=wait_seconds,
     )
 
@@ -217,7 +229,9 @@ __all__ = [
     "CHOOSE_STAGE_KEYS",
     "DUAL_HOST_BASELINES",
     "FRESH_HOST",
+    "HOSTED_CONNECTED_TEXT",
     "HOSTED_STAGE_ONBOARD",
+    "MACHINE_GITHUB_TEXT",
     "PARENT_HANDOFF_TEXT",
     "PATH_REPAIR_COMMAND",
     "PUBLIC_STAGE_INSTALL",
