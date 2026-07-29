@@ -152,7 +152,7 @@
     },
     "path_claim_task_bindings": {
       "path": "packages/yoke-core/src/yoke_core/domain/migrations/path_claim_task_bindings.py",
-      "sha256": "675e560f18944c8a6a91bdff6cc46ffbf7d05ac5197940b181a70f9175610e3d"
+      "sha256": "f2821b852330e5cbc1a4fd8577bcea02ee0723599f788750eae069b65d1ed1c3"
     },
     "qa_command_plan_cutover": {
       "path": "packages/yoke-core/src/yoke_core/domain/migrations/qa_command_plan_cutover.py",
