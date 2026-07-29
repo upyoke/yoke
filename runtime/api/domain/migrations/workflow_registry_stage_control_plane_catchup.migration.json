@@ -1,0 +1,133 @@
+{
+  "version": 1,
+  "project": "yoke",
+  "profile": {
+    "state": "declared",
+    "model_name": "primary",
+    "mutation_intent": "apply",
+    "migration_modules": [
+      "qa_requirement_execution_snapshot",
+      "qa_plan_execution_records",
+      "path_claim_task_bindings",
+      "installer_campaign_current_text_plan"
+    ],
+    "compatibility_class": "pre_merge_breaking",
+    "migration_strategy": "hard_cutover",
+    "migration_strategy_justification": "Bring the Stage control plane to the exact release contract in one ordered, rehearsed unit without combining superseded installer-plan invariants.",
+    "schema_kinds": [
+      "additive"
+    ],
+    "data_kinds": [
+      "fill"
+    ],
+    "affected_surfaces": [
+      {
+        "table": "qa_requirements",
+        "columns": [
+          "case_position",
+          "baseline_position",
+          "entry_surface",
+          "required_completion",
+          "method_name",
+          "executor_id",
+          "required_capability_kind",
+          "verdict_path"
+        ]
+      },
+      {
+        "table": "qa_plan_executions",
+        "columns": [
+          "id",
+          "state"
+        ]
+      },
+      {
+        "table": "qa_plan_execution_results",
+        "columns": [
+          "execution_id",
+          "ordinal",
+          "requirement_id"
+        ]
+      },
+      {
+        "table": "path_claim_task_bindings",
+        "columns": [
+          "claim_id",
+          "epic_id",
+          "task_num",
+          "bound_at"
+        ]
+      },
+      {
+        "table": "qa_plans",
+        "columns": [
+          "updated_at"
+        ]
+      },
+      {
+        "table": "qa_plan_cases",
+        "columns": [
+          "method_config"
+        ]
+      }
+    ],
+    "count_preserving": false
+  },
+  "module_sources": {
+    "qa_requirement_execution_snapshot": {
+      "path": "packages/yoke-core/src/yoke_core/domain/migrations/qa_requirement_execution_snapshot.py",
+      "sha256": "17d792acd141ebdcab0be0e52ea90bcd5a766a7d4a6c85da5fdf90b326211155"
+    },
+    "qa_plan_execution_records": {
+      "path": "packages/yoke-core/src/yoke_core/domain/migrations/qa_plan_execution_records.py",
+      "sha256": "7f1ea39c3238812b8e5059a2339ad0ee44d67f1b0bd5dc1b2c7a82e8cbc8a6b3"
+    },
+    "path_claim_task_bindings": {
+      "path": "packages/yoke-core/src/yoke_core/domain/migrations/path_claim_task_bindings.py",
+      "sha256": "675e560f18944c8a6a91bdff6cc46ffbf7d05ac5197940b181a70f9175610e3d"
+    },
+    "installer_campaign_current_text_plan": {
+      "path": "packages/yoke-core/src/yoke_core/domain/migrations/installer_campaign_current_text_plan.py",
+      "sha256": "2053e677198820bc3d07f3aa721464f9cd06e402f6a5197b5543fc1485120388"
+    }
+  },
+  "attestation": {
+    "pre_merge_readers_writers": [
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/qa_catalog_schema.py",
+        "symbol": "create_qa_catalog_tables",
+        "role": "writer"
+      },
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/handlers/qa_plan_execution.py",
+        "symbol": "handle_plan_execution_begin",
+        "role": "writer"
+      },
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/path_claim_task_bindings.py",
+        "symbol": "bind_claim_to_task",
+        "role": "writer"
+      },
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/qa_plan_management.py",
+        "symbol": "replace_plan_cases",
+        "role": "writer"
+      },
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/qa_plan_execution.py",
+        "symbol": "execute_plan",
+        "role": "reader"
+      }
+    ],
+    "invariants": [
+      "The declared module order follows QA execution snapshot, execution ledger, task-claim binding, then final installer text.",
+      "Every module source digest remains identical to its standalone governed manifest.",
+      "No superseded installer-plan module shares this batch.",
+      "The exact batch rehearses on a hydrated Stage clone before live apply."
+    ],
+    "rehearsal_commands": [
+      "uv run --frozen python3 -m pytest runtime/api/domain/migrations/test_workflow_registry_stage_catchup_manifests.py runtime/api/domain/migrations/test_installer_campaign_current_text_plan.py -q"
+    ],
+    "residual_risk_notes": "The final installer campaign still requires a complete physical Test Mac run after the control-plane and fleet authorities are current."
+  }
+}
