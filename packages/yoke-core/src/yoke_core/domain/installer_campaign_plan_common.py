@@ -70,6 +70,7 @@ PARENT_HANDOFF_TEXT = (
 )
 HOSTED_CONNECTED_TEXT = ("Yoke token connected.",)
 MACHINE_GITHUB_TEXT = ("Connect GitHub?",)
+PROJECT_MODE_TEXT = ("Set up a project.", "Where's the code?")
 
 SECRET_SAFE_POST_CHECKS = (
     "secret_free",
