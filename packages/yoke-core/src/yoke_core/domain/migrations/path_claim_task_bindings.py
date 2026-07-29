@@ -10,6 +10,9 @@ from yoke_core.domain.path_claim_task_coverage import (
     evaluate_task_coverage,
     path_root_covers,
 )
+from yoke_core.domain.migrations.path_claim_task_deferred_plan import (
+    safe_to_defer_empty_legacy_plan,
+)
 from yoke_core.domain.schema_common import (
     _column_exists,
     _index_exists,
@@ -83,7 +86,7 @@ def _tasks(conn: Any, item_id: int) -> list[dict[str, Any]]:
     marker = _p(conn)
     rows = conn.execute(
         "SELECT et.task_num, et.item_worktree_id, iw.item_id, "
-        "iw.lane_role, iw.state FROM epic_tasks et "
+        "iw.lane_role, iw.state, et.status FROM epic_tasks et "
         "LEFT JOIN item_worktrees iw ON iw.id = et.item_worktree_id "
         f"WHERE et.epic_id = {marker} "
         f"AND {eligible_task_status_clause('et.status')} "
@@ -97,6 +100,7 @@ def _tasks(conn: Any, item_id: int) -> list[dict[str, Any]]:
             "lane_item_id": _value(row, "item_id", 2),
             "lane_role": _value(row, "lane_role", 3),
             "lane_state": _value(row, "state", 4),
+            "task_status": str(_value(row, "status", 5)),
         }
         for row in rows
     ]
@@ -162,6 +166,7 @@ def _derive_item_bindings(
     conn: Any,
     item_id: int,
     project_id: int,
+    item_status: str,
 ) -> set[tuple[int, int, int]]:
     tasks = _tasks(conn, item_id)
     if not tasks:
@@ -184,6 +189,13 @@ def _derive_item_bindings(
     budgets = _budgets(conn, item_id)
     empty = [task["task_num"] for task in tasks if not budgets.get(task["task_num"])]
     if empty:
+        if len(empty) == len(tasks) and safe_to_defer_empty_legacy_plan(
+            conn,
+            item_id,
+            item_status,
+            tasks,
+        ):
+            return set()
         raise UnsafeTaskBindingBackfill(
             f"YOK-{item_id} cannot infer task path ownership: persisted "
             f"epic_task_files budgets are empty for tasks {empty}"
@@ -245,17 +257,17 @@ def _derive_backfill(conn: Any) -> set[tuple[int, int, int]]:
             "workflow_item_worktree_records must apply before path_claim_task_bindings"
         )
     pairs: set[tuple[int, int, int]] = set()
-    for item_id, project_id, _status, _runtime in items:
+    for item_id, project_id, item_status, _runtime in items:
         if _table_exists(conn, "path_claim_task_bindings"):
             coverage = evaluate_task_coverage(conn, item_id)
             if coverage.verdict == "pass" or coverage.no_tasks:
                 continue
-        pairs.update(_derive_item_bindings(conn, item_id, project_id))
+        pairs.update(_derive_item_bindings(conn, item_id, project_id, item_status))
     return pairs
 
 
 def apply(conn: Any) -> None:
-    """Create the table only after every legacy binding is provable."""
+    """Create the table after bindings prove safe or stay fail-closed."""
     missing = [
         table
         for table in ("epic_tasks", "epic_task_files", "path_claims")
@@ -280,7 +292,7 @@ def apply(conn: Any) -> None:
 
 
 def invariants(conn: Any) -> None:
-    """Require valid ownership and complete live per-task coverage."""
+    """Require valid ownership or a safely deferred dormant plan."""
     if not _table_exists(conn, "path_claim_task_bindings"):
         raise AssertionError("path_claim_task_bindings table is missing")
     missing_indexes = [
@@ -309,8 +321,16 @@ def invariants(conn: Any) -> None:
             "path_claim_task_bindings contains an invalid task or claim owner"
         )
     failures = []
-    for item_id, _project_id, _status, _runtime in _per_task_items(conn):
+    for item_id, _project_id, item_status, _runtime in _per_task_items(conn):
         result = evaluate_task_coverage(conn, item_id)
+        tasks = _tasks(conn, item_id)
+        if (
+            result.verdict != "pass"
+            and not result.no_tasks
+            and not _budgets(conn, item_id)
+            and safe_to_defer_empty_legacy_plan(conn, item_id, item_status, tasks)
+        ):
+            continue
         if result.verdict != "pass" and not result.no_tasks:
             failures.append(result.reason)
     if failures:

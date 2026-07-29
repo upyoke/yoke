@@ -47,7 +47,7 @@
   "module_sources": {
     "workflow_item_worktree_source_fields_contract": {
       "path": "packages/yoke-core/src/yoke_core/domain/migrations/workflow_item_worktree_source_fields_contract.py",
-      "sha256": "18583540bc4e1186253d4b76186328157d38bc9e3e4a650bce1b3212af187ad8"
+      "sha256": "43b5f037cfb7c99b7bac7eb08e09e21ceceed3df24589beccb9d46575ba46513"
     }
   },
   "attestation": {
