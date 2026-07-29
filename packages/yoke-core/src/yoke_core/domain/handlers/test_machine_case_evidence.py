@@ -48,8 +48,8 @@ def record_machine_case_result(
     verdict = {
         "pass": "pass",
         "fail": "fail",
-        "pending": "inconclusive",
-        "blocked": "inconclusive",
+        "pending": None,
+        "blocked": None,
         "waiting": None,
     }[result.verdict]
     waiting = result.case_outcome == "waiting"

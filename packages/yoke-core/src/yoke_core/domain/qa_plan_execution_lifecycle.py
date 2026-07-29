@@ -69,7 +69,13 @@ def finish_plan_execution(
     reason: str,
 ) -> None:
     """Finalize the execution and idempotently release its machine lease."""
-    if state not in {"completed", "aborted", "error", "waiting"}:
+    if state not in {
+        "completed",
+        "aborted",
+        "error",
+        "waiting",
+        "awaiting_agent_review",
+    }:
         raise QaPlanExecutionStateError(f"invalid final execution state {state!r}")
     current_state = str(execution["state"])
     if current_state == state:
@@ -89,7 +95,9 @@ def finish_plan_execution(
         release_lease(conn, int(execution["machine_lease_id"]), reason)
     placeholder = marker(conn)
     now = iso8601_now()
-    completed_at = None if state == "waiting" else now
+    completed_at = (
+        None if state in {"waiting", "awaiting_agent_review"} else now
+    )
     conn.execute(
         "UPDATE qa_plan_executions SET state="
         f"{placeholder},completed_at={placeholder},heartbeat_at={placeholder},"

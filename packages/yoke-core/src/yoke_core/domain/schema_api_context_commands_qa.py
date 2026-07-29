@@ -151,10 +151,14 @@ QA_COMMANDS: list[dict] = [
             "Begins or resumes a server-authorized execution before any "
             "local executor runs. Stage pins the immutable roster, digest, "
             "durable cursor, actor/session owner, and any machine lease; "
-            "each canonical result advances that cursor. Waiting runs "
-            "resume from the same cursor, while completion or abort "
-            "releases the lease. Hosted services never resolve local "
-            "executor credentials."
+            "each canonical result advances that cursor. After capture, "
+            "agent-verdict cases produce one immutable review bundle and "
+            "state=awaiting_agent_review; exit 12 requires the harness to "
+            "dispatch the returned typed reviewer contract and submit its "
+            "complete verdict batch. Only agent inconclusive creates human "
+            "Inbox work. Waiting runs resume from the same cursor, while "
+            "completion or abort releases the lease. Hosted services never "
+            "resolve local executor credentials."
         ),
     },
     {

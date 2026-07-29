@@ -73,7 +73,7 @@ CREATE TABLE IF NOT EXISTS qa_plan_executions (
     execution_target_digest TEXT,
     cursor_ordinal INTEGER NOT NULL DEFAULT 0,
     state TEXT NOT NULL CHECK(state IN (
-        'active','waiting','completed','aborted','error'
+        'active','waiting','awaiting_agent_review','completed','aborted','error'
     )),
     machine_lease_id INTEGER,
     created_at TEXT NOT NULL,
@@ -89,10 +89,12 @@ CREATE TABLE IF NOT EXISTS qa_plan_executions (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_qa_plan_executions_active
     ON qa_plan_executions(item_id, transition_id)
-    WHERE item_id IS NOT NULL AND state IN ('active','waiting');
+    WHERE item_id IS NOT NULL
+        AND state IN ('active','waiting','awaiting_agent_review');
 CREATE UNIQUE INDEX IF NOT EXISTS idx_qa_plan_executions_deployment_active
     ON qa_plan_executions(deployment_run_id)
-    WHERE deployment_run_id IS NOT NULL AND state IN ('active','waiting');
+    WHERE deployment_run_id IS NOT NULL
+        AND state IN ('active','waiting','awaiting_agent_review');
 
 CREATE TABLE IF NOT EXISTS qa_plan_execution_results (
     execution_id TEXT NOT NULL,

@@ -28,6 +28,9 @@ from yoke_core.domain.qa_catalog_schema import create_qa_catalog_tables
 from yoke_core.domain.qa_plan_execution_schema import (
     converge_qa_plan_execution_schema,
 )
+from yoke_core.domain.qa_plan_review_schema import (
+    ensure_qa_plan_review_schema,
+)
 from yoke_core.domain.schema_common import _connect_raw
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.schema_init_actor_path_claim_tables import (
@@ -107,6 +110,7 @@ def converge_core_schema(conn) -> None:
     # those plans, so the catalog follows all four authorities.
     create_qa_catalog_tables(conn)
     converge_qa_plan_execution_schema(conn)
+    ensure_qa_plan_review_schema(conn)
     ensure_test_machine_schema(conn)
     ensure_field_note_dash_promotion_schema(conn)
     sync_machine_qa_pack_methods(conn)

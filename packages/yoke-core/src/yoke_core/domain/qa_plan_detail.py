@@ -12,6 +12,7 @@ from yoke_core.domain.qa_catalog_reads import (
     _capability_contexts,
     _outcome,
 )
+from yoke_core.domain.schema_common import _table_exists
 
 
 def _placeholder(conn: Any) -> str:
@@ -19,6 +20,8 @@ def _placeholder(conn: Any) -> str:
 
 
 def _decode(value: Any, fallback: Any) -> Any:
+    if isinstance(value, dict):
+        return dict(value)
     try:
         return json.loads(str(value))
     except (TypeError, ValueError):
@@ -42,7 +45,8 @@ def _case_result(
         conn,
         "SELECT q.id AS requirement_id, q.host_baseline, "
         "q.deployment_run_id, q.waived_at, "
-        "r.id AS run_id, r.verdict, r.case_outcome, "
+        "r.id AS run_id, r.executor_type, r.verdict, r.execution_status, "
+        "r.case_outcome, r.raw_result, "
         "r.capture_degraded_reason, "
         "COALESCE(r.completed_at, r.created_at, q.created_at) AS happened_at "
         "FROM qa_requirements q "
@@ -64,8 +68,10 @@ def _case_result(
             "outcome": "not_run",
             "evidence": [],
         }
+    review = _review_state(conn, int(row["requirement_id"]), row)
+    evidence_run_id = review["capture_run_id"] or row["run_id"]
     evidence = []
-    if row["run_id"] is not None:
+    if evidence_run_id is not None:
         evidence = [
             {
                 "id": int(artifact["id"]),
@@ -79,7 +85,7 @@ def _case_result(
                 "SELECT id, artifact_type, content_type, artifact_handle, "
                 f"metadata FROM qa_artifacts WHERE qa_run_id={marker} "
                 "ORDER BY id",
-                (int(row["run_id"]),),
+                (int(evidence_run_id),),
             )
         ]
     return {
@@ -91,6 +97,111 @@ def _case_result(
         "capture_degraded_reason": row["capture_degraded_reason"],
         "happened_at": row["happened_at"],
         "evidence": evidence,
+        "review": review,
+    }
+
+
+def _prior_agent_run(
+    conn: Any,
+    requirement_id: int,
+    before_run_id: int,
+) -> dict[str, Any] | None:
+    marker = _placeholder(conn)
+    return query_one(
+        conn,
+        "SELECT id,verdict,raw_result FROM qa_runs "
+        f"WHERE qa_requirement_id={marker} AND executor_type='agent' "
+        f"AND id<{marker} ORDER BY id DESC LIMIT 1",
+        (requirement_id, before_run_id),
+    )
+
+
+def _review_state(
+    conn: Any,
+    requirement_id: int,
+    run: Any,
+) -> dict[str, Any]:
+    executor = str(run["executor_type"] or "")
+    raw = _decode(run["raw_result"], {})
+    rationale = raw.get("rationale") if isinstance(raw, dict) else None
+    capture_run_id = raw.get("capture_run_id") if isinstance(raw, dict) else None
+    agent_verdict = run["verdict"] if executor == "agent" else None
+    agent_run_id = int(run["run_id"]) if executor == "agent" else None
+    if executor == "human_review" and run["run_id"] is not None:
+        agent = _prior_agent_run(
+            conn,
+            requirement_id,
+            int(run["run_id"]),
+        )
+        if agent is not None:
+            agent_run_id = int(agent["id"])
+            agent_raw = _decode(agent["raw_result"], {})
+            capture_run_id = agent_raw.get("capture_run_id")
+            agent_verdict = agent["verdict"]
+            rationale = agent_raw.get("rationale")
+    request = None
+    if executor in {"agent", "human_review"} and _table_exists(
+        conn, "decision_requests"
+    ):
+        marker = _placeholder(conn)
+        request_row = query_one(
+            conn,
+            "SELECT id,status,subject_context,resolution_action,"
+            "resolution_note,resolved_at "
+            "FROM decision_requests "
+            "WHERE kind='qa_needs_review' AND subject_type='qa_requirement' "
+            f"AND subject_key={marker} ORDER BY created_at DESC,id DESC LIMIT 1",
+            (str(requirement_id),),
+        )
+        context = (
+            _decode(request_row["subject_context"], {})
+            if request_row is not None
+            else {}
+        )
+        request_run_id = context.get("run_id")
+        if (
+            request_row is not None
+            and agent_run_id is not None
+            and str(request_run_id) == str(agent_run_id)
+        ):
+            request = {
+                "id": int(request_row["id"]),
+                "status": str(request_row["status"]),
+                "resolution_action": request_row["resolution_action"],
+                "resolution_note": request_row["resolution_note"],
+                "resolved_at": request_row["resolved_at"],
+            }
+    if executor == "human_review":
+        state = "human_review_resolved"
+    elif executor == "agent" and run["verdict"] == "inconclusive":
+        state = (
+            "human_review_requested"
+            if request is not None and request["status"] == "pending"
+            else "agent_inconclusive"
+        )
+    elif executor == "agent":
+        state = "agent_reviewed"
+    elif (
+        run["case_outcome"] == "needs_review"
+        or run["execution_status"] == "captured"
+    ):
+        state = "awaiting_agent_review"
+    else:
+        state = "not_applicable"
+    return {
+        "state": state,
+        "capture_executor": (
+            executor if executor in {"browser_substrate", "host_control"} else None
+        ),
+        "review_executor": (
+            executor if executor in {"agent", "human_review"} else None
+        ),
+        "agent_verdict": agent_verdict,
+        "rationale": rationale,
+        "capture_run_id": (
+            int(capture_run_id) if capture_run_id is not None else None
+        ),
+        "decision_request": request,
     }
 
 

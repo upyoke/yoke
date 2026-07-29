@@ -14,6 +14,7 @@ import {
   showFailure,
   tableWrap,
 } from "./qa_view_primitives.js";
+import { reviewExplanation } from "./qa_review_explanation.js";
 import { renderEvidence } from "./qa_view_evidence.js";
 import {
   rerunCase,
@@ -136,6 +137,8 @@ function renderCases(context, plan, proofs, reload, overlayHost) {
         documentNode,
         row.last_result.outcome,
         row.last_result.capture_degraded_reason,
+        null,
+        reviewExplanation(row.last_result.review),
       ));
       const count = evidenceCount(row);
       if (count) {

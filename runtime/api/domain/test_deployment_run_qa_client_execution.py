@@ -86,9 +86,10 @@ def test_client_materializes_before_server_authorized_run_execution() -> None:
     assert [function for function, _target, _payload in calls] == [
         "qa.plan.materialize",
         "qa.plan_execution.begin",
-        "qa.plan_execution.heartbeat",
-        "qa.plan_execution.advance",
-        "qa.plan_execution.complete",
+            "qa.plan_execution.heartbeat",
+            "qa.plan_execution.advance",
+            "qa.plan_review.begin",
+            "qa.plan_execution.complete",
     ]
     assert all(target.kind == "deployment_run" for _, target, _ in calls)
     assert calls[0][2] == {

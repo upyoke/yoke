@@ -101,7 +101,8 @@ def live_plan_execution_id(
     cursor = conn.execute(
         "SELECT id FROM qa_plan_executions "
         f"WHERE {where} "
-        "AND state IN ('active','waiting') ORDER BY created_at DESC LIMIT 1",
+        "AND state IN ('active','waiting','awaiting_agent_review') "
+        "ORDER BY created_at DESC LIMIT 1",
         params,
     )
     row = cursor.fetchone()
@@ -194,6 +195,9 @@ def resume_owned_plan_execution(
         )
         conn.commit()
         return select_plan_execution(conn, str(execution["id"]), lock=False)
+    if execution["state"] == "awaiting_agent_review":
+        conn.commit()
+        return execution
     conn.commit()
     return execution
 

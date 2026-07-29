@@ -115,7 +115,11 @@ def begin_plan_execution(
     )
     if existing_id is not None:
         existing = lock_plan_execution(conn, existing_id)
-        if existing["state"] in {"active", "waiting"}:
+        if existing["state"] in {
+            "active",
+            "waiting",
+            "awaiting_agent_review",
+        }:
             if same_owner(existing, actor_id=actor_id, session_id=session_id):
                 return resume_owned_plan_execution(conn, existing, digest=digest)
             now_dt = datetime.now(timezone.utc)

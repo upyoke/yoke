@@ -259,9 +259,10 @@ def test_fully_blocked_baseline_group_completes_with_distinct_plan_state() -> No
         "qa.plan_execution.begin",
         "qa.plan_execution.heartbeat",
         "qa.plan_execution.advance",
-        "qa.plan_execution.heartbeat",
-        "qa.plan_execution.advance",
-        "qa.plan_execution.complete",
+            "qa.plan_execution.heartbeat",
+            "qa.plan_execution.advance",
+            "qa.plan_review.begin",
+            "qa.plan_execution.complete",
     ]
 
 
@@ -338,7 +339,8 @@ def test_client_runner_resumes_from_durable_baseline_group_results() -> None:
     assert all("baseline_group_results" not in row for row in result["results"])
     assert function_calls == [
         "qa.plan_execution.begin",
-        "qa.plan_execution.heartbeat",
-        "qa.plan_execution.advance",
-        "qa.plan_execution.complete",
+            "qa.plan_execution.heartbeat",
+            "qa.plan_execution.advance",
+            "qa.plan_review.begin",
+            "qa.plan_execution.complete",
     ]

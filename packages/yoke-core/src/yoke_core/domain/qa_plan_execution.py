@@ -322,13 +322,24 @@ def execute_plan(
         if state in {"error", "waiting"}:
             break
 
+    review_bundle = None
     if len(results) == len(requirements) and state not in {"error", "waiting"}:
-        _call_plan_function(
-            function_id="qa.plan_execution.complete",
+        review = _call_plan_function(
+            function_id="qa.plan_review.begin",
             target=target,
             payload={"execution_id": execution_id},
             actor=resolved_actor,
         )
+        review_bundle = review.get("review_bundle")
+        if review_bundle is not None:
+            state = "awaiting_agent_review"
+        else:
+            _call_plan_function(
+                function_id="qa.plan_execution.complete",
+                target=target,
+                payload={"execution_id": execution_id},
+                actor=resolved_actor,
+            )
     return {
         "execution_id": execution_id,
         "item_id": (
@@ -340,6 +351,7 @@ def execute_plan(
         "requirement_count": len(requirements),
         "executed_count": len(results),
         "results": results,
+        "review_bundle": review_bundle,
     }
 
 
