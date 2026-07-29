@@ -67,6 +67,7 @@ def finish_plan_execution(
     *,
     state: str,
     reason: str,
+    commit: bool = True,
 ) -> None:
     """Finalize the execution and idempotently release its machine lease."""
     if state not in {
@@ -92,12 +93,15 @@ def finish_plan_execution(
             "QA plan execution cannot complete before every case advances"
         )
     if execution.get("machine_lease_id") is not None:
-        release_lease(conn, int(execution["machine_lease_id"]), reason)
+        release_lease(
+            conn,
+            int(execution["machine_lease_id"]),
+            reason,
+            commit=commit,
+        )
     placeholder = marker(conn)
     now = iso8601_now()
-    completed_at = (
-        None if state in {"waiting", "awaiting_agent_review"} else now
-    )
+    completed_at = None if state in {"waiting", "awaiting_agent_review"} else now
     conn.execute(
         "UPDATE qa_plan_executions SET state="
         f"{placeholder},completed_at={placeholder},heartbeat_at={placeholder},"
@@ -105,7 +109,8 @@ def finish_plan_execution(
         f"WHERE id={placeholder}",
         (state, completed_at, now, reason, str(execution["id"])),
     )
-    conn.commit()
+    if commit:
+        conn.commit()
     execution["state"] = state
     execution["machine_lease_id"] = None
     execution["completed_at"] = completed_at

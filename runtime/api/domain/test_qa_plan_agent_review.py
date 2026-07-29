@@ -200,6 +200,35 @@ def test_bundle_is_immutable_complete_and_does_not_ask_a_human() -> None:
         assert replay["bundle_digest"] == bundle["bundle_digest"]
 
 
+def test_bundle_uses_this_execution_capture_not_latest_requirement_run() -> None:
+    with test_database() as conn:
+        execution, requirement_id, capture_run_id = _review_execution(conn, 4502)
+        now = "2026-07-29T00:01:00Z"
+        later_run_id = int(
+            conn.execute(
+                "INSERT INTO qa_runs("
+                "qa_requirement_id,executor_type,qa_kind,case_outcome,raw_result,"
+                "started_at,completed_at,created_at"
+                ") VALUES(%s,'host_control','plan_case','needs_review',%s,%s,%s,%s) "
+                "RETURNING id",
+                (
+                    requirement_id,
+                    json.dumps({"evidence": {"transcript": "unrelated rerun"}}),
+                    now,
+                    now,
+                    now,
+                ),
+            ).fetchone()[0]
+        )
+        assert later_run_id > capture_run_id
+
+        bundle = begin_plan_review(conn, execution)
+
+        assert bundle is not None
+        assert bundle["cases"][0]["capture_run_id"] == capture_run_id
+        assert "unrelated rerun" not in json.dumps(bundle["cases"][0]["transcript"])
+
+
 @pytest.mark.parametrize(
     ("verdict", "expected_state", "review_state", "request_count"),
     (

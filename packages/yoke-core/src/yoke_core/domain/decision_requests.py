@@ -31,10 +31,6 @@ def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def _row_dict(row: Any) -> dict[str, Any]:
-    return {key: row[key] for key in row.keys()}
-
-
 def _request_row(conn: Any, request_id: int) -> dict[str, Any]:
     p = _p(conn)
     row = conn.execute(
@@ -43,7 +39,7 @@ def _request_row(conn: Any, request_id: int) -> dict[str, Any]:
     ).fetchone()
     if row is None:
         raise LookupError(f"decision request {request_id} does not exist")
-    result = _row_dict(row)
+    result = dict(row)
     try:
         result["subject_context"] = json.loads(result["subject_context"] or "{}")
     except (TypeError, json.JSONDecodeError):
@@ -51,7 +47,7 @@ def _request_row(conn: Any, request_id: int) -> dict[str, Any]:
     result["blocking"] = bool(result["blocking"])
     result["actions"] = list(DECISION_KINDS[result["kind"]].actions)
     result["role_authorities"] = [
-        _row_dict(value)
+        dict(value)
         for value in conn.execute(
             "SELECT scope_kind, scope_id, role_name "
             "FROM decision_request_role_authorities "
@@ -127,6 +123,7 @@ def create_decision_request(
     subject_context: Optional[Mapping[str, Any]] = None,
     session_id: str = "",
     created_at: Optional[str] = None,
+    commit: bool = True,
 ) -> tuple[dict[str, Any], bool]:
     """Create once per open typed subject; repeated gate attempts reuse it."""
     if kind not in DECISION_KINDS:
@@ -212,7 +209,8 @@ def create_decision_request(
             },
             created_at=stamp,
         )
-        conn.commit()
+        if commit:
+            conn.commit()
     else:
         row = conn.execute(
             "SELECT id FROM decision_requests "
@@ -223,7 +221,8 @@ def create_decision_request(
         if row is None:
             raise RuntimeError("decision request idempotency race did not converge")
         request_id = int(row[0])
-        conn.commit()
+        if commit:
+            conn.commit()
     return _request_row(conn, request_id), created
 
 
@@ -340,6 +339,7 @@ def pending_requests_for_actor(
         result.append(request)
     result.sort(key=lambda value: not value["asked_of_you"])
     return result
+
 
 __all__ = [
     "RoleAuthority",

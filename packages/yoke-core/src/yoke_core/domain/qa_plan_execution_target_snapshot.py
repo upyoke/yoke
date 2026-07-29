@@ -72,4 +72,38 @@ def decode_execution_target(
     return target
 
 
-__all__ = ["decode_execution_target", "execution_target_for_roster"]
+def validate_execution_snapshot(
+    execution: Mapping[str, Any],
+    roster: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Verify the persisted roster and target remain one immutable snapshot."""
+    from yoke_core.domain.qa_plan_execution_store import (
+        QaPlanExecutionStateError,
+        canonical,
+        roster_digest,
+    )
+
+    if roster_digest(roster) != str(execution.get("roster_digest") or ""):
+        raise QaPlanExecutionStateError(
+            "QA plan execution roster snapshot digest does not match"
+        )
+    target = decode_execution_target(execution)
+    if target is None:
+        raise QaPlanExecutionStateError(
+            "QA plan execution lacks an execution environment target"
+        )
+    roster_target, roster_target_digest = execution_target_for_roster(roster)
+    if canonical(roster_target) != canonical(target) or roster_target_digest != str(
+        execution.get("execution_target_digest") or ""
+    ):
+        raise QaPlanExecutionStateError(
+            "QA plan execution roster target does not match its execution target"
+        )
+    return target
+
+
+__all__ = [
+    "decode_execution_target",
+    "execution_target_for_roster",
+    "validate_execution_snapshot",
+]

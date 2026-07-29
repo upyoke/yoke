@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Optional
 
-from yoke_contracts.api.function_call import ActorContext, TargetRef
+from yoke_contracts.api.function_call import ActorContext
 from yoke_core.domain import db_backend
 from yoke_core.domain.qa_plan_execution_result_state import (
     BASELINE_GROUP_RESULTS as _BASELINE_GROUP_RESULTS,
@@ -18,7 +18,13 @@ from yoke_core.domain.qa_plan_execution_result_state import (
     remember_baseline_group_results as _remember_baseline_group_results,
     validated_baseline_group_results as _validated_baseline_group_results,
 )
+from yoke_core.domain.qa_plan_execution_dispatch import (
+    call_plan_function,
+    execution_actor,
+)
 from yoke_core.domain.qa_plan_execution_target import build_plan_execution_target
+
+_call_plan_function = call_plan_function
 
 
 def ordered_plan_requirements(
@@ -80,36 +86,6 @@ def ordered_plan_requirements(
     return requirements
 
 
-def _call_plan_function(
-    *,
-    function_id: str,
-    target: TargetRef,
-    payload: dict[str, Any],
-    actor: ActorContext,
-) -> dict[str, Any]:
-    from yoke_core.domain.qa_composed_dispatch import call_qa_function
-
-    response = call_qa_function(
-        function_id=function_id,
-        target=target,
-        payload=payload,
-        actor=actor,
-    )
-    if not response.success:
-        code = response.error.code if response.error else "unknown"
-        message = response.error.message if response.error else ""
-        raise QaPlanExecutionError(f"{function_id} failed ({code}): {message}")
-    return dict(response.result or {})
-
-
-def _execution_actor(actor: Optional[ActorContext]) -> ActorContext:
-    if actor is not None:
-        return actor
-    from yoke_core.api.service_client_structured_api_adapter import build_actor
-
-    return build_actor()
-
-
 def execute_plan(
     *,
     item_ref: Optional[str] = None,
@@ -132,7 +108,7 @@ def execute_plan(
         plan=plan,
         project=project,
     )
-    resolved_actor = _execution_actor(actor)
+    resolved_actor = execution_actor(actor)
     if deployment_run_id:
         _call_plan_function(
             function_id="qa.plan.materialize",

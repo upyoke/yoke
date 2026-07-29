@@ -76,6 +76,7 @@ def ensure_qa_review_request(
     run_id: int,
     originator_actor_id: Optional[int] = None,
     session_id: str = "",
+    commit: bool = True,
 ) -> tuple[Optional[dict[str, Any]], bool]:
     """Create or reuse the review request for an inconclusive QA run."""
     required = ("decision_requests", "projects", "items")
@@ -110,6 +111,7 @@ def ensure_qa_review_request(
             "evidence_summary": str(requirement.get("success_policy") or ""),
         },
         session_id=session_id,
+        commit=commit,
     )
 
 
@@ -127,14 +129,15 @@ def maybe_ensure_qa_review_request(
         return None
     p = _p(conn)
     run = conn.execute(
-        f"SELECT executor_type FROM qa_runs WHERE id={p} "
-        f"AND qa_requirement_id={p}",
+        f"SELECT executor_type FROM qa_runs WHERE id={p} AND qa_requirement_id={p}",
         (int(run_id), int(requirement_id)),
     ).fetchone()
     executor_type = (
         run["executor_type"]
         if run is not None and hasattr(run, "keys")
-        else run[0] if run is not None else None
+        else run[0]
+        if run is not None
+        else None
     )
     if str(executor_type or "") != "agent":
         return None

@@ -147,10 +147,10 @@ def select_plan_execution(
         )
     row["roster"] = roster
     from yoke_core.domain.qa_plan_execution_target_snapshot import (
-        decode_execution_target,
+        validate_execution_snapshot,
     )
 
-    row["execution_target"] = decode_execution_target(row)
+    row["execution_target"] = validate_execution_snapshot(row, roster)
     return row
 
 

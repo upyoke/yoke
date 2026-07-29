@@ -48,6 +48,50 @@ def _phase_and(qa_phase: Optional[str]) -> str:
     return ""
 
 
+def _qualifying_capture(requirement: str, capture: str) -> str:
+    agent_case = (
+        f"({requirement}.verdict_path = 'agent' "
+        f"OR {requirement}.method_id = 'browser-inspection')"
+    )
+    linked_agent_pass = f"""
+        EXISTS (
+          SELECT 1 FROM qa_plan_review_verdicts prv
+          JOIN qa_plan_review_bundles prb ON prb.id = prv.bundle_id
+          JOIN qa_runs review_run ON review_run.id = prv.review_run_id
+          WHERE prv.requirement_id = {requirement}.id
+            AND prv.capture_run_id = {capture}.id
+            AND prv.verdict = 'pass'
+            AND prb.state = 'completed'
+            AND review_run.executor_type = 'agent'
+            AND review_run.verdict = 'pass'
+        )
+    """
+    return f"""
+        {capture}.executor_type = 'browser_substrate'
+        AND (
+          (NOT {agent_case} AND {capture}.verdict = 'pass')
+          OR (
+            {agent_case}
+            AND {capture}.execution_status = 'captured'
+            AND {capture}.case_outcome = 'needs_review'
+            AND {linked_agent_pass}
+          )
+        )
+    """
+
+
+def _browser_proof_exists(requirement: str) -> str:
+    return f"""
+        EXISTS (
+          SELECT 1 FROM qa_runs proof_capture
+          JOIN qa_artifacts proof_artifact
+            ON proof_artifact.qa_run_id = proof_capture.id
+          WHERE proof_capture.qa_requirement_id = {requirement}.id
+            AND {_qualifying_capture(requirement, 'proof_capture')}
+        )
+    """
+
+
 def check_browser_evidence_present(
     conn,
     *,
@@ -58,6 +102,7 @@ def check_browser_evidence_present(
 ) -> Optional[GateResult]:
     """Verify each blocking Browser method case has substrate evidence."""
     browser_where = browser_requirement_predicate("r")
+    proof_exists = _browser_proof_exists("r")
     browser_no_evidence = query_scalar(
         conn,
         f"""
@@ -67,26 +112,7 @@ def check_browser_evidence_present(
           AND r.blocking_mode = 'blocking'
           AND r.waived_at IS NULL
           AND {browser_where}
-          AND EXISTS (
-            SELECT 1 FROM qa_runs qr
-            WHERE qr.qa_requirement_id = r.id
-              AND qr.verdict = 'pass'
-              AND (qr.executor_type = 'agent'
-                   OR NOT EXISTS (
-                     SELECT 1 FROM qa_artifacts qa
-                     WHERE qa.qa_run_id = qr.id
-                   ))
-          )
-          AND NOT EXISTS (
-            SELECT 1 FROM qa_runs qr2
-            WHERE qr2.qa_requirement_id = r.id
-              AND qr2.verdict = 'pass'
-              AND qr2.executor_type <> 'agent'
-              AND EXISTS (
-                SELECT 1 FROM qa_artifacts qa2
-                WHERE qa2.qa_run_id = qr2.id
-              )
-          )
+          AND NOT {proof_exists}
         """,
         params,
     )
@@ -95,9 +121,9 @@ def check_browser_evidence_present(
 
     errors = [
         f"Error: Cannot transition {name} to '{transition_name}' -- {browser_no_evidence} Browser method case(s) lack substrate evidence.",
-        "  Browser check and Browser inspection cases must have a passing run with:",
-        "    - executor_type other than 'agent' (use 'browser_substrate')",
-        "    - At least one qa_artifact (screenshot, diff_image, etc.)",
+        "  Browser check requires a passing browser_substrate run with an artifact.",
+        "  Browser inspection requires a captured browser_substrate artifact linked",
+        "  to its completed passing agent-review verdict.",
         f"  Remediation: run `/yoke advance {name} {transition_name}` which executes browser QA automatically before updating status.",
     ]
     rows = query_rows(
@@ -109,22 +135,13 @@ def check_browser_evidence_present(
           AND r.blocking_mode = 'blocking'
           AND r.waived_at IS NULL
           AND {browser_where}
-          AND NOT EXISTS (
-            SELECT 1 FROM qa_runs qr2
-            WHERE qr2.qa_requirement_id = r.id
-              AND qr2.verdict = 'pass'
-              AND qr2.executor_type <> 'agent'
-              AND EXISTS (
-                SELECT 1 FROM qa_artifacts qa2
-                WHERE qa2.qa_run_id = qr2.id
-              )
-          )
+          AND NOT {proof_exists}
         """,
         params,
     )
     for row in rows:
         errors.append(
-            f"  - Requirement #{row['id']} ({row['method_id'] or 'legacy Browser case'}): no substrate-executed run with artifacts"
+            f"  - Requirement #{row['id']} ({row['method_id'] or 'legacy Browser case'}): no linked substrate-and-verdict proof"
         )
     errors.extend(_REMEDIATION_LINES)
     return GateResult(passed=False, errors=errors)
@@ -147,6 +164,8 @@ def check_browser_artifact_disk(
 
     if qa_phase == "verification":
         # Empty/null-handle pre-check is verification-only.
+        qualifying = _qualifying_capture("r", "qr")
+        qualifying_with_handle = _qualifying_capture("r", "qr2")
         fake_rows = query_rows(
             conn,
             f"""
@@ -159,15 +178,13 @@ def check_browser_artifact_disk(
                 SELECT 1 FROM qa_runs qr
                 JOIN qa_artifacts qa ON qa.qa_run_id = qr.id
                 WHERE qr.qa_requirement_id = r.id
-                  AND qr.verdict = 'pass'
-                  AND qr.executor_type <> 'agent'
+                  AND {qualifying}
               )
               AND NOT EXISTS (
                 SELECT 1 FROM qa_runs qr2
                 JOIN qa_artifacts qa2 ON qa2.qa_run_id = qr2.id
                 WHERE qr2.qa_requirement_id = r.id
-                  AND qr2.verdict = 'pass'
-                  AND qr2.executor_type <> 'agent'
+                  AND {qualifying_with_handle}
                   AND qa2.artifact_handle IS NOT NULL
                   AND qa2.artifact_handle <> ''
               )
@@ -186,6 +203,7 @@ def check_browser_artifact_disk(
 
     # Check the recorded handles: local handles must exist on disk;
     # s3 handles are durable evidence and pass structurally.
+    qualifying = _qualifying_capture("r", "qr")
     art_rows = query_rows(
         conn,
         f"""
@@ -195,8 +213,7 @@ def check_browser_artifact_disk(
         WHERE r.blocking_mode = 'blocking'{phase_and}
           AND r.waived_at IS NULL
           AND {browser_where}
-          AND qr.verdict = 'pass'
-          AND qr.executor_type <> 'agent'
+          AND {qualifying}
           AND qa.artifact_handle IS NOT NULL
           AND qa.artifact_handle <> ''
           AND {where}

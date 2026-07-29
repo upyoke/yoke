@@ -24,6 +24,7 @@ from yoke_core.domain.project_onboarding_runs import (
     create_project_onboarding_tables,
 )
 from yoke_core.domain.project_structure import create_project_structure_tables
+from yoke_core.domain.projects_restart_schema import create_project_registry_tables
 from yoke_core.domain.qa_catalog_schema import create_qa_catalog_tables
 from yoke_core.domain.qa_plan_execution_schema import (
     converge_qa_plan_execution_schema,
@@ -101,6 +102,9 @@ def converge_core_schema(conn) -> None:
     create_external_identity_tables(conn)
     create_decision_request_tables(conn)
     create_github_app_tables(conn)
+    # QA plans bind to a concrete environment, so site/environment authority
+    # must exist before the QA catalog creates that foreign key.
+    create_project_registry_tables(conn)
     create_project_onboarding_tables(conn)
     create_pack_projection_tables(conn)
     create_project_structure_tables(conn)

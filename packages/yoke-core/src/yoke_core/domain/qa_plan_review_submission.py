@@ -117,6 +117,7 @@ def _ensure_requests(
                 else None
             ),
             session_id=reviewer_session_id,
+            commit=False,
         )
         if request is None:
             continue
@@ -127,7 +128,6 @@ def _ensure_requests(
             f"{p} WHERE bundle_id={p} AND requirement_id={p}",
             (request_id, bundle_id, requirement_id),
         )
-        conn.commit()
     return requests
 
 
@@ -140,9 +140,7 @@ def _emit_review_events(
 ) -> None:
     from yoke_core.domain import qa_events
 
-    cases = {
-        int(case["requirement_id"]): case for case in bundle["cases"]
-    }
+    cases = {int(case["requirement_id"]): case for case in bundle["cases"]}
     for requirement_id, (verdict, _rationale) in verdicts.items():
         qa_events.emit_qa_run_event(
             conn,
@@ -168,72 +166,105 @@ def submit_plan_review(
 ) -> dict[str, Any]:
     """Atomically persist every agent verdict, then create only needed Inbox work."""
     p = marker(conn)
-    stored = query_one(
-        conn,
-        f"SELECT * FROM qa_plan_review_bundles WHERE id={p} AND execution_id={p}",
-        (bundle_id, str(execution["id"])),
-    )
-    if stored is None or str(stored["bundle_digest"]) != bundle_digest:
-        raise QaPlanReviewError("agent review bundle identity does not match")
-    bundle = _public_bundle(stored)
-    validated = _validated_verdicts(bundle["cases"], verdicts)
-    existing = {
-        int(row["requirement_id"]): row
-        for row in query_rows(
-            conn,
-            f"SELECT * FROM qa_plan_review_verdicts WHERE bundle_id={p}",
-            (bundle_id,),
-        )
-    }
-    now = iso8601_now()
-    run_ids: dict[int, int] = {}
-    for case in bundle["cases"]:
-        requirement_id = int(case["requirement_id"])
-        verdict, rationale = validated[requirement_id]
-        prior = existing.get(requirement_id)
-        if prior is not None:
-            if prior["verdict"] != verdict or prior["rationale"] != rationale:
-                raise QaPlanReviewError("agent review replay changed a verdict")
-            run_ids[requirement_id] = int(prior["review_run_id"])
-        else:
-            run_ids[requirement_id] = _record_verdict(
-                conn,
-                bundle_id=bundle_id,
-                case=case,
-                verdict=verdict,
-                rationale=rationale,
-                created_at=now,
-            )
-    conn.execute(
-        "UPDATE qa_plan_review_bundles SET state='completed',reviewer_actor_id="
-        f"{p},reviewer_session_id={p},reviewed_at={p} WHERE id={p}",
-        (reviewer_actor_id, reviewer_session_id, now, bundle_id),
-    )
-    if execution["state"] != "completed":
-        from yoke_core.domain.qa_plan_execution_lifecycle import finish_plan_execution
+    from yoke_core.domain import db_backend
 
-        finish_plan_execution(
+    execution_before = {
+        key: execution.get(key)
+        for key in ("state", "machine_lease_id", "completed_at", "release_reason")
+    }
+    lock = " FOR UPDATE" if db_backend.connection_is_postgres(conn) else ""
+    try:
+        stored = query_one(
             conn,
-            execution,
-            state="completed",
-            reason="qa-plan-agent-review-complete",
+            f"SELECT * FROM qa_plan_review_bundles "
+            f"WHERE id={p} AND execution_id={p}{lock}",
+            (bundle_id, str(execution["id"])),
         )
-    else:
+        if stored is None or str(stored["bundle_digest"]) != bundle_digest:
+            raise QaPlanReviewError("agent review bundle identity does not match")
+        bundle = _public_bundle(stored)
+        validated = _validated_verdicts(bundle["cases"], verdicts)
+        existing = {
+            int(row["requirement_id"]): row
+            for row in query_rows(
+                conn,
+                f"SELECT * FROM qa_plan_review_verdicts WHERE bundle_id={p}",
+                (bundle_id,),
+            )
+        }
+        now = iso8601_now()
+        run_ids: dict[int, int] = {}
+        created_run_ids: dict[int, int] = {}
+        for case in bundle["cases"]:
+            requirement_id = int(case["requirement_id"])
+            verdict, rationale = validated[requirement_id]
+            prior = existing.get(requirement_id)
+            if prior is not None:
+                if prior["verdict"] != verdict or prior["rationale"] != rationale:
+                    raise QaPlanReviewError("agent review replay changed a verdict")
+                run_ids[requirement_id] = int(prior["review_run_id"])
+            else:
+                run_id = _record_verdict(
+                    conn,
+                    bundle_id=bundle_id,
+                    case=case,
+                    verdict=verdict,
+                    rationale=rationale,
+                    created_at=now,
+                )
+                run_ids[requirement_id] = run_id
+                created_run_ids[requirement_id] = run_id
+        completed_replay = str(stored["state"]) == "completed"
+        if not completed_replay:
+            conn.execute(
+                "UPDATE qa_plan_review_bundles "
+                "SET state='completed',reviewer_actor_id="
+                f"{p},reviewer_session_id={p},reviewed_at={p} "
+                f"WHERE id={p} AND state='pending'",
+                (reviewer_actor_id, reviewer_session_id, now, bundle_id),
+            )
+            if execution["state"] != "completed":
+                from yoke_core.domain.qa_plan_execution_lifecycle import (
+                    finish_plan_execution,
+                )
+
+                finish_plan_execution(
+                    conn,
+                    execution,
+                    state="completed",
+                    reason="qa-plan-agent-review-complete",
+                    commit=False,
+                )
+        elif created_run_ids:
+            raise QaPlanReviewError(
+                "completed agent review is missing durable verdict rows"
+            )
+        requests = _ensure_requests(
+            conn,
+            bundle_id=bundle_id,
+            verdicts=validated,
+            run_ids=run_ids,
+            reviewer_actor_id=reviewer_actor_id,
+            reviewer_session_id=reviewer_session_id,
+        )
         conn.commit()
-    requests = _ensure_requests(
-        conn,
-        bundle_id=bundle_id,
-        verdicts=validated,
-        run_ids=run_ids,
-        reviewer_actor_id=reviewer_actor_id,
-        reviewer_session_id=reviewer_session_id,
-    )
-    _emit_review_events(
-        conn,
-        bundle=bundle,
-        verdicts=validated,
-        run_ids=run_ids,
-    )
+    except Exception:
+        conn.rollback()
+        execution.update(execution_before)
+        raise
+    if created_run_ids:
+        try:
+            _emit_review_events(
+                conn,
+                bundle=bundle,
+                verdicts={
+                    requirement_id: validated[requirement_id]
+                    for requirement_id in created_run_ids
+                },
+                run_ids=created_run_ids,
+            )
+        except Exception:
+            conn.rollback()
     outcomes = [value[0] for value in validated.values()]
     state = (
         "failed"
