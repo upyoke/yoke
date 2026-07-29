@@ -137,6 +137,8 @@ class TestSyncEpicTasksDedup:
         )
         insert_epic_task(epic_db, epic_id="10", task_num=1, title="Some task",
                          status="planned", body="body")
+        set_no_files_scope(epic_db, 10, 1)
+        finalize_generated_task_scopes(epic_db, 10)
         stdout = io.StringIO()
 
         patches = _patches(
@@ -200,6 +202,8 @@ class TestSyncEpicTasksDedup:
                     project="externalwebapp", spec="Epic body")
         insert_epic_task(epic_db, epic_id="10", task_num=1, title="First task",
                          status="planned", body="body")
+        set_no_files_scope(epic_db, 10, 1)
+        finalize_generated_task_scopes(epic_db, 10)
         stdout = io.StringIO()
 
         # Two list_issues calls: parent dedup returns the exact match;

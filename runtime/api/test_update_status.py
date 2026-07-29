@@ -44,6 +44,7 @@ class TestCoreUpdate:
         assert _task_field(test_db, 42, 1, "status") == "implementing"
 
     def test_heartbeat_updated(self, test_db):
+        insert_item(test_db, id=42, workflow_id="epic", status="planned")
         insert_epic_task(test_db, epic_id=42, task_num=1, status="planned")
         _update(test_db, 42, 1, "implementing")
         hb = _task_field(test_db, 42, 1, "last_heartbeat")
@@ -73,6 +74,7 @@ class TestCoreUpdate:
         assert da == 2
 
     def test_noop_on_same_status_no_note(self, test_db):
+        insert_item(test_db, id=42, workflow_id="epic", status="planned")
         insert_epic_task(test_db, epic_id=42, task_num=1, status="implementing")
         rc, out, _ = _update(test_db, 42, 1, "implementing")
         assert rc == 0
