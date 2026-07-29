@@ -201,10 +201,10 @@ def assert_requirement_execution_snapshot_invariants(conn: Any) -> None:
     duplicate_positions = int(
         conn.execute(
             "SELECT COUNT(*) FROM ("
-            "SELECT item_id, workflow_transition_id, plan_id, "
+            "SELECT item_id, deployment_run_id, workflow_transition_id, plan_id, "
             "case_position, baseline_position "
             "FROM qa_requirements WHERE plan_id IS NOT NULL "
-            "GROUP BY item_id, workflow_transition_id, plan_id, "
+            "GROUP BY item_id, deployment_run_id, workflow_transition_id, plan_id, "
             "case_position, baseline_position HAVING COUNT(*) > 1"
             ") duplicates"
         ).fetchone()[0]
