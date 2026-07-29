@@ -51,6 +51,11 @@ def test_plan_and_activity_reads_attribute_named_deployment_run_proof() -> None:
             project="yoke",
         )
         conn.execute(
+            "UPDATE qa_requirements SET created_at='2026-07-28T11:00:00Z' "
+            "WHERE deployment_run_id=%s",
+            (deployment_run_id,),
+        )
+        conn.execute(
             "INSERT INTO qa_runs("
             "qa_requirement_id,executor_type,qa_kind,verdict,case_outcome,"
             "created_at"
