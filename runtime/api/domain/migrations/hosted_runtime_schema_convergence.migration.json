@@ -61,6 +61,10 @@
         "columns": ["item_id", "linked_at", "linked_by_actor_id", "linked_by_session_id", "project_id", "strategy_doc_slug"]
       },
       {
+        "table": "items",
+        "columns": ["generated_task_membership_finalized_at"]
+      },
+      {
         "table": "qa_methods",
         "columns": ["concurrency_mode", "created_at", "description", "evidence_contract", "executor_id", "id", "name", "project_id", "required_capability_kind", "source_kind", "source_ref", "success_policy_id", "success_policy_params", "updated_at", "verdict_contract", "verdict_path"]
       },
@@ -150,7 +154,7 @@
     },
     "epic_task_scope_state": {
       "path": "packages/yoke-core/src/yoke_core/domain/migrations/epic_task_scope_state.py",
-      "sha256": "b129fc00e40fd1ea7a91c319196810f53eb0b2f419fb88aee4d3f359b491cc6b"
+      "sha256": "530f2cd590d5214375f58fcb2ae5f81846b45cfa48a258c6f971611c85e68fb7"
     },
     "events_actor_identity": {
       "path": "packages/yoke-core/src/yoke_core/domain/migrations/events_actor_identity.py",

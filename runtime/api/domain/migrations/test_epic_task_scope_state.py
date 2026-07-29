@@ -10,6 +10,7 @@ from yoke_core.domain.epic_task_scope import (
     TaskScopeIncomplete,
     finalize_generated_task_scopes,
 )
+from yoke_core.domain.epic_task_membership import MEMBERSHIP_FINALIZED_COLUMN
 from yoke_core.domain.migrations.epic_task_scope_state import apply, invariants
 
 
@@ -37,6 +38,10 @@ def test_empty_legacy_eight_task_plan_is_typed_without_inference(test_db):
     assert [(row["task_num"], row["scope_state"]) for row in states] == [
         (task, "legacy_deferred") for task in range(1, 9)
     ]
+    membership = test_db.execute(
+        f"SELECT {MEMBERSHIP_FINALIZED_COLUMN} FROM items WHERE id=1687"
+    ).fetchone()
+    assert membership[MEMBERSHIP_FINALIZED_COLUMN] is not None
     with pytest.raises(TaskScopeIncomplete, match="deferred legacy scope"):
         finalize_generated_task_scopes(test_db, 1687)
 
@@ -75,6 +80,9 @@ def test_migration_installs_valid_state_constraint_on_postgres(test_db):
         "ALTER TABLE epic_tasks DROP COLUMN scope_finalized_at"
     )
     test_db.execute("ALTER TABLE epic_tasks DROP COLUMN scope_state")
+    test_db.execute(
+        f"ALTER TABLE items DROP COLUMN {MEMBERSHIP_FINALIZED_COLUMN}"
+    )
     test_db.commit()
 
     report = apply(test_db, tenant_id=4)
@@ -99,6 +107,9 @@ def test_apply_leaves_transaction_ownership_with_manifest_caller(test_db):
         "ALTER TABLE epic_tasks DROP COLUMN scope_finalized_at"
     )
     test_db.execute("ALTER TABLE epic_tasks DROP COLUMN scope_state")
+    test_db.execute(
+        f"ALTER TABLE items DROP COLUMN {MEMBERSHIP_FINALIZED_COLUMN}"
+    )
     test_db.commit()
 
     apply(test_db, tenant_id=4)
@@ -113,3 +124,9 @@ def test_apply_leaves_transaction_ownership_with_manifest_caller(test_db):
         ).fetchall()
     }
     assert columns == set()
+    item_column = test_db.execute(
+        "SELECT 1 FROM information_schema.columns "
+        "WHERE table_name='items' AND column_name=%s",
+        (MEMBERSHIP_FINALIZED_COLUMN,),
+    ).fetchone()
+    assert item_column is None

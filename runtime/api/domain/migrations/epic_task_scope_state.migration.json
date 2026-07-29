@@ -23,6 +23,12 @@
           "scope_state",
           "scope_finalized_at"
         ]
+      },
+      {
+        "table": "items",
+        "columns": [
+          "generated_task_membership_finalized_at"
+        ]
       }
     ],
     "count_preserving": true
@@ -30,7 +36,7 @@
   "module_sources": {
     "epic_task_scope_state": {
       "path": "packages/yoke-core/src/yoke_core/domain/migrations/epic_task_scope_state.py",
-      "sha256": "b129fc00e40fd1ea7a91c319196810f53eb0b2f419fb88aee4d3f359b491cc6b"
+      "sha256": "530f2cd590d5214375f58fcb2ae5f81846b45cfa48a258c6f971611c85e68fb7"
     }
   },
   "attestation": {
@@ -53,6 +59,7 @@
     ],
     "invariants": [
       "Every legacy generated task is typed as paths or legacy_deferred without inferring ownership.",
+      "Every legacy finalized task membership is projected to the durable item-level snapshot.",
       "PostgreSQL enforces non-null scope state membership with a validated check constraint.",
       "Terminal historical items remain terminal and receive scope metadata only.",
       "Repeat apply preserves row counts and leaves scope diagnostics stable.",

@@ -5,6 +5,10 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.epic_task_membership import (
+    MEMBERSHIP_FINALIZED_COLUMN,
+    backfill_membership_finalized,
+)
 from yoke_core.domain.epic_task_scope import (
     SCOPE_STATES,
     TaskScopeRepairReport,
@@ -41,6 +45,12 @@ def apply(
         raise RuntimeError("epic_task_scope_state requires epic_tasks")
     if not _table_exists(conn, "epic_task_files"):
         raise RuntimeError("epic_task_scope_state requires epic_task_files")
+    if not _table_exists(conn, "items"):
+        raise RuntimeError("epic_task_scope_state requires items")
+    if not _column_exists(conn, "items", MEMBERSHIP_FINALIZED_COLUMN):
+        conn.execute(
+            f"ALTER TABLE items ADD COLUMN {MEMBERSHIP_FINALIZED_COLUMN} TEXT"
+        )
     if not _column_exists(conn, "epic_tasks", "scope_state"):
         conn.execute(
             "ALTER TABLE epic_tasks ADD COLUMN scope_state TEXT "
@@ -59,6 +69,7 @@ def apply(
         tenant_id=tenant_id,
         commit=False,
     )
+    backfill_membership_finalized(conn)
     constraint = "epic_tasks_scope_state_check"
     if db_backend.connection_is_postgres(conn):
         if not _postgres_constraint_exists(conn, constraint):
@@ -78,6 +89,10 @@ def apply(
 
 def invariants(conn: Any) -> None:
     """Require explicit, internally consistent legacy task scope."""
+    if not _column_exists(conn, "items", MEMBERSHIP_FINALIZED_COLUMN):
+        raise AssertionError(
+            f"items.{MEMBERSHIP_FINALIZED_COLUMN} is missing"
+        )
     for column in ("scope_state", "scope_finalized_at"):
         if not _column_exists(conn, "epic_tasks", column):
             raise AssertionError(f"epic_tasks.{column} is missing")

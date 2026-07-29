@@ -6,6 +6,11 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.epic_task_membership import (
+    clear_membership_finalized,
+    membership_is_finalized,
+    stamp_membership_finalized,
+)
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 
 
@@ -81,12 +86,7 @@ def ensure_new_task_membership_allowed(
     ).fetchone()
     if exists is not None:
         return
-    finalized = conn.execute(
-        "SELECT 1 FROM epic_tasks "
-        f"WHERE epic_id={marker} AND scope_finalized_at IS NOT NULL LIMIT 1",
-        (int(item_id),),
-    ).fetchone()
-    if finalized is not None:
+    if membership_is_finalized(conn, int(item_id)):
         raise TaskScopeIncomplete(
             f"YOK-{item_id} task membership is finalized; reopen task scope "
             f"before adding task {task_num}"
@@ -114,6 +114,7 @@ def reopen_generated_task_scopes(
         (int(item_id),),
     )
     changed = max(int(cursor.rowcount or 0), 0)
+    changed = max(changed, clear_membership_finalized(conn, int(item_id)))
     if commit:
         conn.commit()
     return changed
@@ -246,10 +247,6 @@ def finalize_generated_task_scopes(
     try:
         lock_task_membership(conn, int(item_id))
         rows = _rows(conn, int(item_id))
-        if not rows:
-            conn.execute("RELEASE SAVEPOINT finalize_generated_task_scopes")
-            conn.commit()
-            return
         issues: list[str] = []
         for row in rows:
             state = row["state"]
@@ -277,6 +274,11 @@ def finalize_generated_task_scopes(
             )
         if after_membership_read is not None:
             after_membership_read()
+        if not rows and not stamp_membership_finalized(conn, int(item_id)):
+            raise TaskScopeIncomplete(
+                f"YOK-{item_id} empty task membership cannot be finalized "
+                "until the item snapshot schema is available"
+            )
         conn.execute(
             "UPDATE epic_tasks SET scope_state='paths' "
             f"WHERE epic_id={marker} AND scope_state='pending' "
@@ -291,6 +293,8 @@ def finalize_generated_task_scopes(
             f"WHERE epic_id={marker}",
             (int(item_id),),
         )
+        if rows:
+            stamp_membership_finalized(conn, int(item_id))
         conn.execute("RELEASE SAVEPOINT finalize_generated_task_scopes")
         conn.commit()
     except Exception:

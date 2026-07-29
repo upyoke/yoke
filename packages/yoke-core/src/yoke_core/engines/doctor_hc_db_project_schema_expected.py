@@ -18,6 +18,8 @@ from __future__ import annotations
 
 from typing import Dict
 
+from yoke_core.domain.epic_task_membership import MEMBERSHIP_FINALIZED_COLUMN
+
 
 _EXPECTED_SCHEMA_STR = (
     "items:id/INTEGER,title/TEXT,status/TEXT,priority/TEXT,flow/TEXT,"
@@ -31,6 +33,7 @@ _EXPECTED_SCHEMA_STR = (
     "db_compatibility_attestation/TEXT,owner/TEXT,blocked/INTEGER,"
     "blocked_reason/TEXT,architecture_impact/TEXT,workflow_id/TEXT,"
     "workflow_version_id/INTEGER,workflow_posture/TEXT,"
+    f"{MEMBERSHIP_FINALIZED_COLUMN}/TEXT,"
     "github_body_compact_pending/TEXT"
     "|item_worktrees:id/INTEGER,item_id/INTEGER,branch/TEXT,path/TEXT,lane_role/TEXT,"
     "state/TEXT,created_at/TEXT,updated_at/TEXT,released_at/TEXT"

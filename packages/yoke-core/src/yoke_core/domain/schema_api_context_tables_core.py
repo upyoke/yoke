@@ -1,10 +1,9 @@
 """Core topic table entries for the canonical schema cheat sheet.
-
-Pure data only — no I/O or DB connections.
-"""
+Pure data only — no I/O or DB connections."""
 
 from __future__ import annotations
 
+from yoke_core.domain.epic_task_membership import MEMBERSHIP_FINALIZED_COLUMN
 from yoke_core.domain.schema_api_context_tables_worktrees import ITEM_WORKTREE_TABLES
 
 CORE_TABLES: dict[str, dict] = {
@@ -15,6 +14,7 @@ CORE_TABLES: dict[str, dict] = {
             ("workflow_id", "TEXT"),
             ("workflow_version_id", "INTEGER"),
             ("workflow_posture", "TEXT"),
+            (MEMBERSHIP_FINALIZED_COLUMN, "TEXT"),
             ("status", "TEXT"),
             ("priority", "TEXT"),
             ("project_id", "INTEGER"),
@@ -44,6 +44,8 @@ CORE_TABLES: dict[str, dict] = {
             "`github_issue_number` and no `github_url`. "
             "The lifecycle columns are the immutable `workflow_id` / "
             "`workflow_version_id` pin and the current `status`. "
+            f"`{MEMBERSHIP_FINALIZED_COLUMN}` durably records the "
+            "generated-task membership snapshot, including an empty set. "
             "There is NO `kind` column on items — the function-call "
             "envelope's `target.kind` discriminator "
             "(`item|epic_task|qa_requirement|session|process`) is the "
