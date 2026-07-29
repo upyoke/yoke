@@ -51,7 +51,20 @@ def update(conn, epic_id, task_num, new_status, note="", **kwargs):
         and task_field(conn, epic_id, task_num, "scope_state") == "pending"
     ):
         set_no_files_scope(conn, int(epic_id), int(task_num))
-        finalize_generated_task_scopes(conn, int(epic_id))
+        p = _p(conn)
+        parent = conn.execute(
+            f"SELECT 1 FROM items WHERE id={p}",
+            (int(epic_id),),
+        ).fetchone()
+        if parent is None:
+            conn.execute(
+                "UPDATE epic_tasks SET scope_finalized_at=CURRENT_TIMESTAMP "
+                f"WHERE epic_id={p}",
+                (int(epic_id),),
+            )
+            conn.commit()
+        else:
+            finalize_generated_task_scopes(conn, int(epic_id))
     out = io.StringIO()
     err = io.StringIO()
     # Mock external integration hooks to keep tests in-process.

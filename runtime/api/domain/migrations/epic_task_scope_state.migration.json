@@ -30,7 +30,7 @@
   "module_sources": {
     "epic_task_scope_state": {
       "path": "packages/yoke-core/src/yoke_core/domain/migrations/epic_task_scope_state.py",
-      "sha256": "6ad67085dcf889aed8590276920a42666dc063fa7510e4e8763c5ffff45170ed"
+      "sha256": "401db37ffdb59fbfa191c3d3c42a1db9967de3620691add7214883466b228413"
     }
   },
   "attestation": {
@@ -53,6 +53,7 @@
     ],
     "invariants": [
       "Every legacy generated task is typed as paths or legacy_deferred without inferring ownership.",
+      "PostgreSQL enforces non-null scope state membership with a validated check constraint.",
       "Terminal historical items remain terminal and receive scope metadata only.",
       "Repeat apply preserves row counts and leaves scope diagnostics stable.",
       "Runtime publication, activation, and dispatch reject pending, contradictory, or legacy-deferred scope."

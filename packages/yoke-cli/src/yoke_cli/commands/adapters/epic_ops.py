@@ -43,6 +43,22 @@ def _write_message(response, stdout, stderr) -> None:
     stdout.write(f"{(response.result or {}).get('message', '')}\n")
 
 
+def _write_scope_repair(response, stdout, stderr) -> None:
+    result = response.result or {}
+    stdout.write(f"{result.get('message', '')}\n")
+    for diagnostic in result.get("diagnostics", []):
+        stdout.write(f"- {diagnostic}\n")
+        task_num = diagnostic.split(" task=", 1)[1].split(" ", 1)[0]
+        stdout.write(
+            "  Repair: run `file-add` or `scope-no-files` for "
+            f"--epic {result.get('epic_id')} --task-num {task_num}.\n"
+        )
+    if result.get("diagnostics"):
+        stdout.write(
+            f"Then run `scope-finalize --epic {result.get('epic_id')}`.\n"
+        )
+
+
 def _dispatch(function_id, target, payload, parsed, writer=None) -> int:
     return dispatch_and_emit(
         function_id=function_id, target=target, payload=payload,
@@ -201,7 +217,7 @@ def epic_task_scope_repair_legacy(args: List[str]) -> int:
         _epic_target(parsed),
         {"tenant_id": parsed.tenant_id},
         parsed,
-        _write_message,
+        _write_scope_repair,
     )
 
 

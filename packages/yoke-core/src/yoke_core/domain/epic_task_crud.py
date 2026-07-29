@@ -56,6 +56,11 @@ def task_upsert(
     item_exists = _table_exists(conn, "items") and conn.execute(
         f"SELECT 1 FROM items WHERE id={_placeholder(conn)}", (int(epic_id),)
     ).fetchone() is not None
+    if item_exists:
+        from yoke_core.domain.epic_task_scope import (
+            ensure_new_task_membership_allowed,
+        )
+        ensure_new_task_membership_allowed(conn, int(epic_id), task_num)
     if worktree.strip() and item_exists:
         lane_id = int(record_worker_item_worktree(
             conn, item_id=int(epic_id), branch=worktree, path=None,

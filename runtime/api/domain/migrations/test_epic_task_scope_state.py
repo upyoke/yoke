@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+import psycopg
 
 from runtime.api.fixtures.backlog_inserts import insert_epic_task, insert_item
 from yoke_core.domain.epic_task_scope import (
@@ -62,3 +63,27 @@ def test_terminal_historical_item_is_preserved_during_scope_repair(test_db):
     assert item["status"] == "done"
     assert task["status"] == "done"
     assert task["scope_state"] == "legacy_deferred"
+
+
+def test_migration_installs_valid_state_constraint_on_postgres(test_db):
+    insert_item(test_db, id=1710, workflow_id="epic", status="planned")
+    insert_epic_task(test_db, epic_id=1710, task_num=1, status="planned")
+    test_db.execute(
+        "ALTER TABLE epic_tasks DROP CONSTRAINT epic_tasks_scope_state_check"
+    )
+    test_db.execute(
+        "ALTER TABLE epic_tasks DROP COLUMN scope_finalized_at"
+    )
+    test_db.execute("ALTER TABLE epic_tasks DROP COLUMN scope_state")
+    test_db.commit()
+
+    report = apply(test_db, tenant_id=4)
+    invariants(test_db)
+
+    assert report.deferred_tasks == ((1710, 1),)
+    with pytest.raises(psycopg.errors.CheckViolation):
+        test_db.execute(
+            "UPDATE epic_tasks SET scope_state='unknown' "
+            "WHERE epic_id=1710 AND task_num=1"
+        )
+    test_db.rollback()

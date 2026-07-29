@@ -20,6 +20,17 @@ def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
+def _postgres_constraint_exists(conn: Any, name: str) -> bool:
+    if not db_backend.connection_is_postgres(conn):
+        return False
+    row = conn.execute(
+        "SELECT 1 FROM pg_constraint WHERE conname=%s "
+        "AND conrelid='epic_tasks'::regclass LIMIT 1",
+        (name,),
+    ).fetchone()
+    return row is not None
+
+
 def apply(
     conn: Any,
     *,
@@ -39,7 +50,27 @@ def apply(
         conn.execute(
             "ALTER TABLE epic_tasks ADD COLUMN scope_finalized_at TEXT"
         )
-    return repair_legacy_task_scopes(conn, tenant_id=tenant_id)
+    conn.execute(
+        "UPDATE epic_tasks SET scope_state='pending' "
+        "WHERE scope_state IS NULL"
+    )
+    report = repair_legacy_task_scopes(conn, tenant_id=tenant_id)
+    constraint = "epic_tasks_scope_state_check"
+    if db_backend.connection_is_postgres(conn):
+        if not _postgres_constraint_exists(conn, constraint):
+            conn.execute(
+                "ALTER TABLE epic_tasks ADD CONSTRAINT "
+                f"{constraint} CHECK (scope_state IN "
+                "('pending','paths','no_files','legacy_deferred')) NOT VALID"
+            )
+        conn.execute(
+            f"ALTER TABLE epic_tasks VALIDATE CONSTRAINT {constraint}"
+        )
+        conn.execute(
+            "ALTER TABLE epic_tasks ALTER COLUMN scope_state SET NOT NULL"
+        )
+        conn.commit()
+    return report
 
 
 def invariants(conn: Any) -> None:
@@ -64,6 +95,14 @@ def invariants(conn: Any) -> None:
         raise AssertionError(
             "legacy epic_tasks scope repair left an implicit task"
         )
+    if (
+        db_backend.connection_is_postgres(conn)
+        and not _postgres_constraint_exists(
+            conn,
+            "epic_tasks_scope_state_check",
+        )
+    ):
+        raise AssertionError("epic_tasks scope-state constraint is missing")
     contradiction = conn.execute(
         "SELECT t.epic_id, t.task_num FROM epic_tasks t "
         "LEFT JOIN epic_task_files f ON f.epic_id=t.epic_id "
