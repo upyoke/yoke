@@ -26,6 +26,13 @@ QA_ADAPTERS: List[AdapterEntry] = [
             "yoke qa plan run --deployment-run-id RUN --plan PLAN --project P"
         ),
     ),
+    AdapterEntry(
+        function_id="qa.plan_execution.abort",
+        cli_invocation=(
+            "yoke qa plan abort (--item PREFIX-N | --deployment-run-id RUN) "
+            "--execution-id ID --reason TEXT [--project P]"
+        ),
+    ),
     _read_entry(
         function_id="qa.method.list", cli_invocation="yoke qa method list --project P"
     ),
