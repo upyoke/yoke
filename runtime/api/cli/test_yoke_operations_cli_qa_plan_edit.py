@@ -40,6 +40,7 @@ def test_edit_opens_only_authorable_fields_and_dispatches_full_cas() -> None:
             "description",
             "success_policy_id",
             "success_policy_params",
+            "target_environment_id",
             "cases",
         }
         assert set(document["cases"][0]) == {
@@ -84,6 +85,7 @@ def test_edit_opens_only_authorable_fields_and_dispatches_full_cas() -> None:
     assert saved.payload["project"] == "yoke"
     assert saved.payload["slug"] == "release-readiness"
     assert saved.payload["name"] == "Release gate"
+    assert saved.payload["target_environment_id"] is None
     assert saved.payload["base_updated_at"] == PLAN["updated_at"]
     assert saved.payload["cases"][0]["case_key"] == "backend-suite"
 

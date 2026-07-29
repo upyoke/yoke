@@ -169,6 +169,8 @@ CREATE TABLE IF NOT EXISTS qa_artifacts (
     ).replace(
         " REFERENCES qa_runs(id)", ""
     ).replace(
+        " REFERENCES qa_plan_review_bundles(id)", ""
+    ).replace(
         " REFERENCES decision_requests(id)", ""
     )
     + """

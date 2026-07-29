@@ -50,8 +50,8 @@ def _phase_and(qa_phase: Optional[str]) -> str:
 
 def _qualifying_capture(requirement: str, capture: str) -> str:
     agent_case = (
-        f"({requirement}.verdict_path = 'agent' "
-        f"OR {requirement}.method_id = 'browser-inspection')"
+        f"COALESCE({requirement}.verdict_path = 'agent' "
+        f"OR {requirement}.method_id = 'browser-inspection', FALSE)"
     )
     linked_agent_pass = f"""
         EXISTS (

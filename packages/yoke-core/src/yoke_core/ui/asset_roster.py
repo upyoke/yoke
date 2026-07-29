@@ -93,6 +93,7 @@ ASSET_CONTENT_TYPES: Dict[str, str] = {
     "qa_plan_actions.js": "text/javascript; charset=utf-8",
     "qa_execution_target_view.js": "text/javascript; charset=utf-8",
     "qa_plan_detail_view.js": "text/javascript; charset=utf-8",
+    "qa_review_explanation.js": "text/javascript; charset=utf-8",
     "qa_view_primitives.js": "text/javascript; charset=utf-8",
     "item_view_details.js": "text/javascript; charset=utf-8",
     "item_intake_controls.js": "text/javascript; charset=utf-8",

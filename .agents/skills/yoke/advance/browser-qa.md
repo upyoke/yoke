@@ -58,6 +58,16 @@ The shared runner executes every case in immutable snapshot order, records
 deterministic results, and stores Browser screenshot/trace evidence. Do not
 add another run manually.
 
+For a targeted recovery after the plan runner identifies one failed
+requirement, use the same per-requirement execution contract:
+
+```bash
+yoke qa case run --requirement-id N
+```
+
+Normal transition execution remains plan-level; do not replace the ordered
+plan run with a manually assembled series of case runs.
+
 - Exit `0` / `pass`: continue.
 - `fail` or executor error: block, fix the defect or environment, then rerun
   the same requirement.
