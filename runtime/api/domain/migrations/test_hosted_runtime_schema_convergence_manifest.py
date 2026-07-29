@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 import pytest
+from psycopg.rows import tuple_row
 
 from yoke_core.domain.migration_apply_manifest import validate_manifest_payload
 from yoke_core.domain.migrations import workflow_supporting_schema_records
@@ -13,9 +14,7 @@ from yoke_core.domain.schema_common import _table_exists
 
 
 _ROOT = Path(__file__).resolve().parents[4]
-_MANIFEST = Path(__file__).with_name(
-    "hosted_runtime_schema_convergence.migration.json"
-)
+_MANIFEST = Path(__file__).with_name("hosted_runtime_schema_convergence.migration.json")
 _MODULES = (
     "workflow_supporting_schema_records",
     "qa_requirement_execution_snapshot",
@@ -71,16 +70,14 @@ def test_convergence_batch_declares_complete_surface_union() -> None:
         for surface in payload["profile"]["affected_surfaces"]:
             expected.setdefault(surface["table"], set()).update(surface["columns"])
 
-    actual = {
-        surface["table"]: set(surface["columns"])
-        for surface in combined
-    }
+    actual = {surface["table"]: set(surface["columns"]) for surface in combined}
 
     assert actual == expected
 
 
 def test_convergence_batch_applies_as_one_ordered_unit(test_db) -> None:
     manifest = parse_manifest_text(_MANIFEST.read_text(encoding="utf-8"))
+    test_db.row_factory = tuple_row
 
     result = apply_manifest(test_db, manifest)
 
