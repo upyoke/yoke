@@ -75,7 +75,7 @@
       "Applying this migration after the completed earlier catalog migration replaces stale rows atomically and reapplying it causes no drift."
     ],
     "rehearsal_commands": [
-      "PYTHONPATH=packages/yoke-contracts/src:packages/yoke-cli/src:packages/yoke-core/src:packages/yoke-harness/src:. python3 -m pytest runtime/api/domain/migrations/test_installer_campaign_executable_contract.py runtime/api/domain/migrations/test_installer_campaign_plan_rows.py runtime/api/domain/test_machine_qa_baseline_group.py runtime/api/domain/test_machine_qa_case_execution.py -q"
+      "PYTHONPATH=packages/yoke-contracts/src:packages/yoke-cli/src:packages/yoke-core/src:packages/yoke-harness/src:. python3 -m pytest runtime/api/domain/migrations/test_installer_campaign_executable_contract.py runtime/api/domain/test_machine_qa_baseline_group.py runtime/api/domain/test_machine_qa_case_execution.py -q"
     ],
     "residual_risk_notes": "The physical Test Mac proof remains an explicit execution prerequisite; this convergence repairs the authoritative plan rows but does not claim a case verdict."
   }
