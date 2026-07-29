@@ -5,6 +5,7 @@ from __future__ import annotations
 from unittest import mock
 
 from runtime.api.domain.qa_plan_execution_test_support import (
+    TEST_EXECUTION_TARGET,
     TEST_ITEM_ID,
     TEST_ITEM_REF,
 )
@@ -81,6 +82,8 @@ def test_client_runner_advances_group_results_and_reuses_them() -> None:
                 "state": "active",
                 "roster_digest": "digest",
                 "cursor_ordinal": 0,
+                "execution_target": TEST_EXECUTION_TARGET,
+                "execution_target_digest": "target-digest",
                 "requirements": requirements,
                 "results": [],
             }
@@ -215,6 +218,8 @@ def test_fully_blocked_baseline_group_completes_with_distinct_plan_state() -> No
                 "state": "active",
                 "roster_digest": "digest",
                 "cursor_ordinal": 0,
+                "execution_target": TEST_EXECUTION_TARGET,
+                "execution_target_digest": "target-digest",
                 "requirements": requirements,
                 "results": [],
             }
@@ -304,6 +309,8 @@ def test_client_runner_resumes_from_durable_baseline_group_results() -> None:
                 "state": "active",
                 "roster_digest": "digest",
                 "cursor_ordinal": 1,
+                "execution_target": TEST_EXECUTION_TARGET,
+                "execution_target_digest": "target-digest",
                 "requirements": requirements,
                 "results": [{"result": stored_anchor}],
             }

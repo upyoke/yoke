@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS qa_plans (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     retired_at TEXT,
+    target_environment_id TEXT REFERENCES environments(id),
     UNIQUE(project_id, slug)
 );
 
@@ -165,6 +166,8 @@ _REQUIREMENT_COLUMNS = (
     ("instructions", "TEXT"),
     ("expected_outcome", "TEXT"),
     ("method_config", "TEXT"),
+    ("execution_target_json", "TEXT"),
+    ("execution_target_digest", "TEXT"),
 )
 
 _RUN_COLUMNS = (
@@ -240,6 +243,12 @@ def _seed_builtin_methods(conn: Any) -> None:
 def create_qa_catalog_tables(conn: Any) -> None:
     """Converge the additive QA catalog and seed the core method roster."""
     execute_schema_script(conn, QA_CATALOG_TABLES_SQL)
+    _add_column_if_not_exists(
+        conn,
+        "qa_plans",
+        "target_environment_id",
+        "TEXT REFERENCES environments(id)",
+    )
     for column, definition in _REQUIREMENT_COLUMNS:
         _add_column_if_not_exists(conn, "qa_requirements", column, definition)
     for column, definition in _RUN_COLUMNS:

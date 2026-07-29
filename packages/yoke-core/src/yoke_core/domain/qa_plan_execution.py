@@ -164,6 +164,28 @@ def execute_plan(
         raise QaPlanExecutionError(
             "qa.plan_execution.begin returned invalid recorded results"
         )
+    execution_target = execution.get("execution_target")
+    if not isinstance(execution_target, dict):
+        raise QaPlanExecutionError(
+            "qa.plan_execution.begin returned no execution environment target"
+        )
+    target_endpoints = execution_target.get("endpoints")
+    if not isinstance(target_endpoints, dict):
+        raise QaPlanExecutionError(
+            "qa.plan_execution.begin returned invalid target endpoints"
+        )
+    allowed_base_urls = {
+        str(value).rstrip("/")
+        for key, value in target_endpoints.items()
+        if key.endswith("_url") and isinstance(value, str) and value
+    }
+    if base_url and base_url.rstrip("/") not in allowed_base_urls:
+        raise QaPlanExecutionError(
+            "explicit base_url does not belong to the execution target"
+        )
+    resolved_base_url = str(
+        target_endpoints.get("app_url") or target_endpoints.get("api_url") or ""
+    )
     recorded_results = [
         dict(entry["result"])
         for entry in stored_results
@@ -238,7 +260,7 @@ def execute_plan(
             else:
                 result = execute_case_context(
                     requirement,
-                    base_url=base_url,
+                    base_url=resolved_base_url,
                     expected_branch=expected_branch,
                     expected_sha=expected_sha,
                     timeout_seconds=timeout_seconds,

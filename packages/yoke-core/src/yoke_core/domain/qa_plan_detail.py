@@ -111,6 +111,17 @@ def get_plan(
     )
     if row is None:
         raise LookupError(f"QA plan {plan_id} not found")
+    execution_target = None
+    if row["target_environment_id"]:
+        from yoke_core.domain.qa_execution_environment_target import (
+            resolve_plan_execution_target,
+        )
+
+        execution_target = resolve_plan_execution_target(
+            conn,
+            plan_id=int(plan_id),
+            require_runtime_match=False,
+        )
     if deployment_run_id is not None:
         run = query_one(
             conn,
@@ -198,6 +209,8 @@ def get_plan(
         "updated_at": str(row["updated_at"]),
         "retired_at": row["retired_at"],
         "deployment_run_id": deployment_run_id,
+        "target_environment_id": row["target_environment_id"],
+        "execution_target": execution_target,
         "cases": cases,
         "attachments": _attachment_rows(conn, int(plan_id)),
         "union": {"satisfied": satisfied, "counts": counts},

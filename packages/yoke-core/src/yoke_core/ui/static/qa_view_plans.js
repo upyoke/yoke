@@ -114,7 +114,7 @@ function renderPlanTable(context, body, rows) {
   const table = el(documentNode, "table", "items qa-plans-table");
   const head = el(documentNode, "tr");
   for (const label of [
-    "Plan", "Project", "Cases", "Attached", "Last result",
+    "Plan", "Project", "Target", "Cases", "Attached", "Last result",
   ]) {
     head.appendChild(el(documentNode, "th", null, label));
   }
@@ -134,6 +134,15 @@ function renderPlanTable(context, body, rows) {
     planCell.appendChild(link);
     tr.appendChild(planCell);
     tr.appendChild(el(documentNode, "td", null, row.project));
+    const target = row.execution_target;
+    tr.appendChild(el(
+      documentNode,
+      "td",
+      target ? "qa-plan-target" : "qa-plan-target muted",
+      target
+        ? `${target.tenant.slug} · ${target.environment.name}`
+        : "not bound",
+    ));
     const methods = el(documentNode, "td");
     methods.appendChild(methodSummary(documentNode, row));
     tr.appendChild(methods);

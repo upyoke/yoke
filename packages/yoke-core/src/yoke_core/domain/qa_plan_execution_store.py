@@ -145,6 +145,11 @@ def select_plan_execution(
             "QA plan execution contains an invalid roster snapshot"
         )
     row["roster"] = roster
+    from yoke_core.domain.qa_plan_execution_target_snapshot import (
+        decode_execution_target,
+    )
+
+    row["execution_target"] = decode_execution_target(row)
     return row
 
 
@@ -305,6 +310,8 @@ def plan_execution_view(
         "roster_digest": str(execution["roster_digest"]),
         "cursor_ordinal": int(execution["cursor_ordinal"]),
         "machine_lease_id": execution.get("machine_lease_id"),
+        "execution_target": execution.get("execution_target"),
+        "execution_target_digest": execution.get("execution_target_digest"),
         "requirements": list(execution["roster"]),
         "results": result_rows(conn, str(execution["id"])),
     }

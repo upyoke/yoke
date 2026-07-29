@@ -46,6 +46,7 @@ def get_case_execution_context(
         "q.workflow_transition_id, q.entry_surface, "
         "q.required_completion, q.method_name, q.executor_id, "
         "q.required_capability_kind, q.verdict_path, "
+        "q.execution_target_json, q.execution_target_digest, "
         f"{primary_item_worktree_branch_sql('i.id')} AS lane_branch, "
         "p.id AS project_id, "
         "p.slug AS project "
@@ -97,7 +98,7 @@ def get_case_execution_context(
         if row["plan_case_key"]
         else f"ad-hoc-{int(row['requirement_id'])}"
     )
-    return {
+    context = {
         "requirement_id": int(row["requirement_id"]),
         "item_id": (int(row["item_id"]) if row["item_id"] is not None else None),
         "deployment_run_id": row["deployment_run_id"],
@@ -120,6 +121,38 @@ def get_case_execution_context(
         "project": str(row["project"]),
         "lane_branch": row["lane_branch"],
     }
+    if plan_id is not None:
+        raw_target = row["execution_target_json"]
+        if not raw_target or not row["execution_target_digest"]:
+            raise QaCaseExecutionError(
+                "materialized QA case has no execution environment target; "
+                "rematerialize it after binding the plan target"
+            )
+        try:
+            execution_target = json.loads(str(raw_target))
+        except (TypeError, ValueError) as exc:
+            raise QaCaseExecutionError(
+                "materialized QA case has an invalid execution target"
+            ) from exc
+        if not isinstance(execution_target, dict):
+            raise QaCaseExecutionError(
+                "materialized QA case has an invalid execution target"
+            )
+        from yoke_core.domain.qa_execution_environment_target import (
+            require_case_target,
+            require_runtime_target,
+            target_digest,
+        )
+
+        if target_digest(execution_target) != str(row["execution_target_digest"]):
+            raise QaCaseExecutionError(
+                "materialized QA case execution target digest does not match"
+            )
+        require_runtime_target(execution_target)
+        require_case_target(context, execution_target)
+        context["execution_target"] = execution_target
+        context["execution_target_digest"] = str(row["execution_target_digest"])
+    return context
 
 
 __all__ = [
