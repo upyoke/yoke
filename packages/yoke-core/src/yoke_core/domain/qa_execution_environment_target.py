@@ -16,11 +16,19 @@ from yoke_contracts.api_urls import (
     HOSTED_STAGE_PLATFORM_URL,
 )
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import query_one, query_rows
 
 
 class QaExecutionTargetError(ValueError):
     """A QA plan or case cannot resolve one safe execution target."""
+
+
+def _mapping_rows(cursor: Any) -> list[dict[str, Any]]:
+    """Normalize rows from both Yoke and portable fleet connections."""
+    columns = [str(column[0]) for column in cursor.description]
+    return [
+        dict(row) if hasattr(row, "keys") else dict(zip(columns, row, strict=True))
+        for row in cursor.fetchall()
+    ]
 
 
 def canonical_target(target: Mapping[str, Any]) -> str:
@@ -61,11 +69,15 @@ def _host_url(value: Any) -> str:
 
 
 def _runtime_environment() -> str:
-    return str(
-        os.environ.get("YOKE_ENVIRONMENT")
-        or os.environ.get("APP_ENV")
-        or "development"
-    ).strip().lower()
+    return (
+        str(
+            os.environ.get("YOKE_ENVIRONMENT")
+            or os.environ.get("APP_ENV")
+            or "development"
+        )
+        .strip()
+        .lower()
+    )
 
 
 def require_runtime_target(target: Mapping[str, Any]) -> None:
@@ -86,9 +98,7 @@ def _yoke_endpoints(environment: str, tenant_slug: str) -> dict[str, Any]:
     selected = aliases.get(environment.lower(), environment.lower())
     if selected not in {"prod", "stage"}:
         return {}
-    app_url = (
-        HOSTED_STAGE_PLATFORM_URL if selected == "stage" else HOSTED_PLATFORM_URL
-    )
+    app_url = HOSTED_STAGE_PLATFORM_URL if selected == "stage" else HOSTED_PLATFORM_URL
     installer_base = (
         DISTRIBUTION_STAGE_URL if selected == "stage" else DISTRIBUTION_PROD_URL
     )
@@ -138,8 +148,7 @@ def resolve_plan_execution_target(
 ) -> dict[str, Any]:
     """Resolve the plan's environment binding into one identity snapshot."""
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    row = query_one(
-        conn,
+    cursor = conn.execute(
         "SELECT qp.target_environment_id, p.id AS project_id, "
         "p.slug AS project_slug, p.name AS project_name, "
         "o.id AS tenant_id, o.slug AS tenant_slug, o.name AS tenant_name, "
@@ -152,6 +161,8 @@ def resolve_plan_execution_target(
         f"WHERE qp.id={marker}",
         (int(plan_id),),
     )
+    rows = _mapping_rows(cursor)
+    row = rows[0] if rows else None
     if row is None:
         raise QaExecutionTargetError(f"QA plan {plan_id} not found")
     if not row["target_environment_id"]:
@@ -196,18 +207,20 @@ def resolve_plan_execution_target(
 def select_backfill_environment(conn: Any, *, project_id: int) -> str:
     """Select the current hosted runtime's one project environment."""
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    rows = query_rows(
-        conn,
-        "SELECT e.id,e.name FROM environments e "
-        "JOIN sites s ON s.id=e.site "
-        f"WHERE s.project_id={marker} ORDER BY e.id",
-        (int(project_id),),
+    rows = _mapping_rows(
+        conn.execute(
+            "SELECT e.id,e.name FROM environments e "
+            "JOIN sites s ON s.id=e.site "
+            f"WHERE s.project_id={marker} ORDER BY e.id",
+            (int(project_id),),
+        )
     )
     runtime = _runtime_environment()
     aliases = {"production": "prod", "staging": "stage"}
     runtime = aliases.get(runtime, runtime)
     matches = [
-        row for row in rows
+        row
+        for row in rows
         if aliases.get(str(row["name"]).lower(), str(row["name"]).lower()) == runtime
     ]
     if len(matches) == 1:

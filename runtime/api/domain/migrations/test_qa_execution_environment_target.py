@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 import pytest
+from psycopg.rows import tuple_row
 
 from runtime.api.domain.migrations import (
     qa_execution_environment_target as source_wrapper,
@@ -41,9 +42,7 @@ from yoke_core.domain.qa_plan_execution_state import (
 )
 
 _ROOT = Path(__file__).resolve().parents[4]
-_MANIFEST = Path(__file__).with_name(
-    "qa_execution_environment_target.migration.json"
-)
+_MANIFEST = Path(__file__).with_name("qa_execution_environment_target.migration.json")
 
 
 def test_governed_manifest_is_valid_and_digest_bound() -> None:
@@ -179,6 +178,21 @@ def test_runtime_refuses_opposite_environment_target(monkeypatch) -> None:
         conn.commit()
         with pytest.raises(QaExecutionTargetError, match="cannot execute"):
             resolve_plan_execution_target(conn, plan_id=plan["id"])
+
+
+def test_migration_accepts_portable_tuple_row_connection(monkeypatch) -> None:
+    monkeypatch.setenv("YOKE_ENVIRONMENT", "stage")
+    with test_database() as conn:
+        _environment(conn, "stage")
+        _environment(conn, "prod")
+        plan_id = _unbound_installer_plan(conn)
+        conn.row_factory = tuple_row
+
+        apply(conn)
+        invariants(conn)
+
+        target = resolve_plan_execution_target(conn, plan_id=plan_id)
+        assert target["environment"]["name"] == "stage"
 
 
 def test_case_guard_rejects_opposite_yoke_origin() -> None:
