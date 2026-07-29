@@ -95,6 +95,16 @@ def has_forward_serial_edge(
     )
 
 
+def items_are_coordination_only(
+    conn: Any, *, item_a_id: int, item_b_id: int,
+) -> bool:
+    """Return whether every dependency edge between two items is coordination-only."""
+    gate_points = _inter_item_gate_points(
+        conn, item_a_id=item_a_id, item_b_id=item_b_id,
+    )
+    return bool(gate_points) and all(is_coordination_only(gp) for gp in gate_points)
+
+
 def classify_inter_item_edges(
     conn: Any,
     *,
@@ -158,4 +168,5 @@ __all__ = [
     "CoordinationClassification",
     "classify_inter_item_edges",
     "has_forward_serial_edge",
+    "items_are_coordination_only",
 ]
