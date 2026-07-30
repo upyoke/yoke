@@ -5,17 +5,20 @@ import sys
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_rows
+from yoke_core.domain.item_ref_columns import column_item_id_sql
 
 
 def cmd_dependency_enrich(conn) -> str:
+    blocking_id_sql = column_item_id_sql(conn, "d.blocking_item")
+    dependent_id_sql = column_item_id_sql(conn, "d.dependent_item")
     rows = query_rows(
         conn,
         "SELECT d.id, d.dependent_item, d.blocking_item, d.gate_point, "
         "d.satisfaction, d.source, d.rationale, d.evidence_json, "
         "COALESCE(bi.title, ''), COALESCE(di.title, '') "
         "FROM item_dependencies d "
-        "LEFT JOIN items bi ON bi.id = CAST(REPLACE(d.blocking_item, 'YOK-', '') AS INTEGER) "
-        "LEFT JOIN items di ON di.id = CAST(REPLACE(d.dependent_item, 'YOK-', '') AS INTEGER) "
+        f"LEFT JOIN items bi ON bi.id = {blocking_id_sql} "
+        f"LEFT JOIN items di ON di.id = {dependent_id_sql} "
         "WHERE d.rationale IN ('', 'Operator-declared dependency', "
         "'Operator-declared activation dependency', "
         "'Operator-declared integration dependency', "

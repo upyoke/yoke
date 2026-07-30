@@ -37,6 +37,7 @@ from .dependency_planning_results import (
 )
 from .dependency_planning_telemetry import emit_batch_gate_evaluated
 from .dependency_workflow_context import workflow_from_joined_values
+from .item_ref_columns import column_item_id_sql
 from .item_worktree_resolution import primary_item_worktree_branch_sql
 
 
@@ -48,6 +49,7 @@ def _p(conn: Any) -> str:
 
 def _item_deps_sql(conn: Any) -> str:
     p = _p(conn)
+    blocking_id = column_item_id_sql(conn, "d.blocking_item")
     return f"""
 SELECT d.id, d.dependent_item, d.blocking_item, d.gate_point, d.satisfaction,
        d.rationale, bi.status AS blocking_status,
@@ -56,7 +58,7 @@ SELECT d.id, d.dependent_item, d.blocking_item, d.gate_point, d.satisfaction,
        bi.workflow_id, bi.workflow_version_id, wv.version,
        wv.definition_json, wv.definition_digest
 FROM item_dependencies d
-LEFT JOIN items bi ON bi.id = CAST(REPLACE(d.blocking_item, 'YOK-', '') AS INTEGER)
+LEFT JOIN items bi ON bi.id = {blocking_id}
 LEFT JOIN workflow_versions wv ON wv.id = bi.workflow_version_id
 WHERE d.dependent_item = {p} AND d.gate_point = {p}
 """
@@ -64,6 +66,7 @@ WHERE d.dependent_item = {p} AND d.gate_point = {p}
 
 def _batch_deps_sql(conn: Any) -> str:
     p = _p(conn)
+    blocking_id = column_item_id_sql(conn, "d.blocking_item")
     return f"""
 SELECT d.dependent_item, d.blocking_item, d.gate_point, d.satisfaction,
        d.rationale, bi.status AS blocking_status,
@@ -72,7 +75,7 @@ SELECT d.dependent_item, d.blocking_item, d.gate_point, d.satisfaction,
        bi.workflow_id, bi.workflow_version_id, wv.version,
        wv.definition_json, wv.definition_digest
 FROM item_dependencies d
-LEFT JOIN items bi ON bi.id = CAST(REPLACE(d.blocking_item, 'YOK-', '') AS INTEGER)
+LEFT JOIN items bi ON bi.id = {blocking_id}
 LEFT JOIN workflow_versions wv ON wv.id = bi.workflow_version_id
 WHERE d.gate_point = {p}
 """

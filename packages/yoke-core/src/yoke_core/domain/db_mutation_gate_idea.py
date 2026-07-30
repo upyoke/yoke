@@ -16,7 +16,6 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
 
-from . import db_backend
 from yoke_core.domain import db_helpers
 from yoke_core.domain.db_compatibility_attestation import AUTHORED_FIELDS
 from yoke_core.domain.db_mutation_compat_scanner import (
@@ -49,7 +48,9 @@ from yoke_core.domain.db_mutation_profile import (
     DbMutationProfileError,
     validate as validate_profile,
 )
-from yoke_core.domain.db_optional_queries import fetch_optional_rows
+from yoke_core.domain.db_mutation_gate_dependency_pairs import (
+    load_dependency_pairs,
+)
 from yoke_core.domain.migration_model_capability import resolve_model
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.projects_breakage_policy import (
@@ -280,7 +281,7 @@ def check_idea_to_refining_idea_gate(
         candidate = dict(profile)
         candidate["__item_id"] = item_id
         others = _other_non_terminal_profiles(c, project, item_id)
-        dependency_pairs = _load_dependency_pairs(c, item_id, others)
+        dependency_pairs = load_dependency_pairs(c, item_id, others)
         overlaps = detect_overlap(
             candidate, others, dependency_pairs=dependency_pairs,
         )
@@ -307,44 +308,6 @@ def check_idea_to_refining_idea_gate(
         return _evaluate(conn)
     with db_helpers.connect() as owned:
         return _evaluate(owned)
-
-
-def _load_dependency_pairs(
-    c: Any,
-    item_id: int,
-    others: List[Dict[str, Any]],
-) -> set:
-    """Return ``{(lo, hi)}`` numeric pairs joined by an
-    ``item_dependencies`` edge in either direction.
-
-    ``item_dependencies`` stores ``YOK-N`` labels; callers compare bare ids.
-    Missing dependency tables on partial test DBs return an empty set.
-    """
-    other_ids = sorted({
-        int(o["__item_id"]) for o in others if o.get("__item_id") is not None
-    })
-    if not other_ids:
-        return set()
-    candidate_label = f"YOK-{item_id}"
-    other_labels = [f"YOK-{n}" for n in other_ids]
-    p = "%s" if db_backend.connection_is_postgres(c) else "?"
-    ph = ",".join([p] * len(other_labels))
-    rows = fetch_optional_rows(
-        c,
-        f"SELECT dependent_item, blocking_item FROM item_dependencies "
-        f"WHERE (dependent_item = {p} AND blocking_item IN ({ph})) "
-        f"   OR (blocking_item = {p} AND dependent_item IN ({ph}))",
-        (candidate_label, *other_labels, candidate_label, *other_labels),
-        savepoint="idea_gate_dependency_pairs",
-    )
-    pairs: set = set()
-    for row in rows:
-        dep = row["dependent_item"] if hasattr(row, "keys") else row[0]
-        blk = row["blocking_item"] if hasattr(row, "keys") else row[1]
-        a = int(str(dep).replace("YOK-", ""))
-        b = int(str(blk).replace("YOK-", ""))
-        pairs.add((min(a, b), max(a, b)))
-    return pairs
 
 
 __all__ = ["check_idea_to_refining_idea_gate"]

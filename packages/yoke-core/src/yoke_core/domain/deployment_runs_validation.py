@@ -12,6 +12,7 @@ from __future__ import annotations
 from typing import List, Optional, Sequence, Tuple
 
 from yoke_core.domain.db_helpers import connect, query_rows, query_scalar
+from yoke_core.domain.item_ref_columns import column_item_id_sql
 from yoke_core.domain.project_identity import resolve_project, resolve_project_slug
 from yoke_core.domain.schema_common import _get_columns as _schema_get_columns
 
@@ -97,23 +98,24 @@ def cmd_validate_composition(run_id: str, db_path: Optional[str] = None) -> Tupl
 
         # Check 4: Unsatisfied hard-block dependencies
         hard_block_filter = _hard_block_gate_filter(conn)
+        dependent_item_id = column_item_id_sql(conn, "dep.dependent_item")
+        blocking_item_id = column_item_id_sql(conn, "dep.blocking_item")
         blocked = query_rows(
             conn,
-            "SELECT 'YOK-' || CAST(REPLACE(dep.dependent_item, 'YOK-', '') AS INTEGER) "
-            "|| ' (blocked by ' || dep.blocking_item || ')' "
+            "SELECT dep.dependent_item || ' (blocked by ' || dep.blocking_item || ')' "
             "FROM item_dependencies dep "
             "JOIN deployment_run_items dri "
-            "  ON dri.item_id = CAST(REPLACE(dep.dependent_item, 'YOK-', '') AS INTEGER) "
+            f"  ON dri.item_id = {dependent_item_id} "
             "WHERE dri.run_id=%s "
             f"  {hard_block_filter}"
             "  AND NOT EXISTS ( "
             "    SELECT 1 FROM deployment_run_items dri2 "
             "    WHERE dri2.run_id=%s "
-            "      AND dri2.item_id = CAST(REPLACE(dep.blocking_item, 'YOK-', '') AS INTEGER) "
+            f"      AND dri2.item_id = {blocking_item_id} "
             "  ) "
             "  AND NOT EXISTS ( "
             "    SELECT 1 FROM items blocker "
-            "    WHERE blocker.id = CAST(REPLACE(dep.blocking_item, 'YOK-', '') AS INTEGER) "
+            f"    WHERE blocker.id = {blocking_item_id} "
             "      AND ( "
             "        (dep.satisfaction = 'status:done' AND blocker.status = 'done') "
             "        OR (dep.satisfaction = 'status:implemented' AND blocker.status IN ('implemented', 'release', 'done')) "
@@ -201,17 +203,18 @@ def cmd_check_batch_compatibility(
 
         # Check 4: Unsatisfied hard-block deps outside batch
         hard_block_filter = _hard_block_gate_filter(conn)
+        dependent_item_id = column_item_id_sql(conn, "dep.dependent_item")
+        blocking_item_id = column_item_id_sql(conn, "dep.blocking_item")
         blocked = query_rows(
             conn,
-            f"SELECT 'YOK-' || CAST(REPLACE(dep.dependent_item, 'YOK-', '') AS INTEGER) "
-            f"|| ' (blocked by ' || dep.blocking_item || ')' "
+            f"SELECT dep.dependent_item || ' (blocked by ' || dep.blocking_item || ')' "
             f"FROM item_dependencies dep "
-            f"WHERE CAST(REPLACE(dep.dependent_item, 'YOK-', '') AS INTEGER) IN ({placeholders}) "
+            f"WHERE {dependent_item_id} IN ({placeholders}) "
             f"  {hard_block_filter}"
-            f"  AND CAST(REPLACE(dep.blocking_item, 'YOK-', '') AS INTEGER) NOT IN ({placeholders}) "
+            f"  AND {blocking_item_id} NOT IN ({placeholders}) "
             f"  AND NOT EXISTS ( "
             f"    SELECT 1 FROM items blocker "
-            f"    WHERE blocker.id = CAST(REPLACE(dep.blocking_item, 'YOK-', '') AS INTEGER) "
+            f"    WHERE blocker.id = {blocking_item_id} "
             f"      AND ( "
             f"        (dep.satisfaction = 'status:done' AND blocker.status = 'done') "
             f"        OR (dep.satisfaction = 'status:implemented' AND blocker.status IN ('implemented', 'release', 'done')) "

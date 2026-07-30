@@ -37,6 +37,8 @@ class TestShepherd:
 
     def test_dependency_add_and_list(self, test_db):
         from yoke_core.domain.shepherd import cmd_dependency_add, cmd_dependency_list
+        insert_item(test_db, id=5, title="blocker")
+        insert_item(test_db, id=10, title="dependent")
         cmd_dependency_add(test_db, "YOK-10", "YOK-5", "operator")
         result = cmd_dependency_list(test_db, "YOK-10")
         assert "depends-on" in result

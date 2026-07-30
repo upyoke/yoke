@@ -46,6 +46,7 @@ from yoke_core.domain.dependency_explanation import (  # noqa: F401 — public A
 from yoke_core.domain.dependency_workflow_context import (
     workflow_from_joined_values,
 )
+from yoke_core.domain.item_ref_columns import column_item_id_sql
 from yoke_core.domain.item_worktree_resolution import (
     primary_item_worktree_branch_sql,
 )
@@ -156,7 +157,7 @@ SELECT
     wv.definition_json,
     wv.definition_digest
 FROM item_dependencies d
-LEFT JOIN items bi ON bi.id = CAST(REPLACE(d.blocking_item, 'YOK-', '') AS INTEGER)
+LEFT JOIN items bi ON bi.id = {blocking_item_id_sql}
 LEFT JOIN workflow_versions wv ON wv.id = bi.workflow_version_id
 WHERE d.dependent_item = {p}
   AND d.gate_point = {p}
@@ -186,6 +187,7 @@ def query_unsatisfied_at_gate(
         _UNSATISFIED_DEPS_SQL.format(
             p=_p(conn),
             blocking_worktree_sql=primary_item_worktree_branch_sql("bi.id"),
+            blocking_item_id_sql=column_item_id_sql(conn, "d.blocking_item"),
         ),
         (dependent_item, gate_point),
     )
@@ -257,7 +259,7 @@ SELECT
     wv.definition_json,
     wv.definition_digest
 FROM item_dependencies d
-LEFT JOIN items bi ON bi.id = CAST(REPLACE(d.blocking_item, 'YOK-', '') AS INTEGER)
+LEFT JOIN items bi ON bi.id = {blocking_item_id_sql}
 LEFT JOIN workflow_versions wv ON wv.id = bi.workflow_version_id
 WHERE d.gate_point = {p}
 """
@@ -280,6 +282,7 @@ def query_frontier_blocks(
         _FRONTIER_BLOCKS_SQL.format(
             p=_p(conn),
             blocking_worktree_sql=primary_item_worktree_branch_sql("bi.id"),
+            blocking_item_id_sql=column_item_id_sql(conn, "d.blocking_item"),
         ),
         (gate_point,),
     )

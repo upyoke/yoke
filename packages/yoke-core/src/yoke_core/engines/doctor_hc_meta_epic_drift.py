@@ -15,6 +15,7 @@ from typing import List
 
 from yoke_core.domain import db_backend, machine_config
 from yoke_core.domain.db_helpers import query_rows, query_scalar
+from yoke_core.domain.item_ref_columns import column_item_id_sql
 
 import yoke_core.engines.doctor_report as _base
 
@@ -135,14 +136,14 @@ def hc_cancelled_blocker_dependencies(
         )
         return
 
+    blocking_item_id = column_item_id_sql(conn, "d.blocking_item")
     rows = query_rows(
         conn,
         "SELECT d.dependent_item, d.blocking_item, d.gate_point, "
         "d.satisfaction, COALESCE(i.resolution, ''), "
         "COALESCE(i.resolution_ref, '') "
         "FROM item_dependencies d "
-        "JOIN items i ON i.id = CAST(REPLACE(d.blocking_item, 'YOK-', '') "
-        "AS INTEGER) "
+        f"JOIN items i ON i.id = {blocking_item_id} "
         "WHERE i.status = 'cancelled' "
         "ORDER BY d.dependent_item, d.blocking_item, d.gate_point",
     )

@@ -81,6 +81,12 @@ def _validate(model_cls, payload: Any, label: str):
 
 
 def _dependent_item(request: FunctionCallRequest) -> tuple[str | None, HandlerOutcome | None]:
+    """The dispatcher target rendered as the ref the DB columns store.
+
+    ``target.item_id`` is the internal ``items.id``; the dependency columns
+    hold the public ref, so the id renders through its own project's
+    prefix + project sequence rather than being restamped with a prefix.
+    """
     item_id = request.target.item_id
     if request.target.kind != "item" or item_id is None:
         return None, _err(
@@ -88,7 +94,9 @@ def _dependent_item(request: FunctionCallRequest) -> tuple[str | None, HandlerOu
             "shepherd dependency writes require target.kind='item' with item_id",
             jsonpath="$.target.item_id",
         )
-    return f"YOK-{int(item_id)}", None
+    from yoke_core.domain.item_ref_columns import render_column_item_ref
+
+    return _run_with_conn(render_column_item_ref, int(item_id)), None
 
 
 def _run_with_conn(fn, *args, **kwargs) -> str:

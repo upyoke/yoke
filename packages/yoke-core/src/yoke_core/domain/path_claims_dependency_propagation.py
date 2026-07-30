@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, List, Optional, Set
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.item_ref_resolution import internal_ids_for_refs
 from yoke_core.domain.path_claims_dependency_binding_lock import (
     lock_candidate_item_bindings,
 )
@@ -26,13 +27,6 @@ def _claim_owning_item(conn: Any, claim_id: int):
     if row is None or row[0] is None:
         return None
     return int(row[0])
-
-
-def _strip_sun(text: str) -> str:
-    text = str(text or "").strip()
-    if text[:4].lower() == "yok-":
-        text = text[4:]
-    return text.lstrip("0") or "0"
 
 
 def _item_status(conn: Any, item_id: int) -> str:
@@ -88,18 +82,24 @@ def _dep_satisfied_downstream_claims(
         ).fetchall()
     except db_backend.operational_error_types(conn):
         return []
+    # Stored refs are public (prefix + project sequence); resolve every side
+    # to an internal id in one query before comparing to the claim's item id.
+    resolved = internal_ids_for_refs(
+        conn,
+        {str(edge[0]) for edge in edges} | {str(edge[1]) for edge in edges},
+    )
     satisfied_dependent_items: Set[int] = set()
     for raw_dep, raw_blk, sat in edges:
-        if _strip_sun(raw_blk) != str(blocking_item_id):
+        if resolved.get(str(raw_blk)) != blocking_item_id:
             continue
         sat_text = str(sat or "status:done").strip()
         if sat_text.startswith("status:"):
             wanted = sat_text.split(":", 1)[1].strip()
             if blocking_status == wanted:
-                try:
-                    satisfied_dependent_items.add(int(_strip_sun(raw_dep)))
-                except ValueError:
+                dependent_id = resolved.get(str(raw_dep))
+                if dependent_id is None:
                     continue
+                satisfied_dependent_items.add(dependent_id)
 
     if not satisfied_dependent_items:
         return []

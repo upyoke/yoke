@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_rows
+from yoke_core.domain.item_ref_columns import render_column_item_ref
 from yoke_core.domain.sql_json import json_get
 from yoke_core.domain.time_sql import now_sql
 
@@ -85,9 +86,11 @@ def hc_path_claim_register_rejected_with_deps(
         ).fetchone()
         if blocking_row is None or blocking_row[0] is None:
             continue
-        ref_a = f"YOK-{int(item_id)}"
+        # Match the canonical stored ref and the bare-id shape both; the
+        # ref columns hold public refs while some rows carry a bare id.
+        ref_a = render_column_item_ref(conn, int(item_id))
         ref_b = str(int(item_id))
-        upstream_a = f"YOK-{int(blocking_row[0])}"
+        upstream_a = render_column_item_ref(conn, int(blocking_row[0]))
         upstream_b = str(int(blocking_row[0]))
         edge_row = conn.execute(
             "SELECT 1 FROM item_dependencies "
@@ -116,7 +119,7 @@ def hc_path_claim_register_rejected_with_deps(
     for row in flagged[:10]:
         item = int(row["item_id"])
         issues.append(
-            f"  - YOK-{item} at {row['at']} "
+            f"  - {render_column_item_ref(conn, item)} at {row['at']} "
             f"(blocking claim {row['blocking_claim_id']}): {row['reason']}"
         )
     if len(flagged) > 10:

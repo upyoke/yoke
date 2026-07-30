@@ -17,6 +17,7 @@ from yoke_core.domain.backlog_queries import (
     _resolve_write_db_path,
 )
 from yoke_core.domain import backlog_rendering as _rendering
+from yoke_core.domain.item_ref_columns import render_column_item_ref
 from yoke_core.domain.item_worktrees import list_item_worktrees
 from yoke_core.domain.project_identity import render_item_ref
 
@@ -130,16 +131,16 @@ def execute_close(
         # tooling. Deletion statements run on the same connection as
         # `_update_item_multi` below so the status change and
         # deterministic deletions commit atomically.
-        sun_ref = f"YOK-{item_id}"
+        dependency_ref = render_column_item_ref(conn, item_id)
         outbound_rows = conn.execute(
             "SELECT blocking_item, gate_point, satisfaction "
             f"FROM item_dependencies WHERE dependent_item = {p}",
-            (sun_ref,),
+            (dependency_ref,),
         ).fetchall()
         inbound_rows = conn.execute(
             "SELECT dependent_item, gate_point, satisfaction "
             f"FROM item_dependencies WHERE blocking_item = {p}",
-            (sun_ref,),
+            (dependency_ref,),
         ).fetchall()
 
         removed_outbound: list[dict] = []
@@ -154,7 +155,7 @@ def execute_close(
         if outbound_rows:
             conn.execute(
                 f"DELETE FROM item_dependencies WHERE dependent_item = {p}",
-                (sun_ref,),
+                (dependency_ref,),
             )
 
         removed_absorbed: list[dict] = []
@@ -171,7 +172,7 @@ def execute_close(
                     "DELETE FROM item_dependencies "
                     f"WHERE dependent_item = {p} AND blocking_item = {p} "
                     f"AND gate_point = {p}",
-                    (dependent_item, sun_ref, gate_point),
+                    (dependent_item, dependency_ref, gate_point),
                 )
                 removed_absorbed.append(
                     {
@@ -184,7 +185,7 @@ def execute_close(
                 preserved_ambiguous.append(
                     {
                         "dependent_item": dependent_item,
-                        "blocking_item": sun_ref,
+                        "blocking_item": dependency_ref,
                         "gate_point": gate_point,
                         "satisfaction": satisfaction,
                     }

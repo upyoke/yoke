@@ -30,6 +30,7 @@ import re
 from dataclasses import dataclass
 from typing import Any, List, Optional
 
+from yoke_core.domain.item_ref_columns import column_item_id_sql
 from yoke_core.domain.schema_common import _table_exists as _schema_table_exists
 
 
@@ -206,16 +207,16 @@ def scan_non_terminal_activation_rows(
     if not _has_table(conn, "item_dependencies"):
         return []
 
+    dependent_item_id = column_item_id_sql(conn, "d.dependent_item")
+    blocking_item_id = column_item_id_sql(conn, "d.blocking_item")
     rows = conn.execute(
         "SELECT d.id, d.dependent_item, d.blocking_item, d.gate_point, "
         "d.source, d.rationale, "
         "  COALESCE(di.status, '') AS dependent_status, "
         "  COALESCE(bi.status, '') AS blocking_status "
         "FROM item_dependencies AS d "
-        "LEFT JOIN items AS di ON di.id = "
-        "  CAST(REPLACE(d.dependent_item, 'YOK-', '') AS INTEGER) "
-        "LEFT JOIN items AS bi ON bi.id = "
-        "  CAST(REPLACE(d.blocking_item, 'YOK-', '') AS INTEGER) "
+        f"LEFT JOIN items AS di ON di.id = {dependent_item_id} "
+        f"LEFT JOIN items AS bi ON bi.id = {blocking_item_id} "
         "WHERE d.gate_point = 'activation' "
         "ORDER BY d.id ASC"
     ).fetchall()

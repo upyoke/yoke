@@ -5,7 +5,8 @@ import sys
 from typing import List, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import query_rows, query_scalar
+from yoke_core.domain.db_helpers import query_scalar
+from yoke_core.domain.item_ref_columns import resolve_column_item_ref
 from yoke_core.domain.path_claims_blocked_reason_refresh import (
     refresh_blocked_reason_for_edge_change,
 )
@@ -19,12 +20,15 @@ from yoke_core.domain.shepherd_records import (
 def _refresh_blocked_reasons(conn, dependent: str, blocking: str) -> None:
     """Trigger wording refresh after an item_dependencies edge change.
 
-    ``dependent`` and ``blocking`` are YOK-prefixed strings produced by
-    :func:`normalize_item_id`; the refresh helper expects bare integer
-    item ids. Strips the prefix and dispatches.
+    ``dependent`` and ``blocking`` are public refs produced by
+    :func:`normalize_item_id`; the refresh helper keys on internal item
+    ids, so each side resolves through prefix + project sequence first. A
+    ref naming no item is skipped — there is no claim to re-word.
     """
-    dep_id = int(dependent[4:]) if dependent.startswith("YOK-") else int(dependent)
-    blk_id = int(blocking[4:]) if blocking.startswith("YOK-") else int(blocking)
+    dep_id = resolve_column_item_ref(conn, dependent)
+    blk_id = resolve_column_item_ref(conn, blocking)
+    if dep_id is None or blk_id is None:
+        return
     refresh_blocked_reason_for_edge_change(
         conn,
         dependent_item_id=dep_id,
@@ -60,8 +64,8 @@ def cmd_dependency_add(
     evidence_json: str = "{}",
     session_id: Optional[int] = None,
 ) -> str:
-    dependent = normalize_item_id(dependent)
-    blocking = normalize_item_id(blocking)
+    dependent = normalize_item_id(dependent, conn)
+    blocking = normalize_item_id(blocking, conn)
     _validate_dependency_fields(source, gate_point, satisfaction)
 
     satisfaction = satisfaction or _DEFAULT_SATISFACTION.get(gate_point, "status:done")
@@ -112,8 +116,8 @@ def cmd_dependency_update(
     satisfaction: Optional[str] = None,
     rationale: Optional[str] = None,
 ) -> str:
-    dependent = normalize_item_id(dependent)
-    blocking = normalize_item_id(blocking)
+    dependent = normalize_item_id(dependent, conn)
+    blocking = normalize_item_id(blocking, conn)
     _validate_dependency_update_inputs(match_gate_point, gate_point, satisfaction, rationale)
 
     p = _placeholder(conn)
@@ -226,7 +230,7 @@ def cmd_dependency_reconcile(
 ) -> str:
     if source not in VALID_SOURCES:
         raise ValueError(f"source must be {', '.join(sorted(VALID_SOURCES))}")
-    scope_item = normalize_item_id(scope_item)
+    scope_item = normalize_item_id(scope_item, conn)
     if gate_point_filter and gate_point_filter not in VALID_GATE_POINTS:
         raise ValueError(f"invalid gate_point: {gate_point_filter}")
 
@@ -244,7 +248,7 @@ def cmd_dependency_reconcile(
     edges = []
     ts = now_iso()
     for line in stdin_lines:
-        edge = _parse_dependency_edge(line, source, ts)
+        edge = _parse_dependency_edge(conn, line, source, ts)
         if edge is not None:
             edges.append(edge)
     prior_pairs = {
@@ -272,12 +276,12 @@ def cmd_dependency_reconcile(
     return "OK"
 
 
-def _parse_dependency_edge(line: str, source: str, ts: str) -> tuple | None:
+def _parse_dependency_edge(conn, line: str, source: str, ts: str) -> tuple | None:
     parts = line.split()
     if len(parts) < 4:
         return None
-    dependent = normalize_item_id(parts[0])
-    blocking = normalize_item_id(parts[1])
+    dependent = normalize_item_id(parts[0], conn)
+    blocking = normalize_item_id(parts[1], conn)
     gate_point = parts[2]
     satisfaction = parts[3]
     rationale = " ".join(parts[4:]) if len(parts) > 4 else ""
@@ -294,8 +298,8 @@ def cmd_dependency_remove(
     blocking: str,
     session_id: Optional[int] = None,
 ) -> str:
-    dependent = normalize_item_id(dependent)
-    blocking = normalize_item_id(blocking)
+    dependent = normalize_item_id(dependent, conn)
+    blocking = normalize_item_id(blocking, conn)
     if session_id is not None:
         p = _placeholder(conn)
         conn.execute(
