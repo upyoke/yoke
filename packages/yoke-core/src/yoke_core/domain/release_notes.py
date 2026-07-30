@@ -60,10 +60,10 @@ def _current_version() -> str:
 
 
 def _parse_item_id(raw: str) -> int:
-    """Parse item ID, stripping YOK- prefix and leading zeros."""
-    import re
-    cleaned = re.sub(r"^[Yy][Oo][Kk]-", "", raw).lstrip("0") or "0"
-    return int(cleaned)
+    # PREFIX-N resolves via the project sequence; bare N = internal id.
+    from yoke_core.domain.yok_n_parser import parse_item_id
+
+    return parse_item_id(raw, allow_bare_internal=True)
 
 
 def _p(conn) -> str:

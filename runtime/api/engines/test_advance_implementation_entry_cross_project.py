@@ -110,7 +110,7 @@ def test_orchestrator_forwards_item_project_to_run_preflight(
         fake_run_preflight,
     )
     _patch_dispatch(monkeypatch)
-    assert orch.run("YOK-42", session_id="s1", out=io.StringIO()) == 0
+    assert orch.run("42", session_id="s1", out=io.StringIO()) == 0
     assert captured["project"] == want_project
 
 
@@ -173,7 +173,7 @@ def test_failure_envelope_drops_empty_fields_and_emits_error_payload(
         lambda _id, force: (False, "BLOCKED: missing AC presence"),
     )
     out = io.StringIO()
-    assert orch.run("YOK-42", session_id="s1", out=out) == 1
+    assert orch.run("42", session_id="s1", out=out) == 1
     envelope = json.loads(out.getvalue())
     assert "worktree_path" not in envelope, (
         "blocked outcome must not include an empty worktree_path string"
@@ -200,7 +200,7 @@ def test_worktree_block_envelope_carries_block_kind(
         ),
     )
     out = io.StringIO()
-    assert orch.run("YOK-42", session_id="s1", out=out) == 1
+    assert orch.run("42", session_id="s1", out=out) == 1
     envelope = json.loads(out.getvalue())
     assert "worktree_path" not in envelope
     assert envelope["error"]["phase"] == "worktree"
@@ -220,7 +220,7 @@ def test_finalize_block_envelope_carries_error_code(
     _patch_dispatch(monkeypatch, _err_response("qa_block",
                                                 "QA requirements not satisfied"))
     out = io.StringIO()
-    assert orch.run("YOK-42", session_id="s1", out=out) == 1
+    assert orch.run("42", session_id="s1", out=out) == 1
     envelope = json.loads(out.getvalue())
     assert envelope["error"]["phase"] == "finalize"
     assert envelope["error"]["kind"] == "qa_block"

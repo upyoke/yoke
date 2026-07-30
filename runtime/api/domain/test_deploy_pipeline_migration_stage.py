@@ -243,13 +243,13 @@ class TestItemBoundKindStage:
         ]
         assert len(failed) == 1
         assert failed[0]["stage"] == "migration-apply"
-        assert "YOK-42" in failed[0]["executor_diagnostic"]
+        assert failed[0]["executor_diagnostic"].startswith("42: ")
         assert "mod_x" in failed[0]["executor_diagnostic"]
         assert [
             name for name, _ in result.pipeline_events
             if name == "DeploymentRunFailed"
         ]
-        assert "YOK-42" in capsys.readouterr().err
+        assert "42: module 'mod_x'" in capsys.readouterr().err
 
 
 class TestKindStageResume:

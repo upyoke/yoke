@@ -287,11 +287,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    raw = args.item_id
-    if isinstance(raw, str) and raw.upper().startswith("YOK-"):
-        raw = raw.split("-", 1)[1]
+    from yoke_core.domain.yok_n_parser import parse_item_id
+
     try:
-        item_id = int(raw)
+        item_id = parse_item_id(args.item_id, allow_bare_internal=True)
     except (TypeError, ValueError):
         print(f"ERROR: cannot parse item id '{args.item_id}'", file=sys.stderr)
         return 2

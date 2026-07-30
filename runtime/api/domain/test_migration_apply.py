@@ -169,7 +169,7 @@ class TestRehearseHappyPath:
 
         monkeypatch.setattr(cli, "rehearse", fake_unit)
         monkeypatch.setattr(cli, "live_apply", fake_unit)
-        args = [f"YOK-{item_id}", "--module-path-override", str(module_path)]
+        args = [str(item_id), "--module-path-override", str(module_path)]
         assert cli.main(["rehearse", *args]) == 0
         assert cli.main(["live-apply", *args]) == 0
         assert seen == [(item_id, resolution, worktree), (item_id, resolution, worktree)]

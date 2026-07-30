@@ -269,7 +269,7 @@ def cmd_who_claims(
     classification uses the boundary helper in
     :mod:`yoke_core.domain.events_current_episode`.
     """
-    normalized = _normalize_item_id(item_id)
+    normalized = _normalize_item_id(item_id, conn)
     if not normalized.isdigit():
         return ""
     rows = query_rows(
