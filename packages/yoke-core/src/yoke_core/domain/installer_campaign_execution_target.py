@@ -23,9 +23,11 @@ def _replace_text(value: str, target: Mapping[str, Any]) -> str:
     endpoints = target["endpoints"]
     environment = str(target["environment"]["name"]).lower()
     production = environment in {"prod", "production"}
+    release_channel = str(endpoints["release_channel"])
     replacements = (
         (DISTRIBUTION_STAGE_URL, str(endpoints["installer_base_url"])),
         (HOSTED_STAGE_PLATFORM_URL, str(endpoints["app_url"])),
+        ("YOKE_CHANNEL=latest", f"YOKE_CHANNEL={release_channel}"),
         ("stage.upyoke.com", "upyoke.com" if production else "stage.upyoke.com"),
         ("public Stage", "public Production" if production else "public Stage"),
         ("Stage hosted", "Production hosted" if production else "Stage hosted"),
@@ -33,12 +35,30 @@ def _replace_text(value: str, target: Mapping[str, Any]) -> str:
         ("live Stage", "live Production" if production else "live Stage"),
         ("Stage browser", "Production browser" if production else "Stage browser"),
         ("Stage machine", "Production machine" if production else "Stage machine"),
-        ("Stage onboarding", "Production onboarding" if production else "Stage onboarding"),
+        (
+            "Stage onboarding",
+            "Production onboarding" if production else "Stage onboarding",
+        ),
     )
     result = value
     for source, replacement in replacements:
         result = result.replace(source, replacement)
     return result
+
+
+def _bind_release_channel(value: Any, channel: str) -> Any:
+    if isinstance(value, dict):
+        return {
+            key: (
+                channel
+                if key == "channel" and child in {"latest", "stable"}
+                else _bind_release_channel(child, channel)
+            )
+            for key, child in value.items()
+        }
+    if isinstance(value, list):
+        return [_bind_release_channel(child, channel) for child in value]
+    return value
 
 
 def _project(value: Any, target: Mapping[str, Any]) -> Any:
@@ -81,7 +101,10 @@ def _bind_destination_actions(
             if not isinstance(actions, list):
                 continue
             for action in actions:
-                if isinstance(action, dict) and action.get("step") == "destination-picker":
+                if (
+                    isinstance(action, dict)
+                    and action.get("step") == "destination-picker"
+                ):
                     action["keys"] = list(keys)
 
 
@@ -92,6 +115,11 @@ def installer_campaign_cases_for_target(
     cases = _project(
         deepcopy(list(SCREEN_READY_INSTALLER_CAMPAIGN_CASES)),
         target,
+    )
+    assert isinstance(cases, list)
+    cases = _bind_release_channel(
+        cases,
+        str(target["endpoints"]["release_channel"]),
     )
     assert isinstance(cases, list)
     _bind_destination_actions(cases, target)

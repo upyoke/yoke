@@ -15,8 +15,8 @@ from yoke_contracts.api_urls import (
     HOSTED_PLATFORM_URL,
     HOSTED_STAGE_PLATFORM_URL,
 )
-from yoke_core.domain import db_backend
-from yoke_core.domain import qa_hosted_runtime_identity as hosted_identity
+from yoke_core.domain import db_backend, qa_hosted_runtime_identity as hosted_identity
+from yoke_core.domain.qa_case_release_channel import require_case_release_channel
 
 
 class QaExecutionTargetError(ValueError):
@@ -104,12 +104,13 @@ def _yoke_endpoints(environment: str, tenant_slug: str) -> dict[str, Any]:
     installer_base = (
         DISTRIBUTION_STAGE_URL if selected == "stage" else DISTRIBUTION_PROD_URL
     )
+    release_channel = "latest" if selected == "stage" else "stable"
     return {
         "api_url": f"{app_url}/api/orgs/{tenant_slug}",
         "app_url": app_url,
         "installer_base_url": installer_base,
         "installer_url": f"{installer_base}/install",
-        "release_channel": "latest",
+        "release_channel": release_channel,
         "capability_endpoints": {
             "browser_authorization": app_url,
             "distribution": installer_base,
@@ -314,6 +315,13 @@ def require_case_target(
         str(target["environment"]["name"]).lower(),
     )
     endpoints = target["endpoints"]
+    try:
+        require_case_release_channel(
+            case,
+            expected=str(endpoints.get("release_channel") or "").strip(),
+        )
+    except ValueError as exc:
+        raise QaExecutionTargetError(str(exc)) from exc
     target_hosts = {
         urlsplit(str(value)).netloc
         for key, value in endpoints.items()

@@ -19,7 +19,6 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
 DEFAULT_BASE_URL = "https://api.upyoke.com"
-STAGE_BASE_URL = "https://api.stage.upyoke.com"
 DEFAULT_CHANNEL = "stable"
 GUTTER_ICON = "☀"
 PLAIN_GUTTER_ICON = "*"
@@ -313,13 +312,12 @@ class Installer:
             channel_bytes = self.fetcher(channel_url)
         except InstallError as exc:
             if (
-                self.options.channel == "latest"
+                self.options.channel != DEFAULT_CHANNEL
                 and self.options.base_url == DEFAULT_BASE_URL
             ):
                 raise InstallError(
-                    f"{exc}. The latest channel is published from "
-                    f"{STAGE_BASE_URL}; use that installer origin for "
-                    "pre-stable releases"
+                    f"{exc}. This installer origin publishes the "
+                    f"{DEFAULT_CHANNEL} channel, not {self.options.channel}"
                 ) from exc
             raise
         channel = _loads_json(channel_bytes, f"{self.options.channel} channel")
@@ -363,13 +361,17 @@ class Installer:
             file=self.stdout,
         )
         print("Try again:", file=self.stdout)
-        retry_base_url = self.options.base_url
-        if (
-            self.options.channel == "latest"
-            and self.options.base_url == DEFAULT_BASE_URL
-        ):
-            retry_base_url = STAGE_BASE_URL
-        retry = _paint(_rerun_command(retry_base_url), "bright", enabled=self.color)
+        retry_channel = (
+            DEFAULT_CHANNEL
+            if self.options.base_url == DEFAULT_BASE_URL
+            and self.options.channel != DEFAULT_CHANNEL
+            else None
+        )
+        retry = _paint(
+            _rerun_command(self.options.base_url, channel=retry_channel),
+            "bright",
+            enabled=self.color,
+        )
         print(f"  {retry}", file=self.stdout, flush=True)
 
     def _resolve_installed_yoke_bin(self) -> str:
@@ -473,12 +475,15 @@ def product_spec(version: str | None) -> str:
     return PRODUCT_PACKAGE
 
 
-def _rerun_command(base_url: str) -> str:
+def _rerun_command(base_url: str, *, channel: str | None = None) -> str:
     origin = _safe_url(base_url).rstrip("/")
     if origin == DEFAULT_BASE_URL:
         scheme, host = origin.split("://", 1)
         origin = f"{scheme}://{host.removeprefix('api.')}"
-    return f"curl -fsSL {origin}/install | sh"
+    command = f"curl -fsSL {origin}/install | sh"
+    if channel is not None:
+        command += f" -s -- --channel {shlex.quote(channel)}"
+    return command
 
 
 def _product_spec_version(spec: str) -> str | None:
