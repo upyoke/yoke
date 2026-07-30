@@ -88,7 +88,7 @@
       }
     ],
     "invariants": [
-      "Every active QA plan resolves one environment belonging to its project and compatible with the hosted runtime.",
+      "Every active QA plan resolves one project-owned environment or the exact same-org Platform-owned canonical hosted runtime compatible with the current environment.",
       "Every newly materialized requirement snapshots the same tenant, project, environment, endpoint set, and digest as its plan.",
       "A durable plan execution refuses a roster containing more than one target digest before local dispatch.",
       "Installer campaign cases contain only endpoints projected from their bound environment target.",
@@ -97,6 +97,6 @@
     "rehearsal_commands": [
       "PYTHONPATH=packages/yoke-contracts/src:packages/yoke-cli/src:packages/yoke-core/src:packages/yoke-harness/src:. python3 -m pytest runtime/api/domain/migrations/test_qa_execution_environment_target.py runtime/api/domain/test_qa_plan_execution.py -q"
     ],
-    "residual_risk_notes": "Backfill intentionally refuses an ambiguous project or a Stage/Production runtime mismatch. Existing materialized requirements remain targetless and non-executable; rematerialization is required because fabricating their historical endpoint identity would be unsafe."
+    "residual_risk_notes": "Backfill intentionally refuses an ambiguous project, an unauthorized cross-project target, or a Stage/Production runtime mismatch. The narrow canonical bridge is temporary and must be replaced by explicit owner-authorized grants during WORKFLOW-TYPES closeout. Existing materialized requirements remain targetless and non-executable; rematerialization is required because fabricating their historical endpoint identity would be unsafe."
   }
 }

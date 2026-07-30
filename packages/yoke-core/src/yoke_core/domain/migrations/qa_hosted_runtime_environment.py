@@ -8,16 +8,18 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.qa_execution_environment_target import (
     runtime_environment_name,
 )
+from yoke_core.domain.qa_hosted_runtime_identity import (
+    CANONICAL_RUNTIME_SITE_ID,
+    CANONICAL_RUNTIME_SITE_NAME,
+    RUNTIME_ALIASES,
+    canonical_environment_id,
+    eligible_plan_environment_rows,
+    require_runtime_site_owner,
+)
 from yoke_core.domain.schema_common import _table_exists
 
 
 MIGRATION_NAME = "qa_hosted_runtime_environment"
-_SITE_ID = "yoke-api"
-_SITE_NAME = "Yoke API"
-_ALIASES = {
-    "prod": frozenset({"prod", "production"}),
-    "stage": frozenset({"stage", "staging"}),
-}
 
 
 def _p(conn: Any) -> str:
@@ -26,7 +28,7 @@ def _p(conn: Any) -> str:
 
 def _runtime() -> str:
     selected = runtime_environment_name()
-    for canonical, aliases in _ALIASES.items():
+    for canonical, aliases in RUNTIME_ALIASES.items():
         if selected in aliases:
             return canonical
     raise RuntimeError(
@@ -58,25 +60,25 @@ def _has_active_plan(conn: Any, *, project_id: int) -> bool:
     )
 
 
-def _ensure_site(conn: Any, *, project_id: int) -> None:
+def _ensure_site(conn: Any, *, project_id: int) -> int:
     marker = _p(conn)
-    row = conn.execute(
-        f"SELECT project_id FROM sites WHERE id={marker}",
-        (_SITE_ID,),
-    ).fetchone()
-    if row is None:
+    try:
+        owner = require_runtime_site_owner(conn, plan_project_id=project_id)
+    except ValueError as exc:
+        raise RuntimeError(str(exc)) from exc
+    if owner is None:
         conn.execute(
             "INSERT INTO sites(id,project_id,name,created_at,settings) "
             f"VALUES({marker},{marker},{marker},CURRENT_TIMESTAMP,{marker})",
-            (_SITE_ID, project_id, _SITE_NAME, "{}"),
+            (
+                CANONICAL_RUNTIME_SITE_ID,
+                project_id,
+                CANONICAL_RUNTIME_SITE_NAME,
+                "{}",
+            ),
         )
-        return
-    owner = int(row["project_id"] if hasattr(row, "keys") else row[0])
-    if owner != project_id:
-        raise RuntimeError(
-            f"hosted QA site {_SITE_ID!r} belongs to project {owner}, "
-            f"not yoke project {project_id}"
-        )
+        return project_id
+    return owner
 
 
 def _runtime_environment_rows(
@@ -85,18 +87,11 @@ def _runtime_environment_rows(
     project_id: int,
     runtime: str,
 ) -> list[Any]:
-    marker = _p(conn)
-    rows = conn.execute(
-        "SELECT e.id,e.site,e.name FROM environments e "
-        "JOIN sites s ON s.id=e.site "
-        f"WHERE s.project_id={marker} ORDER BY e.id",
-        (project_id,),
-    ).fetchall()
+    rows = eligible_plan_environment_rows(conn, plan_project_id=project_id)
     return [
         row
         for row in rows
-        if str(row["name"] if hasattr(row, "keys") else row[2]).lower()
-        in _ALIASES[runtime]
+        if str(row["environment_name"]).lower() in RUNTIME_ALIASES[runtime]
     ]
 
 
@@ -104,6 +99,7 @@ def _ensure_environment(
     conn: Any,
     *,
     project_id: int,
+    site_owner_id: int,
     runtime: str,
 ) -> None:
     matches = _runtime_environment_rows(
@@ -117,8 +113,14 @@ def _ensure_environment(
         raise RuntimeError(
             f"yoke project {project_id} has multiple {runtime!r} environments"
         )
+    if site_owner_id != project_id:
+        raise RuntimeError(
+            "shared hosted QA site has no canonical "
+            f"{runtime!r} environment; host-project mutation is not authorized"
+        )
     marker = _p(conn)
-    environment_id = f"{_SITE_ID}-{runtime}"
+    environment_id = canonical_environment_id(runtime)
+    assert environment_id is not None
     existing = conn.execute(
         f"SELECT site,name FROM environments WHERE id={marker}",
         (environment_id,),
@@ -133,7 +135,7 @@ def _ensure_environment(
     conn.execute(
         "INSERT INTO environments(id,site,name,created_at,settings) "
         f"VALUES({marker},{marker},{marker},CURRENT_TIMESTAMP,{marker})",
-        (environment_id, _SITE_ID, runtime, "{}"),
+        (environment_id, CANONICAL_RUNTIME_SITE_ID, runtime, "{}"),
     )
 
 
@@ -153,8 +155,13 @@ def apply(conn: Any) -> None:
     project_id = _yoke_project_id(conn)
     if project_id is None or not _has_active_plan(conn, project_id=project_id):
         return
-    _ensure_site(conn, project_id=project_id)
-    _ensure_environment(conn, project_id=project_id, runtime=runtime)
+    site_owner_id = _ensure_site(conn, project_id=project_id)
+    _ensure_environment(
+        conn,
+        project_id=project_id,
+        site_owner_id=site_owner_id,
+        runtime=runtime,
+    )
 
 
 def invariants(conn: Any) -> None:
@@ -163,18 +170,12 @@ def invariants(conn: Any) -> None:
     project_id = _yoke_project_id(conn)
     if project_id is None or not _has_active_plan(conn, project_id=project_id):
         return
-    marker = _p(conn)
-    site = conn.execute(
-        f"SELECT project_id FROM sites WHERE id={marker}",
-        (_SITE_ID,),
-    ).fetchone()
-    if site is None:
-        raise AssertionError(f"hosted QA site {_SITE_ID!r} is absent")
-    owner = int(site["project_id"] if hasattr(site, "keys") else site[0])
-    if owner != project_id:
-        raise AssertionError(
-            f"hosted QA site {_SITE_ID!r} does not belong to the yoke project"
-        )
+    try:
+        owner = require_runtime_site_owner(conn, plan_project_id=project_id)
+    except ValueError as exc:
+        raise AssertionError(str(exc)) from exc
+    if owner is None:
+        raise AssertionError(f"hosted QA site {CANONICAL_RUNTIME_SITE_ID!r} is absent")
     if (
         len(
             _runtime_environment_rows(

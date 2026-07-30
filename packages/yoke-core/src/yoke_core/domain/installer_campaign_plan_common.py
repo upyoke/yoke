@@ -69,6 +69,7 @@ PARENT_HANDOFF_TEXT = (
     "run /yoke onboard",
 )
 HOSTED_CONNECTED_TEXT = ("Yoke token connected.",)
+PATH_READY_TEXT = ("Yoke is already on your PATH.",)
 MACHINE_GITHUB_TEXT = ("Connect GitHub?",)
 PROJECT_MODE_TEXT = ("Set up a project.", "Where's the code?")
 
