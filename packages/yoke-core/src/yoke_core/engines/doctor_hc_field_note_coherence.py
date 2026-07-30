@@ -42,7 +42,7 @@ _CORE_DOMAIN_SOURCE_ROOT = "packages/yoke-core/src/yoke_core/domain"
 
 _LINTS: Tuple[str, ...] = tuple(
     f"{_CORE_DOMAIN_SOURCE_ROOT}/lint_{s}.py" for s in (
-        "claim_ownership_mutations", "destructive_git", "event_registry",
+        "claim_ownership_mutations", "destructive_git_messages", "event_registry",
         "git_stash_arg_order", "long_command_polling", "main_commit",
         "no_agent_curl_against_yoke_api",
         "no_agent_runtime_api_import_from_c", "python_runtime_import_in_tmp",
