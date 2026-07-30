@@ -21,6 +21,7 @@ from yoke_core.domain.drift_review import (
     _get_delivered_items,
     should_trigger_review,
 )
+from yoke_core.domain.project_identity import render_item_ref
 
 
 # ---------------------------------------------------------------------------
@@ -62,7 +63,7 @@ def _classify_drift(
     latest_delivered = checkpoint_start or ""
 
     for item in delivered_items:
-        item_id = f"YOK-{item['id']}"
+        item_id = render_item_ref(conn, item["id"])
         item_ids.append(item_id)
         title_lower = (item.get("title") or "").lower()
         delivered_at = item.get("delivered_at", "")

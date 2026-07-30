@@ -339,7 +339,7 @@ class TestAssessPostDeliveryDrift(_DriftDbCase):
 
         assert result is not None
         assert result.classification == "frontier_only"
-        assert result.delivered_items == ["YOK-42"]
+        assert result.delivered_items == ["EXT-42"]
 
     def test_mixed_numeric_and_slug_scope_normalizes_before_classification(self):
         conn = self._make_db()
@@ -356,7 +356,7 @@ class TestAssessPostDeliveryDrift(_DriftDbCase):
 
         assert result is not None
         assert result.classification == "frontier_only"
-        assert result.delivered_items == ["YOK-42"]
+        assert result.delivered_items == ["EXT-42"]
 
 
 if __name__ == "__main__":
