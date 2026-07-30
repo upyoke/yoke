@@ -66,6 +66,8 @@ class HostControl(Protocol):
         entry_surface: str,
         required_completion: str,
         config: Mapping[str, Any],
+        progress_callback: Callable[[], None] | None = None,
+        allowed_operator_urls: Sequence[str] = (),
     ) -> HostActionResult: ...
 
     def run_machine_assertions(

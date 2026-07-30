@@ -19,6 +19,9 @@ from yoke_core.domain.ssh_mac_terminal_capture import (
     send_terminal_input,
     wait_for_text,
 )
+from yoke_core.domain.terminal_screenshot_quality import (
+    TerminalScreenshotRegistry,
+)
 
 
 def execute_legacy_terminal_case(
@@ -48,6 +51,7 @@ def execute_legacy_terminal_case(
     matched: list[str] = []
     degraded: list[str] = []
     terminal_window_id: int | None = None
+    screenshot_registry = TerminalScreenshotRegistry()
     try:
         if backend == "tmux":
             start = f"tmux new-session -d -s {shlex.quote(session)} " + shlex.quote(
@@ -135,10 +139,25 @@ def execute_legacy_terminal_case(
                     session=session,
                     key=key,
                     evidence_root=evidence_root,
+                    window_id=terminal_window_id,
                 )
                 if screenshot is None:
                     degraded.append(f"{key}: screenshot capture blocked")
                 else:
+                    duplicate_of = screenshot_registry.duplicate_of(
+                        key,
+                        screenshot,
+                    )
+                    if duplicate_of is not None:
+                        return HostActionResult(
+                            False,
+                            {
+                                "steps": captured,
+                                "duplicate_checkpoint": key,
+                                "original_checkpoint": duplicate_of,
+                            },
+                            "terminal_duplicate_screenshot",
+                        )
                     captured[-1]["artifact_handle"] = local_handle(
                         str(screenshot.resolve()),
                         "image/png",
