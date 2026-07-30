@@ -26,6 +26,7 @@ from typing import Any, Iterable, Optional, Set
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_optional_queries import fetch_optional_rows
+from yoke_core.domain.project_identity import render_item_ref
 
 
 def _placeholder(conn: Any) -> str:
@@ -330,8 +331,8 @@ def cross_check_explicit_upstream(
         return None
     return (
         f"Advisory: --upstream-claim-id {upstream_claim_id} (item "
-        f"YOK-{upstream_item}) has no item_dependencies edge from/to "
-        f"YOK-{item_id}. Honoring explicit upstream."
+        f"{render_item_ref(conn, upstream_item)}) has no item_dependencies edge "
+        f"from/to {render_item_ref(conn, item_id)}. Honoring explicit upstream."
     )
 
 

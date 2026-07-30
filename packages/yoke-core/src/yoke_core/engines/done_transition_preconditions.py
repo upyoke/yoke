@@ -21,6 +21,7 @@ import sys
 from typing import Any, Optional, Tuple
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.project_identity import render_item_ref
 
 
 # Documented escape hatch for items that do not have a deploy run. The
@@ -131,14 +132,14 @@ def check_done_preconditions(
         run_status = _latest_run_status(conn, item_id)
         if run_status == "failed":
             return False, (
-                f"latest deploy_run for YOK-{item_id} has status=failed"
+                f"latest deploy_run for {render_item_ref(conn, item_id)} has status=failed"
             )
 
         # Planning workflows require their refinement verdict in history.
         if require_plan_verdict:
             if not _has_refined_idea_to_planning_verdict(conn, item_id):
                 return False, (
-                    f"YOK-{item_id} missing required "
+                    f"{render_item_ref(conn, item_id)} missing required "
                     "refined_idea_to_planning READY/CAVEATS verdict"
                 )
 
