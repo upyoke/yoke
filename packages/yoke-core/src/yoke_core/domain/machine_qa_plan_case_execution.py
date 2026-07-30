@@ -89,7 +89,15 @@ def execute_plan_machine_case(
         )
 
         register_ssh_mac_host_control()
-        submission = execute_machine_case_contract(execution)
+        submission = execute_machine_case_contract(
+            execution,
+            progress_callback=lambda: _dispatch(
+                "qa.plan_execution.heartbeat",
+                target=target,
+                actor=actor,
+                payload={"execution_id": execution_id},
+            ),
+        )
         submitted = _dispatch(
             "test_machine.plan_case.submit",
             target=target,

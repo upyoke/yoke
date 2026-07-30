@@ -36,4 +36,16 @@ def normalize_action_readiness(
     return normalized
 
 
-__all__ = ["normalize_action_readiness"]
+def registered_terminal_post_check(value: str) -> bool:
+    """Return whether a terminal post-check uses the closed vocabulary."""
+    if value == "secret_free":
+        return True
+    if value.startswith("no_text:"):
+        return bool(value.removeprefix("no_text:"))
+    if value.startswith("terminal_exit_code:"):
+        raw_code = value.removeprefix("terminal_exit_code:")
+        return raw_code.isdigit() and 0 <= int(raw_code) <= 255
+    return False
+
+
+__all__ = ["normalize_action_readiness", "registered_terminal_post_check"]

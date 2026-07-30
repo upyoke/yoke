@@ -45,6 +45,12 @@ OPS_ADAPTERS: List[AdapterEntry] = [
         cli_invocation="yoke deployment-runs create",
     ),
     AdapterEntry(
+        function_id="deployment_runs.project_snapshot",
+        cli_invocation=(
+            "yoke deployment-runs project-snapshot --snapshot-file PATH"
+        ),
+    ),
+    AdapterEntry(
         function_id="deployment_runs.approve",
         cli_invocation="yoke deployment-runs approve",
     ),
