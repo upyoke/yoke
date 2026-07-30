@@ -19,7 +19,10 @@ from .events_crud import (
     normalize_event_item_id,
     normalize_severity,
 )
-from .events_emit_write import _write_event
+from .events_emit_write import (
+    _INSERT_SQL as _INSERT_SQL,
+    _write_event,
+)
 from .events_envelope_shrink import fit_envelope_context
 from .events_isolation import (
     SYNTHETIC_SMOKE_FLAG as SYNTHETIC_SMOKE_FLAG,
