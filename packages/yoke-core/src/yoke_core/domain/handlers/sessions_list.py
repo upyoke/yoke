@@ -23,6 +23,7 @@ class SessionsListRequest(BaseModel):
     project: Optional[str] = None
     liveness: Optional[str] = None
     limit: Optional[int] = None
+    per_project: bool = False
 
 
 class SessionsListResponse(BaseModel):
@@ -53,6 +54,7 @@ def handle_sessions_list(request: FunctionCallRequest) -> HandlerOutcome:
     project = payload.get("project")
     liveness = payload.get("liveness")
     limit = payload.get("limit")
+    per_project = payload.get("per_project", False)
     for key, value in (("project", project), ("liveness", liveness)):
         if value is not None and not isinstance(value, str):
             return _error(
@@ -66,6 +68,12 @@ def handle_sessions_list(request: FunctionCallRequest) -> HandlerOutcome:
             "limit must be an integer when present",
             jsonpath="$.payload.limit",
         )
+    if not isinstance(per_project, bool):
+        return _error(
+            "payload_invalid",
+            "per_project must be a boolean when present",
+            jsonpath="$.payload.per_project",
+        )
 
     from yoke_core.domain.sessions_list_read import (
         DEFAULT_SESSIONS_LIST_LIMIT,
@@ -78,6 +86,7 @@ def handle_sessions_list(request: FunctionCallRequest) -> HandlerOutcome:
             project=project,
             liveness=liveness,
             limit=limit if limit is not None else DEFAULT_SESSIONS_LIST_LIMIT,
+            per_project=per_project,
         )
     except ValueError as exc:
         return _error(
