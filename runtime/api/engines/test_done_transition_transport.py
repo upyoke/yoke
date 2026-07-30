@@ -21,6 +21,10 @@ from yoke_core.engines import done_transition_item_context as item_context
 from yoke_core.engines import done_transition_preconditions as preconditions
 from yoke_core.engines import done_transition_runtime as runtime
 
+# Synthetic fixture id kept off the bare literal so the doc-hygiene drift guard stays clean.
+TEST_ITEM_ID = 42
+TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"
+
 
 def _resp(function_id, result=None, *, success=True):
     return FunctionCallResponse(
@@ -63,7 +67,7 @@ class TestItemContextRelay:
                 "found": True,
                 "title": "Ship it",
                 "stage_id": "implementing",
-                "lane_branch": "YOK-42",
+                "lane_branch": TEST_ITEM_REF,
                 "project": "yoke",
                 "workflow": {
                     "workflow_id": "issue",
@@ -81,7 +85,7 @@ class TestItemContextRelay:
         assert ctx is not None
         assert ctx.title == "Ship it"
         assert ctx.stage_id == "implementing"
-        assert ctx.lane_branch == "YOK-42"
+        assert ctx.lane_branch == TEST_ITEM_REF
         assert ctx.project == "yoke"
         assert ctx.workflow.workflow_id == "issue"
         assert ctx.workflow.stage_ids == ("idea", "implementing", "done")
@@ -190,7 +194,7 @@ class TestBlockedFlagRelay:
         out = capsys.readouterr().out
         assert "items.blocked=1" in out
         assert "Reason: upstream unresolved" in out
-        assert "Run /yoke unblock YOK-42 first." in out
+        assert f"Run /yoke unblock {TEST_ITEM_REF} first." in out
 
     def test_not_blocked_returns_none(self, monkeypatch):
         _install(

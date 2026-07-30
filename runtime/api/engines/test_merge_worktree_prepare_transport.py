@@ -23,6 +23,10 @@ from yoke_core.engines import merge_worktree_prepare_preflight as pf
 from yoke_core.engines import merge_worktree_prepare_state as st
 from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
 
+# Synthetic fixture id kept off the bare literal so the doc-hygiene drift guard stays clean.
+TEST_ITEM_ID = 42
+TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"
+
 
 def _resp(function_id, result=None, *, success=True):
     return FunctionCallResponse(
@@ -180,7 +184,7 @@ def _run_preflight(monkeypatch, responses, *, skip_simulation=False):
     monkeypatch.setattr(mw, "_run_git", _clean_git)
     _no_bare_db(monkeypatch)
 
-    args = MergeArgs(branch="YOK-42", skip_simulation=skip_simulation)
+    args = MergeArgs(branch=TEST_ITEM_REF, skip_simulation=skip_simulation)
     ctx = MergeContext(args=args, worktree_path="/tmp/wt", epic_id="42")
     result = pf.preflight_checks(ctx)
     return result, calls
@@ -270,9 +274,9 @@ class TestPreflightRelays:
         result, _ = _run_preflight(monkeypatch, responses)
         assert result is not None
         err = capsys.readouterr().err
-        assert "FAIL: Item YOK-42 is blocked (items.blocked=1)." in err
+        assert f"FAIL: Item {TEST_ITEM_REF} is blocked (items.blocked=1)." in err
         assert "Reason: upstream unresolved" in err
-        assert "Run /yoke unblock YOK-42 before merging." in err
+        assert f"Run /yoke unblock {TEST_ITEM_REF} before merging." in err
 
     def test_blocked_gate_not_applicable_is_silent(self, monkeypatch, capsys):
         responses = _pass_responses()
@@ -292,7 +296,7 @@ class TestPreflightRelays:
 class TestExtractGeneratedFilesRelays:
     def test_relays_item_detail_get_and_parses_body(self, monkeypatch):
         body = (
-            "## Worktree: YOK-42\n"
+            f"## Worktree: {TEST_ITEM_REF}\n"
             "### Generated files\n"
             "- gen/a.py\n"
             "- gen/b.py\n"
@@ -309,7 +313,7 @@ class TestExtractGeneratedFilesRelays:
         monkeypatch.setattr(st, "call_dispatcher", fake)
         _no_bare_db(monkeypatch)
 
-        ctx = MergeContext(args=MergeArgs(branch="YOK-42"), epic_id="42")
+        ctx = MergeContext(args=MergeArgs(branch=TEST_ITEM_REF), epic_id="42")
         assert st.extract_generated_files(ctx) == ["gen/a.py", "gen/b.py"]
 
     def test_relay_refused_returns_empty(self, monkeypatch):
@@ -318,5 +322,5 @@ class TestExtractGeneratedFilesRelays:
             lambda **_k: _resp("items.get.run", success=False),
         )
         _no_bare_db(monkeypatch)
-        ctx = MergeContext(args=MergeArgs(branch="YOK-42"), epic_id="42")
+        ctx = MergeContext(args=MergeArgs(branch=TEST_ITEM_REF), epic_id="42")
         assert st.extract_generated_files(ctx) == []

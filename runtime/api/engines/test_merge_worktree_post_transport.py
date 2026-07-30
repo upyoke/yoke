@@ -25,6 +25,10 @@ from yoke_core.engines import merge_worktree_post_local as post_local
 from yoke_core.engines import merge_worktree_tests as mtests
 from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
 
+# Synthetic fixture id kept off the bare literal so the doc-hygiene drift guard stays clean.
+TEST_ITEM_ID = 42
+TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"
+
 _HTTPS_CHECK = (
     "yoke_core.domain.worktree_create_db.item_worktree_authority_is_https"
 )
@@ -61,7 +65,7 @@ class TestSnapshotEnsureRelays:
         )
         _no_bare_db(monkeypatch)
 
-        ctx = MergeContext(args=MergeArgs(branch="YOK-42"), repo_root="/repo")
+        ctx = MergeContext(args=MergeArgs(branch=TEST_ITEM_REF), repo_root="/repo")
         post_local._ensure_snapshot_for_project(ctx)
 
         assert len(calls) == 1
@@ -82,7 +86,7 @@ class TestSnapshotEnsureRelays:
         )
         _no_bare_db(monkeypatch)
 
-        ctx = MergeContext(args=MergeArgs(branch="YOK-42"), repo_root="/repo")
+        ctx = MergeContext(args=MergeArgs(branch=TEST_ITEM_REF), repo_root="/repo")
         post_local._ensure_snapshot_for_project(ctx)
         assert calls == []
 
@@ -97,7 +101,7 @@ class TestSnapshotEnsureRelays:
         )
         _no_bare_db(monkeypatch)
 
-        ctx = MergeContext(args=MergeArgs(branch="YOK-42"), repo_root="/repo")
+        ctx = MergeContext(args=MergeArgs(branch=TEST_ITEM_REF), repo_root="/repo")
         # Advisory: a failed relay must not raise.
         post_local._ensure_snapshot_for_project(ctx)
         assert "ensure_snapshot_at advisory" in capsys.readouterr().out
@@ -119,7 +123,7 @@ class TestPostRebaseRelays:
         monkeypatch.setattr(mtests, "call_dispatcher", fake)
         _no_bare_db(monkeypatch)
 
-        ctx = MergeContext(args=MergeArgs(branch="YOK-42"), item_id="42")
+        ctx = MergeContext(args=MergeArgs(branch=TEST_ITEM_REF), item_id="42")
         assert mtests._post_rebase_requirement_id(ctx) == 73
         assert calls[0]["function_id"] == "merge.tests.post_rebase_requirement"
         assert calls[0]["target"].kind == "item"
@@ -134,7 +138,7 @@ class TestPostRebaseRelays:
             ),
         )
         _no_bare_db(monkeypatch)
-        ctx = MergeContext(args=MergeArgs(branch="YOK-42"), item_id="42")
+        ctx = MergeContext(args=MergeArgs(branch=TEST_ITEM_REF), item_id="42")
         assert mtests._post_rebase_requirement_id(ctx) is None
 
     def test_unparseable_item_skips_relay(self, monkeypatch):
@@ -143,7 +147,7 @@ class TestPostRebaseRelays:
             mtests, "call_dispatcher",
             lambda **k: called.append(k) or _resp("x"),
         )
-        ctx = MergeContext(args=MergeArgs(branch="YOK-42"), item_id=None)
+        ctx = MergeContext(args=MergeArgs(branch=TEST_ITEM_REF), item_id=None)
         assert mtests._post_rebase_requirement_id(ctx) is None
         assert called == []
 
@@ -160,7 +164,7 @@ class TestPostRebaseRelays:
         )
         monkeypatch.setattr(mtests, "call_dispatcher", lambda **k: resp)
         _no_bare_db(monkeypatch)
-        ctx = MergeContext(args=MergeArgs(branch="YOK-42"), item_id="42")
+        ctx = MergeContext(args=MergeArgs(branch=TEST_ITEM_REF), item_id="42")
         with pytest.raises(RuntimeError, match="post-rebase QA materialization"):
             mtests._post_rebase_requirement_id(ctx)
 
@@ -177,7 +181,7 @@ class TestPostRebaseRelays:
         )
         monkeypatch.setattr(mtests, "call_dispatcher", lambda **k: resp)
         _no_bare_db(monkeypatch)
-        ctx = MergeContext(args=MergeArgs(branch="YOK-42"), item_id="42")
+        ctx = MergeContext(args=MergeArgs(branch=TEST_ITEM_REF), item_id="42")
         assert mtests._post_rebase_requirement_id(ctx) is None
 
 

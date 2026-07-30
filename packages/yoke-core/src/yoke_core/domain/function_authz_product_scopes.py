@@ -5,6 +5,7 @@ from yoke_core.domain.actor_permissions import (
     PERM_ITEMS_WRITE,
     PERM_ORG_ADMIN,
     PERM_PROJECT_ADMIN,
+    PERM_PROJECT_INSTALL,
 )
 from yoke_core.domain.function_authz_types import (
     ACTOR_SESSION,
@@ -34,6 +35,17 @@ PRODUCT_AUTHZ_BY_ID = {
     "sessions.reclaim_stale": AuthzSpec(ORG, PERM_ORG_ADMIN),
     # Promotion materializes a Dash in payload.project.
     "ouroboros.field_note.promote": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
+    # Merge / done-transition engine-internal writes. Each mutates one
+    # project's tenant data (path snapshot, item deployed_to/merged_at,
+    # post-rebase QA), so the blast radius is PROJECT; they are
+    # session-optional and claim-free because the done ceremony enforces the
+    # item claim upstream at the status flip, not on these finalize writes.
+    "project.snapshot.ensure_at": AuthzSpec(PROJECT, PERM_PROJECT_INSTALL),
+    "done_transition.finalize_local_side_effects": AuthzSpec(
+        PROJECT, PERM_ITEMS_WRITE
+    ),
+    "done_transition.populate_merged_at": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
+    "merge.tests.post_rebase_requirement": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     # Workflow definition publication is org-wide; selected defaults and
     # test-machine execution remain scoped to their project.
     "workflows.current.set": AuthzSpec(ORG, PERM_ORG_ADMIN),
