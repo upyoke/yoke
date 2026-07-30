@@ -78,7 +78,15 @@ class HostControl(Protocol):
 
 @dataclass(frozen=True, repr=False)
 class TestMachineMaterial:
-    """Capability material passed only to an approved adapter factory."""
+    """Capability material passed only to an approved adapter factory.
+
+    The ``TestMachine`` prefix names the QA test-machine capability, not a
+    pytest test case. ``__test__ = False`` opts the class out of pytest's
+    ``Test*`` naming heuristic so importing it into a test module does not
+    raise ``PytestCollectionWarning``.
+    """
+
+    __test__ = False
 
     project_id: int
     project: str
@@ -96,7 +104,12 @@ class TestMachineMaterial:
 
 @dataclass(frozen=True)
 class TestMachineContract:
-    """Secret-free capability settings issued by the control plane."""
+    """Secret-free capability settings issued by the control plane.
+
+    ``__test__ = False`` for the same reason as ``TestMachineMaterial``.
+    """
+
+    __test__ = False
 
     project_id: int
     project: str
