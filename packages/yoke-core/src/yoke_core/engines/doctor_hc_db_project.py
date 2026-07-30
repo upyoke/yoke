@@ -49,6 +49,8 @@ def hc_project_fk_integrity(conn, args: DoctorArgs, rec: RecordCollector) -> Non
         )
         return
 
+    from yoke_core.domain.project_identity import render_item_ref
+
     rows = query_rows(
         conn,
         "SELECT i.id, i.project_id FROM items i "
@@ -57,7 +59,11 @@ def hc_project_fk_integrity(conn, args: DoctorArgs, rec: RecordCollector) -> Non
         "ORDER BY i.id",
     )
 
-    issues = [f"- YOK-{r['id']}: project_id '{r['project_id']}' does not exist in projects table" for r in rows]
+    issues = [
+        f"- {render_item_ref(conn, r['id'])}: project_id '{r['project_id']}' "
+        "does not exist in projects table"
+        for r in rows
+    ]
 
     if issues:
         rec.record("HC-project-fk-integrity", "Project FK integrity", "FAIL", "\n".join(issues))

@@ -18,6 +18,7 @@ from typing import List
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_rows, query_scalar
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.workflow_behavior import generates_task_graph
 from yoke_core.domain.workflow_runtime import workflow_runtime_from_row
 
@@ -167,7 +168,7 @@ def hc_orphaned_done_items(conn, args: DoctorArgs, rec: RecordCollector) -> None
     )
     for row in _completed_workflow_rows(rows):
         issues.append(
-            f"- YOK-{row['id']} ({row['title']}): worktree lane "
+            f"- {render_item_ref(conn, int(row['id']))} ({row['title']}): worktree lane "
             f"'{row['branch']}' remains active "
             f"— ceremony may have been bypassed"
         )
@@ -226,7 +227,7 @@ def hc_deferred_items(conn, args: DoctorArgs, rec: RecordCollector) -> None:
                 has_unfiled = True
 
         if has_unfiled:
-            issues.append(f"- YOK-{row['id']}: has UNFILED entries in ## Deferred Items section")
+            issues.append(f"- {render_item_ref(conn, int(row['id']))}: has UNFILED entries in ## Deferred Items section")
 
         # Check for deferral language outside section without YOK-N references
         # Strip code blocks and the Deferred Items section
@@ -252,7 +253,7 @@ def hc_deferred_items(conn, args: DoctorArgs, rec: RecordCollector) -> None:
             for match_line in stripped.splitlines():
                 if pat.search(match_line) and "YOK-" not in match_line:
                     issues.append(
-                        f"- YOK-{row['id']}: deferral language found in body without "
+                        f"- {render_item_ref(conn, int(row['id']))}: deferral language found in body without "
                         f"YOK-N reference or ## Deferred Items tracking"
                     )
                     break

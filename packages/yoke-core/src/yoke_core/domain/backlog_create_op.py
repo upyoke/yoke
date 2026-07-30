@@ -317,7 +317,7 @@ def execute_create(
         body_len = len(body)
         if body_len <= title_threshold:
             print("", file=out)
-            print(f"WARNING: YOK-{current_id} created with no body content.", file=out)
+            print(f"WARNING: {item_ref} created with no body content.", file=out)
             print("Cold-start sessions need full context: problem, fix plan, acceptance criteria.", file=out)
             print(
                 f"Use: printf '%s' \"$content\" | python3 -m yoke_core.cli.db_router "

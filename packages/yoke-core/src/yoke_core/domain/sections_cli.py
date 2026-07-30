@@ -59,6 +59,24 @@ def _coerce_item_id(raw: str, err: TextIO) -> Optional[int]:
         return None
 
 
+def _public_item_ref(item_id: int, db_path: Optional[str]) -> str:
+    """Best-effort public ref for operator-facing messages.
+
+    Falls back to the default-prefix form if the item's project cannot be
+    resolved, so a degraded-sync warning never fails on the ref render.
+    """
+    try:
+        from yoke_core.domain.db_helpers import connect
+        from yoke_core.domain.project_identity import render_item_ref
+
+        with connect(db_path) as conn:
+            return render_item_ref(conn, item_id)
+    except Exception:
+        from yoke_contracts.item_ref import format_item_ref
+
+        return format_item_ref(None, None, None, item_id=item_id)
+
+
 def cmd_upsert(
     args: Sequence[str],
     *,
@@ -147,8 +165,8 @@ def cmd_upsert(
         )
         if not sync_ok:
             print(
-                "Warning: github_sync_degraded for YOK-{}: {}".format(
-                    item_id, sync_reason,
+                "Warning: github_sync_degraded for {}: {}".format(
+                    _public_item_ref(item_id, db_path), sync_reason,
                 ),
                 file=err,
             )
@@ -242,8 +260,8 @@ def cmd_delete(
         )
         if not sync_ok:
             print(
-                "Warning: github_sync_degraded for YOK-{}: {}".format(
-                    item_id, sync_reason,
+                "Warning: github_sync_degraded for {}: {}".format(
+                    _public_item_ref(item_id, db_path), sync_reason,
                 ),
                 file=err,
             )

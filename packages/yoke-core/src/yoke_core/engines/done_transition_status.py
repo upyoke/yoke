@@ -63,8 +63,12 @@ def _update_status_to_done(
 
     Returns True on success.
     """
+    from yoke_core.domain.project_identity import render_item_ref
+
+    with _parent()._connect() as conn:
+        item_ref = render_item_ref(conn, item_id)
     env_overrides = {
-        "YOKE_CLAIM_BYPASS": f"done-transition:YOK-{item_id}",
+        "YOKE_CLAIM_BYPASS": f"done-transition:{item_ref}",
         "YOKE_STATUS_SOURCE": "done-transition",
         "YOKE_QA_GATE_BYPASS": "1" if skip_qa else "0",
     }
@@ -105,9 +109,11 @@ def _update_status_to_done(
 def _cascade_epic_tasks_to_done(item_id: int, epic_name: str) -> None:
     """Cascade done status to all non-done epic tasks."""
     from yoke_core.domain import epic as _epic_domain
+    from yoke_core.domain.project_identity import render_item_ref
 
     print("=== Step 6b: Epic sub-task cascade ===")
     with _parent()._connect() as conn:
+        item_ref = render_item_ref(conn, item_id)
         task_list_output = _epic_domain.task_list(conn, epic_name)
     if not task_list_output or not task_list_output.strip():
         print("No tasks to cascade.")
@@ -130,14 +136,14 @@ def _cascade_epic_tasks_to_done(item_id: int, epic_name: str) -> None:
 
         env_overrides = {
             "YOKE_TASK_DONE_VERIFIED": "1",
-            "YOKE_CLAIM_BYPASS": f"done-cascade:YOK-{item_id}",
+            "YOKE_CLAIM_BYPASS": f"done-cascade:{item_ref}",
         }
         if task_status == "reviewed-implementation":
             _parent()._update_task_status_direct(
                 epic_name,
                 task_num,
                 "done",
-                f"Auto-promoted: task in done epic YOK-{item_id}",
+                f"Auto-promoted: task in done epic {item_ref}",
                 env_overrides=env_overrides,
             )
             print(f"  Promoted: task {task_num} (reviewed-implementation -> done)")
@@ -147,7 +153,7 @@ def _cascade_epic_tasks_to_done(item_id: int, epic_name: str) -> None:
                 epic_name,
                 task_num,
                 "done",
-                f"Auto-done: epic YOK-{item_id} marked done",
+                f"Auto-done: epic {item_ref} marked done",
                 env_overrides=env_overrides,
             )
             print(f"  Cascaded: task {task_num} ({task_status} -> done)")
@@ -166,6 +172,10 @@ def _batch_github_sync_tasks(
     item_id: int, epic_name: str, task_nums: list[str]
 ) -> None:
     """Post batch GitHub summary for cascaded tasks via bearer-token REST."""
+    from yoke_core.domain.project_identity import render_item_ref
+
+    with _parent()._connect() as conn:
+        item_ref = render_item_ref(conn, item_id)
     item_project = _parent()._query_item_field(item_id, "project") or "yoke"
 
     try:
@@ -238,7 +248,7 @@ def _batch_github_sync_tasks(
         except RestTransportError:
             pass
         # Post comment
-        body_text = f"**Status:** -> done (epic YOK-{item_id} cascade)"
+        body_text = f"**Status:** -> done (epic {item_ref} cascade)"
         try:
             request_with_retry(
                 RestRequest(

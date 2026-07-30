@@ -12,10 +12,12 @@ from yoke_core.domain.schema_common import (
 
 
 def _coerce_int(value: Any) -> Optional[int]:
+    """Coerce an already-internal id (``path_claims.id`` / ``owner_item_id``)
+    to ``int``. These fields are bare integers, never public refs."""
     if value is None:
         return None
     try:
-        return int(str(value).replace("YOK-", ""))
+        return int(str(value))
     except (ValueError, TypeError):
         return None
 

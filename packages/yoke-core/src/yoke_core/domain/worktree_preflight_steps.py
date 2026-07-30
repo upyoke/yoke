@@ -10,7 +10,6 @@ both modules import from one place.
 from __future__ import annotations
 
 import json
-import os
 import sys
 from pathlib import Path
 from typing import List, Optional, Tuple
@@ -40,15 +39,52 @@ CWD_MODE_MATCHED = "matched"
 CWD_MODE_STATIC = "static"
 
 
+def resolve_item_branch_and_lane(item_id: int) -> Tuple[str, Optional[str]]:
+    """Return ``(branch_name, recorded_active_lane_path)`` for an item.
+
+    ``branch_name`` is the item's public ref (falls back to the legacy
+    ``YOK-{item_id}`` form when the public sequence cannot be read).
+    ``recorded_active_lane_path`` is the path of the item's active primary
+    lane when one exists — so re-entry detects a worktree created under either
+    the public-ref scheme or the legacy ``YOK-{internal_id}`` scheme, instead
+    of reconstructing a name that may not match what is on disk.
+    """
+    from yoke_core.domain.worktree_naming import worktree_name_for_item
+
+    try:
+        from yoke_core.domain.db_helpers import connect
+        from yoke_core.domain.item_worktrees import primary_item_worktree
+
+        with connect() as conn:
+            branch = worktree_name_for_item(conn, item_id)
+            lane = primary_item_worktree(conn, int(item_id))
+    except Exception:  # noqa: BLE001 - degrade if DB unavailable
+        return worktree_name_for_item(None, item_id), None
+    branch_out = branch
+    path_out = None
+    if lane:
+        if lane.get("branch"):
+            branch_out = str(lane["branch"])
+        if lane.get("path"):
+            path_out = str(lane["path"])
+    return branch_out, path_out
+
+
 def claim_work(item_id: int) -> Tuple[bool, str]:
-    """Run ``service_client claim-work --item YOK-N``. Idempotent."""
+    """Run ``service_client claim-work --item <item_id>``. Idempotent.
+
+    ``item_id`` is the internal ``items.id``; it is passed bare so the
+    service-client resolver maps it directly rather than treating a
+    hardcoded ``YOK-`` prefix as project context (wrong for projects
+    whose ``project_sequence`` diverges from ``items.id``).
+    """
     r = _run([
         sys.executable,
         "-m",
         "yoke_core.api.service_client",
         "claim-work",
         "--item",
-        f"YOK-{item_id}",
+        str(item_id),
     ])
     if r.returncode == 0:
         return True, r.stdout.strip()
@@ -94,7 +130,7 @@ def activate_path_claims(item_id: int) -> Tuple[bool, str, List[int]]:
         "-m",
         "yoke_core.domain.advance_path_claim_activation",
         "--item",
-        f"YOK-{item_id}",
+        str(item_id),
     ])
     activated: List[int] = []
     for line in r.stdout.splitlines():
@@ -159,4 +195,5 @@ __all__ = [
     "classify_activation_failure",
     "extract_retry_attempts",
     "physical_cwd_mode",
+    "resolve_item_branch_and_lane",
 ]

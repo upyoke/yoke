@@ -61,10 +61,8 @@ def _resolve_item_id_for_index(
         return str(new_claim_payload["item_id"])
     if not selected_item:
         return None
-    try:
-        return str(int(str(selected_item).replace("YOK-", "")))
-    except (ValueError, AttributeError):
-        return None
+    normalized = normalize_claim_item_id(str(selected_item))
+    return normalized if normalized.isdigit() else None
 
 
 def emit_session_offer_invariant_failed(

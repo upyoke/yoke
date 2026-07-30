@@ -15,6 +15,7 @@ from typing import Any, Iterable, Optional, TextIO
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import connect, query_one, query_rows, query_scalar
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.path_claims_render import render_path_claims_section
 from yoke_core.domain.render_body_blocked import render_blocked_section
 from yoke_core.domain.render_body_epic_notes import render_epic_progress_notes_section
@@ -251,7 +252,7 @@ def render_item(
     try:
         body = build_body(conn, item_id)
         if body is None:
-            print(f"Error: item YOK-{item_id} not found", file=err)
+            print(f"Error: item {render_item_ref(conn, item_id)} not found", file=err)
             return 1
 
         if output_file is not None:
@@ -284,7 +285,7 @@ def render_section(
     try:
         body = build_body(conn, item_id)
         if body is None:
-            print(f"Error: item YOK-{item_id} not found", file=err)
+            print(f"Error: item {render_item_ref(conn, item_id)} not found", file=err)
             return 1
         content = extract_section(body, section)
         if content is None:

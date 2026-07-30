@@ -26,6 +26,7 @@ from typing import Any, Dict, List, Optional, Sequence
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import connect, query_one
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.item_execution_status_helpers import (
     LINE_LIMIT,
     NEAR_CAP_THRESHOLD,
@@ -49,11 +50,11 @@ def _row_value(row: Any, key: str, index: int) -> Any:
         return row[index]
 
 
-def _item_dict(item: Any) -> Dict[str, Any]:
+def _item_dict(item: Any, yok_id: str) -> Dict[str, Any]:
     item_id = _row_value(item, "id", 0)
     return {
         "id": int(item_id),
-        "yok_id": f"YOK-{int(item_id)}",
+        "yok_id": yok_id,
         "title": str(_row_value(item, "title", 1)),
         "status": str(_row_value(item, "status", 2)),
         "project": str(_row_value(item, "project", 3)),
@@ -122,10 +123,10 @@ def build_projection(
         if item is None:
             return {
                 "ok": False,
-                "error": f"item not found: YOK-{item_id}",
+                "error": f"item not found: {render_item_ref(conn, item_id)}",
                 "item_id": item_id,
             }
-        item_dict = _item_dict(item)
+        item_dict = _item_dict(item, render_item_ref(conn, item_id))
         warnings: List[str] = []
         wt_state = worktree_state(
             item_id,

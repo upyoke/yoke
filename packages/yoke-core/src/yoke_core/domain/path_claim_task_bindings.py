@@ -11,6 +11,7 @@ from typing import Any
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 from yoke_core.domain.workflow_item_binding_lock import (
     lock_optional_item_workflow_binding,
@@ -120,7 +121,8 @@ def bind_claim_to_task(
     owner_item = _value(claim, "owner_item_id", 3)
     if owner_kind != "item" or int(owner_item or -1) != int(item_id):
         raise PathClaimTaskBindingError(
-            f"path claim {claim_id} is not item-owned by YOK-{item_id}"
+            f"path claim {claim_id} is not item-owned by "
+            f"{render_item_ref(conn, int(item_id))}"
         )
     conn.execute(
         "INSERT INTO path_claim_task_bindings "

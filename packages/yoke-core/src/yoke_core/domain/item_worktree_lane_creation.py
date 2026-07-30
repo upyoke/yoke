@@ -232,11 +232,13 @@ def ensure_default_item_worktree_lane(
         if commit:
             conn.commit()
         return existing
+    from yoke_core.domain.worktree_naming import worktree_name_for_item
+
     return create_additional_item_worktree_lane(
         conn,
         item_id=item_id,
         lane_role=lane_role,
-        branch=f"YOK-{item_id}",
+        branch=worktree_name_for_item(conn, item_id),
         commit=commit,
     )
 

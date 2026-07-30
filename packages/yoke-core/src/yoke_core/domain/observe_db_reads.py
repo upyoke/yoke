@@ -43,4 +43,39 @@ def repo_root_for_attribution(db_path: str, project_dir: str) -> Optional[str]:
         return project_dir
 
 
-__all__ = ["connect_observe_read_db", "repo_root_for_attribution"]
+def worktree_path_item_id(file_path: str, db_path: Optional[str]) -> Optional[int]:
+    """Attribute a file path under ``.worktrees/<name>/`` to its owning item.
+
+    Reverse-looks up the recorded worktree/branch name so both the public-ref
+    scheme and the legacy ``YOK-{internal_id}`` scheme resolve to the correct
+    internal id; falls back to a bare legacy-name parse when no DB is
+    available (attribution without a connection).
+    """
+    import re
+
+    match = re.search(r"\.worktrees/([^/]+)/", file_path or "")
+    if not match:
+        return None
+    name = match.group(1)
+    if db_path:
+        from yoke_core.domain.item_worktree_resolution import (
+            resolve_item_id_by_worktree_name,
+        )
+
+        try:
+            conn = connect_observe_read_db(db_path)
+            found = resolve_item_id_by_worktree_name(conn, name)
+            conn.close()
+        except Exception:
+            found = None
+        if found is not None:
+            return found
+    legacy = re.fullmatch(r"YOK-(\d+)", name)
+    return int(legacy.group(1)) if legacy else None
+
+
+__all__ = [
+    "connect_observe_read_db",
+    "repo_root_for_attribution",
+    "worktree_path_item_id",
+]

@@ -171,6 +171,9 @@ from yoke_core.engines.doctor_hc_obsoleted_terms import (  # noqa: F401
 from yoke_core.engines.doctor_hc_historical_yok_n import (  # noqa: F401
     hc_historical_yok_n_cruft,
 )
+from yoke_core.engines.doctor_hc_item_ref_construction import (  # noqa: F401
+    hc_item_ref_construction,
+)
 from yoke_core.engines.doctor_hc_worktrees import (  # noqa: F401
     _DELEGATED_SYNC_HCS,
     _github_auth_configured,
@@ -305,6 +308,7 @@ HEALTH_CHECKS: List[HealthCheck] = [
     HealthCheck("doc-health", "Documentation health audit", hc_doc_health),
     HealthCheck("obsoleted-terms", "Obsoleted terms in live files", hc_obsoleted_terms),
     HealthCheck("historical-yok-n-cruft", "Historical YOK-N references in live prose", hc_historical_yok_n_cruft),
+    HealthCheck("item-ref-construction", "Item-ref prefix literals confined to the canonical formatter", hc_item_ref_construction),
     HealthCheck("terminal-recipe-residue", "Retired terminal-soup recipes in live guidance", hc_terminal_recipe_residue),
     HealthCheck("substrate-project-leak", "Substrate project filename leak", hc_substrate_project_leak),
     HealthCheck("agent-consistency", "Agent prompt consistency", hc_agent_consistency),

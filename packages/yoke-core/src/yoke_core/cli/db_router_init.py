@@ -240,6 +240,7 @@ def _extract_structured_field_section(
     """
     from yoke_core.domain import db_backend
     from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.project_identity import render_item_ref
     from yoke_core.domain.render_body_section import extract_section
 
     conn = connect(None)
@@ -250,9 +251,10 @@ def _extract_structured_field_section(
             f"WHERE id = {p}",
             (item_id,),
         ).fetchone()
+        item_ref = render_item_ref(conn, item_id)
         if row is None:
             print(
-                f"Error: item YOK-{item_id} not found", file=sys.stderr
+                f"Error: item {item_ref} not found", file=sys.stderr
             )
             return 1
         text = row[0] if row else ""
@@ -260,7 +262,7 @@ def _extract_structured_field_section(
         if content is None:
             print(
                 f"Advisory: section '{section}' not found on "
-                f"YOK-{item_id} field '{field}'",
+                f"{item_ref} field '{field}'",
                 file=sys.stderr,
             )
             return 0

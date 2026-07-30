@@ -66,7 +66,9 @@ def worktree_state(
             resolve_item_worktree,
         )
 
-        resolved = resolve_item_worktree(f"YOK-{item_id}", db_path=db_path)
+        # ``item_id`` is already the internal id; pass it bare rather than
+        # reconstructing a ``YOK-N`` token for the resolver to strip back off.
+        resolved = resolve_item_worktree(str(item_id), db_path=db_path)
         paths = list(resolved.paths)
         branches = list(resolved.branches)
         if not paths:

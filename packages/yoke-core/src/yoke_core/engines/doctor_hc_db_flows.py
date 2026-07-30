@@ -14,10 +14,10 @@ ephemeral environment lifecycle:
 
 from __future__ import annotations
 
-import json
 from typing import List
 
 from yoke_core.domain.db_helpers import query_rows, query_scalar
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.time_parse import age_hours_since
 from yoke_core.domain.time_sql import now_sql
 from yoke_core.domain.sql_json import json_valid_expr
@@ -85,7 +85,7 @@ def hc_orphaned_ephemeral(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     )
     for row in rows:
         issues.append(
-            f"- YOK-{row['id']}: ephemeral env '{row['ee_id']}' still at "
+            f"- {render_item_ref(conn, row['id'])}: ephemeral env '{row['ee_id']}' still at "
             f"status='{row['ee_status']}' (expected stopped)"
         )
 
@@ -125,7 +125,7 @@ def hc_deploy_stage_integrity(conn, args: DoctorArgs, rec: RecordCollector) -> N
     )
 
     issues = [
-        f"- YOK-{r['id']}: deploy_stage='complete' with deployment_flow='{r['deployment_flow'] or 'null'}' "
+        f"- {render_item_ref(conn, r['id'])}: deploy_stage='complete' with deployment_flow='{r['deployment_flow'] or 'null'}' "
         f"but 0 deployment evidence"
         for r in rows
     ]
@@ -171,7 +171,7 @@ def hc_incomplete_deploy_stage(conn, args: DoctorArgs, rec: RecordCollector) -> 
 
     _cut = _base._read_int_cutoff("hc_incomplete_deploy_stage_min_item_id")
     issues = [
-        f"- YOK-{r['id']}: deployment_flow='{r['deployment_flow']}' "
+        f"- {render_item_ref(conn, r['id'])}: deployment_flow='{r['deployment_flow']}' "
         f"but deploy_stage='{r['deploy_stage'] or 'null'}'"
         for r in rows if _cut is None or r['id'] >= _cut
     ]
@@ -246,7 +246,7 @@ def hc_invalid_item_flows(conn, args: DoctorArgs, rec: RecordCollector) -> None:
             alts = all_flows
         alts_str = ", ".join(alts) if alts else "(none registered)"
         issues.append(
-            f"- YOK-{r['id']}: deployment_flow '{r['deployment_flow']}' "
+            f"- {render_item_ref(conn, r['id'])}: deployment_flow '{r['deployment_flow']}' "
             f"is not registered. {alt_label}: {alts_str}. "
             f"--fix cannot infer operator intent; repair by hand."
         )
@@ -264,7 +264,7 @@ def hc_invalid_item_flows(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     )
     for r in rows2:
         issues.append(
-            f"- YOK-{r['id']}: project '{r['project']}' but deployment_flow "
+            f"- {render_item_ref(conn, r['id'])}: project '{r['project']}' but deployment_flow "
             f"'{r['deployment_flow']}' belongs to project '{r['flow_project']}'"
         )
 

@@ -21,7 +21,7 @@ from yoke_core.api.service_client_items_parsing import (
     _parse_item_id,
     _resolve_item_ref,
 )
-from yoke_core.domain.project_identity import item_project_join_select
+from yoke_core.domain.project_identity import item_project_join_select, render_item_ref
 from yoke_core.domain.items_constants import CANONICAL_COLUMNS, _DB_COLUMNS
 
 
@@ -94,7 +94,7 @@ def cmd_item_get(args: list[str]) -> int:
         if field in _QI_LARGE_TEXT_FIELDS:
             if not value:
                 print(
-                    f"query-items: YOK-{item_id} field '{field}' is null/empty",
+                    f"query-items: {render_item_ref(conn, int(item_id))} field '{field}' is null/empty",
                     file=sys.stderr,
                 )
                 return 0
@@ -114,7 +114,7 @@ def cmd_item_get(args: list[str]) -> int:
         # Non-large-text field
         if not value:
             print(
-                f"query-items: YOK-{item_id} field '{field}' is null/empty",
+                f"query-items: {render_item_ref(conn, int(item_id))} field '{field}' is null/empty",
                 file=sys.stderr,
             )
             return 0

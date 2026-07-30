@@ -10,6 +10,7 @@ from yoke_core.domain.path_claim_task_bindings import NON_TERMINAL_CLAIM_STATES
 from yoke_core.domain.path_claims_symlink_expansion import (
     expand_symlinks_from_snapshot_facts,
 )
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.schema_common import _table_exists
 
 
@@ -135,7 +136,10 @@ def evaluate_task_coverage(conn: Any, item_id: int) -> TaskCoverageResult:
     if not tasks:
         return TaskCoverageResult(
             verdict="block",
-            reason=f"item YOK-{item_id} has no generated Epic tasks to cover",
+            reason=(
+                f"item {render_item_ref(conn, item_id)} has no generated "
+                "Epic tasks to cover"
+            ),
             satisfying_claims=(),
             no_tasks=True,
         )
@@ -203,7 +207,9 @@ def evaluate_task_coverage(conn: Any, item_id: int) -> TaskCoverageResult:
             )
         return TaskCoverageResult(
             verdict="block",
-            reason=f"item YOK-{item_id} " + "; ".join(details),
+            reason=(
+                f"item {render_item_ref(conn, item_id)} " + "; ".join(details)
+            ),
             satisfying_claims=tuple(sorted(satisfying)),
             missing_tasks=tuple(missing),
             partial_tasks=tuple(partial),
@@ -212,8 +218,8 @@ def evaluate_task_coverage(conn: Any, item_id: int) -> TaskCoverageResult:
     return TaskCoverageResult(
         verdict="pass",
         reason=(
-            f"item YOK-{item_id} has complete task-bound path coverage "
-            f"for {len(tasks)} task(s)"
+            f"item {render_item_ref(conn, item_id)} has complete task-bound "
+            f"path coverage for {len(tasks)} task(s)"
         ),
         satisfying_claims=tuple(sorted(satisfying)),
     )
