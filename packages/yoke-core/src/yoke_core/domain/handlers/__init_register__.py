@@ -69,6 +69,7 @@ from yoke_core.domain.handlers import (
     _register_qa_artifacts,
     _register_qa_case_execution,
     _register_readiness,
+    _register_resync,
     _register_scratch,
     _register_shepherd_reads,
     _register_sessions,
@@ -136,6 +137,7 @@ _DOMAIN_REGISTRARS = (
     _register_done_transition,
     _register_done_transition_writes,
     _register_done_transition_status_writes,
+    _register_resync,
 )
 
 _REGISTRATION_LOCK = threading.Lock()

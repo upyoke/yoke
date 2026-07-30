@@ -51,6 +51,12 @@ PRODUCT_AUTHZ_BY_ID = {
     # caller (stronger than the old process-env trust).
     "done_transition.item_status_set": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "done_transition.epic_task_status_set": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
+    # Resync repair writes the new GitHub issue number back into one epic
+    # task's github_issue field (one project's tenant data). It is
+    # claim-free (the inline write it replaces opened a raw connection) and
+    # session-optional (a resync run may resolve no ambient session), so the
+    # PROJECT + items-write scope is what gates the write.
+    "resync.epic_task_github_issue_set": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "merge.tests.post_rebase_requirement": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     # Workflow definition publication is org-wide; selected defaults and
     # test-machine execution remain scoped to their project.

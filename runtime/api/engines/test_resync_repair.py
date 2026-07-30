@@ -132,7 +132,7 @@ class TestRepairHelpers:
                 is True
             )
 
-    def test_repair_local_orphan_epic_task_success_updates_db_and_closes_terminal_issue(self, populated_db):
+    def test_repair_local_orphan_epic_task_success_creates_and_closes_terminal_issue(self, populated_db):
         from yoke_core.domain.github_rest import Issue
         from runtime.api.fixtures.file_test_db import connect_test_db
 
@@ -141,6 +141,9 @@ class TestRepairHelpers:
         conn.commit()
         conn.close()
 
+        # The github_issue write-back relays through the connected transport
+        # (advisory) — its routing is covered by test_resync_transport; here we
+        # assert the GitHub create + terminal-close calls.
         created = Issue(number=321, title="t", state="OPEN")
         with mock.patch("yoke_core.engines.resync._is_dry_run", return_value=False), mock.patch(
             "yoke_core.engines.resync_repair_epic_task_issue.github_rest.create_issue",
@@ -148,9 +151,7 @@ class TestRepairHelpers:
         ) as create_issue_mock, mock.patch(
             "yoke_core.engines.resync_repair_epic_task_issue.github_rest.set_issue_state",
             return_value=Issue(number=321, title="t", state="CLOSED"),
-        ) as close_mock, mock.patch(
-            "yoke_core.engines.resync.task_update_field"
-        ) as update_field:
+        ) as close_mock:
             ok = resync_mod._repair_local_orphan_epic_task(
                 "1246/task-001",
                 "externalwebapp",
@@ -158,8 +159,6 @@ class TestRepairHelpers:
             )
 
         assert ok is True
-        update_field.assert_called_once()
-        assert update_field.call_args.args[1:] == ("1246", 1, "github_issue", "#321")
         assert create_issue_mock.call_args.kwargs["project"] == "externalwebapp"
         assert close_mock.call_args.kwargs == {"project": "externalwebapp", "number": 321, "state": "closed"}
 
