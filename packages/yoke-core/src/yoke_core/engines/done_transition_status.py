@@ -63,17 +63,19 @@ def _populate_merged_at(item_id: int) -> None:
 
 
 def _update_status_to_done(
-    item_id: int, skip_qa: bool, max_retries: int = 3
+    item_id: int, skip_qa: bool, max_retries: int = 3, *, item_ref: str
 ) -> bool:
     """Update item status to done with retry logic.
 
     This engine owns the done transition, so it asserts
     ``done_nonce_verified=True`` directly to :func:`backlog.execute_update`.
+    ``item_ref`` is the caller's already-resolved public ref, used for the
+    claim-bypass audit source without opening a local connection.
 
     Returns True on success.
     """
     env_overrides = {
-        "YOKE_CLAIM_BYPASS": f"done-transition:YOK-{item_id}",
+        "YOKE_CLAIM_BYPASS": f"done-transition:{item_ref}",
         "YOKE_STATUS_SOURCE": "done-transition",
         "YOKE_QA_GATE_BYPASS": "1" if skip_qa else "0",
     }
@@ -111,8 +113,14 @@ def _update_status_to_done(
     return False
 
 
-def _cascade_epic_tasks_to_done(item_id: int, epic_name: str) -> None:
-    """Cascade done status to all non-done epic tasks."""
+def _cascade_epic_tasks_to_done(
+    item_id: int, epic_name: str, *, item_ref: str
+) -> None:
+    """Cascade done status to all non-done epic tasks.
+
+    ``item_ref`` is the caller's already-resolved public ref, used for the
+    cascade audit sources and narratives without opening a local connection.
+    """
     print("=== Step 6b: Epic sub-task cascade ===")
     # The epic task listing routes through the transport-aware
     # ``done_transition.epic_task_list`` relay so the read runs over an https
@@ -148,14 +156,14 @@ def _cascade_epic_tasks_to_done(item_id: int, epic_name: str) -> None:
 
         env_overrides = {
             "YOKE_TASK_DONE_VERIFIED": "1",
-            "YOKE_CLAIM_BYPASS": f"done-cascade:YOK-{item_id}",
+            "YOKE_CLAIM_BYPASS": f"done-cascade:{item_ref}",
         }
         if task_status == "reviewed-implementation":
             _parent()._update_task_status_direct(
                 epic_name,
                 task_num,
                 "done",
-                f"Auto-promoted: task in done epic YOK-{item_id}",
+                f"Auto-promoted: task in done epic {item_ref}",
                 env_overrides=env_overrides,
             )
             print(f"  Promoted: task {task_num} (reviewed-implementation -> done)")
@@ -165,7 +173,7 @@ def _cascade_epic_tasks_to_done(item_id: int, epic_name: str) -> None:
                 epic_name,
                 task_num,
                 "done",
-                f"Auto-done: epic YOK-{item_id} marked done",
+                f"Auto-done: epic {item_ref} marked done",
                 env_overrides=env_overrides,
             )
             print(f"  Cascaded: task {task_num} ({task_status} -> done)")
@@ -177,13 +185,17 @@ def _cascade_epic_tasks_to_done(item_id: int, epic_name: str) -> None:
 
     # Batch GitHub sync
     if task_nums:
-        _batch_github_sync_tasks(item_id, epic_name, task_nums)
+        _batch_github_sync_tasks(item_id, epic_name, task_nums, item_ref=item_ref)
 
 
 def _batch_github_sync_tasks(
-    item_id: int, epic_name: str, task_nums: list[str]
+    item_id: int, epic_name: str, task_nums: list[str], *, item_ref: str
 ) -> None:
-    """Post batch GitHub summary for cascaded tasks via bearer-token REST."""
+    """Post batch GitHub summary for cascaded tasks via bearer-token REST.
+
+    ``item_ref`` is the caller's already-resolved public ref, used for the
+    summary comment without opening a local connection on this path.
+    """
     item_project = _parent()._query_item_field(item_id, "project") or "yoke"
 
     try:
@@ -265,7 +277,7 @@ def _batch_github_sync_tasks(
         except RestTransportError:
             pass
         # Post comment
-        body_text = f"**Status:** -> done (epic YOK-{item_id} cascade)"
+        body_text = f"**Status:** -> done (epic {item_ref} cascade)"
         try:
             request_with_retry(
                 RestRequest(

@@ -18,8 +18,12 @@ def _sql_values(values: tuple[str, ...]) -> str:
     return ", ".join(f"'{value}'" for value in values)
 
 
-def create_decision_request_tables(conn: Any) -> None:
-    """Create the additive Inbox substrate on an initialized authority."""
+def create_decision_request_tables(
+    conn: Any,
+    *,
+    commit: bool = True,
+) -> None:
+    """Create the Inbox substrate, committing unless the caller owns the transaction."""
     request_kinds = _sql_values(DECISION_REQUEST_KINDS)
     notification_kinds = _sql_values(IN_APP_NOTIFICATION_KINDS)
     execute_schema_script(
@@ -124,7 +128,8 @@ def create_decision_request_tables(conn: Any) -> None:
         "INTEGER",
     )
     seed_decision_request_events(conn)
-    conn.commit()
+    if commit:
+        conn.commit()
 
 
 def seed_decision_request_events(conn: Any) -> None:

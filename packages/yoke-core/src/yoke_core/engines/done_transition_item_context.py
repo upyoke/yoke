@@ -23,6 +23,7 @@ class DoneItemContext:
     stage_id: str
     lane_branch: str
     project: str
+    item_ref: str
     workflow: WorkflowRuntime
 
 
@@ -31,6 +32,8 @@ def load_done_item_context(
     item_id: int,
 ) -> Optional[DoneItemContext]:
     """Load an item plus its immutable workflow definition."""
+    from yoke_core.domain.project_identity import render_item_ref
+
     placeholder = "%s" if db_backend.connection_is_postgres(conn) else "?"
     row = conn.execute(
         "SELECT i.title, i.status, "
@@ -47,6 +50,7 @@ def load_done_item_context(
         stage_id=str(row["status"] or ""),
         lane_branch=str(row["lane_branch"] or ""),
         project=str(row["project"] or "yoke"),
+        item_ref=render_item_ref(conn, item_id),
         workflow=load_item_workflow_runtime(conn, item_id),
     )
 
@@ -89,6 +93,7 @@ def load_done_item_context_over_transport(
         stage_id=str(data.get("stage_id") or ""),
         lane_branch=str(data.get("lane_branch") or ""),
         project=str(data.get("project") or "yoke"),
+        item_ref=str(data.get("item_ref") or ""),
         workflow=WorkflowRuntime(
             workflow_id=str(wf["workflow_id"]),
             workflow_version_id=int(wf["workflow_version_id"]),

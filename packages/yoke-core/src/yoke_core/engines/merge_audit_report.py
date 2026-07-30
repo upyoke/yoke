@@ -5,33 +5,15 @@ from __future__ import annotations
 import os
 from typing import List, Optional
 
-from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import connect, query_rows, query_one, query_scalar
 from yoke_core.domain.task_lifecycle import sql_task_terminal_success_list
+from yoke_core.engines.merge_audit_report_helpers import (
+    _display_item_ref,
+    _epic_worktrees_sql,
+    _p,
+    _parent,
+)
 
-
-# One row per distinct worktree branch for an epic, ordered by the earliest
-# task in each worktree. GROUP BY worktree already collapses duplicates, so no
-# DISTINCT is needed — and omitting it keeps the ORDER BY MIN(task_num)
-# aggregate portable (Postgres rejects ORDER BY expressions absent from the
-# SELECT list under SELECT DISTINCT).
-def _p(conn) -> str:
-    return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
-def _epic_worktrees_sql(conn) -> str:
-    p = _p(conn)
-    return (
-        "SELECT iw.branch AS worktree FROM epic_tasks t "
-        "JOIN item_worktrees iw ON iw.id=t.item_worktree_id "
-        f"WHERE t.epic_id = {p} AND iw.state = 'active' "
-        "GROUP BY iw.branch ORDER BY MIN(t.task_num)"
-    )
-
-
-def _parent():
-    from yoke_core.engines import merge_audit as _ma
-    return _ma
 
 def generate_report(epic_filter: Optional[int] = None) -> str:
     """Generate the full merge readiness audit report.
@@ -101,6 +83,7 @@ def generate_report(epic_filter: Optional[int] = None) -> str:
 
         item_title = item_row["title"]
         item_status = item_row["status"]
+        epic_ref = _display_item_ref(conn, eid)
 
         # Get distinct worktree branches for this epic.
         wt_rows = query_rows(conn, _epic_worktrees_sql(conn), (eid,))
@@ -140,7 +123,7 @@ def generate_report(epic_filter: Optional[int] = None) -> str:
             # Table may not exist or query may fail
             pass
 
-        lines.append(f"## Epic YOK-{eid}: {item_title}")
+        lines.append(f"## Epic {epic_ref}: {item_title}")
         lines.append(f"Status: {item_status} | Tasks: {done_tasks}/{total_tasks} completed | Simulation: {sim_display}")
         lines.append("")
 
@@ -191,8 +174,8 @@ def generate_report(epic_filter: Optional[int] = None) -> str:
         # All tasks done but item not done
         if done_tasks == total_tasks and total_tasks > 0 and item_status != "done":
             warnings.append(
-                f"- YOK-{eid}: All tasks completed but item is `{item_status}`. "
-                f"Run `/yoke usher YOK-{eid}` to merge and complete."
+                f"- {epic_ref}: All tasks completed but item is `{item_status}`. "
+                f"Run `/yoke usher {epic_ref}` to merge and complete."
             )
             warning_count += 1
 
@@ -249,7 +232,8 @@ def generate_report(epic_filter: Optional[int] = None) -> str:
 
             ititle = str(standalone["title"] or "")
             iahead = _commits_ahead(repo_root, ibranch)
-            lines.append(f"| {ibranch} | YOK-{isun}: {ititle} | {istatus} | {iahead} |")
+            iref = _display_item_ref(conn, isun)
+            lines.append(f"| {ibranch} | {iref}: {ititle} | {istatus} | {iahead} |")
 
         if has_standalone:
             lines.append("")

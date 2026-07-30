@@ -31,12 +31,29 @@ def normalize_session_item_id(item_id: str) -> str:
     return item_id
 
 
-def display_claim_item_id(item_id: Optional[str]) -> Optional[str]:
-    """Render internal numeric claim IDs back to display-only YOK-N form."""
+def display_claim_item_id(
+    item_id: Optional[str],
+    conn: Any = None,
+) -> Optional[str]:
+    """Render a claim's item id for display.
+
+    ``work_claims.item_id`` stores the internal bare ``items.id``. The ref
+    an operator should see is project-scoped
+    (``{projects.public_item_prefix}-{items.project_sequence}``), which can
+    diverge from the internal id. When ``conn`` is supplied, resolve the true
+    public ref via ``render_item_ref`` (which itself falls back to a
+    prefix+id string when the item row is missing). Without a connection —
+    routing callers that resolve work back by internal id — keep the
+    internal-id form.
+    """
     if item_id is None:
         return None
     normalized = normalize_claim_item_id(str(item_id))
     if normalized.isdigit():
+        if conn is not None:
+            from .project_identity import render_item_ref
+
+            return render_item_ref(conn, int(normalized))
         return f"YOK-{normalized}"
     return str(item_id)
 

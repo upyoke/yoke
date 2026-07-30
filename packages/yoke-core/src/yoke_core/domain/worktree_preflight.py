@@ -48,6 +48,7 @@ from yoke_core.domain.worktree_preflight_steps import (
     classify_activation_failure,
     extract_retry_attempts,
     physical_cwd_mode,
+    resolve_item_branch_and_lane,
 )
 
 
@@ -98,7 +99,10 @@ def run_preflight(
     prepare_path_claims: Optional[Callable[[], Optional[str]]] = None,
 ) -> WorktreePreflightOutcome:
     """Run the harness-universal advance implementation-entry preflight."""
-    branch = f"YOK-{item_id}"
+    # The worktree/branch name is the item's public ref; a recorded active
+    # lane (if any) locates an existing worktree created under either the
+    # public-ref or legacy naming scheme so re-entry never mis-detects it.
+    branch, recorded_lane_path = resolve_item_branch_and_lane(item_id)
     out = WorktreePreflightOutcome(item_id=item_id, branch=branch)
 
     if repo_root is None:
@@ -208,7 +212,7 @@ def run_preflight(
         out.actions_taken.append("worktree:skipped")
     else:
         worktrees_dir = os.path.join(repo_root, ".worktrees")
-        canonical_path = os.path.join(worktrees_dir, branch)
+        canonical_path = recorded_lane_path or os.path.join(worktrees_dir, branch)
         canonical_exists = os.path.isdir(canonical_path)
         will_create = not canonical_exists
         if will_create:

@@ -191,7 +191,11 @@ def _cleanup_stale_branches(
         print(f"  Preserving merge lane: could not refresh origin/{base_branch}.")
         return False
 
-    canonical = f"YOK-{item_id}"
+    # The lane lives at .worktrees/<branch>; use the recorded branch
+    # (public ref or legacy name) rather than reconstructing YOK-{internal_id}.
+    from yoke_core.domain.worktree_naming import worktree_name_for_item
+
+    canonical = lane_branch or worktree_name_for_item(None, item_id)
     expected = {canonical}
     if lane_branch:
         expected.add(lane_branch)

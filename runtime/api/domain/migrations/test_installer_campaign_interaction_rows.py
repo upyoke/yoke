@@ -25,6 +25,21 @@ from yoke_core.domain.installer_campaign_screen_ready_cases import (
 INSTALLER_CAMPAIGN_CASES = SCREEN_READY_INSTALLER_CAMPAIGN_CASES
 
 
+def test_user_facing_terminal_cases_use_the_native_terminal_app_mode() -> None:
+    for case in INSTALLER_CAMPAIGN_CASES:
+        if case["method_id"] not in {"terminal-check", "terminal-inspection"}:
+            continue
+        raw_config = case["method_config"]
+        configs = raw_config.get("baseline_configs", {}).values()
+        if not configs:
+            configs = (raw_config,)
+        for config in configs:
+            expected = (
+                "ssh-command" if case["case_key"] == "path-repair" else "terminal"
+            )
+            assert config["execution_mode"] == expected
+
+
 def test_terminal_cases_use_current_stage_and_browser_approval_surfaces() -> None:
     cases = {case["case_key"]: case for case in INSTALLER_CAMPAIGN_CASES}
 
@@ -109,8 +124,7 @@ def test_hosted_actions_pin_send_before_capture_transitions() -> None:
     )
     approval_to_review = [
         ("browser-approval", ()),
-        ("operator-browser-approval", ()),
-        ("poll-browser-approval", ("Enter",)),
+        ("operator-browser-approval", ("Enter",)),
         ("hosted-connected", ()),
         ("continue-hosted-connected", ("Enter",)),
         ("machine-github", ()),
@@ -129,8 +143,11 @@ def test_hosted_actions_pin_send_before_capture_transitions() -> None:
             == approval_to_review
         )
         actions = {action["step"]: action for action in config["actions"]}
-        assert actions["operator-browser-approval"]["wait_seconds"] == 180
-        assert actions["poll-browser-approval"]["wait_seconds"] == 20
+        approval = actions["operator-browser-approval"]
+        assert approval["operator_gate"] == "machine_browser_approval"
+        assert approval["completion_text"] == ["Yoke token connected."]
+        assert approval["gate_timeout_seconds"] == 600
+        assert "wait_seconds" not in approval
         assert actions["hosted-connected"]["ready_text"] == ["Yoke token connected."]
         assert actions["machine-github-backlog"]["ready_text"] == ["Connect GitHub?"]
         assert actions["review"]["ready_text"] == [
@@ -143,19 +160,31 @@ def test_hosted_actions_pin_send_before_capture_transitions() -> None:
         ("path-ready", ()),
         ("continue-path", ("Enter",)),
         ("browser-approval", ()),
-        ("operator-browser-approval", ()),
-        ("poll-browser-approval", ("Enter",)),
+        ("operator-browser-approval", ("Enter",)),
         ("hosted-connected", ()),
     ]
     hosted_actions = {action["step"]: action for action in hosted_config["actions"]}
-    assert hosted_actions["operator-browser-approval"]["wait_seconds"] == 180
-    assert hosted_actions["poll-browser-approval"]["wait_seconds"] == 20
+    assert (
+        hosted_actions["operator-browser-approval"]["operator_gate"]
+        == "machine_browser_approval"
+    )
+    assert "wait_seconds" not in hosted_actions["operator-browser-approval"]
+    assert hosted_actions["path-ready"]["ready_text"] == [
+        "Yoke is already on your PATH.",
+    ]
     assert hosted_actions["hosted-connected"]["ready_text"] == ["Yoke token connected."]
 
-    assert action_signature(cases["connect-wait"]["method_config"]) == [
+    connect_wait_config = cases["connect-wait"]["method_config"]
+    assert action_signature(connect_wait_config) == [
         ("path-ready", ()),
         ("continue-path", ("Enter",)),
         ("connect-wait", ()),
+    ]
+    connect_wait_actions = {
+        action["step"]: action for action in connect_wait_config["actions"]
+    }
+    assert connect_wait_actions["path-ready"]["ready_text"] == [
+        "Yoke is already on your PATH.",
     ]
 
     review_config = cases["review-frame"]["method_config"]
@@ -163,8 +192,7 @@ def test_hosted_actions_pin_send_before_capture_transitions() -> None:
         ("path-ready", ()),
         ("continue-path", ("Enter",)),
         ("browser-approval", ()),
-        ("operator-browser-approval", ()),
-        ("poll-browser-approval", ("Enter",)),
+        ("operator-browser-approval", ("Enter",)),
         ("hosted-connected", ()),
         ("continue-hosted-connected", ("Enter",)),
         ("machine-github", ()),
@@ -176,6 +204,9 @@ def test_hosted_actions_pin_send_before_capture_transitions() -> None:
         for step, _keys in action_signature(review_config)
     )
     review_actions = {action["step"]: action for action in review_config["actions"]}
+    assert review_actions["path-ready"]["ready_text"] == [
+        "Yoke is already on your PATH.",
+    ]
     assert review_actions["review-frame"]["ready_text"] == [
         "Review what Yoke will save.",
         "Apply",

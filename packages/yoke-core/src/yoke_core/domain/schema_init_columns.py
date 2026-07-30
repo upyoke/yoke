@@ -22,6 +22,7 @@ from __future__ import annotations
 from typing import Any
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.epic_task_membership import MEMBERSHIP_FINALIZED_COLUMN
 from yoke_core.domain.qa_schema import _migrate_qa_vocab
 from yoke_core.domain.schema_checks import (
     _validate_epic_task_statuses,
@@ -199,6 +200,9 @@ def apply_additive_schema(conn: Any) -> None:
     # owner: yoke_core.domain.backlog_github_body_budget.
     _add_column_if_not_exists(
         conn, "items", "github_body_compact_pending", "TEXT",
+    )
+    _add_column_if_not_exists(
+        conn, "items", MEMBERSHIP_FINALIZED_COLUMN, "TEXT",
     )
     conn.commit()
 

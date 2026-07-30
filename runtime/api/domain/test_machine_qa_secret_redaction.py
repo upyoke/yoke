@@ -7,6 +7,9 @@ from types import SimpleNamespace
 from yoke_core.domain import machine_qa_local_execution
 from yoke_core.domain.machine_qa_execution import MachineCaseResult
 from yoke_core.domain.machine_qa_execution_contract import issue_execution_contract
+from runtime.api.domain.qa_plan_execution_test_support import (
+    synthetic_execution_target,
+)
 
 
 def test_fixture_augmented_evidence_is_redacted_before_submission(monkeypatch):
@@ -31,6 +34,10 @@ def test_fixture_augmented_evidence_is_redacted_before_submission(monkeypatch):
             },
         ),
     )
+    execution_target, execution_target_digest = synthetic_execution_target(
+        project_id=4,
+        project="yoke",
+    )
     case = {
         "requirement_id": 1,
         "item_id": 2,
@@ -51,6 +58,8 @@ def test_fixture_augmented_evidence_is_redacted_before_submission(monkeypatch):
         "workflow_transition_id": "implemented",
         "project_id": 4,
         "project": "yoke",
+        "execution_target": execution_target,
+        "execution_target_digest": execution_target_digest,
         "lane_branch": None,
         "case_position": 1,
         "baseline_position": 1,

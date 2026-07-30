@@ -12,6 +12,7 @@ from typing import List
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_rows
+from yoke_core.domain.project_identity import render_item_ref
 
 import yoke_core.engines.doctor_report as _base
 
@@ -92,7 +93,7 @@ def hc_worktree_health(conn, args: DoctorArgs, rec: RecordCollector) -> None:
             if owner["status"] in ("done", "cancelled"):
                 issues.append(
                     f"- Stale worktree: {branch} at {wt_path} "
-                    f"— YOK-{owner['item_id']} is {owner['status']} "
+                    f"— {render_item_ref(conn, owner['item_id'])} is {owner['status']} "
                     "(safe cleanup requires exact DB ownership, no active "
                     "claim, a clean tree, and target ancestry)"
                 )
@@ -121,7 +122,7 @@ def hc_worktree_health(conn, args: DoctorArgs, rec: RecordCollector) -> None:
                     if owner["status"] in ("done", "cancelled"):
                         issues.append(
                             f"- Stale worktree directory: {child_str} "
-                            f"— YOK-{owner['item_id']} is {owner['status']} "
+                            f"— {render_item_ref(conn, owner['item_id'])} is {owner['status']} "
                             "(unregistered directory preserved for inspection)"
                         )
 
@@ -139,7 +140,7 @@ def hc_worktree_health(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         if br.returncode == 0:
             issues.append(
                 f"- Stale local branch: {branch} "
-                f"— YOK-{did} is done/cancelled "
+                f"— {render_item_ref(conn, did)} is done/cancelled "
                 "(safe pruning requires DB ownership, no active claim, and "
                 "target ancestry)"
             )
@@ -153,7 +154,7 @@ def hc_worktree_health(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     )
     for row in wt_rows:
         issues.append(
-            f"- Active worktree lane on terminal item: YOK-{row['id']} "
+            f"- Active worktree lane on terminal item: {render_item_ref(conn, row['id'])} "
             f"has branch='{row['branch']}' "
             "(release the lane while preserving its audit record)"
         )

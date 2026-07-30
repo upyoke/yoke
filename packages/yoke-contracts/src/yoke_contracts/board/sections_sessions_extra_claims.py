@@ -20,6 +20,7 @@ from typing import Dict, List, Optional, Tuple
 
 from yoke_contracts.board.board_db import BoardDBLike
 from yoke_contracts.board.project_scope import item_ref
+from yoke_contracts.item_ref import format_item_ref
 
 
 PATH_GLYPH = "\U0001f4c1"   # 📁
@@ -283,7 +284,7 @@ def build_session_keycaps(
             try:
                 ref = item_ref(db, int(item_id))
             except Exception:
-                ref = f"YOK-{item_id}"
+                ref = format_item_ref(None, None, None, item_id=int(item_id))
             cell = f"{PATH_GLYPH}{count} ({ref})"
         else:
             process_key = _process_anchor(db, bucket["work_claim_id"])

@@ -16,6 +16,7 @@ import re
 import sys
 
 from yoke_core.domain.db_helpers import connect, query_one
+from yoke_core.domain.project_identity import format_item_ref, render_item_ref
 from yoke_core.domain.qa_gate_definitions import GateResult
 from yoke_core.domain.sql_json import json_get
 
@@ -49,6 +50,10 @@ def check_epic_simulation_gate(epic_id: int, db_path: str) -> GateResult:
 
     conn = connect(db_path)
     try:
+        try:
+            epic_ref = render_item_ref(conn, epic_id)
+        except Exception:
+            epic_ref = format_item_ref(None, None, None, item_id=epic_id)
         # Simulation data lives in qa_runs joined to qa_requirements
         # (qa_kind='simulation', phase in success_policy JSON).
         # Result is derived: verdict 'pass' -> CLEAN, 'fail' -> GAPS FOUND.
@@ -87,7 +92,7 @@ def check_epic_simulation_gate(epic_id: int, db_path: str) -> GateResult:
         return GateResult(
             passed=False,
             errors=[
-                f"Error: No integration simulation found for epic YOK-{epic_id}.",
+                f"Error: No integration simulation found for epic {epic_ref}.",
                 f"Run '/yoke simulate {epic_id} --phase integration' before advancing.",
             ],
         )
@@ -110,7 +115,7 @@ def check_epic_simulation_gate(epic_id: int, db_path: str) -> GateResult:
             return GateResult(
                 passed=False,
                 errors=[
-                    f"Error: Integration simulation for epic YOK-{epic_id} has blocking gaps.",
+                    f"Error: Integration simulation for epic {epic_ref} has blocking gaps.",
                     "",
                     "Blocking gaps found:",
                     blocking_match.group(0),
@@ -133,7 +138,7 @@ def check_epic_simulation_gate(epic_id: int, db_path: str) -> GateResult:
             return GateResult(
                 passed=False,
                 errors=[
-                    f"Error: Integration simulation for epic YOK-{epic_id} has empty result and body.",
+                    f"Error: Integration simulation for epic {epic_ref} has empty result and body.",
                     f"Run '/yoke simulate {epic_id} --phase integration' before advancing.",
                 ],
             )
@@ -146,7 +151,7 @@ def check_epic_simulation_gate(epic_id: int, db_path: str) -> GateResult:
             return GateResult(
                 passed=False,
                 errors=[
-                    f"Error: Integration simulation for epic YOK-{epic_id} has blocking gaps.",
+                    f"Error: Integration simulation for epic {epic_ref} has blocking gaps.",
                 ],
             )
         _emit_non_critical_advisory(body)
@@ -156,7 +161,7 @@ def check_epic_simulation_gate(epic_id: int, db_path: str) -> GateResult:
     return GateResult(
         passed=False,
         errors=[
-            f"Error: Integration simulation for epic YOK-{epic_id} has unrecognized result: '{result}'.",
+            f"Error: Integration simulation for epic {epic_ref} has unrecognized result: '{result}'.",
             "Only 'CLEAN' or 'GAPS FOUND' are valid simulation results.",
             f"Run '/yoke simulate {epic_id} --phase integration' to generate a valid report.",
         ],

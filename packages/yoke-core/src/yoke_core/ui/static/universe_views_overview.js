@@ -13,9 +13,11 @@ import { loadSessions } from "./universe_overview_sessions.js";
 import { loadDelivery } from "./universe_overview_delivery.js";
 import { loadDoctor, loadEvents } from "./universe_overview_health.js";
 
-// The one entry point the shell calls. The activation stack stays pinned
-// between the masthead and Strategy; each panel fills independently.
-export function renderOverviewView(context, main, scope) {
+// The one entry point the shell calls. The activation stack pins above the
+// scope picker (in the shell's above-scope host when one is supplied, else
+// inline above the panels), so a project-selection change never tears it
+// down; each panel below fills independently.
+export function renderOverviewView(context, main, scope, options = {}) {
   const documentNode = context.document;
   const masthead = signalMasthead(documentNode);
 
@@ -33,17 +35,46 @@ export function renderOverviewView(context, main, scope) {
   finalPair.appendChild(events);
   finalPair.appendChild(doctor);
   const activationHost = el(documentNode, "div", "activation-host");
+  const aboveScope = options.aboveScope || null;
+  if (aboveScope) aboveScope.replaceChildren(activationHost);
   main.replaceChildren(
     sectionJumps(documentNode, panels), masthead,
-    activationHost, strategy, frontier, sessions, delivery, finalPair,
+    ...(aboveScope ? [] : [activationHost]),
+    strategy, frontier, sessions, delivery, finalPair,
   );
 
-  const vitalsRead = loadVitals(context, masthead, scope);
+  // Each read is issued once at mount over the widest bucket set; a
+  // project-selection change re-runs the held paint() closures (which read
+  // getScope() live) with no refetch. Activation is scope-independent and
+  // stays out of the rescope path entirely.
+  let currentScope = scope;
+  const getScope = () => currentScope;
+  const painters = [];
+  const hold = (pending) => Promise.resolve(pending).then((paint) => {
+    if (typeof paint === "function") painters.push(paint);
+  });
+
   const activationFacts = loadActivationModules(context, activationHost);
-  loadStrategy(context, strategy, scope, activationFacts, vitalsRead);
-  loadFrontier(context, frontier, scope, activationFacts);
-  loadSessions(context, sessions, scope);
-  loadDelivery(context, delivery, scope, activationFacts);
-  loadEvents(context, events, scope);
-  loadDoctor(context, doctor, scope);
+  const vitalsRead = loadVitals(context, masthead, getScope);
+  vitalsRead.then((vitals) => {
+    if (vitals && typeof vitals.paint === "function") painters.push(vitals.paint);
+  });
+  const timelinesRead = vitalsRead.then(
+    (vitals) => (vitals && vitals.timelines) || [],
+  );
+  hold(loadStrategy(context, strategy, getScope, activationFacts, timelinesRead));
+  hold(loadFrontier(context, frontier, getScope, activationFacts));
+  hold(loadSessions(context, sessions, getScope));
+  hold(loadDelivery(context, delivery, getScope, activationFacts));
+  hold(loadEvents(context, events, getScope));
+  hold(loadDoctor(context, doctor, getScope));
+
+  return {
+    rescope(newScope) {
+      if (!context.isMounted()) return;
+      currentScope = newScope;
+      for (const panel of panels.values()) panel.setScope(newScope);
+      for (const paint of painters) paint();
+    },
+  };
 }

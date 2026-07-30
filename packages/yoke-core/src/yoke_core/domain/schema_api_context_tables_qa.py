@@ -45,6 +45,8 @@ QA_TABLES: dict[str, dict] = {
             ("instructions", "TEXT"),
             ("expected_outcome", "TEXT"),
             ("method_config", "TEXT"),
+            ("execution_target_json", "TEXT"),
+            ("execution_target_digest", "TEXT"),
             ("created_at", "TEXT"),
         ],
         "notes": (
@@ -63,7 +65,9 @@ QA_TABLES: dict[str, dict] = {
             "`ac_derived` / ...). Materialized executable cases instead "
             "carry immutable case ordering, executor, entry-surface, "
             "completion, instructions, expected-outcome, and method-config "
-            "snapshots. Execute a transition's ordered set through "
+            "snapshots plus one environment/tenant/project execution target. "
+            "The target digest prevents endpoint or environment substitution "
+            "after materialization. Execute a transition's ordered set through "
             "`yoke qa plan run --item PREFIX-N --transition T`, or one "
             "snapshot through `yoke qa case run --requirement-id <id>`; "
             "never replace snapshot fields during execution. "

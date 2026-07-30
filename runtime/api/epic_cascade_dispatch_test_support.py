@@ -5,6 +5,10 @@ import json
 import pytest
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.epic_task_scope import (
+    finalize_generated_task_scopes,
+    set_no_files_scope,
+)
 from runtime.api.conftest import insert_item, insert_epic_task
 from runtime.api.fixtures.backlog import insert_item_worktree
 
@@ -29,6 +33,8 @@ def db_with_task(db):
     insert_epic_task(
         db, epic_id=TEST_ITEM_ID, task_num=1, title="First task", status="planning"
     )
+    set_no_files_scope(db, TEST_ITEM_ID, 1)
+    finalize_generated_task_scopes(db, TEST_ITEM_ID)
     return db
 
 

@@ -7,6 +7,10 @@ from typing import Any
 
 from yoke_core.domain.machine_qa_action_readiness_contract import (
     normalize_action_readiness,
+    registered_terminal_post_check,
+)
+from yoke_core.domain.machine_qa_operator_gate_contract import (
+    normalize_operator_gate,
 )
 
 
@@ -146,6 +150,9 @@ def _actions(raw: Any) -> list[dict[str, Any]]:
             "step",
             "keys",
             "capture",
+            "completion_text",
+            "gate_timeout_seconds",
+            "operator_gate",
             "ready_text",
             "ready_timeout_seconds",
             "wait_seconds",
@@ -188,19 +195,16 @@ def _actions(raw: Any) -> list[dict[str, Any]]:
                     "action wait_seconds must be numeric from 0..300"
                 )
             normalized_action["wait_seconds"] = float(wait_seconds)
+        try:
+            normalize_operator_gate(
+                action,
+                normalized_action,
+                strings=_strings,
+            )
+        except ValueError as exc:
+            raise MachineQaRecipeError(str(exc)) from exc
         normalized.append(normalized_action)
     return normalized
-
-
-def _registered_post_check(value: str) -> bool:
-    if value == "secret_free":
-        return True
-    if value.startswith("no_text:"):
-        return bool(value.removeprefix("no_text:"))
-    if value.startswith("terminal_exit_code:"):
-        raw_code = value.removeprefix("terminal_exit_code:")
-        return raw_code.isdigit() and 0 <= int(raw_code) <= 255
-    return False
 
 
 def validate_terminal_recipe(
@@ -234,7 +238,7 @@ def validate_terminal_recipe(
     if not completion or completion not in {action["step"] for action in actions}:
         raise MachineQaRecipeError("required_completion must name a typed action step")
     mode = str(config["execution_mode"])
-    if mode not in {"terminal", "ssh-command"}:
+    if mode not in {"terminal", "terminal-multiplexer", "ssh-command"}:
         raise MachineQaRecipeError("execution_mode is not registered")
     if mode == "ssh-command" and (len(actions) != 1 or actions[0]["keys"]):
         raise MachineQaRecipeError(
@@ -276,7 +280,7 @@ def validate_terminal_recipe(
     if any(checkpoint not in action_steps for checkpoint in checkpoints):
         raise MachineQaRecipeError("capture_checkpoints name unknown action steps")
     post_checks = _strings(config["post_checks"], field="post_checks")
-    if any(not _registered_post_check(value) for value in post_checks):
+    if any(not registered_terminal_post_check(value) for value in post_checks):
         raise MachineQaRecipeError("post_checks name an unregistered check")
     stage_files: list[dict[str, str]] = []
     raw_stage_files = config.get("stage_files", [])

@@ -59,7 +59,7 @@ def test_interactive_recipe_rejects_a_known_unexpected_exit_code(
         upload_bytes=lambda _path, _content: True,
         entry_surface="yoke onboard",
         required_completion="done",
-        config=recipe(mode="terminal"),
+        config=recipe(mode="terminal-multiplexer"),
         evidence_parent=tmp_path / "evidence",
         secret_values=(),
     )
@@ -130,7 +130,7 @@ def test_interactive_recipe_uses_action_wait_then_global_fallback(
         lambda seconds: sleeps.append(float(seconds)),
     )
 
-    config = recipe(mode="terminal")
+    config = recipe(mode="terminal-multiplexer")
     config["actions"] = [
         {
             "step": "initial",
@@ -223,7 +223,7 @@ def test_interactive_recipe_resizes_the_created_native_session(
         upload_bytes=lambda _path, _content: True,
         entry_surface="yoke onboard",
         required_completion="done",
-        config=recipe(mode="terminal"),
+        config=recipe(mode="terminal-multiplexer"),
         evidence_parent=tmp_path / "evidence",
         secret_values=(),
         terminal_size=(100, 32),

@@ -52,6 +52,8 @@ class AmbientSiblingRow:
     coverage_paths: List[str] = field(default_factory=list)
     extra_count: int = 0
     base_commit_age_hint: str = "unknown"
+    public_item_prefix: str = ""
+    project_sequence: Optional[int] = None
 
 
 def fetch_rows(
@@ -115,9 +117,12 @@ def _fetch_rows(
         rows = conn.execute(
             "SELECT pc.id, pc.item_id, pc.state, pc.base_commit_sha, "
             "       pc.activated_at, "
-            "       COALESCE(i.title, '') AS title "
+            "       COALESCE(i.title, '') AS title, "
+            "       COALESCE(p.public_item_prefix, '') AS public_item_prefix, "
+            "       i.project_sequence AS project_sequence "
             "FROM path_claims pc "
             "LEFT JOIN items i ON i.id = pc.item_id "
+            "LEFT JOIN projects p ON p.id = i.project_id "
             f"WHERE pc.integration_target = {p} "
             f"AND pc.state IN ({placeholders}) "
             f"{extra_clause}"
@@ -142,6 +147,12 @@ def _fetch_rows(
         )
         activated_at = row[4] if not hasattr(row, "keys") else row["activated_at"]
         title = str(row[5] if not hasattr(row, "keys") else row["title"])
+        prefix_raw = (
+            row[6] if not hasattr(row, "keys") else row["public_item_prefix"]
+        )
+        sequence_raw = (
+            row[7] if not hasattr(row, "keys") else row["project_sequence"]
+        )
 
         coverage = _coverage_for_claim(conn, claim_id)
         top, extra = _split_top_extra(coverage, _TOP_PATHS)
@@ -162,6 +173,8 @@ def _fetch_rows(
                 coverage_paths=top,
                 extra_count=extra,
                 base_commit_age_hint=age_hint,
+                public_item_prefix=str(prefix_raw or ""),
+                project_sequence=_coerce_int(sequence_raw),
             )
         )
     return out
@@ -276,8 +289,17 @@ def render(
 
 def _format_row(row: AmbientSiblingRow) -> List[str]:
     """Format one sibling row into 1-2 lines fitting 80 columns."""
+    from yoke_core.domain.project_identity import format_item_ref
+
     item_label = (
-        f"YOK-{row.item_id}" if row.item_id is not None else "YOK-?"
+        format_item_ref(
+            None,
+            row.public_item_prefix or None,
+            row.project_sequence,
+            item_id=row.item_id,
+        )
+        if row.item_id is not None
+        else "?"
     )
     head = f"claim {row.claim_id:<5} [{row.state:<7}] {item_label}"
     title = (row.item_title or "").strip()

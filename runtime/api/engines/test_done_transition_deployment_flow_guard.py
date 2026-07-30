@@ -24,6 +24,7 @@ class TestDeploymentFlowGuardInvalidFlow:
                 item_project="yoke",
                 old_status="implemented",
                 delivery_stage_id="ship-ready",
+                item_ref="YOK-510",
             )
         out = capsys.readouterr().out
         assert result == (7, "implemented")
@@ -42,6 +43,7 @@ class TestDeploymentFlowGuardInvalidFlow:
                 item_project="yoke",
                 old_status="implemented",
                 delivery_stage_id="ship-ready",
+                item_ref="YOK-511",
             )
         out = capsys.readouterr().out
         assert result == (7, "implemented")
@@ -58,6 +60,7 @@ class TestDeploymentFlowGuardInvalidFlow:
                 item_project="yoke",
                 old_status="implemented",
                 delivery_stage_id="ship-ready",
+                item_ref="YOK-512",
             )
         out = capsys.readouterr().out
         assert result == (7, "implemented")
@@ -81,6 +84,7 @@ class TestDeploymentFlowGuardRegisteredButMissingEvidence:
                 item_project="yoke",
                 old_status="implemented",
                 delivery_stage_id="ship-ready",
+                item_ref="YOK-520",
             )
         out = capsys.readouterr().out
         assert result == (7, "implemented")
@@ -98,5 +102,6 @@ class TestDeploymentFlowGuardRegisteredButMissingEvidence:
                 item_project="yoke",
                 old_status="implemented",
                 delivery_stage_id="ship-ready",
+                item_ref="YOK-530",
             )
         assert result is None

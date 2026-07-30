@@ -11,6 +11,7 @@ from yoke_core.domain.backlog_epic_task_cascade import _cascade_epic_tasks
 from yoke_core.domain.backlog_session_attribution import (
     _maybe_set_session_current_item,
 )
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.status_claim_bypass_context import resolve_claim_bypass
 
 
@@ -47,7 +48,8 @@ def run_transactional_update_effects(
             rework_count = event.detail.get("rework_count", "")
             if rework_count:
                 messages.append(
-                    f"Rework detected: YOK-{item_id} rework_count → {rework_count}"
+                    f"Rework detected: {render_item_ref(conn, item_id)} "
+                    f"rework_count → {rework_count}"
                 )
 
     transitioned = field == "status" and bool(old_status) and old_status != value
@@ -159,8 +161,8 @@ def run_transactional_update_effects(
 
     if field == "status" and value == "done":
         messages.append(
-            f"Done cleanup: YOK-{item_id} frozen→false, blocked→false, "
-            "active worktree lanes→released"
+            f"Done cleanup: {render_item_ref(conn, item_id)} frozen→false, "
+            "blocked→false, active worktree lanes→released"
         )
     return UpdateEffectReceipt(
         status_event=status_event,
@@ -307,7 +309,10 @@ def _clean_terminal_path_claims(
     if not count:
         return None, tuple(released_claim_ids)
     return (
-        (f"{verb} {count} non-terminal path claim(s) for YOK-{item_id}"),
+        (
+            f"{verb} {count} non-terminal path claim(s) for "
+            f"{render_item_ref(conn, item_id)}"
+        ),
         tuple(released_claim_ids),
     )
 

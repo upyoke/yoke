@@ -17,6 +17,7 @@ from yoke_core.api.service_client_shared import (
 # in service_client_items_parsing.py — import directly from the canonical
 # owner (no two-hop through the items shim).
 from yoke_core.api.service_client_items_parsing import _parse_item_filters
+from yoke_core.domain.project_identity import format_item_ref, render_item_ref
 
 
 def cmd_backlog_dedup_search(args: list[str]) -> int:
@@ -27,8 +28,13 @@ def cmd_backlog_dedup_search(args: list[str]) -> int:
         print("Usage: backlog-dedup-search <keywords>", file=sys.stderr)
         return 2
 
-    for row in backlog.dedup_search(args[0]):
-        print(f"YOK-{row['id']}: {row['title']} ({row['status']})")
+    conn = _get_db_readonly()
+    try:
+        for row in backlog.dedup_search(args[0]):
+            ref = render_item_ref(conn, int(row["id"]))
+            print(f"{ref}: {row['title']} ({row['status']})")
+    finally:
+        conn.close()
     return 0
 
 
@@ -39,10 +45,12 @@ def cmd_backlog_list_cli(args: list[str]) -> int:
         return parsed
     filt, _ = parsed
 
-    where_clause, params = queries.build_where_clause(filt)
+    where_clause, params = queries.build_where_clause(filt, table_prefix="i.")
     sql = (
-        "SELECT id, title, workflow_id, status, priority "
-        f"FROM items {where_clause} ORDER BY id"
+        "SELECT i.id, i.title, i.workflow_id, i.status, i.priority, "
+        "p.public_item_prefix, i.project_sequence, p.slug AS project_slug "
+        "FROM items i LEFT JOIN projects p ON p.id = i.project_id "
+        f"{where_clause} ORDER BY i.id"
     )
 
     print(f"{'ID':<8} {'Title':<50} {'Workflow':<12} {'Status':<14} {'Priority':<8}")
@@ -52,7 +60,12 @@ def cmd_backlog_list_cli(args: list[str]) -> int:
     try:
         rows = conn.execute(sql, params).fetchall()
         for row in rows:
-            display_id = f"YOK-{row['id']}"
+            display_id = format_item_ref(
+                row["project_slug"],
+                row["public_item_prefix"],
+                row["project_sequence"],
+                item_id=row["id"],
+            )
             display_title = (row["title"] or "")[:50]
             print(
                 f"{display_id:<8} {display_title:<50} "

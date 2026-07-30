@@ -13,6 +13,7 @@ from yoke_core.domain.workflow_behavior import (
     worktree_lane_policy,
 )
 from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
+from yoke_core.domain.worktree_naming import worktree_name_for_item
 
 
 def normalize_worktree_lane(
@@ -41,13 +42,21 @@ def resolve_worktree_lanes_for_item(
     *,
     authoritative_lanes: Optional[Sequence[Mapping[str, Any]]] = None,
 ) -> List[Tuple[str, ...]]:
-    """Resolve branches and lane roles from the pinned workflow policy."""
+    """Resolve branches and lane roles from the pinned workflow policy.
+
+    New lanes are named by the item's public ref (via
+    :func:`worktree_name_for_item`) so users never see a worktree/branch
+    named with the raw internal id. When no usable connection is available
+    (connect failure, item absent), the degraded fallback keeps the legacy
+    ``YOK-{internal_id}`` name because the public sequence cannot be read.
+    """
+    fallback_name = worktree_name_for_item(None, item_id)
     fallback_path = os.path.join(
         repo_root,
         worktrees_dir,
-        f"YOK-{item_id}",
+        fallback_name,
     )
-    fallback = [(f"YOK-{item_id}", fallback_path, LANE_IMPLEMENTATION)]
+    fallback = [(fallback_name, fallback_path, LANE_IMPLEMENTATION)]
     if authoritative_lanes is not None:
         role_order = {
             LANE_INTEGRATION: 0,
@@ -86,6 +95,8 @@ def resolve_worktree_lanes_for_item(
             is None
         ):
             return fallback
+        wt_name = worktree_name_for_item(conn, int(item_id))
+        wt_path = os.path.join(repo_root, worktrees_dir, wt_name)
         runtime = load_item_workflow_runtime(conn, int(item_id))
         policy = worktree_lane_policy(runtime)
         existing_rows = conn.execute(
@@ -118,15 +129,15 @@ def resolve_worktree_lanes_for_item(
             ):
                 resolved.insert(
                     0,
-                    (f"YOK-{item_id}", fallback_path, LANE_INTEGRATION, 0),
+                    (wt_name, wt_path, LANE_INTEGRATION, 0),
                 )
             return resolved
         if LANE_IMPLEMENTATION in policy.allowed_roles:
             return [
-                (f"YOK-{item_id}", fallback_path, LANE_IMPLEMENTATION, 0),
+                (wt_name, wt_path, LANE_IMPLEMENTATION, 0),
             ]
         if policy.required_roles == frozenset({LANE_WORKER}):
-            return [(f"YOK-{item_id}", fallback_path, LANE_WORKER, 0)]
+            return [(wt_name, wt_path, LANE_WORKER, 0)]
         return []
     finally:
         conn.close()

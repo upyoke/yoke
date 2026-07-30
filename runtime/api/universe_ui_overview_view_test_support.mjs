@@ -1,5 +1,129 @@
 import { allNodes } from "./universe_ui_dom_test_support.mjs";
 
+// A two-project universe whose per-project fan-out reads (vitals, events,
+// doctor, strategy) answer by request.payload.project / request.target so a
+// held "all" mount holds each project's own rows — and whose universe reads
+// (frontier, sessions, delivery) carry a project on every row so a client-side
+// scope narrow can partition them. Used by the held-read rescope regressions.
+export function multiProjectOverviewClient({ failProject } = {}) {
+  const requests = [];
+  const projects = [
+    { id: 1, slug: "yoke", name: "Yoke", emoji: "🐄" },
+    { id: 2, slug: "beta", name: "Beta", emoji: "🐝" },
+  ];
+  const ok = (result) => ({ status: 200, envelope: { success: true, result } });
+  const fail = () => ({
+    status: 500, envelope: { success: false, error: { message: "boom" } },
+  });
+  const vitalsFor = (project) => ({
+    state_counts: project === "2"
+      ? { active: 1, pipeline: 0, backlog: 0, blocked: 0, frozen: 0, done: 5 }
+      : { active: 3, pipeline: 2, backlog: 4, blocked: 1, frozen: 0, done: 20 },
+    momentum: [{ day: "2026-07-26", activity: 1, code: 1, issues: 0, strategy: 0 }],
+    strategy_timeline: [{
+      project_id: Number(project), project: project === "2" ? "beta" : "yoke",
+      done_positions: [], labels: [], queued_count: 0, vision_zones: [],
+    }],
+    days: 120,
+  });
+  const docsFor = (projectId) => ({
+    docs: [{
+      slug: projectId === "2" ? "BETA-PLAN" : "MISSION", title: "why",
+      updated_at: "today", execution_state: "available",
+    }],
+  });
+  const eventsFor = (project) => ({
+    rows: [{
+      created_at: "30s", event_name: project === "2" ? "BetaEvent" : "YokeEvent",
+      source_label: "sys", target_label: "t", context_label: "c",
+    }],
+  });
+  const doctorFor = (project) => ({
+    never_run: false, ran_at: "today", total: 10, pass_count: 9,
+    warn_count: 1, fail_count: 0,
+    results: [{
+      hc: "HC-x", name: project === "2" ? "beta-check" : "yoke-check",
+      severity: "warn",
+    }],
+  });
+  const deliveryFor = (project) => ({
+    rows: [{
+      id: project === "2" ? "run-beta" : "run-yoke",
+      project: project === "2" ? "beta" : "yoke", target_env: "stage",
+      status: "succeeded", created_at: project === "2" ? "2h" : "1h", stages: [],
+    }],
+  });
+  const universe = {
+    "frontier.list": {
+      ready_rows: [
+        {
+          item_id: "YOK-9", title: "Yoke item", project: "yoke", rank: 0,
+          workflow_id: "issue", run_command: "yoke advance YOK-9",
+          why_ready: "ok", created_at: "2026-07-26T11:00:00Z",
+        },
+        {
+          item_id: "YOK-20", title: "Beta item", project: "beta", rank: 1,
+          workflow_id: "issue", run_command: "yoke advance YOK-20",
+          why_ready: "ok", created_at: "2026-07-25T11:00:00Z",
+        },
+      ],
+      blocked_rows: [],
+    },
+    "sessions.list": {
+      rows: [
+        {
+          session_id: "s-yoke", liveness: "active", project: "yoke",
+          executor: "codex", model: "m", execution_lane: "L", mode: "charge",
+          actor_id: 2, actor_kind: "human", activity_at: "2026-07-26T12:00:00Z",
+        },
+        {
+          session_id: "s-beta", liveness: "active", project: "beta",
+          executor: "codex", model: "m", execution_lane: "L", mode: "charge",
+          actor_id: 2, actor_kind: "human", activity_at: "2026-07-26T12:00:00Z",
+        },
+        {
+          session_id: "s-nil", liveness: "active", project: null,
+          executor: "codex", model: "m", execution_lane: "L", mode: "charge",
+          actor_id: 2, actor_kind: "human", activity_at: "2026-07-26T12:00:00Z",
+        },
+      ],
+    },
+    "overview.activation.get": { dismiss_available: false, modules: [] },
+  };
+  return {
+    requests,
+    projects,
+    async call(request) {
+      requests.push(request);
+      const fn = request.function;
+      if (fn === "organizations.get") return ok({ name: "Yoke" });
+      if (fn === "projects.list") return ok({ rows: projects });
+      if (fn === "overview.vitals.get") {
+        const project = String(request.payload.project ?? "1");
+        return project === failProject ? fail() : ok(vitalsFor(project));
+      }
+      if (fn === "events.query.run") {
+        const project = String(request.payload.project);
+        return project === failProject ? fail() : ok(eventsFor(project));
+      }
+      if (fn === "doctor.last_run.get") {
+        const project = String(request.payload.project);
+        return project === failProject ? fail() : ok(doctorFor(project));
+      }
+      if (fn === "deployment_runs.list") {
+        const project = String(request.payload.project);
+        return project === failProject ? fail() : ok(deliveryFor(project));
+      }
+      if (fn === "strategy.doc.list") {
+        const project = String((request.target || {}).project_id);
+        return project === failProject ? fail() : ok(docsFor(project));
+      }
+      if (fn in universe) return ok(universe[fn]);
+      throw new Error(`unexpected function ${fn}`);
+    },
+  };
+}
+
 export function descendantText(root) {
   return allNodes(root)
     .filter((node) => node.children.length === 0)

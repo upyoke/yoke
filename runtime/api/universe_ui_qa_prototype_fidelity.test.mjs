@@ -8,6 +8,9 @@ import {
   outcomeNode,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/qa_view_primitives.js";
 import {
+  reviewExplanation,
+} from "../../packages/yoke-core/src/yoke_core/ui/static/qa_review_explanation.js";
+import {
   FakeDocument,
   allNodes,
   byClass,
@@ -215,13 +218,44 @@ test("case-state explanations preserve queued, waiting, and review semantics", (
     true,
   );
 
-  assert.match(review.children[0].title, /human decision was requested/i);
-  assert.match(review.children[0].title, /Inbox/);
+  assert.match(review.children[0].title, /does not yet have a conclusive verdict/i);
+  assert.match(review.children[0].title, /executor records/);
+  assert.doesNotMatch(review.children[0].title, /human decision was requested/i);
   assert.match(queued.children[0].title, /has not started/);
   assert.match(waiting.children[0].title, /required capability or serial lease/);
   assert.match(capability.title, /in use by YOK-2001/);
   assert.match(capability.title, /this case queues/);
   assert.match(capability.title, /nothing about the plan is blocked/);
+});
+
+test("review explanations derive human work only from recorded request state", () => {
+  assert.match(
+    reviewExplanation({ state: "awaiting_agent_review" }),
+    /Agent inspection is pending; no human decision has been requested/,
+  );
+  assert.match(
+    reviewExplanation({
+      state: "agent_reviewed",
+      agent_verdict: "pass",
+      rationale: "The frame matches.",
+    }),
+    /recorded pass.*The frame matches/,
+  );
+  assert.doesNotMatch(
+    reviewExplanation({
+      state: "agent_inconclusive",
+      rationale: "The evidence is ambiguous.",
+    }),
+    /pending in Inbox/,
+  );
+  assert.match(
+    reviewExplanation({
+      state: "human_review_requested",
+      rationale: "The evidence is ambiguous.",
+      decision_request: { id: 44 },
+    }),
+    /request 44 is pending in Inbox/,
+  );
 });
 
 test("every evidence disposition renders an honest terminal state", async () => {

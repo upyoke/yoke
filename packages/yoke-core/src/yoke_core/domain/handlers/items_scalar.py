@@ -129,6 +129,7 @@ def _frozen_block(
     if payload.force or payload.field == "frozen":
         return None
     from yoke_core.domain import db_helpers
+    from yoke_core.domain.project_identity import render_item_ref
 
     with db_helpers.connect() as conn:
         p = _p(conn)
@@ -136,14 +137,15 @@ def _frozen_block(
             f"SELECT frozen FROM items WHERE id = {p}",
             (int(item_id),),
         ).fetchone()
-    if row is None:
-        return None
-    frozen_val = row[0] if not hasattr(row, "keys") else row["frozen"]
-    if not frozen_val:
-        return None
+        if row is None:
+            return None
+        frozen_val = row[0] if not hasattr(row, "keys") else row["frozen"]
+        if not frozen_val:
+            return None
+        item_ref = render_item_ref(conn, int(item_id))
     return _error_outcome(
         "frozen",
-        f"YOK-{item_id} is frozen; thaw the item before updating "
+        f"{item_ref} is frozen; thaw the item before updating "
         f"non-frozen fields (or pass force=True for sanctioned overrides).",
     )
 

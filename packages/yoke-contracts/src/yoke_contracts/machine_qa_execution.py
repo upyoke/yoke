@@ -51,6 +51,8 @@ class MachineQaCaseContract(BaseModel):
     workflow_transition_id: str | None
     project_id: int = Field(ge=1)
     project: str
+    execution_target: dict[str, Any]
+    execution_target_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
     lane_branch: str | None
     case_position: int | None = Field(default=None, ge=1)
     baseline_position: int | None = Field(default=None, ge=1)
@@ -60,6 +62,31 @@ class MachineQaCaseContract(BaseModel):
         if (self.item_id is None) == (self.deployment_run_id is None):
             raise ValueError(
                 "Machine QA case requires one item or deployment-run subject"
+            )
+        encoded_target = json.dumps(
+            self.execution_target,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        expected_digest = hashlib.sha256(encoded_target).hexdigest()
+        if not hmac.compare_digest(self.execution_target_digest, expected_digest):
+            raise ValueError("Machine QA execution target digest is invalid")
+        target_project = self.execution_target.get("project")
+        environment = self.execution_target.get("environment")
+        tenant = self.execution_target.get("tenant")
+        if (
+            not isinstance(target_project, dict)
+            or int(target_project.get("id") or 0) != self.project_id
+            or str(target_project.get("slug") or "") != self.project
+            or not isinstance(environment, dict)
+            or not str(environment.get("id") or "")
+            or not str(environment.get("name") or "")
+            or not isinstance(tenant, dict)
+            or not str(tenant.get("slug") or "")
+            or not isinstance(self.execution_target.get("endpoints"), dict)
+        ):
+            raise ValueError(
+                "Machine QA execution target does not match its case authority"
             )
         return self
 

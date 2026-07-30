@@ -9,7 +9,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from yoke_harness import ssh_mac_terminal_capture
+from yoke_harness import ssh_mac_terminal_app
 from yoke_harness.ssh_mac_terminal_capture import detect_terminal_backend
 from yoke_core.domain import ssh_mac_host_control
 from yoke_core.domain import ssh_mac_terminal_legacy
@@ -49,10 +49,9 @@ def test_detect_terminal_backend_selects_screen_after_tmux_probe() -> None:
     assert commands == [_BACKEND_PROBE]
 
 
-def test_check_terminal_bridge_reports_screen_backend(
+def test_check_terminal_bridge_reports_direct_terminal_app_control(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    session = "yoke-bridge-" + "b" * 12
     commands: list[str] = []
 
     def run(
@@ -60,21 +59,23 @@ def test_check_terminal_bridge_reports_screen_backend(
         **_kwargs: object,
     ) -> subprocess.CompletedProcess[str]:
         commands.append(command)
-        if command == _BACKEND_PROBE:
-            return _completed(command, stdout="screen")
-        if "return id of front window" in command:
+        if "return id of targetWindow" in command:
             return _completed(command, stdout="445")
-        if " hardcopy -h " in command:
+        if "return contents of selected tab" in command:
             return _completed(
                 command,
-                stdout="yoke-terminal-bridge-ready\n",
+                stdout="received-bbbbbbbbbbbb\n",
             )
+        if 'tell application "System Events"' in command:
+            return _completed(command, stdout="true")
+        if "set shotCmd" in command:
+            return _completed(command, stdout="446")
         if command.startswith("/bin/test -s "):
             return _completed(command, stdout="cG5n")
         return _completed(command)
 
     monkeypatch.setattr(
-        ssh_mac_terminal_capture,
+        ssh_mac_terminal_app,
         "uuid4",
         lambda: SimpleNamespace(hex="b" * 32),
     )
@@ -86,35 +87,32 @@ def test_check_terminal_bridge_reports_screen_backend(
     assert result.ok is True
     assert result.error_code is None
     assert result.evidence == {
-        "terminal_backend": "screen",
-        "pty": True,
-        "terminal_control": True,
-        "screenshot_capture": True,
-        "sample_artifact_retained": False,
+        "terminal_backend": "Terminal.app",
+        "terminal_app_launch": True,
+        "terminal_app_input": True,
+        "terminal_app_transcript": True,
+        "terminal_app_screenshot": True,
     }
-    start = next(command for command in commands if command.startswith("screen -dmS "))
-    assert shlex.split(start) == [
-        "screen",
-        "-dmS",
-        session,
-        "/bin/sh",
-        "-lc",
-        "printf 'yoke-terminal-bridge-ready\\n'; sleep 15",
-    ]
-    assert "-DmS" not in start
-    assert any(f"screen -r {session}" in command for command in commands)
-    assert any(" hardcopy -h " in command for command in commands)
+    assert not any(command == _BACKEND_PROBE for command in commands)
+    launch = next(command for command in commands if "set targetTab" in command)
+    assert "set bounds of targetWindow" in launch
+    assert "do script" in launch
+    native_input = next(
+        command for command in commands if 'tell application "System Events"' in command
+    )
+    assert "key code 36" in native_input
     terminal_capture = next(
         command
         for command in commands
         if "/usr/bin/osascript" in command and "/usr/sbin/screencapture" in command
     )
     assert 'tell application "Terminal"' in terminal_capture
+    assert "/usr/sbin/screencapture -x -R" in terminal_capture
     assert not any(
         command.startswith("/usr/sbin/screencapture") for command in commands
     )
-    assert any(command == f"screen -S {session} -X quit" for command in commands)
-    assert sum("close window id 445" in command for command in commands) == 2
+    assert any("close window id 445" in command for command in commands)
+    assert any("close window id 446" in command for command in commands)
 
 
 def test_terminal_case_uses_screen_input_hardcopy_and_cleanup(

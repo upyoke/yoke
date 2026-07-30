@@ -13,8 +13,10 @@ from yoke_core.domain.installer_campaign_plan_common import (
     CHOOSE_STAGE_KEYS,
     DUAL_HOST_BASELINES,
     FRESH_HOST,
+    HOSTED_CONNECTED_TEXT,
     HOSTED_STAGE_ONBOARD,
     PARENT_HANDOFF_TEXT,
+    PATH_READY_TEXT,
     PATH_REPAIR_COMMAND,
     PUBLIC_STAGE_INSTALL,
     PUBLIC_STAGE_INSTALL_LOCAL,
@@ -65,8 +67,13 @@ def _hosted_completion_actions(
                 wait_seconds=10,
             ),
             action("browser-approval"),
-            transition("operator-browser-approval", wait_seconds=180),
-            transition("poll-browser-approval", "Enter", wait_seconds=20),
+            transition(
+                "operator-browser-approval",
+                "Enter",
+                operator_gate="machine_browser_approval",
+                completion_text=HOSTED_CONNECTED_TEXT,
+                gate_timeout_seconds=600,
+            ),
             action("hosted-connected"),
             transition("continue-hosted-connected", "Enter"),
             action("machine-github"),
@@ -96,7 +103,7 @@ def _cold_start_config(
     path_text = (
         ("Add Yoke to your PATH.", "Added Yoke to your PATH.")
         if path_needs_repair
-        else ("Yoke is already on your PATH.",)
+        else PATH_READY_TEXT
     )
     return terminal_recipe(
         actions=_hosted_completion_actions(
@@ -183,11 +190,16 @@ HOSTED_CONNECT = terminal_case(
     ),
     method_config=terminal_recipe(
         actions=(
-            action("path-ready"),
+            action("path-ready", ready_text=PATH_READY_TEXT),
             transition("continue-path", "Enter", wait_seconds=10),
             action("browser-approval"),
-            transition("operator-browser-approval", wait_seconds=180),
-            transition("poll-browser-approval", "Enter", wait_seconds=20),
+            transition(
+                "operator-browser-approval",
+                "Enter",
+                operator_gate="machine_browser_approval",
+                completion_text=HOSTED_CONNECTED_TEXT,
+                gate_timeout_seconds=600,
+            ),
             action("hosted-connected"),
         ),
         expected_text=(

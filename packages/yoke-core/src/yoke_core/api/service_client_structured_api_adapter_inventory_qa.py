@@ -33,6 +33,15 @@ QA_ADAPTERS: List[AdapterEntry] = [
             "--execution-id ID --reason TEXT [--project P]"
         ),
     ),
+    AdapterEntry(
+        function_id="qa.plan_review.submit",
+        cli_invocation=(
+            "yoke qa plan review-submit "
+            "(--item-id N | --deployment-run-id RUN) "
+            "--execution-id ID --bundle-id ID --bundle-digest SHA256 "
+            "--stdin [--session-id S]"
+        ),
+    ),
     _read_entry(
         function_id="qa.method.list", cli_invocation="yoke qa method list --project P"
     ),

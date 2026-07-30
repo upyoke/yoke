@@ -22,12 +22,16 @@ from yoke_core.domain.project_renderer_settings import project_ci_workflow_file
 
 
 def _active_item_lane_branch(item_ref: str) -> str:
-    """Return the primary active universal lane branch for one run member."""
+    """Return the primary active universal lane branch for one run member.
+
+    ``item_ref`` is a ``deployment_run_items.item_id`` value — the bare
+    internal ``items.id`` — so it is threaded straight through as an
+    integer, never prefix-stripped.
+    """
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.item_worktrees import primary_item_worktree
 
-    raw = str(item_ref).strip().upper()
-    item_id = int(raw[4:] if raw.startswith("YOK-") else raw)
+    item_id = int(str(item_ref).strip())
     with connect() as conn:
         lane = primary_item_worktree(conn, item_id)
     return str((lane or {}).get("branch") or "")

@@ -8,6 +8,9 @@ from yoke_cli.commands import flag_adapters as _adapters
 from yoke_cli.commands.adapters.deployment_flow_reconcile import (
     deployment_flows_reconcile_project,
 )
+from yoke_cli.commands.adapters.deployment_run_projection import (
+    deployment_runs_project_snapshot,
+)
 
 
 AdapterFn = Callable[[List[str]], int]
@@ -30,6 +33,8 @@ DEPLOYMENT_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
         ("deployment_flows.set_status", _adapters.deployment_flows_set_status),
     ("deployment-runs", "create"):
         ("deployment_runs.create", _adapters.deployment_runs_create),
+    ("deployment-runs", "project-snapshot"):
+        ("deployment_runs.project_snapshot", deployment_runs_project_snapshot),
     ("deployment-runs", "start-for-item"):
         ("deployment_runs.start_for_item",
          _adapters.deployment_runs_start_for_item),

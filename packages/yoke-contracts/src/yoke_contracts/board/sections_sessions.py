@@ -12,6 +12,7 @@ from typing import Dict, List, Optional, Tuple
 
 from yoke_contracts.board.board_db import BoardDBLike
 from yoke_contracts.board.project_scope import item_ref
+from yoke_contracts.item_ref import format_item_ref
 from yoke_contracts.board.sections_sessions_cells import session_common_cells
 from yoke_contracts.board.sections_sessions_extra_claims import build_session_keycaps
 from yoke_contracts.board.sections_sessions_layout import (
@@ -144,14 +145,16 @@ def _render_claim_target(
             except Exception:
                 pass
         item_str = str(item_id)
-        return item_str if item_str.startswith("YOK-") else f"YOK-{item_str}"
+        if item_str.startswith("YOK-"):
+            return item_str
+        return format_item_ref(None, None, item_str)
     if epic_id is not None and task_num is not None:
         if db is not None:
             try:
                 return f"{item_ref(db, int(epic_id))} T{task_num:03d}"
             except Exception:
                 pass
-        return f"YOK-{epic_id} T{task_num:03d}"
+        return f"{format_item_ref(None, None, epic_id)} T{task_num:03d}"
     return "?"
 
 

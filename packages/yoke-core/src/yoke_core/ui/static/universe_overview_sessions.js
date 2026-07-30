@@ -1,12 +1,11 @@
 import {
   el,
-  loadScopedSection,
   mergedRows,
   portabilityMode,
-  scopeBuckets,
   sessionModePill,
   whoColumn,
 } from "./universe_view_support.js";
+import { holdScopedSection, rowsInScope } from "./universe_held_reads.js";
 import { relativeTime } from "./universe_time.js";
 import {
   appendCell,
@@ -107,21 +106,24 @@ function sessionWhoIdentity(documentNode, row, who, mode) {
 
 // Live sessions use the same mode-shaped identity column as the full screen,
 // followed by a compact recently-ended tail.
-export function loadSessions(context, panel, scope) {
-  const buckets = scopeBuckets(scope, context.projects(), false);
+export function loadSessions(context, panel, getScope) {
   const who = whoColumn(context.capabilities);
   const mode = portabilityMode(context.capabilities);
   const showWho = mode !== "local";
   panel.setDetail(mode === "local" ? "this machine" : "across the universe");
-  loadScopedSection(
-    context, panel,
-    buckets.map((bucket) => ({
-      functionId: "sessions.list",
-      payload: bucket === null ? {} : { project: bucket },
-    })),
-    (body, callResults) => {
+  // The held roster is one unscoped read filtered client-side, so ask for the
+  // per-project windowed slice: each project (and the unattributed partition)
+  // keeps its own newest-N, so a busy project cannot crowd a quiet one out of
+  // the held set.
+  return holdScopedSection(
+    context, panel, [null],
+    [{ functionId: "sessions.list", payload: { per_project: true } }],
+    getScope,
+    (body, callResults, scope) => {
       const documentNode = body.ownerDocument;
-      const rows = mergedRows(callResults, (result) => result.rows);
+      const rows = rowsInScope(
+        mergedRows(callResults, (result) => result.rows), scope, context.projects(),
+      );
       const liveRows = rows.filter((row) => ["active", "stale"].includes(
         String(row.liveness || "").toLowerCase(),
       ));

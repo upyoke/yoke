@@ -175,7 +175,9 @@ def preflight_checks(ctx: MergeContext) -> Optional[Tuple[int, str]]:
     # PF-6: blocked-flag refusal. The relayed read resolves the active
     # worktree lane for the branch and reads the item's blocked flag so the
     # gate runs over an https control plane; it only fires when a lane exists
-    # (matching the local query) and degrades to a skip when unavailable.
+    # (matching the local query) and degrades to a skip when unavailable. The
+    # public item ref is rendered server-side in the relay handler so the
+    # block narrative matches the local-connection path over https as well.
     try:
         resp = call_dispatcher(
             function_id="merge.preflight.blocked_gate",
@@ -186,12 +188,13 @@ def preflight_checks(ctx: MergeContext) -> Optional[Tuple[int, str]]:
             data = resp.result or {}
             if data.get("applicable"):
                 iid = int(data.get("item_id"))
+                ref = data.get("item_ref") or f"YOK-{iid}"
                 if data.get("blocked"):
-                    _print(f"  FAIL: Item YOK-{iid} is blocked (items.blocked=1).", err=True)
+                    _print(f"  FAIL: Item {ref} is blocked (items.blocked=1).", err=True)
                     if data.get("reason"):
                         _print(f"    Reason: {data['reason']}", err=True)
                     _print(
-                        f"    Run /yoke unblock YOK-{iid} before merging.",
+                        f"    Run /yoke unblock {ref} before merging.",
                         err=True,
                     )
                     fail = True

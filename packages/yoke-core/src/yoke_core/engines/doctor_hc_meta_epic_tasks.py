@@ -12,6 +12,8 @@ from __future__ import annotations
 from typing import List
 
 from yoke_core.domain.db_helpers import query_rows
+from yoke_core.domain.project_identity import render_item_ref
+from yoke_core.domain.schema_common import _column_exists
 
 from yoke_core.engines.doctor_report import (
     DoctorArgs,
@@ -103,7 +105,8 @@ def hc_epic_task_worktree_backfill(conn, args: DoctorArgs, rec: RecordCollector)
     )
     for row in rows:
         issues.append(
-            f"- YOK-{row['id']} (epic={row['epic_id']}, status={row['status']}): "
+            f"- {render_item_ref(conn, int(row['id']))} "
+            f"(epic={row['epic_id']}, status={row['status']}): "
             f"task {row['task_num']} '{row['title']}' has no lane link"
         )
 
@@ -114,3 +117,61 @@ def hc_epic_task_worktree_backfill(conn, args: DoctorArgs, rec: RecordCollector)
     else:
         rec.record("HC-epic-task-worktree-backfill",
                     "Epic tasks with empty worktree fields", "PASS", "")
+
+
+def hc_epic_task_scope_state(conn, args: DoctorArgs, rec: RecordCollector) -> None:
+    """HC-epic-task-scope-state: generated-task scope is explicit and coherent."""
+    title = "Generated task scope state"
+    if not all(
+        _column_exists(conn, "epic_tasks", column)
+        for column in ("scope_state", "scope_finalized_at")
+    ):
+        rec.record(
+            "HC-epic-task-scope-state",
+            title,
+            "WARN",
+            "epic task scope migration has not installed both columns",
+        )
+        return
+    rows = query_rows(
+        conn,
+        "SELECT et.epic_id, et.task_num, et.scope_state, i.status, "
+        "COUNT(CASE WHEN TRIM(COALESCE(f.file_path, '')) <> '' "
+        "THEN 1 END) AS file_count "
+        "FROM epic_tasks et JOIN items i ON i.id=et.epic_id "
+        "LEFT JOIN epic_task_files f ON f.epic_id=et.epic_id "
+        "AND f.task_num=et.task_num "
+        "GROUP BY et.epic_id, et.task_num, et.scope_state, "
+        "et.scope_finalized_at, i.status "
+        "HAVING et.scope_state IS NULL "
+        "OR et.scope_state NOT IN "
+        "('pending','paths','no_files','legacy_deferred') "
+        "OR (et.scope_state='paths' AND "
+        "COUNT(CASE WHEN TRIM(COALESCE(f.file_path, '')) <> '' "
+        "THEN 1 END)=0) "
+        "OR (et.scope_state='no_files' AND "
+        "COUNT(CASE WHEN TRIM(COALESCE(f.file_path, '')) <> '' "
+        "THEN 1 END)>0) "
+        "OR (et.scope_state='legacy_deferred' "
+        "AND i.status NOT IN ('done','cancelled','failed','stopped')) "
+        "OR ((et.scope_state='pending' "
+        "OR et.scope_finalized_at IS NULL) "
+        "AND i.status NOT IN ('idea','refining-idea','refined-idea',"
+        "'planning','plan-drafted','done','cancelled','failed','stopped')) "
+        "ORDER BY et.epic_id, et.task_num",
+    )
+    if rows:
+        details = [
+            f"- {render_item_ref(conn, int(row['epic_id']))} task {row['task_num']}: "
+            f"scope={row['scope_state']} files={row['file_count']} "
+            f"item_status={row['status']}"
+            for row in rows
+        ]
+        rec.record(
+            "HC-epic-task-scope-state",
+            title,
+            "WARN",
+            "\n".join(details),
+        )
+    else:
+        rec.record("HC-epic-task-scope-state", title, "PASS", "")

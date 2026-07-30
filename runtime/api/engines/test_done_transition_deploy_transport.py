@@ -129,7 +129,7 @@ class TestDeploymentFlowGuard:
         result = deploy_gates._check_deployment_flow_guard(
             item_id=510, deploy_flow="garbage", skip_deploy=False,
             item_project="yoke", old_status="implemented",
-            delivery_stage_id="ship-ready",
+            delivery_stage_id="ship-ready", item_ref="YOK-510",
         )
         assert result == (7, "implemented")
         assert "is NOT a registered deployment flow" in capsys.readouterr().out
@@ -150,7 +150,7 @@ class TestDeploymentFlowGuard:
         result = deploy_gates._check_deployment_flow_guard(
             item_id=511, deploy_flow="acme-prod", skip_deploy=False,
             item_project="yoke", old_status="implemented",
-            delivery_stage_id="ship-ready",
+            delivery_stage_id="ship-ready", item_ref="YOK-511",
         )
         assert result is None
 
@@ -159,7 +159,7 @@ class TestDeploymentFlowGuard:
         result = deploy_gates._check_deployment_flow_guard(
             item_id=512, deploy_flow="yoke-internal", skip_deploy=False,
             item_project="yoke", old_status="implemented",
-            delivery_stage_id="ship-ready",
+            delivery_stage_id="ship-ready", item_ref="YOK-512",
         )
         assert result is None
 
@@ -172,5 +172,5 @@ class TestDeploymentFlowGuard:
             deploy_gates._check_deployment_flow_guard(
                 item_id=513, deploy_flow="acme-prod", skip_deploy=False,
                 item_project="yoke", old_status="implemented",
-                delivery_stage_id="ship-ready",
+                delivery_stage_id="ship-ready", item_ref="YOK-513",
             )

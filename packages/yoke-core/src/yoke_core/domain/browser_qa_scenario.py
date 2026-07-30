@@ -233,11 +233,8 @@ def execute_scenario(
 
         if outcome.capture_failed:
             result.verdict = "fail"
-        elif (
-            outcome.run_result.verdict == "inconclusive"
-            and result.verdict == "pass"
-        ):
-            result.verdict = "inconclusive"
+        elif outcome.run_result.verdict == "pending" and result.verdict == "pass":
+            result.verdict = "pending"
 
         if outcome.env_failure:
             _bqa._log("Aborting remaining requirements due to env setup failure")

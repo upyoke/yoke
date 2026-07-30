@@ -60,6 +60,11 @@ class TestQueryItem:
     def test_returns_status(self, db_with_item):
         assert query_item(1, "status", db_path=db_with_item) == "idea"
 
+    def test_returns_workflow_version_id_as_text(self, db_with_item):
+        result = query_item(1, "workflow_version_id", db_path=db_with_item)
+
+        assert result.isdigit()
+
     def test_returns_spec(self, db_with_item):
         # body column retired; spec is the structured content field
         assert query_item(1, "spec", db_path=db_with_item) == ""

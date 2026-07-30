@@ -63,6 +63,7 @@ class BlockedGateRequest(BaseModel):
 class BlockedGateResponse(BaseModel):
     applicable: bool
     item_id: Optional[int] = None
+    item_ref: Optional[str] = None
     blocked: bool = False
     reason: Optional[str] = None
 
@@ -163,7 +164,10 @@ def handle_blocked_gate(request: FunctionCallRequest) -> HandlerOutcome:
     ``applicable`` is False when no active ``item_worktrees`` lane owns the
     branch (the gate does nothing in that case, matching the engine). When a
     lane exists the item's blocked verdict comes from the unchanged
-    :func:`yoke_core.domain.advance_blocked_gate.evaluate`.
+    :func:`yoke_core.domain.advance_blocked_gate.evaluate`. The public
+    ``item_ref`` is rendered server-side (while the connection is live) so the
+    engine's block narrative reads the same project-prefixed reference over
+    https as it does on a local connection.
     """
     try:
         body = BlockedGateRequest.model_validate(request.payload)
@@ -171,6 +175,7 @@ def handle_blocked_gate(request: FunctionCallRequest) -> HandlerOutcome:
         return _err("payload_invalid", f"blocked_gate payload invalid: {exc}")
 
     from yoke_core.domain.advance_blocked_gate import evaluate as _eval_blocked
+    from yoke_core.domain.project_identity import render_item_ref
 
     try:
         with _connect_rw() as conn:
@@ -187,6 +192,7 @@ def handle_blocked_gate(request: FunctionCallRequest) -> HandlerOutcome:
                 )
             item_id = int(row[0])
             decision = _eval_blocked(conn, item_id)
+            item_ref = render_item_ref(conn, item_id)
     except Exception as exc:  # noqa: BLE001 - degrade to an error the caller can skip
         return _err("blocked_gate_failed", str(exc))
 
@@ -194,6 +200,7 @@ def handle_blocked_gate(request: FunctionCallRequest) -> HandlerOutcome:
         result_payload={
             "applicable": True,
             "item_id": item_id,
+            "item_ref": item_ref,
             "blocked": bool(decision.blocked),
             "reason": decision.reason,
         },

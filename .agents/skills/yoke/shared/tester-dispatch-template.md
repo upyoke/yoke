@@ -15,9 +15,9 @@ A Tester dispatch is appropriate when:
 2. The item needs deliberate agent verification before a `reviewed-implementation` or `done` transition outside the conduct pipeline
 3. The operator explicitly requests Tester validation
 
-Browser method cases (`browser-check`, `browser-inspection`) execute through
-the shared case runner and the advance Browser gate. Do not dispatch a Tester
-for those cases.
+Browser method cases execute through the ordered plan runner and the advance
+Browser gate. Do not invent an ad-hoc Tester prompt for those cases; dispatch
+the typed reviewer descriptor returned by the plan runner.
 
 ---
 
@@ -58,12 +58,20 @@ _qa_requirements=$(yoke qa requirement list --item "YOK-{N}" --json)
 
 The snapshot includes the case key, method id, instructions, expected outcome,
 method configuration, transition, and host baseline. Do not extract and run a
-Command method's shell text yourself. Execute each case through the shared
-runner so its method selects the executor, verdict path, and evidence:
+Command method's shell text yourself. Execute the complete roster through the
+ordered runner so each method selects its executor, verdict path, and evidence:
 
 ```bash
-yoke qa case run --requirement-id <qa_requirements.id>
+yoke qa plan run --item "YOK-{N}" --transition <transition>
 ```
+
+When the result is `state="awaiting_agent_review"` (exit `12`), the returned
+`review_bundle.dispatch` is the complete dispatch authority. Immediately invoke
+the harness subagent facility with its `subagent_type`, prompt, and immutable
+bundle. The reviewer must inspect every supplied transcript and visual and run
+the exact `submit_command` with one verdict and rationale per bundled case.
+Never treat missing or pending dispatch as human review. Only a submitted
+`inconclusive` verdict creates an Inbox request.
 
 ### 3. Changed files and diff
 
@@ -152,8 +160,10 @@ Ephemeral URL: {_ephemeral_url}
 
  Project Test Plan Cases:
  {_plan_case_rows or "none attached"}
- Execute each runnable row with:
- yoke qa case run --requirement-id <qa_requirements.id>
+ Execute the immutable roster with:
+ yoke qa plan run --item YOK-{N} --transition <transition>
+ If it returns awaiting_agent_review, immediately execute the returned typed
+ reviewer dispatch and exact verdict submission contract before continuing.
  Ephemeral URL: {_ephemeral_url}
 
  Worktree: {_worktree_path}

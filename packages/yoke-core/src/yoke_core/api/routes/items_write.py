@@ -15,7 +15,7 @@ from yoke_core.domain.mutations import (
     prepare_create,
     prepare_update,
 )
-from yoke_core.domain.project_identity import resolve_project_id
+from yoke_core.domain.project_identity import render_item_ref, resolve_project_id
 from yoke_core.api.service_client import _resolve_deploy_envs
 from yoke_core.api.routes.item_delivery_binding_update import (
     lock_and_validate_delivery_binding,
@@ -173,7 +173,8 @@ def create_item(req: _main.CreateItemRequest) -> _main.ItemObject | JSONResponse
             return _main._error_response(
                 500,
                 "INTERNAL_ERROR",
-                f"Item YOK-{item_id} was created but could not be read back",
+                f"Item {render_item_ref(conn, int(item_id))} was created "
+                "but could not be read back",
             )
         return _main._row_to_item(row, include_body=True)
     except db_backend.operational_error_types(conn) as exc:

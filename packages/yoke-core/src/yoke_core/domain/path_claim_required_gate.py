@@ -263,13 +263,6 @@ def _extract_upstream_claim_id(blocked_reason: str) -> int | None:
     return int(digits)
 
 
-def _parse_item_id(raw: str) -> int:
-    text = raw.strip()
-    if text.upper().startswith("YOK-"):
-        text = text[4:]
-    return int(text.lstrip("0") or "0")
-
-
 def main(argv: list[str] | None = None) -> int:
     """CLI surface so skill prose can call the gate directly.
 
@@ -294,15 +287,23 @@ def main(argv: list[str] | None = None) -> int:
             "when coverage is satisfied, 1 when blocked."
         ),
     )
-    parser.add_argument("item", help="YOK-N or N")
+    parser.add_argument("item", help="PREFIX-N or bare project sequence")
     args = parser.parse_args(argv if argv is not None else sys.argv[1:])
-    try:
-        item_id = _parse_item_id(args.item)
-    except ValueError as exc:
-        print(json.dumps({"verdict": GATE_BLOCK, "reason": str(exc)}))
-        return 2
+    from yoke_core.domain.project_identity_item_ref import resolve_cli_item_ref
+
     conn = db_helpers.connect()
     try:
+        item_id = resolve_cli_item_ref(conn, args.item)
+        if item_id is None:
+            print(
+                json.dumps(
+                    {
+                        "verdict": GATE_BLOCK,
+                        "reason": f"could not resolve item reference {args.item!r}",
+                    }
+                )
+            )
+            return 2
         result = evaluate(conn, item_id)
     finally:
         conn.close()

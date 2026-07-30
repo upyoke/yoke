@@ -9,6 +9,7 @@ from yoke_core.api.service_client_shared import (
     _resolve_session_id,
     release_item_claim_for_execution,
 )
+from yoke_core.domain.project_identity import render_item_ref
 
 _FORCE_FINALIZE_REASONS = {
     "reviewed-implementation": "handoff-to-polish",
@@ -20,12 +21,12 @@ _FORCE_FINALIZE_REASONS = {
 }
 
 
-def _next_step(item_id: int, status: str) -> str:
+def _next_step(item_ref: str, status: str) -> str:
     if status == "reviewed-implementation":
-        return f"Next: /yoke polish YOK-{item_id}"
+        return f"Next: /yoke polish {item_ref}"
     if status == "implemented":
-        return f"Next: /yoke usher YOK-{item_id}"
-    return f"Force finalize complete for YOK-{item_id} at {status}."
+        return f"Next: /yoke usher {item_ref}"
+    return f"Force finalize complete for {item_ref} at {status}."
 
 
 def run_force_finalize_handoff(
@@ -45,25 +46,26 @@ def run_force_finalize_handoff(
     if release_reason is None:
         return
 
-    session_id = _resolve_session_id(None)
-    if not session_id:
-        print(
-            f"Warning: execute-update --force reached {value} for YOK-{item_id} "
-            "but no session id was available for claim handoff.",
-            file=out,
-        )
-        result["force_finalize"] = {"released": False, "failure_reason": "missing_session_id"}
-        return
-
     conn = _get_db_readwrite()
     try:
+        item_ref = render_item_ref(conn, item_id)
+        session_id = _resolve_session_id(None)
+        if not session_id:
+            print(
+                f"Warning: execute-update --force reached {value} for {item_ref} "
+                "but no session id was available for claim handoff.",
+                file=out,
+            )
+            result["force_finalize"] = {"released": False, "failure_reason": "missing_session_id"}
+            return
+
         try:
             release_result = release_item_claim_for_execution(
                 conn, session_id, str(item_id), release_reason,
             )
         except ValueError as exc:
             print(
-                f"Warning: claim release failed for YOK-{item_id} "
+                f"Warning: claim release failed for {item_ref} "
                 f"(reason=domain_error): {exc}",
                 file=out,
             )
@@ -79,7 +81,7 @@ def run_force_finalize_handoff(
     result["force_finalize"] = release_result
     if release_result.get("released"):
         print(
-            f"Force finalize: released claim for YOK-{item_id} "
+            f"Force finalize: released claim for {item_ref} "
             f"with reason {release_reason}.",
             file=out,
         )
@@ -88,11 +90,11 @@ def run_force_finalize_handoff(
         holder = release_result.get("holder_session_id")
         holder_clause = f" held by session '{holder}'" if holder else ""
         print(
-            f"Warning: claim release failed for YOK-{item_id} "
+            f"Warning: claim release failed for {item_ref} "
             f"(reason={failure}){holder_clause}: see events for ItemClaimReleaseFailed.",
             file=out,
         )
-    print(_next_step(item_id, value), file=out)
+    print(_next_step(item_ref, value), file=out)
 
 
 __all__ = ["run_force_finalize_handoff"]

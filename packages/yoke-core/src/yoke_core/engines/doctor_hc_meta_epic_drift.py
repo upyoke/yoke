@@ -42,13 +42,18 @@ def hc_approval_contract_drift(conn, args: DoctorArgs, rec: RecordCollector) -> 
 
 def hc_null_project_items(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     """HC-null-project-items: NULL project items."""
+    from yoke_core.domain.project_identity import render_item_ref
+
     rows = query_rows(
         conn,
         "SELECT id, title FROM items "
         "WHERE project_id IS NULL "
         "AND status NOT IN ('done', 'cancelled') ORDER BY id",
     )
-    issues = [f"- YOK-{r['id']}: '{r['title']}' has NULL project_id" for r in rows]
+    issues = [
+        f"- {render_item_ref(conn, r['id'])}: '{r['title']}' has NULL project_id"
+        for r in rows
+    ]
 
     if issues:
         rec.record("HC-null-project-items", "NULL project items", "FAIL", "\n".join(issues))

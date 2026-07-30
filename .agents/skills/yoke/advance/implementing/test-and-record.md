@@ -32,17 +32,30 @@ Surface every row with a non-null `plan_id`, including its case key, method,
 instructions, expected outcome, transition, and host baseline. An empty list
 means no project or item plan is attached; do not guess a replacement command.
 
-Run each materialized case through the shared executor:
+Run the complete materialized roster through the ordered plan executor:
 
 ```bash
-yoke qa case run --requirement-id <qa_requirements.id>
+yoke qa plan run --item "YOK-{N}" \
+ --transition reviewing-implementation
 ```
 
 The method owns execution: Command uses the mapped worktree and exit-code
 verdict, Browser check uses automatic assertions, and Browser inspection
-captures evidence and enters review. Never extract `method_config.command` and
+captures evidence for agent review. Never extract `method_config.command` and
 run it separately, discover a substitute from `package.json`, or replace a
-failing case with a smaller command.
+failing case with a smaller command. Use `yoke qa case run` only to rerun a
+specific failed deterministic case after diagnosis; inspection verdicts come
+from the plan-level review bundle.
+
+Exit `12` and `state="awaiting_agent_review"` are a mandatory continuation,
+not a human-review state. Immediately dispatch the returned
+`review_bundle.dispatch` descriptor through the harness subagent facility,
+passing its prompt and complete immutable bundle to the named
+`subagent_type`. The reviewing agent inspects every transcript and visual,
+then sends exactly one complete verdict batch through the returned
+`submit_command`. Do not continue lifecycle work, ask a human, waive the cases,
+or recapture evidence because the reviewer dispatch is pending. Only an
+agent verdict of `inconclusive` creates a human Inbox request.
 
 ## a2b. Plan-case failure discipline
 

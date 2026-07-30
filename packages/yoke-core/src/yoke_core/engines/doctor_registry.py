@@ -61,6 +61,7 @@ from yoke_core.engines.doctor_hc_meta_epic import (  # noqa: F401
 )
 from yoke_core.engines.doctor_hc_meta_epic_tasks import (  # noqa: F401
     hc_empty_task_worktree,
+    hc_epic_task_scope_state,
     hc_epic_task_worktree,
     hc_epic_task_worktree_backfill,
     hc_orphan_epic_tasks,
@@ -170,6 +171,9 @@ from yoke_core.engines.doctor_hc_obsoleted_terms import (  # noqa: F401
 from yoke_core.engines.doctor_hc_historical_yok_n import (  # noqa: F401
     hc_historical_yok_n_cruft,
 )
+from yoke_core.engines.doctor_hc_item_ref_construction import (  # noqa: F401
+    hc_item_ref_construction,
+)
 from yoke_core.engines.doctor_hc_worktrees import (  # noqa: F401
     _DELEGATED_SYNC_HCS,
     _github_auth_configured,
@@ -261,6 +265,7 @@ HEALTH_CHECKS: List[HealthCheck] = [
     HealthCheck("empty-task-worktree", "Epic tasks with empty worktree fields", hc_empty_task_worktree),
     HealthCheck("orphan-epic-tasks", "Orphan epic tasks", hc_orphan_epic_tasks),
     HealthCheck("epic-task-worktree-backfill", "Epic tasks with empty worktree fields", hc_epic_task_worktree_backfill),
+    HealthCheck("epic-task-scope-state", "Generated task scope state", hc_epic_task_scope_state),
     # DB-only: schema / integrity
     HealthCheck("schema-drift", "Schema drift detection", hc_schema_drift),
     HealthCheck("schema-script-sync", "Script-schema column contract", hc_schema_script_sync),
@@ -303,6 +308,7 @@ HEALTH_CHECKS: List[HealthCheck] = [
     HealthCheck("doc-health", "Documentation health audit", hc_doc_health),
     HealthCheck("obsoleted-terms", "Obsoleted terms in live files", hc_obsoleted_terms),
     HealthCheck("historical-yok-n-cruft", "Historical YOK-N references in live prose", hc_historical_yok_n_cruft),
+    HealthCheck("item-ref-construction", "Item-ref prefix literals confined to the canonical formatter", hc_item_ref_construction),
     HealthCheck("terminal-recipe-residue", "Retired terminal-soup recipes in live guidance", hc_terminal_recipe_residue),
     HealthCheck("substrate-project-leak", "Substrate project filename leak", hc_substrate_project_leak),
     HealthCheck("agent-consistency", "Agent prompt consistency", hc_agent_consistency),

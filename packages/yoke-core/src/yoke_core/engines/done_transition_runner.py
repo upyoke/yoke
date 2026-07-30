@@ -65,10 +65,15 @@ def run(
     _sync_done_item_direct = mw._sync_done_item_direct
     _apply_discovery_scan = mw._apply_discovery_scan
 
-    result = TransitionResult(item=f"YOK-{item_id}")
+    # The public item ref is resolved once, server-side, by the transport
+    # context relay (project-sequence aware, no local connection). Until that
+    # load completes the only identity available is the bare items.id, so the
+    # temp result-file name and the "item not found" error carry the raw id
+    # (not a fabricated ref); every user-facing ref below is context.item_ref.
+    result = TransitionResult(item=str(item_id))
     result_file = os.path.join(
         os.environ.get("TMPDIR", "/tmp"),
-        f"done-transition-result.YOK-{item_id}.json",
+        f"done-transition-result.{item_id}.json",
     )
 
     repo_root = _resolve_repo_root()
@@ -81,9 +86,11 @@ def run(
     print(f"YOKE_REPO_ROOT={repo_root}")
     context = load_done_item_context_over_transport(item_id)
     if context is None:
-        print(f"Error: Item YOK-{item_id} not found.", file=sys.stderr)
+        print(f"Error: Item {item_id} not found.", file=sys.stderr)
         return result.fail(result_file, 2, "2")
 
+    item_ref = context.item_ref
+    result.item = item_ref
     title = context.title
     old_status = context.stage_id
     lane_branch = context.lane_branch
@@ -94,7 +101,7 @@ def run(
     result.old_status = result.new_status = old_status
     if lane_branch in ("null", ""):
         lane_branch = ""
-    print(f"\n=== Done transition: YOK-{item_id} ===")
+    print(f"\n=== Done transition: {item_ref} ===")
     print(f"Title: {title}")
     print(f"Old status: {old_status}")
     print(f"Workflow: {workflow.workflow_id}@{workflow.version}\n")
@@ -269,6 +276,7 @@ def run(
         item_project,
         old_status,
         delivery_redirect_stage(workflow),
+        item_ref=item_ref,
     )
     if deploy_guard is not None:
         exit_code, new_status = deploy_guard
@@ -291,7 +299,7 @@ def run(
     print("\n=== Step 6: Update status to done ===")
     _populate_merged_at(item_id)
 
-    success = _update_status_to_done(item_id, skip_qa)
+    success = _update_status_to_done(item_id, skip_qa, item_ref=item_ref)
     if not success:
         verify = _query_item_field(item_id, "status")
         print(
@@ -319,7 +327,7 @@ def run(
     result.add_step("6c")
 
     if has_task_graph and task_parent_ref:
-        _cascade_epic_tasks_to_done(item_id, task_parent_ref)
+        _cascade_epic_tasks_to_done(item_id, task_parent_ref, item_ref=item_ref)
     for _s in ("6b", "6d", "7"):
         result.add_step(_s)
     print("\n=== Step 8: Sync done state to GitHub ===")

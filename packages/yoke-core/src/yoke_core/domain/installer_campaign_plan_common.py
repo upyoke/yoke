@@ -69,6 +69,7 @@ PARENT_HANDOFF_TEXT = (
     "run /yoke onboard",
 )
 HOSTED_CONNECTED_TEXT = ("Yoke token connected.",)
+PATH_READY_TEXT = ("Yoke is already on your PATH.",)
 MACHINE_GITHUB_TEXT = ("Connect GitHub?",)
 PROJECT_MODE_TEXT = ("Set up a project.", "Where's the code?")
 
@@ -82,6 +83,7 @@ BROWSER_PRIMARY_POST_CHECKS = (
 )
 
 CHOOSE_STAGE_KEYS = ("Down", "Down", "Down", "Enter")
+CHOOSE_PRODUCTION_KEYS = ("Down", "Down", "Enter")
 CHOOSE_BACKLOG_KEYS = ("Down", "Enter")
 CHOOSE_MACHINE_ONLY_KEYS = ("Down", "Down", "Down", "Down", "Enter")
 
@@ -90,6 +92,9 @@ def action(
     step: str,
     *keys: str,
     capture: bool = True,
+    completion_text: Sequence[str] = (),
+    gate_timeout_seconds: float | None = None,
+    operator_gate: str | None = None,
     ready_text: Sequence[str] = (),
     ready_timeout_seconds: float | None = None,
     wait_seconds: float | None = None,
@@ -100,6 +105,12 @@ def action(
         row["keys"] = list(keys)
     if not capture:
         row["capture"] = False
+    if operator_gate is not None:
+        row["operator_gate"] = operator_gate
+    if completion_text:
+        row["completion_text"] = list(completion_text)
+    if gate_timeout_seconds is not None:
+        row["gate_timeout_seconds"] = gate_timeout_seconds
     if ready_text:
         row["ready_text"] = list(ready_text)
     if ready_timeout_seconds is not None:
@@ -112,6 +123,9 @@ def action(
 def transition(
     step: str,
     *keys: str,
+    completion_text: Sequence[str] = (),
+    gate_timeout_seconds: float | None = None,
+    operator_gate: str | None = None,
     ready_text: Sequence[str] = (),
     ready_timeout_seconds: float | None = None,
     wait_seconds: float | None = None,
@@ -121,6 +135,9 @@ def transition(
         step,
         *keys,
         capture=False,
+        completion_text=completion_text,
+        gate_timeout_seconds=gate_timeout_seconds,
+        operator_gate=operator_gate,
         ready_text=ready_text,
         ready_timeout_seconds=ready_timeout_seconds,
         wait_seconds=wait_seconds,
@@ -228,6 +245,7 @@ __all__ = [
     "CHOOSE_BACKLOG_KEYS",
     "CHOOSE_MACHINE_ONLY_KEYS",
     "CHOOSE_STAGE_KEYS",
+    "CHOOSE_PRODUCTION_KEYS",
     "DUAL_HOST_BASELINES",
     "FRESH_HOST",
     "HOSTED_CONNECTED_TEXT",

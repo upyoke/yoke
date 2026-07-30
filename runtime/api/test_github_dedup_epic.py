@@ -20,6 +20,10 @@ import pytest
 
 from runtime.api.conftest import insert_epic_task, insert_item
 from yoke_core.domain import epic_task_sync, github_rest
+from yoke_core.domain.epic_task_scope import (
+    finalize_generated_task_scopes,
+    set_no_files_scope,
+)
 from yoke_core.domain.project_seed_test_helpers import SEED_PROJECT_IDS
 from yoke_core.domain.project_github_auth import ProjectGithubAuth
 from runtime.api.fixtures.pg_testdb import test_database
@@ -133,6 +137,8 @@ class TestSyncEpicTasksDedup:
         )
         insert_epic_task(epic_db, epic_id="10", task_num=1, title="Some task",
                          status="planned", body="body")
+        set_no_files_scope(epic_db, 10, 1)
+        finalize_generated_task_scopes(epic_db, 10)
         stdout = io.StringIO()
 
         patches = _patches(
@@ -161,6 +167,8 @@ class TestSyncEpicTasksDedup:
         )
         insert_epic_task(epic_db, epic_id="1500", task_num=1, title="Decomp lower",
                          status="planned", body="body")
+        set_no_files_scope(epic_db, 1500, 1)
+        finalize_generated_task_scopes(epic_db, 1500)
         stdout = io.StringIO()
 
         fuzzy = _issue(
@@ -194,6 +202,8 @@ class TestSyncEpicTasksDedup:
                     project="externalwebapp", spec="Epic body")
         insert_epic_task(epic_db, epic_id="10", task_num=1, title="First task",
                          status="planned", body="body")
+        set_no_files_scope(epic_db, 10, 1)
+        finalize_generated_task_scopes(epic_db, 10)
         stdout = io.StringIO()
 
         # Two list_issues calls: parent dedup returns the exact match;
@@ -225,6 +235,8 @@ class TestSyncEpicTasksDedup:
                     project="externalwebapp", spec="Epic body")
         insert_epic_task(epic_db, epic_id="1500", task_num=1, title="First task",
                          status="planned", body="body")
+        set_no_files_scope(epic_db, 1500, 1)
+        finalize_generated_task_scopes(epic_db, 1500)
         stdout = io.StringIO()
 
         fuzzy = _issue(

@@ -1,17 +1,17 @@
 import { buildUniverseRoute } from "./universe_navigation.js";
 import {
   el,
-  loadScopedSection,
   scopeBuckets,
   settledScopedCalls,
 } from "./universe_view_support.js";
+import { holdScopedSection } from "./universe_held_reads.js";
 import { ghostWhenInactive } from "./universe_views_overview_activation.js";
 import { relativeAge } from "./universe_time.js";
 import { STRATEGY_BADGE_LIMIT } from "./universe_overview_primitives.js";
 
-export async function loadVitals(context, masthead, scope) {
-  const buckets = scopeBuckets(scope, context.projects(), false);
-  const { callResults, failed } = await settledScopedCalls(
+export async function loadVitals(context, masthead, getScope) {
+  const buckets = scopeBuckets("all", context.projects(), true);
+  const { callResults } = await settledScopedCalls(
     context,
     buckets.map((bucket) => ({
       functionId: "overview.vitals.get",
@@ -21,40 +21,61 @@ export async function loadVitals(context, masthead, scope) {
       },
     })),
   );
-  if (!context.isMounted()) return;
-  if (failed) {
-    masthead.setUnavailable();
-    return { timelines: [] };
-  }
-  const stateCounts = {};
-  const momentumByDay = new Map();
-  const timelines = [];
-  let days = 120;
-  for (const callResult of callResults) {
-    const result = callResult.envelope.result || {};
-    days = Math.max(days, Number(result.days) || 0);
-    for (const [key, value] of Object.entries(result.state_counts || {})) {
-      stateCounts[key] = (stateCounts[key] || 0) + (Number(value) || 0);
+  if (!context.isMounted()) return { timelines: [], paint: () => {} };
+  // Hold each project's vitals; paint sums the selected subset so a scope
+  // change re-aggregates the masthead from held data with no refetch. The
+  // server aggregate stays untouched — the client does the projection.
+  const perProject = buckets.map((bucket, index) => ({
+    project: String(bucket),
+    ok: !!(callResults[index] && callResults[index].status === 200
+      && callResults[index].envelope.success),
+    result: (callResults[index] && callResults[index].envelope.result) || {},
+  }));
+  const timelines = perProject.flatMap(
+    (entry) => entry.result.strategy_timeline || [],
+  );
+  const paint = () => {
+    if (!context.isMounted()) return;
+    const scope = getScope();
+    const wanted = scope === "all" ? null : new Set(scope.map(String));
+    const chosen = wanted
+      ? perProject.filter((entry) => wanted.has(entry.project))
+      : perProject;
+    // Unavailability reflects only the in-scope projects: a failed read for a
+    // project the current scope excludes must not blank the masthead.
+    if (chosen.some((entry) => !entry.ok)) {
+      masthead.setUnavailable();
+      return;
     }
-    for (const row of result.momentum || []) {
-      const combined = momentumByDay.get(row.day) || {
-        day: row.day, activity: 0, code: 0, issues: 0, strategy: 0,
-      };
-      for (const key of ["activity", "code", "issues", "strategy"]) {
-        combined[key] += Number(row[key]) || 0;
+    const stateCounts = {};
+    const momentumByDay = new Map();
+    let days = 120;
+    for (const entry of chosen) {
+      const result = entry.result;
+      days = Math.max(days, Number(result.days) || 0);
+      for (const [key, value] of Object.entries(result.state_counts || {})) {
+        stateCounts[key] = (stateCounts[key] || 0) + (Number(value) || 0);
       }
-      momentumByDay.set(row.day, combined);
+      for (const row of result.momentum || []) {
+        const combined = momentumByDay.get(row.day) || {
+          day: row.day, activity: 0, code: 0, issues: 0, strategy: 0,
+        };
+        for (const key of ["activity", "code", "issues", "strategy"]) {
+          combined[key] += Number(row[key]) || 0;
+        }
+        momentumByDay.set(row.day, combined);
+      }
     }
-    timelines.push(...(result.strategy_timeline || []));
-  }
-  masthead.setVitals({
-    stateCounts,
-    days,
-    momentum: [...momentumByDay.values()].sort(
-      (left, right) => String(left.day).localeCompare(String(right.day)),
-    ),
-  });
-  return { timelines };
+    masthead.setVitals({
+      stateCounts,
+      days,
+      momentum: [...momentumByDay.values()].sort(
+        (left, right) => String(left.day).localeCompare(String(right.day)),
+      ),
+    });
+  };
+  paint();
+  return { timelines, paint };
 }
 
 // The strategy corpus, project-scoped through the target the same way the full
@@ -62,36 +83,38 @@ export async function loadVitals(context, masthead, scope) {
 export async function loadStrategy(
   context,
   panel,
-  scope,
+  getScope,
   activationFacts,
-  vitalsRead,
+  timelinesRead,
 ) {
-  const vitals = await vitalsRead;
-  if (!context.isMounted()) return;
+  const timelines = await timelinesRead;
+  if (!context.isMounted()) return null;
   const projects = context.projects();
-  const buckets = scopeBuckets(scope, projects, true);
+  const buckets = scopeBuckets("all", projects, true);
   const projectById = new Map(projects.map((row) => [String(row.id), row]));
   const timelineByProject = new Map(
-    (vitals?.timelines || []).flatMap((timeline) => [
+    (timelines || []).flatMap((timeline) => [
       [String(timeline.project_id || ""), timeline],
       [String(timeline.project || ""), timeline],
     ]),
   );
-  loadScopedSection(
-    context, panel,
+  return holdScopedSection(
+    context, panel, buckets,
     buckets.map((bucket) => ({
       functionId: "strategy.doc.list",
       payload: {},
       target: { kind: "global", project_id: String(bucket) },
     })),
-    (body, callResults) => {
+    getScope,
+    (body, callResults, scope, selectedBuckets) => {
       const documentNode = body.ownerDocument;
       const docs = callResults.flatMap((callResult, index) => (
         ((callResult.envelope.result || {}).docs || []).map((doc) => ({
           ...doc,
-          project_id: doc.project_id || buckets[index],
+          project_id: doc.project_id || selectedBuckets[index],
           project: (
-            projectById.get(String(buckets[index]))?.slug || buckets[index]
+            projectById.get(String(selectedBuckets[index]))?.slug
+              || selectedBuckets[index]
           ),
         }))
       ));

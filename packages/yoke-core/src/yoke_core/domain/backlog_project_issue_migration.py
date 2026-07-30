@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Any, Optional, TextIO
 
 from yoke_core.domain import backlog_rendering as _rendering
-from yoke_core.domain.project_identity import DEFAULT_PROJECT_SLUG
+from yoke_core.domain.project_identity import DEFAULT_PROJECT_SLUG, render_item_ref
 
 
 def _maybe_migrate_project_issue(
@@ -45,7 +45,8 @@ def _maybe_migrate_project_issue(
         stderr=out,
     )
     if rc != 0:
-        return False, f"GitHub issue migration failed for YOK-{item_dict['id']}. Project field NOT updated."
+        ref = render_item_ref(conn, int(item_dict["id"]))
+        return False, f"GitHub issue migration failed for {ref}. Project field NOT updated."
     return True, None
 
 

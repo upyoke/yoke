@@ -175,6 +175,7 @@ def _file_budget_conflicts(
         conn,
         item_id,
         task_scoped=target_policy == WORKFLOW_FILE_BUDGET_REQUIRED_PER_TASK,
+        require_finalized=False,
     )
     if coverage["verdict"] == "pass":
         return []

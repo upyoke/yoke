@@ -44,7 +44,7 @@ class TestEpicTaskListRelay:
             return _resp("done_transition.epic_task_list", {"task_list": ""})
 
         _install(monkeypatch, fake)
-        status._cascade_epic_tasks_to_done(8600, "8600")
+        status._cascade_epic_tasks_to_done(8600, "8600", item_ref="YOK-8600")
         assert calls[0]["function_id"] == "done_transition.epic_task_list"
         assert calls[0]["payload"] == {"epic_id": "8600"}
         assert "No tasks to cascade." in capsys.readouterr().out
@@ -74,6 +74,6 @@ class TestGithubIssuesRelay:
             return _resp(fid)
 
         _install(monkeypatch, fake)
-        status._batch_github_sync_tasks(8600, "8600", ["1"])
+        status._batch_github_sync_tasks(8600, "8600", ["1"], item_ref="YOK-8600")
         assert "done_transition.epic_task_github_issues" in seen
         assert "GitHub: #701" in capsys.readouterr().out

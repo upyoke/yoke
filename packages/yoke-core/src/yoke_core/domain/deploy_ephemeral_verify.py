@@ -67,8 +67,10 @@ def dispatch_ephemeral_verify(
         )
         return 1
     if not branch or branch == "null":
+        from yoke_core.domain.deploy_pipeline_labels import item_label
+
         print(
-            f"Error: no branch available for YOK-{first_item} -- cannot "
+            f"Error: no branch available for {item_label(first_item)} -- cannot "
             "verify ephemeral deploy",
             file=sys.stderr,
         )

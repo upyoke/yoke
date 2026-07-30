@@ -128,7 +128,7 @@ class TestCheckDoneGate:
         req_id = _add_requirement(
             qa_db,
             qa_kind="plan_case",
-            method_id="browser-inspection",
+            method_id="browser-check",
         )
         raw = f'{{"code_identity":{{"branch":"{TEST_ITEM_REF}","sha":"old123"}}}}'
         run_id = _add_run(

@@ -6,7 +6,9 @@ from yoke_core.domain.installer_campaign_plan_common import (
     BROWSER_APPROVAL_TEXT,
     BROWSER_PRIMARY_POST_CHECKS,
     CHOOSE_BACKLOG_KEYS,
+    HOSTED_CONNECTED_TEXT,
     HOSTED_STAGE_ONBOARD,
+    PATH_READY_TEXT,
     PUBLIC_STAGE_WELCOME,
     REVIEW_TEXT,
     action,
@@ -66,7 +68,7 @@ CONNECT_WAIT = terminal_case(
     ),
     method_config=terminal_recipe(
         actions=(
-            action("path-ready"),
+            action("path-ready", ready_text=PATH_READY_TEXT),
             transition("continue-path", "Enter", wait_seconds=10),
             action("connect-wait"),
         ),
@@ -106,11 +108,16 @@ REVIEW_FRAME = terminal_case(
     ),
     method_config=terminal_recipe(
         actions=(
-            action("path-ready"),
+            action("path-ready", ready_text=PATH_READY_TEXT),
             transition("continue-path", "Enter", wait_seconds=10),
             action("browser-approval"),
-            transition("operator-browser-approval", wait_seconds=180),
-            transition("poll-browser-approval", "Enter", wait_seconds=20),
+            transition(
+                "operator-browser-approval",
+                "Enter",
+                operator_gate="machine_browser_approval",
+                completion_text=HOSTED_CONNECTED_TEXT,
+                gate_timeout_seconds=600,
+            ),
             action("hosted-connected"),
             transition("continue-hosted-connected", "Enter"),
             action("machine-github"),

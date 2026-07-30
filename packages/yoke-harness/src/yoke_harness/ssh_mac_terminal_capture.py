@@ -161,9 +161,12 @@ def _terminal_screenshot_payload(
     run: RunRemote,
     *,
     remote: str,
+    window_id: int,
 ) -> str | None:
     """Capture through Terminal.app so macOS applies its Screen Recording grant."""
-    shell_command = f"/usr/sbin/screencapture -x {shlex.quote(remote)}"
+    shell_command = (
+        f"/usr/sbin/screencapture -x -l {window_id} {shlex.quote(remote)}"
+    )
     window_id = open_terminal_window(
         run,
         command=shell_command,
@@ -232,7 +235,12 @@ def verify_terminal_bridge(
             is not None
         )
         checks["screenshot_capture"] = (
-            _terminal_screenshot_payload(run, remote=remote) is not None
+            _terminal_screenshot_payload(
+                run,
+                remote=remote,
+                window_id=terminal_window_id,
+            )
+            is not None
         )
         ok = all(
             checks[key] for key in ("pty", "terminal_control", "screenshot_capture")
@@ -287,10 +295,15 @@ def capture_screen(
     session: str,
     key: str,
     evidence_root: Path,
+    window_id: int,
 ) -> Path | None:
     remote = f"/tmp/{session}-{key}.png"
     try:
-        encoded = _terminal_screenshot_payload(run, remote=remote)
+        encoded = _terminal_screenshot_payload(
+            run,
+            remote=remote,
+            window_id=window_id,
+        )
         if encoded is None:
             return None
         try:

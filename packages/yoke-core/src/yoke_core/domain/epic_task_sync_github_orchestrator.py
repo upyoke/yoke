@@ -19,6 +19,7 @@ from yoke_core.domain import db_backend, github_rest
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.github_constraints import is_real_issue_num
 from yoke_core.domain.item_worktrees import record_worker_item_worktree
+from yoke_core.domain.worktree_naming import worktree_name_for_item
 from yoke_core.domain.epic_task_sync import (
     _connect_db,
     _epic_parent_item_id,
@@ -32,6 +33,7 @@ from yoke_core.domain.epic_task_sync_github_label_setup import (
     prepare_required_labels,
 )
 from yoke_core.domain.epic_task_sync_local import _generate_dispatch_chains
+from yoke_core.domain.epic_task_sync_github_orchestrator_body import scope_finalization_error
 from yoke_core.domain.project_github_auth import (
     ProjectGithubAuthError,
     repair_command_hint,
@@ -75,6 +77,8 @@ def sync_epic_tasks(
         if epic_name is None:
             return 1
 
+        if scope_finalization_error(conn, int(epic_name), stderr):
+            return 1
         project = _epic_project(epic_name, conn=conn)
         gh_project = project or "yoke"
 
@@ -143,7 +147,6 @@ def sync_epic_tasks(
             (epic_name,),
         ).fetchall()
 
-        # --- Create or reuse epic (parent) issue ---
         epic_issue_num = _etsg._resolve_or_create_epic_issue(
             epic_name=epic_name, backlog_id=backlog_id,
             backlog_github_issue=backlog_github_issue,
@@ -154,7 +157,6 @@ def sync_epic_tasks(
             print("Error: epic parent issue create failed; aborting", file=stderr)
             return 1
 
-        # --- Create task issues ---
         worktree_map: list[tuple[str, str]] = []  # (worktree_branch, task_num_str)
         task_list_lines: list[str] = []
         created = 0
@@ -191,11 +193,10 @@ def sync_epic_tasks(
                     worktree_map.append((skip_wt, task_num_str))
                 continue
 
-            # Preserve an explicit architect/refine worktree. Only legacy
-            # unslotted tasks fall back to the parent branch.
+            # Legacy unslotted tasks fall back to the item's public ref.
             task_worktree = db_wt
             if parent_item_id and not task_worktree:
-                task_worktree = f"YOK-{parent_item_id}"
+                task_worktree = worktree_name_for_item(conn, parent_item_id)
                 print(f"Warning: task {task_num_str} has empty worktree, "
                       f"defaulting to {task_worktree}", file=stderr)
                 conn.execute(
@@ -206,7 +207,6 @@ def sync_epic_tasks(
 
             task_title = db_title or f"Task {task_num_str}"
 
-            # Build labels
             task_status = str(db_stat or "").strip()
             if not task_status or task_status == "null":
                 task_status = "planned"
@@ -216,7 +216,6 @@ def sync_epic_tasks(
                 dry_run=dry_run,
             )
 
-            # Read task body
             body_row = conn.execute(
                 f"SELECT COALESCE(body, '') FROM epic_tasks WHERE epic_id = {p} AND task_num = {p}",
                 (epic_name, int(db_tnum)),

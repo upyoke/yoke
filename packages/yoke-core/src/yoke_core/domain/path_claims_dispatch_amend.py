@@ -8,7 +8,7 @@ from typing import Any, Optional, Sequence
 from yoke_core.domain import db_backend
 from yoke_core.domain.cli_text_file import add_text_file_pair, resolve_text_file
 from yoke_core.domain import path_claims_events as _events
-from yoke_core.domain.path_claims import PathClaimError, get_claim
+from yoke_core.domain.path_claims import PathClaimError
 from yoke_core.domain.path_claims_amend import (
     AmendmentError,
     AmendmentNotFound,
@@ -26,6 +26,7 @@ from yoke_core.domain.path_claims_dispatch_io import (
     print_json,
 )
 from yoke_core.domain.path_claims_dispatch_ownership import deny_if_not_owner
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.path_claims_read import claim_projection
 from yoke_core.domain.path_claims_resolve import (
     PathResolveError,
@@ -96,15 +97,16 @@ def _resolve_item_to_claim_id(conn, item_arg: str) -> tuple[Optional[int], Optio
         "AND state IN ('planned', 'blocked', 'active') ORDER BY id ASC",
         (item_id,),
     ).fetchall()
+    item_ref = render_item_ref(conn, item_id)
     if not rows:
         return None, (
-            f"--item YOK-{item_id}: no non-terminal exclusive claim "
+            f"--item {item_ref}: no non-terminal exclusive claim "
             "(planned/blocked/active). Pass the positional claim id."
         )
     if len(rows) > 1:
         ids = ", ".join(str(r[0]) for r in rows)
         return None, (
-            f"--item YOK-{item_id}: {len(rows)} non-terminal exclusive "
+            f"--item {item_ref}: {len(rows)} non-terminal exclusive "
             f"claims match ({ids}). Pass the positional claim id."
         )
     return int(rows[0][0]), None

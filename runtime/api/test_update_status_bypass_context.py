@@ -106,6 +106,14 @@ class TestTransitionSourceContextVar:
             "yoke_core.domain.item_status_transitions.record_task_transition",
             fake_record,
         )
+        # The generated-task activation gate (planned -> implementing) is
+        # orthogonal to source attribution; a bare synthetic task has no scope
+        # metadata, so stub the scope check to no issues and let the transition
+        # reach the recorder these tests assert on.
+        monkeypatch.setattr(
+            "yoke_core.domain.epic_task_scope.task_scope_issues",
+            lambda *a, **k: [],
+        )
         return seen
 
     def test_source_from_contextvar_wins(self, test_db, monkeypatch):

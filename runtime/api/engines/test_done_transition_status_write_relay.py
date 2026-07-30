@@ -168,7 +168,7 @@ class TestSetterEndToEndRelay:
             return _resp(kwargs["function_id"], {"applied": True})
 
         _patch_adapter(monkeypatch, fake)
-        assert dt._update_status_to_done(42, skip_qa=True) is True
+        assert dt._update_status_to_done(42, skip_qa=True, item_ref=TEST_ITEM_REF) is True
 
         relay = [c for c in calls if c["function_id"] == "done_transition.item_status_set"]
         assert len(relay) == 1
@@ -193,7 +193,7 @@ class TestSetterEndToEndRelay:
 
         _patch_adapter(monkeypatch, fake)
         monkeypatch.setattr(status, "_batch_github_sync_tasks", lambda *a, **k: None)
-        dt._cascade_epic_tasks_to_done(42, "42")
+        dt._cascade_epic_tasks_to_done(42, "42", item_ref=TEST_ITEM_REF)
 
         relays = [
             c for c in seen

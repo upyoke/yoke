@@ -28,27 +28,35 @@ def test_project_infrastructure_read_is_admitted_and_metadata_only(
         },
     ).json()["result"]["rows"]
     project_id = str(projects[0]["id"])
-    # The compact UI fixture intentionally omits installer-owned site tables,
-    # so create only the metadata shape this read owns.
+    # The shared fixture owns both tables; add only the metadata leaf this
+    # focused read exercises but the compact environment schema omits.
     test_db.execute(
-        "CREATE TABLE sites ("
-        "id TEXT PRIMARY KEY, project_id BIGINT NOT NULL, "
-        "name TEXT, description TEXT)"
+        "ALTER TABLE environments ADD COLUMN IF NOT EXISTS deploy_method TEXT"
     )
     test_db.execute(
-        "CREATE TABLE environments ("
-        "id TEXT PRIMARY KEY, site TEXT NOT NULL, name TEXT, url TEXT, "
-        "deploy_method TEXT, health_check_url TEXT, settings TEXT)"
+        "DELETE FROM environments WHERE site IN "
+        "(SELECT id FROM sites WHERE project_id=%s)",
+        (int(project_id),),
     )
     test_db.execute(
-        "INSERT INTO sites (id, project_id, name, description) "
-        "VALUES (%s, %s, %s, %s)",
-        ("ui-app", int(project_id), "Application", "UI delivery proof"),
+        "DELETE FROM sites WHERE project_id=%s",
+        (int(project_id),),
+    )
+    test_db.execute(
+        "INSERT INTO sites (id, project_id, name, description, created_at) "
+        "VALUES (%s, %s, %s, %s, %s)",
+        (
+            "ui-app",
+            int(project_id),
+            "Application",
+            "UI delivery proof",
+            "2026-01-01T00:00:00Z",
+        ),
     )
     test_db.execute(
         "INSERT INTO environments ("
-        "id, site, name, url, deploy_method, health_check_url, settings"
-        ") VALUES (%s, %s, %s, %s, %s, %s, %s)",
+        "id, site, name, url, deploy_method, health_check_url, settings, "
+        "created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
         (
             "ui-prod",
             "ui-app",
@@ -57,6 +65,7 @@ def test_project_infrastructure_read_is_admitted_and_metadata_only(
             "github-actions",
             "https://example.test/health",
             '{"git":{"branch":"main"},"deploy":{"automatic":true}}',
+            "2026-01-01T00:00:00Z",
         ),
     )
     test_db.commit()

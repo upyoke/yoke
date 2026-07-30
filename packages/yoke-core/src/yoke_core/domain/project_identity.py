@@ -259,6 +259,25 @@ def resolve_item_id(
     return int(row_value(row, "id", 0))
 
 
+def _fetch_item_ref_row(conn: Any, sql: str, params: tuple) -> Any:
+    """Fetch the ref-projection row, tolerating a schema without the project
+    tables/columns (e.g. doctor HCs on bare/legacy schemas). A savepoint (when
+    the backend supports one) keeps the connection usable if the read raises;
+    returns ``None`` so the caller emits the prefix+id fallback.
+    """
+    transaction = getattr(conn, "transaction", None)
+    if callable(transaction):
+        try:
+            with transaction():
+                return conn.execute(sql, params).fetchone()
+        except Exception:
+            return None
+    try:
+        return conn.execute(sql, params).fetchone()
+    except Exception:
+        return None
+
+
 def render_item_ref(
     conn: Any,
     item_id: int,
@@ -267,13 +286,14 @@ def render_item_ref(
 ) -> str:
     del qualify
     p = placeholder(conn)
-    row = conn.execute(
+    row = _fetch_item_ref_row(
+        conn,
         f"""SELECT p.slug, p.public_item_prefix, i.project_sequence
             FROM items i
             JOIN projects p ON p.id = i.project_id
             WHERE i.id = {p}""",
         (item_id,),
-    ).fetchone()
+    )
     if row is None:
         return f"{DEFAULT_PUBLIC_ITEM_PREFIX}-{item_id}"
     prefix = row_value(row, "public_item_prefix", 1)

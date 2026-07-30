@@ -82,7 +82,11 @@ def create_worktree(
             find_repo_root(Path(__file__)) / ".agents" / "skills" / "yoke" / "scripts"
         )
 
-    fallback_branch = f"YOK-{item_id}"
+    # Cosmetic branch label for early error returns before the lane resolver
+    # runs; the real created names come from resolve_worktree_lanes_for_item.
+    from yoke_core.domain.worktree_naming import worktree_name_for_item
+
+    fallback_branch = worktree_name_for_item(None, item_id)
     repo_root_was_explicit = repo_root is not None
 
     # --- Resolve repo root ---

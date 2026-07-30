@@ -74,6 +74,8 @@ PRODUCT_AUTHZ_BY_ID = {
     "qa.plan_execution.advance": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "qa.plan_execution.complete": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "qa.plan_execution.abort": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
+    "qa.plan_review.begin": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
+    "qa.plan_review.submit": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "test_machine.get": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "test_machine.settings_replace": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "test_machine.verify": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),

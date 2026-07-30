@@ -3,10 +3,84 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Optional
+from typing import Any, Iterable, Mapping, Optional
 
 from yoke_core.domain.db_helpers import query_one
-from yoke_core.domain.qa_plan_management import _json, _placeholder
+from yoke_core.domain.qa_plan_management import QaPlanError, _json, _placeholder
+from yoke_core.domain.qa_execution_environment_target import (
+    canonical_target,
+    require_case_target,
+    target_digest,
+)
+
+
+def require_existing_target(
+    rows: Iterable[Mapping[str, Any]],
+    *,
+    execution_target: Mapping[str, Any],
+    subject: str,
+) -> list[int]:
+    """Permit idempotent reuse only for rows bound to the exact target."""
+    expected_json = canonical_target(execution_target)
+    expected_digest = target_digest(execution_target)
+    ids: list[int] = []
+    for row in rows:
+        requirement_id = int(row["id"])
+        raw_target = row["execution_target_json"]
+        stored_digest = str(row["execution_target_digest"] or "")
+        if not raw_target or not stored_digest:
+            raise QaPlanError(
+                f"{subject} has legacy QA requirement {requirement_id} without "
+                "an execution target; preserve that evidence and start a fresh "
+                "deployment/plan execution, or use a sanctioned requirement "
+                "retirement or supersession operation before rematerializing"
+            )
+        try:
+            stored_target = json.loads(str(raw_target))
+        except (TypeError, ValueError) as exc:
+            raise QaPlanError(
+                f"{subject} has invalid target evidence on QA requirement "
+                f"{requirement_id}; preserve it and use sanctioned retirement "
+                "or supersession before rematerializing"
+            ) from exc
+        if (
+            not isinstance(stored_target, dict)
+            or canonical_target(stored_target) != expected_json
+            or stored_digest != expected_digest
+            or target_digest(stored_target) != stored_digest
+        ):
+            raise QaPlanError(
+                f"{subject} has QA requirement {requirement_id} bound to a "
+                "different execution target; do not reuse it—start a fresh "
+                "deployment/plan execution or use sanctioned retirement or "
+                "supersession before rematerializing"
+            )
+        ids.append(requirement_id)
+    return ids
+
+
+def require_requirement_id_target(
+    conn: Any,
+    *,
+    requirement_id: int,
+    execution_target: Mapping[str, Any],
+    subject: str,
+) -> int:
+    """Validate the winner of a concurrent idempotent insert."""
+    marker = _placeholder(conn)
+    row = query_one(
+        conn,
+        "SELECT id,execution_target_json,execution_target_digest "
+        f"FROM qa_requirements WHERE id={marker}",
+        (int(requirement_id),),
+    )
+    if row is None:
+        raise QaPlanError(f"QA requirement {requirement_id} disappeared")
+    return require_existing_target(
+        [row],
+        execution_target=execution_target,
+        subject=subject,
+    )[0]
 
 
 def insert_requirement(
@@ -21,6 +95,7 @@ def insert_requirement(
     baseline: Optional[str],
     baseline_position: int,
     now: str,
+    execution_target: dict[str, Any],
 ) -> Optional[int]:
     """Insert one immutable plan-case snapshot, returning its new id."""
     marker = _placeholder(conn)
@@ -30,6 +105,15 @@ def insert_requirement(
         if case["success_policy_params"] is not None
         else json.loads(str(plan["success_policy_params"]))
     )
+    require_case_target(
+        {
+            "instructions": case["instructions"],
+            "expected_outcome": case["expected_outcome"],
+            "method_config": json.loads(str(case["method_config"] or "{}")),
+            "entry_surface": case["entry_surface"],
+        },
+        execution_target,
+    )
     row = conn.execute(
         "INSERT INTO qa_requirements("
         "item_id, deployment_run_id, qa_kind, qa_phase, blocking_mode, "
@@ -38,8 +122,8 @@ def insert_requirement(
         "method_id, method_name, executor_id, required_capability_kind, "
         "verdict_path, host_baseline, entry_surface, required_completion, "
         "workflow_transition_id, instructions, expected_outcome, "
-        "method_config, created_at"
-        f") VALUES ({', '.join([marker] * 25)}) "
+        "method_config, execution_target_json, execution_target_digest, created_at"
+        f") VALUES ({', '.join([marker] * 27)}) "
         "ON CONFLICT DO NOTHING RETURNING id",
         (
             item_id,
@@ -68,6 +152,8 @@ def insert_requirement(
             str(case["instructions"]),
             str(case["expected_outcome"]),
             str(case["method_config"]),
+            canonical_target(execution_target),
+            target_digest(execution_target),
             now,
         ),
     ).fetchone()
@@ -112,4 +198,9 @@ def existing_requirement_id(
     return int(row["id"]) if row is not None else None
 
 
-__all__ = ["existing_requirement_id", "insert_requirement"]
+__all__ = [
+    "existing_requirement_id",
+    "insert_requirement",
+    "require_existing_target",
+    "require_requirement_id_target",
+]

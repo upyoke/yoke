@@ -43,6 +43,8 @@ def task_upsert(
     worktree: str = "",
     context_estimate: str = "",
     dependencies: str = "",
+    *,
+    commit: bool = True,
 ) -> str:
     """Upsert an epic task row (preserves existing fields on conflict)."""
     if not title:
@@ -56,6 +58,11 @@ def task_upsert(
     item_exists = _table_exists(conn, "items") and conn.execute(
         f"SELECT 1 FROM items WHERE id={_placeholder(conn)}", (int(epic_id),)
     ).fetchone() is not None
+    if item_exists:
+        from yoke_core.domain.epic_task_scope import (
+            ensure_new_task_membership_allowed,
+        )
+        ensure_new_task_membership_allowed(conn, int(epic_id), task_num)
     if worktree.strip() and item_exists:
         lane_id = int(record_worker_item_worktree(
             conn, item_id=int(epic_id), branch=worktree, path=None,
@@ -74,7 +81,8 @@ def task_upsert(
     )
     touch_item_activity(conn, item_id=epic_id)
     touch_epic_task_activity(conn, epic_id=epic_id, task_num=task_num)
-    conn.commit()
+    if commit:
+        conn.commit()
     return f"Upserted task {epic_id}/{task_num}: {title}"
 
 

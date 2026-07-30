@@ -51,6 +51,7 @@ from yoke_core.domain.db_mutation_profile import (
 )
 from yoke_core.domain.db_optional_queries import fetch_optional_rows
 from yoke_core.domain.migration_model_capability import resolve_model
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.projects_breakage_policy import (
     BreakagePolicyError,
     resolve_breakage_policy,
@@ -84,7 +85,7 @@ def check_idea_to_refining_idea_gate(
         if item is None:
             return GateOutcome(
                 passed=False,
-                errors=[f"Item YOK-{item_id} not found"],
+                errors=[f"Item {render_item_ref(c, item_id)} not found"],
             )
 
         raw_profile = item.get("db_mutation_profile")
@@ -94,8 +95,9 @@ def check_idea_to_refining_idea_gate(
             return GateOutcome(
                 passed=False,
                 errors=[
-                    f"YOK-{item_id} db_mutation_profile is empty/null; "
-                    "every item must carry the negative default {\"state\":\"none\"}"
+                    f"{render_item_ref(c, item_id)} db_mutation_profile is "
+                    "empty/null; every item must carry the negative default "
+                    "{\"state\":\"none\"}"
                 ],
             )
         try:
@@ -149,8 +151,8 @@ def check_idea_to_refining_idea_gate(
         project = item.get("project") or ""
         if not project:
             errors.append(
-                f"YOK-{item_id} has no project — cannot resolve "
-                "migration_model capability or deployment flow"
+                f"{render_item_ref(c, item_id)} has no project — cannot "
+                "resolve migration_model capability or deployment flow"
             )
             return GateOutcome(passed=False, errors=errors, escalations=escalations)
 

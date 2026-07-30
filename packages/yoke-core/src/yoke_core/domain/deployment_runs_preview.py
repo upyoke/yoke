@@ -20,7 +20,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from yoke_core.domain.db_helpers import connect, iso8601_now, query_one, query_rows, query_scalar
 from yoke_core.domain.deployment_runs_schema import VALID_ENV_TYPES
-from yoke_core.domain.project_identity import ProjectIdentity, resolve_project
+from yoke_core.domain.project_identity import ProjectIdentity, render_item_ref, resolve_project
 from yoke_core.domain.time_parse import age_minutes_since
 
 
@@ -212,11 +212,11 @@ def cmd_check_preview_occupancy(
         # Get items enrolled in the occupying run
         items_rows = query_rows(
             conn,
-            "SELECT 'YOK-' || item_id FROM deployment_run_items WHERE run_id=%s ORDER BY item_id ASC",
+            "SELECT item_id FROM deployment_run_items WHERE run_id=%s ORDER BY item_id ASC",
             (run_id,),
         )
         if items_rows:
-            item_list = ",".join(str(r[0]) for r in items_rows)
+            item_list = ",".join(render_item_ref(conn, int(r[0])) for r in items_rows)
         else:
             item_list = "none"
 
@@ -237,7 +237,7 @@ def cmd_claim_preview(
 ) -> str:
     """Claim preview env for run with event emission. Returns confirmation message."""
     if env_type not in VALID_ENV_TYPES:
-        raise ValueError(f"env-type must be 'shared' or 'adhoc'")
+        raise ValueError("env-type must be 'shared' or 'adhoc'")
 
     conn = connect(db_path)
     try:
