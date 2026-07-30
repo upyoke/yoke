@@ -155,7 +155,7 @@
     },
     "qa_hosted_runtime_environment": {
       "path": "packages/yoke-core/src/yoke_core/domain/migrations/qa_hosted_runtime_environment.py",
-      "sha256": "bbaad7a7af26600c671fbb8266a540eb32b234900c7b1931025f0ee871bbfc06"
+      "sha256": "d3aed1a1c87516111c2564b305ed96fb31b0667a1309d37ef3e6fe9ba21b7f77"
     },
     "qa_execution_environment_target": {
       "path": "packages/yoke-core/src/yoke_core/domain/migrations/qa_execution_environment_target.py",
@@ -204,8 +204,8 @@
     ],
     "invariants": [
       "The nine modules execute in dependency order and remain digest-identical to their standalone manifests.",
-      "Every hosted Yoke tenant declares exactly one logical environment matching its Stage or Production runtime.",
-      "Every active QA plan resolves one hosted environment and every new requirement and execution snapshots exactly that target.",
+      "Every hosted Yoke tenant declares or reuses exactly one canonical environment matching its Stage or Production runtime without duplicating or transferring a Platform-owned site.",
+      "Every active QA plan resolves one project-owned environment or the exact same-org Platform-owned canonical runtime, and every new requirement and execution snapshots exactly that target.",
       "Agent-inspected cases retain an immutable capture-to-review bundle and one durable verdict per reviewed requirement.",
       "Legacy generated tasks receive explicit scope metadata without guessing ownership or mutating terminal workflow state.",
       "The events row count is preserved and no retired human identity value is discarded."
@@ -213,6 +213,6 @@
     "rehearsal_commands": [
       "uv run --frozen python3 -m pytest runtime/api/domain/migrations/test_hosted_runtime_schema_convergence_manifest.py -q"
     ],
-    "residual_risk_notes": "The additive units fail closed on ambiguous QA environment or generated-task ownership. The actor-identity contraction runs last, takes an exclusive events-table lock, and refuses before destructive SQL if any retired identity remains."
+    "residual_risk_notes": "The additive units fail closed on ambiguous or unauthorized QA environments and generated-task ownership. The canonical cross-project bridge is temporary and must be replaced by explicit owner-authorized grants during WORKFLOW-TYPES closeout. The actor-identity contraction runs last, takes an exclusive events-table lock, and refuses before destructive SQL if any retired identity remains."
   }
 }
