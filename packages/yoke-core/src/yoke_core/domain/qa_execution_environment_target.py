@@ -16,7 +16,7 @@ from yoke_contracts.api_urls import (
     HOSTED_STAGE_PLATFORM_URL,
 )
 from yoke_core.domain import db_backend, qa_hosted_runtime_identity as hosted_identity
-from yoke_core.domain.qa_case_release_channel import require_case_release_channel
+from yoke_core.domain import qa_case_environment_coherence as case_coherence
 
 
 class QaExecutionTargetError(ValueError):
@@ -316,9 +316,9 @@ def require_case_target(
     )
     endpoints = target["endpoints"]
     try:
-        require_case_release_channel(
+        case_coherence.require_case_environment_bindings(
             case,
-            expected=str(endpoints.get("release_channel") or "").strip(),
+            target=target,
         )
     except ValueError as exc:
         raise QaExecutionTargetError(str(exc)) from exc

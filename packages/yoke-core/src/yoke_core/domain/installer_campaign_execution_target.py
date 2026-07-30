@@ -73,11 +73,14 @@ def _project(value: Any, target: Mapping[str, Any]) -> Any:
 
 def _target_destination_keys(target: Mapping[str, Any]) -> list[str]:
     environment = str(target["environment"]["name"]).lower()
-    selected = (
-        CHOOSE_STAGE_KEYS
-        if environment in {"stage", "staging"}
-        else CHOOSE_PRODUCTION_KEYS
-    )
+    if environment in {"stage", "staging"}:
+        selected = CHOOSE_STAGE_KEYS
+    elif environment in {"prod", "production"}:
+        selected = CHOOSE_PRODUCTION_KEYS
+    else:
+        raise ValueError(
+            f"installer campaign does not support environment {environment!r}"
+        )
     return list(selected)
 
 
@@ -86,6 +89,7 @@ def _bind_destination_actions(
     target: Mapping[str, Any],
 ) -> None:
     keys = _target_destination_keys(target)
+    environment_id = str(target["environment"]["id"])
     for case in cases:
         raw_config = case.get("method_config")
         if not isinstance(raw_config, dict):
@@ -106,6 +110,7 @@ def _bind_destination_actions(
                     and action.get("step") == "destination-picker"
                 ):
                     action["keys"] = list(keys)
+                    action["target_environment_id"] = environment_id
 
 
 def installer_campaign_cases_for_target(
