@@ -28,7 +28,6 @@ from __future__ import annotations
 
 import copy
 import json
-import os
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
@@ -73,6 +72,8 @@ def _apply(
     reason: str,
     session_id: Optional[str],
 ) -> AmendmentResult:
+    from yoke_core.domain.project_identity import render_item_ref
+
     placeholder = _p(conn)
     row = conn.execute(
         "SELECT i.db_mutation_profile, i.db_compatibility_attestation, "
@@ -82,7 +83,9 @@ def _apply(
         (item_id,),
     ).fetchone()
     if row is None:
-        raise DbClaimAmendmentError(f"Item YOK-{item_id} not found")
+        raise DbClaimAmendmentError(
+            f"Item {render_item_ref(conn, item_id)} not found"
+        )
 
     raw_profile = row["db_mutation_profile"] if hasattr(row, "keys") else row[0]
     raw_attestation = (
@@ -114,6 +117,9 @@ def _apply(
     new_profile = dmp.stamp_reviewed_negative(new_profile, validated_at=now)
     profile_json = dmp.canonical_json(new_profile)
     attestation_json = dca.canonical_json(normalized_attestation)
+    # Rendered before the write so both failure messages below can name the
+    # item without re-querying a connection that may be mid-rollback.
+    item_ref = render_item_ref(conn, item_id)
 
     # The two-field write and event audit row are committed together
     # through the shared connection. Validation already ran; a SQL or
@@ -143,14 +149,14 @@ def _apply(
         )
         if event_id is None:
             raise DbClaimAmendmentError(
-                f"DbClaimAmended event emission failed for YOK-{item_id}; "
+                f"DbClaimAmended event emission failed for {item_ref}; "
                 "claim was not written"
             )
         conn.commit()
     except db_backend.database_error_types(conn) as exc:
         conn.rollback()
         raise DbClaimAmendmentError(
-            f"amendment write failed for YOK-{item_id}: {exc}"
+            f"amendment write failed for {item_ref}: {exc}"
         ) from exc
     except DbClaimAmendmentError:
         conn.rollback()
