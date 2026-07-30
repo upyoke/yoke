@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 from typing import Optional, Tuple
 
 from typing import TYPE_CHECKING
@@ -167,6 +166,7 @@ def preflight_checks(ctx: MergeContext) -> Optional[Tuple[int, str]]:
     # PF-6: blocked-flag refusal
     try:
         from yoke_core.domain.advance_blocked_gate import evaluate as _eval_blocked
+        from yoke_core.domain.project_identity import render_item_ref
         from yoke_core.engines.merge_worktree_prepare import _p
 
         _conn = mw._connect()
@@ -177,13 +177,14 @@ def preflight_checks(ctx: MergeContext) -> Optional[Tuple[int, str]]:
                 (ctx.args.branch,),
             ).fetchone()
             if _row is not None:
+                _item_ref = render_item_ref(_conn, int(_row[0]))
                 decision = _eval_blocked(_conn, int(_row[0]))
                 if decision.blocked:
-                    _print(f"  FAIL: Item YOK-{int(_row[0])} is blocked (items.blocked=1).", err=True)
+                    _print(f"  FAIL: Item {_item_ref} is blocked (items.blocked=1).", err=True)
                     if decision.reason:
                         _print(f"    Reason: {decision.reason}", err=True)
                     _print(
-                        f"    Run /yoke unblock YOK-{int(_row[0])} before merging.",
+                        f"    Run /yoke unblock {_item_ref} before merging.",
                         err=True,
                     )
                     fail = True
