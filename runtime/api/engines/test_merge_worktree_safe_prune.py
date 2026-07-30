@@ -1,4 +1,13 @@
-"""Safety proofs for automatic managed-worktree pruning."""
+"""Safety proofs for automatic managed-worktree pruning.
+
+The DB authority verdict now routes through the transport-aware
+``merge.prune.authority_verdict`` relay. These end-to-end proofs drive the
+REAL ``handle_prune_authority_verdict`` handler over a fake in-memory
+connection (the same controlled-row conn the pre-relay tests used), so the
+prune/keep decision for terminal, actively-claimed, dirty, unmerged, and
+mixed-owner worktrees is proven unchanged while the engine relays the
+verdict instead of opening a bare ``parent._connect()``.
+"""
 
 from __future__ import annotations
 
@@ -6,6 +15,15 @@ import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
+from yoke_contracts.api.function_call import (
+    ActorContext,
+    FunctionCallRequest,
+    FunctionCallResponse,
+)
+from yoke_core.domain.handlers import merge_engine_internal_ops as _ops
+from yoke_core.engines import merge_worktree_safe_prune as _safe_prune
 from yoke_core.engines.merge_worktree_safe_prune import prune_managed_worktrees
 
 
@@ -29,13 +47,24 @@ class _Conn:
         claimed=False,
         mixed_owner=False,
         path_claimed=False,
+        unavailable=False,
     ):
         self.branch = branch
         self.terminal = terminal
         self.claimed = claimed
         self.mixed_owner = mixed_owner
         self.path_claimed = path_claimed
+        self.unavailable = unavailable
         self.closed = False
+
+    def __enter__(self):
+        if self.unavailable:
+            raise RuntimeError("DB authority unavailable")
+        return self
+
+    def __exit__(self, *_exc):
+        self.close()
+        return False
 
     def execute(self, sql, params=()):
         if "FROM item_worktrees iw JOIN items i" in sql:
@@ -108,36 +137,61 @@ def _repo(tmp_path: Path, branch: str = "codex/terminal"):
     return repo, worktree, branch
 
 
-def _parent(repo: Path, conn: _Conn):
+def _fake_dispatcher(conn: _Conn):
+    """Return a ``call_dispatcher`` that runs the real handler over *conn*."""
+
+    def _call(*, function_id, target, payload=None, **_kwargs):
+        assert function_id == "merge.prune.authority_verdict"
+        request = FunctionCallRequest(
+            function=function_id,
+            actor=ActorContext(actor_id=None, session_id="s-prune-test"),
+            target=target,
+            payload=payload or {},
+        )
+        outcome = _ops.handle_prune_authority_verdict(request)
+        return FunctionCallResponse(
+            success=outcome.primary_success,
+            function=function_id,
+            version="v1",
+            result=outcome.result_payload or {},
+        )
+
+    return _call
+
+
+def _install(monkeypatch, repo: Path, conn: _Conn):
     lines: list[str] = []
 
     def run_git(argv, cwd=None, capture=False):
         return _git(Path(cwd or repo), *argv, check=False)
 
-    return SimpleNamespace(
+    parent = SimpleNamespace(
         _run_git=run_git,
-        _connect=lambda: conn,
+        _connect=lambda: pytest.fail("must not open a bare parent._connect()"),
         _print=lambda line, **_kwargs: lines.append(line),
-    ), lines
+    )
+    monkeypatch.setattr(_ops, "_connect_rw", lambda: conn)
+    monkeypatch.setattr(_safe_prune, "call_dispatcher", _fake_dispatcher(conn))
+    return parent, lines
 
 
-def test_clean_terminal_merged_worktree_and_branch_are_pruned(tmp_path: Path):
+def test_clean_terminal_merged_worktree_and_branch_are_pruned(
+    monkeypatch, tmp_path: Path
+):
     repo, worktree, branch = _repo(tmp_path)
-    conn = _Conn(branch)
-    parent, lines = _parent(repo, conn)
+    parent, lines = _install(monkeypatch, repo, _Conn(branch))
 
     prune_managed_worktrees(parent=parent, repo_root=str(repo), target="main")
 
     assert not worktree.exists()
     assert _git(repo, "branch", "--list", branch).stdout.strip() == ""
     assert any("Pruned terminal merged worktree" in line for line in lines)
-    assert conn.closed
 
 
-def test_dirty_terminal_worktree_is_preserved(tmp_path: Path):
+def test_dirty_terminal_worktree_is_preserved(monkeypatch, tmp_path: Path):
     repo, worktree, branch = _repo(tmp_path)
     (worktree / "evidence.txt").write_text("keep me\n", encoding="utf-8")
-    parent, lines = _parent(repo, _Conn(branch))
+    parent, lines = _install(monkeypatch, repo, _Conn(branch))
 
     prune_managed_worktrees(parent=parent, repo_root=str(repo), target="main")
 
@@ -146,7 +200,9 @@ def test_dirty_terminal_worktree_is_preserved(tmp_path: Path):
     assert any("dirty or unverifiable" in line for line in lines)
 
 
-def test_known_python_and_node_caches_are_removed_before_prune(tmp_path: Path):
+def test_known_python_and_node_caches_are_removed_before_prune(
+    monkeypatch, tmp_path: Path
+):
     repo, worktree, branch = _repo(tmp_path)
     cache_files = (
         worktree / "__pycache__" / "module.pyc",
@@ -162,7 +218,7 @@ def test_known_python_and_node_caches_are_removed_before_prune(tmp_path: Path):
     for path in cache_files:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("generated\n", encoding="utf-8")
-    parent, _lines = _parent(repo, _Conn(branch))
+    parent, _lines = _install(monkeypatch, repo, _Conn(branch))
 
     prune_managed_worktrees(parent=parent, repo_root=str(repo), target="main")
 
@@ -170,12 +226,12 @@ def test_known_python_and_node_caches_are_removed_before_prune(tmp_path: Path):
     assert _git(repo, "branch", "--list", branch).stdout.strip() == ""
 
 
-def test_unknown_ignored_content_is_preserved(tmp_path: Path):
+def test_unknown_ignored_content_is_preserved(monkeypatch, tmp_path: Path):
     repo, worktree, branch = _repo(tmp_path)
     protected = worktree / ".private" / "operator-note"
     protected.parent.mkdir(parents=True)
     protected.write_text("keep me\n", encoding="utf-8")
-    parent, lines = _parent(repo, _Conn(branch))
+    parent, lines = _install(monkeypatch, repo, _Conn(branch))
 
     prune_managed_worktrees(parent=parent, repo_root=str(repo), target="main")
 
@@ -184,9 +240,9 @@ def test_unknown_ignored_content_is_preserved(tmp_path: Path):
     assert any("dirty or unverifiable" in line for line in lines)
 
 
-def test_active_claim_preserves_terminal_worktree(tmp_path: Path):
+def test_active_claim_preserves_terminal_worktree(monkeypatch, tmp_path: Path):
     repo, worktree, branch = _repo(tmp_path)
-    parent, lines = _parent(repo, _Conn(branch, claimed=True))
+    parent, lines = _install(monkeypatch, repo, _Conn(branch, claimed=True))
 
     prune_managed_worktrees(parent=parent, repo_root=str(repo), target="main")
 
@@ -194,9 +250,11 @@ def test_active_claim_preserves_terminal_worktree(tmp_path: Path):
     assert any("actively claimed" in line for line in lines)
 
 
-def test_active_item_owned_path_claim_preserves_terminal_worktree(tmp_path: Path):
+def test_active_item_owned_path_claim_preserves_terminal_worktree(
+    monkeypatch, tmp_path: Path
+):
     repo, worktree, branch = _repo(tmp_path)
-    parent, lines = _parent(repo, _Conn(branch, path_claimed=True))
+    parent, lines = _install(monkeypatch, repo, _Conn(branch, path_claimed=True))
 
     prune_managed_worktrees(parent=parent, repo_root=str(repo), target="main")
 
@@ -205,12 +263,12 @@ def test_active_item_owned_path_claim_preserves_terminal_worktree(tmp_path: Path
     assert any("actively claimed" in line for line in lines)
 
 
-def test_unmerged_terminal_worktree_is_preserved(tmp_path: Path):
+def test_unmerged_terminal_worktree_is_preserved(monkeypatch, tmp_path: Path):
     repo, worktree, branch = _repo(tmp_path)
     (worktree / "feature.txt").write_text("new\n", encoding="utf-8")
     _git(worktree, "add", "feature.txt")
     _git(worktree, "commit", "-m", "unmerged")
-    parent, lines = _parent(repo, _Conn(branch))
+    parent, lines = _install(monkeypatch, repo, _Conn(branch))
 
     prune_managed_worktrees(parent=parent, repo_root=str(repo), target="main")
 
@@ -218,9 +276,9 @@ def test_unmerged_terminal_worktree_is_preserved(tmp_path: Path):
     assert any("unmerged worktree branch" in line for line in lines)
 
 
-def test_nonterminal_owner_preserves_merged_worktree(tmp_path: Path):
+def test_nonterminal_owner_preserves_merged_worktree(monkeypatch, tmp_path: Path):
     repo, worktree, branch = _repo(tmp_path)
-    parent, _lines = _parent(repo, _Conn(branch, terminal=False))
+    parent, _lines = _install(monkeypatch, repo, _Conn(branch, terminal=False))
 
     prune_managed_worktrees(parent=parent, repo_root=str(repo), target="main")
 
@@ -229,12 +287,25 @@ def test_nonterminal_owner_preserves_merged_worktree(tmp_path: Path):
 
 
 def test_terminal_and_nonterminal_owners_sharing_branch_are_preserved(
-    tmp_path: Path,
+    monkeypatch, tmp_path: Path,
 ):
     repo, worktree, branch = _repo(tmp_path)
-    parent, _lines = _parent(repo, _Conn(branch, mixed_owner=True))
+    parent, _lines = _install(monkeypatch, repo, _Conn(branch, mixed_owner=True))
 
     prune_managed_worktrees(parent=parent, repo_root=str(repo), target="main")
 
     assert worktree.exists()
     assert branch in _git(repo, "branch", "--list", branch).stdout
+
+
+def test_unavailable_db_authority_skips_all_pruning(monkeypatch, tmp_path: Path):
+    repo, worktree, branch = _repo(tmp_path)
+    parent, lines = _install(monkeypatch, repo, _Conn(branch, unavailable=True))
+
+    prune_managed_worktrees(parent=parent, repo_root=str(repo), target="main")
+
+    # Fail closed: the terminal merged worktree is preserved and the skip
+    # narrative fires, exactly as the pre-relay bare-connect failure did.
+    assert worktree.exists()
+    assert branch in _git(repo, "branch", "--list", branch).stdout
+    assert any("DB authority unavailable" in line for line in lines)

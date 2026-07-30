@@ -48,6 +48,7 @@ from yoke_core.domain.handlers import (
     _register_items_scalar_lifecycle,
     _register_items_structured,
     _register_machine_config,
+    _register_merge_engine,
     _register_merge_preflight,
     _register_onboard_checklist,
     _register_organizations,
@@ -128,6 +129,7 @@ _DOMAIN_REGISTRARS = (
     _register_field_note_dash_promotion,
     _register_advance_preflight,
     _register_merge_preflight,
+    _register_merge_engine,
 )
 
 _REGISTRATION_LOCK = threading.Lock()
