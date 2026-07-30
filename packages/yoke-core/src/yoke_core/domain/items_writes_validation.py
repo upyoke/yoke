@@ -16,6 +16,7 @@ from __future__ import annotations
 import textwrap
 
 from yoke_core.domain.db_helpers import query_scalar
+from yoke_core.domain.project_identity import render_item_ref
 
 
 def apply_field_validators(field: str, content: str) -> str:
@@ -66,7 +67,7 @@ def check_empty_content_guard(
     if existing and existing.strip():
         raise ValueError(
             f"Refusing to overwrite non-empty {field} with empty content "
-            f"for YOK-{item_id}"
+            f"for {render_item_ref(conn, item_id)}"
         )
 
 
@@ -94,7 +95,7 @@ def check_shrinkage_guard(
     new_lines = content.count("\n") + (1 if not content.endswith("\n") else 0)
     if old_lines >= 10 and new_lines < (old_lines // 2):
         raise ValueError(
-            f"Refusing {field} write for YOK-{item_id}: "
+            f"Refusing {field} write for {render_item_ref(conn, item_id)}: "
             f"new content ({new_lines} lines) is less than 50% of "
             f"existing {field} ({old_lines} lines). "
             f"This may indicate content loss. Use --force to override."
