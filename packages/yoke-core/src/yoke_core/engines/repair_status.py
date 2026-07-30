@@ -13,7 +13,6 @@ Usage::
 from __future__ import annotations
 
 import argparse
-import re
 import sys
 from pathlib import Path
 
@@ -50,22 +49,6 @@ def _connect():
     return db_helpers.connect()
 
 
-def _normalize_ref(ref: str) -> str:
-    """Strip a leading YOK- prefix and normalize numeric refs."""
-    cleaned = re.sub(r"^[Yy][Oo][Kk]-", "", ref or "").strip()
-    if cleaned.isdigit():
-        return str(int(cleaned))
-    return cleaned
-
-
-def _normalize_item_id(ref: str) -> int:
-    """Normalize a backlog item ref to an integer ID."""
-    cleaned = _normalize_ref(ref)
-    if not cleaned.isdigit():
-        raise ValueError(f"Item ID must be numeric, got '{ref}'")
-    return int(cleaned)
-
-
 def _normalize_task_num(raw: str) -> int:
     """Parse a task number."""
     try:
@@ -92,8 +75,6 @@ __all__ = [
     "RepairStatusArgumentParser",
     "_repo_root",
     "_connect",
-    "_normalize_ref",
-    "_normalize_item_id",
     "_normalize_task_num",
     "_validate_item_target_status",
     "repair_item_status",

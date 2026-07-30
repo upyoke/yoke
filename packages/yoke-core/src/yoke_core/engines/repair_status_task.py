@@ -31,16 +31,12 @@ def repair_task_status(
     # also imports this module at top level. Importing at call time avoids
     # the bidirectional partial-load failure when this sibling is imported
     # before the front door.
+    from yoke_core.domain.yok_n_parser import parse_item_id
     from yoke_core.engines.repair_status import (
         _connect,
-        _normalize_ref,
         _normalize_task_num,
     )
 
-    epic_id = _normalize_ref(epic_ref)
-    if not epic_id:
-        print("Error: epic ID is required.", file=sys.stderr)
-        return 1
     try:
         task_num = _normalize_task_num(task_num_ref)
     except ValueError as exc:
@@ -48,10 +44,18 @@ def repair_task_status(
         return 1
 
     with _connect() as conn:
+        # Resolve the epic ref through the canonical parser so ``PREFIX-N``
+        # maps to its project sequence rather than being stripped and treated
+        # as the internal id; a bare number stays an internal id for operators.
+        try:
+            epic_id = parse_item_id(epic_ref, conn=conn, allow_bare_internal=True)
+        except ValueError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 1
         p = _p(conn)
         row = conn.execute(
             f"SELECT status FROM epic_tasks WHERE epic_id = {p} AND task_num = {p}",
-            (epic_id, task_num),
+            (str(epic_id), task_num),
         ).fetchone()
 
     if row is None or not row["status"]:

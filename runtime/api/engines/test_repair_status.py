@@ -22,9 +22,25 @@ def _apply_repair_schema() -> None:
                 id INTEGER PRIMARY KEY,
                 workflow_id TEXT,
                 workflow_version_id INTEGER,
-                status TEXT
+                status TEXT,
+                project_id INTEGER,
+                project_sequence INTEGER
             )
             """
+        )
+        conn.execute(
+            """
+            CREATE TABLE projects (
+                id INTEGER PRIMARY KEY,
+                slug TEXT,
+                name TEXT,
+                public_item_prefix TEXT
+            )
+            """
+        )
+        conn.execute(
+            "INSERT INTO projects (id, slug, name, public_item_prefix) "
+            "VALUES (1, 'yoke', 'Yoke', 'YOK')"
         )
         conn.execute(
             """
@@ -43,8 +59,12 @@ def _apply_repair_schema() -> None:
 
         ensure_workflow_schema(conn)
         converge_builtin_workflows(conn)
-        conn.execute("INSERT INTO items (id, workflow_id, workflow_version_id, status) VALUES (9, 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea')")
-        conn.execute("INSERT INTO items (id, workflow_id, workflow_version_id, status) VALUES (42, 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'planning')")
+        conn.execute("INSERT INTO items (id, workflow_id, workflow_version_id, status, project_id, project_sequence) VALUES (9, 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 1, 9)")
+        conn.execute("INSERT INTO items (id, workflow_id, workflow_version_id, status, project_id, project_sequence) VALUES (42, 'epic', (SELECT current_version_id FROM workflows WHERE id='epic'), 'planning', 1, 42)")
+        # Internal id deliberately diverges from project_sequence: global id 1916
+        # is public ref YOK-1914. A prefix-strip resolver mis-reads YOK-1914 as
+        # internal id 1914; the canonical parser maps it to 1916.
+        conn.execute("INSERT INTO items (id, workflow_id, workflow_version_id, status, project_id, project_sequence) VALUES (1916, 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 1, 1914)")
         conn.execute(
             "INSERT INTO epic_tasks (epic_id, task_num, status) VALUES ('42', 1, 'planning')"
         )
@@ -98,6 +118,25 @@ def test_item_dry_run_skips_backlog_domain(repair_db, capsys, monkeypatch):
     captured = capsys.readouterr()
     assert rc == 0
     assert "Would repair YOK-9: idea -> implementing" in captured.out
+
+
+def test_prefix_ref_resolves_project_sequence_not_internal_id(
+    repair_db, capsys, monkeypatch
+):
+    """``YOK-<sequence>`` resolves to the divergent internal id, and output
+    renders the public ref rather than the stripped sequence."""
+
+    def _fail(*args, **kwargs):  # pragma: no cover - asserted via pytest.fail
+        pytest.fail("dry-run must not invoke backlog.execute_update")
+
+    monkeypatch.setattr("yoke_core.domain.backlog.execute_update", _fail)
+
+    # YOK-1914 is project_sequence 1914 -> internal id 1916 (not global id 1914).
+    rc = repair_status.main(["--dry-run", "YOK-1914", "implementing"])
+
+    captured = capsys.readouterr()
+    assert rc == 0
+    assert "Would repair YOK-1914: idea -> implementing" in captured.out
 
 
 def test_issue_rejects_epic_only_status(repair_db, capsys):
