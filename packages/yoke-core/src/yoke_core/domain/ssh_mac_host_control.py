@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import shlex
+from collections.abc import Callable
 from typing import Any, Mapping, Sequence
 
 from yoke_harness.ssh_mac_transport import (
@@ -111,6 +112,8 @@ class SshMacHostControl(SshMacTransport):
         entry_surface: str,
         required_completion: str,
         config: Mapping[str, Any],
+        progress_callback: Callable[[], None] | None = None,
+        allowed_operator_urls: Sequence[str] = (),
     ) -> HostActionResult:
         from yoke_core.domain.ssh_mac_terminal_recipe import (
             execute_terminal_recipe,
@@ -127,6 +130,8 @@ class SshMacHostControl(SshMacTransport):
             evidence_parent=machine_config.yoke_home() / "qa-host-control",
             secret_values=tuple(self.material.secrets.values()),
             terminal_size=terminal_size,
+            progress_callback=progress_callback,
+            allowed_operator_urls=tuple(allowed_operator_urls),
         )
 
 

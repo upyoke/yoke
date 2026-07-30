@@ -13,6 +13,7 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.conflict_survey_models import ConflictMatch, ConflictSurvey
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.file_budget_paths import extract_file_budget_paths
+from yoke_core.domain.path_claims_dependency_resolver_coordination import items_are_coordination_only
 from yoke_core.domain.schema_common import _table_exists
 
 CONFLICT_SURVEY_SECTION = "Conflict Survey"
@@ -264,6 +265,12 @@ def survey_conflicts(
             touch_paths=clean_paths,
             integration_target=integration_target,
         ),
+    ]
+    blockers = [
+        row for row in blockers if row.owner_item_id is None
+        or not items_are_coordination_only(
+            conn, item_a_id=int(item["id"]), item_b_id=row.owner_item_id,
+        )
     ]
     blockers.sort(
         key=lambda row: (row.kind, row.owner_item_id or 0, row.path, row.detail),

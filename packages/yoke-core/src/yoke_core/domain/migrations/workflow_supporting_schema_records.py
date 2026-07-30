@@ -104,11 +104,11 @@ def apply(conn: Any) -> None:
             + ", ".join(missing)
         )
 
-    ensure_strategy_execution_schema(conn)
-    create_decision_request_tables(conn)
-    create_qa_catalog_tables(conn)
-    ensure_test_machine_schema(conn)
-    sync_machine_qa_pack_methods(conn)
+    ensure_strategy_execution_schema(conn, commit=False)
+    create_decision_request_tables(conn, commit=False)
+    create_qa_catalog_tables(conn, commit=False)
+    ensure_test_machine_schema(conn, commit=False)
+    sync_machine_qa_pack_methods(conn, commit=False)
 
 
 def invariants(conn: Any) -> None:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from yoke_core.domain.handlers import (
     deployment_common as _models,
+    deployment_run_projection as _run_projection,
     deployment_flows as _flows,
     deployment_runs as _runs,
     deployment_runs_composed as _runs_composed,
@@ -113,6 +114,24 @@ def register(registry) -> None:
         side_effects=["deployment_runs_insert"],
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=["zero_member_environment_run"],
+        adapter_status="live",
+        claim_required_kind=None,
+    )
+    registry.register(
+        "deployment_runs.project_snapshot",
+        _run_projection.handle_project_snapshot,
+        _run_projection.DeploymentRunProjectSnapshotRequest,
+        _run_projection.DeploymentRunProjectSnapshotResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.deployment_run_projection",
+        target_kinds=["global"],
+        side_effects=["deployment_runs_insert", "deployment_runs_update"],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=[
+            "canonical_snapshot",
+            "identity_collision_refusal",
+            "optimistic_destination_repair",
+        ],
         adapter_status="live",
         claim_required_kind=None,
     )

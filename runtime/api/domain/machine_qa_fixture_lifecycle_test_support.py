@@ -8,6 +8,9 @@ from typing import Any
 from yoke_core.domain.host_control_executor import HostActionResult
 from yoke_core.domain.machine_qa_execution import MachineCaseResult
 from yoke_core.domain.machine_qa_execution_contract import MachineQaCaseContract
+from runtime.api.domain.qa_plan_execution_test_support import (
+    synthetic_execution_target,
+)
 from yoke_core.domain.machine_qa_fixture_lifecycle import (
     execute_case_with_fixture_lifecycle,
 )
@@ -176,6 +179,10 @@ def case_contract(
     method_config: dict[str, Any] | None = None,
     host_baseline: str | None = None,
 ) -> MachineQaCaseContract:
+    execution_target, execution_target_digest = synthetic_execution_target(
+        project_id=1,
+        project="yoke",
+    )
     return MachineQaCaseContract.model_validate(
         {
             "requirement_id": 1,
@@ -197,6 +204,8 @@ def case_contract(
             "workflow_transition_id": None,
             "project_id": 1,
             "project": "yoke",
+            "execution_target": execution_target,
+            "execution_target_digest": execution_target_digest,
             "lane_branch": None,
         }
     )

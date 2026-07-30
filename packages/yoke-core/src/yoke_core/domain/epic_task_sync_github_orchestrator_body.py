@@ -22,6 +22,20 @@ from yoke_core.domain import backlog_github_body_writer as _writer
 from yoke_core.domain import github_rest
 
 
+def scope_finalization_error(conn: Any, epic_id: int, stderr: TextIO) -> bool:
+    """Finalize task scope before publication, returning whether it blocked."""
+    from yoke_core.domain.epic_task_scope import (
+        TaskScopeIncomplete,
+        finalize_generated_task_scopes,
+    )
+    try:
+        finalize_generated_task_scopes(conn, epic_id)
+    except TaskScopeIncomplete as exc:
+        print(f"Error: generated task publication blocked: {exc}", file=stderr)
+        return True
+    return False
+
+
 def append_task_list_to_epic_body(
     *,
     epic_issue_num: str,
@@ -58,4 +72,4 @@ def append_task_list_to_epic_body(
     )
 
 
-__all__ = ["append_task_list_to_epic_body"]
+__all__ = ["append_task_list_to_epic_body", "scope_finalization_error"]

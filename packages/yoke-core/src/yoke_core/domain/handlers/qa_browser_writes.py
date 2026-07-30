@@ -211,21 +211,6 @@ def handle_qa_run_complete(request: FunctionCallRequest) -> HandlerOutcome:
             tuple(params),
         )
         conn.commit()
-        if verdict == "inconclusive":
-            from yoke_core.domain.qa_review_requests import (
-                ensure_qa_review_request,
-            )
-
-            actor = request.actor.actor_id
-            ensure_qa_review_request(
-                conn,
-                requirement_id=int(req_id),
-                run_id=int(run_id),
-                originator_actor_id=(
-                    int(actor) if actor is not None and str(actor).isdigit() else None
-                ),
-                session_id=str(request.actor.session_id or ""),
-            )
         event_name = "QARunCompleted" if verdict is not None else "QARunCaptured"
         qa_events.emit_qa_run_event(
             conn,

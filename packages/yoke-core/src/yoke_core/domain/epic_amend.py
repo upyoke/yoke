@@ -10,10 +10,8 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
 from yoke_core.domain.epic_parsing import _placeholder, _require_task_exists
-from yoke_core.domain.epic_task_crud import (
-    task_update_field,
-    task_upsert,
-)
+from yoke_core.domain.epic_task_crud import task_update_field, task_upsert
+from yoke_core.domain.epic_task_scope import reopen_generated_task_scopes
 from yoke_core.domain.path_claim_task_bindings import delete_task_bindings
 
 
@@ -59,9 +57,9 @@ class MetadataUpdateResult:
     updated_fields: Dict[str, str] = field(default_factory=dict)
 
 
-_METADATA_WHITELIST = frozenset(
-    {"title", "context_estimate", "dependencies", "github_issue", "max_attempts"}
-)
+_METADATA_WHITELIST = frozenset({
+    "title", "context_estimate", "dependencies", "github_issue", "max_attempts",
+})
 
 
 def _split_deps(value: Optional[str]) -> List[str]:
@@ -104,23 +102,30 @@ def task_add(
     if not title:
         raise ValueError("title is required for task_add")
     epic_key = str(epic_id)
-    task_num = _next_task_num(conn, epic_key)
-    task_upsert(
-        conn,
-        epic_key,
-        task_num,
-        title,
-        worktree=worktree,
-        context_estimate=context_estimate,
-        dependencies=dependencies,
-    )
-    if body:
-        p = _placeholder(conn)
-        conn.execute(
-            f"UPDATE epic_tasks SET body = {p} WHERE epic_id = {p} AND task_num = {p}",
-            (body, epic_key, task_num),
+    try:
+        reopen_generated_task_scopes(conn, epic_id, commit=False)
+        task_num = _next_task_num(conn, epic_key)
+        task_upsert(
+            conn,
+            epic_key,
+            task_num,
+            title,
+            worktree=worktree,
+            context_estimate=context_estimate,
+            dependencies=dependencies,
+            commit=False,
         )
+        if body:
+            p = _placeholder(conn)
+            conn.execute(
+                f"UPDATE epic_tasks SET body = {p} "
+                f"WHERE epic_id = {p} AND task_num = {p}",
+                (body, epic_key, task_num),
+            )
         conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
     return AddResult(task_num=task_num, title=title)
 
 
@@ -166,19 +171,16 @@ def task_remove(
     task_num: int,
     reason: str = "",
 ) -> RemoveResult:
-    """Delete a task row and cascade-remove its ``task_num`` from sibling
-    ``dependencies`` columns. The whole operation runs in one transaction.
-    """
+    """Delete a task and remove its number from sibling dependencies."""
     del reason
     epic_key = str(epic_id)
-    _require_task_exists(conn, epic_key, task_num)
     target_token = str(task_num)
     cascade: Dict[int, str] = {}
     p = _placeholder(conn)
-    # Explicit commit/rollback: ``with conn:`` is the sqlite transaction
-    # idiom, but a psycopg connection context manager also CLOSES the
-    # connection on exit.
+    # Avoid ``with conn:`` because psycopg closes the connection on exit.
     try:
+        reopen_generated_task_scopes(conn, epic_id, commit=False)
+        _require_task_exists(conn, epic_key, task_num)
         sibling_rows = conn.execute(
             "SELECT task_num, dependencies FROM epic_tasks "
             f"WHERE epic_id = {p} AND task_num <> {p}",
@@ -266,7 +268,6 @@ def task_split(
         if "title" not in child or not child["title"]:
             raise ValueError(f"children[{idx}] missing required 'title'")
     epic_key = str(epic_id)
-    _require_task_exists(conn, epic_key, task_num)
     new_nums: List[int] = []
     deps_updates: Dict[int, str] = {}
     p = _placeholder(conn)
@@ -274,6 +275,8 @@ def task_split(
     # idiom, but a psycopg connection context manager also CLOSES the
     # connection on exit.
     try:
+        reopen_generated_task_scopes(conn, epic_id, commit=False)
+        _require_task_exists(conn, epic_key, task_num)
         next_num = _next_task_num(conn, epic_key)
         for idx, child in enumerate(children):
             child_num = next_num + idx
@@ -285,6 +288,7 @@ def task_split(
                 worktree=child.get("worktree", ""),
                 context_estimate=child.get("context_estimate", ""),
                 dependencies=child.get("dependencies", ""),
+                commit=False,
             )
             body = child.get("body", "")
             if body:

@@ -109,8 +109,7 @@ def test_hosted_actions_pin_send_before_capture_transitions() -> None:
     )
     approval_to_review = [
         ("browser-approval", ()),
-        ("operator-browser-approval", ()),
-        ("poll-browser-approval", ("Enter",)),
+        ("operator-browser-approval", ("Enter",)),
         ("hosted-connected", ()),
         ("continue-hosted-connected", ("Enter",)),
         ("machine-github", ()),
@@ -129,8 +128,11 @@ def test_hosted_actions_pin_send_before_capture_transitions() -> None:
             == approval_to_review
         )
         actions = {action["step"]: action for action in config["actions"]}
-        assert actions["operator-browser-approval"]["wait_seconds"] == 180
-        assert actions["poll-browser-approval"]["wait_seconds"] == 20
+        approval = actions["operator-browser-approval"]
+        assert approval["operator_gate"] == "machine_browser_approval"
+        assert approval["completion_text"] == ["Yoke token connected."]
+        assert approval["gate_timeout_seconds"] == 600
+        assert "wait_seconds" not in approval
         assert actions["hosted-connected"]["ready_text"] == ["Yoke token connected."]
         assert actions["machine-github-backlog"]["ready_text"] == ["Connect GitHub?"]
         assert actions["review"]["ready_text"] == [
@@ -143,13 +145,15 @@ def test_hosted_actions_pin_send_before_capture_transitions() -> None:
         ("path-ready", ()),
         ("continue-path", ("Enter",)),
         ("browser-approval", ()),
-        ("operator-browser-approval", ()),
-        ("poll-browser-approval", ("Enter",)),
+        ("operator-browser-approval", ("Enter",)),
         ("hosted-connected", ()),
     ]
     hosted_actions = {action["step"]: action for action in hosted_config["actions"]}
-    assert hosted_actions["operator-browser-approval"]["wait_seconds"] == 180
-    assert hosted_actions["poll-browser-approval"]["wait_seconds"] == 20
+    assert (
+        hosted_actions["operator-browser-approval"]["operator_gate"]
+        == "machine_browser_approval"
+    )
+    assert "wait_seconds" not in hosted_actions["operator-browser-approval"]
     assert hosted_actions["hosted-connected"]["ready_text"] == ["Yoke token connected."]
 
     assert action_signature(cases["connect-wait"]["method_config"]) == [
@@ -163,8 +167,7 @@ def test_hosted_actions_pin_send_before_capture_transitions() -> None:
         ("path-ready", ()),
         ("continue-path", ("Enter",)),
         ("browser-approval", ()),
-        ("operator-browser-approval", ()),
-        ("poll-browser-approval", ("Enter",)),
+        ("operator-browser-approval", ("Enter",)),
         ("hosted-connected", ()),
         ("continue-hosted-connected", ("Enter",)),
         ("machine-github", ()),

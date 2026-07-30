@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from yoke_core.domain.handlers import qa_case_execution as _case
 from yoke_core.domain.handlers import qa_plan_execution as _plan
+from yoke_core.domain.handlers import qa_plan_review as _review
 
 
 def register(registry) -> None:
@@ -57,6 +58,50 @@ def register(registry) -> None:
                 "live"
                 if function_id in {"qa.plan_execution.begin", "qa.plan_execution.abort"}
                 else "internal"
+            ),
+            claim_required_kind="qa_subject",
+            ambient_session_required=True,
+        )
+    for function_id, handler, request_model, response_model in (
+        (
+            "qa.plan_review.begin",
+            _review.handle_plan_review_begin,
+            _review.PlanReviewBeginRequest,
+            _review.PlanReviewBeginResponse,
+        ),
+        (
+            "qa.plan_review.submit",
+            _review.handle_plan_review_submit,
+            _review.PlanReviewSubmitRequest,
+            _review.PlanReviewSubmitResponse,
+        ),
+    ):
+        registry.register(
+            function_id,
+            handler,
+            request_model,
+            response_model,
+            stability="stable",
+            owner_module="yoke_core.domain.handlers.qa_plan_review",
+            target_kinds=["item", "deployment_run"],
+            side_effects=[
+                "qa_plan_review_write",
+                "qa_run_write",
+                "decision_request_write_if_inconclusive",
+            ],
+            emitted_event_names=[
+                "YokeFunctionCalled",
+                "QARunCompleted",
+                "DecisionRequestCreated",
+            ],
+            guardrails=[
+                "project_scope_required",
+                "immutable_review_bundle",
+                "complete_verdict_batch",
+                "actor_session_bound",
+            ],
+            adapter_status=(
+                "internal" if function_id.endswith(".begin") else "live"
             ),
             claim_required_kind="qa_subject",
             ambient_session_required=True,

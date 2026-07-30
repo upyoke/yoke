@@ -44,6 +44,8 @@ class PlanExecutionStateResponse(BaseModel):
     roster_digest: str
     cursor_ordinal: int
     machine_lease_id: int | None = None
+    execution_target: dict[str, Any]
+    execution_target_digest: str
     requirements: list[dict[str, Any]]
     results: list[dict[str, Any]]
 

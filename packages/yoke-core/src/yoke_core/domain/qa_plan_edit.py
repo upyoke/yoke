@@ -12,6 +12,7 @@ from yoke_core.domain.qa_plan_management import (
     _next_updated_at,
     _placeholder,
     _project_id,
+    _validate_target_environment,
     _validated_plan_cases,
 )
 
@@ -117,6 +118,7 @@ def edit_plan(
     description: str,
     success_policy_id: str,
     success_policy_params: dict[str, Any],
+    target_environment_id: str | None = None,
     cases: list[dict[str, Any]],
 ) -> dict[str, Any]:
     """Replace one authoring document with CAS and true no-op semantics."""
@@ -142,6 +144,15 @@ def edit_plan(
         raise QaPlanError(f"QA plan {project}/{slug} not found")
     if plan["retired_at"] is not None:
         raise QaPlanError(f"QA plan {project}/{slug} is retired")
+    target_environment_id = str(
+        target_environment_id or plan["target_environment_id"] or ""
+    )
+    if target_environment_id:
+        _validate_target_environment(
+            conn,
+            project_id=project_id,
+            environment_id=target_environment_id,
+        )
 
     normalized_cases = _validated_plan_cases(
         conn,
@@ -154,6 +165,7 @@ def edit_plan(
         "description": str(description),
         "success_policy_id": success_policy_id,
         "success_policy_params": dict(success_policy_params),
+        "target_environment_id": str(target_environment_id),
     }
     current_plan = {
         "name": str(plan["name"]),
@@ -163,6 +175,7 @@ def edit_plan(
             plan["success_policy_params"],
             {},
         ),
+        "target_environment_id": str(plan["target_environment_id"] or ""),
     }
     current_cases = _current_cases(conn, int(plan["id"]))
     if str(base_updated_at) != current_updated_at:
@@ -202,7 +215,8 @@ def edit_plan(
         cursor = conn.execute(
             "UPDATE qa_plans SET name={m}, description={m}, "
             "success_policy_id={m}, success_policy_params={m}, "
-            "updated_at={m} WHERE id={m} AND updated_at={m}".format(
+            "target_environment_id={m}, updated_at={m} "
+            "WHERE id={m} AND updated_at={m}".format(
                 m=marker,
             ),
             (
@@ -210,6 +224,7 @@ def edit_plan(
                 desired_plan["description"],
                 desired_plan["success_policy_id"],
                 _json(desired_plan["success_policy_params"]),
+                desired_plan["target_environment_id"],
                 stamp,
                 int(plan["id"]),
                 str(base_updated_at),

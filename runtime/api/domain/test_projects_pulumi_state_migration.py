@@ -31,12 +31,6 @@ def pulumi_state_db(monkeypatch):
             apply_fixture_schema(conn)
             project_id = resolve_project_id(conn, "yoke")
             conn.execute(
-                "CREATE TABLE sites ("
-                "id TEXT PRIMARY KEY, project_id INTEGER NOT NULL, "
-                "name TEXT NOT NULL, created_at TEXT NOT NULL, "
-                "settings TEXT DEFAULT '{}')"
-            )
-            conn.execute(
                 "INSERT INTO sites "
                 "(id, project_id, name, created_at, settings) "
                 "VALUES (%s, %s, %s, %s, %s)",

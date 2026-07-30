@@ -16,6 +16,10 @@ from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.backlog import insert_item, insert_item_worktree
 from runtime.api.fixtures.schema_ddl import SCHEMA_DDL, apply_fixture_ddl
 from yoke_core.domain import epic_amend
+from yoke_core.domain.epic_task_scope import (
+    finalize_generated_task_scopes,
+    set_no_files_scope,
+)
 
 
 def _seed_conn() -> Any:
@@ -66,6 +70,12 @@ def _add_row(conn, epic_id, task_num, title, **kwargs):
     conn.commit()
 
 
+def _finalize_rows(conn, epic_id: int, *task_nums: int) -> None:
+    for task_num in task_nums:
+        set_no_files_scope(conn, epic_id, task_num)
+    finalize_generated_task_scopes(conn, epic_id)
+
+
 class TestTaskAdd(unittest.TestCase):
     def test_appends_at_next_task_num(self):
         conn = _seed_conn()
@@ -90,6 +100,24 @@ class TestTaskAdd(unittest.TestCase):
         conn = _seed_conn()
         with pytest.raises(ValueError, match="title"):
             epic_amend.task_add(conn, 100, title="")
+
+    def test_reopens_finalized_membership_before_add(self):
+        conn = _seed_conn()
+        _add_row(conn, 100, 1, "first")
+        _finalize_rows(conn, 100, 1)
+
+        result = epic_amend.task_add(conn, 100, title="second")
+
+        rows = conn.execute(
+            "SELECT task_num, scope_state, scope_finalized_at "
+            "FROM epic_tasks WHERE epic_id=100 ORDER BY task_num"
+        ).fetchall()
+        assert result.task_num == 2
+        assert [(row["task_num"], row["scope_state"]) for row in rows] == [
+            (1, "no_files"),
+            (2, "pending"),
+        ]
+        assert all(row["scope_finalized_at"] is None for row in rows)
 
 
 class TestTaskReassign(unittest.TestCase):
@@ -149,6 +177,22 @@ class TestTaskRemove(unittest.TestCase):
         conn = _seed_conn()
         with pytest.raises(LookupError):
             epic_amend.task_remove(conn, 100, 99)
+
+    def test_reopens_finalized_membership_before_remove(self):
+        conn = _seed_conn()
+        _add_row(conn, 100, 1, "first")
+        _add_row(conn, 100, 2, "second")
+        _finalize_rows(conn, 100, 1, 2)
+
+        epic_amend.task_remove(conn, 100, 1)
+
+        row = conn.execute(
+            "SELECT task_num, scope_state, scope_finalized_at "
+            "FROM epic_tasks WHERE epic_id=100"
+        ).fetchone()
+        assert row["task_num"] == 2
+        assert row["scope_state"] == "no_files"
+        assert row["scope_finalized_at"] is None
 
 
 class TestTaskMetadataUpdate(unittest.TestCase):
@@ -254,6 +298,31 @@ class TestTaskSplit(unittest.TestCase):
             epic_amend.task_split(
                 conn, 100, 99, [{"title": "x"}],
             )
+
+    def test_reopens_finalized_membership_before_split(self):
+        conn = _seed_conn()
+        _add_row(conn, 100, 1, "parent")
+        _add_row(conn, 100, 2, "sibling")
+        _finalize_rows(conn, 100, 1, 2)
+
+        result = epic_amend.task_split(
+            conn,
+            100,
+            1,
+            [{"title": "child-A"}, {"title": "child-B"}],
+        )
+
+        rows = conn.execute(
+            "SELECT task_num, scope_state, scope_finalized_at "
+            "FROM epic_tasks WHERE epic_id=100 ORDER BY task_num"
+        ).fetchall()
+        assert result.new_task_nums == [3, 4]
+        assert [(row["task_num"], row["scope_state"]) for row in rows] == [
+            (2, "no_files"),
+            (3, "pending"),
+            (4, "pending"),
+        ]
+        assert all(row["scope_finalized_at"] is None for row in rows)
 
 
 if __name__ == "__main__":

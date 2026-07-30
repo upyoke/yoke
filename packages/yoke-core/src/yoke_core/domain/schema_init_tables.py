@@ -23,6 +23,7 @@ from yoke_core.domain.item_worktree_schema import (
     ensure_item_worktree_schema,
 )
 from yoke_core.domain.projects_restart_schema import _projects_table_sql
+from yoke_core.domain.epic_task_membership import MEMBERSHIP_FINALIZED_COLUMN
 from yoke_core.domain.strategy_docs_schema import (
     STRATEGY_DOC_REVISIONS_CREATE_TABLE_SQL,
     STRATEGY_DOCS_CREATE_TABLE_SQL,
@@ -59,6 +60,7 @@ def create_core_tables(conn: Any) -> None:
           workflow_id TEXT NOT NULL REFERENCES workflows(id),
           workflow_version_id INTEGER NOT NULL REFERENCES workflow_versions(id),
           workflow_posture TEXT NOT NULL DEFAULT '{{}}',
+          {MEMBERSHIP_FINALIZED_COLUMN} TEXT,
           UNIQUE(project_id, project_sequence)
         );
         CREATE TABLE IF NOT EXISTS ouroboros_entries (
@@ -164,6 +166,9 @@ def create_core_tables(conn: Any) -> None:
           dependencies TEXT,
           status TEXT DEFAULT 'planning' CHECK(status IN ({_VALID_TASK_STATUSES_SQL})),
           dispatch_attempts INTEGER DEFAULT 0,
+          scope_state TEXT NOT NULL DEFAULT 'pending'
+            CHECK(scope_state IN ('pending','paths','no_files','legacy_deferred')),
+          scope_finalized_at TEXT,
           UNIQUE(epic_id, task_num)
         );
         CREATE TABLE IF NOT EXISTS epic_task_files (

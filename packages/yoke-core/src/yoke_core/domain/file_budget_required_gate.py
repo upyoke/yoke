@@ -52,7 +52,12 @@ def workflow_policy_schema_available(conn: Any) -> bool:
     )
 
 
-def _required_task_budgets(conn: Any, item_id: int) -> dict[str, object]:
+def _required_task_budgets(
+    conn: Any,
+    item_id: int,
+    *,
+    require_finalized: bool = True,
+) -> dict[str, object]:
     if not all(
         _table_exists(conn, table)
         for table in ("epic_tasks", "epic_task_files")
@@ -62,6 +67,11 @@ def _required_task_budgets(conn: Any, item_id: int) -> dict[str, object]:
             "reason": "task-scoped File Budget schema is incomplete",
             "missing_tasks": [],
         }
+    from yoke_core.domain.epic_task_scope import (
+        schema_available as task_scope_schema_available,
+        task_scope_issues,
+    )
+
     marker = _p(conn)
     rows = conn.execute(
         "SELECT t.task_num, COUNT(CASE WHEN "
@@ -79,6 +89,34 @@ def _required_task_budgets(conn: Any, item_id: int) -> dict[str, object]:
             "reason": (
                 f"item YOK-{item_id} defers task File Budgets until "
                 "planning persists generated tasks"
+            ),
+            "missing_tasks": [],
+        }
+    if task_scope_schema_available(conn):
+        issues = task_scope_issues(
+            conn,
+            int(item_id),
+            require_finalized=require_finalized,
+        )
+        if issues:
+            missing = [
+                int(row["task_num"] if hasattr(row, "keys") else row[0])
+                for row in rows
+                if int(row["file_count"] if hasattr(row, "keys") else row[1]) == 0
+            ]
+            return {
+                "verdict": GATE_BLOCK,
+                "reason": (
+                    f"item YOK-{item_id} generated task scope is incomplete: "
+                    + "; ".join(issues)
+                ),
+                "missing_tasks": missing,
+            }
+        return {
+            "verdict": GATE_PASS,
+            "reason": (
+                f"item YOK-{item_id} has finalized explicit scope for every "
+                "generated task"
             ),
             "missing_tasks": [],
         }
@@ -111,10 +149,15 @@ def evaluate_required_budget(
     item_id: int,
     *,
     task_scoped: bool = False,
+    require_finalized: bool = True,
 ) -> dict[str, object]:
     """Evaluate target-shaped required coverage without reading the pin."""
     if task_scoped:
-        return _required_task_budgets(conn, int(item_id))
+        return _required_task_budgets(
+            conn,
+            int(item_id),
+            require_finalized=require_finalized,
+        )
     spec = _read_spec_text(conn, int(item_id))
     if has_resolved_file_budget(spec):
         return {

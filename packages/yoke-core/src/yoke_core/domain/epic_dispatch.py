@@ -28,6 +28,10 @@ def dispatch_chain_upsert(
     data: dict,
 ) -> str:
     """Upsert a dispatch chain row from a dict (matching JSON from stdin)."""
+    from yoke_core.domain.epic_task_scope import (
+        finalize_generated_task_scopes,
+    )
+    finalize_generated_task_scopes(conn, int(epic_id))
     worktree_path = data.get("worktree_path", "")
     queue = data.get("queue", [])
     if isinstance(queue, list):
@@ -131,6 +135,13 @@ def dispatch_chain_refresh_for_activation(
     attempt counter conduct has just bumped via ``update_status``), and
     ``last_updated`` (now) in a single transaction.
     """
+    from yoke_core.domain.epic_task_scope import task_scope_issues
+    scope_issues = task_scope_issues(conn, int(epic_id))
+    if scope_issues:
+        raise ValueError(
+            f"YOK-{epic_id} dispatch blocked by generated task scope: "
+            + "; ".join(scope_issues)
+        )
     p = _placeholder(conn)
     row = query_one(
         conn,

@@ -101,7 +101,8 @@ def live_plan_execution_id(
     cursor = conn.execute(
         "SELECT id FROM qa_plan_executions "
         f"WHERE {where} "
-        "AND state IN ('active','waiting') ORDER BY created_at DESC LIMIT 1",
+        "AND state IN ('active','waiting','awaiting_agent_review') "
+        "ORDER BY created_at DESC LIMIT 1",
         params,
     )
     row = cursor.fetchone()
@@ -145,6 +146,11 @@ def select_plan_execution(
             "QA plan execution contains an invalid roster snapshot"
         )
     row["roster"] = roster
+    from yoke_core.domain.qa_plan_execution_target_snapshot import (
+        validate_execution_snapshot,
+    )
+
+    row["execution_target"] = validate_execution_snapshot(row, roster)
     return row
 
 
@@ -189,6 +195,9 @@ def resume_owned_plan_execution(
         )
         conn.commit()
         return select_plan_execution(conn, str(execution["id"]), lock=False)
+    if execution["state"] == "awaiting_agent_review":
+        conn.commit()
+        return execution
     conn.commit()
     return execution
 
@@ -305,6 +314,8 @@ def plan_execution_view(
         "roster_digest": str(execution["roster_digest"]),
         "cursor_ordinal": int(execution["cursor_ordinal"]),
         "machine_lease_id": execution.get("machine_lease_id"),
+        "execution_target": execution.get("execution_target"),
+        "execution_target_digest": execution.get("execution_target_digest"),
         "requirements": list(execution["roster"]),
         "results": result_rows(conn, str(execution["id"])),
     }

@@ -209,12 +209,13 @@ def _configure_plan_create(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("slug")
     parser.add_argument("--name")
     parser.add_argument("--description", default="")
+    parser.add_argument("--target-environment", required=True)
 
 
 def qa_plan_create(args: List[str]) -> int:
     usage = (
         "yoke qa plan create SLUG --project P "
-        "[--name NAME] [--description TEXT] [--json]"
+        "--target-environment ENV [--name NAME] [--description TEXT] [--json]"
     )
     return _global(
         args,
@@ -226,6 +227,7 @@ def qa_plan_create(args: List[str]) -> int:
             "slug": parsed.slug,
             "name": parsed.name,
             "description": parsed.description,
+            "target_environment_id": parsed.target_environment,
         },
     )
 

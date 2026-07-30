@@ -7,6 +7,10 @@ import json
 import pytest
 
 from yoke_core.domain import epic
+from yoke_core.domain.epic_task_scope import (
+    finalize_generated_task_scopes,
+    set_no_files_scope,
+)
 from runtime.api.conftest import insert_epic_task, insert_item
 from runtime.api.epic_cascade_dispatch_test_support import (
     TEST_ITEM_ID,
@@ -99,6 +103,8 @@ class TestDispatchChainRefreshForActivation:
             title="Second task",
             status="planned",
         )
+        set_no_files_scope(db_with_task, TEST_ITEM_ID, 2)
+        finalize_generated_task_scopes(db_with_task, TEST_ITEM_ID)
         p = _p(db_with_task)
         db_with_task.execute(
             "UPDATE epic_tasks SET dispatch_attempts=1 "

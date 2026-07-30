@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from collections.abc import Callable
 from typing import Any, Mapping
 
 from yoke_core.domain.coordination_leases import (
@@ -82,6 +83,8 @@ class MachineQaLease:
     material: TestMachineMaterial
     lease: Lease
     owns_lease: bool = True
+    progress_callback: Callable[[], None] | None = None
+    allowed_operator_urls: tuple[str, ...] = ()
     baseline: HostBaselineResult | None = None
     closed: bool = False
 
@@ -155,6 +158,8 @@ class MachineQaLease:
                     entry_surface=str(entry_surface),
                     required_completion=str(required_completion),
                     config=config,
+                    progress_callback=self.progress_callback,
+                    allowed_operator_urls=self.allowed_operator_urls,
                 )
             else:
                 raw = self.control.run_terminal_case(

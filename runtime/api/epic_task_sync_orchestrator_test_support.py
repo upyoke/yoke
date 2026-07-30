@@ -7,6 +7,7 @@ import pytest
 
 from yoke_core.domain import github_rest
 from yoke_core.domain.project_github_auth import ProjectGithubAuth
+from yoke_core.domain.epic_task_scope import set_no_files_scope
 from runtime.api.fixtures.file_test_db import (
     apply_fixture_schema_ddl,
     connect_test_db,
@@ -61,6 +62,16 @@ def _ok_auth(project: str, **kwargs):
         repo="org/externalwebapp",
         token="ghs_test_token",
     )
+
+
+def declare_no_file_tasks(conn, epic_id: int) -> None:
+    """Give scope-agnostic sync fixtures an explicit no-repository-file scope."""
+    rows = conn.execute(
+        "SELECT task_num FROM epic_tasks WHERE epic_id=%s ORDER BY task_num",
+        (int(epic_id),),
+    ).fetchall()
+    for row in rows:
+        set_no_files_scope(conn, int(epic_id), int(row[0]))
 
 
 @pytest.fixture(autouse=True)

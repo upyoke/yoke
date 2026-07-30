@@ -148,10 +148,7 @@ def test_machine_result_records_exact_outcome_and_canonical_artifacts(
         "SELECT verdict,case_outcome,raw_result FROM qa_runs WHERE id=%s",
         (recorded["run_id"],),
     ).fetchone()
-    assert (run["verdict"], run["case_outcome"]) == (
-        "inconclusive",
-        "needs_review",
-    )
+    assert (run["verdict"], run["case_outcome"]) == (None, "needs_review")
     assert json.loads(run["raw_result"])["evidence"]["machine"] == "mac-mini-lab"
     artifacts = test_db.execute(
         "SELECT artifact_type,artifact_handle FROM qa_artifacts "

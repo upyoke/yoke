@@ -27,6 +27,7 @@ function-call envelope:
 |---|---|---|
 | `items.create` | Global target; Dash title, instruction, project, entry surface, and permitted posture | `yoke dash "<title>" "<instruction>" --json` |
 | `items.detail.get` | Item target; empty payload | `yoke items detail get ITEM --json` |
+| `claims.work.acquire` | Item target; `reason` | `yoke claims work acquire --item ITEM --reason TEXT` |
 | `workflows.item.get` | Item target; empty payload; centrally resolved effective policies | `yoke workflows item get ITEM --json` |
 | `items.structured_field.section_upsert` | Item target; a posture-enabled File Budget section | `yoke items structured-field section-upsert ITEM --section "File Budget" ...` |
 | `direct_workflow.dash.survey` | `paths` plus optional `integration_target` (defaults to `main`) | `yoke direct-workflow dash survey ITEM --path PATH --json` |
@@ -38,9 +39,12 @@ function-call envelope:
 | `claims.work.release` | Current item or claim target; `reason` | `yoke claims work release --item ITEM --reason TEXT` |
 | `direct_workflow.dash.escalate` | `issue_title`, `findings`, and optional `priority` | `yoke direct-workflow dash escalate ITEM ...` |
 
-Survey has no item-claim precondition; evidence and escalation require the
-item claim. Lifecycle transitions and path-claim registration also require
-the current item claim; work-claim release is self-only.
+Acquire the item work claim first, immediately after the item reference is
+known — it is the session's authority over the item and its worktree for the
+whole Dash. Survey has no item-claim precondition, but evidence and
+escalation require the item claim. Lifecycle transitions and path-claim
+registration also require the current item claim; work-claim release is
+self-only.
 
 Worktree preparation is intentionally a retained tool-shaped operation:
 
@@ -64,6 +68,10 @@ files and prints the item; it does not execute it.
 ## Invariants
 
 - Treat the stored instruction as the complete requested scope.
+- Acquire the item work claim as the first action once the item reference
+  exists, and release it as the last action when the Dash finishes or
+  escalates. This mirrors `/yoke idea` and `/yoke refine`, which claim
+  before touching any shared state and release on completion.
 - Perform all writes in the registered item worktree, never in main.
 - Registered work and path claims always win over claim-less Dash work.
 - Do not create child items. If the instruction has grown into planning or
@@ -81,6 +89,13 @@ files and prints the item; it does not execute it.
 
 ## Execute
 
+Stamp the session mode first so the board's active-session row reflects the
+live phase (the default `wait` misrepresents an active Dash):
+
+```text
+yoke sessions touch --mode dash
+```
+
 ### 1. Resolve or file
 
 If the argument is not an item reference:
@@ -94,8 +109,19 @@ If the argument is not an item reference:
 
 3. Keep the returned item reference as `ITEM`.
 
-If the argument is a reference, use it as `ITEM`. Read the item detail and
-workflow-effective projections:
+If the argument is a reference, use it as `ITEM`.
+
+**Claim the item first.** As soon as `ITEM` is known — whether just filed or
+resumed — acquire the item work claim before any survey, budget, path, or
+edit work. The claim is the session's authority over the item and its
+worktree; hold it for the whole Dash. This mirrors `/yoke idea` and
+`/yoke refine`, which claim before touching any shared state:
+
+```text
+yoke claims work acquire --item ITEM --reason "Dash execution"
+```
+
+Then read the item detail and workflow-effective projections:
 
 ```text
 yoke items detail get ITEM --json
@@ -154,9 +180,10 @@ yoke direct-workflow worktree prepare ITEM --workflow dash
 ```
 
 Use the returned absolute `worktree_path` for every read, edit, test, and
-git command. The preparation call acquires the item work claim, registers
-or widens selected path claims from the non-empty survey, activates them,
-and creates or reuses the registered worktree.
+git command. The preparation call reuses the item work claim already held
+since step 1 (reporting `work-claim:already-owned`, or acquiring it if
+absent), registers or widens selected path claims from the non-empty
+survey, activates them, and creates or reuses the registered worktree.
 
 Activate through the shared lifecycle interpreter:
 
