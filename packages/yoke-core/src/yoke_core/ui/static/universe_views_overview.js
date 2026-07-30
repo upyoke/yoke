@@ -13,9 +13,11 @@ import { loadSessions } from "./universe_overview_sessions.js";
 import { loadDelivery } from "./universe_overview_delivery.js";
 import { loadDoctor, loadEvents } from "./universe_overview_health.js";
 
-// The one entry point the shell calls. The activation stack stays pinned
-// between the masthead and Strategy; each panel fills independently.
-export function renderOverviewView(context, main, scope) {
+// The one entry point the shell calls. The activation stack pins above the
+// scope picker (in the shell's above-scope host when one is supplied, else
+// inline above the panels), so a project-selection change never tears it
+// down; each panel below fills independently.
+export function renderOverviewView(context, main, scope, options = {}) {
   const documentNode = context.document;
   const masthead = signalMasthead(documentNode);
 
@@ -33,9 +35,12 @@ export function renderOverviewView(context, main, scope) {
   finalPair.appendChild(events);
   finalPair.appendChild(doctor);
   const activationHost = el(documentNode, "div", "activation-host");
+  const aboveScope = options.aboveScope || null;
+  if (aboveScope) aboveScope.replaceChildren(activationHost);
   main.replaceChildren(
     sectionJumps(documentNode, panels), masthead,
-    activationHost, strategy, frontier, sessions, delivery, finalPair,
+    ...(aboveScope ? [] : [activationHost]),
+    strategy, frontier, sessions, delivery, finalPair,
   );
 
   const vitalsRead = loadVitals(context, masthead, scope);

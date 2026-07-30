@@ -295,3 +295,35 @@ test("Overview keeps the prototype's six-document and seven-session summary dens
   assert.equal(byClass(root, "overview-session-row").length, 7);
   mounted.unmount();
 });
+
+test("the activation stack renders above the scope picker", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = () => response(200, {});
+  const documentNode = new FakeDocument();
+  documentNode.defaultView.location.hash = "#/overview?project=1";
+  const root = documentNode.createElement("div");
+
+  const mounted = mountUniverseApp(root, { client: overviewClient() });
+  await settle();
+
+  // The onboarding (activation) stack lives in the view-owned above-scope
+  // host, so it sits above the project picker rather than below it.
+  const aboveScope = byClass(root, "view-above-scope");
+  assert.equal(aboveScope.length, 1);
+  assert.equal(byClass(aboveScope[0], "activation-host").length, 1);
+
+  const order = allNodes(root);
+  const activationIndex = order.findIndex(
+    (node) => node.classList.contains("activation-host"),
+  );
+  const pickerIndex = order.findIndex(
+    (node) => node.classList.contains("scope-bar"),
+  );
+  assert.ok(activationIndex >= 0 && pickerIndex >= 0);
+  assert.ok(
+    activationIndex < pickerIndex,
+    "activation host must render before the scope picker",
+  );
+  mounted.unmount();
+});
