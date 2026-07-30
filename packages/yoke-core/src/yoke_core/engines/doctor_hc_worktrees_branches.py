@@ -11,6 +11,7 @@ from typing import Dict, List
 
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.project_checkout_locations import checkout_for_project_id
+from yoke_core.domain.project_identity import render_item_ref
 
 import yoke_core.engines.doctor_report as _base
 
@@ -147,7 +148,12 @@ def hc_stale_remote_branches(conn, args: DoctorArgs, rec: RecordCollector) -> No
     for row in done_rows:
         did = row["id"]
         proj = row["project"]
+        # ``pattern`` is the git branch name (``YOK-<internal id>`` — the
+        # worktree/branch convention shared with worktree_create), matched
+        # against actual remote heads. ``item_ref`` is the item's public
+        # display ref surfaced in operator-facing findings.
         pattern = f"YOK-{did}"
+        item_ref = render_item_ref(conn, int(did))
 
         # Resolve only the owning project's inspected checkout. Never use the
         # current/default repository for a different project's item.
@@ -184,7 +190,7 @@ def hc_stale_remote_branches(conn, args: DoctorArgs, rec: RecordCollector) -> No
                 if result.status == "deleted":
                     issues.append(
                         f"- Fixed: deleted stale remote branch "
-                        f"{pattern}{proj_label} -- YOK-{did} is done/cancelled"
+                        f"{pattern}{proj_label} -- {item_ref} is done/cancelled"
                     )
                 else:
                     issues.append(
@@ -200,7 +206,7 @@ def hc_stale_remote_branches(conn, args: DoctorArgs, rec: RecordCollector) -> No
         else:
             issues.append(
                 f"- Stale remote branch: {pattern}{proj_label} "
-                f"-- YOK-{did} is done/cancelled "
+                f"-- {item_ref} is done/cancelled "
                 "(rerun this check with --fix for proof-gated cleanup)"
             )
 

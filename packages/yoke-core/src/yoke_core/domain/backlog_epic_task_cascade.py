@@ -30,6 +30,12 @@ def _cascade_epic_tasks(
         return
 
     from yoke_core.domain import epic as epic_domain
+    from yoke_core.domain.project_identity import render_item_ref
+
+    # Rendered once here while the connection is healthy so the failure
+    # branch below does not issue a query against a possibly-aborted
+    # transaction.
+    item_ref = render_item_ref(conn, item_id)
 
     try:
         result_text = epic_domain.cascade_task_status(
@@ -42,13 +48,13 @@ def _cascade_epic_tasks(
     except Exception as exc:  # pragma: no cover - defensive
         if strict:
             raise
-        print(f"Epic task cascade failed for YOK-{item_id}: {exc}", file=out)
+        print(f"Epic task cascade failed for {item_ref}: {exc}", file=out)
         return
 
     count = (result_text or "").strip()
     if count and count != "0":
         print(
-            f"Epic task cascade: YOK-{item_id} {old_status} -> {new_status}"
+            f"Epic task cascade: {item_ref} {old_status} -> {new_status}"
             f" -- {count} tasks updated",
             file=out,
         )
