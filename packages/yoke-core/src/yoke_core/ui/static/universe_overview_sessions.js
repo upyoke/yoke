@@ -111,9 +111,13 @@ export function loadSessions(context, panel, getScope) {
   const mode = portabilityMode(context.capabilities);
   const showWho = mode !== "local";
   panel.setDetail(mode === "local" ? "this machine" : "across the universe");
+  // The held roster is one unscoped read filtered client-side, so ask for the
+  // per-project windowed slice: each project (and the unattributed partition)
+  // keeps its own newest-N, so a busy project cannot crowd a quiet one out of
+  // the held set.
   return holdScopedSection(
     context, panel, [null],
-    [{ functionId: "sessions.list", payload: {} }],
+    [{ functionId: "sessions.list", payload: { per_project: true } }],
     getScope,
     (body, callResults, scope) => {
       const documentNode = body.ownerDocument;

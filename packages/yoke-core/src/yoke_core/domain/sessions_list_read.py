@@ -31,6 +31,7 @@ from yoke_core.domain.actors import (
 from yoke_core.domain.actor_display import actor_display_name
 from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.session_staleness import activity_is_stale
+from yoke_core.domain.sessions_list_query import build_sessions_query
 from yoke_core.domain.sessions_queries_base import display_claim_item_id
 
 
@@ -41,6 +42,13 @@ LIVENESS_STATES = (LIVENESS_ACTIVE, LIVENESS_STALE, LIVENESS_ENDED)
 
 DEFAULT_SESSIONS_LIST_LIMIT = 100
 MAX_SESSIONS_LIST_LIMIT = 500
+
+#: Under the unscoped (``project=None``) roster read with ``per_project=True``,
+#: the newest-N sessions kept PER PROJECT — each project, and the NULL-project
+#: partition, gets its own slice — so a busy project cannot crowd a quiet one
+#: out of the fetch window. Opt-in so the flat unscoped read (search, the full
+#: roster view) keeps its universe-wide newest-N behavior.
+PER_PROJECT_SESSIONS_LIST_CAP = 20
 
 #: Row keys every ``sessions.list`` row carries, in presentation order.
 #: ``claims`` is a list of ``{target_kind, target, claimed_at, reason}``
@@ -186,6 +194,7 @@ def list_sessions(
     project: Optional[str] = None,
     liveness: Optional[str] = None,
     limit: int = DEFAULT_SESSIONS_LIST_LIMIT,
+    per_project: bool = False,
 ) -> List[Dict[str, Any]]:
     """List harness sessions, newest activity first.
 
@@ -195,49 +204,44 @@ def list_sessions(
     prunes in SQL, while the active/stale split classifies within the
     ``limit`` window (the TTL is executor-aware, so it cannot live in
     the WHERE clause).
+
+    ``per_project`` only takes effect on the unscoped roster
+    (``project=None``): the fetch window becomes each project's own
+    newest-:data:`PER_PROJECT_SESSIONS_LIST_CAP` slice (NULL-project
+    sessions form their own partition), so a busy project cannot crowd a
+    quiet one out. The flat unscoped read is unchanged when it is off.
     """
     if liveness is not None and liveness not in LIVENESS_STATES:
         raise ValueError(
             f"liveness must be one of {', '.join(LIVENESS_STATES)}; got {liveness!r}"
         )
     bounded_limit = max(1, min(int(limit), MAX_SESSIONS_LIST_LIMIT))
+    windowed = per_project and not project
 
     conn = db_helpers.connect()
     try:
         clauses: List[str] = []
-        params: List[Any] = []
+        where_params: List[Any] = []
         if project:
             clauses.append("s.project_id = %s")
-            params.append(resolve_project_id(conn, project))
+            where_params.append(resolve_project_id(conn, project))
         if liveness == LIVENESS_ENDED:
             clauses.append("s.ended_at IS NOT NULL")
         elif liveness in (LIVENESS_ACTIVE, LIVENESS_STALE):
             clauses.append("s.ended_at IS NULL")
         where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
-        params.append(bounded_limit)
 
         # Timestamps are uniform ISO-8601 text, so lexicographic GREATEST
         # matches chronological order for the coarse fetch window; the
-        # precise per-row classification below re-parses real datetimes.
-        rows = conn.execute(
-            "SELECT s.session_id, s.executor, s.model, s.execution_lane, "
-            "s.mode, s.workspace, s.project_id, pr.slug AS project, "
-            "s.offered_at, s.last_heartbeat, s.last_tool_call_at, "
-            "s.ended_at, s.current_item_id, s.actor_id, "
-            "a.kind AS actor_kind, i.title AS current_item_title, "
-            "i.workflow_id AS current_item_workflow_id, "
-            "i.workflow_version_id AS current_item_workflow_version_id "
-            "FROM harness_sessions s "
-            "LEFT JOIN projects pr ON pr.id = s.project_id "
-            "LEFT JOIN actors a ON a.id = s.actor_id "
-            "LEFT JOIN items i ON CAST(i.id AS TEXT) = "
-            "CAST(s.current_item_id AS TEXT) "
-            f"{where} "
-            "ORDER BY GREATEST(COALESCE(s.last_tool_call_at, ''), "
-            "s.last_heartbeat) DESC "
-            "LIMIT %s",
-            tuple(params),
-        ).fetchall()
+        # precise per-row classification below re-parses real datetimes. The
+        # windowed shape gives each project (and the NULL-project partition)
+        # its own newest-N slice so a busy project cannot crowd a quiet one out.
+        query = build_sessions_query(where, windowed=windowed)
+        if windowed:
+            params = [*where_params, PER_PROJECT_SESSIONS_LIST_CAP, bounded_limit]
+        else:
+            params = [*where_params, bounded_limit]
+        rows = conn.execute(query, tuple(params)).fetchall()
 
         claims_by_session, roles_by_session = _active_claims_by_session(conn)
         label_cache: Dict[int, str] = {}
@@ -340,6 +344,7 @@ __all__ = [
     "LIVENESS_STALE",
     "LIVENESS_STATES",
     "MAX_SESSIONS_LIST_LIMIT",
+    "PER_PROJECT_SESSIONS_LIST_CAP",
     "SESSION_LIST_FIELDS",
     "list_sessions",
 ]
