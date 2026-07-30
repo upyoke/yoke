@@ -25,6 +25,7 @@ from __future__ import annotations
 from typing import List
 
 from yoke_core.domain.db_helpers import query_rows, query_scalar
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.time_sql import now_sql
 
 import yoke_core.engines.doctor_report as _base
@@ -178,7 +179,7 @@ def hc_run_item_status_consistency(conn, args: DoctorArgs, rec: RecordCollector)
         ") ORDER BY i.id",
     )
     for row in rows:
-        issues.append(f"- YOK-{row['id']}: status=release but not in any executing run")
+        issues.append(f"- {render_item_ref(conn, row['id'])}: status=release but not in any executing run")
 
     # Check 2: Items at implemented in an executing run (should be release)
     rows2 = query_rows(
@@ -191,7 +192,7 @@ def hc_run_item_status_consistency(conn, args: DoctorArgs, rec: RecordCollector)
     )
     for row in rows2:
         issues.append(
-            f"- YOK-{row['id']}: status=implemented but in executing run '{row['run_id']}' (should be release)"
+            f"- {render_item_ref(conn, row['id'])}: status=implemented but in executing run '{row['run_id']}' (should be release)"
         )
 
     # Check 3: Items at done whose most recent run is not succeeded
@@ -210,7 +211,7 @@ def hc_run_item_status_consistency(conn, args: DoctorArgs, rec: RecordCollector)
     )
     for row in rows3:
         issues.append(
-            f"- YOK-{row['id']}: status=done but most recent run '{row['run_id']}' is '{row['run_status']}'"
+            f"- {render_item_ref(conn, row['id'])}: status=done but most recent run '{row['run_id']}' is '{row['run_status']}'"
         )
 
     if issues:
@@ -233,6 +234,7 @@ __all__ = (
     # Re-exports from doctor_hc_db_flows
     "hc_preview_occupancy_stale",
     "hc_orphaned_ephemeral",
+    "hc_project_flow_migration_apply_coverage",
     "hc_deploy_stage_integrity",
     "hc_incomplete_deploy_stage",
     "hc_flow_stage_json",
