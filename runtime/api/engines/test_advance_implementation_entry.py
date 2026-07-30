@@ -83,6 +83,11 @@ def env_skipped(monkeypatch):
     def _stub(item, sid, *, branch="", repo_root=""):
         return "skipped:no-capability", {"project": item.get("project")}
     monkeypatch.setattr(orch, "_run_environment_phase", _stub)
+    # When the environment phase is stubbed its repo_root argument is
+    # unused; stub the resolver too so its transport-aware projects.get
+    # relay does not add an incidental dispatch to focused dispatch-capture
+    # assertions.
+    monkeypatch.setattr(orch, "_resolve_env_repo_root", lambda *_a, **_k: "")
 
 
 def _patch_run_preflight(monkeypatch, stub=None, capture=None):

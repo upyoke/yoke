@@ -27,10 +27,14 @@ import threading
 from yoke_core.domain import yoke_function_registry
 
 from yoke_core.domain.handlers import (
+    _register_advance_preflight,
     _register_capabilities_read,
     _register_claims,
     _register_db_read,
     _register_deployment,
+    _register_done_transition,
+    _register_done_transition_status_writes,
+    _register_done_transition_writes,
     _register_ephemeral_env,
     _register_epic_tasks,
     _register_events_reads,
@@ -47,6 +51,8 @@ from yoke_core.domain.handlers import (
     _register_items_scalar_lifecycle,
     _register_items_structured,
     _register_machine_config,
+    _register_merge_engine,
+    _register_merge_preflight,
     _register_onboard_checklist,
     _register_organizations,
     _register_ouroboros_field_notes,
@@ -63,6 +69,7 @@ from yoke_core.domain.handlers import (
     _register_qa_artifacts,
     _register_qa_case_execution,
     _register_readiness,
+    _register_resync,
     _register_scratch,
     _register_shepherd_reads,
     _register_sessions,
@@ -124,6 +131,13 @@ _DOMAIN_REGISTRARS = (
     _register_test_machine,
     _register_direct_workflows,
     _register_field_note_dash_promotion,
+    _register_advance_preflight,
+    _register_merge_preflight,
+    _register_merge_engine,
+    _register_done_transition,
+    _register_done_transition_writes,
+    _register_done_transition_status_writes,
+    _register_resync,
 )
 
 _REGISTRATION_LOCK = threading.Lock()

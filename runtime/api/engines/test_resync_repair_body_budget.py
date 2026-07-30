@@ -118,17 +118,15 @@ def test_repair_local_orphan_epic_task_sends_compact_mirror(monkeypatch, repair_
         fake_create_issue,
     )
 
-    update_calls: list[tuple[str, int, str, str]] = []
-
-    def fake_update_field(conn, epic_id, task_num, field, value):
-        update_calls.append((epic_id, task_num, field, value))
-
+    # The github_issue write-back now relays through the connected transport
+    # (dispatched in-process against the seeded DB); it is advisory, so the
+    # repair outcome does not depend on it. This test asserts the create-issue
+    # body-budget behavior.
     ok = repair_local_orphan_epic_task(
         "9999/task-003",
         "yoke",
         repair_db,
         is_dry_run_fn=lambda: False,
-        task_update_field_fn=fake_update_field,
     )
 
     assert ok is True
@@ -140,8 +138,6 @@ def test_repair_local_orphan_epic_task_sends_compact_mirror(monkeypatch, repair_
     assert "YOK-9999 task 3" in create_payload["body"]
     assert "epic task-get-body 9999 3" in create_payload["body"]
     assert create_payload["labels"] == ["type:task", "status:planned"]
-    # The task_update_field hook fires with the new issue number.
-    assert update_calls == [("9999", 3, "github_issue", "#5050")]
 
 
 def test_repair_local_orphan_epic_task_keeps_full_body_under_budget(
@@ -177,7 +173,6 @@ def test_repair_local_orphan_epic_task_keeps_full_body_under_budget(
             "yoke",
             str(db_path),
             is_dry_run_fn=lambda: False,
-            task_update_field_fn=lambda *a, **kw: None,
         )
 
     assert ok is True

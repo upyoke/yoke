@@ -11,10 +11,11 @@ from __future__ import annotations
 import sys
 from datetime import datetime, timezone
 
+from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.github_app_installation_permissions import (
     GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
 )
-from yoke_core.domain import db_backend
+from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain.gh_rest_transport import (
     RestRequest,
     RestTransportError,
@@ -32,41 +33,47 @@ def _parent():
     return _dt
 
 
-def _p(conn) -> str:
-    return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
 def _populate_merged_at(item_id: int) -> None:
-    """Populate merged_at if not already set."""
+    """Populate merged_at if not already set, through the transport.
+
+    The already-set pre-check relays through ``done_transition.item_field``
+    (a read migrated earlier); the update relays through
+    ``done_transition.populate_merged_at`` so it runs over an https control
+    plane as well as a local Postgres connection. The timestamp is resolved
+    here (the engine's ``now``) so the value is identical across transports.
+    A failed write raises, matching the inline ``connect()`` the engine
+    never swallowed — merged_at is populated before the status flip, so the
+    item never reaches done on an unset merged_at.
+    """
     print("--- Populating merged_at (pre-flight) ---")
     existing = _parent()._query_item_field(item_id, "merged_at")
     if existing and existing != "null":
         print(f"  merged_at already set: {existing}")
         return
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    with _parent()._connect() as conn:
-        p = _p(conn)
-        conn.execute(
-            f"UPDATE items SET merged_at = {p} WHERE id = {p}",
-            (now, item_id),
-        )
+    resp = call_dispatcher(
+        function_id="done_transition.populate_merged_at",
+        target=TargetRef(kind="item", item_id=int(item_id)),
+        payload={"merged_at": now},
+    )
+    if not resp.success:
+        message = resp.error.message if resp.error else "unknown error"
+        raise RuntimeError(f"merged_at write failed: {message}")
     print(f"  merged_at set to {now}")
 
 
 def _update_status_to_done(
-    item_id: int, skip_qa: bool, max_retries: int = 3
+    item_id: int, skip_qa: bool, max_retries: int = 3, *, item_ref: str
 ) -> bool:
     """Update item status to done with retry logic.
 
     This engine owns the done transition, so it asserts
     ``done_nonce_verified=True`` directly to :func:`backlog.execute_update`.
+    ``item_ref`` is the caller's already-resolved public ref, used for the
+    claim-bypass audit source without opening a local connection.
 
     Returns True on success.
     """
-    from yoke_core.domain.project_identity import render_item_ref
-
-    with _parent()._connect() as conn:
-        item_ref = render_item_ref(conn, item_id)
     env_overrides = {
         "YOKE_CLAIM_BYPASS": f"done-transition:{item_ref}",
         "YOKE_STATUS_SOURCE": "done-transition",
@@ -106,15 +113,28 @@ def _update_status_to_done(
     return False
 
 
-def _cascade_epic_tasks_to_done(item_id: int, epic_name: str) -> None:
-    """Cascade done status to all non-done epic tasks."""
-    from yoke_core.domain import epic as _epic_domain
-    from yoke_core.domain.project_identity import render_item_ref
+def _cascade_epic_tasks_to_done(
+    item_id: int, epic_name: str, *, item_ref: str
+) -> None:
+    """Cascade done status to all non-done epic tasks.
 
+    ``item_ref`` is the caller's already-resolved public ref, used for the
+    cascade audit sources and narratives without opening a local connection.
+    """
     print("=== Step 6b: Epic sub-task cascade ===")
-    with _parent()._connect() as conn:
-        item_ref = render_item_ref(conn, item_id)
-        task_list_output = _epic_domain.task_list(conn, epic_name)
+    # The epic task listing routes through the transport-aware
+    # ``done_transition.epic_task_list`` relay so the read runs over an https
+    # control plane as well as a local Postgres connection; the engine still
+    # parses the raw listing and owns the cascade/promote decisions.
+    resp = call_dispatcher(
+        function_id="done_transition.epic_task_list",
+        target=TargetRef(kind="global"),
+        payload={"epic_id": epic_name},
+    )
+    if not resp.success:
+        message = resp.error.message if resp.error else "unknown error"
+        raise RuntimeError(f"epic task list read failed: {message}")
+    task_list_output = str((resp.result or {}).get("task_list") or "")
     if not task_list_output or not task_list_output.strip():
         print("No tasks to cascade.")
         return
@@ -165,17 +185,17 @@ def _cascade_epic_tasks_to_done(item_id: int, epic_name: str) -> None:
 
     # Batch GitHub sync
     if task_nums:
-        _batch_github_sync_tasks(item_id, epic_name, task_nums)
+        _batch_github_sync_tasks(item_id, epic_name, task_nums, item_ref=item_ref)
 
 
 def _batch_github_sync_tasks(
-    item_id: int, epic_name: str, task_nums: list[str]
+    item_id: int, epic_name: str, task_nums: list[str], *, item_ref: str
 ) -> None:
-    """Post batch GitHub summary for cascaded tasks via bearer-token REST."""
-    from yoke_core.domain.project_identity import render_item_ref
+    """Post batch GitHub summary for cascaded tasks via bearer-token REST.
 
-    with _parent()._connect() as conn:
-        item_ref = render_item_ref(conn, item_id)
+    ``item_ref`` is the caller's already-resolved public ref, used for the
+    summary comment without opening a local connection on this path.
+    """
     item_project = _parent()._query_item_field(item_id, "project") or "yoke"
 
     try:
@@ -222,17 +242,26 @@ def _batch_github_sync_tasks(
     except RestTransportError:
         pass  # 422 already-exists is fine
 
+    # Each task's github_issue relays through
+    # ``done_transition.epic_task_github_issues`` in one round-trip so the
+    # post-done sync runs over an https control plane as well as a local
+    # Postgres connection; the per-task query semantics are unchanged.
+    gh_resp = call_dispatcher(
+        function_id="done_transition.epic_task_github_issues",
+        target=TargetRef(kind="global"),
+        payload={"epic_id": epic_name, "task_nums": list(task_nums)},
+    )
+    if not gh_resp.success:
+        message = gh_resp.error.message if gh_resp.error else "unknown error"
+        raise RuntimeError(f"epic task github issues read failed: {message}")
+    github_issues = (gh_resp.result or {}).get("github_issues") or {}
+
     print("\n--- Batch GitHub sync for cascaded tasks ---")
     for tnum in task_nums:
-        with _parent()._connect() as conn:
-            row = conn.execute(
-                "SELECT COALESCE(github_issue, '') FROM epic_tasks "
-                f"WHERE epic_id = {_p(conn)} AND task_num = {_p(conn)}",
-                (epic_name, tnum),
-            ).fetchone()
-        if not row or not row[0]:
+        raw_issue = github_issues.get(str(tnum), "")
+        if not raw_issue:
             continue
-        gh_inum = str(row[0]).replace("#", "")
+        gh_inum = str(raw_issue).replace("#", "")
         if not gh_inum:
             continue
         # Add label

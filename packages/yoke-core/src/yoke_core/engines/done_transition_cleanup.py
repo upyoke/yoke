@@ -5,9 +5,9 @@ from __future__ import annotations
 import re
 import sys
 from pathlib import Path
-from typing import Any
 
-from yoke_core.domain import db_backend
+from yoke_contracts.api.function_call import TargetRef
+from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain.backlog_session_attribution import _current_session_id
 
 
@@ -17,26 +17,30 @@ def _parent():
     return _dt
 
 
-def _p(conn: Any) -> str:
-    return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
 def _has_foreign_claim(item_id: int) -> bool:
-    """Treat another owner or an unreadable claim registry as active."""
+    """Treat another owner or an unreadable claim registry as active.
+
+    Relays ``claims.work.holder_list`` (its item filter is the exact active
+    item-claim query this gate used) so the read runs over an https control
+    plane as well as a local Postgres connection. Cleanup must fail closed:
+    a refused relay or a transport error reads as "a claim is active" (True),
+    preserving the bare-connect ``except: return True`` behavior so a git
+    prune never proceeds on an unreadable claim registry.
+    """
     caller = _current_session_id()
     try:
-        with _parent()._connect() as conn:
-            rows = conn.execute(
-                "SELECT session_id FROM work_claims "
-                "WHERE released_at IS NULL AND target_kind = 'item' "
-                f"AND item_id = {_p(conn)}",
-                (item_id,),
-            ).fetchall()
+        resp = call_dispatcher(
+            function_id="claims.work.holder_list",
+            target=TargetRef(kind="item", item_id=int(item_id)),
+            payload={"item_id": int(item_id)},
+        )
     except Exception:  # noqa: BLE001 - cleanup must fail closed
         return True
+    if not resp.success:
+        return True
     holders = {
-        str(row["session_id"] if hasattr(row, "keys") else row[0])
-        for row in rows
+        str(holder.get("session_id") or "")
+        for holder in (resp.result or {}).get("holders", [])
     }
     return bool(holders and (not caller or holders != {caller}))
 

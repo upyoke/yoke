@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Optional, Tuple
 
+from yoke_contracts.api.function_call import TargetRef
+from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain.classify_dirty_files import (
     classify_dirty_files,
     is_yoke_managed_pattern,
@@ -61,16 +63,25 @@ def prune_agent_worktrees(repo_root: str, target: str = "main") -> None:
 
 
 def extract_generated_files(ctx: MergeContext) -> list[str]:
-    """Extract generated files list from epic body for auto-resolve."""
-    mw = _parent()
+    """Extract generated files list from epic body for auto-resolve.
+
+    The epic body renders through the transport-aware ``items.get.run`` read
+    (``fields=["body"]``) so the hint resolves over an https control plane as
+    well as a local Postgres connection; that read renders the on-demand body
+    through the same ``render_body.build_body`` the local path used.
+    """
     if not ctx.epic_id:
         return []
 
-    conn = None
     try:
-        conn = mw._connect()
-        from yoke_core.domain.render_body import build_body
-        rendered = build_body(conn, int(ctx.epic_id)) or ""
+        resp = call_dispatcher(
+            function_id="items.get.run",
+            target=TargetRef(kind="item", item_id=int(ctx.epic_id)),
+            payload={"fields": ["body"]},
+        )
+        if not resp.success:
+            return []
+        rendered = ((resp.result or {}).get("fields") or {}).get("body") or ""
         if not rendered:
             return []
 
@@ -98,9 +109,6 @@ def extract_generated_files(ctx: MergeContext) -> list[str]:
         return generated
     except Exception:  # noqa: BLE001 - generated-file hints are advisory.
         return []
-    finally:
-        if conn is not None:
-            conn.close()
 
 
 def _pre_merge_integration(ctx: MergeContext) -> None:

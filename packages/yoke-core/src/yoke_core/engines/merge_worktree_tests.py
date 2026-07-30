@@ -11,6 +11,8 @@ import time
 from pathlib import Path
 from typing import Optional, Tuple
 
+from yoke_contracts.api.function_call import TargetRef
+from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.engines.merge_worktree_prepare import MergeContext
 
 
@@ -110,43 +112,42 @@ def _run_streaming(
 
 
 def _post_rebase_requirement_id(ctx: MergeContext) -> Optional[int]:
-    """Materialize and return this item's post-rebase Command case."""
+    """Materialize and return this item's post-rebase Command case.
+
+    Relays the materialize + pre-merge-verification command-case read
+    through the transport-aware ``merge.tests.post_rebase_requirement``
+    function so it runs over an https control plane as well as a local
+    Postgres connection.
+
+    A genuine materialization failure (the handler's
+    ``post_rebase_requirement_failed`` domain error) is re-raised so the
+    merge fails exactly as the inline ``materialize_for_item`` call did. A
+    dispatcher/infrastructure failure — the relay being unavailable, or an
+    unresolved ambient session — degrades to "no post-rebase QA case",
+    matching how the merge-prep gates degrade an unavailable read rather
+    than blocking the merge on transport availability.
+    """
     item_id_raw = getattr(ctx, "item_id", None)
     try:
         item_id = int(str(item_id_raw))
     except (TypeError, ValueError):
         return None
-    mw = _parent()
-    conn = mw._connect()
-    try:
-        from yoke_core.domain.qa_plan_attachments import materialize_for_item
 
-        materialize_for_item(
-            conn,
-            item_id=item_id,
-            transition_id="release",
-        )
-        marker = "%s"
-        from yoke_core.domain import db_backend
-
-        if not db_backend.connection_is_postgres(conn):
-            marker = "?"
-        row = conn.execute(
-            "SELECT q.id FROM qa_requirements q "
-            "JOIN qa_plans p ON p.id=q.plan_id "
-            "JOIN qa_plan_cases c "
-            "ON c.plan_id=q.plan_id AND c.case_key=q.plan_case_key "
-            f"WHERE q.item_id={marker} "
-            "AND q.workflow_transition_id='release' "
-            "AND q.waived_at IS NULL "
-            "AND p.slug='pre-merge-verification' "
-            "AND c.method_id='command' "
-            "ORDER BY q.id DESC LIMIT 1",
-            (item_id,),
-        ).fetchone()
-        return int(row[0]) if row is not None else None
-    finally:
-        conn.close()
+    resp = call_dispatcher(
+        function_id="merge.tests.post_rebase_requirement",
+        target=TargetRef(kind="item", item_id=item_id),
+        payload={"transition_id": "release"},
+    )
+    if not resp.success:
+        code = (resp.error.code if resp.error else "") or ""
+        if code == "post_rebase_requirement_failed":
+            raise RuntimeError(
+                f"post-rebase QA materialization failed: {resp.error.message}"
+            )
+        # Relay/infrastructure unavailability -> skip the post-rebase QA case.
+        return None
+    requirement_id = (resp.result or {}).get("requirement_id")
+    return int(requirement_id) if requirement_id is not None else None
 
 
 def run_tests(ctx: MergeContext) -> Optional[Tuple[int, str]]:

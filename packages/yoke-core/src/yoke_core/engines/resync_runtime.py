@@ -16,18 +16,12 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.project_github_auth import resolve_project_github_auth
 
 
 def _parent():
     from yoke_core.engines import resync as _resync
     return _resync
-
-
-def _p(conn) -> str:
-    return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
 def _resolve_yoke_root() -> str:
@@ -56,27 +50,30 @@ def _is_dry_run() -> bool:
 
 
 def _query_item_status(item_id: str) -> Optional[str]:
-    """Look up an item's local status via the DB helpers."""
+    """Look up an item's local status through the connected transport.
+
+    Relays ``resync.item_lookup`` so the status probe runs over an https
+    control plane as well as a local Postgres connection. Matching the
+    inline ``connect()`` behavior, any failure (transport unavailable or a
+    missing item) degrades to ``None``.
+    """
+    from yoke_contracts.api.function_call import TargetRef
+    from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+
     try:
-        conn = connect()
+        resp = call_dispatcher(
+            function_id="resync.item_lookup",
+            target=TargetRef(kind="global"),
+            payload={"ref": str(item_id)},
+        )
     except Exception:
         return None
-    try:
-        p = _p(conn)
-        row = conn.execute(
-            f"SELECT status FROM items WHERE CAST(id AS TEXT) = CAST({p} AS TEXT) LIMIT 1",
-            (item_id,),
-        ).fetchone()
-        if not row:
-            return None
-        return row[0]
-    except Exception:
+    if not resp.success:
         return None
-    finally:
-        try:
-            conn.close()
-        except Exception:
-            pass
+    data = resp.result or {}
+    if not data.get("found"):
+        return None
+    return data.get("status")
 
 
 def _call_domain_sync(func, *args, project: str = "yoke", **kwargs) -> bool:

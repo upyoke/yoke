@@ -44,7 +44,7 @@ def _project_out_of_scope(per_project_value: Dict) -> bool:
     )
 
 def stage1_linkage(
-    db_path: str,
+    db_path: str,  # noqa: ARG001 - retained compat token; reads now relay
     yoke_root: str,
     fetch_fn=None,
     *,
@@ -56,59 +56,26 @@ def stage1_linkage(
     local_orphans: list of (id, file, type, project)
     gh_orphans: list of (number, title, state, project)
     """
-    from yoke_core.domain import db_backend
-    from yoke_core.domain.db_helpers import connect
-    from yoke_core.domain.schema_common import _table_exists as _schema_table_exists
+    from yoke_contracts.api.function_call import TargetRef
+    from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 
-    conn = connect(db_path)
-
-    def _table_exists(table_name: str) -> bool:
-        return _schema_table_exists(conn, table_name)
-
-    # Build the project roster from work represented in the backlog plus
-    # active bindings (which may have GitHub-only orphans). Repository
+    # Build the project roster (backlog-derived slugs plus active repo
+    # bindings) and per-project sync-disabled map server-side. Repository
     # authority does not come from the legacy projects projection; the
     # canonical resolver returns bound repo metadata and its matching bearer
-    # token together.
-    project_roster: set[str] = {project} if project else {"yoke"}
-    if not project:
-        try:
-            rows = conn.execute(
-                "SELECT DISTINCT COALESCE(p.slug, 'yoke') "
-                "FROM items i LEFT JOIN projects p ON i.project_id = p.id"
-            ).fetchall()
-            for row in rows:
-                project_roster.add(row[0])
-        except db_backend.operational_error_types(conn):
-            conn.rollback()
-            pass
-        if _table_exists("project_github_repo_bindings"):
-            try:
-                rows = conn.execute(
-                    "SELECT DISTINCT p.slug "
-                    "FROM project_github_repo_bindings b "
-                    "JOIN projects p ON p.id = b.project_id "
-                    "WHERE b.status = 'active'"
-                ).fetchall()
-                for row in rows:
-                    project_roster.add(row[0])
-            except db_backend.operational_error_types(conn):
-                conn.rollback()
-
-    # Per-project GitHub sync switch: backlog-only projects are excluded
-    # from the fetch entirely and carry the sync-disabled sentinel so no
-    # downstream stage classifies (or repairs) their items.
-    from yoke_core.domain.projects_github_sync_mode import (
-        GITHUB_SYNC_ENABLED,
-        resolve_github_sync_mode,
+    # token together. Backlog-only projects carry the sync-disabled sentinel
+    # so no downstream stage classifies (or repairs) their items.
+    roster_resp = call_dispatcher(
+        function_id="resync.linkage_roster",
+        target=TargetRef(kind="global"),
+        payload={"project": project},
     )
-
-    sync_disabled: Dict[str, str] = {}
-    for slug in project_roster:
-        mode = resolve_github_sync_mode(slug, conn=conn)
-        if mode != GITHUB_SYNC_ENABLED:
-            sync_disabled[slug] = mode
-    fetch_projects = project_roster.difference(sync_disabled)
+    if not roster_resp.success:
+        message = roster_resp.error.message if roster_resp.error else "unknown error"
+        raise RuntimeError(f"resync linkage roster read failed: {message}")
+    roster_data = roster_resp.result or {}
+    fetch_projects = set(roster_data.get("fetch_projects", []))
+    sync_disabled: Dict[str, str] = dict(roster_data.get("sync_disabled", {}))
 
     # Fetch GitHub issues -- use injected fetch_fn (allows mock patching in tests)
     if fetch_fn is not None:
@@ -127,34 +94,20 @@ def stage1_linkage(
     for slug, mode in sync_disabled.items():
         gh_by_project[slug] = _sync_disabled_sentinel(mode)
 
-    # Build backlog map from DB
-    projects_table_exists = _table_exists("projects")
-    try:
-        if projects_table_exists and project:
-            backlog_rows = conn.execute(
-                "SELECT i.id, COALESCE(i.github_issue, ''), p.slug "
-                "FROM items i JOIN projects p ON i.project_id = p.id "
-                "WHERE p.slug = %s",
-                (project,),
-            ).fetchall()
-        elif projects_table_exists:
-            backlog_rows = conn.execute(
-                "SELECT i.id, COALESCE(i.github_issue, ''), COALESCE(p.slug, 'yoke') "
-                "FROM items i LEFT JOIN projects p ON i.project_id = p.id"
-            ).fetchall()
-        else:
-            backlog_rows = conn.execute(
-                "SELECT id, COALESCE(github_issue, ''), 'yoke' FROM items"
-            ).fetchall()
-    except db_backend.operational_error_types(conn):
-        conn.rollback()
-        backlog_rows = (
-            conn.execute(
-                "SELECT id, COALESCE(github_issue, ''), 'yoke' FROM items"
-            ).fetchall()
-            if not project or project == "yoke"
-            else []
-        )
+    # Backlog + epic-task rows read after the fetch (relayed server-side so
+    # the read runs over an https control plane as well as a local Postgres
+    # connection). The engine keeps the orphan/pairing classification below.
+    rows_resp = call_dispatcher(
+        function_id="resync.linkage_rows",
+        target=TargetRef(kind="global"),
+        payload={"project": project},
+    )
+    if not rows_resp.success:
+        message = rows_resp.error.message if rows_resp.error else "unknown error"
+        raise RuntimeError(f"resync linkage rows read failed: {message}")
+    rows_data = rows_resp.result or {}
+    backlog_rows = rows_data.get("backlog_rows", [])
+    task_rows = rows_data.get("task_rows", [])
 
     paired: List[PairedItem] = []
     local_orphans: List[Tuple[str, str, str, str]] = []
@@ -191,62 +144,33 @@ def stage1_linkage(
         else:
             local_orphans.append((item_id, item_file, "backlog", item_project))
 
-    # Epic tasks
-    try:
-        if projects_table_exists and project:
-            task_rows = conn.execute(
-                "SELECT et.epic_id, et.task_num, et.title, et.github_issue, "
-                "p.slug FROM epic_tasks et "
-                "JOIN items i ON CAST(et.epic_id AS TEXT) = CAST(i.id AS TEXT) "
-                "JOIN projects p ON i.project_id = p.id "
-                "WHERE p.slug = %s ORDER BY et.epic_id, et.task_num",
-                (project,),
-            ).fetchall()
-        elif projects_table_exists:
-            task_rows = conn.execute(
-                "SELECT et.epic_id, et.task_num, et.title, et.github_issue, "
-                "COALESCE(p.slug, 'yoke') "
-                "FROM epic_tasks et "
-                "LEFT JOIN items i ON CAST(et.epic_id AS TEXT) = CAST(i.id AS TEXT) "
-                "LEFT JOIN projects p ON i.project_id = p.id "
-                "ORDER BY et.epic_id, et.task_num"
-            ).fetchall()
+    # Epic tasks (rows from the relayed read above; classification here).
+    for slug, tnum, ttitle, gh_ref, project in task_rows:
+        project = project or "yoke"
+        task_id = f"{slug}/task-{tnum:03d}"
+        full_path = f"epic_tasks:{slug}/{tnum}"
+
+        # GitHub state unavailable or sync disabled -- skip classification.
+        if _project_out_of_scope(gh_by_project.get(project)):
+            continue
+
+        if not gh_ref or gh_ref == "null":
+            local_orphans.append((task_id, full_path, "epic_task", project))
+            continue
+
+        gh_num_str = str(gh_ref).lstrip("#")
+        try:
+            gh_num = int(gh_num_str)
+        except ValueError:
+            local_orphans.append((task_id, full_path, "epic_task", project))
+            continue
+
+        project_issues = gh_by_project.get(project, {})
+        if gh_num in project_issues:
+            paired.append(PairedItem(task_id, full_path, gh_num, "epic_task", project, ""))
+            paired_gh_keys.add((project, gh_num))
         else:
-            task_rows = conn.execute(
-                "SELECT et.epic_id, et.task_num, et.title, et.github_issue, "
-                "'yoke' as project "
-                "FROM epic_tasks et "
-                "ORDER BY et.epic_id, et.task_num"
-            ).fetchall()
-        for slug, tnum, ttitle, gh_ref, project in task_rows:
-            project = project or "yoke"
-            task_id = f"{slug}/task-{tnum:03d}"
-            full_path = f"epic_tasks:{slug}/{tnum}"
-
-            # GitHub state unavailable or sync disabled -- skip classification.
-            if _project_out_of_scope(gh_by_project.get(project)):
-                continue
-
-            if not gh_ref or gh_ref == "null":
-                local_orphans.append((task_id, full_path, "epic_task", project))
-                continue
-
-            gh_num_str = str(gh_ref).lstrip("#")
-            try:
-                gh_num = int(gh_num_str)
-            except ValueError:
-                local_orphans.append((task_id, full_path, "epic_task", project))
-                continue
-
-            project_issues = gh_by_project.get(project, {})
-            if gh_num in project_issues:
-                paired.append(PairedItem(task_id, full_path, gh_num, "epic_task", project, ""))
-                paired_gh_keys.add((project, gh_num))
-            else:
-                local_orphans.append((task_id, full_path, "epic_task", project))
-    except db_backend.operational_error_types(conn):
-        conn.rollback()
-        pass
+            local_orphans.append((task_id, full_path, "epic_task", project))
 
     # GitHub orphans (only [YOK- prefixed titles). Skip projects whose
     # per-project value is the unavailable or sync-disabled sentinel.
@@ -267,7 +191,6 @@ def stage1_linkage(
                     state = issue.get("state", "UNKNOWN")
                     gh_orphans.append((num, title, state, proj))
 
-    conn.close()
     return paired, local_orphans, gh_orphans, gh_by_project
 
 

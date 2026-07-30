@@ -6,6 +6,8 @@ import sys
 from pathlib import Path
 from typing import Optional, Tuple
 
+from yoke_contracts.api.function_call import TargetRef
+from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain.qa_gates import check_epic_simulation_gate
 from yoke_core.domain.worktree import resolve_main_root
 from yoke_core.engines.done_transition_merge_guards import (  # noqa: F401
@@ -54,32 +56,52 @@ def _resolve_repo_root() -> Path:
     return Path(root)
 
 
+def _resolve_default_branch(project: str) -> str:
+    """Relay the project's ``default_branch`` (empty when unset/unavailable).
+
+    Project context is best-effort: a refused relay or transport error
+    yields an empty default branch, and the base-branch fallback fills in
+    downstream — matching the old ``cmd_get(...) or ""`` treatment.
+    """
+    try:
+        resp = call_dispatcher(
+            function_id="projects.get",
+            target=TargetRef(kind="global"),
+            payload={"project": project, "field": "default_branch"},
+        )
+    except Exception:  # noqa: BLE001 - project context is best-effort.
+        return ""
+    if not resp.success:
+        return ""
+    value = str((resp.result or {}).get("value") or "").strip()
+    return "" if value == "null" else value
+
+
 def _resolve_project_context(
     item_id: int, item_project: str, repo_root: Path
 ) -> Tuple[Path, str]:
-    """Resolve project checkout and default branch."""
-    from yoke_core.domain import projects as _projects
+    """Resolve project checkout and default branch.
 
+    The checkout mapping and default-branch reads route through the
+    transport-aware relay so a non-yoke project's context resolves over an
+    https control plane; the machine-local checkout mapping itself stays
+    local. Project context is best-effort — a failed read leaves the main
+    checkout and an empty default branch.
+    """
     project_repo = repo_root
     default_branch = ""
     if item_project and item_project != "yoke":
-        db_path = None
         try:
-            from yoke_core.domain.db_helpers import connect
-            from yoke_core.domain.project_checkout_locations import checkout_for_project
+            from yoke_core.domain.project_checkout_locations import (
+                checkout_for_project_slug,
+            )
 
-            with connect(db_path) as conn:
-                checkout = checkout_for_project(conn, item_project)
+            checkout = checkout_for_project_slug(item_project)
             if checkout is not None and Path(checkout).is_dir():
                 project_repo = Path(checkout)
-        except Exception:
+        except Exception:  # noqa: BLE001 - default main checkout is safe.
             pass
-        db_val = (
-            _projects.cmd_get(item_project, field="default_branch", db_path=db_path)
-            or ""
-        ).strip()
-        if db_val and db_val != "null":
-            default_branch = db_val
+        default_branch = _resolve_default_branch(item_project)
     return project_repo, default_branch
 
 
@@ -181,24 +203,32 @@ def _check_blocked_flag(item_id: int) -> Optional[int]:
     automatically when status flips to done — this gate ensures the flip
     cannot happen while the flag is still set, so the operator sees an
     explicit refusal instead of having the cleanup silently swallow it.
+
+    The blocked read routes through the transport-aware
+    ``done_transition.blocked_gate`` relay so it runs over an https control
+    plane as well as a local Postgres connection; it degrades to a skip
+    (``None``) when the read is unavailable, preserving the advisory
+    ``except: return None`` behavior.
     """
     try:
-        from yoke_core.domain.advance_blocked_gate import evaluate as _eval
-
-        conn = _parent()._connect()
-        try:
-            decision = _eval(conn, item_id)
-        finally:
-            conn.close()
-    except Exception:  # noqa: BLE001 - degrade if DB unavailable
+        resp = call_dispatcher(
+            function_id="done_transition.blocked_gate",
+            target=TargetRef(kind="item", item_id=int(item_id)),
+            payload={},
+        )
+    except Exception:  # noqa: BLE001 - degrade if the read is unavailable
         return None
-    if not decision.blocked:
+    if not resp.success:
         return None
+    data = resp.result or {}
+    if not data.get("blocked"):
+        return None
+    reason = data.get("reason")
     ref = _ref(item_id)
     print(
         f"\n=== Blocked-flag refusal ===\n"
         f"Item {ref} has items.blocked=1; cannot transition to done.\n"
-        + (f"Reason: {decision.reason}\n" if decision.reason else "")
+        + (f"Reason: {reason}\n" if reason else "")
         + f"Run /yoke unblock {ref} first."
     )
     return 9

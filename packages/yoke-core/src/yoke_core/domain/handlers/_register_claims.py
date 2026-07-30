@@ -207,6 +207,26 @@ def register(registry) -> None:
         adapter_status="live",
         claim_required_kind="item",
     )
+    # claims.path.survey_ensure — register/widen a Dash path claim from
+    # its live survey. Internal: the transport-aware worktree preflight
+    # calls it after resolving the work-claim holder; not an agent CLI
+    # surface, so it carries no adapter inventory row.
+    registry.register(
+        "claims.path.survey_ensure", _cpa.handle_survey_ensure,
+        _cpa.SurveyEnsureRequest, _cpa.SurveyEnsureResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.claims_path_activation",
+        target_kinds=["item"],
+        side_effects=[
+            "path_claims_insert",
+            "path_claim_targets_insert",
+            "path_claim_amendments_insert",
+        ],
+        emitted_event_names=["PathClaimRegistered", "PathClaimAmended"],
+        guardrails=["actor_holds_item_claim"],
+        adapter_status="internal",
+        claim_required_kind="item",
+    )
     # claims.path.coordination_decision_build — read-only evidence packet
     registry.register(
         "claims.path.coordination_decision_build",

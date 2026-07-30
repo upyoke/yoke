@@ -127,7 +127,7 @@ def test_required_gate_handler_evaluates_target_item(monkeypatch) -> None:
     }
 
 
-def test_activation_handler_uses_bound_actor_and_target(monkeypatch) -> None:
+def test_activation_handler_resolves_item_actor_and_target(monkeypatch) -> None:
     @contextmanager
     def fake_conn():
         yield object()
@@ -140,8 +140,8 @@ def test_activation_handler_uses_bound_actor_and_target(monkeypatch) -> None:
 
     calls = []
 
-    def fake_run(conn, *, item_id, actor_id, session_id):
-        calls.append((item_id, actor_id, session_id))
+    def fake_run(conn, *, item_id, actor_id, session_id, resolved_heads=None):
+        calls.append((item_id, actor_id, session_id, resolved_heads))
         return ActivationResult(
             item_id=item_id,
             actor_id=actor_id,
@@ -156,12 +156,25 @@ def test_activation_handler_uses_bound_actor_and_target(monkeypatch) -> None:
 
     monkeypatch.setattr(cpa, "_connect_rw", fake_conn)
     monkeypatch.setattr(activation_mod, "run_activation_phase", fake_run)
+    # The activation actor is the item's owner (COALESCE(owner, source)),
+    # resolved server-side — not the calling session's actor. The ownership
+    # guard passes when no other live session holds the item work claim.
+    monkeypatch.setattr(
+        activation_mod, "resolve_item_actor", lambda conn, item_id: (42, None)
+    )
+    monkeypatch.setattr(
+        activation_mod, "check_work_claim_ownership",
+        lambda conn, *, item_id, session_id: None,
+    )
 
     outcome = cpa.handle_activation_run(
-        _item_request("claims.path.activation_run")
+        _item_request(
+            "claims.path.activation_run",
+            {"resolved_heads": {9: "cafe"}},
+        )
     )
 
     assert outcome.primary_success is True
-    assert calls == [(1800, 42, "session-1")]
+    assert calls == [(1800, 42, "session-1", {9: "cafe"})]
     assert outcome.result_payload["actor_id"] == 42
     assert outcome.result_payload["outcomes"][0]["claim_id"] == 9

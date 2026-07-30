@@ -37,6 +37,8 @@ import os
 import sys
 from typing import Optional
 
+from yoke_core.domain.status_claim_bypass_context import resolve_claim_bypass
+
 
 def _normalize_item_id(raw: str) -> Optional[int]:
     stripped = raw.strip()
@@ -68,10 +70,14 @@ def _ambient_resolution_failed() -> str:
 
 
 def _resolve_bypass() -> str:
-    direct = os.environ.get("YOKE_CLAIM_BYPASS", "")
+    # Request-scoped override first (done-transition status relays post it on a
+    # ContextVar), then the process-global env vars so env-driven callers are
+    # unchanged.
+    ctx_bypass, ctx_source = resolve_claim_bypass()
+    direct = ctx_bypass or os.environ.get("YOKE_CLAIM_BYPASS", "")
     if direct:
         return direct
-    status_source = os.environ.get("YOKE_STATUS_SOURCE", "")
+    status_source = ctx_source or os.environ.get("YOKE_STATUS_SOURCE", "")
     if status_source.startswith("repair-status:"):
         return status_source
     return ""

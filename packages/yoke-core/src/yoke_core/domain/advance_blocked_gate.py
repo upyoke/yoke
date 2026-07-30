@@ -36,6 +36,24 @@ def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
+def render_blocked_narrative(item_id: int, reason: Optional[str]) -> str:
+    """Render the operator-facing blocked-flag refusal narrative.
+
+    Shared by the connection-based :func:`evaluate` and by callers that
+    already hold the blocked flag + reason from a relayed read, so both
+    paths surface identical text.
+    """
+    rendered = (
+        f"**Blocked:** YOK-{item_id} has items.blocked=1 — "
+        f"the operator-set blocked flag refuses forward progression. "
+        f"Run /yoke unblock YOK-{item_id} once the underlying "
+        f"coordination is resolved."
+    )
+    if reason:
+        rendered += f"\n\nReason: {reason}"
+    return rendered
+
+
 def evaluate(conn: Any, item_id: int) -> AdvanceBlockedDecision:
     """Return whether the advance must be refused for ``items.blocked = 1``.
 
@@ -54,19 +72,11 @@ def evaluate(conn: Any, item_id: int) -> AdvanceBlockedDecision:
     flag, reason = row[0], row[1]
     if not is_blocked(flag):
         return AdvanceBlockedDecision(blocked=False)
-    rendered = (
-        f"**Blocked:** YOK-{item_id} has items.blocked=1 — "
-        f"the operator-set blocked flag refuses forward progression. "
-        f"Run /yoke unblock YOK-{item_id} once the underlying "
-        f"coordination is resolved."
-    )
-    if reason:
-        rendered += f"\n\nReason: {reason}"
     return AdvanceBlockedDecision(
         blocked=True,
         reason=str(reason) if reason else None,
-        rendered_blocker=rendered,
+        rendered_blocker=render_blocked_narrative(item_id, reason),
     )
 
 
-__all__ = ["AdvanceBlockedDecision", "evaluate"]
+__all__ = ["AdvanceBlockedDecision", "evaluate", "render_blocked_narrative"]

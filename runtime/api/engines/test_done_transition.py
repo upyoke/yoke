@@ -98,7 +98,9 @@ class TestTransitionResult:
         with mock.patch.object(
             done_transition, "_update_item_direct", side_effect=fake_update
         ):
-            assert done_transition._update_status_to_done(42, skip_qa=False)
+            assert done_transition._update_status_to_done(
+                42, skip_qa=False, item_ref=f"YOK-{42}"
+            )
 
         assert calls
         assert calls[0]["no_github"] is True
@@ -263,6 +265,7 @@ class TestDeploymentFlowGuard:
                 item_project="yoke",
                 old_status="implemented",
                 delivery_stage_id="ship-ready",
+                item_ref="YOK-207",
             )
 
         assert result == (7, "implemented")
@@ -291,6 +294,7 @@ class TestDeploymentFlowGuard:
                     item_project="yoke",
                     old_status="implemented",
                     delivery_stage_id="ship-ready",
+                    item_ref="YOK-226",
                 )
 
         assert result == (7, "ship-ready")
