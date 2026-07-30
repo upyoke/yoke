@@ -108,6 +108,44 @@ def recorded_item_worktree_lanes(
     ], "item-lanes"
 
 
+def resolve_item_id_by_worktree_name(conn: Any, name: str) -> Optional[int]:
+    """Recover the internal item id that owns a worktree/branch NAME.
+
+    The inverse of
+    :func:`yoke_core.domain.worktree_naming.worktree_name_for_item`. Given a
+    branch name or worktree-directory basename, return the owning
+    ``item_worktrees.item_id``. A recorded ``branch`` is matched first, then a
+    recorded ``path`` whose basename equals the name — so worktrees created
+    under the public-ref scheme (``PREFIX-{project_sequence}``) or the legacy
+    ``YOK-{internal_id}`` scheme both resolve to the correct internal id. An
+    active lane wins over a released one when several rows share the name.
+    Returns ``None`` when nothing matches or the registry is unavailable.
+    """
+    clean = (name or "").strip().strip("/")
+    if not clean:
+        return None
+    marker = _placeholder(conn)
+    order = "ORDER BY CASE WHEN state = 'active' THEN 0 ELSE 1 END, id DESC"
+    try:
+        row = conn.execute(
+            f"SELECT item_id FROM item_worktrees WHERE branch = {marker} "
+            f"{order} LIMIT 1",
+            (clean,),
+        ).fetchone()
+        if row is None:
+            row = conn.execute(
+                f"SELECT item_id FROM item_worktrees "
+                f"WHERE path = {marker} OR path LIKE {marker} {order} LIMIT 1",
+                (clean, f"%/{clean}"),
+            ).fetchone()
+    except Exception:  # noqa: BLE001 - missing table / minimal schema
+        return None
+    if row is None:
+        return None
+    value = row["item_id"] if hasattr(row, "keys") else row[0]
+    return int(value)
+
+
 def resolve_live_branch(path: str, fallback: str) -> str:
     """Return the checked-out branch when the lane exists locally."""
     if not is_git_worktree(path):
@@ -137,5 +175,6 @@ __all__ = [
     "primary_item_worktree_branch_sql",
     "recorded_item_worktree_lanes",
     "recorded_item_worktree_records",
+    "resolve_item_id_by_worktree_name",
     "resolve_live_branch",
 ]

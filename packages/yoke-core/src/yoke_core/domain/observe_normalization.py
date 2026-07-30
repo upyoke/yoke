@@ -12,6 +12,7 @@ from yoke_core.domain.events_crud import normalize_event_item_id
 from yoke_core.domain.observe_db_reads import (
     connect_observe_read_db,
     repo_root_for_attribution,
+    worktree_path_item_id,
 )
 from yoke_core.domain.observe_function_call_refs import extract_function_call_item_id
 from yoke_core.domain.observe_tool_event import (
@@ -330,10 +331,9 @@ def _resolve_explicit_refs(rec: EventRecord, db_path: Optional[str]) -> None:
                     except Exception:
                         pass
     elif rec.tool_name in ("Read", "Write", "Edit") and rec.file_path:
-        wt_match = re.search(r"\.worktrees/YOK-(\d+)/", rec.file_path)
-        if wt_match:
-            explicit_item = wt_match.group(1)
-            explicit_source = "explicit_path_ref"
+        item = worktree_path_item_id(rec.file_path, db_path)
+        if item is not None:
+            explicit_item, explicit_source = str(item), "explicit_path_ref"
 
     if explicit_item:
         rec.item_id = explicit_item

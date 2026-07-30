@@ -104,9 +104,14 @@ def _do_merge(
     project_repo: Path,
 ) -> Tuple[int, str, bool]:
     """Execute merge-worktree. Returns (exit_code, output, merge_ran)."""
-    # Resolve actual branch from worktree directory
+    # Resolve actual branch from worktree directory. Lanes live at
+    # .worktrees/<branch>, so locate the directory from the recorded branch
+    # (public ref or legacy name) rather than reconstructing YOK-{internal_id}.
+    from yoke_core.domain.worktree_naming import worktree_name_for_item
+
     actual_branch = lane_branch
-    wt_dir = project_repo / ".worktrees" / f"YOK-{item_id}"
+    wt_name = lane_branch or worktree_name_for_item(None, item_id)
+    wt_dir = project_repo / ".worktrees" / wt_name
     if wt_dir.is_dir():
         br = _parent()._run_git(["-C", str(wt_dir), "branch", "--show-current"], capture=True)
         actual = (br.stdout or "").strip()

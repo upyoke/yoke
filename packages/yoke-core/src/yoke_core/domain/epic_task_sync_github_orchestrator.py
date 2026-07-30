@@ -19,6 +19,7 @@ from yoke_core.domain import db_backend, github_rest
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.github_constraints import is_real_issue_num
 from yoke_core.domain.item_worktrees import record_worker_item_worktree
+from yoke_core.domain.worktree_naming import worktree_name_for_item
 from yoke_core.domain.epic_task_sync import (
     _connect_db,
     _epic_parent_item_id,
@@ -192,11 +193,10 @@ def sync_epic_tasks(
                     worktree_map.append((skip_wt, task_num_str))
                 continue
 
-            # Preserve an explicit architect/refine worktree. Only legacy
-            # unslotted tasks fall back to the parent branch.
+            # Legacy unslotted tasks fall back to the item's public ref.
             task_worktree = db_wt
             if parent_item_id and not task_worktree:
-                task_worktree = f"YOK-{parent_item_id}"
+                task_worktree = worktree_name_for_item(conn, parent_item_id)
                 print(f"Warning: task {task_num_str} has empty worktree, "
                       f"defaulting to {task_worktree}", file=stderr)
                 conn.execute(
