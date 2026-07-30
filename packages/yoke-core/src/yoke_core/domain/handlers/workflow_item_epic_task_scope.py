@@ -18,6 +18,7 @@ from yoke_core.domain.epic_task_scope import (
     repair_legacy_task_scopes,
     set_no_files_scope,
 )
+from yoke_core.domain.project_identity import render_item_ref
 
 
 _OWNER = "yoke_core.domain.handlers.workflow_item_epic_task_scope"
@@ -69,13 +70,14 @@ def handle_no_files(request: FunctionCallRequest) -> HandlerOutcome:
         EmptyRequest.model_validate(request.payload)
         with _connect() as conn:
             set_no_files_scope(conn, epic_id, task_num)
+            epic_ref = render_item_ref(conn, epic_id)
     except (LookupError, TaskScopeIncomplete, ValueError) as exc:
         return _bad(str(exc))
     return HandlerOutcome(
         result_payload=ScopeResponse(
             epic_id=epic_id,
             task_num=task_num,
-            message=f"YOK-{epic_id} task {task_num} scope set to no_files",
+            message=f"{epic_ref} task {task_num} scope set to no_files",
         ).model_dump(),
         primary_success=True,
     )
@@ -90,12 +92,13 @@ def handle_finalize(request: FunctionCallRequest) -> HandlerOutcome:
         EmptyRequest.model_validate(request.payload)
         with _connect() as conn:
             finalize_generated_task_scopes(conn, epic_id)
+            epic_ref = render_item_ref(conn, epic_id)
     except (TaskScopeIncomplete, ValueError) as exc:
         return _bad(str(exc))
     return HandlerOutcome(
         result_payload=ScopeResponse(
             epic_id=epic_id,
-            message=f"YOK-{epic_id} generated task scopes finalized",
+            message=f"{epic_ref} generated task scopes finalized",
         ).model_dump(),
         primary_success=True,
     )
@@ -110,13 +113,14 @@ def handle_reopen(request: FunctionCallRequest) -> HandlerOutcome:
         EmptyRequest.model_validate(request.payload)
         with _connect() as conn:
             changed = reopen_generated_task_scopes(conn, epic_id)
+            epic_ref = render_item_ref(conn, epic_id)
     except (LookupError, TaskScopeIncomplete, ValueError) as exc:
         return _bad(str(exc))
     return HandlerOutcome(
         result_payload=ScopeResponse(
             epic_id=epic_id,
             message=(
-                f"YOK-{epic_id} task scope reopened; "
+                f"{epic_ref} task scope reopened; "
                 f"{changed} finalized task(s) invalidated"
             ),
         ).model_dump(),
@@ -137,13 +141,14 @@ def handle_repair_legacy(request: FunctionCallRequest) -> HandlerOutcome:
                 tenant_id=payload.tenant_id,
                 item_id=epic_id,
             )
+            epic_ref = render_item_ref(conn, epic_id)
     except (TaskScopeIncomplete, ValueError) as exc:
         return _bad(str(exc))
     return HandlerOutcome(
         result_payload=ScopeResponse(
             epic_id=epic_id,
             message=(
-                f"YOK-{epic_id} legacy task scopes typed: "
+                f"{epic_ref} legacy task scopes typed: "
                 f"{len(report.path_tasks)} paths, "
                 f"{len(report.deferred_tasks)} deferred"
             ),
