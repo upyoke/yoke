@@ -91,7 +91,7 @@ The sort is stable and deterministic: identical DB state always produces identic
 ```python
 @dataclass
 class FrontierItem:
- item_id: str # "YOK-N"
+ item_id: int # internal items.id (scheduler-internal currency)
  title: str
  status: str # canonical status
  priority: str # high, medium, low
@@ -99,12 +99,19 @@ class FrontierItem:
  workflow_id: str
  workflow_version_id: int
  adapter: AdapterCategory # refine, shepherd, conduct, polish, usher, wait, skip
- blocked_by: List[str] # ["YOK-N"] (blocked items only)
+ blocked_by: List[str] # public text refs stored on item_dependencies rows
  blocked_reasons: List[str] # human-readable reasons
  unblocks_count: int # direct activation-gate dependents
  downstream_depth: int # longest downstream activation chain
  created_at: str # ISO 8601
 ```
+
+The in-process dataclass carries the internal ``items.id``. Every serialized
+surface (REST endpoints, service-client JSON, offer/NextAction payloads)
+renders ``item_id`` as the item's TRUE public ref
+(``{projects.public_item_prefix}-{items.project_sequence}``, e.g. ``YOK-N``
+or ``EXT-N``) via ``project_identity.render_item_ref`` — the sequence and
+prefix may diverge from the internal id.
 
 ### FrontierResult
 

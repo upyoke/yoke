@@ -1,13 +1,12 @@
 """Cross-surface dedup regressions for chain_skip_memory item-id normalization.
 
-The recorder accepts both ``YOK-N`` and bare-numeric input; the scheduler's
-candidate list always carries ``c.item_id = "YOK-N"``. Before normalization the
-boundary compared raw strings, so a ``'<int>'`` skip-memory entry never
-filtered a ``'YOK-<int>'`` candidate. Coverage here pins the contract: every
-candidate-filter site canonicalises both sides via ``normalize_claim_item_id``
-so all three skip-id formats ``{<int>, '<int>', 'YOK-<int>'}`` filter the
-``YOK-N`` candidate out, and existing rows persisted in non-canonical form
-still filter correctly without a DB rewrite.
+The recorder accepts ``YOK-N``, bare-numeric string, and bare-int input;
+the scheduler's candidate list carries bare internal ids. Coverage here
+pins the contract: every candidate-filter site canonicalises both sides
+via ``normalize_claim_item_id`` so all three skip-id formats
+``{<int>, '<int>', 'YOK-<int>'}`` filter the candidate out, and existing
+rows persisted in non-canonical form still filter correctly without a DB
+rewrite.
 """
 
 from __future__ import annotations
@@ -35,7 +34,7 @@ _ITEM_NUM = 1785
 _YOKE_ITEM_REF = f"YOK-{_ITEM_NUM}"
 
 
-def _make_step(item_id: str, rank: int) -> ScheduledStep:
+def _make_step(item_id: int, rank: int) -> ScheduledStep:
     return ScheduledStep(
         item_id=item_id,
         workflow_id="issue",
@@ -52,8 +51,8 @@ def _make_step(item_id: str, rank: int) -> ScheduledStep:
 
 def _schedule_with_two_candidates() -> SchedulerResult:
     steps = [
-        _make_step(_YOKE_ITEM_REF, rank=0),
-        _make_step("YOK-1786", rank=1),
+        _make_step(_ITEM_NUM, rank=0),
+        _make_step(1786, rank=1),
     ]
     return SchedulerResult(
         project_scope=["yoke"],
@@ -78,21 +77,22 @@ def test_frontier_filter_canonicalizes_both_sides(skip_memory_item_ids):
     schedule = _schedule_with_two_candidates()
 
     baseline = build_frontier_state_from_schedule(schedule)
-    assert baseline.selected_item == _YOKE_ITEM_REF
+    # Conn-less frontier build falls back to bare internal-id strings.
+    assert baseline.selected_item == str(_ITEM_NUM)
 
     filtered = build_frontier_state_from_schedule(
         schedule, skip_memory_item_ids=skip_memory_item_ids,
     )
-    assert _YOKE_ITEM_REF not in filtered.runnable_items
-    assert filtered.runnable_items == ["YOK-1786"]
-    assert filtered.selected_item == "YOK-1786"
+    assert str(_ITEM_NUM) not in filtered.runnable_items
+    assert filtered.runnable_items == ["1786"]
+    assert filtered.selected_item == "1786"
 
 
 def test_frontier_filter_no_skip_memory_runs_all_candidates():
     """Baseline: no skip-memory means every assignable step survives."""
     schedule = _schedule_with_two_candidates()
     filtered = build_frontier_state_from_schedule(schedule)
-    assert filtered.runnable_items == [_YOKE_ITEM_REF, "YOK-1786"]
+    assert filtered.runnable_items == [str(_ITEM_NUM), "1786"]
 
 
 def test_historical_envelope_row_with_mixed_formats_filters():
@@ -114,7 +114,7 @@ def test_historical_envelope_row_with_mixed_formats_filters():
     filtered = build_frontier_state_from_schedule(
         schedule, skip_memory_item_ids=skip_memory_item_ids,
     )
-    assert _YOKE_ITEM_REF not in filtered.runnable_items
+    assert str(_ITEM_NUM) not in filtered.runnable_items
 
 
 @pytest.mark.parametrize(

@@ -109,7 +109,7 @@ class TestComputeSchedule:
         # The implementing issue should still be selectable as ADVANCE
         advance_steps = [
             s for s in result.ranked_steps
-            if s.item_id == "YOK-100" and s.next_step == NextStep.ADVANCE
+            if s.item_id == 100 and s.next_step == NextStep.ADVANCE
         ]
         assert len(advance_steps) == 1, "Implementing issue must appear as ADVANCE"
 
@@ -130,20 +130,20 @@ class TestComputeSchedule:
         step_map = {s.item_id: s for s in result.ranked_steps}
 
         # Issue in idea -> refine
-        if "YOK-2" in step_map:
-            assert step_map["YOK-2"].next_step == NextStep.REFINE
+        if 2 in step_map:
+            assert step_map[2].next_step == NextStep.REFINE
 
         # Epic in idea -> refine
-        if "YOK-3" in step_map:
-            assert step_map["YOK-3"].next_step == NextStep.REFINE
+        if 3 in step_map:
+            assert step_map[3].next_step == NextStep.REFINE
 
         # Issue in ready -> advance (AC-20: conduct rejects issues)
-        if "YOK-1" in step_map:
-            assert step_map["YOK-1"].next_step == NextStep.ADVANCE
+        if 1 in step_map:
+            assert step_map[1].next_step == NextStep.ADVANCE
 
         # Issue in passed -> usher
-        if "YOK-5" in step_map:
-            assert step_map["YOK-5"].next_step == NextStep.USHER
+        if 5 in step_map:
+            assert step_map[5].next_step == NextStep.USHER
 
     def test_schedule_blocked_items_have_wait(self, scheduler_db):
         """Blocked items have next_step=WAIT."""
@@ -179,8 +179,8 @@ class TestComputeSchedule:
         result = compute_schedule(conn, project_scope=["yoke"], session_id="sess-1")
 
         step_map = {s.item_id: s for s in result.ranked_steps}
-        if "YOK-1" in step_map:
-            assert step_map["YOK-1"].claim_state == ClaimState.CLAIMED_BY_SELF
+        if 1 in step_map:
+            assert step_map[1].claim_state == ClaimState.CLAIMED_BY_SELF
 
     def test_schedule_claim_state_stale_by_heartbeat(self, scheduler_db):
         """Heartbeat-stale claims are treated as reclaimable stale claims."""
@@ -202,8 +202,8 @@ class TestComputeSchedule:
         )
         conn.commit()
 
-        claims = _evaluate_claim_states(conn, ["YOK-1"])
-        assert claims["YOK-1"] == ClaimState.CLAIMED_BY_STALE
+        claims = _evaluate_claim_states(conn, [1])
+        assert claims[1] == ClaimState.CLAIMED_BY_STALE
 
     def test_schedule_selects_stale_claimed_item(self, scheduler_db):
         """scheduler selects highest-ranked CLAIMED_BY_STALE item

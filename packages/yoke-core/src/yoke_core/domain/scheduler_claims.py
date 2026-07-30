@@ -9,21 +9,22 @@ from .session_reclaim_activity import latest_activity
 from .session_staleness import activity_is_stale
 from .scheduler_types import ClaimState
 from .sessions_analytics_core import DEFAULT_STALE_THRESHOLD_MINUTES
+from .yok_n_parser import parse_item_id_or_none
 
 def _evaluate_claim_states(
     conn: Any,
-    item_ids: List[str],
+    item_ids: List[int],
     session_id: Optional[str] = None,
     stale_threshold_minutes: int = DEFAULT_STALE_THRESHOLD_MINUTES,
-) -> Dict[str, ClaimState]:
-    """Evaluate claim state for a list of items.
+) -> Dict[int, ClaimState]:
+    """Evaluate claim state for a list of internal item ids.
 
-    Returns a dict mapping item_id -> ClaimState.
+    Returns a dict mapping internal ``items.id`` -> ClaimState.
     """
     if not item_ids:
         return {}
 
-    result: Dict[str, ClaimState] = {iid: ClaimState.UNCLAIMED for iid in item_ids}
+    result: Dict[int, ClaimState] = {iid: ClaimState.UNCLAIMED for iid in item_ids}
 
     claim_rows = None
     try:
@@ -69,15 +70,16 @@ def _evaluate_claim_states(
         raw_item_id = row[0]
         if raw_item_id is None:
             continue
-        # Tolerate test fixtures that still store YOK-N as TEXT; production
-        # post-cutover storage is bare integer.
-        raw_text = str(raw_item_id)
-        if raw_text.upper().startswith("YOK-"):
-            raw_text = raw_text[4:]
-        try:
-            item_id = f"YOK-{int(raw_text)}"
-        except ValueError:
+        # Production storage is the bare internal integer; legacy fixture
+        # rows may still hold ``YOK-N`` TEXT, which resolves through the
+        # canonical parser (prefix + project_sequence). The bare internal
+        # id matches the scheduler's caller-provided item keys.
+        resolved_item = parse_item_id_or_none(
+            raw_item_id, conn=conn, allow_bare_internal=True
+        )
+        if resolved_item is None:
             continue
+        item_id = int(resolved_item)
         claim_session = row[1]
         if item_id not in result:
             continue

@@ -47,8 +47,8 @@ def pin_schedule_to_acquired_item(
     Returns ``False`` when the recomputed ``ranked_steps`` does NOT
     contain the acquired item. The comparison normalizes both sides to
     ``str`` so callers that pass either the raw ``new_claim["item_id"]``
-    (which may be an int) or ``candidate.item_id`` (the ``YOK-N``
-    string) work uniformly.
+    or ``candidate.item_id`` (both bare internal ids, possibly int or
+    str typed) work uniformly.
     """
     if schedule is None:
         return False
@@ -130,6 +130,7 @@ def recompute_and_pin_for_claim(
         schedule, execution_lane=execution_lane,
         supported_paths=supported_paths,
         lane_allowed_paths=lane_allowed_paths,
+        conn=conn,
     )
     if pin_schedule_to_acquired_item(
         schedule, acquired_item_id=candidate.item_id,

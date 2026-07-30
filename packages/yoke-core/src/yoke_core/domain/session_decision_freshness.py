@@ -137,11 +137,18 @@ def _record_unserviceable(
     holder = holder_session_for_item(conn, item_id)
     if release_claim:
         try:
+            # ``item_id`` may be a rendered public ref whose sequence
+            # diverges from the internal id; release by internal id.
+            from .item_ref_resolution import resolve_internal_item_id
+
+            internal_id = resolve_internal_item_id(conn, item_id)
             release_item_claim_for_execution(
-                conn, session_id, item_id, "offer-stale-after-claim",
+                conn, session_id,
+                str(internal_id if internal_id is not None else item_id),
+                "offer-stale-after-claim",
             )
         except Exception as exc:
-            _logger.debug("freshness release failed YOK-%s: %s", item_id, exc)
+            _logger.debug("freshness release failed for %s: %s", item_id, exc)
 
     entry: Dict[str, Any] = {
         "item_id": str(item_id),

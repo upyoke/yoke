@@ -181,7 +181,7 @@ class TestSessionOfferNoWork:
 
         steps = [
             ScheduledStep(
-                item_id="YOK-10",
+                item_id=10,
                 workflow_id="issue",
                 workflow_version_id=1,
                 workflow_version=1,
@@ -193,7 +193,7 @@ class TestSessionOfferNoWork:
                 claim_state=ClaimState.CLAIMED_BY_STALE,
             ),
             ScheduledStep(
-                item_id="YOK-13",
+                item_id=13,
                 workflow_id="issue",
                 workflow_version_id=1,
                 workflow_version=1,
@@ -214,8 +214,9 @@ class TestSessionOfferNoWork:
 
         # No skip filter: both runnable, selected is the higher-priority item.
         baseline = build_frontier_state_from_schedule(schedule)
-        assert baseline.runnable_items == ["YOK-10", "YOK-13"]
-        assert baseline.selected_item == "YOK-10"
+        # Conn-less frontier build falls back to bare internal-id strings.
+        assert baseline.runnable_items == ["10", "13"]
+        assert baseline.selected_item == "10"
 
         # With the selected id in skip memory: it is dropped from
         # runnable_items, and the next-ranked item is promoted into
@@ -224,8 +225,8 @@ class TestSessionOfferNoWork:
         filtered = build_frontier_state_from_schedule(
             schedule, skip_memory_item_ids={"YOK-10"},
         )
-        assert filtered.runnable_items == ["YOK-13"]
-        assert filtered.selected_item == "YOK-13"
+        assert filtered.runnable_items == ["13"]
+        assert filtered.selected_item == "13"
         assert filtered.scheduler_context["next_step"] == "advance"
         assert filtered.scheduler_context["workflow_id"] == "issue"
 

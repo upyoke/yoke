@@ -93,7 +93,7 @@ class TestWipCap:
         conn.commit()
 
         result = compute_frontier(conn, project_scope=["yoke"])
-        yok10 = [i for i in result.runnable if i.item_id == "YOK-10"]
+        yok10 = [i for i in result.runnable if i.item_id == 10]
         assert len(yok10) == 1
         assert yok10[0].unblocks_count == 2
 
@@ -169,7 +169,7 @@ class TestWipCapExtended:
 
         result = compute_frontier(conn, project_scope=["yoke"], wip_cap=2)
         ids = [i.item_id for i in result.conduct_eligible]
-        assert ids[0] == "YOK-11"  # high priority first
+        assert ids[0] == 11  # high priority first
         assert len(ids) == 2
 
 

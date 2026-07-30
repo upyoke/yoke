@@ -302,8 +302,8 @@ class TestEndToEndProjectScope(unittest.TestCase):
 
             result = compute_frontier(conn, project_scope=scope)
             runnable_ids = {fi.item_id for fi in result.runnable}
-            self.assertIn("YOK-501", runnable_ids)
-            self.assertIn("YOK-502", runnable_ids)
+            self.assertIn(501, runnable_ids)
+            self.assertIn(502, runnable_ids)
         finally:
             conn.close()
 
@@ -319,8 +319,8 @@ class TestEndToEndProjectScope(unittest.TestCase):
 
             result = compute_frontier(conn, project_scope=scope)
             runnable_ids = {fi.item_id for fi in result.runnable}
-            self.assertIn("YOK-501", runnable_ids)
-            self.assertNotIn("YOK-502", runnable_ids)
+            self.assertIn(501, runnable_ids)
+            self.assertNotIn(502, runnable_ids)
         finally:
             conn.close()
 
@@ -338,8 +338,8 @@ class TestEndToEndProjectScope(unittest.TestCase):
 
             result = compute_frontier(conn, project_scope=scope)
             runnable_ids = {fi.item_id for fi in result.runnable}
-            self.assertNotIn("YOK-501", runnable_ids)
-            self.assertIn("YOK-502", runnable_ids)
+            self.assertNotIn(501, runnable_ids)
+            self.assertIn(502, runnable_ids)
         finally:
             conn.close()
 

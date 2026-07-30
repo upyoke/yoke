@@ -37,9 +37,9 @@ def test_blocked_implementing_item_excluded_from_conduct():
 
     sched = compute_schedule(conn, project_scope=["yoke"])
     eligible_ids = {s.item_id for s in sched.conduct_eligible}
-    assert "YOK-10" not in eligible_ids
+    assert 10 not in eligible_ids
     blocked_ids = {s.item_id for s in sched.blocked_steps}
-    assert "YOK-10" in blocked_ids
+    assert 10 in blocked_ids
 
 
 def test_blocked_step_emits_no_synthesized_gate_evaluation():
@@ -54,7 +54,7 @@ def test_blocked_step_emits_no_synthesized_gate_evaluation():
     conn.commit()
 
     sched = compute_schedule(conn, project_scope=["yoke"])
-    blocked = next(s for s in sched.blocked_steps if s.item_id == "YOK-11")
+    blocked = next(s for s in sched.blocked_steps if s.item_id == 11)
     assert blocked.gate_evaluations == []
     assert any(
         "external sign-off pending" in r for r in blocked.blocked_reasons
@@ -67,8 +67,8 @@ def test_unblocking_restores_to_conduct_eligible():
     _block(conn, 12, "paused")
     conn.commit()
     sched_pre = compute_schedule(conn, project_scope=["yoke"])
-    assert "YOK-12" not in {s.item_id for s in sched_pre.conduct_eligible}
-    assert "YOK-12" in {s.item_id for s in sched_pre.blocked_steps}
+    assert 12 not in {s.item_id for s in sched_pre.conduct_eligible}
+    assert 12 in {s.item_id for s in sched_pre.blocked_steps}
 
     conn.execute("UPDATE items SET blocked = 0, blocked_reason = NULL WHERE id = 12")
     conn.commit()
@@ -79,9 +79,9 @@ def test_unblocking_restores_to_conduct_eligible():
         for s in sched_post.ranked_steps
         if s.next_step == NextStep.ADVANCE
     }
-    assert "YOK-12" in eligible
+    assert 12 in eligible
     blocked = {s.item_id for s in sched_post.blocked_steps}
-    assert "YOK-12" not in blocked
+    assert 12 not in blocked
 
 
 def test_blocked_step_next_step_is_wait():
@@ -90,5 +90,5 @@ def test_blocked_step_next_step_is_wait():
     _block(conn, 13, "epic-level pause")
     conn.commit()
     sched = compute_schedule(conn, project_scope=["yoke"])
-    step = next(s for s in sched.blocked_steps if s.item_id == "YOK-13")
+    step = next(s for s in sched.blocked_steps if s.item_id == 13)
     assert step.next_step == NextStep.WAIT

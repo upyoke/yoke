@@ -37,7 +37,7 @@ def test_dependency_block_names_real_yok_id():
     conn.commit()
 
     sched = compute_schedule(conn, project_scope=["yoke"])
-    blocked = next(s for s in sched.blocked_steps if s.item_id == "YOK-10")
+    blocked = next(s for s in sched.blocked_steps if s.item_id == 10)
     blockers = {ge.blocking_item for ge in blocked.gate_evaluations}
     assert "YOK-20" in blockers
     assert "unknown" not in blockers
@@ -55,7 +55,7 @@ def test_operator_block_emits_no_synthesized_gate_evaluation():
     conn.commit()
 
     sched = compute_schedule(conn, project_scope=["yoke"])
-    blocked = next(s for s in sched.blocked_steps if s.item_id == "YOK-10")
+    blocked = next(s for s in sched.blocked_steps if s.item_id == 10)
     assert blocked.gate_evaluations == []
     assert any(
         "Awaiting external API contract" in r for r in blocked.blocked_reasons
@@ -69,7 +69,7 @@ def test_legacy_blocked_status_emits_no_synthesized_gate_evaluation():
     conn.commit()
 
     sched = compute_schedule(conn, project_scope=["yoke"])
-    blocked = next(s for s in sched.blocked_steps if s.item_id == "YOK-10")
+    blocked = next(s for s in sched.blocked_steps if s.item_id == 10)
     assert blocked.gate_evaluations == []
     assert any(
         "legacy blocked status" in r for r in blocked.blocked_reasons
@@ -91,7 +91,7 @@ def test_blocked_flag_with_dependency_surfaces_both():
     conn.commit()
 
     sched = compute_schedule(conn, project_scope=["yoke"])
-    blocked = next(s for s in sched.blocked_steps if s.item_id == "YOK-10")
+    blocked = next(s for s in sched.blocked_steps if s.item_id == 10)
     blockers = {ge.blocking_item for ge in blocked.gate_evaluations}
     assert "YOK-20" in blockers
     assert "unknown" not in blockers

@@ -41,10 +41,16 @@ def _resolve_default_wip_cap(project_scope: list[int]) -> int:
 # ---------------------------------------------------------------------------
 
 
-def _frontier_item_to_dict(fi: FrontierItem) -> dict:
-    """Convert a FrontierItem dataclass to a JSON-serializable dict."""
+def _frontier_item_to_dict(fi: FrontierItem, conn=None) -> dict:
+    """Convert a FrontierItem dataclass to a JSON-serializable dict.
+
+    ``item_id`` is presentation-facing: the internal scheduler id renders
+    as the true public ref when a connection is available.
+    """
+    from yoke_core.domain.sessions_queries_base import display_claim_item_id
+
     return {
-        "item_id": fi.item_id,
+        "item_id": display_claim_item_id(str(fi.item_id), conn),
         "title": fi.title,
         "status": fi.status,
         "priority": fi.priority,
@@ -62,15 +68,15 @@ def _frontier_item_to_dict(fi: FrontierItem) -> dict:
     }
 
 
-def _frontier_result_to_dict(fr: FrontierResult) -> dict:
+def _frontier_result_to_dict(fr: FrontierResult, conn=None) -> dict:
     """Convert a FrontierResult dataclass to a JSON-serializable dict."""
     return {
-        "runnable": [_frontier_item_to_dict(i) for i in fr.runnable],
-        "blocked": [_frontier_item_to_dict(i) for i in fr.blocked],
-        "frozen": [_frontier_item_to_dict(i) for i in fr.frozen],
+        "runnable": [_frontier_item_to_dict(i, conn) for i in fr.runnable],
+        "blocked": [_frontier_item_to_dict(i, conn) for i in fr.blocked],
+        "frozen": [_frontier_item_to_dict(i, conn) for i in fr.frozen],
         "wip_cap": fr.wip_cap,
         "wip_active": fr.wip_active,
-        "conduct_eligible": [_frontier_item_to_dict(i) for i in fr.conduct_eligible],
+        "conduct_eligible": [_frontier_item_to_dict(i, conn) for i in fr.conduct_eligible],
     }
 
 
@@ -123,7 +129,7 @@ def cmd_charge_frontier(args: list[str]) -> int:
         result = compute_domain_frontier(
             conn, project_scope=project_scope, wip_cap=wip_cap,
         )
-        print(json.dumps(_frontier_result_to_dict(result)))
+        print(json.dumps(_frontier_result_to_dict(result, conn)))
         return 0
     finally:
         conn.close()
@@ -134,10 +140,16 @@ def cmd_charge_frontier(args: list[str]) -> int:
 # ---------------------------------------------------------------------------
 
 
-def _scheduled_step_to_dict(step) -> dict:
-    """Convert a ScheduledStep to a JSON-serializable dict."""
+def _scheduled_step_to_dict(step, conn=None) -> dict:
+    """Convert a ScheduledStep to a JSON-serializable dict.
+
+    ``item_id`` is presentation-facing: the internal scheduler id renders
+    as the true public ref when a connection is available.
+    """
+    from yoke_core.domain.sessions_queries_base import display_claim_item_id
+
     return {
-        "item_id": step.item_id,
+        "item_id": display_claim_item_id(str(step.item_id), conn),
         "workflow_id": step.workflow_id,
         "workflow_version_id": step.workflow_version_id,
         "workflow_version": step.workflow_version,
@@ -169,21 +181,21 @@ def _scheduled_step_to_dict(step) -> dict:
     }
 
 
-def _scheduler_result_to_dict(sr) -> dict:
+def _scheduler_result_to_dict(sr, conn=None) -> dict:
     """Convert a SchedulerResult to a JSON-serializable dict."""
     return {
         "project_scope": list(sr.project_scope),
         "sml_state": {
             "coherent": sr.sml_state.coherent,
         },
-        "selected_step": _scheduled_step_to_dict(sr.selected_step) if sr.selected_step else None,
-        "ranked_steps": [_scheduled_step_to_dict(s) for s in sr.ranked_steps],
-        "blocked_steps": [_scheduled_step_to_dict(s) for s in sr.blocked_steps],
-        "exceptional_steps": [_scheduled_step_to_dict(s) for s in sr.exceptional_steps],
+        "selected_step": _scheduled_step_to_dict(sr.selected_step, conn) if sr.selected_step else None,
+        "ranked_steps": [_scheduled_step_to_dict(s, conn) for s in sr.ranked_steps],
+        "blocked_steps": [_scheduled_step_to_dict(s, conn) for s in sr.blocked_steps],
+        "exceptional_steps": [_scheduled_step_to_dict(s, conn) for s in sr.exceptional_steps],
         "wip_cap": sr.wip_cap,
         "wip_active": sr.wip_active,
-        "conduct_eligible": [_scheduled_step_to_dict(s) for s in sr.conduct_eligible],
-        "frozen_steps": [_scheduled_step_to_dict(s) for s in sr.frozen_steps],
+        "conduct_eligible": [_scheduled_step_to_dict(s, conn) for s in sr.conduct_eligible],
+        "frozen_steps": [_scheduled_step_to_dict(s, conn) for s in sr.frozen_steps],
     }
 
 
@@ -235,7 +247,7 @@ def cmd_charge_schedule(args: list[str]) -> int:
         result = compute_schedule(
             conn, project_scope=project_scope, wip_cap=wip_cap,
         )
-        print(json.dumps(_scheduler_result_to_dict(result)))
+        print(json.dumps(_scheduler_result_to_dict(result, conn)))
         return 0
     finally:
         conn.close()

@@ -99,8 +99,8 @@ class TestSessionOfferLanes:
         assert result["new_claim"] is not None
         assert result["new_claim"]["item_id"] == 101
         assert result["schedule_result"].selected_step is not None
-        assert result["schedule_result"].selected_step.item_id == "YOK-101"
-        assert [step.item_id for step in result["schedule_result"].ranked_steps] == ["YOK-101"]
+        assert result["schedule_result"].selected_step.item_id == 101
+        assert [step.item_id for step in result["schedule_result"].ranked_steps] == [101]
 
     def test_offer_returns_no_work_when_no_compatible_item_exists(self, ownership_conn):
         """Incompatible runnable work is filtered out for the current lane."""

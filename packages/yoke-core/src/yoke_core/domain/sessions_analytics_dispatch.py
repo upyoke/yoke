@@ -215,10 +215,13 @@ def _resolve_resume_dispatch(
     resolved_status = status or ""
     item_num: Optional[int] = None
     if item_id:
-        try:
-            item_num = int(str(item_id).replace("YOK-", ""))
-        except ValueError:
-            pass
+        # Resume context carries either a bare internal-id string (the
+        # routing form) or a rendered public ref; resolve canonically so
+        # items whose project sequence diverges from the internal id are
+        # not mis-targeted.
+        from .item_ref_resolution import resolve_internal_item_id
+
+        item_num = resolve_internal_item_id(conn, item_id)
         if item_num is not None:
             p = _p(conn)
             row = conn.execute(

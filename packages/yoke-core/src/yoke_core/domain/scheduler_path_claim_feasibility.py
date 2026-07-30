@@ -23,6 +23,7 @@ from yoke_core.domain.path_claims_overlap import (
 from yoke_core.domain.path_claims_boundary_targets import (
     path_string_map_for_target_ids,
 )
+from yoke_core.domain.project_identity import render_item_ref
 
 
 class FeasibilityOutcome(str, Enum):
@@ -133,7 +134,9 @@ def _enumerate_conflicts(
         conflicting_claim_ids.append(other_id)
         if other_item_id is not None and int(other_item_id) not in seen_items:
             seen_items.add(int(other_item_id))
-            conflicting_item_ids.append(f"YOK-{int(other_item_id)}")
+            # Operator-facing coordination target: render the true
+            # public ref, not the internal id.
+            conflicting_item_ids.append(render_item_ref(conn, int(other_item_id)))
         shared_target_ids.update(int(tid) for tid in shared)
     shared_path_map = path_string_map_for_target_ids(
         conn, sorted(shared_target_ids)

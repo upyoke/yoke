@@ -10,7 +10,10 @@ resolved upstream by
 from __future__ import annotations
 
 from yoke_core.domain.scheduler_types import is_assignable_claim_state
-from yoke_core.domain.sessions_queries_base import normalize_claim_item_id
+from yoke_core.domain.sessions_queries_base import (
+    display_claim_item_id,
+    normalize_claim_item_id,
+)
 from yoke_core.api.service_client_shared import FrontierState
 
 
@@ -19,6 +22,7 @@ def build_frontier_state_from_schedule(
     drift_review_dict: dict | None = None,
     last_completed_step: dict | None = None,
     skip_memory_item_ids: set[str] | None = None,
+    conn=None,
 ) -> FrontierState:
     """Build a FrontierState from a SchedulerResult for the decision engine.
 
@@ -34,10 +38,18 @@ def build_frontier_state_from_schedule(
     dispatch fields. ``decide_next_action`` cannot pick an item the
     ownership block already gave up on, even if the offer command falls
     through to this branch with a stale schedule snapshot. The skip-memory
-    filter sits on top of the ``is_assignable_claim_state`` filter
-.
+    filter sits on top of the ``is_assignable_claim_state`` filter.
+
+    Item-identity fields on the returned state (``runnable_items``,
+    ``blocked_items``, ``exceptional_items``, ``selected_item``, and the
+    per-entry ``item_id`` keys) are presentation-facing public refs:
+    scheduler-internal ids are rendered through ``display_claim_item_id``
+    with ``conn`` so divergent project sequences surface the true ref.
     """
     skip_ids = {normalize_claim_item_id(str(x)) for x in (skip_memory_item_ids or set())}
+
+    def _ref(item_id) -> str:
+        return display_claim_item_id(str(item_id), conn) or str(item_id)
 
     selected_step = schedule.selected_step
     if selected_step is not None and normalize_claim_item_id(str(selected_step.item_id)) in skip_ids:
@@ -53,7 +65,7 @@ def build_frontier_state_from_schedule(
             ),
             None,
         )
-    selected_item = selected_step.item_id if selected_step else None
+    selected_item = _ref(selected_step.item_id) if selected_step else None
     scheduler_ctx: dict = {}
     if selected_step:
         ss = selected_step
@@ -74,7 +86,7 @@ def build_frontier_state_from_schedule(
             # and so SessionOfferInvariantFailed carries a non-null
             # schedule_selected_item when the action context has a
             # scheduler block.
-            "selected_item": ss.item_id,
+            "selected_item": _ref(ss.item_id),
         }
         ro = getattr(ss, "routing_override", None)
         if ro is not None:
@@ -82,10 +94,11 @@ def build_frontier_state_from_schedule(
     blocked_details_list = []
     intrinsic_reasons_list = []
     for bs in schedule.blocked_steps:
+        bs_ref = _ref(bs.item_id)
         for ge in bs.gate_evaluations:
             if not ge.satisfied:
                 blocked_details_list.append({
-                    "item_id": bs.item_id,
+                    "item_id": bs_ref,
                     "blocking_item": ge.blocking_item,
                     "gate_point": ge.gate_point,
                     "satisfaction": ge.satisfaction,
@@ -95,21 +108,21 @@ def build_frontier_state_from_schedule(
         intrinsic_reasons = getattr(bs, "blocked_reasons", None) or []
         if intrinsic_reasons:
             intrinsic_reasons_list.append({
-                "item_id": bs.item_id,
+                "item_id": bs_ref,
                 "status": getattr(bs, "status", ""),
                 "reasons": list(intrinsic_reasons),
             })
     lane_filtered_items = getattr(schedule, "lane_filtered_items", None)
     runnable = [
-        s.item_id
+        _ref(s.item_id)
         for s in schedule.ranked_steps
         if is_assignable_claim_state(s.claim_state)
         and normalize_claim_item_id(str(s.item_id)) not in skip_ids
     ]
     return FrontierState(
         runnable_items=runnable,
-        blocked_items=[s.item_id for s in schedule.blocked_steps],
-        exceptional_items=[s.item_id for s in schedule.exceptional_steps],
+        blocked_items=[_ref(s.item_id) for s in schedule.blocked_steps],
+        exceptional_items=[_ref(s.item_id) for s in schedule.exceptional_steps],
         blocked_details=blocked_details_list if blocked_details_list else None,
         intrinsic_blocked_reasons=intrinsic_reasons_list if intrinsic_reasons_list else None,
         sml_coherent=schedule.sml_state.coherent,

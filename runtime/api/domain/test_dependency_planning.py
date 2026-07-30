@@ -348,8 +348,8 @@ def test_frontier_unblocks_count_ignores_coordination_only() -> None:
     result = compute_frontier(db, project_scope=["yoke"])
 
     by_id = {fi.item_id: fi for fi in result.runnable + result.blocked}
-    assert "YOK-3" in by_id, f"YOK-3 missing from frontier: {by_id.keys()}"
-    assert by_id["YOK-3"].unblocks_count == 1, (
+    assert 3 in by_id, f"item 3 missing from frontier: {by_id.keys()}"
+    assert by_id[3].unblocks_count == 1, (
         "coordination_only edges must not contribute to unblocks_count; "
-        f"got {by_id['YOK-3'].unblocks_count}"
+        f"got {by_id[3].unblocks_count}"
     )

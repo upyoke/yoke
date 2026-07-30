@@ -45,7 +45,7 @@ def test_blocked_flag_lands_in_blocked_partition():
 
     result = compute_frontier(conn, project_scope=["yoke"])
     assert len(result.blocked) == 1
-    assert result.blocked[0].item_id == "YOK-10"
+    assert result.blocked[0].item_id == 10
     assert result.runnable == []
 
 
@@ -88,7 +88,7 @@ def test_blocked_flag_overrides_lifecycle_status():
 
     result = compute_frontier(conn, project_scope=["yoke"])
     blocked_ids = {fi.item_id for fi in result.blocked}
-    assert blocked_ids == {"YOK-10", "YOK-11", "YOK-12"}
+    assert blocked_ids == {10, 11, 12}
 
 
 def test_legacy_blocked_status_still_blocked_drift_safety():
@@ -112,7 +112,7 @@ def test_blocked_flag_combines_with_dependency_blocker_details():
     conn.commit()
 
     result = compute_frontier(conn, project_scope=["yoke"])
-    fi = next(b for b in result.blocked if b.item_id == "YOK-10")
+    fi = next(b for b in result.blocked if b.item_id == 10)
     reasons = " | ".join(fi.blocked_reasons)
     assert "operator reason" in reasons
     # Dependency-backed blocker details are populated AC-12-compliant.
@@ -133,7 +133,7 @@ def test_idea_incomplete_emits_no_synthesized_gate_evaluation():
     conn.commit()
 
     sched = compute_schedule(conn, project_scope=["yoke"])
-    blocked = next(s for s in sched.blocked_steps if s.item_id == "YOK-10")
+    blocked = next(s for s in sched.blocked_steps if s.item_id == 10)
     assert blocked.gate_evaluations == []
     assert any(
         "idea-incomplete: idea body is title-only" in r

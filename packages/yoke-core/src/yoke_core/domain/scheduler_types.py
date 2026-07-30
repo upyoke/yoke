@@ -63,7 +63,9 @@ class RoutingOverride:
     ``path_claim_activation_blocked``). ``original_step`` is the
     NextStep value the routing table would have returned without the
     override; rendered as a bare string so telemetry consumers do not
-    need to import the enum.
+    need to import the enum. ``conflicting_item_ids`` carries rendered
+    public item refs — the override names sibling items an operator
+    coordinates with.
     """
 
     reason: str
@@ -131,7 +133,8 @@ class GateEvaluation:
     """A single dependency gate evaluation for a scheduled step.
 
     Attributes:
-        blocking_item: The YOK-N ID of the blocker.
+        blocking_item: The blocker's public text ref exactly as stored on
+            the ``item_dependencies`` row (e.g. ``YOK-1907``).
         relation: Always ``blocker`` in the canonical model.
         gate_point: When the dependency matters (e.g., ``activation``).
         satisfaction: What must be true for resolution (e.g., ``status:done``).
@@ -160,7 +163,9 @@ class ScheduledStep:
     """A single item on the scheduler's output with full context.
 
     Attributes:
-        item_id: Item identifier (``YOK-N``).
+        item_id: Internal ``items.id`` integer (the scheduler's internal
+            currency). Presentation boundaries render the true public ref
+            via ``project_identity.render_item_ref``.
         workflow_id: Stable workflow identity.
         status: Current canonical status.
         title: Item title.
@@ -173,7 +178,8 @@ class ScheduledStep:
         gate_evaluations: Dependency gates that affect scheduling.
         explanation: Human-readable explanation of the scheduling decision.
         adapter: The raw adapter category from frontier computation.
-        blocked_by: List of blocker item IDs.
+        blocked_by: Blocker public text refs as stored on the
+            ``item_dependencies`` rows.
         blocked_reasons: Human-readable blocking reasons.
         unblocks_count: How many items this item hard-blocks.
         downstream_depth: Length of the longest downstream activation-gate
@@ -181,7 +187,7 @@ class ScheduledStep:
         created_at: ISO 8601 creation timestamp.
     """
 
-    item_id: str
+    item_id: int
     workflow_id: str
     workflow_version_id: int
     workflow_version: int

@@ -41,10 +41,16 @@ router = APIRouter()
 # ---------------------------------------------------------------------------
 
 
-def _frontier_item_to_model(fi: FrontierItem) -> _main.FrontierItemModel:
-    """Convert a domain FrontierItem dataclass to its Pydantic model."""
+def _frontier_item_to_model(fi: FrontierItem, conn=None) -> _main.FrontierItemModel:
+    """Convert a domain FrontierItem dataclass to its Pydantic model.
+
+    ``item_id`` is presentation-facing: the internal scheduler id renders
+    as the true public ref when a connection is available.
+    """
+    from yoke_core.domain.sessions_queries_base import display_claim_item_id
+
     return _main.FrontierItemModel(
-        item_id=fi.item_id,
+        item_id=display_claim_item_id(str(fi.item_id), conn),
         title=fi.title,
         status=fi.status,
         priority=fi.priority,
@@ -62,20 +68,26 @@ def _frontier_item_to_model(fi: FrontierItem) -> _main.FrontierItemModel:
     )
 
 
-def _frontier_result_to_model(fr: FrontierResult) -> _main.FrontierResultModel:
+def _frontier_result_to_model(fr: FrontierResult, conn=None) -> _main.FrontierResultModel:
     """Convert a domain FrontierResult dataclass to its Pydantic model."""
     return _main.FrontierResultModel(
-        runnable=[_frontier_item_to_model(i) for i in fr.runnable],
-        blocked=[_frontier_item_to_model(i) for i in fr.blocked],
-        frozen=[_frontier_item_to_model(i) for i in fr.frozen],
+        runnable=[_frontier_item_to_model(i, conn) for i in fr.runnable],
+        blocked=[_frontier_item_to_model(i, conn) for i in fr.blocked],
+        frozen=[_frontier_item_to_model(i, conn) for i in fr.frozen],
         wip_cap=fr.wip_cap,
         wip_active=fr.wip_active,
-        conduct_eligible=[_frontier_item_to_model(i) for i in fr.conduct_eligible],
+        conduct_eligible=[_frontier_item_to_model(i, conn) for i in fr.conduct_eligible],
     )
 
 
-def _scheduled_step_to_model(step) -> _main.ScheduledStepModel:
-    """Convert a domain ScheduledStep to its Pydantic model."""
+def _scheduled_step_to_model(step, conn=None) -> _main.ScheduledStepModel:
+    """Convert a domain ScheduledStep to its Pydantic model.
+
+    ``item_id`` is presentation-facing: the internal scheduler id renders
+    as the true public ref when a connection is available.
+    """
+    from yoke_core.domain.sessions_queries_base import display_claim_item_id
+
     gate_models = []
     for ge in step.gate_evaluations:
         gate_models.append(_main.GateEvaluationModel(
@@ -87,7 +99,7 @@ def _scheduled_step_to_model(step) -> _main.ScheduledStepModel:
             reason=ge.reason,
         ))
     return _main.ScheduledStepModel(
-        item_id=step.item_id,
+        item_id=display_claim_item_id(str(step.item_id), conn),
         workflow_id=step.workflow_id,
         workflow_version_id=step.workflow_version_id,
         workflow_version=step.workflow_version,
@@ -113,22 +125,22 @@ def _scheduler_result_to_model(sr) -> _main.SchedulerResultModel:
     conn = _main.get_db_readonly()
     try:
         project_scope = [resolve_project_slug(conn, int(pid)) for pid in sr.project_scope]
+        return _main.SchedulerResultModel(
+            project_scope=project_scope,
+            sml_state=_main.SMLStateModel(
+                coherent=sr.sml_state.coherent,
+            ),
+            selected_step=_scheduled_step_to_model(sr.selected_step, conn) if sr.selected_step else None,
+            ranked_steps=[_scheduled_step_to_model(s, conn) for s in sr.ranked_steps],
+            blocked_steps=[_scheduled_step_to_model(s, conn) for s in sr.blocked_steps],
+            exceptional_steps=[_scheduled_step_to_model(s, conn) for s in sr.exceptional_steps],
+            wip_cap=sr.wip_cap,
+            wip_active=sr.wip_active,
+            conduct_eligible=[_scheduled_step_to_model(s, conn) for s in sr.conduct_eligible],
+            frozen_steps=[_scheduled_step_to_model(s, conn) for s in sr.frozen_steps],
+        )
     finally:
         conn.close()
-    return _main.SchedulerResultModel(
-        project_scope=project_scope,
-        sml_state=_main.SMLStateModel(
-            coherent=sr.sml_state.coherent,
-        ),
-        selected_step=_scheduled_step_to_model(sr.selected_step) if sr.selected_step else None,
-        ranked_steps=[_scheduled_step_to_model(s) for s in sr.ranked_steps],
-        blocked_steps=[_scheduled_step_to_model(s) for s in sr.blocked_steps],
-        exceptional_steps=[_scheduled_step_to_model(s) for s in sr.exceptional_steps],
-        wip_cap=sr.wip_cap,
-        wip_active=sr.wip_active,
-        conduct_eligible=[_scheduled_step_to_model(s) for s in sr.conduct_eligible],
-        frozen_steps=[_scheduled_step_to_model(s) for s in sr.frozen_steps],
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -145,7 +157,7 @@ def api_charge_frontier(
     conn = _main.get_db_readonly()
     try:
         result = compute_domain_frontier(conn, project_scope=[project], wip_cap=wip_cap)
-        return _frontier_result_to_model(result)
+        return _frontier_result_to_model(result, conn)
     except db_backend.operational_error_types(conn) as exc:
         if "database is locked" in str(exc).lower():
             return _main._error_response(503, "DB_BUSY", "Database is locked.")

@@ -167,7 +167,7 @@ def api_session_offer(req: SessionOfferRequest) -> JSONResponse:
             for c in ownership["claims"]:
                 claim_ctx = resolve_claimed_work_context(conn, c)
                 active_claims.append(ClaimedWork(
-                    item_id=display_claim_item_id(c.get("item_id")),
+                    item_id=display_claim_item_id(c.get("item_id"), conn),
                     epic_id=c.get("epic_id"),
                     task_num=c.get("task_num"),
                     status=claim_ctx.get("status"),
@@ -201,6 +201,7 @@ def api_session_offer(req: SessionOfferRequest) -> JSONResponse:
                     schedule,
                     drift_review_dict=drift_dict,
                     last_completed_step=last_step,
+                    conn=conn,
                 )
                 result = _main.decide_next_action(
                     offer,
@@ -232,6 +233,7 @@ def api_session_offer(req: SessionOfferRequest) -> JSONResponse:
                     schedule,
                     drift_review_dict=drift_dict,
                     skip_memory_item_ids=skip_ids or None,
+                    conn=conn,
                 )
                 result = _main.decide_next_action(
                     offer,

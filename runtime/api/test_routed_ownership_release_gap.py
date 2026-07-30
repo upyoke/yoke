@@ -91,7 +91,7 @@ class TestRoutedOwnershipReleaseGap(_ReleaseGapDbCase):
         blocked_ids = {item.item_id for item in result.blocked}
 
         self.assertNotIn(
-            SYNTHETIC_ITEM_REF,
+            SYNTHETIC_ITEM_ID,
             runnable_ids,
             (
                 "Session B's frontier still treats the routed item as "
@@ -101,7 +101,7 @@ class TestRoutedOwnershipReleaseGap(_ReleaseGapDbCase):
             ),
         )
         self.assertIn(
-            SYNTHETIC_ITEM_REF,
+            SYNTHETIC_ITEM_ID,
             blocked_ids,
             (
                 "Session B's frontier must surface the routed item in "
@@ -112,7 +112,7 @@ class TestRoutedOwnershipReleaseGap(_ReleaseGapDbCase):
 
         defended = next(
             (item for item in result.blocked
-             if item.item_id == SYNTHETIC_ITEM_REF),
+             if item.item_id == SYNTHETIC_ITEM_ID),
             None,
         )
         self.assertIsNotNone(defended)

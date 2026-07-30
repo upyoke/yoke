@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Optional
 import yoke_core.engines.doctor_report as _base
 from yoke_core.domain import db_backend
 from yoke_core.domain.frontier_recent_owner import routed_ownership_exclusions
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.release_intent_classification import (
     NON_TERMINAL_RELEASE_INTENTS,
 )
@@ -128,12 +129,9 @@ def hc_routed_ownership_live_frame_no_defense(
         window_s=window_s,
         requesting_session_id=None,
     )
-    defended_items: Dict[int, dict] = {}
-    for d in defended.values():
-        try:
-            defended_items[int(str(d["item_id"]).replace("YOK-", ""))] = d
-        except (ValueError, TypeError):
-            continue
+    # ``routed_ownership_exclusions`` is keyed by the internal
+    # ``items.id`` — the same currency as ``work_claims.item_id``.
+    defended_items: Dict[int, dict] = dict(defended)
 
     lines: List[str] = []
     missing_count = 0
@@ -143,7 +141,8 @@ def hc_routed_ownership_live_frame_no_defense(
             continue
         missing_count += 1
         lines.append(
-            f"  - session={row['session_id']} item=YOK-{int(item_id)} "
+            f"  - session={row['session_id']} "
+            f"item={render_item_ref(conn, int(item_id))} "
             f"claim_id={int(row['claim_id'])} "
             f"intent={row['release_intent']}"
         )
@@ -195,12 +194,8 @@ def hc_routed_ownership_non_terminal_release_still_schedulable(
         window_s=window_s,
         requesting_session_id=None,
     )
-    defended_item_ids: set[int] = set()
-    for detail in defended.values():
-        try:
-            defended_item_ids.add(int(str(detail["item_id"]).replace("YOK-", "")))
-        except (KeyError, TypeError, ValueError):
-            continue
+    # Defense map keys are internal ``items.id`` ints already.
+    defended_item_ids: set[int] = set(defended)
 
     p = _p(conn)
     placeholders = ",".join([p] * len(_SCHEDULABLE_STATUSES))
@@ -224,7 +219,8 @@ def hc_routed_ownership_non_terminal_release_still_schedulable(
             continue
         hit_count += 1
         lines.append(
-            f"  - YOK-{int(item_id)} status={match['status']} "
+            f"  - {render_item_ref(conn, int(item_id))} "
+            f"status={match['status']} "
             f"owner={row['session_id']} intent={row['release_intent']}"
         )
 

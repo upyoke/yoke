@@ -87,6 +87,7 @@ def should_return_no_work_wait(ownership: Dict[str, Any], step: int) -> bool:
 def validate_charge_claim_invariant(
     result: NextAction,
     new_claim: Optional[Dict[str, Any]],
+    conn: Any = None,
 ) -> Tuple[bool, Optional[str]]:
     """Confirm a CHARGE result is backed by a fresh claim on the dispatch target.
 
@@ -110,10 +111,18 @@ def validate_charge_claim_invariant(
             "acquire any candidate; refusing to emit a charge directive."
         )
     claim_item = new_claim.get("item_id")
-    # selected_item is rendered as ``YOK-N`` while new_claim.item_id is the
-    # bare integer; normalize both before comparing.
-    selected_norm = normalize_item_id(ctx_selected)
-    claim_norm = normalize_item_id(claim_item)
+    # selected_item is the rendered public ref while new_claim.item_id is
+    # the bare internal integer; resolve both to internal ids before
+    # comparing (project sequences may diverge from internal ids). The
+    # conn-less fallback keeps the legacy numeric-tail comparison.
+    if conn is not None:
+        from yoke_core.domain.item_ref_resolution import resolve_internal_item_id
+
+        selected_norm = resolve_internal_item_id(conn, ctx_selected)
+        claim_norm = resolve_internal_item_id(conn, claim_item)
+    else:
+        selected_norm = normalize_item_id(ctx_selected)
+        claim_norm = normalize_item_id(claim_item)
     if (
         selected_norm is not None
         and claim_norm is not None

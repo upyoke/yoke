@@ -225,6 +225,7 @@ def session_offer_with_ownership(
         execution_lane=authoritative_lane,
         supported_paths=_supported,
         lane_allowed_paths=lane_allowed_paths,
+        conn=conn,
     )
 
     # 4. Walk the candidate set: revalidate pre/post-claim, skip live

@@ -38,7 +38,7 @@ class TestDownstreamDepthRanking:
 
     def _item(self, **kw) -> FrontierItem:
         defaults = dict(
-            item_id="YOK-1", title="Test", status="planned",
+            item_id=1, title="Test", status="planned",
             priority="medium", project="yoke", workflow_id="epic",
             workflow_version_id=1, workflow_version=1,
             adapter=AdapterCategory.CONDUCT, created_at="2026-01-01T00:00:00Z",
@@ -60,11 +60,11 @@ class TestDownstreamDepthRanking:
         At same priority, A should rank above B.
         """
         items = [
-            self._item(item_id="YOK-B", unblocks_count=7, downstream_depth=2),
-            self._item(item_id="YOK-A", unblocks_count=2, downstream_depth=5),
+            self._item(item_id=102, unblocks_count=7, downstream_depth=2),
+            self._item(item_id=101, unblocks_count=2, downstream_depth=5),
         ]
         ranked = rank_frontier(items)
-        assert ranked[0].item_id == "YOK-A", (
+        assert ranked[0].item_id == 101, (
             "Deeper downstream chain should outrank broader but shallower fan-out"
         )
 
@@ -79,40 +79,40 @@ class TestDownstreamDepthRanking:
         """
         # Simulate transitive-only: set unblocks_count to transitive reach values
         items = [
-            self._item(item_id="YOK-B", unblocks_count=8, downstream_depth=2),
-            self._item(item_id="YOK-A", unblocks_count=7, downstream_depth=5),
+            self._item(item_id=102, unblocks_count=8, downstream_depth=2),
+            self._item(item_id=101, unblocks_count=7, downstream_depth=5),
         ]
         ranked = rank_frontier(items)
-        assert ranked[0].item_id == "YOK-A", (
+        assert ranked[0].item_id == 101, (
             "Depth must dominate over transitive reach count"
         )
 
     def test_same_depth_falls_back_to_unblocks(self):
         """Within same depth, higher direct unblocks_count still wins."""
         items = [
-            self._item(item_id="YOK-1", downstream_depth=3, unblocks_count=1),
-            self._item(item_id="YOK-2", downstream_depth=3, unblocks_count=5),
+            self._item(item_id=1, downstream_depth=3, unblocks_count=1),
+            self._item(item_id=2, downstream_depth=3, unblocks_count=5),
         ]
         ranked = rank_frontier(items)
-        assert ranked[0].item_id == "YOK-2"
+        assert ranked[0].item_id == 2
 
     def test_zero_depth_items_sorted_by_unblocks(self):
         """Items with no downstream deps are sorted by direct unblocks_count."""
         items = [
-            self._item(item_id="YOK-1", downstream_depth=0, unblocks_count=0),
-            self._item(item_id="YOK-2", downstream_depth=0, unblocks_count=3),
+            self._item(item_id=1, downstream_depth=0, unblocks_count=0),
+            self._item(item_id=2, downstream_depth=0, unblocks_count=3),
         ]
         ranked = rank_frontier(items)
-        assert ranked[0].item_id == "YOK-2"
+        assert ranked[0].item_id == 2
 
     def test_priority_still_dominates_depth(self):
         """Priority is the top-level sort key, above depth."""
         items = [
-            self._item(item_id="YOK-1", priority="medium", downstream_depth=10),
-            self._item(item_id="YOK-2", priority="high", downstream_depth=1),
+            self._item(item_id=1, priority="medium", downstream_depth=10),
+            self._item(item_id=2, priority="high", downstream_depth=1),
         ]
         ranked = rank_frontier(items)
-        assert ranked[0].item_id == "YOK-2"
+        assert ranked[0].item_id == 2
 
     def test_downstream_depth_populated_by_compute_frontier(self):
         """AC-derived-metric: compute_frontier sets downstream_depth from dependency graph."""
@@ -130,8 +130,8 @@ class TestDownstreamDepthRanking:
         # Depth is set on all frontier items regardless of partition.
         all_items = result.runnable + result.blocked
         depth_map = {fi.item_id: fi.downstream_depth for fi in all_items}
-        assert depth_map.get("YOK-1") == 3, "Head of 4-item chain should have depth 3"
-        assert depth_map.get("YOK-4") == 0, "Tail item has no downstream deps"
+        assert depth_map.get(1) == 3, "Head of 4-item chain should have depth 3"
+        assert depth_map.get(4) == 0, "Tail item has no downstream deps"
 
     def test_unblocks_count_ignores_non_activation_dependencies(self):
         """Activation frontier ranking should ignore integration/closure fan-out."""
@@ -146,8 +146,8 @@ class TestDownstreamDepthRanking:
         result = compute_frontier(conn, project_scope=["yoke"])
         runnable = {fi.item_id: fi for fi in result.runnable}
 
-        assert runnable["YOK-1"].unblocks_count == 1
-        assert runnable["YOK-2"].unblocks_count == 0
+        assert runnable[1].unblocks_count == 1
+        assert runnable[2].unblocks_count == 0
 
     def test_observed_case_fixture(self):
         """AC-validates-observed-case: fixture mirroring the observed blocker-chain graph.
@@ -182,17 +182,17 @@ class TestDownstreamDepthRanking:
         result = compute_frontier(conn, project_scope=["yoke"])
         # Both 1221 and 1233 should be runnable (no unsatisfied blockers on them)
         runnable_ids = [fi.item_id for fi in result.runnable]
-        assert "YOK-1221" in runnable_ids
-        assert "YOK-1233" in runnable_ids
+        assert 1221 in runnable_ids
+        assert 1233 in runnable_ids
 
         # Verify depths
         depth_of = {fi.item_id: fi.downstream_depth for fi in result.runnable}
-        assert depth_of["YOK-1221"] == 5, "1221 heads a 5-hop chain"
-        assert depth_of["YOK-1233"] == 2, "1233 has depth 2 (fan-out with one child)"
+        assert depth_of[1221] == 5, "1221 heads a 5-hop chain"
+        assert depth_of[1233] == 2, "1233 has depth 2 (fan-out with one child)"
 
         # Verify ranking: 1221 must come before 1233
-        idx_1221 = runnable_ids.index("YOK-1221")
-        idx_1233 = runnable_ids.index("YOK-1233")
+        idx_1221 = runnable_ids.index(1221)
+        idx_1233 = runnable_ids.index(1233)
         assert idx_1221 < idx_1233, (
             f"YOK-1221 (depth=5) must rank above YOK-1233 (depth=2), "
             f"got positions {idx_1221} vs {idx_1233}"
@@ -233,7 +233,7 @@ class TestDownstreamDepthRanking:
 
         result = compute_frontier(conn, project_scope=["yoke"])
         depth_of = {fi.item_id: fi.downstream_depth for fi in result.runnable}
-        assert depth_of.get("YOK-1") == 3, "Longest path A->C->E->D is 3 hops"
+        assert depth_of.get(1) == 3, "Longest path A->C->E->D is 3 hops"
 
 
 class TestFrontierTelemetry:

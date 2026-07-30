@@ -43,8 +43,9 @@ def display_claim_item_id(
     diverge from the internal id. When ``conn`` is supplied, resolve the true
     public ref via ``render_item_ref`` (which itself falls back to a
     prefix+id string when the item row is missing). Without a connection —
-    routing callers that resolve work back by internal id — keep the
-    internal-id form.
+    routing callers that resolve work back by internal id — return the bare
+    internal-id string; a prefixed form here would leak a wrong public ref
+    for items whose sequence diverges from the internal id.
     """
     if item_id is None:
         return None
@@ -54,7 +55,7 @@ def display_claim_item_id(
             from .project_identity import render_item_ref
 
             return render_item_ref(conn, int(normalized))
-        return f"YOK-{normalized}"
+        return normalized
     return str(item_id)
 
 
@@ -198,12 +199,13 @@ def _step_is_compatible_with_offer(
     return True
 
 
-def _serialize_filtered_step(step: Any) -> Dict[str, Any]:
+def _serialize_filtered_step(step: Any, conn: Any = None) -> Dict[str, Any]:
     """Serialize an incompatible ScheduledStep for downstream rendering.
 
     Captures the fields the decision engine and ``/yoke do`` loop need to
     explain a lane-policy mismatch to the operator: which items were dropped
-    and what path they need.
+    and what path they need. ``item_id`` is operator-facing: rendered as
+    the true public ref when a connection is available.
     """
     next_step_val = getattr(step, "next_step", None)
     if hasattr(next_step_val, "value"):
@@ -211,8 +213,9 @@ def _serialize_filtered_step(step: Any) -> Dict[str, Any]:
     claim_state_val = getattr(step, "claim_state", None)
     if hasattr(claim_state_val, "value"):
         claim_state_val = claim_state_val.value
+    raw_item_id = getattr(step, "item_id", "")
     return {
-        "item_id": getattr(step, "item_id", ""),
+        "item_id": display_claim_item_id(str(raw_item_id), conn) or "",
         "title": getattr(step, "title", ""),
         "status": getattr(step, "status", ""),
         "next_step": next_step_val,
@@ -228,6 +231,7 @@ def _filter_schedule_for_offer(
     execution_lane: str,
     supported_paths: Optional[List[str]],
     lane_allowed_paths: Optional[Dict[str, List[str]]],
+    conn: Any = None,
 ) -> Any:
     """Filter a scheduler result down to work runnable by this offer.
 
@@ -272,7 +276,7 @@ def _filter_schedule_for_offer(
 
     schedule.lane_filtered_count = len(incompatible_ranked_steps)
     schedule.lane_filtered_items = [
-        _serialize_filtered_step(step) for step in incompatible_ranked_steps
+        _serialize_filtered_step(step, conn) for step in incompatible_ranked_steps
     ]
     schedule.ranked_steps = compatible_ranked_steps
     schedule.conduct_eligible = compatible_conduct_eligible

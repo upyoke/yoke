@@ -31,7 +31,7 @@ class TestRankFrontier:
 
     def _item(self, **kw) -> FrontierItem:
         defaults = dict(
-            item_id="YOK-1", title="Test", status="planned",
+            item_id=1, title="Test", status="planned",
             priority="medium", project="yoke", workflow_id="epic",
             workflow_version_id=1, workflow_version=1,
             adapter=AdapterCategory.CONDUCT, created_at="2026-01-01T00:00:00Z",
@@ -46,22 +46,22 @@ class TestRankFrontier:
 
     def test_priority_ordering(self):
         items = [
-            self._item(item_id="YOK-1", priority="low"),
-            self._item(item_id="YOK-2", priority="high"),
-            self._item(item_id="YOK-3", priority="medium"),
+            self._item(item_id=1, priority="low"),
+            self._item(item_id=2, priority="high"),
+            self._item(item_id=3, priority="medium"),
         ]
         ranked = rank_frontier(items)
-        assert [i.item_id for i in ranked] == ["YOK-2", "YOK-3", "YOK-1"]
+        assert [i.item_id for i in ranked] == [2, 3, 1]
 
     def test_unblocking_value(self):
         """Items that unblock more other items rank higher (same priority)."""
         items = [
-            self._item(item_id="YOK-1", unblocks_count=0),
-            self._item(item_id="YOK-2", unblocks_count=3),
-            self._item(item_id="YOK-3", unblocks_count=1),
+            self._item(item_id=1, unblocks_count=0),
+            self._item(item_id=2, unblocks_count=3),
+            self._item(item_id=3, unblocks_count=1),
         ]
         ranked = rank_frontier(items)
-        assert [i.item_id for i in ranked] == ["YOK-2", "YOK-3", "YOK-1"]
+        assert [i.item_id for i in ranked] == [2, 3, 1]
 
     def test_lifecycle_stage_prefers_closer_to_done(self):
         """Items closer to done rank higher (same priority, same unblocks).
@@ -70,29 +70,29 @@ class TestRankFrontier:
         progression_index() defaults to the epic progression.
         """
         items = [
-            self._item(item_id="YOK-1", status="idea", adapter=AdapterCategory.SHEPHERD),
-            self._item(item_id="YOK-2", status="implementing", adapter=AdapterCategory.CONDUCT),
-            self._item(item_id="YOK-3", status="implemented", adapter=AdapterCategory.USHER),
+            self._item(item_id=1, status="idea", adapter=AdapterCategory.SHEPHERD),
+            self._item(item_id=2, status="implementing", adapter=AdapterCategory.CONDUCT),
+            self._item(item_id=3, status="implemented", adapter=AdapterCategory.USHER),
         ]
         ranked = rank_frontier(items)
-        assert [i.item_id for i in ranked] == ["YOK-3", "YOK-2", "YOK-1"]
+        assert [i.item_id for i in ranked] == [3, 2, 1]
 
     def test_age_tiebreaker(self):
         """Older items rank higher when all other criteria are equal."""
         items = [
-            self._item(item_id="YOK-3", created_at="2026-03-01T00:00:00Z"),
-            self._item(item_id="YOK-1", created_at="2026-01-01T00:00:00Z"),
-            self._item(item_id="YOK-2", created_at="2026-02-01T00:00:00Z"),
+            self._item(item_id=3, created_at="2026-03-01T00:00:00Z"),
+            self._item(item_id=1, created_at="2026-01-01T00:00:00Z"),
+            self._item(item_id=2, created_at="2026-02-01T00:00:00Z"),
         ]
         ranked = rank_frontier(items)
-        assert [i.item_id for i in ranked] == ["YOK-1", "YOK-2", "YOK-3"]
+        assert [i.item_id for i in ranked] == [1, 2, 3]
 
     def test_deterministic_repeated_calls(self):
         """Multiple calls with same input produce same output."""
         items = [
-            self._item(item_id="YOK-1", priority="high", unblocks_count=2),
-            self._item(item_id="YOK-2", priority="high", unblocks_count=1),
-            self._item(item_id="YOK-3", priority="medium", unblocks_count=5),
+            self._item(item_id=1, priority="high", unblocks_count=2),
+            self._item(item_id=2, priority="high", unblocks_count=1),
+            self._item(item_id=3, priority="medium", unblocks_count=5),
         ]
         result1 = rank_frontier(items)
         result2 = rank_frontier(items)
@@ -111,20 +111,20 @@ class TestRankFrontier:
         """
         items = [
             self._item(
-                item_id="YOK-high-new",
+                item_id=91,
                 priority="high",
                 status="refined-idea",
                 adapter=AdapterCategory.SHEPHERD,
             ),
             self._item(
-                item_id="YOK-med-done",
+                item_id=92,
                 priority="medium",
                 status="implemented",
                 adapter=AdapterCategory.USHER,
             ),
         ]
         ranked = rank_frontier(items)
-        assert ranked[0].item_id == "YOK-med-done", (
+        assert ranked[0].item_id == 92, (
             "Usher-eligible items must clear ahead of higher-priority non-usher work"
         )
 
@@ -132,20 +132,20 @@ class TestRankFrontier:
         """Within the usher tier, priority still breaks ties."""
         items = [
             self._item(
-                item_id="YOK-med",
+                item_id=93,
                 priority="medium",
                 status="implemented",
                 adapter=AdapterCategory.USHER,
             ),
             self._item(
-                item_id="YOK-high",
+                item_id=94,
                 priority="high",
                 status="implemented",
                 adapter=AdapterCategory.USHER,
             ),
         ]
         ranked = rank_frontier(items)
-        assert [i.item_id for i in ranked] == ["YOK-high", "YOK-med"]
+        assert [i.item_id for i in ranked] == [94, 93]
 
 
 # ---------------------------------------------------------------------------
@@ -158,7 +158,7 @@ class TestRankingDeterminism:
 
     def _item(self, **kw) -> FrontierItem:
         defaults = dict(
-            item_id="YOK-1", title="Test", status="planned",
+            item_id=1, title="Test", status="planned",
             priority="medium", project="yoke", workflow_id="epic",
             workflow_version_id=1, workflow_version=1,
             adapter=AdapterCategory.CONDUCT, created_at="2026-01-01T00:00:00Z",
@@ -174,7 +174,7 @@ class TestRankingDeterminism:
     def test_ten_repeated_runs_identical(self):
         """10 repeated calls produce identical ordering every time."""
         items = [
-            self._item(item_id=f"YOK-{i}", priority=p, unblocks_count=u,
+            self._item(item_id=i, priority=p, unblocks_count=u,
                         created_at=f"2026-01-{i:02d}T00:00:00Z")
             for i, (p, u) in enumerate([
                 ("high", 3), ("high", 1), ("medium", 5),
@@ -190,9 +190,9 @@ class TestRankingDeterminism:
     def test_reversed_input_same_output(self):
         """Reversed input list produces same ranked output."""
         items = [
-            self._item(item_id="YOK-1", priority="high", unblocks_count=2),
-            self._item(item_id="YOK-2", priority="medium", unblocks_count=5),
-            self._item(item_id="YOK-3", priority="low", unblocks_count=0),
+            self._item(item_id=1, priority="high", unblocks_count=2),
+            self._item(item_id=2, priority="medium", unblocks_count=5),
+            self._item(item_id=3, priority="low", unblocks_count=0),
         ]
         forward = [i.item_id for i in rank_frontier(items)]
         backward = [i.item_id for i in rank_frontier(list(reversed(items)))]
@@ -203,7 +203,7 @@ class TestRankingDeterminism:
         import random
         rng = random.Random(42)  # Deterministic seed for reproducibility
         items = [
-            self._item(item_id=f"YOK-{i}", priority=p,
+            self._item(item_id=i, priority=p,
                         unblocks_count=u, created_at=f"2026-{m:02d}-01T00:00:00Z")
             for i, (p, u, m) in enumerate([
                 ("high", 1, 1), ("medium", 3, 2), ("low", 0, 3),

@@ -126,15 +126,12 @@ SCHEMA = (
 
 
 def _item_num(item_id) -> int:
-    """Strip a ``YOK-N`` prefix and return the bare integer.
+    """Return the bare internal integer for an item token.
 
-    ``work_claims.item_id`` is an integer column; ``compute_schedule`` and
-    ``selected_step.item_id`` surface the display form ``YOK-N``. SQLite's
-    dynamic typing tolerated inserting the ``YOK-N`` string directly, but
-    Postgres's integer column rejects it (``invalid input syntax for type
-    integer``). Tests strip the prefix here before writing to the integer
-    column; the production read path (``scheduler_claims._evaluate_claim_states``)
-    reconstructs the ``YOK-N`` display key from the bare integer.
+    ``work_claims.item_id`` is an integer column and the scheduler's
+    internal currency is the bare ``items.id``. Tests may still pass a
+    legacy ``YOK-N`` string; strip it here before writing to the integer
+    column.
     """
     text = str(item_id)
     if text.upper().startswith("YOK-"):

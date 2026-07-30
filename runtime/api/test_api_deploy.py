@@ -48,8 +48,9 @@ class TestChargeFrontierEndpoint:
         # done items should not appear anywhere
         all_ids = runnable_ids + blocked_ids + [i["item_id"] for i in data["frozen"]]
         assert "YOK-23" not in all_ids
-        # externalwebapp-project items should not appear (default project=yoke)
-        assert "YOK-24" not in all_ids
+        # externalwebapp-project items should not appear (default project=yoke);
+        # their true public ref renders under the project's EXT prefix.
+        assert "EXT-24" not in all_ids
 
     def test_frontier_project_filter(self):
         """AC-2: Project filter correctly scopes results."""
@@ -57,7 +58,8 @@ class TestChargeFrontierEndpoint:
         assert resp.status_code == 200
         data = resp.json()
         runnable_ids = [item["item_id"] for item in data["runnable"]]
-        assert "YOK-24" in runnable_ids
+        # The externalwebapp project renders its true public prefix.
+        assert "EXT-24" in runnable_ids
         # Yoke items should not appear
         assert "YOK-20" not in runnable_ids
         assert "YOK-21" not in runnable_ids

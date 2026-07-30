@@ -108,7 +108,7 @@ def evaluate_ownership_guard(
     defended = routed_ownership_exclusions(
         conn, window_s=window_s, requesting_session_id=None,
     )
-    detail = defended.get(f"YOK-{int(item_id)}")
+    detail = defended.get(int(item_id))
     if detail is not None and detail.get("prior_owner_session_id") == session_id:
         latest = detail.get("latest_claim_id")
         return OwnershipGuardResult(

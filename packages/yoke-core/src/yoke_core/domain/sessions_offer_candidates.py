@@ -102,7 +102,7 @@ def acquire_claim_from_candidates(
             continue
 
         if candidate.claim_state.value == "claimed_by_stale":
-            reclaimed = reclaim_stale_item_claims(conn, candidate.item_id)
+            reclaimed = reclaim_stale_item_claims(conn, str(candidate.item_id))
             if reclaimed:
                 logger.info(
                     "Reclaimed %d stale claim(s) on %s before offer",
@@ -113,7 +113,7 @@ def acquire_claim_from_candidates(
             new_claim = claim_work(
                 conn,
                 session_id=session_id,
-                item_id=candidate.item_id,
+                item_id=str(candidate.item_id),
                 claim_type="exclusive",
             )
             post_validation = revalidate_candidate_snapshot(

@@ -94,7 +94,7 @@ def handle_charge_invariant(
     caller surfaces ``error`` exactly the same way the previous bare
     ``validate_charge_claim_invariant`` failure path did.
     """
-    ok, err = validate_charge_claim_invariant(result, new_claim)
+    ok, err = validate_charge_claim_invariant(result, new_claim, conn=conn)
     if ok:
         return True, None
 

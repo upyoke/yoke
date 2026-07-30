@@ -28,6 +28,8 @@ from yoke_core.domain.dependency_planning import (
     BlockerDetail,
     evaluate_batch_gates,
 )
+from yoke_core.domain.item_ref_resolution import internal_ids_for_refs
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.scheduler import compute_schedule
 from yoke_core.domain.scheduler_types import (
     ClaimState,
@@ -116,13 +118,14 @@ def _compose_edge_why(reason: str, rationale: str) -> str:
 def _blocked_row(
     step: ScheduledStep,
     detail: Optional[BlockerDetail | GateEvaluation],
+    item_ref: str,
 ) -> Dict[str, Any]:
     if detail is None:
         # Non-edge wait: operator block, legacy blocked status, or an
         # incomplete idea body. There is no blocking item or gate point;
         # the reasons channel carries the whole story.
         return {
-            "item_id": step.item_id,
+            "item_id": item_ref,
             "title": step.title,
             "workflow_id": step.workflow_id,
             "project": step.project,
@@ -133,7 +136,7 @@ def _blocked_row(
             "created_at": step.created_at,
         }
     return {
-        "item_id": step.item_id,
+        "item_id": item_ref,
         "title": step.title,
         "workflow_id": step.workflow_id,
         "project": step.project,
@@ -171,9 +174,11 @@ def list_frontier(
         }
         ready_rows: List[Dict[str, Any]] = []
         for step in schedule.ranked_steps:
+            # Operator-facing projection: render the true public ref.
+            item_ref = render_item_ref(conn, step.item_id)
             ready_rows.append({
                 "rank": step.rank,
-                "item_id": step.item_id,
+                "item_id": item_ref,
                 "title": step.title,
                 "workflow_id": step.workflow_id,
                 "workflow_version": step.workflow_version,
@@ -184,7 +189,7 @@ def list_frontier(
                 "stage_label": step.stage_label,
                 "priority": step.priority,
                 "next_step": step.next_step.value,
-                "run_command": f"yoke {step.next_step.value} {step.item_id}",
+                "run_command": f"yoke {step.next_step.value} {item_ref}",
                 "why_ready": _compose_why_ready(
                     step,
                     conduct_eligible_ids=conduct_eligible_ids,
@@ -198,16 +203,19 @@ def list_frontier(
 
         blocked_rows: List[Dict[str, Any]] = []
         for step in schedule.blocked_steps:
+            step_ref = render_item_ref(conn, step.item_id)
             if not step.gate_evaluations:
-                blocked_rows.append(_blocked_row(step, None))
+                blocked_rows.append(_blocked_row(step, None, step_ref))
                 continue
             for gate in step.gate_evaluations:
-                blocked_rows.append(_blocked_row(step, gate))
+                blocked_rows.append(_blocked_row(step, gate, step_ref))
 
         # Later-landing edges attach to whichever non-terminal step the
         # schedule already tracks for the dependent item — an edge whose
         # dependent is terminal (or out of scope) has nothing left to gate.
-        tracked_steps: Dict[str, ScheduledStep] = {}
+        # Edge rows carry public text refs; resolve them to internal ids
+        # before matching against tracked steps.
+        tracked_steps: Dict[int, ScheduledStep] = {}
         for step_list in (
             schedule.ranked_steps,
             schedule.blocked_steps,
@@ -220,12 +228,14 @@ def list_frontier(
             gate_blocks = evaluate_batch_gates(
                 conn, gate_point=gate_point, emit_events=False,
             )
+            dependent_ids = internal_ids_for_refs(conn, gate_blocks.keys())
             for dependent_item in sorted(gate_blocks):
-                step = tracked_steps.get(dependent_item)
+                step = tracked_steps.get(dependent_ids.get(dependent_item, -1))
                 if step is None:
                     continue
+                step_ref = render_item_ref(conn, step.item_id)
                 for detail in gate_blocks[dependent_item]:
-                    blocked_rows.append(_blocked_row(step, detail))
+                    blocked_rows.append(_blocked_row(step, detail, step_ref))
 
         return {
             "fields": {

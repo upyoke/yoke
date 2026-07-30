@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 from . import db_backend
-from .sessions_queries import normalize_claim_item_id
+from .item_ref_resolution import resolve_internal_item_id
 
 
 @dataclass(frozen=True)
@@ -22,20 +22,20 @@ class CandidateSnapshotValidation:
 def revalidate_candidate_snapshot(
     conn: Any,
     *,
-    item_id: str,
+    item_id: Any,
     expected_status: str,
     expected_workflow_id: str,
     expected_workflow_version_id: int,
 ) -> CandidateSnapshotValidation:
     """Compare live status and workflow pin with one ``ScheduledStep``."""
-    normalized = normalize_claim_item_id(str(item_id))
-    if not normalized.isdigit():
+    internal_id = resolve_internal_item_id(conn, item_id)
+    if internal_id is None:
         return CandidateSnapshotValidation(False, None, None, None)
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     row = conn.execute(
         "SELECT status, workflow_id, workflow_version_id "
         f"FROM items WHERE id = {marker}",
-        (int(normalized),),
+        (internal_id,),
     ).fetchone()
     if row is None:
         return CandidateSnapshotValidation(False, None, None, None)

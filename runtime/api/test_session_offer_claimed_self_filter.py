@@ -55,10 +55,10 @@ class TestFilterPreservesClaimedBySelf:
 
     def test_claimed_by_self_selected_step_survives_filter(self):
         self_held = _step(
-            item_id="YOK-A", rank=4,
+            item_id=101, rank=4,
             claim_state=ClaimState.CLAIMED_BY_SELF,
         )
-        later = _step(item_id="YOK-B", rank=5, claim_state=ClaimState.UNCLAIMED)
+        later = _step(item_id=102, rank=5, claim_state=ClaimState.UNCLAIMED)
         schedule = SchedulerResult(
             selected_step=self_held,
             ranked_steps=[self_held, later],
@@ -67,21 +67,21 @@ class TestFilterPreservesClaimedBySelf:
         filtered = _run(schedule)
 
         assert filtered.selected_step is not None
-        assert filtered.selected_step.item_id == "YOK-A"
+        assert filtered.selected_step.item_id == 101
         assert filtered.selected_step.claim_state == ClaimState.CLAIMED_BY_SELF
 
     def test_claimed_by_other_live_is_dropped_from_selected(self):
         live = _step(
-            item_id="YOK-A", rank=1,
+            item_id=101, rank=1,
             claim_state=ClaimState.CLAIMED_BY_OTHER_LIVE,
         )
-        unclaimed = _step(item_id="YOK-B", rank=2, claim_state=ClaimState.UNCLAIMED)
+        unclaimed = _step(item_id=102, rank=2, claim_state=ClaimState.UNCLAIMED)
         schedule = SchedulerResult(selected_step=live, ranked_steps=[live, unclaimed])
 
         filtered = _run(schedule)
 
         assert filtered.selected_step is not None
-        assert filtered.selected_step.item_id == "YOK-B"
+        assert filtered.selected_step.item_id == 102
 
 
 class TestRetryRecomputeMirrorsIncident:
@@ -89,17 +89,17 @@ class TestRetryRecomputeMirrorsIncident:
 
     def test_recomputed_selected_matches_new_claim_after_retry(self):
         live_held = _step(
-            item_id="YOK-INITIAL",
+            item_id=111,
             rank=1,
             claim_state=ClaimState.CLAIMED_BY_OTHER_LIVE,
         )
         new_claim = _step(
-            item_id="YOK-NEW-CLAIM",
+            item_id=112,
             rank=4,
             claim_state=ClaimState.CLAIMED_BY_SELF,
         )
         later = _step(
-            item_id="YOK-NEXT-UNCLAIMED",
+            item_id=113,
             rank=5,
             claim_state=ClaimState.UNCLAIMED,
         )
@@ -111,12 +111,8 @@ class TestRetryRecomputeMirrorsIncident:
         filtered = _run(schedule)
 
         assert filtered.selected_step is not None
-        assert filtered.selected_step.item_id == "YOK-NEW-CLAIM"
-        assert [s.item_id for s in filtered.ranked_steps] == [
-            "YOK-INITIAL",
-            "YOK-NEW-CLAIM",
-            "YOK-NEXT-UNCLAIMED",
-        ]
+        assert filtered.selected_step.item_id == 112
+        assert [s.item_id for s in filtered.ranked_steps] == [111, 112, 113]
 
     def test_charge_context_matches_new_claim_after_filter(self):
         from yoke_core.domain.session_contract import ActionKind, SessionOffer
@@ -129,11 +125,11 @@ class TestRetryRecomputeMirrorsIncident:
         )
 
         new_claim = _step(
-            item_id="YOK-1723", rank=4,
+            item_id=1723, rank=4,
             claim_state=ClaimState.CLAIMED_BY_SELF,
         )
         later = _step(
-            item_id="YOK-1724", rank=5,
+            item_id=1724, rank=5,
             claim_state=ClaimState.UNCLAIMED,
         )
         filtered = _run(SchedulerResult(
@@ -159,7 +155,9 @@ class TestRetryRecomputeMirrorsIncident:
 
         assert action is not None
         assert action.action == ActionKind.CHARGE
-        assert action.context["selected_item"] == "YOK-1723"
+        # Without a rendering connection the frontier builder falls back
+        # to the bare internal-id string.
+        assert action.context["selected_item"] == "1723"
         ok, err = validate_charge_claim_invariant(action, {"item_id": 1723})
         assert ok is True, err
 
@@ -169,7 +167,7 @@ class TestFilterDelegatesToSharedHelper:
 
     def test_filter_parity_with_shared_helper(self):
         for state in ClaimState:
-            step = _step(item_id="YOK-X", rank=1, claim_state=state)
+            step = _step(item_id=120, rank=1, claim_state=state)
             schedule = SchedulerResult(selected_step=step, ranked_steps=[step])
             filtered = _run(schedule)
             if is_assignable_claim_state(state):
