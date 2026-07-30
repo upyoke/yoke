@@ -238,7 +238,7 @@ def validate_terminal_recipe(
     if not completion or completion not in {action["step"] for action in actions}:
         raise MachineQaRecipeError("required_completion must name a typed action step")
     mode = str(config["execution_mode"])
-    if mode not in {"terminal", "ssh-command"}:
+    if mode not in {"terminal", "terminal-multiplexer", "ssh-command"}:
         raise MachineQaRecipeError("execution_mode is not registered")
     if mode == "ssh-command" and (len(actions) != 1 or actions[0]["keys"]):
         raise MachineQaRecipeError(

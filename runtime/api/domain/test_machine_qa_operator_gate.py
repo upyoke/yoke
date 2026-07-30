@@ -28,15 +28,17 @@ def _gate_action() -> dict[str, object]:
     }
 
 
+@pytest.mark.parametrize("detail_marker", ("-", "•"))
 def test_browser_gate_emits_coordinates_sends_enter_and_heartbeats(
+    detail_marker: str,
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     transcripts = iter(
         (
             "Approve this machine.\n"
-            "One-time code: AB12-CD34\n"
-            "Open: https://app.stage.upyoke.com/machine/approve\n",
+            f"  {detail_marker} One-time code: AB12-CD34\n"
+            f"  {detail_marker} Open: https://app.stage.upyoke.com/machine/approve\n",
             "Waiting for browser approval",
             "Yoke token connected.",
         )

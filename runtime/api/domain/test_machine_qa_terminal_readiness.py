@@ -75,7 +75,7 @@ def test_ready_text_times_out_without_sending_input(
         "yoke_core.domain.ssh_mac_terminal_readiness.time.sleep",
     ):
         monkeypatch.setattr(target, lambda _seconds: None)
-    config = recipe(mode="terminal")
+    config = recipe(mode="terminal-multiplexer")
     config["actions"] = [
         {
             "step": "apply",
