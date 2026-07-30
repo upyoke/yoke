@@ -1,10 +1,5 @@
-import {
-  el,
-  loadScopedSection,
-  mergedRows,
-  scopeBuckets,
-  statePill,
-} from "./universe_view_support.js";
+import { el, mergedRows, statePill } from "./universe_view_support.js";
+import { holdScopedSection, rowsInScope } from "./universe_held_reads.js";
 import { ghostWhenInactive } from "./universe_views_overview_activation.js";
 import { deliveryStageBar } from "./universe_secondary_primitives.js";
 import { relativeTime } from "./universe_time.js";
@@ -21,17 +16,16 @@ import {
 
 // What is shipping. The engine bounds run history and returns the newest
 // receipts first, so the overview keeps that order before taking its summary.
-export function loadDelivery(context, panel, scope, activationFacts) {
-  const buckets = scopeBuckets(scope, context.projects(), false);
-  loadScopedSection(
-    context, panel,
-    buckets.map((bucket) => ({
-      functionId: "deployment_runs.list",
-      payload: bucket === null ? {} : { project: bucket },
-    })),
-    (body, callResults) => {
+export function loadDelivery(context, panel, getScope, activationFacts) {
+  return holdScopedSection(
+    context, panel, [null],
+    [{ functionId: "deployment_runs.list", payload: {} }],
+    getScope,
+    (body, callResults, scope) => {
       const documentNode = body.ownerDocument;
-      const rows = mergedRows(callResults, (result) => result.rows);
+      const rows = rowsInScope(
+        mergedRows(callResults, (result) => result.rows), scope, context.projects(),
+      );
       if (!rows.length) {
         ghostWhenInactive(context, activationFacts, "delivery", panel);
       }

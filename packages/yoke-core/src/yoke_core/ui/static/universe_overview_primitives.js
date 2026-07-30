@@ -47,7 +47,32 @@ export function summaryPanel(documentNode, title, view, scope, label) {
   panel.setDetail = (text) => {
     if (detail) detail.textContent = String(text || "");
   };
-  panel.appendChild(openLink(documentNode, view, scope, label));
+  const openLinkNode = openLink(documentNode, view, scope, label);
+  panel.appendChild(openLinkNode);
+  // The panel's own chrome, snapshotted so a day-zero ghost can collapse the
+  // panel and a later scope with data can restore it intact.
+  const chrome = [...panel.children];
+  // The "Open X ->" link carries the view's scope; a held in-place rescope
+  // rewrites it so the destination opens on the newly selected projects.
+  panel.setScope = (newScope) => {
+    openLinkNode.href = buildUniverseRoute(view, serializeScope(newScope));
+  };
+  panel.ghost = (hintNode) => {
+    panel.classList.add("overview-ghost");
+    panel.replaceChildren(hintNode);
+  };
+  panel.unghost = () => {
+    if (!panel.classList.contains("overview-ghost")) return;
+    panel.classList.remove("overview-ghost");
+    panel.replaceChildren(...chrome);
+  };
+  // A held re-scope that now has data un-ghosts (restoring the openLink child)
+  // before rendering the fresh body.
+  const baseRenderEnvelopes = panel.renderEnvelopes;
+  panel.renderEnvelopes = (callResults, renderBody) => {
+    panel.unghost();
+    baseRenderEnvelopes(callResults, renderBody);
+  };
   return panel;
 }
 

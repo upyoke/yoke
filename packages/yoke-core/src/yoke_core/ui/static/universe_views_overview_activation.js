@@ -305,8 +305,9 @@ export function ghostWhenInactive(context, activationFacts, view, panel) {
     if (!context.isMounted() || !facts) return;
     const module = facts.get(GHOST_MODULES[view]);
     if (!module || module.state === "activated") return;
-    panel.classList.add("overview-ghost");
-    panel.replaceChildren(el(
+    // Delegate the collapse to the panel owner so a later re-scope with data
+    // can restore the panel's chrome (including its "Open X ->" link).
+    panel.ghost(el(
       context.document, "p", "overview-ghost-hint", GHOST_HINTS[view],
     ));
   });
