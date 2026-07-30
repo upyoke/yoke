@@ -9,8 +9,8 @@ from yoke_contracts.api_urls import (
     DISTRIBUTION_STAGE_URL,
     HOSTED_STAGE_PLATFORM_URL,
 )
-from yoke_core.domain.installer_campaign_screen_ready_cases import (
-    SCREEN_READY_INSTALLER_CAMPAIGN_CASES,
+from yoke_core.domain.installer_campaign_current_text_cases import (
+    CURRENT_TEXT_INSTALLER_CAMPAIGN_CASES,
 )
 from yoke_core.domain.installer_campaign_plan_common import (
     CHOOSE_PRODUCTION_KEYS,
@@ -118,7 +118,7 @@ def installer_campaign_cases_for_target(
 ) -> list[dict[str, Any]]:
     """Return concrete current cases whose endpoints all come from *target*."""
     cases = _project(
-        deepcopy(list(SCREEN_READY_INSTALLER_CAMPAIGN_CASES)),
+        deepcopy(list(CURRENT_TEXT_INSTALLER_CAMPAIGN_CASES)),
         target,
     )
     assert isinstance(cases, list)
