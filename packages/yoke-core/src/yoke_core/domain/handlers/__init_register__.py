@@ -27,6 +27,7 @@ import threading
 from yoke_core.domain import yoke_function_registry
 
 from yoke_core.domain.handlers import (
+    _register_advance_preflight,
     _register_capabilities_read,
     _register_claims,
     _register_db_read,
@@ -124,6 +125,7 @@ _DOMAIN_REGISTRARS = (
     _register_test_machine,
     _register_direct_workflows,
     _register_field_note_dash_promotion,
+    _register_advance_preflight,
 )
 
 _REGISTRATION_LOCK = threading.Lock()

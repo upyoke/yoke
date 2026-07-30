@@ -125,15 +125,23 @@ def _release_claim(item_id: int, session_id: str, reason: str) -> None:
 
 
 def _resolve_env_repo_root(item: Dict[str, Any], worktree_path: str) -> str:
-    """Resolve the local checkout used by worktree preflight."""
+    """Resolve the local checkout used by worktree preflight.
+
+    The project-slug-to-checkout resolution routes through the
+    transport-aware ``checkout_for_project_slug`` (relays ``projects.get``,
+    then reads the machine-local checkout mapping), so it works over an
+    https control plane as well as an in-process local Postgres connection.
+    Falls back to the worktree-path-derived repo root when no machine-local
+    checkout is mapped.
+    """
     project = item.get("project")
     if project:
         try:
-            from yoke_core.domain.db_helpers import connect
-            from yoke_core.domain.project_checkout_locations import checkout_for_project
+            from yoke_core.domain.project_checkout_locations import (
+                checkout_for_project_slug,
+            )
 
-            with connect() as conn:
-                checkout = checkout_for_project(conn, str(project))
+            checkout = checkout_for_project_slug(str(project))
             if checkout is not None:
                 return str(checkout)
         except Exception:
