@@ -17,6 +17,9 @@ from yoke_core.engines.done_transition_finalize import finish_done_transition
 from yoke_core.engines.done_transition_preconditions import (
     enforce_preconditions as _enforce_preconditions,
 )
+from yoke_core.engines.done_transition_branch_lookup import (
+    branch_exists_for_item,
+)
 from yoke_core.engines.done_transition_runtime import _reseat_runtime_paths
 
 
@@ -211,33 +214,12 @@ def run(
                     "with post-merge steps."
                 )
             else:
-                branch_exists = False
-                verify = _run_git(
-                    [
-                        "-C",
-                        str(project_repo),
-                        "rev-parse",
-                        "--verify",
-                        f"YOK-{item_id}",
-                    ],
-                    capture=True,
+                branch_exists = branch_exists_for_item(
+                    item_id,
+                    project_repo=project_repo,
+                    run_git=_run_git,
+                    connect=_connect,
                 )
-                if verify.returncode == 0:
-                    branch_exists = True
-                else:
-                    ls = _run_git(
-                        [
-                            "-C",
-                            str(project_repo),
-                            "ls-remote",
-                            "--heads",
-                            "origin",
-                            f"YOK-{item_id}",
-                        ],
-                        capture=True,
-                    )
-                    if ls.stdout and f"YOK-{item_id}" in ls.stdout:
-                        branch_exists = True
                 if not branch_exists:
                     print(
                         "No active worktree lane and no branch found — "

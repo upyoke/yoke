@@ -84,7 +84,7 @@ def _seed_item(
 
 
 class TestCreateWorktree:
-    def test_basic_creation(self, git_repo):
+    def test_basic_creation(self, git_repo, yoke_db):
         result = create_worktree(
             TEST_ITEM_ID, repo_root=str(git_repo),
             config_path=str(git_repo / "runtime" / "config"),
@@ -109,7 +109,7 @@ class TestCreateWorktree:
         )
         assert r.stdout.strip() == TEST_ITEM_REF
 
-    def test_create_does_not_bind_session_scope(self, git_repo):
+    def test_create_does_not_bind_session_scope(self, git_repo, yoke_db):
         # Worktree creation no longer binds a session-scope envelope.
         # The session's authority over the new worktree comes from its
         # active work_claims, validated per call by lint_session_cwd.
@@ -125,7 +125,7 @@ class TestCreateWorktree:
         assert not hasattr(result, "scope_entered")
         assert not hasattr(result, "scope_message")
 
-    def test_idempotency(self, git_repo):
+    def test_idempotency(self, git_repo, yoke_db):
         result1 = create_worktree(42, repo_root=str(git_repo),
                                    config_path=str(git_repo / "runtime" / "config"))
         result2 = create_worktree(42, repo_root=str(git_repo),
@@ -134,7 +134,7 @@ class TestCreateWorktree:
         assert result2.created is False
         assert result2.path == result1.path
 
-    def test_base_branch_override(self, git_repo):
+    def test_base_branch_override(self, git_repo, yoke_db):
         # Create a feature branch to fork from
         subprocess.run(["git", "checkout", "-b", "feature"], cwd=str(git_repo),
                         check=True, capture_output=True)
@@ -155,7 +155,7 @@ class TestCreateWorktree:
         # Verify the worktree has the feature file
         assert os.path.isfile(os.path.join(result.path, "feature.txt"))
 
-    def test_guardrail(self, git_repo):
+    def test_guardrail(self, git_repo, yoke_db):
         cfg = git_repo / "runtime" / "config"
         cfg.write_text("worktrees_dir=.worktrees\nmax_active_worktrees=2\n")
         config_path = str(cfg)
