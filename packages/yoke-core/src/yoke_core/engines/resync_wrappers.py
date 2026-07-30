@@ -68,7 +68,6 @@ def _repair_local_orphan_epic_task(item_id, project, db_path):
     return _fn(
         item_id, project, db_path,
         is_dry_run_fn=_parent()._is_dry_run,
-        task_update_field_fn=_parent().task_update_field,
     )
 
 

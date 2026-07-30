@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, List, Tuple
 
-from yoke_core.domain.actors import ActorError, actor_label_or_passthrough
 from yoke_core.domain.task_lifecycle import TASK_TERMINAL_SUCCESS
 from yoke_core.engines.resync_detect_compact_mirror import (
     COMPACT_MIRROR_FOOTER,  # noqa: F401 — re-exported for callers
@@ -18,84 +17,43 @@ from yoke_core.engines.resync_detect_models import (
     normalize_body_for_compare,
 )
 from yoke_core.engines.resync_detect_fetch import _project_unavailable
-from yoke_core.domain.workflow_runtime import (
-    ENGINE_TERMINAL_STAGE_IDS, load_item_workflow_runtime,
-)
-
-
-def _row_to_dict(row) -> dict:
-    if hasattr(row, "keys"):
-        return {key: row[key] for key in row.keys()}
-    return dict(row)
-
-
-def _render_actor_token(conn, value: str) -> str:
-    """Render an `items.source` / `items.owner` value to a label token.
-
-    Wraps :func:`actor_label_or_passthrough` so a missing-actor or
-    missing-label condition does not abort the entire detect pass.
-    Failure modes (orphan numeric id, missing label projection,
-    minimal-schema test fixtures without the actors table) fall back
-    to the raw column value so the comparator still produces a drift
-    record naming the value the operator can investigate, rather than
-    swallowing the row.
-    """
-    from yoke_core.domain import db_backend
-
-    try:
-        return actor_label_or_passthrough(conn, value)
-    except ActorError:
-        return value or ""
-    except db_backend.operational_error_types(conn):
-        try:
-            conn.rollback()
-        except Exception:
-            pass
-        return value or ""
+from yoke_core.domain.workflow_runtime import ENGINE_TERMINAL_STAGE_IDS
 
 
 def stage2_compare(
     paired: List[PairedItem],
     gh_by_project: Dict[str, Dict[int, Dict]],
     heavy_by_project: Dict[str, Dict[int, Dict]],
-    db_path: str,
+    db_path: str,  # noqa: ARG001 - retained compat token; prefetch relays
 ) -> List[DriftRecord]:
-    """Stage 2: compare local DB fields against GitHub issue fields."""
-    from yoke_core.domain.db_helpers import connect
+    """Stage 2: compare local DB fields against GitHub issue fields.
 
-    conn = connect(db_path)
+    The item + epic-task prefetch relays through the connected transport
+    (``resync.compare_prefetch``) so it runs over an https control plane as
+    well as a local Postgres connection; the merge-implied flag is resolved
+    server-side and consumed here as ``implies_merge``. The field-by-field
+    comparison stays engine-owned.
+    """
+    from yoke_contracts.api.function_call import TargetRef
+    from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 
-    # Prefetch items — body is rendered on demand
-    items_by_id: Dict[int, Dict] = {}
-    try:
-        from yoke_core.domain.render_body import build_body
-        cur = conn.execute(
-            "SELECT id, title, status, priority, workflow_id, source, owner, frozen, blocked FROM items"
-        )
-        for row in cur.fetchall():
-            d = _row_to_dict(row)
-            d["body"] = build_body(conn, row["id"]) or ""
-            d["workflow_runtime"] = load_item_workflow_runtime(conn, int(row["id"]))
-            d["source_label"] = _render_actor_token(conn, d.get("source") or "")
-            d["owner_label"] = _render_actor_token(conn, d.get("owner") or "")
-            items_by_id[row["id"]] = d
-    except Exception:
-        pass
+    resp = call_dispatcher(
+        function_id="resync.compare_prefetch",
+        target=TargetRef(kind="global"),
+        payload={},
+    )
+    if not resp.success:
+        message = resp.error.message if resp.error else "unknown error"
+        raise RuntimeError(f"resync compare prefetch failed: {message}")
+    data = resp.result or {}
 
-    # Prefetch epic tasks
-    epic_tasks_by_key: Dict[Tuple[Any, int], Dict] = {}
-    try:
-        cur = conn.execute(
-            "SELECT epic_id, task_num, title, status, COALESCE(body, '') as body "
-            "FROM epic_tasks"
-        )
-        for row in cur.fetchall():
-            key = (row["epic_id"], row["task_num"])
-            epic_tasks_by_key[key] = _row_to_dict(row)
-    except Exception:
-        pass
-
-    conn.close()
+    items_by_id: Dict[int, Dict] = {
+        row["id"]: row for row in data.get("items", [])
+    }
+    epic_tasks_by_key: Dict[Tuple[Any, int], Dict] = {
+        (row["epic_id"], row["task_num"]): row
+        for row in data.get("epic_tasks", [])
+    }
 
     drifts: List[DriftRecord] = []
 
@@ -231,14 +189,14 @@ def stage2_compare(
             # --- State comparison ---
             gh_state = gh_issue.get("state", "UNKNOWN")
             expected_state = "OPEN"
-            runtime = local_item["workflow_runtime"]
-            if runtime.stage_implies_merge(local_status) or local_status in ENGINE_TERMINAL_STAGE_IDS:
+            implies_merge = bool(local_item.get("implies_merge"))
+            if implies_merge or local_status in ENGINE_TERMINAL_STAGE_IDS:
                 expected_state = "CLOSED"
             if gh_state != expected_state:
                 drifts.append(DriftRecord(item.id, "state", expected_state, gh_state))
 
             # --- Comment presence check ---
-            if runtime.stage_implies_merge(local_status) and gh_heavy is not None:
+            if implies_merge and gh_heavy is not None:
                 comments = gh_heavy.get("comments", [])
                 has_status = any(
                     "**Status:**" in c.get("body", "") for c in comments

@@ -23,6 +23,7 @@ class DoneItemContext:
     stage_id: str
     lane_branch: str
     project: str
+    item_ref: str
     workflow: WorkflowRuntime
 
 
@@ -31,6 +32,8 @@ def load_done_item_context(
     item_id: int,
 ) -> Optional[DoneItemContext]:
     """Load an item plus its immutable workflow definition."""
+    from yoke_core.domain.project_identity import render_item_ref
+
     placeholder = "%s" if db_backend.connection_is_postgres(conn) else "?"
     row = conn.execute(
         "SELECT i.title, i.status, "
@@ -47,7 +50,57 @@ def load_done_item_context(
         stage_id=str(row["status"] or ""),
         lane_branch=str(row["lane_branch"] or ""),
         project=str(row["project"] or "yoke"),
+        item_ref=render_item_ref(conn, item_id),
         workflow=load_item_workflow_runtime(conn, item_id),
+    )
+
+
+def load_done_item_context_over_transport(
+    item_id: int,
+) -> Optional[DoneItemContext]:
+    """Load the done-transition item context through the connected transport.
+
+    Relays ``done_transition.item_context`` so the item + pinned-workflow
+    read runs over an https control plane as well as a local Postgres
+    connection, then rebuilds the exact :class:`DoneItemContext` (including a
+    fully reconstructed :class:`WorkflowRuntime`) the runner consumes.
+
+    Returns ``None`` for a missing item — the runner's "item not found"
+    branch. A read failure (transport unavailable, or an incomplete workflow
+    pin surfaced by the handler) raises, aborting the transition exactly as
+    the inline ``connect()`` + ``load_done_item_context`` did on a DB-level
+    failure.
+    """
+    from yoke_contracts.api.function_call import TargetRef
+    from yoke_core.api.service_client_structured_api_adapter import (
+        call_dispatcher,
+    )
+
+    resp = call_dispatcher(
+        function_id="done_transition.item_context",
+        target=TargetRef(kind="item", item_id=int(item_id)),
+        payload={},
+    )
+    if not resp.success:
+        message = resp.error.message if resp.error else "unknown error"
+        raise RuntimeError(f"done item context read failed: {message}")
+    data = resp.result or {}
+    if not data.get("found"):
+        return None
+    wf = data["workflow"]
+    return DoneItemContext(
+        title=str(data.get("title") or ""),
+        stage_id=str(data.get("stage_id") or ""),
+        lane_branch=str(data.get("lane_branch") or ""),
+        project=str(data.get("project") or "yoke"),
+        item_ref=str(data.get("item_ref") or ""),
+        workflow=WorkflowRuntime(
+            workflow_id=str(wf["workflow_id"]),
+            workflow_version_id=int(wf["workflow_version_id"]),
+            version=int(wf["version"]),
+            definition_digest=str(wf["definition_digest"]),
+            definition=wf["definition"],
+        ),
     )
 
 
@@ -65,4 +118,5 @@ __all__ = [
     "DoneItemContext",
     "format_workflow_route",
     "load_done_item_context",
+    "load_done_item_context_over_transport",
 ]

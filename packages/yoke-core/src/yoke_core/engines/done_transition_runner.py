@@ -11,7 +11,7 @@ from yoke_core.domain.workflow_behavior import (
     requires_plan_simulation,
 )
 from yoke_core.engines.done_transition_item_context import (
-    load_done_item_context,
+    load_done_item_context_over_transport,
 )
 from yoke_core.engines.done_transition_finalize import finish_done_transition
 from yoke_core.engines.done_transition_preconditions import (
@@ -40,7 +40,6 @@ def run(
     mw = _parent()
     TransitionResult = mw.TransitionResult
     _resolve_repo_root = mw._resolve_repo_root
-    _connect = mw._connect
     _resolve_project_context = mw._resolve_project_context
     _query_item_field = mw._query_item_field
     _get_base_branch = mw._get_base_branch
@@ -66,15 +65,15 @@ def run(
     _sync_done_item_direct = mw._sync_done_item_direct
     _apply_discovery_scan = mw._apply_discovery_scan
 
-    from yoke_core.domain.project_identity import render_item_ref
-
-    with _connect() as conn:
-        item_ref = render_item_ref(conn, item_id)
-
-    result = TransitionResult(item=item_ref)
+    # The public item ref is resolved once, server-side, by the transport
+    # context relay (project-sequence aware, no local connection). Until that
+    # load completes the only identity available is the bare items.id, so the
+    # temp result-file name and the "item not found" error carry the raw id
+    # (not a fabricated ref); every user-facing ref below is context.item_ref.
+    result = TransitionResult(item=str(item_id))
     result_file = os.path.join(
         os.environ.get("TMPDIR", "/tmp"),
-        f"done-transition-result.{item_ref}.json",
+        f"done-transition-result.{item_id}.json",
     )
 
     repo_root = _resolve_repo_root()
@@ -85,12 +84,13 @@ def run(
     _reseat_runtime_paths(repo_root)
     result.add_step("1")
     print(f"YOKE_REPO_ROOT={repo_root}")
-    with _connect() as conn:
-        context = load_done_item_context(conn, item_id)
+    context = load_done_item_context_over_transport(item_id)
     if context is None:
-        print(f"Error: Item {item_ref} not found.", file=sys.stderr)
+        print(f"Error: Item {item_id} not found.", file=sys.stderr)
         return result.fail(result_file, 2, "2")
 
+    item_ref = context.item_ref
+    result.item = item_ref
     title = context.title
     old_status = context.stage_id
     lane_branch = context.lane_branch
@@ -276,6 +276,7 @@ def run(
         item_project,
         old_status,
         delivery_redirect_stage(workflow),
+        item_ref=item_ref,
     )
     if deploy_guard is not None:
         exit_code, new_status = deploy_guard
@@ -298,7 +299,7 @@ def run(
     print("\n=== Step 6: Update status to done ===")
     _populate_merged_at(item_id)
 
-    success = _update_status_to_done(item_id, skip_qa)
+    success = _update_status_to_done(item_id, skip_qa, item_ref=item_ref)
     if not success:
         verify = _query_item_field(item_id, "status")
         print(
@@ -326,7 +327,7 @@ def run(
     result.add_step("6c")
 
     if has_task_graph and task_parent_ref:
-        _cascade_epic_tasks_to_done(item_id, task_parent_ref)
+        _cascade_epic_tasks_to_done(item_id, task_parent_ref, item_ref=item_ref)
     for _s in ("6b", "6d", "7"):
         result.add_step(_s)
     print("\n=== Step 8: Sync done state to GitHub ===")
