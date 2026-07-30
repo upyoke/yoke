@@ -5,9 +5,7 @@ not listed here, or MORE occurrences than listed, fails the check. These are
 the legacy sites not yet converted to the canonical formatter/resolver — many
 are correct-as-is (git branch names parsed back to items.id, item_dependencies
 text-ref columns, not-found fallback paths, no-conn pure formatters). This map
-may only SHRINK: convert a site to render_item_ref/format_item_ref (display) or
-resolve_item_id (resolution), then lower or delete its entry. Empty => zero
-tolerance.
+may only SHRINK. Empty => zero tolerance.
 """
 
 from __future__ import annotations
@@ -58,7 +56,6 @@ BASELINE: dict[str, int] = {
     "packages/yoke-core/src/yoke_core/domain/deploy_pipeline_migration.py": 2,
     "packages/yoke-core/src/yoke_core/domain/deployment_runs_validation.py": 14,
     "packages/yoke-core/src/yoke_core/domain/discovery_scan.py": 2,
-    "packages/yoke-core/src/yoke_core/domain/drift_review_assess.py": 1,
     "packages/yoke-core/src/yoke_core/domain/ephemeral_environment_item_binding.py": 1,
     "packages/yoke-core/src/yoke_core/domain/epic_task_scope.py": 9,
     "packages/yoke-core/src/yoke_core/domain/epic_task_sync.py": 1,
@@ -160,7 +157,6 @@ BASELINE: dict[str, int] = {
     "packages/yoke-core/src/yoke_core/engines/done_transition_preconditions.py": 1,
     "packages/yoke-core/src/yoke_core/engines/done_transition_runner.py": 3,
     "packages/yoke-core/src/yoke_core/engines/done_transition_runtime.py": 4,
-    "packages/yoke-core/src/yoke_core/engines/merge_audit_report.py": 4,
     "packages/yoke-core/src/yoke_core/engines/merge_worktree_cleanup.py": 1,
     "packages/yoke-core/src/yoke_core/engines/merge_worktree_post_helpers.py": 1,
     "packages/yoke-core/src/yoke_core/engines/merge_worktree_prepare.py": 1,
