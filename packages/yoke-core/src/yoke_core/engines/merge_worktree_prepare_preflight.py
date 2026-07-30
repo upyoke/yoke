@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import json
-import os
 from typing import Optional, Tuple
 
 from typing import TYPE_CHECKING
 
+from yoke_contracts.api.function_call import TargetRef
+from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain.classify_dirty_files import is_yoke_managed_pattern
 
 if TYPE_CHECKING:  # the cycle-free half of the prepare<->preflight pair
@@ -28,7 +28,6 @@ def preflight_checks(ctx: MergeContext) -> Optional[Tuple[int, str]]:
     mw = _parent()
     _print = mw._print
     _run_git = mw._run_git
-    _run_python_module = mw._run_python_module
 
     _print("Running pre-flight checks...")
     fail = False
@@ -87,49 +86,55 @@ def preflight_checks(ctx: MergeContext) -> Optional[Tuple[int, str]]:
     else:
         _print("  OK: Branch tracking check skipped (no remote tracking branch)")
 
-    # PF-3: Epic tasks (when epic ID provided)
+    # PF-3: Epic tasks (when epic ID provided). The completeness verdict runs
+    # on the relayed epic-task status survey so it evaluates over an https
+    # control plane as well as a local Postgres connection; the terminal
+    # success set stays engine-owned.
     if ctx.epic_id:
-        from yoke_core.engines.merge_worktree_prepare import (
-            _p,
-            _sql_task_terminal_success_list,
-        )
+        from yoke_core.engines.merge_worktree_prepare import _TASK_TERMINAL_SUCCESS
 
-        conn = None
         try:
-            conn = mw._connect()
-            terminal_list = _sql_task_terminal_success_list()
-            incomplete = conn.execute(
-                f"SELECT task_num, status FROM epic_tasks "
-                f"WHERE epic_id={_p(conn)} AND status NOT IN ({terminal_list}) "
-                f"ORDER BY task_num",
-                (ctx.epic_id,),
-            ).fetchall()
-            total = conn.execute(
-                f"SELECT COUNT(*) FROM epic_tasks WHERE epic_id={_p(conn)}",
-                (ctx.epic_id,),
-            ).fetchone()[0]
-
-            if total > 0 and incomplete:
-                _print("  FAIL: Incomplete tasks found:", err=True)
-                for row in incomplete:
-                    _print(f"    - {row['task_num']}:{row['status']}", err=True)
-                fail = True
-            elif total > 0:
-                _print("  OK: All tasks completed")
-        except Exception:  # noqa: BLE001 - preflight degrades if DB unavailable.
+            resp = call_dispatcher(
+                function_id="merge.preflight.epic_task_statuses",
+                target=TargetRef(kind="item", item_id=int(ctx.epic_id)),
+                payload={},
+            )
+            if resp.success:
+                tasks = (resp.result or {}).get("tasks") or []
+                incomplete = [
+                    t for t in tasks
+                    if t.get("status") not in _TASK_TERMINAL_SUCCESS
+                ]
+                if tasks and incomplete:
+                    _print("  FAIL: Incomplete tasks found:", err=True)
+                    for row in incomplete:
+                        _print(
+                            f"    - {row['task_num']}:{row['status']}", err=True
+                        )
+                    fail = True
+                elif tasks:
+                    _print("  OK: All tasks completed")
+        except Exception:  # noqa: BLE001 - preflight degrades if the read is unavailable.
             pass
-        finally:
-            if conn is not None:
-                conn.close()
 
-    # PF-4: Integration simulation gate (epics only)
+    # PF-4: Integration simulation gate (epics only). The relayed read
+    # replaces the local ``db_router`` child process so the gate runs over an
+    # https control plane; a missing report (or a refused relay) stays a hard
+    # block unless --skip-simulation is set, matching the child-process path.
     if ctx.epic_id:
-        result = _run_python_module(
-            "yoke_core.cli.db_router",
-            ["epic", "simulation-get", str(ctx.epic_id), "integration"],
-            capture=True,
-        )
-        if result.returncode != 0 or not result.stdout.strip():
+        found = False
+        try:
+            resp = call_dispatcher(
+                function_id="workflow_item.epic_task.simulation_get",
+                target=TargetRef(kind="epic_task", epic_id=int(ctx.epic_id)),
+                payload={"phase": "integration"},
+            )
+            found = resp.success and bool(
+                str((resp.result or {}).get("body") or "").strip()
+            )
+        except Exception:  # noqa: BLE001 - a refused relay reads as "report not found".
+            found = False
+        if not found:
             if ctx.args.skip_simulation:
                 _print(f"  WARN: Integration simulation gate overridden (--skip-simulation) for epic: {ctx.epic_id}", err=True)
             else:
@@ -139,58 +144,61 @@ def preflight_checks(ctx: MergeContext) -> Optional[Tuple[int, str]]:
         else:
             _print("  OK: Canonical integration simulation report exists")
 
-    # PF-5: Integration dependency gate
-    result = _run_python_module(
-        "yoke_core.api.service_client",
-        ["evaluate-gate", ctx.args.branch, "integration"],
-        capture=True,
-    )
-    if result.returncode == 0 and result.stdout.strip():
-        try:
-            gate_data = json.loads(result.stdout.strip())
-            if gate_data.get("is_blocked"):
-                _print(f"  FAIL: Integration dependency gate blocked for {ctx.args.branch}", err=True)
-                for b in gate_data.get("unsatisfied_blockers", []):
-                    _print(
-                        f"    - {b.get('blocking_item', '?')} ({b.get('blocking_status', '?')}): "
-                        f"{b.get('rationale', 'no rationale')}",
-                        err=True,
-                    )
-                fail = True
-            else:
-                _print("  OK: Integration dependency gate clear")
-        except (json.JSONDecodeError, TypeError):
-            _print("  OK: Integration dependency gate skipped (invalid response)")
-    else:
-        _print("  OK: Integration dependency gate skipped (service-client unavailable)")
-
-    # PF-6: blocked-flag refusal
+    # PF-5: Integration dependency gate. The relayed evaluation replaces the
+    # local ``service_client`` child process so the gate runs over an https
+    # control plane; an unavailable read degrades to a skip (advisory), while
+    # a returned block is surfaced verbatim.
     try:
-        from yoke_core.domain.advance_blocked_gate import evaluate as _eval_blocked
-        from yoke_core.engines.merge_worktree_prepare import _p
+        dep_resp = call_dispatcher(
+            function_id="merge.preflight.dependency_gate",
+            target=TargetRef(kind="global"),
+            payload={"item_ref": ctx.args.branch, "gate_point": "integration"},
+        )
+    except Exception:  # noqa: BLE001 - a refused relay degrades the advisory gate.
+        dep_resp = None
+    if dep_resp is not None and dep_resp.success:
+        gate_data = dep_resp.result or {}
+        if gate_data.get("is_blocked"):
+            _print(f"  FAIL: Integration dependency gate blocked for {ctx.args.branch}", err=True)
+            for b in gate_data.get("unsatisfied_blockers", []):
+                _print(
+                    f"    - {b.get('blocking_item', '?')} ({b.get('blocking_status', '?')}): "
+                    f"{b.get('rationale', 'no rationale')}",
+                    err=True,
+                )
+            fail = True
+        else:
+            _print("  OK: Integration dependency gate clear")
+    else:
+        _print("  OK: Integration dependency gate skipped (dependency read unavailable)")
 
-        _conn = mw._connect()
-        try:
-            _row = _conn.execute(
-                "SELECT item_id FROM item_worktrees "
-                f"WHERE branch = {_p(_conn)} AND state = 'active'",
-                (ctx.args.branch,),
-            ).fetchone()
-            if _row is not None:
-                decision = _eval_blocked(_conn, int(_row[0]))
-                if decision.blocked:
-                    _print(f"  FAIL: Item YOK-{int(_row[0])} is blocked (items.blocked=1).", err=True)
-                    if decision.reason:
-                        _print(f"    Reason: {decision.reason}", err=True)
+    # PF-6: blocked-flag refusal. The relayed read resolves the active
+    # worktree lane for the branch and reads the item's blocked flag so the
+    # gate runs over an https control plane; it only fires when a lane exists
+    # (matching the local query) and degrades to a skip when unavailable.
+    try:
+        resp = call_dispatcher(
+            function_id="merge.preflight.blocked_gate",
+            target=TargetRef(kind="global"),
+            payload={"branch": ctx.args.branch},
+        )
+        if resp.success:
+            data = resp.result or {}
+            if data.get("applicable"):
+                iid = int(data.get("item_id"))
+                if data.get("blocked"):
+                    _print(f"  FAIL: Item YOK-{iid} is blocked (items.blocked=1).", err=True)
+                    if data.get("reason"):
+                        _print(f"    Reason: {data['reason']}", err=True)
                     _print(
-                        f"    Run /yoke unblock YOK-{int(_row[0])} before merging.",
+                        f"    Run /yoke unblock YOK-{iid} before merging.",
                         err=True,
                     )
                     fail = True
                 else:
                     _print("  OK: Item not blocked")
-        finally:
-            _conn.close()
+        else:
+            _print("  OK: Blocked-flag gate skipped (DB unavailable)")
     except Exception:  # noqa: BLE001 - degrade if DB unavailable
         _print("  OK: Blocked-flag gate skipped (DB unavailable)")
 
