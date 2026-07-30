@@ -86,7 +86,7 @@ def _worktree_dirty_files(wt_path: str) -> List[str]:
     )
     if result.returncode != 0:
         return []
-    lines = [l for l in result.stdout.splitlines() if l.strip()]
+    lines = [line for line in result.stdout.splitlines() if line.strip()]
     return lines
 
 
@@ -144,9 +144,10 @@ def main() -> None:
     """CLI: ``python3 -m yoke_core.engines.merge_audit [epic-id]``."""
     epic_filter: Optional[int] = None
     if len(sys.argv) > 1:
-        raw = re.sub(r"^[Yy][Oo][Kk]-", "", sys.argv[1])
+        from yoke_core.domain.yok_n_parser import parse_item_id
+
         try:
-            epic_filter = int(raw)
+            epic_filter = parse_item_id(sys.argv[1], allow_bare_internal=True)
         except ValueError:
             print(f"Error: invalid epic ID: {sys.argv[1]}", file=sys.stderr)
             sys.exit(1)

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 import sys
 
 from yoke_core.engines.done_transition_runtime import (  # noqa: F401
@@ -82,11 +81,12 @@ def main(argv: list[str] | None = None) -> int:
         elif arg == "--skip-qa":
             skip_qa = True
         elif item_id is None:
-            cleaned = re.sub(r"^[Yy][Oo][Kk]-", "", arg).lstrip("0")
-            if not cleaned.isdigit():
+            from yoke_core.domain.yok_n_parser import parse_item_id_or_none
+
+            item_id = parse_item_id_or_none(arg, allow_bare_internal=True)
+            if item_id is None:
                 print(f"Error: unexpected argument: {arg}", file=sys.stderr)
                 return 2
-            item_id = int(cleaned)
         else:
             print(f"Error: unexpected argument: {arg}", file=sys.stderr)
             return 2

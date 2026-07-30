@@ -258,9 +258,9 @@ def test_no_action_when_deploy_stage_not_failed_shape(wired, monkeypatch):
     assert "<stage>-failed" in result.message
     assert wired.dispatched == []
 
-def test_parse_item_id_accepts_yok_prefix_and_bare_int():
-    assert mod._parse_item_id("YOK-42") == 42
-    assert mod._parse_item_id("yok-042") == 42
+def test_parse_item_id_accepts_bare_int():
+    # PREFIX-N resolution (project sequence -> internal id) is covered by
+    # the canonical parser tests; here only the DB-free shapes.
     assert mod._parse_item_id("42") == 42
     assert mod._parse_item_id("0042") == 42
 
@@ -279,7 +279,7 @@ def test_main_exits_with_usage_code_on_bad_arg(wired, capsys):
 
 
 def test_main_returns_zero_on_alignment(wired, capsys):
-    rc = mod.main(["YOK-42"])
+    rc = mod.main(["42"])
     assert rc == mod.EXIT_OK
     assert "Resume usher with: /yoke usher YOK-42 --resume" in capsys.readouterr().out
 
@@ -295,6 +295,6 @@ def test_main_returns_running_code_when_gh_in_progress(wired, monkeypatch, capsy
         return _proc(1, "")
     monkeypatch.setattr(mod, "_github_actions", gh)
 
-    rc = mod.main(["YOK-42"])
+    rc = mod.main(["42"])
     assert rc == mod.EXIT_RUNNING
     assert "still in_progress" in capsys.readouterr().out

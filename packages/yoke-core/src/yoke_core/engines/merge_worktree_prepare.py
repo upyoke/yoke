@@ -129,25 +129,36 @@ def resolve_context(args: MergeArgs) -> MergeContext:
         raise RuntimeError("Not in a git repository")
     ctx.yoke_repo_root = ctx.repo_root
 
-    # Parse item ID from branch name
-    match = re.search(r"YOK-(\d+)", args.branch)
-    if match:
-        ctx.item_id = match.group(1)
+    # Resolve the branch's public item ref (PREFIX-N carries the project
+    # sequence, not the internal id) to the internal items.id every
+    # downstream consumer expects.
+    from yoke_core.domain.yok_n_parser import parse_item_id_or_none
 
-    # Resolve epic ID
-    ctx.epic_id = args.epic_ref
-    if ctx.epic_id:
-        # Resolve YOK-N or numeric
-        clean_id = re.sub(r"^[Yy][Oo][Kk]-", "", ctx.epic_id).lstrip("0") or "0"
+    match = re.search(r"([A-Za-z][A-Za-z0-9]*-\d+)", args.branch)
+    if match:
         conn = None
         try:
             conn = mw._connect()
-            row = conn.execute(
-                f"SELECT CAST(id AS TEXT) FROM items WHERE id={_p(conn)} LIMIT 1",
-                (int(clean_id),),
-            ).fetchone()
-            if row:
-                ctx.epic_id = row[0]
+            resolved = parse_item_id_or_none(match.group(1), conn=conn)
+            if resolved is not None:
+                ctx.item_id = str(resolved)
+        except Exception:  # noqa: BLE001 - DB context is advisory here.
+            pass
+        finally:
+            if conn is not None:
+                conn.close()
+
+    # Resolve epic ID (PREFIX-N via project sequence; bare N = internal id)
+    ctx.epic_id = args.epic_ref
+    if ctx.epic_id:
+        conn = None
+        try:
+            conn = mw._connect()
+            resolved = parse_item_id_or_none(
+                ctx.epic_id, conn=conn, allow_bare_internal=True
+            )
+            if resolved is not None:
+                ctx.epic_id = str(resolved)
         except Exception:  # noqa: BLE001 - DB context is advisory here.
             pass
         finally:
@@ -155,7 +166,7 @@ def resolve_context(args: MergeArgs) -> MergeContext:
                 conn.close()
 
     # Guard: standalone item branches need YOKE_DONE_TRANSITION
-    if (not ctx.epic_id or ctx.epic_id == "null") and args.branch.startswith("YOK-"):
+    if (not ctx.epic_id or ctx.epic_id == "null") and match is not None:
         if os.environ.get("YOKE_DONE_TRANSITION", "0") != "1":
             raise RuntimeError(
                 f"merge_worktree called for standalone item branch '{args.branch}' "
