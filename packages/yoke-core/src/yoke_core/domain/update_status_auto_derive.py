@@ -16,6 +16,7 @@ from typing import Any, Optional, TextIO
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_rows, query_scalar
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.task_lifecycle import TASK_TERMINAL_SUCCESS, TERMINAL_FAILURE
 
 
@@ -43,6 +44,8 @@ def auto_derive_epic_status(
     )
     if not rows:
         return
+
+    epic_ref = render_item_ref(conn, int(epic_id))
 
     total = len(rows)
     in_flight = 0
@@ -91,7 +94,7 @@ def auto_derive_epic_status(
     # ``items.status='done'`` directly.
     if parent_status == "release":
         _finalize_release_epic_if_ready(
-            conn, epic_id, rows, stdout=stdout, stderr=stderr
+            conn, epic_id, rows, epic_ref=epic_ref, stdout=stdout, stderr=stderr
         )
         return
 
@@ -105,7 +108,7 @@ def auto_derive_epic_status(
     if parent_status == derived:
         return
 
-    print(f"Auto-deriving epic YOK-{epic_id} status: {parent_status} -> {derived}", file=stdout)
+    print(f"Auto-deriving epic {epic_ref} status: {parent_status} -> {derived}", file=stdout)
 
     # direct in-process call to the owned backlog domain.
     from yoke_core.domain import backlog
@@ -141,7 +144,7 @@ def auto_derive_epic_status(
         )
     except Exception as exc:  # pragma: no cover - defensive
         print(
-            f"WARNING: auto_derive_epic_status: parent-status write raised for epic YOK-{epic_id}: {exc}",
+            f"WARNING: auto_derive_epic_status: parent-status write raised for epic {epic_ref}: {exc}",
             file=stderr,
         )
         return
@@ -156,7 +159,7 @@ def auto_derive_epic_status(
     if not result.get("success"):
         snippet = (result.get("error") or "").split("\n")[0][:200] or "unknown"
         print(
-            f"WARNING: auto_derive_epic_status: parent-status write failed for epic YOK-{epic_id} "
+            f"WARNING: auto_derive_epic_status: parent-status write failed for epic {epic_ref} "
             f"({parent_status} -> {derived}): {snippet}",
             file=stderr,
         )
@@ -176,7 +179,7 @@ def auto_derive_epic_status(
     if post_status != derived:
         print(
             f"WARNING: auto_derive_epic_status: post-write verification failed for "
-            f"epic YOK-{epic_id} — expected '{derived}', got '{post_status}'",
+            f"epic {epic_ref} — expected '{derived}', got '{post_status}'",
             file=stderr,
         )
 
@@ -186,6 +189,7 @@ def _finalize_release_epic_if_ready(
     epic_id: str,
     rows: list,
     *,
+    epic_ref: str,
     stdout: TextIO,
     stderr: TextIO,
 ) -> None:
@@ -211,7 +215,7 @@ def _finalize_release_epic_if_ready(
     if non_done:
         detail = ", ".join(f"task {tnum}={st}" for tnum, st in non_done)
         print(
-            f"Epic YOK-{epic_id} at release: not auto-finalizing — "
+            f"Epic {epic_ref} at release: not auto-finalizing — "
             f"{len(non_done)} child task(s) not done ({detail}).",
             file=stdout,
         )
@@ -227,7 +231,7 @@ def _finalize_release_epic_if_ready(
         return
 
     print(
-        f"Auto-finalizing epic YOK-{epic_id}: all child tasks done and parent at "
+        f"Auto-finalizing epic {epic_ref}: all child tasks done and parent at "
         f"release — routing release -> done through the done-transition engine.",
         file=stdout,
     )
@@ -245,7 +249,7 @@ def _finalize_release_epic_if_ready(
     except Exception as exc:  # pragma: no cover - defensive
         print(
             f"WARNING: auto-finalize: done-transition engine raised for "
-            f"epic YOK-{epic_id}: {exc}",
+            f"epic {epic_ref}: {exc}",
             file=stderr,
         )
         return
@@ -260,10 +264,10 @@ def _finalize_release_epic_if_ready(
     if rc != 0:
         print(
             f"WARNING: auto-finalize: done-transition engine refused epic "
-            f"YOK-{epic_id} (exit {rc}); parent left at release. Resolve the "
-            f"reported gate and run /yoke usher YOK-{epic_id}.",
+            f"{epic_ref} (exit {rc}); parent left at release. Resolve the "
+            f"reported gate and run /yoke usher {epic_ref}.",
             file=stderr,
         )
         return
 
-    print(f"Epic YOK-{epic_id} finalized: release -> done.", file=stdout)
+    print(f"Epic {epic_ref} finalized: release -> done.", file=stdout)

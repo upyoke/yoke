@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Set
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.project_identity import resolve_project_id
+from yoke_core.domain.project_identity import render_item_ref, resolve_project_id
 from yoke_core.domain.strategize_carry_schema import (
     DEFAULT_CARRY_LIMIT,
     DEFAULT_HORIZON_DAYS,
@@ -153,7 +153,7 @@ def get_candidate_set(
         item_id = int(row[0])
         entry: Dict[str, Any] = {
             "item_id": item_id,
-            "yok_id": f"YOK-{item_id}",
+            "yok_id": render_item_ref(conn, item_id),
             "state": row[1],
             "first_seen_at": row[2] or "",
             "last_updated_at": row[3] or "",
