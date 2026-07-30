@@ -209,12 +209,27 @@ _SCHEMA_GATE_PREFIXES = (
 )
 
 def _schema_gate(*, merge_ran: bool = True, project_repo: Path | None = None) -> None:
-    """Post-merge schema refresh (step 5a)."""
+    """Post-merge schema refresh (step 5a).
+
+    Over an https control plane the server owns and converges its own
+    schema on boot; there is no local DB to re-converge and re-converging
+    the server's schema from the client is neither possible nor correct, so
+    the refresh (schema + shepherd init) is skipped. On a local Postgres
+    connection the merge just updated the schema source on disk, so the
+    local DB is re-converged in-process exactly as before.
+    """
     from yoke_core.domain import schema as _schema_domain, shepherd as _shepherd_domain
+    from yoke_core.domain.worktree_create_db import item_worktree_authority_is_https
 
     print("\n=== Step 5a: Schema gate ===")
     if not _schema_gate_needed(merge_ran, project_repo):
         print("[schema-gate] schema current - skipping refresh.")
+        return
+    if item_worktree_authority_is_https():
+        print(
+            "[schema-gate] Skipping schema refresh over https "
+            "(server owns its own schema)."
+        )
         return
     print("[schema-gate] Running schema refresh...")
     try:

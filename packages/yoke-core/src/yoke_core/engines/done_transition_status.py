@@ -16,7 +16,6 @@ from yoke_contracts.github_app_installation_permissions import (
     GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
 )
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
-from yoke_core.domain import db_backend
 from yoke_core.domain.gh_rest_transport import (
     RestRequest,
     RestTransportError,
@@ -34,24 +33,32 @@ def _parent():
     return _dt
 
 
-def _p(conn) -> str:
-    return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
 def _populate_merged_at(item_id: int) -> None:
-    """Populate merged_at if not already set."""
+    """Populate merged_at if not already set, through the transport.
+
+    The already-set pre-check relays through ``done_transition.item_field``
+    (a read migrated earlier); the update relays through
+    ``done_transition.populate_merged_at`` so it runs over an https control
+    plane as well as a local Postgres connection. The timestamp is resolved
+    here (the engine's ``now``) so the value is identical across transports.
+    A failed write raises, matching the inline ``connect()`` the engine
+    never swallowed — merged_at is populated before the status flip, so the
+    item never reaches done on an unset merged_at.
+    """
     print("--- Populating merged_at (pre-flight) ---")
     existing = _parent()._query_item_field(item_id, "merged_at")
     if existing and existing != "null":
         print(f"  merged_at already set: {existing}")
         return
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    with _parent()._connect() as conn:
-        p = _p(conn)
-        conn.execute(
-            f"UPDATE items SET merged_at = {p} WHERE id = {p}",
-            (now, item_id),
-        )
+    resp = call_dispatcher(
+        function_id="done_transition.populate_merged_at",
+        target=TargetRef(kind="item", item_id=int(item_id)),
+        payload={"merged_at": now},
+    )
+    if not resp.success:
+        message = resp.error.message if resp.error else "unknown error"
+        raise RuntimeError(f"merged_at write failed: {message}")
     print(f"  merged_at set to {now}")
 
 
