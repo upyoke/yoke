@@ -1,44 +1,59 @@
-"""Execute bounded installer-campaign recipes through SSH host control."""
+"""Execute user-visible recipes directly in macOS Terminal.app."""
 
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 import shlex
 import time
-from collections.abc import Callable
-from typing import Any, Mapping, Sequence
+from typing import Any
 from uuid import uuid4
 
 from yoke_core.domain.host_control_executor import HostActionResult
 from yoke_core.domain.machine_qa_operator_gate import (
-    run_machine_browser_approval,
+    run_machine_browser_approval_with_io,
 )
 from yoke_core.domain.qa_artifact_handle import local_handle
-from yoke_core.domain.ssh_mac_terminal_capture import (
+from yoke_core.domain.ssh_mac_terminal_app import (
     RunRemote,
-    capture_screen,
-    close_terminal_session,
-    close_terminal_window,
-    detect_terminal_backend,
-    open_terminal_window,
-    resize_terminal_session,
+    capture_terminal_app_screen,
+    capture_terminal_app_transcript,
+    close_terminal_app_window,
+    open_terminal_app_window,
+    send_terminal_app_keys,
 )
 from yoke_core.domain.ssh_mac_terminal_readiness import (
     DEFAULT_READY_TIMEOUT_SECONDS,
-    wait_for_ready_text,
+    wait_for_ready_text_with_reader,
 )
 from yoke_core.domain.ssh_mac_terminal_recipe_support import (
-    capture_recipe_transcript,
     read_recipe_exit_code,
     recipe_assertion_failures,
-    send_recipe_keys,
 )
 from yoke_core.domain.terminal_screenshot_quality import (
     TerminalScreenshotRegistry,
 )
 
 
-def _run_interactive_recipe(
+def _failure(
+    error_code: str,
+    *,
+    captures: list[dict[str, Any]],
+    **evidence: Any,
+) -> HostActionResult:
+    return HostActionResult(
+        False,
+        {
+            "execution_mode": "terminal",
+            "terminal_surface": "Terminal.app",
+            "steps": captures,
+            **evidence,
+        },
+        error_code,
+    )
+
+
+def run_terminal_app_recipe(
     run: RunRemote,
     *,
     entry_surface: str,
@@ -51,87 +66,65 @@ def _run_interactive_recipe(
     progress_callback: Callable[[], None] | None,
     allowed_operator_urls: tuple[str, ...],
 ) -> HostActionResult:
-    """Run one interactive recipe after its files are staged."""
-    backend = detect_terminal_backend(run)
-    if backend is None:
-        return HostActionResult(
-            False,
-            {"terminal_backend": None, "staged_files": staged},
-            "terminal_bridge_unavailable",
-        )
+    """Run one recipe in the same Terminal.app surface a person operates."""
     session = "yoke-qa-" + uuid4().hex[:12]
     status_path = f"/tmp/{session}.exit"
     evidence_root = evidence_parent / session
     evidence_root.mkdir(parents=True, exist_ok=True)
     wrapped = (
-        "set +e; ( "
+        "printf '\\033c'; set +e; ( "
         + entry_surface
         + " ); rc=$?; printf '%s\\n' \"$rc\" > "
         + shlex.quote(status_path)
-        + "; sleep 600"
-    )
-    start = (
-        f"tmux new-session -d -s {shlex.quote(session)} /bin/sh -lc "
-        + shlex.quote(wrapped)
-        if backend == "tmux"
-        else f"screen -dmS {shlex.quote(session)} /bin/sh -lc " + shlex.quote(wrapped)
     )
     started = time.monotonic()
     captures: list[dict[str, Any]] = []
     degraded: list[str] = []
-    screenshot_registry = TerminalScreenshotRegistry()
     reached: list[str] = []
-    terminal_window_id: int | None = None
+    screenshot_registry = TerminalScreenshotRegistry()
+    window_id: int | None = None
     try:
-        if run(start, timeout=20).returncode:
-            return HostActionResult(
-                False,
-                {"terminal_backend": backend, "staged_files": staged},
-                "terminal_entry_failed",
-            )
-        if terminal_size is not None and not resize_terminal_session(
+        window_id = open_terminal_app_window(
             run,
-            backend=backend,
-            session=session,
-            columns=terminal_size[0],
-            rows=terminal_size[1],
-        ):
-            return HostActionResult(
-                False,
-                {"terminal_backend": backend, "staged_files": staged},
-                "terminal_resize_failed",
-            )
-        attach = (
-            f"tmux attach-session -t {session}"
-            if backend == "tmux"
-            else f"screen -r {session}"
+            command=wrapped,
+            terminal_size=terminal_size,
         )
-        terminal_window_id = open_terminal_window(
-            run,
-            command=attach,
-        )
-        if terminal_window_id is None:
-            return HostActionResult(
-                False,
-                {"terminal_backend": backend, "staged_files": staged},
-                "terminal_attach_failed",
+        if window_id is None:
+            return _failure(
+                "terminal_app_launch_failed",
+                captures=captures,
+                staged_files=staged,
             )
+
+        def read_transcript() -> str:
+            assert window_id is not None
+            return capture_terminal_app_transcript(
+                run,
+                window_id=window_id,
+            )
+
+        def send_keys(keys: Sequence[str]) -> bool:
+            assert window_id is not None
+            return send_terminal_app_keys(
+                run,
+                window_id=window_id,
+                keys=keys,
+            )
+
         time.sleep(float(config["start_delay"]))
         for action in config["actions"]:
             if time.monotonic() - started > float(config["max_wall_seconds"]):
-                return HostActionResult(
-                    False,
-                    {"steps": captures, "terminal_backend": backend},
+                return _failure(
                     "terminal_recipe_timed_out",
+                    captures=captures,
                 )
             ready_text = tuple(action.get("ready_text", ()))
             ready_transcript: str | None = None
             operator_gate = action.get("operator_gate")
             if operator_gate == "machine_browser_approval":
-                gate_result = run_machine_browser_approval(
-                    run,
-                    backend=backend,
-                    session=session,
+                gate_result = run_machine_browser_approval_with_io(
+                    read_transcript=read_transcript,
+                    send_keys=send_keys,
                     action=action,
                     progress_callback=progress_callback,
                     allowed_base_urls=allowed_operator_urls,
@@ -146,14 +139,10 @@ def _run_interactive_recipe(
                             "operator_gate": operator_gate,
                         }
                     )
-                    return HostActionResult(
-                        False,
-                        {
-                            "steps": captures,
-                            "terminal_backend": backend,
-                            "operator_gate": operator_gate,
-                        },
-                        gate_result.error_code,
+                    return _failure(
+                        str(gate_result.error_code),
+                        captures=captures,
+                        operator_gate=operator_gate,
                     )
             if ready_text:
                 remaining_wall_seconds = max(
@@ -169,10 +158,8 @@ def _run_interactive_recipe(
                     ),
                     remaining_wall_seconds,
                 )
-                ready, ready_transcript = wait_for_ready_text(
-                    run,
-                    backend=backend,
-                    session=session,
+                ready, ready_transcript = wait_for_ready_text_with_reader(
+                    read_transcript=read_transcript,
                     expected=ready_text,
                     timeout_seconds=ready_timeout_seconds,
                 )
@@ -185,41 +172,24 @@ def _run_interactive_recipe(
                             "waiting_for": list(ready_text),
                         }
                     )
-                    return HostActionResult(
-                        False,
-                        {
-                            "steps": captures,
-                            "terminal_backend": backend,
-                            "waiting_for": list(ready_text),
-                        },
+                    return _failure(
                         "terminal_action_not_ready",
+                        captures=captures,
+                        waiting_for=list(ready_text),
                     )
-            if (
-                operator_gate is None
-                and action["keys"]
-                and not send_recipe_keys(
-                    run,
-                    backend=backend,
-                    session=session,
-                    keys=action["keys"],
-                )
-            ):
-                return HostActionResult(
-                    False,
-                    {"steps": captures, "terminal_backend": backend},
-                    "terminal_input_failed",
-                )
+            if operator_gate is None and action["keys"]:
+                if not send_keys(action["keys"]):
+                    return _failure(
+                        "terminal_app_input_failed",
+                        captures=captures,
+                    )
             if operator_gate is None and (action["keys"] or "wait_seconds" in action):
                 time.sleep(float(action.get("wait_seconds", config["step_delay"])))
             key = str(action["step"])
             transcript = (
                 ready_transcript
                 if ready_transcript is not None and not action["keys"]
-                else capture_recipe_transcript(
-                    run,
-                    backend=backend,
-                    session=session,
-                )
+                else read_transcript()
             )
             capture = {
                 "key": key,
@@ -229,12 +199,13 @@ def _run_interactive_recipe(
             captures.append(capture)
             reached.append(key)
             if action["capture"] and key in config["capture_checkpoints"]:
-                screenshot = capture_screen(
+                assert window_id is not None
+                screenshot = capture_terminal_app_screen(
                     run,
                     session=session,
                     key=f"{len(captures):03d}-{key}",
                     evidence_root=evidence_root,
-                    window_id=terminal_window_id,
+                    window_id=window_id,
                 )
                 if screenshot is None:
                     degraded.append(f"{key}: screenshot capture blocked")
@@ -244,15 +215,11 @@ def _run_interactive_recipe(
                         screenshot,
                     )
                     if duplicate_of is not None:
-                        return HostActionResult(
-                            False,
-                            {
-                                "steps": captures,
-                                "terminal_backend": backend,
-                                "duplicate_checkpoint": key,
-                                "original_checkpoint": duplicate_of,
-                            },
+                        return _failure(
                             "terminal_duplicate_screenshot",
+                            captures=captures,
+                            duplicate_checkpoint=key,
+                            original_checkpoint=duplicate_of,
                         )
                     capture["artifact_handle"] = local_handle(
                         str(screenshot.resolve()),
@@ -274,8 +241,8 @@ def _run_interactive_recipe(
         if required_completion not in reached:
             failures.append("required completion was not reached")
         evidence = {
-            "execution_mode": "terminal-multiplexer",
-            "terminal_backend": backend,
+            "execution_mode": "terminal",
+            "terminal_surface": "Terminal.app",
             "staged_files": staged,
             "steps": captures,
             "required_completion": required_completion,
@@ -289,22 +256,15 @@ def _run_interactive_recipe(
             None if not failures else "terminal_recipe_assertion_failed",
         )
     finally:
-        close_terminal_session(
-            run,
-            backend=backend,
-            session=session,
-        )
-        close_terminal_window(run, window_id=terminal_window_id)
+        if window_id is not None:
+            send_terminal_app_keys(
+                run,
+                window_id=window_id,
+                keys=("C-c",),
+            )
+            time.sleep(0.2)
+        close_terminal_app_window(run, window_id=window_id)
         run(f"rm -f {shlex.quote(status_path)}", timeout=10)
 
 
-def execute_terminal_recipe(*args: Any, **kwargs: Any) -> HostActionResult:
-    """Compatibility entrypoint for the split staging/dispatch owner."""
-    from yoke_core.domain.ssh_mac_terminal_recipe_dispatch import (
-        execute_terminal_recipe as execute,
-    )
-
-    return execute(*args, **kwargs)
-
-
-__all__ = ["execute_terminal_recipe"]
+__all__ = ["run_terminal_app_recipe"]
