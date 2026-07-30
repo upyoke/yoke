@@ -1,0 +1,92 @@
+{
+  "version": 1,
+  "project": "yoke",
+  "profile": {
+    "state": "declared",
+    "model_name": "primary",
+    "mutation_intent": "apply",
+    "migration_modules": [
+      "item_dependency_public_ref_repair"
+    ],
+    "compatibility_class": "pre_merge_breaking",
+    "migration_strategy": "hard_cutover",
+    "migration_strategy_justification": "The malformed ref values are replaced by their true public refs in one step. There is no coexistence shape for a text ref column: a value is either the public ref or it is not, and leaving the old shape in place keeps one ref unresolvable and the rest silently mis-resolvable once project sequences diverge further.",
+    "schema_kinds": [],
+    "data_kinds": [
+      "transform"
+    ],
+    "affected_surfaces": [
+      {
+        "table": "item_dependencies",
+        "columns": [
+          "blocking_item",
+          "dependent_item"
+        ]
+      }
+    ],
+    "count_preserving": true
+  },
+  "module_sources": {
+    "item_dependency_public_ref_repair": {
+      "path": "packages/yoke-core/src/yoke_core/domain/migrations/item_dependency_public_ref_repair.py",
+      "sha256": "14dac6c97996c9dec6b1f0a20b267b75bc913b9a95e7a8c9633922b93327c6b2"
+    }
+  },
+  "attestation": {
+    "pre_merge_readers_writers": [
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/dependency_planning.py",
+        "symbol": "_batch_deps_sql",
+        "role": "reader"
+      },
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/dependencies.py",
+        "symbol": "query_unsatisfied_at_gate",
+        "role": "reader"
+      },
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/dependencies.py",
+        "symbol": "query_frontier_blocks",
+        "role": "reader"
+      },
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/shepherd_dependency_enrich.py",
+        "symbol": "cmd_dependency_enrich",
+        "role": "reader"
+      },
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/path_claim_hard_block_review.py",
+        "symbol": "scan_non_terminal_activation_rows",
+        "role": "reader"
+      },
+      {
+        "path": "packages/yoke-core/src/yoke_core/domain/deployment_runs_validation.py",
+        "symbol": "cmd_validate_composition",
+        "role": "reader"
+      },
+      {
+        "path": "packages/yoke-core/src/yoke_core/engines/doctor_hc_meta_epic_drift.py",
+        "symbol": "hc_cancelled_blocker_dependencies",
+        "role": "reader"
+      },
+      {
+        "path": "packages/yoke-cli/src/yoke_cli/commands/adapters/shepherd_dependency.py",
+        "symbol": "shepherd_dependency_add",
+        "role": "writer"
+      }
+    ],
+    "invariants": [
+      "A ref that already resolves as public_item_prefix || '-' || project_sequence is never rewritten.",
+      "A ref is rewritten only when it fails to resolve as a public ref and its numeric tail resolves as an internal items.id; the replacement is that item's true public ref.",
+      "A ref that resolves under neither reading is reported and left unchanged; intent is never guessed.",
+      "A ref that resolves both as a public ref and as a different internal id is reported and left unchanged.",
+      "A rewrite set above the declared bound aborts the apply before any write.",
+      "No rewrite collapses two distinct edges onto the same (dependent_item, blocking_item, gate_point) key.",
+      "Row count of item_dependencies is unchanged; repeated apply is a no-op."
+    ],
+    "rehearsal_commands": [
+      "PYTHONPATH=packages/yoke-contracts/src:packages/yoke-cli/src:packages/yoke-core/src:packages/yoke-harness/src:. python3 -m pytest runtime/api/domain/migrations/test_item_dependency_public_ref_repair.py -q"
+    ],
+    "residual_risk_notes": "ORDERING IS LOAD-BEARING. Live readers resolve these columns with CAST(REPLACE(col, 'YOK-', '') AS INTEGER). Every stored value carries the YOK prefix today, so those casts succeed; the repair introduces non-YOK prefixes for cross-project refs and the cast raises 'invalid input syntax for type integer' for the whole batch query, not just the repaired row. The repair also remaps YOK-prefixed values whose sequence diverges from the internal id, which those readers would then resolve to the wrong item. This migration must therefore be applied only after the public-ref reader and writer cutover is merged AND deployed to the authority it targets. The malformed writer stays live until that cutover lands, so the rewrite population may grow between rehearsal and apply; the module is data-driven and bounded so a materially larger population aborts instead of rewriting blind."
+  }
+}
