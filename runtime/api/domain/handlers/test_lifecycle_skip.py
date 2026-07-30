@@ -154,7 +154,7 @@ class TestSuccessfulDispatch(unittest.TestCase):
         entry.update(overrides)
         return entry
 
-    def test_forwards_helper_call_with_canonicalized_item_id(self):
+    def test_forwards_helper_call_with_internal_item_id(self):
         stub_entry = self._stub_entry()
         with _connect_returns_stub(), _helper_returns_entry(stub_entry) as helper:
             outcome = lifecycle_skip.handle_record_recoverable_substrate_skip(
@@ -168,7 +168,10 @@ class TestSuccessfulDispatch(unittest.TestCase):
         helper.assert_called_once()
         _, kwargs = helper.call_args
         self.assertEqual(kwargs["session_id"], _SESSION_ID)
-        self.assertEqual(kwargs["item_id"], f"YOK-{_ITEM_ID}")
+        # Chain-skip memory stores the bare internal id; readers normalize
+        # before comparing. A public-ref shape built from an internal id
+        # would name a different item once sequence and id diverge.
+        self.assertEqual(kwargs["item_id"], str(_ITEM_ID))
         self.assertEqual(kwargs["chain_step"], 3)
         self.assertEqual(kwargs["project"], "yoke")
         self.assertEqual(kwargs["failure_class"], "cwd_drift")

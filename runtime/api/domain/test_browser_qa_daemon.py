@@ -165,7 +165,7 @@ class TestDaemonRetry:
             severity="ERROR",
             outcome="failed",
             project="yoke",
-            item_id="YOK-1407",
+            item_id=1407,
             context={
                 "attempt_count": 3,
                 "last_error": "boom",

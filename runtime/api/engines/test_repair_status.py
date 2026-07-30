@@ -291,7 +291,8 @@ def test_task_happy_path_calls_update_task_status(repair_db, capsys):
     assert len(native_emit_calls) == 1
     args, kwargs = native_emit_calls[0]
     assert args[0] == "TaskStatusChanged"
-    assert kwargs["item_id"] == "YOK-42"
+    # events.item_id contract: bare internal integer, never a prefixed ref.
+    assert kwargs["item_id"] == 42
     assert kwargs["task_num"] == 1
     assert kwargs["context"]["from_status"] == "planning"
     assert kwargs["context"]["to_status"] == "implementing"

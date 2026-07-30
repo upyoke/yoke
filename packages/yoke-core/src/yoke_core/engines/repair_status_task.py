@@ -130,7 +130,7 @@ def repair_task_status(
             source_type="system",
             severity="STATUS",
             outcome="completed",
-            item_id=f"YOK-{epic_id}",
+            item_id=int(epic_id),
             task_num=int(task_num),
             context={
                 "from_status": old_status,

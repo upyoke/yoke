@@ -155,7 +155,7 @@ def _emit_event(
             source_type="script",
             severity=severity,
             outcome=outcome,
-            item_id=f"YOK-{epic_id}",
+            item_id=str(epic_id),
             task_num=int(task_num) if str(task_num).isdigit() else None,
             context=context_obj,
         )
@@ -233,7 +233,7 @@ def _history_insert(
             source_type="system",
             severity="STATUS",
             outcome="completed",
-            item_id=f"YOK-{epic_id}",
+            item_id=str(epic_id),
             task_num=int(task_num) if str(task_num).isdigit() else None,
             context=ctx,
         )

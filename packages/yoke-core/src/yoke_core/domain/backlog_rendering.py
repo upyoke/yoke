@@ -112,7 +112,7 @@ def _emit_event(
         source_type="system",
         severity="STATUS",
         outcome="completed",
-        item_id=f"YOK-{item_id}",
+        item_id=int(item_id),
         context=context,
     )
     if envelope is None:

@@ -187,5 +187,5 @@ def _emit_daemon_startup_failed_event(
         },
     }
     if item_id is not None:
-        kwargs["item_id"] = f"YOK-{item_id}"
+        kwargs["item_id"] = int(item_id)
     _native_emit("BrowserDaemonStartupFailed", **kwargs)
