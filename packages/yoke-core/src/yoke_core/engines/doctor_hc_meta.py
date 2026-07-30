@@ -22,6 +22,7 @@ from typing import List
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_rows, query_scalar
+from yoke_core.domain.project_identity import render_item_ref
 
 import yoke_core.engines.doctor_report as _base
 
@@ -161,7 +162,8 @@ def hc_dispatch_chain(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         tc = row["task_count"]
         if not tc or int(tc) == 0:
             issues.append(
-                f"- YOK-{row['id']}: epic is {row['status']} but has no tasks in DB"
+                f"- {render_item_ref(conn, row['id'])}: epic is "
+                f"{row['status']} but has no tasks in DB"
             )
 
     if issues:

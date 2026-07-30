@@ -24,6 +24,7 @@ from yoke_core.domain.idea_body_completeness import is_idea_body_incomplete
 from yoke_core.domain.item_workflow_validation import (
     invalid_item_workflow_stages,
 )
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.task_lifecycle import ALL_TASK_STATUSES
 
 import yoke_core.engines.doctor_report as _base
@@ -51,7 +52,8 @@ def hc_frontmatter_schema(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     valid_flows = VALID_FRONTMATTER_FLOWS
 
     issues = [
-        f"- YOK-{item_id}: invalid workflow stage '{stage}' ({reason})"
+        f"- {render_item_ref(conn, item_id)}: invalid workflow stage "
+        f"'{stage}' ({reason})"
         for item_id, stage, reason in invalid_item_workflow_stages(conn)
     ]
     rows = query_rows(
@@ -59,7 +61,7 @@ def hc_frontmatter_schema(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         "SELECT id, priority, github_issue, flow, rework_count FROM items",
     )
     for row in rows:
-        yok_id = f"YOK-{row['id']}"
+        yok_id = render_item_ref(conn, row["id"])
         p = row["priority"]
         if p and p not in valid_priorities:
             issues.append(f"- {yok_id}: invalid priority '{p}' (expected: {' '.join(sorted(valid_priorities))})")
@@ -148,7 +150,7 @@ def hc_backlog_quality(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         "FROM items",
     )
     for row in rows:
-        yok_id = f"YOK-{row['id']}"
+        yok_id = render_item_ref(conn, row["id"])
         status = row["status"] or ""
         created = row["created_at"] or ""
         title = row["title"] or ""
@@ -224,7 +226,8 @@ def hc_incomplete_idea_bodies(conn, args: DoctorArgs, rec: RecordCollector) -> N
         session_id = claim["session_id"] if hasattr(claim, "keys") else claim[0]
         released_at = claim["released_at"] if hasattr(claim, "keys") else claim[1]
         issues.append(
-            f"- YOK-{row['id']}: incomplete idea body (created_at={row['created_at']}), "
+            f"- {render_item_ref(conn, row['id'])}: incomplete idea body "
+            f"(created_at={row['created_at']}), "
             f"last_claim_session_id={session_id}, "
             f"claim_released_reason='reclaimed' (released_at={released_at})"
         )
