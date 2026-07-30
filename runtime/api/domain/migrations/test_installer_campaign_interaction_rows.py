@@ -25,6 +25,21 @@ from yoke_core.domain.installer_campaign_screen_ready_cases import (
 INSTALLER_CAMPAIGN_CASES = SCREEN_READY_INSTALLER_CAMPAIGN_CASES
 
 
+def test_user_facing_terminal_cases_use_the_native_terminal_app_mode() -> None:
+    for case in INSTALLER_CAMPAIGN_CASES:
+        if case["method_id"] not in {"terminal-check", "terminal-inspection"}:
+            continue
+        raw_config = case["method_config"]
+        configs = raw_config.get("baseline_configs", {}).values()
+        if not configs:
+            configs = (raw_config,)
+        for config in configs:
+            expected = (
+                "ssh-command" if case["case_key"] == "path-repair" else "terminal"
+            )
+            assert config["execution_mode"] == expected
+
+
 def test_terminal_cases_use_current_stage_and_browser_approval_surfaces() -> None:
     cases = {case["case_key"]: case for case in INSTALLER_CAMPAIGN_CASES}
 

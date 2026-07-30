@@ -13,9 +13,8 @@ from yoke_cli.config.path_doctor import (
     resolve_path_state_contract,
 )
 from yoke_harness.ssh_mac_full_reset import execute_full_test_mac_reset
-from yoke_harness.ssh_mac_terminal_capture import (
-    detect_terminal_backend,
-    verify_terminal_bridge,
+from yoke_harness.ssh_mac_terminal_app import (
+    verify_terminal_app_control,
 )
 from yoke_harness.test_machine_types import HostActionResult
 
@@ -128,26 +127,11 @@ class SshMacTransport:
         )
 
     def check_terminal_bridge(self) -> HostActionResult:
-        backend = detect_terminal_backend(self._run)
-        if backend is None:
-            return HostActionResult(
-                ok=False,
-                error_code="terminal_bridge_unavailable",
-                evidence={
-                    "pty": False,
-                    "terminal_backend": None,
-                    "terminal_control": False,
-                    "screenshot_capture": False,
-                },
-            )
-        ok, evidence, error_code = verify_terminal_bridge(
-            self._run,
-            backend=backend,
-        )
+        ok, evidence, error_code = verify_terminal_app_control(self._run)
         return HostActionResult(
             ok=ok,
             error_code=error_code,
-            evidence={"terminal_backend": backend, **evidence},
+            evidence={"terminal_backend": "Terminal.app", **evidence},
         )
 
     def reset_installer_test_host(self) -> HostActionResult:

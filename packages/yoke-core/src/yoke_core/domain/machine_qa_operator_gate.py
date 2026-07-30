@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 import json
 import time
@@ -36,7 +36,7 @@ class OperatorGateResult:
 
 def _labeled_value(transcript: str, label: str) -> str | None:
     for line in transcript.splitlines():
-        stripped = line.strip()
+        stripped = line.strip().lstrip("-•*").lstrip()
         if stripped.startswith(label):
             value = stripped.removeprefix(label).strip()
             if value:
@@ -49,8 +49,7 @@ def _approved_origin(url: str, allowed_base_urls: tuple[str, ...]) -> bool:
     if parsed.scheme != "https" or not parsed.netloc:
         return False
     return any(
-        (parsed.scheme, parsed.netloc)
-        == (allowed.scheme, allowed.netloc)
+        (parsed.scheme, parsed.netloc) == (allowed.scheme, allowed.netloc)
         for allowed in (urlsplit(value) for value in allowed_base_urls)
     )
 
@@ -62,11 +61,7 @@ def _emit_browser_approval(
 ) -> bool:
     url = _labeled_value(transcript, "Open:")
     code = _labeled_value(transcript, "One-time code:")
-    if (
-        url is None
-        or code is None
-        or not _approved_origin(url, allowed_base_urls)
-    ):
+    if url is None or code is None or not _approved_origin(url, allowed_base_urls):
         return False
     print(
         json.dumps(
@@ -93,11 +88,34 @@ def run_machine_browser_approval(
     allowed_base_urls: tuple[str, ...],
 ) -> OperatorGateResult:
     """Emit the live approval coordinates, start polling, and retain authority."""
-    transcript = capture_recipe_transcript(
-        run,
-        backend=backend,
-        session=session,
+    return run_machine_browser_approval_with_io(
+        read_transcript=lambda: capture_recipe_transcript(
+            run,
+            backend=backend,
+            session=session,
+        ),
+        send_keys=lambda keys: send_recipe_keys(
+            run,
+            backend=backend,
+            session=session,
+            keys=keys,
+        ),
+        action=action,
+        progress_callback=progress_callback,
+        allowed_base_urls=allowed_base_urls,
     )
+
+
+def run_machine_browser_approval_with_io(
+    *,
+    read_transcript: Callable[[], str],
+    send_keys: Callable[[Sequence[str]], bool],
+    action: Mapping[str, Any],
+    progress_callback: Callable[[], None] | None,
+    allowed_base_urls: tuple[str, ...],
+) -> OperatorGateResult:
+    """Run one browser handoff through an already-authorized terminal surface."""
+    transcript = read_transcript()
     if not _emit_browser_approval(
         transcript,
         allowed_base_urls=allowed_base_urls,
@@ -107,12 +125,7 @@ def run_machine_browser_approval(
             transcript,
             "machine_browser_approval_context_missing",
         )
-    if not send_recipe_keys(
-        run,
-        backend=backend,
-        session=session,
-        keys=action["keys"],
-    ):
+    if not send_keys(action["keys"]):
         return OperatorGateResult(
             False,
             transcript,
@@ -123,11 +136,7 @@ def run_machine_browser_approval(
     deadline = time.monotonic() + timeout_seconds
     next_heartbeat = 0.0
     while True:
-        transcript = capture_recipe_transcript(
-            run,
-            backend=backend,
-            session=session,
-        )
+        transcript = read_transcript()
         lowered = transcript.casefold()
         if all(marker in transcript for marker in completion_text):
             return OperatorGateResult(True, transcript)
@@ -157,4 +166,8 @@ def run_machine_browser_approval(
         time.sleep(1.0)
 
 
-__all__ = ["OperatorGateResult", "run_machine_browser_approval"]
+__all__ = [
+    "OperatorGateResult",
+    "run_machine_browser_approval",
+    "run_machine_browser_approval_with_io",
+]
