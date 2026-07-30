@@ -160,6 +160,13 @@ def test_hosted_actions_pin_send_before_capture_transitions() -> None:
             "Apply",
         ]
         assert actions["review"]["ready_timeout_seconds"] == 45
+        assert "wait_seconds" not in actions["apply"]
+        assert actions["apply-complete"]["ready_text"] == [
+            "Setup complete.",
+            "Everything in the Review plan was applied.",
+            "Report:",
+        ]
+        assert actions["apply-complete"]["ready_timeout_seconds"] == 180
 
     hosted_config = cases["hosted-connect"]["method_config"]
     assert action_signature(hosted_config) == [
@@ -178,6 +185,13 @@ def test_hosted_actions_pin_send_before_capture_transitions() -> None:
     assert hosted_actions["path-ready"]["ready_text"] == [
         "Yoke is already on your PATH.",
     ]
+
+    handoff_actions = {
+        action["step"]: action
+        for action in cases["apply-handoff"]["method_config"]["actions"]
+    }
+    assert "wait_seconds" not in handoff_actions["apply"]
+    assert handoff_actions["apply-complete"]["ready_timeout_seconds"] == 180
     assert hosted_actions["hosted-connected"]["ready_text"] == ["Yoke token connected."]
 
     connect_wait_config = cases["connect-wait"]["method_config"]

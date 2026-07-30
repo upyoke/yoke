@@ -75,6 +75,11 @@ def wired(monkeypatch):
     monkeypatch.setattr(mod, "_github_actions", fake_github_actions)
     monkeypatch.setattr(mod, "_emit_run_event", fake_emit_run_event)
     monkeypatch.setattr(
+        mod,
+        "_display_item_ref",
+        lambda item_id: f"YOK-{item_id}",
+    )
+    monkeypatch.setattr(
         "yoke_core.domain.deployment_runs_crud_query.cmd_find_by_item",
         fake_find_by_item,
     )

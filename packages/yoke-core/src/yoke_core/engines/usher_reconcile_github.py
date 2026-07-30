@@ -153,6 +153,17 @@ def _error(item_id: int, deploy_stage: str, message: str) -> ReconcileResult:
     return ReconcileResult(outcome="error", item_id=item_id, deploy_stage=deploy_stage, message=message)
 
 
+def _display_item_ref(item_id: int) -> str:
+    """Render a public item ref without making reconciliation depend on it."""
+    try:
+        from yoke_core.domain.project_identity import render_item_ref
+
+        with connect() as conn:
+            return render_item_ref(conn, item_id)
+    except Exception:  # noqa: BLE001 - display fallback only
+        return f"YOK-{item_id}"
+
+
 def reconcile_item(
     item_id: int,
     *,
@@ -160,13 +171,7 @@ def reconcile_item(
 ) -> ReconcileResult:
     # Display ref renders from the item's project prefix + sequence; the
     # adapter call passes the bare internal id so no re-resolution happens.
-    try:
-        from yoke_core.domain.project_identity import render_item_ref
-
-        with connect() as conn:
-            item_ref = render_item_ref(conn, item_id)
-    except Exception:  # noqa: BLE001 - display fallback only
-        item_ref = f"YOK-{item_id}"
+    item_ref = _display_item_ref(item_id)
     deploy_stage = (_yoke_db("items", "get", str(item_id), "deploy_stage") or "").strip()
     if not deploy_stage:
         return ReconcileResult(

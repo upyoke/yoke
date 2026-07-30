@@ -188,6 +188,7 @@ class TestBlockedFlagRelay:
                 "blocked": True, "reason": "upstream unresolved",
             })
 
+        monkeypatch.setattr(gates, "_ref", lambda _item_id: TEST_ITEM_REF)
         _install(monkeypatch, fake, [gates])
         assert gates._check_blocked_flag(42) == 9
         assert calls[0]["function_id"] == "done_transition.blocked_gate"
