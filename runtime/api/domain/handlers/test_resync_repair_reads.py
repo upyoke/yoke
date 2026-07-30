@@ -63,6 +63,9 @@ class TestItemLookup:
         assert outcome.result_payload["found"] is True
         assert outcome.result_payload["id"] == TEST_ITEM_ID
         assert outcome.result_payload["status"] == "implementing"
+        # The public ref is rendered server-side, never composed by the
+        # caller from the internal id.
+        assert outcome.result_payload["ref"]
         reads.ItemLookupResponse(**outcome.result_payload)
 
     def test_missing_is_not_found(self, db):
@@ -71,7 +74,7 @@ class TestItemLookup:
         )
         assert outcome.primary_success, outcome.error
         assert outcome.result_payload == {
-            "found": False, "id": None, "status": None
+            "found": False, "id": None, "ref": "", "status": None
         }
 
     def test_non_numeric_ref_is_not_found(self, db):
@@ -110,6 +113,9 @@ class TestEpicTaskRepairRead:
         assert outcome.primary_success, outcome.error
         payload = outcome.result_payload
         assert payload["parent_id"] == TEST_EPIC_ID
+        # The parent's public ref is rendered server-side so the repair
+        # title prefix never reconstructs a ref from the internal id.
+        assert payload["parent_ref"]
         assert payload["task_found"] is True
         assert payload["title"] == "Wire the adapter"
         assert payload["status"] == "implementing"

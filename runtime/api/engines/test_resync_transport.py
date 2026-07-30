@@ -79,8 +79,10 @@ def test_stage1_linkage_relays_roster_and_rows(monkeypatch):
         if fid == "resync.linkage_roster":
             return _resp(fid, {"fetch_projects": ["yoke"], "sync_disabled": {}})
         if fid == "resync.linkage_rows":
+            # (id, github_issue, project_slug, public_item_prefix,
+            #  project_sequence) — the last two render the public ref.
             return _resp(fid, {
-                "backlog_rows": [[1, "#5", "yoke"]],
+                "backlog_rows": [[7, "#5", "yoke", "YOK", 1]],
                 "task_rows": [],
             })
         return _resp(fid, {})
@@ -95,8 +97,11 @@ def test_stage1_linkage_relays_roster_and_rows(monkeypatch):
         "", "", fetch_fn=fetch_fn, project="",
     )
     assert seen == ["resync.linkage_roster", "resync.linkage_rows"]
-    # YOK-1 is linked to GitHub #5 -> paired, not a local orphan.
-    assert [p.id for p in paired] == ["YOK-1"]
+    # Linked to GitHub #5 -> paired, not a local orphan. The display ref
+    # renders from prefix+sequence while identity stays the internal id,
+    # so a diverged sequence (7 vs 1) still pairs on the id.
+    assert [p.ref for p in paired] == ["YOK-1"]
+    assert [p.item_id for p in paired] == [7]
     assert local_orphans == []
 
 
@@ -118,7 +123,9 @@ def test_stage2_compare_relays_prefetch_and_uses_implies_merge(monkeypatch):
     monkeypatch.setattr(_ADAPTER, fake)
     _fail_on_connect(monkeypatch)
 
-    paired = [PairedItem("YOK-1", "/tmp/001.md", 5, "backlog", "yoke", "")]
+    paired = [PairedItem(
+        "YOK-1", "/tmp/001.md", 5, "backlog", "yoke", "", item_id=1,
+    )]
     gh_by_project = {"yoke": {5: {"title": "A", "state": "OPEN", "labels": []}}}
     drifts = compare.stage2_compare(paired, gh_by_project, {}, "")
     assert seen == ["resync.compare_prefetch"]
@@ -132,14 +139,21 @@ def test_repair_drift_title_relays_parent_lookup(monkeypatch):
 
     def fake(**kwargs):
         seen.append(kwargs["function_id"])
-        return _resp(kwargs["function_id"], {"found": True, "id": 1246})
+        return _resp(
+            kwargs["function_id"],
+            {"found": True, "id": 1246, "ref": "YOK-1246"},
+        )
 
     monkeypatch.setattr(_ADAPTER, fake)
     _fail_on_connect(monkeypatch)
 
-    drift = DriftRecord("1246/task-001", "title", "Task one fixed", "Wrong")
+    drift = DriftRecord(
+        "1246/task-001", "title", "Task one fixed", "Wrong",
+        epic_id="1246", task_num=1,
+    )
     paired = [PairedItem(
         "1246/task-001", "epic_tasks:1246/1", 200, "epic_task", "yoke", "",
+        epic_id="1246", task_num=1,
     )]
     edits = []
     monkeypatch.setattr(
@@ -165,7 +179,8 @@ class TestEpicTaskRepairOrdering:
             events.append(("dispatch", fid))
             if fid == "resync.epic_task_repair_read":
                 return _resp(fid, {
-                    "parent_id": 1246, "task_found": True,
+                    "parent_id": 1246, "parent_ref": "YOK-1246",
+                    "task_found": True,
                     "title": "Task one", "status": status,
                 })
             if fid == "resync.epic_task_body":
@@ -190,7 +205,7 @@ class TestEpicTaskRepairOrdering:
             repair_eti.github_rest, "set_issue_state", fake_set_state
         )
         outcome = repair_eti.repair_local_orphan_epic_task_typed(
-            "1246/task-001", "yoke", "", is_dry_run_fn=lambda: False,
+            "1246", 1, "yoke", "", is_dry_run_fn=lambda: False,
         )
         return outcome, events
 
@@ -226,7 +241,8 @@ class TestEpicTaskRepairOrdering:
             fid = kwargs["function_id"]
             if fid == "resync.epic_task_repair_read":
                 return _resp(fid, {
-                    "parent_id": 1246, "task_found": True,
+                    "parent_id": 1246, "parent_ref": "YOK-1246",
+                    "task_found": True,
                     "title": "Task one", "status": "implementing",
                 })
             if fid == "resync.epic_task_body":
@@ -243,6 +259,6 @@ class TestEpicTaskRepairOrdering:
         )
         # A failed write-back is advisory: the repair still succeeds.
         outcome = repair_eti.repair_local_orphan_epic_task_typed(
-            "1246/task-001", "yoke", "", is_dry_run_fn=lambda: False,
+            "1246", 1, "yoke", "", is_dry_run_fn=lambda: False,
         )
         assert outcome.success is True

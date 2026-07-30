@@ -278,9 +278,9 @@ class TestRepairRefDivergence:
             "yoke_core.engines.resync_repair_epic_task_issue."
             "github_rest.create_issue",
             return_value=Issue(number=321, title="t", state="OPEN"),
-        ) as create_issue, mock.patch(
-            "yoke_core.engines.resync.task_update_field",
-        ):
+        ) as create_issue:
+            # The github_issue write-back relays and is advisory, so the
+            # repair outcome depends only on the create call above.
             ok = resync_mod._repair_local_orphan_epic_task(
                 "1900", 2, "yoke", populated_db,
             )

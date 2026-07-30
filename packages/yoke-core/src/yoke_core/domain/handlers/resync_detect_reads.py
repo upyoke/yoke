@@ -137,30 +137,32 @@ def _read_backlog_rows(conn: Any, project: str) -> List[List[Any]]:
     try:
         if projects_table_exists and project:
             rows = conn.execute(
-                "SELECT i.id, COALESCE(i.github_issue, ''), p.slug "
+                "SELECT i.id, COALESCE(i.github_issue, ''), p.slug, "
+                "p.public_item_prefix, i.project_sequence "
                 "FROM items i JOIN projects p ON i.project_id = p.id "
                 "WHERE p.slug = %s",
                 (project,),
             ).fetchall()
         elif projects_table_exists:
             rows = conn.execute(
-                "SELECT i.id, COALESCE(i.github_issue, ''), COALESCE(p.slug, 'yoke') "
+                "SELECT i.id, COALESCE(i.github_issue, ''), COALESCE(p.slug, 'yoke'), "
+                "p.public_item_prefix, i.project_sequence "
                 "FROM items i LEFT JOIN projects p ON i.project_id = p.id"
             ).fetchall()
         else:
             rows = conn.execute(
-                "SELECT id, COALESCE(github_issue, ''), 'yoke' FROM items"
+                "SELECT id, COALESCE(github_issue, ''), 'yoke', NULL, NULL FROM items"
             ).fetchall()
     except db_backend.operational_error_types(conn):
         conn.rollback()
         rows = (
             conn.execute(
-                "SELECT id, COALESCE(github_issue, ''), 'yoke' FROM items"
+                "SELECT id, COALESCE(github_issue, ''), 'yoke', NULL, NULL FROM items"
             ).fetchall()
             if not project or project == "yoke"
             else []
         )
-    return [[r[0], r[1], r[2]] for r in rows]
+    return [[r[0], r[1], r[2], r[3], r[4]] for r in rows]
 
 
 def _read_task_rows(conn: Any, project: str) -> List[List[Any]]:
@@ -205,8 +207,11 @@ def handle_linkage_rows(request: FunctionCallRequest) -> HandlerOutcome:
 
     Runs the engine's exact backlog and epic-task reads (all three
     schema-shape variants, with the same operational-error rollback
-    fallbacks) and returns the raw positional rows. The engine keeps the
-    orphan/pairing classification.
+    fallbacks) and returns the raw positional rows. Backlog rows are
+    ``(id, github_issue, project_slug, public_item_prefix,
+    project_sequence)`` — the last two let the engine render each item's
+    true public ref instead of assuming a fixed prefix over the internal
+    id. The engine keeps the orphan/pairing classification.
     """
     try:
         body = LinkageRowsRequest.model_validate(request.payload)

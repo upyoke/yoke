@@ -2,10 +2,11 @@
 
 The resync repair helpers opened a local ``connect()`` for three
 control-plane reads, which fails over an https control plane (no local
-Postgres): the item-by-reference lookup that resolves a ``[YOK-<id>]``
+Postgres): the item-by-reference lookup that resolves the public-ref
 title prefix (also the runtime item-status probe), the epic-task repair
-context (parent id + the task's title/status), and the epic-task body the
-compact-mirror budget guard renders into a new GitHub issue.
+context (parent id + public ref + the task's title/status), and the
+epic-task body the compact-mirror budget guard renders into a new GitHub
+issue.
 
 These handlers relay those reads server-side (dispatched in-process
 against a local Postgres connection, or over https server-side) while the
@@ -36,6 +37,7 @@ class ItemLookupRequest(BaseModel):
 class ItemLookupResponse(BaseModel):
     found: bool
     id: Optional[int] = None
+    ref: str = ""
     status: Optional[str] = None
 
 
@@ -46,6 +48,7 @@ class EpicTaskRepairReadRequest(BaseModel):
 
 class EpicTaskRepairReadResponse(BaseModel):
     parent_id: Optional[int] = None
+    parent_ref: str = ""
     task_found: bool
     title: str = ""
     status: str = ""
@@ -84,10 +87,15 @@ def handle_item_lookup(request: FunctionCallRequest) -> HandlerOutcome:
 
     Preserves the engine's exact ``CAST(id AS TEXT) = CAST(? AS TEXT)``
     match (the reference may be a non-numeric slug fragment) and returns
-    the id + status. A missing row is a valid ``found=False`` answer; the
-    caller decides whether that is an empty title prefix or a ``None``
-    status probe.
+    the id, the item's rendered public ref, and its status. Rendering the
+    ref here keeps ref composition on the side that can read the project's
+    prefix and the item's project sequence, so no caller reconstructs a
+    public ref from the internal id. A missing row is a valid
+    ``found=False`` answer; the caller decides whether that is an empty
+    title prefix or a ``None`` status probe.
     """
+    from yoke_core.domain.project_identity import render_item_ref
+
     try:
         body = ItemLookupRequest.model_validate(request.payload)
     except ValidationError as exc:
@@ -101,28 +109,38 @@ def handle_item_lookup(request: FunctionCallRequest) -> HandlerOutcome:
                 f"WHERE CAST(id AS TEXT) = CAST({p} AS TEXT) LIMIT 1",
                 (body.ref,),
             ).fetchone()
+            item_ref = render_item_ref(conn, int(row[0])) if row else ""
     except Exception as exc:  # noqa: BLE001 - surfaced so the caller aborts
         return _err("item_lookup_failed", str(exc))
 
     if row is None:
         return HandlerOutcome(
-            result_payload={"found": False, "id": None, "status": None},
+            result_payload={
+                "found": False, "id": None, "ref": "", "status": None,
+            },
             primary_success=True,
         )
     return HandlerOutcome(
-        result_payload={"found": True, "id": row[0], "status": row[1]},
+        result_payload={
+            "found": True, "id": row[0], "ref": item_ref, "status": row[1],
+        },
         primary_success=True,
     )
 
 
 def handle_epic_task_repair_read(request: FunctionCallRequest) -> HandlerOutcome:
-    """Return the parent id + the epic task's title/status for a repair.
+    """Return the parent id/public ref + the epic task's title/status.
 
     Runs the engine's exact two inline reads on one connection: the parent
-    item id (by text-cast id) and the ``epic_tasks`` title/status row. A
-    missing task row yields ``task_found=False``; the caller aborts the
-    repair with the same "row not found" error.
+    item id (by text-cast id) and the ``epic_tasks`` title/status row. The
+    parent's public ref is rendered here, where the project's prefix and
+    the item's project sequence are readable, so the caller never composes
+    a ref from the internal id. A missing task row yields
+    ``task_found=False``; the caller aborts the repair with the same "row
+    not found" error.
     """
+    from yoke_core.domain.project_identity import render_item_ref
+
     try:
         body = EpicTaskRepairReadRequest.model_validate(request.payload)
     except ValidationError as exc:
@@ -141,6 +159,11 @@ def handle_epic_task_repair_read(request: FunctionCallRequest) -> HandlerOutcome
                 f"WHERE epic_id = {p} AND task_num = {p}",
                 (body.epic_ref, body.task_num),
             ).fetchone()
+            # render_item_ref tolerates schemas without project tables and
+            # falls back to the default-prefix + internal-id form.
+            parent_ref = (
+                render_item_ref(conn, int(parent_row[0])) if parent_row else ""
+            )
     except Exception as exc:  # noqa: BLE001 - surfaced so the caller aborts
         return _err("epic_task_repair_read_failed", str(exc))
 
@@ -149,6 +172,7 @@ def handle_epic_task_repair_read(request: FunctionCallRequest) -> HandlerOutcome
         return HandlerOutcome(
             result_payload={
                 "parent_id": parent_id,
+                "parent_ref": parent_ref,
                 "task_found": False,
                 "title": "",
                 "status": "",
@@ -158,6 +182,7 @@ def handle_epic_task_repair_read(request: FunctionCallRequest) -> HandlerOutcome
     return HandlerOutcome(
         result_payload={
             "parent_id": parent_id,
+            "parent_ref": parent_ref,
             "task_found": True,
             "title": task_row[0] or "",
             "status": task_row[1] or "",

@@ -73,9 +73,16 @@ class TestResolveContextRelays:
 
         ctx = prep.resolve_context(MergeArgs(branch="YOK-4242"))
 
-        assert [c["function_id"] for c in calls] == ["items.detail.get"]
+        # The branch carries a public ref, which the dispatcher resolves to
+        # the internal id server-side; the project read then targets that
+        # resolved id.
+        assert [c["function_id"] for c in calls] == [
+            "items.detail.get", "items.detail.get",
+        ]
         assert calls[0]["target"].kind == "item"
-        assert calls[0]["target"].item_id == 4242
+        assert calls[0]["target"].item_ref == "YOK-4242"
+        assert calls[0]["target"].item_id is None
+        assert calls[1]["target"].item_id == 4242
         assert ctx.project == "yoke"
         # A yoke project keeps the main checkout as repo root.
         assert ctx.repo_root == str(tmp_path)
@@ -118,11 +125,19 @@ class TestResolveContextRelays:
         seen = []
 
         def fake(**kwargs):
-            seen.append((kwargs["function_id"], kwargs["target"].item_id))
+            target = kwargs["target"]
+            seen.append(
+                (kwargs["function_id"], target.item_ref, target.item_id)
+            )
             if kwargs["function_id"] == "items.detail.get":
-                item_id = kwargs["target"].item_id
+                # The dispatcher resolves a public ref to its internal id
+                # server-side; an id-targeted read echoes the same id back.
+                if target.item_ref:
+                    resolved = int(str(target.item_ref).rsplit("-", 1)[-1])
+                else:
+                    resolved = target.item_id
                 return _resp("items.detail.get", {"item": {
-                    "id": item_id,
+                    "id": resolved,
                     "project": {"slug": "yoke"},
                 }})
             return _resp(kwargs["function_id"])
@@ -136,8 +151,9 @@ class TestResolveContextRelays:
 
         ctx = prep.resolve_context(MergeArgs(branch="YOK-4244", epic_ref="YOK-880"))
 
-        # Epic-ref canonicalization relays a detail read for the epic id 880.
-        assert ("items.detail.get", 880) in seen
+        # Epic-ref canonicalization relays a detail read carrying the public
+        # epic ref, never a locally parsed id.
+        assert ("items.detail.get", "YOK-880", None) in seen
         assert ctx.epic_id == "880"
 
 
