@@ -23,6 +23,7 @@ from yoke_core.domain.check_claim_boundary_audit import (
     Finding,
     scan_all,
 )
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
 
@@ -34,9 +35,9 @@ _HC_DESC = (
 _LIST_PREVIEW = 10
 
 
-def _render_finding(finding: Finding) -> str:
+def _render_finding(conn: Any, finding: Finding) -> str:
     item_label = (
-        f"YOK-{finding.item_id}"
+        render_item_ref(conn, finding.item_id)
         if finding.item_id is not None
         else "unknown"
     )
@@ -100,7 +101,7 @@ def hc_claim_boundary_audit(
     historical_ids = {f.event_id for f in historical}
     ordered = fails + [f for f in warns if f.event_id not in historical_ids] + historical
     for finding in ordered[:_LIST_PREVIEW]:
-        rendered = _render_finding(finding)
+        rendered = _render_finding(conn, finding)
         if finding.event_id in historical_ids:
             rendered += " [historical_done_item_residue]"
         lines.append(rendered)

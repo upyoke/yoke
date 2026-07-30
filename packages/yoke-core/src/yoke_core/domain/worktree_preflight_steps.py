@@ -10,7 +10,6 @@ both modules import from one place.
 from __future__ import annotations
 
 import json
-import os
 import sys
 from pathlib import Path
 from typing import List, Optional, Tuple
@@ -41,14 +40,20 @@ CWD_MODE_STATIC = "static"
 
 
 def claim_work(item_id: int) -> Tuple[bool, str]:
-    """Run ``service_client claim-work --item YOK-N``. Idempotent."""
+    """Run ``service_client claim-work --item <item_id>``. Idempotent.
+
+    ``item_id`` is the internal ``items.id``; it is passed bare so the
+    service-client resolver maps it directly rather than treating a
+    hardcoded ``YOK-`` prefix as project context (wrong for projects
+    whose ``project_sequence`` diverges from ``items.id``).
+    """
     r = _run([
         sys.executable,
         "-m",
         "yoke_core.api.service_client",
         "claim-work",
         "--item",
-        f"YOK-{item_id}",
+        str(item_id),
     ])
     if r.returncode == 0:
         return True, r.stdout.strip()
@@ -94,7 +99,7 @@ def activate_path_claims(item_id: int) -> Tuple[bool, str, List[int]]:
         "-m",
         "yoke_core.domain.advance_path_claim_activation",
         "--item",
-        f"YOK-{item_id}",
+        str(item_id),
     ])
     activated: List[int] = []
     for line in r.stdout.splitlines():
