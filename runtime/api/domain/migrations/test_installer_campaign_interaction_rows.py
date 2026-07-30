@@ -169,12 +169,22 @@ def test_hosted_actions_pin_send_before_capture_transitions() -> None:
         == "machine_browser_approval"
     )
     assert "wait_seconds" not in hosted_actions["operator-browser-approval"]
+    assert hosted_actions["path-ready"]["ready_text"] == [
+        "Yoke is already on your PATH.",
+    ]
     assert hosted_actions["hosted-connected"]["ready_text"] == ["Yoke token connected."]
 
-    assert action_signature(cases["connect-wait"]["method_config"]) == [
+    connect_wait_config = cases["connect-wait"]["method_config"]
+    assert action_signature(connect_wait_config) == [
         ("path-ready", ()),
         ("continue-path", ("Enter",)),
         ("connect-wait", ()),
+    ]
+    connect_wait_actions = {
+        action["step"]: action for action in connect_wait_config["actions"]
+    }
+    assert connect_wait_actions["path-ready"]["ready_text"] == [
+        "Yoke is already on your PATH.",
     ]
 
     review_config = cases["review-frame"]["method_config"]
@@ -194,6 +204,9 @@ def test_hosted_actions_pin_send_before_capture_transitions() -> None:
         for step, _keys in action_signature(review_config)
     )
     review_actions = {action["step"]: action for action in review_config["actions"]}
+    assert review_actions["path-ready"]["ready_text"] == [
+        "Yoke is already on your PATH.",
+    ]
     assert review_actions["review-frame"]["ready_text"] == [
         "Review what Yoke will save.",
         "Apply",
