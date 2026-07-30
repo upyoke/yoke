@@ -18,6 +18,7 @@ from yoke_core.domain.epic_parsing import (
     _now_iso,
     _placeholder,
 )
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.item_worktrees import record_worker_item_worktree
 
 
@@ -139,8 +140,8 @@ def dispatch_chain_refresh_for_activation(
     scope_issues = task_scope_issues(conn, int(epic_id))
     if scope_issues:
         raise ValueError(
-            f"YOK-{epic_id} dispatch blocked by generated task scope: "
-            + "; ".join(scope_issues)
+            f"{render_item_ref(conn, int(epic_id))} dispatch blocked by "
+            "generated task scope: " + "; ".join(scope_issues)
         )
     p = _placeholder(conn)
     row = query_one(
