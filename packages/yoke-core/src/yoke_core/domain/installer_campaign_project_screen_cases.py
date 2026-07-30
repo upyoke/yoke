@@ -18,22 +18,36 @@ from yoke_core.domain.installer_campaign_screen_ready_cases import (
 )
 
 
+_PROJECT_READY_TIMEOUT_SECONDS = 45
+
+
 def _project_mode_actions(actions: list[dict[str, Any]]) -> list[dict[str, Any]]:
     updated = deepcopy(actions)
-    insertion = next(
-        index
-        for index, candidate in enumerate(updated)
-        if candidate["step"] == "machine-github-backlog"
-    ) + 1
+    insertion = (
+        next(
+            index
+            for index, candidate in enumerate(updated)
+            if candidate["step"] == "machine-github-backlog"
+        )
+        + 1
+    )
     updated[insertion:insertion] = [
-        action("project-mode", ready_text=PROJECT_MODE_TEXT),
+        action(
+            "project-mode",
+            ready_text=PROJECT_MODE_TEXT,
+            ready_timeout_seconds=_PROJECT_READY_TIMEOUT_SECONDS,
+        ),
         transition(
             "project-mode-machine-only",
             *CHOOSE_MACHINE_ONLY_KEYS,
             ready_text=PROJECT_MODE_TEXT,
+            ready_timeout_seconds=_PROJECT_READY_TIMEOUT_SECONDS,
             wait_seconds=10,
         ),
     ]
+    next(action for action in updated if action["step"] == "review")[
+        "ready_timeout_seconds"
+    ] = _PROJECT_READY_TIMEOUT_SECONDS
     return updated
 
 
@@ -42,9 +56,7 @@ def _project_screen_case(source: dict[str, Any]) -> dict[str, Any]:
     if case["case_key"] == "apply-handoff":
         config = case["method_config"]
         config["expected_text"] = [
-            text
-            for text in config["expected_text"]
-            if text != "Starting Yoke onboard"
+            text for text in config["expected_text"] if text != "Starting Yoke onboard"
         ]
         return case
     if case["case_key"] != "cold-start-hosted":

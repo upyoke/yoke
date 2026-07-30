@@ -78,7 +78,20 @@ def test_hosted_environment_projects_its_release_channel(
 
 @pytest.mark.parametrize("environment", ["stage", "prod"])
 def test_projected_installer_cases_remain_executable(environment: str) -> None:
-    for case in installer_campaign_cases_for_target(_target(environment)):
+    cases = installer_campaign_cases_for_target(_target(environment))
+    hosted = next(case for case in cases if case["case_key"] == "cold-start-hosted")
+    for config in hosted["method_config"]["baseline_configs"].values():
+        actions = {action["step"]: action for action in config["actions"]}
+        assert actions["project-mode"]["ready_timeout_seconds"] == 45
+        assert actions["project-mode-machine-only"]["keys"] == [
+            "Down",
+            "Down",
+            "Down",
+            "Down",
+            "Enter",
+        ]
+        assert actions["review"]["ready_timeout_seconds"] == 45
+    for case in cases:
         for baseline in case.get("host_baselines") or [None]:
             validate_machine_method_config(
                 case["method_id"],
