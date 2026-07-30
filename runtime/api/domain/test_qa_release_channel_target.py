@@ -13,6 +13,9 @@ from yoke_core.domain.installer_campaign_plan_common import (
     CHOOSE_PRODUCTION_KEYS,
     CHOOSE_STAGE_KEYS,
 )
+from yoke_core.domain.machine_qa_method_contracts import (
+    validate_machine_method_config,
+)
 from yoke_core.domain.qa_execution_environment_target import (
     QaExecutionTargetError,
     _yoke_endpoints,
@@ -71,6 +74,19 @@ def test_hosted_environment_projects_its_release_channel(
     assert {tuple(action["keys"]) for action in destination_actions} == {
         expected_destination_keys
     }
+
+
+@pytest.mark.parametrize("environment", ["stage", "prod"])
+def test_projected_installer_cases_remain_executable(environment: str) -> None:
+    for case in installer_campaign_cases_for_target(_target(environment)):
+        for baseline in case.get("host_baselines") or [None]:
+            validate_machine_method_config(
+                case["method_id"],
+                case["method_config"],
+                entry_surface=case.get("entry_surface"),
+                required_completion=case.get("required_completion"),
+                host_baseline=baseline,
+            )
 
 
 @pytest.mark.parametrize(
