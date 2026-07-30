@@ -85,9 +85,15 @@ def _seed_item(
 
 class TestCreateWorktree:
     def test_basic_creation(self, git_repo, yoke_db):
+        conn = connect_test_db(yoke_db)
+        _seed_item(conn, TEST_ITEM_ID)
+        conn.commit()
+        conn.close()
+
         result = create_worktree(
             TEST_ITEM_ID, repo_root=str(git_repo),
             config_path=str(git_repo / "runtime" / "config"),
+            db_path=yoke_db,
         )
         assert result.error is None
         assert result.created is True
