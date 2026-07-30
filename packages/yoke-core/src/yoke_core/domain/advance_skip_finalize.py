@@ -43,7 +43,7 @@ def _emit_skip_event(
         source_type="system",
         severity="STATUS",
         outcome="completed",
-        item_id=f"YOK-{item_id}",
+        item_id=item_id,
         context={
             "from_status": from_status,
             "to_status": to_status,
@@ -73,15 +73,17 @@ def _release_claim(
 
     try:
         from yoke_core.domain.db_helpers import connect
+        from yoke_core.domain.project_identity import render_item_ref
         from yoke_core.domain.sessions import release_item_claim_for_execution
 
         with connect() as conn:
             result = release_item_claim_for_execution(
                 conn, effective_session_id, str(item_id), reason
             )
+            public_ref = render_item_ref(conn, item_id)
     except Exception as exc:
         return {"released": False, "reason": "exception", "error": str(exc)}
 
     if result.get("released"):
-        print(f"Claim released: YOK-{item_id} (reason={reason})", file=out)
+        print(f"Claim released: {public_ref} (reason={reason})", file=out)
     return result
