@@ -12,6 +12,7 @@ from yoke_core.engines.resync_detect_compact_mirror import (
     matches_compact_mirror as _matches_compact_mirror,
 )
 from yoke_core.engines.resync_detect_models import (
+    ITEM_REF_TITLE_PREFIX_RE,
     DriftRecord,
     PairedItem,
     _get_label_value,
@@ -21,6 +22,14 @@ from yoke_core.engines.resync_detect_fetch import _project_unavailable
 from yoke_core.domain.workflow_runtime import (
     ENGINE_TERMINAL_STAGE_IDS, load_item_workflow_runtime,
 )
+
+
+def _drift(item: PairedItem, field: str, local: str, github: str) -> DriftRecord:
+    """Build a drift record carrying the paired item's typed identity."""
+    return DriftRecord(
+        item.ref, field, local, github,
+        item_id=item.item_id, epic_id=item.epic_id, task_num=item.task_num,
+    )
 
 
 def _row_to_dict(row) -> dict:
@@ -111,10 +120,11 @@ def stage2_compare(
             continue
 
         if item.kind == "backlog":
-            id_num_str = item.id.replace("YOK-", "")
-            try:
-                id_num = int(id_num_str)
-            except ValueError:
+            # Identity is the internal ``items.id`` resolved at ingestion;
+            # the display ref is never parsed back into an id (public
+            # sequences can diverge from internal ids).
+            id_num = item.item_id
+            if id_num is None:
                 continue
 
             local_item = items_by_id.get(id_num)
@@ -124,9 +134,9 @@ def stage2_compare(
             # --- Title comparison ---
             local_title = local_item.get("title", "") or ""
             gh_title_raw = gh_issue.get("title", "")
-            gh_title = re.sub(r"^\[YOK-\d+\]\s*", "", gh_title_raw)
+            gh_title = ITEM_REF_TITLE_PREFIX_RE.sub("", gh_title_raw)
             if gh_title and local_title != gh_title:
-                drifts.append(DriftRecord(item.id, "title", local_title, gh_title))
+                drifts.append(_drift(item, "title", local_title, gh_title))
 
             # --- Body comparison ---
             raw_local_body = local_item.get("body", "") or ""
@@ -147,7 +157,7 @@ def stage2_compare(
                     item_fields=mirror_fields,
                     item_id=id_num,
                 ):
-                    drifts.append(DriftRecord(item.id, "body", "<local body>", "<github body>"))
+                    drifts.append(_drift(item, "body", "<local body>", "<github body>"))
             else:
                 gh_light_body = gh_issue.get("body")
                 if gh_light_body is not None:
@@ -160,7 +170,7 @@ def stage2_compare(
                         item_fields=mirror_fields,
                         item_id=id_num,
                     ):
-                        drifts.append(DriftRecord(item.id, "body", "<local body>", "<github body>"))
+                        drifts.append(_drift(item, "body", "<local body>", "<github body>"))
 
             # --- Label comparison ---
             gh_labels = gh_issue.get("labels", [])
@@ -169,8 +179,8 @@ def stage2_compare(
             if local_status and local_status != "null":
                 gh_status = _get_label_value(gh_labels, "status:")
                 if local_status != gh_status:
-                    drifts.append(DriftRecord(
-                        item.id, "label-status",
+                    drifts.append(_drift(
+                        item, "label-status",
                         f"status:{local_status}", f"status:{gh_status}",
                     ))
 
@@ -178,8 +188,8 @@ def stage2_compare(
             if local_priority and local_priority != "null":
                 gh_priority = _get_label_value(gh_labels, "priority:")
                 if local_priority != gh_priority:
-                    drifts.append(DriftRecord(
-                        item.id, "label-priority",
+                    drifts.append(_drift(
+                        item, "label-priority",
                         f"priority:{local_priority}", f"priority:{gh_priority}",
                     ))
 
@@ -187,8 +197,8 @@ def stage2_compare(
             if local_workflow and local_workflow != "null":
                 gh_workflow = _get_label_value(gh_labels, "workflow:")
                 if local_workflow != gh_workflow:
-                    drifts.append(DriftRecord(
-                        item.id, "label-workflow",
+                    drifts.append(_drift(
+                        item, "label-workflow",
                         f"workflow:{local_workflow}", f"workflow:{gh_workflow}",
                     ))
 
@@ -196,8 +206,8 @@ def stage2_compare(
             if local_source_label:
                 gh_source = _get_label_value(gh_labels, "source:")
                 if local_source_label != gh_source:
-                    drifts.append(DriftRecord(
-                        item.id, "label-source",
+                    drifts.append(_drift(
+                        item, "label-source",
                         f"source:{local_source_label}", f"source:{gh_source}",
                     ))
 
@@ -205,8 +215,8 @@ def stage2_compare(
             if local_owner_label:
                 gh_owner = _get_label_value(gh_labels, "owner:")
                 if local_owner_label != gh_owner:
-                    drifts.append(DriftRecord(
-                        item.id, "label-owner",
+                    drifts.append(_drift(
+                        item, "label-owner",
                         f"owner:{local_owner_label}", f"owner:{gh_owner}",
                     ))
 
@@ -215,18 +225,18 @@ def stage2_compare(
             local_frozen_bool = frozen_val in (1, "1", True, "true", "True")
             gh_has_frozen = any(lbl.get("name", "") == "frozen" for lbl in gh_labels)
             if local_frozen_bool and not gh_has_frozen:
-                drifts.append(DriftRecord(item.id, "label-frozen", "frozen:true", "frozen:absent"))
+                drifts.append(_drift(item, "label-frozen", "frozen:true", "frozen:absent"))
             elif not local_frozen_bool and gh_has_frozen:
-                drifts.append(DriftRecord(item.id, "label-frozen", "frozen:false", "frozen:present"))
+                drifts.append(_drift(item, "label-frozen", "frozen:false", "frozen:present"))
 
             # blocked-flag label drift detection mirrors frozen
             blocked_val = local_item.get("blocked", 0)
             local_blocked_bool = blocked_val in (1, "1", True, "true", "True")
             gh_has_blocked = any(lbl.get("name", "") == "blocked" for lbl in gh_labels)
             if local_blocked_bool and not gh_has_blocked:
-                drifts.append(DriftRecord(item.id, "label-blocked", "blocked:true", "blocked:absent"))
+                drifts.append(_drift(item, "label-blocked", "blocked:true", "blocked:absent"))
             elif not local_blocked_bool and gh_has_blocked:
-                drifts.append(DriftRecord(item.id, "label-blocked", "blocked:false", "blocked:present"))
+                drifts.append(_drift(item, "label-blocked", "blocked:false", "blocked:present"))
 
             # --- State comparison ---
             gh_state = gh_issue.get("state", "UNKNOWN")
@@ -235,7 +245,7 @@ def stage2_compare(
             if runtime.stage_implies_merge(local_status) or local_status in ENGINE_TERMINAL_STAGE_IDS:
                 expected_state = "CLOSED"
             if gh_state != expected_state:
-                drifts.append(DriftRecord(item.id, "state", expected_state, gh_state))
+                drifts.append(_drift(item, "state", expected_state, gh_state))
 
             # --- Comment presence check ---
             if runtime.stage_implies_merge(local_status) and gh_heavy is not None:
@@ -244,25 +254,20 @@ def stage2_compare(
                     "**Status:**" in c.get("body", "") for c in comments
                 )
                 if not has_status:
-                    drifts.append(DriftRecord(
-                        item.id, "comment", "has-status-comment", "missing",
+                    drifts.append(_drift(
+                        item, "comment", "has-status-comment", "missing",
                     ))
 
         elif item.kind == "epic_task":
-            file_path = item.file
-            stripped = file_path.replace("epic_tasks:", "", 1)
-            parts = stripped.rsplit("/", 1)
-            if len(parts) != 2:
+            # Typed identity from ingestion: (epic_id, task_num).
+            if item.epic_id is None or item.task_num is None:
                 continue
-            raw_slug = parts[0]
+            raw_slug = str(item.epic_id)
+            et_num = int(item.task_num)
             try:
                 et_slug_int = int(raw_slug)
             except ValueError:
                 et_slug_int = None
-            try:
-                et_num = int(parts[1])
-            except ValueError:
-                continue
 
             # Try both string and int key since epic_id may be stored as either
             local_task = epic_tasks_by_key.get((raw_slug, et_num))
@@ -274,14 +279,14 @@ def stage2_compare(
             # --- Title comparison ---
             local_task_title = local_task.get("title", "") or ""
             gh_title_raw = gh_issue.get("title", "")
-            gh_title_norm = re.sub(r"^\[YOK-\d+\]\s*", "", gh_title_raw)
+            gh_title_norm = ITEM_REF_TITLE_PREFIX_RE.sub("", gh_title_raw)
             gh_title_norm = re.sub(r"^Task\s+\d+:\s*", "", gh_title_norm)
             gh_title_norm = re.sub(r"^\d{3}\s+", "", gh_title_norm)
 
-            if gh_title_raw and not re.match(r"^\[YOK-\d+\]", gh_title_raw):
-                drifts.append(DriftRecord(item.id, "title", local_task_title, gh_title_raw))
+            if gh_title_raw and not ITEM_REF_TITLE_PREFIX_RE.match(gh_title_raw):
+                drifts.append(_drift(item, "title", local_task_title, gh_title_raw))
             elif gh_title_norm and local_task_title and local_task_title != gh_title_norm:
-                drifts.append(DriftRecord(item.id, "title", local_task_title, gh_title_raw))
+                drifts.append(_drift(item, "title", local_task_title, gh_title_raw))
 
             # --- State comparison ---
             task_status = local_task.get("status", "") or ""
@@ -290,7 +295,7 @@ def stage2_compare(
             if task_status in TASK_TERMINAL_SUCCESS or task_status == "cancelled":
                 expected_state = "CLOSED"
             if gh_state != expected_state:
-                drifts.append(DriftRecord(item.id, "state", expected_state, gh_state))
+                drifts.append(_drift(item, "state", expected_state, gh_state))
 
             # --- Body comparison ---
             local_task_body = normalize_body_for_compare(local_task.get("body", "") or "")
@@ -298,12 +303,12 @@ def stage2_compare(
             if gh_heavy is not None:
                 gh_task_body = normalize_body_for_compare(gh_heavy.get("body", "") or "")
                 if local_task_body != gh_task_body:
-                    drifts.append(DriftRecord(item.id, "body", "<local body>", "<github body>"))
+                    drifts.append(_drift(item, "body", "<local body>", "<github body>"))
             else:
                 gh_light_body = gh_issue.get("body")
                 if gh_light_body is not None:
                     gh_task_body_light = normalize_body_for_compare(gh_light_body or "")
                     if local_task_body != gh_task_body_light:
-                        drifts.append(DriftRecord(item.id, "body", "<local body>", "<github body>"))
+                        drifts.append(_drift(item, "body", "<local body>", "<github body>"))
 
     return drifts

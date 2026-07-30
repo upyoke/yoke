@@ -24,13 +24,15 @@ from yoke_core.domain import (  # noqa: F401 - re-exported for tests
 from yoke_core.domain.db_helpers import connect  # noqa: F401 - re-exported for legacy callers
 from yoke_core.domain.epic import task_update_field  # noqa: F401 - re-exported for legacy callers
 from yoke_core.domain.project_github_auth import resolve_project_github_auth
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.engines.resync_detect import DriftRecord, PairedItem
 
 
-# sync_item announces title-match reuse with one of these markers.
+# sync_item announces title-match reuse with one of these markers; the
+# public-ref prefix letters vary per project.
 _REUSE_MARKER_RE = re.compile(
-    r"Found existing GitHub issue #(\d+) for YOK-\d+ — reusing"
-    r"|Synced: YOK-\d+ → GitHub issue #(\d+) \(reused\)"
+    r"Found existing GitHub issue #(\d+) for [A-Za-z][A-Za-z0-9]*-\d+ — reusing"
+    r"|Synced: [A-Za-z][A-Za-z0-9]*-\d+ → GitHub issue #(\d+) \(reused\)"
 )
 
 
@@ -44,22 +46,23 @@ def _p(conn) -> str:
 
 
 def _repair_local_orphan_backlog(
-    item_id: str,
+    item_id: int,
     project: str,
     call_domain_sync_fn,  # noqa: ARG001 - retained for wrapper compatibility
 ) -> Tuple[bool, bool, Optional[str]]:
     """Create or reuse a GitHub issue; returns ``(success, reused, issue_num)``.
 
-    The engine switches the FIXED log wording between "created" and "reused
+    ``item_id`` is the internal ``items.id``; the digit-string form is a
+    bare internal-id token to the domain sync surface. The engine
+    switches the FIXED log wording between "created" and "reused
     existing" using ``reused``. :class:`ProjectGithubAuthError`
     propagates to the engine boundary.
     """
-    num = item_id.replace("YOK-", "")
     resolve_project_github_auth(project or "yoke")
     captured = io.StringIO()
     try:
         rc = _parent().backlog_github_sync.sync_item(
-            num, stdout=captured, stderr=io.StringIO(),
+            str(int(item_id)), stdout=captured, stderr=io.StringIO(),
         )
     except Exception:
         return (False, False, None)
@@ -72,7 +75,8 @@ def _repair_local_orphan_backlog(
 
 
 def _repair_local_orphan_epic_task(
-    item_id: str,
+    epic_id: str,
+    task_num: int,
     project: str,
     db_path: str,
     is_dry_run_fn,
@@ -94,7 +98,8 @@ def _repair_local_orphan_epic_task(
         else _parent().task_update_field
     )
     return repair_local_orphan_epic_task(
-        item_id,
+        epic_id,
+        task_num,
         project,
         db_path,
         is_dry_run_fn=is_dry_run_fn,
@@ -150,6 +155,40 @@ def _set_issue_state_via_rest(
     return True
 
 
+def _find_paired_for_drift(
+    drift: DriftRecord, paired: List[PairedItem],
+) -> Optional[PairedItem]:
+    """Match a drift back to its paired item by typed identity."""
+    for p in paired:
+        if drift.item_id is not None and p.item_id == drift.item_id:
+            return p
+        if (
+            drift.epic_id is not None
+            and p.epic_id == drift.epic_id
+            and p.task_num == drift.task_num
+        ):
+            return p
+    return None
+
+
+def _epic_task_repair_title(drift: DriftRecord, db_path: str) -> str:
+    """Compose the epic-task issue title with the parent's public ref."""
+    tnum_padded = f"{int(drift.task_num):03d}"
+    conn = connect(db_path)
+    try:
+        p = _p(conn)
+        parent = conn.execute(
+            f"SELECT id FROM items WHERE CAST(id AS TEXT) = CAST({p} AS TEXT) LIMIT 1",
+            (str(drift.epic_id),),
+        ).fetchone()
+        parent_ref = render_item_ref(conn, int(parent[0])) if parent else ""
+    finally:
+        conn.close()
+    if parent_ref:
+        return f"[{parent_ref}] {tnum_padded} {drift.local}"
+    return f"{tnum_padded} {drift.local}"
+
+
 def _repair_drift(
     drift: DriftRecord,
     paired: List[PairedItem],
@@ -158,35 +197,28 @@ def _repair_drift(
     is_dry_run_fn,
     query_item_status_fn,
 ) -> bool:
-    """Repair a single field drift. Returns True on success."""
-    paired_item = None
-    for p in paired:
-        if p.id == drift.id:
-            paired_item = p
-            break
+    """Repair a single field drift. Returns True on success.
+
+    Branching is on the drift's typed identity: ``item_id`` (internal
+    ``items.id``) selects the backlog path, ``(epic_id, task_num)`` the
+    epic-task path. ``drift.ref`` is display-only — it is rendered into
+    GitHub-facing titles but never parsed back into an id.
+    """
+    paired_item = _find_paired_for_drift(drift, paired)
+    is_backlog = drift.item_id is not None
+    is_epic_task = drift.epic_id is not None and drift.task_num is not None
+    num = str(drift.item_id) if is_backlog else ""
 
     if drift.field == "title" and paired_item:
-        if drift.id.startswith("YOK-"):
-            repair_title = f"[{drift.id}] {drift.local}"
+        if is_backlog:
+            repair_title = f"[{drift.ref}] {drift.local}"
+        elif is_epic_task:
+            repair_title = _epic_task_repair_title(drift, db_path)
         else:
-            et_slug = drift.id.split("/")[0]
-            et_tnum_padded = drift.id.split("task-")[1] if "task-" in drift.id else ""
-            from yoke_core.domain.db_helpers import connect
-
-            conn = connect(db_path)
-            p = _p(conn)
-            parent = conn.execute(
-                f"SELECT id FROM items WHERE CAST(id AS TEXT) = CAST({p} AS TEXT) LIMIT 1",
-                (et_slug,),
-            ).fetchone()
-            conn.close()
-            if parent:
-                repair_title = f"[YOK-{parent[0]}] {et_tnum_padded} {drift.local}"
-            else:
-                repair_title = f"{et_tnum_padded} {drift.local}"
+            return False
 
         if is_dry_run_fn():
-            print(f"[DRY-RUN] Skipping GitHub: edit title for {drift.id}")
+            print(f"[DRY-RUN] Skipping GitHub: edit title for {drift.ref}")
             return True
 
         return _edit_issue_title_via_rest(
@@ -196,20 +228,17 @@ def _repair_drift(
         )
 
     elif drift.field == "body":
-        if drift.id.startswith("YOK-"):
-            num = drift.id.replace("YOK-", "")
+        if is_backlog:
             return call_domain_sync_fn(
                 _parent().backlog_github_sync.sync_body,
                 num,
                 project=paired_item.project if paired_item else "yoke",
             )
-        elif "/task-" in drift.id:
-            et_slug = drift.id.split("/")[0]
-            et_tnum = drift.id.split("task-")[1].lstrip("0") or "0"
+        elif is_epic_task:
             return (
                 _parent().epic_task_sync.sync_task_body(
-                    str(et_slug),
-                    int(et_tnum),
+                    str(drift.epic_id),
+                    int(drift.task_num),
                     stdout=io.StringIO(),
                     stderr=io.StringIO(),
                 )
@@ -221,8 +250,7 @@ def _repair_drift(
         "label-status", "label-priority", "label-workflow",
         "label-source", "label-owner",
     ):
-        if drift.id.startswith("YOK-"):
-            num = drift.id.replace("YOK-", "")
+        if is_backlog:
             return call_domain_sync_fn(
                 _parent().backlog_github_sync.sync_labels,
                 num,
@@ -231,12 +259,11 @@ def _repair_drift(
         return False
 
     elif drift.field in ("label-frozen", "label-blocked"):
-        if drift.id.startswith("YOK-"):
-            num = drift.id.replace("YOK-", "")
+        if is_backlog:
             kind = "frozen" if drift.field == "label-frozen" else "blocked"
             local_value = drift.local.replace(f"{kind}:", "")
             if is_dry_run_fn():
-                print(f"[DRY-RUN] Skipping GitHub: sync-{kind}-label for YOK-{num}")
+                print(f"[DRY-RUN] Skipping GitHub: sync-{kind}-label for {drift.ref}")
                 return True
             sync_fn = (
                 _parent().backlog_github_sync.sync_frozen_label
@@ -252,8 +279,7 @@ def _repair_drift(
         return False
 
     elif drift.field == "state":
-        if drift.id.startswith("YOK-"):
-            num = drift.id.replace("YOK-", "")
+        if is_backlog:
             if drift.local == "CLOSED":
                 return call_domain_sync_fn(
                     _parent().backlog_github_sync.close_issue,
@@ -267,7 +293,7 @@ def _repair_drift(
             )
         elif paired_item:
             if is_dry_run_fn():
-                print(f"[DRY-RUN] Skipping GitHub: state change for {drift.id}")
+                print(f"[DRY-RUN] Skipping GitHub: state change for {drift.ref}")
                 return True
             new_state = "closed" if drift.local == "CLOSED" else "open"
             return _set_issue_state_via_rest(
@@ -278,8 +304,7 @@ def _repair_drift(
         return False
 
     elif drift.field == "comment":
-        if drift.id.startswith("YOK-"):
-            num = drift.id.replace("YOK-", "")
+        if is_backlog:
             cur_status = query_item_status_fn(num) or "done"
             return call_domain_sync_fn(
                 _parent().backlog_github_sync.post_comment,

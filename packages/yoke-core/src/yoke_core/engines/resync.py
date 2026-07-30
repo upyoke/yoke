@@ -26,6 +26,7 @@ from yoke_core.engines.resync_runtime import (  # noqa: F401
     _call_domain_sync,
 )
 from yoke_core.engines.resync_detect import (  # noqa: F401
+    LocalOrphan,
     PairedItem,
     DriftRecord,
     _trim_trailing,
@@ -190,8 +191,8 @@ def main(argv: Optional[List[str]] = None) -> int:
 
         if local_orphan_count > 0:
             print("Local orphans (no GitHub issue linked):")
-            for oid, ofile, otype, oproj in local_orphans:
-                print(f"  - {oid} ({otype}, project={oproj})")
+            for orphan in local_orphans:
+                print(f"  - {orphan.ref} ({orphan.kind}, project={orphan.project})")
             print()
 
         if gh_orphan_count > 0:
@@ -234,7 +235,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
         if drift_count > 0:
             for d in drifts:
-                print(f"  - {d.id} | {d.field} | local={d.local} | github={d.github}")
+                print(f"  - {d.ref} | {d.field} | local={d.local} | github={d.github}")
             print()
 
     # Repair
@@ -245,12 +246,18 @@ def main(argv: Optional[List[str]] = None) -> int:
         if not doctor_format:
             print("=== Stage 3: Repair ===")
 
-        # Repair local orphans. ``_repair_local_orphan_backlog`` returns
-        # (success, reused, issue_num) so the engine can distinguish "created"
-        # from "reused existing" in the log line.
-        for oid, ofile, otype, oproj in local_orphans:
-            if otype == "backlog":
-                ok, reused, issue_num = _repair_local_orphan_backlog(oid, oproj)
+        # Repair local orphans by typed identity: internal ``items.id``
+        # for backlog items, ``(epic_id, task_num)`` for epic tasks. The
+        # display ref is never parsed back into an id.
+        # ``_repair_local_orphan_backlog`` returns (success, reused,
+        # issue_num) so the engine can distinguish "created" from
+        # "reused existing" in the log line.
+        for orphan in local_orphans:
+            oid, oproj = orphan.ref, orphan.project
+            if orphan.kind == "backlog" and orphan.item_id is not None:
+                ok, reused, issue_num = _repair_local_orphan_backlog(
+                    orphan.item_id, oproj,
+                )
                 if ok:
                     repaired += 1
                     if not doctor_format:
@@ -271,8 +278,14 @@ def main(argv: Optional[List[str]] = None) -> int:
                             f"  FAILED: {oid} -- could not create GitHub issue "
                             f"(project={oproj})"
                         )
-            else:
-                if _repair_local_orphan_epic_task(oid, oproj, db_path):
+            elif (
+                orphan.kind == "epic_task"
+                and orphan.epic_id is not None
+                and orphan.task_num is not None
+            ):
+                if _repair_local_orphan_epic_task(
+                    orphan.epic_id, orphan.task_num, oproj, db_path,
+                ):
                     repaired += 1
                     if not doctor_format:
                         print(f"  FIXED: {oid} -- created GitHub issue (project={oproj})")
@@ -280,6 +293,13 @@ def main(argv: Optional[List[str]] = None) -> int:
                     failed += 1
                     if not doctor_format:
                         print(f"  FAILED: {oid} -- could not create GitHub issue (project={oproj})")
+            else:
+                failed += 1
+                if not doctor_format:
+                    print(
+                        f"  FAILED: {oid} -- orphan record carries no typed "
+                        f"identity (project={oproj})"
+                    )
 
         # GitHub orphans: report only
         if gh_orphans and not doctor_format:
@@ -291,11 +311,11 @@ def main(argv: Optional[List[str]] = None) -> int:
             if _repair_drift(d, paired, db_path):
                 repaired += 1
                 if not doctor_format:
-                    print(f"  FIXED: {d.id} -- {d.field} repaired")
+                    print(f"  FIXED: {d.ref} -- {d.field} repaired")
             else:
                 failed += 1
                 if not doctor_format:
-                    print(f"  FAILED: {d.id} -- {d.field} repair failed")
+                    print(f"  FAILED: {d.ref} -- {d.field} repair failed")
 
         if not doctor_format:
             print()

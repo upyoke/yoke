@@ -63,10 +63,10 @@ def _repair_local_orphan_backlog(item_id, project):
     return _fn(item_id, project, call_domain_sync_fn=_parent()._call_domain_sync)
 
 
-def _repair_local_orphan_epic_task(item_id, project, db_path):
+def _repair_local_orphan_epic_task(epic_id, task_num, project, db_path):
     from yoke_core.engines.resync_apply import _repair_local_orphan_epic_task as _fn
     return _fn(
-        item_id, project, db_path,
+        epic_id, task_num, project, db_path,
         is_dry_run_fn=_parent()._is_dry_run,
         task_update_field_fn=_parent().task_update_field,
     )

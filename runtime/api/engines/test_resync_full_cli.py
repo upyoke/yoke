@@ -12,7 +12,7 @@ import os
 from io import StringIO
 from unittest import mock
 
-from yoke_core.engines.resync import DriftRecord, main
+from yoke_core.engines.resync import DriftRecord, LocalOrphan, main
 
 from yoke_core.engines._resync_full_test_helpers import (
     populated_db as populated_db,
@@ -60,7 +60,7 @@ class TestMainCLI:
         def fake_linkage(db_path, yoke_root):
             return (
                 [],
-                [("YOK-99", "/tmp/099.md", "backlog", "yoke")],
+                [LocalOrphan("YOK-99", "/tmp/099.md", "backlog", "yoke", item_id=99)],
                 [],
                 {},
             )

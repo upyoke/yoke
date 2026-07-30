@@ -39,7 +39,7 @@ class TestStage2CompareTextLabel:
             "state": "OPEN",
             "body": "# Spec: Test item\n\nItem body\n",
         }])
-        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "")]
+        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", item_id=42)]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
         assert len(drifts) == 0
 
@@ -57,7 +57,7 @@ class TestStage2CompareTextLabel:
             "state": "OPEN",
             "body": "Item body",
         }])
-        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "")]
+        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", item_id=42)]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
         title_drifts = [d for d in drifts if d.field == "title"]
         assert len(title_drifts) == 1
@@ -78,7 +78,7 @@ class TestStage2CompareTextLabel:
             "state": "OPEN",
         }])
         heavy = {"yoke": {100: {"number": 100, "body": "Different body", "comments": []}}}
-        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "")]
+        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", item_id=42)]
         drifts = stage2_compare(paired, gh_issues, heavy, populated_db)
         body_drifts = [d for d in drifts if d.field == "body"]
         assert len(body_drifts) == 1
@@ -97,7 +97,7 @@ class TestStage2CompareTextLabel:
             "state": "OPEN",
             "body": "Totally different body",
         }])
-        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "")]
+        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", item_id=42)]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
         body_drifts = [d for d in drifts if d.field == "body"]
         assert len(body_drifts) == 1
@@ -116,7 +116,7 @@ class TestStage2CompareTextLabel:
             "state": "OPEN",
             "body": "# Spec: Test item\n\nItem body\n",
         }])
-        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "")]
+        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", item_id=42)]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
         body_drifts = [d for d in drifts if d.field == "body"]
         assert len(body_drifts) == 0
@@ -135,7 +135,7 @@ class TestStage2CompareTextLabel:
             "state": "OPEN",
             "body": "Item body",
         }])
-        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "")]
+        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", item_id=42)]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
         status_drifts = [d for d in drifts if d.field == "label-status"]
         assert len(status_drifts) == 1
@@ -156,7 +156,7 @@ class TestStage2CompareTextLabel:
             "state": "OPEN",
             "body": "Item body",
         }])
-        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "")]
+        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", item_id=42)]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
         priority_drifts = [d for d in drifts if d.field == "label-priority"]
         assert len(priority_drifts) == 1
@@ -176,7 +176,7 @@ class TestStage2CompareTextLabel:
             "state": "OPEN",
             "body": "Item body",
         }])
-        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "")]
+        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", item_id=42)]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
         type_drifts = [d for d in drifts if d.field == "label-workflow"]
         assert len(type_drifts) == 1
@@ -196,7 +196,7 @@ class TestStage2CompareTextLabel:
             "state": "OPEN",
             "body": "Item body",
         }])
-        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "")]
+        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", item_id=42)]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
         source_drifts = [d for d in drifts if d.field == "label-source"]
         assert len(source_drifts) == 1
@@ -224,7 +224,7 @@ class TestStage2CompareTextLabel:
             "state": "OPEN",
             "body": "Item body",
         }])
-        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "")]
+        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", item_id=42)]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
         owner_drifts = [d for d in drifts if d.field == "label-owner"]
         assert len(owner_drifts) == 1
@@ -248,7 +248,7 @@ class TestStage2CompareTextLabel:
             "state": "OPEN",
             "body": "Item body",
         }])
-        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "")]
+        paired = [PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", item_id=42)]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
         owner_drifts = [d for d in drifts if d.field == "label-owner"]
         assert owner_drifts == []
@@ -265,7 +265,7 @@ class TestStage2EpicTasks:
             "labels": [{"name": "status:implementing"}],
             "state": "OPEN",
         }])
-        paired = [PairedItem("1246/task-001", "epic_tasks:1246/1", 200, "epic_task", "yoke", "")]
+        paired = [PairedItem("1246/task-001", "epic_tasks:1246/1", 200, "epic_task", "yoke", "", epic_id="1246", task_num=1)]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
         title_drifts = [d for d in drifts if d.field == "title"]
         assert len(title_drifts) == 1
@@ -278,7 +278,7 @@ class TestStage2EpicTasks:
             "labels": [{"name": "status:implementing"}],
             "state": "CLOSED",
         }])
-        paired = [PairedItem("1246/task-001", "epic_tasks:1246/1", 200, "epic_task", "yoke", "")]
+        paired = [PairedItem("1246/task-001", "epic_tasks:1246/1", 200, "epic_task", "yoke", "", epic_id="1246", task_num=1)]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
         state_drifts = [d for d in drifts if d.field == "state"]
         assert len(state_drifts) == 1
@@ -293,7 +293,7 @@ class TestStage2EpicTasks:
             "state": "OPEN",
             "body": "Different task body",
         }])
-        paired = [PairedItem("1246/task-001", "epic_tasks:1246/1", 200, "epic_task", "yoke", "")]
+        paired = [PairedItem("1246/task-001", "epic_tasks:1246/1", 200, "epic_task", "yoke", "", epic_id="1246", task_num=1)]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
         body_drifts = [d for d in drifts if d.field == "body"]
         assert len(body_drifts) == 1
@@ -307,6 +307,6 @@ class TestStage2EpicTasks:
             "state": "OPEN",
             "body": "Task body",
         }])
-        paired = [PairedItem("1246/task-001", "epic_tasks:1246/1", 200, "epic_task", "yoke", "")]
+        paired = [PairedItem("1246/task-001", "epic_tasks:1246/1", 200, "epic_task", "yoke", "", epic_id="1246", task_num=1)]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
         assert len(drifts) == 0

@@ -124,7 +124,8 @@ def test_repair_local_orphan_epic_task_sends_compact_mirror(monkeypatch, repair_
         update_calls.append((epic_id, task_num, field, value))
 
     ok = repair_local_orphan_epic_task(
-        "9999/task-003",
+        "9999",
+        3,
         "yoke",
         repair_db,
         is_dry_run_fn=lambda: False,
@@ -173,7 +174,8 @@ def test_repair_local_orphan_epic_task_keeps_full_body_under_budget(
         )
 
         ok = repair_local_orphan_epic_task(
-            "123/task-002",
+            "123",
+            2,
             "yoke",
             str(db_path),
             is_dry_run_fn=lambda: False,

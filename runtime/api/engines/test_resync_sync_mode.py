@@ -151,8 +151,9 @@ class TestStage1LinkageBacklogOnly:
                 populated_db, str(yoke_root),
             )
 
-        assert {item.id for item in paired} == {TEST_ITEM_REF}
-        assert any(oid == TEST_DONE_ITEM_REF for oid, *_ in local_orphans)
+        assert {item.ref for item in paired} == {TEST_ITEM_REF}
+        assert {item.item_id for item in paired} == {TEST_ITEM_ID}
+        assert any(orphan.ref == TEST_DONE_ITEM_REF for orphan in local_orphans)
 
 
 class TestEngineMainBacklogOnly:

@@ -98,7 +98,7 @@ class TestStage2Compare:
             },
         ])
         paired = [
-            PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", ""),
+            PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", item_id=42),
         ]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
         assert len(drifts) == 0
@@ -120,7 +120,7 @@ class TestStage2Compare:
             },
         ])
         paired = [
-            PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", ""),
+            PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", item_id=42),
         ]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
         title_drifts = [d for d in drifts if d.field == "title"]
@@ -145,7 +145,7 @@ class TestStage2Compare:
         ])
         heavy = {"yoke": {100: {"number": 100, "body": "Different body", "comments": []}}}
         paired = [
-            PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", ""),
+            PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", item_id=42),
         ]
         drifts = stage2_compare(paired, gh_issues, heavy, populated_db)
         body_drifts = [d for d in drifts if d.field == "body"]
@@ -168,7 +168,7 @@ class TestStage2Compare:
             },
         ])
         paired = [
-            PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", ""),
+            PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", item_id=42),
         ]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
         status_drifts = [d for d in drifts if d.field == "label-status"]
@@ -193,7 +193,7 @@ class TestStage2Compare:
             },
         ])
         paired = [
-            PairedItem("YOK-43", "/tmp/043.md", 101, "backlog", "yoke", ""),
+            PairedItem("YOK-43", "/tmp/043.md", 101, "backlog", "yoke", "", item_id=43),
         ]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
         state_drifts = [d for d in drifts if d.field == "state"]
@@ -219,7 +219,7 @@ class TestStage2Compare:
             },
         ])
         paired = [
-            PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", ""),
+            PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", item_id=42),
         ]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
         frozen_drifts = [d for d in drifts if d.field == "label-frozen"]
@@ -245,7 +245,7 @@ class TestStage2Compare:
             },
         ])
         paired = [
-            PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", ""),
+            PairedItem("YOK-42", "/tmp/042.md", 100, "backlog", "yoke", "", item_id=42),
         ]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
         blocked_drifts = [d for d in drifts if d.field == "label-blocked"]
@@ -275,7 +275,7 @@ class TestStage2Compare:
             "comments": [{"body": "Just a note"}],
         }}}
         paired = [
-            PairedItem("YOK-43", "/tmp/043.md", 101, "backlog", "yoke", ""),
+            PairedItem("YOK-43", "/tmp/043.md", 101, "backlog", "yoke", "", item_id=43),
         ]
         drifts = stage2_compare(paired, gh_issues, heavy, populated_db)
         comment_drifts = [d for d in drifts if d.field == "comment"]
@@ -303,7 +303,7 @@ class TestStage2Compare:
             "comments": [{"body": "**Status:** done"}],
         }}}
         paired = [
-            PairedItem("YOK-43", "/tmp/043.md", 101, "backlog", "yoke", ""),
+            PairedItem("YOK-43", "/tmp/043.md", 101, "backlog", "yoke", "", item_id=43),
         ]
         drifts = stage2_compare(paired, gh_issues, heavy, populated_db)
         comment_drifts = [d for d in drifts if d.field == "comment"]
@@ -320,7 +320,7 @@ class TestStage2Compare:
             },
         ])
         paired = [
-            PairedItem("1246/task-001", "epic_tasks:1246/1", 200, "epic_task", "yoke", ""),
+            PairedItem("1246/task-001", "epic_tasks:1246/1", 200, "epic_task", "yoke", "", epic_id="1246", task_num=1),
         ]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
         title_drifts = [d for d in drifts if d.field == "title"]
@@ -337,7 +337,7 @@ class TestStage2Compare:
             },
         ])
         paired = [
-            PairedItem("1246/task-001", "epic_tasks:1246/1", 200, "epic_task", "yoke", ""),
+            PairedItem("1246/task-001", "epic_tasks:1246/1", 200, "epic_task", "yoke", "", epic_id="1246", task_num=1),
         ]
         drifts = stage2_compare(paired, gh_issues, {}, populated_db)
         state_drifts = [d for d in drifts if d.field == "state"]

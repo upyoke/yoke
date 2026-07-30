@@ -25,6 +25,7 @@ from yoke_core.domain import db_backend
 from yoke_core.domain import github_rest
 from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.epic import task_get_body
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.task_lifecycle import TASK_TERMINAL_SUCCESS
 
 
@@ -73,7 +74,8 @@ def _select_body_for_create(
 
 
 def repair_local_orphan_epic_task(
-    item_id: str,
+    epic_id: str,
+    task_num: int,
     project: str,
     db_path: str,
     *,
@@ -88,7 +90,7 @@ def repair_local_orphan_epic_task(
     "could not create GitHub issue."
     """
     outcome = repair_local_orphan_epic_task_typed(
-        item_id, project, db_path,
+        epic_id, task_num, project, db_path,
         is_dry_run_fn=is_dry_run_fn,
         task_update_field_fn=task_update_field_fn,
         stderr=sys.stderr,
@@ -102,7 +104,8 @@ def repair_local_orphan_epic_task(
 
 
 def repair_local_orphan_epic_task_typed(
-    item_id: str,
+    epic_id: str,
+    task_num: int,
     project: str,
     db_path: str,
     *,
@@ -111,12 +114,14 @@ def repair_local_orphan_epic_task_typed(
     stderr: TextIO = sys.stderr,
 ) -> RepairOutcome:
     """Typed variant returning RepairOutcome — direct caller path for
-    future-shape diagnostic-aware loops."""
-    parts = item_id.split("/task-")
-    if len(parts) != 2:
-        return RepairOutcome(False, error=f"malformed task id: {item_id!r}")
-    et_slug, et_tnum_padded = parts
-    et_tnum = et_tnum_padded.lstrip("0") or "0"
+    future-shape diagnostic-aware loops.
+
+    Identity is ``(epic_id, task_num)``; the GitHub issue title leads
+    with the parent epic's public ref rendered from prefix+sequence.
+    """
+    et_slug = str(epic_id)
+    et_tnum = str(int(task_num))
+    et_tnum_padded = f"{int(task_num):03d}"
 
     conn = connect(path=db_path)
     try:
@@ -129,6 +134,9 @@ def repair_local_orphan_epic_task_typed(
             f"SELECT title, status FROM epic_tasks WHERE epic_id = {p} AND task_num = {p}",
             (et_slug, int(et_tnum)),
         ).fetchone()
+        # render_item_ref tolerates schemas without project tables and
+        # falls back to the default-prefix + internal-id form.
+        parent_ref = render_item_ref(conn, int(parent_row[0])) if parent_row else ""
     finally:
         conn.close()
 
@@ -142,8 +150,8 @@ def repair_local_orphan_epic_task_typed(
         return RepairOutcome(True)
 
     issue_title = (
-        f"[YOK-{parent_row[0]}] {et_tnum_padded} {et_title}"
-        if parent_row else f"{et_tnum_padded} {et_title}"
+        f"[{parent_ref}] {et_tnum_padded} {et_title}"
+        if parent_ref else f"{et_tnum_padded} {et_title}"
     )
     label_list = ["type:task", f"status:{et_status}"]
 

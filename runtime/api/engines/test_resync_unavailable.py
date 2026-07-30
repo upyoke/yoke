@@ -45,6 +45,7 @@ class TestHeavyFetchUnavailable:
         paired = [
             resync_mod.PairedItem(
                 TEST_ITEM_REF, "/tmp/042.md", 100, "backlog", "externalwebapp", "",
+                item_id=TEST_ITEM_ID,
             ),
         ]
         light = {
@@ -70,6 +71,7 @@ class TestHeavyFetchUnavailable:
         paired = [
             resync_mod.PairedItem(
                 TEST_ITEM_REF, "/tmp/042.md", 100, "backlog", "yoke", "stale/repo",
+                item_id=TEST_ITEM_ID,
             ),
         ]
         light = {
@@ -105,6 +107,7 @@ class TestHeavyFetchUnavailable:
         paired = [
             resync_mod.PairedItem(
                 TEST_ITEM_REF, "/tmp/042.md", 100, "backlog", "externalwebapp", "",
+                item_id=TEST_ITEM_ID,
             ),
         ]
         light = {

@@ -136,7 +136,7 @@ class TestCompactMirrorSuppression:
             "state": "OPEN",
             "body": gh_body,
         }])
-        paired = [PairedItem("YOK-910", "/tmp/910.md", 900, "backlog", "yoke", "")]
+        paired = [PairedItem("YOK-910", "/tmp/910.md", 900, "backlog", "yoke", "", item_id=910)]
         drifts = stage2_compare(paired, gh_issues, {}, test_db)
         body_drifts = [d for d in drifts if d.field == "body"]
         assert body_drifts == [], (
@@ -176,7 +176,7 @@ class TestCompactMirrorSuppression:
             "state": "OPEN",
             "body": gh_body,
         }])
-        paired = [PairedItem("YOK-911", "/tmp/911.md", 901, "backlog", "yoke", "")]
+        paired = [PairedItem("YOK-911", "/tmp/911.md", 901, "backlog", "yoke", "", item_id=911)]
         drifts = stage2_compare(paired, gh_issues, {}, test_db)
         body_drifts = [d for d in drifts if d.field == "body"]
         assert len(body_drifts) == 1, (
@@ -205,7 +205,7 @@ class TestCompactMirrorSuppression:
             "state": "OPEN",
             "body": gh_body,
         }])
-        paired = [PairedItem("YOK-912", "/tmp/912.md", 902, "backlog", "yoke", "")]
+        paired = [PairedItem("YOK-912", "/tmp/912.md", 902, "backlog", "yoke", "", item_id=912)]
         drifts = stage2_compare(paired, gh_issues, {}, test_db)
         body_drifts = [d for d in drifts if d.field == "body"]
         assert len(body_drifts) == 1, (

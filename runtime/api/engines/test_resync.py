@@ -129,23 +129,21 @@ class TestStage1:
                 str(yoke_root),
             )
 
-        paired_ids = {item.id for item in paired}
-        local_orphan_ids = {item_id for item_id, *_ in local_orphans}
-        assert "YOK-42" in paired_ids
-        assert "YOK-1246" in paired_ids
-        assert "1246/task-001" in paired_ids
-        assert "YOK-43" in local_orphan_ids
+        paired_refs = {item.ref for item in paired}
+        local_orphan_refs = {orphan.ref for orphan in local_orphans}
+        assert "YOK-42" in paired_refs
+        assert "YOK-1246" in paired_refs
+        assert "1246/task-001" in paired_refs
+        assert "YOK-43" in local_orphan_refs
         assert gh_orphans == [(999, "[YOK-999] Orphan", "OPEN", "yoke")]
         assert gh_by_project["yoke"][100]["title"] == "[YOK-42] Test item"
 
     def test_stage1_5_heavy_fetch_uses_resolved_repo_and_token_together(self):
         paired = [
-            PairedItem(
-                TEST_ITEM_REF, "/tmp/042.md", 100, "backlog", "yoke", "stale/yoke",
-            ),
-            PairedItem(
-                "YOK-77", "/tmp/077.md", 7, "backlog", "externalwebapp", "stale/externalwebapp",
-            ),
+            PairedItem(TEST_ITEM_REF, "/tmp/042.md", 100, "backlog", "yoke",
+                       "stale/yoke", item_id=TEST_ITEM_ID),
+            PairedItem("YOK-77", "/tmp/077.md", 7, "backlog", "externalwebapp",
+                       "stale/externalwebapp", item_id=77),
         ]
 
         from yoke_core.domain.project_github_auth import ProjectGithubAuth
@@ -253,7 +251,7 @@ class TestStage1:
             )
 
         assert observed_rosters == [{"externalwebapp"}]
-        assert [item.id for item in paired] == ["YOK-44"]
+        assert [item.ref for item in paired] == ["EXT-1"]
         assert local_orphans == []
         assert gh_orphans == []
         assert set(states) == {"externalwebapp"}

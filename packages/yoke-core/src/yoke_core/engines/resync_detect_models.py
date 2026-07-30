@@ -1,44 +1,101 @@
-"""Data structures and normalization for resync detection."""
+"""Data structures and normalization for resync detection.
+
+Identity convention: inside the engine, backlog items are keyed by the
+internal integer ``items.id`` (``item_id``) and epic tasks by
+``(epic_id, task_num)``. The ``ref`` attribute is a human-facing label —
+the item's public ref (``{public_item_prefix}-{project_sequence}``) for
+backlog items — and is never parsed back into an id: public sequences
+can diverge from internal ids, so a stripped label digit is not an
+``items.id``.
+"""
 
 from __future__ import annotations
 
-from typing import Any, Dict, List
+import re
+from typing import Any, Dict, List, NamedTuple, Optional
+
+# GitHub issue titles written by the sync path lead with the item's
+# public ref (e.g. ``[YOK-1914]``); the prefix letters vary per project.
+ITEM_REF_TITLE_PREFIX_RE = re.compile(r"^\[[A-Za-z][A-Za-z0-9]*-\d+\]\s*")
+
 
 class PairedItem:
     """Represents a local item/task paired with a GitHub issue."""
 
-    __slots__ = ("id", "file", "gh_num", "kind", "project", "repo")
+    __slots__ = (
+        "ref", "file", "gh_num", "kind", "project", "repo",
+        "item_id", "epic_id", "task_num",
+    )
 
     def __init__(
         self,
-        id: str,
+        ref: str,
         file: str,
         gh_num: int,
         kind: str,
         project: str,
         repo: str,
+        *,
+        item_id: Optional[int] = None,
+        epic_id: Optional[str] = None,
+        task_num: Optional[int] = None,
     ):
-        self.id = id
+        self.ref = ref
         self.file = file
         self.gh_num = gh_num
         self.kind = kind
         self.project = project
         self.repo = repo
+        self.item_id = item_id
+        self.epic_id = epic_id
+        self.task_num = task_num
 
 
 class DriftRecord:
-    """A single field drift between local and GitHub."""
+    """A single field drift between local and GitHub.
 
-    __slots__ = ("id", "field", "local", "github")
+    ``ref`` is the display label; the typed identity fields carry the
+    authoritative key the repair stage acts on.
+    """
 
-    def __init__(self, id: str, field: str, local: str, github: str):
-        self.id = id
+    __slots__ = (
+        "ref", "field", "local", "github",
+        "item_id", "epic_id", "task_num",
+    )
+
+    def __init__(
+        self,
+        ref: str,
+        field: str,
+        local: str,
+        github: str,
+        *,
+        item_id: Optional[int] = None,
+        epic_id: Optional[str] = None,
+        task_num: Optional[int] = None,
+    ):
+        self.ref = ref
         self.field = field
         self.local = local
         self.github = github
+        self.item_id = item_id
+        self.epic_id = epic_id
+        self.task_num = task_num
 
     def to_pipe(self) -> str:
-        return f"{self.id}|{self.field}|{self.local}|{self.github}"
+        return f"{self.ref}|{self.field}|{self.local}|{self.github}"
+
+
+class LocalOrphan(NamedTuple):
+    """A local backlog item or epic task with no linked GitHub issue."""
+
+    ref: str
+    file: str
+    kind: str
+    project: str
+    item_id: Optional[int] = None
+    epic_id: Optional[str] = None
+    task_num: Optional[int] = None
 
 
 def _trim_trailing(text: str) -> str:

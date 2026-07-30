@@ -11,7 +11,7 @@ from __future__ import annotations
 from io import StringIO
 from unittest import mock
 
-from yoke_core.engines.resync import DriftRecord, _emit_doctor_format
+from yoke_core.engines.resync import DriftRecord, LocalOrphan, _emit_doctor_format
 
 
 class TestDoctorFormat:
@@ -84,7 +84,7 @@ class TestDoctorFormat:
         assert "HC-comment-sync|Comment sync|WARN|" in output
 
     def test_warn_on_local_orphans(self):
-        orphans = [("YOK-99", "/tmp/099.md", "backlog", "yoke")]
+        orphans = [LocalOrphan("YOK-99", "/tmp/099.md", "backlog", "yoke", item_id=99)]
         captured = StringIO()
         with mock.patch("sys.stdout", captured):
             _emit_doctor_format(orphans, [], [], "detect")
@@ -92,7 +92,7 @@ class TestDoctorFormat:
         assert "HC-missing-gh-issues|Missing GitHub issues|WARN|" in output
 
     def test_warn_on_epic_task_orphans(self):
-        orphans = [("1246/task-001", "epic_tasks:1246/1", "epic_task", "yoke")]
+        orphans = [LocalOrphan("1246/task-001", "epic_tasks:1246/1", "epic_task", "yoke", epic_id="1246", task_num=1)]
         captured = StringIO()
         with mock.patch("sys.stdout", captured):
             _emit_doctor_format(orphans, [], [], "detect")
