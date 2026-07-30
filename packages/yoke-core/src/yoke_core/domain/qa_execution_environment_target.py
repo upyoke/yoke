@@ -68,7 +68,8 @@ def _host_url(value: Any) -> str:
     return _url(text if "://" in text else f"https://{text}") if text else ""
 
 
-def _runtime_environment() -> str:
+def runtime_environment_name() -> str:
+    """Return the normalized runtime environment selected for QA."""
     return (
         str(
             os.environ.get("YOKE_ENVIRONMENT")
@@ -82,7 +83,7 @@ def _runtime_environment() -> str:
 
 def require_runtime_target(target: Mapping[str, Any]) -> None:
     """Refuse cross-environment dispatch in hosted Stage and Production."""
-    runtime = _runtime_environment()
+    runtime = runtime_environment_name()
     selected = str(target["environment"]["name"]).strip().lower()
     aliases = {"production": "prod", "staging": "stage"}
     runtime = aliases.get(runtime, runtime)
@@ -215,7 +216,7 @@ def select_backfill_environment(conn: Any, *, project_id: int) -> str:
             (int(project_id),),
         )
     )
-    runtime = _runtime_environment()
+    runtime = runtime_environment_name()
     aliases = {"production": "prod", "staging": "stage"}
     runtime = aliases.get(runtime, runtime)
     matches = [

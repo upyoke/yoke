@@ -20,6 +20,7 @@ _MODULES = (
     "qa_requirement_execution_snapshot",
     "qa_plan_execution_records",
     "qa_plan_execution_deployment_subject",
+    "qa_hosted_runtime_environment",
     "qa_execution_environment_target",
     "qa_plan_agent_review_records",
     "epic_task_scope_state",
@@ -53,6 +54,9 @@ def test_convergence_batch_preserves_dependency_order() -> None:
     assert modules.index("qa_requirement_execution_snapshot") < modules.index(
         "qa_execution_environment_target"
     )
+    assert modules.index("qa_hosted_runtime_environment") < modules.index(
+        "qa_execution_environment_target"
+    )
     assert modules.index("qa_plan_execution_records") < modules.index(
         "qa_plan_execution_deployment_subject"
     )
@@ -75,7 +79,11 @@ def test_convergence_batch_declares_complete_surface_union() -> None:
     assert actual == expected
 
 
-def test_convergence_batch_applies_as_one_ordered_unit(test_db) -> None:
+def test_convergence_batch_applies_as_one_ordered_unit(
+    test_db,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("YOKE_ENVIRONMENT", "stage")
     manifest = parse_manifest_text(_MANIFEST.read_text(encoding="utf-8"))
     test_db.row_factory = tuple_row
 
@@ -88,6 +96,7 @@ def test_convergence_batch_rolls_back_every_module_when_final_module_refuses(
     test_db,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setenv("YOKE_ENVIRONMENT", "stage")
     manifest = parse_manifest_text(_MANIFEST.read_text(encoding="utf-8"))
     marker_table = "convergence_transaction_probe"
     original_apply = workflow_supporting_schema_records.apply
