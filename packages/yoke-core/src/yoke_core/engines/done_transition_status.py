@@ -11,9 +11,11 @@ from __future__ import annotations
 import sys
 from datetime import datetime, timezone
 
+from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.github_app_installation_permissions import (
     GITHUB_ISSUES_WRITE_PERMISSION_LEVELS,
 )
+from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain import db_backend
 from yoke_core.domain.gh_rest_transport import (
     RestRequest,
@@ -104,11 +106,20 @@ def _update_status_to_done(
 
 def _cascade_epic_tasks_to_done(item_id: int, epic_name: str) -> None:
     """Cascade done status to all non-done epic tasks."""
-    from yoke_core.domain import epic as _epic_domain
-
     print("=== Step 6b: Epic sub-task cascade ===")
-    with _parent()._connect() as conn:
-        task_list_output = _epic_domain.task_list(conn, epic_name)
+    # The epic task listing routes through the transport-aware
+    # ``done_transition.epic_task_list`` relay so the read runs over an https
+    # control plane as well as a local Postgres connection; the engine still
+    # parses the raw listing and owns the cascade/promote decisions.
+    resp = call_dispatcher(
+        function_id="done_transition.epic_task_list",
+        target=TargetRef(kind="global"),
+        payload={"epic_id": epic_name},
+    )
+    if not resp.success:
+        message = resp.error.message if resp.error else "unknown error"
+        raise RuntimeError(f"epic task list read failed: {message}")
+    task_list_output = str((resp.result or {}).get("task_list") or "")
     if not task_list_output or not task_list_output.strip():
         print("No tasks to cascade.")
         return
@@ -212,17 +223,26 @@ def _batch_github_sync_tasks(
     except RestTransportError:
         pass  # 422 already-exists is fine
 
+    # Each task's github_issue relays through
+    # ``done_transition.epic_task_github_issues`` in one round-trip so the
+    # post-done sync runs over an https control plane as well as a local
+    # Postgres connection; the per-task query semantics are unchanged.
+    gh_resp = call_dispatcher(
+        function_id="done_transition.epic_task_github_issues",
+        target=TargetRef(kind="global"),
+        payload={"epic_id": epic_name, "task_nums": list(task_nums)},
+    )
+    if not gh_resp.success:
+        message = gh_resp.error.message if gh_resp.error else "unknown error"
+        raise RuntimeError(f"epic task github issues read failed: {message}")
+    github_issues = (gh_resp.result or {}).get("github_issues") or {}
+
     print("\n--- Batch GitHub sync for cascaded tasks ---")
     for tnum in task_nums:
-        with _parent()._connect() as conn:
-            row = conn.execute(
-                "SELECT COALESCE(github_issue, '') FROM epic_tasks "
-                f"WHERE epic_id = {_p(conn)} AND task_num = {_p(conn)}",
-                (epic_name, tnum),
-            ).fetchone()
-        if not row or not row[0]:
+        raw_issue = github_issues.get(str(tnum), "")
+        if not raw_issue:
             continue
-        gh_inum = str(row[0]).replace("#", "")
+        gh_inum = str(raw_issue).replace("#", "")
         if not gh_inum:
             continue
         # Add label

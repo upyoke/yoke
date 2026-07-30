@@ -8,9 +8,10 @@ consulted.
 
 from __future__ import annotations
 
-from typing import Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
-from yoke_core.domain import db_backend
+from yoke_contracts.api.function_call import TargetRef
+from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 
 
 def _parent():
@@ -19,8 +20,25 @@ def _parent():
     return _dt
 
 
-def _p(conn) -> str:
-    return "%s" if db_backend.connection_is_postgres(conn) else "?"
+def _relay_read(
+    function_id: str, target: TargetRef, payload: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
+    """Relay a deployment-guard read, raising on an unavailable read.
+
+    These guards previously opened a bare ``_parent()._connect()`` that
+    crashed on a DB-level failure (the item never reached done). Preserving
+    that fail-closed behavior, a refused relay or transport error raises so
+    the transition aborts rather than proceeding on unread deployment
+    evidence. The reads run over an https control plane as well as a local
+    Postgres connection.
+    """
+    resp = call_dispatcher(
+        function_id=function_id, target=target, payload=payload or {}
+    )
+    if not resp.success:
+        message = resp.error.message if resp.error else "unknown error"
+        raise RuntimeError(f"{function_id} read failed: {message}")
+    return resp.result or {}
 
 
 def _check_deployment_flow_guard(
@@ -40,13 +58,11 @@ def _check_deployment_flow_guard(
         return None
 
     # Distinguish registered flows that lack deployment evidence from
-    # values that are not real flow ids.
-    from yoke_core.domain.deployment_flow_validator import (
-        list_registered_flow_ids,
-    )
-
-    with _parent()._connect() as conn:
-        registered_flows = list_registered_flow_ids(conn)
+    # values that are not real flow ids. The registered-flow list relays so
+    # the guard runs over an https control plane as well as locally.
+    registered_flows = _relay_read(
+        "done_transition.registered_flow_ids", TargetRef(kind="global")
+    ).get("flow_ids", [])
     if deploy_flow not in registered_flows:
         print("\n=== Deployment flow guard ===")
         print(
@@ -179,42 +195,32 @@ def _redirect_to_delivery_stage(
 
 def _check_deployment_evidence(item_id: int) -> bool:
     """True iff the item's latest deployment run succeeded."""
-    with _parent()._connect() as conn:
-        p = _p(conn)
-        run_row = conn.execute(
-            "SELECT dr.status FROM deployment_runs dr "
-            "JOIN deployment_run_items dri ON dr.id = dri.run_id "
-            f"WHERE dri.item_id = {p} ORDER BY dr.created_at DESC LIMIT 1",
-            (item_id,),
-        ).fetchone()
-        return bool(run_row and run_row[0] == "succeeded")
+    data = _relay_read(
+        "done_transition.latest_deployment_run",
+        TargetRef(kind="item", item_id=int(item_id)),
+    )
+    return data.get("status") == "succeeded"
 
 
 def _get_latest_run_status(item_id: int) -> Tuple[str, str]:
     """Get the latest deployment run status and ID for an item."""
-    with _parent()._connect() as conn:
-        row = conn.execute(
-            "SELECT dr.id, dr.status FROM deployment_runs dr "
-            "JOIN deployment_run_items dri ON dr.id = dri.run_id "
-            f"WHERE dri.item_id = {_p(conn)} ORDER BY dr.created_at DESC LIMIT 1",
-            (item_id,),
-        ).fetchone()
-    if not row:
-        return "", ""
-    return str(row["status"] or ""), str(row["id"] or "")
+    data = _relay_read(
+        "done_transition.latest_deployment_run",
+        TargetRef(kind="item", item_id=int(item_id)),
+    )
+    return str(data.get("status") or ""), str(data.get("run_id") or "")
 
 
 def _check_run_stage_consistency(run_id: str) -> bool:
     """Check run stage doesn't indicate failure. Returns True if error."""
     if not run_id:
         return False
-    with _parent()._connect() as conn:
-        row = conn.execute(
-            f"SELECT COALESCE(current_stage, '') FROM deployment_runs WHERE id = {_p(conn)}",
-            (run_id,),
-        ).fetchone()
-    if row and str(row[0]).endswith("-failed"):
-        stage = row[0]
+    stage = _relay_read(
+        "done_transition.run_stage",
+        TargetRef(kind="global"),
+        {"run_id": run_id},
+    ).get("current_stage", "")
+    if stage.endswith("-failed"):
         print("\n=== Deployment stage guard ===")
         print(
             f"Blocked: Deployment run '{run_id}' has status=succeeded but "
@@ -229,21 +235,19 @@ def _check_run_qa_gates(run_id: str) -> bool:
     """Check blocking QA requirements on run. Returns True if error."""
     if not run_id:
         return False
-    with _parent()._connect() as conn:
-        rows = conn.execute(
-            "SELECT check_name || ' (' || status || ')' FROM deployment_run_qa "
-            f"WHERE run_id = {_p(conn)} AND blocking = 1 AND status <> 'passed' "
-            "AND status <> 'waived'",
-            (run_id,),
-        ).fetchall()
-    if rows:
+    blocking = _relay_read(
+        "done_transition.run_blocking_qa",
+        TargetRef(kind="global"),
+        {"run_id": run_id},
+    ).get("blocking", [])
+    if blocking:
         print("\n=== Deployment QA guard ===")
         print(
             f"Blocked: Deployment run '{run_id}' succeeded but blocking "
             "QA checks are unsatisfied:"
         )
-        for r in rows:
-            print(f"  - {r[0]}")
+        for check in blocking:
+            print(f"  - {check}")
         print("\nSatisfy all blocking QA checks before transitioning to done.")
         return True
     return False

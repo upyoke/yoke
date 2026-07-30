@@ -9,12 +9,6 @@ import sys
 from pathlib import Path
 from typing import Any, Dict
 
-from yoke_core.domain import db_backend
-
-
-def _p(conn) -> str:
-    return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
 
 def _repo_root() -> Path:
     """Resolve the repo root from this engine's location."""
@@ -229,25 +223,28 @@ def _run_git(
 
 
 def _query_item_field(item_id: int, field_name: str) -> str:
-    """Read a single field from items table."""
-    with _connect() as conn:
-        if field_name == "project":
-            row = conn.execute(
-                "SELECT p.slug FROM items i "
-                "LEFT JOIN projects p ON p.id = i.project_id "
-                f"WHERE i.id = {_p(conn)}",
-                (item_id,),
-            ).fetchone()
-        else:
-            row = conn.execute(
-                f"SELECT {field_name} FROM items WHERE id = {_p(conn)}", (item_id,)
-            ).fetchone()
-    if row is None:
-        return ""
-    val = row[0]
-    if val is None:
-        return ""
-    return str(val)
+    """Read a single stored item field through the connected transport.
+
+    Relays ``done_transition.item_field`` so the read runs over an https
+    control plane as well as a local Postgres connection; the returned
+    value (empty string for a missing row or null column, the ``p.slug``
+    for ``project``) is preserved exactly. A read failure raises, matching
+    the inline ``connect()`` failure the callers never swallowed.
+    """
+    from yoke_contracts.api.function_call import TargetRef
+    from yoke_core.api.service_client_structured_api_adapter import (
+        call_dispatcher,
+    )
+
+    resp = call_dispatcher(
+        function_id="done_transition.item_field",
+        target=TargetRef(kind="item", item_id=int(item_id)),
+        payload={"field": field_name},
+    )
+    if not resp.success:
+        message = resp.error.message if resp.error else "unknown error"
+        raise RuntimeError(f"item field read failed ({field_name}): {message}")
+    return str((resp.result or {}).get("value") or "")
 
 
 def _reseat_package_paths(

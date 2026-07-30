@@ -11,7 +11,7 @@ from yoke_core.domain.workflow_behavior import (
     requires_plan_simulation,
 )
 from yoke_core.engines.done_transition_item_context import (
-    load_done_item_context,
+    load_done_item_context_over_transport,
 )
 from yoke_core.engines.done_transition_finalize import finish_done_transition
 from yoke_core.engines.done_transition_preconditions import (
@@ -40,7 +40,6 @@ def run(
     mw = _parent()
     TransitionResult = mw.TransitionResult
     _resolve_repo_root = mw._resolve_repo_root
-    _connect = mw._connect
     _resolve_project_context = mw._resolve_project_context
     _query_item_field = mw._query_item_field
     _get_base_branch = mw._get_base_branch
@@ -80,8 +79,7 @@ def run(
     _reseat_runtime_paths(repo_root)
     result.add_step("1")
     print(f"YOKE_REPO_ROOT={repo_root}")
-    with _connect() as conn:
-        context = load_done_item_context(conn, item_id)
+    context = load_done_item_context_over_transport(item_id)
     if context is None:
         print(f"Error: Item YOK-{item_id} not found.", file=sys.stderr)
         return result.fail(result_file, 2, "2")

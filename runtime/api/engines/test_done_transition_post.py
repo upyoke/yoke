@@ -12,10 +12,17 @@ import json
 from pathlib import Path
 from unittest import mock
 
+from yoke_contracts.api.function_call import FunctionCallResponse
 from yoke_core.engines import done_transition
-from yoke_core.engines import done_transition_cascade
+from yoke_core.engines import done_transition_status
 
 pytest_plugins = ("yoke_core.engines._done_transition_test_helpers",)
+
+
+def _resp(function_id, result=None):
+    return FunctionCallResponse(
+        success=True, function=function_id, version="v1", result=result or {}
+    )
 
 
 def _insert_item(*args, **kwargs):
@@ -75,23 +82,32 @@ class TestCascadeEpicTasksToDone:
         return "\n".join(lines) + "\n"
 
     def test_cascade_non_done_tasks(self, dt_db):
-        # task-list is now an in-process ``_epic_domain.task_list(conn, ...)``
-        # call. The cascade/promote writes still go through the
-        # direct helper ``_update_task_status_direct``.
-        with mock.patch("yoke_core.domain.epic.task_list") as mock_task_list, \
+        # The task-list read now relays ``done_transition.epic_task_list``; the
+        # cascade/promote writes still go through ``_update_task_status_direct``.
+        listing = self._task_list_stdout(
+            (1, "implementing"),
+            (2, "done"),
+            (3, "reviewed-implementation"),
+        )
+        calls = []
+
+        def fake(**kwargs):
+            calls.append(kwargs)
+            if kwargs["function_id"] == "done_transition.epic_task_list":
+                return _resp(kwargs["function_id"], {"task_list": listing})
+            return _resp(kwargs["function_id"])
+
+        with mock.patch.object(done_transition_status, "call_dispatcher", fake), \
              mock.patch.object(done_transition, "_update_task_status_direct", return_value=0) as mock_task_direct, \
-             mock.patch.object(done_transition_cascade, "_batch_github_sync_tasks"):
-            mock_task_list.return_value = self._task_list_stdout(
-                (1, "implementing"),
-                (2, "done"),
-                (3, "reviewed-implementation"),
-            )
+             mock.patch.object(done_transition_status, "_batch_github_sync_tasks"):
             done_transition._cascade_epic_tasks_to_done(823, "YOK-823")
 
-        # task-list owner fires exactly once.
-        assert mock_task_list.call_count == 1
-        # Called with.
-        assert mock_task_list.call_args.args[1] == "YOK-823"
+        # The task-list relay fires exactly once, for the epic ref.
+        task_list_calls = [
+            c for c in calls if c["function_id"] == "done_transition.epic_task_list"
+        ]
+        assert len(task_list_calls) == 1
+        assert task_list_calls[0]["payload"] == {"epic_id": "YOK-823"}
 
         # Two direct task-status writes — one cascade (task 1), one promote (task 3).
         assert mock_task_direct.call_count == 2
@@ -103,12 +119,17 @@ class TestCascadeEpicTasksToDone:
             assert call.args[2] == "done"
 
     def test_cascade_noop_when_no_tasks(self, dt_db):
-        with mock.patch("yoke_core.domain.epic.task_list") as mock_task_list, \
+        calls = []
+
+        def fake(**kwargs):
+            calls.append(kwargs)
+            return _resp(kwargs["function_id"], {"task_list": ""})
+
+        with mock.patch.object(done_transition_status, "call_dispatcher", fake), \
              mock.patch.object(done_transition, "_update_task_status_direct") as mock_task_direct:
-            mock_task_list.return_value = ""
             done_transition._cascade_epic_tasks_to_done(823, "YOK-823")
-        # Only the task-list owner was called — no update writes.
-        assert mock_task_list.call_count == 1
+        # Only the task-list relay was called — no update writes.
+        assert [c["function_id"] for c in calls] == ["done_transition.epic_task_list"]
         mock_task_direct.assert_not_called()
 
 
