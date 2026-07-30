@@ -242,7 +242,8 @@ class TestConstants:
 
 
 class TestCli:
-    def test_cli_polish_happy_path(self, capsys):
+    def test_cli_polish_happy_path(self, tmp_db, capsys):
+        _seed_item(tmp_db, id=77, workflow_id="issue", status="reviewed-implementation")
         patches = _patch_core("reviewed-implementation", "issue")
         _enter_all(patches)
         try:
@@ -255,7 +256,8 @@ class TestCli:
         assert "skip-polish" in out
         assert "YOK-77" in out
 
-    def test_cli_refine_happy_path(self, capsys):
+    def test_cli_refine_happy_path(self, tmp_db, capsys):
+        _seed_item(tmp_db, id=78, workflow_id="issue", status="refining-idea")
         patches = _patch_core("refining-idea", "issue")
         _enter_all(patches)
         try:
@@ -267,7 +269,32 @@ class TestCli:
         out = capsys.readouterr().out
         assert "skip-refine" in out
 
-    def test_cli_rejects_invalid_status(self, capsys):
+    def test_cli_prefix_ref_resolves_project_sequence(self, tmp_db, capsys):
+        # Internal id deliberately diverges from the public ref: YOK-444 is
+        # project_sequence 444 on internal id 500. A prefix-strip resolver
+        # would act on internal id 444; the canonical parser targets 500.
+        _seed_item(
+            tmp_db,
+            id=500,
+            workflow_id="issue",
+            status="reviewed-implementation",
+            project_sequence=444,
+        )
+        exec_recorder = _CallRecorder()
+        patches = _patch_core(
+            "reviewed-implementation", "issue", executor=exec_recorder
+        )
+        _enter_all(patches)
+        try:
+            rc = advance_skip.main(["polish", "YOK-444"])
+        finally:
+            _exit_all(patches)
+
+        assert rc == 0
+        assert [i for i, _ in exec_recorder.calls] == [500, 500]
+
+    def test_cli_rejects_invalid_status(self, tmp_db, capsys):
+        _seed_item(tmp_db, id=79, workflow_id="issue", status="idea")
         patches = _patch_core("idea", "issue")
         _enter_all(patches)
         try:

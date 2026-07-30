@@ -111,11 +111,22 @@ def _patch_dispatch(monkeypatch, response=None, calls=None):
 
 
 @pytest.mark.parametrize("raw,expected", [
-    ("YOK-42", 42), ("yok-42", 42), ("0042", 42), ("42", 42),
-    (" YOK-007 ", 7), (1730, 1730),
+    ("0042", 42), ("42", 42), (1730, 1730),
 ])
-def test_parse_item_id_normalises(raw, expected):
+def test_parse_item_id_bare_internal_passthrough(raw, expected):
     assert orch._parse_item_id(raw) == expected
+
+
+def test_parse_item_id_prefix_ref_resolves_project_sequence(test_db):
+    """``PREFIX-N`` maps to the item's project sequence, not the internal id."""
+    from runtime.api.fixtures.backlog import insert_item
+
+    # Internal id 500 carries public ref YOK-444; a prefix-strip resolver
+    # would return 444.
+    insert_item(test_db, id=500, title="t", project="yoke", project_sequence=444)
+    test_db.commit()
+    assert orch._parse_item_id("YOK-444") == 500
+    assert orch._parse_item_id(" yok-444 ") == 500
 
 
 def test_parse_item_id_invalid_raises():
@@ -162,7 +173,7 @@ def test_run_happy_path_flips_status_in_one_call(
     dispatch_calls: List[Dict[str, Any]] = []
     _patch_dispatch(monkeypatch, calls=dispatch_calls)
     out = io.StringIO()
-    assert orch.run("YOK-99", session_id="s1", out=out) == 0
+    assert orch.run("99", session_id="s1", out=out) == 0
     summary = json.loads(out.getvalue())
     assert summary["pre_status"] == "refined-idea"
     assert summary["post_status"] == "implementing"
@@ -191,7 +202,7 @@ def test_run_preflight_failure_stops_before_worktree(monkeypatch, emits):
         return _WtStub()
     monkeypatch.setattr(
         "yoke_core.domain.worktree_preflight.run_preflight", fake)
-    assert orch.run("YOK-42", session_id="s1", out=io.StringIO()) == 1
+    assert orch.run("42", session_id="s1", out=io.StringIO()) == 1
     assert counter["n"] == 0
     assert emits.phases() == ["preflight"]
     assert emits.outcomes()["preflight"] == "blocked"
@@ -209,7 +220,7 @@ def test_run_worktree_create_failure_releases_claim(
     monkeypatch.setattr(orch, "_release_claim",
                         lambda item_id, sid, reason: release_calls.append(
                             {"item": item_id, "reason": reason, "session": sid}))
-    assert orch.run("YOK-42", session_id="s1", out=io.StringIO()) == 1
+    assert orch.run("42", session_id="s1", out=io.StringIO()) == 1
     assert release_calls == [{
         "item": 42, "reason": orch.RELEASE_WORKTREE_CREATE_FAILED,
         "session": "s1",
@@ -228,7 +239,7 @@ def test_run_finalize_failure_keeps_claim(
     release_calls: List[Any] = []
     monkeypatch.setattr(orch, "_release_claim",
                         lambda *a, **kw: release_calls.append((a, kw)))
-    assert orch.run("YOK-42", session_id="s1", out=io.StringIO()) == 1
+    assert orch.run("42", session_id="s1", out=io.StringIO()) == 1
     assert release_calls == []
     assert emits.outcomes()["finalize"].startswith("blocked:")
 
@@ -249,7 +260,7 @@ def test_run_reentry_skips_status_flip(
     monkeypatch.setattr(
         "yoke_core.domain.yoke_function_dispatch.dispatch", fake)
     out = io.StringIO()
-    assert orch.run("YOK-42", session_id="s1", out=out) == 0
+    assert orch.run("42", session_id="s1", out=out) == 0
     summary = json.loads(out.getvalue())
     assert summary["reentry"] is True
     assert summary["post_status"] == "implementing"
@@ -267,14 +278,14 @@ def test_run_no_worktree_still_flips_status(
         worktree_path="", branch="YOK-42", actions=["worktree:skipped"]),
         capture=captured)
     _patch_dispatch(monkeypatch)
-    assert orch.run("YOK-42", no_worktree=True, session_id="s1",
+    assert orch.run("42", no_worktree=True, session_id="s1",
                     out=io.StringIO()) == 0
     assert captured["no_worktree"] is True
 
 
 def test_run_missing_item_returns_bad_input(monkeypatch, emits):
     monkeypatch.setattr(orch, "_read_item", lambda _id: None)
-    assert orch.run("YOK-9999", session_id="s1", out=io.StringIO()) == 2
+    assert orch.run("9999", session_id="s1", out=io.StringIO()) == 2
     assert emits.calls == []
 
 

@@ -34,14 +34,16 @@ __all__ = [
 
 
 def _normalize_item_id(raw: str) -> Optional[int]:
-    stripped = raw.strip()
-    if stripped.upper().startswith("YOK-"):
-        stripped = stripped[4:]
-    stripped = stripped.lstrip("0")
-    if stripped == "":
-        return None
+    """Resolve an operator item ref to the internal ``items.id``.
+
+    ``PREFIX-N`` resolves through the project's ``public_item_prefix`` +
+    ``items.project_sequence`` (not a stripped global id); a bare number
+    stays an internal id for operator break-glass use.
+    """
+    from yoke_core.domain.yok_n_parser import parse_item_id
+
     try:
-        return int(stripped)
+        return parse_item_id(raw, allow_bare_internal=True)
     except ValueError:
         return None
 

@@ -31,11 +31,14 @@ IMPLEMENTATION_PHASE_STATUSES = frozenset({
 
 
 def _parse_item_id(raw: Any) -> int:
-    s = str(raw).strip()
-    if s.upper().startswith("YOK-"):
-        s = s[4:]
-    s = s.lstrip("0") or "0"
-    return int(s)
+    """Resolve an item ref to the internal ``items.id``.
+
+    ``PREFIX-N`` resolves through the project's ``public_item_prefix`` +
+    ``items.project_sequence``; a bare number stays an internal id.
+    """
+    from yoke_core.domain.yok_n_parser import parse_item_id
+
+    return parse_item_id(raw, allow_bare_internal=True)
 
 
 def _resolve_session_id(explicit: Optional[str]) -> str:
@@ -209,7 +212,7 @@ def run(
     resolved_session = _resolve_session_id(session_id)
     item = _read_item(item_id_int)
     if item is None:
-        print(f"ERROR: YOK-{item_id_int} not found.", file=sys.stderr)
+        print(f"ERROR: item {item_id!r} not found.", file=sys.stderr)
         return 2
 
     pre_status = item.get("status") or ""
