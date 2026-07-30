@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from yoke_core.domain import db_helpers
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.prd_validate_checks import (
     build_actionable_text,
     has_cleanup_coverage,
@@ -77,10 +78,12 @@ def resolve_body(item_ref: Optional[str], body_text: Optional[str]) -> tuple[str
         )
 
     num = normalize_item_ref(item_ref)
-    item_label = f"YOK-{num}"
 
     conn = db_helpers.connect()
     try:
+        item_label = (
+            render_item_ref(conn, int(num)) if str(num).isdigit() else str(item_ref)
+        )
         spec_row = conn.execute(
             "SELECT spec FROM items WHERE id=%s", (num,),
         ).fetchone()
