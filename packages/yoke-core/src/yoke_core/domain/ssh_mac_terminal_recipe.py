@@ -5,12 +5,13 @@ from __future__ import annotations
 from pathlib import Path
 import shlex
 import time
+from collections.abc import Callable
 from typing import Any, Mapping, Sequence
 from uuid import uuid4
 
 from yoke_core.domain.host_control_executor import HostActionResult
-from yoke_core.domain.machine_qa_result_safety import (
-    redact_machine_qa_value,
+from yoke_core.domain.machine_qa_operator_gate import (
+    run_machine_browser_approval,
 )
 from yoke_core.domain.qa_artifact_handle import local_handle
 from yoke_core.domain.ssh_mac_terminal_capture import (
@@ -27,14 +28,13 @@ from yoke_core.domain.ssh_mac_terminal_readiness import (
     wait_for_ready_text,
 )
 from yoke_core.domain.ssh_mac_terminal_recipe_support import (
-    UploadBytes,
     capture_recipe_transcript,
-    cleanup_staged_files,
     read_recipe_exit_code,
     recipe_assertion_failures,
-    run_command_recipe,
     send_recipe_keys,
-    stage_recipe_files,
+)
+from yoke_core.domain.terminal_screenshot_quality import (
+    TerminalScreenshotRegistry,
 )
 
 
@@ -48,6 +48,8 @@ def _run_interactive_recipe(
     secret_values: Sequence[str],
     staged: list[dict[str, str]],
     terminal_size: tuple[int, int] | None,
+    progress_callback: Callable[[], None] | None,
+    allowed_operator_urls: tuple[str, ...],
 ) -> HostActionResult:
     """Run one interactive recipe after its files are staged."""
     backend = detect_terminal_backend(run)
@@ -77,6 +79,7 @@ def _run_interactive_recipe(
     started = time.monotonic()
     captures: list[dict[str, Any]] = []
     degraded: list[str] = []
+    screenshot_registry = TerminalScreenshotRegistry()
     reached: list[str] = []
     terminal_window_id: int | None = None
     try:
@@ -123,6 +126,35 @@ def _run_interactive_recipe(
                 )
             ready_text = tuple(action.get("ready_text", ()))
             ready_transcript: str | None = None
+            operator_gate = action.get("operator_gate")
+            if operator_gate == "machine_browser_approval":
+                gate_result = run_machine_browser_approval(
+                    run,
+                    backend=backend,
+                    session=session,
+                    action=action,
+                    progress_callback=progress_callback,
+                    allowed_base_urls=allowed_operator_urls,
+                )
+                ready_transcript = gate_result.transcript
+                if not gate_result.ok:
+                    captures.append(
+                        {
+                            "key": str(action["step"]),
+                            "reached": False,
+                            "transcript": ready_transcript,
+                            "operator_gate": operator_gate,
+                        }
+                    )
+                    return HostActionResult(
+                        False,
+                        {
+                            "steps": captures,
+                            "terminal_backend": backend,
+                            "operator_gate": operator_gate,
+                        },
+                        gate_result.error_code,
+                    )
             if ready_text:
                 remaining_wall_seconds = max(
                     0.0,
@@ -162,7 +194,7 @@ def _run_interactive_recipe(
                         },
                         "terminal_action_not_ready",
                     )
-            if action["keys"] and not send_recipe_keys(
+            if operator_gate is None and action["keys"] and not send_recipe_keys(
                 run,
                 backend=backend,
                 session=session,
@@ -173,7 +205,9 @@ def _run_interactive_recipe(
                     {"steps": captures, "terminal_backend": backend},
                     "terminal_input_failed",
                 )
-            if action["keys"] or "wait_seconds" in action:
+            if operator_gate is None and (
+                action["keys"] or "wait_seconds" in action
+            ):
                 time.sleep(float(action.get("wait_seconds", config["step_delay"])))
             key = str(action["step"])
             transcript = (
@@ -198,10 +232,26 @@ def _run_interactive_recipe(
                     session=session,
                     key=f"{len(captures):03d}-{key}",
                     evidence_root=evidence_root,
+                    window_id=terminal_window_id,
                 )
                 if screenshot is None:
                     degraded.append(f"{key}: screenshot capture blocked")
                 else:
+                    duplicate_of = screenshot_registry.duplicate_of(
+                        key,
+                        screenshot,
+                    )
+                    if duplicate_of is not None:
+                        return HostActionResult(
+                            False,
+                            {
+                                "steps": captures,
+                                "terminal_backend": backend,
+                                "duplicate_checkpoint": key,
+                                "original_checkpoint": duplicate_of,
+                            },
+                            "terminal_duplicate_screenshot",
+                        )
                     capture["artifact_handle"] = local_handle(
                         str(screenshot.resolve()),
                         "image/png",
@@ -246,92 +296,13 @@ def _run_interactive_recipe(
         run(f"rm -f {shlex.quote(status_path)}", timeout=10)
 
 
-def _with_staged_cleanup(
-    run: RunRemote,
-    result: HostActionResult,
-    staged: list[dict[str, str]],
-) -> HostActionResult:
-    if not staged:
-        return result
-    try:
-        cleanup_ok = cleanup_staged_files(run, staged)
-    except Exception:
-        cleanup_ok = False
-    evidence = {
-        **result.evidence,
-        "staged_file_cleanup": cleanup_ok,
-    }
-    if cleanup_ok:
-        return HostActionResult(
-            result.ok,
-            evidence,
-            result.error_code,
-        )
-    if result.error_code is not None:
-        evidence["primary_error_code"] = result.error_code
-    return HostActionResult(
-        False,
-        evidence,
-        "terminal_stage_file_cleanup_failed",
+def execute_terminal_recipe(*args: Any, **kwargs: Any) -> HostActionResult:
+    """Compatibility entrypoint for the split staging/dispatch owner."""
+    from yoke_core.domain.ssh_mac_terminal_recipe_dispatch import (
+        execute_terminal_recipe as execute,
     )
 
-
-def execute_terminal_recipe(
-    run: RunRemote,
-    *,
-    upload_bytes: UploadBytes,
-    entry_surface: str,
-    required_completion: str,
-    config: Mapping[str, Any],
-    evidence_parent: Path,
-    secret_values: Sequence[str],
-    terminal_size: tuple[int, int] | None = None,
-) -> HostActionResult:
-    """Execute one already-validated campaign recipe and return raw evidence."""
-    staged_ok, staged, staged_secrets = stage_recipe_files(
-        config["stage_files"],
-        upload_bytes=upload_bytes,
-    )
-    if not staged_ok:
-        return _with_staged_cleanup(
-            run,
-            HostActionResult(
-                False,
-                {"staged_files": staged},
-                "terminal_stage_file_failed",
-            ),
-            staged,
-        )
-    all_secrets = tuple(secret_values) + staged_secrets
-    try:
-        if config["execution_mode"] == "ssh-command":
-            result = run_command_recipe(
-                run,
-                entry_surface=entry_surface,
-                config=config,
-                staged=staged,
-                secret_values=all_secrets,
-            )
-        else:
-            result = _run_interactive_recipe(
-                run,
-                entry_surface=entry_surface,
-                required_completion=required_completion,
-                config=config,
-                evidence_parent=evidence_parent,
-                secret_values=all_secrets,
-                staged=staged,
-                terminal_size=terminal_size,
-            )
-    except Exception:
-        cleanup_staged_files(run, staged)
-        raise
-    result = HostActionResult(
-        result.ok,
-        redact_machine_qa_value(result.evidence, all_secrets),
-        result.error_code,
-    )
-    return _with_staged_cleanup(run, result, staged)
+    return execute(*args, **kwargs)
 
 
 __all__ = ["execute_terminal_recipe"]

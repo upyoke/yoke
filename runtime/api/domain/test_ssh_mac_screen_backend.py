@@ -110,6 +110,7 @@ def test_check_terminal_bridge_reports_screen_backend(
         if "/usr/bin/osascript" in command and "/usr/sbin/screencapture" in command
     )
     assert 'tell application "Terminal"' in terminal_capture
+    assert "/usr/sbin/screencapture -x -l 445 " in terminal_capture
     assert not any(
         command.startswith("/usr/sbin/screencapture") for command in commands
     )

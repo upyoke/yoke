@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import time
+from collections.abc import Callable
 from typing import Any
 
 from yoke_harness.test_machine_verification import (
@@ -33,6 +34,8 @@ from yoke_core.domain.machine_qa_submission_artifacts import (
 
 def _execution(
     contract: HostControlExecutionContract,
+    *,
+    progress_callback: Callable[[], None] | None = None,
 ) -> MachineQaLease:
     control, material = resolve_contract_host_control(
         {
@@ -40,6 +43,12 @@ def _execution(
             "project": contract.project,
             "settings": contract.settings,
         }
+    )
+    allowed_urls = tuple(
+        str(value).rstrip("/")
+        for case in contract.cases
+        for key, value in case.execution_target["endpoints"].items()
+        if key.endswith("_url") and isinstance(value, str) and value
     )
     return MachineQaLease(
         conn=None,
@@ -53,6 +62,8 @@ def _execution(
             acquired_at="server-issued",
         ),
         owns_lease=False,
+        progress_callback=progress_callback,
+        allowed_operator_urls=allowed_urls,
     )
 
 
@@ -85,12 +96,14 @@ def execute_verification_contract(
 
 def execute_machine_case_contract(
     raw_contract: dict[str, Any],
+    *,
+    progress_callback: Callable[[], None] | None = None,
 ) -> LocalHostControlSubmission:
     """Run one case or one baseline group under its server-owned lease."""
     contract = HostControlExecutionContract.model_validate(raw_contract)
     if contract.operation not in {"case", "plan_case", "baseline_group"}:
         raise ValueError("expected a Machine QA case contract")
-    execution = _execution(contract)
+    execution = _execution(contract, progress_callback=progress_callback)
     result_payloads: list[dict[str, Any]] = []
     artifact_paths: list[Path] = []
     secret_values = tuple(execution.material.secrets.values())
