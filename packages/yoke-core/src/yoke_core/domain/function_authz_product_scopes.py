@@ -45,6 +45,12 @@ PRODUCT_AUTHZ_BY_ID = {
         PROJECT, PERM_ITEMS_WRITE
     ),
     "done_transition.populate_merged_at": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
+    # The done-transition status flips (item -> done, epic-task -> done cascade)
+    # bypass the item claim by design, so they are claim_required_kind=None; the
+    # PROJECT + items-write scope is what gates the bypass to an authorized
+    # caller (stronger than the old process-env trust).
+    "done_transition.item_status_set": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
+    "done_transition.epic_task_status_set": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "merge.tests.post_rebase_requirement": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     # Workflow definition publication is org-wide; selected defaults and
     # test-machine execution remain scoped to their project.

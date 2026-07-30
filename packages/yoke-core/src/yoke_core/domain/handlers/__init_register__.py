@@ -33,6 +33,7 @@ from yoke_core.domain.handlers import (
     _register_db_read,
     _register_deployment,
     _register_done_transition,
+    _register_done_transition_status_writes,
     _register_done_transition_writes,
     _register_ephemeral_env,
     _register_epic_tasks,
@@ -134,6 +135,7 @@ _DOMAIN_REGISTRARS = (
     _register_merge_engine,
     _register_done_transition,
     _register_done_transition_writes,
+    _register_done_transition_status_writes,
 )
 
 _REGISTRATION_LOCK = threading.Lock()

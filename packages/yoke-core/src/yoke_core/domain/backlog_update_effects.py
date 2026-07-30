@@ -11,6 +11,7 @@ from yoke_core.domain.backlog_epic_task_cascade import _cascade_epic_tasks
 from yoke_core.domain.backlog_session_attribution import (
     _maybe_set_session_current_item,
 )
+from yoke_core.domain.status_claim_bypass_context import resolve_claim_bypass
 
 
 @dataclass(frozen=True)
@@ -54,7 +55,12 @@ def run_transactional_update_effects(
     if transitioned:
         from yoke_core.domain.item_status_transitions import record_item_transition
 
-        source = status_source or os.environ.get(
+        # Typed argument first, then the request-scoped override (the
+        # done-transition status relay posts it on a ContextVar), then the env
+        # var so env-driven callers keep the historical "backlog-registry"
+        # default.
+        _, ctx_status_source = resolve_claim_bypass()
+        source = status_source or ctx_status_source or os.environ.get(
             "YOKE_STATUS_SOURCE",
             "backlog-registry",
         )
@@ -240,6 +246,27 @@ def run_post_commit_update_effects(
         )
 
 
+def _is_delivery_release_redirect(target_status: str) -> bool:
+    """True when an item is redirected to the ``release`` delivery stage.
+
+    The done-transition redirect (status source ``done-transition``) and the
+    deploy pipeline (``deploy-pipeline:`` claim bypass) move an item to the
+    non-terminal ``release`` stage yet still release its non-terminal path
+    claims. Reads the request-scoped override first (the done-transition status
+    relay posts it on a ContextVar) then the env vars, so the env-driven deploy
+    pipeline is unchanged and the former ``os.environ`` release behavior is
+    preserved byte-for-byte.
+    """
+    if target_status != "release":
+        return False
+    ctx_bypass, ctx_source = resolve_claim_bypass()
+    status_source = ctx_source or os.environ.get("YOKE_STATUS_SOURCE", "")
+    if status_source == "done-transition":
+        return True
+    claim_bypass = ctx_bypass or os.environ.get("YOKE_CLAIM_BYPASS", "")
+    return claim_bypass.startswith("deploy-pipeline:")
+
+
 def _clean_terminal_path_claims(
     conn: Any,
     *,
@@ -255,12 +282,8 @@ def _clean_terminal_path_claims(
 
         verb = "Cancelled"
         hook_kwargs = {}
-    elif target_status in terminal_statuses or (
-        target_status == "release"
-        and (
-            os.environ.get("YOKE_STATUS_SOURCE") == "done-transition"
-            or os.environ.get("YOKE_CLAIM_BYPASS", "").startswith("deploy-pipeline:")
-        )
+    elif target_status in terminal_statuses or _is_delivery_release_redirect(
+        target_status
     ):
         from yoke_core.domain.path_claims_item_hook_release import (
             release_claims_on_item_terminal as hook,

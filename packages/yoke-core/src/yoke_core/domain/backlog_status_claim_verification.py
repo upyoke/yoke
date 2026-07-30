@@ -12,6 +12,7 @@ import os
 from typing import Any, Optional, TextIO
 
 from yoke_core.domain import backlog_rendering as _rendering
+from yoke_core.domain.status_claim_bypass_context import resolve_claim_bypass
 
 
 _STATUS_CLAIM_SESSION_REQUIRED = (
@@ -27,8 +28,12 @@ def _verify_status_claim(
     session_id: Optional[str],
 ) -> tuple[bool, Optional[str]]:
     """Verify the request session holds the active claim for a status write."""
-    bypass_source = os.environ.get("YOKE_CLAIM_BYPASS", "")
-    status_source = os.environ.get("YOKE_STATUS_SOURCE", "")
+    # Request-scoped override first (done-transition status relays post it on a
+    # ContextVar), then the process-global env vars so every existing env-driven
+    # caller (repair-status, conduct, advance-skip, ...) is unchanged.
+    ctx_bypass, ctx_source = resolve_claim_bypass()
+    bypass_source = ctx_bypass or os.environ.get("YOKE_CLAIM_BYPASS", "")
+    status_source = ctx_source or os.environ.get("YOKE_STATUS_SOURCE", "")
     if not bypass_source and status_source.startswith("repair-status:"):
         bypass_source = status_source
 
