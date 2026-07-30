@@ -213,7 +213,10 @@ test("a beforeScope section sits above the picker, an inView section below", asy
   const above = await mountWith("beforeScope");
   const aboveContent = byClass(above.root, "content")[0];
   const aboveOrder = aboveContent.children.map((node) => node.className);
-  assert.deepEqual(aboveOrder, ["page-head", "", "scope-bar", "view-host"]);
+  assert.deepEqual(
+    aboveOrder,
+    ["page-head", "", "view-above-scope", "scope-bar", "view-host"],
+  );
   assert.equal(aboveContent.children[1], above.hostSection);
   assert.ok(!allNodes(byClass(above.root, "view-host")[0])
     .includes(above.hostSection));
@@ -225,7 +228,7 @@ test("a beforeScope section sits above the picker, an inView section below", asy
   const belowContent = byClass(below.root, "content")[0];
   assert.deepEqual(
     belowContent.children.map((node) => node.className),
-    ["page-head", "scope-bar", "view-host"],
+    ["page-head", "view-above-scope", "scope-bar", "view-host"],
   );
   const belowHost = byClass(below.root, "view-host")[0];
   assert.equal(belowHost.children[belowHost.children.length - 1],

@@ -304,20 +304,20 @@ export function mountUniverseApp(rootNode, options = {}) {
       );
       return;
     }
-    // The picker is the view's own chrome, so it sits in the content column
-    // above a host the view owns outright and re-renders into at will.
-    const viewHost = el(documentNode, "div", "view-host");
+    // The picker is the view's own chrome; above it sits a view-owned host
+    // (the Overview pins its activation stack there), and the view host below.
+    const viewHost = el(documentNode, "div", "view-host"), aboveScope = el(documentNode, "div", "view-above-scope");
     const pageHead = createPageHead(documentNode, entry);
     main.replaceChildren(
       pageHead,
-      ...beforeScopeSections(entry),
+      ...beforeScopeSections(entry), aboveScope,
       createScopePicker({
         documentNode, entry, scope, projects, renderRoute, scopeSelections,
         windowNode,
       }),
       viewHost,
     );
-    renderer(context, viewHost, scope, {
+    renderer(context, viewHost, scope, { aboveScope,
       setPageHead(options) {
         if (!mounted || main.children[0] !== pageHead) return;
         configurePageHead(documentNode, pageHead, options);
