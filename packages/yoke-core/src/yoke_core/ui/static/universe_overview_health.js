@@ -1,23 +1,24 @@
 import {
   el,
-  loadScopedSection,
   mergedRows,
   scopeBuckets,
   statePill,
 } from "./universe_view_support.js";
+import { holdScopedSection } from "./universe_held_reads.js";
 import { relativeTime } from "./universe_time.js";
 import { SUMMARY_ROW_LIMIT } from "./universe_overview_primitives.js";
 
 // The pulse: the most recent state changes. The events read is project-scoped
 // and refuses a projectless call, so "all" fans out per roster project.
-export function loadEvents(context, panel, scope) {
-  const buckets = scopeBuckets(scope, context.projects(), true);
-  loadScopedSection(
-    context, panel,
+export function loadEvents(context, panel, getScope) {
+  const buckets = scopeBuckets("all", context.projects(), true);
+  return holdScopedSection(
+    context, panel, buckets,
     buckets.map((bucket) => ({
       functionId: "events.query.run",
       payload: { project: bucket },
     })),
+    getScope,
     (body, callResults) => {
       const documentNode = body.ownerDocument;
       const rows = mergedRows(callResults, (result) => result.rows);
@@ -62,19 +63,20 @@ export function loadEvents(context, panel, scope) {
 // Whether the floor holds. Doctor findings live only in the events journal, so
 // this reads the last run per bucket, aggregates the four counts, and lists
 // only what is not passing.
-export function loadDoctor(context, panel, scope) {
+export function loadDoctor(context, panel, getScope) {
   const projects = context.projects();
-  const buckets = scopeBuckets(scope, projects, true);
+  const buckets = scopeBuckets("all", projects, true);
   const nameById = new Map(projects.map(
     (row) => [String(row.id), row.name || row.slug || String(row.id)],
   ));
-  loadScopedSection(
-    context, panel,
+  return holdScopedSection(
+    context, panel, buckets,
     buckets.map((bucket) => ({
       functionId: "doctor.last_run.get",
       payload: bucket === null ? {} : { project: bucket },
     })),
-    (body, callResults) => {
+    getScope,
+    (body, callResults, scope, selectedBuckets) => {
       const documentNode = body.ownerDocument;
       const reports = callResults.map(
         (callResult) => callResult.envelope.result || {},
@@ -123,7 +125,8 @@ export function loadDoctor(context, panel, scope) {
           .filter((row) => String(row.severity).toLowerCase() !== "pass")
           .map((row) => ({
             ...row,
-            project: nameById.get(buckets[index]) || buckets[index],
+            project: nameById.get(String(selectedBuckets[index]))
+              || selectedBuckets[index],
           }))
       ));
       for (const row of notPassing.slice(0, SUMMARY_ROW_LIMIT)) {

@@ -41,10 +41,10 @@ import {
   emptyUniversePanel,
 } from "./universe_app_chrome.js";
 import {
+  createHeldScopeController,
   createHostSectionPlacement,
   loadOrganizationName,
   loadWordmark,
-  revealActiveCompactDestination,
 } from "./universe_app_shell_support.js";
 export {
   UNIVERSE_APP_CONTRACT_VERSION,
@@ -128,6 +128,12 @@ export function mountUniverseApp(rootNode, options = {}) {
     beforeScope: beforeScopeSections,
   } = createHostSectionPlacement(resolvedSections);
 
+  const heldScope = createHeldScopeController({
+    windowNode, scopeSelections, renderRoute, projectsRef: () => projects,
+    navEntry, scopeForEntry, serializeScope, parseUniverseRoute,
+    navLinks, nav: NAV, buildUniverseRoute, rememberedScopeParam,
+  });
+
   function renderRoute() {
     // The nav keeps its own position, but every destination begins at the
     // top of its independent content scroller.
@@ -136,6 +142,7 @@ export function mountUniverseApp(rootNode, options = {}) {
     // renders, so the host's node reference never strands inside a
     // discarded subtree.
     detachMountedSlots(rootNode, sectionNodes);
+    heldScope.reset(); // a full render drops any held scoped view
     const route = parseUniverseRoute(windowNode.location.hash);
     const entry = navEntry(route.view);
     const scope = scopeForEntry(
@@ -149,18 +156,7 @@ export function mountUniverseApp(rootNode, options = {}) {
       },
     });
 
-    for (const navItem of NAV) {
-      const link = navLinks.get(navItem.id);
-      // A host-fed destination without its section built no link at all.
-      if (!link) continue;
-      // Each destination's link carries the scope that screen remembers for
-      // itself — an "all" or never-visited multi view links with no query.
-      link.href = buildUniverseRoute(
-        navItem.id, rememberedScopeParam(navItem, projects, scopeSelections),
-      );
-      link.classList.toggle("active", navItem.id === entry.id);
-    }
-    revealActiveCompactDestination(windowNode, navLinks.get(entry.id));
+    heldScope.refreshNavHrefs(entry.id);
 
     if (entry.hostFed) {
       // The page head still belongs to the route; only the body is the
@@ -308,25 +304,24 @@ export function mountUniverseApp(rootNode, options = {}) {
     // (the Overview pins its activation stack there), and the view host below.
     const viewHost = el(documentNode, "div", "view-host"), aboveScope = el(documentNode, "div", "view-above-scope");
     const pageHead = createPageHead(documentNode, entry);
+    const picker = createScopePicker({
+      documentNode, entry, scope, projects, renderRoute, scopeSelections,
+      windowNode, onScopeChange: heldScope.applyScopeInPlace,
+    });
     main.replaceChildren(
-      pageHead,
-      ...beforeScopeSections(entry), aboveScope,
-      createScopePicker({
-        documentNode, entry, scope, projects, renderRoute, scopeSelections,
-        windowNode,
-      }),
-      viewHost,
+      pageHead, ...beforeScopeSections(entry), aboveScope, picker, viewHost,
     );
-    renderer(context, viewHost, scope, { aboveScope,
+    const handle = renderer(context, viewHost, scope, { aboveScope,
       setPageHead(options) {
         if (!mounted || main.children[0] !== pageHead) return;
         configurePageHead(documentNode, pageHead, options);
       },
     });
     appendViewSection(entry, viewHost, { scoped: true });
+    heldScope.register(entry.id, scope, picker, handle);
   }
 
-  windowNode.addEventListener("hashchange", renderRoute);
+  windowNode.addEventListener("hashchange", heldScope.onHashChange);
 
   Promise.resolve().then(() => callFunction(
     client, "projects.list", { fields: ["id", "slug", "name", "emoji"] },
@@ -341,7 +336,7 @@ export function mountUniverseApp(rootNode, options = {}) {
 
   return createUnmountHandle(UNIVERSE_APP_CONTRACT_VERSION, () => {
     mounted = false;
-    windowNode.removeEventListener("hashchange", renderRoute);
+    windowNode.removeEventListener("hashchange", heldScope.onHashChange);
     disposeChrome();
     detachMountedSlots(rootNode, [...mountedSlotNodes, ...sectionNodes]);
     rootNode.replaceChildren();

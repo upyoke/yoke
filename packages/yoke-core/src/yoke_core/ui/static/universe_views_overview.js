@@ -43,12 +43,38 @@ export function renderOverviewView(context, main, scope, options = {}) {
     strategy, frontier, sessions, delivery, finalPair,
   );
 
-  const vitalsRead = loadVitals(context, masthead, scope);
+  // Each read is issued once at mount over the widest bucket set; a
+  // project-selection change re-runs the held paint() closures (which read
+  // getScope() live) with no refetch. Activation is scope-independent and
+  // stays out of the rescope path entirely.
+  let currentScope = scope;
+  const getScope = () => currentScope;
+  const painters = [];
+  const hold = (pending) => Promise.resolve(pending).then((paint) => {
+    if (typeof paint === "function") painters.push(paint);
+  });
+
   const activationFacts = loadActivationModules(context, activationHost);
-  loadStrategy(context, strategy, scope, activationFacts, vitalsRead);
-  loadFrontier(context, frontier, scope, activationFacts);
-  loadSessions(context, sessions, scope);
-  loadDelivery(context, delivery, scope, activationFacts);
-  loadEvents(context, events, scope);
-  loadDoctor(context, doctor, scope);
+  const vitalsRead = loadVitals(context, masthead, getScope);
+  vitalsRead.then((vitals) => {
+    if (vitals && typeof vitals.paint === "function") painters.push(vitals.paint);
+  });
+  const timelinesRead = vitalsRead.then(
+    (vitals) => (vitals && vitals.timelines) || [],
+  );
+  hold(loadStrategy(context, strategy, getScope, activationFacts, timelinesRead));
+  hold(loadFrontier(context, frontier, getScope, activationFacts));
+  hold(loadSessions(context, sessions, getScope));
+  hold(loadDelivery(context, delivery, getScope, activationFacts));
+  hold(loadEvents(context, events, getScope));
+  hold(loadDoctor(context, doctor, getScope));
+
+  return {
+    rescope(newScope) {
+      if (!context.isMounted()) return;
+      currentScope = newScope;
+      for (const panel of panels.values()) panel.setScope(newScope);
+      for (const paint of painters) paint();
+    },
+  };
 }
