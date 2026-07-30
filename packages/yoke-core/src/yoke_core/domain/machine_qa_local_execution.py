@@ -103,7 +103,11 @@ def execute_machine_case_contract(
     contract = HostControlExecutionContract.model_validate(raw_contract)
     if contract.operation not in {"case", "plan_case", "baseline_group"}:
         raise ValueError("expected a Machine QA case contract")
-    execution = _execution(contract, progress_callback=progress_callback)
+    execution = (
+        _execution(contract)
+        if progress_callback is None
+        else _execution(contract, progress_callback=progress_callback)
+    )
     result_payloads: list[dict[str, Any]] = []
     artifact_paths: list[Path] = []
     secret_values = tuple(execution.material.secrets.values())
