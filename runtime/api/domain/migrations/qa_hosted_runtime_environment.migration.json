@@ -44,7 +44,7 @@
   "module_sources": {
     "qa_hosted_runtime_environment": {
       "path": "packages/yoke-core/src/yoke_core/domain/migrations/qa_hosted_runtime_environment.py",
-      "sha256": "d41b607902d925cb07faa700a534dfc1c1fdc913893df82b44b0a4c024aed08e"
+      "sha256": "bbaad7a7af26600c671fbb8266a540eb32b234900c7b1931025f0ee871bbfc06"
     }
   },
   "attestation": {
@@ -61,8 +61,9 @@
       }
     ],
     "invariants": [
-      "Exactly one yoke project owns the hosted Yoke API site.",
-      "The Yoke API site has exactly one environment matching the Stage or Production runtime.",
+      "A tenant without a yoke project or active Yoke QA plan is unchanged.",
+      "At most one yoke project owns the hosted Yoke API site.",
+      "The yoke project has exactly one environment matching the Stage or Production runtime across all of its sites.",
       "Repeated apply preserves an existing compatible runtime environment."
     ],
     "rehearsal_commands": [

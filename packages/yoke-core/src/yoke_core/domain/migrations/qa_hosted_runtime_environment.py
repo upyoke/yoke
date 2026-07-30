@@ -34,16 +34,28 @@ def _runtime() -> str:
     )
 
 
-def _yoke_project_id(conn: Any) -> int:
+def _yoke_project_id(conn: Any) -> int | None:
     rows = conn.execute(
         "SELECT id FROM projects WHERE slug='yoke' ORDER BY id"
     ).fetchall()
-    if len(rows) != 1:
-        raise RuntimeError(
-            "hosted QA runtime environment requires exactly one yoke project"
-        )
+    if not rows:
+        return None
+    if len(rows) > 1:
+        raise RuntimeError("hosted QA runtime environment found multiple yoke projects")
     row = rows[0]
     return int(row["id"] if hasattr(row, "keys") else row[0])
+
+
+def _has_active_plan(conn: Any, *, project_id: int) -> bool:
+    marker = _p(conn)
+    return (
+        conn.execute(
+            "SELECT 1 FROM qa_plans "
+            f"WHERE project_id={marker} AND retired_at IS NULL LIMIT 1",
+            (project_id,),
+        ).fetchone()
+        is not None
+    )
 
 
 def _ensure_site(conn: Any, *, project_id: int) -> None:
@@ -67,12 +79,18 @@ def _ensure_site(conn: Any, *, project_id: int) -> None:
         )
 
 
-def _runtime_environment_rows(conn: Any, *, runtime: str) -> list[Any]:
+def _runtime_environment_rows(
+    conn: Any,
+    *,
+    project_id: int,
+    runtime: str,
+) -> list[Any]:
+    marker = _p(conn)
     rows = conn.execute(
-        "SELECT id,site,name FROM environments WHERE site=%s ORDER BY id"
-        if db_backend.connection_is_postgres(conn)
-        else "SELECT id,site,name FROM environments WHERE site=? ORDER BY id",
-        (_SITE_ID,),
+        "SELECT e.id,e.site,e.name FROM environments e "
+        "JOIN sites s ON s.id=e.site "
+        f"WHERE s.project_id={marker} ORDER BY e.id",
+        (project_id,),
     ).fetchall()
     return [
         row
@@ -82,13 +100,22 @@ def _runtime_environment_rows(conn: Any, *, runtime: str) -> list[Any]:
     ]
 
 
-def _ensure_environment(conn: Any, *, runtime: str) -> None:
-    matches = _runtime_environment_rows(conn, runtime=runtime)
+def _ensure_environment(
+    conn: Any,
+    *,
+    project_id: int,
+    runtime: str,
+) -> None:
+    matches = _runtime_environment_rows(
+        conn,
+        project_id=project_id,
+        runtime=runtime,
+    )
     if len(matches) == 1:
         return
     if len(matches) > 1:
         raise RuntimeError(
-            f"hosted QA site {_SITE_ID!r} has multiple {runtime!r} environments"
+            f"yoke project {project_id} has multiple {runtime!r} environments"
         )
     marker = _p(conn)
     environment_id = f"{_SITE_ID}-{runtime}"
@@ -114,7 +141,7 @@ def apply(conn: Any) -> None:
     """Ensure every hosted Yoke tenant declares its own runtime target."""
     missing = [
         table
-        for table in ("projects", "sites", "environments")
+        for table in ("projects", "sites", "environments", "qa_plans")
         if not _table_exists(conn, table)
     ]
     if missing:
@@ -124,14 +151,18 @@ def apply(conn: Any) -> None:
         )
     runtime = _runtime()
     project_id = _yoke_project_id(conn)
+    if project_id is None or not _has_active_plan(conn, project_id=project_id):
+        return
     _ensure_site(conn, project_id=project_id)
-    _ensure_environment(conn, runtime=runtime)
+    _ensure_environment(conn, project_id=project_id, runtime=runtime)
 
 
 def invariants(conn: Any) -> None:
     """Require one runtime-compatible environment owned by the Yoke project."""
     runtime = _runtime()
     project_id = _yoke_project_id(conn)
+    if project_id is None or not _has_active_plan(conn, project_id=project_id):
+        return
     marker = _p(conn)
     site = conn.execute(
         f"SELECT project_id FROM sites WHERE id={marker}",
@@ -144,9 +175,18 @@ def invariants(conn: Any) -> None:
         raise AssertionError(
             f"hosted QA site {_SITE_ID!r} does not belong to the yoke project"
         )
-    if len(_runtime_environment_rows(conn, runtime=runtime)) != 1:
+    if (
+        len(
+            _runtime_environment_rows(
+                conn,
+                project_id=project_id,
+                runtime=runtime,
+            )
+        )
+        != 1
+    ):
         raise AssertionError(
-            f"hosted QA site {_SITE_ID!r} does not have one {runtime!r} environment"
+            f"yoke project {project_id} does not have one {runtime!r} environment"
         )
 
 
