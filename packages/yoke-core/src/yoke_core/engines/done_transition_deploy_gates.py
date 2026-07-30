@@ -44,13 +44,15 @@ def _check_deployment_flow_guard(
     from yoke_core.domain.deployment_flow_validator import (
         list_registered_flow_ids,
     )
+    from yoke_core.domain.project_identity import render_item_ref
 
     with _parent()._connect() as conn:
         registered_flows = list_registered_flow_ids(conn)
+        item_ref = render_item_ref(conn, item_id)
     if deploy_flow not in registered_flows:
         print("\n=== Deployment flow guard ===")
         print(
-            f"Blocked: Item YOK-{item_id} has deployment_flow '{deploy_flow}' "
+            f"Blocked: Item {item_ref} has deployment_flow '{deploy_flow}' "
             f"which is NOT a registered deployment flow."
         )
         if registered_flows:
@@ -68,7 +70,7 @@ def _check_deployment_flow_guard(
         if not has_evidence:
             print("\n=== Deployment evidence guard ===")
             print(
-                f"Blocked: --skip-deploy passed for YOK-{item_id} but no "
+                f"Blocked: --skip-deploy passed for {item_ref} but no "
                 "successful deployment evidence found."
             )
             print(
@@ -76,9 +78,9 @@ def _check_deployment_flow_guard(
                 "to done without evidence that the deployment pipeline ran "
                 "successfully."
             )
-            print(f"Run '/yoke usher YOK-{item_id}' to deploy first.")
+            print(f"Run '/yoke usher {item_ref}' to deploy first.")
             return 7, old_status
-        print(f"Deployment evidence verified for YOK-{item_id}.")
+        print(f"Deployment evidence verified for {item_ref}.")
         print("  Skipping live deployment pipeline checks per --skip-deploy.")
         return None
 
@@ -102,39 +104,39 @@ def _check_deployment_flow_guard(
         elif run_status in ("created", "executing"):
             print("\n=== Deployment run guard ===")
             print(
-                f"Blocked: Item YOK-{item_id} has a deployment run at "
+                f"Blocked: Item {item_ref} has a deployment run at "
                 f"status '{run_status}'."
             )
             print("\nThe deployment pipeline has not completed yet.")
             print(
                 f"Wait for the deployment run to finish, or run "
-                f"'/yoke usher YOK-{item_id}' to retry."
+                f"'/yoke usher {item_ref}' to retry."
             )
             return 7, old_status
         elif run_status in ("failed", "cancelled"):
             print("\n=== Deployment run guard ===")
             print(
-                f"Blocked: Item YOK-{item_id} has a deployment run at "
+                f"Blocked: Item {item_ref} has a deployment run at "
                 f"status '{run_status}'."
             )
             print("\nThe deployment pipeline did not succeed.")
-            print(f"Run '/yoke usher YOK-{item_id}' to create a new deployment run.")
+            print(f"Run '/yoke usher {item_ref}' to create a new deployment run.")
             return 7, old_status
         else:
             print(
                 f"Warning: unexpected run status '{run_status}' for "
-                f"YOK-{item_id}, falling back to deploy_stage check."
+                f"{item_ref}, falling back to deploy_stage check."
             )
 
     if not run_status:
         # No runs recorded — no deployment evidence.
         print("\n=== Deployment evidence guard ===")
         print(
-            f"Blocked: Item YOK-{item_id} has deployment flow "
+            f"Blocked: Item {item_ref} has deployment flow "
             f"'{deploy_flow}' but no deployment evidence."
         )
         print("\nThe deployment pipeline was never executed for this item.")
-        print(f"Run '/yoke usher YOK-{item_id}' to deploy first.")
+        print(f"Run '/yoke usher {item_ref}' to deploy first.")
         return _redirect_to_delivery_stage(item_id, old_status, delivery_stage_id)
 
     # deploy_stage check for runless deployment evidence.
@@ -145,7 +147,7 @@ def _check_deployment_flow_guard(
             return None
         print("\n=== Deployment flow guard ===")
         print(
-            f"Item YOK-{item_id} has deployment flow '{deploy_flow}' "
+            f"Item {item_ref} has deployment flow '{deploy_flow}' "
             f"(deploy_stage='{deploy_stage}')."
         )
         return _redirect_to_delivery_stage(item_id, old_status, delivery_stage_id)
@@ -161,6 +163,10 @@ def _redirect_to_delivery_stage(
     """Move to the pinned definition's delivery stage when it declares one."""
     if delivery_stage_id is None:
         return 7, old_status
+    from yoke_core.domain.project_identity import render_item_ref
+
+    with _parent()._connect() as conn:
+        item_ref = render_item_ref(conn, item_id)
     print(f"Merge completed successfully. Setting status to '{delivery_stage_id}'.")
     _parent()._update_item_direct(
         item_id,
@@ -171,7 +177,7 @@ def _redirect_to_delivery_stage(
     )
     _parent()._rebuild_board_direct()
     print(
-        f"\nNext step: run '/yoke usher YOK-{item_id}' to execute "
+        f"\nNext step: run '/yoke usher {item_ref}' to execute "
         "the deployment pipeline."
     )
     return 7, delivery_stage_id

@@ -66,10 +66,15 @@ def run(
     _sync_done_item_direct = mw._sync_done_item_direct
     _apply_discovery_scan = mw._apply_discovery_scan
 
-    result = TransitionResult(item=f"YOK-{item_id}")
+    from yoke_core.domain.project_identity import render_item_ref
+
+    with _connect() as conn:
+        item_ref = render_item_ref(conn, item_id)
+
+    result = TransitionResult(item=item_ref)
     result_file = os.path.join(
         os.environ.get("TMPDIR", "/tmp"),
-        f"done-transition-result.YOK-{item_id}.json",
+        f"done-transition-result.{item_ref}.json",
     )
 
     repo_root = _resolve_repo_root()
@@ -83,7 +88,7 @@ def run(
     with _connect() as conn:
         context = load_done_item_context(conn, item_id)
     if context is None:
-        print(f"Error: Item YOK-{item_id} not found.", file=sys.stderr)
+        print(f"Error: Item {item_ref} not found.", file=sys.stderr)
         return result.fail(result_file, 2, "2")
 
     title = context.title
@@ -96,7 +101,7 @@ def run(
     result.old_status = result.new_status = old_status
     if lane_branch in ("null", ""):
         lane_branch = ""
-    print(f"\n=== Done transition: YOK-{item_id} ===")
+    print(f"\n=== Done transition: {item_ref} ===")
     print(f"Title: {title}")
     print(f"Old status: {old_status}")
     print(f"Workflow: {workflow.workflow_id}@{workflow.version}\n")
