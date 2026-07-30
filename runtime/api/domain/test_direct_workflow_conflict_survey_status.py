@@ -193,7 +193,10 @@ def _install_relay(monkeypatch, dispatcher: _RoutedDispatcher) -> list[dict]:
     def _no_connect(*_a, **_k):
         raise AssertionError("run() must not open a local connection")
 
-    monkeypatch.setattr(preflight, "connect", _no_connect)
+    # The module no longer imports ``connect`` (all control-plane reads
+    # route through the dispatcher); keep the guard defensive so a future
+    # reintroduction is still caught, without requiring the symbol today.
+    monkeypatch.setattr(preflight, "connect", _no_connect, raising=False)
 
     preflight_calls: list[dict] = []
 

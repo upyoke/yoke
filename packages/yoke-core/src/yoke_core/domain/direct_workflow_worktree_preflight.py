@@ -10,7 +10,6 @@ import os
 import sys
 from typing import Iterator, List, Optional
 
-from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.worktree_preflight import run_preflight
 
 
@@ -35,46 +34,52 @@ def _prepare_dash_path_claim(
     touch_paths: tuple[str, ...],
     integration_target: str,
 ) -> Optional[str]:
-    from yoke_core.domain.dash_path_claim_posture import (
-        ensure_survey_path_claim,
-    )
-    from yoke_core.domain.path_claims import PathClaimError
-    from yoke_core.domain.path_claims_register import (
-        PathClaimRegistrationError,
-    )
-    from yoke_core.domain.path_claims_resolve import PathResolveError
+    """Ensure the selected-Dash path claim reflects the live survey.
 
-    try:
-        with connect() as conn:
-            from yoke_core.domain.dash_posture_read import marker
+    Routes both the work-claim-holder read and the register/widen
+    through the transport-aware dispatcher so an https-connected session
+    relays them to the control plane instead of opening a local Postgres
+    connection. The holder read (``claims.work.holder_get``) preserves
+    the "no live item work claim" refusal; the register-or-widen decision
+    stays server-side behind ``claims.path.survey_ensure`` (the register
+    function alone cannot express the widen case). Returns an error
+    string to block preparation, or ``None`` on success / no-op.
+    """
+    from yoke_contracts.api.function_call import TargetRef
+    from yoke_core.api.service_client_structured_api_adapter import (
+        call_dispatcher,
+    )
 
-            placeholder = marker(conn)
-            claim = conn.execute(
-                "SELECT session_id FROM work_claims "
-                "WHERE target_kind = 'item' "
-                f"AND item_id = {placeholder} AND released_at IS NULL "
-                "ORDER BY claimed_at DESC, id DESC LIMIT 1",
-                (int(item_id),),
-            ).fetchone()
-            if claim is None:
-                return "Dash path-claim preparation has no live item work claim"
-            claim_session = str(
-                claim["session_id"] if hasattr(claim, "keys") else claim[0]
-            )
-            ensure_survey_path_claim(
-                conn,
-                item_id=item_id,
-                session_id=claim_session,
-                touch_paths=touch_paths,
-                integration_target=integration_target,
-            )
-    except (
-        PathClaimError,
-        PathClaimRegistrationError,
-        PathResolveError,
-        ValueError,
-    ) as exc:
-        return str(exc)
+    target = TargetRef(kind="item", item_id=int(item_id))
+    holder = call_dispatcher(
+        function_id="claims.work.holder_get",
+        target=target,
+    )
+    if not holder.success:
+        err = holder.error
+        return (
+            f"{err.code}: {err.message}"
+            if err is not None
+            else "work-claim holder lookup failed"
+        )
+    holder_row = (holder.result or {}).get("holder")
+    if not holder_row or not holder_row.get("session_id"):
+        return "Dash path-claim preparation has no live item work claim"
+
+    ensured = call_dispatcher(
+        function_id="claims.path.survey_ensure",
+        target=target,
+        payload={
+            "touch_paths": list(touch_paths),
+            "integration_target": integration_target,
+        },
+    )
+    if not ensured.success:
+        err = ensured.error
+        return (
+            err.message if err is not None
+            else "Dash path-claim preparation failed"
+        )
     return None
 
 

@@ -9,9 +9,6 @@ both modules import from one place.
 
 from __future__ import annotations
 
-import json
-import os
-import sys
 from pathlib import Path
 from typing import List, Optional, Tuple
 
@@ -104,28 +101,126 @@ def extract_retry_attempts(stderr: str) -> Optional[int]:
         return None
 
 
+def _local_checkout_for_item(item_id: int) -> Optional[str]:
+    """Resolve this machine's checkout path for the item's project.
+
+    Reads the item's project id through ``items.detail.get`` (relayed
+    over https, dispatched in-process on a local Postgres connection),
+    then maps it to the machine-local checkout via
+    ``checkout_for_project_id`` (machine config, no DB). Returns
+    ``None`` when the project or its checkout mapping is unresolved.
+    """
+    from yoke_contracts.api.function_call import TargetRef
+    from yoke_core.api.service_client_structured_api_adapter import (
+        call_dispatcher,
+    )
+    from yoke_core.domain.project_checkout_locations import (
+        checkout_for_project_id,
+    )
+
+    detail = call_dispatcher(
+        function_id="items.detail.get",
+        target=TargetRef(kind="item", item_id=int(item_id)),
+    )
+    if not detail.success:
+        return None
+    project = ((detail.result or {}).get("item") or {}).get("project") or {}
+    project_id = project.get("id")
+    if project_id is None:
+        return None
+    checkout = checkout_for_project_id(int(project_id))
+    return str(checkout) if checkout is not None else None
+
+
 def activate_path_claims(item_id: int) -> Tuple[bool, str, List[int]]:
-    """Run the activation phase. Returns ``(ok, stderr, activated_ids)``."""
-    r = _run([
-        sys.executable,
-        "-m",
-        "yoke_core.domain.advance_path_claim_activation",
-        "--item",
-        f"YOK-{item_id}",
-    ])
-    activated: List[int] = []
-    for line in r.stdout.splitlines():
-        line = line.strip()
-        if line.startswith("activated="):
-            try:
-                parsed = json.loads(line[len("activated="):])
-                if isinstance(parsed, list):
-                    activated = [int(x) for x in parsed]
-            except Exception:
-                activated = []
-    if r.returncode == 0:
-        return True, "", activated
-    return False, (r.stderr or r.stdout).strip(), activated
+    """Activate the item's planned path claims over the connected transport.
+
+    Client-git / server-DB split so activation works over an https
+    control plane, where the server has no checkout: list the item's
+    non-terminal claims via ``claims.path.list``, resolve each planned
+    claim's integration-target head from the machine-local checkout,
+    then relay ``claims.path.activation_run`` with the resolved heads.
+    The server activates using the supplied heads instead of reading a
+    checkout it lacks; with no claims the map is empty and the run is a
+    clean no-op in every mode. Returns ``(ok, error_text, activated_ids)``;
+    ``error_text`` keeps the ``db-lock:`` marker so
+    :func:`classify_activation_failure` still routes substrate contention.
+    """
+    from yoke_contracts.api.function_call import TargetRef
+    from yoke_core.api.service_client_structured_api_adapter import (
+        call_dispatcher,
+    )
+    from yoke_core.domain.advance_path_claim_activation_retry import (
+        resolve_integration_head_with_retry,
+    )
+
+    target = TargetRef(kind="item", item_id=int(item_id))
+    listed = call_dispatcher(
+        function_id="claims.path.list",
+        target=target,
+        payload={"states": ["planned", "blocked"]},
+    )
+    if not listed.success:
+        err = listed.error
+        return False, (
+            f"{err.code}: {err.message}"
+            if err is not None
+            else "path-claim list failed"
+        ), []
+    claims = (listed.result or {}).get("claims") or []
+
+    resolved_heads: dict[int, str] = {}
+    if claims:
+        checkout = _local_checkout_for_item(item_id)
+        if checkout is None:
+            return False, (
+                "claim's item has no machine-local checkout mapping; "
+                "cannot resolve integration head"
+            ), []
+        for claim in claims:
+            claim_id = int(claim["id"])
+            integration_target = str(claim.get("integration_target") or "main")
+            rr = resolve_integration_head_with_retry(
+                None,
+                project_id="",
+                repo_path=checkout,
+                integration_target=integration_target,
+            )
+            if rr.error is not None:
+                # A planned claim WILL be activated; surface the resolution
+                # failure (divergence / boundary / db-lock). A blocked claim
+                # short-circuits server-side, so omit it and let the server
+                # decide (a repair-to-planned falls back to local resolution).
+                if str(claim.get("state")) == "planned":
+                    return False, rr.error, []
+                continue
+            resolved_heads[claim_id] = str(rr.commit_sha)
+
+    run = call_dispatcher(
+        function_id="claims.path.activation_run",
+        target=target,
+        payload={"resolved_heads": resolved_heads},
+    )
+    if not run.success:
+        err = run.error
+        return False, (
+            f"{err.code}: {err.message}"
+            if err is not None
+            else "path-claim activation failed"
+        ), []
+    result = run.result or {}
+    outcomes = result.get("outcomes") or []
+    activated = [
+        int(o["claim_id"])
+        for o in outcomes
+        if o.get("state_before") == "planned" and o.get("state_after") == "active"
+    ]
+    diverged = result.get("diverged_error")
+    blocked = list(result.get("blocked_errors") or [])
+    if diverged or blocked:
+        parts = ([str(diverged)] if diverged else []) + [str(b) for b in blocked]
+        return False, "\n".join(parts), activated
+    return True, "", activated
 
 
 def check_dirty_main(repo_root: str) -> Tuple[bool, str, List[str]]:
