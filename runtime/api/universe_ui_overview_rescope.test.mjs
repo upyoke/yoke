@@ -138,3 +138,48 @@ test("a scope chip toggle repaints in place and tracks the selection", async (t)
   assert.equal(documentNode.defaultView.location.hash, "#/overview?project=2");
   mounted.unmount();
 });
+
+test("one project's failed read never poisons a scope that excludes it", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = () => response(200, {});
+  const documentNode = new FakeDocument();
+  const windowNode = documentNode.defaultView;
+  windowNode.location.hash = "#/overview?project=1";
+  const root = documentNode.createElement("div");
+  // Project 2's per-project fan-out reads fail at mount.
+  const client = multiProjectOverviewClient({ failProject: "2" });
+
+  const mounted = mountUniverseApp(root, { client });
+  await settle();
+  const before = client.requests.length;
+
+  const syncText = () => byClass(root, "overview-sync")[0].textContent;
+  const navigate = async (hash) => {
+    windowNode.location.hash = hash;
+    windowNode.dispatchEvent(new Event("hashchange"));
+    await settle();
+  };
+
+  // Scoped to the healthy project 1: no panel shows a read error and the
+  // masthead projects project 1's held vitals.
+  assert.equal(byClass(root, "error").length, 0);
+  assert.equal(activeCount(root), "3");
+  assert.doesNotMatch(syncText(), /state and momentum read unavailable/);
+
+  // Scoped to the failed project 2: the per-project panels surface the error
+  // and the masthead reports unavailable — but still no refetch.
+  await navigate("#/overview?project=2");
+  assert.equal(client.requests.length, before);
+  assert.ok(byClass(root, "error").length > 0, "failed scope shows the error");
+  assert.match(syncText(), /state and momentum read unavailable/);
+
+  // Back to project 1: the healthy held data re-renders cleanly — the earlier
+  // failure never stuck — and still no refetch.
+  await navigate("#/overview?project=1");
+  assert.equal(client.requests.length, before);
+  assert.equal(byClass(root, "error").length, 0);
+  assert.equal(activeCount(root), "3");
+  assert.doesNotMatch(syncText(), /state and momentum read unavailable/);
+  mounted.unmount();
+});

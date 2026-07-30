@@ -11,7 +11,7 @@ import { STRATEGY_BADGE_LIMIT } from "./universe_overview_primitives.js";
 
 export async function loadVitals(context, masthead, getScope) {
   const buckets = scopeBuckets("all", context.projects(), true);
-  const { callResults, failed } = await settledScopedCalls(
+  const { callResults } = await settledScopedCalls(
     context,
     buckets.map((bucket) => ({
       functionId: "overview.vitals.get",
@@ -27,6 +27,8 @@ export async function loadVitals(context, masthead, getScope) {
   // server aggregate stays untouched — the client does the projection.
   const perProject = buckets.map((bucket, index) => ({
     project: String(bucket),
+    ok: !!(callResults[index] && callResults[index].status === 200
+      && callResults[index].envelope.success),
     result: (callResults[index] && callResults[index].envelope.result) || {},
   }));
   const timelines = perProject.flatMap(
@@ -34,15 +36,17 @@ export async function loadVitals(context, masthead, getScope) {
   );
   const paint = () => {
     if (!context.isMounted()) return;
-    if (failed) {
-      masthead.setUnavailable();
-      return;
-    }
     const scope = getScope();
     const wanted = scope === "all" ? null : new Set(scope.map(String));
     const chosen = wanted
       ? perProject.filter((entry) => wanted.has(entry.project))
       : perProject;
+    // Unavailability reflects only the in-scope projects: a failed read for a
+    // project the current scope excludes must not blank the masthead.
+    if (chosen.some((entry) => !entry.ok)) {
+      masthead.setUnavailable();
+      return;
+    }
     const stateCounts = {};
     const momentumByDay = new Map();
     let days = 120;

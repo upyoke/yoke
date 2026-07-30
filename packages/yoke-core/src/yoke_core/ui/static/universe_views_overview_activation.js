@@ -301,8 +301,15 @@ export function loadActivationModules(context, host) {
 // activated collapses to the drawn ghost hint; any resolved activation or a
 // non-empty read keeps the live panel.
 export function ghostWhenInactive(context, activationFacts, view, panel) {
+  // Capture the panel's render generation now; if a later paint (a rescope
+  // that found data) supersedes this empty paint before the activation read
+  // resolves, the deferred collapse is stale and must not fire.
+  const scheduledGeneration = typeof panel.renderGeneration === "function"
+    ? panel.renderGeneration() : null;
   activationFacts.then((facts) => {
     if (!context.isMounted() || !facts) return;
+    if (scheduledGeneration !== null
+      && panel.renderGeneration() !== scheduledGeneration) return;
     const module = facts.get(GHOST_MODULES[view]);
     if (!module || module.state === "activated") return;
     // Delegate the collapse to the panel owner so a later re-scope with data

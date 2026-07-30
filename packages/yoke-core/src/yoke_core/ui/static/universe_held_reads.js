@@ -15,15 +15,20 @@ import { renderError, settledScopedCalls } from "./universe_view_support.js";
 export async function holdScopedSection(
   context, panel, buckets, calls, getScope, renderRows,
 ) {
-  const { callResults, failed } = await settledScopedCalls(context, calls);
+  const { callResults } = await settledScopedCalls(context, calls);
   if (!context.isMounted()) return null;
   const paint = () => {
     const scope = getScope();
     const picked = selectForScope(buckets, callResults, scope);
+    // Failure is scoped to the in-scope buckets: one failed per-project read
+    // must not poison a scope that excludes it.
+    const pickedFailed = picked.callResults.find(
+      (result) => !(result.status === 200 && result.envelope.success),
+    );
     panel.renderEnvelopes(
       picked.callResults,
-      failed
-        ? (body) => renderError(body, failed)
+      pickedFailed
+        ? (body) => renderError(body, pickedFailed)
         : (body, held) => renderRows(body, held, scope, picked.buckets),
     );
   };

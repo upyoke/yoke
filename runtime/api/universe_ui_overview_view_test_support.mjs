@@ -5,13 +5,16 @@ import { allNodes } from "./universe_ui_dom_test_support.mjs";
 // held "all" mount holds each project's own rows — and whose universe reads
 // (frontier, sessions, delivery) carry a project on every row so a client-side
 // scope narrow can partition them. Used by the held-read rescope regressions.
-export function multiProjectOverviewClient() {
+export function multiProjectOverviewClient({ failProject } = {}) {
   const requests = [];
   const projects = [
     { id: 1, slug: "yoke", name: "Yoke", emoji: "🐄" },
     { id: 2, slug: "beta", name: "Beta", emoji: "🐝" },
   ];
   const ok = (result) => ({ status: 200, envelope: { success: true, result } });
+  const fail = () => ({
+    status: 500, envelope: { success: false, error: { message: "boom" } },
+  });
   const vitalsFor = (project) => ({
     state_counts: project === "2"
       ? { active: 1, pipeline: 0, backlog: 0, blocked: 0, frozen: 0, done: 5 }
@@ -41,6 +44,13 @@ export function multiProjectOverviewClient() {
     results: [{
       hc: "HC-x", name: project === "2" ? "beta-check" : "yoke-check",
       severity: "warn",
+    }],
+  });
+  const deliveryFor = (project) => ({
+    rows: [{
+      id: project === "2" ? "run-beta" : "run-yoke",
+      project: project === "2" ? "beta" : "yoke", target_env: "stage",
+      status: "succeeded", created_at: project === "2" ? "2h" : "1h", stages: [],
     }],
   });
   const universe = {
@@ -78,18 +88,6 @@ export function multiProjectOverviewClient() {
         },
       ],
     },
-    "deployment_runs.list": {
-      rows: [
-        {
-          id: "run-yoke", project: "yoke", target_env: "stage",
-          status: "succeeded", created_at: "1h", stages: [],
-        },
-        {
-          id: "run-beta", project: "beta", target_env: "stage",
-          status: "succeeded", created_at: "2h", stages: [],
-        },
-      ],
-    },
     "overview.activation.get": { dismiss_available: false, modules: [] },
   };
   return {
@@ -101,16 +99,24 @@ export function multiProjectOverviewClient() {
       if (fn === "organizations.get") return ok({ name: "Yoke" });
       if (fn === "projects.list") return ok({ rows: projects });
       if (fn === "overview.vitals.get") {
-        return ok(vitalsFor(String(request.payload.project ?? "1")));
+        const project = String(request.payload.project ?? "1");
+        return project === failProject ? fail() : ok(vitalsFor(project));
       }
       if (fn === "events.query.run") {
-        return ok(eventsFor(String(request.payload.project)));
+        const project = String(request.payload.project);
+        return project === failProject ? fail() : ok(eventsFor(project));
       }
       if (fn === "doctor.last_run.get") {
-        return ok(doctorFor(String(request.payload.project)));
+        const project = String(request.payload.project);
+        return project === failProject ? fail() : ok(doctorFor(project));
+      }
+      if (fn === "deployment_runs.list") {
+        const project = String(request.payload.project);
+        return project === failProject ? fail() : ok(deliveryFor(project));
       }
       if (fn === "strategy.doc.list") {
-        return ok(docsFor(String((request.target || {}).project_id)));
+        const project = String((request.target || {}).project_id);
+        return project === failProject ? fail() : ok(docsFor(project));
       }
       if (fn in universe) return ok(universe[fn]);
       throw new Error(`unexpected function ${fn}`);

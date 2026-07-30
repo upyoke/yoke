@@ -67,9 +67,13 @@ export function summaryPanel(documentNode, title, view, scope, label) {
     panel.replaceChildren(...chrome);
   };
   // A held re-scope that now has data un-ghosts (restoring the openLink child)
-  // before rendering the fresh body.
+  // before rendering the fresh body. The render generation lets a deferred
+  // ghost detect that a newer paint has superseded it.
+  let renderGeneration = 0;
+  panel.renderGeneration = () => renderGeneration;
   const baseRenderEnvelopes = panel.renderEnvelopes;
   panel.renderEnvelopes = (callResults, renderBody) => {
+    renderGeneration += 1;
     panel.unghost();
     baseRenderEnvelopes(callResults, renderBody);
   };

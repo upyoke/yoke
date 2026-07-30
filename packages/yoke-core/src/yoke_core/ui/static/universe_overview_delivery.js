@@ -1,5 +1,7 @@
-import { el, mergedRows, statePill } from "./universe_view_support.js";
-import { holdScopedSection, rowsInScope } from "./universe_held_reads.js";
+import {
+  el, mergedRows, scopeBuckets, statePill,
+} from "./universe_view_support.js";
+import { holdScopedSection } from "./universe_held_reads.js";
 import { ghostWhenInactive } from "./universe_views_overview_activation.js";
 import { deliveryStageBar } from "./universe_secondary_primitives.js";
 import { relativeTime } from "./universe_time.js";
@@ -17,14 +19,25 @@ import {
 // What is shipping. The engine bounds run history and returns the newest
 // receipts first, so the overview keeps that order before taking its summary.
 export function loadDelivery(context, panel, getScope, activationFacts) {
+  // Fan out per project so each project's own newest-N runs are held: a
+  // universe-wide window would let a busy project crowd a quiet one out. Runs
+  // always carry a project (the projects JOIN), so no null bucket is needed.
+  const buckets = scopeBuckets("all", context.projects(), true);
   return holdScopedSection(
-    context, panel, [null],
-    [{ functionId: "deployment_runs.list", payload: {} }],
+    context, panel, buckets,
+    buckets.map((bucket) => ({
+      functionId: "deployment_runs.list",
+      payload: { project: bucket },
+    })),
     getScope,
     (body, callResults, scope) => {
       const documentNode = body.ownerDocument;
-      const rows = rowsInScope(
-        mergedRows(callResults, (result) => result.rows), scope, context.projects(),
+      // Per-project holds are merged newest-first (roster grouping otherwise
+      // interleaves projects) before the summary takes its slice.
+      const rows = mergedRows(callResults, (result) => result.rows).sort(
+        (left, right) => String(right.created_at || "").localeCompare(
+          String(left.created_at || ""),
+        ),
       );
       if (!rows.length) {
         ghostWhenInactive(context, activationFacts, "delivery", panel);
