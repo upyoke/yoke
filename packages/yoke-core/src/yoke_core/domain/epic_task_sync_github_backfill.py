@@ -31,6 +31,7 @@ from yoke_core.domain.epic_task_sync import (
     WORKTREE_LABEL_COLOR_DEFAULT,
 )
 from yoke_core.domain.project_github_auth import resolve_project_github_auth
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.projects_github_sync_mode import (
     github_sync_disabled_notice,
     github_sync_enabled,
@@ -65,7 +66,9 @@ def backfill_task_titles(
             return 1
 
         parent_item_id = _epic_parent_item_id(epic_name, conn=conn)
-        backlog_ref = f"YOK-{parent_item_id}" if parent_item_id else ""
+        backlog_ref = (
+            render_item_ref(conn, int(parent_item_id)) if parent_item_id else ""
+        )
         project = _epic_project(epic_name, conn=conn)
         p = _placeholder(conn)
         rows = conn.execute(
