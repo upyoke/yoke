@@ -67,12 +67,31 @@ def _chdir_out_of_doomed_worktree(ctx: MergeContext) -> None:
 
 
 def _schema_refresh(ctx: MergeContext) -> None:
-    """Run schema refresh after merge."""
+    """Run schema refresh after merge.
+
+    Over an https control plane the server owns and converges its own
+    schema on boot (``converge_core_schema``); there is no local DB to
+    re-converge, and re-converging the server's schema from the client is
+    neither possible nor correct, so the refresh is skipped. On a local
+    Postgres connection the merge just updated the schema source on disk,
+    so the local DB is re-converged in a fresh subprocess exactly as
+    before.
+    """
+    from yoke_core.domain.worktree_create_db import (
+        item_worktree_authority_is_https,
+    )
+
     mw = _parent()
     _print = mw._print
-    _run_python_module = mw._run_python_module
 
     _print("")
+    if item_worktree_authority_is_https():
+        _print(
+            "[schema-gate] Skipping schema refresh over https "
+            "(server owns its own schema)."
+        )
+        return
+    _run_python_module = mw._run_python_module
     _print("[schema-gate] Running schema refresh...")
     _run_python_module("yoke_core.domain.schema", ["init"], capture=True)
     _run_python_module("yoke_core.domain.shepherd", ["init"], capture=True)

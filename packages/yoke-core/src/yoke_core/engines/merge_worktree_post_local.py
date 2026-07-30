@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from yoke_contracts.api.function_call import TargetRef
+from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.engines.merge_worktree_prepare import MergeContext
 from yoke_core.engines.merge_worktree_post_helpers import (
     _chdir_out_of_doomed_worktree,
@@ -28,25 +30,34 @@ def _ensure_snapshot_for_project(ctx: MergeContext) -> None:
     try:
         import subprocess
 
-        from yoke_core.domain import db_helpers
-        from yoke_core.domain.path_snapshots import ensure_snapshot_at
-
         project_id = (
             getattr(ctx.args, "project", None)
             or getattr(ctx, "project_id", None)
             or "yoke"
         )
+        # Resolve the freshly-merged HEAD from the local checkout, then relay
+        # the path-snapshot write so it lands on the connected control plane
+        # (in-process against local Postgres, or over https server-side)
+        # rather than opening a bare local connection.
         head = subprocess.run(
             ["git", "-C", str(ctx.repo_root), "rev-parse", "HEAD"],
             capture_output=True, text=True, check=False,
         )
         if head.returncode != 0 or not head.stdout.strip():
             return
-        conn = db_helpers.connect()
-        try:
-            ensure_snapshot_at(conn, project_id, head.stdout.strip())
-        finally:
-            conn.close()
+        resp = call_dispatcher(
+            function_id="project.snapshot.ensure_at",
+            target=TargetRef(kind="global"),
+            payload={
+                "project": str(project_id),
+                "commit_sha": head.stdout.strip(),
+            },
+        )
+        if not resp.success:
+            detail = (
+                resp.error.message if resp.error else "snapshot ensure relay failed"
+            )
+            _parent()._print(f"  Note: ensure_snapshot_at advisory: {detail}")
     except Exception as exc:  # noqa: BLE001
         try:
             _parent()._print(

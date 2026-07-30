@@ -6,7 +6,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
+from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.lifecycle_status import TASK_TERMINAL_SUCCESS
+from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain import db_backend
 
 
@@ -193,13 +195,47 @@ def _merged(
     return result.returncode == 0
 
 
+def _prune_verdict(
+    branch: str, path: Path | None, state: dict[str, bool]
+) -> dict[str, Any] | None:
+    """Relay the fail-closed authority verdict for one branch / worktree.
+
+    Returns the verdict dict, or ``None`` when DB authority is unreachable
+    over the active transport (flagged on *state* so the caller can skip
+    all pruning exactly as the old bare-connect failure did). The terminal
+    owner + active authority reads run server-side over the relay; the
+    prune/keep decision and every git deletion stay client-side.
+    """
+    try:
+        resp = call_dispatcher(
+            function_id="merge.prune.authority_verdict",
+            target=TargetRef(kind="global"),
+            payload={"branch": branch, "path": (str(path) if path else None)},
+        )
+    except Exception:  # noqa: BLE001 - transport failure == authority unavailable
+        state["unavailable"] = True
+        return None
+    if not resp.success:
+        state["unavailable"] = True
+        return None
+    return resp.result or {}
+
+
 def prune_managed_worktrees(
     *,
     parent: Any,
     repo_root: str,
     target: str,
 ) -> None:
-    """Remove only clean, unclaimed, terminal work already merged to target."""
+    """Remove only clean, unclaimed, terminal work already merged to target.
+
+    The DB authority verdict (unique terminal owner + no active authority)
+    routes through the transport-aware ``merge.prune.authority_verdict``
+    relay so pruning runs over an https control plane as well as a local
+    Postgres connection; every git deletion stays local. A relay whose DB
+    authority is unreachable fails closed: pruning is skipped and nothing
+    is removed.
+    """
     run_git = parent._run_git
     emit = parent._print
     root = Path(repo_root).resolve()
@@ -212,70 +248,65 @@ def prune_managed_worktrees(
     if entries is None:
         emit("Skipping automatic worktree pruning: worktree registry unavailable")
         return
-    try:
-        conn = parent._connect()
-    except Exception as exc:  # noqa: BLE001 - fail closed
-        emit(
-            "Skipping automatic worktree pruning: DB authority unavailable "
-            f"({exc.__class__.__name__})"
-        )
-        return
 
+    state = {"unavailable": False}
     checked_out = {entry.branch for entry in entries}
-    try:
-        for entry in entries:
-            if not _is_managed_path(entry.path, root):
-                continue
-            owner = _terminal_owner(
-                conn, branch=entry.branch, path=entry.path
-            )
-            if owner is None:
-                continue
-            if _has_active_authority(conn, owner, entry.path):
+    for entry in entries:
+        if not _is_managed_path(entry.path, root):
+            continue
+        verdict = _prune_verdict(entry.branch, entry.path, state)
+        if state["unavailable"]:
+            emit("Skipping automatic worktree pruning: DB authority unavailable")
+            return
+        assert verdict is not None  # not unavailable -> a dict
+        if not verdict.get("prunable"):
+            if verdict.get("reason") == "active_authority":
                 emit(f"Preserving actively claimed worktree: {entry.path}")
-                continue
-            if not _clean(run_git, entry):
-                emit(f"Preserving dirty or unverifiable worktree: {entry.path}")
-                continue
-            if not _merged(run_git, repo_root, entry.branch, base):
-                emit(f"Preserving unmerged worktree branch: {entry.branch}")
-                continue
-            removed = run_git(
-                ["worktree", "remove", str(entry.path)],
-                cwd=repo_root,
-                capture=True,
-            )
-            if removed.returncode != 0:
-                emit(f"Preserving worktree after removal refusal: {entry.path}")
-                continue
-            emit(f"Pruned terminal merged worktree: {entry.path}")
-            checked_out.discard(entry.branch)
-            deleted = run_git(
-                ["branch", "-d", entry.branch], cwd=repo_root, capture=True
-            )
-            if deleted.returncode != 0:
-                emit(f"Preserved local branch after delete refusal: {entry.branch}")
-
-        branches = run_git(
-            ["for-each-ref", "--format=%(refname:short)", "refs/heads"],
+            continue
+        if not _clean(run_git, entry):
+            emit(f"Preserving dirty or unverifiable worktree: {entry.path}")
+            continue
+        if not _merged(run_git, repo_root, entry.branch, base):
+            emit(f"Preserving unmerged worktree branch: {entry.branch}")
+            continue
+        removed = run_git(
+            ["worktree", "remove", str(entry.path)],
             cwd=repo_root,
             capture=True,
         )
-        if branches.returncode != 0:
+        if removed.returncode != 0:
+            emit(f"Preserving worktree after removal refusal: {entry.path}")
+            continue
+        emit(f"Pruned terminal merged worktree: {entry.path}")
+        checked_out.discard(entry.branch)
+        deleted = run_git(
+            ["branch", "-d", entry.branch], cwd=repo_root, capture=True
+        )
+        if deleted.returncode != 0:
+            emit(f"Preserved local branch after delete refusal: {entry.branch}")
+
+    branches = run_git(
+        ["for-each-ref", "--format=%(refname:short)", "refs/heads"],
+        cwd=repo_root,
+        capture=True,
+    )
+    if branches.returncode != 0:
+        return
+    for branch in branches.stdout.splitlines():
+        if branch in checked_out or branch == target:
+            continue
+        verdict = _prune_verdict(branch, None, state)
+        if state["unavailable"]:
+            emit("Skipping automatic worktree pruning: DB authority unavailable")
             return
-        for branch in branches.stdout.splitlines():
-            if branch in checked_out or branch == target:
-                continue
-            owner = _terminal_owner(conn, branch=branch, path=None)
-            if owner is None or _has_active_authority(conn, owner, None):
-                continue
-            if not _merged(run_git, repo_root, branch, base):
-                continue
-            deleted = run_git(["branch", "-d", branch], cwd=repo_root, capture=True)
-            if deleted.returncode == 0:
-                emit(f"Pruned terminal merged local branch: {branch}")
-    finally:
-        conn.close()
+        assert verdict is not None  # not unavailable -> a dict
+        if not verdict.get("prunable"):
+            continue
+        if not _merged(run_git, repo_root, branch, base):
+            continue
+        deleted = run_git(["branch", "-d", branch], cwd=repo_root, capture=True)
+        if deleted.returncode == 0:
+            emit(f"Pruned terminal merged local branch: {branch}")
 
 
 __all__ = [

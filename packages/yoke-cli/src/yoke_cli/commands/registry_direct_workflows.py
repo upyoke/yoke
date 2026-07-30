@@ -1,6 +1,9 @@
 """Registry and convenience aliases for direct-workflow operations."""
 
 from yoke_cli.commands.adapters.blitz import blitz_survey
+from yoke_cli.commands.adapters.conflict_survey_status import (
+    conflict_survey_status,
+)
 from yoke_cli.commands.adapters.dash import (
     dash_escalate,
     dash_evidence,
@@ -25,6 +28,10 @@ DIRECT_WORKFLOW_SUBCOMMAND_REGISTRY = {
     ("direct-workflow", "dash", "escalate"): (
         "direct_workflow.dash.escalate",
         dash_escalate,
+    ),
+    ("direct-workflow", "conflict-survey", "status"): (
+        "direct_workflow.conflict_survey.status",
+        conflict_survey_status,
     ),
     ("ouroboros", "field-note", "promote"): (
         "ouroboros.field_note.promote",

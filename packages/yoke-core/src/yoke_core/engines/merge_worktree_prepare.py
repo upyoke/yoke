@@ -7,6 +7,9 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
+from yoke_contracts.api.function_call import TargetRef
+from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+
 
 def _parent():
     from yoke_core.engines import merge_worktree as _mw
@@ -82,12 +85,6 @@ def _sql_task_terminal_success_list() -> str:
     return ", ".join(f"'{s}'" for s in _TASK_TERMINAL_SUCCESS)
 
 
-def _p(conn) -> str:
-    from yoke_core.domain import db_backend
-
-    return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
 def _matches_glob(filepath: str, patterns: list[str]) -> bool:
     """Check if filepath matches any of the given glob patterns."""
     import fnmatch
@@ -114,8 +111,6 @@ def resolve_context(args: MergeArgs) -> MergeContext:
     """Resolve full merge context from arguments."""
     from yoke_core.domain.worktree import resolve_main_root
 
-    mw = _parent()
-
     ctx = MergeContext(args=args)
 
     # Get repo root -- worktree-aware: resolve to the owning
@@ -129,41 +124,43 @@ def resolve_context(args: MergeArgs) -> MergeContext:
         raise RuntimeError("Not in a git repository")
     ctx.yoke_repo_root = ctx.repo_root
 
-    # Resolve the branch's public item ref (PREFIX-N carries the project
-    # sequence, not the internal id) to the internal items.id every
-    # downstream consumer expects.
-    from yoke_core.domain.yok_n_parser import parse_item_id_or_none
-
+    # Resolve the branch's public item ref to the internal items.id every
+    # downstream consumer expects. The ref carries the project sequence,
+    # which is not the internal id once the two diverge, so it is passed
+    # as ``item_ref`` for the dispatcher to resolve server-side — that
+    # keeps resolution authoritative over an https control plane as well
+    # as an in-process local connection, with no client DB read.
     match = re.search(r"([A-Za-z][A-Za-z0-9]*-\d+)", args.branch)
     if match:
-        conn = None
         try:
-            conn = mw._connect()
-            resolved = parse_item_id_or_none(match.group(1), conn=conn)
-            if resolved is not None:
-                ctx.item_id = str(resolved)
+            detail = call_dispatcher(
+                function_id="items.detail.get",
+                target=TargetRef(kind="item", item_ref=match.group(1)),
+                payload={},
+            )
+            if detail.success:
+                item = (detail.result or {}).get("item") or {}
+                if item.get("id") is not None:
+                    ctx.item_id = str(item["id"])
         except Exception:  # noqa: BLE001 - DB context is advisory here.
             pass
-        finally:
-            if conn is not None:
-                conn.close()
 
-    # Resolve epic ID (PREFIX-N via project sequence; bare N = internal id)
+    # Resolve epic ID the same way: PREFIX-N resolves through the project
+    # sequence, a bare number is a project-local ref, both server-side.
     ctx.epic_id = args.epic_ref
     if ctx.epic_id:
-        conn = None
         try:
-            conn = mw._connect()
-            resolved = parse_item_id_or_none(
-                ctx.epic_id, conn=conn, allow_bare_internal=True
+            detail = call_dispatcher(
+                function_id="items.detail.get",
+                target=TargetRef(kind="item", item_ref=str(ctx.epic_id).strip()),
+                payload={},
             )
-            if resolved is not None:
-                ctx.epic_id = str(resolved)
+            if detail.success:
+                item = (detail.result or {}).get("item") or {}
+                if item.get("id") is not None:
+                    ctx.epic_id = str(item["id"])
         except Exception:  # noqa: BLE001 - DB context is advisory here.
             pass
-        finally:
-            if conn is not None:
-                conn.close()
 
     # Guard: standalone item branches need YOKE_DONE_TRANSITION
     if (not ctx.epic_id or ctx.epic_id == "null") and match is not None:
@@ -174,23 +171,28 @@ def resolve_context(args: MergeArgs) -> MergeContext:
                 "`python3 -m yoke_core.engines.done_transition`."
             )
 
-    # Project-aware repo root resolution
+    # Project-aware repo root resolution. Item/project reads and the
+    # machine-local checkout mapping route through the transport-aware relay
+    # so a non-yoke project's checkout + default branch resolve over an https
+    # control plane; the checkout mapping itself stays machine-local.
     if ctx.item_id:
-        conn = None
         try:
-            conn = mw._connect()
-            row = conn.execute(
-                "SELECT p.slug FROM items i LEFT JOIN projects p ON p.id = i.project_id "
-                f"WHERE i.id={_p(conn)}",
-                (int(ctx.item_id),),
-            ).fetchone()
-            if row and row[0] and row[0] != "yoke":
+            detail = call_dispatcher(
+                function_id="items.detail.get",
+                target=TargetRef(kind="item", item_id=int(ctx.item_id)),
+                payload={},
+            )
+            slug = None
+            if detail.success:
+                item = (detail.result or {}).get("item") or {}
+                slug = (item.get("project") or {}).get("slug")
+            if slug and slug != "yoke":
                 from yoke_core.domain.project_checkout_locations import (
-                    checkout_for_project,
+                    checkout_for_project_slug,
                 )
 
-                ctx.project = row[0]
-                checkout = checkout_for_project(conn, ctx.project)
+                ctx.project = slug
+                checkout = checkout_for_project_slug(slug)
                 if checkout is None:
                     raise RuntimeError(
                         f"project '{ctx.project}' has no machine-local checkout mapping"
@@ -198,19 +200,19 @@ def resolve_context(args: MergeArgs) -> MergeContext:
                 ctx.repo_root = str(checkout)
                 # Resolve default branch for non-yoke projects
                 if not args.target or args.target == "main":
-                    branch_row = conn.execute(
-                        f"SELECT default_branch FROM projects WHERE slug={_p(conn)}",
-                        (ctx.project,),
-                    ).fetchone()
-                    if branch_row and branch_row[0]:
-                        args.target = branch_row[0]
+                    branch_resp = call_dispatcher(
+                        function_id="projects.get",
+                        target=TargetRef(kind="global"),
+                        payload={"project": slug, "field": "default_branch"},
+                    )
+                    if branch_resp.success:
+                        value = (branch_resp.result or {}).get("value")
+                        if value:
+                            args.target = value
             else:
-                ctx.project = row[0] if row else None
+                ctx.project = slug or None
         except Exception:  # noqa: BLE001 - default Yoke repo context is safe.
             pass
-        finally:
-            if conn is not None:
-                conn.close()
 
     if not args.target:
         from yoke_core.domain import project_settings

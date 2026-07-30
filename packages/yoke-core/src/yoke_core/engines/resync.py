@@ -6,7 +6,6 @@ import sys
 from typing import List, Optional
 
 from yoke_core.domain import backlog_github_sync, epic_task_sync  # noqa: F401
-from yoke_core.domain.epic import task_update_field  # noqa: F401
 from yoke_core.domain.worktree import (  # noqa: F401
     resolve_yoke_root as resolve_worktree_yoke_root,
 )

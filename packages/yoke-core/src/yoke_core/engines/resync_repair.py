@@ -22,9 +22,7 @@ from yoke_core.domain import (  # noqa: F401 - re-exported for tests
     github_rest,
 )
 from yoke_core.domain.db_helpers import connect  # noqa: F401 - re-exported for legacy callers
-from yoke_core.domain.epic import task_update_field  # noqa: F401 - re-exported for legacy callers
 from yoke_core.domain.project_github_auth import resolve_project_github_auth
-from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.engines.resync_detect import DriftRecord, PairedItem
 
 
@@ -43,6 +41,34 @@ def _parent():
 
 def _p(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
+
+
+def _lookup_item_ref_over_transport(ref: str) -> str:
+    """Resolve an item's public ref by internal-id reference over the transport.
+
+    Relays ``resync.item_lookup`` so the epic-parent lookup that builds the
+    ``[<public-ref>]`` title prefix runs over an https control plane as well
+    as a local Postgres connection. The public ref is rendered server-side
+    from the project's prefix and the item's project sequence, so no caller
+    ever reconstructs it from an internal id. A read failure raises,
+    matching the inline ``connect()`` the engine never guarded; a missing
+    item yields ``""`` (the engine falls back to an unprefixed title).
+    """
+    from yoke_contracts.api.function_call import TargetRef
+    from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+
+    resp = call_dispatcher(
+        function_id="resync.item_lookup",
+        target=TargetRef(kind="global"),
+        payload={"ref": str(ref)},
+    )
+    if not resp.success:
+        message = resp.error.message if resp.error else "unknown error"
+        raise RuntimeError(f"resync parent-ref lookup failed: {message}")
+    data = resp.result or {}
+    if not data.get("found"):
+        return ""
+    return str(data.get("ref") or "")
 
 
 def _repair_local_orphan_backlog(
@@ -80,30 +106,24 @@ def _repair_local_orphan_epic_task(
     project: str,
     db_path: str,
     is_dry_run_fn,
-    task_update_field_fn=None,
 ) -> bool:
     """Create a GitHub issue for a local orphan epic task (typed REST).
 
     The implementation lives in
     :mod:`yoke_core.engines.resync_repair_epic_task_issue` so the body
-    routes through the shared compact-mirror budget guard.
+    routes through the shared compact-mirror budget guard; the
+    ``github_issue`` write-back relays through the connected transport.
     """
     from yoke_core.engines.resync_repair_epic_task_issue import (
         repair_local_orphan_epic_task,
     )
 
-    update_field = (
-        task_update_field_fn
-        if task_update_field_fn is not None
-        else _parent().task_update_field
-    )
     return repair_local_orphan_epic_task(
         epic_id,
         task_num,
         project,
         db_path,
         is_dry_run_fn=is_dry_run_fn,
-        task_update_field_fn=update_field,
     )
 
 
@@ -171,19 +191,10 @@ def _find_paired_for_drift(
     return None
 
 
-def _epic_task_repair_title(drift: DriftRecord, db_path: str) -> str:
+def _epic_task_repair_title(drift: DriftRecord) -> str:
     """Compose the epic-task issue title with the parent's public ref."""
     tnum_padded = f"{int(drift.task_num):03d}"
-    conn = connect(db_path)
-    try:
-        p = _p(conn)
-        parent = conn.execute(
-            f"SELECT id FROM items WHERE CAST(id AS TEXT) = CAST({p} AS TEXT) LIMIT 1",
-            (str(drift.epic_id),),
-        ).fetchone()
-        parent_ref = render_item_ref(conn, int(parent[0])) if parent else ""
-    finally:
-        conn.close()
+    parent_ref = _lookup_item_ref_over_transport(str(drift.epic_id))
     if parent_ref:
         return f"[{parent_ref}] {tnum_padded} {drift.local}"
     return f"{tnum_padded} {drift.local}"
@@ -192,7 +203,7 @@ def _epic_task_repair_title(drift: DriftRecord, db_path: str) -> str:
 def _repair_drift(
     drift: DriftRecord,
     paired: List[PairedItem],
-    db_path: str,
+    db_path: str,  # noqa: ARG001 - retained compat token; reads now relay
     call_domain_sync_fn,
     is_dry_run_fn,
     query_item_status_fn,
@@ -213,7 +224,7 @@ def _repair_drift(
         if is_backlog:
             repair_title = f"[{drift.ref}] {drift.local}"
         elif is_epic_task:
-            repair_title = _epic_task_repair_title(drift, db_path)
+            repair_title = _epic_task_repair_title(drift)
         else:
             return False
 

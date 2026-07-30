@@ -11,7 +11,6 @@ from __future__ import annotations
 import io
 import json
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Any, Dict, List
 
 import pytest
@@ -117,31 +116,25 @@ def test_orchestrator_forwards_item_project_to_run_preflight(
 def test_worktree_preflight_resolves_project_checkout(monkeypatch):
     normalized: List[str] = []
 
-    class _Conn:
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *_exc):
-            return False
-
+    # Project-checkout resolution routes through the transport-aware relay
+    # helper so it works over an https control plane, not a local connection.
     monkeypatch.setattr(
-        "yoke_core.domain.db_helpers.connect",
-        lambda: _Conn(),
-    )
-    monkeypatch.setattr(
-        "yoke_core.domain.project_checkout_locations.checkout_for_project",
-        lambda conn, project: Path("/tmp/externalwebapp-repo"),
+        "yoke_core.domain.project_checkout_locations.checkout_for_project_slug",
+        lambda project, **_kw: Path("/tmp/externalwebapp-repo"),
     )
     monkeypatch.setattr(
         worktree_preflight, "_normalize_repo_root",
         lambda value: normalized.append(value) or value,
     )
+    # Blocked-flag read is sourced from ``items.detail.get`` via the relay.
+    from yoke_core.api import service_client_structured_api_adapter as facade
+
     monkeypatch.setattr(
-        "yoke_core.domain.advance_blocked_gate.evaluate",
-        lambda conn, item_id: SimpleNamespace(blocked=False, rendered_blocker=""),
-    )
-    monkeypatch.setattr(
-        "yoke_core.domain.worktree.resolve_db_path", lambda: ":memory:",
+        facade, "call_dispatcher",
+        lambda **_k: FunctionCallResponse(
+            success=True, function="items.detail.get", version="v1",
+            result={"item": {"blocked": False}},
+        ),
     )
     monkeypatch.setattr(
         worktree_preflight, "claim_work", lambda item_id: (True, "claimed"),

@@ -111,11 +111,11 @@ def run_preflight(
         )
 
         if project:
-            from yoke_core.domain.db_helpers import connect
-            from yoke_core.domain.project_checkout_locations import checkout_for_project
+            from yoke_core.domain.project_checkout_locations import (
+                checkout_for_project_slug,
+            )
 
-            with connect() as conn:
-                checkout = checkout_for_project(conn, project)
+            checkout = checkout_for_project_slug(project)
             repo_root = str(checkout) if checkout is not None else ""
         else:
             repo_root = _resolve_repo_root_from_cwd()
@@ -131,22 +131,28 @@ def run_preflight(
     # claim only to be refused later. The pre-commit worktree-status guard
     # is unchanged because blocked is a routing hold, not a filesystem hold.
     try:
-        from yoke_core.domain.advance_blocked_gate import evaluate as _eval_blocked
-        from yoke_core.domain.db_helpers import connect as _connect_db
+        from yoke_contracts.api.function_call import TargetRef
+        from yoke_core.api.service_client_structured_api_adapter import (
+            call_dispatcher,
+        )
+        from yoke_core.domain.advance_blocked_gate import (
+            render_blocked_narrative,
+        )
 
-        _conn = _connect_db()
-        try:
-            decision = _eval_blocked(_conn, item_id)
-        finally:
-            _conn.close()
-        if decision.blocked:
+        detail = call_dispatcher(
+            function_id="items.detail.get",
+            target=TargetRef(kind="item", item_id=int(item_id)),
+            payload={},
+        )
+        item = (detail.result or {}).get("item") or {} if detail.success else {}
+        if item.get("blocked"):
             out.ok = False
             out.block_kind = "blocked-flag"
-            out.narrative = decision.rendered_blocker or (
-                f"YOK-{item_id} has items.blocked=1; run /yoke unblock YOK-{item_id} first."
+            out.narrative = render_blocked_narrative(
+                item_id, str(item.get("blocked_reason") or "") or None
             )
             return out
-    except Exception:  # noqa: BLE001 - degrade if DB unavailable
+    except Exception:  # noqa: BLE001 - degrade if the blocked read is unavailable
         pass
 
     # Step 1 — work claim.
