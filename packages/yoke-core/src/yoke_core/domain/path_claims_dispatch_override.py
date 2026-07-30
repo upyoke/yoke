@@ -26,7 +26,7 @@ Returns exit codes:
 from __future__ import annotations
 
 import argparse
-from typing import List, Optional, Sequence
+from typing import List, Sequence
 
 from yoke_core.domain.path_claims_dispatch_io import (
     open_conn,

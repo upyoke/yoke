@@ -20,9 +20,9 @@ schema. The canonical CLI surface is ``python3 -m yoke_core.cli.db_router runs``
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Optional, Sequence
+from typing import Optional, Sequence
 
 # ---------------------------------------------------------------------------
 # Run status enum

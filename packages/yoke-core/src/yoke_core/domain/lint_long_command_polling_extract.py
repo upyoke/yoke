@@ -20,7 +20,6 @@ from yoke_core.domain.lint_long_command_polling_constants import (
     SUPPRESSION_TOKEN,
 )
 from yoke_core.domain.lint_long_command_polling_extract_scratch import (
-    is_helper_resolved_scratch_path,
     scratch_path_roots,
 )
 

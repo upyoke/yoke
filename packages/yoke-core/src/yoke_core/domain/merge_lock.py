@@ -20,7 +20,6 @@ CLI usage::
 from __future__ import annotations
 
 import os
-import signal
 import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta

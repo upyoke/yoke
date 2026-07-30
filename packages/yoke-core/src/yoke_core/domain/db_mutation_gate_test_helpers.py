@@ -223,7 +223,7 @@ def _seed_project(
     project_id = SEED_PROJECT_IDS.get(project)
     if project_id is None:
         row = conn.execute(
-            f"SELECT COALESCE(MAX(id), 0) + 1 FROM projects"
+            "SELECT COALESCE(MAX(id), 0) + 1 FROM projects"
         ).fetchone()
         project_id = int(row[0])
     register_machine_checkout(repo_path.parent, repo_path, project_id)

@@ -47,7 +47,6 @@ from yoke_core.domain.path_claims_symlink_expansion import (
 
 from yoke_core.domain.path_targets_states import (
     OBSERVED as _OBSERVED,
-    TENTATIVE as _TENTATIVE,
 )
 
 

@@ -28,7 +28,7 @@ from yoke_core.domain.function_target_resolution import (
     resolve_org_context,
     resolve_project_context,
 )
-from yoke_core.domain.project_identity import AmbiguousProjectRefError, resolve_project_id
+from yoke_core.domain.project_identity import AmbiguousProjectRefError
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionCallResponse,
