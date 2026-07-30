@@ -83,15 +83,15 @@ from yoke_core.domain.migration_apply_manifest_units import live_apply_manifest,
 from yoke_core.domain.migration_apply_rehearse import rehearse
 from yoke_core.domain.migration_apply_resolve import (
     ModuleOverrideResolution, _load_item, _resolve_item_worktree_path,
-    _resolve_profile_or_raise, control_conn_db_path, resolve_module_override,
+    _resolve_profile_or_raise, resolve_module_override,
 )
 
 
 def _parse_item_id(raw: str) -> int:
-    text = raw.strip()
-    if text.upper().startswith("YOK-"):
-        text = text[4:]
-    return int(text.lstrip("0") or "0")
+    # PREFIX-N resolves via the project sequence; bare N = internal id.
+    from yoke_core.domain.yok_n_parser import parse_item_id
+
+    return parse_item_id(raw, allow_bare_internal=True)
 
 
 def _format_override(

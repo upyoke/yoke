@@ -84,28 +84,18 @@ def run_pipeline(
         if not member_items:
             print(f"Run {run_id} has no member items (environment-level deploy)")
     else:
-        item_num = primary_arg.replace("YOK-", "").replace("yok-", "")
-        print("Warning: Legacy item-based pipeline invocation. Auto-creating a deployment run.", file=sys.stderr)
+        from yoke_core.domain.deploy_pipeline_item_run import (
+            create_run_for_item_ref,
+        )
 
-        flow_id = _yoke_db("items", "get", f"YOK-{item_num}", "deployment_flow", sd=sd)
-        project = _yoke_db("items", "get", f"YOK-{item_num}", "project", sd=sd)
-
-        if not flow_id:
-            print(f"Error: YOK-{item_num} has no deployment_flow assigned", file=sys.stderr)
+        item_run = create_run_for_item_ref(primary_arg, sd=sd)
+        if item_run is None:
             return EXIT_USAGE
-        if not project:
-            print(f"Error: YOK-{item_num} has no project assigned", file=sys.stderr)
-            return EXIT_USAGE
-
-        run_id = _yoke_db("runs", "create-run", project, flow_id, "--created-by", "system", sd=sd)
-        if not run_id:
-            print(f"Error: failed to auto-create deployment run for YOK-{item_num}", file=sys.stderr)
-            return EXIT_USAGE
-
-        _yoke_db("runs", "add-item", run_id, item_num, sd=sd)
-        member_items = [item_num]
+        run_id = item_run.run_id
+        project = item_run.project
+        flow_id = item_run.flow_id
+        member_items = list(item_run.member_items)
         run_status = "created"
-        print(f"Auto-created run {run_id} for YOK-{item_num}")
 
     if not flow_id:
         print(f"Error: deployment run '{run_id}' has no flow assigned", file=sys.stderr)
