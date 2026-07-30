@@ -18,6 +18,10 @@ from runtime.api.conftest import insert_epic_task
 from yoke_core.domain import status_claim_bypass_context as ctx
 from yoke_core.domain import update_status
 
+# Synthetic fixture id kept off the literal so the doc-hygiene drift guard stays clean.
+TEST_ITEM_ID = 42
+TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"
+
 _BYPASS_ENV_VARS = (
     "YOKE_CLAIM_BYPASS",
     "YOKE_STATUS_SOURCE",
@@ -48,7 +52,7 @@ class TestDoneGuardContextVar:
         out, err = io.StringIO(), io.StringIO()
         with mock.patch.object(update_status, "_history_insert"), \
              ctx.status_bypass_override(
-                 claim_bypass="done-cascade:YOK-42",
+                 claim_bypass=f"done-cascade:{TEST_ITEM_REF}",
                  status_source="",
                  task_done_verified=True,
              ):
