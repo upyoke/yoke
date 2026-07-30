@@ -33,16 +33,6 @@ def _placeholder(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def _strip_sun_prefix(item_ref: str) -> str:
-    """Normalize ``YOK-N`` / ``N`` into the bare integer string."""
-    if not item_ref:
-        return ""
-    text = str(item_ref).strip()
-    if text[:4].upper() == "YOK-":
-        text = text[4:]
-    return text.lstrip("0") or "0"
-
-
 def _claim_owning_item(conn: Any, claim_id: int) -> Optional[int]:
     p = _placeholder(conn)
     row = conn.execute(
@@ -63,25 +53,28 @@ def _has_dep_edge(
     """Return True when ``dependent_item`` declares a non-terminal edge
     to ``blocking_item`` (one-way, callers compose for bidirectional).
 
-    ``item_dependencies`` rows store YOK-prefixed strings; we normalize
-    and match on the bare numeric form. Terminal status on the *blocking*
-    item is interpreted by the satisfaction predicate elsewhere; the
-    resolver itself only checks for the edge's existence. When the
-    ``item_dependencies`` table does not exist (test fixtures that omit
-    it, restricted projects), the resolver returns ``False`` rather than
-    raising — dep-graph awareness is additive over today's behavior.
+    ``item_dependencies`` rows store public text refs (``PREFIX-N``);
+    each ref resolves to its internal ``items.id`` through the canonical
+    parser before comparison — a stripped ``PREFIX-N`` number is a
+    project sequence, not the internal id the claim rows carry. Terminal
+    status on the *blocking* item is interpreted by the satisfaction
+    predicate elsewhere; the resolver itself only checks for the edge's
+    existence. When the ``item_dependencies`` table does not exist (test
+    fixtures that omit it, restricted projects), the resolver returns
+    ``False`` rather than raising — dep-graph awareness is additive over
+    today's behavior.
     """
-    dep = str(dependent_item_id)
-    blk = str(blocking_item_id)
+    from yoke_core.domain.yok_n_parser import parse_item_id_or_none
+
     rows = fetch_optional_rows(
         conn,
         "SELECT dependent_item, blocking_item FROM item_dependencies",
         savepoint="_yoke_item_dependencies_probe",
     )
     for raw_dep, raw_blk in rows:
-        rd = _strip_sun_prefix(raw_dep)
-        rb = _strip_sun_prefix(raw_blk)
-        if rd == dep and rb == blk:
+        rd = parse_item_id_or_none(raw_dep, conn=conn, allow_bare_internal=True)
+        rb = parse_item_id_or_none(raw_blk, conn=conn, allow_bare_internal=True)
+        if rd == dependent_item_id and rb == blocking_item_id:
             return True
     return False
 

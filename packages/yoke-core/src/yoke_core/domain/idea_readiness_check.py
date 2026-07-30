@@ -54,13 +54,6 @@ class Issue:
     context: dict = field(default_factory=dict)
 
 
-def _strip_sun_prefix(item_ref: str) -> str:
-    text = str(item_ref or "").strip()
-    if text[:4].lower() == "yok-":
-        text = text[4:]
-    return text.lstrip("0") or "0"
-
-
 def _read_spec_for_item(conn: Any, item_id: int) -> str:
     p = _p(conn)
     row = conn.execute(
@@ -287,7 +280,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         ),
     )
     args = parser.parse_args(argv)
-    item_id = int(_strip_sun_prefix(args.item))
+    from yoke_core.domain.yok_n_parser import parse_item_id
+
+    item_id = parse_item_id(args.item, allow_bare_internal=True)
     if args.skip_readiness_check:
         print(json.dumps({
             "verdict": "skipped",

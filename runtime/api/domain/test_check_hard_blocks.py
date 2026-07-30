@@ -27,8 +27,9 @@ def _p(conn) -> str:
 
 
 class TestNormalizeId(unittest.TestCase):
+    # PREFIX-N resolution (project sequence -> internal id) is covered by
+    # the canonical parser tests; here only the DB-free shapes.
     def test_basic(self) -> None:
-        self.assertEqual(mod._normalize_item_id(TEST_ITEM_REF), TEST_ITEM_ID)
         self.assertEqual(mod._normalize_item_id(str(TEST_ITEM_ID)), TEST_ITEM_ID)
         self.assertEqual(mod._normalize_item_id("007"), 7)
 
@@ -161,6 +162,48 @@ class TestEvaluateBlockers(unittest.TestCase):
         conn.commit()
         conn.close()
 
+    def test_divergent_refs_resolve_project_sequence(self) -> None:
+        """Refs resolve via project_sequence, not the stripped number.
+
+        Internal id 600 carries public ref YOK-555; internal id 500
+        carries YOK-444. The dependency row names both by public ref; the
+        gate must block item 600 on item 500 — a prefix-strip comparison
+        would gate nothing (or the wrong items).
+        """
+        self._insert_item(600, "Dependent")
+        self._insert_item(500, "Blocker")
+        conn = connect_test_db(self.db_path)
+        p = _p(conn)
+        conn.execute(
+            f"UPDATE items SET project_sequence = {p} WHERE id = {p}",
+            (555, 600),
+        )
+        conn.execute(
+            f"UPDATE items SET project_sequence = {p} WHERE id = {p}",
+            (444, 500),
+        )
+        conn.commit()
+        conn.close()
+        self._insert_dep(600, 0, "activation", "status=done",
+                         dependent_ref="YOK-555")
+        conn = connect_test_db(self.db_path)
+        p = _p(conn)
+        conn.execute(
+            f"UPDATE item_dependencies SET blocking_item = {p} "
+            f"WHERE dependent_item = {p}",
+            ("YOK-444", "YOK-555"),
+        )
+        conn.commit()
+        conn.close()
+
+        lines = mod.evaluate_blockers(600)
+        self.assertEqual(len(lines), 1)
+        self.assertIn("YOK-444", lines[0])
+        self.assertIn("Blocker", lines[0])
+        # The stripped numbers are not internal ids of any gated pair:
+        # item 555 does not exist, so its evaluation is empty.
+        self.assertEqual(mod.evaluate_blockers(555), [])
+
     def test_empty_blockers(self) -> None:
         self._insert_item(42, "Orphan")
         self.assertEqual(mod.evaluate_blockers(42), [])
@@ -255,7 +298,7 @@ class TestMain(unittest.TestCase):
 
     def test_exit_0_when_clear(self) -> None:
         with mock.patch.object(mod, "evaluate_blockers", return_value=[]):
-            rc, out, _ = self._run([TEST_ITEM_REF])
+            rc, out, _ = self._run([str(TEST_ITEM_ID)])
         self.assertEqual(rc, 0)
         self.assertEqual(out, "")
 
@@ -265,7 +308,7 @@ class TestMain(unittest.TestCase):
             "evaluate_blockers",
             return_value=["BLOCKED|YOK-10|idea|Something|activation|status:done"],
         ):
-            rc, out, _ = self._run([TEST_ITEM_REF])
+            rc, out, _ = self._run([str(TEST_ITEM_ID)])
         self.assertEqual(rc, 1)
         self.assertIn("BLOCKED|YOK-10", out)
 
@@ -277,7 +320,7 @@ class TestMain(unittest.TestCase):
             return []
 
         with mock.patch.object(mod, "evaluate_blockers", side_effect=fake):
-            self._run([TEST_ITEM_REF, "--gate-point", "integration"])
+            self._run([str(TEST_ITEM_ID), "--gate-point", "integration"])
         self.assertEqual(calls, [(TEST_ITEM_ID, "integration")])
 
 

@@ -248,11 +248,10 @@ def _cli_main(argv: Optional[Sequence[str]] = None) -> int:
     args = parser.parse_args(argv)
 
     if args.cmd == "check-item":
-        raw = args.item.strip()
-        if raw.upper().startswith("YOK-"):
-            raw = raw[4:]
+        from yoke_core.domain.yok_n_parser import parse_item_id
+
         try:
-            item_id = int(raw)
+            item_id = parse_item_id(args.item, allow_bare_internal=True)
         except ValueError:
             print(
                 json.dumps(

@@ -39,16 +39,14 @@ from typing import Optional
 
 
 def _normalize_item_id(raw: str) -> Optional[int]:
-    stripped = raw.strip()
-    if stripped.upper().startswith("YOK-"):
-        stripped = stripped[4:]
-    stripped = stripped.lstrip("0")
-    if stripped == "":
-        return None
-    try:
-        return int(stripped)
-    except ValueError:
-        return None
+    """Resolve an item ref to the internal ``items.id``.
+
+    ``PREFIX-N`` maps to the project's ``public_item_prefix`` +
+    ``items.project_sequence``; a bare number stays an internal id.
+    """
+    from yoke_core.domain.yok_n_parser import parse_item_id_or_none
+
+    return parse_item_id_or_none(raw, allow_bare_internal=True)
 
 
 def _resolve_session_id() -> str:

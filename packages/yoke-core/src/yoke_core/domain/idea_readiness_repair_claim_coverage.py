@@ -9,7 +9,6 @@ from dataclasses import asdict
 from typing import Any, Dict, List, Literal, Optional, Set, Tuple
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.idea_readiness_check import _strip_sun_prefix
 from yoke_core.domain.idea_readiness_repair import (
     CLASS_MIXED_STALE_COUNT,
     RepairOutcome,
@@ -320,7 +319,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--item", required=True, help="YOK-N or N")
     args = parser.parse_args(argv)
     try:
-        item_id = int(_strip_sun_prefix(args.item))
+        from yoke_core.domain.yok_n_parser import parse_item_id
+
+        item_id = parse_item_id(args.item, allow_bare_internal=True)
     except ValueError:
         print(json.dumps({"success": False,
                           "error": f"invalid item: {args.item!r}"}))

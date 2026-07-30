@@ -40,7 +40,8 @@ CREATE TABLE item_dependencies (
 );
 CREATE TABLE projects (
     id INTEGER PRIMARY KEY, slug TEXT NOT NULL UNIQUE,
-    name TEXT NOT NULL DEFAULT ''
+    name TEXT NOT NULL DEFAULT '',
+    public_item_prefix TEXT NOT NULL DEFAULT 'YOK'
 );
 INSERT INTO projects (id, slug, name)
 VALUES (1, 'yoke', 'Yoke') ON CONFLICT(id) DO NOTHING;

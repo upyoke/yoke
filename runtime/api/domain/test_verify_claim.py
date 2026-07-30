@@ -17,8 +17,9 @@ TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"
 
 
 class TestNormalizeId(unittest.TestCase):
-    def test_basic(self) -> None:
-        self.assertEqual(mod._normalize_item_id(TEST_ITEM_REF), TEST_ITEM_ID)
+    # PREFIX-N resolution (project sequence -> internal id) is covered by
+    # the canonical parser tests; here only the DB-free shapes.
+    def test_bare_internal_passthrough(self) -> None:
         self.assertEqual(mod._normalize_item_id("007"), 7)
         self.assertEqual(mod._normalize_item_id(str(TEST_ITEM_ID)), TEST_ITEM_ID)
 
@@ -302,7 +303,7 @@ class TestMain(unittest.TestCase):
                 },
             ),
         ):
-            rc, out, _ = self._run(["--item-id", TEST_ITEM_REF])
+            rc, out, _ = self._run(["--item-id", str(TEST_ITEM_ID)])
         self.assertEqual(rc, 0)
         payload = json.loads(out.strip())
         self.assertTrue(payload["verified"])

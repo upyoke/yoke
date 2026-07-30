@@ -33,7 +33,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.idea_readiness_check import Issue, _strip_sun_prefix
+from yoke_core.domain.idea_readiness_check import Issue
 from yoke_core.domain.path_claim_coordination_decision import (
     build_coordination_context,
 )
@@ -287,7 +287,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     )
     args = parser.parse_args(argv)
     try:
-        item_id = int(_strip_sun_prefix(args.item))
+        from yoke_core.domain.yok_n_parser import parse_item_id
+
+        item_id = parse_item_id(args.item, allow_bare_internal=True)
     except ValueError:
         print(json.dumps({"success": False,
                           "error": f"invalid item: {args.item!r}"}))

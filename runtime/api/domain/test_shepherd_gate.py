@@ -168,10 +168,9 @@ class TestShepherdGate:
         assert result.passed is True
         assert result.verdict == "READY"
 
-    def test_normalize_sun_prefixed_cli_arg(self):
-        """CLI accepts YOK-N, plain N, and zero-padded forms."""
-        assert shepherd_gate._normalize_item_id("YOK-42") == 42
-        assert shepherd_gate._normalize_item_id("yok-042") == 42
+    def test_normalize_bare_internal_cli_arg(self):
+        """Bare internal ids pass through; PREFIX-N resolution is covered
+        by the canonical parser tests."""
         assert shepherd_gate._normalize_item_id("42") == 42
         assert shepherd_gate._normalize_item_id(" 42 ") == 42
         assert shepherd_gate._normalize_item_id("YOK-") is None

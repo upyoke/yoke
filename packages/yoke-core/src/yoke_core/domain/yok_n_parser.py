@@ -79,4 +79,27 @@ def parse_item_id(
     raise ValueError(_TEACHING_MESSAGE.format(value=value))
 
 
-__all__ = ["parse_item_id"]
+def parse_item_id_or_none(
+    value: Union[str, int, None],
+    *,
+    project: str | int | None = None,
+    conn: Any | None = None,
+    allow_bare_internal: bool = False,
+) -> int | None:
+    """:func:`parse_item_id` returning ``None`` instead of raising.
+
+    For gate/audit surfaces that skip or report unparseable refs rather
+    than aborting.
+    """
+    try:
+        return parse_item_id(
+            value,
+            project=project,
+            conn=conn,
+            allow_bare_internal=allow_bare_internal,
+        )
+    except ValueError:
+        return None
+
+
+__all__ = ["parse_item_id", "parse_item_id_or_none"]
