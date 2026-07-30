@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from typing import List, Optional, Sequence, Tuple
 
 from yoke_core.domain import qa_command_plans
-from yoke_core.domain.db_helpers import connect, query_one
+from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.project_checkout_locations import checkout_for_project
 from yoke_core.domain.project_identity import resolve_project
 

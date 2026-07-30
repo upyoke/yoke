@@ -47,7 +47,6 @@ from yoke_core.domain.lint_long_command_polling_decide import _build_context
 from yoke_core.domain.lint_long_command_polling_extract import (
     _extract_background_capture_files,
     _extract_command,
-    _extract_monitor_capture_file,
     _extract_tool_input,
     _extract_tool_name,
     _temp_dir_prefixes,

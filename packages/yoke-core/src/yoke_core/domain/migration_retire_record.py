@@ -36,7 +36,7 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from yoke_core.domain.db_helpers import connect, iso8601_now, query_scalar
+from yoke_core.domain.db_helpers import connect, iso8601_now
 from yoke_core.domain.db_mutation_gate_evidence import (
     _parse_yaml_frontmatter,
     decision_record_path,

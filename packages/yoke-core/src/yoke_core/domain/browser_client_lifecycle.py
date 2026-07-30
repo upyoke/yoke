@@ -75,8 +75,8 @@ def daemon_start(
     if not node_modules.is_dir() or not pw_modules.is_dir():
         if autoinstall == "0":
             raise RuntimeError(
-                f"[browser-auto-bootstrap] BLOCKED: node_modules or playwright missing "
-                f"and YOKE_BROWSER_AUTOINSTALL=0"
+                "[browser-auto-bootstrap] BLOCKED: node_modules or playwright missing "
+                "and YOKE_BROWSER_AUTOINSTALL=0"
             )
         _bc._log("[browser-auto-bootstrap] node_modules or playwright missing — auto-installing...")
         r = subprocess.run(

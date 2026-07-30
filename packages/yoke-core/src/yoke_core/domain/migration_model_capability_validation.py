@@ -307,7 +307,7 @@ def validate(payload: Any) -> Dict[str, Any]:
 
     models_out: Dict[str, Any] = {}
     for name, spec in models_raw.items():
-        _require_slug(name, field=f"models key")
+        _require_slug(name, field="models key")
         if name in models_out:
             raise MigrationModelCapabilityError(
                 f"models has duplicate name '{name}'"

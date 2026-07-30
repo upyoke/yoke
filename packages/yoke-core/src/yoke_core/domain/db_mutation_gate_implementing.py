@@ -23,7 +23,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, List, Mapping, Optional
 
-from yoke_core.domain import db_backend, db_helpers
+from yoke_core.domain import db_helpers
 from yoke_core.domain.db_mutation_gate_evidence import (
     _audit_row_completed_for_module,
     _verify_retire_record,

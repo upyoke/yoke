@@ -30,10 +30,9 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import re
 import sys
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import connect
