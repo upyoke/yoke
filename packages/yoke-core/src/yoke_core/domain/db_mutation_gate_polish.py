@@ -36,6 +36,7 @@ from yoke_core.domain.db_mutation_profile import (
 )
 from yoke_core.domain.item_test_results_classify import classify_test_results
 from yoke_core.domain.migration_model_capability import resolve_model
+from yoke_core.domain.project_identity import render_item_ref
 
 
 def check_polishing_implementation_to_implemented_gate(
@@ -61,7 +62,10 @@ def check_polishing_implementation_to_implemented_gate(
     def _evaluate(c: Any) -> GateOutcome:
         item = _load_item_row(c, item_id)
         if item is None:
-            return GateOutcome(passed=False, errors=[f"Item YOK-{item_id} not found"])
+            return GateOutcome(
+                passed=False,
+                errors=[f"Item {render_item_ref(c, item_id)} not found"],
+            )
 
         test_results_error = _check_test_results_evidence(item)
 

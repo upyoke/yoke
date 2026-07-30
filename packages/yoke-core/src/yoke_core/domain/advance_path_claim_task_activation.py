@@ -6,6 +6,7 @@ from typing import Any
 
 from yoke_core.domain.path_claim_task_bindings import pinned_task_claim_policy
 from yoke_core.domain.path_claim_task_coverage import evaluate_task_coverage
+from yoke_core.domain.project_identity import render_item_ref
 
 
 def task_activation_block_reason(conn: Any, item_id: int) -> str | None:
@@ -15,7 +16,7 @@ def task_activation_block_reason(conn: Any, item_id: int) -> str | None:
     except Exception as exc:
         return (
             f"cannot resolve pinned task-scoped path-claim policy for "
-            f"YOK-{item_id}: {exc}"
+            f"{render_item_ref(conn, item_id)}: {exc}"
         )
     if not task_scoped:
         return None

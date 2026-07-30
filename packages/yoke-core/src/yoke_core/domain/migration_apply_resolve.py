@@ -33,7 +33,11 @@ from yoke_core.domain.migration_apply_contract import (
     ProfileNotApplyError,
     _safe_parse_json_dict,
 )
-from yoke_core.domain.project_identity import resolve_project_id
+from yoke_core.domain.project_identity import (
+    format_item_ref,
+    render_item_ref,
+    resolve_project_id,
+)
 from yoke_core.domain.project_checkout_locations import (
     checkout_for_project,
     item_worktree_path,
@@ -181,7 +185,8 @@ def _load_item(conn: Any, item_id: int) -> Dict[str, Any]:
     p = _placeholder(conn)
     row = conn.execute(
         "SELECT i.id, i.workflow_id, i.workflow_version_id, i.status, "
-        "p.slug AS project, i.project_id, "
+        "p.slug AS project, i.project_id, p.public_item_prefix, "
+        "i.project_sequence, "
         "i.db_mutation_profile, "
         "i.db_compatibility_attestation "
         "FROM items i JOIN projects p ON p.id = i.project_id "
@@ -189,27 +194,35 @@ def _load_item(conn: Any, item_id: int) -> Dict[str, Any]:
         (item_id,),
     ).fetchone()
     if row is None:
-        raise MigrationApplyError(f"Item YOK-{item_id} not found")
+        raise MigrationApplyError(
+            f"Item {render_item_ref(conn, item_id)} not found"
+        )
     return dict(row)
 
 
 def _resolve_profile_or_raise(item: Mapping[str, Any]) -> Dict[str, Any]:
+    item_ref = format_item_ref(
+        item.get("project"),
+        item.get("public_item_prefix"),
+        item.get("project_sequence"),
+        item_id=item["id"],
+    )
     raw = item.get("db_mutation_profile")
     parsed = _safe_parse_json_dict(raw)
     if not parsed or parsed.get("state") == STATE_NONE:
         raise ProfileNotApplyError(
-            f"Item YOK-{item['id']} has no declared db_mutation_profile "
+            f"Item {item_ref} has no declared db_mutation_profile "
             "(state=none) — two-unit apply contract does not run"
         )
     profile = validate_profile(parsed)
     if profile["state"] != STATE_DECLARED:
         raise ProfileNotApplyError(
-            f"Item YOK-{item['id']} profile state is {profile['state']!r}, "
+            f"Item {item_ref} profile state is {profile['state']!r}, "
             "expected 'declared'"
         )
     if profile["mutation_intent"] != MUTATION_INTENT_APPLY:
         raise ProfileNotApplyError(
-            f"Item YOK-{item['id']} mutation_intent is "
+            f"Item {item_ref} mutation_intent is "
             f"{profile['mutation_intent']!r}, expected 'apply'. Retire flow "
             "is owned by yoke_core.domain.migration_retire_record."
         )
