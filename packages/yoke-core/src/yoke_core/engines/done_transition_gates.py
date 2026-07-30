@@ -21,6 +21,24 @@ def _parent():
     return _dt
 
 
+def _ref(item_id: int) -> str:
+    """Best-effort public ref for operator-facing gate messages.
+
+    Falls back to the default-prefix form when the control-plane DB cannot
+    be reached, so a gate refusal never fails on the ref render.
+    """
+    try:
+        from yoke_core.domain.db_helpers import connect
+        from yoke_core.domain.project_identity import render_item_ref
+
+        with connect() as conn:
+            return render_item_ref(conn, item_id)
+    except Exception:
+        from yoke_contracts.item_ref import format_item_ref
+
+        return format_item_ref(None, None, None, item_id=item_id)
+
+
 def _resolve_repo_root() -> Path:
     """Enforce repo-root CWD using the Python path resolver."""
     try:
@@ -79,7 +97,7 @@ def _check_simulation_gate(item_id: int, skip: bool) -> Optional[int]:
     if skip:
         print(
             "WARNING: Integration simulation gate bypassed via --skip-simulation "
-            f"for YOK-{item_id}"
+            f"for {_ref(item_id)}"
         )
         return None
 
@@ -141,7 +159,7 @@ def _check_empty_branch(
         )
         print(
             "    Future evidence-only items should enter implementing with "
-            f"/yoke advance YOK-{item_id} implementing --no-worktree.",
+            f"/yoke advance {_ref(item_id)} implementing --no-worktree.",
             file=sys.stderr,
         )
         return 8
@@ -176,11 +194,12 @@ def _check_blocked_flag(item_id: int) -> Optional[int]:
         return None
     if not decision.blocked:
         return None
+    ref = _ref(item_id)
     print(
         f"\n=== Blocked-flag refusal ===\n"
-        f"Item YOK-{item_id} has items.blocked=1; cannot transition to done.\n"
+        f"Item {ref} has items.blocked=1; cannot transition to done.\n"
         + (f"Reason: {decision.reason}\n" if decision.reason else "")
-        + f"Run /yoke unblock YOK-{item_id} first."
+        + f"Run /yoke unblock {ref} first."
     )
     return 9
 
@@ -191,14 +210,15 @@ def _check_deployment_redirect(
     """Pre-merge deployment flow redirect. Returns exit code or None."""
     is_internal = deploy_flow.endswith("-internal") if deploy_flow else False
     if deploy_flow and not is_internal and not skip_deploy:
+        ref = _ref(item_id)
         print("\n=== Deployment flow redirect ===")
-        print(f"Item YOK-{item_id} has deployment flow '{deploy_flow}'.")
+        print(f"Item {ref} has deployment flow '{deploy_flow}'.")
         print(
-            f"Use '/yoke usher YOK-{item_id}' to merge and deploy through the pipeline."
+            f"Use '/yoke usher {ref}' to merge and deploy through the pipeline."
         )
         print(
             f"If deployment was handled out-of-band, use "
-            f"'/yoke advance YOK-{item_id} done --skip-deploy'."
+            f"'/yoke advance {ref} done --skip-deploy'."
         )
         return 7
     return None

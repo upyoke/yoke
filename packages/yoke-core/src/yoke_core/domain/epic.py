@@ -208,7 +208,7 @@ def history_insert(
             source_type="system",
             severity="STATUS",
             outcome="completed",
-            item_id=f"YOK-{epic_id}",
+            item_id=int(epic_id),
             task_num=int(task_num),
             context=ctx,
         )
