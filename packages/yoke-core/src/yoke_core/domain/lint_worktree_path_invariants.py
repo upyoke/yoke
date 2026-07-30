@@ -29,6 +29,7 @@ from typing import Any, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.denial_field_note_footer import append_field_note_footer
+from yoke_core.domain.yok_n_parser import parse_item_id_or_none
 
 
 _SESSION_ENV_VARS = (
@@ -78,20 +79,19 @@ def _resolve_session_id() -> str:
     return ""
 
 
-def _normalize_item_id(raw: object) -> Optional[int]:
-    """Return ``raw`` as a bare int, stripping a ``YOK-`` prefix if present."""
-    if raw is None:
-        return None
-    text = str(raw).strip()
-    if not text:
-        return None
-    if text.upper().startswith("YOK-"):
-        text = text[4:]
-    text = text.lstrip("0") or "0"
-    try:
-        return int(text)
-    except ValueError:
-        return None
+def _normalize_item_id(
+    raw: object, conn: Optional[Any] = None
+) -> Optional[int]:
+    """Resolve ``raw`` to the bare internal ``items.id``, or ``None``.
+
+    Bare integers / digit strings pass through as internal ids; public
+    ``PREFIX-N`` refs resolve via the canonical parser (prefix +
+    ``items.project_sequence``) on *conn* when supplied (the parser
+    self-connects otherwise). Unparseable values yield ``None``.
+    """
+    if raw is not None and not isinstance(raw, (int, str)):
+        raw = str(raw)
+    return parse_item_id_or_none(raw, conn=conn, allow_bare_internal=True)
 
 
 def _fetch_current_item_id(
@@ -110,12 +110,14 @@ def _fetch_current_item_id(
             "SELECT current_item_id FROM harness_sessions WHERE session_id = %s",
             (session_id,),
         ).fetchone()
+        if row is None:
+            return None
+        raw = row["current_item_id"] if hasattr(row, "keys") else row[0]
+        # Ref resolution may query project tables; keep it inside the
+        # swallow block so a minimal fixture schema stays a silent no-op.
+        return _normalize_item_id(raw, conn)
     except db_backend.database_error_types(conn):
         return None
-    if row is None:
-        return None
-    raw = row["current_item_id"] if hasattr(row, "keys") else row[0]
-    return _normalize_item_id(raw)
 
 
 def _detect_worktree_root(cwd: str) -> Optional[str]:

@@ -119,7 +119,8 @@ def dispatch_inputs_dir(
 
     Optional ``item_id`` / ``session_id`` / ``attempt`` extend the path with a
     per-dispatch ``YOK-{N}/{session_id}/attempt-{n}`` subtree; all three must
-    be supplied together.
+    be supplied together. ``item_id`` is the bare internal ``items.id``
+    (public ``PREFIX-N`` refs are resolved by callers before this point).
     """
 
     path = scratch_root(project) / "dispatch-inputs"
@@ -131,22 +132,12 @@ def dispatch_inputs_dir(
             "item_id, session_id, attempt — or none"
         )
     if supplied == 3:
-        bare_id = _strip_sun_prefix(item_id)
-        path = path / f"YOK-{bare_id}" / _safe_segment(str(session_id)) / (
+        path = path / f"YOK-{int(item_id)}" / _safe_segment(str(session_id)) / (
             f"attempt-{int(str(attempt))}"
         )
     if create:
         path.mkdir(parents=True, exist_ok=True)
     return path
-
-
-def _strip_sun_prefix(item_id: int | str | None) -> int:
-    if isinstance(item_id, int):
-        return item_id
-    text = str(item_id).strip()
-    if text.upper().startswith("YOK-"):
-        text = text[4:]
-    return int(text)
 
 
 def hook_marker_path(

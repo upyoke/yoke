@@ -16,13 +16,24 @@ def db_path(tmp_path: Path):
         yield path
 
 
-def _seed_item(conn, item_id: int, *, project_id: int = 1) -> None:
+def _seed_item(
+    conn,
+    item_id: int,
+    *,
+    project_id: int = 1,
+    project_sequence: int | None = None,
+) -> None:
     conn.execute(
         "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, created_at, updated_at, "
         "project_id, project_sequence) "
         "VALUES (%s, %s, 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', '2026-01-01T00:00:00Z', "
         "'2026-01-01T00:00:00Z', %s, %s)",
-        (item_id, f"item-{item_id}", project_id, item_id),
+        (
+            item_id,
+            f"item-{item_id}",
+            project_id,
+            item_id if project_sequence is None else project_sequence,
+        ),
     )
     conn.commit()
 
@@ -155,6 +166,22 @@ class TestTouchItemActivity:
                 "SELECT COUNT(*) FROM item_activity_days WHERE item_id = 46"
             ).fetchone()[0]
             assert int(count) == 1
+        finally:
+            conn.close()
+
+    def test_public_ref_resolves_via_project_sequence(self, db_path):
+        conn = connect_test_db(db_path)
+        try:
+            # Divergent identity: internal id and public sequence differ,
+            # so the public ref must resolve through project_sequence and
+            # the activity row must key the internal id.
+            _seed_item(conn, 901, project_sequence=777)
+            assert item_activity.touch_item_activity(conn, item_id="YOK-777")
+            conn.commit()
+            row = conn.execute(
+                "SELECT item_id FROM item_activity_days"
+            ).fetchone()
+            assert tuple(row) == (901,)
         finally:
             conn.close()
 
