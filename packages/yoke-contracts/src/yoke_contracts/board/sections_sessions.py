@@ -69,6 +69,7 @@ _MODE_EMOJI: Dict[str, str] = {
     "refine": "📝",      # 📝 pencil (matches refining-idea/-plan)
     "polish": "✨",            # sparkles (matches polishing-implementation)
     "charge": "⚡",            # high voltage
+    "dash": "💨",              # dash symbol
     "strategize": "\U0001f9e0",    # brain
     "escalate": "\U0001f6a8",      # rotating light
     "manual": "\U0001f527",  # 🔧 wrench
