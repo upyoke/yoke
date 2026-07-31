@@ -144,11 +144,11 @@ class TestPreflight:
         result = run_merge(
             merge_env,
             extra_args=["42"],
-            done_transition=False,
+            standalone=False,
             extra_env=extra_env,
         )
-        # The shell test uses YOKE_DONE_TRANSITION implicitly (not set = no exemption)
-        # but passes epic ID "42". Re-run with done_transition=True to match shell behavior.
+        # An epic ref is supplied, so the standalone permission is irrelevant;
+        # re-run with it granted to prove the epic path is what gates here.
         result = run_merge(
             merge_env,
             extra_args=["42"],
@@ -256,8 +256,10 @@ class TestSimulationGate:
 class TestBranchValidation:
     """Standalone guard and legacy branch rejection."""
 
-    def test_yok345_standalone_branch_rejected(self, merge_env: MergeEnv) -> None:
-        """No YOKE_DONE_TRANSITION exits 1 for standalone item branch."""
+    def test_standalone_branch_rejected_without_permission(
+        self, merge_env: MergeEnv,
+    ) -> None:
+        """Without --standalone the engine refuses an item branch."""
         repo = merge_env.repo
 
         # Create standalone branch
@@ -271,12 +273,14 @@ class TestBranchValidation:
         _git(standalone_wt, "commit", "-m", "standalone work")
         _git(standalone_wt, "push", "origin", "YOK-99")
 
-        result = run_merge(merge_env, branch="YOK-99", done_transition=False)
+        result = run_merge(merge_env, branch="YOK-99", standalone=False)
         assert result.exit_code == 1
         assert "standalone item branch" in result.stderr
 
-    def test_yok345_done_transition_exemption(self, merge_env: MergeEnv) -> None:
-        """With YOKE_DONE_TRANSITION=1, standalone guard does not fire."""
+    def test_standalone_permission_clears_the_guard(
+        self, merge_env: MergeEnv,
+    ) -> None:
+        """With --standalone the item-branch guard does not fire."""
         repo = merge_env.repo
 
         _git(repo, "branch", "YOK-99")
@@ -289,6 +293,6 @@ class TestBranchValidation:
         _git(standalone_wt, "commit", "-m", "standalone work")
         _git(standalone_wt, "push", "origin", "YOK-99")
 
-        result = run_merge(merge_env, branch="YOK-99", done_transition=True)
+        result = run_merge(merge_env, branch="YOK-99", standalone=True)
         # The guard must NOT have fired
         assert "standalone item branch" not in result.stderr

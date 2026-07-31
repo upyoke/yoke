@@ -51,6 +51,7 @@ KIND = "merge"
 # Maps wrapper sub-command names to the underlying engine module.
 SUBCOMMAND_MODULES: dict[str, str] = {
     "done-transition": "yoke_core.engines.done_transition",
+    "merge-item": "yoke_core.domain.standalone_item_merge_cli",
     "merge-worktree": "yoke_core.engines.merge_worktree",
 }
 
