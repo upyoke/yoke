@@ -45,6 +45,42 @@ completed for every captured tenant:
 Its migration artifacts can retire independently from the reusable current
 installer case definitions that remain product source.
 
+## Retired workflow and QA convergence modules
+
+The final workflow-registry, QA execution, hosted-environment, generated-task,
+and event-identity convergence completed for every hosted database before its
+source retired:
+
+- `workflow_supporting_schema_records`
+- `qa_requirement_execution_snapshot`
+- `qa_plan_execution_records`
+- `qa_plan_execution_deployment_subject`
+- `qa_hosted_runtime_environment`
+- `qa_execution_environment_target`
+- `qa_plan_agent_review_records`
+- `epic_task_scope_state`
+- `events_actor_identity`
+
+Authoritative evidence:
+
+- Stage control-plane authority `yoke_tenant_1`: all nine modules completed
+  under migration lease `73`.
+- Stage fleet run `4aa5fcf64e1e4999b75a3f8216c0a075`: both captured
+  tenants completed; rehearsal workflow `30503287080` and apply workflow
+  `30503334782`.
+- Production control-plane authority `yoke_tenant_4`: all nine modules
+  completed under migration lease `736` after a fresh Production-copy
+  rehearsal.
+- Production fleet run `ddcd9e5820994691bf4313fc03cd9448`: tenants `4`, `34`,
+  `67`, `100`, `133`, `166`, and `199` completed; rehearsal workflow
+  `30554793256` and apply workflow `30555707543`.
+
+The durable execution-subject convergence required by normal startup moved to
+the permanent QA plan execution schema authority before the migration wrapper
+retired. The nine package modules, runtime wrappers, standalone and combined
+manifests, and migration-only tests can therefore be removed without removing
+current schema behavior or its regression coverage.
+
 ## Evidence boundary
 
 The repository's single-authoritative-database `migration_audit` gate remains
