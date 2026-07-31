@@ -1,0 +1,158 @@
+"""Discover a project's own health checks from its ``.yoke/doctor/`` folder.
+
+A project keeps the checks that encode its own conventions next to its code
+rather than in the shared engine. The folder is discovered the way pytest
+discovers tests: every ``check_*.py`` file in ``<checkout>/.yoke/doctor/`` is
+imported, and each ``hc_*`` function it defines becomes a health check with
+the same declaration and reporting contract as an engine check.
+
+A module states its checks one of two ways:
+
+* explicitly, through a module-level ``HEALTH_CHECKS`` list of
+  :class:`~yoke_core.engines.doctor_registry_types.HealthCheck` rows, which
+  gives full control over slug, display name, and applicability; or
+* by convention, by defining ``hc_<name>(conn, args, rec)`` functions. The
+  slug comes from the function name, the display name from the first line of
+  its docstring, and the applicability from a module-level ``APPLICABILITY``
+  default (or the universal shape).
+
+Discovery only ever runs where the checkout exists, so a control-plane
+server never imports project code. Import failures are surfaced as a FAIL
+result, never swallowed: a project check that cannot load is a finding.
+"""
+
+from __future__ import annotations
+
+import importlib.util
+import sys
+from dataclasses import dataclass
+from pathlib import Path
+from typing import List, Optional
+
+from yoke_core.engines.doctor_applicability import CheckApplicability, UNIVERSAL
+from yoke_core.engines.doctor_registry_types import HealthCheck
+
+#: Folder inside a project's ``.yoke/`` tree holding its own checks.
+PROJECT_CHECKS_DIR = Path(".yoke") / "doctor"
+
+#: Only files matching this pattern are imported, so the folder can also hold
+#: helper modules, fixtures, and a README without them being collected.
+CHECK_FILE_GLOB = "check_*.py"
+
+#: Prefix marking a collected check function inside a discovered module.
+CHECK_FUNCTION_PREFIX = "hc_"
+
+_MODULE_NAMESPACE = "yoke_project_checks"
+
+
+@dataclass(frozen=True)
+class DiscoveryFailure:
+    """One ``check_*.py`` file that could not be imported."""
+
+    path: Path
+    error: str
+
+
+@dataclass(frozen=True)
+class Discovery:
+    """Everything one ``.yoke/doctor/`` folder yielded."""
+
+    checks: List[HealthCheck]
+    failures: List[DiscoveryFailure]
+
+
+def project_checks_dir(checkout: Path) -> Path:
+    """The ``.yoke/doctor/`` folder for *checkout*."""
+    return Path(checkout) / PROJECT_CHECKS_DIR
+
+
+def discover_project_checks(checkout: Optional[Path]) -> Discovery:
+    """Collect the project-local checks declared under *checkout*."""
+    if checkout is None:
+        return Discovery(checks=[], failures=[])
+    folder = project_checks_dir(checkout)
+    if not folder.is_dir():
+        return Discovery(checks=[], failures=[])
+    checks: List[HealthCheck] = []
+    failures: List[DiscoveryFailure] = []
+    for path in sorted(folder.glob(CHECK_FILE_GLOB)):
+        try:
+            module = _import_check_module(path)
+        except Exception as exc:  # noqa: BLE001 - reported, never swallowed
+            failures.append(DiscoveryFailure(path=path, error=f"{exc}"))
+            continue
+        try:
+            checks.extend(_collect(module))
+        except Exception as exc:  # noqa: BLE001 - reported, never swallowed
+            failures.append(DiscoveryFailure(path=path, error=f"{exc}"))
+    return Discovery(checks=checks, failures=failures)
+
+
+def _import_check_module(path: Path):
+    module_name = f"{_MODULE_NAMESPACE}.{path.stem}"
+    spec = importlib.util.spec_from_file_location(module_name, path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"cannot load a module spec from {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    try:
+        spec.loader.exec_module(module)
+    except BaseException:
+        sys.modules.pop(module_name, None)
+        raise
+    return module
+
+
+def _collect(module) -> List[HealthCheck]:
+    declared = getattr(module, "HEALTH_CHECKS", None)
+    if declared is not None:
+        rows = list(declared)
+        bad = [row for row in rows if not isinstance(row, HealthCheck)]
+        if bad:
+            raise TypeError(
+                "HEALTH_CHECKS must hold HealthCheck rows; got "
+                + ", ".join(type(row).__name__ for row in bad)
+            )
+        return rows
+    default = getattr(module, "APPLICABILITY", UNIVERSAL)
+    if not isinstance(default, CheckApplicability):
+        raise TypeError(
+            "APPLICABILITY must be a CheckApplicability; got "
+            f"{type(default).__name__}"
+        )
+    rows = []
+    for attribute in sorted(vars(module)):
+        if not attribute.startswith(CHECK_FUNCTION_PREFIX):
+            continue
+        fn = getattr(module, attribute)
+        if not callable(fn):
+            continue
+        rows.append(HealthCheck(
+            slug=_slug_for(attribute),
+            name=_name_for(attribute, fn),
+            fn=fn,
+            applicability=getattr(fn, "applicability", default),
+        ))
+    return rows
+
+
+def _slug_for(attribute: str) -> str:
+    return attribute[len(CHECK_FUNCTION_PREFIX):].replace("_", "-")
+
+
+def _name_for(attribute: str, fn) -> str:
+    doc = (fn.__doc__ or "").strip()
+    if doc:
+        return doc.splitlines()[0].strip()
+    return _slug_for(attribute).replace("-", " ").capitalize()
+
+
+__all__ = [
+    "CHECK_FILE_GLOB",
+    "CHECK_FUNCTION_PREFIX",
+    "Discovery",
+    "DiscoveryFailure",
+    "PROJECT_CHECKS_DIR",
+    "discover_project_checks",
+    "project_checks_dir",
+]

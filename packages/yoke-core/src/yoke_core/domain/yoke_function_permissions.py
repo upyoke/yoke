@@ -278,7 +278,7 @@ def _is_project_safe_doctor_quick(payload: dict[str, Any] | None) -> bool:
     return (
         payload.get("quick") is True
         and not any(payload.get(key) for key in ("full", "only", "fix", "db_path"))
-        and payload.get("skip_source_tree_checks") is True
+        and payload.get("project_safe_quick") is True
     )
 
 

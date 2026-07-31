@@ -15,8 +15,8 @@ from yoke_cli.transport import dispatcher as function_dispatcher
 from yoke_cli.transport import https as https_transport
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.machine_config import schema as contract
+from yoke_contracts.project_defaults import DEFAULT_PROJECT_SLUG as DEFAULT_PROJECT
 
-DEFAULT_PROJECT = "yoke"
 DEFAULT_LOCAL_HOST = "127.0.0.1"
 DEFAULT_ADMIN_ENV_SUFFIX = contract.DB_ADMIN_ENV_SUFFIX
 DEFAULT_LOCAL_PORTS = {

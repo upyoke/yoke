@@ -22,11 +22,12 @@ from yoke_contracts.api_urls import (
     HOSTED_STAGE_API_URL,
     HOSTED_STAGE_PLATFORM_URL,
 )
-
-DESTINATION_LOCAL = "local"
-DESTINATION_SERVER = "server"
-DESTINATION_HOSTED = "hosted"
-DESTINATIONS = (DESTINATION_LOCAL, DESTINATION_SERVER, DESTINATION_HOSTED)
+from yoke_contracts.deployment_destination import (  # noqa: F401
+    DESTINATIONS,
+    DESTINATION_HOSTED,
+    DESTINATION_LOCAL,
+    DESTINATION_SERVER,
+)
 
 #: The public-launch picker starts with the private, no-signup path. Hosted
 #: and team-server destinations remain one explicit selection away.

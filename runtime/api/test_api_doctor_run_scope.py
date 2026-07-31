@@ -68,7 +68,7 @@ class TestDoctorRunScope(unittest.TestCase):
         self.assertEqual(second.result_payload["cursor"], "second")
         self.assertEqual(second.result_payload["results"][0]["hc"], "HC-second")
 
-    def test_can_skip_source_tree_checks(self):
+    def test_source_tree_checks_report_not_applicable_without_a_checkout(self):
         fake_hcs = [
             HealthCheck(
                 slug="workspace-anchored-writer-authority",
@@ -97,16 +97,26 @@ class TestDoctorRunScope(unittest.TestCase):
                 outcome = reads_misc.handle_doctor_run(_request({
                     "quick": True,
                     "project": "yoke",
-                    "skip_source_tree_checks": True,
+                    "runtime": "hosted",
                 }))
 
         self.assertTrue(outcome.primary_success)
-        self.assertEqual(
-            [row["hc"] for row in outcome.result_payload["results"]],
-            ["HC-db"],
-        )
+        rows = outcome.result_payload["results"]
+        by_severity = {row["hc"]: row["severity"] for row in rows}
+        self.assertEqual(by_severity["HC-db"], "PASS")
+        # Named with a reason, not dropped: the report must be able to
+        # distinguish "checked and clean" from "could not be checked here".
+        for hc in (
+            "HC-workspace-anchored-writer-authority",
+            "HC-server-checkout-independence",
+            "HC-platform-namespace-boundary",
+        ):
+            self.assertEqual(by_severity[hc], "N/A")
+        self.assertEqual(outcome.result_payload["na_count"], 3)
+        self.assertEqual(outcome.result_payload["pass_count"], 1)
+        self.assertEqual(outcome.result_payload["runtime"], "hosted")
 
-    def test_project_quick_with_source_tree_skip_uses_product_safe_subset(self):
+    def test_project_safe_quick_uses_the_project_read_permission_subset(self):
         fake_hcs = [
             HealthCheck(slug="status-consistency", name="Global", fn=_record("global")),
             HealthCheck(
@@ -145,11 +155,13 @@ class TestDoctorRunScope(unittest.TestCase):
                 outcome = reads_misc.handle_doctor_run(_request({
                     "quick": True,
                     "project": "externalwebapp",
-                    "skip_source_tree_checks": True,
+                    "runtime": "hosted",
+                    "project_safe_quick": True,
                 }))
 
         self.assertTrue(outcome.primary_success)
-        self.assertEqual(
-            [row["hc"] for row in outcome.result_payload["results"]],
-            ["HC-token", "HC-flows", "HC-ci"],
-        )
+        executed = [
+            row["hc"] for row in outcome.result_payload["results"]
+            if row["severity"] != "N/A"
+        ]
+        self.assertEqual(executed, ["HC-token", "HC-flows", "HC-ci"])

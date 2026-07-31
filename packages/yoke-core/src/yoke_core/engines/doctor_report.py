@@ -6,20 +6,19 @@ small helper functions used across multiple HC sub-modules.
 
 from __future__ import annotations
 
-import os
-import re
 import subprocess
-import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional
 
 from yoke_core.domain import runtime_settings
 from yoke_core.domain.schema_common import (
     _column_exists as _schema_column_exists,
     _table_exists as _schema_table_exists,
 )
+from yoke_contracts.project_defaults import DEFAULT_PROJECT_SLUG
+from yoke_core.engines.doctor_applicability import NOT_APPLICABLE
 
 
 @dataclass
@@ -28,7 +27,7 @@ class CheckResult:
 
     check_id: str
     check_name: str
-    result: str  # PASS, WARN, FAIL
+    result: str  # PASS, WARN, FAIL, N/A
     detail: str
 
 
@@ -40,8 +39,12 @@ class DoctorArgs:
     fix: bool = False
     only: Optional[str] = None
     quick: bool = False
-    project: str = "yoke"
+    project: str = DEFAULT_PROJECT_SLUG
     db_path: Optional[str] = None  # for testing
+    #: Deployment destination executing this run. ``None`` lets
+    #: :func:`yoke_core.engines.doctor_context.resolve_runtime` derive it
+    #: from the runner's own evidence.
+    runtime: Optional[str] = None
 
 
 
@@ -67,22 +70,35 @@ class RecordCollector:
         return sum(1 for r in self.results if r.result == "FAIL")
 
     @property
+    def na_count(self) -> int:
+        return sum(1 for r in self.results if r.result == NOT_APPLICABLE)
+
+    @property
     def total_count(self) -> int:
         return len(self.results)
 
     def format_report(self) -> str:
-        """Produce Markdown report matching shell doctor.sh output format."""
+        """Produce the Markdown health report.
+
+        Not-applicable checks are reported in their own section rather than
+        counted as passes or dropped, so the summary line answers "what did
+        this run actually verify?" honestly.
+        """
         timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
+        ran_count = self.total_count - self.na_count
         lines: List[str] = []
         lines.append("# Ouroboros Health Report")
         lines.append(f"Generated: {timestamp}")
         lines.append("")
         lines.append("## Summary")
-        lines.append(
-            f"{self.total_count} checks run: {self.pass_count} passed, "
+        summary = (
+            f"{ran_count} checks run: {self.pass_count} passed, "
             f"{self.warn_count} warnings, {self.fail_count} failures"
         )
+        if self.na_count:
+            summary += f"; {self.na_count} not applicable"
+        lines.append(summary)
         lines.append("")
 
         # Failures section
@@ -112,8 +128,16 @@ class RecordCollector:
                     lines.append(f"{r.check_id}: {r.check_name} \u2014 {r.detail}")
                 else:
                     lines.append(f"{r.check_id}: {r.check_name}")
+            lines.append("")
 
-        return "\n".join(lines)
+        # Not-applicable section: named, with the reason, never silent.
+        skipped = [r for r in self.results if r.result == NOT_APPLICABLE]
+        if skipped:
+            lines.append("## Not Applicable")
+            for r in skipped:
+                lines.append(f"{r.check_id}: {r.check_name} \u2014 {r.detail}")
+
+        return "\n".join(lines).rstrip("\n")
 
 
 # GitHub-dependent HC slugs (skipped in --quick mode)
@@ -137,7 +161,15 @@ _DELEGATED_SYNC_HCS = [
 
 
 def _should_run_hc(slug: str, args: DoctorArgs) -> bool:
-    """Return True if the HC with *slug* should run given *args*."""
+    """Whether *args* asked for the check with *slug*.
+
+    Scope selection only — ``--quick`` drops the GitHub-dependent checks and
+    ``--only`` narrows to named ones. Whether a requested check *can*
+    honestly answer for this project and runtime is the applicability
+    question, answered by
+    :func:`yoke_core.engines.doctor_applicability.not_applicable_reason` so
+    the answer lands in the report instead of vanishing.
+    """
     if args.quick and slug in _GH_HCS:
         return False
     if args.only:
@@ -161,9 +193,6 @@ def _should_run_hc(slug: str, args: DoctorArgs) -> bool:
         # delegated-sync runs if any of its sub-HCs are requested
         if slug == "delegated-sync":
             return bool(allowed & set(_DELEGATED_SYNC_HCS))
-        return False
-    # Skip project-scoped HCs when running against yoke
-    if slug.startswith("project-") and args.project == "yoke":
         return False
     return True
 

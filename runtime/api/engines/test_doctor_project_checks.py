@@ -1,0 +1,199 @@
+"""A project's own ``.yoke/doctor/`` folder contributes checks to a run."""
+
+from __future__ import annotations
+
+import tempfile
+import unittest
+from pathlib import Path
+
+from yoke_core.engines.doctor_applicability import (
+    CheckApplicability,
+    DoctorContext,
+    NOT_APPLICABLE,
+    PROJECT_SCOPE_SELF,
+    RUNTIME_HOSTED,
+    RUNTIME_LOCAL,
+)
+from yoke_core.engines.doctor_project_checks import (
+    discover_project_checks,
+    project_checks_dir,
+)
+from yoke_core.engines.doctor_registry_types import HealthCheck
+from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
+from yoke_core.engines.doctor_roster import (
+    build_roster,
+    record_discovery_failures,
+    record_not_applicable,
+)
+
+
+CONVENTION_MODULE = '''
+from yoke_core.engines.doctor_applicability import (
+    CheckApplicability, PROJECT_SCOPE_SELF,
+)
+
+APPLICABILITY = CheckApplicability(
+    project_scope=PROJECT_SCOPE_SELF, requires_source_checkout=True,
+)
+
+
+def hc_release_pin_freshness(conn, args, rec):
+    """Release pin matches the built artifact."""
+    rec.record(
+        "HC-release-pin-freshness",
+        "Release pin matches the built artifact",
+        "PASS",
+        "",
+    )
+
+
+def helper_not_collected(conn, args, rec):
+    raise AssertionError("only hc_* functions are collected")
+'''
+
+EXPLICIT_MODULE = '''
+from yoke_core.engines.doctor_applicability import CheckApplicability
+from yoke_core.engines.doctor_registry_types import HealthCheck
+
+
+def _run(conn, args, rec):
+    rec.record("HC-explicit", "Explicit row", "PASS", "")
+
+
+HEALTH_CHECKS = [
+    HealthCheck(
+        slug="explicit",
+        name="Explicit row",
+        fn=_run,
+        applicability=CheckApplicability(requires_source_checkout=True),
+    ),
+]
+'''
+
+BROKEN_MODULE = "import a_module_that_does_not_exist\n"
+
+
+def _write_project_checks(root: Path, files: dict) -> None:
+    folder = project_checks_dir(root)
+    folder.mkdir(parents=True, exist_ok=True)
+    for name, body in files.items():
+        (folder / name).write_text(body, encoding="utf-8")
+
+
+class TestProjectCheckDiscovery(unittest.TestCase):
+    def test_no_folder_yields_nothing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            discovery = discover_project_checks(Path(tmp))
+            self.assertEqual(discovery.checks, [])
+            self.assertEqual(discovery.failures, [])
+
+    def test_no_checkout_yields_nothing(self):
+        discovery = discover_project_checks(None)
+        self.assertEqual(discovery.checks, [])
+
+    def test_collects_hc_functions_by_convention(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            _write_project_checks(
+                Path(tmp),
+                {
+                    "check_release.py": CONVENTION_MODULE,
+                    "shared_helpers.py": "raise AssertionError('not imported')",
+                    "README.md": "not a module",
+                },
+            )
+            discovery = discover_project_checks(Path(tmp))
+
+        self.assertEqual(discovery.failures, [])
+        self.assertEqual(
+            [hc.slug for hc in discovery.checks], ["release-pin-freshness"],
+        )
+        check = discovery.checks[0]
+        self.assertEqual(check.name, "Release pin matches the built artifact.")
+        self.assertEqual(check.applicability.project_scope, PROJECT_SCOPE_SELF)
+
+    def test_collects_an_explicit_health_checks_list(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            _write_project_checks(Path(tmp), {"check_x.py": EXPLICIT_MODULE})
+            discovery = discover_project_checks(Path(tmp))
+
+        self.assertEqual([hc.slug for hc in discovery.checks], ["explicit"])
+        self.assertTrue(discovery.checks[0].applicability.requires_source_checkout)
+
+    def test_an_unimportable_module_is_reported_not_swallowed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            _write_project_checks(Path(tmp), {"check_broken.py": BROKEN_MODULE})
+            discovery = discover_project_checks(Path(tmp))
+
+        self.assertEqual(discovery.checks, [])
+        self.assertEqual(len(discovery.failures), 1)
+        self.assertIn("a_module_that_does_not_exist", discovery.failures[0].error)
+
+        rec = RecordCollector()
+        roster_stub = type("R", (), {"discovery_failures": discovery.failures})()
+        record_discovery_failures(roster_stub, rec)
+        self.assertEqual(rec.fail_count, 1)
+
+
+class TestRosterIntegration(unittest.TestCase):
+    def _args(self) -> DoctorArgs:
+        return DoctorArgs(quick=True, project="yoke")
+
+    def test_project_checks_join_the_roster_when_the_checkout_is_present(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_project_checks(root, {"check_release.py": CONVENTION_MODULE})
+            context = DoctorContext(
+                project="yoke",
+                runtime=RUNTIME_LOCAL,
+                self_project="yoke",
+                source_checkout=root,
+            )
+            roster = build_roster([], self._args(), context)
+
+        self.assertEqual(roster.slugs, ["release-pin-freshness"])
+
+    def test_a_runner_without_the_checkout_discovers_nothing(self):
+        context = DoctorContext(
+            project="yoke",
+            runtime=RUNTIME_HOSTED,
+            self_project=None,
+            source_checkout=None,
+        )
+        roster = build_roster([], self._args(), context)
+        self.assertEqual(roster.applicable, [])
+        self.assertEqual(roster.not_applicable, [])
+
+    def test_out_of_scope_engine_checks_are_recorded_with_their_reason(self):
+        checks = [
+            HealthCheck(
+                slug="needs-source",
+                name="Needs source",
+                fn=lambda conn, args, rec: None,
+                applicability=CheckApplicability(requires_source_checkout=True),
+            ),
+            HealthCheck(
+                slug="db-only",
+                name="DB only",
+                fn=lambda conn, args, rec: None,
+                applicability=CheckApplicability(),
+            ),
+        ]
+        context = DoctorContext(
+            project="yoke",
+            runtime=RUNTIME_HOSTED,
+            self_project=None,
+            source_checkout=None,
+        )
+        roster = build_roster(checks, self._args(), context)
+        rec = RecordCollector()
+        record_not_applicable(roster, rec)
+
+        self.assertEqual(roster.slugs, ["db-only"])
+        self.assertEqual(rec.na_count, 1)
+        self.assertEqual(rec.results[0].check_id, "HC-needs-source")
+        self.assertEqual(rec.results[0].result, NOT_APPLICABLE)
+        self.assertIn("source tree", rec.results[0].detail)
+
+
+if __name__ == "__main__":
+    unittest.main()

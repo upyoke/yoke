@@ -65,12 +65,18 @@ class _GovernedProject:
     audit_db_abs: Optional[Path] = None
 
 
+#: Prefix marking a module's test companion rather than a migration module.
+#: Companions live beside the modules they cover and are retired with them,
+#: so counting them as migrations would inflate every scan.
+_TEST_COMPANION_PREFIX = "test_"
+
+
 def _list_module_files(modules_dir: Path) -> List[str]:
     if not modules_dir.is_dir():
         return []
     out: List[str] = []
     for p in sorted(modules_dir.glob("*.py")):
-        if p.name.startswith("_"):
+        if p.name.startswith("_") or p.name.startswith(_TEST_COMPANION_PREFIX):
             continue
         out.append(p.stem)
     return out
@@ -183,11 +189,10 @@ def _completed_modules_on_sqlite_file(
         audit_conn.close()
 
 
-def _scan_governed_projects(conn) -> List[str]:
+def _scan_governed_projects(
+    conn, governed: List[_GovernedProject],
+) -> List[str]:
     """Project-aware path. Returns assembled WARN-detail lines."""
-    governed = _governed_projects(conn)
-    if not governed:
-        return []
     issues: List[str] = []
     for gp in governed:
         present = _list_module_files(gp.modules_dir_abs)
@@ -223,9 +228,21 @@ def _scan_governed_projects(conn) -> List[str]:
 def hc_stranded_migration_module(
     conn, args: DoctorArgs, rec: RecordCollector,
 ) -> None:
-    issues = _scan_governed_projects(conn)
+    governed = _governed_projects(conn)
+    if not governed:
+        rec.record(
+            _HC_NAME, _HC_DESC, "WARN",
+            "No project declares a usable migration_model capability with a "
+            "resolvable modules directory, so no module tree was inspected. "
+            "A clean scan and an empty scan are different answers: check the "
+            "capability payload's runner.config.modules_dir and the "
+            "machine-local checkout mapping before reading this as healthy.",
+        )
+        return
+    issues = _scan_governed_projects(conn, governed)
     if not issues:
-        rec.record(_HC_NAME, _HC_DESC, "PASS", "")
+        scanned = ", ".join(gp.project for gp in governed)
+        rec.record(_HC_NAME, _HC_DESC, "PASS", f"scanned: {scanned}")
         return
     rec.record(_HC_NAME, _HC_DESC, "WARN", "\n".join(issues))
 

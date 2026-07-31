@@ -186,7 +186,7 @@ class TestDoctorRun:
         assert rc == 0
         assert len(calls) == 2
         assert calls[0]["payload"]["max_checks"] == 1
-        assert calls[0]["payload"]["skip_source_tree_checks"] is True
+        assert calls[0]["payload"]["project_safe_quick"] is True
         assert "cursor_after" not in calls[0]["payload"]
         assert calls[1]["payload"]["cursor_after"] == "first"
         envelope = json.loads(stdout.getvalue())
