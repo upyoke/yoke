@@ -190,6 +190,8 @@ Then **dispatch using the claimed work context:**
 - If `required_path` is `shepherd`, invoke `/yoke shepherd {item_id}`.
 - If `required_path` is `conduct`, invoke `/yoke conduct {item_id}`.
 - If `required_path` is `advance`, invoke `/yoke advance {item_id} implementation`.
+- If `required_path` is `dash`, invoke `/yoke dash {item_id}` (resume the filed Dash; the instruction is the scope).
+- If `required_path` is `blitz`, invoke `/yoke blitz {item_id}` (execute the refined Blitz from its linked strategy document).
 - If `required_path` is `polish`, invoke `/yoke polish {item_id}`.
 - If `required_path` is `usher`, invoke `/yoke usher {item_id}`.
 
@@ -224,6 +226,8 @@ Then **dispatch from the scheduler's computed next step.** The selected step is 
 - If `next_step` is `shepherd`, invoke `/yoke shepherd {selected_item}`.
 - If `next_step` is `conduct`, invoke `/yoke conduct {selected_item}`.
 - If `next_step` is `advance`, invoke `/yoke advance {selected_item} implementation` (issue main-session implementation).
+- If `next_step` is `dash`, invoke `/yoke dash {selected_item}` (resume the filed Dash end to end: survey, worktree, verify, merge, evidence).
+- If `next_step` is `blitz`, invoke `/yoke blitz {selected_item}` (execute the refined Blitz from its single linked strategy document).
 - If `next_step` is `polish`, invoke `/yoke polish {selected_item}`.
 - If `next_step` is `usher`, invoke `/yoke usher {selected_item}`.
 

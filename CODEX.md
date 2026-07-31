@@ -44,6 +44,8 @@ Codex supports these downstream paths (derived server-side from the shared Yoke 
 | `shepherd` | Drive an item through quality-gated lifecycle to ready |
 | `refine` | Critique and improve item artifacts |
 | `advance` | Definition-bound single-lane lifecycle execution |
+| `dash` | Instruction-sized direct execution: survey, worktree, verify, merge, evidence |
+| `blitz` | Document-led direct execution from the item's single linked strategy document |
 | `conduct` | Definition-bound task-graph loop that dispatches Engineer / Tester / Architect / Simulator |
 | `polish` | Review and finish implementation in existing worktree |
 | `usher` | Merge and deploy implemented/release items through the top-level operator flow |

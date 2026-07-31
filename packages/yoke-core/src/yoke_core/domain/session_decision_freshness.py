@@ -12,6 +12,7 @@ from .db_helpers import connect
 from .scheduler_events import emit_scheduler_offer_skipped
 from .scheduler_skip_reasons import SKIP_REASON_STALE_LIFECYCLE
 from .session_decision_lane_gate import evaluate_lane_gate
+from .sessions_analytics_core import _NEXT_STEP_TO_PATH
 from .sessions_lifecycle_release import release_item_claim_for_execution
 from .sessions_offer_revalidation import holder_session_for_item, revalidate_candidate_status
 from .sessions_queries_chain import append_chain_skip_entry
@@ -21,7 +22,9 @@ from .session_workflow_routing import (
 )
 _logger = logging.getLogger(__name__)
 
-_SERVICEABLE_STEPS = frozenset({"refine", "shepherd", "conduct", "advance", "polish", "usher"})
+# Every routable next_step is serviceable in principle; supported_paths and
+# lane policy narrow it per session below.
+_SERVICEABLE_STEPS = frozenset(_NEXT_STEP_TO_PATH)
 class FreshnessOutcome(str, Enum):
     UNCHANGED = "unchanged"
     UNAVAILABLE = "unavailable"

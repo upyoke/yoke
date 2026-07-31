@@ -36,7 +36,7 @@ def _repo_root() -> Path:
 
 REPO = _repo_root()
 EXPECTED_ADVANCE_COMMAND = "/yoke advance YOK-N implementation"
-EXPECTED_PATHS = "shepherd, refine, advance, polish, usher"
+EXPECTED_PATHS = "shepherd, refine, advance, dash, blitz, polish, usher"
 
 
 def _read(rel_path: str) -> str:
@@ -57,6 +57,15 @@ def test_conduct_is_direct_safe_surface_not_session_offer_path():
     assert "/yoke conduct" in safe_operator_surface_entrypoints("codex")
     assert "/yoke conduct" not in shared_entrypoints()
     assert "conduct" not in shared_downstream_paths()
+
+
+def test_direct_execution_paths_are_offerable():
+    # Dash and Blitz items are routable next_steps, so the shared registry must
+    # advertise them or the offer-time compatibility filter drops every
+    # candidate before a session ever sees one.
+    paths = shared_downstream_paths()
+    assert "dash" in paths
+    assert "blitz" in paths
 
 
 def test_codex_smoke_matrix_expects_advance_path():
