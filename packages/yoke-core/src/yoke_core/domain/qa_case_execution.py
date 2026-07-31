@@ -11,6 +11,8 @@ from typing import Any, Optional
 
 from yoke_contracts.api.function_call import ActorContext, TargetRef
 
+from yoke_core.domain import process_group_reaping
+
 
 class QaCaseExecutionError(RuntimeError):
     """A case contract is invalid or its executor cannot be run locally."""
@@ -126,7 +128,10 @@ def _command_result(
     started = time.monotonic()
     timed_out = False
     try:
-        completed = subprocess.run(
+        # A registered command runs through a shell, so the work itself is a
+        # grandchild. Killing only the shell on timeout would leave a test run
+        # alive holding its databases, so the whole group is reaped instead.
+        completed = process_group_reaping.run_in_process_group(
             command,
             shell=True,
             executable="/bin/sh",
@@ -135,7 +140,6 @@ def _command_result(
             capture_output=True,
             text=True,
             timeout=timeout,
-            check=False,
         )
         exit_code = int(completed.returncode)
         stdout = completed.stdout or ""
