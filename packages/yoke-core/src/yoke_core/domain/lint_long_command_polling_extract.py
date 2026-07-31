@@ -69,11 +69,17 @@ _WATCHER_CAPTURE_ARG_RE = re.compile(
 _SLEEP_THEN_PEEK_RE = re.compile(
     r"\bsleep\s+(\d+)\s*(?:&&|;)\s*(?<![-/=])(?:cat|tail|head|wc|grep|egrep|fgrep|rg|ls|awk|sed|less|more|file|stat|nl|cut|sort|uniq)\b",
 )
-# Monitor command: watch_tail or bare `tail -f/-F` against a /tmp capture
-# file. Trailing filters (`| grep ...`) are intentionally ignored —
-# capture-file equivalence is what matters.
+# Monitor command: the watcher follower in either spelling (`yoke watch
+# tail`, or the module fallback) or bare `tail -f/-F`, against a /tmp
+# capture file. Trailing filters (`| grep ...`) are intentionally
+# ignored — capture-file equivalence is what matters.
+_WATCH_TAIL_ALTERNATION = (
+    r"yoke\s+watch\s+tail"
+    r"|python3\s+-m\s+(?:yoke_core|runtime\.api)\.tools\.watch_tail"
+)
 _MONITOR_CAPTURE_RE = re.compile(
-    rf"\b(?:python3\s+-m\s+(?:yoke_core|runtime\.api)\.tools\.watch_tail|tail\s+-[FfnvqzN]+)\s+({_TEMP_PREFIX_GROUP}/[\w./-]+)",
+    rf"\b(?:{_WATCH_TAIL_ALTERNATION}|tail\s+-[FfnvqzN]+)"
+    rf"\s+({_TEMP_PREFIX_GROUP}/[\w./-]+)",
 )
 
 
@@ -197,9 +203,10 @@ def _extract_sleep_cadence(command: str) -> Optional[int]:
 def _extract_monitor_capture_file(command: str) -> Optional[str]:
     """Return the capture-file path a Monitor command targets, if any.
 
-    Accepts the canonical wrapper (``python3 -m
-    yoke_core.tools.watch_tail <path>``) and the fallback bare
-    ``tail -f <path>`` shape (including ``-F`` / additional flags). The
+    Accepts the follower in either spelling (``yoke watch tail
+    <path>`` or the ``python3 -m yoke_core.tools.watch_tail <path>``
+    fallback) and the bare ``tail -f <path>`` shape (including ``-F`` /
+    additional flags). The
     trailing pipeline (``| grep --line-buffered ...``) is intentionally
     NOT inspected: two Monitors against the same capture file are
     duplicates even when their filter expressions differ. Returns
