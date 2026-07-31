@@ -108,3 +108,75 @@ def test_cmd_prune_dry_run_no_fingerprint(tmp_path: Path) -> None:
             assert row[0] == 0
         finally:
             conn.close()
+
+
+def test_cmd_prune_removes_explicitly_purged_event_rows(tmp_path: Path) -> None:
+    """Obsolete event names are purged regardless of severity or age."""
+    with init_test_db(
+        tmp_path, apply_schema=_apply_events_and_migration_audit_schema
+    ) as db_path:
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        conn = connect_test_db(db_path)
+        try:
+            conn.execute(
+                "INSERT INTO events (event_id, source_type, session_id, severity, "
+                "event_kind, event_type, event_name, created_at) "
+                "VALUES ('obsolete-event', 'agent', 's', 'STATUS', 'system', 'test', "
+                "'Gen3I6CleanRoomSmoke', %s)",
+                (now,),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        result = events_crud.cmd_prune(str(db_path), dry_run=False)
+        assert "obsolete=1" in result
+
+        conn = connect_test_db(db_path)
+        try:
+            remaining = conn.execute(
+                "SELECT COUNT(*) FROM events WHERE event_name = 'Gen3I6CleanRoomSmoke'"
+            ).fetchone()
+        finally:
+            conn.close()
+
+        assert remaining[0] == 0
+
+
+def test_cmd_prune_preserves_event_rows_referenced_by_path_audits(tmp_path: Path) -> None:
+    """Explicit cleanup does not invalidate immutable path-audit references."""
+    with init_test_db(
+        tmp_path, apply_schema=_apply_events_and_migration_audit_schema
+    ) as db_path:
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        conn = connect_test_db(db_path)
+        try:
+            conn.execute(
+                "CREATE TABLE path_moves (recorded_event_id TEXT NOT NULL)"
+            )
+            conn.execute(
+                "INSERT INTO events (event_id, source_type, session_id, severity, "
+                "event_kind, event_type, event_name, created_at) "
+                "VALUES ('pinned-event', 'agent', 's', 'STATUS', 'system', 'test', "
+                "'Gen3I6CleanRoomSmoke', %s)",
+                (now,),
+            )
+            conn.execute(
+                "INSERT INTO path_moves (recorded_event_id) VALUES ('pinned-event')"
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        result = events_crud.cmd_prune(str(db_path), dry_run=False)
+        assert "obsolete=0" in result
+
+        conn = connect_test_db(db_path)
+        try:
+            remaining = conn.execute(
+                "SELECT COUNT(*) FROM events WHERE event_id = 'pinned-event'"
+            ).fetchone()
+        finally:
+            conn.close()
+
+        assert remaining[0] == 1
