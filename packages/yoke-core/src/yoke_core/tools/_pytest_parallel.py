@@ -72,16 +72,19 @@ def uses_xdist_auto_workers(args: Sequence[str]) -> bool:
 
 
 def _prepare_local_pg_testcluster(env: dict[str, str]) -> None:
-    """Start and prune the local test cluster before workers spawn.
+    """Start the local test cluster and reclaim orphans before workers spawn.
 
     ``YOKE_PG_DSN`` is normally ABSENT here. The suite's conftest binds it to
     the test cluster at import time, inside the pytest process — long after
     this parent-process decision is made. Treating an unset value as "not the
-    test cluster" therefore skipped the prune on every ordinary local run,
+    test cluster" therefore skipped the sweep on every ordinary local run,
     letting databases orphaned by interrupted runs accumulate until cloning a
     template slowed enough to stall every xdist worker behind the maintenance
-    lock. Absence means the conftest will bind this cluster, so prune it; only
+    lock. Absence means the conftest will bind this cluster, so sweep it; only
     a DSN that explicitly names a DIFFERENT cluster is a reason to skip.
+
+    The sweep only ever reclaims databases whose owning invocation has exited,
+    so running it here cannot disturb a suite already in flight.
     """
     try:
         from yoke_core.tools import pg_testcluster

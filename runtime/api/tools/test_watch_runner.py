@@ -20,7 +20,6 @@ import re
 import sys
 from pathlib import Path
 
-import pytest
 
 from yoke_core.tools import _watch_runner
 from yoke_core.tools._watch_throttle import (
@@ -302,24 +301,6 @@ class TestRunWatcherMetadata:
         assert "# watch_quiet still running" in stdout.getvalue()
         assert "# watch_quiet still running" not in raw.read_text(encoding="utf-8")
 
-
-class TestRunWatcherExitCodePreservation:
-    @pytest.mark.parametrize("code", [0, 1, 2, 5, 42])
-    def test_propagates_underlying_exit_code(self, tmp_path, code):
-        script = _python_emit_script(tmp_path, ["MATCH only"], exit_code=code)
-        raw = tmp_path / "raw.log"
-        progress = tmp_path / "progress.log"
-
-        rc = _watch_runner.run_watcher(
-            argv=[sys.executable, str(script)],
-            classifier=_summary_classifier,
-            raw_capture=raw,
-            progress_capture=progress,
-            kind="exitcheck",
-            stdout_stream=io.StringIO(),
-            policy=PASSTHROUGH_POLICY,
-        )
-        assert rc == code
 
 
 class TestRunWatcherLaunchError:

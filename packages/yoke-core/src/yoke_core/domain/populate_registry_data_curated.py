@@ -370,8 +370,6 @@ SEVERITY_ONLY_UPDATES: Tuple[Tuple[str, ...], ...] = (
     (
         "STATUS",
         (
-            "BaselinePromoted",
-            "BaselineRecorded",
             "DriftReviewCompleted",
             "FrontierComputed",
             "NextActionChosen",
