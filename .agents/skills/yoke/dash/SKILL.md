@@ -75,9 +75,12 @@ files and prints the item; it does not execute it.
 - Perform all writes in the registered item worktree, never in main.
 - Registered work and path claims always win over claim-less Dash work.
 - Do not create child items. If the instruction has grown into planning or
-  multi-slice work, use the escalation operation, which records the
-  findings, files one Issue through normal intake, links it, and cancels
-  the Dash.
+  multi-slice work, halt and discuss escalation with the operator. Escalation
+  files one Issue through normal intake and cancels the Dash, so the decision
+  to escalate belongs to the operator, not to this session. This halt is a
+  deliberate exception to the kick-off-and-walk-away default: escalation
+  creates a new work item and is a scope judgment, not routine execution.
+  Only run the escalation operation after the operator explicitly agrees.
 - Consume the central `workflows.item.get` effective-policy projection before
   authoring or gating File Budget and path claims. Each axis remains
   independent; do not reconstruct it from raw policies or posture.
@@ -167,7 +170,8 @@ For every reported contact:
 - when effective path claims are enabled, keep the inferred set complete;
   worktree preparation registers or widens the real claim from this survey;
 - if contact repeats or the required work is no longer instruction-sized,
-  follow **Escalate** below.
+  stop and follow **Escalate** below, which halts for operator agreement
+  before anything is filed.
 
 Never remove a required file merely to make the survey clear.
 
@@ -302,9 +306,22 @@ yoke claims work release --item ITEM --reason "Dash completed"
 
 ## Escalate
 
-Escalate as soon as the required outcome needs crafted acceptance criteria,
+Halt as soon as the required outcome needs crafted acceptance criteria,
 substantial design, durable multi-file coordination, or multiple delivery
-slices. Summarize what was discovered and the remaining work:
+slices. Escalation files a new Issue and cancels the Dash, so it is a scope
+judgment the operator owns — a deliberate exception to the
+kick-off-and-walk-away default. Stop Dash execution at the trigger and
+present to the operator:
+
+- the grounded findings and what the instruction turned out to require;
+- the remaining outcome that is no longer instruction-sized;
+- the proposed Issue title and framing;
+- that escalating cancels this Dash.
+
+Then ask whether to escalate, and wait. Do not file the Issue, cancel the
+Dash, or continue implementing past the trigger while the answer is pending.
+
+Only after the operator explicitly agrees, run:
 
 ```text
 yoke direct-workflow dash escalate ITEM \
@@ -315,3 +332,6 @@ yoke direct-workflow dash escalate ITEM \
 The operation is idempotent: it preserves one link to the absorbing Issue
 and cancels the Dash. Stop Dash execution after it succeeds and release the
 work claim if the operation did not already do so.
+
+If the operator declines escalation, follow their direction — continue,
+narrow, or park the Dash — without filing an Issue.
