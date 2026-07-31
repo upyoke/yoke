@@ -220,18 +220,22 @@ REGISTRY_RECONCILED_ACTIVE = (
 )
 
 
-REGISTRY_RECONCILED_RETIRED = (
+REGISTRY_PURGED_NAMES = (
+    "BaselinePromoted",
+    "BaselineRecorded",
     "ClaimReacquiredAfterHandoff",
     "PathContextMigrated",
     "LeakAttempt",
     "BodyRegenerated",
     "BodyRegenerationFailed",
+    "Gen3I6CleanRoomSmoke",
+    "HarnessSessionEndCleanupCompleted",
+    "OuroborosRecipeEventAppended",
+    "PassedToUsherHandoff",
 )
 
 
 REGISTRY_RECONCILED_DEPRECATED = (
-    "BaselinePromoted",
-    "BaselineRecorded",
     "ChargeDecisionMade",
     "FeedCompleted",
     "FeedStarted",
@@ -256,14 +260,13 @@ def test_qa_run_captured_registered_in_authoritative_metadata():
         assert description, f"{name} description is empty"
 
 
-def test_registry_reconciled_retired_names_in_retire_list():
-    """Each rogue/stale-active name that was renamed or had its emitter removed
-    must appear in RETIRE_LIST so the populator flips status to retired."""
-    from yoke_core.domain.populate_registry import RETIRE_LIST
+def test_registry_purged_names_have_a_single_cleanup_source():
+    """Removed producers remain in the explicit registry-and-ledger cleanup set."""
+    from yoke_core.domain.populate_registry import PURGED_EVENT_NAMES
 
-    retire_set = set(RETIRE_LIST)
-    for name in REGISTRY_RECONCILED_RETIRED:
-        assert name in retire_set, f"{name} missing from RETIRE_LIST"
+    purged_names = set(PURGED_EVENT_NAMES)
+    for name in REGISTRY_PURGED_NAMES:
+        assert name in purged_names, f"{name} missing from PURGED_EVENT_NAMES"
 
 
 def test_registry_reconciled_deprecated_names_in_deprecate_list():
@@ -282,7 +285,7 @@ def test_expected_low_cadence_active_names_stay_authoritative_and_active():
     from yoke_core.domain.populate_registry import (
         AUTHORITATIVE_METADATA,
         DEPRECATE_LIST,
-        RETIRE_LIST,
+        PURGED_EVENT_NAMES,
     )
     from yoke_core.domain.populate_registry_data_authoritative import EXPECTED_LOW_CADENCE_ACTIVE
 
@@ -290,31 +293,15 @@ def test_expected_low_cadence_active_names_stay_authoritative_and_active():
     missing = set(EXPECTED_LOW_CADENCE_ACTIVE) - set(by_name)
     assert not missing, f"expected low-cadence names missing metadata: {sorted(missing)}"
 
-    inactive = set(EXPECTED_LOW_CADENCE_ACTIVE) & (set(DEPRECATE_LIST) | set(RETIRE_LIST))
+    inactive = set(EXPECTED_LOW_CADENCE_ACTIVE) & (
+        set(DEPRECATE_LIST) | set(PURGED_EVENT_NAMES)
+    )
     assert not inactive, f"expected low-cadence names marked inactive: {sorted(inactive)}"
 
 
-def test_retired_rogue_rows_have_authoritative_metadata_rows():
-    """Retiring a name through RETIRE_LIST only flips status to retired when the
-    row already exists. The 3 spec-named retirements (ClaimReacquiredAfterHandoff,
-    PathContextMigrated, LeakAttempt) had their registry rows previously deleted,
-    so AUTHORITATIVE_METADATA must carry replacement rows that
-    _ensure_authoritative_metadata can insert before the retire layer runs."""
-    from yoke_core.domain.populate_registry import AUTHORITATIVE_METADATA
+def test_purged_names_are_not_deprecated_metadata():
+    """A name removed from the catalog must not remain in the deprecated set."""
+    from yoke_core.domain.populate_registry import DEPRECATE_LIST, PURGED_EVENT_NAMES
 
-    by_name = {entry[0] for entry in AUTHORITATIVE_METADATA}
-    for name in ("ClaimReacquiredAfterHandoff", "PathContextMigrated", "LeakAttempt"):
-        assert name in by_name, (
-            f"{name} retired via RETIRE_LIST but has no AUTHORITATIVE_METADATA row; "
-            f"_retire_events skips silently when the row does not yet exist."
-        )
-
-
-def test_no_disposition_conflicts_between_retire_and_deprecate():
-    """A name must not appear in BOTH RETIRE_LIST and DEPRECATE_LIST.
-    The populator applies deprecate before retire — a name in both lists would
-    end up retired even when the author intended deprecated, or vice versa."""
-    from yoke_core.domain.populate_registry import DEPRECATE_LIST, RETIRE_LIST
-
-    overlap = set(DEPRECATE_LIST) & set(RETIRE_LIST)
-    assert not overlap, f"names appear in both DEPRECATE_LIST and RETIRE_LIST: {sorted(overlap)}"
+    overlap = set(DEPRECATE_LIST) & set(PURGED_EVENT_NAMES)
+    assert not overlap, f"purged names remain deprecated metadata: {sorted(overlap)}"
