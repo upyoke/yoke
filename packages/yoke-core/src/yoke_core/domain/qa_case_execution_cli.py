@@ -28,9 +28,13 @@ def run(args: List[str]) -> int:
     parser.add_argument("--expected-branch")
     parser.add_argument("--expected-sha")
     parser.add_argument("--timeout-seconds", type=int)
+    parser.add_argument("--session-id")
     parsed = parser.parse_args(args)
     if bool(parsed.expected_branch) != bool(parsed.expected_sha):
         parser.error("--expected-branch and --expected-sha must be paired")
+    from yoke_core.api.service_client_structured_api_adapter import build_actor
+
+    actor = build_actor(session_id=parsed.session_id)
     try:
         result = execute_case(
             parsed.requirement_id,
@@ -38,6 +42,7 @@ def run(args: List[str]) -> int:
             expected_branch=parsed.expected_branch,
             expected_sha=parsed.expected_sha,
             timeout_seconds=parsed.timeout_seconds,
+            actor=actor,
         )
     except QaCaseExecutionError as exc:
         print(f"yoke qa case run: {exc}", file=sys.stderr)

@@ -236,9 +236,11 @@ def _record_process_anchor(session_id: str, transcript_path: str) -> None:
     """Best-effort anchor write; never raises into the hook path."""
     try:
         from yoke_core.domain.session_process_anchors import (
+            prune_stale_anchors,
             record_session_anchor,
         )
 
+        prune_stale_anchors()
         record_session_anchor(session_id, transcript_path=transcript_path)
     except Exception:  # noqa: BLE001 — anchor recording must never break hooks
         return
