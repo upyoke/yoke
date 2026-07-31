@@ -76,7 +76,53 @@ def _group_id(proc: subprocess.Popen) -> int | None:
     return pgid
 
 
+def _descendant_pids(root_pid: int) -> list[int]:
+    """Return every live descendant of *root_pid*, deepest last.
+
+    Signalling a process group does not reach a descendant that started its own
+    session — and nesting is normal here, because a runner launched under one
+    supervisor puts its own child in a fresh session so that IT can reap
+    precisely. Walking parent links reaches those grandchildren regardless of
+    which session they moved to.
+    """
+    try:
+        listing = subprocess.run(
+            ["ps", "-eo", "pid=,ppid="],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        ).stdout
+    except (OSError, subprocess.SubprocessError):
+        return []
+
+    children: dict[int, list[int]] = {}
+    for line in listing.splitlines():
+        parts = line.split()
+        if len(parts) != 2:
+            continue
+        try:
+            pid, ppid = int(parts[0]), int(parts[1])
+        except ValueError:
+            continue
+        children.setdefault(ppid, []).append(pid)
+
+    found: list[int] = []
+    frontier = [root_pid]
+    while frontier:
+        current = frontier.pop()
+        for child in children.get(current, ()):
+            if child in found or child == root_pid:
+                continue
+            found.append(child)
+            frontier.append(child)
+    return found
+
+
 def _signal_tree(proc: subprocess.Popen, pgid: int | None, signal_number: int) -> None:
+    # Collect descendants BEFORE signalling: once the direct child dies its
+    # children are reparented away and the parent links that identify them are
+    # gone, which is exactly how an orphaned test runner survives its reaper.
+    descendants = _descendant_pids(proc.pid)
     try:
         if pgid is not None:
             os.killpg(pgid, signal_number)
@@ -84,6 +130,11 @@ def _signal_tree(proc: subprocess.Popen, pgid: int | None, signal_number: int) -
             proc.send_signal(signal_number)
     except (ProcessLookupError, PermissionError, OSError):
         pass  # Already gone, or no longer ours to signal.
+    for pid in descendants:
+        try:
+            os.kill(pid, signal_number)
+        except (ProcessLookupError, PermissionError, OSError):
+            pass
 
 
 def terminate_process_group(
