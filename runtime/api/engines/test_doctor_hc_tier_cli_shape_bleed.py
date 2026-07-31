@@ -84,7 +84,7 @@ def test_anchored_regex_prose_fixture_passes(tmp_path, monkeypatch, conn):
         "## Hooks\n\n"
         "runtime/harness/claude/settings.json hooks call "
         "python3 -m yoke_core.engines.doctor; emergency status repair "
-        "is Python-owned via python3 -m yoke_core.engines.repair_status.\n"
+        "uses yoke lifecycle repair-status.\n"
     )
     _setup(tmp_path, monkeypatch, {rel: body}, {rel: 0})
 

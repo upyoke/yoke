@@ -118,6 +118,8 @@ def test_core_packet_teaches_lifecycle_status_and_inventory_surface() -> None:
     body = sac.render_topic_packet("core")
     assert "yoke lifecycle transition YOK-N --to refined-idea" in body
     assert "lifecycle.transition.execute" in body
+    assert "lifecycle.repair_status.execute" in body
+    assert "yoke lifecycle repair-status YOK-N" in body
     assert "function=lifecycle.transition target" not in body
     assert "--stdin < PATH" in body
     assert ".yoke/docs/db-reference/functions.md" in body

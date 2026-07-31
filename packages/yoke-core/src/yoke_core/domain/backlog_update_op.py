@@ -245,7 +245,8 @@ def _execute_update_once(
                     "error": (
                         f"Claim verification denied for {item_ref}: {claim_reason}\n"
                         f'  Claim first: yoke claims work acquire --item {item_ref} --reason "<intent>"\n'
-                        "  Incident recovery: python3 -m yoke_core.engines.repair_status (emits audit events)\n"
+                        f"  Incident recovery: yoke lifecycle repair-status {item_ref} "
+                        "--to <status> --reason <reason>\n"
                         "  Audit bypass: set YOKE_CLAIM_BYPASS=<source> for sanctioned system transitions"
                     ),
                 }

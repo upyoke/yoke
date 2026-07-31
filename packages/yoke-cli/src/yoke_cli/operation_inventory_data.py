@@ -1,7 +1,6 @@
 """Operation tracker data rows for :mod:`yoke_cli.operation_inventory`."""
 
 from __future__ import annotations
-
 from typing import Tuple
 from yoke_cli.operation_inventory_model import (
     PENDING,
@@ -55,6 +54,7 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke claims path widen", "claims.path"),
     _w("yoke events query", "events.query"),
     _w("yoke lifecycle transition", "lifecycle"),
+    _w("yoke lifecycle repair-status", "lifecycle"),
     _w("yoke lifecycle skip record-recoverable-substrate", "lifecycle"),
     _w("yoke ouroboros field-note append", "ouroboros"),
     _w("yoke ouroboros field-note list", "ouroboros"),

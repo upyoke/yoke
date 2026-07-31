@@ -196,7 +196,8 @@ def _verify_claim(epic_id: str, task_num: str, *, stderr: TextIO) -> None:
             file=stderr,
         )
         print(
-            "  Incident recovery: python3 -m yoke_core.engines.repair_status (emits audit events)",
+            f"  Incident recovery: yoke lifecycle repair-status YOK-{epic_id} "
+            "--to <status> --reason <reason>",
             file=stderr,
         )
         print(

@@ -9,6 +9,7 @@ Recipe shape doctrine (current):
     Recipes for function ids covered by the canonical ``yoke`` CLI
     registry (``items.get.run``, ``items.progress_log.append``,
     ``items.structured_field.replace``, ``lifecycle.transition.execute``,
+    ``lifecycle.repair_status.execute``,
     ``events.query.run``, ``claims.work.*``, ``claims.path.{register,
     widen}``, ``ouroboros.field_note.append``) use the strict
     ``yoke <subcommand>`` grammar (CLI grammar contract).

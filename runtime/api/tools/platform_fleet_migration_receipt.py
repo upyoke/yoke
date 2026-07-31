@@ -19,6 +19,7 @@ Usage::
 
 from __future__ import annotations
 
+import argparse
 import sys
 from typing import Any, Optional, Sequence
 
@@ -30,6 +31,22 @@ from yoke_core.domain import db_backend
 PLATFORM_DB = "yoke_platform"
 RUNS_TABLE = "tenant_migration_runs"
 TARGETS_TABLE = "tenant_migration_targets"
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="platform-fleet-migration-receipt",
+        description=(
+            "Read durable fleet-migration receipts from the selected "
+            "Platform control-plane database."
+        ),
+    )
+    parser.add_argument(
+        "run_id",
+        nargs="?",
+        help="Full run id or a unique leading prefix; defaults to recent runs.",
+    )
+    return parser
 
 
 def _platform_dsn() -> str:
@@ -65,8 +82,8 @@ def _run_key(cur: Any, rows: Sequence[tuple]) -> Optional[int]:
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
-    args = list(sys.argv[1:] if argv is None else argv)
-    wanted = args[0] if args else None
+    args = build_parser().parse_args(list(sys.argv[1:] if argv is None else argv))
+    wanted = args.run_id
 
     with psycopg.connect(_platform_dsn()) as conn:
         with conn.cursor() as cur:
@@ -96,8 +113,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                     break
                 key = row[key_idx]
                 cur.execute(
-                    f"SELECT * FROM {TARGETS_TABLE} WHERE run_id::text = %s "
-                    f"ORDER BY 1",
+                    f"SELECT * FROM {TARGETS_TABLE} WHERE run_id::text = %s ORDER BY 1",
                     (str(key),),
                 )
                 _dump(cur, f"targets for run {key}")

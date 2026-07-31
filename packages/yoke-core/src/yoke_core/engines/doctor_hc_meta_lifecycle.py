@@ -134,8 +134,8 @@ def hc_lifecycle_continuity(conn, args: DoctorArgs, rec: RecordCollector) -> Non
             f"{len(rows)} item(s) have status changes with no matching "
             "item_status_transitions row:\n"
             + "\n".join(detail_lines)
-            + "\nRemediation: run python3 -m yoke_core.engines.repair_status <id> <status> "
-            "for targeted repair."
+            + "\nRemediation: run yoke lifecycle repair-status <PREFIX-N> "
+            "--to <status> --reason <reason> for targeted repair."
         )
         rec.record("HC-lifecycle-continuity", "Lifecycle transition continuity", "WARN", detail)
     else:

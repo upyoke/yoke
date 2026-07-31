@@ -128,12 +128,12 @@ class TestSubcommandResolution:
         assert prefix == ("items", "update")
         assert passthrough == ["YOK-1755", "status", "implementing"]
 
-    def test_repair_status_maps_to_engine(self) -> None:
+    def test_repair_status_maps_to_registered_cli(self) -> None:
         module, prefix, passthrough = watch_lifecycle._resolve_subcommand(
             ["repair-status", "YOK-1755"]
         )
-        assert module == "yoke_core.engines.repair_status"
-        assert prefix == ()
+        assert module == "yoke_cli.main"
+        assert prefix == ("lifecycle", "repair-status")
         assert passthrough == ["YOK-1755"]
 
     def test_unknown_subcommand_exits_with_two(
@@ -169,12 +169,16 @@ class TestEngineArgv:
             "items", "update", "YOK-1", "status", "implementing",
         ]
 
-    def test_repair_status_argv_omits_prefix(self) -> None:
+    def test_repair_status_argv_uses_registered_cli(self) -> None:
         argv = watch_lifecycle._engine_argv(
-            "yoke_core.engines.repair_status", (), ["YOK-1"],
+            "yoke_cli.main",
+            ("lifecycle", "repair-status"),
+            ["YOK-1", "--to", "done", "--reason", "reconcile"],
         )
         assert argv == [
-            sys.executable, "-m", "yoke_core.engines.repair_status", "YOK-1",
+            sys.executable, "-m", "yoke_cli.main",
+            "lifecycle", "repair-status", "YOK-1",
+            "--to", "done", "--reason", "reconcile",
         ]
 
 

@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Callable, Dict, List, Tuple
 
 from yoke_cli.commands import flag_adapters as _adapters
+from yoke_cli.commands.adapters.lifecycle_repair import lifecycle_repair_status
 from yoke_cli.commands.registry_deployment import DEPLOYMENT_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_ephemeral_env import EPHEMERAL_ENV_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_epic_ops import EPIC_OPS_SUBCOMMAND_REGISTRY
@@ -173,10 +174,8 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ("events", "tail"): ("events.tail.run", _adapters.events_tail),
     ("events", "count"): ("events.count.run", _adapters.events_count),
     ("events", "anomalies"): ("events.anomalies.run", _adapters.events_anomalies),
-    ("lifecycle", "transition"): (
-        "lifecycle.transition.execute",
-        _adapters.lifecycle_transition,
-    ),
+    ("lifecycle", "transition"): ("lifecycle.transition.execute", _adapters.lifecycle_transition),
+    ("lifecycle", "repair-status"): ("lifecycle.repair_status.execute", lifecycle_repair_status),
     ("lifecycle", "skip", "record-recoverable-substrate"): (
         "lifecycle.skip.record_recoverable_substrate",
         _adapters.lifecycle_skip_record_recoverable_substrate,

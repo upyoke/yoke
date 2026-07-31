@@ -99,6 +99,7 @@ from yoke_cli.commands.adapters.items import (
     PROGRESS_LOG_USAGE,
     STRUCTURED_FIELD_USAGE,
 )
+from yoke_cli.commands.adapters.lifecycle_repair import LIFECYCLE_REPAIR_STATUS_USAGE
 from yoke_cli.commands.adapters.items_create import ITEMS_CREATE_USAGE
 from yoke_cli.commands.adapters.items_scalar import ITEMS_SCALAR_UPDATE_USAGE
 from yoke_cli.commands.adapters.items_section import (
@@ -237,9 +238,7 @@ from yoke_cli.commands.adapters.sessions import (
 )
 from yoke_cli.commands.adapters.frontier_read import FRONTIER_LIST_USAGE
 from yoke_cli.commands.adapters.sessions_read import SESSIONS_LIST_USAGE
-
 __all__ = ["ADAPTER_USAGE"]
-
 # Function-id → usage-line map consumed by the entrypoint's grouped
 # ``--help`` text. New CLI families add one line each.
 ADAPTER_USAGE: Dict[str, str] = {
@@ -350,6 +349,7 @@ ADAPTER_USAGE: Dict[str, str] = {
     "shepherd.dependency_update.run": SHEPHERD_DEPENDENCY_UPDATE_USAGE,
     "shepherd.dependency_remove.run": SHEPHERD_DEPENDENCY_REMOVE_USAGE,
     "lifecycle.transition.execute": LIFECYCLE_TRANSITION_USAGE,
+    "lifecycle.repair_status.execute": LIFECYCLE_REPAIR_STATUS_USAGE,
     "lifecycle.skip.record_recoverable_substrate": LIFECYCLE_SKIP_RECORD_RECOVERABLE_SUBSTRATE_USAGE,
     "ouroboros.field_note.append": OUROBOROS_USAGE,
     "ouroboros.field_note.list": OUROBOROS_FIELD_NOTE_LIST_USAGE,

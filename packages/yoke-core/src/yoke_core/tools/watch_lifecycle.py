@@ -28,8 +28,9 @@ Usage::
     python3 -m yoke_core.tools.watch_lifecycle items-update-status \\
         -- YOK-N status implementing
 
-    # Drive `yoke_core.engines.repair_status`:
-    python3 -m yoke_core.tools.watch_lifecycle repair-status -- YOK-N
+    # Drive `yoke lifecycle repair-status`:
+    python3 -m yoke_core.tools.watch_lifecycle repair-status -- \\
+        YOK-N --to implementing --reason reconciliation
 
     # Print the ready-to-paste streaming pair:
     python3 -m yoke_core.tools.watch_lifecycle --print-streaming-pair \\
@@ -55,12 +56,11 @@ KIND = "lifecycle"
 # Maps wrapper sub-command names to ``(module, prefix_args)``. The
 # wrapper supplies the underlying ``python3 -m <module>`` plus the
 # fixed prefix args; callers pass any remaining bare args after ``--``.
-# ``items-update-status`` covers the canonical
-# ``db_router items update <id> status <value>`` shape; ``repair-status``
-# covers the ``repair_status`` engine.
+# ``items-update-status`` retains the legacy source-dev update shape;
+# ``repair-status`` executes the registered, transport-keyed Yoke CLI.
 SUBCOMMAND_MODULES: dict[str, tuple[str, tuple[str, ...]]] = {
     "items-update-status": ("yoke_core.cli.db_router", ("items", "update")),
-    "repair-status": ("yoke_core.engines.repair_status", ()),
+    "repair-status": ("yoke_cli.main", ("lifecycle", "repair-status")),
 }
 
 # Per-class regexes. Each is line-oriented; callers feed one line at a

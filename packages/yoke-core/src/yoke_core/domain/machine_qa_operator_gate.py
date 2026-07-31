@@ -54,6 +54,13 @@ def _approved_origin(url: str, allowed_base_urls: tuple[str, ...]) -> bool:
     )
 
 
+def _current_gate_transcript(transcript: str, code: str) -> str:
+    """Exclude retained output from machine approvals that preceded this code."""
+
+    code_index = transcript.rfind(code)
+    return transcript[code_index:] if code_index >= 0 else transcript
+
+
 def _emit_browser_approval(
     transcript: str,
     *,
@@ -133,12 +140,15 @@ def run_machine_browser_approval_with_io(
         )
     timeout_seconds = float(action["gate_timeout_seconds"])
     completion_text = tuple(action["completion_text"])
+    gate_code = _labeled_value(transcript, "One-time code:")
+    assert gate_code is not None
     deadline = time.monotonic() + timeout_seconds
     next_heartbeat = 0.0
     while True:
         transcript = read_transcript()
-        lowered = transcript.casefold()
-        if all(marker in transcript for marker in completion_text):
+        gate_transcript = _current_gate_transcript(transcript, gate_code)
+        lowered = gate_transcript.casefold()
+        if all(marker in gate_transcript for marker in completion_text):
             return OperatorGateResult(True, transcript)
         if any(marker in lowered for marker in _DENIAL_MARKERS):
             return OperatorGateResult(

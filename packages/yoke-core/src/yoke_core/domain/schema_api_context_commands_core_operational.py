@@ -15,6 +15,7 @@ preserving the merged ``CORE_COMMANDS`` export the renderer consumes.
 Recipe shape doctrine (current):
     The core function ids (`items.get.run`, `items.structured_field.replace`,
     `items.progress_log.append`, `lifecycle.transition.execute`,
+    `lifecycle.repair_status.execute`,
     `events.query.run`, `claims.work.*`, `claims.path.{register,widen}`,
     `ouroboros.field_note.append`) use the strict ``yoke <subcommand>``
     grammar. Session-lifecycle CLIs, the `agents_render` renderer, the
@@ -123,23 +124,18 @@ OPERATIONAL_COMMANDS: list[dict] = [
     },
     {
         "topic": "core",
-        "purpose": (
-            "Session lifecycle — heartbeat / checkpoint / mode-switch / "
-            "surrender-claims"
-        ),
+        "purpose": "Operator-mode lifecycle repair after authoritative drift",
         "recipe": (
-            "yoke claims work release --all-mine"
+            "yoke lifecycle repair-status YOK-N --from CURRENT --to TARGET "
+            "--reason 'operator-authored reconciliation' --dry-run"
         ),
         "notes": (
-            "Session heartbeat/checkpoint/touch/offer remain pending "
-            "wrapper surfaces and are harness/orchestrator responsibilities, "
-            "not agent recipes. The harness owns session lifecycle — Stop / "
-            "SessionEnd hooks run the hook-runner cleanup helper; subagents "
-            "never terminate sessions themselves. "
-            "`yoke claims work release --all-mine` is the agent-shaped "
-            "primitive for surrendering work without terminating the session; "
-            "the pre-tool lint `lint_no_agent_session_end` refuses "
-            "agent-dispatched shutdown-helper invocations."
+            "First run `yoke sessions touch --mode operator`; drop --dry-run "
+            "to apply. `lifecycle.repair_status.execute` works over "
+            "HTTPS/local, checks project permission and the pinned workflow, "
+            "and limits its audited claim bypass to this request. Use "
+            "`yoke claims work release --all-mine` to surrender claims "
+            "without ending the session."
         ),
     },
     {
