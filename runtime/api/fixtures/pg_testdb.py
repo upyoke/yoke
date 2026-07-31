@@ -20,8 +20,18 @@ common case from one reusable clone per worker that ``pg_reusable_db``
 resets between uses, so steady-state test traffic issues no
 ``CREATE DATABASE`` / ``DROP DATABASE`` at all.
 
-Prefix guard: every create/drop/connect target name is asserted to carry the
-``yoke_test`` prefix, so this module can never touch a non-test database.
+Isolation between concurrent invocations lives here, at the layer that
+provisions databases, so every entry path inherits it: the watcher wrapper,
+raw ``pytest`` on one file, a ``-k`` filter, an IDE run, a QA registered
+command. Names are minted through
+:mod:`yoke_core.domain.pg_test_db_namespace`, which stamps each one with the
+invocation's run tag.
+
+Ownership guard: every create/drop/connect target name is asserted to carry
+this invocation's run tag, so this module can never touch a non-test
+database — nor another invocation's test database. Reclaiming what an
+interrupted run left behind is the orphan sweep's job
+(:mod:`yoke_core.tools.pg_testcluster`), never a running suite's.
 """
 
 from __future__ import annotations
@@ -34,10 +44,10 @@ import weakref
 
 import psycopg
 
-from yoke_core.domain import db_backend
+from yoke_core.domain import db_backend, pg_test_db_namespace
 
 TEST_DB_PREFIX = db_backend.POSTGRES_TEST_DB_PREFIX
-AMBIENT_DB_PREFIX = "yoke_test_ambient_"
+AMBIENT_DB_PURPOSE = "ambient"
 
 _BASE_DSN: "str | None" = None
 
@@ -78,10 +88,25 @@ def dsn_for_test_database(name: str) -> str:
 
 
 def _assert_test_db(name: str) -> None:
+    """Refuse any database this invocation did not create.
+
+    The prefix check keeps the module away from real databases; the run-tag
+    check keeps it away from the databases of every OTHER invocation sharing
+    the cluster. Both are cheap, and the second is what makes concurrent runs
+    safe without coordinating.
+    """
     if not name.startswith(TEST_DB_PREFIX):
         raise RuntimeError(
             f"pg_testdb refuses to operate on non-test database {name!r}; "
             f"expected a {TEST_DB_PREFIX!r}-prefixed name"
+        )
+    if not pg_test_db_namespace.belongs_to_current_run(name):
+        raise RuntimeError(
+            f"pg_testdb refuses to operate on test database {name!r}, which "
+            f"belongs to another invocation; this run owns "
+            f"{pg_test_db_namespace.current_run_tag()!r}. Reclaiming another "
+            f"run's databases is the orphan sweep's job "
+            f"(python3 -m yoke_core.tools.pg_testcluster prune)"
         )
 
 
@@ -121,7 +146,7 @@ def cluster_role_authority():
 
 
 def create_test_database(template: "str | None" = None) -> str:
-    name = f"{TEST_DB_PREFIX}{uuid.uuid4().hex[:16]}"
+    name = pg_test_db_namespace.database_name(uuid.uuid4().hex[:16])
     clone_source = f' TEMPLATE "{template}"' if template else ""
     _admin_execute(f'CREATE DATABASE "{name}"{clone_source}')
     return name
@@ -259,14 +284,17 @@ test_database.__test__ = False
 def setup_ambient_test_db() -> str:
     """Create + schema-load a per-worker ambient test DB and repoint the DSN.
 
-    Uses a unique database per worker process so concurrent local runs never
-    fight over the same ambient name. Normal worker shutdown drops the database;
-    pg_testcluster's startup prune handles interrupted runs.
+    The name carries this invocation's run tag plus the worker id, so no two
+    workers and no two concurrent invocations can collide. Normal worker
+    shutdown drops the database; databases left by an interrupted run are
+    reclaimed later by pg_testcluster's orphan sweep, never by a running suite.
     """
     base = _base_dsn()  # capture before repointing
     worker = os.environ.get("PYTEST_XDIST_WORKER", "main")
     template = _fixture_template_db()
-    name = f"{AMBIENT_DB_PREFIX}{worker}_{uuid.uuid4().hex[:12]}"
+    name = pg_test_db_namespace.database_name(
+        f"{AMBIENT_DB_PURPOSE}_{worker}_{uuid.uuid4().hex[:12]}"
+    )
     _admin_execute(f'CREATE DATABASE "{name}" TEMPLATE "{template}"')
     atexit.register(lambda: drop_test_database(name))
     os.environ[db_backend.PG_DSN_ENV] = _with_dbname(base, name)
@@ -274,6 +302,7 @@ def setup_ambient_test_db() -> str:
 
 
 __all__ = [
+    "AMBIENT_DB_PURPOSE",
     "TEST_DB_PREFIX",
     "cluster_role_authority",
     "create_test_database",

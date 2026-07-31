@@ -3,7 +3,7 @@
 The initdb/pg_ctl choreography itself is covered by
 ``runtime/api/domain/test_postgres_cluster.py``; these tests pin the
 disposable frontend's spec (system binaries, throwaway tuning, scratch
-root) and its test-DB pruning behavior.
+root) and its ownership-gated orphan sweep.
 """
 
 from __future__ import annotations
@@ -59,109 +59,6 @@ def test_ensure_started_recreates_on_stale_settings(monkeypatch, tmp_path):
     assert pg_testcluster.ensure_started() == 0
     assert calls == ["initdb", "destroy", "initdb", "start"]
 
-
-def test_prune_stale_test_databases_drops_only_yoke_test_names(monkeypatch):
-    calls = []
-
-    def fake_psql(sql: str):
-        calls.append(sql)
-        if sql.startswith("SELECT"):
-            return _completed("yoke_test_old\nnot_yoke\n")
-        return _completed()
-
-    monkeypatch.setattr(pg_testcluster, "_is_ready", lambda: True)
-    monkeypatch.setattr(pg_testcluster, "_psql", fake_psql)
-
-    assert pg_testcluster.prune_stale_test_databases() == 0
-    assert 'DROP DATABASE IF EXISTS "yoke_test_old"' in calls
-    assert all("not_yoke" not in sql for sql in calls if sql.startswith("DROP"))
-
-
-def test_prune_spares_databases_a_concurrent_run_may_be_about_to_use(monkeypatch):
-    """Concurrent local runs share one cluster by design.
-
-    A run that has just created a database but not yet connected to it looks
-    idle, so selecting on "no active connection" alone lets one run reclaim
-    another's databases. Measured against a live suite, the connection check
-    alone selected 26 of 30 in-use databases. The query must therefore also
-    require the database to have been quiet.
-    """
-    seen = []
-
-    def fake_psql(sql: str):
-        seen.append(sql)
-        return _completed("") if sql.startswith("SELECT") else _completed()
-
-    monkeypatch.setattr(pg_testcluster, "_is_ready", lambda: True)
-    monkeypatch.setattr(pg_testcluster, "_psql", fake_psql)
-
-    pg_testcluster.prune_stale_test_databases()
-
-    select = next(sql for sql in seen if sql.startswith("SELECT"))
-    assert "pg_stat_activity" in select
-    assert "modification" in select
-    assert f"'{pg_testcluster.STALE_TEST_DB_QUIET_MINUTES} minutes'" in select
-
-
-def test_prune_declines_when_database_age_cannot_be_read(monkeypatch, capsys):
-    # Falling back to the connection check alone would reintroduce the race on
-    # any cluster whose role cannot read server files. Leaving garbage for the
-    # next run is the strictly safer failure.
-    dropped = []
-
-    def fake_psql(sql: str):
-        if sql.startswith("SELECT"):
-            return _completed("permission denied", returncode=1)
-        dropped.append(sql)
-        return _completed()
-
-    monkeypatch.setattr(pg_testcluster, "_is_ready", lambda: True)
-    monkeypatch.setattr(pg_testcluster, "_psql", fake_psql)
-
-    assert pg_testcluster.prune_stale_test_databases() == 0
-    assert dropped == []
-    assert "skipping prune" in capsys.readouterr().err
-
-
-def test_prune_reports_what_it_reclaimed(monkeypatch, capsys):
-    # A silent prune let this cluster reach 275 leaked databases unnoticed.
-    def fake_psql(sql: str):
-        if sql.startswith("SELECT"):
-            return _completed("yoke_test_a\nyoke_test_b\n")
-        return _completed()
-
-    monkeypatch.setattr(pg_testcluster, "_is_ready", lambda: True)
-    monkeypatch.setattr(pg_testcluster, "_psql", fake_psql)
-
-    pg_testcluster.prune_stale_test_databases()
-
-    assert "reclaimed 2 leaked test database(s)" in capsys.readouterr().err
-
-
-def test_prune_stays_quiet_when_nothing_was_leaked(monkeypatch, capsys):
-    monkeypatch.setattr(pg_testcluster, "_is_ready", lambda: True)
-    monkeypatch.setattr(
-        pg_testcluster, "_psql", lambda sql: _completed("")
-    )
-
-    pg_testcluster.prune_stale_test_databases()
-
-    assert capsys.readouterr().err == ""
-
-
-def test_prepare_for_pytest_starts_then_prunes(monkeypatch):
-    calls = []
-    monkeypatch.setattr(
-        pg_testcluster, "ensure_started", lambda: calls.append("start") or 0
-    )
-    monkeypatch.setattr(
-        pg_testcluster,
-        "prune_stale_test_databases",
-        lambda: calls.append("prune") or 0,
-    )
-
-    assert pg_testcluster.prepare_for_pytest() == 0
-    assert calls == ["start", "prune"]
 
 
 def test_env_block_exports_cluster_root_and_dsn(monkeypatch):
