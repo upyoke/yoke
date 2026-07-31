@@ -6,8 +6,7 @@ import re
 from typing import Any, Mapping
 
 
-_CHANNELS = frozenset({"latest", "stable"})
-_ENV_CHANNEL = re.compile(r"\bYOKE_CHANNEL=(latest|stable)\b")
+_ENV_CHANNEL = re.compile(r"\bYOKE_CHANNEL=([A-Za-z0-9][A-Za-z0-9._-]{0,63})\b")
 
 
 def _walk(value: Any, *, path: str = "$"):
@@ -38,10 +37,27 @@ def require_case_environment_bindings(
 ) -> None:
     """Reject channel or interactive-target bindings outside *target*."""
     environment = target["environment"]
+    endpoints = target["endpoints"]
     expected_environment_id = str(environment.get("id") or "").strip()
-    expected_channel = str(target["endpoints"].get("release_channel") or "").strip()
+    expected_base_url = str(endpoints.get("installer_base_url") or "").rstrip("/")
+    expected_channel = str(endpoints.get("release_channel") or "").strip()
     for path, node in _mapping_nodes(case):
         if node.get("step") != "destination-picker":
+            if node.get("id") == "installer.current-release-prepare":
+                parameters = node.get("parameters")
+                parameters = parameters if isinstance(parameters, Mapping) else {}
+                declared_base_url = str(parameters.get("base_url") or "").rstrip("/")
+                declared_channel = str(parameters.get("channel") or "").strip()
+                if declared_base_url != expected_base_url:
+                    raise ValueError(
+                        f"mixed-environment QA installer endpoint at {path}: "
+                        f"{declared_base_url or 'missing'!r}"
+                    )
+                if declared_channel != expected_channel:
+                    raise ValueError(
+                        f"mixed-environment QA release channel at {path}: "
+                        f"{declared_channel or 'missing'!r}"
+                    )
             continue
         declared = str(node.get("target_environment_id") or "").strip()
         if not expected_environment_id:
@@ -53,7 +69,7 @@ def require_case_environment_bindings(
             )
     for path, value in _walk(case):
         key = path.rsplit(".", 1)[-1]
-        declared = value if key == "channel" and value in _CHANNELS else None
+        declared = value if key == "channel" and isinstance(value, str) else None
         if declared is None and isinstance(value, str):
             match = _ENV_CHANNEL.search(value)
             declared = match.group(1) if match is not None else None

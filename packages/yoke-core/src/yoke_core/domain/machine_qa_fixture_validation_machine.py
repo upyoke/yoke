@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+import re
 from typing import Any
+from urllib.parse import urlsplit
 
 from yoke_core.domain.machine_qa_fixture_constants import (
     CAMPAIGN_WORKSPACE_PATHS,
-    DISTRIBUTION_URL,
     EMPTY_TOKEN_PATH,
     FAKE_TOKEN_PATH,
+    HOSTED_STAGE_API_URL,
     INVALID_TOKEN_PATH,
     MANAGED_BLOCK_MARKER,
     MISSING_TOKEN_PATH,
@@ -32,6 +34,40 @@ from yoke_core.domain.machine_qa_fixture_validation_constants import (
     EXPECTED_CONNECTIONS,
     PRODUCT_STATE_PATHS,
 )
+
+
+_RELEASE_CHANNEL_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
+
+
+def _distribution_base_url(
+    operation_id: str,
+    parameters: Mapping[str, Any],
+) -> str:
+    value = bounded_text(operation_id, parameters, "base_url", max_length=2000)
+    parsed = urlsplit(value)
+    if (
+        parsed.scheme not in {"http", "https"}
+        or not parsed.hostname
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.query
+        or parsed.fragment
+    ):
+        raise operation_error(
+            operation_id,
+            "base_url must be a credential-free HTTP(S) endpoint",
+        )
+    return value.rstrip("/")
+
+
+def _release_channel(
+    operation_id: str,
+    parameters: Mapping[str, Any],
+) -> str:
+    value = bounded_text(operation_id, parameters, "channel", max_length=64)
+    if _RELEASE_CHANNEL_PATTERN.fullmatch(value) is None:
+        raise operation_error(operation_id, "channel is not a safe release label")
+    return value
 
 
 def _workspace_reset(parameters: Mapping[str, Any]) -> dict[str, Any]:
@@ -71,13 +107,8 @@ def _current_release(parameters: Mapping[str, Any]) -> dict[str, Any]:
             "evidence_name is not a safe fixture label",
         )
     return {
-        "base_url": exact_value(
-            operation_id,
-            parameters,
-            "base_url",
-            DISTRIBUTION_URL,
-        ),
-        "channel": exact_value(operation_id, parameters, "channel", "latest"),
+        "base_url": _distribution_base_url(operation_id, parameters),
+        "channel": _release_channel(operation_id, parameters),
         "evidence_name": evidence_name,
         "no_onboard": exact_value(
             operation_id,
@@ -237,7 +268,7 @@ def _connection_restore(parameters: Mapping[str, Any]) -> dict[str, Any]:
     operation_id = "machine.yoke-connection-restore"
     expected = {
         "active_env": "stage",
-        "api_url": DISTRIBUTION_URL,
+        "api_url": HOSTED_STAGE_API_URL,
         "require_existing_token": True,
         "token_path": "~/.yoke/secrets/stage.token",
     }

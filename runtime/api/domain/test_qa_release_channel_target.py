@@ -16,6 +16,9 @@ from yoke_core.domain.installer_campaign_plan_common import (
 from yoke_core.domain.machine_qa_method_contracts import (
     validate_machine_method_config,
 )
+from yoke_core.domain.machine_qa_fixture_validation import (
+    validate_setup_operations,
+)
 from yoke_core.domain.qa_execution_environment_target import (
     QaExecutionTargetError,
     _yoke_endpoints,
@@ -93,13 +96,15 @@ def test_projected_installer_cases_remain_executable(environment: str) -> None:
         assert actions["review"]["ready_timeout_seconds"] == 45
     for case in cases:
         for baseline in case.get("host_baselines") or [None]:
-            validate_machine_method_config(
+            config = validate_machine_method_config(
                 case["method_id"],
                 case["method_config"],
                 entry_surface=case.get("entry_surface"),
                 required_completion=case.get("required_completion"),
                 host_baseline=baseline,
             )
+            if "baseline_configs" not in config:
+                validate_setup_operations(config.get("setup_operations", []))
 
 
 @pytest.mark.parametrize(
@@ -127,3 +132,57 @@ def test_case_guard_requires_exact_interactive_environment_binding(binding) -> N
 
     with pytest.raises(QaExecutionTargetError, match="destination binding"):
         require_case_target(case, _target("stage"))
+
+
+def test_external_distribution_binding_is_generic_and_exact() -> None:
+    target = {
+        "environment": {"id": "customer-east-blue", "name": "blue"},
+        "endpoints": {
+            "installer_base_url": "https://downloads.example.net/yoke",
+            "release_channel": "customer-canary.7",
+        },
+    }
+    operation = {
+        "id": "installer.current-release-prepare",
+        "parameters": {
+            "base_url": target["endpoints"]["installer_base_url"],
+            "channel": target["endpoints"]["release_channel"],
+            "evidence_name": "external-release",
+            "no_onboard": True,
+            "remove_existing_launcher": True,
+        },
+    }
+    case = {"method_config": {"setup_operations": [operation]}}
+
+    require_case_target(case, target)
+    validate_setup_operations([operation])
+
+    operation["parameters"]["channel"] = "another-channel"
+    with pytest.raises(QaExecutionTargetError, match="release channel"):
+        require_case_target(case, target)
+
+
+def test_self_hosted_distribution_binding_accepts_local_http_target() -> None:
+    target = {
+        "environment": {"id": "local-machine", "name": "local"},
+        "endpoints": {
+            "installer_base_url": "http://127.0.0.1:8765/distribution",
+            "release_channel": "development",
+        },
+    }
+    operation = {
+        "id": "installer.current-release-prepare",
+        "parameters": {
+            "base_url": target["endpoints"]["installer_base_url"],
+            "channel": target["endpoints"]["release_channel"],
+            "evidence_name": "local-release",
+            "no_onboard": True,
+            "remove_existing_launcher": True,
+        },
+    }
+
+    require_case_target(
+        {"method_config": {"setup_operations": [operation]}},
+        target,
+    )
+    validate_setup_operations([operation])
