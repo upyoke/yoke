@@ -94,8 +94,11 @@ def _env() -> dict:
     return {**os.environ, "LC_ALL": "C", "LANG": "C"}
 
 
-def _run(argv, **kw) -> subprocess.CompletedProcess:
-    return subprocess.run(argv, env=_env(), text=True, capture_output=True, **kw)
+def _run(argv, *, env: dict | None = None, **kw) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        argv, env=env if env is not None else _env(),
+        text=True, capture_output=True, **kw,
+    )
 
 
 def dsn(spec: ClusterSpec, dbname: str = "postgres") -> str:
@@ -104,8 +107,22 @@ def dsn(spec: ClusterSpec, dbname: str = "postgres") -> str:
 
 
 def psql(
-    spec: ClusterSpec, sql: str, dbname: str = "postgres"
+    spec: ClusterSpec,
+    sql: str,
+    dbname: str = "postgres",
+    *,
+    statement_timeout_ms: int | None = None,
 ) -> subprocess.CompletedProcess:
+    """Run *sql* through ``psql``, optionally bounding how long it may block.
+
+    ``statement_timeout_ms`` travels as a connection option rather than a
+    leading ``SET``: ``psql -c`` wraps a multi-statement string in one
+    transaction, and ``DROP DATABASE`` cannot run inside a transaction block.
+    A bounded statement fails loudly instead of parking on a lock forever.
+    """
+    env = _env()
+    if statement_timeout_ms is not None:
+        env["PGOPTIONS"] = f"-c statement_timeout={statement_timeout_ms}"
     return _run(
         [
             binary(spec, "psql"),
@@ -117,7 +134,8 @@ def psql(
             dbname,
             "-Atc",
             sql,
-        ]
+        ],
+        env=env,
     )
 
 

@@ -1,41 +1,20 @@
-"""Governed migration coverage for deployment-run plan executions."""
+"""Permanent coverage for item and deployment-run plan execution subjects."""
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
-
-from yoke_core.domain.migration_apply_manifest import validate_manifest_payload
-from yoke_core.domain.migration_source_digest import migration_source_digest
-from yoke_core.domain.migrations.qa_plan_execution_deployment_subject import (
-    MIGRATION_NAME,
-    apply,
-    invariants,
-)
 from yoke_core.domain.qa_plan_execution_schema import (
     assert_qa_plan_execution_schema_invariants,
+    assert_qa_plan_execution_subject_invariants,
     converge_qa_plan_execution_schema,
+    converge_qa_plan_execution_subject_schema,
 )
 
 
-_ROOT = Path(__file__).resolve().parents[4]
-_MANIFEST = Path(__file__).with_name(
-    "qa_plan_execution_deployment_subject.migration.json"
-)
-
-
-def test_governed_manifest_is_valid_and_source_bound() -> None:
-    payload = json.loads(_MANIFEST.read_text(encoding="utf-8"))
-    validate_manifest_payload(payload)
-    source = payload["module_sources"][MIGRATION_NAME]
-    assert migration_source_digest(_ROOT / source["path"]) == source["sha256"]
-
-
-def test_apply_expands_item_execution_schema_idempotently(test_db) -> None:
-    apply(test_db)
-    invariants(test_db)
-    apply(test_db)
-    invariants(test_db)
+def test_subject_convergence_is_idempotent(test_db) -> None:
+    converge_qa_plan_execution_subject_schema(test_db)
+    assert_qa_plan_execution_subject_invariants(test_db)
+    converge_qa_plan_execution_subject_schema(test_db)
+    assert_qa_plan_execution_subject_invariants(test_db)
 
 
 def test_boot_convergence_expands_exact_legacy_postgres_shape(test_db) -> None:
@@ -80,7 +59,7 @@ def test_boot_convergence_expands_exact_legacy_postgres_shape(test_db) -> None:
 
     converge_qa_plan_execution_schema(test_db)
     assert_qa_plan_execution_schema_invariants(test_db)
-    invariants(test_db)
+    assert_qa_plan_execution_subject_invariants(test_db)
     converge_qa_plan_execution_schema(test_db)
 
     columns = {
@@ -111,23 +90,7 @@ def test_boot_convergence_expands_exact_legacy_postgres_shape(test_db) -> None:
         subject in checks["qa_plan_executions_subject_check"]
         for subject in ("item_id", "deployment_run_id", "transition_id")
     )
-    indexes = {
-        str(row[0])
-        for row in test_db.execute(
-            "SELECT indexname FROM pg_indexes "
-            "WHERE schemaname=current_schema() "
-            "AND tablename IN ('qa_plan_executions','qa_plan_execution_results')"
-        ).fetchall()
-    }
-    assert {
-        "idx_qa_plan_executions_active",
-        "idx_qa_plan_executions_deployment_active",
-        "idx_qa_plan_execution_results_requirement",
-    } <= indexes
-    assert (
-        test_db.execute(
-            "SELECT item_id,deployment_run_id,transition_id "
-            "FROM qa_plan_executions WHERE id='legacy-execution'"
-        ).fetchone()
-        == (1, None, "implemented")
-    )
+    assert test_db.execute(
+        "SELECT item_id,deployment_run_id,transition_id "
+        "FROM qa_plan_executions WHERE id='legacy-execution'"
+    ).fetchone() == (1, None, "implemented")

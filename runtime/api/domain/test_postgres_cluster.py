@@ -42,6 +42,46 @@ def test_dsn_targets_unix_socket_with_superuser(tmp_path):
     assert postgres_cluster.dsn(spec, dbname="other").endswith("dbname=other")
 
 
+def test_psql_carries_statement_timeout_as_a_connection_option(monkeypatch, tmp_path):
+    """A bounded statement must not ride in the SQL string.
+
+    ``psql -c`` wraps a multi-statement string in one transaction, and
+    ``DROP DATABASE`` cannot run inside a transaction block — so a leading
+    ``SET statement_timeout`` would break the very statements that most need
+    the bound. PGOPTIONS applies it at connect time instead.
+    """
+    spec = _spec(tmp_path)
+    seen = {}
+
+    def fake_run(argv, **kw):
+        seen["argv"] = argv
+        seen["env"] = kw.get("env")
+        return _completed()
+
+    monkeypatch.setattr(postgres_cluster, "_run", fake_run)
+
+    postgres_cluster.psql(spec, "DROP DATABASE x", statement_timeout_ms=5000)
+
+    assert seen["env"]["PGOPTIONS"] == "-c statement_timeout=5000"
+    assert "DROP DATABASE x" in seen["argv"]
+
+
+def test_psql_without_a_timeout_sets_no_connection_option(monkeypatch, tmp_path):
+    spec = _spec(tmp_path)
+    monkeypatch.delenv("PGOPTIONS", raising=False)
+    seen = {}
+
+    def fake_run(argv, **kw):
+        seen["env"] = kw.get("env")
+        return _completed()
+
+    monkeypatch.setattr(postgres_cluster, "_run", fake_run)
+
+    postgres_cluster.psql(spec, "SELECT 1")
+
+    assert "PGOPTIONS" not in (seen["env"] or {})
+
+
 def test_initdb_recovers_partial_nonempty_data_dir(monkeypatch, tmp_path):
     spec = _spec(tmp_path)
     partial_data = spec.data_dir
