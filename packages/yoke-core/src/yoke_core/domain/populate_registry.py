@@ -17,7 +17,7 @@ responsibilities:
 4. **Catalog rendering** — emit ``docs/event-catalog.md`` as a
    human-readable markdown table.
 
-The data tuples that drive the curated, corrective, deprecate, retire,
+The data tuples that drive the curated, corrective, deprecate, purge,
 and authoritative-metadata layers live in sibling modules:
 
 - :mod:`yoke_core.domain.populate_registry_data_curated`
@@ -53,14 +53,14 @@ from yoke_core.domain.populate_registry_apply import (
     _deprecate_retired_events,
     _ensure_authoritative_metadata,
     _ensure_registry_entry,
+    _purge_event_registry_entries,
     _register_curated_events,
-    _retire_events,
     _set_owner_service,
 )
 from yoke_core.domain.populate_registry_data_authoritative import (
     AUTHORITATIVE_METADATA,
     DEPRECATE_LIST,
-    RETIRE_LIST,
+    PURGED_EVENT_NAMES,
 )
 from yoke_core.domain.populate_registry_data_curated import (
     CORRECTIVE_UPDATES,
@@ -84,7 +84,7 @@ __all__ = [
     "CORRECTIVE_UPDATES",
     "SEVERITY_ONLY_UPDATES",
     "DEPRECATE_LIST",
-    "RETIRE_LIST",
+    "PURGED_EVENT_NAMES",
     "AUTHORITATIVE_METADATA",
     # Apply helpers (re-exported)
     "_ensure_registry_entry",
@@ -93,7 +93,7 @@ __all__ = [
     "_set_owner_service",
     "_ensure_authoritative_metadata",
     "_deprecate_retired_events",
-    "_retire_events",
+    "_purge_event_registry_entries",
     "_cleanup_test_sourced_entries",
     # Catalog rendering (re-exported)
     "_resolve_repo_root",
@@ -284,10 +284,10 @@ def populate(
     _apply_corrective_updates(db_path)
     _ensure_authoritative_metadata(db_path)
 
-    # Deprecate / retire.
+    # Deprecate inactive metadata and remove names with no producer.
     _deprecate_retired_events(db_path)
-    _retire_events(db_path)
     _cleanup_test_sourced_entries(db_path, discovered)
+    _purge_event_registry_entries(db_path)
 
     # Counts after the full pipeline.
     count_after = events_crud.cmd_registry_count(db_path=db_path, status="all")
