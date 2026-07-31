@@ -48,6 +48,9 @@ from yoke_core.domain.actor_permissions import (
 )
 from yoke_core.domain.db_read_constants import DB_READ_FUNCTION_ID
 from yoke_core.domain.function_authz_product_scopes import PRODUCT_AUTHZ_BY_ID
+from yoke_core.domain.function_authz_scope_client_local import (
+    CLIENT_LOCAL_BY_ID,
+)
 from yoke_core.domain.function_authz_types import (
     ACTOR_SESSION,
     CLIENT_LOCAL,
@@ -189,24 +192,7 @@ _BY_ID: dict[str, AuthzSpec] = {
     # impossible for a session that legitimately holds more than one claim.
     "claims.work.release_session_scoped": AuthzSpec(ACTOR_SESSION, None),
     "charge.schedule": AuthzSpec(ACTOR_SESSION, None),
-    # Machine-local config / repo writes — gated by machine possession.
-    "auth.set.run": AuthzSpec(CLIENT_LOCAL, None),
-    "connection.set.run": AuthzSpec(CLIENT_LOCAL, None),
-    "connection.remove.run": AuthzSpec(CLIENT_LOCAL, None),
-    "env.use.run": AuthzSpec(CLIENT_LOCAL, None),
-    "config.example.run": AuthzSpec(CLIENT_LOCAL, None),
-    "config.stamp_project_env.run": AuthzSpec(CLIENT_LOCAL, None),
-    "status.run": AuthzSpec(CLIENT_LOCAL, None),
-    "project.register.run": AuthzSpec(CLIENT_LOCAL, None),
-    "packs.get.run": AuthzSpec(CLIENT_LOCAL, None),
-    "packs.relink.run": AuthzSpec(CLIENT_LOCAL, None),
-    "packs.update.run": AuthzSpec(CLIENT_LOCAL, None),
-    "scratch.dispatch_inputs": AuthzSpec(CLIENT_LOCAL, None),
-    # Render-into-checkout helpers — local repo writes.
-    "agents.render.run": AuthzSpec(CLIENT_LOCAL, None),
-    "agents.render.check": AuthzSpec(CLIENT_LOCAL, None),
-    "packets.render.run": AuthzSpec(CLIENT_LOCAL, None),
-    "packets.check.run": AuthzSpec(CLIENT_LOCAL, None),
+    **CLIENT_LOCAL_BY_ID,
 }
 # Prefix families where every member shares a scope.
 _BY_PREFIX: tuple[tuple[str, AuthzSpec], ...] = (

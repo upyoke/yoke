@@ -89,7 +89,6 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke frontier list", "frontier"),
     _w("yoke board rebuild", "board"),
     _w("yoke board data get", "board"),
-    _w("yoke lint config show", "lint"),
     _w("yoke hook evaluate", "hook"),
     *EPIC_OPS_WRAPPED_ROWS,
     # qa writes.

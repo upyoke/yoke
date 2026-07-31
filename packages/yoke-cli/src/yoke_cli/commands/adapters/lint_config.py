@@ -53,6 +53,9 @@ def lint_config_show(args: List[str]) -> int:
     payload: Dict[str, Any] = {}
     if parsed.root is not None:
         payload["root"] = parsed.root
+    # Reads .yoke/lint-config from the caller's own tree, so it must run
+    # where that tree lives. A relayed call would resolve the workspace
+    # root on the server filesystem and report the wrong config.
     return dispatch_and_emit(
         function_id="lint.config.show",
         target=TargetRef(kind="global"),
@@ -60,6 +63,7 @@ def lint_config_show(args: List[str]) -> int:
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
         human_writer=_human_writer,
+        local_only=True,
     )
 
 

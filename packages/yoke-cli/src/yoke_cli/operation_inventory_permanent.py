@@ -78,6 +78,7 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
     # machine instead of crossing the function-call dispatcher.
     _p("yoke agents render", "agents.render", REASON_TOOL_SHAPED),
     _p("yoke agents render check", "agents.render", REASON_TOOL_SHAPED),
+    _p("yoke lint config show", "lint.config", REASON_TOOL_SHAPED),
     _p("yoke packets render", "packets", REASON_TOOL_SHAPED),
     _p("yoke packets check", "packets", REASON_TOOL_SHAPED),
     _p("yoke scratch dispatch-inputs", "scratch", REASON_TOOL_SHAPED),
