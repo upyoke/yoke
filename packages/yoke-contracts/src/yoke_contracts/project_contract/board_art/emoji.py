@@ -21,7 +21,7 @@ Allocation registry (canonical owner per glyph; reassignments noted):
     📝 refine · ✨ polish · ⚡ charge · 🧠 strategize · 🚨 escalate · 🔧 manual
     🔄 resume · ⏩ advance · ⏳ wait · 🎼 conduct · 🧑‍🌾 shepherd · 🎬 usher
     🧹 curate · 🩺 doctor · 🔮 simulate · 💡 idea · 🧾 wrapup · 🎮 do · 🍴 feed
-    📌 plan · 🪝 hook
+    📌 plan · 🪝 hook · 💨 dash
   Executors (sections_sessions_cells._EXECUTOR_EMOJI):
     🤖 claude-code · 🍎 claude-desktop · 🪟 claude-vscode · 📟 claude-cli
     📕 codex · 💻 codex-desktop · 🪄 codex-vscode · 📠 codex-cli
