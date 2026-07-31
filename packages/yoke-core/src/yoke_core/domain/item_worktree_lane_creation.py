@@ -1,4 +1,4 @@
-"""Claimed-item registration of additional worker and integration lanes."""
+"""Claimed-item registration of workflow worktree lanes."""
 
 from __future__ import annotations
 
@@ -94,7 +94,7 @@ def _same_project_branch_owner(
 
 
 @rollback_workflow_binding_write_errors
-def create_additional_item_worktree_lane(
+def _register_item_worktree_lane(
     conn: Any,
     *,
     item_id: int,
@@ -102,17 +102,12 @@ def create_additional_item_worktree_lane(
     branch: str,
     commit: bool = True,
 ) -> dict[str, Any]:
-    """Register one policy-allowed pathless lane for local provisioning.
+    """Register one policy-allowed lane for local provisioning.
 
     The universal worktree creator derives the machine-local path from this
     branch on its next preparation pass. The ordinary default-lane flow stays
-    separate and continues to choose its workflow-defined branch.
+    separate and chooses its workflow-defined branch before calling here.
     """
-    if lane_role not in ADDITIONAL_LANE_ROLES:
-        raise ItemWorktreeLaneCreationError(
-            "additional item worktree lanes must use role "
-            f"{LANE_WORKER!r} or {LANE_INTEGRATION!r}"
-        )
     branch_error = branch_validation_error(branch)
     if branch_error is not None:
         raise ItemWorktreeLaneCreationError(branch_error)
@@ -193,6 +188,30 @@ def create_additional_item_worktree_lane(
     return lane
 
 
+@rollback_workflow_binding_write_errors
+def create_additional_item_worktree_lane(
+    conn: Any,
+    *,
+    item_id: int,
+    lane_role: str,
+    branch: str,
+    commit: bool = True,
+) -> dict[str, Any]:
+    """Register one explicit worker or integration lane."""
+    if lane_role not in ADDITIONAL_LANE_ROLES:
+        raise ItemWorktreeLaneCreationError(
+            "additional item worktree lanes must use role "
+            f"{LANE_WORKER!r} or {LANE_INTEGRATION!r}"
+        )
+    return _register_item_worktree_lane(
+        conn,
+        item_id=item_id,
+        lane_role=lane_role,
+        branch=branch,
+        commit=commit,
+    )
+
+
 def ensure_default_item_worktree_lane(
     conn: Any,
     *,
@@ -234,7 +253,7 @@ def ensure_default_item_worktree_lane(
         return existing
     from yoke_core.domain.worktree_naming import worktree_name_for_item
 
-    return create_additional_item_worktree_lane(
+    return _register_item_worktree_lane(
         conn,
         item_id=item_id,
         lane_role=lane_role,

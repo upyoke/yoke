@@ -114,6 +114,47 @@ def test_blitz_creates_and_registers_a_real_default_worker_lane(
     ]
 
 
+def test_dash_creates_and_registers_a_real_default_implementation_lane(
+    git_repo,
+    yoke_db,
+    monkeypatch,
+):
+    conn = connect_test_db(yoke_db)
+    try:
+        ensure_item_worktree_schema(conn)
+        conn.execute(
+            "INSERT INTO items "
+            "(id, title, status, project_id, project_sequence) "
+            "VALUES (99224, 'Short implementation instruction', "
+            "'idea', 1, 99224)",
+        )
+        pin_test_item_workflow(conn, 99224, "dash")
+        conn.commit()
+    finally:
+        conn.close()
+    monkeypatch.setenv("YOKE_SESSION_ID", "dash-lane-owner")
+
+    result = create_worktree(
+        99224,
+        repo_root=str(git_repo),
+        config_path=_config_path(git_repo),
+        db_path=yoke_db,
+    )
+
+    assert result.error is None, result.error
+    assert len(result.worktrees) == 1
+    assert result.worktrees[0].lane_role == "implementation"
+    assert os.path.isdir(result.worktrees[0].path)
+    conn = connect_test_db(yoke_db)
+    try:
+        rows = list_item_worktrees(conn, 99224, active_only=True)
+    finally:
+        conn.close()
+    assert [(row["branch"], row["lane_role"]) for row in rows] == [
+        ("YOK-99224", "implementation")
+    ]
+
+
 def test_worktree_creation_reports_lane_persistence_failure(
     git_repo,
     yoke_db,

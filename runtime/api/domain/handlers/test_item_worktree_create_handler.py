@@ -171,6 +171,28 @@ def test_create_without_lane_arguments_ensures_the_default_lane(
     assert first.result_payload["worktree"]["lane_role"] == LANE_WORKER
 
 
+def test_create_without_lane_arguments_ensures_dash_implementation_lane(
+    test_db,
+    monkeypatch,
+) -> None:
+    insert_item(
+        test_db,
+        id=970,
+        workflow_id="dash",
+        status="idea",
+    )
+    _use_test_connection(monkeypatch, test_db)
+
+    first = item_worktree_create.handle_create(_request(970))
+    second = item_worktree_create.handle_create(_request(970))
+
+    assert first.primary_success is True
+    assert second.primary_success is True
+    assert first.result_payload["worktree"] == second.result_payload["worktree"]
+    assert first.result_payload["worktree"]["branch"] == "YOK-970"
+    assert first.result_payload["worktree"]["lane_role"] == LANE_IMPLEMENTATION
+
+
 def test_create_enforces_terminal_and_pinned_workflow_policy(
     test_db,
     monkeypatch,
