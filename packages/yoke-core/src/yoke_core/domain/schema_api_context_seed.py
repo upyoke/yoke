@@ -115,6 +115,7 @@ TOPIC_TABLES: dict[str, tuple[str, ...]] = {
         "events",
         "event_registry",
         "ouroboros_entries",
+        "ouroboros_entry_corrections",
         "item_sections",
         # Python helper surfaces — not SQL tables, but rendered alongside
         # the schema cheat sheet so agents learn the Postgres-native DB router

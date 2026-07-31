@@ -246,12 +246,11 @@ from yoke_cli.commands.adapters.shepherd_writes import (
     shepherd_verdict,
 )
 from yoke_cli.commands.adapters.misc import (
-    ouroboros_entry_get,
-    ouroboros_entry_list,
-    ouroboros_field_note_append,
-    ouroboros_field_note_get,
+    ouroboros_entry_get, ouroboros_entry_list, scratch_dispatch_inputs,
+)
+from yoke_cli.commands.adapters.ouroboros_field_note import (
+    ouroboros_field_note_append, ouroboros_field_note_get,
     ouroboros_field_note_list,
-    scratch_dispatch_inputs,
 )
 from yoke_cli.commands.adapters.ouroboros_writes import (
     ouroboros_entry_insert,

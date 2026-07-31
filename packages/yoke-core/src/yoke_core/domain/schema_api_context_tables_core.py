@@ -4,6 +4,7 @@ Pure data only — no I/O or DB connections."""
 from __future__ import annotations
 
 from yoke_core.domain.epic_task_membership import MEMBERSHIP_FINALIZED_COLUMN
+from yoke_core.domain.schema_api_context_tables_ouroboros import OUROBOROS_TABLES
 from yoke_core.domain.schema_api_context_tables_worktrees import ITEM_WORKTREE_TABLES
 
 CORE_TABLES: dict[str, dict] = {
@@ -68,6 +69,7 @@ CORE_TABLES: dict[str, dict] = {
         ),
     },
     **ITEM_WORKTREE_TABLES,
+    **OUROBOROS_TABLES,
     "epic_tasks": {
         "columns": [
             ("id", "INTEGER"),
@@ -300,29 +302,6 @@ CORE_TABLES: dict[str, dict] = {
         "notes": (
             "Event catalog keyed by `event_name`. There is NO `name` "
             "column on this table; use event_name for joins and lookups."
-        ),
-    },
-    "ouroboros_entries": {
-        "columns": [
-            ("id", "INTEGER"),
-            ("timestamp", "TEXT"),
-            ("agent", "TEXT"),
-            ("context", "TEXT"),
-            ("category", "TEXT"),
-            ("body", "TEXT"),
-            ("reviewed_at", "TEXT"),
-            ("archived_at", "TEXT"),
-            ("created_at", "TEXT"),
-            ("project_id", "INTEGER"),
-        ],
-        "notes": (
-            "Learning-log / field-note rows. The kind-like discriminator "
-            "is `category` and the evidence/content text is `body`; "
-            "there are NO `kind` or `evidence` columns on this table. "
-            "Project authority is numeric `project_id`; join projects for "
-            "the human slug. "
-            "Use `created_at` for canonical ordering; `timestamp` is "
-            "legacy compatibility."
         ),
     },
     "item_sections": {
