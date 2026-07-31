@@ -8,8 +8,7 @@ from runtime.harness.bootstrap import load_spec, render_compact, render_full
 
 
 FULL_YOKE_GATE = (
-    "uv run --frozen python3 -m yoke_core.tools.watch_pytest -- "
-    "runtime/api/ runtime/harness/ tests/"
+    "yoke watch pytest -- runtime/api/ runtime/harness/ tests/"
 )
 REPO_ROOT = Path(__file__).resolve().parents[2]
 

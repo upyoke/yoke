@@ -54,7 +54,7 @@ Include this section in the **Regression Analysis** part of your validation repo
 
 If a baseline failure list was provided in your dispatch prompt (as a file path), read it. Otherwise, capture it yourself using a **worktree-safe** approach — never `git checkout main` inside a worktree.
 
-**Capture-path discipline:** the inline recipe below uses `mktemp /tmp/yoke-test.XXXXXX` because baseline capture wraps the project's `{test_command}` (any shell suite, not just pytest) and feeds it through the portable timeout helper. When the test_command IS a pytest run that may exceed ~60s, prefer the watcher wrapper instead — `python3 -m yoke_core.tools.watch_pytest -- <pytest args>` mints raw + filtered captures via `yoke_core.domain.project_scratch_dir.mint_watcher_capture_pair("pytest")` under the machine temp root's watcher-captures directory and prints the resolved paths; inspect what the wrapper printed with `tail -80 <raw-capture>`. Operator carve-out: `--raw-capture <path>` pins the capture file to a known location (CI / artifact collection); the helper-resolved default is preferred. Do NOT hand-construct an OS-temp literal for the watcher capture — read the path the wrapper printed.
+**Capture-path discipline:** the inline recipe below uses `mktemp /tmp/yoke-test.XXXXXX` because baseline capture wraps the project's `{test_command}` (any shell suite, not just pytest) and feeds it through the portable timeout helper. When the test_command IS a pytest run that may exceed ~60s, prefer the watcher wrapper instead — `yoke watch pytest -- <pytest args>` mints raw + filtered captures via `yoke_core.domain.project_scratch_dir.mint_watcher_capture_pair("pytest")` under the machine temp root's watcher-captures directory and prints the resolved paths; inspect what the wrapper printed with `tail -80 <raw-capture>`. Operator carve-out: `--raw-capture <path>` pins the capture file to a known location (CI / artifact collection); the helper-resolved default is preferred. Do NOT hand-construct an OS-temp literal for the watcher capture — read the path the wrapper printed.
 
 ```bash
 # Find the main worktree path (worktree-safe — no branch switching)
@@ -100,7 +100,7 @@ Record the baseline trust level as `BASELINE_TRUST`: `TRUSTED` or `UNTRUSTED`. I
 
 ## Step 2: Capture branch failures
 
-Run the same test suite on the branch (the worktree's current state) using the same capture-first temp-file pattern as Step 1 — generic `mktemp /tmp/yoke-test.XXXXXX` for shell-suite test commands, and `python3 -m yoke_core.tools.watch_pytest -- <pytest args>` (with helper-minted captures under the machine temp root's watcher-captures directory) for pytest runs that may exceed ~60s. Record the set of **failing test names** as `BRANCH_FAILURES`. For each failure, also record the error/assertion message and failure location (same signals as Step 1).
+Run the same test suite on the branch (the worktree's current state) using the same capture-first temp-file pattern as Step 1 — generic `mktemp /tmp/yoke-test.XXXXXX` for shell-suite test commands, and `yoke watch pytest -- <pytest args>` (with helper-minted captures under the machine temp root's watcher-captures directory) for pytest runs that may exceed ~60s. Record the set of **failing test names** as `BRANCH_FAILURES`. For each failure, also record the error/assertion message and failure location (same signals as Step 1).
 
 ## Step 2a: Classify harness vs. product failures
 

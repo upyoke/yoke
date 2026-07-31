@@ -227,7 +227,7 @@ the prior unrecoverable branch).
 ## Verification
 
 ```bash
-python3 -m yoke_core.tools.watch_pytest -- runtime/api/domain/test_idea_readiness_repair.py runtime/api/test_skill_doc_regressions_file_budget.py
+yoke watch pytest -- runtime/api/domain/test_idea_readiness_repair.py runtime/api/test_skill_doc_regressions_file_budget.py
 yoke readiness check {N}
 yoke readiness repair-stale-count --item {N}
 ```

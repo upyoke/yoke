@@ -31,6 +31,7 @@ import re
 import sys
 from typing import List, Optional, Tuple
 
+from yoke_contracts.watch_cli_forms import WATCH_CLI_TOKENS, cli_form
 from yoke_core.domain.denial_field_note_footer import append_field_note_footer
 from runtime.harness.hook_runner.types import HookContext, HookDecision, Next, Outcome
 
@@ -47,6 +48,15 @@ _LONG_MODULE_IDS = (
     "yoke_core.tools.run_tests",
     "yoke_core.engines.doctor",
     "yoke_core.engines.deploy",
+    # The `yoke watch <kind>` commands are the taught spelling of the
+    # first three; match them so the guard is spelling-independent.
+    # `watch tail` is excluded: it follows a capture rather than producing
+    # a run whose failure context a truncator would discard.
+    *(
+        cli_form(module)
+        for module in WATCH_CLI_TOKENS
+        if module != "yoke_core.tools.watch_tail"
+    ),
 )
 
 _TRUNCATORS = frozenset({"tail", "head"})
@@ -147,7 +157,7 @@ def _format_reason(label: str, truncator: str, suppression_seen: bool, mode: str
         "a failing run reads as success to anything keying off `$?`.\n\n"
         "Correct shapes:\n"
         "  # watcher wrappers capture internally — run them bare, no pipe:\n"
-        "  python3 -m yoke_core.tools.watch_pytest -- <pytest args>\n"
+        "  yoke watch pytest -- <pytest args>\n"
         "  tail -80 <raw-capture>   # separate command, AFTER completion\n"
         "  # other long commands use capture-first:\n"
         "  _tmp=$(mktemp /tmp/yoke-cmd.XXXXXX)\n"

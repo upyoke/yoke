@@ -75,6 +75,9 @@ from yoke_core.tools._watch_throttle import Classification, LineClass
 
 WRAPPER_MODULE = "yoke_core.tools.watch_pytest"
 KIND = "pytest"
+# argparse prog for a direct module invocation; the CLI adapter passes the
+# ``yoke watch pytest`` form so help reads back the command as typed.
+DEFAULT_PROG = "watch_pytest"
 
 # Per-class regexes. Each is line-oriented; callers feed one line at a
 # time. Keeping them as separate constants lets tests exercise each
@@ -156,9 +159,11 @@ def _pytest_argv(args: Sequence[str]) -> list[str]:
     return [sys.executable, "-m", "pytest", *list(args)]
 
 
-def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
+def _parse_args(
+    argv: Sequence[str], prog: str = DEFAULT_PROG,
+) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        prog="watch_pytest",
+        prog=prog,
         description="Run pytest under a shared raw+progress watcher wrapper.",
         epilog=(
             "Full-suite shape: pass the three anchors 'runtime/api/ "
@@ -227,10 +232,10 @@ def _extract_print_streaming_pair(argv: list[str]) -> tuple[list[str], bool]:
     return filtered, found
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
     raw = list(sys.argv[1:] if argv is None else argv)
     raw, print_streaming_pair_flag = _extract_print_streaming_pair(raw)
-    ns = _parse_args(raw)
+    ns = _parse_args(raw, prog)
     if print_streaming_pair_flag:
         ns.print_streaming_pair = True
     pytest_args = _strip_separator(list(ns.passthrough))

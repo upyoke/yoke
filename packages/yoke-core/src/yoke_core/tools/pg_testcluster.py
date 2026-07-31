@@ -24,7 +24,7 @@ Subcommands::
 Typical local proof flow::
 
     eval "$(python3 -m yoke_core.tools.pg_testcluster start)"
-    python3 -m yoke_core.tools.watch_pytest -- runtime/api/
+    yoke watch pytest -- runtime/api/
     python3 -m yoke_core.tools.pg_testcluster destroy
 """
 

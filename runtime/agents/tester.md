@@ -42,7 +42,7 @@ NEVER rely on shell variables persisting across separate Bash tool calls. Each B
 **Worktree-anchored commands — do NOT `cd` into the worktree.** In subagent dispatch contexts the Bash cwd does not carry between separate tool calls; a `cd` in one call does not anchor sibling calls. The workspace lint `yoke_core.domain.lint_session_cwd` validates each call's target paths against your session's active work-claim (see AGENTS.md `## Code Conventions`), not against cwd. The working pattern is **anchored shapes**:
 
 - Git inspection: `git -C {worktree-path} status --porcelain`, `git -C {worktree-path} log --oneline`, `git -C {worktree-path} diff main...HEAD --name-only`
-- Pytest invocation: `python3 -m yoke_core.tools.watch_pytest -- --rootdir {worktree-path} <test-files>` (or pass `--rootdir {worktree-path}` through whichever pytest entrypoint your test plan uses)
+- Pytest invocation: `yoke watch pytest -- --rootdir {worktree-path} <test-files>` (or pass `--rootdir {worktree-path}` through whichever pytest entrypoint your test plan uses)
 - File reads: absolute paths under `{worktree-path}/` for Read/Grep/Glob tool calls
 - Shared-state reads (backlog, events, QA, claims): the registered `yoke <subcommand>` named in your packet — these resolve the canonical control-plane DB independent of cwd
 
@@ -187,7 +187,7 @@ When reading files >200 lines, use the Read tool's `offset` and `limit` paramete
    ```
    Post-capture `tail`/`head` usage on the temp file is fine.
 
-   **For long runs, stream progress via the foreground watcher wrapper.** When the expected runtime exceeds ~60s, run `python3 -m yoke_core.tools.watch_pytest -- <pytest args>` (or the subcommand-shaped `python3 -m yoke_core.tools.watch_merge done-transition <args>` / `python3 -m yoke_core.tools.watch_merge merge-worktree <args>` for merges) as a single foreground `Bash` invocation. The wrapper blocks within the same tool call, owns the progress regex, and writes a raw capture for post-completion inspection. This gives early-failure signal — stop the run on FAIL/ERROR instead of waiting for the full suite.
+   **For long runs, stream progress via the foreground watcher wrapper.** When the expected runtime exceeds ~60s, run `yoke watch pytest -- <pytest args>` (or the subcommand-shaped `yoke watch merge done-transition <args>` / `yoke watch merge merge-worktree <args>` for merges) as a single foreground `Bash` invocation. The wrapper blocks within the same tool call, owns the progress regex, and writes a raw capture for post-completion inspection. This gives early-failure signal — stop the run on FAIL/ERROR instead of waiting for the full suite.
 <!-- YOKE:HARNESS claude start -->
 
    **Subagent dispatched turns are foreground-only — never arm a background `Bash` task paired with `Monitor` and end the turn.** Dispatched subagent turns are atomic: a `Monitor` wake fired after this turn ends has nowhere to deliver, so the subagent suspends with an `agentId: <id> (use SendMessage with to: '<id>' to continue this agent)` envelope and the parent dispatch deadlocks. The watcher wrapper above runs foreground inside a single `Bash` tool call and exits before the turn does — that is the canonical long-command shape for subagents. After completion, inspect the helper-resolved raw capture (the path `--print-streaming-pair` emits, minted by `yoke_core.domain.project_scratch_dir.watcher_capture_path(...)` under the machine temp root's watcher-captures directory) with `tail -80`. If you passed `--raw-capture <path>` to pin the capture file to a known location (CI / artifact collection), inspect that path instead. If the turn budget cannot accommodate the foreground run, surface a tighter dispatch scope to the parent session — do not arm background work and return. See `session.md` `## Tool Constraints` for the full rule.
@@ -197,7 +197,7 @@ When reading files >200 lines, use the Read tool's `offset` and `limit` paramete
    # No --raw-capture: the wrapper mints both raw + progress captures via
    # project_scratch_dir.mint_watcher_capture_pair("pytest") and prints
    # the resolved paths. Inspect those after exit.
-   python3 -m yoke_core.tools.watch_pytest -- runtime/api/
+   yoke watch pytest -- runtime/api/
    # Operator carve-out: pass --raw-capture <PATH> to pin to a known path
    # (CI / artifact collection). The helper-resolved default is preferred.
    ```

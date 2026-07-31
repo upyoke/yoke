@@ -12,7 +12,8 @@ no child ``tail`` process behind once the wrapper finishes. This is
 the canonical replacement for the bare ``tail -f`` line that
 ``print_streaming_pair`` previously printed for the Monitor side.
 
-CLI: ``python3 -m yoke_core.tools.watch_tail <progress-file>``.
+CLI: ``yoke watch tail <progress-file>`` (module fallback:
+``python3 -m yoke_core.tools.watch_tail <progress-file>``).
 """
 
 from __future__ import annotations
@@ -28,8 +29,12 @@ from typing import Sequence, TextIO
 # ``_watch_runner.run_watcher`` -- single source of the literal in
 # that producer; the consumer pattern lives here in lockstep. The rc
 # may be negative (signal-killed child, e.g. ``exit=-15``).
+WRAPPER_MODULE = "yoke_core.tools.watch_tail"
 EXIT_SENTINEL = re.compile(r"^# watch_\w+ exit=-?\d+")
 DEFAULT_POLL_INTERVAL = 0.1
+# argparse prog for a direct module invocation; the CLI adapter passes the
+# ``yoke watch tail`` form so help reads back the command as typed.
+DEFAULT_PROG = "watch_tail"
 
 
 def follow(
@@ -72,9 +77,9 @@ def follow(
                 return 0
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
     parser = argparse.ArgumentParser(
-        prog="watch_tail",
+        prog=prog,
         description=(
             "Auto-exiting tail follower for Yoke watcher progress "
             "captures. Forwards existing content, follows for new "

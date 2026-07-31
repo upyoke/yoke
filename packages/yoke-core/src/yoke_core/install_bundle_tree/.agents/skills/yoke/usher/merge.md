@@ -210,7 +210,7 @@ elif [ "$_usher_generated_children" = "none" ] \
  # merge_worktree. Setting it here on the single-lane merge boundary is the
  # documented call shape, not an ad-hoc bypass. The companion `# lint:no-guard-check`
  # is recorded as audit evidence so reviewers can grep the call site.
- YOKE_DONE_TRANSITION=1 python3 -m yoke_core.tools.watch_merge merge-worktree -- YOK-{N} # lint:no-guard-check
+ YOKE_DONE_TRANSITION=1 yoke watch merge merge-worktree -- YOK-{N} # lint:no-guard-check
 else
  echo "BLOCK: unsupported pinned merge policy: children=$_usher_generated_children worktrees=$_usher_worktree_policy parallelism=$_usher_parallelism"
  exit 1
@@ -219,7 +219,7 @@ fi
 
 **Engine contract:** `YOKE_DONE_TRANSITION=1` is the standalone-branch boundary the merge engine recognises (see `packages/yoke-core/src/yoke_core/engines/merge_worktree_prepare.py` lines 141-147 for the guard, `packages/yoke-core/src/yoke_core/engines/done_transition_merge_ops.py` line 124 for the internal-engine setter). The watcher call above invokes the same engine contract on the single-lane boundary because that policy has no task-graph merge intermediary.
 
-**Streaming-wrapper form:** A merge is a long command, so per the Command Output streaming rule it normally runs under the watcher wrapper. `watch_merge merge-worktree` maps to `yoke_core.engines.merge_worktree`, but the wrapper **inherits the parent environment and does NOT auto-set or propagate `YOKE_DONE_TRANSITION=1`** — set it explicitly in the env prefix of the wrapper invocation too: `YOKE_DONE_TRANSITION=1 python3 -m yoke_core.tools.watch_merge merge-worktree -- YOK-{N}`. (`python3 -m yoke_core.tools.watch_merge --print-streaming-pair merge-worktree -- YOK-{N}` prints the background + Monitor pair; prepend `YOKE_DONE_TRANSITION=1` to the printed background command.)
+**Streaming-wrapper form:** A merge is a long command, so per the Command Output streaming rule it normally runs under the watcher wrapper. `watch_merge merge-worktree` maps to `yoke_core.engines.merge_worktree`, but the wrapper **inherits the parent environment and does NOT auto-set or propagate `YOKE_DONE_TRANSITION=1`** — set it explicitly in the env prefix of the wrapper invocation too: `YOKE_DONE_TRANSITION=1 yoke watch merge merge-worktree -- YOK-{N}`. (`yoke watch merge --print-streaming-pair merge-worktree -- YOK-{N}` prints the background + Monitor pair; prepend `YOKE_DONE_TRANSITION=1` to the printed background command.)
 
 **IMPROVISATION GUARD:** If lint blocks despite the audit comment, **STOP**. NEVER substitute raw done-transition or any other entrypoint for the single-lane merge call.
 
@@ -284,7 +284,7 @@ Then halt the entire usher batch — do NOT proceed to later items in the merge-
 - the last `Merge*Failed` / `MergeTargetStale` / `MergeVerificationFailed` event (query `events` for `event_name LIKE 'Merge%Failed' OR event_name = 'MergeTargetStale'`),
 - instructions to resume with `/yoke usher YOK-{N}` after the underlying cause is fixed.
 
-**Never** ignore the exit code and continue. **Never** mutate status to `done` or beyond without a fresh successful `python3 -m yoke_core.tools.watch_merge merge-worktree` run.
+**Never** ignore the exit code and continue. **Never** mutate status to `done` or beyond without a fresh successful `yoke watch merge merge-worktree` run.
 
 ### 7f. Post-Merge CI Check (ADVISORY)
 
