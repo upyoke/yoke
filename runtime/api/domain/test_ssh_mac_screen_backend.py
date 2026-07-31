@@ -53,18 +53,25 @@ def test_check_terminal_bridge_reports_direct_terminal_app_control(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     commands: list[str] = []
+    transcript_reads = 0
 
     def run(
         command: str,
         **_kwargs: object,
     ) -> subprocess.CompletedProcess[str]:
+        nonlocal transcript_reads
         commands.append(command)
         if "return id of targetWindow" in command:
             return _completed(command, stdout="445")
         if "return contents of selected tab" in command:
+            transcript_reads += 1
             return _completed(
                 command,
-                stdout="received-bbbbbbbbbbbb\n",
+                stdout=(
+                    "terminal-app-ready\n"
+                    if transcript_reads == 1
+                    else "received-bbbbbbbbbbbb\n"
+                ),
             )
         if 'tell application "System Events"' in command:
             return _completed(command, stdout="true")
@@ -101,6 +108,12 @@ def test_check_terminal_bridge_reports_direct_terminal_app_control(
         command for command in commands if 'tell application "System Events"' in command
     )
     assert "key code 36" in native_input
+    assert commands.index(native_input) > next(
+        index
+        for index, command in enumerate(commands)
+        if "return contents of selected tab" in command
+    )
+    assert transcript_reads == 2
     terminal_capture = next(
         command
         for command in commands

@@ -270,21 +270,33 @@ def verify_terminal_app_control(
         if window_id is None:
             return False, checks, "terminal_app_control_unavailable"
         checks["terminal_app_launch"] = True
-        checks["terminal_app_input"] = send_terminal_app_keys(
-            run,
-            window_id=window_id,
-            keys=(identity, "Enter"),
-        )
-        deadline = time.monotonic() + 5
-        while time.monotonic() < deadline:
+        ready = False
+        ready_deadline = time.monotonic() + 5
+        while time.monotonic() < ready_deadline:
             transcript = capture_terminal_app_transcript(
                 run,
                 window_id=window_id,
             )
-            if received in transcript:
-                checks["terminal_app_transcript"] = True
+            if "terminal-app-ready" in transcript:
+                ready = True
                 break
             time.sleep(0.1)
+        if ready:
+            checks["terminal_app_input"] = send_terminal_app_keys(
+                run,
+                window_id=window_id,
+                keys=(identity, "Enter"),
+            )
+            deadline = time.monotonic() + 5
+            while time.monotonic() < deadline:
+                transcript = capture_terminal_app_transcript(
+                    run,
+                    window_id=window_id,
+                )
+                if received in transcript:
+                    checks["terminal_app_transcript"] = True
+                    break
+                time.sleep(0.1)
         checks["terminal_app_screenshot"] = (
             _terminal_app_screenshot_payload(
                 run,
