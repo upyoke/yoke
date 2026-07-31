@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import pytest
+
 from runtime.api.fixtures import pg_testdb
+from yoke_core.domain import pg_test_db_namespace
 
 
 def test_setup_ambient_test_db_clones_template_and_registers_cleanup(monkeypatch):
@@ -19,7 +22,10 @@ def test_setup_ambient_test_db_clones_template_and_registers_cleanup(monkeypatch
 
     name = pg_testdb.setup_ambient_test_db()
 
-    assert name.startswith("yoke_test_ambient_gw3_")
+    # The worker id keeps two workers apart; the run tag keeps two concurrent
+    # invocations apart, which is what makes one shared cluster safe.
+    assert f"_{pg_testdb.AMBIENT_DB_PURPOSE}_gw3_" in name
+    assert pg_test_db_namespace.belongs_to_current_run(name)
     assert admin_sql == [f'CREATE DATABASE "{name}" TEMPLATE "yoke_test_tmpl"']
 
     cleanups[0]()
@@ -46,6 +52,7 @@ def test_fixture_template_db_builds_once_then_clones(monkeypatch):
     template = pg_testdb._fixture_template_db()
 
     assert template.startswith(pg_testdb.TEST_DB_PREFIX)
+    assert pg_test_db_namespace.belongs_to_current_run(template)
     assert admin_sql == [f'CREATE DATABASE "{template}"']
     assert len(applied) == 1
     assert closed == [True]
@@ -59,3 +66,29 @@ def test_fixture_template_db_builds_once_then_clones(monkeypatch):
 
     cleanups[0]()
     assert admin_sql[-1] == f'DROP DATABASE IF EXISTS "{template}" WITH (FORCE)'
+
+
+def test_refuses_to_drop_another_invocations_database(monkeypatch):
+    """The guard that makes concurrent runs safe without coordinating.
+
+    A run may only ever drop what it created. Reclaiming what an interrupted
+    run left behind belongs to the ownership-gated orphan sweep, which first
+    checks that the owning process has actually exited.
+    """
+    dropped = []
+    monkeypatch.setattr(pg_testdb, "_base_dsn", lambda: "host=/tmp dbname=postgres")
+    monkeypatch.setattr(pg_testdb, "_admin_execute", lambda sql: dropped.append(sql))
+    theirs = (
+        f"{pg_testdb.TEST_DB_PREFIX}"
+        f"{pg_test_db_namespace.mint_run_tag(pid=31337)}_abc"
+    )
+
+    with pytest.raises(RuntimeError, match="another invocation"):
+        pg_testdb.drop_test_database(theirs)
+
+    assert dropped == []
+
+
+def test_refuses_to_operate_on_a_non_test_database():
+    with pytest.raises(RuntimeError, match="non-test database"):
+        pg_testdb.drop_test_database("production")

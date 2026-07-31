@@ -17,10 +17,6 @@ Watchers maintain two distinct output artifacts:
 Each command-shaped wrapper (``watch_pytest``, ``watch_merge``, ...)
 ships only its line classifier — see
 :mod:`yoke_core.tools._watch_throttle` for the class taxonomy.
-
-``print_streaming_pair`` lives in
-:mod:`yoke_core.tools._watch_streaming_pair` and is re-exported here so
-wrappers keep reaching it through the runner.
 """
 
 from __future__ import annotations
@@ -34,8 +30,10 @@ import sys
 from pathlib import Path
 from typing import Callable, Optional, Sequence, TextIO
 
+from yoke_core.domain import process_group_reaping
 from yoke_core.domain.project_scratch_dir import mint_watcher_capture_pair
-from yoke_core.tools._watch_streaming_pair import print_streaming_pair
+# Re-exported so wrappers keep importing one watcher entrypoint.
+from yoke_core.tools._watch_streaming_pair import print_streaming_pair  # noqa: F401
 from yoke_core.tools._watch_throttle import (
     Classification,
     LineClass,
@@ -49,6 +47,9 @@ from yoke_core.tools._watch_throttle import (
 # underlying command (e.g., binary missing). Distinct from a successful
 # launch where the command exits non-zero.
 WRAPPER_LAUNCH_ERROR = 127
+#: Shell convention for "died on signal N": callers reading the exit code see
+#: 130 for Ctrl-C and 143 for SIGTERM rather than an ambiguous generic failure.
+_EXIT_STATUS_SIGNAL_BASE = 128
 PRINT_STREAMING_PAIR_FLAG = "--print-streaming-pair"
 QUIET_HEARTBEAT_SECONDS_ENV = "YOKE_WATCH_QUIET_HEARTBEAT_SECONDS"
 
@@ -179,7 +180,10 @@ def run_watcher(
         _emit_immediate(header, progress_f=progress_f, out=out)
 
         try:
-            proc = subprocess.Popen(
+            # A watched run is the one most likely to be interrupted, and its
+            # children (xdist workers) hold the databases. Own the whole group
+            # so an interruption can reap every descendant, not just pytest.
+            proc = process_group_reaping.popen_in_process_group(
                 list(argv),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
@@ -205,49 +209,68 @@ def run_watcher(
         assert proc.stdout is not None
         last_summary: Optional[str] = None
         quiet_seconds = float(os.environ.get(QUIET_HEARTBEAT_SECONDS_ENV, "60"))
-        with selectors.DefaultSelector() as selector:
-            selector.register(proc.stdout, selectors.EVENT_READ)
-            while True:
-                events = selector.select(timeout=quiet_seconds)
-                if not events:
-                    if proc.poll() is not None:
-                        break
-                    heartbeat = (
-                        f"# watch_{kind} still running; "
-                        f"no child output for {quiet_seconds:g}s\n"
-                    )
-                    _emit_immediate(heartbeat, progress_f=progress_f, out=out)
-                    continue
-                line = proc.stdout.readline()
-                if line == "":
-                    if proc.poll() is not None:
-                        break
-                    continue
-                raw_f.write(line)
-                classification = classifier(line)
-                cls = classification.cls
-                if cls is LineClass.NOISE:
-                    continue
-                if cls in (
-                    LineClass.URGENT,
-                    LineClass.SUMMARY,
-                    LineClass.METADATA,
-                ):
-                    _emit_immediate(line, progress_f=progress_f, out=out)
-                    if cls is LineClass.SUMMARY:
-                        last_summary = line
-                    continue
-                # PROGRESS — route through the throttle gate.
-                decision = gate.consider(classification)
-                if decision.emit:
-                    _emit_progress(
-                        line,
-                        suppressed=decision.suppressed_count,
-                        progress_f=progress_f,
-                        out=out,
-                    )
+        try:
+            with process_group_reaping.interruption_reaps_process_group(proc):
+                with selectors.DefaultSelector() as selector:
+                    selector.register(proc.stdout, selectors.EVENT_READ)
+                    while True:
+                        events = selector.select(timeout=quiet_seconds)
+                        if not events:
+                            if proc.poll() is not None:
+                                break
+                            heartbeat = (
+                                f"# watch_{kind} still running; "
+                                f"no child output for {quiet_seconds:g}s\n"
+                            )
+                            _emit_immediate(
+                                heartbeat, progress_f=progress_f, out=out
+                            )
+                            continue
+                        line = proc.stdout.readline()
+                        if line == "":
+                            if proc.poll() is not None:
+                                break
+                            continue
+                        raw_f.write(line)
+                        classification = classifier(line)
+                        cls = classification.cls
+                        if cls is LineClass.NOISE:
+                            continue
+                        if cls in (
+                            LineClass.URGENT,
+                            LineClass.SUMMARY,
+                            LineClass.METADATA,
+                        ):
+                            _emit_immediate(line, progress_f=progress_f, out=out)
+                            if cls is LineClass.SUMMARY:
+                                last_summary = line
+                            continue
+                        # PROGRESS — route through the throttle gate.
+                        decision = gate.consider(classification)
+                        if decision.emit:
+                            _emit_progress(
+                                line,
+                                suppressed=decision.suppressed_count,
+                                progress_f=progress_f,
+                                out=out,
+                            )
 
-        rc = proc.wait()
+                rc = proc.wait()
+        except process_group_reaping.ProcessGroupInterrupted as interruption:
+            # The guard has already reaped the child's whole group, so the
+            # databases that group held are released before this returns. Say
+            # so on every surface: an armed follower exits on the sentinel, and
+            # a run that died silently is indistinguishable from one still going.
+            rc = _EXIT_STATUS_SIGNAL_BASE + interruption.signal_number
+            reaped = (
+                f"# watch_{kind} interrupted by signal "
+                f"{interruption.signal_number}; child process group reaped\n"
+            )
+            raw_f.write(reaped)
+            _emit_immediate(reaped, progress_f=progress_f, out=out)
+            footer = f"# watch_{kind} exit={rc} raw={raw_capture}\n"
+            _emit_immediate(footer, progress_f=progress_f, out=out)
+            return rc
         # Re-emit the last SUMMARY line as an explicit terminal footer
         # before the exit sentinel. Mid-stream SUMMARY emits go through
         # `_emit_immediate` above, but agents reading the tail of the
@@ -279,15 +302,3 @@ def run_watcher(
         raw_f.close()
         progress_f.close()
 
-
-__all__ = [
-    "Classifier",
-    "PRINT_STREAMING_PAIR_FLAG",
-    "QUIET_HEARTBEAT_SECONDS_ENV",
-    "WRAPPER_LAUNCH_ERROR",
-    "filter_match",
-    "mint_capture_paths",
-    "print_streaming_pair",
-    "regex_classifier",
-    "run_watcher",
-]

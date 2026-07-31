@@ -1,8 +1,9 @@
-"""Ready-to-paste streaming-pair emission for the watcher wrappers.
+"""Rendering of the ready-to-paste streaming command pair.
 
-Split from :mod:`yoke_core.tools._watch_runner` so the runner stays under
-the authored-file line cap. The runner re-exports
-:func:`print_streaming_pair`, so callers keep importing it from there.
+Split from the watcher runtime so each file stays within the authored-
+file line limit: the runner owns running a command under the raw +
+progress contract, while this module owns telling a caller how to run
+one and follow it.
 """
 
 from __future__ import annotations
