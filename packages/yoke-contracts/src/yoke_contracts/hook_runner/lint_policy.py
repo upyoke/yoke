@@ -18,6 +18,13 @@ WARN = "warn"
 VALID_MODES = (DENY, WARN)
 ALLOW_WARN_TOKEN = "# allow-warn"
 CONFIG_RELPATH = (".yoke", "lint-config")
+# Consulted in order by ``find_workspace_root`` before falling back to
+# walking up from the starting directory. Reporting surfaces read this
+# rather than restating the order.
+WORKSPACE_ROOT_ENV_VARS: Tuple[str, ...] = (
+    "YOKE_TARGET_REPO_ROOT", "CLAUDE_PROJECT_DIR",
+    "CODEX_PROJECT_DIR", "YOKE_REPO_ROOT",
+)
 SNAPSHOT_PAYLOAD_KEY = "_yoke_lint_config"
 REMOTE_CLAUDE_CLI_GUARD = "lint_db_cmd_remote_claude_cli"
 DB_COMMAND_STABLE_CHECK_ID = "lint-sqlite-cmd"
@@ -201,7 +208,7 @@ def resolve_mode_from_snapshot(guard_or_module: str, snapshot: object) -> str:
 
 
 def find_workspace_root(start: str | os.PathLike[str] | None = None) -> Optional[Path]:
-    for key in ("YOKE_TARGET_REPO_ROOT", "CLAUDE_PROJECT_DIR", "CODEX_PROJECT_DIR", "YOKE_REPO_ROOT"):
+    for key in WORKSPACE_ROOT_ENV_VARS:
         value = os.environ.get(key)
         if value:
             return Path(value).expanduser().resolve(strict=False)

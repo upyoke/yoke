@@ -20,6 +20,7 @@ from yoke_cli.commands.registry_github_actions import (
 )
 from yoke_cli.commands.registry_identity import IDENTITY_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_projects import PROJECTS_SUBCOMMAND_REGISTRY
+from yoke_cli.commands.registry_qa import QA_SUBCOMMAND_REGISTRY
 from yoke_cli.commands import registry_product_surfaces as _product_surfaces
 from yoke_cli.commands.registry_readiness import READINESS_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_shepherd_dependency import (
@@ -127,43 +128,9 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ("packets", "check"): ("packets.check.run", _adapters.packets_check),
     ("board", "rebuild"): ("board.rebuild.run", _adapters.board_rebuild),
     ("board", "data", "get"): ("board.data.get", _adapters.board_data_get),
+    ("lint", "config", "show"): ("lint.config.show", _adapters.lint_config_show),
     ("hook", "evaluate"): ("hook.evaluate.run", _adapters.hook_evaluate),
-    ("qa", "requirement", "update"): (
-        "qa.requirement.update",
-        _adapters.qa_requirement_update,
-    ),
-    ("qa", "requirement", "waive"): (
-        "qa.requirement.waive",
-        _adapters.qa_requirement_waive,
-    ),
-    ("qa", "run", "record-verdict"): (
-        "qa.run.record_verdict",
-        _adapters.qa_run_record_verdict,
-    ),
-    ("qa", "browser-context", "get"): (
-        "qa.browser_context.get",
-        _adapters.qa_browser_context_get,
-    ),
-    ("qa", "run", "add"): ("qa.run.add", _adapters.qa_run_add),
-    ("qa", "run", "complete"): ("qa.run.complete", _adapters.qa_run_complete),
-    ("qa", "artifact", "add"): ("qa.artifact.add", _adapters.qa_artifact_add),
-    ("qa", "artifact", "presign"): (
-        "qa.artifact.presign",
-        _adapters.qa_artifact_presign,
-    ),
-    ("qa", "requirement", "list"): (
-        "qa.requirement.list",
-        _adapters.qa_requirement_list,
-    ),
-    ("qa", "requirement", "get"): ("qa.requirement.get", _adapters.qa_requirement_get),
-    ("qa", "requirement", "add"): ("qa.requirement.add", _adapters.qa_requirement_add),
-    ("qa", "requirement", "add-batch"): (
-        "qa.requirement.add_batch",
-        _adapters.qa_requirement_add_batch,
-    ),
-    ("qa", "run", "list"): ("qa.run.list", _adapters.qa_run_list),
-    ("qa", "run", "get"): ("qa.run.get", _adapters.qa_run_get),
-    ("qa", "gate-summary"): ("qa.gate_summary.run", _adapters.qa_gate_summary),
+    **QA_SUBCOMMAND_REGISTRY,
     ("doctor", "run"): ("doctor.run.run", _adapters.doctor_run),
     ("doctor", "last-run", "get"): (
         "doctor.last_run.get",

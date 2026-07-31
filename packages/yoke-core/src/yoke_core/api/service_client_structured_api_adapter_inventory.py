@@ -288,6 +288,15 @@ CLI_ADAPTERS: List[AdapterEntry] = [
             "recorded query plan; rendering and file writes stay client-side."
         ),
     ),
+    _read_entry(
+        function_id="lint.config.show",
+        cli_invocation="yoke lint config show [--root PATH]",
+        notes=(
+            "Reports the resolved .yoke/lint-config, how its root was chosen, "
+            "and each guard's effective mode, including a protected-guard warn "
+            "clamped back to deny for a missing allow-warn token."
+        ),
+    ),
     AdapterEntry(
         function_id="hook.evaluate.run",
         cli_invocation="yoke hook evaluate <event> [--dry-run]",
