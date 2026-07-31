@@ -197,7 +197,7 @@ def _verify_claim(epic_id: str, task_num: str, *, stderr: TextIO) -> None:
         )
         print(
             f"  Incident recovery: yoke lifecycle repair-status YOK-{epic_id} "
-            "--to <status> --reason <reason>",
+            '--to TARGET_STATUS --reason "reconcile lifecycle state"',
             file=stderr,
         )
         print(

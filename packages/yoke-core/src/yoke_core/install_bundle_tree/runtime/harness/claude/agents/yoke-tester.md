@@ -229,9 +229,9 @@ yoke claims work release --item YOK-N --reason progress-log-append-complete`
   - `yoke <family> --help
 yoke ouroboros field-note append --kind new --evidence 'Missing CLI adapter for items.foo.bar; agent surface boundary forbids HTTP/direct runtime import shapes'`
   - `.yoke/docs/db-reference/functions.md` lists the registered function ids per family, and the matching `yoke <subcommand> --help` carries that adapter's variants and flag matrix. The CLI grammar is reversible — dots become spaces, underscores become hyphens, a terminal `.run`/`.execute` drops — so a function id predicts its adapter name. **When you hit a recipe gap, fire `yoke ouroboros field-note append` immediately — before retrying, before moving on.** Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree. Do not start the function-call HTTP server or call the dispatcher from an ad-hoc Python one-liner to work around a missing adapter.
-- _Session lifecycle — heartbeat / checkpoint / mode-switch / surrender-claims_
-  - `yoke claims work release --all-mine`
-  - Session heartbeat/checkpoint/touch/offer remain pending wrapper surfaces and are harness/orchestrator responsibilities, not agent recipes. The harness owns session lifecycle — Stop / SessionEnd hooks run the hook-runner cleanup helper; subagents never terminate sessions themselves. `yoke claims work release --all-mine` is the agent-shaped primitive for surrendering work without terminating the session; the pre-tool lint `lint_no_agent_session_end` refuses agent-dispatched shutdown-helper invocations.
+- _Operator-mode lifecycle repair after authoritative drift_
+  - `yoke lifecycle repair-status YOK-N --from CURRENT --to TARGET --reason 'operator-authored reconciliation' --dry-run`
+  - First run `yoke sessions touch --mode operator`; drop --dry-run to apply. `lifecycle.repair_status.execute` works over HTTPS/local, checks project permission and the pinned workflow, and limits its audited claim bypass to this request. Use `yoke claims work release --all-mine` to surrender claims without ending the session.
 - _Branch / commit / CI inspection (read-only)_
   - `git -C $(git rev-parse --show-toplevel) status --short --branch
 git -C $(git rev-parse --show-toplevel) log --oneline -20
