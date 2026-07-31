@@ -19,7 +19,7 @@ Helpers exported:
 - :func:`_set_owner_service`: narrow ``owner_service`` UPDATE.
 - :func:`_ensure_authoritative_metadata`: final metadata pass.
 - :func:`_deprecate_retired_events`: mark deprecated events.
-- :func:`_retire_events`: mark retired events.
+- :func:`_purge_event_registry_entries`: remove obsolete entries.
 - :func:`_cleanup_test_sourced_entries`: deprecate test-only entries.
 """
 
@@ -32,7 +32,7 @@ from yoke_core.domain.db_helpers import connect, query_rows
 from yoke_core.domain.populate_registry_data_authoritative import (
     AUTHORITATIVE_METADATA,
     DEPRECATE_LIST,
-    RETIRE_LIST,
+    PURGED_EVENT_NAMES,
 )
 from yoke_core.domain.populate_registry_data_curated import (
     CORRECTIVE_UPDATES,
@@ -78,6 +78,8 @@ def _ensure_registry_entry(
 def _register_curated_events(db_path: Optional[str]) -> None:
     """Explicitly register curated events idempotently."""
     for name, kind, event_type, service, desc, severity in CURATED_EVENTS:
+        if name in PURGED_EVENT_NAMES:
+            continue
         events_crud.cmd_registry_add(
             db_path=db_path,
             name=name,
@@ -92,6 +94,8 @@ def _register_curated_events(db_path: Optional[str]) -> None:
 def _apply_corrective_updates(db_path: Optional[str]) -> None:
     """Run the corrective UPDATEs that override stale auto-inferred metadata."""
     for name, kind, event_type, service, desc, severity in CORRECTIVE_UPDATES:
+        if name in PURGED_EVENT_NAMES:
+            continue
         try:
             events_crud.cmd_registry_update(
                 db_path=db_path,
@@ -111,6 +115,8 @@ def _apply_corrective_updates(db_path: Optional[str]) -> None:
 
     for severity, names in SEVERITY_ONLY_UPDATES:
         for name in names:
+            if name in PURGED_EVENT_NAMES:
+                continue
             try:
                 events_crud.cmd_registry_update(
                     db_path=db_path,
@@ -152,6 +158,8 @@ def _set_owner_service(db_path: Optional[str], name: str, service: str) -> None:
 def _ensure_authoritative_metadata(db_path: Optional[str]) -> None:
     """Apply the authoritative metadata table."""
     for name, kind, event_type, service, severity, description in AUTHORITATIVE_METADATA:
+        if name in PURGED_EVENT_NAMES:
+            continue
         _ensure_registry_entry(
             db_path=db_path,
             name=name,
@@ -175,14 +183,11 @@ def _deprecate_retired_events(db_path: Optional[str]) -> None:
             continue
 
 
-def _retire_events(db_path: Optional[str]) -> None:
-    for name in RETIRE_LIST:
+def _purge_event_registry_entries(db_path: Optional[str]) -> None:
+    """Delete registry rows for names with no remaining live producer."""
+    for name in PURGED_EVENT_NAMES:
         try:
-            events_crud.cmd_registry_update(
-                db_path=db_path,
-                name=name,
-                status="retired",
-            )
+            events_crud.cmd_registry_delete(db_path=db_path, name=name)
         except LookupError:
             continue
 

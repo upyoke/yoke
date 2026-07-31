@@ -214,3 +214,35 @@ git diff --name-only --diff-filter=ACMR <base>...HEAD \
 Review the newline-delimited output, then pass the exact existing paths to
 `watch_pytest`. Do not pipe NUL-delimited Git output through `rg -z`, and never
 feed a filter diagnostic to pytest as a filename.
+
+## Concurrent local runs
+
+One disposable PostgreSQL cluster serves every test invocation on the
+machine, and any number of them may run at once — a full three-anchor gate,
+a second gate, and a raw `uv run --frozen python3 -m pytest <one file>` all
+at the same time. Isolation comes from the database names rather than from a
+cluster per run:
+
+- Every database an invocation creates carries that invocation's run tag,
+  minted once and published through `YOKE_TEST_RUN_TAG` so pytest-xdist
+  workers share their controller's identity.
+- An invocation may only ever drop databases carrying its own tag. Nothing a
+  running suite does can reach another run's databases.
+- Databases left behind by an interrupted run are reclaimed by an orphan
+  sweep that first confirms the owning process has exited, then drops with
+  `FORCE` under a bounded statement timeout. It runs at cluster preparation
+  and is also available directly:
+
+```bash
+python3 -m yoke_core.tools.pg_testcluster prune
+```
+
+Interrupting a run through `watch_pytest`, `run_tests`, or a QA registered
+command terminates and reaps the whole process group, so xdist workers do
+not outlive the run and keep its databases open. Only `SIGKILL` can bypass
+that, which is what the orphan sweep backstops.
+
+`YOKE_PG_CLUSTER_ROOT` still points an invocation at a wholly private
+cluster. That is an escape hatch for a wedged shared cluster, not the normal
+isolation mechanism — a full `initdb` per run would slow ordinary iteration
+without adding safety the run tag does not already provide.
