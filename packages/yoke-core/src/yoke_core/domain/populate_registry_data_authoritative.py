@@ -6,9 +6,8 @@ authoritative-metadata layers of the populator pipeline:
 
 - :data:`DEPRECATE_LIST`: events to mark ``deprecated`` because they have
   zero active call sites (and, where verified, zero historical rows).
-- :data:`RETIRE_LIST`: events to mark ``retired`` because they were
-  renamed to a newer name; historical rows remain in the events ledger
-  under the old name but no new ones are written.
+- :data:`PURGED_EVENT_NAMES`: event names removed from both the registry
+  and the ledger because no live producer remains.
 - :data:`EXPECTED_LOW_CADENCE_ACTIVE`: active events that are intentionally
   absent for more than 30 days because they represent rare failures,
   operator overrides, or recovery paths.
@@ -37,11 +36,6 @@ DEPRECATE_LIST: Tuple[str, ...] = (
     "DeploymentRunCreated",
     "DeploymentRunItemAdded",
     "DeploymentRunItemRemoved",
-    # Browser baseline events declared in curated metadata but never wired
-    # to an emitter — no live call sites and no successor name. Mark
-    # deprecated so the stale-active doctor check stops flagging them.
-    "BaselinePromoted",
-    "BaselineRecorded",
     # /yoke charge dispatch-decision event declared in authoritative
     # metadata but never wired to an emitter; the charge skill records
     # decisions through ChargeFrontierObserved / FrontierStepSelected
@@ -55,13 +49,10 @@ DEPRECATE_LIST: Tuple[str, ...] = (
     # an emitter; artifact tracking happens inline on the qa_runs row.
     # No successor name, no live call sites.
     "QAArtifactAttached",
-    # Discovery contamination: auto-discovery misread the literal
-    # severity string "INFO" as an event name.
-    "INFO",
 )
 
-# Events to mark ``retired`` (not ``deprecated``) — replaced by a newer name.
-RETIRE_LIST: Tuple[str, ...] = (
+# Events removed from the registry and ledger; audit references are preserved.
+PURGED_EVENT_NAMES: Tuple[str, ...] = (
     "ModeChosen",
     # AgentSessionStarted was renamed first to SessionSentFirstUserPromptSubmit,
     # then to HarnessSessionSentFirstUserPromptSubmit, because the old name
@@ -145,6 +136,14 @@ RETIRE_LIST: Tuple[str, ...] = (
     # session-end deferral path; historical rows remain in the ledger,
     # no new ones fire.
     "HarnessSessionEndDeferred",
+    "BaselinePromoted",
+    "BaselineRecorded",
+    "Gen3I6CleanRoomSmoke",
+    "HarnessSessionEndCleanupCompleted",
+    "OuroborosRecipeEventAppended",
+    "PassedToUsherHandoff",
+    "INFO",
+    "TestEvent",
 )
 
 

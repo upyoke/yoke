@@ -19,11 +19,40 @@ from yoke_core.domain import (
 )
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.time_sql import now_sql
+from yoke_core.domain.populate_registry_data_authoritative import (
+    PURGED_EVENT_NAMES,
+)
 
 # Rolling-state retention for session_tool_calls (Session-tool-call). 7 days
 # comfortably covers every reader: the lints look back <=30 minutes and
 # the orphan sweep runs at session end.
 SESSION_TOOL_CALLS_RETENTION_DAYS = 7
+_EVENT_AUDIT_REFERENCE_TABLES = (
+    "path_moves",
+    "path_context_values",
+    "path_integrity_repairs",
+)
+
+
+def _purged_event_where(conn) -> tuple[str, tuple[str, ...]]:
+    """Return the safe predicate for explicit obsolete-event cleanup."""
+    placeholder = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    names = tuple(PURGED_EVENT_NAMES)
+    where = "event_name IN (" + ", ".join(placeholder for _ in names) + ")"
+    for table in _EVENT_AUDIT_REFERENCE_TABLES:
+        if _table_exists(conn, table):
+            where += (
+                " AND event_id NOT IN "
+                f"(SELECT recorded_event_id FROM {table} "
+                "WHERE recorded_event_id IS NOT NULL)"
+            )
+    return where, names
+
+
+def _purged_event_count(conn) -> int:
+    """Count obsolete ledger rows that are not pinned by audit records."""
+    where, params = _purged_event_where(conn)
+    return int(query_scalar(conn, f"SELECT COUNT(*) FROM events WHERE {where}", params) or 0)
 
 
 def _ledger_count(conn) -> int:
@@ -49,13 +78,14 @@ def _intent_count(conn) -> int:
 def cmd_prune(db_path: Optional[str] = None, dry_run: bool = False) -> str:
     """Per-severity retention pruning (+ rolling-state TTLs).
 
-    bounded retention-only destructive maintenance. Not wrapped
+    Bounded retention-only destructive maintenance. Not wrapped
     in ``GovernedMigration`` because the operation has non-zero expected
     delta by design (DEBUG > 1d, INFO > 30d, WARN > 90d; STATUS never
     pruned; ``function_call_ledger`` rows past their replay TTL; terminal
     ``github_workflow_dispatch_intents`` rows past their retention TTL (pending
     ambiguity is never age-pruned);
-    ``session_tool_calls`` rows past their rolling-state retention).
+    ``session_tool_calls`` rows past their rolling-state retention; and
+    explicitly obsolete event names with no live producer).
     Instead, a ``migration_audit`` fingerprint is emitted after
     a real (non-dry-run) prune so the destructive-maintenance doctor HC
     can surface the operation.  The fingerprint carries:
@@ -70,6 +100,7 @@ def cmd_prune(db_path: Optional[str] = None, dry_run: bool = False) -> str:
     try:
         has_tool_calls = _table_exists(conn, "session_tool_calls")
         if dry_run:
+            purged_event_count = _purged_event_count(conn)
             debug_count = query_scalar(
                 conn,
                 "SELECT COUNT(*) FROM events "
@@ -96,7 +127,8 @@ def cmd_prune(db_path: Optional[str] = None, dry_run: bool = False) -> str:
                 f"WHERE started_at < {now_sql(offset_days=-SESSION_TOOL_CALLS_RETENTION_DAYS)}",
             ) if has_tool_calls else 0
             lines = [
-                f"Would prune: DEBUG={debug_count}, INFO={info_count}, WARN={warn_count}",
+                f"Would prune: DEBUG={debug_count}, INFO={info_count}, WARN={warn_count}, "
+                f"obsolete={purged_event_count}",
                 f"(STATUS={status_count} events retained indefinitely)",
                 f"function_call_ledger: {ledger_count} rows past "
                 f"{function_call_ledger.LEDGER_TTL_DAYS}d replay TTL",
@@ -120,6 +152,11 @@ def cmd_prune(db_path: Optional[str] = None, dry_run: bool = False) -> str:
                     conn, "SELECT COUNT(*) FROM session_tool_calls"
                 ) or 0
             ) if has_tool_calls else 0
+            purged_event_where, purged_event_params = _purged_event_where(conn)
+            purged_events = conn.execute(
+                f"DELETE FROM events WHERE {purged_event_where}",
+                purged_event_params,
+            ).rowcount
             # cursor.rowcount gives rows-affected on Postgres.
             debug_pruned = conn.execute(
                 "DELETE FROM events WHERE severity='DEBUG' "
@@ -150,7 +187,7 @@ def cmd_prune(db_path: Optional[str] = None, dry_run: bool = False) -> str:
                 f"Pruned: DEBUG={debug_pruned}, INFO={info_pruned}, "
                 f"WARN={warn_pruned}, function_call_ledger={ledger_pruned}, "
                 f"github_workflow_dispatch_intents={intents_pruned}, "
-                f"session_tool_calls={tool_calls_pruned}"
+                f"session_tool_calls={tool_calls_pruned}, obsolete={purged_events}"
             ]
 
             # Emit an audit fingerprint so the prune is discoverable
@@ -191,7 +228,8 @@ def cmd_prune(db_path: Optional[str] = None, dry_run: bool = False) -> str:
                     "(pending never age-pruned); "
                     f"session_tool_calls rows older than "
                     f"{SESSION_TOOL_CALLS_RETENTION_DAYS}d="
-                    f"{tool_calls_pruned}."
+                    f"{tool_calls_pruned}; obsolete event rows="
+                    f"{purged_events}."
                 ),
                 tables=[
                     "events",
@@ -217,8 +255,9 @@ def cmd_prune(db_path: Optional[str] = None, dry_run: bool = False) -> str:
                     "idempotency-ledger rows past their replay TTL; "
                     "terminal workflow-dispatch intents past their TTL, while "
                     "pending ambiguous intents are preserved indefinitely; "
-                    "session_tool_calls rows past rolling-state retention). "
-                    "STATUS rows are preserved indefinitely. "
+                    "session_tool_calls rows past rolling-state retention; "
+                    "named obsolete events with no live producer). STATUS "
+                    "rows are preserved indefinitely. "
                     "GovernedMigration wrap is incompatible with the "
                     "delete-by-age shape; paired decision record lives at "
                     "docs/archive/decisions/events-prune.md. "

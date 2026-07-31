@@ -77,7 +77,10 @@ if not (
 ):
     from yoke_core.tools import pg_testcluster as _pg_testcluster  # noqa: E402
 
-    _pg_rc = _pg_testcluster.ensure_started()
+    # prepare_for_pytest, not ensure_started: a run launched directly (raw
+    # pytest, an IDE, a -k filter) never passes through a wrapper, so this is
+    # where it inherits the ownership-gated orphan sweep too.
+    _pg_rc = _pg_testcluster.prepare_for_pytest()
     if _pg_rc != 0:
         raise RuntimeError(
             "failed to start local Postgres test cluster; run "

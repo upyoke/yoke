@@ -51,6 +51,32 @@ def _py_string_value(node: ast.AST) -> Optional[str]:
     return None
 
 
+def _event_name_constants(tree: ast.AST) -> dict[str, str]:
+    """Return module-level ``*_EVENT_NAME`` string constants by identifier."""
+    constants: dict[str, str] = {}
+    for node in tree.body if isinstance(tree, ast.Module) else []:
+        if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+            continue
+        value = _py_string_value(node.value)
+        if value is None or not _validate_event_name(value):
+            continue
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+        for target in targets:
+            if isinstance(target, ast.Name) and target.id.endswith("_EVENT_NAME"):
+                constants[target.id] = value
+    return constants
+
+
+def _event_name_value(node: ast.AST, constants: dict[str, str]) -> Optional[str]:
+    """Resolve a literal event name or a module-level event-name constant."""
+    literal = _py_string_value(node)
+    if literal is not None:
+        return literal
+    if isinstance(node, ast.Name):
+        return constants.get(node.id)
+    return None
+
+
 def _validate_event_name(name: str) -> bool:
     """Check PascalCase event name."""
     if not name:
@@ -68,6 +94,7 @@ def _discover_python_event_names(content: str) -> List[str]:
         return []
 
     discovered: List[str] = []
+    constants = _event_name_constants(tree)
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
@@ -101,7 +128,7 @@ def _discover_python_event_names(content: str) -> List[str]:
         event_name = None
         for kw in node.keywords:
             if kw.arg in ("name", "event_name"):
-                candidate = _py_string_value(kw.value)
+                candidate = _event_name_value(kw.value, constants)
                 if candidate and _validate_event_name(candidate):
                     event_name = candidate
                     break
@@ -110,7 +137,7 @@ def _discover_python_event_names(content: str) -> List[str]:
             continue
 
         for arg in node.args:
-            candidate = _py_string_value(arg)
+            candidate = _event_name_value(arg, constants)
             if candidate and _validate_event_name(candidate):
                 discovered.append(candidate)
                 break

@@ -30,11 +30,11 @@ from __future__ import annotations
 
 import argparse
 import os
-import subprocess
 import sys
 from pathlib import Path
 from typing import List, Sequence, TextIO
 
+from yoke_core.domain import process_group_reaping
 from yoke_core.tools._pytest_parallel import (
     apply_parallel_default,
     apply_postgres_xdist_auto_env,
@@ -43,6 +43,9 @@ from yoke_core.tools import _source_pythonpath
 
 
 DEFAULT_TESTPATHS: tuple[str, ...] = ("runtime/api", "runtime/harness", "tests")
+
+#: Shell convention for "died on signal N" (130 = Ctrl-C, 143 = SIGTERM).
+_EXIT_STATUS_SIGNAL_BASE = 128
 
 
 def _repo_root(start: Path | None = None) -> Path:
@@ -182,8 +185,17 @@ def run(
             print(f"Error: {refusal}", file=sys.stderr)
             return 1
 
-    completed = subprocess.run(cmd, cwd=str(root), env=env)
-    return completed.returncode
+    # Own the process group so an interrupted run takes its xdist workers down
+    # with it. Workers that outlive the runner keep their test databases open,
+    # and the next run then blocks on databases nobody is using.
+    proc = process_group_reaping.popen_in_process_group(
+        cmd, cwd=str(root), env=env
+    )
+    try:
+        with process_group_reaping.interruption_reaps_process_group(proc):
+            return proc.wait()
+    except process_group_reaping.ProcessGroupInterrupted as interruption:
+        return _EXIT_STATUS_SIGNAL_BASE + interruption.signal_number
 
 
 def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
