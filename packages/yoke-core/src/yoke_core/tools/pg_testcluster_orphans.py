@@ -211,7 +211,10 @@ def start_detached_orphan_sweep() -> None:
     """
     try:
         subprocess.Popen(
-            [sys.executable, "-m", "yoke_core.tools.pg_testcluster_orphans", "prune"],
+            # The frontend owns the command-line entry point; this module has
+            # none, and a spawn naming it would die instantly on a missing
+            # __main__ — silently, since the streams below are discarded.
+            [sys.executable, "-m", "yoke_core.tools.pg_testcluster", "prune"],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             stdin=subprocess.DEVNULL,
