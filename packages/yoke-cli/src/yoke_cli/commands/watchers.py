@@ -158,10 +158,23 @@ def _wrapper_main(wrapper_module: str) -> WrapperMain:
     return entrypoints.WRAPPER_MAINS[wrapper_module]
 
 
+def _render_help(wrapper_main: WrapperMain, cli_form: str) -> int:
+    """Print the wrapper's own help under the command as typed.
+
+    ``argparse`` prints help and raises ``SystemExit`` rather than
+    returning, so the exit code comes off the exception; every adapter
+    contract in the CLI returns an int.
+    """
+    try:
+        return int(wrapper_main(["--help"], prog=cli_form))
+    except SystemExit as exit_request:
+        return int(exit_request.code or 0)
+
+
 def _run(wrapper_module: str, cli_form: str, args: List[str]) -> int:
     wrapper_main = _wrapper_main(wrapper_module)
     if _wants_help(args):
-        return int(wrapper_main(["--help"], prog=cli_form))
+        return _render_help(wrapper_main, cli_form)
     argv = reexec_argv(wrapper_module, args)
     if argv is None:
         return int(wrapper_main(args))
