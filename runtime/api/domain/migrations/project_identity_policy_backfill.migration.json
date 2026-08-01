@@ -39,7 +39,7 @@
   "module_sources": {
     "harness_session_project_identity": {
       "path": "packages/yoke-core/src/yoke_core/domain/migrations/harness_session_project_identity.py",
-      "sha256": "f9fd79062b24e52c49eea9528fc84313ee475246de5232d45cf9f156211f298a"
+      "sha256": "176f3955a2bec72fc1c8680c444c12ce587574f527640eb8c45f66d06d5331e6"
     },
     "project_policy_capabilities": {
       "path": "packages/yoke-core/src/yoke_core/domain/migrations/project_policy_capabilities.py",
@@ -76,7 +76,7 @@
     ],
     "invariants": [
       "Every harness session has a non-null project_id that references projects.id.",
-      "The primary yoke project retains project id 1 before session identity is enforced.",
+      "Session identity does not depend on any project slug or numeric id.",
       "Every project has project-policy and session-routing capability rows.",
       "Existing project capability settings are preserved while missing defaults are filled.",
       "Repeated apply is a no-op after the invariants hold."
