@@ -16,15 +16,17 @@ _TABLE = "harness_sessions"
 _COLUMN = "project_id"
 _INDEX = "idx_harness_sessions_project"
 _FK = "harness_sessions_project_id_fkey"
-_PRIMARY_PROJECT_ID = 1
-_PRIMARY_PROJECT_SLUG = "yoke"
+_PROJECTS_TABLE = "projects"
 
 
 def apply(conn: Any) -> None:
     """Enforce non-null session project identity."""
     if not _table_exists(conn, _TABLE):
         raise AssertionError(f"{_TABLE} table is required before this migration")
-    _assert_primary_project_identity(conn)
+    if not _table_exists(conn, _PROJECTS_TABLE):
+        raise AssertionError(
+            f"{_PROJECTS_TABLE} table is required before this migration"
+        )
     if not _column_exists(conn, _TABLE, _COLUMN):
         conn.execute(f"ALTER TABLE {_TABLE} ADD COLUMN {_COLUMN} INTEGER DEFAULT NULL")
     _assert_no_unmapped_sessions(conn)
@@ -35,7 +37,8 @@ def apply(conn: Any) -> None:
 
 def invariants(conn: Any) -> None:
     """Verify the session project identity shape is present."""
-    _assert_primary_project_identity(conn)
+    if not _table_exists(conn, _PROJECTS_TABLE):
+        raise AssertionError(f"{_PROJECTS_TABLE} table is missing")
     if not _column_exists(conn, _TABLE, _COLUMN):
         raise AssertionError(f"{_TABLE}.{_COLUMN} is missing")
     if not _column_is_not_null(conn, _TABLE, _COLUMN):
@@ -45,17 +48,6 @@ def invariants(conn: Any) -> None:
     if not _foreign_key_exists(conn):
         raise AssertionError(f"{_FK} is missing")
     _assert_no_unmapped_sessions(conn)
-
-
-def _assert_primary_project_identity(conn: Any) -> None:
-    row = conn.execute(
-        "SELECT id FROM projects WHERE slug = %s",
-        (_PRIMARY_PROJECT_SLUG,),
-    ).fetchone()
-    if row is None:
-        raise AssertionError("primary project slug yoke is missing")
-    if int(_row_value(row, "id", 0)) != _PRIMARY_PROJECT_ID:
-        raise AssertionError("primary project slug yoke must retain project id 1")
 
 
 def _assert_no_unmapped_sessions(conn: Any) -> None:
