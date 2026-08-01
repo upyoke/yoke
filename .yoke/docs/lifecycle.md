@@ -34,7 +34,7 @@ These are reachable from multiple points and are not part of the normal forward 
 > flag-and-reason pair on the item that preserves the lifecycle position
 > (cross-reference: see your `items` packet stanza for the
 > blocked/blocked_reason columns). Set it via
-> `/yoke block YOK-N "<reason>"`; clear via `/yoke unblock YOK-N`.
+> `/yoke block PREFIX-N "<reason>"`; clear via `/yoke unblock PREFIX-N`.
 > The board renders blocked items in their own section and the frontier
 > routes them to WAIT. The doctor health checks `HC-blocked-status-drift`
 > and `HC-blocked-flag-consistency` surface any row that still carries
@@ -84,14 +84,14 @@ of those stages exists, their order, and the executor that owns the segment.
 
 ### `idea -> refine` handoff: two-layer guard against title-only dispatch
 
-`/yoke idea` writes the row in two phases — `items add` lands the YOK-N
+`/yoke idea` writes the row in two phases — `items add` lands the PREFIX-N
 row with empty `spec`, and `body-and-sync.md` writes the structured spec
 fields a few seconds later. The window between the two phases is
 unprotected unless both layers below hold:
 
 - **Layer 1 — claim-on-create (live-race fix).** `infer-and-create.md`
   step 5b acquires a draft work claim with reason `draft-in-progress`
-  immediately after `items add` returns the YOK-N id, and
+  immediately after `items add` returns the PREFIX-N id, and
   `body-and-sync.md` step 10b releases it with reason `idea-complete`
   once the spec/body, AC normalization, and every enabled File Budget or
   path-claim artifact has landed.
@@ -224,7 +224,7 @@ Commands do not own global status ranges and do not apply by item type. Each
 immutable workflow version binds registered executor ids to contiguous stage
 segments. For a live item:
 
-1. Run `yoke workflows item get YOK-N` to read its workflow id, logical
+1. Run `yoke workflows item get PREFIX-N` to read its workflow id, logical
    version, and current stage.
 2. Run `yoke workflows version get WORKFLOW VERSION` to read that exact
    definition.
@@ -261,11 +261,11 @@ The implementation-executor finalize step that hands the claim across a
 binding boundary is best-effort: when it cannot release (cross-session
 mismatch, claim already terminal, item never claimed, or the underlying
 domain validator raised), the transition remains committed. The failure is
-visible as a `Warning: claim release failed for YOK-N (intent=X, exit=Y)` line
+visible as a `Warning: claim release failed for PREFIX-N (intent=X, exit=Y)` line
 and an `ItemClaimReleaseFailed` event carrying the item, caller, holder,
 failure reason, target stage, and release intent. Operators investigating a
 retained claim should query the events ledger first:
-`yoke events query --item YOK-N --event-name ItemClaimReleaseFailed`.
+`yoke events query --item PREFIX-N --event-name ItemClaimReleaseFailed`.
 
 ## Routing And Session Offer
 
@@ -273,8 +273,8 @@ Routing decisions (which command to invoke for an item at a given status, which 
 
 - [session-offer-contract.md](./session-offer-contract.md) — request/response envelope, `NextAction` shape, chainability rules
 - [charge-frontier.md](./charge-frontier.md) — frontier computation, status-to-adapter mapping, ranking
-- [packages/yoke-core/src/yoke_core/domain/scheduler_routing.py](/Users/dev/yoke/packages/yoke-core/src/yoke_core/domain/scheduler_routing.py) — the `next_step` function that turns a status into a command
-- [packages/yoke-core/src/yoke_core/domain/sessions.py](/Users/dev/yoke/packages/yoke-core/src/yoke_core/domain/sessions.py) — shared session-offer path that emits `HarnessSessionOffered` and `NextActionChosen`
+- `yoke_core.domain.scheduler_routing` — the `next_step` function that turns a status into a command
+- `yoke_core.domain.sessions` — shared session-offer path that emits `HarnessSessionOffered` and `NextActionChosen`
 
 Agents reading the lifecycle should treat those files plus the item's pinned
 definition as authoritative for "which command runs next?" The tables here

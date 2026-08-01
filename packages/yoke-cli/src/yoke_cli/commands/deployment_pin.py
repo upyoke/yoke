@@ -1,4 +1,4 @@
-"""Refuse a deployment that would move a project's version pin backward.
+"""Compare a candidate ref's version pin against an environment's live pin.
 
 Some projects carry a plain-text version pin in their own repository — a
 file naming the exact version of another component that environment runs.
@@ -7,9 +7,11 @@ ordinary repository content and therefore easy to regress by accident: a
 ref captured before a pin bump still carries the older version, and
 deploying that ref silently rolls the pinned component back.
 
-The rule is generic — a deploy must not regress a version pin — while the
-pin's location and its branch-per-environment mapping are project
-configuration, declared by the project's ``release_pin`` capability:
+The comparison lives beside the caller's checkout because both sides of it
+are refs in that repository, which the control plane never sees. The rule
+is generic — a deploy must not regress a version pin — while the pin's
+location and its branch-per-environment mapping are project configuration,
+declared by the project's ``release_pin`` capability:
 
     {
       "pin_file": "yoke-release-pin.txt",
@@ -26,6 +28,7 @@ pin file legitimately does not exist yet on a new branch.
 
 from __future__ import annotations
 
+import re
 import subprocess
 from dataclasses import dataclass
 from typing import Any, Optional
@@ -46,26 +49,6 @@ class PinComparison:
     current: Optional[str] = None
     branch: Optional[str] = None
     skipped_reason: Optional[str] = None
-
-
-def declared_pin_settings(conn: Any, project_id: int) -> Optional[dict]:
-    """The project's ``release_pin`` declaration, or None when absent."""
-    from yoke_core.domain.json_helper import loads_text
-
-    row = conn.execute(
-        "SELECT settings FROM project_capabilities "
-        "WHERE project_id=%s AND type=%s",
-        (int(project_id), RELEASE_PIN_CAPABILITY),
-    ).fetchone()
-    if row is None:
-        return None
-    raw = row[0] if not isinstance(row, dict) else row.get("settings")
-    if not raw:
-        return None
-    settings = loads_text(raw) if isinstance(raw, str) else raw
-    if not isinstance(settings, dict) or not settings.get("pin_file"):
-        return None
-    return settings
 
 
 def read_pin_at_ref(repo_path: str, ref: str, pin_file: str) -> Optional[str]:
@@ -89,8 +72,6 @@ def _version_key(value: str) -> tuple:
     still yields a stable key, so two pins are always comparable even when
     a project's version scheme is not one this module has seen.
     """
-    import re
-
     parts: list[tuple[int, Any]] = []
     for chunk in re.findall(r"\d+|\D+", value.strip()):
         if chunk.isdigit():
@@ -146,24 +127,18 @@ def evaluate_pin_move(
 
 
 def assert_no_pin_regression(
-    conn: Any,
     *,
-    project_id: int,
+    settings: dict,
     repo_path: Optional[str],
     source_ref: Optional[str],
     target_env: Optional[str],
-    override: bool = False,
 ) -> Optional[PinComparison]:
     """Raise when the proposed ref would roll the environment's pin back.
 
     Returns the comparison when one was performed (so callers can report a
-    skip reason), or None when the project declares no pin or the caller
-    supplied no ref to compare.
+    skip reason), or None when the caller supplied no ref to compare.
     """
-    if override or not repo_path or not source_ref or not target_env:
-        return None
-    settings = declared_pin_settings(conn, project_id)
-    if settings is None:
+    if not repo_path or not source_ref or not target_env:
         return None
     comparison = evaluate_pin_move(
         settings=settings,
@@ -189,7 +164,6 @@ __all__ = [
     "RELEASE_PIN_CAPABILITY",
     "assert_no_pin_regression",
     "compare_pins",
-    "declared_pin_settings",
     "evaluate_pin_move",
     "read_pin_at_ref",
 ]

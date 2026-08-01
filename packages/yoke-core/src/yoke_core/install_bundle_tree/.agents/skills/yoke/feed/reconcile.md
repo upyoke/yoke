@@ -33,17 +33,17 @@ When evidence metadata matters (it always does for feed), use the registered dep
 
 ```bash
 # Step 1: Query existing feed edges for this dependent item
-_existing=$(yoke db read --format lines "SELECT blocking_item, gate_point FROM item_dependencies WHERE dependent_item='YOK-N' AND source='feed'")
+_existing=$(yoke db read --format lines "SELECT blocking_item, gate_point FROM item_dependencies WHERE dependent_item='PREFIX-N' AND source='feed'")
 
 # Step 2: For each existing feed edge NOT in the new edge set, remove it
-yoke shepherd dependency-remove YOK-N YOK-OLD_BLOCKER
+yoke shepherd dependency-remove PREFIX-N PREFIX-OLD_BLOCKER
 
 # Step 3: For each new edge, add it with full metadata
-yoke shepherd dependency-add YOK-N YOK-M feed \
+yoke shepherd dependency-add PREFIX-N PREFIX-M feed \
  --gate-point activation \
  --satisfaction "status:done" \
  --rationale "Shared schema surface: both items modify item_dependencies table" \
- --evidence '{"shared_files":["packages/yoke-core/src/yoke_core/cli/db_router.py"],"blocker_class":"coding_order","constraint_type":"schema"}'
+ --evidence '{"shared_files":["<path/to/shared/file>"],"blocker_class":"coding_order","constraint_type":"schema"}'
 ```
 
 Use this registered path for all feed reconciliation so every generated edge carries structured `evidence_json`.
@@ -54,24 +54,24 @@ Apply these rules when encoding each edge:
 
 | Blocker class | gate_point | satisfaction | When to use |
 |---|---|---|---|
-| Coding-order | `activation` | `status:done` | YOK-N cannot start until YOK-M is done |
-| Validation-before-start | `activation` | `status:implemented` | YOK-N cannot start until YOK-M reaches implemented status |
+| Coding-order | `activation` | `status:done` | PREFIX-N cannot start until PREFIX-M is done |
+| Validation-before-start | `activation` | `status:implemented` | PREFIX-N cannot start until PREFIX-M reaches implemented status |
 | Merge-order | `integration` | `fact:merged` | Parallel coding OK but must merge in order |
-| Closeout | `closure` | `status:done` | YOK-N cannot close until YOK-M is done |
+| Closeout | `closure` | `status:done` | PREFIX-N cannot close until PREFIX-M is done |
 
 ### Deduplication
 
 Before adding an edge, check whether an equivalent edge already exists from any source:
 
 ```bash
-_existing_edge=$(yoke db read --format lines "SELECT source, gate_point FROM item_dependencies WHERE dependent_item='YOK-N' AND blocking_item='YOK-M'")
+_existing_edge=$(yoke db read --format lines "SELECT source, gate_point FROM item_dependencies WHERE dependent_item='PREFIX-N' AND blocking_item='PREFIX-M'")
 ```
 
 - If an operator/shepherd/idea edge already encodes the same relation (same dependent, blocking, and compatible gate_point), do NOT create a duplicate feed row. Record this as a preserved manual edge.
 - If a feed edge exists with different gate_point or satisfaction, update it via the registered dependency update surface:
 
 ```bash
-yoke shepherd dependency-update YOK-N YOK-M \
+yoke shepherd dependency-update PREFIX-N PREFIX-M \
  --match-gate-point activation \
  --gate-point integration \
  --satisfaction "fact:merged" \
@@ -94,8 +94,8 @@ Also track exact edge mutations for the final report:
 ```
 _edge_mutations.append({
  action: "added|updated|removed|preserved",
- dependent: "YOK-N",
- blocking: "YOK-M",
+ dependent: "PREFIX-N",
+ blocking: "PREFIX-M",
  gate_point: "activation|integration|closure",
  satisfaction: "status:done|status:implemented|fact:merged",
  source: "feed|operator|idea|shepherd|conduct",
@@ -125,11 +125,11 @@ For each stale edge found:
 
 ```
 _stale_edges.append({
- dependent: "YOK-N",
- blocking: "YOK-M",
+ dependent: "PREFIX-N",
+ blocking: "PREFIX-M",
  source: "<original source>",
  gate_point: "<gate>",
- reason: "Blocking item YOK-M is cancelled (title: ...)",
+ reason: "Blocking item PREFIX-M is cancelled (title: ...)",
  recommendation: "Remove edge or update to reference successor item"
 })
 ```
@@ -153,8 +153,8 @@ When a feed edge and a manual edge both exist for the same dependent-blocking pa
 
 ```
 _conflicts.append({
- dependent: "YOK-N",
- blocking: "YOK-M",
+ dependent: "PREFIX-N",
+ blocking: "PREFIX-M",
  manual_edge: { source: "operator", gate_point: "activation", satisfaction: "status:done" },
  feed_edge: { gate_point: "integration", satisfaction: "fact:merged" },
  resolution: "Manual edge preserved; feed inference differs"
@@ -170,7 +170,7 @@ After completing all reconciliation for all dependent items, verify idempotency 
 
 ```bash
 # For each frontier item that was in scope:
-yoke db read --format lines "SELECT COUNT(*) FROM item_dependencies WHERE dependent_item='YOK-N' AND source='feed'"
+yoke db read --format lines "SELECT COUNT(*) FROM item_dependencies WHERE dependent_item='PREFIX-N' AND source='feed'"
 ```
 
 Compare the count against expected edges. If mismatched, log the discrepancy but do not retry (the next feed run will reconcile).

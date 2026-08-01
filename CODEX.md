@@ -29,11 +29,11 @@ Codex sessions use the shared Yoke operator surface unless the Codex manifest de
 |---------|-------------|
 | `/yoke idea "title"` | File a new backlog item |
 | `/yoke do` | Start an autonomous session (routes through session offer) |
-| `/yoke refine YOK-N` | Critique and improve item artifacts (no worktree, no code) |
-| `/yoke advance YOK-N implementation` | Drive a pinned `advance` segment in its registered single worktree lane |
-| `/yoke conduct YOK-N` | Drive a pinned generated-task segment via shared dispatch descriptors |
-| `/yoke polish YOK-N` | Review and finish implementation in existing worktree |
-| `/yoke usher YOK-N [--dry-run]` | Merge/deploy handoff for implemented items; use dry-run first for Codex validation |
+| `/yoke refine PREFIX-N` | Critique and improve item artifacts (no worktree, no code) |
+| `/yoke advance PREFIX-N implementation` | Drive a pinned `advance` segment in its registered single worktree lane |
+| `/yoke conduct PREFIX-N` | Drive a pinned generated-task segment via shared dispatch descriptors |
+| `/yoke polish PREFIX-N` | Review and finish implementation in existing worktree |
+| `/yoke usher PREFIX-N [--dry-run]` | Merge/deploy handoff for implemented items; use dry-run first for Codex validation |
 
 ### Supported downstream paths
 
@@ -93,7 +93,7 @@ The canonical lifecycle guide is
 [.yoke/docs/lifecycle.md](.yoke/docs/lifecycle.md). It explains how immutable
 workflow versions own stages, transitions, target-stage gates, policies, and
 registered executor bindings. For a live item, read
-`yoke workflows item get YOK-N` and then
+`yoke workflows item get PREFIX-N` and then
 `yoke workflows version get WORKFLOW VERSION`; the pinned definition, not the
 guide or a workflow-name branch, is the source of truth for which executor
 owns the current stage.

@@ -132,9 +132,9 @@ place.
    `## Pack Reuse` block when `_pack_stance` is non-empty).
    The handler enforces the empty-payload / shrinkage / freeze guards
    and emits `YokeFunctionCalled` plus the field-specific update event.
-   Operator/debug adapter: Write the body to a local artifact via the harness Write tool, then `yoke items structured-field replace YOK-{id-number} --field spec --source idea --stdin < <artifact-path>` (inline shell payloads are denied by `lint_shell_quoted_function_payload`).
+   Operator/debug adapter: Write the body to a local artifact via the harness Write tool, then `yoke items structured-field replace PREFIX-{id-number} --field spec --source idea --stdin < <artifact-path>` (inline shell payloads are denied by `lint_shell_quoted_function_payload`).
 
-2. Normalize non-canonical ACs when needed: the live `python3 -m yoke_core.domain.normalize_ac_labels` reads stdin or `--file FILE` (no `--item`); normalization of DB-resident specs runs inside `/yoke shepherd YOK-{id-number}`.
+2. Normalize non-canonical ACs when needed: the live `python3 -m yoke_core.domain.normalize_ac_labels` reads stdin or `--file FILE` (no `--item`); normalization of DB-resident specs runs inside `/yoke shepherd PREFIX-{id-number}`.
 
 3. Verify the body was written via `items.get.run`
    (`fields: ["spec", "body"]`). If the returned `spec` contains only
@@ -163,7 +163,7 @@ After the body has been written and verified (step 8 complete), classify and per
 1. Run the prose-vs-claim detector against the freshly written spec/body:
 
    ```bash
-   _prose_check=$(python3 -m yoke_core.domain.db_claim_prose_check check-item "YOK-{N}")
+   _prose_check=$(python3 -m yoke_core.domain.db_claim_prose_check check-item "PREFIX-{N}")
    _prose_blocks=$(printf '%s' "$_prose_check" | python3 -c "import json,sys; print('1' if json.load(sys.stdin).get('blocks') else '0')")
    ```
 
@@ -300,7 +300,7 @@ When effective path claims are enabled, after registering or deliberately
 deferring per-task coverage, confirm the posture by running the gate:
 
 ```bash
-yoke claims path required-gate YOK-{id-number}
+yoke claims path required-gate PREFIX-{id-number}
 ```
 
 `verdict=pass` means coverage is satisfied; the item is ready to leave the idea workflow. `verdict=block` surfaces a remediation `reason` — read it and amend the claim before continuing.
@@ -320,7 +320,7 @@ surface for "rendered body → GitHub issue body":
 
 ```bash
 # Retained-boundary: explicit GitHub body sync.
-yoke items github-sync YOK-{id-number}
+yoke items github-sync PREFIX-{id-number}
 ```
 
 Skip this step only if the user explicitly declined to add a

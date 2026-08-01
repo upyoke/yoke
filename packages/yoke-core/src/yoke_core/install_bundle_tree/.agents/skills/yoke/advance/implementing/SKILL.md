@@ -24,7 +24,7 @@ Retained historical name. Called by `advance/SKILL.md` after the item is at `imp
 **Widen-before-edit loop:** At the start of each implementation slice, and before every sibling-module create/edit that was not already named in the current slice, run:
 
 ```bash
-yoke claims path list --item YOK-{N} --state planned --state active --state blocked
+yoke claims path list --item PREFIX-{N} --state planned --state active --state blocked
 ```
 
 Mentally diff the declared coverage against the files you are about to touch. If any file is not covered by a non-terminal claim, widen first with a specific rationale, then edit. This is a recurring checklist item, not a once-at-entry declaration. A future PreToolUse advisory on `Write`/`Edit` is the natural follow-up enforcement layer; blocking enforcement remains the end-of-implementation boundary gate.

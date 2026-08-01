@@ -47,11 +47,11 @@ OPERATIONAL_COMMANDS: list[dict] = [
         "topic": "core",
         "purpose": "Cancel / stop / fail a work item (terminal-exceptional)",
         "recipe": (
-            "yoke claims work acquire --item YOK-N "
-            "--reason 'superseded by YOK-X'\n"
-            "yoke lifecycle transition YOK-N --to cancelled "
-            "--reason 'superseded by YOK-X'\n"
-            "yoke claims work release --item YOK-N "
+            "yoke claims work acquire --item PREFIX-N "
+            "--reason 'superseded by PREFIX-X'\n"
+            "yoke lifecycle transition PREFIX-N --to cancelled "
+            "--reason 'superseded by PREFIX-X'\n"
+            "yoke claims work release --item PREFIX-N "
             "--reason cancelled"
         ),
         "notes": (
@@ -65,9 +65,9 @@ OPERATIONAL_COMMANDS: list[dict] = [
             "Move a work item forward in lifecycle (claim → transition → release)"
         ),
         "recipe": (
-            "yoke claims work acquire --item YOK-N --reason transition\n"
-            "yoke lifecycle transition YOK-N --to refined-idea\n"
-            "yoke claims work release --item YOK-N "
+            "yoke claims work acquire --item PREFIX-N --reason transition\n"
+            "yoke lifecycle transition PREFIX-N --to refined-idea\n"
+            "yoke claims work release --item PREFIX-N "
             "--reason transition-complete"
         ),
         "notes": (
@@ -81,12 +81,12 @@ OPERATIONAL_COMMANDS: list[dict] = [
         "topic": "core",
         "purpose": "Append to a work item's Progress Log (canonical agent shape)",
         "recipe": (
-            "yoke claims work acquire --item YOK-N "
+            "yoke claims work acquire --item PREFIX-N "
             "--reason progress-log-append\n"
-            "yoke items progress-log append YOK-N "
+            "yoke items progress-log append PREFIX-N "
             "--headline \"dispatched engineer\" --source orchestrator "
             "--content-file PATH\n"
-            "yoke claims work release --item YOK-N "
+            "yoke claims work release --item PREFIX-N "
             "--reason progress-log-append-complete"
         ),
         "notes": (
@@ -126,7 +126,7 @@ OPERATIONAL_COMMANDS: list[dict] = [
         "topic": "core",
         "purpose": "Operator-mode lifecycle repair after authoritative drift",
         "recipe": (
-            "yoke lifecycle repair-status YOK-N --from CURRENT --to TARGET "
+            "yoke lifecycle repair-status PREFIX-N --from CURRENT --to TARGET "
             "--reason 'operator-authored reconciliation' --dry-run"
         ),
         "notes": (
@@ -148,9 +148,9 @@ OPERATIONAL_COMMANDS: list[dict] = [
             "$(yoke projects github-binding status --project yoke "
             "--field github_repo) "
             "ci.yml --branch main --project yoke\n"
-            "git -C $(git rev-parse --show-toplevel)/.worktrees/YOK-N "
+            "git -C $(git rev-parse --show-toplevel)/.worktrees/PREFIX-N "
             "status --porcelain\n"
-            "git -C $(git rev-parse --show-toplevel)/.worktrees/YOK-N "
+            "git -C $(git rev-parse --show-toplevel)/.worktrees/PREFIX-N "
             "rev-parse HEAD"
         ),
         "notes": (

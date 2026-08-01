@@ -30,14 +30,26 @@ def test_advance_summary_default_uses_watcher() -> None:
     assert '"python3 -m pytest runtime/api/" (yoke default)' not in text
 
 
-def test_readiness_repair_verification_uses_watcher() -> None:
+def test_readiness_repair_verification_defers_to_project_command() -> None:
+    """This skill ships verbatim into target projects, so its Verification
+    block names the registered readiness commands and then points at the
+    project's own verification command instead of pinning test anchors that
+    only exist in this repo."""
     text = _read(SKILLS / "refine" / "readiness-repair.md")
-    assert (
-        "python3 -m yoke_core.tools.watch_pytest -- "
-        "runtime/api/domain/test_idea_readiness_repair.py "
-        "runtime/api/test_skill_doc_regressions_file_budget.py"
-    ) in text
-    assert "python3 -m pytest runtime/api/domain/test_idea_readiness_repair.py" not in text
+    tail = text[text.index("## Verification") :]
+    next_heading = tail.find("\n## ", 1)
+    verification = tail if next_heading == -1 else tail[:next_heading]
+
+    assert "yoke readiness check {N}" in verification
+    assert "yoke readiness repair-stale-count --item {N}" in verification
+    assert "your project's registered verification command" in verification
+    assert "rather than hardcoding a test-file list" in verification
+
+    # Neither a raw-pytest recipe nor this repo's own test anchors may
+    # return to the block agents copy from.
+    assert "python3 -m pytest" not in text
+    assert "runtime/api/domain/test_idea_readiness_repair.py" not in verification
+    assert "runtime/api/test_skill_doc_regressions_file_budget.py" not in verification
 
 
 def test_db_reference_rehearsal_commands_use_watcher() -> None:
@@ -74,36 +86,6 @@ def test_watch_pytest_help_teaches_parallel_default() -> None:
     assert "Parallel-by-default: ``-n auto``" in help_text
     assert "``-n 0``" in help_text
     assert "``--no-parallel``" not in help_text
-
-
-def test_shipped_surfaces_carry_no_repo_local_test_anchors() -> None:
-    """Install-bundle surfaces must not teach this repo's own test paths.
-
-    ``.agents/skills/yoke``, the harness rules, and the rendered agent
-    adapters are copied verbatim into every project Yoke installs into.
-    A hardcoded ``runtime/api/ runtime/harness/ tests/`` there tells a
-    target project's agents to run paths that do not exist in their repo.
-    The anchors belong to AGENTS.md, which stays repo-local below the
-    managed-block marker.
-    """
-    shipped_roots = (
-        REPO / ".agents" / "skills" / "yoke",
-        REPO / "runtime" / "harness" / "claude" / "rules",
-        REPO / "runtime" / "harness" / "claude" / "agents",
-        REPO / "runtime" / "harness" / "codex" / "agents",
-    )
-    offenders = []
-    for root in shipped_roots:
-        for path in root.rglob("*"):
-            if not path.is_file() or path.suffix not in {".md", ".toml"}:
-                continue
-            if "runtime/api/ runtime/harness/ tests/" in _read(path):
-                offenders.append(str(path.relative_to(REPO)))
-    assert offenders == [], (
-        "repo-local test anchors found in install-bundle surfaces: "
-        f"{offenders}. Teach the anchors in AGENTS.md (below the managed "
-        "block) and keep shipped copy project-neutral."
-    )
 
 
 def test_live_verification_teaching_uses_supported_sequential_and_lint_forms() -> None:

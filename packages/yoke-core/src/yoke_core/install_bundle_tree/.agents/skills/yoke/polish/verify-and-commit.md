@@ -14,10 +14,10 @@ review transition:
 
 ```bash
 yoke qa plan materialize \
-  --item "YOK-{N}" \
+  --item "PREFIX-{N}" \
   --transition reviewing-implementation \
   --json
-yoke qa requirement list --item "YOK-{N}" --json
+yoke qa requirement list --item "PREFIX-{N}" --json
 ```
 
 Select unsatisfied, non-waived plan-materialized requirements for that
@@ -62,7 +62,7 @@ If files changed during polish, commit them with a descriptive message:
 
 ```bash
 git -C "{worktree-path}" add {specific changed files}
-git -C "{worktree-path}" commit -m "polish: {brief description of finishing fixes} (YOK-{N})"
+git -C "{worktree-path}" commit -m "polish: {brief description of finishing fixes} (PREFIX-{N})"
 ```
 
 Use a scoped `git add` containing only the files changed by this pass. For a

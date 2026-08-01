@@ -1,8 +1,8 @@
 # Single-Item Mode
 
-Invoked by the conduct router when `YOK-N` is provided. This file is a **thin index** — execution is delegated to bounded phase files. **Inherited from router:** `MAX_TESTER_REPROMPTS` and all parsed arguments. **Cross-references:** `dispatch-context.md` (steps 5m, 5n, 5p), `error-handling.md` (halt conditions).
+Invoked by the conduct router when `PREFIX-N` is provided. This file is a **thin index** — execution is delegated to bounded phase files. **Inherited from router:** `MAX_TESTER_REPROMPTS` and all parsed arguments. **Cross-references:** `dispatch-context.md` (steps 5m, 5n, 5p), `error-handling.md` (halt conditions).
 
-When invoked with `YOK-N`, conduct operates on a single backlog item.
+When invoked with `PREFIX-N`, conduct operates on a single backlog item.
 
 ## Phase Files
 

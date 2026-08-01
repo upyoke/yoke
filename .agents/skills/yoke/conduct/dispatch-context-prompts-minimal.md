@@ -17,7 +17,7 @@ _changed_files=$(git -C "${_worktree_path}" diff --name-only main...HEAD)
 
 **Dispatch:** descriptor `DispatchDescriptor(role="tester", extras=(("model","opus"),) if _tester_output_failures >= 2 else ())` rendered via `yoke_core.domain.dispatch_descriptors.render_for_harness(descriptor, harness_id)`. Result-schema markers: `VERDICT: PASS|FAIL`, `---REFLECTION-START---`. The descriptor's `prompt: |` block is filled with:
 ```
-	 Validate YOK-{N} task {_task_id}: {task title}
+	 Validate PREFIX-{N} task {_task_id}: {task title}
 
  IMPORTANT: Your previous invocation produced no parseable verdict.
  This is a minimal-prompt retry — no inline diff is provided.

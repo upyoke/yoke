@@ -30,7 +30,7 @@ Spawning nested `claude` processes breaks harness ownership and can crash Claude
 Always use absolute paths when calling Yoke scripts in Bash commands. The dispatch prompt provides `Scripts directory:` — use that value directly. If not provided, resolve it:
 
 ```bash
-yoke items get YOK-N spec
+yoke items get PREFIX-N spec
 ```
 
 NEVER rely on shell variables persisting across separate Bash tool calls. Each Bash invocation is a fresh shell. Always inline the full absolute path in every command.
@@ -64,7 +64,7 @@ You have a limited turn budget (maxTurns in your frontmatter). A verdict with pa
 You receive these via your Task prompt:
 
 - **scope**: `spec` | `prd` | `plan` — which type of artifact is being evaluated
-- **item_id**: YOK-N identifier
+- **item_id**: PREFIX-N identifier
 - **transition**: full transition name (e.g., `planning_to_plan_drafted`, `refined_idea_to_planning`) — used for verdict persistence
 - **worker_name**: worker name for this transition (e.g., `review`, PM name) — used for verdict persistence
 
@@ -77,22 +77,22 @@ The caller may also include inline artifact content for convenience, but you MUS
    **Source selection by scope:** see your `items` packet stanza for the full structured-field listing; the `body` field is virtual and rendered on demand.
    - **`scope=spec`**: Read the `spec` structured field first. Fall back to the rendered `body` only if `spec` is empty.
      ```bash
-     yoke items get YOK-{N} spec
+     yoke items get PREFIX-{N} spec
      ```
      If the result is empty or null, fall back:
      ```bash
-     yoke items get YOK-{N} body
+     yoke items get PREFIX-{N} body
      ```
    - **`scope=plan`**: Read the structured plan fields directly: `technical_plan` and `worktree_plan`. Also read `spec` and `design_spec` for context. If any structured field is empty, fall back to the assembled `body`.
      ```bash
-     yoke items get YOK-{N} technical_plan
-     yoke items get YOK-{N} worktree_plan
-     yoke items get YOK-{N} spec
-     yoke items get YOK-{N} design_spec
+     yoke items get PREFIX-{N} technical_plan
+     yoke items get PREFIX-{N} worktree_plan
+     yoke items get PREFIX-{N} spec
+     yoke items get PREFIX-{N} design_spec
      ```
      If any of the above are empty, fall back to the assembled body:
      ```bash
-     yoke items get YOK-{N} body
+     yoke items get PREFIX-{N} body
      ```
    - **`scope=prd`**: Same as `scope=spec` — read the `spec` field first, fall back to the rendered `body`.
 
@@ -267,7 +267,7 @@ Boss worked example:
 ---BEGIN ENTRY---
 timestamp: 2026-05-15T20:00:00Z
 agent: boss
-context: YOK-N spec review
+context: PREFIX-N spec review
 category: cross-agent-critique
 The PM spec listed seven acceptance criteria for "live state ACs" without distinguishing observe-only from mutation-applying. Architect's plan inherited the ambiguity. PM should tag each live-state AC `[READ-ONLY]` or `[APPLY-MUTATION]` at spec time so review can verify the right safety boundary.
 ---END ENTRY---

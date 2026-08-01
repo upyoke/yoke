@@ -49,7 +49,7 @@ For each epic with unmerged worktree branches:
 - Integration simulation status (CLEAN, GAPS FOUND, or MISSING)
 - Item status mismatches (all tasks are terminal-success but the epic was not advanced)
 - Recommended merge order based on task dependencies
-- Standalone `YOK-*` branches with status `done`
+- Standalone `PREFIX-*` branches with status `done`
 - Potential cross-branch conflicts (via `git merge-tree`)
 
 ### Execution

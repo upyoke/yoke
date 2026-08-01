@@ -113,7 +113,7 @@ WATCHERS_COMMANDS: list[dict] = [
         "purpose": ("Run done_transition / merge_worktree with watcher (main session)"),
         "recipe": (
             "uv run --frozen python3 -m yoke_core.tools.watch_merge "
-            "--print-streaming-pair merge-worktree -- YOK-N\n"
+            "--print-streaming-pair merge-worktree -- PREFIX-N\n"
             "# Subcommands: done-transition <args>, merge-worktree <args>"
         ),
         "notes": (

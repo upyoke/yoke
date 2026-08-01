@@ -6,12 +6,12 @@ Extracted from `dispatch-context.md`. Engineer and Tester prompt templates and d
 
 ## 5g. Engineer Prompt Template
 
-**Dispatch ALL Engineers in parallel** (excluding tasks where `_has_implementation_${_task_id}` is true) -- issue one Agent tool call per task in `_task_ids` in the same response. For epic task fan-out, `YOK-{N}` / `_epic_id` is the parent item and `_task_id` is the local epic task number; do not render task prompts as `YOK-{_task_id}`.
+**Dispatch ALL Engineers in parallel** (excluding tasks where `_has_implementation_${_task_id}` is true) -- issue one Agent tool call per task in `_task_ids` in the same response. For epic task fan-out, `PREFIX-{N}` / `_epic_id` is the parent item and `_task_id` is the local epic task number; do not render task prompts as `PREFIX-{_task_id}`.
 
 **Dispatch:** descriptor `DispatchDescriptor(role="engineer")` rendered via `yoke_core.domain.dispatch_descriptors.render_for_harness(descriptor, harness_id)`, one rendered dispatch per task in the parallel batch. Result-schema markers: `---SUBMISSION-CHECKS-START---`, `---REFLECTION-START---`. The descriptor's `prompt: |` block is filled with:
 ```
 # For each task in _task_ids, dispatch simultaneously with the rendered descriptor:
- Implement YOK-{N} task {_task_id}: {task title}
+ Implement PREFIX-{N} task {_task_id}: {task title}
 
 	 {context block from 5f-issue.2 or 5f-epic.6}
 
@@ -129,7 +129,7 @@ fi
 
 **Dispatch:** descriptor `DispatchDescriptor(role="tester")` rendered via `yoke_core.domain.dispatch_descriptors.render_for_harness(descriptor, harness_id)`. Result-schema markers: `VERDICT: PASS|FAIL`, `---REFLECTION-START---`. The descriptor's `prompt: |` block is filled with:
 ```
- Validate YOK-{N} task {_task_id}: {task title}
+ Validate PREFIX-{N} task {_task_id}: {task title}
 
  Sprint: {SPRINT} | Track: {TRACK}
 
@@ -195,12 +195,12 @@ fi
 
 **Dispatch:** descriptor `DispatchDescriptor(role="tester", extras=(("model","opus"),) if _tester_output_failures_{_id} >= 2 else ())` rendered via `yoke_core.domain.dispatch_descriptors.render_for_harness(descriptor, harness_id)`. Result-schema markers: `VERDICT: PASS|FAIL`, `---REFLECTION-START---`. The descriptor's `prompt: |` block is filled with:
 ```
- Validate YOK-{_id}: {_title}
+ Validate PREFIX-{_id}: {_title}
 
  Sprint: {SPRINT} | Track: {TRACK}
 
  Read the authoritative task spec from the DB before validating:
- yoke items get YOK-{_id} spec
+ yoke items get PREFIX-{_id} spec
 
  {For every project-owned item — include this block:}
  Project Test Commands:
@@ -244,7 +244,7 @@ fi
  OUTPUT DISCIPLINE: End with VERDICT line and a brief summary. Do not echo the full spec or diff back.
 ```
 
-**AUTONOMOUS CONTINUATION REQUIRED:** The subagent has returned. IMMEDIATELY continue to the next step below. Do NOT stop, do NOT wait for user input, do NOT generate a conversational summary and pause. Emit a one-line checkpoint: `[CONTINUE] Tester returned for YOK-{N}. Next: verdict processing (step 5j)` — then execute that step.
+**AUTONOMOUS CONTINUATION REQUIRED:** The subagent has returned. IMMEDIATELY continue to the next step below. Do NOT stop, do NOT wait for user input, do NOT generate a conversational summary and pause. Emit a one-line checkpoint: `[CONTINUE] Tester returned for PREFIX-{N}. Next: verdict processing (step 5j)` — then execute that step.
 
 **Post-Tester cleanup:** After each Tester returns and reflections/artifacts are captured (steps 5m, 5n), clean up all temp files:
 ```bash

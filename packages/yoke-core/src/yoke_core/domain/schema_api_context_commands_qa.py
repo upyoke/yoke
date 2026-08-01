@@ -204,7 +204,7 @@ QA_COMMANDS: list[dict] = [
             "Registered read qa.gate_summary.run. Use --item for a standalone "
             "issue, or --epic-id E --task-num K for an epic task. The summary "
             "is diagnostic only — even with passing tests, route via "
-            "`/yoke advance YOK-N reviewed-implementation` (never raw items "
+            "`/yoke advance PREFIX-N reviewed-implementation` (never raw items "
             "update) so the gate runs and claim handoff fires."
         ),
     },
@@ -229,7 +229,7 @@ QA_COMMANDS: list[dict] = [
     {
         "topic": "qa",
         "purpose": "Inspect events for an item (canonical agent shape)",
-        "recipe": ("yoke events query --item YOK-N --limit 20"),
+        "recipe": ("yoke events query --item PREFIX-N --limit 20"),
         "notes": (
             "Add `--event-name X`, `--since ISO|'2 hours ago'`, "
             "`--until ...` for narrowing; `--session S "

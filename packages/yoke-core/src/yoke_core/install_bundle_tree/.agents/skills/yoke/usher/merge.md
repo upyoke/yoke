@@ -23,7 +23,7 @@ If `_DEPLOY_ONLY`, skip entirely to deploy phase.
 ### 7a. Re-verify status
 
 ```bash
-yoke items get YOK-{N} status
+yoke items get PREFIX-{N} status
 ```
 
 - `done` → skip (idempotent)
@@ -35,7 +35,7 @@ logical version returned by `workflows.item.get` to read the exact definition;
 never substitute the registry's current version:
 
 ```bash
-_usher_pin_json=$(yoke workflows item get YOK-{N} --json) || exit 1
+_usher_pin_json=$(yoke workflows item get PREFIX-{N} --json) || exit 1
 _usher_workflow_id=$(printf '%s' "$_usher_pin_json" | python3 -c \
  'import json,sys; print(json.load(sys.stdin)["result"]["workflow_id"])')
 _usher_workflow_version=$(printf '%s' "$_usher_pin_json" | python3 -c \
@@ -146,9 +146,9 @@ if [ -n "$_item_flow" ] && [ "$_item_flow" != "null" ]; then
  _ev_github_repo=$(yoke projects github-binding status \
  --project "$_item_project" --field github_repo 2>/dev/null) || true
  # The resolver returns every lane allowed by the pinned worktree policy.
- _ev_branches=$(python3 -m yoke_core.domain.worktree_item_resolve YOK-{N} --branches 2>/dev/null) || true
+ _ev_branches=$(python3 -m yoke_core.domain.worktree_item_resolve PREFIX-{N} --branches 2>/dev/null) || true
  if [ -z "$_ev_branches" ]; then
- echo "BLOCK: no worktree branch resolved for YOK-{N}"
+ echo "BLOCK: no worktree branch resolved for PREFIX-{N}"
  exit 1
  fi
  _ev_failed=0
@@ -210,7 +210,7 @@ elif [ "$_usher_generated_children" = "none" ] \
  # merge_worktree. Setting it here on the single-lane merge boundary is the
  # documented call shape, not an ad-hoc bypass. The companion `# lint:no-guard-check`
  # is recorded as audit evidence so reviewers can grep the call site.
- YOKE_DONE_TRANSITION=1 python3 -m yoke_core.tools.watch_merge merge-worktree -- YOK-{N} # lint:no-guard-check
+ YOKE_DONE_TRANSITION=1 python3 -m yoke_core.tools.watch_merge merge-worktree -- PREFIX-{N} # lint:no-guard-check
 else
  echo "BLOCK: unsupported pinned merge policy: children=$_usher_generated_children worktrees=$_usher_worktree_policy parallelism=$_usher_parallelism"
  exit 1
@@ -219,7 +219,7 @@ fi
 
 **Engine contract:** `YOKE_DONE_TRANSITION=1` is the standalone-branch boundary the merge engine recognises (see `packages/yoke-core/src/yoke_core/engines/merge_worktree_prepare.py` lines 141-147 for the guard, `packages/yoke-core/src/yoke_core/engines/done_transition_merge_ops.py` line 124 for the internal-engine setter). The watcher call above invokes the same engine contract on the single-lane boundary because that policy has no task-graph merge intermediary.
 
-**Streaming-wrapper form:** A merge is a long command, so per the Command Output streaming rule it normally runs under the watcher wrapper. `watch_merge merge-worktree` maps to `yoke_core.engines.merge_worktree`, but the wrapper **inherits the parent environment and does NOT auto-set or propagate `YOKE_DONE_TRANSITION=1`** — set it explicitly in the env prefix of the wrapper invocation too: `YOKE_DONE_TRANSITION=1 python3 -m yoke_core.tools.watch_merge merge-worktree -- YOK-{N}`. (`python3 -m yoke_core.tools.watch_merge --print-streaming-pair merge-worktree -- YOK-{N}` prints the background + Monitor pair; prepend `YOKE_DONE_TRANSITION=1` to the printed background command.)
+**Streaming-wrapper form:** A merge is a long command, so per the Command Output streaming rule it normally runs under the watcher wrapper. `watch_merge merge-worktree` maps to `yoke_core.engines.merge_worktree`, but the wrapper **inherits the parent environment and does NOT auto-set or propagate `YOKE_DONE_TRANSITION=1`** — set it explicitly in the env prefix of the wrapper invocation too: `YOKE_DONE_TRANSITION=1 python3 -m yoke_core.tools.watch_merge merge-worktree -- PREFIX-{N}`. (`python3 -m yoke_core.tools.watch_merge --print-streaming-pair merge-worktree -- PREFIX-{N}` prints the background + Monitor pair; prepend `YOKE_DONE_TRANSITION=1` to the printed background command.)
 
 **IMPROVISATION GUARD:** If lint blocks despite the audit comment, **STOP**. NEVER substitute raw done-transition or any other entrypoint for the single-lane merge call.
 
@@ -233,25 +233,25 @@ and halt.
 
 The merge watcher preserves the merge engine's small set of documented exit codes. Aligned this list with the real engine contract: any **unknown non-zero exit** is treated as a hard failure and the item is rolled back to `implemented` — never left stranded in `release`. Exit 6 is the one **recoverable** non-zero outcome: a retryable merge-lock coordination condition that must NOT roll the item back.
 
-- **Exit 0:** `[release] YOK-{N} -- merge complete`. Proceed to the deploy phase.
+- **Exit 0:** `[release] PREFIX-{N} -- merge complete`. Proceed to the deploy phase.
 - **Exit 3:** Parse `CONFLICT|file|classification` lines from stderr. For each conflicting file, inspect the conflict in the worktree and resolve using judgement (the classification is one input — additive conflicts are safe to union-merge, overlapping conflicts need codebase understanding). After resolving, `git add` and `git commit`, then re-run the merge command. If resolution is not confident, halt and report to operator.
 - **Exit 1 (HALT — `usher-halt-merge-failure`):** Merge path failure — push, PR create, CI, PR merge, freshness re-check, or post-merge verification. Revert to `implemented`, release the work claim with `usher-halt-merge-failure`, then halt the batch and surface the engine's stderr block to the operator. Future/planned item ownership or a planned path claim is not a waiver for the current merge failure. Do not use `path-claim-override` for a planned future claim when dependency or claim reconciliation can resolve the ordering; override is last resort for irreducible live collisions and requires explicit operator approval. The merge engine prints an actionable `Error: merge phase '<phase>' failed` line and a `MergePullRequest*Failed` / `MergeTargetStale` / `MergeVerificationFailed` event is in the events ledger.
 - **Exit 4 (HALT — `usher-halt-merge-failure`):** Worktree has user-authored dirty files at risk. Revert to `implemented`, release the work claim with `usher-halt-merge-failure`, then halt the batch and instruct the operator to resolve the dirty state before retry. The engine has already stashed the files; recover via `git -C {repo} stash list` / `git stash apply`.
 - **Exit 5 (HALT — `usher-halt-merge-failure`, merge landed, cleanup failed):** The git/PR merge **already committed** on `{target}`, but post-merge view regeneration or board rebuild failed. This is a cleanup-class failure, NOT a merge failure. **Do NOT roll the item back to `implemented`** — the branch is already merged and deleted upstream, and pretending otherwise will desync status from git. Instead:
  1. **Leave the item in `release`** (do not mutate status).
- 2. Release the work claim with `usher-halt-merge-failure` so a fresh `/yoke usher YOK-{N}` can re-acquire it.
+ 2. Release the work claim with `usher-halt-merge-failure` so a fresh `/yoke usher PREFIX-{N}` can re-acquire it.
  3. Halt the entire usher batch — do NOT proceed to later items.
  4. Surface the engine's stderr block (it prints `Error: post-merge view regeneration failed ...` plus a `Recovery:` line).
  5. Query the events ledger for the precise `MergeEngineFailed` row: `yoke events query --event-name MergeEngineFailed --item {N}`. The envelope carries `phase=post_merge_cleanup` and `merge_committed=true`, distinguishing this class from an ordinary merge failure.
- 6. Instruct the operator to fix the view-regen / board-rebuild issue and resume with `/yoke usher YOK-{N}`. On resume, step 7a re-verifies status — because the item is still `release`, usher will skip merge and proceed straight to deploy.
+ 6. Instruct the operator to fix the view-regen / board-rebuild issue and resume with `/yoke usher PREFIX-{N}`. On resume, step 7a re-verifies status — because the item is still `release`, usher will skip merge and proceed straight to deploy.
 - **Exit 6 (RECOVERABLE — retryable merge-lock contention):** The merge engine's pre-acquire `merge_lock.check()` reported a holding lock and the bounded retry budget was exhausted before the row was pruned. This is a **coordination outcome**, NOT a halt-class merge failure — the merge itself never began. The engine prints the final lock message plus a `Recovery: retryable merge-lock condition (pre-acquire retry budget exhausted)` line that names the branch. Handling:
  1. **Leave the item in `release`** (do not mutate status). Do NOT issue the `usher_rollback_to_implemented` lifecycle transition for this exit code.
- 2. Release the work claim with `handoff-to-usher` (NOT `usher-halt-merge-failure` / `usher-halt-unexpected`) so a fresh `/yoke usher YOK-{N}` can re-acquire it cleanly.
+ 2. Release the work claim with `handoff-to-usher` (NOT `usher-halt-merge-failure` / `usher-halt-unexpected`) so a fresh `/yoke usher PREFIX-{N}` can re-acquire it cleanly.
  3. Halt the current usher batch — do NOT proceed to later items.
- 4. Tell the operator / `/yoke do` loop to rerun `/yoke usher YOK-{N}` once the holding lock clears (PID death, TTL expiry, or a subsequent `merge_lock.check()` call pruning the orphan row).
+ 4. Tell the operator / `/yoke do` loop to rerun `/yoke usher PREFIX-{N}` once the holding lock clears (PID death, TTL expiry, or a subsequent `merge_lock.check()` call pruning the orphan row).
 - **Any other non-zero exit (HALT — `usher-halt-unexpected`):** Treat as unknown failure. Revert to `implemented` with the same rollback/release/report sequence as exit 1, but release the work claim with `usher-halt-unexpected`. DO NOT leave the item in `release`. DO NOT substitute raw done-transition to paper over the failure. Emit the unknown exit code in the halt message so operators can file a bug. **Exit 6 is excluded from this branch** — see the dedicated recoverable bullet above.
 
-**Halt-class release contract:** For every halt branch above (exits 1, 4, 5, and any unknown non-zero — NOT exit 6), the work-claim release with the matching halt-class reason MUST run BEFORE the halt summary / recovery prose is printed. The `release_reason_intent` audit value is the structured halt-class string (`usher-halt-merge-failure` for exits 1, 4, 5; `usher-halt-unexpected` for unknown non-zero exits). Downstream tooling (doctor, Ouroboros) reads this value. The four halt classes are terminal release intents per `yoke_core.domain.release_intent_classification.TERMINAL_RELEASE_INTENTS`. Do NOT use `completed` for a halt path — `completed` is reserved for successful finalize paths. **Exit 6's release intent is `handoff-to-usher`** (also a terminal release intent in the same module), used because the merge attempt did not begin and the next `/yoke usher YOK-{N}` invocation should re-acquire cleanly.
+**Halt-class release contract:** For every halt branch above (exits 1, 4, 5, and any unknown non-zero — NOT exit 6), the work-claim release with the matching halt-class reason MUST run BEFORE the halt summary / recovery prose is printed. The `release_reason_intent` audit value is the structured halt-class string (`usher-halt-merge-failure` for exits 1, 4, 5; `usher-halt-unexpected` for unknown non-zero exits). Downstream tooling (doctor, Ouroboros) reads this value. The four halt classes are terminal release intents per `yoke_core.domain.release_intent_classification.TERMINAL_RELEASE_INTENTS`. Do NOT use `completed` for a halt path — `completed` is reserved for successful finalize paths. **Exit 6's release intent is `handoff-to-usher`** (also a terminal release intent in the same module), used because the merge attempt did not begin and the next `/yoke usher PREFIX-{N}` invocation should re-acquire cleanly.
 
 **Rollback + halt-class release sequence (exits 1, 4, and any unknown non-zero — NOT exit 5):** revert `release → implemented` first, then release the claim with the halt-class reason. Exit 5 skips the rollback step but still performs the halt-class release.
 
@@ -272,7 +272,7 @@ Halt-class release step (all four halt branches — operator/debug adapter; disp
 ```bash
 # <halt-class> is usher-halt-merge-failure for exits 1, 4, 5;
 # usher-halt-unexpected for any other non-zero exit.
-yoke claims work release --item YOK-{N} --reason "<halt-class>"
+yoke claims work release --item PREFIX-{N} --reason "<halt-class>"
 ```
 
 If the release call itself fails, the halt summary MUST say the release failed and include the failure class / holder when available; do not print a clean recovery summary while the claim is still live.
@@ -282,7 +282,7 @@ Then halt the entire usher batch — do NOT proceed to later items in the merge-
 - the engine exit code,
 - the halt-class reason that was released (or the release failure if release did not succeed),
 - the last `Merge*Failed` / `MergeTargetStale` / `MergeVerificationFailed` event (query `events` for `event_name LIKE 'Merge%Failed' OR event_name = 'MergeTargetStale'`),
-- instructions to resume with `/yoke usher YOK-{N}` after the underlying cause is fixed.
+- instructions to resume with `/yoke usher PREFIX-{N}` after the underlying cause is fixed.
 
 **Never** ignore the exit code and continue. **Never** mutate status to `done` or beyond without a fresh successful `python3 -m yoke_core.tools.watch_merge merge-worktree` run.
 

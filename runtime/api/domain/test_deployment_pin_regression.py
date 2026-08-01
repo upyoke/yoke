@@ -2,16 +2,24 @@
 
 from __future__ import annotations
 
+import argparse
+import json
 import subprocess
+from unittest.mock import patch
 
 import pytest
 
-from yoke_core.domain.deployment_pin_regression import (
+from yoke_cli.commands.adapters.deployment_pin_guard import pin_regression_error
+from yoke_cli.commands.deployment_pin import (
     PinRegressionError,
     assert_no_pin_regression,
     compare_pins,
     evaluate_pin_move,
     read_pin_at_ref,
+)
+from yoke_contracts.api.function_call import (
+    FunctionCallResponse,
+    FunctionError,
 )
 
 PIN_FILE = "release-pin.txt"
@@ -19,6 +27,7 @@ SETTINGS = {
     "pin_file": PIN_FILE,
     "branch_by_environment": {"stage": "stage", "production": "main"},
 }
+GUARD = "yoke_cli.commands.adapters.deployment_pin_guard"
 
 
 def _git(repo, *args: str) -> str:
@@ -55,20 +64,54 @@ def _pin_repo(tmp_path, main_pin: str, feature_pin: str):
     return clone
 
 
-class _Conn:
-    """Minimal connection returning one project_capabilities row."""
+def _guard_args(repo, **overrides) -> argparse.Namespace:
+    values = {
+        "project": "demo",
+        "flow": "demo-production",
+        "target_env": None,
+        "project_repo_path": str(repo),
+        "source_ref": "origin/stale",
+        "allow_pin_regression": False,
+        "session_id": "test-session",
+    }
+    values.update(overrides)
+    return argparse.Namespace(**values)
 
-    def __init__(self, settings_json: str | None) -> None:
-        self._settings = settings_json
 
-    def execute(self, _sql, _params):
-        payload = self._settings
+def _stub_control_plane(settings_json: str | None):
+    """Answer the guard's two reads without touching a control plane."""
+    calls: list[tuple[str, dict]] = []
 
-        class _Cursor:
-            def fetchone(self):
-                return None if payload is None else (payload,)
+    def dispatcher(*, function_id, target, payload, actor):
+        del target, actor
+        calls.append((function_id, payload))
+        if function_id == "projects.capability_settings.get":
+            if settings_json is None:
+                return FunctionCallResponse(
+                    success=False,
+                    function=function_id,
+                    version="v1",
+                    error=FunctionError(
+                        code="not_found",
+                        message="capability 'release_pin' was not found",
+                    ),
+                )
+            return FunctionCallResponse(
+                success=True,
+                function=function_id,
+                version="v1",
+                result={"settings_json": settings_json},
+            )
+        if function_id == "deployment_flows.get":
+            return FunctionCallResponse(
+                success=True,
+                function=function_id,
+                version="v1",
+                result={"value": "production"},
+            )
+        raise AssertionError(f"unexpected function id {function_id!r}")
 
-        return _Cursor()
+    return dispatcher, calls
 
 
 def test_compare_pins_orders_numeric_segments_numerically() -> None:
@@ -125,44 +168,81 @@ def test_undeclared_environment_skips_with_a_reason(tmp_path) -> None:
     assert "no pin branch declared" in (comparison.skipped_reason or "")
 
 
-def test_assert_raises_for_a_declared_project(tmp_path) -> None:
-    import json
-
+def test_assert_raises_for_a_stale_ref(tmp_path) -> None:
     repo = _pin_repo(tmp_path, "0.1.1+launch.145", "0.1.1+launch.144")
-    conn = _Conn(json.dumps(SETTINGS))
 
     with pytest.raises(PinRegressionError, match="older than"):
         assert_no_pin_regression(
-            conn,
-            project_id=1,
+            settings=SETTINGS,
             repo_path=str(repo),
             source_ref="origin/stale",
             target_env="production",
         )
 
 
-def test_assert_is_a_noop_without_a_declaration(tmp_path) -> None:
+def test_guard_refuses_a_declared_project_and_names_both_versions(
+    tmp_path,
+) -> None:
     repo = _pin_repo(tmp_path, "0.1.1+launch.145", "0.1.1+launch.144")
+    dispatcher, calls = _stub_control_plane(json.dumps(SETTINGS))
 
-    assert assert_no_pin_regression(
-        _Conn(None),
-        project_id=1,
-        repo_path=str(repo),
-        source_ref="origin/stale",
-        target_env="production",
-    ) is None
+    with (
+        patch(f"{GUARD}.call_dispatcher", side_effect=dispatcher),
+        patch(f"{GUARD}.ensure_handlers_loaded"),
+    ):
+        message = pin_regression_error(_guard_args(repo))
+
+    assert message is not None
+    assert "0.1.1+launch.144" in message
+    assert "0.1.1+launch.145" in message
+    assert "override" in message
+    assert calls[0] == (
+        "projects.capability_settings.get",
+        {"project": "demo", "cap_type": "release_pin"},
+    )
+    assert calls[1] == (
+        "deployment_flows.get",
+        {"flow_id": "demo-production", "field": "target_env"},
+    )
+
+
+def test_guard_is_a_noop_without_a_declaration(tmp_path) -> None:
+    repo = _pin_repo(tmp_path, "0.1.1+launch.145", "0.1.1+launch.144")
+    dispatcher, calls = _stub_control_plane(None)
+
+    with (
+        patch(f"{GUARD}.call_dispatcher", side_effect=dispatcher),
+        patch(f"{GUARD}.ensure_handlers_loaded"),
+    ):
+        assert pin_regression_error(_guard_args(repo)) is None
+
+    assert [function_id for function_id, _ in calls] == [
+        "projects.capability_settings.get"
+    ]
+
+
+def test_guard_skips_an_unreadable_pin(tmp_path) -> None:
+    """A pin file absent on one side is not evidence of a rollback."""
+    repo = _pin_repo(tmp_path, "0.1.1+launch.145", "0.1.1+launch.144")
+    settings = dict(SETTINGS, pin_file="absent.txt")
+    dispatcher, _calls = _stub_control_plane(json.dumps(settings))
+
+    with (
+        patch(f"{GUARD}.call_dispatcher", side_effect=dispatcher),
+        patch(f"{GUARD}.ensure_handlers_loaded"),
+    ):
+        assert pin_regression_error(_guard_args(repo)) is None
 
 
 def test_override_bypasses_the_guard(tmp_path) -> None:
-    import json
-
     repo = _pin_repo(tmp_path, "0.1.1+launch.145", "0.1.1+launch.144")
+    dispatcher, calls = _stub_control_plane(json.dumps(SETTINGS))
 
-    assert assert_no_pin_regression(
-        _Conn(json.dumps(SETTINGS)),
-        project_id=1,
-        repo_path=str(repo),
-        source_ref="origin/stale",
-        target_env="production",
-        override=True,
-    ) is None
+    with (
+        patch(f"{GUARD}.call_dispatcher", side_effect=dispatcher),
+        patch(f"{GUARD}.ensure_handlers_loaded"),
+    ):
+        args = _guard_args(repo, allow_pin_regression=True)
+        assert pin_regression_error(args) is None
+
+    assert calls == []
