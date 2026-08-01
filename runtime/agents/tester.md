@@ -172,7 +172,7 @@ When reading files >200 lines, use the Read tool's `offset` and `limit` paramete
    Guidelines for test selection:
    - **Always run** tests whose names match changed files or changed command surfaces (e.g., changing a project-provided command means running that command's matching test) and any tests listed in the task's acceptance criteria.
    - **Consider running** tests for scripts that source or depend on the changed code. `grep -rl` on changed filenames in the test directory can help identify these.
-   - **Run the full suite** when your judgement says the blast radius warrants it — e.g., changes to core infrastructure, shared helpers, DB schema, or wide-reaching refactors. A single leaf script getting a new feature almost certainly doesn't need 90+ test files.
+   - **Escalate to broader runs** when your judgement says the blast radius warrants it — e.g., changes to core infrastructure, shared helpers, DB schema, or wide-reaching refactors. For Yoke code, prefer `yoke watch pytest --impacted main` (it already falls back to the full sweep when reachability cannot bound the change); the full three-anchor sweep is CI's job on the protected merge path and returns locally only as the CI-outage fallback. A single leaf script getting a new feature almost certainly doesn't need 90+ test files.
 
    Log your test selection reasoning in the validation report: what you chose to run, why, and what you considered but excluded.
 

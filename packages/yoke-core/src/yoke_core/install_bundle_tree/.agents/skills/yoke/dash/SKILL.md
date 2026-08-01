@@ -214,7 +214,14 @@ produce a diff.
 
 ### 5. Verify and close review
 
-Run the relevant project verification and an agent self-check. Then execute
+Run the project's implementation-time verification and an agent self-check.
+Prefer the change-scoped check — impacted-test selection over the branch
+diff — to a local full sweep: the full-suite authority is CI on the
+protected merge path, which runs on the pull request and again on the
+merged commit. Fall back to a local full sweep only when CI is unavailable,
+and record that substitution in the verification evidence. If CI fails a
+test the impacted run skipped, that is a selector defect: fix the
+selection model in the same response, not just the code. Then execute
 each selected posture knob through its shared authority:
 
 - `verification.kind=plan` — materialize the attached plan cases for

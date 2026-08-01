@@ -11,23 +11,30 @@ import it — and walks it from the changed files outward. Every test file in
 that closure is selected; everything else provably cannot import the change.
 
 **This is an accelerator for iteration, not a merge gate.** Static imports
-do not capture every way a test can depend on code:
+do not capture every way a test can depend on code, so two hardenings
+close the known non-import coupling classes:
 
-- a test that shells out to a CLI exercises modules it never imports;
-- ``from package import name`` records ``package.name`` but attribute
-  access after ``from package import subpackage`` is not resolved;
-- dynamic imports by computed name are invisible.
+- dotted-module-path **string literals** count as dependency edges too —
+  a test that spawns ``python3 -m pkg.tool`` as a subprocess, patches
+  ``"pkg.helper"`` by string target, or dispatches through a string-keyed
+  registry names its dependency in a string, and that string selects it;
+- a small :data:`ALWAYS_RUN_TESTS` floor of fast cross-cutting contract
+  tests runs on every selection no matter what the graph says, so a
+  wiring break in a surface the closure missed still fails locally.
 
-So selection is opt-in, and anything that could ripple everywhere falls
+Selection stays opt-in, and anything that could ripple everywhere falls
 back to the full sweep by construction (see :data:`FULL_SWEEP_TRIGGERS`):
 non-Python files, shared fixtures, conftest modules, and the test tooling
-itself. The full sweep still runs before merge — a missed edge costs a
-late failure, never a silent one.
+itself. CI runs the full sweep on every pull request and merge — a missed
+edge costs a late failure, never a silent one — and a CI failure on a
+test this selection skipped is a selector defect: model the missed edge
+here, with a regression test, in the same fix.
 """
 
 from __future__ import annotations
 
 import ast
+import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -48,10 +55,25 @@ FULL_SWEEP_TRIGGERS = (
     "packages/yoke-core/src/yoke_core/tools/pg_testcluster.py",
 )
 
+#: Fast cross-cutting contract tests appended to every impacted selection.
+#: They exercise CLI registry, operation inventory, and adapter parity
+#: wiring end-to-end — the coupling surfaces where a break can hide from
+#: import reachability while still failing the full sweep.
+ALWAYS_RUN_TESTS = (
+    "runtime/api/cli/test_adapter_inventory_usage_contract.py",
+    "runtime/api/cli/test_yoke_operation_inventory.py",
+    "runtime/api/test_service_client_structured_api_adapter.py",
+)
+
 _PACKAGE_SOURCE_MARKER = "/src/"
 _SKIP_DIRECTORIES = frozenset(
     {".git", ".venv", "node_modules", "__pycache__", ".worktrees", "build"}
 )
+
+#: A string literal shaped like a dotted module path is treated as a
+#: dependency reference (subprocess ``-m`` targets, patch targets,
+#: registry keys). Single-segment names are far too noisy to count.
+_DOTTED_PATH = re.compile(r"^[A-Za-z_]\w*(\.[A-Za-z_]\w*)+$")
 
 
 @dataclass(frozen=True)
@@ -140,6 +162,28 @@ def _imported_modules(tree: ast.AST, own_module: "str | None") -> set[str]:
     return found
 
 
+def _string_module_references(tree: ast.AST) -> set[str]:
+    """Dotted-path string literals, expanded to every module prefix.
+
+    ``"pkg.tool.main"`` may name a module or an attribute inside one, so
+    every two-plus-segment prefix is recorded; prefixes that match no real
+    module are inert keys in the reverse index. Strings that are not
+    module paths (event names, function ids) cost nothing for the same
+    reason — they only select something when a module actually matches.
+    """
+    found: set[str] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Constant) or not isinstance(node.value, str):
+            continue
+        value = node.value.strip()
+        if len(value) > 200 or not _DOTTED_PATH.match(value):
+            continue
+        parts = value.split(".")
+        for end in range(2, len(parts) + 1):
+            found.add(".".join(parts[:end]))
+    return found
+
+
 @dataclass(frozen=True)
 class ImportIndex:
     """Reverse import edges plus the module name of every source file."""
@@ -160,7 +204,10 @@ def build_import_index(repo_root: Path) -> ImportIndex:
             tree = ast.parse(path.read_text(encoding="utf-8", errors="replace"))
         except (SyntaxError, ValueError, OSError):
             continue
-        for referenced in _imported_modules(tree, module):
+        references = _imported_modules(tree, module) | _string_module_references(
+            tree
+        )
+        for referenced in references:
             importers.setdefault(referenced, set()).add(rel)
     return ImportIndex(importers=importers, module_of=module_of)
 
@@ -204,16 +251,23 @@ def select(changed: Sequence[str], index: ImportIndex) -> Selection:
                 seen_modules.add(importer_module)
                 frontier.append(importer_module)
 
-    tests = tuple(sorted(rel for rel in reached if is_test_file(rel)))
-    if not tests:
+    reached_tests = {rel for rel in reached if is_test_file(rel)}
+    tests = tuple(sorted(reached_tests | set(ALWAYS_RUN_TESTS)))
+    if not reached_tests:
         return Selection(
             full_sweep=False,
-            reason="no test imports the changed modules",
-            tests=(),
+            reason=(
+                "no test reaches the changed modules; "
+                "running the always-run contract tests"
+            ),
+            tests=tests,
         )
     return Selection(
         full_sweep=False,
-        reason=f"{len(tests)} test file(s) import the changed modules",
+        reason=(
+            f"{len(reached_tests)} test file(s) reach the changed modules, "
+            "plus the always-run contract tests"
+        ),
         tests=tests,
     )
 

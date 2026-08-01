@@ -41,9 +41,10 @@ WATCHERS_COMMANDS: list[dict] = [
         "topic": "core",
         "purpose": "Run pytest with background watcher (main session)",
         "recipe": (
-            "yoke watch pytest -- "
-            "runtime/api/ runtime/harness/ tests/\n"
-            "# Canonical full Yoke gate. For a harness background stream:\n"
+            "yoke watch pytest "
+            "--impacted main\n"
+            "# Default local check. Full three-anchor sweep (CI's job; "
+            "local CI-outage fallback):\n"
             "yoke watch pytest "
             "--print-streaming-pair -- runtime/api/ runtime/harness/ tests/\n"
             "# Paste the printed pair into the harness's "
@@ -52,8 +53,10 @@ WATCHERS_COMMANDS: list[dict] = [
             "(the helper-resolved path the wrapper printed)"
         ),
         "notes": (
-            "This exact three-suite target is the canonical full Yoke gate; "
-            "it injects xdist `-n auto`. Pass `-n 0` after `--` "
+            "The impacted selection is the local default; the three-suite "
+            "target is the full Yoke gate CI runs on every pull request "
+            "and push to main, and locally it is the CI-outage fallback. "
+            "Both inject xdist `-n auto`. Pass `-n 0` after `--` "
             "for sequential order-sensitive debugging. The wrapper mints "
             "the raw + progress capture pair via "
             "yoke_core.domain.project_scratch_dir.mint_watcher_capture_pair "
@@ -61,12 +64,10 @@ WATCHERS_COMMANDS: list[dict] = [
             "paths; --raw-capture <path> is the operator carve-out for "
             "pinning to a known location. Subagents must run the foreground "
             "variant below — backgrounded watchers from subagent context "
-            "are denied by lint-subagent-background. Inside a uv-managed "
-            "project whose environment can run the wrapper, the command "
-            "re-execs under `uv run --frozen`, so a clean worktree runs "
-            "its own locked dependencies and its own sources without "
-            "ambient PYTHONPATH or virtualenv activation; elsewhere it "
-            "runs in the console script's own interpreter."
+            "are denied by lint-subagent-background. `uv run --frozen` "
+            "materializes the locked dev environment in a clean worktree, "
+            "so the wrapper and application dependencies are importable "
+            "without ambient PYTHONPATH or virtualenv activation."
         ),
     },
     {
