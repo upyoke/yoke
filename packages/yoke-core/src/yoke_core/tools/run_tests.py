@@ -185,17 +185,29 @@ def run(
             print(f"Error: {refusal}", file=sys.stderr)
             return 1
 
-    # Own the process group so an interrupted run takes its xdist workers down
-    # with it. Workers that outlive the runner keep their test databases open,
-    # and the next run then blocks on databases nobody is using.
-    proc = process_group_reaping.popen_in_process_group(
-        cmd, cwd=str(root), env=env
+    import contextlib
+
+    from yoke_core.tools import gate_admission
+
+    # Collection-only runs are cheap on every axis and never take a slot.
+    admission = (
+        contextlib.nullcontext()
+        if list_only
+        else gate_admission.admitted_gate(list(paths or ()))
     )
-    try:
-        with process_group_reaping.interruption_reaps_process_group(proc):
-            return proc.wait()
-    except process_group_reaping.ProcessGroupInterrupted as interruption:
-        return _EXIT_STATUS_SIGNAL_BASE + interruption.signal_number
+    with admission:
+        # Own the process group so an interrupted run takes its xdist workers
+        # down with it. Workers that outlive the runner keep their test
+        # databases open, and the next run then blocks on databases nobody is
+        # using.
+        proc = process_group_reaping.popen_in_process_group(
+            cmd, cwd=str(root), env=env
+        )
+        try:
+            with process_group_reaping.interruption_reaps_process_group(proc):
+                return proc.wait()
+        except process_group_reaping.ProcessGroupInterrupted as interruption:
+            return _EXIT_STATUS_SIGNAL_BASE + interruption.signal_number
 
 
 def _parse_args(argv: Sequence[str]) -> argparse.Namespace:

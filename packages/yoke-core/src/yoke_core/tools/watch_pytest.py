@@ -64,6 +64,7 @@ from yoke_core.tools import (
     _watch_pytest_rootdir,
     _watch_runner,
     _watch_worktree_binding,
+    gate_admission,
 )
 from yoke_core.tools._pytest_parallel import (
     apply_postgres_xdist_auto_env,
@@ -299,16 +300,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         sys.stdout.write(warning)
         sys.stdout.flush()
 
-    started = time.monotonic()
-    exit_code = _watch_runner.run_watcher(
-        argv=_pytest_argv(pytest_args),
-        classifier=classify_pytest_line,
-        raw_capture=raw_path,
-        progress_capture=progress_path,
-        kind=KIND,
-        env=pytest_env,
-    )
-    _watch_pytest_wall_clock.report(time.monotonic() - started, raw_path)
+    with gate_admission.admitted_gate(pytest_args, stream=sys.stdout):
+        started = time.monotonic()
+        exit_code = _watch_runner.run_watcher(
+            argv=_pytest_argv(pytest_args),
+            classifier=classify_pytest_line,
+            raw_capture=raw_path,
+            progress_capture=progress_path,
+            kind=KIND,
+            env=pytest_env,
+        )
+        _watch_pytest_wall_clock.report(time.monotonic() - started, raw_path)
     return exit_code
 
 
