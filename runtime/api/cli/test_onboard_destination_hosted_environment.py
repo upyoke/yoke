@@ -120,11 +120,11 @@ def test_explicit_hosted_url_rejects_a_different_environment() -> None:
 
 def test_resumed_hosted_connection_preserves_its_org_label() -> None:
     choice = resolve_destination(
-        _destination_args(HOSTED_STAGE_API_URL, "upyoke")
+        _destination_args(HOSTED_STAGE_API_URL, "upyoke-stage-1")
     )
 
     assert choice.error is None
-    assert choice.env_name == "upyoke"
+    assert choice.env_name == "upyoke-stage-1"
     assert (
         platform_url_for_connection(HOSTED_STAGE_API_URL, choice.env_name)
         == HOSTED_STAGE_PLATFORM_URL

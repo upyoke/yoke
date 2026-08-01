@@ -9,18 +9,24 @@ CANONICAL_WATCH_PYTEST = (
     "uv run --frozen python3 -m yoke_core.tools.watch_pytest -- "
     "runtime/api/ runtime/harness/ tests/"
 )
+IMPACTED_WATCH_PYTEST = (
+    "uv run --frozen python3 -m yoke_core.tools.watch_pytest --impacted main"
+)
 
 
 def test_agents_testing_section_teaches_watcher_not_raw_pytest() -> None:
     text = _read(REPO / "AGENTS.md")
+    # Impacted selection is the local default; the three-anchor sweep stays
+    # taught as CI's job and the CI-outage fallback.
+    assert IMPACTED_WATCH_PYTEST in text
     assert CANONICAL_WATCH_PYTEST in text
-    assert "it injects xdist `-n auto`" in text
+    assert "inject xdist `-n auto`" in text
     assert "The canonical verification target for Yoke code is `python3 -m pytest" not in text
 
 
 def test_advance_summary_default_uses_watcher() -> None:
     text = _read(SKILLS / "advance" / "finalize.md")
-    assert CANONICAL_WATCH_PYTEST in text
+    assert IMPACTED_WATCH_PYTEST in text
     assert '"python3 -m pytest runtime/api/" (yoke default)' not in text
 
 
