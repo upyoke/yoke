@@ -53,6 +53,13 @@ DEFAULT_MAX_CONCURRENT_GATES = 2
 CAP_ENV = "YOKE_TEST_GATE_MAX_CONCURRENT"
 CAP_MACHINE_CONFIG_KEY = "test_gate_max_concurrent"
 
+#: Set for the duration of an admitted heavy gate and inherited by every
+#: process it spawns. A descendant invocation rides its ancestor's slot
+#: instead of arbitrating its own: the suite's own tool tests spawn real
+#: nested runner invocations, and a nested invocation waiting on the slot
+#: its ancestor holds is a deadlock, not a queue.
+ADMITTED_ENV = "YOKE_TEST_GATE_SLOT_HELD"
+
 #: Base advisory-lock key for gate slots; slot *i* locks ``BASE + i``.
 #: Distinct from the cluster-role authority lock used by the fixtures.
 GATE_SLOT_LOCK_BASE = 0x596F6B6547617431
@@ -200,21 +207,29 @@ def admitted_gate(
     """Hold a machine-wide gate slot for the duration of a heavy run.
 
     Narrow (file-scoped) invocations pass through without touching the
-    cluster. The slot rides a dedicated connection, so process death at
-    any point releases it.
+    cluster, and descendants of an already-admitted gate ride their
+    ancestor's slot (see :data:`ADMITTED_ENV`). The slot rides a
+    dedicated connection, so process death at any point releases it.
     """
-    if not is_heavy_invocation(pytest_args):
+    if not is_heavy_invocation(pytest_args) or os.environ.get(ADMITTED_ENV):
         yield
         return
     conn = _acquire(stream)
+    prior_marker = os.environ.get(ADMITTED_ENV)
+    os.environ[ADMITTED_ENV] = "1"
     try:
         yield
     finally:
+        if prior_marker is None:
+            os.environ.pop(ADMITTED_ENV, None)
+        else:
+            os.environ[ADMITTED_ENV] = prior_marker
         if conn is not None:
             conn.close()
 
 
 __all__ = [
+    "ADMITTED_ENV",
     "CAP_ENV",
     "CAP_MACHINE_CONFIG_KEY",
     "DEFAULT_MAX_CONCURRENT_GATES",

@@ -89,7 +89,31 @@ def test_narrow_invocation_bypasses_admission(tmp_path, monkeypatch):
         pass
 
 
+def test_descendant_of_admitted_gate_rides_ancestor_slot(monkeypatch):
+    monkeypatch.setenv(gate_admission.ADMITTED_ENV, "1")
+
+    def _fail(*_args, **_kwargs):
+        raise AssertionError(
+            "descendant of an admitted gate must not arbitrate its own slot"
+        )
+
+    monkeypatch.setattr(gate_admission, "_acquire", _fail)
+    with gate_admission.admitted_gate([]):
+        pass
+
+
+def test_admitted_gate_marks_descendant_environment(monkeypatch):
+    monkeypatch.delenv(gate_admission.ADMITTED_ENV, raising=False)
+    monkeypatch.setattr(gate_admission, "_acquire", lambda _stream: None)
+    import os
+
+    with gate_admission.admitted_gate([]):
+        assert os.environ.get(gate_admission.ADMITTED_ENV) == "1"
+    assert os.environ.get(gate_admission.ADMITTED_ENV) is None
+
+
 def test_cap_zero_disables_admission(monkeypatch):
+    monkeypatch.delenv(gate_admission.ADMITTED_ENV, raising=False)
     monkeypatch.setenv(gate_admission.CAP_ENV, "0")
 
     def _fail(*_args, **_kwargs):
@@ -101,6 +125,7 @@ def test_cap_zero_disables_admission(monkeypatch):
 
 
 def test_unreachable_cluster_fails_open(monkeypatch, capsys):
+    monkeypatch.delenv(gate_admission.ADMITTED_ENV, raising=False)
     monkeypatch.setenv(gate_admission.CAP_ENV, "3")
     monkeypatch.setattr(gate_admission, "_maintenance_dsn", lambda: None)
     import sys
