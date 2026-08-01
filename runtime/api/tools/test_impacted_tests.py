@@ -43,6 +43,11 @@ def _write(root: Path, rel: str, body: str) -> None:
     path.write_text(body)
 
 
+def _with_floor(*tests: str) -> tuple[str, ...]:
+    """Expected selection: the reached tests plus the always-run floor."""
+    return tuple(sorted({*tests, *impacted_tests.ALWAYS_RUN_TESTS}))
+
+
 def _tiny_repo(tmp_path: Path) -> Path:
     _write(tmp_path, "runtime/__init__.py", "")
     _write(tmp_path, "runtime/api/__init__.py", "")
@@ -70,7 +75,7 @@ def test_selects_transitively_reachable_tests_only(tmp_path):
 
     assert selection.full_sweep is False
     # test_middle imports middle, which imports leaf — two hops.
-    assert selection.tests == ("runtime/api/test_middle.py",)
+    assert selection.tests == _with_floor("runtime/api/test_middle.py")
 
 
 def test_changed_test_file_selects_itself(tmp_path):
@@ -79,7 +84,7 @@ def test_changed_test_file_selects_itself(tmp_path):
 
     selection = select(["runtime/api/test_unrelated.py"], index)
 
-    assert selection.tests == ("runtime/api/test_unrelated.py",)
+    assert selection.tests == _with_floor("runtime/api/test_unrelated.py")
 
 
 def test_non_python_change_forces_full_sweep(tmp_path):
@@ -142,7 +147,7 @@ def test_relative_imports_are_resolved(tmp_path):
 
     selection = select(["pkg/core.py"], index)
 
-    assert selection.tests == ("pkg/test_core_relative.py",)
+    assert selection.tests == _with_floor("pkg/test_core_relative.py")
 
 
 def test_selection_pytest_paths_prefers_selected_tests():
@@ -157,3 +162,52 @@ def test_no_changes_selects_nothing():
     selection = select([], ImportIndex(importers={}, module_of={}))
     assert selection.full_sweep is False
     assert selection.tests == ()
+
+
+def test_subprocess_module_string_selects_the_shelling_test(tmp_path):
+    root = _tiny_repo(tmp_path)
+    _write(
+        root,
+        "runtime/api/test_leaf_cli.py",
+        'import subprocess\n\n\ndef test_cli():\n'
+        '    subprocess.run(["python3", "-m", "runtime.api.leaf"])\n',
+    )
+    index = build_import_index(root)
+
+    selection = select(["runtime/api/leaf.py"], index)
+
+    assert "runtime/api/test_leaf_cli.py" in selection.tests
+
+
+def test_patch_target_string_selects_the_patching_test(tmp_path):
+    root = _tiny_repo(tmp_path)
+    # The string names an attribute inside the module; the module prefix
+    # of the dotted path is what must create the edge.
+    _write(
+        root,
+        "runtime/api/test_leaf_patch.py",
+        'TARGET = "runtime.api.leaf.VALUE"\n\n\ndef test_patched():\n    pass\n',
+    )
+    index = build_import_index(root)
+
+    selection = select(["runtime/api/leaf.py"], index)
+
+    assert "runtime/api/test_leaf_patch.py" in selection.tests
+
+
+def test_unreached_change_still_runs_the_contract_floor(tmp_path):
+    root = _tiny_repo(tmp_path)
+    _write(root, "runtime/api/orphan.py", "ALONE = 1\n")
+    index = build_import_index(root)
+
+    selection = select(["runtime/api/orphan.py"], index)
+
+    assert selection.full_sweep is False
+    assert "always-run" in selection.reason
+    assert selection.tests == _with_floor()
+
+
+def test_always_run_tests_exist_in_this_repo():
+    repo_root = Path(__file__).resolve().parents[3]
+    for rel in impacted_tests.ALWAYS_RUN_TESTS:
+        assert (repo_root / rel).is_file(), rel
