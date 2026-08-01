@@ -34,6 +34,7 @@ class DoctorLastRunGetResponse(BaseModel):
     pass_count: Optional[int] = None
     warn_count: Optional[int] = None
     fail_count: Optional[int] = None
+    na_count: Optional[int] = None
     total: Optional[int] = None
     results: List[Dict[str, Any]] = Field(default_factory=list)
     truncated: bool = False

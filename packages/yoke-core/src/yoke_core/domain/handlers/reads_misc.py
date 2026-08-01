@@ -84,28 +84,37 @@ class DoctorRunRequest(BaseModel):
     quick: bool = False
     full: bool = False
     fix: bool = False
-    project: str = "yoke"
+    project: Optional[str] = None
     db_path: Optional[str] = None
+    runtime: Optional[str] = None
 
 
 class DoctorRunResponse(BaseModel):
     results: List[Dict[str, Any]]
     scope: str
     project: str
+    runtime: str
     fail_count: int
     warn_count: int
     pass_count: int
+    na_count: int
 
 
 def handle_doctor_run(request: FunctionCallRequest) -> HandlerOutcome:
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.handlers.doctor_run_scope import (
         doctor_scope_label,
-        filter_source_tree_checks,
+        project_safe_quick_checks,
         validate_only_slugs,
     )
-    from yoke_core.engines.doctor_registry import HEALTH_CHECKS, _should_run_hc
+    from yoke_core.engines.doctor_context import FALLBACK_PROJECT, resolve_context
+    from yoke_core.engines.doctor_registry import HEALTH_CHECKS
     from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
+    from yoke_core.engines.doctor_roster import (
+        build_roster,
+        record_discovery_failures,
+        record_not_applicable,
+    )
 
     payload = request.payload or {}
     only_raw = payload.get("only")
@@ -186,25 +195,24 @@ def handle_doctor_run(request: FunctionCallRequest) -> HandlerOutcome:
     args = DoctorArgs(
         only=only_raw,
         quick=quick,
-        project=str(payload.get("project") or "yoke"),
+        project=str(payload.get("project") or FALLBACK_PROJECT),
         fix=bool(payload.get("fix", False)),
         db_path=str(db_path) if db_path else None,
+        runtime=payload.get("runtime"),
     )
     rec = RecordCollector()
     conn = connect(path=args.db_path)
-    skip_source_tree_checks = bool(payload.get("skip_source_tree_checks", False))
-    project_safe_quick = (
-        skip_source_tree_checks
-        and args.quick
-        and not args.only
-        and not args.fix
-        and args.project != "yoke"
-    )
-    selected = filter_source_tree_checks(
-        [hc for hc in HEALTH_CHECKS if _should_run_hc(hc.slug, args)],
-        skip=skip_source_tree_checks,
-        project_safe_quick=project_safe_quick,
-    )
+    context = resolve_context(conn, args)
+    roster = build_roster(HEALTH_CHECKS, args, context)
+    selected = roster.applicable
+    if bool(payload.get("project_safe_quick")) and not context.targets_self_project:
+        selected = project_safe_quick_checks(selected)
+    # Not-applicable results and discovery failures belong to the first
+    # chunk: a paginating caller must see them exactly once, and they are
+    # already known before any check runs.
+    if not cursor_after_raw:
+        record_discovery_failures(roster, rec)
+        record_not_applicable(roster, rec)
     start_index = 0
     cursor_after = (cursor_after_raw or "").strip()
     if cursor_after:
@@ -256,9 +264,11 @@ def handle_doctor_run(request: FunctionCallRequest) -> HandlerOutcome:
             "results": results,
             "scope": doctor_scope_label(args),
             "project": args.project,
+            "runtime": context.runtime,
             "fail_count": rec.fail_count,
             "warn_count": rec.warn_count,
             "pass_count": rec.pass_count,
+            "na_count": rec.na_count,
             "done": done,
             "cursor": last_cursor,
         },

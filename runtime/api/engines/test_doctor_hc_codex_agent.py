@@ -7,8 +7,8 @@ from pathlib import Path
 import pytest
 
 from runtime.api.fixtures import pg_testdb
-from yoke_core.engines import doctor_hc_codex_agent as mod
-from yoke_core.engines.doctor_hc_codex_agent import (
+from yoke_project_checks import check_codex_agent as mod
+from yoke_project_checks.check_codex_agent import (
     _CANONICAL_AGENTS,
     hc_codex_agent_adapter_drift,
     hc_codex_subagent_surface_truth,

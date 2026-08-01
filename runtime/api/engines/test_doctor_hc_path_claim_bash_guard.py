@@ -6,8 +6,8 @@ import json
 
 import pytest
 
-from yoke_core.engines import doctor_hc_path_claim_bash_guard as mod
-from yoke_core.engines.doctor_hc_path_claim_bash_guard import (
+from yoke_project_checks import check_path_claim_bash_guard as mod
+from yoke_project_checks.check_path_claim_bash_guard import (
     hc_path_claim_bash_guard,
 )
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector

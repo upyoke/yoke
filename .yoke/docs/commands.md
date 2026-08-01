@@ -107,7 +107,9 @@ Use `yoke shepherd dependency-list PREFIX-N` to inspect the authoritative depend
 
 ### doctor
 
-Run the Ouroboros health scan: 40+ checks across backlog, GitHub sync, worktrees, documentation drift, dispatch chains, agent prompts, hook scripts, schema validation, semantic drift, and more. `--fix` auto-repairs trivial issues. Report saved to `yoke/ouroboros/health/health-{YYYYMMDD}.md` (local, gitignored).
+Run the Ouroboros health scan: checks across backlog, GitHub sync, worktrees, documentation drift, dispatch chains, agent prompts, hook scripts, schema validation, semantic drift, and more. `--fix` auto-repairs trivial issues. Report saved to `yoke/ouroboros/health/health-{YYYYMMDD}.md` (local, gitignored).
+
+Which checks run is derived, not fixed: every check declares its project scope, source-tree dependence, supported runtimes, and required capabilities, and the runner resolves the applicable set for the target project and runtime. The project defaults to whichever one is bound to the checkout you are standing in. Checks outside the applicable set appear under `## Not Applicable` with their reason rather than as passes — a hosted run cannot see a source tree, so its source-tree checks report `N/A`, and exercising them means running doctor where the checkout lives. A project's own checks live in its `.yoke/doctor/` folder (`check_*.py` files, `hc_*` functions) and join the same report.
 
 ### freeze / thaw
 
