@@ -16,11 +16,30 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 ## Arguments
 
-- `[project]` — Target project for project-specific checks (default: `yoke`). Examples: `external-webapp`, `yoke`. The first positional argument that is not a flag is treated as the project name.
+- `[project]` — Target project for project-specific checks. Defaults to the project bound to the checkout you are standing in; a machine that knows no such binding falls back to the seeded self project. Examples: `external-webapp`, `yoke`. The first positional argument that is not a flag is treated as the project name.
 - `--fix` — Auto-repair trivial issues (label mismatches, stale dashboards, stale worktree refs). Non-trivial issues are reported only.
 - `--file {path}` — Save the report to a custom path (default: `ouroboros/health/health-{YYYYMMDD}.md`)
 
 ## Philosophy
+
+**Every check declares what it applies to.** The roster is not one fixed list
+shipped everywhere. Each check states its project scope, whether it reads the
+target project's source tree, which runtimes it runs under, and which
+capabilities it needs; the runner derives the applicable set from the live
+context. See `## Health Checks` in AGENTS.md for the model.
+
+**Report "not applicable" honestly.** A run over an HTTPS authority executes
+the checks on the control-plane server, which holds no source tree — so every
+source-tree check comes back `N/A` with its reason in the `## Not Applicable`
+section, not as a pass. To actually exercise those checks, run doctor where
+the checkout lives (a local-Postgres connection). When you relay a report,
+relay the not-applicable count too: `N passed` over a hosted run does not mean
+the source tree was inspected.
+
+**Project-local checks.** A project's own checks live in its `.yoke/doctor/`
+folder and are discovered pytest-style by a runner that holds the checkout.
+They appear in the report exactly like engine checks. A check module that
+fails to import is reported as `HC-project-check-discovery` FAIL.
 
 **Events table as health signal.** The events table captures anomaly patterns across all agent sessions. Include `yoke events anomalies --since "24 hours ago"` in the diagnostic context. Elevated anomaly counts or recurring `nonzero_exit` patterns on specific scripts are health signals.
 

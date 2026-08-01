@@ -113,15 +113,20 @@ class DoctorContext:
     project: str
     runtime: str
     self_project: Optional[str] = None
+    #: Every identifier naming the self project — its slug and its project
+    #: id — so a run matches whichever one the caller used. Defaults to
+    #: whatever ``self_project`` names.
+    self_project_names: frozenset = field(default_factory=frozenset)
     source_checkout: Optional[Path] = None
     capabilities: frozenset = field(default_factory=frozenset)
 
     @property
     def targets_self_project(self) -> bool:
         """Whether this run targets the project that owns this install."""
-        if self.self_project is None:
-            return False
-        return str(self.project) == str(self.self_project)
+        names = self.self_project_names or (
+            frozenset({self.self_project}) if self.self_project else frozenset()
+        )
+        return str(self.project) in {str(name) for name in names}
 
 
 def not_applicable_reason(

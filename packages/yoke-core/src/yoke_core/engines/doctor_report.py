@@ -7,6 +7,9 @@ small helper functions used across multiple HC sub-modules.
 from __future__ import annotations
 
 import subprocess
+# Kept as a module attribute, not just an import: HC modules and their tests
+# patch ``doctor_report.time.time`` to pin the clock for staleness checks.
+import time  # noqa: F401
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path

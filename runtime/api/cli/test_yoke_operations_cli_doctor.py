@@ -68,6 +68,9 @@ class TestDoctorRun:
         assert req.target.kind == "global"
         assert req.payload == {
             "project": "yoke", "quick": True, "full": False, "fix": False,
+            # The client states where the checks will execute; the runner
+            # would otherwise have to guess whether it can see a checkout.
+            "runtime": "local",
         }
 
     def test_full_with_fix(self) -> None:

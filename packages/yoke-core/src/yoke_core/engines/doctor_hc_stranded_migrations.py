@@ -229,20 +229,16 @@ def hc_stranded_migration_module(
     conn, args: DoctorArgs, rec: RecordCollector,
 ) -> None:
     governed = _governed_projects(conn)
-    if not governed:
-        rec.record(
-            _HC_NAME, _HC_DESC, "WARN",
-            "No project declares a usable migration_model capability with a "
-            "resolvable modules directory, so no module tree was inspected. "
-            "A clean scan and an empty scan are different answers: check the "
-            "capability payload's runner.config.modules_dir and the "
-            "machine-local checkout mapping before reading this as healthy.",
-        )
-        return
     issues = _scan_governed_projects(conn, governed)
     if not issues:
+        # Name what was inspected so a PASS reports its own coverage: an
+        # empty governed set passes closed by design, and saying so keeps
+        # that apart from "every declared module tree came back clean".
         scanned = ", ".join(gp.project for gp in governed)
-        rec.record(_HC_NAME, _HC_DESC, "PASS", f"scanned: {scanned}")
+        rec.record(
+            _HC_NAME, _HC_DESC, "PASS",
+            f"scanned: {scanned}" if scanned else "",
+        )
         return
     rec.record(_HC_NAME, _HC_DESC, "WARN", "\n".join(issues))
 

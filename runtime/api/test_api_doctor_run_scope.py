@@ -47,14 +47,20 @@ class TestDoctorRunScope(unittest.TestCase):
             with patch(
                 "yoke_core.domain.db_helpers.connect", return_value=_Conn(),
             ):
+                # Cursor mechanics over a fixed roster: pinning the runtime
+                # keeps the roster exactly the two patched checks, instead of
+                # also collecting whatever this checkout declares in its own
+                # .yoke/doctor/ folder.
                 first = reads_misc.handle_doctor_run(_request({
                     "quick": True,
                     "project": "yoke",
+                    "runtime": "hosted",
                     "max_checks": 1,
                 }))
                 second = reads_misc.handle_doctor_run(_request({
                     "quick": True,
                     "project": "yoke",
+                    "runtime": "hosted",
                     "max_checks": 1,
                     "cursor_after": "first",
                 }))
