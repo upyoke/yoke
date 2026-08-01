@@ -124,6 +124,10 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
         "yoke_core.engines.usher_reconcile_github",
     ): ("source_dev_admin", "sanctioned usher recovery source-dev/admin command"),
     (
+        "packages/yoke-cli/src/yoke_cli/commands/watchers.py",
+        "yoke_core.tools.watch_entrypoints",
+    ): ("client_local_diagnostics", "wrappers behind the yoke watch commands"),
+    (
         "packages/yoke-cli/src/yoke_cli/commands/source_authority.py",
         "yoke_core.domain.source_authority_cutover",
     ): (

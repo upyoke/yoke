@@ -1,6 +1,6 @@
 # Merge — Per-Branch Merge Loop
 
-Covers merge Step 6: the per-branch sequential merge loop. For each branch, resolves the actual branch, commits any Tester artifacts, invokes the retained merge watcher (`python3 -m yoke_core.tools.watch_merge merge-worktree`), updates task status, re-verifies ACs post-merge on main, and halts on regression.
+Covers merge Step 6: the per-branch sequential merge loop. For each branch, resolves the actual branch, commits any Tester artifacts, invokes the retained merge watcher (`yoke watch merge merge-worktree`), updates task status, re-verifies ACs post-merge on main, and halts on regression.
 
 **Context variables** (set by the Preflight phase): `{epic-id}`, `WORKTREE_PATH`, `ACTUAL_BRANCH`.
 
@@ -29,7 +29,7 @@ Covers merge Step 6: the per-branch sequential merge loop. For each branch, reso
  _merge_flags=""
  if [ "${FORCE_LOCK:-0}" -eq 1 ]; then _merge_flags="--force-lock"; fi
  if [ "${SKIP_SIMULATION:-0}" -eq 1 ]; then _merge_flags="$_merge_flags --skip-simulation"; fi
- python3 -m yoke_core.tools.watch_merge merge-worktree -- $_merge_flags "$ACTUAL_BRANCH" main {epic-id}
+ yoke watch merge merge-worktree -- $_merge_flags "$ACTUAL_BRANCH" main {epic-id}
  ```
  Note: `{epic-id}` is passed as the epic ID (third argument) for DB-native prereq checks. `--force-lock` is passed through if the user specified it.
 
@@ -49,7 +49,7 @@ Covers merge Step 6: the per-branch sequential merge loop. For each branch, reso
  YOKE_CLAIM_BYPASS="merge:PR-{pr-number}" YOKE_TASK_DONE_VERIFIED=1 python3 -m yoke_core.domain.update_status {epic-id} {task-num} done "Merged via PR #{pr-number}"
  ```
  This handles: DB update, GitHub label sync, **and closing the task's GitHub issue** (the script auto-closes issues when status reaches `done`).
- Note: `python3 -m yoke_core.tools.watch_merge merge-worktree` already handles this automatically for completed tasks in the worktree branch. Only manually call this internal fallback for tasks that were missed.
+ Note: `yoke watch merge merge-worktree` already handles this automatically for completed tasks in the worktree branch. Only manually call this internal fallback for tasks that were missed.
 
  - **Post-merge AC re-verification:** After task status updates and before continuing to the next branch, re-verify the epic-level acceptance criteria against the merged result on main (not the pre-merge worktree). This catches cases where auto-resolve discarded branch changes that satisfied ACs.
 

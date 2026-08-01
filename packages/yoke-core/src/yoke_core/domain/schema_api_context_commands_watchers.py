@@ -8,15 +8,14 @@ high-friction patterns for ``watch_pytest`` / ``watch_doctor`` /
 Yoke subagents.
 
 Recipe shape doctrine (current):
-    The watcher wrappers (``yoke_core.tools.watch_pytest``,
-    ``watch_doctor``, ``watch_merge``) are deliberately
-    **tool-shaped surfaces, not function-call dispatched**. Per
-    CLI grammar contract, families whose disposition is
-    ``agent_executes_via_harness`` are explicitly NOT in the
-    ``yoke`` CLI — agents reach them via native harness Bash.
-    These watcher recipes therefore retain the watcher module form by design; they
-    are not awaiting a ``yoke`` CLI adapter. The same applies to
-    ``tail`` / ``grep`` / ``git -C`` shapes inside watcher recipes.
+    The watchers are invoked as ``yoke watch <kind>`` commands. They
+    remain **tool-shaped surfaces, not function-call dispatched** — the
+    adapter runs a local subprocess and carries no function id — but the
+    console script is what makes them resolvable everywhere, so it is the
+    taught form. The module invocation
+    (``python3 -m yoke_core.tools.watch_pytest``) stays callable as the
+    operator-debug fallback. ``tail`` / ``grep`` / ``git -C`` shapes
+    inside watcher recipes stay command-shaped by design.
 
 The recipes here are also deliberately harness-neutral: the watcher
 wrappers print harness-specific instructions themselves via
@@ -42,11 +41,11 @@ WATCHERS_COMMANDS: list[dict] = [
         "topic": "core",
         "purpose": "Run pytest with background watcher (main session)",
         "recipe": (
-            "uv run --frozen python3 -m yoke_core.tools.watch_pytest "
+            "yoke watch pytest "
             "--impacted main\n"
             "# Default local check. Full three-anchor sweep (CI's job; "
             "local CI-outage fallback):\n"
-            "uv run --frozen python3 -m yoke_core.tools.watch_pytest "
+            "yoke watch pytest "
             "--print-streaming-pair -- runtime/api/ runtime/harness/ tests/\n"
             "# Paste the printed pair into the harness's "
             "background + progress-tail surfaces.\n"
@@ -75,7 +74,7 @@ WATCHERS_COMMANDS: list[dict] = [
         "topic": "core",
         "purpose": "Run pytest foreground inside one tool call (subagent)",
         "recipe": (
-            "uv run --frozen python3 -m yoke_core.tools.watch_pytest -- "
+            "yoke watch pytest -- "
             "runtime/api/test_my_module.py -q\n"
             "# Blocks within the same tool call; the wrapper mints raw + "
             "progress captures via project_scratch_dir.watcher_capture_path "
@@ -92,7 +91,7 @@ WATCHERS_COMMANDS: list[dict] = [
         "topic": "core",
         "purpose": "Run doctor with background watcher (main session)",
         "recipe": (
-            "uv run --frozen python3 -m yoke_core.tools.watch_doctor "
+            "yoke watch doctor "
             "--print-streaming-pair -- --quick\n"
             "# Paste the printed pair into the harness's "
             "background + progress-tail surfaces."
@@ -108,7 +107,7 @@ WATCHERS_COMMANDS: list[dict] = [
         "topic": "core",
         "purpose": ("Run done_transition / merge_worktree with watcher (main session)"),
         "recipe": (
-            "uv run --frozen python3 -m yoke_core.tools.watch_merge "
+            "yoke watch merge "
             "--print-streaming-pair merge-worktree -- YOK-N\n"
             "# Subcommands: done-transition <args>, merge-worktree <args>"
         ),
@@ -124,7 +123,7 @@ WATCHERS_COMMANDS: list[dict] = [
             "Run pytest with explicit raw-capture path (post-completion inspection)"
         ),
         "recipe": (
-            "uv run --frozen python3 -m yoke_core.tools.watch_pytest "
+            "yoke watch pytest "
             "--raw-capture <PATH> -- "
             "runtime/api/test_my_module.py -q\n"
             "tail -80 <PATH>"
@@ -142,11 +141,11 @@ WATCHERS_COMMANDS: list[dict] = [
         "topic": "core",
         "purpose": "Run doctor focused on specific HC rules",
         "recipe": (
-            "uv run --frozen python3 -m yoke_core.tools.watch_doctor -- --quick\n"
-            "uv run --frozen python3 -m yoke_core.tools.watch_doctor -- "
+            "yoke watch doctor -- --quick\n"
+            "yoke watch doctor -- "
             "--only HC-event-registry-coverage,"
             "HC-event-callsite-registry-sync\n"
-            "uv run --frozen python3 -m yoke_core.tools.watch_doctor -- --full --json"
+            "yoke watch doctor -- --full --json"
         ),
         "notes": (
             "--quick = fast subset; --only takes a comma-separated list "

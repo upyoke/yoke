@@ -25,6 +25,10 @@ MANIFEST = (
     ROOT
     / "runtime/api/domain/migrations/item_dependency_public_ref_repair.migration.json"
 )
+PROJECT_IDENTITY_POLICY_MANIFEST = (
+    ROOT
+    / "runtime/api/domain/migrations/project_identity_policy_backfill.migration.json"
+)
 MODULE = "item_dependency_public_ref_repair"
 
 
@@ -61,6 +65,24 @@ def test_portable_apply_uses_packaged_module_and_returns_secret_free_counts() ->
             "failures": [],
         }
         assert row_counts(conn, manifest.affected_tables) == before
+
+
+def test_project_identity_policy_backfill_is_portable_and_idempotent() -> None:
+    with pg_testdb.test_database() as conn:
+        manifest = parse_manifest_text(
+            PROJECT_IDENTITY_POLICY_MANIFEST.read_text(encoding="utf-8")
+        )
+
+        first = apply_manifest(conn, manifest)
+        second = apply_manifest(conn, manifest)
+
+        assert first.modules == (
+            "harness_session_project_identity",
+            "project_policy_capabilities",
+        )
+        assert second.modules == first.modules
+        assert first.baseline_verification["failures"] == []
+        assert second.baseline_verification["failures"] == []
 
 
 def test_portable_apply_rolls_back_when_module_refuses(monkeypatch) -> None:

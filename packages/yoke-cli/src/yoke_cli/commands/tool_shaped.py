@@ -57,6 +57,10 @@ from yoke_cli.commands.merge_audit import (
     TOOL_SHAPED_SUBCOMMANDS as _MERGE_AUDIT_SUBCOMMANDS,
     TOOL_SHAPED_USAGE as _MERGE_AUDIT_USAGE,
 )
+from yoke_cli.commands.merge_item import (
+    TOOL_SHAPED_SUBCOMMANDS as _MERGE_ITEM_SUBCOMMANDS,
+    TOOL_SHAPED_USAGE as _MERGE_ITEM_USAGE,
+)
 from yoke_cli.commands.qa_browser import (
     QA_BROWSER_SUBCOMMANDS as _QA_BROWSER_SUBCOMMANDS,
     QA_BROWSER_USAGE as _QA_BROWSER_USAGE,
@@ -97,6 +101,10 @@ from yoke_cli.commands.usher_reconcile import (
     TOOL_SHAPED_SUBCOMMANDS as _USHER_RECONCILE_SUBCOMMANDS,
     TOOL_SHAPED_USAGE as _USHER_RECONCILE_USAGE,
 )
+from yoke_cli.commands.watchers import (
+    TOOL_SHAPED_SUBCOMMANDS as _WATCHER_SUBCOMMANDS,
+    TOOL_SHAPED_USAGE as _WATCHER_USAGE,
+)
 
 TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
     **_BOARD_SUBCOMMANDS,
@@ -110,6 +118,7 @@ TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
     **_INSTALLER_LOCAL_SUBCOMMANDS,
     **_LOCAL_UNIVERSE_SUBCOMMANDS,
     **_MERGE_AUDIT_SUBCOMMANDS,
+    **_MERGE_ITEM_SUBCOMMANDS,
     **_QA_BROWSER_LIFECYCLE_SUBCOMMANDS,
     **_QA_BROWSER_SUBCOMMANDS,
     **_QA_CASE_SUBCOMMANDS,
@@ -120,6 +129,7 @@ TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
     **_UNIVERSE_UI_SUBCOMMANDS,
     **_UNIVERSE_VALIDATE_SUBCOMMANDS,
     **_USHER_RECONCILE_SUBCOMMANDS,
+    **_WATCHER_SUBCOMMANDS,
 }
 
 # cli form -> one-line usage for `yoke --help`.
@@ -135,6 +145,7 @@ TOOL_SHAPED_USAGE: Dict[str, str] = {
     **_INSTALLER_LOCAL_USAGE,
     **_LOCAL_UNIVERSE_USAGE,
     **_MERGE_AUDIT_USAGE,
+    **_MERGE_ITEM_USAGE,
     **_QA_BROWSER_LIFECYCLE_USAGE,
     **_QA_BROWSER_USAGE,
     **_QA_CASE_USAGE,
@@ -145,6 +156,7 @@ TOOL_SHAPED_USAGE: Dict[str, str] = {
     **_UNIVERSE_UI_USAGE,
     **_UNIVERSE_VALIDATE_USAGE,
     **_USHER_RECONCILE_USAGE,
+    **_WATCHER_USAGE,
 }
 
 

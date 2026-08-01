@@ -8,6 +8,8 @@ keeps the entry-point module under the file-line cap and avoids any
 
 from __future__ import annotations
 
+from yoke_contracts.watch_cli_forms import WATCH_CLI_TOKENS, cli_form
+
 
 CHECK_ID = "subagent_background"
 HOOK_NAME = "lint-subagent-background"
@@ -20,11 +22,14 @@ AGENT_TYPE_ENV_VAR = "YOKE_HOOK_AGENT_TYPE"
 # of a Yoke subagent dispatched turn.
 WAKE_LOSS_TOOLS = frozenset({"Monitor", "ScheduleWakeup", "TaskOutput"})
 
-# Watcher wrapper module ids. Foreground invocation is the canonical
-# subagent shape; backgrounded invocation is the structural deadlock.
+# Watcher invocations. Foreground invocation is the canonical subagent
+# shape; backgrounded invocation is the structural deadlock. Both the
+# `yoke watch <kind>` command and the module fallback are matched, so
+# neither spelling routes around the guard.
 WATCHER_MODULE_NAMES: tuple[str, ...] = (
     "yoke_core.tools.watch_pytest",
     "yoke_core.tools.watch_merge",
     "yoke_core.tools.watch_doctor",
     "yoke_core.tools.watch_tail",
+    *(cli_form(module) for module in WATCH_CLI_TOKENS),
 )

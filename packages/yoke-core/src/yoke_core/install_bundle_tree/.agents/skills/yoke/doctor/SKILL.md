@@ -89,7 +89,7 @@ Do not leave the `DOCTOR` claim active after any post-claim stop.
    chunks the run into bounded server requests and skips source-tree-only HCs;
    do not invoke the local watcher against a hosted connection.
  - **`local-postgres`** — invoke doctor through the watcher wrapper
-   `python3 -m yoke_core.tools.watch_doctor`. Per AGENTS.md `## Command Output
+   `yoke watch doctor`. Per AGENTS.md `## Command Output
    — Hard Rule`, local Doctor runs go through the watcher to preserve the raw
    report and streaming progress.
 
@@ -114,7 +114,7 @@ Do not leave the `DOCTOR` claim active after any post-claim stop.
  yoke doctor run --full --project {project} [--fix] --json
 
  # Local Postgres authority
- python3 -m yoke_core.tools.watch_doctor -- --full --project {project} [--file {path}] [--fix]
+ yoke watch doctor -- --full --project {project} [--file {path}] [--fix]
  ```
 
  `--file` applies only to the local watcher. The hosted adapter returns the
@@ -212,7 +212,7 @@ Do not leave the `DOCTOR` claim active after any post-claim stop.
 
 ## Notes
 
-- The doctor engine exits 0 if no FAILs, exits 1 if any FAILs (the watcher wrapper at `python3 -m yoke_core.tools.watch_doctor` preserves this exit code). Use the exit code to determine overall health.
+- The doctor engine exits 0 if no FAILs, exits 1 if any FAILs (the watcher wrapper at `yoke watch doctor` preserves this exit code). Use the exit code to determine overall health.
 - GitHub-dependent health checks (sync-completeness-legacy, orphan/missing/comment-sync HCs) resolve the project's verified App binding through `yoke_core.domain.project_github_auth.resolve_project_github_auth` and call GitHub REST/GraphQL with a short-lived installation token — they do NOT require the host `gh` CLI. Bidirectional sync HCs delegate detection and repair to the internal resync engine in doctor format, which uses the same resolver. The doctor engine forwards `--fix` automatically; the agent never runs a host shell-out itself.
 - The `--fix` flag only repairs trivial, deterministic issues. It never modifies code, agent prompts, or SKILL.md files.
 - Bulk-mutation awareness: a single `/yoke doctor --fix` invocation can push large numbers of GitHub edits (every body, title, label, and state drift on every paired item). Before running `--fix` on a long-stale install, do a read-only pass first and confirm the mutation volume is acceptable.

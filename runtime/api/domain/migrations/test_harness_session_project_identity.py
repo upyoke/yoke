@@ -43,17 +43,17 @@ def prestamped_conn() -> Iterator[Any]:
         apply_sql_script(conn, _BASE_SCHEMA)
         conn.execute(
             "INSERT INTO projects (id, slug) VALUES (%s, %s)",
-            (1, "yoke"),
+            (41, "external-alpha"),
         )
         conn.execute(
             "INSERT INTO projects (id, slug) VALUES (%s, %s)",
-            (2, "externalwebapp"),
+            (42, "external-beta"),
         )
         conn.execute("ALTER TABLE harness_sessions ADD COLUMN project_id INTEGER DEFAULT NULL")
         for session_id, workspace, project_id in (
-            ("session-yoke", "workspace-yoke", 1),
-            ("session-yoke-worktree", "workspace-yoke-worktree", 1),
-            ("session-externalwebapp", "workspace-externalwebapp", 2),
+            ("session-alpha", "workspace-alpha", 41),
+            ("session-alpha-worktree", "workspace-alpha-worktree", 41),
+            ("session-beta", "workspace-beta", 42),
         ):
             _insert_session(conn, session_id, workspace, project_id=project_id)
         conn.commit()
@@ -71,7 +71,7 @@ def unresolved_conn() -> Iterator[Any]:
         apply_sql_script(conn, _BASE_SCHEMA)
         conn.execute(
             "INSERT INTO projects (id, slug) VALUES (%s, %s)",
-            (1, "yoke"),
+            (41, "external-alpha"),
         )
         _insert_session(conn, "session-unmapped", "/elsewhere/project")
         conn.commit()
@@ -135,9 +135,9 @@ def test_enforces_prestamped_rows_and_sets_strict_shape(
         "SELECT session_id, project_id FROM harness_sessions ORDER BY session_id"
     ).fetchall()
     assert {row["session_id"]: row["project_id"] for row in rows} == {
-        "session-externalwebapp": 2,
-        "session-yoke": 1,
-        "session-yoke-worktree": 1,
+        "session-alpha": 41,
+        "session-alpha-worktree": 41,
+        "session-beta": 42,
     }
 
 

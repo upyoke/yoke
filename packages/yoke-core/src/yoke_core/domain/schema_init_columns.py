@@ -103,6 +103,14 @@ def apply_additive_schema(conn: Any) -> None:
     _add_column_if_not_exists(conn, "epic_dispatch_chains", "item_worktree_id", "INTEGER DEFAULT NULL")
     conn.commit()
 
+    # Merge-lock scope. A merge serializes against other merges landing on the
+    # same branch of the same project; a merge into another project, or into a
+    # different target branch, contends for nothing. NULL on a legacy row means
+    # "scope unknown", which blocks conservatively.
+    _add_column_if_not_exists(conn, "merge_locks", "project_slug", "TEXT DEFAULT NULL")
+    _add_column_if_not_exists(conn, "merge_locks", "target_branch", "TEXT DEFAULT NULL")
+    conn.commit()
+
     # Per-project GitHub sync switch. Authoritative creators write
     # 'backlog_only'; legacy NULL resolves to 'enabled' until explicit repair.
     _add_column_if_not_exists(conn, "projects", "github_sync_mode", "TEXT DEFAULT NULL")

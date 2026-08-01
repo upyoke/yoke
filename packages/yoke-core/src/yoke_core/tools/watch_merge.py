@@ -23,12 +23,12 @@ Every other line is ``NOISE`` (raw capture only).
 
 Usage::
 
-    python3 -m yoke_core.tools.watch_merge done-transition YOK-N
-    python3 -m yoke_core.tools.watch_merge merge-worktree \\
+    yoke watch merge done-transition YOK-N
+    yoke watch merge merge-worktree \\
         --branch YOK-N --target main
 
     # Print the ready-to-paste streaming pair:
-    python3 -m yoke_core.tools.watch_merge --print-streaming-pair -- \\
+    yoke watch merge --print-streaming-pair -- \\
         done-transition YOK-N
 
 The wrapper preserves the underlying engine's exit code.
@@ -47,10 +47,15 @@ from yoke_core.tools._watch_throttle import Classification, LineClass
 
 WRAPPER_MODULE = "yoke_core.tools.watch_merge"
 KIND = "merge"
+# argparse prog for a direct module invocation; the CLI adapter
+# passes the ``yoke watch merge`` form so help reads back the
+# command as typed.
+DEFAULT_PROG = "watch_merge"
 
 # Maps wrapper sub-command names to the underlying engine module.
 SUBCOMMAND_MODULES: dict[str, str] = {
     "done-transition": "yoke_core.engines.done_transition",
+    "merge-item": "yoke_core.domain.standalone_item_merge_cli",
     "merge-worktree": "yoke_core.engines.merge_worktree",
 }
 
@@ -175,9 +180,11 @@ def _engine_argv(module: str, args: Sequence[str]) -> list[str]:
     return [sys.executable, "-m", module, *list(args)]
 
 
-def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
+def _parse_args(
+    argv: Sequence[str], prog: str = DEFAULT_PROG,
+) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        prog="watch_merge",
+        prog=prog,
         description=(
             "Run a Yoke merge engine under a shared raw+progress watcher."
         ),
@@ -253,10 +260,10 @@ def _extract_print_streaming_pair(argv: list[str]) -> tuple[list[str], bool]:
     return filtered, found
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
     raw = list(sys.argv[1:] if argv is None else argv)
     raw, print_streaming_pair_flag = _extract_print_streaming_pair(raw)
-    ns = _parse_args(raw)
+    ns = _parse_args(raw, prog)
     if print_streaming_pair_flag:
         ns.print_streaming_pair = True
     sub_args = _strip_separator(list(ns.passthrough))

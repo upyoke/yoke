@@ -7,12 +7,9 @@ from pathlib import Path
 from runtime.harness.bootstrap import load_spec, render_compact, render_full
 
 
-IMPACTED_LOCAL_CHECK = (
-    "uv run --frozen python3 -m yoke_core.tools.watch_pytest --impacted main"
-)
+IMPACTED_LOCAL_CHECK = "yoke watch pytest --impacted main"
 FULL_YOKE_GATE = (
-    "uv run --frozen python3 -m yoke_core.tools.watch_pytest "
-    "--print-streaming-pair -- runtime/api/ runtime/harness/ tests/"
+    "yoke watch pytest --print-streaming-pair -- runtime/api/ runtime/harness/ tests/"
 )
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
