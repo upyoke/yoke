@@ -23,12 +23,12 @@ Every other line is ``NOISE`` (raw capture only).
 
 Usage::
 
-    python3 -m yoke_core.tools.watch_merge done-transition YOK-N
-    python3 -m yoke_core.tools.watch_merge merge-worktree \\
+    yoke watch merge done-transition YOK-N
+    yoke watch merge merge-worktree \\
         --branch YOK-N --target main
 
     # Print the ready-to-paste streaming pair:
-    python3 -m yoke_core.tools.watch_merge --print-streaming-pair -- \\
+    yoke watch merge --print-streaming-pair -- \\
         done-transition YOK-N
 
 The wrapper preserves the underlying engine's exit code.

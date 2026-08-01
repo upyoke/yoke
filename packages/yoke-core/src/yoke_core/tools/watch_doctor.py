@@ -23,17 +23,17 @@ Usage::
 
     # Canonical form: the ``--`` separator marks "everything after this
     # is forwarded to doctor". Used by --print-streaming-pair output.
-    python3 -m yoke_core.tools.watch_doctor -- --quick
+    yoke watch doctor -- --quick
 
     # Bare form: unrecognized flags are also forwarded to doctor, so
     # ``-- --quick`` and bare ``--quick`` behave identically.
-    python3 -m yoke_core.tools.watch_doctor --quick
+    yoke watch doctor --quick
 
     # Print the ready-to-paste streaming pair for Claude Code:
-    python3 -m yoke_core.tools.watch_doctor --print-streaming-pair -- --quick
+    yoke watch doctor --print-streaming-pair -- --quick
 
     # Explicit capture paths (used by --print-streaming-pair output):
-    python3 -m yoke_core.tools.watch_doctor \\
+    yoke watch doctor \\
         --raw-capture /tmp/raw.log --progress-capture /tmp/prog.log \\
         -- --quick
 
@@ -111,7 +111,7 @@ def classify_doctor_line(line: str) -> Classification:
 NESTED_DOCTOR_REJECTION_MESSAGE = (
     "watch_doctor expects bare doctor args after --; "
     "do not include python3 -m yoke_core.engines.doctor.\n"
-    "Example: python3 -m yoke_core.tools.watch_doctor -- --quick"
+    "Example: yoke watch doctor -- --quick"
 )
 
 # Match the bare interpreter names operators most commonly retype, plus
@@ -148,16 +148,16 @@ def _doctor_argv(args: Sequence[str]) -> list[str]:
 
 HELP_EPILOG = """\
 examples:
-  python3 -m yoke_core.tools.watch_doctor -- --quick
+  yoke watch doctor -- --quick
       Canonical form. The ``--`` separator marks "everything after this
       is forwarded to doctor". This is the position emitted by
       --print-streaming-pair output.
 
-  python3 -m yoke_core.tools.watch_doctor --quick
+  yoke watch doctor --quick
       Bare form. Unrecognized flags are forwarded to doctor too, so this
       behaves identically to ``-- --quick``.
 
-  python3 -m yoke_core.tools.watch_doctor --print-streaming-pair -- --quick
+  yoke watch doctor --print-streaming-pair -- --quick
       Print a ready-to-paste background command + progress-tail pair
       and exit.
 

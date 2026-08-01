@@ -12,8 +12,9 @@ no child ``tail`` process behind once the wrapper finishes. This is
 the canonical replacement for the bare ``tail -f`` line that
 ``print_streaming_pair`` previously printed for the Monitor side.
 
-CLI: ``yoke watch tail <progress-file>`` (module fallback:
-``python3 -m yoke_core.tools.watch_tail <progress-file>``).
+CLI: ``yoke watch tail <progress-file>``. The module invocation
+(``python3 -m yoke_core.tools.watch_tail``) remains the operator-debug
+fallback.
 """
 
 from __future__ import annotations

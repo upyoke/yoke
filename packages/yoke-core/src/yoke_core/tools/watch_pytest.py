@@ -26,18 +26,18 @@ Usage::
     # while preserving full output in the raw capture. Pass BARE pytest
     # args after ``--``; the wrapper supplies the ``python3 -m pytest``
     # prefix itself.
-    python3 -m yoke_core.tools.watch_pytest -- runtime/api/
+    yoke watch pytest -- runtime/api/
 
     # Full suite — pass the three anchors, never bare ``runtime/``
     # (which demotes runtime/api/conftest.py from initial-conftest status
     # and fails collection; the wrapper refuses it):
-    python3 -m yoke_core.tools.watch_pytest -- runtime/api/ runtime/harness/ tests/
+    yoke watch pytest -- runtime/api/ runtime/harness/ tests/
 
     # Print the ready-to-paste streaming pair:
-    python3 -m yoke_core.tools.watch_pytest --print-streaming-pair -- runtime/api/
+    yoke watch pytest --print-streaming-pair -- runtime/api/
 
     # Serial mode (debug order-sensitive failures):
-    python3 -m yoke_core.tools.watch_pytest -- -n 0 runtime/api/
+    yoke watch pytest -- -n 0 runtime/api/
 
 Parallel-by-default: ``-n auto`` (pytest-xdist) is injected unless the caller
 passes its own ``-n``/``--numprocesses`` in the pass-through. Use ``-n 0`` for
