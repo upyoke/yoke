@@ -6,7 +6,7 @@ argument-hint: "PREFIX-N [PREFIX-N ...] [--dry-run] [--merge-only] [--deploy-onl
 
 <!--
  done-transition caller audit: agent-facing execution uses
- python3 -m yoke_core.tools.watch_merge done-transition.
+ yoke watch merge done-transition.
  Raw done_transition engine calls are internal implementation detail.
  Usher is the PRIMARY caller for the implemented -> done path.
  Other valid callers: advance/done/SKILL.md (manual operator transitions).

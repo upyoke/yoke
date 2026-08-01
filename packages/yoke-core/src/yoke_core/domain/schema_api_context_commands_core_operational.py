@@ -242,13 +242,17 @@ OPERATIONAL_COMMANDS: list[dict] = [
             "runtime/api/test_my_module.py -q"
         ),
         "notes": (
-            "Use this from linked worktrees when the interpreter's editable "
-            "install still points at the main checkout, or when an "
-            "externally-managed Python blocks `python3 -m pip install -e .`. "
-            "Prefix all four package `src` dirs plus the repo root so "
-            "subprocess `python3 -m ...` invocations exercise this branch. "
-            "Confirm the printed `yoke_core.__file__` path is under the "
-            "worktree before trusting a green test run."
+            "Fallback shape. `yoke watch pytest -- <paths>` already binds "
+            "the worktree in a uv-managed checkout — reach for the explicit "
+            "prefix only when uv is unavailable, or to check import origin "
+            "for a non-watcher invocation. Use it from linked worktrees "
+            "when the interpreter's editable install still points at the "
+            "main checkout, or when an externally-managed Python blocks "
+            "`python3 -m pip install -e .`. Prefix all four package `src` "
+            "dirs plus the repo root so subprocess `python3 -m ...` "
+            "invocations exercise this branch. Confirm the printed "
+            "`yoke_core.__file__` path is under the worktree before "
+            "trusting a green test run."
         ),
     },
     {

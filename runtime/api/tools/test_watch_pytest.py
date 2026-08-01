@@ -10,7 +10,6 @@ Covers:
 
 from __future__ import annotations
 
-import io
 import os
 import re
 import shlex
@@ -189,8 +188,8 @@ class TestPrintStreamingPair:
         )
         assert rc == 0
         out = capsys.readouterr().out
-        anchor = f"cd {shlex.quote(os.getcwd())} && uv run --frozen python3 -m"
-        assert f"{anchor} yoke_core.tools.watch_pytest" in out
+        command_anchor = f"cd {shlex.quote(os.getcwd())} && yoke watch"
+        assert f"{command_anchor} pytest" in out
         # The locked-environment prefix binds the pasted command to this
         # checkout's dev dependencies; no PYTHONPATH prefix is emitted.
         assert "PYTHONPATH" not in out
@@ -199,7 +198,7 @@ class TestPrintStreamingPair:
         # Progress tail = auto-exiting watch_tail follower (not `tail -f`);
         # raw inspection = `tail -80`. Helper-resolved captures land under
         # the scratch root's ``watcher-captures`` subdir.
-        assert f"{anchor} yoke_core.tools.watch_tail" in out
+        assert f"{command_anchor} tail" in out
         assert ".progress." in out and ".raw." in out
         assert "tail -80" in out
         assert "watcher-captures" in out

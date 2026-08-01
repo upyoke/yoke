@@ -258,7 +258,7 @@ yoke ouroboros field-note append --kind new --evidence 'missing recipe: claim wi
 _src_path="${_repo}/packages/yoke-contracts/src:${_repo}/packages/yoke-cli/src:${_repo}/packages/yoke-core/src:${_repo}/packages/yoke-harness/src:${_repo}"
 PYTHONPATH="${_src_path}${PYTHONPATH:+:${PYTHONPATH}}" python3 -m yoke_core.tools.module_source_path yoke_core
 PYTHONPATH="${_src_path}${PYTHONPATH:+:${PYTHONPATH}}" python3 -m yoke_core.tools.watch_pytest -- runtime/api/test_my_module.py -q`
-  - Use this from linked worktrees when the interpreter's editable install still points at the main checkout, or when an externally-managed Python blocks `python3 -m pip install -e .`. Prefix all four package `src` dirs plus the repo root so subprocess `python3 -m ...` invocations exercise this branch. Confirm the printed `yoke_core.__file__` path is under the worktree before trusting a green test run.
+  - Fallback shape. `yoke watch pytest -- <paths>` already binds the worktree in a uv-managed checkout — reach for the explicit prefix only when uv is unavailable, or to check import origin for a non-watcher invocation. Use it from linked worktrees when the interpreter's editable install still points at the main checkout, or when an externally-managed Python blocks `python3 -m pip install -e .`. Prefix all four package `src` dirs plus the repo root so subprocess `python3 -m ...` invocations exercise this branch. Confirm the printed `yoke_core.__file__` path is under the worktree before trusting a green test run.
 - _Re-render agent files after editing packet seeds_
   - `_repo=$(git rev-parse --show-toplevel)
 _src_path="${_repo}/packages/yoke-contracts/src:${_repo}/packages/yoke-cli/src:${_repo}/packages/yoke-core/src:${_repo}/packages/yoke-harness/src:${_repo}"
@@ -268,32 +268,32 @@ PYTHONPATH="${_src_path}${PYTHONPATH:+:${PYTHONPATH}}" python3 -m yoke_cli.main 
   - `yoke check file-line --staged`
   - Sanctioned local lint tool (not function-call backed). The default cap is 350 lines and a project overrides it with a `file_line_limit=N` key in `.yoke/project.config` (checked in, read off disk, so the offline hook agrees); comparison is `new <= limit` (so the limit itself is allowed). Rules: new files over the limit fail; existing under-cap files crossing upward fail; existing over-cap files growing further fail. When near the cap, prefer compressing the same file (collapse multi-line returns, drop one-line `__all__` lists, fold duplicate teaching) or split into a sibling module. `file_line_exception` entries are for intentionally unsplittable artifacts or non-authored data; do NOT add hard-rule files like AGENTS.md / CLAUDE.md. The pre-tool `hint_file_line_limit_approach` advisory warns on Write that would push a tracked authored file over the cap.
 - _Run pytest with background watcher (main session)_
-  - `uv run --frozen python3 -m yoke_core.tools.watch_pytest --impacted main
+  - `yoke watch pytest --impacted main
 # Default local check. Full sweep (CI's job; local CI-outage fallback) — pass your project's test anchors:
-uv run --frozen python3 -m yoke_core.tools.watch_pytest --print-streaming-pair -- <project test anchors>
+yoke watch pytest --print-streaming-pair -- <project test anchors>
 # Paste the printed pair into the harness's background + progress-tail surfaces.
 # After completion: tail -80 <raw-capture> (the helper-resolved path the wrapper printed)`
   - The impacted selection is the local default and needs no project-specific paths. The full sweep is CI's job on every pull request and push to main, and locally it is the CI-outage fallback; its anchor paths are per-project — read them from your project's registered verification command (its QA plan) or your project rules file, and never carry another project's anchors over. Both inject xdist `-n auto`. Pass `-n 0` after `--` for sequential order-sensitive debugging. The wrapper mints the raw + progress capture pair via yoke_core.domain.project_scratch_dir.mint_watcher_capture_pair under the machine temp root's watcher-captures directory and prints the resolved paths; --raw-capture <path> is the operator carve-out for pinning to a known location. Subagents must run the foreground variant below — backgrounded watchers from subagent context are denied by lint-subagent-background. `uv run --frozen` materializes the locked dev environment in a clean worktree, so the wrapper and application dependencies are importable without ambient PYTHONPATH or virtualenv activation.
 - _Run pytest foreground inside one tool call (subagent)_
-  - `uv run --frozen python3 -m yoke_core.tools.watch_pytest -- runtime/api/test_my_module.py -q
+  - `yoke watch pytest -- runtime/api/test_my_module.py -q
 # Blocks within the same tool call; the wrapper mints raw + progress captures via project_scratch_dir.watcher_capture_path under the machine temp root's watcher-captures directory and prints them; tail -80 <raw-capture> on failure.`
   - Subagent tool-call turns are atomic — backgrounded watcher patterns strand processes. Enforced by lint-subagent-background.
 - _Run doctor with background watcher (main session)_
-  - `uv run --frozen python3 -m yoke_core.tools.watch_doctor --print-streaming-pair -- --quick
+  - `yoke watch doctor --print-streaming-pair -- --quick
 # Paste the printed pair into the harness's background + progress-tail surfaces.`
   - Doctor must run under this wrapper — bare invocations risk the inverted-redirection trap (`2>&1 > file` silently drops stderr). The wrapper writes raw + filtered captures and auto-exits on its sentinel.
 - _Run done_transition / merge_worktree with watcher (main session)_
-  - `uv run --frozen python3 -m yoke_core.tools.watch_merge --print-streaming-pair merge-worktree -- PREFIX-N
+  - `yoke watch merge --print-streaming-pair merge-worktree -- PREFIX-N
 # Subcommands: done-transition <args>, merge-worktree <args>`
   - watch_merge owns the merge filter regex (section banners, step headers, errors, warnings, RESULT_FILE=). Use for any merge or done_transition; never hand-author the filter.
 - _Run pytest with explicit raw-capture path (post-completion inspection)_
-  - `uv run --frozen python3 -m yoke_core.tools.watch_pytest --raw-capture <PATH> -- runtime/api/test_my_module.py -q
+  - `yoke watch pytest --raw-capture <PATH> -- runtime/api/test_my_module.py -q
 tail -80 <PATH>`
   - --print-streaming-pair mints the capture path automatically via project_scratch_dir.mint_watcher_capture_pair (machine temp root watcher-captures/...); the explicit --raw-capture <PATH> form is the operator carve-out for callers that want a known path (CI scripts collecting artifacts). Prefer the helper-resolved default.
 - _Run doctor focused on specific HC rules_
-  - `uv run --frozen python3 -m yoke_core.tools.watch_doctor -- --quick
-uv run --frozen python3 -m yoke_core.tools.watch_doctor -- --only HC-event-registry-coverage,HC-event-callsite-registry-sync
-uv run --frozen python3 -m yoke_core.tools.watch_doctor -- --full --json`
+  - `yoke watch doctor -- --quick
+yoke watch doctor -- --only HC-event-registry-coverage,HC-event-callsite-registry-sync
+yoke watch doctor -- --full --json`
   - --quick = fast subset; --only takes a comma-separated list of HC slug ids for targeted reruns; --json for machine output. Doctor CLI surface, not a wrapper-only flag.
 
 **Schema cheat sheet:**

@@ -7,9 +7,7 @@ from pathlib import Path
 from runtime.harness.bootstrap import load_spec, render_compact, render_full
 
 
-IMPACTED_LOCAL_CHECK = (
-    "uv run --frozen python3 -m yoke_core.tools.watch_pytest --impacted main"
-)
+IMPACTED_LOCAL_CHECK = "yoke watch pytest --impacted main"
 # This repo's own test anchors. They are deliberately absent from every
 # surface the install bundle ships to other projects — a target project's
 # anchors are its own — so they reach the bootstrap only through AGENTS.md,
@@ -17,8 +15,7 @@ IMPACTED_LOCAL_CHECK = (
 # render carries the shipped packet rather than that section, so it teaches
 # the project-neutral default and nothing repo-specific.
 FULL_YOKE_GATE = (
-    "uv run --frozen python3 -m yoke_core.tools.watch_pytest "
-    "-- runtime/api/ runtime/harness/ tests/"
+    "yoke watch pytest -- runtime/api/ runtime/harness/ tests/"
 )
 REPO_ROOT = Path(__file__).resolve().parents[2]
 

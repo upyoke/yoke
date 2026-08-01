@@ -151,13 +151,14 @@ class TestPrintStreamingPair:
         ])
         assert rc == 0
         out = capsys.readouterr().out
-        anchor = f"cd {shlex.quote(os.getcwd())} && uv run --frozen python3 -m"
-        assert f"{anchor} yoke_core.tools.watch_session_offer" in out
+        module_anchor = f"cd {shlex.quote(os.getcwd())} && uv run --frozen python3 -m"
+        command_anchor = f"cd {shlex.quote(os.getcwd())} && yoke watch"
+        assert f"{module_anchor} yoke_core.tools.watch_session_offer" in out
         assert "PYTHONPATH" not in out
         assert "--raw-capture" in out
         assert "--progress-capture" in out
         assert "--executor claude-code" in out
-        assert f"{anchor} yoke_core.tools.watch_tail" in out
+        assert f"{command_anchor} tail" in out
         assert "tail -80" in out
 
     def test_print_streaming_pair_flag_position_tolerant(

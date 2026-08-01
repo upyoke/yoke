@@ -227,7 +227,7 @@ change-scoped:
 - **While implementing** — run the impacted selection over the branch diff:
 
   ```bash
-  uv run --frozen python3 -m yoke_core.tools.watch_pytest --impacted main
+  yoke watch pytest --impacted main
   ```
 
   Selection is reverse-import reachability, hardened two ways: dotted
@@ -278,7 +278,7 @@ When CI is unreachable, the local full gate returns as the documented
 exception:
 
 ```bash
-uv run --frozen python3 -m yoke_core.tools.watch_pytest -- runtime/api/ runtime/harness/ tests/
+yoke watch pytest -- runtime/api/ runtime/harness/ tests/
 ```
 
 Record in the verification evidence that the local sweep substituted for CI

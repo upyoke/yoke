@@ -67,10 +67,10 @@ class TestMergeMdEpicDelegation:
         )
 
     def test_single_lane_path_still_present(self):
-        """merge.md must retain the single-lane merge-worktree path."""
+        """merge.md must retain the single-lane standalone-item merge call."""
         text = self._read_merge_md()
-        assert "merge-worktree -- PREFIX-{N}" in text, (
-            "merge.md lost the single-lane merge-worktree call"
+        assert "merge-item -- PREFIX-{N} --skip-status" in text, (
+            "merge.md lost the single-lane standalone-item merge call"
         )
 
     def test_7e_scoped_to_single_lane_policy(self):

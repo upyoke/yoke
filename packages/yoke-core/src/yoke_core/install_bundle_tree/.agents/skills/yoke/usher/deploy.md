@@ -31,7 +31,7 @@ The done-transition engine is the project-agnostic internal-delivery boundary;
 run it through the merge watcher, then handle exit codes:
 
 ```bash
-python3 -m yoke_core.tools.watch_merge done-transition -- {N} --skip-deploy
+yoke watch merge done-transition -- {N} --skip-deploy
 ```
 
 For any non-zero exit code that revert-to-implemented requires, call `lifecycle.transition.execute` to revert the item from `release` back to `implemented` (the handler runs the standard rollback gate, posts the GitHub status-change comment, and emits `ItemStatusChanged`):
@@ -121,7 +121,7 @@ else
 fi
 ```
 
-**Exit 0:** Run done-transition for each item: `python3 -m yoke_core.tools.watch_merge done-transition -- {N} --skip-deploy`
+**Exit 0:** Run done-transition for each item: `yoke watch merge done-transition -- {N} --skip-deploy`
 
 **Exit 1 (HALT — `usher-halt-deploy-stage-failure`):** Stage failed. For every member item of the run, release the work claim with `usher-halt-deploy-stage-failure` BEFORE printing resume/recovery instructions. If the release call itself fails, the halt summary MUST say the release failed and include the failure class / holder when available — do not print a clean recovery summary while the claim is still live. Operator/debug adapter (dispatches `claims.work.release`):
 

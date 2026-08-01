@@ -5,13 +5,8 @@ from __future__ import annotations
 from runtime.api.skill_doc_regressions_test_helpers import REPO, SKILLS, _read
 
 
-CANONICAL_WATCH_PYTEST = (
-    "uv run --frozen python3 -m yoke_core.tools.watch_pytest -- "
-    "runtime/api/ runtime/harness/ tests/"
-)
-IMPACTED_WATCH_PYTEST = (
-    "uv run --frozen python3 -m yoke_core.tools.watch_pytest --impacted main"
-)
+CANONICAL_WATCH_PYTEST = "yoke watch pytest -- runtime/api/ runtime/harness/ tests/"
+IMPACTED_WATCH_PYTEST = "yoke watch pytest --impacted main"
 
 
 def test_agents_testing_section_teaches_watcher_not_raw_pytest() -> None:
@@ -56,7 +51,7 @@ def test_db_reference_rehearsal_commands_use_watcher() -> None:
     text = _read(REPO / ".yoke" / "docs" / "db-reference" / "items-and-epics.md")
     assert (
         '"rehearsal_commands": '
-        '["python3 -m yoke_core.tools.watch_pytest -- runtime/api/"]'
+        '["yoke watch pytest -- runtime/api/"]'
     ) in text
     assert '"rehearsal_commands": ["python3 -m pytest runtime/api/"]' not in text
 
@@ -64,7 +59,7 @@ def test_db_reference_rehearsal_commands_use_watcher() -> None:
 def test_api_readmes_use_watcher_for_test_recipes() -> None:
     for rel in ("runtime/api/README.md", "runtime/api/board/README.md"):
         text = _read(REPO / rel)
-        assert "python3 -m yoke_core.tools.watch_pytest --" in text
+        assert "yoke watch pytest --" in text
         assert "python3 -m pytest runtime/api" not in text
 
 
@@ -73,7 +68,7 @@ def test_pg_cluster_example_uses_watcher() -> None:
         REPO / "packages" / "yoke-core" / "src"
         / "yoke_core" / "tools" / "pg_testcluster.py"
     )
-    assert "python3 -m yoke_core.tools.watch_pytest -- runtime/api/" in text
+    assert "yoke watch pytest -- runtime/api/" in text
     assert "python3 -m pytest runtime/api/ -q" not in text
 
 

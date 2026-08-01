@@ -95,7 +95,7 @@ The amendment workflow accepts a single flat payload combining both halves:
   "affected_surfaces": [{"table": "items", "columns": ["due_date"]}],
   "pre_merge_readers_writers": [{"path": "packages/yoke-core/src/yoke_core/domain/items.py", "role": "writer"}],
   "invariants": ["items.due_date nullable after apply"],
-  "rehearsal_commands": ["python3 -m yoke_core.tools.watch_pytest -- runtime/api/"],
+  "rehearsal_commands": ["yoke watch pytest -- runtime/api/"],
   "residual_risk_notes": "none"
 }
 ```
