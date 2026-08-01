@@ -57,6 +57,41 @@ def test_released_database_is_reused_and_empty():
         pg_blank_db_pool.release(second)
 
 
+def test_double_release_does_not_hand_one_database_to_two_callers():
+    """A disposable database can be returned twice: an explicit close and
+    the garbage-collected connection that owned it both release it. If the
+    second release re-pooled it, two callers would be handed the same
+    database and the first to retire it would break the other."""
+    name = pg_blank_db_pool.checkout()
+
+    assert pg_blank_db_pool.release(name) is True
+    # Second release must be a no-op that still tells the caller "do not drop".
+    assert pg_blank_db_pool.release(name) is True
+
+    first = pg_blank_db_pool.checkout()
+    second = pg_blank_db_pool.checkout()
+    try:
+        assert first != second
+    finally:
+        pg_blank_db_pool.release(first)
+        pg_blank_db_pool.release(second)
+
+
+def test_release_of_retired_database_stays_retired():
+    name = pg_blank_db_pool.checkout()
+    conn = _connect(name)
+    try:
+        conn.execute(f'REVOKE CONNECT ON DATABASE "{name}" FROM PUBLIC')
+    finally:
+        conn.close()
+
+    assert pg_blank_db_pool.release(name) is False
+    # A second release must not resurrect it into the pool.
+    assert pg_blank_db_pool.release(name) is False
+    assert pg_blank_db_pool.owns(name) is False
+    pg_testdb.drop_test_database(name)
+
+
 def test_concurrent_checkouts_are_distinct_databases():
     first = pg_blank_db_pool.checkout()
     second = pg_blank_db_pool.checkout()
@@ -113,7 +148,7 @@ def test_database_level_grant_retires_instead_of_pooling():
         conn.close()
 
     assert pg_blank_db_pool.release(name) is False
-    assert name not in pg_blank_db_pool._pooled
+    assert pg_blank_db_pool.owns(name) is False
 
     # The caller now owns the drop, exactly as before pooling existed.
     pg_testdb.drop_test_database(name)
@@ -180,7 +215,7 @@ def test_pooling_can_be_disabled_for_bisecting(monkeypatch):
     monkeypatch.setenv(pg_blank_db_pool.DISABLE_ENV, "1")
     name = pg_testdb.create_test_database()
     try:
-        assert name not in pg_blank_db_pool._pooled
+        assert pg_blank_db_pool.owns(name) is False
     finally:
         pg_testdb.drop_test_database(name)
     assert _database_exists(name) is False
@@ -193,6 +228,6 @@ def test_templated_creates_never_come_from_the_pool():
     clone = pg_testdb.create_test_database(template="template1")
     try:
         assert clone != spare
-        assert clone not in pg_blank_db_pool._pooled
+        assert pg_blank_db_pool.owns(clone) is False
     finally:
         pg_testdb.drop_test_database(clone)

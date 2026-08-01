@@ -128,8 +128,14 @@ _TERMINATE_BACKENDS_SQL = """
      WHERE datname = %s AND pid <> pg_backend_pid()
 """
 
+#: Databases this process owns and nobody is currently using.
 _free: list[str] = []
-_pooled: set[str] = set()
+#: Databases handed out and not yet returned. Kept apart from ``_free`` so a
+#: release can tell "this is checked out, empty it" from "this was already
+#: returned" — a database that landed in ``_free`` twice would be handed to
+#: two callers at once, and the first of them to retire it would pull the
+#: database out from under the second.
+_in_use: set[str] = set()
 _atexit_registered = False
 
 #: Set to any non-empty value to force every caller onto real
@@ -204,19 +210,17 @@ def _drop_for_real(name: str) -> None:
 
 
 def _drain_at_exit() -> None:
-    for name in list(_pooled):
+    for name in [*_free, *_in_use]:
         _drop_for_real(name)
-    _pooled.clear()
+    _in_use.clear()
     _free.clear()
 
 
 def checkout() -> str:
     """Return a blank database name, reusing a pooled one when available."""
     global _atexit_registered
-    if _free:
-        return _free.pop()
-    name = _create_blank_database()
-    _pooled.add(name)
+    name = _free.pop() if _free else _create_blank_database()
+    _in_use.add(name)
     if not _atexit_registered:
         atexit.register(_drain_at_exit)
         _atexit_registered = True
@@ -226,29 +230,38 @@ def checkout() -> str:
 def release(name: str) -> bool:
     """Try to return *name* to the pool.
 
-    Returns ``True`` when the database was pooled and is now empty and
-    reusable — the caller must NOT drop it. Returns ``False`` for a name
-    this pool does not own, and for a pooled database that could not be
-    proven pristine; in both cases the caller performs a real drop, and a
-    database retired this way is forgotten here first so it is dropped
-    exactly once.
+    Returns ``True`` when the caller must NOT drop the database: either it
+    was checked out and is now empty and reusable, or it had already been
+    returned and is sitting idle. Returns ``False`` for a name this pool
+    does not own and for a checked-out database that could not be proven
+    pristine; in both cases the caller performs a real drop, and a database
+    retired that way is forgotten here first so it is dropped exactly once.
+
+    Releasing twice is safe and is not merely defensive: a disposable
+    database can be returned both by an explicit close and by the
+    garbage-collected connection that owned it.
     """
-    if name not in _pooled:
-        return False
+    if name not in _in_use:
+        return name in _free
     try:
         pristine = _wipe_and_verify(name)
     except Exception:
         pristine = False
+    _in_use.discard(name)
     if pristine:
         _free.append(name)
         return True
-    _pooled.discard(name)
     return False
+
+
+def owns(name: str) -> bool:
+    """Whether this pool is responsible for *name*."""
+    return name in _in_use or name in _free
 
 
 def pool_size() -> int:
     """Databases this process currently owns, checked out or free."""
-    return len(_pooled)
+    return len(_free) + len(_in_use)
 
 
 def free_size() -> int:
@@ -266,6 +279,7 @@ __all__ = [
     "checkout",
     "forget_all_for_test",
     "free_size",
+    "owns",
     "pool_size",
     "pooling_disabled",
     "release",
