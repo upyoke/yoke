@@ -43,12 +43,16 @@ import time
 from pathlib import Path
 from typing import Iterator, Optional, Sequence, TextIO
 
-# Measured on the 18-core / 48 GB reference machine: two concurrent full
-# gates run at ~1.55x solo wall-clock with no failures and slightly beat
-# solo throughput; four run at ~6x solo and deterministically bust the
-# suite's tight real-time deadlines (SIGINT-cleanup budgets, subprocess
-# spawn deadlines). Larger machines raise this via machine config.
-DEFAULT_MAX_CONCURRENT_GATES = 2
+# One gate already claims most of the machine: pytest-xdist sizes its
+# worker fleet from the core count, so a single full gate runs ~10 workers
+# on the 18-core reference machine. A second concurrent gate therefore
+# oversubscribes the CPU rather than using spare capacity — measured at
+# two gates, each runs ~1.55x its solo wall-clock and the machine has
+# nothing left for the interactive work happening alongside it. Serializing
+# gates costs roughly the same total drain time (each runs at full speed
+# instead of half) while keeping every individual gate predictable and the
+# machine responsive. Bigger machines raise this via machine config.
+DEFAULT_MAX_CONCURRENT_GATES = 1
 
 CAP_ENV = "YOKE_TEST_GATE_MAX_CONCURRENT"
 CAP_MACHINE_CONFIG_KEY = "test_gate_max_concurrent"
@@ -110,14 +114,11 @@ def _resolve_cap() -> int:
         except ValueError:
             pass
     try:
-        from yoke_contracts.machine_config import runtime as machine_config
+        from yoke_core.domain.runtime_settings import get_int
 
-        configured = machine_config.load_config().get(CAP_MACHINE_CONFIG_KEY)
-        if configured is not None:
-            return int(configured)
+        return get_int(CAP_MACHINE_CONFIG_KEY, DEFAULT_MAX_CONCURRENT_GATES)
     except Exception:
-        pass
-    return DEFAULT_MAX_CONCURRENT_GATES
+        return DEFAULT_MAX_CONCURRENT_GATES
 
 
 def _maintenance_dsn() -> Optional[str]:
