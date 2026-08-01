@@ -85,6 +85,9 @@ _AUTHORIZED_DECLARATION_PATHS: tuple[str, ...] = (
     # hunts for, and the agent-prompt detector names the retired command
     # shape it looks for in tracked prompts.
     ".yoke/doctor/check_obsoleted_terms.py",
+    # The catalogue holds the retired names the scanner hunts for; it
+    # declares them rather than leaking them.
+    ".yoke/doctor/_obsoleted_terms_catalog.py",
     ".yoke/doctor/check_agents_prompts.py",
     "packages/yoke-core/src/yoke_core/engines/check_obsoleted_terms.py",
     "packages/yoke-core/src/yoke_core/engines/doctor_hc_obsoleted_terms_allowlists.py",

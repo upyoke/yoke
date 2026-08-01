@@ -6,6 +6,7 @@ import unittest
 from unittest.mock import patch
 
 from yoke_core.domain.handlers import reads_misc
+from yoke_core.engines.doctor_applicability import CheckApplicability
 from yoke_core.engines.doctor_registry_types import HealthCheck
 from yoke_contracts.api.function_call import (
     ActorContext,
@@ -75,22 +76,34 @@ class TestDoctorRunScope(unittest.TestCase):
         self.assertEqual(second.result_payload["results"][0]["hc"], "HC-second")
 
     def test_source_tree_checks_report_not_applicable_without_a_checkout(self):
+        # The checks declare on their own rows rather than borrowing real
+        # slugs: what is being tested is the applicability contract, not
+        # which slugs happen to be in the engine table today.
+        source_tree = CheckApplicability(requires_source_checkout=True)
         fake_hcs = [
             HealthCheck(
-                slug="workspace-anchored-writer-authority",
+                slug="reads-a-source-tree",
                 name="Source-tree HC",
                 fn=_record("source"),
+                applicability=source_tree,
             ),
-            HealthCheck(slug="status-consistency", name="DB HC", fn=_record("db")),
             HealthCheck(
-                slug="server-checkout-independence",
+                slug="reads-the-database",
+                name="DB HC",
+                fn=_record("db"),
+                applicability=CheckApplicability(),
+            ),
+            HealthCheck(
+                slug="reads-a-checkout",
                 name="Checkout-dependent HC",
                 fn=_record("checkout"),
+                applicability=source_tree,
             ),
             HealthCheck(
-                slug="platform-namespace-boundary",
-                name="Platform source HC",
-                fn=_record("platform"),
+                slug="scans-package-namespaces",
+                name="Namespace source HC",
+                fn=_record("namespaces"),
+                applicability=source_tree,
             ),
         ]
 
@@ -113,9 +126,9 @@ class TestDoctorRunScope(unittest.TestCase):
         # Named with a reason, not dropped: the report must be able to
         # distinguish "checked and clean" from "could not be checked here".
         for hc in (
-            "HC-workspace-anchored-writer-authority",
-            "HC-server-checkout-independence",
-            "HC-platform-namespace-boundary",
+            "HC-reads-a-source-tree",
+            "HC-reads-a-checkout",
+            "HC-scans-package-namespaces",
         ):
             self.assertEqual(by_severity[hc], "N/A")
         self.assertEqual(outcome.result_payload["na_count"], 3)
