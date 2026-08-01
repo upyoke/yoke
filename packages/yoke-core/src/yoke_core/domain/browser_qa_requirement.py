@@ -1,8 +1,4 @@
-"""Per-requirement Browser QA loop.
-
-Sibling calls resolve through :mod:`yoke_core.domain.browser_qa` so its stable
-test-patching surface remains effective after the implementation split.
-"""
+"""Per-requirement Browser QA loop using the stable parent patching surface."""
 
 from __future__ import annotations
 
@@ -23,6 +19,7 @@ from yoke_core.domain.qa_artifacts import (
     artifact_directory,
     build_metadata,
 )
+from yoke_core.domain.qa_constants import INVALID_BROWSER_METHOD_LABEL
 
 @dataclass
 class RequirementOutcome:
@@ -69,7 +66,7 @@ def _process_requirement(
     method_label = {
         "browser-check": "Browser check",
         "browser-inspection": "Browser inspection",
-    }.get(method_id, "legacy Browser case")
+    }.get(method_id, INVALID_BROWSER_METHOD_LABEL)
     _bqa._log(f"Processing requirement {req_id} ({method_label})...")
 
     # Parse the materialized method configuration.

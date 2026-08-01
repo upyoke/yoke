@@ -17,6 +17,12 @@ CONDUCT_EPHEMERAL = (
 BROWSER_SUBSTRATE = REPO / "docs" / "browser-substrate.md"
 CASE_ORCHESTRATION = REPO / "docs" / "browser-substrate" / "scenario-orchestration.md"
 ADVANCE_BROWSER_QA = REPO / ".agents" / "skills" / "yoke" / "advance" / "browser-qa.md"
+TIMING_PROFILE = REPO / ".test_durations"
+BROWSER_METHOD_MODULES = (
+    REPO / "packages/yoke-core/src/yoke_core/domain/browser_qa_requirement.py",
+    REPO / "packages/yoke-core/src/yoke_core/domain/qa_browser_evidence_check.py",
+    REPO / "packages/yoke-core/src/yoke_core/domain/qa_gate_helpers.py",
+)
 
 
 def _read(path: Path) -> str:
@@ -86,3 +92,14 @@ def test_browser_docs_link_only_the_current_advance_protocol() -> None:
     assert ".agents/skills/yoke/advance/browser-qa.md" in text
     assert "advance/browser-qa-fallback.md" not in text
     assert "advance/browser-qa-escalation.md" not in text
+
+
+def test_retired_browser_and_migration_residue_is_absent() -> None:
+    browser_text = "\n".join(_read(path) for path in BROWSER_METHOD_MODULES)
+    docs_text = _read(BROWSER_SUBSTRATE)
+    timing_text = _read(TIMING_PROFILE)
+
+    assert "legacy Browser case" not in browser_text
+    assert "--qa-run-id" not in docs_text
+    assert "qa artifact-add" not in docs_text
+    assert "test_harness_session_project_identity.py" not in timing_text

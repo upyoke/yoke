@@ -32,7 +32,7 @@ class TestExecuteUpdate:
         _seed_qa_requirement(
             tmp_db,
             item_id=10,
-            qa_kind="browser_smoke",
+            qa_kind="plan_case",
             success_policy='{"type":"browser_scenario"}',
         )
         out = io.StringIO()
@@ -57,7 +57,7 @@ class TestExecuteUpdate:
         _seed_qa_requirement(
             tmp_db,
             item_id=10,
-            qa_kind="browser_smoke",
+            qa_kind="plan_case",
             success_policy='{"type":"browser_scenario"}',
         )
         out = io.StringIO()
@@ -82,7 +82,7 @@ class TestExecuteUpdate:
         req_id = _seed_qa_requirement(
             tmp_db,
             item_id=10,
-            qa_kind="browser_smoke",
+            qa_kind="plan_case",
             success_policy='{"type":"browser_scenario"}',
         )
         _seed_qa_run(
@@ -114,7 +114,7 @@ class TestExecuteUpdate:
         _seed_qa_requirement(
             tmp_db,
             item_id=10,
-            qa_kind="browser_smoke",
+            qa_kind="plan_case",
             success_policy='{"type":"browser_scenario"}',
         )
         out = io.StringIO()
@@ -140,7 +140,7 @@ class TestExecuteUpdate:
         req_id = _seed_qa_requirement(
             tmp_db,
             item_id=10,
-            qa_kind="browser_smoke",
+            qa_kind="plan_case",
             success_policy='{"type":"browser_scenario"}',
         )
         _seed_qa_run(
@@ -172,7 +172,7 @@ class TestExecuteUpdate:
         req_id = _seed_qa_requirement(
             tmp_db,
             item_id=10,
-            qa_kind="browser_smoke",
+            qa_kind="plan_case",
             success_policy='{"type":"browser_scenario"}',
         )
         run_id = _seed_qa_run(
