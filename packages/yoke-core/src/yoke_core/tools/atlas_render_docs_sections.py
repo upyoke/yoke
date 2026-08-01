@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
+from yoke_contracts.api_urls import HOSTED_STAGE_API_URL
 from yoke_core.tools.atlas_render_docs_tables import _md_table
 
 
@@ -102,7 +103,7 @@ def _render_curl_floor() -> List[str]:
         " curl is the operator floor when no CLI is installed:",
         "",
         "```bash",
-        "API=https://app.stage.upyoke.com/api/orgs/yoke-stage"
+        f"API={HOSTED_STAGE_API_URL}"
         "   # the active env's api_url",
         "TOKEN_FILE=~/.yoke/secrets/stage.token",
         "",

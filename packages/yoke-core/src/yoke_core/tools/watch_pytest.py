@@ -193,6 +193,17 @@ def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
         "resolved path under the project scratch root.",
     )
     parser.add_argument(
+        "--impacted",
+        nargs="?",
+        const="main",
+        default=None,
+        metavar="BASE",
+        help="Run only the tests reachable from this branch's changes "
+        "(default base: main). Falls back to the full sweep whenever "
+        "reachability cannot bound the change. An accelerator for "
+        "iteration — merge still runs the full sweep.",
+    )
+    parser.add_argument(
         "passthrough",
         nargs=argparse.REMAINDER,
         help=(
@@ -228,6 +239,19 @@ def _extract_print_streaming_pair(argv: list[str]) -> tuple[list[str], bool]:
     return filtered, found
 
 
+def _impacted_selection(base: str) -> "list[str] | None":
+    """Pytest path arguments for the current change, or None when there are none."""
+    from yoke_core.tools import impacted_tests
+
+    selection = impacted_tests.selection_for(
+        _source_pythonpath.repo_root(Path.cwd()), base
+    )
+    scope = "full sweep" if selection.full_sweep else "impacted"
+    print(f"watch_pytest {scope}: {selection.reason}", flush=True)
+    paths = list(selection.pytest_paths())
+    return paths or None
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     raw = list(sys.argv[1:] if argv is None else argv)
     raw, print_streaming_pair_flag = _extract_print_streaming_pair(raw)
@@ -235,6 +259,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     if print_streaming_pair_flag:
         ns.print_streaming_pair = True
     pytest_args = _strip_separator(list(ns.passthrough))
+
+    if ns.impacted is not None:
+        selected = _impacted_selection(ns.impacted)
+        if selected is None:
+            return 0
+        pytest_args = [*selected, *pytest_args]
 
     if _watch_pytest_args.is_nested_pytest_invocation(pytest_args):
         print(

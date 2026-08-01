@@ -61,8 +61,8 @@ def _stub_browser_approval(monkeypatch) -> list[str]:
             platform_url=url,
             device_code="device-secret",
             user_code="ABCD-2345",
-            verification_uri=f"{url}/machine",
-            verification_uri_complete=f"{url}/machine?code=ABCD-2345",
+            verification_uri=f"{url}/connect",
+            verification_uri_complete=f"{url}/connect?user_code=ABCD-2345",
             expires_in=600,
             interval=1,
         )
@@ -134,7 +134,7 @@ def test_explicit_stage_connect_preset_keeps_stage_authority(monkeypatch) -> Non
             assert app.result.destination == DESTINATION_HOSTED
             assert app.result.env_name == "stage"
             assert started == ["https://app.stage.upyoke.com"]
-            assert "https://app.stage.upyoke.com/machine" in _body_text(app)
+            assert "https://app.stage.upyoke.com/connect" in _body_text(app)
 
     asyncio.run(scenario())
 
