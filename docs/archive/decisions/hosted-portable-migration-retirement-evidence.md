@@ -83,21 +83,25 @@ retired. The nine package modules, runtime wrappers, standalone and combined
 manifests, and migration-only tests can therefore be removed without removing
 current schema behavior or its regression coverage.
 
-## Public-reference repair still awaiting Production proof
+## Retired public-reference repair module
 
-`item_dependency_public_ref_repair` remains installed. Stage completed its
-rehearsal and apply through workflow runs `30598814140` and `30598867683`; the
-durable fleet run is `10ad304e829546c29f7a2f637f9449b8`.
+`item_dependency_public_ref_repair` completed on every authority it targeted:
 
-Production created durable run `a6893856f6dc42db9c0898c8106ad811`, but
-workflow run `30600019593` rejected the command output after the tenant work
-because stdout preceding the JSON receipt made the old parser fail. The
-workflow failure is not evidence that the migration failed, and the absence of
-preserved validation clones is not sufficient evidence that every target
-completed. The corrected workflow parser reads the terminal receipt line, but
-the migration source and its tests must remain until either the sanctioned
-Platform reader proves that durable Production run and every target completed,
-or a governed Production replay produces a new completed run and target set.
+- Stage control plane: completed from source
+  `07e2bdfea651568338861209ef0de3f619702b6e` at
+  `2026-07-30T20:12:33Z`.
+- Stage fleet run `10ad304e829546c29f7a2f637f9449b8`: every captured target
+  completed; apply workflow `30598867683` succeeded.
+- Production control plane: completed from the same source at
+  `2026-07-30T19:49:05Z`.
+- Production fleet run `a6893856f6dc42db9c0898c8106ad811`: the sanctioned
+  Platform reader proved that every captured target completed. Workflow
+  `30600019593` reported failure only because the former workflow parser
+  rejected stdout preceding the terminal JSON receipt.
+
+The workflow now validates the terminal receipt line, while the durable fleet
+run and target rows remain the authority. The package module, runtime wrapper,
+manifest, and migration-specific test can therefore retire.
 
 ## Evidence boundary
 
@@ -106,22 +110,38 @@ correct for local or project-bound governed migrations. It is not substituted
 for the Platform fleet receipt when Platform is the declared hosted portable
 migration authority.
 
-## Legacy pre-audit modules still awaiting a retirement receipt
+## Retired session identity and policy capability modules
 
-Two older idempotent modules remain in `runtime/api/domain/migrations/`:
+`harness_session_project_identity` and `project_policy_capabilities` completed
+under corrected source `110eb483abd0fd84df4c6a6ee8ec3010bbdd8647`:
 
-- `harness_session_project_identity`
-- `project_policy_capabilities`
+- Stage control plane lease `109`: session identity completed at
+  `2026-08-01T17:55:11Z`; policy capabilities completed at
+  `2026-08-01T17:55:25Z`.
+- Stage fleet run `8dba656375dd4760be29d4a9239190c5`: tenants `1` and `2`
+  completed; rehearsal workflow `30711382666` and apply workflow
+  `30711419999` succeeded.
+- Production control plane lease `1132`: session identity completed at
+  `2026-08-01T18:05:06Z`; policy capabilities completed at
+  `2026-08-01T18:07:55Z`.
+- Production fleet run `9d416dd385be4f8887053343390da42e`: tenants `4` and
+  `166` completed; rehearsal workflow `30711847608` and apply workflow
+  `30711999749` succeeded.
 
-The archived installer plan records their Stage and Production applications,
-and the current authorities show the intended live invariants: no harness
-session lacks `project_id`, and every current project has its policy/routing
-capability rows. Those applications predate the present governed audit
-contract, however, and neither authority has a completed `migration_audit`
-row under those module names. The source and migration-specific tests therefore
-remain until an idempotent governed apply records authoritative completion, or
-a separately reviewed retirement decision establishes a rule-compliant
-alternative. Current schema shape alone is not a retirement receipt.
+Tenant `166` contained no project named `yoke` and therefore proved that the
+corrected migration is reusable for external projects: it binds sessions to
+the tenant's own primary project identity rather than to a product slug or a
+fixed numeric id.
+
+The failed predecessor rehearsal `b13fd3976fb542f4913b9bcb6802a2f1` retained
+one diagnostic Production validation clone. After the corrected run completed,
+governed disposal workflow `30712150503` removed that exact clone. Stage
+inventory workflow `30712089369` and Production inventory workflow
+`30712174112` both reported zero validation databases afterward.
+
+The package modules, runtime wrappers, combined manifest, and migration-specific
+tests can therefore retire. The permanent project-policy implementation and
+the generic portable-migration executor and tests remain product source.
 
 The permanent installer campaign interaction regression and its assertion
 helper are product tests, not migration source. They live under

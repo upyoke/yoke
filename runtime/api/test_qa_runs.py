@@ -146,27 +146,32 @@ class TestRunAdd:
         conn.close()
         assert stored[0] == "inconclusive"
 
-    def test_agent_not_allowed_for_browser_smoke(
-        self, db_path: str, req_id: int
+    @pytest.mark.parametrize(
+        "method_id",
+        ("browser-check", "browser-inspection"),
+    )
+    def test_agent_not_allowed_for_browser_method(
+        self, db_path: str, method_id: str
     ) -> None:
+        rid = add_bound_requirement(
+            db_path=db_path,
+            item_id=10,
+            qa_kind="plan_case",
+            qa_phase="verification",
+        )
+        conn = connect_test_db(db_path)
+        conn.execute(
+            "UPDATE qa_requirements SET method_id = %s WHERE id = %s",
+            (method_id, rid),
+        )
+        conn.commit()
+        conn.close()
         with pytest.raises(SystemExit) as exc:
             qa.cmd_run_add(
                 db_path=db_path,
-                requirement_id=req_id,
+                requirement_id=rid,
                 executor_type="agent",
-                qa_kind="browser_smoke",
-            )
-        assert exc.value.code == 2
-
-    def test_agent_not_allowed_for_browser_diff(
-        self, db_path: str, req_id: int
-    ) -> None:
-        with pytest.raises(SystemExit) as exc:
-            qa.cmd_run_add(
-                db_path=db_path,
-                requirement_id=req_id,
-                executor_type="agent",
-                qa_kind="browser_diff",
+                qa_kind="plan_case",
             )
         assert exc.value.code == 2
 

@@ -8,7 +8,6 @@ from typing import Any
 
 import pytest
 
-from runtime.api.domain.migrations import project_policy_capabilities as migration
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.file_test_db import apply_sql_script
 from yoke_core.domain.project_policy_capabilities import (
@@ -90,8 +89,7 @@ def test_ensure_creates_default_capabilities(policy_conn: Any) -> None:
 
 
 def test_ensure_repairs_missing_keys_without_overwriting(policy_conn: Any) -> None:
-    conn = policy_conn
-    conn.execute(
+    policy_conn.execute(
         "INSERT INTO project_capabilities "
         "(project_id, type, settings, created_at) "
         "VALUES (%s, %s, %s, %s)",
@@ -102,24 +100,14 @@ def test_ensure_repairs_missing_keys_without_overwriting(policy_conn: Any) -> No
             "2026-06-30T00:00:00Z",
         ),
     )
-    conn.commit()
+    policy_conn.commit()
 
-    report = ensure_default_policy_capabilities(conn, 2)
-    conn.commit()
+    report = ensure_default_policy_capabilities(policy_conn, 2)
+    policy_conn.commit()
 
     repaired = report["2"][PROJECT_POLICY_CAPABILITY]["repaired_keys"]
     assert "default_priority" in repaired
-    policy = _settings(conn, 2, PROJECT_POLICY_CAPABILITY)
+    policy = _settings(policy_conn, 2, PROJECT_POLICY_CAPABILITY)
     assert policy["base_branch"] == "release"
     assert policy["wip_cap"] == 9
     assert policy["default_priority"] == "medium"
-
-
-def test_migration_repairs_every_project(policy_conn: Any) -> None:
-    migration.apply(policy_conn)
-    migration.apply(policy_conn)
-    policy_conn.commit()
-
-    migration.invariants(policy_conn)
-    assert _settings(policy_conn, 1, PROJECT_POLICY_CAPABILITY)
-    assert _settings(policy_conn, 2, SESSION_ROUTING_CAPABILITY)

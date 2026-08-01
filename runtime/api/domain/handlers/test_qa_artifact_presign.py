@@ -57,15 +57,16 @@ def _seed(
     )
     insert_item(conn, id=42, title="T", status="reviewing-implementation")
     insert_qa_requirement(
-        conn, id=10, item_id=42, qa_kind="browser_smoke",
+        conn, id=10, item_id=42, qa_kind="plan_case",
         qa_phase="verification", blocking_mode="blocking",
         success_policy="{}", target_env=target_env,
+        method_id="browser-check",
     )
     if with_run:
         conn.execute(
             "INSERT INTO qa_runs (id, qa_requirement_id, executor_type, "
             "qa_kind, created_at) "
-            "VALUES (77, 10, 'browser_substrate', 'browser_smoke', "
+            "VALUES (77, 10, 'browser_substrate', 'plan_case', "
             "'2026-06-12T00:00:00Z')",
         )
     conn.execute(
@@ -205,14 +206,15 @@ class TestPresignDenials(unittest.TestCase):
         with test_database() as conn:
             _seed(conn, env_buckets={"prod": "b"})
             insert_qa_requirement(
-                conn, id=11, item_id=42, qa_kind="browser_smoke",
+                conn, id=11, item_id=42, qa_kind="plan_case",
                 qa_phase="verification", blocking_mode="blocking",
                 success_policy="{}",
+                method_id="browser-check",
             )
             conn.execute(
                 "INSERT INTO qa_runs (id, qa_requirement_id, executor_type, "
                 "qa_kind, created_at) VALUES (88, 11, 'browser_substrate', "
-                "'browser_smoke', '2026-06-12T00:00:00Z')",
+                "'plan_case', '2026-06-12T00:00:00Z')",
             )
             conn.commit()
             outcome = qa_artifact_presign.handle_qa_artifact_presign(
