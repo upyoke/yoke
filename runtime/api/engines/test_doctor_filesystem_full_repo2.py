@@ -7,25 +7,16 @@ Schema scaffolding shared via _doctor_filesystem_full_test_helpers (private modu
 
 from __future__ import annotations
 
-from pathlib import Path
 from unittest.mock import patch
 
+from yoke_project_checks.check_agents import hc_browser_substrate
 from yoke_core.engines.doctor import (
-    RecordCollector,
-    _resolve_main_root,
-    _resolve_repo_root,
-    hc_arch_consistency,
-    hc_browser_substrate,
-    hc_claudemd_drift,
-    hc_config_validation,
     hc_stray_db,
     hc_stray_project_files,
 )
 
 from yoke_core.engines._doctor_filesystem_full_test_helpers import (
-    _args,
     _cp,
-    _make_conn,
     _run_hc,
 )
 

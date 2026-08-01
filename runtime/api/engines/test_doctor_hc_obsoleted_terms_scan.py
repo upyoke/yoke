@@ -13,7 +13,8 @@ from runtime.api.engines.obsoleted_terms_scan_test_support import (
     db_router_items_command,
     retired_parent_epic_symbol,
 )
-from yoke_core.engines.doctor_hc_obsoleted_terms import (
+from yoke_project_checks import check_obsoleted_terms
+from yoke_project_checks.check_obsoleted_terms import (
     hc_obsoleted_terms,
     scan_repo,
 )
@@ -201,22 +202,18 @@ def test_scan_ignores_archive_path(tmp_path: Path):
 
 
 def test_scan_ignores_hc_self(tmp_path: Path):
-    """The HC file declares patterns as escaped regex. The escaped form does not
-    contain the bare term as a substring, so a fresh scan should find nothing
-    even when the HC file is part of the scanned tree."""
-    hc_dir = tmp_path / "runtime" / "api" / "engines"
-    hc_dir.mkdir(parents=True)
-    copy_of_hc = hc_dir / "doctor_hc_obsoleted_terms.py"
-    source = Path(
-        REPO_ROOT
-        / "packages"
-        / "yoke-core"
-        / "src"
-        / "yoke_core"
-        / "engines"
-        / "doctor_hc_obsoleted_terms.py"
-    ).read_text(encoding="utf-8")
-    copy_of_hc.write_text(source)
+    """The scanner declares its patterns as escaped regex, and exempts itself by
+    module identity rather than by location, so a fresh scan finds nothing even
+    when a copy of the scanner sits in a scanned tree.
+
+    The source is read from the live module's own ``__file__`` so the fixture
+    tracks the scanner wherever it lives.
+    """
+    source = Path(check_obsoleted_terms.__file__).read_text(encoding="utf-8")
+    for rel_dir in (Path("runtime") / "api" / "engines", Path(".yoke") / "doctor"):
+        hc_dir = tmp_path / rel_dir
+        hc_dir.mkdir(parents=True)
+        (hc_dir / Path(check_obsoleted_terms.__file__).name).write_text(source)
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs" / "clean.md").write_text("nothing obsolete here\n")
     assert scan_repo(tmp_path) == []
@@ -231,7 +228,7 @@ def test_hc_records_pass_on_clean_repo(monkeypatch, tmp_path: Path):
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs" / "clean.md").write_text("nothing obsolete here\n")
     monkeypatch.setattr(
-        "yoke_core.engines.doctor_hc_obsoleted_terms._resolve_repo_root",
+        "yoke_project_checks.check_obsoleted_terms._resolve_repo_root",
         lambda: str(tmp_path),
     )
     rec = RecordCollector()
@@ -247,7 +244,7 @@ def test_hc_records_warn_on_residue(monkeypatch, tmp_path: Path):
         f"Tutorial mentioning {retired_parent_epic_symbol()} and yoke-db.sh together.\n"
     )
     monkeypatch.setattr(
-        "yoke_core.engines.doctor_hc_obsoleted_terms._resolve_repo_root",
+        "yoke_project_checks.check_obsoleted_terms._resolve_repo_root",
         lambda: str(tmp_path),
     )
     rec = RecordCollector()

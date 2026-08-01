@@ -6,6 +6,7 @@ import unittest
 from unittest.mock import patch
 
 from yoke_core.domain.handlers import reads_misc
+from yoke_core.engines.doctor_applicability import CheckApplicability
 from yoke_core.engines.doctor_registry_types import HealthCheck
 from yoke_contracts.api.function_call import (
     ActorContext,
@@ -47,14 +48,20 @@ class TestDoctorRunScope(unittest.TestCase):
             with patch(
                 "yoke_core.domain.db_helpers.connect", return_value=_Conn(),
             ):
+                # Cursor mechanics over a fixed roster: pinning the runtime
+                # keeps the roster exactly the two patched checks, instead of
+                # also collecting whatever this checkout declares in its own
+                # .yoke/doctor/ folder.
                 first = reads_misc.handle_doctor_run(_request({
                     "quick": True,
                     "project": "yoke",
+                    "runtime": "hosted",
                     "max_checks": 1,
                 }))
                 second = reads_misc.handle_doctor_run(_request({
                     "quick": True,
                     "project": "yoke",
+                    "runtime": "hosted",
                     "max_checks": 1,
                     "cursor_after": "first",
                 }))
@@ -68,23 +75,35 @@ class TestDoctorRunScope(unittest.TestCase):
         self.assertEqual(second.result_payload["cursor"], "second")
         self.assertEqual(second.result_payload["results"][0]["hc"], "HC-second")
 
-    def test_can_skip_source_tree_checks(self):
+    def test_source_tree_checks_report_not_applicable_without_a_checkout(self):
+        # The checks declare on their own rows rather than borrowing real
+        # slugs: what is being tested is the applicability contract, not
+        # which slugs happen to be in the engine table today.
+        source_tree = CheckApplicability(requires_source_checkout=True)
         fake_hcs = [
             HealthCheck(
-                slug="workspace-anchored-writer-authority",
+                slug="reads-a-source-tree",
                 name="Source-tree HC",
                 fn=_record("source"),
+                applicability=source_tree,
             ),
-            HealthCheck(slug="status-consistency", name="DB HC", fn=_record("db")),
             HealthCheck(
-                slug="server-checkout-independence",
+                slug="reads-the-database",
+                name="DB HC",
+                fn=_record("db"),
+                applicability=CheckApplicability(),
+            ),
+            HealthCheck(
+                slug="reads-a-checkout",
                 name="Checkout-dependent HC",
                 fn=_record("checkout"),
+                applicability=source_tree,
             ),
             HealthCheck(
-                slug="platform-namespace-boundary",
-                name="Platform source HC",
-                fn=_record("platform"),
+                slug="scans-package-namespaces",
+                name="Namespace source HC",
+                fn=_record("namespaces"),
+                applicability=source_tree,
             ),
         ]
 
@@ -97,16 +116,26 @@ class TestDoctorRunScope(unittest.TestCase):
                 outcome = reads_misc.handle_doctor_run(_request({
                     "quick": True,
                     "project": "yoke",
-                    "skip_source_tree_checks": True,
+                    "runtime": "hosted",
                 }))
 
         self.assertTrue(outcome.primary_success)
-        self.assertEqual(
-            [row["hc"] for row in outcome.result_payload["results"]],
-            ["HC-db"],
-        )
+        rows = outcome.result_payload["results"]
+        by_severity = {row["hc"]: row["severity"] for row in rows}
+        self.assertEqual(by_severity["HC-db"], "PASS")
+        # Named with a reason, not dropped: the report must be able to
+        # distinguish "checked and clean" from "could not be checked here".
+        for hc in (
+            "HC-reads-a-source-tree",
+            "HC-reads-a-checkout",
+            "HC-scans-package-namespaces",
+        ):
+            self.assertEqual(by_severity[hc], "N/A")
+        self.assertEqual(outcome.result_payload["na_count"], 3)
+        self.assertEqual(outcome.result_payload["pass_count"], 1)
+        self.assertEqual(outcome.result_payload["runtime"], "hosted")
 
-    def test_project_quick_with_source_tree_skip_uses_product_safe_subset(self):
+    def test_project_safe_quick_uses_the_project_read_permission_subset(self):
         fake_hcs = [
             HealthCheck(slug="status-consistency", name="Global", fn=_record("global")),
             HealthCheck(
@@ -145,11 +174,13 @@ class TestDoctorRunScope(unittest.TestCase):
                 outcome = reads_misc.handle_doctor_run(_request({
                     "quick": True,
                     "project": "externalwebapp",
-                    "skip_source_tree_checks": True,
+                    "runtime": "hosted",
+                    "project_safe_quick": True,
                 }))
 
         self.assertTrue(outcome.primary_success)
-        self.assertEqual(
-            [row["hc"] for row in outcome.result_payload["results"]],
-            ["HC-token", "HC-flows", "HC-ci"],
-        )
+        executed = [
+            row["hc"] for row in outcome.result_payload["results"]
+            if row["severity"] != "N/A"
+        ]
+        self.assertEqual(executed, ["HC-token", "HC-flows", "HC-ci"])

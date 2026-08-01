@@ -122,7 +122,7 @@ BASELINE: dict[str, int] = {
     "packages/yoke-core/src/yoke_core/engines/doctor_hc_architecture_items.py": 2,
     "packages/yoke-core/src/yoke_core/engines/doctor_hc_blocked_flag.py": 4,
     "packages/yoke-core/src/yoke_core/engines/doctor_hc_db_flows.py": 1,
-    "packages/yoke-core/src/yoke_core/engines/doctor_hc_heading_casing.py": 1,
+    "packages/yoke-core/src/yoke_core/engines/check_heading_casing.py": 1,
     "packages/yoke-core/src/yoke_core/engines/doctor_hc_meta_backlog.py": 1,
     "packages/yoke-core/src/yoke_core/engines/doctor_hc_meta_lifecycle.py": 2,
     "packages/yoke-core/src/yoke_core/engines/doctor_hc_meta_runs.py": 2,

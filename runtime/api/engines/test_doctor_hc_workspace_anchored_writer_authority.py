@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from yoke_core.engines.doctor_hc_workspace_anchored_writer_authority import (
+from yoke_project_checks.check_workspace_anchored_writer_authority import (
     HC_NAME,
     HELPER_SYMBOL,
     IN_SCOPE_WRITERS,

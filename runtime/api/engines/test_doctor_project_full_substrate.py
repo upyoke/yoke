@@ -11,13 +11,15 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
+from yoke_project_checks.check_agents import hc_browser_substrate
+from yoke_project_checks.check_agents_hooks import hc_session_startup_hook
+from yoke_project_checks.check_contract_drift import (
+    hc_api_vocabulary_drift,
+    hc_approval_contract_drift,
+)
 from yoke_core.engines.doctor import (
     DoctorArgs,
     RecordCollector,
-    hc_approval_contract_drift,
-    hc_api_vocabulary_drift,
-    hc_browser_substrate,
-    hc_session_startup_hook,
     hc_test_command_validity,
 )
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db

@@ -18,6 +18,11 @@ SCAN_DIRS_BY_EXT: dict[str, tuple[str, ...]] = {
     ".py": (
         "packages",
         "runtime",
+        # Project-local health checks are live authored Python that names
+        # module paths and command shapes in its detection logic; each
+        # scanner is exempted from its own patterns by identity, not by
+        # keeping the whole directory out of scope.
+        ".yoke/doctor",
     ),
 }
 

@@ -12,8 +12,8 @@ from typing import Dict, Iterable, Iterator, Tuple
 
 import pytest
 
-from yoke_core.engines import doctor_hc_tier_module_path_resolution as mod
-from yoke_core.engines.doctor_hc_tier_module_path_resolution import (
+from yoke_project_checks import check_tier_module_path_resolution as mod
+from yoke_project_checks.check_tier_module_path_resolution import (
     HC_SLUG,
     hc_tier_module_path_resolution,
 )

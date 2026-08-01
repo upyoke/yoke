@@ -4,8 +4,13 @@ Sibling registry slice carved out of :mod:`doctor_registry` so the
 parent file stays under the 350-line authored-file limit, following the
 same pattern as :mod:`doctor_registry_coordination` and
 :mod:`doctor_registry_harness`. Owns the architecture-fitness health
-checks (path-based, item-based, doc-drift, writer-authority, and
-source/dependency boundary checks).
+checks that hold for every project: path classification, item impact
+declaration, scan errors, and model/doc drift.
+
+A boundary that only one project declares — which namespaces its own tree
+may import, which of its own writers must assert workspace authority — is
+that project's rule, so its check lives in the project's ``.yoke/doctor/``
+folder and is discovered by :mod:`doctor_project_checks`.
 
 Public surface:
 
@@ -28,18 +33,6 @@ from yoke_core.engines.doctor_hc_architecture_doc import (
 from yoke_core.engines.doctor_hc_architecture_items import (
     hc_architecture_impact_declaration,
     hc_architecture_scan_error,
-)
-from yoke_core.engines.doctor_hc_platform_namespace_boundary import (
-    HC_DESC as PLATFORM_NAMESPACE_BOUNDARY_DESC,
-    hc_platform_namespace_boundary,
-)
-from yoke_core.engines.doctor_hc_server_checkout_independence import (
-    HC_DESC as SERVER_CHECKOUT_INDEPENDENCE_DESC,
-    hc_server_checkout_independence,
-)
-from yoke_core.engines.doctor_hc_workspace_anchored_writer_authority import (
-    HC_DESC as WORKSPACE_WRITER_AUTHORITY_DESC,
-    hc_workspace_anchored_writer_authority,
 )
 from yoke_core.engines.doctor_registry_types import HealthCheck
 
@@ -74,21 +67,6 @@ ARCHITECTURE_HEALTH_CHECKS: List[HealthCheck] = [
         "architecture-model-doc-drift",
         "AGENTS.md Architecture Model section drift from payload",
         hc_architecture_model_doc_drift,
-    ),
-    HealthCheck(
-        "workspace-anchored-writer-authority",
-        WORKSPACE_WRITER_AUTHORITY_DESC,
-        hc_workspace_anchored_writer_authority,
-    ),
-    HealthCheck(
-        "server-checkout-independence",
-        SERVER_CHECKOUT_INDEPENDENCE_DESC,
-        hc_server_checkout_independence,
-    ),
-    HealthCheck(
-        "platform-namespace-boundary",
-        PLATFORM_NAMESPACE_BOUNDARY_DESC,
-        hc_platform_namespace_boundary,
     ),
 ]
 

@@ -5,13 +5,13 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from yoke_core.engines import doctor_hc_packet_tier_completeness as packet_mod
-from yoke_core.engines import (
-    doctor_hc_progressive_disclosure_direction as disclosure_mod,
+from yoke_project_checks import check_packet_tier_completeness as packet_mod
+from yoke_project_checks import (
+    check_progressive_disclosure_direction as disclosure_mod,
 )
-from yoke_core.engines import doctor_hc_tier_cli_shape_bleed as cli_mod
-from yoke_core.engines import doctor_hc_tier_module_path_resolution as module_path_mod
-from yoke_core.engines import doctor_hc_tier_schema_bleed as schema_mod
+from yoke_project_checks import check_tier_cli_shape_bleed as cli_mod
+from yoke_project_checks import check_tier_module_path_resolution as module_path_mod
+from yoke_project_checks import check_tier_schema_bleed as schema_mod
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
