@@ -117,6 +117,9 @@ class TestDivergedWarningStillAdvisory(unittest.TestCase):
                  mod, "_run_file_line_check_or_block", return_value=file_line_rc
              ), \
              mock.patch.object(
+                 mod, "_run_agent_render_check_or_block", return_value=0
+             ), \
+             mock.patch.object(
                  mod, "_run_worktree_status_check_or_block", return_value=0
              ), \
              mock.patch.object(
@@ -280,6 +283,67 @@ class TestFormatFileLineSummary(unittest.TestCase):
         self.assertIn("NEW authored file is 412 lines", text)
         self.assertIn("--no-verify", text)
         self.assertIn("file-line-limit gate blocked", text)
+
+
+class TestAgentRenderGate(unittest.TestCase):
+    """A commit must not pair an edited packet source with a stale adapter."""
+
+    def _run(self, tmp: pathlib.Path, drifted: list[str]) -> tuple[int, str]:
+        buf = io.StringIO()
+        from yoke_core.domain import agents_render
+
+        # Stub only the drift verdict: the fixture tree has no adapters to
+        # render, and CANONICAL_DIR stays real so the skip guard is exercised
+        # against the same constant the gate uses in production.
+        with mock.patch.object(
+            agents_render, "detect_substrate_drift", return_value=drifted
+        ), \
+             mock.patch.object(mod, "_resolve_repo_root", return_value=str(tmp)), \
+             mock.patch.object(mod.sys, "stderr", buf):
+            rc = mod._run_agent_render_check_or_block()
+        return rc, buf.getvalue()
+
+    def setUp(self) -> None:
+        import tempfile
+
+        self._tmp = tempfile.TemporaryDirectory()
+        self.root = pathlib.Path(self._tmp.name)
+
+    def tearDown(self) -> None:
+        self._tmp.cleanup()
+
+    def _canonical_checkout(self) -> pathlib.Path:
+        (self.root / "runtime" / "agents").mkdir(parents=True)
+        return self.root
+
+    def test_clean_render_passes_silently(self) -> None:
+        rc, out = self._run(self._canonical_checkout(), [])
+        self.assertEqual(rc, 0)
+        self.assertEqual(out, "")
+
+    def test_drift_blocks_and_names_the_repair(self) -> None:
+        rc, out = self._run(
+            self._canonical_checkout(),
+            ["drift: runtime/harness/claude/agents/yoke-engineer.md"],
+        )
+        self.assertEqual(rc, 1)
+        self.assertIn("yoke-engineer.md", out)
+        self.assertIn("yoke agents render", out)
+        self.assertIn("--no-verify", out)
+
+    def test_unevaluable_render_warns_without_blocking(self) -> None:
+        """An unreachable DB or broken seed must not brick unrelated commits."""
+        rc, out = self._run(
+            self._canonical_checkout(), ["render-error: connection refused"]
+        )
+        self.assertEqual(rc, 0)
+        self.assertIn("WARNING", out)
+        self.assertIn("connection refused", out)
+
+    def test_project_checkout_without_canonical_bodies_skips(self) -> None:
+        rc, out = self._run(self.root, ["drift: should-not-be-consulted"])
+        self.assertEqual(rc, 0)
+        self.assertEqual(out, "")
 
 
 if __name__ == "__main__":

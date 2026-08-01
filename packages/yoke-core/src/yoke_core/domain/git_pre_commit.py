@@ -18,6 +18,10 @@ Behaviour on each commit, in order:
    ``staged=True`` mode against the staged content. If the verdict
    reports any hard-fail, the hook prints a summary to stderr and
    returns 1, which causes git to abort the commit.
+3. **Generated-content checks (hard-fail).** The field-note inline
+   renderer and the harness agent renderer both compare their generated
+   outputs against the sources they derive from, so a commit cannot pair
+   an edited source with a stale rendered artifact.
 
 If ``yoke_core.domain.file_line_check`` cannot be imported, the hook
 fails closed (returns 1) rather than silently skipping. This is
@@ -205,6 +209,58 @@ def _run_field_note_render_or_block() -> int:
     return 1
 
 
+def _run_agent_render_check_or_block() -> int:
+    """Refuse commits whose rendered harness adapters disagree with the
+    canonical bodies and packet seed they are generated from.
+
+    Without this, an edit to a packet seed commits cleanly alongside
+    stale rendered adapters and the mismatch only surfaces in the full
+    test suite, long after the commit that caused it. Same shape as
+    :func:`_run_field_note_render_or_block`: the renderer is the source
+    of truth and the operator re-renders and re-stages.
+
+    Skips silently outside a Yoke source checkout — a project repo has
+    no canonical agent bodies to render from. A render that cannot be
+    evaluated (unreachable DB, seed import failure) warns without
+    blocking: an unverifiable gate must not brick unrelated commits.
+    """
+    try:
+        from yoke_core.domain import agents_render
+    except ImportError:
+        sys.stderr.write(
+            "ERROR: agent renderer not available — "
+            "install/repair yoke_core.domain.agents_render.\n"
+            "Use `git commit --no-verify` to bypass this check.\n"
+        )
+        return 1
+
+    repo_root = _resolve_repo_root()
+    if repo_root is None:
+        return 0
+    root = pathlib.Path(repo_root)
+    if not (root / agents_render.CANONICAL_DIR).is_dir():
+        return 0
+
+    drifted = agents_render.detect_substrate_drift(target_root=root)
+    if not drifted:
+        return 0
+    blocking = [d for d in drifted if not d.startswith("render-error:")]
+    if not blocking:
+        sys.stderr.write(
+            "WARNING: agent render drift could not be evaluated:\n"
+            + "".join(f"  {entry}\n" for entry in drifted)
+        )
+        return 0
+    sys.stderr.write(
+        "ERROR: rendered harness adapters disagree with their canonical "
+        "sources:\n"
+        + "".join(f"  {entry}\n" for entry in drifted)
+        + "Run `yoke agents render` and re-stage the rendered files.\n"
+        "Use `git commit --no-verify` to bypass this check.\n"
+    )
+    return 1
+
+
 def _run_worktree_status_check_or_block() -> int:
     """Refuse commits on a YOK-N worktree branch when the item's status
     isn't in the implementation-phase set. Skips silently for non-item
@@ -243,6 +299,9 @@ def run() -> int:
     if rc != 0:
         return rc
     rc = _run_field_note_render_or_block()
+    if rc != 0:
+        return rc
+    rc = _run_agent_render_check_or_block()
     if rc != 0:
         return rc
     rc = _run_worktree_status_check_or_block()
