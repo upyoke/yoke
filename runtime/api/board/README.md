@@ -82,13 +82,13 @@ Preview supports all art modes: rainbow (5 sub-modes), frontier/progress, emoji/
 
 ```bash
 # All board renderer tests:
-python3 -m yoke_core.tools.watch_pytest -- runtime/api/board/tests runtime/api/test_board_art.py runtime/api/test_board_scaffold.py -v
+yoke watch pytest -- runtime/api/board/tests runtime/api/test_board_art.py runtime/api/test_board_scaffold.py -v
 
 # Individual test modules:
-python3 -m yoke_core.tools.watch_pytest -- runtime/api/board/tests/test_renderer.py -v  # Renderer assembly
-python3 -m yoke_core.tools.watch_pytest -- runtime/api/board/tests/test_sections.py -v  # Section classification
-python3 -m yoke_core.tools.watch_pytest -- runtime/api/board/tests/test_widgets.py -v   # Dashboard widgets
-python3 -m yoke_core.tools.watch_pytest -- runtime/api/board/tests/test_zen.py -v       # Project timelines
+yoke watch pytest -- runtime/api/board/tests/test_renderer.py -v  # Renderer assembly
+yoke watch pytest -- runtime/api/board/tests/test_sections.py -v  # Section classification
+yoke watch pytest -- runtime/api/board/tests/test_widgets.py -v   # Dashboard widgets
+yoke watch pytest -- runtime/api/board/tests/test_zen.py -v       # Project timelines
 ```
 
 ## Relationship to Other Surfaces

@@ -44,7 +44,7 @@ Verification expectations:
   Command case also passes.
 - When prompt surfaces or large scripts change, run the relevant doctor or
   invariant checks as additional proof. Invoke doctor through
-  `python3 -m yoke_core.tools.watch_doctor -- --quick`.
+  `yoke watch doctor -- --quick`.
 
 If verification fails, investigate and fix it before continuing.
 Future/planned item ownership or a planned path claim is not a waiver for a

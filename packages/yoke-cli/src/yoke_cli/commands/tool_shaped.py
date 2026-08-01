@@ -101,6 +101,10 @@ from yoke_cli.commands.usher_reconcile import (
     TOOL_SHAPED_SUBCOMMANDS as _USHER_RECONCILE_SUBCOMMANDS,
     TOOL_SHAPED_USAGE as _USHER_RECONCILE_USAGE,
 )
+from yoke_cli.commands.watchers import (
+    TOOL_SHAPED_SUBCOMMANDS as _WATCHER_SUBCOMMANDS,
+    TOOL_SHAPED_USAGE as _WATCHER_USAGE,
+)
 
 TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
     **_BOARD_SUBCOMMANDS,
@@ -125,6 +129,7 @@ TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
     **_UNIVERSE_UI_SUBCOMMANDS,
     **_UNIVERSE_VALIDATE_SUBCOMMANDS,
     **_USHER_RECONCILE_SUBCOMMANDS,
+    **_WATCHER_SUBCOMMANDS,
 }
 
 # cli form -> one-line usage for `yoke --help`.
@@ -151,6 +156,7 @@ TOOL_SHAPED_USAGE: Dict[str, str] = {
     **_UNIVERSE_UI_USAGE,
     **_UNIVERSE_VALIDATE_USAGE,
     **_USHER_RECONCILE_USAGE,
+    **_WATCHER_USAGE,
 }
 
 

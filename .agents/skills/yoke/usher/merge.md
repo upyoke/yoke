@@ -208,7 +208,7 @@ elif [ "$_usher_generated_children" = "none" ] \
  # operation: it takes the merge lock, lands the branch on the project base
  # branch, stamps merged_at, and publishes. `--skip-status` leaves the
  # lifecycle status to the deploy phase below, which owns it here.
- python3 -m yoke_core.tools.watch_merge merge-item -- YOK-{N} --skip-status
+ yoke watch merge merge-item -- YOK-{N} --skip-status
 else
  echo "BLOCK: unsupported pinned merge policy: children=$_usher_generated_children worktrees=$_usher_worktree_policy parallelism=$_usher_parallelism"
  exit 1
@@ -217,7 +217,7 @@ fi
 
 **Engine contract:** an item branch with no epic lane is a standalone merge, and every standalone merge routes through one operation — `yoke merge item`, wrapped here as `watch_merge merge-item`. The operation declares the standalone permission to the merge engine as an argument, so the engine's refusal for an unpermitted standalone branch stays intact for every other caller. Contract and portability constraints: [`docs/archive/decisions/standalone-item-merge.md`](../../../../docs/archive/decisions/standalone-item-merge.md).
 
-**Streaming-wrapper form:** A merge is a long command, so per the Command Output streaming rule it runs under the watcher wrapper. `python3 -m yoke_core.tools.watch_merge --print-streaming-pair merge-item -- YOK-{N} --skip-status` prints the background + Monitor pair.
+**Streaming-wrapper form:** A merge is a long command, so per the Command Output streaming rule it runs under the watcher wrapper. `yoke watch merge --print-streaming-pair merge-item -- YOK-{N} --skip-status` prints the background + Monitor pair.
 
 **IMPROVISATION GUARD:** If lint blocks despite the audit comment, **STOP**. NEVER substitute raw done-transition or any other entrypoint for the single-lane merge call.
 
@@ -282,7 +282,7 @@ Then halt the entire usher batch — do NOT proceed to later items in the merge-
 - the last `Merge*Failed` / `MergeTargetStale` / `MergeVerificationFailed` event (query `events` for `event_name LIKE 'Merge%Failed' OR event_name = 'MergeTargetStale'`),
 - instructions to resume with `/yoke usher YOK-{N}` after the underlying cause is fixed.
 
-**Never** ignore the exit code and continue. **Never** mutate status to `done` or beyond without a fresh successful `python3 -m yoke_core.tools.watch_merge merge-worktree` run.
+**Never** ignore the exit code and continue. **Never** mutate status to `done` or beyond without a fresh successful `yoke watch merge merge-worktree` run.
 
 ### 7f. Post-Merge CI Check (ADVISORY)
 
