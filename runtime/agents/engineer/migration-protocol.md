@@ -43,7 +43,7 @@ governed path above — they do not self-propagate on boot.
 
 Run doctor through the canonical watcher wrapper to verify the schema matches expectations (per AGENTS.md `## Command Output — Hard Rule`):
 ```bash
-python3 -m yoke_core.tools.watch_doctor -- --only HC-schema-drift
+yoke watch doctor -- --only HC-schema-drift
 ```
 
 ## Checklist summary
@@ -58,4 +58,4 @@ python3 -m yoke_core.tools.watch_doctor -- --only HC-schema-drift
 - [ ] `.yoke/docs/db-reference.md` + the relevant `.yoke/docs/db-reference/<topic>.md` updated
 - [ ] Relevant domain wrapper field lists updated (e.g., `items_constants.py`, `mutation_fields.py`, `flow.py`, `ephemeral_env.py` — whichever domain owns the table)
 - [ ] Dedicated migration script with row-count verification for destructive operations
-- [ ] Doctor passes after migration (`python3 -m yoke_core.tools.watch_doctor -- --only HC-schema-drift`)
+- [ ] Doctor passes after migration (`yoke watch doctor -- --only HC-schema-drift`)

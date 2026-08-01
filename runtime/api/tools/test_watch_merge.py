@@ -179,14 +179,14 @@ class TestPrintStreamingPair:
         )
         assert rc == 0
         out = capsys.readouterr().out
-        anchor = f"cd {shlex.quote(os.getcwd())} && uv run --frozen python3 -m"
-        assert f"{anchor} yoke_core.tools.watch_merge" in out
+        command_anchor = f"cd {shlex.quote(os.getcwd())} && yoke watch"
+        assert f"{command_anchor} merge" in out
         assert "PYTHONPATH" not in out
         # Sub-command argv preserved in the printed Bash invocation.
         assert "done-transition" in out
         # Progress tail auto-exits via watch_tail; post-completion inspection
         # still uses tail -80 against the raw capture.
-        assert f"{anchor} yoke_core.tools.watch_tail" in out
+        assert f"{command_anchor} tail" in out
         assert ".progress." in out
         assert "tail -80" in out
         assert ".raw." in out
