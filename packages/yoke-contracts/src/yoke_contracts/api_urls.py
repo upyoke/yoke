@@ -15,7 +15,7 @@ DISTRIBUTION_STAGE_URL = "https://api.stage.upyoke.com"
 # operator (the hosting bootstrap link is the first).
 DISTRIBUTION_BASE_URL_ENV = "YOKE_INSTALL_BASE_URL"
 HOSTED_PROD_API_URL = "https://app.upyoke.com/api/orgs/upyoke"
-HOSTED_STAGE_API_URL = "https://app.stage.upyoke.com/api/orgs/upyoke"
+HOSTED_STAGE_API_URL = "https://app.stage.upyoke.com/api/orgs/upyoke-stage-1"
 HOSTED_PLATFORM_URL = "https://app.upyoke.com"
 HOSTED_STAGE_PLATFORM_URL = "https://app.stage.upyoke.com"
 
