@@ -14,7 +14,7 @@ boundary contract as observed from a plain HTTPS client:
 Usage::
 
     python3 -m yoke_core.tools.verify_env_auth_boundary \\
-        https://app.stage.upyoke.com/api/orgs/yoke-stage --token-file ~/.yoke/secrets/x.json
+        <environment-api-url> --token-file ~/.yoke/secrets/x.json
 
 The token file accepts either the raw token or the bootstrap-admin JSON
 payload (``{"raw_token": "..."}``). Exit 0 when every check passes.
@@ -29,6 +29,7 @@ import urllib.request
 import uuid
 from pathlib import Path
 
+from yoke_contracts.api_urls import HOSTED_STAGE_API_URL
 from yoke_cli.transport.bounded_json_http import (
     BoundedJsonHttpError,
     BoundedJsonHttpStatusError,
@@ -141,7 +142,7 @@ def main(argv=None) -> int:
     )
     parser.add_argument(
         "base_url",
-        help="e.g. https://app.stage.upyoke.com/api/orgs/yoke-stage",
+        help=f"e.g. {HOSTED_STAGE_API_URL}",
     )
     parser.add_argument(
         "--token-file",
