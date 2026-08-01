@@ -11,7 +11,7 @@ that plan at the intended transition:
 
 ```bash
 yoke qa item-plan attach \
-  --item "YOK-{N}" \
+  --item "PREFIX-{N}" \
   --project "<project>" \
   --plan-id <plan-id> \
   --transition reviewing-implementation
@@ -26,7 +26,7 @@ For genuinely one-off proof, add a method-backed requirement directly:
 
 ```bash
 yoke qa requirement add \
-  --item "YOK-{N}" \
+  --item "PREFIX-{N}" \
   --method-id browser-check \
   --qa-phase verification \
   --workflow-transition reviewed-implementation \

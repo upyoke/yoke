@@ -25,14 +25,26 @@ def test_advance_summary_default_uses_watcher() -> None:
     assert '"python3 -m pytest runtime/api/" (yoke default)' not in text
 
 
-def test_readiness_repair_verification_uses_watcher() -> None:
+def test_readiness_repair_verification_defers_to_project_command() -> None:
+    """This skill ships verbatim into target projects, so its Verification
+    block names the registered readiness commands and then points at the
+    project's own verification command instead of pinning test anchors that
+    only exist in this repo."""
     text = _read(SKILLS / "refine" / "readiness-repair.md")
-    assert (
-        "yoke watch pytest -- "
-        "runtime/api/domain/test_idea_readiness_repair.py "
-        "runtime/api/test_skill_doc_regressions_file_budget.py"
-    ) in text
-    assert "python3 -m pytest runtime/api/domain/test_idea_readiness_repair.py" not in text
+    tail = text[text.index("## Verification") :]
+    next_heading = tail.find("\n## ", 1)
+    verification = tail if next_heading == -1 else tail[:next_heading]
+
+    assert "yoke readiness check {N}" in verification
+    assert "yoke readiness repair-stale-count --item {N}" in verification
+    assert "your project's registered verification command" in verification
+    assert "rather than hardcoding a test-file list" in verification
+
+    # Neither a raw-pytest recipe nor this repo's own test anchors may
+    # return to the block agents copy from.
+    assert "python3 -m pytest" not in text
+    assert "runtime/api/domain/test_idea_readiness_repair.py" not in verification
+    assert "runtime/api/test_skill_doc_regressions_file_budget.py" not in verification
 
 
 def test_db_reference_rehearsal_commands_use_watcher() -> None:

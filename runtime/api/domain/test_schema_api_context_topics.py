@@ -93,7 +93,7 @@ def test_core_topic_includes_dependency_wrappers() -> None:
 
     body = sac.render_topic_packet("core")
     assert "shepherd dependency-list" in body
-    assert "dependent_item/blocking_item store public YOK-N text refs" in body
+    assert "dependent_item/blocking_item store public PREFIX-N text refs" in body
     assert "not numeric items.id values" in body
     assert "Dependency add/update/remove are authoring-time surfaces" in body
     assert "registered command adapters land" in body
@@ -260,7 +260,7 @@ def test_qa_topic_events_recipe_matches_supported_filter_shape() -> None:
     assert "events query --item" in body
     # The retired unbounded db_router recipe is not taught as the
     # primary shape.
-    assert "events list --item YOK-N\n" not in body
+    assert "events list --item PREFIX-N\n" not in body
     # The packet teaches the bounded form (with --limit) so agents do
     # not paste an unbounded dump command.
     assert "--limit" in body

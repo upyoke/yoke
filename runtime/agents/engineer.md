@@ -59,7 +59,7 @@ These are the exact directory names. Do NOT guess or reconstruct them token-by-t
 |------|---------|
 | `ouroboros_entries` table | Ouroboros learning log (DB is source of truth; NOT "ouraboros") |
 | `ouroboros/patterns.md` | Ouroboros pattern memory |
-| `items` table | Backlog items (read body via `items get YOK-N body`) |
+| `items` table | Backlog items (read body via `items get PREFIX-N body`) |
 | `docs/` | Project documentation |
 | `.yoke/BOARD.md` | Board (auto-generated) |
 
@@ -75,7 +75,7 @@ These are the exact directory names. Do NOT guess or reconstruct them token-by-t
    git -C {worktree-path} branch --show-current
    git -C {worktree-path} status --porcelain
    ```
-   The branch name must match `YOK-{N}`. If it doesn't, STOP and report the mismatch. All subsequent worktree-bound work — code edits, tests, commits — uses absolute paths under `{worktree-path}` or the matching anchor flag. Shared-state writes (backlog items, Ouroboros log, QA data) go through the registered `yoke <subcommand>` named in your packet.
+   The branch name must match `PREFIX-{N}`. If it doesn't, STOP and report the mismatch. All subsequent worktree-bound work — code edits, tests, commits — uses absolute paths under `{worktree-path}` or the matching anchor flag. Shared-state writes (backlog items, Ouroboros log, QA data) go through the registered `yoke <subcommand>` named in your packet.
 
 1. **Read the task file** at the path provided. Understand every section:
    - Description — what to build
@@ -90,7 +90,7 @@ These are the exact directory names. Do NOT guess or reconstruct them token-by-t
 3. **Read `/docs`** and `AGENTS.md` for project conventions.
 
 4. **Implement the task.** Follow the acceptance criteria exactly. Don't add features that aren't specified. Don't refactor code outside your task's scope.
-   - **Codebase-reader naming:** Planning artifacts are scaffolding; the live codebase is the building. If the task spec says "phase", "stage", "tier", "slice", "track", "wave", "batch", "milestone", "initiative", "task", "AC"/"FR", a "field-note NNNN" or "YOK-N"/epic work item ref, a "§N"/spec citation, "plan", "thread", or similar provenance language, do not reuse that language in new file or directory names, paths, symbols, comments, or headings. Ask: "Would this name still explain itself to a future maintainer who can only see the repository?" If no, rename it before writing.
+   - **Codebase-reader naming:** Planning artifacts are scaffolding; the live codebase is the building. If the task spec says "phase", "stage", "tier", "slice", "track", "wave", "batch", "milestone", "initiative", "task", "AC"/"FR", a "field-note NNNN" or "PREFIX-N"/epic work item ref, a "§N"/spec citation, "plan", "thread", or similar provenance language, do not reuse that language in new file or directory names, paths, symbols, comments, or headings. Ask: "Would this name still explain itself to a future maintainer who can only see the repository?" If no, rename it before writing.
    - **Read tool size discipline:** When reading files >200 lines, use the Read tool's `offset` and `limit` parameters to load only the section you need. Never read entire SKILL.md files, large source files, or spec documents whole — find the relevant section first (via Grep or known line range) and read just that range. This preserves context window budget and prevents token-limit failures.
    - **File discovery:** Always exclude noise directories (`node_modules`, `.git`, `dist`, `build`, `.next`, `__pycache__`, `.worktrees`) from Glob/Grep searches. Use scoped patterns (e.g., `src/**/*.ts` not `**/*.ts`). When dispatching Explore subagents, explicitly state exclusions.
    - **Stale edits:** If an Edit fails with "String to replace not found," a prior edit likely already changed the target. Re-read the file to confirm the desired state — if present, treat as a no-op and move on. Do not retry the exact same edit.
@@ -99,13 +99,13 @@ These are the exact directory names. Do NOT guess or reconstruct them token-by-t
    - **Test triage:** Run failing tests in isolation first (not the whole suite). When running full suites, capture output once and inspect it multiple ways — do NOT rerun a suite just to recover failure lines:
      ```bash
      _tmp=$(mktemp /tmp/yoke-test.XXXXXX)
-     sh tests/test-foo.sh >"$_tmp" 2>&1; _rc=$?
+     <your project's test command> >"$_tmp" 2>&1; _rc=$?
      tail -50 "$_tmp"                          # summary + failure labels
      grep -E "FAIL|ERROR|error" "$_tmp" || true # extract failures if needed
      rm -f "$_tmp"
      exit "$_rc"
      ```
-     Helper-based suites (`test-helpers.sh`) replay failed assertion labels in `test_summary()`, so `tail -50` includes the pass/fail counts and usually the failing labels as well. If a suite has many failures, inspect the captured file directly for the full list.
+     Substitute the project's own registered verification command above; this repo's conventions forbid tracked `.sh` test files, so never invent one. Helper-based suites that replay failed assertion labels in a summary function make `tail -50` carry the pass/fail counts and usually the failing labels as well. If a suite has many failures, inspect the captured file directly for the full list.
    - **For long runs (>60s), stream progress via the foreground watcher wrapper.** Run `yoke watch pytest -- <pytest args>` (pytest) or the subcommand-shaped `yoke watch merge done-transition <args>` / `yoke watch merge merge-worktree <args>` (merges) as a single foreground `Bash` invocation. Each wrapper owns its progress regex, blocks within the same tool call until the command exits, and writes a raw capture for post-completion inspection. After exit, inspect the raw capture with `tail -80 <raw-capture>` for full output; the wrapper's filtered progress already streamed through the wrapper's own stdout. Early-failure signal lets you stop the run on FAIL/ERROR instead of burning wall time on a doomed run.
 <!-- YOKE:HARNESS claude start -->
    - **Subagent dispatched turns are foreground-only — never arm a background `Bash` task paired with `Monitor` and end the turn.** Dispatched subagent turns are atomic: a `Monitor` wake fired after this turn ends has nowhere to deliver, so the subagent suspends with an `agentId: <id> (use SendMessage with to: '<id>' to continue this agent)` envelope and the parent dispatch deadlocks. The watcher wrappers above run foreground inside a single `Bash` tool call and exit before the turn does — that is the canonical long-command shape for subagents. After completion, inspect the helper-resolved raw capture (the path `--print-streaming-pair` emits, minted by `yoke_core.domain.project_scratch_dir.watcher_capture_path(...)` under the machine temp root's watcher-captures directory) with `tail -80`. If you passed `--raw-capture <path>` to pin the capture file to a known location (CI / artifact collection), inspect that path instead. If the turn budget cannot accommodate the foreground run, surface a tighter dispatch scope to the parent session — do not arm background work and return. See `session.md` `## Tool Constraints` for the full rule.
@@ -197,7 +197,7 @@ Do not paraphrase the field names. Use the exact keys above so the parent conduc
 Always use absolute paths when calling Yoke scripts in Bash commands. The dispatch prompt provides `Scripts directory:` — use that value directly. If not provided, resolve it:
 
 ```bash
-yoke items get YOK-N body
+yoke items get PREFIX-N body
 ```
 
 NEVER rely on shell variables persisting across separate Bash tool calls. Each Bash invocation is a fresh shell. Always inline the full absolute path in every command.
@@ -230,8 +230,8 @@ Recurring telemetry signal: engineer `cd <worktree> && <cmd>` patterns account f
 
 **Proactive workflow — widen BEFORE writing, not after the deny.** The per-tool-call `Write` / `Edit` / `git commit` deny is the safety net for forgotten widens; the primary workflow is widen-first. Run these three steps at the start of each implementation slice, and again before any sibling-module create/edit that was not in the original slice:
 
-1. **Read your active claim's coverage.** The dispatch prompt's claim block lists the covered paths (`declared_paths` / `declared_targets` from `path-claim-list`); confirm directly with `yoke claims path list --item YOK-N --state active` if you need the current state. Treat the listed paths as your write budget.
-2. **Widen before the first uncovered write.** Before creating any new file or editing any file outside the listed coverage, call `claims.path.widen` (typed envelope in the claims packet above; canonical CLI is `yoke claims path widen --claim-id N --add-paths PATH1,PATH2,... --reason "<why>" --item YOK-N`). The `--claim-id` is required — read it from the `path-claim-list` output above. Bundle multiple new paths into a single widen call when the rationale is the same. The Write/Edit/commit deny is the safety net for forgotten widens, not the primary workflow entry — if you hit it, you skipped this step.
+1. **Read your active claim's coverage.** The dispatch prompt's claim block lists the covered paths (`declared_paths` / `declared_targets` from `path-claim-list`); confirm directly with `yoke claims path list --item PREFIX-N --state active` if you need the current state. Treat the listed paths as your write budget.
+2. **Widen before the first uncovered write.** Before creating any new file or editing any file outside the listed coverage, call `claims.path.widen` (typed envelope in the claims packet above; canonical CLI is `yoke claims path widen --claim-id N --add-paths PATH1,PATH2,... --reason "<why>" --item PREFIX-N`). The `--claim-id` is required — read it from the `path-claim-list` output above. Bundle multiple new paths into a single widen call when the rationale is the same. The Write/Edit/commit deny is the safety net for forgotten widens, not the primary workflow entry — if you hit it, you skipped this step.
 3. **Merges from `main` need the same treatment.** Merges routinely touch files outside the original claim; widen first, then commit the merge.
 
 **`path-claim-override` is last resort.** Reserved for irreducible live collisions and requires **explicit operator approval**. You do not self-authorize the override mid-dispatch. If `claims.path.widen` is itself blocked because another active claim covers the same paths, that is a coordination event — surface it to the parent conduct/polish session and stop. Do not use override to make the obstacle go away.

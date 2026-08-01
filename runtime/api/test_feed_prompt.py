@@ -27,16 +27,16 @@ class TestFeedSkillContract:
 
     def test_skill_supports_optional_item_scope(self):
         text = _read(_FEED_DIR / "SKILL.md")
-        assert "[YOK-N ...]" in text
+        assert "[PREFIX-N ...]" in text
         assert "_scope_ids" in text
         assert "stale-work-item refresh" in text
 
     def test_gather_reads_structured_fields_and_recent_landings(self):
         text = _read(_FEED_DIR / "gather.md")
-        assert "items get YOK-{id} body" in text
-        assert "items get YOK-{id} design_spec" in text
-        assert "items get YOK-{id} technical_plan" in text
-        assert "items get YOK-{id} worktree_plan" in text
+        assert "items get PREFIX-{id} body" in text
+        assert "items get PREFIX-{id} design_spec" in text
+        assert "items get PREFIX-{id} technical_plan" in text
+        assert "items get PREFIX-{id} worktree_plan" in text
         assert 'git log --oneline -30' in text
         assert 'git log --oneline --since="3 days ago"' in text
         assert "git diff <commit>~1..<commit> --stat" in text
@@ -51,7 +51,7 @@ class TestFeedSkillContract:
 
     def test_materialize_updates_existing_items_via_structured_fields(self):
         text = _read(_FEED_DIR / "materialize.md")
-        assert 'yoke items structured-field replace YOK-{id}' in text
+        assert 'yoke items structured-field replace PREFIX-{id}' in text
         assert "printf '%s\\n' \"<updated field content>\"" in text
         assert "_updated_items.append" in text
         assert "do NOT auto-cancel it inside feed" in text

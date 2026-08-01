@@ -28,7 +28,7 @@ Produce `_items_to_update` as a concrete list, not vague prose:
 ```
 _items_to_update = [
  {
- yok_id: "YOK-N",
+ yok_id: "PREFIX-N",
  title: "<title>",
  landed_change: "<commit or landed SUN item>",
  updates: [
@@ -90,7 +90,7 @@ _decision_rationale = "<explanation of what needs sharpening and why>"
 _decision_outcomes = [{ area: "<strategic area>", outcome: "sharpen_frontier", rationale: "<why>" }]
 _items_to_materialize = []
 _items_to_sharpen = [
- { item_id: "YOK-N", action: "split|refine|add_spec|add_ac", rationale: "<why>" }
+ { item_id: "PREFIX-N", action: "split|refine|add_spec|add_ac", rationale: "<why>" }
  ...
 ]
 _edges_to_generate = [<any edges identified during analysis>]
@@ -174,14 +174,14 @@ For every dependency edge identified during analysis, produce a structured edge 
 
 ```
 {
- dependent: "YOK-N",
- blocking: "YOK-M",
+ dependent: "PREFIX-N",
+ blocking: "PREFIX-M",
  gate_point: "activation|integration|closure",
  satisfaction: "status:done|status:implemented|fact:merged",
  rationale: "<human-readable explanation of WHY this dependency exists>",
  evidence_json: {
  "shared_files": ["path/to/file.sh"],
- "contract_linkage": "YOK-M provides interface X consumed by YOK-N",
+ "contract_linkage": "PREFIX-M provides interface X consumed by PREFIX-N",
  "blocker_class": "coding_order|validation_before_start|merge_order|closeout",
  "constraint_type": "shared_surface|contract|schema|hook|deployment|test_harness",
  "task_references": ["epic 42 task 3"]
@@ -190,10 +190,10 @@ For every dependency edge identified during analysis, produce a structured edge 
 ```
 
 Gate/satisfaction combinations:
-- **Coding-order blockers**: `gate_point=activation`, `satisfaction=status:done` -- YOK-N cannot start until YOK-M is done
-- **Validation-before-start**: `gate_point=activation`, `satisfaction=status:implemented` -- YOK-N cannot start until YOK-M reaches implemented status
-- **Merge-order blockers**: `gate_point=integration`, `satisfaction=fact:merged` -- YOK-N and YOK-M can be coded in parallel but must merge in order
-- **Closeout blockers**: `gate_point=closure`, `satisfaction=status:done` -- YOK-N cannot close until YOK-M is done
+- **Coding-order blockers**: `gate_point=activation`, `satisfaction=status:done` -- PREFIX-N cannot start until PREFIX-M is done
+- **Validation-before-start**: `gate_point=activation`, `satisfaction=status:implemented` -- PREFIX-N cannot start until PREFIX-M reaches implemented status
+- **Merge-order blockers**: `gate_point=integration`, `satisfaction=fact:merged` -- PREFIX-N and PREFIX-M can be coded in parallel but must merge in order
+- **Closeout blockers**: `gate_point=closure`, `satisfaction=status:done` -- PREFIX-N cannot close until PREFIX-M is done
 
 ## Ambiguity Handling
 

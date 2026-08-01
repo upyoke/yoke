@@ -81,7 +81,7 @@ Test review dimensions:
 Emit a structured review:
 
 ```
-## Polish Review — YOK-{N}
+## Polish Review — PREFIX-{N}
 
 ### Implementation Status
 - {AC-1}: {covered/partial/missing} — {brief evidence}

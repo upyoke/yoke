@@ -298,8 +298,8 @@ class TestConductFanOutEntryPath:
         ):
             assert needle in context, f"AC-3/AC-10 missing {needle}"
         for needle in (
-            "Implement YOK-{N} task {_task_id}",
-            "Validate YOK-{N} task {_task_id}",
+            "Implement PREFIX-{N} task {_task_id}",
+            "Validate PREFIX-{N} task {_task_id}",
             "epic-task body-get --epic {_epic_id} --task-num {_task_id}",
         ):
             assert needle in epic_prompts, f"AC-2 missing {needle}"
@@ -312,8 +312,8 @@ class TestConductFanOutEntryPath:
         assert "If a dispatchable task is found: use its local ID" not in context, (
             "AC-3"
         )
-        assert "Implement YOK-{_id}" not in epic_prompts, "AC-2"
-        assert "items get YOK-{_id} spec" not in epic_prompts, "AC-2"
+        assert "Implement PREFIX-{_id}" not in epic_prompts, "AC-2"
+        assert "items get PREFIX-{_id} spec" not in epic_prompts, "AC-2"
 
     def test_dispatch_protocol_remains_live(self):
         dispatch = _read(self.CONDUCT / "dispatch-context-dispatch.md")

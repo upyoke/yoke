@@ -15,7 +15,7 @@ The runtime additionally recognizes the engine-owned exceptional stages
 retained only as compatibility vocabulary; normal blocking uses the orthogonal
 flag described below.
 
-> Item-level `blocked` is not a lifecycle status. Use the orthogonal `items.blocked` flag (set via `/yoke block YOK-N "<reason>"`, cleared via `/yoke unblock YOK-N`) — the flag preserves the lifecycle status. Epic-task `status='blocked'` semantics use the lifecycle status. Full architectural-why (yoke source repo): `docs/archive/decisions/blocked-flag-retirement.md`.
+> Item-level `blocked` is not a lifecycle status. Use the orthogonal `items.blocked` flag (set via `/yoke block PREFIX-N "<reason>"`, cleared via `/yoke unblock PREFIX-N`) — the flag preserves the lifecycle status. Epic-task `status='blocked'` semantics use the lifecycle status. Full architectural-why (yoke source repo): `docs/archive/decisions/blocked-flag-retirement.md`.
 
 The item-level lifecycle is therefore a definition shape, not a global status
 table:
@@ -30,7 +30,7 @@ table:
 | `entry_surfaces` | Create surfaces permitted to pin this workflow version |
 
 `yoke workflows definition get` serves current selections and the gate
-catalog. `yoke workflows item get YOK-N` plus
+catalog. `yoke workflows item get PREFIX-N` plus
 `yoke workflows version get WORKFLOW VERSION` serves the exact authority for
 an existing item. Board buckets are a projection over item stage and workflow
 context; they do not define valid transitions.

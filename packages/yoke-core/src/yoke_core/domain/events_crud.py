@@ -78,10 +78,18 @@ def normalize_event_item_id(item_id: Optional[str]) -> Optional[str]:
     text = str(item_id).strip()
     if not text:
         return None
-    bare = re.sub(r"^[Yy][Oo][Kk]-", "", text)
+    bare = _ITEM_REF_PREFIX_RE.sub("", text)
     if bare.isdigit():
         return bare.lstrip("0") or "0"
     return None
+
+
+# Every project sets its own public item prefix, so strip whatever alphabetic
+# prefix a ref carries rather than one project's. Callers gate on the
+# remainder being all digits, which still rejects composite work units and
+# sentinels: ``epic-1318-task-3`` and ``run-20260417-002`` keep a non-numeric
+# tail once their prefix comes off, and a bare sentinel has no prefix at all.
+_ITEM_REF_PREFIX_RE = re.compile(r"^[A-Za-z]+-")
 
 
 _EPIC_TASK_RE = re.compile(r"^epic-(\d+)-task-(\d+)$", re.IGNORECASE)
@@ -106,7 +114,7 @@ def decompose_work_unit(
     text = str(item_id).strip()
     if not text:
         return None, None, None
-    bare = re.sub(r"^[Yy][Oo][Kk]-", "", text)
+    bare = _ITEM_REF_PREFIX_RE.sub("", text)
     if bare.isdigit():
         return bare.lstrip("0") or "0", None, None
     epic_match = _EPIC_TASK_RE.match(text)

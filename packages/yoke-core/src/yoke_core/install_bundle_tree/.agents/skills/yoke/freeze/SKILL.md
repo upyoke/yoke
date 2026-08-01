@@ -1,10 +1,10 @@
 ---
 name: freeze
 description: "Freeze a backlog item — removes it from the active board without changing its status."
-argument-hint: "YOK-N"
+argument-hint: "PREFIX-N"
 ---
 
-# /yoke freeze YOK-N
+# /yoke freeze PREFIX-N
 
 Freeze a backlog item. Freezing removes the item from the board's normal status-based sections and places it in the Freezer section, without changing its actual status. The item retains its real status (e.g., `implementing`, `planned`) and can be thawed later to return it to the board.
 
@@ -18,11 +18,11 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 ## Arguments
 
-- `YOK-N` — Backlog item ID. Accepts prefixed IDs, zero-padded prefixed IDs, or bare numeric IDs.
+- `PREFIX-N` — Backlog item ID. Accepts prefixed IDs, zero-padded prefixed IDs, or bare numeric IDs.
 
 ## Steps
 
-1. **Parse the ID:** Extract the numeric part from the argument (strip `YOK-` prefix if present, strip leading zeros). Zero-pad to 3 digits for the filename (`{NNN}`).
+1. **Parse the ID:** Extract the numeric part from the argument (strip `PREFIX-` prefix if present, strip leading zeros). Zero-pad to 3 digits for the filename (`{NNN}`).
 
 2. **Read the backlog item from the DB:**
  ```bash
@@ -31,7 +31,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
  ```
 
  If the query returns empty (item not in DB), stop with error:
- > Item YOK-{N} not found.
+ > Item PREFIX-{N} not found.
 
 3. **Reject done items:** If `STATUS` is `done`, stop with error:
  > Cannot freeze a done item.
@@ -39,7 +39,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
  Done items are complete and should not be frozen. If you need to reopen a done item, advance it back into the appropriate in-flight status first.
 
 4. **Check if already frozen:** If `FROZEN` is `true`, stop with a note:
- > YOK-{N} is already frozen. Nothing to do.
+ > PREFIX-{N} is already frozen. Nothing to do.
 
 5. **Acquire a work claim.** The `items.scalar.update` dispatch refuses
    to mutate an item unless the calling session already holds an active
@@ -47,7 +47,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
    ```bash
    yoke claims work acquire \
-       --item "YOK-{N}" --reason freeze
+       --item "PREFIX-{N}" --reason freeze
    ```
 
    If the call exits non-zero because another session holds the claim,
@@ -59,7 +59,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
    and rebuilds the board as a downstream side effect.
 
    ```bash
-   yoke items scalar update YOK-{N} --field frozen --value true
+   yoke items scalar update PREFIX-{N} --field frozen --value true
    ```
 
    A non-zero exit code indicates the dispatcher refused the call (e.g.
@@ -74,14 +74,14 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
    ```bash
    yoke claims work release \
-       --item "YOK-{N}" --reason freeze-complete
+       --item "PREFIX-{N}" --reason freeze-complete
    ```
 
 8. **Report:**
- > **YOK-{N}** ({title}): frozen
+ > **PREFIX-{N}** ({title}): frozen
  >
  > The item retains its `{STATUS}` status but is now hidden from the active board.
- > To restore it: `/yoke thaw YOK-{N}`
+ > To restore it: `/yoke thaw PREFIX-{N}`
 
 ## Notes
 

@@ -34,7 +34,7 @@ You have a limited turn budget (maxTurns in your frontmatter). A partial verdict
 Always use absolute paths when calling Yoke scripts in Bash commands. The dispatch prompt provides `Scripts directory:` — use that value directly. If not provided, resolve it:
 
 ```bash
-yoke items get YOK-N body
+yoke items get PREFIX-N body
 ```
 
 NEVER rely on shell variables persisting across separate Bash tool calls. Each Bash invocation is a fresh shell. Always inline the full absolute path in every command.
@@ -53,7 +53,7 @@ Recurring telemetry signal: tester `cd <worktree> && <cmd>` patterns account for
 | Path | Purpose |
 |------|---------|
 | `ouroboros_entries` table | Ouroboros learning log (DB is source of truth; NOT "ouraboros") |
-| `items` table | Backlog items (read body via `items get YOK-N body`) |
+| `items` table | Backlog items (read body via `items get PREFIX-N body`) |
 | `qa_requirements` + `qa_runs` tables | QA requirements, test runs, and review verdicts |
 | `docs/` | Project documentation |
 
@@ -197,7 +197,10 @@ When reading files >200 lines, use the Read tool's `offset` and `limit` paramete
    # No --raw-capture: the wrapper mints both raw + progress captures via
    # project_scratch_dir.mint_watcher_capture_pair("pytest") and prints
    # the resolved paths. Inspect those after exit.
-   yoke watch pytest -- runtime/api/
+   yoke watch pytest --impacted main
+   # --impacted needs no project paths. Full-sweep anchor paths are per-project:
+   # read them from the project's registered verification command (or project
+   # rules file) rather than hardcoding another project's layout.
    # Operator carve-out: pass --raw-capture <PATH> to pin to a known path
    # (CI / artifact collection). The helper-resolved default is preferred.
    ```
@@ -245,7 +248,7 @@ report runner JSON plus artifact paths.
 
 You read the active claim's coverage to scope your verification — you do **not** widen the claim, override it, or edit files. The proactive widen workflow belongs to the Engineer; your role is to surface uncovered fix paths so the parent session (or a follow-up Engineer dispatch) can action them.
 
-When validation discovers a required fix path that is **outside the active claim coverage** (the dispatch prompt's claim block lists the covered paths; confirm with `yoke claims path list --item YOK-N` if needed):
+When validation discovers a required fix path that is **outside the active claim coverage** (the dispatch prompt's claim block lists the covered paths; confirm with `yoke claims path list --item PREFIX-N` if needed):
 
 1. Record the exact file path(s), the evidence (failing test name, assertion, missing reference), and the reason the fix path is required.
 2. Include the finding in the `## Issues Found` section of your validation report so the parent session can either widen the claim and re-dispatch the Engineer, or open a follow-up work item.

@@ -1,6 +1,7 @@
 """Re-exports for composed deployment and project command adapters."""
 
 from yoke_cli.commands.adapters.deployment_composed import (
+    deployment_flows_describe,
     deployment_flows_update_stages,
     deployment_runs_start_for_item,
 )
@@ -20,6 +21,7 @@ from yoke_cli.commands.adapters.projects_infrastructure import (
 
 
 __all__ = [
+    "deployment_flows_describe",
     "deployment_flows_update_stages",
     "deployment_runs_start_for_item",
     "ephemeral_env_create",

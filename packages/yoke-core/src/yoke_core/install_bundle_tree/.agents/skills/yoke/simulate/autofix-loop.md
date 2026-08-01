@@ -36,13 +36,13 @@ Use this prompt:
 
 ```text
 Fix mode.
-Item ID: YOK-{item_id}
+Item ID: PREFIX-{item_id}
 
 ## Gap Report
 {contents of simulation report}
 
 Read the authoritative item spec from the DB:
-yoke items get YOK-{item_id} spec
+yoke items get PREFIX-{item_id} spec
 
 ## Task Content
 {for each task: task number, title, and body content}

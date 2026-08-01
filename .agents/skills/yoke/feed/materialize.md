@@ -32,7 +32,7 @@ with `target = {kind: "item", item_id: <id>}` and
 `payload = {field: "<spec|design_spec|technical_plan|worktree_plan>",
 content: "<updated field content>", source: "feed"}`.
 Operator/debug adapter:
-`printf '%s\n' "<updated field content>" | yoke items structured-field replace YOK-{id} --field <field> --source feed --stdin`
+`printf '%s\n' "<updated field content>" | yoke items structured-field replace PREFIX-{id} --field <field> --source feed --stdin`
 (`items structured-field replace` dispatches through
 `items.structured_field.replace`).
 
@@ -60,7 +60,7 @@ After each update:
 
 ```
 _updated_items.append({
- yok_id: "YOK-N",
+ yok_id: "PREFIX-N",
  title: "<title>",
  fields_updated: ["spec", "technical_plan"],
  reason: "<what landed and why this work item changed>",
@@ -88,7 +88,7 @@ Replace `%keyword%` with 2-3 distinctive words from the proposed title. Check mu
 - Record it as skipped:
  ```
  { yok_id: "SKIPPED", title: "<proposed title>", sml_source: "<source>",
- skip_reason: "Duplicate of YOK-N: <existing title>" }
+ skip_reason: "Duplicate of PREFIX-N: <existing title>" }
  ```
 - Continue to the next item
 
@@ -123,7 +123,7 @@ After each successful creation, record the result:
 
 ```
 _materialized_items.append({
- yok_id: "YOK-N", // the ID assigned by idea pipeline
+ yok_id: "PREFIX-N", // the ID assigned by idea pipeline
  title: "<item title>",
  sml_source: "<which SML file/section this came from>"
 })
@@ -150,7 +150,7 @@ For each item in `_items_to_sharpen`:
 
 ```
 _sharpen_recommendations.append({
- item_id: "YOK-N",
+ item_id: "PREFIX-N",
  action: "<split|refine|add_spec|add_ac>", // from decide phase
  recommendation: "<specific, actionable description of what needs to change>",
  rationale: "<why this item needs sharpening before new work is added>"

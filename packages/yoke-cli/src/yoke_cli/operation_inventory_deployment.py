@@ -8,6 +8,7 @@ from yoke_cli.operation_inventory_model import _Row, _w
 
 
 WRAPPED_ROWS: Tuple[_Row, ...] = (
+    _w("yoke deployment-flows describe", "deployment_flows"),
     _w("yoke deployment-flows get", "deployment_flows"),
     _w("yoke deployment-flows reconcile-project", "deployment_flows"),
     _w("yoke deployment-flows set-status", "deployment_flows"),

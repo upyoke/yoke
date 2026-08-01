@@ -13,14 +13,14 @@ Print: `Auto-fix iteration {_fix_iteration}/{MAX_ARCHITECT_FIX_ITERATIONS} for {
 **Dispatch:** descriptor `DispatchDescriptor(role="architect")` rendered via `yoke_core.domain.dispatch_descriptors.render_for_harness(descriptor, harness_id)`. Result-schema markers: `---REFLECTION-START---`. The descriptor's `prompt: |` block is filled with:
 ```
  Fix mode.
- Item ID: YOK-{_item_id}
+ Item ID: PREFIX-{_item_id}
  Repository root: {MAIN_ROOT}
 
  ## Gap Report
  {contents of simulation report body from _sim_report}
 
  Read the authoritative item spec from the DB (do not rely on any inline content):
- yoke items get YOK-{_item_id} spec
+ yoke items get PREFIX-{_item_id} spec
 
  ## Task Content
  {for each task:
@@ -96,11 +96,11 @@ _code_only_count = rows marked "requires /yoke amend"
 
 **Dispatch:** descriptor `DispatchDescriptor(role="simulator")` rendered via `yoke_core.domain.dispatch_descriptors.render_for_harness(descriptor, harness_id)`. Result-schema markers: `SIMULATION: CLEAN|GAPS FOUND`, `---REFLECTION-START---`. The descriptor's `prompt: |` block is filled with:
 ```
- Run integration simulation for epic {_epic_id} (YOK-{_item_id}).
+ Run integration simulation for epic {_epic_id} (PREFIX-{_item_id}).
  Repository root: {MAIN_ROOT}
  All tasks completed testing successfully. Re-simulating after Architect fix iteration {_fix_iteration}.
  Trace execution paths across tasks to find remaining cross-task integration gaps.
- IMPORTANT: Your response MUST begin with the two-line verdict block — line 1 is SIMULATION: CLEAN or SIMULATION: GAPS FOUND, line 2 is EPIC: YOK-{_item_id}. Persistence rejects bodies whose attested epic does not match YOK-{_item_id} (exit 16) or that omit the EPIC line entirely (exit 17).
+ IMPORTANT: Your response MUST begin with the two-line verdict block — line 1 is SIMULATION: CLEAN or SIMULATION: GAPS FOUND, line 2 is EPIC: PREFIX-{_item_id}. Persistence rejects bodies whose attested epic does not match PREFIX-{_item_id} (exit 16) or that omit the EPIC line entirely (exit 17).
  Worktree-State Authority: a task's resolved worktree checkout is the authority for that task's actual code whether the item/epic has one worktree or many. Main is the base/integration target, not evidence of unmerged task state. Use the task's worktree_path / branch when verifying files; if no worktree path or prompt-supplied diff exists, report evidence missing instead of inspecting main as a substitute.
  Worktree authorities: {_worktree_list from simulation-gate-criteria.md, refreshed}
 

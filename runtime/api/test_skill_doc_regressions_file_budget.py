@@ -245,7 +245,7 @@ class TestRefineRecoverableReadinessRepair:
         assert "--claim-id" in skill
         assert "--add-paths" in skill
         assert "--reason" in skill
-        assert "--item YOK-N" in skill
+        assert "--item PREFIX-N" in skill
         assert '--item "$ITEM_NUM"' in repair
         # Step 4b's narrow remediation must name the explicit keep/drop
         # flag pair, not the bare `--paths` form. `--keep-paths` is the

@@ -140,6 +140,39 @@ def handle_deployment_flow_update_stages(
     )
 
 
+def handle_deployment_flow_describe(
+    request: FunctionCallRequest,
+) -> HandlerOutcome:
+    invalid = require_global(request, "deployment_flows.describe")
+    if invalid is not None:
+        return invalid
+    payload = request.payload or {}
+    resolved_flow_id = flow_id(payload, "deployment_flows.describe")
+    if isinstance(resolved_flow_id, HandlerOutcome):
+        return resolved_flow_id
+    description = payload.get("description")
+    if not isinstance(description, str) or not description.strip():
+        return error(
+            "payload_invalid", "description must be a non-empty string",
+            jsonpath="$.payload.description",
+        )
+    from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.flow_crud import cmd_describe
+
+    conn = connect()
+    try:
+        try:
+            message = cmd_describe(conn, resolved_flow_id, description)
+        except LookupError as exc:
+            return error("not_found", str(exc), jsonpath="$.payload.flow_id")
+    finally:
+        conn.close()
+    return HandlerOutcome(
+        result_payload={"flow_id": resolved_flow_id, "message": message},
+        primary_success=True,
+    )
+
+
 def handle_deployment_flow_set_status(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
@@ -220,6 +253,7 @@ def handle_deployment_flow_reconcile_project(
 
 
 __all__ = [
+    "handle_deployment_flow_describe",
     "handle_deployment_flow_get",
     "handle_deployment_flow_reconcile_project",
     "handle_deployment_flow_set_status",
