@@ -41,12 +41,12 @@ yoke epic-tasks list --epic "$_epic_id"
 ### Bare item ref detection (only if the epic lookup found no epic)
 
 If the resolved item is not an epic, or the unresolved `{epic-id}` looks like
-a bare item ref (`YOK-N` or bare numeric ID), print:
+a bare item ref (`PREFIX-N` or bare numeric ID), print:
 
-> Error: `/yoke merge` does not accept individual item refs. Use `/yoke advance YOK-N done` to complete standalone items.
+> Error: `/yoke merge` does not accept individual item refs. Use `/yoke advance PREFIX-N done` to complete standalone items.
 
 If `{epic-id}` does not resolve and does not look like a bare item ref, print:
 
 > Error: `/yoke merge` is only for epic pipelines. `{epic-id}` does not match any known epic.
 >
-> To complete a standalone item, use: `/yoke advance YOK-N done`
+> To complete a standalone item, use: `/yoke advance PREFIX-N done`

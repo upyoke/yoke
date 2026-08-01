@@ -24,10 +24,10 @@ Each fix should be verifiable — the fix should be testable or the deletion sho
 **DB-claim stop-and-amend.** If polish discovers governed DB mutation that the stored `db_mutation_profile` does not declare — schema changes, migration modules, bulk data, `migration_audit` writes — STOP and amend the claim before continuing. Inspect the current state, then route the correction through the unified `db-claim-amend` adapter (the CLI builds the `db_claim.amend` envelope internally):
 
 ```bash
-yoke items get "YOK-${ITEM_NUM}" db_mutation_profile
+yoke items get "PREFIX-${ITEM_NUM}" db_mutation_profile
 
 yoke db-claim amend \
-    --item "YOK-${ITEM_NUM}" \
+    --item "PREFIX-${ITEM_NUM}" \
     --reason "polish discovered governed DB mutation" \
     --payload -  # stream the unified DB claim payload on stdin
 ```

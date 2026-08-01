@@ -30,14 +30,14 @@ _synced_task_count=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_task
  _task_count=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_tasks WHERE epic_id='$_epic_id'")
  ```
  If `_task_count` is 0, there are no tasks to sync. HALT with:
- > No epic tasks found for YOK-{_id}. Run `/yoke plan YOK-{_id}` first.
+ > No epic tasks found for PREFIX-{_id}. Run `/yoke plan PREFIX-{_id}` first.
 
-2. **Auto-sync:** Print `Epic YOK-{_id} not yet synced to GitHub. Running sync automatically...` and invoke the registered GitHub sync surface:
+2. **Auto-sync:** Print `Epic PREFIX-{_id} not yet synced to GitHub. Running sync automatically...` and invoke the registered GitHub sync surface:
  ```bash
  yoke items github-sync "$_epic_id"
  ```
 
-3. **Advance status to implementing** (activating the epic for conduct): invoke the Yoke advance skill for `YOK-${_id}` with target `implementing`.
+3. **Advance status to implementing** (activating the epic for conduct): invoke the Yoke advance skill for `PREFIX-${_id}` with target `implementing`.
 
 4. **Commit sync changes:**
 
@@ -50,7 +50,7 @@ _synced_task_count=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_task
  # Ensure generated views are not accidentally staged
  git reset HEAD -- .yoke/BOARD.md 2>/dev/null || true
  # Commit only if real tracked changes remain
- git diff --cached --quiet || git commit -m "YOK-${_id}: auto-sync — planned to implementing"
+ git diff --cached --quiet || git commit -m "PREFIX-${_id}: auto-sync — planned to implementing"
  ```
 
  If `git diff --cached --quiet` exits 0 (no tracked staged changes), that is fine — sync succeeded
@@ -62,9 +62,9 @@ _synced_task_count=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_task
  _synced_task_count=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_tasks WHERE epic_id='$_epic_id' AND github_issue IS NOT NULL AND github_issue <> ''")
  ```
  If `_chains` is still empty OR `_synced_task_count` is still 0: sync failed. HALT with:
- > Auto-sync failed for YOK-{_id}. Run `/yoke resync YOK-{_id}` manually.
+ > Auto-sync failed for PREFIX-{_id}. Run `/yoke resync PREFIX-{_id}` manually.
 
-6. **Print sync summary** (the retained sync bridge output already includes created/skipped counts). Print `Auto-sync complete for YOK-{_id}. Proceeding with dispatch.`
+6. **Print sync summary** (the retained sync bridge output already includes created/skipped counts). Print `Auto-sync complete for PREFIX-{_id}. Proceeding with dispatch.`
 
 ---
 
@@ -172,7 +172,7 @@ These gates run after each Engineer returns, before advancing to Tester dispatch
  ```bash
  _last_commit_subject_{_id}=$(git -C "${_worktree_path}" log -1 --format='%s' 2>/dev/null || true)
  ```
- If `_last_commit_subject_{_id}` matches `chore: auto-commit Engineer uncommitted work [YOK-${_id}]` (with or without the `SubagentStop safety net` suffix), immediately re-dispatch Engineer for that same item and same attempt. Do NOT advance the item to `reviewing-implementation` or Tester from a safety-net commit.
+ If `_last_commit_subject_{_id}` matches `chore: auto-commit Engineer uncommitted work [PREFIX-${_id}]` (with or without the `SubagentStop safety net` suffix), immediately re-dispatch Engineer for that same item and same attempt. Do NOT advance the item to `reviewing-implementation` or Tester from a safety-net commit.
 4. **Epic progress-note gate:** For epic items, commits without a new progress note are a failed submission.
  ```bash
  _progress_note_count_after_{_id}=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_progress_notes WHERE epic_id='${_epic_id}' AND task_num=${_task_id}" 2>/dev/null || echo 0)
@@ -186,14 +186,14 @@ These gates run after each Engineer returns, before advancing to Tester dispatch
  if ! git diff --cached --quiet 2>/dev/null; then
  _uncommitted_count=$(git diff --cached --name-only | wc -l | tr -d ' ')
  _uncommitted_files=$(git diff --cached --name-only | tr '\n' ', ' | sed 's/,$//')
- git commit -m "chore: auto-commit Engineer uncommitted work [YOK-${_id}]"
+ git commit -m "chore: auto-commit Engineer uncommitted work [PREFIX-${_id}]"
  echo "Warning: Engineer left ${_uncommitted_count} uncommitted file(s) in worktree. Auto-committed as safety net."
  echo "Files: ${_uncommitted_files}"
 
  # Create Ouroboros entry to track the pattern
  yoke ouroboros entry insert \
- --agent conduct --category problem --context "YOK-${_id}" \
- --observation "Engineer left ${_uncommitted_count} uncommitted file(s) in worktree for YOK-${_id}. Auto-committed by conduct post-Engineer sweep. Files: ${_uncommitted_files}"
+ --agent conduct --category problem --context "PREFIX-${_id}" \
+ --observation "Engineer left ${_uncommitted_count} uncommitted file(s) in worktree for PREFIX-${_id}. Auto-committed by conduct post-Engineer sweep. Files: ${_uncommitted_files}"
 
  # Write synthetic progress note so cold-start sessions have context
  if [ -n "$_epic_id" ] && [ -n "$_task_id" ]; then
@@ -213,6 +213,6 @@ These gates run after each Engineer returns, before advancing to Tester dispatch
 6. For epics, record agent ID: `yoke workflow-item epic-task metadata-update --epic "$_epic_id" --task-num "$_task_id" --fields-json '{"agent_id":"ENGINEER_AGENT_ID"}'`
 7. **Seed task-level review requirement** (idempotent). `review_seed` now auto-advances epic tasks to `reviewing-implementation`:
  - **Epic only:** `yoke workflow-item epic-task review-seed --epic "$_epic_id" --task-num "$_task_id"`
- - **Issue:** invoke the Yoke advance skill for `YOK-${_id}` with target `reviewing-implementation`.
+ - **Issue:** invoke the Yoke advance skill for `PREFIX-${_id}` with target `reviewing-implementation`.
 
 ---

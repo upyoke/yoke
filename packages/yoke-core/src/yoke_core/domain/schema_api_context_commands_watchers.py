@@ -43,19 +43,23 @@ WATCHERS_COMMANDS: list[dict] = [
         "recipe": (
             "yoke watch pytest "
             "--impacted main\n"
-            "# Default local check. Full three-anchor sweep (CI's job; "
-            "local CI-outage fallback):\n"
+            "# Default local check. Full sweep (CI's job; local CI-outage "
+            "fallback) — pass your project's test anchors:\n"
             "yoke watch pytest "
-            "--print-streaming-pair -- runtime/api/ runtime/harness/ tests/\n"
+            "--print-streaming-pair -- <project test anchors>\n"
             "# Paste the printed pair into the harness's "
             "background + progress-tail surfaces.\n"
             "# After completion: tail -80 <raw-capture> "
             "(the helper-resolved path the wrapper printed)"
         ),
         "notes": (
-            "The impacted selection is the local default; the three-suite "
-            "target is the full Yoke gate CI runs on every pull request "
-            "and push to main, and locally it is the CI-outage fallback. "
+            "The impacted selection is the local default and needs no "
+            "project-specific paths. The full sweep is CI's job on every "
+            "pull request and push to main, and locally it is the "
+            "CI-outage fallback; its anchor paths are per-project — read "
+            "them from your project's registered verification command "
+            "(its QA plan) or your project rules file, and never carry "
+            "another project's anchors over. "
             "Both inject xdist `-n auto`. Pass `-n 0` after `--` "
             "for sequential order-sensitive debugging. The wrapper mints "
             "the raw + progress capture pair via "
@@ -108,7 +112,7 @@ WATCHERS_COMMANDS: list[dict] = [
         "purpose": ("Run done_transition / merge_worktree with watcher (main session)"),
         "recipe": (
             "yoke watch merge "
-            "--print-streaming-pair merge-worktree -- YOK-N\n"
+            "--print-streaming-pair merge-worktree -- PREFIX-N\n"
             "# Subcommands: done-transition <args>, merge-worktree <args>"
         ),
         "notes": (

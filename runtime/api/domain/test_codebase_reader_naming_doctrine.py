@@ -104,7 +104,7 @@ def test_codebase_reader_rule_enumerates_full_provenance_token_set() -> None:
     rule = agents_text[start:start + 2600]
     for term in (
         "tier", "stage", "slice", "track", "wave", "batch", "milestone",
-        "field-note", "YOK-1234", "AC-7", "FR-3", "functional requirement",
+        "field-note", "PREFIX-1234", "AC-7", "FR-3", "functional requirement",
         "acceptance criterion", "epic", "§7",
         # the rule must make clear it also governs FILE and DIRECTORY names
         "directory", "FILE and DIRECTORY",
@@ -114,5 +114,5 @@ def test_codebase_reader_rule_enumerates_full_provenance_token_set() -> None:
 
 def test_engineer_body_enumerates_widened_provenance_language() -> None:
     text = _read(AGENTS / "engineer.md")
-    for term in ("stage", "tier", "slice", "wave", "field-note", "YOK-N", "FR"):
+    for term in ("stage", "tier", "slice", "wave", "field-note", "PREFIX-N", "FR"):
         assert term in text, f"engineer body naming rule must name '{term}'"

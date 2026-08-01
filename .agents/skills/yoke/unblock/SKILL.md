@@ -1,10 +1,10 @@
 ---
 name: unblock
 description: "Clear an item's blocked flag and return it to active dispatch."
-argument-hint: "YOK-N"
+argument-hint: "PREFIX-N"
 ---
 
-# /yoke unblock YOK-N
+# /yoke unblock PREFIX-N
 
 Clear a backlog item's blocked flag. Unblocking sets `items.blocked = 0`
 and clears `items.blocked_reason`, returning the item to its normal
@@ -23,11 +23,11 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 ## Arguments
 
-- `YOK-N` — Backlog item ID. Accepts prefixed IDs, zero-padded prefixed IDs, or bare numeric IDs.
+- `PREFIX-N` — Backlog item ID. Accepts prefixed IDs, zero-padded prefixed IDs, or bare numeric IDs.
 
 ## Steps
 
-1. **Parse the ID.** Strip `YOK-` prefix if present, strip leading
+1. **Parse the ID.** Strip `PREFIX-` prefix if present, strip leading
    zeros.
 
 2. **Read the backlog item.**
@@ -35,18 +35,18 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
    BLOCKED=$(yoke items get {N} blocked)
    ```
    If the query returns empty (item not in DB), stop with error:
-   > Item YOK-{N} not found.
+   > Item PREFIX-{N} not found.
 
 3. **Check if actually blocked.** If `BLOCKED` is not `true`, stop with
    a note:
-   > YOK-{N} is not blocked. Nothing to do.
+   > PREFIX-{N} is not blocked. Nothing to do.
 
 4. **Acquire a work claim.** The `items.scalar.update` dispatcher refuses
    item mutations unless the calling session holds an active claim:
 
    ```bash
    yoke claims work acquire \
-       --item "YOK-{N}" --reason unblock
+       --item "PREFIX-{N}" --reason unblock
    ```
 
    If another session holds the claim, stop and coordinate with that holder.
@@ -58,8 +58,8 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
    `blocked` label best-effort and rebuilds the board.
 
    ```bash
-   yoke items scalar update YOK-{N} --field blocked --value false
-   yoke items scalar update YOK-{N} --field blocked_reason --null
+   yoke items scalar update PREFIX-{N} --field blocked --value false
+   yoke items scalar update PREFIX-{N} --field blocked_reason --null
    ```
 
    GitHub label-sync warnings surface as `warning: github_sync_degraded`
@@ -73,11 +73,11 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
    ```bash
    yoke claims work release \
-       --item "YOK-{N}" --reason unblock-complete
+       --item "PREFIX-{N}" --reason unblock-complete
    ```
 
 7. **Report.**
-   > **YOK-{N}** ({title}): unblocked
+   > **PREFIX-{N}** ({title}): unblocked
    >
    > The item is back on the board in the `{status}` section.
 

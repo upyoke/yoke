@@ -20,7 +20,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 ## Arguments
 
-- `{item-id}` — A `YOK-N` reference, internal numeric item id, or lowercase
+- `{item-id}` — A `PREFIX-N` reference, internal numeric item id, or lowercase
   title slug with spaces replaced by `-`.
 
 ## Authority
@@ -59,7 +59,7 @@ yoke items list \
  --limit 1000
 ```
 
-Match the normalized title, set `_plan_item_ref=YOK-{project_sequence}`, and
+Match the normalized title, set `_plan_item_ref=PREFIX-{project_sequence}`, and
 repeat `workflows.item.get`. Do not filter the fallback by remembered workflow
 names and do not treat `project_sequence` as `items.id`.
 

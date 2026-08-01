@@ -18,7 +18,7 @@ Search for a line matching `^VERDICT:\s*(READY|NOT_READY|CAVEATS)\s*$` (case-sen
 **Layer 2: DB fallback query** (existing).
 If Layer 1 fails, check whether the Boss persisted its verdict to the DB directly:
 ```bash
-_db_boss_row=$(yoke db read --format lines "SELECT id, verdict, COALESCE(caveats,'') FROM shepherd_verdicts WHERE item='YOK-$_num' AND transition='$_transition' AND worker='$_worker_name' AND id > $_pre_boss_verdict_max_id ORDER BY id DESC LIMIT 1")
+_db_boss_row=$(yoke db read --format lines "SELECT id, verdict, COALESCE(caveats,'') FROM shepherd_verdicts WHERE item='PREFIX-$_num' AND transition='$_transition' AND worker='$_worker_name' AND id > $_pre_boss_verdict_max_id ORDER BY id DESC LIMIT 1")
 _db_boss_row_id=$(printf '%s' "$_db_boss_row" | cut -d'|' -f1)
 _db_boss_verdict=$(printf '%s' "$_db_boss_row" | cut -d'|' -f2)
 _db_boss_caveats=$(printf '%s' "$_db_boss_row" | cut -d'|' -f3-)
@@ -95,7 +95,7 @@ if [ "$_verdict_source" = "layer2_db" ] && [ -n "$_db_boss_row_id" ]; then
  _verdict_id="$_db_boss_row_id"
  echo "Verdict already persisted by Boss during this invocation (Layer 2 recovery) — reusing row $_verdict_id"
 else
- _verdict_id=$(yoke shepherd verdict --item "YOK-$_num" --transition "$_transition" --worker "$_worker_name" --verdict "$_verdict" --caveats "$_caveats_text")
+ _verdict_id=$(yoke shepherd verdict --item "PREFIX-$_num" --transition "$_transition" --worker "$_worker_name" --verdict "$_verdict" --caveats "$_caveats_text")
 fi
 ```
 
@@ -134,7 +134,7 @@ For each extracted entry, persist via:
 ```bash
 yoke ouroboros entry insert \
  --agent "{agent}" \
- --context "shepherd YOK-$_num $_transition" \
+ --context "shepherd PREFIX-$_num $_transition" \
  --category "{category}" \
  --observation "{observation}"
 ```
@@ -155,7 +155,7 @@ When the verdict is **CAVEATS**, every caveat must be triaged before the pipelin
 2. **Is this an implementation concern for a later stage?** If the caveat is about how something should be built, tested, or deployed -- something the current worker cannot act on -- then it must be **persisted in the work item artifacts** so the engineer or next worker sees it when they read the item:
  - Write the caveat into the `shepherd_caveats` structured field (rendered back into the item body under `## Shepherd Caveats`; see format below).
  - If tasks exist (post-planning transitions) and the caveat explicitly references a task number (e.g., "Task 005: ..."), also write it into that task's body.
- - Record the disposition: `DEFERRED to YOK-{N} body: {caveat summary}`
+ - Record the disposition: `DEFERRED to PREFIX-{N} body: {caveat summary}`
 
 3. **Does analysis show no change is needed?** If the caveat is based on a misunderstanding, or the concern is already addressed elsewhere in the artifact, or analysis genuinely determines the caveat is inapplicable, record as ANALYZED. **ANALYZED caveats MUST be persisted to `shepherd_caveats`** (rendered under `## Shepherd Caveats`) so a human reviewer can verify the judgment -- they cannot silently disappear into the DB.
  - Write the caveat and its reasoning into `shepherd_caveats` under `## Shepherd Caveats > ### {_transition}`.
@@ -165,7 +165,7 @@ When the verdict is **CAVEATS**, every caveat must be triaged before the pipelin
 
 ```bash
 yoke shepherd caveat-disposition \
- --item "YOK-$_num" --transition "$_transition" --attempt "$_attempt" \
+ --item "PREFIX-$_num" --transition "$_transition" --attempt "$_attempt" \
  --caveat-num "$_caveat_num" --caveat-text "$_caveat_text" \
  --disposition "$_disposition" --resolution-details "$_resolution_details" \
  --verdict-id "$_verdict_id"
@@ -194,9 +194,9 @@ Do NOT write caveats to the body individually during triage — the template bel
 **Disposition log.** After triaging all caveats, output the full list:
 
 ```
-Caveat triage for YOK-{N} at {_transition}:
+Caveat triage for PREFIX-{N} at {_transition}:
  1. RESOLVED: {summary} -- {specific artifact edit made}
- 2. DEFERRED to YOK-{N} body: {summary}
+ 2. DEFERRED to PREFIX-{N} body: {summary}
  3. ANALYZED: {summary} -- {reasoning why no change needed}
 ```
 

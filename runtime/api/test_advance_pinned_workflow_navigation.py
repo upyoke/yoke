@@ -51,7 +51,7 @@ def test_advance_teaches_item_pin_then_exact_version_read() -> None:
     skill = ADVANCE_SKILL.read_text()
     lookup = ADVANCE_WORKFLOW_CONTEXT.read_text()
 
-    item_read = lookup.index("yoke workflows item get YOK-{N} --json")
+    item_read = lookup.index("yoke workflows item get PREFIX-{N} --json")
     version_read = lookup.index(
         'yoke workflows version get "$_workflow_id" "$_workflow_version" --json'
     )

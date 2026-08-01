@@ -204,12 +204,12 @@ envelope. The charge endpoint exposes the raw scheduler result via
 ```json
 {
  "action": "charge",
- "reason": "Backlog has 3 refined items; YOK-N matches session capabilities.",
+ "reason": "Backlog has 3 refined items; PREFIX-N matches session capabilities.",
  "correlation_id": "sess-d4f7a2b1-9c3e",
  "context": {
- "item_id": "YOK-N",
+ "item_id": "PREFIX-N",
  "title": "Implement widget API",
- "branch": "YOK-N"
+ "branch": "PREFIX-N"
  }
 }
 ```

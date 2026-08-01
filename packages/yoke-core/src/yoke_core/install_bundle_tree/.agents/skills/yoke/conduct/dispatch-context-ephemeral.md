@@ -46,11 +46,11 @@ preview; never guess from the project slug.
 #### E1. Create Environment Record
 
 Create the ephemeral environment DB record **before** triggering either
-delivery model. Use the worktree's actual branch, not an assumed `YOK-N`
+delivery model. Use the worktree's actual branch, not an assumed `PREFIX-N`
 filename; epic lanes may have distinct branch names.
 
 ```bash
-yoke ephemeral-env create "${_project}" "${_worktree_branch}" --item "YOK-${_id}" --json
+yoke ephemeral-env create "${_project}" "${_worktree_branch}" --item "PREFIX-${_id}" --json
 ```
 
 The record is created with `status=pending` (the default). Store `_env_id` for use in subsequent steps. The status transitions to `starting` only after a workflow run is found.
@@ -85,7 +85,7 @@ For `flow`:
 1. Require the policy's `flow_id`; capability validation rejects a flow
    trigger without one.
 2. Compose the item-bound run with `yoke deployment-runs start-for-item
-   YOK-<id> --project <project> --flow <flow_id> --target-env ephemeral
+   PREFIX-<id> --project <project> --flow <flow_id> --target-env ephemeral
    --json` and record its run id plus `status=starting` on the environment.
 3. Read `yoke status --json`. Use the selected connection's owner-only
    `<connection>-db-admin` sibling only if it appears in `connection.envs`;
@@ -127,7 +127,7 @@ Run E2E tests against this URL: {_cmd_e2e}
 ```
 
 **Browser case execution instructions.** Read the materialized requirements
-with `yoke qa requirement list --item "YOK-${_id}" --json`. If it contains an
+with `yoke qa requirement list --item "PREFIX-${_id}" --json`. If it contains an
 unsatisfied, non-waived case whose `method_id` is `browser-check` or
 `browser-inspection`, append Browser execution instructions to the Tester
 prompt. Method identity, not `qa_kind` or item metadata, selects this path.

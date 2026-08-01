@@ -19,7 +19,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 ## Arguments
 
-- `{epic-id}` — The item's YOK-N identifier (e.g., `YOK-N`). The item
+- `{epic-id}` — The item's PREFIX-N identifier (e.g., `PREFIX-N`). The item
   must have tasks in the `epic_tasks` table.
 
 ## Philosophy
@@ -78,7 +78,7 @@ simulation and dispatch-chain reads use the registered
    epic_id: <id>}`, empty payload). If `result.tasks` is empty, inform
    the user and suggest next steps:
 
-   > YOK-{epic-id} has no epic tasks. Run `/yoke plan YOK-{epic-id}`
+   > PREFIX-{epic-id} has no epic tasks. Run `/yoke plan PREFIX-{epic-id}`
    > to create tasks first, then retry `/yoke amend`.
 
    Do NOT conclude from an empty result that the item is "not an epic"

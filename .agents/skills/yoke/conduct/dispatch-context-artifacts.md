@@ -31,7 +31,7 @@ The Engineer prompt template surfaces this block under the heading `Anticipated 
 
 ```bash
 if [ "${YOKE_EXECUTOR:-}" = "codex" ]; then
-    _project=$(yoke items get "YOK-${_id}" project 2>/dev/null || echo yoke)
+    _project=$(yoke items get "PREFIX-${_id}" project 2>/dev/null || echo yoke)
     printf '%s' "$_subagent_response" | python3 -m yoke_core.domain.reflection_capture \
         --default-agent "$_role" \
         --project "$_project" || true
@@ -51,7 +51,7 @@ After the Tester returns, check if any files were created in the worktree and co
 ```bash
 cd {_worktree_path}
 git add -A 2>/dev/null
-git diff --cached --quiet || git commit -m "chore: commit Tester review artifacts [YOK-${_id}]"
+git diff --cached --quiet || git commit -m "chore: commit Tester review artifacts [PREFIX-${_id}]"
 ```
 
 **Note:** Reviews and Ouroboros reflections are written directly to the DB, not to the worktree filesystem. This catches any other filesystem artifacts the Tester may have created.
@@ -122,7 +122,7 @@ db_router qa requirement-waive {requirement-id} "Rationale text" --source operat
 yoke qa run add --requirement-id {req-id} --executor-type "agent" --qa-kind "ac_verification" --verdict "pass" --raw-result "Brief evidence"
 
 # List requirements for an item:
-yoke qa requirement list --item "YOK-{N}"
+yoke qa requirement list --item "PREFIX-{N}"
 
 # List runs for a requirement:
 yoke qa run list --requirement-id {req-id}
