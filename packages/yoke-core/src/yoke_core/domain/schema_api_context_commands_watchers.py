@@ -42,9 +42,10 @@ WATCHERS_COMMANDS: list[dict] = [
         "topic": "core",
         "purpose": "Run pytest with background watcher (main session)",
         "recipe": (
-            "uv run --frozen python3 -m yoke_core.tools.watch_pytest -- "
-            "runtime/api/ runtime/harness/ tests/\n"
-            "# Canonical full Yoke gate. For a harness background stream:\n"
+            "uv run --frozen python3 -m yoke_core.tools.watch_pytest "
+            "--impacted main\n"
+            "# Default local check. Full three-anchor sweep (CI's job; "
+            "local CI-outage fallback):\n"
             "uv run --frozen python3 -m yoke_core.tools.watch_pytest "
             "--print-streaming-pair -- runtime/api/ runtime/harness/ tests/\n"
             "# Paste the printed pair into the harness's "
@@ -53,8 +54,10 @@ WATCHERS_COMMANDS: list[dict] = [
             "(the helper-resolved path the wrapper printed)"
         ),
         "notes": (
-            "This exact three-suite target is the canonical full Yoke gate; "
-            "it injects xdist `-n auto`. Pass `-n 0` after `--` "
+            "The impacted selection is the local default; the three-suite "
+            "target is the full Yoke gate CI runs on every pull request "
+            "and push to main, and locally it is the CI-outage fallback. "
+            "Both inject xdist `-n auto`. Pass `-n 0` after `--` "
             "for sequential order-sensitive debugging. The wrapper mints "
             "the raw + progress capture pair via "
             "yoke_core.domain.project_scratch_dir.mint_watcher_capture_pair "
