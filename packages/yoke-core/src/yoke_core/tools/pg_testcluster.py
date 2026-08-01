@@ -42,11 +42,14 @@ import os
 import sys
 from pathlib import Path
 
-from yoke_core.domain import pg_test_db_namespace, postgres_cluster
+from yoke_core.domain import postgres_cluster
 from yoke_core.domain.postgres_cluster import ClusterSpec
 
 PGUSER = "yoketest"
-LOCAL_CLUSTER_MAX_CONNECTIONS = "200"
+# Sized so a burst of concurrent gate invocations that slips past admission
+# control degrades to slow instead of hard "too many clients" failures:
+# measured ~11 connections per full gate, so 200 died at ~18 gates.
+LOCAL_CLUSTER_MAX_CONNECTIONS = "800"
 LOCAL_CLUSTER_MAX_WAL_SIZE = "512MB"
 LOCAL_CLUSTER_MIN_WAL_SIZE = "80MB"
 
@@ -142,118 +145,32 @@ def ensure_started() -> int:
     return postgres_cluster.ensure_started(spec)
 
 
-# A database is reclaimable only once its owning invocation is gone, and the
-# owner check alone would be unsafe: operating systems recycle PIDs, so a dead
-# owner's PID can be reused by an unrelated live process. Requiring the
-# database to ALSO be older than this makes a misread PID harmless. Erring
-# long is free: anything missed is reclaimed by the next sweep.
-ORPHAN_TEST_DB_MIN_AGE_MINUTES = 15
+def start_detached_orphan_sweep() -> None:
+    """Kick off the detached orphan sweep (see the orphans module)."""
+    from yoke_core.tools import pg_testcluster_orphans
 
-#: Age is read from ``PG_VERSION``, which PostgreSQL writes once when it
-#: creates a database and never rewrites, so it is a true creation timestamp.
-#: The database DIRECTORY's timestamp is not: the checkpointer and autovacuum
-#: touch it for their own reasons, so an abandoned database keeps looking
-#: freshly used and never becomes eligible. Measured against this cluster, the
-#: directory signal made 0 of 161 known-dead databases reclaimable while the
-#: creation signal correctly identified 138 — which is how a cluster silently
-#: reaches hundreds of leaked databases and gigabytes of disk.
-_DATABASE_CREATION_STAMP = "'base/' || d.oid::text || '/PG_VERSION'"
-
-#: A drop that cannot take its lock promptly is a wedged database, not a slow
-#: one. Failing fast keeps the sweep from parking on a lock and turning a
-#: cleanup pass into the stall it exists to prevent.
-ORPHAN_DROP_STATEMENT_TIMEOUT_MS = 5_000
-
-
-def _owner_process_is_alive(pid: int) -> bool:
-    """Return true when *pid* names a live process.
-
-    ``PermissionError`` means the process exists but belongs to another user —
-    still alive, and still not ours to reclaim.
-    """
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        return True
-    except OSError:
-        return True  # Unreadable means "assume live"; the sweep is optional.
-    return True
+    pg_testcluster_orphans.start_detached_orphan_sweep()
 
 
 def sweep_orphaned_test_databases() -> int:
-    """Reclaim owner-tagged test databases whose owning invocation is gone.
+    """Reclaim orphaned test databases (see the orphans module)."""
+    from yoke_core.tools import pg_testcluster_orphans
 
-    Every database an invocation creates carries that invocation's run tag, so
-    the sweep can ask the operating system a definite question — is the owner
-    still running? — instead of guessing from connection counts and mtimes.
-    Databases belonging to live invocations are never touched, which is what
-    makes this safe to run while other suites are mid-flight.
-
-    Databases whose names carry no run tag are outside the namespace entirely
-    (an operator's migration validation database, for instance) and are never
-    candidates. Individual drop failures are reported and skipped rather than
-    aborting the sweep: cleanup is best-effort, and a concurrent sweep that
-    already reclaimed the same database must not fail this one.
-    """
-    if not _is_ready():
-        return 0
-    res = _psql(
-        "SELECT datname FROM pg_database d "
-        f"WHERE datname LIKE '{pg_test_db_namespace.OWNED_DATABASE_LIKE_PATTERN}' "
-        f"AND (pg_stat_file({_DATABASE_CREATION_STAMP}, true)).modification "
-        f"  < now() - interval '{ORPHAN_TEST_DB_MIN_AGE_MINUTES} minutes' "
-        "ORDER BY datname"
-    )
-    if res.returncode != 0:
-        # Most likely the cluster role cannot read server files. Decline the
-        # sweep loudly rather than reclaiming on the PID check alone.
-        sys.stderr.write(res.stdout + res.stderr)
-        sys.stderr.write(
-            "pg_testcluster: cannot determine test-database age; skipping "
-            "orphan sweep rather than risk reclaiming a live run's database\n"
-        )
-        return 0
-    reclaimed = 0
-    for name in [line for line in res.stdout.splitlines() if line]:
-        owner_pid = pg_test_db_namespace.owner_pid_of(name)
-        if owner_pid is None or _owner_process_is_alive(owner_pid):
-            continue
-        quoted = '"' + name.replace('"', '""') + '"'
-        # FORCE terminates whatever the dead owner left connected — a leaked
-        # child process is exactly how a database outlives its invocation.
-        drop = _psql(
-            f"DROP DATABASE IF EXISTS {quoted} WITH (FORCE)",
-            statement_timeout_ms=ORPHAN_DROP_STATEMENT_TIMEOUT_MS,
-        )
-        if drop.returncode != 0:
-            sys.stderr.write(drop.stdout + drop.stderr)
-            continue
-        reclaimed += 1
-    # Say so when there was anything to reclaim. A silent sweep let this
-    # cluster reach 275 leaked databases and 12G unnoticed, because the only
-    # visible symptom was a suite that got slower and slower.
-    if reclaimed:
-        sys.stderr.write(
-            f"pg_testcluster: reclaimed {reclaimed} orphaned test database(s) "
-            f"from interrupted runs\n"
-        )
-    return 0
+    return pg_testcluster_orphans.sweep_orphaned_test_databases()
 
 
 def prepare_for_pytest() -> int:
-    """Start the local cluster and reclaim orphans before a pytest run.
+    """Start the local cluster, then let a detached sweep reclaim orphans.
 
-    The sweep runs here rather than inside the suite because it is bounded and
-    ownership-gated: it can only ever touch databases whose owning invocation
-    has already exited, so a run starting up never contends with a run already
-    in flight.
+    The sweep is ownership-gated — it can only ever touch databases whose
+    owning invocation has already exited — so it is safe to run alongside
+    suites already in flight, and detaching it keeps it off their startup path.
     """
     rc = ensure_started()
     if rc != 0:
         return rc
-    return sweep_orphaned_test_databases()
+    start_detached_orphan_sweep()
+    return 0
 
 
 def start() -> int:
