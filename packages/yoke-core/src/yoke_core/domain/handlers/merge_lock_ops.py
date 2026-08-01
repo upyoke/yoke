@@ -40,6 +40,8 @@ class LockRow(BaseModel):
     session_id: str
     branch: str
     epic_id: str = ""
+    project_slug: Optional[str] = None
+    target_branch: Optional[str] = None
 
 
 class LockListResponse(BaseModel):
@@ -52,6 +54,8 @@ class LockAcquireRequest(BaseModel):
     epic_id: Optional[str] = None
     acquired_at: str = Field(..., min_length=1)
     expires_at: str = Field(..., min_length=1)
+    project_slug: Optional[str] = None
+    target_branch: Optional[str] = None
 
 
 class LockAcquireResponse(BaseModel):
@@ -110,8 +114,8 @@ def handle_lock_list(request: FunctionCallRequest) -> HandlerOutcome:
             )
             conn.commit()
             rows = conn.execute(
-                "SELECT id, session_id, branch, COALESCE(epic_id, '') "
-                "FROM merge_locks"
+                "SELECT id, session_id, branch, COALESCE(epic_id, ''), "
+                "project_slug, target_branch FROM merge_locks"
             ).fetchall()
     except Exception as exc:  # noqa: BLE001 - lock state unavailable blocks merging
         return _err("merge_lock_read_failed", str(exc))
@@ -123,6 +127,8 @@ def handle_lock_list(request: FunctionCallRequest) -> HandlerOutcome:
                     session_id=str(row[1]),
                     branch=str(row[2]),
                     epic_id=str(row[3] or ""),
+                    project_slug=row[4] or None,
+                    target_branch=row[5] or None,
                 )
                 for row in rows
             ],
@@ -142,14 +148,18 @@ def handle_lock_acquire(request: FunctionCallRequest) -> HandlerOutcome:
             marker = _marker(conn)
             conn.execute(
                 "INSERT INTO merge_locks "
-                "(session_id, branch, epic_id, acquired_at, expires_at) "
-                f"VALUES ({marker}, {marker}, {marker}, {marker}, {marker})",
+                "(session_id, branch, epic_id, acquired_at, expires_at, "
+                "project_slug, target_branch) "
+                f"VALUES ({marker}, {marker}, {marker}, {marker}, {marker}, "
+                f"{marker}, {marker})",
                 (
                     body.session_id,
                     body.branch,
                     body.epic_id or None,
                     body.acquired_at,
                     body.expires_at,
+                    body.project_slug or None,
+                    body.target_branch or None,
                 ),
             )
             conn.commit()

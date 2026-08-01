@@ -12,6 +12,7 @@ import os
 import pytest
 
 from yoke_core.domain import merge_lock
+from yoke_core.domain import merge_lock_contention as contention
 
 
 class RelayLog(list):
@@ -69,7 +70,7 @@ class TestCheck:
     def test_a_dead_holder_is_retired_rather_than_blocking(
         self, relayed, monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        monkeypatch.setattr(merge_lock, "_pid_alive", lambda pid: False)
+        monkeypatch.setattr(contention, "holder_is_alive", lambda session_id: False)
         relayed.rows.append({
             "id": 7,
             "session_id": "999999-1700000000",
@@ -89,6 +90,62 @@ class TestCheck:
         })
         assert merge_lock.check() is not None
         assert [call[0] for call in relayed] == ["merge.lock.list"]
+
+
+class TestScope:
+    """A merge contends only with merges landing on the same branch."""
+
+    def _held(self, project: str | None, branch: str | None) -> dict:
+        return {
+            "id": 1,
+            "session_id": f"{os.getpid()}-1700000000",
+            "branch": "OTHER-9",
+            "epic_id": "",
+            "project_slug": project,
+            "target_branch": branch,
+        }
+
+    def test_another_project_does_not_block(self, relayed) -> None:
+        relayed.rows.append(self._held("acme", "main"))
+        scope = merge_lock.LockScope("yoke", "main")
+        assert merge_lock.check(scope=scope) is None
+
+    def test_another_target_branch_does_not_block(self, relayed) -> None:
+        relayed.rows.append(self._held("yoke", "release"))
+        scope = merge_lock.LockScope("yoke", "main")
+        assert merge_lock.check(scope=scope) is None
+
+    def test_the_same_project_and_branch_blocks(self, relayed) -> None:
+        relayed.rows.append(self._held("yoke", "main"))
+        scope = merge_lock.LockScope("yoke", "main")
+        assert merge_lock.check(scope=scope) is not None
+
+    def test_an_unscoped_row_blocks_everything(self, relayed) -> None:
+        """A legacy row's scope is unknown, which is not the same as compatible."""
+        relayed.rows.append(self._held(None, None))
+        scope = merge_lock.LockScope("yoke", "main")
+        assert merge_lock.check(scope=scope) is not None
+
+    def test_an_unscoped_caller_is_blocked_by_everything(self, relayed) -> None:
+        relayed.rows.append(self._held("acme", "release"))
+        assert merge_lock.check() is not None
+
+    def test_a_non_contending_dead_holder_is_left_for_its_own_scope(
+        self, relayed, monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Out-of-scope rows are never retired here — they are not ours to judge."""
+        monkeypatch.setattr(contention, "holder_is_alive", lambda session_id: False)
+        relayed.rows.append(self._held("acme", "main"))
+        assert merge_lock.check(scope=merge_lock.LockScope("yoke", "main")) is None
+        assert [call[0] for call in relayed] == ["merge.lock.list"]
+
+    def test_acquire_records_the_scope_it_took(self, relayed) -> None:
+        scope = merge_lock.LockScope("acme", "release")
+        handle = merge_lock.acquire("ITEM-1", scope=scope)
+        _, payload = relayed[0]
+        assert payload["project_slug"] == "acme"
+        assert payload["target_branch"] == "release"
+        assert handle.scope == scope
 
 
 class TestAcquireAndRelease:

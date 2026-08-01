@@ -150,7 +150,15 @@ def run(args: MergeArgs) -> int:
         # ``check()`` call seconds later. Retry around the pre-acquire check
         # so transient stale-lock conditions don't surface as halt-class merge
         # failures.
-        block_msg = _pre_acquire_check_with_retry(merge_lock.check)
+        # A merge contends only with merges landing on the same branch of the
+        # same project. ctx.project is None for the Yoke control repo itself,
+        # which is that project's own slug.
+        scope = merge_lock.LockScope(
+            project_slug=ctx.project or "yoke", target_branch=args.target,
+        )
+        block_msg = _pre_acquire_check_with_retry(
+            lambda: merge_lock.check(scope=scope)
+        )
         if block_msg:
             _print(block_msg, err=True)
             _print(
@@ -160,7 +168,7 @@ def run(args: MergeArgs) -> int:
                 err=True,
             )
             return RECOVERABLE_MERGE_LOCK_EXIT_CODE
-        lock_handle = merge_lock.acquire(args.branch, ctx.epic_id)
+        lock_handle = merge_lock.acquire(args.branch, ctx.epic_id, scope=scope)
     except Exception as e:
         _print(f"Merge lock error: {e}", err=True)
         return 1

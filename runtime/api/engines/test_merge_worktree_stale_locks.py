@@ -63,7 +63,7 @@ class TestPreAcquireCheckRetryUnit:
         ]
         idx = {"i": 0}
 
-        def fake_check():
+        def fake_check(*_a, **_kw):
             value = responses[idx["i"]]
             idx["i"] += 1
             return value
@@ -173,7 +173,7 @@ class TestRunnerStaleLockRetry:
         # First check returns a block, second returns None -> proceed to acquire.
         check_calls = {"n": 0}
 
-        def fake_check():
+        def fake_check(*_a, **_kw):
             check_calls["n"] += 1
             if check_calls["n"] == 1:
                 return "Merge lock held by session 99999-1 on branch 'STALE-LOCK-BRANCH'"
@@ -242,7 +242,7 @@ class TestRunnerStaleLockRetry:
         block_template = "Merge lock held by session 999-{i} on branch 'STALE-LOCK-BRANCH'"
         call_idx = {"n": 0}
 
-        def fake_check():
+        def fake_check(*_a, **_kw):
             call_idx["n"] += 1
             return block_template.format(i=call_idx["n"])
 

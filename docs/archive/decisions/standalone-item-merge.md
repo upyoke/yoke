@@ -120,5 +120,10 @@ process and the server's process table says nothing about it.
 - Hand-authored merges of a standalone branch are retired: the Dash and Blitz
   skills name one command, and that command is the only teaching surface.
 - The merge lock is taken for every standalone merge, which it previously was
-  not. The lock remains global rather than scoped per project and target
-  branch; scoping it is a separate change to a shared coordination primitive.
+  not.
+- The lock is scoped to what a merge actually contends for: one target branch
+  of one project. It used to block globally, so a merge into one project
+  serialized behind an unrelated merge into another. A row with no recorded
+  scope — written before the columns existed, or by a caller that could not
+  resolve its project — still blocks everything, because "scope unknown" must
+  never be read as "scope compatible".
