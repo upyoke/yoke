@@ -76,6 +76,36 @@ def test_watch_pytest_help_teaches_parallel_default() -> None:
     assert "``--no-parallel``" not in help_text
 
 
+def test_shipped_surfaces_carry_no_repo_local_test_anchors() -> None:
+    """Install-bundle surfaces must not teach this repo's own test paths.
+
+    ``.agents/skills/yoke``, the harness rules, and the rendered agent
+    adapters are copied verbatim into every project Yoke installs into.
+    A hardcoded ``runtime/api/ runtime/harness/ tests/`` there tells a
+    target project's agents to run paths that do not exist in their repo.
+    The anchors belong to AGENTS.md, which stays repo-local below the
+    managed-block marker.
+    """
+    shipped_roots = (
+        REPO / ".agents" / "skills" / "yoke",
+        REPO / "runtime" / "harness" / "claude" / "rules",
+        REPO / "runtime" / "harness" / "claude" / "agents",
+        REPO / "runtime" / "harness" / "codex" / "agents",
+    )
+    offenders = []
+    for root in shipped_roots:
+        for path in root.rglob("*"):
+            if not path.is_file() or path.suffix not in {".md", ".toml"}:
+                continue
+            if "runtime/api/ runtime/harness/ tests/" in _read(path):
+                offenders.append(str(path.relative_to(REPO)))
+    assert offenders == [], (
+        "repo-local test anchors found in install-bundle surfaces: "
+        f"{offenders}. Teach the anchors in AGENTS.md (below the managed "
+        "block) and keep shipped copy project-neutral."
+    )
+
+
 def test_live_verification_teaching_uses_supported_sequential_and_lint_forms() -> None:
     for path in (
         REPO / "AGENTS.md",
