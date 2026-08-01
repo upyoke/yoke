@@ -21,7 +21,7 @@ _MERGE_PREFLIGHT_FUNCTION_IDS = (
 
 _EXPECTED_TARGET_KINDS = {
     "merge.preflight.epic_task_statuses": ("item",),
-    "merge.preflight.dependency_gate": ("global",),
+    "merge.preflight.dependency_gate": ("item", "global"),
     "merge.preflight.blocked_gate": ("global",),
 }
 

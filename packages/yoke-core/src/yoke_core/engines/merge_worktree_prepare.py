@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Optional
 
 from yoke_contracts.api.function_call import TargetRef
@@ -26,6 +27,8 @@ class MergeArgs:
     branch: str
     target: str = "main"
     epic_ref: Optional[str] = None
+    item_id: Optional[int] = None
+    expected_repo_root: Optional[str] = None
     local_merge: bool = False
     force_lock: bool = False
     keep_remote: bool = False
@@ -134,8 +137,9 @@ def resolve_context(args: MergeArgs) -> MergeContext:
     # as ``item_ref`` for the dispatcher to resolve server-side — that
     # keeps resolution authoritative over an https control plane as well
     # as an in-process local connection, with no client DB read.
+    ctx.item_id = str(args.item_id) if args.item_id is not None else None
     match = re.search(r"([A-Za-z][A-Za-z0-9]*-\d+)", args.branch)
-    if match:
+    if ctx.item_id is None and match:
         try:
             detail = call_dispatcher(
                 function_id="items.detail.get",
@@ -169,7 +173,9 @@ def resolve_context(args: MergeArgs) -> MergeContext:
     # Guard: an item branch with no epic lane is a standalone merge, which
     # carries item bookkeeping (merged_at, evidence, status) the engine does
     # not own. Callers declare that they own it by passing ``standalone``.
-    if (not ctx.epic_id or ctx.epic_id == "null") and match is not None:
+    if (
+        not ctx.epic_id or ctx.epic_id == "null"
+    ) and (ctx.item_id is not None or match is not None):
         if not args.standalone:
             raise RuntimeError(
                 f"merge_worktree called for standalone item branch "
@@ -218,8 +224,20 @@ def resolve_context(args: MergeArgs) -> MergeContext:
                             args.target = value
             else:
                 ctx.project = slug or None
-        except Exception:  # noqa: BLE001 - default Yoke repo context is safe.
-            pass
+        except Exception as exc:
+            if args.item_id is not None:
+                raise RuntimeError(
+                    f"could not resolve project checkout for item {ctx.item_id}"
+                ) from exc
+
+    if args.expected_repo_root:
+        expected_root = Path(args.expected_repo_root).resolve()
+        resolved_root = Path(ctx.repo_root).resolve()
+        if resolved_root != expected_root:
+            raise RuntimeError(
+                "resolved merge checkout does not match the item-bound checkout: "
+                f"expected {expected_root}, got {resolved_root}"
+            )
 
     if not args.target:
         from yoke_core.domain import project_settings

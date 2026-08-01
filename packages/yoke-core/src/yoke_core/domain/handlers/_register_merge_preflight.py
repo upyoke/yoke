@@ -34,7 +34,7 @@ def register(registry) -> None:
         _mpg.DependencyGateResponse,
         stability="stable",
         owner_module="yoke_core.domain.handlers.merge_preflight_gate_evals",
-        target_kinds=["global"],
+        target_kinds=["item", "global"],
         side_effects=[],
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=[],
