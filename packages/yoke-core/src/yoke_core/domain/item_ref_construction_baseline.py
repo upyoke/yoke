@@ -78,7 +78,6 @@ BASELINE: dict[str, int] = {
     "packages/yoke-core/src/yoke_core/domain/lint_shell_quoted_function_payload_messages.py": 1,
     "packages/yoke-core/src/yoke_core/domain/lint_worktree_path_invariants.py": 3,
     "packages/yoke-core/src/yoke_core/domain/migration_apply_resolve.py": 1,
-    "packages/yoke-core/src/yoke_core/domain/migrations/workflow_item_worktree_backfill.py": 1,
     "packages/yoke-core/src/yoke_core/domain/mutations_approval.py": 3,
     "packages/yoke-core/src/yoke_core/domain/mutations_update.py": 10,
     "packages/yoke-core/src/yoke_core/domain/observe_db_reads.py": 1,

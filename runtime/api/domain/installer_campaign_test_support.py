@@ -1,4 +1,4 @@
-"""Shared assertions for the installer campaign catalog tests."""
+"""Shared assertions for the current installer campaign catalog tests."""
 
 from __future__ import annotations
 

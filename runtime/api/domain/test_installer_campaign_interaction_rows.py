@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from runtime.api.domain.migrations.installer_campaign_assertions import (
+from runtime.api.domain.installer_campaign_test_support import (
     action_signature,
     action_window,
     selection_keys,

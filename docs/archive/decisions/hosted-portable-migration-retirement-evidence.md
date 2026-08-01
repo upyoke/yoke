@@ -31,8 +31,10 @@ Authoritative receipts:
 
 Both runs and every captured target reached `completed`. Their source modules,
 runtime wrappers, standalone manifests, migration-specific tests, and
-environment catch-up manifests can therefore retire. Git history and the
-Platform receipts preserve the execution record.
+environment catch-up manifests can therefore retire. Migration-only worktree
+source discovery, backfill, and dormant-plan deferral helpers also retire
+because they have no live callers after those modules are removed. Git history
+and the Platform receipts preserve the execution record.
 
 ## Current installer campaign module
 
@@ -81,9 +83,47 @@ retired. The nine package modules, runtime wrappers, standalone and combined
 manifests, and migration-only tests can therefore be removed without removing
 current schema behavior or its regression coverage.
 
+## Public-reference repair still awaiting Production proof
+
+`item_dependency_public_ref_repair` remains installed. Stage completed its
+rehearsal and apply through workflow runs `30598814140` and `30598867683`; the
+durable fleet run is `10ad304e829546c29f7a2f637f9449b8`.
+
+Production created durable run `a6893856f6dc42db9c0898c8106ad811`, but
+workflow run `30600019593` rejected the command output after the tenant work
+because stdout preceding the JSON receipt made the old parser fail. The
+workflow failure is not evidence that the migration failed, and the absence of
+preserved validation clones is not sufficient evidence that every target
+completed. The corrected workflow parser reads the terminal receipt line, but
+the migration source and its tests must remain until either the sanctioned
+Platform reader proves that durable Production run and every target completed,
+or a governed Production replay produces a new completed run and target set.
+
 ## Evidence boundary
 
 The repository's single-authoritative-database `migration_audit` gate remains
 correct for local or project-bound governed migrations. It is not substituted
 for the Platform fleet receipt when Platform is the declared hosted portable
 migration authority.
+
+## Legacy pre-audit modules still awaiting a retirement receipt
+
+Two older idempotent modules remain in `runtime/api/domain/migrations/`:
+
+- `harness_session_project_identity`
+- `project_policy_capabilities`
+
+The archived installer plan records their Stage and Production applications,
+and the current authorities show the intended live invariants: no harness
+session lacks `project_id`, and every current project has its policy/routing
+capability rows. Those applications predate the present governed audit
+contract, however, and neither authority has a completed `migration_audit`
+row under those module names. The source and migration-specific tests therefore
+remain until an idempotent governed apply records authoritative completion, or
+a separately reviewed retirement decision establishes a rule-compliant
+alternative. Current schema shape alone is not a retirement receipt.
+
+The permanent installer campaign interaction regression and its assertion
+helper are product tests, not migration source. They live under
+`runtime/api/domain/` after the campaign migration retires so the governed
+modules directory contains no campaign-named test residue.
