@@ -46,7 +46,10 @@ from yoke_core.domain import postgres_cluster
 from yoke_core.domain.postgres_cluster import ClusterSpec
 
 PGUSER = "yoketest"
-LOCAL_CLUSTER_MAX_CONNECTIONS = "200"
+# Sized so a burst of concurrent gate invocations that slips past admission
+# control degrades to slow instead of hard "too many clients" failures:
+# measured ~11 connections per full gate, so 200 died at ~18 gates.
+LOCAL_CLUSTER_MAX_CONNECTIONS = "800"
 LOCAL_CLUSTER_MAX_WAL_SIZE = "512MB"
 LOCAL_CLUSTER_MIN_WAL_SIZE = "80MB"
 
