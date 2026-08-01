@@ -43,7 +43,12 @@ import time
 from pathlib import Path
 from typing import Iterator, Optional, Sequence, TextIO
 
-DEFAULT_MAX_CONCURRENT_GATES = 3
+# Measured on the 18-core / 48 GB reference machine: two concurrent full
+# gates run at ~1.55x solo wall-clock with no failures and slightly beat
+# solo throughput; four run at ~6x solo and deterministically bust the
+# suite's tight real-time deadlines (SIGINT-cleanup budgets, subprocess
+# spawn deadlines). Larger machines raise this via machine config.
+DEFAULT_MAX_CONCURRENT_GATES = 2
 
 CAP_ENV = "YOKE_TEST_GATE_MAX_CONCURRENT"
 CAP_MACHINE_CONFIG_KEY = "test_gate_max_concurrent"
