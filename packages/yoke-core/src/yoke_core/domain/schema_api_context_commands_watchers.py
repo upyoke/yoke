@@ -44,11 +44,8 @@ WATCHERS_COMMANDS: list[dict] = [
         "recipe": (
             "uv run --frozen python3 -m yoke_core.tools.watch_pytest "
             "--impacted main\n"
-            "# Default local check: impacted selection over the branch diff\n"
-            "# (conservative full-sweep fallback + always-run contract "
-            "tests).\n"
-            "# Full three-anchor sweep — CI's job on the merge path; run\n"
-            "# locally only as the CI-outage fallback or for debugging:\n"
+            "# Default local check. Full three-anchor sweep (CI's job; "
+            "local CI-outage fallback):\n"
             "uv run --frozen python3 -m yoke_core.tools.watch_pytest "
             "--print-streaming-pair -- runtime/api/ runtime/harness/ tests/\n"
             "# Paste the printed pair into the harness's "
