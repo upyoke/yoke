@@ -168,7 +168,7 @@ Operator-facing callers should enter this flow via `/yoke do`. The underlying se
 
 ### charge
 
-Direct-mode entrypoint for the `charge` action. Computes the runnable frontier through the shared charge-frontier service (backed by `/v1/charge/frontier`), presents a ranked table of items with adapter classifications, confirms the top pick with the operator, and dispatches to the correct downstream skill (`refine`, `shepherd`, `conduct`, `advance`, `polish`, or `usher`). See [charge-frontier.md](charge-frontier.md) for algorithm details, status-to-adapter mapping, and ranking criteria.
+Direct-mode entrypoint for the `charge` action. Computes the runnable frontier through the shared charge-frontier service (backed by `/v1/charge/frontier`), presents a ranked table of items with adapter classifications, confirms the top pick with the operator, and dispatches to the correct downstream skill (`refine`, `shepherd`, `conduct`, `advance`, `dash`, `blitz`, `polish`, or `usher`). See [charge-frontier.md](charge-frontier.md) for algorithm details, status-to-adapter mapping, and ranking criteria.
 
 **Arguments:** `--dry-run` (show frontier, no dispatch), `--item YOK-N` (target specific item), `--project P` (default: `yoke`), `--wip-cap N` (default: 5).
 

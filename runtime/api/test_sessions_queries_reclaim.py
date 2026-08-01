@@ -21,6 +21,7 @@ from runtime.api.sessions_api_stale_test_helpers import (
 from yoke_core.domain.sessions import (
     session_offer_with_ownership,
 )
+from yoke_core.domain.harness_capability_registry import shared_downstream_paths
 from yoke_core.domain.sessions_queries import resolve_harness_capabilities
 
 
@@ -45,13 +46,10 @@ class TestSessionOfferReclaim:
             assert result["manifest_executor"] == "claude-code"
             assert result["manifest_directory"] == "claude"
             assert result["source"] == "shared_registry"
-            assert result["downstream_paths"] == [
-                "shepherd",
-                "refine",
-                "advance",
-                "polish",
-                "usher",
-            ]
+            # A manifest declaring no limitations inherits the registry set
+            # verbatim, so compare against the registry rather than a literal
+            # that goes stale the moment a routable path is added.
+            assert result["downstream_paths"] == shared_downstream_paths()
 
     def test_surface_specific_executor_uses_shared_registry(self, ownership_conn):
         """surface executors inherit shared registry truth through coarse manifest."""
@@ -66,7 +64,7 @@ class TestSessionOfferReclaim:
         assert result["manifest_executor"] == "codex"
         assert result["manifest_directory"] == "codex"
         assert result["source"] == "shared_registry"
-        assert result["downstream_paths"] == ["shepherd", "refine", "advance", "polish", "usher"]
+        assert result["downstream_paths"] == shared_downstream_paths()
 
     def test_offer_envelope_includes_supported_paths(self, ownership_conn):
         """AC-6: offer envelope persisted in DB includes supported_paths."""

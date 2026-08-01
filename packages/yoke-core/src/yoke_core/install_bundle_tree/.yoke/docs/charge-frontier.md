@@ -98,7 +98,7 @@ class FrontierItem:
  project: str
  workflow_id: str
  workflow_version_id: int
- adapter: AdapterCategory # refine, shepherd, conduct, polish, usher, wait, skip
+ adapter: AdapterCategory # refine, shepherd, conduct, advance, dash, blitz, polish, usher, wait, skip
  blocked_by: List[str] # public text refs stored on item_dependencies rows
  blocked_reasons: List[str] # human-readable reasons
  unblocks_count: int # direct activation-gate dependents
