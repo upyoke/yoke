@@ -35,10 +35,9 @@ def relayed(monkeypatch: pytest.MonkeyPatch) -> RelayLog:
         return {}
 
     monkeypatch.setattr(merge_lock, "_relay", fake_relay)
-    monkeypatch.setattr(
-        merge_lock, "_connect",
-        lambda: pytest.fail("the lock must not open a local connection"),
-    )
+    # An https control plane has no local Postgres to open, which is the
+    # condition that makes the lock relay instead of connecting.
+    monkeypatch.setattr(merge_lock, "_local_connection_or_none", lambda: None)
     return log
 
 
@@ -197,6 +196,9 @@ class TestRelayFailure:
             "yoke_core.api.service_client_structured_api_adapter."
             "call_dispatcher",
             lambda **_kwargs: _Refused(),
+        )
+        monkeypatch.setattr(
+            merge_lock, "_local_connection_or_none", lambda: None,
         )
         with pytest.raises(RuntimeError, match="control plane refused"):
             merge_lock.check()

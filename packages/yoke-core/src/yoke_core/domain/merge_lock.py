@@ -29,6 +29,7 @@ from typing import Any, Optional, Sequence
 from yoke_core.domain import db_backend, runtime_settings
 from yoke_core.domain import merge_lock_contention as contention
 from yoke_core.domain.merge_lock_contention import LockScope
+from yoke_core.domain import merge_lock_transport as _transport
 
 
 # ---------------------------------------------------------------------------
@@ -55,36 +56,16 @@ def _connect():
     return db_helpers.connect()
 
 
-def _p(conn) -> str:
-    return "%s" if db_backend.connection_is_postgres(conn) else "?"
+def _local_connection_or_none() -> Optional[Any]:
+    return _transport.local_connection_or_none(_connect)
 
 
 def _relay(function_id: str, payload: dict) -> dict:
-    """Run one lock row operation on the connected control plane.
+    return _transport.relay(function_id, payload)
 
-    Row state is control-plane state, so it goes through the transport-aware
-    dispatcher: in-process against a local Postgres connection, server-side
-    over https. Holder liveness stays here on the client, because the
-    process that holds a merge lock is the local merging process — the
-    server's process table says nothing about it.
-    """
-    from yoke_contracts.api.function_call import TargetRef
-    from yoke_core.api.service_client_structured_api_adapter import (
-        call_dispatcher,
-    )
 
-    response = call_dispatcher(
-        function_id=function_id,
-        target=TargetRef(kind="global"),
-        payload=payload,
-    )
-    if not response.success:
-        message = (
-            response.error.message if response.error is not None
-            else f"{function_id} failed"
-        )
-        raise RuntimeError(message)
-    return response.result or {}
+def _p(conn) -> str:
+    return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
 # ---------------------------------------------------------------------------
@@ -155,17 +136,24 @@ def check(
     """
     scope = scope or LockScope()
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    rows = (
-        _rows_over_transport(now) if conn is None
-        else _rows_over_connection(conn, now)
-    )
-    verdict = contention.evaluate(rows, scope)
-    if verdict.stale_ids:
-        _release_ids(verdict.stale_ids, conn)
-    return verdict.blocked_by
+    owned = _local_connection_or_none() if conn is None else None
+    live = conn if conn is not None else owned
+    try:
+        rows = (
+            _rows_over_connection(live, now) if live is not None
+            else _rows_over_transport(now)
+        )
+        verdict = contention.evaluate(rows, scope)
+        if verdict.stale_ids:
+            _release_ids(verdict.stale_ids, live)
+        return verdict.blocked_by
+    finally:
+        if owned is not None:
+            owned.close()
 
 
 def _release_ids(lock_ids: Sequence[int], conn: Optional[Any]) -> None:
+    """Retire rows whose holder has died, over whichever path is live."""
     if conn is None:
         _relay("merge.lock.release", {"lock_ids": list(lock_ids)})
         return
@@ -203,7 +191,9 @@ def acquire(
     expires_at = (now + timedelta(minutes=ttl_minutes)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     scope = scope or LockScope()
-    if conn is None:
+    owned = _local_connection_or_none() if conn is None else None
+    live = conn if conn is not None else owned
+    if live is None:
         _relay("merge.lock.acquire", {
             "session_id": session_id,
             "branch": branch,
@@ -215,7 +205,7 @@ def acquire(
         })
         return LockHandle(session_id=session_id, branch=branch, scope=scope)
 
-    own_conn = False
+    conn = live
     try:
         p = _p(conn)
         conn.execute(
@@ -232,8 +222,8 @@ def acquire(
 
         return LockHandle(session_id=session_id, branch=branch, scope=scope)
     finally:
-        if own_conn:
-            conn.close()
+        if owned is not None:
+            owned.close()
 
 
 def release(
@@ -245,38 +235,39 @@ def release(
     if not handle.session_id or not handle.branch:
         return
 
-    if conn is None:
+    owned = _local_connection_or_none() if conn is None else None
+    live = conn if conn is not None else owned
+    if live is None:
         _relay("merge.lock.release", {
             "session_id": handle.session_id, "branch": handle.branch,
         })
         return
-
-    own_conn = False
     try:
-        p = _p(conn)
-        conn.execute(
+        p = _p(live)
+        live.execute(
             f"DELETE FROM merge_locks WHERE session_id = {p} AND branch = {p}",
             (handle.session_id, handle.branch),
         )
-        conn.commit()
+        live.commit()
     finally:
-        if own_conn:
-            conn.close()
+        if owned is not None:
+            owned.close()
 
 
 def force_clear(conn: Optional[Any] = None) -> None:
     """Delete ALL merge lock rows."""
-    if conn is None:
+    owned = _local_connection_or_none() if conn is None else None
+    live = conn if conn is not None else owned
+    if live is None:
         _relay("merge.lock.release", {"all_rows": True})
         return
-
-    own_conn = False
+    conn = live
     try:
         conn.execute("DELETE FROM merge_locks")
         conn.commit()
     finally:
-        if own_conn:
-            conn.close()
+        if owned is not None:
+            owned.close()
 
 
 # ---------------------------------------------------------------------------
