@@ -8,9 +8,12 @@ the same declaration and reporting contract as an engine check.
 
 A module states its checks one of two ways:
 
-* explicitly, through a module-level ``HEALTH_CHECKS`` list of
+* explicitly, through a module-level ``PROJECT_HEALTH_CHECKS`` list of
   :class:`~yoke_core.engines.doctor_registry_types.HealthCheck` rows, which
-  gives full control over slug, display name, and applicability; or
+  gives full control over slug, display name, and applicability. The name is
+  deliberately distinct from the engine's own ``HEALTH_CHECKS``: a check
+  module that imports the engine roster to inspect it must not thereby
+  declare all of it as its own; or
 * by convention, by defining ``hc_<name>(conn, args, rec)`` functions. The
   slug comes from the function name, the display name from the first line of
   its docstring, and the applicability from a module-level ``APPLICABILITY``
@@ -41,6 +44,12 @@ CHECK_FILE_GLOB = "check_*.py"
 
 #: Prefix marking a collected check function inside a discovered module.
 CHECK_FUNCTION_PREFIX = "hc_"
+
+#: Module-level name a check module uses to declare its rows explicitly.
+#: Distinct from the engine's ``HEALTH_CHECKS`` so that importing the engine
+#: roster — to inspect it, as a self-project check legitimately might — never
+#: re-declares the whole thing as this project's own.
+PROJECT_CHECKS_ATTRIBUTE = "PROJECT_HEALTH_CHECKS"
 
 _MODULE_NAMESPACE = "yoke_project_checks"
 
@@ -104,13 +113,13 @@ def _import_check_module(path: Path):
 
 
 def _collect(module) -> List[HealthCheck]:
-    declared = getattr(module, "HEALTH_CHECKS", None)
+    declared = getattr(module, PROJECT_CHECKS_ATTRIBUTE, None)
     if declared is not None:
         rows = list(declared)
         bad = [row for row in rows if not isinstance(row, HealthCheck)]
         if bad:
             raise TypeError(
-                "HEALTH_CHECKS must hold HealthCheck rows; got "
+                f"{PROJECT_CHECKS_ATTRIBUTE} must hold HealthCheck rows; got "
                 + ", ".join(type(row).__name__ for row in bad)
             )
         return rows
@@ -152,6 +161,7 @@ __all__ = [
     "CHECK_FUNCTION_PREFIX",
     "Discovery",
     "DiscoveryFailure",
+    "PROJECT_CHECKS_ATTRIBUTE",
     "PROJECT_CHECKS_DIR",
     "discover_project_checks",
     "project_checks_dir",

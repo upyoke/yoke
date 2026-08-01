@@ -70,6 +70,10 @@ class TestDoctorRunDispatch(unittest.TestCase):
         register_all_handlers()
 
     def _dispatch_with_fake_registry(self, hcs, payload):
+        # These assert what the engine registry under test contributes, so
+        # the runtime is pinned: a local run also collects whatever the
+        # calling checkout declares in its own .yoke/doctor/ folder.
+        payload = {"runtime": "hosted", **payload}
         with patch(
             "yoke_core.engines.doctor_registry.HEALTH_CHECKS", hcs,
         ):

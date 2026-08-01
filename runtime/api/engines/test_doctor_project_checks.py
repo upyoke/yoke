@@ -60,7 +60,7 @@ def _run(conn, args, rec):
     rec.record("HC-explicit", "Explicit row", "PASS", "")
 
 
-HEALTH_CHECKS = [
+PROJECT_HEALTH_CHECKS = [
     HealthCheck(
         slug="explicit",
         name="Explicit row",
@@ -68,6 +68,18 @@ HEALTH_CHECKS = [
         applicability=CheckApplicability(requires_source_checkout=True),
     ),
 ]
+'''
+
+# A self-project check legitimately inspects the engine roster. Importing it
+# by name must not make the whole engine roster read as this project's own
+# declaration — which is exactly what a shared attribute name would do.
+INSPECTS_ENGINE_ROSTER_MODULE = '''
+from yoke_core.engines.doctor_registry import HEALTH_CHECKS
+
+
+def hc_roster_size(conn, args, rec):
+    """Engine roster is non-empty."""
+    rec.record("HC-roster-size", "Engine roster is non-empty", "PASS", "")
 '''
 
 BROKEN_MODULE = "import a_module_that_does_not_exist\n"
@@ -118,6 +130,16 @@ class TestProjectCheckDiscovery(unittest.TestCase):
 
         self.assertEqual([hc.slug for hc in discovery.checks], ["explicit"])
         self.assertTrue(discovery.checks[0].applicability.requires_source_checkout)
+
+    def test_importing_the_engine_roster_declares_nothing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            _write_project_checks(
+                Path(tmp), {"check_roster.py": INSPECTS_ENGINE_ROSTER_MODULE},
+            )
+            discovery = discover_project_checks(Path(tmp))
+
+        self.assertEqual(discovery.failures, [])
+        self.assertEqual([hc.slug for hc in discovery.checks], ["roster-size"])
 
     def test_an_unimportable_module_is_reported_not_swallowed(self):
         with tempfile.TemporaryDirectory() as tmp:

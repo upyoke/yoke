@@ -12,7 +12,9 @@ from yoke_core.engines.doctor_applicability import (
     PROJECT_SCOPE_SELF,
 )
 from yoke_core.engines.doctor_applicability_declarations import undeclared_slugs
-from yoke_core.engines.doctor_registry import HEALTH_CHECKS
+# Imported as a module, not by name, so the engine roster stays something
+# this module inspects rather than something it appears to declare.
+from yoke_core.engines import doctor_registry
 
 APPLICABILITY = CheckApplicability(
     project_scope=PROJECT_SCOPE_SELF, requires_source_checkout=True,
@@ -23,11 +25,11 @@ def hc_doctor_applicability_declaration(conn, args, rec) -> None:
     """Every engine check declares what it applies to."""
     check_id = "HC-doctor-applicability-declaration"
     name = "Every engine check declares what it applies to"
-    missing = undeclared_slugs(hc.slug for hc in HEALTH_CHECKS)
+    missing = undeclared_slugs(hc.slug for hc in doctor_registry.HEALTH_CHECKS)
     if not missing:
         rec.record(
             check_id, name, "PASS",
-            f"{len(HEALTH_CHECKS)} checks declared",
+            f"{len(doctor_registry.HEALTH_CHECKS)} checks declared",
         )
         return
     rec.record(

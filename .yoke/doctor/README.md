@@ -16,7 +16,10 @@ Anything else in the folder — helpers, fixtures, this README — is ignored.
 * **Display name** comes from the first line of the docstring.
 * **Applicability** comes from a module-level `APPLICABILITY`, or per
   function via an `applicability` attribute. A module may instead declare an
-  explicit `HEALTH_CHECKS` list of `HealthCheck` rows for full control.
+  explicit `PROJECT_HEALTH_CHECKS` list of `HealthCheck` rows for full
+  control. That name is deliberately not `HEALTH_CHECKS`: a check that
+  imports the engine's own roster to inspect it must not thereby declare all
+  of it as this project's.
 
 A module that fails to import is reported as a FAIL, not skipped — a check
 that cannot load never runs, and silence would read as health.

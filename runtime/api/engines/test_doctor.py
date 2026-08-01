@@ -27,6 +27,11 @@ from yoke_contracts.field_note_text import FOOTER as FIELD_NOTE_FOOTER
 from yoke_core.engines import doctor as doctor_engine
 from yoke_core.engines.doctor_registry_types import HealthCheck
 
+# These tests assert what a patched engine registry contributes, so they
+# pin the runtime: a local run also collects the calling checkout's own
+# .yoke/doctor/ checks.
+_ENGINE_ONLY_RUNTIME = "hosted"
+
 
 def _fake_pass_hc(conn, args, rec):
     rec.record("HC-fake", "Fake HC", "PASS", "all good")
@@ -71,7 +76,10 @@ class _StreamingProgressTests(unittest.TestCase):
                     buf = io.StringIO()
                     with redirect_stdout(buf):
                         rc = doctor_engine.run_checks(
-                            doctor_engine.DoctorArgs(quick=True, project="yoke")
+                            doctor_engine.DoctorArgs(
+                                quick=True, project="yoke",
+                                runtime=_ENGINE_ONLY_RUNTIME,
+                            )
                         )
         output = buf.getvalue()
         report_idx = output.index("# Ouroboros Health Report")
@@ -163,7 +171,9 @@ class _JsonAdapterTests(unittest.TestCase):
             ):
                 buf = io.StringIO()
                 with redirect_stdout(buf):
-                    rc = doctor_engine.main(["--json", "--quick"])
+                    rc = doctor_engine.main(
+                        ["--json", "--quick", "--runtime", _ENGINE_ONLY_RUNTIME]
+                    )
         payload = json.loads(buf.getvalue())
         self.assertTrue(payload["success"], payload)
         self.assertEqual(payload["function"], "doctor.run.run")
@@ -210,7 +220,9 @@ class _JsonAdapterTests(unittest.TestCase):
             ):
                 buf = io.StringIO()
                 with redirect_stdout(buf):
-                    rc = doctor_engine.main(["--json", "--full"])
+                    rc = doctor_engine.main(
+                        ["--json", "--full", "--runtime", _ENGINE_ONLY_RUNTIME]
+                    )
         payload = json.loads(buf.getvalue())
         self.assertTrue(payload["success"])
         self.assertEqual(payload["result"]["fail_count"], 1)
@@ -249,7 +261,10 @@ class _RemediationFooterTests(unittest.TestCase):
                     buf = io.StringIO()
                     with redirect_stdout(buf):
                         rc = doctor_engine.run_checks(
-                            doctor_engine.DoctorArgs(quick=True, project="yoke")
+                            doctor_engine.DoctorArgs(
+                                quick=True, project="yoke",
+                                runtime=_ENGINE_ONLY_RUNTIME,
+                            )
                         )
         output = buf.getvalue()
         self.assertEqual(rc, 1)
@@ -272,7 +287,10 @@ class _RemediationFooterTests(unittest.TestCase):
                     buf = io.StringIO()
                     with redirect_stdout(buf):
                         doctor_engine.run_checks(
-                            doctor_engine.DoctorArgs(quick=True, project="yoke")
+                            doctor_engine.DoctorArgs(
+                                quick=True, project="yoke",
+                                runtime=_ENGINE_ONLY_RUNTIME,
+                            )
                         )
         output = buf.getvalue()
         # WARN section detail carries the footer too.
@@ -296,7 +314,10 @@ class _RemediationFooterTests(unittest.TestCase):
                     buf = io.StringIO()
                     with redirect_stdout(buf):
                         doctor_engine.run_checks(
-                            doctor_engine.DoctorArgs(quick=True, project="yoke")
+                            doctor_engine.DoctorArgs(
+                                quick=True, project="yoke",
+                                runtime=_ENGINE_ONLY_RUNTIME,
+                            )
                         )
         output = buf.getvalue()
         # Pass-only run: footer must NOT show up in the rendered report
