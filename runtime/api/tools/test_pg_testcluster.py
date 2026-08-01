@@ -27,13 +27,19 @@ def test_spec_uses_disposable_cluster_settings(monkeypatch):
     assert spec.bin_dir is None  # system binaries from PATH
     assert spec.stop_mode == "immediate"
     settings = dict(spec.server_settings)
-    assert settings["max_connections"] == "200"
+    assert (
+        settings["max_connections"]
+        == pg_testcluster.LOCAL_CLUSTER_MAX_CONNECTIONS
+    )
     assert settings["max_wal_size"] == "512MB"
     assert settings["fsync"] == "off"
     assert settings["full_page_writes"] == "off"
 
     opts = postgres_cluster.server_options(spec)
-    assert "-c max_connections=200" in opts
+    assert (
+        f"-c max_connections={pg_testcluster.LOCAL_CLUSTER_MAX_CONNECTIONS}"
+        in opts
+    )
     assert "-c fsync=off" in opts
     assert "-c listen_addresses=''" in opts
 
