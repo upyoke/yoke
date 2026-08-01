@@ -111,7 +111,7 @@ The following SML changes landed in the DB (gitignored views re-rendered):
 ### Impact on Current Frontier
 
 {for each affected frontier item:}
-- **YOK-{N}: {title}** ({status}) -- {impact assessment: aligned / needs review / deprioritize}
+- **PREFIX-{N}: {title}** ({status}) -- {impact assessment: aligned / needs review / deprioritize}
 
 ### New Gaps
 {any strategic gaps revealed by the changes that have no current frontier item}
@@ -219,8 +219,8 @@ dismissal. For each, reply with one of:
 {render the pending bucket from `_carry_json` so the operator sees
  yok_id, title, priority, first_seen_at, and how old the pending state is}
 
-You can reply in any freeform shape (e.g. "reflected: YOK-N;
-dismissed: YOK-N (internal refactor, no landscape impact); defer the
+You can reply in any freeform shape (e.g. "reflected: PREFIX-N;
+dismissed: PREFIX-N (internal refactor, no landscape impact); defer the
 rest"). I'll normalize the answer before recording.
 ```
 
@@ -236,12 +236,12 @@ rest"). I'll normalize the answer before recording.
 3. `defer` is a no-op — do not add the item to either list; `finalize.md`
  leaves its state as `pending`.
 4. Normalize the operator's answer into two shell-space-separated lists of
- `YOK-N` ids plus a dismissal reason, then pass to finalize.md as
+ `PREFIX-N` ids plus a dismissal reason, then pass to finalize.md as
  `_reflected_item_ids`, `_dismissed_item_ids`, and `_dismissed_reason`.
 
 ```bash
-_reflected_item_ids="${_reflected_item_ids:-}" # e.g. "YOK-N YOK-N"
-_dismissed_item_ids="${_dismissed_item_ids:-}" # e.g. "YOK-N"
+_reflected_item_ids="${_reflected_item_ids:-}" # e.g. "PREFIX-N PREFIX-N"
+_dismissed_item_ids="${_dismissed_item_ids:-}" # e.g. "PREFIX-N"
 _dismissed_reason="${_dismissed_reason:-operator dismissal}"
 ```
 

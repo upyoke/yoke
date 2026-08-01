@@ -50,10 +50,10 @@ Log: `[S6] Scope: {_sim_task_count} tasks, ~{_total_kb}KB → {standard|compress
 
 **Dispatch:** descriptor `DispatchDescriptor(role="simulator")` rendered via `yoke_core.domain.dispatch_descriptors.render_for_harness(descriptor, harness_id)`. Result-schema markers: `SIMULATION: CLEAN|GAPS FOUND`, `---REFLECTION-START---`. The descriptor's `prompt: |` block is filled with:
 ```
- Run integration simulation for epic {_epic_id} (YOK-{N}).
+ Run integration simulation for epic {_epic_id} (PREFIX-{N}).
  Repository root: {MAIN_ROOT}
  All tasks passed testing. Trace execution paths across tasks to find cross-task integration gaps.
- IMPORTANT: Your response MUST begin with the two-line verdict block — line 1 is SIMULATION: CLEAN or SIMULATION: GAPS FOUND, line 2 is EPIC: YOK-{N}. Persistence rejects bodies whose attested epic does not match YOK-{N} (exit 16) or that omit the EPIC line entirely (exit 17).
+ IMPORTANT: Your response MUST begin with the two-line verdict block — line 1 is SIMULATION: CLEAN or SIMULATION: GAPS FOUND, line 2 is EPIC: PREFIX-{N}. Persistence rejects bodies whose attested epic does not match PREFIX-{N} (exit 16) or that omit the EPIC line entirely (exit 17).
  Worktree-State Authority: a task's resolved worktree checkout is the authority for that task's actual code whether the item/epic has one worktree or many. Main is the base/integration target, not evidence of unmerged task state. Use the task's worktree_path / branch when verifying files; if no worktree path or prompt-supplied diff exists, report evidence missing instead of inspecting main as a substitute.
  Worktree authorities: {_worktree_list}
  Epic tasks: {_task_list}
@@ -79,10 +79,10 @@ This prompt-supplied evidence is allowed; simulator-initiated `git log` or
 
 **Dispatch:** descriptor `DispatchDescriptor(role="simulator")` rendered via `yoke_core.domain.dispatch_descriptors.render_for_harness(descriptor, harness_id)`. Result-schema markers: `SIMULATION: CLEAN|GAPS FOUND`, `---REFLECTION-START---`. The descriptor's `prompt: |` block is filled with:
 ```
- Run integration simulation for epic {_epic_id} (YOK-{N}).
+ Run integration simulation for epic {_epic_id} (PREFIX-{N}).
  Repository root: {MAIN_ROOT}
  ## Phase: INTEGRATION — COMPRESSED CONTEXT ({_sim_task_count} tasks)
- IMPORTANT: Your response MUST begin with the two-line verdict block — line 1 is SIMULATION: CLEAN or SIMULATION: GAPS FOUND, line 2 is EPIC: YOK-{N}. Persistence rejects bodies whose attested epic does not match YOK-{N} (exit 16) or that omit the EPIC line entirely (exit 17).
+ IMPORTANT: Your response MUST begin with the two-line verdict block — line 1 is SIMULATION: CLEAN or SIMULATION: GAPS FOUND, line 2 is EPIC: PREFIX-{N}. Persistence rejects bodies whose attested epic does not match PREFIX-{N} (exit 16) or that omit the EPIC line entirely (exit 17).
  Worktree-State Authority: a task's resolved worktree checkout is the authority for that task's actual code whether the item/epic has one worktree or many. Main is the base/integration target, not evidence of unmerged task state. Use the task's worktree_path / branch when verifying files; if no worktree path or prompt-supplied diff exists, report evidence missing instead of inspecting main as a substitute.
 
  ## Interface Contracts Per Task
@@ -137,7 +137,7 @@ This prompt-supplied evidence is allowed; simulator-initiated `git log` or
 
 ### Parse Local Result
 
-After Simulator returns, emit `[CONTINUE] Simulator returned for YOK-{N}. Next: parse simulation result (S6h)` then:
+After Simulator returns, emit `[CONTINUE] Simulator returned for PREFIX-{N}. Next: parse simulation result (S6h)` then:
 
 - Capture reflections (see `dispatch-context.md` step 5m; use `offset`/`limit`).
 
@@ -174,28 +174,28 @@ When no parseable result is found:
 
 2. **Classify failure mode:**
  - `context_exhaustion`: output ends mid-sentence, contains tool-call fragments without report structure, contains file exploration without `## Summary`/`## Paths Traced`, or is shorter than 500 characters.
- - `formatting_omission`: output has structured report content (`## Gaps Found`, `## Paths Traced`, `## Summary`) but is missing the `SIMULATION:` verdict line OR the `EPIC: YOK-{N}` attestation line.
+ - `formatting_omission`: output has structured report content (`## Gaps Found`, `## Paths Traced`, `## Summary`) but is missing the `SIMULATION:` verdict line OR the `EPIC: PREFIX-{N}` attestation line.
  Log: `[S6h] Simulator output gate: failure mode = {context_exhaustion | formatting_omission}`
 
 3. **If `_simulator_output_failures` <= `MAX_SIMULATOR_REPROMPTS` (2):**
 
  Re-assert the `_epic_id` precondition above before dispatching the retry. An empty `_epic_id` at retry time is the same CRITICAL halt as at initial dispatch.
 
- **3a. If `formatting_omission`:** Re-invoke with escalated instructions requiring the full two-line verdict block as the FIRST TWO LINES of the response — `SIMULATION: CLEAN` or `SIMULATION: GAPS FOUND` on line 1, then `EPIC: YOK-${_epic_id}` on line 2. Full task list included.
+ **3a. If `formatting_omission`:** Re-invoke with escalated instructions requiring the full two-line verdict block as the FIRST TWO LINES of the response — `SIMULATION: CLEAN` or `SIMULATION: GAPS FOUND` on line 1, then `EPIC: PREFIX-${_epic_id}` on line 2. Full task list included.
 
  **3b. If `context_exhaustion`:** Re-invoke with compressed context + two-phase protocol + aggressive constraints. Assemble compressed context bundle inline, including shim re-export contracts with public and underscore-prefixed names such as `_BLOCKS` whenever the compressed task/file context names a shim module, and Commit-Boundary Evidence for any discrete-commit/NFR-style AC named by the task or epic context:
  ```bash
  # Dependency edges
  _deps=$(yoke db read --format lines "SELECT task_num, title, dependencies FROM epic_tasks WHERE epic_id='${_epic_id}' ORDER BY task_num")
  ```
- Add `## AGGRESSIVE RETRY CONSTRAINTS` section. The retry prompt MUST repeat the two-line verdict block requirement (`SIMULATION:` line then `EPIC: YOK-${_epic_id}` line). The prompt must also distinguish parent-supplied commit evidence from simulator-initiated git archaeology: supplied `git log --oneline -- {file}` lines are evidence, but the simulator must not run `git log` or `git blame` itself.
+ Add `## AGGRESSIVE RETRY CONSTRAINTS` section. The retry prompt MUST repeat the two-line verdict block requirement (`SIMULATION:` line then `EPIC: PREFIX-${_epic_id}` line). The prompt must also distinguish parent-supplied commit evidence from simulator-initiated git archaeology: supplied `git log --oneline -- {file}` lines are evidence, but the simulator must not run `git log` or `git blame` itself.
 
  **3c. Ultra-compressed no-tool fallback:** Assemble ultra-compressed context (overlap matrix + dependency edges + one-line task summaries only, plus shim re-export contracts when a candidate gap depends on a shim's exported symbols, plus any Commit-Boundary Evidence required to verify discrete-commit ACs):
  ```bash
  # Dependency edges (same as 3b)
  _deps=$(yoke db read --format lines "SELECT task_num, title, dependencies FROM epic_tasks WHERE epic_id='${_epic_id}' ORDER BY task_num")
  ```
- Dispatch with hard NO-TOOL MANDATE. Two-line verdict block (`SIMULATION:` then `EPIC: YOK-${_epic_id}`) MUST be the first two lines. Maximum 3 gaps.
+ Dispatch with hard NO-TOOL MANDATE. Two-line verdict block (`SIMULATION:` then `EPIC: PREFIX-${_epic_id}`) MUST be the first two lines. Maximum 3 gaps.
 
  Every retry prompt MUST carry Worktree-State Authority and the `_worktree_list`
  for single-worktree and multi-worktree epics. Retried simulation still verifies
@@ -218,13 +218,13 @@ set -e
 
 | Exit | Meaning | Operator-facing diagnostic |
 |---|---|---|
-| 10 | upsert failed | `[CRITICAL] persist_simulation upsert failed for YOK-${_epic_id} integration` |
-| 11 | missing persisted row after upsert | `[CRITICAL] persist_simulation readback missing for YOK-${_epic_id} integration` |
-| 12 | inconclusive verdict | `[CRITICAL] persist_simulation persisted an empty verdict for YOK-${_epic_id} integration` |
-| 13 | parser mismatch (local vs persisted) | `[CRITICAL] persist_simulation parser mismatch for YOK-${_epic_id} integration` |
-| 14 | no parseable verdict in body | `[CRITICAL] simulator output for YOK-${_epic_id} integration has no SIMULATION: verdict line` |
-| 16 | wrong-epic body (CLI epic ≠ body epic) | `[CRITICAL] simulator returned body for wrong epic — CLI passed YOK-${_epic_id}, body attested a different epic. Check the captured simulator output for the offending EPIC: line.` |
-| 17 | missing-epic body (no EPIC line, no heading fallback) | `[CRITICAL] simulator output for YOK-${_epic_id} integration has no EPIC: YOK-N attestation line and no legacy heading fallback. The two-line verdict block requirement was not met.` |
+| 10 | upsert failed | `[CRITICAL] persist_simulation upsert failed for PREFIX-${_epic_id} integration` |
+| 11 | missing persisted row after upsert | `[CRITICAL] persist_simulation readback missing for PREFIX-${_epic_id} integration` |
+| 12 | inconclusive verdict | `[CRITICAL] persist_simulation persisted an empty verdict for PREFIX-${_epic_id} integration` |
+| 13 | parser mismatch (local vs persisted) | `[CRITICAL] persist_simulation parser mismatch for PREFIX-${_epic_id} integration` |
+| 14 | no parseable verdict in body | `[CRITICAL] simulator output for PREFIX-${_epic_id} integration has no SIMULATION: verdict line` |
+| 16 | wrong-epic body (CLI epic ≠ body epic) | `[CRITICAL] simulator returned body for wrong epic — CLI passed PREFIX-${_epic_id}, body attested a different epic. Check the captured simulator output for the offending EPIC: line.` |
+| 17 | missing-epic body (no EPIC line, no heading fallback) | `[CRITICAL] simulator output for PREFIX-${_epic_id} integration has no EPIC: PREFIX-N attestation line and no legacy heading fallback. The two-line verdict block requirement was not met.` |
 
 The `[CRITICAL]` prefix is required so `cleanup-report.md` surfaces the wrong-epic / missing-epic outcome explicitly to the operator. Exits 16 and 17 in particular must preserve the exact `persist_simulation` error text in the cleanup report because it names the CLI-passed epic and (for 16) the body-attested epic; do not replace it with a generic parser-failure line.
 

@@ -46,8 +46,8 @@ The envelope shape is the operator-defined shape — see the Operator Handoff Ad
 {
   "ok": true,
   "item_id": 1234,
-  "branch": "YOK-N",
-  "worktree_path": "/Users/.../.worktrees/YOK-N",
+  "branch": "PREFIX-N",
+  "worktree_path": "/Users/.../.worktrees/PREFIX-N",
   "semantic_scope": "worktree",
   "physical_cwd_mode": "static",
   "actions_taken": ["work-claim:already-owned", "path-claim:activated=[39]", "worktree:reused"],
@@ -74,9 +74,9 @@ relative recursive commands that the per-call target-path validator would
 flag as ambiguous:
 
 ```bash
-python3 -m yoke_core.tools.search_code --item YOK-{N} --pattern PATTERN \
+python3 -m yoke_core.tools.search_code --item PREFIX-{N} --pattern PATTERN \
     --scope worktree   # default — searches the bound worktree(s)
-python3 -m yoke_core.tools.search_code --item YOK-{N} --pattern PATTERN \
+python3 -m yoke_core.tools.search_code --item PREFIX-{N} --pattern PATTERN \
     --scope main       # searches the project repo root only when explicit
 ```
 
@@ -96,7 +96,7 @@ worktree` when the recursive walk is the point.
 
 - **Step 1 — Work claim.** Idempotent for same-session re-claim. A live conflict surfaces a `work-claim-conflict` block with a narrative that explicitly disclaims claim-widening as the wrong remediation.
 - **Step 2 — Path-claim activation.** Delegates to `yoke_core.domain.advance_path_claim_activation` (the path-claim activation CLI). Diverged refs and blocked claims propagate to the caller verbatim.
-- **Step 3 — Worktree resolution.** Canonical `YOK-N` is reused idempotently.
+- **Step 3 — Worktree resolution.** Canonical `PREFIX-N` is reused idempotently.
 - **Step 3 — Dirty-main guard.** Runs **only** when this call would create a new worktree. Tracked or staged dirt blocks as `dirty-tracked`; untracked non-gitignored files block as `dirty-untracked`. Re-entry into an existing worktree never touches main and is never blocked by main dirt.
 - **Step 4 — Worktree creation + DB write.** `create_worktree` records the branch, path, and implementation role in `item_worktrees`; implementation entry records status on the item. The session continues — no scope envelope, no parent-stop, no claim release, no relaunch. The work-claim acquired in Step 1 is the session's authority over the new worktree, validated per tool call by `lint_session_cwd`.
 - **Step 5 — Envelope rendering.** Emits descriptive `semantic_scope`, `physical_cwd_mode`, and an optional advisory note if the harness cwd is static at main (informational only — the work-claim is what authorizes writes).

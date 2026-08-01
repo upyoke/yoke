@@ -59,7 +59,7 @@ For each matched topic that appears in `_context_topics`, fetch its docs:
 ```
 
 **Ambiguity handling:** If multiple topics match, include all of them. If no topics match, emit advisory and continue with the always-included docs plus targeted discovery:
-> **Advisory:** No topic match for YOK-{N} in project '{_item_project}' `context_routing` topics. Matched keywords: none. Available topics: {comma-separated topic names}. Proceeding with always-included docs and targeted discovery.
+> **Advisory:** No topic match for PREFIX-{N} in project '{_item_project}' `context_routing` topics. Matched keywords: none. Available topics: {comma-separated topic names}. Proceeding with always-included docs and targeted discovery.
 
 ## d. Read matched topic docs
 

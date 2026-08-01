@@ -163,11 +163,11 @@ class TestDoLoopContract:
 
     def test_loop_guidance_does_not_double_prefix_ids(self):
         text = self._loop_text()
-        assert "YOK-{item_id}" not in text
-        assert "YOK-{first_runnable_item}" not in text
+        assert "PREFIX-{item_id}" not in text
+        assert "PREFIX-{first_runnable_item}" not in text
         assert "/yoke conduct {item_id}" in text
         assert "/yoke conduct {selected_item}" in text
-        assert "/yoke conduct YOK-{epic_id}" in text
+        assert "/yoke conduct PREFIX-{epic_id}" in text
 
     def test_loop_charge_dispatches_from_scheduler_next_step(self):
         text = self._loop_text()
@@ -180,7 +180,9 @@ class TestDoLoopContract:
         assert "context.status" in text
         assert "/yoke shepherd {item_id}" in text
         assert "/yoke usher {item_id}" in text
-        assert "RESUME: Continuing work on epic YOK-{epic_id} task #{task_num}" in text
+        assert (
+            "RESUME: Continuing work on epic PREFIX-{epic_id} task #{task_num}" in text
+        )
 
     def test_do_skill_notes_reference_scheduler_next_step(self):
         text = _DO_SKILL_PATH.read_text(encoding="utf-8")

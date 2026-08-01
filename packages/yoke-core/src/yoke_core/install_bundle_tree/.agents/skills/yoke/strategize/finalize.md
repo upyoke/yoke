@@ -69,11 +69,11 @@ this step consumes.
 
 Accumulate two lists during the approval phase and pass them here:
 
-- `_reflected_item_ids` — space-separated `YOK-N` ids whose landing was
+- `_reflected_item_ids` — space-separated `PREFIX-N` ids whose landing was
  addressed by an applied SML change. On the `changes_deferred` path,
  **this list must stay empty** — deferred sessions are not allowed to
  flip pending items to reflected.
-- `_dismissed_item_ids` — space-separated `YOK-N` ids the operator
+- `_dismissed_item_ids` — space-separated `PREFIX-N` ids the operator
  explicitly decided are not worth an SML change (e.g. landed work is
  pure internals, no landscape impact). The dismissal reason should be
  captured in `_dismissed_reason` so the carry table has audit trail.

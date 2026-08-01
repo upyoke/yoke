@@ -89,37 +89,37 @@ When all Tester retries are exhausted (both full-prompt and minimal-prompt), the
 
 4. **Produce synthetic verdict:**
  - If `BASELINE_TRUST` is `UNTRUSTED` AND branch has any failures:
- - Log: `Conduct direct verification: YOK-{_id} FAIL (baseline untrusted — cannot classify failures as pre-existing)`
+ - Log: `Conduct direct verification: PREFIX-{_id} FAIL (baseline untrusted — cannot classify failures as pre-existing)`
  - Classify item as FAILED
  - **PASS is prohibited when baseline is untrusted and failures exist.**
  - If harness failures exist:
- - Log: `Conduct direct verification: YOK-{_id} FAIL (harness/tooling failures present)`
+ - Log: `Conduct direct verification: PREFIX-{_id} FAIL (harness/tooling failures present)`
  - Classify item as FAILED
  - If indeterminate failures exist (name-only match, different error signature):
- - Log: `Conduct direct verification: YOK-{_id} FAIL (indeterminate failures — cannot confirm pre-existing)`
+ - Log: `Conduct direct verification: PREFIX-{_id} FAIL (indeterminate failures — cannot confirm pre-existing)`
  - Classify item as FAILED
  - If ALL test commands exit 0 AND no regressions AND no indeterminate AND no harness failures:
- - Log: `Conduct direct verification: YOK-{_id} PASS`
+ - Log: `Conduct direct verification: PREFIX-{_id} PASS`
  - Classify item as PASSED
  - Create Ouroboros entry:
  ```bash
  yoke ouroboros entry insert \
- --agent conduct --category problem --context "YOK-${_id}" \
- --observation "Conduct had to verify YOK-${_id} directly after all Tester retries returned empty output. Tests passed. This indicates context saturation in the Tester — investigate diff size."
+ --agent conduct --category problem --context "PREFIX-${_id}" \
+ --observation "Conduct had to verify PREFIX-${_id} directly after all Tester retries returned empty output. Tests passed. This indicates context saturation in the Tester — investigate diff size."
  ```
  - If new regressions exist (pass on main, fail on branch):
- - Log: `Conduct direct verification: YOK-{_id} FAIL`
+ - Log: `Conduct direct verification: PREFIX-{_id} FAIL`
  - Classify item as FAILED
  - Store test output as `_tester_feedback_{_id}` for retry context
  - If baseline is trusted AND red, but all shared failures have signature matches AND no new regressions:
  - PASS is allowed. Pre-existing failures (signature-matched) do not count against the verdict.
- - Log: `Conduct direct verification: YOK-{_id} PASS (pre-existing failures signature-matched, no regressions)`
+ - Log: `Conduct direct verification: PREFIX-{_id} PASS (pre-existing failures signature-matched, no regressions)`
 
 5. **Log the transition:**
  ```
- Tester output gate exhausted: conduct verifying YOK-{_id} directly
+ Tester output gate exhausted: conduct verifying PREFIX-{_id} directly
  Baseline trust: {TRUSTED|UNTRUSTED} {reason if untrusted}
- Conduct direct verification: YOK-{_id} {PASS|FAIL}
+ Conduct direct verification: PREFIX-{_id} {PASS|FAIL}
  ```
 
  **Green baseline fast path.** When the baseline is trusted and green (zero failures on main), the procedure above simplifies: all branch failures are definitively new regressions, no signature matching needed, no trust gates to evaluate.

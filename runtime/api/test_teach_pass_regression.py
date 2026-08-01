@@ -88,10 +88,14 @@ def test_columns_render_adjacent_to_owning_table(
         )
 
 
+# The packet ships verbatim into every target project, so its recipe
+# placeholders use the generic ``PREFIX-`` form rather than any one
+# project's item prefix. Runtime-composed denial bodies further down this
+# module still carry a concrete ref because they name a real item.
 _CLI_ANCHORS_REQUIRED = (
     # Canonical ``yoke <subcommand>`` agent shapes (current):
-    "yoke claims work acquire --item YOK-",
-    "yoke claims work release --item YOK-",
+    "yoke claims work acquire --item PREFIX-",
+    "yoke claims work release --item PREFIX-",
     "yoke claims path register",
     "yoke claims path widen",
     "yoke lifecycle transition",
@@ -100,8 +104,8 @@ _CLI_ANCHORS_REQUIRED = (
     "yoke items progress-log append",
     "yoke ouroboros field-note append",
     # Source-dev/admin fallbacks the packet explicitly labels.
-    "yoke claims path list --item YOK-N",
-    "yoke db-claim amend YOK-N",
+    "yoke claims path list --item PREFIX-N",
+    "yoke db-claim amend PREFIX-N",
     "--state none",
     "backlog-cli",
     "lifecycle.transition",

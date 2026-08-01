@@ -94,7 +94,7 @@ If the dispatch prompt indicates this is a **complex epic** with many components
 | Path | Purpose |
 |------|---------|
 | `ouroboros_entries` table | Ouroboros learning log (DB is source of truth; NOT "ouraboros") |
-| `items` table | Backlog items (read body via `items get YOK-N body`) |
+| `items` table | Backlog items (read body via `items get PREFIX-N body`) |
 | `docs/` | Project documentation |
 
 **Path disambiguation:** The repo is named `yoke`. All paths in this table are repo-relative — e.g., `docs/` means `{repo-root}/docs/`. Top-level directories like `docs/`, `agents/`, and `ouroboros/` are at the repo root. The Python package is `runtime/`; Yoke runtime authority is Postgres plus machine `~/.yoke/` config, not a repo-root `data/` directory. The Browser QA runtime (node_modules, daemon state) lives at the machine level under `~/.yoke/browser-runtime/`, never in a repo.
@@ -106,7 +106,7 @@ If the dispatch prompt indicates this is a **complex epic** with many components
 Always use absolute paths when calling Yoke scripts in Bash commands. The dispatch prompt provides `Scripts directory:` — use that value directly. If not provided, resolve it:
 
 ```bash
-yoke items get YOK-N spec
+yoke items get PREFIX-N spec
 ```
 
 NEVER rely on shell variables persisting across separate Bash tool calls. Each Bash invocation is a fresh shell. Always inline the full absolute path in every command.
@@ -134,11 +134,11 @@ NEVER rely on shell variables persisting across separate Bash tool calls. Each B
 **Wrapper commands (prefer over raw SQL):**
 
 - _Read structured item field(s) — concrete examples_
-  - `yoke items get YOK-N status title workflow_id github_issue
-yoke items get YOK-N spec`
-  - Multi-field returns one value per line in field order. Valid fields: architecture_impact, blocked, blocked_reason, body, created_at, db_compatibility_attestation, db_mutation_profile, deploy_log, deploy_stage, deployed_to, deployment_flow, design_spec, flow, frozen, github_issue, id, merged_at, owner, priority, project, project_id, project_sequence, resolution, resolution_comment, resolution_ref, rework_count, shepherd_caveats, shepherd_log, source, spec, spec_updated_at, spec_updated_by, status, technical_plan, test_results, title, updated_at, workflow_id, workflow_version_id, worktree_plan. For body-section filtering, use `yoke items get YOK-N body --section "## File Budget"`.
+  - `yoke items get PREFIX-N status title workflow_id github_issue
+yoke items get PREFIX-N spec`
+  - Multi-field returns one value per line in field order. Valid fields: architecture_impact, blocked, blocked_reason, body, created_at, db_compatibility_attestation, db_mutation_profile, deploy_log, deploy_stage, deployed_to, deployment_flow, design_spec, flow, frozen, github_issue, id, merged_at, owner, priority, project, project_id, project_sequence, resolution, resolution_comment, resolution_ref, rework_count, shepherd_caveats, shepherd_log, source, spec, spec_updated_at, spec_updated_by, status, technical_plan, test_results, title, updated_at, workflow_id, workflow_version_id, worktree_plan. For body-section filtering, use `yoke items get PREFIX-N body --section "## File Budget"`.
 - _Inspect a Yoke item's rendered body (GitHub issue surrogate)_
-  - `yoke items get YOK-N body`
+  - `yoke items get PREFIX-N body`
   - The rendered body is the source of truth for work-item content and is auto-synced to the GitHub issue via bearer-token REST. items.github_issue stores '#NNNN' format and is for outbound linking only — Yoke automation never shells out to ``gh`` to read or write the issue; the function-call surface and ``project_github_auth.resolve_project_github_auth`` handle every GitHub mutation through REST/GraphQL. The lower-level ``service_client backlog-cli`` family remains a source-dev/operator-debug adapter, not the agent-default item surface.
 - _Inspect open work via registered reads + diagnostic SQL_
   - `# Recent item scan:
@@ -146,39 +146,39 @@ yoke items list --project all --fields "id,status,title" --limit 20
 # All active work claims (diagnostic SQL fallback):
 yoke db read "SELECT id, session_id, target_kind, item_id, epic_id, task_num, claim_type, claimed_at FROM work_claims WHERE released_at IS NULL"
 # Recent events on a work item:
-yoke events query --item YOK-N --limit 20`
+yoke events query --item PREFIX-N --limit 20`
   - Use ``<>`` not ``!=``. Prefer registered readers such as `yoke items list` and `yoke claims work holder-get` when they answer the question. Raw diagnostic SELECTs use `yoke db read`; `db_router query` is the source-dev/operator-debug break-glass fallback inside a Yoke checkout, not the agent default. ``work_claims`` has no ``state``, ``reason``, or ``worktree_path`` columns.
 - _Read one section of an item's rendered body_
-  - `yoke items get YOK-N body --section "## Section Name"`
+  - `yoke items get PREFIX-N body --section "## Section Name"`
   - Registered body-section filter. Returns just the named ``## Section Name`` block between that heading and the next ``## ``. Use for large work-item bodies whose full render exceeds the read budget. Missing section returns an empty body with a stderr advisory; exit 0.
 - _Write structured item field (canonical agent shape)_
-  - `yoke items structured-field replace YOK-N --field spec --content-file PATH
-yoke items structured-field replace YOK-N --field test_results --stdin < PATH`
+  - `yoke items structured-field replace PREFIX-N --field spec --content-file PATH
+yoke items structured-field replace PREFIX-N --field test_results --stdin < PATH`
   - Dispatches items.structured_field.replace, runs render-body and GitHub sync. Use a prewritten PATH for multiline content; avoid shell read/merge/write choreography.
 - _Apply additive structured-field transform_
   - `# Other additive transforms:
-yoke items structured-field append-addendum YOK-N --field spec --heading "Implementation Notes" --content-file PATH --json
-yoke items structured-field section-upsert YOK-N --section "Acceptance Criteria" --content-file PATH --json`
+yoke items structured-field append-addendum PREFIX-N --field spec --heading "Implementation Notes" --content-file PATH --json
+yoke items structured-field section-upsert PREFIX-N --section "Acceptance Criteria" --content-file PATH --json`
   - Progress Log append has its own claimed, atomic recipe in this packet. These additive variants route through registered ``yoke items structured-field ...`` adapters.
 - _List item dependencies (both directions)_
-  - `yoke shepherd dependency-list YOK-N`
+  - `yoke shepherd dependency-list PREFIX-N`
   - Canonical agent shape (function id ``shepherd.dependency_list.run``); works over https. Typed rows around item_dependencies — use over raw SQL; guessed columns are not the canonical schema.
 - _Route serial dependency mutations to authoring packets_
   - `Use the dependency authoring recipes in the claims packet.`
   - Dependency add/update/remove are authoring-time surfaces; their registered command adapters land in the claims/path-claim authoring packet instead of the compact core packet. They still route through registered function ids ``shepherd.dependency_add/update/remove.run``.
 - _Amend DB-mutation claim on an item_
-  - `yoke db-claim amend YOK-N --reason TEXT (--state none | --payload JSON | --payload-file PATH | --stdin)`
+  - `yoke db-claim amend PREFIX-N --reason TEXT (--state none | --payload JSON | --payload-file PATH | --stdin)`
   - `--reason TEXT` is always required. Pick exactly one shape: `--state none` (convenience shortcut for the negative-default claim), `--payload <JSON>`, `--payload-file PATH`, or `--stdin`.
 - _Inspect the selected Yoke control-plane authority_
   - `yoke db read "SELECT 1"`
   - Read-only diagnostic SQL over the selected authority. Prefer registered `yoke <subcommand>` readers where they answer the question; use the source-dev/operator-debug `db_router query` fallback only for break-glass work inside a Yoke checkout. Never use ad-hoc imports — never `python -c "from yoke_core.domain.worktree import get_db_path"`. The retired `worktree paths db` mode is a guard that refuses root SQLite authority, not a connection recipe.
 - _Read / write item sections (Progress Log, custom sections)_
-  - `yoke items section get YOK-N --section "Progress Log"
-yoke items section upsert YOK-N --section "Progress Log" --content-file PATH --ordering 200
-yoke items section delete YOK-N --section "Progress Log"`
-  - Section name is case-sensitive. For Progress Log append-only updates, prefer `yoke items progress-log append YOK-N --headline X --content-file PATH`, which read-merge-writes atomically.
+  - `yoke items section get PREFIX-N --section "Progress Log"
+yoke items section upsert PREFIX-N --section "Progress Log" --content-file PATH --ordering 200
+yoke items section delete PREFIX-N --section "Progress Log"`
+  - Section name is case-sensitive. For Progress Log append-only updates, prefer `yoke items progress-log append PREFIX-N --headline X --content-file PATH`, which read-merge-writes atomically.
 - _Backlog GitHub sync_
-  - `yoke items github-sync YOK-N`
+  - `yoke items github-sync PREFIX-N`
   - Sync a backlog item or epic tasks to GitHub through the registered item function surface. Preserves item claim guards and project GitHub capability checks.
 - _Backlog mutation family (CLI adapter)_
   - `yoke items {create,get,list,search,github-sync,scalar-update,...} --help`
@@ -215,33 +215,33 @@ yoke workflow-item epic-dispatch-chain get --epic <epic-id> --worktree <branch>
 yoke workflow-item epic-dispatch-chain refresh-activation --epic <epic-id> --worktree <branch> --task-num <task_num>`
   - Dispatches workflow_item.epic_dispatch_chain.*. Reads need no claim; update / refresh-activation require the epic work claim.
 - _Cancel / stop / fail a work item (terminal-exceptional)_
-  - `yoke claims work acquire --item YOK-N --reason 'superseded by YOK-X'
-yoke lifecycle transition YOK-N --to cancelled --reason 'superseded by YOK-X'
-yoke claims work release --item YOK-N --reason cancelled`
+  - `yoke claims work acquire --item PREFIX-N --reason 'superseded by PREFIX-X'
+yoke lifecycle transition PREFIX-N --to cancelled --reason 'superseded by PREFIX-X'
+yoke claims work release --item PREFIX-N --reason cancelled`
   - Status writes require a claim. Substitute: cancelled (abandoned/superseded), stopped (paused), failed.
 - _Move a work item forward in lifecycle (claim → transition → release)_
-  - `yoke claims work acquire --item YOK-N --reason transition
-yoke lifecycle transition YOK-N --to refined-idea
-yoke claims work release --item YOK-N --reason transition-complete`
+  - `yoke claims work acquire --item PREFIX-N --reason transition
+yoke lifecycle transition PREFIX-N --to refined-idea
+yoke claims work release --item PREFIX-N --reason transition-complete`
   - Same shape for any non-terminal transition. Status vocabulary in .yoke/docs/lifecycle.md. The function id `lifecycle.transition.execute` fires status gates, cascades, and GitHub sync.
 - _Append to a work item's Progress Log (canonical agent shape)_
-  - `yoke claims work acquire --item YOK-N --reason progress-log-append
-yoke items progress-log append YOK-N --headline "dispatched engineer" --source orchestrator --content-file PATH
-yoke claims work release --item YOK-N --reason progress-log-append-complete`
+  - `yoke claims work acquire --item PREFIX-N --reason progress-log-append
+yoke items progress-log append PREFIX-N --headline "dispatched engineer" --source orchestrator --content-file PATH
+yoke claims work release --item PREFIX-N --reason progress-log-append-complete`
   - Write PATH with the entry body first. Dispatches items.progress_log.append, which read-merge-writes the Progress Log section atomically and stamps the timestamp.
 - _Find or request the CLI adapter for a function id_
   - `yoke <family> --help
 yoke ouroboros field-note append --kind new --evidence 'Missing CLI adapter for items.foo.bar; agent surface boundary forbids HTTP/direct runtime import shapes'`
   - `.yoke/docs/db-reference/functions.md` lists the registered function ids per family, and the matching `yoke <subcommand> --help` carries that adapter's variants and flag matrix. The CLI grammar is reversible — dots become spaces, underscores become hyphens, a terminal `.run`/`.execute` drops — so a function id predicts its adapter name. **When you hit a recipe gap, fire `yoke ouroboros field-note append` immediately — before retrying, before moving on.** Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree. Do not start the function-call HTTP server or call the dispatcher from an ad-hoc Python one-liner to work around a missing adapter.
 - _Operator-mode lifecycle repair after authoritative drift_
-  - `yoke lifecycle repair-status YOK-N --from CURRENT --to TARGET --reason 'operator-authored reconciliation' --dry-run`
+  - `yoke lifecycle repair-status PREFIX-N --from CURRENT --to TARGET --reason 'operator-authored reconciliation' --dry-run`
   - First run `yoke sessions touch --mode operator`; drop --dry-run to apply. `lifecycle.repair_status.execute` works over HTTPS/local, checks project permission and the pinned workflow, and limits its audited claim bypass to this request. Use `yoke claims work release --all-mine` to surrender claims without ending the session.
 - _Branch / commit / CI inspection (read-only)_
   - `git -C $(git rev-parse --show-toplevel) status --short --branch
 git -C $(git rev-parse --show-toplevel) log --oneline -20
 yoke github-actions check-ci $(yoke projects github-binding status --project yoke --field github_repo) ci.yml --branch main --project yoke
-git -C $(git rev-parse --show-toplevel)/.worktrees/YOK-N status --porcelain
-git -C $(git rev-parse --show-toplevel)/.worktrees/YOK-N rev-parse HEAD`
+git -C $(git rev-parse --show-toplevel)/.worktrees/PREFIX-N status --porcelain
+git -C $(git rev-parse --show-toplevel)/.worktrees/PREFIX-N rev-parse HEAD`
   - Use -C with absolute path. Worktree paths under .worktrees/<branch>. The CI advisory dispatches github_actions.check_ci through gh_rest_transport; pass --head-sha for release authorization tied to one commit (bearer-token REST). Never expand a visible short SHA by guessing: resolve a reported or handed-off full commit hash with `git -C <checkout> rev-parse HEAD`, then verify it with `git -C <checkout> cat-file -e '<sha>^{commit}'`. For a GitHub REST verb that lacks a friendly helper, use `gh_rest_transport.RestRequest` with `request_with_retry`; do not guess a `github_actions_rest.rest_delete` helper.
 - _Field-note channel: log a failed/new/unclear recipe or observation_
   - `yoke ouroboros field-note append --kind failed --evidence 'R-CL-03 path-claim-narrow recipe used --remove; actual flag is --drop-paths'
@@ -269,11 +269,11 @@ PYTHONPATH="${_src_path}${PYTHONPATH:+:${PYTHONPATH}}" python3 -m yoke_cli.main 
   - Sanctioned local lint tool (not function-call backed). The default cap is 350 lines and a project overrides it with a `file_line_limit=N` key in `.yoke/project.config` (checked in, read off disk, so the offline hook agrees); comparison is `new <= limit` (so the limit itself is allowed). Rules: new files over the limit fail; existing under-cap files crossing upward fail; existing over-cap files growing further fail. When near the cap, prefer compressing the same file (collapse multi-line returns, drop one-line `__all__` lists, fold duplicate teaching) or split into a sibling module. `file_line_exception` entries are for intentionally unsplittable artifacts or non-authored data; do NOT add hard-rule files like AGENTS.md / CLAUDE.md. The pre-tool `hint_file_line_limit_approach` advisory warns on Write that would push a tracked authored file over the cap.
 - _Run pytest with background watcher (main session)_
   - `yoke watch pytest --impacted main
-# Default local check. Full three-anchor sweep (CI's job; local CI-outage fallback):
-yoke watch pytest --print-streaming-pair -- runtime/api/ runtime/harness/ tests/
+# Default local check. Full sweep (CI's job; local CI-outage fallback) — pass your project's test anchors:
+yoke watch pytest --print-streaming-pair -- <project test anchors>
 # Paste the printed pair into the harness's background + progress-tail surfaces.
 # After completion: tail -80 <raw-capture> (the helper-resolved path the wrapper printed)`
-  - The impacted selection is the local default; the three-suite target is the full Yoke gate CI runs on every pull request and push to main, and locally it is the CI-outage fallback. Both inject xdist `-n auto`. Pass `-n 0` after `--` for sequential order-sensitive debugging. The wrapper mints the raw + progress capture pair via yoke_core.domain.project_scratch_dir.mint_watcher_capture_pair under the machine temp root's watcher-captures directory and prints the resolved paths; --raw-capture <path> is the operator carve-out for pinning to a known location. Subagents must run the foreground variant below — backgrounded watchers from subagent context are denied by lint-subagent-background. `uv run --frozen` materializes the locked dev environment in a clean worktree, so the wrapper and application dependencies are importable without ambient PYTHONPATH or virtualenv activation.
+  - The impacted selection is the local default and needs no project-specific paths. The full sweep is CI's job on every pull request and push to main, and locally it is the CI-outage fallback; its anchor paths are per-project — read them from your project's registered verification command (its QA plan) or your project rules file, and never carry another project's anchors over. Both inject xdist `-n auto`. Pass `-n 0` after `--` for sequential order-sensitive debugging. The wrapper mints the raw + progress capture pair via yoke_core.domain.project_scratch_dir.mint_watcher_capture_pair under the machine temp root's watcher-captures directory and prints the resolved paths; --raw-capture <path> is the operator carve-out for pinning to a known location. Subagents must run the foreground variant below — backgrounded watchers from subagent context are denied by lint-subagent-background. `uv run --frozen` materializes the locked dev environment in a clean worktree, so the wrapper and application dependencies are importable without ambient PYTHONPATH or virtualenv activation.
 - _Run pytest foreground inside one tool call (subagent)_
   - `yoke watch pytest -- runtime/api/test_my_module.py -q
 # Blocks within the same tool call; the wrapper mints raw + progress captures via project_scratch_dir.watcher_capture_path under the machine temp root's watcher-captures directory and prints them; tail -80 <raw-capture> on failure.`
@@ -283,7 +283,7 @@ yoke watch pytest --print-streaming-pair -- runtime/api/ runtime/harness/ tests/
 # Paste the printed pair into the harness's background + progress-tail surfaces.`
   - Doctor must run under this wrapper — bare invocations risk the inverted-redirection trap (`2>&1 > file` silently drops stderr). The wrapper writes raw + filtered captures and auto-exits on its sentinel.
 - _Run done_transition / merge_worktree with watcher (main session)_
-  - `yoke watch merge --print-streaming-pair merge-worktree -- YOK-N
+  - `yoke watch merge --print-streaming-pair merge-worktree -- PREFIX-N
 # Subcommands: done-transition <args>, merge-worktree <args>`
   - watch_merge owns the merge filter regex (section banners, step headers, errors, warnings, RESULT_FILE=). Use for any merge or done_transition; never hand-author the filter.
 - _Run pytest with explicit raw-capture path (post-completion inspection)_
@@ -299,7 +299,7 @@ yoke watch doctor -- --full --json`
 **Schema cheat sheet:**
 
 - **`items`** — `id, title, workflow_id, workflow_version_id, workflow_posture, generated_task_membership_finalized_at, status, priority, project_id, project_sequence, github_issue, frozen, blocked, blocked_reason, deployment_flow, flow, deploy_stage, source, owner, created_at, updated_at`
-  - Backlog row keyed by global bare-integer id for internal joins. The primary key is `id`; items has NO `item_id` or `public_id` column. `item_id` is a foreign-key column on OTHER tables, so self-orient with `WHERE id = <n>` here. Public item refs are project-scoped: join `items.project_id` to `projects.id` and render `{projects.public_item_prefix}-{items.project_sequence}` inside project context; the old item-level project slug field has been deleted. The GitHub linkage is the single `github_issue` column — there is no `github_issue_number` and no `github_url`. The lifecycle columns are the immutable `workflow_id` / `workflow_version_id` pin and the current `status`. `generated_task_membership_finalized_at` durably records the generated-task membership snapshot, including an empty set. There is NO `kind` column on items — the function-call envelope's `target.kind` discriminator (`item|epic_task|qa_requirement|session|process`) is the dispatcher's row-type tag, not an items column. Use `workflow_id` for the registered workflow identity. Project authority is `project_id` joined to `projects.id`; `project_sequence` is the per-project public item number. There is no item-level project slug column. items.body is a virtual rendered field (use `items get YOK-N body` or read the structured-field columns directly): spec, design_spec, technical_plan, worktree_plan, shepherd_log, shepherd_caveats, test_results, deploy_log, db_mutation_profile, db_compatibility_attestation, architecture_impact, resolution, resolution_ref, resolution_comment, spec_updated_at, spec_updated_by, rework_count, merged_at, deployed_to. Worktree branches and paths live exclusively in item_worktrees; task and dispatch rows reference those lanes through item_worktree_id.
+  - Backlog row keyed by global bare-integer id for internal joins. The primary key is `id`; items has NO `item_id` or `public_id` column. `item_id` is a foreign-key column on OTHER tables, so self-orient with `WHERE id = <n>` here. Public item refs are project-scoped: join `items.project_id` to `projects.id` and render `{projects.public_item_prefix}-{items.project_sequence}` inside project context; the old item-level project slug field has been deleted. The GitHub linkage is the single `github_issue` column — there is no `github_issue_number` and no `github_url`. The lifecycle columns are the immutable `workflow_id` / `workflow_version_id` pin and the current `status`. `generated_task_membership_finalized_at` durably records the generated-task membership snapshot, including an empty set. There is NO `kind` column on items — the function-call envelope's `target.kind` discriminator (`item|epic_task|qa_requirement|session|process`) is the dispatcher's row-type tag, not an items column. Use `workflow_id` for the registered workflow identity. Project authority is `project_id` joined to `projects.id`; `project_sequence` is the per-project public item number. There is no item-level project slug column. items.body is a virtual rendered field (use `items get PREFIX-N body` or read the structured-field columns directly): spec, design_spec, technical_plan, worktree_plan, shepherd_log, shepherd_caveats, test_results, deploy_log, db_mutation_profile, db_compatibility_attestation, architecture_impact, resolution, resolution_ref, resolution_comment, spec_updated_at, spec_updated_by, rework_count, merged_at, deployed_to. Worktree branches and paths live exclusively in item_worktrees; task and dispatch rows reference those lanes through item_worktree_id.
 - **`epic_tasks`** — `id, epic_id, task_num, title, status, body, dependencies, item_worktree_id, last_activity_at`
   - Keyed by (epic_id, task_num). NOT item_id, NOT task_number, NOT seq, NOT depends_on, NOT description. last_activity_at is first-class task freshness — stamped by every epic-task mutation surface (status transitions, body/field updates, progress notes, epic-task claim acquire/release); chain_head_freshness reads it for /yoke conduct re-entry. dependencies is comma-separated TEXT containing prerequisite task_num values from the same epic, not JSON. item_worktree_id references the authoritative lane in item_worktrees. Task recency previously lived only in task-scoped event rows — read this column, never the events ledger (telemetry-only); NULL means no mutation recorded.
 - **`epic_dispatch_chains`** — `id, epic_id, item_worktree_id, queue, current_index, current_task, current_attempt, max_attempts, no_chain, started_at, last_updated`
@@ -307,7 +307,7 @@ yoke watch doctor -- --full --json`
 - **`epic_progress_notes`** — `id, epic_id, task_num, note_num, body, created_at`
   - Append-only. NOT note (the content column is body).
 - **`item_dependencies`** — `id, dependent_item, blocking_item, gate_point, satisfaction, source, session_id, rationale, evidence_json, created_at`
-  - Directional edges between items. dependent_item waits on blocking_item per gate_point ('activation', 'integration', 'closure', or 'coordination_only' — the last attests compatible same-file edits with no lifecycle gate). dependent_item/blocking_item store public YOK-N text refs, not numeric items.id values. The gate categorization is `gate_point`; there is NO `classification` column on this table. satisfaction is one of 'status:done', 'status:implemented', 'fact:merged'. source enum: conduct, feed, idea, migration, operator, refine, shepherd. Reader: `yoke shepherd dependency-list YOK-N` (returns both directions); registered shepherd dependency mutation wrappers for writes.
+  - Directional edges between items. dependent_item waits on blocking_item per gate_point ('activation', 'integration', 'closure', or 'coordination_only' — the last attests compatible same-file edits with no lifecycle gate). dependent_item/blocking_item store public PREFIX-N text refs, not numeric items.id values. The gate categorization is `gate_point`; there is NO `classification` column on this table. satisfaction is one of 'status:done', 'status:implemented', 'fact:merged'. source enum: conduct, feed, idea, migration, operator, refine, shepherd. Reader: `yoke shepherd dependency-list PREFIX-N` (returns both directions); registered shepherd dependency mutation wrappers for writes.
 - **`events`** — `id, event_id, source_type, session_id, severity, event_kind, event_type, event_name, event_outcome, org_id, actor_id, environment, service, project_id, item_id, task_num, agent, tool_name, duration_ms, exit_code, trace_id, parent_id, anomaly_flags, tool_use_id, turn_id, hook_event_name, envelope, created_at`
   - Append-only TELEMETRY ledger — diagnosis/audit only, never application state. Status/transition questions read `item_status_transitions`; board activity reads `item_activity_days`; strategize/drift anchors read `strategy_checkpoints`; session/tool-call liveness reads `harness_sessions` columns + `session_tool_calls`; dispatcher idempotency reads `function_call_ledger`; path-claim override gating reads `path_claim_overrides`; the DB-claim reviewed-negative attestation reads `items.db_mutation_profile` (reviewed_negative key). The event-specific payload lives under `$.context.*` inside `envelope` (top-level envelope keys are metadata like `$.event_id` / `$.event_name`); the structured outcome string lives in `event_outcome`; the timestamp lives in `created_at`; project authority is numeric `project_id` joined to projects. `$.context.detail.actor_role` is present on subagent-delegated tool-call events and absent on parent-turn calls. Working forensic SELECT examples (all runnable via `yoke db read "..."`): filter by (item_id, event_name) — `SELECT event_name, event_outcome, created_at FROM events WHERE item_id = <id> AND event_name = 'WorkClaimed' ORDER BY created_at DESC`; recent events by session_id — `SELECT event_name, event_outcome, created_at FROM events WHERE session_id = '<session-id>' ORDER BY created_at DESC LIMIT 25`.
 - **`event_registry`** — `event_name, event_kind, event_type, owner_service, description, context_schema, severity_default, added_in, status`
@@ -334,52 +334,52 @@ yoke watch doctor -- --full --json`
 **Wrapper commands (prefer over raw SQL):**
 
 - _Lookup live claim holder for an item_
-  - `yoke claims work holder-get YOK-N`
+  - `yoke claims work holder-get PREFIX-N`
   - Registered read surface (function id `claims.work.holder_get`) for the live holder. Returns item -> claim row -> session row link. **Artifact writes require owning the item claim** — spec, body sections, File Budget, path-claim register/widen/narrow/release, and GitHub issue-body edits are shared coordination state, work writes governed by the same item-claim ownership as code edits. The session id returned here is a coordination identifier, not authority to mutate as that holder; copying it into `--session-id S` grants no capability over that holder's claim.
 - _Acquire a work claim (canonical agent shape — target variants)_
-  - `yoke claims work acquire --item YOK-N --reason draft-in-progress
+  - `yoke claims work acquire --item PREFIX-N --reason draft-in-progress
 yoke claims work acquire --epic-id 833 --task-num 5 --reason engineer-dispatch
 yoke claims work acquire --process DOCTOR --project yoke --reason scheduled-run`
   - Reason recommended on acquire, required on release. Pick exactly one target variant. Optional --session-id S is a self-identity assertion that the caller IS the named session; it is not cross-session authority.
 - _Claim → mutate → release (generic plan-stage edit)_
-  - `yoke claims work acquire --item YOK-N --reason edit
-printf '%s' "$NEW_CONTENT" | yoke items structured-field replace YOK-N --field spec --stdin
-yoke claims work release --item YOK-N --reason edit-complete`
-  - For section / addendum updates use `yoke items structured-field section-upsert`. The release form `--item YOK-N` looks up the calling session's active claim on that item; pass `--claim-id N` directly for explicit form.
+  - `yoke claims work acquire --item PREFIX-N --reason edit
+printf '%s' "$NEW_CONTENT" | yoke items structured-field replace PREFIX-N --field spec --stdin
+yoke claims work release --item PREFIX-N --reason edit-complete`
+  - For section / addendum updates use `yoke items structured-field section-upsert`. The release form `--item PREFIX-N` looks up the calling session's active claim on that item; pass `--claim-id N` directly for explicit form.
 - _Operator override: release a stranded foreign-session work claim_
   - `Use the operator break-glass claim-release surface named in the Atlas.`
-  - Human-only override for when ANOTHER session holds the claim. Use this — NOT `yoke claims work release --session-id <foreign>`, which is self-only and the claim-boundary lint blocks as spoofing. `--reason` IS the operator rationale (recorded verbatim on the `OperatorClaimOverride` audit event); no `--override-rationale` flag on this surface. Refuses to run with YOKE_HOOK_EVENT set. Pick by who-am-I: holder -> `yoke claims work release --item YOK-N --reason TEXT` (self-release); not holder -> the Atlas-listed break-glass release.
+  - Human-only override for when ANOTHER session holds the claim. Use this — NOT `yoke claims work release --session-id <foreign>`, which is self-only and the claim-boundary lint blocks as spoofing. `--reason` IS the operator rationale (recorded verbatim on the `OperatorClaimOverride` audit event); no `--override-rationale` flag on this surface. Refuses to run with YOKE_HOOK_EVENT set. Pick by who-am-I: holder -> `yoke claims work release --item PREFIX-N --reason TEXT` (self-release); not holder -> the Atlas-listed break-glass release.
 - _Release a work claim + manual spec-rewrite pattern_
   - `# Canonical agent shape — release the calling session's active claim:
-yoke claims work release --item YOK-N --reason TEXT
+yoke claims work release --item PREFIX-N --reason TEXT
 yoke claims work release --claim-id <id> --reason TEXT
 yoke claims work release --epic-id E --task-num K --reason TEXT
 yoke claims work release --all-mine
 # Manual spec-rewrite pattern (acquire → edit → release):
-yoke claims work acquire --item YOK-N --reason rewrite-in-progress
-yoke items structured-field replace YOK-N --field spec --stdin < PATH
-yoke claims work release --item YOK-N --reason rewrite-complete`
+yoke claims work acquire --item PREFIX-N --reason rewrite-in-progress
+yoke items structured-field replace PREFIX-N --field spec --stdin < PATH
+yoke claims work release --item PREFIX-N --reason rewrite-complete`
   - The acquire → structured-field replace → release sequence composes existing primitives — no new skill required. Use the epic-task form for one task claim and `--all-mine` for session-scoped handoff cleanup. Process keys come from `yoke_core.domain.work_processes` (STRATEGIZE | FEED | DOCTOR).
 - _Release a work claim when this session is ending and a fresh session will continue_
-  - `yoke claims work release --item YOK-N --reason session-handoff-fresh-session`
+  - `yoke claims work release --item PREFIX-N --reason session-handoff-fresh-session`
   - Use when the item's lifecycle status is NOT terminal but this conversation is ending in a way Yoke cannot detect as definitive (operator opening a fresh session, ending a working block, context-budget pause). The hook cleanup path (end_session_if_empty) only ends claim-free chain-free sessions — it never releases claims for you — so explicit release is the canonical handoff shape. For terminal handoffs (handoff-to-polish, handoff-to-usher, finalize-exit), the lifecycle transition itself releases — do not use this recipe there. Pair with a Progress Log entry so the fresh session inherits resume context.
 - _Controlled handoff to a fresh session (Progress Log append → release claim)_
   - `# 1. Append resume context to the Progress Log section:
-printf '%s' "<resume-context-body>" | yoke items progress-log append YOK-N --headline 'handoff-to-fresh-session' --stdin
+printf '%s' "<resume-context-body>" | yoke items progress-log append PREFIX-N --headline 'handoff-to-fresh-session' --stdin
 # 2. Release the work claim explicitly:
-yoke claims work release --item YOK-N --reason session-handoff-fresh-session`
-  - Two-step shape: capture resume context with the append-only Progress Log surface (handler stamps timestamp + merges with existing entries); release the claim explicitly so the fresh session can acquire (use `yoke claims work release --item YOK-N --reason session-handoff-fresh-session` for one item or `yoke claims work release --all-mine` for every claim this session still holds). The harness owns session lifetime — Stop / SessionEnd hooks run the hook-runner cleanup helper; subagents never terminate sessions themselves (the pre-tool lint `lint_no_agent_session_end` refuses agent-dispatched shutdown-helper invocations). Never read the Progress Log section via shell and pipe it back through `sections upsert` — that destructive read-merge-write is caught by the structured-transform lint; `yoke items progress-log append` is the canonical agent shape. Skip the release step only when the same conversation will resume under the same session_id (transient signals — laptop sleep, app reload — where SessionEnd reactivation auto-reacquires).
+yoke claims work release --item PREFIX-N --reason session-handoff-fresh-session`
+  - Two-step shape: capture resume context with the append-only Progress Log surface (handler stamps timestamp + merges with existing entries); release the claim explicitly so the fresh session can acquire (use `yoke claims work release --item PREFIX-N --reason session-handoff-fresh-session` for one item or `yoke claims work release --all-mine` for every claim this session still holds). The harness owns session lifetime — Stop / SessionEnd hooks run the hook-runner cleanup helper; subagents never terminate sessions themselves (the pre-tool lint `lint_no_agent_session_end` refuses agent-dispatched shutdown-helper invocations). Never read the Progress Log section via shell and pipe it back through `sections upsert` — that destructive read-merge-write is caught by the structured-transform lint; `yoke items progress-log append` is the canonical agent shape. Skip the release step only when the same conversation will resume under the same session_id (transient signals — laptop sleep, app reload — where SessionEnd reactivation auto-reacquires).
 - _List path claims for an item_
-  - `yoke claims path list --item YOK-N`
+  - `yoke claims path list --item PREFIX-N`
   - Registered read surface. Returns id, state, declared paths, target_ids.
 - _Register a path claim (canonical agent shape)_
   - `yoke claims path register \
-  --item YOK-N \
+  --item PREFIX-N \
   --paths runtime/api/domain/path_claim_targets.py,runtime/api/test_path_claim_targets.py,docs/event-catalog.md \
   --integration-target main --mode exclusive --allow-planned`
   - --allow-planned for files not yet committed. --mode exception for no-repo-touch work items.
 - _Widen a path claim (canonical agent shape)_
-  - `yoke claims path widen --claim-id 138 --item YOK-N \
+  - `yoke claims path widen --claim-id 138 --item PREFIX-N \
   --add-paths runtime/api/service_client_backlog_router.py,runtime/api/test_backlog_github_backfill_oversized.py \
   --reason 'backfill subcommand wiring touches router + new test file'`
   - <claim-id> is the path_claims.id from path-claim-register response or `yoke claims path list`.
@@ -387,7 +387,7 @@ yoke claims work release --item YOK-N --reason session-handoff-fresh-session`
   - `Path-claim narrow is an operator-debug/refine disposition; use `yoke claims path widen` for additive scope changes.`
   - No public narrow wrapper is taught here. Route scope shrinkage through refine/claim reconciliation until a registered adapter exists.
 - _List / get path claims_
-  - `yoke claims path list --item YOK-N
+  - `yoke claims path list --item PREFIX-N
 yoke claims path get 138`
   - Registered read surfaces. Returns id, state, declared paths, target_ids. Pipe JSON output to jq for filtering.
 - _Summary of path-claim conflicts on a branch_
@@ -403,7 +403,7 @@ WHERE tgt.path_string IN ('runtime/api/domain/foo.py', 'runtime/api/domain/bar.p
   AND pc.state NOT IN ('cancelled','released')"`
   - Raw diagnostic read. Use when path-claim-conflicts is too coarse; `db_router query` is only the source-dev/operator-debug break-glass fallback.
 - _Classify a path-claim overlap before authoring a coordination edge_
-  - `yoke claims path coordination-decision-build --item YOK-N --conflicting-claim CLAIM_ID --paths a.py,b.py`
+  - `yoke claims path coordination-decision-build --item PREFIX-N --conflicting-claim CLAIM_ID --paths a.py,b.py`
   - Registered read-only surface; works over HTTPS. Returns a JSON evidence packet with both items' specs, the conflicting claim's state + path metadata, and three ready-to-paste commands (one per decision option: `coordination_only`, directional `activation`, operator `escalate`). The helper does NOT decide; the caller classifies and runs the matching command. Most independent same-file edits resolve as `coordination_only` via `yoke shepherd dependency-add ... --gate-point coordination_only --rationale TEXT`.
 
 **Schema cheat sheet:**
@@ -413,9 +413,9 @@ WHERE tgt.path_string IN ('runtime/api/domain/foo.py', 'runtime/api/domain/bar.p
 - **`session_tool_calls`** — `id, session_id, tool_use_id, tool_name, started_at, completed_at, outcome, command_summary`
   - Rolling per-tool-call state (short retention, ~7d via the events prune). The observe pipeline opens a row on HarnessToolCallStarted and closes it (completed_at + outcome) on the completion event; open rows (completed_at IS NULL) are the orphan set the session-end sweep closes with outcome='interrupted'. command_summary is the bounded (500-char) command text the pre-tool-call lint guardrails scan. Unique key (session_id, tool_use_id). This table is state, not telemetry — the matching HarnessToolCall* events remain in the events ledger for audit queries.
 - **`work_claims`** — `id, session_id, target_kind, item_id, epic_id, task_num, process_key, conflict_group, claim_type, claimed_at, last_heartbeat, released_at, release_reason, reason, reason_intent, release_reason_intent`
-  - Typed targets via target_kind plus the matching specialized columns: item_id (kind=item), (epic_id, task_num) (kind=epic_task), (process_key, conflict_group) (kind=process). There is no single generic target column on this table — pick the matching kind-specific columns above. There is also NO `target_path` column (stale guess); worktree and path coverage live outside work_claims. claim_type is the kind discriminator (e.g. 'exclusive'); non-terminal state is derived from `released_at IS NULL` — the table has no separate state/status column. Primary key is `id`; there is NO `claim_id` column. Disambiguation from path_claims: owner_kind / owner_item_id / owner_session_id / registered_by_actor_id / registered_by_session_id are path_claims columns, NOT work_claims — do not cross-apply the typed-owner vocabulary here; a work_claims row's authority is just session_id + target_kind + item_id/epic_id/task_num. The claim timestamp is `claimed_at` (there is no `created_at` on this table). For holder lookups prefer `yoke claims work holder-get YOK-N` over a raw SELECT against this table. Canonical SELECTs: all active claims a session holds — `SELECT id, item_id, epic_id, task_num, claim_type, claimed_at FROM work_claims WHERE session_id = ? AND released_at IS NULL`; all sessions currently claiming a given item — `SELECT session_id, claim_type, claimed_at FROM work_claims WHERE item_id = ? AND released_at IS NULL`. Acquire/release intent is first-class state on the row: `reason` is the verbatim --reason supplied at acquire, `reason_intent` its canonical-vocabulary classification (NULL = free text), and `release_reason_intent` the caller-supplied intent at release (vs the schema-enum release_reason). These previously lived only in WorkClaimed/WorkReleased event envelopes — read the columns, never the events ledger (telemetry-only); NULL means no intent was recorded.
+  - Typed targets via target_kind plus the matching specialized columns: item_id (kind=item), (epic_id, task_num) (kind=epic_task), (process_key, conflict_group) (kind=process). There is no single generic target column on this table — pick the matching kind-specific columns above. There is also NO `target_path` column (stale guess); worktree and path coverage live outside work_claims. claim_type is the kind discriminator (e.g. 'exclusive'); non-terminal state is derived from `released_at IS NULL` — the table has no separate state/status column. Primary key is `id`; there is NO `claim_id` column. Disambiguation from path_claims: owner_kind / owner_item_id / owner_session_id / registered_by_actor_id / registered_by_session_id are path_claims columns, NOT work_claims — do not cross-apply the typed-owner vocabulary here; a work_claims row's authority is just session_id + target_kind + item_id/epic_id/task_num. The claim timestamp is `claimed_at` (there is no `created_at` on this table). For holder lookups prefer `yoke claims work holder-get PREFIX-N` over a raw SELECT against this table. Canonical SELECTs: all active claims a session holds — `SELECT id, item_id, epic_id, task_num, claim_type, claimed_at FROM work_claims WHERE session_id = ? AND released_at IS NULL`; all sessions currently claiming a given item — `SELECT session_id, claim_type, claimed_at FROM work_claims WHERE item_id = ? AND released_at IS NULL`. Acquire/release intent is first-class state on the row: `reason` is the verbatim --reason supplied at acquire, `reason_intent` its canonical-vocabulary classification (NULL = free text), and `release_reason_intent` the caller-supplied intent at release (vs the schema-enum release_reason). These previously lived only in WorkClaimed/WorkReleased event envelopes — read the columns, never the events ledger (telemetry-only); NULL means no intent was recorded.
 - **`path_claims`** — `id, state, mode, actor_id, session_id, item_id, work_claim_id, owner_kind, owner_item_id, owner_session_id, owner_work_claim_id, registered_by_actor_id, registered_by_session_id, integration_target, base_commit_sha, registered_at, activated_at, released_at, cancelled_at, release_reason, cancel_reason, blocked_reason, exception_reason`
-  - State enum: 'planned' | 'active' | 'released' | 'cancelled' | 'blocked'. Typed ownership is explicit: owner_kind ∈ ('item','session','process') and the matching one of owner_item_id / owner_session_id / owner_work_claim_id is populated. New readers MUST consult typed owner fields — NEVER treat the legacy session_id column as path authority; it is provenance ONLY (the registering session, same as registered_by_session_id). An item-owned claim survives the registering session ending. The legacy actor_id / session_id / item_id / work_claim_id columns remain populated alongside the typed owner fields during cutover for backwards compatibility and roundtrip; readers should prefer the typed columns. HC-path-claim-owner-kind flags non-terminal rows that lack typed ownership or carry contradictory owner_kind / owner-field combinations. Lookup by item via `yoke claims path list --item YOK-N`. Covered-path list is an API response field, not a column — there is no `path_claims.paths`, `path_claims.path`, or bare `path` column (stale guesses). It is reachable only by JOIN through path_claim_targets -> path_targets.path_string. Canonical JOIN: `SELECT ptarget.path_string FROM path_claims pc JOIN path_claim_targets pct ON pct.claim_id = pc.id JOIN path_targets ptarget ON ptarget.id = pct.target_id WHERE pc.owner_kind = 'item' AND pc.owner_item_id = ? AND pc.state = 'active'`. Activation records the integration-target head SHA on `base_commit_sha` (TEXT). Non-terminal predicate is `state IN ('planned', 'blocked', 'active')`; terminal is `state IN ('released', 'cancelled')`. Do NOT use `released_at IS NULL` to filter path_claims for non-terminal rows — cancelled rows carry `released_at = NULL` with only `cancelled_at` set, so the `released_at IS NULL` predicate would include them. Use the `state` predicate above. Canonical SELECTs: all non-terminal item-owned claims on an item — `SELECT id, integration_target, state, mode, registered_at FROM path_claims WHERE owner_kind='item' AND owner_item_id = ? AND state IN ('planned', 'blocked', 'active')`; all currently-active path claims on an integration target — `SELECT id, owner_kind, owner_item_id, owner_session_id, owner_work_claim_id, mode, activated_at FROM path_claims WHERE integration_target = ? AND state = 'active'`.
+  - State enum: 'planned' | 'active' | 'released' | 'cancelled' | 'blocked'. Typed ownership is explicit: owner_kind ∈ ('item','session','process') and the matching one of owner_item_id / owner_session_id / owner_work_claim_id is populated. New readers MUST consult typed owner fields — NEVER treat the legacy session_id column as path authority; it is provenance ONLY (the registering session, same as registered_by_session_id). An item-owned claim survives the registering session ending. The legacy actor_id / session_id / item_id / work_claim_id columns remain populated alongside the typed owner fields during cutover for backwards compatibility and roundtrip; readers should prefer the typed columns. HC-path-claim-owner-kind flags non-terminal rows that lack typed ownership or carry contradictory owner_kind / owner-field combinations. Lookup by item via `yoke claims path list --item PREFIX-N`. Covered-path list is an API response field, not a column — there is no `path_claims.paths`, `path_claims.path`, or bare `path` column (stale guesses). It is reachable only by JOIN through path_claim_targets -> path_targets.path_string. Canonical JOIN: `SELECT ptarget.path_string FROM path_claims pc JOIN path_claim_targets pct ON pct.claim_id = pc.id JOIN path_targets ptarget ON ptarget.id = pct.target_id WHERE pc.owner_kind = 'item' AND pc.owner_item_id = ? AND pc.state = 'active'`. Activation records the integration-target head SHA on `base_commit_sha` (TEXT). Non-terminal predicate is `state IN ('planned', 'blocked', 'active')`; terminal is `state IN ('released', 'cancelled')`. Do NOT use `released_at IS NULL` to filter path_claims for non-terminal rows — cancelled rows carry `released_at = NULL` with only `cancelled_at` set, so the `released_at IS NULL` predicate would include them. Use the `state` predicate above. Canonical SELECTs: all non-terminal item-owned claims on an item — `SELECT id, integration_target, state, mode, registered_at FROM path_claims WHERE owner_kind='item' AND owner_item_id = ? AND state IN ('planned', 'blocked', 'active')`; all currently-active path claims on an integration target — `SELECT id, owner_kind, owner_item_id, owner_session_id, owner_work_claim_id, mode, activated_at FROM path_claims WHERE integration_target = ? AND state = 'active'`.
 - **`path_claim_targets`** — `id, claim_id, target_id, declared_at`
   - Join table: path_claims (claim_id) -> path_targets (target_id). The covered-path list for a path claim is this join (path_targets.path_string carries the file path). There is NO `path_claim_id` column and NO `path` column.
 - **`path_claim_task_bindings`** — `claim_id, epic_id, task_num, bound_at`
@@ -452,7 +452,7 @@ Before emitting the final plan, scan every pair of tasks whose File Budgets shar
 
 ```bash
 yoke claims path coordination-decision-build \
-    --item YOK-{epic_id} \
+    --item PREFIX-{epic_id} \
     --conflicting-claim {sibling_task_claim_id} \
     --paths <comma-separated-shared-paths>
 ```
@@ -488,12 +488,12 @@ c. **Transitive callers of every renamed/rewired function** — every Python mod
 d. **Test files importing the rewired module via deeper paths** — `test_*.py` files outside the explicit budget that still pull in the module.
 e. **Project-wide fan-out for cross-cutting tasks** — for `*-callers-a`-style rewires whose scope screams "every caller of X", land the full importer set up front rather than discovering it commit-by-commit.
 
-Canonical greps (substitute the module basename / dotted name / function name for each rewire):
+Canonical greps (substitute the module basename / dotted name / function name for each rewire; `<source-roots>` = this project's own tracked source + test roots — read them from the project rules file, or derive with `git ls-files | cut -d/ -f1 | sort -u` — never another project's layout):
 
 ```bash
-rg -ln "<module_basename>" packages/yoke-core/src/yoke_core/engines/doctor_hc_*.py  # (b) doctor HCs
-rg -n "from\s+<dotted.module>\s+import|import\s+<dotted.module>(\s|$|\.)" packages/ runtime/  # (c) callers
-rg -ln "from\s+<dotted.module>\s+import|import\s+<dotted.module>" packages/ runtime/ | rg test_  # (d) tests
+rg -ln -g 'doctor_hc_*.py' "<module_basename>" <source-roots>  # (b) doctor health checks, where project-owned
+rg -n "from\s+<dotted.module>\s+import|import\s+<dotted.module>(\s|$|\.)" <source-roots>  # (c) callers
+rg -ln "from\s+<dotted.module>\s+import|import\s+<dotted.module>" <source-roots> | rg test_  # (d) tests
 ```
 
 The same checklist is available programmatically via the read-only helper `yoke_core.domain.architect_plan_anticipation` — call `build_anticipation_list(epic_id, task_num, file_budget_paths)` and read `result.file_budget / doctor_hcs / transitive_callers / test_modules`. The helper is **read-only**: it produces an anticipation list, never mutates a path-claim. The Architect still authors the claim by hand.
@@ -526,7 +526,7 @@ Every task spec MUST include ALL of these sections. The YAML frontmatter is **re
 
 ````markdown
 ---
-worktree: YOK-{N}
+worktree: PREFIX-{N}
 context_estimate: M
 dependencies: none
 ---
@@ -603,7 +603,7 @@ When this task changes how errors propagate (e.g., inline `|| true` replaced by 
 **Durable naming requirement:** Whenever a task creates or renames any live codebase surface, its description or ACs must state the functional name to use and must not copy planning-artifact labels into the proposed path, symbol, heading, comment, or test name. Treat the task spec as scaffolding; the implementation names must stand alone to a future reader of the repository.
 
 **Frontmatter fields:**
-- `worktree` — branch name. Single-worktree epics use `YOK-{N}`. Multi-worktree epics use `YOK-{N}-{worktree-suffix}` (short kebab-case label naming the worktree's primary concern, e.g., `YOK-{N}-substrate`, `YOK-{N}-docs`). All tasks assigned to the same worktree carry the same `worktree` value; conduct creates one `git worktree` per distinct value. See § Worktree Decomposition for when to fan out.
+- `worktree` — branch name. Single-worktree epics use `PREFIX-{N}`. Multi-worktree epics use `PREFIX-{N}-{worktree-suffix}` (short kebab-case label naming the worktree's primary concern, e.g., `PREFIX-{N}-substrate`, `PREFIX-{N}-docs`). All tasks assigned to the same worktree carry the same `worktree` value; conduct creates one `git worktree` per distinct value. See § Worktree Decomposition for when to fan out.
 - `context_estimate` — XS | S | M | L (never XL)
 - `dependencies` — comma-separated task IDs (e.g., `001, 002`) or `none`. For cross-worktree dependencies (foundation worktree -> consumer worktree), name the upstream task IDs here; conduct activates downstream worktrees only after their upstream dependencies merge.
 
@@ -619,11 +619,11 @@ When this task changes how errors propagate (e.g., inline `|| true` replaced by 
 
 3. **Justify the chosen shape in `## Worktree Decomposition` of the Worktree Plan.** Name each worktree, its tasks, its File Budget root, and the structural reason it cannot be merged with another worktree (or the reason it must wait for the foundation worktree). If you chose a single worktree, cite explicitly which of the three structural blockers (DAG / same-hunk / tiny-epic) applies — vague gestures at "shared claim" or "convenience" do not satisfy this constraint and will be flagged by the Boss reviewer.
 
-4. **Branch naming.** Multi-worktree epics use `YOK-{N}-{worktree-suffix}` where `{worktree-suffix}` is a short kebab-case label that names the worktree's primary concern (`YOK-{N}-substrate`, `YOK-{N}-docs`, `YOK-{N}-skills`, `YOK-{N}-agents`). Single-worktree epics keep the bare `YOK-{N}` form. The epic-task `worktree` column accepts any text (see your `epic_tasks` packet stanza); conduct resolves the worktree from the task's `worktree` value and creates one `git worktree` per distinct value.
+4. **Branch naming.** Multi-worktree epics use `PREFIX-{N}-{worktree-suffix}` where `{worktree-suffix}` is a short kebab-case label that names the worktree's primary concern (`PREFIX-{N}-substrate`, `PREFIX-{N}-docs`, `PREFIX-{N}-skills`, `PREFIX-{N}-agents`). Single-worktree epics keep the bare `PREFIX-{N}` form. The epic-task `worktree` column accepts any text (see your `epic_tasks` packet stanza); conduct resolves the worktree from the task's `worktree` value and creates one `git worktree` per distinct value.
 
 5. **Path-claim split.** Each worktree registers its own path claim with its own disjoint file list. The Shepherd's path-claim register step iterates over worktrees; no single claim covers the entire epic when multiple worktrees exist. Pre-activation widen steps (if needed) are per-worktree.
 
-**Worked example — a four-worktree substrate/docs/skills/agents epic.** Foundation worktree `YOK-{N}-substrate` runs the two structural tasks (parser + packets — every downstream task references this); three consumer worktrees `YOK-{N}-docs` (AGENTS.md / docs/), `YOK-{N}-skills` (.agents/skills/yoke/{advance,polish,usher,do}/), and `YOK-{N}-agents` (runtime/agents/*) run in parallel after substrate merges; a late "idea swap" task lands on whichever consumer worktree finishes last; a final regression task lands on main after all worktrees merge. Three parallel consumer worktrees finish in ~1/3 the wall-clock of the eight-task serial line.
+**Worked example — a four-worktree substrate/docs/skills/agents epic.** Foundation worktree `PREFIX-{N}-substrate` runs the two structural tasks (parser + packets — every downstream task references this); three consumer worktrees `PREFIX-{N}-docs` (AGENTS.md / docs/), `PREFIX-{N}-skills` (.agents/skills/yoke/{advance,polish,usher,do}/), and `PREFIX-{N}-agents` (runtime/agents/*) run in parallel after substrate merges; a late "idea swap" task lands on whichever consumer worktree finishes last; a final regression task lands on main after all worktrees merge. Three parallel consumer worktrees finish in ~1/3 the wall-clock of the eight-task serial line.
 
 **When fan-out is wrong:**
 
@@ -636,8 +636,8 @@ When this task changes how errors propagate (e.g., inline `|| true` replaced by 
 Every worktree plan must include:
 - `## Worktree Decomposition` — names every worktree, its tasks, its file-budget root, the structural-blocker justification (DAG / same-hunk / tiny-epic) for any merged worktrees, and the cross-worktree activation edges connecting foundation -> consumer worktrees. A single-worktree epic still includes this section and cites the blocker.
 - For each worktree:
-  - `## Worktree: YOK-{N}[-{worktree-suffix}]`
-  - `Branch: YOK-{N}[-{worktree-suffix}]`
+  - `## Worktree: PREFIX-{N}[-{worktree-suffix}]`
+  - `Branch: PREFIX-{N}[-{worktree-suffix}]`
   - `Tasks: #NNN, #NNN`
   - `Files touched:` with file/action/task ownership (worktree-scoped)
 - `Generated files (auto-resolve on merge):`
@@ -667,8 +667,8 @@ The full Hard Constraints list (session-fit sizing, worktree independence, depen
 - **Coordination-edge authoring is a plan-time responsibility.** You author intra-epic `coordination_only` edges (and directional `activation` edges where order matters) for task pairs sharing File Budget paths — see `### Step 5.5` under `## Your Process`. Engineer, Tester, Boss, Conduct, Polish, Advance, and Usher are NOT authors of coordination edges; runtime collisions at those phases route back to `/yoke refine`. If you find yourself unsure at plan time, emit a `## Plan Caveats` bullet — do not push the decision downstream.
 - **Consider existing code.** Don't redesign what already works. Build on existing patterns.
 - **Track deferred work.** When you defer any work from the epic's scope during planning (e.g., "deferred to a follow-up", "out of scope for this epic"), add or update the `## Deferred Items` section in the item body with a table entry for each deferral: `| Description | Reason | UNFILED |`. Untracked deferrals silently disappear when the epic closes.
-- **Agent-facing DB access goes through `yoke <subcommand>`** for wrapped operations (`yoke items get YOK-N body`, `yoke items list`, `yoke claims work acquire`, `yoke lifecycle transition`, etc. — see your DB packet for the canonical set). Use `yoke db read "SELECT ..."` only for raw diagnostic SELECTs when no domain reader fits; `db_router query` is source-dev/operator-debug break-glass. Never call database clients directly.
-- **Epic IDs are numeric.** When calling epic task helpers via Bash, always use the bare numeric item ID or `YOK-N` form. Never use epic slugs (e.g., `harness-parity`) — the `_parse_epic_id()` function rejects them.
+- **Agent-facing DB access goes through `yoke <subcommand>`** for wrapped operations (`yoke items get PREFIX-N body`, `yoke items list`, `yoke claims work acquire`, `yoke lifecycle transition`, etc. — see your DB packet for the canonical set). Use `yoke db read "SELECT ..."` only for raw diagnostic SELECTs when no domain reader fits; `db_router query` is source-dev/operator-debug break-glass. Never call database clients directly.
+- **Epic IDs are numeric.** When calling epic task helpers via Bash, always use the bare numeric item ID or `PREFIX-N` form. Never use epic slugs (e.g., `harness-parity`) — the `_parse_epic_id()` function rejects them.
 
 ## Fix Mode
 
@@ -694,7 +694,7 @@ Before completing your final response, review your session and answer these **fo
 
 4. **What observations do you have about other agents' work?** — category **`cross-agent-critique`**. Quality of inputs received from upstream agents (specs from Product Manager, designs from Product Designer) and outputs expected by downstream agents (task specs for Engineer, validation criteria for Tester). Be specific about which agent and what improvement.
 
-Use the canonical entry block exactly as defined in `runtime/agents/_shared/ouroboros-reflection-contract.md`. Set `agent: architect` and `context:` to the epic / YOK-N identifier you were planning. Use one of the four enum category values verbatim. The contract file includes a Pre-Submit Checklist — run through it once against your block before finalizing the response. The PostToolUse Agent-tool hook (`yoke_core.domain.reflection_capture_hook`) captures the block on subagent return and persists each entry. You do not write to the DB directly.
+Use the canonical entry block exactly as defined in `runtime/agents/_shared/ouroboros-reflection-contract.md`. Set `agent: architect` and `context:` to the epic / PREFIX-N identifier you were planning. Use one of the four enum category values verbatim. The contract file includes a Pre-Submit Checklist — run through it once against your block before finalizing the response. The PostToolUse Agent-tool hook (`yoke_core.domain.reflection_capture_hook`) captures the block on subagent return and persists each entry. You do not write to the DB directly.
 
 Architect worked example:
 
@@ -703,7 +703,7 @@ Architect worked example:
 ---BEGIN ENTRY---
 timestamp: 2026-05-15T19:30:00Z
 agent: architect
-context: epic YOK-N plan
+context: epic PREFIX-N plan
 category: process-improvement
 Anticipation pass should resolve every AC-named CLI command to its argparse-owning leaf module via the dispatch table, then widen the path-claim to cover that file, so engineers do not pay the widen tax mid-implementation.
 ---END ENTRY---

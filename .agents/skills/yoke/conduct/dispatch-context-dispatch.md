@@ -74,7 +74,7 @@ fi
 ```
 
 If `_has_implementation_{_id}` is true, skip the Engineer dispatch:
-- Emit log line: `[SKIP] YOK-{N} task {_task_id}: implementation already on branch, skipping to Tester`
+- Emit log line: `[SKIP] PREFIX-{N} task {_task_id}: implementation already on branch, skipping to Tester`
 - **Seed the generated task's review requirement** (idempotent).
   `review_seed` auto-advances the task to `reviewing-implementation`:
   `yoke workflow-item epic-task review-seed --epic "$_epic_id" --task-num "$_task_id"`
@@ -98,7 +98,7 @@ apply the proactive widen-before-write workflow without first running
 # the active claim's declared paths (declared_paths / declared_targets,
 # joined through path_claim_targets -> path_targets.path_string); do
 # NOT teach `path_claims.covered_paths` as a DB column.
-_claim_coverage=$(yoke claims path list --item YOK-${_id} --state active)
+_claim_coverage=$(yoke claims path list --item PREFIX-${_id} --state active)
 ```
 
 Inline the resulting paths under a `## Active Path Claim Coverage` heading.
@@ -113,7 +113,7 @@ The Tester's dispatch prompt MUST include the same `## Active Path Claim Coverag
 
 **After ALL Engineers return** (the Agent tool blocks until each returns):
 
-**AUTONOMOUS CONTINUATION REQUIRED:** The subagent has returned. IMMEDIATELY continue to the next step below. Do NOT stop, do NOT wait for user input, do NOT generate a conversational summary and pause. Emit a one-line checkpoint: `[CONTINUE] Engineer returned for YOK-{N}. Next: post-Engineer processing (step 5g post-return)` — then execute that step.
+**AUTONOMOUS CONTINUATION REQUIRED:** The subagent has returned. IMMEDIATELY continue to the next step below. Do NOT stop, do NOT wait for user input, do NOT generate a conversational summary and pause. Emit a one-line checkpoint: `[CONTINUE] Engineer returned for PREFIX-{N}. Next: post-Engineer processing (step 5g post-return)` — then execute that step.
 
 For each task:
 1. Capture reflections (step 5m — see [dispatch-context-artifacts.md](dispatch-context-artifacts.md)).

@@ -1,10 +1,10 @@
 ---
 name: block
 description: "Mark a backlog item as blocked while preserving its lifecycle status."
-argument-hint: "YOK-N \"<reason>\""
+argument-hint: "PREFIX-N \"<reason>\""
 ---
 
-# /yoke block YOK-N "<reason>"
+# /yoke block PREFIX-N "<reason>"
 
 Mark a backlog item as blocked. Blocking sets the item-level
 `items.blocked` flag to `1` and records the operator-supplied reason in
@@ -26,7 +26,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 ## Arguments
 
-- `YOK-N` — Backlog item ID. Accepts prefixed IDs, zero-padded prefixed IDs, or bare numeric IDs.
+- `PREFIX-N` — Backlog item ID. Accepts prefixed IDs, zero-padded prefixed IDs, or bare numeric IDs.
 - `<reason>` — Operator-supplied reason for the block. Quoted because it
   is typically a sentence. Stored verbatim in `items.blocked_reason` and
   surfaced in the rendered body's `## Block` section, the
@@ -36,7 +36,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 ## Steps
 
 1. **Parse the ID and reason.** Extract the numeric part of the argument
-   (strip `YOK-` prefix if present, strip leading zeros). Reason is the
+   (strip `PREFIX-` prefix if present, strip leading zeros). Reason is the
    remaining quoted argument.
 
 2. **Read the backlog item.**
@@ -45,7 +45,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
    BLOCKED=$(yoke items get {N} blocked)
    ```
    If `STATUS` is empty (item not in DB), stop with error:
-   > Item YOK-{N} not found.
+   > Item PREFIX-{N} not found.
 
 3. **Reject done items.** If `STATUS` is `done`, stop with error:
    > Cannot block a done item.
@@ -57,14 +57,14 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 4. **Check if already blocked.** If `BLOCKED` is `true`, continue to
    step 5 so the operator-supplied reason replaces the recorded reason.
    Use this note in the final report:
-   > YOK-{N} was already blocked. Updated the recorded reason.
+   > PREFIX-{N} was already blocked. Updated the recorded reason.
 
 5. **Acquire a work claim.** The `items.scalar.update` dispatcher refuses
    item mutations unless the calling session holds an active claim:
 
    ```bash
    yoke claims work acquire \
-       --item "YOK-{N}" --reason block
+       --item "PREFIX-{N}" --reason block
    ```
 
    If another session holds the claim, stop and coordinate with that holder.
@@ -77,8 +77,8 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
    path.
 
    ```bash
-   yoke items scalar update YOK-{N} --field blocked --value true
-   yoke items scalar update YOK-{N} --field blocked_reason --value "<reason>"
+   yoke items scalar update PREFIX-{N} --field blocked --value true
+   yoke items scalar update PREFIX-{N} --field blocked_reason --value "<reason>"
    ```
 
    The adapter prints the result payload on success.
@@ -93,16 +93,16 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
    ```bash
    yoke claims work release \
-       --item "YOK-{N}" --reason block-complete
+       --item "PREFIX-{N}" --reason block-complete
    ```
 
 8. **Report.**
-   > **YOK-{N}** ({title}): blocked
+   > **PREFIX-{N}** ({title}): blocked
    >
    > Reason: {reason}
    >
    > The item retains its `{STATUS}` status but is hidden from active
-   > dispatch. To unblock: `/yoke unblock YOK-{N}`.
+   > dispatch. To unblock: `/yoke unblock PREFIX-{N}`.
 
 ## Notes
 

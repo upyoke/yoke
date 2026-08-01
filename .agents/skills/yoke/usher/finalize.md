@@ -12,20 +12,20 @@ USHER COMPLETE
 ===================================================================
 
 Results:
- YOK-{id} "{title}" -- done (run-{date}-{seq})
- YOK-{id} "{title}" -- done (internal, no run)
- YOK-{id} "{title}" -- paused (run-{date}-{seq}, awaiting approval)
- YOK-{id} "{title}" -- halted (usher-halt-deploy-stage-failure)
- YOK-{id} "{title}" -- halted (usher-halt-deploy-infra-failure)
- YOK-{id} "{title}" -- halted (usher-halt-merge-failure)
- YOK-{id} "{title}" -- halted (usher-halt-unexpected, exit {code})
+ PREFIX-{id} "{title}" -- done (run-{date}-{seq})
+ PREFIX-{id} "{title}" -- done (internal, no run)
+ PREFIX-{id} "{title}" -- paused (run-{date}-{seq}, awaiting approval)
+ PREFIX-{id} "{title}" -- halted (usher-halt-deploy-stage-failure)
+ PREFIX-{id} "{title}" -- halted (usher-halt-deploy-infra-failure)
+ PREFIX-{id} "{title}" -- halted (usher-halt-merge-failure)
+ PREFIX-{id} "{title}" -- halted (usher-halt-unexpected, exit {code})
 
 Deployment runs created:
  {run-id}: project={project}, flow={flow}, target={target}, items={count}, status={status}
 
 {If paused runs:}
 Paused runs (awaiting approval):
- {run-id}: stage {stage} -- /yoke usher --resume YOK-{N}
+ {run-id}: stage {stage} -- /yoke usher --resume PREFIX-{N}
 
 {count} items completed. {paused_count} awaiting approval. {halted_count} halted. {run_count} deployment run(s) created.
 ```
@@ -70,7 +70,7 @@ Component: {component-name, e.g., "GitHub Actions deploy_key", "AWS S3 credentia
 
 File a follow-up so the underlying infra issue is tracked separately from this run:
 
-  /yoke idea "Fix {component-name} blocking YOK-{N} deploy"
+  /yoke idea "Fix {component-name} blocking PREFIX-{N} deploy"
 
 Then return here and pick a recovery option below to unstick the current run.
 ```
