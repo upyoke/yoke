@@ -161,10 +161,11 @@ def _seed_qa_requirement(
     path,
     *,
     item_id,
-    qa_kind="browser_smoke",
+    qa_kind="plan_case",
     qa_phase="verification",
     blocking_mode="blocking",
     success_policy="seeded-by-test",
+    method_id="browser-check",
 ):
     """Insert a QA requirement for backlog gate regression tests."""
     conn = _conn(path)
@@ -172,10 +173,19 @@ def _seed_qa_requirement(
     cur = conn.execute(
         f"""
         INSERT INTO qa_requirements (
-            item_id, qa_kind, qa_phase, blocking_mode, requirement_source, success_policy, created_at
-        ) VALUES ({p}, {p}, {p}, {p}, 'seeded_default', {p}, {p}) RETURNING id
+            item_id, qa_kind, qa_phase, blocking_mode, requirement_source,
+            success_policy, method_id, created_at
+        ) VALUES ({p}, {p}, {p}, {p}, 'seeded_default', {p}, {p}, {p}) RETURNING id
         """,
-        (item_id, qa_kind, qa_phase, blocking_mode, success_policy, "2026-01-01T00:00:00Z"),
+        (
+            item_id,
+            qa_kind,
+            qa_phase,
+            blocking_mode,
+            success_policy,
+            method_id,
+            "2026-01-01T00:00:00Z",
+        ),
     )
     req_id = cur.fetchone()[0]
     conn.commit()
@@ -199,7 +209,7 @@ def _seed_qa_run(
     cur = conn.execute(
         f"""
         INSERT INTO qa_runs (qa_requirement_id, executor_type, qa_kind, verdict, raw_result, created_at)
-        VALUES ({p}, {p}, 'browser_smoke', {p}, {p}, {p}) RETURNING id
+        VALUES ({p}, {p}, 'plan_case', {p}, {p}, {p}) RETURNING id
         """,
         (requirement_id, executor_type, verdict, raw_result, ts),
     )

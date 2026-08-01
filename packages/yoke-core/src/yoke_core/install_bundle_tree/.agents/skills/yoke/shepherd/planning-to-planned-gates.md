@@ -9,7 +9,7 @@ AC presence is enforced upstream by the internal PRD validator (runs at `refined
 Check:
 
 ```bash
-_item_flow=$(yoke items get YOK-$_num deployment_flow 2>/dev/null || true)
+_item_flow=$(yoke items get PREFIX-$_num deployment_flow 2>/dev/null || true)
 ```
 
 If `_item_flow` is empty, block and require a flow assignment. Show available flows for the item's project and wait for the operator to pick one.

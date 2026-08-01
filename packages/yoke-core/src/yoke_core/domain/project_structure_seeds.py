@@ -19,8 +19,7 @@ from yoke_core.domain.project_structure_write import apply_patch
 from yoke_core.domain.schema_common import _table_exists
 
 _YOKE_FULL_TEST_COMMAND = (
-    "python3 -m yoke_core.tools.watch_pytest -- "
-    "runtime/api/ runtime/harness/ tests/"
+    "yoke watch pytest -- runtime/api/ runtime/harness/ tests/"
 )
 
 

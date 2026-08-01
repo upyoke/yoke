@@ -1,10 +1,10 @@
 ---
 name: polish
 description: "Review code and tests in existing worktree lane(s) against item artifacts, make finishing fixes, run verification, and commit."
-argument-hint: "{YOK-N}"
+argument-hint: "{PREFIX-N}"
 ---
 
-# /yoke polish {YOK-N}
+# /yoke polish {PREFIX-N}
 
 Standalone capability for polishing an in-progress implementation. Locates the existing implementation worktree lane set for a backlog item, reviews code and tests against the item's artifacts (spec, ACs, technical plan), makes finishing fixes, runs verification, and commits when changes are needed. Issue items usually have one item worktree; epic items may have multiple task worktrees from the worktree plan.
 
@@ -18,11 +18,11 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 ## Arguments
 
-- `{YOK-N}` — Backlog item ID. Accepts `YOK-N`, zero-padded IDs, or a bare number.
+- `{PREFIX-N}` — Backlog item ID. Accepts `PREFIX-N`, zero-padded IDs, or a bare number.
 
 ## Modes
 
-Polish always advances status on successful completion, whether invoked directly (e.g., `/yoke polish YOK-N`) or via scheduler routing.
+Polish always advances status on successful completion, whether invoked directly (e.g., `/yoke polish PREFIX-N`) or via scheduler routing.
 
 ### Lifecycle transitions
 - `reviewed-implementation` -> `polishing-implementation` (set immediately when polish starts)

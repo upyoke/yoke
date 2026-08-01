@@ -125,9 +125,24 @@ def _do_merge(
     print(f"\n--- Merging branch: {actual_branch} -> {base_branch} ---")
     from yoke_core.engines.merge_worktree import MergeArgs, run as merge_run
 
-    merge_env_key = "YOKE_DONE_TRANSITION"
-    prev_merge_env = os.environ.get(merge_env_key)
-    os.environ[merge_env_key] = "1"
+    # A branch with no epic lane is a standalone item merge, and every one of
+    # those routes through the same boundary so the merge lock, telemetry, and
+    # merged_at stamp land the same way regardless of caller.
+    if not task_parent_ref:
+        from yoke_core.domain.standalone_item_merge import (
+            merge_standalone_branch,
+        )
+
+        outcome = merge_standalone_branch(
+            item_id=item_id,
+            branch=actual_branch,
+            target=base_branch,
+            repo_root=str(project_repo),
+            local_merge=False,
+        )
+        for warning in outcome.warnings:
+            print(f"Warning: {warning}", file=sys.stderr)
+        return outcome.exit_code, outcome.output, outcome.ok
 
     # Capture merge output for YOKE_REPO_ROOT parsing by the re-verify step.
     captured = io.StringIO()
@@ -137,7 +152,7 @@ def _do_merge(
         merge_args = MergeArgs(
             branch=actual_branch,
             target=base_branch,
-            epic_ref=task_parent_ref or None,
+            epic_ref=task_parent_ref,
             local_merge=False,
             force_lock=False,
             keep_remote=False,
@@ -146,10 +161,6 @@ def _do_merge(
         rc = merge_run(merge_args)
     finally:
         sys.stdout = saved_stdout
-        if prev_merge_env is None:
-            os.environ.pop(merge_env_key, None)
-        else:
-            os.environ[merge_env_key] = prev_merge_env
     return rc, captured.getvalue(), rc == 0
 
 

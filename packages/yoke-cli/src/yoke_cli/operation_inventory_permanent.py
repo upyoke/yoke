@@ -143,13 +143,25 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
         "tools.module_source_path",
         REASON_TOOL_SHAPED,
     ),
+    # Watchers with a `yoke watch <kind>` adapter. These are the taught
+    # forms: the console script resolves an interpreter that can import
+    # the wrapper from any directory, which a bare `python3 -m` cannot.
+    # They stay tool-shaped (client-local, no function id) — the adapter
+    # runs a local subprocess rather than dispatching an operation.
+    _p("yoke watch pytest", "tools.watch", REASON_TOOL_SHAPED),
+    _p("yoke watch doctor", "tools.watch", REASON_TOOL_SHAPED),
+    _p("yoke watch merge", "tools.watch", REASON_TOOL_SHAPED),
+    _p("yoke watch tail", "tools.watch", REASON_TOOL_SHAPED),
+    # The same four wrappers as module forms. Retained as the
+    # operator-debug fallback, so recipes that predate the adapters keep
+    # working and the argparse-bypass classifier below still resolves them.
     _p("python3 -m yoke_core.tools.watch_pytest", "tools.watch", REASON_TOOL_SHAPED),
     _p("python3 -m yoke_core.tools.watch_doctor", "tools.watch", REASON_TOOL_SHAPED),
     _p("python3 -m yoke_core.tools.watch_merge", "tools.watch", REASON_TOOL_SHAPED),
-    # The remaining agent-facing watcher surfaces.
+    _p("python3 -m yoke_core.tools.watch_tail", "tools.watch", REASON_TOOL_SHAPED),
+    # The remaining agent-facing watcher surfaces, module-form only.
     # watch_advance / watch_lifecycle / watch_session_offer are
-    # taught in conduct's dispatch-context-artifacts.md; watch_tail is the
-    # Monitor command every --print-streaming-pair emits; watch_inventory
+    # taught in conduct's dispatch-context-artifacts.md; watch_inventory
     # is the pre-authoring drift check taught in the Claude session rules.
     _p("python3 -m yoke_core.tools.watch_advance", "tools.watch", REASON_TOOL_SHAPED),
     _p("python3 -m yoke_core.tools.watch_lifecycle", "tools.watch", REASON_TOOL_SHAPED),
@@ -158,7 +170,6 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
         "tools.watch",
         REASON_TOOL_SHAPED,
     ),
-    _p("python3 -m yoke_core.tools.watch_tail", "tools.watch", REASON_TOOL_SHAPED),
     _p("python3 -m yoke_core.tools.watch_inventory", "tools.watch", REASON_TOOL_SHAPED),
     _p(
         "python3 -m yoke_core.tools.executors",

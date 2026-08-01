@@ -37,7 +37,7 @@ inside the checkout-local venv — your installed `yoke` is not involved:
 
 ```bash
 uv sync --all-packages --all-groups --locked
-uv run python3 -m yoke_core.tools.watch_pytest -- runtime/api/ runtime/harness/ tests/
+yoke watch pytest -- runtime/api/ runtime/harness/ tests/
 ```
 
 - Pass the three anchors exactly as shown — never bare `runtime/`, which breaks

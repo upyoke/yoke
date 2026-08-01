@@ -46,15 +46,25 @@ escalation require the item claim. Lifecycle transitions and path-claim
 registration also require the current item claim; work-claim release is
 self-only.
 
-Worktree preparation is intentionally a retained tool-shaped operation:
+Worktree preparation and merging are each a retained tool-shaped operation,
+because both act on the local checkout rather than on control-plane state
+alone:
 
 ```text
 yoke direct-workflow worktree prepare ITEM --workflow dash
+yoke merge item ITEM --result "<what changed>" --verification "<checks run>"
 ```
 
-It delegates to the local engine worktree preflight and has no registered
-`direct_workflow.*` function id. Use the command verbatim; do not invent a
-function id for it.
+The first delegates to the local engine worktree preflight. The second is the
+standalone-item merge boundary: it takes the merge lock, lands the branch on
+the project base branch, stamps `merged_at`, publishes, records execution
+evidence with the merge identity it just resolved, and then transitions the
+item — through the `dash_evidence` gate, not around it. Each command
+has no registered `direct_workflow.*` function id — use them verbatim; do
+not invent function ids for them. Run
+`yoke merge item --help` for the flag matrix, and see
+[`docs/archive/decisions/standalone-item-merge.md`](../../../../docs/archive/decisions/standalone-item-merge.md)
+for the contract.
 
 ## Inputs
 
@@ -214,7 +224,14 @@ produce a diff.
 
 ### 5. Verify and close review
 
-Run the relevant project verification and an agent self-check. Then execute
+Run the project's implementation-time verification and an agent self-check.
+Prefer the change-scoped check — impacted-test selection over the branch
+diff — to a local full sweep: the full-suite authority is CI on the
+protected merge path, which runs on the pull request and again on the
+merged commit. Fall back to a local full sweep only when CI is unavailable,
+and record that substitution in the verification evidence. If CI fails a
+test the impacted run skipped, that is a selector defect: fix the
+selection model in the same response, not just the code. Then execute
 each selected posture knob through its shared authority:
 
 - `verification.kind=plan` — materialize the attached plan cases for
@@ -260,25 +277,40 @@ yoke direct-workflow dash survey ITEM --path <actual-file> [--path <actual-file>
 ```
 
 If the result is blocked, do not merge. Coordinate, wait, tighten with
-claims, or escalate. When clear, commit the coherent change and merge the
-registered branch through the project's normal protected merge path. Do
-not force-push, bypass CI, or merge around a registered claim. Record both
-the implementation commit SHA and resulting merge SHA.
+claims, or escalate. When clear, commit the coherent change in the worktree.
+Do not merge by hand, force-push, bypass CI, or merge around a registered
+claim.
 
-For a verified no-change result, use the inspected base SHA for both
-identities and set `--no-changes`; no empty commit is needed.
+### 7. Merge, record evidence, and finish
 
-### 7. Record evidence and finish
+When deployment posture is selected, merge first without closing out, so the
+item-bound deployment can run against the recorded merge identity:
 
-When deployment posture is selected, start item-bound delivery for the merge
-identity and run the returned deployment through the project executor:
+```text
+yoke merge item ITEM --skip-status --json
+```
+
+Start item-bound delivery for the returned `merge_sha`, run it through the
+project executor, and wait for `succeeded`:
 
 ```text
 yoke deployment-runs start-for-item ITEM \
   --release-lineage <merge-sha> --json
 ```
 
-Wait for that item-bound run to reach `succeeded`. Then record the close:
+Otherwise merge and close out in one call. The operation resolves the touched
+files from the branch itself, so no path list is needed:
+
+```text
+yoke merge item ITEM \
+  --result "<what changed or was learned>" \
+  --verification "<checks and evidence>" \
+  --json
+```
+
+Add `--no-changes` for a genuine no-change result. When the merge is already
+recorded and only the close-out remains — after a deployment run, or after
+approval — record evidence and transition directly:
 
 ```text
 yoke direct-workflow dash evidence ITEM \
@@ -286,18 +318,12 @@ yoke direct-workflow dash evidence ITEM \
   --verification "<checks and evidence>" \
   --commit-sha <sha> --merge-sha <sha> \
   --path <actual-file> [--path <actual-file> ...]
-```
-
-Use `--no-changes` instead of `--path` only for a genuine no-change result.
-Then transition through the `dash_evidence` gate:
-
-```text
 yoke lifecycle transition ITEM --from reviewing-implementation --to done --reason "Merged and evidence recorded"
 ```
 
-When approval-on-done is selected, the first attempt creates the owner
+When approval-on-done is selected, the terminal transition creates the owner
 decision request without moving the item. Let an authorized owner resolve it,
-then retry the same transition. The successful terminal transition releases
+then retry the transition. The successful terminal transition releases
 the registered Dash worktree lane. Finally release the item work claim:
 
 ```text

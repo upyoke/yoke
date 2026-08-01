@@ -103,7 +103,7 @@ Proposed work item:
  Priority: {low | medium | high}
 
 Similar existing items:
- - YOK-{N}: {existing title} (status: {status})
+ - PREFIX-{N}: {existing title} (status: {status})
 
 Likely resolved -- recommend skip
  Evidence: {brief explanation}

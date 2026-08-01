@@ -3,7 +3,7 @@
 Scans live guidance surfaces for every banned literal in
 :data:`yoke_core.domain.lint_structured_field_transform_shell_messages.RECIPE_RESIDUE_PATTERNS`
 and asserts zero hits outside the allowlist. This is the test-side mirror of
-:mod:`yoke_core.engines.doctor_hc_terminal_recipe_residue` — both consume the
+:mod:`yoke_project_checks.check_terminal_recipe_residue` — both consume the
 same canonical pattern list so the two surfaces cannot drift.
 
 Allowlist (per the spec's `## Cleanup and Removal`):
@@ -62,7 +62,7 @@ def _is_allowlisted(rel_path: str) -> bool:
     # vocabulary.
     canonical_sources = (
         "runtime/api/domain/lint_structured_field_transform_shell_messages.py",
-        "runtime/api/engines/doctor_hc_terminal_recipe_residue.py",
+        "runtime/api/engines/check_terminal_recipe_residue.py",
         "runtime/api/engines/doctor_hc_terminal_recipe_residue_scan.py",
         "runtime/api/domain/lint_shell_quoted_function_payload.py",
         "runtime/api/domain/lint_shell_quoted_function_payload_messages.py",
@@ -132,7 +132,7 @@ def test_recipe_residue_patterns_constant_exists() -> None:
     assert RECIPE_RESIDUE_PATTERNS, (
         "RECIPE_RESIDUE_PATTERNS must be a non-empty tuple of substring "
         "patterns. Update both this test and "
-        "yoke_core.engines.doctor_hc_terminal_recipe_residue together "
+        "yoke_project_checks.check_terminal_recipe_residue together "
         "when the canonical vocabulary changes."
     )
     # The canonical residue classes named in the messages module docstring

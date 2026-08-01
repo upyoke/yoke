@@ -37,7 +37,7 @@ For options 1 or 2, record the promoted pattern in `ouroboros/patterns.md`:
 - First observed: {date}
 - Promoted: {today's date}
 - Observations: {N}
-- Action: {rule created | work item filed: YOK-N}
+- Action: {rule created | work item filed: PREFIX-N}
 ```
 
 ## 8. Display The Ouroboros Retrospective
@@ -54,7 +54,7 @@ Show a summary at the end:
 
 ## Clusters
 - Clusters formed: {N}
-- Work items filed: {N} ({YOK-N, YOK-N, ...})
+- Work items filed: {N} ({PREFIX-N, PREFIX-N, ...})
 - Entries skipped: {N}
 - Entries deferred: {N}
 - Clusters flagged as likely resolved: {N}

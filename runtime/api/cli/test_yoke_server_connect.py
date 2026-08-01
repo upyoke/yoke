@@ -113,9 +113,9 @@ def test_connect_without_token_uses_hosted_browser_org_authority(
                     platform_url="https://app.upyoke.com",
                     device_code="device-secret",
                     user_code="ABCD-2345",
-                    verification_uri="https://app.upyoke.com/machine",
+                    verification_uri="https://app.upyoke.com/connect",
                     verification_uri_complete=(
-                        "https://app.upyoke.com/machine?user_code=ABCD-2345"
+                        "https://app.upyoke.com/connect?user_code=ABCD-2345"
                     ),
                     expires_in=600,
                     interval=2,
@@ -151,7 +151,7 @@ def test_connect_stage_platform_url_uses_stage_browser_authority(
     def authorize(platform_url, **_kwargs):
         seen.append(platform_url)
         return hosted_machine_authorization.HostedMachineCredential(
-            api_url="https://app.stage.upyoke.com/api/orgs/yoke-stage",
+            api_url="https://app.stage.upyoke.com/api/orgs/upyoke-stage-1",
             org="yoke-stage",
             token=_TOKEN,
         )
@@ -173,7 +173,7 @@ def test_connect_stage_platform_url_uses_stage_browser_authority(
     assert seen == ["https://app.stage.upyoke.com"]
     config = _config(machine_home)
     assert config["connections"]["stage"]["api_url"] == (
-        "https://app.stage.upyoke.com/api/orgs/yoke-stage"
+        "https://app.stage.upyoke.com/api/orgs/upyoke-stage-1"
     )
     assert json.loads(capsys.readouterr().out)["activated"] is False
 

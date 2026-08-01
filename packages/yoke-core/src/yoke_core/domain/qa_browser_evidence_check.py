@@ -26,7 +26,10 @@ from yoke_core.domain.qa_artifact_handle import (
     parse_handle,
 )
 from yoke_core.domain.qa_gate_definitions import GateResult
-from yoke_core.domain.qa_constants import browser_requirement_predicate
+from yoke_core.domain.qa_constants import (
+    INVALID_BROWSER_METHOD_LABEL,
+    browser_requirement_predicate,
+)
 
 
 _REMEDIATION_LINES = (
@@ -141,7 +144,7 @@ def check_browser_evidence_present(
     )
     for row in rows:
         errors.append(
-            f"  - Requirement #{row['id']} ({row['method_id'] or 'legacy Browser case'}): no linked substrate-and-verdict proof"
+            f"  - Requirement #{row['id']} ({row['method_id'] or INVALID_BROWSER_METHOD_LABEL}): no linked substrate-and-verdict proof"
         )
     errors.extend(_REMEDIATION_LINES)
     return GateResult(passed=False, errors=errors)
@@ -197,7 +200,7 @@ def check_browser_artifact_disk(
             ]
             for row in fake_rows:
                 errors.append(
-                    f"  - Requirement #{row['id']} ({row['method_id'] or 'legacy Browser case'}): artifact has no artifact_handle"
+                    f"  - Requirement #{row['id']} ({row['method_id'] or INVALID_BROWSER_METHOD_LABEL}): artifact has no artifact_handle"
                 )
             return GateResult(passed=False, errors=errors)
 

@@ -41,6 +41,10 @@ OPS_ADAPTERS: List[AdapterEntry] = [
         cli_invocation="yoke deployment-flows update-stages FLOW-ID --stages-file PATH",
     ),
     AdapterEntry(
+        function_id="deployment_flows.describe",
+        cli_invocation="yoke deployment-flows describe FLOW-ID --description TEXT",
+    ),
+    AdapterEntry(
         function_id="deployment_runs.create",
         cli_invocation="yoke deployment-runs create",
     ),

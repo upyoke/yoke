@@ -14,10 +14,10 @@ review transition:
 
 ```bash
 yoke qa plan materialize \
-  --item "YOK-{N}" \
+  --item "PREFIX-{N}" \
   --transition reviewing-implementation \
   --json
-yoke qa requirement list --item "YOK-{N}" --json
+yoke qa requirement list --item "PREFIX-{N}" --json
 ```
 
 Select unsatisfied, non-waived plan-materialized requirements for that
@@ -44,7 +44,7 @@ Verification expectations:
   Command case also passes.
 - When prompt surfaces or large scripts change, run the relevant doctor or
   invariant checks as additional proof. Invoke doctor through
-  `python3 -m yoke_core.tools.watch_doctor -- --quick`.
+  `yoke watch doctor -- --quick`.
 
 If verification fails, investigate and fix it before continuing.
 Future/planned item ownership or a planned path claim is not a waiver for a
@@ -62,7 +62,7 @@ If files changed during polish, commit them with a descriptive message:
 
 ```bash
 git -C "{worktree-path}" add {specific changed files}
-git -C "{worktree-path}" commit -m "polish: {brief description of finishing fixes} (YOK-{N})"
+git -C "{worktree-path}" commit -m "polish: {brief description of finishing fixes} (PREFIX-{N})"
 ```
 
 Use a scoped `git add` containing only the files changed by this pass. For a

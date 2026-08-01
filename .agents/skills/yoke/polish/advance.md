@@ -15,7 +15,7 @@ know exactly which blocking requirements still need passing runs. This is a
 typed read-only diagnostic:
 
 ```bash
-yoke qa gate-summary --item "YOK-$ITEM_NUM" --target implemented
+yoke qa gate-summary --item "PREFIX-$ITEM_NUM" --target implemented
 ```
 
 Use `--target reviewed-implementation` to scope to verification-phase only; the bare call prints the summary JSON (add `--json` for the full typed envelope). Do not compose raw `qa_requirements` SQL during polish — `qa.gate_summary.run` is the canonical surface and matches the gate semantics in `yoke_core.domain.qa_gates`. The old checkout-local db-router QA summary is operator-debug fallback only, not the agent-facing teaching shape.
@@ -36,7 +36,7 @@ failed requirement/run instead of advancing.
 Before status advancement, capture the details you will present after cleanup is finished. Do not emit the success summary yet:
 
 ```
-## Polish Complete — YOK-{N}
+## Polish Complete — PREFIX-{N}
 
 **Worktree:** {WORKTREE_PATH}
 **Worktree lanes:** {WORKTREE_PATHS}
@@ -52,11 +52,11 @@ Before status advancement, capture the details you will present after cleanup is
 After all polish work is verified complete and tests pass, advance to `implemented`. Use `/yoke advance` so the canonical advance skill runs the polishing-implementation → implemented gate, rebuilds the rendered body, and syncs GitHub.
 
 ```bash
-/yoke advance "YOK-${ITEM_NUM}" implemented
+/yoke advance "PREFIX-${ITEM_NUM}" implemented
 ```
 
 Final output should include:
-> **YOK-{N}** polished: `polishing-implementation` -> `implemented`
+> **PREFIX-{N}** polished: `polishing-implementation` -> `implemented`
 > The scheduler will route this item to `/yoke usher` for merge and deploy.
 
 `implemented` is a hard handoff point for this command. Do **not** continue into usher, merge, PR creation, or deployment from the polish flow. Any merge/deploy work must begin through an explicit `/yoke usher` command entrypoint.
@@ -78,11 +78,11 @@ Function-call equivalent (for dispatch-surface callers — `/yoke advance` build
 
 ## 13. Release Item Claim
 
-Release the exclusive work claim before any success output is emitted. Successful polish is not complete while the session still owns `YOK-${ITEM_NUM}`.
+Release the exclusive work claim before any success output is emitted. Successful polish is not complete while the session still owns `PREFIX-${ITEM_NUM}`.
 
 ```bash
 yoke claims work release \
-    --item "YOK-${ITEM_NUM}" \
+    --item "PREFIX-${ITEM_NUM}" \
     --reason completed
 ```
 
@@ -105,7 +105,7 @@ Function-call equivalent (for dispatch-surface callers — the CLI above builds 
 After status advancement and claim release, emit:
 
 ```
-## Polish Complete — YOK-{N}
+## Polish Complete — PREFIX-{N}
 
 **Worktree:** {WORKTREE_PATH}
 **Worktree lanes:** {WORKTREE_PATHS}

@@ -88,7 +88,7 @@ The `anomaly_flags` field is a comma-separated string of canonical anomaly flags
 | `nested_cli` | Spawned a nested `claude` CLI process | Active -- check command for `claude` invocation |
 | `hung_subagent` | Subagent exceeded expected duration | Registration only -- no detection in this version |
 
-Anomaly flags are stored as a comma-separated TEXT field: `"nonzero_exit,retry_loop"`. Query with `anomaly_flags LIKE '%nonzero_exit%'` or use `python3 -m yoke_core.cli.db_router events anomalies` for structured access.
+Anomaly flags are stored as a comma-separated TEXT field: `"nonzero_exit,retry_loop"`. Query with `anomaly_flags LIKE '%nonzero_exit%'` or use `yoke events anomalies` for structured access.
 
 ### Root-Level Query Columns
 

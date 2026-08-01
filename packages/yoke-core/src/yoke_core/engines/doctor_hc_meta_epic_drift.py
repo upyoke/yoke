@@ -1,12 +1,10 @@
-"""Meta health checks — drift cluster (vocabulary, project, dependency).
+"""Meta health checks — drift cluster (project, dependency).
 
-Cluster: HC checks for cross-cutting drift detection — API vocabulary,
-approval contract, NULL project items, project metadata alignment, and
-dependency-row drift.
+Cluster: HC checks for cross-cutting drift detection — NULL project items,
+project metadata alignment, and dependency-row drift.
 
-HC functions: HC-api-vocabulary-drift, HC-approval-contract-drift,
-HC-null-project-items, HC-projects-config-alignment, HC-dependency-drift,
-HC-cancelled-blocker-dependencies
+HC functions: HC-null-project-items, HC-projects-config-alignment,
+HC-dependency-drift, HC-cancelled-blocker-dependencies
 """
 
 from __future__ import annotations
@@ -27,18 +25,6 @@ from yoke_core.engines.doctor_report import (
 
 def _p(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
-def hc_api_vocabulary_drift(conn, args: DoctorArgs, rec: RecordCollector) -> None:
-    """HC-api-vocabulary-drift: API vocabulary drift."""
-    rec.record("HC-api-vocabulary-drift", "API vocabulary drift", "PASS", "")
-
-
-
-def hc_approval_contract_drift(conn, args: DoctorArgs, rec: RecordCollector) -> None:
-    """HC-approval-contract-drift: Approval contract drift."""
-    rec.record("HC-approval-contract-drift", "Approval contract drift", "PASS", "")
-
 
 
 def hc_null_project_items(conn, args: DoctorArgs, rec: RecordCollector) -> None:

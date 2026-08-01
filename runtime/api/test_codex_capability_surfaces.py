@@ -35,7 +35,7 @@ def _repo_root() -> Path:
 
 
 REPO = _repo_root()
-EXPECTED_ADVANCE_COMMAND = "/yoke advance YOK-N implementation"
+EXPECTED_ADVANCE_COMMAND = "/yoke advance PREFIX-N implementation"
 EXPECTED_PATHS = "shepherd, refine, advance, dash, blitz, polish, usher"
 
 
@@ -103,7 +103,10 @@ def test_command_references_dual_classify_advance():
         ".agents/skills/yoke/help/SKILL.md",
     ):
         text = _read(rel_path)
-        assert "/yoke advance YOK-N implementation" in text
+        # These files ship verbatim into target projects, so they teach the
+        # generic ``PREFIX-N`` placeholder rather than this repo's item prefix
+        # that ``EXPECTED_ADVANCE_COMMAND`` asserts against the live registry.
+        assert "/yoke advance PREFIX-N implementation" in text
         assert "other than `implementation`" in text or (
             "advance targets other than implementation" in text
         )

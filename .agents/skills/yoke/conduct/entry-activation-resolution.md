@@ -10,7 +10,7 @@ Invoked from `entry-activation.md` S6. Covers Epic resolve, sync gate, fan-out e
 
 ```bash
 # Convention: conduct operates on epic items; the item ID IS the epic ID.
-# epic_tasks.epic_id is INTEGER NOT NULL — bare integer, never YOK-prefixed
+# epic_tasks.epic_id is INTEGER NOT NULL — bare integer, never PREFIX-prefixed
 # (mirrors shepherd/plan-handoff.md:23).
 _epic_id=${N}
 ```
@@ -31,26 +31,26 @@ _synced_task_count=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_task
 
 **If NOT synced:**
 
-1. Pre-check: `_task_count=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_tasks WHERE epic_id='$_epic_id'")`. If 0, stop: `No tasks found for YOK-{N}. Run '/yoke plan {_epic_id}' first.`
+1. Pre-check: `_task_count=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_tasks WHERE epic_id='$_epic_id'")`. If 0, stop: `No tasks found for PREFIX-{N}. Run '/yoke plan {_epic_id}' first.`
 
-2. Auto-sync: Print `Epic YOK-{N} not yet synced to GitHub. Running sync automatically...` then:
+2. Auto-sync: Print `Epic PREFIX-{N} not yet synced to GitHub. Running sync automatically...` then:
  ```bash
  yoke items github-sync "$_epic_id"
  ```
 
-3. Advance status to implementing: invoke the Yoke advance skill for `YOK-${N}` with target `implementing`.
+3. Advance status to implementing: invoke the Yoke advance skill for `PREFIX-${N}` with target `implementing`.
 
 4. Commit sync changes: Sync work is often DB-only — "nothing to commit" is valid. Never stage `.yoke/BOARD.md`. If legacy root DB files appear in `data/`, stop and investigate.
  ```bash
  git reset HEAD -- .yoke/BOARD.md 2>/dev/null || true
- git diff --cached --quiet || git commit -m "YOK-${N}: auto-sync — planned to implementing"
+ git diff --cached --quiet || git commit -m "PREFIX-${N}: auto-sync — planned to implementing"
  ```
  If `git diff --cached --quiet` exits 0 (no tracked staged changes), that is fine — proceed.
 
 5. Post-sync verification: re-check chains and `_synced_task_count`. If still empty/0:
- > Auto-sync failed for YOK-{N}. Investigate the sync failure before proceeding.
+ > Auto-sync failed for PREFIX-{N}. Investigate the sync failure before proceeding.
 
-6. Print: `Auto-sync complete for YOK-{N}. Proceeding with dispatch.`
+6. Print: `Auto-sync complete for PREFIX-{N}. Proceeding with dispatch.`
 
 #### S6c. Epic Fan-Out Enumeration (multi-candidate dispatch)
 
@@ -71,9 +71,9 @@ This step enumerates **every** dispatchable head task across the epic's dispatch
 4. Surviving candidates form `_task_ids` (newline-separated). Set `_task_id` to the first surviving candidate and hydrate `_worktree_branch` / `_worktree_path` from that task's suffixed variables so single-task downstream prose continues to work.
 5. Re-entry semantics: tasks already at `implementing` / `reviewing-implementation` pass through the freshness evaluator in step 2 before being classified. Fresh-heartbeat or recent-task-event heads remain surfaced as busy and are NOT re-enumerated; stale heads whose parent claim is not actively held by another session route into the candidate list via `resumable` and resume through `5f-rehydrate` in `dispatch-context-rehydrate.md`. This closes the issue/epic asymmetry: the issue path's `yoke_core.domain.worktree_preflight` already recovers stale `implementing` via the `claim_work` primitive's same-session re-acquire plus `clean_stale_harness_sessions` sweep, and the epic chain-head fan-out now applies the matching freshness check.
 6. If `_task_ids` is empty, report the terminal state for this invocation:
- - All chains complete (every chain's queue is fully `done`/`reviewed-implementation`): `All tasks in YOK-{N} are complete. Run '/yoke polish YOK-{N}' to finish the parent epic.`
- - Some chains busy (no exclusions, only `implementing`/`reviewing-implementation` heads): `YOK-{N} has tasks in progress: {list}. Wait for them to finish or open another tab.`
- - Some chains blocked (only excluded by dependency or same-worktree filters): `YOK-{N} has blocked tasks: {list with reasons}.`
+ - All chains complete (every chain's queue is fully `done`/`reviewed-implementation`): `All tasks in PREFIX-{N} are complete. Run '/yoke polish PREFIX-{N}' to finish the parent epic.`
+ - Some chains busy (no exclusions, only `implementing`/`reviewing-implementation` heads): `PREFIX-{N} has tasks in progress: {list}. Wait for them to finish or open another tab.`
+ - Some chains blocked (only excluded by dependency or same-worktree filters): `PREFIX-{N} has blocked tasks: {list with reasons}.`
  - Mixed (some busy, some excluded by filters): combine the busy and excluded summaries.
 
 The `5f-epic.2` step in `dispatch-context.md` describes the same enumeration pattern at the dispatch-context layer; both surfaces speak in terms of multiple dispatchable head tasks rather than a single pick.
@@ -97,7 +97,7 @@ S6c applies dependency verification **per candidate**. For each entry in the can
 yoke claims path activation-run --item "${_epic_id}"
 _activation_exit=$?
 if [ "$_activation_exit" -ne 0 ]; then
- echo "ERROR: path-claim activation failed for YOK-${N} (exit $_activation_exit). Investigate before re-running /yoke conduct."
+ echo "ERROR: path-claim activation failed for PREFIX-${N} (exit $_activation_exit). Investigate before re-running /yoke conduct."
  exit 1
 fi
 
@@ -106,7 +106,7 @@ fi
 python3 -m yoke_core.domain.worktree create "${_epic_id}" --project "${PROJECT}"
 _creator_exit=$?
 if [ "$_creator_exit" -ne 0 ]; then
- echo "ERROR: unified worktree creation failed for YOK-${N} (exit $_creator_exit). Investigate before re-running /yoke conduct."
+ echo "ERROR: unified worktree creation failed for PREFIX-${N} (exit $_creator_exit). Investigate before re-running /yoke conduct."
  exit 1
 fi
 ```
@@ -149,7 +149,7 @@ for _task_id in $_task_ids; do
  # by `lint_session_cwd`. Branches are repo-global; same SHA.
  declare "TASK_BASELINE_${_task_id}=$(git -C "${MAIN_ROOT}" rev-parse "${_worktree_branch}")"
 
- # 4a. Cross-Task Merge Plan — read `yoke items get YOK-${N} worktree_plan`
+ # 4a. Cross-Task Merge Plan — read `yoke items get PREFIX-${N} worktree_plan`
  # and look for a `## Cross-Task Merge Plan` section with an entry for
  # this task. For each predecessor named in the entry:
  #   - verify the predecessor task is `reviewed-implementation` or `done`
@@ -163,10 +163,10 @@ for _task_id in $_task_ids; do
  # when worktree_plan carries no `## Cross-Task Merge Plan` section.
  # Authored-format example (architect emits this in worktree_plan):
  #   ## Cross-Task Merge Plan
- #   Task 4 (cutover-base): before Engineer dispatch, merge into YOK-${N}-cutover-base:
- #     - YOK-${N}-substrate (task 1, must be reviewed-implementation+)
- #     - YOK-${N}-renderer (task 2, must be reviewed-implementation+)
- #   Task 7 (final-validation): merge YOK-${N}-cutover-base (task 6) before dispatch.
+ #   Task 4 (cutover-base): before Engineer dispatch, merge into PREFIX-${N}-cutover-base:
+ #     - PREFIX-${N}-substrate (task 1, must be reviewed-implementation+)
+ #     - PREFIX-${N}-renderer (task 2, must be reviewed-implementation+)
+ #   Task 7 (final-validation): merge PREFIX-${N}-cutover-base (task 6) before dispatch.
 
  # 4b. Update epic task status through the conduct pipeline wrapper.
  # `yoke workflow-item epic-task update-status` is the non-pipeline
@@ -176,7 +176,7 @@ for _task_id in $_task_ids; do
   --status implementing --note "Dispatched by conduct (task fan-out)" --no-rebuild
 
  # 4c. Persist the resolved dispatch-chain worktree and branch on epic_tasks row.
- # Preserve architect/refine per-task worktrees; do not collapse epic tasks to YOK-${N}.
+ # Preserve architect/refine per-task worktrees; do not collapse epic tasks to PREFIX-${N}.
  yoke workflow-item epic-task metadata-update \
    --epic "$_epic_id" --task-num "$_task_id" \
    --fields-json "{\"branch\":\"${_worktree_branch}\",\"worktree_path\":\"${_worktree_path}\"}"
@@ -198,7 +198,7 @@ _primary_branch_var="_worktree_branch_${_task_id_primary}"
 _primary_path_var="_worktree_path_${_task_id_primary}"
 _primary_branch="${!_primary_branch_var}"
 _primary_path="${!_primary_path_var}"
-printf '%s\n' "YOK-${N} task ${_task_id_primary} worktree provisioned at ${_primary_path}; lane authority comes from each subagent's work-claim, not a scope envelope."
+printf '%s\n' "PREFIX-${N} task ${_task_id_primary} worktree provisioned at ${_primary_path}; lane authority comes from each subagent's work-claim, not a scope envelope."
 
 # 4e. Activation sanity gate — every task in _task_ids must now be at
 # implementing/reviewing-implementation before the engineer dispatch
@@ -212,7 +212,7 @@ for _task_id in $_task_ids; do
  _t_status=$(yoke db read --format lines \
    "SELECT status FROM epic_tasks WHERE epic_id=${_epic_id} AND task_num=${_task_id}")
  if [ "$_t_status" != "implementing" ] && [ "$_t_status" != "reviewing-implementation" ]; then
-  echo "ERROR: YOK-${N} task ${_task_id} at status '${_t_status}', not activated. Re-run the S6f activation block (status update + metadata-update worktree/branch/worktree_path + dispatch-chain-refresh-activation) before dispatching engineer." >&2
+  echo "ERROR: PREFIX-${N} task ${_task_id} at status '${_t_status}', not activated. Re-run the S6f activation block (status update + metadata-update worktree/branch/worktree_path + dispatch-chain-refresh-activation) before dispatching engineer." >&2
   exit 1
  fi
 done

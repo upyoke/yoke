@@ -49,7 +49,6 @@ def _phase_filter(transition_name: str) -> Optional[str]:
 
 def _is_satisfied(
     *,
-    qa_kind: str,
     waived_at: Optional[str],
     has_substrate_run: bool,
     has_pass_run: bool,
@@ -58,7 +57,7 @@ def _is_satisfied(
     """Per-requirement satisfaction rule shared with the gate."""
     if waived_at:
         return True
-    if is_browser_method_requirement(method_id, qa_kind):
+    if is_browser_method_requirement(method_id):
         return has_substrate_run
     return has_pass_run
 
@@ -176,14 +175,13 @@ def render_gate_summary(
             )
 
             satisfied = _is_satisfied(
-                qa_kind=qa_kind,
                 method_id=method_id,
                 waived_at=waived_at,
                 has_substrate_run=substrate_row is not None,
                 has_pass_run=pass_row is not None,
             )
 
-            if is_browser_method_requirement(method_id, qa_kind):
+            if is_browser_method_requirement(method_id):
                 evidence = substrate_row or pass_row or latest_row
             else:
                 evidence = pass_row or latest_row
@@ -201,7 +199,7 @@ def render_gate_summary(
 
             if not satisfied and blocking_mode == "blocking":
                 summary["blocking_unsatisfied_count"] += 1
-                if is_browser_method_requirement(method_id, qa_kind):
+                if is_browser_method_requirement(method_id):
                     summary["browser_unsatisfied_count"] += 1
                 if qa_kind == E2E_QA_KIND:
                     summary["e2e_unsatisfied_count"] += 1

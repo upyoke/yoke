@@ -3,7 +3,7 @@
 Read-only collection of live facts from the Yoke tree: function
 registry, yoke CLI, operation tracker, help pages, skill recipes,
 teaching places, lints, field-notes, contradictions. Writes a stable
-JSON report consumed by ``atlas_render_docs`` and ``doctor_hc_atlas``.
+JSON report consumed by ``atlas_render_docs`` and ``check_atlas``.
 
 Workspace-anchored: callers pass ``--target-root`` explicitly; the
 writer honours the standard workspace authority guard.

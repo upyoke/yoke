@@ -10,7 +10,17 @@ run recorded in the events journal without re-running any checks.
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 from typing import Any, Dict, List
+
+from yoke_contracts.deployment_destination import (
+    DESTINATION_HOSTED,
+    DESTINATION_LOCAL,
+    DESTINATION_SERVER,
+)
+from yoke_contracts.project_defaults import default_project_for_directory
+
+from yoke_cli.config.onboard_destinations import is_hosted_url
 
 from yoke_cli.commands._helpers import (
     add_json_arg,
@@ -57,7 +67,8 @@ def doctor_last_run_get(args: List[str]) -> int:
         "--project", default=None,
         help="Serve only a run recorded for this project (slug or id).",
     )
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, DOCTOR_LAST_RUN_GET_USAGE)
     if parsed is None:
         return 2
@@ -85,19 +96,26 @@ def doctor_run(args: List[str]) -> int:
                        help="Comma-separated HC slugs (subset).")
     parser.add_argument("--fix", action="store_true",
                         help="Apply auto-fixes where supported.")
-    parser.add_argument("--project", default="yoke",
-                        help="Project to run against (default: yoke).")
+    parser.add_argument(
+        "--project", default=None,
+        help=(
+            "Project to run against. Defaults to the project bound to the "
+            "checkout you are standing in."
+        ),
+    )
     parser.add_argument("--db-path", dest="db_path", default=None,
                         help="Optional DB path override.")
-    add_session_arg(parser); add_json_arg(parser)
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, DOCTOR_RUN_USAGE)
     if parsed is None:
         return 2
     payload: Dict[str, Any] = {
-        "project": parsed.project,
+        "project": parsed.project or default_project_for_directory(Path.cwd()),
         "quick": bool(parsed.quick),
         "full": bool(parsed.full),
         "fix": bool(parsed.fix),
+        "runtime": _runtime_for_active_connection(),
     }
     if parsed.only:
         payload["only"] = parsed.only
@@ -125,6 +143,27 @@ def _active_transport_is_https() -> bool:
         return False
 
 
+def _runtime_for_active_connection() -> str:
+    """Which deployment destination will execute the checks.
+
+    The client knows this and the control plane does not: an HTTPS relay
+    runs the checks wherever the connection points, while a local-Postgres
+    connection dispatches them in-process on this machine. Sending it means
+    the runner never has to guess whether it can see a source tree.
+    """
+    try:
+        connection = resolve_https_connection()
+    except TransportError:
+        return DESTINATION_LOCAL
+    if connection is None:
+        return DESTINATION_LOCAL
+    return (
+        DESTINATION_HOSTED
+        if is_hosted_url(getattr(connection, "api_url", ""))
+        else DESTINATION_SERVER
+    )
+
+
 def _dispatch_chunked(
     *,
     payload: Dict[str, Any],
@@ -140,6 +179,8 @@ def _dispatch_chunked(
     fail_count = 0
     warn_count = 0
     pass_count = 0
+    na_count = 0
+    final_runtime = payload.get("runtime") or DESTINATION_LOCAL
     final_scope = None
     final_project = payload.get("project") or "yoke"
     last_response: FunctionCallResponse | None = None
@@ -147,7 +188,13 @@ def _dispatch_chunked(
     while True:
         chunk_payload = dict(payload)
         chunk_payload["max_checks"] = DOCTOR_CHUNK_MAX_CHECKS
-        chunk_payload["skip_source_tree_checks"] = True
+        # A read-only quick run may be authorized with project-read
+        # permission alone, in exchange for the small project-safe check
+        # set. Anything wider needs the raw control-plane read permission.
+        if payload.get("quick") and not any(
+            payload.get(key) for key in ("full", "only", "fix", "db_path")
+        ):
+            chunk_payload["project_safe_quick"] = True
         if cursor:
             chunk_payload["cursor_after"] = cursor
         response = call_dispatcher(
@@ -168,8 +215,10 @@ def _dispatch_chunked(
         fail_count += int(result.get("fail_count") or 0)
         warn_count += int(result.get("warn_count") or 0)
         pass_count += int(result.get("pass_count") or 0)
+        na_count += int(result.get("na_count") or 0)
         final_scope = result.get("scope") or final_scope
         final_project = result.get("project") or final_project
+        final_runtime = result.get("runtime") or final_runtime
         next_cursor = result.get("cursor")
         if result.get("done", True):
             break
@@ -198,9 +247,11 @@ def _dispatch_chunked(
             "results": results,
             "scope": final_scope or "quick",
             "project": final_project,
+            "runtime": final_runtime,
             "fail_count": fail_count,
             "warn_count": warn_count,
             "pass_count": pass_count,
+            "na_count": na_count,
         },
         event_ids=event_ids,
         warnings=warnings,

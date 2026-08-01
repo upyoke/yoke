@@ -31,7 +31,7 @@ PROJECT_COMMANDS: list[dict] = [
             "Registered read ephemeral_env.get (works over https). The result "
             "contains the environment row, including status, url, workflow run, "
             "ports, and deployed SHA. Use the actual worktree branch; do not "
-            "guess a YOK-N branch or read the table directly."
+            "guess a PREFIX-N branch or read the table directly."
         ),
     },
     {

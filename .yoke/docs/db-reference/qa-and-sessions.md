@@ -221,17 +221,17 @@ The item and epic-task indexes are the authoritative storage-level prevention la
 
 Shell access: the typed `claim-work` / `release-work-claim` service-client surface (`yoke_core.api.service_client_work_claims`) and the harness-session claim CLI. API: `/v1/sessions/{id}/claims`, `/v1/claims/{id}/release`, `/v1/claims/by-work-unit`.
 
-### Live claim-holder lookup (`who-claims`)
+### Live claim-holder lookup
 
-The canonical recipe for "which session currently holds the work claim on `YOK-N`?" is
+The canonical recipe for "which session currently holds the work claim on `PREFIX-N`?" is the registered read (function id `claims.work.holder_get`):
 
 ```sh
-python3 -m runtime.harness.harness_sessions who-claims <item-id>
-# also reachable as:
-python3 -m yoke_core.cli.db_router harness-sessions who-claims <item-id>
+yoke claims work holder-get PREFIX-N
 ```
 
-Both surfaces return the active `work_claims` row (`released_at IS NULL`) joined to its owning `harness_sessions` row, so the operator (or a downstream agent) can see the holder's `session_id`, `executor`, `mode`, and `last_heartbeat` in one call. The typed work-claim model means the lookup matches on `target_kind='item'` plus the bare integer `item_id`; do not write ad-hoc SQL using guessed owner columns, guessed claim-session columns, retired item-claim table names, or generic target columns. The same recipe is the canonical example in the generated agent context packet (`yoke_core.domain.schema_api_context`, topic `claims`).
+It returns the active `work_claims` row (`released_at IS NULL`) — `claim_id`, holder `session_id`, `target_kind`, the target columns, `claimed_at`, and `last_heartbeat` — in one call. The typed work-claim model means the lookup matches on `target_kind='item'` plus the bare integer `item_id`; do not write ad-hoc SQL using guessed owner columns, guessed claim-session columns, retired item-claim table names, or generic target columns. The same recipe is the canonical example in the generated agent context packet (`yoke_core.domain.schema_api_context`, topic `claims`).
+
+Inside the Yoke source repo only, the in-tree `python3 -m runtime.harness.harness_sessions who-claims <item-id>` helper additionally joins the owning `harness_sessions` row (surfacing `executor` and `mode`) and accepts `--current-episode`. That module is not importable from an installed Yoke, so it is an operator/debug recipe for this repo, never a portable one.
 
 `work_claims` is the **active session occupancy** primitive — what a harness session is doing right now. It is NOT path/file ownership truth (that lives in `path_claims`) and NOT live shared-operation truth (that lives in `coordination_leases`). Process path claims attribute back to their owning process work-claim through `path_claims.work_claim_id`.
 
@@ -265,15 +265,15 @@ The Active Harness Sessions and Recent Sessions tables share one Claims column t
 
 | Primitive               | Active shape                | Example                            |
 |---                      |---                          |---                                 |
-| work_claim (item)       | `YOK-N`                     | `YOK-N`                         |
-| work_claim (epic task)  | `YOK-N T###`                | `YOK-N T008`                    |
+| work_claim (item)       | `PREFIX-N`                     | `PREFIX-N`                         |
+| work_claim (epic task)  | `PREFIX-N T###`                | `PREFIX-N T008`                    |
 | work_claim (process)    | `⚙ <process_key>`           | `⚙ FEED`                           |
-| work_claim + same-item path_claim decoration | `YOK-N 📁<total>`           | `YOK-N 📁23`                    |
-| path_claim orphan       | `📁<total> (YOK-N)`         | `📁5 (YOK-N)`                   |
+| work_claim + same-item path_claim decoration | `PREFIX-N 📁<total>`           | `PREFIX-N 📁23`                    |
+| path_claim orphan       | `📁<total> (PREFIX-N)`         | `📁5 (PREFIX-N)`                   |
 | path_claim process anchor | `📁<total> (⚙ process_key)` | `📁3 (⚙ FEED)`                     |
 | coordination_lease      | `🔒 <lease_key>`            | `🔒 LIVE_DB_MIGRATION:primary`     |
 
-Rules: same-session multiple `path_claims` on the same item roll up into one keycap with the summed declared-path total; leases never decorate work_claims; ordering inside a row is work_claims → orphan path_claim keycaps → leases. The recently-closed table uses the same shapes plus `(release_reason)` decoration on terminal rows; released path_claims and leases do not appear on active-session rows. Per-file enumeration is intentionally out of scope — operators drill into per-file detail via `path-claims list --item YOK-N`.
+Rules: same-session multiple `path_claims` on the same item roll up into one keycap with the summed declared-path total; leases never decorate work_claims; ordering inside a row is work_claims → orphan path_claim keycaps → leases. The recently-closed table uses the same shapes plus `(release_reason)` decoration on terminal rows; released path_claims and leases do not appear on active-session rows. Per-file enumeration is intentionally out of scope — operators drill into per-file detail via `path-claims list --item PREFIX-N`.
 
 ### Session Offer
 

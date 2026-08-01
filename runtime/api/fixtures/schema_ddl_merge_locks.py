@@ -7,7 +7,9 @@ CREATE TABLE IF NOT EXISTS merge_locks (
     branch TEXT NOT NULL,
     epic_id TEXT,
     acquired_at TEXT NOT NULL,
-    expires_at TEXT NOT NULL
+    expires_at TEXT NOT NULL,
+    project_slug TEXT,
+    target_branch TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_merge_locks_expires_at
     ON merge_locks(expires_at);

@@ -80,9 +80,9 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
                 f"stored kind {stored_kind!r}",
                 jsonpath="$.payload.qa_kind",
             )
-        if executor_type == "agent" and is_browser_method_requirement(
-            row["method_id"],
-            stored_kind,
+        if (
+            executor_type == "agent"
+            and is_browser_method_requirement(row["method_id"])
         ):
             return _error(
                 "policy_violation",

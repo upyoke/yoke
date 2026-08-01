@@ -167,7 +167,7 @@ def registry_choreography_findings(
             rel_str.endswith(
                 "lint_structured_field_transform_shell_messages.py"
             )
-            or rel_str.endswith("doctor_hc_terminal_recipe_residue.py")
+            or rel_str.endswith("check_terminal_recipe_residue.py")
             or rel_str.endswith("doctor_hc_terminal_recipe_residue_scan.py")
         ):
             continue

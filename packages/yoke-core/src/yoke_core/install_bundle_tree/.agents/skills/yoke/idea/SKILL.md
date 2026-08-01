@@ -1,12 +1,12 @@
 ---
 name: idea
-description: Create a new backlog item with a YOK-N ID. Infers project, workflow, priority, and flow from context.
+description: Create a new backlog item with a PREFIX-N ID. Infers project, workflow, priority, and flow from context.
 argument-hint: "[--dry-run] [--workflow issue|epic|blitz] {title}"
 ---
 
 # /yoke idea [--dry-run] [--workflow issue|epic|blitz] {title}
 
-Create a new backlog item and assign it the next available YOK-N ID.
+Create a new backlog item and assign it the next available PREFIX-N ID.
 
 <!-- BEGIN GENERATED: field-note-directive -->
 When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
@@ -104,7 +104,7 @@ yoke sessions touch --mode idea
 - Status is always `idea` for new items. Follow the workflow-specific
   handoff in `infer-and-create.md`: Issue and Epic use `/yoke shepherd`;
   Blitz uses `/yoke refine` and then `/yoke blitz`.
-- The YOK-N ID is permanent — it never changes even after GitHub sync.
+- The PREFIX-N ID is permanent — it never changes even after GitHub sync.
 - Items are auto-synced to GitHub on creation. If GitHub sync is unavailable, the item is created locally and can be synced later through the internal item sync repair path; do not teach that repair path as normal product flow.
 - This is a write command — it creates a file and inserts a DB row.
 - **Maximum questions rule:** This flow asks at most 3 binary questions total per invocation. Most items should require zero questions (all fields inferred from context). Count your questions — if you have already asked 3, stop asking and use best-guess defaults for remaining ambiguities.

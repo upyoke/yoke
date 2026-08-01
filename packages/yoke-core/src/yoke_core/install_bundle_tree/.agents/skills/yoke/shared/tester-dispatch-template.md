@@ -32,7 +32,7 @@ call (`target = {kind: "item", item_id: <N>}`, `payload = {fields:
 ["spec"]}`) and embeds it inline in the Tester prompt:
 
 ```
-Validate YOK-{N}: {title}
+Validate PREFIX-{N}: {title}
 
 {spec content from items.get.run result.fields.spec}
 ```
@@ -52,8 +52,8 @@ Project verification lives in attached QA plans. List the item's materialized
 requirements and include every row with a non-null `plan_id`:
 
 ```bash
-_item_project=$(yoke items get "YOK-{N}" project)
-_qa_requirements=$(yoke qa requirement list --item "YOK-{N}" --json)
+_item_project=$(yoke items get "PREFIX-{N}" project)
+_qa_requirements=$(yoke qa requirement list --item "PREFIX-{N}" --json)
 ```
 
 The snapshot includes the case key, method id, instructions, expected outcome,
@@ -62,7 +62,7 @@ Command method's shell text yourself. Execute the complete roster through the
 ordered runner so each method selects its executor, verdict path, and evidence:
 
 ```bash
-yoke qa plan run --item "YOK-{N}" --transition <transition>
+yoke qa plan run --item "PREFIX-{N}" --transition <transition>
 ```
 
 When the result is `state="awaiting_agent_review"` (exit `12`), the returned
@@ -122,7 +122,7 @@ if [ -n "$_item_project" ] && [ "$_item_project" != "null" ]; then
 else
  _wt_repo="{REPO_ROOT}"
 fi
-_worktree_path="$_wt_repo/.worktrees/YOK-{N}"
+_worktree_path="$_wt_repo/.worktrees/PREFIX-{N}"
 ```
 
 Include in the prompt:
@@ -153,7 +153,7 @@ Ephemeral URL: {_ephemeral_url}
 
 **Dispatch:** descriptor `DispatchDescriptor(role="tester")` rendered via `yoke_core.domain.dispatch_descriptors.render_for_harness(descriptor, harness_id)`. Result-schema markers: `VERDICT: PASS|FAIL`, `---REFLECTION-START---`. The descriptor's `prompt: |` block is filled with:
 ```
- Validate YOK-{N}: {title}
+ Validate PREFIX-{N}: {title}
 
  Spec (read via items.get.run by the dispatcher; embedded inline):
  {spec_content}
@@ -161,7 +161,7 @@ Ephemeral URL: {_ephemeral_url}
  Project Test Plan Cases:
  {_plan_case_rows or "none attached"}
  Execute the immutable roster with:
- yoke qa plan run --item YOK-{N} --transition <transition>
+ yoke qa plan run --item PREFIX-{N} --transition <transition>
  If it returns awaiting_agent_review, immediately execute the returned typed
  reviewer dispatch and exact verdict submission contract before continuing.
  Ephemeral URL: {_ephemeral_url}
@@ -176,7 +176,7 @@ Ephemeral URL: {_ephemeral_url}
  {_diff_stat}
 
  Full diff from main available via:
- git diff main...YOK-{N}
+ git diff main...PREFIX-{N}
 
  Review the implementation against the acceptance criteria in the spec.
  Execute the materialized plan cases above through the shared case runner.

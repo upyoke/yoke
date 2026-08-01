@@ -71,7 +71,7 @@ All accessors return absolute `Path` objects.
 Use `YOKE_SCRATCH_ROOT` for a per-process override:
 
 ```bash
-YOKE_SCRATCH_ROOT=/fast/local/yoke-scratch python3 -m yoke_core.tools.watch_pytest -- runtime/api/
+YOKE_SCRATCH_ROOT=/fast/local/yoke-scratch yoke watch pytest -- runtime/api/
 ```
 
 Use machine config for a per-installation default:

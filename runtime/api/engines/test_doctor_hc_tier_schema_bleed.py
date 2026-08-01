@@ -13,8 +13,8 @@ from typing import Iterable, Iterator, List, Tuple
 import pytest
 
 from yoke_core.domain.schema_api_context_json_schemas import JSON_NESTED_SCHEMAS
-from yoke_core.engines import doctor_hc_tier_schema_bleed as mod
-from yoke_core.engines.doctor_hc_tier_schema_bleed import (
+from yoke_project_checks import check_tier_schema_bleed as mod
+from yoke_project_checks.check_tier_schema_bleed import (
     HC_SLUG,
     hc_tier_schema_bleed,
 )

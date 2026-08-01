@@ -251,9 +251,9 @@ def test_lifecycle_transition_positive_cli_recipe_present() -> None:
     """
 
     body = main_body()
-    assert "yoke claims work acquire --item YOK-N --reason transition" in body
-    assert "yoke lifecycle transition YOK-N --to refined-idea" in body
-    assert "yoke claims work release --item YOK-N" in body
+    assert "yoke claims work acquire --item PREFIX-N --reason transition" in body
+    assert "yoke lifecycle transition PREFIX-N --to refined-idea" in body
+    assert "yoke claims work release --item PREFIX-N" in body
     assert "lifecycle.transition.execute" in body
 
 

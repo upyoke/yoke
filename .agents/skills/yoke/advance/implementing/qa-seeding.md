@@ -26,7 +26,7 @@ plans, add only that explicit item-specific requirement:
 
 ```bash
 yoke qa requirement add \
-  --item YOK-{N} \
+  --item PREFIX-{N} \
   --qa-kind ac_verification \
   --qa-phase verification \
   --workflow-transition reviewed-implementation \
