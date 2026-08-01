@@ -11,11 +11,14 @@ Two surfaces:
   repoints ``YOKE_PG_DSN`` at it so ambient ``db_helpers.connect()`` calls
   during the suite land in an isolated, schema-loaded test database.
 - :func:`test_database` / :func:`connect_test_database` — used by the ``test_db``
-  fixture for per-test fresh databases with full isolation.
+  fixture for per-test isolated databases.
 
 Schema-loaded databases are cloned from a per-worker template database
 (``CREATE DATABASE ... TEMPLATE``) so the fixture DDL executes once per
-worker rather than once per database.
+worker rather than once per database. The per-test surface serves the
+common case from one reusable clone per worker that ``pg_reusable_db``
+resets between uses, so steady-state test traffic issues no
+``CREATE DATABASE`` / ``DROP DATABASE`` at all.
 
 Isolation between concurrent invocations lives here, at the layer that
 provisions databases, so every entry path inherits it: the watcher wrapper,
@@ -216,33 +219,60 @@ def drop_database_on_close(conn, name: str):
     return conn
 
 
+REUSABLE_FIXTURE_FLAVOR = "fixture_schema"
+
+
+def _build_reusable_fixture_db() -> str:
+    return create_test_database(template=_fixture_template_db())
+
+
+def reusable_fixture_database():
+    """Checkout context for this worker's reusable fixture-schema database.
+
+    Yields the database name, or ``None`` when the flavor is already checked
+    out (nested use) and the caller must fall back to a per-use clone.
+    Shared by every consumer of the fixture schema so one worker keeps one
+    reusable database regardless of which fixture surface a test enters by.
+    """
+    from runtime.api.fixtures import pg_reusable_db
+
+    return pg_reusable_db.checkout(
+        REUSABLE_FIXTURE_FLAVOR, _build_reusable_fixture_db
+    )
+
+
 @contextlib.contextmanager
 def test_database():
-    """Yield a connection to a fresh disposable test DB with the schema applied.
+    """Yield a connection to an isolated, schema-loaded disposable test DB.
 
     Repoints ``YOKE_PG_DSN`` at the per-test database for the duration, so
     code-under-test that self-resolves its own connection (``db_helpers.connect``
     with no explicit conn) lands in the SAME database as the yielded fixture
-    connection — not the shared ambient DB. Restores the prior DSN and drops the
-    database on exit.
+    connection — not the shared ambient DB. Restores the prior DSN on exit.
 
-    The per-test database is cloned from this process's schema-loaded
-    template database, so the fixture DDL executes once per worker instead
-    of once per test.
+    Isolation is served by this worker's reusable fixture-schema database:
+    a single template clone per worker, reset to its baseline after every
+    use (see ``pg_reusable_db``), instead of a ``CREATE DATABASE`` /
+    ``DROP DATABASE`` pair per test — per-test clones saturate disk IO when
+    several suites share the cluster. Nested contexts fall back to a
+    per-use clone that is dropped on exit, so two live ``test_database()``
+    contexts never share a database.
     """
-    name = create_test_database(template=_fixture_template_db())
-    conn = connect_test_database(name)
-    prior = os.environ.get(db_backend.PG_DSN_ENV)
-    os.environ[db_backend.PG_DSN_ENV] = dsn_for_test_database(name)
-    try:
-        yield conn
-    finally:
-        if prior is not None:
-            os.environ[db_backend.PG_DSN_ENV] = prior
-        else:
-            os.environ.pop(db_backend.PG_DSN_ENV, None)
-        conn.close()
-        drop_test_database(name)
+    with reusable_fixture_database() as reusable:
+        name = reusable if reusable is not None else _build_reusable_fixture_db()
+        conn = connect_test_database(name)
+        prior = os.environ.get(db_backend.PG_DSN_ENV)
+        os.environ[db_backend.PG_DSN_ENV] = dsn_for_test_database(name)
+        try:
+            yield conn
+        finally:
+            if prior is not None:
+                os.environ[db_backend.PG_DSN_ENV] = prior
+            else:
+                os.environ.pop(db_backend.PG_DSN_ENV, None)
+            conn.close()
+            if reusable is None:
+                drop_test_database(name)
 
 
 # pytest collects any module-level callable named ``test_*`` as a test. This is a
@@ -280,6 +310,7 @@ __all__ = [
     "drop_database_on_close",
     "connect_test_database",
     "dsn_for_test_database",
+    "reusable_fixture_database",
     "test_database",
     "setup_ambient_test_db",
 ]

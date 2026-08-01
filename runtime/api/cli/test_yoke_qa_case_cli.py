@@ -234,13 +234,17 @@ except KeyboardInterrupt:
         stderr=subprocess.PIPE,
         text=True,
     )
-    deadline = time.monotonic() + 5
+    # Generous deadlines: this asserts the interrupt path COMPLETES (a hang
+    # never finishes), not that it is fast. Concurrent full-suite gates on
+    # one machine starve niced test processes for several seconds at a
+    # time, and a tight budget here reads as a cleanup regression.
+    deadline = time.monotonic() + 30
     try:
         while not ready.exists() and time.monotonic() < deadline:
             time.sleep(0.01)
         assert ready.exists()
         os.kill(wrapper.pid, signal.SIGINT)
-        wrapper.communicate(timeout=5)
+        wrapper.communicate(timeout=30)
     finally:
         if wrapper.poll() is None:
             wrapper.kill()

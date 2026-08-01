@@ -230,8 +230,16 @@ cluster per run:
   running suite does can reach another run's databases.
 - Databases left behind by an interrupted run are reclaimed by an orphan
   sweep that first confirms the owning process has exited, then drops with
-  `FORCE` under a bounded statement timeout. It runs at cluster preparation
-  and is also available directly:
+  `FORCE` under a bounded statement timeout.
+
+The sweep never sits in a starting suite's critical path. Cluster preparation
+launches it detached and returns immediately, because dropping a database is
+seconds of disk work on a loaded machine — a synchronous sweep of a large
+backlog delayed pytest collection by minutes, which is the stall the cleanup
+exists to prevent. One sweeper runs at a time (a lock file under the cluster
+root; others skip instantly rather than queueing), and each pass stops at a
+time budget, so a large backlog drains over several runs and reports how many
+it deferred. Run one directly with:
 
 ```bash
 python3 -m yoke_core.tools.pg_testcluster prune
