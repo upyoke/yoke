@@ -5,6 +5,7 @@ from yoke_cli.commands.adapters import (
     item_worktree_create,
     item_worktrees,
     qa_catalog,
+    qa_catalog_defaults,
     qa_plan_edit,
     test_machine,
 )
@@ -46,7 +47,11 @@ QA_CATALOG_SUBCOMMAND_REGISTRY = {
     ),
     ("qa", "project-default", "set"): (
         "qa.project_default.set",
-        qa_catalog.qa_plan_project_default_set,
+        qa_catalog_defaults.qa_plan_project_default_set,
+    ),
+    ("qa", "project-default", "unset"): (
+        "qa.project_default.unset",
+        qa_catalog_defaults.qa_plan_project_default_unset,
     ),
     ("qa", "item-plan", "attach"): (
         "qa.item_plan.attach",

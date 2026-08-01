@@ -215,6 +215,50 @@ Review the newline-delimited output, then pass the exact existing paths to
 `watch_pytest`. Do not pipe NUL-delimited Git output through `rg -z`, and never
 feed a filter diagnostic to pytest as a filename.
 
+## Full-suite authority: CI
+
+The full three-anchor suite runs off-machine in CI on both the pull request
+and the merged commit on `main` (`.github/workflows/yoke-ci.yml` triggers on
+`pull_request` and `push` to `main`). The protected merge path requires the
+PR checks, so every merge carries one complete pre-merge sweep, and the push
+trigger re-proves the true merge commit afterward. Local verification stays
+change-scoped:
+
+- **While implementing** — run the impacted selection over the branch diff:
+
+  ```bash
+  uv run --frozen python3 -m yoke_core.tools.watch_pytest --impacted main
+  ```
+
+  Selection is reverse-import reachability with a conservative full-sweep
+  fallback (non-Python changes, conftest or shared-fixture edits, test
+  tooling), so a change that reachability cannot bound still runs
+  everything.
+- **At the review gate** — the project-default quick plan runs the same
+  impacted selection and blocks the transition when a selected test fails.
+- **At done** — no local sweep. The merge already required green PR checks,
+  and the pushed merge commit gets its own CI run.
+
+### Red-main protocol
+
+A failing `push`-to-`main` CI run means a merge landed broken despite green
+PR checks (usually a semantic conflict with a neighboring merge). Whoever
+merged the commit that turned main red owns the response: revert or fix
+forward immediately, before merging anything else on top. Treat the failing
+run's first red shard as that work's evidence, not a background alarm.
+
+### CI-outage fallback
+
+When CI is unreachable, the local full gate returns as the documented
+exception:
+
+```bash
+uv run --frozen python3 -m yoke_core.tools.watch_pytest -- runtime/api/ runtime/harness/ tests/
+```
+
+Record in the verification evidence that the local sweep substituted for CI
+and which commit it covered. Never merge with neither proof.
+
 ## Concurrent local runs
 
 One disposable PostgreSQL cluster serves every test invocation on the
