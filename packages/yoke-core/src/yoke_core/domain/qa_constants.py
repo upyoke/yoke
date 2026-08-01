@@ -23,6 +23,7 @@ VALID_BLOCKING_MODES = ("blocking", "non_blocking")
 VALID_REQUIREMENT_SOURCES = ("explicit", "seeded_default", "ac_derived", "flow_derived")
 VALID_VERDICTS = ("pass", "fail", "inconclusive", "error")
 BROWSER_METHOD_IDS = ("browser-check", "browser-inspection")
+INVALID_BROWSER_METHOD_LABEL = "invalid Browser method"
 
 
 def is_browser_method_requirement(method_id: Optional[str]) -> bool:
