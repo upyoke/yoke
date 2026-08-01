@@ -117,6 +117,26 @@ The `/yoke idea` pipeline handles:
 - GitHub issue creation and sync
 - Body generation with AC normalization
 
+**Instruction-sized work files as a Dash, not an Issue.** Before invoking
+`/yoke idea`, classify the materialization entry:
+
+- The outcome is one concrete change a single session can state as an
+  instruction — no crafted acceptance criteria, no design work, no task
+  decomposition — **and** the strategic context fits in that instruction:
+  file it with the Dash filing adapter instead, so the item carries the
+  instruction as its complete scope:
+
+  ```bash
+  yoke dash "<title>" "<instruction, including the strategic provenance above>" --json
+  ```
+
+  This files without executing. The item lands at `idea` with `workflow=dash`
+  and reaches a `/yoke do` or `/yoke charge` session as `next_step=dash`.
+- Anything needing a spec, acceptance criteria, design, or more than one
+  delivery slice: use `/yoke idea` as above and let it infer the workflow.
+
+Record Dash-filed items in `_materialized_items` exactly like idea-filed ones.
+
 ### 3A.3 Record Created Item
 
 After each successful creation, record the result:

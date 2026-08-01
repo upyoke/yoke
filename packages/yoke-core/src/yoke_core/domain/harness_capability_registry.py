@@ -65,6 +65,8 @@ DOWNSTREAM_PATHS: tuple[str, ...] = (
     "shepherd",
     "refine",
     "advance",
+    "dash",
+    "blitz",
     "polish",
     "usher",
 )

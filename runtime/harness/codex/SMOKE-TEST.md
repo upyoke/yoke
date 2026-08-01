@@ -33,7 +33,7 @@ python3 -m runtime.harness.bootstrap render-full --spec runtime/harness/bootstra
 
 ### Step 2: Capability set
 
-Supported paths: shepherd, refine, advance, polish, usher — derived
+Supported paths: shepherd, refine, advance, dash, blitz, polish, usher — derived
 server-side from the shared registry plus the manifest's declared
 limitations. Harnesses do not self-report them.
 
@@ -42,7 +42,7 @@ limitations. Harnesses do not self-report them.
 ```
 
 **Verify:**
-- [ ] Session offer reports `supported_paths: shepherd, refine, advance, polish, usher`
+- [ ] Session offer reports `supported_paths: shepherd, refine, advance, dash, blitz, polish, usher`
 - [ ] Session offer reports `executor: codex` and `provider: openai`
 - [ ] Downstream paths outside the derived set fall back truthfully
 
