@@ -82,7 +82,7 @@
       "Repeated apply is a no-op after the invariants hold."
     ],
     "rehearsal_commands": [
-      "uv run --frozen python3 -m yoke_core.tools.watch_pytest --impacted main"
+      "yoke watch pytest -- runtime/api/domain/migrations/test_harness_session_project_identity.py runtime/api/domain/test_project_policy_capabilities.py runtime/api/domain/test_portable_migration.py runtime/api/domain/migrations/test_manifest_packaging_contract.py"
     ],
     "residual_risk_notes": "The session identity module refuses to guess mappings for unstamped historical sessions, and the capability module may add missing default rows. Rehearsal therefore remains mandatory on an exact clone before each live apply; the live apply uses the same immutable manifest and packaged source digests."
   }
