@@ -68,6 +68,34 @@ def _pid_alive(pid: int) -> bool:
         return False
 
 
+def _relay(function_id: str, payload: dict) -> dict:
+    """Run one lock row operation on the connected control plane.
+
+    Row state is control-plane state, so it goes through the transport-aware
+    dispatcher: in-process against a local Postgres connection, server-side
+    over https. Holder liveness stays here on the client, because the
+    process that holds a merge lock is the local merging process — the
+    server's process table says nothing about it.
+    """
+    from yoke_contracts.api.function_call import TargetRef
+    from yoke_core.api.service_client_structured_api_adapter import (
+        call_dispatcher,
+    )
+
+    response = call_dispatcher(
+        function_id=function_id,
+        target=TargetRef(kind="global"),
+        payload=payload,
+    )
+    if not response.success:
+        message = (
+            response.error.message if response.error is not None
+            else f"{function_id} failed"
+        )
+        raise RuntimeError(message)
+    return response.result or {}
+
+
 # ---------------------------------------------------------------------------
 # Data classes
 # ---------------------------------------------------------------------------
@@ -100,9 +128,9 @@ def check(conn: Optional[Any] = None) -> Optional[str]:
     Returns None if no blocking lock, or a message string if blocked.
     Side-effect: deletes expired and stale (dead-PID) rows.
     """
-    own_conn = conn is None
-    if own_conn:
-        conn = _connect()
+    if conn is None:
+        return _check_over_transport()
+    own_conn = False
     try:
         now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         p = _p(conn)
@@ -135,16 +163,44 @@ def check(conn: Optional[Any] = None) -> Optional[str]:
                 conn.execute(f"DELETE FROM merge_locks WHERE id = {p}", (row_id,))
                 conn.commit()
             else:
-                epic_info = f" (epic: {epic_id})" if epic_id else ""
-                block_msg = (
-                    f"Merge lock held by session {session_id} "
-                    f"on branch '{branch}'{epic_info}"
-                )
+                block_msg = _blocking_message(session_id, branch, epic_id)
 
         return block_msg
     finally:
         if own_conn:
             conn.close()
+
+
+def _blocking_message(session_id: str, branch: str, epic_id: str) -> str:
+    epic_info = f" (epic: {epic_id})" if epic_id else ""
+    return (
+        f"Merge lock held by session {session_id} "
+        f"on branch '{branch}'{epic_info}"
+    )
+
+
+def _check_over_transport() -> Optional[str]:
+    """Fetch live rows, retire the ones whose holder has died, report the rest."""
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    rows = _relay("merge.lock.list", {"now": now}).get("rows") or []
+    stale_ids: list[int] = []
+    block_msg: Optional[str] = None
+    for row in rows:
+        session_id = str(row.get("session_id") or "")
+        try:
+            pid = int(session_id.split("-", 1)[0])
+        except (ValueError, IndexError):
+            pid = -1
+        if pid > 0 and not _pid_alive(pid):
+            stale_ids.append(int(row["id"]))
+        else:
+            block_msg = _blocking_message(
+                session_id, str(row.get("branch") or ""),
+                str(row.get("epic_id") or ""),
+            )
+    if stale_ids:
+        _relay("merge.lock.release", {"lock_ids": stale_ids})
+    return block_msg
 
 
 def acquire(
@@ -167,17 +223,25 @@ def acquire(
             "merge_lock_ttl_minutes", DEFAULT_TTL_MINUTES,
         )
 
-    own_conn = conn is None
-    if own_conn:
-        conn = _connect()
+    now = datetime.now(timezone.utc)
+    pid = os.environ.get("YOKE_MERGE_LOCK_PID") or str(os.getpid())
+    session_id = f"{pid}-{int(now.timestamp())}"
+    acquired_at = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+    expires_at = (now + timedelta(minutes=ttl_minutes)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    if conn is None:
+        _relay("merge.lock.acquire", {
+            "session_id": session_id,
+            "branch": branch,
+            "epic_id": epic_id or None,
+            "acquired_at": acquired_at,
+            "expires_at": expires_at,
+        })
+        return LockHandle(session_id=session_id, branch=branch)
+
+    own_conn = False
     try:
         p = _p(conn)
-        now = datetime.now(timezone.utc)
-        pid = os.environ.get("YOKE_MERGE_LOCK_PID") or str(os.getpid())
-        session_id = f"{pid}-{int(now.timestamp())}"
-        acquired_at = now.strftime("%Y-%m-%dT%H:%M:%SZ")
-        expires_at = (now + timedelta(minutes=ttl_minutes)).strftime("%Y-%m-%dT%H:%M:%SZ")
-
         conn.execute(
             "INSERT INTO merge_locks (session_id, branch, epic_id, acquired_at, expires_at) "
             f"VALUES ({p}, {p}, {p}, {p}, {p})",
@@ -200,9 +264,13 @@ def release(
     if not handle.session_id or not handle.branch:
         return
 
-    own_conn = conn is None
-    if own_conn:
-        conn = _connect()
+    if conn is None:
+        _relay("merge.lock.release", {
+            "session_id": handle.session_id, "branch": handle.branch,
+        })
+        return
+
+    own_conn = False
     try:
         p = _p(conn)
         conn.execute(
@@ -217,9 +285,11 @@ def release(
 
 def force_clear(conn: Optional[Any] = None) -> None:
     """Delete ALL merge lock rows."""
-    own_conn = conn is None
-    if own_conn:
-        conn = _connect()
+    if conn is None:
+        _relay("merge.lock.release", {"all_rows": True})
+        return
+
+    own_conn = False
     try:
         conn.execute("DELETE FROM merge_locks")
         conn.commit()

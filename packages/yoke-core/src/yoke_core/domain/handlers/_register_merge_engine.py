@@ -11,9 +11,50 @@ row.
 from __future__ import annotations
 
 from yoke_core.domain.handlers import merge_engine_internal_ops as _ops
+from yoke_core.domain.handlers import merge_lock_ops as _lock
+
+_LOCK_MODULE = "yoke_core.domain.handlers.merge_lock_ops"
+
+
+def _register_lock(registry, function_id, handler, request_model, response_model):
+    registry.register(
+        function_id,
+        handler,
+        request_model,
+        response_model,
+        stability="stable",
+        owner_module=_LOCK_MODULE,
+        target_kinds=["global"],
+        side_effects=["db_write"],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=[],
+        adapter_status="internal",
+        claim_required_kind=None,
+    )
 
 
 def register(registry) -> None:
+    _register_lock(
+        registry,
+        "merge.lock.list",
+        _lock.handle_lock_list,
+        _lock.LockListRequest,
+        _lock.LockListResponse,
+    )
+    _register_lock(
+        registry,
+        "merge.lock.acquire",
+        _lock.handle_lock_acquire,
+        _lock.LockAcquireRequest,
+        _lock.LockAcquireResponse,
+    )
+    _register_lock(
+        registry,
+        "merge.lock.release",
+        _lock.handle_lock_release,
+        _lock.LockReleaseRequest,
+        _lock.LockReleaseResponse,
+    )
     registry.register(
         "merge.prune.authority_verdict",
         _ops.handle_prune_authority_verdict,

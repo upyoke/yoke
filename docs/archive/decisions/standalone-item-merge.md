@@ -104,6 +104,14 @@ its PATH. Three constraints follow:
   the item sync entirely instead of failing the merge, and a checkout with no
   remote skips the push.
 
+The merge lock is the sharpest case. It is control-plane state, so opening a
+local connection for it — as the engine did — fails outright on an
+https-connected machine, leaving concurrent merges unserialized on exactly
+the transport most sessions use. The lock is therefore split: its row
+operations relay through the dispatcher, while holder liveness stays on the
+client, because the process holding a merge lock is the local merging
+process and the server's process table says nothing about it.
+
 ## Consequences
 
 - The refusal message in the merge engine now names a command rather than a
