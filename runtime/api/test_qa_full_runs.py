@@ -155,24 +155,31 @@ class TestRunAdd:
         assert abs(row["score"] - 0.98) < 0.01
         assert abs(row["confidence"] - 0.95) < 0.01
 
-    def test_agent_executor_rejected_for_browser_qa(self, db_path, capsys):
-        """agent executor not allowed for browser QA kinds."""
+    def test_agent_executor_rejected_for_browser_method(self, db_path, capsys):
+        """Agent executor is not allowed for Browser method cases."""
         req_id = add_bound_requirement(
             db_path=db_path,
             item_id=100,
-            qa_kind="browser_smoke",
+            qa_kind="plan_case",
             qa_phase="verification",
             success_policy=json.dumps(
                 {"steps": [{"action": "navigate", "route": "/"}]}
             ),
         )
+        conn = _conn(db_path)
+        conn.execute(
+            "UPDATE qa_requirements SET method_id = %s WHERE id = %s",
+            ("browser-check", req_id),
+        )
+        conn.commit()
+        conn.close()
         capsys.readouterr()
         with pytest.raises(SystemExit):
             qa.cmd_run_add(
                 db_path=db_path,
                 requirement_id=req_id,
                 executor_type="agent",
-                qa_kind="browser_smoke",
+                qa_kind="plan_case",
             )
 
     def test_agent_executor_rejected_for_screenshot_evidence(self, db_path, capsys):
@@ -253,12 +260,19 @@ class TestRunAdd:
         req_id = add_bound_requirement(
             db_path=db_path,
             item_id=100,
-            qa_kind="browser_smoke",
+            qa_kind="plan_case",
             qa_phase="verification",
             success_policy=json.dumps(
                 {"steps": [{"action": "screenshot", "capture": True}]}
             ),
         )
+        conn = _conn(db_path)
+        conn.execute(
+            "UPDATE qa_requirements SET method_id = %s WHERE id = %s",
+            ("browser-check", req_id),
+        )
+        conn.commit()
+        conn.close()
         capsys.readouterr()
 
         screenshot = tmp_path / "manual-shot.png"
@@ -272,7 +286,7 @@ class TestRunAdd:
             db_path=db_path,
             requirement_id=req_id,
             executor_type="browser_substrate",
-            qa_kind="browser_smoke",
+            qa_kind="plan_case",
             verdict="pass",
             artifact_path=str(screenshot),
         )

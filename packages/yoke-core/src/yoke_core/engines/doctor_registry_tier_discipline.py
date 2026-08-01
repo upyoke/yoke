@@ -11,6 +11,13 @@ This module owns the shared data + helpers every tier-discipline HC
 consumes, plus the registry bundle (`TIER_DISCIPLINE_HEALTH_CHECKS`)
 spliced into `doctor_registry.HEALTH_CHECKS`. The module is pure data
 plus pure helpers: no DB access, no I/O beyond `pathlib.Path.glob`.
+
+The bundle is currently empty: the tier map above describes one project's
+own teaching surfaces, so the checks that scan them are registered from
+that project's `.yoke/doctor/` folder and discovered by
+`doctor_project_checks`. The helpers here remain shared, and the bundle
+stays as the seam for a tier-discipline rule the engine can assert for
+every project.
 """
 
 from __future__ import annotations
@@ -168,20 +175,8 @@ def _build_health_checks() -> List[HealthCheck]:
     global _TIER_DISCIPLINE_HEALTH_CHECKS
     if _TIER_DISCIPLINE_HEALTH_CHECKS is not None:
         return _TIER_DISCIPLINE_HEALTH_CHECKS
-    from yoke_core.engines.doctor_hc_cli_help_handler import hc_cli_help_handler_present  # noqa: E501
-    from yoke_core.engines.doctor_hc_packet_tier_completeness import hc_packet_tier_completeness  # noqa: E501
-    from yoke_core.engines.doctor_hc_progressive_disclosure_direction import hc_progressive_disclosure_direction  # noqa: E501
-    from yoke_core.engines.doctor_hc_tier_cli_shape_bleed import hc_tier_cli_shape_bleed
-    from yoke_core.engines.doctor_hc_tier_module_path_resolution import hc_tier_module_path_resolution  # noqa: E501
-    from yoke_core.engines.doctor_hc_tier_schema_bleed import hc_tier_schema_bleed
 
     _TIER_DISCIPLINE_HEALTH_CHECKS = [
-        HealthCheck("tier-schema-bleed", "Tier 0/2/4/5 surfaces restate Tier 1 schema facts", hc_tier_schema_bleed),  # noqa: E501
-        HealthCheck("tier-cli-shape-bleed", "Tier 0/2/4/5 surfaces teach drifted CLI shape or bare doctor", hc_tier_cli_shape_bleed),  # noqa: E501
-        HealthCheck("packet-tier-completeness", "Skill prose names a column the main_agent packet does not list", hc_packet_tier_completeness),  # noqa: E501
-        HealthCheck("progressive-disclosure-direction", "Backward tier citation or vague denial without concrete function id", hc_progressive_disclosure_direction),  # noqa: E501
-        HealthCheck("tier-module-path-resolution", "Tier 0/2/4/5 surface cites a runtime.api.* module that does not resolve", hc_tier_module_path_resolution),  # noqa: E501
-        HealthCheck("cli-help-handler-present", "Every service_client subcommand exits 0 on --help", hc_cli_help_handler_present),  # noqa: E501
     ]
     return _TIER_DISCIPLINE_HEALTH_CHECKS
 

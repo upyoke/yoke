@@ -66,13 +66,13 @@ resolution_comment TEXT -- free-text resolution notes
 **Structured-field CLI examples** (body renders on next read):
 
 ```sh
-python3 -m yoke_core.cli.db_router items get YOK-N spec
+python3 -m yoke_core.cli.db_router items get PREFIX-N spec
 printf '%s' "$CONTENT" | python3 -m yoke_core.cli.db_router items update 42 spec --stdin
 python3 -m yoke_core.cli.db_router sections upsert 42 "Goals" --content-file /tmp/g.md --ordering 100
-python3 -m yoke_core.domain.item_field_transform section-upsert --item YOK-N --section "Goals" --body-file /tmp/g.md --ordering 100 --source operator
+python3 -m yoke_core.domain.item_field_transform section-upsert --item PREFIX-N --section "Goals" --body-file /tmp/g.md --ordering 100 --source operator
 ```
 
-> **Blocked is a flag on items.** Columns `items.blocked INTEGER DEFAULT 0` and `items.blocked_reason TEXT` carry the operator-set block; lifecycle status is preserved across block/unblock; legacy `status='blocked'` lifecycle position is retired (`HC-blocked-status-drift` flags any survivor). Operators use `/yoke block YOK-N "<reason>"` / `/yoke unblock YOK-N`. Epic-task `blocked` is unchanged. The view column `item_progress_view.blocked_reason` is `pipeline_blocked_reason`. Full architectural-why (yoke source repo): `docs/archive/decisions/blocked-flag-retirement.md`.
+> **Blocked is a flag on items.** Columns `items.blocked INTEGER DEFAULT 0` and `items.blocked_reason TEXT` carry the operator-set block; lifecycle status is preserved across block/unblock; legacy `status='blocked'` lifecycle position is retired (`HC-blocked-status-drift` flags any survivor). Operators use `/yoke block PREFIX-N "<reason>"` / `/yoke unblock PREFIX-N`. Epic-task `blocked` is unchanged. The view column `item_progress_view.blocked_reason` is `pipeline_blocked_reason`. Full architectural-why (yoke source repo): `docs/archive/decisions/blocked-flag-retirement.md`.
 
 ### DB Claim — the unified amendment workflow
 
@@ -95,7 +95,7 @@ The amendment workflow accepts a single flat payload combining both halves:
   "affected_surfaces": [{"table": "items", "columns": ["due_date"]}],
   "pre_merge_readers_writers": [{"path": "packages/yoke-core/src/yoke_core/domain/items.py", "role": "writer"}],
   "invariants": ["items.due_date nullable after apply"],
-  "rehearsal_commands": ["python3 -m yoke_core.tools.watch_pytest -- runtime/api/"],
+  "rehearsal_commands": ["yoke watch pytest -- runtime/api/"],
   "residual_risk_notes": "none"
 }
 ```
@@ -106,7 +106,7 @@ Negative claims — the reviewed-none decision — use the convenience flag:
 
 ```bash
 python3 -m yoke_core.api.service_client db-claim-amend \
-  --item YOK-N --state none --reason "<why>"
+  --item PREFIX-N --state none --reason "<why>"
 ```
 
 Running this is an **explicit reviewed-none decision**: an operator or agent has confirmed the work item does not mutate a governed authoritative DB. The amendment stamps the reviewed-negative attestation onto the stored profile itself — `{"state":"none","reviewed_negative":true,"validated_at":"<ts>"}` — so the decision lives as item state, not in the events ledger. The prose-vs-claim gate reads that attestation as proof the negative claim was deliberately reviewed (not the implicit schema default) and clears vocabulary- and structural-trigger hits alike. Meta work items about DB governance that unavoidably cite `ALTER TABLE`, `ADD COLUMN`, `DROP COLUMN`, `migration_audit`, or similar DDL-shape terms advance once the reviewed-none amendment is on record. The `reviewed_negative` / `validated_at` keys are workflow-managed — amendment payloads that try to supply them are rejected as reserved.
@@ -135,7 +135,7 @@ The `deploy_stage` column tracks an item's position within its assigned deployme
 - `NULL` -- item has not entered the deployment pipeline (no flow assigned, or flow not yet started)
 - Stage name (e.g., `prod-deploy`, `smoke`, `complete`) -- the current or last-completed stage from the item's `deployment_flow.stages` JSON array
 - `needs-capability` -- pipeline halted because a required capability (SSH, Docker, etc.) is missing or misconfigured. The `deployment_runs` table records the halt via run status. Operator configures the capability, then re-runs the Usher to resume.
-- `awaiting-approval` -- pipeline halted at a `human-approval` gate. Operator approves via `/yoke approve YOK-N`, then re-runs the Usher to resume.
+- `awaiting-approval` -- pipeline halted at a `human-approval` gate. Operator approves via `/yoke approve PREFIX-N`, then re-runs the Usher to resume.
 - `complete` -- all stages in the flow have been executed successfully; the item is ready to transition to `done`
 
 ## Table: item_sections
@@ -171,7 +171,7 @@ Tracks what happened to each caveat during Shepherd's step 5i triage (RESOLVED o
 
 ```sql
 id INTEGER PRIMARY KEY
-item TEXT NOT NULL -- YOK-N reference
+item TEXT NOT NULL -- PREFIX-N reference
 transition TEXT NOT NULL -- e.g. refined_idea_to_planning
 attempt INTEGER NOT NULL DEFAULT 1
 caveat_num INTEGER NOT NULL
@@ -198,8 +198,8 @@ repair before that compatibility column is dropped.
 
 ```sql
 id INTEGER PRIMARY KEY
-dependent_item TEXT NOT NULL -- YOK-N that depends on another
-blocking_item TEXT NOT NULL -- YOK-N that blocks the dependent
+dependent_item TEXT NOT NULL -- PREFIX-N that depends on another
+blocking_item TEXT NOT NULL -- PREFIX-N that blocks the dependent
 gate_point TEXT NOT NULL DEFAULT 'activation' -- activation | integration | closure
 satisfaction TEXT NOT NULL DEFAULT 'status:done' -- status:done | status:implemented | fact:merged
 source TEXT NOT NULL -- shepherd | conduct | operator | migration | feed
@@ -210,9 +210,9 @@ created_at TEXT NOT NULL
 UNIQUE(dependent_item, blocking_item, gate_point)
 ```
 
-`dependent_item` and `blocking_item` intentionally store public `YOK-N`
+`dependent_item` and `blocking_item` intentionally store public `PREFIX-N`
 text references, not numeric `items.id` values. Prefer `yoke shepherd
-dependency-list YOK-N` for routine dependency reads instead of ad hoc SQL
+dependency-list PREFIX-N` for routine dependency reads instead of ad hoc SQL
 that compares these columns to bare integers.
 
 Indexes:

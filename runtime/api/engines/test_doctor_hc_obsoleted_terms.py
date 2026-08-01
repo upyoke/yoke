@@ -81,9 +81,17 @@ def _filter_tolerated(
 # zero-shell audit legitimately enumerate retired script names. Every other
 # live path must stay clean.
 _AUTHORIZED_DECLARATION_PATHS: tuple[str, ...] = (
-    "packages/yoke-core/src/yoke_core/engines/doctor_hc_obsoleted_terms.py",
+    # Project-local health checks: the scanner declares the retired terms it
+    # hunts for, and the agent-prompt detector names the retired command
+    # shape it looks for in tracked prompts.
+    ".yoke/doctor/check_obsoleted_terms.py",
+    # The catalogue holds the retired names the scanner hunts for; it
+    # declares them rather than leaking them.
+    ".yoke/doctor/_obsoleted_terms_catalog.py",
+    ".yoke/doctor/check_agents_prompts.py",
+    "packages/yoke-core/src/yoke_core/engines/check_obsoleted_terms.py",
     "packages/yoke-core/src/yoke_core/engines/doctor_hc_obsoleted_terms_allowlists.py",
-    "runtime/api/engines/doctor_hc_obsoleted_terms.py",
+    "runtime/api/engines/check_obsoleted_terms.py",
     "runtime/api/engines/doctor_hc_obsoleted_terms_allowlists.py",
     "runtime/api/engines/test_doctor_hc_obsoleted_terms.py",
     "runtime/api/engines/test_doctor_hc_obsoleted_terms_scan.py",
@@ -103,7 +111,7 @@ _AUTHORIZED_DECLARATION_PATHS: tuple[str, ...] = (
     "runtime/api/tools/shell_inventory_scan.py",
     "runtime/api/tools/shell_inventory_closeout.py",
     "packages/yoke-core/src/yoke_core/domain/runs.py",
-    "packages/yoke-core/src/yoke_core/engines/doctor_hc_agents_prompts.py",
+    "packages/yoke-core/src/yoke_core/engines/check_agents_prompts.py",
     "packages/yoke-core/src/yoke_core/tools/shell_inventory.py",
     "packages/yoke-core/src/yoke_core/tools/shell_inventory_classify.py",
     "packages/yoke-core/src/yoke_core/tools/shell_inventory_report.py",
@@ -214,7 +222,7 @@ def test_yoke_db_sh_has_no_live_prose_residue():
         "runtime/api/domain/test_lint_db_cmd_lifecycle.py",
         "runtime/api/domain/test_lint_db_cmd_operators.py",
         "runtime/api/domain/test_lint_tc_label.py",
-        "runtime/api/engines/doctor_hc_agents_prompts.py",
+        "runtime/api/engines/check_agents_prompts.py",
         "runtime/api/engines/test_doctor_filesystem_full.py",
         "runtime/api/engines/test_doctor_filesystem_full_repo.py",
         "runtime/api/engines/test_doctor_hc_obsoleted_terms_scan.py",

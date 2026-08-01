@@ -1,7 +1,7 @@
 """HC-obsoleted-terms backlog-field scanner.
 
 Read-only complement to the file-tree scanner in
-:mod:`doctor_hc_obsoleted_terms`. Honors the archive-and-historical-fields
+:mod:`check_obsoleted_terms`. Honors the archive-and-historical-fields
 preservation policy recorded in
 ``docs/archive/decisions/historical-obsoleted-hook-refs.md``: structured
 backlog fields on items in historical statuses (``done``, ``release``,
@@ -93,14 +93,14 @@ def _scan_text(
 ) -> list[str]:
     """Return ``<source-label>:<line>: [<retired-label>] <content>`` strings.
 
-    Matches the format of :func:`doctor_hc_obsoleted_terms.scan_repo` so the
+    Matches the format of :func:`check_obsoleted_terms.scan_repo` so the
     HC report renders file-tree hits and backlog-field hits side-by-side
     without per-source formatting branches.
 
     ``source_item_id`` enables the obsoleting-item self-exemption: when a
     pattern's label names the same YOK-N as the source item, the hit is
     skipped. The exemption applies only to backlog fields (this module's
-    scope); the file-tree scanner in ``doctor_hc_obsoleted_terms`` has no
+    scope); the file-tree scanner in ``check_obsoleted_terms`` has no
     item id to key on and remains strict.
     """
     if not text:
@@ -245,7 +245,7 @@ def scan_backlog_fields(
 
     Returns a list of ``<source-label>:<line>: [<retired-label>] <content>``
     strings matching the format of
-    :func:`doctor_hc_obsoleted_terms.scan_repo`. Empty list when ``conn`` is
+    :func:`check_obsoleted_terms.scan_repo`. Empty list when ``conn`` is
     ``None`` (synthetic test path), when ``patterns`` is empty, or when no
     non-historical item carries an obsoleted-term hit.
     """

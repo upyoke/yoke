@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from yoke_core.engines import doctor_hc_agents
-from yoke_core.engines import doctor_hc_agents_hooks
+from yoke_project_checks import check_agents
+from yoke_project_checks import check_agents_hooks
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
 
@@ -30,14 +30,14 @@ def _write_agent(root, command: str) -> None:
 
 def test_agent_consistency_accepts_path_resolved_yoke_cli(tmp_path, monkeypatch) -> None:
     _write_agent(tmp_path, "yoke hook evaluate PreToolUse")
-    monkeypatch.setattr(doctor_hc_agents._base, "_resolve_repo_root", lambda: str(tmp_path))
+    monkeypatch.setattr(check_agents._base, "_resolve_repo_root", lambda: str(tmp_path))
     monkeypatch.setattr(
-        doctor_hc_agents_hooks.shutil,
+        check_agents_hooks.shutil,
         "which",
         lambda name: "/opt/homebrew/bin/yoke" if name == "yoke" else None,
     )
 
     rec = RecordCollector()
-    doctor_hc_agents.hc_agent_consistency(None, DoctorArgs(), rec)
+    check_agents.hc_agent_consistency(None, DoctorArgs(), rec)
 
     assert rec.results[0].result == "PASS"

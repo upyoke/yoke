@@ -245,7 +245,8 @@ def test_deployment_run_create_dispatches_mechanically_bound_lineage() -> None:
         )
 
     with patch(
-        "yoke_cli.commands.adapters.deployment.resolve_commit_lineage",
+        "yoke_cli.commands.adapters.deployment_run_create."
+        "resolve_commit_lineage",
         return_value="a" * 40,
     ) as resolve_lineage:
         rc, out, err = _run_capture(

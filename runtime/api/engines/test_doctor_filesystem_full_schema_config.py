@@ -17,11 +17,11 @@ from unittest.mock import patch
 
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
+from yoke_project_checks.check_arch_consistency import hc_arch_consistency
+from yoke_project_checks.check_schema_script_sync import hc_schema_script_sync
 from yoke_core.engines.doctor import (
-    hc_arch_consistency,
     hc_backlog_quality,
     hc_config_validation,
-    hc_schema_script_sync,
     hc_stale_body,
 )
 

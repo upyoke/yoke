@@ -27,7 +27,7 @@ class HostedMachineAuthorizationDenied(HostedMachineAuthorizationError):
 
 # Hosted pages that may present the one-time code approval: the dedicated
 # machine-approval page and the unified connect-machine page.
-_BROWSER_VERIFICATION_PATHS = ("/machine", "/connect")
+_BROWSER_VERIFICATION_PATHS = ("/connect", "/machine")
 
 
 @dataclass(frozen=True)

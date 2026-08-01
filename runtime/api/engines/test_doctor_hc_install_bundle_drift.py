@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from yoke_core.domain import install_bundle_tree_sync
-from yoke_core.engines import doctor_hc_install_bundle_drift as hc_mod
-from yoke_core.engines.doctor_hc_install_bundle_drift import (
+from yoke_project_checks import check_install_bundle_drift as hc_mod
+from yoke_project_checks.check_install_bundle_drift import (
     hc_install_bundle_drift,
 )
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector

@@ -14,10 +14,10 @@ records a new run.
 
 ```bash
 yoke qa plan materialize \
-  --item "YOK-{N}" \
+  --item "PREFIX-{N}" \
   --transition "{_target}" \
   --json
-yoke qa requirement list --item "YOK-{N}" --json
+yoke qa requirement list --item "PREFIX-{N}" --json
 ```
 
 Select unsatisfied, non-waived rows for this transition whose `method_id` is
@@ -33,7 +33,7 @@ Use the registered item and ephemeral-environment reads:
 
 ```bash
 _item_project=$(yoke items get {N} project)
-_item_branch=$(yoke item-worktrees get YOK-{N} \
+_item_branch=$(yoke item-worktrees get PREFIX-{N} \
   --lane-role implementation --field branch)
 yoke ephemeral-env get "$_item_project" "$_item_branch" --json
 ```
@@ -47,7 +47,7 @@ Do not execute Browser cases against an unknown build.
 
 ```bash
 yoke qa plan run \
-  --item "YOK-{N}" \
+  --item "PREFIX-{N}" \
   --transition "{_target}" \
   --base-url "<environment-url>" \
   --expected-branch "<worktree-branch>" \

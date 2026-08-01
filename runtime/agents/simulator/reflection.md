@@ -27,7 +27,7 @@ Simulator worked example:
 ---BEGIN ENTRY---
 timestamp: 2026-05-15T19:00:00Z
 agent: simulator
-context: epic YOK-N integration trace
+context: epic PREFIX-N integration trace
 category: process-improvement
 Cross-task path tracing currently requires re-reading every task body inline. A compact interface-contract index emitted at plan time would cut simulation context size dramatically and let the Simulator reach more tasks before hitting the budget.
 ---END ENTRY---

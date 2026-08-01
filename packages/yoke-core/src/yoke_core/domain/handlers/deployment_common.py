@@ -62,6 +62,16 @@ class DeploymentFlowUpdateStagesResponse(BaseModel):
     message: str
 
 
+class DeploymentFlowDescribeRequest(BaseModel):
+    flow_id: str
+    description: str
+
+
+class DeploymentFlowDescribeResponse(BaseModel):
+    flow_id: str
+    message: str
+
+
 class DeploymentFlowReconcileProjectRequest(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
@@ -259,6 +269,8 @@ __all__ = [
     "DeploymentFlowStagesResponse",
     "DeploymentFlowUpdateStagesRequest",
     "DeploymentFlowUpdateStagesResponse",
+    "DeploymentFlowDescribeRequest",
+    "DeploymentFlowDescribeResponse",
     "DeploymentFlowReconcileProjectRequest",
     "DeploymentFlowReconcileProjectResponse",
     "DeploymentRunGetRequest",

@@ -249,7 +249,6 @@ class TestResolveContextUsesMainRoot:
             "yoke_core.domain.worktree.resolve_main_root",
             lambda: str(main_root),
         )
-        monkeypatch.setenv("YOKE_DONE_TRANSITION", "1")
         # Stub git calls that happen after repo_root is set
         monkeypatch.setattr(
             merge_worktree, "_run_git",
@@ -258,7 +257,7 @@ class TestResolveContextUsesMainRoot:
             ),
         )
 
-        args = MergeArgs(branch="YOK-99")
+        args = MergeArgs(branch="YOK-99", standalone=True)
         ctx = merge_worktree.resolve_context(args)
 
         assert ctx.repo_root == str(main_root)

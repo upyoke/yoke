@@ -41,7 +41,7 @@ def test_claims_packet_teaches_release_work_claim_variants() -> None:
     epic-task identity, plus session-scoped handoff cleanup.
     """
     body = sac.render_topic_packet("claims")
-    assert "yoke claims work release --item YOK-N --reason TEXT" in body
+    assert "yoke claims work release --item PREFIX-N --reason TEXT" in body
     assert "yoke claims work release --claim-id <id> --reason TEXT" in body
     assert (
         "yoke claims work release --epic-id E --task-num K --reason TEXT"
@@ -57,8 +57,13 @@ def test_claims_packet_teaches_spec_rewrite_pattern() -> None:
     Tier-1 grammar (current).
     """
     body = sac.render_topic_packet("claims")
-    assert "yoke claims work acquire --item YOK-N --reason rewrite-in-progress" in body
-    assert "yoke claims work release --item YOK-N --reason rewrite-complete" in body
+    assert (
+        "yoke claims work acquire --item PREFIX-N --reason rewrite-in-progress"
+        in body
+    )
+    assert (
+        "yoke claims work release --item PREFIX-N --reason rewrite-complete" in body
+    )
     # Doctrine sentence — no new skill.
     assert "no new skill" in body.lower()
 

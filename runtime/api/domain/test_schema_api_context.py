@@ -52,7 +52,7 @@ def test_render_unknown_topic_raises() -> None:
 
 def test_claims_packet_includes_work_holder_recipe() -> None:
     body = sac.render_topic_packet("claims")
-    assert "yoke claims work holder-get YOK-N" in body
+    assert "yoke claims work holder-get PREFIX-N" in body
     assert "claims.work.holder_get" in body
 
 
@@ -72,7 +72,7 @@ def test_claims_packet_includes_typed_target_model() -> None:
 
 def test_core_packet_wrappers_precede_raw_sql() -> None:
     body = sac.render_topic_packet("core")
-    wrapper_idx = body.index("items get YOK-N")
+    wrapper_idx = body.index("items get PREFIX-N")
     raw_sql_idx = body.index("Audited raw diagnostic read")
     assert wrapper_idx < raw_sql_idx, (
         "raw diagnostic SQL must come AFTER wrapper command list — "
@@ -106,7 +106,7 @@ def test_core_packet_teaches_cli_structured_field_replace() -> None:
 
     body = sac.render_topic_packet("core")
     assert "items.structured_field.replace" in body
-    assert "yoke items structured-field replace YOK-N" in body
+    assert "yoke items structured-field replace PREFIX-N" in body
 
 
 def test_core_packet_teaches_lifecycle_status_and_inventory_surface() -> None:
@@ -116,10 +116,10 @@ def test_core_packet_teaches_lifecycle_status_and_inventory_surface() -> None:
     direct runtime.api import."""
 
     body = sac.render_topic_packet("core")
-    assert "yoke lifecycle transition YOK-N --to refined-idea" in body
+    assert "yoke lifecycle transition PREFIX-N --to refined-idea" in body
     assert "lifecycle.transition.execute" in body
     assert "lifecycle.repair_status.execute" in body
-    assert "yoke lifecycle repair-status YOK-N" in body
+    assert "yoke lifecycle repair-status PREFIX-N" in body
     assert "function=lifecycle.transition target" not in body
     assert "--stdin < PATH" in body
     assert ".yoke/docs/db-reference/functions.md" in body

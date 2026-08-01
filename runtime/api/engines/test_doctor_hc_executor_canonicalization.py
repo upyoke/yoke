@@ -18,7 +18,7 @@ from yoke_core.domain.executor_canonical_labels import (
     CANONICAL_HARNESS_IDS,
     KNOWN_SURFACE_LABELS,
 )
-from yoke_core.engines.doctor_hc_executor_canonicalization import (
+from yoke_project_checks.check_executor_canonicalization import (
     HC_LABEL,
     HC_SLUG,
     hc_executor_canonicalization,
@@ -221,7 +221,7 @@ def test_skip_on_minimal_schema():
 def test_offender_list_truncates_with_overflow_marker(db_conn):
     """More than ``_MAX_OFFENDERS_REPORTED`` leaked rows show a
     ``... +N more`` overflow line."""
-    from yoke_core.engines.doctor_hc_executor_canonicalization import (
+    from yoke_project_checks.check_executor_canonicalization import (
         _MAX_OFFENDERS_REPORTED,
     )
 

@@ -116,7 +116,7 @@ Proposed output: {dash | work item}
  Instruction / Priority: {instruction for a dash | low | medium | high}
 
 Similar existing items:
- - {PREFIX}-{N}: {existing title} (status: {status})
+ - PREFIX-{N}: {existing title} (status: {status})
 
 Likely resolved -- recommend skip
  Evidence: {brief explanation}

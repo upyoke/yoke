@@ -8,36 +8,26 @@ Uses disposable Postgres test databases and mock subprocess for deterministic te
 
 from __future__ import annotations
 
-import json
-import re
-import subprocess
-import textwrap
-from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
-import pytest
 
 from yoke_core.engines.doctor import (
     DoctorArgs,
-    RecordCollector,
     HEALTH_CHECKS,
     _should_run_hc,
-    hc_claudemd_drift,
     hc_deploy_stage_integrity,
     hc_shepherd_spec_integrity,
     hc_stale_body,
 )
+from yoke_project_checks.check_docs import (
+    hc_claudemd_drift,
+)
 
 from yoke_core.engines._doctor_hc_meta_full_test_helpers import (
     _NOW_ISO,
-    _args,
-    _completed,
-    _iso_days_ago,
-    _iso_minutes_ago,
     _make_conn,
     _result,
-    _results,
     _run_hc,
 )
 
@@ -65,16 +55,27 @@ class TestDoctorProjectDispatch:
         assert not _should_run_hc("backlog-quality", args)
 
     def test_hc_registration_completeness(self):
-        """All known HC slugs are registered."""
+        """Universal HC slugs stay in the engine roster."""
         slugs = {hc.slug for hc in HEALTH_CHECKS}
         for expected in [
             "schema-drift", "backlog-quality",
             "worktree-health", "stale-remote-branches", "orphaned-gh-issues",
             "gh-orphan-detection", "wrong-repo-issues", "size-bloat",
-            "doc-health", "file-line-limit",
+            "file-line-limit",
             "config-validation", "epic-task-worktree",
         ]:
             assert expected in slugs, f"{expected} not in HEALTH_CHECKS"
+
+    def test_self_project_slugs_left_the_engine_roster(self):
+        """Checks that only describe this project ship with this project.
+
+        ``doc-health`` and its siblings inspect Yoke's own docs, prompts, and
+        adapters; carrying them in the roster every install receives gave
+        them nothing to inspect. They are declared in ``.yoke/doctor/``.
+        """
+        slugs = {hc.slug for hc in HEALTH_CHECKS}
+        for moved in ["doc-health", "doc-drift", "atlas-integrity"]:
+            assert moved not in slugs, f"{moved} should be a project check"
 
 
 class TestDoctorSkill:

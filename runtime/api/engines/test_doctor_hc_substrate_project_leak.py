@@ -9,7 +9,7 @@ import pytest
 
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
-from yoke_core.engines.doctor_hc_substrate_project_leak import (
+from yoke_project_checks.check_substrate_project_leak import (
     hc_substrate_project_leak,
 )
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
@@ -63,7 +63,7 @@ def _run_hc(conn, *, monkeypatch, repo_root: Path) -> RecordCollector:
     rec = RecordCollector()
     args = DoctorArgs()
     monkeypatch.setattr(
-        "yoke_core.engines.doctor_hc_substrate_project_leak._base._resolve_repo_root",
+        "yoke_project_checks.check_substrate_project_leak._base._resolve_repo_root",
         lambda: str(repo_root),
     )
     hc_substrate_project_leak(conn, args, rec)
@@ -153,7 +153,7 @@ def test_self_skips_when_repo_root_cannot_be_resolved(conn, monkeypatch):
     _seed_projects(conn, ["yoke", "externalwebapp"])
     rec = RecordCollector()
     monkeypatch.setattr(
-        "yoke_core.engines.doctor_hc_substrate_project_leak._base._resolve_repo_root",
+        "yoke_project_checks.check_substrate_project_leak._base._resolve_repo_root",
         lambda: None,
     )
     hc_substrate_project_leak(conn, DoctorArgs(), rec)

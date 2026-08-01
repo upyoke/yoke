@@ -6,6 +6,13 @@ contract: argument parsing, per-HC dispatch, report formatting, exit code.
 ``HealthCheck``, ``HEALTH_CHECKS``, and the HC functions are re-exported
 from this module so existing callers (tests, ad hoc imports) keep working.
 
+Which of the registered checks a run executes is derived, not fixed: the
+runner resolves the live context (target project, runtime, machine-local
+checkout, declared capabilities) and splits the roster through
+``doctor_roster.build_roster``. Checks outside the applicable set are
+reported as not-applicable with their reason, and the target project's own
+``.yoke/doctor/`` folder contributes its checks to the same run.
+
 CLI::
 
     # One of --quick / --full / --only / --list-checks is REQUIRED so
@@ -19,6 +26,7 @@ CLI::
     python3 -m yoke_core.engines.doctor --only status-consistency
     python3 -m yoke_core.engines.doctor --only status-consistency,blocked-items
     python3 -m yoke_core.engines.doctor --quick --file /tmp/report.md
+    # --project defaults to the project bound to the current checkout:
     python3 -m yoke_core.engines.doctor --full --project example-project
     python3 -m yoke_core.engines.doctor --list-checks
 
@@ -42,6 +50,13 @@ from typing import Optional, Sequence
 
 from yoke_core.domain.db_helpers import connect
 from yoke_contracts.field_note_text import FOOTER as _FIELD_NOTE_FOOTER
+
+from yoke_core.engines.doctor_context import default_project, resolve_context
+from yoke_core.engines.doctor_roster import (
+    build_roster,
+    record_discovery_failures,
+    record_not_applicable,
+)
 
 # Star-import re-exports the full registry surface (HealthCheck, HEALTH_CHECKS,
 # every HC function, and the underscore helpers tests depend on). The
@@ -95,9 +110,19 @@ def run_checks(args: DoctorArgs) -> int:
     conn = connect(path=args.db_path)
     rec = RecordCollector()
 
-    for hc in HEALTH_CHECKS:
-        if not _should_run_hc(hc.slug, args):
-            continue
+    context = resolve_context(conn, args)
+    roster = build_roster(HEALTH_CHECKS, args, context)
+    record_discovery_failures(roster, rec)
+    record_not_applicable(roster, rec)
+    print(
+        f"doctor context: project={context.project} "
+        f"runtime={context.runtime} "
+        f"checks={len(roster.applicable)} "
+        f"not-applicable={len(roster.not_applicable)}",
+        flush=True,
+    )
+
+    for hc in roster.applicable:
         print(f"running HC-{hc.slug}", flush=True)
         pre_len = len(rec.results)
         try:
@@ -141,7 +166,17 @@ def _build_parser() -> argparse.ArgumentParser:
         "--full", action="store_true",
         help="Run every HC including GitHub-dependent ones (uses gh quota)",
     )
-    parser.add_argument("--project", default="yoke", help="Project scope (default: yoke)")
+    parser.add_argument(
+        "--project", default=None,
+        help=(
+            "Project scope. Defaults to the project bound to the checkout "
+            "you are standing in."
+        ),
+    )
+    parser.add_argument(
+        "--runtime", default=None,
+        help=argparse.SUPPRESS,  # override the derived deployment destination
+    )
     parser.add_argument("--db-path", help="Override DB path (testing)")
     parser.add_argument("--repo-root", help=argparse.SUPPRESS)
     parser.add_argument(
@@ -191,8 +226,9 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> Optional[DoctorArgs]:
         fix=parsed.fix,
         only=only_value,
         quick=parsed.quick,
-        project=parsed.project,
+        project=parsed.project or default_project(Path.cwd()),
         db_path=parsed.db_path,
+        runtime=parsed.runtime,
     )
 
 
@@ -226,11 +262,13 @@ def run_json(argv: Optional[Sequence[str]] = None) -> int:
 
     register_all_handlers()
     payload = {
-        "project": parsed.project,
+        "project": parsed.project or default_project(Path.cwd()),
         "fix": parsed.fix,
         "quick": parsed.quick,
         "full": parsed.full,
     }
+    if parsed.runtime:
+        payload["runtime"] = parsed.runtime
     if only_value:
         payload["only"] = only_value
     if parsed.db_path:

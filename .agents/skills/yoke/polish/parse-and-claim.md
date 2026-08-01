@@ -23,14 +23,14 @@ ITEM_TITLE=$(yoke items get "$ITEM_NUM" title 2>/dev/null) || ITEM_TITLE=""
 ```
 
 If any of those reads come back empty, stop with:
-> Item YOK-{N} not found.
+> Item PREFIX-{N} not found.
 
 ## 2. Locate The Worktree Lane Set
 
 Use the deterministic helper so polish resolves the same repo and
 definition-selected implementation lane set every time. Item-level execution
 normally resolves one lane; task-graph execution may resolve multiple lanes.
-Do not collapse those lanes back into `YOK-{N}`.
+Do not collapse those lanes back into `PREFIX-{N}`.
 
 ```bash
 MAIN_ROOT=$(git rev-parse --show-toplevel)
@@ -53,17 +53,17 @@ fi
 ```
 
 If `WORKTREE_COUNT` is `0` or `WORKTREE_PATHS` is empty, stop:
-> **Cannot polish YOK-{N}:** No implementation worktree lanes found.
+> **Cannot polish PREFIX-{N}:** No implementation worktree lanes found.
 > Issue items need their item worktree; epic items need task-level `worktree_path` rows from conduct.
 > Run the appropriate implementation entry command before polish.
 
 If `WORKTREE_EXISTS` is not `yes`, stop:
-> **Cannot polish YOK-{N}:** One or more recorded worktree lanes are missing.
+> **Cannot polish PREFIX-{N}:** One or more recorded worktree lanes are missing.
 > Missing lanes:
 > `{WORKTREE_MISSING}`
 > Re-enter the implementation/conduct flow to recreate or repair the recorded lanes before polish.
 
-All subsequent file operations MUST use absolute paths from `WORKTREE_PATHS`. For a single-lane item, `WORKTREE_PATH` is also set for compatibility with existing snippets. For a multi-lane epic, iterate every non-empty line in `WORKTREE_PATHS`; never substitute `/.../.worktrees/YOK-{N}` or reuse one task lane for its siblings.
+All subsequent file operations MUST use absolute paths from `WORKTREE_PATHS`. For a single-lane item, `WORKTREE_PATH` is also set for compatibility with existing snippets. For a multi-lane epic, iterate every non-empty line in `WORKTREE_PATHS`; never substitute `/.../.worktrees/PREFIX-{N}` or reuse one task lane for its siblings.
 
 ## 3. Activate Polish — HARD GATE
 
@@ -74,18 +74,18 @@ All subsequent file operations MUST use absolute paths from `WORKTREE_PATHS`. Fo
 ```bash
 yoke sessions touch --mode polish
 yoke claims work acquire \
-    --item "YOK-${ITEM_NUM}" \
+    --item "PREFIX-${ITEM_NUM}" \
     --reason polish_run
 ```
 
-After `claim-work`, verify the session holds an active claim on `YOK-${ITEM_NUM}` before proceeding. Use the canonical DB router — never construct a DB path manually or use worktree-local paths:
+After `claim-work`, verify the session holds an active claim on `PREFIX-${ITEM_NUM}` before proceeding. Use the canonical DB router — never construct a DB path manually or use worktree-local paths:
 
 ```bash
 _claim_ok=$(YOKE_SESSION_ID="${YOKE_SESSION_ID}" yoke db read --format lines \
     "SELECT 1 FROM work_claims WHERE session_id='${YOKE_SESSION_ID}' AND item_id=${ITEM_NUM} AND released_at IS NULL")
 if [ -z "$_claim_ok" ] || [ "$_claim_ok" = "0" ]; then
-    echo "HALT: polish — no active work_claims row for YOK-${ITEM_NUM}."
-    echo "Recovery: re-run 'yoke claims work acquire --item YOK-${ITEM_NUM} --reason polish_run'."
+    echo "HALT: polish — no active work_claims row for PREFIX-${ITEM_NUM}."
+    echo "Recovery: re-run 'yoke claims work acquire --item PREFIX-${ITEM_NUM} --reason polish_run'."
     exit 1
 fi
 ```
@@ -106,7 +106,7 @@ Function-call equivalent (for dispatch-surface callers — the CLI above builds 
 **3b. Transition to polishing-implementation** (when entry status is `reviewed-implementation`). Use `/yoke advance` so the canonical advance skill runs the gate and emits the matching event:
 
 ```bash
-/yoke advance "YOK-${ITEM_NUM}" polishing-implementation
+/yoke advance "PREFIX-${ITEM_NUM}" polishing-implementation
 ```
 
 Update `ITEM_STATUS="polishing-implementation"` in your local shell context after the advance returns success.

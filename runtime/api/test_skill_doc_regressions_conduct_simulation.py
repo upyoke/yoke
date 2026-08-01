@@ -133,7 +133,7 @@ class TestConductSimulatorEpicAttestation:
 
     Covers the epic-identity attestation contract: every dispatch and retry
     template the conduct skill teaches must require both the ``SIMULATION:``
-    verdict line and the ``EPIC: YOK-{N}`` attestation line. The defensive
+    verdict line and the ``EPIC: PREFIX-{N}`` attestation line. The defensive
     bail must halt before any simulator invocation when ``_epic_id`` is empty.
     """
 
@@ -149,14 +149,14 @@ class TestConductSimulatorEpicAttestation:
 
     def test_standard_dispatch_requires_two_line_verdict(self, docs):
         text = _read(docs["criteria"])
-        assert "EPIC: YOK-{N}" in text
+        assert "EPIC: PREFIX-{N}" in text
         assert "two-line verdict block" in text
 
     def test_dispatch_prompts_all_require_two_line_verdict(self, docs):
         text = _read(docs["dispatch_prompts"])
         # Both plan and integration templates surface the requirement
         assert text.count("two-line verdict block") >= 3
-        assert text.count("EPIC: YOK-{item_id}") >= 3
+        assert text.count("EPIC: PREFIX-{item_id}") >= 3
 
     def test_dispatch_prompts_name_exit_codes(self, docs):
         text = _read(docs["dispatch_prompts"])
@@ -177,13 +177,13 @@ class TestConductSimulatorEpicAttestation:
         text = _read(docs["criteria"])
         # Formatting-omission retry, aggressive retry, and ultra-compressed
         # no-tool fallback each must instruct the simulator to emit the
-        # two-line block. The literal `EPIC: YOK-${_epic_id}` is the
+        # two-line block. The literal `EPIC: PREFIX-${_epic_id}` is the
         # signature in retry prompts.
-        assert text.count("EPIC: YOK-${_epic_id}") >= 3
+        assert text.count("EPIC: PREFIX-${_epic_id}") >= 3
 
     def test_criteria_classifies_missing_epic_as_formatting_omission(self, docs):
         text = _read(docs["criteria"])
-        assert "EPIC: YOK-{N}` attestation line" in text
+        assert "EPIC: PREFIX-{N}` attestation line" in text
 
     def test_escalation_documents_pre_branch_halts(self, docs):
         text = _read(docs["escalation"])
@@ -201,8 +201,8 @@ class TestConductSimulatorEpicAttestation:
     def test_autofix_resimulation_prompts_require_epic_attestation(self):
         patching = _read(SKILLS / "conduct" / "simulation-autofix-patching.md")
         verification = _read(SKILLS / "conduct" / "simulation-autofix-verification.md")
-        assert "EPIC: YOK-{_item_id}" in patching
-        assert "EPIC: YOK-{_item_id}" in verification
+        assert "EPIC: PREFIX-{_item_id}" in patching
+        assert "EPIC: PREFIX-{_item_id}" in verification
         assert "exit 16" in patching
         assert "exit 17" in patching
         assert "exit 16" in verification

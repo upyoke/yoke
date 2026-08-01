@@ -118,13 +118,13 @@ Evaluate each non-empty artifact against these dimensions:
 
 **Shepherd caveats**
 - Open question resolution: For `REFINE_ARTIFACT_SCOPE=item_artifact`, ALL open questions MUST be resolved or given explicit default answers before the item reaches its execution-ready handoff state. Heuristic: if resolving an open question would change the number of files touched or the data model, it is a spec decision that MUST be resolved. If it only changes task ordering, it can be deferred. FRs must never reference unresolved open questions as firm requirements.
-- Are deferred items captured with YOK-N references?
+- Are deferred items captured with PREFIX-N references?
 - Are any "deferred to future work item" items actually common-sense requirements that belong in THIS work item? Challenge deferrals that would leave the feature incomplete from the operator's perspective.
 
 Emit a structured critique:
 
 ```
-## Refinement Critique — YOK-{N}
+## Refinement Critique — PREFIX-{N}
 
 ### Strengths
 - {what is already good}

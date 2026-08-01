@@ -46,8 +46,8 @@ OPERATOR_COMMANDS: tuple[OperatorCommand, ...] = (
     ),
     OperatorCommand(
         "/yoke advance",
-        "/yoke advance YOK-N implementation",
-        "  /yoke advance YOK-N implementation -- issue implementation entry",
+        "/yoke advance PREFIX-N implementation",
+        "  /yoke advance PREFIX-N implementation -- issue implementation entry",
     ),
     OperatorCommand(
         "/yoke polish",
@@ -56,8 +56,8 @@ OPERATOR_COMMANDS: tuple[OperatorCommand, ...] = (
     ),
     OperatorCommand(
         "/yoke usher",
-        "/yoke usher YOK-N [--dry-run]",
-        "  /yoke usher YOK-N [--dry-run] -- merge/deploy handoff",
+        "/yoke usher PREFIX-N [--dry-run]",
+        "  /yoke usher PREFIX-N [--dry-run] -- merge/deploy handoff",
     ),
 )
 
@@ -86,23 +86,23 @@ SAFE_OPERATOR_SURFACE: tuple[OperatorCommand, ...] = (
     ),
     OperatorCommand(
         "/yoke shepherd",
-        "/yoke shepherd YOK-N",
-        "  /yoke shepherd YOK-N -- drive item through quality-gated lifecycle to planned",
+        "/yoke shepherd PREFIX-N",
+        "  /yoke shepherd PREFIX-N -- drive item through quality-gated lifecycle to planned",
     ),
     OperatorCommand(
         "/yoke conduct",
-        "/yoke conduct YOK-N",
-        "  /yoke conduct YOK-N -- engineer/tester loop for a single item or epic",
+        "/yoke conduct PREFIX-N",
+        "  /yoke conduct PREFIX-N -- engineer/tester loop for a single item or epic",
     ),
     OperatorCommand(
         "/yoke advance",
-        "/yoke advance YOK-N implementation",
-        "  /yoke advance YOK-N implementation -- issue implementation entry",
+        "/yoke advance PREFIX-N implementation",
+        "  /yoke advance PREFIX-N implementation -- issue implementation entry",
     ),
     OperatorCommand(
         "/yoke usher",
-        "/yoke usher YOK-N [--dry-run]",
-        "  /yoke usher YOK-N [--dry-run] -- merge/deploy handoff",
+        "/yoke usher PREFIX-N [--dry-run]",
+        "  /yoke usher PREFIX-N [--dry-run] -- merge/deploy handoff",
     ),
     OperatorCommand(
         "/yoke doctor",
@@ -111,23 +111,23 @@ SAFE_OPERATOR_SURFACE: tuple[OperatorCommand, ...] = (
     ),
     OperatorCommand(
         "/yoke freeze",
-        "/yoke freeze YOK-N",
-        "  /yoke freeze YOK-N -- freeze an item",
+        "/yoke freeze PREFIX-N",
+        "  /yoke freeze PREFIX-N -- freeze an item",
     ),
     OperatorCommand(
         "/yoke thaw",
-        "/yoke thaw YOK-N",
-        "  /yoke thaw YOK-N -- thaw a frozen item",
+        "/yoke thaw PREFIX-N",
+        "  /yoke thaw PREFIX-N -- thaw a frozen item",
     ),
     OperatorCommand(
         "/yoke block",
-        "/yoke block YOK-N \"<reason>\"",
-        "  /yoke block YOK-N \"<reason>\" -- block an item (preserves status)",
+        "/yoke block PREFIX-N \"<reason>\"",
+        "  /yoke block PREFIX-N \"<reason>\" -- block an item (preserves status)",
     ),
     OperatorCommand(
         "/yoke unblock",
-        "/yoke unblock YOK-N",
-        "  /yoke unblock YOK-N -- clear an item's blocked flag",
+        "/yoke unblock PREFIX-N",
+        "  /yoke unblock PREFIX-N -- clear an item's blocked flag",
     ),
     OperatorCommand(
         "/yoke resync",
@@ -146,13 +146,13 @@ SAFE_OPERATOR_SURFACE: tuple[OperatorCommand, ...] = (
     ),
     OperatorCommand(
         "/yoke refine",
-        "/yoke refine YOK-N",
-        "  /yoke refine YOK-N -- critique and improve item artifacts",
+        "/yoke refine PREFIX-N",
+        "  /yoke refine PREFIX-N -- critique and improve item artifacts",
     ),
     OperatorCommand(
         "/yoke polish",
-        "/yoke polish YOK-N",
-        "  /yoke polish YOK-N -- review and finish implementation",
+        "/yoke polish PREFIX-N",
+        "  /yoke polish PREFIX-N -- review and finish implementation",
     ),
     OperatorCommand(
         "/yoke help",

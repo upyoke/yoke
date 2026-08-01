@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from yoke_core.engines.doctor_hc_obsoleted_terms import (
+from yoke_project_checks.check_obsoleted_terms import (
     OBSOLETED_TERM_LABELS,
     OBSOLETED_TERM_PATTERNS,
     scan_repo,

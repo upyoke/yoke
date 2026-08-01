@@ -24,7 +24,7 @@ CLAIMS_COMMANDS: list[dict] = [
         "topic": "claims",
         "purpose": "Lookup live claim holder for an item",
         "recipe": (
-            "yoke claims work holder-get YOK-N"
+            "yoke claims work holder-get PREFIX-N"
         ),
         "notes": (
             "Registered read surface (function id "
@@ -44,7 +44,7 @@ CLAIMS_COMMANDS: list[dict] = [
         "topic": "claims",
         "purpose": "Acquire a work claim (canonical agent shape — target variants)",
         "recipe": (
-            "yoke claims work acquire --item YOK-N "
+            "yoke claims work acquire --item PREFIX-N "
             "--reason draft-in-progress\n"
             "yoke claims work acquire --epic-id 833 --task-num 5 "
             "--reason engineer-dispatch\n"
@@ -62,16 +62,16 @@ CLAIMS_COMMANDS: list[dict] = [
         "topic": "claims",
         "purpose": "Claim → mutate → release (generic plan-stage edit)",
         "recipe": (
-            "yoke claims work acquire --item YOK-N --reason edit\n"
+            "yoke claims work acquire --item PREFIX-N --reason edit\n"
             "printf '%s' \"$NEW_CONTENT\" | yoke items structured-field "
-            "replace YOK-N --field spec --stdin\n"
-            "yoke claims work release --item YOK-N "
+            "replace PREFIX-N --field spec --stdin\n"
+            "yoke claims work release --item PREFIX-N "
             "--reason edit-complete"
         ),
         "notes": (
             "For section / addendum updates use "
             "`yoke items structured-field section-upsert`. The "
-            "release form `--item YOK-N` looks up the calling session's "
+            "release form `--item PREFIX-N` looks up the calling session's "
             "active claim on that item; pass `--claim-id N` directly "
             "for explicit form."
         ),
@@ -91,7 +91,7 @@ CLAIMS_COMMANDS: list[dict] = [
             "event); no `--override-rationale` flag on this surface. "
             "Refuses to run with YOKE_HOOK_EVENT set. Pick by "
             "who-am-I: holder -> `yoke claims work release --item "
-            "YOK-N --reason TEXT` (self-release); not holder -> the "
+            "PREFIX-N --reason TEXT` (self-release); not holder -> the "
             "Atlas-listed break-glass release."
         ),
     },
@@ -101,17 +101,17 @@ CLAIMS_COMMANDS: list[dict] = [
         "recipe": (
             "# Canonical agent shape — release the calling session's "
             "active claim:\n"
-            "yoke claims work release --item YOK-N --reason TEXT\n"
+            "yoke claims work release --item PREFIX-N --reason TEXT\n"
             "yoke claims work release --claim-id <id> --reason TEXT\n"
             "yoke claims work release --epic-id E --task-num K "
             "--reason TEXT\n"
             "yoke claims work release --all-mine\n"
             "# Manual spec-rewrite pattern (acquire → edit → release):\n"
-            "yoke claims work acquire --item YOK-N "
+            "yoke claims work acquire --item PREFIX-N "
             "--reason rewrite-in-progress\n"
-            "yoke items structured-field replace YOK-N --field spec "
+            "yoke items structured-field replace PREFIX-N --field spec "
             "--stdin < PATH\n"
-            "yoke claims work release --item YOK-N "
+            "yoke claims work release --item PREFIX-N "
             "--reason rewrite-complete"
         ),
         "notes": (
@@ -130,7 +130,7 @@ CLAIMS_COMMANDS: list[dict] = [
             "fresh session will continue"
         ),
         "recipe": (
-            "yoke claims work release --item YOK-N "
+            "yoke claims work release --item PREFIX-N "
             "--reason session-handoff-fresh-session"
         ),
         "notes": (
@@ -156,10 +156,10 @@ CLAIMS_COMMANDS: list[dict] = [
         "recipe": (
             "# 1. Append resume context to the Progress Log section:\n"
             "printf '%s' \"<resume-context-body>\" | yoke items "
-            "progress-log append YOK-N "
+            "progress-log append PREFIX-N "
             "--headline 'handoff-to-fresh-session' --stdin\n"
             "# 2. Release the work claim explicitly:\n"
-            "yoke claims work release --item YOK-N "
+            "yoke claims work release --item PREFIX-N "
             "--reason session-handoff-fresh-session"
         ),
         "notes": (
@@ -167,7 +167,7 @@ CLAIMS_COMMANDS: list[dict] = [
             "append-only Progress Log surface (handler stamps timestamp "
             "+ merges with existing entries); release the claim "
             "explicitly so the fresh session can acquire (use "
-            "`yoke claims work release --item YOK-N --reason "
+            "`yoke claims work release --item PREFIX-N --reason "
             "session-handoff-fresh-session` for one item or "
             "`yoke claims work release --all-mine` for every claim "
             "this session still holds). The harness owns session "
@@ -189,7 +189,7 @@ CLAIMS_COMMANDS: list[dict] = [
         "topic": "claims",
         "purpose": "List path claims for an item",
         "recipe": (
-            "yoke claims path list --item YOK-N"
+            "yoke claims path list --item PREFIX-N"
         ),
         "notes": (
             "Registered read surface. Returns id, state, declared paths, "
@@ -202,7 +202,7 @@ CLAIMS_COMMANDS: list[dict] = [
         "purpose": "Register a path claim (canonical agent shape)",
         "recipe": (
             "yoke claims path register \\\n"
-            "  --item YOK-N \\\n"
+            "  --item PREFIX-N \\\n"
             "  --paths runtime/api/domain/path_claim_targets.py,"
             "runtime/api/test_path_claim_targets.py,docs/event-catalog.md \\\n"
             "  --integration-target main --mode exclusive --allow-planned"
@@ -217,7 +217,7 @@ CLAIMS_COMMANDS: list[dict] = [
         "purpose": "Widen a path claim (canonical agent shape)",
         "recipe": (
             "yoke claims path widen --claim-id 138 "
-            "--item YOK-N \\\n"
+            "--item PREFIX-N \\\n"
             "  --add-paths runtime/api/service_client_backlog_router.py,"
             "runtime/api/test_backlog_github_backfill_oversized.py \\\n"
             "  --reason 'backfill subcommand wiring touches "
@@ -245,7 +245,7 @@ CLAIMS_COMMANDS: list[dict] = [
         "topic": "claims",
         "purpose": "List / get path claims",
         "recipe": (
-            "yoke claims path list --item YOK-N\n"
+            "yoke claims path list --item PREFIX-N\n"
             "yoke claims path get 138"
         ),
         "notes": (
@@ -289,7 +289,7 @@ CLAIMS_COMMANDS: list[dict] = [
         "purpose": "Classify a path-claim overlap before authoring a coordination edge",
         "recipe": (
             "yoke claims path coordination-decision-build "
-            "--item YOK-N --conflicting-claim CLAIM_ID "
+            "--item PREFIX-N --conflicting-claim CLAIM_ID "
             "--paths a.py,b.py"
         ),
         "notes": (

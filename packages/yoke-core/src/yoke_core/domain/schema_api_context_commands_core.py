@@ -34,8 +34,8 @@ CORE_COMMANDS: list[dict] = [
         "topic": "core",
         "purpose": "Read structured item field(s) — concrete examples",
         "recipe": (
-            "yoke items get YOK-N status title workflow_id github_issue\n"
-            "yoke items get YOK-N spec"
+            "yoke items get PREFIX-N status title workflow_id github_issue\n"
+            "yoke items get PREFIX-N spec"
         ),
         "notes": (
             "Multi-field returns one value per line in field order. Valid "
@@ -50,14 +50,14 @@ CORE_COMMANDS: list[dict] = [
             "technical_plan, test_results, title, updated_at, workflow_id, "
             "workflow_version_id, worktree_plan. "
             "For body-section filtering, use "
-            "`yoke items get YOK-N body --section \"## File Budget\"`."
+            "`yoke items get PREFIX-N body --section \"## File Budget\"`."
         ),
     },
     {
         "topic": "core",
         "purpose": "Inspect a Yoke item's rendered body (GitHub issue surrogate)",
         "recipe": (
-            "yoke items get YOK-N body"
+            "yoke items get PREFIX-N body"
         ),
         "notes": (
             "The rendered body is the source of truth for work-item content "
@@ -84,7 +84,7 @@ CORE_COMMANDS: list[dict] = [
             "claim_type, claimed_at FROM work_claims WHERE released_at IS "
             "NULL\"\n"
             "# Recent events on a work item:\n"
-            "yoke events query --item YOK-N --limit 20"
+            "yoke events query --item PREFIX-N --limit 20"
         ),
         "notes": (
             "Use ``<>`` not ``!=``. Prefer registered readers such as "
@@ -100,7 +100,7 @@ CORE_COMMANDS: list[dict] = [
         "topic": "core",
         "purpose": "Read one section of an item's rendered body",
         "recipe": (
-            "yoke items get YOK-N body "
+            "yoke items get PREFIX-N body "
             "--section \"## Section Name\""
         ),
         "notes": (
@@ -115,9 +115,9 @@ CORE_COMMANDS: list[dict] = [
         "topic": "core",
         "purpose": "Write structured item field (canonical agent shape)",
         "recipe": (
-            "yoke items structured-field replace YOK-N "
+            "yoke items structured-field replace PREFIX-N "
             "--field spec --content-file PATH\n"
-            "yoke items structured-field replace YOK-N "
+            "yoke items structured-field replace PREFIX-N "
             "--field test_results --stdin < PATH"
         ),
         "notes": (
@@ -131,10 +131,10 @@ CORE_COMMANDS: list[dict] = [
         "purpose": "Apply additive structured-field transform",
         "recipe": (
             "# Other additive transforms:\n"
-            "yoke items structured-field append-addendum YOK-N "
+            "yoke items structured-field append-addendum PREFIX-N "
             "--field spec --heading \"Implementation Notes\" "
             "--content-file PATH --json\n"
-            "yoke items structured-field section-upsert YOK-N "
+            "yoke items structured-field section-upsert PREFIX-N "
             "--section \"Acceptance Criteria\" "
             "--content-file PATH --json"
         ),
@@ -148,7 +148,7 @@ CORE_COMMANDS: list[dict] = [
         "topic": "core",
         "purpose": "List item dependencies (both directions)",
         "recipe": (
-            "yoke shepherd dependency-list YOK-N"
+            "yoke shepherd dependency-list PREFIX-N"
         ),
         "notes": (
             "Canonical agent shape (function id "
@@ -176,7 +176,7 @@ CORE_COMMANDS: list[dict] = [
         "topic": "core",
         "purpose": "Amend DB-mutation claim on an item",
         "recipe": (
-            "yoke db-claim amend YOK-N --reason TEXT "
+            "yoke db-claim amend PREFIX-N --reason TEXT "
             "(--state none | --payload JSON | --payload-file PATH | --stdin)"
         ),
         "notes": (
@@ -204,14 +204,14 @@ CORE_COMMANDS: list[dict] = [
         "topic": "core",
         "purpose": "Read / write item sections (Progress Log, custom sections)",
         "recipe": (
-            "yoke items section get YOK-N --section \"Progress Log\"\n"
-            "yoke items section upsert YOK-N --section \"Progress Log\" "
+            "yoke items section get PREFIX-N --section \"Progress Log\"\n"
+            "yoke items section upsert PREFIX-N --section \"Progress Log\" "
             "--content-file PATH --ordering 200\n"
-            "yoke items section delete YOK-N --section \"Progress Log\""
+            "yoke items section delete PREFIX-N --section \"Progress Log\""
         ),
         "notes": (
             "Section name is case-sensitive. For Progress Log append-only "
-            "updates, prefer `yoke items progress-log append YOK-N "
+            "updates, prefer `yoke items progress-log append PREFIX-N "
             "--headline X --content-file PATH`, which read-merge-writes "
             "atomically."
         ),
@@ -219,7 +219,7 @@ CORE_COMMANDS: list[dict] = [
     {
         "topic": "core",
         "purpose": "Backlog GitHub sync",
-        "recipe": "yoke items github-sync YOK-N",
+        "recipe": "yoke items github-sync PREFIX-N",
         "notes": (
             "Sync a backlog item or epic tasks to GitHub through the "
             "registered item function surface. Preserves item claim guards "

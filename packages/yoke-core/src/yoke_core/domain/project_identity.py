@@ -21,9 +21,7 @@ from yoke_contracts.item_ref import (  # noqa: F401
     DEFAULT_PUBLIC_ITEM_PREFIX,
     format_item_ref,
 )
-
-
-DEFAULT_PROJECT_SLUG = "yoke"
+from yoke_contracts.project_defaults import DEFAULT_PROJECT_SLUG  # noqa: F401
 
 _PUBLIC_REF_RE = re.compile(r"^(?P<prefix>[A-Za-z][A-Za-z0-9]*)-(?P<seq>\d+)$")
 

@@ -153,5 +153,5 @@ def test_skill_claim_surrounds_scalar_mutations(
     release = text.index("yoke claims work release")
 
     assert acquire < first_update <= last_update < release
-    assert f'--item "YOK-{{N}}" --reason {reason}' in text
-    assert f'--item "YOK-{{N}}" --reason {release_reason}' in text
+    assert f'--item "PREFIX-{{N}}" --reason {reason}' in text
+    assert f'--item "PREFIX-{{N}}" --reason {release_reason}' in text

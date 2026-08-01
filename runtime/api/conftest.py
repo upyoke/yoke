@@ -14,8 +14,26 @@ imports continue to work.
 from __future__ import annotations
 
 import os
+import pathlib
 
 import pytest
+
+# ---------------------------------------------------------------------------
+# Project-local check package
+# ---------------------------------------------------------------------------
+#
+# This project's own doctor checks live in ``.yoke/doctor/`` and run under
+# the ``yoke_project_checks`` package namespace. Registering it here lets a
+# test import a check exactly the way the runner loads it, instead of
+# re-deriving a file path per test module.
+from yoke_core.engines.doctor_project_checks import (  # noqa: E402
+    project_checks_dir,
+    register_project_checks_package,
+)
+
+register_project_checks_package(
+    project_checks_dir(pathlib.Path(__file__).resolve().parents[2])
+)
 
 # ---------------------------------------------------------------------------
 # Assertion-rewrite registration for dual-use helper modules

@@ -23,7 +23,7 @@ from yoke_core.engines.doctor_hc_obsoleted_terms_backlog import (
 # Two retired-surface patterns are enough to exercise the scanner without
 # tying the suite to the full live registry — the regression value is the
 # terminal/non-terminal owner-status filtering, not pattern coverage. The
-# pattern set in ``doctor_hc_obsoleted_terms.OBSOLETED_TERM_PATTERNS`` is
+# pattern set in ``check_obsoleted_terms.OBSOLETED_TERM_PATTERNS`` is
 # tested separately under ``test_doctor_hc_obsoleted_terms*``.
 # Retired-surface tokens are assembled via string concatenation so the
 # scan_repo file scanner (which reads this test file's source text) does

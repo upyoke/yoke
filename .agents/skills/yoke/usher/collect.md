@@ -9,13 +9,13 @@ Steps 1-4c: Parse arguments, collect items, validate status, enforce hard-block 
 ## Step 1: Parse Arguments
 
 Extract from operator input:
-- `_ITEMS=""` — space-separated YOK-N numbers
+- `_ITEMS=""` — space-separated PREFIX-N numbers
 - `_DRY_RUN=0` / `_MERGE_ONLY=0` / `_DEPLOY_ONLY=0`
-- `_RESUME=""` — YOK-N if --resume
+- `_RESUME=""` — PREFIX-N if --resume
 
-If `--resume YOK-N`: set `_DEPLOY_ONLY=1`, `_ITEMS="{N}"`.
+If `--resume PREFIX-N`: set `_DEPLOY_ONLY=1`, `_ITEMS="{N}"`.
 
-At least one `YOK-N` (or `--resume YOK-N`) is required. If no items specified → stop with usage message.
+At least one `PREFIX-N` (or `--resume PREFIX-N`) is required. If no items specified → stop with usage message.
 
 ## Step 2: Collect Items
 
@@ -40,7 +40,7 @@ For each item in `_ready_items`, run the gate-scoped checker:
 ```bash
 for _item in $_ready_items; do
  _dep_output_file=$(mktemp "${TMPDIR:-/tmp}/usher-hard-blocks.XXXXXX")
- if python3 -m yoke_core.domain.check_hard_blocks "YOK-${_item}" --gate-point integration >"$_dep_output_file" 2>/dev/null; then
+ if python3 -m yoke_core.domain.check_hard_blocks "PREFIX-${_item}" --gate-point integration >"$_dep_output_file" 2>/dev/null; then
  _dep_exit=0
  else
  _dep_exit=$?
@@ -50,18 +50,18 @@ for _item in $_ready_items; do
 
  if [ "$_dep_exit" -ne 0 ]; then
  # stop with:
- # > **Blocked:** YOK-${_item} has unresolved integration-gate dependencies. All integration blockers must reach `done` before usher can merge or deploy it.
+ # > **Blocked:** PREFIX-${_item} has unresolved integration-gate dependencies. All integration blockers must reach `done` before usher can merge or deploy it.
  # and list each BLOCKED|{blocker}|{status}|{title} line for the operator.
  #
  # Additionally, query persisted rationale for each blocker to explain
  # why the integration ordering exists (task 4):
- # > yoke shepherd dependency-list YOK-${_item}
+ # > yoke shepherd dependency-list PREFIX-${_item}
  # Parse the output and for each depends-on row, print:
  # > Blocked by {blocker}: {rationale} (gate: {gate_point}, requires: {satisfaction})
  #
  # Then print:
  # > Inspect the full dependency graph:
- # > yoke shepherd dependency-list YOK-${_item}
+ # > yoke shepherd dependency-list PREFIX-${_item}
  fi
 done
 ```
@@ -75,7 +75,7 @@ integration-gate ordering across `_ready_items`:
 
 ```bash
 # For each ready item, capture the typed dependency rows once.
-yoke shepherd dependency-list YOK-${_item}
+yoke shepherd dependency-list PREFIX-${_item}
 ```
 
 Build the directed graph from the returned integration-gate rows and
@@ -86,7 +86,7 @@ source.
 When an item is deferred or reordered due to integration blockers, display the persisted
 rationale from the dependency row (task 4). For example:
 ```
-YOK-N deferred: must merge after YOK-N — {rationale from dependency row}
+PREFIX-N deferred: must merge after PREFIX-N — {rationale from dependency row}
 ```
 
 **Circular dependency (HARD BLOCK):** If cycle detected → stop.
@@ -165,8 +165,8 @@ up before the GH runner picked up the job. If GH succeeded externally, run the
 reconcile helper first to align Yoke's records, then resume usher:
 
 ```bash
-yoke usher reconcile-github YOK-N
-# alignment path prints: "Resume usher with: /yoke usher YOK-N --resume"
+yoke usher reconcile-github PREFIX-N
+# alignment path prints: "Resume usher with: /yoke usher PREFIX-N --resume"
 ```
 
 If GH also reports failure, no reconciliation is needed — investigate the GH run logs.

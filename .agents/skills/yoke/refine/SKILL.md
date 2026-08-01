@@ -1,10 +1,10 @@
 ---
 name: refine
 description: "Read item artifacts, critique them, and write improved work item artifacts back through sanctioned Yoke update surfaces."
-argument-hint: "{YOK-N}"
+argument-hint: "{PREFIX-N}"
 ---
 
-# /yoke refine {YOK-N}
+# /yoke refine {PREFIX-N}
 
 Standalone capability for refining backlog item artifacts. Reads the item's structured fields, critiques them for completeness, clarity, and testability, and writes improved content back through sanctioned Yoke update surfaces.
 
@@ -18,11 +18,11 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 ## Arguments
 
-- `{YOK-N}` — Backlog item ID. Accepts prefixed IDs, zero-padded prefixed IDs, or bare numeric IDs.
+- `{PREFIX-N}` — Backlog item ID. Accepts prefixed IDs, zero-padded prefixed IDs, or bare numeric IDs.
 
 ## Modes
 
-Refine always advances status on successful completion, whether invoked directly (e.g., `/yoke refine YOK-N`) or via scheduler routing.
+Refine always advances status on successful completion, whether invoked directly (e.g., `/yoke refine PREFIX-N`) or via scheduler routing.
 
 ### Lifecycle transitions
 
@@ -184,7 +184,7 @@ EPIC_TASKS=$(yoke epic-tasks list --epic "$ITEM_NUM" 2>/dev/null) || true
 ```
 
 If all fields are empty or trivial, emit:
-> **Advisory:** YOK-{N} has minimal content. Consider populating the body first or running `/yoke shepherd YOK-{N}` before refining.
+> **Advisory:** PREFIX-{N} has minimal content. Consider populating the body first or running `/yoke shepherd PREFIX-{N}` before refining.
 
 Proceed anyway — refinement can still add structure to sparse items.
 
@@ -264,7 +264,7 @@ The universal 350-line authored-file limit remains enforced in every posture.
 Run the path-claim gate only when effective path claims are enabled:
 
 ```bash
-yoke claims path required-gate YOK-{N}
+yoke claims path required-gate PREFIX-{N}
 ```
 
 Branch on the result:
@@ -284,14 +284,14 @@ Branch on the result:
   3. Register a no-claim exception (`--mode exception --reason "..."`) when refine determines the item legitimately touches no repo surface.
 
   For `required_per_task` with generated tasks, repair each failing task with
-  `yoke claims path register --item YOK-N --task-num <N> ...`; an unbound
+  `yoke claims path register --item PREFIX-N --task-num <N> ...`; an unbound
   parent claim never satisfies this verdict.
 
   When registration fails due to overlap with a non-terminal claim owned by another item, classify the overlap via `yoke claims path coordination-decision-build` and author either `--gate-point coordination_only` (compatible overlap with no lifecycle gate, default for independent same-file edits) or explicit `--gate-point activation` with directional rationale (order-dependent edits). See [`readiness-repair.md`](readiness-repair.md) `## Cross-item overlap repair`.
 
 When both axes are enabled and refine widens the File Budget mid-pass
 (discovers additional files), use `yoke claims path widen --claim-id <id>
---add-paths <added> --reason "<why widening>" --item YOK-N` rather than
+--add-paths <added> --reason "<why widening>" --item PREFIX-N` rather than
 registering a fresh claim — widen preserves the audit trail in
 `path_claim_amendments`. If refine narrows, use the checkout-local
 `path-claims narrow` operator-debug/refine disposition; no public narrow

@@ -1,7 +1,7 @@
 """Static contract-shape tests for progressive disclosure direction."""
 
-from yoke_core.engines import doctor_hc_progressive_disclosure_direction as mod
-from yoke_core.engines.doctor_hc_progressive_disclosure_direction import (
+from yoke_project_checks import check_progressive_disclosure_direction as mod
+from yoke_project_checks.check_progressive_disclosure_direction import (
     TIER_DIRECTION_RULES,
     VAGUE_DENIAL_MARKERS,
 )
