@@ -8,6 +8,7 @@ from yoke_core.tools import _pytest_parallel
 from yoke_core.tools._pytest_parallel import (
     DEFAULT_PARALLEL_WORKERS,
     DEFAULT_LOCAL_POSTGRES_AUTO_WORKERS,
+    NARROW_LOCAL_POSTGRES_AUTO_WORKERS,
     DEFAULT_RAM_THRESHOLD_MB,
     LOW_CAPACITY_PARALLEL_WORKERS,
     NO_PARALLEL_FLAG,
@@ -99,6 +100,17 @@ class TestApplyPostgresXdistAutoEnv:
         )
         assert env[PYTEST_XDIST_AUTO_WORKERS_ENV] == (
             DEFAULT_LOCAL_POSTGRES_AUTO_WORKERS
+        )
+
+    def test_file_scoped_run_gets_a_small_worker_fleet(self, tmp_path):
+        # A file-scoped run skips gate admission, so it can be running
+        # alongside a full gate; taking the gate's worker fleet as well
+        # would leave both crawling on a machine neither one owns.
+        probe = tmp_path / "test_probe.py"
+        probe.write_text("")
+        env = apply_postgres_xdist_auto_env(["-n", "auto", str(probe)], {})
+        assert env[PYTEST_XDIST_AUTO_WORKERS_ENV] == (
+            NARROW_LOCAL_POSTGRES_AUTO_WORKERS
         )
 
     def test_accepts_pg_dsn_as_postgres_signal(self):

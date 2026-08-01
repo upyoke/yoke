@@ -28,9 +28,9 @@ def test_browser_authorization_delivers_one_org_authority(monkeypatch) -> None:
                 payload={
                     "device_code": "device-secret",
                     "user_code": "ABCD-2345",
-                    "verification_uri": "https://app.upyoke.com/machine",
+                    "verification_uri": "https://app.upyoke.com/connect",
                     "verification_uri_complete": (
-                        "https://app.upyoke.com/machine?user_code=ABCD-2345"
+                        "https://app.upyoke.com/connect?user_code=ABCD-2345"
                     ),
                     "expires_in": 600,
                     "interval": 2,
@@ -115,7 +115,7 @@ def test_browser_authorization_rejects_malformed_pending_response(monkeypatch) -
         )
 
 
-def test_browser_authorization_accepts_connect_page_urls(monkeypatch) -> None:
+def test_browser_authorization_accepts_legacy_machine_page_urls(monkeypatch) -> None:
     monkeypatch.setattr(
         auth,
         "request_json",
@@ -123,9 +123,9 @@ def test_browser_authorization_accepts_connect_page_urls(monkeypatch) -> None:
             payload={
                 "device_code": "device-secret",
                 "user_code": "ABCD-2345",
-                "verification_uri": "https://app.upyoke.com/connect",
+                "verification_uri": "https://app.upyoke.com/machine",
                 "verification_uri_complete": (
-                    "https://app.upyoke.com/connect?user_code=ABCD-2345"
+                    "https://app.upyoke.com/machine?user_code=ABCD-2345"
                 ),
                 "expires_in": 600,
                 "interval": 2,
@@ -135,9 +135,9 @@ def test_browser_authorization_accepts_connect_page_urls(monkeypatch) -> None:
         ),
     )
     pending = auth.start("https://app.upyoke.com")
-    assert pending.verification_uri == "https://app.upyoke.com/connect"
+    assert pending.verification_uri == "https://app.upyoke.com/machine"
     assert pending.verification_uri_complete == (
-        "https://app.upyoke.com/connect?user_code=ABCD-2345"
+        "https://app.upyoke.com/machine?user_code=ABCD-2345"
     )
 
 
@@ -252,8 +252,8 @@ def test_browser_authorization_opens_complete_url_without_exposing_device_code(
         platform_url="https://app.upyoke.com",
         device_code="device-secret",
         user_code="ABCD-2345",
-        verification_uri="https://app.upyoke.com/machine",
-        verification_uri_complete="https://app.upyoke.com/machine?user_code=ABCD-2345",
+        verification_uri="https://app.upyoke.com/connect",
+        verification_uri_complete="https://app.upyoke.com/connect?user_code=ABCD-2345",
         expires_in=600,
         interval=2,
     )

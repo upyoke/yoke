@@ -111,8 +111,6 @@ def capture_terminal_app_transcript(
             'tell application "Terminal"',
             f'if not (exists window id {window_id}) then return ""',
             f"set targetWindow to window id {window_id}",
-            "set index of targetWindow to 1",
-            "activate",
             "return contents of selected tab of targetWindow",
             "end tell",
         ],

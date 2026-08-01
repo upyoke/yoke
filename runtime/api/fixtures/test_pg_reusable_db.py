@@ -99,8 +99,11 @@ def test_ddl_drift_discards_and_rebuilds(flavor):
         finally:
             conn.close()
 
+    # The drifted database is discarded and the flavor rebuilt from
+    # scratch. Whether the discarded database is destroyed or recycled as
+    # a blank one is the provisioning layer's business; what this asserts
+    # is that the next checkout carries the baseline and none of the drift.
     with pg_reusable_db.checkout(flavor, _build_small_db) as second:
-        assert second != first
         conn = _connect(second)
         try:
             drifted_count = conn.execute(
@@ -109,10 +112,11 @@ def test_ddl_drift_discards_and_rebuilds(flavor):
                 "WHERE c.relname = 'drifted' AND n.nspname = current_schema()"
             ).fetchone()[0]
             assert drifted_count == 0
-            dropped = conn.execute(
-                "SELECT count(*) FROM pg_database WHERE datname = %s", (first,)
-            ).fetchone()[0]
-            assert dropped == 0
+            labels = [
+                row[0]
+                for row in conn.execute("SELECT label FROM parent_rows").fetchall()
+            ]
+            assert labels == ["seed"]
         finally:
             conn.close()
 
@@ -218,15 +222,27 @@ def test_init_test_db_fixture_strategy_shares_worker_fixture_database(tmp_path):
     assert shared == fixture_db
 
 
-def test_init_test_db_custom_strategy_uses_disposable_databases(tmp_path):
+def test_init_test_db_custom_strategy_starts_from_an_empty_database(tmp_path):
+    """A caller-supplied schema strategy always builds on bare ground.
+
+    Its database is not shared with the reusable flavors, and whatever the
+    previous run of the same strategy left behind is gone — the strategy
+    would fail outright on a second run if the table it creates survived.
+    """
     from yoke_core.domain import db_backend
 
-    names = []
+    preexisting_tables = []
 
     def custom() -> None:
         conn = db_backend.connect_psycopg()
         try:
-            names.append(conn.execute("SELECT current_database()").fetchone()[0])
+            preexisting_tables.append(
+                conn.execute(
+                    "SELECT count(*) FROM pg_class c "
+                    "JOIN pg_namespace n ON n.oid = c.relnamespace "
+                    "WHERE n.nspname = 'public' AND c.relkind = 'r'"
+                ).fetchone()[0]
+            )
             conn.execute("CREATE TABLE only_here (id INTEGER)")
             conn.commit()
         finally:
@@ -237,5 +253,4 @@ def test_init_test_db_custom_strategy_uses_disposable_databases(tmp_path):
     with file_test_db.init_test_db(tmp_path, apply_schema=custom):
         pass
 
-    assert len(names) == 2
-    assert names[0] != names[1]
+    assert preexisting_tables == [0, 0]
