@@ -17,6 +17,7 @@ from yoke_core.engines.doctor_applicability import (
 from yoke_core.engines.doctor_project_checks import (
     discover_project_checks,
     project_checks_dir,
+    register_project_checks_package,
 )
 from yoke_core.engines.doctor_registry_types import HealthCheck
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
@@ -130,6 +131,30 @@ class TestProjectCheckDiscovery(unittest.TestCase):
 
         self.assertEqual([hc.slug for hc in discovery.checks], ["explicit"])
         self.assertTrue(discovery.checks[0].applicability.requires_source_checkout)
+
+    def test_one_file_keeps_one_module_object_across_discoveries(self):
+        # A caller holding a reference — a test that patched a helper, a
+        # paginating run between chunks — must not find its module swapped
+        # out underneath it by the next discovery of the same folder.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _write_project_checks(root, {"check_release.py": CONVENTION_MODULE})
+            first = discover_project_checks(root).checks[0]
+            second = discover_project_checks(root).checks[0]
+
+        self.assertIs(first.fn.__globals__, second.fn.__globals__)
+
+    def test_registering_a_second_folder_keeps_the_first_importable(self):
+        with tempfile.TemporaryDirectory() as one, tempfile.TemporaryDirectory() as two:
+            _write_project_checks(Path(one), {"check_release.py": CONVENTION_MODULE})
+            _write_project_checks(Path(two), {"check_x.py": EXPLICIT_MODULE})
+            register_project_checks_package(project_checks_dir(Path(one)))
+            register_project_checks_package(project_checks_dir(Path(two)))
+            import sys
+
+            package = sys.modules["yoke_project_checks"]
+            self.assertIn(str(project_checks_dir(Path(one))), package.__path__)
+            self.assertIn(str(project_checks_dir(Path(two))), package.__path__)
 
     def test_importing_the_engine_roster_declares_nothing(self):
         with tempfile.TemporaryDirectory() as tmp:

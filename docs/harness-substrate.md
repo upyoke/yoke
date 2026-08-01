@@ -45,7 +45,7 @@ Tracked-source writers call the helper before their hot-path `.write_text` / `.w
 - `yoke_core.tools.atlas_render_docs.write`
 - `yoke_core.domain.populate_registry_render._render_catalog`
 
-`HC-workspace-anchored-writer-authority` enforces this against the canonical list at `packages/yoke-core/src/yoke_core/engines/doctor_hc_workspace_anchored_writer_authority.py:IN_SCOPE_WRITERS`; add new tracked-source writers there to bring them under the guard.
+`HC-workspace-anchored-writer-authority` enforces this against the canonical list at `.yoke/doctor/check_workspace_anchored_writer_authority.py:IN_SCOPE_WRITERS`; add new tracked-source writers there to bring them under the guard.
 
 `yoke_core.domain.rebuild_board.rebuild_one` is intentionally **out of scope** for the work-claim authority helper. Its only write targets are project-local `.yoke/BOARD.md` plus the sibling timestamp file, both untracked generated views regenerated from DB state on every status change. The board rebuild fires as a routine side effect of every `/yoke polish` and `/yoke usher` status transition while the session still holds the item's worktree work-claim; refusing those writes would break the polish/usher flow without addressing the incident shape: worktree-claim-bound writes of TRACKED rendered source files into main. `rebuild_board` still calls `assert_seed_source_under_target_root(schema.__file__, repo_root, ...)` to catch Coupling B (the schema module loaded from a different checkout than the resolved `repo_root`), as does `agents_render` for its imported seed module.
 

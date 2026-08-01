@@ -26,6 +26,7 @@ result, never swallowed: a project check that cannot load is a finding.
 
 from __future__ import annotations
 
+import importlib.machinery
 import importlib.util
 import sys
 from dataclasses import dataclass
@@ -51,7 +52,12 @@ CHECK_FUNCTION_PREFIX = "hc_"
 #: re-declares the whole thing as this project's own.
 PROJECT_CHECKS_ATTRIBUTE = "PROJECT_HEALTH_CHECKS"
 
-_MODULE_NAMESPACE = "yoke_project_checks"
+#: Package namespace discovered check modules are imported under. A check
+#: module imports a sibling through it, so a folder of checks can share
+#: helpers the way an engine package would.
+PROJECT_CHECKS_PACKAGE = "yoke_project_checks"
+
+_MODULE_NAMESPACE = PROJECT_CHECKS_PACKAGE
 
 
 @dataclass(frozen=True)
@@ -82,6 +88,7 @@ def discover_project_checks(checkout: Optional[Path]) -> Discovery:
     folder = project_checks_dir(checkout)
     if not folder.is_dir():
         return Discovery(checks=[], failures=[])
+    register_project_checks_package(folder)
     checks: List[HealthCheck] = []
     failures: List[DiscoveryFailure] = []
     for path in sorted(folder.glob(CHECK_FILE_GLOB)):
@@ -97,8 +104,53 @@ def discover_project_checks(checkout: Optional[Path]) -> Discovery:
     return Discovery(checks=checks, failures=failures)
 
 
+def load_check_module(folder: Path, stem: str):
+    """Import one module from a project's check folder by file stem.
+
+    Public because a project's own tests need the same import path its
+    checks run under. The folder is registered as the
+    :data:`PROJECT_CHECKS_PACKAGE` package first, so a check module can
+    import a sibling — ``from yoke_project_checks.check_x import helper`` —
+    the way it did when both lived in the engine package.
+    """
+    register_project_checks_package(Path(folder))
+    return _import_check_module(Path(folder) / f"{stem}.py")
+
+
+def register_project_checks_package(folder: Path) -> None:
+    """Make *folder* resolvable under the project-checks package namespace.
+
+    Additive: one process may inspect several folders — a repo's own checks
+    plus a fixture tree in a test — and registering the second must not make
+    the first unimportable.
+    """
+    package = sys.modules.get(_MODULE_NAMESPACE)
+    if package is None:
+        package = importlib.util.module_from_spec(
+            importlib.machinery.ModuleSpec(
+                _MODULE_NAMESPACE, None, is_package=True,
+            )
+        )
+        package.__path__ = []
+        sys.modules[_MODULE_NAMESPACE] = package
+    entry = str(folder)
+    if entry not in package.__path__:
+        package.__path__.insert(0, entry)
+
+
 def _import_check_module(path: Path):
+    """Import one check module, reusing any prior import of the same file.
+
+    Re-executing on every discovery mints a fresh module object each time,
+    so anything holding a reference to the previous one — a test that
+    patched a helper, a paginating run between chunks — silently ends up
+    looking at a module that is no longer the one in play. One file means
+    one module object, however it was first imported.
+    """
     module_name = f"{_MODULE_NAMESPACE}.{path.stem}"
+    cached = sys.modules.get(module_name)
+    if cached is not None and _is_same_file(getattr(cached, "__file__", None), path):
+        return cached
     spec = importlib.util.spec_from_file_location(module_name, path)
     if spec is None or spec.loader is None:
         raise ImportError(f"cannot load a module spec from {path}")
@@ -110,6 +162,15 @@ def _import_check_module(path: Path):
         sys.modules.pop(module_name, None)
         raise
     return module
+
+
+def _is_same_file(candidate, path: Path) -> bool:
+    if not candidate:
+        return False
+    try:
+        return Path(candidate).resolve() == path.resolve()
+    except OSError:  # pragma: no cover - unresolvable path is a miss
+        return False
 
 
 def _collect(module) -> List[HealthCheck]:
@@ -163,6 +224,9 @@ __all__ = [
     "DiscoveryFailure",
     "PROJECT_CHECKS_ATTRIBUTE",
     "PROJECT_CHECKS_DIR",
+    "PROJECT_CHECKS_PACKAGE",
     "discover_project_checks",
+    "load_check_module",
     "project_checks_dir",
+    "register_project_checks_package",
 ]

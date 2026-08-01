@@ -39,7 +39,10 @@ the source tree was inspected.
 **Project-local checks.** A project's own checks live in its `.yoke/doctor/`
 folder and are discovered pytest-style by a runner that holds the checkout.
 They appear in the report exactly like engine checks. A check module that
-fails to import is reported as `HC-project-check-discovery` FAIL.
+fails to import is reported as `HC-project-check-discovery` FAIL. Yoke's own
+source-dev checks — agent and adapter drift, hook parity, skill and doc
+consistency, tier discipline, code-doctrine scans — live there rather than in
+the engine, so a hosted run of another project never carries them.
 
 **Events table as health signal.** The events table captures anomaly patterns across all agent sessions. Include `yoke events anomalies --since "24 hours ago"` in the diagnostic context. Elevated anomaly counts or recurring `nonzero_exit` patterns on specific scripts are health signals.
 

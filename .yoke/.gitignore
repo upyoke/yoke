@@ -12,3 +12,4 @@ strategy/
 .github-retry.log
 .merge-lock
 install-manifest.json
+doctor/__pycache__/

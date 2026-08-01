@@ -14,9 +14,11 @@ The shapes:
 ``_SRC``
     Reads the target project's source tree. Only a runner holding that
     checkout can answer it.
-``_SELF``
-    Reads the source tree of the project that owns this Yoke installation —
-    its agent prompts, skills, docs, harness adapters, and code doctrine.
+There is deliberately no self-project shape here. A check that only
+describes the project owning this installation — its agent prompts, skills,
+docs, harness adapters, code doctrine — belongs in that project's own
+``.yoke/doctor/`` folder, where it carries its declaration on its own row.
+The engine roster is what is true of any project Yoke manages.
 ``_EXT`` / ``_EXT_SRC``
     Diagnoses a project other than the one that owns the installation.
 ``_MIGRATION`` / ``_EXT_HEALTH`` / ``_EXT_VPS``
@@ -31,16 +33,12 @@ from typing import Dict, List
 from yoke_core.engines.doctor_applicability import (
     CheckApplicability,
     PROJECT_SCOPE_EXTERNAL,
-    PROJECT_SCOPE_SELF,
     UNIVERSAL,
 )
 
 
 _DB = UNIVERSAL
 _SRC = CheckApplicability(requires_source_checkout=True)
-_SELF = CheckApplicability(
-    project_scope=PROJECT_SCOPE_SELF, requires_source_checkout=True,
-)
 _EXT = CheckApplicability(project_scope=PROJECT_SCOPE_EXTERNAL)
 _EXT_SRC = CheckApplicability(
     project_scope=PROJECT_SCOPE_EXTERNAL, requires_source_checkout=True,
@@ -112,30 +110,6 @@ _SHAPES = (
         "path-confabulation", "size-bloat", "strategy-render-staleness",
         "stray-db", "stray-project-files", "test-command-validity",
         "uncaptured-discoveries", "worktree-health",
-    )),
-    (_SELF, (
-        "agent-canonical-drift", "agent-consistency", "api-vocabulary-drift",
-        "apply-patch-deny-smoke", "apply-patch-observe-smoke",
-        "approval-contract-drift", "arch-consistency", "atlas-integrity",
-        "board-emoji-universality", "browser-substrate", "claudemd-drift",
-        "cli-help-handler-present", "codex-agent-adapter-drift",
-        "codex-hook-doc-drift", "codex-hook-floor", "codex-hook-matchers",
-        "codex-subagent-surface-truth", "doc-drift", "doc-health",
-        "event-callsite-registry-sync", "event-catalog-drift",
-        "event-outcome-enum-coverage", "events-app-state-reads",
-        "executor-canonicalization", "fallback-registry-coherence",
-        "field-note-coherence", "harness-substrate-drift",
-        "heading-casing-canon", "historical-yok-n-cruft", "hook-executability",
-        "install-bundle-drift", "item-ref-construction", "obsoleted-terms",
-        "packet-tier-completeness", "path-claim-bash-guard",
-        "platform-namespace-boundary", "progressive-disclosure-direction",
-        "prompt-command-consistency", "prompt-doctrine-consistency",
-        "reflection-capture-hook-coverage", "schema-script-sync", "self-test",
-        "server-checkout-independence", "session-startup-hook",
-        "skill-recipe-execution", "substrate-project-leak",
-        "terminal-recipe-residue", "tier-cli-shape-bleed",
-        "tier-module-path-resolution", "tier-schema-bleed",
-        "workspace-anchored-writer-authority",
     )),
     (_EXT, (
         "project-deploy-flows", "project-gh-auth", "project-gh-secrets",

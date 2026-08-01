@@ -248,7 +248,7 @@ _RESIDUE_TEST_FILE_RE = re.compile(r"runtime/api/.*test_.*\.py$")
 # them out so the constant cannot fail its own residue check.
 _RESIDUE_CANONICAL_SOURCES: Tuple[str, ...] = (
     "runtime/api/domain/lint_structured_field_transform_shell_messages.py",
-    "runtime/api/engines/doctor_hc_terminal_recipe_residue.py",
+    "runtime/api/engines/check_terminal_recipe_residue.py",
     "runtime/api/engines/doctor_hc_terminal_recipe_residue_scan.py",
     "runtime/api/domain/lint_shell_quoted_function_payload.py",
     "runtime/api/domain/lint_shell_quoted_function_payload_messages.py",

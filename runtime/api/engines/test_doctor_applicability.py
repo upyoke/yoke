@@ -18,6 +18,7 @@ from yoke_core.engines.doctor_applicability import (
     not_applicable_reason,
 )
 from yoke_core.engines.doctor_applicability_declarations import (
+    DECLARATIONS,
     applicability_for,
     undeclared_slugs,
 )
@@ -117,8 +118,14 @@ class TestDeclarationTable(unittest.TestCase):
 
     def test_a_source_tree_check_is_declared_as_one(self):
         self.assertTrue(
-            applicability_for("atlas-integrity").requires_source_checkout,
+            applicability_for("worktree-health").requires_source_checkout,
         )
+
+    def test_self_project_checks_are_not_in_the_engine_table(self):
+        # They live in the project's own .yoke/doctor/ folder and declare on
+        # their own rows, so the engine table has nothing to say about them.
+        self.assertNotIn("atlas-integrity", DECLARATIONS)
+        self.assertNotIn("doc-drift", DECLARATIONS)
 
     def test_the_stranded_migration_check_needs_the_migration_capability(self):
         declaration = applicability_for("stranded-migration-module")

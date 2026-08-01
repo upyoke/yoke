@@ -125,6 +125,7 @@ class _StreamingProgressTests(unittest.TestCase):
                                 doctor_engine.DoctorArgs(
                                     quick=True,
                                     project="yoke",
+                                    runtime=_ENGINE_ONLY_RUNTIME,
                                     file=str(report_path),
                                 )
                             )

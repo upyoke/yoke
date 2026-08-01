@@ -5,6 +5,12 @@ engine's universal roster whenever doctor runs on a machine that holds this
 checkout, and they report through the same sections of the Ouroboros Health
 Report.
 
+Most of what lives here are Yoke's own source-development invariants — agent
+prompt and adapter drift, harness hook parity, skill and doc consistency,
+teaching-tier discipline, code-doctrine scans. They used to ship in the
+engine to every install, where they had nothing to inspect. The engine roster
+that remains is what is true of *any* project Yoke manages.
+
 ## Discovery
 
 Discovery is pytest-shaped: every `check_*.py` file here is imported, and

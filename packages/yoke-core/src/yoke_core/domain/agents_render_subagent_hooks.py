@@ -121,7 +121,7 @@ def _env_prefix(agent: str) -> str:
     Claude executes hook commands through a shell, so the bare
     ``VAR=value cmd`` form (no ``env`` binary) is equivalent to
     ``env VAR=value cmd`` and stays compatible with
-    :func:`yoke_core.engines.doctor_hc_agents_hooks._classify_hook_command`,
+    :func:`yoke_project_checks.check_agents_hooks._classify_hook_command`,
     which strips leading ``VAR=value`` assignments before classifying the
     executable. Routing through the ``env`` binary instead would force the
     classifier to special-case ``env`` to find the real executable.

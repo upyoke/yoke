@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from runtime.api.fixtures import pg_testdb
-from yoke_core.engines.doctor_hc_harness_substrate import (
+from yoke_project_checks.check_harness_substrate import (
     hc_harness_substrate_drift,
 )
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector

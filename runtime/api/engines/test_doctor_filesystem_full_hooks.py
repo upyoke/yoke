@@ -14,11 +14,13 @@ import os
 
 from unittest.mock import patch
 
-from yoke_core.engines.doctor import (
-    hc_hook_executability,
-    hc_self_test,
+from yoke_project_checks.check_agents import (
     hc_stale_session_reclaimer_alive,
     hc_stale_sessions,
+)
+from yoke_project_checks.check_agents_hooks import (
+    hc_hook_executability,
+    hc_self_test,
 )
 
 from yoke_core.engines._doctor_filesystem_full_test_helpers import (

@@ -165,7 +165,7 @@ def test_obsoleted_service_bridge_has_no_live_references() -> None:
     is not itself a grep hit. The hit-filter additionally excludes (a) any
     ``docs/archive/`` decision records that legitimately preserve history,
     (b) this file (the term must appear here to be searched for), and (c)
-    ``doctor_hc_obsoleted_terms.py`` — the canonical registry where retired
+    ``check_obsoleted_terms.py`` — the canonical registry where retired
     terms are enumerated by name so the HC scanner can detect them in other
     files. References inside the registry are the contract surface; they
     are not "live" consumers.
@@ -184,7 +184,7 @@ def test_obsoleted_service_bridge_has_no_live_references() -> None:
         if line.strip()
         and "/docs/archive/" not in line
         and Path(__file__).name not in line
-        and "doctor_hc_obsoleted_terms.py" not in line
+        and "check_obsoleted_terms.py" not in line
     ]
     assert hits == [], (
         f"{target} still referenced in live runtime tree:\n" + "\n".join(hits)
