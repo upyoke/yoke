@@ -112,6 +112,50 @@ def test_admitted_gate_marks_descendant_environment(monkeypatch):
     assert os.environ.get(gate_admission.ADMITTED_ENV) is None
 
 
+def test_admitted_environment_mirrors_marker(monkeypatch):
+    monkeypatch.delenv(gate_admission.ADMITTED_ENV, raising=False)
+    assert gate_admission.admitted_environment({"A": "1"}) == {"A": "1"}
+    monkeypatch.setenv(gate_admission.ADMITTED_ENV, "1")
+    assert gate_admission.admitted_environment({"A": "1"}) == {
+        "A": "1",
+        gate_admission.ADMITTED_ENV: "1",
+    }
+
+
+def test_watch_pytest_mirrors_marker_into_child_env(tmp_path, monkeypatch):
+    # The wrapper snapshots the child env before the admission context
+    # begins; the marker must still reach the spawned suite, or nested
+    # runner invocations inside it deadlock behind their ancestor's slot.
+    from yoke_core.tools import watch_pytest
+
+    monkeypatch.delenv(gate_admission.ADMITTED_ENV, raising=False)
+    monkeypatch.setattr(gate_admission, "_acquire", lambda _stream: None)
+    suite_dir = tmp_path / "suite"
+    suite_dir.mkdir()
+    captured = {}
+
+    def fake_run_watcher(**kwargs):
+        captured["env"] = kwargs["env"]
+        return 0
+
+    monkeypatch.setattr(
+        watch_pytest._watch_runner, "run_watcher", fake_run_watcher
+    )
+    rc = watch_pytest.main(
+        [
+            "--raw-capture",
+            str(tmp_path / "raw.log"),
+            "--progress-capture",
+            str(tmp_path / "progress.log"),
+            "--",
+            str(suite_dir),
+            "-q",
+        ]
+    )
+    assert rc == 0
+    assert captured["env"][gate_admission.ADMITTED_ENV] == "1"
+
+
 def test_cap_zero_disables_admission(monkeypatch):
     monkeypatch.delenv(gate_admission.ADMITTED_ENV, raising=False)
     monkeypatch.setenv(gate_admission.CAP_ENV, "0")

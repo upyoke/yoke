@@ -68,6 +68,21 @@ _WAIT_ANNOUNCE_INTERVAL_S = 15.0
 _POLL_INTERVAL_S = 2.0
 
 
+def admitted_environment(env: dict) -> dict:
+    """Return *env* with the current admission marker mirrored in.
+
+    Wrappers snapshot their child environment before entering the
+    admission context, so the marker :func:`admitted_gate` sets on
+    ``os.environ`` must be re-mirrored into that snapshot at spawn time —
+    otherwise descendants never see it and arbitrate their own slots,
+    deadlocking behind their ancestor.
+    """
+    marker = os.environ.get(ADMITTED_ENV)
+    if marker:
+        return {**env, ADMITTED_ENV: marker}
+    return env
+
+
 def is_heavy_invocation(pytest_args: Sequence[str]) -> bool:
     """Return True when the invocation sweeps directories (or the rootdir).
 
@@ -230,6 +245,7 @@ def admitted_gate(
 
 __all__ = [
     "ADMITTED_ENV",
+    "admitted_environment",
     "CAP_ENV",
     "CAP_MACHINE_CONFIG_KEY",
     "DEFAULT_MAX_CONCURRENT_GATES",

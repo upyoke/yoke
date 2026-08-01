@@ -201,7 +201,7 @@ def run(
         # databases open, and the next run then blocks on databases nobody is
         # using.
         proc = process_group_reaping.popen_in_process_group(
-            cmd, cwd=str(root), env=env
+            cmd, cwd=str(root), env=gate_admission.admitted_environment(env)
         )
         try:
             with process_group_reaping.interruption_reaps_process_group(proc):

@@ -308,7 +308,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             raw_capture=raw_path,
             progress_capture=progress_path,
             kind=KIND,
-            env=pytest_env,
+            env=gate_admission.admitted_environment(pytest_env),
         )
         _watch_pytest_wall_clock.report(time.monotonic() - started, raw_path)
     return exit_code
