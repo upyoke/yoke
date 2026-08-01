@@ -12,6 +12,7 @@ from __future__ import annotations
 import os
 import signal
 import subprocess
+import sys
 import time
 
 import pytest
@@ -91,6 +92,41 @@ def test_timeout_reaps_the_whole_tree_before_raising(tmp_path):
         assert _wait_until_gone(grandchild_pid)
     finally:
         _kill_if_alive(grandchild_pid)
+
+
+def test_reaping_reaches_a_grandchild_that_started_its_own_session(tmp_path):
+    """Nested isolation must not put a descendant out of reach.
+
+    A runner launched under a supervisor puts its own child in a fresh session
+    so that IT can reap precisely — but a new session is unreachable from the
+    supervisor's killpg. Observed live: a QA command timed out, its group was
+    reaped, and the inner pytest survived 21 minutes holding its databases
+    open. The reaper must therefore follow parent links, not only the group.
+    """
+    pid_file = tmp_path / "detached.pid"
+    # The middle process mimics a runner: it puts its own child in a new
+    # session, so only a descendant walk can find that child.
+    middle = (
+        "import os, pathlib, subprocess, time\n"
+        "child = subprocess.Popen(['sleep', '300'], start_new_session=True)\n"
+        f"pathlib.Path({str(pid_file)!r}).write_text(str(child.pid))\n"
+        "time.sleep(300)\n"
+    )
+    proc = process_group_reaping.popen_in_process_group(
+        [sys.executable, "-c", middle]
+    )
+    deadline = time.monotonic() + 10.0
+    while time.monotonic() < deadline and not pid_file.exists():
+        time.sleep(0.05)
+    detached_pid = int(pid_file.read_text().strip())
+    try:
+        assert _process_is_alive(detached_pid)
+
+        process_group_reaping.terminate_process_group(proc)
+
+        assert _wait_until_gone(detached_pid)
+    finally:
+        _kill_if_alive(detached_pid)
 
 
 def test_run_in_process_group_returns_completed_process_on_success():

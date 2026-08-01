@@ -38,6 +38,71 @@ from pathlib import Path
 from typing import Iterator
 
 
+PRODUCTION_SCHEMA_FLAVOR = "production_schema"
+
+
+@contextlib.contextmanager
+def _repointed_dsn(name: str):
+    """Point ``YOKE_PG_DSN`` at test database *name*, restoring on exit."""
+    from yoke_core.domain import db_backend
+    from runtime.api.fixtures import pg_testdb
+
+    prior = os.environ.get(db_backend.PG_DSN_ENV)
+    os.environ[db_backend.PG_DSN_ENV] = pg_testdb.dsn_for_test_database(name)
+    try:
+        yield
+    finally:
+        if prior is not None:
+            os.environ[db_backend.PG_DSN_ENV] = prior
+        else:
+            os.environ.pop(db_backend.PG_DSN_ENV, None)
+
+
+def _apply_production_schema() -> None:
+    """Default schema strategy: ``schema.cmd_init`` + test-project identities."""
+    from yoke_core.domain import schema
+    from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.project_seed_test_helpers import (
+        seed_project_identities,
+    )
+
+    schema.cmd_init()
+    conn = connect()
+    try:
+        seed_project_identities(conn)
+    finally:
+        conn.close()
+
+
+def _build_production_schema_db() -> str:
+    from runtime.api.fixtures import pg_testdb
+
+    name = pg_testdb.create_test_database()
+    with _repointed_dsn(name):
+        _apply_production_schema()
+    return name
+
+
+def _reusable_checkout(apply_schema):
+    """Reusable-database checkout for the known schema strategies, or None.
+
+    The default (production schema) and :func:`apply_fixture_schema_ddl`
+    strategies produce one deterministic schema each, so their databases
+    can be built once per worker and reset between uses. A caller-supplied
+    strategy is an arbitrary callable whose output cannot be keyed, so it
+    keeps the create/drop-per-use path.
+    """
+    from runtime.api.fixtures import pg_reusable_db, pg_testdb
+
+    if apply_schema is None:
+        return pg_reusable_db.checkout(
+            PRODUCTION_SCHEMA_FLAVOR, _build_production_schema_db
+        )
+    if apply_schema is apply_fixture_schema_ddl:
+        return pg_testdb.reusable_fixture_database()
+    return None
+
+
 @contextlib.contextmanager
 def init_test_db(tmp_path: Path, apply_schema=None):
     """Yield a path-shaped ``db_path`` token with the schema applied.
@@ -52,44 +117,40 @@ def init_test_db(tmp_path: Path, apply_schema=None):
     test universe keeps them as fixture data). Pass
     :func:`apply_fixture_schema_ddl` for composed fixture-schema
     consumers, or a project-specific ``cmd_init`` wrapper for families
-    that need a different schema; the per-test-DB lifecycle is identical
-    regardless of strategy.
+    that need a different schema.
+
+    The two known strategies are served from a per-worker reusable
+    database that ``pg_reusable_db`` resets between uses, so they run
+    their schema build once per worker instead of once per test. Custom
+    strategies (and nested contexts) fall back to a disposable per-use
+    database that is dropped on exit.
     """
-    from yoke_core.domain import db_backend, schema
-
-    db_path = str(tmp_path / "yoke.db")
-    if apply_schema is None:
-        def apply_schema() -> None:
-            from yoke_core.domain.db_helpers import connect
-            from yoke_core.domain.project_seed_test_helpers import (
-                seed_project_identities,
-            )
-
-            schema.cmd_init()
-            conn = connect()
-            try:
-                seed_project_identities(conn)
-            finally:
-                conn.close()
-
     from runtime.api.fixtures import pg_testdb
 
-    # Disposable per-test database on the shared cluster. The apply_schema
-    # strategy builds the schema against the repointed DSN. YOKE_PG_DSN is
-    # repointed at the per-test database for the context's lifetime, then
-    # restored and the database dropped.
+    db_path = str(tmp_path / "yoke.db")
+    reusable_cm = _reusable_checkout(apply_schema)
+    if reusable_cm is not None:
+        with reusable_cm as reusable:
+            if reusable is not None:
+                with _repointed_dsn(reusable):
+                    yield db_path
+                return
+            # Flavor already checked out (nested use): disposable fallback.
+            name = pg_testdb.create_test_database()
+            try:
+                with _repointed_dsn(name):
+                    (apply_schema or _apply_production_schema)()
+                    yield db_path
+            finally:
+                pg_testdb.drop_test_database(name)
+            return
+
     name = pg_testdb.create_test_database()
-    new_dsn = pg_testdb.dsn_for_test_database(name)
-    prior = os.environ.get(db_backend.PG_DSN_ENV)
-    os.environ[db_backend.PG_DSN_ENV] = new_dsn
     try:
-        apply_schema()
-        yield db_path
+        with _repointed_dsn(name):
+            apply_schema()
+            yield db_path
     finally:
-        if prior is not None:
-            os.environ[db_backend.PG_DSN_ENV] = prior
-        else:
-            os.environ.pop(db_backend.PG_DSN_ENV, None)
         pg_testdb.drop_test_database(name)
 
 
