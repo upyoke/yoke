@@ -32,7 +32,7 @@ def register(registry) -> None:
             "unset_merged_at_required",
             "operator_reason_required",
         ],
-        adapter_status="wrapped",
+        adapter_status="live",
         claim_required_kind=None,
         ambient_session_required=False,
     )
