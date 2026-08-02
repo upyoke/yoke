@@ -13,6 +13,7 @@ from yoke_harness.ssh_mac_terminal_app import RunRemote, run_osascript
 
 _APPROVAL_PATHS = frozenset({"/connect", "/machine"})
 _CODE_PATTERN = re.compile(r"[A-Z0-9]{4}-[A-Z0-9]{4}")
+_RESULT_SEPARATOR = "|"
 _REFUSED_STATUSES = frozenset(
     {"denied", "expired", "missing", "not_admin", "not_member", "used"}
 )
@@ -102,7 +103,7 @@ def _script(*, expected_url: str) -> list[str]:
         "delay 0.25",
         "try",
         "set resultURL to URL of matchedTab as text",
-        'if resultURL is not expectedURL then return "approved" & tab & resultURL',
+        'if resultURL is not expectedURL then return "approved|" & resultURL',
         "end try",
         "end repeat",
         "end tell",
@@ -138,7 +139,7 @@ def approve_machine_in_safari(
             {"browser": "Safari"},
             "machine_browser_automation_unavailable",
         )
-    state, separator, raw_url = result.stdout.strip().partition("\t")
+    state, separator, raw_url = result.stdout.strip().partition(_RESULT_SEPARATOR)
     errors = {
         "browser_tab_missing": "machine_browser_tab_missing",
         "approval_control_missing": "machine_browser_approval_control_missing",
