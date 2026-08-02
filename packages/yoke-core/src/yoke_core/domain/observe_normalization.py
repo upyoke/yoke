@@ -24,7 +24,10 @@ from yoke_core.domain.observe_tool_event import (
     ToolEventRecord,
 )
 from yoke_core.domain.workflow_behavior import generates_task_graph
-from yoke_core.domain.workflow_runtime import ENGINE_TERMINAL_STAGE_IDS, workflow_runtime_from_row
+from yoke_core.domain.workflow_runtime import (
+    ENGINE_TERMINAL_STAGE_IDS,
+    workflow_runtime_from_row,
+)
 
 if TYPE_CHECKING:
     # Imported only for annotations: observe_parsing imports this module at
@@ -131,8 +134,11 @@ def _resolve_dispatch_context(
             (worktree, normalized_project),
         ).fetchall()
         fallback_rows = [
-            row for row in fallback_rows if str(row["status"]) not in
-            workflow_runtime_from_row(row).terminal_stage_ids | ENGINE_TERMINAL_STAGE_IDS
+            row
+            for row in fallback_rows
+            if str(row["status"])
+            not in workflow_runtime_from_row(row).terminal_stage_ids
+            | ENGINE_TERMINAL_STAGE_IDS
         ]
         if len(fallback_rows) == 1:
             return normalize_event_item_id(str(fallback_rows[0][0])), None, "worktree"
@@ -204,7 +210,8 @@ def _resolve_main_session_attribution(
                """
         ).fetchall()
         active_rows = [
-            row for row in active_rows
+            row
+            for row in active_rows
             if not generates_task_graph(workflow_runtime_from_row(row))
         ]
         if len(active_rows) == 1:
@@ -249,29 +256,6 @@ def _resolve_main_session_attribution(
         conn.close()
 
     return None, None
-
-
-def _compute_duration(db_path: str, tool_use_id: str) -> Optional[int]:
-    """Compute duration_ms from a HarnessToolCallStarted event matched by tool_use_id."""
-    try:
-        conn = connect_observe_read_db(db_path)
-        row = conn.execute(
-            """SELECT created_at FROM events
-               WHERE event_name = 'HarnessToolCallStarted'
-                 AND tool_use_id = {p}
-               ORDER BY created_at DESC LIMIT 1""".format(p=_p(conn)),
-            (tool_use_id,),
-        ).fetchone()
-        conn.close()
-        if row and row[0]:
-            start_dt = datetime.fromisoformat(row[0].replace("Z", "+00:00"))
-            end_dt = datetime.now(timezone.utc)
-            delta = int((end_dt - start_dt).total_seconds() * 1000)
-            if 0 <= delta <= 600000:  # sanity: 0..10min
-                return delta
-    except Exception:
-        pass
-    return None
 
 
 def _resolve_explicit_refs(rec: EventRecord, db_path: Optional[str]) -> None:
