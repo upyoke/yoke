@@ -49,18 +49,10 @@ def _infra_args_from_config(deploy_namespace: str):
 
 
 def _vps_args_from_config(deploy_namespace: str):
-    from webapp_vps_power_schedule import VpsPowerScheduleArgs
     from webapp_vps_stack import WebappVpsArgs
 
     config = pulumi.Config()
     return WebappVpsArgs(
-        # Absent crons leave the instance always on, which is what every
-        # stack predating power schedules declares.
-        power_schedule=VpsPowerScheduleArgs(
-            stop_cron=config.get("vps_stop_cron") or "",
-            start_cron=config.get("vps_start_cron") or "",
-            timezone=config.get("vps_power_schedule_timezone") or "UTC",
-        ),
         deploy_namespace=deploy_namespace,
         instance_type=config.require("vps_instance_type"),
         root_volume_gb=config.require_int("vps_root_volume_gb"),
