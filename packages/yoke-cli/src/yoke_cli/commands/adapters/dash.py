@@ -29,6 +29,7 @@ DASH_EVIDENCE_USAGE = (
     "yoke direct-workflow dash evidence ITEM --result TEXT "
     "--verification TEXT --commit-sha SHA --merge-sha SHA "
     "[--path PATH ... | --no-changes] [--posture-check KEY=STATUS ...] "
+    "[--tree-root PATH] [--tree-head-sha SHA] "
     "[--project P] [--session-id S] [--json]"
 )
 DASH_ESCALATE_USAGE = (
@@ -139,6 +140,38 @@ def dash_survey(args: List[str]) -> int:
     )
 
 
+def _verification_tree(
+    root_override: str, head_override: str,
+) -> tuple[str, str]:
+    """Resolve the tree this evidence describes, honouring overrides.
+
+    Both halves come from the local checkout, so the client answers them
+    rather than the dispatcher — a hosted server has no worktree to
+    inspect. The engine-side resolver is reached through the sanctioned
+    dynamic-import lane, for the same reason session orientation is: the
+    client cannot take static authority over engine modules before the
+    transport decision. Absent engine, or a directory with no git
+    metadata, leaves the halves empty and the caller asks for them
+    explicitly.
+    """
+    import importlib
+
+    root = str(root_override).strip()
+    head = str(head_override).strip()
+    if root and head:
+        return root, head
+    try:
+        module = importlib.import_module(
+            "yoke_core.domain.verification_tree_binding"
+        )
+        identity = module.resolve_tree_identity()
+    except Exception:
+        identity = None
+    if identity is None:
+        return root, head
+    return root or identity.root, head or identity.head_sha
+
+
 def _posture_checks(values: List[str]) -> Dict[str, str]:
     checks: Dict[str, str] = {}
     for value in values:
@@ -161,6 +194,18 @@ def dash_evidence(args: List[str]) -> int:
     parser.add_argument("--path", dest="paths", action="append", default=[])
     parser.add_argument("--posture-check", action="append", default=[])
     parser.add_argument("--no-changes", action="store_true")
+    parser.add_argument(
+        "--tree-root",
+        default="",
+        help="Verification tree root. Defaults to this directory's git "
+        "worktree root.",
+    )
+    parser.add_argument(
+        "--tree-head-sha",
+        default="",
+        help="HEAD sha of the verification tree. Defaults to the resolved "
+        "tree's HEAD.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, DASH_EVIDENCE_USAGE)
@@ -170,6 +215,15 @@ def dash_evidence(args: List[str]) -> int:
         checks = _posture_checks(parsed.posture_check)
     except ValueError as exc:
         return usage_error(str(exc))
+    tree_root, tree_head_sha = _verification_tree(
+        parsed.tree_root, parsed.tree_head_sha,
+    )
+    if not tree_root or not tree_head_sha:
+        return usage_error(
+            "could not resolve the verification tree from this directory; "
+            "run from the tree the verification covered, or pass "
+            "--tree-root and --tree-head-sha."
+        )
     return dispatch_and_emit(
         function_id="direct_workflow.dash.evidence",
         target=item_target("item", parsed.item, parsed.project),
@@ -182,6 +236,8 @@ def dash_evidence(args: List[str]) -> int:
             "touched_files": parsed.paths,
             "posture_checks": checks,
             "no_changes": parsed.no_changes,
+            "tree_root": tree_root,
+            "tree_head_sha": tree_head_sha,
         },
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,

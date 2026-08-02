@@ -232,6 +232,32 @@ Review the newline-delimited output, then pass the exact existing paths to
 `watch_pytest`. Do not pipe NUL-delimited Git output through `rg -z`, and never
 feed a filter diagnostic to pytest as a filename.
 
+## Which tree a run verified
+
+A green says nothing until the tree it came from is named. Every pytest
+entry point — `watch_pytest`, `run_tests`, and the `worktree_run` QA case
+executor — refuses to run outside the calling session's claim-bound
+worktree, because a run rooted in the wrong tree reports a pass for code
+nobody changed. The refusal names the claimed worktree and the tree the
+run would have used. A session with no claimed lane (inline skill work,
+main-checkout source-dev) passes through untouched.
+
+```bash
+yoke watch pytest --allow-tree-mismatch --impacted main --bounded
+```
+
+`--allow-tree-mismatch` is the deliberate cross-tree run: it proceeds and
+prints one line naming both trees, so the result stays attributable.
+
+Records carry the same fact. A QA run's `raw_result` and a Dash execution
+evidence section both hold a `verification_tree` of worktree root plus
+HEAD sha, so a green produced against the wrong tree cannot be recorded
+indistinguishably from one produced against the right tree. The client
+resolves that identity — only the machine holding the checkout can — and
+`yoke direct-workflow dash evidence` accepts `--tree-root` /
+`--tree-head-sha` when evidence is recorded from somewhere other than the
+tree that was verified.
+
 ## Full-suite authority: CI
 
 The full three-anchor suite runs off-machine in CI on both the pull

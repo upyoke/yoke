@@ -34,6 +34,10 @@ class EvidenceRequest(BaseModel):
     touched_files: List[str] = Field(default_factory=list)
     posture_checks: Mapping[str, str] = Field(default_factory=dict)
     no_changes: bool = False
+    # Which tree the verification summary describes. Resolved by the
+    # caller, because only the machine holding the checkout can answer.
+    tree_root: str
+    tree_head_sha: str
 
 
 class EvidenceResponse(BaseModel):
@@ -109,6 +113,8 @@ def handle_dash_evidence(request: FunctionCallRequest) -> HandlerOutcome:
                 commit_sha=payload.commit_sha,
                 merge_sha=payload.merge_sha,
                 touched_files=payload.touched_files,
+                tree_root=payload.tree_root,
+                tree_head_sha=payload.tree_head_sha,
                 posture_checks=payload.posture_checks,
                 no_changes=payload.no_changes,
             )

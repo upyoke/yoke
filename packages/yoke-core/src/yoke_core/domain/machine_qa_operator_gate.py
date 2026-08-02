@@ -10,6 +10,10 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from yoke_core.domain.ssh_mac_terminal_capture import RunRemote
+from yoke_core.domain.ssh_mac_browser_approval import (
+    BrowserApprovalResult,
+    approve_machine_in_safari,
+)
 from yoke_core.domain.ssh_mac_terminal_recipe_support import (
     capture_recipe_transcript,
     send_recipe_keys,
@@ -23,6 +27,7 @@ _DENIAL_MARKERS = (
     "hosted authorization expired",
     "this machine was denied in the browser",
 )
+_APPROVAL_PATHS = frozenset({"/connect", "/machine"})
 
 
 @dataclass(frozen=True)
@@ -32,6 +37,7 @@ class OperatorGateResult:
     ok: bool
     transcript: str
     error_code: str | None = None
+    browser_evidence: dict[str, Any] | None = None
 
 
 def _labeled_value(transcript: str, label: str) -> str | None:
@@ -46,7 +52,13 @@ def _labeled_value(transcript: str, label: str) -> str | None:
 
 def _approved_origin(url: str, allowed_base_urls: tuple[str, ...]) -> bool:
     parsed = urlsplit(url)
-    if parsed.scheme != "https" or not parsed.netloc:
+    if (
+        parsed.scheme != "https"
+        or not parsed.netloc
+        or parsed.path not in _APPROVAL_PATHS
+        or parsed.query
+        or parsed.fragment
+    ):
         return False
     return any(
         (parsed.scheme, parsed.netloc) == (allowed.scheme, allowed.netloc)
@@ -61,15 +73,7 @@ def _current_gate_transcript(transcript: str, code: str) -> str:
     return transcript[code_index:] if code_index >= 0 else transcript
 
 
-def _emit_browser_approval(
-    transcript: str,
-    *,
-    allowed_base_urls: tuple[str, ...],
-) -> bool:
-    url = _labeled_value(transcript, "Open:")
-    code = _labeled_value(transcript, "One-time code:")
-    if url is None or code is None or not _approved_origin(url, allowed_base_urls):
-        return False
+def _emit_browser_approval(url: str, code: str) -> None:
     print(
         json.dumps(
             {
@@ -82,7 +86,6 @@ def _emit_browser_approval(
         ),
         flush=True,
     )
-    return True
 
 
 def run_machine_browser_approval(
@@ -110,6 +113,11 @@ def run_machine_browser_approval(
         action=action,
         progress_callback=progress_callback,
         allowed_base_urls=allowed_base_urls,
+        approve_browser=lambda url, code: approve_machine_in_safari(
+            run,
+            verification_url=url,
+            user_code=code,
+        ),
     )
 
 
@@ -120,23 +128,32 @@ def run_machine_browser_approval_with_io(
     action: Mapping[str, Any],
     progress_callback: Callable[[], None] | None,
     allowed_base_urls: tuple[str, ...],
+    approve_browser: Callable[[str, str], BrowserApprovalResult],
 ) -> OperatorGateResult:
     """Run one browser handoff through an already-authorized terminal surface."""
     transcript = read_transcript()
-    if not _emit_browser_approval(
-        transcript,
-        allowed_base_urls=allowed_base_urls,
-    ):
+    url = _labeled_value(transcript, "Open:")
+    code = _labeled_value(transcript, "One-time code:")
+    if url is None or code is None or not _approved_origin(url, allowed_base_urls):
         return OperatorGateResult(
             False,
             transcript,
             "machine_browser_approval_context_missing",
         )
+    _emit_browser_approval(url, code)
     if not send_keys(action["keys"]):
         return OperatorGateResult(
             False,
             transcript,
             "machine_browser_approval_input_failed",
+        )
+    approval = approve_browser(url, code)
+    if not approval.ok:
+        return OperatorGateResult(
+            False,
+            transcript,
+            approval.error_code or "machine_browser_approval_failed",
+            approval.evidence,
         )
     timeout_seconds = float(action["gate_timeout_seconds"])
     completion_text = tuple(action["completion_text"])
@@ -149,12 +166,17 @@ def run_machine_browser_approval_with_io(
         gate_transcript = _current_gate_transcript(transcript, gate_code)
         lowered = gate_transcript.casefold()
         if all(marker in gate_transcript for marker in completion_text):
-            return OperatorGateResult(True, transcript)
+            return OperatorGateResult(
+                True,
+                transcript,
+                browser_evidence=approval.evidence,
+            )
         if any(marker in lowered for marker in _DENIAL_MARKERS):
             return OperatorGateResult(
                 False,
                 transcript,
                 "machine_browser_approval_rejected",
+                approval.evidence,
             )
         now = time.monotonic()
         if now >= deadline:
@@ -162,6 +184,7 @@ def run_machine_browser_approval_with_io(
                 False,
                 transcript,
                 "machine_browser_approval_timed_out",
+                approval.evidence,
             )
         if progress_callback is not None and now >= next_heartbeat:
             try:
@@ -171,6 +194,7 @@ def run_machine_browser_approval_with_io(
                     False,
                     transcript,
                     "machine_browser_approval_heartbeat_failed",
+                    approval.evidence,
                 )
             next_heartbeat = now + _HEARTBEAT_SECONDS
         time.sleep(1.0)
