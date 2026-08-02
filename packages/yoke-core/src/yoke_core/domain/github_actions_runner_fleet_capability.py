@@ -25,6 +25,10 @@ DEFAULT_DESIRED_RUNNER_COUNT = 1
 DEFAULT_MAX_RUNNER_COUNT = 1
 MAX_RUNNER_FLEET_HOSTS = 10
 DEFAULT_ROOT_VOLUME_GB = 200
+#: Runners are disposable, so the fleet rides spare (spot) capacity by
+#: default: no on-demand floor, and nothing above that floor on demand either.
+DEFAULT_SPOT_ON_DEMAND_BASE_CAPACITY = 0
+DEFAULT_SPOT_ON_DEMAND_PERCENTAGE_ABOVE_BASE = 0
 DEFAULT_AWS_CAPABILITY = "aws-admin"
 DEFAULT_START_MODE = "autoscaled"
 DEFAULT_SHUTDOWN_MODE = "terminate"
@@ -75,6 +79,22 @@ class RunnerFleetLifecycleSettings(BaseModel):
         if cleaned not in {"stop", "terminate"}:
             raise ValueError("must be one of stop, terminate")
         return cleaned
+
+
+class RunnerFleetSpotSettings(BaseModel):
+    """How much of the fleet is bought on spare (spot) capacity.
+
+    Runners are disposable — reclaiming one fails a job that reruns — so the
+    whole fleet rides spot by default. Raise ``on_demand_base_capacity`` to
+    keep a floor of runners that a spot shortage cannot take away.
+    """
+
+    on_demand_base_capacity: int = Field(
+        DEFAULT_SPOT_ON_DEMAND_BASE_CAPACITY, ge=0
+    )
+    on_demand_percentage_above_base: int = Field(
+        DEFAULT_SPOT_ON_DEMAND_PERCENTAGE_ABOVE_BASE, ge=0, le=100
+    )
 
 
 class RunnerFleetNetworkSettings(BaseModel):
@@ -157,6 +177,9 @@ class RunnerFleetSettings(BaseModel):
     )
     lifecycle: RunnerFleetLifecycleSettings = Field(
         default_factory=RunnerFleetLifecycleSettings
+    )
+    spot: RunnerFleetSpotSettings = Field(
+        default_factory=RunnerFleetSpotSettings
     )
     network: Optional[RunnerFleetNetworkSettings] = None
 

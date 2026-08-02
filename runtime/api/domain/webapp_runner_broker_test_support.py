@@ -2,14 +2,26 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 import textwrap
 
+_PACK_ROOT = Path(__file__).resolve().parents[3] / "packs/self-hosted-runners"
 
-INFRA_ROOT = (
-    Path(__file__).resolve().parents[3]
-    / "packs/self-hosted-runners/versions/1.0.0/files/infra"
-)
+
+def _latest_infra_root() -> Path:
+    """Resolve the newest Pack version's Lambda sources.
+
+    This was pinned to the first version, so every Lambda change published in
+    a later version shipped with no executable coverage at all — the tests kept
+    passing against code that was no longer the one being installed. Following
+    ``latest_version`` keeps them pointed at what actually ships.
+    """
+    latest = json.loads((_PACK_ROOT / "pack.json").read_text())["latest_version"]
+    return _PACK_ROOT / "versions" / latest / "files/infra"
+
+
+INFRA_ROOT = _latest_infra_root()
 
 
 def _module(tmp_path: Path, package: str, source: str) -> None:

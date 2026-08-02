@@ -46,6 +46,8 @@ def _runner_stack(
     aws_region="us-east-1",
     stack_name="yoke-runner-fleet",
     routing_enabled=True,
+    spot_on_demand_base_capacity=0,
+    spot_on_demand_percentage_above_base=0,
     authority_overrides=None,
     config_overrides=None,
     stack_reference_outputs=None,
@@ -201,6 +203,10 @@ def _runner_stack(
             "yoke-prod": "originElasticIpAddress",
             "yoke-stage": "originElasticIpAddress",
         },
+        spot_on_demand_base_capacity=spot_on_demand_base_capacity,
+        spot_on_demand_percentage_above_base=(
+            spot_on_demand_percentage_above_base
+        ),
     )
     for key, value in (config_overrides or {}).items():
         setattr(args, key, value)

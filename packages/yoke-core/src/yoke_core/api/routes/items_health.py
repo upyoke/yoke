@@ -51,8 +51,28 @@ def health() -> _main.HealthResponse:
     )
 
 
+#: Remembers that this process has observed a complete schema surface.
+#: The probe opens a database connection, and container liveness polls this
+#: route on a short interval, so probing on every request holds a serverless
+#: database permanently awake — each connection resets its idle-pause timer.
+#: A schema surface cannot lose tables under a running process, and a deploy
+#: replaces the container, so the positive answer is safe to keep for the
+#: process lifetime. The negative answer is never cached: a process that
+#: starts ahead of its schema must keep probing until it converges.
+_schema_confirmed_ready = False
+
+
+def reset_schema_readiness_cache() -> None:
+    """Forget the remembered probe result so the next call probes again."""
+    global _schema_confirmed_ready
+    _schema_confirmed_ready = False
+
+
 def _schema_readiness_snapshot() -> Tuple[bool, List[str]]:
     """Probe the readiness table set; an unreachable DB is not ready."""
+    global _schema_confirmed_ready
+    if _schema_confirmed_ready:
+        return True, []
     try:
         conn = _main.get_db_readonly()
         try:
@@ -61,7 +81,9 @@ def _schema_readiness_snapshot() -> Tuple[bool, List[str]]:
             conn.close()
     except Exception:
         return False, []
+    if not missing:
+        _schema_confirmed_ready = True
     return not missing, missing
 
 
-__all__ = ["router"]
+__all__ = ["reset_schema_readiness_cache", "router"]
