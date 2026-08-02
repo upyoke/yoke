@@ -28,9 +28,11 @@ export function detailItem(workflowId) {
   const pathClaimsPolicy = directWorkflow
     ? "optional"
     : workflowId === "epic" ? "required_per_task" : "required";
+  const pathSurveyPolicy = directWorkflow ? "required" : undefined;
   const policies = {
     file_budget: fileBudgetPolicy,
     path_claims: pathClaimsPolicy,
+    ...(pathSurveyPolicy ? { path_survey: pathSurveyPolicy } : {}),
     worktrees: workflowId === "epic"
       ? "worker_and_integration_lanes"
       : workflowId === "blitz"
