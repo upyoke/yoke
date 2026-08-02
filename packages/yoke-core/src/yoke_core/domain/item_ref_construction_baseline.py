@@ -5,7 +5,8 @@ not listed here, or MORE occurrences than listed, fails the check. These are
 the legacy sites not yet converted to the canonical formatter/resolver — many
 are correct-as-is (git branch names parsed back to items.id, item_dependencies
 text-ref columns, not-found fallback paths, no-conn pure formatters). This map
-may only SHRINK. Empty => zero tolerance.
+must shrink whenever a listed source file changes: its maintainer owns reducing
+the matching allowance. Empty => zero tolerance.
 """
 
 from __future__ import annotations
@@ -118,7 +119,6 @@ BASELINE: dict[str, int] = {
     "packages/yoke-core/src/yoke_core/domain/worktree_lane_plan.py": 1,
     "packages/yoke-core/src/yoke_core/domain/worktree_preflight.py": 5,
     "packages/yoke-core/src/yoke_core/domain/worktree_preflight_steps.py": 2,
-    "packages/yoke-core/src/yoke_core/domain/yoke_function_dispatch_claims.py": 1,
     "packages/yoke-core/src/yoke_core/engines/advance_implementation_entry.py": 5,
     "packages/yoke-core/src/yoke_core/engines/doctor_hc_architecture_items.py": 2,
     "packages/yoke-core/src/yoke_core/engines/doctor_hc_blocked_flag.py": 4,
@@ -139,7 +139,7 @@ BASELINE: dict[str, int] = {
     "packages/yoke-core/src/yoke_core/engines/done_transition_finalize.py": 2,
     "packages/yoke-core/src/yoke_core/engines/done_transition_github_sync.py": 3,
     "packages/yoke-core/src/yoke_core/engines/done_transition_merge_guards.py": 3,
-    "packages/yoke-core/src/yoke_core/engines/done_transition_merge_ops.py": 5,
+    "packages/yoke-core/src/yoke_core/engines/done_transition_merge_ops.py": 3,
     "packages/yoke-core/src/yoke_core/engines/done_transition_preconditions.py": 1,
     "packages/yoke-core/src/yoke_core/engines/done_transition_runner.py": 3,
     "packages/yoke-core/src/yoke_core/engines/done_transition_runtime.py": 4,

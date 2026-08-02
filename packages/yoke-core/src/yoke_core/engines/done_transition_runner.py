@@ -56,11 +56,11 @@ def run(
     _check_deployment_redirect = mw._check_deployment_redirect
     _do_merge = mw._do_merge
     _run_git = mw._run_git
+    _connect = mw._connect
     _cleanup_stale_branches = mw._cleanup_stale_branches
     _verify_cwd_after_merge = mw._verify_cwd_after_merge
     _schema_gate = mw._schema_gate
     _check_deployment_flow_guard = mw._check_deployment_flow_guard
-    _cross_project_commit_guard = mw._cross_project_commit_guard
     _populate_merged_at = mw._populate_merged_at
     _update_status_to_done = mw._update_status_to_done
     _cascade_epic_tasks_to_done = mw._cascade_epic_tasks_to_done
@@ -267,17 +267,14 @@ def run(
         return result.fail(result_file, exit_code, "5b")
     result.add_step("5b")
 
-    _cross_project_commit_guard(item_id, item_project, repo_root)
-    result.add_step("5c")
-
     if _enforce_preconditions(
         item_id,
         deploy_flow,
         requires_plan_simulation(workflow),
     ):
         print(f"RESULT_FILE={result_file}")
-        return result.fail(result_file, 7, "5d-preconditions")
-    result.add_step("5d")
+        return result.fail(result_file, 7, "5c-preconditions")
+    result.add_step("5c")
     print("\n=== Step 6: Update status to done ===")
     _populate_merged_at(item_id)
 
