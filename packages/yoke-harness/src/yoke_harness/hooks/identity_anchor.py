@@ -13,9 +13,12 @@ wrote the record last.
 
 from __future__ import annotations
 
+from typing import Optional
+
 from yoke_cli.config import machine_config
 from yoke_contracts.session_identity import (
     ANCHORS_DIR_NAME,
+    ContenderIsLive,
     prune_stale_anchors,
     record_session_anchor as _record_session_anchor,
 )
@@ -25,10 +28,22 @@ def _anchors_dir():
     return machine_config.yoke_home() / ANCHORS_DIR_NAME
 
 
+def _liveness_probe() -> Optional[ContenderIsLive]:
+    """The transport-backed liveness probe so contention markers can heal."""
+    try:
+        from yoke_cli.transport.session_liveness import contender_is_live
+    except Exception:  # noqa: BLE001 — no probe degrades to fail-closed
+        return None
+    return contender_is_live
+
+
 def record_session_anchor(session_id: str, *, transcript_path: str = "") -> None:
     """Best-effort product-side session anchor write."""
     _record_session_anchor(
-        session_id, _anchors_dir(), transcript_path=transcript_path,
+        session_id,
+        _anchors_dir(),
+        transcript_path=transcript_path,
+        contender_is_live=_liveness_probe(),
     )
 
 

@@ -28,6 +28,17 @@ def machine_home(tmp_path, monkeypatch):
     return home
 
 
+@pytest.fixture(autouse=True)
+def _no_liveness_probe(monkeypatch):
+    """Keep registry unit tests on file state alone.
+
+    The shim wires a transport-backed liveness probe into contended writes;
+    healing behavior has its own suite (``test_session_anchor_contention``).
+    Without a probe, contention stays fail-closed exactly as before.
+    """
+    monkeypatch.setattr(anchors, "_liveness_probe", lambda: None)
+
+
 def _anchor(pid=200, start=_START, name="claude"):
     return ProcessAnchor(pid=pid, start_time=start, process_name=name)
 
@@ -63,9 +74,13 @@ class TestRecordSessionAnchor:
         anchors.record_session_anchor("sess-old", anchor=_anchor())
         anchors.record_session_anchor("sess-new", anchor=_anchor())
         on_disk = _record_for(machine_home, 200)
-        # Neither session may claim a pid that hosts both of them.
+        # Neither session may claim a pid that hosts both of them — and the
+        # marker names them, plus the writer, so contention is attributable.
         assert on_disk["shared_by_multiple_sessions"] is True
         assert on_disk["session_id"] == ""
+        assert on_disk["contending_session_ids"] == ["sess-new", "sess-old"]
+        assert on_disk["last_writer_pid"]
+        assert "last_writer_argv" in on_disk
 
     def test_contention_marker_survives_further_writers(self, machine_home):
         anchors.record_session_anchor("sess-a", anchor=_anchor())

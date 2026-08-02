@@ -38,6 +38,11 @@ from yoke_contracts.process_ancestry import (
     find_nearest_harness_anchor,
     process_start_time,
 )
+from yoke_contracts.session_anchor_contention import (
+    ContenderIsLive,
+    resolve_tenancy,
+    writer_breadcrumb,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -121,27 +126,6 @@ def _remove_quietly(path: Path) -> None:
         pass
 
 
-def _shares_pid_with_other_session(
-    existing: Optional[Dict[str, Any]],
-    session_id: str,
-    start_time: str,
-) -> bool:
-    """True when a live record on this pid already belongs to another session.
-
-    Start-time equality distinguishes a genuinely shared process from a
-    reused pid: a different start time means the recorded process is gone,
-    so the record is stale rather than contended.
-    """
-    if not existing:
-        return False
-    if existing.get("anchor_start_time") != start_time:
-        return False
-    if existing.get("shared_by_multiple_sessions"):
-        return True
-    recorded = existing.get("session_id")
-    return isinstance(recorded, str) and bool(recorded) and recorded != session_id
-
-
 def record_session_anchor(
     session_id: str,
     anchors_dir: _AnchorsDir,
@@ -149,6 +133,7 @@ def record_session_anchor(
     transcript_path: str = "",
     pid: Optional[int] = None,
     anchor: Optional[ProcessAnchor] = None,
+    contender_is_live: Optional["ContenderIsLive"] = None,
 ) -> Optional[Dict[str, Any]]:
     """Record the calling process's nearest harness ancestor for ``session_id``.
 
@@ -157,12 +142,14 @@ def record_session_anchor(
     recording is a best-effort side channel and must not break
     registration. ``anchor`` injects a resolved ancestor for tests.
 
-    When the resolved pid is already recorded against a *different* live
-    session, the pid is hosting concurrent sessions and cannot identify
-    either of them. Rather than overwriting — which would silently hand the
-    displaced session's shell processes this session's id — the record is
-    replaced with a contention marker that makes ancestry resolution refuse
-    the pid outright.
+    A pid recorded against a *different* live session cannot identify either
+    session, so the record becomes a contention marker that makes ancestry
+    resolution refuse the pid — but a marker, not a latch: tenancy is
+    re-decided on every write (:mod:`yoke_contracts.session_anchor_contention`),
+    so a contender that has ended, or that a clean record anchors to another
+    live process, drops out and the sole remaining tenant gets the pid back.
+    ``contender_is_live`` supplies the sessions-table liveness probe; without
+    it, contenders only clear via the anchored-elsewhere evidence.
     """
     if not session_id:
         return None
@@ -177,21 +164,32 @@ def record_session_anchor(
         directory = Path(anchors_dir)
         directory.mkdir(parents=True, exist_ok=True)
         final = directory / f"{resolved.pid}.json"
-        contended = _shares_pid_with_other_session(
-            _load_json(final) if final.is_file() else None,
+        existing = _load_json(final) if final.is_file() else None
+        if existing and existing.get("anchor_start_time") != resolved.start_time:
+            existing = None  # reused pid: the recorded process is gone
+        decision = resolve_tenancy(
+            existing,
             session_id,
-            resolved.start_time,
+            anchors_dir=directory,
+            this_pid=resolved.pid,
+            load_record=_load_json,
+            start_time_of=process_start_time,
+            contender_is_live=contender_is_live,
         )
         record: Dict[str, Any] = {
-            "session_id": "" if contended else session_id,
-            "transcript_path": "" if contended else (transcript_path or ""),
+            "session_id": decision.tenant_session_id,
+            "transcript_path": "" if decision.contended else (transcript_path or ""),
             "anchor_pid": resolved.pid,
             "anchor_start_time": resolved.start_time,
             "anchor_process_name": resolved.process_name,
             "registered_at": datetime.now(timezone.utc).isoformat(),
         }
-        if contended:
+        if decision.contended:
             record["shared_by_multiple_sessions"] = True
+            record["contending_session_ids"] = list(
+                decision.contending_session_ids
+            )
+            record.update(writer_breadcrumb())
         tmp = directory / f".{resolved.pid}.json.tmp.{os.getpid()}"
         _dump_json(tmp, record)
         os.replace(tmp, final)
@@ -315,6 +313,7 @@ __all__ = [
     "AMBIENT_ENV_VARS",
     "AMBIENT_RESOLUTION_FAILED",
     "ANCHORS_DIR_NAME",
+    "ContenderIsLive",
     "ProcessAnchor",
     "prune_stale_anchors",
     "record_session_anchor",
