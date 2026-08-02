@@ -28,10 +28,14 @@ function deliveryMechanicSummary(mechanics, workflow) {
 
 function postureRows(workflow) {
   const policies = workflow.definition?.policies || {};
+  const pathSurvey = policies.path_survey ?? (
+    ["blitz", "dash"].includes(String(workflow.id)) ? "required" : undefined
+  );
   const rows = [
     ["Ownership", "ownership", policies.ownership],
     ["File Budget", "file_budget", policies.file_budget],
     ["Path claims", "path_claims", policies.path_claims],
+    ["Path survey", "path_survey", pathSurvey],
     ["Worktrees", "worktrees", policies.worktrees],
   ].filter((row) => row[2] !== undefined);
   if (policies.parallelism !== "none") {
@@ -81,23 +85,26 @@ export function renderPosture(documentNode, workflow, actions = {}) {
   const { panel, body } = workflowPanel(documentNode, "Execution posture");
   const grid = el(documentNode, "div", "workflow-posture-grid");
   for (const [label, policy, value] of postureRows(workflow)) {
-    const pathClaimsEditable = policy === "path_claims" &&
+    const policyEditable = ["path_claims", "path_survey"].includes(policy) &&
       (workflow.definition?.policies?.item_posture_allowlist || [])
-        .includes("path_claims") &&
+        .includes(policy) &&
       ["optional", "required"].includes(value);
-    const pathClaimsOn = value === "required";
+    const policyOn = value === "required";
+    const editAction = policy === "path_claims"
+      ? actions.editPathClaims
+      : actions.editPathSurvey;
     grid.appendChild(postureCell(
       documentNode,
       label,
-      pathClaimsEditable
-        ? `${pathClaimsOn ? "on" : "off"} by default`
+      policyEditable
+        ? `${policyOn ? "on" : "off"} by default`
         : workflow.id === "dash" && policy === "worktrees"
           ? "one"
           : readablePolicyValue(policy, value),
-      pathClaimsEditable && actions.editPathClaims
+      policyEditable && editAction
         ? {
-          label: pathClaimsOn ? "Turn off" : "Turn on",
-          action: () => actions.editPathClaims(!pathClaimsOn),
+          label: policyOn ? "Turn off" : "Turn on",
+          action: () => editAction(!policyOn),
         }
         : null,
     ));

@@ -23,7 +23,7 @@ WORKFLOWS_VERSION_GET_USAGE = (
 )
 WORKFLOWS_POLICY_DEFAULTS_PUBLISH_USAGE = (
     "yoke workflows policy-defaults publish WORKFLOW "
-    "(--file-budget on|off | --path-claims on|off) "
+    "(--file-budget on|off | --path-claims on|off | --path-survey on|off) "
     "--expected-current-version N [--session-id S] [--json]"
 )
 
@@ -111,6 +111,7 @@ def workflows_policy_defaults_publish(args: List[str]) -> int:
     policy = parser.add_mutually_exclusive_group(required=True)
     policy.add_argument("--file-budget", choices=("on", "off"))
     policy.add_argument("--path-claims", choices=("on", "off"))
+    policy.add_argument("--path-survey", choices=("on", "off"))
     parser.add_argument("--expected-current-version", type=int, required=True)
     add_session_arg(parser)
     add_json_arg(parser)
@@ -122,12 +123,18 @@ def workflows_policy_defaults_publish(args: List[str]) -> int:
 
     def _human_writer(response, stdout, stderr) -> None:
         result = response.result or {}
-        key = (
-            "file_budget_default"
-            if result.get("file_budget_default") is not None
-            else "path_claims_default"
+        key = next(
+            name for name in (
+                "file_budget_default",
+                "path_claims_default",
+                "path_survey_default",
+            ) if result.get(name) is not None
         )
-        label = "file-budget" if key == "file_budget_default" else "path-claims"
+        label = {
+            "file_budget_default": "file-budget",
+            "path_claims_default": "path-claims",
+            "path_survey_default": "path-survey",
+        }[key]
         value = "on" if result.get(key) else "off"
         print(
             f"workflow-defaults-published|"
@@ -136,11 +143,12 @@ def workflows_policy_defaults_publish(args: List[str]) -> int:
             file=stdout,
         )
 
-    policy_payload = (
-        {"file_budget_default": parsed.file_budget == "on"}
-        if parsed.file_budget is not None
-        else {"path_claims_default": parsed.path_claims == "on"}
-    )
+    if parsed.file_budget is not None:
+        policy_payload = {"file_budget_default": parsed.file_budget == "on"}
+    elif parsed.path_claims is not None:
+        policy_payload = {"path_claims_default": parsed.path_claims == "on"}
+    else:
+        policy_payload = {"path_survey_default": parsed.path_survey == "on"}
     return dispatch_and_emit(
         function_id="workflows.policy_defaults.publish",
         target=TargetRef(kind="global"),

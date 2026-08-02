@@ -46,6 +46,7 @@ from yoke_core.domain.handlers import (
     _register_lint_config,
     _register_inbox,
     _register_install,
+    _register_item_merge_provenance,
     _register_item_worktrees,
     _register_items_create,
     _register_items_github_sync,
@@ -139,6 +140,7 @@ _DOMAIN_REGISTRARS = (
     _register_done_transition,
     _register_done_transition_writes,
     _register_done_transition_status_writes,
+    _register_item_merge_provenance,
     _register_resync,
 )
 

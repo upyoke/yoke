@@ -7,18 +7,44 @@ from typing import Dict, List, Optional
 from yoke_core.api.routing_config import ProcessOfferPolicy
 
 from .session_contract import ActionKind, ClaimedWork, FrontierState, NextAction, SessionOffer
-from .session_decision_charge import _NEXT_STEP_TO_PATH, decide_charge_action
+from .session_decision_charge import (  # noqa: F401 — re-exported by session.py
+    _NEXT_STEP_TO_PATH,
+    decide_charge_action,
+)
 from .session_decision_context import (
     _apply_lane_filtered_signal,
-    _lane_filtered_note,
     build_no_lane_compatible_work_context,
 )
 from .session_decision_drift import decide_drift_review_action
 from .session_decision_process_gate import apply_process_offer_gate
 from .session_decision_resume import decide_resume_action
+from .session_offer_diagnostics import attach_offer_diagnostics
 
 
 def decide_next_action(
+    offer: SessionOffer,
+    frontier: FrontierState,
+    active_claims: Optional[List[ClaimedWork]] = None,
+    lane_allowed_paths: Optional[Dict[str, List[str]]] = None,
+    process_offer_policy: Optional[ProcessOfferPolicy] = None,
+) -> NextAction:
+    """Decide the next action and attach the offer elimination chain."""
+    result = _decide_next_action(
+        offer,
+        frontier,
+        active_claims=active_claims,
+        lane_allowed_paths=lane_allowed_paths,
+        process_offer_policy=process_offer_policy,
+    )
+    return attach_offer_diagnostics(
+        result,
+        frontier.offer_diagnostics,
+        process_offer_policy=process_offer_policy,
+        actual_lane=offer.execution_lane,
+    )
+
+
+def _decide_next_action(
     offer: SessionOffer,
     frontier: FrontierState,
     active_claims: Optional[List[ClaimedWork]] = None,

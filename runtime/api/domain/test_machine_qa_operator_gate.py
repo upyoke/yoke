@@ -55,7 +55,7 @@ def test_browser_gate_emits_coordinates_sends_enter_and_heartbeats(
         if 'tell application "Safari"' in command:
             return completed(
                 command,
-                stdout=("approved\thttps://app.stage.upyoke.com/orgs/acme#/overview\n"),
+                stdout=("approved|https://app.stage.upyoke.com/orgs/acme#/overview\n"),
             )
         return completed(command)
 

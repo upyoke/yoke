@@ -68,6 +68,7 @@ class WorkflowPolicyDefaultsPublishRequest(BaseModel):
     expected_current_version: int
     file_budget_default: Optional[bool] = None
     path_claims_default: Optional[bool] = None
+    path_survey_default: Optional[bool] = None
 
 
 class WorkflowPolicyDefaultsPublishResponse(BaseModel):
@@ -77,6 +78,7 @@ class WorkflowPolicyDefaultsPublishResponse(BaseModel):
     definition_digest: str
     file_budget_default: Optional[bool] = None
     path_claims_default: Optional[bool] = None
+    path_survey_default: Optional[bool] = None
 
 
 class WorkflowItemMigrateRequest(BaseModel):
@@ -225,6 +227,7 @@ def handle_workflows_policy_defaults_publish(
                 expected_current_version=payload.expected_current_version,
                 file_budget_default=payload.file_budget_default,
                 path_claims_default=payload.path_claims_default,
+                path_survey_default=payload.path_survey_default,
                 published_by_actor_id=actor_id,
             )
     except WorkflowRegistryError as exc:

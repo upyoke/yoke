@@ -128,6 +128,19 @@ ITEMS_ADAPTERS = [
         ),
     ),
     AdapterEntry(
+        function_id="items.merge_provenance.operator_correct",
+        cli_invocation=(
+            "yoke items merge-provenance operator-correct YOK-N "
+            "--merged-at YYYY-MM-DDTHH:MM:SSZ --reason TEXT"
+        ),
+        notes=(
+            "Human-only repair for a terminal item whose merged_at was never "
+            "recorded. Refuses a hook context, a non-terminal item, an "
+            "already-set merged_at, and a future timestamp. A live item "
+            "records its merge through yoke merge item YOK-N instead."
+        ),
+    ),
+    AdapterEntry(
         function_id="items.github_sync",
         cli_invocation="yoke items github-sync YOK-N",
         notes=(

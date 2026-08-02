@@ -150,6 +150,7 @@ export function factsPanel(documentNode, item) {
 const POSTURE_LABELS = {
   file_budget: "File Budget",
   path_claims: "Path claims",
+  path_survey: "Path survey",
   worktrees: "Worktrees",
   parallelism: "Parallelism",
   generated_children: "Child items",
@@ -161,8 +162,11 @@ export function posturePanel(documentNode, item) {
   const effectivePolicies = item.workflow.effective_policies || {};
   const workflowId = String(item.workflow.id || "").toLowerCase();
   const preferredKeys = workflowId === "dash"
-    ? ["generated_children", "file_budget", "path_claims", "worktrees"]
-    : ["file_budget", "path_claims", "worktrees", "parallelism"];
+    ? [
+      "generated_children", "file_budget", "path_survey", "path_claims",
+      "worktrees",
+    ]
+    : ["file_budget", "path_survey", "path_claims", "worktrees", "parallelism"];
   const keys = preferredKeys.filter(
     (key) => effectivePolicies[key] !== undefined,
   );

@@ -45,6 +45,11 @@ PRODUCT_AUTHZ_BY_ID = {
         PROJECT, PERM_ITEMS_WRITE
     ),
     "done_transition.populate_merged_at": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
+    # The operator merge-timestamp repair writes one project's item row. It is
+    # claim-free because a terminal item cannot be claimed at all -- that is the
+    # gap it exists to close -- so this scope plus the human-only hook-context
+    # refusal is what gates it.
+    "items.merge_provenance.operator_correct": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     # The done-transition status flips (item -> done, epic-task -> done cascade)
     # bypass the item claim by design, so they are claim_required_kind=None; the
     # PROJECT + items-write scope is what gates the bypass to an authorized
