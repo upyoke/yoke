@@ -143,13 +143,18 @@ def _lane_worktrees(conn: Any, rows: List[Dict[str, Any]]) -> Dict[int, List[str
     refusal.
     """
     from yoke_core.domain import db_backend
+    from yoke_core.domain.schema_common import _table_exists
 
     owners = {
         int(row["item_id"] or row["epic_id"]): int(row["claim_id"])
         for row in rows
         if row.get("item_id") or row.get("epic_id")
     }
-    if not owners:
+    # A holder read stays answerable on a schema that carries claims but
+    # no lane table — minimal fixtures and partially-converged universes
+    # both hit this — so the lanes are reported as unknown rather than
+    # failing the whole lookup.
+    if not owners or not _table_exists(conn, "item_worktrees"):
         return {}
     p = "%s" if db_backend.connection_is_postgres(conn) else "?"
     placeholders = ", ".join(p for _ in owners)
