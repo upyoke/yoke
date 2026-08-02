@@ -6,7 +6,7 @@ import json
 from typing import Any
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import query_one, query_scalar
+from yoke_core.domain.db_helpers import query_one, query_rows, query_scalar
 from yoke_core.domain.project_identity import row_value
 from yoke_core.domain.projects_seed_ci_workflow import CI_WORKFLOW_CAPABILITY_TYPE
 from yoke_core.domain.qa_plan_attachments import set_project_default
@@ -217,10 +217,88 @@ def ensure_registered_command_plan(
     }
 
 
+def _registered_scope_bindings(conn: Any) -> list[dict]:
+    """Return every project's registered scopes with their current binding."""
+    return list(query_rows(
+        conn,
+        "SELECT p.project_id AS project_id, pr.slug AS project, "
+        "p.slug AS plan_slug, c.method_id AS method_id, "
+        "c.method_config AS method_config "
+        "FROM qa_plans p "
+        "JOIN projects pr ON pr.id=p.project_id "
+        "JOIN qa_plan_cases c ON c.plan_id=p.id "
+        "WHERE p.retired_at IS NULL "
+        "AND substr(p.slug, 1, 19)='registered-command-' "
+        "ORDER BY p.project_id, p.slug",
+    ))
+
+
+def converge_registered_command_plans(conn: Any) -> list[dict]:
+    """Rebind registered verification scopes onto the executor code selects.
+
+    Where a project's verification command *runs* is executable
+    configuration, not birth-only data: it follows from code plus the
+    project's declared ``ci_workflow_file`` capability. Registration alone
+    cannot keep that current, because it happens once — a project that
+    declares its CI workflow after first registering its command, or a
+    deploy that adds CI routing to scopes already registered, would leave
+    the old binding in place forever.
+
+    Only bindings that actually disagree with what code would choose today
+    are rewritten, so a converged boot writes nothing, and a project that
+    drops its declaration rebinds back to the local executor.
+    """
+    converged: list[dict] = []
+    for row in _registered_scope_bindings(conn):
+        scope = str(row["plan_slug"]).removeprefix("registered-command-")
+        policy = COMMAND_SCOPE_POLICIES.get(scope)
+        if policy is None:
+            continue
+        try:
+            config = json.loads(str(row["method_config"] or "{}"))
+        except (TypeError, ValueError):
+            continue
+        command = str(config.get("command") or "").strip() if isinstance(
+            config, dict
+        ) else ""
+        if not command:
+            continue
+        project_id = int(row["project_id"])
+        ci_workflow = (
+            declared_ci_workflow(conn, project_id)
+            if policy["ci_routable"]
+            else ""
+        )
+        desired_method = (
+            CI_COMMAND_METHOD_ID if ci_workflow else LOCAL_COMMAND_METHOD_ID
+        )
+        current_workflow = str(config.get("ci_workflow") or "").strip()
+        if (
+            str(row["method_id"]) == desired_method
+            and current_workflow == ci_workflow
+        ):
+            continue
+        ensure_registered_command_plan(
+            conn,
+            project_id=project_id,
+            project=str(row["project"]),
+            scope=scope,
+            command=command,
+        )
+        converged.append({
+            "project": str(row["project"]),
+            "scope": scope,
+            "method_id": desired_method,
+            "ci_workflow": ci_workflow,
+        })
+    return converged
+
+
 __all__ = [
     "CI_COMMAND_METHOD_ID",
     "COMMAND_SCOPE_POLICIES",
     "LOCAL_COMMAND_METHOD_ID",
+    "converge_registered_command_plans",
     "declared_ci_workflow",
     "ensure_registered_command_plan",
 ]
