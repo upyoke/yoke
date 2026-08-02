@@ -75,6 +75,7 @@ const POLICY = {
     ownership: "exclusive_session_work_claim",
     file_budget: "optional",
     path_claims: "optional",
+    path_survey: "required",
     worktrees: "single_implementation_lane",
     parallelism: "none",
     generated_children: "none",
@@ -83,6 +84,7 @@ const POLICY = {
     delivery: "after_merge_action",
     item_posture_allowlist: [
       "verification", "file_budget", "path_claims",
+      "path_survey",
       "approval_on_done", "deployment",
     ],
   },
@@ -90,13 +92,16 @@ const POLICY = {
     ownership: "session_item_and_document_claim",
     file_budget: "optional",
     path_claims: "optional",
+    path_survey: "required",
     worktrees: "worker_lanes_optional_integration",
     parallelism: "maximum_safe_slices",
     generated_children: "none",
     qa: "item_attachments",
     approvals: "optional_named_gate",
     delivery: "continuous_slice_actions",
-    item_posture_allowlist: ["verification", "file_budget", "path_claims"],
+    item_posture_allowlist: [
+      "verification", "file_budget", "path_claims", "path_survey",
+    ],
   },
   issue: {
     ownership: "single_item_claim",
