@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-07-28T06:01:28Z_
+_Audit generated_at: 2026-08-02T01:28:37Z_
 
 ## 1. Summary
 
-- Function ids registered: **303**
-- Internal dispatch-only functions without CLI adapters: **31**
-- `yoke` CLI subcommands: **270** (270 carry usable `--help`)
-- Operation tracker: **250 wrapped**, 96 permanent, 0 pending
-- Skill-body recipes: 266 total (216 template-skipped, 0 failing)
+- Function ids registered: **349**
+- Internal dispatch-only functions without CLI adapters: **64**
+- `yoke` CLI subcommands: **283** (283 carry usable `--help`)
+- Operation tracker: **262 wrapped**, 97 permanent, 0 pending
+- Skill-body recipes: 267 total (219 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped dispatcher-backed `yoke <subcommand>` adapters: **250** (operation tracker confirms 250 wrapped rows).
+Wrapped dispatcher-backed `yoke <subcommand>` adapters: **262** (operation tracker confirms 262 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -40,6 +40,7 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **250** (operation track
 | conduct | `yoke conduct epic-task update-status` | `conduct.epic_task.update_status` | ok |
 | db | `yoke db read` | `db.read.run` | ok |
 | db_claim | `yoke db-claim amend` | `db_claim.amend` | ok |
+| decision_requests | `yoke decision-requests resolve` | `decision_requests.resolve` | ok |
 | deployment_flows | `yoke deployment-flows get` | `deployment_flows.get` | ok |
 | deployment_flows | `yoke deployment-flows reconcile-project` | `deployment_flows.reconcile_project` | ok |
 | deployment_flows | `yoke deployment-flows set-status` | `deployment_flows.set_status` | ok |
@@ -49,10 +50,12 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **250** (operation track
 | deployment_runs | `yoke deployment-runs create` | `deployment_runs.create` | ok |
 | deployment_runs | `yoke deployment-runs get` | `deployment_runs.get` | ok |
 | deployment_runs | `yoke deployment-runs list` | `deployment_runs.list` | ok |
+| deployment_runs | `yoke deployment-runs project-snapshot` | `deployment_runs.project_snapshot` | ok |
 | deployment_runs | `yoke deployment-runs resolve-target-env` | `deployment_runs.resolve_target_env` | ok |
 | deployment_runs | `yoke deployment-runs start-for-item` | `deployment_runs.start_for_item` | ok |
 | deployment_runs | `yoke deployment-runs update` | `deployment_runs.update` | ok |
 | direct_workflow | `yoke direct-workflow blitz survey` | `direct_workflow.blitz.survey` | ok |
+| direct_workflow | `yoke direct-workflow conflict-survey status` | `direct_workflow.conflict_survey.status` | ok |
 | direct_workflow | `yoke direct-workflow dash escalate` | `direct_workflow.dash.escalate` | ok |
 | direct_workflow | `yoke direct-workflow dash evidence` | `direct_workflow.dash.evidence` | ok |
 | direct_workflow | `yoke direct-workflow dash survey` | `direct_workflow.dash.survey` | ok |
@@ -93,8 +96,11 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **250** (operation track
 | identity | `yoke identity invite list` | `identity.invite.list` | ok |
 | identity | `yoke identity invite revoke` | `identity.invite.revoke` | ok |
 | identity | `yoke identity link set` | `identity.link.set` | ok |
+| inbox | `yoke inbox list` | `inbox.list` | ok |
 | item_worktrees | `yoke item-worktrees create` | `item_worktrees.create` | ok |
 | item_worktrees | `yoke item-worktrees get` | `item_worktrees.get` | ok |
+| item_worktrees | `yoke item-worktrees list` | `item_worktrees.list` | ok |
+| item_worktrees | `yoke item-worktrees path-record` | `item_worktrees.path_record` | ok |
 | item_worktrees | `yoke item-worktrees release` | `item_worktrees.release` | ok |
 | items | `yoke items create` | `items.create` | ok |
 | items | `yoke dash` | `items.create` | ok |
@@ -113,6 +119,7 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **250** (operation track
 | items | `yoke items structured-field replace` | `items.structured_field.replace` | ok |
 | items | `yoke items structured-field section-append` | `items.structured_field.section_append` | ok |
 | items | `yoke items structured-field section-upsert` | `items.structured_field.section_upsert` | ok |
+| lifecycle | `yoke lifecycle repair-status` | `lifecycle.repair_status.execute` | ok |
 | lifecycle | `yoke lifecycle skip record-recoverable-substrate` | `lifecycle.skip.record_recoverable_substrate` | ok |
 | lifecycle | `yoke lifecycle transition` | `lifecycle.transition.execute` | ok |
 | onboard | `yoke onboard checklist init` | `onboard.checklist.init` | ok |
@@ -174,6 +181,7 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **250** (operation track
 | qa | `yoke qa plan get` | `qa.plan.get` | ok |
 | qa | `yoke qa plan list` | `qa.plan.list` | ok |
 | qa | `yoke qa plan materialize` | `qa.plan.materialize` | ok |
+| qa | `yoke qa plan rematerialize` | `qa.plan.rematerialize` | ok |
 | qa | `yoke qa plan-cases replace` | `qa.plan_cases.replace` | ok |
 | qa | `yoke qa project-default set` | `qa.project_default.set` | ok |
 | qa | `yoke qa project-method register` | `qa.project_method.register` | ok |
@@ -255,6 +263,10 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **250** (operation track
 | workflow_item | `yoke workflow-item epic-task review-insert` | `workflow_item.epic_task.review_insert` | ok |
 | workflow_item | `yoke workflow-item epic-task review-list` | `workflow_item.epic_task.review_list` | ok |
 | workflow_item | `yoke workflow-item epic-task review-seed` | `workflow_item.epic_task.review_seed` | ok |
+| workflow_item | `yoke workflow-item epic-task scope-finalize` | `workflow_item.epic_task.scope_finalize` | ok |
+| workflow_item | `yoke workflow-item epic-task scope-no-files` | `workflow_item.epic_task.scope_no_files` | ok |
+| workflow_item | `yoke workflow-item epic-task scope-reopen` | `workflow_item.epic_task.scope_reopen` | ok |
+| workflow_item | `yoke workflow-item epic-task scope-repair-legacy` | `workflow_item.epic_task.scope_repair_legacy` | ok |
 | workflow_item | `yoke workflow-item epic-task simulation-get` | `workflow_item.epic_task.simulation_get` | ok |
 | workflow_item | `yoke workflow-item epic-task simulation-upsert` | `workflow_item.epic_task.simulation_upsert` | ok |
 | workflow_item | `yoke workflow-item epic-task split` | `workflow_item.epic_task.split` | ok |
@@ -318,6 +330,7 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **250** (operation track
 | github | `yoke github connect` | tool_shaped | — |
 | github | `yoke github disconnect` | tool_shaped | — |
 | github | `yoke github status` | tool_shaped | — |
+| lint.config | `yoke lint config show` | tool_shaped | — |
 | local_universe | `yoke init` | tool_shaped | — |
 | local_universe.postgres | `yoke local-postgres start` | tool_shaped | — |
 | local_universe.postgres | `yoke local-postgres status` | tool_shaped | — |

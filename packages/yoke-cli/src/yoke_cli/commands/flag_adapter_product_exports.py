@@ -19,6 +19,7 @@ PRODUCT_ADAPTER_EXPORTS = {
                 "qa_plan_item_attach",
                 "qa_plan_list",
                 "qa_plan_materialize_for_item",
+                "qa_plan_rematerialize",
                 "qa_plan_project_default_set",
             ),
         ),

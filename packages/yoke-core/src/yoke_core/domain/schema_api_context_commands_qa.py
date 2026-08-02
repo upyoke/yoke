@@ -102,7 +102,11 @@ QA_COMMANDS: list[dict] = [
             "expected_outcome, immutable method_config, and the plan's "
             "environment/tenant/project execution target. Read the "
             "result with `yoke qa requirement list --item PREFIX-N`; "
-            "never rewrite the case snapshot during execution."
+            "standard materialization never rewrites an existing case snapshot. "
+            "For a corrected definition, run `yoke qa plan rematerialize "
+            "--item PREFIX-N --transition reviewed-implementation`; it refreshes "
+            "matching requirements without losing runs, adds new cases, and waives "
+            "removed cases."
         ),
     },
     {
@@ -117,8 +121,8 @@ QA_COMMANDS: list[dict] = [
             "The environment must belong to the plan project and match the "
             "hosted runtime. A stale updated_at refuses "
             "the write and preserves the edited file. v1 accepts only the "
-            "all-pass policy; materialized item requirements remain immutable "
-            "snapshots."
+            "all-pass policy; materialized item requirements stay unchanged "
+            "until an explicit re-materialization."
         ),
     },
     {

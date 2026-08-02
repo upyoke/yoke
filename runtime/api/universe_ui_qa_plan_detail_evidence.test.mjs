@@ -38,7 +38,8 @@ test("plan detail uses transition ids and carries the per-case authority copy", 
       last_result: {
         requirement_id: 31,
         run_id: 91,
-        outcome: "passed",
+        outcome: "failed",
+        output_tail: "AssertionError: checkout confirmation was absent",
         evidence: [],
       },
     }],
@@ -56,7 +57,7 @@ test("plan detail uses transition ids and carries the per-case authority copy", 
       transition_label: "Mutable Review Name",
       item_ref: "YOK-2001",
     }],
-    union: { satisfied: false, counts: { passed: 1 } },
+    union: { satisfied: false, counts: { failed: 1 } },
   };
   const context = {
     document: documentNode,
@@ -82,6 +83,8 @@ test("plan detail uses transition ids and carries the per-case authority copy", 
     text,
     /Rerun and waive are per-case engine actions on the materialized requirement, authority-checked at resolve\./,
   );
+  assert.match(text, /failure output/);
+  assert.match(text, /AssertionError: checkout confirmation was absent/);
 });
 
 test("hosted evidence makes local handles explicitly on-machine", async () => {
