@@ -152,12 +152,6 @@ export async function currentLifecycleState() {
   const reset = {
     idle_since: 0, queue_activity: activity, bootstrap_failures: 0,
     online_instance_id: state.online_instance_id,
-    // Per-host idle clocks survive this reset. Queue activity changes on every
-    // job event, so rebuilding without them would restart every host's clock
-    // many times an hour and no host would ever reach the idle window. Whether
-    // a given host is still idle is re-derived from live runner status on each
-    // pass, so carrying the marks forward cannot keep a working host marked.
-    idle_by_instance: state.idle_by_instance || {},
   };
   return { state: reset, activity, activityChanged: true };
 }
