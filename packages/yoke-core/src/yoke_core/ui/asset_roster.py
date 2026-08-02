@@ -80,6 +80,7 @@ ASSET_CONTENT_TYPES: Dict[str, str] = {
     "test_machine_settings_dialog.js": "text/javascript; charset=utf-8",
     "workflow_mechanics_data.js": "text/javascript; charset=utf-8",
     "workflow_mechanics_dialogs.js": "text/javascript; charset=utf-8",
+    "workflow_path_posture_dialogs.js": "text/javascript; charset=utf-8",
     "workflow_accessibility.js": "text/javascript; charset=utf-8",
     "workflow_dialog_shell.js": "text/javascript; charset=utf-8",
     "workflow_view_lifecycle.js": "text/javascript; charset=utf-8",
