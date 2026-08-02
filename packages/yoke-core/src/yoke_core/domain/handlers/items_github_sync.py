@@ -154,7 +154,10 @@ REGISTRATIONS: List[Dict[str, Any]] = [
             "allow_unclaimed_ownership_guard",
             "project_github_auth_required",
         ],
-        "adapter_status": "live",
+        # No CLI adapter: the done-transition engine is the only caller, and
+        # it reaches this by relay when it has no local control plane. An
+        # operator syncing an item by hand uses `yoke items github-sync`.
+        "adapter_status": "internal",
         "claim_required_kind": None,
     },
     {
