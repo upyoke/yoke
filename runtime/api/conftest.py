@@ -247,7 +247,15 @@ def _forget_schema_readiness_verdict():
     between them. Imported here rather than at module scope: the app is still
     mid-build during conftest import, and pulling in a route module then would
     re-enter that build.
+
+    ``main`` is imported first on purpose. The route module imports ``main`` at
+    module scope and ``main`` builds the app by importing the routes back, so
+    the route module is only safe to import once ``main`` is loaded. A test
+    that builds the app has already done that; one that never touches the API
+    has not, and reaching for the route first drops it into that cycle
+    mid-initialization.
     """
+    import yoke_core.api.main  # noqa: F401
     from yoke_core.api.routes import items_health
 
     items_health.reset_schema_readiness_cache()

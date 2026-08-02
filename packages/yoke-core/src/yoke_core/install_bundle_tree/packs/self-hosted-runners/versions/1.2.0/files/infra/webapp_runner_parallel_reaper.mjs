@@ -57,6 +57,7 @@ export async function reapParallelFleet({
   const now = Math.floor(Date.now() / 1000);
   let allOnline = true;
   let anyBusy = false;
+  const idleHosts = new Set();
   let events;
   for (const instanceId of [...activeIds].sort()) {
     const current = byInstance.get(instanceId);
@@ -92,6 +93,7 @@ export async function reapParallelFleet({
     const runner = current[0];
     if (runner && runner.status === "online") {
       anyBusy ||= Boolean(runner.busy);
+      if (!runner.busy) idleHosts.add(instanceId);
       continue;
     }
     allOnline = false;
@@ -105,24 +107,52 @@ export async function reapParallelFleet({
     );
   }
 
+  // Every host keeps its own idle clock. A single fleet-wide clock meant one
+  // busy or still-booting host reset the timer for every other host, so an
+  // idle host only ever retired if the whole pool fell quiet together — which
+  // during a working day it never does. Hosts then outlived the idle window
+  // by hours while doing nothing.
+  //
+  // A host is marked idle only while it is online and unclaimed; going busy,
+  // dropping offline, or leaving the pool drops its mark by omission, which
+  // also keeps the map from growing without bound.
+  // A host with no mark of its own inherits the old fleet-wide clock when one
+  // is set. That clock was only ever left running while every host was idle,
+  // so it is a sound lower bound for each of them, and inheriting it means the
+  // first pass after this change keeps the idle time already accumulated
+  // instead of restarting every host's window from zero.
+  const previousIdle = state.idle_by_instance || {};
+  const idleByInstance = {};
+  for (const instanceId of idleHosts) {
+    idleByInstance[instanceId] =
+      previousIdle[instanceId] || state.idle_since || now;
+  }
   state = {
     ...state,
     bootstrap_failures: allOnline ? 0 : state.bootstrap_failures,
     online_instance_id: "",
+    idle_by_instance: idleByInstance,
+    // The single-host path still reads this; clear it so that path starts a
+    // fresh window if the pool later shrinks to one host, rather than acting
+    // on a timestamp this path stopped maintaining.
+    idle_since: 0,
   };
-  if (anyBusy || !allOnline) {
-    await writeLifecycleState({ ...state, idle_since: 0 });
-    return {
-      action: "kept", reason: anyBusy ? "busy" : "host_transition",
-    };
-  }
-  if (!state.idle_since || now - state.idle_since < idleSeconds) {
-    if (!state.idle_since) state = { ...state, idle_since: now };
+
+  // Retire the host idle longest, one per pass: the reaper runs every minute,
+  // so a fully idle pool still drains within minutes, and terminating one at a
+  // time leaves capacity for work that arrives mid-drain.
+  const reapable = [...idleHosts]
+    .filter((instanceId) => now - idleByInstance[instanceId] >= idleSeconds)
+    .sort((a, b) => idleByInstance[a] - idleByInstance[b]);
+  if (!reapable.length) {
     await writeLifecycleState(state);
-    return { action: "kept", reason: "idle_window" };
+    let reason = "idle_window";
+    if (anyBusy) reason = "busy";
+    else if (!allOnline) reason = "host_transition";
+    return { action: "kept", reason };
   }
 
-  const instanceId = [...activeIds].sort()[0];
+  const instanceId = reapable[0];
   const current = byInstance.get(instanceId);
   return terminateHost({
     instanceId, loadRunners: async () => current, state, activity,
