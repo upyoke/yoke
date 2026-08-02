@@ -140,3 +140,25 @@ class TestContenderIsLiveProbe:
         probe = self._probe_with(monkeypatch, RuntimeError("transport down"))
         assert probe("s") is None
         assert probe("") is None
+
+    def test_a_roster_answer_cannot_speak_for_the_probed_session(
+        self, monkeypatch,
+    ):
+        """A server predating the filter returns the roster unfiltered.
+
+        Only a row naming the probed id may answer for it: an unfiltered
+        roster maps to unknown — never to another session's liveness —
+        unless the probed session happens to be inside the returned window.
+        """
+        roster = [
+            {"session_id": "someone-else", "liveness": "ended"},
+            {"session_id": "another", "liveness": "active"},
+        ]
+        probe = self._probe_with(monkeypatch, self._response(roster))
+        assert probe("s") is None
+
+        probe = self._probe_with(
+            monkeypatch,
+            self._response(roster + [{"session_id": "s", "liveness": "ended"}]),
+        )
+        assert probe("s") is False

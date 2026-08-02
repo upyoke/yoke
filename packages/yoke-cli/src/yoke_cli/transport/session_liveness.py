@@ -27,8 +27,11 @@ def contender_is_live(session_id: str) -> Optional[bool]:
     (the anchor-poisoning class is exactly such ids). The one race, a
     brand-new session probed before its first registration flush, self
     corrects: its next anchor write re-contends the pid. ``None`` is
-    reserved for a failed probe — transport down, refused call — which the
-    healer keeps, so genuine ambiguity stays fail-closed.
+    reserved for an answer that is not about the probed session — a failed
+    probe (transport down, refused call), or a server that predates the
+    ``session_id`` filter and returns the roster instead of the projection;
+    only a row that names the probed id may answer for it. The healer keeps
+    unknowns, so genuine ambiguity stays fail-closed.
     """
     if not session_id:
         return None
@@ -47,7 +50,10 @@ def contender_is_live(session_id: str) -> Optional[bool]:
     rows = (response.result or {}).get("rows") or []
     if not rows:
         return False
-    return str(rows[0].get("liveness") or "") != "ended"
+    for row in rows:
+        if str(row.get("session_id") or "") == session_id:
+            return str(row.get("liveness") or "") != "ended"
+    return None
 
 
 __all__ = ["contender_is_live"]
