@@ -265,7 +265,7 @@ Six HCs enforce the model: `HC-architecture-unclassified-path`, `HC-architecture
 - **Project-local checks live in the project.** A project's own checks go in `.yoke/doctor/`, discovered pytest-style (`check_*.py` files, `hc_*` functions, or an explicit `PROJECT_HEALTH_CHECKS` list) by a runner that holds the checkout, with the same declarations and reporting as engine checks. They import under the `yoke_project_checks` package namespace, so a check can share helpers with a sibling. A module that fails to import is a FAIL, not a skip. Yoke's own source-dev checks live there, not in the engine: the engine roster holds only what is true of every project. Hosted and custom checks are data-driven assertions over the control plane, never arbitrary code in the engine.
 
 ## Ouroboros
-Self-improvement loop: observe -> log to DB (`ouroboros_entries`) -> `/yoke curate` -> `/yoke doctor` -> `/yoke simulate --system`. Wrapup reports live in `wrapup_reports`. Health reports and wrapup views are generated local output; the DB remains the source of truth.
+Self-improvement loop: observe -> log to DB (`ouroboros_entries`) -> `/yoke curate` -> `/yoke doctor` -> `/yoke simulate --system`. Session continuity lives in item Progress Log and Ouroboros field-notes. Health reports and session views are generated local output; the DB remains the source of truth.
 
 ## Lifecycle & Routing
 - Canonical human guide: `.yoke/docs/lifecycle.md`. Each item pins immutable `workflow_id` / `workflow_version_id`; that definition owns ordered stages, transitions, target-stage gates, policies, entry surfaces, and registered executor bindings.

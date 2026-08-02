@@ -94,7 +94,7 @@ OPS_ADAPTERS: List[AdapterEntry] = [
     AdapterEntry(
         function_id="onboard.checklist.run", cli_invocation="yoke onboard checklist"
     ),
-    # Ouroboros entry writes + wrapup read.
+    # Ouroboros entry writes.
     AdapterEntry(
         function_id="ouroboros.entry.insert",
         cli_invocation="yoke ouroboros entry insert",
@@ -106,13 +106,6 @@ OPS_ADAPTERS: List[AdapterEntry] = [
     AdapterEntry(
         function_id="ouroboros.entry.mark_reviewed",
         cli_invocation="yoke ouroboros entry mark-reviewed",
-    ),
-    _read_entry(
-        function_id="ouroboros.wrapup.list", cli_invocation="yoke ouroboros wrapup list"
-    ),
-    AdapterEntry(
-        function_id="ouroboros.wrapup.save",
-        cli_invocation="yoke ouroboros wrapup save SESSION_TIMESTAMP --body-file PATH",
     ),
     # Readiness reads + repair writers, and the path-claim required-gate read.
     _read_entry(

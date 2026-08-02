@@ -308,10 +308,6 @@ def test_events_and_ouroboros_permissions_split_reads_and_writes():
         permission_key_for(_read_entry("ouroboros.entry.list"))
         == PERM_EVENTS_READ
     )
-    assert (
-        permission_key_for(_read_entry("ouroboros.wrapup.list"))
-        == PERM_EVENTS_READ
-    )
     assert permission_key_for(_entry("ouroboros.field_note.append")) is None
     assert permission_key_for(_read_entry("ouroboros.field_note.list")) is None
     assert permission_key_for(_read_entry("ouroboros.field_note.get")) is None

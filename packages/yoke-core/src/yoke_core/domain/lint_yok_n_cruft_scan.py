@@ -54,12 +54,11 @@ _DEFAULT_SCAN_ROOT_FILES: tuple[str, ...] = (
 
 # Path segments excluded by policy: ``docs/archive/`` (the durable stable-slug
 # home for architectural-why decision records); knowledge-layer inventory
-# surfaces (``ouroboros/``, ``wrapup_reports/``, ``.yoke/strategy/``) that carry
+# surfaces (``ouroboros/``, ``.yoke/strategy/``) that carry
 # work-item IDs as data; ``.claude/`` compat symlink that would double-count.
 _EXEMPT_PATH_SEGMENTS: tuple[str, ...] = (
     "archive",
     "ouroboros",
-    "wrapup_reports",
     "strategy",
     ".claude",
     "node_modules",

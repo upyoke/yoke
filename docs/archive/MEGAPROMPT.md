@@ -61,7 +61,7 @@ Then inspect current operational state:
 - current board state and item distribution
 - current DB table inventory and a few high-signal counts
 - latest health report
-- latest wrapups
+- latest session summaries
 - recent completed items
 - any currently ready, active, blocked, frozen, or otherwise important items
 
@@ -216,4 +216,3 @@ MEGAPROMPT.md followup:
 1. compare your doc to ./MASTER-PLAN-[FOE-NAME].md and tell me what you learn and what you would change in yours if you could
 2. add this to the bottom of your doc in a separate section. title it REFLECTIONS AFTER READING MASTER-PLAN-[FOE-NAME].md
 3. now read the section [FOE-NAME] added to his doc after reading yours
-
