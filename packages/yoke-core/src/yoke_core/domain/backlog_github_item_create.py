@@ -36,6 +36,9 @@ from yoke_core.domain.backlog_github_fetch import (
     _status_display_label,
 )
 from yoke_core.domain.backlog_github_label_sync import _ensure_label
+from yoke_core.domain.backlog_github_item_render import (
+    regenerate_item_markdown as _regenerate_md,
+)
 from yoke_core.domain import project_label_policy
 from yoke_core.domain.github_constraints import clamp_label_name
 from yoke_core.domain.github_dedup import search_existing_issue
@@ -82,7 +85,16 @@ def sync_item(
         # Read all needed fields upfront
         fields = _item_fields(
             item_pk,
-            ["id", "title", "workflow_id", "priority", "status", "source", "owner", "github_issue"],
+            [
+                "id",
+                "title",
+                "workflow_id",
+                "priority",
+                "status",
+                "source",
+                "owner",
+                "github_issue",
+            ],
             conn=conn,
         )
         if fields is None or not fields.get("id"):
@@ -105,8 +117,8 @@ def sync_item(
         _, project, repo = context
         gh_project = project or "yoke"
 
-        # Backlog-only projects never mirror to GitHub: logged skip,
-        # not an auth error. Gated before auth so a backlog-only project
+        # Disabled projects never mirror to GitHub: logged skip,
+        # not an auth error. Gated before auth so a disabled project
         # without a GitHub App auth still short-circuits cleanly.
         if _bgs()._github_sync_skip(gh_project, "sync-item", conn=conn, out=stdout):
             return 0
@@ -127,7 +139,10 @@ def sync_item(
 
         if gh_issue and gh_issue != "null":
             # Already synced — update labels and body
-            print(f"{item_ref} already synced to GitHub issue {gh_issue} — syncing labels and body", file=stdout)
+            print(
+                f"{item_ref} already synced to GitHub issue {gh_issue} — syncing labels and body",
+                file=stdout,
+            )
             _bgs().sync_labels(item_pk, conn=conn, stdout=stdout, stderr=stderr)
             _bgs().sync_body(item_pk, conn=conn, stdout=stdout, stderr=stderr)
             return _bgs()._sync_task_children(
@@ -159,7 +174,10 @@ def sync_item(
         )
         if found:
             reuse_num, _ = found
-            print(f"Found existing GitHub issue #{reuse_num} for {item_ref} — reusing", file=stdout)
+            print(
+                f"Found existing GitHub issue #{reuse_num} for {item_ref} — reusing",
+                file=stdout,
+            )
             p = _p(conn)
             conn.execute(
                 f"UPDATE items SET github_issue = {p} WHERE id = {p}",
@@ -167,7 +185,9 @@ def sync_item(
             )
             conn.commit()
             _bgs()._regenerate_md(item_pk)
-            print(f"Synced: {item_ref} → GitHub issue #{reuse_num} (reused)", file=stdout)
+            print(
+                f"Synced: {item_ref} → GitHub issue #{reuse_num} (reused)", file=stdout
+            )
             return _bgs()._sync_task_children(
                 item_pk,
                 enabled=sync_task_children,
@@ -190,6 +210,7 @@ def sync_item(
         worktree = str(active_lane["branch"]) if active_lane else ""
         # Render body on demand from structured fields.
         from yoke_core.domain.render_body import build_body
+
         body = build_body(conn, int(item_pk)) or ""
 
         colors = _label_colors()
@@ -205,7 +226,8 @@ def sync_item(
         owner_label = f"owner:{owner_token}" if owner_token else ""
 
         pri_color = project_label_policy.get_color(
-            f"label_color_priority_{priority}", colors["status"],
+            f"label_color_priority_{priority}",
+            colors["status"],
         )
 
         _ensure_label(workflow_label, colors["workflow"], repo, gh_project)
@@ -224,7 +246,13 @@ def sync_item(
             create_labels.append(owner_label)
         if worktree and worktree != "null":
             wt_label = clamp_label_name(f"worktree:{worktree.replace('/', '-')}")
-            _ensure_label(wt_label, colors["worktree"], repo, gh_project, description=f"Worktree: {worktree}")
+            _ensure_label(
+                wt_label,
+                colors["worktree"],
+                repo,
+                gh_project,
+                description=f"Worktree: {worktree}",
+            )
             create_labels.append(wt_label)
 
         # Select full body or compact mirror via the in-memory selector —
@@ -307,19 +335,6 @@ def sync_item(
         )
     finally:
         _close_if_owned(conn, owns_conn)
-
-
-def _regenerate_md(item_id: str) -> None:
-    """Best-effort regeneration of backlog .md file."""
-    try:
-        item_id_int = int(str(item_id).lstrip("#"))
-    except ValueError:
-        return
-    try:
-        from yoke_core.domain import backlog as _backlog_domain
-        _backlog_domain._generate_md(item_id_int, out=sys.stderr)
-    except Exception:  # pragma: no cover - best-effort regeneration
-        return
 
 
 __all__ = ["sync_item", "_regenerate_md"]

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, StrictBool, ValidationError
 
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
@@ -29,6 +29,7 @@ class ProjectsUpsertRequest(BaseModel):
     public_item_prefix: Optional[str] = None
     emoji: Optional[str] = None
     github_sync_mode: Optional[str] = None
+    allow_public_github_sync: StrictBool = False
 
 
 class ProjectsUpsertResponse(BaseModel):
@@ -36,7 +37,9 @@ class ProjectsUpsertResponse(BaseModel):
     project: Dict[str, Any]
 
 
-def _handle_projects_write(request: FunctionCallRequest, *, mode: str) -> HandlerOutcome:
+def _handle_projects_write(
+    request: FunctionCallRequest, *, mode: str
+) -> HandlerOutcome:
     payload = request.payload or {}
     try:
         parsed = ProjectsUpsertRequest(**payload)

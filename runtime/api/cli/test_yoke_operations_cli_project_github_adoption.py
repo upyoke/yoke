@@ -20,13 +20,13 @@ from yoke_cli.config.project_github_adoption import (
 
 
 def test_retired_skip_alias_is_not_an_adoption_choice() -> None:
-    assert GITHUB_ADOPTION_INPUT_CHOICES == ("app-binding", "backlog-only")
+    assert GITHUB_ADOPTION_INPUT_CHOICES == ("app-binding", "disabled")
 
     with pytest.raises(ProjectGithubAdoptionError, match="expected one of"):
         github_adoption_report(choice="skip", github_repo="owner/repo", apply=False)
 
 
-def test_onboard_project_explicit_backlog_only_needs_no_app_binding(
+def test_onboard_project_explicit_disabled_needs_no_app_binding(
     tmp_path: Path, monkeypatch, capsys
 ) -> None:
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine-home"))
@@ -45,25 +45,36 @@ def test_onboard_project_explicit_backlog_only_needs_no_app_binding(
         },
     ) as api:
         config = write_https_config(tmp_path, "product-token", api.url)
-        rc = yoke_operations_cli.main([
-            "onboard", "project", str(checkout),
-            "--slug", "local",
-            "--name", "Local",
-            "--github-repo", "owner/local",
-            "--default-branch", "main",
-            "--public-item-prefix", "LOC",
-            "--github-adoption", "backlog-only",
-            "--config", str(config),
-            "--yes",
-            "--json",
-        ])
+        rc = yoke_operations_cli.main(
+            [
+                "onboard",
+                "project",
+                str(checkout),
+                "--slug",
+                "local",
+                "--name",
+                "Local",
+                "--github-repo",
+                "owner/local",
+                "--default-branch",
+                "main",
+                "--public-item-prefix",
+                "LOC",
+                "--github-adoption",
+                "disabled",
+                "--config",
+                str(config),
+                "--yes",
+                "--json",
+            ]
+        )
 
     assert rc == 0
     out = capsys.readouterr().out
     payload = json.loads(out)
     assert payload["operation"] == "onboard.project"
     assert payload["applied"] is True
-    assert payload["github_adoption"]["choice"] == "backlog-only"
+    assert payload["github_adoption"]["choice"] == "disabled"
     assert payload["github_adoption"]["binding"] == {
         "status": "skipped",
         "repo": "owner/local",

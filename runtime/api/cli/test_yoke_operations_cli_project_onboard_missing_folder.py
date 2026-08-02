@@ -32,7 +32,7 @@ def _base_kwargs(checkout: Path) -> dict:
         "github_repo": None,
         "default_branch": "main",
         "public_item_prefix": "WIDG",
-        "github_adoption_choice": "backlog-only",
+        "github_adoption_choice": "disabled",
         "config_path": None,
     }
 
@@ -45,6 +45,7 @@ def _stub_backend(monkeypatch):
     assembly is stubbed since these assert the on-disk folder + repo creation,
     not the report shape.
     """
+
     def _fake_dispatch(function_id, payload, config_path):
         if function_id == "projects.get":
             raise project_onboard.ProjectDispatchError(
@@ -54,15 +55,18 @@ def _stub_backend(monkeypatch):
 
     monkeypatch.setattr(project_onboard, "dispatch", _fake_dispatch)
     monkeypatch.setattr(
-        project_onboard_apply.install_runner, "install",
+        project_onboard_apply.install_runner,
+        "install",
         lambda *a, **k: {"installed": True},
     )
     monkeypatch.setattr(
-        project_onboard_apply.machine_writer, "register_project",
+        project_onboard_apply.machine_writer,
+        "register_project",
         lambda *a, **k: None,
     )
     monkeypatch.setattr(
-        project_onboard_apply, "applied_report",
+        project_onboard_apply,
+        "applied_report",
         lambda *a, **k: {"applied": True},
     )
 

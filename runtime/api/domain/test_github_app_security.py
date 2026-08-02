@@ -71,6 +71,7 @@ def _verification_opener(seen):
                         "id": 4567,
                         "full_name": "Example-Org/ExternalWebapp",
                         "default_branch": "trunk",
+                        "private": True,
                         "owner": {"id": 9988},
                     }
                 ],
@@ -97,6 +98,7 @@ def test_user_token_canonicalizes_installation_and_repository_metadata() -> None
     assert verified.account_login == "Example-Org"
     assert verified.github_repo == "Example-Org/ExternalWebapp"
     assert verified.default_branch == "trunk"
+    assert verified.repository_is_private is True
     assert verified.api_url == "https://github.example/api/v3"
     assert verified.permissions == {"issues": "write", "checks": "read"}
     assert [urllib.parse.urlsplit(req.full_url).path for req in seen] == [

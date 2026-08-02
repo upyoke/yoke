@@ -20,7 +20,9 @@ _LABEL_REST = "yoke_core.domain.backlog_github_label_sync._rest"
 def _ok_resolver(*args, **kwargs):
     proj = kwargs.get("project") or (args[0] if args else "yoke")
     return ProjectGithubAuth(
-        project=proj, repo="upyoke/yoke", token="ghs_fake",
+        project=proj,
+        repo="upyoke/yoke",
+        token="ghs_fake",
     )
 
 
@@ -56,7 +58,9 @@ class TestMain:
 
     def test_post_comment_dispatch(self):
         with patch(f"{GH_PATCH}.post_comment", return_value=0) as mock:
-            rc = backlog_github_sync.main(["post-comment", "42", "idea", "implementing"])
+            rc = backlog_github_sync.main(
+                ["post-comment", "42", "idea", "implementing"]
+            )
         assert rc == 0
         mock.assert_called_once_with("42", "idea", "implementing")
 
@@ -107,14 +111,28 @@ class TestMain:
 class TestHelpers:
     def test_item_context_with_project_repo(self):
         db = _make_db()
-        insert_item(db, id=80, workflow_id="issue", status="idea", project="externalwebapp", github_issue="#100")
+        insert_item(
+            db,
+            id=80,
+            workflow_id="issue",
+            status="idea",
+            project="externalwebapp",
+            github_issue="#100",
+        )
         result = backlog_github_sync._item_context("80", conn=db)
         assert result == ("#100", "externalwebapp", "org/externalwebapp")
         db.close()
 
     def test_item_context_without_project(self):
         db = _make_db()
-        insert_item(db, id=80, workflow_id="issue", status="idea", project="yoke", github_issue="#100")
+        insert_item(
+            db,
+            id=80,
+            workflow_id="issue",
+            status="idea",
+            project="yoke",
+            github_issue="#100",
+        )
         result = backlog_github_sync._item_context("80", conn=db)
         assert result is not None
         assert result[0] == "#100"
@@ -129,24 +147,49 @@ class TestHelpers:
 
     def test_item_fields(self):
         db = _make_db()
-        insert_item(db, id=80, workflow_id="issue", status="idea", priority="high", project="externalwebapp", title="Test")
-        result = backlog_github_sync._item_fields("80", ["title", "status", "priority"], conn=db)
+        insert_item(
+            db,
+            id=80,
+            workflow_id="issue",
+            status="idea",
+            priority="high",
+            project="externalwebapp",
+            title="Test",
+        )
+        result = backlog_github_sync._item_fields(
+            "80", ["title", "status", "priority"], conn=db
+        )
         assert result == {"title": "Test", "status": "idea", "priority": "high"}
         db.close()
 
     def test_status_display_label(self):
-        assert backlog_github_sync._status_display_label("refining-idea") == "refining-idea"
-        assert backlog_github_sync._status_display_label("implementing") == "implementing"
-        assert backlog_github_sync._status_display_label("reviewed-implementation") == "reviewed-implementation"
+        assert (
+            backlog_github_sync._status_display_label("refining-idea")
+            == "refining-idea"
+        )
+        assert (
+            backlog_github_sync._status_display_label("implementing") == "implementing"
+        )
+        assert (
+            backlog_github_sync._status_display_label("reviewed-implementation")
+            == "reviewed-implementation"
+        )
 
     def test_update_repo_labels_dry_run(self):
         stdout = io.StringIO()
-        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch.object(
-            backlog_github_label_sync, "resolve_project_github_auth",
-            side_effect=_ok_resolver,
-        ), patch(f"{GH_PATCH}._repo_labels", return_value={}), patch(
-            f"{_LABEL_REST}.ensure_label",
-        ) as ensure_label:
+        with (
+            patch(f"{GH_PATCH}._github_auth_available", return_value=True),
+            patch(f"{GH_PATCH}._github_sync_skip", return_value=False),
+            patch.object(
+                backlog_github_label_sync,
+                "resolve_project_github_auth",
+                side_effect=_ok_resolver,
+            ),
+            patch(f"{GH_PATCH}._repo_labels", return_value={}),
+            patch(
+                f"{_LABEL_REST}.ensure_label",
+            ) as ensure_label,
+        ):
             rc = backlog_github_sync.update_repo_labels(dry_run=True, stdout=stdout)
         assert rc == 0
         assert "[DRY-RUN] Would create: workflow:epic" in stdout.getvalue()
@@ -157,12 +200,19 @@ class TestHelpers:
         from yoke_core.domain import project_label_policy
 
         expected = project_label_policy.get_color("label_color_workflow", "5319E7")
-        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch.object(
-            backlog_github_label_sync, "resolve_project_github_auth",
-            side_effect=_ok_resolver,
-        ), patch(f"{GH_PATCH}._repo_labels", return_value={"workflow:epic": "ffffff"}), patch(
-            f"{_LABEL_REST}.ensure_label",
-        ) as ensure_label:
+        with (
+            patch(f"{GH_PATCH}._github_auth_available", return_value=True),
+            patch(f"{GH_PATCH}._github_sync_skip", return_value=False),
+            patch.object(
+                backlog_github_label_sync,
+                "resolve_project_github_auth",
+                side_effect=_ok_resolver,
+            ),
+            patch(f"{GH_PATCH}._repo_labels", return_value={"workflow:epic": "ffffff"}),
+            patch(
+                f"{_LABEL_REST}.ensure_label",
+            ) as ensure_label,
+        ):
             rc = backlog_github_sync.update_repo_labels(stdout=stdout)
         assert rc == 0
         assert f"Updated: workflow:epic (ffffff -> {expected})" in stdout.getvalue()
@@ -174,10 +224,16 @@ class TestHelpers:
 
     def test_update_repo_labels_fetch_failure(self):
         stderr = io.StringIO()
-        with patch(f"{GH_PATCH}._github_auth_available", return_value=True), patch.object(
-            backlog_github_label_sync, "resolve_project_github_auth",
-            side_effect=_ok_resolver,
-        ), patch(f"{GH_PATCH}._repo_labels", side_effect=RuntimeError("boom")):
+        with (
+            patch(f"{GH_PATCH}._github_auth_available", return_value=True),
+            patch(f"{GH_PATCH}._github_sync_skip", return_value=False),
+            patch.object(
+                backlog_github_label_sync,
+                "resolve_project_github_auth",
+                side_effect=_ok_resolver,
+            ),
+            patch(f"{GH_PATCH}._repo_labels", side_effect=RuntimeError("boom")),
+        ):
             rc = backlog_github_sync.update_repo_labels(stderr=stderr)
         assert rc == 1
         assert "boom" in stderr.getvalue()
@@ -192,10 +248,15 @@ def test_module_help_exits_cleanly_under_m_execution():
     """
     import subprocess
     import sys
+
     result = subprocess.run(
         [sys.executable, "-m", "yoke_core.domain.backlog_github_sync", "--help"],
-        capture_output=True, text=True, timeout=15,
+        capture_output=True,
+        text=True,
+        timeout=15,
     )
-    assert result.returncode == 0, f"--help exited {result.returncode}\nSTDERR:\n{result.stderr}"
+    assert result.returncode == 0, (
+        f"--help exited {result.returncode}\nSTDERR:\n{result.stderr}"
+    )
     assert "Modes:" in result.stdout
     assert "ImportError" not in (result.stderr or "")

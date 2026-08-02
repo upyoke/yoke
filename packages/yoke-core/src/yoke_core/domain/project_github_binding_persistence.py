@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
+from yoke_contracts.project_contract.github_sync_mode import (
+    GITHUB_SYNC_DISABLED,
+    GITHUB_SYNC_ENABLED,
+)
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_one
 
@@ -94,6 +98,7 @@ def persist_project_binding(
     api_url: str,
     github_repo: str,
     default_branch: Optional[str],
+    repository_is_private: bool,
     status: str,
     permissions: str,
     verified_at: str,
@@ -104,17 +109,20 @@ def persist_project_binding(
         conn.execute(
             "INSERT INTO project_github_repo_bindings "
             "(project_id, installation_id, repository_id, api_url, github_repo, "
-            "default_branch, status, permissions, last_verified_at, last_error, "
+            "default_branch, repository_is_private, status, permissions, "
+            "last_verified_at, last_error, "
             "created_at, updated_at) "
             f"VALUES ({placeholder}, {placeholder}, {placeholder}, {placeholder}, "
             f"{placeholder}, {placeholder}, {placeholder}, {placeholder}, "
-            f"{placeholder}, {placeholder}, {placeholder}, {placeholder}) "
+            f"{placeholder}, {placeholder}, {placeholder}, {placeholder}, "
+            f"{placeholder}) "
             "ON CONFLICT(project_id) DO UPDATE SET "
             "installation_id=EXCLUDED.installation_id, "
             "repository_id=EXCLUDED.repository_id, "
             "api_url=EXCLUDED.api_url, "
             "github_repo=EXCLUDED.github_repo, "
             "default_branch=EXCLUDED.default_branch, "
+            "repository_is_private=EXCLUDED.repository_is_private, "
             "status=EXCLUDED.status, "
             "permissions=EXCLUDED.permissions, "
             "last_verified_at=EXCLUDED.last_verified_at, "
@@ -127,6 +135,7 @@ def persist_project_binding(
                 api_url,
                 github_repo,
                 default_branch,
+                repository_is_private,
                 status,
                 permissions,
                 verified_at,
@@ -137,6 +146,12 @@ def persist_project_binding(
         )
     except db_backend.integrity_error_types(conn) as exc:
         raise RepositoryBindingConflict from exc
+    if not repository_is_private:
+        conn.execute(
+            f"UPDATE projects SET github_sync_mode={placeholder} "
+            f"WHERE id={placeholder} AND github_sync_mode={placeholder}",
+            (GITHUB_SYNC_DISABLED, project_id, GITHUB_SYNC_ENABLED),
+        )
 
 
 def clean_required(value: Any, label: str) -> str:

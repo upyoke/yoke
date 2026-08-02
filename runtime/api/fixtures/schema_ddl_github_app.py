@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS project_github_repo_bindings (
     api_url TEXT NOT NULL DEFAULT '{DEFAULT_GITHUB_API_URL}',
     github_repo TEXT NOT NULL,
     default_branch TEXT,
+    repository_is_private BOOLEAN NOT NULL DEFAULT FALSE,
     status TEXT NOT NULL DEFAULT 'active',
     permissions TEXT NOT NULL DEFAULT '{{}}',
     last_verified_at TEXT,

@@ -81,8 +81,12 @@ def db_path(tmp_path: Path) -> str:
 
 def _args(**overrides) -> DoctorArgs:
     defaults = dict(
-        file=None, fix=False, only=None, quick=False,
-        project="externalwebapp", db_path=None,
+        file=None,
+        fix=False,
+        only=None,
+        quick=False,
+        project="externalwebapp",
+        db_path=None,
     )
     defaults.update(overrides)
     return DoctorArgs(**defaults)
@@ -115,15 +119,20 @@ class TestProjectGhAuthCanonical:
     """
 
     def test_passes_with_resolved_app_auth(
-        self, db_path: str, monkeypatch: pytest.MonkeyPatch,
+        self,
+        db_path: str,
+        monkeypatch: pytest.MonkeyPatch,
     ):
         from yoke_core.domain.db_helpers import connect
+
         _patch_resolved_auth(monkeypatch)
         conn = connect(db_path)
         try:
             rec = _run_hc(
-                hc_project_gh_auth, conn,
-                project="externalwebapp", db_path=db_path,
+                hc_project_gh_auth,
+                conn,
+                project="externalwebapp",
+                db_path=db_path,
             )
         finally:
             conn.close()
@@ -133,11 +142,14 @@ class TestProjectGhAuthCanonical:
 
     def test_fails_with_repair_hint_when_binding_missing(self, db_path: str):
         from yoke_core.domain.db_helpers import connect
+
         conn = connect(db_path)
         try:
             rec = _run_hc(
-                hc_project_gh_auth, conn,
-                project="externalwebapp", db_path=db_path,
+                hc_project_gh_auth,
+                conn,
+                project="externalwebapp",
+                db_path=db_path,
             )
         finally:
             conn.close()
@@ -147,6 +159,7 @@ class TestProjectGhAuthCanonical:
 
     def test_fails_when_capability_missing(self, db_path: str):
         from yoke_core.domain.db_helpers import connect
+
         conn = connect(db_path)
         try:
             conn.execute(
@@ -156,8 +169,10 @@ class TestProjectGhAuthCanonical:
             )
             conn.commit()
             rec = _run_hc(
-                hc_project_gh_auth, conn,
-                project="externalwebapp", db_path=db_path,
+                hc_project_gh_auth,
+                conn,
+                project="externalwebapp",
+                db_path=db_path,
             )
         finally:
             conn.close()
@@ -165,8 +180,9 @@ class TestProjectGhAuthCanonical:
         assert "GitHub App capability row" in rec.results[0].detail
         assert "projects github-binding bind" in rec.results[0].detail
 
-    def test_backlog_only_without_github_capability_is_a_healthy_skip(
-        self, db_path: str,
+    def test_disabled_without_github_capability_is_a_healthy_skip(
+        self,
+        db_path: str,
     ):
         from yoke_core.domain.db_helpers import connect
 
@@ -178,24 +194,28 @@ class TestProjectGhAuthCanonical:
                 "AND type='github'"
             )
             conn.execute(
-                "UPDATE projects SET github_sync_mode='backlog_only' "
+                "UPDATE projects SET github_sync_mode='disabled' "
                 "WHERE slug='externalwebapp'"
             )
             conn.commit()
 
             rec = _run_hc(
-                hc_project_gh_auth, conn,
-                project="externalwebapp", db_path=db_path,
+                hc_project_gh_auth,
+                conn,
+                project="externalwebapp",
+                db_path=db_path,
             )
         finally:
             conn.close()
 
         assert rec.results[0].result == "SKIP"
-        assert "github_sync_mode=backlog_only" in rec.results[0].detail
+        assert "github_sync_mode=disabled" in rec.results[0].detail
         assert "project auth check skipped" in rec.results[0].detail
 
-    def test_backlog_only_with_resolved_binding_still_checks_auth(
-        self, db_path: str, monkeypatch: pytest.MonkeyPatch,
+    def test_disabled_with_resolved_binding_still_checks_auth(
+        self,
+        db_path: str,
+        monkeypatch: pytest.MonkeyPatch,
     ):
         from yoke_core.domain.db_helpers import connect
 
@@ -203,13 +223,15 @@ class TestProjectGhAuthCanonical:
         conn = connect(db_path)
         try:
             conn.execute(
-                "UPDATE projects SET github_sync_mode='backlog_only' "
+                "UPDATE projects SET github_sync_mode='disabled' "
                 "WHERE slug='externalwebapp'"
             )
             conn.commit()
             rec = _run_hc(
-                hc_project_gh_auth, conn,
-                project="externalwebapp", db_path=db_path,
+                hc_project_gh_auth,
+                conn,
+                project="externalwebapp",
+                db_path=db_path,
             )
         finally:
             conn.close()
@@ -220,11 +242,14 @@ class TestProjectGhAuthCanonical:
     def test_no_global_auth_fallback_string(self, db_path: str):
         """The obsolete global-auth WARN string is gone."""
         from yoke_core.domain.db_helpers import connect
+
         conn = connect(db_path)
         try:
             rec = _run_hc(
-                hc_project_gh_auth, conn,
-                project="externalwebapp", db_path=db_path,
+                hc_project_gh_auth,
+                conn,
+                project="externalwebapp",
+                db_path=db_path,
             )
         finally:
             conn.close()

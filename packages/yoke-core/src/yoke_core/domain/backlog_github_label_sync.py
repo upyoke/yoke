@@ -20,15 +20,24 @@ import sys
 from typing import Any, Optional, TextIO
 
 from yoke_contracts.github_app_installation_permissions import (
-    GITHUB_ISSUES_READ_PERMISSION_LEVELS as ISSUES_READ,
     GITHUB_ISSUES_WRITE_PERMISSION_LEVELS as ISSUES_WRITE,
 )
 from yoke_core.domain.backlog_github_sync_accessor import bgs as _bgs
+from yoke_core.domain.backlog_github_label_resolution import (
+    ensure_label as _ensure_label_impl,
+    get_issue_labels as _get_issue_labels_impl,
+    get_issue_state as _get_issue_state_impl,
+    reconcile_category as _reconcile_category_impl,
+    repo_labels as _repo_labels_impl,
+)
+from yoke_core.domain.backlog_github_repo_label_sync import (
+    update_repo_labels as _update_repo_labels,
+)
 from yoke_core.domain import backlog_github_label_sync_rest as _rest
+from yoke_core.domain import project_label_policy
 from yoke_core.domain.actors import actor_label_or_passthrough
 from yoke_core.domain.backlog_github_fetch import (
     BLOCKED_LABEL_COLOR,
-    REPO_LABEL_DEFINITIONS,
     _close_if_owned,
     _item_context,
     _item_fields,
@@ -39,161 +48,72 @@ from yoke_core.domain.backlog_github_fetch import (
     _status_display_label,
 )
 from yoke_core.domain.github_constraints import clamp_label_name
-from yoke_core.domain import project_label_policy
 from yoke_core.domain.project_github_auth import (
-    ProjectGithubAuthError,
-    repair_command_hint,
     resolve_project_github_auth,
 )
 
 
 def _get_issue_labels(issue_num: str, repo: str, project: str) -> list[str]:
-    """Fetch labels from the verified project repository.
-
-    ``repo`` is a retained DB projection used by older callers; it cannot
-    override the repository bound by :class:`ProjectGithubAuth`.
-    """
-    try:
-        auth = resolve_project_github_auth(
-            project, required_permissions=ISSUES_READ,
-        )
-    except ProjectGithubAuthError:
-        return []
-    return _rest.fetch_issue_labels(auth.repo, int(issue_num), token=auth.token)
+    return _get_issue_labels_impl(issue_num, project)
 
 
 def _get_issue_state(issue_num: str, repo: str, project: str) -> str:
-    """Get issue state from the verified project repository."""
-    try:
-        auth = resolve_project_github_auth(
-            project, required_permissions=ISSUES_READ,
-        )
-    except ProjectGithubAuthError:
-        return "UNKNOWN"
-    return _rest.fetch_issue_state(auth.repo, int(issue_num), token=auth.token)
+    return _get_issue_state_impl(issue_num, project)
 
 
 def _repo_labels(project: str) -> dict[str, str]:
-    """Fetch current repo label colors keyed by label name."""
-    auth = resolve_project_github_auth(project, required_permissions=ISSUES_READ)
-    return _rest.fetch_repo_labels(auth.repo, token=auth.token)
+    return _repo_labels_impl(project)
 
 
 def _ensure_label(
-    name: str, color: str, repo: str, project: str,
-    *, description: str = "",
-    timeout_seconds: Optional[float] = None,
-    max_attempts: Optional[int] = None,
+    name: str,
+    color: str,
+    repo: str,
+    project: str,
+    **kwargs: object,
 ) -> None:
-    """Create a label in the verified project repository (idempotent)."""
-    auth = resolve_project_github_auth(project, required_permissions=ISSUES_WRITE)
-    _rest.ensure_label(
-        name,
-        color,
-        auth.repo,
-        token=auth.token,
-        description=description,
-        timeout_seconds=timeout_seconds,
-        max_attempts=max_attempts,
-    )
+    _ensure_label_impl(name, color, project, **kwargs)
 
 
 def _reconcile_category(
-    prefix: str, want: str, existing: list[str], issue_num: str,
-    repo: str, project: str, color: str,
+    prefix: str,
+    want: str,
+    existing: list[str],
+    issue_num: str,
+    repo: str,
+    project: str,
+    color: str,
 ) -> None:
-    """Reconcile a category in the verified project repository."""
-    auth = resolve_project_github_auth(project, required_permissions=ISSUES_WRITE)
-    has_correct = False
-    for label in existing:
-        if not label.startswith(prefix):
-            continue
-        if want and label == want:
-            has_correct = True
-        else:
-            _rest.remove_label(auth.repo, int(issue_num), label, token=auth.token)
-    if not has_correct and want:
-        _rest.ensure_label(want, color, auth.repo, token=auth.token)
-        _rest.add_labels(auth.repo, int(issue_num), [want], token=auth.token)
+    _reconcile_category_impl(prefix, want, existing, issue_num, project, color)
 
 
 def update_repo_labels(
-    *, project: str = "yoke",
+    *,
+    project: str = "yoke",
     dry_run: Optional[bool] = None,
     stdout: Optional[TextIO] = None,
     stderr: Optional[TextIO] = None,
 ) -> int:
-    """Sync GitHub repo label colors from the project-local label policy."""
-    stdout = stdout or sys.stdout
-    stderr = stderr or sys.stderr
-    dry_run = _bgs()._dry_run() if dry_run is None else dry_run
-    if _bgs()._github_sync_skip(project, "repo-label-sync", out=stdout):
-        return 0
-    if not _bgs()._github_auth_available(project):
-        print(
-            f"Error: project '{project}' has no usable GitHub App auth for label sync.",
-            file=stderr,
-        )
-        return 1
-    try:
-        auth = resolve_project_github_auth(
-            project, required_permissions=ISSUES_WRITE,
-        )
-        existing = _bgs()._repo_labels(project)
-        for label_name, config_key, default_color, description in REPO_LABEL_DEFINITIONS:
-            desired = project_label_policy.get_color(config_key, default_color)
-            current = existing.get(label_name, "")
-            if not current:
-                if dry_run:
-                    print(f"[DRY-RUN] Would create: {label_name} (color: {desired})", file=stdout)
-                    continue
-                try:
-                    _rest.ensure_label(
-                        label_name, desired, auth.repo,
-                        token=auth.token, description=description,
-                    )
-                except Exception as exc:  # noqa: BLE001 — surface concrete reason
-                    print(f"Error creating: {label_name} ({exc})", file=stderr)
-                    continue
-                print(f"Created: {label_name} (color: {desired})", file=stdout)
-                continue
-            if current.lower() == desired.lower():
-                print(f"OK: {label_name} (already {desired})", file=stdout)
-                continue
-            if dry_run:
-                print(f"[DRY-RUN] Would update: {label_name} ({current} -> {desired})", file=stdout)
-                continue
-            try:
-                _rest.ensure_label(
-                    label_name, desired, auth.repo,
-                    token=auth.token, description=description,
-                )
-            except Exception as exc:  # noqa: BLE001 — surface concrete reason
-                print(f"Error updating: {label_name} ({exc})", file=stderr)
-                continue
-            print(f"Updated: {label_name} ({current} -> {desired})", file=stdout)
-    except ProjectGithubAuthError as exc:
-        print(
-            f"sync_warning={type(exc).__name__}: update_repo_labels skipped for "
-            f"project={project} ({exc}). Repair: {repair_command_hint(exc, project)}",
-            file=stderr,
-        )
-        return 1
-    except RuntimeError as exc:
-        print(f"Error: {exc}", file=stderr)
-        return 1
-    return 0
+    """Synchronize repository labels through the patchable auth boundary."""
+    return _update_repo_labels(
+        project=project,
+        dry_run=dry_run,
+        stdout=stdout,
+        stderr=stderr,
+        resolver=resolve_project_github_auth,
+    )
 
 
 def sync_labels(
-    item_id: str, *,
+    item_id: str,
+    *,
     conn: Optional[Any] = None,
     stdout: Optional[TextIO] = None,
     stderr: Optional[TextIO] = None,
 ) -> int:
     """Compare and update all GitHub labels for a backlog item.
 
-    Idempotent. No-op if github_issue is null or GitHub sync is backlog-only.
+    Idempotent. No-op if github_issue is null or GitHub sync is disabled.
     """
     stdout = stdout or sys.stdout
     stderr = stderr or sys.stderr
@@ -230,7 +150,10 @@ def sync_labels(
             )
             return 1
         if not _bgs()._validate_issue_in_repo(
-            item_ref, str(issue_num), project=gh_project, stderr=stderr,
+            item_ref,
+            str(issue_num),
+            project=gh_project,
+            stderr=stderr,
         ):
             print(
                 f"Warning: sync_labels skipped for {item_ref} — "
@@ -247,7 +170,8 @@ def sync_labels(
             return 0
 
         auth = resolve_project_github_auth(
-            gh_project, required_permissions=ISSUES_WRITE,
+            gh_project,
+            required_permissions=ISSUES_WRITE,
         )
         target_repo = auth.repo
         colors = _label_colors()
@@ -261,8 +185,14 @@ def sync_labels(
         worktree = str(active_lane["branch"]) if active_lane else ""
         blocked = str(fields.get("blocked") or "").lower() in {"1", "true"}
 
-        want_status = f"status:{_status_display_label(status)}" if status and status != "null" else ""
-        want_priority = f"priority:{priority}" if priority and priority != "null" else ""
+        want_status = (
+            f"status:{_status_display_label(status)}"
+            if status and status != "null"
+            else ""
+        )
+        want_priority = (
+            f"priority:{priority}" if priority and priority != "null" else ""
+        )
         want_workflow = (
             f"workflow:{workflow_id}" if workflow_id and workflow_id != "null" else ""
         )
@@ -270,40 +200,104 @@ def sync_labels(
         want_owner = f"owner:{owner_label}" if owner_label else ""
         want_worktree = (
             clamp_label_name(f"worktree:{worktree.replace('/', '-')}")
-            if worktree and worktree != "null" else ""
+            if worktree and worktree != "null"
+            else ""
         )
 
         existing = _get_issue_labels(str(issue_num), repo, gh_project)
         pri_color = project_label_policy.get_color(
-            f"label_color_priority_{priority}", colors["status"],
+            f"label_color_priority_{priority}",
+            colors["status"],
         )
-        _reconcile_category("status:", want_status, existing, str(issue_num), target_repo, gh_project, colors["status"])
-        _reconcile_category("priority:", want_priority, existing, str(issue_num), target_repo, gh_project, pri_color)
-        _reconcile_category("workflow:", want_workflow, existing, str(issue_num), target_repo, gh_project, colors["workflow"])
-        _reconcile_category("type:", "", existing, str(issue_num), target_repo, gh_project, colors["workflow"])
-        _reconcile_category("source:", want_source, existing, str(issue_num), target_repo, gh_project, colors["source"])
-        _reconcile_category("owner:", want_owner, existing, str(issue_num), target_repo, gh_project, colors["owner"])
+        _reconcile_category(
+            "status:",
+            want_status,
+            existing,
+            str(issue_num),
+            target_repo,
+            gh_project,
+            colors["status"],
+        )
+        _reconcile_category(
+            "priority:",
+            want_priority,
+            existing,
+            str(issue_num),
+            target_repo,
+            gh_project,
+            pri_color,
+        )
+        _reconcile_category(
+            "workflow:",
+            want_workflow,
+            existing,
+            str(issue_num),
+            target_repo,
+            gh_project,
+            colors["workflow"],
+        )
+        _reconcile_category(
+            "type:",
+            "",
+            existing,
+            str(issue_num),
+            target_repo,
+            gh_project,
+            colors["workflow"],
+        )
+        _reconcile_category(
+            "source:",
+            want_source,
+            existing,
+            str(issue_num),
+            target_repo,
+            gh_project,
+            colors["source"],
+        )
+        _reconcile_category(
+            "owner:",
+            want_owner,
+            existing,
+            str(issue_num),
+            target_repo,
+            gh_project,
+            colors["owner"],
+        )
 
         if want_worktree:
-            if not any(label == want_worktree for label in existing
-                       if label.startswith("worktree:")):
+            if not any(
+                label == want_worktree
+                for label in existing
+                if label.startswith("worktree:")
+            ):
                 _rest.ensure_label(
-                    want_worktree, colors["worktree"], target_repo,
-                    token=auth.token, description=f"Worktree: {worktree}",
+                    want_worktree,
+                    colors["worktree"],
+                    target_repo,
+                    token=auth.token,
+                    description=f"Worktree: {worktree}",
                 )
-                _rest.add_labels(target_repo, issue_num, [want_worktree], token=auth.token)
+                _rest.add_labels(
+                    target_repo, issue_num, [want_worktree], token=auth.token
+                )
         else:
             for label in existing:
                 if label.startswith("worktree:"):
                     _rest.remove_label(
-                        target_repo, issue_num, label, token=auth.token,
+                        target_repo,
+                        issue_num,
+                        label,
+                        token=auth.token,
                     )
 
         has_blocked = "blocked" in existing
         if blocked and not has_blocked:
             _rest.ensure_label(
-                "blocked", BLOCKED_LABEL_COLOR, target_repo,
-                token=auth.token, description="Item blocked (flag)",
+                "blocked",
+                BLOCKED_LABEL_COLOR,
+                target_repo,
+                token=auth.token,
+                description="Item blocked (flag)",
             )
             _rest.add_labels(target_repo, issue_num, ["blocked"], token=auth.token)
         elif not blocked and has_blocked:
@@ -321,6 +315,11 @@ def sync_labels(
 
 
 __all__ = [
-    "_get_issue_labels", "_get_issue_state", "_repo_labels",
-    "_ensure_label", "_reconcile_category", "update_repo_labels", "sync_labels",
+    "_get_issue_labels",
+    "_get_issue_state",
+    "_repo_labels",
+    "_ensure_label",
+    "_reconcile_category",
+    "update_repo_labels",
+    "sync_labels",
 ]

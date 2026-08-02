@@ -21,19 +21,31 @@ def test_project_create_apply_sends_requested_org(
 
     with ProjectOnboardApi() as api:
         config = write_https_config(tmp_path, "product-token", api.url)
-        rc = yoke_operations_cli.main([
-            "project", "create", str(checkout),
-            "--slug", "demo",
-            "--name", "Demo",
-            "--org", "installer-e2e",
-            "--github-repo", "owner/demo",
-            "--default-branch", "main",
-            "--public-item-prefix", "DMO",
-            "--github-adoption", "backlog-only",
-            "--config", str(config),
-            "--yes",
-            "--json",
-        ])
+        rc = yoke_operations_cli.main(
+            [
+                "project",
+                "create",
+                str(checkout),
+                "--slug",
+                "demo",
+                "--name",
+                "Demo",
+                "--org",
+                "installer-e2e",
+                "--github-repo",
+                "owner/demo",
+                "--default-branch",
+                "main",
+                "--public-item-prefix",
+                "DMO",
+                "--github-adoption",
+                "disabled",
+                "--config",
+                str(config),
+                "--yes",
+                "--json",
+            ]
+        )
 
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
@@ -46,7 +58,7 @@ def test_project_create_apply_sends_requested_org(
         "github_repo": "owner/demo",
         "default_branch": "main",
         "public_item_prefix": "DMO",
-        "github_sync_mode": "backlog_only",
+        "github_sync_mode": "disabled",
     }
 
 
@@ -59,18 +71,29 @@ def test_onboard_project_dry_run_reports_requested_org(
     run_git(checkout, "init")
     config = write_https_config(tmp_path, "product-token")
 
-    rc = yoke_operations_cli.main([
-        "onboard", "project", str(checkout),
-        "--slug", "local",
-        "--name", "Local",
-        "--org", "installer-e2e",
-        "--github-repo", "owner/local",
-        "--default-branch", "main",
-        "--public-item-prefix", "LOC",
-        "--config", str(config),
-        "--dry-run",
-        "--json",
-    ])
+    rc = yoke_operations_cli.main(
+        [
+            "onboard",
+            "project",
+            str(checkout),
+            "--slug",
+            "local",
+            "--name",
+            "Local",
+            "--org",
+            "installer-e2e",
+            "--github-repo",
+            "owner/local",
+            "--default-branch",
+            "main",
+            "--public-item-prefix",
+            "LOC",
+            "--config",
+            str(config),
+            "--dry-run",
+            "--json",
+        ]
+    )
 
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)

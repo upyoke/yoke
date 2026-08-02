@@ -56,6 +56,7 @@ def _verified(
         repository_id=repository_id,
         github_repo=github_repo,
         default_branch="main",
+        repository_is_private=True,
         installation_status="active",
     )
 
@@ -88,10 +89,12 @@ def binding_db(monkeypatch):
 def _project_owner_actor(database_name: str, project: str) -> str:
     conn = pg_testdb.connect_test_database(database_name)
     try:
-        actor_id = int(conn.execute(
-            "INSERT INTO actors (kind, created_at) "
-            "VALUES ('human', '2026-01-01T00:00:00Z') RETURNING id"
-        ).fetchone()[0])
+        actor_id = int(
+            conn.execute(
+                "INSERT INTO actors (kind, created_at) "
+                "VALUES ('human', '2026-01-01T00:00:00Z') RETURNING id"
+            ).fetchone()[0]
+        )
         project_id = resolve_project_id(conn, project)
         grant_actor_project_role(
             conn,
@@ -238,7 +241,9 @@ def test_repository_availability_is_target_scoped_and_order_independent(
             "SELECT project_id, status, last_error "
             "FROM project_github_repo_bindings ORDER BY project_id"
         ).fetchall()
-        assert [(row["project_id"], row["status"], row["last_error"]) for row in rows] == [
+        assert [
+            (row["project_id"], row["status"], row["last_error"]) for row in rows
+        ] == [
             (1, "active", None),
             (2, "unavailable", "repository_unavailable"),
         ]
@@ -273,30 +278,30 @@ def test_registered_lifecycle_dispatch_reaches_real_domain(binding_db) -> None:
     actor_id = _project_owner_actor(binding_db, "externalwebapp")
     conn = pg_testdb.connect_test_database(binding_db)
     try:
-        conn.execute(
-            "UPDATE projects SET slug='control-plane' WHERE slug='yoke'"
-        )
+        conn.execute("UPDATE projects SET slug='control-plane' WHERE slug='yoke'")
         conn.commit()
     finally:
         conn.close()
     reset_registry_for_tests()
     register_all_handlers()
     try:
-        response = dispatch(FunctionCallRequest(
-            function="projects.github_binding.lifecycle",
-            target=TargetRef(kind="global"),
-            actor=ActorContext(
-                actor_id=actor_id,
-                session_id="hosted-webhook",
-            ),
-            payload={
-                "project": "2",
-                "installation_id": "77",
-                "repository_id": "88",
-                "installation_status": "deleted",
-                "repository_available": False,
-            },
-        ))
+        response = dispatch(
+            FunctionCallRequest(
+                function="projects.github_binding.lifecycle",
+                target=TargetRef(kind="global"),
+                actor=ActorContext(
+                    actor_id=actor_id,
+                    session_id="hosted-webhook",
+                ),
+                payload={
+                    "project": "2",
+                    "installation_id": "77",
+                    "repository_id": "88",
+                    "installation_status": "deleted",
+                    "repository_available": False,
+                },
+            )
+        )
         assert response.success is True
         assert response.result["installation"]["status"] == "deleted"
         assert response.result["automation"]["reason"] == "installation_deleted"

@@ -12,12 +12,13 @@ from yoke_core.domain.project_github_binding_active import (
 )
 from yoke_core.domain.project_identity import resolve_project
 from yoke_core.domain.projects_github_sync_mode import (
-    GITHUB_SYNC_BACKLOG_ONLY,
+    GITHUB_SYNC_DISABLED,
     GITHUB_SYNC_ENABLED,
+    VALID_GITHUB_SYNC_MODES,
 )
 
 
-REPAIR_ACTION_SET_BACKLOG_ONLY = "set_github_sync_mode_backlog_only"
+REPAIR_ACTION_SET_DISABLED = "set_github_sync_mode_disabled"
 REPAIR_ACTION_CLEAR_REPO_PROJECTION = "clear_github_repo_projection"
 REPAIR_ACTION_REMOVE_CAPABILITY_PROJECTION = "remove_github_capability_projection"
 
@@ -31,10 +32,10 @@ def cmd_repair_unbound_enabled_sync_modes(
 ) -> dict[str, Any]:
     """Find or normalize unsafe modes and stale unbound projections.
 
-    Dry-run is the default. Legacy NULL/empty values count as effectively
-    enabled because the compatibility reader resolves them that way. A project
-    with no repository-binding row also cannot retain the binding-owned
-    ``projects.github_repo`` or canonical GitHub capability projection.
+    Dry-run is the default. Legacy, empty, and unrecognized values normalize
+    to ``disabled``. A project with no repository-binding row also cannot
+    retain the binding-owned ``projects.github_repo`` or canonical GitHub
+    capability projection.
 
     Retired ``capability_secrets`` and shared installation rows are deliberately
     outside this repair's mutation boundary.
@@ -65,7 +66,13 @@ def cmd_repair_unbound_enabled_sync_modes(
         candidates = []
         for row in query_rows(conn, sql, params):
             stored_mode = row["github_sync_mode"]
-            effective_mode = str(stored_mode or "").strip() or GITHUB_SYNC_ENABLED
+            cleaned_mode = str(stored_mode or "").strip()
+            effective_mode = (
+                cleaned_mode
+                if cleaned_mode in VALID_GITHUB_SYNC_MODES
+                else GITHUB_SYNC_DISABLED
+            )
+            needs_normalization = cleaned_mode != effective_mode
             project_id = int(row["id"])
             has_binding = bool(row["has_binding"])
             has_github_capability = bool(row["has_github_capability"])
@@ -81,17 +88,22 @@ def cmd_repair_unbound_enabled_sync_modes(
                 github_repo or has_github_capability
             )
             if (
-                effective_mode == GITHUB_SYNC_ENABLED and not active_verified_binding
-            ) or (
-                has_stale_unbound_projection
-                and effective_mode != GITHUB_SYNC_BACKLOG_ONLY
+                needs_normalization
+                or (
+                    effective_mode == GITHUB_SYNC_ENABLED
+                    and not active_verified_binding
+                )
+                or (
+                    has_stale_unbound_projection
+                    and effective_mode != GITHUB_SYNC_DISABLED
+                )
             ):
                 actions.append(
                     {
-                        "action": REPAIR_ACTION_SET_BACKLOG_ONLY,
+                        "action": REPAIR_ACTION_SET_DISABLED,
                         "column": "github_sync_mode",
                         "from": stored_mode,
-                        "to": GITHUB_SYNC_BACKLOG_ONLY,
+                        "to": GITHUB_SYNC_DISABLED,
                     }
                 )
             if not has_binding and github_repo:
@@ -129,10 +141,10 @@ def cmd_repair_unbound_enabled_sync_modes(
         if apply:
             for candidate in candidates:
                 for action in candidate["actions"]:
-                    if action["action"] == REPAIR_ACTION_SET_BACKLOG_ONLY:
+                    if action["action"] == REPAIR_ACTION_SET_DISABLED:
                         conn.execute(
                             "UPDATE projects SET github_sync_mode=%s WHERE id=%s",
-                            (GITHUB_SYNC_BACKLOG_ONLY, candidate["id"]),
+                            (GITHUB_SYNC_DISABLED, candidate["id"]),
                         )
                     elif action["action"] == REPAIR_ACTION_CLEAR_REPO_PROJECTION:
                         conn.execute(
@@ -162,6 +174,6 @@ def cmd_repair_unbound_enabled_sync_modes(
 __all__ = [
     "REPAIR_ACTION_CLEAR_REPO_PROJECTION",
     "REPAIR_ACTION_REMOVE_CAPABILITY_PROJECTION",
-    "REPAIR_ACTION_SET_BACKLOG_ONLY",
+    "REPAIR_ACTION_SET_DISABLED",
     "cmd_repair_unbound_enabled_sync_modes",
 ]

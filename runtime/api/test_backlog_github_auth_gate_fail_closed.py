@@ -1,4 +1,4 @@
-"""GitHub sync auth probes fail closed unless the project is backlog-only."""
+"""GitHub sync auth probes fail closed unless the project is disabled."""
 
 from __future__ import annotations
 
@@ -22,25 +22,37 @@ SyncCall = Callable[[object, io.StringIO], int]
         (
             "post-comment",
             lambda conn, err: backlog_github_sync.post_comment(
-                "91", "idea", "implementing", conn=conn, stderr=err,
+                "91",
+                "idea",
+                "implementing",
+                conn=conn,
+                stderr=err,
             ),
         ),
         (
             "sync-labels",
             lambda conn, err: backlog_github_sync.sync_labels(
-                "91", conn=conn, stderr=err,
+                "91",
+                conn=conn,
+                stderr=err,
             ),
         ),
         (
             "sync-done-item",
             lambda conn, err: backlog_github_sync.sync_done_item(
-                "91", "implementing", conn=conn, stderr=err,
+                "91",
+                "implementing",
+                conn=conn,
+                stderr=err,
             ),
         ),
         (
             "sync-frozen-label",
             lambda conn, err: backlog_github_sync.sync_frozen_label(
-                "91", "true", conn=conn, stderr=err,
+                "91",
+                "true",
+                conn=conn,
+                stderr=err,
             ),
         ),
     ],
@@ -59,6 +71,10 @@ def test_missing_app_auth_is_nonzero(
         project="externalwebapp",
         github_issue="#191",
     )
+    conn.execute(
+        "UPDATE projects SET github_sync_mode = 'enabled' WHERE slug = 'externalwebapp'"
+    )
+    conn.commit()
     stderr = io.StringIO()
     try:
         with patch(f"{GH_PATCH}._github_auth_available", return_value=False):

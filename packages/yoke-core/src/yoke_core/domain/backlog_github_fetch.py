@@ -46,8 +46,13 @@ from yoke_contracts.project_contract.label_policy import (  # noqa: F401
 
 # Label category prefixes
 LABEL_CATEGORIES = (
-    "status:", "priority:", "workflow:", "type:",
-    "source:", "owner:", "worktree:",
+    "status:",
+    "priority:",
+    "workflow:",
+    "type:",
+    "source:",
+    "owner:",
+    "worktree:",
 )
 
 
@@ -184,11 +189,11 @@ def _github_sync_skip(
     conn: Optional[Any] = None,
     out: Optional[Any] = None,
 ) -> bool:
-    """True + one mode-language log line when *project* is backlog-only.
+    """True + one mode-language log line when *project* is disabled.
 
     Shared skip gate for the sync helper family: every sync entrypoint
     calls this (via the ``_bgs()`` accessor) right after resolving the
-    project so a ``github_sync_mode=backlog_only`` project short-circuits
+    project so a ``github_sync_mode=disabled`` project short-circuits
     with return code 0 — a logged skip, not an auth error. Callers pass
     their ``conn`` when they hold one so the mode read stays on the same
     authority; helpers without a connection (repo-wide label sync) let
@@ -244,19 +249,24 @@ def _label_colors() -> dict[str, str]:
     """Read label colors from project-local policy."""
     return {
         "status": project_label_policy.get_color(
-            "label_color_status", DEFAULT_COLOR_STATUS,
+            "label_color_status",
+            DEFAULT_COLOR_STATUS,
         ),
         "workflow": project_label_policy.get_color(
-            "label_color_workflow", DEFAULT_COLOR_WORKFLOW,
+            "label_color_workflow",
+            DEFAULT_COLOR_WORKFLOW,
         ),
         "source": project_label_policy.get_color(
-            "label_color_source", DEFAULT_COLOR_SOURCE,
+            "label_color_source",
+            DEFAULT_COLOR_SOURCE,
         ),
         "owner": project_label_policy.get_color(
-            "label_color_owner", DEFAULT_COLOR_OWNER,
+            "label_color_owner",
+            DEFAULT_COLOR_OWNER,
         ),
         "worktree": project_label_policy.get_color(
-            "label_color_worktree", DEFAULT_COLOR_WORKTREE,
+            "label_color_worktree",
+            DEFAULT_COLOR_WORKTREE,
         ),
     }
 

@@ -166,20 +166,26 @@ def _auth_result(
 _HINT_BY_CODE: Mapping[str, str] = {
     "missing_capability": (
         "bind a GitHub App repo with `yoke projects github-binding bind "
-        "--project {project} ...`, or switch the project to backlog-only"
+        "--project {project} ...`, or switch the project to disabled"
     ),
     "missing_repo_metadata": "re-bind the GitHub App repo for project {project}",
     "missing_repo_binding": (
         "bind a GitHub App repo with `yoke projects github-binding bind "
-        "--project {project} ...`, or keep the project backlog-only"
+        "--project {project} ...`, or keep the project disabled"
     ),
     "missing_installation": "reconnect GitHub, then re-bind project {project}",
     "binding_unavailable": "repair or re-bind GitHub access for project {project}",
     "installation_unavailable": "restore the App installation for project {project}",
     "missing_permission": "approve missing App permissions for project {project}",
-    "missing_app_credentials": ("configure the control-plane App issuer and private-key file for project {project}"),
-    "token_mint_failed": ("repair App credentials or installation access for project {project}"),
-    "user_authorization_unavailable": ("reconnect GitHub on this machine, then retry project {project}"),
+    "missing_app_credentials": (
+        "configure the control-plane App issuer and private-key file for project {project}"
+    ),
+    "token_mint_failed": (
+        "repair App credentials or installation access for project {project}"
+    ),
+    "user_authorization_unavailable": (
+        "reconnect GitHub on this machine, then retry project {project}"
+    ),
     "invalid_token": "reconnect GitHub App access for project {project}",
     "transport_failure": "retry once network access is restored for project {project}",
 }

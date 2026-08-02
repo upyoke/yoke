@@ -8,7 +8,7 @@ from typing import Any
 from yoke_cli.config.onboard_project_modes import PROJECT_MODE_SOURCE_DEV_ADMIN
 from yoke_cli.config.project_github_adoption import (
     GITHUB_ADOPTION_APP_BINDING,
-    GITHUB_ADOPTION_BACKLOG_ONLY,
+    GITHUB_ADOPTION_DISABLED,
 )
 
 
@@ -31,7 +31,7 @@ def github_auth_target(
         return (
             GITHUB_ADOPTION_APP_BINDING
             if inputs.get("github_repo")
-            else GITHUB_ADOPTION_BACKLOG_ONLY
+            else GITHUB_ADOPTION_DISABLED
         )
     return selected
 

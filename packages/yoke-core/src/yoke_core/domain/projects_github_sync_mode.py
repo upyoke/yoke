@@ -5,25 +5,24 @@ mirrors to GitHub issues at all.
 
 Allowed values::
 
-    enabled       = backlog items/epic tasks mirror to GitHub issues through
-                    the sync helper family; setting it requires an active,
-                    verified GitHub App repository binding
-    backlog_only  = the backlog lives ONLY in the Yoke DB; every GitHub
-                    issue sync surface (create/update/close/comment/label,
-                    resync detect+repair) skips or refuses for the project
+    enabled  = backlog items and epic tasks mirror to GitHub issues through
+               the sync helper family; setting it requires an active,
+               verified, private GitHub App repository binding unless the
+               caller explicitly allows public-repository sync
+    disabled = the backlog lives only in the Yoke DB; every issue-sync surface
+               skips or refuses for the project
 
-``backlog_only`` exists so a project can keep a ``github_repo`` binding
+``disabled`` exists so a project can keep a ``github_repo`` binding
 for code delivery (pushes, CI, deploys) while never mirroring backlog
 content to that repo's issue tracker. Flipping a project's
 ``github_repo`` to a different repo MUST be preceded by flipping this
-switch to ``backlog_only`` when the backlog is not meant to appear in
+switch to ``disabled`` when the backlog is not meant to appear in
 the new repo — otherwise the first sync after the flip would mass-create
 the backlog as issues there (see ``.yoke/docs/github-sync.md``).
 
-New projects default to ``backlog_only``. The column is added by the
-idempotent schema-init migrations. This reader tolerates a pre-migration
-schema (column absent) and legacy NULL/empty values — both resolve to
-``enabled`` until the explicit sync-mode repair normalizes unbound rows.
+New projects default to ``disabled``. Missing schema, missing rows, legacy
+values, and database read failures all resolve to ``disabled`` so sync cannot
+start from an indeterminate state.
 """
 
 from __future__ import annotations
@@ -31,7 +30,7 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from yoke_contracts.project_contract.github_sync_mode import (  # noqa: F401
-    GITHUB_SYNC_BACKLOG_ONLY,
+    GITHUB_SYNC_DISABLED,
     GITHUB_SYNC_ENABLED,
     VALID_GITHUB_SYNC_MODES,
 )
@@ -63,8 +62,9 @@ def validate_github_sync_mode_update(
     *,
     conn: Any,
     project_id: int,
+    allow_public_github_sync: bool = False,
 ) -> str:
-    """Validate a mode write and reject enabling unusable GitHub state."""
+    """Validate a mode write and reject unsafe GitHub sync activation."""
     selected = validate_github_sync_mode(value)
     if selected != GITHUB_SYNC_ENABLED:
         return selected
@@ -78,19 +78,26 @@ def validate_github_sync_mode_update(
             "repository binding; bind the repository successfully before "
             "enabling issue sync"
         )
+    if allow_public_github_sync:
+        return selected
+    from yoke_core.domain.project_github_binding_active import (
+        project_has_private_verified_github_binding,
+    )
+
+    if not project_has_private_verified_github_binding(conn, project_id):
+        raise GithubSyncModeError(
+            "github_sync_mode=enabled requires a verified private GitHub "
+            "repository binding; pass --allow-public-github-sync to "
+            "explicitly enable issue sync for a public repository"
+        )
     return selected
 
 
 def resolve_github_sync_mode(project: str, *, conn: Optional[Any] = None) -> str:
     """Return the GitHub sync mode for *project*.
 
-    Reads ``projects.github_sync_mode`` when the column exists and the
-    project row has a non-null value. Falls back to ``enabled`` when the
-    column is absent, the row is missing, or the value is NULL/empty —
-    pre-switch installs keep syncing exactly as before.
-
-    Raises :class:`GithubSyncModeError` when the column exists but the
-    stored value is outside :data:`VALID_GITHUB_SYNC_MODES`.
+    Reads ``projects.github_sync_mode`` when it is available. Any missing,
+    empty, or unrecognized value resolves to ``disabled``.
     """
     owns_conn = conn is None
     if owns_conn:
@@ -99,18 +106,18 @@ def resolve_github_sync_mode(project: str, *, conn: Optional[Any] = None) -> str
         try:
             conn = connect()
         except (FileNotFoundError,) + db_backend.operational_error_types():
-            return GITHUB_SYNC_ENABLED
+            return GITHUB_SYNC_DISABLED
     try:
         if not _schema_column_exists(conn, "projects", GITHUB_SYNC_MODE_COLUMN):
-            return GITHUB_SYNC_ENABLED
+            return GITHUB_SYNC_DISABLED
         p = "%s" if db_backend.connection_is_postgres(conn) else "?"
         try:
             ident = resolve_project(conn, project, required=False)
         except db_backend.operational_error_types(conn):
             _rollback_quietly(conn)
-            return GITHUB_SYNC_ENABLED
+            return GITHUB_SYNC_DISABLED
         if ident is None:
-            return GITHUB_SYNC_ENABLED
+            return GITHUB_SYNC_DISABLED
         try:
             row = conn.execute(
                 f"SELECT {GITHUB_SYNC_MODE_COLUMN} FROM projects WHERE id = {p}",
@@ -118,13 +125,12 @@ def resolve_github_sync_mode(project: str, *, conn: Optional[Any] = None) -> str
             ).fetchone()
         except db_backend.operational_error_types(conn):
             _rollback_quietly(conn)
-            return GITHUB_SYNC_ENABLED
+            return GITHUB_SYNC_DISABLED
         if row is None:
-            return GITHUB_SYNC_ENABLED
+            return GITHUB_SYNC_DISABLED
         value = row[GITHUB_SYNC_MODE_COLUMN] if hasattr(row, "keys") else row[0]
-        if not value:
-            return GITHUB_SYNC_ENABLED
-        return validate_github_sync_mode(value)
+        cleaned = str(value or "").strip()
+        return cleaned if cleaned in VALID_GITHUB_SYNC_MODES else GITHUB_SYNC_DISABLED
     finally:
         if owns_conn and conn is not None:
             conn.close()
@@ -139,7 +145,7 @@ def github_sync_disabled_notice(project: str, operation: str) -> str:
     """One canonical mode-language line for skip logs and refusals."""
     return (
         f"GitHub {operation} skipped for project '{project}': "
-        f"{GITHUB_SYNC_MODE_COLUMN}={GITHUB_SYNC_BACKLOG_ONLY} "
+        f"{GITHUB_SYNC_MODE_COLUMN}={GITHUB_SYNC_DISABLED} "
         f"(backlog is DB-only; no GitHub issue sync)"
     )
 
@@ -152,7 +158,7 @@ def _rollback_quietly(conn: Any) -> None:
 
 
 __all__ = [
-    "GITHUB_SYNC_BACKLOG_ONLY",
+    "GITHUB_SYNC_DISABLED",
     "GITHUB_SYNC_ENABLED",
     "GITHUB_SYNC_MODE_COLUMN",
     "GithubSyncModeError",
