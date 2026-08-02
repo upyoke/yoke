@@ -204,7 +204,7 @@ class TestHCConfigValidationFull:
     def test_valid_machine_config_passes(self, test_db, tmp_path):
         config_path = self._write_machine_config(
             tmp_path,
-            '{"settings": {"base_branch": "main"}, "projects": {}}\n',
+            '{"settings": {"max_chain_steps": 3}, "projects": {}}\n',
         )
         with patch.dict(os.environ, {"YOKE_MACHINE_CONFIG_FILE": str(config_path)}):
             rec = _run_hc(hc_config_validation, test_db)
