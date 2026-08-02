@@ -150,13 +150,16 @@ write re-decides tenancy (`yoke_contracts.session_anchor_contention`):
   attributable instead of blank.
 - The **writer is always a live candidate** — its hook event is proof of
   the process even while its session row is transiently ended.
-- A recorded contender **drops out** when the sessions table positively
-  says it ended (probed through the `sessions.list` single-session
-  projection, over either transport), or when a *clean* registry record
-  anchors it to a different live process — one conversation has one
-  per-conversation process, so a live home elsewhere means this pid's
-  claim on it was written in error. Unknown answers keep the contender:
-  ambiguity still fails closed.
+- A recorded contender **drops out** when the probe positively says it is
+  not a live session — its row is ended, or it has no row at all (rows are
+  never deleted, so an unregistered id is not a conversation on this
+  control plane; that is the anchor-poisoning class). Probed through the
+  `sessions.list` single-session projection, over either transport. A
+  *clean* registry record anchoring the contender to a different live
+  process also drops it — one conversation has one per-conversation
+  process, so a live home elsewhere means this pid's claim on it was
+  written in error. A failed probe keeps the contender: genuine ambiguity
+  still fails closed.
 - One live candidate left → the record becomes that session's clean
   anchor again. Two or more → the marker persists, now naming them, and
   the engine-side writer emits `SessionAnchorContentionObserved` for

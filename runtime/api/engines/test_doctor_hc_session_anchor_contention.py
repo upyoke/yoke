@@ -132,9 +132,12 @@ def test_marker_for_a_dead_process_is_ignored(sessions_conn, registry):
     assert result.result == "PASS"
 
 
-def test_unregistered_contenders_count_as_live(sessions_conn, registry):
-    # The healer keeps unknowns, so the check must not claim a heal it
-    # would not perform.
+def test_unregistered_contenders_read_as_a_stalled_marker(
+    sessions_conn, registry,
+):
+    # Mirrors the healer: ids with positively no session row are not live
+    # conversations (the anchor-poisoning class), so this marker heals on
+    # the tenant's next write and stays reportable until then.
     _seed_marker(registry, 200, ["sess-x", "sess-y"])
     result = _run(sessions_conn)
-    assert result.result == "PASS"
+    assert result.result == "WARN"

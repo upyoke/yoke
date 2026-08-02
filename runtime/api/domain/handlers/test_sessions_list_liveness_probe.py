@@ -130,9 +130,13 @@ class TestContenderIsLiveProbe:
         )
         assert probe("s") is False
 
-    def test_no_row_and_failure_map_to_unknown(self, monkeypatch):
+    def test_no_row_positively_reads_as_not_a_live_session(self, monkeypatch):
+        # Session rows are never deleted, so an id with no registration is
+        # not a conversation on this control plane — the poisoning class.
         probe = self._probe_with(monkeypatch, self._response([]))
-        assert probe("s") is None
+        assert probe("s") is False
+
+    def test_probe_failure_maps_to_unknown(self, monkeypatch):
         probe = self._probe_with(monkeypatch, RuntimeError("transport down"))
         assert probe("s") is None
         assert probe("") is None

@@ -8,13 +8,14 @@ on every write:
 
 - The **writer always remains a candidate**: its hook event is live proof of
   the process, even while its session row is transiently ended.
-- A **recorded contender is dropped** once the sessions table positively says
-  it ended (``contender_is_live`` returning ``False``), or once a *clean*
-  registry record anchors it to a different live process — a session has one
-  per-conversation process, so a live home elsewhere means its claim on this
-  pid was written by someone else's descendant.
-- Anything unknown (probe unavailable, probe error, unregistered id) is kept,
-  so ambiguity still fails closed toward "shared".
+- A **recorded contender is dropped** once the probe positively says it is
+  not a live session (``contender_is_live`` returning ``False`` — its row is
+  ended, or no row exists at all), or once a *clean* registry record anchors
+  it to a different live process — a session has one per-conversation
+  process, so a live home elsewhere means its claim on this pid was written
+  by someone else's descendant.
+- Anything unknown (probe unavailable, probe error) is kept, so genuine
+  ambiguity still fails closed toward "shared".
 
 One live candidate means the anchor is that session's again; two or more
 mean the record stays a contention marker — now carrying the contending ids

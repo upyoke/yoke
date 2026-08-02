@@ -64,9 +64,10 @@ def _live_contenders(conn: Any, contenders: List[str]) -> List[str]:
             "SELECT ended_at FROM harness_sessions WHERE session_id = %s",
             (session_id,),
         ).fetchone()
-        # An unregistered contender counts as live: the healer keeps
-        # unknowns, so this check must not report a heal it would not do.
-        if row is None or row["ended_at"] is None:
+        # Mirrors the healer's probe: an ended row or no row at all is
+        # positively not a live session (rows are never deleted), so only
+        # a live registration keeps a contender.
+        if row is not None and row["ended_at"] is None:
             live.append(session_id)
     return live
 

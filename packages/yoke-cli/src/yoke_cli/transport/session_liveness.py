@@ -19,10 +19,16 @@ from yoke_contracts.api.function_call import TargetRef
 
 
 def contender_is_live(session_id: str) -> Optional[bool]:
-    """``True`` live (active or stale), ``False`` ended, ``None`` unknown.
+    """``True`` live (active or stale), ``False`` not a live session, ``None`` unknown.
 
-    Unknown covers an unregistered id, a transport failure, and any error:
-    the healer keeps unknown contenders, so failure stays fail-closed.
+    A successful probe that finds *no row* answers ``False``: session rows
+    are never deleted — ended conversations keep theirs — so an id with
+    positively no registration is not a conversation on this control plane
+    (the anchor-poisoning class is exactly such ids). The one race, a
+    brand-new session probed before its first registration flush, self
+    corrects: its next anchor write re-contends the pid. ``None`` is
+    reserved for a failed probe — transport down, refused call — which the
+    healer keeps, so genuine ambiguity stays fail-closed.
     """
     if not session_id:
         return None
@@ -40,7 +46,7 @@ def contender_is_live(session_id: str) -> Optional[bool]:
         return None
     rows = (response.result or {}).get("rows") or []
     if not rows:
-        return None
+        return False
     return str(rows[0].get("liveness") or "") != "ended"
 
 
