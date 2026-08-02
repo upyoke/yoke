@@ -123,11 +123,15 @@ def run(
     base_branch = _get_base_branch(project_default_branch, project_repo)
 
     if requires_plan_simulation(workflow):
-        sim_exit = _check_simulation_gate(item_id, skip_simulation)
+        sim_exit = _check_simulation_gate(
+            item_id, skip_simulation, item_ref=item_ref
+        )
         if sim_exit is not None:
             return result.fail(result_file, sim_exit, "2a")
     result.add_step("2a")
-    if (blocked_exit := mw._check_blocked_flag(item_id)) is not None:
+    if (
+        blocked_exit := mw._check_blocked_flag(item_id, item_ref=item_ref)
+    ) is not None:
         return result.fail(result_file, blocked_exit, "2a-blocked")
 
     branch_already_merged = _check_merge_guard(lane_branch, project_repo, base_branch)
@@ -135,7 +139,11 @@ def run(
 
     if not branch_already_merged:
         empty_exit = _check_empty_branch(
-            lane_branch, project_repo, base_branch, item_id
+            lane_branch,
+            project_repo,
+            base_branch,
+            item_id,
+            item_ref=item_ref,
         )
         if empty_exit is not None:
             print(f"RESULT_FILE={result_file}")
@@ -145,13 +153,21 @@ def run(
     already_done, resume_from_step6 = _check_recovery(old_status, lane_branch)
 
     if already_done:
-        return _handle_already_done(item_id, project_repo, result, result_file)
+        return _handle_already_done(
+            item_id, project_repo, result, result_file, item_ref=item_ref
+        )
 
     if (
         resume_from_step6
         and (
             rc := _handle_resume_from_step6(
-                item_id, project_repo, base_branch, old_status, result, result_file
+                item_id,
+                project_repo,
+                base_branch,
+                old_status,
+                result,
+                result_file,
+                item_ref=item_ref,
             )
         )
         is not None
@@ -163,7 +179,9 @@ def run(
     result.add_step("3")
 
     if not resume_from_step6:
-        redirect = _check_deployment_redirect(deploy_flow, skip_deploy, item_id)
+        redirect = _check_deployment_redirect(
+            deploy_flow, skip_deploy, item_id, item_ref=item_ref
+        )
         if redirect is not None:
             print(f"RESULT_FILE={result_file}")
             return result.fail(result_file, redirect, "3b")
@@ -180,6 +198,7 @@ def run(
                 task_parent_ref,
                 project_repo,
                 item_project,
+                item_ref=item_ref,
             )
             if merge_exit == 0:
                 merge_ran = True
@@ -313,7 +332,7 @@ def run(
     print("\n=== Step 8: Sync done state to GitHub ===")
     from yoke_core.engines.done_transition_github_sync import apply_step_8
 
-    apply_step_8(item_id, old_status, result)
+    apply_step_8(item_id, old_status, result, item_ref=item_ref)
     _apply_discovery_scan(item_id, result)
     for _s in ("9", "10"):
         result.add_step(_s)
@@ -327,4 +346,5 @@ def run(
         workflow=workflow,
         repo_root=repo_root,
         merge_ran=merge_ran,
+        item_ref=item_ref,
     )

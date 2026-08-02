@@ -5,7 +5,7 @@ from __future__ import annotations
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 
 def _repo_root() -> Path:
@@ -122,13 +122,18 @@ def _update_task_status_direct(
     return int((resp.result or {}).get("rc") or 0)
 
 
-def _sync_done_item_direct(item_id: int, old_status: str) -> None:
+def _sync_done_item_direct(
+    item_id: int, old_status: str, *, item_ref: Optional[str] = None
+) -> None:
     """Batch final GitHub sync for a done item."""
+    from yoke_contracts.item_ref import format_item_ref
+
+    ref = item_ref or format_item_ref(None, None, None, item_id=item_id)
     try:
         from yoke_core.domain import backlog_github_sync
     except ImportError as exc:
         print(
-            f"Warning: backlog_github_sync import failed for YOK-{item_id}: {exc}",
+            f"Warning: backlog_github_sync import failed for {ref}: {exc}",
             file=sys.stderr,
         )
         return
@@ -138,7 +143,7 @@ def _sync_done_item_direct(item_id: int, old_status: str) -> None:
         )
     except Exception as exc:  # pragma: no cover - defensive
         print(
-            f"Warning: sync_done_item failed for YOK-{item_id}: {exc}",
+            f"Warning: sync_done_item failed for {ref}: {exc}",
             file=sys.stderr,
         )
 
@@ -153,6 +158,7 @@ def _update_item_direct(
     qa_bypass: bool | None = None,
     rebuild_board: bool = False,
     no_github: bool = False,
+    item_ref: Optional[str] = None,
 ) -> int:
     """Relay an item field write through the transport.
 
@@ -188,8 +194,11 @@ def _update_item_direct(
     if resp.success:
         return 0
     message = resp.error.message if resp.error else "unknown error"
+    from yoke_contracts.item_ref import format_item_ref
+
+    ref = item_ref or format_item_ref(None, None, None, item_id=item_id)
     print(
-        f"Warning: backlog update {field}={value} for YOK-{item_id} "
+        f"Warning: backlog update {field}={value} for {ref} "
         f"failed: {message}",
         file=sys.stderr,
     )

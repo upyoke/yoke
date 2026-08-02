@@ -23,6 +23,11 @@ Parallel-by-default: ``-n auto`` (pytest-xdist) is injected unless the
 caller passes ``--no-parallel`` or supplies its own ``-n``/
 ``--numprocesses`` after ``--``.
 
+The runner refuses to execute outside the calling session's claim-bound
+worktree (see :mod:`yoke_core.domain.verification_tree_binding`), because
+a run rooted in the wrong tree reports a green for code nobody changed.
+Pass ``--allow-tree-mismatch`` for a deliberate cross-tree run.
+
 Return codes match pytest (0 = all pass, nonzero = failures/errors).
 """
 
@@ -35,6 +40,7 @@ from pathlib import Path
 from typing import List, Sequence, TextIO
 
 from yoke_core.domain import process_group_reaping
+from yoke_core.domain import verification_tree_binding
 from yoke_core.tools._pytest_parallel import (
     apply_parallel_default,
     apply_postgres_xdist_auto_env,
@@ -44,8 +50,15 @@ from yoke_core.tools import _source_pythonpath
 
 DEFAULT_TESTPATHS: tuple[str, ...] = ("runtime/api", "runtime/harness", "tests")
 
+#: Surface name carried by this runner's tree-binding refusal.
+_TREE_BINDING_SURFACE = "run_tests"
+
 #: Shell convention for "died on signal N" (130 = Ctrl-C, 143 = SIGTERM).
 _EXIT_STATUS_SIGNAL_BASE = 128
+
+#: Exit code for a run refused before pytest started, matching the
+#: watcher wrapper so callers branch on one value for either entry point.
+_EXIT_STATUS_TREE_BINDING_REFUSED = 3
 
 
 def _repo_root(start: Path | None = None) -> Path:
@@ -148,13 +161,30 @@ def run(
     no_parallel: bool = False,
     extra: Sequence[str] = (),
     repo_root: Path | None = None,
+    allow_tree_mismatch: bool = False,
 ) -> int:
     """Invoke pytest with the computed argv.
 
-    Returns the pytest exit code. The runner never raises on test failure;
-    callers should check the return code.
+    Returns the pytest exit code, or
+    ``_EXIT_STATUS_TREE_BINDING_REFUSED`` when the resolved root is
+    outside the calling session's claimed worktree. The runner never
+    raises on test failure; callers should check the return code.
     """
     root = (repo_root or _repo_root()).resolve()
+
+    if allow_tree_mismatch:
+        notice = verification_tree_binding.mismatch_notice(
+            surface=_TREE_BINDING_SURFACE, tree=str(root),
+        )
+        if notice is not None:
+            print(notice, file=sys.stderr)
+    else:
+        refusal = verification_tree_binding.check(
+            surface=_TREE_BINDING_SURFACE, tree=str(root),
+        )
+        if refusal is not None:
+            print(refusal, file=sys.stderr)
+            return _EXIT_STATUS_TREE_BINDING_REFUSED
 
     if _is_yoke_backend_verification(root, paths or ()):
         if not _prepare_yoke_backend_env(root):
@@ -257,6 +287,16 @@ def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        verification_tree_binding.ALLOW_TREE_MISMATCH_FLAG,
+        dest="allow_tree_mismatch",
+        action="store_true",
+        help=(
+            "Run even when the resolved repo root is outside the session's "
+            "claimed worktree. For a deliberate cross-tree run; the runner "
+            "names both trees so the result is attributable."
+        ),
+    )
+    parser.add_argument(
         "--",
         dest="passthrough_separator",
         nargs=argparse.REMAINDER,
@@ -286,6 +326,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         list_only=ns.list_only,
         no_parallel=ns.no_parallel,
         extra=passthrough,
+        allow_tree_mismatch=ns.allow_tree_mismatch,
     )
 
 

@@ -6,6 +6,8 @@ import sys
 from pathlib import Path
 from typing import Optional
 
+from yoke_contracts.item_ref import format_item_ref
+
 
 def _parent():
     from yoke_core.engines import done_transition as _dt
@@ -91,6 +93,8 @@ def _verify_recovery_evidence(
     item_id: int,
     project_repo: Path,
     base_branch: str,
+    *,
+    item_ref: Optional[str] = None,
 ) -> bool:
     """Return whether the remote base contains item-specific merge evidence."""
     _parent()._run_git(
@@ -104,18 +108,25 @@ def _verify_recovery_evidence(
     )
     if origin_check.returncode != 0:
         target_ref = base_branch
-    log_check = _parent()._run_git(
-        [
-            "-C",
-            str(project_repo),
-            "log",
-            "--oneline",
-            f"--grep=YOK-{item_id}",
-            target_ref,
-        ],
-        capture=True,
-    )
-    return bool((log_check.stdout or "").strip())
+    legacy_ref = format_item_ref(None, None, None, item_id=item_id)
+    search_refs = [item_ref or legacy_ref]
+    if item_ref and item_ref != legacy_ref:
+        search_refs.append(legacy_ref)
+    for search_ref in search_refs:
+        log_check = _parent()._run_git(
+            [
+                "-C",
+                str(project_repo),
+                "log",
+                "--oneline",
+                f"--grep={search_ref}",
+                target_ref,
+            ],
+            capture=True,
+        )
+        if (log_check.stdout or "").strip():
+            return True
+    return False
 
 
 def _handle_resume_from_step6(
@@ -125,16 +136,21 @@ def _handle_resume_from_step6(
     old_status: str,
     result,
     result_file: str,
+    *,
+    item_ref: Optional[str] = None,
 ) -> Optional[int]:
     """Validate recovery evidence before resuming post-merge work."""
-    if not _verify_recovery_evidence(item_id, project_repo, base_branch):
+    if not _verify_recovery_evidence(
+        item_id, project_repo, base_branch, item_ref=item_ref
+    ):
+        ref = item_ref or format_item_ref(None, None, None, item_id=item_id)
         print(
-            f"\nError: YOK-{item_id} has no active worktree lane and no merge "
+            f"\nError: {ref} has no active worktree lane and no merge "
             f"evidence found on origin/{base_branch}.\n"
             "State is inconsistent — refusing to skip merge step.\n"
             "If the branch was merged out-of-band, push the merge commit "
             "to origin and retry. Otherwise recreate the item worktree lane "
-            f"with `yoke worktree preflight YOK-{item_id}`.",
+            f"with `yoke worktree preflight {ref}`.",
             file=sys.stderr,
         )
         print(f"RESULT_FILE={result_file}")

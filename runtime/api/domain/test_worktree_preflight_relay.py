@@ -112,3 +112,25 @@ class TestTransportAwareControlPlane:
         )
         assert outcome.ok is True
         assert resolved == ["yoke"]
+
+    def test_work_claim_refusal_uses_relayed_public_ref(
+        self, repo_layout, monkeypatch
+    ):
+        """A divergent internal id must not leak into the recovery command."""
+        _patch_steps(
+            monkeypatch,
+            claim_outcome=(False, "already claimed by session 'alt'"),
+        )
+        self._patch_detail(
+            monkeypatch,
+            {"blocked": False, "public_ref": "BUZ-7"},
+        )
+        outcome = wp.run_preflight(
+            item_id=9001,
+            repo_root=repo_layout.root,
+            session_id="sess",
+            actual_cwd=repo_layout.root,
+        )
+        assert outcome.ok is False
+        assert "BUZ-7" in outcome.narrative
+        assert "YOK-9001" not in outcome.narrative

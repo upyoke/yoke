@@ -79,6 +79,15 @@ def _lane_branch(item: dict, item_ref: str) -> str:
     return recorded if recorded and recorded != "null" else item_ref
 
 
+def _lane_worktree_path(item: dict) -> str:
+    """The recorded path of the item's implementation lane, if any."""
+    for lane in item.get("worktrees") or []:
+        path = str(lane.get("path") or "").strip()
+        if path:
+            return path
+    return ""
+
+
 def _resolve_checkout(item: dict, target_override: str) -> tuple[Path, str]:
     from yoke_core.engines.done_transition_gates import (
         _get_base_branch,
@@ -118,6 +127,7 @@ def _record_evidence(
     verification_summary: str,
     verification_status: str,
     no_changes: bool,
+    tree_root: str,
 ) -> str:
     response = call_dispatcher(
         function_id="direct_workflow.dash.evidence",
@@ -130,6 +140,10 @@ def _record_evidence(
             "merge_sha": outcome.merge_sha,
             "touched_files": list(outcome.touched_files),
             "no_changes": no_changes,
+            # The lane's own tip is what verification covered; the merge
+            # commit belongs to the base branch, not to the tree tested.
+            "tree_root": tree_root,
+            "tree_head_sha": outcome.commit_sha,
         },
     )
     if response.success:
@@ -258,6 +272,7 @@ def run(argv: List[str]) -> int:
             verification_summary=str(args.verification),
             verification_status=str(args.verification_status),
             no_changes=bool(args.no_changes),
+            tree_root=_lane_worktree_path(item) or str(repo_root),
         )
         if evidence_error:
             envelope["ok"] = False

@@ -19,6 +19,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Optional
 
+from yoke_contracts.item_ref import format_item_ref
 from yoke_core.domain import db_backend
 from yoke_core.domain.queries import is_blocked
 
@@ -36,17 +37,23 @@ def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def render_blocked_narrative(item_id: int, reason: Optional[str]) -> str:
+def render_blocked_narrative(
+    item_id: int,
+    reason: Optional[str],
+    *,
+    item_ref: Optional[str] = None,
+) -> str:
     """Render the operator-facing blocked-flag refusal narrative.
 
     Shared by the connection-based :func:`evaluate` and by callers that
     already hold the blocked flag + reason from a relayed read, so both
     paths surface identical text.
     """
+    ref = item_ref or format_item_ref(None, None, None, item_id=item_id)
     rendered = (
-        f"**Blocked:** YOK-{item_id} has items.blocked=1 — "
+        f"**Blocked:** {ref} has items.blocked=1 — "
         f"the operator-set blocked flag refuses forward progression. "
-        f"Run /yoke unblock YOK-{item_id} once the underlying "
+        f"Run /yoke unblock {ref} once the underlying "
         f"coordination is resolved."
     )
     if reason:
@@ -72,10 +79,15 @@ def evaluate(conn: Any, item_id: int) -> AdvanceBlockedDecision:
     flag, reason = row[0], row[1]
     if not is_blocked(flag):
         return AdvanceBlockedDecision(blocked=False)
+    from yoke_core.domain.project_identity import render_item_ref
+
+    item_ref = render_item_ref(conn, item_id)
     return AdvanceBlockedDecision(
         blocked=True,
         reason=str(reason) if reason else None,
-        rendered_blocker=render_blocked_narrative(item_id, reason),
+        rendered_blocker=render_blocked_narrative(
+            item_id, reason, item_ref=item_ref
+        ),
     )
 
 

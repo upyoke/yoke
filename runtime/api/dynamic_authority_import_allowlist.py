@@ -339,6 +339,9 @@ ALLOWED_DYNAMIC_AUTHORITY_IMPORTS = {
         "client_local_diagnostics",
         "compose session orientation from this machine's own git and files",
     ),
+    ("packages/yoke-cli/src/yoke_cli/commands/adapters/dash.py",
+     "yoke_core.domain.verification_tree_binding"):
+        ("client_local_diagnostics", "name the verification tree from git"),
 }
 
 
