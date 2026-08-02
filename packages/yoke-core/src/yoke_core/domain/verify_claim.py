@@ -37,6 +37,8 @@ import os
 import sys
 from typing import Optional
 
+from yoke_contracts.item_ref import format_item_ref
+from yoke_core.domain.claim_recovery import canonical_item_ref
 from yoke_core.domain.status_claim_bypass_context import resolve_claim_bypass
 
 
@@ -181,7 +183,9 @@ def verify(item_id: int) -> tuple[int, dict]:
     Returns ``(exit_code, result_dict)`` where the dict is the JSON
     payload written to stdout by ``main``.
     """
-    item_ref = f"YOK-{item_id}"
+    item_ref = canonical_item_ref(item_id) or format_item_ref(
+        None, None, None, item_id=item_id
+    )
     session_id = _resolve_session_id()
     bypass_source = _resolve_bypass()
 

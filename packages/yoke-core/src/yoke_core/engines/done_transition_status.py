@@ -89,6 +89,7 @@ def _update_status_to_done(
             qa_bypass=skip_qa,
             rebuild_board=False,
             no_github=True,
+            item_ref=item_ref,
         )
         if exit_code == 0:
             return True

@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.project_checkout_locations import (
     checkout_for_project_id,
 )
@@ -173,6 +174,11 @@ def _resolve_active_claim(
     state = str(row[3] if not hasattr(row, "keys") else row["state"])
 
     parsed_item_id = _coerce_int(item_id)
+    item_ref = (
+        render_item_ref(conn, parsed_item_id)
+        if parsed_item_id is not None
+        else None
+    )
     covered_targets = _covered_targets_for_claim(conn, claim_id)
     if parsed_item_id is not None:
         covered_targets = effective_targets_for_claim_session(
@@ -188,6 +194,7 @@ def _resolve_active_claim(
     return {
         "id": claim_id,
         "item_id": parsed_item_id,
+        "item_ref": item_ref,
         "integration_target": integration_target,
         "state": state,
         "covered_paths": [path for path, _kind in covered_targets],

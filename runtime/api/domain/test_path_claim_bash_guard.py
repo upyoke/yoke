@@ -18,8 +18,9 @@ def _claim_dict(
     state: str = "active",
     covered_paths: tuple = ("runtime/api/domain",),
     worktree_path: str = "/tmp/yoke-worktrees/YOK-1577",
+    item_ref: str | None = None,
 ) -> Dict:
-    return {
+    claim = {
         "id": claim_id,
         "item_id": 1577,
         "integration_target": integration_target,
@@ -27,6 +28,9 @@ def _claim_dict(
         "covered_paths": covered_paths,
         "worktree_path": worktree_path,
     }
+    if item_ref is not None:
+        claim["item_ref"] = item_ref
+    return claim
 
 
 def _payload(*, command: str, cwd: str, session_id: str = "sess-A") -> Dict:
@@ -55,6 +59,20 @@ class TestOutOfClaim:
             '--add-paths docs/oof.md --reason "cover target path" '
             "--item YOK-1577"
         ) in verdict.narrative
+
+    def test_out_of_claim_uses_resolved_public_ref(self, tmp_path):
+        worktree = tmp_path / "item-worktree"
+        worktree.mkdir()
+        claim = _claim_dict(
+            worktree_path=str(worktree),
+            item_ref="BUZ-7",
+        )
+        verdict = evaluate_payload(
+            _payload(command="rm docs/oof.md", cwd=str(worktree)),
+            claim=claim,
+        )
+        assert "--item BUZ-7" in verdict.narrative
+        assert "--item YOK-1577" not in verdict.narrative
 
 
 class TestWrongCwd:

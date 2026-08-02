@@ -200,6 +200,7 @@ def _redirect_to_delivery_stage(
         delivery_stage_id,
         env_overrides={"YOKE_STATUS_SOURCE": "done-transition"},
         rebuild_board=False,
+        item_ref=item_ref,
     )
     _parent()._rebuild_board_direct()
     print(

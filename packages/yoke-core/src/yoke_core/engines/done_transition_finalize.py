@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.item_ref import format_item_ref
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain import db_backend
 from yoke_core.engines.done_transition_item_context import format_workflow_route
@@ -114,8 +115,10 @@ def finish_done_transition(
     workflow,
     repo_root,
     merge_ran: bool,
+    item_ref: str | None = None,
 ) -> int:
     """Rebuild, persist, push, and report a successful done transition."""
+    ref = item_ref or format_item_ref(None, None, None, item_id=item_id)
     print("\n=== Step 11: Rebuild board ===")
     done_transition._rebuild_board_direct()
     result.add_step("11")
@@ -125,7 +128,7 @@ def finish_done_transition(
     diff = done_transition._run_git(["diff", "--cached", "--quiet"], capture=True)
     if diff.returncode != 0:
         commit = done_transition._run_git(
-            ["commit", "-m", f"YOK-{item_id}: {old_status} -> done"]
+            ["commit", "-m", f"{ref}: {old_status} -> done"]
         )
         commit_ran = commit.returncode == 0
         if commit_ran:
@@ -155,7 +158,7 @@ def finish_done_transition(
 
     print("\n=== Step 14: Report ===")
     print("==========================================")
-    print(f"YOK-{item_id} ({title}): {old_status} -> done")
+    print(f"{ref} ({title}): {old_status} -> done")
     print("==========================================\n")
     print(format_workflow_route(workflow))
     result.add_step("14")

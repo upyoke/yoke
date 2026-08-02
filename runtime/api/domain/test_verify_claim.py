@@ -123,6 +123,18 @@ class TestVerify(unittest.TestCase):
         self.assertFalse(payload["verified"])
         self.assertIn("no active claim", payload["reason"])
 
+    def test_no_active_claim_uses_canonical_public_ref(self) -> None:
+        with mock.patch.object(mod, "_resolve_session_id", return_value="sid-a"), \
+             mock.patch.object(mod, "_resolve_bypass", return_value=""), \
+             mock.patch.object(mod, "_db_available", return_value=True), \
+             mock.patch.object(mod, "_fetch_claim", return_value=None), \
+             mock.patch.object(mod, "canonical_item_ref", return_value="BUZ-7"), \
+             mock.patch.object(mod, "_emit_lifecycle_event"):
+            code, payload = mod.verify(42)
+        self.assertEqual(code, 1)
+        self.assertIn("BUZ-7", payload["reason"])
+        self.assertNotIn("YOK-42", payload["reason"])
+
     def test_matching_claim_verifies(self) -> None:
         with mock.patch.object(mod, "_resolve_session_id", return_value="sid-a"), \
              mock.patch.object(mod, "_resolve_bypass", return_value=""), \

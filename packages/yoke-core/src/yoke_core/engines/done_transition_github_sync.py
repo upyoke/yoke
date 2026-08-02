@@ -19,6 +19,8 @@ import sys
 from dataclasses import dataclass
 from typing import Optional, TextIO
 
+from yoke_contracts.item_ref import format_item_ref
+
 
 @dataclass(frozen=True)
 class Step8Result:
@@ -38,6 +40,7 @@ def run_step_8(
     old_status: str,
     *,
     stderr: Optional[TextIO] = None,
+    item_ref: Optional[str] = None,
 ) -> Step8Result:
     """Run the done-state GitHub sync and classify the outcome.
 
@@ -47,12 +50,13 @@ def run_step_8(
     operator must see — Step 8 stops claiming success in that case.
     """
     stderr = stderr or sys.stderr
+    ref = item_ref or format_item_ref(None, None, None, item_id=item_id)
 
     try:
         from yoke_core.domain import backlog_github_sync
     except ImportError as exc:
         message = (
-            f"backlog_github_sync import failed for YOK-{item_id}: {exc}"
+            f"backlog_github_sync import failed for {ref}: {exc}"
         )
         print(f"Warning: {message}", file=stderr)
         return Step8Result(
@@ -66,7 +70,7 @@ def run_step_8(
             str(item_id), old_status, stdout=stderr, stderr=stderr,
         )
     except Exception as exc:  # pragma: no cover - defensive
-        message = f"sync_done_item raised for YOK-{item_id}: {exc}"
+        message = f"sync_done_item raised for {ref}: {exc}"
         print(f"Warning: {message}", file=stderr)
         return Step8Result(
             returncode=1,
@@ -78,7 +82,7 @@ def run_step_8(
         return Step8Result(returncode=0, step_marker="8", message="ok")
 
     message = (
-        f"sync_done_item returned {rc} for YOK-{item_id} — GitHub closeout "
+        f"sync_done_item returned {rc} for {ref} — GitHub closeout "
         "failed; Step 8 recorded as degraded."
     )
     print(f"Warning: {message}", file=stderr)
@@ -89,7 +93,13 @@ def run_step_8(
     )
 
 
-def apply_step_8(item_id: int, old_status: str, result) -> Step8Result:
+def apply_step_8(
+    item_id: int,
+    old_status: str,
+    result,
+    *,
+    item_ref: Optional[str] = None,
+) -> Step8Result:
     """Run Step 8 and stamp the outcome onto the caller's ``TransitionResult``.
 
     Records ``step_marker`` (``"8"``, ``"8-degraded"``, or ``"8-skipped"``)
@@ -105,7 +115,9 @@ def apply_step_8(item_id: int, old_status: str, result) -> Step8Result:
     has the same observability surface it has for the per-operation paths.
     """
     import sys
-    outcome = run_step_8(item_id, old_status, stderr=sys.stderr)
+    outcome = run_step_8(
+        item_id, old_status, stderr=sys.stderr, item_ref=item_ref
+    )
     result.add_step(outcome.step_marker)
     if outcome.is_degraded:
         result.warnings.append({
