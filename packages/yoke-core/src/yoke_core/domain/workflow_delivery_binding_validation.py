@@ -12,7 +12,7 @@ from yoke_core.domain.workflow_item_binding_validation import (
 from yoke_core.domain.workflow_runtime import WorkflowRuntime
 
 
-def _delivery_ready(runtime: WorkflowRuntime, status: str) -> bool:
+def delivery_ready_for_stage(runtime: WorkflowRuntime, status: str) -> bool:
     position = runtime.stage_index(status)
     if position is None:
         return False
@@ -66,7 +66,7 @@ def validate_deployment_run_item(
         raise WorkflowItemBindingError(
             f"item {item_id} selects deployment flow {item_flow!r}, not {run_flow!r}"
         )
-    if not _delivery_ready(runtime, status):
+    if not delivery_ready_for_stage(runtime, status):
         raise WorkflowItemBindingError(
             f"item {item_id} workflow {runtime.workflow_id}@{runtime.version} "
             f"is not delivery-ready at stage {status!r}"
@@ -88,6 +88,7 @@ def validate_deployment_run_items(
 
 
 __all__ = [
+    "delivery_ready_for_stage",
     "validate_deployment_run_item",
     "validate_deployment_run_items",
 ]

@@ -12,29 +12,17 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
-from yoke_core.domain.conflict_survey import (
-    record_conflict_survey,
-    survey_conflicts,
-)
 from yoke_core.domain.dash_execution import (
     DASH_ESCALATION_SECTION,
     read_json_section,
     record_dash_escalation,
     record_dash_evidence,
 )
-
-
-class SurveyRequest(BaseModel):
-    paths: List[str] = Field(..., min_length=1)
-    integration_target: str = "main"
-
-class SurveyResponse(BaseModel):
-    item_id: int
-    workflow_id: str
-    clear: bool
-    fingerprint: str
-    blockers: List[dict[str, Any]]
-    touch_paths: List[str]
+from yoke_core.domain.handlers.direct_workflow_survey import (
+    SurveyRequest,
+    SurveyResponse,
+    handle_survey,
+)
 
 
 class EvidenceRequest(BaseModel):
@@ -76,10 +64,13 @@ def _error(code: str, message: str) -> HandlerOutcome:
     )
 
 
-def _item_id(request: FunctionCallRequest) -> tuple[Optional[int], Optional[HandlerOutcome]]:
+def _item_id(
+    request: FunctionCallRequest,
+) -> tuple[Optional[int], Optional[HandlerOutcome]]:
     if request.target.kind != "item" or request.target.item_id is None:
         return None, _error(
-            "invalid_target", "target must carry kind='item' and item_id",
+            "invalid_target",
+            "target must carry kind='item' and item_id",
         )
     return int(request.target.item_id), None
 
@@ -89,69 +80,12 @@ def _actor_id(request: FunctionCallRequest) -> Optional[str]:
     return str(value) if value is not None and str(value).isdigit() else None
 
 
-def _survey_handler(
-    request: FunctionCallRequest,
-    *,
-    expected_workflow: str,
-) -> HandlerOutcome:
-    item_id, invalid = _item_id(request)
-    if invalid:
-        return invalid
-    try:
-        payload = SurveyRequest.model_validate(request.payload or {})
-    except Exception as exc:
-        return _error("invalid_payload", f"payload invalid: {exc}")
-    from yoke_core.domain.db_helpers import connect
-    with connect() as conn:
-        row = conn.execute(
-            "SELECT workflow_id FROM items WHERE id = %s", (item_id,),
-        ).fetchone()
-        if row is None:
-            return _error("unknown_item", f"item {item_id} does not exist")
-        workflow_id = str(row[0])
-        if workflow_id != expected_workflow:
-            return _error(
-                "workflow_mismatch",
-                f"item {item_id} uses workflow {workflow_id!r}, "
-                f"not {expected_workflow!r}",
-            )
-        try:
-            survey = survey_conflicts(
-                conn,
-                item_id=item_id,
-                touch_paths=payload.paths,
-                integration_target=payload.integration_target,
-            )
-            record_conflict_survey(conn, survey)
-        except (LookupError, ValueError) as exc:
-            return _error("survey_refused", str(exc))
-    return HandlerOutcome(
-        result_payload=SurveyResponse(
-            item_id=item_id,
-            workflow_id=expected_workflow,
-            clear=survey.clear,
-            fingerprint=survey.fingerprint,
-            blockers=[
-                {
-                    "kind": row.kind,
-                    "owner_item_id": row.owner_item_id,
-                    "path": row.path,
-                    "state": row.state,
-                    "detail": row.detail,
-                }
-                for row in survey.blockers
-            ],
-            touch_paths=list(survey.touch_paths),
-        ).model_dump(),
-    )
-
-
 def handle_dash_survey(request: FunctionCallRequest) -> HandlerOutcome:
-    return _survey_handler(request, expected_workflow="dash")
+    return handle_survey(request, expected_workflow="dash")
 
 
 def handle_blitz_survey(request: FunctionCallRequest) -> HandlerOutcome:
-    return _survey_handler(request, expected_workflow="blitz")
+    return handle_survey(request, expected_workflow="blitz")
 
 
 def handle_dash_evidence(request: FunctionCallRequest) -> HandlerOutcome:
@@ -163,6 +97,7 @@ def handle_dash_evidence(request: FunctionCallRequest) -> HandlerOutcome:
     except Exception as exc:
         return _error("invalid_payload", f"payload invalid: {exc}")
     from yoke_core.domain.db_helpers import connect
+
     with connect() as conn:
         try:
             evidence = record_dash_evidence(
@@ -181,7 +116,9 @@ def handle_dash_evidence(request: FunctionCallRequest) -> HandlerOutcome:
             return _error("evidence_refused", str(exc))
     return HandlerOutcome(
         result_payload=EvidenceResponse(
-            item_id=item_id, recorded=True, evidence=evidence,
+            item_id=item_id,
+            recorded=True,
+            evidence=evidence,
         ).model_dump(),
     )
 
@@ -200,6 +137,7 @@ def _dash_project(conn: Any, item_id: int) -> tuple[str, int]:
 
 def _cancel_dash(item_id: int, session_id: Optional[str]) -> tuple[bool, str]:
     from yoke_core.domain import backlog
+
     captured = io.StringIO()
     result = backlog.execute_update(
         item_id=item_id,
@@ -223,13 +161,16 @@ def handle_dash_escalate(request: FunctionCallRequest) -> HandlerOutcome:
     except Exception as exc:
         return _error("invalid_payload", f"payload invalid: {exc}")
     from yoke_core.domain.db_helpers import connect
+
     with connect() as conn:
         try:
             project_slug, _project_id = _dash_project(conn, item_id)
         except ValueError as exc:
             return _error("workflow_mismatch", str(exc))
         existing = read_json_section(
-            conn, item_id=item_id, section=DASH_ESCALATION_SECTION,
+            conn,
+            item_id=item_id,
+            section=DASH_ESCALATION_SECTION,
         )
     if existing and existing.get("issue_item_id"):
         cancelled, reason = _cancel_dash(item_id, request.actor.session_id)
@@ -246,6 +187,7 @@ def handle_dash_escalate(request: FunctionCallRequest) -> HandlerOutcome:
         )
 
     from yoke_core.domain.backlog_create_op import execute_create
+
     created = execute_create(
         title=payload.issue_title,
         workflow="issue",
@@ -319,20 +261,20 @@ _SIDE_EFFECTS = {
     "direct_workflow.dash.escalate": ["item_insert", "db_write", "github_sync"],
 }
 for _entry in REGISTRATIONS:
-    _entry.update({
-        "stability": "stable",
-        "owner_module": (
-            "yoke_core.domain.handlers.direct_workflow_execution"
-        ),
-        "target_kinds": ["item"],
-        "side_effects": _SIDE_EFFECTS.get(_entry["function_id"], ["db_write"]),
-        "emitted_event_names": ["YokeFunctionCalled"],
-        "guardrails": ["direct_workflow_only"],
-        "adapter_status": "live",
-        "claim_required_kind": (
-            None if _entry["function_id"].endswith(".survey") else "item"
-        ),
-    })
+    _entry.update(
+        {
+            "stability": "stable",
+            "owner_module": ("yoke_core.domain.handlers.direct_workflow_execution"),
+            "target_kinds": ["item"],
+            "side_effects": _SIDE_EFFECTS.get(_entry["function_id"], ["db_write"]),
+            "emitted_event_names": ["YokeFunctionCalled"],
+            "guardrails": ["direct_workflow_only"],
+            "adapter_status": "live",
+            "claim_required_kind": (
+                None if _entry["function_id"].endswith(".survey") else "item"
+            ),
+        }
+    )
 
 
 __all__ = [

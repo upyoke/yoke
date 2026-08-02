@@ -193,6 +193,25 @@ def test_hook_evaluate_https_writes_client_anchor_before_relay(
     assert recorded == [("s-relay-anchor", "/t/relay.jsonl")]
 
 
+def test_hook_evaluate_https_session_start_prunes_client_anchors(
+    monkeypatch, https_connection,
+) -> None:
+    from yoke_harness.hooks import relay
+    monkeypatch.setattr(sys, "stdin", io.StringIO('{"session_id": "s-start"}'))
+    calls: list[str] = []
+    monkeypatch.setattr(relay, "prune_stale_session_anchors", lambda: calls.append("prune"))
+    monkeypatch.setattr(relay, "record_session_anchor", lambda *_a, **_k: calls.append("record"))
+    monkeypatch.setattr(
+        "urllib.request.urlopen",
+        lambda *_a, **_k: _FakeResponse(json.dumps({
+            "hook_schema": 1, "stdout": "", "exit_code": 0,
+            "wait_ms": 1, "degraded": [], "outcome": "completed",
+        }).encode("utf-8")),
+    )
+    assert cli_main(["hook", "evaluate", "SessionStart"]) == 0
+    assert calls == ["prune", "record"]
+
+
 def test_hook_evaluate_https_anchor_failure_never_breaks_relay(
     monkeypatch, https_connection,
 ) -> None:

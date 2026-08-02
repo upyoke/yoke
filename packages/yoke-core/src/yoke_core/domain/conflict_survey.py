@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from typing import Any, Iterable, Optional
+from uuid import uuid4
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.conflict_survey_blockers import (
@@ -22,6 +23,15 @@ from yoke_core.domain.schema_common import _table_exists
 
 CONFLICT_SURVEY_SECTION = "Conflict Survey"
 DIRECT_WORKFLOW_IDS = frozenset({"blitz", "dash"})
+_PENDING_REQUEST_KEY = "pending_request"
+
+
+@dataclass(frozen=True)
+class ConflictSurveyReservation:
+    """Compare-and-swap marker for one in-flight survey request."""
+
+    content: str
+    previous_content: Optional[str]
 
 
 def _p(conn: Any) -> str:
@@ -125,11 +135,97 @@ def survey_conflicts(
     )
 
 
-def record_conflict_survey(conn: Any, survey: ConflictSurvey) -> None:
-    """Persist the latest survey as a machine-readable item section."""
+def reserve_conflict_survey_record(
+    conn: Any,
+    *,
+    item_id: int,
+) -> ConflictSurveyReservation:
+    """Reserve the survey record before performing potentially slow work.
+
+    A newer request replaces this marker immediately.  Its later result can
+    then be written only when this reservation is still current.
+    """
+    marker = _p(conn)
+    now = iso8601_now()
+    existing = conn.execute(
+        "SELECT content FROM item_sections "
+        f"WHERE item_id = {marker} AND section_name = {marker}",
+        (int(item_id), CONFLICT_SURVEY_SECTION),
+    ).fetchone()
+    previous_content = str(existing[0]) if existing is not None else None
+    if existing is None:
+        pending: dict[str, Any] = {}
+    else:
+        try:
+            pending = json.loads(previous_content)
+        except (TypeError, ValueError):
+            pending = {}
+        if isinstance(pending, dict):
+            pending.pop(_PENDING_REQUEST_KEY, None)
+            previous_content = json.dumps(
+                pending,
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+        else:
+            pending = {}
+    pending[_PENDING_REQUEST_KEY] = uuid4().hex
+    content = json.dumps(pending, sort_keys=True, separators=(",", ":"))
+    conn.execute(
+        "INSERT INTO item_sections "
+        "(item_id, section_name, content, ordering, source, created_at, updated_at) "
+        f"VALUES ({', '.join(marker for _ in range(7))}) "
+        "ON CONFLICT(item_id, section_name) DO UPDATE SET "
+        "content = excluded.content, source = excluded.source, "
+        "updated_at = excluded.updated_at",
+        (
+            int(item_id),
+            CONFLICT_SURVEY_SECTION,
+            content,
+            180,
+            "direct-workflow",
+            now,
+            now,
+        ),
+    )
+    conn.commit()
+    return ConflictSurveyReservation(
+        content=content,
+        previous_content=previous_content,
+    )
+
+
+def record_conflict_survey(
+    conn: Any,
+    survey: ConflictSurvey,
+    *,
+    reservation: Optional[ConflictSurveyReservation] = None,
+) -> bool:
+    """Persist a survey, retaining only the result from the newest request."""
     marker = _p(conn)
     now = iso8601_now()
     content = json.dumps(survey.to_dict(), sort_keys=True, indent=2)
+    if reservation is not None:
+        cursor = conn.execute(
+            "UPDATE item_sections SET content = " + marker + ", "
+            "source = " + marker + ", updated_at = " + marker + " "
+            "WHERE item_id = "
+            + marker
+            + " AND section_name = "
+            + marker
+            + " AND content = "
+            + marker,
+            (
+                content,
+                "direct-workflow",
+                now,
+                survey.item_id,
+                CONFLICT_SURVEY_SECTION,
+                reservation.content,
+            ),
+        )
+        conn.commit()
+        return cursor.rowcount == 1
     conn.execute(
         "INSERT INTO item_sections "
         "(item_id, section_name, content, ordering, source, created_at, updated_at) "
@@ -147,6 +243,45 @@ def record_conflict_survey(conn: Any, survey: ConflictSurvey) -> None:
             now,
         ),
     )
+    conn.commit()
+    return True
+
+
+def cancel_conflict_survey_reservation(
+    conn: Any,
+    *,
+    item_id: int,
+    reservation: ConflictSurveyReservation,
+) -> None:
+    """Restore the prior survey only when this request is still current."""
+    marker = _p(conn)
+    if reservation.previous_content is None:
+        conn.execute(
+            "DELETE FROM item_sections WHERE item_id = "
+            + marker
+            + " AND section_name = "
+            + marker
+            + " AND content = "
+            + marker,
+            (int(item_id), CONFLICT_SURVEY_SECTION, reservation.content),
+        )
+    else:
+        conn.execute(
+            "UPDATE item_sections SET content = "
+            + marker
+            + " WHERE item_id = "
+            + marker
+            + " AND section_name = "
+            + marker
+            + " AND content = "
+            + marker,
+            (
+                reservation.previous_content,
+                int(item_id),
+                CONFLICT_SURVEY_SECTION,
+                reservation.content,
+            ),
+        )
     conn.commit()
 
 
@@ -173,7 +308,10 @@ __all__ = [
     "CONFLICT_SURVEY_SECTION",
     "ConflictMatch",
     "ConflictSurvey",
+    "ConflictSurveyReservation",
+    "cancel_conflict_survey_reservation",
     "read_recorded_survey",
     "record_conflict_survey",
+    "reserve_conflict_survey_record",
     "survey_conflicts",
 ]

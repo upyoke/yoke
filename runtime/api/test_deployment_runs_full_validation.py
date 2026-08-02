@@ -123,7 +123,7 @@ class TestValidateComposition:
 
         ok, msg = dr.cmd_validate_composition(rid, db_path=db_path)
         assert ok is False
-        assert "not at implemented" in msg
+        assert "not delivery-ready" in msg
 
     def test_done_items_accepted(self, db_path):
         rid = dr.cmd_create_run("yoke", "yoke-internal", db_path=db_path)
@@ -287,7 +287,7 @@ class TestCheckBatchCompatibility:
             db_path=db_path,
         )
         assert ok is False
-        assert "not at implemented" in msg
+        assert "not delivery-ready" in msg
 
     def test_unsatisfied_dep_in_batch(self, db_path):
         self._insert_item(db_path, 100, "implemented")
