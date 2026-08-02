@@ -68,7 +68,6 @@ _EVENTS_TABLE_FOR_CLAIM_RACE = """
         duration_ms INTEGER,
         exit_code INTEGER,
         trace_id TEXT,
-        parent_id TEXT,
         anomaly_flags TEXT,
         tool_use_id TEXT,
         turn_id TEXT,

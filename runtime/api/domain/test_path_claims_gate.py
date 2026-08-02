@@ -12,6 +12,7 @@ import pytest
 from yoke_core.domain._path_claims_test_helpers import (
     SNAP,
     local_human,
+    register_test_claim as register,
     seed_item,
     seed_target,
 )
@@ -19,7 +20,6 @@ from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from yoke_core.domain.path_claims import (
     activate,
     cancel,
-    register,
     release,
 )
 from yoke_core.domain.path_claims_gate import (

@@ -50,7 +50,6 @@ CANONICAL_LOG_FIELDS = (
     "task_num",
     "trace_id",
     "span_id",
-    "parent_id",
     "context",
 )
 

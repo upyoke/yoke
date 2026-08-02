@@ -170,7 +170,7 @@ def _create_epic_tasks_db(db_path: Path, task_status: str = "implementing") -> N
             status TEXT DEFAULT 'planned',
             dispatch_attempts INTEGER DEFAULT 0,
             body TEXT, github_issue TEXT,
-            blocked_by TEXT, max_attempts INTEGER DEFAULT 5,
+            max_attempts INTEGER DEFAULT 5,
             agent_id TEXT, last_heartbeat TEXT,
             UNIQUE(epic_id, task_num)
         );

@@ -38,7 +38,6 @@ _SCHEMA_DDL = """
         workflow_version_id INTEGER,
         status TEXT NOT NULL DEFAULT 'idea',
         priority TEXT NOT NULL DEFAULT 'medium',
-        flow TEXT DEFAULT 'accelerated',
         rework_count INTEGER DEFAULT 0,
         frozen INTEGER DEFAULT 0,
         github_issue TEXT,

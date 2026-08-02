@@ -52,7 +52,6 @@ def _make_conn():
             project_id INTEGER DEFAULT 1,
             project_sequence INTEGER,
             github_issue TEXT,
-            flow TEXT,
             rework_count INTEGER,
             deployed_to TEXT,
             updated_at TEXT,

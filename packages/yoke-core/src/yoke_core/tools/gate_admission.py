@@ -31,6 +31,11 @@ Mechanics:
 - Fail-open: when no cluster can be reached (no local cluster tooling,
   no DSN), the gate proceeds without a slot after a warning. Admission
   is a throughput guard, not a correctness gate.
+- Observable: each arbitration connection stamps its state onto its own
+  ``application_name``, so a queued gate reports who holds the slot and
+  how many runs are queued instead of only that it is waiting. The
+  cluster tracks connections already; a crashed run's entry disappears
+  with its connection, exactly like its slot.
 """
 
 from __future__ import annotations
@@ -69,6 +74,14 @@ ADMITTED_ENV = "YOKE_TEST_GATE_SLOT_HELD"
 #: Base advisory-lock key for gate slots; slot *i* locks ``BASE + i``.
 #: Distinct from the cluster-role authority lock used by the fixtures.
 GATE_SLOT_LOCK_BASE = 0x596F6B6547617431
+
+#: Prefixes stamped on each arbitration connection's ``application_name``.
+#: The contended resource already tracks every connection, so its own
+#: activity view answers "who holds the slot?" and "how many runs are
+#: queued behind it?" — a queued run can say why it is waiting without a
+#: second bookkeeping surface that could outlive the process it describes.
+SLOT_HELD_APP_PREFIX = "yoke-gate-held:"
+SLOT_WAIT_APP_PREFIX = "yoke-gate-wait:"
 
 _WAIT_ANNOUNCE_INTERVAL_S = 15.0
 _POLL_INTERVAL_S = 2.0
@@ -160,6 +173,69 @@ def try_acquire_slot(conn, cap: int, base: int = GATE_SLOT_LOCK_BASE) -> bool:
     return False
 
 
+def slot_identity() -> str:
+    """Name this invocation for the shared cluster's activity view.
+
+    The working directory is the useful half — on a fleet of worktrees it
+    is what tells one queued gate from another — and the pid disambiguates
+    two runs in the same tree.
+    """
+    try:
+        tree = Path.cwd().name or "unknown"
+    except OSError:
+        tree = "unknown"
+    return f"{tree}/pid{os.getpid()}"
+
+
+def _stamp_activity(conn, prefix: str, identity: str) -> None:
+    """Publish this connection's admission state; never fail the gate.
+
+    ``set_config`` rather than ``SET`` because the value is a parameter —
+    the identity carries a directory name this module does not control.
+    """
+    try:
+        conn.execute(
+            "SELECT set_config('application_name', %s, false)",
+            (f"{prefix}{identity}",),
+        )
+    except Exception:
+        pass
+
+
+def slot_occupancy(conn) -> tuple[list[str], int]:
+    """Return ``(holder identities, waiting connection count)``."""
+    try:
+        rows = conn.execute(
+            "SELECT application_name FROM pg_stat_activity "
+            "WHERE application_name LIKE %s OR application_name LIKE %s",
+            (f"{SLOT_HELD_APP_PREFIX}%", f"{SLOT_WAIT_APP_PREFIX}%"),
+        ).fetchall()
+    except Exception:
+        return ([], 0)
+    names = [str(row[0]) for row in rows]
+    holders = [
+        name[len(SLOT_HELD_APP_PREFIX):]
+        for name in names
+        if name.startswith(SLOT_HELD_APP_PREFIX)
+    ]
+    waiting = sum(1 for name in names if name.startswith(SLOT_WAIT_APP_PREFIX))
+    return (sorted(holders), waiting)
+
+
+def waiting_announcement(
+    cap: int, waited_seconds: float, holders: Sequence[str], waiting: int,
+) -> str:
+    """Say who holds the slot and how deep the queue is, not just that we wait."""
+    who = ", ".join(holders) if holders else "a run that did not name itself"
+    # This connection is itself one of the waiters in the view.
+    ahead = max(0, waiting - 1)
+    queue = f"; {ahead} other queued run(s)" if ahead else ""
+    return (
+        f"gate admission: {cap} heavy gate slot(s) held by {who}{queue}; "
+        f"waiting ({waited_seconds:.0f}s so far)"
+    )
+
+
 def _acquire(stream: TextIO):
     """Block until a gate slot is held; return the holding connection.
 
@@ -190,6 +266,8 @@ def _acquire(stream: TextIO):
             flush=True,
         )
         return None
+    identity = slot_identity()
+    _stamp_activity(conn, SLOT_WAIT_APP_PREFIX, identity)
     waited_since = time.monotonic()
     last_announce = 0.0
     try:
@@ -197,6 +275,7 @@ def _acquire(stream: TextIO):
             # The lock base is read from the module at call time so a test
             # can retarget the whole gate onto a scratch key range.
             if try_acquire_slot(conn, cap, GATE_SLOT_LOCK_BASE):
+                _stamp_activity(conn, SLOT_HELD_APP_PREFIX, identity)
                 waited = time.monotonic() - waited_since
                 if waited > _POLL_INTERVAL_S:
                     print(
@@ -207,9 +286,11 @@ def _acquire(stream: TextIO):
                 return conn
             now = time.monotonic()
             if now - last_announce >= _WAIT_ANNOUNCE_INTERVAL_S:
+                holders, waiting = slot_occupancy(conn)
                 print(
-                    f"gate admission: {cap} heavy gates already running; "
-                    f"waiting ({now - waited_since:.0f}s so far)",
+                    waiting_announcement(
+                        cap, now - waited_since, holders, waiting,
+                    ),
                     file=stream,
                     flush=True,
                 )
@@ -255,7 +336,12 @@ __all__ = [
     "CAP_MACHINE_CONFIG_KEY",
     "DEFAULT_MAX_CONCURRENT_GATES",
     "GATE_SLOT_LOCK_BASE",
+    "SLOT_HELD_APP_PREFIX",
+    "SLOT_WAIT_APP_PREFIX",
     "admitted_gate",
     "is_heavy_invocation",
+    "slot_identity",
+    "slot_occupancy",
     "try_acquire_slot",
+    "waiting_announcement",
 ]

@@ -43,7 +43,7 @@ CREATE TABLE epic_tasks (
     title TEXT, item_worktree_id INTEGER, context_estimate TEXT, dependencies TEXT,
     status TEXT DEFAULT 'planning',
     dispatch_attempts INTEGER DEFAULT 0, body TEXT, github_issue TEXT,
-    branch TEXT, worktree_path TEXT, blocked_by TEXT,
+    branch TEXT, worktree_path TEXT,
     max_attempts INTEGER DEFAULT 5, agent_id TEXT, last_heartbeat TEXT,
     UNIQUE(epic_id, task_num)
 );

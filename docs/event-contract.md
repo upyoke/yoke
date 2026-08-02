@@ -45,7 +45,6 @@ Every event is a row in the `events` table. The canonical columns are:
 | `duration_ms` | INTEGER | No | Execution duration in milliseconds |
 | `exit_code` | INTEGER | No | Process exit code (for tool calls) |
 | `trace_id` | TEXT | No | Distributed trace correlation ID |
-| `parent_id` | TEXT | No | Parent event ID for causal chains |
 | `tool_use_id` | TEXT | No | Harness-provided tool call ID (dedup key) |
 | `anomaly_flags` | TEXT | No | Comma-separated anomaly tags |
 | `turn_id` | TEXT | No | Conversation turn within the harness session |

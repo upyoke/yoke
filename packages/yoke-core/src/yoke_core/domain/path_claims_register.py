@@ -286,7 +286,7 @@ def activate_with_events(
 
     pre = get_claim(conn, claim_id)
     project_id: Optional[int] = None
-    item_id_raw = pre.get("item_id")
+    item_id_raw = pre.get("owner_item_id")
     if item_id_raw is not None:
         try:
             project_id = _fetch_item_project_id(conn, int(item_id_raw))
@@ -305,9 +305,9 @@ def activate_with_events(
             claim_id=claim_id,
             integration_target=pre.get("integration_target"),
             reason=str(exc),
-            item_id=pre.get("item_id"),
+            item_id=pre.get("owner_item_id"),
             project=project_id,
-            session_id=pre.get("session_id"),
+            session_id=pre.get("registered_by_session_id"),
         )
         raise
     _events.emit_activated(

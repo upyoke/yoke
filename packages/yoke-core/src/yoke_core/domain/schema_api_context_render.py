@@ -85,7 +85,7 @@ def render_function_call_surface_block() -> list[str]:
         "",
         "**`harness_id` enum:** `claude-code | codex | cursor` (on "
         "`harness_sessions.executor`). Variants `claude-desktop` / "
-        "`claude-vscode` / `codex-desktop` / `cursor-ide` / `cursor-cli` "
+        "`claude-vscode` / `codex-desktop` / `cursor-desktop` / `cursor-cli` "
         "collapse to these canonical ids in the agent-context render path.",
     ]
 

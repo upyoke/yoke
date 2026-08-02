@@ -39,24 +39,6 @@ class OuroborosEntryArchiveRequest(BaseModel):
     all_reviewed: bool = False
 
 
-class OuroborosWrapupListRequest(BaseModel):
-    pass
-
-
-class OuroborosWrapupListResponse(BaseModel):
-    rows: List[Dict[str, str]]
-
-
-class OuroborosWrapupSaveRequest(BaseModel):
-    session_timestamp: str
-    body: str
-
-
-class OuroborosWrapupSaveResponse(BaseModel):
-    wrapup_id: int
-    session_timestamp: str
-
-
 def _bad_request(message: str, *, jsonpath: str = "$.payload") -> HandlerOutcome:
     return HandlerOutcome(
         primary_success=False,
@@ -166,62 +148,6 @@ def handle_ouroboros_entry_mark_archived(
     )
 
 
-def handle_ouroboros_wrapup_list(request: FunctionCallRequest) -> HandlerOutcome:
-    try:
-        OuroborosWrapupListRequest.model_validate(request.payload or {})
-    except Exception as exc:
-        return _bad_request(f"payload invalid: {exc}")
-    from yoke_core.domain.db_helpers import connect
-    from yoke_core.domain.ouroboros_wrapups import cmd_list_wrapups
-
-    with connect() as conn:
-        text = cmd_list_wrapups(conn)
-    rows: List[Dict[str, str]] = []
-    for line in text.splitlines():
-        if not line.strip():
-            continue
-        parts = line.split("|")
-        rows.append(
-            {
-                "id": parts[0] if len(parts) > 0 else "",
-                "session_timestamp": parts[1] if len(parts) > 1 else "",
-                "created_at": parts[2] if len(parts) > 2 else "",
-            }
-        )
-    return HandlerOutcome(
-        result_payload=OuroborosWrapupListResponse(rows=rows).model_dump(),
-        primary_success=True,
-    )
-
-
-def handle_ouroboros_wrapup_save(request: FunctionCallRequest) -> HandlerOutcome:
-    try:
-        payload = OuroborosWrapupSaveRequest.model_validate(request.payload or {})
-    except Exception as exc:
-        return _bad_request(f"payload invalid: {exc}")
-    if not payload.session_timestamp.strip():
-        return _bad_request(
-            "session_timestamp must be non-empty",
-            jsonpath="$.payload.session_timestamp",
-        )
-    if not payload.body.strip():
-        return _bad_request("body must be non-empty", jsonpath="$.payload.body")
-    from yoke_core.domain.db_helpers import connect
-    from yoke_core.domain.ouroboros_wrapups import cmd_insert_wrapup
-
-    with connect() as conn:
-        wrapup_id = cmd_insert_wrapup(
-            conn, payload.session_timestamp.strip(), payload.body,
-        )
-    return HandlerOutcome(
-        result_payload=OuroborosWrapupSaveResponse(
-            wrapup_id=int(wrapup_id),
-            session_timestamp=payload.session_timestamp.strip(),
-        ).model_dump(),
-        primary_success=True,
-    )
-
-
 REGISTRATIONS: List[Dict[str, Any]] = [
     {
         "function_id": "ouroboros.entry.insert",
@@ -243,20 +169,6 @@ REGISTRATIONS: List[Dict[str, Any]] = [
         "request_model": OuroborosEntryArchiveRequest,
         "response_model": OuroborosEntryLifecycleResponse,
         "side_effects": ["db_write"],
-    },
-    {
-        "function_id": "ouroboros.wrapup.list",
-        "handler": handle_ouroboros_wrapup_list,
-        "request_model": OuroborosWrapupListRequest,
-        "response_model": OuroborosWrapupListResponse,
-        "side_effects": [],
-    },
-    {
-        "function_id": "ouroboros.wrapup.save",
-        "handler": handle_ouroboros_wrapup_save,
-        "request_model": OuroborosWrapupSaveRequest,
-        "response_model": OuroborosWrapupSaveResponse,
-        "side_effects": ["wrapup_reports_write"],
     },
 ]
 
@@ -280,6 +192,4 @@ __all__ = [
     "handle_ouroboros_entry_insert",
     "handle_ouroboros_entry_mark_reviewed",
     "handle_ouroboros_entry_mark_archived",
-    "handle_ouroboros_wrapup_list",
-    "handle_ouroboros_wrapup_save",
 ]

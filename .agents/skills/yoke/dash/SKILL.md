@@ -244,8 +244,17 @@ re-runs the identical registered command, so the verdict-producing run is
 the only one that needs to happen. It streams live to stderr and prints
 its raw capture path before starting, so you can follow it without a
 second copy. Re-running after the tree changes is a different execution
-and stays required. Then execute each selected posture knob through its
-shared authority:
+and stays required.
+
+**When the case runs on CI, the branch must be published first.** A
+project that declares its CI workflow binds its registered verification
+scopes to the `command-ci` method, and that executor gates the *pushed*
+lane branch — commit before running the case, and let the executor push.
+Dash branches otherwise stay local until merge, so an unpublished commit
+is a gate that verifies the wrong tree or none at all. The recorded
+verdict names the CI run URL and the exact head sha it covered.
+
+Then execute each selected posture knob through its shared authority:
 
 - `verification.kind=plan` — materialize the attached plan cases for
   `reviewing-implementation`, execute each requirement with

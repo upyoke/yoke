@@ -20,7 +20,7 @@ from yoke_core.api.service_client_shared import queries
 # Canonical field list -- "body" is a virtual rendered field
 _QI_ALL_FIELDS = {
     "id", "title", "workflow_id", "workflow_version_id", "status",
-    "priority", "flow", "rework_count",
+    "priority", "rework_count",
     "frozen", "blocked", "blocked_reason",
     "github_issue", "deployed_to", "body",
     "merged_at", "created_at", "updated_at", "source", "project",

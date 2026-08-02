@@ -136,8 +136,9 @@ def test_path_claims_counts_and_latest_blocker(core_db) -> None:
             ("blocked", "newer reason"),
         ]:
             conn.execute(
-                "INSERT INTO path_claims(state, blocked_reason, item_id) "
-                f"VALUES ({p}, {p}, {p})",
+                "INSERT INTO path_claims(state, blocked_reason, owner_kind, "
+                "owner_item_id) "
+                f"VALUES ({p}, {p}, 'item', {p})",
                 (state, reason, 30),
             )
         conn.commit()

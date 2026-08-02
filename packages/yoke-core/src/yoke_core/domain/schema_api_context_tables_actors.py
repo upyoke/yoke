@@ -13,7 +13,7 @@ ACTOR_TABLES: dict[str, dict] = {
         ],
         "notes": (
             "Actor identity referenced by work_claims.actor_id, "
-            "path_claims.actor_id, and similar foreign keys. kind "
+            "path_claims.registered_by_actor_id, and similar foreign keys. kind "
             "is 'human' or 'system'; system_component is the bound "
             "component name when kind is system-attributed. Human-readable "
             "names live in actor_labels as surface-specific projections: "

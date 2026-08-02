@@ -94,6 +94,15 @@ def _routing_settings() -> dict[str, str]:
 
 
 def client_lane(event_name: str, executor: str) -> Optional[str]:
+    """Return the machine-config lane for ``executor``, or ``None``.
+
+    ``None`` means "this client has no lane opinion" and is the answer
+    whenever machine config declares no matching executor key — the common
+    case, because routing policy normally lives in the project's
+    ``session-routing`` capability, which only the server can read. Inventing
+    a placeholder here instead would ship an explicit lane on the wire and
+    overrule that project policy at registration.
+    """
     if event_name not in REGISTRATION_EVENTS:
         return None
     try:
@@ -121,7 +130,7 @@ def client_lane(event_name: str, executor: str) -> Optional[str]:
                 matched = prefix
         if matched is not None:
             return wildcards[matched]
-        return exact.get("unknown", "primary")
+        return exact.get("unknown") or None
     except Exception:
         return None
 
@@ -136,15 +145,35 @@ def client_entrypoint(executor: str, payload: dict[str, Any]) -> Optional[str]:
         return None
 
 
-def client_project_id(payload: dict[str, Any]) -> Optional[int]:
+def _workspace_path_candidates(payload: dict[str, Any]) -> list[str]:
+    """Ordered workspace paths a hook payload may carry.
+
+    ``workspace_roots`` (a list of absolute paths, first entry = the
+    workspace the harness opened) leads because it names the harness
+    workspace directly; the scalar keys follow for payloads that carry
+    only a per-event directory.
+    """
+    candidates: list[str] = []
+    roots = payload.get("workspace_roots")
+    if isinstance(roots, list):
+        candidates.extend(
+            root for root in roots if isinstance(root, str) and root.strip()
+        )
     for key in ("cwd", "workspace", "project_dir"):
         value = payload.get(key)
-        if not isinstance(value, str) or not value.strip():
-            continue
+        if isinstance(value, str) and value.strip():
+            candidates.append(value)
+    return candidates
+
+
+def client_project_id(payload: dict[str, Any]) -> Optional[int]:
+    for value in _workspace_path_candidates(payload):
         try:
-            return machine_config.project_id(Path(value))
+            resolved = machine_config.project_id(Path(value))
         except Exception:
-            return None
+            continue
+        if resolved is not None:
+            return resolved
     return None
 
 

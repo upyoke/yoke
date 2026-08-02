@@ -181,6 +181,42 @@ class TestLifecycleTransitionRoutesThroughExecuteUpdate:
         conn.close()
         assert row[0] == "reviewing-implementation"
 
+    def test_cancel_requires_and_records_one_line_reason(
+        self, registered_lifecycle, test_db, monkeypatch,
+    ):
+        _seed_work_claim(test_db["db_path"], 1)
+        _clear_process_session_env(monkeypatch)
+        missing = _post_lifecycle(
+            test_db, _lifecycle_envelope(1, "cancelled", source_status="implementing")
+        )
+        assert missing.status_code == 422, missing.text
+        assert missing.json()["error"]["code"] == "invalid_payload"
+
+        valid = _post_lifecycle(
+            test_db,
+            _lifecycle_envelope(
+                1,
+                "cancelled",
+                source_status="implementing",
+                reason="superseded by the current implementation",
+            ),
+        )
+        assert valid.status_code == 200, valid.text
+        conn = connect_test_db(test_db["db_path"])
+        row = conn.execute("SELECT status, resolution FROM items WHERE id = 1").fetchone()
+        conn.close()
+        assert tuple(row) == ("cancelled", "superseded by the current implementation")
+
+    def test_cancel_rejects_multiline_reason(
+        self, registered_lifecycle, test_db,
+    ):
+        response = _post_lifecycle(
+            test_db,
+            _lifecycle_envelope(1, "cancelled", reason="first line\nsecond line"),
+        )
+        assert response.status_code == 422, response.text
+        assert response.json()["error"]["code"] == "invalid_payload"
+
 
 class TestLifecycleTransitionPreconditions:
     def test_source_status_mismatch_returns_precondition_failed(

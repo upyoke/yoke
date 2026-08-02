@@ -2,7 +2,9 @@
 
 One source of truth for each key's source default and one-line meaning.
 ``project-policy`` owns shared project behavior in the DB; local-only keys
-describe machine checkout facts.
+describe machine checkout facts. Machine-local runtime tunables are the
+separate registry in
+``yoke_contracts.machine_config.settings_keys``.
 
 The authored-file line limit is deliberately not a key here: it must be
 enforceable by an offline git hook in a fresh clone, so it is checked-in
@@ -14,13 +16,19 @@ from __future__ import annotations
 
 from typing import Dict, Tuple
 
+# The two capability rows that carry DB-owned project configuration. Named
+# here so the machine-settings registry can point at the real authority
+# without importing upward into the core package.
+PROJECT_POLICY_CAPABILITY = "project-policy"
+SESSION_ROUTING_CAPABILITY = "session-routing"
+
 RECOGNIZED_PROJECT_KEYS: Dict[str, Tuple[str, str]] = {
     "base_branch": (
         "main",
         "trunk branch worktrees branch from and merges land on",
     ),
     "wip_cap": (
-        "5",
+        "30",
         "scheduler WIP cap for conduct-eligible items",
     ),
     "worktrees_dir": (

@@ -120,7 +120,7 @@ def evaluate_required_coverage(
                   WHERE pct.claim_id = pc.id
                ) AS target_count
           FROM path_claims pc
-         WHERE pc.item_id = {p}
+         WHERE pc.owner_kind = 'item' AND pc.owner_item_id = {p}
            AND pc.state IN ({placeholders})
         ORDER BY pc.id
         """,
@@ -228,8 +228,8 @@ def _describe_blocked_satisfying_claims(
             out.append(f"path claim {cid} blocked: {reason or '(unknown)'}")
             continue
         upstream_row = conn.execute(
-            "SELECT pc.item_id, COALESCE(i.status, '') FROM path_claims pc "
-            "LEFT JOIN items i ON i.id = pc.item_id "
+            "SELECT pc.owner_item_id, COALESCE(i.status, '') FROM path_claims pc "
+            "LEFT JOIN items i ON i.id = pc.owner_item_id "
             f"WHERE pc.id = {p}",
             (upstream_id,),
         ).fetchone()

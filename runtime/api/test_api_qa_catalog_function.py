@@ -28,9 +28,11 @@ def test_builtin_methods_seed_with_real_contracts() -> None:
     with test_database() as conn:
         rows = list_methods(conn, project="yoke")
         command = get_method(conn, method_id="command", project="yoke")
+        command_ci = get_method(conn, method_id="command-ci", project="yoke")
 
     assert [row["id"] for row in rows] == [
         "command",
+        "command-ci",
         "browser-check",
         "browser-inspection",
         "machine-state-check",
@@ -41,6 +43,11 @@ def test_builtin_methods_seed_with_real_contracts() -> None:
     assert command["required_capability_kind"] is None
     assert command["verdict_path"] == "automatic"
     assert command["capability_state"] == "available"
+    # Same Command contract, executed on the project's CI workflow rather
+    # than on this machine.
+    assert command_ci["executor_id"] == "ci_run"
+    assert command_ci["required_capability_kind"] is None
+    assert command_ci["verdict_path"] == "automatic"
     inspection = next(
         row for row in rows if row["id"] == "browser-inspection"
     )

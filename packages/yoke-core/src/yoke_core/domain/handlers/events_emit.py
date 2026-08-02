@@ -31,7 +31,6 @@ class EventsEmitRequest(BaseModel):
     duration_ms: Optional[int] = None
     exit_code: Optional[int] = None
     trace_id: Optional[str] = None
-    parent_id: Optional[str] = None
     anomaly_flags: Optional[str] = None
     tool_use_id: Optional[str] = None
     turn_id: Optional[str] = None
@@ -105,7 +104,6 @@ def handle_events_emit(request: FunctionCallRequest) -> HandlerOutcome:
             duration_ms=payload.duration_ms,
             exit_code=payload.exit_code,
             trace_id=payload.trace_id,
-            parent_id=payload.parent_id,
             anomaly_flags=payload.anomaly_flags,
             tool_use_id=payload.tool_use_id,
             turn_id=payload.turn_id,

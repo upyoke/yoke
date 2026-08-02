@@ -135,9 +135,12 @@ def test_payload_uses_stamped_session_project_identity(populated_db, config_file
         conn.execute("""
             CREATE TABLE IF NOT EXISTS path_claims (
                 id INTEGER PRIMARY KEY,
-                session_id TEXT,
-                item_id INTEGER,
-                work_claim_id INTEGER,
+                owner_kind TEXT,
+                owner_item_id INTEGER,
+                owner_session_id TEXT,
+                owner_work_claim_id INTEGER,
+                registered_by_actor_id INTEGER,
+                registered_by_session_id TEXT,
                 released_at TEXT,
                 cancelled_at TEXT,
                 release_reason TEXT,

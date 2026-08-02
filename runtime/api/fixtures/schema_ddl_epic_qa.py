@@ -42,7 +42,6 @@ CREATE TABLE IF NOT EXISTS epic_tasks (
     scope_finalized_at TEXT,
     body TEXT,
     github_issue TEXT,
-    blocked_by TEXT,
     max_attempts INTEGER DEFAULT 5,
     agent_id TEXT,
     last_heartbeat TEXT,
