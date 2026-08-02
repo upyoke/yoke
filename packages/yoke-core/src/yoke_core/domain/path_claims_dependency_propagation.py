@@ -21,7 +21,8 @@ def _p(conn: Any) -> str:
 def _claim_owning_item(conn: Any, claim_id: int):
     p = _p(conn)
     row = conn.execute(
-        f"SELECT item_id FROM path_claims WHERE id = {p}",
+        f"SELECT owner_item_id FROM path_claims "
+        f"WHERE id = {p} AND owner_kind = 'item'",
         (claim_id,),
     ).fetchone()
     if row is None or row[0] is None:
@@ -107,7 +108,8 @@ def _dep_satisfied_downstream_claims(
     placeholders = ",".join(p for _ in satisfied_dependent_items)
     rows = conn.execute(
         f"SELECT id FROM path_claims "
-        f"WHERE state = 'blocked' AND item_id IN ({placeholders})",
+        f"WHERE state = 'blocked' AND owner_kind = 'item' "
+        f"AND owner_item_id IN ({placeholders})",
         tuple(int(i) for i in satisfied_dependent_items),
     ).fetchall()
     return [int(r[0]) for r in rows]
@@ -192,7 +194,7 @@ def propagate_release_unblock(
     flipped: List[int] = []
     for claim_id in candidates:
         row = conn.execute(
-            "SELECT state, integration_target, item_id FROM path_claims "
+            "SELECT state, integration_target, owner_item_id FROM path_claims "
             f"WHERE id = {p}",
             (claim_id,),
         ).fetchone()
@@ -210,7 +212,8 @@ def propagate_release_unblock(
             (claim_id,),
         ).fetchall()
         owning_item_id = conn.execute(
-            f"SELECT item_id FROM path_claims WHERE id = {p}",
+            f"SELECT owner_item_id FROM path_claims "
+            f"WHERE id = {p} AND owner_kind = 'item'",
             (claim_id,),
         ).fetchone()
         candidate_item_id = (
@@ -276,7 +279,7 @@ def _refresh_blocked_reason(
     """Refresh blocked_reason to a surviving upstream when one remains."""
     p = _p(conn)
     row = conn.execute(
-        f"SELECT blocked_reason, item_id FROM path_claims WHERE id = {p}",
+        f"SELECT blocked_reason, owner_item_id FROM path_claims WHERE id = {p}",
         (claim_id,),
     ).fetchone()
     prior = str(row[0] or "") if row else ""

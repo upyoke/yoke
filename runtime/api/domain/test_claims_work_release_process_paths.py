@@ -42,11 +42,11 @@ def _seed_process_work_claim(conn, *, session_id: str, process_key: str) -> int:
 def _seed_linked_path_claim(conn, *, work_claim_id: int, state: str = "active") -> int:
     cur = conn.execute(
         "INSERT INTO path_claims "
-        "(state, mode, actor_id, integration_target, registered_at, "
-        "work_claim_id, owner_kind, owner_work_claim_id) "
-        "VALUES (%s, 'exclusive', 1, 'main', '2026-05-01T00:00:00Z', "
-        "%s, 'process', %s) RETURNING id",
-        (state, work_claim_id, work_claim_id),
+        "(state, mode, owner_kind, owner_work_claim_id, "
+        "registered_by_actor_id, integration_target, registered_at) "
+        "VALUES (%s, 'exclusive', 'process', %s, 1, 'main', "
+        "'2026-05-01T00:00:00Z') RETURNING id",
+        (state, work_claim_id),
     )
     return int(cur.fetchone()[0])
 

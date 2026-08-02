@@ -91,11 +91,12 @@ def _seed_claim(
     activated_at = "2026-05-01T01:00:00Z" if state == "active" else None
     cur = conn.execute(
         "INSERT INTO path_claims "
-        "(state, mode, actor_id, item_id, integration_target, registered_at, "
+        "(state, mode, owner_kind, owner_item_id, registered_by_actor_id, "
+        "integration_target, registered_at, "
         "activated_at, base_commit_sha) "
-        "VALUES (%s, 'exclusive', %s, %s, 'main', "
+        "VALUES (%s, 'exclusive', 'item', %s, %s, 'main', "
         "'2026-05-01T00:00:00Z', %s, %s) RETURNING id",
-        (state, actor, item_id, activated_at, activated),
+        (state, item_id, actor, activated_at, activated),
     )
     cid = int(cur.fetchone()[0])
     conn.execute(
@@ -192,11 +193,11 @@ class TestProbe:
         # Other claim is released → terminal → must not surface.
         conn.execute(
             "INSERT INTO path_claims "
-            "(state, mode, actor_id, item_id, integration_target, "
-            "registered_at, released_at) "
-            "VALUES ('released', 'exclusive', %s, %s, 'main', "
+            "(state, mode, owner_kind, owner_item_id, registered_by_actor_id, "
+            "integration_target, registered_at, released_at) "
+            "VALUES ('released', 'exclusive', 'item', %s, %s, 'main', "
             "'2026-05-01T00:00:00Z', '2026-05-01T02:00:00Z')",
-            (local_human(conn), other),
+            (other, local_human(conn)),
         )
         terminal_id = conn.execute(
             "SELECT id FROM path_claims WHERE state='released'"

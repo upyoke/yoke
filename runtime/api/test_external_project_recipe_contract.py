@@ -78,7 +78,6 @@ def test_recipe_repairs_and_registered_surfaces_stay_taught() -> None:
         ("workflow-item", "epic-dispatch-chain", "advance"),
         ("deployment-runs", "start-for-item"),
         ("deployment-flows", "update-stages"),
-        ("ouroboros", "wrapup", "save"),
         ("projects", "infrastructure", "list"),
     }
     assert expected <= set(registry.SUBCOMMAND_REGISTRY)

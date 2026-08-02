@@ -49,7 +49,6 @@ def test_cli_registry_exposes_strategy_event_ouroboros_surfaces() -> None:
         ("strategy", "checkpoint", "record"): "strategy.checkpoint.record",
         ("strategy", "master-plan-check"): "strategy.master_plan_check.run",
         ("ouroboros", "entry", "insert"): "ouroboros.entry.insert",
-        ("ouroboros", "wrapup", "list"): "ouroboros.wrapup.list",
     }
     for tokens, function_id in expected.items():
         assert SUBCOMMAND_REGISTRY[tokens][0] == function_id
@@ -79,7 +78,6 @@ def test_register_all_handlers_includes_new_function_ids() -> None:
             "strategy.checkpoint.record",
             "strategy.master_plan_check.run",
             "ouroboros.entry.insert",
-            "ouroboros.wrapup.list",
         ):
             assert yoke_function_registry.lookup(function_id) is not None
     finally:

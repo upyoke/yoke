@@ -138,18 +138,21 @@ def attempt_cross_item_overlap_repair(
 
 _OVERLAP_SQL = """
 SELECT pc_cand.id AS cand_claim_id, pc_other.id AS other_claim_id,
-       pc_other.item_id AS other_item_id,
+       pc_other.owner_item_id AS other_item_id,
        pc_cand.integration_target AS itarget, pt.path_string AS path
   FROM path_claims pc_cand
   JOIN path_claim_targets pct_cand ON pct_cand.claim_id = pc_cand.id
   JOIN path_targets pt ON pt.id = pct_cand.target_id
   JOIN path_claim_targets pct_other ON pct_other.target_id = pct_cand.target_id
   JOIN path_claims pc_other ON pc_other.id = pct_other.claim_id
- WHERE pc_cand.item_id = {p} AND pc_cand.state IN ({states})
+ WHERE pc_cand.owner_kind = 'item'
+   AND pc_cand.owner_item_id = {p}
+   AND pc_cand.state IN ({states})
+   AND pc_other.owner_kind = 'item'
    AND pc_other.id <> pc_cand.id AND pc_other.state IN ({states})
    AND pc_other.integration_target = pc_cand.integration_target
    AND pc_other.mode <> 'exception'
-   AND (pc_other.item_id IS NULL OR pc_other.item_id <> pc_cand.item_id)
+   AND pc_other.owner_item_id <> pc_cand.owner_item_id
 """
 
 

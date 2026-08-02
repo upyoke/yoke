@@ -187,7 +187,6 @@ class TestSchemaAndConfigChecks:
             conn,
             """
             CREATE TABLE ouroboros_entries (id INTEGER PRIMARY KEY);
-            CREATE TABLE wrapup_reports (id INTEGER PRIMARY KEY);
             CREATE TABLE epic_tasks (id INTEGER PRIMARY KEY);
             """,
         )

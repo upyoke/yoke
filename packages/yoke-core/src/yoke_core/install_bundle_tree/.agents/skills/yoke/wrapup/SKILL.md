@@ -178,50 +178,37 @@ cat << 'ENTRY_EOF' | yoke ouroboros entry insert --stdin \
 
  Allowed fields: `spec`, `design_spec`, `technical_plan`, `worktree_plan`, `shepherd_log` (epic-only), `shepherd_caveats` (epic-only), `test_results`, `deploy_log`.
 
-8. **Save the wrapup report to DB and generate view:**
+8. **Record session continuity:**
 
- Persist the full wrapup report (all 5 sections from step 4, plus the summary from below) to the DB, then render the `.md` view file.
+The report is assembled for the current session; continuity is recorded in
+the item Progress Log and Ouroboros field-notes rather than in a separate
+report store.
 
- First, compose the full report body with this structure:
+For each item worked on during the session, append a concise status and
+unfinished-work summary through the registered Progress Log writer:
 
- ```markdown
- # Session Wrapup — {YYYY-MM-DD}
+```bash
+yoke items progress-log append PREFIX-N \
+  --headline "Session status and unfinished work" \
+  --content "..." \
+  --source wrapup
+```
 
- ## What We Did
- {content from step 4}
+For observations that do not belong to an item, append a field-note with the
+appropriate kind and concrete evidence:
 
- ## What Went Wrong
- {content from step 4}
+```bash
+yoke ouroboros field-note append --kind <failed|new|unclear|observation> \
+  --evidence "..."
+```
 
- ## What Took Too Long
- {content from step 4}
-
- ## What Worked Well
- {content from step 4}
-
- ## Unfinished Business
- {content from step 4}
-
- ## Summary
- - Items: {list of PREFIX-N transitions}
- - Ouroboros entries: {count}
- - Work items filed: {list or "none"}
- ```
-
- Then save to the authoritative DB through the registered wrapup surface. Use a session timestamp in `{YYYY-MM-DD}-{HHmm}` format (current UTC time):
-
- ```bash
- SESSION_TS="{YYYY-MM-DD}-{HHmm}"
- cat << 'WRAPUP_EOF' | yoke ouroboros wrapup save "$SESSION_TS" --stdin
- {full wrapup report body from above}
- WRAPUP_EOF
- ```
-
- The DB `wrapup_reports` table is the canonical source; future sessions can review it through `yoke ouroboros wrapup list`. External projects do not need a Yoke source checkout or a local generated wrapup view.
+Hold the relevant work claim while writing item continuity and use the
+registered commands so the next session can read the same authoritative
+state.
 
 9. **Display the session summary:**
 
- Print a concise summary to stdout (same content as the Summary section saved in step 8):
+ Print a concise summary to stdout from the report assembled in step 4:
 
  ```
  # Session Wrapup
@@ -241,13 +228,13 @@ cat << 'ENTRY_EOF' | yoke ouroboros entry insert --stdin \
  - {summary of what's pending}
  - (or: none — clean session)
 
- Report saved to: ouroboros/wrapups/{filename}
+ Report emitted in session output; continuity recorded in item Progress Log and Ouroboros field-notes.
  ```
 
 10. **Commit wrapup artifacts:**
 
  ```bash
- # ouroboros/wrapups/ is gitignored — no git add needed.
+ # The report is prompt output; no generated report file needs to be committed.
  # Commit any other wrapup artifacts (e.g., ouroboros entries, patterns updates).
  git diff --cached --quiet || git commit -m "wrapup: session summary and ouroboros entries"
  ```

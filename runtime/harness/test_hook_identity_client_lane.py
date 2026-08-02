@@ -3,9 +3,10 @@
 ``client_lane`` / ``client_model`` live in ``yoke_harness.hooks.identity_relay``
 and surface through ``yoke_harness.hooks.identity``. Lane resolution reads
 machine-config ``settings`` keys (``executor_default_lane_<token>``, with
-``*`` wildcard suffixes and an ``unknown``/``primary`` default); model + codex
-detection come from ``identity_relay``'s own module globals. Tests patch those
-real surfaces.
+``*`` wildcard suffixes and an ``unknown`` default), and answers ``None``
+when nothing matches so the server's project routing policy decides; model +
+codex detection come from ``identity_relay``'s own module globals. Tests
+patch those real surfaces.
 """
 
 from __future__ import annotations
@@ -25,6 +26,21 @@ def test_client_lane_resolves_registration_events_from_machine_config(
     )
 
     assert client_lane("SessionStart", "codex-desktop") == "DARIUS"
+
+
+def test_client_lane_without_machine_config_match_is_none(monkeypatch) -> None:
+    """No local match must not invent a lane for the wire.
+
+    Routing policy normally lives in the project's session-routing
+    capability, which the client cannot read, so a placeholder shipped from
+    here would arrive server-side as an explicit lane and overrule it.
+    """
+    monkeypatch.setattr(
+        f"{_MACHINE_CONFIG}.load_config", lambda: {"settings": {}},
+    )
+
+    assert client_lane("SessionStart", "claude-desktop") is None
+    assert client_lane("UserPromptSubmit", "codex-desktop") is None
 
 
 def test_client_lane_skips_tool_call_events(monkeypatch) -> None:

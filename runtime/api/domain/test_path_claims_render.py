@@ -87,14 +87,14 @@ class TestRenderPathClaimsSection:
         # Both declared paths surface verbatim
         assert "`runtime/api/domain`" in rendered
         assert "`docs/path-claims.md`" in rendered
-        # Actor id is rendered
-        assert f"`{actor}`" in rendered
+        # Registrar identity is intentionally kept out of the body view.
+        assert f"`{actor}`" not in rendered
 
-    def test_renders_session_id_when_present(self, conn):
+    def test_does_not_render_registrar_session_for_item_owner(self, conn):
         actor = local_human(conn)
         item_id = _seed_item(conn, item_id=11003)
         target = seed_target(conn, path_string="runtime/api/domain")
-        # Seed a session row so the FK on path_claims.session_id holds.
+    # Seed a session row so the typed session-owner FK holds.
         conn.execute(
             "INSERT INTO harness_sessions (session_id, executor, provider, "
             "model, project_id, execution_lane, capabilities, workspace, mode, "
@@ -109,7 +109,7 @@ class TestRenderPathClaimsSection:
             target_ids=[target], item_id=item_id, session_id="sess-render",
         )
         rendered = render_path_claims_section(conn, item_id)
-        assert "`sess-render`" in rendered
+        assert "`sess-render`" not in rendered
 
     def test_renders_blocked_claim_with_blocking_conflict(self, conn):
         actor = local_human(conn)

@@ -154,7 +154,8 @@ def test_path_claim_state_check(conn):
     aid = _insert_human_actor(conn)
     with pytest.raises(_integrity_error_types(conn)):
         conn.execute(
-            "INSERT INTO path_claims (state, mode, actor_id, integration_target, registered_at) "
+            "INSERT INTO path_claims (state, mode, registered_by_actor_id, "
+            "integration_target, registered_at) "
             f"VALUES ('ghost', 'exclusive', {p}, 'main', {p})",
             (aid, _now()),
         )
@@ -165,7 +166,8 @@ def test_path_claim_mode_check_blocks_unknown_mode(conn):
     aid = _insert_human_actor(conn)
     with pytest.raises(_integrity_error_types(conn)):
         conn.execute(
-            "INSERT INTO path_claims (state, mode, actor_id, integration_target, registered_at) "
+            "INSERT INTO path_claims (state, mode, registered_by_actor_id, "
+            "integration_target, registered_at) "
             f"VALUES ('planned', 'speculative', {p}, 'main', {p})",
             (aid, _now()),
         )
@@ -175,7 +177,8 @@ def test_path_claim_targets_unique_per_claim(conn):
     p = _p(conn)
     aid = _insert_human_actor(conn)
     cid = conn.execute(
-        "INSERT INTO path_claims (actor_id, integration_target, registered_at) "
+        "INSERT INTO path_claims (registered_by_actor_id, integration_target, "
+        "registered_at) "
         f"VALUES ({p}, 'main', {p}) RETURNING id",
         (aid, _now()),
     ).fetchone()[0]
@@ -214,18 +217,18 @@ def test_path_claims_owner_kind_check_rejects_unknown(conn):
     aid = _insert_human_actor(conn)
     with pytest.raises(_integrity_error_types(conn)):
         conn.execute(
-            "INSERT INTO path_claims (state, mode, actor_id, "
+            "INSERT INTO path_claims (state, mode, registered_by_actor_id, "
             "integration_target, registered_at, owner_kind) "
             f"VALUES ('planned', 'exclusive', {p}, 'main', {p}, 'rogue')",
             (aid, _now()),
         )
 
 
-def test_path_claims_owner_kind_accepts_null_during_cutover(conn):
+def test_path_claims_owner_kind_accepts_null_for_health_check(conn):
     p = _p(conn)
     aid = _insert_human_actor(conn)
     conn.execute(
-        "INSERT INTO path_claims (state, mode, actor_id, "
+        "INSERT INTO path_claims (state, mode, registered_by_actor_id, "
         "integration_target, registered_at) "
         f"VALUES ('planned', 'exclusive', {p}, 'main', {p})",
         (aid, _now()),
@@ -244,7 +247,8 @@ def test_path_claim_amendment_default_payload(conn):
     p = _p(conn)
     aid = _insert_human_actor(conn)
     cid = conn.execute(
-        "INSERT INTO path_claims (actor_id, integration_target, registered_at) "
+        "INSERT INTO path_claims (registered_by_actor_id, integration_target, "
+        "registered_at) "
         f"VALUES ({p}, 'main', {p}) RETURNING id",
         (aid, _now()),
     ).fetchone()[0]

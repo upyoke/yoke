@@ -64,7 +64,8 @@ def gate_state_for_item(
         p = _p(conn)
         rows = conn.execute(
             "SELECT id, state FROM path_claims "
-            f"WHERE item_id = {p} AND state IN ('planned', 'blocked')",
+            f"WHERE owner_kind = 'item' AND owner_item_id = {p} "
+            "AND state IN ('planned', 'blocked')",
             (item_id,),
         ).fetchall()
     except db_backend.operational_error_types():

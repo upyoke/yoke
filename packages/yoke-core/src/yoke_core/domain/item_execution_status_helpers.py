@@ -161,7 +161,7 @@ def collect_path_claims(
     rows = query_rows(
         conn,
         "SELECT id, state, blocked_reason FROM path_claims "
-        f"WHERE item_id={p} ORDER BY id",
+        f"WHERE owner_kind = 'item' AND owner_item_id={p} ORDER BY id",
         (item_id,),
     )
     state_counts: Dict[str, int] = {}

@@ -36,7 +36,7 @@ GitHub Secrets are set, workflow files are committed, the bootstrap ran. But the
 
 ### Gap 3 — Project isolation is incomplete *(systemic)*
 
-**YOK-664** is ready but not yet conducted. Board rendering, conduct dispatch, doctor health checks, wrapup reports, and GitHub sync all have partial or missing project scoping. Running a Buzz item will surface specific instances of this — the sprint hardens the boundaries before those gaps cause confusion.
+**YOK-664** is ready but not yet conducted. Board rendering, conduct dispatch, doctor health checks, session continuity, and GitHub sync all have partial or missing project scoping. Running a Buzz item will surface specific instances of this — the sprint hardens the boundaries before those gaps cause confusion.
 
 ### Gap 4 — No observability *(flying blind)*
 

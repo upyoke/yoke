@@ -4,7 +4,7 @@ Three kinds of allow-list live here:
 
 * :data:`EXEMPT_PATH_SEGMENTS` — directory-name segments that exempt any
   path containing the segment from the scan entirely. Historical record
-  trees (``archive``, ``ouroboros``, ``wrapup_reports``, ``qa-artifacts``,
+  trees (``archive``, ``ouroboros``, ``qa-artifacts``,
   ``legacy-plan-artifacts``) and dependency / build trees go here.
 
 * :data:`PATH_ALLOWLIST_ALL_PATTERNS` — files exempt from EVERY pattern.
@@ -35,7 +35,6 @@ from __future__ import annotations
 EXEMPT_PATH_SEGMENTS: tuple[str, ...] = (
     "archive",
     "ouroboros",
-    "wrapup_reports",
     "qa-artifacts",
     # Historical authoring evidence / planning snapshots for completed
     # cloud-runtime work items. See docs/archive/legacy-plan-artifacts/atlas-boundary-inventory/atlas-evidence/README.md

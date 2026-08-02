@@ -1,9 +1,9 @@
 """Regression tests for item-linked path-claim rollup on active sessions.
 
-Covers the rollup behavior where a ``work_claim`` on ``YOK-N`` must
-decorate its keycap with the summed declared-path count from
-non-terminal ``path_claims`` rows where ``path_claims.item_id = N``, even
-when those rows have ``session_id IS NULL``. Lives in a focused sibling
+Covers the rollup behavior where a ``work_claim`` on an item must decorate
+its keycap with the summed declared-path count from non-terminal
+``path_claims`` rows whose typed owner is that item, even when those rows
+have no session owner. Lives in a focused sibling
 module so :mod:`test_sections_sessions` stays under the 350-line file
 budget hard limit.
 """
@@ -31,9 +31,6 @@ CREATE TABLE work_claims (
 );
 CREATE TABLE path_claims (
     id INTEGER PRIMARY KEY,
-    session_id TEXT,
-    item_id INTEGER,
-    work_claim_id INTEGER,
     owner_kind TEXT,
     owner_item_id INTEGER,
     owner_session_id TEXT,
@@ -79,8 +76,8 @@ def _insert_path_claim(
     owner_kind=None, owner_item_id=None, owner_session_id=None,
     owner_work_claim_id=None,
 ) -> None:
-    # Derive typed owner from legacy signals when not explicit (matches
-    # migration backfill rules).
+    # Derive the typed authority from the convenient test inputs when it is
+    # not explicit: item > process > session.
     if (
         owner_kind is None
         and owner_item_id is None
@@ -99,14 +96,13 @@ def _insert_path_claim(
     raw = connect_test_db(db.path)
     try:
         raw.execute(
-            "INSERT INTO path_claims (id, session_id, item_id, work_claim_id, "
-            "owner_kind, owner_item_id, owner_session_id, "
+            "INSERT INTO path_claims (id, owner_kind, owner_item_id, "
+            "owner_session_id, "
             "owner_work_claim_id, "
             "released_at, cancelled_at, release_reason, cancel_reason) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
             (
-                claim_id, session_id, item_id, work_claim_id,
-                owner_kind, owner_item_id, owner_session_id,
+                claim_id, owner_kind, owner_item_id, owner_session_id,
                 owner_work_claim_id,
                 released_at, cancelled_at, release_reason, cancel_reason,
             ),
@@ -122,7 +118,7 @@ def _insert_path_claim(
 
 
 class TestItemLinkedPathClaimRollup:
-    """Item-linked path_claims with session_id IS NULL decorate the work claim."""
+    """Item-owned path claims without a session owner decorate the work claim."""
 
     def test_null_session_item_claim_decorates_active_work_claim(
         self, board_db: BoardDB,

@@ -97,10 +97,12 @@ def _claim_scope_filter(
             JOIN items wi ON wi.id = wc.item_id
             WHERE wi.project_id = %s {wc_terminal}
             UNION
-            SELECT pc.session_id
+            SELECT wc.session_id
             FROM path_claims pc
-            JOIN items pi ON pi.id = pc.item_id
-            WHERE pi.project_id = %s AND pc.session_id IS NOT NULL {pc_terminal}
+            JOIN items pi ON pi.id = pc.owner_item_id
+            JOIN work_claims wc ON wc.item_id = pc.owner_item_id
+            WHERE pc.owner_kind = 'item'
+              AND pi.project_id = %s {pc_terminal} {wc_terminal}
             UNION
             SELECT cl.session_id
             FROM coordination_leases cl
@@ -151,10 +153,12 @@ def _claim_scope_filter_for_projects(
             JOIN items wi ON wi.id = wc.item_id
             WHERE wi.project_id IN ({markers}) {wc_terminal}
             UNION
-            SELECT pc.session_id
+            SELECT wc.session_id
             FROM path_claims pc
-            JOIN items pi ON pi.id = pc.item_id
-            WHERE pi.project_id IN ({markers}) AND pc.session_id IS NOT NULL {pc_terminal}
+            JOIN items pi ON pi.id = pc.owner_item_id
+            JOIN work_claims wc ON wc.item_id = pc.owner_item_id
+            WHERE pc.owner_kind = 'item'
+              AND pi.project_id IN ({markers}) {pc_terminal} {wc_terminal}
             UNION
             SELECT cl.session_id
             FROM coordination_leases cl

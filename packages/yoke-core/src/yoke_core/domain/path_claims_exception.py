@@ -84,18 +84,14 @@ def register_exception(
     p = _p(conn)
     cur = conn.execute(
         f"""INSERT INTO path_claims
-           (state, mode, actor_id, session_id, item_id,
-            owner_kind, owner_item_id, owner_session_id, owner_work_claim_id,
+           (state, mode, owner_kind, owner_item_id, owner_session_id, owner_work_claim_id,
             registered_by_actor_id, registered_by_session_id,
             integration_target, registered_at, activated_at,
             exception_reason)
-           VALUES ('active', 'exception', {p}, {p}, {p}, {p}, {p}, {p}, {p},
-                   {p}, {p}, {p}, {p}, {p}, {p})
+           VALUES ('active', 'exception', {p}, {p}, {p}, {p}, {p}, {p},
+                   {p}, {p}, {p}, {p})
            RETURNING id""",
         (
-            actor_id,
-            session_id,
-            item_id,
             owner_cols["owner_kind"],
             owner_cols["owner_item_id"],
             owner_cols["owner_session_id"],

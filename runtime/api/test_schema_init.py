@@ -70,7 +70,6 @@ class TestCmdInit:
         expected_tables = {
             "items",
             "ouroboros_entries",
-            "wrapup_reports",
             "release_entries",
             "epic_tasks",
             "epic_task_files",
