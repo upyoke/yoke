@@ -327,7 +327,3 @@ def emit_event(
         )
         reason = "events_table_missing" if missing else "exception"
         return EmitResult(False, None, reason, None)
-
-
-# Re-export the legacy argv-compat helper at the original import path.
-from .events_argv_compat import emit_event_argv  # noqa: E402,F401

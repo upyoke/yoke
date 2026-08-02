@@ -193,5 +193,4 @@ _PER_PATTERN_PATH_ALLOWLIST: dict[str, tuple[str, ...]] = {
     ),
     r"yoke-db\.sh": YOKE_DB_AUDIT_PATHS,
     r"runtime\.harness\.codex\.codex_hooks\b": CODEX_HOOKS_AUDIT_PATHS,
-    **_browser_terms.BROWSER_RETIREMENT_PATH_ALLOWLIST,
 }

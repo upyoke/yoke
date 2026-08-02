@@ -105,7 +105,7 @@ class TestRepoFileHealthChecksB:
         (browser_dir / "package.json").write_text("{}")
         (browser_dir / "node_modules").mkdir()
         with patch(
-            "yoke_core.domain.browser_runtime_home.runtime_dir", return_value=browser_dir
+            "yoke_harness.browser_runtime_home.runtime_dir", return_value=browser_dir
         ), patch(
             "yoke_core.engines.doctor_report._run", return_value=_cp(returncode=1, stdout="")
         ):
@@ -115,7 +115,7 @@ class TestRepoFileHealthChecksB:
 
     def test_browser_substrate_warns_when_not_materialized(self, tmp_path):
         with patch(
-            "yoke_core.domain.browser_runtime_home.runtime_dir",
+            "yoke_harness.browser_runtime_home.runtime_dir",
             return_value=tmp_path / "browser-runtime",
         ):
             rec = _run_hc(hc_browser_substrate)
