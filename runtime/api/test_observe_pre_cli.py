@@ -1,7 +1,7 @@
 """Tests for yoke_core.domain.observe_pre — CLI subprocess entry point.
 
 CLI tests exec the module as a subprocess to validate the launcher path
-and YOKE_DB env-var fallback. Library-level coverage (parse, write,
+and its direct authority connection. Library-level coverage (parse, write,
 process_stdin) lives in test_observe_pre.py.
 """
 
@@ -30,7 +30,11 @@ from runtime.api.observe_test_helpers import _PROJECTS_DDL, _PROJECTS_SEED_DDL
 # ---------------------------------------------------------------------------
 
 
-EVENTS_SCHEMA = _PROJECTS_DDL + "\n" + _PROJECTS_SEED_DDL + """
+EVENTS_SCHEMA = (
+    _PROJECTS_DDL
+    + "\n"
+    + _PROJECTS_SEED_DDL
+    + """
 CREATE TABLE events (
     event_id TEXT PRIMARY KEY,
     source_type TEXT,
@@ -56,6 +60,7 @@ CREATE TABLE events (
     created_at TEXT
 )
 """
+)
 
 
 @pytest.fixture
@@ -106,7 +111,7 @@ class TestCliMain:
             }
         )
         result = subprocess.run(
-            [sys.executable, "-m", "yoke_core.domain.observe_pre", "--db", tmp_db],
+            [sys.executable, "-m", "yoke_core.domain.observe_pre"],
             input=payload,
             capture_output=True,
             text=True,
@@ -128,7 +133,7 @@ class TestCliMain:
         env["PYTHONPATH"] = str(repo_root) + os.pathsep + env.get("PYTHONPATH", "")
 
         result = subprocess.run(
-            [sys.executable, "-m", "yoke_core.domain.observe_pre", "--db", tmp_db],
+            [sys.executable, "-m", "yoke_core.domain.observe_pre"],
             input="",
             capture_output=True,
             text=True,
@@ -144,7 +149,7 @@ class TestCliMain:
         env["PYTHONPATH"] = str(repo_root) + os.pathsep + env.get("PYTHONPATH", "")
 
         result = subprocess.run(
-            [sys.executable, "-m", "yoke_core.domain.observe_pre", "--db", tmp_db],
+            [sys.executable, "-m", "yoke_core.domain.observe_pre"],
             input="{not valid json",
             capture_output=True,
             text=True,
@@ -161,7 +166,7 @@ class TestCliMain:
 
         payload = json.dumps({"tool_name": "Bash", "session_id": "sess-nope"})
         result = subprocess.run(
-            [sys.executable, "-m", "yoke_core.domain.observe_pre", "--db", tmp_db],
+            [sys.executable, "-m", "yoke_core.domain.observe_pre"],
             input=payload,
             capture_output=True,
             text=True,
@@ -171,17 +176,11 @@ class TestCliMain:
         assert result.returncode == 0
         assert _fetch_rows(tmp_db) == []
 
-    def test_cli_without_db_arg_falls_back_to_yoke_db_env(self, tmp_db):
-        """Bare PreToolUse CLI invocation falls back to ``YOKE_DB``.
-
-        ``main()`` must resolve the DB path from ``YOKE_DB`` when no
-        ``--db`` argument is passed so ``HarnessToolCallStarted`` emissions
-        and ``duration_ms`` telemetry stay alive for hook callers.
-        """
+    def test_cli_uses_the_active_authority(self, tmp_db):
+        """Bare PreToolUse invocations use the active Postgres authority."""
         repo_root = Path(__file__).resolve().parents[2]
         env = os.environ.copy()
         env["PYTHONPATH"] = str(repo_root) + os.pathsep + env.get("PYTHONPATH", "")
-        env["YOKE_DB"] = tmp_db
 
         payload = json.dumps(
             {
@@ -191,7 +190,7 @@ class TestCliMain:
             }
         )
         result = subprocess.run(
-            [sys.executable, "-m", "yoke_core.domain.observe_pre"],  # no --db
+            [sys.executable, "-m", "yoke_core.domain.observe_pre"],
             input=payload,
             capture_output=True,
             text=True,

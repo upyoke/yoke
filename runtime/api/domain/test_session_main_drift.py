@@ -86,7 +86,6 @@ def test_first_observation_records_main_without_advisory(drift_db, git_repo) -> 
 
     advisory = check_drift(
         "sess-drift",
-        db_path=drift_db,
         repo_path=str(git_repo),
         now="2026-01-01T00:00:00Z",
     )
@@ -98,7 +97,6 @@ def test_first_observation_records_main_without_advisory(drift_db, git_repo) -> 
 def test_changed_main_returns_advisory_and_updates_seen_sha(drift_db, git_repo) -> None:
     check_drift(
         "sess-drift",
-        db_path=drift_db,
         repo_path=str(git_repo),
         now="2026-01-01T00:00:00Z",
     )
@@ -106,7 +104,6 @@ def test_changed_main_returns_advisory_and_updates_seen_sha(drift_db, git_repo) 
 
     advisory = check_drift(
         "sess-drift",
-        db_path=drift_db,
         repo_path=str(git_repo),
         now="2026-01-01T00:02:00Z",
     )
@@ -120,7 +117,6 @@ def test_changed_main_returns_advisory_and_updates_seen_sha(drift_db, git_repo) 
 def test_same_sha_and_throttle_return_no_advisory(drift_db, git_repo) -> None:
     check_drift(
         "sess-drift",
-        db_path=drift_db,
         repo_path=str(git_repo),
         now="2026-01-01T00:00:00Z",
     )
@@ -128,7 +124,6 @@ def test_same_sha_and_throttle_return_no_advisory(drift_db, git_repo) -> None:
 
     throttled = check_drift(
         "sess-drift",
-        db_path=drift_db,
         repo_path=str(git_repo),
         now="2026-01-01T00:00:30Z",
     )
@@ -147,7 +142,6 @@ def test_observe_pre_prints_drift_advisory(monkeypatch, capsys) -> None:
 
     observe_pre._try_check_session_main_drift(
         {"session_id": "sess-drift", "cwd": "/tmp/repo"},
-        "/tmp/db",
     )
 
     assert (

@@ -40,7 +40,7 @@ def resolve_repo_root() -> str:
             if result.returncode == 0:
                 for line in result.stdout.splitlines():
                     if line.startswith("worktree "):
-                        candidate = line[len("worktree "):]
+                        candidate = line[len("worktree ") :]
                         if os.path.isdir(os.path.join(candidate, "runtime", "api")):
                             return candidate
                         break
@@ -60,10 +60,7 @@ def session_service_client_path() -> str:
 
 
 def _connected_env_allowed_in_this_process() -> bool:
-    if (
-        os.environ.get("PYTEST_CURRENT_TEST")
-        or "pytest" in __import__("sys").modules
-    ):
+    if os.environ.get("PYTEST_CURRENT_TEST") or "pytest" in __import__("sys").modules:
         from yoke_core.domain import yoke_connected_env
 
         return os.environ.get(yoke_connected_env.PYTEST_ENABLE_ENV) == "1"
@@ -215,7 +212,13 @@ def touch_session(service_client_path: str, root: str, session_id: str) -> int:
     try:
         cwd = _target_cwd(root, service_client_path)
         result = subprocess.run(
-            ["python3", service_client_path, "session-touch", "--session-id", session_id],
+            [
+                "python3",
+                service_client_path,
+                "session-touch",
+                "--session-id",
+                session_id,
+            ],
             capture_output=True,
             text=True,
             cwd=cwd,
@@ -231,7 +234,6 @@ def touch_session(service_client_path: str, root: str, session_id: str) -> int:
 
 
 def refresh_session_model_if_placeholder(
-    db_path: str,
     session_id: str,
     transcript_path: str,
     *,
@@ -267,7 +269,7 @@ def refresh_session_model_if_placeholder(
     try:
         from yoke_core.domain import db_backend
 
-        conn = db_backend.connect(db_path or None, busy_timeout_ms=2000)
+        conn = db_backend.connect(busy_timeout_ms=2000)
     except Exception:
         return False
     try:
@@ -292,6 +294,7 @@ def refresh_session_model_if_placeholder(
 
     try:
         from yoke_core.domain.events import emit_event as _native_emit
+
         _native_emit(
             "HarnessSessionModelRefreshed",
             event_kind="system",
