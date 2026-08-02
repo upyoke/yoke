@@ -121,6 +121,8 @@ def test_selected_path_claims_register_activate_and_check_coverage(
             commit_sha="b" * 40,
             merge_sha="c" * 40,
             touched_files=["ui/other.js"],
+            tree_root="/repo/.worktrees/lane",
+            tree_head_sha="abc1234",
         )
     finally:
         conn.close()
@@ -301,6 +303,8 @@ def test_deploy_posture_requires_successful_item_bound_merge_lineage(
             commit_sha="e" * 40,
             merge_sha=merge_sha,
             touched_files=["ui/dash.js"],
+            tree_root="/repo/.worktrees/lane",
+            tree_head_sha="abc1234",
         )
         insert_deployment_run(
             conn,

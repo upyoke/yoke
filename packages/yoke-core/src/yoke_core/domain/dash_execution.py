@@ -94,10 +94,20 @@ def record_dash_evidence(
     commit_sha: str,
     merge_sha: str,
     touched_files: Sequence[str],
+    tree_root: str,
+    tree_head_sha: str,
     posture_checks: Optional[Mapping[str, str]] = None,
     no_changes: bool = False,
 ) -> dict[str, Any]:
-    """Write the canonical evidence section consumed by the done gate."""
+    """Write the canonical evidence section consumed by the done gate.
+
+    ``tree_root`` and ``tree_head_sha`` name the tree the verification
+    summary describes. The caller resolves them locally
+    (:func:`yoke_core.domain.verification_tree_binding.resolve_tree_identity`)
+    because only the machine holding the checkout can answer; recording
+    them is what keeps a green produced against the wrong tree from
+    reading exactly like a green against the right one.
+    """
     _require_dash(conn, item_id)
     clean_result = str(result_summary).strip()
     clean_verification = str(verification_summary).strip()
@@ -113,9 +123,17 @@ def record_dash_evidence(
         raise ValueError("verification_summary is required")
     if clean_status not in _PASS_VALUES:
         raise ValueError("verification_status must record a passing outcome")
-    for label, value in (("commit_sha", clean_commit), ("merge_sha", clean_merge)):
+    clean_tree_root = str(tree_root).strip()
+    clean_tree_head = str(tree_head_sha).strip()
+    for label, value in (
+        ("commit_sha", clean_commit),
+        ("merge_sha", clean_merge),
+        ("tree_head_sha", clean_tree_head),
+    ):
         if not _SHA_PATTERN.fullmatch(value):
             raise ValueError(f"{label} must be a 7-64 character git SHA")
+    if not clean_tree_root:
+        raise ValueError("tree_root is required")
     if not files and not no_changes:
         raise ValueError("touched_files is required unless no_changes=true")
     checks = {
@@ -133,6 +151,10 @@ def record_dash_evidence(
         "touched_files": files,
         "no_changes": bool(no_changes),
         "posture_checks": checks,
+        "verification_tree": {
+            "root": clean_tree_root,
+            "head_sha": clean_tree_head,
+        },
         "recorded_at": iso8601_now(),
     }
     _upsert_json_section(
