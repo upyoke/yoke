@@ -169,6 +169,7 @@ def decide_charge_action(
                     drift_review=frontier.drift_review,
                     selected_item=frontier.selected_item,
                     scheduler_context=verdict.refreshed_context,
+                    offer_diagnostics=frontier.offer_diagnostics,
                     lane_filtered_count=frontier.lane_filtered_count,
                     lane_filtered_items=frontier.lane_filtered_items,
                     last_completed_step=frontier.last_completed_step,

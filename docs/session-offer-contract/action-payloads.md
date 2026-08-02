@@ -128,6 +128,25 @@ When the frontier also carries lane-filtered detail (current session's lane excl
 }
 ```
 
+Every offer response carries a numbered `offer_diagnostics` object in
+`context`, including WAITs and process-policy skips. The decision engine and
+the `/yoke do` loop use `top_eliminator.summary` for the short human message;
+the full chain remains available to event and offer-envelope consumers:
+
+```json
+{
+ "candidate_total": 13,
+ "elimination_chain": [
+  {"filter": "lane_compatibility", "candidates_before": 13, "eliminated": 13, "candidates_after": 0, "actual_lane": "ALTMAN", "allowed_paths": ["refine", "polish"], "config_key": "lane_paths_altman"},
+  {"filter": "wip_cap", "candidates_before": 0, "eliminated": 0, "cap": 5, "active": 0, "occupying_items": []},
+  {"filter": "claim_state", "candidates_before": 0, "eliminated": 0, "claim_state_counts": {}},
+  {"filter": "posture_gate_holds", "candidates_before": 13, "eliminated": 0, "blocked": 0, "exceptional": 0, "frozen": 0},
+  {"filter": "process_offers", "candidates_before": 3, "eliminated": 2, "offers": [{"process_key": "FEED", "enabled": false, "config_key": "do_process_offer_feed", "config_source": "project capability session-routing"}]}
+ ],
+ "top_eliminator": {"filter": "lane_compatibility", "eliminated": 13, "summary": "..."}
+}
+```
+
 ### wait — no lane-compatible work
 
 When the decision engine returns `wait` with `wait_reason: "no_lane_compatible_work"`, the frontier has items but the offering session's lane policy filters every one of them. Blocker-driven `escalate` retains precedence — this WAIT only fires when no blockers/exceptional items are present and the SML is coherent. The context carries the lane situation:

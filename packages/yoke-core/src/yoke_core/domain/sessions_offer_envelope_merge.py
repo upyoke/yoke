@@ -30,6 +30,8 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, FrozenSet, Optional
 
+from . import db_backend
+
 # Keys the session-offer write owns. Per-offer values overwrite any
 # existing value when present in the per-offer dict; they are preserved
 # (alongside everything else) when the per-offer dict omits them — for
@@ -48,6 +50,7 @@ OFFER_WRITE_OWNED_KEYS: FrozenSet[str] = frozenset({
     "supported_paths",
     "max_chain_steps",
     "runtime_session_id",
+    "offer_diagnostics",
 })
 
 # Cross-offer keys explicitly written by other code paths between
@@ -97,8 +100,40 @@ def merge_offer_envelope(
     return dict(per_offer)
 
 
+def persist_offer_diagnostics(
+    conn: Any,
+    session_id: str,
+    diagnostics: Optional[Dict[str, Any]],
+) -> None:
+    """Persist the latest decision diagnostics without clobbering chain state."""
+    if diagnostics is None:
+        return
+    placeholder = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    row = conn.execute(
+        f"SELECT offer_envelope FROM harness_sessions WHERE session_id = {placeholder}",
+        (session_id,),
+    ).fetchone()
+    if row is None:
+        return
+    try:
+        existing_blob = row["offer_envelope"]
+    except (KeyError, TypeError, IndexError):
+        existing_blob = row[0]
+    merged = merge_offer_envelope(
+        existing_blob,
+        {"offer_diagnostics": diagnostics},
+    )
+    conn.execute(
+        f"UPDATE harness_sessions SET offer_envelope = {placeholder} "
+        f"WHERE session_id = {placeholder}",
+        (json.dumps(merged), session_id),
+    )
+    conn.commit()
+
+
 __all__ = [
     "OFFER_WRITE_OWNED_KEYS",
     "PRESERVED_KEYS",
     "merge_offer_envelope",
+    "persist_offer_diagnostics",
 ]
