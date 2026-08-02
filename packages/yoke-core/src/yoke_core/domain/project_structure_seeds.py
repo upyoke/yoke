@@ -152,7 +152,7 @@ def cmd_seed(project_id: str, db_path: Optional[str] = None) -> Dict[str, Any]:
                 and _table_exists(conn, "qa_plans")
                 and _table_exists(conn, "qa_plan_project_defaults")
             ):
-                from yoke_core.domain.qa_command_plan_migration import (
+                from yoke_core.domain.qa_command_plan_registration import (
                     ensure_registered_command_plan,
                 )
 
