@@ -162,6 +162,8 @@ The substrate renderer produces:
 | `runtime/harness/codex/agents/yoke-*.toml` (surfaced as `.codex/agents/yoke-*.toml`) | Codex custom-agent files | Same |
 | `runtime/harness/bootstrap-spec.json#canonical_agents` | Shared canonical-body discovery | Manual (operator-authored manifest) |
 | `runtime/harness/codex/manifest.json` | Codex affordances and limitations | Manual (operator-authored manifest) |
+| `runtime/harness/cursor/agents/yoke-*.md` (surfaced as `.cursor/agents/yoke-*.md`) | Cursor custom-agent files | Same |
+| `runtime/harness/cursor/hooks.json` (surfaced as `.cursor/hooks.json`) + `runtime/harness/cursor/manifest.json` | Cursor hook config and manifest | `yoke agents render` |
 
 Regeneration is idempotent. Doctor's `HC-agent-canonical-drift` health check fails when any rendered adapter body diverges from its canonical source.
 

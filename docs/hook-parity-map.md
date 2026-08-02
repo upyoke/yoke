@@ -41,6 +41,15 @@ Behaviors in this tier use hooks that have been verified in both Claude Code and
 
 **Codex identity pin:** the Codex hooks.json command shape pins `YOKE_EXECUTOR=codex` and `YOKE_PROVIDER=openai` before `yoke hook evaluate` so the hook subprocess attributes correctly even when the parent launcher does not export `CODEX_THREAD_ID`. Without the pin, `runtime.harness.hook_helpers_identity.detect_executor` falls back to the Claude family and stores `executor=claude-code` / `provider=anthropic` on the Codex Desktop session row plus `context.executor=claude` on every `HookDispatchTelemetry` envelope. The pin is owned by `packages/yoke-core/src/yoke_core/domain/agents_render_hooks.py` (`_CODEX_IDENTITY_ENV`) so any future Codex command-shape change keeps the executor/provider signal attached at one place.
 
+### Cursor coverage
+
+Cursor's hook surface is a near-superset of the tested cross-harness tier, with camelCase native event names mapped to canonical verbs in the rendered `runtime/harness/cursor/hooks.json` (surfaced as `.cursor/hooks.json`). Measured facts (Cursor IDE 3.14.7 / cursor-agent 2026.07.23; full matrix in [Cursor Harness Integration Assessment](harness-cursor-assessment.md)):
+
+- The Bash chain anchors on `beforeShellExecution` (raw command + sandbox state), not a `preToolUse` Shell matcher — wiring both would run the chain twice per command. A hook deny holds even under the terminal agent's force mode, and `postToolUseFailure` fires with `failure_type=permission_denied` — an explicit failure event Codex lacks.
+- Context injection is event-scoped: `sessionStart` and `postToolUse` accept `additional_context`; `preToolUse` has no allow-time channel, so the Cursor adapter's `pretool_omissions` elides advisory-only hint modules instead of silently dropping their output.
+- Coverage differs per surface: the IDE fires the full set; the non-interactive terminal agent (`cursor-agent -p`) omits `beforeSubmitPrompt`, `stop`, and the subagent lifecycle events, so orientation rides `sessionStart` (both surfaces) rather than prompt-submit.
+- Identity pin: the rendered command pins `YOKE_EXECUTOR=cursor` (provider stays payload-derived — Cursor multiplexes model vendors in one session). Subagents run under their own session ids; the payload parser folds them into the top-level container session, so telemetry and registration never mint per-subagent sessions.
+
 ### Claude-Code-only (no cross-harness equivalent)
 
 Behaviors in this tier use hook events or matchers that have no tested equivalent in Codex or other harnesses. They remain Claude-Code-exclusive until a cross-harness equivalent is verified.
