@@ -88,7 +88,7 @@ def test_default_runner_status_payload() -> None:
 
 
 def test_runner_status_uses_https_authority_when_connected() -> None:
-    def relay(request, connection):
+    def relay(request, connection, **_transport_kwargs):
         assert connection == _CONNECTION
         _CAPTURED_REQUESTS.append(request)
         return FunctionCallResponse(

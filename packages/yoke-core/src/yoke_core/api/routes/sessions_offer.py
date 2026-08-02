@@ -49,6 +49,7 @@ from yoke_core.domain.session_decision_process_gate import (
     merge_skip_memory_with_policy,
     record_disabled_process_skip,
 )
+from yoke_core.domain.sessions_offer_envelope_merge import persist_offer_diagnostics
 from yoke_core.api.routes.session_offer_models import SessionOfferRequest
 
 router = APIRouter()
@@ -215,6 +216,7 @@ def api_session_offer(req: SessionOfferRequest) -> JSONResponse:
                 session_id=req.session_id,
                 ownership=ownership,
                 step=req.step,
+                process_offer_policy=effective_policy, actual_lane=offer.execution_lane,
             )
         elif ownership["schedule_result"] is not None:
             schedule = ownership["schedule_result"]
@@ -284,9 +286,7 @@ def api_session_offer(req: SessionOfferRequest) -> JSONResponse:
                 "CHARGE_CLAIM_INVARIANT_FAILED",
                 err or "Charge action failed claim invariant.",
             )
-
         set_session_mode(conn, req.session_id, result.action.value)
-
         record_disabled_process_skip(
             conn,
             session_id=req.session_id,
@@ -294,7 +294,7 @@ def api_session_offer(req: SessionOfferRequest) -> JSONResponse:
             project=project_label,
             action=result,
         )
-
+        persist_offer_diagnostics(conn, req.session_id, (result.context or {}).get("offer_diagnostics"))
         if should_emit_drift_review_checkpoint(result, drift_dict):
             # State first: advance each scoped project's checkpoint anchor,
             # then emit the matching telemetry event.

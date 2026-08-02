@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from yoke_cli.transport.function_version_skew import SKEW_ERROR_CODE
 from yoke_cli.transport.https import HttpsConnection
 from yoke_contracts.api.function_call import (
     ActorContext,
@@ -25,7 +26,7 @@ def _missing_response(request, _connection, **_kwargs) -> FunctionCallResponse:
     )
 
 
-def test_https_function_not_registered_names_deploy_and_local_env(
+def test_https_function_not_registered_adds_the_local_env_rerun(
     monkeypatch,
 ) -> None:
     import yoke_cli.transport.https as transport
@@ -34,10 +35,9 @@ def test_https_function_not_registered_names_deploy_and_local_env(
     monkeypatch.setattr(
         transport,
         "resolve_https_connection",
-        lambda path=None: HttpsConnection("https://api.example", "tok"),
+        lambda path=None: HttpsConnection("https://api.example", "tok", env="prod"),
     )
     monkeypatch.setattr(transport, "relay_https", _missing_response)
-    monkeypatch.setattr(machine_config, "active_env", lambda path=None: "prod")
     monkeypatch.setattr(
         machine_config,
         "load_config",
@@ -57,10 +57,13 @@ def test_https_function_not_registered_names_deploy_and_local_env(
 
     assert response.success is False
     assert response.error is not None
-    hint = response.error.recovery_hint or ""
-    assert "active HTTPS env 'prod' does not serve `strategy.doc.create`" in hint
-    assert "Deploy or update the Yoke API" in hint
-    assert "yoke --env prod-db-admin strategy doc create" in hint
+    assert response.error.code == SKEW_ERROR_CODE
+    assert "env 'prod' does not serve function 'strategy.doc.create'" in (
+        response.error.message
+    )
+    assert "yoke --env prod-db-admin strategy doc create" in (
+        response.error.recovery_hint or ""
+    )
 
 
 def test_unknown_local_function_keeps_original_server_error(monkeypatch) -> None:
@@ -80,6 +83,4 @@ def test_unknown_local_function_keeps_original_server_error(monkeypatch) -> None
     )
 
     assert response.error is not None
-    assert "Deploy or update the Yoke API" not in (
-        response.error.recovery_hint or ""
-    )
+    assert response.error.code == "function_not_registered"

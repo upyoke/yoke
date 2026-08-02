@@ -218,6 +218,56 @@ Operationally:
 - item moves to `release` while the run is executing
 - item moves to `done` when the run succeeds and blocking post-deploy/manual-acceptance requirements are satisfied
 
+### Terminal items are immutable
+
+Once an item reaches a terminal stage its records are frozen. This is
+deliberate, not an oversight, and it is enforced structurally rather than by
+convention: the ordinary scalar-write path requires the item's work claim,
+and a work claim cannot be acquired against a terminal item
+(`INVALID_CLAIM: item N is terminal at workflow stage 'done'`). `--force`
+bypasses the frozen-item and gate guards, not the claim check.
+
+The same stance governs the adjacent record types — an unsettled QA record
+blocks the terminal transition rather than being corrected afterward, so the
+repair happens while the claim is still held. Prefer that shape whenever a
+value must be right before an item freezes: gate the transition, do not
+reopen the record.
+
+Ad hoc write SQL against the authoritative DB is not an escape hatch here;
+it is banned by the governed-mutation contract.
+
+#### The one exception: an unrecorded merge timestamp
+
+A branch that lands outside the merge boundary — a hand-run `gh pr merge`,
+for example — leaves `items.merged_at` unset, and the item can then reach a
+terminal stage with no record of when it merged. Because terminal records
+are immutable, nothing could repair that afterward.
+
+One narrow human-only surface exists for exactly that gap:
+
+```bash
+yoke items merge-provenance operator-correct PREFIX-N --merged-at YYYY-MM-DDTHH:MM:SSZ --reason TEXT
+```
+
+It fills an unset value on an already-terminal item and does nothing else.
+It refuses a hook context (human-only), a non-terminal item, an item whose
+`merged_at` is already set, and a timestamp that fails to parse or lies in
+the future. Every accepted correction emits a WARN
+`OperatorMergedAtCorrection` event carrying the operator reason, written
+before the update lands, so the ledger records the action even if the write
+then fails. Run `yoke items merge-provenance operator-correct --help` for
+the recovery workflow, including how to read the real timestamp off the
+merge commit.
+
+A live item never needs this: `yoke merge item PREFIX-N` is the merge boundary
+and stamps `merged_at` itself.
+
+Note that nothing currently blocks an item from reaching a terminal stage
+with `merged_at` unset — the equivalent gate exists only for epics
+(`GATE_EPIC_MERGE`). Extending it to standalone items needs a predicate that
+separates a genuine no-change item from one that should have merged, so the
+correction surface above is today's answer rather than prevention.
+
 ## Registered Executor Boundaries
 
 Commands do not own global status ranges and do not apply by item type. Each

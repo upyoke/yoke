@@ -56,6 +56,12 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke ouroboros field-note get", "ouroboros"),
     # items_scalar.
     _w("yoke items scalar update", "items.scalar"),
+    # items_merge_provenance: operator repair for a terminal item's unset
+    # merged_at, the one sanctioned exception to terminal immutability.
+    _w(
+        "yoke items merge-provenance operator-correct",
+        "items.merge_provenance",
+    ),
     # items.section + items.structured_field additives.
     _w("yoke items section upsert", "items.section"),
     _w("yoke items section get", "items.section"),

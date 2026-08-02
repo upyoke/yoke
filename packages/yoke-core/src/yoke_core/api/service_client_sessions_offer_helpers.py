@@ -18,6 +18,7 @@ from __future__ import annotations
 from typing import Any, Dict, Optional, Tuple
 
 from yoke_core.domain.session_contract import ActionKind, NextAction
+from yoke_core.domain.session_offer_diagnostics import attach_offer_diagnostics
 from yoke_core.domain.sessions_offer_revalidation import (
     build_no_work_wait_context,
     normalize_item_id,
@@ -29,6 +30,8 @@ def build_no_work_wait_action(
     session_id: str,
     ownership: Dict[str, Any],
     step: int,
+    process_offer_policy: Any = None,
+    actual_lane: Optional[str] = None,
 ) -> NextAction:
     """Construct a WAIT NextAction for the ``action_hint=no_work`` path.
 
@@ -65,12 +68,18 @@ def build_no_work_wait_action(
             f"(terminal_reason={wait_context['terminal_reason']}); no claim "
             "could be acquired."
         )
-    return NextAction(
+    action = NextAction(
         action=ActionKind.WAIT,
         reason=reason,
         chainable=False,
         correlation_id=session_id,
         context=wait_context,
+    )
+    return attach_offer_diagnostics(
+        action,
+        getattr(schedule, "offer_diagnostics", None) if schedule else None,
+        process_offer_policy=process_offer_policy,
+        actual_lane=actual_lane,
     )
 
 

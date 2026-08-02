@@ -234,6 +234,7 @@ class SchedulerResult:
         exceptional_steps: Steps in failed status (visible for escalation).
         wip_cap: WIP cap used in computation.
         wip_active: Current WIP count.
+        wip_active_items: Internal item ids occupying the WIP count.
         conduct_eligible: Conduct-eligible steps within WIP cap.
         frozen_steps: Frozen items (excluded from scheduling).
         lane_filtered_count: Number of ranked steps dropped by session-offer
@@ -243,6 +244,9 @@ class SchedulerResult:
             by ``item_id`` with ``title``, ``status``, ``next_step``,
             ``required_path``, ``rank``, and ``claim_state``. Empty when
             nothing was filtered.
+        offer_diagnostics: Numbered elimination chain attached by the
+            session-offer compatibility pass. ``None`` for scheduler-only
+            callers that do not offer work to a session.
     """
 
     project_scope: List[int] = field(default_factory=list)
@@ -253,7 +257,9 @@ class SchedulerResult:
     exceptional_steps: List[ScheduledStep] = field(default_factory=list)
     wip_cap: int = 5
     wip_active: int = 0
+    wip_active_items: List[int] = field(default_factory=list)
     conduct_eligible: List[ScheduledStep] = field(default_factory=list)
     frozen_steps: List[ScheduledStep] = field(default_factory=list)
     lane_filtered_count: int = 0
     lane_filtered_items: List[Dict[str, Any]] = field(default_factory=list)
+    offer_diagnostics: Optional[Dict[str, Any]] = None

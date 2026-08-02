@@ -22,6 +22,9 @@ def _report_outcome(result: dict) -> None:
     terminal after a long gate run needs the verdict, the exit code, and
     the capture path without parsing it — especially on a failure, where
     the alternative is re-running the same command by hand to see why.
+
+    A timed-out run adds a second line: its verdict is the same ``fail`` a
+    broken branch reports, so the reader is told which one happened.
     """
     fields = [
         f"verdict={result.get('verdict')}",
@@ -32,6 +35,12 @@ def _report_outcome(result: dict) -> None:
     if result.get("output_capture"):
         fields.append(f"capture={result['output_capture']}")
     print(f"# qa case run: {' '.join(fields)}", file=sys.stderr, flush=True)
+    if result.get("timeout_summary"):
+        print(
+            f"# qa case run: {result['timeout_summary']}",
+            file=sys.stderr,
+            flush=True,
+        )
 
 
 def run(args: List[str]) -> int:

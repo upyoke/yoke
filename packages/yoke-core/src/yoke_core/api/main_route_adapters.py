@@ -97,6 +97,7 @@ def _build_frontier_state(
         drift_review=drift_review_dict,
         selected_item=selected_item,
         scheduler_context=scheduler_ctx,
+        offer_diagnostics=getattr(schedule, "offer_diagnostics", None),
         lane_filtered_count=getattr(schedule, "lane_filtered_count", 0),
         lane_filtered_items=list(lane_filtered_items) if lane_filtered_items else None,
         last_completed_step=last_completed_step,

@@ -43,6 +43,8 @@ import time
 from pathlib import Path
 from typing import Iterator, Optional, Sequence, TextIO
 
+from yoke_core.domain import test_gate_timeout
+
 # One gate already claims most of the machine: pytest-xdist sizes its
 # worker fleet from the core count, so a single full gate runs ~10 workers
 # on the 18-core reference machine. A second concurrent gate therefore
@@ -192,11 +194,13 @@ def _acquire(stream: TextIO):
     last_announce = 0.0
     try:
         while True:
-            if try_acquire_slot(conn, cap):
+            # The lock base is read from the module at call time so a test
+            # can retarget the whole gate onto a scratch key range.
+            if try_acquire_slot(conn, cap, GATE_SLOT_LOCK_BASE):
                 waited = time.monotonic() - waited_since
                 if waited > _POLL_INTERVAL_S:
                     print(
-                        f"gate admission: slot acquired after {waited:.0f}s",
+                        f"{test_gate_timeout.SLOT_ACQUIRED_PREFIX}{waited:.0f}s",
                         file=stream,
                         flush=True,
                     )

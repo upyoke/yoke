@@ -271,6 +271,9 @@ class TestNextActionChosenEmission:
             context={
                 "selected_item": "YOK-9999",
                 "scheduler": {"next_step": "conduct"},
+                "offer_diagnostics": {
+                    "top_eliminator": {"filter": "wip_cap", "eliminated": 2},
+                },
             },
         )
 
@@ -288,6 +291,7 @@ class TestNextActionChosenEmission:
         assert ctx["chainable"] is True
         assert ctx["step"] == 2
         assert ctx["selected_item"] == "YOK-9999"
+        assert ctx["offer_diagnostics"]["top_eliminator"]["filter"] == "wip_cap"
 
     @patch("yoke_core.domain.events.emit_event")
     def test_resume_indexes_item_and_task_num(self, mock_emit):

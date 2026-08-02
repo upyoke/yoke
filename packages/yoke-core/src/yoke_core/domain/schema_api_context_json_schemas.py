@@ -68,6 +68,7 @@ JSON_NESTED_SCHEMAS: dict[tuple[str, str], dict] = {
             ("capabilities", "list[str]", "[]"),
             ("workspace", "str", "''"),
             ("offered_at", "str (ISO-8601)", "''"),
+            ("offer_diagnostics", "dict", "{}"),
         ],
     },
     ("qa_requirements", "capability_requirements"): {
