@@ -100,6 +100,8 @@ def _publish(repo_root: str, target: str) -> tuple[bool, str]:
 
 def _run_merge_engine(
     *,
+    item_id: int,
+    repo_root: str,
     branch: str,
     target: str,
     local_merge: bool,
@@ -125,6 +127,8 @@ def _run_merge_engine(
             MergeArgs(
                 branch=branch,
                 target=target,
+                item_id=item_id,
+                expected_repo_root=repo_root,
                 epic_ref=None,
                 local_merge=local_merge,
                 standalone=True,
@@ -185,7 +189,11 @@ def merge_standalone_branch(
     output = ""
     if not already:
         exit_code, output = _run_merge_engine(
-            branch=branch, target=target, local_merge=local_merge,
+            item_id=item_id,
+            repo_root=repo_root,
+            branch=branch,
+            target=target,
+            local_merge=local_merge,
         )
         if exit_code != 0:
             return StandaloneMergeOutcome(

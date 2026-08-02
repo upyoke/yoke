@@ -146,15 +146,24 @@ def preflight_checks(ctx: MergeContext) -> Optional[Tuple[int, str]]:
 
     # PF-5: Integration dependency gate. The relayed evaluation replaces the
     # local ``service_client`` child process so the gate runs over an https
-    # control plane; an unavailable read degrades to a skip (advisory), while
-    # a returned block is surfaced verbatim.
+    # control plane. Item-bound merges use typed identity and fail closed when
+    # the gate cannot evaluate; generic branch merges retain the advisory
+    # fallback.
     try:
+        dep_target = (
+            TargetRef(kind="item", item_id=int(ctx.item_id))
+            if ctx.item_id is not None
+            else TargetRef(kind="global")
+        )
+        dep_payload = {"gate_point": "integration"}
+        if ctx.item_id is None:
+            dep_payload["item_ref"] = ctx.args.branch
         dep_resp = call_dispatcher(
             function_id="merge.preflight.dependency_gate",
-            target=TargetRef(kind="global"),
-            payload={"item_ref": ctx.args.branch, "gate_point": "integration"},
+            target=dep_target,
+            payload=dep_payload,
         )
-    except Exception:  # noqa: BLE001 - a refused relay degrades the advisory gate.
+    except Exception:  # noqa: BLE001 - classified below by item authority.
         dep_resp = None
     if dep_resp is not None and dep_resp.success:
         gate_data = dep_resp.result or {}
@@ -170,7 +179,18 @@ def preflight_checks(ctx: MergeContext) -> Optional[Tuple[int, str]]:
         else:
             _print("  OK: Integration dependency gate clear")
     else:
-        _print("  OK: Integration dependency gate skipped (dependency read unavailable)")
+        if ctx.item_id is not None:
+            _print(
+                "  FAIL: Integration dependency gate unavailable for "
+                f"item {ctx.item_id}",
+                err=True,
+            )
+            fail = True
+        else:
+            _print(
+                "  OK: Integration dependency gate skipped "
+                "(dependency read unavailable)"
+            )
 
     # PF-6: blocked-flag refusal. The relayed read resolves the active
     # worktree lane for the branch and reads the item's blocked flag so the

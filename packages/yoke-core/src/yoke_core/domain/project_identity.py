@@ -281,6 +281,7 @@ def render_item_ref(
     item_id: int,
     *,
     qualify: bool = False,
+    required: bool = False,
 ) -> str:
     del qualify
     p = placeholder(conn)
@@ -293,6 +294,8 @@ def render_item_ref(
         (item_id,),
     )
     if row is None:
+        if required:
+            raise LookupError(f"item identity not found: {item_id}")
         return f"{DEFAULT_PUBLIC_ITEM_PREFIX}-{item_id}"
     prefix = row_value(row, "public_item_prefix", 1)
     sequence = row_value(row, "project_sequence", 2)
