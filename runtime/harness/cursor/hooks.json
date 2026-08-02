@@ -3,49 +3,49 @@
   "hooks": {
     "sessionStart": [
       {
-        "command": "/bin/zsh -lc 'env YOKE_EXECUTOR=cursor yoke hook evaluate SessionStart'"
+        "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CURSOR_PROJECT_DIR:-$PWD}\" YOKE_EXECUTOR=cursor yoke hook evaluate SessionStart'"
       }
     ],
     "sessionEnd": [
       {
-        "command": "/bin/zsh -lc 'env YOKE_EXECUTOR=cursor yoke hook evaluate SessionEnd'"
+        "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CURSOR_PROJECT_DIR:-$PWD}\" YOKE_EXECUTOR=cursor yoke hook evaluate SessionEnd'"
       }
     ],
     "beforeSubmitPrompt": [
       {
-        "command": "/bin/zsh -lc 'env YOKE_EXECUTOR=cursor yoke hook evaluate UserPromptSubmit'"
+        "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CURSOR_PROJECT_DIR:-$PWD}\" YOKE_EXECUTOR=cursor yoke hook evaluate UserPromptSubmit'"
       }
     ],
     "beforeShellExecution": [
       {
-        "command": "/bin/zsh -lc 'env YOKE_EXECUTOR=cursor yoke hook evaluate PreToolUse'"
+        "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CURSOR_PROJECT_DIR:-$PWD}\" YOKE_EXECUTOR=cursor yoke hook evaluate PreToolUse'"
       }
     ],
     "afterShellExecution": [
       {
-        "command": "/bin/zsh -lc 'env YOKE_EXECUTOR=cursor yoke hook evaluate PostToolUse'"
+        "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CURSOR_PROJECT_DIR:-$PWD}\" YOKE_EXECUTOR=cursor yoke hook evaluate PostToolUse'"
       }
     ],
     "preToolUse": [
       {
-        "command": "/bin/zsh -lc 'env YOKE_EXECUTOR=cursor yoke hook evaluate PreToolUse'",
+        "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CURSOR_PROJECT_DIR:-$PWD}\" YOKE_EXECUTOR=cursor yoke hook evaluate PreToolUse'",
         "matcher": "Write|Read|Task"
       }
     ],
     "postToolUse": [
       {
-        "command": "/bin/zsh -lc 'env YOKE_EXECUTOR=cursor yoke hook evaluate PostToolUse'",
+        "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CURSOR_PROJECT_DIR:-$PWD}\" YOKE_EXECUTOR=cursor yoke hook evaluate PostToolUse'",
         "matcher": "Write|Read|Task"
       }
     ],
     "postToolUseFailure": [
       {
-        "command": "/bin/zsh -lc 'env YOKE_EXECUTOR=cursor yoke hook evaluate PostToolUseFailure'"
+        "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CURSOR_PROJECT_DIR:-$PWD}\" YOKE_EXECUTOR=cursor yoke hook evaluate PostToolUseFailure'"
       }
     ],
     "stop": [
       {
-        "command": "/bin/zsh -lc 'env YOKE_EXECUTOR=cursor yoke hook evaluate Stop'"
+        "command": "/bin/zsh -lc 'env YOKE_ROOT=\"${CURSOR_PROJECT_DIR:-$PWD}\" YOKE_EXECUTOR=cursor yoke hook evaluate Stop'"
       }
     ]
   }

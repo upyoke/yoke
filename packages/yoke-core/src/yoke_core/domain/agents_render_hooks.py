@@ -16,6 +16,11 @@ lines.
 
 from __future__ import annotations
 
+from yoke_core.domain.agents_render_manifests import (
+    CLAUDE_MANIFEST,
+    CODEX_MANIFEST,
+    CURSOR_MANIFEST,
+)
 from yoke_contracts.hook_runner.hook_ordering import (
     HOOK_ORDERING,
     matchers_for,
@@ -36,6 +41,12 @@ from yoke_contracts.hook_runner.hook_ordering import (
 _YOKE_HOOK_EVALUATE = "yoke hook evaluate"
 
 
+def _environment_export(manifest: dict) -> str:
+    """Render the manifest-declared workspace export for hook subprocesses."""
+    environment = manifest["worktree_hook_enablement"]["environment"]
+    return f'{environment["root_variable"]}="{environment["root_expression"]}"'
+
+
 def _claude_command(event: str) -> str:
     # Wrap in a zsh login shell so the operator's ``~/.zprofile`` (or system
     # equivalent) loads the brew shellenv before ``yoke`` runs. macOS GUI
@@ -45,7 +56,11 @@ def _claude_command(event: str) -> str:
     # source ``~/.zprofile``; ``-c`` keeps the shell non-interactive so it exits
     # after the command. Stdin is forwarded through the shell to the CLI
     # child, so Claude's hook event JSON payload still reaches the runner.
-    return f"/bin/zsh -lc '{_YOKE_HOOK_EVALUATE} {event}'"
+    return (
+        "/bin/zsh -lc '"
+        f"env {_environment_export(CLAUDE_MANIFEST)} "
+        f"{_YOKE_HOOK_EVALUATE} {event}'"
+    )
 
 
 def _claude_hook_entry(event: str) -> dict:
@@ -141,7 +156,8 @@ _CODEX_IDENTITY_ENV = "YOKE_EXECUTOR=codex YOKE_PROVIDER=openai"
 def _codex_command(event_name: str) -> str:
     return (
         "/bin/zsh -lc '"
-        f"env {_CODEX_IDENTITY_ENV} {_YOKE_HOOK_EVALUATE} {event_name}"
+        f"env {_environment_export(CODEX_MANIFEST)} {_CODEX_IDENTITY_ENV} "
+        f"{_YOKE_HOOK_EVALUATE} {event_name}"
         "'"
     )
 
@@ -235,7 +251,8 @@ _CURSOR_EVENTS: tuple[tuple[str, str, str | None], ...] = (
 def _cursor_command(event_verb: str) -> str:
     return (
         "/bin/zsh -lc '"
-        f"env {_CURSOR_IDENTITY_ENV} {_YOKE_HOOK_EVALUATE} {event_verb}"
+        f"env {_environment_export(CURSOR_MANIFEST)} {_CURSOR_IDENTITY_ENV} "
+        f"{_YOKE_HOOK_EVALUATE} {event_verb}"
         "'"
     )
 

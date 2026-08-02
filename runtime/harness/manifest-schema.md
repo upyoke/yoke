@@ -1,15 +1,16 @@
 # Harness Manifest Schema
 
-*Yoke-owned schema for harness capability manifests. Both Claude and Codex carry Yoke-shaped manifests in this single shared schema. This file is the canonical contract.*
+*Yoke-owned schema for harness capability manifests. Claude, Codex, and Cursor carry Yoke-shaped manifests in this single shared schema. This file is the canonical contract.*
 
 The harness manifest IS the substrate capability contract Yoke refers to as `harness_contract` in operator orientation and packet docs. It declares hooks, env / session identity, cwd binding, adapter render format, supported commands, disabled paths, and known parity limits. `harness_contract` is deliberately distinct from the LLM-facing `schema_api_context` packet roles (`main_agent`, `architect_agent`, `engineer_agent`, `tester_agent`, `simulator_agent`, `boss_agent`) — the two layers never overlap, and the renderer does not produce a packet body for `harness_contract`. Adding a new harness adapter means writing or updating its manifest under this schema, not adding a new `schema_api_context` role.
 
 The harness manifest is a JSON document at `runtime/harness/{harness_id}/manifest.json` that declares one harness's identity, runtime requirements, bootstrap mechanisms, supported affordances, telemetry posture, fallback behavior, and canonical-agents posture. Yoke core reads it to derive supported paths, check version floors at runtime, and surface drift through doctor checks.
 
-Today, two manifests exist in this schema:
+Today, three manifests exist in this schema:
 
 - `runtime/harness/claude/manifest.json`
 - `runtime/harness/codex/manifest.json`
+- `runtime/harness/cursor/manifest.json`
 
 The schema below is the only canonical source. Renderers, drift checks, and runtime consumers read against these field names; manifest authors write against them.
 
@@ -17,12 +18,13 @@ The schema below is the only canonical source. Renderers, drift checks, and runt
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `_generated` | string | Yes | Generated-file marker written by the substrate renderer. Names the renderer (`yoke_core.domain.agents_render`) and the Python source dict the file was rendered from (`yoke_core.domain.agents_render_manifests.CLAUDE_MANIFEST` / `CODEX_MANIFEST`). Its presence flags the file as machine-generated — do not hand-edit. |
+| `_generated` | string | Yes | Generated-file marker written by the substrate renderer. Names the renderer (`yoke_core.domain.agents_render`) and the Python source dict the file was rendered from (`yoke_core.domain.agents_render_manifests.CLAUDE_MANIFEST` / `CODEX_MANIFEST` / `CURSOR_MANIFEST`). Its presence flags the file as machine-generated — do not hand-edit. |
 | `harness_id` | string | Yes | Stable harness family identifier (e.g., `claude-code`, `codex`). Must match the directory name under `runtime/harness/`. |
 | `runtime_minimums` | object | Yes | Minimum runtime versions for each operating mode. See [Runtime minimums](#runtime-minimums). |
 | `bootstrap` | object | Yes | Bootstrap mechanism configuration. See [Bootstrap](#bootstrap). |
 | `identity` | object | Yes | Session-identity sources for `executor`, `provider`, `model`, `workspace`. See [Identity](#identity). |
 | `supports` | object | Yes | Affordance and command-source posture. See [Supports](#supports). |
+| `worktree_hook_enablement` | object | Yes | Operations that make the harness hook chain live and workspace-bound in linked worktree lanes. See [Worktree hook enablement](#worktree-hook-enablement). |
 | `telemetry` | object | Yes | Telemetry source posture. See [Telemetry](#telemetry). |
 | `fallback` | object | Yes | Behavior when affordances or paths are unsupported. See [Fallback](#fallback). |
 | `canonical_agents` | object | Yes | Canonical-agent body sourcing posture. See [Canonical agents](#canonical-agents). |
@@ -70,6 +72,30 @@ The bootstrap spec is harness-neutral; the manifest names which delivery mechani
 
 The affordance list is **tool-neutral**. Names like `bash_pre_tool_hook` or `bash_post_tool_hook` are obsolete — the universal hook ordering and policy pipeline matches across `Bash`, `Edit`, `Write`, and `apply_patch`, and the manifest must not encode a tool-specific shape.
 
+## Worktree hook enablement
+
+This object is the harness adapter's contribution to linked-lane preparation.
+The worktree creator reads the manifest and executes the declared operations;
+it does not contain a harness-specific branch for each adapter.
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `config_path` | string | Repo-relative native hook configuration path that the worktree must expose. |
+| `operations` | list[string] | Ordered enablement operations. Supported values are `verify_hook_config`, `mirror_hook_trust`, `seed_directory_approval`, and `verify_environment_export`. |
+| `environment` | object | Workspace export used by hook subprocesses. |
+
+The `environment` object has two required string keys:
+
+| Key | Description |
+|-----|-------------|
+| `root_variable` | Environment variable containing the lane's workspace root (`YOKE_ROOT`). |
+| `root_expression` | Shell expression used to resolve that root from the harness payload or current directory. |
+
+An operation may be omitted when the harness does not need that local
+affordance. For example, Codex mirrors user-granted path trust while Claude
+seeds its existing per-directory approval; both still verify the native hook
+configuration and workspace export.
+
 ## Telemetry
 
 | Key | Type | Description |
@@ -101,4 +127,4 @@ The schema in this file is the contract. When new fields are added:
 - Update the manifest source dicts (or note the new field is optional and document the default).
 - Update doctor checks that read the affected field.
 
-Both manifest files are generated artifacts: the substrate renderer (`yoke_core.domain.agents_render`) materializes them from the Python source dicts in `yoke_core.domain.agents_render_manifests` (`CLAUDE_MANIFEST` / `CODEX_MANIFEST`) and stamps each with the `_generated` marker. Author changes in the source dicts, then re-render via the `agents.render.run` function id (operator adapter: `yoke agents render`); `agents.render.check` surfaces drift between the source and the on-disk files. Hand-edits to the JSON files are overwritten on the next render.
+All three manifest files are generated artifacts: the substrate renderer (`yoke_core.domain.agents_render`) materializes them from the Python source dicts in `yoke_core.domain.agents_render_manifests` (`CLAUDE_MANIFEST` / `CODEX_MANIFEST` / `CURSOR_MANIFEST`) and stamps each with the `_generated` marker. Author changes in the source dicts, then re-render via the `agents.render.run` function id (operator adapter: `yoke agents render`); `agents.render.check` surfaces drift between the source and the on-disk files. Hand-edits to the JSON files are overwritten on the next render.
