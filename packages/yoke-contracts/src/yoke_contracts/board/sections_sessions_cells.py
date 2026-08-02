@@ -2,34 +2,23 @@
 
 from __future__ import annotations
 
-from typing import Dict, Optional
+from typing import Optional
 
 from yoke_contracts.board.board_db import BoardDBLike
 from yoke_contracts.board.sections_sessions_scope import session_project_label
-
-
-_EXECUTOR_EMOJI: Dict[str, str] = {
-    "claude-code": "\U0001f916",     # robot (coarse Claude family)
-    "claude-desktop": "\U0001f34e",  # 🍎 apple (desktop)
-    "claude-vscode": "\U0001fa9f",   # window
-    "claude-cli": "\U0001f4df",      # 📟 pager
-    "codex": "\U0001f4d5",           # 📕 closed book (coarse Codex family)
-    "codex-desktop": "\U0001f4bb",   # 💻 laptop
-    "codex-vscode": "\U0001fa84",    # magic wand
-    "codex-cli": "📠",     # 📠 fax
-}
+from yoke_contracts.executor_labels import EXECUTOR_EMOJI
 
 
 def _resolve_executor_emoji(executor: str) -> str:
     """Resolve the emoji for an executor with family-prefix fallback."""
     if not executor:
         return ""
-    if executor in _EXECUTOR_EMOJI:
-        return _EXECUTOR_EMOJI[executor]
+    if executor in EXECUTOR_EMOJI:
+        return EXECUTOR_EMOJI[executor]
     if executor.startswith("claude-"):
-        return _EXECUTOR_EMOJI.get("claude-code", "")
+        return EXECUTOR_EMOJI.get("claude-code", "")
     if executor.startswith("codex-"):
-        return _EXECUTOR_EMOJI.get("codex", "")
+        return EXECUTOR_EMOJI.get("codex", "")
     return ""
 
 

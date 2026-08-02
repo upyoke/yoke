@@ -6,8 +6,6 @@ import json
 import sys
 from pathlib import Path
 
-from yoke_harness.hooks.identity import compose_executor_from_entrypoint
-
 from yoke_core.api.service_client_shared import (
     SESSION_REQUIRED_ERROR,
     _get_db_readwrite,
@@ -46,20 +44,28 @@ def begin_session(
 ) -> dict:
     """Register (or idempotently refresh) a session row; return a result dict.
 
-    Composes the executor, resolves the execution lane from the project's
-    routing config, and registers the session — the identical steps the
-    operator-debug ``session-begin`` command and the transport-keyed
-    ``sessions.begin`` function handler both need. The already-registered
-    case returns a success dict rather than raising; every other
-    :class:`SessionError` propagates so callers can shape their own error
-    response.
+    Resolves the execution lane from the project's routing config and
+    registers the session — the identical steps the operator-debug
+    ``session-begin`` command and the transport-keyed ``sessions.begin``
+    function handler both need. The already-registered case returns a
+    success dict rather than raising; every other :class:`SessionError`
+    propagates so callers can shape their own error response.
+
+    ``executor`` is passed through verbatim.
+    :func:`yoke_core.domain.sessions_lifecycle_canonicalize.canonicalize_executor`
+    is the single site that splits it into the stored canonical id and
+    display alias, and it prefers a surface-specific value over one composed
+    from the entrypoint. Composing here first would destroy that preference:
+    a ``codex-desktop`` surface plus a ``dash`` entrypoint would arrive as
+    ``codex-dash``, and the surface the session actually ran on would be
+    unrecoverable. Lane routing reads the same verbatim value, which matches
+    both exact surface keys and family wildcards in the routing config.
     """
     from yoke_core.domain.sessions import SessionError, register_session
 
-    composed_executor = compose_executor_from_entrypoint(executor, entrypoint)
     routing_config = _load_routing_config(conn=conn, project_id=project_id)
     resolved_lane = resolve_execution_lane(
-        executor=composed_executor,
+        executor=executor,
         explicit_lane=None,
         routing_config=routing_config,
     )
@@ -67,7 +73,7 @@ def begin_session(
         result = register_session(
             conn,
             session_id=session_id,
-            executor=composed_executor,
+            executor=executor,
             provider=provider,
             model=model,
             workspace=workspace,
