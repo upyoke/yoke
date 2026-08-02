@@ -34,13 +34,11 @@ from typing import Sequence
 
 from yoke_core.tools._impacted_import_index import (
     ImportIndex,
+    TEST_ANCHORS,
     build_import_index,
     is_test_file,
     module_name_for,
 )
-
-#: Directories pytest is pointed at for a full sweep.
-TEST_ANCHORS = ("runtime/api/", "runtime/harness/", "tests/")
 
 #: Shared pytest infrastructure: reachable from every test by construction
 #: rather than by import, so a change here is unbounded.
