@@ -35,7 +35,7 @@ from __future__ import annotations
 from yoke_core.domain import db_backend
 from typing import Any, List, Tuple
 
-from yoke_core.domain.executor_canonical_labels import CANONICAL_HARNESS_IDS
+from yoke_contracts.executor_labels import CANONICAL_HARNESS_IDS
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 

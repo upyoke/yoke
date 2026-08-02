@@ -71,12 +71,20 @@ def _compatible_entrypoint(
 
 
 def _backfill_session(conn, session_id: str, record: HookContext) -> None:
-    """Register or reactivate a session that missed SessionStart."""
+    """Register or reactivate a session that missed SessionStart.
+
+    The executor and entrypoint travel separately all the way to
+    ``canonicalize_executor``, the single site that composes them. A
+    surface value (``codex-desktop``) composed here against the entrypoint
+    would arrive as ``codex-dash`` — the entrypoint replacing the surface
+    the session actually ran on, which is unrecoverable downstream. This
+    path registers precisely the sessions that missed SessionStart, so it
+    is where an unrecognizable surface label is most likely to be minted.
+    """
     from runtime.harness.hook_runner.session_lifecycle_client import (
         register_harness_session,
     )
     from runtime.harness.hook_helpers_identity import (
-        compose_executor_from_entrypoint,
         detect_entrypoint,
         detect_executor,
         detect_provider,
@@ -89,7 +97,6 @@ def _backfill_session(conn, session_id: str, record: HookContext) -> None:
         or (detect_executor() if _has_executor_env_signal() else "unknown")
     )
     entrypoint = _compatible_entrypoint(executor, entrypoint)
-    executor = compose_executor_from_entrypoint(executor, entrypoint)
     provider = detect_provider(executor)
     register_harness_session(
         root=_fallback_workspace(record),

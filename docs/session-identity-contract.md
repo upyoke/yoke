@@ -55,6 +55,25 @@ hook payload:
 | Claude Code | Uses `fallback-$$-$(date +%s)` only for local fire-once guard and `Your Session:` display; emits degraded-mode WARNING in orientation; does NOT attempt registration or call `session-offer` with that fallback |
 | Codex | Emits degraded-mode WARNING in orientation; exits without registration (no fabricated IDs) |
 
+### Registration refuses an id it cannot corroborate
+
+"No fabricated IDs" is enforced, not just expected. `yoke sessions begin`
+compares an explicitly declared `--session-id` against this process's own
+ambient resolution and refuses when the two disagree
+(`yoke_cli.commands.session_begin_corroboration`). A legitimate caller
+always passes the id its harness gave it, so ambient resolution reproduces
+it; a caller that could not resolve identity has nothing to register, and
+minting an id there creates a board row for a conversation that never
+existed while hiding the resolution failure that caused it.
+
+The check is client-side by necessity: the declared id travels inside the
+request envelope, so a server — especially across the https transport —
+has nothing left to compare it against. Only the calling process can see
+its own environment and process ancestry. Server-side marking of
+unregistered-session calls (`provenance_unverified` in the dispatcher's
+event context) and `HC-session-identity-provenance` are the second and
+third lines of defense, not substitutes.
+
 ## Bash Propagation
 
 Claude Code's Python-owned session-start hook appends
@@ -92,6 +111,34 @@ Resolution is the second step of the canonical ambient chain owned by
 3. `None` → mutating dispatch rejects with `actor_session_missing`, an
    infrastructure-bug signal to report — never a prompt to export env
    vars.
+
+### A pid is only an anchor when it belongs to one session
+
+The registry maps a pid to a session, so a pid shared by concurrent
+conversations cannot identify any of them. Two defenses keep a shared pid
+from answering:
+
+- **Known session-hosting processes are never anchors.**
+  `process_ancestry.MULTIPLEXED_PROCESS_BASENAMES` lists harness processes
+  that host every concurrent conversation in one process (the Codex
+  desktop app server and its code-mode host). `find_nearest_harness_anchor`
+  stops at one and returns `None` rather than walking to an ancestor that
+  can only be more widely shared. Those harnesses stamp identity per
+  conversation into the environment, so step 1 already covers them and the
+  registry is not needed.
+- **Contention is recorded, not overwritten.** When a second live session
+  resolves the same anchor pid — same pid *and* same start time, so not a
+  reused pid — `record_session_anchor` replaces the record with a
+  `shared_by_multiple_sessions` marker instead of taking the pid over.
+  Resolution stops at such a record and returns `None`. Silently
+  overwriting would hand the displaced session's shell processes the new
+  session's id, which is worse than not resolving: an
+  `actor_session_missing` refusal is visible, and acting under another
+  session's identity is not.
+
+Both defenses fail toward step 3. That is the intended outcome — an
+unresolvable identity is an infrastructure gap to report, and a confidently
+wrong one is a correctness bug that spreads through claims and attribution.
 
 The `actor_session_missing` rejection is the default for mutating dispatch,
 but a bounded **bootstrap/config class** opts out with

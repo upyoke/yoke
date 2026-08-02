@@ -15,6 +15,9 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
     usage_error,
 )
+from yoke_cli.commands.session_begin_corroboration import (
+    uncorroborated_reason,
+)
 from yoke_contracts.api.function_call import TargetRef
 
 
@@ -197,6 +200,9 @@ def sessions_begin(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, SESSIONS_BEGIN_USAGE)
     if parsed is None:
         return 2
+    refusal = uncorroborated_reason(parsed.session_id)
+    if refusal is not None:
+        return usage_error(refusal)
     project_id = _resolve_begin_project_id(parsed.project, parsed.workspace)
     if project_id is None:
         return usage_error(
