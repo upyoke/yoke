@@ -25,6 +25,7 @@ from runtime.harness.hook_runner.session_lifecycle_client import (
 )
 from runtime.harness.hook_runner_register_identity import (
     placeholder_identity_can_upgrade,
+    project_lane_for_executor,
 )
 from runtime.harness.hook_runner.target import (
     is_yoke_target,
@@ -194,24 +195,9 @@ def _register_in_process(
             return "session registration requires project_id"
         conn = db_helpers.connect()
         try:
-            resolved_lane = execution_lane
-            from yoke_core.api.routing_config import (
-                load_project_routing_settings,
-                load_routing_config,
-                resolve_execution_lane,
-            )
-
-            project_routing = load_project_routing_settings(conn, project_id)
-            if project_routing:
-                routing = load_routing_config(
-                    "/__yoke_no_local_routing_config__",
-                    project_settings=project_routing,
-                )
-                resolved_lane = resolve_execution_lane(
-                    executor=executor,
-                    explicit_lane=execution_lane,
-                    routing_config=routing,
-                )
+            resolved_lane = project_lane_for_executor(
+                conn, project_id, executor, explicit_lane=execution_lane,
+            ) or execution_lane
             lane_kwargs = {"execution_lane": resolved_lane} if resolved_lane else {}
             register_session(
                 conn,
@@ -319,13 +305,18 @@ def ensure_registered_from_hook(
                 found is True and stored_actor_id is None and actor_id is not None
             )
             # A registered row stuck on placeholder identity still needs a
-            # drive when the wire payload carries the real value — the
-            # registrar's SESSION_EXISTS branch upgrades in place.
+            # drive when a real value is resolvable — the registrar's
+            # SESSION_EXISTS branch upgrades in place. That covers a wire
+            # model the row is still missing AND a lane left on the
+            # unresolved sentinel, which is how a row stamped before its
+            # routing policy could be read repairs itself.
             needs_identity_upgrade = (
                 found is True
                 and not needs_reactivation
                 and not needs_actor_backfill
-                and placeholder_identity_can_upgrade(conn, payload_json, session_id)
+                and placeholder_identity_can_upgrade(
+                    conn, payload_json, session_id, project_id,
+                )
             )
             if (
                 found is not False

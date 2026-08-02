@@ -23,6 +23,7 @@ from pathlib import Path
 import re
 from typing import Any, Dict, List, Mapping, Optional
 
+from yoke_contracts.session_lane import UNRESOLVED_EXECUTION_LANE
 from yoke_core.domain import json_helper
 from yoke_core.domain.project_policy_capabilities import (
     SESSION_ROUTING_CAPABILITY as PROJECT_ROUTING_CAPABILITY,
@@ -202,12 +203,10 @@ class RoutingConfig:
         Resolution order:
           1. Exact key match (``executor_default_lane_<token>``).
           2. Wildcard match — among ``executor_default_lane_*`` keys whose
-             non-wildcard prefix is a prefix of the normalized executor token,
-             the longest prefix wins. Ties are broken by alphabetical order
-             of the prefix for determinism.
+             non-wildcard prefix prefixes the normalized executor token, the
+             longest wins; ties break alphabetically for determinism.
           3. Global ``executor_default_lane_unknown`` key.
-          4. Hardcoded ``"primary"`` sentinel — sessions opt out of lane-aware
-             scheduling when no config keys match.
+          4. The unresolved sentinel — no config key matched at all.
         """
         token = normalize_token(executor)
         if token in self.executor_default_lanes:
@@ -229,7 +228,7 @@ class RoutingConfig:
 
         if "unknown" in self.executor_default_lanes:
             return self.executor_default_lanes["unknown"]
-        return "primary"
+        return UNRESOLVED_EXECUTION_LANE
 
 
 def load_routing_config(
@@ -255,15 +254,16 @@ def resolve_execution_lane(
     explicit_lane: Optional[str],
     routing_config: RoutingConfig,
 ) -> str:
-    """Resolve the lane for a session offer.
+    """Resolve the lane for a session offer or registration.
 
-    Explicit non-empty lane wins, except the sentinel ``default`` which means
-    "use the executor default lane". Otherwise, use the executor default from
-    Yoke core config. Unknown executors fall back to ``primary``.
+    An explicit lane wins only when it names a real choice: ``default`` and
+    the unresolved sentinel both mean "nothing chose a lane" and yield to
+    routing policy, so a caller that could not resolve one locally cannot
+    overrule the project's mapping with a lane no allowlist declares.
     """
     if explicit_lane and explicit_lane.strip():
         resolved = explicit_lane.strip()
-        if normalize_token(resolved) != "default":
+        if normalize_token(resolved) not in ("default", UNRESOLVED_EXECUTION_LANE):
             return resolved
     return routing_config.default_lane_for_executor(executor)
 

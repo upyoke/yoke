@@ -23,6 +23,10 @@ from yoke_contracts.board.sections_sessions_layout import (
 )
 from yoke_contracts.board.sections_sessions_scope import session_rows
 from yoke_contracts.board.utils import display_width
+from yoke_contracts.session_lane import (
+    UNRESOLVED_EXECUTION_LANE,
+    lane_is_unresolved,
+)
 
 
 # A ref that already carries a project prefix is rendered; each project
@@ -103,8 +107,16 @@ _LANE_EMOJI: Dict[str, str] = {
 
 
 def _render_lane(lane: Optional[str]) -> str:
+    """Render one session's lane cell.
+
+    A lane nothing resolved is marked, not printed like a configured lane:
+    the offer gate refuses to route work on it, so an operator scanning the
+    board has to be able to tell it apart from a real lane at a glance.
+    """
+    if lane_is_unresolved(lane):
+        return f"⚠️ {UNRESOLVED_EXECUTION_LANE}"
     lane_emoji = _LANE_EMOJI.get(lane or "", "")
-    return f"{lane_emoji} {lane}" if lane_emoji else (lane or "primary")
+    return f"{lane_emoji} {lane}" if lane_emoji else str(lane)
 
 
 def _pad_cell(s: str, target_width: int) -> str:

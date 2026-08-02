@@ -94,6 +94,15 @@ def _routing_settings() -> dict[str, str]:
 
 
 def client_lane(event_name: str, executor: str) -> Optional[str]:
+    """Return the machine-config lane for ``executor``, or ``None``.
+
+    ``None`` means "this client has no lane opinion" and is the answer
+    whenever machine config declares no matching executor key — the common
+    case, because routing policy normally lives in the project's
+    ``session-routing`` capability, which only the server can read. Inventing
+    a placeholder here instead would ship an explicit lane on the wire and
+    overrule that project policy at registration.
+    """
     if event_name not in REGISTRATION_EVENTS:
         return None
     try:
@@ -121,7 +130,7 @@ def client_lane(event_name: str, executor: str) -> Optional[str]:
                 matched = prefix
         if matched is not None:
             return wildcards[matched]
-        return exact.get("unknown", "primary")
+        return exact.get("unknown") or None
     except Exception:
         return None
 
