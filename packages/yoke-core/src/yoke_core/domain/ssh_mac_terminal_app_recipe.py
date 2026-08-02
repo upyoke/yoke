@@ -13,6 +13,7 @@ from yoke_core.domain.host_control_executor import HostActionResult
 from yoke_core.domain.machine_qa_operator_gate import (
     run_machine_browser_approval_with_io,
 )
+from yoke_core.domain.ssh_mac_browser_approval import approve_machine_in_safari
 from yoke_core.domain.qa_artifact_handle import local_handle
 from yoke_core.domain.ssh_mac_terminal_app import (
     RunRemote,
@@ -120,6 +121,7 @@ def run_terminal_app_recipe(
                 )
             ready_text = tuple(action.get("ready_text", ()))
             ready_transcript: str | None = None
+            browser_evidence: dict[str, Any] | None = None
             operator_gate = action.get("operator_gate")
             if operator_gate == "machine_browser_approval":
                 gate_result = run_machine_browser_approval_with_io(
@@ -128,8 +130,14 @@ def run_terminal_app_recipe(
                     action=action,
                     progress_callback=progress_callback,
                     allowed_base_urls=allowed_operator_urls,
+                    approve_browser=lambda url, code: approve_machine_in_safari(
+                        run,
+                        verification_url=url,
+                        user_code=code,
+                    ),
                 )
                 ready_transcript = gate_result.transcript
+                browser_evidence = gate_result.browser_evidence
                 if not gate_result.ok:
                     captures.append(
                         {
@@ -137,12 +145,14 @@ def run_terminal_app_recipe(
                             "reached": False,
                             "transcript": ready_transcript,
                             "operator_gate": operator_gate,
+                            "browser_approval": browser_evidence,
                         }
                     )
                     return _failure(
                         str(gate_result.error_code),
                         captures=captures,
                         operator_gate=operator_gate,
+                        browser_approval=browser_evidence,
                     )
             if ready_text:
                 remaining_wall_seconds = max(
@@ -196,6 +206,8 @@ def run_terminal_app_recipe(
                 "reached": bool(transcript.strip()),
                 "transcript": transcript,
             }
+            if browser_evidence is not None:
+                capture["browser_approval"] = browser_evidence
             captures.append(capture)
             reached.append(key)
             if action["capture"] and key in config["capture_checkpoints"]:
