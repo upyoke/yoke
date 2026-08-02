@@ -11,61 +11,8 @@ from typing import Optional, Tuple
 
 def _parent():
     from yoke_core.engines import done_transition as _dt
+
     return _dt
-
-def _cross_project_commit_guard(
-    item_id: int, item_project: str, repo_root: Optional[Path] = None,
-) -> None:
-    """Advisory cross-project commit guard (scans the Yoke repo)."""
-    if item_project == "yoke":
-        return
-    print("\n=== Step 5c: Cross-project commit guard ===")
-    from yoke_core.domain import project_settings
-
-    base_br = project_settings.get_project_str(repo_root, "base_branch")
-    log_result = _parent()._run_git(
-        ["log", base_br, "--oneline", f"--grep=YOK-{item_id}",
-         "--format=%H"],
-        capture=True,
-    )
-    if not log_result.stdout or not log_result.stdout.strip():
-        print("No cross-project commit contamination detected.")
-        return
-    warnings = []
-    for commit_hash in log_result.stdout.strip().split("\n"):
-        if not commit_hash.strip():
-            continue
-        files_result = _parent()._run_git(
-            ["diff-tree", "--no-commit-id", "--name-only", "-r", commit_hash],
-            capture=True,
-        )
-        bad_files = []
-        for f in (files_result.stdout or "").strip().split("\n"):
-            f = f.strip()
-            if not f:
-                continue
-            # Bookkeeping allowlist
-            if any(f.startswith(p) for p in [
-                "ouroboros/", ".agents/", ".claude/",
-            ]):
-                continue
-            bad_files.append(f)
-        if bad_files:
-            short = commit_hash[:10]
-            msg_result = _parent()._run_git(
-                ["log", "--format=%s", "-1", commit_hash], capture=True
-            )
-            msg = (msg_result.stdout or "").strip()
-            warnings.append((short, msg, bad_files))
-    if warnings:
-        print(f"\nWARNING: Cross-project commit contamination detected for "
-              f"YOK-{item_id} (project={item_project}).")
-        for short, msg, files in warnings:
-            print(f"  Commit {short} ({msg}):")
-            for f in files:
-                print(f"    {f}")
-    else:
-        print("No cross-project commit contamination detected.")
 
 
 def _pre_merge_commit(repo_root: Path) -> None:
@@ -86,11 +33,12 @@ def _pre_merge_commit(repo_root: Path) -> None:
         for f in yoke_files:
             _parent()._run_git(["add", f], cwd=repo_root, capture=True)
         # Check if there's anything staged
-        diff = _parent()._run_git(["diff", "--cached", "--quiet"], cwd=repo_root, capture=True)
+        diff = _parent()._run_git(
+            ["diff", "--cached", "--quiet"], cwd=repo_root, capture=True
+        )
         if diff.returncode != 0:
             _parent()._run_git(
-                ["commit", "-m",
-                 "chore: auto-commit Yoke bookkeeping before merge"],
+                ["commit", "-m", "chore: auto-commit Yoke bookkeeping before merge"],
                 cwd=repo_root,
             )
             print("Pre-merge commit: Yoke-managed files committed.")
@@ -113,7 +61,9 @@ def _do_merge(
     wt_name = lane_branch or worktree_name_for_item(None, item_id)
     wt_dir = project_repo / ".worktrees" / wt_name
     if wt_dir.is_dir():
-        br = _parent()._run_git(["-C", str(wt_dir), "branch", "--show-current"], capture=True)
+        br = _parent()._run_git(
+            ["-C", str(wt_dir), "branch", "--show-current"], capture=True
+        )
         actual = (br.stdout or "").strip()
         if actual and actual != lane_branch:
             print(f"Warning: branch mismatch for YOK-{item_id}", file=sys.stderr)
@@ -185,30 +135,48 @@ def _verify_cwd_after_merge(
                 os.chdir(root)
     cwd = Path.cwd()
     if "/.worktrees/" in str(cwd):
-        print("Error: CWD is inside a worktree after merge. Cannot continue.",
-              file=sys.stderr)
+        print(
+            "Error: CWD is inside a worktree after merge. Cannot continue.",
+            file=sys.stderr,
+        )
         return None
     print(f"CWD verified: {cwd}")
 
     # Verify main repo is on main/master branch
-    br = _parent()._run_git(["-C", str(project_repo), "rev-parse", "--abbrev-ref", "HEAD"],
-                   capture=True)
+    br = _parent()._run_git(
+        ["-C", str(project_repo), "rev-parse", "--abbrev-ref", "HEAD"], capture=True
+    )
     current = (br.stdout or "").strip()
     if current and current not in ("main", "master", "HEAD"):
-        print(f"Warning: Main repo is on branch '{current}', not main. "
-              "Switching to main.")
+        print(
+            f"Warning: Main repo is on branch '{current}', not main. Switching to main."
+        )
         # Stash if dirty
         stashed = False
-        st = _parent()._run_git(["-C", str(project_repo), "status", "--porcelain"],
-                       capture=True)
+        st = _parent()._run_git(
+            ["-C", str(project_repo), "status", "--porcelain"], capture=True
+        )
         if st.stdout and st.stdout.strip():
-            _parent()._run_git(["-C", str(project_repo), "stash", "push",
-                       "--include-untracked", "-m", "yoke-step5-branch-fix"],
-                      capture=True)
+            _parent()._run_git(
+                [
+                    "-C",
+                    str(project_repo),
+                    "stash",
+                    "push",
+                    "--include-untracked",
+                    "-m",
+                    "yoke-step5-branch-fix",
+                ],
+                capture=True,
+            )
             stashed = True
-        co = _parent()._run_git(["-C", str(project_repo), "checkout", "main"], capture=True)
+        co = _parent()._run_git(
+            ["-C", str(project_repo), "checkout", "main"], capture=True
+        )
         if co.returncode != 0:
-            _parent()._run_git(["-C", str(project_repo), "checkout", "master"], capture=True)
+            _parent()._run_git(
+                ["-C", str(project_repo), "checkout", "master"], capture=True
+            )
         else:
             print("Switched to main.")
         if stashed:
@@ -223,6 +191,7 @@ _SCHEMA_GATE_PREFIXES = (
     "runtime/api/domain/shepherd",
     "runtime/api/domain/migration",
 )
+
 
 def _schema_gate(*, merge_ran: bool = True, project_repo: Path | None = None) -> None:
     """Post-merge schema refresh (step 5a).
@@ -269,7 +238,16 @@ def _schema_gate_needed(merge_ran: bool, project_repo: Path | None) -> bool:
         return False
     repo = project_repo or _parent()._resolve_repo_root()
     changed = _parent()._run_git(
-        ["-C", str(repo), "diff-tree", "--no-commit-id", "--name-only", "-r", "-m", "HEAD"],
+        [
+            "-C",
+            str(repo),
+            "diff-tree",
+            "--no-commit-id",
+            "--name-only",
+            "-r",
+            "-m",
+            "HEAD",
+        ],
         capture=True,
     )
     if changed.returncode != 0:
@@ -277,12 +255,15 @@ def _schema_gate_needed(merge_ran: bool, project_repo: Path | None) -> bool:
     paths = (line.strip() for line in (changed.stdout or "").splitlines())
     return any(path.startswith(_SCHEMA_GATE_PREFIXES) for path in paths if path)
 
+
 def _handle_already_done(
     item_id: int, project_repo: Path, result, result_file: str
 ) -> int:
     """Handle already-completed items with a tiny idempotent fast path."""
-    print(f"Pre-flight: YOK-{item_id} is already completed (status=done, "
-          "worktree cleared).")
+    print(
+        f"Pre-flight: YOK-{item_id} is already completed (status=done, "
+        "worktree cleared)."
+    )
     print("No cleanup or discovery work needed on idempotent re-run.")
     result.already_completed = True
     result.new_status = "done"

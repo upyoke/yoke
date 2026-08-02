@@ -47,9 +47,7 @@ class TestPopulateMergedAt:
         done_transition._populate_merged_at(42)
 
         conn = connect_dt_db(db_path)
-        stored = conn.execute(
-            "SELECT merged_at FROM items WHERE id = 42"
-        ).fetchone()[0]
+        stored = conn.execute("SELECT merged_at FROM items WHERE id = 42").fetchone()[0]
         conn.close()
         assert stored, "merged_at should be populated"
         assert stored.endswith("Z"), f"expected UTC ISO8601, got {stored!r}"
@@ -62,9 +60,7 @@ class TestPopulateMergedAt:
         done_transition._populate_merged_at(43)
 
         conn = connect_dt_db(db_path)
-        stored = conn.execute(
-            "SELECT merged_at FROM items WHERE id = 43"
-        ).fetchone()[0]
+        stored = conn.execute("SELECT merged_at FROM items WHERE id = 43").fetchone()[0]
         conn.close()
         assert stored == original, "merged_at must not be overwritten"
 
@@ -97,10 +93,16 @@ class TestCascadeEpicTasksToDone:
                 return _resp(kwargs["function_id"], {"task_list": listing})
             return _resp(kwargs["function_id"])
 
-        with mock.patch.object(done_transition_status, "call_dispatcher", fake), \
-             mock.patch.object(done_transition, "_update_task_status_direct", return_value=0) as mock_task_direct, \
-             mock.patch.object(done_transition_status, "_batch_github_sync_tasks"):
-            done_transition._cascade_epic_tasks_to_done(823, "YOK-823", item_ref="YOK-823")
+        with (
+            mock.patch.object(done_transition_status, "call_dispatcher", fake),
+            mock.patch.object(
+                done_transition, "_update_task_status_direct", return_value=0
+            ) as mock_task_direct,
+            mock.patch.object(done_transition_status, "_batch_github_sync_tasks"),
+        ):
+            done_transition._cascade_epic_tasks_to_done(
+                823, "YOK-823", item_ref="YOK-823"
+            )
 
         # The task-list relay fires exactly once, for the epic ref.
         task_list_calls = [
@@ -125,9 +127,15 @@ class TestCascadeEpicTasksToDone:
             calls.append(kwargs)
             return _resp(kwargs["function_id"], {"task_list": ""})
 
-        with mock.patch.object(done_transition_status, "call_dispatcher", fake), \
-             mock.patch.object(done_transition, "_update_task_status_direct") as mock_task_direct:
-            done_transition._cascade_epic_tasks_to_done(823, "YOK-823", item_ref="YOK-823")
+        with (
+            mock.patch.object(done_transition_status, "call_dispatcher", fake),
+            mock.patch.object(
+                done_transition, "_update_task_status_direct"
+            ) as mock_task_direct,
+        ):
+            done_transition._cascade_epic_tasks_to_done(
+                823, "YOK-823", item_ref="YOK-823"
+            )
         # Only the task-list relay was called — no update writes.
         assert [c["function_id"] for c in calls] == ["done_transition.epic_task_list"]
         mock_task_direct.assert_not_called()
@@ -143,10 +151,12 @@ class TestSchemaGate:
 
     def test_runs_when_schema_files_changed(self, tmp_path):
         conn = mock.MagicMock()
-        with mock.patch.object(done_transition, "_run_git") as mock_git, \
-             mock.patch.object(done_transition, "_connect", return_value=conn), \
-             mock.patch("yoke_core.domain.schema.cmd_init") as schema_init, \
-             mock.patch("yoke_core.domain.shepherd.cmd_init") as shepherd_init:
+        with (
+            mock.patch.object(done_transition, "_run_git") as mock_git,
+            mock.patch.object(done_transition, "_connect", return_value=conn),
+            mock.patch("yoke_core.domain.schema.cmd_init") as schema_init,
+            mock.patch("yoke_core.domain.shepherd.cmd_init") as shepherd_init,
+        ):
             mock_git.return_value = mock.Mock(
                 returncode=0,
                 stdout="runtime/api/domain/schema.py\n",
@@ -172,8 +182,10 @@ class TestHandleAlreadyDone:
         result_file = str(tmp_path / "result.json")
         result = done_transition.TransitionResult(item="YOK-9999")
 
-        with mock.patch.object(done_transition, "_run_git") as mock_git, \
-             mock.patch.object(done_transition, "_apply_discovery_scan") as scan:
+        with (
+            mock.patch.object(done_transition, "_run_git") as mock_git,
+            mock.patch.object(done_transition, "_apply_discovery_scan") as scan,
+        ):
             mock_git.return_value = mock.Mock(returncode=0, stdout="")
             rc = done_transition._handle_already_done(
                 42, project_repo, result, result_file
@@ -240,7 +252,6 @@ def _patch_run_internals(repo_root, **overrides):
         ("_verify_cwd_after_merge", repo_root),
         ("_schema_gate", None),
         ("_check_deployment_flow_guard", None),
-        ("_cross_project_commit_guard", None),
         ("_populate_merged_at", None),
         ("_update_status_to_done", True),
         ("_finalize_done_local_side_effects", None),

@@ -29,6 +29,9 @@ from yoke_core.domain.yoke_function_dispatch_qa_claims import (
     resolve_qa_requirement_item_id as _resolve_qa_requirement_item_id,
     resolve_qa_requirement_subject as _qa_requirement_subject,
 )
+from yoke_core.domain.claim_recovery import (
+    canonical_item_ref as _claim_recovery_item_ref,
+)
 from yoke_core.domain.yoke_function_registry import RegistryEntry
 
 
@@ -39,12 +42,7 @@ def _placeholder(conn: Any) -> str:
 
 
 def who_claims_for_item(item_id: int) -> Optional[Dict[str, Any]]:
-    """Return the active item-target work_claims row for ``item_id``.
-
-    Thin adapter over the canonical lookup
-    ``yoke_core.domain.sessions_queries_lookup.get_claim_for_work_unit``.
-    Returns ``None`` when no live claim exists or the lookup fails.
-    """
+    """Return the active item-target claim, if one can be read."""
     try:
         from yoke_core.domain import db_helpers
         from yoke_core.domain.sessions_queries_lookup import (
@@ -255,15 +253,23 @@ def verify_claim(
         row = who_claims_for_item(int(target_id))
         claim_session = str((row or {}).get("session_id") or "")
         if not row or claim_session != actor_session:
+            item_ref = (
+                _claim_recovery_item_ref(int(target_id)) if kind == "item" else None
+            )
+            recovery = (
+                f'yoke claims work acquire --item {item_ref} --reason "<intent>"'
+                if item_ref
+                else "acquire the required claim before retrying"
+            )
+            target_ref = item_ref or str(target_id)
             return _claim_error(
                 request,
                 fid,
                 ver,
                 "claim_required",
                 f"no active claim by session {actor_session!r} on "
-                f"{kind} {target_id}; acquire one first: "
-                f"yoke claims work acquire "
-                f'--item YOK-{target_id} --reason "<intent>"',
+                f"{kind} {target_ref}; acquire one first: "
+                f"{recovery}",
             )
         return None
 

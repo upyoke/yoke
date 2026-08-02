@@ -1,6 +1,6 @@
 # Patterns from 2026-04-04 Curate (1685 entries)
 
-Cross-link back from the [pattern catalog](../patterns.md) for the full Ouroboros index.
+Cross-link back from the [pattern catalog](../../ouroboros/patterns.md) for the full Ouroboros index.
 
 ## P-53: Specs with phantom code references waste engineering time
 
