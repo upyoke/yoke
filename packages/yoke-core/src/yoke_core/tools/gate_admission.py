@@ -10,10 +10,15 @@ hold ~11 cluster connections each — at ~18 gates the cluster's
 
 Admission control turns that collapse into an orderly queue: at most a
 bounded number of HEAVY gate invocations execute at once, and every
-additional invocation waits — printing its status — until a slot frees.
-An admitted gate runs near its solo wall-clock; a waiting gate is slow
-but safe, and total machine throughput is strictly higher than under
-thrashing.
+additional invocation waits — printing its status — until a slot frees
+or the wait bound expires. An admitted gate runs near its solo
+wall-clock; a waiting gate is slow but safe, and total machine
+throughput is strictly higher than under thrashing.
+
+Queueing is only ever correct between peers. A descendant that waits on
+a slot its own ancestor is blocking on is not queued, it is deadlocked,
+so this module tracks what the ancestor actually holds rather than
+whether an ancestor exists at all (see :data:`ADMITTED_ENV`).
 
 Mechanics:
 
@@ -25,6 +30,9 @@ Mechanics:
   path argument, or no path arguments at all — a bare run covers the
   whole rootdir). File-scoped runs are cheap on every axis and bypass
   admission entirely.
+- Waiting is bounded. A gate that never gets a slot within
+  ``test_gate_timeout.wait_timeout_seconds()`` proceeds without one and
+  says so, because a hung queue is worse than an oversubscribed machine.
 - The cap resolves from the ``YOKE_TEST_GATE_MAX_CONCURRENT`` env var,
   then the ``test_gate_max_concurrent`` machine-config key, then the
   default. Zero or negative disables admission.
@@ -59,12 +67,21 @@ DEFAULT_MAX_CONCURRENT_GATES = 1
 CAP_ENV = "YOKE_TEST_GATE_MAX_CONCURRENT"
 CAP_MACHINE_CONFIG_KEY = "test_gate_max_concurrent"
 
-#: Set for the duration of an admitted heavy gate and inherited by every
-#: process it spawns. A descendant invocation rides its ancestor's slot
-#: instead of arbitrating its own: the suite's own tool tests spawn real
-#: nested runner invocations, and a nested invocation waiting on the slot
-#: its ancestor holds is a deadlock, not a queue.
+#: Set for the duration of any gate that has resolved its own admission,
+#: and inherited by every process it spawns. The value states what the
+#: ancestor actually holds, because a descendant's correct behavior differs
+#: by case and "an ancestor exists" cannot distinguish them: riding a slot
+#: the ancestor holds is free, while queueing behind a stranger's slot when
+#: the ancestor holds nothing is a deadlock — the ancestor cannot finish
+#: until the descendant does.
 ADMITTED_ENV = "YOKE_TEST_GATE_SLOT_HELD"
+
+#: The ancestor holds a real slot; descendants ride it.
+MARKER_SLOT_HELD = "slot"
+
+#: The ancestor resolved admission without holding a slot — it was
+#: file-scoped, the cap was disabled, or no cluster was reachable.
+MARKER_NO_SLOT = "bypass"
 
 #: Base advisory-lock key for gate slots; slot *i* locks ``BASE + i``.
 #: Distinct from the cluster-role authority lock used by the fixtures.
@@ -87,6 +104,33 @@ def admitted_environment(env: dict) -> dict:
     if marker:
         return {**env, ADMITTED_ENV: marker}
     return env
+
+
+def ancestor_admission_state() -> Optional[str]:
+    """Return what an admitted ancestor holds, or None when there is none.
+
+    Any marker value other than :data:`MARKER_NO_SLOT` reads as a held slot,
+    so a process spawned by an older build that wrote a bare truthy marker
+    still rides its ancestor rather than arbitrating a second time.
+    """
+    marker = os.environ.get(ADMITTED_ENV)
+    if not marker:
+        return None
+    return MARKER_NO_SLOT if marker == MARKER_NO_SLOT else MARKER_SLOT_HELD
+
+
+@contextlib.contextmanager
+def _published_state(state: str) -> Iterator[None]:
+    """Publish *state* to descendants for the duration of the block."""
+    prior = os.environ.get(ADMITTED_ENV)
+    os.environ[ADMITTED_ENV] = state
+    try:
+        yield
+    finally:
+        if prior is None:
+            os.environ.pop(ADMITTED_ENV, None)
+        else:
+            os.environ[ADMITTED_ENV] = prior
 
 
 def is_heavy_invocation(pytest_args: Sequence[str]) -> bool:
@@ -161,10 +205,11 @@ def try_acquire_slot(conn, cap: int, base: int = GATE_SLOT_LOCK_BASE) -> bool:
 
 
 def _acquire(stream: TextIO):
-    """Block until a gate slot is held; return the holding connection.
+    """Wait for a gate slot; return the holding connection.
 
     Returns None to proceed without admission (disabled cap, unreachable
-    cluster, or missing driver) — availability of the gate wins.
+    cluster, missing driver, or an expired wait bound) — availability of
+    the gate wins.
     """
     cap = _resolve_cap()
     if cap <= 0:
@@ -190,6 +235,7 @@ def _acquire(stream: TextIO):
             flush=True,
         )
         return None
+    wait_bound = test_gate_timeout.wait_timeout_seconds()
     waited_since = time.monotonic()
     last_announce = 0.0
     try:
@@ -206,10 +252,23 @@ def _acquire(stream: TextIO):
                     )
                 return conn
             now = time.monotonic()
+            waited = now - waited_since
+            if waited >= wait_bound:
+                print(
+                    f"gate admission: no slot after {waited:.0f}s "
+                    f"(bound {wait_bound:.0f}s); proceeding without one. "
+                    f"The {cap} slot(s) are held by unrelated gates that "
+                    "outlasted the bound — this run is no longer serialized "
+                    "against them.",
+                    file=stream,
+                    flush=True,
+                )
+                conn.close()
+                return None
             if now - last_announce >= _WAIT_ANNOUNCE_INTERVAL_S:
                 print(
                     f"gate admission: {cap} heavy gates already running; "
-                    f"waiting ({now - waited_since:.0f}s so far)",
+                    f"waiting ({waited:.0f}s so far)",
                     file=stream,
                     flush=True,
                 )
@@ -226,31 +285,52 @@ def admitted_gate(
 ) -> Iterator[None]:
     """Hold a machine-wide gate slot for the duration of a heavy run.
 
-    Narrow (file-scoped) invocations pass through without touching the
-    cluster, and descendants of an already-admitted gate ride their
-    ancestor's slot (see :data:`ADMITTED_ENV`). The slot rides a
-    dedicated connection, so process death at any point releases it.
+    Three inherited situations, three behaviors: a descendant of a
+    slot-holder rides that slot, a descendant of an ancestor that holds
+    nothing proceeds straight away rather than deadlocking behind a
+    stranger's slot, and a run with no admitted ancestor arbitrates for
+    itself under a bounded wait. Narrow (file-scoped) invocations never
+    touch the cluster, but they still publish what they hold — nothing —
+    so their own descendants can tell the second case from the third.
+    The slot rides a dedicated connection, so process death at any point
+    releases it.
     """
-    if not is_heavy_invocation(pytest_args) or os.environ.get(ADMITTED_ENV):
+    inherited = ancestor_admission_state()
+    if inherited == MARKER_SLOT_HELD:
         yield
         return
+    if not is_heavy_invocation(pytest_args):
+        with _published_state(MARKER_NO_SLOT):
+            yield
+        return
+    if inherited == MARKER_NO_SLOT:
+        print(
+            "gate admission: ancestor bypassed admission and holds no slot; "
+            "proceeding without arbitrating for one, because that ancestor "
+            "cannot finish until this run does.",
+            file=stream,
+            flush=True,
+        )
+        with _published_state(MARKER_NO_SLOT):
+            yield
+        return
     conn = _acquire(stream)
-    prior_marker = os.environ.get(ADMITTED_ENV)
-    os.environ[ADMITTED_ENV] = "1"
     try:
-        yield
+        with _published_state(
+            MARKER_SLOT_HELD if conn is not None else MARKER_NO_SLOT
+        ):
+            yield
     finally:
-        if prior_marker is None:
-            os.environ.pop(ADMITTED_ENV, None)
-        else:
-            os.environ[ADMITTED_ENV] = prior_marker
         if conn is not None:
             conn.close()
 
 
 __all__ = [
     "ADMITTED_ENV",
+    "MARKER_NO_SLOT",
+    "MARKER_SLOT_HELD",
     "admitted_environment",
+    "ancestor_admission_state",
     "CAP_ENV",
     "CAP_MACHINE_CONFIG_KEY",
     "DEFAULT_MAX_CONCURRENT_GATES",

@@ -164,12 +164,17 @@ def _run_nested_runner(mini_repo: Path, *args: str) -> subprocess.CompletedProce
     Exempt from machine-wide gate admission, and time-boxed.
 
     The nested invocation names a directory, so ``is_heavy_invocation`` calls
-    it heavy and it would arbitrate for a machine gate slot. Riding an
-    ancestor's slot only works when an ancestor holds one: run this file alone
-    and the outer invocation is file-scoped, bypasses admission, and holds
-    nothing — so the child queues behind whatever unrelated gate owns the slot
-    and blocks until that gate ends. A two-test throwaway repo is not the
-    heavy workload the cap exists to serialize, so it opts out entirely.
+    it heavy and it would otherwise arbitrate for a machine gate slot. The
+    deadlock that used to make that fatal is now handled in the admission
+    module itself: a run that bypasses admission publishes that it holds no
+    slot, and a heavy descendant of such a run proceeds instead of queueing
+    behind a stranger. What survives here is the narrower claim that a
+    two-test throwaway repo is not the heavy workload the cap exists to
+    serialize — so it opts out at this call site rather than by loosening
+    what counts as heavy for every caller. The opt-out still earns its keep
+    when this file is driven by a bare ``pytest`` rather than through the
+    runner or watcher, because nothing in that chain publishes an admission
+    state and the child would queue under the wait bound.
 
     The timeout is the backstop: any future block fails this test loudly
     instead of wedging its worker until someone kills the run by hand.
