@@ -40,6 +40,7 @@ from yoke_core.domain.worktree_provision import (
     count_active_worktrees as _count_active_worktrees,
     project_field as _project_field,
     provision_worktree as _provision_worktree,
+    provision_worktree_hook_trust as _provision_worktree_hook_trust,
 )
 
 
@@ -250,6 +251,12 @@ def create_worktree(
                 failed_branch=entry.branch,
             )
         entry.created = True
+
+    # Codex keys hook trust by the literal hooks-file path, so every lane —
+    # reused as much as new — needs the checkout's trust mirrored onto its
+    # own path or Codex threads working there fire no hooks at all.
+    for entry in plan.worktrees:
+        _provision_worktree_hook_trust(repo_root, entry.path)
 
     # --- Stable primary result plus universal lane persistence ---
     primary = plan.primary or plan.worktrees[0]
