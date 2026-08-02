@@ -46,12 +46,14 @@ from typing import Callable, Dict, List, Optional
 HARNESS_PROCESS_BASENAMES = frozenset({"claude", "claude-code"})
 
 MULTIPLEXED_PROCESS_BASENAMES = frozenset(
-    {"codex", "codex-code-mode-host"}
+    {"codex", "codex-code-mode-host", "cursor", "cursor-agent"}
 )
 """Harness processes that host many concurrent sessions under one pid.
 
 Never a valid anchor: every sibling conversation shares the pid, so a
-record keyed on it resolves to whichever session wrote last.
+record keyed on it resolves to whichever session wrote last. One
+``cursor-agent`` process hosts the main conversation plus every subagent
+session it spawns, and the Cursor IDE host process is shared the same way.
 """
 
 _MAX_ANCESTOR_DEPTH = 64
