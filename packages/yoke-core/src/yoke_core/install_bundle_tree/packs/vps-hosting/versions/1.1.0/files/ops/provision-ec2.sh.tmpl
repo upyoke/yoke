@@ -1,0 +1,215 @@
+#!/usr/bin/env sh
+# provision-ec2.sh — Bootstrap a freshly-provisioned EC2 host for {{project_display_name}}
+#
+# Installs Docker engine, docker-compose plugin, nginx with the http-js module,
+# and certbot + certbot-dns-route53. Designed to run as root (or via sudo)
+# on a fresh Ubuntu 24.04 ARM64 EC2 instance immediately after first boot.
+#
+# Runtime settings supplied by the installed Pack source:
+#   {{project_name}}         — project name (used in log lines and the deploy directory)
+#   {{project_display_name}} — human-readable name for log banners
+#   {{ssh_user}}             — default user on the AMI (Ubuntu EC2 AMIs use 'ubuntu')
+#
+# Usage (from the operator's workstation against the new EC2 host):
+#   scp ops/provision-ec2.sh {{ssh_user}}@<eip>:/tmp/
+#   ssh {{ssh_user}}@<eip> 'sudo sh /tmp/provision-ec2.sh'
+#
+# Idempotent: re-running on a provisioned host is a no-op except for routine
+# `apt-get update` + package-status checks.
+
+set -eu
+
+DEPLOY_USER="{{ssh_user}}"
+PROJECT_NAME="{{project_name}}"
+SWAPFILE="/swapfile"
+SWAP_SIZE_MB="1024"
+
+log() {
+  echo "[provision-ec2] $1"
+}
+
+# ─────────────────────────────────────────
+# Preflight: must run as root
+# ─────────────────────────────────────────
+
+if [ "$(id -u)" -ne 0 ]; then
+  log "ERROR: must run as root (apt-get + service installs require root)"
+  exit 1
+fi
+
+# ─────────────────────────────────────────
+# Confirm the deploy user exists
+# ─────────────────────────────────────────
+
+if ! id -u "$DEPLOY_USER" >/dev/null 2>&1; then
+  log "ERROR: expected user '$DEPLOY_USER' not present on host."
+  log "  Fresh Ubuntu EC2 AMIs ship with 'ubuntu' by default."
+    log "  Either correct DB ssh/server settings and re-render, or"
+  log "  create the user manually before re-running."
+  exit 1
+fi
+log "Deploy user '$DEPLOY_USER' present"
+
+# ─────────────────────────────────────────
+# Host memory guardrail
+# ─────────────────────────────────────────
+
+if awk 'NR > 1 { found = 1 } END { exit found ? 0 : 1 }' /proc/swaps 2>/dev/null; then
+  log "Swap already active"
+else
+  if [ ! -f "$SWAPFILE" ]; then
+    log "Creating ${SWAP_SIZE_MB}MiB swapfile at $SWAPFILE"
+    if command -v fallocate >/dev/null 2>&1; then
+      fallocate -l "${SWAP_SIZE_MB}M" "$SWAPFILE" \
+        || dd if=/dev/zero of="$SWAPFILE" bs=1M count="$SWAP_SIZE_MB"
+    else
+      dd if=/dev/zero of="$SWAPFILE" bs=1M count="$SWAP_SIZE_MB"
+    fi
+  else
+    log "Using existing inactive swapfile at $SWAPFILE"
+  fi
+  chmod 600 "$SWAPFILE"
+  mkswap "$SWAPFILE" >/dev/null
+  swapon "$SWAPFILE"
+fi
+
+if [ -f "$SWAPFILE" ] && ! grep -Eq "^${SWAPFILE}[[:space:]]+none[[:space:]]+swap[[:space:]]" /etc/fstab; then
+  log "Persisting swapfile in /etc/fstab"
+  printf '%s\n' "$SWAPFILE none swap sw 0 0" >> /etc/fstab
+fi
+
+# ─────────────────────────────────────────
+# apt prerequisites
+# ─────────────────────────────────────────
+
+log "Updating apt indexes"
+DEBIAN_FRONTEND=noninteractive apt-get update -qq
+
+log "Installing baseline packages"
+DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
+  ca-certificates \
+  curl \
+  gnupg \
+  lsb-release \
+  rsync \
+  unzip
+
+# ─────────────────────────────────────────
+# Docker engine + compose plugin
+# ─────────────────────────────────────────
+
+if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
+  log "Docker engine + compose plugin already installed"
+else
+  log "Installing Docker engine + compose plugin from docker.com apt repo"
+  install -m 0755 -d /etc/apt/keyrings
+  if [ ! -f /etc/apt/keyrings/docker.gpg ]; then
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
+      | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+    chmod a+r /etc/apt/keyrings/docker.gpg
+  fi
+  _codename=$(. /etc/os-release && echo "$VERSION_CODENAME")
+  _arch=$(dpkg --print-architecture)
+  echo "deb [arch=${_arch} signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu ${_codename} stable" \
+    > /etc/apt/sources.list.d/docker.list
+  DEBIAN_FRONTEND=noninteractive apt-get update -qq
+  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
+    docker-ce \
+    docker-ce-cli \
+    containerd.io \
+    docker-buildx-plugin \
+    docker-compose-plugin
+fi
+
+# Allow the deploy user to run docker without sudo (idempotent).
+if ! id -nG "$DEPLOY_USER" | tr ' ' '\n' | grep -qx docker; then
+  log "Adding '$DEPLOY_USER' to the 'docker' group"
+  usermod -aG docker "$DEPLOY_USER"
+fi
+
+# Pin Docker's embedded DNS to the AWS VPC resolver. Ubuntu routes host DNS
+# through the systemd-resolved stub (127.0.0.53), which is NOT reachable from
+# inside containers; without this, containers fall back to public DNS and
+# cannot resolve the private Aurora endpoint (startup crash-loop).
+install -m 0755 -d /etc/docker
+if [ ! -f /etc/docker/daemon.json ]; then
+  log "Pinning Docker daemon DNS to the AWS VPC resolver"
+  printf '%s\n' '{"dns": ["169.254.169.253", "172.31.0.2"]}' > /etc/docker/daemon.json
+fi
+
+systemctl enable --now docker >/dev/null
+
+# ECR credential helper lets Docker pull images from ECR. Core deploy probes
+# each remaining tool independently and preserves this Docker CE provider when
+# it repairs an unrelated missing dependency such as the AWS CLI.
+if ! command -v docker-credential-ecr-login >/dev/null 2>&1; then
+  log "Installing amazon-ecr-credential-helper"
+  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq amazon-ecr-credential-helper
+fi
+
+# ─────────────────────────────────────────
+# nginx + njs (http-js module)
+# ─────────────────────────────────────────
+
+if command -v nginx >/dev/null 2>&1 \
+  && dpkg -s libnginx-mod-http-js >/dev/null 2>&1; then
+  log "nginx + libnginx-mod-http-js already installed"
+else
+  log "Installing nginx + libnginx-mod-http-js"
+  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
+    nginx \
+    libnginx-mod-http-js
+fi
+
+systemctl enable --now nginx >/dev/null
+
+# ─────────────────────────────────────────
+# certbot + certbot-dns-route53
+# ─────────────────────────────────────────
+
+if command -v certbot >/dev/null 2>&1 \
+  && dpkg -s python3-certbot-dns-route53 >/dev/null 2>&1; then
+  log "certbot + python3-certbot-dns-route53 already installed"
+else
+  log "Installing certbot + python3-certbot-dns-route53"
+  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
+    certbot \
+    python3-certbot-dns-route53
+fi
+
+# ─────────────────────────────────────────
+# Deploy directory scaffold
+# ─────────────────────────────────────────
+
+DEPLOY_HOME="/home/${DEPLOY_USER}"
+DEPLOY_DIR="${DEPLOY_HOME}/${PROJECT_NAME}-app"
+
+if [ ! -d "$DEPLOY_DIR" ]; then
+  log "Creating deploy directory at $DEPLOY_DIR"
+  install -d -o "$DEPLOY_USER" -g "$DEPLOY_USER" -m 0755 "$DEPLOY_DIR"
+else
+  log "Deploy directory $DEPLOY_DIR already present"
+fi
+
+# ─────────────────────────────────────────
+# Verify
+# ─────────────────────────────────────────
+
+log ""
+log "=== {{project_display_name}} EC2 provisioning summary ==="
+log "Docker:      $(docker --version 2>/dev/null || echo MISSING)"
+log "Compose:     $(docker compose version --short 2>/dev/null || echo MISSING)"
+log "nginx:       $(nginx -v 2>&1 || echo MISSING)"
+log "njs module:  $(test -f /usr/lib/nginx/modules/ngx_http_js_module.so && test -f /etc/nginx/modules-enabled/50-mod-http-js.conf && echo present || echo MISSING)"
+log "certbot:     $(certbot --version 2>/dev/null || echo MISSING)"
+log "Route53 dns: $(certbot plugins 2>/dev/null | grep -q dns-route53 && echo present || echo MISSING)"
+log "Swap:        $(awk '$1 == "'"$SWAPFILE"'" {print int($3 / 1024) "MiB active"; found = 1} END {if (!found) print "not configured"}' /proc/swaps 2>/dev/null)"
+log "Deploy dir:  $DEPLOY_DIR (user $DEPLOY_USER)"
+log ""
+log "Next steps (run from the operator's workstation):"
+log "  1. scp the rendered nginx + njs configs to ${DEPLOY_USER}@<eip>"
+log "  2. sudo sh provision-tls.sh   (issues TLS cert via Route53 DNS-01)"
+log "  3. Install the project's selected maintenance and scheduling policy"
+log "  4. Trigger the {{project_name}}-deploy GitHub Actions workflow"
+log ""
+log "Done."
