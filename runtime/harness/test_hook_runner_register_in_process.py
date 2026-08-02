@@ -14,6 +14,20 @@ import pytest
 from runtime.harness import hook_runner_register as register_module
 
 
+@pytest.fixture(autouse=True)
+def _no_real_anchor_writes(monkeypatch):
+    """These are registrar-branch unit tests; the anchor side has its own.
+
+    An unmocked ``_record_process_anchor`` resolves real process ancestry —
+    the write this file once leaked into the developer's live anchor
+    registry (the conftest guard now contains that class; this keeps the
+    unit under test to the registrar branch itself).
+    """
+    monkeypatch.setattr(
+        register_module, "_record_process_anchor", lambda *_a, **_k: None,
+    )
+
+
 class TestRegisterInProcess:
     """register_in_process=True bypasses checkout gating + the subprocess."""
 

@@ -241,5 +241,22 @@ class TestRelayOwnedRegistration:
         assert slc._relay_owns_registration() is False
 
 
+class TestAnchorRegistryIsolation:
+    def test_unmocked_anchor_write_cannot_reach_the_machine_registry(self):
+        """The conftest guard contains real-ancestry anchor writes.
+
+        A registration test that misses the anchor mock resolves the real
+        process ancestry — under pytest that tops out at the developer's
+        live harness process, and the write lands a synthetic session id
+        on their own conversation's anchor (observed live: the contention
+        guard then blanked the developer's ambient identity).
+        """
+        from pathlib import Path
+
+        from yoke_core.domain.session_process_anchors import anchors_dir
+
+        assert not str(anchors_dir()).startswith(str(Path.home()))
+
+
 if __name__ == "__main__":  # pragma: no cover - manual run
     raise SystemExit(pytest.main([__file__, "-q"]))

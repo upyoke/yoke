@@ -166,6 +166,50 @@ def _yoke_filesystem_pollution_check():
 
 
 # ---------------------------------------------------------------------------
+# Session-anchor registry write isolation
+# ---------------------------------------------------------------------------
+
+
+def isolate_session_anchor_registry(tmp_path: Path, monkeypatch) -> None:
+    """Point every anchor writer away from the real machine registry.
+
+    An anchor write resolves the *real* process ancestry, and under pytest
+    that ancestry tops out at the developer's live harness process — so a
+    test that reaches an unmocked write poisons the machine's own
+    ``~/.yoke/session-anchors`` with a synthetic session id, and the
+    developer's conversation loses ambient identity to the contention
+    guard. Both writer shims re-resolve their directory per call, so
+    patching the two resolvers covers every write path. A test that pins
+    ``YOKE_MACHINE_HOME`` keeps its own isolation; everything else lands
+    in a per-test guard directory.
+    """
+    guard_dir = tmp_path / "session-anchors-guard"
+
+    def _guarded_dir() -> Path:
+        home = os.environ.get("YOKE_MACHINE_HOME")
+        if home:
+            from yoke_contracts.session_identity import ANCHORS_DIR_NAME
+
+            return Path(home) / ANCHORS_DIR_NAME
+        return guard_dir
+
+    from yoke_core.domain import session_process_anchors
+
+    monkeypatch.setattr(session_process_anchors, "anchors_dir", _guarded_dir)
+    try:
+        from yoke_harness.hooks import identity_anchor
+    except Exception:  # noqa: BLE001 — harness package optional in some runs
+        return
+    monkeypatch.setattr(identity_anchor, "_anchors_dir", _guarded_dir)
+
+
+@pytest.fixture(autouse=True)
+def _yoke_session_anchor_isolation(tmp_path, monkeypatch):
+    isolate_session_anchor_registry(tmp_path, monkeypatch)
+    yield
+
+
+# ---------------------------------------------------------------------------
 # Canonical-ledger write isolation
 # ---------------------------------------------------------------------------
 

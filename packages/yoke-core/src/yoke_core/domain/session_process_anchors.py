@@ -27,6 +27,43 @@ def anchors_dir() -> Path:
     return machine_config.yoke_home() / ANCHORS_DIR_NAME
 
 
+def _liveness_probe() -> Optional[session_identity.ContenderIsLive]:
+    """The transport-backed session liveness probe, or ``None`` unavailable."""
+    try:
+        from yoke_cli.transport.session_liveness import contender_is_live
+    except Exception:  # noqa: BLE001 — no probe degrades to fail-closed
+        return None
+    return contender_is_live
+
+
+def _emit_contention_observed(
+    record: Dict[str, Any], writer_session_id: str,
+) -> None:
+    """Ledger visibility for a contended anchor write. Never raises."""
+    try:
+        from yoke_core.domain.events import emit_event
+
+        emit_event(
+            "SessionAnchorContentionObserved",
+            event_kind="lifecycle",
+            event_type="session_lifecycle",
+            source_type="system",
+            severity="WARN",
+            outcome="observed",
+            session_id=writer_session_id,
+            context={
+                "anchor_pid": record.get("anchor_pid"),
+                "contending_session_ids": record.get(
+                    "contending_session_ids", []
+                ),
+                "last_writer_pid": record.get("last_writer_pid"),
+                "last_writer_argv": record.get("last_writer_argv", ""),
+            },
+        )
+    except Exception:  # noqa: BLE001 — telemetry must not break the write
+        return
+
+
 def record_session_anchor(
     session_id: str,
     *,
@@ -38,15 +75,21 @@ def record_session_anchor(
 
     Returns the written record, or ``None`` when no harness ancestor exists
     or the write failed. Never raises. ``anchor`` injects a resolved
-    ancestor for tests.
+    ancestor for tests. Contended tenancy re-verifies recorded contenders
+    against session liveness so a marker heals once its co-tenants end; a
+    write that stays contended is surfaced on the events ledger.
     """
-    return session_identity.record_session_anchor(
+    record = session_identity.record_session_anchor(
         session_id,
         anchors_dir(),
         transcript_path=transcript_path,
         pid=pid,
         anchor=anchor,
+        contender_is_live=_liveness_probe(),
     )
+    if record is not None and record.get("shared_by_multiple_sessions"):
+        _emit_contention_observed(record, session_id)
+    return record
 
 
 def resolve_session_from_ancestry(

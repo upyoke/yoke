@@ -21,7 +21,7 @@ from yoke_contracts.api.function_call import TargetRef
 
 SESSIONS_LIST_USAGE = (
     "yoke sessions list [--project P] [--liveness active|stale|ended] "
-    "[--limit N] [--session-id S] [--json]"
+    "[--limit N] [--session S] [--session-id S] [--json]"
 )
 
 
@@ -41,6 +41,11 @@ def sessions_list(args: List[str]) -> int:
     parser.add_argument("--project", default=None)
     parser.add_argument("--liveness", default=None)
     parser.add_argument("--limit", type=int, default=None)
+    parser.add_argument(
+        "--session", default=None, dest="session_filter",
+        help="Single-session liveness projection for exactly this id "
+        "(--session-id remains the caller-identity override).",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, SESSIONS_LIST_USAGE)
@@ -64,6 +69,8 @@ def sessions_list(args: List[str]) -> int:
             payload[key] = value
     if parsed.limit is not None:
         payload["limit"] = parsed.limit
+    if parsed.session_filter is not None:
+        payload["session_id"] = parsed.session_filter
     return dispatch_and_emit(
         function_id="sessions.list",
         target=TargetRef(kind="global"),

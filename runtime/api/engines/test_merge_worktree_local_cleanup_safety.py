@@ -89,3 +89,51 @@ def test_clean_worktree_uses_normal_remove_before_branch_delete(tmp_path):
     assert not any(
         "--force" in command or "branch -D" in command for command in commands
     )
+
+
+def test_lane_removal_runs_after_every_step_that_reads_from_it(tmp_path):
+    """Removing the lane strands any module the process has not yet imported."""
+    ctx = _ctx(tmp_path)
+    order: list[str] = []
+    with ExitStack() as stack:
+        for step in (
+            "_ensure_snapshot_for_project",
+            "_schema_refresh",
+            "_ensure_target_branch",
+        ):
+            stack.enter_context(
+                mock.patch.object(
+                    merge_worktree_post_local,
+                    step,
+                    side_effect=lambda _ctx, name=step: order.append(name),
+                )
+            )
+        stack.enter_context(
+            mock.patch.object(
+                merge_worktree_post_local,
+                "_regenerate_views_or_exit5",
+                side_effect=lambda _ctx: (order.append("_regenerate_views"), 0)[1],
+            )
+        )
+        stack.enter_context(
+            mock.patch.object(merge_worktree_post_local, "_chdir_out_of_doomed_worktree")
+        )
+        run_git = stack.enter_context(
+            mock.patch.object(merge_worktree, "_run_git")
+        )
+
+        def record(command, **_kwargs):
+            if "worktree" in command and "remove" in command:
+                order.append("remove_lane")
+            return mock.Mock(returncode=0, stdout="")
+
+        run_git.side_effect = record
+        assert merge_worktree_post_local.do_local_merge(ctx) == 0
+
+    assert order == [
+        "_ensure_snapshot_for_project",
+        "_schema_refresh",
+        "_regenerate_views",
+        "_ensure_target_branch",
+        "remove_lane",
+    ]

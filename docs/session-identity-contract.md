@@ -140,6 +140,36 @@ Both defenses fail toward step 3. That is the intended outcome — an
 unresolvable identity is an infrastructure gap to report, and a confidently
 wrong one is a correctness bug that spreads through claims and attribution.
 
+### Contention is a marker that heals, never a latch
+
+A contention marker records the state it refuses over, and every anchor
+write re-decides tenancy (`yoke_contracts.session_anchor_contention`):
+
+- The marker carries `contending_session_ids` plus a
+  `last_writer_pid` / `last_writer_argv` breadcrumb, so a contended pid is
+  attributable instead of blank.
+- The **writer is always a live candidate** — its hook event is proof of
+  the process even while its session row is transiently ended.
+- A recorded contender **drops out** when the probe positively says it is
+  not a live session — its row is ended, or it has no row at all (rows are
+  never deleted, so an unregistered id is not a conversation on this
+  control plane; that is the anchor-poisoning class). Probed through the
+  `sessions.list` single-session projection, over either transport. A
+  *clean* registry record anchoring the contender to a different live
+  process also drops it — one conversation has one per-conversation
+  process, so a live home elsewhere means this pid's claim on it was
+  written in error. A failed probe keeps the contender: genuine ambiguity
+  still fails closed.
+- One live candidate left → the record becomes that session's clean
+  anchor again. Two or more → the marker persists, now naming them, and
+  the engine-side writer emits `SessionAnchorContentionObserved` for
+  ledger visibility. `HC-session-anchor-contention` flags any live marker
+  whose recorded contenders are not two-or-more live sessions.
+
+Markers written before contender recording heal the same way: the next
+write from the surviving tenant finds a single candidate and reclaims the
+pid.
+
 The `actor_session_missing` rejection is the default for mutating dispatch,
 but a bounded **bootstrap/config class** opts out with
 `ambient_session_required=False` on its registry entry. These are the

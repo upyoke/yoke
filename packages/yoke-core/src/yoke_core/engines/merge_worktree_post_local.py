@@ -67,6 +67,56 @@ def _ensure_snapshot_for_project(ctx: MergeContext) -> None:
             pass
 
 
+def _remove_lane(ctx: MergeContext) -> None:
+    """Discard the merged worktree and its branch. Always the last step.
+
+    Removing the lane is destructive to more than git: the merging process may
+    be importing its own package source out of that directory, so any module it
+    has not yet loaded becomes unresolvable the moment the lane is gone. Every
+    step that still needs the lane — and every close-out step that follows this
+    one in the caller — must therefore run before this returns.
+
+    Cleanup happens only when the worktree holds no tracked, untracked, or
+    ignored material: a local merge proves the branch commits are retained by
+    the target, but it does not prove filesystem-only work is safe to discard.
+    """
+    mw = _parent()
+    _print = mw._print
+    _run_git = mw._run_git
+
+    if ctx.worktree_path == ctx.repo_root:
+        return
+
+    _chdir_out_of_doomed_worktree(ctx)
+    from yoke_core.engines.merge_worktree_cleanliness import (
+        clean_after_disposable_cache_removal,
+    )
+
+    if not clean_after_disposable_cache_removal(_run_git, ctx.worktree_path):
+        _print(
+            f"WARNING: Preserving dirty or unverifiable worktree: "
+            f"{ctx.worktree_path}",
+            err=True,
+        )
+        return
+
+    removed = _run_git(
+        ["worktree", "remove", ctx.worktree_path],
+        cwd=ctx.repo_root,
+        capture=True,
+    )
+    if removed.returncode != 0:
+        _print(
+            f"WARNING: Worktree removal refused; preserving branch "
+            f"{ctx.args.branch}",
+            err=True,
+        )
+        return
+
+    _print(f"Cleaned up worktree: {ctx.worktree_path}")
+    _run_git(["branch", "-d", ctx.args.branch], cwd=ctx.repo_root, capture=True)
+
+
 def do_local_merge(ctx: MergeContext) -> int:
     """Execute local merge (--local flag). Returns exit code."""
     mw = _parent()
@@ -96,44 +146,6 @@ def do_local_merge(ctx: MergeContext) -> int:
     # on fresh clones where the operator has not yet installed the hook).
     _ensure_snapshot_for_project(ctx)
 
-    # Clean up only when the worktree contains no tracked, untracked, or
-    # ignored material.  A local merge proves the branch commits are retained
-    # by the target, but it does not prove that filesystem-only work is safe to
-    # discard.
-    if ctx.worktree_path != ctx.repo_root:
-        _chdir_out_of_doomed_worktree(ctx)
-        from yoke_core.engines.merge_worktree_cleanliness import (
-            clean_after_disposable_cache_removal,
-        )
-
-        if not clean_after_disposable_cache_removal(
-            _run_git, ctx.worktree_path
-        ):
-            _print(
-                f"WARNING: Preserving dirty or unverifiable worktree: "
-                f"{ctx.worktree_path}",
-                err=True,
-            )
-        else:
-            removed = _run_git(
-                ["worktree", "remove", ctx.worktree_path],
-                cwd=ctx.repo_root,
-                capture=True,
-            )
-            if removed.returncode == 0:
-                _print(f"Cleaned up worktree: {ctx.worktree_path}")
-                _run_git(
-                    ["branch", "-d", ctx.args.branch],
-                    cwd=ctx.repo_root,
-                    capture=True,
-                )
-            else:
-                _print(
-                    f"WARNING: Worktree removal refused; preserving branch "
-                    f"{ctx.args.branch}",
-                    err=True,
-                )
-
     # Schema refresh
     _schema_refresh(ctx)
 
@@ -143,6 +155,10 @@ def do_local_merge(ctx: MergeContext) -> int:
 
     # Ensure on target branch regardless of regen outcome
     _ensure_target_branch(ctx)
+
+    # Lane removal last: everything above still reads from the worktree, and
+    # so does the caller's close-out. See _remove_lane.
+    _remove_lane(ctx)
 
     _print("")
     _print(f"YOKE_REPO_ROOT={ctx.yoke_repo_root}")
