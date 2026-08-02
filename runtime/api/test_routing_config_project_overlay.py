@@ -82,7 +82,7 @@ class TestProcessPolicy:
         )
         enabled, key, source = policy.decision_for("STRATEGIZE")
         assert enabled is False
-        assert key == "do_process_offer_strategize"
+        assert key == "process_offers.strategize"
         assert source == "project 2 capability session-routing"
 
     def test_machine_policy_is_no_project_fallback(self, tmp_path: Path) -> None:
