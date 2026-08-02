@@ -176,12 +176,13 @@ To add a third harness adapter:
 5. Author a smoke-test runbook (mirror `runtime/harness/codex/SMOKE-TEST.md`).
 6. Run `/yoke doctor` and confirm the harness-specific health checks pass.
 
-The canonical bodies under `runtime/agents/` never change. The skill phase files never change. Only the adapter directory, the renderer pass, the manifest, and the smoke-test runbook are new.
+The canonical bodies under `runtime/agents/` never change. The skill phase files never change. The adapter directory, the renderer pass, the manifest, and the smoke-test runbook are new — and the steps above additionally touch the core enumeration sites where harness identity is hardcoded (executor labels, `HARNESS_UNIVERSE`, conditional-block ids, identity predicates, process-ancestry classification, decision wire formats, session-dispatch branches, project-install constants, and the doctor checks that read them). The [Cursor Harness Integration Assessment](harness-cursor-assessment.md) inventories those sites and maps every per-harness axis for a candidate third harness.
 
 ## Related docs
 
 - [Harness Bootstrap Contract](harness-bootstrap.md) — neutral startup expectations
 - [Harness Adapter Template](harness-adapter-template.md) — five-part adapter template
 - [Hook Parity Map](hook-parity-map.md) — three-tier hook classification across harnesses
+- [Cursor Harness Integration Assessment](harness-cursor-assessment.md) — measured substrate mapping and enumeration-site inventory for a candidate third harness
 - [Subagent Reference](agents.md) — agent-by-agent behavior
 - [Harness README](../runtime/harness/README.md) — adapter directory convention
