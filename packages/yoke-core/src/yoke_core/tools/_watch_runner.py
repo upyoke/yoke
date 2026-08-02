@@ -27,11 +27,13 @@ import selectors
 import shlex
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Callable, Optional, Sequence, TextIO
 
 from yoke_core.domain import process_group_reaping
 from yoke_core.domain.project_scratch_dir import mint_watcher_capture_pair
+
 # Re-exported so wrappers keep importing one watcher entrypoint.
 from yoke_core.tools._watch_streaming_pair import print_streaming_pair  # noqa: F401
 from yoke_core.tools._watch_throttle import (
@@ -140,6 +142,7 @@ def run_watcher(
     stdout_stream: Optional[TextIO] = None,
     policy: Optional[ThrottlePolicy] = None,
     time_source: Optional[Callable[[], float]] = None,
+    timeout_seconds: float | None = None,
 ) -> int:
     """Run *argv* under the shared raw + throttled-progress contract.
 
@@ -148,10 +151,11 @@ def run_watcher(
     lines are routed through :class:`ProgressGate` for percent-step or
     time-window throttling. ``NOISE`` lines are written to raw only.
 
-    ``stdout_stream`` is primarily a test seam — production callers
-    leave it unset so the wrapper writes filtered progress to its own
-    ``sys.stdout``. ``policy`` and ``time_source`` are optional test
-    seams; production callers use the config-driven defaults.
+    ``stdout_stream`` is primarily a test seam — production callers leave it
+    unset so the wrapper writes filtered progress to its own ``sys.stdout``.
+    ``policy`` and ``time_source`` are optional test seams; production callers
+    use the config-driven defaults. ``timeout_seconds`` starts when the watched
+    child starts, not while a caller waits for an external admission gate.
     """
     out: TextIO = stdout_stream or sys.stdout
 
@@ -165,6 +169,8 @@ def run_watcher(
         if time_source is not None
         else ProgressGate(policy)
     )
+    clock = time_source or time.monotonic
+    deadline = clock() + timeout_seconds if timeout_seconds is not None else None
 
     header = (
         f"# watch_{kind} raw={raw_capture} "
@@ -199,32 +205,44 @@ def run_watcher(
             _emit_immediate(err_line, progress_f=progress_f, out=out)
             # Armed followers (watch_tail) exit only on the sentinel, so
             # the launch-error path must still write the exit footer.
-            footer = (
-                f"# watch_{kind} exit={WRAPPER_LAUNCH_ERROR} "
-                f"raw={raw_capture}\n"
-            )
+            footer = f"# watch_{kind} exit={WRAPPER_LAUNCH_ERROR} raw={raw_capture}\n"
             _emit_immediate(footer, progress_f=progress_f, out=out)
             return WRAPPER_LAUNCH_ERROR
 
         assert proc.stdout is not None
         last_summary: Optional[str] = None
+        timed_out = False
         quiet_seconds = float(os.environ.get(QUIET_HEARTBEAT_SECONDS_ENV, "60"))
         try:
             with process_group_reaping.interruption_reaps_process_group(proc):
                 with selectors.DefaultSelector() as selector:
                     selector.register(proc.stdout, selectors.EVENT_READ)
                     while True:
-                        events = selector.select(timeout=quiet_seconds)
+                        wait_seconds = quiet_seconds
+                        if deadline is not None:
+                            wait_seconds = min(wait_seconds, max(0, deadline - clock()))
+                        events = selector.select(timeout=wait_seconds)
                         if not events:
                             if proc.poll() is not None:
+                                break
+                            if deadline is not None and clock() >= deadline:
+                                process_group_reaping.terminate_process_group(proc)
+                                timed_out = True
+                                timeout_line = (
+                                    f"# watch_{kind} timed out after "
+                                    f"{timeout_seconds:g} seconds; "
+                                    "child process group reaped\n"
+                                )
+                                raw_f.write(timeout_line)
+                                _emit_immediate(
+                                    timeout_line, progress_f=progress_f, out=out
+                                )
                                 break
                             heartbeat = (
                                 f"# watch_{kind} still running; "
                                 f"no child output for {quiet_seconds:g}s\n"
                             )
-                            _emit_immediate(
-                                heartbeat, progress_f=progress_f, out=out
-                            )
+                            _emit_immediate(heartbeat, progress_f=progress_f, out=out)
                             continue
                         line = proc.stdout.readline()
                         if line == "":
@@ -254,8 +272,7 @@ def run_watcher(
                                 progress_f=progress_f,
                                 out=out,
                             )
-
-                rc = proc.wait()
+                rc = 124 if timed_out else proc.wait()
         except process_group_reaping.ProcessGroupInterrupted as interruption:
             # The guard has already reaped the child's whole group, so the
             # databases that group held are released before this returns. Say
@@ -283,9 +300,7 @@ def run_watcher(
         # location: the second-to-last line of the progress capture,
         # immediately before the `# watch_<kind> exit=<rc>` sentinel.
         if last_summary is not None:
-            summary_footer = (
-                f"# watch_{kind} summary: {last_summary.rstrip()}\n"
-            )
+            summary_footer = f"# watch_{kind} summary: {last_summary.rstrip()}\n"
             _emit_immediate(summary_footer, progress_f=progress_f, out=out)
         footer_extras = ""
         if gate.total_suppressed > 0:
@@ -293,12 +308,9 @@ def run_watcher(
                 f" suppressed_total={gate.total_suppressed}"
                 f" suppressed_pending={gate.pending_suppressed}"
             )
-        footer = (
-            f"# watch_{kind} exit={rc} raw={raw_capture}{footer_extras}\n"
-        )
+        footer = f"# watch_{kind} exit={rc} raw={raw_capture}{footer_extras}\n"
         _emit_immediate(footer, progress_f=progress_f, out=out)
         return rc
     finally:
         raw_f.close()
         progress_f.close()
-

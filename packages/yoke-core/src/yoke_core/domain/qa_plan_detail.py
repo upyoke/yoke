@@ -55,6 +55,7 @@ def _case_result(
         "ORDER BY rr.created_at DESC, rr.id DESC LIMIT 1"
         f") WHERE q.plan_id={marker} AND q.plan_case_key={marker} "
         f"AND COALESCE(q.host_baseline, '')={marker} "
+        "AND q.waived_at IS NULL "
         f"{deployment_filter} "
         "ORDER BY happened_at DESC, q.id DESC LIMIT 1",
         params,
@@ -66,8 +67,10 @@ def _case_result(
             "deployment_run_id": deployment_run_id,
             "host_baseline": host_baseline,
             "outcome": "not_run",
+            "output_tail": None,
             "evidence": [],
         }
+    raw_result = _decode(row["raw_result"], {})
     review = _review_state(conn, int(row["requirement_id"]), row)
     evidence_run_id = review["capture_run_id"] or row["run_id"]
     evidence = []
@@ -96,6 +99,9 @@ def _case_result(
         "outcome": _outcome(row),
         "capture_degraded_reason": row["capture_degraded_reason"],
         "happened_at": row["happened_at"],
+        "output_tail": (
+            raw_result.get("output_tail") if isinstance(raw_result, dict) else None
+        ),
         "evidence": evidence,
         "review": review,
     }
@@ -181,10 +187,7 @@ def _review_state(
         )
     elif executor == "agent":
         state = "agent_reviewed"
-    elif (
-        run["case_outcome"] == "needs_review"
-        or run["execution_status"] == "captured"
-    ):
+    elif run["case_outcome"] == "needs_review" or run["execution_status"] == "captured":
         state = "awaiting_agent_review"
     else:
         state = "not_applicable"
@@ -198,9 +201,7 @@ def _review_state(
         ),
         "agent_verdict": agent_verdict,
         "rationale": rationale,
-        "capture_run_id": (
-            int(capture_run_id) if capture_run_id is not None else None
-        ),
+        "capture_run_id": (int(capture_run_id) if capture_run_id is not None else None),
         "decision_request": request,
     }
 

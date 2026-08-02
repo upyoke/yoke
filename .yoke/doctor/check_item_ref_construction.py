@@ -10,8 +10,9 @@ A ratchet enforcing the display/internal split for item references:
 The scanner (``yoke_core.domain.lint_item_ref_construction``) flags any literal
 ref-prefix token in Python source outside the formatter/resolver and tests.
 Occurrences already present are grandfathered in
-``item_ref_construction_baseline.BASELINE`` (which may only shrink); any NEW or
-over-baseline occurrence FAILs so the anti-pattern cannot re-enter the tree.
+``item_ref_construction_baseline.BASELINE``. A listed source file's maintainer
+must reduce its allowance whenever that file changes; any NEW or over-baseline
+occurrence FAILs so the anti-pattern cannot re-enter the tree.
 """
 
 from __future__ import annotations

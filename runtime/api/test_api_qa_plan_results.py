@@ -25,6 +25,7 @@ from yoke_core.domain.qa_plan_attachments import (
     set_project_default,
 )
 from yoke_core.domain.qa_plan_detail import get_plan
+from yoke_core.domain.qa_plan_rematerialize import rematerialize_for_item
 from yoke_core.domain.qa_plan_management import (
     create_plan,
     replace_plan_cases,
@@ -89,6 +90,63 @@ def test_materialization_is_idempotent_and_preserves_case_snapshot() -> None:
     assert snapshot[1]["workflow_transition_id"] == "release"
 
 
+def test_rematerialization_refreshes_snapshot_and_retains_run_history() -> None:
+    with test_database() as conn:
+        item = insert_item(conn, id=42, title="Ship checkout", workflow_id="issue")
+        plan = create_release_readiness_plan(conn)
+        set_project_default(
+            conn,
+            plan_id=plan["id"],
+            workflow_id=str(item["workflow_id"]),
+            transition_id="release",
+        )
+        initial = materialize_for_item(conn, item_id=42, transition_id="release")
+        original_id = initial["created_requirement_ids"][0]
+        conn.execute(
+            "INSERT INTO qa_runs(qa_requirement_id, executor_type, qa_kind, "
+            "verdict, case_outcome, raw_result, created_at) VALUES "
+            "(%s, 'worktree_run', 'command', 'fail', 'failed', %s, %s)",
+            (
+                original_id,
+                json.dumps({"output_tail": "failed assertion"}),
+                "2026-07-26T12:00:00Z",
+            ),
+        )
+        conn.commit()
+        replace_plan_cases(
+            conn,
+            plan_id=plan["id"],
+            cases=[
+                {**CATALOG_CASES[0], "instructions": "Run the corrected suite."},
+                CATALOG_CASES[1],
+            ],
+        )
+        replacement = rematerialize_for_item(
+            conn,
+            item_id=42,
+            transition_id="release",
+        )
+        snapshots = conn.execute(
+            "SELECT id, waived_at, waiver_rationale, waiver_source, instructions "
+            "FROM qa_requirements WHERE item_id=%s ORDER BY id",
+            (42,),
+        ).fetchall()
+        retained_runs = conn.execute(
+            "SELECT count(*) AS count FROM qa_runs WHERE qa_requirement_id=%s",
+            (original_id,),
+        ).fetchone()
+
+    assert replacement["created_requirement_ids"] == []
+    assert (
+        replacement["refreshed_requirement_ids"] == initial["created_requirement_ids"]
+    )
+    assert replacement["waived_requirement_ids"] == []
+    assert len(snapshots) == 2
+    assert all(row["waived_at"] is None for row in snapshots)
+    assert snapshots[0]["instructions"] == "Run the corrected suite."
+    assert retained_runs["count"] == 1
+
+
 def test_activity_folds_requirement_run_and_artifacts_into_case_outcome() -> None:
     with test_database() as conn:
         insert_item(conn, id=42, title="Ship checkout", workflow_id="issue")
@@ -131,6 +189,7 @@ def test_activity_folds_requirement_run_and_artifacts_into_case_outcome() -> Non
     assert passed["evidence_count"] == 1
     assert passed["method_name"] == "Command"
     assert passed["proof_summary"] == "exit 0 · output tail"
+    assert detail["cases"][0]["last_result"]["output_tail"] == "all passed"
     assert detail["union"] == {
         "satisfied": False,
         "counts": {"passed": 1, "queued": 1},

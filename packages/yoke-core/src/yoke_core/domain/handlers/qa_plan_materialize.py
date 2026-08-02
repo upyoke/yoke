@@ -19,6 +19,10 @@ class MaterializeRequest(BaseModel):
     project: Optional[str] = Field(default=None, min_length=1)
 
 
+class RematerializeRequest(BaseModel):
+    transition_id: str = Field(..., min_length=1)
+
+
 def _error(code: str, message: str, jsonpath: str) -> HandlerOutcome:
     return HandlerOutcome(
         primary_success=False,
@@ -102,4 +106,36 @@ def handle_materialize(request: FunctionCallRequest) -> HandlerOutcome:
     return HandlerOutcome(result_payload={"result": result}, primary_success=True)
 
 
-__all__ = ["MaterializeRequest", "handle_materialize"]
+def handle_rematerialize(request: FunctionCallRequest) -> HandlerOutcome:
+    try:
+        payload = RematerializeRequest.model_validate(request.payload or {})
+    except ValueError as exc:
+        return _error("payload_invalid", str(exc), "$.payload")
+    if request.target.kind != "item" or request.target.item_id is None:
+        return _error(
+            "target_invalid",
+            "qa.plan.rematerialize requires an item target",
+            "$.target",
+        )
+    from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.qa_plan_management import QaPlanError
+    from yoke_core.domain.qa_plan_rematerialize import rematerialize_for_item
+
+    try:
+        with connect() as conn:
+            result = rematerialize_for_item(
+                conn,
+                item_id=int(request.target.item_id),
+                transition_id=payload.transition_id,
+            )
+    except QaPlanError as exc:
+        return _error("incompatible", str(exc), "$.payload")
+    return HandlerOutcome(result_payload={"result": result}, primary_success=True)
+
+
+__all__ = [
+    "MaterializeRequest",
+    "RematerializeRequest",
+    "handle_materialize",
+    "handle_rematerialize",
+]

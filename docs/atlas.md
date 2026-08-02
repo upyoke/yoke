@@ -2,21 +2,21 @@
 
 Operator-readable inventory of Yoke's agent-facing surfaces. Rendered by `python3 -m yoke_core.tools.atlas_render_docs render` from the Atlas integrity audit JSON.
 
-_Audit generated_at: 2026-07-28T06:01:28Z_
+_Audit generated_at: 2026-08-02T02:33:28Z_
 
 ## 1. Summary
 
-- Function ids registered: **348**
-- Internal dispatch-only functions without CLI adapters: **64**
-- `yoke` CLI subcommands: **282** (282 carry usable `--help`)
-- Operation tracker: **261 wrapped**, 97 permanent, 0 pending
-- Skill-body recipes: 267 total (219 template-skipped, 0 failing)
+- Function ids registered: **354**
+- Internal dispatch-only functions without CLI adapters: **67**
+- `yoke` CLI subcommands: **285** (285 carry usable `--help`)
+- Operation tracker: **264 wrapped**, 101 permanent, 0 pending
+- Skill-body recipes: 271 total (216 template-skipped, 0 failing)
 - Recent field-notes inspected: 50
 - Contradictions: **0 open** (of 2 tracked)
 
 ## 2. Wrapped operation roster
 
-Wrapped dispatcher-backed `yoke <subcommand>` adapters: **261** (operation tracker confirms 261 wrapped rows).
+Wrapped dispatcher-backed `yoke <subcommand>` adapters: **264** (operation tracker confirms 264 wrapped rows).
 
 | family | yoke form | function_id | help |
 |---|---|---|---|
@@ -41,6 +41,7 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **261** (operation track
 | db | `yoke db read` | `db.read.run` | ok |
 | db_claim | `yoke db-claim amend` | `db_claim.amend` | ok |
 | decision_requests | `yoke decision-requests resolve` | `decision_requests.resolve` | ok |
+| deployment_flows | `yoke deployment-flows describe` | `deployment_flows.describe` | ok |
 | deployment_flows | `yoke deployment-flows get` | `deployment_flows.get` | ok |
 | deployment_flows | `yoke deployment-flows reconcile-project` | `deployment_flows.reconcile_project` | ok |
 | deployment_flows | `yoke deployment-flows set-status` | `deployment_flows.set_status` | ok |
@@ -181,8 +182,10 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **261** (operation track
 | qa | `yoke qa plan get` | `qa.plan.get` | ok |
 | qa | `yoke qa plan list` | `qa.plan.list` | ok |
 | qa | `yoke qa plan materialize` | `qa.plan.materialize` | ok |
+| qa | `yoke qa plan rematerialize` | `qa.plan.rematerialize` | ok |
 | qa | `yoke qa plan-cases replace` | `qa.plan_cases.replace` | ok |
 | qa | `yoke qa project-default set` | `qa.project_default.set` | ok |
+| qa | `yoke qa project-default unset` | `qa.project_default.unset` | ok |
 | qa | `yoke qa project-method register` | `qa.project_method.register` | ok |
 | qa | `yoke qa requirement add` | `qa.requirement.add` | ok |
 | qa | `yoke qa requirement add-batch` | `qa.requirement.add_batch` | ok |
@@ -379,6 +382,10 @@ Wrapped dispatcher-backed `yoke <subcommand>` adapters: **261** (operation track
 | tools.watch | `python3 -m yoke_core.tools.watch_pytest` | tool_shaped | — |
 | tools.watch | `python3 -m yoke_core.tools.watch_session_offer` | tool_shaped | — |
 | tools.watch | `python3 -m yoke_core.tools.watch_tail` | tool_shaped | — |
+| tools.watch | `yoke watch doctor` | tool_shaped | — |
+| tools.watch | `yoke watch merge` | tool_shaped | — |
+| tools.watch | `yoke watch pytest` | tool_shaped | — |
+| tools.watch | `yoke watch tail` | tool_shaped | — |
 | universe.export | `yoke universe export` | tool_shaped | — |
 | universe.import | `yoke universe import` | tool_shaped | — |
 | usher | `yoke usher reconcile-github` | tool_shaped | — |
@@ -392,8 +399,8 @@ _No pending handler-registration rows._
 
 | path glob | count |
 |---|---|
-| .agents/skills/yoke/**/*.md | 130 |
-| packages/yoke-core/src/yoke_core/domain/schema_api_context*.py | 27 |
+| .agents/skills/yoke/**/*.md | 129 |
+| packages/yoke-core/src/yoke_core/domain/schema_api_context*.py | 28 |
 | runtime/agents/*.md | 8 |
 | runtime/harness/claude/agents/yoke-*.md | 7 |
 | runtime/harness/codex/agents/yoke-*.toml | 7 |

@@ -61,6 +61,10 @@ QA_CATALOG_SUBCOMMAND_REGISTRY = {
         "qa.plan.materialize",
         qa_catalog.qa_plan_materialize_for_item,
     ),
+    ("qa", "plan", "rematerialize"): (
+        "qa.plan.rematerialize",
+        qa_catalog.qa_plan_rematerialize,
+    ),
 }
 
 TEST_MACHINE_SUBCOMMAND_REGISTRY = {

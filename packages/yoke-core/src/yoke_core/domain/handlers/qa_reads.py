@@ -76,6 +76,12 @@ def handle_qa_requirement_list(request: FunctionCallRequest) -> HandlerOutcome:
         item_id = int(request.target.item_id)
     epic_id = payload.get("epic_id")
     deployment_run_id = payload.get("deployment_run_id")
+    if (
+        deployment_run_id is None
+        and request.target.kind == "deployment_run"
+        and request.target.deployment_run_id is not None
+    ):
+        deployment_run_id = str(request.target.deployment_run_id)
 
     # Filter precedence mirrors cmd_requirement_list: item, then epic,
     # then deployment run; no filter lists every row.
@@ -203,7 +209,8 @@ def handle_qa_run_get(request: FunctionCallRequest) -> HandlerOutcome:
     run_id = payload.get("run_id")
     if not isinstance(run_id, int):
         return _error(
-            "payload_invalid", "run_id is required",
+            "payload_invalid",
+            "run_id is required",
             jsonpath="$.payload.run_id",
         )
 
@@ -211,8 +218,7 @@ def handle_qa_run_get(request: FunctionCallRequest) -> HandlerOutcome:
     try:
         row = query_one(
             conn,
-            f"SELECT {', '.join(RUN_COLUMNS)} FROM qa_runs "
-            f"WHERE id = {_p(conn)}",
+            f"SELECT {', '.join(RUN_COLUMNS)} FROM qa_runs WHERE id = {_p(conn)}",
             (int(run_id),),
         )
     finally:
@@ -262,7 +268,8 @@ def handle_qa_gate_summary(request: FunctionCallRequest) -> HandlerOutcome:
         and target.task_num is not None
     ):
         gate_target = GateTarget(
-            epic_id=int(target.epic_id), task_num=int(target.task_num),
+            epic_id=int(target.epic_id),
+            task_num=int(target.task_num),
         )
     else:
         return _error(
@@ -283,18 +290,27 @@ def handle_qa_gate_summary(request: FunctionCallRequest) -> HandlerOutcome:
     # db_path=None selects the canonical Postgres authority, exactly like
     # every other handler's bare connect().
     summary = render_gate_summary(
-        gate_target, None, transition_name=str(transition),
+        gate_target,
+        None,
+        transition_name=str(transition),
     )
     return HandlerOutcome(result_payload=summary, primary_success=True)
 
 
 __all__ = [
-    "QaRequirementListRequest", "QaRequirementListResponse",
+    "QaRequirementListRequest",
+    "QaRequirementListResponse",
     "handle_qa_requirement_list",
-    "QaRequirementGetRequest", "QaRequirementGetResponse",
+    "QaRequirementGetRequest",
+    "QaRequirementGetResponse",
     "handle_qa_requirement_get",
-    "QaRunListRequest", "QaRunListResponse", "handle_qa_run_list",
-    "QaRunGetRequest", "QaRunGetResponse", "handle_qa_run_get",
-    "QaGateSummaryRequest", "QaGateSummaryResponse",
+    "QaRunListRequest",
+    "QaRunListResponse",
+    "handle_qa_run_list",
+    "QaRunGetRequest",
+    "QaRunGetResponse",
+    "handle_qa_run_get",
+    "QaGateSummaryRequest",
+    "QaGateSummaryResponse",
     "handle_qa_gate_summary",
 ]

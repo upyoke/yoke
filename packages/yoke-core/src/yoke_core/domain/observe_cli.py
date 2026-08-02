@@ -11,10 +11,10 @@ from yoke_core.domain.observe_anomaly import detect_anomalies
 from yoke_core.domain.observe_db import (
     connect_observe_db,
     normalize_observe_db_path,
-    should_write_observe_event,
 )
 from yoke_core.domain.observe_event_emission import build_envelope, insert_event
 from yoke_core.domain.observe_parsing import parse_hook_event
+
 
 def _resolve_db_fallback() -> Optional[str]:
     """Resolve the events DB path when ``--db`` is not supplied.
@@ -44,10 +44,10 @@ def main(db_fallback_resolver: Optional[Callable[[], Optional[str]]] = None) -> 
     parser.add_argument("--item-id", default="", help="Item ID (e.g. 42)")
     parser.add_argument("--task-num", default="", help="Task number")
     parser.add_argument("--agent-type", default="", help="Agent type")
+    parser.add_argument("--attribution-source", default="", help="Attribution source")
     parser.add_argument(
-        "--attribution-source", default="", help="Attribution source"
+        "--start-ms", default="", help="Start timestamp (unused, for compat)"
     )
-    parser.add_argument("--start-ms", default="", help="Start timestamp (unused, for compat)")
     parser.add_argument("--hook-event", default="", help="Hook event name")
     parser.add_argument("--tool-use-id", default="", help="Tool use ID for dedup")
     parser.add_argument(
@@ -95,13 +95,8 @@ def main(db_fallback_resolver: Optional[Callable[[], Optional[str]]] = None) -> 
     detect_anomalies(rec)
     envelope = build_envelope(rec)
 
-    if not should_write_observe_event(db_path):
-        return
-
     try:
-        conn = connect_observe_db(db_path)
-        if conn is None:
-            return
+        conn = connect_observe_db()
         insert_event(conn, envelope)
         conn.close()
     except Exception:

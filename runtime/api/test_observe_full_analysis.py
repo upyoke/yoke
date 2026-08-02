@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import uuid
 from datetime import datetime, timezone
 
@@ -36,21 +35,26 @@ def events_db_file(tmp_path):
 
 
 class TestDuration:
-    def test_duration_with_tool_call_started(self, events_db_file):
-        """TC-duration-e2e: duration computed from HarnessToolCallStarted event."""
+    def test_duration_with_session_tool_call(self, events_db_file):
+        """Duration is computed from active session tool-call state."""
         tuid = f"tu-{uuid.uuid4()}"
         now = datetime.now(timezone.utc)
-        start_time = now.strftime("%Y-%m-%dT%H:%M:%S.") + f"{now.microsecond // 1000:03d}Z"
+        start_time = (
+            now.strftime("%Y-%m-%dT%H:%M:%S.") + f"{now.microsecond // 1000:03d}Z"
+        )
 
         conn = connect_test_db(events_db_file)
         conn.execute(
-            "INSERT INTO events (id, event_id, source_type, session_id, event_kind, "
-            "event_type, event_name, tool_use_id, envelope, created_at) "
-            "VALUES (%s, %s, 'system', 'sess', 'system', 'tool_call', "
-            "'HarnessToolCallStarted', %s, %s, %s)",
+            "CREATE TABLE session_tool_calls ("
+            "session_id TEXT NOT NULL, tool_use_id TEXT NOT NULL, "
+            "started_at TEXT NOT NULL)"
+        )
+        conn.execute(
+            "INSERT INTO session_tool_calls (session_id, tool_use_id, started_at) "
+            "VALUES ('sess', %s, %s)",
             (
-                1, str(uuid.uuid4()), tuid,
-                json.dumps({"tool_use_id": tuid}), start_time,
+                tuid,
+                start_time,
             ),
         )
         conn.commit()
@@ -68,8 +72,7 @@ class TestDuration:
             db_path=events_db_file,
         )
         assert rec is not None
-        # duration_ms should be computed (small positive value since just inserted).
-        # May be None if the time resolution is too coarse, but should not error.
+        assert rec.duration_ms is not None
 
     def test_duration_null_no_pre(self):
         """TC-duration-null-no-pre: duration_ms NULL without HarnessToolCallStarted."""
@@ -103,16 +106,20 @@ class TestSessionAnalysis:
     def test_separate_structured_from_real_failures(self, events_db):
         """TC-47: Session analysis can separate structured exits from real failures."""
         rec1 = EventRecord(
-            tool_name="Bash", is_failure=True,
-            hook_error="Awaiting human approval", session_id="s-analysis",
+            tool_name="Bash",
+            is_failure=True,
+            hook_error="Awaiting human approval",
+            session_id="s-analysis",
         )
         detect_anomalies(rec1)
         env1 = build_envelope(rec1)
         insert_event(events_db, env1)
 
         rec2 = EventRecord(
-            tool_name="Bash", is_failure=True,
-            hook_error="command not found", session_id="s-analysis",
+            tool_name="Bash",
+            is_failure=True,
+            hook_error="command not found",
+            session_id="s-analysis",
         )
         detect_anomalies(rec2)
         env2 = build_envelope(rec2)

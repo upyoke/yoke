@@ -13,7 +13,6 @@ from yoke_core.engines.done_transition_status import (  # noqa: F401
     _batch_github_sync_tasks,
 )
 from yoke_core.engines.done_transition_merge_ops import (  # noqa: F401
-    _cross_project_commit_guard,
     _pre_merge_commit,
     _do_merge,
     _verify_cwd_after_merge,

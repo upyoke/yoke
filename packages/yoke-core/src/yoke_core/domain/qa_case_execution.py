@@ -12,6 +12,7 @@ from typing import Any, Optional
 from yoke_contracts.api.function_call import ActorContext, TargetRef
 
 from yoke_core.domain import process_group_reaping
+from yoke_core.domain import test_gate_timeout
 
 
 class QaCaseExecutionError(RuntimeError):
@@ -125,6 +126,9 @@ def _command_result(
         if not base_url:
             raise QaCaseExecutionError("this Command case requires --base-url")
         command_env["BASE_URL"] = base_url
+    process_timeout = test_gate_timeout.process_timeout_for_command(
+        command, timeout, command_env
+    )
     started = time.monotonic()
     timed_out = False
     try:
@@ -139,9 +143,10 @@ def _command_result(
             env=command_env,
             capture_output=True,
             text=True,
-            timeout=timeout,
+            timeout=process_timeout,
         )
         exit_code = int(completed.returncode)
+        timed_out = process_timeout is None and exit_code == 124
         stdout = completed.stdout or ""
         stderr = completed.stderr or ""
     except subprocess.TimeoutExpired as exc:
