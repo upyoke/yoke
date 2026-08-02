@@ -203,7 +203,8 @@ def _reachable_tests(changed: Sequence[str], index: ImportIndex) -> "set[str] | 
             if importer_module and importer_module not in seen_modules:
                 seen_modules.add(importer_module)
                 frontier.append(importer_module)
-    return {rel for rel in reached if is_test_file(rel)}
+    # Keep deletions in analysis, but never pass removed tests to pytest.
+    return {rel for rel in reached if rel in index.module_of and is_test_file(rel)}
 
 
 def _widened(changed: Sequence[str], index: ImportIndex) -> Selection:

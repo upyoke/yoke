@@ -93,6 +93,18 @@ def test_changed_test_file_selects_itself(tmp_path):
     assert selection.tests == _with_floor("runtime/api/test_unrelated.py")
 
 
+def test_deleted_test_file_is_not_a_runnable_pytest_path(tmp_path):
+    root = _tiny_repo(tmp_path)
+    index = build_import_index(root)
+
+    selection = select(
+        ["runtime/api/leaf.py", "runtime/api/test_deleted.py"], index
+    )
+
+    assert "runtime/api/test_deleted.py" not in selection.tests
+    assert selection.tests == _with_floor("runtime/api/test_middle.py")
+
+
 def test_non_python_change_forces_full_sweep(tmp_path):
     index = build_import_index(_tiny_repo(tmp_path))
 
