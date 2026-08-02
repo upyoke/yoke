@@ -13,8 +13,8 @@ import pytest
 
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
-from yoke_core.engines import doctor_hc_apply_patch as mod
-from yoke_core.engines.doctor_hc_apply_patch import (
+from yoke_project_checks import check_apply_patch as mod
+from yoke_project_checks.check_apply_patch import (
     hc_apply_patch_deny_smoke,
     hc_apply_patch_observe_smoke,
 )

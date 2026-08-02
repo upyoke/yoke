@@ -134,6 +134,7 @@ from yoke_cli.commands.adapters.epic_state import (
     epic_task_update_status,
 )
 from yoke_cli.commands.flag_adapter_product_exports import PRODUCT_ADAPTER_EXPORTS
+from yoke_cli.commands.adapters.deployment_run_create import deployment_runs_create
 from yoke_cli.commands.adapters.doctor import (
     doctor_last_run_get,
     doctor_run,
@@ -142,7 +143,6 @@ from yoke_cli.commands.adapters.deployment import (
     deployment_flows_get,
     deployment_flows_set_status,
     deployment_flows_stages,
-    deployment_runs_create,
     deployment_runs_approve,
     deployment_runs_get,
     deployment_runs_list,
@@ -246,12 +246,11 @@ from yoke_cli.commands.adapters.shepherd_writes import (
     shepherd_verdict,
 )
 from yoke_cli.commands.adapters.misc import (
-    ouroboros_entry_get,
-    ouroboros_entry_list,
-    ouroboros_field_note_append,
-    ouroboros_field_note_get,
+    ouroboros_entry_get, ouroboros_entry_list, scratch_dispatch_inputs,
+)
+from yoke_cli.commands.adapters.ouroboros_field_note import (
+    ouroboros_field_note_append, ouroboros_field_note_get,
     ouroboros_field_note_list,
-    scratch_dispatch_inputs,
 )
 from yoke_cli.commands.adapters.ouroboros_writes import (
     ouroboros_entry_insert,

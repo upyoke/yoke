@@ -39,8 +39,14 @@ def test_dash_skill_carries_the_end_to_end_execution_contract():
         "Claim the item first.",
         'yoke claims work acquire --item ITEM --reason "Dash execution"',
         'yoke claims work release --item ITEM --reason "Dash completed"',
+        # Merging is a named operation, never a hand-authored git merge.
+        "yoke merge item ITEM",
     ):
         assert required in content
+    # The merge step names one command. The unnamed "merge it through the
+    # project's merge path" instruction is what sent agents to hand-authored
+    # git merges, and must not come back.
+    assert "through the project's normal protected merge path" not in content
     assert "/yoke idea" in content
     assert "does not route through `/yoke idea`" in content
 
@@ -58,8 +64,12 @@ def test_blitz_skill_carries_slice_and_document_completion_contract():
         "doc_completion",
         "registered worker worktree",
         "terminal transition releases the item-owned document claim",
+        # Slice merges route through the same named boundary as Dash, and
+        # leave the item non-terminal until the document completes.
+        "yoke merge item ITEM --skip-status",
     ):
         assert required in content
+    assert "through the project's protected merge path" not in content
 
 
 def test_idea_to_blitz_route_dispatches_the_typed_create_payload(monkeypatch):

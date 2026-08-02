@@ -186,6 +186,27 @@ def cmd_update_stages(
     return f"Updated stages for deployment flow: {flow_id}"
 
 
+def cmd_describe(conn, flow_id: str, description: str) -> str:
+    """Rewrite a flow's human description without touching its stages.
+
+    The definition-immutability guard exists so that an executed run's
+    history can never be reinterpreted, which is a property of the stage
+    list. A description is documentation about the flow, carries no
+    dispatch semantics, and stays correctable for the life of the flow —
+    otherwise the first run would freeze a flow's prose permanently and
+    operators could never fix a description that turned out to mislead.
+    """
+    locked = lock_deployment_flow_rows(conn, (flow_id,), binding=False)
+    if locked.get(flow_id) is None:
+        raise LookupError(f"deployment flow '{flow_id}' not found")
+    conn.execute(
+        "UPDATE deployment_flows SET description=%s WHERE id=%s",
+        (description, flow_id),
+    )
+    conn.commit()
+    return f"Updated description for deployment flow: {flow_id}"
+
+
 def cmd_set_status(conn, flow_id: str, status: str) -> str:
     """Enable or disable a flow without removing its definition or history."""
     normalized = validate_flow_status(status)

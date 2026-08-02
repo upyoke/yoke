@@ -257,7 +257,7 @@ SUBCOMMAND_ALIAS_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
         "claims.work.holder_get",
         _adapters.claims_work_current,
     ),
-    # "claims work status --item YOK-N" is the intuitive post-release
+    # "claims work status --item PREFIX-N" is the intuitive post-release
     # claim-verification surface — routes to the same claims.work.holder_get
     # function id (reusing the holder-get adapter that already accepts
     # --item plus positional).

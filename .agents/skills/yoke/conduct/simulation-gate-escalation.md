@@ -14,8 +14,8 @@ Some halt paths fire before the result branching below — they short-circuit st
 |---|---|---|
 | `simulation-gate-criteria.md` defensive precondition | `_epic_id` is empty or unset before any Simulator dispatch (initial or retry) | `[CRITICAL] _epic_id lost between dispatches — refusing retry. Halting simulator gate.` |
 | `simulation-gate-criteria.md` Simulator Output Gate | `_simulator_output_failures` > `MAX_SIMULATOR_REPROMPTS` after the no-tool fallback | `[CRITICAL] Simulator output gate exhausted retries` |
-| `persist_simulation` exit 16 | Body's attested epic differs from CLI-passed `_epic_id` | `[CRITICAL] simulator returned body for wrong epic — CLI passed YOK-${_epic_id}, body attested a different epic.` |
-| `persist_simulation` exit 17 | Body has no `EPIC: YOK-N` line and no legacy heading fallback | `[CRITICAL] simulator output for YOK-${_epic_id} has no EPIC: YOK-N attestation line.` |
+| `persist_simulation` exit 16 | Body's attested epic differs from CLI-passed `_epic_id` | `[CRITICAL] simulator returned body for wrong epic — CLI passed PREFIX-${_epic_id}, body attested a different epic.` |
+| `persist_simulation` exit 17 | Body has no `EPIC: PREFIX-N` line and no legacy heading fallback | `[CRITICAL] simulator output for PREFIX-${_epic_id} has no EPIC: PREFIX-N attestation line.` |
 
 When any of these fire, conduct does NOT enter result branching; it goes straight to `cleanup-report.md` with `HALTED` and surfaces the diagnostic so the operator sees the wrong-epic / missing-epic / lost-context outcome explicitly.
 
@@ -46,7 +46,7 @@ When any of these fire, conduct does NOT enter result branching; it goes straigh
 
 - Do NOT run done-transitions, close the GitHub issue, or remove the worktree. Print:
  ```
- All tasks in this worktree complete. Run '/yoke polish YOK-{N}' to finish the parent epic.
+ All tasks in this worktree complete. Run '/yoke polish PREFIX-{N}' to finish the parent epic.
  ```
 - **Go to `cleanup-report.md`** with `SUCCESS`.
 
@@ -75,7 +75,7 @@ For each `### GAP #N:` block in `_simulation_gaps`:
 3. Create the item through the issue workflow's authorized harness entry:
  ```bash
  _add_output=$(yoke items create "Sim gap: {gap_title}" issue --project "$_project" --priority {priority} --entry-surface harness_skill)
- _new_id=$(echo "$_add_output" | sed -n 's/.*YOK-\([0-9][0-9]*\).*/\1/p')
+ _new_id=$(echo "$_add_output" | sed -n 's/.*[A-Z][A-Z]*-\([0-9][0-9]*\).*/\1/p')
  ```
 4. Set source to `simulation`, write spec to DB, sync to GitHub.
 
@@ -116,7 +116,7 @@ Read and follow `.agents/skills/yoke/conduct/simulation-autofix.md`. Pass inheri
  _parent_status=$(yoke items get "${N}" status 2>/dev/null)
  ```
  If `_parent_status` is not `reviewed-implementation`: **HALT**. Do NOT write status manually.
-- Print: `All tasks in this worktree complete (gaps auto-resolved). Run '/yoke polish YOK-{N}' to finish the parent epic.`
+- Print: `All tasks in this worktree complete (gaps auto-resolved). Run '/yoke polish PREFIX-{N}' to finish the parent epic.`
 - **Go to `cleanup-report.md`** with `SUCCESS`.
 
 **If auto-fix returns `AUTOFIX_HALTED`:**

@@ -140,7 +140,7 @@ def test_finalize_step_10b_do_loop_context_is_target_aware():
 
     assert "advance contract is NOT complete" in review_bullet
     assert "same session and worktree" in review_bullet
-    assert "/yoke advance YOK-{N} reviewed-implementation" in review_bullet
+    assert "/yoke advance PREFIX-{N} reviewed-implementation" in review_bullet
     assert "advance contract IS complete" in boundary_bullet
     assert "Return to /yoke do Step C (chain decision)" in boundary_bullet
 

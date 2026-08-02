@@ -5,12 +5,14 @@ from __future__ import annotations
 from pathlib import Path
 
 from yoke_core.api.repo_root import find_repo_root
-from yoke_core.engines import doctor_hc_platform_namespace_boundary as hc
+from yoke_project_checks import check_platform_namespace_boundary as hc
+from yoke_core.engines.doctor_project_checks import discover_project_checks
 from yoke_core.engines.doctor_registry_architecture import (
     ARCHITECTURE_HEALTH_CHECKS,
 )
 
 NS = hc.PRIVATE_PLATFORM_NAMESPACE
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 def _write(root: Path, relpath: str, text: str) -> Path:
@@ -172,12 +174,25 @@ def test_pyproject_unrelated_names_pass(tmp_path: Path) -> None:
     assert hc.scan_pyproject_dependencies(tmp_path) == []
 
 
-def test_registered_in_architecture_bundle() -> None:
-    matches = [
+def test_registered_as_project_check() -> None:
+    # The boundary is this repo's own architecture rule, so the check is
+    # registered from .yoke/doctor/ and not from the engine's bundle.
+    assert not [
         check
         for check in ARCHITECTURE_HEALTH_CHECKS
         if check.slug == "platform-namespace-boundary"
     ]
+    matches = [
+        check
+        for check in discover_project_checks(REPO_ROOT).checks
+        if check.slug == "platform-namespace-boundary"
+    ]
     assert len(matches) == 1
-    assert matches[0].fn is hc.hc_platform_namespace_boundary
+    registered = matches[0].fn
+    # Discovery imports a fresh module object per run, so compare the
+    # function's identity by module + name rather than by object identity.
+    assert (registered.__module__, registered.__name__) == (
+        hc.hc_platform_namespace_boundary.__module__,
+        hc.hc_platform_namespace_boundary.__name__,
+    )
     assert matches[0].name == hc.HC_DESC

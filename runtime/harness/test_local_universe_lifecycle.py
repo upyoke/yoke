@@ -65,6 +65,10 @@ def active_universe(monkeypatch, session_offer_db):  # noqa: F811
         "yoke_core.domain.session_process_anchors.record_session_anchor",
         lambda *a, **k: None,
     )
+    monkeypatch.setattr(
+        "yoke_core.domain.session_process_anchors.prune_stale_anchors",
+        lambda: None,
+    )
     for name in ("detect_executor", "detect_provider", "detect_entrypoint"):
         monkeypatch.setattr(
             f"runtime.harness.hook_helpers.{name}",
@@ -94,6 +98,25 @@ def _row(db, session_id):
 
 
 class TestRegistration:
+    def test_session_start_prunes_anchors_before_registering(
+        self, active_universe, monkeypatch,
+    ):
+        calls: list[str] = []
+        monkeypatch.setattr(
+            "yoke_core.domain.session_process_anchors.prune_stale_anchors",
+            lambda: calls.append("prune"),
+        )
+        monkeypatch.setattr(
+            "yoke_core.domain.session_process_anchors.record_session_anchor",
+            lambda *_a, **_k: calls.append("record"),
+        )
+
+        lul.run_local_universe_session_lifecycle(
+            "SessionStart", json.dumps({"session_id": "sid-prune", "model": TEST_MODEL_ID}),
+        )
+
+        assert calls == ["prune", "record"]
+
     def test_session_start_creates_row(self, active_universe):
         payload = json.dumps({"session_id": "sid-start", "model": TEST_MODEL_ID})
         lul.run_local_universe_session_lifecycle("SessionStart", payload)

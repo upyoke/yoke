@@ -1,30 +1,44 @@
-"""Tests for the harness/session + substrate-parity health-check bundle.
+"""Tests for the harness/session + substrate-parity health checks.
 
-Combines task 13's session/harness coverage with task 10's substrate-parity
-coverage. The bundle module exposes ``HARNESS_HEALTH_CHECKS`` as a constant.
+The engine bundle module exposes ``HARNESS_HEALTH_CHECKS`` as a constant. The
+harness checks that only make sense against this repo's own hook wiring,
+rendered adapters, and packaged bundles are registered as project checks
+instead, discovered from ``.yoke/doctor/``.
 """
 
 from __future__ import annotations
 
+from pathlib import Path
+
+from yoke_core.engines.doctor_project_checks import discover_project_checks
 from yoke_core.engines.doctor_registry_harness import HARNESS_HEALTH_CHECKS
 from yoke_core.engines.doctor_registry_types import HealthCheck
 
 
-# Group A — task 13 (session/harness substrate)
-_GROUP_A_SLUGS = (
+REPO_ROOT = Path(__file__).resolve().parents[3]
+
+# Session/harness substrate checks the engine registers for every project.
+_ENGINE_SESSION_SLUGS = (
     "stale-sessions",
     "stale-session-reclaimer-alive",
     "stale-reclaim-collision",
-    "session-startup-hook",
-    "browser-substrate",
     "session-cwd-binding",
     "session-pre-implementing-activity",
     "session-lane-mismatch",
 )
 
-# Group B — harness substrate parity / packaging drift HCs (appended after
-# Group A). Every renderer/snapshot output that must match its source lives here.
-_GROUP_B_SLUGS = (
+# Session/harness substrate checks that read this repo's own hook wiring and
+# machine browser runtime, so this project keeps them in ``.yoke/doctor/``.
+_PROJECT_SESSION_SLUGS = (
+    "session-startup-hook",
+    "browser-substrate",
+)
+
+# Harness substrate parity / packaging drift checks — every renderer or
+# snapshot output that must match its source. All of them compare this repo's
+# rendered adapters and packaged bundles against their sources, so all of them
+# are project checks rather than engine ones.
+_SUBSTRATE_PARITY_SLUGS = (
     "harness-substrate-drift",
     "codex-hook-matchers",
     "codex-hook-floor",
@@ -37,19 +51,33 @@ _GROUP_B_SLUGS = (
     "install-bundle-drift",
 )
 
-# Group C — ledger-audit HCs (cross-session mutation evidence)
-_GROUP_C_SLUGS = (
-    "claim-boundary-audit",
+# Ledger-audit checks (cross-session mutation evidence). The claim-boundary
+# audit reads control-plane rows every project has; the other two audit this
+# repo's own emitter and executor vocabulary.
+_ENGINE_LEDGER_AUDIT_SLUGS = ("claim-boundary-audit",)
+_PROJECT_LEDGER_AUDIT_SLUGS = (
     "event-outcome-enum-coverage",
     "executor-canonicalization",
 )
 
-# Group D — reflection-capture hook coverage + persist-failed audit HCs
-_GROUP_D_SLUGS = (
-    "reflection-capture-hook-coverage",
+# Reflection-capture audit checks. The two event-count audits read rows any
+# project's control plane has; the coverage check compares this repo's own
+# rendered hook chains against the captures they produced.
+_ENGINE_REFLECTION_SLUGS = (
     "reflection-capture-unhandled",
     "reflection-capture-persist-failed",
 )
+_PROJECT_REFLECTION_SLUGS = ("reflection-capture-hook-coverage",)
+
+
+def _project_checks():
+    """Every check this repo declares in ``.yoke/doctor/``."""
+    discovery = discover_project_checks(REPO_ROOT)
+    assert not discovery.failures, (
+        "project check modules failed to import: "
+        f"{[(f.path.name, f.error) for f in discovery.failures]}"
+    )
+    return discovery.checks
 
 
 def test_bundle_contains_session_cwd_binding():
@@ -70,30 +98,47 @@ def test_bundle_slugs_are_unique():
     assert len(set(slugs)) == len(slugs)
 
 
-def test_bundle_holds_group_a_then_group_b_in_order():
-    """Group A (task 13) precedes Group B (task 10), then Group C audit HCs."""
+def test_bundle_holds_session_then_audit_checks_in_order():
+    """Session checks precede the ledger audit, then the reflection audits."""
     slugs = [hc.slug for hc in HARNESS_HEALTH_CHECKS]
     assert slugs == (
-        list(_GROUP_A_SLUGS)
-        + list(_GROUP_B_SLUGS)
-        + list(_GROUP_C_SLUGS)
-        + list(_GROUP_D_SLUGS)
+        list(_ENGINE_SESSION_SLUGS)
+        + list(_ENGINE_LEDGER_AUDIT_SLUGS)
+        + list(_ENGINE_REFLECTION_SLUGS)
     )
+
+
+def test_self_scoped_harness_slugs_registered_as_project_checks():
+    """Harness checks scoped to this repo are project checks, not engine ones."""
+    slugs = [hc.slug for hc in _project_checks()]
+    engine_slugs = {hc.slug for hc in HARNESS_HEALTH_CHECKS}
+    self_scoped = (
+        _PROJECT_SESSION_SLUGS
+        + _PROJECT_LEDGER_AUDIT_SLUGS
+        + _PROJECT_REFLECTION_SLUGS
+    )
+    for slug in self_scoped:
+        assert slugs.count(slug) == 1, (
+            f"slug {slug!r} appears {slugs.count(slug)} times in the checks "
+            f"discovered under {REPO_ROOT}"
+        )
+        assert slug not in engine_slugs
 
 
 def test_each_substrate_parity_slug_registered_exactly_once():
     """Every substrate-parity / packaging-drift slug appears exactly once."""
-    slugs = [hc.slug for hc in HARNESS_HEALTH_CHECKS]
-    for slug in _GROUP_B_SLUGS:
+    slugs = [hc.slug for hc in _project_checks()]
+    for slug in _SUBSTRATE_PARITY_SLUGS:
         assert slugs.count(slug) == 1, (
-            f"slug {slug!r} appears {slugs.count(slug)} times in HARNESS_HEALTH_CHECKS"
+            f"slug {slug!r} appears {slugs.count(slug)} times in the checks "
+            f"discovered under {REPO_ROOT}"
         )
 
 
 def test_substrate_parity_checks_use_canonical_dataclass_and_are_not_github_dependent():
-    """Task 10's substrate parity checks are local-only (no github_dependent)."""
-    by_slug = {hc.slug: hc for hc in HARNESS_HEALTH_CHECKS}
-    for slug in _GROUP_B_SLUGS:
+    """The substrate parity checks are local-only (no github_dependent)."""
+    by_slug = {hc.slug: hc for hc in _project_checks()}
+    for slug in _SUBSTRATE_PARITY_SLUGS:
         hc = by_slug[slug]
         assert isinstance(hc, HealthCheck)
         assert callable(hc.fn)

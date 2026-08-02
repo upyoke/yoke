@@ -7,7 +7,7 @@ aliases that must never appear there (surface aliases belong in
 
 Importers:
 
-* :mod:`yoke_core.engines.doctor_hc_executor_canonicalization` — uses
+* :mod:`yoke_project_checks.check_executor_canonicalization` — uses
   :data:`CANONICAL_HARNESS_IDS` as the basis for the leak filter.
 * :mod:`yoke_harness.hooks.identity` — packaged writer-side helper
   surface for canonical-id resolution.

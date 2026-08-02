@@ -15,8 +15,8 @@ JSON_NESTED_COLUMNS_REQUIRED = (
     "qa_requirements.success_policy",
 )
 CLI_ANCHORS_REQUIRED = (
-    "yoke claims work acquire --item YOK-",
-    "yoke claims work release --item YOK-",
+    "yoke claims work acquire --item PREFIX-",
+    "yoke claims work release --item PREFIX-",
     "yoke claims path register",
     "yoke claims path widen",
     "yoke lifecycle transition",
@@ -24,8 +24,8 @@ CLI_ANCHORS_REQUIRED = (
     "yoke items progress-log append",
     "yoke events query",
     "yoke ouroboros field-note append",
-    "yoke claims path list --item YOK-N",
-    "yoke db-claim amend YOK-N",
+    "yoke claims path list --item PREFIX-N",
+    "yoke db-claim amend PREFIX-N",
     "--state none",
     "backlog-cli",
     "lifecycle.transition",

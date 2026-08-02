@@ -4,22 +4,35 @@ from __future__ import annotations
 
 import hashlib
 import json
-import subprocess
-from dataclasses import asdict
-from pathlib import PurePosixPath
+from dataclasses import asdict, dataclass
 from typing import Any, Iterable, Optional
+from uuid import uuid4
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.conflict_survey_blockers import (
+    clean_path,
+    direct_workflow_blockers,
+    git_touched_paths,
+)
 from yoke_core.domain.conflict_survey_models import ConflictMatch, ConflictSurvey
 from yoke_core.domain.db_helpers import iso8601_now
-from yoke_core.domain.file_budget_paths import extract_file_budget_paths
-from yoke_core.domain.path_claims_dependency_resolver_coordination import items_are_coordination_only
+from yoke_core.domain.path_claims_dependency_resolver_coordination import (
+    items_are_coordination_only,
+)
 from yoke_core.domain.schema_common import _table_exists
 
 CONFLICT_SURVEY_SECTION = "Conflict Survey"
 DIRECT_WORKFLOW_IDS = frozenset({"blitz", "dash"})
-_TERMINAL_STATUSES = frozenset({"done", "cancelled", "stopped"})
-_NON_TERMINAL_CLAIM_STATES = ("planned", "blocked", "active")
+_PENDING_REQUEST_KEY = "pending_request"
+
+
+@dataclass(frozen=True)
+class ConflictSurveyReservation:
+    """Compare-and-swap marker for one in-flight survey request."""
+
+    content: str
+    previous_content: Optional[str]
+
 
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
@@ -33,18 +46,11 @@ def _dict_rows(cursor: Any) -> list[dict[str, Any]]:
     ]
 
 
-def _clean_path(value: Any) -> str:
-    path = str(value).strip().replace("\\", "/")
-    while path.startswith("./"):
-        path = path[2:]
-    return path.lstrip("/")
-
-
 def _clean_paths(paths: Iterable[str]) -> tuple[str, ...]:
     cleaned: list[str] = []
     seen: set[str] = set()
     for value in paths:
-        path = _clean_path(value)
+        path = clean_path(value)
         if not path or path.endswith("/"):
             continue
         if path not in seen:
@@ -55,33 +61,15 @@ def _clean_paths(paths: Iterable[str]) -> tuple[str, ...]:
     return tuple(cleaned)
 
 
-def _overlap(left: str, right: str) -> bool:
-    """Treat equal files and ancestor directory scopes as overlap."""
-    left_path = PurePosixPath(left)
-    right_path = PurePosixPath(right)
-    return (
-        left_path == right_path
-        or left_path in right_path.parents
-        or right_path in left_path.parents
-    )
-
-
-def _matching_path(touch_paths: tuple[str, ...], candidates: Iterable[str]) -> str:
-    for candidate in candidates:
-        clean = _clean_path(candidate)
-        for intended in touch_paths:
-            if clean and _overlap(intended, clean):
-                return clean
-    return ""
-
-
 def _item(conn: Any, item_id: int) -> dict[str, Any]:
     marker = _p(conn)
-    rows = _dict_rows(conn.execute(
-        "SELECT id, project_id, workflow_id, status, COALESCE(spec, '') AS spec "
-        f"FROM items WHERE id = {marker}",
-        (int(item_id),),
-    ))
+    rows = _dict_rows(
+        conn.execute(
+            "SELECT id, project_id, workflow_id, status, COALESCE(spec, '') AS spec "
+            f"FROM items WHERE id = {marker}",
+            (int(item_id),),
+        )
+    )
     if not rows:
         raise LookupError(f"item {item_id} does not exist")
     row = rows[0]
@@ -93,153 +81,9 @@ def _item(conn: Any, item_id: int) -> dict[str, Any]:
     return row
 
 
-def _path_claim_blockers(
-    conn: Any,
-    *,
-    item: dict[str, Any],
-    touch_paths: tuple[str, ...],
-    integration_target: str,
-) -> list[ConflictMatch]:
-    tables = ("path_claims", "path_claim_targets", "path_targets")
-    if not all(_table_exists(conn, table) for table in tables):
-        return []
-    marker = _p(conn)
-    state_markers = ", ".join(marker for _ in _NON_TERMINAL_CLAIM_STATES)
-    rows = _dict_rows(conn.execute(
-        "SELECT pc.id, pc.state, pc.owner_item_id, pc.item_id, "
-        "pt.path_string FROM path_claims pc "
-        "JOIN path_claim_targets pct ON pct.claim_id = pc.id "
-        "JOIN path_targets pt ON pt.id = pct.target_id "
-        f"WHERE pc.integration_target = {marker} "
-        f"AND pc.state IN ({state_markers}) "
-        f"AND pt.project_id = {marker}",
-        (
-            integration_target,
-            *_NON_TERMINAL_CLAIM_STATES,
-            int(item["project_id"]),
-        ),
-    ))
-    blockers: list[ConflictMatch] = []
-    for row in rows:
-        owner = row.get("owner_item_id") or row.get("item_id")
-        if owner is not None and int(owner) == int(item["id"]):
-            continue
-        matched = _matching_path(touch_paths, [str(row["path_string"])])
-        if matched:
-            blockers.append(ConflictMatch(
-                kind="path_claim",
-                owner_item_id=int(owner) if owner is not None else None,
-                path=matched,
-                state=str(row["state"]),
-                detail=f"path claim {row['id']} wins over claim-less work",
-            ))
-    return blockers
-
-
 def _git_touched_paths(worktree_path: str, integration_target: str) -> list[str]:
-    if not worktree_path:
-        return []
-    try:
-        result = subprocess.run(
-            [
-                "git", "-C", worktree_path, "diff", "--name-only",
-                f"{integration_target}...HEAD",
-            ],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=3,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return []
-    if result.returncode != 0:
-        return []
-    return [line.strip() for line in result.stdout.splitlines() if line.strip()]
-
-
-def _item_coordination_blockers(
-    conn: Any,
-    *,
-    item: dict[str, Any],
-    touch_paths: tuple[str, ...],
-    integration_target: str,
-) -> list[ConflictMatch]:
-    marker = _p(conn)
-    worktree_select = (
-        ", iw.path AS worktree_path, iw.branch AS worktree_branch"
-        if _table_exists(conn, "item_worktrees")
-        else ", NULL AS worktree_path, NULL AS worktree_branch"
-    )
-    worktree_join = (
-        " LEFT JOIN item_worktrees iw ON iw.item_id = i.id "
-        "AND iw.state = 'active'"
-        if _table_exists(conn, "item_worktrees")
-        else ""
-    )
-    claim_select = (
-        ", wc.id AS work_claim_id"
-        if _table_exists(conn, "work_claims")
-        else ", NULL AS work_claim_id"
-    )
-    claim_join = (
-        " LEFT JOIN work_claims wc ON wc.item_id = i.id "
-        "AND wc.target_kind = 'item' AND wc.released_at IS NULL"
-        if _table_exists(conn, "work_claims")
-        else ""
-    )
-    doc_select = (
-        ", COALESCE(sd.content, '') AS execution_document"
-        if all(_table_exists(conn, table)
-               for table in ("item_strategy_docs", "strategy_docs"))
-        else ", '' AS execution_document"
-    )
-    doc_join = (
-        " LEFT JOIN item_strategy_docs isl ON isl.item_id = i.id "
-        "LEFT JOIN strategy_docs sd ON sd.project_id = isl.project_id "
-        "AND sd.slug = isl.strategy_doc_slug"
-        if "sd.content" in doc_select else ""
-    )
-    rows = _dict_rows(conn.execute(
-        "SELECT i.id, i.status, COALESCE(i.spec, '') AS spec"
-        f"{worktree_select}{claim_select}{doc_select} FROM items i"
-        f"{worktree_join}{claim_join}{doc_join} "
-        f"WHERE i.project_id = {marker} AND i.id <> {marker}",
-        (int(item["project_id"]), int(item["id"])),
-    ))
-    blockers: list[ConflictMatch] = []
-    seen: set[tuple[str, int, str]] = set()
-    for row in rows:
-        if str(row["status"]) in _TERMINAL_STATUSES:
-            continue
-        declared = extract_file_budget_paths(
-            f"{row['spec']}\n{row['execution_document']}"
-        )
-        worktree_paths = _git_touched_paths(
-            str(row.get("worktree_path") or ""), integration_target,
-        )
-        matched = _matching_path(touch_paths, [*worktree_paths, *declared])
-        if not matched:
-            continue
-        if row.get("work_claim_id") is not None:
-            kind, state = "work_claim", "active"
-            detail = f"active work claim {row['work_claim_id']}"
-        elif row.get("worktree_path"):
-            kind, state = "worktree", "active"
-            detail = f"in-flight branch {row.get('worktree_branch') or ''}".strip()
-        else:
-            kind, state = "frontier_scope", str(row["status"])
-            detail = "non-terminal item declares this path in its File Budget"
-        key = (kind, int(row["id"]), matched)
-        if key not in seen:
-            blockers.append(ConflictMatch(
-                kind=kind,
-                owner_item_id=int(row["id"]),
-                path=matched,
-                state=state,
-                detail=detail,
-            ))
-            seen.add(key)
-    return blockers
+    """Return the best-effort changed paths from a live item worktree."""
+    return git_touched_paths(worktree_path, integration_target)
 
 
 def survey_conflicts(
@@ -252,24 +96,20 @@ def survey_conflicts(
     """Survey registered and imminent overlaps for one direct work item."""
     clean_paths = _clean_paths(touch_paths)
     item = _item(conn, item_id)
+    blockers = direct_workflow_blockers(
+        conn,
+        item=item,
+        touch_paths=clean_paths,
+        integration_target=integration_target,
+    )
     blockers = [
-        *_path_claim_blockers(
-            conn,
-            item=item,
-            touch_paths=clean_paths,
-            integration_target=integration_target,
-        ),
-        *_item_coordination_blockers(
-            conn,
-            item=item,
-            touch_paths=clean_paths,
-            integration_target=integration_target,
-        ),
-    ]
-    blockers = [
-        row for row in blockers if row.owner_item_id is None
+        row
+        for row in blockers
+        if row.owner_item_id is None
         or not items_are_coordination_only(
-            conn, item_a_id=int(item["id"]), item_b_id=row.owner_item_id,
+            conn,
+            item_a_id=int(item["id"]),
+            item_b_id=row.owner_item_id,
         )
     ]
     blockers.sort(
@@ -295,11 +135,97 @@ def survey_conflicts(
     )
 
 
-def record_conflict_survey(conn: Any, survey: ConflictSurvey) -> None:
-    """Persist the latest survey as a machine-readable item section."""
+def reserve_conflict_survey_record(
+    conn: Any,
+    *,
+    item_id: int,
+) -> ConflictSurveyReservation:
+    """Reserve the survey record before performing potentially slow work.
+
+    A newer request replaces this marker immediately.  Its later result can
+    then be written only when this reservation is still current.
+    """
+    marker = _p(conn)
+    now = iso8601_now()
+    existing = conn.execute(
+        "SELECT content FROM item_sections "
+        f"WHERE item_id = {marker} AND section_name = {marker}",
+        (int(item_id), CONFLICT_SURVEY_SECTION),
+    ).fetchone()
+    previous_content = str(existing[0]) if existing is not None else None
+    if existing is None:
+        pending: dict[str, Any] = {}
+    else:
+        try:
+            pending = json.loads(previous_content)
+        except (TypeError, ValueError):
+            pending = {}
+        if isinstance(pending, dict):
+            pending.pop(_PENDING_REQUEST_KEY, None)
+            previous_content = json.dumps(
+                pending,
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+        else:
+            pending = {}
+    pending[_PENDING_REQUEST_KEY] = uuid4().hex
+    content = json.dumps(pending, sort_keys=True, separators=(",", ":"))
+    conn.execute(
+        "INSERT INTO item_sections "
+        "(item_id, section_name, content, ordering, source, created_at, updated_at) "
+        f"VALUES ({', '.join(marker for _ in range(7))}) "
+        "ON CONFLICT(item_id, section_name) DO UPDATE SET "
+        "content = excluded.content, source = excluded.source, "
+        "updated_at = excluded.updated_at",
+        (
+            int(item_id),
+            CONFLICT_SURVEY_SECTION,
+            content,
+            180,
+            "direct-workflow",
+            now,
+            now,
+        ),
+    )
+    conn.commit()
+    return ConflictSurveyReservation(
+        content=content,
+        previous_content=previous_content,
+    )
+
+
+def record_conflict_survey(
+    conn: Any,
+    survey: ConflictSurvey,
+    *,
+    reservation: Optional[ConflictSurveyReservation] = None,
+) -> bool:
+    """Persist a survey, retaining only the result from the newest request."""
     marker = _p(conn)
     now = iso8601_now()
     content = json.dumps(survey.to_dict(), sort_keys=True, indent=2)
+    if reservation is not None:
+        cursor = conn.execute(
+            "UPDATE item_sections SET content = " + marker + ", "
+            "source = " + marker + ", updated_at = " + marker + " "
+            "WHERE item_id = "
+            + marker
+            + " AND section_name = "
+            + marker
+            + " AND content = "
+            + marker,
+            (
+                content,
+                "direct-workflow",
+                now,
+                survey.item_id,
+                CONFLICT_SURVEY_SECTION,
+                reservation.content,
+            ),
+        )
+        conn.commit()
+        return cursor.rowcount == 1
     conn.execute(
         "INSERT INTO item_sections "
         "(item_id, section_name, content, ordering, source, created_at, updated_at) "
@@ -317,6 +243,45 @@ def record_conflict_survey(conn: Any, survey: ConflictSurvey) -> None:
             now,
         ),
     )
+    conn.commit()
+    return True
+
+
+def cancel_conflict_survey_reservation(
+    conn: Any,
+    *,
+    item_id: int,
+    reservation: ConflictSurveyReservation,
+) -> None:
+    """Restore the prior survey only when this request is still current."""
+    marker = _p(conn)
+    if reservation.previous_content is None:
+        conn.execute(
+            "DELETE FROM item_sections WHERE item_id = "
+            + marker
+            + " AND section_name = "
+            + marker
+            + " AND content = "
+            + marker,
+            (int(item_id), CONFLICT_SURVEY_SECTION, reservation.content),
+        )
+    else:
+        conn.execute(
+            "UPDATE item_sections SET content = "
+            + marker
+            + " WHERE item_id = "
+            + marker
+            + " AND section_name = "
+            + marker
+            + " AND content = "
+            + marker,
+            (
+                reservation.previous_content,
+                int(item_id),
+                CONFLICT_SURVEY_SECTION,
+                reservation.content,
+            ),
+        )
     conn.commit()
 
 
@@ -343,7 +308,10 @@ __all__ = [
     "CONFLICT_SURVEY_SECTION",
     "ConflictMatch",
     "ConflictSurvey",
+    "ConflictSurveyReservation",
+    "cancel_conflict_survey_reservation",
     "read_recorded_survey",
     "record_conflict_survey",
+    "reserve_conflict_survey_record",
     "survey_conflicts",
 ]

@@ -55,12 +55,12 @@ For every item in `_target_items`, read the DB-backed content that feed may need
 
 ```bash
 # For each target item:
-yoke items get YOK-{id} body
-yoke items get YOK-{id} spec
-yoke items get YOK-{id} design_spec
-yoke items get YOK-{id} technical_plan
-yoke items get YOK-{id} worktree_plan
-yoke items get YOK-{id} shepherd_caveats
+yoke items get PREFIX-{id} body
+yoke items get PREFIX-{id} spec
+yoke items get PREFIX-{id} design_spec
+yoke items get PREFIX-{id} technical_plan
+yoke items get PREFIX-{id} worktree_plan
+yoke items get PREFIX-{id} shepherd_caveats
 ```
 
 Also note:
@@ -79,7 +79,7 @@ For each target item, query its dependency edges:
 
 ```bash
 # For each target item:
-yoke shepherd dependency-list YOK-{id}
+yoke shepherd dependency-list PREFIX-{id}
 ```
 
 Build a mental model of the current dependency graph:

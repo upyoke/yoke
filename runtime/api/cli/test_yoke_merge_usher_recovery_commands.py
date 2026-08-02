@@ -173,6 +173,6 @@ def test_skills_teach_yoke_commands_not_internal_modules() -> None:
     assert rows[(MERGE_SKILL, "yoke merge audit {epic-id-if-provided}")].resolution == (
         "tool_shaped"
     )
-    assert rows[(USHER_COLLECT, "yoke usher reconcile-github YOK-N")].resolution == (
+    assert rows[(USHER_COLLECT, "yoke usher reconcile-github PREFIX-N")].resolution == (
         "tool_shaped"
     )

@@ -1,6 +1,6 @@
-# Curate Phase: Cluster Entries And File Work Items
+# Curate Phase: Cluster Entries And Route Them To An Output
 
-This phase owns entry loading, clustering, code validation, duplicate checking, work item filing, and reviewed/archive state updates for `/yoke curate`.
+This phase owns entry loading, clustering, code validation, duplicate checking, routing each cluster to a Dash or a work item, and reviewed/archive state updates for `/yoke curate`.
 
 ## 1. Read Unreviewed Ouroboros Entries From The DB
 
@@ -13,12 +13,17 @@ record per entry:
 
 - `id` — integer entry ID
 - `timestamp` — when the observation was made
-- `agent` — which agent logged it
+- `agent` — author label: the subagent role that logged it (`engineer`,
+  `tester`, ...) or the harness executor for a top-level session
 - `context` — epic/task or session context
-- `category` — `problem`, `friction`, `idea`, or `cross-critique`
+- `category` — `problem`, `friction`, `idea`, `cross-critique`, or
+  `field-note-{kind}` for the field-note channel
 - `body` — observation content
 - `reviewed_at` — empty for unreviewed entries
 - `project` — project slug or empty for system-level observations
+- `corrects` — entry this one supersedes, or empty
+- `superseded_by` — entry that supersedes this one, or empty
+- `promoted_dash` — the Dash this entry already produced, or empty
 
 To filter by project:
 ```bash
@@ -42,9 +47,11 @@ Review all unreviewed entries and group them by semantic similarity:
 - Same improvement idea from different contexts -> one cluster
 - Unrelated observations -> clusters of one
 
+An entry carrying `promoted_dash` already produced its output — do not re-cluster it. An entry carrying `superseded_by` has been replaced; cluster the correction instead.
+
 For each cluster, synthesize a summary that captures the core observation across all entries.
 
-## 3. For Each Actionable Cluster, Validate Against Current Code, Check For Duplicates, And Propose A Work item
+## 3. For Each Actionable Cluster, Validate Against Current Code, Check For Duplicates, And Propose An Output
 
 ### Optional wrapup context
 
@@ -84,12 +91,19 @@ Before presenting the cluster, verify the problem still exists in the current co
  - **Likely resolved**
  - **Inconclusive**
 
-### c. Present the cluster
+### c. Size the output
+
+Pick the smaller output that still covers the cluster:
+
+- **Dash** — the cluster names one concrete repair a single session can carry out from a written instruction: a recipe naming the wrong flag, a stale doc reference, an unhelpful denial message, a missing `--help` body. This is the common case for field-note clusters.
+- **Work item** — the cluster names a root cause that needs crafted acceptance criteria, design work, or more than one delivery slice.
+
+### d. Present the cluster
 
 ```text
 Cluster {N}: {synthesized title}
 Based on {count} observation(s) from: {agent list}
-Category: {problem | friction | idea | cross-critique}
+Category: {problem | friction | idea | cross-critique | field-note-{kind}}
 Entry IDs: {comma-separated list}
 
 Summary: {synthesized description}
@@ -97,13 +111,12 @@ Summary: {synthesized description}
 Code validation: {Still present | Likely resolved | Inconclusive}
 {validation details}
 
-Proposed work item:
- Title: {work item title}
- Type: issue
- Priority: {low | medium | high}
+Proposed output: {dash | work item}
+ Title: {title}
+ Instruction / Priority: {instruction for a dash | low | medium | high}
 
 Similar existing items:
- - YOK-{N}: {existing title} (status: {status})
+ - PREFIX-{N}: {existing title} (status: {status})
 
 Likely resolved -- recommend skip
  Evidence: {brief explanation}
@@ -111,13 +124,27 @@ Likely resolved -- recommend skip
 Action? (create / skip / defer)
 ```
 
-- `create` -> create the work item in step 4
-- `skip` -> mark entries as reviewed without creating a work item
+- `create` -> promote or file in step 4
+- `skip` -> mark entries as reviewed without producing an output
 - `defer` -> leave entries unreviewed for the next curate run
 
-## 4. Create Approved Work items (With Mandatory Body)
+## 4. Produce Approved Outputs
 
-For each `create` response, invoke:
+### Dash — the default for field-note clusters
+
+Promote the entry that best states the signal. The promotion creates the Dash, links it to the note, and marks that note reviewed:
+
+```bash
+yoke ouroboros field-note promote {entry-id} \
+  --title "{specific title}" \
+  --instruction "{the complete requested scope, in one paragraph}"
+```
+
+The instruction defaults to the note's own body — pass `--instruction` when the cluster says more than any single note does. A note with no project needs `--project {slug}`; notes written after project attribution landed carry their own. Mark the cluster's other entries reviewed in step 5.
+
+### Work item — for root causes
+
+Invoke:
 
 ```bash
 yoke items create "{title}" issue --priority {priority} --entry-surface harness_skill
@@ -164,7 +191,7 @@ For every entry examined during this curate run, mark it as reviewed:
 yoke ouroboros entry mark-reviewed {id}
 ```
 
-Entries where the operator chose `defer` should not be marked reviewed.
+Entries where the operator chose `defer` should not be marked reviewed. A promoted entry is already marked reviewed by its promotion.
 
 ## 6. Archive Reviewed Entries
 

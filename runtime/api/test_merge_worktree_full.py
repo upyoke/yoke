@@ -75,7 +75,6 @@ class MergeEnv:
     def env(
         self,
         *,
-        done_transition: bool = True,
         extra: Optional[dict] = None,
     ) -> dict:
         """Build environment dict for subprocess calls."""
@@ -109,8 +108,6 @@ class MergeEnv:
                     "YOKE_MACHINE_HOME"):
             if key in os.environ:
                 e[key] = os.environ[key]
-        if done_transition:
-            e["YOKE_DONE_TRANSITION"] = "1"
         if extra:
             e.update(extra)
         return e
@@ -180,7 +177,7 @@ def run_merge(
     target: str = "main",
     extra_args: Optional[list] = None,
     *,
-    done_transition: bool = True,
+    standalone: bool = True,
     extra_env: Optional[dict] = None,
     cwd: Optional[Path] = None,
 ) -> MergeResult:
@@ -188,8 +185,10 @@ def run_merge(
     cmd = [sys.executable, "-m", MERGE_MODULE, branch, target]  # absolute; bare python3 misses .venv deps on a clean runner
     if extra_args:
         cmd.extend(extra_args)
+    if standalone:
+        cmd.append("--standalone")
 
-    merge_env = env.env(done_transition=done_transition, extra=extra_env)
+    merge_env = env.env(extra=extra_env)
     merge_env["PYTHONPATH"] = SOURCE_PYTHONPATH
 
     result = subprocess.run(

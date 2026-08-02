@@ -217,18 +217,17 @@ Remote worker config is stored in `project_capabilities` with `type='remote-brow
 
 ## QA Artifact Integration
 
-When `--qa-run-id` is provided, browser artifacts are recorded in `qa_artifacts` via `python3 -m yoke_core.cli.db_router qa artifact-add`.
+The browser client is diagnostic: snapshot commands write to the requested
+path and exec returns artifact JSON. It never writes QA records.
 
-### Flags
+The registered case runner is the QA integration boundary:
 
-All snapshot and exec commands accept these optional flags:
+```sh
+yoke qa case run --requirement-id <id> --base-url "<url>" --expected-branch "<branch>" --expected-sha "<sha>"
+```
 
-| Flag | Description |
-|------|-------------|
-| `--qa-run-id N` | QA run ID; triggers artifact recording |
-| `--project P` | Project name (e.g., `external-webapp`) |
-| `--route R` | Route path (e.g., `/dashboard`) |
-| `--step-index N` | Step index within a scenario |
+It authorizes the immutable case, executes its steps, completes its QA run,
+and records its artifacts. Do not wrap diagnostic calls in parallel records.
 
 ### Artifact Types
 
@@ -242,23 +241,23 @@ All snapshot and exec commands accept these optional flags:
 
 ### Storage Path Convention
 
-When invoked via `yoke_core.domain.browser_client exec` directly (standalone mode with `--qa-run-id`):
+Diagnostic commands write only to caller-supplied `--output` or `--output-dir`
+paths; those paths are not QA evidence until the case runner records them.
+
+The canonical case runner stores captures under project scratch storage:
 
 ```
-{project}/test/qa-artifacts/{run_id}/{artifact_type}-{step_index}-{route_slug}.{ext}
+{scratch_root}/{project}/storage/qa-artifacts/{item_id}/{run_id}/screenshot-{step_index}-{timestamp}.png
 ```
 
-Example: `external-webapp/test/qa-artifacts/42/screenshot-3-dashboard.png`
-
-When invoked via `yoke_core.domain.browser_qa` (the canonical orchestrator path):
+With an environment artifact bucket, the runner uploads the file and records
+this durable key:
 
 ```
-{project}/qa-artifacts/{item_id}/{run_id}/screenshot-{step_index}-{timestamp}.png
+qa-artifacts/{project}/{item_id}/{run_id}/screenshot-{step_index}-{timestamp}.png
 ```
 
-Example: `external-webapp/qa-artifacts/941/87/screenshot-0-20260317-143022.png`
-
-Both paths record artifacts to `qa_artifacts` via `yoke qa artifact add`. The orchestrator path organizes by item ID for easier per-item audit trails.
+Otherwise it records a machine-local handle for the absolute capture path.
 
 ### Metadata
 
@@ -275,7 +274,8 @@ All artifacts include metadata JSON with:
 
 ### Standalone Mode
 
-Without `--qa-run-id`, artifacts are written to the specified output path without any DB recording. This is the default for interactive debugging.
+Browser-client snapshot and exec commands are interactive diagnostics only;
+they record no run, artifact, or verdict. Use `yoke qa case run` for evidence.
 
 ## Event Catalog
 

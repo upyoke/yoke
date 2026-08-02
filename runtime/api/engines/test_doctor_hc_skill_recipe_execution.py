@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
 
-from yoke_core.engines.doctor_hc_skill_recipe_execution import (
+from yoke_project_checks.check_skill_recipe_execution import (
     hc_skill_recipe_execution,
 )
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector

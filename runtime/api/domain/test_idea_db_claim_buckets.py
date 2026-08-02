@@ -115,8 +115,8 @@ class TestInferAndCreatePreventions:
         agents copy it directly rather than improvising."""
         text = _read(_INFER_AND_CREATE)
         assert (
-            'rg -n "def _run_.*_gate|def check_.*_gate|GATE_[A-Z_]+" '
-            "packages/ runtime/"
+            "rg -n 'def _run_.*_gate|def check_.*_gate|GATE_[A-Z_]+' "
+            "<source-roots>"
         ) in text
 
     def test_prevention_2_names_current_lifecycle_owners(self):

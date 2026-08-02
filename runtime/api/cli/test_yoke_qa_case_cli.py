@@ -23,7 +23,14 @@ TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"
 def test_qa_case_run_delegates_to_engine_module() -> None:
     process = mock.Mock()
     process.wait.return_value = 7
-    with mock.patch.object(qa_case.subprocess, "Popen", return_value=process) as popen:
+    with (
+        mock.patch.object(
+            qa_case,
+            "build_actor",
+            return_value=mock.Mock(session_id="case-session"),
+        ),
+        mock.patch.object(qa_case.subprocess, "Popen", return_value=process) as popen,
+    ):
         code = qa_case.qa_case_run(
             [
                 "--requirement-id",
@@ -42,8 +49,11 @@ def test_qa_case_run_delegates_to_engine_module() -> None:
         "41",
         "--base-url",
         "https://preview.example",
+        "--session-id",
+        "case-session",
     ]
-    assert popen.call_args.kwargs == {"start_new_session": True}
+    assert popen.call_args.kwargs["start_new_session"] is True
+    assert popen.call_args.kwargs["env"]["YOKE_SESSION_ID"] == "case-session"
 
 
 def test_engine_cli_executes_case_and_emits_result(capsys) -> None:
@@ -62,6 +72,8 @@ def test_engine_cli_executes_case_and_emits_result(capsys) -> None:
                 "41",
                 "--base-url",
                 "https://preview.example",
+                "--session-id",
+                "engine-session",
             ]
         )
 
@@ -73,7 +85,28 @@ def test_engine_cli_executes_case_and_emits_result(capsys) -> None:
         expected_branch=None,
         expected_sha=None,
         timeout_seconds=None,
+        actor=mock.ANY,
     )
+    assert execute.call_args.kwargs["actor"].session_id == "engine-session"
+
+
+def test_qa_case_run_preserves_explicit_session_override() -> None:
+    process = mock.Mock()
+    process.wait.return_value = 0
+    with (
+        mock.patch.object(qa_case, "build_actor") as build_actor,
+        mock.patch.object(qa_case.subprocess, "Popen", return_value=process) as popen,
+    ):
+        assert (
+            qa_case.qa_case_run(
+                ["--requirement-id", "41", "--session-id", "operator-session"]
+            )
+            == 0
+        )
+
+    build_actor.assert_not_called()
+    assert popen.call_args.args[0][-2:] == ["--session-id", "operator-session"]
+    assert popen.call_args.kwargs["env"]["YOKE_SESSION_ID"] == "operator-session"
 
 
 def test_engine_cli_returns_prerequisite_exit_for_error(capsys) -> None:
@@ -91,7 +124,14 @@ def test_engine_cli_returns_prerequisite_exit_for_error(capsys) -> None:
 def test_qa_plan_run_delegates_to_engine_module() -> None:
     process = mock.Mock()
     process.wait.return_value = 3
-    with mock.patch.object(qa_case.subprocess, "Popen", return_value=process) as popen:
+    with (
+        mock.patch.object(
+            qa_case,
+            "build_actor",
+            return_value=mock.Mock(session_id="plan-session"),
+        ),
+        mock.patch.object(qa_case.subprocess, "Popen", return_value=process) as popen,
+    ):
         code = qa_case.qa_plan_run(
             [
                 "--item",
@@ -110,8 +150,11 @@ def test_qa_plan_run_delegates_to_engine_module() -> None:
         TEST_ITEM_REF,
         "--transition",
         "implemented",
+        "--session-id",
+        "plan-session",
     ]
-    assert popen.call_args.kwargs == {"start_new_session": True}
+    assert popen.call_args.kwargs["start_new_session"] is True
+    assert popen.call_args.kwargs["env"]["YOKE_SESSION_ID"] == "plan-session"
 
 
 @pytest.mark.parametrize(
@@ -249,42 +292,6 @@ def test_plan_engine_cli_reuses_one_session_actor(capsys) -> None:
     assert code == 0
     assert json.loads(capsys.readouterr().out)["state"] == "passed"
     assert execute.call_args.kwargs["actor"].session_id == "plan-session"
-
-
-def test_plan_engine_cli_accepts_deployment_run_subject(capsys) -> None:
-    with mock.patch.object(
-        qa_plan_execution_cli,
-        "execute_plan",
-        return_value={
-            "item_id": None,
-            "deployment_run_id": "run-20260728-901",
-            "transition_id": None,
-            "state": "passed",
-            "requirement_count": 1,
-            "executed_count": 1,
-            "results": [],
-        },
-    ) as execute:
-        code = qa_plan_execution_cli.run(
-            [
-                "--deployment-run-id",
-                "run-20260728-901",
-                "--plan",
-                "installer-campaign",
-                "--project",
-                "yoke",
-                "--session-id",
-                "deployment-plan-session",
-            ]
-        )
-
-    assert code == 0
-    assert (
-        json.loads(capsys.readouterr().out)["deployment_run_id"] == "run-20260728-901"
-    )
-    assert execute.call_args.kwargs["item_ref"] is None
-    assert execute.call_args.kwargs["deployment_run_id"] == "run-20260728-901"
-    assert execute.call_args.kwargs["plan"] == "installer-campaign"
 
 
 def test_plan_engine_cli_blocks_on_precondition_and_preserves_state(capsys) -> None:

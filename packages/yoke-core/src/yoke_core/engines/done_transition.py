@@ -40,7 +40,6 @@ from yoke_core.engines.done_transition_cascade import (  # noqa: F401
     _update_status_to_done,
     _cascade_epic_tasks_to_done,
     _batch_github_sync_tasks,
-    _cross_project_commit_guard,
     _pre_merge_commit,
     _do_merge,
     _cleanup_stale_branches,

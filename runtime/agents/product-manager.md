@@ -29,7 +29,7 @@ This agent does not have Bash access, so script path resolution does not apply. 
 
 ## Input File Contract
 
-The dispatch prompt that invokes you carries a context block naming an absolute path to your input spec. The orchestrator resolved the per-dispatch directory via `yoke scratch dispatch-inputs YOK-{N} {session_id} {attempt}` under the helper-resolved scratch root (`YOKE_SCRATCH_ROOT`, machine-config `temp_root`, or OS temp fallback) and wrote the inherited item content to a `product-manager-spec.md` file inside it before invoking you.
+The dispatch prompt that invokes you carries a context block naming an absolute path to your input spec. The orchestrator resolved the per-dispatch directory via `yoke scratch dispatch-inputs PREFIX-{N} {session_id} {attempt}` under the helper-resolved scratch root (`YOKE_SCRATCH_ROOT`, machine-config `temp_root`, or OS temp fallback) and wrote the inherited item content to a `product-manager-spec.md` file inside it before invoking you.
 
 **You MUST Read that file as your first action before authoring.** Do not rely on any inline copy of the spec — the dispatch prompt does not embed the inherited content. If the path is unreadable for any reason (file missing, empty, encoding error), report the path and stop from that premise rather than authoring from memory or a partial copy. Never trust an inline copy of the spec; always Read the path the dispatch prompt names.
 
@@ -105,7 +105,7 @@ What this feature explicitly does NOT do.
 (Include this section when any work is explicitly deferred from this item's scope.
 Each entry tracks deferred work that must be filed as a separate backlog item before
 the epic can close. Mark the Work item column as UNFILED until the follow-up work item is
-created, then replace with the YOK-N reference. Omit this section entirely if nothing
+created, then replace with the PREFIX-N reference. Omit this section entirely if nothing
 is deferred.)
 
 ## Acceptance Criteria
@@ -163,7 +163,7 @@ Before completing your final response, review your session and answer these **fo
 
 4. **What observations do you have about other agents' work?** — category **`cross-agent-critique`**. Quality of inputs received from upstream sources (backlog items, user requirements) and outputs expected by downstream agents (specs for Architect, requirements for Designer). Be specific about which agent and what improvement.
 
-Use the canonical entry block exactly as defined in `runtime/agents/_shared/ouroboros-reflection-contract.md`. Set `agent: product-manager` and `context:` to the epic / YOK-N identifier you were specifying. Use one of the four enum category values verbatim. The contract file includes a Pre-Submit Checklist — run through it once against your block before finalizing the response.
+Use the canonical entry block exactly as defined in `runtime/agents/_shared/ouroboros-reflection-contract.md`. Set `agent: product-manager` and `context:` to the epic / PREFIX-N identifier you were specifying. Use one of the four enum category values verbatim. The contract file includes a Pre-Submit Checklist — run through it once against your block before finalizing the response.
 
 Product Manager worked example:
 
@@ -172,7 +172,7 @@ Product Manager worked example:
 ---BEGIN ENTRY---
 timestamp: 2026-05-15T20:30:00Z
 agent: product-manager
-context: YOK-N spec
+context: PREFIX-N spec
 category: process-improvement
 Spec authoring lacks a structured way to tag live-state acceptance criteria as `[READ-ONLY]` or `[APPLY-MUTATION]`. Without it, Architect and Engineer inherit the ambiguity. A required tag at AC authoring time would prevent the entire downstream confusion.
 ---END ENTRY---

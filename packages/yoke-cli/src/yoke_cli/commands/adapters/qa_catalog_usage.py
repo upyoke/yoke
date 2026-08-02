@@ -21,6 +21,10 @@ USAGE_BY_FUNCTION_ID = {
         "yoke qa project-default set --project P --plan-id N "
         "--workflow W --transition T"
     ),
+    "qa.project_default.unset": (
+        "yoke qa project-default unset --project P --plan-id N "
+        "--workflow W --transition T"
+    ),
     "qa.item_plan.attach": (
         "yoke qa item-plan attach --item PREFIX-N --project P "
         "--plan-id N --transition T"

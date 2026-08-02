@@ -5,8 +5,8 @@ Called by `SKILL.md` before target resolution. Registered
 policies; read the exact definition separately for executor interpretation:
 
 ```bash
-_item_workflow_json=$(yoke workflows item get YOK-{N} --json) || {
- echo "Item YOK-{N} not found."
+_item_workflow_json=$(yoke workflows item get PREFIX-{N} --json) || {
+ echo "Item PREFIX-{N} not found."
  exit 1
 }
 _workflow_id=$(printf '%s' "$_item_workflow_json" | python3 -c 'import json,sys

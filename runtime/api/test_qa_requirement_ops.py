@@ -152,7 +152,7 @@ class TestRequirementUpdate:
         rid = add_bound_requirement(
             db_path=db_path,
             item_id=42,
-            qa_kind="browser_smoke",
+            qa_kind="plan_case",
             qa_phase="verification",
             success_policy=json.dumps(
                 {
@@ -201,7 +201,7 @@ class TestRequirementUpdate:
         """AC-1: qa_kind is excluded explicitly — the error must call it out."""
         with pytest.raises(SystemExit) as exc:
             qa.cmd_requirement_update(
-                req_id, "qa_kind", "browser_smoke", db_path=db_path
+                req_id, "qa_kind", "replacement-kind", db_path=db_path
             )
         assert exc.value.code == 2
 

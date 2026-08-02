@@ -1,6 +1,6 @@
 """Live-tree cleanliness coverage for the retired-term scanner."""
 
-from yoke_core.engines.doctor_hc_obsoleted_terms import scan_repo
+from yoke_project_checks.check_obsoleted_terms import scan_repo
 from .test_doctor_hc_obsoleted_terms_scan import REPO
 
 

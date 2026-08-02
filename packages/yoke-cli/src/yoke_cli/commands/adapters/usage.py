@@ -54,17 +54,7 @@ from yoke_cli.commands.adapters.doctor import (
     DOCTOR_LAST_RUN_GET_USAGE,
     DOCTOR_RUN_USAGE,
 )
-from yoke_cli.commands.adapters.deployment import (
-    DEPLOYMENT_FLOWS_GET_USAGE,
-    DEPLOYMENT_FLOWS_SET_STATUS_USAGE,
-    DEPLOYMENT_FLOWS_STAGES_USAGE,
-    DEPLOYMENT_RUNS_CREATE_USAGE,
-    DEPLOYMENT_RUNS_APPROVE_USAGE,
-    DEPLOYMENT_RUNS_GET_USAGE,
-    DEPLOYMENT_RUNS_LIST_USAGE,
-    DEPLOYMENT_RUNS_RESOLVE_TARGET_ENV_USAGE,
-    DEPLOYMENT_RUNS_UPDATE_USAGE,
-)
+from yoke_cli.commands.adapters.usage_deployment import DEPLOYMENT_USAGE
 from yoke_cli.commands.adapters.ephemeral_env import (
     EPHEMERAL_ENV_GET_USAGE,
     EPHEMERAL_ENV_UPDATE_USAGE,
@@ -122,12 +112,12 @@ from yoke_cli.commands.adapters.shepherd_dependency import (
     SHEPHERD_DEPENDENCY_UPDATE_USAGE,
 )
 from yoke_cli.commands.adapters.misc import (
-    OUROBOROS_ENTRY_GET_USAGE,
-    OUROBOROS_ENTRY_LIST_USAGE,
-    OUROBOROS_FIELD_NOTE_GET_USAGE,
-    OUROBOROS_FIELD_NOTE_LIST_USAGE,
-    OUROBOROS_USAGE,
+    OUROBOROS_ENTRY_GET_USAGE, OUROBOROS_ENTRY_LIST_USAGE,
     SCRATCH_DISPATCH_INPUTS_USAGE,
+)
+from yoke_cli.commands.adapters.ouroboros_field_note import (
+    OUROBOROS_FIELD_NOTE_GET_USAGE, OUROBOROS_FIELD_NOTE_LIST_USAGE,
+    OUROBOROS_USAGE,
 )
 from yoke_cli.commands.adapters.projects import (
     PROJECTS_CAPABILITY_HAS_USAGE,
@@ -269,15 +259,7 @@ ADAPTER_USAGE: Dict[str, str] = {
     **QA_ADAPTER_USAGE,
     "doctor.run.run": DOCTOR_RUN_USAGE,
     "doctor.last_run.get": DOCTOR_LAST_RUN_GET_USAGE,
-    "deployment_flows.get": DEPLOYMENT_FLOWS_GET_USAGE,
-    "deployment_flows.set_status": DEPLOYMENT_FLOWS_SET_STATUS_USAGE,
-    "deployment_flows.stages": DEPLOYMENT_FLOWS_STAGES_USAGE,
-    "deployment_runs.create": DEPLOYMENT_RUNS_CREATE_USAGE,
-    "deployment_runs.approve": DEPLOYMENT_RUNS_APPROVE_USAGE,
-    "deployment_runs.get": DEPLOYMENT_RUNS_GET_USAGE,
-    "deployment_runs.list": DEPLOYMENT_RUNS_LIST_USAGE,
-    "deployment_runs.update": DEPLOYMENT_RUNS_UPDATE_USAGE,
-    "deployment_runs.resolve_target_env": DEPLOYMENT_RUNS_RESOLVE_TARGET_ENV_USAGE,
+    **DEPLOYMENT_USAGE,
     "github.release.create_next_tag": GITHUB_RELEASE_CREATE_NEXT_TAG_USAGE,
     "ephemeral_env.update": EPHEMERAL_ENV_UPDATE_USAGE,
     "ephemeral_env.get": EPHEMERAL_ENV_GET_USAGE,

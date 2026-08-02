@@ -1,7 +1,7 @@
 ---
 name: charge
 description: "Direct-mode entrypoint — compute the frontier, present the ranked table, confirm with operator, and dispatch to the correct downstream adapter."
-argument-hint: "[--dry-run] [--item YOK-N] [--project P] [--wip-cap N]"
+argument-hint: "[--dry-run] [--item PREFIX-N] [--project P] [--wip-cap N]"
 ---
 
 # /yoke charge
@@ -10,7 +10,7 @@ Direct-mode entrypoint for the charge flow. Computes the claim-aware schedule
 via `yoke charge schedule`, presents a formatted table of ranked items with
 their adapter classifications, confirms the top pick with the operator, and
 dispatches to the correct downstream skill (refine, shepherd, conduct, advance,
-polish, or usher). The `next_step` field is the dispatch truth: the pinned
+dash, blitz, polish, or usher). The `next_step` field is the dispatch truth: the pinned
 workflow's registered executor binding produced it. The `adapter` column
 remains in the table display for ranking diagnostics.
 
@@ -25,7 +25,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 ## Arguments
 
 - `--dry-run` — Show the frontier table and stop. Do not confirm or dispatch.
-- `--item YOK-N` — Target a specific item instead of the highest-ranked one.
+- `--item PREFIX-N` — Target a specific item instead of the highest-ranked one.
 - `--project P` — Project scope (default: `yoke`).
 - `--wip-cap N` — WIP cap override (default: 5).
 
@@ -63,7 +63,7 @@ Parse the JSON output. The response has this shape:
  "project": "yoke",
  "sml_state": {"coherent": true},
  "selected_step": {
- "item_id": "YOK-N",
+ "item_id": "PREFIX-N",
  "next_step": "conduct",
  "claim_state": "unclaimed",
  "rank": 0,
@@ -71,7 +71,7 @@ Parse the JSON output. The response has this shape:
  },
  "ranked_steps": [
  {
- "item_id": "YOK-N",
+ "item_id": "PREFIX-N",
  "title": "Some item title",
  "status": "planned",
  "priority": "high",
@@ -89,7 +89,7 @@ Parse the JSON output. The response has this shape:
  ],
  "blocked_steps": [
  {
- "item_id": "YOK-N",
+ "item_id": "PREFIX-N",
  "claim_state": "...",
  "gate_evaluations": [{"gate_point": "activation", "rationale": "..."}],
  ...
@@ -118,8 +118,8 @@ Print a formatted summary to the operator. Use the following layout:
 ### Runnable ({count_assignable})
 | # | Item | Title | Status | Adapter | Priority | Unblocks |
 |---|------|-------|--------|---------|----------|----------|
-| 1 | YOK-N | Some title | planned | conduct | high | 3 |
-| 2 | YOK-N | Another title | refined-idea | shepherd | medium | 0 |
+| 1 | PREFIX-N | Some title | planned | conduct | high | 3 |
+| 2 | PREFIX-N | Another title | refined-idea | shepherd | medium | 0 |
 ...
 ```
 
@@ -135,7 +135,7 @@ If there are blocked items, also print (read from `blocked_steps[]`):
 ### Blocked ({count})
 | Item | Title | Status | Blocked By | Gate | Rationale |
 |------|-------|--------|------------|------|-----------|
-| YOK-N | Blocked item | implementing | YOK-N | activation | Must complete YOK-N first |
+| PREFIX-N | Blocked item | implementing | PREFIX-N | activation | Must complete PREFIX-N first |
 ...
 ```
 
@@ -201,7 +201,7 @@ Then stop. Do not confirm or dispatch.
 
 ### 4. Select the target item
 
-If `--item YOK-N` was passed:
+If `--item PREFIX-N` was passed:
 - Find that item in the assignable Runnable table.
 - If the item is on `ranked_steps[]` but with `claim_state='claimed_by_other_live'`, treat it as unavailable and report `claimed_by_other_live` (held by another live session) as the reason.
 - If not found, also check `blocked_steps[]` and `frozen_steps[]` and report why it cannot be dispatched.
@@ -239,7 +239,7 @@ Selected: {item_id} — {title}
 
 Ask the operator to confirm. Use the following options:
 - "Yes, dispatch to /yoke {next_step} {item_id}"
-- "Pick a different item (specify YOK-N)"
+- "Pick a different item (specify PREFIX-N)"
 - "Cancel — do not dispatch"
 
 If the operator picks a different item, find it in the assignable Runnable table and repeat step 5 with the new item.
@@ -278,6 +278,12 @@ Invoke `/yoke conduct {item_id}` by reading and following `.agents/skills/yoke/c
 
 #### `advance`
 Invoke `/yoke advance {item_id} implementation` by reading and following `.agents/skills/yoke/advance/SKILL.md`, passing `{item_id}` and `implementation` as arguments. This is the issue main-session implementation path — the scheduler routes issues at implementation-eligible statuses here instead of through `conduct`.
+
+#### `dash`
+Invoke `/yoke dash {item_id}` by reading and following `.agents/skills/yoke/dash/SKILL.md`, passing `{item_id}` as the argument. The stored instruction is the complete scope; Dash runs survey, worktree, verification, merge, and evidence in this session.
+
+#### `blitz`
+Invoke `/yoke blitz {item_id}` by reading and following `.agents/skills/yoke/blitz/SKILL.md`, passing `{item_id}` as the argument. Blitz executes the item's single linked execution strategy document.
 
 #### `polish`
 Invoke `/yoke polish {item_id}` by reading and following `.agents/skills/yoke/polish/SKILL.md`, passing `{item_id}` as the argument.

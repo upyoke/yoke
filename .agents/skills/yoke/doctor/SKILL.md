@@ -16,11 +16,33 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 ## Arguments
 
-- `[project]` — Target project for project-specific checks (default: `yoke`). Examples: `external-webapp`, `yoke`. The first positional argument that is not a flag is treated as the project name.
+- `[project]` — Target project for project-specific checks. Defaults to the project bound to the checkout you are standing in; a machine that knows no such binding falls back to the seeded self project. Examples: `external-webapp`, `yoke`. The first positional argument that is not a flag is treated as the project name.
 - `--fix` — Auto-repair trivial issues (label mismatches, stale dashboards, stale worktree refs). Non-trivial issues are reported only.
 - `--file {path}` — Save the report to a custom path (default: `ouroboros/health/health-{YYYYMMDD}.md`)
 
 ## Philosophy
+
+**Every check declares what it applies to.** The roster is not one fixed list
+shipped everywhere. Each check states its project scope, whether it reads the
+target project's source tree, which runtimes it runs under, and which
+capabilities it needs; the runner derives the applicable set from the live
+context. See `## Health Checks` in AGENTS.md for the model.
+
+**Report "not applicable" honestly.** A run over an HTTPS authority executes
+the checks on the control-plane server, which holds no source tree — so every
+source-tree check comes back `N/A` with its reason in the `## Not Applicable`
+section, not as a pass. To actually exercise those checks, run doctor where
+the checkout lives (a local-Postgres connection). When you relay a report,
+relay the not-applicable count too: `N passed` over a hosted run does not mean
+the source tree was inspected.
+
+**Project-local checks.** A project's own checks live in its `.yoke/doctor/`
+folder and are discovered pytest-style by a runner that holds the checkout.
+They appear in the report exactly like engine checks. A check module that
+fails to import is reported as `HC-project-check-discovery` FAIL. Yoke's own
+source-dev checks — agent and adapter drift, hook parity, skill and doc
+consistency, tier discipline, code-doctrine scans — live there rather than in
+the engine, so a hosted run of another project never carries them.
 
 **Events table as health signal.** The events table captures anomaly patterns across all agent sessions. Include `yoke events anomalies --since "24 hours ago"` in the diagnostic context. Elevated anomaly counts or recurring `nonzero_exit` patterns on specific scripts are health signals.
 
@@ -67,7 +89,7 @@ Do not leave the `DOCTOR` claim active after any post-claim stop.
    chunks the run into bounded server requests and skips source-tree-only HCs;
    do not invoke the local watcher against a hosted connection.
  - **`local-postgres`** — invoke doctor through the watcher wrapper
-   `python3 -m yoke_core.tools.watch_doctor`. Per AGENTS.md `## Command Output
+   `yoke watch doctor`. Per AGENTS.md `## Command Output
    — Hard Rule`, local Doctor runs go through the watcher to preserve the raw
    report and streaming progress.
 
@@ -92,7 +114,7 @@ Do not leave the `DOCTOR` claim active after any post-claim stop.
  yoke doctor run --full --project {project} [--fix] --json
 
  # Local Postgres authority
- python3 -m yoke_core.tools.watch_doctor -- --full --project {project} [--file {path}] [--fix]
+ yoke watch doctor -- --full --project {project} [--file {path}] [--fix]
  ```
 
  `--file` applies only to the local watcher. The hosted adapter returns the
@@ -190,7 +212,7 @@ Do not leave the `DOCTOR` claim active after any post-claim stop.
 
 ## Notes
 
-- The doctor engine exits 0 if no FAILs, exits 1 if any FAILs (the watcher wrapper at `python3 -m yoke_core.tools.watch_doctor` preserves this exit code). Use the exit code to determine overall health.
+- The doctor engine exits 0 if no FAILs, exits 1 if any FAILs (the watcher wrapper at `yoke watch doctor` preserves this exit code). Use the exit code to determine overall health.
 - GitHub-dependent health checks (sync-completeness-legacy, orphan/missing/comment-sync HCs) resolve the project's verified App binding through `yoke_core.domain.project_github_auth.resolve_project_github_auth` and call GitHub REST/GraphQL with a short-lived installation token — they do NOT require the host `gh` CLI. Bidirectional sync HCs delegate detection and repair to the internal resync engine in doctor format, which uses the same resolver. The doctor engine forwards `--fix` automatically; the agent never runs a host shell-out itself.
 - The `--fix` flag only repairs trivial, deterministic issues. It never modifies code, agent prompts, or SKILL.md files.
 - Bulk-mutation awareness: a single `/yoke doctor --fix` invocation can push large numbers of GitHub edits (every body, title, label, and state drift on every paired item). Before running `--fix` on a long-stale install, do a read-only pass first and confirm the mutation volume is acceptable.

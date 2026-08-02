@@ -7,6 +7,8 @@ and the aligned-table helpers the sessions section depends on.
 
 from __future__ import annotations
 
+import re
+
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple
 
@@ -21,6 +23,11 @@ from yoke_contracts.board.sections_sessions_layout import (
 )
 from yoke_contracts.board.sections_sessions_scope import session_rows
 from yoke_contracts.board.utils import display_width
+
+
+# A ref that already carries a project prefix is rendered; each project
+# sets its own, so match the shape rather than one project's letters.
+_RENDERED_ITEM_REF_RE = re.compile(r"^[A-Za-z]+-\d")
 
 
 def _format_session_age(iso_ts: str) -> str:
@@ -134,7 +141,7 @@ def _render_claim_target(
     """Format a claim target as a readable string.
 
     ``work_claims.item_id`` is numeric, so DB rows hand us an int here even
-    though the YOK-N display form is a string. Coerce before checking the
+    though the PREFIX-N display form is a string. Coerce before checking the
     prefix.
     """
     if process_key:
@@ -146,7 +153,7 @@ def _render_claim_target(
             except Exception:
                 pass
         item_str = str(item_id)
-        if item_str.startswith("YOK-"):
+        if _RENDERED_ITEM_REF_RE.match(item_str):
             return item_str
         return format_item_ref(None, None, item_str)
     if epic_id is not None and task_num is not None:

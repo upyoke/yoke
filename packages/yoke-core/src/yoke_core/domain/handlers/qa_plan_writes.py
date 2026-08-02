@@ -77,6 +77,13 @@ class ProjectDefaultSetRequest(BaseModel):
     qa_phase: str = "verification"
 
 
+class ProjectDefaultUnsetRequest(BaseModel):
+    project: str = Field(..., min_length=1)
+    plan_id: int
+    workflow_id: str = Field(..., min_length=1)
+    transition_id: str = Field(..., min_length=1)
+
+
 class ItemAttachRequest(BaseModel):
     project: str = Field(..., min_length=1)
     plan_id: int
@@ -218,8 +225,8 @@ def handle_project_default_set(
     if error is not None:
         return error
     from yoke_core.domain.db_helpers import connect
-    from yoke_core.domain.qa_plan_attachments import set_project_default
     from yoke_core.domain.qa_plan_management import QaPlanError
+    from yoke_core.domain.qa_plan_project_defaults import set_project_default
 
     try:
         with connect() as conn:
@@ -234,6 +241,34 @@ def handle_project_default_set(
                 actor_id=_actor_id(request),
                 **data,
             )
+    except QaPlanError as exc:
+        return _error("incompatible", str(exc), "$.payload")
+    return HandlerOutcome(result_payload={"result": result}, primary_success=True)
+
+
+def handle_project_default_unset(
+    request: FunctionCallRequest,
+) -> HandlerOutcome:
+    payload, error = _payload(
+        request,
+        ProjectDefaultUnsetRequest,
+        target_kind="global",
+    )
+    if error is not None:
+        return error
+    from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.qa_plan_management import QaPlanError
+    from yoke_core.domain.qa_plan_project_defaults import unset_project_default
+
+    try:
+        with connect() as conn:
+            _project_matches(
+                conn,
+                plan_id=payload.plan_id,
+                project=payload.project,
+            )
+            data = payload.model_dump(exclude={"project"})
+            result = unset_project_default(conn, **data)
     except QaPlanError as exc:
         return _error("incompatible", str(exc), "$.payload")
     return HandlerOutcome(result_payload={"result": result}, primary_success=True)
@@ -286,6 +321,7 @@ __all__ = [
     "ProjectMethodRegisterRequest",
     "ProjectMethodRegisterResponse",
     "ProjectDefaultSetRequest",
+    "ProjectDefaultUnsetRequest",
     "handle_item_attach",
     "handle_materialize",
     "handle_rematerialize",
@@ -293,4 +329,5 @@ __all__ = [
     "handle_plan_create",
     "handle_project_method_register",
     "handle_project_default_set",
+    "handle_project_default_unset",
 ]

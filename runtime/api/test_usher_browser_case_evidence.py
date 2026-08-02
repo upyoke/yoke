@@ -29,16 +29,12 @@ def test_pre_merge_skip_recognizes_passing_browser_method_cases() -> None:
     assert "Browser method cases" in text
 
 
-def test_legacy_browser_kind_fallback_is_null_method_only() -> None:
+def test_pre_merge_skip_does_not_read_retired_browser_kinds() -> None:
     text = _merge_text()
 
-    assert "method_id IS NULL branch is compatibility-only" in text
-    assert (
-        "OR (qreq.method_id IS NULL \\\n"
-        " AND qreq.qa_kind IN ('browser_smoke', 'browser_diff')))" in text
-    )
-    assert text.count("browser_smoke") == 1
-    assert text.count("browser_diff") == 1
+    assert "method_id IS NULL" not in text
+    assert "browser_smoke" not in text
+    assert "browser_diff" not in text
 
 
 def test_usher_drops_retired_browser_execution_recipes() -> None:

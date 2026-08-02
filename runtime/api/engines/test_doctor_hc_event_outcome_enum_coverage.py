@@ -16,8 +16,8 @@ import pytest
 
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
-from yoke_core.engines import doctor_hc_event_outcome_enum_coverage as mod
-from yoke_core.engines.doctor_hc_event_outcome_enum_coverage import (
+from yoke_project_checks import check_event_outcome_enum_coverage as mod
+from yoke_project_checks.check_event_outcome_enum_coverage import (
     HC_ID,
     hc_event_outcome_enum_coverage,
 )

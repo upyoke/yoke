@@ -71,8 +71,8 @@ def test_hosted_url_preset_starts_browser_approval_without_token_entry(
         platform_url="https://app.upyoke.com",
         device_code="device-secret",
         user_code="ABCD-2345",
-        verification_uri="https://app.upyoke.com/machine",
-        verification_uri_complete="https://app.upyoke.com/machine?user_code=ABCD-2345",
+        verification_uri="https://app.upyoke.com/connect",
+        verification_uri_complete="https://app.upyoke.com/connect?user_code=ABCD-2345",
         expires_in=600,
         interval=2,
     )
@@ -118,8 +118,8 @@ def test_hosted_pick_persists_browser_approval_before_project_flow(
         platform_url="https://app.upyoke.com",
         device_code="device-secret",
         user_code="ABCD-2345",
-        verification_uri="https://app.upyoke.com/machine",
-        verification_uri_complete="https://app.upyoke.com/machine?user_code=ABCD-2345",
+        verification_uri="https://app.upyoke.com/connect",
+        verification_uri_complete="https://app.upyoke.com/connect?user_code=ABCD-2345",
         expires_in=600,
         interval=2,
     )

@@ -89,6 +89,8 @@ set only `YOKE_PG_DSN_VALIDATION` to that target, and hydrate it from the
 selected authority before rehearsal:
 
 ```bash
+# Yoke source repo only — an in-tree helper, not importable from an installed
+# Yoke. Other projects hydrate the validation database their own way.
 python3 -m runtime.api.tools.authority_validation_copy
 ```
 
@@ -98,13 +100,17 @@ no-owner/no-privileges dump restore. Merely creating an empty validation
 database is insufficient because migration modules rehearse against the
 deployed schema and data shape.
 
+`<modules_dir>` below is the value the project's declared `migration_model`
+capability payload carries under `runner.config.modules_dir` — read it there,
+never from another project's layout.
+
 ```bash
 python3 -m yoke_core.domain.migration_apply rehearse-manifest \
-  runtime/api/domain/migrations/<name>.migration.json \
+  <modules_dir>/<name>.migration.json \
   --worktree-path /absolute/path/to/clean/worktree
 
 python3 -m yoke_core.domain.migration_apply live-apply-manifest \
-  runtime/api/domain/migrations/<name>.migration.json \
+  <modules_dir>/<name>.migration.json \
   --worktree-path /absolute/path/to/the-same-clean-worktree
 ```
 
@@ -183,10 +189,11 @@ The wired pairings are:
 
 The SQLite pairing is project-generic: webapp projects use it with
 project-local module paths and the app DB env var. The Postgres pairing is
-Yoke's authority shape — `authoritative_db.kind="postgres"` with
-`modules_dir="runtime/api/domain/migrations"` and the `YOKE_PG_DSN`
-runner binding. Validation is external to this worktree-local provisioning
-surface; the authoritative DB location names a Postgres stack/output source:
+Yoke's authority shape — `authoritative_db.kind="postgres"` with the
+`runner.config.modules_dir` from its own capability payload and the
+`YOKE_PG_DSN` runner binding. Validation is external to this worktree-local
+provisioning surface; the authoritative DB location names a Postgres
+stack/output source:
 
 ```json
 {

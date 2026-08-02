@@ -22,7 +22,7 @@ After the worker completes (or directly for `planning_to_plan_drafted`), invoke 
 Before invocation, compute repeated Boss output failures for this item/transition:
 
 ```bash
-_boss_unparseable_count=$(yoke db read --format lines "SELECT COUNT(*) FROM shepherd_verdicts WHERE item='YOK-$_num' AND transition='$_transition' AND caveats LIKE '%[UNPARSEABLE_BOSS_OUTPUT]%'")
+_boss_unparseable_count=$(yoke db read --format lines "SELECT COUNT(*) FROM shepherd_verdicts WHERE item='PREFIX-$_num' AND transition='$_transition' AND caveats LIKE '%[UNPARSEABLE_BOSS_OUTPUT]%'")
 _boss_model_override=""
 if [ "$_boss_unparseable_count" -ge 2 ]; then
  _boss_model_override="opus"
@@ -33,14 +33,14 @@ fi
 Capture the current verdict-row high-water mark before invoking the Boss. Layer 2 may only reuse rows inserted after this point; older rows belong to prior attempts and must not satisfy the current parse.
 
 ```bash
-_pre_boss_verdict_max_id=$(yoke db read --format lines "SELECT COALESCE(MAX(id), 0) FROM shepherd_verdicts WHERE item='YOK-$_num' AND transition='$_transition' AND worker='$_worker_name'")
+_pre_boss_verdict_max_id=$(yoke db read --format lines "SELECT COALESCE(MAX(id), 0) FROM shepherd_verdicts WHERE item='PREFIX-$_num' AND transition='$_transition' AND worker='$_worker_name'")
 ```
 
 **Boss invocation:**
 
 **Dispatch:** descriptor `DispatchDescriptor(role="boss", extras=(("model","opus"),) if _boss_model_override else ())` rendered via `yoke_core.domain.dispatch_descriptors.render_for_harness(descriptor, harness_id)`. Result-schema markers: `VERDICT: READY|NOT_READY|CAVEATS`, `---REFLECTION-START---`. The descriptor's `prompt: |` block is filled with:
 ```
- Review YOK-{N} at the {_transition} gate.
+ Review PREFIX-{N} at the {_transition} gate.
  Title: {_title}
  Workflow: {_workflow_id}
  Scope: {scope}
@@ -49,8 +49,8 @@ _pre_boss_verdict_max_id=$(yoke db read --format lines "SELECT COALESCE(MAX(id),
  Repository root: {MAIN_ROOT}
 
  Read the authoritative artifact from the DB before evaluating:
- {if scope is "spec" or "prd": "yoke items get YOK-{N} spec\n If empty, fall back to: yoke items get YOK-{N} body"}
- {if scope is "plan": "yoke items get YOK-{N} technical_plan\n yoke items get YOK-{N} worktree_plan\n yoke items get YOK-{N} spec\n yoke items get YOK-{N} design_spec\n If any structured field is empty, fall back to: yoke items get YOK-{N} body"}
+ {if scope is "spec" or "prd": "yoke items get PREFIX-{N} spec\n If empty, fall back to: yoke items get PREFIX-{N} body"}
+ {if scope is "plan": "yoke items get PREFIX-{N} technical_plan\n yoke items get PREFIX-{N} worktree_plan\n yoke items get PREFIX-{N} spec\n yoke items get PREFIX-{N} design_spec\n If any structured field is empty, fall back to: yoke items get PREFIX-{N} body"}
 
  {if _sim_report: "Simulator report:\n{_sim_report}"}
 

@@ -175,7 +175,7 @@ def test_no_start_api_sh_in_active_md_docs():
 
 # ---------------------------------------------------------------------------
 # Retired DB columns and other obsoleted surface names are enforced by
-# HC-obsoleted-terms (see runtime/api/engines/doctor_hc_obsoleted_terms.py and
+# HC-obsoleted-terms (see runtime/api/engines/check_obsoleted_terms.py and
 # the matching test module). This file keeps only the per-script retired-path
 # guards that predate the generic HC.
 # ---------------------------------------------------------------------------

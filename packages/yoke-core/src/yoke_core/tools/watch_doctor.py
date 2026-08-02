@@ -23,17 +23,17 @@ Usage::
 
     # Canonical form: the ``--`` separator marks "everything after this
     # is forwarded to doctor". Used by --print-streaming-pair output.
-    python3 -m yoke_core.tools.watch_doctor -- --quick
+    yoke watch doctor -- --quick
 
     # Bare form: unrecognized flags are also forwarded to doctor, so
     # ``-- --quick`` and bare ``--quick`` behave identically.
-    python3 -m yoke_core.tools.watch_doctor --quick
+    yoke watch doctor --quick
 
     # Print the ready-to-paste streaming pair for Claude Code:
-    python3 -m yoke_core.tools.watch_doctor --print-streaming-pair -- --quick
+    yoke watch doctor --print-streaming-pair -- --quick
 
     # Explicit capture paths (used by --print-streaming-pair output):
-    python3 -m yoke_core.tools.watch_doctor \\
+    yoke watch doctor \\
         --raw-capture /tmp/raw.log --progress-capture /tmp/prog.log \\
         -- --quick
 
@@ -59,6 +59,10 @@ from yoke_core.tools._watch_throttle import Classification, LineClass
 
 WRAPPER_MODULE = "yoke_core.tools.watch_doctor"
 KIND = "doctor"
+# argparse prog for a direct module invocation; the CLI adapter
+# passes the ``yoke watch doctor`` form so help reads back the
+# command as typed.
+DEFAULT_PROG = "watch_doctor"
 
 # Per-class regexes. Each is line-oriented; callers feed one line at a
 # time. Keeping them as separate constants lets tests exercise each
@@ -107,7 +111,7 @@ def classify_doctor_line(line: str) -> Classification:
 NESTED_DOCTOR_REJECTION_MESSAGE = (
     "watch_doctor expects bare doctor args after --; "
     "do not include python3 -m yoke_core.engines.doctor.\n"
-    "Example: python3 -m yoke_core.tools.watch_doctor -- --quick"
+    "Example: yoke watch doctor -- --quick"
 )
 
 # Match the bare interpreter names operators most commonly retype, plus
@@ -144,16 +148,16 @@ def _doctor_argv(args: Sequence[str]) -> list[str]:
 
 HELP_EPILOG = """\
 examples:
-  python3 -m yoke_core.tools.watch_doctor -- --quick
+  yoke watch doctor -- --quick
       Canonical form. The ``--`` separator marks "everything after this
       is forwarded to doctor". This is the position emitted by
       --print-streaming-pair output.
 
-  python3 -m yoke_core.tools.watch_doctor --quick
+  yoke watch doctor --quick
       Bare form. Unrecognized flags are forwarded to doctor too, so this
       behaves identically to ``-- --quick``.
 
-  python3 -m yoke_core.tools.watch_doctor --print-streaming-pair -- --quick
+  yoke watch doctor --print-streaming-pair -- --quick
       Print a ready-to-paste background command + progress-tail pair
       and exit.
 
@@ -163,9 +167,11 @@ doctor invocations before any process starts.
 """
 
 
-def _parse_args(argv: Sequence[str]) -> tuple[argparse.Namespace, list[str]]:
+def _parse_args(
+    argv: Sequence[str], prog: str = DEFAULT_PROG,
+) -> tuple[argparse.Namespace, list[str]]:
     parser = argparse.ArgumentParser(
-        prog="watch_doctor",
+        prog=prog,
         description="Run doctor under the shared raw+progress watcher wrapper.",
         epilog=HELP_EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -219,10 +225,10 @@ def _extract_print_streaming_pair(argv: list[str]) -> tuple[list[str], bool]:
     return filtered, found
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
     raw = list(sys.argv[1:] if argv is None else argv)
     raw, print_streaming_pair_flag = _extract_print_streaming_pair(raw)
-    ns, doctor_args = _parse_args(raw)
+    ns, doctor_args = _parse_args(raw, prog)
     if print_streaming_pair_flag:
         ns.print_streaming_pair = True
 

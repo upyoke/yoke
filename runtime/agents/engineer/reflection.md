@@ -24,7 +24,7 @@ Before completing your final response, review your session and answer these **fo
 
 ## Entry Block Shape
 
-Use the canonical entry block exactly as defined in `runtime/agents/_shared/ouroboros-reflection-contract.md`. Set `agent: engineer` and `context:` to the YOK-N / epic-task identifier you were working on. Use one of the four enum category values verbatim. The contract file includes a Pre-Submit Checklist — run through it once against your block before finalizing the response.
+Use the canonical entry block exactly as defined in `runtime/agents/_shared/ouroboros-reflection-contract.md`. Set `agent: engineer` and `context:` to the PREFIX-N / epic-task identifier you were working on. Use one of the four enum category values verbatim. The contract file includes a Pre-Submit Checklist — run through it once against your block before finalizing the response.
 
 Engineer worked example (one entry per category, ready to copy and adapt):
 
@@ -33,28 +33,28 @@ Engineer worked example (one entry per category, ready to copy and adapt):
 ---BEGIN ENTRY---
 timestamp: 2026-05-15T17:13:00Z
 agent: engineer
-context: YOK-N task 001
+context: PREFIX-N task 001
 category: problem
 The cmd_register handler was at the 350-line ceiling, leaving no headroom for the overlap-denial delegation. Cost: 4 turns trimming docstrings to make room. Files at the file-budget cap should be flagged at refine time so a headroom-carving companion task lands first.
 ---END ENTRY---
 ---BEGIN ENTRY---
 timestamp: 2026-05-15T17:14:00Z
 agent: engineer
-context: YOK-N task 001
+context: PREFIX-N task 001
 category: process-improvement
 File Budget entries should resolve to argparse-owning leaf modules, not just the dispatcher shim, so claim widening at refine time is collision-free.
 ---END ENTRY---
 ---BEGIN ENTRY---
 timestamp: 2026-05-15T17:15:00Z
 agent: engineer
-context: YOK-N task 001
+context: PREFIX-N task 001
 category: game-changing-idea
 Generate one --help subprocess test per registered CLI adapter from the dispatch table — catches every future add_help=False regression without hand-written tests.
 ---END ENTRY---
 ---BEGIN ENTRY---
 timestamp: 2026-05-15T17:16:00Z
 agent: engineer
-context: YOK-N task 001
+context: PREFIX-N task 001
 category: cross-agent-critique
 For any AC that names a CLI command, the Architect's anticipation pass should resolve the command to its argparse-owning leaf module via the dispatch table before widening the claim — not just take the File Budget literally.
 ---END ENTRY---

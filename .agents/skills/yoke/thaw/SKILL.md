@@ -1,10 +1,10 @@
 ---
 name: thaw
 description: "Thaw a frozen backlog item — return it to the active board in its normal status section."
-argument-hint: "YOK-N"
+argument-hint: "PREFIX-N"
 ---
 
-# /yoke thaw YOK-N
+# /yoke thaw PREFIX-N
 
 Thaw a frozen backlog item. Thawing sets `frozen=false` and returns the item to its normal status-based section on the board.
 
@@ -16,11 +16,11 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 ## Arguments
 
-- `YOK-N` — Backlog item ID. Accepts prefixed IDs, zero-padded prefixed IDs, or bare numeric IDs.
+- `PREFIX-N` — Backlog item ID. Accepts prefixed IDs, zero-padded prefixed IDs, or bare numeric IDs.
 
 ## Steps
 
-1. **Parse the ID:** Extract the numeric part from the argument (strip `YOK-` prefix if present, strip leading zeros). Zero-pad to 3 digits for the filename (`{NNN}`).
+1. **Parse the ID:** Extract the numeric part from the argument (strip `PREFIX-` prefix if present, strip leading zeros). Zero-pad to 3 digits for the filename (`{NNN}`).
 
 2. **Read the backlog item from the DB:**
  ```bash
@@ -28,10 +28,10 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
  ```
 
  If the query returns empty (item not in DB), stop with error:
- > Item YOK-{N} not found.
+ > Item PREFIX-{N} not found.
 
 3. **Check if actually frozen:** If `FROZEN` is not `true`, stop with a note:
- > YOK-{N} is not frozen. Nothing to do.
+ > PREFIX-{N} is not frozen. Nothing to do.
 
 4. **Acquire a work claim.** The `items.scalar.update` dispatch refuses
    to mutate an item unless the calling session already holds an active
@@ -39,7 +39,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
    ```bash
    yoke claims work acquire \
-       --item "YOK-{N}" --reason thaw
+       --item "PREFIX-{N}" --reason thaw
    ```
 
    If the call exits non-zero because another session holds the claim,
@@ -52,7 +52,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
    as a downstream side effect.
 
    ```bash
-   yoke items scalar update YOK-{N} --field frozen --value false
+   yoke items scalar update PREFIX-{N} --field frozen --value false
    ```
 
    Label-sync warnings surface as `warning: github_sync_degraded: ...`
@@ -64,11 +64,11 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
    ```bash
    yoke claims work release \
-       --item "YOK-{N}" --reason thaw-complete
+       --item "PREFIX-{N}" --reason thaw-complete
    ```
 
 7. **Report:**
- > **YOK-{N}** ({title}): thawed
+ > **PREFIX-{N}** ({title}): thawed
  >
  > The item is back on the board in the `{status}` section.
 

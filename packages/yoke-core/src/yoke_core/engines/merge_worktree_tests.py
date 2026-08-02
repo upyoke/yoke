@@ -111,6 +111,48 @@ def _run_streaming(
     return (proc.returncode, "\n".join(transcript_lines))
 
 
+POST_REBASE_TRANSITION_ID = "release"
+
+
+def _workflow_defines_transition(item_id: int, transition_id: str) -> bool:
+    """Whether the item's pinned workflow declares ``transition_id``.
+
+    Consulted only after a materialization failure, so the happy path pays
+    nothing. Unresolvable workflow identity answers ``True`` so a genuine
+    failure still surfaces rather than being explained away.
+    """
+    item_resp = call_dispatcher(
+        function_id="workflows.item.get",
+        target=TargetRef(kind="item", item_id=int(item_id)),
+        payload={},
+    )
+    if not item_resp.success:
+        return True
+    item_data = item_resp.result or {}
+    workflow_id = item_data.get("workflow_id")
+    version = item_data.get("workflow_version")
+    if not workflow_id or version is None:
+        return True
+
+    version_resp = call_dispatcher(
+        function_id="workflows.version.get",
+        target=TargetRef(kind="global"),
+        payload={"workflow_id": str(workflow_id), "version": int(version)},
+    )
+    if not version_resp.success:
+        return True
+    definition = (version_resp.result or {}).get("definition") or {}
+    transitions = definition.get("transitions")
+    if not isinstance(transitions, list):
+        return True
+    return any(
+        str(t.get("to_stage_id")) == transition_id
+        or str(t.get("from_stage_id")) == transition_id
+        for t in transitions
+        if isinstance(t, dict)
+    )
+
+
 def _post_rebase_requirement_id(ctx: MergeContext) -> Optional[int]:
     """Materialize and return this item's post-rebase Command case.
 
@@ -136,11 +178,21 @@ def _post_rebase_requirement_id(ctx: MergeContext) -> Optional[int]:
     resp = call_dispatcher(
         function_id="merge.tests.post_rebase_requirement",
         target=TargetRef(kind="item", item_id=item_id),
-        payload={"transition_id": "release"},
+        payload={"transition_id": POST_REBASE_TRANSITION_ID},
     )
     if not resp.success:
         code = (resp.error.code if resp.error else "") or ""
         if code == "post_rebase_requirement_failed":
+            # Materialization validates the transition against the item's
+            # pinned workflow before reading attachments, so a workflow that
+            # never declares this transition fails here even though it has no
+            # pre-merge-verification plan to materialize. That is "no
+            # post-rebase QA case", not a verification failure — skip it the
+            # same way an unavailable relay is skipped.
+            if not _workflow_defines_transition(
+                item_id, POST_REBASE_TRANSITION_ID
+            ):
+                return None
             raise RuntimeError(
                 f"post-rebase QA materialization failed: {resp.error.message}"
             )

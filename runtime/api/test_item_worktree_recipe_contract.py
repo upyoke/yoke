@@ -94,7 +94,7 @@ def test_evidence_only_recovery_releases_active_lane_records(
     for relative_path in ("advance/SKILL.md", "usher/deploy.md"):
         text = (root / relative_path).read_text()
         clean_check = text.find('git -C "$_wt_path" status --porcelain')
-        release = text.find("yoke item-worktrees release YOK-{N} --all-active")
+        release = text.find("yoke item-worktrees release PREFIX-{N} --all-active")
         assert clean_check != -1
         assert release != -1
         assert clean_check < release
@@ -126,7 +126,7 @@ def test_wrapup_reads_active_lanes_from_item_worktrees(root: Path) -> None:
     assert "`branch`" in text
     assert "`lane_role`" in text
     assert "JOIN item_worktrees" not in text
-    assert "- YOK-{N}: {title} ({status}, branch:" not in text
+    assert "- PREFIX-{N}: {title} ({status}, branch:" not in text
 
 
 @pytest.mark.parametrize(

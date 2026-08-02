@@ -2,16 +2,19 @@
 
 from __future__ import annotations
 
+import os
 import signal
 import subprocess
 import sys
-from typing import List
+from typing import List, Tuple
+
+from yoke_cli.transport.dispatcher import build_actor
 
 
 QA_CASE_RUN_USAGE = (
     "yoke qa case run --requirement-id N [--base-url URL] "
     "[--expected-branch BRANCH --expected-sha SHA] "
-    "[--timeout-seconds N]"
+    "[--timeout-seconds N] [--session-id S]"
 )
 QA_PLAN_RUN_USAGE = (
     "yoke qa plan run "
@@ -60,15 +63,37 @@ def qa_plan_review_submit(args: List[str]) -> int:
     )
 
 
-def _run_execution_module(module: str, args: List[str]) -> int:
+def _pin_execution_session(args: List[str]) -> Tuple[List[str], str]:
+    """Resolve the QA actor before its detached engine child starts."""
+    for index, value in enumerate(args):
+        if value == "--session-id":
+            return list(args), args[index + 1] if index + 1 < len(args) else ""
+        if value.startswith("--session-id="):
+            return list(args), value.partition("=")[2]
+    session_id = build_actor().session_id
+    if not session_id:
+        return list(args), ""
+    return [*args, "--session-id", session_id], session_id
+
+
+def _run_execution_module(
+    module: str,
+    args: List[str],
+) -> int:
+    child_args, session_id = _pin_execution_session(args)
+    popen_kwargs = {"start_new_session": True}
+    if session_id:
+        child_env = dict(os.environ)
+        child_env["YOKE_SESSION_ID"] = session_id
+        popen_kwargs["env"] = child_env
     process = subprocess.Popen(
         [
             sys.executable,
             "-m",
             module,
-            *args,
+            *child_args,
         ],
-        start_new_session=True,
+        **popen_kwargs,
     )
     try:
         return process.wait()

@@ -10,7 +10,9 @@ circular import once the parent splices the bundle into its
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable
+from typing import Callable, Optional
+
+from yoke_core.engines.doctor_applicability import CheckApplicability
 
 
 @dataclass
@@ -27,12 +29,20 @@ class HealthCheck:
     cannot return a usable GitHub App auth for the project. The flag name is
     preserved for stability; the semantic shifted from "requires the
     host ``gh`` binary" to "requires the project GitHub App auth capability".
+
+    ``applicability`` states what the check applies to — project scope,
+    source-checkout dependence, runtimes, and required capabilities. Engine
+    checks leave it ``None`` and declare through the slug-keyed table in
+    :mod:`yoke_core.engines.doctor_applicability_declarations`, which keeps
+    the registry rows readable; a project-local check discovered from a
+    ``.yoke/doctor/`` folder carries its declaration on the row itself.
     """
 
     slug: str
     name: str
     fn: Callable  # (conn, args, rec) -> None
     github_dependent: bool = False
+    applicability: Optional[CheckApplicability] = None
 
 
 __all__ = ["HealthCheck"]

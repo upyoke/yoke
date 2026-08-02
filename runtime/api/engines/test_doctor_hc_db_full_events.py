@@ -11,8 +11,10 @@ from unittest.mock import patch
 
 import pytest
 
-from yoke_core.engines.doctor import (
+from yoke_project_checks.check_event_catalog import (
     hc_event_callsite_registry_sync,
+)
+from yoke_core.engines.doctor import (
     hc_event_emission_rate,
     hc_event_registry_coverage,
     hc_preview_occupancy_stale,

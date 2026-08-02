@@ -50,10 +50,10 @@ _spec=$(yoke items get "${_id}" spec)
 #### 5f-issue.2. Build Context Block
 
 ```
-Issue: YOK-{_id}
+Issue: PREFIX-{_id}
 Title: {_title}
 GitHub Issue: {github_issue from DB}
-Branch: YOK-{_id}
+Branch: PREFIX-{_id}
 Worktree path: {_worktree_path}
 Main repo root: {MAIN_ROOT}
 Data directory: {MAIN_ROOT}/data (config and generated views live here)
@@ -153,7 +153,7 @@ Defense-in-depth: persist all three worktree fields to `epic_tasks`. This ensure
 
 ```bash
 # Defense-in-depth: persist all three resolved dispatch-chain fields to epic_tasks.
-# Preserve architect/refine per-task worktrees; do not collapse epic tasks to YOK-${_id}.
+# Preserve architect/refine per-task worktrees; do not collapse epic tasks to PREFIX-${_id}.
 yoke workflow-item epic-task metadata-update \
   --epic "$_epic_id" --task-num "$_task_id" \
   --fields-json "{\"worktree\":\"${_worktree_branch}\",\"branch\":\"${_worktree_branch}\",\"worktree_path\":\"${_worktree_path}\"}"

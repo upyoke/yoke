@@ -36,7 +36,7 @@ _progress_note_count_before=$(yoke db read --format lines "SELECT COUNT(*) FROM 
 ```
 
 **Step 2 — Skip Engineer if implementation already on branch:** If `_has_implementation` is true AND `_attempt` equals 1:
-- Emit: `[SKIP] YOK-{N}: implementation already on branch, skipping to Tester`
+- Emit: `[SKIP] PREFIX-{N}: implementation already on branch, skipping to Tester`
 - Seed review requirement: `yoke workflow-item epic-task review-seed --epic "$_epic_id" --task-num "$_task_id"`
 - Go directly to Step 5 (Merge main).
 
@@ -51,7 +51,7 @@ The parent item claim from `entry-activation.md` S3b is the epic coordination lo
 ```bash
 yoke claims work acquire \
  --epic-id "${_epic_id}" --task-num "${_task_id}" \
- --reason "engineer dispatch YOK-${N} task ${_task_id}"
+ --reason "engineer dispatch PREFIX-${N} task ${_task_id}"
 ```
 
 Verify the claim landed before dispatching — mirrors entry-activation S3b's verify-claim-exists invariant. This assertion uses the retained operator-debug raw SQL router because the registered claim acquire surface does not expose a same-row verification projection; never construct a DB path manually:
@@ -72,7 +72,7 @@ fi
 
 **Dispatch:** descriptor `DispatchDescriptor(role="engineer")` rendered via `yoke_core.domain.dispatch_descriptors.render_for_harness(descriptor, harness_id)`. Result-schema markers: `---SUBMISSION-CHECKS-START---`, `---REFLECTION-START---`. The descriptor's `prompt: |` block is filled with:
 ```
- {If _attempt = 1: "Implement" | If _attempt > 1: "Retry"} YOK-{N}: {_title}
+ {If _attempt = 1: "Implement" | If _attempt > 1: "Retry"} PREFIX-{N}: {_title}
  {If _attempt > 1: "(attempt {_attempt} of {_max_attempts})"}
 
  {context block from S6f}
@@ -80,7 +80,7 @@ fi
  Read the authoritative task spec from the DB before starting:
  yoke workflow-item epic-task body-get --epic "{_epic_id}" --task-num "{_task_id}"
  Also read the parent item spec for full context:
- yoke items get YOK-{N} spec
+ yoke items get PREFIX-{N} spec
 
  {If _attempt > 1:
  The Tester found these issues on the previous attempt:
@@ -120,7 +120,7 @@ fi
 
 **Step 5 — After Engineer returns:**
 
-**AUTONOMOUS CONTINUATION REQUIRED:** Emit `[CONTINUE] Engineer returned for YOK-{N}. Next: post-Engineer processing (S6g.5)` then execute immediately.
+**AUTONOMOUS CONTINUATION REQUIRED:** Emit `[CONTINUE] Engineer returned for PREFIX-{N}. Next: post-Engineer processing (S6g.5)` then execute immediately.
 
 - Capture reflections (see `dispatch-context.md` step 5m; use `offset`/`limit`).
 - **Submission gate:** Run `yoke workflow-item epic-task submission-receipt-get --epic "$_epic_id" --task-num "$_task_id" --after-note-count "$_progress_note_count_before"` and require it to pass. This is the load-bearing check on both Claude and Codex — there is no SubagentStop hook gate (the per-subagent binding required to identify a stopping engineer's `(epic_id, task_num)` cannot be satisfied from the SubagentStop hook payload). The command reads `---SUBMISSION-CHECKS-START---` / `---SUBMISSION-CHECKS-END---` from `epic_progress_notes.body`, not from the Agent result summary. Required keys: `test_plan`, `files_touched`, `edited_tests`, `clean_worktree`, `progress_notes`, `file_budget`. Accept only `PASS` or explicit `SKIP` for `test_plan`, `files_touched`, `edited_tests`. Require `clean_worktree: PASS`. Require `progress_notes: PASS` when `HEAD` differs from `ATTEMPT_BASELINE`; `SKIP` only when no commit landed. Require `file_budget: PASS` when the submission created or grew authored code (every authored file is at or below 350 lines per `yoke_core.domain.file_line_check`); `file_budget: SKIP` is valid only when no authored code was created or grown (e.g., docs-only sub-task). Missing line, malformed line, or any `FAIL`/`UNKNOWN` value re-dispatches the same attempt. On any failure, re-dispatch Engineer for the same attempt (do NOT increment `_attempt`).
@@ -128,7 +128,7 @@ fi
  ```bash
  _last_commit_subject=$(git -C "${_worktree_path}" log -1 --format='%s' 2>/dev/null || true)
  ```
- If `_last_commit_subject` matches `chore: auto-commit Engineer uncommitted work [YOK-${N}]`, re-dispatch Engineer for the same attempt. Do NOT advance to `reviewing-implementation` from a safety-net commit.
+ If `_last_commit_subject` matches `chore: auto-commit Engineer uncommitted work [PREFIX-${N}]`, re-dispatch Engineer for the same attempt. Do NOT advance to `reviewing-implementation` from a safety-net commit.
 - **Epic progress-note gate:**
  ```bash
  _progress_note_count_after=$(yoke db read --format lines "SELECT COUNT(*) FROM epic_progress_notes WHERE epic_id='${_epic_id}' AND task_num=${_task_id}" 2>/dev/null || echo 0)
@@ -142,11 +142,11 @@ fi
  if ! git diff --cached --quiet 2>/dev/null; then
  _uncommitted_count=$(git diff --cached --name-only | wc -l | tr -d ' ')
  _uncommitted_files=$(git diff --cached --name-only | tr '\n' ', ' | sed 's/,$//')
- git commit -m "chore: auto-commit Engineer uncommitted work [YOK-${N}]"
+ git commit -m "chore: auto-commit Engineer uncommitted work [PREFIX-${N}]"
  echo "Warning: Engineer left ${_uncommitted_count} uncommitted file(s) in worktree."
  yoke ouroboros entry insert \
- --agent conduct --category problem --context "YOK-${N}" \
- --observation "Engineer left ${_uncommitted_count} uncommitted file(s) in worktree for YOK-${N}. Files: ${_uncommitted_files}"
+ --agent conduct --category problem --context "PREFIX-${N}" \
+ --observation "Engineer left ${_uncommitted_count} uncommitted file(s) in worktree for PREFIX-${N}. Files: ${_uncommitted_files}"
  fi
  ```
  If this sweep committed anything, re-dispatch Engineer for the same attempt.
@@ -164,7 +164,7 @@ If merge fails: re-dispatch Engineer to resolve conflicts, then retry merge.
 ```bash
 yoke claims work acquire \
  --epic-id "${_epic_id}" --task-num "${_task_id}" \
- --reason "tester dispatch YOK-${N} task ${_task_id}"
+ --reason "tester dispatch PREFIX-${N} task ${_task_id}"
 _tester_claim_ok=$(YOKE_SESSION_ID="${YOKE_SESSION_ID}" yoke db read --format lines \
  "SELECT 1 FROM work_claims WHERE session_id='${YOKE_SESSION_ID}' AND target_kind='epic_task' AND epic_id=${_epic_id} AND task_num=${_task_id} AND released_at IS NULL")
 if [ -z "$_tester_claim_ok" ] || [ "$_tester_claim_ok" = "0" ]; then
@@ -218,12 +218,12 @@ Tester prompt template:
 
 **Dispatch:** descriptor `DispatchDescriptor(role="tester", extras=(("model","opus"),) if _tester_output_failures >= 2 else ())` rendered via `yoke_core.domain.dispatch_descriptors.render_for_harness(descriptor, harness_id)`. Result-schema markers: `VERDICT: PASS|FAIL`, `---REFLECTION-START---`. The descriptor's `prompt: |` block is filled with:
 ```
- Validate YOK-{N}: {_title}
+ Validate PREFIX-{N}: {_title}
 
  Read the authoritative task spec from the DB before validating:
  yoke workflow-item epic-task body-get --epic "{_epic_id}" --task-num "{_task_id}"
  Also read the parent item spec for full context:
- yoke items get YOK-{N} spec
+ yoke items get PREFIX-{N} spec
 
  IMPORTANT: Use absolute paths and module invocations. Shell variables do NOT persist across Bash tool calls.
 

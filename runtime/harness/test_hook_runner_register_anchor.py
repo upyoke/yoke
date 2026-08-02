@@ -43,6 +43,10 @@ def yoke_target(monkeypatch):
 def _capture_anchors(monkeypatch):
     anchors: list[tuple] = []
     monkeypatch.setattr(
+        "yoke_core.domain.session_process_anchors.prune_stale_anchors",
+        lambda: None,
+    )
+    monkeypatch.setattr(
         "yoke_core.domain.session_process_anchors.record_session_anchor",
         lambda sid, transcript_path="": anchors.append((sid, transcript_path)),
     )
@@ -50,6 +54,24 @@ def _capture_anchors(monkeypatch):
 
 
 class TestRegisterRecordsProcessAnchor:
+    def test_prunes_stale_anchors_before_recording(self, yoke_target, monkeypatch):
+        monkeypatch.setattr(
+            register_module, "register_harness_session", lambda **_k: "",
+        )
+        calls: list[str] = []
+        monkeypatch.setattr(
+            "yoke_core.domain.session_process_anchors.prune_stale_anchors",
+            lambda: calls.append("prune"),
+        )
+        monkeypatch.setattr(
+            "yoke_core.domain.session_process_anchors.record_session_anchor",
+            lambda *_a, **_k: calls.append("record"),
+        )
+
+        register_module._register_from_hook("{}", "s-1")
+
+        assert calls == ["prune", "record"]
+
     def test_anchor_written_with_session_and_transcript(
         self, yoke_target, monkeypatch,
     ):

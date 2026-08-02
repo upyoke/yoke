@@ -8,7 +8,7 @@ Integration simulation stage of the conduct epic flow. Runs after all epic tasks
 
 **Skip check:** If `--force` or `--ignore-gaps` was passed, skip the simulation entirely. Print `Simulation: skipped (--force)`. Do NOT write a simulation record. **Go to `cleanup-report.md`** (6z Board Rebuild, then 7 Final Report) with `SUCCESS`, printing:
 ```
-All tasks in this worktree complete. Run '/yoke polish YOK-{N}' to finish the parent epic.
+All tasks in this worktree complete. Run '/yoke polish PREFIX-{N}' to finish the parent epic.
 ```
 
 **Read and follow: `.agents/skills/yoke/conduct/simulation-gate-criteria.md`**
