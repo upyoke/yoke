@@ -1,7 +1,7 @@
 """Tests for yoke_core.domain.observe_pre — PreToolUse hook engine.
 
 Covers parse_pre_event, write_pre_event, and process_stdin. Exercises the
-end-to-end insertion against an in-memory / tempfile DB so the extracted
+end-to-end insertion against the active test authority so the extracted
 module matches the behavior the previous shell heredoc delivered
 (tool_use_id / hook_event_name / turn_id / session_id columns).
 
@@ -31,7 +31,11 @@ from runtime.api.observe_test_helpers import _PROJECTS_DDL, _PROJECTS_SEED_DDL
 from runtime.harness.hook_runner.types import HookContext, Next, Outcome
 
 
-EVENTS_SCHEMA = _PROJECTS_DDL + "\n" + _PROJECTS_SEED_DDL + """
+EVENTS_SCHEMA = (
+    _PROJECTS_DDL
+    + "\n"
+    + _PROJECTS_SEED_DDL
+    + """
 CREATE TABLE events (
     event_id TEXT PRIMARY KEY,
     source_type TEXT,
@@ -57,6 +61,7 @@ CREATE TABLE events (
     created_at TEXT
 )
 """
+)
 
 
 @pytest.fixture
@@ -149,21 +154,15 @@ class TestParsePreEvent:
         assert envelope["cwd"] == "/payload/cwd"
 
     def test_missing_tool_use_id_drops_event(self):
-        envelope = parse_pre_event(
-            {"tool_name": "Bash", "session_id": "sess-x"}
-        )
+        envelope = parse_pre_event({"tool_name": "Bash", "session_id": "sess-x"})
         assert envelope is None
 
     def test_empty_tool_use_id_drops_event(self):
-        envelope = parse_pre_event(
-            {"tool_use_id": "", "tool_name": "Bash"}
-        )
+        envelope = parse_pre_event({"tool_use_id": "", "tool_name": "Bash"})
         assert envelope is None
 
     def test_missing_session_id_defaults_to_unknown(self):
-        envelope = parse_pre_event(
-            {"tool_use_id": "tu-xyz", "tool_name": "Write"}
-        )
+        envelope = parse_pre_event({"tool_use_id": "tu-xyz", "tool_name": "Write"})
         assert envelope is not None
         assert envelope["session_id"] == "unknown"
 
@@ -205,7 +204,7 @@ class TestWritePreEvent:
             }
         )
         assert envelope is not None
-        write_pre_event(tmp_db, envelope)
+        write_pre_event(envelope)
 
         rows = _fetch_rows(tmp_db)
         assert len(rows) == 1
@@ -229,7 +228,7 @@ class TestWritePreEvent:
             }
         )
         assert envelope is not None
-        write_pre_event(tmp_db, envelope)
+        write_pre_event(envelope)
 
         rows = _fetch_rows(tmp_db)
         assert len(rows) == 1
@@ -245,7 +244,7 @@ class TestWritePreEvent:
             }
         )
         assert envelope is not None
-        write_pre_event(tmp_db, envelope)
+        write_pre_event(envelope)
 
         rows = _fetch_rows(tmp_db)
         assert len(rows) == 1
@@ -254,18 +253,26 @@ class TestWritePreEvent:
         assert stored["tool_use_id"] == "tu-json"
         assert stored["hook_event_name"] == "PreToolUse"
 
-    def test_missing_db_path_is_silent_noop(self):
-        # Explicit None / empty should not raise
+    def test_write_failure_is_logged(self, monkeypatch, caplog):
         envelope = parse_pre_event({"tool_use_id": "tu-none"})
         assert envelope is not None
-        write_pre_event("", envelope)  # silent no-op
-        write_pre_event("/nonexistent/path/yoke.db", envelope)  # silent no-op
+
+        def unavailable():
+            raise RuntimeError("authority unavailable")
+
+        monkeypatch.setattr(
+            "yoke_core.domain.observe_pre.connect_observe_db",
+            unavailable,
+        )
+
+        assert write_pre_event(envelope) is False
+        assert "observe-pre event write failed" in caplog.text
 
     def test_insert_without_events_table_is_silent(self, tmp_path):
-        with init_test_db(tmp_path, apply_schema=lambda: None) as db_path:
+        with init_test_db(tmp_path, apply_schema=lambda: None):
             envelope = parse_pre_event({"tool_use_id": "tu-noev"})
             assert envelope is not None
-            write_pre_event(db_path, envelope)  # should not raise
+            assert write_pre_event(envelope) is True
 
 
 # ---------------------------------------------------------------------------
@@ -282,44 +289,33 @@ class TestProcessStdin:
                 "session_id": "sess-proc",
             }
         )
-        assert process_stdin(raw, tmp_db) is True
+        assert process_stdin(raw) is True
 
         rows = _fetch_rows(tmp_db)
         assert len(rows) == 1
         assert rows[0]["tool_use_id"] == "tu-proc"
 
     def test_empty_stdin_returns_false(self, tmp_db):
-        assert process_stdin("", tmp_db) is False
-        assert process_stdin("   ", tmp_db) is False
+        assert process_stdin("") is False
+        assert process_stdin("   ") is False
         assert _fetch_rows(tmp_db) == []
 
     def test_malformed_json_returns_false(self, tmp_db):
-        assert process_stdin("{not json", tmp_db) is False
+        assert process_stdin("{not json") is False
         assert _fetch_rows(tmp_db) == []
 
     def test_missing_tool_use_id_returns_false(self, tmp_db):
         raw = json.dumps({"tool_name": "Bash"})
-        assert process_stdin(raw, tmp_db) is False
+        assert process_stdin(raw) is False
         assert _fetch_rows(tmp_db) == []
 
-    def test_missing_db_path_returns_false(self, tmp_db):
+    def test_active_authority_does_not_require_a_path(self, tmp_db):
         raw = json.dumps({"tool_use_id": "tu-nodb"})
-        if db_backend.is_postgres():
-            assert process_stdin(raw, None) is True
-            assert process_stdin(raw, "") is True
-            return
-        assert process_stdin(raw, None) is False
-        assert process_stdin(raw, "") is False
+        assert process_stdin(raw) is True
 
 
 class TestTypedEvaluate:
-    def test_evaluate_uses_hook_context_cwd_when_payload_lacks_cwd(
-        self, tmp_db, monkeypatch
-    ):
-        monkeypatch.setattr(
-            "yoke_core.domain.observe_pre._resolve_db_fallback",
-            lambda: tmp_db,
-        )
+    def test_evaluate_uses_hook_context_cwd_when_payload_lacks_cwd(self, tmp_db):
         decision = evaluate(
             HookContext(
                 event_name="PreToolUse",

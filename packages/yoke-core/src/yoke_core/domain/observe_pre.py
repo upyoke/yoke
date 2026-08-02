@@ -4,8 +4,8 @@ Extracted from the inline Python heredoc in ``observe-tool-pre.sh`` so the
 PreToolUse hot-path lives in Python with shell surviving only as the hook
 launcher. The PostToolUse / PostToolUseFailure engine lives in
 :mod:`yoke_core.domain.observe`; this module owns the lightweight
-``HarnessToolCallStarted`` emission that :mod:`yoke_core.domain.observe`
-later joins on to compute ``duration_ms``.
+``HarnessToolCallStarted`` emission that opens the rolling tool-call state
+used to compute ``duration_ms``.
 
 Responsibilities:
 
@@ -21,34 +21,33 @@ Typed runner contract ( spec):
 
 This module is telemetry-only: ``evaluate`` always returns
 ``HookDecision(outcome=NOOP, next=CONTINUE)`` so the chain advances. All
-failures degrade silently (returning the same NOOP) so the PreToolUse
-hook cannot block tool execution.
+failures return the same NOOP so the PreToolUse hook cannot block tool
+execution, while authority failures are logged for diagnosis.
 
 The CLI ``__main__`` form is preserved for the registered hook entry
-(``python3 -m yoke_core.domain.observe_pre``); ``--db`` is a legacy
-connection-token override for tests.
+(``python3 -m yoke_core.domain.observe_pre``).
 """
 
 from __future__ import annotations
 
-import argparse
 import json
+import logging
 import sys
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 from yoke_core.domain.observe import insert_event
-from yoke_core.domain.observe_db import (
-    connect_observe_db,
-    should_write_observe_event,
-)
+from yoke_core.domain.observe_db import connect_observe_db
 from runtime.harness.hook_runner.types import (
     HookContext,
     HookDecision,
     Next,
     Outcome,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 def _nonempty_str(value: Any) -> str:
@@ -131,25 +130,25 @@ def parse_pre_event(
     return envelope
 
 
-def write_pre_event(db_path: Optional[str], envelope: Dict[str, Any]) -> bool:
+def write_pre_event(envelope: Dict[str, Any]) -> bool:
     """Insert a parsed pre-event envelope into ``events``.
 
-    Silently no-ops on any error — PreToolUse hooks must never block.
+    The hook continues after an error, but write failures are logged so an
+    authority outage cannot silently erase the only start-side telemetry.
     """
     try:
-        conn = connect_observe_db(db_path)
-        if conn is None:
-            return False
+        conn = connect_observe_db()
         try:
             insert_event(conn, envelope)
         finally:
             conn.close()
     except Exception:
+        logger.warning("observe-pre event write failed", exc_info=True)
         return False
     return True
 
 
-def _try_refresh_session_model(data: Dict[str, Any], db_path: str) -> None:
+def _try_refresh_session_model(data: Dict[str, Any]) -> None:
     """Best-effort upgrade of a placeholder ``harness_sessions.model``.
 
     PreToolUse is the earliest hook that fires *after* the LLM has begun
@@ -169,15 +168,17 @@ def _try_refresh_session_model(data: Dict[str, Any], db_path: str) -> None:
         from runtime.harness.hook_runner.telemetry import (
             refresh_session_model_if_placeholder,
         )
+
         refresh_session_model_if_placeholder(
-            db_path, session_id, transcript_path,
+            session_id,
+            transcript_path,
             hook_source="PreToolUse",
         )
     except Exception:
-        pass
+        logger.warning("observe-pre model refresh failed", exc_info=True)
 
 
-def _try_check_session_main_drift(data: Dict[str, Any], db_path: str) -> None:
+def _try_check_session_main_drift(data: Dict[str, Any]) -> None:
     session_id = data.get("session_id")
     if not isinstance(session_id, str) or not session_id:
         return
@@ -187,18 +188,18 @@ def _try_check_session_main_drift(data: Dict[str, Any], db_path: str) -> None:
             check_drift,
             format_advisory,
         )
+
         advisory = check_drift(
             session_id,
-            db_path=db_path,
             repo_path=repo_path if isinstance(repo_path, str) else None,
         )
         if advisory is not None:
             print(format_advisory(advisory), file=sys.stderr)
     except Exception:
-        pass
+        logger.warning("observe-pre main-drift check failed", exc_info=True)
 
 
-def process_stdin(raw: str, db_path: Optional[str]) -> bool:
+def process_stdin(raw: str) -> bool:
     """Parse ``raw`` JSON, build the envelope, and write it.
 
     Returns ``True`` when an event was emitted, ``False`` otherwise. Exposed
@@ -215,18 +216,13 @@ def process_stdin(raw: str, db_path: Optional[str]) -> bool:
     if envelope is None:
         return False
 
-    if not should_write_observe_event(db_path):
-        return False
-
-    if db_path:
-        _try_refresh_session_model(data, db_path)
-        _try_check_session_main_drift(data, db_path)
-    return write_pre_event(db_path, envelope)
+    _try_refresh_session_model(data)
+    _try_check_session_main_drift(data)
+    return write_pre_event(envelope)
 
 
 def _process_payload(
     payload: Dict[str, Any],
-    db_path: Optional[str],
     *,
     fallback_cwd: Optional[str] = None,
 ) -> bool:
@@ -242,12 +238,9 @@ def _process_payload(
     envelope = parse_pre_event(payload, fallback_cwd=fallback_cwd)
     if envelope is None:
         return False
-    if not should_write_observe_event(db_path):
-        return False
-    if db_path:
-        _try_refresh_session_model(payload, db_path)
-        _try_check_session_main_drift(payload, db_path)
-    return write_pre_event(db_path, envelope)
+    _try_refresh_session_model(payload)
+    _try_check_session_main_drift(payload)
+    return write_pre_event(envelope)
 
 
 def evaluate(record: HookContext) -> HookDecision:
@@ -259,47 +252,23 @@ def evaluate(record: HookContext) -> HookDecision:
     """
     try:
         payload = record.payload if isinstance(record.payload, dict) else {}
-        db_path = _resolve_db_fallback()
-        if payload and db_path:
-            _process_payload(payload, db_path, fallback_cwd=record.cwd)
+        if payload:
+            _process_payload(payload, fallback_cwd=record.cwd)
     except Exception:
-        pass
+        logger.warning("observe-pre evaluation failed", exc_info=True)
     return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
 
 
-def _resolve_db_fallback() -> Optional[str]:
-    """Resolve the events DB path when ``--db`` is not supplied.
-
-    Delegates to :mod:`yoke_core.domain.db_helpers` so the CLI honors the
-    ``YOKE_DB`` env and repo walk-up without forcing every hook caller to
-    thread ``--db`` explicitly. All failures degrade to ``None``; PreToolUse
-    hooks must never block tool execution.
-    """
-    try:
-        from yoke_core.domain.db_helpers import resolve_db_path
-
-        return resolve_db_path()
-    except Exception:
-        return None
-
-
 def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="Emit HarnessToolCallStarted event from a PreToolUse hook payload",
-    )
-    parser.add_argument("--db", default=None, help="Legacy DB token override")
-    args = parser.parse_args()
-
     try:
         raw = sys.stdin.read()
     except Exception:
         return 0
 
-    db_path = args.db or _resolve_db_fallback()
     try:
-        process_stdin(raw, db_path)
+        process_stdin(raw)
     except Exception:
-        pass
+        logger.warning("observe-pre stdin processing failed", exc_info=True)
     return 0
 
 

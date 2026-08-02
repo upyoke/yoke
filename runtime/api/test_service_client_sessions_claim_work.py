@@ -166,8 +166,10 @@ class TestClaimItem:
 
         err = json.loads(result.stderr)
         assert err["success"] is False
-        assert "has ended" in err["error"]
+        assert "has already ended" in err["error"]
         assert sid in err["error"]
+        # The refusal must carry the populated re-register recipe.
+        assert f"yoke sessions begin --session-id {sid}" in err["error"]
 
     def test_claim_item_conflict_returns_error(self, session_offer_db):
         """AC-4: claim-work with conflict returns exit 1 with conflict message."""

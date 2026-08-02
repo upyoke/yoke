@@ -117,5 +117,7 @@ class TestSessionTouchCommand:
             db_path=db,
         )
         assert r2.returncode == 1
-        assert "has ended" in r2.stderr
-        assert "inactive session" in r2.stderr
+        assert "has already ended" in r2.stderr
+        # The refusal must carry the populated re-register recipe, not just
+        # the fact that the row is closed.
+        assert f"yoke sessions begin --session-id {sid}" in r2.stderr

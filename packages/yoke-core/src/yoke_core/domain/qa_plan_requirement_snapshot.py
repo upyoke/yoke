@@ -162,6 +162,78 @@ def insert_requirement(
     return int(row["id"] if isinstance(row, dict) else row[0])
 
 
+def refresh_requirement(
+    conn: Any,
+    *,
+    requirement_id: int,
+    transition_id: str,
+    plan: Any,
+    attachment: dict,
+    case: Any,
+    baseline: Optional[str],
+    baseline_position: int,
+    execution_target: dict[str, Any],
+) -> None:
+    """Refresh a materialized case without severing its run history."""
+    marker = _placeholder(conn)
+    policy_id = case["success_policy_id"] or plan["success_policy_id"]
+    params = (
+        json.loads(str(case["success_policy_params"]))
+        if case["success_policy_params"] is not None
+        else json.loads(str(plan["success_policy_params"]))
+    )
+    require_case_target(
+        {
+            "instructions": case["instructions"],
+            "expected_outcome": case["expected_outcome"],
+            "method_config": json.loads(str(case["method_config"] or "{}")),
+            "entry_surface": case["entry_surface"],
+        },
+        execution_target,
+    )
+    conn.execute(
+        "UPDATE qa_requirements SET qa_kind='plan_case', "
+        f"qa_phase={marker}, blocking_mode='blocking', "
+        "requirement_source='flow_derived', "
+        f"success_policy={marker}, capability_requirements={marker}, "
+        f"plan_id={marker}, plan_case_key={marker}, case_position={marker}, "
+        f"baseline_position={marker}, method_id={marker}, method_name={marker}, "
+        f"executor_id={marker}, required_capability_kind={marker}, "
+        f"verdict_path={marker}, host_baseline={marker}, entry_surface={marker}, "
+        f"required_completion={marker}, workflow_transition_id={marker}, "
+        f"instructions={marker}, expected_outcome={marker}, method_config={marker}, "
+        f"execution_target_json={marker}, execution_target_digest={marker}, "
+        "waived_at=NULL, waiver_rationale=NULL, waiver_source=NULL "
+        f"WHERE id={marker}",
+        (
+            str(attachment["qa_phase"]),
+            _json({"id": policy_id, "params": params}),
+            _json([case["required_capability_kind"]])
+            if case["required_capability_kind"]
+            else _json([]),
+            int(plan["id"]),
+            str(case["case_key"]),
+            int(case["position"]),
+            int(baseline_position),
+            str(case["method_id"]),
+            str(case["method_name"]),
+            str(case["executor_id"]),
+            case["required_capability_kind"],
+            str(case["verdict_path"]),
+            baseline,
+            case["entry_surface"],
+            case["required_completion"],
+            transition_id,
+            str(case["instructions"]),
+            str(case["expected_outcome"]),
+            str(case["method_config"]),
+            canonical_target(execution_target),
+            target_digest(execution_target),
+            int(requirement_id),
+        ),
+    )
+
+
 def existing_requirement_id(
     conn: Any,
     *,
@@ -201,6 +273,7 @@ def existing_requirement_id(
 __all__ = [
     "existing_requirement_id",
     "insert_requirement",
+    "refresh_requirement",
     "require_existing_target",
     "require_requirement_id_target",
 ]

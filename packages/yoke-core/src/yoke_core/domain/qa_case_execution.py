@@ -11,6 +11,7 @@ from typing import Optional
 from yoke_contracts.api.function_call import ActorContext, TargetRef
 
 from yoke_core.domain import qa_case_command_stream
+from yoke_core.domain import test_gate_timeout
 
 
 class QaCaseExecutionError(RuntimeError):
@@ -116,16 +117,22 @@ def _command_result(
         if not base_url:
             raise QaCaseExecutionError("this Command case requires --base-url")
         command_env["BASE_URL"] = base_url
+    process_timeout = test_gate_timeout.process_timeout_for_command(
+        command, timeout, command_env
+    )
     started = time.monotonic()
     # Streamed rather than collected: this run IS the gate, so an agent must
     # be able to watch it and read a live capture instead of running the same
     # suite by hand first just to see progress. The stream owner reaps the
     # whole process group, so a timed-out run releases its databases.
+    # ``process_timeout`` is None for a command that owns its own budget
+    # after gate admission; the watcher then applies no deadline of its own
+    # and the command's 124 is what reports the timeout.
     streamed = qa_case_command_stream.stream_command(
         command,
         cwd=str(checkout),
         env=command_env,
-        timeout_seconds=timeout,
+        timeout_seconds=process_timeout,
     )
     exit_code = streamed.exit_code
     duration_ms = int((time.monotonic() - started) * 1000)

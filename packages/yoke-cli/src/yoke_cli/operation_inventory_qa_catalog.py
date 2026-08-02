@@ -17,6 +17,7 @@ WRAPPED_ROWS: tuple[_Row, ...] = (
     _w("yoke qa project-default unset", "qa.project_default"),
     _w("yoke qa item-plan attach", "qa.item_plan"),
     _w("yoke qa plan materialize", "qa.plan"),
+    _w("yoke qa plan rematerialize", "qa.plan"),
     _w("yoke qa artifact read", "qa.artifact"),
 )
 

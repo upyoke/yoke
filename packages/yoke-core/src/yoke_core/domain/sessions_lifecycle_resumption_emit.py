@@ -34,15 +34,16 @@ _REGISTRY_ROW = (
     "session_lifecycle",
     "yoke_core.domain.sessions_lifecycle_resumption_emit",
     (
-        "Emitted by register_session reactivation when the prior release "
-        "carried release_reason='session_ended' AND at least one prior "
-        "session_ended claim is surfaced. Marks the start of a new "
-        "episode for a session_id that legitimately spans episodes. "
-        "Carries session_id, prior_release_reason, released_claim_count, "
-        "reacquired_count, conflict_count, claim_details with per-target "
-        "episode_scope tags (inherited|reacquired|conflict). Queryable "
-        "with a single event_name predicate so --current-episode boundary "
-        "resolution is O(1)."
+        "Emitted on every register_session reactivation — the moment a "
+        "session_id that legitimately spans episodes starts a new one. A "
+        "claim-free reactivation carries released_claim_count=0; the "
+        "claim-shaped fields describe the prior release_reason="
+        "'session_ended' claims when there were any. Carries session_id, "
+        "prior_release_reason, released_claim_count, reacquired_count, "
+        "conflict_count, claim_details with per-target episode_scope tags "
+        "(inherited|reacquired|conflict). Queryable with a single "
+        "event_name predicate so --current-episode boundary resolution "
+        "is O(1)."
     ),
     "INFO",
 )
@@ -142,10 +143,12 @@ def emit_session_resumed(
 ) -> Optional[str]:
     """Emit ``HarnessSessionResumed`` for a resumed-episode register pass.
 
-    Returns the inserted event id on success, ``None`` on emission
-    failure (telemetry is best-effort and never blocks the register
-    path). The envelope keys are stable so audit consumers can rely on
-    them.
+    Every reactivation emits, including one whose session held no claims
+    when the transient end closed it — the empty sequences then render as
+    zero counts and an empty ``claim_details``. Returns the inserted event
+    id on success, ``None`` on emission failure (telemetry is best-effort
+    and never blocks the register path). The envelope keys are stable so
+    audit consumers can rely on them.
     """
     try:
         from .db_helpers import connect

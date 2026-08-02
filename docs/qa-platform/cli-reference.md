@@ -27,6 +27,9 @@ yoke qa requirement add-batch --item YOK-N --rows-file qa-requirements.json
 # Materialize project-default and item-attached plan cases
 yoke qa plan materialize --item YOK-N --transition reviewing-implementation
 
+# Refresh corrected plan cases without losing their QA run history
+yoke qa plan rematerialize --item YOK-N --transition reviewing-implementation
+
 # Execute the materialized cases in immutable plan/case/baseline order
 yoke qa plan run \
  --item YOK-N --transition reviewing-implementation \
@@ -92,6 +95,7 @@ run owns its delivery context.
 | `yoke qa requirement add` | `--item PREFIX-N --qa-kind K --qa-phase P --workflow-transition T [opts]` | Insert one transition-bound item requirement |
 | `yoke qa requirement add-batch` | `--item PREFIX-N (--rows-file PATH \| --stdin)` | Insert item requirements atomically; every row requires `workflow_transition_id` |
 | `yoke qa plan materialize` | `--item PREFIX-N --transition T` | Materialize project-default and item-attached plan cases |
+| `yoke qa plan rematerialize` | `--item PREFIX-N --transition T` | Refresh corrected plan cases while retaining QA run history |
 | `yoke qa plan run` | `--item PREFIX-N --transition T [executor opts]` | Begin or resume one server-authorized roster and durable cursor, then execute its cases locally |
 | `yoke qa plan review-submit` | `(--item-id N \| --deployment-run-id RUN) --execution-id ID --bundle-id ID --bundle-digest SHA256 --stdin` | Persist one complete agent-verdict batch for an immutable review bundle |
 | `yoke qa case run` | `--requirement-id N [executor opts]` | Authorize and execute one immutable case snapshot locally |

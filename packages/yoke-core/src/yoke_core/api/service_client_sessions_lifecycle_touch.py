@@ -118,8 +118,9 @@ def cmd_session_touch(args: list[str]) -> int:
                 msg = (f"Error: session {parsed.session_id} not found. "
                        "Ensure session-begin was called at session start.")
             elif exc.code == "SESSION_ENDED":
-                msg = (f"Error: session {parsed.session_id} has ended. "
-                       "Cannot claim work on an inactive session.")
+                # The domain message already names the populated re-register
+                # command; substituting local prose here would drop it.
+                msg = f"Error: {exc.message}"
             else:
                 msg = f"Error: {exc.message}"
             print(json.dumps({"error": exc.code, "message": msg}),
@@ -150,10 +151,11 @@ def _validate_active_session(conn, session_id: str) -> bool:
         return False
 
     if row["ended_at"] is not None:
+        from yoke_core.domain.sessions_ended_recovery import session_ended_message
+
         print(json.dumps({
             "success": False,
-            "error": (f"Error: session {session_id} has ended. "
-                      "Cannot claim work on an inactive session."),
+            "error": f"Error: {session_ended_message(conn, session_id)}",
         }), file=sys.stderr)
         return False
 

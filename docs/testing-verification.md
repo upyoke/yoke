@@ -76,6 +76,23 @@ case-level overrides, and project-local methods can only be used by plans in
 that same project. Case rerun and waiver stay case-scoped, and the transition
 consumes the union of all materialized outcomes.
 
+If a plan definition needs correction after it has materialized, replace the
+active snapshot with:
+
+```text
+yoke qa plan rematerialize --item <PREFIX-N> --transition <stage>
+```
+
+The operation refreshes matching plan requirements in place, retains their run
+history, creates any newly added cases, and waives cases no longer in the plan.
+
+Before an item can enter any terminal lifecycle stage, its QA records must be
+settled. A run without a verdict (including a timed-out run), or an active,
+waiting, or review-pending plan execution blocks the transition even when other
+QA gates are bypassed. Complete the run with its verdict, or waive the
+requirement, while the item claim is still active; terminal records are not
+correctable afterward.
+
 A deployment run can instead own one named plan directly, without inventing
 an item or workflow transition:
 

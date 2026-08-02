@@ -149,9 +149,9 @@ class TestRunWatcherTimeout:
         with pytest.raises(ProcessLookupError):
             os.kill(grandchild_pid, 0)
 
-        assert "timed out after 1s" in raw.read_text(encoding="utf-8")
+        assert "timed out after 1 seconds" in raw.read_text(encoding="utf-8")
         progress_text = progress.read_text(encoding="utf-8")
-        assert "timed out after 1s" in progress_text
+        assert "timed out after 1 seconds" in progress_text
         assert f"# watch_deadline exit={rc}" in progress_text
         # A timing-out run must not also claim it is healthily still running.
         assert "still running" not in stdout.getvalue()

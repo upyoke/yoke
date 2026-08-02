@@ -43,7 +43,7 @@ def stream_command(
     *,
     cwd: str,
     env: Mapping[str, str],
-    timeout_seconds: float,
+    timeout_seconds: Optional[float],
     stream: Optional[TextIO] = None,
 ) -> StreamedCommand:
     """Run *command* through a shell, relaying its output as it arrives.
@@ -51,6 +51,11 @@ def stream_command(
     Output goes to *stream* (stderr by default) rather than stdout so the
     callers that print a JSON result — ``yoke qa case run``, plan
     execution, deployment-run execution — keep a machine-readable stdout.
+
+    ``timeout_seconds`` of ``None`` applies no deadline here: the command
+    owns its own budget (a watched pytest run starts counting after gate
+    admission, not while queueing), and its own ``124`` reports the
+    expiry.
     """
     # Imported here rather than at module scope: the watcher machinery
     # reaches back into this package for its scratch paths and process
@@ -82,11 +87,11 @@ def stream_command(
     )
     output = raw_capture.read_text(encoding="utf-8", errors="replace")
     # 124 is the shell's own "deadline expired" code, so a command that
-    # exits 124 itself reads as a timeout. Both outcomes are a failing
-    # verdict with the full capture attached, so the collision costs a
-    # label rather than evidence.
+    # exits 124 itself reads as a timeout — which is exactly right when
+    # the command owns the budget. Either way the outcome is a failing
+    # verdict with the full capture attached.
     timed_out = exit_code == TIMEOUT_EXIT
-    if timed_out:
+    if timed_out and timeout_seconds is not None:
         output += f"\ncommand timed out after {timeout_seconds:g} seconds\n"
     return StreamedCommand(
         exit_code=exit_code,

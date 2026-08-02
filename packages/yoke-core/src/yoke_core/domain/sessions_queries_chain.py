@@ -8,6 +8,7 @@ from typing import Any, Dict, Optional
 from . import db_backend
 from . import sessions_analytics as _sa
 from .sessions_analytics import EVENT_CHAIN_STEP_COMPLETED, SessionError
+from .sessions_ended_recovery import session_ended_message
 from .sessions_queries_base import _now_iso
 
 
@@ -50,7 +51,7 @@ def update_chain_checkpoint(
     if row["ended_at"] is not None:
         raise SessionError(
             "SESSION_ENDED",
-            f"Session '{session_id}' has already ended.",
+            session_ended_message(conn, session_id),
         )
 
     # Parse existing envelope (may be None on first call)

@@ -10,8 +10,10 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from yoke_core.domain.events_crud import normalize_event_item_id
 from yoke_core.domain.observe_codex_transcript import _reconcile_codex_exit_code
+from yoke_core.domain.observe_db_reads import (
+    compute_tool_call_duration as _compute_duration,
+)
 from yoke_core.domain.observe_normalization import (
-    _compute_duration,
     _resolve_dispatch_context,
     _resolve_explicit_refs,
     _resolve_main_session_attribution,
@@ -119,9 +121,8 @@ def parse_hook_event(
             # success. Reclassify it as a failure with sentinel exit_code=1
             # so downstream telemetry stays truthful even when the runtime
             # omits the PostToolUseFailure hook.
-            if (
-                hook_event == "PostToolUse"
-                and _contains_bash_hard_failure(response_text, command)
+            if hook_event == "PostToolUse" and _contains_bash_hard_failure(
+                response_text, command
             ):
                 is_failure = True
                 exit_code = 1
@@ -150,9 +151,7 @@ def parse_hook_event(
     ):
         transcript_path = data.get("transcript_path") or ""
         if transcript_path:
-            recon = _reconcile_codex_exit_code(
-                str(transcript_path), str(tool_use_id)
-            )
+            recon = _reconcile_codex_exit_code(str(transcript_path), str(tool_use_id))
             if recon is not None:
                 recon_exit, recon_status = recon
                 if recon_exit != 0 or recon_status == "failed":
@@ -222,6 +221,7 @@ def parse_hook_event(
     rec.item_id = normalize_event_item_id(rec.item_id)
 
     return rec
+
 
 # Hard-failure indicators for ambiguous Bash PostToolUse payloads.
 # These are text fragments that strongly imply a shell command failed even

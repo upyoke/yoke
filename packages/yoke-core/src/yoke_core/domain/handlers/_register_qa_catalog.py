@@ -193,6 +193,20 @@ def register(registry) -> None:
         adapter_status="live",
         claim_required_kind="qa_subject",
     )
+    registry.register(
+        "qa.plan.rematerialize",
+        _writes.handle_rematerialize,
+        _writes.RematerializeRequest,
+        _writes.MutationResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.qa_plan_writes",
+        target_kinds=["item"],
+        side_effects=["qa_requirements_update", "qa_requirements_insert"],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["snapshot_replacement", "claim_required"],
+        adapter_status="live",
+        claim_required_kind="item",
+    )
 
 
 __all__ = ["register"]

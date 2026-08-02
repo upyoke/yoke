@@ -69,6 +69,28 @@ def qa_plan_materialize_for_item(args: List[str]) -> int:
     )
 
 
+def qa_plan_rematerialize(args: List[str]) -> int:
+    usage = "yoke qa plan rematerialize --item PREFIX-N --transition T [--json]"
+    parser = argparse.ArgumentParser(
+        prog="yoke qa plan rematerialize",
+        description=usage,
+    )
+    parser.add_argument("--item", required=True)
+    parser.add_argument("--transition", required=True)
+    add_session_arg(parser)
+    add_json_arg(parser)
+    parsed = parse_or_usage_error(parser, args, usage)
+    if parsed is None:
+        return 2
+    return dispatch_and_emit(
+        function_id="qa.plan.rematerialize",
+        target=item_target("item", parsed.item, parsed.project),
+        payload={"transition_id": parsed.transition},
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
+    )
+
+
 def qa_artifact_read(args: List[str]) -> int:
     usage = "yoke qa artifact read --requirement-id N --artifact-id N [--json]"
     parser = argparse.ArgumentParser(
@@ -97,4 +119,5 @@ def qa_artifact_read(args: List[str]) -> int:
 __all__ = [
     "qa_artifact_read",
     "qa_plan_materialize_for_item",
+    "qa_plan_rematerialize",
 ]
