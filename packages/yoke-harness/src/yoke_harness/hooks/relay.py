@@ -27,6 +27,7 @@ from yoke_harness.hooks.decision_render import (
 from yoke_harness.hooks.identity import (
     detect_executor,
     is_codex,
+    prune_stale_session_anchors,
     record_session_anchor,
     relay_identity_payload,
     resolve_session_id,
@@ -62,12 +63,14 @@ def _parse_payload(stdin_data: str) -> dict:
     return payload if isinstance(payload, dict) else {}
 
 
-def _record_client_anchor(payload: dict) -> None:
+def _record_client_anchor(payload: dict, *, session_start: bool = False) -> None:
     try:
         session_id = payload.get("session_id")
         if not isinstance(session_id, str) or not session_id or session_id == "unknown":
             return
         tp = payload.get("transcript_path")
+        if session_start:
+            prune_stale_session_anchors()
         record_session_anchor(
             session_id,
             transcript_path=tp if isinstance(tp, str) else "",
@@ -97,7 +100,9 @@ def _codex_capture(event_name: str, stdin_data: str, executor: str) -> None:
 
 
 def _with_extra_context(
-    stdout: str, extra_context: Optional[str], event_name: str,
+    stdout: str,
+    extra_context: Optional[str],
+    event_name: str,
 ) -> str:
     """Merge caller-supplied context into an ALLOW-path stdout.
 
@@ -176,7 +181,7 @@ def relay_hook_event(
         stdin_data = sys.stdin.read()
     payload = _parse_payload(stdin_data)
     policy_snapshot = _client_lint_config_snapshot(payload)
-    _record_client_anchor(payload)
+    _record_client_anchor(payload, session_start=event_name == "SessionStart")
     agent_type = os.environ.get(AGENT_TYPE_ENV_VAR, "").strip()
     executor = detect_executor()
     _codex_capture(event_name, stdin_data, executor)
