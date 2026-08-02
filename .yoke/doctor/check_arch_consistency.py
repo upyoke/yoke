@@ -1,7 +1,7 @@
 """HC-arch-consistency — retired layout and schema surfaces in this repo.
 
 Flags a retired root state directory in the Yoke checkout and missing
-Yoke-specific tables (ouroboros log, wrapup reports, epic task metadata).
+Yoke-specific tables (Ouroboros log and epic task metadata).
 Both halves describe this project's own architecture, not any project the
 engine is pointed at.
 """
@@ -31,7 +31,6 @@ def hc_arch_consistency(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     # Pattern 4: Schema completeness
     for tbl_name, label in [
         ("ouroboros_entries", "ouroboros log"),
-        ("wrapup_reports", "wrapup reports"),
         ("epic_tasks", "epic task metadata"),
     ]:
         if not _base._table_exists(conn, tbl_name):

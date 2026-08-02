@@ -9,7 +9,6 @@
 ouroboros/session-logs/
 # Yoke — generated ouroboros outputs (DB-backed or local-only, not committed)
 ouroboros/health/
-ouroboros/wrapups/
 # Yoke — local settings overlay (user-specific, not for distribution)
 .claude/settings.local.json
 # Yoke — retired SQLite authority.

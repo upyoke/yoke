@@ -136,15 +136,35 @@ def client_entrypoint(executor: str, payload: dict[str, Any]) -> Optional[str]:
         return None
 
 
-def client_project_id(payload: dict[str, Any]) -> Optional[int]:
+def _workspace_path_candidates(payload: dict[str, Any]) -> list[str]:
+    """Ordered workspace paths a hook payload may carry.
+
+    ``workspace_roots`` (a list of absolute paths, first entry = the
+    workspace the harness opened) leads because it names the harness
+    workspace directly; the scalar keys follow for payloads that carry
+    only a per-event directory.
+    """
+    candidates: list[str] = []
+    roots = payload.get("workspace_roots")
+    if isinstance(roots, list):
+        candidates.extend(
+            root for root in roots if isinstance(root, str) and root.strip()
+        )
     for key in ("cwd", "workspace", "project_dir"):
         value = payload.get(key)
-        if not isinstance(value, str) or not value.strip():
-            continue
+        if isinstance(value, str) and value.strip():
+            candidates.append(value)
+    return candidates
+
+
+def client_project_id(payload: dict[str, Any]) -> Optional[int]:
+    for value in _workspace_path_candidates(payload):
         try:
-            return machine_config.project_id(Path(value))
+            resolved = machine_config.project_id(Path(value))
         except Exception:
-            return None
+            continue
+        if resolved is not None:
+            return resolved
     return None
 
 

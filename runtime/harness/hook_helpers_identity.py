@@ -145,7 +145,7 @@ def detect_executor() -> str:
     # sets CURSOR_INVOKED_AS=cursor-agent. The rendered Cursor hook command
     # pins YOKE_EXECUTOR=cursor, so this branch covers unpinned subprocesses.
     if os.environ.get("CURSOR_TRANSCRIPT_PATH") or os.environ.get("CURSOR_INVOKED_AS"):
-        surface = "cli" if os.environ.get("CURSOR_INVOKED_AS") == "cursor-agent" else "ide"
+        surface = "cli" if os.environ.get("CURSOR_INVOKED_AS") == "cursor-agent" else "desktop"
         return _compose_executor(_CURSOR_COARSE, _CURSOR_COARSE, surface)
     return _compose_executor("claude", _CLAUDE_COARSE, os.environ.get("CLAUDE_CODE_ENTRYPOINT"))
 
@@ -188,5 +188,5 @@ def detect_entrypoint() -> Optional[str]:
     if os.environ.get("CURSOR_INVOKED_AS") == "cursor-agent":
         return "cursor-cli"
     if os.environ.get("CURSOR_TRANSCRIPT_PATH"):
-        return "cursor-ide"
+        return "cursor-desktop"
     return None

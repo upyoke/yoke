@@ -170,6 +170,17 @@ class TestIsGeneratedOutputPath(unittest.TestCase):
             hc._is_generated_output_path("runtime/harness/codex/agents/yoke-x.toml")
         )
 
+    def test_every_rendered_adapter_dir_matches(self) -> None:
+        # Derived from the renderer's own list, so onboarding a harness extends
+        # the exemption instead of leaving one mirror scanned as authored prose.
+        from yoke_core.domain.agents_render_conditional import RENDERED_AGENT_DIRS
+
+        for directory in RENDERED_AGENT_DIRS:
+            with self.subTest(adapter_dir=directory.as_posix()):
+                self.assertTrue(
+                    hc._is_generated_output_path(f"{directory.as_posix()}/yoke-x.md")
+                )
+
     def test_live_source_does_not_match(self) -> None:
         self.assertFalse(hc._is_generated_output_path(".yoke/docs/lifecycle.md"))
         self.assertFalse(hc._is_generated_output_path("runtime/api/widget.py"))

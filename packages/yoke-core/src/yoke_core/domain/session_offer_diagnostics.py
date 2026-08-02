@@ -6,6 +6,10 @@ from collections import Counter
 from copy import deepcopy
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
 
+from yoke_contracts.project_contract.project_keys import (
+    SESSION_ROUTING_CAPABILITY,
+)
+
 from .scheduler_types import is_assignable_claim_state
 from .work_processes import list_processes
 
@@ -61,8 +65,10 @@ def _summary(entry: Mapping[str, Any]) -> str:
         allowed = entry.get("allowed_paths")
         paths = "unrestricted" if allowed is None else ",".join(allowed) or "none"
         key = entry.get("config_key", "lane policy")
+        source = entry.get("config_source")
+        where = f" in {source}" if source else ""
         return (
-            f"lane compatibility ({lane}; {key}={paths}) eliminated "
+            f"lane compatibility ({lane}; {key}={paths}{where}) eliminated "
             f"{eliminated} of {before} candidates ({after} remain)"
         )
     if name == "wip_cap":
@@ -156,7 +162,10 @@ def build_schedule_offer_diagnostics(
                 len(lane_filtered_steps),
                 actual_lane=execution_lane,
                 allowed_paths=allowed_paths,
-                config_key=f"lane_paths_{str(execution_lane or 'unknown').lower()}",
+                config_key=f"lane_paths.{lane_key or 'UNKNOWN'}",
+                config_source=(
+                    f"project capability {SESSION_ROUTING_CAPABILITY}"
+                ),
                 eliminated_items=_step_refs(lane_filtered_steps, conn),
             ),
             _filter_entry(

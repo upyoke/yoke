@@ -50,7 +50,7 @@ CLAIMS_TABLES: dict[str, dict] = {
             "claude-code, codex, or cursor (resolved at write time via "
             "yoke_harness.hooks.identity.canonical_harness_id); "
             "the surface-specific alias (claude-desktop, codex-vscode, "
-            "claude-vscode, codex-cli, codex-desktop, cursor-ide, "
+            "claude-vscode, codex-cli, codex-desktop, cursor-desktop, "
             "cursor-cli, etc.) lives in "
             "executor_display_name when known and is NULL otherwise. "
             "Board/session rendering prefers executor_display_name and "

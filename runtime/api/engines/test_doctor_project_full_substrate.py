@@ -164,7 +164,7 @@ class TestSessionStartupHook:
 class TestBrowserSubstrate:
     def test_warns_when_runtime_dir_missing(self, tmp_path):
         with patch(
-            "yoke_core.domain.browser_runtime_home.runtime_dir",
+            "yoke_harness.browser_runtime_home.runtime_dir",
             return_value=tmp_path / "browser-runtime",
         ):
             rec = _run_hc(hc_browser_substrate, project="yoke")
@@ -175,7 +175,7 @@ class TestBrowserSubstrate:
         browser_dir = tmp_path / "browser-runtime"
         browser_dir.mkdir(parents=True)
         with patch(
-            "yoke_core.domain.browser_runtime_home.runtime_dir", return_value=browser_dir
+            "yoke_harness.browser_runtime_home.runtime_dir", return_value=browser_dir
         ):
             rec = _run_hc(hc_browser_substrate, project="yoke")
         assert rec.results[0].result == "WARN"
@@ -189,7 +189,7 @@ class TestBrowserSubstrate:
         chromium = tmp_path / "chromium"
         chromium.write_text("bin")
         with patch(
-            "yoke_core.domain.browser_runtime_home.runtime_dir", return_value=browser_dir
+            "yoke_harness.browser_runtime_home.runtime_dir", return_value=browser_dir
         ), patch(
             "yoke_core.engines.doctor_report._run"
         ) as run:
