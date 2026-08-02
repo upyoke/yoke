@@ -113,7 +113,7 @@ epic-task issues as **sub-issues** under their parent, and deleting a mirrored
 issue (via GraphQL, since REST has no issue-delete). GitHub bundles comments
 and labels under the Issues permission, so this one grant covers the whole
 mirror — no extra permission needed. Only fires when a project has sync
-enabled; new projects default to `backlog_only`, which does zero issue writes.
+enabled; new projects default to `disabled`, which does zero issue writes.
 
 **Pull requests: write** — **Opening** a pull request from the worktree branch
 into your default branch when you ship a work item (`/yoke usher`), plus the
@@ -214,7 +214,7 @@ Each of these is absent from the code, not merely unlisted:
 - **The private key stays in the control plane.** For hosted deploys, CI relays
   typed calls through Yoke's control plane rather than ever holding the App key;
   the key lives only in a secrets manager, never in CI, runner disks, or logs.
-- **Sync is off by default.** New projects are `backlog_only` — the backlog
+- **Sync is off by default.** New projects are `disabled` — the backlog
   lives only in Yoke's database and every Issues-write surface refuses until you
   explicitly enable sync.
 - **You can unwind any layer independently** — disconnect the machine identity,

@@ -40,13 +40,13 @@ def _project_out_of_scope(per_project_value: Dict) -> bool:
     """True when the project must be skipped for classification.
 
     Covers both sentinel shapes: unavailable GitHub state (engine warns) and
-    sync-disabled (``github_sync_mode=backlog_only`` — the project's
+    sync-disabled (``github_sync_mode=disabled`` — the project's
     backlog is DB-only by design, so its items are never orphans).
     """
-    return (
-        _project_unavailable(per_project_value)
-        or _project_sync_disabled(per_project_value)
+    return _project_unavailable(per_project_value) or _project_sync_disabled(
+        per_project_value
     )
+
 
 def stage1_linkage(
     db_path: str,  # noqa: ARG001 - retained compat token; reads now relay
@@ -54,7 +54,12 @@ def stage1_linkage(
     fetch_fn=None,
     *,
     project: str = "",
-) -> Tuple[List[PairedItem], List[LocalOrphan], List[Tuple[int, str, str, str]], Dict[str, Dict[int, Dict]]]:
+) -> Tuple[
+    List[PairedItem],
+    List[LocalOrphan],
+    List[Tuple[int, str, str, str]],
+    Dict[str, Dict[int, Dict]],
+]:
     """Stage 1: build paired, local-orphan, and gh-orphan lists.
 
     Returns (paired, local_orphans, gh_orphans, gh_by_project).
@@ -67,7 +72,7 @@ def stage1_linkage(
     # bindings) and per-project sync-disabled map server-side. Repository
     # authority does not come from the legacy projects projection; the
     # canonical resolver returns bound repo metadata and its matching bearer
-    # token together. Backlog-only projects carry the sync-disabled sentinel
+    # token together. Disabled projects carry the sync-disabled sentinel
     # so no downstream stage classifies (or repairs) their items.
     roster_resp = call_dispatcher(
         function_id="resync.linkage_roster",
@@ -128,12 +133,19 @@ def stage1_linkage(
         # The public display ref renders from prefix+sequence; identity
         # stays the internal ``items.id`` on the typed field.
         item_ref = format_item_ref(
-            item_project, ref_prefix, ref_sequence, item_id=item_pk,
+            item_project,
+            ref_prefix,
+            ref_sequence,
+            item_id=item_pk,
         )
         padded = str(item_pk).zfill(3)
         item_file = os.path.join(backlog_dir, f"{padded}.md")
         orphan = LocalOrphan(
-            item_ref, item_file, "backlog", item_project, item_id=item_pk,
+            item_ref,
+            item_file,
+            "backlog",
+            item_project,
+            item_id=item_pk,
         )
 
         # GitHub state unavailable or sync disabled -- engine surfaces
@@ -154,10 +166,17 @@ def stage1_linkage(
 
         project_issues = gh_by_project.get(item_project, {})
         if gh_num in project_issues:
-            paired.append(PairedItem(
-                item_ref, item_file, gh_num, "backlog", item_project, "",
-                item_id=item_pk,
-            ))
+            paired.append(
+                PairedItem(
+                    item_ref,
+                    item_file,
+                    gh_num,
+                    "backlog",
+                    item_project,
+                    "",
+                    item_id=item_pk,
+                )
+            )
             paired_gh_keys.add((item_project, gh_num))
         else:
             local_orphans.append(orphan)
@@ -168,8 +187,12 @@ def stage1_linkage(
         task_ref = f"{slug}/task-{tnum:03d}"
         full_path = f"epic_tasks:{slug}/{tnum}"
         orphan = LocalOrphan(
-            task_ref, full_path, "epic_task", project,
-            epic_id=str(slug), task_num=int(tnum),
+            task_ref,
+            full_path,
+            "epic_task",
+            project,
+            epic_id=str(slug),
+            task_num=int(tnum),
         )
 
         # GitHub state unavailable or sync disabled -- skip classification.
@@ -189,10 +212,18 @@ def stage1_linkage(
 
         project_issues = gh_by_project.get(project, {})
         if gh_num in project_issues:
-            paired.append(PairedItem(
-                task_ref, full_path, gh_num, "epic_task", project, "",
-                epic_id=str(slug), task_num=int(tnum),
-            ))
+            paired.append(
+                PairedItem(
+                    task_ref,
+                    full_path,
+                    gh_num,
+                    "epic_task",
+                    project,
+                    "",
+                    epic_id=str(slug),
+                    task_num=int(tnum),
+                )
+            )
             paired_gh_keys.add((project, gh_num))
         else:
             local_orphans.append(orphan)
@@ -248,22 +279,28 @@ def stage1_5_heavy_fetch(
             )
         except ProjectGithubAuthError as exc:
             heavy_by_project[project] = _unavailable_sentinel(
-                exc, stage="graphql",
+                exc,
+                stage="graphql",
             )
             continue
 
         try:
             if graphql_fn is not None:
                 heavy_by_project[project] = graphql_fn(
-                    nums, project=project, auth=auth,
+                    nums,
+                    project=project,
+                    auth=auth,
                 )
             else:
                 heavy_by_project[project] = _graphql_batch_fetch(
-                    nums, project=project, auth=auth,
+                    nums,
+                    project=project,
+                    auth=auth,
                 )
         except ProjectGithubAuthError as exc:
             heavy_by_project[project] = _unavailable_sentinel(
-                exc, stage="graphql",
+                exc,
+                stage="graphql",
             )
         except RestAuthError as exc:
             heavy_by_project[project] = _auth_failure_sentinel(
@@ -275,7 +312,9 @@ def stage1_5_heavy_fetch(
             )
         except RestTransportError as exc:
             heavy_by_project[project] = _transport_failure_sentinel(
-                project, exc, stage="graphql",
+                project,
+                exc,
+                stage="graphql",
             )
 
     return heavy_by_project

@@ -53,7 +53,7 @@ def test_existing_backlog_project_can_bind_detected_checkout_origin(
             github_repo="",
             default_branch="main",
             public_item_prefix="LEG",
-            github_sync_mode="backlog_only",
+            github_sync_mode="disabled",
         ),
     )
 

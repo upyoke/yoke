@@ -38,13 +38,13 @@ ONBOARD_USAGE = (
     "yoke onboard [--quick | --advanced] [--local | --connect URL] [--json] "
     "[--non-interactive] [--config PATH] --env ENV --api-url URL "
     "[TOKEN | --token-file PATH | --token-stdin] [--yes] "
-    "[--machine-github connect|backlog-only] "
+    "[--machine-github connect|disabled] "
     "[--skip-identity-check] "
     "[--project-mode machine-only|create-repo|clone-remote|import-remote|"
     "local-checkout --checkout PATH [--remote-url URL] "
     "--project-slug SLUG --project-name NAME --default-branch BRANCH "
     "--public-item-prefix PREFIX [--github-repo OWNER/REPO] "
-    "[--github-adoption app-binding|backlog-only]]"
+    "[--github-adoption app-binding|disabled]]"
 )
 
 
@@ -63,9 +63,9 @@ def onboard(args: List[str]) -> int:
     parser.add_argument("--yes", dest="apply", action="store_true")
     parser.add_argument(
         "--machine-github",
-        choices=("connect", "backlog-only"),
+        choices=("connect", "disabled"),
         default=None,
-        help="Connect the advertised Yoke GitHub App or stay backlog-only.",
+        help="Connect the advertised Yoke GitHub App or stay disabled.",
     )
     parser.add_argument(
         "--skip-identity-check",
@@ -180,7 +180,7 @@ def onboard(args: List[str]) -> int:
         "connect"
         if requested_machine_github == "connect"
         else "skip"
-        if requested_machine_github == "backlog-only"
+        if requested_machine_github == "disabled"
         else getattr(parsed, "machine_github_choice", None) or "skip"
     )
     try:
@@ -204,7 +204,7 @@ def onboard(args: List[str]) -> int:
     except github_user_tokens.GitHubUserTokenError:
         print(
             "error: GitHub App user authorization is unavailable. Run `yoke "
-            "github connect` and retry, or continue backlog-only.",
+            "github connect` and retry, or continue disabled.",
             file=sys.stderr,
         )
         return 2

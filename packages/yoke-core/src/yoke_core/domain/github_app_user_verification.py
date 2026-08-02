@@ -48,6 +48,7 @@ class VerifiedProjectGitHubBinding:
     repository_id: str
     github_repo: str
     default_branch: str
+    repository_is_private: bool = False
     installation_status: str = "active"
     api_url: str = DEFAULT_GITHUB_API_URL
 
@@ -225,6 +226,7 @@ def verify_project_github_binding(
             repository_id=selected_repository_id,
             github_repo=normalized_canonical_repo,
             default_branch=repository.get("default_branch"),
+            repository_is_private=repository.get("private"),
             installation_status=installation_status,
         )
     except GitHubBindingMetadataError as exc:
@@ -239,6 +241,7 @@ def verify_project_github_binding(
         repository_id=metadata.repository_id,
         github_repo=metadata.github_repo,
         default_branch=metadata.default_branch,
+        repository_is_private=metadata.repository_is_private,
         installation_status=metadata.installation_status,
         api_url=selected_endpoint.base_url,
     )

@@ -161,7 +161,7 @@ INSTALLER_ADAPTERS: List[AdapterEntry] = [
     AdapterEntry(
         function_id="projects.create",
         cli_invocation="yoke projects create --slug SLUG --name NAME [--project-id N]",
-        notes="Register a new project (org-scoped, org admin). New rows default to backlog-only; idempotent re-onboarding updates fields without resetting an omitted sync mode.",
+        notes="Register a new project (org-scoped, org admin). New rows default to disabled; idempotent re-onboarding updates fields without resetting an omitted sync mode.",
     ),
     AdapterEntry(
         function_id="projects.update",

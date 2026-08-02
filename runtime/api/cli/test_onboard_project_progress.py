@@ -51,7 +51,7 @@ def test_project_apply_progress_events_follow_real_substeps(
             project_github_repo="owner/local",
             project_default_branch="main",
             project_public_item_prefix="LOC",
-            project_github_adoption="backlog-only",
+            project_github_adoption="disabled",
             progress=lambda action, target, status: events.append(
                 (action, target, status)
             ),
@@ -66,7 +66,7 @@ def test_project_apply_progress_events_follow_real_substeps(
         ("project-checkout-register", str(checkout), "running"),
         ("project-checkout-register", str(checkout), "done"),
         ("project-install-scaffold", "", "done"),
-        ("project-github-auth-choice", "backlog-only", "skipped"),
+        ("project-github-auth-choice", "disabled", "skipped"),
     ]
 
 
@@ -109,7 +109,7 @@ def test_apply_report_records_project_substep_statuses(
                 "--public-item-prefix",
                 "LOC",
                 "--github-adoption",
-                "backlog-only",
+                "disabled",
                 "--yes",
                 "--json",
             ]
@@ -159,7 +159,7 @@ def test_project_apply_progress_updates_stale_checkout_mapping(tmp_path: Path) -
             project_github_repo="owner/local",
             project_default_branch="main",
             project_public_item_prefix="LOC",
-            project_github_adoption="backlog-only",
+            project_github_adoption="disabled",
             progress=lambda action, target, status: events.append(
                 (action, target, status)
             ),
@@ -208,7 +208,7 @@ def test_clone_resume_progress_marks_checkout_step_skipped(
             project_github_repo="owner/clone",
             project_default_branch="trunk",
             project_public_item_prefix="CLN",
-            project_github_adoption="backlog-only",
+            project_github_adoption="disabled",
             progress=lambda action, target, status: events.append(
                 (action, target, status)
             ),
@@ -226,7 +226,7 @@ def test_clone_resume_progress_marks_checkout_step_skipped(
     ) in events
 
 
-def test_new_app_binding_stages_sync_as_backlog_only(tmp_path: Path) -> None:
+def test_new_app_binding_stages_sync_as_disabled(tmp_path: Path) -> None:
     report = project_onboard.create_project(
         checkout=tmp_path / "demo",
         slug="demo",
@@ -240,7 +240,7 @@ def test_new_app_binding_stages_sync_as_backlog_only(tmp_path: Path) -> None:
         apply=False,
     )
 
-    assert report["project"]["github_sync_mode"] == "backlog_only"
+    assert report["project"]["github_sync_mode"] == "disabled"
 
 
 def test_existing_app_binding_failure_never_enables_sync(
@@ -265,10 +265,12 @@ def test_existing_app_binding_failure_never_enables_sync(
     monkeypatch.setattr(
         project_onboard_progress.github_binding_auth,
         "locked_profile_bound_access_for_binding",
-        lambda **_kwargs: nullcontext(SimpleNamespace(
-            api_url="https://api.github.example",
-            token=SimpleNamespace(access_token="ghu_short_lived"),
-        )),
+        lambda **_kwargs: nullcontext(
+            SimpleNamespace(
+                api_url="https://api.github.example",
+                token=SimpleNamespace(access_token="ghu_short_lived"),
+            )
+        ),
     )
 
     def fail_bind(function_id, payload, _config_path, **_kwargs):

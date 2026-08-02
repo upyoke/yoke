@@ -16,7 +16,7 @@ from yoke_cli.config.onboard_wizard_widgets import (
 
 
 CHECK_REPOSITORIES = "manual-check-repositories"
-BACKLOG_ONLY = "manual-backlog-only"
+DISABLED = "manual-disabled"
 BACK = "manual-back"
 
 
@@ -33,38 +33,40 @@ class ManualPublishFlow:
             url = endpoint_pair(self.result).new_repository_url()
             self._manual_repository_url = url
         opened = bool(getattr(self, "_manual_repository_opened", False))
-        self._goto(_View(
-            STEP_PROJECT,
-            lambda: steps.verification_body(
-                "Create the repository in GitHub.",
-                self._cannot_publish_reason(),
-                [
-                    (
-                        "GitHub opened the repository page."
-                        if opened
-                        else "The browser did not open; copy the repository URL below."
-                    ),
-                    f"Repository URL: {url}",
-                    "After creating it, grant the Yoke GitHub App access.",
-                    "Return here and choose Check repositories.",
-                ],
-                [
-                    SelectionRow(
-                        CHECK_REPOSITORIES,
-                        "Check repositories",
-                        "refresh App access and pick the exact repo",
-                    ),
-                    SelectionRow(
-                        BACKLOG_ONLY,
-                        "Use backlog only",
-                        "leave this project local",
-                    ),
-                    SelectionRow(BACK, "Back", "change the publish choice"),
-                ],
-                ok=False,
-            ),
-            self._on_manual_publish_guidance,
-        ))
+        self._goto(
+            _View(
+                STEP_PROJECT,
+                lambda: steps.verification_body(
+                    "Create the repository in GitHub.",
+                    self._cannot_publish_reason(),
+                    [
+                        (
+                            "GitHub opened the repository page."
+                            if opened
+                            else "The browser did not open; copy the repository URL below."
+                        ),
+                        f"Repository URL: {url}",
+                        "After creating it, grant the Yoke GitHub App access.",
+                        "Return here and choose Check repositories.",
+                    ],
+                    [
+                        SelectionRow(
+                            CHECK_REPOSITORIES,
+                            "Check repositories",
+                            "refresh App access and pick the exact repo",
+                        ),
+                        SelectionRow(
+                            DISABLED,
+                            "Skip GitHub",
+                            "leave this project local",
+                        ),
+                        SelectionRow(BACK, "Back", "change the publish choice"),
+                    ],
+                    ok=False,
+                ),
+                self._on_manual_publish_guidance,
+            )
+        )
 
     def _on_manual_publish_guidance(self, choice: str) -> None:
         if choice == BACK:
@@ -79,7 +81,7 @@ class ManualPublishFlow:
         if choice == CHECK_REPOSITORIES:
             self._check_manual_publish_repositories(replace_current=True)
             return
-        if choice == BACKLOG_ONLY:
+        if choice == DISABLED:
             steps.reset_project_publish_fields(self.result)
             self.result.project_github_repository_id = None
             self.result.project_github_installation_id = None
@@ -114,9 +116,9 @@ class ManualPublishFlow:
     def _after_manual_publish_refresh(self, report: Any) -> None:
         repositories = _live_writable_app_repositories(report)
         if repositories is None:
-            self._manual_publish_refresh_error(RuntimeError(
-                "GitHub repository access could not be verified live."
-            ))
+            self._manual_publish_refresh_error(
+                RuntimeError("GitHub repository access could not be verified live.")
+            )
             return
         self.result.machine_github_verification = report
         self.result.machine_github_api_url = str(
@@ -132,7 +134,8 @@ class ManualPublishFlow:
         self._show_manual_publish_repositories(repositories)
 
     def _show_manual_publish_repositories(
-        self, repositories: list[dict[str, Any]],
+        self,
+        repositories: list[dict[str, Any]],
     ) -> None:
         from yoke_cli.config.onboard_wizard_app import _View
 
@@ -148,35 +151,45 @@ class ManualPublishFlow:
             )
             for repo in repositories
         ]
-        rows.extend((
-            SelectionRow(CHECK_REPOSITORIES, "Check again", "refresh GitHub access"),
-            SelectionRow(BACKLOG_ONLY, "Use backlog only", "leave this project local"),
-            SelectionRow(BACK, "Back", "return to manual-create guidance"),
-        ))
+        rows.extend(
+            (
+                SelectionRow(
+                    CHECK_REPOSITORIES, "Check again", "refresh GitHub access"
+                ),
+                SelectionRow(DISABLED, "Skip GitHub", "leave this project local"),
+                SelectionRow(BACK, "Back", "return to manual-create guidance"),
+            )
+        )
         subtitle = (
             "Pick the exact repository Yoke should attach and push to."
             if repositories
             else "No usable App-visible repositories were found yet."
         )
-        self._goto(_View(
-            STEP_PROJECT,
-            lambda: steps.selection_body(
-                "Select the repository you created.", subtitle, rows,
-            ),
-            self._on_manual_publish_repository,
-        ))
+        self._goto(
+            _View(
+                STEP_PROJECT,
+                lambda: steps.selection_body(
+                    "Select the repository you created.",
+                    subtitle,
+                    rows,
+                ),
+                self._on_manual_publish_repository,
+            )
+        )
 
     def _on_manual_publish_repository(self, choice: str) -> None:
-        if choice in {CHECK_REPOSITORIES, BACKLOG_ONLY, BACK}:
+        if choice in {CHECK_REPOSITORIES, DISABLED, BACK}:
             self._on_manual_publish_recovery(choice)
             return
         repository = getattr(self, "_manual_publish_repositories", {}).get(
             choice.casefold()
         )
         if not isinstance(repository, Mapping):
-            self._manual_publish_refresh_error(RuntimeError(
-                "The selected GitHub repository changed; check repositories again."
-            ))
+            self._manual_publish_refresh_error(
+                RuntimeError(
+                    "The selected GitHub repository changed; check repositories again."
+                )
+            )
             return
         full_name = str(repository["full_name"])
         owner, name = full_name.split("/", 1)
@@ -188,39 +201,35 @@ class ManualPublishFlow:
         )
         self.result.project_publish_repo_name = name
         self.result.project_publish_private = bool(repository["private"])
-        self.result.project_publish_repository_id = int(
-            repository["repository_id"]
-        )
-        self.result.project_publish_installation_id = int(
-            repository["installation_id"]
-        )
-        self.result.project_github_repository_id = int(
-            repository["repository_id"]
-        )
-        self.result.project_github_installation_id = int(
-            repository["installation_id"]
-        )
+        self.result.project_publish_repository_id = int(repository["repository_id"])
+        self.result.project_publish_installation_id = int(repository["installation_id"])
+        self.result.project_github_repository_id = int(repository["repository_id"])
+        self.result.project_github_installation_id = int(repository["installation_id"])
         self.result.project_github_repo = full_name
         self._after_repo(full_name)
 
     def _manual_publish_refresh_error(self, exc: BaseException) -> None:
         from yoke_cli.config.onboard_wizard_app import _View
 
-        self._goto(_View(
-            STEP_PROJECT,
-            lambda: steps.verification_body(
-                "Couldn't verify the new repository.",
-                str(exc),
-                ["Finish creating the repo and granting App access, then retry."],
-                [
-                    SelectionRow(CHECK_REPOSITORIES, "Check again", "retry live access"),
-                    SelectionRow(BACKLOG_ONLY, "Use backlog only", "leave it local"),
-                    SelectionRow(BACK, "Back", "return to the prior screen"),
-                ],
-                ok=False,
-            ),
-            self._on_manual_publish_recovery,
-        ))
+        self._goto(
+            _View(
+                STEP_PROJECT,
+                lambda: steps.verification_body(
+                    "Couldn't verify the new repository.",
+                    str(exc),
+                    ["Finish creating the repo and granting App access, then retry."],
+                    [
+                        SelectionRow(
+                            CHECK_REPOSITORIES, "Check again", "retry live access"
+                        ),
+                        SelectionRow(DISABLED, "Skip GitHub", "leave it local"),
+                        SelectionRow(BACK, "Back", "return to the prior screen"),
+                    ],
+                    ok=False,
+                ),
+                self._on_manual_publish_recovery,
+            )
+        )
 
 
 def _live_writable_app_repositories(
@@ -263,23 +272,23 @@ def _live_writable_app_repositories(
         ):
             continue
         try:
-            full_name = github_app_snapshot.repository_full_name(
-                raw.get("full_name")
-            )
+            full_name = github_app_snapshot.repository_full_name(raw.get("full_name"))
         except github_app_snapshot.GitHubAppSnapshotError:
             continue
-        selected.append({
-            "repository_id": repository_id,
-            "installation_id": installation_id,
-            "full_name": full_name,
-            "private": raw["private"],
-        })
+        selected.append(
+            {
+                "repository_id": repository_id,
+                "installation_id": installation_id,
+                "full_name": full_name,
+                "private": raw["private"],
+            }
+        )
     return sorted(selected, key=lambda item: item["full_name"].casefold())
 
 
 __all__ = [
     "BACK",
-    "BACKLOG_ONLY",
+    "DISABLED",
     "CHECK_REPOSITORIES",
     "ManualPublishFlow",
 ]

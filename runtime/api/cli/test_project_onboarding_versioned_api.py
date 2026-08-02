@@ -54,7 +54,7 @@ def test_onboard_existing_project_clone_accepts_versioned_api_url(
             project_default_branch="trunk",
             project_public_item_prefix="EXT",
             existing_project_id=37,
-            project_github_adoption="backlog-only",
+            project_github_adoption="disabled",
             project_clone=onboard_project.ClonePlan(),
         )
 

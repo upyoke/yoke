@@ -32,6 +32,7 @@ def _metadata(**overrides):
         "repository_id": "4567",
         "github_repo": "https://github.example/Example-Org/ExternalWebapp.git",
         "default_branch": "feature/safe-name",
+        "repository_is_private": True,
         "installation_status": "active",
     }
     values.update(overrides)
@@ -131,6 +132,7 @@ def _verification_opener(*, repository_name: str, default_branch: str):
                         "id": 4567,
                         "full_name": repository_name,
                         "default_branch": default_branch,
+                        "private": True,
                         "owner": {"id": 9988},
                     }
                 ]
@@ -155,6 +157,7 @@ def test_user_verification_normalizes_repository_before_returning() -> None:
     )
 
     assert verified.github_repo == "Example-Org/ExternalWebapp"
+    assert verified.repository_is_private is True
 
 
 def test_user_verification_rejects_unsafe_default_branch() -> None:

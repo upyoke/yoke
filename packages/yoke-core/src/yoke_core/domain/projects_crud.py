@@ -21,7 +21,7 @@ from yoke_core.domain.project_identity import (
     resolve_project,
     resolve_project_id,
 )
-from yoke_core.domain.projects_github_sync_mode import GITHUB_SYNC_BACKLOG_ONLY
+from yoke_core.domain.projects_github_sync_mode import GITHUB_SYNC_DISABLED
 
 
 def _parent_constants():
@@ -35,6 +35,7 @@ def _parent_constants():
     the constants in lazily breaks the cycle.
     """
     from yoke_core.domain import projects as _parent
+
     return (
         _parent.PROJECT_FIELDS,
         _parent._PROJECT_SELECT,
@@ -52,10 +53,10 @@ def _pipe_rows(rows) -> str:
     return "\n".join(_pipe_row(r) for r in rows)
 
 
-
 # ---------------------------------------------------------------------------
 # create
 # ---------------------------------------------------------------------------
+
 
 def cmd_create(
     project_id: str,
@@ -67,14 +68,20 @@ def cmd_create(
     try:
         if resolve_project(conn, project_id, required=False) is not None:
             raise ValueError(f"project {project_id!r} already exists")
-        next_id = int(query_scalar(conn, "SELECT COALESCE(MAX(id), 0) + 1 FROM projects") or 1)
+        next_id = int(
+            query_scalar(conn, "SELECT COALESCE(MAX(id), 0) + 1 FROM projects") or 1
+        )
         conn.execute(
             "INSERT INTO projects "
             "(id, slug, name, public_item_prefix, github_sync_mode, created_at) "
             "VALUES (%s, %s, %s, %s, %s, %s)",
             (
-                next_id, project_id, name, DEFAULT_PUBLIC_ITEM_PREFIX,
-                GITHUB_SYNC_BACKLOG_ONLY, iso8601_now(),
+                next_id,
+                project_id,
+                name,
+                DEFAULT_PUBLIC_ITEM_PREFIX,
+                GITHUB_SYNC_DISABLED,
+                iso8601_now(),
             ),
         )
         from yoke_core.domain.project_policy_capabilities import (
@@ -91,6 +98,7 @@ def cmd_create(
 # ---------------------------------------------------------------------------
 # get
 # ---------------------------------------------------------------------------
+
 
 def cmd_get(
     project_id: str,
@@ -170,6 +178,7 @@ def cmd_get(
 # list
 # ---------------------------------------------------------------------------
 
+
 def cmd_list(db_path: Optional[str] = None) -> str:
     """List all projects (pipe-delimited rows)."""
     _, _, project_list_select = _parent_constants()
@@ -188,11 +197,13 @@ def cmd_list(db_path: Optional[str] = None) -> str:
 # update
 # ---------------------------------------------------------------------------
 
+
 def cmd_update(
     project_id: str,
     field: str,
     value: str,
     db_path: Optional[str] = None,
+    allow_public_github_sync: bool = False,
 ) -> str:
     """Update a single field.  Returns confirmation or raises on error."""
     project_fields, _, _ = _parent_constants()
@@ -228,6 +239,7 @@ def cmd_update(
                 value,
                 conn=conn,
                 project_id=numeric_project_id,
+                allow_public_github_sync=allow_public_github_sync,
             )
 
         if field == "github_repo":
@@ -247,7 +259,10 @@ def cmd_update(
             )
 
             set_project_policy_value(
-                conn, numeric_project_id, "base_branch", value,
+                conn,
+                numeric_project_id,
+                "base_branch",
+                value,
             )
         conn.commit()
         return f"Updated project '{project_id}': {field}"
@@ -258,6 +273,7 @@ def cmd_update(
 # ---------------------------------------------------------------------------
 # has-capability
 # ---------------------------------------------------------------------------
+
 
 def cmd_has_capability(
     project: str,

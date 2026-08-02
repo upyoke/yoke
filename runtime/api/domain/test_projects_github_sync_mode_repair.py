@@ -17,7 +17,7 @@ from yoke_core.domain.projects_crud import cmd_get
 from yoke_core.domain.projects_github_sync_mode_repair import (
     REPAIR_ACTION_CLEAR_REPO_PROJECTION,
     REPAIR_ACTION_REMOVE_CAPABILITY_PROJECTION,
-    REPAIR_ACTION_SET_BACKLOG_ONLY,
+    REPAIR_ACTION_SET_DISABLED,
     cmd_repair_unbound_enabled_sync_modes,
 )
 
@@ -62,6 +62,7 @@ def _verified() -> VerifiedProjectGitHubBinding:
         repository_id="7701",
         github_repo="Example/ExternalWebapp",
         default_branch="main",
+        repository_is_private=True,
         installation_status="active",
     )
 
@@ -78,7 +79,7 @@ def _bind(project: str, verified: VerifiedProjectGitHubBinding) -> None:
     )
 
 
-def test_repair_normalizes_only_effectively_enabled_unbound_rows(project_db):
+def test_repair_normalizes_legacy_and_unsafe_rows(project_db):
     _bind("externalwebapp", _verified())
     conn = pg_testdb.connect_test_database(project_db)
     try:
@@ -88,7 +89,7 @@ def test_repair_normalizes_only_effectively_enabled_unbound_rows(project_db):
             "VALUES (501, 'legacy-enabled', 'Legacy Enabled', 'LEN', "
             "'enabled', '2026-01-01T00:00:00Z'), "
             "(502, 'already-safe', 'Already Safe', 'SAF', "
-            "'backlog_only', '2026-01-01T00:00:00Z')"
+            "'disabled', '2026-01-01T00:00:00Z')"
         )
         conn.commit()
 
@@ -97,6 +98,7 @@ def test_repair_normalizes_only_effectively_enabled_unbound_rows(project_db):
         assert preview["normalized"] == 0
         assert {row["slug"] for row in preview["projects"]} == {
             "yoke",
+            "externalwebapp",
             "legacy-enabled",
         }
         assert (
@@ -107,17 +109,17 @@ def test_repair_normalizes_only_effectively_enabled_unbound_rows(project_db):
         )
 
         repaired = cmd_repair_unbound_enabled_sync_modes(conn=conn, apply=True)
-        assert repaired["matched"] == 2
-        assert repaired["normalized"] == 2
+        assert repaired["matched"] == 3
+        assert repaired["normalized"] == 3
         rows = conn.execute(
             "SELECT slug, github_sync_mode FROM projects "
             "WHERE slug IN ('yoke', 'externalwebapp', 'legacy-enabled', 'already-safe')"
         ).fetchall()
         assert {row["slug"]: row["github_sync_mode"] for row in rows} == {
-            "yoke": "backlog_only",
-            "externalwebapp": None,
-            "legacy-enabled": "backlog_only",
-            "already-safe": "backlog_only",
+            "yoke": "disabled",
+            "externalwebapp": "disabled",
+            "legacy-enabled": "disabled",
+            "already-safe": "disabled",
         }
     finally:
         conn.close()
@@ -129,7 +131,7 @@ def test_repair_can_target_one_project(project_db):
     assert report["matched"] == 1
     assert report["normalized"] == 1
     assert [row["slug"] for row in report["projects"]] == ["yoke"]
-    assert cmd_get("yoke", "github_sync_mode") == "backlog_only"
+    assert cmd_get("yoke", "github_sync_mode") == "disabled"
 
 
 def test_repair_converges_unbound_projections_idempotently(project_db):
@@ -158,7 +160,9 @@ def test_repair_converges_unbound_projections_idempotently(project_db):
         )
         conn.commit()
 
-        preview = cmd_repair_unbound_enabled_sync_modes(project="externalwebapp", conn=conn)
+        preview = cmd_repair_unbound_enabled_sync_modes(
+            project="externalwebapp", conn=conn
+        )
 
         assert preview == {
             "applied": False,
@@ -169,15 +173,15 @@ def test_repair_converges_unbound_projections_idempotently(project_db):
                     "id": 2,
                     "slug": "externalwebapp",
                     "stored_mode": None,
-                    "effective_mode": "enabled",
+                    "effective_mode": "disabled",
                     "bound": False,
                     "active_verified_binding": False,
                     "actions": [
                         {
-                            "action": REPAIR_ACTION_SET_BACKLOG_ONLY,
+                            "action": REPAIR_ACTION_SET_DISABLED,
                             "column": "github_sync_mode",
                             "from": None,
-                            "to": "backlog_only",
+                            "to": "disabled",
                         },
                         {
                             "action": REPAIR_ACTION_CLEAR_REPO_PROJECTION,
@@ -207,7 +211,7 @@ def test_repair_converges_unbound_projections_idempotently(project_db):
         ).fetchone()
         assert dict(repaired_project) == {
             "github_repo": None,
-            "github_sync_mode": "backlog_only",
+            "github_sync_mode": "disabled",
         }
         assert (
             conn.execute(

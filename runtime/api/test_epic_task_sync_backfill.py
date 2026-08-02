@@ -45,15 +45,24 @@ def db(tmp_path):
         conn.execute(
             """
             INSERT INTO projects
-                (id, slug, name, github_repo, public_item_prefix, created_at)
-            VALUES (%s, %s, %s, %s, %s, %s)
+                (id, slug, name, github_repo, public_item_prefix, github_sync_mode, created_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (id) DO UPDATE SET
                 slug = EXCLUDED.slug,
                 name = EXCLUDED.name,
                 github_repo = EXCLUDED.github_repo,
-                public_item_prefix = EXCLUDED.public_item_prefix
+                public_item_prefix = EXCLUDED.public_item_prefix,
+                github_sync_mode = EXCLUDED.github_sync_mode
             """,
-            (2, "externalwebapp", "ExternalWebapp", "org/externalwebapp", "YOK", "2026-01-01T00:00:00Z"),
+            (
+                2,
+                "externalwebapp",
+                "ExternalWebapp",
+                "org/externalwebapp",
+                "YOK",
+                "enabled",
+                "2026-01-01T00:00:00Z",
+            ),
         )
         conn.commit()
         try:
@@ -64,7 +73,10 @@ def db(tmp_path):
 
 @pytest.fixture(autouse=True)
 def _mock_yoke_root():
-    with patch("yoke_core.domain.epic_task_sync._yoke_root", return_value=Path("/tmp/fake-yoke")):
+    with patch(
+        "yoke_core.domain.epic_task_sync._yoke_root",
+        return_value=Path("/tmp/fake-yoke"),
+    ):
         yield
 
 
@@ -72,9 +84,12 @@ def _mock_yoke_root():
 def _stub_project_github_auth():
     """Stub the canonical resolver so the typed REST surfaces resolve
     a known repo+token without DB I/O."""
+
     def _ok(project, **kwargs):
         return ProjectGithubAuth(
-            project=project, repo="org/externalwebapp", token="ghs_test",
+            project=project,
+            repo="org/externalwebapp",
+            token="ghs_test",
         )
 
     with patch(
@@ -86,14 +101,28 @@ def _stub_project_github_auth():
 
 class TestBackfillTaskTitles:
     def test_backfill_titles_updates_open_issues(self, db):
-        insert_item(db, id=1246, workflow_id="epic", status="implementing", project="externalwebapp")
-        insert_epic_task(
-            db, epic_id=1246, task_num=1, title="Implement feature",
-            status="implementing", github_issue="#201",
+        insert_item(
+            db,
+            id=1246,
+            workflow_id="epic",
+            status="implementing",
+            project="externalwebapp",
         )
         insert_epic_task(
-            db, epic_id=1246, task_num=2, title="Write tests",
-            status="planning", github_issue="#202",
+            db,
+            epic_id=1246,
+            task_num=1,
+            title="Implement feature",
+            status="implementing",
+            github_issue="#201",
+        )
+        insert_epic_task(
+            db,
+            epic_id=1246,
+            task_num=2,
+            title="Write tests",
+            status="planning",
+            github_issue="#202",
         )
         stdout = io.StringIO()
 
@@ -102,13 +131,19 @@ class TestBackfillTaskTitles:
                 return _issue(201, title="[YOK-1246] Implement feature", state="OPEN")
             return _issue(202, title="[YOK-1246] Write tests", state="OPEN")
 
-        with patch(
-            "yoke_core.domain.github_rest.get_issue", side_effect=fake_get_issue,
-        ), patch(
-            "yoke_core.domain.github_rest.update_issue",
-        ) as update_issue:
+        with (
+            patch(
+                "yoke_core.domain.github_rest.get_issue",
+                side_effect=fake_get_issue,
+            ),
+            patch(
+                "yoke_core.domain.github_rest.update_issue",
+            ) as update_issue,
+        ):
             rc = epic_task_sync.backfill_task_titles(
-                "YOK-1246", conn=db, stdout=stdout,
+                "YOK-1246",
+                conn=db,
+                stdout=stdout,
             )
 
         assert rc == 0
@@ -119,14 +154,28 @@ class TestBackfillTaskTitles:
         assert "[YOK-1246] 002 Write tests" in titles
 
     def test_backfill_titles_is_idempotent_and_skips_closed(self, db):
-        insert_item(db, id=1246, workflow_id="epic", status="implementing", project="externalwebapp")
-        insert_epic_task(
-            db, epic_id=1246, task_num=1, title="Already correct",
-            status="implementing", github_issue="#301",
+        insert_item(
+            db,
+            id=1246,
+            workflow_id="epic",
+            status="implementing",
+            project="externalwebapp",
         )
         insert_epic_task(
-            db, epic_id=1246, task_num=2, title="Closed task",
-            status="done", github_issue="#302",
+            db,
+            epic_id=1246,
+            task_num=1,
+            title="Already correct",
+            status="implementing",
+            github_issue="#301",
+        )
+        insert_epic_task(
+            db,
+            epic_id=1246,
+            task_num=2,
+            title="Closed task",
+            status="done",
+            github_issue="#302",
         )
         stdout = io.StringIO()
 
@@ -135,22 +184,37 @@ class TestBackfillTaskTitles:
                 return _issue(301, title="[YOK-1246] 001 Already correct", state="OPEN")
             return _issue(302, title="[YOK-1246] 002 Closed task", state="CLOSED")
 
-        with patch(
-            "yoke_core.domain.github_rest.get_issue", side_effect=fake_get_issue,
-        ), patch(
-            "yoke_core.domain.github_rest.update_issue",
-        ) as update_issue:
+        with (
+            patch(
+                "yoke_core.domain.github_rest.get_issue",
+                side_effect=fake_get_issue,
+            ),
+            patch(
+                "yoke_core.domain.github_rest.update_issue",
+            ) as update_issue,
+        ):
             rc = epic_task_sync.backfill_task_titles(
-                "YOK-1246", conn=db, stdout=stdout,
+                "YOK-1246",
+                conn=db,
+                stdout=stdout,
             )
 
         assert rc == 0
-        assert "Already correct: #301 — [YOK-1246] 001 Already correct" in stdout.getvalue()
+        assert (
+            "Already correct: #301 — [YOK-1246] 001 Already correct"
+            in stdout.getvalue()
+        )
         assert "Skipping closed issue #302 (task 002)" in stdout.getvalue()
         update_issue.assert_not_called()
 
     def test_backfill_titles_without_conn_uses_backend_connect(self, db):
-        insert_item(db, id=1246, workflow_id="epic", status="implementing", project="externalwebapp")
+        insert_item(
+            db,
+            id=1246,
+            workflow_id="epic",
+            status="implementing",
+            project="externalwebapp",
+        )
         insert_epic_task(
             db,
             epic_id=1246,
@@ -161,18 +225,25 @@ class TestBackfillTaskTitles:
         )
         stdout = io.StringIO()
 
-        with patch(
-            "yoke_core.domain.epic_task_sync_github_backfill._connect_db",
-            return_value=db,
-        ) as open_conn, patch(
-            "yoke_core.domain.epic_task_sync._db_path",
-            side_effect=AssertionError("path resolver must not be used for sync"),
-        ), patch(
-            "yoke_core.domain.github_rest.get_issue",
-            return_value=_issue(201, title="[YOK-1246] Implement feature", state="OPEN"),
-        ), patch(
-            "yoke_core.domain.github_rest.update_issue",
-        ) as update_issue:
+        with (
+            patch(
+                "yoke_core.domain.epic_task_sync_github_backfill._connect_db",
+                return_value=db,
+            ) as open_conn,
+            patch(
+                "yoke_core.domain.epic_task_sync._db_path",
+                side_effect=AssertionError("path resolver must not be used for sync"),
+            ),
+            patch(
+                "yoke_core.domain.github_rest.get_issue",
+                return_value=_issue(
+                    201, title="[YOK-1246] Implement feature", state="OPEN"
+                ),
+            ),
+            patch(
+                "yoke_core.domain.github_rest.update_issue",
+            ) as update_issue,
+        ):
             rc = epic_task_sync.backfill_task_titles("YOK-1246", stdout=stdout)
 
         assert rc == 0
@@ -183,11 +254,22 @@ class TestBackfillTaskTitles:
 
 class TestBackfillTaskLabels:
     def test_backfill_labels_uses_db_status_and_worktree_label(
-        self, db, _stub_project_github_auth,
+        self,
+        db,
+        _stub_project_github_auth,
     ):
-        insert_item(db, id=1246, workflow_id="epic", status="implementing", project="externalwebapp")
+        insert_item(
+            db,
+            id=1246,
+            workflow_id="epic",
+            status="implementing",
+            project="externalwebapp",
+        )
         insert_epic_task(
-            db, epic_id=1246, task_num=1, title="Task 1",
+            db,
+            epic_id=1246,
+            task_num=1,
+            title="Task 1",
             status="reviewed-implementation",
             worktree="feature/test-epic",
             github_issue="#401",
@@ -199,18 +281,27 @@ class TestBackfillTaskLabels:
         db.commit()
         stdout = io.StringIO()
 
-        with patch(
-            f"{_LABEL_REST}.fetch_issue_state", return_value="OPEN",
-        ), patch(
-            f"{_LABEL_REST}.fetch_issue_labels",
-            return_value=["status:planning"],
-        ), patch(f"{_LABEL_REST}.ensure_label") as ensure_label, patch(
-            f"{_LABEL_REST}.add_labels",
-        ) as add_labels, patch(
-            f"{_LABEL_REST}.remove_label",
-        ) as remove_label:
+        with (
+            patch(
+                f"{_LABEL_REST}.fetch_issue_state",
+                return_value="OPEN",
+            ),
+            patch(
+                f"{_LABEL_REST}.fetch_issue_labels",
+                return_value=["status:planning"],
+            ),
+            patch(f"{_LABEL_REST}.ensure_label") as ensure_label,
+            patch(
+                f"{_LABEL_REST}.add_labels",
+            ) as add_labels,
+            patch(
+                f"{_LABEL_REST}.remove_label",
+            ) as remove_label,
+        ):
             rc = epic_task_sync.backfill_task_labels(
-                "YOK-1246", conn=db, stdout=stdout,
+                "YOK-1246",
+                conn=db,
+                stdout=stdout,
             )
 
         assert rc == 0
@@ -231,7 +322,9 @@ class TestBackfillTaskLabels:
         )
         removed_labels = {call.args[2] for call in remove_label.call_args_list}
         assert "status:planning" in removed_labels
-        assert {call.args[2] for call in ensure_label.call_args_list} == {"org/externalwebapp"}
+        assert {call.args[2] for call in ensure_label.call_args_list} == {
+            "org/externalwebapp"
+        }
 
 
 class TestResolveDeps:
