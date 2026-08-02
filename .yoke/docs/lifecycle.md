@@ -246,7 +246,7 @@ are immutable, nothing could repair that afterward.
 One narrow human-only surface exists for exactly that gap:
 
 ```bash
-yoke items merge-provenance operator-correct YOK-N --merged-at YYYY-MM-DDTHH:MM:SSZ --reason TEXT
+yoke items merge-provenance operator-correct PREFIX-N --merged-at YYYY-MM-DDTHH:MM:SSZ --reason TEXT
 ```
 
 It fills an unset value on an already-terminal item and does nothing else.
@@ -259,7 +259,7 @@ then fails. Run `yoke items merge-provenance operator-correct --help` for
 the recovery workflow, including how to read the real timestamp off the
 merge commit.
 
-A live item never needs this: `yoke merge item YOK-N` is the merge boundary
+A live item never needs this: `yoke merge item PREFIX-N` is the merge boundary
 and stamps `merged_at` itself.
 
 Note that nothing currently blocks an item from reaching a terminal stage
