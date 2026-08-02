@@ -270,7 +270,8 @@ CLAIMS_COMMANDS: list[dict] = [
         "purpose": "Find conflicts on specific paths (SQL)",
         "recipe": (
             "yoke db read \"\n"
-            "SELECT pc.id, pc.item_id, pc.state, tgt.path_string\n"
+            "SELECT pc.id, pc.owner_kind, pc.owner_item_id, pc.state, "
+            "tgt.path_string\n"
             "FROM path_claims pc\n"
             "JOIN path_claim_targets pct ON pct.claim_id = pc.id\n"
             "JOIN path_targets tgt ON tgt.id = pct.target_id\n"

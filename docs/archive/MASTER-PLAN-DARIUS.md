@@ -456,7 +456,7 @@ The AI-driven development space has exploded. Every major tool shipped multi-age
 - **Document review:** 20 architecture docs, VISION.md, PAD.md, CLAUDE.md, session rules
 - **Item analysis:** Last 100 items (YOK-885–984) reviewed for themes; 25 most strategically relevant items read in full
 - **Health report:** 2026-03-18 health check results (11 pass, 3 warn, 0 fail)
-- **Wrapup reports:** Last 5 session wrapups for velocity and friction signals
+- **Session continuity:** Last 5 session summaries for velocity and friction signals
 - **External research:** 15+ external sources on Claude Code, Codex, Cursor, StrongDM, gstack, Factory AI, Spec Kit, SWE-Agent, MetaGPT, AI QA tools
 
 ### Assumptions

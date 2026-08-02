@@ -8,7 +8,11 @@ rather than fanning the same command out across per-tool matchers.
 
 from __future__ import annotations
 
-from yoke_core.domain.agents_render_hooks import render_claude_hooks_block
+from yoke_core.domain.agents_render_hooks import (
+    _CURSOR_HOOK_TIMEOUT_S,
+    render_claude_hooks_block,
+    render_cursor_hooks_block,
+)
 
 
 def test_default_only_events_render_single_matcherless_entry() -> None:
@@ -39,3 +43,14 @@ def test_entries_are_unique_per_event() -> None:
     for event, entries in block.items():
         matchers = [e.get("matcher") for e in entries]
         assert len(matchers) == len(set(matchers)), (event, matchers)
+
+
+def test_cursor_entries_carry_explicit_timeout() -> None:
+    """Every rendered Cursor hook entry pins an explicit generous timeout
+    so a slow relay is bounded by our ceiling, not the platform default."""
+    document = render_cursor_hooks_block()
+    assert document["version"] == 1
+    for event, entries in document["hooks"].items():
+        for entry in entries:
+            assert entry.get("timeout") == _CURSOR_HOOK_TIMEOUT_S, (event, entry)
+    assert _CURSOR_HOOK_TIMEOUT_S >= 30

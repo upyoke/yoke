@@ -187,6 +187,32 @@ def render_codex_decision(
 # event-specific output (additional_context, followup_message, ...).
 _CURSOR_PERMISSION_EVENTS = frozenset({"PreToolUse", "apply_patch"})
 
+
+def _plain_deny_narrative(text: str) -> str:
+    """Return the human narrative from a possibly pre-rendered deny message.
+
+    Some policy modules set ``decision.message`` to the already-rendered
+    ``hookSpecificOutput`` deny envelope (the wire shape Claude and Codex
+    consume directly). Cursor's envelope carries the narrative in its own
+    ``user_message``/``agent_message`` fields, so re-wrapping that JSON
+    would hand the model a stringified blob; unwrap it to the
+    ``permissionDecisionReason`` narrative so the cursor family renders
+    the deny exactly once.
+    """
+    try:
+        parsed = json.loads(text)
+    except (json.JSONDecodeError, TypeError):
+        return text
+    if not isinstance(parsed, dict) or set(parsed) != {HOOK_SPECIFIC_OUTPUT_KEY}:
+        return text
+    inner = parsed[HOOK_SPECIFIC_OUTPUT_KEY]
+    if not isinstance(inner, dict):
+        return text
+    reason = inner.get("permissionDecisionReason")
+    if isinstance(reason, str) and reason.strip():
+        return reason
+    return text
+
 # Cursor events whose allow-time reply may carry ``additional_context``.
 # Measured on Cursor IDE 3.14.7 / cursor-agent 2026.07.23: sessionStart and
 # postToolUse accept it; preToolUse has no allow-time injection channel.
@@ -217,7 +243,9 @@ def render_cursor_decision(
     ``pretool_omissions`` already elides advisory-only modules from those
     chains).
     """
-    narratives = _collect_deny_narratives(decisions)
+    narratives = [
+        _plain_deny_narrative(n) for n in _collect_deny_narratives(decisions)
+    ]
     if narratives:
         message = _join_narratives(narratives)
         envelope = {

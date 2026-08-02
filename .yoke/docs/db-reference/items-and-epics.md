@@ -264,15 +264,6 @@ archived_at TEXT
 created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" below
 ```
 
-## Table: wrapup_reports
-
-```sql
-id INTEGER PRIMARY KEY
-session_timestamp TEXT NOT NULL UNIQUE -- ISO 8601 timestamp identifying the session
-body TEXT NOT NULL -- full wrapup report content (Markdown)
-created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" below
-```
-
 ## Table: epic_tasks
 
 ```sql

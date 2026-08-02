@@ -1,11 +1,18 @@
-"""Lane healing coverage for session registration."""
+"""Lane healing and lane stamping coverage for session registration."""
 
 from __future__ import annotations
 
 import pytest
 
+from yoke_core.api.routing_config import load_routing_config
+from yoke_core.api.service_client_sessions_lifecycle_begin import begin_session
 from yoke_core.domain.sessions import SessionError, end_session
 from runtime.api.test_sessions import _p, _register, conn  # noqa: F401
+
+_PROJECT_ROUTING = {
+    "executor_default_lane_claude*": "DARIUS",
+    "executor_default_lane_codex*": "ALTMAN",
+}
 
 
 def _stored_lane(conn, session_id: str) -> str:
@@ -15,6 +22,45 @@ def _stored_lane(conn, session_id: str) -> str:
     ).fetchone()
     assert row is not None
     return row["execution_lane"]
+
+
+class TestBeginSessionStampsRoutedLane:
+    """The wrapper-begin entry path resolves the lane from project policy."""
+
+    @pytest.fixture(autouse=True)
+    def _project_routing(self, monkeypatch):
+        monkeypatch.setattr(
+            "yoke_core.api.service_client_sessions_lifecycle_begin"
+            "._load_routing_config",
+            lambda **_kw: load_routing_config(
+                "", project_settings=_PROJECT_ROUTING,
+            ),
+        )
+
+    @pytest.mark.parametrize(
+        "executor,expected",
+        [
+            ("claude-desktop", "DARIUS"),
+            ("claude-code", "DARIUS"),
+            ("codex-desktop", "ALTMAN"),
+            ("codex", "ALTMAN"),
+        ],
+    )
+    def test_each_executor_surface_stamps_its_family_lane(
+        self, conn, executor, expected,
+    ):
+        result = begin_session(
+            conn,
+            session_id=f"begin-{executor}",
+            executor=executor,
+            provider="anthropic",
+            model="test-model",
+            workspace="/tmp/work",
+            project_id=1,
+        )
+
+        assert result["session"]["execution_lane"] == expected
+        assert _stored_lane(conn, f"begin-{executor}") == expected
 
 
 class TestRegisterSessionLaneHealing:

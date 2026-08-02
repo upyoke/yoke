@@ -36,6 +36,12 @@ const VERSION_ONE_STAGE_DESCRIPTIONS = {
 function versionOneDefinition(workflowId, currentDefinition) {
   const definition = structuredClone(currentDefinition);
   delete definition.policies.approval_defaults;
+  if (["blitz", "dash"].includes(workflowId)) {
+    delete definition.policies.path_survey;
+    definition.policies.item_posture_allowlist = (
+      definition.policies.item_posture_allowlist || []
+    ).filter((key) => key !== "path_survey");
+  }
   const descriptions = VERSION_ONE_STAGE_DESCRIPTIONS[workflowId] || {};
   for (const workflowStage of definition.stages) {
     workflowStage.label =

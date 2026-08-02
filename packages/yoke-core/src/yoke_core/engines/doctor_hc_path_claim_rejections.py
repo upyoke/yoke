@@ -81,7 +81,8 @@ def hc_path_claim_register_rejected_with_deps(
             continue
         placeholder = _p(conn)
         blocking_row = conn.execute(
-            f"SELECT item_id FROM path_claims WHERE id = {placeholder}",
+            f"SELECT owner_item_id FROM path_claims "
+            f"WHERE id = {placeholder} AND owner_kind = 'item'",
             (int(blocking_claim_id),),
         ).fetchone()
         if blocking_row is None or blocking_row[0] is None:

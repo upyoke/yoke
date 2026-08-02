@@ -46,8 +46,8 @@ def _pg_path(path: str) -> str:
 # ``items.spec``, ``items.design_spec``, ``items.technical_plan``,
 # ``items.worktree_plan``, ``items.shepherd_log``, ``items.shepherd_caveats``,
 # ``items.test_results``, ``items.deploy_log``, ``epic_progress_notes.body``,
-# ``shepherd_verdicts.caveats``, ``ouroboros_entries.body``,
-# ``wrapup_reports.body``, and ``release_entries.{title,version,category,project}``.
+# ``shepherd_verdicts.caveats``, ``ouroboros_entries.body``, and
+# ``release_entries.{title,version,category,project}``.
 JSONB_COLUMNS: Mapping[str, Tuple[str, ...]] = {
     "events": ("envelope", "anomaly_flags"),
     "items": ("db_mutation_profile", "db_compatibility_attestation"),

@@ -145,7 +145,8 @@ def _planned_claim_paths(conn: Any, item_id: int) -> Set[str]:
             FROM path_claims pc
             JOIN path_claim_targets pct ON pct.claim_id = pc.id
             JOIN path_targets pt ON pt.id = pct.target_id
-            WHERE pc.item_id = {p}
+            WHERE pc.owner_kind = 'item'
+              AND pc.owner_item_id = {p}
               AND pc.state IN ('planned', 'blocked', 'active')
               AND pt.materialization_state = 'planned'
             """,

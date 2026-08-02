@@ -97,6 +97,34 @@ def hc_orphaned_temp_files(conn, args: DoctorArgs, rec: RecordCollector) -> None
     )
 
 
+def _settings_key_issues(settings: dict) -> List[str]:
+    """Report machine settings keys that no reader consults.
+
+    A DB-owned twin is the dangerous shape: it reads like live configuration
+    while the capability row decides, so an operator edit changes nothing and
+    the file disagrees with behavior. An unrecognized key is the milder
+    shape — nothing reads it at all.
+    """
+    from yoke_contracts.machine_config.settings_keys import (
+        db_owned_settings,
+        unrecognized_settings,
+    )
+
+    issues: List[str] = []
+    for key, capability in db_owned_settings(settings):
+        issues.append(
+            f"- settings.{key} duplicates DB authority: the {capability} "
+            "capability decides this value and no reader consults the "
+            "machine copy — remove the key and set it on the capability"
+        )
+    for key in unrecognized_settings(settings):
+        issues.append(
+            f"- settings.{key} has no reader — remove it, or register it in "
+            "yoke_contracts.machine_config.settings_keys when a reader lands"
+        )
+    return issues
+
+
 def hc_config_validation(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     """HC-config-validation: Machine config validation."""
     config_path = machine_config.config_path()
@@ -113,6 +141,8 @@ def hc_config_validation(conn, args: DoctorArgs, rec: RecordCollector) -> None:
             settings = payload.get("settings", {})
             if settings is not None and not isinstance(settings, dict):
                 issues.append("- machine config settings must be an object")
+            elif isinstance(settings, dict):
+                issues.extend(_settings_key_issues(settings))
             projects = payload.get("projects", [])
             if projects is not None and not isinstance(projects, (list, dict)):
                 issues.append("- machine config projects must be a list of entries")

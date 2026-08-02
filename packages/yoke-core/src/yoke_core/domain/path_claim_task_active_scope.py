@@ -66,7 +66,7 @@ def scope_injected_claim_for_target(
     cwd: str,
 ) -> Optional[Dict[str, Any]]:
     """Keep injected seams from bypassing a real per-task workflow pin."""
-    item_id = _item_id(claim.get("item_id"))
+    item_id = _item_id(claim.get("owner_item_id"))
     if item_id is None:
         return claim
     try:

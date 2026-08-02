@@ -103,10 +103,11 @@ def _seed_planned_claim(
 ) -> int:
     cur = conn.execute(
         "INSERT INTO path_claims "
-        "(state, mode, actor_id, item_id, integration_target, registered_at) "
-        "VALUES ('planned', 'exclusive', %s, %s, %s, "
+        "(state, mode, owner_kind, owner_item_id, registered_by_actor_id, "
+        "integration_target, registered_at) "
+        "VALUES ('planned', 'exclusive', 'item', %s, %s, %s, "
         "'2026-05-01T00:00:00Z') RETURNING id",
-        (actor_id, item_id, integration_target),
+        (item_id, actor_id, integration_target),
     )
     claim_id = int(cur.fetchone()[0])
     conn.execute(
@@ -166,12 +167,13 @@ def _seed_real_upstream_block(conn, *, downstream_item_id, target_id):
     )
     cur = conn.execute(
         "INSERT INTO path_claims "
-        "(state, mode, actor_id, item_id, integration_target, "
+        "(state, mode, owner_kind, owner_item_id, registered_by_actor_id, "
+        "integration_target, "
         "registered_at, activated_at, base_commit_sha) "
-        "VALUES ('active', 'exclusive', %s, %s, 'main', "
+        "VALUES ('active', 'exclusive', 'item', %s, %s, 'main', "
         "'2026-05-01T00:00:00Z', '2026-05-01T01:00:00Z', 'snap-base') "
         "RETURNING id",
-        (upstream_actor, upstream_item_id),
+        (upstream_item_id, upstream_actor),
     )
     upstream_claim = int(cur.fetchone()[0])
     conn.execute(

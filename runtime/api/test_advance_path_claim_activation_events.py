@@ -102,12 +102,13 @@ def _seed_blocked(conn, *, blocked_reason: str) -> tuple[int, int]:
     # emits the expected event.
     cur = conn.execute(
         "INSERT INTO path_claims "
-        "(state, mode, actor_id, item_id, integration_target, "
+        "(state, mode, owner_kind, owner_item_id, registered_by_actor_id, "
+        "integration_target, "
         "registered_at, activated_at, base_commit_sha) "
-        "VALUES ('active', 'exclusive', %s, %s, 'main', "
+        "VALUES ('active', 'exclusive', 'item', %s, %s, 'main', "
         "'2026-05-01T00:00:00Z', '2026-05-01T01:00:00Z', 'snap-base') "
         "RETURNING id",
-        (actor, overlap_item_id),
+        (overlap_item_id, actor),
     )
     overlap_claim_id = int(cur.fetchone()[0])
     conn.execute(
@@ -117,11 +118,12 @@ def _seed_blocked(conn, *, blocked_reason: str) -> tuple[int, int]:
     )
     cur = conn.execute(
         "INSERT INTO path_claims "
-        "(state, mode, actor_id, item_id, integration_target, "
+        "(state, mode, owner_kind, owner_item_id, registered_by_actor_id, "
+        "integration_target, "
         " registered_at, blocked_reason) "
-        "VALUES ('blocked', 'exclusive', %s, %s, 'main', "
+        "VALUES ('blocked', 'exclusive', 'item', %s, %s, 'main', "
         "'2026-05-01T00:00:00Z', %s) RETURNING id",
-        (actor, item_id, blocked_reason),
+        (item_id, actor, blocked_reason),
     )
     claim_id = int(cur.fetchone()[0])
     conn.execute(

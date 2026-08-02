@@ -290,20 +290,18 @@ def test_scan_widening_python_path_allowlist_is_path_scoped(tmp_path: Path):
     """An allow-listed prefix exempts files under it from the
     ``yoke-db.sh`` pattern; a sibling outside the allow-list still trips.
     The exemption is path-scoped (file-level), not pattern-wide (global)."""
-    allow_dir = tmp_path / "runtime" / "api" / "tools"
+    allow_dir = tmp_path / "runtime" / "api" / "domain"
     allow_dir.mkdir(parents=True)
-    (allow_dir / "shell_inventory_test_fixture.py").write_text(
+    (allow_dir / "lint_db_rules_fixture.py").write_text(
         '_RETIRED = "yoke-db.sh"\n',
         encoding="utf-8",
     )
-    leak_dir = tmp_path / "runtime" / "api" / "domain"
-    leak_dir.mkdir(parents=True)
-    (leak_dir / "new_module.py").write_text(
+    (allow_dir / "new_module.py").write_text(
         '_LEAK = "yoke-db.sh runs find-by-item"\n',
         encoding="utf-8",
     )
     paths = {hit.split(":", 1)[0] for hit in scan_repo(tmp_path)}
-    assert "runtime/api/tools/shell_inventory_test_fixture.py" not in paths
+    assert "runtime/api/domain/lint_db_rules_fixture.py" not in paths
     assert "runtime/api/domain/new_module.py" in paths
 
 

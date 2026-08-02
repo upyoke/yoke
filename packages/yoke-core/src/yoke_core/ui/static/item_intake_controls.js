@@ -29,6 +29,7 @@ export function itemPostureToggle(
   rerender,
   settingControl = null,
   enabled = true,
+  fixed = false,
 ) {
   const row = el(documentNode, "div", "item-setting-row");
   row.appendChild(el(documentNode, "span", "item-setting-icon", icon));
@@ -39,12 +40,13 @@ export function itemPostureToggle(
   if (settingControl) row.appendChild(settingControl);
   const control = button(
     documentNode,
-    state[key] ? "Turn off" : "Turn on",
+    fixed ? "On by default" : state[key] ? "Turn off" : "Turn on",
     `item-button${state[key] ? " primary" : ""}`,
   );
-  control.disabled = !enabled;
-  if (!enabled) control.title = "No verification choices are available";
-  control.setAttribute("aria-pressed", String(Boolean(state[key])));
+  control.disabled = !enabled || fixed;
+  if (fixed) control.title = "Required by the workflow default";
+  else if (!enabled) control.title = "No verification choices are available";
+  control.setAttribute("aria-pressed", String(Boolean(state[key]) || fixed));
   control.addEventListener("click", () => {
     if (control.disabled) return;
     state[key] = !state[key];

@@ -68,10 +68,12 @@ def test_lane_excluded_dash_candidates_name_paths_and_count():
     )
     assert lane_entry["eliminated"] == 13
     assert lane_entry["allowed_paths"] == ["refine", "polish"]
-    assert lane_entry["config_key"] == "lane_paths_altman"
+    assert lane_entry["config_key"] == "lane_paths.ALTMAN"
+    assert lane_entry["config_source"] == "project capability session-routing"
     assert offer_diagnostics["top_eliminator"]["filter"] == "lane_compatibility"
     assert "13" in result.reason
-    assert "lane_paths_altman" in result.reason
+    assert "lane_paths.ALTMAN" in result.reason
+    assert "session-routing" in result.reason
 
 
 def test_wip_saturated_candidates_name_cap_active_count_and_occupants():

@@ -14,6 +14,7 @@ from fastapi.responses import JSONResponse
 from fastapi.routing import APIRouter
 from pydantic import BaseModel
 
+from yoke_contracts.session_lane import UNRESOLVED_EXECUTION_LANE
 from yoke_core.domain import db_backend
 from yoke_core.domain.sessions import (
     SessionError,
@@ -43,7 +44,7 @@ class RegisterSessionRequest(BaseModel):
     executor: str
     provider: str
     model: str
-    execution_lane: str = "primary"
+    execution_lane: str = UNRESOLVED_EXECUTION_LANE
     capabilities: Optional[List[str]] = None
     workspace: str
     project_id: int
@@ -64,9 +65,12 @@ def api_register_session(req: RegisterSessionRequest) -> JSONResponse:
                 _main.get_config_path(),
                 project_settings=project_routing,
             )
+            # The request's own lane is passed as the explicit choice: a real
+            # lane is honoured, while the unresolved sentinel yields to the
+            # project's executor mapping instead of overruling it.
             execution_lane = resolve_execution_lane(
                 executor=req.executor,
-                explicit_lane=None,
+                explicit_lane=req.execution_lane,
                 routing_config=routing_config,
             )
         result = register_session(

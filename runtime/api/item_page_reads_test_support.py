@@ -96,7 +96,8 @@ def _connection() -> sqlite3.Connection:
         );
         CREATE TABLE path_claims (
           id INTEGER PRIMARY KEY,
-          item_id INTEGER,
+          owner_kind TEXT,
+          owner_item_id INTEGER,
           state TEXT
         );
         CREATE TABLE item_sections (
@@ -238,7 +239,11 @@ def _connection() -> sqlite3.Connection:
         )
         """
     )
-    conn.execute("INSERT INTO path_claims VALUES (2, 51, 'planned')")
+    conn.execute(
+        "INSERT INTO path_claims "
+        "(id, owner_kind, owner_item_id, state) "
+        "VALUES (2, 'item', 51, 'planned')"
+    )
     conn.execute(
         """
         INSERT INTO item_sections VALUES (
