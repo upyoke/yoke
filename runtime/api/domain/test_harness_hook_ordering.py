@@ -38,23 +38,23 @@ class TestPreToolUseBash(unittest.TestCase):
             ],
         )
         # Tail: pipe-to-truncator lint (owns the Command Output rule's
-        # pipe-to-truncator clause, beside the polling lint),
-        # if-status-capture lint (blocks `fi; rc=$?` masking),
-        # subagent-background lint (sits next to polling lint as
-        # architectural sibling), session-cwd guard, workspace-cwd-match
-        # guard (writer-class cross-checkout deny), path-claim guard,
-        # structured-field transform shell lint, shell-quoted function
-        # payload lint, backtick-search shell footgun lint,
-        # agent-CLI-contract sibling shape lints (refuse ``python3 -c
-        # "from runtime..."``, ``curl localhost:8765``, and
-        # ``service_client session-end`` from agent context),
-        # claim-ownership mutation lint, git-stash arg-order shape lint,
-        # destructive-git inspection, attestable-activity heartbeat
-        # refresh, observe_pre.
+        # pipe-to-truncator clause, beside the polling lint), raw-pytest
+        # sweep lint (steers a bare sweep into the wrapper that takes the
+        # machine-wide admission slot), if-status-capture lint (blocks
+        # `fi; rc=$?` masking), subagent-background lint, session-cwd guard,
+        # workspace-cwd-match guard (writer-class cross-checkout deny),
+        # path-claim guard, structured-field transform shell lint,
+        # shell-quoted function payload lint, backtick-search shell
+        # footgun lint, agent-CLI-contract sibling shape lints (refuse
+        # ``python3 -c "from runtime..."``, ``curl localhost:8765``, and
+        # ``service_client session-end`` from agent context), claim-
+        # ownership mutation lint, git-stash arg-order shape lint,
+        # destructive-git inspection, heartbeat refresh, observe_pre.
         self.assertEqual(
             chain[5:],
             [
                 "yoke_core.domain.lint_pipe_to_truncator",
+                "yoke_core.domain.lint_raw_pytest_full_suite",
                 "yoke_core.domain.lint_if_status_capture",
                 "yoke_core.domain.lint_subagent_background",
                 "yoke_core.domain.lint_session_cwd",

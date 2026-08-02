@@ -1,5 +1,14 @@
 name: yoke-ci
 
+# A dispatched run carries its caller's correlation id in the run name, so a
+# dispatch whose HTTP response was lost is recovered by finding this marker
+# instead of posting a second run. Branch and pull-request runs have no
+# caller, so they keep a plain descriptive name.
+run-name: >-
+  ${{ inputs.yoke_dispatch_id
+      && format('yoke-ci {0} [yoke-dispatch:{1}]', github.ref_name, inputs.yoke_dispatch_id)
+      || format('yoke-ci {0}', github.ref_name) }}
+
 # Classification: FACTORY. Tests and container-builds public artifacts;
 # stays with the product repo when it becomes public. Fork-PR safety
 # posture for the public repo:
@@ -49,7 +58,17 @@ on:
       - ".yoke/strategy/**"
       - "docs/**"
       - "**/*.md"
+  # Dispatched by the CI-run QA executor to gate an item's branch before
+  # merge: the same suite, on runners, instead of on a developer machine.
   workflow_dispatch:
+    inputs:
+      yoke_dispatch_id:
+        description: >-
+          Correlation id supplied by the dispatching Yoke control plane;
+          echoed into the run name so a lost dispatch response is recovered
+          rather than reposted. Empty for hand-triggered runs.
+        required: false
+        default: ""
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
