@@ -176,8 +176,10 @@ class TestSessionOfferDecoupling:
             db_path=db,
         )
         assert result.returncode == 1
-        assert "has ended" in result.stderr
+        assert "has already ended" in result.stderr
         assert sid in result.stderr
+        # The refusal must carry the populated re-register recipe.
+        assert f"yoke sessions begin --session-id {sid}" in result.stderr
 
     def test_session_offer_with_active_session_succeeds(self, session_offer_db):
         """AC-1: session-offer with pre-registered active session succeeds."""

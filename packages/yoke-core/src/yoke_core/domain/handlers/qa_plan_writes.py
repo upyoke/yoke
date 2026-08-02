@@ -13,7 +13,9 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_core.domain.handlers.qa_plan_materialize import (
     MaterializeRequest,
+    RematerializeRequest,
     handle_materialize,
+    handle_rematerialize,
 )
 
 
@@ -310,6 +312,7 @@ def handle_item_attach(request: FunctionCallRequest) -> HandlerOutcome:
 __all__ = [
     "ItemAttachRequest",
     "MaterializeRequest",
+    "RematerializeRequest",
     "MutationResponse",
     "PlanCasesReplaceRequest",
     "PlanCasesReplaceResponse",
@@ -321,6 +324,7 @@ __all__ = [
     "ProjectDefaultUnsetRequest",
     "handle_item_attach",
     "handle_materialize",
+    "handle_rematerialize",
     "handle_plan_cases_replace",
     "handle_plan_create",
     "handle_project_method_register",

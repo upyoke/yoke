@@ -275,3 +275,40 @@ class TestQaDeploymentPlanMaterialize:
         )
         assert rc == 2
         assert _CAPTURED_REQUESTS == []
+
+
+class TestQaPlanRematerialize:
+    def test_dispatches_item_snapshot_replacement(self) -> None:
+        rc = _run(
+            _stub_ok,
+            "qa",
+            "plan",
+            "rematerialize",
+            "--item",
+            "YOK-1927",
+            "--transition",
+            "release",
+        )
+        assert rc == 0
+        req = _CAPTURED_REQUESTS[-1]
+        assert req.function == "qa.plan.rematerialize"
+        assert req.target.kind == "item"
+        assert req.target.item_ref == "YOK-1927"
+        assert req.payload == {"transition_id": "release"}
+
+
+class TestQaRequirementList:
+    def test_deployment_run_filter_rides_target(self) -> None:
+        rc = _run(
+            _stub_ok,
+            "qa",
+            "requirement",
+            "list",
+            "--deployment-run-id",
+            "run-20260731-001",
+        )
+        assert rc == 0
+        req = _CAPTURED_REQUESTS[-1]
+        assert req.target.kind == "deployment_run"
+        assert req.target.deployment_run_id == "run-20260731-001"
+        assert req.payload == {}

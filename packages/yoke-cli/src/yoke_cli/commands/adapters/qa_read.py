@@ -1,17 +1,4 @@
-"""``yoke qa ...`` read-family flag adapters.
-
-Four read function ids in one module — the typed replacements for the
-db_router qa read fallbacks:
-
-* ``qa.requirement.list`` — list ``qa_requirements`` rows filtered by
-  item, epic, or deployment run.
-* ``qa.requirement.get`` — one ``qa_requirements`` row by id.
-* ``qa.run.list`` — list ``qa_runs`` rows, optionally per requirement.
-* ``qa.run.get`` — one ``qa_runs`` row by id.
-* ``qa.gate_summary.run`` — read-only unsatisfied-requirement summary
-  for the advance/polish handoff (works over https; replaces the
-  checkout-shaped ``db_router qa gate-summary`` agent recipe).
-"""
+"""Flag adapters for QA requirement, run, and gate-summary reads."""
 
 from __future__ import annotations
 
@@ -60,36 +47,48 @@ task_num client-side. Exit codes: 0 success, 1 dispatch failure, 2 usage.
 def qa_requirement_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa requirement list",
-        description=(
-            f"{QA_REQUIREMENT_LIST_USAGE}\n\n{_REQUIREMENT_LIST_HELP_DEEP}"
-        ),
+        description=(f"{QA_REQUIREMENT_LIST_USAGE}\n\n{_REQUIREMENT_LIST_HELP_DEEP}"),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--item", default=None,
-                        help="Filter to one item (PREFIX-N or number).")
-    parser.add_argument("--epic-id", dest="epic_id", type=int, default=None,
-                        help="Filter to one epic's task requirements.")
-    parser.add_argument("--deployment-run-id", dest="deployment_run_id",
-                        default=None,
-                        help="Filter to one deployment run.")
-    add_session_arg(parser); add_json_arg(parser)
+    parser.add_argument(
+        "--item", default=None, help="Filter to one item (PREFIX-N or number)."
+    )
+    parser.add_argument(
+        "--epic-id",
+        dest="epic_id",
+        type=int,
+        default=None,
+        help="Filter to one epic's task requirements.",
+    )
+    parser.add_argument(
+        "--deployment-run-id",
+        dest="deployment_run_id",
+        default=None,
+        help="Filter to one deployment run.",
+    )
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, QA_REQUIREMENT_LIST_USAGE)
     if parsed is None:
         return 2
     payload: Dict[str, Any] = {}
     if parsed.item is not None:
         target = item_target("item", parsed.item, parsed.project)
+    elif parsed.deployment_run_id is not None:
+        target = TargetRef(
+            kind="deployment_run",
+            deployment_run_id=parsed.deployment_run_id,
+        )
     else:
         target = TargetRef(kind="global")
         if parsed.epic_id is not None:
             payload["epic_id"] = int(parsed.epic_id)
-        elif parsed.deployment_run_id is not None:
-            payload["deployment_run_id"] = parsed.deployment_run_id
     return dispatch_and_emit(
         function_id="qa.requirement.list",
         target=target,
         payload=payload,
-        session_id=parsed.session_id, json_mode=parsed.json_mode,
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
     )
 
 
@@ -118,15 +117,18 @@ Exit codes: 0 success, 1 not found / dispatch failure, 2 usage error.
 def qa_requirement_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa requirement get",
-        description=(
-            f"{QA_REQUIREMENT_GET_USAGE}\n\n{_REQUIREMENT_GET_HELP_DEEP}"
-        ),
+        description=(f"{QA_REQUIREMENT_GET_USAGE}\n\n{_REQUIREMENT_GET_HELP_DEEP}"),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--requirement-id", dest="requirement_id",
-                        type=int, required=True,
-                        help="Target qa_requirements.id.")
-    add_session_arg(parser); add_json_arg(parser)
+    parser.add_argument(
+        "--requirement-id",
+        dest="requirement_id",
+        type=int,
+        required=True,
+        help="Target qa_requirements.id.",
+    )
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, QA_REQUIREMENT_GET_USAGE)
     if parsed is None:
         return 2
@@ -137,13 +139,12 @@ def qa_requirement_get(args: List[str]) -> int:
             qa_requirement_id=int(parsed.requirement_id),
         ),
         payload={},
-        session_id=parsed.session_id, json_mode=parsed.json_mode,
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
     )
 
 
-QA_RUN_LIST_USAGE = (
-    "yoke qa run list [--requirement-id N] [--session-id S] [--json]"
-)
+QA_RUN_LIST_USAGE = "yoke qa run list [--requirement-id N] [--session-id S] [--json]"
 
 _RUN_LIST_HELP_DEEP = """\
 List qa_runs rows, newest id last. Omit --requirement-id to list every
@@ -171,10 +172,15 @@ def qa_run_list(args: List[str]) -> int:
         description=f"{QA_RUN_LIST_USAGE}\n\n{_RUN_LIST_HELP_DEEP}",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--requirement-id", dest="requirement_id",
-                        type=int, default=None,
-                        help="Owning qa_requirements.id.")
-    add_session_arg(parser); add_json_arg(parser)
+    parser.add_argument(
+        "--requirement-id",
+        dest="requirement_id",
+        type=int,
+        default=None,
+        help="Owning qa_requirements.id.",
+    )
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, QA_RUN_LIST_USAGE)
     if parsed is None:
         return 2
@@ -189,13 +195,12 @@ def qa_run_list(args: List[str]) -> int:
         function_id="qa.run.list",
         target=target,
         payload={},
-        session_id=parsed.session_id, json_mode=parsed.json_mode,
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
     )
 
 
-QA_RUN_GET_USAGE = (
-    "yoke qa run get --run-id N [--session-id S] [--json]"
-)
+QA_RUN_GET_USAGE = "yoke qa run get --run-id N [--session-id S] [--json]"
 
 _RUN_GET_HELP_DEEP = """\
 Fetch one qa_runs row by primary key.
@@ -222,9 +227,11 @@ def qa_run_get(args: List[str]) -> int:
         description=f"{QA_RUN_GET_USAGE}\n\n{_RUN_GET_HELP_DEEP}",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--run-id", dest="run_id", type=int, required=True,
-                        help="Target qa_runs.id.")
-    add_session_arg(parser); add_json_arg(parser)
+    parser.add_argument(
+        "--run-id", dest="run_id", type=int, required=True, help="Target qa_runs.id."
+    )
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, QA_RUN_GET_USAGE)
     if parsed is None:
         return 2
@@ -232,7 +239,8 @@ def qa_run_get(args: List[str]) -> int:
         function_id="qa.run.get",
         target=TargetRef(kind="global"),
         payload={"run_id": int(parsed.run_id)},
-        session_id=parsed.session_id, json_mode=parsed.json_mode,
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
     )
 
 
@@ -274,16 +282,31 @@ def qa_gate_summary(args: List[str]) -> int:
         description=f"{QA_GATE_SUMMARY_USAGE}\n\n{_GATE_SUMMARY_HELP_DEEP}",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--item", default=None,
-                        help="Target item (PREFIX-N or number).")
-    parser.add_argument("--epic-id", dest="epic_id", type=int, default=None,
-                        help="Epic id (with --task-num).")
-    parser.add_argument("--task-num", dest="task_num", type=int, default=None,
-                        help="Task number (with --epic-id).")
-    parser.add_argument("--target", required=True,
-                        choices=("reviewed-implementation", "implemented"),
-                        help="Gate transition to summarize against.")
-    add_session_arg(parser); add_json_arg(parser)
+    parser.add_argument(
+        "--item", default=None, help="Target item (PREFIX-N or number)."
+    )
+    parser.add_argument(
+        "--epic-id",
+        dest="epic_id",
+        type=int,
+        default=None,
+        help="Epic id (with --task-num).",
+    )
+    parser.add_argument(
+        "--task-num",
+        dest="task_num",
+        type=int,
+        default=None,
+        help="Task number (with --epic-id).",
+    )
+    parser.add_argument(
+        "--target",
+        required=True,
+        choices=("reviewed-implementation", "implemented"),
+        help="Gate transition to summarize against.",
+    )
+    add_session_arg(parser)
+    add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, QA_GATE_SUMMARY_USAGE)
     if parsed is None:
         return 2
@@ -292,24 +315,31 @@ def qa_gate_summary(args: List[str]) -> int:
     elif parsed.epic_id is not None and parsed.task_num is not None:
         target = TargetRef(
             kind="epic_task",
-            epic_id=int(parsed.epic_id), task_num=int(parsed.task_num),
+            epic_id=int(parsed.epic_id),
+            task_num=int(parsed.task_num),
         )
     else:
         return usage_error(
-            "gate-summary requires --item PREFIX-N OR both --epic-id and "
-            "--task-num"
+            "gate-summary requires --item PREFIX-N OR both --epic-id and --task-num"
         )
     return dispatch_and_emit(
         function_id="qa.gate_summary.run",
         target=target,
         payload={"transition": parsed.target},
-        session_id=parsed.session_id, json_mode=parsed.json_mode,
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
     )
 
 
 __all__ = [
-    "QA_REQUIREMENT_LIST_USAGE", "QA_REQUIREMENT_GET_USAGE",
-    "QA_RUN_LIST_USAGE", "QA_RUN_GET_USAGE", "QA_GATE_SUMMARY_USAGE",
-    "qa_requirement_list", "qa_requirement_get", "qa_run_list",
-    "qa_run_get", "qa_gate_summary",
+    "QA_REQUIREMENT_LIST_USAGE",
+    "QA_REQUIREMENT_GET_USAGE",
+    "QA_RUN_LIST_USAGE",
+    "QA_RUN_GET_USAGE",
+    "QA_GATE_SUMMARY_USAGE",
+    "qa_requirement_list",
+    "qa_requirement_get",
+    "qa_run_list",
+    "qa_run_get",
+    "qa_gate_summary",
 ]

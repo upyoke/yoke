@@ -136,7 +136,7 @@ def test_in_process_payload_entrypoint_preferred(monkeypatch):
 class TestEnsureForceReregister:
     def test_force_skips_probe_and_registers(self, monkeypatch):
         monkeypatch.setattr(
-            "yoke_core.domain.events_session_actor.session_actor_lookup",
+            "yoke_core.domain.sessions_ended_recovery.session_registration_state",
             lambda *_a: pytest.fail("force path must not probe"),
         )
         calls = []
@@ -160,8 +160,8 @@ class TestEnsureActorBackfill:
 
     def _patch_lookup(self, monkeypatch, stored_actor_id):
         monkeypatch.setattr(
-            "yoke_core.domain.events_session_actor.session_actor_lookup",
-            lambda _conn, _sid: (True, stored_actor_id),
+            "yoke_core.domain.sessions_ended_recovery.session_registration_state",
+            lambda _conn, _sid: (True, stored_actor_id, False),
         )
 
     def test_actor_less_row_with_verified_actor_drives_backfill(self, monkeypatch):

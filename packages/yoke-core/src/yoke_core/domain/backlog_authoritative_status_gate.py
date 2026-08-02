@@ -17,6 +17,7 @@ from typing import Any, Optional
 
 from . import db_backend
 from .db_helpers import connect
+from .qa_terminal_settlement import terminal_transition_result
 from .workflow_gate_catalog import (
     GATE_ARCHITECTURE_IMPACT,
     GATE_CHECK_HARD_BLOCKS,
@@ -66,7 +67,6 @@ def _run_authoritative_status_gate(
     * Plan-simulation gate at ``planned``.
     * QA verification / done gate for ``reviewed-implementation``,
       ``implemented``, ``release``, ``done``.
-
     The DB-mutation gate is a no-op for work items whose
     ``db_mutation_profile.state`` is ``"none"`` (absence-as-opt-out). On
     a passing ``idea -> refining-idea`` transition the helper additionally
@@ -100,6 +100,9 @@ def _run_authoritative_status_gate(
             workflow_conn.close()
     else:
         workflow = load_item_workflow_runtime(conn, item_id)
+    terminal_gate = terminal_transition_result(conn, item_id, target_status, workflow)
+    if terminal_gate:
+        return terminal_gate
     if workflow.workflow_id == "dash":
         from yoke_core.domain.dash_posture_gate import evaluate as evaluate_posture
 
