@@ -24,6 +24,11 @@ _SKIP_DIRECTORIES = frozenset(
     {".git", ".venv", "node_modules", "__pycache__", ".worktrees", "build"}
 )
 
+#: Directories pytest is pointed at for a full sweep. A production module can
+#: legitimately begin with ``test_`` (for example, a machine-test domain
+#: handler), so filename shape alone is not enough to make it collectable.
+TEST_ANCHORS = ("runtime/api/", "runtime/harness/", "tests/")
+
 #: A string literal shaped like a dotted module path is treated as a
 #: dependency reference (subprocess ``-m`` targets, patch targets,
 #: registry keys). Single-segment names are far too noisy to count.
@@ -32,7 +37,11 @@ _DOTTED_PATH = re.compile(r"^[A-Za-z_]\w*(\.[A-Za-z_]\w*)+$")
 
 def is_test_file(rel_path: str) -> bool:
     name = rel_path.rsplit("/", 1)[-1]
-    return name.startswith("test_") and name.endswith(".py")
+    return (
+        any(rel_path.startswith(anchor) for anchor in TEST_ANCHORS)
+        and name.startswith("test_")
+        and name.endswith(".py")
+    )
 
 
 def module_name_for(rel_path: str) -> "str | None":
@@ -139,6 +148,7 @@ def build_import_index(repo_root: Path) -> ImportIndex:
 
 __all__ = [
     "ImportIndex",
+    "TEST_ANCHORS",
     "build_import_index",
     "is_test_file",
     "module_name_for",
