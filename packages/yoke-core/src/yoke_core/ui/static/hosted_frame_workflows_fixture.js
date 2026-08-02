@@ -158,6 +158,7 @@ function hostedFrameWorkflows() {
       policies: {
         ownership: "exclusive_session_work_claim",
         path_claims: "optional",
+        path_survey: "required",
         worktrees: "single_implementation_lane",
         parallelism: "none",
         generated_children: "none",
@@ -165,7 +166,8 @@ function hostedFrameWorkflows() {
         approvals: "none",
         delivery: "after_merge_action",
         item_posture_allowlist: [
-          "verification", "path_claims", "approval_on_done", "deployment",
+          "verification", "path_claims", "path_survey",
+          "approval_on_done", "deployment",
         ],
       },
     }),
@@ -222,6 +224,7 @@ function hostedFrameWorkflows() {
       policies: {
         ownership: "session_item_and_document_claim",
         path_claims: "optional",
+        path_survey: "required",
         worktrees: "worker_lanes_optional_integration",
         parallelism: "maximum_safe_slices",
         generated_children: "none",
@@ -229,7 +232,7 @@ function hostedFrameWorkflows() {
         approvals: "optional_named_gate",
         delivery: "continuous_slice_actions",
         item_posture_allowlist: [
-          "verification", "path_claims", "approval", "deployment",
+          "verification", "path_claims", "path_survey", "approval", "deployment",
         ],
       },
     }),

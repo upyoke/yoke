@@ -157,8 +157,14 @@ export function workflowsClient(workflows) {
         );
         const nextVersion = Number(workflow.current_version) + 1;
         const definition = structuredClone(workflow.definition);
-        definition.policies.path_claims =
-          request.payload.path_claims_default ? "required" : "optional";
+        const defaultKey = [
+          "file_budget_default",
+          "path_claims_default",
+          "path_survey_default",
+        ].find((key) => request.payload[key] !== undefined);
+        const policyKey = defaultKey.replace("_default", "");
+        definition.policies[policyKey] =
+          request.payload[defaultKey] ? "required" : "optional";
         workflow.current_version = nextVersion;
         workflow.published_at = "2026-07-26T12:00:00Z";
         workflow.definition = definition;
@@ -174,7 +180,7 @@ export function workflowsClient(workflows) {
           version: nextVersion,
           version_id: nextVersion,
           definition_digest: `${workflow.id}-v${nextVersion}`,
-          path_claims_default: request.payload.path_claims_default,
+          [defaultKey]: request.payload[defaultKey],
         });
       }
       if (request.function === "workflows.current.set") {

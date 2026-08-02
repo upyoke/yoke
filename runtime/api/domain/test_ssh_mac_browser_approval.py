@@ -25,7 +25,7 @@ def test_approval_targets_the_exact_code_tab_and_visible_button() -> None:
         commands.append(command)
         return _completed(
             command,
-            stdout="approved\thttps://app.stage.upyoke.com/orgs/acme#/overview\n",
+            stdout="approved|https://app.stage.upyoke.com/orgs/acme#/overview\n",
         )
 
     result = approve_machine_in_safari(
@@ -46,6 +46,7 @@ def test_approval_targets_the_exact_code_tab_and_visible_button() -> None:
     assert "https://app.stage.upyoke.com/connect?user_code=AB12-CD34" in commands[0]
     assert "Approve machine" in commands[0]
     assert 'perform action "AXPress"' in commands[0]
+    assert 'return "approved|" & resultURL' in commands[0]
 
 
 @pytest.mark.parametrize(
@@ -87,11 +88,11 @@ def test_invalid_context_never_reaches_safari(
             "machine_browser_approval_navigation_missing",
         ),
         (
-            "approved\thttps://evil.example/orgs/acme\n",
+            "approved|https://evil.example/orgs/acme\n",
             "machine_browser_approval_destination_invalid",
         ),
         (
-            "approved\thttps://app.stage.upyoke.com/connect?status=denied\n",
+            "approved|https://app.stage.upyoke.com/connect?status=denied\n",
             "machine_browser_approval_destination_invalid",
         ),
     ),
