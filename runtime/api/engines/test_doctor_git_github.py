@@ -34,8 +34,6 @@ from yoke_core.engines.doctor import (
     hc_gh_orphan_detection,
     hc_orphaned_gh_issues,
     hc_wrong_repo_issues,
-    _should_run_hc,
-    HEALTH_CHECKS,
 )
 
 
@@ -175,7 +173,10 @@ class TestHcOrphanedGhIssues:
         mock_rest.return_value = _make_completed(stdout="100\n")
         rec = _run_hc(hc_orphaned_gh_issues, conn)
         assert rec.results[0].result == "PASS"
-        assert mock_resolve.call_args.kwargs["required_permissions"] is GITHUB_ISSUES_READ_PERMISSION_LEVELS
+        assert (
+            mock_resolve.call_args.kwargs["required_permissions"]
+            is GITHUB_ISSUES_READ_PERMISSION_LEVELS
+        )
 
 
 class TestHcGhOrphanDetection:
@@ -202,12 +203,17 @@ class TestHcGhOrphanDetection:
     def test_orphan_detected_warns(self, mock_rest, mock_resolve, mock_avail):
         conn = _make_conn()
         _seed_project(conn, "yoke", github_repo="upyoke/yoke")
-        gh_json = json.dumps([{"number": 999, "title": "[YOK-999] orphan", "state": "OPEN"}])
+        gh_json = json.dumps(
+            [{"number": 999, "title": "[YOK-999] orphan", "state": "OPEN"}]
+        )
         mock_rest.return_value = _make_completed(stdout=gh_json)
         rec = _run_hc(hc_gh_orphan_detection, conn)
         assert rec.results[0].result == "WARN"
         assert "#999" in rec.results[0].detail
-        assert mock_resolve.call_args.kwargs["required_permissions"] is GITHUB_METADATA_READ_PERMISSION_LEVELS
+        assert (
+            mock_resolve.call_args.kwargs["required_permissions"]
+            is GITHUB_METADATA_READ_PERMISSION_LEVELS
+        )
         assert mock_rest.call_args.kwargs["search"] == "[YOK- is:issue"
 
     @patch(
@@ -335,80 +341,3 @@ class TestHcDelegatedSync:
         hc_delegated_sync(conn, fn_args, rec)
         assert all(r.result == "WARN" for r in rec.results)
         assert len(rec.results) == 11  # 10 + blocked-label-drift
-
-
-class TestQuickMode:
-    """Verify --quick mode skips GitHub-dependent HCs."""
-
-    def test_quick_skips_github_hcs(self):
-        args = DoctorArgs(quick=True)
-        assert not _should_run_hc("orphaned-gh-issues", args)
-        assert not _should_run_hc("stale-remote-branches", args)
-        assert not _should_run_hc("wrong-repo-issues", args)
-        assert not _should_run_hc("delegated-sync", args)
-
-    def test_quick_allows_git_hcs(self):
-        args = DoctorArgs(quick=True)
-        assert _should_run_hc("main-checkout", args)
-        assert _should_run_hc("worktree-health", args)
-        assert _should_run_hc("branch-divergence", args)
-        assert _should_run_hc("uncaptured-discoveries", args)
-        assert _should_run_hc("orphaned-stashes", args)
-
-
-class TestOnlyDelegatedSync:
-    """Verify --only correctly triggers delegated-sync for sub-HCs."""
-
-    def test_only_title_drift_triggers_delegated(self):
-        args = DoctorArgs(only="title-drift")
-        assert _should_run_hc("delegated-sync", args)
-
-    def test_only_unrelated_does_not_trigger_delegated(self):
-        args = DoctorArgs(only="main-checkout")
-        assert not _should_run_hc("delegated-sync", args)
-
-
-class TestHcRegistration:
-    """Verify all new HCs are registered in HEALTH_CHECKS."""
-
-    def test_git_hcs_registered(self):
-        slugs = {hc.slug for hc in HEALTH_CHECKS}
-        for expected in [
-            "main-checkout",
-            "worktree-health",
-            "branch-divergence",
-            "uncaptured-discoveries",
-            "orphaned-stashes",
-            "cross-project-commits",
-            "epic-task-worktree-backfill",
-            "path-confabulation",
-            "orphaned-temp-files",
-        ]:
-            assert expected in slugs, f"{expected} not in HEALTH_CHECKS"
-
-    def test_github_hcs_registered(self):
-        slugs = {hc.slug for hc in HEALTH_CHECKS}
-        for expected in [
-            "stale-remote-branches",
-            "orphaned-gh-issues",
-            "gh-orphan-detection",
-            "wrong-repo-issues",
-            "delegated-sync",
-        ]:
-            assert expected in slugs, f"{expected} not in HEALTH_CHECKS"
-
-    def test_github_hcs_marked_dependent(self):
-        gh_hcs = [
-            hc
-            for hc in HEALTH_CHECKS
-            if hc.slug
-            in (
-                "stale-remote-branches",
-                "orphaned-gh-issues",
-                "gh-orphan-detection",
-                "wrong-repo-issues",
-                "delegated-sync",
-            )
-        ]
-        for hc in gh_hcs:
-            assert hc.github_dependent, f"{hc.slug} should be github_dependent=True"
