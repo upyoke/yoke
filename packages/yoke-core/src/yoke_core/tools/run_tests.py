@@ -172,19 +172,16 @@ def run(
     """
     root = (repo_root or _repo_root()).resolve()
 
-    if allow_tree_mismatch:
-        notice = verification_tree_binding.mismatch_notice(
-            surface=_TREE_BINDING_SURFACE, tree=str(root),
-        )
-        if notice is not None:
-            print(notice, file=sys.stderr)
-    else:
-        refusal = verification_tree_binding.check(
-            surface=_TREE_BINDING_SURFACE, tree=str(root),
-        )
-        if refusal is not None:
-            print(refusal, file=sys.stderr)
-            return _EXIT_STATUS_TREE_BINDING_REFUSED
+    binding = verification_tree_binding.evaluate_run(
+        surface=_TREE_BINDING_SURFACE,
+        tree=str(root),
+        allow_mismatch=allow_tree_mismatch,
+    )
+    if binding.notice is not None:
+        print(binding.notice, file=sys.stderr)
+    if binding.refusal is not None:
+        print(binding.refusal, file=sys.stderr)
+        return _EXIT_STATUS_TREE_BINDING_REFUSED
 
     if _is_yoke_backend_verification(root, paths or ()):
         if not _prepare_yoke_backend_env(root):

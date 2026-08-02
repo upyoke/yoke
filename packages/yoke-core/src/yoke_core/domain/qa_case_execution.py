@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import time
 from pathlib import Path
 from typing import Optional
@@ -117,14 +118,14 @@ def _command_result(
             f"command execution checkout does not exist: {checkout}"
         )
     # A case whose lane branch has no live worktree falls back to the
-    # project checkout, so the gate run can land in main while the
-    # session's claimed lane sits untouched. The verdict this produces is
-    # recorded, so the refusal belongs before the command, not after.
-    binding_refusal = verification_tree_binding.check(
-        surface=_TREE_BINDING_SURFACE, tree=str(checkout),
-    )
-    if binding_refusal is not None:
-        raise QaCaseExecutionError(binding_refusal)
+    # project checkout, so this run can land in main while the claimed
+    # lane sits untouched — and its verdict is recorded either way.
+    binding = verification_tree_binding.evaluate_run(
+        surface=_TREE_BINDING_SURFACE, tree=str(checkout))
+    if binding.notice:
+        print(binding.notice, file=sys.stderr, flush=True)
+    if binding.refusal:
+        raise QaCaseExecutionError(binding.refusal)
     command_env = dict(os.environ)
     if config.get("requires_base_url"):
         if not base_url:
@@ -166,9 +167,8 @@ def _command_result(
     )
     if timeout_summary:
         output += f"\n[timeout]\n{timeout_summary}\n"
-    # Which tree produced this verdict. Without it a green recorded
-    # against the wrong tree reads exactly like a green against the right
-    # one; ``head_sha`` additionally pins the commit the run covered.
+    # Which tree produced this verdict, so a green from the wrong tree
+    # cannot read like one from the right tree. head_sha pins the commit.
     tree = verification_tree_binding.resolve_tree_identity(checkout)
     record = {
         "command": command,
