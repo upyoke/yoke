@@ -36,7 +36,8 @@ Cursor IDE 3.14.7 / cursor-agent 2026.07.23-e383d2b; newer builds may move.
 
 7. Open the repo in Cursor IDE, send one agent prompt, and confirm
    `beforeSubmitPrompt` (with `attachments` naming `AGENTS.md`), `stop`,
-   and `afterFileEdit` (via a Write-tool edit) all fire.
+   and `afterFileEdit` (via a Write-tool edit) all fire. The session
+   registers with display name `cursor-desktop`.
 8. Dispatch a project subagent and confirm `subagentStart`/`subagentStop`
    carry `parent_conversation_id` equal to the top-level session id, and
    that the subagent's own tool calls arrive under the subagent session id
