@@ -52,13 +52,14 @@ def _commit_summary(repo_path: str, old_sha: str) -> tuple[int, str]:
         summary = _git(repo_path, "log", "--oneline", "-5", f"{old_sha}..main")
     except Exception:
         return 0, ""
-    return count, "; ".join(line.strip() for line in summary.splitlines() if line.strip())
+    return count, "; ".join(
+        line.strip() for line in summary.splitlines() if line.strip()
+    )
 
 
 def check_drift(
     session_id: str,
     *,
-    db_path: Optional[str] = None,
     repo_path: Optional[str] = None,
     now: Optional[str] = None,
     throttle_seconds: int = THROTTLE_SECONDS,
@@ -68,7 +69,7 @@ def check_drift(
         return None
     checked_at = now or iso8601_now()
     checked_dt = _parse_iso(checked_at) or datetime.now(timezone.utc)
-    conn = connect(path=db_path)
+    conn = connect()
     p = "%s" if db_backend.connection_is_postgres(conn) else "?"
     try:
         try:
@@ -82,7 +83,10 @@ def check_drift(
         if row is None:
             return None
         prior_check = _parse_iso(row["last_drift_check_at"])
-        if prior_check and (checked_dt - prior_check).total_seconds() < throttle_seconds:
+        if (
+            prior_check
+            and (checked_dt - prior_check).total_seconds() < throttle_seconds
+        ):
             return None
         resolved_repo = _repo_path(row, repo_path)
         if not resolved_repo:
