@@ -27,6 +27,7 @@ import selectors
 import shlex
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Callable, Optional, Sequence, TextIO
 
@@ -50,6 +51,9 @@ WRAPPER_LAUNCH_ERROR = 127
 #: Shell convention for "died on signal N": callers reading the exit code see
 #: 130 for Ctrl-C and 143 for SIGTERM rather than an ambiguous generic failure.
 _EXIT_STATUS_SIGNAL_BASE = 128
+#: ``timeout(1)``'s convention for "the deadline expired", returned when a
+#: caller supplied ``timeout_seconds`` and the watched command outlived it.
+TIMEOUT_EXIT = 124
 PRINT_STREAMING_PAIR_FLAG = "--print-streaming-pair"
 QUIET_HEARTBEAT_SECONDS_ENV = "YOKE_WATCH_QUIET_HEARTBEAT_SECONDS"
 
@@ -140,6 +144,7 @@ def run_watcher(
     stdout_stream: Optional[TextIO] = None,
     policy: Optional[ThrottlePolicy] = None,
     time_source: Optional[Callable[[], float]] = None,
+    timeout_seconds: Optional[float] = None,
 ) -> int:
     """Run *argv* under the shared raw + throttled-progress contract.
 
@@ -152,6 +157,11 @@ def run_watcher(
     leave it unset so the wrapper writes filtered progress to its own
     ``sys.stdout``. ``policy`` and ``time_source`` are optional test
     seams; production callers use the config-driven defaults.
+
+    ``timeout_seconds`` bounds the whole run. On expiry the child's whole
+    process group is reaped and :data:`TIMEOUT_EXIT` is returned, so a
+    wedged command releases the databases it held instead of hanging the
+    caller forever. Left unset, a watched run has no deadline at all.
     """
     out: TextIO = stdout_stream or sys.stdout
 
@@ -209,18 +219,33 @@ def run_watcher(
         assert proc.stdout is not None
         last_summary: Optional[str] = None
         quiet_seconds = float(os.environ.get(QUIET_HEARTBEAT_SECONDS_ENV, "60"))
+        deadline = (
+            None if timeout_seconds is None else time.monotonic() + timeout_seconds
+        )
+        timed_out = False
         try:
             with process_group_reaping.interruption_reaps_process_group(proc):
                 with selectors.DefaultSelector() as selector:
                     selector.register(proc.stdout, selectors.EVENT_READ)
                     while True:
-                        events = selector.select(timeout=quiet_seconds)
+                        wait_seconds = quiet_seconds
+                        if deadline is not None:
+                            remaining = deadline - time.monotonic()
+                            if remaining <= 0:
+                                timed_out = True
+                                break
+                            wait_seconds = min(quiet_seconds, remaining)
+                        events = selector.select(timeout=wait_seconds)
                         if not events:
                             if proc.poll() is not None:
                                 break
+                            if deadline is not None and time.monotonic() >= deadline:
+                                # The next loop entry reaps; skip the heartbeat
+                                # so a timing-out run does not claim it is fine.
+                                continue
                             heartbeat = (
                                 f"# watch_{kind} still running; "
-                                f"no child output for {quiet_seconds:g}s\n"
+                                f"no child output for {wait_seconds:g}s\n"
                             )
                             _emit_immediate(
                                 heartbeat, progress_f=progress_f, out=out
@@ -255,7 +280,20 @@ def run_watcher(
                                 out=out,
                             )
 
-                rc = proc.wait()
+                if timed_out:
+                    # Reap before waiting: the work itself is a grandchild of
+                    # the shell, and killing only the shell leaves the run
+                    # alive holding the databases it opened.
+                    process_group_reaping.terminate_process_group(proc)
+                    rc = TIMEOUT_EXIT
+                    expiry = (
+                        f"# watch_{kind} timed out after {timeout_seconds:g}s; "
+                        f"child process group reaped\n"
+                    )
+                    raw_f.write(expiry)
+                    _emit_immediate(expiry, progress_f=progress_f, out=out)
+                else:
+                    rc = proc.wait()
         except process_group_reaping.ProcessGroupInterrupted as interruption:
             # The guard has already reaped the child's whole group, so the
             # databases that group held are released before this returns. Say

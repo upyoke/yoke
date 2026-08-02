@@ -217,72 +217,15 @@ feed a filter diagnostic to pytest as a filename.
 
 ## Full-suite authority: CI
 
-The full three-anchor suite runs off-machine in CI on both the pull request
-and the merged commit on `main` (`.github/workflows/yoke-ci.yml` triggers on
-`pull_request` and `push` to `main`). The protected merge path requires the
-PR checks, so every merge carries one complete pre-merge sweep, and the push
-trigger re-proves the true merge commit afterward. Local verification stays
-change-scoped:
+The full three-anchor suite runs off-machine in CI on both the pull
+request and the merged commit on `main`, so local verification stays
+change-scoped: iterate with impacted selection, and let the item's QA
+case run be the one full execution for a tree.
 
-- **While implementing** — run the impacted selection over the branch diff:
-
-  ```bash
-  yoke watch pytest --impacted main
-  ```
-
-  Selection is reverse-import reachability, hardened two ways: dotted
-  module paths appearing as string literals (subprocess `-m` targets,
-  patch targets, registry keys) count as dependency edges, and a small
-  always-run floor of fast cross-cutting contract tests executes on every
-  selection. The conservative full-sweep fallback (non-Python changes,
-  conftest or shared-fixture edits, test tooling) still catches anything
-  reachability cannot bound.
-- **At the review gate** — the project-default quick plan runs the same
-  impacted selection and blocks the transition when a selected test fails.
-- **At done** — no local sweep. The merge already required green PR checks,
-  and the pushed merge commit gets its own CI run.
-
-### When CI disagrees with the local run
-
-Impacted selection makes a falsifiable claim: *this change cannot affect
-that test*. Every CI failure gets triaged against that claim before
-anything else:
-
-- **The failing test was not in the local selection** — the reachability
-  model missed a dependency edge. That is a selector defect, never noise.
-  Root-cause the coupling the import graph could not see (the residual
-  blind spots for `.py`-only changes are non-import coupling: subprocess
-  module invocations, string-target patching, runtime string dispatch),
-  then extend `FULL_SWEEP_TRIGGERS` or the index modeling **and add a
-  regression test to the selector's own tests in the same fix**. The
-  selector only stays trustworthy if every counterexample tightens it.
-- **The failing test was selected and passed locally** — an environment
-  difference, not a selection miss: CI runs Python 3.10 and 3.13 shards
-  on Linux while local runs one interpreter on macOS, plus concurrency,
-  ordering, and neighbor-merge interactions. No local selection can catch
-  this class; it is exactly why CI is the authority.
-
-### Red-main protocol
-
-A failing `push`-to-`main` CI run means a merge landed broken despite green
-PR checks (a semantic conflict with a neighboring merge, or a selection
-miss per the triage above). Whoever merged the commit that turned main red
-owns the response: revert or fix forward immediately, before merging
-anything else on top — and when the triage says selection miss, the
-selector fix ships with it. Treat the failing run's first red shard as
-that work's evidence, not a background alarm.
-
-### CI-outage fallback
-
-When CI is unreachable, the local full gate returns as the documented
-exception:
-
-```bash
-yoke watch pytest -- runtime/api/ runtime/harness/ tests/
-```
-
-Record in the verification evidence that the local sweep substituted for CI
-and which commit it covered. Never merge with neither proof.
+That contract — the iteration loop, why the same tree is never proved
+twice, how to read a widened selection, the CI-disagreement triage, and
+the red-main and CI-outage protocols — lives in
+[`testing-verification/full-suite-authority.md`](testing-verification/full-suite-authority.md).
 
 ## Concurrent local runs
 
