@@ -254,6 +254,14 @@ test("the hosted visual fixture serves distinct immutable version definitions", 
       workflowId,
     );
     assert.deepEqual(currentDefinition.policies.approval_defaults, {}, workflowId);
+    if (["dash", "blitz"].includes(workflowId)) {
+      assert.equal(
+        Object.hasOwn(historicalDefinition.policies, "path_survey"),
+        false,
+        workflowId,
+      );
+      assert.equal(currentDefinition.policies.path_survey, "required", workflowId);
+    }
     assert.notDeepEqual(historicalDefinition, currentDefinition, workflowId);
   }
 });

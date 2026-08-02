@@ -86,9 +86,8 @@ def _is_exempt(path: Path) -> bool:
 def _path_in_allowlist(rel_str: str, allow: tuple[str, ...]) -> bool:
     """Return True when ``rel_str`` is covered by any allow-list entry.
 
-    Matching is prefix-based: an entry like ``runtime/api/tools/shell_inventory``
-    covers every ``shell_inventory_*.py`` sibling, while an entry like
-    ``.yoke/strategy/WISPS.md`` still matches the exact path as a prefix of itself.
+    Matching is prefix-based, so one entry can cover a file family while a
+    fully-qualified entry can target one exact path.
     """
     return any(rel_str.startswith(entry) for entry in allow)
 

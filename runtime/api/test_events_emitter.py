@@ -266,44 +266,6 @@ class TestInsertSqlColumnCount(unittest.TestCase):
         self.assertIn("hook_event_name", columns)
 
 
-class TestEmitEventArgvCompat(unittest.TestCase):
-    """Verify command-like legacy argv delegates carry canonical context."""
-
-    def test_forwards_canonical_context_flags(self):
-        from yoke_core.domain import events_argv_compat
-
-        sentinel = object()
-        with patch.object(events_argv_compat, "emit_event", return_value=sentinel) as fake_emit:
-            result = events_argv_compat.emit_event_argv(
-                [
-                    "--name",
-                    "ArgvEvent",
-                    "--kind",
-                    "system",
-                    "--type",
-                    "test",
-                    "--source-type",
-                    "backend",
-                    "--session-id",
-                    "sess-1",
-                    "--org-id",
-                    "org-1",
-                    "--environment",
-                    "stage",
-                    "--request-id",
-                    "req-1",
-                ]
-            )
-
-        self.assertIs(result, sentinel)
-        self.assertEqual(fake_emit.call_args.args, ("ArgvEvent",))
-        self.assertEqual(fake_emit.call_args.kwargs["session_id"], "sess-1")
-        self.assertNotIn("user_id", fake_emit.call_args.kwargs)
-        self.assertEqual(fake_emit.call_args.kwargs["org_id"], "org-1")
-        self.assertEqual(fake_emit.call_args.kwargs["environment"], "stage")
-        self.assertEqual(fake_emit.call_args.kwargs["request_id"], "req-1")
-
-
 class TestProductEventCli(unittest.TestCase):
     def test_emit_rejects_retired_user_identity_flag(self):
         from yoke_cli.commands.adapters.events import events_emit
