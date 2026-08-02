@@ -112,7 +112,7 @@ class TestValidateComposition:
 
         ok, msg = dr.cmd_validate_composition(run_id, db_path=db_path)
         assert not ok
-        assert "not at implemented" in msg
+        assert "not delivery-ready" in msg
 
     def test_not_found(self, db_path: str) -> None:
         ok, msg = dr.cmd_validate_composition("nonexistent", db_path=db_path)
