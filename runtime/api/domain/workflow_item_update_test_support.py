@@ -45,7 +45,6 @@ CREATE TABLE epic_tasks (
     github_issue TEXT,
     branch TEXT,
     worktree_path TEXT,
-    blocked_by TEXT,
     max_attempts INTEGER DEFAULT 5,
     agent_id TEXT,
     last_heartbeat TEXT,

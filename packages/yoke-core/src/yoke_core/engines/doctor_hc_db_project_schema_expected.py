@@ -22,9 +22,9 @@ from yoke_core.domain.epic_task_membership import MEMBERSHIP_FINALIZED_COLUMN
 
 
 _EXPECTED_SCHEMA_STR = (
-    "items:id/INTEGER,title/TEXT,status/TEXT,priority/TEXT,flow/TEXT,"
+    "items:id/INTEGER,title/TEXT,status/TEXT,priority/TEXT,"
     "rework_count/INTEGER,frozen/INTEGER,github_issue/TEXT,deployed_to/TEXT,"
-    "worktree/TEXT,merged_at/TEXT,created_at/TEXT,updated_at/TEXT,source/TEXT,"
+    "merged_at/TEXT,created_at/TEXT,updated_at/TEXT,source/TEXT,"
     "project_id/INTEGER,project_sequence/INTEGER,deployment_flow/TEXT,deploy_stage/TEXT,spec/TEXT,design_spec/TEXT,"
     "technical_plan/TEXT,worktree_plan/TEXT,shepherd_log/TEXT,shepherd_caveats/TEXT,"
     "test_results/TEXT,deploy_log/TEXT,spec_updated_at/TEXT,spec_updated_by/TEXT,"
@@ -52,7 +52,7 @@ _EXPECTED_SCHEMA_STR = (
     "|epic_tasks:id/INTEGER,epic_id/INTEGER,task_num/INTEGER,title/TEXT,item_worktree_id/INTEGER,"
     "context_estimate/TEXT,dependencies/TEXT,status/TEXT,dispatch_attempts/INTEGER,"
     "scope_state/TEXT,scope_finalized_at/TEXT,"
-    "body/TEXT,github_issue/TEXT,blocked_by/TEXT,"
+    "body/TEXT,github_issue/TEXT,"
     "max_attempts/INTEGER,agent_id/TEXT,last_heartbeat/TEXT,last_activity_at/TEXT"
     "|epic_task_files:id/INTEGER,epic_id/INTEGER,task_num/INTEGER,file_path/TEXT,action/TEXT"
     "|epic_dispatch_chains:id/INTEGER,epic_id/INTEGER,item_worktree_id/INTEGER,"
@@ -106,7 +106,7 @@ _EXPECTED_SCHEMA_STR = (
     "event_kind/TEXT,event_type/TEXT,event_name/TEXT,event_outcome/TEXT,"
     "org_id/TEXT,actor_id/INTEGER,environment/TEXT,service/TEXT,project_id/INTEGER,item_id/TEXT,"
     "task_num/INTEGER,agent/TEXT,tool_name/TEXT,duration_ms/INTEGER,exit_code/INTEGER,"
-    "trace_id/TEXT,parent_id/TEXT,anomaly_flags/TEXT,tool_use_id/TEXT,turn_id/TEXT,"
+    "trace_id/TEXT,anomaly_flags/TEXT,tool_use_id/TEXT,turn_id/TEXT,"
     "hook_event_name/TEXT,envelope/TEXT,created_at/TEXT"
     "|event_registry:event_name/TEXT,event_kind/TEXT,event_type/TEXT,owner_service/TEXT,"
     "description/TEXT,context_schema/TEXT,severity_default/TEXT,added_in/TEXT,status/TEXT"

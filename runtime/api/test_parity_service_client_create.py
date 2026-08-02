@@ -32,7 +32,7 @@ class TestCreateParity:
 
         API returns the created item directly; CLI returns mutation result
         with field_writes and defaults.  Both must agree on the field values
-        that matter: status, priority, workflow, and flow defaults.
+        that matter: status, priority, and workflow.
         """
         client = write_parity_env["client"]
         db_path = write_parity_env["db_path"]
@@ -65,9 +65,6 @@ class TestCreateParity:
         assert cli_data["field_writes"]["priority"] == "high"
         assert api_item["workflow_id"] == "dash"
         assert cli_data["field_writes"]["workflow_id"] == "dash"
-        # Default flow should be accelerated
-        assert cli_data["field_writes"]["flow"] == "accelerated"
-        assert cli_data["defaults"]["flow"] == "accelerated"
 
     def test_create_invalid_title_rejected_both(self, write_parity_env):
         """Both surfaces should reject a title exceeding 100 characters."""

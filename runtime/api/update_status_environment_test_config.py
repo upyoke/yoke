@@ -21,7 +21,6 @@ ITEM_UPSERT_SET = _upsert_set(
     "workflow_version_id",
     "status",
     "priority",
-    "flow",
     "rework_count",
     "frozen",
     "created_at",

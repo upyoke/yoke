@@ -42,7 +42,6 @@ def create_core_tables(conn: Any) -> None:
           title TEXT NOT NULL,
           status TEXT NOT NULL,
           priority TEXT NOT NULL DEFAULT 'medium' CHECK(priority IN ('high','medium','low')),
-          flow TEXT DEFAULT 'accelerated',
           rework_count INTEGER DEFAULT 0,
           frozen INTEGER DEFAULT 0 CHECK(frozen IN (0,1)),
           blocked INTEGER DEFAULT 0 CHECK(blocked IN (0,1)),

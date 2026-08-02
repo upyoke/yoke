@@ -26,12 +26,10 @@ workflow_version_id INTEGER NOT NULL REFERENCES workflow_versions(id)
 workflow_posture TEXT NOT NULL DEFAULT '{}'
 status TEXT NOT NULL -- current stage in the pinned definition
 priority TEXT NOT NULL DEFAULT 'medium' -- high|medium|low
-flow TEXT DEFAULT 'accelerated'
 rework_count INTEGER DEFAULT 0
 frozen INTEGER DEFAULT 0
 github_issue TEXT
 deployed_to TEXT
-worktree TEXT
 body TEXT
 merged_at TEXT
 created_at TEXT NOT NULL
@@ -282,7 +280,6 @@ body TEXT
 github_issue TEXT
 branch TEXT
 worktree_path TEXT
-blocked_by TEXT
 max_attempts INTEGER DEFAULT 5
 agent_id TEXT
 last_heartbeat TEXT

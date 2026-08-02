@@ -131,11 +131,11 @@ class TestUpdateItemMulti:
     def test_batch_update(self, db_with_item):
         update_item_multi(
             1,
-            {"priority": "high", "flow": "standard"},
+            {"priority": "high", "title": "Updated item"},
             db_path=db_with_item,
         )
         assert query_item(1, "priority", db_path=db_with_item) == "high"
-        assert query_item(1, "flow", db_path=db_with_item) == "standard"
+        assert query_item(1, "title", db_path=db_with_item) == "Updated item"
 
     def test_sets_updated_at(self, db_with_item):
         old_ts = query_item(1, "updated_at", db_path=db_with_item)
@@ -173,7 +173,7 @@ class TestUpdateItemMulti:
         assert query_item(1, "frozen", db_path=db_with_item) == "true"
 
     def test_null_mapping_in_batch(self, db_with_item):
-        update_item_multi(1, {"flow": "standard"}, db_path=db_with_item)
-        assert query_item(1, "flow", db_path=db_with_item) == "standard"
-        update_item_multi(1, {"flow": "null"}, db_path=db_with_item)
-        assert query_item(1, "flow", db_path=db_with_item) == ""
+        update_item_multi(1, {"blocked_reason": "paused"}, db_path=db_with_item)
+        assert query_item(1, "blocked_reason", db_path=db_with_item) == "paused"
+        update_item_multi(1, {"blocked_reason": "null"}, db_path=db_with_item)
+        assert query_item(1, "blocked_reason", db_path=db_with_item) == ""

@@ -101,7 +101,6 @@ CREATE TABLE IF NOT EXISTS events (
     duration_ms INTEGER,
     exit_code INTEGER,
     trace_id TEXT,
-    parent_id TEXT,
     anomaly_flags TEXT,
     tool_use_id TEXT,
     turn_id TEXT,

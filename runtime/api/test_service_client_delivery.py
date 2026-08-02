@@ -72,7 +72,6 @@ class TestCreateItem:
         data = json.loads(result.stdout.strip())
         assert "defaults" in data
         assert data["defaults"]["status"] == "idea"
-        assert data["defaults"]["flow"] == "accelerated"
 
     def test_create_title_too_long_rejected(self, mutation_db):
         """Title exceeding 100 chars should be rejected."""
