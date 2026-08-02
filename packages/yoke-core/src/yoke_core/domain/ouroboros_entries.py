@@ -13,6 +13,9 @@ from yoke_core.domain.db_helpers import (
 from yoke_core.domain.field_note_dash_promotion import (
     promoted_dash_by_field_note_ids,
 )
+from yoke_core.domain.ouroboros_entry_corrections import (
+    correction_links_by_entry_ids,
+)
 from yoke_core.domain.project_identity import resolve_project_id
 
 __all__ = [
@@ -48,6 +51,12 @@ def _format_row(row) -> str:
     )
 
 
+def _apply_correction_link(entry: dict, link: Optional[dict]) -> None:
+    """Project both supersede directions onto an entry, absent as None."""
+    entry["corrects"] = (link or {}).get("corrects")
+    entry["superseded_by"] = (link or {}).get("superseded_by")
+
+
 def cmd_insert_entry(
     conn,
     timestamp: str,
@@ -71,7 +80,6 @@ def cmd_insert_entry(
 
     # Native id read: driver-side generated-id attributes are fragile to
     # intervening sequence touches. RETURNING is the unambiguous form.
-    project_id = resolve_project_id(conn, project) if project else None
     row = conn.execute(
         "INSERT INTO ouroboros_entries "
         "(timestamp, agent, context, category, body, project_id, created_at) "
@@ -132,8 +140,12 @@ def list_entry_rows(
     promotions = promoted_dash_by_field_note_ids(
         conn, (entry["id"] for entry in entries),
     )
+    links = correction_links_by_entry_ids(
+        conn, (entry["id"] for entry in entries),
+    )
     for entry in entries:
         entry["promoted_dash"] = promotions.get(entry["id"])
+        _apply_correction_link(entry, links.get(entry["id"]))
     return entries
 
 
@@ -176,6 +188,9 @@ def get_entry_row(conn, entry_id: int) -> Optional[dict]:
     entry["promoted_dash"] = promoted_dash_by_field_note_ids(
         conn, [entry_id],
     ).get(entry_id)
+    _apply_correction_link(
+        entry, correction_links_by_entry_ids(conn, [entry_id]).get(entry_id),
+    )
     return entry
 
 

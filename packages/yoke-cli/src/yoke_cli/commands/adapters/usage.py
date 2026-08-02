@@ -112,12 +112,12 @@ from yoke_cli.commands.adapters.shepherd_dependency import (
     SHEPHERD_DEPENDENCY_UPDATE_USAGE,
 )
 from yoke_cli.commands.adapters.misc import (
-    OUROBOROS_ENTRY_GET_USAGE,
-    OUROBOROS_ENTRY_LIST_USAGE,
-    OUROBOROS_FIELD_NOTE_GET_USAGE,
-    OUROBOROS_FIELD_NOTE_LIST_USAGE,
-    OUROBOROS_USAGE,
+    OUROBOROS_ENTRY_GET_USAGE, OUROBOROS_ENTRY_LIST_USAGE,
     SCRATCH_DISPATCH_INPUTS_USAGE,
+)
+from yoke_cli.commands.adapters.ouroboros_field_note import (
+    OUROBOROS_FIELD_NOTE_GET_USAGE, OUROBOROS_FIELD_NOTE_LIST_USAGE,
+    OUROBOROS_USAGE,
 )
 from yoke_cli.commands.adapters.projects import (
     PROJECTS_CAPABILITY_HAS_USAGE,

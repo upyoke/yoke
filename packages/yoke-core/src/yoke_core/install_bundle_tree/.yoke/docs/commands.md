@@ -124,9 +124,9 @@ Detect and repair drift between local backlog and GitHub issues. Three-stage pip
 
 ### curate
 
-Curate the Ouroboros learning log. Process unreviewed agent observations from the `ouroboros_entries` table -- cluster related entries by semantic similarity, propose work items for actionable clusters, archive old entries, and promote recurring patterns to `yoke/ouroboros/patterns.md`.
+Curate the Ouroboros learning log. Process unreviewed agent observations from the `ouroboros_entries` table -- cluster related entries by semantic similarity, route each actionable cluster to the output that fits its size (a Dash for an instruction-sized repair, a work item for a root cause needing acceptance criteria or design), and archive handled entries.
 
-**Phase files:** `curate/cluster-and-work-item.md` (entry loading, clustering, code validation, duplicate checks, work-item filing, review/archive state) and `curate/patterns-and-retro.md` (pattern promotion and retrospective summary).
+**Phase file:** `curate/cluster-and-work-item.md` (entry loading, clustering, code validation, duplicate checks, Dash promotion or work-item filing, review/archive state).
 
 Supports project filtering (`--project <project-id>`). Runs inline in the main session -- no subagent needed.
 
