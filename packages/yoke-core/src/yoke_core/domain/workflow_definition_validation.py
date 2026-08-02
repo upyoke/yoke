@@ -58,6 +58,7 @@ _POLICY_VALUES = {
         WORKFLOW_FILE_BUDGET_REQUIRED_PER_TASK,
         WORKFLOW_FILE_BUDGET_OPTIONAL,
     }),
+    "path_survey": frozenset({WORKFLOW_PATH_CLAIMS_REQUIRED, WORKFLOW_PATH_CLAIMS_OPTIONAL}),
     "worktrees": frozenset({
         "single_implementation_lane",
         "worker_and_integration_lanes",
@@ -95,6 +96,7 @@ _ITEM_POSTURE_VALUES = frozenset({
     "deployment",
     "file_budget",
     "path_claims",
+    "path_survey",
     "verification",
 })
 _CORE_INVARIANT_KEYS = frozenset({
@@ -230,8 +232,8 @@ def _validate_policies(definition: Mapping[str, Any]) -> None:
     policy_values = dict(_POLICY_VALUES)
     if schema_version == 1:
         policy_values.pop("file_budget")
-    required = set(policy_values) | {"item_posture_allowlist"}
-    allowed = required | {"approval_defaults"}
+    required = (set(policy_values) - {"path_survey"}) | {"item_posture_allowlist"}
+    allowed = required | {"path_survey", "approval_defaults"}
     missing = required - set(policies)
     extra = set(policies) - allowed
     if missing or extra:
@@ -240,7 +242,7 @@ def _validate_policies(definition: Mapping[str, Any]) -> None:
             f"unknown={sorted(extra)}"
         )
     for key, allowed in policy_values.items():
-        if policies[key] not in allowed:
+        if key in policies and policies[key] not in allowed:
             raise WorkflowDefinitionError(
                 f"policies.{key} has unknown value {policies[key]!r}"
             )

@@ -54,10 +54,15 @@ export function renderNewItemView(context, main, projectId) {
       verification: false,
       file_budget: false,
       path_claims: false,
+      path_survey: false,
       approval_on_done: false,
       deployment: false,
       verification_target: "",
     };
+    const directWorkflow = ["dash", "blitz"].includes(selected.id);
+    const pathSurveyPolicy = selected.definition?.policies?.path_survey ||
+      (directWorkflow ? "required" : null);
+    state.path_survey = pathSurveyPolicy === "required";
     const verificationAvailable = Boolean(
       catalog.plans.length || catalog.methods.length,
     );
@@ -142,6 +147,11 @@ export function renderNewItemView(context, main, projectId) {
           "so overlapping work serializes instead of colliding at merge",
         ],
         [
+          "path_survey", "⌁", "Path survey",
+          `checks the files this ${selected.name || selected.id} expects to ` +
+          "touch and re-checks the declared set immediately before merge",
+        ],
+        [
           "approval_on_done", "☑", "Approval on done",
           "someone has to approve before it can finish — a project owner, " +
           "or a named person",
@@ -152,7 +162,8 @@ export function renderNewItemView(context, main, projectId) {
         ],
       ];
       for (const [key, icon, label, note] of rows) {
-        if (!allow.has(key) && !(key === "approval_on_done" && allow.has("approval"))) {
+        const directSurvey = key === "path_survey" && directWorkflow;
+        if (!allow.has(key) && !(key === "approval_on_done" && allow.has("approval")) && !directSurvey) {
           continue;
         }
         settings.body.appendChild(itemPostureToggle(
@@ -167,6 +178,7 @@ export function renderNewItemView(context, main, projectId) {
             ? verificationChoiceSelect(documentNode, catalog, state)
             : null,
           key !== "verification" || verificationAvailable,
+          key === "path_survey" && pathSurveyPolicy === "required",
         ));
       }
       form.appendChild(settings.panel);
@@ -203,7 +215,12 @@ export function renderNewItemView(context, main, projectId) {
             ? { kind: "plan", plan_id: Number(id) }
             : { kind: "ad_hoc", method_id: id };
         }
-        for (const key of ["file_budget", "path_claims", "deployment"]) {
+        for (const key of [
+          "file_budget", "path_claims", "path_survey", "deployment",
+        ]) {
+          if (key === "path_survey" && pathSurveyPolicy === "required") {
+            continue;
+          }
           if (state[key]) posture[key] = true;
         }
         if (state.approval_on_done) {

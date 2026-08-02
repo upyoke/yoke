@@ -6,6 +6,7 @@ from typing import Any, Mapping
 
 from yoke_core.domain.workflow_definition_builders import (
     WORKFLOW_FILE_BUDGET_OPTIONAL,
+    WORKFLOW_PATH_SURVEY_OPTIONAL,
 )
 
 
@@ -83,6 +84,14 @@ def validate_item_posture(
         ):
             raise ItemPostureError(
                 "file_budget posture only tightens an optional workflow policy"
+            )
+        if (
+            key == "path_survey"
+            and definition["policies"].get("path_survey", "required")
+            != WORKFLOW_PATH_SURVEY_OPTIONAL
+        ):
+            raise ItemPostureError(
+                "path_survey posture only tightens an optional workflow policy"
             )
         if value is not True:
             raise ItemPostureError(
