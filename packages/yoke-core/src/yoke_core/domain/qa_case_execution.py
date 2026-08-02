@@ -11,6 +11,8 @@ from typing import Optional
 from yoke_contracts.api.function_call import ActorContext, TargetRef
 
 from yoke_core.domain import qa_case_command_stream
+from yoke_core.domain import qa_constants
+from yoke_core.domain import qa_start_bound_authority
 from yoke_core.domain import test_gate_timeout
 from yoke_core.domain import verification_tree_binding
 
@@ -99,13 +101,12 @@ def _command_result(
     command = str(config.get("command") or "").strip()
     if not command:
         raise QaCaseExecutionError("Command case requires method_config.command")
-    configured_timeout = config.get("timeout_seconds", 1200)
-    timeout = int(
-        timeout_seconds if timeout_seconds is not None else configured_timeout
-    )
-    if timeout < 1 or timeout > 7200:
+    configured = config.get("timeout_seconds", 1200)
+    timeout = int(timeout_seconds if timeout_seconds is not None else configured)
+    if timeout < 1 or timeout > qa_constants.MAX_CASE_COMMAND_TIMEOUT_SECONDS:
         raise QaCaseExecutionError(
-            "Command case timeout_seconds must be between 1 and 7200"
+            "Command case timeout_seconds must be between 1 and "
+            f"{qa_constants.MAX_CASE_COMMAND_TIMEOUT_SECONDS}"
         )
     checkout = (
         Path(checkout_path).resolve()
@@ -181,22 +182,27 @@ def _command_result(
     if timeout_summary:
         record["timeout_summary"] = timeout_summary
     raw_result = json.dumps(record, sort_keys=True)
-    run = _dispatch(
+    requirement_id = int(case["requirement_id"])
+    # Every recording leg carries the authority the run bound at its start,
+    # so an hour-long gate still records after a mid-run claim reclaim.
+    authority = qa_start_bound_authority.payload_authority(case)
+
+    def record_leg(function_id: str, payload: dict) -> dict:
+        return _dispatch(
+            function_id, requirement_id, {**authority, **payload}, actor=actor
+        )
+
+    run = record_leg(
         "qa.run.add",
-        int(case["requirement_id"]),
         {
             "executor_type": "worktree_run",
             "raw_result": raw_result,
             "duration_ms": duration_ms,
         },
-        actor=actor,
     )
     run_id = int(run["qa_run_id"])
     from yoke_core.domain.qa_artifact_handle import local_handle
-    from yoke_core.domain.qa_artifacts import (
-        artifact_file_path,
-        case_artifact_subject,
-    )
+    from yoke_core.domain.qa_artifacts import artifact_file_path, case_artifact_subject
 
     output_path = artifact_file_path(
         str(case["project"]),
@@ -205,17 +211,13 @@ def _command_result(
         "command-output.txt",
     )
     output_path.write_text(output, encoding="utf-8")
-    artifact = _dispatch(
+    artifact = record_leg(
         "qa.artifact.add",
-        int(case["requirement_id"]),
         {
             "run_id": run_id,
             "artifact_type": "command_output",
             "content_type": "text/plain",
-            "artifact_handle": local_handle(
-                str(output_path.resolve()),
-                "text/plain",
-            ),
+            "artifact_handle": local_handle(str(output_path.resolve()), "text/plain"),
             "metadata": json.dumps(
                 {
                     "case_key": case["case_key"],
@@ -225,21 +227,18 @@ def _command_result(
                 sort_keys=True,
             ),
         },
-        actor=actor,
     )
-    _dispatch(
+    record_leg(
         "qa.run.complete",
-        int(case["requirement_id"]),
         {
             "run_id": run_id,
             "verdict": verdict,
             "raw_result": raw_result,
             "duration_ms": duration_ms,
         },
-        actor=actor,
     )
     return {
-        "requirement_id": int(case["requirement_id"]),
+        "requirement_id": requirement_id,
         "run_id": run_id,
         "artifact_id": int(artifact["qa_artifact_id"]),
         "executor_id": "worktree_run",
