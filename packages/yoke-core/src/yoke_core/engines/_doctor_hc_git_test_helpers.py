@@ -47,7 +47,7 @@ def _make_conn():
             title TEXT, workflow_id TEXT, workflow_version_id INTEGER,
             status TEXT, priority TEXT,
             project_id INTEGER DEFAULT 1, project_sequence INTEGER,
-            github_issue TEXT, flow TEXT, rework_count INTEGER,
+            github_issue TEXT, rework_count INTEGER,
             deployed_to TEXT, updated_at TEXT,
             deployment_flow TEXT, merged_at TEXT,
             deploy_stage TEXT, created_at TEXT

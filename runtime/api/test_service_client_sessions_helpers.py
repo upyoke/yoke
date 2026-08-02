@@ -107,7 +107,6 @@ _SESSION_OFFER_SCHEMA_DDL = """
         duration_ms INTEGER,
         exit_code INTEGER,
         trace_id TEXT,
-        parent_id TEXT,
         anomaly_flags TEXT,
         tool_use_id TEXT,
         turn_id TEXT,

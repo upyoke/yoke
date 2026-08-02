@@ -55,7 +55,6 @@ def insert_item(
     workflow: Optional[str] = None,
     status: Optional[str] = None,
     priority: Optional[str] = "medium",
-    flow: Optional[str] = None,
     rework_count: Optional[int] = 0,
     frozen: Optional[int] = 0,
     blocked: Optional[int] = 0,
@@ -116,12 +115,12 @@ def insert_item(
             """
             INSERT INTO items (
                 id, title, workflow_id, workflow_version_id,
-                status, priority, flow,
+                status, priority,
                 rework_count, frozen, blocked, blocked_reason,
                 github_issue, deployed_to,
                 created_at, updated_at, source,
                 project_id, project_sequence, deployment_flow
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 item_id,
@@ -130,7 +129,6 @@ def insert_item(
                 workflow_version_id,
                 status,
                 priority,
-                flow,
                 rework_count,
                 frozen,
                 blocked,

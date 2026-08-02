@@ -30,7 +30,7 @@ _EVT_SELECT_COLS = (
     "COALESCE((SELECT p.slug FROM projects p WHERE p.id = events.project_id), ''), "
     "COALESCE(item_id,''), COALESCE(CAST(task_num AS TEXT),''), COALESCE(agent,''), "
     "COALESCE(tool_name,''), COALESCE(CAST(duration_ms AS TEXT),''), COALESCE(CAST(exit_code AS TEXT),''), "
-    "COALESCE(trace_id,''), COALESCE(parent_id,''), COALESCE(anomaly_flags,''), "
+    "COALESCE(trace_id,''), COALESCE(anomaly_flags,''), "
     "created_at"
 )
 
@@ -41,7 +41,7 @@ EVT_COLUMN_NAMES = (
     "event_kind", "event_type", "event_name", "event_outcome", "org_id",
     "actor_id", "environment", "service", "project", "item_id",
     "task_num", "agent", "tool_name", "duration_ms", "exit_code",
-    "trace_id", "parent_id", "anomaly_flags", "created_at",
+    "trace_id", "anomaly_flags", "created_at",
 )
 
 # Registry SELECT columns

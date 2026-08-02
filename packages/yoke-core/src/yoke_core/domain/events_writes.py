@@ -176,7 +176,6 @@ def cmd_insert(
     duration_ms: Optional[int] = None,
     exit_code: Optional[int] = None,
     trace_id: Optional[str] = None,
-    parent_id: Optional[str] = None,
     anomaly_flags: Optional[str] = None,
     tool_use_id: Optional[str] = None,
     turn_id: Optional[str] = None,
@@ -228,7 +227,7 @@ def cmd_insert(
                 event_kind, event_type, event_name, event_outcome,
                 org_id, actor_id, environment, service, project_id,
                 item_id, task_num, agent, tool_name,
-                duration_ms, exit_code, trace_id, parent_id,
+                duration_ms, exit_code, trace_id,
                 anomaly_flags, tool_use_id, turn_id,
                 hook_event_name, envelope, created_at
             ) VALUES (
@@ -236,7 +235,7 @@ def cmd_insert(
                 %s, %s, %s, %s,
                 %s, %s, %s, %s, %s,
                 %s, %s, %s, %s,
-                %s, %s, %s, %s,
+                %s, %s, %s,
                 %s, %s, %s,
                 %s, %s, %s
             )
@@ -246,7 +245,7 @@ def cmd_insert(
                 event_kind, event_type, event_name, event_outcome,
                 org_id, actor_id, environment, service, project_id,
                 item_id, task_num, agent, tool_name,
-                duration_ms, exit_code, trace_id, parent_id,
+                duration_ms, exit_code, trace_id,
                 anomaly_flags, tool_use_id, turn_id,
                 hook_event_name, envelope, created_at or iso8601_now(),
             ),

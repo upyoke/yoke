@@ -221,7 +221,7 @@ class TestCmdInit:
 
         for col in (
             "body", "github_issue", "item_worktree_id",
-            "blocked_by", "max_attempts", "agent_id", "last_heartbeat",
+            "max_attempts", "agent_id", "last_heartbeat",
             "last_activity_at",
         ):
             assert col in cols, f"epic_tasks missing column: {col}"

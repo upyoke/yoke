@@ -108,7 +108,7 @@ EPIC_TASK_COMMANDS: list[dict] = [
             "`metadata-update` writes selected epic_tasks fields; valid "
             "fields include title, "
             "context_estimate, dependencies, status, dispatch_attempts, "
-            "body, github_issue, item_worktree_id, blocked_by, "
+            "body, github_issue, item_worktree_id, "
             "max_attempts, agent_id, last_heartbeat. dependencies is "
             "comma-separated TEXT containing prerequisite task_num values "
             "from the same epic, not JSON. For body content "

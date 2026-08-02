@@ -45,7 +45,6 @@ _ARGV_FIELD_TO_KWARG = {
     "tool-name": "tool_name",
     "duration-ms": "duration_ms",
     "trace-id": "trace_id",
-    "parent-id": "parent_id",
     "anomaly-flags": "anomaly_flags",
     "tool-use-id": "tool_use_id",
     "turn-id": "turn_id",

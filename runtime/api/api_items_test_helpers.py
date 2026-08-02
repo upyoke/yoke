@@ -42,6 +42,14 @@ CREATE TABLE strategy_docs (
     slug TEXT NOT NULL, content TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL,
     updated_by_actor_id INTEGER, archived_at TEXT, UNIQUE(project_id, slug)
 );
+CREATE TABLE strategy_doc_claims (
+    id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL,
+    strategy_doc_slug TEXT NOT NULL, owning_item_id INTEGER NOT NULL,
+    registered_by_actor_id INTEGER, registered_by_session_id TEXT,
+    registered_at TEXT NOT NULL, released_by_actor_id INTEGER,
+    released_by_session_id TEXT, released_at TEXT, release_mode TEXT,
+    release_reason TEXT
+);
 CREATE TABLE deployment_flows (
     id TEXT PRIMARY KEY, project_id INTEGER NOT NULL, name TEXT NOT NULL,
     description TEXT, stages TEXT NOT NULL, on_failure TEXT DEFAULT 'halt',
@@ -77,7 +85,8 @@ CREATE TABLE qa_requirements (
 );
 CREATE TABLE qa_runs (
     id INTEGER PRIMARY KEY, qa_requirement_id INTEGER NOT NULL,
-    executor_type TEXT, verdict TEXT, raw_result TEXT, created_at TEXT NOT NULL
+    executor_type TEXT, verdict TEXT, execution_status TEXT,
+    raw_result TEXT, created_at TEXT NOT NULL
 );
 CREATE TABLE item_sections (
     item_id INTEGER, section_name TEXT, content TEXT, ordering INTEGER,
@@ -107,7 +116,10 @@ CREATE TABLE work_claims (
     claimed_at TEXT NOT NULL,
     last_heartbeat TEXT NOT NULL,
     released_at TEXT,
-    release_reason TEXT
+    release_reason TEXT,
+    reason TEXT DEFAULT NULL,
+    reason_intent TEXT DEFAULT NULL,
+    release_reason_intent TEXT DEFAULT NULL
 );
 """
 

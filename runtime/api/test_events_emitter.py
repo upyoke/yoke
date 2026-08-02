@@ -253,7 +253,7 @@ class TestInsertSqlColumnCount(unittest.TestCase):
         placeholders = val_section.count("%s")
 
         self.assertEqual(len(columns), placeholders)
-        self.assertEqual(len(columns), 27)
+        self.assertEqual(len(columns), 26)
 
         # Verify new columns are present
         self.assertNotIn("user_id", columns)
