@@ -60,14 +60,6 @@ def display_claim_item_id(
     return str(item_id)
 
 
-def _claim_item_lookup_pair(item_id: str) -> tuple[str, str]:
-    """Return the canonical storage value plus its legacy prefixed alias."""
-    normalized = normalize_claim_item_id(item_id)
-    if normalized.isdigit():
-        return normalized, f"YOK-{normalized}"
-    return normalized, normalized
-
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

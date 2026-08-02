@@ -54,7 +54,6 @@ from .sessions_lifecycle import (
 )
 from .sessions_offer import session_offer_with_ownership
 from .sessions_queries import (
-    _claim_item_lookup_pair,
     _filter_schedule_for_offer,
     _now_iso,
     _required_path_for_step,
@@ -126,7 +125,6 @@ __all__ = [
     "normalize_claim_item_id",
     "normalize_session_item_id",
     "display_claim_item_id",
-    "_claim_item_lookup_pair",
     "_now_iso",
     "_row_to_dict",
     "_required_path_for_step",
