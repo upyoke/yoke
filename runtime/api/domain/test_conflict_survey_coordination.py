@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 from runtime.api.domain.path_claim_task_test_support import (
     seed_item_claim,
     seed_target,
@@ -80,3 +82,93 @@ def test_coordination_only_edge_clears_claim_and_frontier_contacts(test_db):
         "frontier_scope",
         "path_claim",
     }
+
+
+def test_optional_dash_ignores_frozen_planned_scope_and_claim(test_db):
+    candidate_id = 2210
+    blocker_id = 2211
+    shared_path = "src/frozen_scope.py"
+    insert_item(test_db, id=candidate_id, workflow_id="dash")
+    insert_item(
+        test_db,
+        id=blocker_id,
+        workflow_id="issue",
+        frozen=1,
+        spec=f"## File Budget\n\n- `{shared_path}`\n",
+    )
+    target_id = seed_target(test_db, item_id=blocker_id, path=shared_path)
+    seed_item_claim(
+        test_db,
+        item_id=blocker_id,
+        target_ids=(target_id,),
+        state="planned",
+    )
+
+    survey = survey_conflicts(
+        test_db,
+        item_id=candidate_id,
+        touch_paths=[shared_path],
+    )
+
+    assert survey.clear is True
+    assert survey.blockers == ()
+
+
+def test_selected_dash_path_claims_keep_frozen_planned_scope_blocking(test_db):
+    candidate_id = 2212
+    blocker_id = 2213
+    shared_path = "src/frozen_required_scope.py"
+    insert_item(
+        test_db,
+        id=candidate_id,
+        workflow_id="dash",
+        workflow_posture=json.dumps({"path_claims": True}),
+    )
+    insert_item(
+        test_db,
+        id=blocker_id,
+        workflow_id="issue",
+        frozen=1,
+        spec=f"## File Budget\n\n- `{shared_path}`\n",
+    )
+    target_id = seed_target(test_db, item_id=blocker_id, path=shared_path)
+    seed_item_claim(
+        test_db,
+        item_id=blocker_id,
+        target_ids=(target_id,),
+        state="planned",
+    )
+
+    survey = survey_conflicts(
+        test_db,
+        item_id=candidate_id,
+        touch_paths=[shared_path],
+    )
+
+    assert {row.kind for row in survey.blockers} == {
+        "frontier_scope",
+        "path_claim",
+    }
+
+
+def test_optional_dash_keeps_active_frozen_claim_blocking(test_db):
+    candidate_id = 2214
+    blocker_id = 2215
+    shared_path = "src/frozen_active_scope.py"
+    insert_item(test_db, id=candidate_id, workflow_id="dash")
+    insert_item(test_db, id=blocker_id, workflow_id="issue", frozen=1)
+    target_id = seed_target(test_db, item_id=blocker_id, path=shared_path)
+    seed_item_claim(
+        test_db,
+        item_id=blocker_id,
+        target_ids=(target_id,),
+        state="active",
+    )
+
+    survey = survey_conflicts(
+        test_db,
+        item_id=candidate_id,
+        touch_paths=[shared_path],
+    )
+
+    assert {row.kind for row in survey.blockers} == {"path_claim"}

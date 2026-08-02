@@ -168,8 +168,8 @@ class TestSkillDiscovery:
     def test_help_command_reference_includes_refine_and_polish(self):
         # Help output is rendered from the router's Command Reference table.
         router_text = _read(SKILLS / "SKILL.md")
-        assert "/yoke refine YOK-N" in router_text
-        assert "/yoke polish YOK-N" in router_text
+        assert "/yoke refine PREFIX-N" in router_text
+        assert "/yoke polish PREFIX-N" in router_text
 
     def test_codex_bootstrap_lists_refine_polish_and_usher(self):
         codex = REPO / "CODEX.md"

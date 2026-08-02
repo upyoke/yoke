@@ -1,12 +1,12 @@
 # Merge — Conflict Handling
 
-Operator-facing recovery procedures for when the retained merge watcher (`python3 -m yoke_core.tools.watch_merge merge-worktree`) reports conflicts (exit code 3) or fails hard (exit code 1). Also captures the general Notes that describe merge sequencing invariants.
+Operator-facing recovery procedures for when the retained merge watcher (`yoke watch merge merge-worktree`) reports conflicts (exit code 3) or fails hard (exit code 1). Also captures the general Notes that describe merge sequencing invariants.
 
 ---
 
 ## When merge reports conflicts (exit code 3)
 
-When `python3 -m yoke_core.tools.watch_merge merge-worktree` exits with code 3, the underlying merge engine found conflicts that its deterministic auto-resolver could not handle, but the agent may be able to resolve using judgement. The wrapper preserves the engine's structured per-file conflict classification on stderr:
+When `yoke watch merge merge-worktree` exits with code 3, the underlying merge engine found conflicts that its deterministic auto-resolver could not handle, but the agent may be able to resolve using judgement. The wrapper preserves the engine's structured per-file conflict classification on stderr:
 
 ```
 CONFLICT|path/to/file.sh|additive (auto)

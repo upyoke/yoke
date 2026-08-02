@@ -127,12 +127,12 @@ Build context block (same pattern as `dispatch-context.md` 5f-epic.6) then dispa
 
 **Dispatch:** descriptor `DispatchDescriptor(role="engineer")` rendered via `yoke_core.domain.dispatch_descriptors.render_for_harness(descriptor, harness_id)`. Result-schema markers: `---SUBMISSION-CHECKS-START---`, `---REFLECTION-START---`. The descriptor's `prompt: |` block is filled with:
 ```
- Implement fix task for YOK-{_item_id}: Fix integration simulation gaps (amend cycle)
+ Implement fix task for PREFIX-{_item_id}: Fix integration simulation gaps (amend cycle)
  {context block}
  Read the authoritative task spec from the DB before starting:
  yoke workflow-item epic-task body-get --epic "{_epic_id}" --task-num "{_fix_task_num}"
  Also read the parent item spec for full context:
- yoke items get YOK-{_item_id} spec
+ yoke items get PREFIX-{_item_id} spec
  IMPORTANT: cd to the worktree path FIRST. Commit incrementally. Run tests before finishing.
 ```
 
@@ -145,9 +145,9 @@ Build context block (same pattern as `dispatch-context.md` 5f-epic.6) then dispa
  if ! git diff --cached --quiet 2>/dev/null; then
  _uncommitted_count=$(git diff --cached --name-only | wc -l | tr -d ' ')
  _uncommitted_files=$(git diff --cached --name-only | tr '\n' ', ' | sed 's/,$//')
- git commit -m "chore: auto-commit Engineer uncommitted work [YOK-${_item_id}] (autofix)"
+ git commit -m "chore: auto-commit Engineer uncommitted work [PREFIX-${_item_id}] (autofix)"
  yoke ouroboros entry insert \
- --agent conduct --category problem --context "YOK-${_item_id}" \
+ --agent conduct --category problem --context "PREFIX-${_item_id}" \
  --observation "Engineer left ${_uncommitted_count} uncommitted file(s) in autofix cycle. Files: ${_uncommitted_files}"
  fi
  ```
@@ -166,7 +166,7 @@ If conflicts: re-dispatch Engineer to resolve. If still unresolved after re-disp
 
 **Dispatch:** descriptor `DispatchDescriptor(role="tester")` rendered via `yoke_core.domain.dispatch_descriptors.render_for_harness(descriptor, harness_id)`. Result-schema markers: `VERDICT: PASS|FAIL`, `---REFLECTION-START---`. The descriptor's `prompt: |` block is filled with:
 ```
- Validate fix task for YOK-{_item_id}: Fix integration simulation gaps (amend cycle)
+ Validate fix task for PREFIX-{_item_id}: Fix integration simulation gaps (amend cycle)
  Repository root: {MAIN_ROOT}
  Read the authoritative task spec:
  yoke workflow-item epic-task body-get --epic "{_epic_id}" --task-num "{_fix_task_num}"
@@ -208,12 +208,12 @@ _task_list=$(yoke db read --format lines \
 
 **Dispatch:** descriptor `DispatchDescriptor(role="simulator")` rendered via `yoke_core.domain.dispatch_descriptors.render_for_harness(descriptor, harness_id)`. Result-schema markers: `SIMULATION: CLEAN|GAPS FOUND`, `---REFLECTION-START---`. The descriptor's `prompt: |` block is filled with:
 ```
- Run integration simulation for epic {_epic_id} (YOK-{_item_id}).
+ Run integration simulation for epic {_epic_id} (PREFIX-{_item_id}).
  Repository root: {MAIN_ROOT}
  All tasks completed testing successfully including auto-created fix task {_fix_task_num}.
  This is the final re-simulation after the amend cycle.
  Trace execution paths across tasks to find any remaining integration gaps.
- IMPORTANT: Your response MUST begin with the two-line verdict block — line 1 is SIMULATION: CLEAN or SIMULATION: GAPS FOUND, line 2 is EPIC: YOK-{_item_id}. Persistence rejects bodies whose attested epic does not match YOK-{_item_id} (exit 16) or that omit the EPIC line entirely (exit 17).
+ IMPORTANT: Your response MUST begin with the two-line verdict block — line 1 is SIMULATION: CLEAN or SIMULATION: GAPS FOUND, line 2 is EPIC: PREFIX-{_item_id}. Persistence rejects bodies whose attested epic does not match PREFIX-{_item_id} (exit 16) or that omit the EPIC line entirely (exit 17).
  Worktree-State Authority: a task's resolved worktree checkout is the authority for that task's actual code whether the item/epic has one worktree or many. Main is the base/integration target, not evidence of unmerged task state. Use the task's worktree_path / branch when verifying files; if no worktree path or prompt-supplied diff exists, report evidence missing instead of inspecting main as a substitute.
  Worktree authorities: {_worktree_list from simulation-gate-criteria.md, refreshed}
  Epic tasks: {_task_list}

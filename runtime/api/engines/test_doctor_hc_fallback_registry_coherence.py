@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-from yoke_core.engines.doctor_hc_fallback_registry_coherence import (
+from yoke_project_checks.check_fallback_registry_coherence import (
     hc_fallback_registry_coherence,
 )
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
@@ -30,7 +30,7 @@ class TestHcFallbackRegistryCoherence:
 
     def test_self_skips_when_tracker_missing(self) -> None:
         with patch(
-            "yoke_core.engines.doctor_hc_fallback_registry_coherence._resolve_tracker",
+            "yoke_project_checks.check_fallback_registry_coherence._resolve_tracker",
             return_value=None,
         ):
             rec = _run()

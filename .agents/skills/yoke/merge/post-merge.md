@@ -9,7 +9,7 @@ Covers merge Step 7: after every branch has been merged, sync local main with or
 7. **After all branches merged — sync local main with origin:**
 
  **CRITICAL: Pull the PR merge commits into local main BEFORE any bookkeeping.**
-The retained merge watcher (`python3 -m yoke_core.tools.watch_merge merge-worktree`) attempts this internally, but failures are non-fatal. This explicit pull
+The retained merge watcher (`yoke watch merge merge-worktree`) attempts this internally, but failures are non-fatal. This explicit pull
  is the belt-and-suspenders guarantee that local main has all the merged code.
 
  ```bash

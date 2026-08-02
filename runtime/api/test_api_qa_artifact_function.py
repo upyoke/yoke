@@ -32,12 +32,13 @@ def _request(function_id: str, target: TargetRef, payload=None) -> FunctionCallR
 
 
 def _seed_browser_requirement(conn, *, req_id: int = 10, item_id: int = 42,
-                              qa_kind: str = "browser_smoke") -> None:
+                              qa_kind: str = "plan_case") -> None:
     insert_item(conn, id=item_id, title="T", status="reviewing-implementation")
     insert_qa_requirement(
         conn, id=req_id, item_id=item_id, qa_kind=qa_kind,
         qa_phase="verification", blocking_mode="blocking",
         success_policy='{"base_url": "http://localhost:9", "steps": []}',
+        method_id="browser-check",
     )
     conn.commit()
 

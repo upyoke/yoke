@@ -26,7 +26,7 @@ Use the registered plan materialization surface:
 
 ```bash
 yoke qa plan materialize \
-  --item "YOK-{N}" \
+  --item "PREFIX-{N}" \
   --transition release \
   --json
 ```
@@ -34,7 +34,7 @@ yoke qa plan materialize \
 Then read the item's typed requirements:
 
 ```bash
-yoke qa requirement list --item "YOK-{N}" --json
+yoke qa requirement list --item "PREFIX-{N}" --json
 ```
 
 Select unsatisfied, non-waived plan cases whose `method_id` is `command` and
@@ -52,7 +52,7 @@ ephemeral environment:
 
 ```bash
 _item_project=$(yoke items get {N} project)
-_item_branch=$(yoke item-worktrees get YOK-{N} \
+_item_branch=$(yoke item-worktrees get PREFIX-{N} \
   --lane-role implementation --field branch)
 yoke ephemeral-env get "$_item_project" "$_item_branch" --json
 ```

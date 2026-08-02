@@ -72,7 +72,7 @@ is the Python entry point. It:
    audit failure does not fail the repair).
 
 The registered CLI surface is
-``yoke readiness repair-stale-count --item YOK-N``; it runs the
+``yoke readiness repair-stale-count --item PREFIX-N``; it runs the
 check, classifies, attempts the repair when applicable, re-runs, and
 prints the structured payload.
 
@@ -84,7 +84,7 @@ The readiness issue's `context.recovery_command` is a ready-to-paste invocation 
 
 1. Invoke
    ``yoke claims path coordination-decision-build
-   --item YOK-N --conflicting-claim M --paths <shared>``
+   --item PREFIX-N --conflicting-claim M --paths <shared>``
    (or run the recovery command emitted on the issue).
 2. Read the returned context packet (both specs, conflicting claim
    state, three suggested commands — one per decision option).
@@ -103,7 +103,7 @@ Authoring command — coordination-only compatible overlap (independent):
 
 ```bash
 yoke shepherd dependency-add \
-    YOK-{candidate} YOK-{conflicting-item} refine \
+    PREFIX-{candidate} PREFIX-{conflicting-item} refine \
     --gate-point coordination_only \
     --rationale "<non-empty: shared paths + disjoint subsections evidence>"
 ```
@@ -112,7 +112,7 @@ Authoring command — directional activation (order-dependent overlap):
 
 ```bash
 yoke shepherd dependency-add \
-    YOK-{candidate} YOK-{upstream} refine \
+    PREFIX-{candidate} PREFIX-{upstream} refine \
     --gate-point activation \
     --satisfaction fact:merged \
     --rationale "decision=directional. <why order matters: what upstream lands that this candidate inherits>"
@@ -139,9 +139,9 @@ case "$_class" in
     _repair_rc=$?
     if [ "$_repair_rc" -ne 0 ]; then
       printf '%s\n' "$_repair_json"
-      yoke sessions checkpoint --step 1 --action refine --chainable false --outcome blocked --item-id "YOK-$ITEM_NUM"
+      yoke sessions checkpoint --step 1 --action refine --chainable false --outcome blocked --item-id "PREFIX-$ITEM_NUM"
       yoke claims work release \
-        --item "YOK-$ITEM_NUM" --reason "readiness-check-blocked" \
+        --item "PREFIX-$ITEM_NUM" --reason "readiness-check-blocked" \
         >/dev/null 2>&1 || true
       exit 1
     fi
@@ -159,9 +159,9 @@ case "$_class" in
     ;;
   unrecoverable)
     printf '%s\n' "$_readiness_json"
-    yoke sessions checkpoint --step 1 --action refine --chainable false --outcome blocked --item-id "YOK-$ITEM_NUM"
+    yoke sessions checkpoint --step 1 --action refine --chainable false --outcome blocked --item-id "PREFIX-$ITEM_NUM"
     yoke claims work release \
-      --item "YOK-$ITEM_NUM" --reason "readiness-check-blocked" \
+      --item "PREFIX-$ITEM_NUM" --reason "readiness-check-blocked" \
       >/dev/null 2>&1 || true
     exit 1
     ;;
@@ -227,10 +227,13 @@ the prior unrecoverable branch).
 ## Verification
 
 ```bash
-python3 -m yoke_core.tools.watch_pytest -- runtime/api/domain/test_idea_readiness_repair.py runtime/api/test_skill_doc_regressions_file_budget.py
 yoke readiness check {N}
 yoke readiness repair-stale-count --item {N}
 ```
+
+Plus your project's registered verification command for the paths this repair
+touched — the anchor paths are per-project, so read them from that command (or
+the project rules file) rather than hardcoding a test-file list.
 
 ## When to use tentative path-claim coverage
 

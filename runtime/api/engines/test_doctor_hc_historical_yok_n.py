@@ -18,7 +18,7 @@ from unittest import mock
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now
-from yoke_core.engines import doctor_hc_historical_yok_n as hc
+from yoke_project_checks import check_historical_yok_n as hc
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 
 _CHECK_ID = "HC-historical-yok-n-cruft"

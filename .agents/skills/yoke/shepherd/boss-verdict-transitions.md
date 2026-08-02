@@ -29,7 +29,7 @@ Covers steps 5j, 5l, and 5m: verdict result routing (READY/CAVEATS/NOT_READY), p
  - **Standalone mode:** Inform the user. Offer options: (1) retry anyway, (2) force-pass with caveats, (3) abort.
  - **Subagent mode:** Write a BLOCKED verdict and return exit code 1:
  ```bash
- yoke shepherd verdict --item "YOK-$_num" --transition "$_transition" --worker "$_worker_name" --verdict "BLOCKED" --caveats "Max attempts ($MAX_ATTEMPTS) exceeded"
+ yoke shepherd verdict --item "PREFIX-$_num" --transition "$_transition" --worker "$_worker_name" --verdict "BLOCKED" --caveats "Max attempts ($MAX_ATTEMPTS) exceeded"
  ```
 
 **Status target mapping:**
@@ -42,7 +42,7 @@ Covers steps 5j, 5l, and 5m: verdict result routing (READY/CAVEATS/NOT_READY), p
 Update status (skip for `refined_idea_to_planning` — already set):
 ```text
 if [ "$_transition" != "refined_idea_to_planning" ]; then
- invoke the Yoke advance skill for YOK-${_num} with target {target}
+ invoke the Yoke advance skill for PREFIX-${_num} with target {target}
 fi
 ```
 
@@ -77,14 +77,14 @@ if [ "$_transition" = "refined_idea_to_planning" ] && { [ "$_verdict" = "READY" 
  fi
  # FR-5: Re-read guard — if empty, retry once after 1s (defense-in-depth layer 3)
  if [ -z "$_dod_spec" ]; then
- echo "WARNING: spec read returned empty for YOK-$_num in deployment flow extraction — retrying after 1s" >&2
+ echo "WARNING: spec read returned empty for PREFIX-$_num in deployment flow extraction — retrying after 1s" >&2
  sleep 1
  _dod_spec=$(yoke items get $_num spec 2>/dev/null)
  if [ -z "$_dod_spec" ]; then
  _dod_spec=$(yoke items get $_num body 2>/dev/null)
  fi
  if [ -n "$_dod_spec" ]; then
- echo "RECOVERED: spec re-read succeeded for YOK-$_num in deployment flow extraction" >&2
+ echo "RECOVERED: spec re-read succeeded for PREFIX-$_num in deployment flow extraction" >&2
  fi
  fi
 
@@ -100,13 +100,13 @@ if [ "$_transition" = "refined_idea_to_planning" ] && { [ "$_verdict" = "READY" 
  # Validate the flow ID exists in the deployment_flows table
  _flow_exists=$(yoke deployment-flows get "$_extracted_flow" id 2>/dev/null || true)
  if [ -n "$_flow_exists" ]; then
- yoke items scalar update "YOK-$_num" --field deployment_flow --value "$_extracted_flow"
- echo "Deployment flow set: $_extracted_flow for YOK-$_num"
+ yoke items scalar update "PREFIX-$_num" --field deployment_flow --value "$_extracted_flow"
+ echo "Deployment flow set: $_extracted_flow for PREFIX-$_num"
  else
  echo "WARNING: Extracted flow ID '$_extracted_flow' not found in deployment_flows table. Skipping deployment_flow update."
  fi
  else
- echo "NOTE: No deployment flow found in Definition of Done section for YOK-$_num. Skipping deployment_flow update."
+ echo "NOTE: No deployment flow found in Definition of Done section for PREFIX-$_num. Skipping deployment_flow update."
  fi
 fi
 ```
@@ -144,7 +144,7 @@ if [ "$_transition" = "refined_idea_to_planning" ] && { [ "$_verdict" = "READY" 
  *'- [ ] AC-'*|*'- [ ] '*)
  _ac_desc=$(printf '%s' "$_ac_line" | sed 's/^.*\- \[ \] //')
  yoke qa requirement add \
- --item "YOK-$_num" \
+ --item "PREFIX-$_num" \
  --qa-kind "ac_verification" \
  --qa-phase "verification" \
  --workflow-transition "reviewed-implementation" \
@@ -160,7 +160,7 @@ if [ "$_transition" = "refined_idea_to_planning" ] && { [ "$_verdict" = "READY" 
  _qa_existing_count=$(yoke db read --format lines "SELECT COUNT(*) FROM qa_requirements WHERE item_id=$_num" 2>/dev/null) || true
  if [ -z "$_qa_existing_count" ] || [ "$_qa_existing_count" = "0" ]; then
  yoke qa requirement add \
- --item "YOK-$_num" \
+ --item "PREFIX-$_num" \
  --qa-kind "implementation_review" \
  --qa-phase "verification" \
  --workflow-transition "reviewed-implementation" \
@@ -169,7 +169,7 @@ if [ "$_transition" = "refined_idea_to_planning" ] && { [ "$_verdict" = "READY" 
  --success-policy "Implementation matches the item spec" >/dev/null 2>&1 || true
  fi
 
- echo "QA: Seeded requirements for YOK-$_num at refined_idea_to_planning"
+ echo "QA: Seeded requirements for PREFIX-$_num at refined_idea_to_planning"
  unset _qa_seed_spec _qa_seed_acs _qa_batch_payload
 fi
 ```

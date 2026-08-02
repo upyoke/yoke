@@ -14,11 +14,11 @@ Items arrive at shepherd at `refined-idea` (refined via `/yoke refine`). The ref
 readiness gate dispatches through the Yoke function-call transport.
 
 ```bash
-yoke readiness prd-validate "YOK-$_num" >/dev/null 2>&1
+yoke readiness prd-validate "PREFIX-$_num" >/dev/null 2>&1
 _prd_precheck_rc=$?
 ```
 
-If exit code is 0 (PASS or WARN-only), skip the PM. Log: `PM spec gate: SKIP — PRD validation already passes for YOK-{N}`. Proceed to Design Gate (step 5b).
+If exit code is 0 (PASS or WARN-only), skip the PM. Log: `PM spec gate: SKIP — PRD validation already passes for PREFIX-{N}`. Proceed to Design Gate (step 5b).
 
 If exit code is 1 (FAIL), invoke the PM.
 
@@ -41,13 +41,13 @@ Write the inherited content to a stable per-dispatch file path under the helper-
 _pre_pm_context_block=""
 _pm_input_path=""
 if [ "$_pre_pm_len" -gt 0 ]; then
- _pm_input_dir=$(yoke scratch dispatch-inputs "YOK-${_num}" "${_session_id}" "${_attempt}")
+ _pm_input_dir=$(yoke scratch dispatch-inputs "PREFIX-${_num}" "${_session_id}" "${_attempt}")
  _pm_input_path="${_pm_input_dir}/product-manager-spec.md"
  printf '%s' "$_pre_pm_spec" >"$_pm_input_path"
  _pre_pm_context_block="
 ## Existing item context (read the input file before authoring)
 
-Your input ${_pre_pm_source} for YOK-${_num} is at ${_pm_input_path} (${_pre_pm_len} bytes).
+Your input ${_pre_pm_source} for PREFIX-${_num} is at ${_pm_input_path} (${_pre_pm_len} bytes).
 You MUST Read that file as your first action before authoring. Do not rely on any inline copy — the dispatch prompt does not embed the inherited content. If the path is unreadable for any reason, report the path and stop from that premise rather than authoring from memory or a partial copy.
 
 This existing content is substantive (${_pre_pm_len} bytes). PRESERVE it intact and ENRICH it additively: keep every existing section, operator decision, AC, and prior refinement, then fill in only the PRD sections that are missing or incomplete. Do not delete, re-order, or rewrite existing operator-authored content. Do not strip the addenda blocks (e.g., \`## Refinement Addendum\`). Return the complete spec content with both the inherited material and your additions."
@@ -88,7 +88,7 @@ fi
 
 **Dispatch:** descriptor `DispatchDescriptor(role="product-manager")` rendered via `yoke_core.domain.dispatch_descriptors.render_for_harness(descriptor, harness_id)`. Result-schema markers: `---REFLECTION-START---`. The descriptor's `prompt: |` block is filled with:
 ```
- Write a structured spec for backlog epic YOK-{N}.
+ Write a structured spec for backlog epic PREFIX-{N}.
  Title: {_title}
  Type: epic
  Repository root: {MAIN_ROOT}
@@ -141,10 +141,10 @@ Capture the PM's output as `_worker_output`.
 **Empty output detection and recovery.** Check if `_worker_output` is empty or contains no spec-like headings (`## Problem`, `## Goals`, `## Requirements`, `## Acceptance Criteria`, `## Functional Requirements`):
 
 If the output is empty or has no spec headings:
-1. Log: `"WARNING: PM agent returned no spec content for YOK-{N} (likely hit turn limit). Resuming with deliverable-only prompt."`
+1. Log: `"WARNING: PM agent returned no spec content for PREFIX-{N} (likely hit turn limit). Resuming with deliverable-only prompt."`
 2. Resume the PM agent with: `"You ran out of turns without producing the spec. Produce the complete spec NOW from whatever context you gathered. Do not explore further — write the spec immediately as your very first action. Return the complete spec content."`
 3. Capture the resumed agent's output as the new `_worker_output`.
-4. If still empty or has no spec headings, log: `"ERROR: PM agent failed to produce spec after resume for YOK-{N}. Treating as NOT_READY."` and treat as a failed worker output.
+4. If still empty or has no spec headings, log: `"ERROR: PM agent failed to produce spec after resume for PREFIX-{N}. Treating as NOT_READY."` and treat as a failed worker output.
 5. Cap this resume to exactly 1 attempt — do not loop.
 
 **PM output extraction.** Strip reflection blocks (`---REFLECTION-START---` to `---REFLECTION-END---`) from `_worker_output` before body processing.
@@ -154,7 +154,7 @@ If the output is empty or has no spec headings:
 ```bash
 _worker_len=${#_worker_output}
 if [ "$_pre_pm_len" -gt 200 ] && [ "$_worker_len" -lt $((_pre_pm_len * 60 / 100)) ]; then
- echo "WARNING: PM output (${_worker_len} bytes) is less than 60% of pre-PM ${_pre_pm_source} (${_pre_pm_len} bytes) for YOK-${_num}. Treating as destructive rewrite — preserving pre-PM baseline and reporting NOT_READY without writing the PM output." >&2
+ echo "WARNING: PM output (${_worker_len} bytes) is less than 60% of pre-PM ${_pre_pm_source} (${_pre_pm_len} bytes) for PREFIX-${_num}. Treating as destructive rewrite — preserving pre-PM baseline and reporting NOT_READY without writing the PM output." >&2
  _pm_destructive_rewrite=1
 fi
 ```
@@ -179,11 +179,11 @@ fi
 ```bash
 _verify_spec=$(yoke items get $_num spec)
 if [ -z "$_verify_spec" ]; then
- echo "WARNING: spec read returned empty for YOK-$_num in FR-A3 verification — retrying after 1s" >&2
+ echo "WARNING: spec read returned empty for PREFIX-$_num in FR-A3 verification — retrying after 1s" >&2
  sleep 1
  _verify_spec=$(yoke items get $_num spec)
  if [ -n "$_verify_spec" ]; then
- echo "RECOVERED: spec re-read succeeded for YOK-$_num in FR-A3 verification" >&2
+ echo "RECOVERED: spec re-read succeeded for PREFIX-$_num in FR-A3 verification" >&2
  fi
 fi
 ```
@@ -218,12 +218,12 @@ This gate is conditional. The design gate uses a unified heuristic in both stand
 
 **Step 1: Existing design check.** Read the item's canonical structured field:
  ```bash
- _design_spec=$(yoke items get "YOK-$_num" design_spec)
+ _design_spec=$(yoke items get "PREFIX-$_num" design_spec)
  ```
-If `_design_spec` is non-empty, skip design. Log: `Design gate: SKIP -- design already exists for YOK-{N}`. Persist a SKIPPED pseudo-verdict:
+If `_design_spec` is non-empty, skip design. Log: `Design gate: SKIP -- design already exists for PREFIX-{N}`. Persist a SKIPPED pseudo-verdict:
 
 ```bash
-yoke shepherd verdict --item "YOK-$_num" --transition "$_transition" --worker "$_worker_name" --verdict "SKIPPED" --caveats "design gate: existing design"
+yoke shepherd verdict --item "PREFIX-$_num" --transition "$_transition" --worker "$_worker_name" --verdict "SKIPPED" --caveats "design gate: existing design"
 ```
 
 **Step 2: Judgment-based design evaluation.** Read the item title and spec. Answer one question:
@@ -264,13 +264,13 @@ _pre_designer_len=${#_pre_designer_spec}
 _pre_designer_context_block=""
 _pd_input_path=""
 if [ "$_pre_designer_len" -gt 0 ]; then
- _pd_input_dir=$(yoke scratch dispatch-inputs "YOK-${_num}" "${_session_id}" "${_attempt}")
+ _pd_input_dir=$(yoke scratch dispatch-inputs "PREFIX-${_num}" "${_session_id}" "${_attempt}")
  _pd_input_path="${_pd_input_dir}/product-designer-spec.md"
  printf '%s' "$_pre_designer_spec" >"$_pd_input_path"
  _pre_designer_context_block="
 ## Existing item context (read the input file before authoring)
 
-Your input ${_pre_designer_source} for YOK-${_num} is at ${_pd_input_path} (${_pre_designer_len} bytes).
+Your input ${_pre_designer_source} for PREFIX-${_num} is at ${_pd_input_path} (${_pre_designer_len} bytes).
 You MUST Read that file as your first action before authoring. Do not rely on any inline copy — the dispatch prompt does not embed the inherited content. If the path is unreadable for any reason, report the path and stop from that premise rather than authoring from memory.
 
 Base the design spec on this item content; do not reach for DB or Bash to refetch it. Return the complete design spec content."
@@ -279,7 +279,7 @@ fi
 
 **Dispatch:** descriptor `DispatchDescriptor(role="product-designer")` rendered via `yoke_core.domain.dispatch_descriptors.render_for_harness(descriptor, harness_id)`. Result-schema markers: `---REFLECTION-START---`. Do NOT instruct Designer to run `db_router`, Bash, or any other DB command. The descriptor's `prompt: |` block is filled with:
 ```
- Create a UX/design spec for YOK-{N}.
+ Create a UX/design spec for PREFIX-{N}.
  Title: {_title}
  Repository root: {MAIN_ROOT}
 
@@ -311,5 +311,5 @@ Use the `items.structured_field.replace` function call
 The rendered-body re-sync is part of the handler's side-effect chain.
 
 If the dispatch returns `success=false`, log
-`ERROR: structured field write failed for design_spec on YOK-$_num.
+`ERROR: structured field write failed for design_spec on PREFIX-$_num.
 STOP -- do not advance status.` and treat as NOT_READY.

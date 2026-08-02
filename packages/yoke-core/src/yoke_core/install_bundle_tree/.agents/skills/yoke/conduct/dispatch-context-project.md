@@ -59,7 +59,7 @@ validates embedded command strings.
 d2. Read the environment for the actual worktree branch through `yoke
 ephemeral-env get "${_project}" "${_worktree_branch}" --json`. If it is not
 found or its status is not healthy, set `_ephemeral_url` to `"none"`. Never
-guess a `YOK-N` branch or query the table directly; epic lane branches may have
+guess a `PREFIX-N` branch or query the table directly; epic lane branches may have
 different names.
 
 e. For each file path in `_always_docs` + matched topic docs, read the file contents from `{_repo_path}/{file_path}`. If a file does not exist, log a warning and skip it (do NOT error out):

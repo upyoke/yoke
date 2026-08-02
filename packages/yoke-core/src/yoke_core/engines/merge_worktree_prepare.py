@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import os
 import re
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Optional
 
 from yoke_contracts.api.function_call import TargetRef
@@ -27,10 +27,16 @@ class MergeArgs:
     branch: str
     target: str = "main"
     epic_ref: Optional[str] = None
+    item_id: Optional[int] = None
+    expected_repo_root: Optional[str] = None
     local_merge: bool = False
     force_lock: bool = False
     keep_remote: bool = False
     skip_simulation: bool = False
+    # Permission to merge a branch that belongs to an item rather than an
+    # epic lane. Held by the standalone-item merge operation, which owns the
+    # surrounding item bookkeeping the engine does not.
+    standalone: bool = False
 
 
 @dataclass
@@ -100,7 +106,8 @@ def validate_args(args: MergeArgs) -> Optional[str]:
     if not args.branch:
         return (
             "Usage: python3 -m yoke_core.engines.merge_worktree "
-            "[--local] [--keep-remote] [--skip-simulation] <branch> "
+            "[--local] [--keep-remote] [--skip-simulation] [--standalone] "
+            "<branch> "
             "[target-branch] [epic-ref]"
         )
 
@@ -130,8 +137,9 @@ def resolve_context(args: MergeArgs) -> MergeContext:
     # as ``item_ref`` for the dispatcher to resolve server-side — that
     # keeps resolution authoritative over an https control plane as well
     # as an in-process local connection, with no client DB read.
+    ctx.item_id = str(args.item_id) if args.item_id is not None else None
     match = re.search(r"([A-Za-z][A-Za-z0-9]*-\d+)", args.branch)
-    if match:
+    if ctx.item_id is None and match:
         try:
             detail = call_dispatcher(
                 function_id="items.detail.get",
@@ -162,13 +170,18 @@ def resolve_context(args: MergeArgs) -> MergeContext:
         except Exception:  # noqa: BLE001 - DB context is advisory here.
             pass
 
-    # Guard: standalone item branches need YOKE_DONE_TRANSITION
-    if (not ctx.epic_id or ctx.epic_id == "null") and match is not None:
-        if os.environ.get("YOKE_DONE_TRANSITION", "0") != "1":
+    # Guard: an item branch with no epic lane is a standalone merge, which
+    # carries item bookkeeping (merged_at, evidence, status) the engine does
+    # not own. Callers declare that they own it by passing ``standalone``.
+    if (
+        not ctx.epic_id or ctx.epic_id == "null"
+    ) and (ctx.item_id is not None or match is not None):
+        if not args.standalone:
             raise RuntimeError(
-                f"merge_worktree called for standalone item branch '{args.branch}' "
-                "without an epic ID. Standalone items must be merged via "
-                "`python3 -m yoke_core.engines.done_transition`."
+                f"merge_worktree called for standalone item branch "
+                f"'{args.branch}' without the standalone permission. "
+                "Merge a standalone item branch with "
+                "`yoke merge item <ITEM>`."
             )
 
     # Project-aware repo root resolution. Item/project reads and the
@@ -211,8 +224,20 @@ def resolve_context(args: MergeArgs) -> MergeContext:
                             args.target = value
             else:
                 ctx.project = slug or None
-        except Exception:  # noqa: BLE001 - default Yoke repo context is safe.
-            pass
+        except Exception as exc:
+            if args.item_id is not None:
+                raise RuntimeError(
+                    f"could not resolve project checkout for item {ctx.item_id}"
+                ) from exc
+
+    if args.expected_repo_root:
+        expected_root = Path(args.expected_repo_root).resolve()
+        resolved_root = Path(ctx.repo_root).resolve()
+        if resolved_root != expected_root:
+            raise RuntimeError(
+                "resolved merge checkout does not match the item-bound checkout: "
+                f"expected {expected_root}, got {resolved_root}"
+            )
 
     if not args.target:
         from yoke_core.domain import project_settings

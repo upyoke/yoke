@@ -18,7 +18,11 @@ from yoke_core.engines.doctor import (
     _github_auth_configured,
     _resolve_main_root,
     _resolve_repo_root,
+)
+from yoke_project_checks.check_agents import (
     hc_agent_consistency,
+)
+from yoke_project_checks.check_docs import (
     hc_doc_drift,
 )
 

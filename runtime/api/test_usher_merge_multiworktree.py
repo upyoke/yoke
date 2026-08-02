@@ -53,8 +53,8 @@ class TestMergeMdEpicDelegation:
     def test_no_direct_epic_merge_worktree_call(self):
         """merge.md must not call merge_worktree with an epic ref directly."""
         text = self._read_merge_md()
-        # The old pattern: merge_worktree YOK-{N} main YOK-{N}
-        assert "merge_worktree YOK-{N} main YOK-{N}" not in text, (
+        # The old pattern: merge_worktree PREFIX-{N} main PREFIX-{N}
+        assert "merge_worktree PREFIX-{N} main PREFIX-{N}" not in text, (
             "merge.md still has a direct epic merge_worktree call — "
             "must delegate to /yoke merge {N} instead"
         )
@@ -67,10 +67,10 @@ class TestMergeMdEpicDelegation:
         )
 
     def test_single_lane_path_still_present(self):
-        """merge.md must retain the single-lane merge-worktree path."""
+        """merge.md must retain the single-lane standalone-item merge call."""
         text = self._read_merge_md()
-        assert "merge-worktree -- YOK-{N}" in text, (
-            "merge.md lost the single-lane merge-worktree call"
+        assert "merge-item -- PREFIX-{N} --skip-status" in text, (
+            "merge.md lost the single-lane standalone-item merge call"
         )
 
     def test_7e_scoped_to_single_lane_policy(self):
@@ -101,7 +101,7 @@ class TestMergeMdWorktreeIteration:
         """The ephemeral-verify branch resolution must use the resolver, not db_router worktree."""
         text = MERGE_MD.read_text()
         # The old single-field read (without resolver) was on one line; check it is gone
-        assert "items get YOK-{N} worktree" not in text, (
+        assert "items get PREFIX-{N} worktree" not in text, (
             "merge.md still reads the retired item-level branch projection — "
             "must use worktree_item_resolve instead"
         )

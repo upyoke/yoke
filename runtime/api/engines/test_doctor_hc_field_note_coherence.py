@@ -9,9 +9,8 @@ non-empty and self-skip is graceful when prerequisites are missing.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List
 
-from yoke_core.engines.doctor_hc_field_note_coherence import (
+from yoke_project_checks.check_field_note_coherence import (
     CANONICAL_COMMAND,
     CANONICAL_MODULE,
     HC_NAME,
@@ -148,7 +147,7 @@ def test_packet_seed_missing_command_detected(tmp_path: Path) -> None:
 
 def test_drift_fixture_fails(monkeypatch, tmp_path: Path) -> None:
     """A renderer reporting drift FAILs the HC; remediation prompt cited."""
-    from yoke_core.engines import doctor_hc_field_note_coherence as mod
+    from yoke_project_checks import check_field_note_coherence as mod
 
     class _Outcome:
         def __init__(self, path: str) -> None:
@@ -180,7 +179,7 @@ def test_drift_fixture_fails(monkeypatch, tmp_path: Path) -> None:
 
 def test_renderer_unavailable_self_skips(monkeypatch) -> None:
     """Missing canonical surface degrades to PASS with a skip rationale."""
-    from yoke_core.engines import doctor_hc_field_note_coherence as mod
+    from yoke_project_checks import check_field_note_coherence as mod
 
     monkeypatch.setattr(
         mod, "_run_renderer_check",

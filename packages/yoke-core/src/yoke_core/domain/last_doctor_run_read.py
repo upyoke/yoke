@@ -101,6 +101,7 @@ def _serve_truncated(ran_at: str) -> Dict[str, Any]:
         "pass_count": None,
         "warn_count": None,
         "fail_count": None,
+        "na_count": None,
         "total": None,
         "results": [],
         "truncated": True,
@@ -122,6 +123,9 @@ def _serve_run(ran_at: str, result: Dict[str, Any]) -> Dict[str, Any]:
         "pass_count": int(result.get("pass_count") or 0),
         "warn_count": int(result.get("warn_count") or 0),
         "fail_count": int(result.get("fail_count") or 0),
+        # Reported separately so a reader can tell how many of the returned
+        # rows the run actually executed: total - na_count.
+        "na_count": int(result.get("na_count") or 0),
         "total": len(checks),
         "results": checks,
         "truncated": False,

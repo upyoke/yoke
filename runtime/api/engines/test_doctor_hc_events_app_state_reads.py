@@ -11,7 +11,7 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from yoke_core.engines.doctor_hc_events_app_state_reads import (
+from yoke_project_checks.check_events_app_state_reads import (
     ALLOWED_EVENTS_READERS,
     _TRANSIENT_EMPTY_OK,
     scan_events_reads,
@@ -102,7 +102,10 @@ class TestScanEventsReads(unittest.TestCase):
                 "packages/yoke-core/src/yoke_core/domain/test_something.py",
                 "packages/yoke-core/src/yoke_core/fixtures/inserts.py",
                 "packages/yoke-core/src/yoke_core/domain/conftest.py",
-                "packages/yoke-core/src/yoke_core/engines/doctor_hc_events_app_state_reads.py",
+                # Self-exclusion is by module identity, not location: a copy in
+                # any scanned tree is skipped.
+                "packages/yoke-core/src/yoke_core/engines/check_events_app_state_reads.py",
+                ".yoke/doctor/check_events_app_state_reads.py",
                 "packages/yoke-core/src/yoke_core/domain/_path_claims_test_helpers.py",
                 "packages/yoke-core/src/yoke_core/update_status_full_test_schema.py",
             ):

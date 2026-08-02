@@ -8,7 +8,7 @@ Single-source-of-truth module shared by:
 * :mod:`yoke_core.domain.lint_shell_quoted_function_payload` — uses
   :data:`REMEDIATION_API_FIRST` and the recipe-residue patterns to phrase
   its remediation.
-* :mod:`yoke_core.engines.doctor_hc_terminal_recipe_residue` — scans
+* :mod:`yoke_project_checks.check_terminal_recipe_residue` — scans
   :data:`RECIPE_RESIDUE_PATTERNS` against live guidance surfaces.
 
 The constants live here (not inside either lint module) so the lint files

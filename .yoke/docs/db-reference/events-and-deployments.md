@@ -23,7 +23,7 @@ actor_id INTEGER -- nullable Yoke control-plane subject; references actors(id)
 environment TEXT -- runtime environment (e.g., 'dev', 'prod')
 service TEXT NOT NULL DEFAULT 'cli' -- emitting service
 project_id INTEGER NOT NULL DEFAULT 1 -- project context; references projects(id)
-item_id TEXT -- backlog item (e.g., 'YOK-N')
+item_id TEXT -- backlog item (e.g., 'PREFIX-N')
 task_num INTEGER -- epic task number
 agent TEXT -- agent role (e.g., 'engineer', 'tester')
 tool_name TEXT -- tool that was called (e.g., 'Bash', 'Read')
@@ -76,7 +76,7 @@ owner_service TEXT NOT NULL -- emitting service (e.g., 'yoke_core.domain.observe
 description TEXT NOT NULL -- human-readable description
 context_schema TEXT -- optional JSON schema for context payload
 severity_default TEXT NOT NULL DEFAULT 'INFO' -- default severity level
-added_in TEXT -- YOK-N or version when added
+added_in TEXT -- PREFIX-N or version when added
 status TEXT NOT NULL DEFAULT 'active' -- 'active' | 'deprecated'
 ```
 
@@ -113,7 +113,7 @@ added_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" 
 PRIMARY KEY (run_id, item_id)
 ```
 
-Item-bound delivery starts from `/yoke usher YOK-N` or `runs start-for-item`, which creates the run and inserts membership rows.
+Item-bound delivery starts from `/yoke usher PREFIX-N` or `runs start-for-item`, which creates the run and inserts membership rows.
 
 ## Table: deployment_run_qa
 
@@ -152,8 +152,8 @@ Tracks per-branch ephemeral environments for pre-merge E2E validation. GitHub Ac
 ```sql
 id INTEGER PRIMARY KEY
 project TEXT NOT NULL REFERENCES projects(id)
-branch TEXT NOT NULL -- MUST use 'YOK-{id}' format (see Branch Naming Contract below)
-item TEXT -- backlog item (e.g., 'YOK-N')
+branch TEXT NOT NULL -- MUST use 'PREFIX-{id}' format (see Branch Naming Contract below)
+item TEXT -- backlog item (e.g., 'PREFIX-N')
 workflow_run_id TEXT -- GitHub Actions run ID that created this environment
 github_ref TEXT -- git ref used for the environment
 port_api INTEGER
@@ -170,4 +170,4 @@ UNIQUE(project, branch)
 
 ### Branch Naming Contract
 
-The `branch` column MUST use the value `YOK-{id}` (matching the item's worktree branch name, e.g., `YOK-N`). This convention is required for conduct compatibility -- the conduct skill queries ephemeral environments by `branch='YOK-{id}'` at steps d2, E1, and E3 in `dispatch-context.md`. CI systems that write ephemeral environment records (e.g., `external-webapp-ephemeral.yml`) must use the same `YOK-{id}` branch value. If a future project uses a different branch naming scheme, both the CI workflow and the conduct skill query must be updated in lockstep.
+The `branch` column MUST use the value `PREFIX-{id}` (matching the item's worktree branch name, e.g., `PREFIX-N`). This convention is required for conduct compatibility -- the conduct skill queries ephemeral environments by `branch='PREFIX-{id}'` at steps d2, E1, and E3 in `dispatch-context.md`. CI systems that write ephemeral environment records (e.g., `external-webapp-ephemeral.yml`) must use the same `PREFIX-{id}` branch value. If a future project uses a different branch naming scheme, both the CI workflow and the conduct skill query must be updated in lockstep.

@@ -74,8 +74,15 @@ def test_terminal_mode_launches_and_drives_terminal_app_without_a_multiplexer(
     native_input = next(
         command for command in commands if 'tell application "System Events"' in command
     )
+    transcript_reads = [
+        command for command in commands if "return contents of selected tab" in command
+    ]
     assert "key code 125" in native_input
     assert "key code 36" in native_input
+    assert "activate" in native_input
+    assert transcript_reads
+    assert all("activate" not in command for command in transcript_reads)
+    assert all("set index of targetWindow" not in command for command in transcript_reads)
     assert not any("tmux " in command or "screen " in command for command in commands)
 
 

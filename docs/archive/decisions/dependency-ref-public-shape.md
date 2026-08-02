@@ -3,7 +3,6 @@ slug: dependency-ref-public-shape
 retired-without-apply: false
 affected-tables:
   - item_dependencies
-related-migration-module: item_dependency_public_ref_repair
 ---
 
 # Decision: `item_dependencies` ref columns hold public item refs
@@ -44,10 +43,8 @@ detectable; a ref that quietly points at the wrong item is not.
 
 ## Decision
 
-The repair is expressed as a governed migration module,
-`item_dependency_public_ref_repair`, and it infers intent from data rather
-than from a list of known-bad rows. For every non-empty value in either ref
-column:
+The completed governed repair inferred intent from data rather than from a
+list of known-bad rows. For every non-empty value in either ref column:
 
 | Resolves as public ref | Numeric tail resolves as `items.id` | Action |
 |---|---|---|
@@ -71,24 +68,24 @@ items, and no rule can say which the author meant.
 
 ## Consequences
 
-**Invariant.** The module's `invariants(conn)` hook asserts that no stored ref
-resolves *only* as an internal item id. That is exactly the property the
-repair establishes: every value either matches a public ref or resolves under
-neither reading. The genuinely orphaned values are the documented allowance —
-they are not evidence of a failed repair, so the hook does not fail on them.
+**Invariant.** The governed repair asserted that no stored ref resolves *only*
+as an internal item id. That is exactly the property the repair established:
+every value either matches a public ref or resolves under neither reading. The
+genuinely orphaned values are the documented allowance — they are not evidence
+of a failed repair.
 
-**Ordering is load-bearing.** Several live readers resolve these columns with
+**Ordering was load-bearing.** Before the public-ref reader cutover, several
+readers resolved these columns with
 `CAST(REPLACE(col, 'YOK-', '') AS INTEGER)` — among them
 `dependency_planning`, `dependencies`, `shepherd_dependency_enrich`,
 `path_claim_hard_block_review`, `deployment_runs_validation`, and the
-cancelled-blocker health check. Every stored value carries the `YOK` prefix
-today, so those casts succeed. Introducing a non-`YOK` prefix makes the cast
-raise `invalid input syntax for type integer` for the whole batch query, not
-just for the repaired row; and remapping a `YOK`-prefixed value whose sequence
-diverges from its internal id makes those same readers resolve the edge to the
-wrong item. **The repair must therefore be applied only after the public-ref
-reader and writer cutover is merged and deployed to the authority it targets.**
-The migration is declared `pre_merge_breaking` for exactly this reason.
+cancelled-blocker health check. Introducing a non-`YOK` prefix would make the
+cast raise `invalid input syntax for type integer` for the whole batch query,
+not just for the repaired row; remapping a `YOK`-prefixed value whose sequence
+diverged from the internal id would make those readers resolve the edge to the
+wrong item. The repair was therefore applied only after the public-ref reader
+and writer cutover was merged and deployed, and was classified
+`pre_merge_breaking` for exactly this reason.
 
 **Row count is preserved.** The migration only rewrites column values;
 `item_dependencies` gains and loses no rows, and a second run is a no-op.

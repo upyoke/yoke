@@ -1,12 +1,12 @@
 ---
 name: usher
 description: "Unified merge+deploy command. Takes items from implemented through merge, deployment, and done-transition. Inline orchestration skill -- no subagent spawned."
-argument-hint: "YOK-N [YOK-N ...] [--dry-run] [--merge-only] [--deploy-only] [--resume YOK-N]"
+argument-hint: "PREFIX-N [PREFIX-N ...] [--dry-run] [--merge-only] [--deploy-only] [--resume PREFIX-N]"
 ---
 
 <!--
  done-transition caller audit: agent-facing execution uses
- python3 -m yoke_core.tools.watch_merge done-transition.
+ yoke watch merge done-transition.
  Raw done_transition engine calls are internal implementation detail.
  Usher is the PRIMARY caller for the implemented -> done path.
  Other valid callers: advance/done/SKILL.md (manual operator transitions).
@@ -15,7 +15,7 @@ argument-hint: "YOK-N [YOK-N ...] [--dry-run] [--merge-only] [--deploy-only] [--
  Full audit details in merge.md.
 -->
 
-# /yoke usher YOK-N [YOK-N ...] [--dry-run] [--merge-only] [--deploy-only] [--resume YOK-N]
+# /yoke usher PREFIX-N [PREFIX-N ...] [--dry-run] [--merge-only] [--deploy-only] [--resume PREFIX-N]
 
 Unified merge+deploy command. Takes `implemented` items through merge, deployment pipeline, and done-transition.
 
@@ -29,17 +29,17 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 **Error/rollback paths are mandatory.** Every merge and deployment operation must have a known recovery path. When a merge fails mid-batch, the pipeline halts with clear state. When a deployment stage fails, the run state is preserved for `--resume`. Never leave items in an ambiguous intermediate state.
 
-**Run state for deployment verification.** Deployment evidence is run state: `deployment_runs.status` / `current_stage` joined through `deployment_run_items` answer "did YOK-N's pipeline succeed" before advancing items past deployment gates. The events ledger is telemetry-only — deployment lifecycle events (`DeploymentRunStageCompleted`, `DeploymentRunFailed`) are audit trail, not verification input.
+**Run state for deployment verification.** Deployment evidence is run state: `deployment_runs.status` / `current_stage` joined through `deployment_run_items` answer "did PREFIX-N's pipeline succeed" before advancing items past deployment gates. The events ledger is telemetry-only — deployment lifecycle events (`DeploymentRunStageCompleted`, `DeploymentRunFailed`) are audit trail, not verification input.
 
 ## Arguments
 
 | Argument | Description |
 |----------|-------------|
-| `YOK-N [YOK-N ...]` | Explicit items to process (at least one required) |
+| `PREFIX-N [PREFIX-N ...]` | Explicit items to process (at least one required) |
 | `--dry-run` | Show plan without executing |
 | `--merge-only` | Merge but do not deploy |
 | `--deploy-only` | Deploy already-merged items |
-| `--resume YOK-N` | Resume paused deployment (sugar for single-item deploy-only) |
+| `--resume PREFIX-N` | Resume paused deployment (sugar for single-item deploy-only) |
 
 ## Phase Dispatch
 

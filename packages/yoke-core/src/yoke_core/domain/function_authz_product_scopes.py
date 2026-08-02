@@ -58,6 +58,14 @@ PRODUCT_AUTHZ_BY_ID = {
     # PROJECT + items-write scope is what gates the write.
     "resync.epic_task_github_issue_set": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "merge.tests.post_rebase_requirement": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
+    # Merge-lock rows are machine coordination, not tenant content: they hold
+    # no item, carry no project target, and say only "a merge is in flight on
+    # this branch". Any authenticated actor that can merge may take and
+    # release one, so the scope is the actor's own session rather than a
+    # project or org grant.
+    "merge.lock.list": AuthzSpec(ACTOR_SESSION, None),
+    "merge.lock.acquire": AuthzSpec(ACTOR_SESSION, None),
+    "merge.lock.release": AuthzSpec(ACTOR_SESSION, None),
     # Workflow definition publication is org-wide; selected defaults and
     # test-machine execution remain scoped to their project.
     "workflows.current.set": AuthzSpec(ORG, PERM_ORG_ADMIN),

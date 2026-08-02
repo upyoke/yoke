@@ -11,8 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from yoke_core.engines import doctor_hc_packet_tier_completeness as mod
-from yoke_core.engines.doctor_hc_packet_tier_completeness import (
+from yoke_project_checks import check_packet_tier_completeness as mod
+from yoke_project_checks.check_packet_tier_completeness import (
     HC_SLUG,
     SKILL_SCAN_TARGETS,
     hc_packet_tier_completeness,

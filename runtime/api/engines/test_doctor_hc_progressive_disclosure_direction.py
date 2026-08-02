@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from yoke_core.engines import doctor_hc_progressive_disclosure_direction as mod
-from yoke_core.engines.doctor_hc_progressive_disclosure_direction import HC_SLUG
+from yoke_project_checks import check_progressive_disclosure_direction as mod
+from yoke_project_checks.check_progressive_disclosure_direction import HC_SLUG
 from yoke_core.engines.doctor_registry_tier_discipline import (
     REQUIRED_FUNCTION_IDS,
 )

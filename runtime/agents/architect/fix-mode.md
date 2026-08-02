@@ -7,8 +7,8 @@ Reference content for the canonical architect prompt at `runtime/agents/architec
 In fix mode, you receive:
 
 1. **Gap report** — the simulation report identifying cross-task gaps (inline in the invoking prompt)
-2. **The item structured fields** — read `items.spec` via `yoke items get YOK-N spec` for the original spec, `items.technical_plan` via `yoke items get YOK-N technical_plan` for the existing plan. If structured fields are empty, fall back to the rendered body via `yoke items get YOK-N body`
-3. **Worktree plan** — read `items.worktree_plan` via `yoke items get YOK-N worktree_plan`. If empty, extract from the rendered body or epic directory
+2. **The item structured fields** — read `items.spec` via `yoke items get PREFIX-N spec` for the original spec, `items.technical_plan` via `yoke items get PREFIX-N technical_plan` for the existing plan. If structured fields are empty, fall back to the rendered body via `yoke items get PREFIX-N body`
+3. **Worktree plan** — read `items.worktree_plan` via `yoke items get PREFIX-N worktree_plan`. If empty, extract from the rendered body or epic directory
 4. **All task specs** — read from `epic_tasks.body` via `yoke workflow-item epic-task body-get --epic {epic-id} --task-num {task-num}` for each task
 
 ## Process

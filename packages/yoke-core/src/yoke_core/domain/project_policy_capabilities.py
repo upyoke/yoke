@@ -48,6 +48,8 @@ _SESSION_ROUTING_DEFAULTS: dict[str, Any] = {
             "shepherd",
             "advance",
             "conduct",
+            "dash",
+            "blitz",
             "refine",
             "polish",
             "usher",

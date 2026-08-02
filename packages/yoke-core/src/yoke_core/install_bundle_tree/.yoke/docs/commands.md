@@ -15,22 +15,22 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 | Command | Description |
 |---|---|
 | `/yoke idea {title}` | Capture a new backlog item with dedup search and GitHub sync |
-| `/yoke shepherd YOK-N` | Drive an epic from `refined-idea` through quality-gated planning to `planned` |
-| `/yoke conduct YOK-N` | Engineer/Tester loop for a single epic |
-| `/yoke usher [YOK-N]` | Merge and deploy `implemented` / `release` items through the deployment pipeline |
+| `/yoke shepherd PREFIX-N` | Drive an epic from `refined-idea` through quality-gated planning to `planned` |
+| `/yoke conduct PREFIX-N` | Engineer/Tester loop for a single epic |
+| `/yoke usher [PREFIX-N]` | Merge and deploy `implemented` / `release` items through the deployment pipeline |
 | `/yoke doctor [project]` | Health checks and diagnostics (`--fix` for auto-repair) |
-| `/yoke freeze YOK-N` / `/yoke thaw YOK-N` | Freeze / thaw an item (keep status, set/clear frozen flag) |
-| `/yoke block YOK-N "<reason>"` / `/yoke unblock YOK-N` | Block / unblock (preserves lifecycle status; sets the orthogonal blocked flag) |
+| `/yoke freeze PREFIX-N` / `/yoke thaw PREFIX-N` | Freeze / thaw an item (keep status, set/clear frozen flag) |
+| `/yoke block PREFIX-N "<reason>"` / `/yoke unblock PREFIX-N` | Block / unblock (preserves lifecycle status; sets the orthogonal blocked flag) |
 | `/yoke resync` | Detect and repair drift between local backlog and GitHub issues |
 | `/yoke curate` | Curate the Ouroboros learning log -- cluster, archive, promote patterns |
 | `/yoke wrapup` | Structured session wrap-up with ouroboros reflections |
-| `/yoke refine YOK-N` | Critique and improve item artifacts without touching code or worktrees |
-| `/yoke advance YOK-N implementation` | Issue implementation entry: create or re-enter the worktree in the same harness session (no relaunch), then run the implementation/review loop under the work-claim acquired in preflight |
-| `/yoke polish YOK-N` | Review and finish implementation in the item's existing worktree lane(s) |
+| `/yoke refine PREFIX-N` | Critique and improve item artifacts without touching code or worktrees |
+| `/yoke advance PREFIX-N implementation` | Issue implementation entry: create or re-enter the worktree in the same harness session (no relaunch), then run the implementation/review loop under the work-claim acquired in preflight |
+| `/yoke polish PREFIX-N` | Review and finish implementation in the item's existing worktree lane(s) |
 | `/yoke help` | Show command reference (also: `/yoke` with no args) |
 | `/yoke do` | Autonomous session orchestrator -- offers session to decision engine, routes to chosen mode |
 | `/yoke charge` | Direct-mode entrypoint -- pick up next runnable item from frontier, begin implementation |
-| `/yoke feed [--no-new-items] [YOK-N ...]` | Direct-mode entrypoint -- refresh stale frontier items, maintain dependency graph truth, and materialize new work from strategy |
+| `/yoke feed [--no-new-items] [PREFIX-N ...]` | Direct-mode entrypoint -- refresh stale frontier items, maintain dependency graph truth, and materialize new work from strategy |
 | `/yoke strategize` | Direct-mode entrypoint -- guided SML review (research, propose, approve) |
 
 ## Local Terminal Helpers
@@ -46,7 +46,7 @@ These are operator-facing `yoke` CLI helpers that run directly in a terminal wit
 
 ### idea
 
-Create a new backlog item. Infers type, priority, project, deployment flow, dependencies, and Pack-reuse stance from context; assigns the next `YOK-N` ID through the idea-intake creation path; then writes the body additively and syncs it to the linked GitHub issue when body content exists.
+Create a new backlog item. Infers type, priority, project, deployment flow, dependencies, and Pack-reuse stance from context; assigns the next `PREFIX-N` ID through the idea-intake creation path; then writes the body additively and syncs it to the linked GitHub issue when body content exists.
 
 **Phase files:** `idea/infer-and-create.md` (field inference, cross-project gate, dedup, creation, dependency persistence) and `idea/body-and-sync.md` (mandatory body write, AC normalization, verification, GitHub body sync).
 
@@ -70,10 +70,10 @@ Advance an epic from `refined-idea` to `planned` through quality-gated transitio
 
 Single-item execution mode for epics:
 
-- **`/yoke conduct YOK-N`** -- Single-item execution loop: start at `planned`, resume at `implementing` / `reviewing-implementation`, auto-resolve the next epic task, run Engineer + Tester, then finish with integration simulation and hand off at `reviewed-implementation`. Flags: `--no-chain`, `--max-attempts N`, `--force`/`--ignore-gaps`.
-- Hard-block dependency blockers should be inspected with `yoke shepherd dependency-list YOK-N`, which reads the authoritative `item_dependencies` graph in both directions.
+- **`/yoke conduct PREFIX-N`** -- Single-item execution loop: start at `planned`, resume at `implementing` / `reviewing-implementation`, auto-resolve the next epic task, run Engineer + Tester, then finish with integration simulation and hand off at `reviewed-implementation`. Flags: `--no-chain`, `--max-attempts N`, `--force`/`--ignore-gaps`.
+- Hard-block dependency blockers should be inspected with `yoke shepherd dependency-list PREFIX-N`, which reads the authoritative `item_dependencies` graph in both directions.
 
-On first epic dispatch, runs the simulation gap gate (blocks if CRITICAL plan simulation gaps exist). Per-task diffs exceeding 300 lines are externalized to temp files. Conduct does NOT run merge/deploy; successful runs hand the parent epic to `/yoke polish YOK-N`.
+On first epic dispatch, runs the simulation gap gate (blocks if CRITICAL plan simulation gaps exist). Per-task diffs exceeding 300 lines are externalized to temp files. Conduct does NOT run merge/deploy; successful runs hand the parent epic to `/yoke polish PREFIX-N`.
 
 **Thin Conduct Principle:** Conduct is an orchestrator, not an implementor. Its direct actions are limited to reading metadata, running status scripts, launching subagents (Engineer, Tester, Simulator), and parsing verdicts. All implementation and verification work happens inside subagents.
 
@@ -83,9 +83,9 @@ On first epic dispatch, runs the simulation gap gate (blocks if CRITICAL plan si
 
 Unified merge+deploy pipeline skill. Takes `implemented` items through merge, deployment pipeline, and done-transition. Runs inline in main session (no subagent spawned). Decomposed into 5 phase files: collect, plan, merge, deploy, finalize.
 
-**Arguments:** `YOK-N [YOK-N ...]` (explicit items), `--dry-run`, `--merge-only`, `--deploy-only`, `--resume YOK-N` (sugar for single-item deploy-only). No args: all release-eligible items for the default project.
+**Arguments:** `PREFIX-N [PREFIX-N ...]` (explicit items), `--dry-run`, `--merge-only`, `--deploy-only`, `--resume PREFIX-N` (sugar for single-item deploy-only). No args: all release-eligible items for the default project.
 
-Use `yoke shepherd dependency-list YOK-N` to inspect the authoritative dependency graph for any item. `/yoke usher --dry-run` surfaces the hard-block edges that explain its merge ordering.
+Use `yoke shepherd dependency-list PREFIX-N` to inspect the authoritative dependency graph for any item. `/yoke usher --dry-run` surfaces the hard-block edges that explain its merge ordering.
 
 **Pipeline phases:**
 
@@ -94,7 +94,7 @@ Use `yoke shepherd dependency-list YOK-N` to inspect the authoritative dependenc
 3. **Merge Execution** (skip if `--deploy-only`) --
  - **Release-before-merge ordering:** Items are advanced to `release` status (step 7b) before the merge executes, ensuring status reflects pipeline entry.
  - **Pre-merge ephemeral verification:** If the deployment flow includes an `ephemeral-verify` stage, runs ephemeral environment verification before merge. Skipped if already satisfied during conduct/polish.
- - **Merge engine:** Standalone items invoke the `yoke_core.engines.merge_worktree` engine on the issue-merge boundary, where the engine-owned `YOKE_DONE_TRANSITION=1` standalone-branch contract applies (set internally by `yoke_core.engines.done_transition` for the epic path, and set on the boundary call for the issue path — both are the same engine contract, not an ad-hoc bypass). Epic items pass the epic_ref argument. `--keep-remote` on `merge_worktree` suppresses remote branch deletion so ephemeral environments persist.
+ - **Merge engine:** Standalone items merge through `yoke merge item`, the one operation that owns the standalone-item merge boundary: it declares the standalone permission to `yoke_core.engines.merge_worktree` as an argument, takes the merge lock, stamps `merged_at`, and publishes the base branch. Epic items pass the epic_ref argument to the merge engine directly. `--keep-remote` on `merge_worktree` suppresses remote branch deletion so ephemeral environments persist.
  - **Hard CI gate:** Merge failure (exit 1/4) halts the batch, reverts the item to `implemented`, and reports failure with resume instructions.
  - **Post-merge CI advisory:** After all merges complete, checks main branch CI status as an advisory (not blocking).
 4. **Deployment Routing** (skip if `--merge-only`) --
@@ -107,14 +107,16 @@ Use `yoke shepherd dependency-list YOK-N` to inspect the authoritative dependenc
 
 ### doctor
 
-Run the Ouroboros health scan: 40+ checks across backlog, GitHub sync, worktrees, documentation drift, dispatch chains, agent prompts, hook scripts, schema validation, semantic drift, and more. `--fix` auto-repairs trivial issues. Report saved to `yoke/ouroboros/health/health-{YYYYMMDD}.md` (local, gitignored).
+Run the Ouroboros health scan: checks across backlog, GitHub sync, worktrees, documentation drift, dispatch chains, agent prompts, hook scripts, schema validation, semantic drift, and more. `--fix` auto-repairs trivial issues. Report saved to `yoke/ouroboros/health/health-{YYYYMMDD}.md` (local, gitignored).
+
+Which checks run is derived, not fixed: every check declares its project scope, source-tree dependence, supported runtimes, and required capabilities, and the runner resolves the applicable set for the target project and runtime. The project defaults to whichever one is bound to the checkout you are standing in. Checks outside the applicable set appear under `## Not Applicable` with their reason rather than as passes — a hosted run cannot see a source tree, so its source-tree checks report `N/A`, and exercising them means running doctor where the checkout lives. A project's own checks live in its `.yoke/doctor/` folder (`check_*.py` files, `hc_*` functions) and join the same report.
 
 ### freeze / thaw
 
-`freeze YOK-N` -- Keep status, set `frozen=true`. `thaw YOK-N` -- Set `frozen=false`.
+`freeze PREFIX-N` -- Keep status, set `frozen=true`. `thaw PREFIX-N` -- Set `frozen=false`.
 
 ### block / unblock
-`block YOK-N "<reason>"` -- Keep status, set the orthogonal blocked flag and reason on the item (cross-reference: see your `items` packet stanza); advance/merge/done-transition gates refuse forward progression. `unblock YOK-N` clears both. Unrelated to a path-claim's `blocked` state (cross-reference: see your `path_claims` packet stanza).
+`block PREFIX-N "<reason>"` -- Keep status, set the orthogonal blocked flag and reason on the item (cross-reference: see your `items` packet stanza); advance/merge/done-transition gates refuse forward progression. `unblock PREFIX-N` clears both. Unrelated to a path-claim's `blocked` state (cross-reference: see your `path_claims` packet stanza).
 
 ### resync
 
@@ -168,9 +170,9 @@ Operator-facing callers should enter this flow via `/yoke do`. The underlying se
 
 ### charge
 
-Direct-mode entrypoint for the `charge` action. Computes the runnable frontier through the shared charge-frontier service (backed by `/v1/charge/frontier`), presents a ranked table of items with adapter classifications, confirms the top pick with the operator, and dispatches to the correct downstream skill (`refine`, `shepherd`, `conduct`, `advance`, `polish`, or `usher`). See [charge-frontier.md](charge-frontier.md) for algorithm details, status-to-adapter mapping, and ranking criteria.
+Direct-mode entrypoint for the `charge` action. Computes the runnable frontier through the shared charge-frontier service (backed by `/v1/charge/frontier`), presents a ranked table of items with adapter classifications, confirms the top pick with the operator, and dispatches to the correct downstream skill (`refine`, `shepherd`, `conduct`, `advance`, `dash`, `blitz`, `polish`, or `usher`). See [charge-frontier.md](charge-frontier.md) for algorithm details, status-to-adapter mapping, and ranking criteria.
 
-**Arguments:** `--dry-run` (show frontier, no dispatch), `--item YOK-N` (target specific item), `--project P` (default: `yoke`), `--wip-cap N` (default: 5).
+**Arguments:** `--dry-run` (show frontier, no dispatch), `--item PREFIX-N` (target specific item), `--project P` (default: `yoke`), `--wip-cap N` (default: 5).
 
 **Events:** `FrontierComputed` (emitted by core frontier path in `frontier.py`, not by charge directly), `ChargeDecisionMade` (on every terminal charge exit: dispatch, no runnable items, dry-run, unavailable explicit target, operator cancel, unexpected wait adapter).
 
@@ -185,7 +187,7 @@ Direct-mode entrypoint for SML-to-idea materialization, stale-work-item refresh,
 
 Feed is the canonical semantic owner of generated frontier-fact maintenance. It writes `source='feed'` dependency rows in `item_dependencies` with human-readable rationale and structured `evidence_json`, and it updates stale structured work-item fields when recent landed work changed the frontier's ground truth. It does not own ranking, WIP caps, or claim handling (those belong to the scheduler and charge).
 
-**Arguments:** `--no-new-items` (run analysis and graph refresh without creating new items), optional `YOK-N ...` scope IDs, `--lane LANE`, `--model MODEL`.
+**Arguments:** `--no-new-items` (run analysis and graph refresh without creating new items), optional `PREFIX-N ...` scope IDs, `--lane LANE`, `--model MODEL`.
 
 **Events:** `FeedStarted` (at run start), `FeedCompleted` (at run end with outcome summary).
 
@@ -213,9 +215,9 @@ These are called by operator commands or other sub-skills. They have their own S
 
 | Command | Called by | Description |
 |---|---|---|
-| `/yoke advance YOK-N [status]` | conduct, usher, do/loop, routed dispatch | Internal advance targets other than `implementation` |
+| `/yoke advance PREFIX-N [status]` | conduct, usher, do/loop, routed dispatch | Internal advance targets other than `implementation` |
 | `/yoke merge {epic-id}` | usher | Sequential PR + CI + merge per branch |
-| `/yoke approve YOK-N` | usher | Approve a deployment stage awaiting human approval |
+| `/yoke approve PREFIX-N` | usher | Approve a deployment stage awaiting human approval |
 | `/yoke amend {epic-id}` | conduct | Add, split, reassign, or remove tasks after sync |
 | `/yoke plan {epic-id}` | shepherd, conduct | Architect planning: task decomposition or lightweight plan |
 | `/yoke simulate {epic-id}` | conduct | Trace cross-task paths for integration gaps (`--system` for Ouroboros audit) |
@@ -224,7 +226,7 @@ These are called by operator commands or other sub-skills. They have their own S
 
 ### advance
 
-Advance an item's status forward. No args: auto-advance to next status. With status: jump to that status. Validates lifecycle order. In current delivery-family routing, issue implementation work commonly enters or resumes through `/yoke advance YOK-N implementation`, which normalizes to the canonical stored status `implementing`. Decomposed into 5 phase files plus the `implementing/` sub-skill (5 files).
+Advance an item's status forward. No args: auto-advance to next status. With status: jump to that status. Validates lifecycle order. In current delivery-family routing, issue implementation work commonly enters or resumes through `/yoke advance PREFIX-N implementation`, which normalizes to the canonical stored status `implementing`. Decomposed into 5 phase files plus the `implementing/` sub-skill (5 files).
 
 **Flags:** `--env <name>` (update `deployed_to`), `--no-worktree` (skip worktree creation), `--force` (override gates).
 
@@ -233,7 +235,7 @@ Advance an item's status forward. No args: auto-advance to next status. With sta
 2. **Worktree** (target = `implementing` only) -- Creates or re-enters the isolated worktree. Worktree creation is a pure filesystem + DB operation (records the worktree branch slug on the item and activates path claims; cross-reference: see your `items` packet stanza). The same harness session continues into implementation — no scope envelope, no claim release, no parent-stop, no manual relaunch. The session's authority over the worktree is its work-claim, validated per tool call by `lint_session_cwd` against the session's active claims (cross-reference: see your `work_claims` packet stanza).
 3. **Implementation kickoff** (target = `implementing`) -- Seeds QA requirements, records test context, and prepares issue implementation work after the item enters `implementing`.
 4. **Review-complete handoff** (target = `reviewed-implementation`) -- Re-runs each materialized Browser case on the latest review commit through `yoke qa case run --requirement-id <id>`, inspects the captured screenshots, and resolves the resulting review request on that same requirement. No second AC-verification run is created. Capture-only runs (`execution_status='captured', verdict=NULL`) do not satisfy any `verdict='pass'` gate.
-5. **Finalize** -- Status update, GitHub sync, commit. For `implementing` target: hands off to `advance/implementing/SKILL.md`. For `reviewed-implementation`: emits next-step guidance to run `/yoke polish YOK-N`. For `implemented`: the next step is `/yoke usher YOK-N`.
+5. **Finalize** -- Status update, GitHub sync, commit. For `implementing` target: hands off to `advance/implementing/SKILL.md`. For `reviewed-implementation`: emits next-step guidance to run `/yoke polish PREFIX-N`. For `implemented`: the next step is `/yoke usher PREFIX-N`.
 
 **`advance/implementing` sub-skill:** Post-advance implementation kickoff called after status is set to `implementing`. Handles:
 - **QA seeding** (`implementing/qa-seeding.md`): Seeds the item-specific
@@ -262,7 +264,7 @@ Sequential branch merge: rebase, auto-resolve generated files (branch-aware for 
 
 Human approval gate for the Usher deployment pipeline. Uses the run-based deployment model. Preconditions are validated by the approval-check domain path. The flow records the approval event, advances both the run's `current_stage` and each member item's `deploy_stage`, and handles edge cases: `complete` stage (already done), `-failed` stage (not approvable -- fix first).
 
-**Arguments:** `YOK-N` (required), `--run <run-id>` (optional, auto-resolved if omitted), `--note "..."` (optional, recorded in event envelope).
+**Arguments:** `PREFIX-N` (required), `--run <run-id>` (optional, auto-resolved if omitted), `--note "..."` (optional, recorded in event envelope).
 
 ### amend
 
@@ -298,7 +300,7 @@ Defines the minimum structured context that any Tester dispatch MUST include. Re
 
 | Flag | Default | Description |
 |---|---|---|
-| `YOK-N` | -- | Single-item mode: one Engineer/Tester loop |
+| `PREFIX-N` | -- | Single-item mode: one Engineer/Tester loop |
 | `--no-chain` | Off | Stop after current task (don't auto-chain to next) |
 | `--max-attempts N` | 5 | Max Engineer/Tester cycles per item before halting |
 | `--force` | Off | Override the simulation gap gate |
@@ -328,7 +330,7 @@ Project context is loaded by multiple commands, not just conduct.
 - **Project install is idempotent.** `yoke project install` repairs the external-project copy layer safely; `yoke dev setup` owns Yoke source-link/admin setup.
 - **Multi-project support.** Items carry an integer `project_id` referencing the `projects` table. Local checkout context comes from the machine config's env-scoped checkout→project list: each entry names the connection env whose universe its `project_id` belongs to (ids are numbered per universe), and a checkout that lives in several universes appears once per env, so it resolves only under a matching env. Shared project behavior lives in DB-backed project capabilities such as `project-policy` and `session-routing`; project-local `.yoke/board.json` owns renderer tuning for generated board output in that checkout.
 - **Unified operation access.** Agent-facing operations use registered function ids and their `yoke ...` adapters; raw diagnostic SELECTs use `yoke db read "SELECT ..."` when no first-class surface exists. `db_router query` is source-dev/operator-debug break-glass only.
-- **Item delivery progress.** The in-product delivery summary is powered by the `item_progress_view` SQL view. There is no first-class item-progress adapter yet; use `yoke items get YOK-N`, `yoke qa gate-summary --item YOK-N --target reviewed-implementation`, and `/yoke usher --dry-run` for the currently wrapped item, QA, and merge/deploy views.
+- **Item delivery progress.** The in-product delivery summary is powered by the `item_progress_view` SQL view. There is no first-class item-progress adapter yet; use `yoke items get PREFIX-N`, `yoke qa gate-summary --item PREFIX-N --target reviewed-implementation`, and `/yoke usher --dry-run` for the currently wrapped item, QA, and merge/deploy views.
 - **QA platform.** QA requirements, runs, and artifacts are exposed through `yoke qa ...` adapters such as `yoke qa requirement list`, `yoke qa run list`, and `yoke qa artifact add`. Items must have explicit `qa_requirements` before entering `reviewing-implementation`. Transition gating is enforced by the QA gates domain layer. See `.yoke/docs/qa-platform.md`.
 - **Self-serve body pattern.** Pipeline commands pass only metadata to subagents; subagents read the authoritative body from the DB themselves.
 - **Post-merge pipeline (Usher).** After merge and QA, items reach `implemented`. The Usher creates deployment runs and owns the `implemented -> release -> done` transition. Items may halt at `needs-capability` or `awaiting-approval`.
@@ -340,8 +342,8 @@ These commands have been removed or tombstoned. Their SKILL.md files contain red
 | Removed Command | Replacement |
 |---|---|
 | `/yoke weave` | `/yoke usher` (merge + deploy in one pipeline) |
-| `/yoke dispatch` | `/yoke conduct YOK-N` |
-| `/yoke deploy` | `/yoke usher YOK-N` |
+| `/yoke dispatch` | `/yoke conduct PREFIX-N` |
+| `/yoke deploy` | `/yoke usher PREFIX-N` |
 | `/yoke status` | Read generated `.yoke/BOARD.md` directly |
 | `/yoke next` | `/yoke charge --dry-run` for the ranked runnable frontier |
 | `/yoke standup` | `yoke items list --project all --fields "id,title,status,blocked"` |

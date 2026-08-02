@@ -26,7 +26,7 @@ Use the item project resolved in the main Refine lookup as `ITEM_PROJECT`.
 Read the current execution projection first:
 
 ```text
-yoke strategy execution get "YOK-$ITEM_NUM" \
+yoke strategy execution get "PREFIX-$ITEM_NUM" \
   --project "$ITEM_PROJECT" --json
 ```
 
@@ -80,7 +80,7 @@ or advance.
 For a new selection, invoke `strategy.execution.link` through its adapter:
 
 ```text
-yoke strategy execution link "YOK-$ITEM_NUM" \
+yoke strategy execution link "PREFIX-$ITEM_NUM" \
   --slug "$EXECUTION_SLUG" --project "$ITEM_PROJECT" --json
 ```
 
@@ -92,7 +92,7 @@ reconstruct the row with SQL or a lower-level helper.
 Re-read through `strategy.execution.get`:
 
 ```text
-yoke strategy execution get "YOK-$ITEM_NUM" \
+yoke strategy execution get "PREFIX-$ITEM_NUM" \
   --project "$ITEM_PROJECT" --json
 ```
 
@@ -109,6 +109,6 @@ Record `EXECUTION_SLUG` for the final summary. After the lifecycle transition
 and item-claim release, hand off with:
 
 ```text
-Next step: /yoke blitz YOK-$ITEM_NUM
+Next step: /yoke blitz PREFIX-$ITEM_NUM
 Execution document: $EXECUTION_SLUG
 ```

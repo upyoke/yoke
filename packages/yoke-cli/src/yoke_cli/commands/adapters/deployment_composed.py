@@ -23,6 +23,11 @@ DEPLOYMENT_FLOWS_UPDATE_STAGES_USAGE = (
     "(--stages-json JSON | --stages-file PATH | --stdin) "
     "[--description TEXT] [--session-id S] [--json]"
 )
+DEPLOYMENT_FLOWS_DESCRIBE_USAGE = (
+    "yoke deployment-flows describe FLOW-ID "
+    "(--description TEXT | --description-file PATH) "
+    "[--session-id S] [--json]"
+)
 DEPLOYMENT_RUNS_START_FOR_ITEM_USAGE = (
     "yoke deployment-runs start-for-item ITEM [--project P] [--flow F] "
     "[--target-env ENV] [--release-lineage LINEAGE] [--created-by WHO] "
@@ -57,7 +62,7 @@ def deployment_flows_update_stages(args: List[str]) -> int:
     else:
         try:
             stages = resolve_text_file(
-                parsed.stages_json, parsed.stages_file, "--stages-file",
+                parsed.stages_json, parsed.stages_json_file, "--stages-file",
             )
         except ValueError as exc:
             return usage_error(str(exc))
@@ -72,6 +77,46 @@ def deployment_flows_update_stages(args: List[str]) -> int:
         function_id="deployment_flows.update_stages",
         target=TargetRef(kind="global"),
         payload=payload,
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
+        human_writer=_human_writer,
+    )
+
+
+def deployment_flows_describe(args: List[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="yoke deployment-flows describe",
+        description=(
+            "Rewrite a flow's description. Stages stay untouched, so this "
+            "works on flows whose definition is frozen by run history."
+        ),
+    )
+    parser.add_argument("flow_id")
+    group = parser.add_mutually_exclusive_group(required=True)
+    add_text_file_pair(
+        group, "--description", "--description-file", dest="description",
+    )
+    add_session_arg(parser)
+    add_json_arg(parser)
+    parsed = parse_or_usage_error(
+        parser, args, DEPLOYMENT_FLOWS_DESCRIBE_USAGE,
+    )
+    if parsed is None:
+        return 2
+    try:
+        description = resolve_text_file(
+            parsed.description, parsed.description_file, "--description-file",
+        )
+    except ValueError as exc:
+        return usage_error(str(exc))
+
+    def _human_writer(response, stdout, stderr) -> None:
+        print((response.result or {}).get("message", ""), file=stdout)
+
+    return dispatch_and_emit(
+        function_id="deployment_flows.describe",
+        target=TargetRef(kind="global"),
+        payload={"flow_id": parsed.flow_id, "description": description},
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
         human_writer=_human_writer,

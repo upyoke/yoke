@@ -5,8 +5,8 @@ from typing import Dict, Iterable, Iterator, Tuple
 
 import pytest
 
-from yoke_core.engines import doctor_hc_tier_cli_shape_bleed as mod
-from yoke_core.engines.doctor_hc_tier_cli_shape_bleed import (
+from yoke_project_checks import check_tier_cli_shape_bleed as mod
+from yoke_project_checks.check_tier_cli_shape_bleed import (
     hc_tier_cli_shape_bleed,
 )
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector

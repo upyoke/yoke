@@ -266,7 +266,9 @@ def create_core_tables(conn: Any) -> None:
           branch TEXT NOT NULL,
           epic_id TEXT,
           acquired_at TEXT NOT NULL,
-          expires_at TEXT NOT NULL
+          expires_at TEXT NOT NULL,
+          project_slug TEXT,
+          target_branch TEXT
         );
         CREATE TABLE IF NOT EXISTS item_sections (
           item_id INTEGER NOT NULL,

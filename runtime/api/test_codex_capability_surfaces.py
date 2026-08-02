@@ -35,8 +35,8 @@ def _repo_root() -> Path:
 
 
 REPO = _repo_root()
-EXPECTED_ADVANCE_COMMAND = "/yoke advance YOK-N implementation"
-EXPECTED_PATHS = "shepherd, refine, advance, polish, usher"
+EXPECTED_ADVANCE_COMMAND = "/yoke advance PREFIX-N implementation"
+EXPECTED_PATHS = "shepherd, refine, advance, dash, blitz, polish, usher"
 
 
 def _read(rel_path: str) -> str:
@@ -57,6 +57,15 @@ def test_conduct_is_direct_safe_surface_not_session_offer_path():
     assert "/yoke conduct" in safe_operator_surface_entrypoints("codex")
     assert "/yoke conduct" not in shared_entrypoints()
     assert "conduct" not in shared_downstream_paths()
+
+
+def test_direct_execution_paths_are_offerable():
+    # Dash and Blitz items are routable next_steps, so the shared registry must
+    # advertise them or the offer-time compatibility filter drops every
+    # candidate before a session ever sees one.
+    paths = shared_downstream_paths()
+    assert "dash" in paths
+    assert "blitz" in paths
 
 
 def test_codex_smoke_matrix_expects_advance_path():
@@ -94,7 +103,10 @@ def test_command_references_dual_classify_advance():
         ".agents/skills/yoke/help/SKILL.md",
     ):
         text = _read(rel_path)
-        assert "/yoke advance YOK-N implementation" in text
+        # These files ship verbatim into target projects, so they teach the
+        # generic ``PREFIX-N`` placeholder rather than this repo's item prefix
+        # that ``EXPECTED_ADVANCE_COMMAND`` asserts against the live registry.
+        assert "/yoke advance PREFIX-N implementation" in text
         assert "other than `implementation`" in text or (
             "advance targets other than implementation" in text
         )

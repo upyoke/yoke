@@ -88,7 +88,7 @@ def handle_qa_run_record_verdict(request: FunctionCallRequest) -> HandlerOutcome
         qa_kind = str(row["qa_kind"])
         if (
             executor_type == "agent"
-            and is_browser_method_requirement(row["method_id"], qa_kind)
+            and is_browser_method_requirement(row["method_id"])
         ):
             return _error(
                 "policy_violation",
