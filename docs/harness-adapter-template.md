@@ -16,7 +16,7 @@ Every adapter must implement these five parts:
 4. **Route Wrapper** -- invokes only declared-supported Yoke commands
 5. **Smoke-Test Matrix** -- validates both wrapper-only and hook-enhanced modes
 
-A third harness should be able to instantiate this template without modifying Yoke core.
+This template defines the adapter-side shape, but instantiating it for a third harness also requires Yoke-core changes: harness identity is enumerated in core constants and per-harness branches (executor labels and emoji, `HARNESS_UNIVERSE`, conditional-block ids, manifest source dicts and directory mapping, identity-detection predicates, process-ancestry classification, decision wire formats, session-dispatch branches, project-install constants, and the doctor checks that read them). The [Cursor Harness Integration Assessment](harness-cursor-assessment.md) carries the current inventory of those enumeration sites.
 
 ---
 
