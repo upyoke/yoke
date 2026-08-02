@@ -33,7 +33,8 @@ def _claim_dict(
 ) -> Dict:
     claim = {
         "id": claim_id,
-        "item_id": item_id,
+        "owner_kind": "item",
+        "owner_item_id": item_id,
         "integration_target": integration_target,
         "state": state,
         "covered_paths": covered_paths,

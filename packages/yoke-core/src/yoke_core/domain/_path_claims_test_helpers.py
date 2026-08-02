@@ -259,6 +259,24 @@ def seed_test_holder_session(
     )
 
 
+def register_test_claim(conn: Any, **kwargs: Any) -> int:
+    """Register a valid typed-owner claim for lifecycle/classifier tests.
+
+    Tests concerned with path coverage rather than item/process authority use
+    the canonical live test session as the claim owner. Item- and
+    process-owned calls pass through unchanged.
+    """
+    from yoke_core.domain.path_claims import register
+
+    if not any(
+        kwargs.get(key) is not None
+        for key in ("item_id", "work_claim_id", "session_id")
+    ):
+        seed_test_holder_session(conn)
+        kwargs["session_id"] = HOLDER_SESSION_ID
+    return register(conn, **kwargs)
+
+
 def seed_work_claim_for(
     conn: Any, *, item_id: int,
     session_id: str = HOLDER_SESSION_ID,

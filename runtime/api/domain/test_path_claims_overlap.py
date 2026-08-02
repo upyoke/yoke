@@ -7,15 +7,18 @@ file-line gate. The classifier under test lives in
 only checks `active` siblings).
 """
 
+# ruff: noqa: F811
+
 from __future__ import annotations
 
 from yoke_core.domain._path_claims_test_helpers import (
     SNAP,
     conn,  # noqa: F401  (pytest fixture)
     local_human,
+    register_test_claim as register,
     seed_target,
 )
-from yoke_core.domain.path_claims import activate, register
+from yoke_core.domain.path_claims import activate
 from yoke_core.domain.path_claims_overlap import (
     OverlapClassification,
     classify_overlap,

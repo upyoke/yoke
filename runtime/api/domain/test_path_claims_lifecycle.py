@@ -17,6 +17,7 @@ from yoke_core.domain._path_claims_test_helpers import (
     SNAP,
     conn,  # noqa: F401  (pytest fixture)
     local_human,
+    register_test_claim as register,
     seed_item,
     seed_target,
 )
@@ -28,7 +29,6 @@ from yoke_core.domain.path_claims import (
     activate,
     cancel,
     get_claim,
-    register,
     release,
 )
 from yoke_core.domain.path_registry import KIND_FILE
