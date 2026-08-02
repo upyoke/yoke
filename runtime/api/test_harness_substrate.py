@@ -110,6 +110,10 @@ def isolated_repo(tmp_path: Path) -> Path:
         '{"name": "yoke-architect", "description": "fixture architect"}',
         encoding="utf-8",
     )
+    (canonical / "architect.cursor.json").write_text(
+        '{"name": "yoke-architect", "description": "fixture architect"}',
+        encoding="utf-8",
+    )
     return tmp_path
 
 
