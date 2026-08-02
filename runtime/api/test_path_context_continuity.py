@@ -184,7 +184,7 @@ class TestNearestAncestorInheritance:
 
 
 def test_same_depth_conflict_synthetic():
-    """Bypass the live UNIQUE constraint to exercise AC-8's conflict path."""
+    """Bypass the live UNIQUE constraint to exercise the same-depth conflict path."""
     name = pg_testdb.create_test_database()
     conn = pg_testdb.connect_test_database(name)
     try:

@@ -327,7 +327,7 @@ class TestAuditPayload:
 
         assert len(silenced_emit) == 1
         kwargs = silenced_emit[0]
-        # All five context fields required by AC-8 are present.
+        # All five required context fields are present.
         assert kwargs["session_id"] == "sid-1"
         assert kwargs["item_id"] == 9001
         assert kwargs["status"] == "refined-idea"

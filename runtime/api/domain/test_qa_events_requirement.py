@@ -1,7 +1,7 @@
 """Tests for ``qa_events.emit_qa_requirement_event``.
 
-Covers AC-9 (b) and the requirement-side best-effort discipline from
-AC-9 (d): with and without ``extra_detail``, with and without
+Covers emission and the requirement-side best-effort discipline:
+with and without ``extra_detail``, with and without
 ``target_row``, and graceful handling when ``emit_event`` or the
 fallback ``query_one`` raises.
 """
@@ -33,7 +33,7 @@ def conn():
 
 
 # ---------------------------------------------------------------------------
-# AC-9 (b): emit_qa_requirement_event
+# emit_qa_requirement_event
 # ---------------------------------------------------------------------------
 
 def test_emit_requirement_event_with_target_row_skips_lookup(conn, monkeypatch):
@@ -190,7 +190,7 @@ def test_emit_requirement_event_deployment_target(conn, monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# AC-9 (d): best-effort discipline for emit_qa_requirement_event
+# Best-effort discipline for emit_qa_requirement_event
 # ---------------------------------------------------------------------------
 
 def test_emit_requirement_event_swallows_exceptions(conn, monkeypatch):

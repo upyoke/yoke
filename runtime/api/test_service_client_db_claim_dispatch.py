@@ -1,4 +1,4 @@
-"""AC-8.4 dispatcher-parity tests for ``service_client db-claim-amend``.
+"""Dispatcher-parity tests for ``service_client db-claim-amend``.
 
 Verifies that the CLI builds a :class:`FunctionCallRequest` for
 ``db_claim.amend`` and calls
@@ -19,7 +19,7 @@ from types import SimpleNamespace
 
 
 class TestDbClaimAmendDispatch:
-    """AC-8.4 — ``db-claim-amend`` routes through ``db_claim.amend`` dispatcher."""
+    """``db-claim-amend`` routes through ``db_claim.amend`` dispatcher."""
 
     def _patch_amend(self, monkeypatch, result=None, raise_exc=None):
         """Patch the handler's import of ``amend`` to a recording stub.

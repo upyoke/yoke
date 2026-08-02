@@ -1,6 +1,6 @@
 """Tests for planned-target creation, materialization, and snapshot reuse.
 
-Covers AC-5/6/7/8/9/10/16 from the spec: schema columns
+Covers the planning surface: schema columns
 present, backfill, exact-future-path planning with ancestor chain,
 snapshot-time materialization preserving claim identity, abandon +
 re-plan, and the no-parallel-table invariant.
@@ -41,7 +41,7 @@ class TestSchema:
     def test_no_parallel_future_targets_table(self, conn):
         assert not _table_exists(
             conn, "path_claim_future_targets"
-        ), "AC-16: no parallel future-target table"
+        ), "no parallel future-target table"
 
     def test_default_materialization_state_observed(self, conn):
         row = conn.execute(
@@ -175,7 +175,7 @@ class TestPlanPathTarget:
             "SELECT COUNT(*) FROM path_targets "
             "WHERE project_id=1 AND path_string='dup.py'"
         ).fetchone()[0]
-        assert rows == 1, "AC-10: no duplicate identity for same path/generation"
+        assert rows == 1, "no duplicate identity for same path/generation"
 
 
 class TestMaterialization:
@@ -246,4 +246,4 @@ class TestMaterialization:
             "SELECT COUNT(*) FROM path_snapshot_entries WHERE target_id=%s",
             (tid,),
         ).fetchone()[0]
-        assert n == 0, "AC-9: planned targets need not appear in any snapshot"
+        assert n == 0, "planned targets need not appear in any snapshot"

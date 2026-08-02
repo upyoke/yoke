@@ -80,7 +80,7 @@ class TestRequirementsAndBaseUrl:
         assert result.note == "no_base_url"
 
     def test_base_url_fallback_from_success_policy(self, db_path: str) -> None:
-        """AC-2 base_url fallback: success_policy.base_url used when flag omitted."""
+        """Fall back to success_policy.base_url when the flag is omitted."""
         _seed_item(db_path, 100)
         _seed_requirement(
             db_path, 100, "browser-check",
@@ -103,7 +103,7 @@ class TestRequirementsAndBaseUrl:
 
 class TestReachabilityAndDaemon:
     def test_ac4_unreachable_url_exits_with_note(self, db_path: str) -> None:
-        """AC-4: unreachable base_url returns verdict=error, note=unreachable."""
+        """Unreachable base_url returns verdict=error, note=unreachable."""
         _seed_item(db_path, 100)
         _seed_requirement(
             db_path, 100, "browser-check",

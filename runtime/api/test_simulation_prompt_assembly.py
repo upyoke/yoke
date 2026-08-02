@@ -1,6 +1,6 @@
 """Skill-prompt-assembly tests for simulator dispatch.
 
-Owns the AC-8 contract: assembled retry-tier prompts must contain the epic
+Owns the contract: assembled retry-tier prompts must contain the epic
 ID verbatim in the correct templated location, and empty ``_epic_id`` must
 halt before any dispatch invocation. The actual prompt assembly happens
 inside conduct's bash flow as it reads ``simulation-gate-criteria.md``;
@@ -11,7 +11,7 @@ Sibling justification: ``test_skill_doc_regressions_conduct_simulation.py``
 keeps the broader conduct skill-doc regression coverage focused on
 persistence wiring, retry-tier doc structure, and gap-handoff branching.
 This sibling file is scoped to prompt-assembly invariants only — making the
-AC-8 deliverable independently visible and easy to extend when new dispatch
+contract independently visible and easy to extend when new dispatch
 templates land.
 """
 

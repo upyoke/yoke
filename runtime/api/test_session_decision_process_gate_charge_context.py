@@ -3,24 +3,24 @@
 Covers the scheduler routing-context preservation contract for the
 disabled-process CHARGE swap path:
 
-- AC-1 / AC-12: when the gate rewrites a disabled process action into
+- When the gate rewrites a disabled process action into
   ``ActionKind.CHARGE`` and ``FrontierState.scheduler_context`` is
   present, the returned context includes a ``scheduler`` block.
-- AC-2: skipped-process metadata stays additive on the same charge
+- Skipped-process metadata stays additive on the same charge
   context (process_key, config_key, recommended_action, skip_reason,
   original_reason, direct_command).
-- AC-3: the normal charge path and the fallback path emit aligned
+- The normal charge path and the fallback path emit aligned
   context shapes when scheduler context is available -- both build
   from :func:`build_charge_context`.
-- AC-4: regression for disabled FEED with assignable runnable work.
-- AC-5: regression for disabled STRATEGIZE with assignable runnable
+- Regression for disabled FEED with assignable runnable work.
+- Regression for disabled STRATEGIZE with assignable runnable
   work.
-- AC-7: no-runnable disabled-process path returns suppressed-WAIT
+- No-runnable disabled-process path returns suppressed-WAIT
   and does not invent scheduler context.
-- AC-8: explicit branch coverage for the assignable-runnable +
+- Explicit branch coverage for the assignable-runnable +
   no-scheduler-context case (backward-compat non-scheduler charge
   shape that ``/yoke do`` will not dispatch).
-- AC-11: when the fallback attaches scheduler context, ``selected_item``
+- When the fallback attaches scheduler context, ``selected_item``
   matches the scheduler-selected item rather than ``runnable_items[0]``.
 
 The skip-memory recording side-effect lives in
@@ -97,7 +97,7 @@ def _make_action(kind: ActionKind, reason: str = "") -> NextAction:
 
 
 class TestSchedulerContextPreserved:
-    """AC-1 / AC-4 / AC-5 / AC-12."""
+    """Scheduler context survives the gate's rewrite to CHARGE."""
 
     def test_disabled_feed_with_scheduler_context_charge_carries_scheduler(self):
         action = _make_action(
@@ -156,7 +156,7 @@ class TestSchedulerContextPreserved:
 
 
 class TestSelectedItemAlignment:
-    """AC-11: selected_item matches scheduler-selected item."""
+    """Selected_item matches scheduler-selected item."""
 
     def test_selected_item_uses_frontier_selected_item_not_first_runnable(self):
         # The scheduler picked RUNNABLE_PRIMARY but listed
@@ -178,7 +178,7 @@ class TestSelectedItemAlignment:
 
 
 class TestSharedHelperShape:
-    """AC-3: normal charge and fallback charge use the same helper."""
+    """Normal charge and fallback charge use the same helper."""
 
     def test_build_charge_context_returns_scheduler_when_available(self):
         frontier = _scheduler_frontier()
@@ -221,7 +221,7 @@ class TestSharedHelperShape:
 
 
 class TestNoRunnableSuppressedWait:
-    """AC-7: no-runnable + disabled process returns suppressed-WAIT (non-terminal)."""
+    """No-runnable + disabled process returns suppressed-WAIT (non-terminal)."""
 
     def test_disabled_feed_no_runnable_returns_suppressed_wait(self):
         action = _make_action(ActionKind.FEED)
@@ -242,7 +242,7 @@ class TestNoRunnableSuppressedWait:
 
 
 class TestRunnableNoSchedulerBackwardCompat:
-    """AC-8: assignable runnable + missing scheduler context."""
+    """Assignable runnable + missing scheduler context."""
 
     def test_disabled_feed_runnable_no_scheduler_uses_first_runnable(self):
         # No scheduler_context → backward-compat non-scheduler shape:

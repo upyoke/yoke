@@ -101,7 +101,7 @@ class TestRenderHeader:
                 assert WHITE not in art_part
 
     def test_deterministic_header(self, art_config):
-        """AC-4/AC-5: Same inputs produce identical output."""
+        """Same inputs produce identical output."""
         cfg = BoardConfig()
         counts = {
             "done": 5, "implemented": 2, "release": 1, "reviewing": 1,

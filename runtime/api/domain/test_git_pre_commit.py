@@ -165,7 +165,7 @@ class TestRunAgainstFixtureRepo(unittest.TestCase):
         self._tmp.cleanup()
 
     def test_run_hard_fails_on_oversized_changed_file(self) -> None:
-        # AC-1 + AC-7: a newly staged 412-line authored file must hard-fail.
+        # A newly staged 412-line authored file must hard-fail.
         _commit_file(self.repo, "README.md", "seed\n", message="seed")
         _stage_file(self.repo, "pkg/big.py", _make_lines(412))
         buf = io.StringIO()
@@ -177,7 +177,7 @@ class TestRunAgainstFixtureRepo(unittest.TestCase):
         self.assertIn("--no-verify", err)
 
     def test_run_passes_on_clean_changes(self) -> None:
-        # AC-2 + AC-8: a small staged change passes.
+        # A small staged change passes.
         _commit_file(self.repo, "README.md", "seed\n", message="seed")
         _stage_file(self.repo, "pkg/small.py", "x = 1\n")
         buf = io.StringIO()
@@ -199,7 +199,7 @@ class TestRunAgainstFixtureRepo(unittest.TestCase):
         self.assertEqual(rc, 0)
 
     def test_run_falls_back_to_empty_tree_on_initial_commit(self) -> None:
-        # AC-4 + AC-10: no HEAD yet, stage one small file — must not crash.
+        # No HEAD yet, stage one small file — must not crash.
         _stage_file(self.repo, "pkg/small.py", "x = 1\n")
         buf = io.StringIO()
         rc = _run_with_cwd(self.repo, buf)

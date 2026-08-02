@@ -107,7 +107,7 @@ def test_pass_when_events_table_absent() -> None:
 
 
 def test_fail_when_warning_residue_present_before_repair(conn) -> None:
-    """AC-5: post-cutover residue makes the HC fail before repair."""
+    """Post-cutover residue makes the HC fail before repair."""
     _seed_audit(
         conn,
         "normalize-event-severity-casing",
@@ -176,7 +176,7 @@ def test_fail_omits_migration_clause_when_no_completed_audit(conn) -> None:
 
 
 def test_pass_after_repair_when_residue_cleared(conn) -> None:
-    """AC-4: after residue repair, HC reports PASS."""
+    """After residue repair, HC reports PASS."""
     _seed_audit(
         conn,
         "normalize_warning_event_severity",

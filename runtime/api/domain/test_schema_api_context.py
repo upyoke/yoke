@@ -2,18 +2,18 @@
 
 Covers acceptance criteria:
 
-- AC-1: render works for ``core``, ``claims``, and the role-specific union
+- Render works for ``core``, ``claims``, and the role-specific union
   for the five Bash-capable agents.
-- AC-2: claims packet includes the canonical work-holder recipe and the
+- Claims packet includes the canonical work-holder recipe and the
   typed ``work_claims`` target model (target_kind + specialized columns).
-- AC-3: wrapper/domain commands surface before any raw diagnostic SQL recipe.
-- AC-11 / AC-21: rendered packet bodies are free of the historically
+- Wrapper/domain commands surface before any raw diagnostic SQL recipe.
+- Rendered packet bodies are free of the historically
   observed wrong terms.
-- AC-12: live catalog introspection agrees with the curated seed for every
+- Live catalog introspection agrees with the curated seed for every
   declared table.
-- AC-13: live ``--help`` for service_client, db_router, and the
+- Live ``--help`` for service_client, db_router, and the
   harness_sessions module surfaces the wrapper commands the packet teaches.
-- AC-14 / AC-22: per-role and aggregate packet sizes stay within budget.
+- Per-role and aggregate packet sizes stay within budget.
 """
 
 from __future__ import annotations
@@ -127,7 +127,7 @@ def test_core_packet_teaches_lifecycle_status_and_inventory_surface() -> None:
 
 
 def test_packets_do_not_teach_blocked_agent_surface_shapes() -> None:
-    """AC-5: rendered packets must not teach shapes the new agent-surface
+    """Rendered packets must not teach shapes the new agent-surface
     lints warn on. Function ids can be named, but executable recipes must
     stay on CLI adapters."""
 
@@ -217,7 +217,7 @@ _CANONICAL_LIVE_NAMES_BY_TOPIC = {
         "project_structure",
         "deploy_defaults",
         "yoke project-structure deploy-defaults get",
-        # AC-2 / AC-4 positive teaching: project_capabilities + deployment JOINs.
+        # Positive teaching: project_capabilities + deployment JOINs.
         "SELECT type, settings FROM project_capabilities",
         "JOIN deployment_run_items dri ON dri.run_id = dr.id",
         "SELECT id, stages FROM deployment_flows",
@@ -234,7 +234,7 @@ def test_packs_packet_teaches_catalog_label_and_receipt_authority() -> None:
 
 
 def test_project_topic_packet_avoids_phantom_columns() -> None:
-    """AC-11: rewritten notes must not mention phantom columns."""
+    """Rewritten notes must not mention phantom columns."""
     body = sac.render_topic_packet("project")
     for phantom in (
         "deployment_runs" ".item_id",

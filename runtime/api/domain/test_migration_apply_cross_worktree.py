@@ -58,7 +58,7 @@ def _resolve(
     )
 
 
-# AC-1/AC-2/AC-7/AC-8 — resolver happy path & denied shapes ---------------
+# Resolver happy path & denied shapes ---------------
 
 
 def test_resolver_accepts_declared_slug_under_worktree(feature_worktree) -> None:
@@ -153,7 +153,7 @@ def test_empty_worktree_path_refused(feature_worktree) -> None:
         )
 
 
-# AC-4/AC-10 — audit description marker round trip ----------------------
+# Audit description marker round trip ----------------------
 
 
 def test_describe_then_parse_roundtrips(feature_worktree) -> None:
@@ -175,7 +175,7 @@ def test_parse_returns_none_when_no_marker() -> None:
     assert parse_override_description(DESCRIPTION_BASE) is None
 
 
-# AC-7/AC-9 — rehearse + live-apply share override; live refuses on mismatch
+# Rehearse + live-apply share override; live refuses on mismatch
 
 
 def test_rehearse_then_live_apply_via_override_records_evidence(
@@ -280,7 +280,7 @@ def test_live_apply_with_mismatched_override_refuses(
         )
 
 
-# AC-9 helper — direct exercise of the consistency check ----------------
+# Direct exercise of the override-consistency helper ----------------
 
 
 def test_consistency_silent_when_neither_side_used_override() -> None:

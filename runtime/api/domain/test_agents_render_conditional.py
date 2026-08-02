@@ -29,7 +29,7 @@ from yoke_core.domain.agents_render_conditional import (
 
 
 def test_known_harness_ids_are_a_frozenset_with_claude_and_codex() -> None:
-    """AC-1: harness ids come from one canonical Python constant."""
+    """Harness ids come from one canonical Python constant."""
     assert isinstance(HARNESS_IDS, frozenset)
     assert CLAUDE_HARNESS_ID in HARNESS_IDS
     assert CODEX_HARNESS_ID in HARNESS_IDS
@@ -213,7 +213,7 @@ def test_apply_rejects_unknown_target_harness() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Idempotency (AC-6 reuse of DB-packet marker contract)
+# Idempotency (reuses the DB-packet marker contract)
 # ---------------------------------------------------------------------------
 
 
@@ -263,7 +263,7 @@ def test_drift_helper_surfaces_label_and_issue() -> None:
 def test_render_pipeline_strips_claude_block_for_codex_variant(
     tmp_path: Path,
 ) -> None:
-    """AC-7(b) + AC-11: a canonical body with a Claude-only block must
+    """A canonical body with a Claude-only block must
     render into a Claude variant containing the marker'd content and a
     Codex variant NOT containing it.
     """
@@ -307,7 +307,7 @@ def test_render_pipeline_strips_claude_block_for_codex_variant(
 
 
 # ---------------------------------------------------------------------------
-# Real-canonical regression: AC-4 + AC-10 + suggested 1668 body-prose AC
+# Real-canonical regression: Claude-only tokens in rendered bodies
 # ---------------------------------------------------------------------------
 
 

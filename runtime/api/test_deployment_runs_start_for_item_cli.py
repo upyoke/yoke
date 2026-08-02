@@ -2,7 +2,7 @@
 
 Exercises the parser surface registered in
 ``deployment_runs_cli_parser`` and the dispatch case in
-``deployment_runs_cli.main`` so the AC-44 invariant holds: the new
+``deployment_runs_cli.main`` so the invariant holds: the new
 command is reachable via the canonical
 ``python3 -m yoke_core.cli.db_router runs start-for-item ...`` path.
 

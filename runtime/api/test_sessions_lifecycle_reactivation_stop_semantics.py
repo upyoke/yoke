@@ -1,4 +1,4 @@
-"""AC-7 / AC-9: Stop is a turn-boundary cleanup, reactivation is expected.
+"""Stop is a turn-boundary cleanup, reactivation is expected.
 
 Proves the four semantic branches of the Stop cleanup contract:
 1. No-claim sessions end fast (``status=ended``).
@@ -124,7 +124,7 @@ class TestStopSemanticsBranches:
 
 
 class TestReactivationAfterStop:
-    """AC-7: same stable session_id may reactivate after Stop ended it."""
+    """Same stable session_id may reactivate after Stop ended it."""
 
     def test_register_session_clears_ended_at(self, session_offer_db) -> None:
         db = session_offer_db["db_path"]

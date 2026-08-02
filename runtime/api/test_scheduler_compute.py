@@ -137,7 +137,7 @@ class TestComputeSchedule:
         if 3 in step_map:
             assert step_map[3].next_step == NextStep.REFINE
 
-        # Issue in ready -> advance (AC-20: conduct rejects issues)
+        # Issue in ready -> advance (conduct rejects issues)
         if 1 in step_map:
             assert step_map[1].next_step == NextStep.ADVANCE
 

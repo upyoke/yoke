@@ -144,7 +144,7 @@ class TestDoctorArgv:
 
 
 class TestPassthroughParsing:
-    """AC-3 / AC-6: bare doctor flags are forwarded; ``--`` separator works."""
+    """Bare doctor flags are forwarded; ``--`` separator works."""
 
     def test_canonical_separator_form_forwards(self) -> None:
         ns, passthrough = watch_doctor._parse_args(["--", "--quick"])
@@ -181,7 +181,7 @@ class TestPassthroughParsing:
 
 
 class TestArgparseHelpExample:
-    """AC-1 / AC-5: argparse-rendered ``--help`` contains the worked example."""
+    """Argparse-rendered ``--help`` contains the worked example."""
 
     def test_help_contains_worked_separator_example(
         self, capsys: pytest.CaptureFixture[str]
@@ -204,7 +204,7 @@ class TestArgparseHelpExample:
 
 
 class TestPrintStreamingPair:
-    """AC-2: ``--print-streaming-pair -- --quick`` emits ``-- --quick``."""
+    """``--print-streaming-pair -- --quick`` emits ``-- --quick``."""
 
     def _capture_pair(self, argv: list[str]) -> str:
         buffer = io.StringIO()

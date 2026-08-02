@@ -1,8 +1,8 @@
 """Tests for HC-terminal-recipe-residue.
 
-Covers AC-14.4 (banned-literal list keyed off
-RECIPE_RESIDUE_PATTERNS), AC-14.6 (fixture-based regression guard),
-AC-14.7 (registry-aware second pass), and the allowlist contract
+Covers the banned-literal list keyed off
+RECIPE_RESIDUE_PATTERNS, the fixture-based regression guard,
+the registry-aware second pass, and the allowlist contract
 (docs/archive/**, .yoke/docs/db-reference/**, runtime/api/**/test_*.py).
 """
 
@@ -51,7 +51,7 @@ def _copy_fixture_into(tmp_root: Path) -> None:
 
 
 class TestRecipeResidueScan(unittest.TestCase):
-    """AC-14.4 + AC-14.6: banned-literal residue scan."""
+    """Banned-literal residue scan."""
 
     def test_fixture_flagged_outside_allowlist(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -99,7 +99,7 @@ class TestRecipeResidueScan(unittest.TestCase):
 
 
 class TestRegistryChoreographyScan(unittest.TestCase):
-    """AC-14.7 + AC-14.8 + AC-14.9: registry-aware second pass."""
+    """Registry-aware second pass."""
 
     def test_fixture_flagged_for_function_covered_recipe(self) -> None:
         with tempfile.TemporaryDirectory() as td:

@@ -1,6 +1,6 @@
 """Tests for writer-time severity normalization.
 
-Covers AC-1, AC-2, AC-3, AC-7 (partial — non-migration ACs):
+Covers:
 
 - ``normalize_severity`` maps known non-canonical casings to canonical.
 - ``normalize_severity`` raises ``EventSeverityCasingError`` for unknown values.
@@ -234,7 +234,7 @@ class CmdInsertNormalizationTest(unittest.TestCase):
 
 
 class ProducerLiteralCleanupTest(unittest.TestCase):
-    """AC-3 sentinel: the five touched producer/seed files carry canonical WARN."""
+    """Sentinel: the five touched producer/seed files carry canonical WARN."""
 
     def test_path_claim_bash_guard_emits_warn(self):
         from yoke_core.domain import path_claim_bash_guard

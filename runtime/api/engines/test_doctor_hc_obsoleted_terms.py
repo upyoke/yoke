@@ -28,7 +28,7 @@ REPO = _repo_root()
 
 
 # ---------------------------------------------------------------------------
-# Residue checks — AC-21 + Pass 3 residue requirements
+# Residue checks — retired terms must not survive in live tracked files
 # ---------------------------------------------------------------------------
 
 
@@ -152,7 +152,7 @@ def _db_router_items_cmd(verb: str, item_ref: str, field: str, value: str = "") 
 
 
 def test_items_epic_has_no_live_residue():
-    """AC-21: the retired parent-epic item field must not appear in any tracked
+    """The retired parent-epic item field must not appear in any tracked
     file outside the authorized declaration path(s)."""
     hits = _run_git_grep(_retired_parent_epic_symbol_pattern())
     tolerated = _filter_tolerated(
@@ -196,7 +196,7 @@ def test_yoke_core_domain_doctor_has_no_live_residue():
 
 
 def test_yoke_db_sh_has_no_live_prose_residue():
-    """Pass 3 residue check applied to the AC-8 prose surface.
+    """Residue check applied to the operator-facing prose surface.
 
     ``yoke-db.sh`` is retired. It must not appear in live operator-facing
     prose — doctrine, docs, or skill bodies — outside the authorized

@@ -112,7 +112,7 @@ def test_adapter_drift_picks_up_per_role_subdir_fragments(monkeypatch, tmp_path,
 
 
 def test_adapter_drift_fail_on_stale_schema_residue(monkeypatch, tmp_path, conn):
-    """AC-10: an adapter carrying the retired schema (prompt / string tools /
+    """An adapter carrying the retired schema (prompt / string tools /
     max_turns / model="opus") fails the HC even when its canonical body is
     present — the schema-residue scan is independent of byte parity."""
     root = _make_adapter_tree(tmp_path)

@@ -95,7 +95,7 @@ class TestEngineerSubmissionGate:
         assert "Do NOT advance the item to" in text
 
     def test_engineer_deterministic_submission_trigger(self, docs):
-        """AC-1: Engineer defines a concrete numeric cutoff.
+        """Engineer defines a concrete numeric cutoff.
 
         Cutoff value is pinned to the agent's current turn budget (300 → 30
         remaining = 10% submission window). If the budget changes, update
@@ -105,35 +105,35 @@ class TestEngineerSubmissionGate:
         assert "30 or fewer turns remaining" in text
 
     def test_engineer_submission_mode_protocol(self, docs):
-        """AC-2: Submission mode defined as finish-the-current-branch-state."""
+        """Submission mode defined as finish-the-current-branch-state."""
         text = _read(docs["engineer"])
         assert "Submission Mode Protocol" in text
         assert "Forbidden in submission mode" in text
 
     def test_engineer_evidence_based_checklist(self, docs):
-        """AC-3: Checks 1-2 are evidence-based, checks 3-4 mandatory."""
+        """Checks 1-2 are evidence-based, checks 3-4 mandatory."""
         text = _read(docs["engineer"])
         assert "evidence-based" in text.lower()
         assert "Mandatory final-pass check" in text
 
     def test_engineer_no_advisory_self_check(self, docs):
-        """AC-1: Old advisory 'Self-check' and 'Last 10%' wording removed."""
+        """Old advisory 'Self-check' and 'Last 10%' wording removed."""
         text = _read(docs["engineer"])
         assert "Self-check:" not in text
         assert "Last 10% of turns:" not in text
 
     def test_dispatch_context_submit_only_remediation(self, docs):
-        """AC-4: Conduct defines submit-only remediation contract."""
+        """Conduct defines submit-only remediation contract."""
         text = _read_dispatch_context(docs["dispatch_context"])
         assert "submit-only remediation contract" in text.lower() or "Submit-only remediation contract" in text
 
     def test_dispatch_context_remediation_bounded(self, docs):
-        """AC-5: Remediation bounded to 20 turns."""
+        """Remediation bounded to 20 turns."""
         text = _read_dispatch_context(docs["dispatch_context"])
         assert "max 20 turns" in text
 
     def test_agent_session_stopped_docs_describe_stop_reason(self, docs):
-        """AC-9: stop_reason is documented across the live event docs."""
+        """Stop_reason is documented across the live event docs."""
         assert "stop_reason" in _read(docs["hooks_doc"])
         assert "stop_reason" in _read(docs["event_contract"])
         assert "stop_reason" in _read(docs["event_catalog"])

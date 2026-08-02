@@ -122,7 +122,7 @@ class TestVerifyFileBudgetClaimConsistency:
     def test_blocked_widened_claim_matches_file_budget(
         self, conn_with_claim,
     ):
-        """AC-7: a blocked dependent claim with widened coverage matching
+        """A blocked dependent claim with widened coverage matching
         the File Budget passes consistency even while the upstream claim is
         still non-terminal."""
         conn, _ = conn_with_claim

@@ -6,7 +6,7 @@ symlink-existence assertion is the live invariant. The rule-content assertions
 remain valid even if a future operator replaces the symlink with a real
 duplicate file: the diff still has to be empty across the named anchors.
 
-Per task 12 AC-11: both files must reference "Bash tool calls" (no
+Both files must reference "Bash tool calls" (no
 ``Subagent`` qualifier).
 """
 
@@ -35,11 +35,11 @@ def test_claude_md_is_symlink_to_agents_md():
 
 
 def test_agents_md_uses_bash_tool_calls_phrasing():
-    """AC-11: ``Subagent Bash calls`` retired in favor of ``Bash tool calls``."""
+    """``Subagent Bash calls`` retired in favor of ``Bash tool calls``."""
     text = AGENTS_MD.read_text()
     assert "Subagent Bash calls" not in text, (
         "AGENTS.md still carries the legacy 'Subagent Bash calls' rule heading; "
-        "rewrite as 'Bash tool calls' per task 12 AC-11."
+        "rewrite as 'Bash tool calls'."
     )
     assert "Bash tool calls" in text, (
         "AGENTS.md must reference the 'Bash tool calls' rule heading."

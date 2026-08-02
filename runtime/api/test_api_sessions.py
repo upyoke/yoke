@@ -87,7 +87,7 @@ class TestSessionOffer:
         conn.close()
 
     def test_offer_returns_next_action(self):
-        """AC-1: POST /v1/sessions/offer returns a NextAction JSON."""
+        """POST /v1/sessions/offer returns a NextAction JSON."""
         self._ensure_active_session("test-session-001")
         with _sml_state_patch():
             resp = self.client.post("/v1/sessions/offer", json=self._make_offer())
@@ -100,7 +100,7 @@ class TestSessionOffer:
         assert data["correlation_id"] == "test-session-001"
 
     def test_offer_charge_with_runnable_items(self):
-        """AC-4: Session-offer exposes routed issue scheduling truth."""
+        """Session-offer exposes routed issue scheduling truth."""
         self._ensure_active_session("test-session-001")
         with _sml_state_patch(), \
              patch("yoke_core.api.main.release_item_claim_for_execution") as mock_release:
@@ -135,7 +135,7 @@ class TestSessionOffer:
         mock_release.assert_not_called()
 
     def test_offer_runnable_items_excludes_other_live_claimed(self):
-        """AC-3, AC-5: the FastAPI projection mirrors the CLI assignability rule —
+        """The FastAPI projection mirrors the CLI assignability rule —
         ranked steps held by another live session are filtered out of
         ``runnable_items`` and the offering session never picks one."""
         from datetime import datetime, timezone
@@ -230,7 +230,7 @@ class TestSessionOffer:
         mock_emit.assert_not_called()
 
     def test_offer_returns_400_missing_fields(self):
-        """AC-2: Missing required fields return 400."""
+        """Missing required fields return 400."""
         # Missing executor
         resp = self.client.post("/v1/sessions/offer", json={
             "session_id": "test",

@@ -231,7 +231,7 @@ class _JsonAdapterTests(unittest.TestCase):
 
 
 class _RemediationFooterTests(unittest.TestCase):
-    """AC-14: every HC remediation prompt in the Markdown report ends with
+    """Every HC remediation prompt in the Markdown report ends with
     the field-note footer. Applied at the doctor result-render layer
     so per-HC modules need no edits."""
 

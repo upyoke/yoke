@@ -40,7 +40,7 @@ BOLD_HEADER_FREEFORM_BLOCK = textwrap.dedent("""\
 BOLD_FIELD_SINGULAR_BLOCK = textwrap.dedent("""\
     ---REFLECTION-START---
     ---ENTRY-START---
-    **Title:** Spec mismatch between AC-5.6 and task-1 registry contract
+    **Title:** Spec mismatch between task-5 spec and task-1 registry contract
     **Category:** problem
     **Severity:** medium
     **Body:** Task 5 spec names function id `lifecycle.transition` (two
@@ -62,9 +62,9 @@ KIND_ALIAS_BLOCK = textwrap.dedent("""\
     ---REFLECTION-START---
     kind: friction
     severity: medium
-    title: Task 5 AC-5.6 literal contradicts task 1's closed contract
+    title: Task 5's verification literal contradicts task 1's closed contract
     summary: |
-      Task 5's AC-5.6 hand-coded a verification literal that drifts from
+      Task 5 hand-coded a verification literal that drifts from
       the registry contract owned by task 1.
     ---REFLECTION-END---
 """)
@@ -172,7 +172,7 @@ class TestLongTailShapes:
         )
         assert len(entries) == 1
         assert entries[0].category == "friction"
-        assert "AC-5.6" in entries[0].body
+        assert "verification literal" in entries[0].body
 
     def test_entry_n_hyphen_header(self):
         entries, _ = parse_reflection_blocks(

@@ -26,7 +26,7 @@ from runtime.api.master_plan_check_test_helpers import (
 
 
 class TestRunValidationEndToEnd(unittest.TestCase):
-    """AC-7: positive contradiction + clean no-false-positive."""
+    """Positive contradiction + clean no-false-positive."""
 
     def test_positive_contradiction(self):
         conn = _make_items_db(

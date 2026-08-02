@@ -96,7 +96,7 @@ class TestImportHygiene:
 
 
 class TestSessionOfferSupportedPaths:
-    """AC-1: SessionOffer has supported_paths field defaulting to empty list.
+    """SessionOffer has supported_paths field defaulting to empty list.
     Backward compatible when empty."""
 
     def test_supported_paths_defaults_to_empty_list(self):
@@ -133,5 +133,5 @@ class TestSessionOfferSupportedPaths:
         assert parsed["supported_paths"] == ["shepherd"]
 
     def test_supported_paths_in_event_shape(self):
-        """AC-8: HarnessSessionOffered event context includes supported_paths."""
+        """HarnessSessionOffered event context includes supported_paths."""
         assert "supported_paths" in SESSION_OFFERED_EVENT["minimum_context_fields"]

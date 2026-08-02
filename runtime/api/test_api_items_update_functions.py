@@ -1,9 +1,9 @@
 """Function-call coverage for ``items.scalar.update``.
 
 Exercises the registered handler end-to-end via FastAPI's TestClient.
-Covers AC-5.1 (status routes through prepare_update), AC-5.2 (gate-unmet
-error code mapping), AC-5.4 (frozen-item rejection), AC-5.6 (registered
-claim_required_kind), and the claim-required path. The sibling file
+Covers status routing through prepare_update, gate-unmet
+error code mapping, frozen-item rejection, the registered
+claim_required_kind, and the claim-required path. The sibling file
 ``test_api_items_update.py`` covers the PATCH /v1/items/{id} HTTP route
 against the same mutation gate chain.
 """
@@ -194,7 +194,7 @@ class TestScalarUpdateRoutesThroughPrepareUpdate:
 
 
 class TestScalarUpdateGateMapping:
-    """AC-5.2: gate-unmet codes collapse to lifecycle_gate_unmet (HTTP 422)."""
+    """Gate-unmet codes collapse to lifecycle_gate_unmet (HTTP 422)."""
 
     def test_status_gate_unmet_returns_lifecycle_gate_unmet(
         self,
@@ -234,7 +234,7 @@ class TestScalarUpdateGateMapping:
 
 
 class TestScalarUpdateFrozenRejection:
-    """AC-5.4: frozen-item update returns error.code='frozen' (HTTP 422)."""
+    """Frozen-item update returns error.code='frozen' (HTTP 422)."""
 
     def test_frozen_item_rejection(self, registered_scalar, test_db):
         conn = connect_test_db(test_db["db_path"])
@@ -267,7 +267,7 @@ class TestScalarUpdateFrozenRejection:
 
 
 class TestScalarUpdateClaimRequired:
-    """AC-5.6 + claim-required path coverage."""
+    """Registered claim_required_kind and claim-required path coverage."""
 
     def test_claim_required_kind_is_item(self, registered_scalar):
         from yoke_core.domain.yoke_function_registry import lookup

@@ -53,7 +53,7 @@ def _fixture(tmp_path: Path) -> Path:
 
 
 def test_cross_cutting_fixture_expands_path_claim_surface(tmp_path: Path) -> None:
-    """AC-7/AC-11: synthetic ``*-callers-a`` shape covers widened paths."""
+    """Synthetic ``*-callers-a`` shape covers widened paths."""
 
     root = _fixture(tmp_path)
     result = build_anticipation_list(

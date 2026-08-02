@@ -23,7 +23,7 @@ def _postgres_subprocess_env() -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Service client charge-frontier tests (Task 003 AC-4)
+# Service client charge-frontier tests
 # ---------------------------------------------------------------------------
 
 
@@ -31,7 +31,7 @@ class TestServiceClientChargeFrontier:
     """Tests for service_client.py charge-frontier command."""
 
     def test_charge_frontier_prints_json(self, frontier_db):
-        """AC-4: charge-frontier outputs valid JSON (direct DB, not HTTP)."""
+        """Charge-frontier outputs valid JSON (direct DB, not HTTP)."""
         import subprocess
 
         env = _postgres_subprocess_env()

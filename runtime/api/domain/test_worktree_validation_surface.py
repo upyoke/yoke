@@ -1,4 +1,4 @@
-"""Tests for worktree_validation_surface (governed DB-mutation contract §6.0 / AC-34–39)."""
+"""Tests for worktree_validation_surface (governed DB-mutation contract)."""
 
 from __future__ import annotations
 

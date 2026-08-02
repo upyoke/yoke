@@ -96,7 +96,7 @@ class TestSessionEndAutoReleasePayload:
             assert "claim_id" in entry
 
     def test_epic_task_claim_payload(self, session_offer_db):
-        """AC-12: epic_task targets surface epic_id + task_num, not item_id."""
+        """Epic_task targets surface epic_id + task_num, not item_id."""
         sid = "claim-release-epic-task"
         db = session_offer_db["db_path"]
         ws = session_offer_db["tmp_dir"]

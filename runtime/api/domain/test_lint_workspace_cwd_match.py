@@ -50,7 +50,7 @@ def _event_622168_payload(cwd: str) -> dict:
 def test_denies_event_622168_shape(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
 ) -> None:
-    """AC-7: bound to a worktree, running pytest from main is denied."""
+    """Bound to a worktree, running pytest from main is denied."""
     workspace = tmp_path / "worktree"
     main_checkout = tmp_path / "main"
     workspace.mkdir()
@@ -75,7 +75,7 @@ def test_denies_event_622168_shape(
 def test_noop_when_workspace_unset(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
 ) -> None:
-    """AC-8: env var unset means no check fires."""
+    """Env var unset means no check fires."""
     monkeypatch.delenv(BOUND_WORKSPACE_ENV_VAR, raising=False)
     payload = _event_622168_payload(str(tmp_path / "main"))
     assert evaluate_payload(payload) is None
@@ -181,7 +181,7 @@ def test_unrelated_commands_pass_through(
 def test_suppression_token_records_audit_but_does_not_unblock(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
 ) -> None:
-    """AC-17: the suppression token is audit evidence only, never an unblock."""
+    """The suppression token is audit evidence only, never an unblock."""
     workspace = tmp_path / "worktree"
     main_checkout = tmp_path / "main"
     workspace.mkdir()
@@ -250,7 +250,7 @@ def test_non_bash_tool_is_ignored(
     assert evaluate_payload(payload) is None
 
 
-# AC-6 / AC-7 static-scan tests live in
+# Static-scan tests live in
 # ``test_lint_workspace_repo_root_scan.py`` so this file stays under the
 # 350-line authoring cap. That sibling module exercises the helper at
 # ``lint_workspace_repo_root_scan.scan_repo_root_references``.

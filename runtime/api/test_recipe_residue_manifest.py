@@ -22,7 +22,7 @@ Scanned surfaces:
 * ``docs/**``
 * ``AGENTS.md``, ``CLAUDE.md``, ``CODEX.md``
 
-The fixture-residue regression test (AC-15.3) injects a fresh hit of one
+The fixture-residue regression test injects a fresh hit of one
 canonical pattern into a temporary fixture path and asserts the scanner
 flags it; this protects the assertion class from silently regressing into a
 no-op when the scan globs are tightened.
@@ -121,7 +121,7 @@ def _scan_patterns_in_paths(
 
 
 def test_recipe_residue_patterns_constant_exists() -> None:
-    """AC-15.4: the manifest test is keyed on a single canonical constant.
+    """The manifest test is keyed on a single canonical constant.
 
     The assertion class for this entire suite is the
     :data:`RECIPE_RESIDUE_PATTERNS` constant from
@@ -160,7 +160,7 @@ def test_recipe_residue_patterns_constant_exists() -> None:
 
 
 def test_no_recipe_residue_in_live_guidance() -> None:
-    """AC-15.2: the manifest scan finds zero hits outside the allowlist."""
+    """The manifest scan finds zero hits outside the allowlist."""
     paths = _iter_live_guidance_paths(_REPO_ROOT)
     findings = _scan_patterns_in_paths(paths, repo_root=_REPO_ROOT)
     assert not findings, (
@@ -179,7 +179,7 @@ def test_no_recipe_residue_in_live_guidance() -> None:
 
 
 def test_fixture_residue_is_detected() -> None:
-    """AC-15.3: a deliberate single-line regression in a fixture is caught.
+    """A deliberate single-line regression in a fixture is caught.
 
     Writes one ``mktemp /tmp/yoke-progress`` line into a temporary skill-
     shaped fixture path, runs the scanner against the fixture path only, and
@@ -215,7 +215,7 @@ def test_fixture_residue_is_detected() -> None:
 
 
 def test_scan_paths_cover_required_surfaces() -> None:
-    """AC-15.5 (partial): the scan globs cover every live guidance surface.
+    """The scan globs cover every live guidance surface.
 
     The amendment ACs (15.5-15.8) require the manifest test to consume the
     inventory classifier task 16 will produce. Until that classifier lands,

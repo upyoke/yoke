@@ -30,7 +30,7 @@ from yoke_core.domain.agents_render_codex import (
 # Codex documents these as the only legal sandbox postures.
 _ALLOWED_SANDBOX = {"read-only", "workspace-write", "danger-full-access"}
 
-# AC-6 / AC-16 posture: only the engineer carries a write-capable sandbox;
+# Sandbox posture: only the engineer carries a write-capable sandbox;
 # every read-only Yoke role stays read-only.
 _EXPECTED_SANDBOX = {
     "product-manager": "read-only",
@@ -62,7 +62,7 @@ def _generated_toml(role: str) -> dict:
 
 @pytest.mark.parametrize("role", AGENTS)
 def test_generated_toml_parses_and_has_required_keys(role: str) -> None:
-    """AC-1 / AC-8: each rendered adapter parses and carries the required keys."""
+    """Each rendered adapter parses and carries the required keys."""
     data = _generated_toml(role)
     assert data.get("name") == f"yoke-{role}", (
         f"{role}: name mismatch, got {data.get('name')!r}"
@@ -78,7 +78,7 @@ def test_generated_toml_parses_and_has_required_keys(role: str) -> None:
 
 @pytest.mark.parametrize("role", AGENTS)
 def test_generated_toml_omits_retired_fields(role: str) -> None:
-    """AC-1/2/3/15: no legacy prompt / tools / max_turns key survives."""
+    """No legacy prompt / tools / max_turns key survives."""
     data = _generated_toml(role)
     present = [key for key in _FORBIDDEN_KEYS if key in data]
     assert not present, f"{role}: retired Codex adapter keys present: {present}"
@@ -86,7 +86,7 @@ def test_generated_toml_omits_retired_fields(role: str) -> None:
 
 @pytest.mark.parametrize("role", AGENTS)
 def test_generated_toml_has_no_stale_model_pin(role: str) -> None:
-    """AC-4/5: model is omitted by default (inherit); never a Claude nickname."""
+    """Model is omitted by default (inherit); never a Claude nickname."""
     data = _generated_toml(role)
     model = data.get("model")
     # No role pins a model today, so the field must be absent (inheritance).
@@ -97,7 +97,7 @@ def test_generated_toml_has_no_stale_model_pin(role: str) -> None:
 
 @pytest.mark.parametrize("role", AGENTS)
 def test_generated_toml_sandbox_posture(role: str) -> None:
-    """AC-6/16: sandbox_mode posture is explicit, legal, and role-correct."""
+    """The sandbox_mode posture is explicit, legal, and role-correct."""
     data = _generated_toml(role)
     sandbox = data.get("sandbox_mode")
     assert sandbox in _ALLOWED_SANDBOX, (
@@ -110,7 +110,7 @@ def test_generated_toml_sandbox_posture(role: str) -> None:
 
 @pytest.mark.parametrize("role", AGENTS)
 def test_sidecar_sandbox_value_is_legal(role: str) -> None:
-    """AC-6: each Codex sidecar declares a documented sandbox posture."""
+    """Each Codex sidecar declares a documented sandbox posture."""
     spec = load_codex_spec(_repo_root() / CANONICAL_DIR, role)
     assert spec.get("sandbox_mode") in _ALLOWED_SANDBOX, (
         f"{role}.codex.json sandbox_mode {spec.get('sandbox_mode')!r} is not legal"
@@ -122,7 +122,7 @@ def test_sidecar_sandbox_value_is_legal(role: str) -> None:
 
 @pytest.mark.parametrize("role", AGENTS)
 def test_developer_instructions_preserve_canonical_body(role: str) -> None:
-    """AC-7/8: the canonical body's lead prose flows into developer_instructions
+    """The canonical body's lead prose flows into developer_instructions
     (single-source body — no second canonical Codex prompt)."""
     data = _generated_toml(role)
     canonical_md = (_repo_root() / CANONICAL_DIR / f"{role}.md").read_text("utf-8")
@@ -151,7 +151,7 @@ def _write_minimal_canonical(tmp_path: Path, role: str, sidecar: str) -> Path:
 
 
 def test_model_policy_pinned_emits_model(tmp_path: Path) -> None:
-    """AC-5: an explicit pinned policy emits the named model verbatim."""
+    """An explicit pinned policy emits the named model verbatim."""
     canonical = _write_minimal_canonical(
         tmp_path, "architect",
         '{"name": "yoke-architect", "description": "x", '
@@ -173,7 +173,7 @@ def test_model_policy_pinned_emits_model(tmp_path: Path) -> None:
     ],
 )
 def test_model_policy_default_omits_model(tmp_path: Path, sidecar: str) -> None:
-    """AC-5: absent / inherit / latest policy omits model so Codex inherits."""
+    """Absent / inherit / latest policy omits model so Codex inherits."""
     canonical = _write_minimal_canonical(tmp_path, "architect", sidecar)
     rendered = render_codex_agent(canonical, "architect")
     header = rendered.split('developer_instructions = """', 1)[0]

@@ -1,6 +1,6 @@
 """Ancestor/descendant overlap detection across planned + observed.
 
-Covers AC-11, AC-14 from the spec: claims on a directory
+Covers: claims on a directory
 collide with claims on files inside it (and vice versa) regardless of
 which side is planned vs observed; renames work when the source is
 observed and the destination is planned; exception claims never
@@ -241,7 +241,7 @@ class TestRegisterDescendantConflict:
 
 class TestRenameCoverage:
     def test_observed_source_plus_planned_destination_can_co_exist(self, conn):
-        """AC-14: a rename plan claims observed source + planned destination."""
+        """A rename plan claims observed source + planned destination."""
         actor = local_human(conn)
         seed_item(conn, item_id=1)
         # Seed an observed source row directly.

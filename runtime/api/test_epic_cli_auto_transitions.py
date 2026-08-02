@@ -33,7 +33,7 @@ class TestAutoTransitionReviewSeed:
         )
 
     def test_auto_advances_implementing_to_reviewing(self, db):
-        """AC-2: review_seed auto-advances from implementing."""
+        """Review_seed auto-advances from implementing."""
         insert_epic_task(db, epic_id=42, task_num=1, title="T", status="implementing")
         with patch("yoke_core.domain.epic._qa_requirement_add_silent", return_value=17), \
              patch("yoke_core.domain.update_status.update_task_status") as mock_update:
@@ -45,7 +45,7 @@ class TestAutoTransitionReviewSeed:
         assert call_args[0][3] == "reviewing-implementation"
 
     def test_noop_when_already_past_implementing(self, db):
-        """AC-6: no-op when task is already reviewing-implementation."""
+        """No-op when task is already reviewing-implementation."""
         insert_epic_task(db, epic_id=42, task_num=1, title="T", status="reviewing-implementation")
         with patch("yoke_core.domain.epic._qa_requirement_add_silent", return_value=17), \
              patch("yoke_core.domain.update_status.update_task_status") as mock_update:
@@ -54,7 +54,7 @@ class TestAutoTransitionReviewSeed:
         mock_update.assert_not_called()
 
     def test_sets_auto_transition_source(self, db, monkeypatch):
-        """AC-5: status source is auto-transition:review-seed."""
+        """Status source is auto-transition:review-seed."""
         insert_epic_task(db, epic_id=42, task_num=1, title="T", status="implementing")
         captured_source = {}
 
@@ -81,7 +81,7 @@ class TestAutoTransitionReviewInsert:
     """T-2: review_insert auto-advances task reviewing-implementation -> reviewed-implementation."""
 
     def test_auto_advances_on_pass(self, db):
-        """AC-3: PASS verdict auto-advances to reviewed-implementation."""
+        """PASS verdict auto-advances to reviewed-implementation."""
         insert_epic_task(db, epic_id=42, task_num=1, title="T", status="reviewing-implementation")
         with patch("yoke_core.domain.epic._ensure_implementation_review_requirement", return_value=7), \
              patch("yoke_core.domain.epic._qa_run_add_silent"), \
@@ -93,7 +93,7 @@ class TestAutoTransitionReviewInsert:
         assert mock_update.call_args[0][3] == "reviewed-implementation"
 
     def test_noop_on_fail(self, db):
-        """AC-3: FAIL verdict does not auto-advance."""
+        """FAIL verdict does not auto-advance."""
         insert_epic_task(db, epic_id=42, task_num=1, title="T", status="reviewing-implementation")
         with patch("yoke_core.domain.epic._ensure_implementation_review_requirement", return_value=7), \
              patch("yoke_core.domain.epic._qa_run_add_silent"), \
@@ -103,7 +103,7 @@ class TestAutoTransitionReviewInsert:
         mock_update.assert_not_called()
 
     def test_noop_when_not_at_reviewing(self, db):
-        """AC-6: no-op when task is already past reviewing-implementation."""
+        """No-op when task is already past reviewing-implementation."""
         insert_epic_task(db, epic_id=42, task_num=1, title="T", status="reviewed-implementation")
         with patch("yoke_core.domain.epic._ensure_implementation_review_requirement", return_value=7), \
              patch("yoke_core.domain.epic._qa_run_add_silent"), \
@@ -113,7 +113,7 @@ class TestAutoTransitionReviewInsert:
         mock_update.assert_not_called()
 
     def test_sets_auto_transition_source(self, db, monkeypatch):
-        """AC-5: status source is auto-transition:review-insert."""
+        """Status source is auto-transition:review-insert."""
         insert_epic_task(db, epic_id=42, task_num=1, title="T", status="reviewing-implementation")
         captured_source = {}
 

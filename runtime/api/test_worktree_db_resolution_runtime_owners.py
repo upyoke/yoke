@@ -1,6 +1,6 @@
 """Runtime DB resolution from worktrees — runtime-owner regression tests.
 
-Split from ``test_worktree_db_resolution.py``. Covers the AC-3 / AC-5
+Split from ``test_worktree_db_resolution.py``. Covers the
 checks that runtime owner paths (service_client, engines, domain
 helpers) all delegate to the canonical resolver and never create a
 worktree-local yoke.db.
@@ -23,7 +23,7 @@ def _expected_path(fake_repo) -> str:
 
 
 class TestRuntimeOwnerFromWorktree:
-    """AC-3/AC-5: runtime owners no longer carry bespoke parents[3] fallback."""
+    """Runtime owners no longer carry bespoke parents[3] fallback."""
 
     def test_service_client_resolves_main_db(self, fake_repo):
         """service_client._get_db_path() delegates to canonical resolver."""

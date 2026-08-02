@@ -1,9 +1,9 @@
 """Body- and title-sync coverage: ``sync_body`` and ``sync_title``.
 
-Covers AC-5 (sync_body uses ``select_body_for_github`` before the typed
-REST update), AC-9 (auth-precedence short-circuit), AC-11 (below-budget,
-above-budget, auth-failure-short-circuit regressions), and AC-13 (no
-GraphQL "Body is too long" error path).
+Covers ``sync_body`` using ``select_body_for_github`` before the typed
+REST update, the auth-precedence short-circuit, below-budget,
+above-budget, and auth-failure-short-circuit regressions, and the absence
+of a GraphQL "Body is too long" error path.
 
 Tests mock the typed ``github_rest.update_issue`` surface directly.
 """
@@ -29,7 +29,7 @@ from yoke_core.domain import (
     github_rest,
 )
 
-# Real resolver class so the AC-9 regression can construct + raise the
+# Real resolver class so the auth-precedence test can construct + raise the
 # typed exception subclass that callers branch on.
 from yoke_core.domain.project_github_auth import (
     MissingRepoBinding,
@@ -94,7 +94,7 @@ class TestSyncBody:
         db.close()
 
     def test_below_budget_uses_full_body(self):
-        """AC-11: small body → full mode; mirror is NOT used."""
+        """Small body → full mode; mirror is NOT used."""
         db = _make_db()
         insert_item(
             db, id=60, workflow_id="issue", status="idea", project="externalwebapp",
@@ -121,7 +121,7 @@ class TestSyncBody:
         db.close()
 
     def test_above_budget_uses_compact_mirror(self):
-        """AC-11: oversized body → compact mirror path engages."""
+        """Oversized body → compact mirror path engages."""
         db = _make_db()
         huge_spec = "a" * (body_budget.GITHUB_BODY_BUDGET_BYTES + 100)
         insert_item(
@@ -151,7 +151,7 @@ class TestSyncBody:
         db.close()
 
     def test_auth_failure_short_circuits_body_budget_check(self):
-        """AC-9: resolver runs FIRST; body_exceeds_budget is never called
+        """Resolver runs FIRST; body_exceeds_budget is never called
         when the resolver raises a ProjectGithubAuthError subclass."""
         db = _make_db()
         insert_item(

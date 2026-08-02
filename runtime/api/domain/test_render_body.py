@@ -145,7 +145,7 @@ class TestRenderItem:
             assert updated_at_before == updated_at_after
 
     def test_render_immediately_fresh_after_field_update(self, tmp_path: Path) -> None:
-        """AC-15: rendered body is immediately fresh after structured-field update."""
+        """Rendered body is immediately fresh after structured-field update."""
         with _init_db(tmp_path) as db_path:
             conn = _connect(db_path)
             _seed_item(conn, 11, "Fresh render item")

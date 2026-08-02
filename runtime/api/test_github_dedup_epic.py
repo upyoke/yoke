@@ -142,7 +142,7 @@ def _patches(*, dedup_results, create_response=None):
 
 class TestSyncEpicTasksDedup:
     def test_task_path_reuses_exact_prefix_match(self, epic_db):
-        """AC-5 (task path, exact reuse): typed list_issues whose title
+        """Task path, exact reuse: typed list_issues whose title
         matches the new-format prefix ``[YOK-N] NNN <task title>`` is
         reused (no create call).
         """
@@ -186,8 +186,8 @@ class TestSyncEpicTasksDedup:
         assert row[0] == "#555"
 
     def test_task_path_rejects_fuzzy_substring(self, epic_db):
-        """AC-5 (task path, fuzzy non-reuse) + AC-3 regression at the task
-        call site.
+        """Task path, fuzzy non-reuse: a title that merely contains a
+        similar substring is not reused at the task call site.
         """
         insert_item(
             epic_db,
@@ -235,7 +235,7 @@ class TestSyncEpicTasksDedup:
         assert "#3543" not in stdout.getvalue()
 
     def test_parent_path_reuses_exact_prefix_match(self, epic_db):
-        """AC-5 (epic parent path, exact reuse): when the parent epic has
+        """Epic parent path, exact reuse: when the parent epic has
         no github_issue, the parent dedup search reuses an issue whose
         title starts with the exact bracketed prefix ``[YOK-N]``.
         """
@@ -288,8 +288,8 @@ class TestSyncEpicTasksDedup:
         assert "reusing" in stdout.getvalue().lower()
 
     def test_parent_path_rejects_fuzzy_substring(self, epic_db):
-        """AC-5 (epic parent path, fuzzy non-reuse) + AC-3 regression at
-        the parent call site.
+        """Epic parent path, fuzzy non-reuse: a title that merely contains
+        a similar substring is not reused at the parent call site.
         """
         insert_item(
             epic_db,

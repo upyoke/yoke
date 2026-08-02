@@ -1,6 +1,6 @@
 """Tests for the cmd_claim TOCTOU recheck path (the race shape).
 
-Covers the three reclaim shapes called out by AC-5:
+Covers the three reclaim shapes:
 
 (a) genuinely stale — both heartbeat and last-event older than TTL, and
     stay older across the recheck. Reclaim succeeds, ``WorkReclaimed``
@@ -164,10 +164,10 @@ def _read_events(conn, event_name: str):
 
 
 class TestCmdClaimReclaimRace:
-    """AC-5 / AC-1 — TOCTOU recheck inside cmd_claim's reclaim block."""
+    """TOCTOU recheck inside cmd_claim's reclaim block."""
 
     def test_genuinely_stale_holder_is_reclaimed(self, race_conn):
-        """AC-5(a): heartbeat + tool event both stale → reclaim succeeds."""
+        """Heartbeat + tool event both stale → reclaim succeeds."""
         c = race_conn
         _seed_holder_with_claim(
             c,
@@ -196,7 +196,7 @@ class TestCmdClaimReclaimRace:
         assert len(aborted) == 0
 
     def test_fresh_heartbeat_aborts_reclaim(self, race_conn):
-        """AC-5(b): claim row stale but holder session heartbeated → abort."""
+        """Claim row stale but holder session heartbeated → abort."""
         c = race_conn
         # Snapshot uses wc.last_heartbeat (claim row, stale). The recheck
         # uses harness_sessions.last_heartbeat (holder session, fresh).
@@ -213,7 +213,7 @@ class TestCmdClaimReclaimRace:
         with pytest.raises(PermissionError, match="already claimed by session"):
             _attempt_claim(c, "challenger-B", item_id=4002)
 
-        # AC-4: holder's row stays untouched.
+        # Holder's row stays untouched.
         old_row = c.execute(
             """SELECT released_at, release_reason FROM work_claims
                WHERE session_id = 'holder-A' AND item_id = 4002""",
@@ -239,7 +239,7 @@ class TestCmdClaimReclaimRace:
         assert len(reclaimed) == 0
 
     def test_fresh_claim_heartbeat_is_not_a_reclaim_candidate(self, race_conn):
-        """AC-13: fresh work_claims heartbeat prevents reclaim selection."""
+        """Fresh work_claims heartbeat prevents reclaim selection."""
         c = race_conn
         _seed_holder_with_claim(
             c,
@@ -264,7 +264,7 @@ class TestCmdClaimReclaimRace:
         assert len(aborted) == 0
 
     def test_ended_holder_is_reclaimed_regardless_of_recent_activity(self, race_conn):
-        """AC-5(c): ended_at is the terminal short-circuit."""
+        """An ended_at timestamp is the terminal short-circuit."""
         c = race_conn
         _seed_holder_with_claim(
             c,

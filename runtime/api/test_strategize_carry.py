@@ -5,8 +5,8 @@ These tests exercise the in-memory semantics of
 Covers schema bootstrap, register-new-landings delta discovery,
 classified candidate set buckets, and mark-state transitions.
 
-Overflow, deferred-session, and operator-summary cases (AC-1, AC-3,
-AC-5, AC-6, AC-7) live in ``test_strategize_carry_summary.py``. Shared
+Overflow, deferred-session, and operator-summary cases live in
+``test_strategize_carry_summary.py``. Shared
 helpers live in ``test_strategize_carry_test_helpers``.
 """
 from __future__ import annotations

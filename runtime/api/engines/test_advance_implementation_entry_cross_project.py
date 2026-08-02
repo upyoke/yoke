@@ -1,8 +1,8 @@
 """Cross-project regression coverage for the orchestrator.
 
-AC-15/AC-16 project routed into ``run_preflight``; AC-18 structured error
-envelope (no empty worktree_path/branch); AC-21/AC-29 capable-project env
-provisioning chain restored; AC-28 dirty-main evaluated against target repo
+Project routed into ``run_preflight``; structured error envelope (no
+empty worktree_path/branch); capable-project env provisioning chain;
+dirty-main evaluated against target repo
 (orchestrator boundary; per-repo eval lives in ``worktree_preflight``).
 """
 

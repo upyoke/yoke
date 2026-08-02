@@ -1,7 +1,7 @@
 """Tests for the canonical operation tracker.
 
 Covers AC-TRACKER: the tracker carries one ``OperationEntry`` per
-operation surfaced by AC-1's audit, with self-consistent shape rules:
+operation surfaced by the audit, with self-consistent shape rules:
 
 * Every entry's status / reason is in the closed enum.
 * status=pending rows MUST carry proposed_function_id.

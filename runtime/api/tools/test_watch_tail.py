@@ -1,6 +1,6 @@
 """Tests for :mod:`yoke_core.tools.watch_tail`.
 
-Covers the four AC-6 cases:
+Covers four cases:
 
 - exits cleanly when the watcher exit sentinel is already present at
   invocation (the "already-complete file" case),

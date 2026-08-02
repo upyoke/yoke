@@ -33,8 +33,14 @@ def test_module_name_for_package_and_repo_layouts():
 
 def test_is_test_file():
     assert is_test_file("runtime/api/test_thing.py") is True
+    assert is_test_file("runtime/harness/test_adapter.py") is True
+    assert is_test_file("tests/import_graph/test_contract.py") is True
     assert is_test_file("runtime/api/thing_test.py") is False
     assert is_test_file("runtime/api/testing_helper.py") is False
+    assert (
+        is_test_file("packages/yoke-core/src/yoke_core/domain/handlers/test_machine.py")
+        is False
+    )
 
 
 def _write(root: Path, rel: str, body: str) -> None:
@@ -136,18 +142,20 @@ def test_unimportable_module_change_forces_full_sweep(tmp_path):
 
 
 def test_relative_imports_are_resolved(tmp_path):
-    _write(tmp_path, "pkg/__init__.py", "")
-    _write(tmp_path, "pkg/core.py", "X = 1\n")
+    _write(tmp_path, "runtime/__init__.py", "")
+    _write(tmp_path, "runtime/api/__init__.py", "")
+    _write(tmp_path, "runtime/api/pkg/__init__.py", "")
+    _write(tmp_path, "runtime/api/pkg/core.py", "X = 1\n")
     _write(
         tmp_path,
-        "pkg/test_core_relative.py",
+        "runtime/api/pkg/test_core_relative.py",
         "from . import core\n\ndef test_z():\n    pass\n",
     )
     index = build_import_index(tmp_path)
 
-    selection = select(["pkg/core.py"], index)
+    selection = select(["runtime/api/pkg/core.py"], index)
 
-    assert selection.tests == _with_floor("pkg/test_core_relative.py")
+    assert selection.tests == _with_floor("runtime/api/pkg/test_core_relative.py")
 
 
 def test_selection_pytest_paths_prefers_selected_tests():
@@ -169,7 +177,7 @@ def test_subprocess_module_string_selects_the_shelling_test(tmp_path):
     _write(
         root,
         "runtime/api/test_leaf_cli.py",
-        'import subprocess\n\n\ndef test_cli():\n'
+        "import subprocess\n\n\ndef test_cli():\n"
         '    subprocess.run(["python3", "-m", "runtime.api.leaf"])\n',
     )
     index = build_import_index(root)

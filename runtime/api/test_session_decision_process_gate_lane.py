@@ -2,14 +2,14 @@
 
 Covers:
 
-* AC-1 - lane disallows ``feed`` -> WAIT, not FEED.
-* AC-2 - lane disallows ``strategize`` -> WAIT, not STRATEGIZE.
-* AC-3 - global process policy wins when both gates would block.
-* AC-4 - backward-compat: no lane policy preserves legacy behavior.
-* AC-5 - lane opt-in: process action passes through.
-* AC-9 - machine config supports the process/lane policy tokens.
-* AC-10 - ``ActionKind`` has no ``DOCTOR`` member.
-* AC-11 - lane WAIT does not record disabled-process skip memory.
+* Lane disallows ``feed`` -> WAIT, not FEED.
+* Lane disallows ``strategize`` -> WAIT, not STRATEGIZE.
+* Global process policy wins when both gates would block.
+* Backward-compat: no lane policy preserves legacy behavior.
+* Lane opt-in: process action passes through.
+* Machine config supports the process/lane policy tokens.
+* ``ActionKind`` has no ``DOCTOR`` member.
+* Lane WAIT does not record disabled-process skip memory.
 
 Path-vocab unit tests for :func:`process_key_to_path` round out the
 sibling module so the map cannot regress silently.
@@ -105,7 +105,7 @@ class TestProcessKeyToPath:
 
 
 class TestActionKindDoesNotIncludeDoctor:
-    """AC-10: ActionKind has no DOCTOR member."""
+    """ActionKind has no DOCTOR member."""
 
     def test_no_doctor_action_kind(self):
         kinds = {kind.value for kind in ActionKind}
@@ -113,7 +113,7 @@ class TestActionKindDoesNotIncludeDoctor:
 
 
 class TestLaneGateBlocksFeed:
-    """AC-1 / AC-3: lane allowlist excludes ``feed`` -> WAIT."""
+    """Lane allowlist excludes ``feed`` -> WAIT."""
 
     def test_feed_lane_block_returns_wait(self):
         action = _make_action(
@@ -175,7 +175,7 @@ class TestLaneGateBlocksFeed:
 
 
 class TestLaneGateBlocksStrategize:
-    """AC-2 / AC-3: lane allowlist excludes ``strategize`` -> WAIT."""
+    """Lane allowlist excludes ``strategize`` -> WAIT."""
 
     def test_strategize_lane_block_returns_wait(self):
         result = apply_process_offer_gate(
@@ -216,7 +216,7 @@ class TestLaneGateBlocksStrategize:
 
 
 class TestLaneAllowsProcessAction:
-    """AC-5: lane explicitly opts in -> action passes through."""
+    """Lane explicitly opts in -> action passes through."""
 
     def test_lane_allows_feed_returns_feed(self):
         action = _make_action(ActionKind.FEED)
@@ -241,7 +241,7 @@ class TestLaneAllowsProcessAction:
 
 
 class TestBackwardCompatNoLanePolicy:
-    """AC-4: no lane policy -> existing policy-only behavior holds."""
+    """No lane policy -> existing policy-only behavior holds."""
 
     def test_feed_no_lane_policy_passes_through(self):
         action = _make_action(ActionKind.FEED)
@@ -285,7 +285,7 @@ class TestBackwardCompatNoLanePolicy:
         assert result.context["configured_lanes"] == ["DARIUS"]
 
     def test_no_lane_via_decide_next_action_returns_feed(self):
-        # AC-4 reproduction: no lane policy + FEED enabled +
+        # Backward-compat reproduction: no lane policy + FEED enabled +
         # empty runnable + sml_coherent -> FEED unchanged.
         result = decide_next_action(
             _make_offer(),
@@ -297,7 +297,7 @@ class TestBackwardCompatNoLanePolicy:
 
 
 class TestNoSkipMemoryOnLaneBlock:
-    """AC-11: lane block does not record disabled-process skip memory.
+    """Lane block does not record disabled-process skip memory.
 
     The lane WAIT path is reserved for the case where the global
     policy *enables* the process but the lane allowlist excludes the
@@ -323,7 +323,7 @@ class TestNoSkipMemoryOnLaneBlock:
 
 
 class TestMachineConfigSupportsProcessTokens:
-    """AC-9: machine config accepts feed/strategize/doctor policy tokens."""
+    """Machine config accepts feed/strategize/doctor policy tokens."""
 
     def test_machine_config_json_process_tokens(self, tmp_path):
         config_path = tmp_path / "config.json"

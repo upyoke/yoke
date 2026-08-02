@@ -16,7 +16,7 @@ canonical Yoke source against an isolated tmp repo, and assert that:
 
 If a hardcoded ``if harness_id == "claude-code"`` or ``if harness_id == "codex"``
 branch leaks into universal source and breaks the fixture, the test fails with
-a message naming the offending behavior. Satisfies FR-11 / AC-16.
+a message naming the offending behavior.
 
 Future third-harness onboarding consumes this fixture as the proof template;
 the fixture artifacts live at ``runtime/api/test_fixtures/test_harness_adapter/``.
@@ -143,7 +143,7 @@ def test_extended_universe_includes_test_harness(extended_universe: tuple[str, .
 def test_safe_operator_surface_returns_universal_commands_for_test_harness(
     extended_universe: tuple[str, ...],
 ) -> None:
-    """AC-4 + AC-6: the lookup is harness-id-agnostic.
+    """The lookup is harness-id-agnostic.
 
     With ``HARNESS_UNIVERSE`` and ``SAFE_OPERATOR_SURFACE`` patched to include
     ``test-harness``, the lookup returns the same command list as for the
@@ -204,7 +204,7 @@ def test_opt_out_command_does_not_leak_into_test_harness(
 
 
 def test_renderer_writes_under_fixture_output_dir(isolated_repo: Path) -> None:
-    """AC-3: rendered output appears under the fixture's expected directory.
+    """Rendered output appears under the fixture's expected directory.
 
     The fixture's "expected directory" is the harness output tree relative to
     the patched repo root (``tmp_path``). The renderer is harness-agnostic at
@@ -240,7 +240,7 @@ def test_renderer_writes_under_fixture_output_dir(isolated_repo: Path) -> None:
 
 
 def test_no_test_harness_canonical_body_emitted(isolated_repo: Path) -> None:
-    """AC-8 reused for the fixture: no second canonical prompt body is created.
+    """No second canonical prompt body is created for the fixture harness.
 
     The renderer must not synthesise ``runtime/agents/architect.test-harness.md``
     or any analogue. Universal Yoke source remains the single source of truth

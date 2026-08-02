@@ -139,7 +139,7 @@ class _DispatcherTestBase(unittest.TestCase):
 
 
 class TestEnvelopeValidation(_DispatcherTestBase):
-    """AC-1.6: envelope-shape failure -> envelope_invalid."""
+    """Envelope-shape failure -> envelope_invalid."""
 
     def test_malformed_payload(self):
         resp = dispatch({"function": "foo.bar.baz"})
@@ -174,7 +174,7 @@ class TestEnvelopeValidation(_DispatcherTestBase):
 
 
 class TestFunctionNotRegistered(_DispatcherTestBase):
-    """AC-1.7: unknown id -> function_not_registered."""
+    """Unknown id -> function_not_registered."""
 
     def test_unknown_function_returns_not_registered(self):
         resp = dispatch(_make_request("unregistered.family.op"))
@@ -212,7 +212,7 @@ class TestHappyPath(_DispatcherTestBase):
 
 
 class TestEventEmission(_DispatcherTestBase):
-    """AC-1.11: YokeFunctionCalled per call carries the required fields."""
+    """YokeFunctionCalled per call carries the required fields."""
 
     def test_called_event_envelope(self):
         register(
@@ -264,7 +264,7 @@ def _bash_payload(command: str, tool_use_id: str) -> Dict[str, Any]:
 
 
 class TestDispatcherWrapperAttribution(unittest.TestCase):
-    """AC-5/6/7: wrapping HarnessToolCallCompleted rows carry resolved item_id
+    """Wrapping HarnessToolCallCompleted rows carry resolved item_id
     when the Bash command is a function-call dispatcher invocation."""
 
     def setUp(self) -> None:

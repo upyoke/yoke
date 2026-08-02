@@ -133,7 +133,7 @@ def _capture_session_events(monkeypatch):
 
 
 class TestReclaimStaleItemClaimsRecheck:
-    """AC-13 — same activity signals as cmd_claim and clean_stale_harness_sessions."""
+    """Same activity signals as cmd_claim and clean_stale_harness_sessions."""
 
     def test_reclaims_when_no_recent_tool_activity(self, conn_with_events):
         c = conn_with_events
@@ -159,7 +159,7 @@ class TestReclaimStaleItemClaimsRecheck:
     def test_aborts_when_holder_session_heartbeat_is_fresh(
         self, conn_with_events, monkeypatch,
     ):
-        """AC-13: stale claim heartbeat but fresh session heartbeat → abort."""
+        """Stale claim heartbeat but fresh session heartbeat → abort."""
         c = conn_with_events
         _seed_holder(
             c,
@@ -219,7 +219,7 @@ class TestReclaimStaleItemClaimsRecheck:
     def test_aborts_when_recent_tool_event_exists(
         self, conn_with_events, monkeypatch,
     ):
-        """AC-13 (event-side): stale heartbeats but a fresh tool event → abort."""
+        """Event-side: stale heartbeats but a fresh tool event → abort."""
         c = conn_with_events
         _seed_holder(
             c,

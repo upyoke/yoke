@@ -1,9 +1,9 @@
 """Render coverage for materialization_state and exception claims.
 
-Covers AC-12 (render exposes materialization_state), AC-22 (no-claim
-exception renders as a dedicated block carrying the operator's reason
-verbatim) and AC (tentative coverage labels distinctly
-in the rendered Path Claims section).
+Covers three render behaviors: materialization_state is exposed, the
+no-claim exception renders as a dedicated block carrying the operator's
+reason verbatim, and tentative coverage is labelled distinctly in the
+rendered Path Claims section.
 """
 
 from __future__ import annotations

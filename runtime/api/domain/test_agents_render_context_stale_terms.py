@@ -1,4 +1,4 @@
-"""/ AC-19 stale-term scope tests.
+"""Stale-term scope tests.
 
 The stale-term regression intentionally scopes to authored agent content
 (canonical Bash-capable bodies + rendered Claude/Codex adapters) and
@@ -31,7 +31,7 @@ def repo_root() -> Path:
 
 
 def test_rendered_codex_adapters_have_no_stale_terms(repo_root: Path) -> None:
-    """AC-18: rendered Codex .toml adapters must not contain the stale
+    """Rendered Codex .toml adapters must not contain the stale
     schema/API names listed in seed.STALE_TERMS. Pairs with the existing
     Claude-side scan in ``test_agents_render_context.py``."""
 
@@ -48,7 +48,7 @@ def test_rendered_codex_adapters_have_no_stale_terms(repo_root: Path) -> None:
 def test_stale_term_scan_excludes_qa_schema_migration_counters(
     repo_root: Path,
 ) -> None:
-    """AC-19: the stale-term regression intentionally scopes to authored
+    """The stale-term regression intentionally scopes to authored
     agent content, not production code that operates on historical QA
     rows. ``yoke_core.domain.qa_schema`` legitimately contains
     ``qa_kind='review'`` SQL for migration-counter / observation
@@ -64,7 +64,7 @@ def test_stale_term_scan_excludes_qa_schema_migration_counters(
     assert qa_kind_review in qa_schema_text, (
         "qa_schema.py expected to contain legitimate qa_kind='review' "
         "migration-counter SQL — if the term is gone, this test is "
-        "obsolete and should be deleted along with the AC-19 carve-out"
+        "obsolete and should be deleted along with the scope carve-out"
     )
 
     for role in _BASH_CAPABLE:

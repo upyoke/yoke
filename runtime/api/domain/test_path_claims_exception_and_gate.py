@@ -1,6 +1,7 @@
 """Tests for the no-claim exception mode and the claim-required gate.
 
-Covers AC-1, AC-3, AC-4, AC-15, AC-22, AC-24 from the spec.
+Covers exception registration and its rejections, gate pass/block
+outcomes across claim shapes, and the catch-up coverage audit.
 """
 
 from __future__ import annotations

@@ -1,4 +1,4 @@
-"""AC-1.16 claim-verification matrix for the dispatcher.
+"""Claim-verification matrix for the dispatcher.
 
 Split out of :mod:`test_yoke_function_dispatch` so the dispatcher test
 module stays under the file-line budget. Exercises every
@@ -109,7 +109,7 @@ class _ClaimMatrixSuite(unittest.TestCase):
 
 
 class TestClaimRequiredPaths(_ClaimMatrixSuite):
-    """AC-1.16: exercise every claim_required_kind value."""
+    """Exercise every claim_required_kind value."""
 
     def test_none_kind_runs_handler_regardless(self):
         register(

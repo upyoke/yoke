@@ -50,7 +50,7 @@ def _read(path: Path) -> str:
 
 
 class TestBootstrapSpec:
-    """AC-1: bootstrap must load yoke/.yoke/docs/lifecycle.md."""
+    """Bootstrap must load yoke/.yoke/docs/lifecycle.md."""
 
     @pytest.fixture
     def spec(self) -> dict:
@@ -136,7 +136,7 @@ class TestLifecycleDoc:
 
 
 class TestCommandsDoc:
-    """AC-4: commands.md must match the live refine/polish skills and
+    """Commands.md must match the live refine/polish skills and
     must not present YOKE_SUPPORTED_PATHS as an active Yoke-owned harness
     input for /yoke do."""
 
@@ -279,7 +279,7 @@ class TestStateManagementDoc:
 
 
 class TestCodexCapabilityDocs:
-    """AC-5: OVERVIEW.md and other Codex-capability surfaces must not
+    """OVERVIEW.md and other Codex-capability surfaces must not
     describe Codex as shepherd-only or reference deleted Codex shell wrappers
     as active entry surfaces."""
 

@@ -1,6 +1,6 @@
-"""AC-2 / AC-7 coverage: section-style additive transforms wire body sync.
+"""Section-style additive transforms wire body sync.
 
-Pre-AC-2, the section paths re-rendered the local body but never told
+Before this wiring, the section paths re-rendered the local body but never told
 GitHub. Every ``items.section.upsert``, ``items.section.delete``,
 ``items.progress_log.append``, ``items.structured_field.section_upsert``,
 and ``items.structured_field.section_append`` left the GH body stale.

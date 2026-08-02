@@ -1,6 +1,6 @@
 """Env-phase provisioning tests for advance_implementation_environment.
 
-AC-21/AC-29 capable-project provisioning chain, the flow-triggered skip,
+Covers the capable-project provisioning chain, the flow-triggered skip,
 policy-invalid handling, and push-failure short-circuit.
 """
 

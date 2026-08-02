@@ -2,7 +2,7 @@
 
 Covers the six invariants on synthetic substrate, run lifecycle
 transitions, crash-recovery semantics, the ``has_green_run`` helper,
-and the per-commit ``--commit`` resolution that AC-16 requires.
+and the per-commit ``--commit`` resolution.
 
 Fixture-loader behavior lives in ``test_path_integrity_fixtures.py``
 and live-project coverage lives in ``test_path_integrity_live.py``.

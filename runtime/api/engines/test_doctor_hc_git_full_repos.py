@@ -148,7 +148,7 @@ class TestWrongRepoIssues:
     def test_auth_resolved_once_per_distinct_project(
         self, mock_gh_run, mock_resolve, mock_avail
     ):
-        """AC-13: ``resolve_project_github_auth`` runs at most once per distinct project.
+        """``resolve_project_github_auth`` runs at most once per distinct project.
 
         Mixes multiple Yoke rows (same-repo, skipped before REST) with
         multiple ExternalWebapp rows (external, REST-bound) and asserts the

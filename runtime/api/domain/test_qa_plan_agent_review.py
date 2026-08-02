@@ -147,6 +147,19 @@ def test_bundle_is_immutable_complete_and_does_not_ask_a_human() -> None:
         assert bundle is not None
         assert execution["state"] == "awaiting_agent_review"
         assert bundle["dispatch"]["subagent_type"] == "yoke-tester"
+        assert bundle["execution_target"] == execution["execution_target"]
+        assert bundle["execution_target_digest"] == execution["execution_target_digest"]
+        assert bundle["dispatch"]["authority"] == {
+            "state": "bound",
+            "environment_id": execution["execution_target"]["environment"]["id"],
+            "environment_name": execution["execution_target"]["environment"]["name"],
+            "execution_target_digest": execution["execution_target_digest"],
+        }
+        assert bundle["dispatch"]["artifact_read_commands"] == [
+            "yoke qa artifact read "
+            f"--requirement-id {requirement_id} "
+            f"--artifact-id {bundle['cases'][0]['artifacts'][0]['id']}"
+        ]
         assert bundle["cases"] == [
             {
                 "requirement_id": requirement_id,
@@ -267,8 +280,7 @@ def test_agent_verdict_is_per_case_and_only_inconclusive_escalates(
         assert result["state"] == expected_state
         assert execution["state"] == "completed"
         run = conn.execute(
-            "SELECT executor_type,verdict,raw_result FROM qa_runs "
-            "WHERE id=%s",
+            "SELECT executor_type,verdict,raw_result FROM qa_runs WHERE id=%s",
             (result["verdicts"][0]["review_run_id"],),
         ).fetchone()
         assert (run["executor_type"], run["verdict"]) == ("agent", verdict)

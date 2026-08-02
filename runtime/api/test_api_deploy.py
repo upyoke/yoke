@@ -26,7 +26,7 @@ class TestChargeFrontierEndpoint:
         self.db_info = frontier_db
 
     def test_frontier_returns_valid_json(self):
-        """AC-1: GET /v1/charge/frontier returns valid JSON with correct structure."""
+        """GET /v1/charge/frontier returns valid JSON with correct structure."""
         resp = self.client.get("/v1/charge/frontier")
         assert resp.status_code == 200
         data = resp.json()
@@ -53,7 +53,7 @@ class TestChargeFrontierEndpoint:
         assert "EXT-24" not in all_ids
 
     def test_frontier_project_filter(self):
-        """AC-2: Project filter correctly scopes results."""
+        """Project filter correctly scopes results."""
         resp = self.client.get("/v1/charge/frontier?project=externalwebapp")
         assert resp.status_code == 200
         data = resp.json()
@@ -65,7 +65,7 @@ class TestChargeFrontierEndpoint:
         assert "YOK-21" not in runnable_ids
 
     def test_frontier_wip_cap_override(self):
-        """AC-3: WIP cap parameter overrides default."""
+        """WIP cap parameter overrides default."""
         resp = self.client.get("/v1/charge/frontier?wip_cap=1")
         assert resp.status_code == 200
         data = resp.json()
@@ -75,7 +75,7 @@ class TestChargeFrontierEndpoint:
         assert len(data["conduct_eligible"]) <= 1
 
     def test_frontier_item_has_all_fields(self):
-        """AC-6: Pydantic model fields match FrontierItem dataclass fields 1:1."""
+        """Pydantic model fields match FrontierItem dataclass fields 1:1."""
         resp = self.client.get("/v1/charge/frontier")
         assert resp.status_code == 200
         data = resp.json()
@@ -117,7 +117,7 @@ class TestChargeFrontierEndpoint:
         assert "YOK-25" not in runnable_ids
 
     def test_frontier_invalid_wip_cap(self):
-        """AC-5: Invalid wip_cap returns 422."""
+        """Invalid wip_cap returns 422."""
         resp = self.client.get("/v1/charge/frontier?wip_cap=0")
         assert resp.status_code == 422
         resp = self.client.get("/v1/charge/frontier?wip_cap=999")

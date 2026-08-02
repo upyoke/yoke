@@ -155,7 +155,7 @@ class TestAuthoritativeDb:
 
 class TestValidationSurface:
     def test_worktree_local_sqlite_accepted(self) -> None:
-        # AC-20.
+        # Baseline accepted surface.
         out = validate({"models": {"primary": _minimal_sqlite_model()}})
         assert out["models"]["primary"]["validation_surface"]["kind"] == "worktree_local_sqlite"
 
@@ -176,7 +176,7 @@ class TestValidationSurface:
 
 class TestRunner:
     def test_governed_migration_module_accepted(self) -> None:
-        # AC-21.
+        # Baseline accepted runner.
         out = validate({"models": {"primary": _minimal_sqlite_model()}})
         assert out["models"]["primary"]["runner"]["kind"] == "governed_migration_module"
 

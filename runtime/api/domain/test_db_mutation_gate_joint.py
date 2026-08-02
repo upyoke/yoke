@@ -83,7 +83,7 @@ class TestJointGate:
     def test_pre_merge_breaking_passes_without_attestation(
         self, gate_db
     ) -> None:
-        # AC-10 only requires authored fields when class=pre_merge_safe.
+        # Authored fields are only required when class=pre_merge_safe.
         # A pre_merge_breaking declaration with valid model+flow+module passes.
         _conn, repo_path = gate_db
         modules_dir = "runtime/api/domain/migrations"

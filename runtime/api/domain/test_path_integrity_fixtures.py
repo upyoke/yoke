@@ -6,7 +6,7 @@ Asserts that:
 * the loader raises ``KeyError`` for unknown names,
 * each known-bad fixture trips the invariant it advertises in
   ``path_integrity_fixtures.expected_invariant_kind`` (this is the
-  contract behind AC-1),
+  documented contract),
 * the catalog is sorted (so ``available_fixtures`` is byte-stable).
 """
 
@@ -87,7 +87,7 @@ def test_fixture_records_expected_invariant(
 def test_known_bad_fixtures_trip_named_invariant(tmp_path):
     """For each fixture with a non-null expected invariant, loading
     the fixture and running the verifier produces at least one failure
-    of that invariant kind. AC-1.
+    of that invariant kind.
 
     We load each known-bad fixture in isolation against a fresh DB so
     cross-fixture interactions (the snapshot-idempotency fixture

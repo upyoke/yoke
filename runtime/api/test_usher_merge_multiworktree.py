@@ -45,7 +45,7 @@ def _add_git_worktree(git_repo, branch: str):
 
 
 class TestMergeMdEpicDelegation:
-    """AC-1: usher/merge.md delegates epic merge to /yoke merge, not merge_worktree."""
+    """Usher/merge.md delegates epic merge to /yoke merge, not merge_worktree."""
 
     def _read_merge_md(self) -> str:
         return MERGE_MD.read_text()
@@ -131,7 +131,7 @@ class TestMergeMdWorktreeIteration:
 
 
 class TestMergeMdHaltClassRelease:
-    """AC-39: usher/merge.md halt branches release the work claim with a
+    """Usher/merge.md halt branches release the work claim with a
     halt-class reason BEFORE printing recovery instructions.
     """
 
@@ -173,7 +173,7 @@ class TestMergeMdHaltClassRelease:
         assert release_idx < summary_idx, (
             "merge.md halt-class release section must appear before the "
             "halt-summary recovery instructions (release must run BEFORE "
-            "recovery prose per AC-39)"
+            "recovery prose)"
         )
 
     def test_exit_5_names_halt_class_release(self):
@@ -208,7 +208,7 @@ class TestMergeMdHaltClassRelease:
 
 
 class TestResolverCLI:
-    """AC-6: worktree_item_resolve has a CLI that returns branches for multi-worktree epics."""
+    """Worktree_item_resolve has a CLI that returns branches for multi-worktree epics."""
 
     def _run_resolver(
         self,

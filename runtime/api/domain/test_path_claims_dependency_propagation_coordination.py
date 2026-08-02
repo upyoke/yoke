@@ -73,7 +73,7 @@ class TestLegacyCoordinationOnlyRepair:
         assert reason is None
 
     def test_release_repairs_coord_only_with_surviving_sibling(self, conn):
-        # AC-12 legacy data shape: A,B active; C blocked behind A; coord-only
+        # Legacy data shape: A,B active; C blocked behind A; coord-only
         # edges between (B,C) and (A,C). After A releases, C must flip to
         # planned even though B is still active — the surviving sibling no
         # longer holds a mutex lane.
@@ -194,7 +194,7 @@ class TestSerialOverlapStaysBlocked:
 
 class TestStrandedSweep:
     def test_unblock_stranded_idempotent_over_multiple_passes(self, conn):
-        # AC-12 recovery surface: re-running the sweep does not double-emit
+        # Recovery surface: re-running the sweep does not double-emit
         # because the repaired row's blocked_reason is already cleared.
         target = seed_target(conn, path_string="runtime/api/domain")
         a_item = seed_item(conn, item_id=5001)

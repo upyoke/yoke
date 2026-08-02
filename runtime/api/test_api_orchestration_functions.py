@@ -25,7 +25,7 @@ def _request(function_id: str, payload=None) -> FunctionCallRequest:
 
 class TestBoardRebuild(unittest.TestCase):
     def test_returns_hash_and_line_count(self, tmp_dir=None):
-        # AC-7.1: board.rebuild returns hash + line count.
+        # Board.rebuild returns hash + line count.
         import tempfile
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -157,7 +157,7 @@ class TestPacketsCheck(unittest.TestCase):
 
 
 class TestAgentsRenderRun(unittest.TestCase):
-    """AC-7.2 — agents.render.run routes through yoke_core.domain.agents_render."""
+    """Agents.render.run routes through yoke_core.domain.agents_render."""
 
     def test_routes_through_renderer(self):
         captured: dict = {}
@@ -198,7 +198,7 @@ class TestAgentsRenderRun(unittest.TestCase):
 
 
 class TestAgentsRenderCheck(unittest.TestCase):
-    """AC-7.2 — agents.render.check routes through yoke_core.domain.agents_render."""
+    """Agents.render.check routes through yoke_core.domain.agents_render."""
 
     def test_returns_drift_list(self):
         with patch(

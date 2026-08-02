@@ -108,7 +108,7 @@ class TestClaimCleanupCommands:
     def test_clean_stale_sessions_skips_session_with_recent_tool_activity(
         self, session_offer_db,
     ):
-        """AC-10/AC-13: CLI uses the unified activity classifier.
+        """CLI uses the unified activity classifier.
 
         A session with a stale heartbeat but a recent ``HarnessToolCallCompleted``
         event is NOT reclaimed by ``clean-stale-sessions``. Proves the

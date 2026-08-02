@@ -1,6 +1,6 @@
 """Coverage for the dep-graph resolver helpers.
 
-Covers AC-11/AC-12 register-side awareness:
+Covers register-side awareness:
 
 * ``has_bidirectional_dep_edge`` returns True for forward + reverse
   edges, False otherwise.

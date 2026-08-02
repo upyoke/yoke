@@ -1,4 +1,4 @@
-"""AC-4 + AC-5: Frontier ranking — deterministic ordering and repeatability.
+"""Frontier ranking — deterministic ordering and repeatability.
 
 Covers TestRankFrontier (basic priority/unblocks/age/lifecycle ordering) and
 TestRankingDeterminism (repeated/reversed/shuffled-input invariance). Both
@@ -27,7 +27,7 @@ from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
 
 
 class TestRankFrontier:
-    """AC-4: rank_frontier produces deterministic ordering."""
+    """Rank_frontier produces deterministic ordering."""
 
     def _item(self, **kw) -> FrontierItem:
         defaults = dict(
@@ -154,7 +154,7 @@ class TestRankFrontier:
 
 
 class TestRankingDeterminism:
-    """AC-5: Ranking is deterministic across repeated runs."""
+    """Ranking is deterministic across repeated runs."""
 
     def _item(self, **kw) -> FrontierItem:
         defaults = dict(

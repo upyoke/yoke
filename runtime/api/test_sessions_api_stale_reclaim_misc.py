@@ -67,7 +67,7 @@ def _registry_conn(tmp_path: Path, *, with_table: bool = True):
 
 
 class TestStaleReclaimYOK1350:
-    """AC-9/10/11: executor-aware stale-session cleanup."""
+    """Executor-aware stale-session cleanup."""
 
     @pytest.fixture
     def conn_with_events(self, conn):
@@ -75,7 +75,7 @@ class TestStaleReclaimYOK1350:
         return conn
 
     def test_codex_session_between_turns_is_skipped(self, conn_with_events):
-        """AC-11: Codex sessions that are merely between turns are not reclaimed."""
+        """Codex sessions that are merely between turns are not reclaimed."""
         conn = conn_with_events
         _register(conn, session_id="codex-idle", executor="codex")
         # Simulate a Codex session that hasn't heartbeated for 25 minutes but
@@ -95,7 +95,7 @@ class TestStaleReclaimYOK1350:
         assert ids == {"codex-idle"}
 
     def test_codex_session_past_override_is_reclaimed(self, conn_with_events):
-        """AC-11: Codex session past the 60-minute override is still reclaimed."""
+        """Codex session past the 60-minute override is still reclaimed."""
         conn = conn_with_events
         _register(conn, session_id="codex-dead", executor="codex")
         conn.execute(
@@ -128,7 +128,7 @@ class TestStaleReclaimYOK1350:
         assert ids == {"codex-desktop-idle"}
 
     def test_claude_stale_uses_base_ttl(self, conn_with_events):
-        """AC-11: Claude sessions use the base TTL without executor override."""
+        """Claude sessions use the base TTL without executor override."""
         conn = conn_with_events
         _register(conn, session_id="claude-stale", executor="claude-code")
         conn.execute(
@@ -143,7 +143,7 @@ class TestStaleReclaimYOK1350:
         assert result["total_reclaimed"] == 1
 
     def test_latest_event_keeps_session_alive(self, conn_with_events):
-        """AC-10: session with stale heartbeat but fresh events is not reclaimed."""
+        """Session with stale heartbeat but fresh events is not reclaimed."""
         conn = conn_with_events
         _register(conn, session_id="event-alive", executor="claude-code")
         conn.execute(
@@ -165,7 +165,7 @@ class TestStaleReclaimYOK1350:
         assert result["total_reclaimed"] == 0
 
     def test_emits_stale_session_reclaimed_event(self, conn_with_events):
-        """AC-10: reclaim emits HarnessSessionStaleReclaimed with required fields."""
+        """Reclaim emits HarnessSessionStaleReclaimed with required fields."""
         conn = conn_with_events
         _insert_claimable_items(conn, 777)
         _register(conn, session_id="stale-ev", executor="claude-code")
@@ -272,7 +272,7 @@ class TestStaleSessionSweepEvent:
 
     @patch("yoke_core.domain.sessions_analytics._emit_session_event")
     def test_sweep_emits_event_zero_reclaims(self, mock_emit, conn):
-        """AC-8: Sweep emits event even with no sessions to reclaim."""
+        """Sweep emits event even with no sessions to reclaim."""
         result = clean_stale_harness_sessions(conn)
         assert result["total_reclaimed"] == 0
         calls = [c for c in mock_emit.call_args_list

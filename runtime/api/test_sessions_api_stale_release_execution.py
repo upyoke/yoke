@@ -1,5 +1,5 @@
 # ruff: noqa: F811
-"""TestReleaseItemClaimForExecution: AC-7 atomic release+focus-clear."""
+"""TestReleaseItemClaimForExecution: atomic release+focus-clear."""
 
 from __future__ import annotations
 
@@ -35,7 +35,7 @@ def _seed_issue_workflow(conn) -> None:
 
 
 class TestReleaseItemClaimForExecution:
-    """AC-7: execution-owned atomic release+focus-clear."""
+    """Execution-owned atomic release+focus-clear."""
 
     @pytest.fixture(autouse=True)
     def _claimable_items(self, conn):
@@ -191,7 +191,7 @@ class TestReleaseItemClaimForExecution:
         assert row["current_item_id"] == "800"
 
     def test_generic_attribution_helpers_are_not_claim_owning(self, conn):
-        """AC-7: set_current_item / clear_current_item MUST stay attribution-only."""
+        """Set_current_item / clear_current_item MUST stay attribution-only."""
         from yoke_core.domain.sessions import (
             clear_current_item,
             set_current_item,
@@ -214,7 +214,7 @@ class TestReleaseItemClaimForExecution:
 
     @patch("yoke_core.domain.sessions_analytics._emit_event")
     def test_offer_override_stores_canonical_reason_and_intent(self, mock_emit, conn):
-        """AC-5: offer-override maps to 'released' enum, preserves intent in event."""
+        """Offer-override maps to 'released' enum, preserves intent in event."""
         from yoke_core.domain.sessions import release_item_claim_for_execution
 
         _register(conn, session_id="offer-ovr-sess")

@@ -268,7 +268,7 @@ class TestMainSmoke:
 
 
 class TestInterpreterAdvisory:
-    """AC-1/AC-3/AC-7: ``session_init`` invokes the interpreter probe and
+    """``session_init`` invokes the interpreter probe and
     routes any advisory to stderr only — stdout stays machine-parseable
     ``KEY=VALUE`` lines."""
 
@@ -315,7 +315,7 @@ class TestInterpreterAdvisory:
     def test_no_advisory_when_probe_passes(
         self, tmp_path, monkeypatch, capsys,
     ):
-        """AC-3: when the resolved python3 has pydantic, stderr must be
+        """When the resolved python3 has pydantic, stderr must be
         clean of any interpreter advisory text."""
         self._bootstrap_workspace(tmp_path, monkeypatch)
         ok_result = python_interpreter_probe.ProbeResult(

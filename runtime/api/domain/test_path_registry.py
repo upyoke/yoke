@@ -78,7 +78,7 @@ def fresh_db(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# Path utilities (AC-17 sentinel handling)
+# Path utilities (sentinel handling)
 # ---------------------------------------------------------------------------
 
 
@@ -109,7 +109,7 @@ class TestPathUtilities:
 
 
 # ---------------------------------------------------------------------------
-# Find-or-mint and target_at (AC-7 idempotency, AC-19 uniqueness)
+# Find-or-mint and target_at (idempotency, uniqueness)
 # ---------------------------------------------------------------------------
 
 
@@ -208,7 +208,7 @@ class TestTargetIdentity:
 
 
 # ---------------------------------------------------------------------------
-# Ancestors / descendants traversal (AC-3 substrate, AC-17 root sentinel)
+# Ancestors / descendants traversal (root sentinel handling)
 # ---------------------------------------------------------------------------
 
 

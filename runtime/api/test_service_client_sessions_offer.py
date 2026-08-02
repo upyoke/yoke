@@ -212,7 +212,7 @@ class TestSessionOfferCommand:
         ["claude-code", "claude-desktop", "codex", "codex-desktop"],
     )
     def test_session_offer_supported_harness_requires_session_id(self, session_offer_db, executor):
-        """AC-6: supported harnesses must pass their canonical session ID."""
+        """Supported harnesses must pass their canonical session ID."""
         from runtime.harness.hook_helpers import is_codex
         result = _run_client(
             [

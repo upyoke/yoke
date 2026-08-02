@@ -73,12 +73,12 @@ def _envelope(
 
 
 # ---------------------------------------------------------------------------
-# Registration assertions — AC-6.7 + AC-6.9
+# Registration assertions
 # ---------------------------------------------------------------------------
 
 
 class TestClaimsHandlersRegistration(_ClaimsHandlerSuite):
-    """AC-6.7: every function id declares its ``claim_required_kind``."""
+    """Every function id declares its ``claim_required_kind``."""
 
     def test_claim_required_kind_matrix(self):
         expected = {
@@ -100,7 +100,7 @@ class TestClaimsHandlersRegistration(_ClaimsHandlerSuite):
             )
 
     def test_claim_coordination_function_coverage_present(self):
-        """AC-6.9: extra claim-adjacent surfaces are also registered."""
+        """Extra claim-adjacent surfaces are also registered."""
         extras = [
             "claims.work.holder_get",
             "claims.work.holder_list",
@@ -143,7 +143,7 @@ class TestClaimsWork(_ClaimsHandlerSuite):
         self.assertEqual(resp.result["session_id"], "s-1")
 
     def test_release_requires_self_only(self):
-        """AC-6.2: release rejects when caller isn't the holder."""
+        """Release rejects when caller isn't the holder."""
         with patch.object(
             claims_module, "_claim_row_for_id",
             return_value={"id": 99, "session_id": "OTHER"},
@@ -211,7 +211,7 @@ class TestClaimsPath(_ClaimsHandlerSuite):
         )
 
     def test_register_routes_to_register_for_item(self):
-        """AC-6.3: register accepts paths/target ids/integration target."""
+        """Register accepts paths/target ids/integration target."""
         with self._hold_item_claim(), patch(
             "yoke_core.domain.path_claims_register.register_for_item",
             return_value=555,
@@ -308,7 +308,7 @@ class TestClaimsPath(_ClaimsHandlerSuite):
         self.assertEqual(resp.result["state"], "released")
 
     def test_override_rejected_for_non_operator(self):
-        """AC-6.4: non-operator session => operator_override_required."""
+        """Non-operator session => operator_override_required."""
         with patch.object(claims_module, "is_operator_session", return_value=False):
             resp = dispatch(_envelope(
                 "claims.path.override",

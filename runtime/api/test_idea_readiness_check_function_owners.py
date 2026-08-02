@@ -1,5 +1,5 @@
-"""Coverage for ``verify_function_owners`` (AC-1/2/3/10/16 of the
-pre-handoff readiness checks).
+"""Coverage for ``verify_function_owners``, one of the pre-handoff
+readiness checks.
 
 Split off from ``test_idea_readiness_check.py`` to keep each test module
 within the file-line budget; behavior and test names are preserved so
@@ -53,7 +53,7 @@ def stub_repo_root(tmp_path, monkeypatch):
 
 @pytest.fixture
 def stubbed_rg(monkeypatch, stub_repo_root):
-    """Stub rg availability and ``subprocess.run`` so AC-16 owner-verification
+    """Stub rg availability and ``subprocess.run`` so owner-verification
     tests pass deterministically without depending on a real ``rg`` binary on
     PATH. The stub re-implements the matching subset of rg's behavior used by
     ``verify_function_owners`` (regex search, exit 0 on match, exit 1 on miss).
@@ -165,7 +165,7 @@ class TestVerifyFunctionOwners:
     def test_missing_rg_returns_empty_without_subprocess(
         self, monkeypatch, stub_repo_root,
     ):
-        """AC-1 / AC-3 / AC-10: when ``rg`` is absent, ``verify_function_owners``
+        """When ``rg`` is absent, ``verify_function_owners``
         returns ``[]`` regardless of the spec text and never reaches
         ``subprocess.run``.
         """
@@ -190,7 +190,7 @@ class TestVerifyFunctionOwners:
     def test_missing_rg_warning_emitted_once(
         self, monkeypatch, caplog, stub_repo_root,
     ):
-        """AC-2: missing ``rg`` emits exactly one ``WARNING`` per process."""
+        """Missing ``rg`` emits exactly one ``WARNING`` per process."""
         monkeypatch.setattr(
             idea_readiness_check_rg.shutil, "which", lambda name: None,
         )

@@ -189,7 +189,7 @@ def test_consumes_upstream_constants_from_task_001():
 
 
 def test_finding_label_matches_ac_2():
-    """HC slug and label match the AC-2 contract."""
+    """HC slug and label match their canonical strings."""
 
     assert HC_SLUG == "HC-tier-module-path-resolution"
     assert mod.HC_LABEL == (

@@ -1,4 +1,4 @@
-"""Regression tests for AC-42/43: ``runs start-for-item`` composer.
+"""Regression tests for the ``runs start-for-item`` composer.
 
 Mocks the four primitives the composer wraps so the test surface stays
 deterministic and does not require live GitHub or deployment services
@@ -239,7 +239,7 @@ def test_validate_composition_failure_preserves_run_id_and_blocks_deploy():
     assert result.ok is False
     assert result.error_phase == PHASE_VALIDATE
     assert "missing required item" in result.error
-    # AC-43 invariant: validation failure preserves run_id...
+    # Invariant: validation failure preserves run_id...
     assert result.run_id == "2026-05-19-001"
     # ... and the composer never reached deploy_pipeline. We assert the
     # absence by ensuring deploy_pipeline is not imported by this module

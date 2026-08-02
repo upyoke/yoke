@@ -4,7 +4,7 @@ Split out of ``test_path_claims_dependency_propagation_coordination.py`` so
 the propagation-coordination file stays under the 350-line cap and these
 edge-change wording tests live next to the helper they exercise.
 
-Covers AC-1/2/3/4/5/6: every direction of ``item_dependencies`` edge change
+Covers every direction of ``item_dependencies`` edge change
 between a candidate and a blocker recomputes wording on the candidate's
 ``state='blocked'`` row to reflect the *current* edge shape, while state
 is preserved. ``cause='item_dependency_edge_change'`` distinguishes this
@@ -30,7 +30,7 @@ from yoke_core.domain.path_claims_blocked_reason_refresh import (
 class TestEdgeChangeRefresh:
     """Wording-only refresh after item_dependencies edge-type change.
 
-    Covers AC-1/2/3/5/6: when the dep edge between two items changes
+    When the dep edge between two items changes
     (UPDATE to coordination_only, DELETE, or INSERT that introduces a
     serial edge), every non-terminal blocked row whose upstream pointer
     references a claim owned by either party has its blocked_reason
@@ -75,7 +75,7 @@ class TestEdgeChangeRefresh:
         return None
 
     def test_activation_to_coordination_only_rewrites_to_path_mutex(self, conn):
-        # AC-6(a): hard activation demoted to coordination_only. C was
+        # Hard activation demoted to coordination_only. C was
         # blocked behind A. After the UPDATE, A-C is coord_only (no
         # serial), but B still overlaps C with no edge — path-mutex.
         seeded = self._seed_three_item_overlap(conn)
@@ -109,7 +109,7 @@ class TestEdgeChangeRefresh:
         assert ctx["blocking_item_id"] == seeded["a_item"]
 
     def test_coordination_only_delete_keeps_path_mutex_wording(self, conn):
-        # AC-6(b): coord_only edge DELETED. After deletion both A and B
+        # The coord_only edge is DELETED. After deletion both A and B
         # overlap C with no edge (real INCOMPATIBLE). The refresh picks
         # the lowest-id overlap as the canonical "path-mutex on X" peer.
         seeded = self._seed_three_item_overlap(conn)
@@ -141,7 +141,7 @@ class TestEdgeChangeRefresh:
         assert str(reason) in valid
 
     def test_activation_delete_rewrites_to_path_mutex(self, conn):
-        # AC-6(c): activation edge DELETED. Same shape as (b) — both
+        # Activation edge DELETED. Same shape as the delete above — both
         # surviving overlaps have no edge. Wording rotation from
         # "serial-via-dep" to "path-mutex" is the load-bearing assertion.
         seeded = self._seed_three_item_overlap(conn)
@@ -173,7 +173,7 @@ class TestEdgeChangeRefresh:
         assert str(state) == "blocked"
 
     def test_coordination_only_to_activation_rewrites_to_serial(self, conn):
-        # AC-6(d): re-tightening — coord_only becomes activation. Only A
+        # Re-tightening — coord_only becomes activation. Only A
         # overlaps C, so classifier returns SERIAL_VIA_DEPENDENCY and the
         # wording rotates to "serial-via-dependency on path_claims.id=A".
         target = seed_target(conn, path_string="runtime/api/domain")

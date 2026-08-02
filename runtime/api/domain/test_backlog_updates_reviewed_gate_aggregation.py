@@ -64,7 +64,7 @@ def _aggregate_reviewed(*, arch=None, boundary=None, qa=None, item_id: int = 42)
 
 
 def test_reviewed_implementation_aggregates_boundary_and_qa_failures() -> None:
-    """AC-50 / AC-52: two simultaneous independent blockers surface in
+    """Two simultaneous independent blockers surface in
     ``failures`` while legacy top-level fields mirror the first."""
     boundary = {
         "success": False,

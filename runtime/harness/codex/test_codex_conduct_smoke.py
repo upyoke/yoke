@@ -1,6 +1,6 @@
 """Codex conduct smoke — dispatch descriptor → custom-agent invocation proof.
 
-Satisfies AC-2 / AC-3 / AC-5 of the task 9 spec: exercises the
+Exercises the
 ``yoke_core.domain.dispatch_descriptors.render_for_harness(descriptor,
 "codex")`` path against the rendered Codex adapter TOML for a no-op engineer
 task body, asserts the parseable result envelope ingests cleanly per the
@@ -67,7 +67,7 @@ file_budget: SKIP - no authored code grown
 
 @_REQUIRES_RENDERED_AGENTS
 class TestEngineerDispatchRendersForCodex:
-    """AC-2 (rendering half): the conduct dispatch descriptor produces a
+    """Rendering half: the conduct dispatch descriptor produces a
     Codex spawn snippet that names the rendered engineer adapter path.
     """
 
@@ -99,7 +99,7 @@ class TestEngineerDispatchRendersForCodex:
 
 @_REQUIRES_RENDERED_AGENTS
 class TestEngineerResultEnvelopeIsParseable:
-    """AC-2 (parsing half): a parseable result envelope from the dispatched
+    """Parsing half: a parseable result envelope from the dispatched
     sub-agent matches the descriptor's declared ``result_schema``.
 
     No real sub-agent runs. The fixture envelope mirrors the canonical
@@ -129,7 +129,7 @@ class TestEngineerResultEnvelopeIsParseable:
 
 @_REQUIRES_RENDERED_AGENTS
 class TestTelemetryEmittedDuringConductDispatch:
-    """AC-3: at least one canonical telemetry event emission is observable.
+    """At least one canonical telemetry event emission is observable.
 
     For the conduct flow we emit ``NextActionChosen`` via the events sink —
     the same event sessions_analytics_dispatch surfaces when the core picks

@@ -48,7 +48,7 @@ class TestOrphanedGhIssues:
     @patch("yoke_core.engines.doctor_hc_worktrees._github_auth_configured", return_value=True)
     @patch("yoke_core.engines.doctor_hc_worktrees_gh_labels.list_issues_by_labels_rest")
     def test_uses_dynamic_yoke_repo(self, mock_rest, mock_avail):
-        """AC-3: Yoke repo is resolved via canonical resolver — not a
+        """Yoke repo is resolved via canonical resolver — not a
         hard-coded ``upyoke/yoke`` literal.
 
         Patch the resolver to return a custom repo string and assert the

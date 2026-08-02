@@ -134,7 +134,7 @@ class TestResolveSkillPath:
 
 
 class TestSkillCompatibilitySymlink:
-    """AC-4: .claude/skills/yoke is a compatibility alias to the canonical tree."""
+    """.claude/skills/yoke is a compatibility alias to the canonical tree."""
 
     def test_compat_symlink_resolves_to_same_target(self, skills_tree):
         canonical = (skills_tree / SKILLS_ROOT_REL / "strategize" / "SKILL.md").resolve()
@@ -192,7 +192,7 @@ class TestSkillCLI:
 
 
 class TestSkillRealRepoDiscovery:
-    """AC-1, AC-2: verify discovery against the real repo checkout."""
+    """Verify discovery against the real repo checkout."""
 
     @pytest.fixture
     def repo_root(self):

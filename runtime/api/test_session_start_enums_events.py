@@ -42,7 +42,7 @@ class TestActionKind:
 
 
 class TestEventShapes:
-    """AC-3: Event shapes conform to event contract conventions."""
+    """Event shapes conform to event contract conventions."""
 
     def test_session_offered_shape(self):
         assert SESSION_OFFERED_EVENT["event_name"] == "HarnessSessionOffered"
@@ -81,7 +81,7 @@ class TestEventShapes:
 
 
 class TestNextActionKind:
-    """AC-1: NextActionKind enum defines all six modes."""
+    """NextActionKind enum defines all six modes."""
 
     def test_alias_is_action_kind(self):
         assert NextActionKind is ActionKind

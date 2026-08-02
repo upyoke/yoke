@@ -6,8 +6,8 @@ authored-file cap. Covers:
 - ``item_test_results_classify`` head-SHA trailer helpers (pure functions).
 - ``evaluate_ci_substitute`` decision matrix (pure function).
 - ``do_pr_merge`` skipped-CI gate freshness routing (fresh / stale / unbound
-  / unresolved-head) — AC-1 / AC-5 / AC-10.
-- ``_wait_for_ci`` declared-workflow registration wait — AC-8.
+  / unresolved-head).
+- ``_wait_for_ci`` declared-workflow registration wait.
 
 The merge-harness stubs (``_arm_pr_merge_environment`` etc.) live in
 ``test_merge_worktree_pr_checks`` and are imported here so both suites share
@@ -90,7 +90,7 @@ class TestVerdictHeadShaBinding:
         assert verdict_is_fresh(_stamp(_PYTEST_PASS_OUTPUT, _HEAD_SHA), "") is False
 
     def test_trailer_does_not_perturb_classify(self) -> None:
-        """AC-7: the HTML-comment trailer must not change classification."""
+        """The HTML-comment trailer must not change classification."""
         from yoke_core.domain.item_test_results_classify import (
             classify_test_results,
         )
@@ -162,7 +162,7 @@ class TestSkippedCiGateFreshness:
     """``do_pr_merge`` skipped-CI gate routed through the freshness binding."""
 
     def test_fresh_sha_warns(self, monkeypatch) -> None:
-        """AC-1/AC-5: a head-bound PASS proceeds; the accept event is WARN
+        """A head-bound PASS proceeds; the accept event is WARN
         severity and records the verdict head sha."""
         from yoke_core.engines.merge_worktree_ci import SKIPPED_NO_CHECKS
         from yoke_core.engines.merge_worktree_pr import do_pr_merge
@@ -184,7 +184,7 @@ class TestSkippedCiGateFreshness:
         assert accept["context"]["verdict_head_sha"] == _HEAD_SHA
 
     def test_stale_sha_blocks(self, monkeypatch) -> None:
-        """AC-4: a real-but-stale PASS (stamped at a SHA other than the PR
+        """A real-but-stale PASS (stamped at a SHA other than the PR
         head — the YOK-1883 shape) is refused as a CI substitute."""
         from yoke_core.engines.merge_worktree_ci import SKIPPED_NO_CHECKS
         from yoke_core.engines.merge_worktree_pr import do_pr_merge
@@ -208,7 +208,7 @@ class TestSkippedCiGateFreshness:
         assert block["context"]["evidence_state"] == "stale_or_unbound"
 
     def test_unbound_pass_blocks(self, monkeypatch) -> None:
-        """AC-10: a legacy PASS with no head-SHA stamp is unbound and refused."""
+        """A legacy PASS with no head-SHA stamp is unbound and refused."""
         from yoke_core.engines.merge_worktree_ci import SKIPPED_NO_CHECKS
         from yoke_core.engines.merge_worktree_pr import do_pr_merge
 
@@ -251,7 +251,7 @@ class TestSkippedCiGateFreshness:
 
 
 class TestCheckRegistrationWait:
-    """AC-8: empty check-runs + a declared workflow waits for registration
+    """Empty check-runs + a declared workflow waits for registration
     before concluding no-CI; no declaration skips immediately."""
 
     def _arm(self, monkeypatch, *, declares, states_sequence, reg_timeout=120):

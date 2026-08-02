@@ -34,7 +34,7 @@ def sync_ctx(tmp_path, monkeypatch):
 
 
 class TestCheckedOutTargetExplicitSequence:
-    """AC-6 / AC-10 / AC-11: pin the explicit fetch + ff-only-merge shape."""
+    """Pin the explicit fetch + ff-only-merge shape."""
 
     def test_checked_out_target_uses_explicit_fetch_then_ff_only_merge(
         self, sync_ctx, monkeypatch

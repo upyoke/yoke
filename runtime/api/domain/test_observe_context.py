@@ -17,7 +17,7 @@ from yoke_core.domain.observe import (
 
 
 class TestEnrichedContext(unittest.TestCase):
-    """AC-4: context.detail includes tool_input, tool_response_preview, error,
+    """Context.detail includes tool_input, tool_response_preview, error,
     attribution_source, hook_event."""
 
     def test_TC_bash_context_has_enriched_fields(self):

@@ -104,7 +104,7 @@ def test_cli_recipe_leads_function_envelope(
 
 
 def test_polish_lifecycle_envelopes_use_canonical_shape(polish_texts: dict[str, str]) -> None:
-    """AC-8: every retained lifecycle JSON envelope must use the canonical
+    """Every retained lifecycle JSON envelope must use the canonical
     function id and the source_status / target_status payload keys.
 
     Catches the legacy `"function": "lifecycle.transition"` (no `.execute`
@@ -130,7 +130,7 @@ def test_polish_lifecycle_envelopes_use_canonical_shape(polish_texts: dict[str, 
 
 
 def test_leading_cli_examples_omit_session_id(polish_texts: dict[str, str]) -> None:
-    """AC-9: leading CLI examples must not teach --session-id; the active
+    """Leading CLI examples must not teach --session-id; the active
     harness session is resolved from the environment.
     """
     pattern = re.compile(
@@ -146,7 +146,7 @@ def test_leading_cli_examples_omit_session_id(polish_texts: dict[str, str]) -> N
 
 
 def test_polish_files_under_file_budget_limits() -> None:
-    """AC-7: each touched polish file stays under the 350-line hard limit
+    """Each touched polish file stays under the 350-line hard limit
     (300-line design target is advisory).
     """
     limit = 350

@@ -60,7 +60,7 @@ class TestScreenshotStorageHardBlock:
     """screenshot steps must fail on missing/nonexistent artifacts."""
 
     def test_ac1_no_artifact_path_fails_run(self, db_path: str) -> None:
-        """AC-1: screenshot step with no artifact path returned fails the run."""
+        """Screenshot step with no artifact path returned fails the run."""
         _seed_item(db_path, 600)
         _seed_requirement(
             db_path, 600, "browser-check",
@@ -85,7 +85,7 @@ class TestScreenshotStorageHardBlock:
         assert "no_screenshot_artifact" in result.runs[0].errors
 
     def test_ac2_artifact_not_on_disk_fails_run(self, tmp_path: Path, db_path: str) -> None:
-        """AC-2: returned artifact path that doesn't exist on disk fails the run."""
+        """Returned artifact path that doesn't exist on disk fails the run."""
         _seed_item(db_path, 601)
         _seed_requirement(
             db_path, 601, "browser-check",
@@ -110,7 +110,7 @@ class TestScreenshotStorageHardBlock:
         assert "artifact_not_on_disk" in result.runs[0].errors
 
     def test_ac3_completeness_check_fails_on_mismatch(self, tmp_path: Path, db_path: str) -> None:
-        """AC-3: expected>recorded screenshots fails the run even if steps succeeded."""
+        """Expected>recorded screenshots fails the run even if steps succeeded."""
         _seed_item(db_path, 602)
         _seed_requirement(
             db_path, 602, "browser-check",
@@ -142,7 +142,7 @@ class TestScreenshotStorageHardBlock:
         assert result.runs[0].recorded_screenshots == 1
 
     def test_ac3_completeness_passes_when_all_recorded(self, tmp_path: Path, db_path: str) -> None:
-        """AC-3: when all expected screenshots are recorded, run passes."""
+        """When all expected screenshots are recorded, run passes."""
         _seed_item(db_path, 603)
         _seed_requirement(
             db_path, 603, "browser-check",
@@ -174,7 +174,7 @@ class TestScreenshotStorageHardBlock:
         assert result.runs[0].recorded_screenshots == 2
 
     def test_ac6_non_screenshot_steps_unaffected(self, db_path: str) -> None:
-        """AC-6: navigate/click steps without screenshot requirement pass normally."""
+        """Navigate/click steps without screenshot requirement pass normally."""
         _seed_item(db_path, 604)
         _seed_requirement(
             db_path, 604, "browser-check",
@@ -196,7 +196,7 @@ class TestScreenshotStorageHardBlock:
         assert result.runs[0].recorded_screenshots == 0
 
     def test_ac6_no_browser_requirements_skip_unaffected(self, db_path: str) -> None:
-        """AC-6: items without browser requirements skip cleanly."""
+        """Items without browser requirements skip cleanly."""
         _seed_item(db_path, 605)
 
         patches = _patch_external_deps(db_path)
@@ -225,7 +225,7 @@ class TestDataEnvelopeUnwrapping:
     """daemon wraps responses under a 'data' key."""
 
     def test_wrapped_response_extracts_artifacts(self, tmp_path: Path, db_path: str) -> None:
-        """AC-01/AC-04: artifacts inside data envelope are correctly extracted."""
+        """Artifacts inside data envelope are correctly extracted."""
         _seed_item(db_path, 700)
         shot_file = tmp_path / "wrapped.png"
         shot_file.write_bytes(b"PNG")
@@ -256,7 +256,7 @@ class TestDataEnvelopeUnwrapping:
         assert result.runs[0].recorded_screenshots == 1
 
     def test_flat_response_still_works(self, tmp_path: Path, db_path: str) -> None:
-        """AC-05: flat response shape (no data key) continues to work."""
+        """Flat response shape (no data key) continues to work."""
         _seed_item(db_path, 701)
         shot_file = tmp_path / "flat.png"
         shot_file.write_bytes(b"PNG")
@@ -285,7 +285,7 @@ class TestDataEnvelopeUnwrapping:
         assert result.runs[0].recorded_screenshots == 1
 
     def test_wrapped_data_success_false_fails_step(self, db_path: str) -> None:
-        """AC-06: data.success=false fails the step even when outer success=true."""
+        """Data.success=false fails the step even when outer success=true."""
         _seed_item(db_path, 702)
         _seed_requirement(
             db_path, 702, "browser-check",
@@ -310,7 +310,7 @@ class TestDataEnvelopeUnwrapping:
         assert "render_timeout" in result.runs[0].errors
 
     def test_wrapped_no_artifacts_triggers_no_screenshot_artifact(self, db_path: str) -> None:
-        """AC-02: wrapped response with empty artifacts still triggers no_screenshot_artifact."""
+        """Wrapped response with empty artifacts still triggers no_screenshot_artifact."""
         _seed_item(db_path, 703)
         _seed_requirement(
             db_path, 703, "browser-check",

@@ -81,7 +81,7 @@ class TestSysPathReanchor:
     """
 
     def test_syspath0_set_to_repo_root_after_step1(self, dt_db):
-        """AC-1 / AC-3: sys.path[0] is corrected even when startup path
+        """Sys.path[0] is corrected even when startup path
         is a non-existent directory (simulating deleted worktree)."""
         db_path, repo_root = dt_db
         _insert_item(db_path, 99, status="implemented")
@@ -100,7 +100,7 @@ class TestSysPathReanchor:
             sys.path[0] = original_syspath0
 
     def test_status_update_step_sees_reanchored_syspath0(self, dt_db):
-        """AC-5: the late status-update step runs after sys.path[0] has
+        """The late status-update step runs after sys.path[0] has
         already been re-anchored to repo_root."""
         db_path, repo_root = dt_db
         _insert_item(db_path, 100, status="implemented")
@@ -152,7 +152,7 @@ class TestPackagePathReseat:
         return launched_from, repo_root
 
     def test_reseat_repoints_loaded_package_to_repo_root(self, tmp_path):
-        """AC-6 / AC-7: a package loaded from launched_from has its
+        """A package loaded from launched_from has its
         cached __path__ reseated to point under repo_root after the
         helper runs, and the deleted launched_from no longer matters."""
         import shutil
@@ -193,7 +193,7 @@ class TestPackagePathReseat:
         self,
         tmp_path,
     ):
-        """AC-7: the regression scenario — package loaded from worktree,
+        """The regression scenario — package loaded from worktree,
         worktree deleted, lazy submodule import resolves from main
         checkout because __path__ was reseated. The submodule import
         consults the package's cached __path__, not sys.path, so once

@@ -4,7 +4,7 @@ Codex SessionStart parity — slim resume block on reactivation.
 Legacy-surface guard — old per-event files removed.
 Runner lifecycle path exercised end-to-end (Stop/SessionEnd route
 through ``_end_session`` with the new chain-end rationale).
-AC-5 (workspace export): SessionStart exports ``$YOKE_BOUND_WORKSPACE`` so the
+Workspace export — SessionStart exports ``$YOKE_BOUND_WORKSPACE`` so the
 cross-checkout PreToolUse lint and the renderer's ``_atomic_write`` guard
 can refuse leaks across linked worktrees.
 """
@@ -22,7 +22,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 class TestLegacySurfaceRetired(unittest.TestCase):
-    """AC-23: legacy session-hooks surfaces must not be resurrected."""
+    """Legacy session-hooks surfaces must not be resurrected."""
 
     def test_legacy_session_hooks_session_end_absent(self) -> None:
         self.assertFalse(
@@ -140,7 +140,7 @@ class TestEndSessionCommand(unittest.TestCase):
 
 
 class TestResumeBlockDispatchSubprocess(unittest.TestCase):
-    """AC-19: slim resume block subprocess routes through the canonical CLI."""
+    """Slim resume block subprocess routes through the canonical CLI."""
 
     def test_render_invokes_sessions_resume_block_module(self) -> None:
         from runtime.harness.hook_runner import resume_block_dispatch

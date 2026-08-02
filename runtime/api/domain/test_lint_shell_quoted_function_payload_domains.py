@@ -1,4 +1,4 @@
-"""AC-3 / AC-5 / AC-19 — domain-only remediation copy.
+"""Domain-only remediation copy.
 
 Split from ``test_lint_shell_quoted_function_payload.py`` so the parent
 file stays under the 350-line authored-file budget. Covers invocations
@@ -100,7 +100,7 @@ class TestDomainOnlyHits(unittest.TestCase):
 
 
 class TestReadShapeWithPipesAllowed(unittest.TestCase):
-    """AC-47 — exact read-shape regressions.
+    """Exact read-shape regressions.
 
     Reads (``items get``, ``events list``, etc.) wrapped with read-only
     downstream pipes (``2>&1 | head``, ``| jq .``) MUST be allowed. The
@@ -131,7 +131,7 @@ class TestReadShapeWithPipesAllowed(unittest.TestCase):
 
 
 class TestNewlineSubcommandTerminator(unittest.TestCase):
-    """AC-48 — newline terminates the parsed subcommand path.
+    """Newline terminates the parsed subcommand path.
 
     The parser must not walk a top-level newline into the next command,
     or a cleanup-on-next-line (``rm -f $tmpfile``) gets folded into the

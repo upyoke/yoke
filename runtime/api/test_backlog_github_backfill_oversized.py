@@ -1,6 +1,6 @@
 """Tests for the one-time oversized-body backfill subcommand.
 
-Covers AC-1 through AC-6 of Task 009:
+Covers:
 - identifies-oversized: only items whose rendered body exceeds the budget
   trigger a ``sync_body`` call.
 - sync_body compact-mirror semantics: the backfill calls ``sync_body``
@@ -46,7 +46,7 @@ def _huge_spec() -> str:
 
 class TestIdentifiesOversizedItems:
     def test_only_oversized_items_get_sync_body(self):
-        """AC-3: only items whose rendered body exceeds the budget are repaired."""
+        """Only items whose rendered body exceeds the budget are repaired."""
         db = _make_db()
         # Two linked items: one tiny, one huge. Both have github_issue set.
         insert_item(
@@ -105,7 +105,7 @@ class TestIdentifiesOversizedItems:
 
 class TestIdempotent:
     def test_second_run_reports_zero_repaired(self):
-        """AC-4: a second run sees compact mirrors under budget; no work needed."""
+        """A second run sees compact mirrors under budget; no work needed."""
         db = _make_db()
         insert_item(
             db, id=61, workflow_id="issue", status="idea", project="externalwebapp",
@@ -142,7 +142,7 @@ class TestIdempotent:
 
 class TestSkipsOnAuthFailure:
     def test_auth_failure_skips_item_and_continues(self):
-        """AC-6: ProjectGithubAuthError per item is logged + counted; later
+        """ProjectGithubAuthError per item is logged + counted; later
         items still process; final exit is non-zero."""
         db = _make_db()
         insert_item(

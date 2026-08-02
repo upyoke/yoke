@@ -61,7 +61,7 @@ def _matrix(command: str):
 
 class TestAgentsRenderMutatingPipeVariants(unittest.TestCase):
     """Every mutating ``agents_render render`` pipe-to-truncator variant
-    denies with the canonical prefix and function id (AC-1..AC-4)."""
+    denies with the canonical prefix and function id."""
 
     def test_every_variant_denies_with_canonical_prefix(self) -> None:
         for cmd, leading, wrapping in _matrix(_MUTATING_CMD):
@@ -81,7 +81,7 @@ class TestAgentsRenderMutatingPipeVariants(unittest.TestCase):
                 self.assertIn(_WRITE_FN_ID, reason, msg=cmd)
 
     def test_lint_outcome_uniform_across_separators(self) -> None:
-        """AC-3: equivalent shapes differing only in `&&` vs `;` before
+        """Equivalent shapes differing only in `&&` vs `;` before
         the registered adapter command produce identical lint outcomes."""
         for wrapping in _WRAPPING_VARIANTS:
             cmd_amp = f"cd /tmp && {_MUTATING_CMD} {wrapping}"
@@ -98,7 +98,7 @@ class TestAgentsRenderMutatingPipeVariants(unittest.TestCase):
                 )
 
     def test_lint_outcome_uniform_with_and_without_leading_cd(self) -> None:
-        """AC-3 companion: the bare and ``cd ... &&``-prefixed shapes
+        """The bare and ``cd ... &&``-prefixed shapes
         DENY uniformly."""
         for wrapping in _WRAPPING_VARIANTS:
             cmd_bare = f"{_MUTATING_CMD} {wrapping}"
@@ -113,7 +113,7 @@ class TestAgentsRenderMutatingPipeVariants(unittest.TestCase):
 
 
 class TestAgentsRenderReadShapeStillAllowed(unittest.TestCase):
-    """AC-4 companion: the read-shape adapter ``agents_render check``
+    """The read-shape adapter ``agents_render check``
     retains the existing read-wrapping allowance under the same shapes
     that DENY for the mutating sibling."""
 

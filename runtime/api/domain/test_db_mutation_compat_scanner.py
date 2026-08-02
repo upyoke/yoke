@@ -41,7 +41,7 @@ def _ids(hits):
 
 
 class TestSqliteBannedPatterns:
-    """AC-32 + AC-69: every banned SQLite pattern is caught."""
+    """Every banned SQLite pattern is caught."""
 
     def test_drop_table(self) -> None:
         hits = scan("DROP TABLE items;", authoritative_db_kind=KIND)

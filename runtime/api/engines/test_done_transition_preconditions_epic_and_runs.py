@@ -1,11 +1,11 @@
-"""Regression tests for done-transition preconditions: AC-3, AC-4, AC-5.
+"""Regression tests for done-transition preconditions.
 
 Latest deploy_run not failed.
 Epic refined_idea_to_planning verdict required.
 No-run-delivery flow bypass.
 
 Plus short-circuit cases for empty / internal / unregistered flows.
-AC-1 and AC-2 (deployed_to and deploy_stage) live in the sibling
+The deployed_to and deploy_stage preconditions live in the sibling
 ``test_done_transition_preconditions`` module to fit the 350-line cap.
 """
 
@@ -69,7 +69,7 @@ def _seed_verdict(db_path, item_id, transition="refined_idea_to_planning", verdi
 
 
 class TestAC3LatestRunNotFailed:
-    """AC-3: latest deploy_run not failed."""
+    """Latest deploy_run not failed."""
 
     def test_failed_latest_run_blocks(self, dt_db):
         db_path, _ = dt_db
@@ -121,7 +121,7 @@ class TestAC3LatestRunNotFailed:
 
 
 class TestAC4EpicVerdictRequired:
-    """AC-4: epics need refined_idea_to_planning READY/CAVEATS verdict."""
+    """Epics need refined_idea_to_planning READY/CAVEATS verdict."""
 
     def test_missing_verdict_blocks_epic(self, dt_db):
         db_path, _ = dt_db
@@ -181,7 +181,7 @@ class TestAC4EpicVerdictRequired:
 
 
 class TestAC5NoRunDeliveryBypass:
-    """AC-5: no-run-delivery flow bypasses deployed_to but not AC-2."""
+    """No-run-delivery flow bypasses deployed_to but not deploy_stage."""
 
     def test_no_run_delivery_allows_empty_deployed_to(self, dt_db):
         db_path, _ = dt_db
@@ -219,7 +219,7 @@ class TestAC5NoRunDeliveryBypass:
 
 
 class TestEmptyAndInternalFlows:
-    """Empty / internal deployment_flow short-circuits AC-1, AC-2 (no pipeline)."""
+    """Empty / internal deployment_flow skips the deploy checks (no pipeline)."""
 
     def test_empty_flow_skips_deployed_to_check(self, dt_db):
         db_path, _ = dt_db
@@ -256,7 +256,7 @@ class TestEmptyAndInternalFlows:
 
 
 class TestUnregisteredFlowSkipped:
-    """An unregistered, non-internal flow value does not gate AC-1/AC-2.
+    """An unregistered, non-internal flow value does not gate the deploy checks.
 
     The deployment-flow-guard upstream already rejects unregistered flow
     ids; this module deliberately does not double-fire on the same

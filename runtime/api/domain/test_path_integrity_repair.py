@@ -1,6 +1,6 @@
 """Path-integrity repair surface tests.
 
-Asserts AC-6 / AC-17:
+Asserts:
 
 * Repair rows write ``preparing`` BEFORE substrate mutation.
 * Successful apply transitions to ``applied`` and updates the failure

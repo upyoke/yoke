@@ -1,4 +1,4 @@
-"""AC-6: package-submodule and planned-ref carve-outs in verify_function_owners."""
+"""Package-submodule and planned-ref carve-outs in verify_function_owners."""
 
 from __future__ import annotations
 

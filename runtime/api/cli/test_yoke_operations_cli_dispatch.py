@@ -1,6 +1,6 @@
 """Dispatch-path tests for the ``yoke`` operations CLI.
 
-Covers EXP-AC-1: every Tier-1 function id dispatches in-process through
+Covers every Tier-1 function id dispatching in-process through
 :func:`yoke_function_dispatch.dispatch` from the matching CLI form.
 Plus the error-shape regressions (missing required flag, bad YOK-N,
 bad integer flag, dispatch failure exit code).
@@ -78,7 +78,7 @@ def _run_capture(
 
 
 class TestEveryTierOneFamilyDispatches:
-    """EXP-AC-1: every Tier-1 function id dispatches through the new CLI."""
+    """Every Tier-1 function id dispatches through the new CLI."""
 
     def test_items_get_dispatches(self) -> None:
         rc = _run_with_dispatch(_stub_dispatch_ok, "items", "get", "1791", "spec")

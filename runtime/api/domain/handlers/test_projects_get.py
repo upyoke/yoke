@@ -192,7 +192,7 @@ class TestProjectsGet(unittest.TestCase):
 
 
 class TestProjectsGetAdapterRegistration(unittest.TestCase):
-    """AC-47 — projects.get is registered and appears in the adapter inventory."""
+    """Projects.get is registered and appears in the adapter inventory."""
 
     def test_function_id_registered(self):
         from yoke_core.domain.handlers.__init_register__ import (
@@ -220,7 +220,7 @@ class TestProjectsGetAdapterRegistration(unittest.TestCase):
 
 
 class TestProjectsGetDispatcher(unittest.TestCase):
-    """AC-48 — direct dispatcher call returns the field value without a work claim."""
+    """Direct dispatcher call returns the field value without a work claim."""
 
     def test_direct_dispatch_returns_field_value(self):
         from yoke_core.domain.handlers.__init_register__ import (

@@ -2,7 +2,7 @@
 ``check_obsoleted_terms.py``: SQL form, prose form, child-issue prose,
 and the ``type=issue with an epic parent`` ontology phrase. Covers both the
 pattern-shape behaviour (compile + match positives and negatives) and the
-git-grep residue checks for the matching AC-5 verification surfaces.
+git-grep residue checks for the matching verification surfaces.
 
 Pre-existing pattern shape and residue tests live in
 ``test_doctor_hc_obsoleted_terms.py``. Scan-on-synthetic-tree and HC-wiring
@@ -234,15 +234,15 @@ def test_retired_browser_execution_paths_are_detected():
 
 
 # ---------------------------------------------------------------------------
-# Residue checks — AC-5 verification greps
+# Residue checks — verification greps
 # ---------------------------------------------------------------------------
 
 
 def test_items_where_epic_sql_form_has_no_live_residue():
-    """AC-5 (SQL form): ``items WHERE epic=…`` and the screenshot-shape
+    """SQL form: ``items WHERE epic=…`` and the screenshot-shape
     ``items WHERE epic_id IN (…)`` must not appear in any tracked file
     outside the authorized declaration paths and the strategy/archive
-    waivers documented in AC-8."""
+    waivers."""
     hits = _run_git_grep(r"items[^\n]*WHERE[^\n]*[ ,(]epic(_id)?[ )=;]")
     tolerated_paths = _AUTHORIZED_DECLARATION_PATHS + (
         ".yoke/strategy/WISPS.md",
@@ -266,7 +266,7 @@ def test_items_select_epic_sql_form_has_no_live_residue():
 
 
 def test_epic_field_on_item_prose_has_no_live_residue():
-    """AC-5 (prose form): ``epic field on a backlog item`` (bare or
+    """Prose form: ``epic field on a backlog item`` (bare or
     backtick-wrapped) must not appear in any tracked file outside the
     authorized declaration paths."""
     hits = _run_git_grep(r"[`'\"]?epic[`'\"]?[ ]*field[ ]+on[ ]+(a|the)[ ]+(backlog[ ]+)?item")
@@ -278,7 +278,7 @@ def test_epic_field_on_item_prose_has_no_live_residue():
 
 
 def test_child_issue_phrase_has_no_live_residue():
-    """AC-5 (child-issue prose): ``child issue`` / ``child issues`` must not
+    """Child-issue prose: ``child issue`` / ``child issues`` must not
     appear in any tracked file outside the strategy/archive waivers."""
     hits = _run_git_grep(r"child[ ]+issues?")
     tolerated_paths = _AUTHORIZED_DECLARATION_PATHS + (
@@ -292,7 +292,7 @@ def test_child_issue_phrase_has_no_live_residue():
 
 
 def test_type_issue_epic_parent_phrase_has_no_live_residue():
-    """AC-5 (type=issue + epic parent prose): the retired ``type=issue with
+    """Epic-parent ontology prose: the retired ``type=issue with
     an epic parent`` shape from infer-and-create.md must not appear in any
     tracked file outside the authorized declaration paths."""
     hits = _run_git_grep(r"type=issue.+epic.+parent")

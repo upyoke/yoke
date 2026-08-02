@@ -9,8 +9,8 @@ the DB substrate is the same on-disk fake used by
 
 Test classes:
 
-- :class:`TestStructuredFieldReplaceRoute` — happy path, AC-3.6
-  regression, AC-3.10 GitHub-sync-degraded → 207, AC-3.12 schema lookup.
+- :class:`TestStructuredFieldReplaceRoute` — happy path, empty-stdin
+  regression guard, GitHub-sync-degraded → 207, schema lookup.
 - :class:`TestStructuredFieldAppendAddendumRoute` — happy path + empty
   rejection.
 - :class:`TestStructuredFieldSectionRoutes` — section-upsert /
@@ -218,7 +218,7 @@ class TestStructuredFieldReplaceRoute(_ApiSuite):
         self.assertEqual(resp.status_code, 200)
         body = resp.json()
         self.assertTrue(body["success"])
-        # AC-3.5: envelope carries all required fields
+        # Envelope carries all required fields
         result = body["result"]
         for key in (
             "old_line_count", "new_line_count", "old_hash", "new_hash",
@@ -228,7 +228,7 @@ class TestStructuredFieldReplaceRoute(_ApiSuite):
         self.assertEqual(self.db.fetch_field(101, "spec"), "new content\n")
 
     def test_empty_stdin_regression_guard(self) -> None:
-        """AC-3.6: empty content cannot succeed for an initial spec write."""
+        """Empty content cannot succeed for an initial spec write."""
         self.db.insert_item(101, spec=None)
         env = _envelope(
             "items.structured_field.replace",
@@ -241,7 +241,7 @@ class TestStructuredFieldReplaceRoute(_ApiSuite):
         self.assertEqual(body["error"]["code"], "empty_body")
 
     def test_github_sync_degraded_returns_207(self) -> None:
-        """AC-3.10: GitHub-sync failure surfaces as 207 + warning."""
+        """GitHub-sync failure surfaces as 207 + warning."""
         self.db.insert_item(101, spec="x\n")
         with mock.patch.object(
             backlog_rendering, "_sync_body", return_value=(False, None),
@@ -260,7 +260,7 @@ class TestStructuredFieldReplaceRoute(_ApiSuite):
         self.assertEqual(body["warnings"][0]["code"], "github_sync_degraded")
 
     def test_schema_endpoint_returns_jsonschema(self) -> None:
-        """AC-3.12: GET /v1/functions/schema/items.structured_field.replace."""
+        """GET /v1/functions/schema/items.structured_field.replace."""
         resp = self.client.get(
             "/v1/functions/schema/items.structured_field.replace",
         )
@@ -330,7 +330,7 @@ class TestStructuredFieldSectionRoutes(_ApiSuite):
 
 class TestProgressLogAppendRoute(_ApiSuite):
     def test_progress_log_append_happy_path(self) -> None:
-        """AC-3.9: append into 'Progress Log' with ordering=200."""
+        """Append into 'Progress Log' with ordering=200."""
         self.db.insert_item(101, spec="x\n")
         env = _envelope(
             "items.progress_log.append",

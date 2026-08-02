@@ -198,7 +198,7 @@ class TestPolishGateTestResults:
     def test_quick_lights_up_when_externalwebapp_lands_a_quick_command(
         self, gate_db, monkeypatch
     ) -> None:
-        """AC-5: filter is presence-based, not a hardcoded allowlist.
+        """Filter is presence-based, not a hardcoded allowlist.
 
         The day any other project lands a registered quick Command plan,
         the gate begins enforcing for that project with zero code change.
@@ -239,7 +239,7 @@ class TestPolishGateTestResults:
         assert outcome.passed, outcome.errors
 
     def test_replay_su1804_shape_would_have_blocked(self, gate_db, monkeypatch) -> None:
-        """AC-8: replay 2026-05-20T18:13Z / 18:41Z empty-test_results shape.
+        """Replay 2026-05-20T18:13Z / 18:41Z empty-test_results shape.
 
         YOK-1790, YOK-1804, YOK-1807 all reached usher with empty
         ``items.test_results`` after polish. Under the new gate, the same

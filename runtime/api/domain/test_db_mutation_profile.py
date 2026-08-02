@@ -299,7 +299,7 @@ class TestCanonicalJson:
 
 
 class TestAllowlistWiring:
-    """AC-3: db_mutation_profile / db_compatibility_attestation are wired
+    """Db_mutation_profile / db_compatibility_attestation are wired
     into the structured-field allowlists, content-tracking inventory, and
     the JSONB-column registry."""
 

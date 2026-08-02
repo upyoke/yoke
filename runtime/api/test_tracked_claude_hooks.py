@@ -51,7 +51,7 @@ _PYTHON_RESOLVED_MODULES = (
 
 # Patterns that indicate a tracked command is bypassing the Python resolver
 # by injecting an explicit worktree-local DB path. Keep these synchronized
-# with the item body AC-2 verification pattern.
+# as new bypass shapes appear.
 _BAD_PREFIX_PAT = re.compile(
     r"YOKE_DB\s*=\s*(?:\"|')?[^\"'\s]*yoke\.db"
 )
@@ -141,7 +141,7 @@ def _violates_python_resolver_contract(command: str) -> bool:
 
 
 def test_settings_json_has_no_worktree_local_db_injection() -> None:
-    """AC-2 / AC-6: ``.claude/settings.json`` must not reintroduce the
+    """``.claude/settings.json`` must not reintroduce the
     regression pattern in any observe/lint launcher."""
     assert SETTINGS_JSON.is_file(), f"Missing tracked settings.json at {SETTINGS_JSON}"
     violations: List[str] = []
@@ -169,7 +169,7 @@ def test_settings_json_has_no_worktree_local_db_injection() -> None:
 def test_yoke_agent_hooks_have_no_worktree_local_db_injection(
     agent_file: str,
 ) -> None:
-    """AC-2 / AC-6: every tracked yoke-*.md agent file must use the
+    """Every tracked yoke-*.md agent file must use the
     Python resolver for observe/lint launchers."""
     agent_path = AGENTS_DIR / agent_file
     violations: List[str] = []

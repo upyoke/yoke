@@ -1,6 +1,6 @@
 # ruff: noqa: F811
 """Coverage for ``path-claims widen --item YOK-N`` resolution.
-Pins AC-30 behavior: the shared ``cmd_widen`` parser accepts either the
+The shared ``cmd_widen`` parser accepts either the
 positional ``claim_id`` or ``--item YOK-N`` (resolves to the one
 non-terminal exclusive claim for that item). Zero matches and multiple
 matches are refused with actionable USAGE messages; positional and
@@ -88,7 +88,7 @@ def _register_claim(conn, *, item_id: int) -> int:
 
 
 class TestWidenItemResolution:
-    """AC-30: ``--item YOK-N`` resolves to the one widenable claim."""
+    """``--item YOK-N`` resolves to the one widenable claim."""
 
     def test_item_flag_resolves_to_single_active_claim(
         self, patch_conn, capsys,

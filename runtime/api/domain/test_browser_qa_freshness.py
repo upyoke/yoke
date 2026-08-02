@@ -96,7 +96,7 @@ class TestDeployedShaFreshness:
     """_validate_deployed_sha (pure compare) and the scenario freshness gate."""
 
     def test_sha_match_passes(self) -> None:
-        """AC-2/AC-4: matching SHA passes validation and logs success."""
+        """Matching SHA passes validation and logs success."""
         with mock.patch("yoke_core.domain.browser_qa._log") as mock_log:
             err = browser_qa._validate_deployed_sha(
                 "testproj", "YOK-999", "abc123",
@@ -108,7 +108,7 @@ class TestDeployedShaFreshness:
         )
 
     def test_sha_mismatch_returns_error(self) -> None:
-        """AC-2: mismatch returns error with both SHAs in the message."""
+        """Mismatch returns error with both SHAs in the message."""
         err = browser_qa._validate_deployed_sha(
             "testproj", "YOK-999", "new222",
             deployed_sha="old111", deployment_recorded=True,
@@ -118,7 +118,7 @@ class TestDeployedShaFreshness:
         assert "new222" in err
 
     def test_no_env_row_returns_error(self) -> None:
-        """AC-3: missing env row returns clear 'no deployment recorded' error."""
+        """Missing env row returns clear 'no deployment recorded' error."""
         err = browser_qa._validate_deployed_sha(
             "testproj", "YOK-999", "abc123",
             deployed_sha=None, deployment_recorded=False,
@@ -128,7 +128,7 @@ class TestDeployedShaFreshness:
         assert "YOK-999" in err
 
     def test_empty_deployed_sha_returns_error(self) -> None:
-        """AC-3: env row exists but deployed_sha is empty."""
+        """Env row exists but deployed_sha is empty."""
         err = browser_qa._validate_deployed_sha(
             "testproj", "YOK-999", "abc123",
             deployed_sha=None, deployment_recorded=True,
@@ -137,7 +137,7 @@ class TestDeployedShaFreshness:
         assert "no deployed_sha" in err
 
     def test_execute_scenario_blocks_on_sha_mismatch(self, db_path: str) -> None:
-        """AC-1/AC-2: execute_scenario hard-blocks when SHA doesn't match."""
+        """Execute_scenario hard-blocks when SHA doesn't match."""
         _seed_item(db_path, 500)
         req_id = _seed_requirement(
             db_path, 500, "browser-check",

@@ -7,7 +7,7 @@ is available, so the loop's charge handler can dispatch through the
 canonical scheduler routing path instead of bailing out with a contract
 failure.
 
-Covers AC-6, AC-7 (no-runnable suppressed-WAIT), and AC-12 (residue check).
+Covers the no-runnable suppressed-WAIT path and the residue check.
 The unit-level shape coverage lives in
 ``test_session_decision_process_gate_charge_context.py``; this file
 exercises the full ``cmd_session_offer`` JSON surface so the regression
@@ -91,7 +91,7 @@ class TestSessionOfferProcessGateCharge:
     def test_disabled_strategize_with_scheduler_yields_charge_with_scheduler(
         self, session_offer_db, monkeypatch, capsys,
     ):
-        """AC-6 / AC-12: when the gate rewrites a disabled process action
+        """When the gate rewrites a disabled process action
         into a CHARGE and ``frontier.scheduler_context`` is populated, the
         emitted ``NextAction.context`` exposes ``scheduler.next_step`` so
         ``/yoke do``'s charge handler can dispatch through the canonical
@@ -159,7 +159,7 @@ class TestSessionOfferProcessGateCharge:
     def test_disabled_strategize_no_runnable_returns_suppressed_wait(
         self, session_offer_db, monkeypatch, capsys,
     ):
-        """AC-7: no-runnable disabled-process path returns suppressed-WAIT
+        """No-runnable disabled-process path returns suppressed-WAIT
         (non-terminal) and does not invent scheduler context."""
         from yoke_core.domain.drift_review import DriftReviewResult
         from yoke_core.api import service_client

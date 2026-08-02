@@ -31,7 +31,7 @@ from runtime.api.fixtures.file_test_db import connect_test_db
 
 
 class TestNewColumns(unittest.TestCase):
-    """AC-1: HarnessToolCallCompleted rows keep session_id canonical and add correlation fields."""
+    """HarnessToolCallCompleted rows keep session_id canonical and add correlation fields."""
 
     def test_TC_new_columns_populated(self):
         with observe_events_db() as db_path:
@@ -150,7 +150,7 @@ class TestNewColumns(unittest.TestCase):
 
 
 class TestItemIdPrefix(unittest.TestCase):
-    """AC-2: item_id stays canonical as bare numeric across attribution paths."""
+    """Item_id stays canonical as bare numeric across attribution paths."""
 
     def test_TC_item_id_keeps_numeric_form(self):
         data = {
@@ -217,7 +217,7 @@ class TestDurationLookup(unittest.TestCase):
 
 
 class TestToolEventRecordApplyPatch(unittest.TestCase):
-    """AC-2: ToolEventRecord covers apply_patch with changed_paths."""
+    """ToolEventRecord covers apply_patch with changed_paths."""
 
     def test_TC_tool_event_record_apply_patch_kind_round_trips(self):
         rec = ToolEventRecord(

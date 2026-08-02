@@ -1,6 +1,6 @@
 """Tests for yoke_core.domain.events -- non-fatal emission contract.
 
-Covers the FR-2/AC-11 non-fatal contract for connection-mode emission.
+Covers the non-fatal contract for connection-mode emission.
 Envelope construction and successful connection-mode emission live in
 test_events.py.
 """

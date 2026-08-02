@@ -5,7 +5,7 @@ from .test_doctor_hc_obsoleted_terms_scan import REPO
 
 
 def test_scan_repo_clean_on_real_main():
-    """AC-4/AC-8: the live repo has no retired-term residue in any scanned
+    """The live repo has no retired-term residue in any scanned
     surface. The widened scanner (``.py`` under ``runtime/`` plus slash-form
     normalisation) reports zero hits on main."""
     hits = scan_repo(REPO)

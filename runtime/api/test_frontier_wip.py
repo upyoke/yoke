@@ -1,4 +1,4 @@
-"""AC-4 + AC-6: WIP-cap enforcement and 500-item performance.
+"""WIP-cap enforcement and 500-item performance.
 
 Covers TestWipCap (basic cap math, non-conduct items, unblocks_count
 population), TestWipCapExtended (large surplus, exactly-full, usher
@@ -32,7 +32,7 @@ from runtime.api.frontier_test_helpers import (
 
 
 class TestWipCap:
-    """AC-6: WIP cap limits conduct-eligible items."""
+    """WIP cap limits conduct-eligible items."""
 
     def test_wip_cap_limits_conduct_eligible(self):
         conn = _create_test_db()
@@ -104,7 +104,7 @@ class TestWipCap:
 
 
 class TestWipCapExtended:
-    """AC-4: Additional WIP cap enforcement scenarios."""
+    """Additional WIP cap enforcement scenarios."""
 
     def test_wip_cap_large_surplus(self):
         """When WIP cap far exceeds active items, all conduct items are eligible."""
@@ -179,7 +179,7 @@ class TestWipCapExtended:
 
 
 class TestPerformance:
-    """AC-6: Performance test asserts a backend-appropriate 500-item cap."""
+    """Performance test asserts a backend-appropriate 500-item cap."""
 
     def test_500_items_under_backend_limit(self):
         """Frontier computation for 500 items stays within the backend cap."""

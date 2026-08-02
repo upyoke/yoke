@@ -4,10 +4,10 @@ Split from :mod:`runtime.api.test_service_client_path_claims` so the
 larger file stays under the 350-line authored-file cap. Covers the
 CLI-shape ACs:
 
-- AC-1 / AC-8: a supplied unresolved target rejects with a structured
+- A supplied unresolved target rejects with a structured
   error that names the unresolved target, the project, and the
   recommended trunk.
-- AC-2 / AC-7: an omitted ``--integration-target`` defaults to the
+- An omitted ``--integration-target`` defaults to the
   project's trunk branch (``projects.default_branch`` with ``main``
   fallback) and registration succeeds against the resolved value.
 

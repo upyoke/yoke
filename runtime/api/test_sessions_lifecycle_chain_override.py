@@ -175,7 +175,7 @@ class TestChainEndOverrideContract:
         assert ended_at is None
 
     def test_end_session_uses_shared_chain_pending_state_helper(self, conn):
-        """AC-2: ``_end_session`` reads the chain checkpoint via the shared helper.
+        """``_end_session`` reads the chain checkpoint via the shared helper.
 
         Locks in the contract that future changes to "what counts as
         chain-pending" land in :func:`_chain_pending_state` rather than

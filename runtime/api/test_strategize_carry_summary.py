@@ -4,14 +4,14 @@ Split from ``test_strategize_carry.py``.
 
 Covers:
 
-* AC-1 / AC-6 overflow: 50 landed items remain fully tracked even when the
+* Overflow: 50 landed items remain fully tracked even when the
   operator-facing summary is display-truncated.
-* AC-3 / AC-6 deferred-session: items registered in one session remain
+* Deferred-session: items registered in one session remain
   pending after a second session that defers all changes.
-* AC-7: horizon scanning only discovers *new* landings inside the window;
+* Horizon scanning only discovers *new* landings inside the window;
   older pending items still survive because the carry table is the source
   of truth once an item has been seen.
-* AC-5: horizon and carry-limit are returned in the candidate set so the
+* Horizon and carry-limit are returned in the candidate set so the
   operator summary can surface them.
 """
 
@@ -33,7 +33,7 @@ from runtime.api.test_strategize_carry_test_helpers import (
 
 
 class TestOverflowCase(unittest.TestCase):
-    """AC-1 / AC-6: 50 landed items with a display cap of 10.
+    """50 landed items with a display cap of 10.
 
     Verifies the backing candidate set is complete even though
     ``format_summary`` truncates the printed bucket to 10.
@@ -61,7 +61,7 @@ class TestOverflowCase(unittest.TestCase):
 
 
 class TestDeferredSessionCase(unittest.TestCase):
-    """AC-3 / AC-6: items registered in session 1 remain pending after session 2 defers all."""
+    """Items registered in session 1 remain pending after session 2 defers all."""
 
     def test_carry_survives_deferred_session(self):
         conn = _make_db()
@@ -90,7 +90,7 @@ class TestDeferredSessionCase(unittest.TestCase):
         self.assertEqual(len(session2_result["dismissed"]), 0)
 
     def test_aged_pending_item_still_surfaces(self):
-        """AC-7: horizon bounds discovery only; carry rows never age out."""
+        """Horizon bounds discovery only; carry rows never age out."""
         conn = _make_db()
         # One item discovered 5 days ago, then 90 days later the horizon has
         # moved past it, but the row is still in the carry table.
@@ -121,7 +121,7 @@ class TestDeferredSessionCase(unittest.TestCase):
 
 
 class TestFormatSummary(unittest.TestCase):
-    """AC-5: horizon + carry limit must appear in the operator summary."""
+    """Horizon + carry limit must appear in the operator summary."""
 
     def test_horizon_and_limit_in_header(self):
         conn = _make_db()

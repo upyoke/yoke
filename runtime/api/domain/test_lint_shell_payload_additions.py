@@ -305,7 +305,7 @@ def test_statement_split_multi_statement_read_body_passes() -> None:
 
 
 def test_statement_split_mutate_with_pipe_consumer_still_denies() -> None:
-    # AC-5 (negative): the statement-split fix only ends wrapping at
+    # Negative case: the statement-split fix only ends wrapping at
     # statement separators (``\n`` / ``;``). A pipe consumer is a
     # compound-statement chain, NOT a new statement — MUTATE adapters
     # piped to substantive consumers still deny.
@@ -321,7 +321,7 @@ def test_statement_split_semicolon_keeps_choreography_deny() -> None:
     # classifier: the existing choreography deny path on patterns like
     # ``; echo $?`` against registered MUTATE adapters must keep
     # firing. The newline-only statement-split fix only loosens the
-    # multi-statement-`\n` shape — see AC-5.
+    # multi-statement-`\n` shape.
     cmd = (
         "python3 -m yoke_core.cli.db_router projects has-capability "
         "yoke ephemeral-env; echo $?"

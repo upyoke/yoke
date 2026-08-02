@@ -146,7 +146,7 @@ def test_substrate_parity_checks_use_canonical_dataclass_and_are_not_github_depe
 
 
 def test_session_cwd_binding_id_unique_in_full_registry():
-    """AC-8: HC-session-cwd-binding does not collide with any other HC."""
+    """HC-session-cwd-binding does not collide with any other HC."""
     from yoke_core.engines.doctor_registry import HEALTH_CHECKS
 
     matches = [hc for hc in HEALTH_CHECKS if hc.slug == "session-cwd-binding"]

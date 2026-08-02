@@ -1,4 +1,4 @@
-"""Regression tests for AC-25: positional+named items update CLI shape.
+"""Regression tests for the positional+named items update CLI shape.
 
 Covers:
 * ``normalize_update_args`` (pure normalization).
@@ -136,7 +136,7 @@ def test_cli_positional_id_with_named_field_value():
 
 
 def test_cli_raw_body_write_denied_through_named_flags(capsys):
-    # AC-25 invariant: raw body writes must remain denied even when
+    # Invariant: raw body writes must remain denied even when
     # reached via the new --id/--stdin entrypoint.
     rc = service_client_backlog_update.cmd_execute_update_cli(
         ["--id", "42", "body", "--stdin"]
@@ -147,7 +147,7 @@ def test_cli_raw_body_write_denied_through_named_flags(capsys):
 
 
 def test_cli_structured_field_write_routes_to_dispatcher():
-    # AC-25 invariant: --id <id> <structured-field> --stdin still routes
+    # Invariant: --id <id> <structured-field> --stdin still routes
     # through the function dispatcher, not the value-string fast path.
     dispatch_path = (
         "yoke_core.api.service_client_backlog_update."

@@ -1,6 +1,6 @@
 """Activation-phase repair of coordination_only mutex residue.
 
-Sibling of :mod:`test_advance_path_claim_activation`. Pins the AC-12 / AC-14
+Sibling of :mod:`test_advance_path_claim_activation`. Pins the repair
 behavior: the repair pass that fires before the per-claim activation loop
 unblocks ``state='blocked'`` rows whose only inter-item edge is
 ``coordination_only``, while leaving rows with a real ``activation`` /
@@ -178,7 +178,7 @@ def _seed_blocked_claim(
 class TestCoordinationOnlyRepair:
     """Activation-phase repair of legacy coord-only mutex residue.
 
-    Pins AC-12: ``state='blocked'`` rows whose only inter-item edge is
+    ``state='blocked'`` rows whose only inter-item edge is
     ``coordination_only`` are repaired to ``state='planned'`` before
     the activation loop, then activated through the normal happy-path.
     Real ``activation``/``integration``/``closure`` blocks survive the
@@ -246,7 +246,7 @@ class TestCoordinationOnlyRepair:
         assert state == "blocked"
 
     def test_repair_helper_handles_six_coord_only_blocked_cluster(self, conn):
-        # AC-14 shape: six downstream items each blocked behind one upstream
+        # Cluster shape: six downstream items each blocked behind one upstream
         # via coordination_only edges. Each downstream owns its own path
         # target (matching the live cluster, where each downstream touches
         # a different declared file). A single sweep repairs all six; an

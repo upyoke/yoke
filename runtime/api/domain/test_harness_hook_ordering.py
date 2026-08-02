@@ -181,7 +181,7 @@ class TestPreToolUseBash(unittest.TestCase):
 
 
 class TestPreToolUseSubagentLint(unittest.TestCase):
-    """AC-10: ``lint_subagent_background`` is registered in the protected chains."""
+    """``lint_subagent_background`` is registered in the protected chains."""
 
     def test_TC_subagent_lint_in_bash_chain_after_polling(self):
         chain = ordered_pipeline_for("PreToolUse", "Bash")

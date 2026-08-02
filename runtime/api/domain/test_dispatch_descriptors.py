@@ -43,7 +43,7 @@ def test_unknown_dispatch_kind_rejected() -> None:
 
 
 # --------------------------------------------------------------------------- #
-# Claude rendering — AC-2: prose-equivalent to hand-authored snippets
+# Claude rendering — prose-equivalent to hand-authored snippets
 # --------------------------------------------------------------------------- #
 
 
@@ -85,7 +85,7 @@ def test_render_claude_emits_model_override_when_in_extras() -> None:
 
 
 # --------------------------------------------------------------------------- #
-# Codex rendering — AC-3: invocation names the adapter path
+# Codex rendering — invocation names the adapter path
 # --------------------------------------------------------------------------- #
 
 

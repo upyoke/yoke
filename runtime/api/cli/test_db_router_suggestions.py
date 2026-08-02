@@ -1,4 +1,4 @@
-"""Regression tests for AC-38: nearest-match denial hints.
+"""Regression tests for nearest-match denial hints.
 
 Covers the pure ranker, the formatted hint string, and the two
 operator-facing emitters used by ``db_router``'s unknown-domain and

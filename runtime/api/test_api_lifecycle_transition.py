@@ -1,7 +1,7 @@
 """Function-call coverage for ``lifecycle.transition.execute``.
 
 Exercises the registered handler end-to-end via FastAPI's TestClient.
-Covers AC-5.3 (typed source/target/reason payload routes through
+Covers the typed source/target/reason payload (routes through
 backlog.execute_update), the source_status precondition path, the
 gate-unmet error code mapping, frozen-item rejection, and the
 claim_required_kind contract.
@@ -10,7 +10,7 @@ Function id rationale: the task spec named the function id
 ``lifecycle.transition`` (two segments), but task 1 closed a
 ``<family>.<subfamily>.<operation>`` three-segment registry contract.
 We ship the canonical id ``lifecycle.transition.execute`` and lookup
-the entry that way; AC-5.6's structural check is the lookup, not the
+the entry that way; the structural check is the lookup, not the
 literal string.
 """
 
@@ -150,7 +150,7 @@ def _clear_process_session_env(monkeypatch):
 
 
 class TestLifecycleTransitionRoutesThroughExecuteUpdate:
-    """AC-5.3: typed payload routes through the same engines as
+    """Typed payload routes through the same engines as
     ``service_client advance/...`` (i.e. ``backlog.execute_update``)."""
 
     def test_typed_payload_writes_status(
@@ -210,7 +210,7 @@ class TestLifecycleTransitionPreconditions:
 
 
 class TestLifecycleTransitionGateMapping:
-    """AC-5.2 parity: QA gate failures map to lifecycle_gate_unmet."""
+    """QA gate failures map to lifecycle_gate_unmet."""
 
     def test_gate_unmet_returns_lifecycle_gate_unmet(
         self, registered_lifecycle, test_db, monkeypatch,
@@ -226,7 +226,7 @@ class TestLifecycleTransitionGateMapping:
 
 
 class TestLifecycleTransitionFrozenRejection:
-    """AC-5.4 parity: frozen items refuse status transitions."""
+    """Frozen items refuse status transitions."""
 
     def test_frozen_item_rejection(self, registered_lifecycle, test_db):
         conn = connect_test_db(test_db["db_path"])
@@ -242,7 +242,7 @@ class TestLifecycleTransitionFrozenRejection:
 
 
 class TestLifecycleTransitionClaimRequired:
-    """AC-5.6: registered claim_required_kind='item' + claim-path coverage."""
+    """Registered claim_required_kind='item' + claim-path coverage."""
 
     def test_claim_required_kind_is_item(self, registered_lifecycle):
         from yoke_core.domain.yoke_function_registry import lookup

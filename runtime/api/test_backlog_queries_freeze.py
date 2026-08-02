@@ -25,7 +25,7 @@ def _p(conn) -> str:
 
 
 class TestExecuteStructuredWriteFreezeImmutability:
-    """Write-path integration coverage for AC-15 / AC-68.
+    """Write-path integration coverage for the frozen attestation lock.
 
     Seeds an item with a frozen attestation, then confirms
     ``execute_structured_write`` rejects attempts to rename the profile's

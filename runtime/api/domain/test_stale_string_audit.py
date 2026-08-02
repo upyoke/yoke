@@ -82,7 +82,7 @@ def test_grep_finds_string_in_spec_files(temp_project):
 
 
 def test_grep_finds_string_in_helpers(temp_project):
-    """Validates AC-6: gate covers helper surfaces."""
+    """The gate covers helper surfaces."""
     matches = grep_surfaces(
         temp_project,
         ["loginViaUI"],
@@ -92,7 +92,7 @@ def test_grep_finds_string_in_helpers(temp_project):
 
 
 def test_grep_finds_string_in_smoke_files(temp_project):
-    """Validates AC-6: gate covers smoke-only surfaces."""
+    """The gate covers smoke-only surfaces."""
     matches = grep_surfaces(
         temp_project,
         ["POOP Theme"],

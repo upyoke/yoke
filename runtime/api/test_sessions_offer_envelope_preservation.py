@@ -26,7 +26,7 @@ from yoke_core.domain.sessions_offer_envelope_merge import (
 
 
 class TestNamedSetClassification:
-    """AC-2 / AC-3: the constants pin the cross-offer state set."""
+    """The constants pin the cross-offer state set."""
 
     def test_offer_write_owned_keys_exact_membership(self):
         """The per-offer write fully owns these eleven keys."""
@@ -63,7 +63,7 @@ class TestNamedSetClassification:
 
 
 class TestMalformedExistingHandling:
-    """AC-5: missing / empty / malformed / non-dict existing -> per-offer unchanged."""
+    """Missing / empty / malformed / non-dict existing -> per-offer unchanged."""
 
     @pytest.mark.parametrize(
         "existing_blob",
@@ -97,7 +97,7 @@ class TestMalformedExistingHandling:
 
 
 class TestPreservedKeyContract:
-    """AC-4: PRESERVED_KEYS survive every offer write (per-offer never names them)."""
+    """PRESERVED_KEYS survive every offer write (per-offer never names them)."""
 
     def test_chain_skip_memory_survives(self):
         existing = json.dumps({
@@ -165,7 +165,7 @@ class TestPreservedKeyContract:
 
 
 class TestOfferOwnedKeyContract:
-    """AC-2 owned keys overwrite when present; preserved when omitted."""
+    """Owned keys overwrite when present; preserved when omitted."""
 
     def test_per_offer_overwrites_owned_keys(self):
         """Identity/step fields land on top of prior values."""
@@ -207,7 +207,7 @@ class TestOfferOwnedKeyContract:
 
 
 class TestUnknownKeyPassthrough:
-    """AC-4: keys not in either named set are preserved by default."""
+    """Keys not in either named set are preserved by default."""
 
     def test_unknown_top_level_key_preserved(self):
         """Future cross-offer state lands without code changes here."""

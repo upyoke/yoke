@@ -24,7 +24,7 @@ class TestStreamingTestOutput:
     """Verify _run_streaming and the run_tests() streaming integration."""
 
     def test_streaming_captures_incremental_output(self) -> None:
-        """AC-4: Transcript is retained for a successful streaming run."""
+        """Transcript is retained for a successful streaming run."""
         from yoke_core.engines.merge_worktree import _run_streaming
 
         rc, transcript = _run_streaming(
@@ -38,7 +38,7 @@ class TestStreamingTestOutput:
         assert "line3" in transcript
 
     def test_streaming_emits_before_process_exit(self, tmp_path: Path) -> None:
-        """AC-1: First streamed output arrives before the subprocess exits."""
+        """First streamed output arrives before the subprocess exits."""
         driver = tmp_path / "stream_driver.py"
         driver.write_text(textwrap.dedent("""\
             import os
@@ -87,7 +87,7 @@ class TestStreamingTestOutput:
                 proc.wait()
 
     def test_streaming_prefix_on_output(self, capsys: pytest.CaptureFixture[str]) -> None:
-        """AC-2: Each streamed line is prefixed with [tests]."""
+        """Each streamed line is prefixed with [tests]."""
         from yoke_core.engines.merge_worktree import _run_streaming
 
         _run_streaming(
@@ -100,7 +100,7 @@ class TestStreamingTestOutput:
         assert "[tests] hello" in captured.out
 
     def test_streaming_custom_prefix(self, capsys: pytest.CaptureFixture) -> None:
-        """AC-2: Prefix is configurable (used for phase banners)."""
+        """Prefix is configurable (used for phase banners)."""
         from yoke_core.engines.merge_worktree import _run_streaming
 
         _run_streaming(
@@ -113,7 +113,7 @@ class TestStreamingTestOutput:
         assert "[custom] hi" in captured.out
 
     def test_streaming_nonzero_exit_returns_transcript(self) -> None:
-        """AC-4: Transcript available on non-zero exit for failure report."""
+        """Transcript available on non-zero exit for failure report."""
         from yoke_core.engines.merge_worktree import _run_streaming
 
         rc, transcript = _run_streaming(
@@ -125,7 +125,7 @@ class TestStreamingTestOutput:
         assert "failure_detail" in transcript
 
     def test_streaming_timeout_terminates_cleanly(self) -> None:
-        """AC-5: Timeout returns -1 and terminates the subprocess tree."""
+        """Timeout returns -1 and terminates the subprocess tree."""
         from yoke_core.engines.merge_worktree import _run_streaming
 
         child_pid_path = Path(tempfile.mkdtemp()) / "child.pid"
@@ -164,7 +164,7 @@ class TestStreamingTestOutput:
             time.sleep(0.05)
 
     def test_streaming_stderr_merged_into_stdout(self, capsys: pytest.CaptureFixture) -> None:
-        """AC-1: stderr output also streams through the prefix."""
+        """Stderr output also streams through the prefix."""
         from yoke_core.engines.merge_worktree import _run_streaming
 
         rc, transcript = _run_streaming(

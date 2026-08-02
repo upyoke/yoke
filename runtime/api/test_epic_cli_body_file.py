@@ -1,4 +1,4 @@
-"""AC-6 / AC-7 / AC-8 / AC-20 — ``--body-file`` ergonomics on the epic CLI.
+"""``--body-file`` ergonomics on the epic CLI.
 
 Split from ``test_epic_cli.py`` so the parent file stays under the
 350-line authored-file budget. Covers ``review-insert`` and

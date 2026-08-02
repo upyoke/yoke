@@ -4,9 +4,9 @@ Covers FR-2: backend operational-error handling in ``_activate_one`` via the
 sibling retry helper, bounded exponential
 backoff sourced from machine settings, ``BLOCK_DB_LOCK`` block-kind
 constant, classifier helper, and the canonical orchestrator narrative
-. Also exercises AC-14 (sibling-file split keeps
-``advance_path_claim_activation.py`` ≤350 lines) and AC-16 (ordering
-safety when activation-time snapshot minting is removed).
+. Also exercises the sibling-file split that keeps
+``advance_path_claim_activation.py`` ≤350 lines, and ordering
+safety when activation-time snapshot minting is removed.
 """
 
 from __future__ import annotations
@@ -180,7 +180,7 @@ def test_classify_activation_failure_empty_default():
 
 
 # ---------------------------------------------------------------------------
-# AC-7 — orchestrator narrative regex (substrate friction, not coordination)
+# Orchestrator narrative regex (substrate friction, not coordination)
 # ---------------------------------------------------------------------------
 
 
@@ -222,7 +222,7 @@ def test_ac7_narrative_only_for_db_lock_block_kind():
 
 
 # ---------------------------------------------------------------------------
-# AC-14 — sibling-file split keeps the parent under cap
+# Sibling-file split keeps the parent under cap
 # ---------------------------------------------------------------------------
 
 
@@ -255,12 +255,12 @@ def test_sibling_retry_module_present():
 
 
 # ---------------------------------------------------------------------------
-# AC-16 — ordering safety when snapshot minting is removed
+# Ordering safety when snapshot minting is removed
 # ---------------------------------------------------------------------------
 
 
 def test_ac16_arm_remains_correct_when_mint_target_no_longer_called(monkeypatch):
-    """AC-16: operational-error retry + BLOCK_DB_LOCK classification
+    """Operational-error retry + BLOCK_DB_LOCK classification
     remain correct regardless of whether the snapshot mint is removed
     from activation. The arm is defensive
     cover for any residual path into the integration-head resolver that

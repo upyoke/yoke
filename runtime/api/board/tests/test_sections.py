@@ -50,7 +50,7 @@ class TestStatusEmoji:
             assert result != s, f"Expected emoji prefix for '{s}'"
 
     def test_unknown_status_passthrough(self):
-        """AC-4: Unknown statuses pass through without emoji."""
+        """Unknown statuses pass through without emoji."""
         assert status_emoji("bogus") == "bogus"
 
     def test_specific_emojis(self):
@@ -72,7 +72,7 @@ class TestStatusEmoji:
             assert result != s, f"Expected emoji prefix for '{s}'"
 
     def test_planning_has_emoji(self):
-        """AC-6: status_emoji('planning') returns emoji-prefixed string."""
+        """Status_emoji('planning') returns emoji-prefixed string."""
         result = status_emoji("planning")
         assert "planning" in result
         assert result != "planning"
@@ -86,7 +86,7 @@ class TestStatusEmoji:
         assert result != "plan-drafted"
 
     def test_refining_plan_has_emoji(self):
-        """AC-7: status_emoji('refining-plan') returns emoji-prefixed string."""
+        """Status_emoji('refining-plan') returns emoji-prefixed string."""
         result = status_emoji("refining-plan")
         assert "refining-plan" in result
         assert result != "refining-plan"

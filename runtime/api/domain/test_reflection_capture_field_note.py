@@ -1,4 +1,4 @@
-"""Tests for the PM/PD field-note marker bridge (AC-22 / Task 012).
+"""Tests for the PM/PD field-note marker bridge.
 
 Covers ``reflection_capture_field_note.dispatch_markers_for_entry`` end
 to end through ``capture_reflections``:
@@ -145,7 +145,7 @@ def _patch_marker_failed_events(monkeypatch):
 # ---------------------------------------------------------------------------
 
 class TestFieldNoteMarkerBridge:
-    """AC-22 — PM/PD reflection markers convert to ouroboros.field_note.append."""
+    """PM/PD reflection markers convert to ouroboros.field_note.append."""
 
     def test_valid_marker_dispatches_field_note(self, monkeypatch):
         conn = _make_reflection_db()

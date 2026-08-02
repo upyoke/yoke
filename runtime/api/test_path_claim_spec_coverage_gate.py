@@ -124,7 +124,7 @@ class TestExtractFileBudgetPaths:
 - Hard limit: 350 lines.
 - Expected implementation shape:
   - `runtime/api/domain/foo.py` — does X.
-  - `runtime/api/test_foo.py` — covers AC-1.
+  - `runtime/api/test_foo.py` — covers the new branch.
   - `.yoke/docs/lifecycle.md` — operator note.
 """
         paths = extract_file_budget_paths(spec)
@@ -205,7 +205,7 @@ class TestExtractFileBudgetPaths:
 
 
 class TestSharedParserParity:
-    """AC-2 parity: idea_readiness_check and path_claim_spec_coverage_gate
+    """Parity: idea_readiness_check and path_claim_spec_coverage_gate
     must use one shared File Budget parser. The compatibility wrapper
     inside ``idea_readiness_check`` delegates to the shared module without
     owning a second regex allowlist; both surfaces must accept identical

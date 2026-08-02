@@ -1,6 +1,6 @@
 """Codex shepherd smoke — minimal end-to-end planning path proof.
 
-Satisfies AC-10 of the epic and AC-1 / AC-3 / AC-5 of task 9 spec:
+This smoke
 asserts that a minimal shepherd dispatch (architect → boss verdict) renders
 through the cross-harness ``DispatchDescriptor`` substrate against the
 rendered Codex adapter TOMLs, that the planning verdict envelope is
@@ -52,7 +52,7 @@ _REQUIRES_RENDERED_AGENTS = pytest.mark.skipif(
 # at end-of-session per docs/prompt-philosophy.md: VERDICT line + reflection
 # block. The smoke parses this string against the descriptor's result schema.
 _BOSS_PLANNING_VERDICT = """\
-Plan looks good. Caveats: AC-3 evidence still pending.
+Plan looks good. Caveats: coverage evidence still pending.
 
 VERDICT: READY|NOT_READY|CAVEATS
 CAVEATS
@@ -65,7 +65,7 @@ CAVEATS
 
 @_REQUIRES_RENDERED_AGENTS
 class TestRenderedAdapterReferenced:
-    """AC-5: smoke references the rendered ``.codex/agents/yoke-{role}.toml``
+    """Smoke references the rendered ``.codex/agents/yoke-{role}.toml``
     paths rather than re-authoring agent body content.
     """
 
@@ -88,7 +88,7 @@ class TestRenderedAdapterReferenced:
 
 @_REQUIRES_RENDERED_AGENTS
 class TestPlanningVerdictParsesAgainstSchema:
-    """AC-1: a minimal shepherd path runs end-to-end in Codex hook-enhanced mode.
+    """A minimal shepherd path runs end-to-end in Codex hook-enhanced mode.
 
     We exercise the dispatch contract — descriptor render + result envelope
     parsing — against the rendered Codex adapter. This is the parent-skill's
@@ -127,7 +127,7 @@ class TestPlanningVerdictParsesAgainstSchema:
 
 @_REQUIRES_RENDERED_AGENTS
 class TestTelemetryEmittedDuringDispatch:
-    """AC-3: at least one canonical telemetry event is observable in the
+    """At least one canonical telemetry event is observable in the
     smoke run.
 
     We emit ``HarnessSessionOffered`` to the capture sink (no DB required) and

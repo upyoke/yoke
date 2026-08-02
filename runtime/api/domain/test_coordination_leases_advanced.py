@@ -1,7 +1,7 @@
 """Advanced coordination-lease tests — actor / heartbeat / list / events.
 
 Split out of :mod:`test_coordination_leases` so each authored test file stays
-under the 350-line file-line cap. Together these cover AC-13's surface: actor
+under the 350-line file-line cap. Together these cover actor
 attribution, heartbeat updates, idempotent release (covered in the original
 suite), operator release (also original), stale/orphan reporting, list
 helpers, concurrent lease conflict, and the new lifecycle-event emissions.
