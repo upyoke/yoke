@@ -47,7 +47,7 @@ def _payload_model(payload: dict) -> str:
 def _entrypoint() -> str:
     if os.environ.get("CURSOR_INVOKED_AS") == "cursor-agent":
         return "cursor-cli"
-    return "cursor-ide"
+    return "cursor-desktop"
 
 
 def _render_orientation(

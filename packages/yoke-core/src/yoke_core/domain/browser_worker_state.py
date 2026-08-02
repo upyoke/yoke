@@ -40,7 +40,7 @@ def _browser_dir(root: Optional[Path] = None) -> Path:
     """
     if root is not None:
         return root
-    from yoke_core.domain import browser_runtime_home
+    from yoke_harness import browser_runtime_home
 
     return browser_runtime_home.runtime_dir()
 

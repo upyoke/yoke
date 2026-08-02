@@ -10,6 +10,7 @@ from yoke_core.api.routing_config import (
     load_project_routing_settings,
     load_routing_config,
 )
+from yoke_contracts.project_contract.project_keys import RECOGNIZED_PROJECT_KEYS
 from yoke_core.domain.project_settings import (
     get_project_int,
     get_project_str,
@@ -81,7 +82,7 @@ class TestProcessPolicy:
         )
         enabled, key, source = policy.decision_for("STRATEGIZE")
         assert enabled is False
-        assert key == "do_process_offer_strategize"
+        assert key == "process_offers.strategize"
         assert source == "project 2 capability session-routing"
 
     def test_machine_policy_is_no_project_fallback(self, tmp_path: Path) -> None:
@@ -118,8 +119,10 @@ class TestLocalOnlySettings:
         repo = _project_dir(tmp_path)
         assert get_project_str(
             repo, "base_branch", config_path=cfg,
-        ) == "main"
-        assert get_project_int(repo, "wip_cap", config_path=cfg) == 5
+        ) == RECOGNIZED_PROJECT_KEYS["base_branch"][0]
+        assert get_project_int(repo, "wip_cap", config_path=cfg) == int(
+            RECOGNIZED_PROJECT_KEYS["wip_cap"][0]
+        )
 
     def test_worktrees_dir_remains_machine_local(self, tmp_path: Path) -> None:
         cfg = _machine_cfg(tmp_path, "worktrees_dir=.wt\n")

@@ -51,18 +51,8 @@ BROWSER_RETIREMENT_LABELS = {
     ),
 }
 
-BROWSER_RETIREMENT_PATH_ALLOWLIST = {
-    RETIRED_SCREENSHOT_BRIDGE_RAW_CLI_PATTERN: (
-        # The zero-shell closeout inventory preserves names of deleted shell
-        # tests as audit evidence; it is not a runnable or taught command.
-        "runtime/api/tools/shell_inventory",
-        "packages/yoke-core/src/yoke_core/tools/shell_inventory",
-    ),
-}
-
 __all__ = [
     "BROWSER_RETIREMENT_LABELS",
-    "BROWSER_RETIREMENT_PATH_ALLOWLIST",
     "BROWSER_RETIREMENT_PATTERNS",
     "RETIRED_BROWSER_HARNESS_FACADE_PATTERN",
     "RETIRED_BROWSER_HARNESS_RUNNER_PATTERN",

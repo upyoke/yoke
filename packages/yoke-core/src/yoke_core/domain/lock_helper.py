@@ -1,7 +1,7 @@
 """Filesystem advisory lock — canonical Python owner.
 
 Single source of truth for Yoke's directory-based advisory locking.
-``rebuild_board`` and ``write_to_main`` re-export from here.
+``rebuild_board`` re-exports from here.
 
 Locking strategy: directory-based mkdir locks (atomic on all POSIX platforms).
 A stale lock — one whose mtime is older than ``lock_stale_seconds`` — is

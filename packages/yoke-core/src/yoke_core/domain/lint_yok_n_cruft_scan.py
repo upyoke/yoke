@@ -66,16 +66,6 @@ _EXEMPT_PATH_SEGMENTS: tuple[str, ...] = (
     "venv",
 )
 
-# Specific files whose whole body is inventory/routing-table content rather
-# than prose — the YOK-N tokens inside are data, not historical provenance.
-_EXEMPT_FILE_RELPATHS: frozenset[str] = frozenset({
-    "packages/yoke-core/src/yoke_core/tools/shell_inventory.py",
-    "packages/yoke-core/src/yoke_core/tools/shell_inventory_classify.py",
-    "packages/yoke-core/src/yoke_core/tools/shell_inventory_report.py",
-    "packages/yoke-core/src/yoke_core/tools/shell_inventory_rules.py",
-    "packages/yoke-core/src/yoke_core/tools/shell_inventory_closeout.py",
-})
-
 _YOKE_REF = re.compile(r"YOK-(\d+)")
 
 # YOK-N inside a TODO/FIXME/XXX/HACK marker is legitimate if the work item
@@ -132,13 +122,6 @@ class LintResult:
 def _is_exempt(path: Path, *, repo_root: Optional[Path] = None) -> bool:
     for part in path.parts:
         if part in _EXEMPT_PATH_SEGMENTS:
-            return True
-    if repo_root is not None:
-        try:
-            rel = path.resolve().relative_to(repo_root.resolve())
-        except ValueError:
-            return False
-        if str(rel) in _EXEMPT_FILE_RELPATHS:
             return True
     return False
 

@@ -67,3 +67,34 @@ def test_placeholder_client_model_does_not_mark_shipped(monkeypatch, tmp_path) -
         "PreToolUse", {"session_id": "s-placeholder"}, "claude-code",
     ) is None
     assert not (tmp_path / "relay-model-shipped" / "s-placeholder").exists()
+
+
+def test_client_project_id_resolves_workspace_roots_payloads(monkeypatch) -> None:
+    """Cursor sessionStart payloads carry only ``workspace_roots`` (a list
+    of absolute paths); the relay must resolve the project from it."""
+    from yoke_harness.hooks.identity_relay import client_project_id
+
+    monkeypatch.setattr(
+        f"{_MACHINE_CONFIG}.project_id",
+        lambda repo_root, path=None: 7 if str(repo_root) == "/checkouts/yoke" else None,
+    )
+
+    payload = {
+        "hook_event_name": "sessionStart",
+        "session_id": "s-roots",
+        "workspace_roots": ["/checkouts/yoke"],
+        "model": "composer-2.5",
+    }
+    assert client_project_id(payload) == 7
+
+
+def test_client_project_id_scalar_keys_still_resolve(monkeypatch) -> None:
+    from yoke_harness.hooks.identity_relay import client_project_id
+
+    monkeypatch.setattr(
+        f"{_MACHINE_CONFIG}.project_id",
+        lambda repo_root, path=None: 3 if str(repo_root) == "/checkouts/app" else None,
+    )
+
+    assert client_project_id({"cwd": "/checkouts/app"}) == 3
+    assert client_project_id({"workspace_roots": [], "cwd": ""}) is None

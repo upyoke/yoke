@@ -79,13 +79,22 @@ def test_ensure_creates_default_capabilities(policy_conn: Any) -> None:
     assert report["1"][PROJECT_POLICY_CAPABILITY]["created"] is True
     policy = _settings(policy_conn, 1, PROJECT_POLICY_CAPABILITY)
     assert policy["base_branch"] == "stage"
-    assert policy["wip_cap"] == 5
+    assert policy["wip_cap"] == 30
     routing = _settings(policy_conn, 1, SESSION_ROUTING_CAPABILITY)
     assert routing["executor_default_lanes"]["claude*"] == "DARIUS"
     assert routing["executor_default_lanes"]["DARIUS"] == "DARIUS"
     assert "conduct" in routing["lane_paths"]["DARIUS"]
     assert "feed" in routing["lane_paths"]["DARIUS"]
     assert routing["process_offers"]["default"] is False
+
+
+def test_default_lane_paths_allow_dash_on_every_lane(policy_conn: Any) -> None:
+    ensure_default_policy_capabilities(policy_conn, 1)
+    policy_conn.commit()
+
+    routing = _settings(policy_conn, 1, SESSION_ROUTING_CAPABILITY)
+    for lane, paths in routing["lane_paths"].items():
+        assert "dash" in paths, f"lane {lane} cannot run dash"
 
 
 def test_ensure_repairs_missing_keys_without_overwriting(policy_conn: Any) -> None:

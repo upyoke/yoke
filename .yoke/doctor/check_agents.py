@@ -117,7 +117,7 @@ def hc_agent_canonical_drift(conn, args: DoctorArgs, rec: RecordCollector) -> No
 
 def hc_browser_substrate(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     """HC-browser-substrate: machine-level browser runtime health."""
-    from yoke_core.domain import browser_runtime_home
+    from yoke_harness import browser_runtime_home
 
     browser_dir = browser_runtime_home.runtime_dir()
     if not browser_dir.is_dir():

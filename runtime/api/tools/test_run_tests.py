@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 
 from runtime.api.source_pythonpath_test_helpers import SOURCE_PYTHONPATH
-from yoke_core.tools import run_tests
+from yoke_core.tools import gate_admission, run_tests
 
 
 
@@ -152,21 +152,48 @@ def mini_repo(tmp_path: Path) -> Path:
     return root
 
 
+#: Ceiling for one nested runner invocation against the two-test mini repo.
+#: Generous for the work involved; the point is that a wedged child fails the
+#: test instead of blocking its worker until someone kills the run by hand.
+_NESTED_RUNNER_TIMEOUT_S = 300
+
+
+def _run_nested_runner(mini_repo: Path, *args: str) -> subprocess.CompletedProcess:
+    """Invoke the runner as a subprocess against *mini_repo*.
+
+    Exempt from machine-wide gate admission, and time-boxed.
+
+    The nested invocation names a directory, so ``is_heavy_invocation`` calls
+    it heavy and it would arbitrate for a machine gate slot. Riding an
+    ancestor's slot only works when an ancestor holds one: run this file alone
+    and the outer invocation is file-scoped, bypasses admission, and holds
+    nothing — so the child queues behind whatever unrelated gate owns the slot
+    and blocks until that gate ends. A two-test throwaway repo is not the
+    heavy workload the cap exists to serialize, so it opts out entirely.
+
+    The timeout is the backstop: any future block fails this test loudly
+    instead of wedging its worker until someone kills the run by hand.
+    """
+    env = os.environ.copy()
+    env["PYTHONPATH"] = (
+        f"{SOURCE_PYTHONPATH}{os.pathsep}{mini_repo}"
+        f"{os.pathsep}{env.get('PYTHONPATH', '')}"
+    )
+    env[gate_admission.CAP_ENV] = "0"
+    return subprocess.run(
+        [sys.executable, "-m", "yoke_core.tools.run_tests", *args],
+        cwd=str(mini_repo),
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=_NESTED_RUNNER_TIMEOUT_S,
+    )
+
+
 class TestLiveSmoke:
     def test_runner_cli_runs_and_passes(self, mini_repo: Path):
         """Invoke the runner as a subprocess against the mini repo."""
-        env = os.environ.copy()
-        env["PYTHONPATH"] = (
-            f"{SOURCE_PYTHONPATH}{os.pathsep}{mini_repo}"
-            f"{os.pathsep}{env.get('PYTHONPATH', '')}"
-        )
-        result = subprocess.run(
-            [sys.executable, "-m", "yoke_core.tools.run_tests", "pkgx"],
-            cwd=str(mini_repo),
-            env=env,
-            capture_output=True,
-            text=True,
-        )
+        result = _run_nested_runner(mini_repo, "pkgx")
         assert result.returncode == 0, (
             f"runner failed (exit={result.returncode})\n"
             f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
@@ -174,49 +201,14 @@ class TestLiveSmoke:
         assert "2 passed" in result.stdout or "2 passed" in result.stderr
 
     def test_runner_cli_list_mode(self, mini_repo: Path):
-        env = os.environ.copy()
-        env["PYTHONPATH"] = (
-            f"{SOURCE_PYTHONPATH}{os.pathsep}{mini_repo}"
-            f"{os.pathsep}{env.get('PYTHONPATH', '')}"
-        )
-        result = subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "yoke_core.tools.run_tests",
-                "--list",
-                "pkgx",
-            ],
-            cwd=str(mini_repo),
-            env=env,
-            capture_output=True,
-            text=True,
-        )
+        result = _run_nested_runner(mini_repo, "--list", "pkgx")
         assert result.returncode == 0
         # Collected node IDs should appear in output
         assert "test_one" in result.stdout
         assert "test_two" in result.stdout
 
     def test_runner_cli_keyword_filter(self, mini_repo: Path):
-        env = os.environ.copy()
-        env["PYTHONPATH"] = (
-            f"{SOURCE_PYTHONPATH}{os.pathsep}{mini_repo}"
-            f"{os.pathsep}{env.get('PYTHONPATH', '')}"
-        )
-        result = subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "yoke_core.tools.run_tests",
-                "-k",
-                "test_one",
-                "pkgx",
-            ],
-            cwd=str(mini_repo),
-            env=env,
-            capture_output=True,
-            text=True,
-        )
+        result = _run_nested_runner(mini_repo, "-k", "test_one", "pkgx")
         assert result.returncode == 0
         # Only one test should run when filtered
         assert "1 passed" in result.stdout or "1 passed" in result.stderr
