@@ -1,9 +1,9 @@
-"""Regression tests for done-transition preconditions: AC-1 and AC-2.
+"""Regression tests for two done-transition preconditions.
 
 deployed_to non-empty when deployment_flow is registered.
 deploy_stage non-null when deployment_flow is registered.
 
-AC-3, AC-4, AC-5 and short-circuit cases live in the sibling
+The remaining preconditions and short-circuit cases live in the sibling
 ``test_done_transition_preconditions_epic_and_runs`` module to fit the
 350-line cap.
 """

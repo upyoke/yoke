@@ -192,7 +192,7 @@ class TestSyncItemDedup:
         db.close()
 
     def test_rejects_fuzzy_substring_match(self):
-        """AC-3 regression: fuzzy candidate (title contains the new YOK-N as a
+        """Regression: fuzzy candidate (title contains the new YOK-N as a
         substring) must NOT be reused; a fresh issue is created instead.
         """
         db = _make_db()

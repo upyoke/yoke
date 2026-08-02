@@ -1,4 +1,4 @@
-"""AC-8.6 real-CLI parity matrix.
+"""Real-CLI parity matrix.
 
 For each adapter inventory entry that is wired through the dispatcher,
 invoke the real CLI via ``main(argv)`` and compare the call payload

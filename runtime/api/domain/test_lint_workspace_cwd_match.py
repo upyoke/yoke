@@ -250,7 +250,7 @@ def test_non_bash_tool_is_ignored(
     assert evaluate_payload(payload) is None
 
 
-# AC-6 / AC-7 static-scan tests live in
+# Static-scan tests live in
 # ``test_lint_workspace_repo_root_scan.py`` so this file stays under the
 # 350-line authoring cap. That sibling module exercises the helper at
 # ``lint_workspace_repo_root_scan.scan_repo_root_references``.

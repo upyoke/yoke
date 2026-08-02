@@ -1,4 +1,4 @@
-"""AC-14 regression: the curated schema packet exposes execution_lane on harness_sessions.
+"""Regression: the curated schema packet exposes execution_lane on harness_sessions.
 
 The row-anchored lane fix only works if agents and adapter code
 KNOW the row carries an authoritative lane. The main_agent schema /

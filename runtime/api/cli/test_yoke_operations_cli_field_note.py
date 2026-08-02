@@ -1,6 +1,6 @@
 """``yoke ouroboros field-note append`` subcommand surface tests.
 
-Covers AC-1, AC-3, AC-4, AC-8 from YOK-1872 task 004:
+Covers:
 
 * ``--help`` prints the canonical ``HELP_BODY``.
 * Argparse rejects an unknown ``--kind``.
@@ -193,7 +193,7 @@ def test_field_note_append_dispatches_against_project_id_schema(
 
 def test_old_subcommand_gone() -> None:
     # Old subcommand removed (not aliased). Token list assembled
-    # dynamically to keep the literal out of grep paths under AC-5.
+    # dynamically to keep the literal out of grep paths.
     old_subcommand_token = "-".join(("recipe", "event"))
     rc, _out, _err = _run_capture(
         "ouroboros", old_subcommand_token, "append", "--help",

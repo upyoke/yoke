@@ -343,6 +343,6 @@ def test_progressive_disclosure_tier5_vague_denial_without_function_id(
 
 
 def test_distinct_bad_shape_count_meets_floor():
-    """AC-4 / SM-2: at least 15 distinct injected bad shapes covered."""
+    """At least 15 distinct injected bad shapes are covered."""
     total = len(_CLASS_A_CASES) + len(_CLASS_B_CASES) + 5 + 2 + 2 + 2
     assert total >= 15, f"expected >= 15 distinct shapes, counted {total}"

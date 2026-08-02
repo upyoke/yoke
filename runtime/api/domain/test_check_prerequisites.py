@@ -91,7 +91,7 @@ def test_all_critical_pass_with_no_gh(tmp_path, monkeypatch, capsys):
     assert "Directory structure" in out
     assert "Permission rules configured" in out
     # Migrated: the prereq table no longer teaches a host-gh install
-    # step. Banned strings built by concatenation so the AC-1 / AC-2
+    # step. Banned strings built by concatenation so the
     # grep recipes return zero hits anywhere in the live tree.
     assert ("brew" + " install gh") not in out
     assert ("GitHub CLI" + " installed") not in out

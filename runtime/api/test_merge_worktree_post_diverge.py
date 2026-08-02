@@ -130,7 +130,7 @@ class TestYok1380PostMergeCleanup:
     and ``merge_committed=true`` so usher can skip the rollback path."""
 
     def test_exit_0_clean_path_still_works(self, merge_env: MergeEnv) -> None:
-        """AC-8 (a): the happy path — merge + schema refresh + view
+        """The happy path — merge + schema refresh + view
         regen + board rebuild all succeed — still returns 0 and prints
         the ``YOKE_REPO_ROOT={path}`` contract line last."""
         result = run_merge(merge_env)
@@ -143,7 +143,7 @@ class TestYok1380PostMergeCleanup:
     def test_exit_5_on_post_merge_cleanup_failure(
         self, merge_env: MergeEnv
     ) -> None:
-        """AC-5/AC-6/AC-8 (b): forced post-merge cleanup failure returns
+        """A forced post-merge cleanup failure returns
         exit 5 after the merge commit already exists on the target
         branch, and the precise MergeEngineFailed event carries
         ``phase=post_merge_cleanup`` + ``merge_committed=true``."""

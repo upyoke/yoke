@@ -1,7 +1,7 @@
 """Tests for tentative path-claim registration plumbing.
 
-Covers AC-2 (callers register tentative without broad parent claims)
-and AC-10 (idea/readiness reference checks treat tentative registered
+Covers registration (callers register tentative without broad parent claims)
+and reference checks (idea/readiness checks treat tentative registered
 path targets as planned-equivalent implementation surfaces).
 """
 

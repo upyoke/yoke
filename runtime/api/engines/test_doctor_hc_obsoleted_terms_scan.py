@@ -47,7 +47,7 @@ def test_scan_detects_obsoleted_term_in_doc(tmp_path: Path):
 
 
 def test_scan_detects_sql_form_in_doc(tmp_path: Path):
-    """AC-4 positive: ``items WHERE epic={epic-id}`` and the screenshot-shape
+    """Positive coverage: ``items WHERE epic={epic-id}`` and the screenshot-shape
     ``items WHERE epic_id IN (...)`` must both be detected by the scan."""
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs" / "stale_sql.md").write_text(
@@ -78,7 +78,7 @@ def test_scan_detects_sql_select_list_form_in_doc(tmp_path: Path):
 
 
 def test_scan_detects_epic_field_prose_in_doc(tmp_path: Path):
-    """AC-4 positive: ``the `epic` field on a backlog item`` prose must be
+    """Positive coverage: ``the `epic` field on a backlog item`` prose must be
     detected by the scan."""
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs" / "stale_prose.md").write_text(
@@ -112,7 +112,7 @@ def test_scan_detects_type_issue_epic_parent_prose(tmp_path: Path):
 
 
 def test_scan_does_not_fire_on_legitimate_epic_tasks_sql(tmp_path: Path):
-    """AC-7 negative: ``epic_tasks WHERE epic_id IN (...)`` is the legitimate
+    """Negative coverage: ``epic_tasks WHERE epic_id IN (...)`` is the legitimate
     foreign-key reference and must NOT trigger the SQL pattern."""
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs" / "valid.md").write_text(
@@ -125,7 +125,7 @@ def test_scan_does_not_fire_on_legitimate_epic_tasks_sql(tmp_path: Path):
 
 
 def test_scan_does_not_fire_on_qualified_epic_id_in_items_query(tmp_path: Path):
-    """AC-7 negative: ``items`` queries that filter on ``id={epic-id-...}``
+    """Negative coverage: ``items`` queries that filter on ``id={epic-id-...}``
     placeholders or on the literal ``type='epic'`` value must NOT trigger
     the SQL pattern, because the ``epic`` token is preceded by ``{``, ``-``,
     or ``'`` rather than a SQL delimiter from ``[\\s,(]``."""
@@ -155,7 +155,7 @@ def test_scan_does_not_cross_python_query_arguments(tmp_path: Path):
 
 
 def test_scan_does_not_fire_on_corrected_ontology_prose(tmp_path: Path):
-    """AC-7 negative: the corrected ontology that names the epic relation as
+    """Negative coverage: the corrected ontology that names the epic relation as
     ``the numeric `id` on the epic backlog item, which equals the `epic_id`
     foreign key in `epic_tasks``` must NOT trigger any pattern."""
     (tmp_path / "docs").mkdir()

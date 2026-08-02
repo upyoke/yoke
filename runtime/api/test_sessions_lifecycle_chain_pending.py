@@ -281,7 +281,7 @@ class TestEndSessionIfEmptyShapes:
 
         A session in ``chain_pending`` whose heartbeat is older than the
         stale window is recoverable by the next session-offer. This
-        regression locks in AC-6: the chain-pending guard does not make
+        regression locks in the rule: the chain-pending guard does not make
         sessions un-cleanupable; it only protects the routine
         post-handoff turn boundary.
         """

@@ -69,7 +69,7 @@ def test_footer_does_not_carry_old_cardinality_string() -> None:
     # The fixed-count cardinality string was retired in favor of a
     # cardinality-free phrase so the catalog can grow / shrink without
     # drifting the inline-short footer. Construct the retired literal
-    # dynamically so the AC-1 obsoleted-terms grep stays clean.
+    # dynamically so the obsoleted-terms grep stays clean.
     retired = " ".join(("7", "worked", "failure", "modes"))
     assert retired not in fnt.FOOTER
 

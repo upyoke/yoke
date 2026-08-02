@@ -156,7 +156,7 @@ class TestClassifyCompleted:
         assert outcome in OUTCOMES
 
     def test_completed_with_none_exit_normalizes_to_zero(self):
-        # AC-2 last line: ``(OUTCOME_COMPLETED, rec.exit_code or 0)``.
+        # Classifier's final return: ``(OUTCOME_COMPLETED, rec.exit_code or 0)``.
         # Non-Bash tools (Write/Read/Edit) leave exit_code=None on
         # success; the classifier records exit_code=0 for them.
         rec = EventRecord(

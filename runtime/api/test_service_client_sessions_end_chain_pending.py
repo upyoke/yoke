@@ -5,7 +5,7 @@ spec File Budget plan — the parent module is already at the 350-line
 authored-file ceiling, so the chain-pending JSON-shape regressions
 land here instead of growing the parent further.
 
-Covers two of the four shapes from AC-7 that surface through the CLI
+Covers two of the four session-end shapes that surface through the CLI
 boundary (the other two — ``has_claims`` and the no-checkpoint
 ``ended`` cases — already have CLI coverage in the parent module):
 
@@ -131,7 +131,7 @@ class TestSessionEndIfEmptyChainPending:
     def test_session_end_if_empty_ends_when_chain_budget_exhausted(
         self, session_offer_db,
     ):
-        """AC-7 shape (d): chainable but ``step >= max_chain_steps`` -> ``ended``."""
+        """Shape (d): chainable but ``step >= max_chain_steps`` -> ``ended``."""
         sid = "end-if-empty-chain-exhausted"
         checkpoint = {
             "step": 3, "action": "charge", "chainable": True,

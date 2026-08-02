@@ -1,4 +1,4 @@
-"""AC-1.16 claim-verification matrix for the dispatcher.
+"""Claim-verification matrix for the dispatcher.
 
 Split out of :mod:`test_yoke_function_dispatch` so the dispatcher test
 module stays under the file-line budget. Exercises every

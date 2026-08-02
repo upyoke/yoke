@@ -201,7 +201,7 @@ class TestLiveApplyRefusal:
         assert "window" in str(exc.value)
 
     def test_refuses_held_lease(self, apply_env) -> None:
-        """AC-63 supporting: a live holder on the per-model lease blocks live-apply."""
+        """A live holder on the per-model lease blocks live-apply."""
         _seed_apply_item(apply_env["control_db"], item_id=5033)
         rehearse(
             5033,

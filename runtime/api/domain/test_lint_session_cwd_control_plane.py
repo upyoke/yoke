@@ -14,7 +14,7 @@ Covers ACs 11-14 of YOK-1737:
 * ``BLOCKED`` message no longer mislabels a project repo as
   ``Control plane`` for a cross-project Yoke session.
 
-AC-48 (``db_helpers.resolve_db_path`` PYTHONPATH heuristic) lives in
+The ``db_helpers.resolve_db_path`` PYTHONPATH heuristic lives in
 its sibling :mod:`test_db_helpers_pythonpath`.
 """
 

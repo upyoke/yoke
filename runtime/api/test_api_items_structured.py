@@ -9,8 +9,8 @@ the DB substrate is the same on-disk fake used by
 
 Test classes:
 
-- :class:`TestStructuredFieldReplaceRoute` — happy path, AC-3.6
-  regression, AC-3.10 GitHub-sync-degraded → 207, AC-3.12 schema lookup.
+- :class:`TestStructuredFieldReplaceRoute` — happy path, empty-stdin
+  regression guard, GitHub-sync-degraded → 207, schema lookup.
 - :class:`TestStructuredFieldAppendAddendumRoute` — happy path + empty
   rejection.
 - :class:`TestStructuredFieldSectionRoutes` — section-upsert /

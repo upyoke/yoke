@@ -1,6 +1,6 @@
 """Tests for ``qa_events.resolve_requirement_event_target``.
 
-Covers AC-9 (a) from the parent task spec: item-target, epic-task-target,
+Covers item-target, epic-task-target,
 and deployment-run-target rows.
 """
 

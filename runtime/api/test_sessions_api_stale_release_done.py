@@ -1,5 +1,5 @@
 # ruff: noqa: F811
-"""TestReleaseClaimsForDoneItem: AC-1, AC-2, AC-5 foreign-claim cleanup."""
+"""TestReleaseClaimsForDoneItem: foreign-claim cleanup."""
 
 from __future__ import annotations
 
@@ -65,7 +65,8 @@ class TestReleaseClaimsForDoneItem:
         exercised. Two unreleased claims on the same ``item_id`` can no
         longer coexist: the second insert raises ``IntegrityError`` and
         the storage layer is the authoritative prevention point. The
-        single-claim cleanup path is covered by the AC-1 test above and
+        single-claim cleanup path is covered by
+        ``test_releases_unreleased_claims_on_done_item`` above and
         by ``test_regression_claim_row_residue`` below."""
         _register(conn, session_id="sess-a")
         _register(conn, session_id="sess-b")

@@ -1,4 +1,4 @@
-"""Tests for the PM/PD field-note marker bridge (AC-22 / Task 012).
+"""Tests for the PM/PD field-note marker bridge.
 
 Covers ``reflection_capture_field_note.dispatch_markers_for_entry`` end
 to end through ``capture_reflections``:

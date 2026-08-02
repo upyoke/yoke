@@ -270,7 +270,7 @@ def test_source_labels_identify_table_owner_field() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Negative paths (AC-9: read-only, robust to partial fixtures)
+# Negative paths (read-only, robust to partial fixtures)
 # ---------------------------------------------------------------------------
 
 

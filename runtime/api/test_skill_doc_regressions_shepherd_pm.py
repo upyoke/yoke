@@ -161,7 +161,7 @@ class TestPMAgentBodyTeachesFileBackedContract:
 
 
 class TestLargeSpecPreservationByConstruction:
-    """AC-6 (file-backed contract preserves all `##` headings of a large
+    """Structural fix (file-backed contract preserves all `##` headings of a large
     inherited spec): the original failure mode was silent inline truncation in
     the dispatch-prompt embedding pipeline. The fix is structural — the
     inherited content is written to a file and the dispatch prompt names the

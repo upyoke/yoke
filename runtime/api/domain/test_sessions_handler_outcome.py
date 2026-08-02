@@ -1,6 +1,6 @@
 """Unit tests for handler-outcome classification helpers.
 
-Covers AC-21, AC-22, AC-24..27, AC-36, AC-37, AC-39, AC-41 at the helper
+Outcome classification, chain labels, and skip/handoff records at the helper
 surface. ``/yoke do`` integration regressions and the
 recoverable-substrate reproduction live in the sibling module
 ``runtime.api.test_do_loop_recoverable_substrate``.
@@ -183,7 +183,7 @@ class TestRecordRecoverableSubstrateSkip:
     def test_persists_chain_skip_entry(self, conn):
         # Write side canonicalizes to bare-numeric so the consumer's
         # str()-equality dedup against `YOK-N` scheduler candidates lines
-        # up after read-side normalization. AC-2 covers the YOK-prefixed
+        # up after read-side normalization. This test covers the YOK-prefixed
         # path; bare-numeric input gets the same storage outcome and is
         # exercised in test_do_loop_recoverable_substrate_claim_release.
         _register(conn, session_id="sess-substrate-1")
@@ -258,7 +258,7 @@ class TestRecordRecoverableSubstrateSkip:
                     remediation_owner=f"YOK-{1599}",
                 )
         # The append is intentionally permissive — chain memory is a log,
-        # not a set. AC-26 is satisfied at the consumer (offer revalidation
+        # not a set. Dedup happens at the consumer (offer revalidation
         # walks the candidate set and skips items present in memory). What
         # we verify here is that the memory carries entries the consumer
         # can dedupe against, with item_id present and canonicalized on

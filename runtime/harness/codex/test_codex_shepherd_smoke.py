@@ -1,6 +1,6 @@
 """Codex shepherd smoke — minimal end-to-end planning path proof.
 
-Satisfies AC-10 of the epic and AC-1 / AC-3 / AC-5 of task 9 spec:
+This smoke
 asserts that a minimal shepherd dispatch (architect → boss verdict) renders
 through the cross-harness ``DispatchDescriptor`` substrate against the
 rendered Codex adapter TOMLs, that the planning verdict envelope is
@@ -52,7 +52,7 @@ _REQUIRES_RENDERED_AGENTS = pytest.mark.skipif(
 # at end-of-session per docs/prompt-philosophy.md: VERDICT line + reflection
 # block. The smoke parses this string against the descriptor's result schema.
 _BOSS_PLANNING_VERDICT = """\
-Plan looks good. Caveats: AC-3 evidence still pending.
+Plan looks good. Caveats: coverage evidence still pending.
 
 VERDICT: READY|NOT_READY|CAVEATS
 CAVEATS

@@ -1,12 +1,12 @@
 """Service-client surface coverage for path-claim commands.
 
-Focused on the AC-18 contract: ``path-claim-override`` distinguishes
+Focused on the override contract: ``path-claim-override`` distinguishes
 ``HOOK_CONTEXT`` rejection (``YOKE_HOOK_EVENT`` set) from
 ``EMPTY_ACTOR_REASON`` rejection (whitespace-only reason). Each
 rejection class returns a non-zero exit and a different error code
 on stdout so the surface is grep-able.
 
-Also covers AC-30 / AC-31: the service-client wrappers for
+Also covers the service-client wrappers for
 ``path-claim-widen`` (``--item YOK-N`` resolution) and
 ``path-claim-get`` (positional ``<claim-id>``) carry useful
 ``--help`` text and align with the db_router surface.

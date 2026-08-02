@@ -2,7 +2,7 @@
 
 Sibling of :mod:`test_idea_readiness_repair_claim_coverage`. Lives in its
 own module to keep both files under the 350-line authoring limit. Covers
-AC-2 / AC-3 / AC-4 from YOK-1825: when the readiness check surfaces both
+the mixed case: when the readiness check surfaces both
 ``FILE_BUDGET_NOT_IN_CLAIM`` and ``CLAIM_NOT_IN_FILE_BUDGET`` codes, the
 auto-repair runs both ``_apply_widen`` and ``_apply_narrow`` and
 aggregates the results instead of refusing all-or-nothing.

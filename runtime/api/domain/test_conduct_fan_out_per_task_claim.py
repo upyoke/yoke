@@ -1,6 +1,6 @@
 """Integration test for conduct fan-out per-task work-claim lifecycle.
 
-AC-8/AC-9/AC-11 surface. Exercises acquire → resolve → lint-authorise →
+Exercises acquire → resolve → lint-authorise →
 release across multi-worktree and same-worktree fan-out shapes. The
 test simulates conduct's claim lifecycle with a disposable-Postgres DB
 double and direct DB writes; the handler-level acquire/release coverage lives in
@@ -32,7 +32,7 @@ class TestMultiWorktreeFanOutLifecycle:
     )
 
     def test_n_claims_materialise_before_dispatch(self, conn, tmp_path):
-        # AC-8(a) — N task worktrees produce N epic_task claim rows.
+        # N task worktrees produce N epic_task claim rows.
         _seed_fanout(
             conn,
             tmp_path / "repo",
@@ -69,7 +69,7 @@ class TestMultiWorktreeFanOutLifecycle:
         ]
 
     def test_lint_authorises_each_task_worktree(self, conn, tmp_path):
-        # AC-8(d) — no WORKTREE-BINDING REFUSAL per dispatched subagent.
+        # No WORKTREE-BINDING REFUSAL per dispatched subagent.
         repo = tmp_path / "repo"
         _seed_fanout(
             conn,
@@ -90,7 +90,7 @@ class TestMultiWorktreeFanOutLifecycle:
             )
 
     def test_release_clears_authority_per_task(self, conn, tmp_path):
-        # AC-8(c) — released_at set; resolver drops the released lane
+        # released_at set; resolver drops the released lane
         # while sibling lanes remain. (validate_targets cannot assert
         # denial here because pytest tmp_path lands under the lint's
         # free-path allowlist; the resolver is the semantic authority.)

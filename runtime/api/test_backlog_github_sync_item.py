@@ -1,8 +1,8 @@
 """Coverage for ``sync_item`` — single-issue and epic dispatch paths.
 
-Covers AC-6 (create + reuse paths both use ``select_body_for_github``),
-AC-7 (transitive ``ProjectGithubAuthError`` catch), AC-12 (create + reuse
-regressions exercising the shared compact-mirror contract).
+Covers create + reuse paths both using ``select_body_for_github``,
+the transitive ``ProjectGithubAuthError`` catch, and create + reuse
+regressions exercising the shared compact-mirror contract.
 
 Tests mock the typed ``github_rest.create_issue`` / ``list_issues`` surfaces
 directly (no argv shapes).
@@ -263,7 +263,7 @@ class TestSyncItem:
 
 
 # ---------------------------------------------------------------------------
-# AC-12 regressions: create + reuse paths share compact-mirror contract
+# Regressions: create + reuse paths share compact-mirror contract
 # ---------------------------------------------------------------------------
 
 
@@ -324,7 +324,7 @@ class TestSyncItemCompactMirror:
         db.close()
 
     def test_auth_failure_short_circuits_create(self):
-        """AC-9 mirror: ``sync_item`` short-circuits on resolver error
+        """``sync_item`` short-circuits on resolver error
         before any dedup search, label seeding, or REST call."""
         db = _make_db()
         insert_item(

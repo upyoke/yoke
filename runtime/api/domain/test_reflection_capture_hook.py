@@ -1,4 +1,4 @@
-"""Tests for the PostToolUse Agent-tool hook (YOK-1832, AC-9).
+"""Tests for the PostToolUse Agent-tool hook.
 
 Four canonical scenarios per spec:
 1. Agent + valid REFLECTION block -> entries persisted, ReflectionCaptureHookFired emitted.
@@ -29,7 +29,7 @@ VALID_BLOCK = textwrap.dedent("""\
     agent: engineer
     context: YOK-1832 task hook-tests
     category: friction
-    The four-scenario hook test surface anchors the AC-9 contract so a
+    The four-scenario hook test surface anchors the capture contract so a
     regression in the hook is detected before it lands on main.
     ---END ENTRY---
     ---REFLECTION-END---

@@ -176,7 +176,7 @@ class TestDecideNextActionEscalate:
     def test_apply_lane_filtered_signal_helper_attaches_to_any_context(self):
         """The _apply_lane_filtered_signal helper is the single source
         of truth for lane-filtered context keys. Any branch that uses it
-        gets identical signal attachment — this protects AC-3 even if
+        gets identical signal attachment — the guarantee holds even if
         future code paths reintroduce FEED on a lane-filtered frontier."""
         from yoke_core.domain.session import _apply_lane_filtered_signal
 
@@ -261,7 +261,7 @@ class TestDecideNextActionEscalate:
         assert result.action == ActionKind.WAIT
         assert result.context["wait_reason"] == "no_lane_compatible_work"
         assert result.context["lane_filtered_items"] == filtered
-        # AC-6 enumerates: item_id, title, status, next_step/required_path,
+        # Filtered items carry: item_id, title, status, next_step/required_path,
         # rank, claim_state. Assert every field survives.
         for item in result.context["lane_filtered_items"]:
             for key in (

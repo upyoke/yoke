@@ -23,7 +23,7 @@ def test_appended_footer_references_field_note_append_cli() -> None:
 
 def test_appended_footer_does_not_reference_retired_surfaces() -> None:
     """No retired-name residue leaks into denial text. Literals built
-    dynamically so the AC-1 obsoleted-terms grep stays clean."""
+    dynamically so the obsoleted-terms grep stays clean."""
     result = append_field_note_footer("Lint denied.", rule_id="lint-foo")
     retired_dashed = "-".join(("recipe", "event"))
     retired_underscored = "_".join(("recipe", "feedback"))

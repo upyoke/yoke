@@ -119,7 +119,7 @@ class TestSessionOfferNoWork:
         try-and-fail through the reclaim classifier. The terminal action
         is now non-charge (``WAIT`` when no other branches fire, or
         ``ESCALATE`` when the FEED process gate is disabled by config);
-        AC-1 (the load-bearing invariant) is preserved in both shapes.
+        the load-bearing no-charge invariant is preserved in both shapes.
         """
         holder = "yok-1628-holder"
         _seed_stale_holder_with_recent_activity(

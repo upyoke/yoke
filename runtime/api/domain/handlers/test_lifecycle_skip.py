@@ -1,6 +1,6 @@
 """Handler tests for lifecycle.skip.record_recoverable_substrate.
 
-Covers the AC-2 surface: positive dispatch through the function-call
+Covers positive dispatch through the function-call
 registry produces the expected ``chain_skip_memory`` entry shape,
 invalid envelopes are rejected with structured errors, and the helper
 side-effects (claim release + event emission) execute through the

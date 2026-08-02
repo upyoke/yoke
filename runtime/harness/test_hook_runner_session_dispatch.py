@@ -4,7 +4,7 @@ Codex SessionStart parity — slim resume block on reactivation.
 Legacy-surface guard — old per-event files removed.
 Runner lifecycle path exercised end-to-end (Stop/SessionEnd route
 through ``_end_session`` with the new chain-end rationale).
-AC-5 (workspace export): SessionStart exports ``$YOKE_BOUND_WORKSPACE`` so the
+Workspace export — SessionStart exports ``$YOKE_BOUND_WORKSPACE`` so the
 cross-checkout PreToolUse lint and the renderer's ``_atomic_write`` guard
 can refuse leaks across linked worktrees.
 """

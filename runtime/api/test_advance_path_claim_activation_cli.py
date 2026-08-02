@@ -236,7 +236,7 @@ def test_cli_returns_2_for_invalid_item(fake_db, monkeypatch, capsys):
     assert "ERROR: invalid --item value" in captured.err
 
 
-# AC-18/19/20 (first set) — activation must not flip planned claims to
+# Activation must not flip planned claims to
 # active when another live session owns the item's work claim.
 # Reproduces the claim-33 shape.
 

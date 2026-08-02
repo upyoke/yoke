@@ -1,8 +1,8 @@
-"""End-to-end ownership-guard regression for AC-11.
+"""End-to-end ownership-guard regression.
 
 Pairs with :mod:`test_sessions_offer_ownership_guard` (unit shapes) and
 :mod:`test_routed_ownership_release_gap` (FrontierComputed + offer
-defense). This file owns the AC-11 SM-equivalent fixture: session A is
+defense). This file owns the end-to-end fixture: session A is
 routed, loses ownership mid-chain (claim reclaimed, session B takes the
 canonical mutex), and session A's loop calls
 :func:`evaluate_ownership_guard` before issuing the next item-scoped
@@ -78,7 +78,7 @@ class TestOwnershipGuardEndToEnd(_ReleaseGapDbCase):
         self.assertFalse(after.defense_in_flight)
 
         # Session A's loop records a non-chainable terminal checkpoint
-        # instead of dispatching — the AC-6 runtime contract.
+        # instead of dispatching — the runtime contract.
         checkpoint = update_chain_checkpoint(
             conn, SESSION_A, step=2, action="resume",
             chainable=False, handler_outcome="blocked",

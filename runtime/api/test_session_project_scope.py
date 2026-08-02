@@ -1,8 +1,8 @@
 """Unit tests for ``session_project_scope``.
 
-Covers AC-1 (exports), AC-2 (all-projects default), AC-3 (explicit override
-+ unknown-id error), AC-4 (CLI arg parser), and AC-11 (backward-compat
-behavior when no override is supplied — equivalent to all-projects default).
+Covers exports, the all-projects default, explicit override
++ unknown-id error, the CLI arg parser, and the compatibility
+behavior when no override is supplied — equivalent to all-projects default.
 """
 
 from __future__ import annotations
@@ -91,7 +91,7 @@ class TestResolveSessionProjectScope(unittest.TestCase):
             conn.close()
 
     def test_does_not_fall_back_to_literal_yoke(self) -> None:
-        """AC-2 contract: a ``projects`` row whose id is NOT ``yoke`` must
+        """Default-scope contract: a ``projects`` row whose id is NOT ``yoke`` must
         appear in the default scope. The prior silent ``"yoke"`` fallback
         must not return."""
         conn = _make_db(["externalwebapp"])
@@ -267,7 +267,7 @@ class TestEndToEndProjectScope(unittest.TestCase):
             )
         # Seed one runnable item per project. Both items use the same
         # status/workflow/priority so the only differentiator is the project
-        # id; AC-9 then proves the new ``IN`` clause spans the scope.
+        # id; the tests then prove the ``IN`` clause spans the scope.
         for item_id, project_id in (
             (501, "yoke"),
             (502, self.FIXTURE_PROJECT),
@@ -325,7 +325,7 @@ class TestEndToEndProjectScope(unittest.TestCase):
             conn.close()
 
     def test_override_can_select_only_the_fixture_project(self) -> None:
-        """Symmetric to AC-10: an explicit override naming only the fixture
+        """Symmetric case: an explicit override naming only the fixture
         project excludes yoke's items."""
         from yoke_core.domain.frontier_compute import compute_frontier
 

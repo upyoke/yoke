@@ -1,6 +1,6 @@
 """Dispatch-path tests for the ``yoke`` operations CLI.
 
-Covers EXP-AC-1: every Tier-1 function id dispatches in-process through
+Covers every Tier-1 function id dispatching in-process through
 :func:`yoke_function_dispatch.dispatch` from the matching CLI form.
 Plus the error-shape regressions (missing required flag, bad YOK-N,
 bad integer flag, dispatch failure exit code).

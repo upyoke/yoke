@@ -214,7 +214,7 @@ class TestClaimWorkSelfOnly:
         assert err["code"] == ERROR_CODE_AMBIENT_MISSING
 
     def test_explicit_matches_ambient_succeeds(self, session_offer_db) -> None:
-        """AC-9 happy path: explicit SELF with ambient SELF claims the item."""
+        """Happy path: explicit SELF with ambient SELF claims the item."""
         db_path = session_offer_db["db_path"]
         tmp_dir = session_offer_db["tmp_dir"]
         _seed_session(db_path, "sid-self", tmp_dir=tmp_dir)

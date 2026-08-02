@@ -191,7 +191,7 @@ class TestIsActiveOverridePersistAndRetire:
     def test_retires_when_overridden_surface_narrowed_out(
         self, conn, tmp_path,
     ):
-        """AC-13 second clause: blocker narrows the anchored surface
+        """When the blocker narrows the anchored surface
         out of its declared coverage → override retires."""
         actor, ca, cb, contended, also = self._setup_two_claims(conn)
         invoke_override(

@@ -164,17 +164,17 @@ class TestConductSyncCleanupRegressions:
         """dispatch-context.md must not reference stale ready-era wording."""
         text = _read(self.CONDUCT / "dispatch-context.md")
         assert self.STATUS_READY not in text, (
-            f"dispatch-context.md still contains stale '{self.STATUS_READY}' wording (YOK-1212 AC-2)"
+            f"dispatch-context.md still contains stale '{self.STATUS_READY}' wording"
         )
         assert self.PLANNED_TO_READY not in text, (
-            f"dispatch-context.md still contains stale '{self.PLANNED_TO_READY}' wording (YOK-1212 AC-2)"
+            f"dispatch-context.md still contains stale '{self.PLANNED_TO_READY}' wording"
         )
 
     def test_dispatch_context_uses_implementing_lifecycle(self):
         """dispatch-context.md auto-sync must use 'implementing', not 'ready'."""
         text = _read_dispatch_context(self.CONDUCT / "dispatch-context.md")
         assert "status implementing" in text, (
-            "dispatch-context.md auto-sync should advance to 'implementing' (YOK-1212 AC-2)"
+            "dispatch-context.md auto-sync should advance to 'implementing'"
         )
 
     def test_entry_activation_no_stale_ready_wording(self):
@@ -188,14 +188,14 @@ class TestConductSyncCleanupRegressions:
         """entry-activation.md must document that no tracked diff is a valid sync outcome."""
         text = _read(self.CONDUCT / "entry-activation.md")
         assert "no tracked" in text.lower() or "nothing to commit" in text.lower(), (
-            "entry-activation.md must document that DB-only sync with no tracked diff is valid (YOK-1212 AC-1)"
+            "entry-activation.md must document that DB-only sync with no tracked diff is valid"
         )
 
     def test_dispatch_context_documents_no_diff_success(self):
         """dispatch-context.md must document that no tracked diff is a valid sync outcome."""
         text = _read_dispatch_context(self.CONDUCT / "dispatch-context.md")
         assert "no tracked" in text.lower() or "nothing to commit" in text.lower(), (
-            "dispatch-context.md must document that DB-only sync with no tracked diff is valid (YOK-1212 AC-1)"
+            "dispatch-context.md must document that DB-only sync with no tracked diff is valid"
         )
 
     def test_sync_paths_forbid_staging_legacy_root_db_files(self):
@@ -218,20 +218,20 @@ class TestConductSyncCleanupRegressions:
             if in_code and "git rev-parse --show-toplevel" in line:
                 raise AssertionError(
                     "cleanup-report.md code block uses git rev-parse --show-toplevel "
-                    "instead of MAIN_ROOT (YOK-1212 AC-4)"
+                    "instead of MAIN_ROOT"
                 )
         assert "MAIN_ROOT" in text, (
-            "cleanup-report.md must reference MAIN_ROOT for main-repo-root resolution (YOK-1212 AC-4)"
+            "cleanup-report.md must reference MAIN_ROOT for main-repo-root resolution"
         )
 
     def test_cleanup_temp_loop_is_null_safe(self):
         """cleanup-report.md temp cleanup must avoid shell-glob nomatch failures."""
         text = _read(self.CONDUCT / "cleanup-report.md")
         assert 'find "$_yoke_dir" -maxdepth 1 -type f' in text, (
-            "cleanup-report.md temp cleanup must use find-based matching for zsh/bash safety (YOK-1212 AC-5)"
+            "cleanup-report.md temp cleanup must use find-based matching for zsh/bash safety"
         )
         assert '[ -f "$_tmp" ] || continue' not in text, (
-            "cleanup-report.md should not rely on [ -f ] shell-glob fallback for null-safety (YOK-1212 AC-5)"
+            "cleanup-report.md should not rely on [ -f ] shell-glob fallback for null-safety"
         )
 
     def test_no_resolve_paths_sh_reference(self):
@@ -240,7 +240,7 @@ class TestConductSyncCleanupRegressions:
             if fname.suffix == ".md":
                 text = _read(fname)
                 assert self.RESOLVE_PATHS_HELPER not in text, (
-                    f"{fname.name} references retired {self.RESOLVE_PATHS_HELPER} (YOK-1212 AC-8)"
+                    f"{fname.name} references retired {self.RESOLVE_PATHS_HELPER}"
                 )
 
 
@@ -279,12 +279,12 @@ class TestConductFanOutEntryPath:
             "Dispatched by conduct (task fan-out)",
         )
         missing = [n for n in required if not any(n in text for text in texts)]
-        assert not missing, f"AC-2/AC-7/AC-10 missing {missing}"
+        assert not missing, f"fan-out entry path missing {missing}"
         joined = "\n".join(texts)
-        assert self.LEGACY_FLOW not in joined, "AC-7/AC-11"
-        assert "Dispatched by conduct (single-item)" not in joined, "AC-7/AC-11"
+        assert self.LEGACY_FLOW not in joined, "legacy single-item flow name present"
+        assert "Dispatched by conduct (single-item)" not in joined, "legacy marker"
         assert "If dispatchable task found: proceed with `_task_id`." not in joined, (
-            "AC-2"
+            "legacy single-task resolution wording still present"
         )
 
     def test_dispatch_context_and_prompts_match_fan_out(self):
@@ -296,31 +296,31 @@ class TestConductFanOutEntryPath:
             "_task_ids",
             "_worktree_path_${_task_id}",
         ):
-            assert needle in context, f"AC-3/AC-10 missing {needle}"
+            assert needle in context, f"dispatch-context.md missing {needle}"
         for needle in (
             "Implement PREFIX-{N} task {_task_id}",
             "Validate PREFIX-{N} task {_task_id}",
             "epic-task body-get --epic {_epic_id} --task-num {_task_id}",
         ):
-            assert needle in epic_prompts, f"AC-2 missing {needle}"
+            assert needle in epic_prompts, f"epic prompts missing {needle}"
         for needle in (
             "Anticipated path coverage (pre-authorized)",
             "_anticipated_paths_block_{_task_id}",
             "## Anticipated Paths",
         ):
-            assert needle in epic_prompts, f"YOK-1697 AC-5 missing {needle}"
+            assert needle in epic_prompts, f"epic prompts missing path block {needle}"
         assert "If a dispatchable task is found: use its local ID" not in context, (
-            "AC-3"
+            "legacy single-task resolution wording still present"
         )
-        assert "Implement PREFIX-{_id}" not in epic_prompts, "AC-2"
-        assert "items get PREFIX-{_id} spec" not in epic_prompts, "AC-2"
+        assert "Implement PREFIX-{_id}" not in epic_prompts, "legacy prompt placeholder"
+        assert "items get PREFIX-{_id} spec" not in epic_prompts, "legacy spec read"
 
     def test_dispatch_protocol_remains_live(self):
         dispatch = _read(self.CONDUCT / "dispatch-context-dispatch.md")
         prompts = _read(self.CONDUCT / "dispatch-context-prompts.md")
-        assert "Parallel Engineer Dispatch" in dispatch, "AC-3"
-        assert "Parallel Tester Dispatch" in dispatch, "AC-3"
-        assert "Dispatch ALL Engineers in parallel" in prompts, "AC-3"
+        assert "Parallel Engineer Dispatch" in dispatch, "missing engineer fan-out"
+        assert "Parallel Tester Dispatch" in dispatch, "missing tester fan-out"
+        assert "Dispatch ALL Engineers in parallel" in prompts, "missing fan-out prose"
 
     def test_legacy_flow_name_only_in_decision_record(self):
         offenders = [
@@ -328,4 +328,4 @@ class TestConductFanOutEntryPath:
             for f in sorted(self.CONDUCT.glob("*.md"))
             if self.LEGACY_FLOW in _read(f)
         ]
-        assert not offenders, f"AC-11: legacy in conduct prose: {offenders}"
+        assert not offenders, f"legacy flow name in conduct prose: {offenders}"

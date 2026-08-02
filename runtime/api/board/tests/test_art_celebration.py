@@ -58,7 +58,7 @@ class TestCelebrationMode:
         assert "\U0001f3c6" not in done_line  # no trophy
 
     def test_stats_box_no_celebration_uses_check(self):
-        """AC-2 inverse: without celebration, the ✅ check is used."""
+        """Inverse: without celebration, the ✅ check is used."""
         lines = _render_stats_box(
             {"active": 1, "pipeline": 0, "backlog": 0, "done": 99, "frozen": 0},
             100,

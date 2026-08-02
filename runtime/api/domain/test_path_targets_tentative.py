@@ -1,6 +1,6 @@
 """Tests for tentative path_targets coverage.
 
-Covers AC-1, AC-2, AC-3, AC-4, AC-11 schema admits the
+Covers: the schema admits the
 new ``tentative`` state, callers can register tentative coverage
 without broad parent-directory claims, tentative targets participate
 in overlap detection, and tentative targets promote to ``observed``

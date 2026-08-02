@@ -1,6 +1,6 @@
 """Tests for :mod:`yoke_core.domain.projects_trunk`.
 
-Covers AC-7 fallback behavior: read ``projects.default_branch`` and
+Covers fallback behavior: read ``projects.default_branch`` and
 fall back to ``"main"`` when the value is missing or blank.
 """
 

@@ -6,7 +6,7 @@ from runtime.api.skill_doc_regressions_test_helpers import (
 )
 
 
-# TestConductPerTaskClaims — AC-5/AC-6/AC-7/AC-17 per-task epic_task wiring
+# TestConductPerTaskClaims — per-task epic_task wiring
 
 
 class TestConductPerTaskClaims:
@@ -65,5 +65,5 @@ class TestConductPerTaskClaims:
         ):
             text = _read(self.CONDUCT / fname).lower()
             assert "sibling task worktree" not in text, (
-                f"AC-17: {fname} references 'sibling task worktree'"
+                f"{fname} references 'sibling task worktree'"
             )

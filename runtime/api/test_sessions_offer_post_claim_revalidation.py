@@ -144,7 +144,7 @@ class TestPostClaimRevalidation(_ReleaseGapDbCase):
         self.assertEqual(entry["chain_step"], 1)
         self.assertIn(
             "claim_id", entry,
-            "AC-3: post-claim skip entry must carry the released claim_id.",
+            "Post-claim skip entry must carry the released claim_id.",
         )
 
 
@@ -210,7 +210,7 @@ class TestPostClaimSchedulePinning(_ReleaseGapDbCase):
         )
 
     def test_pin_helper_returns_false_when_acquired_item_missing(self) -> None:
-        """AC-2 unit: pin_schedule_to_acquired_item returns False when
+        """pin_schedule_to_acquired_item returns False when
         the acquired item is absent from the recomputed ranked_steps."""
         from yoke_core.domain.scheduler_types import (
             ClaimState, NextStep, ScheduledStep, SchedulerResult,
@@ -240,7 +240,7 @@ class TestPostClaimSchedulePinning(_ReleaseGapDbCase):
         self.assertEqual(schedule.selected_step.item_id, "YOK-9998")
 
     def test_pin_helper_updates_selected_step_on_hit(self) -> None:
-        """AC-2 unit: pin_schedule_to_acquired_item rewrites
+        """pin_schedule_to_acquired_item rewrites
         selected_step to the matching ranked entry."""
         from yoke_core.domain.scheduler_types import (
             ClaimState, NextStep, ScheduledStep, SchedulerResult,

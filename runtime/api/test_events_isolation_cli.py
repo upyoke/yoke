@@ -1,7 +1,7 @@
 """CLI-owner tests for the events write-time isolation contract.
 
 Exercises the ``yoke_core.domain.emit_event`` CLI surface to confirm it
-honors the same isolation gate as the native emitter (AC-2 capture
+honors the same isolation gate as the native emitter (capture
 intent without sink, plus the synthetic_smoke lineage escape hatch).
 """
 

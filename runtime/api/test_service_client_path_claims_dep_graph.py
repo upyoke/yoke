@@ -19,8 +19,8 @@ Test shapes:
 * (d) Explicit ``--upstream-claim-id`` matching one overlapping claim,
   no dep-edges → ``state='blocked'`` (regression of pre-fix behavior).
 
-AC-5 reproduces the filing shape end-to-end and asserts
-post-fix success.
+A final reproduction test exercises the filing shape end-to-end and
+asserts post-fix success.
 """
 
 from __future__ import annotations
@@ -125,12 +125,12 @@ def _seed_active_claim_for_path(
 
 
 # ---------------------------------------------------------------------------
-# AC-4 coverage
+# Coverage for shapes (a) through (d)
 # ---------------------------------------------------------------------------
 
 
 class TestNoDepEdgeStillIncompatible:
-    """AC-4(a): pre-fix behavior must remain a regression target."""
+    """Shape (a): pre-fix behavior must remain a regression target."""
 
     def test_no_edges_no_upstream_rejects(self, conn):
         upstream = _seed_item(conn, item_id=51001)
@@ -153,7 +153,7 @@ class TestNoDepEdgeStillIncompatible:
 
 
 class TestSingleDepEdgeAutoResolves:
-    """AC-4(b): one dep-edge → blocked claim names the upstream id."""
+    """Shape (b): one dep-edge → blocked claim names the upstream id."""
 
     def test_single_edge_lands_blocked_with_upstream_id(self, conn):
         upstream = _seed_item(conn, item_id=51011)
@@ -180,7 +180,7 @@ class TestSingleDepEdgeAutoResolves:
 
 
 class TestMultiOverlapAllEdges:
-    """AC-4(c): multi-overlap candidate lands blocked."""
+    """Shape (c): multi-overlap candidate lands blocked."""
 
     def test_multi_overlap_with_partial_dep_edges_still_rejects(self, conn):
         u1 = _seed_item(conn, item_id=51041)
@@ -248,7 +248,7 @@ class TestMultiOverlapAllEdges:
 
 
 class TestExplicitUpstreamWithoutDepEdge:
-    """AC-4(d): explicit ``--upstream-claim-id`` regression."""
+    """Shape (d): explicit ``--upstream-claim-id`` regression."""
 
     def test_explicit_upstream_alone_lands_blocked(self, conn):
         upstream = _seed_item(conn, item_id=51031)
@@ -276,7 +276,7 @@ class TestExplicitUpstreamWithoutDepEdge:
 
 
 # ---------------------------------------------------------------------------
-# AC-5 coverage — reproduction shape
+# Reproduction shape
 # ---------------------------------------------------------------------------
 
 

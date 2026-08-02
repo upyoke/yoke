@@ -4,9 +4,9 @@ Split from ``test_strategize_carry.py``.
 
 Covers:
 
-* AC-1 / AC-6 overflow: 50 landed items remain fully tracked even when the
+* Overflow: 50 landed items remain fully tracked even when the
   operator-facing summary is display-truncated.
-* AC-3 / AC-6 deferred-session: items registered in one session remain
+* Deferred-session: items registered in one session remain
   pending after a second session that defers all changes.
 * Horizon scanning only discovers *new* landings inside the window;
   older pending items still survive because the carry table is the source

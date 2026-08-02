@@ -6,8 +6,8 @@ authored-file cap. Covers:
 - ``item_test_results_classify`` head-SHA trailer helpers (pure functions).
 - ``evaluate_ci_substitute`` decision matrix (pure function).
 - ``do_pr_merge`` skipped-CI gate freshness routing (fresh / stale / unbound
-  / unresolved-head) — AC-1 / AC-5 / AC-10.
-- ``_wait_for_ci`` declared-workflow registration wait — AC-8.
+  / unresolved-head).
+- ``_wait_for_ci`` declared-workflow registration wait.
 
 The merge-harness stubs (``_arm_pr_merge_environment`` etc.) live in
 ``test_merge_worktree_pr_checks`` and are imported here so both suites share

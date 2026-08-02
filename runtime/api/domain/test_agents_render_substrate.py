@@ -6,10 +6,10 @@ and the Codex agent ``.toml`` tree from canonical Yoke source. The
 legacy Claude agent-render surface (``.md`` adapters) is covered by
 ``test_agents_render.py``.
 
-Acceptance criteria covered: AC-2 (drift check + idempotency), AC-3
-(seven Codex agents), AC-4 (subdir fragments embedded), AC-6 (per-output
-render coverage), AC-7 (do-not-hand-edit marker), AC-8 (no second
-canonical Codex prompt body).
+Behavior covered: drift check + idempotency, the seven Codex agents,
+embedded subdir fragments, per-output render coverage, the
+do-not-hand-edit marker, and the absence of a second
+canonical Codex prompt body.
 """
 
 from __future__ import annotations
@@ -74,7 +74,7 @@ def isolated_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 # ---------------------------------------------------------------------------
-# Codex agent .toml tree — AC-3, AC-4, AC-6, AC-8
+# Codex agent .toml tree
 # ---------------------------------------------------------------------------
 
 
@@ -139,7 +139,7 @@ def test_render_emits_seven_codex_agents() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Hook + manifest content — AC-6, AC-7
+# Hook + manifest content
 # ---------------------------------------------------------------------------
 
 
@@ -226,7 +226,7 @@ def test_render_codex_manifest_has_generated_marker_and_no_legacy_terms() -> Non
 
 
 # ---------------------------------------------------------------------------
-# Drift detection + idempotency — AC-2
+# Drift detection + idempotency
 # ---------------------------------------------------------------------------
 
 
@@ -300,7 +300,7 @@ def test_pm_pd_sidecars_have_no_bash_in_either_harness(repo_root: Path) -> None:
         claude_text = (claude_dir / f"yoke-{agent}.md").read_text("utf-8")
         # Frontmatter ``tools:`` line lists comma-separated grants. The
         # ``disallowedTools:`` line is a different field and may include
-        # ``Bash`` — that is the explicit deny half of AC-6 and must not
+        # ``Bash`` — that is the explicit deny half of the tool policy and must not
         # trip the assertion.
         tools_line = next(
             (l for l in claude_text.splitlines() if l.startswith("tools:")), ""

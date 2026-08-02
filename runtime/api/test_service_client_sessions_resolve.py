@@ -22,7 +22,7 @@ from runtime.api.test_service_client_sessions_helpers import (
 
 
 class TestResolveSessionId:
-    """Unit tests for _resolve_session_id (AC-1 through AC-4)."""
+    """Unit tests for _resolve_session_id."""
 
     def test_explicit_value_returned_as_is(self, monkeypatch):
         """Explicit value wins regardless of env vars."""
@@ -78,7 +78,7 @@ class TestResolveSessionId:
 
 
 class TestSessionIdAutoResolutionIntegration:
-    """Integration tests: commands work without --session-id when env var is set (AC-5 through AC-7)."""
+    """Integration tests: commands work without --session-id when env var is set."""
 
     def test_session_touch_uses_env_session_id(self, session_offer_db):
         """Session-touch resolves session ID from env."""

@@ -1,4 +1,4 @@
-"""AC-8.4 dispatcher-parity tests for ``service_client db-claim-amend``.
+"""Dispatcher-parity tests for ``service_client db-claim-amend``.
 
 Verifies that the CLI builds a :class:`FunctionCallRequest` for
 ``db_claim.amend`` and calls

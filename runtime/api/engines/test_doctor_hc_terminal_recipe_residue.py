@@ -1,8 +1,8 @@
 """Tests for HC-terminal-recipe-residue.
 
-Covers AC-14.4 (banned-literal list keyed off
-RECIPE_RESIDUE_PATTERNS), AC-14.6 (fixture-based regression guard),
-AC-14.7 (registry-aware second pass), and the allowlist contract
+Covers the banned-literal list keyed off
+RECIPE_RESIDUE_PATTERNS, the fixture-based regression guard,
+the registry-aware second pass, and the allowlist contract
 (docs/archive/**, .yoke/docs/db-reference/**, runtime/api/**/test_*.py).
 """
 

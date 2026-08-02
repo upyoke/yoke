@@ -2,7 +2,7 @@
 
 Sibling of :mod:`test_schema_api_context` and
 :mod:`test_schema_api_context_topics`. Holds the per-anchor assertions
-for AC-3 / AC-4 / AC-24 / AC-27 / AC-29 / AC-31:
+for:
 
 - Column-name salience: ``current_item_id``, ``path_string``,
   ``claim_id``, ``section_name`` appear adjacent to their owning
@@ -93,7 +93,7 @@ def test_json_nested_field_schemas_appear_for_enumerated_columns() -> None:
     for column in JSON_NESTED_COLUMNS_REQUIRED:
         assert column in body, (
             f"JSON-nested-field schema for {column} must appear in the "
-            "rendered main_agent packet (AC-3 task 002)."
+            "rendered main_agent packet."
         )
     # Access-pattern guidance must appear too.
     assert "parse the rendered JSON" in body
@@ -121,7 +121,7 @@ def test_cli_cheat_sheet_contains_canonical_flag_sets() -> None:
     for anchor in CLI_ANCHORS_REQUIRED:
         assert anchor in body, (
             f"CLI cheat sheet must teach canonical flag set anchor "
-            f"{anchor!r} (AC-4 task 002)."
+            f"{anchor!r}."
         )
 
 
@@ -183,7 +183,7 @@ def test_no_known_confabulations() -> None:
     body = main_body()
     for term in BANNED_CONFABULATIONS:
         assert term not in body, (
-            f"packet contains banned confabulation '{term}'. AC-27 "
+            f"packet contains banned confabulation '{term}'. The contract "
             "requires zero such strings in rendered agent context."
         )
 
@@ -232,13 +232,13 @@ def test_no_bare_doctor_invocation() -> None:
         body,
     )
     assert bare == [], (
-        f"packet contains bare doctor invocation(s): {bare}. AC-31 "
+        f"packet contains bare doctor invocation(s): {bare}. The contract "
         "requires --full / --quick / --only on every example."
     )
 
 
 # ---------------------------------------------------------------------------
-# AC-3 / AC-4 positive lifecycle.transition recipe
+# Positive lifecycle.transition recipe
 # ---------------------------------------------------------------------------
 
 
@@ -281,17 +281,17 @@ def test_artifact_write_ownership_invariant_rendered() -> None:
         "self-identity assertion",
         "not cross-session authority",
     ):
-        assert anchor in body, f"missing AC-5/AC-6 anchor: {anchor!r}"
+        assert anchor in body, f"missing artifact-write ownership anchor: {anchor!r}"
     # The historical affirmative shape is rejected.
     bad = FORBIDDEN_SESSION_ID_AFFIRMATIVE.findall(body)
     assert bad == [], (
         f"packet teaches `--session-id S` as a way to act on another "
-        f"session's claim (matched: {bad}); AC-6 forbids this shape."
+        f"session's claim (matched: {bad}); this shape is forbidden."
     )
 
 
 # ---------------------------------------------------------------------------
-# harness_sessions: new columns surface (AC-3 columns subset)
+# harness_sessions: new columns surface
 # ---------------------------------------------------------------------------
 
 

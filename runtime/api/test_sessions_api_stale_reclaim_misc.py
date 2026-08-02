@@ -67,7 +67,7 @@ def _registry_conn(tmp_path: Path, *, with_table: bool = True):
 
 
 class TestStaleReclaimYOK1350:
-    """AC-9/10/11: executor-aware stale-session cleanup."""
+    """Executor-aware stale-session cleanup."""
 
     @pytest.fixture
     def conn_with_events(self, conn):

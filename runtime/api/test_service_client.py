@@ -11,8 +11,8 @@ Covers:
 - apply-approval: validates approval-apply mutation (task 3)
 
 These tests verify parity between the service-client CLI output and the
-underlying domain layer, ensuring AC-1 (approval cutover) and AC-2
-(query cutover) plus the mutation command JSON
+underlying domain layer, ensuring the approval cutover and the
+query cutover plus the mutation command JSON
 contracts from the mutation CLI migration.
 """
 

@@ -1,5 +1,5 @@
 # ruff: noqa: F811
-"""TestReleaseItemClaimForExecution: AC-7 atomic release+focus-clear."""
+"""TestReleaseItemClaimForExecution: atomic release+focus-clear."""
 
 from __future__ import annotations
 

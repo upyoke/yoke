@@ -131,7 +131,7 @@ class TestActorIdResolution(unittest.TestCase):
         self.assertIn("op-real", result.error.error.message)
 
     def test_ac5_omitted_actor_id_unregistered_session_leaves_none(self):
-        # Per AC-5 + AC-13: missing resolution is NOT a new failure
+        # Missing resolution is NOT a new failure
         # mode. Binder leaves actor.actor_id as None; downstream gates
         # reject unregistered sessions naturally, and the positive
         # no-row finding rides out for provenance marking.

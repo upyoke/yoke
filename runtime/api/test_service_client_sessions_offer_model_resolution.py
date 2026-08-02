@@ -9,7 +9,7 @@ value from ``harness_sessions.model`` (populated by ``session-begin``)
 with a ``hook_helpers_model.detect_model`` fallback for the cold-start
 case.
 
-The two tests in this file are the regressions AC-9 and AC-14 name —
+The two tests in this file are regressions —
 they would have failed before the rip-out (variant suffix lost) and
 they pin the cold-start contract (resolver returns a value rather than
 crashing on a missing row).

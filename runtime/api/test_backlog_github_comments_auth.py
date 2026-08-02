@@ -1,6 +1,6 @@
 """Auth-error translation regression for ``backlog_github_comments``.
 
-Verifies the AC-7 contract: when the typed REST surface raises
+Verifies the auth-error contract: when the typed REST surface raises
 :class:`ProjectGithubAuthError` (the canonical resolver's typed
 diagnostic), :func:`post_comment` translates the exception into a
 non-zero return + typed-stderr diagnostic carrying the exception

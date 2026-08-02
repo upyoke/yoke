@@ -1,4 +1,4 @@
-"""AC-21 override-effectiveness tests.
+"""Override-effectiveness tests.
 
 When ``path_claims_override.is_active_override(candidate, blocker)``
 reports an active override pair, ``classify_overlap`` permits the pair

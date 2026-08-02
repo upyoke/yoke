@@ -1,6 +1,6 @@
 """Tests for the events write-time isolation contract.
 
-Covers AC-2, AC-5, AC-6, AC-7: the isolation gate in
+The isolation gate in
 ``yoke_core.domain.events`` must refuse live-ledger writes when the
 process declares ``YOKE_EVENTS_ISOLATION=1`` or ``YOKE_EVENTS_CAPTURE=1``
 without ``YOKE_EVENTS_FILE``, and must honor the documented escape hatches

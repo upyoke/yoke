@@ -127,7 +127,7 @@ class TestEvaluateBgWaiter(unittest.TestCase):
             )
 
     def test_tail_f_against_existing_capture_denies(self) -> None:
-        # AC-8.
+        # tail -f waiter shape.
         with self._existing_captures_patch({CAPTURE}):
             result = waiter.evaluate_bg_waiter(
                 _bg_payload(f"tail -f {CAPTURE}")
@@ -140,7 +140,7 @@ class TestEvaluateBgWaiter(unittest.TestCase):
         self.assertIn(CAPTURE, reason)
 
     def test_sleep_then_tail_against_existing_capture_denies(self) -> None:
-        # AC-7.
+        # sleep-then-peek waiter shape.
         with self._existing_captures_patch({CAPTURE}):
             result = waiter.evaluate_bg_waiter(
                 _bg_payload(f"sleep 30 && tail -200 {CAPTURE}")
@@ -152,7 +152,7 @@ class TestEvaluateBgWaiter(unittest.TestCase):
         self.assertEqual(ctx.get("waiter_shape"), "sleep-then-peek")
 
     def test_while_sentinel_against_existing_capture_denies(self) -> None:
-        # AC-9.
+        # while-sentinel waiter shape.
         with self._existing_captures_patch({SENTINEL}):
             result = waiter.evaluate_bg_waiter(
                 _bg_payload(
@@ -166,7 +166,7 @@ class TestEvaluateBgWaiter(unittest.TestCase):
         self.assertEqual(ctx.get("waiter_shape"), "while-sentinel")
 
     def test_watch_tail_against_existing_capture_denies(self) -> None:
-        # AC-10.
+        # watch-tail waiter shape.
         with self._existing_captures_patch({CAPTURE}):
             result = waiter.evaluate_bg_waiter(
                 _bg_payload(

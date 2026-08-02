@@ -80,7 +80,7 @@ def _detail(rec: RecordCollector) -> str:
 
 
 # ---------------------------------------------------------------------------
-# AC-6 Positives.
+# Positives.
 # ---------------------------------------------------------------------------
 
 
@@ -179,7 +179,7 @@ def test_item_public_field_reference_is_not_raw_schema_bleed(
 
 
 # ---------------------------------------------------------------------------
-# AC-6 Per-key parametrized reachability test for JSON_NESTED_SCHEMAS.
+# Per-key parametrized reachability test for JSON_NESTED_SCHEMAS.
 # ---------------------------------------------------------------------------
 
 
@@ -212,7 +212,7 @@ def test_json_nested_schema_key_reachable(table_col):
 
 
 # ---------------------------------------------------------------------------
-# AC-6 Negatives — cross-reference allow-list.
+# Negatives — cross-reference allow-list.
 # ---------------------------------------------------------------------------
 
 
@@ -266,7 +266,7 @@ def test_non_schema_dotted_syntax_passes(
 
 
 # ---------------------------------------------------------------------------
-# AC-6 Edges — archive exemption, empty file, fenced code block.
+# Edges — archive exemption, empty file, fenced code block.
 # ---------------------------------------------------------------------------
 
 
@@ -313,7 +313,7 @@ def test_fenced_sql_block_does_not_fire(tmp_path, monkeypatch, conn):
 
 
 # ---------------------------------------------------------------------------
-# AC-8 self-skip — unresolvable repo root.
+# Self-skip — unresolvable repo root.
 # ---------------------------------------------------------------------------
 
 

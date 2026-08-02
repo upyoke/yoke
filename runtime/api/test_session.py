@@ -195,7 +195,7 @@ class TestDoLoopContract:
         The model identifier is intentionally *not* in this list (the migration
         removed the LLM-side model resolution chain (no more ``--model``
         substitution into the loop command) and the canonical value is
-        read from ``harness_sessions.model`` server-side. AC-12 enforces
+        read from ``harness_sessions.model`` server-side. This test enforces
         that ``YOKE_MODEL`` and ``CLAUDE_MODEL`` do not appear in any
         ``.agents/skills/yoke/do/`` file. The model resolution path is
         teaching content in the Philosophy section, not part of the

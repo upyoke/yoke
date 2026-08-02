@@ -9,7 +9,7 @@ Scenarios:
   → widen proceeds.
 * New paths that did not change in the integration_target window
   → widen proceeds even if other paths in the same integration_target
-  range changed (AC-5 only fires per-path).
+  range changed (the validator only fires per-path).
 * No ``base_commit_sha`` on the claim (never activated) →
   validator returns None silently.
 * ``base_commit_sha == integration_target HEAD`` → no drift → None.

@@ -1,6 +1,6 @@
 """Codex manifest-derived path tests for service_client session-offer.
 
-Covers AC-4/AC-5: Codex offers must derive supported paths from the shared
+Codex offers must derive supported paths from the shared
 registry plus the Codex manifest's downstream-path limitations, and those
 limits must override caller-provided ``--supported-paths``.
 """

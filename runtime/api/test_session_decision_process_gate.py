@@ -1,7 +1,7 @@
 """Process-offer policy gate regressions for ``decide_next_action``.
 
-Covers AC-17 / AC-20 / AC-23 / AC-43 / AC-46. AC-20 (step-3 drift
-Strategize disabled with runnable item available) and AC-46 share the
+The drift case (Strategize disabled with a runnable item
+available) and the disabled-process swap case share the
 same swap-to-CHARGE shape and are covered by
 ``test_drift_strategize_with_disabled_policy_swaps_to_runnable``.
 Skip-memory recording tests live in the sibling
@@ -245,7 +245,7 @@ class TestDecideNextActionWiring:
         assert result.action == ActionKind.STRATEGIZE
 
     def test_drift_strategize_with_disabled_policy_swaps_to_runnable(self):
-        # AC-20 / AC-46 reproduction: drift recommends Strategize first
+        # Reproduction: drift recommends Strategize first
         # (step-3 chain shape), the policy disables Strategize for
         # /yoke do, and a runnable item exists. The gate selects
         # that item as a CHARGE candidate rather than short-circuiting

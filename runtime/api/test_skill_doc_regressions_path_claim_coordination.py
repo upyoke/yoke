@@ -69,7 +69,7 @@ class TestPathClaimBlockingClassificationFirst:
 
     def test_coordination_only_appears_before_directional_activation(self, text: str):
         """Independent overlap → coordination_only must be taught before
-        the directional activation example. AC-1 / AC-5."""
+        the directional activation example."""
         coord_index = text.find("coordination_only")
         # `--gate-point activation` is the explicit directional example
         # the doc now requires. It must come AFTER the first
@@ -87,7 +87,7 @@ class TestPathClaimBlockingClassificationFirst:
 
     def test_no_implication_that_most_overlaps_are_serial(self, text: str):
         """The original prose said 'Most overlaps reflect a real serial ordering' —
-        that wording defaulted authors to activation. AC-1 / AC-5."""
+        that wording defaulted authors to activation."""
         assert "Most overlaps reflect a real serial ordering" not in text
 
     def test_classification_step_is_mandatory(self, text: str):
@@ -106,7 +106,7 @@ class TestPathClaimBlockingClassificationFirst:
 class TestPathClaimConflictDocsRequireExplicitGatePoint:
     """No path-claim conflict-resolution doc may reintroduce the bare
     `dependency-add YOK-A YOK-B idea` shape that silently defaults to
-    activation. AC-2 / AC-5."""
+    activation."""
 
     @pytest.mark.parametrize("doc", [
         PATH_CLAIM_BLOCKING,
@@ -145,7 +145,7 @@ class TestPathClaimConflictDocsRequireExplicitGatePoint:
 
 class TestCoordinationOnlyDistinguishedFromActivation:
     """All listed docs must distinguish coordination-only compatible-overlap edges
-    from lifecycle-blocking activation dependencies. AC-3."""
+    from lifecycle-blocking activation dependencies."""
 
     @pytest.mark.parametrize("doc", list(DOCS_WITH_COORDINATION_GUIDANCE))
     def test_mentions_coordination_only(self, doc):
@@ -167,7 +167,7 @@ class TestCoordinationOnlyDistinguishedFromActivation:
 
 class TestNoAmbiguousDepEdgeWording:
     """The phrase 'dep-edge via shepherd dependency-add' (alone, without
-    naming the gate-point classification) is the regression vector AC-5
+    naming the gate-point classification) is the regression vector this class
     pins against."""
 
     @pytest.mark.parametrize("doc", [

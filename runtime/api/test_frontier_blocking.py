@@ -1,10 +1,10 @@
-"""Frontier behavior under the items.blocked flag and AC-12.
+"""Frontier behavior under the items.blocked flag.
 
 Covers:
 
 - An item with ``blocked=1`` and a non-empty ``blocked_reason`` lands in
   ``FrontierResult.blocked`` with a reason that names the operator-supplied
-  text verbatim — the AC-12 invariant against synthesizing
+  text verbatim — the invariant against synthesizing
   ``blocking_item="unknown"`` when a real reason exists.
 - A blocked-flag item lands in WAIT regardless of its preserved lifecycle
   status — implementing/refined-idea/idea all route to blocked.
@@ -115,7 +115,7 @@ def test_blocked_flag_combines_with_dependency_blocker_details():
     fi = next(b for b in result.blocked if b.item_id == 10)
     reasons = " | ".join(fi.blocked_reasons)
     assert "operator reason" in reasons
-    # Dependency-backed blocker details are populated AC-12-compliant.
+    # Dependency-backed blocker details are populated.
     assert fi.blocker_details, "blocker_details should be populated when deps exist"
     assert fi.blocked_by, "blocked_by should be populated when deps exist"
     assert "YOK-20" in fi.blocked_by

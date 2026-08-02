@@ -251,7 +251,7 @@ class TestRequirementUpdate:
         assert detail["requirement_id"] == req_id
 
     def test_update_registered_in_event_registry(self, db_path: str) -> None:
-        """AC-17 event registration: QARequirementUpdated must appear in the
+        """Event registration: QARequirementUpdated must appear in the
         curated events table that populate_registry ensures during its run."""
         from yoke_core.domain import events_crud, populate_registry
 
@@ -269,7 +269,7 @@ class TestRequirementUpdate:
         )
 
     def test_update_in_curated_events_table(self) -> None:
-        """AC-17 event registration: QARequirementUpdated is declared in the
+        """Event registration: QARequirementUpdated is declared in the
         curated events table in populate_registry (the authoritative list)."""
         from yoke_core.domain.populate_registry import CURATED_EVENTS
 

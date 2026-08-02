@@ -25,7 +25,7 @@ from yoke_core.tools._watch_runner import filter_match
 
 
 # Representative non-TTY pytest output captured by hand. Includes:
-# - File-progress lines with [ N%] markers (AC-4 fixture)
+# - File-progress lines with [ N%] markers
 # - A FAILED test summary line
 # - A collection-error ERROR line
 # - A summary banner with mixed pass/fail
@@ -144,7 +144,7 @@ class TestPytestFilterCoverage:
         assert not filter_match(watch_pytest.PYTEST_PROGRESS_PATTERN, noise)
 
     def test_fixture_distinguishes_signal_from_noise(self) -> None:
-        # The fixture is the AC-4 representative output. Verify the filter
+        # The fixture is the representative output. Verify the filter
         # picks up at least one progress line, the FAILED line, the ERROR
         # line, the collection notice, and the summary banner — but never
         # picks up the "test session starts" or assertion-detail lines.

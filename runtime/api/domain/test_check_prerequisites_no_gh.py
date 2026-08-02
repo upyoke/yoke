@@ -5,7 +5,7 @@ task 5 contract:
 
 - The prerequisite checker no longer prints any host-gh installer
   teaching strings (the exact tokens live in ``_BANNED_STRINGS`` below,
-  built via concatenation so the AC-1 / AC-2 grep recipes report zero
+  built via concatenation so literal greps for them report zero
   hits anywhere in the tree).
 - The GitHub App auth resolution check surfaces operator-friendly text under any
   resolver outcome.
@@ -21,7 +21,7 @@ import pytest
 from yoke_core.domain.check_prerequisites import run_checks
 
 
-# Built by string concatenation so the AC-1 / AC-2 grep recipes
+# Built by string concatenation so literal greps for these tokens
 # report zero hits anywhere in the live tree, including this test file
 # itself.
 _BANNED_STRINGS = (

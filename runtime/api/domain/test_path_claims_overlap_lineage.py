@@ -1,6 +1,6 @@
 """Ancestor/descendant overlap detection across planned + observed.
 
-Covers AC-11, AC-14 from the spec: claims on a directory
+Covers: claims on a directory
 collide with claims on files inside it (and vice versa) regardless of
 which side is planned vs observed; renames work when the source is
 observed and the destination is planned; exception claims never

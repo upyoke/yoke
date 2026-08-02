@@ -1,4 +1,4 @@
-"""/ AC-19 stale-term scope tests.
+"""Stale-term scope tests.
 
 The stale-term regression intentionally scopes to authored agent content
 (canonical Bash-capable bodies + rendered Claude/Codex adapters) and
@@ -64,7 +64,7 @@ def test_stale_term_scan_excludes_qa_schema_migration_counters(
     assert qa_kind_review in qa_schema_text, (
         "qa_schema.py expected to contain legitimate qa_kind='review' "
         "migration-counter SQL — if the term is gone, this test is "
-        "obsolete and should be deleted along with the AC-19 carve-out"
+        "obsolete and should be deleted along with the scope carve-out"
     )
 
     for role in _BASH_CAPABLE:

@@ -7,7 +7,7 @@ is available, so the loop's charge handler can dispatch through the
 canonical scheduler routing path instead of bailing out with a contract
 failure.
 
-Covers AC-6, AC-7 (no-runnable suppressed-WAIT), and AC-12 (residue check).
+Covers the no-runnable suppressed-WAIT path and the residue check.
 The unit-level shape coverage lives in
 ``test_session_decision_process_gate_charge_context.py``; this file
 exercises the full ``cmd_session_offer`` JSON surface so the regression

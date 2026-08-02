@@ -30,7 +30,7 @@ from yoke_core.domain.agents_render_codex import (
 # Codex documents these as the only legal sandbox postures.
 _ALLOWED_SANDBOX = {"read-only", "workspace-write", "danger-full-access"}
 
-# AC-6 / AC-16 posture: only the engineer carries a write-capable sandbox;
+# Sandbox posture: only the engineer carries a write-capable sandbox;
 # every read-only Yoke role stays read-only.
 _EXPECTED_SANDBOX = {
     "product-manager": "read-only",
@@ -78,7 +78,7 @@ def test_generated_toml_parses_and_has_required_keys(role: str) -> None:
 
 @pytest.mark.parametrize("role", AGENTS)
 def test_generated_toml_omits_retired_fields(role: str) -> None:
-    """AC-1/2/3/15: no legacy prompt / tools / max_turns key survives."""
+    """No legacy prompt / tools / max_turns key survives."""
     data = _generated_toml(role)
     present = [key for key in _FORBIDDEN_KEYS if key in data]
     assert not present, f"{role}: retired Codex adapter keys present: {present}"
@@ -86,7 +86,7 @@ def test_generated_toml_omits_retired_fields(role: str) -> None:
 
 @pytest.mark.parametrize("role", AGENTS)
 def test_generated_toml_has_no_stale_model_pin(role: str) -> None:
-    """AC-4/5: model is omitted by default (inherit); never a Claude nickname."""
+    """Model is omitted by default (inherit); never a Claude nickname."""
     data = _generated_toml(role)
     model = data.get("model")
     # No role pins a model today, so the field must be absent (inheritance).
@@ -97,7 +97,7 @@ def test_generated_toml_has_no_stale_model_pin(role: str) -> None:
 
 @pytest.mark.parametrize("role", AGENTS)
 def test_generated_toml_sandbox_posture(role: str) -> None:
-    """AC-6/16: sandbox_mode posture is explicit, legal, and role-correct."""
+    """The sandbox_mode posture is explicit, legal, and role-correct."""
     data = _generated_toml(role)
     sandbox = data.get("sandbox_mode")
     assert sandbox in _ALLOWED_SANDBOX, (
@@ -122,7 +122,7 @@ def test_sidecar_sandbox_value_is_legal(role: str) -> None:
 
 @pytest.mark.parametrize("role", AGENTS)
 def test_developer_instructions_preserve_canonical_body(role: str) -> None:
-    """AC-7/8: the canonical body's lead prose flows into developer_instructions
+    """The canonical body's lead prose flows into developer_instructions
     (single-source body — no second canonical Codex prompt)."""
     data = _generated_toml(role)
     canonical_md = (_repo_root() / CANONICAL_DIR / f"{role}.md").read_text("utf-8")

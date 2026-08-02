@@ -51,7 +51,7 @@ _PYTHON_RESOLVED_MODULES = (
 
 # Patterns that indicate a tracked command is bypassing the Python resolver
 # by injecting an explicit worktree-local DB path. Keep these synchronized
-# with the item body AC-2 verification pattern.
+# as new bypass shapes appear.
 _BAD_PREFIX_PAT = re.compile(
     r"YOKE_DB\s*=\s*(?:\"|')?[^\"'\s]*yoke\.db"
 )

@@ -198,7 +198,7 @@ def test_evaluate_batch_gates_activation_ignores_coordination_only() -> None:
 
 
 def test_evaluate_batch_gates_coordination_only_returns_separate_set() -> None:
-    """AC-1 companion: passing ``gate_point='coordination_only'`` returns
+    """Passing ``gate_point='coordination_only'`` returns
     the coordination_only row (proving the SQL filter is parametric, not
     a structural drop of the value).
     """

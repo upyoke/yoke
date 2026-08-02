@@ -1,9 +1,9 @@
 """Tests for yoke_core.domain.agents_render_context — marker expansion.
 
-Covers acceptance criteria AC-17 (marker syntax across all five canonical
-agent prompts), AC-18 (Claude / Codex byte-identical packet bodies),
-AC-19 (no hand-authored DB Quick Reference content alongside markers in
-canonical agent prompts), and AC-21 (stale-term absence regression).
+Covers marker syntax across all five canonical agent prompts, Claude /
+Codex byte-identical packet bodies, the absence of hand-authored DB Quick
+Reference content alongside markers in canonical agent prompts, and the
+stale-term absence regression.
 """
 
 from __future__ import annotations

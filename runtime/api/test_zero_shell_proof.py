@@ -290,7 +290,7 @@ def test_zero_shell_proof_includes_recipe_residue_patterns() -> None:
     """The zero-shell proof asserts no live skill/doc surface contains a
     banned terminal-soup recipe from :data:`RECIPE_RESIDUE_PATTERNS`.
 
-    AC-15.1 / AC-15.4: keyed on the same canonical constant as the
+    Keyed on the same canonical constant as the
     Doctor HC and the recipe-residue manifest test so the three surfaces
     cannot drift. ``test_no_recipe_residue_in_live_guidance`` (in
     ``test_recipe_residue_manifest``) is the dedicated manifest test;

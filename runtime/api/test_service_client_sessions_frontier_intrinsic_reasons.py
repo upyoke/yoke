@@ -202,7 +202,7 @@ class TestIntrinsicReasonsAdapter:
         assert result.intrinsic_blocked_reasons[0]["reasons"] == [routed_reason]
 
     def test_both_channels_none_when_blocked_steps_empty(self):
-        """AC-10 supporting case: empty blocked_steps leaves both channels None."""
+        """Empty blocked_steps leaves both channels None."""
         from yoke_core.api.service_client_sessions_frontier import (
             build_frontier_state_from_schedule,
         )
@@ -255,7 +255,7 @@ class TestDecisionEngineEscalateCopy:
         assert action.context.get("intrinsic_blocked_reasons") == frontier.intrinsic_blocked_reasons
 
     def test_escalate_branch_omits_intrinsic_key_when_field_is_none(self):
-        """AC-10 supporting: when intrinsic_blocked_reasons is None, escalate ctx does not set the key."""
+        """When intrinsic_blocked_reasons is None, escalate ctx does not set the key."""
         from yoke_core.domain.session_contract import FrontierState
         from yoke_core.domain.session_decision import decide_next_action
 

@@ -1,13 +1,13 @@
 """Unit coverage for the shared lane-policy gate evaluator.
 
-Covers AC-3, AC-6, AC-12
+Covers:
 * the evaluator returns one of three verdicts (ALLOWED,
   WAIT_DISALLOWED, WAIT_UNKNOWN),
 * the four canonical lane shapes against the policy gate
   (DARIUS+polish, ALTMAN+polish, unknown lane, empty / NULL lane),
 * the helper is consulted by ``decide_charge_action``,
   ``decide_resume_action``, and ``apply_process_offer_gate`` (the
-  three call sites listed in AC-12).
+  three call sites).
 """
 
 from __future__ import annotations
@@ -250,13 +250,13 @@ class TestFourCanonicalShapesViaDecideResume:
 
 
 class TestRegressionDariusPolishViaDecideNextAction:
-    """AC-5 regression: replay chain-step-2 of session ``1776a63a-...``.
+    """Regression: replay chain-step-2 of session ``1776a63a-...``.
 
     A DARIUS-lane session with an ``--lane primary`` offer would
     previously route ``polish`` for the selected item. Afterwards,
     ``decide_charge_action`` must filter the polish candidate and
     return WAIT or otherwise refuse to route the action — both
-    branches are acceptable for AC-5; the contract is "does not
+    branches are acceptable here; the contract is "does not
     return CHARGE for polish on this lane".
     """
 

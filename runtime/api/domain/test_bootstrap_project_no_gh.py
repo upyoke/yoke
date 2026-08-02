@@ -156,7 +156,7 @@ def test_preflight_github_app_auth_only_success_no_host_gh_probe(
         out = capsys.readouterr().out
         assert rc == 0, out
         assert "All preflight checks passed." in out
-        # Banned strings built by concatenation so the AC-1 / AC-2 grep
+        # Banned strings built by concatenation so the grep
         # recipes return zero hits anywhere in the live tree.
         assert ("gh CLI" + " installed") not in out
         assert ("gh CLI" + " not installed") not in out

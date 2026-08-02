@@ -1,6 +1,6 @@
 """Parity matrix test for the CLI-to-dispatcher adapter.
 
-Covers AC-8.5, AC-8.6, AC-8.8, AC-8.9, AC-8.10 of
+Covers:
 - Each (CLI invocation, equivalent dispatch call) pair produces
   identical typed result payloads. The test calls
   :func:`yoke_core.api.service_client_structured_api_adapter.call_dispatcher`
@@ -253,7 +253,7 @@ class TestDispatchParity:
 
 
 # ---------------------------------------------------------------------------
-# JSON emission — AC-8.5 / AC-8.9
+# JSON emission
 # ---------------------------------------------------------------------------
 
 

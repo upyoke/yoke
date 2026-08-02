@@ -74,7 +74,7 @@ class TestRoutedOwnershipReleaseGap(_ReleaseGapDbCase):
     Both tests FAIL on the release-gap worktree before Tasks 003 and 005
     land (defense does not yet cover non-terminal release intents) and
     PASS once those tasks land. Engineer / Tester treat the FAIL here
-    as the AC-2 baseline evidence that the bug is real.
+    as baseline evidence that the bug is real.
     """
 
     def test_frontier_defends_non_terminal_release_gap(self) -> None:

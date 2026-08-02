@@ -35,7 +35,7 @@ def _file_budget_paths(*paths: str) -> list[str]:
 
 
 def test_doctor_hc_discovery_finds_matching_hc(tmp_path: Path) -> None:
-    """AC-4(a): doctor HC files referencing the module land in ``doctor_hcs``."""
+    """Doctor HC files referencing the module land in ``doctor_hcs``."""
 
     root = _make_repo(
         tmp_path,
@@ -86,7 +86,7 @@ def test_doctor_hc_discovery_empty_when_no_python_paths(tmp_path: Path) -> None:
 
 
 def test_importer_discovery_finds_from_and_import_callers(tmp_path: Path) -> None:
-    """AC-4(b): ``from <module> import`` and ``import <module>`` callers land."""
+    """Both ``from <module> import`` and ``import <module>`` callers land."""
 
     root = _make_repo(
         tmp_path,
@@ -119,7 +119,7 @@ def test_importer_discovery_finds_from_and_import_callers(tmp_path: Path) -> Non
 
 
 def test_test_module_discovery_uses_test_prefix_naming(tmp_path: Path) -> None:
-    """AC-4(c): ``test_*.py`` callers land in ``test_modules`` not ``transitive_callers``."""
+    """Callers named ``test_*.py`` land in ``test_modules`` not ``transitive_callers``."""
 
     root = _make_repo(
         tmp_path,
@@ -147,7 +147,7 @@ def test_test_module_discovery_uses_test_prefix_naming(tmp_path: Path) -> None:
 
 
 def test_deduplication_across_categories_does_not_repeat_paths(tmp_path: Path) -> None:
-    """AC-4(d): all_paths returns each repo-relative path exactly once."""
+    """The all_paths result returns each repo-relative path exactly once."""
 
     root = _make_repo(
         tmp_path,
@@ -184,7 +184,7 @@ def test_deduplication_across_categories_does_not_repeat_paths(tmp_path: Path) -
 
 
 def test_empty_input_returns_empty_list(tmp_path: Path) -> None:
-    """AC-4(e): empty file_budget_paths yields empty categories."""
+    """An empty file_budget_paths yields empty categories."""
 
     root = _make_repo(tmp_path)
     result = build_anticipation_list(

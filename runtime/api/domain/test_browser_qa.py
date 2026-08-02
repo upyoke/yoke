@@ -80,7 +80,7 @@ class TestRequirementsAndBaseUrl:
         assert result.note == "no_base_url"
 
     def test_base_url_fallback_from_success_policy(self, db_path: str) -> None:
-        """AC-2 base_url fallback: success_policy.base_url used when flag omitted."""
+        """Fall back to success_policy.base_url when the flag is omitted."""
         _seed_item(db_path, 100)
         _seed_requirement(
             db_path, 100, "browser-check",

@@ -1,5 +1,5 @@
-"""Coverage for ``verify_function_owners`` (AC-1/2/3/10/16 of the
-pre-handoff readiness checks).
+"""Coverage for ``verify_function_owners``, one of the pre-handoff
+readiness checks.
 
 Split off from ``test_idea_readiness_check.py`` to keep each test module
 within the file-line budget; behavior and test names are preserved so
@@ -53,7 +53,7 @@ def stub_repo_root(tmp_path, monkeypatch):
 
 @pytest.fixture
 def stubbed_rg(monkeypatch, stub_repo_root):
-    """Stub rg availability and ``subprocess.run`` so AC-16 owner-verification
+    """Stub rg availability and ``subprocess.run`` so owner-verification
     tests pass deterministically without depending on a real ``rg`` binary on
     PATH. The stub re-implements the matching subset of rg's behavior used by
     ``verify_function_owners`` (regex search, exit 0 on match, exit 1 on miss).

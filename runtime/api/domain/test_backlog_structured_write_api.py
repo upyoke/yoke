@@ -138,7 +138,7 @@ class TestReplaceHandler(unittest.TestCase):
         self.assertTrue(outcome.primary_success)
         self.assertIsNone(outcome.error)
         payload = outcome.result_payload
-        # Envelope required fields per AC-3.5
+        # Envelope required fields
         for key in (
             "old_line_count", "new_line_count", "old_hash", "new_hash",
             "payload_byte_count", "verification", "github_sync",

@@ -1,7 +1,7 @@
 """ChainBudgetUnused emission and terminal-reason classification regressions.
 
 Sibling of :mod:`runtime.api.test_do_loop_offer_revalidation`. Keeps the
-revalidation/skip-memory regressions there small and the AC-7 / AC-12
+revalidation/skip-memory regressions there small and this file's
 terminal-reason coverage isolated. The helpers under test here operate on
 plain dicts and do not need the items-schema fixture, so the file has no
 DB setup of its own.

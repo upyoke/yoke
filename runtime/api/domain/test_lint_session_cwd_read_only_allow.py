@@ -1,6 +1,6 @@
 """Integration test for the read-only / self-orientation allow branch.
 
-Covers AC-1 + AC-3: a read-only db_router query invoked from a cwd
+A read-only db_router query invoked from a cwd
 outside the session's claim allows (and emits the new allow event),
 while a non-read-only command from the same cwd still denies.
 """
@@ -95,7 +95,7 @@ class TestReadOnlySignatureAllowsFromOutsideCwd:
 
 
 # ---------------------------------------------------------------------------
-# AC-1 continued: emit the new allow event, not the deny event
+# The read-only branch emits the allow event, not the deny event
 # ---------------------------------------------------------------------------
 
 
@@ -182,7 +182,7 @@ class TestNonReadOnlyStillDenies:
         assert verdict.allow is False
 
     def test_synthetic_outside_path_still_denies(self, conn, repo):
-        # AC-3 cwd-outside-authority regression: command names an
+        # Cwd-outside-authority regression: command names an
         # absolute target outside the free-path allowlist and outside
         # any claimed worktree. ``/opt/elsewhere`` is used (mirroring
         # ``test_target_outside_authority_denies``) because pytest's

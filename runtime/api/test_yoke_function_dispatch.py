@@ -10,7 +10,7 @@ the same entrypoint Yoke operators (and the JSON CLI adapter in
 
 The scope-required guard is the hotfix protection from
 35ef886f3 (require explicit scope flag to prevent silent gh-quota burn);
-``invalid_check`` is the new AC-3 bad-slug guard introduced alongside
+``invalid_check`` is the bad-slug guard introduced alongside
 the corrected DoctorRunRequest shape.
 """
 
@@ -83,7 +83,7 @@ class TestDoctorRunDispatch(unittest.TestCase):
                 return dispatch(_doctor_envelope(**payload))
 
     def test_registered_after_register_all_handlers(self):
-        # Sanity guard for AC-1: the dispatcher must resolve the function
+        # Sanity guard: the dispatcher must resolve the function
         # id without callers reaching for an unregistered direct import.
         from yoke_core.domain.yoke_function_registry import lookup
 

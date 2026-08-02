@@ -277,7 +277,7 @@ class TestBoundaryCheckForPaths:
         )
         assert result.status == BoundaryCheckStatus.CONFLICT
         assert "src/bar.py" in result.undeclared_paths
-        assert result.undeclared_target_ids  # AC-9A: ids surface for amend
+        assert result.undeclared_target_ids  # ids surface for amend
 
     def test_narrow_accepts_when_dropped_path_was_untouched(
         self, conn, repo

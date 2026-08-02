@@ -1,14 +1,14 @@
 """Regression suite for the rehearsal-command parse-and-stat validator.
 
-AC-5 fixtures the three live YOK-1800 shapes — literal ``<worktree>``
+Fixtures the three observed command shapes — literal ``<worktree>``
 placeholder (caught as ``unresolved_placeholder``), wrong-path pytest
 invocation (caught as ``missing_path``), and a valid command pair — and
-asserts the contract holds against a disposable items-table double. AC-9
+asserts the contract holds against a disposable items-table double. Also
 covers the short-circuit paths (profile state != ``declared``,
-attestation absent or ``rehearsal_commands`` empty). AC-13 asserts the
+attestation absent or ``rehearsal_commands`` empty), and asserts the
 BLOCK ``Issue`` payload shape. The validator never spawns a subprocess,
 never provisions a validation surface, and never touches the control
-plane — AC-6 is satisfied by construction (no monkeypatch needed to
+plane — that isolation holds by construction (no monkeypatch needed to
 prove it).
 """
 

@@ -110,7 +110,7 @@ def _eval_item(
 
 
 class TestEvaluateReleasePrecondition(unittest.TestCase):
-    """Unit tests for the pure evaluator (AC-1..AC-4)."""
+    """Unit tests for the pure evaluator."""
 
     def setUp(self) -> None:
         self.conn = _make_db()
@@ -125,7 +125,7 @@ class TestEvaluateReleasePrecondition(unittest.TestCase):
         self.assertIsNone(r.refusal_reason)
 
     def test_non_terminal_chainable_refused_and_evidence_carried(self) -> None:
-        """AC-3 negative: chainable=True + non-terminal outcome refuses."""
+        """Negative: chainable=True + non-terminal outcome refuses."""
         _seed_checkpoint(self.conn, chainable=True, outcome=OUTCOME_COMPLETED)
         r = _eval_item(self.conn)
         self.assertFalse(r.allowed)
@@ -134,7 +134,7 @@ class TestEvaluateReleasePrecondition(unittest.TestCase):
         self.assertEqual(r.checkpoint_outcome, OUTCOME_COMPLETED)
 
     def test_non_terminal_allowed_branches(self) -> None:
-        """AC-3 positive: every durable-evidence branch allows."""
+        """Positive: every durable-evidence branch allows."""
         cases = (
             ("non_chainable", False, OUTCOME_COMPLETED),
             ("blocked_outcome", True, OUTCOME_BLOCKED),
@@ -264,7 +264,7 @@ class TestRefusalEventEnvelope(unittest.TestCase):
         for key, want in expected.items():
             self.assertIn(
                 key, ctx,
-                f"AC-12 field {key!r} missing; keys={sorted(ctx)}")
+                f"refusal-context field {key!r} missing; keys={sorted(ctx)}")
             self.assertEqual(ctx[key], want, f"field {key!r} mismatch")
 
 

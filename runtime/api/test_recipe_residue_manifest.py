@@ -215,7 +215,7 @@ def test_fixture_residue_is_detected() -> None:
 
 
 def test_scan_paths_cover_required_surfaces() -> None:
-    """AC-15.5 (partial): the scan globs cover every live guidance surface.
+    """The scan globs cover every live guidance surface.
 
     The amendment ACs (15.5-15.8) require the manifest test to consume the
     inventory classifier task 16 will produce. Until that classifier lands,

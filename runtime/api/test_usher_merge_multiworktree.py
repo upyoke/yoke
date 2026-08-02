@@ -173,7 +173,7 @@ class TestMergeMdHaltClassRelease:
         assert release_idx < summary_idx, (
             "merge.md halt-class release section must appear before the "
             "halt-summary recovery instructions (release must run BEFORE "
-            "recovery prose per AC-39)"
+            "recovery prose)"
         )
 
     def test_exit_5_names_halt_class_release(self):

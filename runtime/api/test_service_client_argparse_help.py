@@ -99,7 +99,7 @@ def test_claim_release_help_exits_zero_with_usage() -> None:
         f"stderr={proc.stderr.decode(errors='replace')!r}"
     )
     assert b"usage:" in proc.stdout
-    # AC-11 synonym pair: both --item and --item-id are listed.
+    # Synonym pair: both --item and --item-id are listed.
     assert b"--item-id" in proc.stdout
     assert b"--item " in proc.stdout or b"--item " in proc.stdout.replace(
         b"--item-id", b""
@@ -117,7 +117,7 @@ def test_backlog_cli_freeze_help_exits_zero_with_usage() -> None:
 
 
 # ---------------------------------------------------------------------------
-# YOK-1711 AC-6 / AC-7 / AC-8 — universal --help safety net.
+# Universal --help safety net.
 # ---------------------------------------------------------------------------
 
 

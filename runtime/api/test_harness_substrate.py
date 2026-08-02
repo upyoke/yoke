@@ -16,7 +16,7 @@ canonical Yoke source against an isolated tmp repo, and assert that:
 
 If a hardcoded ``if harness_id == "claude-code"`` or ``if harness_id == "codex"``
 branch leaks into universal source and breaks the fixture, the test fails with
-a message naming the offending behavior. Satisfies FR-11 / AC-16.
+a message naming the offending behavior.
 
 Future third-harness onboarding consumes this fixture as the proof template;
 the fixture artifacts live at ``runtime/api/test_fixtures/test_harness_adapter/``.
@@ -240,7 +240,7 @@ def test_renderer_writes_under_fixture_output_dir(isolated_repo: Path) -> None:
 
 
 def test_no_test_harness_canonical_body_emitted(isolated_repo: Path) -> None:
-    """AC-8 reused for the fixture: no second canonical prompt body is created.
+    """No second canonical prompt body is created for the fixture harness.
 
     The renderer must not synthesise ``runtime/agents/architect.test-harness.md``
     or any analogue. Universal Yoke source remains the single source of truth

@@ -1,4 +1,4 @@
-"""AC-8.3 dispatcher-parity tests for ``epic task-update-body``.
+"""Dispatcher-parity tests for ``epic task-update-body``.
 
 Companion to :mod:`test_epic_cli`. Verifies that
 ``python3 -m yoke_core.domain.epic task-update-body <epic> <num>``

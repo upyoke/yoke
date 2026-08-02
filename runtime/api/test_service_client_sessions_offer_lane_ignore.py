@@ -150,7 +150,7 @@ class TestCallerSuppliedLaneIsIgnored:
 
 
 class TestRegressionDariusPrimaryNoPolish:
-    """AC-5 regression replay of session 1776a63a chain-step-2."""
+    """Regression replay of session 1776a63a chain-step-2."""
 
     def _config_with_lane_policy(self, db_dir: str) -> None:
         config_path = os.path.join(db_dir, "config")
@@ -164,7 +164,7 @@ class TestRegressionDariusPrimaryNoPolish:
     def test_darius_session_primary_lane_offer_persists_row_lane(
         self, session_offer_db
     ):
-        """AC-5 regression: replay the chain-step-2 setup.
+        """Regression: replay the chain-step-2 setup.
 
         The original failure mode persisted ``execution_lane=primary``
         on the offer envelope because resolve_execution_lane let the

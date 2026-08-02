@@ -169,8 +169,8 @@ class TestYok1599HolderViaCanonicalSurface:
     session still holding the item must read the holder via the
     canonical typed ``work_claims`` schema (``target_kind='item'`` plus
     ``item_id``), not via guessed columns on ``items`` or
-    ``work_claims.target_id``. AC-31 enumerates the canonical fact set
-    and AC-34 ensures the same facts surface in skip events.
+    ``work_claims.target_id``. The canonical fact set is asserted here,
+    and the same facts must surface in skip events.
     """
 
     def test_holder_returns_canonical_claim_facts(self, conn):

@@ -43,7 +43,7 @@ class TestLiveFrameNoDefense:
             pg_testdb.drop_test_database(name)
 
     def test_pass_when_defense_covers_audited_session(self, conn) -> None:
-        """AC-4 proof: HC iterates the same session whose release the
+        """Proof: HC iterates the same session whose release the
         defense must name; requesting_session_id=None must NOT filter."""
         _insert_session(conn, "owner-A", heartbeat_age_s=5)
         _insert_released_claim(

@@ -161,7 +161,7 @@ class TestEventEmission:
         conn.commit()
         mock_emit.reset_mock()
         reclaim_stale_session(conn, "ev-5")
-        # One WorkReclaimed event per active claim (AC-2: item_id populated)
+        # One WorkReclaimed event per active claim (item_id populated)
         mock_emit.assert_called_once()
         args, kwargs = mock_emit.call_args
         assert args[0] == EVENT_WORK_RECLAIMED

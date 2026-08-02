@@ -87,7 +87,7 @@ class TestUnifiedDbClaimRendering:
     def test_state_none_with_residue_frozen_at_renders_nothing(
         self, tmp_path: Path, db_path: str,
     ) -> None:
-        """AC-18 residue: pre-existing rows with state=none + stamped
+        """Residue: pre-existing rows with state=none + stamped
         frozen_at stay invisible — the renderer does not surface
         accepted residue."""
         conn = _connect(db_path)

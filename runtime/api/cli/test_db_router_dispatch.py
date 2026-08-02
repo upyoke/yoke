@@ -213,8 +213,9 @@ class TestDomainDispatch:
         assert "testproj" in out
 
     def test_unknown_domain_shows_usage(self, fresh_db: Path) -> None:
-        # AC-38 replaced the full 19-domain dump with a nearest-match
-        # hint plus a `db_router help` pointer for the full inventory.
+        # Instead of the full 19-domain dump, an unknown domain gets a
+        # nearest-match hint plus a `db_router help` pointer for the
+        # full inventory.
         rc, out, err = _run(["total-nonsense"])
         assert rc == 2
         assert "unknown domain 'total-nonsense'" in err

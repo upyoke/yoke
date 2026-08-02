@@ -115,7 +115,7 @@ class TestReleaseClaimsOnItemTerminal:
             assert claim["release_reason"] == "item-release"
 
     def test_done_backstop_uses_item_done_reason(self, conn):
-        """AC-1 backstop: done normal-completion releases (does not cancel)."""
+        """Backstop: done normal-completion releases (does not cancel)."""
         actor = local_human(conn)
         item_id = _seed_item(conn, item_id=15003)
         target = seed_target(conn, path_string="src/foo.py")

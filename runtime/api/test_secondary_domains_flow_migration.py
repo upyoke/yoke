@@ -193,7 +193,7 @@ class TestFlowMigrationCapabilityValidation:
         cmd_create(test_db, "f-b", "yoke", "B", "D", stages_b)
 
     def test_cmd_create_allows_distinct_models_across_flows(self, test_db):
-        # AC-27 complement — different models in different flows of the
+        # Complement case — different models in different flows of the
         # same project are permitted.
         import json
         from yoke_core.domain.flow import cmd_create

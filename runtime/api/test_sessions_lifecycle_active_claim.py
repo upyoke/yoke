@@ -164,7 +164,7 @@ class TestNoFlagsAutoRelease:
         assert item_ids == {PRIMARY_ITEM_ID, SECONDARY_ITEM_ID}
 
     def test_historical_incident_regression(self, conn):
-        """AC-1 follow-up: every claimed session ends cleanly on the no-flags branch.
+        """Every claimed session ends cleanly on the no-flags branch.
 
         Six sessions each hold one claim. With the new contract, each
         end_session call succeeds, releases the claim, and leaves the

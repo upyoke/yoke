@@ -1,4 +1,4 @@
-"""Regression tests for AC-1..AC-4 of the claim-safe artifact mutation
+"""Regression tests for the claim-safe artifact mutation
 guardrail set: the ``claim-work`` conflict text and the ``who-claims``
 non-holder warning. Both surfaces must carry stop/coordinate/wait
 guidance and must explicitly tell the caller not to paste the holder
@@ -131,7 +131,7 @@ class TestWhoClaimsNonHolderWarning:
         assert warning.startswith("WARNING:")
         assert HOLDER_SESSION_ID in warning
         assert "actively claimed by another session" in warning
-        # AC-2 alignment: same authority/envelope warning shape as
+        # Same authority/envelope warning shape as
         # the claim-work conflict message.
         assert "coordination identifier" in warning
         assert "actor.session_id" in warning
@@ -156,7 +156,7 @@ class TestWhoClaimsNonHolderWarning:
             "424242",
             caller_session_id=OTHER_SESSION_ID,
         )
-        # AC-3 boundary: probing an unclaimed item must stay quiet so
+        # Boundary case: probing an unclaimed item must stay quiet so
         # scripts that scan availability do not get advisory noise.
         assert out == ""
 

@@ -165,7 +165,7 @@ class TestPreservedKeyContract:
 
 
 class TestOfferOwnedKeyContract:
-    """AC-2 owned keys overwrite when present; preserved when omitted."""
+    """Owned keys overwrite when present; preserved when omitted."""
 
     def test_per_offer_overwrites_owned_keys(self):
         """Identity/step fields land on top of prior values."""

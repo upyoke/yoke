@@ -26,7 +26,7 @@ from runtime.api.domain.test_agents_render_workspace_fixtures import (
     resolve_live_repo_root,
 )
 
-# AC-1 / AC-2 / AC-5 reader-anchor regressions live in the sibling module
+# Reader-anchor regressions live in the sibling module
 # ``test_agents_render_workspace_anchor.py`` so this file stays under the
 # 350-line authoring cap.
 
@@ -209,7 +209,7 @@ def test_detect_substrate_drift_flags_stale_term_with_marker(
     stale snippet, `detect_substrate_drift` must report a `stale-term:`
     drift entry. The presence of the marker means the agent already gets
     the generated packet; an additional stale example is exactly the
-    kind of duplication AC-8 forbids."""
+    kind of duplication the drift check forbids."""
 
     from yoke_core.domain.agents_render import (
         CANONICAL_DIR,
@@ -219,7 +219,7 @@ def test_detect_substrate_drift_flags_stale_term_with_marker(
     repo = tmp_path
     canonical = repo / CANONICAL_DIR
     canonical.mkdir(parents=True)
-    # qa_kind='review' is in seed.STALE_TERMS and is what AC-7 / AC-18
+    # qa_kind='review' is in seed.STALE_TERMS and is what stale-term checks
     # specifically forbid in rendered Tester adapters.
     bad_term = "qa_kind=" "'review'"
     (canonical / "tester.md").write_text(
@@ -303,4 +303,4 @@ def test_codex_adapters_emit_no_tools_field() -> None:
         )
 
 
-# AC-5 cross-cwd regression test lives in test_agents_render_workspace_anchor.py.
+# The cross-cwd regression test lives in test_agents_render_workspace_anchor.py.

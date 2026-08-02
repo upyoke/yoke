@@ -145,7 +145,7 @@ class TestNextActionKindAlias:
 
 
 class TestNextActionChainable:
-    """NextAction has chainable field.  AC-5: chainable semantics."""
+    """NextAction has a chainable field."""
 
     def test_chainable_defaults_to_false(self):
         na = NextAction(

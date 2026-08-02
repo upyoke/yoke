@@ -1,6 +1,6 @@
 """Unit + integration coverage for the row-anchored lane fix.
 
-Covers AC-1 and AC-2:
+Covers:
 
 * :func:`anchor_lane_on_row` always returns the row value as
   authoritative, even when callers pass a mismatching ``--lane``.

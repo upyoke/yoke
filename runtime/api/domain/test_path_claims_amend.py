@@ -231,7 +231,7 @@ class TestNarrow:
                 repo_path=str(repo),
             )
         assert "src/bar.py" in excinfo.value.offending_paths
-        assert excinfo.value.offending_target_ids  # AC-9A: ids surface
+        assert excinfo.value.offending_target_ids  # ids surface too
 
     def test_narrow_rejects_dropping_all_targets(self, conn, repo):
         actor = local_human(conn)

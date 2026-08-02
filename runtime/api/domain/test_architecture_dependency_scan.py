@@ -1,9 +1,9 @@
 """Tests for ``architecture_dependency_scan``: pure-function AST import
 extraction used by snapshot enrichment and architecture HCs.
 
-AC-5 (Python import/dependency scan records import edges for ``.py``
+The Python import/dependency scan records import edges for ``.py``
 files as JSON objects with ``source_module``, ``imported_module``, and
-``imported_name``).
+``imported_name``.
 """
 
 from __future__ import annotations
@@ -117,7 +117,7 @@ class TestExtractEdges:
         assert result.edges == []
 
     def test_syntax_error_surfaces_via_result_not_raised(self):
-        """Per AC-21 / Issue 3: AST parse failures degrade gracefully —
+        """AST parse failures degrade gracefully —
         the scanner returns a ScanResult with error set and edges empty
         instead of raising, so Doctor can record HC-architecture-scan-error
         and continue scanning other paths."""

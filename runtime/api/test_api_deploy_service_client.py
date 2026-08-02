@@ -23,7 +23,7 @@ def _postgres_subprocess_env() -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Service client charge-frontier tests (Task 003 AC-4)
+# Service client charge-frontier tests
 # ---------------------------------------------------------------------------
 
 

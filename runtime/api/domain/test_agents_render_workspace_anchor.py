@@ -54,7 +54,7 @@ def repo_root() -> Path:
 @pytest.fixture
 def temp_agent_env(tmp_path: Path) -> Path:
     """Minimal canonical + output tree in a temp checkout root.
-    Mirrors the shape of ``test_agents_render.temp_agent_env`` so the AC-2
+    Mirrors the shape of ``test_agents_render.temp_agent_env`` so the target_root
     propagation test can exercise the reader entrypoints against an
     isolated tree without depending on the live ``runtime/agents`` files.
     """

@@ -2,9 +2,9 @@
 
 Every Yoke-owned PreToolUse deny path emits exactly one
 ``HarnessToolCallDenied`` row carrying ``session_id``, ``tool_name``, a
-command/args snippet, the lint identifier, and the deny reason. AC-2: when
+command/args snippet, the lint identifier, and the deny reason. When
 multiple lints would deny the same call, only the first denier emits (no
-duplicate rows per attempt). AC-7: the DB-command guard
+duplicate rows per attempt). The DB-command guard
 (``lint_db_cmd``)
 shares the same ``emit_denial_event`` contract as the other Python deniers.
 
@@ -59,7 +59,7 @@ def _fetch_denials(db_path: str) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
-# AC-6 core: each denier emits exactly one HarnessToolCallDenied row
+# Core: each denier emits exactly one HarnessToolCallDenied row
 # ---------------------------------------------------------------------------
 
 
@@ -176,7 +176,7 @@ class TestHarnessToolCallDeniedEndToEnd:
     def test_lint_main_commit_emits_nothing_when_allowed(
         self, events_db: str, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """AC-3 / happy path: no emit when the lint allows the call."""
+        """Happy path: no emit when the lint allows the call."""
         from yoke_core.domain import lint_main_commit as lmc
 
         # Simulate an allow: non-main branch short-circuits.
@@ -234,5 +234,5 @@ class TestSingleEmitPerDenier:
         rows = _fetch_denials(events_db)
         assert len(rows) == 1, (
             "one reached denier must produce exactly one row per attempt "
-            "(AC-2: no duplicate HarnessToolCallDenied rows)"
+            "(no duplicate HarnessToolCallDenied rows)"
         )

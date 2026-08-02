@@ -129,7 +129,7 @@ class TestAggregationBranching:
         with init_test_db(
             tmp_path, apply_schema=_make_branch_apply_schema(repo_root)
         ) as db_path:
-            # AC-23 expectation: union of declared (foo+bar) covers union
+            # Expectation: union of declared (foo+bar) covers union
             # of touched (foo+bar), so item-level verdict is accept.
             verdict = _gate.check_boundary_for_item(
                 item_id=9,

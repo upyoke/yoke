@@ -3,14 +3,14 @@
 Focused sibling of ``test_lint_long_command_polling_monitor_rules`` so
 both authored test files stay under the 350-line cap. Covers:
 
-- identical re-arm denied (warn and deny modes for the AC-5 split)
-- different-filter re-arm denied (AC-3 capture-file equivalence)
+- identical re-arm denied (warn and deny modes)
+- different-filter re-arm denied (capture-file equivalence)
 - foreign-capture allowed (different capture file is its own lane)
 - post-completion second Monitor against same capture also denied
   (session-spanning fire-once contract — operational data showed this
   was the dominant wake-loop shape)
 - ``# lint:no-monitor-duplicate-check`` audit-only suppression
-- ``evaluate_duplicate_monitor`` callable directly (AC-1 surface)
+- ``evaluate_duplicate_monitor`` callable directly
 
 Run-level audit-event outcome propagation lives in
 ``test_lint_long_command_polling_run.py``. Most verdict cases mock
@@ -93,7 +93,7 @@ class TestDuplicateMonitorDetection(_DuplicateMonitorBase):
     """Capture-file equivalence drives the verdict; filter is irrelevant."""
 
     def test_identical_rearm_denied_warn_mode(self) -> None:
-        # AC-9 case 1: identical re-arm denied. Verdict is the configured
+        # Identical re-arm denied. Verdict is the configured
         # mode (warn here); ctx.outcome is "denied" and the reason names
         # the prior tool_use_id for the TaskStop workaround.
         with self._patch_armed([("tu-monitor-prior", _CAPTURE_X)]):
@@ -111,7 +111,7 @@ class TestDuplicateMonitorDetection(_DuplicateMonitorBase):
         self.assertIn(_CAPTURE_X, reason)
 
     def test_identical_rearm_denied_deny_mode(self) -> None:
-        # AC-5 deny-mode: verdict is "deny" and reason carries DENIED verb.
+        # Deny mode: verdict is "deny" and reason carries DENIED verb.
         with mock.patch.object(
             monitor_dup, "_read_lint_mode", return_value="deny",
         ), self._patch_armed([("tu-monitor-prior", _CAPTURE_X)]):
@@ -144,7 +144,7 @@ class TestDuplicateMonitorDetection(_DuplicateMonitorBase):
         self.assertIn(_CAPTURE_X, reason)
 
     def test_monitor_on_different_capture_allowed(self) -> None:
-        # AC-9 case 3: armed Monitor on capture X must not block
+        # An armed Monitor on capture X must not block
         # arming a Monitor against capture Y. Each capture-file lane is
         # independently fire-once.
         with self._patch_armed([("tu-monitor-prior", _CAPTURE_X)]):
@@ -320,7 +320,7 @@ class TestEvaluateDuplicateMonitorEntrypoint(_DuplicateMonitorBase):
         self.assertEqual(direct, routed)
 
     def test_public_reexport_at_entry_point(self) -> None:
-        # AC-1 contract: callers can import the function from the
+        # Contract: callers can import the function from the
         # entry-point module path, not just the duplicate-Monitor sibling.
         from yoke_core.domain import lint_long_command_polling as entry
 

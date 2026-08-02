@@ -30,7 +30,6 @@ class TestClassifyClaimOnly(unittest.TestCase):
     """Pure claim-coverage issue sets are recoverable."""
 
     def test_pure_file_budget_not_in_claim_is_recoverable(self):
-        # AC-1 + AC-6.
         issues = [_claim_issue("FILE_BUDGET_NOT_IN_CLAIM", "a.py")]
         self.assertEqual(
             idea_readiness_repair.classify_readiness_issues(issues),
@@ -38,7 +37,6 @@ class TestClassifyClaimOnly(unittest.TestCase):
         )
 
     def test_pure_claim_not_in_file_budget_is_recoverable(self):
-        # AC-2.
         issues = [_claim_issue("CLAIM_NOT_IN_FILE_BUDGET", "a.py")]
         self.assertEqual(
             idea_readiness_repair.classify_readiness_issues(issues),
@@ -46,7 +44,6 @@ class TestClassifyClaimOnly(unittest.TestCase):
         )
 
     def test_mixed_claim_codes_no_stale_is_recoverable(self):
-        # AC-3.
         issues = [
             _claim_issue("FILE_BUDGET_NOT_IN_CLAIM", "a.py"),
             _claim_issue("CLAIM_NOT_IN_FILE_BUDGET", "b.py"),

@@ -97,7 +97,7 @@ def _make_action(kind: ActionKind, reason: str = "") -> NextAction:
 
 
 class TestSchedulerContextPreserved:
-    """AC-1 / AC-4 / AC-5 / AC-12."""
+    """Scheduler context survives the gate's rewrite to CHARGE."""
 
     def test_disabled_feed_with_scheduler_context_charge_carries_scheduler(self):
         action = _make_action(

@@ -63,7 +63,7 @@ class TestFrontierPromotion:
     """Direct unit tests for build_frontier_state_from_schedule promotion."""
 
     def test_top_step_in_skip_memory_promotes_next_surviving_ranked_step(self):
-        """AC-1, AC-5(a): top pick filtered promotes next surviving step.
+        """Top pick filtered promotes next surviving step.
 
         Two ranked steps. Scheduler selects rank-0 YOK-A. With YOK-A in
         skip-memory the builder must promote YOK-B and populate the
@@ -92,7 +92,7 @@ class TestFrontierPromotion:
         assert filtered.scheduler_context["rank"] == 1
 
     def test_all_ranked_steps_filtered_keeps_selected_none(self):
-        """AC-2, AC-5(b), AC-7: when every step is filtered, fall back to no-work.
+        """When every step is filtered, fall back to no-work.
 
         YOK-A is in skip-memory. YOK-B is held by a live claim
         (CLAIMED_BY_OTHER_LIVE, not assignable). No surviving entry,
@@ -145,7 +145,7 @@ class TestFrontierPromotion:
 class TestChargeDispatchPath:
     """Integration: promoted scheduler_context flows through decide_charge_action.
 
-    AC-5(c) / AC-6: when the failure shape from the 2026-05-10 evidence is
+    When the failure shape from the 2026-05-10 evidence is
     reconstructed at the frontier-state layer, the decision engine returns
     a charge action with context.scheduler.next_step populated so the
     /yoke do charge dispatch contract is satisfied.

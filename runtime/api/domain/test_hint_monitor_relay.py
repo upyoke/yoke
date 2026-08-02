@@ -59,7 +59,7 @@ class TestDefaultReminderContent(unittest.TestCase):
         self.assertIn("armed Monitor IS the waiter", text)
 
     def test_private_tmp_claude_path_called_out(self) -> None:
-        # AC-23.
+        # The Claude private-tmp capture root is named explicitly.
         text = resolve_reminder_text()
         self.assertIn("/private/tmp/claude-", text)
         # And the prose links it to the existing peek/waiter rules.
@@ -68,7 +68,7 @@ class TestDefaultReminderContent(unittest.TestCase):
         self.assertNotIn("pgrep -f <pattern>", text)
 
     def test_envelope_shape_preserved(self) -> None:
-        # AC-25 (envelope half).
+        # The reminder is wrapped in exactly one envelope.
         text = resolve_reminder_text()
         self.assertTrue(text.startswith("<system-reminder>"))
         self.assertTrue(text.rstrip().endswith("</system-reminder>"))
@@ -78,7 +78,7 @@ class TestDefaultReminderContent(unittest.TestCase):
 
 
 class TestReminderModuleSize(unittest.TestCase):
-    """AC-25 (size half): hint_monitor_relay.py stays ≤200 lines."""
+    """hint_monitor_relay.py stays ≤200 lines."""
 
     def test_module_size_under_cap(self) -> None:
         path = PACKAGE_SOURCE_ROOT / "yoke_core" / "domain" / "hint_monitor_relay.py"

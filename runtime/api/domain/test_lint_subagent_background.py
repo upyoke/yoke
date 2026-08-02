@@ -130,7 +130,7 @@ class TestSubagentContextDenies(unittest.TestCase):
         self.assertIn("watch_pytest", reason)
 
     def test_allows_foreground_watcher_wrapper(self):
-        # AC-11 mirror: foreground watcher use IS the canonical subagent
+        # Foreground watcher use IS the canonical subagent
         # shape — the lint must not deny it.
         verdict = lint.evaluate_payload(
             _payload(
@@ -272,7 +272,7 @@ class TestCliMain(unittest.TestCase):
 
 
 class TestSubagentAdapterWiring(unittest.TestCase):
-    """AC-1 / AC-11 / AC-3 sibling regressions on the rendered adapter files.
+    """Sibling regressions on the rendered adapter files.
 
     Walks the on-disk Claude adapter files for every Bash-capable subagent
     and asserts every PreToolUse matcher routes through the universal
@@ -310,7 +310,7 @@ class TestSubagentAdapterWiring(unittest.TestCase):
                 7,
                 f"yoke-{role}.md: expected 7 hook CLI PreToolUse entries, got {count}",
             )
-            # AC-10 disk-side: no --agent-type CLI flag on any PreToolUse runner.
+            # Disk-side: no --agent-type CLI flag on any PreToolUse runner.
             self.assertNotIn(
                 "yoke_core.domain.lint_subagent_background --agent-type",
                 adapter_text,

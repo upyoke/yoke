@@ -4,9 +4,9 @@ Covers FR-2: backend operational-error handling in ``_activate_one`` via the
 sibling retry helper, bounded exponential
 backoff sourced from machine settings, ``BLOCK_DB_LOCK`` block-kind
 constant, classifier helper, and the canonical orchestrator narrative
-. Also exercises AC-14 (sibling-file split keeps
-``advance_path_claim_activation.py`` ≤350 lines) and AC-16 (ordering
-safety when activation-time snapshot minting is removed).
+. Also exercises the sibling-file split that keeps
+``advance_path_claim_activation.py`` ≤350 lines, and ordering
+safety when activation-time snapshot minting is removed.
 """
 
 from __future__ import annotations

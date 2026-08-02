@@ -1,7 +1,7 @@
 """Tests for the recurring work-claim process registry.
 
-Covers AC-2 (STRATEGIZE + FEED share ``strategy-control-plane:<project>``
-and conflict on the same project) and the DOCTOR process claim. The
+STRATEGIZE + FEED share ``strategy-control-plane:<project>``
+and conflict on the same project; the DOCTOR process claim is covered too. The
 process claim is a pure process lock — strategy doc/file enumeration
 lives in :mod:`yoke_core.domain.strategy_docs`.
 """

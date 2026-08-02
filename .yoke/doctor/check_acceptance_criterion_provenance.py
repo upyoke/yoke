@@ -1,4 +1,4 @@
-"""HC-acceptance-criterion-provenance: dev-ticket criterion labels in live prose.
+"""HC-acceptance-criterion-provenance: work-item criterion labels in live prose.
 
 Background
 ----------
@@ -46,9 +46,11 @@ declared as structured path/line rules rather than a prose allowlist:
 
 Posture
 -------
-Ships at ``severity=warn``, matching its two sibling prose checks. Doctor
-exits nonzero only on FAILs, so a known residue surfaces in the report
-without blocking unrelated work. Promote to FAIL once the tree is clean.
+FAIL. Its two sibling prose checks ship at warn because each still has a
+residue to sweep; this one does not — the tree is clean, so every hit is a
+new introduction and blocking is the whole point. The exemption model was
+validated against the full tree: it separated 541 real labels from the
+handful of legitimate ones without a hand-maintained baseline.
 """
 
 from __future__ import annotations
@@ -96,7 +98,29 @@ GENERATED_MIRRORS: tuple[str, ...] = (
 #: Sanctioned historical provenance.
 ARCHIVE_ROOTS: tuple[str, ...] = ("docs/archive/",)
 
-_EXEMPT_PREFIXES = LABEL_FORMAT_SURFACES + GENERATED_MIRRORS + ARCHIVE_ROOTS
+#: Tests whose SUBJECT is the label format or the naming rule itself. Here the
+#: token is the assertion, not a description of one: rewriting it would invert
+#: what the test proves. Same category as the emitters above — these verify the
+#: format rather than merely mentioning it.
+LABEL_FORMAT_UNDER_TEST: tuple[str, ...] = (
+    # Asserts the naming rule enumerates a criterion label among the forbidden
+    # provenance classes; the literal is the expected rule text.
+    "runtime/api/domain/test_codebase_reader_naming_doctrine.py",
+    # Feeds synthetic source to the item-ref scanner to prove a criterion label
+    # is not mistaken for a work-item reference.
+    "runtime/api/domain/test_lint_item_ref_construction.py",
+    # Exercises the label normalizer; asserts exactly one label was minted.
+    "runtime/api/domain/test_normalize_ac_labels.py",
+    # Seeds an acceptance-criteria section the file-budget parser must skip.
+    "runtime/api/test_idea_readiness_check_claim_consistency.py",
+)
+
+_EXEMPT_PREFIXES = (
+    LABEL_FORMAT_SURFACES
+    + LABEL_FORMAT_UNDER_TEST
+    + GENERATED_MIRRORS
+    + ARCHIVE_ROOTS
+)
 
 #: Trees whose prose this check owns.
 _SCAN_ROOTS: tuple[str, ...] = (
@@ -157,9 +181,9 @@ def hc_acceptance_criterion_provenance(
     rec.record(
         _HC_SLUG,
         _HC_NAME,
-        "WARN",
+        "FAIL",
         f"{len(hits)} line(s) across {files} file(s) explain themselves with a "
-        "dev-ticket acceptance-criterion label. A reader who only has the "
+        "work-item acceptance-criterion label. A reader who only has the "
         "repository cannot resolve it; the sentence after the label usually "
         "already says what the code does, so deleting the label is the fix.\n"
         + "\n".join(hits[:40])

@@ -1,7 +1,7 @@
 """Tests for the evidence-building coordination-decision helper.
 
 These tests pin the **packet shape**, not a decision oracle. Per
-AC-15 / FR-6, the LLM agent owns the final coordination call; the
+design, the LLM agent owns the final coordination call; the
 helper only assembles evidence. Tests that map (candidate, conflicting,
 paths) input to a specific decision output are explicitly forbidden by
 the task spec.

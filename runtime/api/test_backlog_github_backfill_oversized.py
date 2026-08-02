@@ -1,6 +1,6 @@
 """Tests for the one-time oversized-body backfill subcommand.
 
-Covers AC-1 through AC-6 of Task 009:
+Covers:
 - identifies-oversized: only items whose rendered body exceeds the budget
   trigger a ``sync_body`` call.
 - sync_body compact-mirror semantics: the backfill calls ``sync_body``

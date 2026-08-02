@@ -125,7 +125,7 @@ class TestQaRequirementAdd:
             "--requirement-source",
             "ac_derived",
             "--success-policy",
-            "AC-1 verified",
+            "acceptance criteria verified",
             "--workflow-transition",
             "reviewed-implementation",
         )
@@ -139,7 +139,7 @@ class TestQaRequirementAdd:
             "qa_phase": "verification",
             "blocking_mode": "blocking",
             "requirement_source": "ac_derived",
-            "success_policy": "AC-1 verified",
+            "success_policy": "acceptance criteria verified",
             "workflow_transition_id": "reviewed-implementation",
         }
 

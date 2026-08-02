@@ -127,7 +127,7 @@ class TestParseReflectionBlocks:
         assert entries[1].category == "idea"
 
     def test_preserves_multiline_body(self):
-        """FR-2 / AC-6: multiline body text must be preserved intact."""
+        """Multiline body text must be preserved intact."""
         entries, _ = parse_reflection_blocks(ENGINEER_BLOCK)
         assert "worktree re-entry path" in entries[0].body
         assert "\n" in entries[0].body  # multiline preserved

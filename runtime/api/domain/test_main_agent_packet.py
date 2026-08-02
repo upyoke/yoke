@@ -1,4 +1,4 @@
-"""/ AC-5 / AC-12 regressions for the bootstrap main_agent packet.
+"""Regressions for the bootstrap main_agent packet.
 
 Lives in its own sibling test module File Budget so
 ``test_bootstrap.py`` does not press the file-line cap. Verifies that:

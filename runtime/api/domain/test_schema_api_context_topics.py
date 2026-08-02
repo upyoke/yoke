@@ -1,7 +1,7 @@
 """packet additions for the agent-context generator.
 
 Project topic, qa-gate preview, dependency wrappers, and stale-term /
-role-topic doctrine. Tests for older AC-1..AC-22 surface live in
+role-topic doctrine. Tests for the older packet surface live in
 ``test_schema_api_context.py``; this sibling stays small so neither
 file presses the file-line cap.
 """
@@ -50,7 +50,7 @@ def test_qa_topic_includes_gate_preview_with_both_target_forms() -> None:
     assert "--item" in body
     assert "--epic-id" in body
     assert "--task-num" in body
-    # AC-5 anchor: the recipe must instruct routing through advance.
+    # The recipe must instruct routing through advance.
     assert "/yoke advance" in body
 
 

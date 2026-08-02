@@ -141,7 +141,7 @@ def test_no_task_update_body_body_file_examples_in_live_docs() -> None:
 
     assert not offenders, (
         "Live docs/skills still teach ``task-update-body ... --body-file`` "
-        "as the default path (YOK-1438 AC-8). Prefer stdin-first examples.\n"
+        "as the default path. Prefer stdin-first examples.\n"
         + "\n".join(f"  {f}:{n}: {line}" for f, n, line in offenders)
     )
 
@@ -162,7 +162,7 @@ def test_no_items_update_body_file_examples_in_live_docs() -> None:
 
     assert not offenders, (
         "Live docs/skills still teach ``items update ... --body-file`` "
-        "as the default transport path (YOK-1438 AC-3/AC-9). Prefer stdin-first examples.\n"
+        "as the default transport path. Prefer stdin-first examples.\n"
         + "\n".join(f"  {f}:{n}: {line}" for f, n, line in offenders)
     )
 

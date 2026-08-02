@@ -264,7 +264,7 @@ def _bash_payload(command: str, tool_use_id: str) -> Dict[str, Any]:
 
 
 class TestDispatcherWrapperAttribution(unittest.TestCase):
-    """AC-5/6/7: wrapping HarnessToolCallCompleted rows carry resolved item_id
+    """Wrapping HarnessToolCallCompleted rows carry resolved item_id
     when the Bash command is a function-call dispatcher invocation."""
 
     def setUp(self) -> None:

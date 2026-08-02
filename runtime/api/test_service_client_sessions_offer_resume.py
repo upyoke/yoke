@@ -212,7 +212,7 @@ class TestSessionOfferResume:
         assert data["context"]["required_path"] == "polish"
 
     def test_session_offer_resume_progress_does_not_escalate(self, session_offer_db):
-        """AC-12 end-to-end: prior checkpoint carrying pre_status != status proves
+        """End-to-end: prior checkpoint carrying pre_status != status proves
         the handler advanced the item, so the offer returns resume rather than
         the legacy escalate.
 
@@ -228,7 +228,7 @@ class TestSessionOfferResume:
 
         The HTTP route bridge is structurally identical
         (``checkpoint.get('pre_status')``) and is verified in the diff;
-        AC-12's "both paths must agree" property holds because both bridges
+        the "both paths must agree" property holds because both bridges
         drive the same detector through the same dict shape.
         """
         checkpoint = {

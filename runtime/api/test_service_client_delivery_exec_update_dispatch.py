@@ -1,4 +1,4 @@
-"""AC-8.1 dispatcher-parity tests for the structured-field write CLI.
+"""Dispatcher-parity tests for the structured-field write CLI.
 
 Companion to :mod:`test_service_client_delivery_exec_update`. Verifies
 that ``items update YOK-N <field> --stdin|--body-file`` routes through

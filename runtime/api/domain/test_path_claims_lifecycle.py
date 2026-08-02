@@ -168,7 +168,7 @@ class TestActivate:
     def test_activate_serial_downstream_after_upstream_release(self, conn):
         """A blocked downstream can activate once the upstream releases.
 
-        Mirrors the AC-13 lifecycle proxy: the activation gate proves
+        Mirrors the lifecycle proxy: the activation gate proves
         the upstream is in a terminal merged state before promoting
         the downstream to ``active``.
         """

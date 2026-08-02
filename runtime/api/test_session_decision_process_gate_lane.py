@@ -2,14 +2,14 @@
 
 Covers:
 
-* AC-1 - lane disallows ``feed`` -> WAIT, not FEED.
-* AC-2 - lane disallows ``strategize`` -> WAIT, not STRATEGIZE.
-* AC-3 - global process policy wins when both gates would block.
-* AC-4 - backward-compat: no lane policy preserves legacy behavior.
-* AC-5 - lane opt-in: process action passes through.
-* AC-9 - machine config supports the process/lane policy tokens.
-* AC-10 - ``ActionKind`` has no ``DOCTOR`` member.
-* AC-11 - lane WAIT does not record disabled-process skip memory.
+* Lane disallows ``feed`` -> WAIT, not FEED.
+* Lane disallows ``strategize`` -> WAIT, not STRATEGIZE.
+* Global process policy wins when both gates would block.
+* Backward-compat: no lane policy preserves legacy behavior.
+* Lane opt-in: process action passes through.
+* Machine config supports the process/lane policy tokens.
+* ``ActionKind`` has no ``DOCTOR`` member.
+* Lane WAIT does not record disabled-process skip memory.
 
 Path-vocab unit tests for :func:`process_key_to_path` round out the
 sibling module so the map cannot regress silently.
@@ -285,7 +285,7 @@ class TestBackwardCompatNoLanePolicy:
         assert result.context["configured_lanes"] == ["DARIUS"]
 
     def test_no_lane_via_decide_next_action_returns_feed(self):
-        # AC-4 reproduction: no lane policy + FEED enabled +
+        # Backward-compat reproduction: no lane policy + FEED enabled +
         # empty runnable + sml_coherent -> FEED unchanged.
         result = decide_next_action(
             _make_offer(),

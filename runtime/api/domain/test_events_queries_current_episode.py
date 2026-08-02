@@ -1,6 +1,6 @@
 """Tests: ``events list --current-episode`` boundary filtering.
 
-Covers AC-2, AC-10, AC-11: explicit session filter required, fail-closed
+Covers the explicit session filter requirement, fail-closed
 empty-set behavior when no boundary is recorded, AND-composition with
 other filters, and boundary resolution against
 ``harness_sessions.episode_started_at`` (the events-side filtering of

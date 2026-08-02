@@ -133,7 +133,7 @@ def test_run_preflight_no_longer_probes_host_gh(tmp_path: Path, monkeypatch, cap
     # bearer-token REST is the GitHub transport now; preflight must not
     # surface the retired host-gh installer messaging regardless of
     # whether the host gh binary is present. The banned strings are
-    # built by concatenation so the AC-1 / AC-2 grep recipes return
+    # built by concatenation so the residue grep recipes return
     # zero hits anywhere in the live tree.
     ssh_key = _write_fake_ssh_key(tmp_path)
 

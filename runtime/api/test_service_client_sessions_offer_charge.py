@@ -223,7 +223,7 @@ class TestSessionOfferCharge:
     def test_session_offer_excludes_other_live_claimed(
         self, session_offer_db, item_id, status, sid
     ):
-        """AC-1/5/6: other-live resumable work is not assignable."""
+        """Other-live resumable work is not assignable."""
         held = self._seed_claim(
             session_offer_db["db_path"],
             item_id=item_id,
@@ -236,7 +236,7 @@ class TestSessionOfferCharge:
         assert ctx.get("selected_item") != held
 
     def test_projection_keeps_self_and_stale_runnable_drops_other_live(self):
-        """AC-3/7: projection keeps assignable states only."""
+        """Projection keeps assignable states only."""
         from yoke_core.domain.scheduler_types import (
             ClaimState,
             NextStep,
@@ -282,7 +282,7 @@ class TestSessionOfferCharge:
     def test_session_offer_empty_runnable_when_all_other_live_claimed(
         self, session_offer_db
     ):
-        """AC-9/12/13: all other-live work yields no charge dispatch."""
+        """All other-live work yields no charge dispatch."""
         self._seed_claim(
             session_offer_db["db_path"],
             item_id=10,

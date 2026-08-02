@@ -101,7 +101,7 @@ def test_db(tmp_path):
 
 
 class TestApproveCheck:
-    """Regression tests for approve-check (AC-1: approval semantics via domain layer)."""
+    """Regression tests for approve-check (approval semantics via domain layer)."""
 
     def test_valid_approval_returns_next_stage(self, test_db):
         result = _run_client(["approve-check", "test-flow", "approve-deploy"], db_path=test_db["db_path"])
@@ -154,7 +154,7 @@ class TestApproveCheck:
 
 
 class TestActiveQueue:
-    """Regression tests for active-queue (AC-2: query path via domain layer)."""
+    """Regression tests for active-queue (query path via domain layer)."""
 
     def test_excludes_done_cancelled_frozen(self, test_db):
         result = _run_client(["active-queue", "--fields", "id,title,status"], db_path=test_db["db_path"])

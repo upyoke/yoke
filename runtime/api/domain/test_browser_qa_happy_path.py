@@ -38,7 +38,7 @@ class TestHappyPath:
     def test_ac6_successful_run_records_qa_run_with_browser_substrate(
         self, tmp_path: Path, db_path: str
     ) -> None:
-        """AC-6/7/8/11: happy path records qa_run with executor_type='browser_substrate'."""
+        """Happy path records qa_run with executor_type='browser_substrate'."""
         _seed_item(db_path, 100)
         req_id = _seed_requirement(
             db_path, 100, "browser-check",

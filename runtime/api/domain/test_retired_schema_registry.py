@@ -102,7 +102,7 @@ class TestQueryHelpers:
     @pytest.fixture
     def registry_root(self, tmp_path: Path) -> Path:
         # Synthetic retirement names so the residue grep asserted by
-        # AC-11 stays clean outside the registry file itself.
+        # the obsoleted-terms check stays clean outside the registry file.
         _write_registry(
             tmp_path,
             "surfaces:\n"

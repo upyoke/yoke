@@ -280,7 +280,7 @@ def test_live_apply_with_mismatched_override_refuses(
         )
 
 
-# AC-9 helper — direct exercise of the consistency check ----------------
+# Direct exercise of the override-consistency helper ----------------
 
 
 def test_consistency_silent_when_neither_side_used_override() -> None:

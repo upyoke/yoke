@@ -1,9 +1,9 @@
 """Body- and title-sync coverage: ``sync_body`` and ``sync_title``.
 
-Covers AC-5 (sync_body uses ``select_body_for_github`` before the typed
-REST update), AC-9 (auth-precedence short-circuit), AC-11 (below-budget,
-above-budget, auth-failure-short-circuit regressions), and AC-13 (no
-GraphQL "Body is too long" error path).
+Covers ``sync_body`` using ``select_body_for_github`` before the typed
+REST update, the auth-precedence short-circuit, below-budget,
+above-budget, and auth-failure-short-circuit regressions, and the absence
+of a GraphQL "Body is too long" error path.
 
 Tests mock the typed ``github_rest.update_issue`` surface directly.
 """
@@ -29,7 +29,7 @@ from yoke_core.domain import (
     github_rest,
 )
 
-# Real resolver class so the AC-9 regression can construct + raise the
+# Real resolver class so the auth-precedence test can construct + raise the
 # typed exception subclass that callers branch on.
 from yoke_core.domain.project_github_auth import (
     MissingRepoBinding,

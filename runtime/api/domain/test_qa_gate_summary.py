@@ -1,7 +1,7 @@
 # ruff: noqa: F811
 """Tests for qa_gate_summary — typed read-only QA summary.
 
-Covers AC-1 / AC-2 / AC-3 / AC-13 / AC-14
+Covers:
 - Target-aware unsatisfied counts.
 - Browser-method substrate evidence rule
   matches the verification gate.

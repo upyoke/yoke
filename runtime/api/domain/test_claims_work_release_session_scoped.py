@@ -1,9 +1,9 @@
 """Coverage for :mod:`claims_work_release_session_scoped`.
 
-AC-1 releases every active claim for the caller (emits one WorkReleased
-per claim with intent=agent_handoff_session_scoped). AC-2 leaves
-already-released rows untouched. AC-3 strict same-session filter.
-AC-17 reuses release_session_claims (no duplicated loop). AC-20 strict
+Releases every active claim for the caller (emits one WorkReleased
+per claim with intent=agent_handoff_session_scoped). Leaves
+already-released rows untouched. Applies a strict same-session filter.
+Reuses release_session_claims (no duplicated loop). The strict
 filter releases only the caller's own claims and never another
 session's. Idempotency + zero-effect also covered.
 """

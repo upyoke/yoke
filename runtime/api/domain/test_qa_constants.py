@@ -23,7 +23,7 @@ from yoke_core.domain.qa_constants import (
 
 
 # ---------------------------------------------------------------------------
-# AC-10 (a): VALID_* tuples
+# VALID_* tuples
 # ---------------------------------------------------------------------------
 
 def test_valid_qa_phases_tuple():
@@ -85,7 +85,7 @@ def test_browser_requirement_predicate_uses_only_method_identity():
 
 
 # ---------------------------------------------------------------------------
-# AC-10 (b): _normalize_qa_phase
+# _normalize_qa_phase
 # ---------------------------------------------------------------------------
 
 def test_normalize_qa_phase_canonical_passes_through():
@@ -109,7 +109,7 @@ def test_normalize_qa_phase_is_case_sensitive():
 
 
 # ---------------------------------------------------------------------------
-# AC-10 (c): _normalize_qa_kind
+# _normalize_qa_kind
 # ---------------------------------------------------------------------------
 
 def test_normalize_qa_kind_plan_case_round_trips():
@@ -125,7 +125,7 @@ def test_normalize_qa_kind_unknown_passes_through():
 
 
 # ---------------------------------------------------------------------------
-# AC-10 (d): _coalesce
+# _coalesce
 # ---------------------------------------------------------------------------
 
 def test_coalesce_none_returns_empty_default():
@@ -156,7 +156,7 @@ def test_coalesce_empty_string_passthrough():
 
 
 # ---------------------------------------------------------------------------
-# AC-10 (e): _pipe_row on an authority row object
+# _pipe_row on an authority row object
 # ---------------------------------------------------------------------------
 
 @pytest.fixture
