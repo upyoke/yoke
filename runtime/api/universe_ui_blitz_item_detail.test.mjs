@@ -85,13 +85,16 @@ test("Blitz detail route renders the full execution-document composition", async
   assert.deepEqual(
     byClass(root, "item-posture-label").map((node) => node.textContent),
     [
-      "Child items", "File Budget", "Path claims",
+      "Child items", "File Budget", "Path survey", "Path claims",
       "Parallelism", "Integration", "Migrations",
     ],
   );
   assert.deepEqual(
     byClass(root, "item-posture-value").map((node) => node.textContent),
-    ["none", "optional", "optional", "2 lanes", "main session", "governed"],
+    [
+      "none", "optional", "on", "optional", "2 lanes", "main session",
+      "governed",
+    ],
   );
   const lanePills = byClass(root, "pill").filter(
     (node) => ["active", "committed"].includes(

@@ -9,10 +9,14 @@ repeated runs are no-ops.
 
 from __future__ import annotations
 
-import tomllib
 from pathlib import Path
 
 import pytest
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover - exercised by Python 3.10 CI
+    import tomli as tomllib  # type: ignore[no-redef]
 
 from yoke_core.domain.worktree_codex_hook_trust import (
     REASON_CONTENT_DIFFERS,
@@ -38,7 +42,7 @@ def _checkout(root: Path, name: str, hooks_body: str = HOOKS_BODY) -> Path:
 
 def _config(path: Path, trusted: dict) -> Path:
     """Write a Codex config carrying the given ``key -> hash`` trust."""
-    lines = ["model = \"gpt-5.6-luna\"\n"]
+    lines = ['model = "gpt-5.6-luna"\n']
     for key, value in trusted.items():
         lines.append(f'\n[hooks.state."{key}"]\ntrusted_hash = "{value}"\n')
     path.write_text("".join(lines), encoding="utf-8")
@@ -123,7 +127,9 @@ def test_mirroring_twice_writes_nothing_the_second_time(lanes):
 def test_differing_hook_content_is_never_granted_trust(tmp_path: Path):
     source = _checkout(tmp_path, "checkout")
     worktree = _checkout(
-        tmp_path / "checkout" / ".worktrees", "lane", hooks_body='{"hooks": {}}',
+        tmp_path / "checkout" / ".worktrees",
+        "lane",
+        hooks_body='{"hooks": {}}',
     )
     config = _config(tmp_path / "config.toml", _trust_for(source))
 
@@ -163,7 +169,9 @@ def test_a_missing_config_blocks_without_raising(tmp_path: Path):
     worktree = _checkout(tmp_path / "checkout" / ".worktrees", "lane")
 
     result = mirror_hook_trust(
-        str(source), str(worktree), config_path=tmp_path / "absent.toml",
+        str(source),
+        str(worktree),
+        config_path=tmp_path / "absent.toml",
     )
 
     assert "not present" in result.blocked_reason
@@ -194,7 +202,9 @@ def _provision(monkeypatch, config_home: Path, source: Path, worktree: Path):
 
 
 def test_provisioning_mirrors_trust_onto_a_prepared_lane(
-    monkeypatch, capsys, lanes,
+    monkeypatch,
+    capsys,
+    lanes,
 ):
     source, worktree, config = lanes
     config_home = config.parent / "codex"
@@ -205,13 +215,17 @@ def test_provisioning_mirrors_trust_onto_a_prepared_lane(
 
     assert "hook trust mirrored" in capsys.readouterr().err
     result = inspect_hook_trust(
-        str(source), str(worktree), config_path=config_home / "config.toml",
+        str(source),
+        str(worktree),
+        config_path=config_home / "config.toml",
     )
     assert result.hooks_fire is True
 
 
 def test_provisioning_says_nothing_when_codex_is_unconfigured(
-    monkeypatch, capsys, lanes,
+    monkeypatch,
+    capsys,
+    lanes,
 ):
     source, worktree, _ = lanes
 

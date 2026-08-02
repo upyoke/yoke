@@ -18,6 +18,7 @@ from runtime.api.cli.https_relay_security_test_support import (
     serialized_response,
 )
 from yoke_cli.transport import https as relay_module
+from yoke_cli.transport import https_engine_handshake as handshake_module
 from yoke_cli.transport.dispatcher import emit_response
 from yoke_cli.transport.https import relay_https
 from yoke_cli.transport.https_response_policy import (
@@ -271,12 +272,12 @@ def test_non_envelope_excerpt_scrubs_repeated_echo(monkeypatch) -> None:
 
 
 def test_engine_skew_header_echo_is_scrubbed_from_stderr(monkeypatch, capsys) -> None:
-    monkeypatch.setattr(relay_module, "_skew_warned", False)
+    monkeypatch.setattr(handshake_module, "_skew_warned", False)
     monkeypatch.setattr(
-        relay_module, "local_handshake_version", lambda: "local-version"
+        handshake_module, "local_handshake_version", lambda: "local-version"
     )
     headers = {
-        relay_module.ENGINE_VERSION_HEADER: (
+        handshake_module.ENGINE_VERSION_HEADER: (
             f"remote-{USER_TOKEN}-{USER_TOKEN}-{TRANSPORT_TOKEN}"
         )
     }

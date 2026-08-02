@@ -230,6 +230,7 @@ function blitzPosturePanel(documentNode, item) {
   grid.appendChild(postureCell(documentNode, "Child items", "none"));
   for (const [label, key] of [
     ["File Budget", "file_budget"],
+    ["Path survey", "path_survey"],
     ["Path claims", "path_claims"],
   ]) {
     if (effectivePolicies[key] === undefined) continue;

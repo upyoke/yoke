@@ -134,6 +134,15 @@ it is the one full execution of that command for the tree — see
 for the iterate-narrow-then-gate loop. A run that outlives its
 `timeout_seconds` exits `124` with its whole process group reaped.
 
+`timeout_seconds` budgets execution, not queueing. A registered command that
+waits for the machine-wide test gate before it launches pytest carries its
+budget inside the wrapper, so the clock starts when the gate admits the run
+rather than when the command was invoked — a gate that queues for longer than
+its own budget still gets the whole budget once admitted. A timed-out run
+records the same `fail` verdict a broken branch does, so its run record and
+the stderr restatement both carry a `timeout_summary` naming the expired
+budget and any queue wait that preceded it.
+
 When the plan runner returns `state="awaiting_agent_review"` it exits `12` and
 includes `review_bundle.dispatch`. The harness must immediately dispatch the
 named reviewer subagent with that immutable bundle and prompt, then use the

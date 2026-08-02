@@ -150,25 +150,37 @@ def _command_result(
     exit_code = streamed.exit_code
     duration_ms = int((time.monotonic() - started) * 1000)
     verdict = "pass" if exit_code == 0 else "fail"
+    # A timeout and a broken branch both land on ``fail``, and a queued gate's
+    # capture ends mid-suite with no failures in it. Say which one this was.
+    timeout_summary = (
+        test_gate_timeout.timeout_summary(
+            timeout,
+            test_gate_timeout.announced_slot_wait_seconds(streamed.output),
+        )
+        if streamed.timed_out
+        else ""
+    )
     output = (
         f"$ {command}\n\n[output]\n{streamed.output}\n\n"
         f"[exit_code]\n{exit_code}\n"
     )
+    if timeout_summary:
+        output += f"\n[timeout]\n{timeout_summary}\n"
     # Which tree produced this verdict. Without it a green recorded
     # against the wrong tree reads exactly like a green against the right
     # one; ``head_sha`` additionally pins the commit the run covered.
     tree = verification_tree_binding.resolve_tree_identity(checkout)
-    raw_result = json.dumps(
-        {
-            "command": command,
-            "cwd": str(checkout),
-            "exit_code": exit_code,
-            "timed_out": streamed.timed_out,
-            "output_tail": output[-16000:],
-            "verification_tree": tree.as_payload() if tree else None,
-        },
-        sort_keys=True,
-    )
+    record = {
+        "command": command,
+        "cwd": str(checkout),
+        "exit_code": exit_code,
+        "timed_out": streamed.timed_out,
+        "output_tail": output[-16000:],
+        "verification_tree": tree.as_payload() if tree else None,
+    }
+    if timeout_summary:
+        record["timeout_summary"] = timeout_summary
+    raw_result = json.dumps(record, sort_keys=True)
     run = _dispatch(
         "qa.run.add",
         int(case["requirement_id"]),
@@ -236,6 +248,8 @@ def _command_result(
         "exit_code": exit_code,
         "duration_ms": duration_ms,
         "output_capture": str(streamed.capture_path),
+        "timed_out": streamed.timed_out,
+        "timeout_summary": timeout_summary,
         "verification_tree": tree.as_payload() if tree else None,
     }
 

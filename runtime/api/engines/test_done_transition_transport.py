@@ -43,7 +43,8 @@ def _install(monkeypatch, fake, modules):
         if hasattr(module, "call_dispatcher"):
             monkeypatch.setattr(module, "call_dispatcher", fake)
     monkeypatch.setattr(
-        dt, "_connect",
+        dt,
+        "_connect",
         lambda *a, **k: pytest.fail("must not open a bare _connect() on a read path"),
     )
 
@@ -63,20 +64,23 @@ class TestItemContextRelay:
 
         def fake(**kwargs):
             calls.append(kwargs)
-            return _resp("done_transition.item_context", {
-                "found": True,
-                "title": "Ship it",
-                "stage_id": "implementing",
-                "lane_branch": TEST_ITEM_REF,
-                "project": "yoke",
-                "workflow": {
-                    "workflow_id": "issue",
-                    "workflow_version_id": 3,
-                    "version": 2,
-                    "definition_digest": "abc",
-                    "definition": _DEFINITION,
+            return _resp(
+                "done_transition.item_context",
+                {
+                    "found": True,
+                    "title": "Ship it",
+                    "stage_id": "implementing",
+                    "lane_branch": TEST_ITEM_REF,
+                    "project": "yoke",
+                    "workflow": {
+                        "workflow_id": "issue",
+                        "workflow_version_id": 3,
+                        "version": 2,
+                        "definition_digest": "abc",
+                        "definition": _DEFINITION,
+                    },
                 },
-            })
+            )
 
         _install(monkeypatch, fake, [item_context])
         ctx = item_context.load_done_item_context_over_transport(42)
@@ -139,9 +143,12 @@ class TestForeignClaimRelay:
 
         def fake(**kwargs):
             calls.append(kwargs)
-            return _resp("claims.work.holder_list", {
-                "holders": [{"session_id": "other-session"}],
-            })
+            return _resp(
+                "claims.work.holder_list",
+                {
+                    "holders": [{"session_id": "other-session"}],
+                },
+            )
 
         _install(monkeypatch, fake, [cleanup])
         assert cleanup._has_foreign_claim(42) is True
@@ -152,9 +159,12 @@ class TestForeignClaimRelay:
         monkeypatch.setattr(cleanup, "_current_session_id", lambda: "caller-x")
         _install(
             monkeypatch,
-            lambda **k: _resp("claims.work.holder_list", {
-                "holders": [{"session_id": "caller-x"}],
-            }),
+            lambda **k: _resp(
+                "claims.work.holder_list",
+                {
+                    "holders": [{"session_id": "caller-x"}],
+                },
+            ),
             [cleanup],
         )
         assert cleanup._has_foreign_claim(42) is False
@@ -184,11 +194,19 @@ class TestBlockedFlagRelay:
 
         def fake(**kwargs):
             calls.append(kwargs)
-            return _resp("done_transition.blocked_gate", {
-                "blocked": True, "reason": "upstream unresolved",
-            })
+            return _resp(
+                "done_transition.blocked_gate",
+                {
+                    "blocked": True,
+                    "reason": "upstream unresolved",
+                },
+            )
 
-        monkeypatch.setattr(gates, "_ref", lambda _item_id: TEST_ITEM_REF)
+        monkeypatch.setattr(
+            gates,
+            "_ref",
+            lambda _item_id, _item_ref=None: TEST_ITEM_REF,
+        )
         _install(monkeypatch, fake, [gates])
         assert gates._check_blocked_flag(42) == 9
         assert calls[0]["function_id"] == "done_transition.blocked_gate"
@@ -253,25 +271,33 @@ class TestPreconditionsRelay:
 
         def fake(**kwargs):
             calls.append(kwargs)
-            return _resp("done_transition.done_preconditions", {
-                "allowed": True, "reason": None,
-            })
+            return _resp(
+                "done_transition.done_preconditions",
+                {
+                    "allowed": True,
+                    "reason": None,
+                },
+            )
 
         _install(monkeypatch, fake, [preconditions])
         allowed, reason = preconditions.check_done_preconditions(42, "", False)
         assert (allowed, reason) == (True, None)
         assert calls[0]["function_id"] == "done_transition.done_preconditions"
         assert calls[0]["payload"] == {
-            "deploy_flow": "", "require_plan_verdict": False,
+            "deploy_flow": "",
+            "require_plan_verdict": False,
         }
 
     def test_relays_blocked_reason(self, monkeypatch):
         _install(
             monkeypatch,
-            lambda **k: _resp("done_transition.done_preconditions", {
-                "allowed": False,
-                "reason": "deployed_to is empty for deployment_flow=acme-prod",
-            }),
+            lambda **k: _resp(
+                "done_transition.done_preconditions",
+                {
+                    "allowed": False,
+                    "reason": "deployed_to is empty for deployment_flow=acme-prod",
+                },
+            ),
             [preconditions],
         )
         allowed, reason = preconditions.check_done_preconditions(42, "acme-prod", False)
