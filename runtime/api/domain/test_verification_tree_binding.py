@@ -19,6 +19,7 @@ from yoke_core.domain import verification_tree_binding
 from yoke_core.domain.verification_tree_binding import (
     ALLOW_TREE_MISMATCH_FLAG,
     TREE_BINDING_REFUSAL_TEMPLATE,
+    ClaimLookup,
     TreeIdentity,
     evaluate_tree_binding,
     resolve_tree_identity,
@@ -53,7 +54,7 @@ def _claimed_lane(
     monkeypatch.setattr(
         verification_tree_binding,
         "resolve_claim_worktrees",
-        lambda _sid: [str(worktree)],
+        lambda _sid: ClaimLookup(worktrees=(str(worktree),)),
     )
     return worktree, outside
 
@@ -138,8 +139,8 @@ class TestEvaluateTreeBinding:
             assert token in rendered
 
 
-class TestCheckIntegration:
-    """``check()`` composes ambient identity, claims, and the evaluator."""
+class TestEvaluateRun:
+    """``evaluate_run`` composes identity, claims, and the evaluator."""
 
     def test_missing_session_id_passes_through(
         self, monkeypatch: pytest.MonkeyPatch,
@@ -147,7 +148,8 @@ class TestCheckIntegration:
         monkeypatch.setattr(
             verification_tree_binding, "ambient_session_id", lambda: "",
         )
-        assert verification_tree_binding.check(surface=SURFACE) is None
+        verdict = verification_tree_binding.evaluate_run(surface=SURFACE)
+        assert verdict.refusal is None and verdict.notice is None
 
     def test_no_claims_passes_through(
         self, monkeypatch: pytest.MonkeyPatch,
@@ -158,21 +160,23 @@ class TestCheckIntegration:
         monkeypatch.setattr(
             verification_tree_binding,
             "resolve_claim_worktrees",
-            lambda _sid: [],
+            lambda _sid: ClaimLookup(),
         )
-        assert verification_tree_binding.check(surface=SURFACE) is None
+        verdict = verification_tree_binding.evaluate_run(surface=SURFACE)
+        assert verdict.refusal is None and verdict.notice is None
 
     def test_explicit_tree_outside_claims_refuses(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
     ) -> None:
         _no_free_paths(monkeypatch)
         worktree, outside = _claimed_lane(monkeypatch, tmp_path)
-        message = verification_tree_binding.check(
+        verdict = verification_tree_binding.evaluate_run(
             surface=SURFACE, tree=str(outside),
         )
-        assert message is not None
-        assert str(outside) in message
-        assert str(worktree) in message
+        assert verdict.refusal is not None
+        assert str(outside) in verdict.refusal
+        assert str(worktree) in verdict.refusal
+        assert verdict.notice is None
 
     def test_cwd_is_the_default_tree(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
@@ -180,9 +184,60 @@ class TestCheckIntegration:
         _no_free_paths(monkeypatch)
         worktree, outside = _claimed_lane(monkeypatch, tmp_path)
         monkeypatch.chdir(outside)
-        assert verification_tree_binding.check(surface=SURFACE) is not None
+        assert verification_tree_binding.evaluate_run(
+            surface=SURFACE,
+        ).refusal is not None
         monkeypatch.chdir(worktree)
-        assert verification_tree_binding.check(surface=SURFACE) is None
+        assert verification_tree_binding.evaluate_run(
+            surface=SURFACE,
+        ).refusal is None
+
+    def test_override_converts_the_refusal_to_a_notice(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+    ) -> None:
+        _no_free_paths(monkeypatch)
+        worktree, outside = _claimed_lane(monkeypatch, tmp_path)
+        verdict = verification_tree_binding.evaluate_run(
+            surface=SURFACE, tree=str(outside), allow_mismatch=True,
+        )
+        assert verdict.refusal is None
+        assert verdict.notice is not None
+        assert str(outside) in verdict.notice
+        assert str(worktree) in verdict.notice
+
+    def test_override_on_a_bound_run_stays_silent(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+    ) -> None:
+        # An override that changes nothing says nothing, so the notice
+        # only ever appears when a cross-tree run really happened.
+        worktree, _outside = _claimed_lane(monkeypatch, tmp_path)
+        verdict = verification_tree_binding.evaluate_run(
+            surface=SURFACE, tree=str(worktree), allow_mismatch=True,
+        )
+        assert verdict.refusal is None and verdict.notice is None
+
+    def test_unreachable_lookup_proceeds_but_says_so(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+    ) -> None:
+        # The case that let this guard sit inert: an unreachable control
+        # plane must not ground the run, but it must never look like a
+        # clean verdict either.
+        _no_free_paths(monkeypatch)
+        monkeypatch.setattr(
+            verification_tree_binding, "ambient_session_id", lambda: "sess-1",
+        )
+        monkeypatch.setattr(
+            verification_tree_binding,
+            "resolve_claim_worktrees",
+            lambda _sid: ClaimLookup(reachable=False, detail="no route"),
+        )
+        verdict = verification_tree_binding.evaluate_run(
+            surface=SURFACE, tree=str(tmp_path),
+        )
+        assert verdict.refusal is None
+        assert verdict.notice is not None
+        assert "no route" in verdict.notice
+        assert str(tmp_path) in verdict.notice
 
     def test_ambient_identity_reads_the_canonical_chain(
         self, monkeypatch: pytest.MonkeyPatch,
@@ -212,58 +267,6 @@ class TestCheckIntegration:
             session_ambient_identity, "resolve_ambient_session_id", _boom,
         )
         assert verification_tree_binding.ambient_session_id() == ""
-
-    def test_claim_resolution_failure_fails_open(
-        self, monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        from yoke_core.domain import db_helpers
-
-        def _boom(*args, **kwargs):
-            raise RuntimeError("simulated DB failure")
-
-        monkeypatch.setattr(db_helpers, "connect", _boom)
-        assert verification_tree_binding.resolve_claim_worktrees("sess") == []
-
-
-class TestMismatchNotice:
-    """The override's one-line record of what it allowed."""
-
-    def test_notice_names_both_trees(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
-    ) -> None:
-        _no_free_paths(monkeypatch)
-        worktree, outside = _claimed_lane(monkeypatch, tmp_path)
-        notice = verification_tree_binding.mismatch_notice(
-            surface=SURFACE, tree=str(outside),
-        )
-        assert notice is not None
-        assert str(outside) in notice
-        assert str(worktree) in notice
-
-    def test_bound_run_produces_no_notice(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
-    ) -> None:
-        # An override that changes nothing stays silent, so the notice
-        # only ever appears when a cross-tree run really happened.
-        worktree, _outside = _claimed_lane(monkeypatch, tmp_path)
-        assert verification_tree_binding.mismatch_notice(
-            surface=SURFACE, tree=str(worktree),
-        ) is None
-
-    def test_no_claims_produces_no_notice(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
-    ) -> None:
-        monkeypatch.setattr(
-            verification_tree_binding, "ambient_session_id", lambda: "sess-1",
-        )
-        monkeypatch.setattr(
-            verification_tree_binding,
-            "resolve_claim_worktrees",
-            lambda _sid: [],
-        )
-        assert verification_tree_binding.mismatch_notice(
-            surface=SURFACE, tree=str(tmp_path),
-        ) is None
 
 
 def _init_repo(root: Path) -> str:

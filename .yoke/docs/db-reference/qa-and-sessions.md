@@ -162,6 +162,8 @@ Tracks active harness sessions offering themselves to Yoke for work assignment. 
 
 Resolver: `yoke_core.domain.sessions_analytics_core.DEFAULT_STALE_THRESHOLD_MINUTES` (the default) and `EXECUTOR_STALE_TTL_OVERRIDES_MINUTES` (the per-executor map). The per-executor lookup at `yoke_core.domain.sessions_render_reclaim._resolve_effective_ttl` honors `claude-*` and `codex-*` prefix fallbacks. Downstream documentation should cite the config keys above by name rather than the current literal values — values may shift; the key names are stable.
 
+**A running long command counts as activity.** A gate run takes far longer than the default TTL while the session that started it sits idle waiting, so every long command — registered Command cases and watcher-backed suites alike — runs through `yoke_core.tools._watch_runner.run_watcher`, which refreshes the owning session's heartbeat (and, through `heartbeat`, its active claims) once per `yoke_core.domain.session_liveness_pump.HEARTBEAT_INTERVAL_SECONDS` while the child runs. The refresh stops when the process does, so a killed or crashed run goes stale on the normal schedule rather than holding its claims indefinitely.
+
 ```sql
 session_id TEXT PRIMARY KEY -- globally unique session ID (from contract)
 executor TEXT NOT NULL -- executor identity (e.g., claude-code, codex)

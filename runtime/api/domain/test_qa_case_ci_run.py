@@ -9,7 +9,10 @@ import pytest
 
 from yoke_core.domain import qa_case_ci_lane, qa_case_ci_run, qa_case_execution
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
-from yoke_core.domain.verification_tree_binding import TreeIdentity
+from yoke_core.domain.verification_tree_binding import (
+    TreeBindingVerdict,
+    TreeIdentity,
+)
 
 
 def _case(**overrides) -> dict:
@@ -63,8 +66,8 @@ def wired(tmp_path, monkeypatch):
     recorder = _Recorder()
     monkeypatch.setattr(qa_case_execution, "_dispatch", recorder)
     monkeypatch.setattr(
-        "yoke_core.domain.verification_tree_binding.check",
-        lambda **kwargs: None,
+        "yoke_core.domain.verification_tree_binding.evaluate_run",
+        lambda **kwargs: TreeBindingVerdict(),
     )
     monkeypatch.setattr(
         "yoke_core.domain.verification_tree_binding.resolve_tree_identity",
@@ -196,8 +199,10 @@ def test_a_case_without_a_declared_workflow_fails_before_pushing(wired):
 def test_a_tree_binding_refusal_stops_the_gate(wired, monkeypatch):
     checkout, recorder, artifact = wired
     monkeypatch.setattr(
-        "yoke_core.domain.verification_tree_binding.check",
-        lambda **kwargs: "TREE-BINDING REFUSAL: wrong tree",
+        "yoke_core.domain.verification_tree_binding.evaluate_run",
+        lambda **kwargs: TreeBindingVerdict(
+            refusal="TREE-BINDING REFUSAL: wrong tree"
+        ),
     )
 
     with pytest.raises(QaCaseExecutionError, match="TREE-BINDING REFUSAL"):

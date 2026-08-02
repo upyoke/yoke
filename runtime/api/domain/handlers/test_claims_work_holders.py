@@ -72,6 +72,9 @@ def test_holder_list_filters_by_session_id(monkeypatch) -> None:
     )
 
     assert outcome.primary_success
+    # This fixture carries claims but no lane table, so the lanes come
+    # back empty rather than failing the lookup — the shape a caller
+    # asking "which trees may this session verify in?" relies on.
     assert outcome.result_payload["holders"] == [
         {
             "claim_id": 1,
@@ -82,5 +85,6 @@ def test_holder_list_filters_by_session_id(monkeypatch) -> None:
             "task_num": None,
             "claimed_at": "2026-01-02T00:00:00Z",
             "last_heartbeat": None,
+            "lane_worktrees": [],
         }
     ]

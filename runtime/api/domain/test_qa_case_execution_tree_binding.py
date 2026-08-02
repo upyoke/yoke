@@ -17,7 +17,10 @@ import pytest
 
 from yoke_core.domain import qa_case_execution, qa_case_worktree_run
 from yoke_core.domain import verification_tree_binding
-from yoke_core.domain.verification_tree_binding import TreeIdentity
+from yoke_core.domain.verification_tree_binding import (
+    TreeBindingVerdict,
+    TreeIdentity,
+)
 
 REFUSAL = "REFUSAL: cd to the claimed worktree"
 
@@ -48,8 +51,8 @@ def test_binding_refusal_stops_the_run_before_the_command(
         ),
         mock.patch.object(
             qa_case_worktree_run.verification_tree_binding,
-            "check",
-            return_value=REFUSAL,
+            "evaluate_run",
+            return_value=TreeBindingVerdict(refusal=REFUSAL),
         ),
         mock.patch.object(
             qa_case_execution,

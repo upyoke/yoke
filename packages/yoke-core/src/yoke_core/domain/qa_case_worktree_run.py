@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import time
 from pathlib import Path
 from typing import Optional
@@ -22,6 +23,7 @@ from typing import Optional
 from yoke_contracts.api.function_call import ActorContext
 
 from yoke_core.domain import qa_case_command_stream
+from yoke_core.domain import qa_constants
 from yoke_core.domain import test_gate_timeout
 from yoke_core.domain import verification_tree_binding
 from yoke_core.domain import qa_case_execution
@@ -44,13 +46,12 @@ def execute_worktree_case(
     command = str(config.get("command") or "").strip()
     if not command:
         raise QaCaseExecutionError("Command case requires method_config.command")
-    configured_timeout = config.get("timeout_seconds", 1200)
-    timeout = int(
-        timeout_seconds if timeout_seconds is not None else configured_timeout
-    )
-    if timeout < 1 or timeout > 7200:
+    configured = config.get("timeout_seconds", 1200)
+    timeout = int(timeout_seconds if timeout_seconds is not None else configured)
+    if timeout < 1 or timeout > qa_constants.MAX_CASE_COMMAND_TIMEOUT_SECONDS:
         raise QaCaseExecutionError(
-            "Command case timeout_seconds must be between 1 and 7200"
+            "Command case timeout_seconds must be between 1 and "
+            f"{qa_constants.MAX_CASE_COMMAND_TIMEOUT_SECONDS}"
         )
     checkout = (
         Path(checkout_path).resolve()
@@ -65,11 +66,13 @@ def execute_worktree_case(
     # project checkout, so the gate run can land in main while the
     # session's claimed lane sits untouched. The verdict this produces is
     # recorded, so the refusal belongs before the command, not after.
-    binding_refusal = verification_tree_binding.check(
+    binding = verification_tree_binding.evaluate_run(
         surface=_TREE_BINDING_SURFACE, tree=str(checkout),
     )
-    if binding_refusal is not None:
-        raise QaCaseExecutionError(binding_refusal)
+    if binding.notice:
+        print(binding.notice, file=sys.stderr, flush=True)
+    if binding.refusal:
+        raise QaCaseExecutionError(binding.refusal)
     command_env = dict(os.environ)
     if config.get("requires_base_url"):
         if not base_url:
@@ -126,15 +129,14 @@ def execute_worktree_case(
     if timeout_summary:
         record["timeout_summary"] = timeout_summary
     raw_result = json.dumps(record, sort_keys=True)
-    run = qa_case_execution._dispatch(
+    record_leg = qa_case_execution.recording_leg(case, actor=actor)
+    run = record_leg(
         "qa.run.add",
-        int(case["requirement_id"]),
         {
             "executor_type": "worktree_run",
             "raw_result": raw_result,
             "duration_ms": duration_ms,
         },
-        actor=actor,
     )
     run_id = int(run["qa_run_id"])
     from yoke_core.domain.qa_artifact_handle import local_handle
@@ -150,9 +152,8 @@ def execute_worktree_case(
         "command-output.txt",
     )
     output_path.write_text(output, encoding="utf-8")
-    artifact = qa_case_execution._dispatch(
+    artifact = record_leg(
         "qa.artifact.add",
-        int(case["requirement_id"]),
         {
             "run_id": run_id,
             "artifact_type": "command_output",
@@ -170,18 +171,15 @@ def execute_worktree_case(
                 sort_keys=True,
             ),
         },
-        actor=actor,
     )
-    qa_case_execution._dispatch(
+    record_leg(
         "qa.run.complete",
-        int(case["requirement_id"]),
         {
             "run_id": run_id,
             "verdict": verdict,
             "raw_result": raw_result,
             "duration_ms": duration_ms,
         },
-        actor=actor,
     )
     return {
         "requirement_id": int(case["requirement_id"]),

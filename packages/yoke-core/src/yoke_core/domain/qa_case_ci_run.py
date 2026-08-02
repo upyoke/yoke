@@ -26,6 +26,7 @@ running the suite on the machine it exists to keep free.
 from __future__ import annotations
 
 import json
+import sys
 import time
 from pathlib import Path
 from typing import Any, Optional
@@ -63,18 +64,16 @@ def _record_run(
         artifact_file_path,
         case_artifact_subject,
     )
-    from yoke_core.domain.qa_case_execution import _dispatch as call_qa
+    from yoke_core.domain.qa_case_execution import recording_leg
 
-    requirement_id = int(case["requirement_id"])
+    call_qa = recording_leg(case, actor=actor)
     run = call_qa(
         "qa.run.add",
-        requirement_id,
         {
             "executor_type": EXECUTOR_ID,
             "raw_result": raw_result,
             "duration_ms": duration_ms,
         },
-        actor=actor,
     )
     run_id = int(run["qa_run_id"])
     output_path = artifact_file_path(
@@ -86,7 +85,6 @@ def _record_run(
     output_path.write_text(output, encoding="utf-8")
     artifact = call_qa(
         "qa.artifact.add",
-        requirement_id,
         {
             "run_id": run_id,
             "artifact_type": "command_output",
@@ -99,18 +97,15 @@ def _record_run(
                 sort_keys=True,
             ),
         },
-        actor=actor,
     )
     call_qa(
         "qa.run.complete",
-        requirement_id,
         {
             "run_id": run_id,
             "verdict": verdict,
             "raw_result": raw_result,
             "duration_ms": duration_ms,
         },
-        actor=actor,
     )
     return run_id, int(artifact["qa_artifact_id"])
 
@@ -125,11 +120,13 @@ def _resolve_checkout(case: dict, checkout_path: Optional[str | Path]) -> Path:
     )
     if not checkout.is_dir():
         raise QaCaseExecutionError(f"CI execution checkout does not exist: {checkout}")
-    refusal = verification_tree_binding.check(
+    binding = verification_tree_binding.evaluate_run(
         surface=_TREE_BINDING_SURFACE, tree=str(checkout),
     )
-    if refusal is not None:
-        raise QaCaseExecutionError(refusal)
+    if binding.notice:
+        print(binding.notice, file=sys.stderr, flush=True)
+    if binding.refusal:
+        raise QaCaseExecutionError(binding.refusal)
     return checkout
 
 
