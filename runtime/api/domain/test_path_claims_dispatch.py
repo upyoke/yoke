@@ -102,8 +102,8 @@ class TestRegisterCmd:
         payload = json.loads(out.strip())
         assert payload["success"] is True
         assert payload["claim"]["state"] == "planned"
-        assert payload["claim"]["actor_id"] == actor
-        assert payload["claim"]["session_id"] == "sess-xyz"
+        assert payload["claim"]["registered_by_actor_id"] == actor
+        assert payload["claim"]["registered_by_session_id"] == "sess-xyz"
         assert payload["claim"]["target_ids"] == [target]
 
     def test_register_threads_tentative_paths_to_future_resolver(
