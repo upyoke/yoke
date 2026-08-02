@@ -29,13 +29,14 @@ from yoke_core.domain.main_agent_packet import render_main_agent_section
 # alongside the source dirs; ``build_bundle`` extracts each file's managed
 # block. The snapshot materializer and its drift check keep the wheel copy
 # byte-exact with these sources the same way they do for the dirs.
-INSTALL_BUNDLE_SOURCE_FILES = ("AGENTS.md", "CODEX.md")
+INSTALL_BUNDLE_SOURCE_FILES = ("AGENTS.md", "CODEX.md", "CURSOR.md")
 
 # The managed-markdown doctrine sources and the co-owned files each block
 # installs into. ``AGENTS.md`` and its ``CLAUDE.md`` auto-load twin carry the
-# shared doctrine; ``CODEX.md`` carries the Codex shell.
+# shared doctrine; ``CODEX.md`` and ``CURSOR.md`` carry the harness shells.
 _DOCTRINE_SOURCE = "AGENTS.md"
 _CODEX_SHELL_SOURCE = "CODEX.md"
+_CURSOR_SHELL_SOURCE = "CURSOR.md"
 
 
 def managed_bundle_keys(root: Path) -> Dict[str, Any]:
@@ -50,17 +51,19 @@ def _managed_markdown(root: Path) -> Dict[str, Any]:
     """Managed-markdown blocks + install targets for a managed project.
 
     The doctrine block installs into both ``AGENTS.md`` and its ``CLAUDE.md``
-    auto-load twin; the Codex shell installs into ``CODEX.md``.
+    auto-load twin; the Codex and Cursor shells install into their own files.
     """
     return {
         "blocks": {
             "doctrine": _doctrine_block(root),
             "codex_shell": _managed_block_body(root / _CODEX_SHELL_SOURCE),
+            "cursor_shell": _managed_block_body(root / _CURSOR_SHELL_SOURCE),
         },
         "targets": [
             {"path": "AGENTS.md", "block": "doctrine"},
             {"path": "CLAUDE.md", "block": "doctrine"},
             {"path": "CODEX.md", "block": "codex_shell"},
+            {"path": "CURSOR.md", "block": "cursor_shell"},
         ],
     }
 

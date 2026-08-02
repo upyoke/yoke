@@ -45,6 +45,15 @@ Behaviors in this tier use hooks that have been verified in both Claude Code and
 
 **Claude Code has no equivalent per-path hook gate.** Its per-project records in `~/.claude.json` carry a directory-level `hasTrustDialogAccepted` flag and no per-hook hash store, so hooks from a project's `.claude/settings.json` fire once the directory is trusted. A Claude session rooted at a worktree would prompt the one-time directory trust dialog and then run its hooks normally; there is no silent hash-keyed dead zone to mirror around.
 
+### Cursor coverage
+
+Cursor's hook surface is a near-superset of the tested cross-harness tier, with camelCase native event names mapped to canonical verbs in the rendered `runtime/harness/cursor/hooks.json` (surfaced as `.cursor/hooks.json`). Measured facts (Cursor IDE 3.14.7 / cursor-agent 2026.07.23; full matrix in [Cursor Harness Integration Assessment](harness-cursor-assessment.md)):
+
+- The Bash chain anchors on `beforeShellExecution` (raw command + sandbox state), not a `preToolUse` Shell matcher — wiring both would run the chain twice per command. A hook deny holds even under the terminal agent's force mode, and `postToolUseFailure` fires with `failure_type=permission_denied` — an explicit failure event Codex lacks.
+- Context injection is event-scoped: `sessionStart` and `postToolUse` accept `additional_context`; `preToolUse` has no allow-time channel, so the Cursor adapter's `pretool_omissions` elides advisory-only hint modules instead of silently dropping their output.
+- Coverage differs per surface: the IDE fires the full set; the non-interactive terminal agent (`cursor-agent -p`) omits `beforeSubmitPrompt`, `stop`, and the subagent lifecycle events, so orientation rides `sessionStart` (both surfaces) rather than prompt-submit.
+- Identity pin: the rendered command pins `YOKE_EXECUTOR=cursor` (provider stays payload-derived — Cursor multiplexes model vendors in one session). Subagents run under their own session ids; the payload parser folds them into the top-level container session, so telemetry and registration never mint per-subagent sessions.
+
 ### Claude-Code-only (no cross-harness equivalent)
 
 Behaviors in this tier use hook events or matchers that have no tested equivalent in Codex or other harnesses. They remain Claude-Code-exclusive until a cross-harness equivalent is verified.

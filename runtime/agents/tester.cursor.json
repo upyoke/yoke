@@ -1,0 +1,4 @@
+{
+  "name": "yoke-tester",
+  "description": "Reviews Engineer's work against acceptance criteria, runs tests, verifies docs. Cannot modify code. Use after Engineer completes a task."
+}

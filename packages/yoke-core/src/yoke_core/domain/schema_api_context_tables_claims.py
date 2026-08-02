@@ -47,10 +47,11 @@ CLAIMS_TABLES: dict[str, dict] = {
         ],
         "notes": (
             "executor stores only the canonical harness_id enum values "
-            "claude-code or codex (resolved at write time via "
+            "claude-code, codex, or cursor (resolved at write time via "
             "yoke_harness.hooks.identity.canonical_harness_id); "
             "the surface-specific alias (claude-desktop, codex-vscode, "
-            "claude-vscode, codex-cli, codex-desktop, etc.) lives in "
+            "claude-vscode, codex-cli, codex-desktop, cursor-ide, "
+            "cursor-cli, etc.) lives in "
             "executor_display_name when known and is NULL otherwise. "
             "Board/session rendering prefers executor_display_name and "
             "falls back to executor; event-envelope executor fields are "

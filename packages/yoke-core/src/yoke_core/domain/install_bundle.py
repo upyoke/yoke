@@ -44,22 +44,22 @@ from yoke_contracts.packs import PACKS_SOURCE
 SKILLS_SOURCE = ".agents/skills/yoke"
 CLAUDE_AGENTS_SOURCE = "runtime/harness/claude/agents"
 CODEX_AGENTS_SOURCE = "runtime/harness/codex/agents"
+CURSOR_AGENTS_SOURCE = "runtime/harness/cursor/agents"
 CLAUDE_RULES_SOURCE = "runtime/harness/claude/rules"
 DOCS_SOURCE = ".yoke/docs"
 # Pack source uses the same :func:`server_tree_root` resolver, so product
 # wheels package it alongside the install-bundle sources.
 
-# The full set of repo-root source dirs the packaged install-bundle tree
-# (``yoke_core.install_bundle_tree``) snapshots. Single source of truth for the
-# snapshot materializer (:mod:`install_bundle_tree_sync`), its drift check
-# (``HC-install-bundle-drift``), and the ``test_install_bundle`` invariant, so
-# the packaging surfaces cannot silently disagree on which dirs ship. Order
-# matches the ``pyproject.toml`` package-data globs.
+# Repo-root source dirs the packaged install-bundle tree snapshots — the one
+# truth shared by the snapshot materializer (:mod:`install_bundle_tree_sync`),
+# its drift check (``HC-install-bundle-drift``), and the bundle invariant
+# tests. Order matches the ``pyproject.toml`` package-data globs.
 INSTALL_BUNDLE_SOURCE_DIRS = (
     SKILLS_SOURCE,
     CLAUDE_AGENTS_SOURCE,
     CLAUDE_RULES_SOURCE,
     CODEX_AGENTS_SOURCE,
+    CURSOR_AGENTS_SOURCE,
     PACKS_SOURCE,
     DOCS_SOURCE,
 )

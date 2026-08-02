@@ -87,6 +87,7 @@ class TestStaleTtlConfigIndirection:
             value = {
                 "session_stale_ttl_minutes": 17,
                 "session_stale_ttl_minutes_codex_override": 71,
+                "session_stale_ttl_minutes_cursor_override": 73,
             }.get(key, default)
             captured[key] = value
             return value
@@ -106,9 +107,14 @@ class TestStaleTtlConfigIndirection:
             sessions_analytics_core.EXECUTOR_STALE_TTL_OVERRIDES_MINUTES["codex"]
             == 71
         )
+        assert (
+            sessions_analytics_core.EXECUTOR_STALE_TTL_OVERRIDES_MINUTES["cursor"]
+            == 73
+        )
         assert captured == {
             "session_stale_ttl_minutes": 17,
             "session_stale_ttl_minutes_codex_override": 71,
+            "session_stale_ttl_minutes_cursor_override": 73,
         }
 
         # Reload again with the real resolver so subsequent tests see the

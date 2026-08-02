@@ -29,6 +29,10 @@ import os
 from typing import Mapping, Optional, Tuple
 
 
+# Cursor is deliberately absent: it exports no session-id environment
+# variable. Cursor sessions resolve through YOKE_SESSION_ID (persisted at
+# session start from the hook payload) plus the hook-written anchor
+# registry — the same shape as any multiplexed harness.
 AMBIENT_ENV_VARS: Tuple[str, ...] = (
     "YOKE_SESSION_ID",
     "CLAUDE_SESSION_ID",
