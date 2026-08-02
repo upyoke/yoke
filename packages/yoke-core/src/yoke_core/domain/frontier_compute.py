@@ -111,6 +111,7 @@ def compute_frontier(
     )
 
     wip_active = 0
+    wip_active_items: List[int] = []
 
     recent_owner_window_s = get_seconds(
         "session_reactivation_reacquire_window_s", 300,
@@ -155,6 +156,7 @@ def compute_frontier(
             )
         ):
             wip_active += 1
+            wip_active_items.append(internal_item_id)
 
         fi = FrontierItem(
             item_id=internal_item_id,
@@ -239,6 +241,7 @@ def compute_frontier(
             conduct_eligible.append(item)
             conduct_count += 1
 
+    wip_active_items.extend(sorted(excluded_routed_ownership))
     effective_wip_active = wip_active + len(excluded_routed_ownership)
     result = FrontierResult(
         runnable=runnable,
@@ -246,6 +249,7 @@ def compute_frontier(
         frozen=frozen_items,
         wip_cap=wip_cap,
         wip_active=effective_wip_active,
+        wip_active_items=wip_active_items,
         conduct_eligible=conduct_eligible,
     )
 

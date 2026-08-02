@@ -130,7 +130,11 @@ def dispatch_decision_engine(
         # Construct WAIT directly rather than letting the schedule_result
         # branch hand decide_next_action a stale runnable list.
         result = build_no_work_wait_action(
-            session_id=session_id, ownership=ownership, step=step,
+            session_id=session_id,
+            ownership=ownership,
+            step=step,
+            process_offer_policy=effective_policy,
+            actual_lane=offer.execution_lane,
         )
         return result, None
 

@@ -29,7 +29,7 @@ class TestNamedSetClassification:
     """The constants pin the cross-offer state set."""
 
     def test_offer_write_owned_keys_exact_membership(self):
-        """The per-offer write fully owns these eleven keys."""
+        """The per-offer write fully owns these twelve keys."""
         assert OFFER_WRITE_OWNED_KEYS == frozenset({
             "session_id",
             "executor",
@@ -42,6 +42,7 @@ class TestNamedSetClassification:
             "supported_paths",
             "max_chain_steps",
             "runtime_session_id",
+            "offer_diagnostics",
         })
 
     def test_preserved_keys_exact_membership(self):

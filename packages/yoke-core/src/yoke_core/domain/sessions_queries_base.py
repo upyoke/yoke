@@ -6,7 +6,8 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from . import db_backend
-from .scheduler_types import is_assignable_claim_state
+from .scheduler_types import NextStep, is_assignable_claim_state
+from .session_offer_diagnostics import build_schedule_offer_diagnostics
 from .session_decision_lane_gate import evaluate_lane_gate
 from .sessions_analytics import _NEXT_STEP_TO_PATH
 from .workflow_runtime import WorkflowRuntime, load_item_workflow_runtime
@@ -244,9 +245,10 @@ def _filter_schedule_for_offer(
     ``schedule.lane_filtered_items`` so the decision engine can explain the
     mismatch to the operator instead of silently routing to FEED.
     """
+    candidate_steps = list(schedule.ranked_steps)
     compatible_ranked_steps: List[Any] = []
     incompatible_ranked_steps: List[Any] = []
-    for step in schedule.ranked_steps:
+    for step in candidate_steps:
         if _step_is_compatible_with_offer(
             step,
             execution_lane=execution_lane,
@@ -268,9 +270,24 @@ def _filter_schedule_for_offer(
         )
     ]
 
-    compatible_assignable_steps = [
+    conduct_eligible_ids = {step.item_id for step in compatible_conduct_eligible}
+    wip_filtered_steps = [
         step
         for step in compatible_ranked_steps
+        if step.next_step == NextStep.CONDUCT
+        and step.item_id not in conduct_eligible_ids
+    ]
+    wip_surviving_steps = [
+        step for step in compatible_ranked_steps if step not in wip_filtered_steps
+    ]
+    claim_filtered_steps = [
+        step
+        for step in wip_surviving_steps
+        if not is_assignable_claim_state(step.claim_state)
+    ]
+    compatible_assignable_steps = [
+        step
+        for step in wip_surviving_steps
         if is_assignable_claim_state(step.claim_state)
     ]
 
@@ -278,7 +295,18 @@ def _filter_schedule_for_offer(
     schedule.lane_filtered_items = [
         _serialize_filtered_step(step, conn) for step in incompatible_ranked_steps
     ]
-    schedule.ranked_steps = compatible_ranked_steps
+    schedule.offer_diagnostics = build_schedule_offer_diagnostics(
+        candidate_steps=candidate_steps,
+        compatible_steps=compatible_ranked_steps,
+        lane_filtered_steps=incompatible_ranked_steps,
+        wip_filtered_steps=wip_filtered_steps,
+        claim_filtered_steps=claim_filtered_steps,
+        schedule=schedule,
+        execution_lane=execution_lane,
+        lane_allowed_paths=lane_allowed_paths,
+        conn=conn,
+    )
+    schedule.ranked_steps = wip_surviving_steps
     schedule.conduct_eligible = compatible_conduct_eligible
     schedule.selected_step = compatible_assignable_steps[0] if compatible_assignable_steps else None
     return schedule

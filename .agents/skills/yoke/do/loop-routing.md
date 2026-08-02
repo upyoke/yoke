@@ -312,13 +312,13 @@ After the feed flow completes, **stop the loop** -- this action is NOT chainable
 
 #### `strategize`
 See [`loop-routing-strategize.md`](loop-routing-strategize.md) — extracted to keep this file under the 350-line cap.
-
 #### `wait`
 Print the wait header:
 ```
 WAIT: {reason}
 ```
 
+If `context.offer_diagnostics.top_eliminator.eliminated > 0`, print `Top eliminator: {context.offer_diagnostics.top_eliminator.summary}`.
 **Lane-filtered branch.** If `context.wait_reason == "no_lane_compatible_work"`, the frontier has work but none of it is compatible with this lane. Render the lane situation instead of the generic idle text — the truly-empty wording below is reserved for the truly-empty branch.
 
 ```

@@ -67,49 +67,39 @@ def call_dispatcher(
 
 
 def _function_not_registered_hint(function_id: str) -> str:
+    """The dogfooding recovery this checkout can add to a skew error.
+
+    The transport's version-skew gate already names the function, both
+    engine versions, and the deploy-or-update recovery. What only a
+    source checkout can add is the concrete local-postgres rerun recipe
+    for the command in hand, so this hint carries exactly that.
+    """
     entry = adapter_for(function_id)
     if entry is None:
         return ""
-    return _server_missing_local_function_hint(
-        function_id,
-        cli_invocation=entry.cli_invocation,
-    )
+    return _local_postgres_rerun_hint(cli_invocation=entry.cli_invocation)
 
 
-def _server_missing_local_function_hint(
-    function_id: str,
-    *,
-    cli_invocation: str,
-) -> str:
+def _local_postgres_rerun_hint(*, cli_invocation: str) -> str:
     try:
         from yoke_core.domain import machine_config
         from yoke_contracts.machine_config.schema import local_postgres_envs
 
-        cfg = machine_config.load_config()
-        env_name = machine_config.active_env()
-        local_envs = local_postgres_envs(cfg)
+        local_envs = local_postgres_envs(machine_config.load_config())
     except Exception:
-        env_name = "<active https env>"
-        local_envs = []
-
-    lines = [
-        f"The active HTTPS env {env_name!r} does not serve "
-        f"`{function_id}`, but this CLI build knows that local command. "
-        "Deploy or update the Yoke API for that env before using the "
-        "default HTTPS path.",
-    ]
-    if local_envs:
-        env = local_envs[0]
-        if cli_invocation.startswith("yoke "):
-            recipe = cli_invocation.replace("yoke ", f"yoke --env {env} ", 1)
-        else:
-            recipe = f"YOKE_ENV={env} {cli_invocation}"
-        lines.append(
-            "For dogfooding newly merged local code against the Postgres "
-            f"authority, rerun with `{recipe}` "
-            f"(configured local-postgres envs: {', '.join(local_envs)})."
-        )
-    return " ".join(lines)
+        return ""
+    if not local_envs:
+        return ""
+    env = local_envs[0]
+    if cli_invocation.startswith("yoke "):
+        recipe = cli_invocation.replace("yoke ", f"yoke --env {env} ", 1)
+    else:
+        recipe = f"YOKE_ENV={env} {cli_invocation}"
+    return (
+        "For dogfooding newly merged local code against the Postgres "
+        f"authority, rerun with `{recipe}` "
+        f"(configured local-postgres envs: {', '.join(local_envs)})."
+    )
 
 
 def adapter_for(function_id: str) -> Optional[AdapterEntry]:

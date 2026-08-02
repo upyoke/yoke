@@ -283,6 +283,7 @@ def compute_schedule(
         exceptional_steps=exceptional_steps,
         wip_cap=raw.wip_cap,
         wip_active=raw.wip_active,
+        wip_active_items=list(raw.wip_active_items),
         conduct_eligible=conduct_eligible,
         frozen_steps=frozen_steps,
     )

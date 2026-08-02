@@ -200,6 +200,7 @@ NEXT_ACTION_CHOSEN_EVENT = {
         "chainable",
         "correlation_id",
         "step",
+        "offer_diagnostics",
     ],
     # Indexed fields populated by the emitter when the action targets a
     # specific work unit:
@@ -213,7 +214,7 @@ NEXT_ACTION_CHOSEN_EVENT = {
     #   feed:       blocked_count, trigger
     #   strategize: sml_coherent
     #   drift_review: classification, summary, checkpoint_start, reviewed_through
-    #   wait:       (none)
+    #   wait:       offer_diagnostics (candidate elimination chain and top filter)
 }
 
 
@@ -300,6 +301,8 @@ class FrontierState:
         selected_item: The highest-ranked assignable item ID, or None.
         scheduler_context: Additional context from the scheduler for
             the ``charge`` action (item details, next-step, etc.).
+        offer_diagnostics: Numbered candidate-elimination chain shared by
+            the decision response, NextActionChosen event, and offer envelope.
     """
 
     runnable_items: List[str] = field(default_factory=list)
@@ -311,6 +314,7 @@ class FrontierState:
     drift_review: Optional[Dict[str, Any]] = None
     selected_item: Optional[str] = None
     scheduler_context: Optional[Dict[str, Any]] = None
+    offer_diagnostics: Optional[Dict[str, Any]] = None
     lane_filtered_count: int = 0
     lane_filtered_items: Optional[List[Dict[str, Any]]] = None
     last_completed_step: Optional[Dict[str, Any]] = None

@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import threading
 import time
 import uuid
 
 import psycopg
 import pytest
 
+from yoke_core.domain import test_gate_timeout
 from yoke_core.tools import gate_admission
 
 
@@ -154,6 +156,61 @@ def test_watch_pytest_mirrors_marker_into_child_env(tmp_path, monkeypatch):
     )
     assert rc == 0
     assert captured["env"][gate_admission.ADMITTED_ENV] == "1"
+
+
+def test_queued_gate_gets_its_whole_budget_once_admitted(tmp_path, monkeypatch):
+    # The failure this guards: a gate that queues behind another spends its
+    # budget in line and is killed mid-suite, recording a fail verdict for a
+    # run that never had time to finish. The budget belongs to execution, so
+    # a wait longer than the budget itself must leave the budget intact.
+    hold_seconds = 2.0
+    budget_seconds = 1
+    dsn = gate_admission._maintenance_dsn()
+    assert dsn is not None
+    base = _scratch_lock_base()
+    monkeypatch.setattr(gate_admission, "GATE_SLOT_LOCK_BASE", base)
+    monkeypatch.setenv(gate_admission.CAP_ENV, "1")
+    monkeypatch.delenv(gate_admission.ADMITTED_ENV, raising=False)
+    monkeypatch.setenv(
+        test_gate_timeout.WATCH_EXECUTION_TIMEOUT_ENV, str(budget_seconds)
+    )
+    suite_dir = tmp_path / "suite"
+    suite_dir.mkdir()
+
+    from yoke_core.tools import watch_pytest
+
+    holder = psycopg.connect(dsn, autocommit=True)
+    release = threading.Timer(hold_seconds, holder.close)
+    observed: dict = {}
+
+    def fake_run_watcher(**kwargs):
+        observed["timeout_seconds"] = kwargs["timeout_seconds"]
+        observed["waited"] = time.monotonic() - started
+        return 0
+
+    monkeypatch.setattr(watch_pytest._watch_runner, "run_watcher", fake_run_watcher)
+    try:
+        assert gate_admission.try_acquire_slot(holder, 1, base=base) is True
+        release.start()
+        started = time.monotonic()
+        rc = watch_pytest.main(
+            [
+                "--raw-capture",
+                str(tmp_path / "raw.log"),
+                "--progress-capture",
+                str(tmp_path / "progress.log"),
+                "--",
+                str(suite_dir),
+                "-q",
+            ]
+        )
+    finally:
+        release.cancel()
+        holder.close()
+
+    assert rc == 0
+    assert observed["waited"] >= hold_seconds
+    assert observed["timeout_seconds"] == budget_seconds
 
 
 def test_cap_zero_disables_admission(monkeypatch):
