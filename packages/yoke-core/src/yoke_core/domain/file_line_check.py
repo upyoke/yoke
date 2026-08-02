@@ -56,6 +56,10 @@ from yoke_contracts.project_contract.file_line_policy import (
     generated_path_globs,
     tracked_generated_views,
 )
+from yoke_core.domain.file_line_check_pack_versions import (
+    is_pack_manifest,
+    is_pack_version_carry_forward,
+)
 from yoke_core.domain.file_line_check_helpers import EMPTY_TREE as _EMPTY_TREE
 from yoke_core.domain.strategy_docs_paths import is_strategy_view_path
 
@@ -123,6 +127,12 @@ def _classify_path_with_policy(
     # clone or CI runner has no manifest, and a verdict that changes with
     # the environment is not a gate.
     if any(fnmatch.fnmatchcase(posix_path, p) for p in generated_path_globs()):
+        return Classification.GENERATED
+    # Immutable pack versions restate their whole file tree per release, so
+    # carried-forward copies and the manifest are not authored here.
+    if is_pack_manifest(posix_path) or is_pack_version_carry_forward(
+        posix_path, repo_root
+    ):
         return Classification.GENERATED
     return do_classify_path(
         path,

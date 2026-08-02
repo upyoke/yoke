@@ -146,6 +146,12 @@ def runner_fleet_values(
         "runner_fleet_idle_shutdown_minutes": str(
             runner_fleet.lifecycle.idle_shutdown_minutes
         ),
+        "runner_fleet_spot_on_demand_base_capacity": str(
+            runner_fleet.spot.on_demand_base_capacity
+        ),
+        "runner_fleet_spot_on_demand_percentage_above_base": str(
+            runner_fleet.spot.on_demand_percentage_above_base
+        ),
         "runner_fleet_shutdown_mode": runner_fleet.lifecycle.shutdown_mode,
         "runner_fleet_deployment_ssh_stack_outputs_json": (
             json_helper.dumps_compact(resolved_deployment_ssh_stack_outputs)
