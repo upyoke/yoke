@@ -2,7 +2,8 @@
 
 The normal substrate renderer owns files inside the Yoke source checkout
 (``runtime/harness/...``). External project repos receive an installed
-layer instead: ``.claude/``, ``.codex/``, and ``.agents/skills/yoke``.
+layer instead: ``.claude/``, ``.codex/``, ``.cursor/``, and
+``.agents/skills/yoke``.
 This module compares and writes that installed shape from the current Yoke
 source tree.
 """
@@ -17,6 +18,10 @@ from yoke_core.domain.agents_render_codex import (
     render_codex_agent,
     render_codex_hooks_json,
 )
+from yoke_core.domain.agents_render_cursor import (
+    render_cursor_agent,
+    render_cursor_hooks_json,
+)
 from yoke_core.domain.agents_render_subagent_hooks import (
     CANONICAL_DIR,
     render_claude_agent,
@@ -28,6 +33,7 @@ from yoke_core.domain.workspace_authority import (
 
 _CLAUDE_SKILL_LINK = Path(".claude") / "skills" / "yoke"
 _CODEX_SKILL_LINK = Path(".codex") / "skills" / "yoke"
+_CURSOR_SKILL_LINK = Path(".cursor") / "skills" / "yoke"
 _SKILL_LINK_TARGET = "../../.agents/skills/yoke"
 _INSTALL_MANIFEST = Path(".yoke") / "install-manifest.json"
 
@@ -37,7 +43,7 @@ def is_project_install_root(target_root: Path) -> bool:
     root = Path(target_root)
     if (root / CANONICAL_DIR).exists():
         return False
-    return any((root / p).exists() for p in (".claude", ".codex", ".agents"))
+    return any((root / p).exists() for p in (".claude", ".codex", ".cursor", ".agents"))
 
 
 def detect_project_install_drift(
@@ -59,7 +65,7 @@ def detect_project_install_drift(
         if out_path.read_text(encoding="utf-8") != rendered:
             drift.append(f"drift: {rel_path}")
     if not copy_skills:
-        for link_path in (_CLAUDE_SKILL_LINK, _CODEX_SKILL_LINK):
+        for link_path in (_CLAUDE_SKILL_LINK, _CODEX_SKILL_LINK, _CURSOR_SKILL_LINK):
             full = root / link_path
             if not full.is_symlink():
                 drift.append(f"missing: {link_path}")
@@ -90,7 +96,7 @@ def write_project_install(
             out_path.write_text(rendered, encoding="utf-8")
         results[str(rel_path)] = (action, rendered)
     if not copy_skills:
-        for link_path in (_CLAUDE_SKILL_LINK, _CODEX_SKILL_LINK):
+        for link_path in (_CLAUDE_SKILL_LINK, _CODEX_SKILL_LINK, _CURSOR_SKILL_LINK):
             action = _ensure_skill_link(root / link_path, dry_run=dry_run)
             results[str(link_path)] = (action, _SKILL_LINK_TARGET)
     return results
@@ -147,6 +153,14 @@ def _project_install_outputs(
             )
         )
     outputs.append((Path(".codex") / "hooks.json", render_codex_hooks_json()))
+    for agent in _agents():
+        outputs.append(
+            (
+                Path(".cursor") / "agents" / f"yoke-{agent}.md",
+                render_cursor_agent(root / CANONICAL_DIR, agent),
+            )
+        )
+    outputs.append((Path(".cursor") / "hooks.json", render_cursor_hooks_json()))
     skill_source = root / ".agents" / "skills" / "yoke"
     outputs.extend(
         _copied_tree_outputs(skill_source, Path(".agents") / "skills" / "yoke")
@@ -154,6 +168,7 @@ def _project_install_outputs(
     if copy_skills:
         outputs.extend(_copied_tree_outputs(skill_source, _CLAUDE_SKILL_LINK))
         outputs.extend(_copied_tree_outputs(skill_source, _CODEX_SKILL_LINK))
+        outputs.extend(_copied_tree_outputs(skill_source, _CURSOR_SKILL_LINK))
     return outputs
 
 

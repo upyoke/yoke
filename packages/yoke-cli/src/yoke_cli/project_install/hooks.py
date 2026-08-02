@@ -27,11 +27,20 @@ from yoke_cli.project_install.hook_schema import validate_hooks_subtree
 
 CLAUDE_SETTINGS_REL = ".claude/settings.json"
 CODEX_HOOKS_REL = ".codex/hooks.json"
+CURSOR_HOOKS_REL = ".cursor/hooks.json"
 
 # Bundle hooks key -> project settings file carrying that subtree.
 SETTINGS_FILE_BY_HOOKS_KEY = {
     "claude_settings_hooks": CLAUDE_SETTINGS_REL,
     "codex_hooks": CODEX_HOOKS_REL,
+    "cursor_hooks": CURSOR_HOOKS_REL,
+}
+
+# Cursor validates its hooks file against a versioned schema and refuses to
+# start when the file is invalid, so a freshly created .cursor/hooks.json
+# seeds the version marker alongside the hooks map.
+DEFAULT_PAYLOAD_BY_SETTINGS_REL = {
+    CURSOR_HOOKS_REL: {"version": 1},
 }
 
 
@@ -120,7 +129,7 @@ def plan_hooks_file(
         payload = _validated_settings_payload(target)
         created = False
     else:
-        payload = {"hooks": {}}
+        payload = {**(DEFAULT_PAYLOAD_BY_SETTINGS_REL.get(settings_rel) or {}), "hooks": {}}
         created = bool(current_records)
     hooks = payload.setdefault("hooks", {})
     assert isinstance(hooks, dict)
@@ -149,7 +158,8 @@ def plan_hooks_file(
             entries.append(entry)
             existing.add(_entry_key(entry))
             added.append(_record(event, entry))
-    deleted_file = created_by_install and payload == {"hooks": {}}
+    empty_payload = {**(DEFAULT_PAYLOAD_BY_SETTINGS_REL.get(settings_rel) or {}), "hooks": {}}
+    deleted_file = created_by_install and payload == empty_payload
     return {
         "created": created,
         "added": added,

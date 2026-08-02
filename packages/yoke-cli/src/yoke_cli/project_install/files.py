@@ -35,7 +35,7 @@ DISCARDED_PRIOR_STRATEGY_RECORDS_KEY = "_discarded_prior_strategy_records"
 
 # Hook-merge targets — bundle ``files`` must never name these directly;
 # their content flows through the bundle's ``hooks`` subtrees.
-HOOK_MERGE_TARGETS = (".claude/settings.json", ".codex/hooks.json")
+HOOK_MERGE_TARGETS = (".claude/settings.json", ".codex/hooks.json", ".cursor/hooks.json")
 
 class ProjectInstallError(RuntimeError):
     """Install/refresh/uninstall cannot proceed; message names the repair."""
