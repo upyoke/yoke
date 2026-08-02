@@ -10,6 +10,9 @@ from __future__ import annotations
 from typing import Callable, Dict, List, Tuple
 
 from yoke_cli.commands import flag_adapters as _adapters
+from yoke_cli.commands.adapters.items_merge_provenance import (
+    items_merge_provenance_operator_correct,
+)
 from yoke_cli.commands.adapters.lifecycle_repair import lifecycle_repair_status
 from yoke_cli.commands.registry_deployment import DEPLOYMENT_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_ephemeral_env import EPHEMERAL_ENV_SUBCOMMAND_REGISTRY
@@ -48,6 +51,10 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ("items", "scalar", "update"): (
         "items.scalar.update",
         _adapters.items_scalar_update,
+    ),
+    ("items", "merge-provenance", "operator-correct"): (
+        "items.merge_provenance.operator_correct",
+        items_merge_provenance_operator_correct,
     ),
     ("items", "section", "upsert"): (
         "items.section.upsert",
