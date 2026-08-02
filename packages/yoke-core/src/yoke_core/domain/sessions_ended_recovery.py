@@ -104,7 +104,10 @@ def session_registration_state(
         return None, None, False
     if row is None:
         return False, None, False
-    return True, row["actor_id"], row["ended_at"] is not None
+    try:
+        return True, row["actor_id"], row["ended_at"] is not None
+    except Exception:  # noqa: BLE001 — an unreadable row is "unknown", not a raise
+        return None, None, False
 
 
 def session_ended_recovery_command(conn: Any, session_id: str) -> str:
