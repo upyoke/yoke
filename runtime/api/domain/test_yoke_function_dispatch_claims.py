@@ -109,7 +109,7 @@ class _ClaimMatrixSuite(unittest.TestCase):
 
 
 class TestClaimRequiredPaths(_ClaimMatrixSuite):
-    """AC-1.16: exercise every claim_required_kind value."""
+    """Exercise every claim_required_kind value."""
 
     def test_none_kind_runs_handler_regardless(self):
         register(

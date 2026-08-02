@@ -72,7 +72,7 @@ def _post_decision_lane(db_path: str, session_id: str) -> str | None:
 
 
 class TestCallerSuppliedLaneIsIgnored:
-    """AC-4: --lane is accepted but never wins over the session row."""
+    """--lane is accepted but never wins over the session row."""
 
     def test_caller_primary_against_darius_row_emits_warning(self, session_offer_db):
         sid = "lane-anchor-warning"
@@ -203,13 +203,13 @@ class TestRegressionDariusPrimaryNoPolish:
         ).fetchone()[0]
         conn.close()
         envelope = json.loads(envelope_blob)
-        # AC-5: envelope must record DARIUS (the row), not the caller's
+        # Envelope must record DARIUS (the row), not the caller's
         # 'primary' override. Previously, this asserted 'primary'.
         assert envelope["execution_lane"] == "DARIUS"
 
 
 class TestSessionOfferCarriesRowLaneToDecisionEngine:
-    """AC-15: the SessionOffer fed into decide_next_action carries the row lane."""
+    """The SessionOffer fed into decide_next_action carries the row lane."""
 
     def test_offer_envelope_persisted_with_row_lane(self, session_offer_db):
         sid = "carry-row-lane"

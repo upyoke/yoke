@@ -138,7 +138,7 @@ class TestParseReflectionBlocks:
         assert len(errors) == 0
 
     def test_tester_multiline_body_preserved(self):
-        """AC-6: Tester block with multiline observations."""
+        """Tester block with multiline observations."""
         entries, _ = parse_reflection_blocks(TESTER_BLOCK)
         body = entries[0].body
         assert "multi-line observation" in body
@@ -146,7 +146,7 @@ class TestParseReflectionBlocks:
         assert body.count("\n") >= 2
 
     def test_tester_non_default_context(self):
-        """AC-6: non-default context value is preserved."""
+        """Non-default context value is preserved."""
         entries, _ = parse_reflection_blocks(TESTER_BLOCK)
         assert entries[0].context == "review YOK-1216"
 
@@ -273,14 +273,14 @@ class TestCaptureReflections:
         conn.close()
 
     def test_no_reflection_truthful_noop(self):
-        """AC-7: no false success when no block present."""
+        """No false success when no block present."""
         result = capture_reflections(NO_REFLECTION)
         assert result.entries_parsed == 0
         assert result.entries_persisted == 0
         assert result.errors == []
 
     def test_malformed_entry_surfaces_error(self):
-        """AC-7: capture failure surfaced deterministically."""
+        """Capture failure surfaced deterministically."""
         result = capture_reflections(MALFORMED_ENTRY)
 
         assert result.entries_parsed == 0
@@ -289,7 +289,7 @@ class TestCaptureReflections:
         assert "missing required 'category'" in result.errors[0]
 
     def test_hardcoded_context_regression(self):
-        """AC-5: fails if context is overwritten with hardcoded 'conduct YOK-...'."""
+        """Fails if context is overwritten with hardcoded 'conduct YOK-...'."""
         entries, _ = parse_reflection_blocks(ENGINEER_BLOCK)
         for entry in entries:
             # The old placeholder was 'conduct YOK-${_id}'

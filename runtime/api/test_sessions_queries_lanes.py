@@ -23,7 +23,7 @@ class TestSessionOfferLanes:
     """Lane-filter + path-compatibility tests for session_offer_with_ownership."""
 
     def test_claim_race_retries_next_candidate(self, ownership_conn):
-        """AC-7: lost claim race retries with next candidate."""
+        """Lost claim race retries with next candidate."""
         conn, ws = ownership_conn
         _ensure_active_session(conn, "sess-race-1", ws, executor="A", model="opus")
         _ensure_active_session(conn, "sess-race-2", ws, executor="B", model="opus")
@@ -169,7 +169,7 @@ class TestSessionOfferLanes:
         assert schedule.lane_filtered_count >= 1
 
     def test_offer_preserves_lane_filtered_detail_when_all_work_incompatible(self, ownership_conn):
-        """AC-4/AC-5/AC-6: when the offer's lane filters out every runnable item,
+        """When the offer's lane filters out every runnable item,
         the schedule preserves the dropped steps on lane_filtered_items with
         full structured detail (item_id, title, status, next_step,
         required_path, rank, claim_state), and routing the
@@ -265,7 +265,7 @@ class TestSessionOfferLanes:
                 assert key in entry, f"lane_filtered_paths entry missing {key}"
 
     def test_supported_paths_in_return_dict(self, ownership_conn):
-        """AC-6: supported_paths from the offer is returned in the result dict."""
+        """Supported_paths from the offer is returned in the result dict."""
         conn, ws = ownership_conn
         _ensure_active_session(conn, "sess-paths-1", ws, model="opus")
         result = session_offer_with_ownership(
@@ -280,7 +280,7 @@ class TestSessionOfferLanes:
         assert result["supported_paths"] == ["shepherd", "advance"]
 
     def test_supported_paths_defaults_to_empty(self, ownership_conn):
-        """AC-6: supported_paths defaults to empty list when not provided."""
+        """Supported_paths defaults to empty list when not provided."""
         conn, ws = ownership_conn
         _ensure_active_session(conn, "sess-paths-2", ws, model="opus")
         result = session_offer_with_ownership(
@@ -294,7 +294,7 @@ class TestSessionOfferLanes:
         assert result["supported_paths"] == []
 
     def test_codex_manifest_limits_override_offer_input(self, ownership_conn):
-        """AC-4/AC-5: shared registry plus limitations override caller paths."""
+        """Shared registry plus limitations override caller paths."""
         conn, ws = ownership_conn
         _ensure_active_session(
             conn,

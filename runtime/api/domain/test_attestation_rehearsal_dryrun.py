@@ -95,7 +95,7 @@ def _attestation(rehearsal_commands: List[str]) -> Dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# AC-5 — the three live YOK-1800 fixtures
+# The three live YOK-1800 fixtures
 # ---------------------------------------------------------------------------
 
 
@@ -160,7 +160,7 @@ class TestRehearsalCommandFixtures:
 
 
 # ---------------------------------------------------------------------------
-# AC-9 — short-circuit paths (no subprocess, no DB writes, no provisioning)
+# Short-circuit paths (no subprocess, no DB writes, no provisioning)
 # ---------------------------------------------------------------------------
 
 
@@ -216,7 +216,7 @@ class TestShortCircuit:
 
 
 # ---------------------------------------------------------------------------
-# AC-13 — Issue payload shape
+# Issue payload shape
 # ---------------------------------------------------------------------------
 
 
@@ -276,7 +276,7 @@ class TestIssuePayloadShape:
 
 
 # ---------------------------------------------------------------------------
-# AC-6 — by-construction safety: the validator never executes
+# By-construction safety: the validator never executes
 # ---------------------------------------------------------------------------
 
 

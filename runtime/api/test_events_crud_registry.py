@@ -29,7 +29,7 @@ class TestRegistry:
         assert "system" in result
 
     def test_list(self, db_path: str) -> None:
-        """AC-2: registry list matches shell output format."""
+        """Registry list matches shell output format."""
         self._add_test_event(db_path, "EventA")
         self._add_test_event(db_path, "EventB")
         result = ec.cmd_registry_list(db_path)

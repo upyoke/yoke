@@ -57,7 +57,7 @@ def _seed_issue_items(c: Any, *item_ids: int) -> None:
 
 
 class TestStateConstants:
-    """AC-11 — the constant owner mirrors the DDL CHECK domain."""
+    """The constant owner mirrors the DDL CHECK domain."""
 
     def test_all_states_includes_tentative(self):
         assert TENTATIVE in ALL_STATES
@@ -78,7 +78,7 @@ class TestStateConstants:
 
 
 class TestSchemaAdmitsTentative:
-    """AC-1 — the CHECK domain admits the new ``tentative`` literal."""
+    """The CHECK domain admits the new ``tentative`` literal."""
 
     def test_direct_insert_with_tentative_succeeds(self, conn):
         row = conn.execute(
@@ -104,7 +104,7 @@ class TestSchemaAdmitsTentative:
 
 
 class TestPlanTentative:
-    """AC-2 — callers can register tentative paths without broad parents."""
+    """Callers can register tentative paths without broad parents."""
 
     def test_plan_mints_tentative_row(self, conn):
         _seed_issue_items(conn, 101)
@@ -189,7 +189,7 @@ class TestPlanTentative:
 
 
 class TestOverlapDetection:
-    """AC-3 — tentative targets participate in overlap/conflict detection."""
+    """Tentative targets participate in overlap/conflict detection."""
 
     def test_tentative_target_overlap_blocks_second_claim(self, conn):
         from yoke_core.domain._path_claims_test_helpers import local_human
@@ -215,7 +215,7 @@ class TestOverlapDetection:
 
 
 class TestMaterialization:
-    """AC-4 — tentative targets promote to observed when seen."""
+    """Tentative targets promote to observed when seen."""
 
     def test_find_planned_match_returns_tentative_row(self, conn):
         _seed_issue_items(conn, 301)

@@ -275,7 +275,7 @@ class TestResumptionEventEmission(unittest.TestCase):
     """Direct call to `emit_session_resumed` writes a queryable row."""
 
     def test_emit_writes_event_with_single_predicate_query(self) -> None:
-        """AC-1: marker is queryable with a single event_name predicate."""
+        """Marker is queryable with a single event_name predicate."""
         from yoke_core.domain.sessions_lifecycle_resumption_emit import (
             emit_session_resumed,
         )

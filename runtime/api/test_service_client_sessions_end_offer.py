@@ -19,7 +19,7 @@ class TestOfferClaimReconciliation:
     """eager offer-time claims are released when decision is not charge."""
 
     def test_session_offer_strategize_releases_eager_claim(self, session_offer_db, monkeypatch, capsys):
-        """AC-4: non-charge decision releases the eager offer-time claim.
+        """Non-charge decision releases the eager offer-time claim.
 
         When session_offer_with_ownership() creates a claim and
         decide_next_action() chooses strategize (not charge), the claim must
@@ -91,7 +91,7 @@ class TestOfferClaimReconciliation:
         assert release_event["context"]["release_reason"] == "released"
 
     def test_session_offer_charge_keeps_claim(self, session_offer_db):
-        """AC-6: charge-winning path still keeps its claim."""
+        """Charge-winning path still keeps its claim."""
         sid = "charge-keeps-claim-sess"
         db = session_offer_db["db_path"]
         _pre_register_session(db, sid, workspace=session_offer_db["tmp_dir"])
@@ -140,7 +140,7 @@ class TestSessionOfferDecoupling:
     """session-offer requires pre-registered session, no self-registration."""
 
     def test_session_offer_no_session_returns_error(self, session_offer_db):
-        """AC-2: session-offer without pre-registered session fails with NO_SESSION."""
+        """Session-offer without pre-registered session fails with NO_SESSION."""
         result = _run_client(
             [
                 "session-offer",
@@ -157,7 +157,7 @@ class TestSessionOfferDecoupling:
         assert "nonexistent-session" in result.stderr
 
     def test_session_offer_ended_session_returns_error(self, session_offer_db):
-        """AC-3: session-offer with ended session fails with SESSION_ENDED."""
+        """Session-offer with ended session fails with SESSION_ENDED."""
         sid = "ended-offer-session"
         db = session_offer_db["db_path"]
         _pre_register_session(db, sid, workspace=session_offer_db["tmp_dir"])
@@ -182,7 +182,7 @@ class TestSessionOfferDecoupling:
         assert f"yoke sessions begin --session-id {sid}" in result.stderr
 
     def test_session_offer_with_active_session_succeeds(self, session_offer_db):
-        """AC-1: session-offer with pre-registered active session succeeds."""
+        """Session-offer with pre-registered active session succeeds."""
         sid = "active-session-ok"
         db = session_offer_db["db_path"]
         _pre_register_session(db, sid, workspace=session_offer_db["tmp_dir"])
@@ -203,7 +203,7 @@ class TestSessionOfferDecoupling:
         assert data["action"] in ("charge", "feed", "strategize", "escalate", "wait")
 
     def test_session_offer_no_longer_calls_register_session(self, session_offer_db, monkeypatch):
-        """AC-4: session-offer must not call register_session()."""
+        """Session-offer must not call register_session()."""
         import yoke_core.domain.sessions as sessions_mod
 
         _original_register = sessions_mod.register_session

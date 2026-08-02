@@ -57,7 +57,7 @@ class TestRegisterTentative:
 
 
 class TestReadinessRefs:
-    """AC-10 — readiness suppresses dotted refs for tentative targets too."""
+    """Readiness suppresses dotted refs for tentative targets too."""
 
     def test_tentative_target_suppresses_unresolved_function_ref(self, conn):
         """A dotted ref to a tentative-registered module file is suppressed.

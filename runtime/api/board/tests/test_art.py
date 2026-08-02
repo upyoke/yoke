@@ -122,7 +122,7 @@ class TestParseArtConfig:
         assert ac.emoji_variants[0].weight == 42
 
     def test_weight_disabled_ignored(self, tmp_path):
-        """AC-3: ``# weight-disabled:`` lines are NOT treated as active."""
+        """``# weight-disabled:`` lines are NOT treated as active."""
         cfg_file = tmp_path / "config"
         cfg_file.write_text(textwrap.dedent("""\
             # weight-disabled:99
@@ -154,7 +154,7 @@ class TestParseArtConfig:
 
 
 class TestSelectArtDeterminism:
-    """AC-2: Deterministic seed produces identical selection."""
+    """Deterministic seed produces identical selection."""
 
     def _make_art_config(self) -> ArtConfig:
         return ArtConfig(

@@ -85,7 +85,7 @@ def _seed_pair(conn, *, item_id, path):
 
 class TestSweepEveryReleasedUpstream:
     def test_sweep_unblocks_stranded_downstream(self, conn):
-        """AC-7: omitting --claim-id walks every released upstream."""
+        """Omitting --claim-id walks every released upstream."""
         upstream_a, downstream_a = _seed_pair(
             conn, item_id=20001, path="runtime/api/domain",
         )
@@ -109,7 +109,7 @@ class TestSweepEveryReleasedUpstream:
 
 class TestSingleClaimFilter:
     def test_single_claim_id_targets_one_upstream(self, conn):
-        """AC-7: --claim-id propagates only the named upstream."""
+        """--claim-id propagates only the named upstream."""
         upstream_a, downstream_a = _seed_pair(
             conn, item_id=20101, path="runtime/api/domain",
         )
@@ -179,7 +179,7 @@ class TestSingleClaimFilter:
 
 class TestIdempotence:
     def test_second_sweep_is_a_noop(self, conn):
-        """AC-8: a second sweep produces no further flips."""
+        """A second sweep produces no further flips."""
         _seed_pair(conn, item_id=20201, path="runtime/api/domain")
 
         first = unblock_stranded_for_released(conn)
@@ -189,7 +189,7 @@ class TestIdempotence:
         assert second == []
 
     def test_sweep_skips_terminal_downstream(self, conn):
-        """AC-8: planned/cancelled downstreams are never reflipped."""
+        """Planned/cancelled downstreams are never reflipped."""
         target_a = seed_target(conn, path_string="runtime/api/domain")
         target_b = seed_target(conn, path_string="docs")
         upstream_item = _seed_item(conn, item_id=20301)
@@ -272,7 +272,7 @@ class TestServiceClientCli:
         assert "path-claim-unblock-stranded" in scpc.PATH_CLAIMS_COMMANDS
 
     def test_cli_filters_to_single_claim(self, conn, capsys, monkeypatch):
-        """AC-7: --claim-id flag scopes the sweep to one upstream."""
+        """--claim-id flag scopes the sweep to one upstream."""
         from yoke_core.api import service_client_path_claims as scpc
 
         upstream_a, downstream_a = _seed_pair(

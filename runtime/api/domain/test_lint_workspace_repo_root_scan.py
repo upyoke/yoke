@@ -72,7 +72,7 @@ def test_scan_does_not_flag_allowlisted_cli_re_export(tmp_path: Path) -> None:
 def test_scan_flags_test_fixture_that_calls_repo_root_directly(
     tmp_path: Path,
 ) -> None:
-    """AC-7: a hypothetical `test_*.py` file that imports `_repo_root` and
+    """A hypothetical `test_*.py` file that imports `_repo_root` and
     calls it inside a fixture is flagged. The lint surfaces the leak shape
     that the rewritten ``test_agents_render.repo_root`` fixture used to
     have before this work item replaced it with the workspace-anchored helper.
@@ -95,7 +95,7 @@ def test_scan_flags_test_fixture_that_calls_repo_root_directly(
 
 
 def test_scan_flags_mock_patch_against_repo_root_symbol(tmp_path: Path) -> None:
-    """AC-6: ``mock.patch("...agents_render._repo_root", ...)`` is the third
+    """``mock.patch("...agents_render._repo_root", ...)`` is the third
     leak shape and must be flagged. This is the pattern the prior
     `detect_drift` tests used before they were rewritten to pass
     `target_root=` explicitly.
@@ -118,7 +118,7 @@ def test_scan_flags_mock_patch_against_repo_root_symbol(tmp_path: Path) -> None:
 
 
 def test_scan_returns_empty_when_no_violations(tmp_path: Path) -> None:
-    """AC-6: a runtime tree without any `_repo_root` reference is clean."""
+    """A runtime tree without any `_repo_root` reference is clean."""
     _seed_source_tree(tmp_path, {
         "runtime/api/domain/some_module.py": "def f():\n    return 1\n",
         "runtime/harness/some_helper.py": "x = 2\n",

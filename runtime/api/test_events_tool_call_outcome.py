@@ -232,7 +232,7 @@ class TestEveryOutcomeRoundTripsThroughOutcomes:
 
 
 class TestNamedLintEmitterLiterals:
-    """AC-2: every named ``HarnessToolCallDenied`` emitter's outcome literal
+    """Every named ``HarnessToolCallDenied`` emitter's outcome literal
     is a member of OUTCOMES. The emitter modules in the inventory below
     pass either a string literal or a local variable bound to one of
     these literals to ``emit_denial_event(outcome=...)``."""
@@ -279,7 +279,7 @@ class TestNamedLintEmitterLiterals:
 
 
 class TestFailedOutcomesExcludesLintGuardrailValues:
-    """AC-3: ``--failed-only`` must not sweep ``warn`` or
+    """``--failed-only`` must not sweep ``warn`` or
     ``suppression_attempted`` rows. They are audit signals, not denials.
     ``FAILED_OUTCOMES`` is imported inside each test to avoid the
     ``events_audit_presets`` → ``events_crud`` → ``events_queries``

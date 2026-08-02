@@ -113,7 +113,7 @@ class TestCLI:
                 observe_main()  # should not raise
 
     def test_cli_without_db_arg_falls_back_to_canonical(self, events_db_file):
-        """AC-3: CLI without ``--db`` must fall back to the
+        """CLI without ``--db`` must fall back to the
         canonical yoke.db via ``db_helpers.resolve_db_path``.
 
         Prior to the tracked-launcher fix the Claude PostToolUse hook launcher
@@ -152,7 +152,7 @@ class TestCLI:
         )
 
     def test_cli_explicit_db_wins_over_fallback(self, events_db_file, tmp_path):
-        """AC-3: explicit ``--db`` must still take precedence over
+        """Explicit ``--db`` must still take precedence over
         the fallback so tests, Codex, and programmatic callers stay
         deterministic even when the main-repo DB exists on disk.
         """

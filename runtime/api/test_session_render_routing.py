@@ -218,12 +218,12 @@ class TestPathDerivationMapping:
         }
 
     def test_advance_active_no_longer_exists(self):
-        """AC-1/AC-9: advance-active is fully removed from path mapping."""
+        """Advance-active is fully removed from path mapping."""
         assert "advance-active" not in _NEXT_STEP_TO_PATH
 
 
 class TestPathSupportValidation:
-    """AC-2: decide_next_action returns escalate with unsupported_path when
+    """Decide_next_action returns escalate with unsupported_path when
     non-empty supported_paths excludes the required downstream path.
     Empty supported_paths means all paths supported."""
 
@@ -245,7 +245,7 @@ class TestPathSupportValidation:
         )
 
     def test_escalate_when_path_not_supported(self):
-        """AC-2: shepherd required but only advance supported -> escalate."""
+        """Shepherd required but only advance supported -> escalate."""
         offer = _make_offer(supported_paths=["advance"])
         frontier = self._frontier_with_next_step("shepherd")
         result = decide_next_action(offer, frontier)
@@ -261,14 +261,14 @@ class TestPathSupportValidation:
         assert result.action == ActionKind.CHARGE
 
     def test_backward_compat_empty_supported_paths(self):
-        """AC-3: Empty list means all paths supported."""
+        """Empty list means all paths supported."""
         offer = _make_offer(supported_paths=[])
         frontier = self._frontier_with_next_step("shepherd")
         result = decide_next_action(offer, frontier)
         assert result.action == ActionKind.CHARGE
 
     def test_backward_compat_no_supported_paths(self):
-        """AC-3: No supported_paths field (default) means all supported."""
+        """No supported_paths field (default) means all supported."""
         offer = _make_offer()
         frontier = self._frontier_with_next_step("conduct")
         result = decide_next_action(offer, frontier)

@@ -109,7 +109,7 @@ class TestDecideNextActionFeed:
         assert result.context["trigger"] == "no_runnable_items"
 
     def test_filtered_empty_wait_preempts_drift_review_feed(self):
-        """AC-8: filtered-empty WAIT fires before drift_review FEED — operator
+        """Filtered-empty WAIT fires before drift_review FEED — operator
         must be told that existing work is not compatible with this lane instead of
         silently auto-feeding."""
         offer = _make_offer()

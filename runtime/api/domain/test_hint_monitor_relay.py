@@ -87,7 +87,7 @@ class TestReminderModuleSize(unittest.TestCase):
 
 
 class TestReminderSingleSourceOfTruth(unittest.TestCase):
-    """AC-24: ``DEFAULT_REMINDER`` is the only canonical reminder source.
+    """``DEFAULT_REMINDER`` is the only canonical reminder source.
 
     A grep for the ``"Avoid repeated peeks at the capture file"`` substring across
     ``packages/yoke-core/src`` returns exactly one hit (the canonical

@@ -231,8 +231,8 @@ def test_no_helper_wrapped_shell_dispatch_in_production_python() -> None:
 # Yoke-functions epic: recipe-residue keyed on the
 # canonical RECIPE_RESIDUE_PATTERNS constant — single source of truth for
 # what counts as banned terminal-soup residue in live guidance surfaces.
-# AC-15.4: this test and the Doctor HC consume the same constant.
-# AC-15.1: this assertion is part of the zero-shell-proof suite.
+# This test and the Doctor HC consume the same constant.
+# This assertion is part of the zero-shell-proof suite.
 # ---------------------------------------------------------------------------
 
 

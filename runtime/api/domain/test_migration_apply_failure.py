@@ -30,7 +30,7 @@ from runtime.api.test_backlog import _conn, tmp_db  # noqa: F401 — reused fixt
 
 
 class TestLiveApplyFailure:
-    """AC-50: live-verify failure preserves backup and releases lease with reason."""
+    """Live-verify failure preserves backup and releases lease with reason."""
 
     def test_live_verify_failure_marks_audit_and_releases_lease(
         self, apply_env, monkeypatch

@@ -7,11 +7,11 @@ model-visible output) and pass once both renderers learn to emit the
 
 Coverage map:
 
-* AC-1 — Typed decision carrying ``audit_fields["additionalContext"]`` reaches
+* Typed decision carrying ``audit_fields["additionalContext"]`` reaches
   model-visible output under ``run_event`` for both Claude and Codex.
-* AC-5 — Mixed deny+context: deny envelope wins; advisory text never
+* Mixed deny+context: deny envelope wins; advisory text never
   replaces the deny narrative.
-* AC-9 — Subprocess hook stdout still passes through unchanged when typed
+* Subprocess hook stdout still passes through unchanged when typed
   ``additionalContext`` decisions are also present in the chain.
 
 End-to-end coverage for the three real hint modules
@@ -255,7 +255,7 @@ def test_codex_mixed_deny_and_context_preserves_deny(
 def test_subprocess_stdout_passes_through_with_typed_context(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """AC-9: subprocess output is appended even when a typed hint also fires."""
+    """Subprocess output is appended even when a typed hint also fires."""
     typed_decision = HookDecision(
         outcome=Outcome.NOOP,
         audit_fields={"additionalContext": "typed advisory"},
@@ -292,7 +292,7 @@ def test_subprocess_stdout_passes_through_with_typed_context(
 def test_audit_stdout_field_still_passes_through(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """AC-9: ``audit_fields["stdout"]`` continues to land on stdout verbatim."""
+    """``audit_fields["stdout"]`` continues to land on stdout verbatim."""
     decision = HookDecision(
         outcome=Outcome.AUDIT_ONLY,
         audit_fields={"stdout": "orientation block\n"},

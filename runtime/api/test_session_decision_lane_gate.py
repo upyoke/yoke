@@ -148,7 +148,7 @@ class TestEvaluateLaneGate:
 
 
 class TestFourCanonicalShapesViaDecideCharge:
-    """AC-6 — DARIUS+polish, ALTMAN+polish, unknown, empty across charge."""
+    """DARIUS+polish, ALTMAN+polish, unknown, empty across charge."""
 
     def test_darius_polish_waits_disallowed(self):
         result = decide_charge_action(
@@ -196,7 +196,7 @@ class TestFourCanonicalShapesViaDecideCharge:
 
 
 class TestFourCanonicalShapesViaDecideResume:
-    """AC-6 — DARIUS+polish, ALTMAN+polish, unknown, empty across resume."""
+    """DARIUS+polish, ALTMAN+polish, unknown, empty across resume."""
 
     def _claim(self, required_path: str) -> ClaimedWork:
         return ClaimedWork(

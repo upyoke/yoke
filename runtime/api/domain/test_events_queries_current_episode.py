@@ -251,7 +251,7 @@ class TestCurrentEpisodeFlag(unittest.TestCase):
             self.assertNotIn("OtherSessionEvent", result)
 
     def test_composes_with_event_name_filter(self) -> None:
-        """AC-11: filter composition is AND across all predicates."""
+        """Filter composition is AND across all predicates."""
         with _setup_db() as db_path:
             _insert_event(
                 db_path,

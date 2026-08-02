@@ -23,7 +23,7 @@ def _expected_path(fake_repo) -> str:
 
 
 class TestRuntimeOwnerFromWorktree:
-    """AC-3/AC-5: runtime owners no longer carry bespoke parents[3] fallback."""
+    """Runtime owners no longer carry bespoke parents[3] fallback."""
 
     def test_service_client_resolves_main_db(self, fake_repo):
         """service_client._get_db_path() delegates to canonical resolver."""

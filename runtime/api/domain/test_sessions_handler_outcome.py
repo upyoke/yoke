@@ -31,7 +31,7 @@ from yoke_core.domain.sessions_queries_chain import read_chain_skip_memory
 
 
 class TestIsNonUsefulStep:
-    """AC-25, AC-37: slice and recoverable substrate outcomes don't bump useful step."""
+    """Slice and recoverable substrate outcomes don't bump useful step."""
 
     def test_slice_committed_is_non_useful(self):
         assert is_non_useful_step(OUTCOME_SLICE_COMMITTED) is True
@@ -61,7 +61,7 @@ class TestIsNonUsefulStep:
 
 
 class TestIsTerminalOutcome:
-    """AC-21, AC-22: interactive checkpoint and blocked terminate the chain."""
+    """Interactive checkpoint and blocked terminate the chain."""
 
     def test_interactive_checkpoint_is_terminal(self):
         assert is_terminal_outcome(OUTCOME_INTERACTIVE_CHECKPOINT) is True
@@ -92,7 +92,7 @@ class TestOutcomeSetIntegrity:
 
 
 class TestClassifyAdvanceOutcome:
-    """AC-36, AC-37, AC-41: classify slice vs completed by status comparison."""
+    """Classify slice vs completed by status comparison."""
 
     def test_status_unchanged_implementing_is_slice_committed(self):
         # Routed advance committed a slice but item still implementing.
@@ -140,7 +140,7 @@ class TestClassifyAdvanceOutcome:
 
 
 class TestRenderChainSummaryLabel:
-    """AC-22, AC-39: chain summary distinguishes outcomes by stable labels."""
+    """Chain summary distinguishes outcomes by stable labels."""
 
     def test_completed_label(self):
         assert render_chain_summary_label(OUTCOME_COMPLETED) == "handler completed"
@@ -178,7 +178,7 @@ class TestRenderChainSummaryLabel:
 
 
 class TestRecordRecoverableSubstrateSkip:
-    """AC-24, AC-26, AC-27: substrate skip records dedup memory + audit event."""
+    """Substrate skip records dedup memory + audit event."""
 
     def test_persists_chain_skip_entry(self, conn):
         # Write side canonicalizes to bare-numeric so the consumer's
@@ -313,7 +313,7 @@ class TestRecordRecoverableSubstrateSkip:
 
 
 class TestRecordInteractiveCheckpointHandoff:
-    """AC-21, AC-22: interactive checkpoint preserves work claim, terminates chain."""
+    """Interactive checkpoint preserves work claim, terminates chain."""
 
     def test_writes_chain_checkpoint_with_interactive_outcome(self, conn):
         _register(conn, session_id="sess-checkpoint")

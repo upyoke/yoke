@@ -2,10 +2,10 @@
 
 Covers AC-1, AC-3, AC-4, AC-8 from YOK-1872 task 004:
 
-* AC-1: ``--help`` prints the canonical ``HELP_BODY``.
-* AC-3: argparse rejects an unknown ``--kind``.
-* AC-4: the retired subcommand is gone (not aliased).
-* AC-8: the renamed ``attach_field_note_footer`` helper resolves.
+* ``--help`` prints the canonical ``HELP_BODY``.
+* Argparse rejects an unknown ``--kind``.
+* The retired subcommand is gone (not aliased).
+* The renamed ``attach_field_note_footer`` helper resolves.
 """
 
 from __future__ import annotations

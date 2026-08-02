@@ -117,7 +117,7 @@ class TestFrontierPromotion:
         assert filtered.scheduler_context == {}
 
     def test_runnable_items_projection_unchanged_by_promotion(self):
-        """AC-3: runnable_items contents and order match pre-fix behavior."""
+        """Runnable_items contents and order match pre-fix behavior."""
         from yoke_core.api.service_client_sessions_frontier import (
             build_frontier_state_from_schedule,
         )
@@ -198,7 +198,7 @@ class TestChargeDispatchPath:
 
 
 class TestSchedulerContextCarriesSelectedItem:
-    """AC-4, AC-5: scheduler_context["selected_item"] must be populated
+    """Scheduler_context["selected_item"] must be populated
     for every selected step (baseline and promoted), so the
     ``decide_charge_action`` mismatch guard at
     ``session_decision_charge.py:76-91`` is no longer silently disabled

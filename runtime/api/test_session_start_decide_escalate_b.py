@@ -17,7 +17,7 @@ class TestDecideNextActionEscalate:
     """Filtered-empty WAIT paths, blocker precedence, and lane-filtered signal helper."""
 
     def test_filtered_empty_lane_returns_no_lane_compatible_work_wait(self):
-        """AC-5: no runnable, no blockers, lane_filtered>0 -> WAIT with no_lane_compatible_work."""
+        """No runnable, no blockers, lane_filtered>0 -> WAIT with no_lane_compatible_work."""
         offer = _make_offer()
         frontier = FrontierState(
             runnable_items=[],
@@ -40,7 +40,7 @@ class TestDecideNextActionEscalate:
         assert result.action != ActionKind.ESCALATE
 
     def test_filtered_empty_wait_includes_structured_filtered_items(self):
-        """AC-6: WAIT context carries per-item detail and lane_filtered_paths."""
+        """WAIT context carries per-item detail and lane_filtered_paths."""
         offer = _make_offer(execution_lane="ALTMAN")
         filtered_items = [
             {
@@ -93,7 +93,7 @@ class TestDecideNextActionEscalate:
         assert result.action == ActionKind.CHARGE
 
     def test_blockers_escalate_wins_over_lane_filtered_wait(self):
-        """AC-7: blocker-driven escalate wins when both apply; lane signal rides along."""
+        """Blocker-driven escalate wins when both apply; lane signal rides along."""
         offer = _make_offer()
         frontier = FrontierState(
             runnable_items=[],
@@ -174,7 +174,7 @@ class TestDecideNextActionEscalate:
                 )
 
     def test_apply_lane_filtered_signal_helper_attaches_to_any_context(self):
-        """AC-3: the _apply_lane_filtered_signal helper is the single source
+        """The _apply_lane_filtered_signal helper is the single source
         of truth for lane-filtered context keys. Any branch that uses it
         gets identical signal attachment — this protects AC-3 even if
         future code paths reintroduce FEED on a lane-filtered frontier."""
@@ -227,7 +227,7 @@ class TestDecideNextActionEscalate:
         assert "lane_filtered_items" not in ctx
 
     def test_lane_filtered_items_round_trip_through_decision_engine(self):
-        """AC-6: structured filtered-item detail is preserved from
+        """Structured filtered-item detail is preserved from
         FrontierState input through NextAction.context output, unchanged."""
         offer = _make_offer()
         filtered = [

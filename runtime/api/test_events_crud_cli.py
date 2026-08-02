@@ -28,7 +28,7 @@ class TestCLI:
         assert result.returncode == 0, result.stderr
 
     def test_no_args_exit_2(self) -> None:
-        """AC-7: exit code 2 for usage errors."""
+        """Exit code 2 for usage errors."""
         assert ec.main([]) == 2
 
     def test_unknown_subcmd_exit_2(self) -> None:
@@ -39,7 +39,7 @@ class TestCLI:
         assert ec.main(["init"]) == 0
 
     def test_registry_get_not_found_exit_1(self, db_path: str, monkeypatch) -> None:
-        """AC-7: exit code 1 for not-found."""
+        """Exit code 1 for not-found."""
         monkeypatch.setenv("YOKE_DB", db_path)
         assert ec.main(["registry", "get", "NonExistent"]) == 1
 
@@ -211,10 +211,10 @@ class TestCLI:
 
 
 class TestListErgonomics:
-    """/ AC-7 / AC-8 / AC-15 / AC-16: events list ergonomics."""
+    """Events list ergonomics."""
 
     def test_list_help_prints_usage_and_exits_zero(self, db_path, monkeypatch, capsys):
-        """AC-6: --help shows usage instead of dumping ledger rows."""
+        """--help shows usage instead of dumping ledger rows."""
         monkeypatch.setenv("YOKE_DB", db_path)
         _insert_event(db_path, event_id="help-1")
         assert ec.main(["list", "--help"]) == 0
@@ -231,7 +231,7 @@ class TestListErgonomics:
         assert "help-2" not in out
 
     def test_list_unknown_flag_fails_closed(self, db_path, monkeypatch, capsys):
-        """AC-8: unknown filter flags exit 2 instead of silently filtering nothing."""
+        """Unknown filter flags exit 2 instead of silently filtering nothing."""
         monkeypatch.setenv("YOKE_DB", db_path)
         _insert_event(db_path, event_id="bogus-1")
         assert ec.main(["list", "--bogus", "x"]) == 2
@@ -239,14 +239,14 @@ class TestListErgonomics:
         assert "unknown filter flag" in err and "--bogus" in err
 
     def test_list_missing_value_fails_closed(self, db_path, monkeypatch, capsys):
-        """AC-15: a flag with no value is rejected with a clear error."""
+        """A flag with no value is rejected with a clear error."""
         monkeypatch.setenv("YOKE_DB", db_path)
         _insert_event(db_path, event_id="missingval-1")
         assert ec.main(["list", "--item"]) == 2
         assert "requires a value" in capsys.readouterr().err
 
     def test_list_filter_value_cannot_be_next_flag(self, db_path, monkeypatch, capsys):
-        """AC-15: a filter must not consume the next flag as its value."""
+        """A filter must not consume the next flag as its value."""
         monkeypatch.setenv("YOKE_DB", db_path)
         _insert_event(db_path, event_id="missingval-2")
         assert ec.main(["list", "--item", "--limit", "1"]) == 2
@@ -259,7 +259,7 @@ class TestListErgonomics:
         assert "requires PREFIX-N" in capsys.readouterr().err
 
     def test_list_item_alias_normalizes_yok_n_to_int(self, db_path, monkeypatch, capsys):
-        """AC-7: --item accepts YOK-N and normalizes through item_id."""
+        """--item accepts YOK-N and normalizes through item_id."""
         monkeypatch.setenv("YOKE_DB", db_path)
         _insert_event(db_path, event_id="alias-evt-1", item_id=1234)
         _insert_event(db_path, event_id="other-evt-1", item_id=9999)
@@ -286,14 +286,14 @@ class TestListErgonomics:
         assert "project context" in capsys.readouterr().err
 
     def test_list_item_id_accepts_project_context(self, db_path, monkeypatch, capsys):
-        """AC-7: original --item-id spelling stays supported."""
+        """Original --item-id spelling stays supported."""
         monkeypatch.setenv("YOKE_DB", db_path)
         _insert_event(db_path, event_id="id-evt-1", item_id=4444)
         assert ec.main(["list", "--item-id", "4444", "--project", "yoke"]) == 0
         assert "id-evt-1" in capsys.readouterr().out
 
     def test_list_limit_with_filter_is_bounded(self, db_path, monkeypatch, capsys):
-        """AC-16: --limit applies after filters and produces bounded output."""
+        """--limit applies after filters and produces bounded output."""
         monkeypatch.setenv("YOKE_DB", db_path)
         for i in range(5):
             _insert_event(db_path, event_id=f"bnd-{i}", item_id=5555)
@@ -304,7 +304,7 @@ class TestListErgonomics:
         assert out and len(out.split("\n")) == 2
 
     def test_list_invalid_limit_fails_closed(self, db_path, monkeypatch):
-        """AC-16: invalid --limit values exit 2, never produce ledger output."""
+        """Invalid --limit values exit 2, never produce ledger output."""
         monkeypatch.setenv("YOKE_DB", db_path)
         _insert_event(db_path, event_id="lim-bad-1")
         assert ec.main(["list", "--limit", "not-an-int"]) == 2
@@ -315,14 +315,14 @@ class TestListErgonomics:
         assert ec.main(["list", "--limit", "-1"]) == 2
 
     def test_count_unknown_flag_fails_closed(self, db_path, monkeypatch, capsys):
-        """AC-15: events count must also reject unknown flags."""
+        """Events count must also reject unknown flags."""
         monkeypatch.setenv("YOKE_DB", db_path)
         _insert_event(db_path)
         assert ec.main(["count", "--bogus", "x"]) == 2
         assert "unknown filter flag" in capsys.readouterr().err
 
     def test_count_item_alias(self, db_path, monkeypatch, capsys):
-        """AC-7: count also accepts --item alias."""
+        """Count also accepts --item alias."""
         monkeypatch.setenv("YOKE_DB", db_path)
         _insert_event(db_path, event_id="cnt-1", item_id=7000)
         _insert_event(db_path, event_id="cnt-2", item_id=7000)
@@ -331,7 +331,7 @@ class TestListErgonomics:
         assert capsys.readouterr().out.strip() == "2"
 
     def test_anomalies_unknown_flag_fails_closed(self, db_path, monkeypatch, capsys):
-        """AC-15: events anomalies must reject unknown flags."""
+        """Events anomalies must reject unknown flags."""
         monkeypatch.setenv("YOKE_DB", db_path)
         assert ec.main(["anomalies", "--bogus", "x"]) == 2
         assert "unknown filter flag" in capsys.readouterr().err

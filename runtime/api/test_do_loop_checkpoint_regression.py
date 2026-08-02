@@ -9,7 +9,7 @@ ADVANCE_SKILL = REPO_ROOT / ".agents/skills/yoke/advance/SKILL.md"
 
 
 def test_loop_routing_pre_dispatch_checkpoint_before_resume():
-    """AC-3/AC-6: pre-dispatch checkpoint appears before the first action-specific dispatch section."""
+    """Pre-dispatch checkpoint appears before the first action-specific dispatch section."""
     text = LOOP_ROUTING.read_text()
 
     pre_dispatch_idx = text.find("--outcome \"pre-dispatch\"")
@@ -146,7 +146,7 @@ def test_finalize_step_10b_do_loop_context_is_target_aware():
 
 
 def test_advance_handoff_prose_does_not_advertise_polish_command():
-    """AC-1/AC-2/AC-3: advance prose at the reviewed-implementation boundary
+    """Advance prose at the reviewed-implementation boundary
     must not invite the routed agent to invoke `/yoke polish` directly.
     The boundary message routes back through `/yoke do` (or stops for a
     fresh entrypoint); polish is the routed loop's call to make."""
@@ -208,7 +208,7 @@ def test_advance_handoff_prose_does_not_advertise_polish_command():
 
 
 def test_loop_routing_wait_branch_handles_no_lane_compatible_work():
-    """AC-9: do-loop WAIT rendering must have a special branch for
+    """Do-loop WAIT rendering must have a special branch for
     `wait_reason="no_lane_compatible_work"` and must not print the generic
     `No actionable work exists on the frontier` line in that branch."""
     text = LOOP_ROUTING.read_text()
@@ -241,7 +241,7 @@ def test_loop_routing_wait_branch_handles_no_lane_compatible_work():
 
 
 def test_loop_routing_escalate_branch_no_longer_emits_lane_mismatch():
-    """AC-5/AC-7: lane_mismatch is no longer an escalate reason. The escalate
+    """Lane_mismatch is no longer an escalate reason. The escalate
     branch keeps the lane-filtered ride-along rendering for blocker cases but
     drops the standalone lane_mismatch options block."""
     text = LOOP_ROUTING.read_text()

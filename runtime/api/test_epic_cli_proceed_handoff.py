@@ -61,7 +61,7 @@ class TestProceedTriageAndHandoff:
         return 100
 
     def test_proceed_success_records_triage_and_hands_off(self, db):
-        """AC-1/AC-2: PROCEED path auto-advances parent and releases claim."""
+        """PROCEED path auto-advances parent and releases claim."""
         insert_item(db, id=42, status="reviewing-implementation")
         self._seed_simulation_requirement(db, 42)
 
@@ -89,7 +89,7 @@ class TestProceedTriageAndHandoff:
         handoff.assert_called_once_with(42, session_id="sess-1")
 
     def test_proceed_missing_requirement_returns_1(self, db):
-        """AC-6: No simulation requirement → hard failure, no handoff attempted."""
+        """No simulation requirement → hard failure, no handoff attempted."""
         insert_item(db, id=42, status="reviewing-implementation")
         # No simulation requirement seeded
 
@@ -101,7 +101,7 @@ class TestProceedTriageAndHandoff:
         handoff.assert_not_called()
 
     def test_proceed_handoff_failure_returns_2(self, db):
-        """AC-6: Handoff failure → hard failure, no false success."""
+        """Handoff failure → hard failure, no false success."""
         insert_item(db, id=42, status="reviewing-implementation")
         self._seed_simulation_requirement(db, 42)
 
@@ -150,7 +150,7 @@ class TestProceedTriageAndHandoff:
         handoff.assert_not_called()
 
     def test_clean_path_unchanged_no_proceed_helper(self):
-        """AC-3: persist_and_verify CLEAN path still uses auto-handoff, not proceed helper."""
+        """Persist_and_verify CLEAN path still uses auto-handoff, not proceed helper."""
         from yoke_core.domain import persist_simulation
 
         sim_output = "SIMULATION: CLEAN\nEPIC: YOK-42"
@@ -178,7 +178,7 @@ class TestProceedTriageAndHandoff:
         proceed.assert_not_called()
 
     def test_gaps_found_persist_does_not_handoff(self):
-        """AC-3: plain GAPS FOUND persistence does not trigger any handoff."""
+        """Plain GAPS FOUND persistence does not trigger any handoff."""
         from yoke_core.domain import persist_simulation
 
         sim_output = "SIMULATION: GAPS FOUND\nEPIC: YOK-42\n- Gap 1"

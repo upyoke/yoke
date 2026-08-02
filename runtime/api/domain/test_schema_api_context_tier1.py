@@ -206,7 +206,7 @@ def test_minimal_envelope_names_session_id_preconditions_options() -> None:
 
 
 def test_scratch_python_note_names_pythonpath_not_tmp_imports() -> None:
-    """AC-29: the guidance must NOT direct agents at scratch `/tmp`
+    """The guidance must NOT direct agents at scratch `/tmp`
     Python imports as the normal path. If scratch Python is named, the
     repo-root/PYTHONPATH requirement must be explicit."""
     body = main_body()
@@ -268,7 +268,7 @@ def test_artifact_write_ownership_invariant_rendered() -> None:
        shape."""
 
     body = main_body()
-    # AC-5 — invariant + enumerated artifact surfaces + who-claims framing.
+    # Invariant + enumerated artifact surfaces + who-claims framing.
     for anchor in (
         "Artifact writes require owning the item claim",
         "shared coordination state",
@@ -282,7 +282,7 @@ def test_artifact_write_ownership_invariant_rendered() -> None:
         "not cross-session authority",
     ):
         assert anchor in body, f"missing AC-5/AC-6 anchor: {anchor!r}"
-    # AC-6 — the historical affirmative shape is rejected.
+    # The historical affirmative shape is rejected.
     bad = FORBIDDEN_SESSION_ID_AFFIRMATIVE.findall(body)
     assert bad == [], (
         f"packet teaches `--session-id S` as a way to act on another "

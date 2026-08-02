@@ -25,13 +25,13 @@ class TestResolveSessionId:
     """Unit tests for _resolve_session_id (AC-1 through AC-4)."""
 
     def test_explicit_value_returned_as_is(self, monkeypatch):
-        """AC-4: explicit value wins regardless of env vars."""
+        """Explicit value wins regardless of env vars."""
         monkeypatch.setenv("YOKE_SESSION_ID", "env-value")
         from yoke_core.api.service_client import _resolve_session_id
         assert _resolve_session_id("explicit-value") == "explicit-value"
 
     def test_yoke_session_id_env(self, monkeypatch):
-        """AC-1: YOKE_SESSION_ID is the first env fallback."""
+        """YOKE_SESSION_ID is the first env fallback."""
         monkeypatch.setenv("YOKE_SESSION_ID", "yoke-sid")
         monkeypatch.delenv("CLAUDE_SESSION_ID", raising=False)
         monkeypatch.delenv("CODEX_THREAD_ID", raising=False)
@@ -39,7 +39,7 @@ class TestResolveSessionId:
         assert _resolve_session_id(None) == "yoke-sid"
 
     def test_claude_session_id_fallback(self, monkeypatch):
-        """AC-2: CLAUDE_SESSION_ID is the second env fallback."""
+        """CLAUDE_SESSION_ID is the second env fallback."""
         monkeypatch.delenv("YOKE_SESSION_ID", raising=False)
         monkeypatch.setenv("CLAUDE_SESSION_ID", "claude-sid")
         monkeypatch.delenv("CODEX_THREAD_ID", raising=False)
@@ -47,7 +47,7 @@ class TestResolveSessionId:
         assert _resolve_session_id(None) == "claude-sid"
 
     def test_codex_thread_id_fallback(self, monkeypatch):
-        """AC-3: CODEX_THREAD_ID is the third env fallback."""
+        """CODEX_THREAD_ID is the third env fallback."""
         monkeypatch.delenv("YOKE_SESSION_ID", raising=False)
         monkeypatch.delenv("CLAUDE_SESSION_ID", raising=False)
         monkeypatch.setenv("CODEX_THREAD_ID", "codex-tid")
@@ -81,7 +81,7 @@ class TestSessionIdAutoResolutionIntegration:
     """Integration tests: commands work without --session-id when env var is set (AC-5 through AC-7)."""
 
     def test_session_touch_uses_env_session_id(self, session_offer_db):
-        """AC-5: session-touch resolves session ID from env."""
+        """Session-touch resolves session ID from env."""
         db = session_offer_db["db_path"]
         sid = "env-touch-test"
         # Create session first
@@ -108,7 +108,7 @@ class TestSessionIdAutoResolutionIntegration:
         assert data["success"] is True
 
     def test_session_touch_explicit_overrides_env(self, session_offer_db):
-        """AC-6: explicit --session-id still works and overrides env."""
+        """Explicit --session-id still works and overrides env."""
         db = session_offer_db["db_path"]
         sid = "explicit-override-test"
         r = _run_client(
@@ -132,7 +132,7 @@ class TestSessionIdAutoResolutionIntegration:
         assert r2.returncode == 0, f"stderr: {r2.stderr}"
 
     def test_claim_item_uses_env_session_id(self, session_offer_db):
-        """AC-5: claim-work resolves session ID from env."""
+        """Claim-work resolves session ID from env."""
         db = session_offer_db["db_path"]
         sid = "env-claim-test"
         # Create session
@@ -161,7 +161,7 @@ class TestSessionIdAutoResolutionIntegration:
         assert data["success"] is True
 
     def test_missing_session_id_exits_2(self):
-        """AC-7: commands exit 2 with clear error when no session ID can be resolved."""
+        """Commands exit 2 with clear error when no session ID can be resolved."""
         # Clear all session env vars
         env = os.environ.copy()
         for var in ("YOKE_SESSION_ID", "CLAUDE_SESSION_ID", "CODEX_THREAD_ID"):
@@ -207,7 +207,7 @@ class TestSessionIdAutoResolutionIntegration:
             )
 
     def test_claude_session_id_fallback_works(self, session_offer_db):
-        """AC-2/AC-5: CLAUDE_SESSION_ID fallback works for session-touch."""
+        """CLAUDE_SESSION_ID fallback works for session-touch."""
         db = session_offer_db["db_path"]
         sid = "claude-fallback-test"
         r = _run_client(

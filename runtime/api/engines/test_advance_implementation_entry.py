@@ -169,7 +169,7 @@ def test_environment_phase_skip_branches(item_in, capability, want_outcome):
 def test_run_happy_path_flips_status_in_one_call(
     monkeypatch, emits, env_skipped, gates_pass,
 ):
-    """AC-2 / AC-9: status flip lands in the same invocation as worktree."""
+    """Status flip lands in the same invocation as worktree."""
     monkeypatch.setattr(orch, "_read_item", lambda _id: _item(item_id=99))
     _patch_run_preflight(monkeypatch, stub=_WtStub(
         branch="YOK-99", worktree_path="/tmp/yok-99",
@@ -197,7 +197,7 @@ def test_run_happy_path_flips_status_in_one_call(
 
 
 def test_run_preflight_failure_stops_before_worktree(monkeypatch, emits):
-    """AC-4: no worktree event past the failed gate phase."""
+    """No worktree event past the failed gate phase."""
     monkeypatch.setattr(orch, "_read_item", lambda _id: _item())
     monkeypatch.setattr(orch, "_run_preflight_gates",
                         lambda _id, force: (False, "missing ACs"))
@@ -216,7 +216,7 @@ def test_run_preflight_failure_stops_before_worktree(monkeypatch, emits):
 def test_run_worktree_create_failure_releases_claim(
     monkeypatch, emits, gates_pass,
 ):
-    """AC-5: worktree-create-failed releases the claim with phase reason."""
+    """Worktree-create-failed releases the claim with phase reason."""
     monkeypatch.setattr(orch, "_read_item", lambda _id: _item())
     _patch_run_preflight(monkeypatch, stub=_WtStub(
         ok=False, block_kind="worktree-create-failed",
@@ -252,7 +252,7 @@ def test_run_finalize_failure_keeps_claim(
 def test_run_reentry_skips_status_flip(
     monkeypatch, emits, gates_pass, env_skipped,
 ):
-    """AC-6: rerun against implementing reuses claim/worktree, skips flip."""
+    """Rerun against implementing reuses claim/worktree, skips flip."""
     monkeypatch.setattr(orch, "_read_item",
                         lambda _id: _item(status="implementing"))
     _patch_run_preflight(monkeypatch, stub=_WtStub(
@@ -276,7 +276,7 @@ def test_run_reentry_skips_status_flip(
 def test_run_no_worktree_still_flips_status(
     monkeypatch, emits, gates_pass, env_skipped,
 ):
-    """AC-8: --no-worktree honored — status flips but worktree skipped."""
+    """--no-worktree honored — status flips but worktree skipped."""
     monkeypatch.setattr(orch, "_read_item", lambda _id: _item())
     captured: Dict[str, Any] = {}
     _patch_run_preflight(monkeypatch, stub=_WtStub(

@@ -19,7 +19,7 @@ from types import SimpleNamespace
 
 
 class TestDbClaimAmendDispatch:
-    """AC-8.4 — ``db-claim-amend`` routes through ``db_claim.amend`` dispatcher."""
+    """``db-claim-amend`` routes through ``db_claim.amend`` dispatcher."""
 
     def _patch_amend(self, monkeypatch, result=None, raise_exc=None):
         """Patch the handler's import of ``amend`` to a recording stub.

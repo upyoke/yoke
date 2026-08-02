@@ -81,7 +81,7 @@ class TestAgentsRenderMutatingPipeVariants(unittest.TestCase):
                 self.assertIn(_WRITE_FN_ID, reason, msg=cmd)
 
     def test_lint_outcome_uniform_across_separators(self) -> None:
-        """AC-3: equivalent shapes differing only in `&&` vs `;` before
+        """Equivalent shapes differing only in `&&` vs `;` before
         the registered adapter command produce identical lint outcomes."""
         for wrapping in _WRAPPING_VARIANTS:
             cmd_amp = f"cd /tmp && {_MUTATING_CMD} {wrapping}"

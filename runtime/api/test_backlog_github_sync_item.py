@@ -269,7 +269,7 @@ class TestSyncItem:
 
 class TestSyncItemCompactMirror:
     def test_create_uses_compact_mirror_for_oversized(self):
-        """AC-6 + AC-12: create path picks compact mirror when full body is
+        """Create path picks compact mirror when full body is
         oversized; the body string passed to ``create_issue`` fits under the
         budget."""
         db = _make_db()
@@ -300,7 +300,7 @@ class TestSyncItemCompactMirror:
         db.close()
 
     def test_reuse_inherits_compact_mirror(self):
-        """AC-12: reuse path delegates body sync to ``sync_body`` which
+        """Reuse path delegates body sync to ``sync_body`` which
         owns the same body-budget contract."""
         db = _make_db()
         huge_spec = "a" * (body_budget.GITHUB_BODY_BUDGET_BYTES + 100)

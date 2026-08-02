@@ -26,7 +26,7 @@ class TestSessionOfferRuntimeId:
     """Codex runtime_session_id plumbing into the offer envelope."""
 
     def test_codex_offer_stores_runtime_session_id(self, ownership_conn):
-        """AC-8: Codex offers persist runtime_session_id in offer_envelope."""
+        """Codex offers persist runtime_session_id in offer_envelope."""
         conn, ws = ownership_conn
         _ensure_active_session(
             conn,
@@ -54,7 +54,7 @@ class TestSessionOfferRuntimeId:
         assert envelope.get("runtime_session_id") == "019d62e0-2c92-7a03-8d99-b18206cfa7e7"
 
     def test_claude_offer_omits_runtime_session_id(self, ownership_conn):
-        """AC-8: Claude Code offers do NOT include runtime_session_id."""
+        """Claude Code offers do NOT include runtime_session_id."""
         conn, ws = ownership_conn
         _ensure_active_session(conn, "claude-no-runtime", ws, model="opus")
         with patch.dict(os.environ, {}, clear=False):

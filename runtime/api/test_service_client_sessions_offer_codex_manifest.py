@@ -59,7 +59,7 @@ class TestSessionOfferCodexManifest:
         assert data["context"]["scheduler"]["next_step"] == "refine"
 
     def test_session_offer_codex_applies_manifest_limits_when_input_omitted(self, session_offer_db):
-        """AC-4/AC-5: Codex offers derive paths from registry plus limitations."""
+        """Codex offers derive paths from registry plus limitations."""
         conn = connect_test_db(session_offer_db["db_path"])
         conn.execute(
             """INSERT INTO items
@@ -109,7 +109,7 @@ class TestSessionOfferCodexManifest:
         assert data["context"]["scheduler"]["next_step"] == "refine"
 
     def test_session_offer_codex_limits_override_spoofed_supported_paths(self, session_offer_db):
-        """AC-5: registry+manifest truth wins over caller-provided paths."""
+        """Registry+manifest truth wins over caller-provided paths."""
         conn = connect_test_db(session_offer_db["db_path"])
         conn.execute(
             """INSERT INTO items

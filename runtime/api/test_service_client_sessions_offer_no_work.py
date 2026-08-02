@@ -109,7 +109,7 @@ class TestSessionOfferNoWork:
     def test_action_hint_no_work_returns_wait_with_holder(
         self, session_offer_db
     ):
-        """AC-1, AC-2, AC-5, AC-12: live-claim conflict → non-charge, no charge.
+        """Live-claim conflict → non-charge, no charge.
 
         With events-backed liveness, ``scheduler_claims._evaluate_claim_states`` routes
         through :func:`session_reclaim_activity.latest_activity`, so a
@@ -159,7 +159,7 @@ class TestSessionOfferNoWork:
         assert not data.get("chainable")
 
     def test_skip_memory_filter_is_targeted_not_blanket(self):
-        """AC-3 / AC-6: skip-memory filter drops only named ids, keeps the rest.
+        """Skip-memory filter drops only named ids, keeps the rest.
 
         Builds a SchedulerResult with two assignable items and asserts the
         filter only removes the explicitly skipped one. This covers the

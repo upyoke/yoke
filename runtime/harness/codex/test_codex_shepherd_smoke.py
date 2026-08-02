@@ -65,7 +65,7 @@ CAVEATS
 
 @_REQUIRES_RENDERED_AGENTS
 class TestRenderedAdapterReferenced:
-    """AC-5: smoke references the rendered ``.codex/agents/yoke-{role}.toml``
+    """Smoke references the rendered ``.codex/agents/yoke-{role}.toml``
     paths rather than re-authoring agent body content.
     """
 
@@ -88,7 +88,7 @@ class TestRenderedAdapterReferenced:
 
 @_REQUIRES_RENDERED_AGENTS
 class TestPlanningVerdictParsesAgainstSchema:
-    """AC-1: a minimal shepherd path runs end-to-end in Codex hook-enhanced mode.
+    """A minimal shepherd path runs end-to-end in Codex hook-enhanced mode.
 
     We exercise the dispatch contract — descriptor render + result envelope
     parsing — against the rendered Codex adapter. This is the parent-skill's
@@ -127,7 +127,7 @@ class TestPlanningVerdictParsesAgainstSchema:
 
 @_REQUIRES_RENDERED_AGENTS
 class TestTelemetryEmittedDuringDispatch:
-    """AC-3: at least one canonical telemetry event is observable in the
+    """At least one canonical telemetry event is observable in the
     smoke run.
 
     We emit ``HarnessSessionOffered`` to the capture sink (no DB required) and

@@ -1,4 +1,4 @@
-"""AC-3: Blocked-item reporting + transitive dependency resolution.
+"""Blocked-item reporting + transitive dependency resolution.
 
 Covers TestBlockedItemReporting (reason format, multiple blockers,
 adapter override to WAIT) and TestTransitiveDependencies (chains, diamond,
@@ -30,7 +30,7 @@ from runtime.api.frontier_test_helpers import (
 
 
 class TestBlockedItemReporting:
-    """AC-3: Detailed blocked-item reporting with dependency reasons."""
+    """Detailed blocked-item reporting with dependency reasons."""
 
     def test_single_blocker_reason_format(self):
         """Reason string includes blocker ID and its status."""

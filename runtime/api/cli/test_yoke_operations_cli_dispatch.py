@@ -78,7 +78,7 @@ def _run_capture(
 
 
 class TestEveryTierOneFamilyDispatches:
-    """EXP-AC-1: every Tier-1 function id dispatches through the new CLI."""
+    """Every Tier-1 function id dispatches through the new CLI."""
 
     def test_items_get_dispatches(self) -> None:
         rc = _run_with_dispatch(_stub_dispatch_ok, "items", "get", "1791", "spec")

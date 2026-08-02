@@ -257,7 +257,7 @@ class TestConductFanOutEntryPath:
     LEGACY_FLOW = "Epic Single-Item Flow"
 
     def test_decision_record_exists(self):
-        assert self.DECISION.is_file(), f"missing {self.DECISION} (AC-1)"
+        assert self.DECISION.is_file(), f"missing {self.DECISION}"
 
     def test_entry_resolution_and_loop_route_fan_out(self):
         texts = [

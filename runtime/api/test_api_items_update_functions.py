@@ -194,7 +194,7 @@ class TestScalarUpdateRoutesThroughPrepareUpdate:
 
 
 class TestScalarUpdateGateMapping:
-    """AC-5.2: gate-unmet codes collapse to lifecycle_gate_unmet (HTTP 422)."""
+    """Gate-unmet codes collapse to lifecycle_gate_unmet (HTTP 422)."""
 
     def test_status_gate_unmet_returns_lifecycle_gate_unmet(
         self,
@@ -234,7 +234,7 @@ class TestScalarUpdateGateMapping:
 
 
 class TestScalarUpdateFrozenRejection:
-    """AC-5.4: frozen-item update returns error.code='frozen' (HTTP 422)."""
+    """Frozen-item update returns error.code='frozen' (HTTP 422)."""
 
     def test_frozen_item_rejection(self, registered_scalar, test_db):
         conn = connect_test_db(test_db["db_path"])

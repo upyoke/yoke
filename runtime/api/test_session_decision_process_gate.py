@@ -160,7 +160,7 @@ class TestApplyProcessOfferGateNoOp:
 
 
 class TestApplyProcessOfferGateSwapToCharge:
-    """AC-43: disabled process + runnable items -> swap to CHARGE."""
+    """Disabled process + runnable items -> swap to CHARGE."""
 
     def test_disabled_strategize_with_runnable_items_returns_charge(self):
         action = _make_action(
@@ -235,7 +235,7 @@ class TestApplyProcessOfferGateSuppressedWait:
 
 
 class TestDecideNextActionWiring:
-    """AC-20 / AC-43 / AC-46: decide_next_action plumbs the policy through drift."""
+    """Decide_next_action plumbs the policy through drift."""
 
     def test_drift_returns_strategize_without_policy_keeps_legacy_behavior(self):
         # Legacy callers without a policy still receive the raw

@@ -29,7 +29,7 @@ class TestSessionOfferModelResolution:
     """End-to-end model resolution against ``session-offer``."""
 
     def test_session_offer_preserves_variant_suffix_via_db(self, session_offer_db):
-        """AC-9: SessionStart-equivalent registration writes
+        """SessionStart-equivalent registration writes
         ``claude-opus-4-7[1m]``; ``session-offer`` invoked WITHOUT
         ``--model`` resolves the value verbatim from the same DB row.
         This is the test that would have failed before the rip-out.
@@ -62,7 +62,7 @@ class TestSessionOfferModelResolution:
     def test_session_offer_falls_back_to_detect_model_when_row_absent(
         self, session_offer_db, monkeypatch,
     ):
-        """AC-14: when no ``harness_sessions`` row exists for the supplied
+        """When no ``harness_sessions`` row exists for the supplied
         session id, the offer surface still resolves a model via
         ``hook_helpers_model.detect_model`` rather than crashing or
         emitting an empty value.

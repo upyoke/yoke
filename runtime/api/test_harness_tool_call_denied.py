@@ -67,7 +67,7 @@ class TestHarnessToolCallDeniedEndToEnd:
     def test_lint_main_commit_emits_single_row_with_expected_envelope(
         self, events_db: str, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """AC-1 / AC-6: a lint-main-commit deny produces one row with all
+        """A lint-main-commit deny produces one row with all
         required fields (session_id, tool_name, command snippet, lint
         identifier, reason)."""
         from yoke_core.domain import lint_main_commit as lmc
@@ -127,7 +127,7 @@ class TestHarnessToolCallDeniedEndToEnd:
     def test_lint_db_cmd_main_emits_legacy_denied_row_for_blocked_command(
         self, events_db: str
     ) -> None:
-        """AC-7: DB-command deniers share the same emit contract as the
+        """DB-command deniers share the same emit contract as the
         other Python deniers. Driving ``lint_db_cmd.main`` with a payload
         the policy denies must preserve the legacy stable
         ``lint-sqlite-cmd`` hook/check id and the command snippet."""

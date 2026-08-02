@@ -107,7 +107,7 @@ class TestSessionOffer:
             )
 
     def test_identity_fields_present_for_correlation(self):
-        """AC-6: session_id unique+stable, execution_lane present."""
+        """Session_id unique+stable, execution_lane present."""
         offer = self._make_offer()
         # These fields must exist and be non-empty for claim/lease correlation
         assert offer.session_id
@@ -169,7 +169,7 @@ class TestSessionOffer:
 
 
 class TestFrontierState:
-    """AC-3: FrontierState captures runnable_items, blocked_items, sml_coherent, drift_review."""
+    """FrontierState captures runnable_items, blocked_items, sml_coherent, drift_review."""
 
     def test_default_construction(self):
         fs = FrontierState()

@@ -223,7 +223,7 @@ class TestEmitSessionEventHelper:
 
     @patch("yoke_core.domain.events.emit_event")
     def test_passes_item_id_and_task_num(self, mock_emit):
-        """AC-2: item_id and task_num are forwarded to the native emitter."""
+        """Item_id and task_num are forwarded to the native emitter."""
         _emit_session_event(
             EVENT_WORK_CLAIMED,
             session_id="sess-idx",

@@ -3,10 +3,10 @@
 Lives in a sibling file because ``test_path_claims_amend_serial_widen.py``
 already sits near the 350-line cap. Covers:
 
-- AC-11: with two authored serial upstreams competing on the widened
+- With two authored serial upstreams competing on the widened
   union, the amendment payload records both ``serial_upstream_claim_ids``
   and ``overlapping_claim_ids`` deterministically (sorted).
-- AC-12: ambiguous helper evidence (no authored dep edge against an
+- Ambiguous helper evidence (no authored dep edge against an
   overlapping party) rejects before any mutation lands — no target rows,
   no claim-state change, no amendment row.
 """
@@ -76,7 +76,7 @@ def _add_dep_edge(
 
 
 def test_widen_records_all_serial_upstreams_and_overlaps(conn):
-    """AC-11: two attested serial upstreams → payload records both ids in
+    """Two attested serial upstreams → payload records both ids in
     sorted order; ``serial_upstream_claim_ids`` and
     ``overlapping_claim_ids`` are deterministic.
     """
@@ -134,7 +134,7 @@ def test_widen_records_all_serial_upstreams_and_overlaps(conn):
 
 
 def test_widen_mixed_evidence_rejects_mutation_clean(conn):
-    """AC-12: when the widened union overlaps two claims but only one has
+    """When the widened union overlaps two claims but only one has
     an authored dep edge, the helper rejects before any mutation lands —
     no new target rows, no claim-state change, no amendment row.
     """

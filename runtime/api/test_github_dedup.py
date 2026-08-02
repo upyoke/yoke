@@ -138,7 +138,7 @@ class TestSyncItemDedup:
         ]
 
     def test_reuses_existing_github_issue_on_exact_prefix(self):
-        """AC-4: happy path — exact-prefix candidate IS reused."""
+        """Happy path — exact-prefix candidate IS reused."""
         db = _make_db()
         insert_item(db, id=20, workflow_id="issue", status="idea", project="externalwebapp")
         stdout = io.StringIO()
@@ -163,7 +163,7 @@ class TestSyncItemDedup:
         db.close()
 
     def test_reuses_existing_epic_issue_and_syncs_child_tasks(self):
-        """AC-4: exact-prefix reuse for epic items also runs child sync."""
+        """Exact-prefix reuse for epic items also runs child sync."""
         db = _make_db()
         insert_item(db, id=23, workflow_id="epic", status="planning", project="externalwebapp")
         insert_epic_task(db, epic_id=23, task_num=1, title="Task 1", status="planned")
@@ -228,7 +228,7 @@ class TestSyncItemDedup:
         db.close()
 
     def test_skips_rest_failure_response(self):
-        """AC-6: a REST transport failure during dedup must NOT be reused;
+        """A REST transport failure during dedup must NOT be reused;
         the helper surfaces a warning and falls through to creation.
         """
         db = _make_db()

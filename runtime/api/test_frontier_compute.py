@@ -1,4 +1,4 @@
-"""AC-2, AC-5, AC-7, AC-9: ``compute_frontier`` end-to-end + edge cases.
+"""``compute_frontier`` end-to-end + edge cases.
 
 Covers TestComputeFrontier (basic partition, hard/integration gates,
 project scoping, frozen exclusion) and TestEdgeCases (empty backlog,
@@ -31,10 +31,10 @@ from runtime.api.frontier_test_helpers import (
 
 
 class TestComputeFrontier:
-    """AC-2, AC-5, AC-7, AC-9: compute_frontier with SQL-based resolution."""
+    """Compute_frontier with SQL-based resolution."""
 
     def test_basic_partition(self):
-        """AC-2: Returns FrontierResult with runnable/blocked partitions."""
+        """Returns FrontierResult with runnable/blocked partitions."""
         conn = _create_test_db()
         _insert_item(conn, 10, status="planned", workflow="epic")
         _insert_item(conn, 20, status="idea")
@@ -46,7 +46,7 @@ class TestComputeFrontier:
         assert len(result.blocked) == 0
 
     def test_hard_block_creates_blocked_partition(self):
-        """AC-5: Hard-block deps resolved via SQL join."""
+        """Hard-block deps resolved via SQL join."""
         conn = _create_test_db()
         _insert_item(conn, 10, status="planned", workflow="epic")
         _insert_item(conn, 20, status="implementing")
@@ -87,7 +87,7 @@ class TestComputeFrontier:
         assert len(result.blocked) == 0
 
     def test_blocked_reasons_human_readable(self):
-        """AC-7: Blocked items include human-readable reasons."""
+        """Blocked items include human-readable reasons."""
         conn = _create_test_db()
         _insert_item(conn, 10, status="planned", workflow="epic")
         _insert_item(conn, 20, status="implementing")
@@ -101,7 +101,7 @@ class TestComputeFrontier:
         assert "implementing" in blocked.blocked_reasons[0]
 
     def test_frozen_items_excluded(self):
-        """AC-9: Frozen items excluded from runnable frontier."""
+        """Frozen items excluded from runnable frontier."""
         conn = _create_test_db()
         _insert_item(conn, 10, status="planned", frozen=0, workflow="epic")
         _insert_item(conn, 20, status="planned", frozen=1, workflow="epic")

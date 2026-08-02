@@ -84,7 +84,7 @@ def _fixed_resolver(actor_id: Optional[str], session_found: Optional[bool] = Tru
 
 
 class TestActorIdResolution(unittest.TestCase):
-    """AC-2/AC-3/AC-4/AC-5/AC-13: server-side actor_id resolution."""
+    """Server-side actor_id resolution."""
 
     def _mutating_entry(self):
         return _make_entry(side_effects=("rows_insert",))

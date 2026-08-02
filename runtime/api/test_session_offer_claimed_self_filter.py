@@ -51,7 +51,7 @@ def _run(schedule: SchedulerResult) -> SchedulerResult:
 
 
 class TestFilterPreservesClaimedBySelf:
-    """AC-1, AC-2, AC-5: self-held steps stay selected."""
+    """Self-held steps stay selected."""
 
     def test_claimed_by_self_selected_step_survives_filter(self):
         self_held = _step(
@@ -85,7 +85,7 @@ class TestFilterPreservesClaimedBySelf:
 
 
 class TestRetryRecomputeMirrorsIncident:
-    """AC-3, AC-4: retry recompute keeps the new claim selected."""
+    """Retry recompute keeps the new claim selected."""
 
     def test_recomputed_selected_matches_new_claim_after_retry(self):
         live_held = _step(
@@ -163,7 +163,7 @@ class TestRetryRecomputeMirrorsIncident:
 
 
 class TestFilterDelegatesToSharedHelper:
-    """AC-6: filter selection matches the shared helper."""
+    """Filter selection matches the shared helper."""
 
     def test_filter_parity_with_shared_helper(self):
         for state in ClaimState:

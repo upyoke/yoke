@@ -131,7 +131,7 @@ def test_render_full_injects_main_agent_packet(
 
 
 def test_main_agent_block_names_harness_contract_distinction() -> None:
-    """/ AC-12: the bootstrap orientation distinguishes
+    """The bootstrap orientation distinguishes
     the LLM-facing packet layer (``main_agent`` / ``*_agent``) from the
     substrate manifest contract (``harness_contract``). Operators reading
     the rendered orientation must see both names so the layers are not
@@ -321,7 +321,7 @@ def test_compact_omits_interpreter_advisory_when_probe_ok(monkeypatch) -> None:
 
 
 def test_install_advisory_preserved_when_interpreter_fires(monkeypatch) -> None:
-    """AC-8: both advisories may render; interpreter leads."""
+    """Both advisories may render; interpreter leads."""
     import yoke_core.domain.main_agent_packet as bp
 
     monkeypatch.setattr(python_interpreter_probe, "probe", lambda: _BAD)

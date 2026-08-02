@@ -247,7 +247,7 @@ def test_no_direct_heartbeat_read_outside_canonical_helper():
 
 
 def test_no_new_event_name_introduced():
-    """AC-12: this work item does not introduce a new event name.
+    """This work item does not introduce a new event name.
 
     Liveness reuses the existing ``HarnessToolCallCompleted`` /
     ``HarnessToolCallFailed`` events; no ``SessionLiveness*`` /

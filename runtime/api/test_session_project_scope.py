@@ -65,10 +65,10 @@ def _make_db(project_ids: list[str]):
 
 
 class TestResolveSessionProjectScope(unittest.TestCase):
-    """AC-2, AC-3: all-projects default + override semantics."""
+    """All-projects default + override semantics."""
 
     def test_returns_all_registered_projects_when_override_is_none(self) -> None:
-        """AC-2: ``override=None`` returns every row in ``projects`` — never
+        """``override=None`` returns every row in ``projects`` — never
         the literal ``"yoke"`` fallback."""
         conn = _make_db(["yoke", "externalwebapp"])
         try:
@@ -80,7 +80,7 @@ class TestResolveSessionProjectScope(unittest.TestCase):
             conn.close()
 
     def test_returns_all_registered_projects_when_override_is_empty_list(self) -> None:
-        """AC-2: ``override=[]`` is treated as no override (all-projects)."""
+        """``override=[]`` is treated as no override (all-projects)."""
         conn = _make_db(["yoke", "externalwebapp"])
         try:
             self.assertEqual(
@@ -115,7 +115,7 @@ class TestResolveSessionProjectScope(unittest.TestCase):
             conn.close()
 
     def test_returns_override_unchanged_when_all_valid(self) -> None:
-        """AC-3: non-empty override returns the list unchanged (order
+        """Non-empty override returns the list unchanged (order
         preserved)."""
         conn = _make_db(["yoke", "externalwebapp", "third"])
         try:
@@ -127,7 +127,7 @@ class TestResolveSessionProjectScope(unittest.TestCase):
             conn.close()
 
     def test_unknown_override_id_raises_with_id_and_registered_set(self) -> None:
-        """AC-3: unknown override id raises a clear error naming the unknown
+        """Unknown override id raises a clear error naming the unknown
         id and the registered set."""
         conn = _make_db(["yoke", "externalwebapp"])
         try:
@@ -141,7 +141,7 @@ class TestResolveSessionProjectScope(unittest.TestCase):
             conn.close()
 
     def test_partial_unknown_override_raises(self) -> None:
-        """AC-3: an override mixing known + unknown ids still raises."""
+        """An override mixing known + unknown ids still raises."""
         conn = _make_db(["yoke", "externalwebapp"])
         try:
             with self.assertRaises(ValueError):
@@ -153,7 +153,7 @@ class TestResolveSessionProjectScope(unittest.TestCase):
 
 
 class TestParseProjectCliArg(unittest.TestCase):
-    """AC-4: CLI arg parser behavior."""
+    """CLI arg parser behavior."""
 
     def test_none_input_returns_none(self) -> None:
         self.assertIsNone(parse_project_cli_arg(None))
@@ -189,7 +189,7 @@ class TestParseProjectCliArg(unittest.TestCase):
 
 
 class TestExportSurface(unittest.TestCase):
-    """AC-1: exported callables are present and signatures match contract."""
+    """Exported callables are present and signatures match contract."""
 
     def test_module_exports_required_symbols(self) -> None:
         from yoke_core.domain import session_project_scope
@@ -213,7 +213,7 @@ class TestExportSurface(unittest.TestCase):
 
 
 class TestBackwardCompatPersistedEnvelope(unittest.TestCase):
-    """AC-11: when an existing offer_envelope row lacks the new
+    """When an existing offer_envelope row lacks the new
     ``project_scope`` key, the session should treat it as all-projects (no
     override). This test exercises the resolver in the "envelope lacked the
     key" code path: with ``override=None``, the resolver returns the full
@@ -234,15 +234,15 @@ class TestBackwardCompatPersistedEnvelope(unittest.TestCase):
 
 
 class TestEndToEndProjectScope(unittest.TestCase):
-    """AC-9, AC-10: end-to-end coverage that the resolved ``project_scope``
+    """End-to-end coverage that the resolved ``project_scope``
     actually drives which items surface on the frontier.
 
     The test registers a fixture project alongside ``yoke``, seeds one
     runnable item in each, and exercises ``compute_frontier`` directly:
 
-    - AC-9: with the all-projects default (resolver returns both ids), both
+    - With the all-projects default (resolver returns both ids), both
       items appear on the frontier.
-    - AC-10: with ``override=["yoke"]``, only the yoke item appears.
+    - With ``override=["yoke"]``, only the yoke item appears.
     """
 
     FIXTURE_PROJECT = "scope-fixture-alpha"
@@ -290,7 +290,7 @@ class TestEndToEndProjectScope(unittest.TestCase):
         return conn
 
     def test_default_scope_surfaces_items_across_all_projects(self) -> None:
-        """AC-9: with no operator override, the resolver returns every
+        """With no operator override, the resolver returns every
         registered project, and ``compute_frontier`` surfaces items from
         each."""
         from yoke_core.domain.frontier_compute import compute_frontier
@@ -308,7 +308,7 @@ class TestEndToEndProjectScope(unittest.TestCase):
             conn.close()
 
     def test_override_narrows_scope_to_yoke_only(self) -> None:
-        """AC-10: ``--project yoke`` narrows the frontier to yoke items
+        """``--project yoke`` narrows the frontier to yoke items
         only — the fixture project's item is excluded."""
         from yoke_core.domain.frontier_compute import compute_frontier
 

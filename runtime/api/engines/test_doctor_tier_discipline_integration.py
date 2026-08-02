@@ -275,7 +275,7 @@ _GOOD_ENVELOPE_BLOCK = (
 
 
 def test_packet_completeness_envelope_missing_actor(tmp_path, monkeypatch, conn):
-    """AC-30: main_agent packet that omits `actor` fires."""
+    """Main_agent packet that omits `actor` fires."""
     monkeypatch.setattr(packet_mod, "_resolve_repo_root", lambda: str(tmp_path))
     monkeypatch.setattr(packet_mod, "SKILL_SCAN_TARGETS", {"main_agent": ()})
     bad_packet = (

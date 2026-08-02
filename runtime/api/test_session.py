@@ -132,7 +132,7 @@ class TestDoLoopContract:
         assert '$_provider' in text  # offer call substitutes captured value
 
     def test_loop_passes_resolved_identity_to_service_client(self):
-        """AC-3: Resolved identity vars are passed to service_client.py."""
+        """Resolved identity vars are passed to service_client.py."""
         text = self._loop_text()
         assert "--executor" in text
         assert "$_executor" in text
@@ -140,7 +140,7 @@ class TestDoLoopContract:
         assert "$_provider" in text
 
     def test_loop_relies_on_server_derived_supported_paths(self):
-        """AC-4: loop no longer passes --supported-paths from harness env."""
+        """Loop no longer passes --supported-paths from harness env."""
         text = self._loop_text()
         assert "YOKE_SUPPORTED_PATHS" not in text
         assert 'No --supported-paths.' in text
@@ -148,7 +148,7 @@ class TestDoLoopContract:
         assert "Server derives capabilities from shared registry plus manifest limitations" in text
 
     def test_loop_does_not_hardcode_executor_provider_in_offers(self):
-        """AC-6: No hardcoded claude-code/anthropic in session-offer calls."""
+        """No hardcoded claude-code/anthropic in session-offer calls."""
         text = self._loop_text()
         # The defaults are in the env resolution line, not in the offer call
         # The session-offer call should use $_executor / $_provider variables
@@ -214,7 +214,7 @@ class TestDoLoopContract:
         assert "Model is server-resolved." in text
 
     def test_do_skill_documents_shared_path_emission(self):
-        """AC-7: SKILL.md documents canonical emission in shared offer path."""
+        """SKILL.md documents canonical emission in shared offer path."""
         text = _DO_SKILL_PATH.read_text(encoding="utf-8")
         assert "shared `yoke sessions offer` path" in text
 

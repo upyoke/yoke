@@ -47,7 +47,7 @@ from runtime.api.routed_ownership_test_helpers import (
 
 
 class TestOwnershipGuardEndToEnd(_ReleaseGapDbCase):
-    """AC-11 — guard catches mid-chain claim loss and refuses re-dispatch."""
+    """Guard catches mid-chain claim loss and refuses re-dispatch."""
 
     def test_session_a_loses_claim_mid_chain_no_duplicate_dispatch(
         self,

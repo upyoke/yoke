@@ -95,7 +95,7 @@ def _only_result(rec: RecordCollector):
 
 
 def test_pass_when_only_canonical_rows(db_conn):
-    """AC-3: canonical executor rows do not trip the HC."""
+    """Canonical executor rows do not trip the HC."""
     _seed_session(
         db_conn,
         session_id="s-1",
@@ -125,7 +125,7 @@ def test_pass_when_only_canonical_rows(db_conn):
 
 
 def test_warn_when_leaked_with_null_display_name(db_conn):
-    """AC-2: ``executor='claude-desktop'`` with NULL display_name trips."""
+    """``executor='claude-desktop'`` with NULL display_name trips."""
     _seed_session(
         db_conn,
         session_id="s-leak-null",
@@ -143,7 +143,7 @@ def test_warn_when_leaked_with_null_display_name(db_conn):
 
 
 def test_warn_when_leaked_with_populated_display_name(db_conn):
-    """AC-9: populated display_name does not exempt a leaked executor."""
+    """Populated display_name does not exempt a leaked executor."""
     _seed_session(
         db_conn,
         session_id="s-leak-populated",
@@ -160,7 +160,7 @@ def test_warn_when_leaked_with_populated_display_name(db_conn):
 
 
 def test_warn_catches_future_surface_label_via_pattern(db_conn):
-    """AC-8: pattern detection trips on a Yoke-family surface
+    """Pattern detection trips on a Yoke-family surface
     label not present in :data:`KNOWN_SURFACE_LABELS`."""
     novel_surface = "codex-jetbrains"
     assert novel_surface not in KNOWN_SURFACE_LABELS

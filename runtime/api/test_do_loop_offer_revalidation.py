@@ -46,7 +46,7 @@ def _seed_item(conn, *, item_id: int, status: str, project: str = "yoke") -> Non
 
 
 class TestRevalidateCandidateStatus:
-    """AC-1 / AC-2: stale-lifecycle skip before claim acquisition."""
+    """Stale-lifecycle skip before claim acquisition."""
 
     def test_returns_true_when_status_unchanged(self, conn):
         _seed_item(conn, item_id=2001, status="reviewed-implementation")
@@ -87,7 +87,7 @@ class TestRevalidateCandidateStatus:
 
 
 class TestHolderSessionForItem:
-    """AC-11: skip events surface holder identity for live-claim conflicts."""
+    """Skip events surface holder identity for live-claim conflicts."""
 
     def test_returns_holder_context_when_claimed(self, conn):
         _seed_item(conn, item_id=3001, status="implementing")
@@ -105,7 +105,7 @@ class TestHolderSessionForItem:
 
 
 class TestChainSkipMemory:
-    """AC-4: within-chain skip memory deduplicates re-offers."""
+    """Within-chain skip memory deduplicates re-offers."""
 
     def test_empty_memory_for_fresh_session(self, conn):
         _register(conn, session_id="skip-fresh")
@@ -136,7 +136,7 @@ class TestChainSkipMemory:
 
 
 class TestRecordOfferSkip:
-    """AC-4 / AC-11: skip helper persists memory entry AND emits audit event."""
+    """Skip helper persists memory entry AND emits audit event."""
 
     def test_stale_lifecycle_skip_persists_and_emits(self, conn):
         _register(conn, session_id="skip-emit-stale")

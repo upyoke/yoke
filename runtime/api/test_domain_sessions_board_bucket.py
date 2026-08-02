@@ -138,31 +138,31 @@ class TestStatusToBoardBucket:
     # --- Epic workflow direct mappings ---
 
     def test_planning_maps_to_planning(self):
-        """AC-3: status_to_board_bucket('planning') returns 'planning'."""
+        """Status_to_board_bucket('planning') returns 'planning'."""
         assert status_to_board_bucket("planning") == "planning"
 
     def test_refining_plan_maps_to_planning(self):
-        """AC-4: status_to_board_bucket('refining-plan') returns 'planning'."""
+        """Status_to_board_bucket('refining-plan') returns 'planning'."""
         assert status_to_board_bucket("refining-plan") == "planning"
 
     # --- Pinned-definition projection ---
 
     def test_epic_refined_idea_maps_to_planning(self):
-        """AC-1: epic + refined-idea -> planning."""
+        """Epic + refined-idea -> planning."""
         assert status_to_board_bucket(
             "refined-idea",
             workflow_definition=_definition("epic"),
         ) == "planning"
 
     def test_issue_refined_idea_maps_to_refined(self):
-        """AC-2: issue + refined-idea -> refined."""
+        """Issue + refined-idea -> refined."""
         assert status_to_board_bucket(
             "refined-idea",
             workflow_definition=_definition("issue"),
         ) == "refined"
 
     def test_epic_reviewing_implementation_maps_to_implementing(self):
-        """AC-5: epic + reviewing-implementation -> implementing."""
+        """Epic + reviewing-implementation -> implementing."""
         assert status_to_board_bucket(
             "reviewing-implementation",
             workflow_definition=_definition("epic"),
@@ -249,7 +249,7 @@ class TestStatusToBoardBucket:
         ) == "done"
 
     def test_no_item_type_legacy_active_is_unknown(self):
-        """AC-8: legacy active status no longer has a compatibility mapping."""
+        """Legacy active status no longer has a compatibility mapping."""
         assert status_to_board_bucket("active") == UNKNOWN_BUCKET
 
     def test_epic_active_no_override(self):

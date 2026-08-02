@@ -39,7 +39,7 @@ def _seed_registered_flow(db_path, flow_id="yoke-hosted-production", project="yo
 
 
 class TestAC1DeployedToRequired:
-    """AC-1: registered flow + empty deployed_to refuses with exact reason."""
+    """Registered flow + empty deployed_to refuses with exact reason."""
 
     def test_empty_deployed_to_blocks_with_exact_reason(self, dt_db):
         db_path, _ = dt_db
@@ -97,7 +97,7 @@ class TestAC1DeployedToRequired:
 
 
 class TestAC2DeployStageRequired:
-    """AC-2: registered flow + null deploy_stage refuses."""
+    """Registered flow + null deploy_stage refuses."""
 
     def test_null_deploy_stage_blocks(self, dt_db):
         db_path, _ = dt_db

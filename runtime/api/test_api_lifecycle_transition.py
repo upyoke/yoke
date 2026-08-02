@@ -150,7 +150,7 @@ def _clear_process_session_env(monkeypatch):
 
 
 class TestLifecycleTransitionRoutesThroughExecuteUpdate:
-    """AC-5.3: typed payload routes through the same engines as
+    """Typed payload routes through the same engines as
     ``service_client advance/...`` (i.e. ``backlog.execute_update``)."""
 
     def test_typed_payload_writes_status(
@@ -242,7 +242,7 @@ class TestLifecycleTransitionFrozenRejection:
 
 
 class TestLifecycleTransitionClaimRequired:
-    """AC-5.6: registered claim_required_kind='item' + claim-path coverage."""
+    """Registered claim_required_kind='item' + claim-path coverage."""
 
     def test_claim_required_kind_is_item(self, registered_lifecycle):
         from yoke_core.domain.yoke_function_registry import lookup

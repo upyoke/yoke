@@ -63,12 +63,12 @@ class TestParseArtConfig:
         assert v.name == "Emoji"
 
     def test_weight_disabled_ignored(self, art_config):
-        """AC-3: # weight-disabled: comments are ignored."""
+        """# weight-disabled: comments are ignored."""
         v1 = art_config.emoji_variants[0]
         assert v1.weight == 0, "weight-disabled should not set weight"
 
     def test_weight_active_parsed(self, art_config):
-        """AC-2: active # weight: comments set variant weight."""
+        """Active # weight: comments set variant weight."""
         v2 = art_config.emoji_variants[1]
         assert v2.weight == 5
 
@@ -96,7 +96,7 @@ class TestSelectArt:
     """Tests for select_art."""
 
     def test_deterministic_with_seed(self, art_config):
-        """AC-5: same seed produces same result."""
+        """Same seed produces same result."""
         cfg = BoardConfig()
         r1 = select_art(cfg, art_config, seed=42)
         r2 = select_art(cfg, art_config, seed=42)

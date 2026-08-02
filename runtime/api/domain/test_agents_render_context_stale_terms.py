@@ -31,7 +31,7 @@ def repo_root() -> Path:
 
 
 def test_rendered_codex_adapters_have_no_stale_terms(repo_root: Path) -> None:
-    """AC-18: rendered Codex .toml adapters must not contain the stale
+    """Rendered Codex .toml adapters must not contain the stale
     schema/API names listed in seed.STALE_TERMS. Pairs with the existing
     Claude-side scan in ``test_agents_render_context.py``."""
 
@@ -48,7 +48,7 @@ def test_rendered_codex_adapters_have_no_stale_terms(repo_root: Path) -> None:
 def test_stale_term_scan_excludes_qa_schema_migration_counters(
     repo_root: Path,
 ) -> None:
-    """AC-19: the stale-term regression intentionally scopes to authored
+    """The stale-term regression intentionally scopes to authored
     agent content, not production code that operates on historical QA
     rows. ``yoke_core.domain.qa_schema`` legitimately contains
     ``qa_kind='review'`` SQL for migration-counter / observation

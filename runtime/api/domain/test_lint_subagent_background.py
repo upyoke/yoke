@@ -328,7 +328,7 @@ class TestSubagentAdapterWiring(unittest.TestCase):
 
 
 class TestSubagentBackgroundDeployedMode(unittest.TestCase):
-    """AC-14: dogfood policy pins ``lint_subagent_background=deny``."""
+    """Dogfood policy pins ``lint_subagent_background=deny``."""
 
     def test_dogfood_config_pins_lint_mode_to_deny(self):
         from runtime.api.domain.test_agents_render_workspace_fixtures import (

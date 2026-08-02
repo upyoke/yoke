@@ -57,7 +57,7 @@ def _shell_fn_check(shell_code: str, fn_name: str, arg: str) -> bool:
 
 
 class TestApprovalParity_ShellPython:
-    """AC-2: Verify shell adapter exports match Python domain approval values."""
+    """Verify shell adapter exports match Python domain approval values."""
 
     @pytest.fixture(scope="class")
     def shell_code(self):

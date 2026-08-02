@@ -22,7 +22,7 @@ from yoke_core.engines._merge_worktree_test_helpers import mw_db
 
 
 class TestSyncLocalTarget:
-    """AC-2/AC-3/AC-5/AC-7/AC-8/AC-9: _sync_local_target must
+    """_sync_local_target must
     use git fetch origin {target}:{target} for branch-agnostic ref update
     and return a bool success signal."""
 
@@ -39,7 +39,7 @@ class TestSyncLocalTarget:
         return ctx
 
     def test_success_returns_true_not_checked_out(self, sync_ctx, monkeypatch):
-        """AC-2/AC-5: successful fetch + matching refs → True (target
+        """Successful fetch + matching refs → True (target
         not checked out — uses git fetch origin main:main)."""
         sha = "abc1234567890"
 
@@ -75,7 +75,7 @@ class TestSyncLocalTarget:
         assert merge_worktree._sync_local_target(sync_ctx) is True
 
     def test_success_returns_true_checked_out(self, sync_ctx, monkeypatch):
-        """AC-2/AC-5: successful fetch + ff-only merge with matching refs → True
+        """Successful fetch + ff-only merge with matching refs → True
         (target checked out — uses git fetch then git merge --ff-only
         origin/{target}, not git pull)."""
         sha = "abc1234567890"
@@ -112,7 +112,7 @@ class TestSyncLocalTarget:
         assert merge_worktree._sync_local_target(sync_ctx) is True
 
     def test_fetch_failure_returns_false(self, sync_ctx, monkeypatch):
-        """AC-3/AC-8: failed sync → returns False."""
+        """Failed sync → returns False."""
         def fake_run(
             cmd,
             cwd=None,
@@ -138,7 +138,7 @@ class TestSyncLocalTarget:
         assert merge_worktree._sync_local_target(sync_ctx) is False
 
     def test_ref_mismatch_returns_false(self, sync_ctx, monkeypatch):
-        """AC-7: sync succeeds but local/origin refs differ → False."""
+        """Sync succeeds but local/origin refs differ → False."""
         def fake_run(
             cmd,
             cwd=None,
@@ -202,7 +202,7 @@ class TestSyncLocalTarget:
         assert merge_worktree._sync_local_target(sync_ctx) is False
 
     def test_stash_restored_on_dirty_tree(self, sync_ctx, monkeypatch):
-        """AC-9: dirty files are stashed before sync and restored after."""
+        """Dirty files are stashed before sync and restored after."""
         sha = "abc123"
         stash_ops = []
         first_status = {"called": False}

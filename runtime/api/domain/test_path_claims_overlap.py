@@ -192,10 +192,10 @@ class TestCoordinationOnlySemantics:
 
     The four classification cases the new contract pins:
 
-    * AC-1: coord-only-only between candidate and blocker -> ``NONE``.
-    * AC-2: mixed coord-only + ``activation`` -> ``SERIAL_VIA_DEPENDENCY``.
-    * AC-3: explicit ``--upstream-claim-id`` forces serial regardless.
-    * AC-4: no ``item_dependencies`` edge between the pair -> ``INCOMPATIBLE``
+    * Coord-only-only between candidate and blocker -> ``NONE``.
+    * Mixed coord-only + ``activation`` -> ``SERIAL_VIA_DEPENDENCY``.
+    * Explicit ``--upstream-claim-id`` forces serial regardless.
+    * No ``item_dependencies`` edge between the pair -> ``INCOMPATIBLE``
       (existing behaviour preserved; covered by
       ``test_overlap_with_active_is_incompatible`` above).
     """

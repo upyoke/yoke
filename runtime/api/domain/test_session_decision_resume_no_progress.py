@@ -171,7 +171,7 @@ def _seed_session(conn, session_id: str) -> None:
 
 
 def test_writer_reader_bridge_round_trip_yields_resume(test_db) -> None:
-    """AC-12: end-to-end — writer persists pre_status, reader returns it,
+    """End-to-end — writer persists pre_status, reader returns it,
     bridge dict surfaces it to the detector, and the detector routes RESUME.
 
     Mirrors the YOK-1813 chain step 3 shape: prior chain step polish handler

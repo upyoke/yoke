@@ -129,7 +129,7 @@ class TestEngineerResultEnvelopeIsParseable:
 
 @_REQUIRES_RENDERED_AGENTS
 class TestTelemetryEmittedDuringConductDispatch:
-    """AC-3: at least one canonical telemetry event emission is observable.
+    """At least one canonical telemetry event emission is observable.
 
     For the conduct flow we emit ``NextActionChosen`` via the events sink —
     the same event sessions_analytics_dispatch surfaces when the core picks

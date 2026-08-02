@@ -74,7 +74,7 @@ class TestFileBudgetCommandsDoc:
 
 
 class TestFileBudgetPreservesLateStageProse:
-    """AC-13: existing late-stage 350-line prose stays in listed files."""
+    """Existing late-stage 350-line prose stays in listed files."""
 
     @pytest.fixture
     def files(self) -> list[Path]:
@@ -98,7 +98,7 @@ class TestFileBudgetPreservesLateStageProse:
 
 
 class TestFileBudgetRenderedAdaptersInSync:
-    """AC-15: source agent files render cleanly to harness adapters."""
+    """Source agent files render cleanly to harness adapters."""
 
     def test_rendered_engineer_carries_file_budget_line(self):
         text = _read(REPO / "runtime" / "harness" / "claude" / "agents" / "yoke-engineer.md")
@@ -115,7 +115,7 @@ class TestFileBudgetRenderedAdaptersInSync:
 
 
 class TestFileBudgetCanonicalCheckerByteIdentical:
-    """AC-16: the canonical ``file_line_check`` module still exists."""
+    """The canonical ``file_line_check`` module still exists."""
 
     def test_canonical_checker_module_exists(self):
         from yoke_core.domain import file_line_check

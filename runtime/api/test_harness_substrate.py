@@ -143,7 +143,7 @@ def test_extended_universe_includes_test_harness(extended_universe: tuple[str, .
 def test_safe_operator_surface_returns_universal_commands_for_test_harness(
     extended_universe: tuple[str, ...],
 ) -> None:
-    """AC-4 + AC-6: the lookup is harness-id-agnostic.
+    """The lookup is harness-id-agnostic.
 
     With ``HARNESS_UNIVERSE`` and ``SAFE_OPERATOR_SURFACE`` patched to include
     ``test-harness``, the lookup returns the same command list as for the
@@ -204,7 +204,7 @@ def test_opt_out_command_does_not_leak_into_test_harness(
 
 
 def test_renderer_writes_under_fixture_output_dir(isolated_repo: Path) -> None:
-    """AC-3: rendered output appears under the fixture's expected directory.
+    """Rendered output appears under the fixture's expected directory.
 
     The fixture's "expected directory" is the harness output tree relative to
     the patched repo root (``tmp_path``). The renderer is harness-agnostic at

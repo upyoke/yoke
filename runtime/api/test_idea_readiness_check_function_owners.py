@@ -165,7 +165,7 @@ class TestVerifyFunctionOwners:
     def test_missing_rg_returns_empty_without_subprocess(
         self, monkeypatch, stub_repo_root,
     ):
-        """AC-1 / AC-3 / AC-10: when ``rg`` is absent, ``verify_function_owners``
+        """When ``rg`` is absent, ``verify_function_owners``
         returns ``[]`` regardless of the spec text and never reaches
         ``subprocess.run``.
         """
@@ -190,7 +190,7 @@ class TestVerifyFunctionOwners:
     def test_missing_rg_warning_emitted_once(
         self, monkeypatch, caplog, stub_repo_root,
     ):
-        """AC-2: missing ``rg`` emits exactly one ``WARNING`` per process."""
+        """Missing ``rg`` emits exactly one ``WARNING`` per process."""
         monkeypatch.setattr(
             idea_readiness_check_rg.shutil, "which", lambda name: None,
         )

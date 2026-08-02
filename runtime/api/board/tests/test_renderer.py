@@ -1,8 +1,8 @@
 """Tests for the board renderer assembly and CLI entrypoint.
 
 Covers:
-- AC-5: Renderer assembly order and deterministic output structure
-- AC-2: Deterministic seed behavior (same seed => identical output)
+- Renderer assembly order and deterministic output structure
+- Deterministic seed behavior (same seed => identical output)
 - CLI invocation (render and preview modes)
 - Consistency check integration
 - Empty vs populated DB rendering
@@ -80,7 +80,7 @@ class TestRenderBoardEmpty:
 
 class TestRenderBoardPopulated:
     def test_section_order(self, populated_db, config_file):
-        """AC-5: Section order: Active, Pipeline, Backlog, Frozen, Unknown, Done."""
+        """Section order: Active, Pipeline, Backlog, Frozen, Unknown, Done."""
         output = render_board(populated_db, "yoke", config_file, seed=42)
 
         active_pos = output.find("### 🎫 Active")
@@ -103,7 +103,7 @@ class TestRenderBoardPopulated:
         assert "No backlog items yet" not in output
 
     def test_deterministic_with_seed(self, populated_db, config_file):
-        """AC-2: Same seed produces identical output."""
+        """Same seed produces identical output."""
         out1 = render_board(populated_db, "yoke", config_file, seed=42)
         out2 = render_board(populated_db, "yoke", config_file, seed=42)
         assert out1 == out2
@@ -115,7 +115,7 @@ class TestRenderBoardPopulated:
         assert "First item" in out2
 
     def test_output_structure(self, populated_db, config_file):
-        """AC-5: Output contains header, dashboard, and section tables."""
+        """Output contains header, dashboard, and section tables."""
         output = render_board(populated_db, "yoke", config_file, seed=42)
         # Should have some content before sections (header/dashboard area)
         active_pos = output.find("### 🎫 Active")

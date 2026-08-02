@@ -1,4 +1,4 @@
-"""AC-6 — four canonical lane shapes across the process-offer gate.
+"""Four canonical lane shapes across the process-offer gate.
 
 Sibling of :mod:`runtime.api.test_session_decision_lane_gate`; split out
 so the host test file stays under the 350-line authored-file cap. The

@@ -88,7 +88,7 @@ def _register_claim(conn, *, item_id: int) -> int:
 
 
 class TestWidenItemResolution:
-    """AC-30: ``--item YOK-N`` resolves to the one widenable claim."""
+    """``--item YOK-N`` resolves to the one widenable claim."""
 
     def test_item_flag_resolves_to_single_active_claim(
         self, patch_conn, capsys,

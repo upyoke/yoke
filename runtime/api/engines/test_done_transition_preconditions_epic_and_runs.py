@@ -69,7 +69,7 @@ def _seed_verdict(db_path, item_id, transition="refined_idea_to_planning", verdi
 
 
 class TestAC3LatestRunNotFailed:
-    """AC-3: latest deploy_run not failed."""
+    """Latest deploy_run not failed."""
 
     def test_failed_latest_run_blocks(self, dt_db):
         db_path, _ = dt_db
@@ -121,7 +121,7 @@ class TestAC3LatestRunNotFailed:
 
 
 class TestAC4EpicVerdictRequired:
-    """AC-4: epics need refined_idea_to_planning READY/CAVEATS verdict."""
+    """Epics need refined_idea_to_planning READY/CAVEATS verdict."""
 
     def test_missing_verdict_blocks_epic(self, dt_db):
         db_path, _ = dt_db
@@ -181,7 +181,7 @@ class TestAC4EpicVerdictRequired:
 
 
 class TestAC5NoRunDeliveryBypass:
-    """AC-5: no-run-delivery flow bypasses deployed_to but not AC-2."""
+    """No-run-delivery flow bypasses deployed_to but not AC-2."""
 
     def test_no_run_delivery_allows_empty_deployed_to(self, dt_db):
         db_path, _ = dt_db

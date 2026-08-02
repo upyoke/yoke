@@ -136,10 +136,10 @@ def _seed_claim(conn, *, item_id: int, repo_path: str,
 
 
 class TestAttemptClaimCoverageRepairMixed:
-    """AC-2 / AC-3 / AC-4 — partial-progress for mixed widen+narrow."""
+    """Partial-progress for mixed widen+narrow."""
 
     def test_both_axes_repairable_lands_both(self, conn, repo):
-        """AC-2: both axes individually repairable -> both land, success=True."""
+        """Both axes individually repairable -> both land, success=True."""
         _seed_claim(
             conn, item_id=9207, repo_path=str(repo),
             owned_paths=["src/keep.py", "src/drop.py"],
@@ -159,7 +159,7 @@ class TestAttemptClaimCoverageRepairMixed:
         assert outcome.rerun_verdict == "pass"
 
     def test_widen_blocked_narrow_clean(self, conn, repo):
-        """AC-3: narrow lands; widen reports residual; success mirrors rerun."""
+        """Narrow lands; widen reports residual; success mirrors rerun."""
         # src/missing.py intentionally not seeded -> resolver raises
         # UnknownPathTargets; _apply_widen catches it as widen_failed.
         _seed_claim(
@@ -181,7 +181,7 @@ class TestAttemptClaimCoverageRepairMixed:
         assert outcome.rerun_verdict == "block"
 
     def test_both_blocked_refused_before_mutation(self, conn):
-        """AC-4: both sides blocked -> success=False, refused_paths covers both."""
+        """Both sides blocked -> success=False, refused_paths covers both."""
         # Empty checkout path -> narrow refuses before mutating coverage.
         _seed_claim(
             conn, item_id=9209, repo_path="", owned_paths=["src/keep.py"],

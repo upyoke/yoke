@@ -115,7 +115,7 @@ class TestWhoClaimsCurrentEpisode(unittest.TestCase):
         self.assertIn("episode_boundary=2026-05-01T00:00:00Z", out)
 
     def test_current_episode_marks_inherited_when_claim_predates_boundary(self) -> None:
-        """AC-12: inherited claims are visible, not hidden."""
+        """Inherited claims are visible, not hidden."""
         with _build_conn() as conn:
             # Claim acquired BEFORE the most recent resume boundary;
             # the resume re-stamped episode_started_at past it.

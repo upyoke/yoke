@@ -128,7 +128,7 @@ class TestEvaluateCommandBlocks(unittest.TestCase):
         # Remediation names section-append for Progress Log appends.
         self.assertIn("section-append", reason)
         self.assertIn("Progress Log", reason)
-        # AC-14.3: remediation names the function-call surface.
+        # Remediation names the function-call surface.
         self.assertIn("FunctionCallRequest", reason)
         self.assertIn("yoke_function_dispatch", reason)
 

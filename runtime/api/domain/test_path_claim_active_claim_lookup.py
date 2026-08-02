@@ -242,7 +242,7 @@ def test_two_parallel_evaluations_resolve_independently(tmp_path):
 
 
 def test_epic_ignores_harness_sessions_execution_lane(tmp_path):
-    """AC-5: no SELECT execution_lane FROM harness_sessions in the path.
+    """No SELECT execution_lane FROM harness_sessions in the path.
 
     Behavior assertion: epic resolution does NOT depend on the session
     row's execution_lane field. Even when the session row carries a lane

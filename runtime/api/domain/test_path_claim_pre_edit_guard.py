@@ -129,7 +129,7 @@ class TestOutOfClaim:
 
 
 class TestWorktreeUnresolved:
-    """AC-22/AC-23: distinct failure.mode + narrative when claim is
+    """Distinct failure.mode + narrative when claim is
     not worktree-bound. Narrative teaches ``worktree_preflight`` and
     intentionally omits claim-widen guidance."""
 

@@ -157,7 +157,7 @@ class TestReleaseAllClaimsForSession(unittest.TestCase):
         self.assertIsNone(row["released_at"])
 
     def test_strict_same_session_filter(self):
-        # AC-20 — release_all_claims_for_session releases only the
+        # Release_all_claims_for_session releases only the
         # caller's own claims. Direct same-session match is the only
         # criterion; another session's claim is left untouched even when
         # the two sessions share an unrelated relationship.
@@ -205,7 +205,7 @@ class TestReleaseAllClaimsForSession(unittest.TestCase):
         self.assertEqual(result, {"released_count": 0, "released_claims": []})
 
     def test_event_carries_agent_handoff_intent(self):
-        # AC-1 — intent surfaces on per-claim WorkReleased + aggregate event.
+        # Intent surfaces on per-claim WorkReleased + aggregate event.
         conn = _build_conn()
         _insert_session(conn, "sess-evt")
         _insert_item_claim(conn, "sess-evt", 600)
@@ -236,7 +236,7 @@ class TestReleaseAllClaimsForSession(unittest.TestCase):
         self.assertEqual(agg[0][1].get("release_reason"), mod.AGENT_HANDOFF_RELEASE_REASON)
 
     def test_reuses_release_session_claims_no_duplicated_loop(self):
-        # AC-17 — verify route through shared helper, not a re-implementation.
+        # Verify route through shared helper, not a re-implementation.
         conn = _build_conn()
         _insert_session(conn, "sess-reuse")
         _insert_item_claim(conn, "sess-reuse", 700)

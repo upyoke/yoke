@@ -103,7 +103,7 @@ class TestRequirementsAndBaseUrl:
 
 class TestReachabilityAndDaemon:
     def test_ac4_unreachable_url_exits_with_note(self, db_path: str) -> None:
-        """AC-4: unreachable base_url returns verdict=error, note=unreachable."""
+        """Unreachable base_url returns verdict=error, note=unreachable."""
         _seed_item(db_path, 100)
         _seed_requirement(
             db_path, 100, "browser-check",

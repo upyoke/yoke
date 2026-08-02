@@ -35,7 +35,7 @@ def test_claude_md_is_symlink_to_agents_md():
 
 
 def test_agents_md_uses_bash_tool_calls_phrasing():
-    """AC-11: ``Subagent Bash calls`` retired in favor of ``Bash tool calls``."""
+    """``Subagent Bash calls`` retired in favor of ``Bash tool calls``."""
     text = AGENTS_MD.read_text()
     assert "Subagent Bash calls" not in text, (
         "AGENTS.md still carries the legacy 'Subagent Bash calls' rule heading; "

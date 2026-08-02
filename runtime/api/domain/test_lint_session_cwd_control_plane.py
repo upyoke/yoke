@@ -3,15 +3,15 @@ PYTHONPATH equivalence in the session-cwd lint family.
 
 Covers ACs 11-14 of YOK-1737:
 
-* AC-11 — Yoke control-plane reads allowed for any active Yoke
+* Yoke control-plane reads allowed for any active Yoke
   session regardless of held project-side claim; sibling-branch
   worktrees remain claim-gated.
-* AC-12 — ``PYTHONPATH=<yoke-root>`` invocations are cwd-equivalent
+* ``PYTHONPATH=<yoke-root>`` invocations are cwd-equivalent
   for Yoke-internal modules.
-* AC-13 — End-to-end scenario: a session holding a project-side
+* End-to-end scenario: a session holding a project-side
   ``work_claim`` can run Yoke control-plane reads and Yoke module
   invocations from any cwd.
-* AC-14 — ``BLOCKED`` message no longer mislabels a project repo as
+* ``BLOCKED`` message no longer mislabels a project repo as
   ``Control plane`` for a cross-project Yoke session.
 
 AC-48 (``db_helpers.resolve_db_path`` PYTHONPATH heuristic) lives in
@@ -100,7 +100,7 @@ def cross_project_session(conn, fake_yoke_root, cross_project_repo):
 
 
 # ---------------------------------------------------------------------------
-# AC-11 — Yoke control-plane reads carved out for any active session
+# Yoke control-plane reads carved out for any active session
 # ---------------------------------------------------------------------------
 
 
@@ -155,7 +155,7 @@ class TestYokeControlPlaneCarveOut:
 
 
 # ---------------------------------------------------------------------------
-# AC-12 — PYTHONPATH equivalence for Yoke-internal Python invocations
+# PYTHONPATH equivalence for Yoke-internal Python invocations
 # ---------------------------------------------------------------------------
 
 
@@ -238,7 +238,7 @@ class TestPythonPathEquivalence:
 
 
 # ---------------------------------------------------------------------------
-# AC-14 — BLOCKED message wording
+# BLOCKED message wording
 # ---------------------------------------------------------------------------
 
 

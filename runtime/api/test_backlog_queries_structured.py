@@ -167,7 +167,7 @@ class TestExecuteStructuredWrite:
         assert _item_field(tmp_db, 10, "spec_updated_by") == "engineer"
 
     def test_stdin_content_path(self, tmp_db):
-        """AC-1/AC-2: content param bypasses file reading, same pipeline."""
+        """Content param bypasses file reading, same pipeline."""
         _seed_item(tmp_db, id=10)
         out = io.StringIO()
 
@@ -185,7 +185,7 @@ class TestExecuteStructuredWrite:
         assert "stdin" in out.getvalue()
 
     def test_mutual_exclusion_both_provided(self):
-        """AC-4: both content and file_path → error."""
+        """Both content and file_path → error."""
         out = io.StringIO()
         result = backlog.execute_structured_write(
             item_id=10,
@@ -198,7 +198,7 @@ class TestExecuteStructuredWrite:
         assert "cannot use both" in result["error"]
 
     def test_neither_provided(self):
-        """AC-4: neither content nor file_path → error."""
+        """Neither content nor file_path → error."""
         out = io.StringIO()
         result = backlog.execute_structured_write(
             item_id=10,
@@ -209,7 +209,7 @@ class TestExecuteStructuredWrite:
         assert "requires" in result["error"]
 
     def test_stdin_empty_content_guard(self, tmp_db):
-        """AC-6: empty-content guard fires for stdin path."""
+        """Empty-content guard fires for stdin path."""
         _seed_item(tmp_db, id=10, spec="# Existing spec\n\nWith content.\n")
         out = io.StringIO()
 
@@ -226,7 +226,7 @@ class TestExecuteStructuredWrite:
         assert "empty" in result["error"]
 
     def test_stdin_shrinkage_guard(self, tmp_db):
-        """AC-6: shrinkage guard fires for stdin path."""
+        """Shrinkage guard fires for stdin path."""
         existing_spec = "\n".join([f"Line {i}" for i in range(20)])
         _seed_item(tmp_db, id=10, spec=existing_spec)
         out = io.StringIO()

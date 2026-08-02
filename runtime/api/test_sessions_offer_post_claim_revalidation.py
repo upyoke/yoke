@@ -66,10 +66,10 @@ def _set_item_status(conn, status: str) -> None:
 
 
 class TestPostClaimRevalidation(_ReleaseGapDbCase):
-    """AC-1, AC-2, AC-3, AC-4 — post-claim drift defense."""
+    """Post-claim drift defense."""
 
     def test_no_drift_at_claim_returns_charge(self) -> None:
-        """AC-4: no drift -> charge issued, no post-claim skip event."""
+        """No drift -> charge issued, no post-claim skip event."""
         conn = self.make_db()
         seed_item(conn)
         _set_item_status(conn, "reviewing-implementation")
@@ -93,7 +93,7 @@ class TestPostClaimRevalidation(_ReleaseGapDbCase):
         )
 
     def test_post_claim_drift_releases_and_skips(self) -> None:
-        """AC-1, AC-2, AC-3: drift between pre- and post-claim revalidation
+        """Drift between pre- and post-claim revalidation
         releases the acquired claim, skips the candidate, and records the
         canonical skip_reason with the released claim id."""
         conn = self.make_db()
@@ -149,7 +149,7 @@ class TestPostClaimRevalidation(_ReleaseGapDbCase):
 
 
 class TestPostClaimSchedulePinning(_ReleaseGapDbCase):
-    """AC-1, AC-2: post-claim recompute must pin selected_step to the
+    """Post-claim recompute must pin selected_step to the
     acquired claim — never let a higher-ranked item released between
     claim_work and the recompute displace ``new_claim``."""
 

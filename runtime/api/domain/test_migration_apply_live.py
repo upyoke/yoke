@@ -157,7 +157,7 @@ class TestLiveApplyRefusal:
         assert count == 0
 
     def test_refuses_fingerprint_mismatch(self, apply_env) -> None:
-        """AC-62: authoritative-DB schema change after rehearsal refuses live-apply."""
+        """Authoritative-DB schema change after rehearsal refuses live-apply."""
         _seed_apply_item(apply_env["control_db"], item_id=5031)
         rehearse(
             5031,
@@ -177,7 +177,7 @@ class TestLiveApplyRefusal:
         assert "fingerprint" in str(exc.value)
 
     def test_refuses_freshness_expired(self, apply_env) -> None:
-        """AC-62: rehearsed_at older than 30m refuses live-apply."""
+        """Rehearsed_at older than 30m refuses live-apply."""
         _seed_apply_item(apply_env["control_db"], item_id=5032)
         rehearse(
             5032,

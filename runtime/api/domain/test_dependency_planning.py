@@ -173,7 +173,7 @@ def _insert_coordination_only_dep(
 
 
 def test_evaluate_batch_gates_activation_ignores_coordination_only() -> None:
-    """AC-1: ``evaluate_batch_gates(gate_point='activation')`` returns no
+    """``evaluate_batch_gates(gate_point='activation')`` returns no
     blockers from ``coordination_only`` rows. The SQL filters by parameter,
     so a coordination_only row pointing at the same blocked item never
     appears in the activation result.
@@ -221,7 +221,7 @@ def test_evaluate_batch_gates_coordination_only_returns_separate_set() -> None:
 
 
 def test_evaluate_item_gate_activation_ignores_coordination_only() -> None:
-    """AC-2: ``evaluate_item_gate(item, gate_point='activation')`` returns
+    """``evaluate_item_gate(item, gate_point='activation')`` returns
     ``is_blocked=False`` when the item's only non-terminal blocker is
     ``coordination_only``-gated.
     """
@@ -328,7 +328,7 @@ class TestRefreshHookWiring:
 
 
 def test_frontier_unblocks_count_ignores_coordination_only() -> None:
-    """AC-3: ``compute_frontier``'s ``_UNBLOCKS_COUNT_SQL`` counts only
+    """``compute_frontier``'s ``_UNBLOCKS_COUNT_SQL`` counts only
     activation-gated downstreams. Adding a ``coordination_only`` row from
     item 2 to item 3 must NOT increase item 3's ``unblocks_count``.
 

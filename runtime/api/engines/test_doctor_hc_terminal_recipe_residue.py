@@ -51,7 +51,7 @@ def _copy_fixture_into(tmp_root: Path) -> None:
 
 
 class TestRecipeResidueScan(unittest.TestCase):
-    """AC-14.4 + AC-14.6: banned-literal residue scan."""
+    """Banned-literal residue scan."""
 
     def test_fixture_flagged_outside_allowlist(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -99,7 +99,7 @@ class TestRecipeResidueScan(unittest.TestCase):
 
 
 class TestRegistryChoreographyScan(unittest.TestCase):
-    """AC-14.7 + AC-14.8 + AC-14.9: registry-aware second pass."""
+    """Registry-aware second pass."""
 
     def test_fixture_flagged_for_function_covered_recipe(self) -> None:
         with tempfile.TemporaryDirectory() as td:

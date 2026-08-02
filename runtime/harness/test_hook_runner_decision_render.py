@@ -157,7 +157,7 @@ def test_claude_block_only_decision_still_renders_deny() -> None:
 
 
 def test_claude_single_advisory_emits_additional_context_envelope() -> None:
-    """AC-3: a single non-deny decision with additionalContext renders the envelope."""
+    """A single non-deny decision with additionalContext renders the envelope."""
     stdout, code = render_claude_decision(
         [_advisory("<system-reminder>advisory text</system-reminder>")],
         "PostToolUse",
@@ -171,7 +171,7 @@ def test_claude_single_advisory_emits_additional_context_envelope() -> None:
 
 
 def test_codex_single_advisory_emits_additional_context_envelope() -> None:
-    """AC-4: Codex emits the same allow-with-context envelope shape."""
+    """Codex emits the same allow-with-context envelope shape."""
     stdout, code = render_codex_decision(
         [_advisory("advisory text")],
         "PreToolUse",
@@ -224,7 +224,7 @@ def test_blank_additional_context_is_treated_as_no_advisory() -> None:
 
 
 def test_claude_mixed_deny_and_advisory_drops_advisory() -> None:
-    """AC-5: when a deny exists, the Claude renderer keeps exit-2 narrative
+    """When a deny exists, the Claude renderer keeps exit-2 narrative
     and drops the advisory so deny text cannot be hidden or replaced."""
     stdout, code = render_claude_decision(
         [_deny("blocked by lint_destructive_git"), _advisory("would-be advisory")],
@@ -236,7 +236,7 @@ def test_claude_mixed_deny_and_advisory_drops_advisory() -> None:
 
 
 def test_codex_mixed_deny_and_advisory_drops_advisory() -> None:
-    """AC-5: Codex keeps deny envelope and drops the advisory."""
+    """Codex keeps deny envelope and drops the advisory."""
     stdout, code = render_codex_decision(
         [_deny("blocked by path_claim_pre_edit_guard"), _advisory("would-be advisory")],
         "PreToolUse",

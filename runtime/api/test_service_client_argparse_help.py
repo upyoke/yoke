@@ -38,7 +38,7 @@ def _run_help(args: list[str]) -> subprocess.CompletedProcess:
 
 
 def test_path_claim_register_help_exits_zero_with_usage() -> None:
-    """AC-28: ``path-claim-register --help`` exits 0 with usage to stdout."""
+    """``path-claim-register --help`` exits 0 with usage to stdout."""
     proc = _run_help(["path-claim-register", "--help"])
     assert proc.returncode == 0, (
         f"expected exit 0; got {proc.returncode}; "
@@ -48,7 +48,7 @@ def test_path_claim_register_help_exits_zero_with_usage() -> None:
 
 
 def test_release_work_claim_help_enumerates_halt_class_reasons() -> None:
-    """AC-43: ``release-work-claim --help`` lists canonical halt-class reasons."""
+    """``release-work-claim --help`` lists canonical halt-class reasons."""
     from yoke_core.api.service_client_work_claim_reason_help import (
         HALT_CLASS_REASONS,
     )
@@ -72,7 +72,7 @@ def test_release_work_claim_help_enumerates_halt_class_reasons() -> None:
 
 
 def test_path_claim_boundary_help_exits_zero_with_usage() -> None:
-    """AC-28: ``path-claim-boundary --help`` exits 0 with usage to stdout."""
+    """``path-claim-boundary --help`` exits 0 with usage to stdout."""
     proc = _run_help(["path-claim-boundary", "--help"])
     assert proc.returncode == 0, (
         f"expected exit 0; got {proc.returncode}; "
@@ -82,7 +82,7 @@ def test_path_claim_boundary_help_exits_zero_with_usage() -> None:
 
 
 def test_session_end_help_exits_zero_with_usage() -> None:
-    """AC-11: ``session-end --help`` exits 0 with usage to stdout."""
+    """``session-end --help`` exits 0 with usage to stdout."""
     proc = _run_help(["session-end", "--help"])
     assert proc.returncode == 0, (
         f"expected exit 0; got {proc.returncode}; "
@@ -92,7 +92,7 @@ def test_session_end_help_exits_zero_with_usage() -> None:
 
 
 def test_claim_release_help_exits_zero_with_usage() -> None:
-    """AC-11: ``claim-release --help`` exits 0 with usage to stdout."""
+    """``claim-release --help`` exits 0 with usage to stdout."""
     proc = _run_help(["claim-release", "--help"])
     assert proc.returncode == 0, (
         f"expected exit 0; got {proc.returncode}; "
@@ -107,7 +107,7 @@ def test_claim_release_help_exits_zero_with_usage() -> None:
 
 
 def test_backlog_cli_freeze_help_exits_zero_with_usage() -> None:
-    """AC-11: ``backlog-cli freeze --help`` exits 0 with usage to stdout."""
+    """``backlog-cli freeze --help`` exits 0 with usage to stdout."""
     proc = _run_help(["backlog-cli", "freeze", "--help"])
     assert proc.returncode == 0, (
         f"expected exit 0; got {proc.returncode}; "
@@ -122,7 +122,7 @@ def test_backlog_cli_freeze_help_exits_zero_with_usage() -> None:
 
 
 def test_ac6_execute_structured_write_help_exits_zero_with_usage() -> None:
-    """AC-6: ``execute-structured-write --help`` exits 0, prints usage."""
+    """``execute-structured-write --help`` exits 0, prints usage."""
     proc = _run_help(["execute-structured-write", "--help"])
     assert proc.returncode == 0, (
         f"expected exit 0; got {proc.returncode}; "
@@ -133,14 +133,14 @@ def test_ac6_execute_structured_write_help_exits_zero_with_usage() -> None:
 
 
 def test_ac6_execute_structured_write_dash_h_exits_zero_with_usage() -> None:
-    """AC-6: ``execute-structured-write -h`` matches the long-form behavior."""
+    """``execute-structured-write -h`` matches the long-form behavior."""
     proc = _run_help(["execute-structured-write", "-h"])
     assert proc.returncode == 0
     assert b"Usage: execute-structured-write" in proc.stdout
 
 
 def test_ac7_flag_first_positional_names_real_shape() -> None:
-    """AC-7: ``execute-structured-write --item YOK-N --field spec`` (the
+    """``execute-structured-write --item YOK-N --field spec`` (the
     agent-natural flag-first shape) returns non-zero with an error
     message that names the actual positional shape — never the cryptic
     ``Item ID must be integer, got '--item'`` of the old code path.
@@ -172,7 +172,7 @@ def test_ac7_flag_first_positional_names_real_shape() -> None:
 
 
 def test_ac8_every_subcommand_exits_zero_on_help(tmp_path) -> None:
-    """AC-8: service_client subcommands and db_router domains exit 0 on
+    """Service_client subcommands and db_router domains exit 0 on
     ``--help`` and create no file artifacts in cwd. The dispatcher's
     universal safety net (`service_client_help.run_with_help_fallback`)
     catches subcommands that crash or return non-zero and replaces

@@ -139,7 +139,7 @@ class TestInsert:
 
 class TestQueries:
     def test_list_format(self, db_path: str) -> None:
-        """AC-1: pipe-delimited format."""
+        """Pipe-delimited format."""
         _insert_event(db_path, event_id="fmt-001", event_name="TestEvent")
         result = ec.cmd_list(db_path)
         assert "|" in result
@@ -185,7 +185,7 @@ class TestPrune:
         assert "Would prune:" in result
 
     def test_prune_respects_retention(self, db_path: str) -> None:
-        """AC-5: prune respects per-severity retention."""
+        """Prune respects per-severity retention."""
         conn = connect_test_db(db_path)
         # Insert old DEBUG event (8 days ago)
         conn.execute(

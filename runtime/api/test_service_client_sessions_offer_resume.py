@@ -24,7 +24,7 @@ class TestSessionOfferResume:
     """CLI session-offer resume and stale-claim recovery flows."""
 
     def test_session_offer_recovers_stale_claimed_work(self, session_offer_db):
-        """AC-3/AC-7: CLI session-offer recovers stale-claimed work."""
+        """CLI session-offer recovers stale-claimed work."""
         conn = connect_test_db(session_offer_db["db_path"])
         stale_iso = "2000-01-01T00:00:00Z"
         conn.execute(
@@ -77,7 +77,7 @@ class TestSessionOfferResume:
         assert new_claim["item_id"] == 10
 
     def test_session_offer_resume_with_epic_task_claim(self, session_offer_db):
-        """AC-9: historical epic task claim rows still surface in resume context."""
+        """Historical epic task claim rows still surface in resume context."""
         conn = connect_test_db(session_offer_db["db_path"])
         fresh_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         conn.execute(

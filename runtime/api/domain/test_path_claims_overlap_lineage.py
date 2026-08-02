@@ -241,7 +241,7 @@ class TestRegisterDescendantConflict:
 
 class TestRenameCoverage:
     def test_observed_source_plus_planned_destination_can_co_exist(self, conn):
-        """AC-14: a rename plan claims observed source + planned destination."""
+        """A rename plan claims observed source + planned destination."""
         actor = local_human(conn)
         seed_item(conn, item_id=1)
         # Seed an observed source row directly.

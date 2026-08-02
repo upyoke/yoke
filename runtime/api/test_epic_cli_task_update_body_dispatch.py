@@ -44,7 +44,7 @@ def db():
 
 
 class TestTaskUpdateBodyDispatchParity:
-    """AC-8.3 — ``task-update-body`` builds and dispatches the
+    """``task-update-body`` builds and dispatches the
     ``workflow_item.epic_task.body_replace`` request."""
 
     def test_body_file_path_routes_through_dispatcher(self, db, tmp_path):
@@ -88,7 +88,7 @@ class TestTaskUpdateBodyDispatchParity:
         assert args[3] == "Body from stdin"
 
     def test_json_mode_emits_function_call_response_envelope(self, db):
-        """AC-8.5 — ``--json`` emits the FunctionCallResponse envelope verbatim."""
+        """``--json`` emits the FunctionCallResponse envelope verbatim."""
         from yoke_core.domain import yoke_function_dispatch as dispatch_module
         from yoke_core.domain.handlers import workflow_item_epic_task as task_handler
 

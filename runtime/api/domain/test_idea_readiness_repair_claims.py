@@ -5,13 +5,13 @@ the regression: pure claim-coverage readiness gaps must classify as
 recoverable, not as ``CLASS_UNRECOVERABLE``.
 
 AC traceability:
-- AC-1: pure ``FILE_BUDGET_NOT_IN_CLAIM`` -> recoverable.
-- AC-2: pure ``CLAIM_NOT_IN_FILE_BUDGET`` -> recoverable.
-- AC-3: mixed claim-coverage (both recoverable codes, no STALE_LINE_COUNT)
+- Pure ``FILE_BUDGET_NOT_IN_CLAIM`` -> recoverable.
+- Pure ``CLAIM_NOT_IN_FILE_BUDGET`` -> recoverable.
+- Mixed claim-coverage (both recoverable codes, no STALE_LINE_COUNT)
   -> recoverable.
-- AC-4: existing pure-stale-count / stale-plus-claim / unrecoverable
+- Existing pure-stale-count / stale-plus-claim / unrecoverable
   surfaces remain intact.
-- AC-6: pure ``FILE_BUDGET_NOT_IN_CLAIM`` readiness evidence is
+- Pure ``FILE_BUDGET_NOT_IN_CLAIM`` readiness evidence is
   not classified as terminal.
 """
 

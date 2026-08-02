@@ -20,7 +20,7 @@ import sys
 
 
 class TestCmdExecuteUpdateCliDispatchParity:
-    """AC-8.1 — structured-field write routes through the function dispatcher."""
+    """Structured-field write routes through the function dispatcher."""
 
     def test_routes_body_file_through_dispatcher(self, monkeypatch, capsys, tmp_path):
         import yoke_core.api.service_client as service_client
@@ -102,7 +102,7 @@ class TestCmdExecuteUpdateCliDispatchParity:
         assert called["source"] == "tester"
 
     def test_json_mode_emits_function_call_response_envelope(self, monkeypatch, capsys):
-        """AC-8.5 — ``--json`` mode emits the FunctionCallResponse verbatim."""
+        """``--json`` mode emits the FunctionCallResponse verbatim."""
         import yoke_core.api.service_client as service_client
         from yoke_core.domain import yoke_function_dispatch as dispatch_module
         from yoke_core.domain.handlers import items_structured_field

@@ -1,4 +1,4 @@
-"""AC-23: per-item aggregation in :func:`check_boundary_for_item`.
+"""Per-item aggregation in :func:`check_boundary_for_item`.
 
 Single-claim items keep today's behavior. Multi-claim items accept when
 the union of declared coverage across all non-terminal claims covers
@@ -195,7 +195,7 @@ class TestAggregationBranching:
 
 
 class TestAggregationGitignoreFilter:
-    """AC-47: aggregation gate honors `.gitignore` for committed paths."""
+    """Aggregation gate honors `.gitignore` for committed paths."""
 
     def _git(self, repo: Path, *args: str) -> str:
         env = {

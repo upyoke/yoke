@@ -159,7 +159,7 @@ class TestEvaluateReleasePrecondition(unittest.TestCase):
         )
 
     def test_epic_task_target_non_terminal_allowed(self) -> None:
-        """AC-4: epic_task targets do not gate on checkpoint state."""
+        """Epic_task targets do not gate on checkpoint state."""
         _seed_checkpoint(self.conn, chainable=True, outcome=OUTCOME_COMPLETED)
         r = evaluate_release_precondition(
             self.conn, session_id=SESSION_ID,
@@ -233,7 +233,7 @@ def _capture_envelopes(target: callable) -> list[dict]:
 
 
 class TestRefusalEventEnvelope(unittest.TestCase):
-    """AC-12: ItemClaimReleaseRefused envelope carries cold-start fields."""
+    """ItemClaimReleaseRefused envelope carries cold-start fields."""
 
     def test_refusal_envelope_carries_evidence_fields(self) -> None:
         conn = _make_db()
@@ -269,7 +269,7 @@ class TestRefusalEventEnvelope(unittest.TestCase):
 
 
 class TestReleaseExitCodes(unittest.TestCase):
-    """AC-14: release failure-to-exit map values are unique and stable."""
+    """Release failure-to-exit map values are unique and stable."""
 
     def test_release_failure_exit_codes_are_unique(self) -> None:
         values = list(_RELEASE_FAILURE_TO_EXIT.values())

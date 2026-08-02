@@ -203,7 +203,7 @@ def test_empty_input_returns_empty_list(tmp_path: Path) -> None:
 
 
 def test_helper_is_read_only_against_repo_tree(tmp_path: Path) -> None:
-    """AC-13: helper must not register, widen, narrow, activate, or release a claim.
+    """Helper must not register, widen, narrow, activate, or release a claim.
 
     Indirect check: running the helper against a populated repo must not
     mutate the file tree (e.g., no temp files, no path-claim sentinel files).
@@ -234,7 +234,7 @@ def test_helper_is_read_only_against_repo_tree(tmp_path: Path) -> None:
 def test_helper_accepts_int_epic_and_task_num_without_db_dependency(
     tmp_path: Path,
 ) -> None:
-    """AC-3: signature ``(epic_id, task_num, file_budget_paths, *, repo_root)``.
+    """Signature ``(epic_id, task_num, file_budget_paths, *, repo_root)``.
 
     The helper does not consult the DB for ``(epic_id, task_num)`` in v0; this
     test asserts the arguments are accepted without requiring an active DB or

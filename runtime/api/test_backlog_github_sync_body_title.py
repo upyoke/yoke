@@ -94,7 +94,7 @@ class TestSyncBody:
         db.close()
 
     def test_below_budget_uses_full_body(self):
-        """AC-11: small body → full mode; mirror is NOT used."""
+        """Small body → full mode; mirror is NOT used."""
         db = _make_db()
         insert_item(
             db, id=60, workflow_id="issue", status="idea", project="externalwebapp",
@@ -121,7 +121,7 @@ class TestSyncBody:
         db.close()
 
     def test_above_budget_uses_compact_mirror(self):
-        """AC-11: oversized body → compact mirror path engages."""
+        """Oversized body → compact mirror path engages."""
         db = _make_db()
         huge_spec = "a" * (body_budget.GITHUB_BODY_BUDGET_BYTES + 100)
         insert_item(
@@ -151,7 +151,7 @@ class TestSyncBody:
         db.close()
 
     def test_auth_failure_short_circuits_body_budget_check(self):
-        """AC-9: resolver runs FIRST; body_exceeds_budget is never called
+        """Resolver runs FIRST; body_exceeds_budget is never called
         when the resolver raises a ProjectGithubAuthError subclass."""
         db = _make_db()
         insert_item(

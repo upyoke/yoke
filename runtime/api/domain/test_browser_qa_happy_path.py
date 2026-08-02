@@ -252,7 +252,7 @@ class TestHappyPath:
         assert expected_file.read_bytes() == b"PNG"
 
     def test_ac3_only_browser_kinds_are_executed(self, db_path: str) -> None:
-        """AC-3: non-browser qa_kinds (simulation) are not touched by execute_scenario."""
+        """Non-browser qa_kinds (simulation) are not touched by execute_scenario."""
         _seed_item(db_path, 100)
         _seed_requirement(
             db_path, 100, "browser-check",
@@ -288,7 +288,7 @@ class TestHappyPath:
 
 class TestFailurePropagation:
     def test_ac13_success_false_step_marks_run_fail(self, db_path: str) -> None:
-        """AC-13: a step returning success:false marks the run verdict=fail."""
+        """A step returning success:false marks the run verdict=fail."""
         _seed_item(db_path, 100)
         _seed_requirement(
             db_path, 100, "browser-check",

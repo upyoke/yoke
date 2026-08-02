@@ -126,7 +126,7 @@ class TestRequirementWaive:
 
 
 class TestRequirementUpdate:
-    """AC-1: qa requirement-update mirrors the shape of items update."""
+    """Qa requirement-update mirrors the shape of items update."""
 
     def test_update_blocking_mode(self, db_path: str, req_id: int) -> None:
         qa.cmd_requirement_update(
@@ -198,7 +198,7 @@ class TestRequirementUpdate:
         assert row[0] == "post_deploy"
 
     def test_update_rejects_qa_kind(self, db_path: str, req_id: int) -> None:
-        """AC-1: qa_kind is excluded explicitly — the error must call it out."""
+        """Qa_kind is excluded explicitly — the error must call it out."""
         with pytest.raises(SystemExit) as exc:
             qa.cmd_requirement_update(
                 req_id, "qa_kind", "replacement-kind", db_path=db_path

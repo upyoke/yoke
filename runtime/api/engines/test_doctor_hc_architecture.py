@@ -2,12 +2,12 @@
 
 Covers the four positive-and-negative cases the ACs name explicitly:
 
-* AC-7: domain_invariants → orchestration import fails forbidden-edge.
-* AC-8: direct ``sqlite3.connect`` import from an unapproved module
+* Domain_invariants → orchestration import fails forbidden-edge.
+* Direct ``sqlite3.connect`` import from an unapproved module
   fails cross-cutting-entrypoint.
-* AC-9: a snapshot path with no inherited layer / domain fails
+* A snapshot path with no inherited layer / domain fails
   unclassified-path; an exemption-marked path passes.
-* AC-21: corrupt ``dependency_edges`` JSON fires scan-error.
+* Corrupt ``dependency_edges`` JSON fires scan-error.
 
 Item-side tests cover the impact-declaration HC: invalid enum values
 fire findings, ``uncertain`` past ``refined-idea`` fires findings,
@@ -191,7 +191,7 @@ class TestUnclassifiedPath:
 
 class TestForbiddenEdge:
     def test_domain_to_engine_import_fires(self, conn):
-        """AC-7: a domain_invariants module importing
+        """A domain_invariants module importing
         yoke_core.engines.foo fails the HC."""
         _seed_model(conn)
         src = mint_target(
@@ -255,7 +255,7 @@ class TestForbiddenEdge:
 
 class TestCrossCuttingEntrypoint:
     def test_unapproved_sqlite_connect_fires(self, conn):
-        """AC-8: a module that imports sqlite3.connect directly while
+        """A module that imports sqlite3.connect directly while
         outside the approved entrypoint list fails the HC."""
         _seed_model(conn)
         tid = mint_target(

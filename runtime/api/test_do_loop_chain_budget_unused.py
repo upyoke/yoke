@@ -22,7 +22,7 @@ def _sun(item_id: int) -> str:
 
 
 class TestClassifyTerminalReason:
-    """AC-7 / AC-12: classify the terminal reason from this-step skip entries."""
+    """Classify the terminal reason from this-step skip entries."""
 
     def test_empty_returns_no_candidates(self):
         assert classify_terminal_reason([]) == "no_candidates"
@@ -74,7 +74,7 @@ class TestClassifyTerminalReason:
 
 
 class TestEmitChainBudgetUnusedIfRemaining:
-    """AC-12: emit ChainBudgetUnused on a non-chainable offer with budget left."""
+    """Emit ChainBudgetUnused on a non-chainable offer with budget left."""
 
     def _capture_events(self):
         captured: list[dict] = []

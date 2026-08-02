@@ -255,7 +255,7 @@ def test_hc_records_warn_on_residue(monkeypatch, tmp_path: Path):
 
 
 def test_scan_widening_catches_slash_form_module_path(tmp_path: Path):
-    """AC-2: un-patched ``Path("runtime/harness/codex/codex_hooks_tool_events.py")``
+    """Un-patched ``Path("runtime/harness/codex/codex_hooks_tool_events.py")``
     in a runtime Python source flips the scanner via slash-form normalisation."""
     target = tmp_path / "runtime" / "api" / "engines"
     target.mkdir(parents=True)
@@ -272,7 +272,7 @@ def test_scan_widening_catches_slash_form_module_path(tmp_path: Path):
 
 
 def test_scan_widening_catches_dotted_form_hook_module(tmp_path: Path):
-    """AC-3: dotted-form retired hook module reference in a runtime Python
+    """Dotted-form retired hook module reference in a runtime Python
     source flips the scanner via the standard dotted pattern."""
     target = tmp_path / "runtime" / "api" / "engines"
     target.mkdir(parents=True)
@@ -287,7 +287,7 @@ def test_scan_widening_catches_dotted_form_hook_module(tmp_path: Path):
 
 
 def test_scan_widening_python_path_allowlist_is_path_scoped(tmp_path: Path):
-    """AC-7: an allow-listed prefix exempts files under it from the
+    """An allow-listed prefix exempts files under it from the
     ``yoke-db.sh`` pattern; a sibling outside the allow-list still trips.
     The exemption is path-scoped (file-level), not pattern-wide (global)."""
     allow_dir = tmp_path / "runtime" / "api" / "tools"
@@ -308,7 +308,7 @@ def test_scan_widening_python_path_allowlist_is_path_scoped(tmp_path: Path):
 
 
 def test_scan_widening_skips_python_files_outside_runtime(tmp_path: Path):
-    """AC-1: ``.py`` scanning is scoped to ``runtime/`` only — Python files
+    """``.py`` scanning is scoped to ``runtime/`` only — Python files
     under ``docs/`` or ``.yoke/strategy/`` are not in scope (the .md scan covers
     those dirs)."""
     (tmp_path / "docs").mkdir()

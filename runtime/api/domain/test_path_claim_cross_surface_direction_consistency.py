@@ -17,7 +17,7 @@ from runtime.api.domain.test_path_claim_directional_overlap import (
 
 
 class TestCrossSurfaceConsistency:
-    """AC-27: hard-block gate and classify_overlap agree on direction.
+    """Hard-block gate and classify_overlap agree on direction.
 
     The candidate (matching-shape) is the BLOCKER of a non-coord
     activation edge. Both surfaces must agree the candidate is upstream

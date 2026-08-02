@@ -139,7 +139,7 @@ class TestBuildHeadSnapshot:
             assert row[0] is None
 
     def test_whole_repo_identity_matches_git_ls_tree(self, small_repo):
-        # AC-4 + AC-23: every committed path at HEAD plus derived parent
+        # Every committed path at HEAD plus derived parent
         # directories has a path_target row.
         with path_snapshot_db(small_repo.parent, small_repo) as conn:
             snap_id = build_head_snapshot(conn, "demo")

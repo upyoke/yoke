@@ -101,7 +101,7 @@ def _capture(func, *args):
 
 
 class TestOverrideRejectionDistinct:
-    """AC-18: empty-reason and hook-context rejections are distinguishable."""
+    """Empty-reason and hook-context rejections are distinguishable."""
 
     def test_path_claim_override_registered_in_commands_table(self):
         assert "path-claim-override" in PATH_CLAIMS_COMMANDS
@@ -207,7 +207,7 @@ def _run_subprocess_help(cmd: str) -> subprocess.CompletedProcess:
 
 
 class TestServiceClientPathClaimHelp:
-    """AC-31: path-claim wrapper ``--help`` surfaces no longer fall through.
+    """Path-claim wrapper ``--help`` surfaces no longer fall through.
 
     The historical failure mode was the generic "no docstring registered"
     fallback. After the wrapper docstrings + add_help=True parsers land,
@@ -231,7 +231,7 @@ class TestServiceClientPathClaimHelp:
 
 
 class TestWidenItemRoutesThroughServiceClient:
-    """AC-30: the service-client widen wrapper accepts ``--item YOK-N`` too.
+    """The service-client widen wrapper accepts ``--item YOK-N`` too.
 
     Invoked in-process — the wrapper forwards to the shared
     ``cmd_widen`` parser, so ``--item`` resolution and rejections
@@ -264,7 +264,7 @@ class TestWidenItemRoutesThroughServiceClient:
 
 
 class TestPathClaimGetPositionalShape:
-    """AC-31: ``path-claim-get`` accepts a positional claim id; the wrapper
+    """``path-claim-get`` accepts a positional claim id; the wrapper
     surfaces NOT_FOUND for unknown ids and exits non-zero with a parseable
     JSON payload."""
 

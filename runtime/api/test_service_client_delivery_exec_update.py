@@ -84,7 +84,7 @@ class TestExecuteUpdateCli:
         assert called["rebuild_board"] is False
 
     # Dispatcher-parity assertions for the structured-field write path
-    # (AC-8.1) live in the sibling
+    # live in the sibling
     # ``test_service_client_delivery_exec_update_dispatch.py`` to keep
     # this file under the 350-line authored-file budget.
 

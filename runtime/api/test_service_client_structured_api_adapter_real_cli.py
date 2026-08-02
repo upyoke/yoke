@@ -40,7 +40,7 @@ def _silence_claim(monkeypatch):
 
 
 class TestRealCliParityMatrix:
-    """AC-8.6 — each wired CLI produces the same payload as direct dispatch."""
+    """Each wired CLI produces the same payload as direct dispatch."""
 
     def test_items_structured_field_replace_parity(self, monkeypatch):
         """``db_router items update YOK-N spec --stdin`` ↔ dispatch payload."""

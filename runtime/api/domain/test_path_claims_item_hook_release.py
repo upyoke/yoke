@@ -136,7 +136,7 @@ class TestReleaseClaimsOnItemTerminal:
         assert claim["release_reason"] == "item-done"
 
     def test_skips_already_terminal_claims(self, conn):
-        """AC-4: idempotent — already-released stays released; cancelled stays cancelled."""
+        """Idempotent — already-released stays released; cancelled stays cancelled."""
         actor = local_human(conn)
         item_id = _seed_item(conn, item_id=15004)
         ta = seed_target(conn, path_string="src/foo.py")

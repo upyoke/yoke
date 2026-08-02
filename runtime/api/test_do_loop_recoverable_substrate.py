@@ -2,11 +2,11 @@
 
 Reproduces concrete failure shapes from the work-item spec:
 
-* AC-28 — re-entry shape: item already ``implementing``,
+* Re-entry shape: item already ``implementing``,
   routed advance hits a recoverable substrate failure before useful
   work began, ``/yoke do`` records the chain outcome instead of
   treating it as useful implementation progress.
-* AC-33 — same re-entry shape but verifies the canonical holder lookup:
+* Same re-entry shape but verifies the canonical holder lookup:
   another live session holds the work claim, and ``holder_session_for_item``
   returns the canonical claim facts (``claim_id``, holder
   ``session_id``, ``item_id``, ``claim_type``, ``claimed_at``) without
@@ -79,7 +79,7 @@ def _seed_item(conn, *, item_id: int, status: str, project: str = "yoke") -> Non
 
 
 class TestYok1599SubstrateReentry:
-    """AC-28: routed advance hits recoverable substrate; chain outcome preserved."""
+    """Routed advance hits recoverable substrate; chain outcome preserved."""
 
     def test_substrate_skip_records_no_useful_work_began(self, conn):
         # Reproduce the re-entry shape: item already ``implementing``, a
@@ -163,7 +163,7 @@ class TestYok1599SubstrateReentry:
 
 
 class TestYok1599HolderViaCanonicalSurface:
-    """AC-33: ``holder_session_for_item`` returns canonical claim facts.
+    """``holder_session_for_item`` returns canonical claim facts.
 
     The session that releases its own claims and observes another live
     session still holding the item must read the holder via the

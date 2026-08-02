@@ -48,7 +48,7 @@ def _ensure_no_hook_env():
         os.environ["YOKE_HOOK_EVENT"] = prior
 
 class TestInvokeOverrideGuards:
-    """AC-11, AC-18, AC-25 — invocation guards are distinguishable."""
+    """Invocation guards are distinguishable."""
 
     def test_rejects_hook_context(self, conn, monkeypatch):
         monkeypatch.setenv("YOKE_HOOK_EVENT", "PreToolUse")
@@ -81,7 +81,7 @@ class TestInvokeOverrideGuards:
             )
 
     def test_creation_requires_concrete_claim_row(self, conn):
-        """AC-25: override against a missing claim id is rejected."""
+        """Override against a missing claim id is rejected."""
         with pytest.raises(ClaimNotFound):
             invoke_override(
                 conn,
@@ -113,7 +113,7 @@ class TestInvokeOverrideGuards:
 
 
 class TestIsActiveOverridePersistAndRetire:
-    """AC-12, AC-13 — persistence-then-effect and auto-retirement."""
+    """Persistence-then-effect and auto-retirement."""
 
     def _setup_two_claims(self, conn):
         """ca holds two contended targets (active); cb is unrelated.

@@ -1,4 +1,4 @@
-"""AC-29 — non-`yoke` project coverage for the path-snapshot bootstrap.
+"""Non-`yoke` project coverage for the path-snapshot bootstrap.
 
 The Yoke-repo graph fixture in
 :mod:`runtime.api.domain.test_path_snapshots_yoke_graph` exercises a

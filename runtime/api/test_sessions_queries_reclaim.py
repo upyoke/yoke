@@ -67,7 +67,7 @@ class TestSessionOfferReclaim:
         assert result["downstream_paths"] == shared_downstream_paths()
 
     def test_offer_envelope_includes_supported_paths(self, ownership_conn):
-        """AC-6: offer envelope persisted in DB includes supported_paths."""
+        """Offer envelope persisted in DB includes supported_paths."""
         conn, ws = ownership_conn
         _ensure_active_session(conn, "sess-envelope-1", ws, model="opus")
         session_offer_with_ownership(
@@ -87,7 +87,7 @@ class TestSessionOfferReclaim:
         assert envelope["supported_paths"] == ["conduct"]
 
     def test_offer_reclaims_stale_heartbeat_claim(self, ownership_conn):
-        """AC-2/AC-6: session_offer_with_ownership auto-reclaims
+        """Session_offer_with_ownership auto-reclaims
         a stale exclusive claim from a heartbeat-stale session and then
         acquires the item for the offering session."""
         conn, ws = ownership_conn
@@ -133,7 +133,7 @@ class TestSessionOfferReclaim:
         assert stale_claim["release_reason"] == "reclaimed"
 
     def test_offer_reclaims_ended_session_claim(self, ownership_conn):
-        """AC-2/AC-6: session_offer_with_ownership auto-reclaims
+        """Session_offer_with_ownership auto-reclaims
         an unreleased claim from an already-ended session."""
         conn, ws = ownership_conn
         _ensure_active_session(conn, "new-sess-ended", ws, model="opus")
@@ -169,7 +169,7 @@ class TestSessionOfferReclaim:
         assert result["new_claim"]["item_id"] == 100
 
     def test_offer_only_stale_work_returns_charge(self, ownership_conn):
-        """AC-3: if only stale-claimed work exists on the frontier,
+        """If only stale-claimed work exists on the frontier,
         the offer surface recovers it instead of returning no_work."""
         conn, ws = ownership_conn
         _ensure_active_session(conn, "rescuer-sess", ws, model="opus")
@@ -205,7 +205,7 @@ class TestSessionOfferReclaim:
         assert result["new_claim"] is not None
 
     def test_offer_race_safe_no_duplicate_claims(self, ownership_conn):
-        """AC-5: if a live session holds the claim, reclaim does
+        """If a live session holds the claim, reclaim does
         not release it, preserving single-owner safety."""
         conn, ws = ownership_conn
         _ensure_active_session(conn, "competing-sess", ws, model="opus")

@@ -77,7 +77,7 @@ def _sml_state_patch(coherent: bool = True):
 
 
 class TestApiSessionOfferLaneIgnore:
-    """AC-13, AC-15 — HTTP route ignores caller lane and anchors on the row."""
+    """HTTP route ignores caller lane and anchors on the row."""
 
     @pytest.fixture(autouse=True)
     def setup_client(self, session_offer_db):
@@ -123,7 +123,7 @@ class TestApiSessionOfferLaneIgnore:
         return resp.json()
 
     def test_body_primary_against_darius_row_uses_row_lane(self):
-        """AC-13: body lane is ignored; envelope persists the row lane."""
+        """Body lane is ignored; envelope persists the row lane."""
         sid = "http-lane-anchor-warning"
         self._ensure_active_session(sid, lane="DARIUS")
         self._post_offer(session_id=sid, execution_lane="primary")

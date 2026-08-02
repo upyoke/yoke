@@ -199,7 +199,7 @@ class TestBoundaryCheckForClaim:
 
 
 class TestGitignoreFiltering:
-    """AC-28 / AC-47: ignored committed paths are filtered before classify."""
+    """Ignored committed paths are filtered before classify."""
 
     def _land_ignore_on_main(self, repo):
         _git(repo, "checkout", "-q", "main")

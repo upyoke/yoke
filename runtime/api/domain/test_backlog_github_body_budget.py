@@ -28,7 +28,7 @@ class TestBodyExceedsBudget:
         assert bb.body_exceeds_budget(body) is True
 
     def test_byte_length_vs_char_length(self):
-        """AC-2: predicate is byte-length, not char-length.
+        """Predicate is byte-length, not char-length.
 
         A 31k-char emoji body is ~124k bytes because each emoji code point
         encodes as four UTF-8 bytes.  Char-length-based logic would falsely
@@ -94,7 +94,7 @@ def evidence_conn() -> Iterator[Any]:
 
 class TestRenderCompactMirror:
     def test_contains_required_fields(self, evidence_conn: Any):
-        """AC-3: compact mirror names title, YOK-N, project, status, lifecycle,
+        """Compact mirror names title, YOK-N, project, status, lifecycle,
         DB pointer, lifecycle commands, and evidence summary."""
         fields = {
             "title": "My Title",

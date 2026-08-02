@@ -29,7 +29,7 @@ from yoke_core.domain.agents_render_conditional import (
 
 
 def test_known_harness_ids_are_a_frozenset_with_claude_and_codex() -> None:
-    """AC-1: harness ids come from one canonical Python constant."""
+    """Harness ids come from one canonical Python constant."""
     assert isinstance(HARNESS_IDS, frozenset)
     assert CLAUDE_HARNESS_ID in HARNESS_IDS
     assert CODEX_HARNESS_ID in HARNESS_IDS

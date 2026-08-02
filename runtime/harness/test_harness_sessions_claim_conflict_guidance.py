@@ -56,7 +56,7 @@ def conflicting_claim(conn):  # noqa: F811  (reuse imported pytest fixture)
 
 
 class TestClaimConflictGuidance:
-    """AC-1 / AC-2 — ``claim-work`` conflict text."""
+    """``claim-work`` conflict text."""
 
     def test_conflict_message_names_holder_and_target(self, conflicting_claim):
         with pytest.raises(PermissionError) as excinfo:
@@ -96,7 +96,7 @@ class TestClaimConflictGuidance:
 
 
 class TestWhoClaimsHolderConcise:
-    """AC-3 — holder gets the canonical row only; no advisory noise."""
+    """Holder gets the canonical row only; no advisory noise."""
 
     def test_holder_caller_sees_only_canonical_row(self, conflicting_claim):
         out = cmd_who_claims(
@@ -113,7 +113,7 @@ class TestWhoClaimsHolderConcise:
 
 
 class TestWhoClaimsNonHolderWarning:
-    """AC-3 — non-holder and unknown-session calls carry the warning."""
+    """Non-holder and unknown-session calls carry the warning."""
 
     def test_non_holder_caller_sees_warning(self, conflicting_claim):
         out = cmd_who_claims(

@@ -84,7 +84,7 @@ class TestSessionEndEndpoint:
         conn.close()
 
     def test_end_session_chain_pending_returns_409(self):
-        """AC-1: normal end is blocked while chain work remains."""
+        """Normal end is blocked while chain work remains."""
         self._insert_chain_pending_session("api-chain-pending")
         resp = self.client.post("/v1/sessions/api-chain-pending/end")
 
@@ -107,14 +107,14 @@ class TestSessionEndEndpoint:
         assert claim[0] is None
 
     def test_end_session_force_alone_still_returns_chain_pending(self):
-        """AC-9 / AC-13: ``force`` alone no longer bypasses CHAIN_PENDING on the API path."""
+        """``force`` alone no longer bypasses CHAIN_PENDING on the API path."""
         self._insert_chain_pending_session("api-chain-force")
         resp = self.client.post("/v1/sessions/api-chain-force/end?force=true")
         assert resp.status_code == 409
         assert resp.json()["error"]["code"] == "CHAIN_PENDING"
 
     def test_end_session_override_without_rationale_returns_400(self):
-        """AC-9 / AC-13: API rejects override flag with empty rationale."""
+        """API rejects override flag with empty rationale."""
         self._insert_chain_pending_session("api-empty-rationale")
         resp = self.client.post(
             "/v1/sessions/api-empty-rationale/end",
@@ -124,7 +124,7 @@ class TestSessionEndEndpoint:
         assert resp.json()["error"]["code"] == "OVERRIDE_RATIONALE_REQUIRED"
 
     def test_end_session_override_with_rationale_no_claims_succeeds(self):
-        """AC-9 / AC-13: override + rationale ends the session via the API path."""
+        """Override + rationale ends the session via the API path."""
         checkpoint = {
             "step": 1, "action": "resume", "chainable": True,
             "handler_outcome": "completed",
@@ -168,7 +168,7 @@ class TestServiceClientSessionOffer:
     """Tests for service_client.py session-offer command."""
 
     def test_session_offer_prints_json(self, session_offer_db):
-        """AC-3: session-offer prints NextAction JSON to stdout."""
+        """Session-offer prints NextAction JSON to stdout."""
         import subprocess
 
         env = os.environ.copy()

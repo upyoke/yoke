@@ -247,7 +247,7 @@ def test_detect_substrate_drift_flags_stale_term_with_marker(
 def test_detect_substrate_drift_flags_unmatched_conditional_marker(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """AC-3: an unmatched YOKE:HARNESS start marker must surface as a
+    """An unmatched YOKE:HARNESS start marker must surface as a
     drift entry from the universal substrate drift surface so the existing
     HC-harness-substrate-drift health check catches it.
     """
@@ -284,7 +284,7 @@ def test_detect_substrate_drift_flags_unmatched_conditional_marker(
 
 
 def test_codex_adapters_emit_no_tools_field() -> None:
-    """AC-2 / AC-15: Codex adapter metadata carries no `tools` field — the
+    """Codex adapter metadata carries no `tools` field — the
     Claude-only allowlist (Monitor included) has no Codex subagent meaning."""
     from yoke_core.domain.agents_render import CANONICAL_DIR
     from yoke_core.domain.agents_render_codex import render_codex_agent

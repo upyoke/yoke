@@ -34,7 +34,7 @@ class TestExecuteCloseDependencyReconciliation:
     """close path must reconcile item_dependencies."""
 
     def test_close_removes_outbound_rows(self, tmp_db):
-        """AC-1: outbound rows (cancelled item as dependent) are always removed."""
+        """Outbound rows (cancelled item as dependent) are always removed."""
         _seed_item(tmp_db, id=1270, status="refined-idea")
         _seed_item(tmp_db, id=1269, status="refined-idea")
         _seed_dependency(
@@ -60,7 +60,7 @@ class TestExecuteCloseDependencyReconciliation:
         ]
 
     def test_close_removes_absorbed_inbound_rows(self, tmp_db):
-        """AC-2: inbound rows where resolution_ref matches dependent are removed."""
+        """Inbound rows where resolution_ref matches dependent are removed."""
         _seed_item(tmp_db, id=1218, status="refined-idea")
         _seed_item(tmp_db, id=1185, status="implementing")
         _seed_dependency(
@@ -123,7 +123,7 @@ class TestExecuteCloseDependencyReconciliation:
         assert recon["preserved_ambiguous"] == []
 
     def test_close_preserves_ambiguous_inbound_rows_and_warns(self, tmp_db):
-        """AC-3: inbound rows with no deterministic rule are preserved + warned."""
+        """Inbound rows with no deterministic rule are preserved + warned."""
         _seed_item(tmp_db, id=1269, status="refined-idea")
         _seed_item(tmp_db, id=1270, status="refined-idea")
         _seed_dependency(
@@ -161,7 +161,7 @@ class TestExecuteCloseDependencyReconciliation:
         assert recon["absorbed_inbound_removed"] == []
 
     def test_close_with_no_dependency_rows_is_clean(self, tmp_db):
-        """AC-4: close with zero dep rows emits no warning and no reconciliation."""
+        """Close with zero dep rows emits no warning and no reconciliation."""
         _seed_item(tmp_db, id=10, status="idea")
 
         out = io.StringIO()
@@ -214,7 +214,7 @@ class TestExecuteCloseDependencyReconciliation:
         assert recon["preserved_ambiguous"] == []
 
     def test_close_reconciliation_and_status_commit_atomically(self, tmp_db):
-        """AC-5: reconciliation and status change commit in one transaction.
+        """Reconciliation and status change commit in one transaction.
 
         Simulate a reconciliation failure by making ``_update_item_multi``
         raise after the DELETE has run on the same connection. The
@@ -252,7 +252,7 @@ class TestExecuteCloseDependencyReconciliation:
         assert rows == [("YOK-1270", "YOK-1269", "integration", "fact:merged")]
 
     def test_existing_guards_still_block_reconciliation(self, tmp_db):
-        """AC-6: delivery-tail, merge-evidence, and active-lane guards still stop
+        """Delivery-tail, merge-evidence, and active-lane guards still stop
         the close before reconciliation touches item_dependencies."""
         # delivery-tail
         _seed_item(tmp_db, id=1, status="implemented")

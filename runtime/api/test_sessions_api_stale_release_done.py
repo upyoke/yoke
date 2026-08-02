@@ -30,7 +30,7 @@ class TestReleaseClaimsForDoneItem:
         _insert_claimable_items(conn, 1187, 9999)
 
     def test_releases_unreleased_claims_on_done_item(self, conn):
-        """AC-1: When an item transitions to done, any unreleased exclusive
+        """When an item transitions to done, any unreleased exclusive
         claim is released, even if it belongs to a different session."""
         _register(conn, session_id="stale-sess")
         claim = claim_work(conn, session_id="stale-sess", item_id="YOK-9999")
@@ -81,7 +81,7 @@ class TestReleaseClaimsForDoneItem:
 
     @patch("yoke_core.domain.sessions_analytics._emit_event")
     def test_emits_per_claim_telemetry(self, mock_emit, conn):
-        """AC-2: Per-claim release telemetry with populated item context."""
+        """Per-claim release telemetry with populated item context."""
         _register(conn, session_id="stale-sess")
         claim_work(conn, session_id="stale-sess", item_id="YOK-9999")
 
@@ -97,7 +97,7 @@ class TestReleaseClaimsForDoneItem:
         assert kw["context"]["cleanup_reason"] == "item_done"
 
     def test_regression_claim_row_residue(self, conn):
-        """AC-4: The regression example -- residue like a lingering claim row
+        """The regression example -- residue like a lingering claim row
         can be cleaned up without manual DB edits."""
         _register(conn, session_id="claude-code-20260406T022557Z-94581")
         claim = claim_work(

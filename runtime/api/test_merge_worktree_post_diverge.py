@@ -123,7 +123,7 @@ class TestPostMergeCheckout:
 # Tests: post-merge cleanup exit-code class (exit 5)
 # ===========================================================================
 class TestYok1380PostMergeCleanup:
-    """AC-5, AC-6, AC-8: when the git/PR merge has already
+    """When the git/PR merge has already
     committed on the target branch but post-merge view regeneration
     fails, the engine must return exit code 5 (not 1) and emit a
     precise ``MergeEngineFailed`` event with ``phase=post_merge_cleanup``

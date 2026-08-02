@@ -169,7 +169,7 @@ class TestClaimWorkSelfOnly:
     def test_mismatched_session_id_refuses_before_mutation(
         self, session_offer_db,
     ) -> None:
-        """AC-1, AC-2, AC-6: explicit OTHER with ambient SELF is rejected."""
+        """Explicit OTHER with ambient SELF is rejected."""
         db_path = session_offer_db["db_path"]
         tmp_dir = session_offer_db["tmp_dir"]
         _seed_session(db_path, "sid-self", tmp_dir=tmp_dir)
@@ -199,7 +199,7 @@ class TestClaimWorkSelfOnly:
     def test_explicit_session_without_ambient_refuses(
         self, session_offer_db,
     ) -> None:
-        """AC-7: an unprovable explicit value is never authority."""
+        """An unprovable explicit value is never authority."""
         db_path = session_offer_db["db_path"]
         tmp_dir = session_offer_db["tmp_dir"]
         _seed_session(db_path, "sid-self", tmp_dir=tmp_dir)
@@ -233,7 +233,7 @@ class TestClaimWorkSelfOnly:
         assert row[0] == "sid-self"
 
     def test_omitted_explicit_uses_ambient(self, session_offer_db) -> None:
-        """AC-9: omitting --session-id falls back to the ambient session."""
+        """Omitting --session-id falls back to the ambient session."""
         db_path = session_offer_db["db_path"]
         tmp_dir = session_offer_db["tmp_dir"]
         _seed_session(db_path, "sid-self", tmp_dir=tmp_dir)
@@ -261,7 +261,7 @@ class TestReleaseWorkClaimSelfOnly:
     def test_mismatched_release_leaves_holder_claim_intact(
         self, session_offer_db,
     ) -> None:
-        """AC-3, AC-7: ordinary release cannot release another session's claim."""
+        """Ordinary release cannot release another session's claim."""
         db_path = session_offer_db["db_path"]
         tmp_dir = session_offer_db["tmp_dir"]
         _seed_session(db_path, "sid-holder", tmp_dir=tmp_dir)
@@ -287,7 +287,7 @@ class TestReleaseWorkClaimSelfOnly:
     def test_mismatched_release_with_override_flags_is_denied(
         self, session_offer_db,
     ) -> None:
-        """AC-8: --allow-non-terminal --override-rationale does not bypass.
+        """--allow-non-terminal --override-rationale does not bypass.
 
         The self-only check fires before ``emit_release_override`` can
         write an ``ItemClaimReleaseOverride`` audit event.
@@ -319,7 +319,7 @@ class TestReleaseWorkClaimSelfOnly:
         assert _override_event_count(db_path, item_id=10) == 0
 
     def test_self_release_still_works(self, session_offer_db) -> None:
-        """AC-4: holder's own release still succeeds when explicit matches ambient."""
+        """Holder's own release still succeeds when explicit matches ambient."""
         db_path = session_offer_db["db_path"]
         tmp_dir = session_offer_db["tmp_dir"]
         _seed_session(db_path, "sid-self", tmp_dir=tmp_dir)

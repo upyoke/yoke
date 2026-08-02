@@ -216,7 +216,7 @@ def test_build_coordination_context_suggested_commands_include_all_decision_opti
 
 
 def test_suggested_commands_rationale_distinguishes_independence_from_directional(env):
-    """AC-2 / AC-4: rationale templates per option name the required evidence
+    """Rationale templates per option name the required evidence
     and the rationale_checklist names the same required fields."""
     conn = env["conn"]
     _seed_item_with_spec(env["db_path"], 131, "Cand", "c")
