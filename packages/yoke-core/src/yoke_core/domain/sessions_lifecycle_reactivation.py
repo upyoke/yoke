@@ -16,6 +16,13 @@ auto-reacquire outcome (with per-target reacquired vs. conflict).
 Honors the conflict semantics — when another session
 legitimately holds the item, reacquire falls through to advisory
 only and the operator must coordinate or move on.
+
+``HarnessSessionResumed`` is emitted on EVERY reactivation, claims or
+not: it marks the episode boundary, and a session that was claim-free
+when the transient end closed it crossed that boundary exactly like a
+claim-holding one. Only the claim-shaped outputs (the advisory, the
+reacquire receipt, the operator-facing resume notice) stay conditional
+on there being claims to describe.
 """
 
 from __future__ import annotations
@@ -70,8 +77,21 @@ def emit_reactivated_with_released_claims(
         (session_id,),
     ).fetchall()
 
+    from .sessions_lifecycle_resumption_emit import emit_session_resumed
+
     if not rows:
         conn.commit()
+        # A claim-free session still crossed an episode boundary — the
+        # transient end simply had no claims to release. Mark the resumption
+        # so audit finds it with one event_name predicate. The operator-facing
+        # resume notice stays unwritten: with no prior claims its block would
+        # have nothing to name.
+        emit_session_resumed(
+            session_id=session_id,
+            released_claims=[],
+            reacquired_claims=[],
+            conflicts=[],
+        )
         return []
 
     released_claims: List[Dict[str, Any]] = [target_descriptor(r) for r in rows]
@@ -114,8 +134,6 @@ def emit_reactivated_with_released_claims(
                 *({"outcome": "conflict", **c} for c in conflicts),
             ],
         )
-
-    from .sessions_lifecycle_resumption_emit import emit_session_resumed
 
     emit_session_resumed(
         session_id=session_id,
