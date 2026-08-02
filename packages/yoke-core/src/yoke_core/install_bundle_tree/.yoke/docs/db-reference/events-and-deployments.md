@@ -30,7 +30,6 @@ tool_name TEXT -- tool that was called (e.g., 'Bash', 'Read')
 duration_ms INTEGER -- execution duration in milliseconds
 exit_code INTEGER -- process exit code
 trace_id TEXT -- distributed trace ID
-parent_id TEXT -- parent event_id for causal chains
 anomaly_flags TEXT -- → JSONB on Postgres (array shape); today a comma-separated anomaly-flag list per `docs/event-contract.md` (e.g., 'nonzero_exit,retry_loop')
 tool_use_id TEXT -- target first-class dedup key for tool-call events; current live coverage is still incomplete
 envelope TEXT -- → JSONB on Postgres; full JSON envelope for lossless storage

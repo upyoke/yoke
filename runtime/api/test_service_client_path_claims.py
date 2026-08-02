@@ -80,9 +80,9 @@ def path_claims_db(tmp_path, monkeypatch):
                 "'2026-05-01T00:00:00Z')"
             )
             conn.execute(
-                "INSERT INTO path_claims (state, mode, actor_id, item_id, "
-                "integration_target, registered_at) "
-                "VALUES ('planned', 'exclusive', 1, 40001, 'main', "
+                "INSERT INTO path_claims (state, mode, owner_kind, owner_item_id, "
+                "registered_by_actor_id, integration_target, registered_at) "
+                "VALUES ('planned', 'exclusive', 'item', 40001, 1, 'main', "
                 "'2026-05-01T00:00:00Z')"
             )
             conn.commit()

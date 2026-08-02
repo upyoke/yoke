@@ -15,9 +15,12 @@ from unittest import mock
 
 import pytest
 
-from yoke_core.domain import qa_case_execution
+from yoke_core.domain import qa_case_execution, qa_case_worktree_run
 from yoke_core.domain import verification_tree_binding
-from yoke_core.domain.verification_tree_binding import TreeIdentity
+from yoke_core.domain.verification_tree_binding import (
+    TreeBindingVerdict,
+    TreeIdentity,
+)
 
 REFUSAL = "REFUSAL: cd to the claimed worktree"
 
@@ -47,9 +50,9 @@ def test_binding_refusal_stops_the_run_before_the_command(
             qa_case_execution, "_execution_checkout", return_value=tmp_path,
         ),
         mock.patch.object(
-            qa_case_execution.verification_tree_binding,
-            "check",
-            return_value=REFUSAL,
+            qa_case_worktree_run.verification_tree_binding,
+            "evaluate_run",
+            return_value=TreeBindingVerdict(refusal=REFUSAL),
         ),
         mock.patch.object(
             qa_case_execution,
@@ -85,7 +88,7 @@ def test_run_record_names_the_tree_that_produced_the_verdict(
             qa_case_execution, "_execution_checkout", return_value=tmp_path,
         ),
         mock.patch.object(
-            qa_case_execution.verification_tree_binding,
+            qa_case_worktree_run.verification_tree_binding,
             "resolve_tree_identity",
             return_value=identity,
         ),
@@ -120,7 +123,7 @@ def test_unidentifiable_tree_records_null_rather_than_guessing(
             qa_case_execution, "_execution_checkout", return_value=tmp_path,
         ),
         mock.patch.object(
-            qa_case_execution.verification_tree_binding,
+            qa_case_worktree_run.verification_tree_binding,
             "resolve_tree_identity",
             return_value=None,
         ),

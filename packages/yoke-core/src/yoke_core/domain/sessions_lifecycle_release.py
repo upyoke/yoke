@@ -329,8 +329,8 @@ def _release_linked_path_claims(
     """
     try:
         rows = conn.execute(
-            f"SELECT id FROM path_claims WHERE work_claim_id = {_p(conn)} "
-            "AND released_at IS NULL AND cancelled_at IS NULL",
+            f"SELECT id FROM path_claims WHERE owner_kind = 'process' "
+            f"AND owner_work_claim_id = {_p(conn)} AND state IN ('planned', 'blocked', 'active')",
             (work_claim_id,),
         ).fetchall()
     except db_backend.operational_error_types(conn):

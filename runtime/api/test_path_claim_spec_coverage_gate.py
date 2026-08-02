@@ -94,12 +94,12 @@ def _seed_active_claim(
     target_ids: list[int],
 ) -> int:
     cur = conn.execute(
-        "INSERT INTO path_claims (state, mode, actor_id, item_id, "
-        "integration_target, base_commit_sha, registered_at, "
+        "INSERT INTO path_claims (state, mode, owner_kind, owner_item_id, "
+        "registered_by_actor_id, integration_target, base_commit_sha, registered_at, "
         "activated_at) "
-        "VALUES ('active', 'exclusive', %s, %s, 'main', 'snap-base', "
+        "VALUES ('active', 'exclusive', 'item', %s, %s, 'main', 'snap-base', "
         "'2026-05-01T00:00:00Z', '2026-05-01T00:00:00Z') RETURNING id",
-        (actor_id, item_id),
+        (item_id, actor_id),
     )
     claim_id = int(cur.fetchone()[0])
     for target_id in target_ids:

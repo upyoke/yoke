@@ -35,8 +35,8 @@ def _seed_claim(conn, *, state: str = "planned", item_id: int = 1) -> None:
     conn.execute(
         """
         INSERT INTO path_claims
-            (id, item_id, state, actor_id, integration_target, registered_at)
-        VALUES (10, %s, %s, 4242, 'main', %s)
+            (id, owner_kind, owner_item_id, state, integration_target, registered_at)
+        VALUES (10, 'item', %s, %s, 'main', %s)
         """,
         (item_id, state, iso8601_now()),
     )

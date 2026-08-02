@@ -243,7 +243,8 @@ Worked example (item lookup by YOK-N — the `item_id` column is integer):
     "SELECT id, status, title FROM items WHERE id = 1791"
 
   python3 -m yoke_core.cli.db_router query -separator '|' \\
-    "SELECT id, state, item_id FROM path_claims WHERE item_id = 1791"
+    "SELECT id, state, owner_kind, owner_item_id FROM path_claims "
+    "WHERE owner_kind = 'item' AND owner_item_id = 1791"
 
 Options:
   -separator S  Column separator (default `|`, matches sqlite3 CLI list mode).

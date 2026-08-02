@@ -35,7 +35,7 @@ def _claim_project_and_repo(conn, claim_id: int) -> tuple[Optional[int], Optiona
     p = "%s" if db_backend.connection_is_postgres(conn) else "?"
     row = conn.execute(
         "SELECT i.project_id FROM path_claims pc "
-        "JOIN items i ON pc.item_id = i.id "
+        "JOIN items i ON pc.owner_item_id = i.id "
         f"WHERE pc.id = {p}",
         (claim_id,),
     ).fetchone()

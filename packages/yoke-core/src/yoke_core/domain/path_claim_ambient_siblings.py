@@ -115,13 +115,13 @@ def _fetch_rows(
         args.append(int(exclude_claim_id))
     try:
         rows = conn.execute(
-            "SELECT pc.id, pc.item_id, pc.state, pc.base_commit_sha, "
+            "SELECT pc.id, pc.owner_item_id AS item_id, pc.state, pc.base_commit_sha, "
             "       pc.activated_at, "
             "       COALESCE(i.title, '') AS title, "
             "       COALESCE(p.public_item_prefix, '') AS public_item_prefix, "
             "       i.project_sequence AS project_sequence "
             "FROM path_claims pc "
-            "LEFT JOIN items i ON i.id = pc.item_id "
+            "LEFT JOIN items i ON i.id = pc.owner_item_id "
             "LEFT JOIN projects p ON p.id = i.project_id "
             f"WHERE pc.integration_target = {p} "
             f"AND pc.state IN ({placeholders}) "

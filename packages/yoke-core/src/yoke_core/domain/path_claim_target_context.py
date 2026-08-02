@@ -42,7 +42,7 @@ class ClaimContext:
         )
         return cls(
             claim_id=int(claim.get("id") or claim.get("claim_id") or 0),
-            item_id=_coerce_int(claim.get("item_id")),
+            item_id=_coerce_int(claim.get("owner_item_id")),
             integration_target=str(claim.get("integration_target") or ""),
             state=str(claim.get("state") or ""),
             covered_paths=covered,

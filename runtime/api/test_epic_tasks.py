@@ -166,13 +166,9 @@ class TestTaskBody:
 
 
 class TestTaskUpdateField:
-    def test_update_valid_field(self, db_with_task):
-        result = epic.task_update_field(db_with_task, "42", 1, "blocked_by", "YOK-100")
-        assert "Updated blocked_by" in result
-
     def test_invalid_field_raises(self, db_with_task):
         with pytest.raises(ValueError, match="invalid field"):
-            epic.task_update_field(db_with_task, "42", 1, "nonexistent", "x")
+            epic.task_update_field(db_with_task, "42", 1, "unsupported_field", "value")
 
     def test_status_delegates(self, db_with_task):
         """Status field delegates to task_update_status for validation."""

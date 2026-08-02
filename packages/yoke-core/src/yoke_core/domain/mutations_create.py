@@ -83,7 +83,6 @@ def prepare_create(
 
     defaults = {
         "status": effective_status,
-        "flow": "accelerated",
         "rework_count": 0,
         "frozen": False,
         "blocked": False,
@@ -100,7 +99,6 @@ def prepare_create(
         "status": effective_status,
         "project": project,
         "deployment_flow": deployment_flow,
-        "flow": "accelerated",
         "rework_count": 0,
         "frozen": False,
         "blocked": False,

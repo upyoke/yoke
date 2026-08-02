@@ -41,7 +41,7 @@ from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 def _execute_update_once(
     item_id: int,
     field: str,
-    value: str,
+    value: str, resolution: Optional[str] = None,
     done_nonce_verified: bool = False,
     force: bool = False,
     qa_bypass: bool = False,
@@ -233,7 +233,8 @@ def _execute_update_once(
                 "error": mutation_result.error or "Unknown error",
                 "error_code": error_code,
             }
-
+        if field == "status" and value == "cancelled":
+            mutation_result.field_writes["resolution"] = resolution
         if field == "status":
             claim_verified, claim_reason = _verify_status_claim(
                 conn, item_id, out, session_id=session_id

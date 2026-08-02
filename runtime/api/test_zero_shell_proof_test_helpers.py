@@ -36,19 +36,10 @@ API_ROOT = REPO_ROOT / "runtime" / "api"
 def _python_sources() -> List[Path]:
     """Every production Python file under ``runtime/api/``.
 
-    Excludes test files, the zero-shell-proof test itself, the shell
-    inventory tool (which legitimately enumerates historical shell
-    filenames), and the migrate-to-sqlite historical tool.
+    Excludes test files, the zero-shell-proof test itself, and the
+    migrate-to-sqlite historical tool.
     """
-    skip_basenames = {
-        "shell_inventory.py",
-        "shell_inventory_classify.py",
-        "shell_inventory_report.py",
-        "shell_inventory_rules.py",
-        "shell_inventory_scan.py",
-        "shell_inventory_closeout.py",
-        "migrate_to_sqlite.py",
-    }
+    skip_basenames = {"migrate_to_sqlite.py"}
     out: List[Path] = []
     for path in sorted(API_ROOT.rglob("*.py")):
         name = path.name

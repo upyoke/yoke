@@ -15,7 +15,8 @@ def _claim_declared_paths(conn: Any, item_id: int) -> set[str]:
             "SELECT pt.path_string FROM path_claim_targets pct "
             "JOIN path_claims pc ON pc.id = pct.claim_id "
             "JOIN path_targets pt ON pt.id = pct.target_id "
-            f"WHERE pc.item_id = {marker} AND pc.state IN "
+            f"WHERE pc.owner_kind = 'item' AND pc.owner_item_id = {marker} "
+            "AND pc.state IN "
             "('planned', 'blocked', 'active') AND pt.kind = 'file'",
             (item_id,),
         ).fetchall()

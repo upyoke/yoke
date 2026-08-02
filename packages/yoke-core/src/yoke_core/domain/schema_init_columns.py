@@ -79,7 +79,6 @@ def apply_additive_schema(conn: Any) -> None:
     _add_column_if_not_exists(
         conn, "epic_tasks", "item_worktree_id", "INTEGER DEFAULT NULL"
     )
-    _add_column_if_not_exists(conn, "epic_tasks", "blocked_by", "TEXT")
     _add_column_if_not_exists(conn, "epic_tasks", "max_attempts", "INTEGER DEFAULT 5")
     _add_column_if_not_exists(conn, "epic_tasks", "agent_id", "TEXT")
     _add_column_if_not_exists(conn, "epic_tasks", "last_heartbeat", "TEXT")

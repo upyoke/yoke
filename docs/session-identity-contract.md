@@ -219,9 +219,22 @@ idempotent. Remote hook evaluation (`/v1/hooks/evaluate`) runs the DB
 registration half server-side, but never writes the process-anchor
 registry there — the server's process context is not the caller's. The
 relay client writes the anchor locally before the POST and carries the
-client-only identity fields (`entrypoint`, real `model`, and
+client-only identity fields (`entrypoint`, real `model`, and — only when
+this machine's own config declares a matching executor key —
 `execution_lane`) on the wire so server-side registration can heal
 placeholder rows without reading client-local state.
+
+The lane is the one field the client usually has no opinion about.
+Routing policy normally lives in the project's `session-routing`
+capability, which only the control plane can read, so `client_lane`
+answers `None` on a local miss rather than shipping a placeholder. That
+placeholder would arrive as an *explicit* lane and outrank the project's
+own `executor_default_lanes` mapping, stamping a session with the
+unresolved sentinel — a value no `lane_paths` entry declares, which the
+offer gate then treats as an unknown lane and refuses to route work on.
+Defence in depth sits on the server too: `resolve_execution_lane` treats
+the sentinel like `default`, so even an older client's placeholder yields
+to routing policy.
 
 ## Session Reactivation and Work Claims
 

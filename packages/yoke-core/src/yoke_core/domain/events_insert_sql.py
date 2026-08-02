@@ -9,7 +9,7 @@ INSERT INTO events (
     session_id, severity, event_outcome, org_id, environment,
     service, project_id,
     actor_id, item_id, task_num, agent, tool_name, duration_ms, exit_code,
-    trace_id, parent_id, anomaly_flags, tool_use_id,
+    trace_id, anomaly_flags, tool_use_id,
     turn_id, hook_event_name,
     envelope, created_at
 ) VALUES (
@@ -17,7 +17,7 @@ INSERT INTO events (
     %s, %s, %s, %s, %s,
     %s, %s,
     %s, %s, %s, %s, %s, %s, %s,
-    %s, %s, %s, %s,
+    %s, %s, %s,
     %s, %s,
     %s, %s
 )

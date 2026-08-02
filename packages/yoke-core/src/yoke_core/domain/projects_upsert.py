@@ -4,7 +4,13 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from yoke_core.domain.db_helpers import connect, iso8601_now, query_one, query_scalar
+from yoke_core.domain.db_helpers import (
+    connect,
+    iso8601_now,
+    query_one,
+    query_rows,
+    query_scalar,
+)
 from yoke_core.domain.project_identity import DEFAULT_PUBLIC_ITEM_PREFIX
 from yoke_core.domain.project_github_binding_payload import normalize_github_repo
 from yoke_core.domain.projects_github_sync_mode import GITHUB_SYNC_DISABLED
@@ -297,10 +303,11 @@ def _resolve_org_id(conn: Any, org: str) -> int:
 
 
 def _default_org_id(conn: Any) -> Optional[int]:
-    from yoke_core.domain.org_schema import DEFAULT_ORG_SLUG, org_id_by_slug
-
     try:
-        return org_id_by_slug(conn, DEFAULT_ORG_SLUG)
+        rows = query_rows(
+            conn, "SELECT id FROM organizations ORDER BY id LIMIT 2"
+        )
+        return int(rows[0]["id"]) if len(rows) == 1 else None
     except Exception:
         return None
 

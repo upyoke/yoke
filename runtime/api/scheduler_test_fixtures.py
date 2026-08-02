@@ -92,7 +92,8 @@ CREATE TABLE path_claims (
     id INTEGER PRIMARY KEY,
     state TEXT NOT NULL DEFAULT 'planned',
     mode TEXT NOT NULL DEFAULT 'exclusive',
-    item_id INTEGER,
+    owner_kind TEXT,
+    owner_item_id INTEGER,
     integration_target TEXT NOT NULL DEFAULT '',
     registered_at TEXT NOT NULL DEFAULT ''
 );

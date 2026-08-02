@@ -42,7 +42,7 @@ CORE_COMMANDS: list[dict] = [
             "fields: architecture_impact, blocked, blocked_reason, body, "
             "created_at, db_compatibility_attestation, "
             "db_mutation_profile, deploy_log, deploy_stage, deployed_to, "
-            "deployment_flow, design_spec, flow, frozen, github_issue, id, "
+            "deployment_flow, design_spec, frozen, github_issue, id, "
             "merged_at, owner, priority, project, project_id, "
             "project_sequence, resolution, resolution_comment, "
             "resolution_ref, rework_count, shepherd_caveats, shepherd_log, "

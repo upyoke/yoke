@@ -19,6 +19,35 @@ SLOT_ACQUIRED_PREFIX = "gate admission: slot acquired after "
 
 _SLOT_ACQUIRED_RE = re.compile(re.escape(SLOT_ACQUIRED_PREFIX) + r"(\d+(?:\.\d+)?)s")
 
+#: Upper bound on how long a gate may queue for an admission slot.
+#: The execution budget above starts only once a gate is admitted, and the
+#: parent-process timeout is handed off rather than kept, so queue time sits
+#: between two clocks that neither of them measures. This is the bound on
+#: that gap: generous enough that a real queue behind a full suite still
+#: drains, short enough that a wait nobody will ever satisfy ends as a
+#: diagnosable event instead of a process that never returns.
+WAIT_TIMEOUT_ENV = "YOKE_TEST_GATE_WAIT_TIMEOUT_SECONDS"
+DEFAULT_WAIT_TIMEOUT_S = 3600.0
+
+
+def wait_timeout_seconds(env: MutableMapping[str, str] | None = None) -> float:
+    """Read the admission-queue bound, falling back to the default.
+
+    Raises ``ValueError`` rather than accepting a non-positive override:
+    "wait forever" is the failure mode the bound exists to remove, so it is
+    not reachable by setting the knob to zero.
+    """
+    value = (env or os.environ).get(WAIT_TIMEOUT_ENV)
+    if value is None:
+        return DEFAULT_WAIT_TIMEOUT_S
+    try:
+        timeout_seconds = float(value)
+    except ValueError as exc:
+        raise ValueError(f"{WAIT_TIMEOUT_ENV} must be a positive number") from exc
+    if timeout_seconds <= 0:
+        raise ValueError(f"{WAIT_TIMEOUT_ENV} must be a positive number")
+    return timeout_seconds
+
 
 def process_timeout_for_command(
     command: str,

@@ -56,7 +56,8 @@ def _apply_schema(impact: str, claim_path):
                 )
                 conn.execute(
                     "CREATE TABLE path_claims (id INTEGER PRIMARY KEY, "
-                    "item_id INTEGER NOT NULL, state TEXT NOT NULL)"
+                    "owner_kind TEXT NOT NULL, owner_item_id INTEGER NOT NULL, "
+                    "state TEXT NOT NULL)"
                 )
                 conn.execute(
                     "CREATE TABLE path_claim_targets (claim_id INTEGER NOT NULL, "
@@ -67,8 +68,9 @@ def _apply_schema(impact: str, claim_path):
                     (claim_path,),
                 )
                 conn.execute(
-                    "INSERT INTO path_claims (id, item_id, state) "
-                    "VALUES (1, 1, 'active')"
+                    "INSERT INTO path_claims "
+                    "(id, owner_kind, owner_item_id, state) "
+                    "VALUES (1, 'item', 1, 'active')"
                 )
                 conn.execute(
                     "INSERT INTO path_claim_targets (claim_id, target_id) "

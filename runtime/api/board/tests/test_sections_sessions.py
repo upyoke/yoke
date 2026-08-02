@@ -55,9 +55,6 @@ CREATE TABLE work_claims (
 );
 CREATE TABLE path_claims (
     id INTEGER PRIMARY KEY,
-    session_id TEXT,
-    item_id INTEGER,
-    work_claim_id INTEGER,
     owner_kind TEXT,
     owner_item_id INTEGER,
     owner_session_id TEXT,
@@ -103,8 +100,8 @@ def _insert_path_claim(
     owner_kind=None, owner_item_id=None, owner_session_id=None,
     owner_work_claim_id=None,
 ) -> None:
-    # Derive typed owner from legacy signals when not explicitly provided
-    # (matches migration backfill: item > process > session).
+    # Derive the typed authority from the convenient test inputs when not
+    # explicitly provided: item > process > session.
     if owner_kind is None and not any(
         (owner_item_id, owner_session_id, owner_work_claim_id)
     ):
@@ -117,12 +114,12 @@ def _insert_path_claim(
     raw = connect_test_db(db.path)
     try:
         raw.execute(
-            "INSERT INTO path_claims (id, session_id, item_id, work_claim_id, "
-            "owner_kind, owner_item_id, owner_session_id, owner_work_claim_id, "
+            "INSERT INTO path_claims (id, owner_kind, owner_item_id, "
+            "owner_session_id, owner_work_claim_id, "
             "released_at, cancelled_at, release_reason, cancel_reason) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-            (claim_id, session_id, item_id, work_claim_id,
-             owner_kind, owner_item_id, owner_session_id, owner_work_claim_id,
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            (claim_id, owner_kind, owner_item_id, owner_session_id,
+             owner_work_claim_id,
              released_at, cancelled_at, release_reason, cancel_reason),
         )
         for _ in range(declared_count):

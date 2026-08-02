@@ -86,18 +86,10 @@ def _claim_conflicts(
     ).path_claims
     if _table_exists(conn, "path_claims"):
         states = ", ".join(bind for _ in _LIVE_PATH_CLAIM_STATES)
-        if all(
-            _column_exists(conn, "path_claims", column)
-            for column in ("owner_kind", "owner_item_id")
-        ):
-            owner = (
-                f"((owner_kind = 'item' AND owner_item_id = {bind}) OR "
-                f"(owner_kind IS NULL AND item_id = {bind}))"
-            )
-            owner_params = (item_id, item_id)
-        else:
-            owner = f"item_id = {bind}"
-            owner_params = (item_id,)
+        owner = (
+            f"owner_kind = 'item' AND owner_item_id = {bind}"
+        )
+        owner_params = (item_id,)
         rows = conn.execute(
             f"SELECT id FROM path_claims WHERE state IN ({states}) AND {owner} LIMIT 1",
             (*_LIVE_PATH_CLAIM_STATES, *owner_params),

@@ -58,7 +58,8 @@ def conn(tmp_path, monkeypatch):
                 );
                 CREATE TABLE path_claims (
                   id INTEGER PRIMARY KEY,
-                  item_id INTEGER,
+                  owner_kind TEXT,
+                  owner_item_id INTEGER,
                   state TEXT
                 );
                 CREATE TABLE path_claim_targets (
@@ -120,7 +121,9 @@ def _claim_path(
     target_id = item_id * 100
     p = _p(conn)
     conn.execute(
-        f"INSERT INTO path_claims (id, item_id, state) VALUES ({p}, {p}, {p})",
+        f"INSERT INTO path_claims "
+        f"(id, owner_kind, owner_item_id, state) "
+        f"VALUES ({p}, 'item', {p}, {p})",
         (claim_id, item_id, claim_state),
     )
     conn.execute(

@@ -87,9 +87,9 @@ def _seed_item(
         f"""
         INSERT INTO items (
             id, title, workflow_id, workflow_version_id, status, priority,
-            flow, rework_count, frozen,
+            rework_count, frozen,
             created_at, updated_at, source, project_id, project_sequence
-        ) VALUES ({p}, {p}, {p}, {p}, 'idea', 'medium', 'accelerated', 0, 0,
+        ) VALUES ({p}, {p}, {p}, {p}, 'idea', 'medium', 0, 0,
                   {p}, {p}, 'user', {p}, {p})
         """,
         (

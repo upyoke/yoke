@@ -82,7 +82,8 @@ def test_specific_path_conflict_recipe_executes_against_canonical_columns() -> N
     conn.executescript(
         """
         CREATE TABLE path_claims (
-          id INTEGER PRIMARY KEY, item_id INTEGER NOT NULL, state TEXT NOT NULL
+          id INTEGER PRIMARY KEY, owner_kind TEXT NOT NULL,
+          owner_item_id INTEGER NOT NULL, state TEXT NOT NULL
         );
         CREATE TABLE path_targets (
           id INTEGER PRIMARY KEY, path_string TEXT NOT NULL
@@ -92,8 +93,8 @@ def test_specific_path_conflict_recipe_executes_against_canonical_columns() -> N
           claim_id INTEGER NOT NULL REFERENCES path_claims(id),
           target_id INTEGER NOT NULL REFERENCES path_targets(id)
         );
-        INSERT INTO path_claims (id, item_id, state)
-          VALUES (7, 42, 'active');
+        INSERT INTO path_claims (id, owner_kind, owner_item_id, state)
+          VALUES (7, 'item', 42, 'active');
         INSERT INTO path_targets (id, path_string)
           VALUES (9, 'runtime/api/domain/foo.py');
         INSERT INTO path_claim_targets (id, claim_id, target_id)
@@ -102,5 +103,5 @@ def test_specific_path_conflict_recipe_executes_against_canonical_columns() -> N
     )
 
     assert conn.execute(sql).fetchall() == [
-        (7, 42, "active", "runtime/api/domain/foo.py")
+        (7, "item", 42, "active", "runtime/api/domain/foo.py")
     ]

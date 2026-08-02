@@ -1,7 +1,13 @@
-"""Tests for machine-wide heavy-gate admission control."""
+"""Slot arbitration, invocation shape, and cap resolution for heavy gates.
+
+What a gate publishes to the processes it spawns, and how a descendant
+behaves on each inherited situation, lives in the sibling
+``test_gate_admission_ancestry``.
+"""
 
 from __future__ import annotations
 
+import sys
 import threading
 import time
 import uuid
@@ -91,73 +97,6 @@ def test_narrow_invocation_bypasses_admission(tmp_path, monkeypatch):
         pass
 
 
-def test_descendant_of_admitted_gate_rides_ancestor_slot(monkeypatch):
-    monkeypatch.setenv(gate_admission.ADMITTED_ENV, "1")
-
-    def _fail(*_args, **_kwargs):
-        raise AssertionError(
-            "descendant of an admitted gate must not arbitrate its own slot"
-        )
-
-    monkeypatch.setattr(gate_admission, "_acquire", _fail)
-    with gate_admission.admitted_gate([]):
-        pass
-
-
-def test_admitted_gate_marks_descendant_environment(monkeypatch):
-    monkeypatch.delenv(gate_admission.ADMITTED_ENV, raising=False)
-    monkeypatch.setattr(gate_admission, "_acquire", lambda _stream: None)
-    import os
-
-    with gate_admission.admitted_gate([]):
-        assert os.environ.get(gate_admission.ADMITTED_ENV) == "1"
-    assert os.environ.get(gate_admission.ADMITTED_ENV) is None
-
-
-def test_admitted_environment_mirrors_marker(monkeypatch):
-    monkeypatch.delenv(gate_admission.ADMITTED_ENV, raising=False)
-    assert gate_admission.admitted_environment({"A": "1"}) == {"A": "1"}
-    monkeypatch.setenv(gate_admission.ADMITTED_ENV, "1")
-    assert gate_admission.admitted_environment({"A": "1"}) == {
-        "A": "1",
-        gate_admission.ADMITTED_ENV: "1",
-    }
-
-
-def test_watch_pytest_mirrors_marker_into_child_env(tmp_path, monkeypatch):
-    # The wrapper snapshots the child env before the admission context
-    # begins; the marker must still reach the spawned suite, or nested
-    # runner invocations inside it deadlock behind their ancestor's slot.
-    from yoke_core.tools import watch_pytest
-
-    monkeypatch.delenv(gate_admission.ADMITTED_ENV, raising=False)
-    monkeypatch.setattr(gate_admission, "_acquire", lambda _stream: None)
-    suite_dir = tmp_path / "suite"
-    suite_dir.mkdir()
-    captured = {}
-
-    def fake_run_watcher(**kwargs):
-        captured["env"] = kwargs["env"]
-        return 0
-
-    monkeypatch.setattr(
-        watch_pytest._watch_runner, "run_watcher", fake_run_watcher
-    )
-    rc = watch_pytest.main(
-        [
-            "--raw-capture",
-            str(tmp_path / "raw.log"),
-            "--progress-capture",
-            str(tmp_path / "progress.log"),
-            "--",
-            str(suite_dir),
-            "-q",
-        ]
-    )
-    assert rc == 0
-    assert captured["env"][gate_admission.ADMITTED_ENV] == "1"
-
-
 def test_queued_gate_gets_its_whole_budget_once_admitted(tmp_path, monkeypatch):
     # The failure this guards: a gate that queues behind another spends its
     # budget in line and is killed mid-suite, recording a fail verdict for a
@@ -229,8 +168,6 @@ def test_unreachable_cluster_fails_open(monkeypatch, capsys):
     monkeypatch.delenv(gate_admission.ADMITTED_ENV, raising=False)
     monkeypatch.setenv(gate_admission.CAP_ENV, "3")
     monkeypatch.setattr(gate_admission, "_maintenance_dsn", lambda: None)
-    import sys
-
     with gate_admission.admitted_gate([], stream=sys.stdout):
         pass
     assert "proceeding without a slot" in capsys.readouterr().out

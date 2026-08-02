@@ -98,7 +98,6 @@ class TestItemRowCLI:
         assert row["workflow_version_id"] == "1"
         assert row["status"] == "implementing"
         assert row["priority"] == "high"
-        assert row["flow"] == "accelerated"
         assert row["source"] == "user"
         assert row["project"] == "yoke"
 

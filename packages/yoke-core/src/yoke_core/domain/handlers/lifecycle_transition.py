@@ -60,8 +60,9 @@ class LifecycleTransitionRequest(BaseModel):
     reason: Optional[str] = Field(
         None,
         description=(
-            "Human-readable rationale recorded with the call. Persisted in the "
-            "envelope JSON via the dispatcher's YokeFunctionCalled event."
+            "Human-readable rationale recorded with the call. When cancelling, "
+            "this must be a non-empty one-line reason and is stored in "
+            "items.resolution."
         ),
     )
     done_nonce_verified: bool = False
@@ -172,6 +173,14 @@ def handle_transition(request: FunctionCallRequest) -> HandlerOutcome:
     if blocked is not None:
         return blocked
 
+    cancellation_reason = payload.reason
+    if payload.target_status == "cancelled":
+        from yoke_core.domain.backlog_cancellation import normalize_cancellation_reason
+
+        cancellation_reason, reason_error = normalize_cancellation_reason(payload.reason)
+        if reason_error:
+            return _error_outcome("invalid_payload", reason_error)
+
     from yoke_core.domain.actor_project_visibility import numeric_actor_id
 
     captured = io.StringIO()
@@ -179,6 +188,7 @@ def handle_transition(request: FunctionCallRequest) -> HandlerOutcome:
         item_id=item_id,
         field="status",
         value=payload.target_status,
+        resolution=cancellation_reason,
         done_nonce_verified=payload.done_nonce_verified,
         force=payload.force,
         qa_bypass=payload.qa_bypass,
@@ -209,7 +219,7 @@ def handle_transition(request: FunctionCallRequest) -> HandlerOutcome:
         item_id=item_id,
         from_status=current,
         to_status=payload.target_status,
-        reason=payload.reason,
+        reason=cancellation_reason if payload.target_status == "cancelled" else payload.reason,
         rework_count=result.get("rework_count"),
         log=captured.getvalue(),
     )

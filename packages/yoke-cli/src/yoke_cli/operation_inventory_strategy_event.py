@@ -17,8 +17,6 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke ouroboros entry insert", "ouroboros"),
     _w("yoke ouroboros entry mark-reviewed", "ouroboros"),
     _w("yoke ouroboros entry mark-archived", "ouroboros"),
-    _w("yoke ouroboros wrapup list", "ouroboros"),
-    _w("yoke ouroboros wrapup save", "ouroboros"),
     _w("yoke strategy carry register-new", "strategy.carry"),
     _w("yoke strategy carry candidate-set", "strategy.carry"),
     _w("yoke strategy carry summary", "strategy.carry"),

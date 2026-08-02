@@ -54,3 +54,27 @@ surfaces:
     model: primary
     table: events_envelope_backup
     decision_record: docs/archive/decisions/events_envelope_backup_drop.md
+  - module: path_claims_typed_owner_cleanup
+    project: yoke
+    model: primary
+    table: path_claims
+    column: actor_id
+    decision_record: docs/archive/decisions/path-claims-typed-owner-cleanup.md
+  - module: path_claims_typed_owner_cleanup
+    project: yoke
+    model: primary
+    table: path_claims
+    column: session_id
+    decision_record: docs/archive/decisions/path-claims-typed-owner-cleanup.md
+  - module: path_claims_typed_owner_cleanup
+    project: yoke
+    model: primary
+    table: path_claims
+    column: item_id
+    decision_record: docs/archive/decisions/path-claims-typed-owner-cleanup.md
+  - module: path_claims_typed_owner_cleanup
+    project: yoke
+    model: primary
+    table: path_claims
+    column: work_claim_id
+    decision_record: docs/archive/decisions/path-claims-typed-owner-cleanup.md

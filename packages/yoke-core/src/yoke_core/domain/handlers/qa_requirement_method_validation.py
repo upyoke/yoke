@@ -58,7 +58,10 @@ def validate_method_requirement(
         "browser-check",
         "browser-inspection",
     }:
-        if method["executor_id"] == "worktree_run":
+        # A CI-routed command case carries the same configuration contract
+        # as the local one: the command is what a `worktree_run` fallback
+        # would execute, and CI runs its declared equivalent.
+        if method["executor_id"] in ("worktree_run", "ci_run"):
             config_method = "command"
         elif method["executor_id"] == "browser_substrate":
             config_method = (

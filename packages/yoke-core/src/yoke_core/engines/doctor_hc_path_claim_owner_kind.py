@@ -3,12 +3,9 @@
 Scans non-terminal ``path_claims`` rows for owner-typing problems that
 the typed-ownership contract requires:
 
-- ``owner_kind IS NULL`` on a non-terminal row (planned/blocked/active)
-  — the row predates the migration backfill or the migration could
-  not classify it (contradictory legacy signals).
-- ``owner_kind`` set but the required typed field is NULL or mismatches
-  the legacy column (for example ``owner_kind='item'`` with NULL
-  ``owner_item_id``).
+- ``owner_kind IS NULL`` on a non-terminal row (planned/blocked/active).
+- ``owner_kind`` set but the required typed field is NULL (for example
+  ``owner_kind='item'`` with NULL ``owner_item_id``).
 - ``owner_kind`` value not in the closed enum (``item`` / ``session`` /
   ``process``).
 - Item-owned row whose ``owner_item_id`` references a non-existent
@@ -22,9 +19,8 @@ Read-only. Self-skips cleanly on minimal-schema fixtures when
 Remediation pointers:
 - ``python3 -m yoke_core.domain.migration_apply rehearse YOK-N``
   followed by ``live-apply`` re-runs the backfill module.
-- Contradictory rows surface their row id, state, and legacy
-  signals so the operator can null one of the mutually exclusive
-  legacy columns before re-running the backfill.
+- Malformed rows surface their row id and typed fields so the operator
+  can repair the typed owner before re-running the migration.
 """
 
 from __future__ import annotations
@@ -78,7 +74,7 @@ def hc_path_claim_owner_kind(
 
     # 1) NULL owner_kind on non-terminal rows.
     null_rows = conn.execute(
-        "SELECT id, state, item_id, work_claim_id, session_id "
+        "SELECT id, state, owner_kind "
         "FROM path_claims "
         "WHERE owner_kind IS NULL AND state IN ('planned','blocked','active') "
         "ORDER BY id"
@@ -86,13 +82,11 @@ def hc_path_claim_owner_kind(
     if null_rows:
         issues.append(
             f"- {len(null_rows)} non-terminal path_claims row(s) lack "
-            "owner_kind. The backfill could not classify them — most "
-            "likely both item_id AND work_claim_id are set (contradictory)."
+            "owner_kind. The row does not satisfy the typed-owner contract."
         )
         for row in null_rows[:_LIST_PREVIEW]:
             issues.append(
-                f"  - id={row[0]} state={row[1]} item_id={row[2]} "
-                f"work_claim_id={row[3]} session_id={row[4]}"
+                f"  - id={row[0]} state={row[1]} owner_kind={row[2]!r}"
             )
         if len(null_rows) > _LIST_PREVIEW:
             issues.append(
@@ -200,10 +194,8 @@ def hc_path_claim_owner_kind(
         return
 
     issues.append(
-        "- Rerun the backfill via `python3 -m yoke_core.domain."
-        "migration_apply rehearse YOK-N` then `live-apply YOK-N` after "
-        "resolving contradictory legacy signals (typically: null one of "
-        "item_id / work_claim_id on the offending rows)."
+        "- Repair the typed owner fields, then rerun the governed migration "
+        "rehearsal and live apply for the affected item."
     )
     rec.record(_HC_NAME, _HC_DESC, "WARN", "\n".join(issues))
 

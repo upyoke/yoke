@@ -253,7 +253,7 @@ Output: JSON with `permissionDecision: "deny"` if blocked; exit 0 if clean.
 **Purpose:** PreToolUse hook for Bash commands. Blocks `git commit` on `main` when staged files include implementation code and active items exist (YOK-733). Enforces the worktree discipline rule: implementation work belongs in worktrees, not on main.
 
 Bookkeeping allowlist (always allowed on main):
-- `yoke/ouroboros/**` — health reports, wrapups (gitignored since YOK-1157)
+- `yoke/ouroboros/**` — health reports (gitignored since YOK-1157)
 - `yoke/flows.md` — generated flows view
 - `yoke/designs/**` — generated design views (gitignored since YOK-1157)
 - `yoke/projects/*/qa-artifacts/**` — browser QA screenshots (gitignored since YOK-1157)
@@ -601,19 +601,16 @@ Output: Branded "Ouroboros Health Report" with PASS/WARN/FAIL per check. Exit 0 
 ### ouroboros-db.sh
 **Input:** `<subcommand> [args]`
 **Also accessible via:** `yoke-db.sh ouroboros <subcommand>`
-**Purpose:** SQLite CRUD wrapper for `ouroboros_entries` and `wrapup_reports` tables in `yoke/yoke.db`. Manages Ouroboros learning loop data: agent observations (problems, friction, ideas, cross-critiques) and end-of-session wrapup reports. Same pattern as `release-notes-db.sh`. POSIX sh, uses `sqlite3` and `python3`.
+**Purpose:** SQLite CRUD wrapper for `ouroboros_entries` in `yoke/yoke.db`. Manages Ouroboros learning-loop observations: problems, friction, ideas, and cross-critiques. Same pattern as `release-notes-db.sh`. POSIX sh, uses `sqlite3` and `python3`.
 
 Subcommands:
 - `insert-entry <timestamp> <agent> <context> <category> <body>` — Insert one observation entry via positional args. Deduplicates by timestamp+agent+category+body (skips silently if duplicate exists). Echoes the inserted row ID on success.
 - `insert-entry --body-stdin <timestamp> <agent> <context> <category>` — Insert one observation entry with body read from stdin. Preferred for LLM-constructed commands where body content may contain shell-unsafe characters. Same dedup behavior as positional-arg form.
 - `insert-entry --agent <a> --category <c> [--context <x>] [--timestamp <t>] --observation <o>` — Insert via named flags. Timestamp auto-generated via `_now_iso` if `--timestamp` omitted. `--context` is optional. Named-flag mode is triggered when at least one recognized semantic flag (`--agent`, `--context`, `--category`, `--observation`, `--timestamp`) is present.
 - `insert-entry --body-stdin --agent <a> --category <c> [--context <x>] [--timestamp <t>]` — Named flags + body from stdin. `--body-stdin` and `--observation` are mutually exclusive (exit 2 if both given). Flags may appear in any order.
-- `insert-wrapup <session_timestamp>` — Insert a wrapup report with body read from stdin. Deduplicates by `session_timestamp` (skips if report for that timestamp already exists). Echoes the inserted row ID on success.
 - `list-entries [--unreviewed]` — List entries as pipe-delimited rows (id|timestamp|agent|context|category|body|reviewed|archived). Body newlines are collapsed to spaces for single-line output. `--unreviewed` filters to entries where `reviewed IS NULL`.
-- `list-wrapups` — List wrapup reports as pipe-delimited rows (id|session_timestamp|body|created_at). Body newlines are collapsed to spaces.
 - `mark-reviewed <id>` — Set the `reviewed` field to the current ISO 8601 timestamp for the entry with the given id. Exit 1 if entry not found.
 - `mark-archived [--all-reviewed] | [<id>]` — Archive entries. `--all-reviewed` archives all entries that have been reviewed but not yet archived. `<id>` archives a single entry by id. Sets `archived` field to current ISO 8601 timestamp.
-- `generate-wrapup <session_timestamp>` — Render a wrapup report as a markdown file at `yoke/ouroboros/wrapups/wrapup-{session_timestamp}.md`. Reads the report body from the `wrapup_reports` table. Exit 1 if report not found.
 
 Validation (named-flag mode):
 - `--agent` and `--category` are required; exit 2 with usage message if missing
@@ -1686,7 +1683,7 @@ Key behavior:
 
 ### test-ouroboros-db.sh
 **Input:** None (self-contained)
-**Purpose:** Test suite for `ouroboros-db.sh`. 29 descriptive test cases covering all 7 subcommands (insert-entry, insert-wrapup, list-entries, list-wrapups, mark-reviewed, mark-archived, generate-wrapup), dedup behavior, `--body-stdin`, `--unreviewed`, edge cases, and the named-flag flows (`--agent`, `--context`, `--category`, `--observation`, `--timestamp`, `--body-stdin`, validation errors, unknown flag rejection, mutual exclusion, router passthrough). All tests create isolated temp directories in `/tmp`.
+**Purpose:** Test suite for `ouroboros-db.sh`. Descriptive test cases cover entry insertion, review/archive lifecycle, dedup behavior, `--body-stdin`, `--unreviewed`, edge cases, and named-flag validation. All tests create isolated temp directories in `/tmp`.
 
 Key behavior:
 - Creates fresh temp directories per test with YOKE_ROOT override

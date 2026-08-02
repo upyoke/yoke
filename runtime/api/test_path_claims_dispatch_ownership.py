@@ -63,11 +63,11 @@ def _seed_work_claim(conn, *, session_id, item_id=ITEM_ID):
 
 def _seed_path_claim(conn, *, actor_id, item_id=ITEM_ID, target_ids=()):
     cur = conn.execute(
-        "INSERT INTO path_claims (state, mode, actor_id, item_id, "
-        "integration_target, registered_at) "
-        "VALUES ('planned', 'exclusive', %s, %s, 'main', "
+        "INSERT INTO path_claims (state, mode, owner_kind, owner_item_id, "
+        "registered_by_actor_id, integration_target, registered_at) "
+        "VALUES ('planned', 'exclusive', 'item', %s, %s, 'main', "
         "'2026-05-01T00:00:00Z') RETURNING id",
-        (actor_id, item_id),
+        (item_id, actor_id),
     )
     claim_id = int(cur.fetchone()[0])
     for tid in target_ids:

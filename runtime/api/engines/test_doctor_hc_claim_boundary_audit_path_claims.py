@@ -43,12 +43,12 @@ def _add_path_claim(
     )
     actor_id = int(cur.fetchone()[0])
     conn.execute(
-        "INSERT INTO path_claims (id, state, mode, actor_id, session_id,"
-        " item_id, owner_kind, owner_item_id, integration_target,"
+        "INSERT INTO path_claims (id, state, mode, owner_kind, owner_item_id,"
+        " registered_by_actor_id, registered_by_session_id, integration_target,"
         " registered_at)"
-        f" VALUES ({p}, 'active', 'exclusive', {p}, {p}, {p}, 'item',"
-        f" {p}, 'main', '2026-05-17T11:00:00Z')",
-        (claim_id, actor_id, sid, item_id, owner_item_id),
+        f" VALUES ({p}, 'active', 'exclusive', 'item', {p}, {p}, {p},"
+        " 'main', '2026-05-17T11:00:00Z')",
+        (claim_id, owner_item_id, actor_id, sid),
     )
     conn.commit()
 

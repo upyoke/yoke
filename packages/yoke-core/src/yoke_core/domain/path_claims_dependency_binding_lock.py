@@ -18,7 +18,8 @@ def lock_candidate_item_bindings(
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     placeholders = ",".join(marker for _ in claim_ids)
     rows = conn.execute(
-        f"SELECT id, item_id FROM path_claims WHERE id IN ({placeholders}) ORDER BY id",
+        f"SELECT id, owner_item_id FROM path_claims WHERE id IN ({placeholders}) "
+        "AND owner_kind = 'item' ORDER BY id",
         claim_ids,
     ).fetchall()
 

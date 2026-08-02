@@ -234,13 +234,15 @@ def item_view(
         placeholders = ",".join(p for _ in state_filter)
         rows = conn.execute(
             f"SELECT id FROM path_claims "
-            f"WHERE item_id = {p} AND state IN ({placeholders}) "
+            f"WHERE owner_kind = 'item' AND owner_item_id = {p} "
+            f"AND state IN ({placeholders}) "
             "ORDER BY id",
             (item_id, *state_filter),
         ).fetchall()
     else:
         rows = conn.execute(
-            f"SELECT id FROM path_claims WHERE item_id = {p} ORDER BY id",
+            f"SELECT id FROM path_claims WHERE owner_kind = 'item' "
+            f"AND owner_item_id = {p} ORDER BY id",
             (item_id,),
         ).fetchall()
     return [claim_projection(conn, int(r[0])) for r in rows]
