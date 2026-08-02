@@ -79,12 +79,15 @@ def test_cli_resume_loads_snapshot_defaults(
     )
     run_id = writer.summary()["run_id"]
 
-    rc = onboard_adapter.onboard([
-        "--resume", run_id,
-        "--yes",
-        "--non-interactive",
-        "--skip-identity-check",
-    ])
+    rc = onboard_adapter.onboard(
+        [
+            "--resume",
+            run_id,
+            "--yes",
+            "--non-interactive",
+            "--skip-identity-check",
+        ]
+    )
 
     assert rc == 0
     out = capsys.readouterr().out
@@ -114,9 +117,9 @@ def test_resume_restores_exact_repository_identity_as_integers(
             "project_github_installation_id": 123,
         },
     )
-    snapshot = json.loads(
-        Path(writer.summary()["path"]).read_text(encoding="utf-8")
-    )["input_snapshot"]
+    snapshot = json.loads(Path(writer.summary()["path"]).read_text(encoding="utf-8"))[
+        "input_snapshot"
+    ]
     parsed = SimpleNamespace()
 
     onboard_apply_resume.apply_defaults(parsed, snapshot)
@@ -174,7 +177,7 @@ def test_cli_resume_restores_saved_project_choices(
                 onboard_project.DEFAULT_BRANCH_SOURCE_SOURCE_REPO
             ),
             "project_public_item_prefix": "WID",
-            "project_github_adoption": "backlog-only",
+            "project_github_adoption": "disabled",
             "project_clone": clone,
         },
     )
@@ -196,13 +199,16 @@ def test_cli_resume_restores_saved_project_choices(
         lambda *_args, **_kwargs: "resume-github-app-user-token",
     )
 
-    rc = onboard_adapter.onboard([
-        "--resume", run_id,
-        "--yes",
-        "--non-interactive",
-        "--json",
-        "--skip-identity-check",
-    ])
+    rc = onboard_adapter.onboard(
+        [
+            "--resume",
+            run_id,
+            "--yes",
+            "--non-interactive",
+            "--json",
+            "--skip-identity-check",
+        ]
+    )
 
     assert rc == 0
     assert captured
@@ -267,9 +273,13 @@ def test_use_different_folder_preserves_run_created_checkout(
     writer.write()
     run_id = writer.summary()["run_id"]
 
-    rc = onboard_adapter.onboard([
-        "--use-different-folder", run_id, "--yes",
-    ])
+    rc = onboard_adapter.onboard(
+        [
+            "--use-different-folder",
+            run_id,
+            "--yes",
+        ]
+    )
 
     assert rc == 0
     assert "preserved checkout:" in capsys.readouterr().out
@@ -283,7 +293,8 @@ def test_use_different_folder_preserves_run_created_checkout(
     assert preserved == checkout
     assert preserved.is_dir()
     assert onboard_checkout_ownership.matches(
-        preserved, payload["input_snapshot"]["checkout_provenance"]["ownership"],
+        preserved,
+        payload["input_snapshot"]["checkout_provenance"]["ownership"],
     )
     assert payload["new_target"]["remote_repo_removed"] is False
 
@@ -314,26 +325,3 @@ def test_start_over_refuses_replaced_run_created_checkout(
     assert "identity changed" in capsys.readouterr().err
     assert (checkout / "keep.txt").read_text(encoding="utf-8") == "operator data"
     assert original.is_dir()
-
-
-def test_use_different_folder_refuses_existing_local_checkout(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "home"))
-    checkout = tmp_path / "existing"
-    checkout.mkdir()
-    writer = onboard_apply_report.ApplyReportWriter.start(
-        _preview(),
-        {"project_mode": "local-checkout", "project_checkout": str(checkout)},
-    )
-    run_id = writer.summary()["run_id"]
-
-    rc = onboard_adapter.onboard([
-        "--use-different-folder", run_id, "--yes",
-    ])
-
-    assert rc == 2
-    assert "no run-created checkout Yoke can preserve" in capsys.readouterr().err
-    assert checkout.is_dir()

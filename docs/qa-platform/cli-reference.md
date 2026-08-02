@@ -122,6 +122,18 @@ canonical result at a time. Machine cases reuse one serial lease until the plan
 completes or aborts; retrying a waiting invocation resumes from the stored
 cursor.
 
+A Command case is executed live rather than collected. Its combined output
+streams to **stderr** line by line as it arrives, preceded by a banner naming
+the raw capture file, so a long registered command is followable while it runs
+and re-readable afterwards; the same output is stored whole as the run's
+`command_output` artifact. On completion the case runner restates
+`verdict=… outcome=… exit_code=… capture=…` on stderr, leaving stdout as the
+machine-readable result JSON. Because this run produces the recorded verdict,
+it is the one full execution of that command for the tree — see
+[`full-suite-authority.md`](../testing-verification/full-suite-authority.md)
+for the iterate-narrow-then-gate loop. A run that outlives its
+`timeout_seconds` exits `124` with its whole process group reaped.
+
 When the plan runner returns `state="awaiting_agent_review"` it exits `12` and
 includes `review_bundle.dispatch`. The harness must immediately dispatch the
 named reviewer subagent with that immutable bundle and prompt, then use the

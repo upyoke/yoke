@@ -49,7 +49,7 @@ Non-secret settings live on the project capability; secret material lands only i
 
 Verify the rest of the confirmed profile's capabilities:
 
-- **GitHub binding mode.** Record the project's mode — `app-binding` (bind the exact repository selected from the machine's GitHub App installation access) or `backlog-only` (GitHub automation disabled until an App installation can see the repository with the required permissions). The operator authorizes the machine through `yoke github connect`; onboarding never asks for, stores, or promotes a GitHub token. An App binding is active only when the selected repository belongs to a non-suspended installation with all required repository permissions; otherwise preserve the binding as pending and keep the project in `backlog_only`. Check with:
+- **GitHub binding mode.** Record the project's mode — `app-binding` (bind the exact repository selected from the machine's GitHub App installation access) or `disabled` (GitHub automation disabled until an App installation can see the repository with the required permissions). The operator authorizes the machine through `yoke github connect`; onboarding never asks for, stores, or promotes a GitHub token. An App binding is active only when the selected repository belongs to a non-suspended installation with all required repository permissions; otherwise preserve the binding as pending and keep the project in `disabled`. Check with:
 
 ```bash
 yoke github status --json

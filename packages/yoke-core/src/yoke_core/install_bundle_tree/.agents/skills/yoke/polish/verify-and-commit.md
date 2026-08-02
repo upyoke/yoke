@@ -27,10 +27,22 @@ transition. Execute each `Command` case through its registered executor:
 yoke qa case run --requirement-id <requirement-id>
 ```
 
-The case runner resolves the item's worktree, captures stdout and stderr,
-records the verdict, and stores the complete command output as a QA artifact.
-Do not rediscover a command from project settings and do not write a duplicate
-run manually.
+The case runner resolves the item's worktree, streams the command's output
+live to stderr while capturing it, records the verdict, and stores the
+complete command output as a QA artifact. It names its raw capture file
+before the command starts, so a long case is followable without a second
+copy of the run.
+
+**This is the one full execution.** Iterate with the cheap layers while
+fixing — the individual failing tests, the changed module's paths,
+`yoke watch pytest --impacted main --bounded` (which reports an unbounded
+selection instead of widening to the full sweep) — then let the case run
+close the loop.
+Do not run the project's full sweep by hand and then re-execute the same
+tree through QA: the case executor re-runs the identical registered
+command, so only the verdict-producing run needs to happen. Do not
+rediscover a command from project settings and do not write a duplicate run
+manually.
 
 Verification expectations:
 
@@ -73,5 +85,6 @@ implementation was already clean.
 Do not push or create a pull request. Usher owns those actions.
 
 After the commit, rerun each required Command case with the committed HEAD so
-the latest requirement verdict and artifact prove the exact branch tip. Make no
-further commits after that final passing execution.
+the latest requirement verdict and artifact prove the exact branch tip. That
+is a changed tree, not a same-tree duplicate, so it is required rather than
+wasteful. Make no further commits after that final passing execution.

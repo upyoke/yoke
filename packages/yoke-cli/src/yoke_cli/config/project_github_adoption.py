@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from yoke_contracts.project_contract.github_sync_mode import (
-    GITHUB_SYNC_BACKLOG_ONLY,
+    GITHUB_SYNC_DISABLED,
 )
 
 
@@ -15,15 +15,15 @@ class ProjectGithubAdoptionError(RuntimeError):
 
 
 GITHUB_ADOPTION_APP_BINDING = "app-binding"
-GITHUB_ADOPTION_BACKLOG_ONLY = "backlog-only"
+GITHUB_ADOPTION_DISABLED = "disabled"
 GITHUB_ADOPTION_PRESERVE = "preserve-existing"
 GITHUB_ADOPTION_CHOICES = (
     GITHUB_ADOPTION_APP_BINDING,
-    GITHUB_ADOPTION_BACKLOG_ONLY,
+    GITHUB_ADOPTION_DISABLED,
 )
 GITHUB_ADOPTION_INPUT_CHOICES = GITHUB_ADOPTION_CHOICES
 GITHUB_BINDING_PENDING_STATUS = "pending_app_connection"
-GITHUB_BINDING_BACKLOG_ONLY_STATUS = "backlog_only"
+GITHUB_BINDING_DISABLED_STATUS = "disabled"
 GITHUB_BINDING_PRESERVED_STATUS = "preserved"
 GITHUB_AUTOMATION_CATEGORIES = (
     "labels",
@@ -58,7 +58,8 @@ def github_adoption_report(
         GITHUB_ADOPTION_PRESERVE
         if preserve_existing and choice is None
         else _normalize_github_adoption_choice(
-            choice=choice, github_repo=github_repo,
+            choice=choice,
+            github_repo=github_repo,
         )
     )
     if not github_repo and normalized == GITHUB_ADOPTION_APP_BINDING:
@@ -68,10 +69,9 @@ def github_adoption_report(
     binding_status = (
         GITHUB_BINDING_PRESERVED_STATUS
         if preserve_existing
-        else
-        GITHUB_BINDING_PENDING_STATUS
+        else GITHUB_BINDING_PENDING_STATUS
         if normalized == GITHUB_ADOPTION_APP_BINDING
-        else GITHUB_BINDING_BACKLOG_ONLY_STATUS
+        else GITHUB_BINDING_DISABLED_STATUS
     )
 
     return {
@@ -89,8 +89,7 @@ def github_adoption_report(
             "status": binding_status,
             "repo": github_repo,
             "requires_app_installation": (
-                normalized == GITHUB_ADOPTION_APP_BINDING
-                and not preserve_existing
+                normalized == GITHUB_ADOPTION_APP_BINDING and not preserve_existing
             ),
         },
     }
@@ -109,7 +108,7 @@ def should_store_project_github_binding(
 
 def github_sync_mode(github_adoption: Mapping[str, Any] | None) -> str:
     """Stage onboarding safely; verified binding enables sync transactionally."""
-    return GITHUB_SYNC_BACKLOG_ONLY
+    return GITHUB_SYNC_DISABLED
 
 
 def with_github_adoption_report(
@@ -170,11 +169,11 @@ def _normalize_github_adoption_choice(
         if choice not in GITHUB_ADOPTION_CHOICES:
             raise ProjectGithubAdoptionError(
                 "unknown GitHub adoption choice: "
-                f"{choice}; expected one of app-binding, backlog-only"
+                f"{choice}; expected one of app-binding, disabled"
             )
         return choice
     if not github_repo:
-        return GITHUB_ADOPTION_BACKLOG_ONLY
+        return GITHUB_ADOPTION_DISABLED
     return GITHUB_ADOPTION_APP_BINDING
 
 
@@ -184,23 +183,28 @@ def _project_write_preview(
     project: Mapping[str, Any],
     github_adoption: Mapping[str, Any],
 ) -> list[dict[str, Any]]:
-    writes = [{
-        "surface": PROJECT_SURFACE_BY_OPERATION.get(operation, operation),
-        "fields": sorted(str(key) for key in project.keys()),
-    }]
-    if (
-        github_adoption.get("choice") == GITHUB_ADOPTION_APP_BINDING
-        and not github_adoption.get("preserve_existing")
-    ):
-        writes.append({
-            "surface": "project.github_app_repo_binding",
-            "repo": _project_value(project, "github_repo"),
-            "status": GITHUB_BINDING_PENDING_STATUS,
-        })
-    writes.extend([
-        {"surface": "project.checkout.register", "checkout": "machine-config"},
-        {"surface": "project.install", "checkout": "local"},
-    ])
+    writes = [
+        {
+            "surface": PROJECT_SURFACE_BY_OPERATION.get(operation, operation),
+            "fields": sorted(str(key) for key in project.keys()),
+        }
+    ]
+    if github_adoption.get(
+        "choice"
+    ) == GITHUB_ADOPTION_APP_BINDING and not github_adoption.get("preserve_existing"):
+        writes.append(
+            {
+                "surface": "project.github_app_repo_binding",
+                "repo": _project_value(project, "github_repo"),
+                "status": GITHUB_BINDING_PENDING_STATUS,
+            }
+        )
+    writes.extend(
+        [
+            {"surface": "project.checkout.register", "checkout": "machine-config"},
+            {"surface": "project.install", "checkout": "local"},
+        ]
+    )
     return writes
 
 
@@ -231,12 +235,15 @@ def _github_write_preview(
         if github_repo and github_adoption.get("automation_enabled")
         else status
     )
-    writes.extend({
-        "category": category,
-        "target": github_repo,
-        "status": admin_status,
-        "items": [],
-    } for category in GITHUB_ADMIN_AUTOMATION_CATEGORIES)
+    writes.extend(
+        {
+            "category": category,
+            "target": github_repo,
+            "status": admin_status,
+            "items": [],
+        }
+        for category in GITHUB_ADMIN_AUTOMATION_CATEGORIES
+    )
     return writes
 
 

@@ -37,6 +37,7 @@ CREATE TABLE project_github_repo_bindings (
   installation_id TEXT NOT NULL REFERENCES github_app_installations(installation_id),
   repository_id TEXT, api_url TEXT NOT NULL DEFAULT '{DEFAULT_GITHUB_API_URL}',
   github_repo TEXT NOT NULL, default_branch TEXT,
+  repository_is_private BOOLEAN NOT NULL DEFAULT FALSE,
   status TEXT NOT NULL DEFAULT 'active', permissions TEXT NOT NULL DEFAULT '{{}}',
   last_verified_at TEXT, last_error TEXT, created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL);
@@ -106,7 +107,10 @@ def make_repo(root: Path, *, optional_workflows: bool = False) -> Path:
     (repo / ".git").mkdir(exist_ok=True)
     names = ["externalwebapp-deploy.yml", "externalwebapp-smoke.yml"]
     if optional_workflows:
-        names += ["externalwebapp-ephemeral.yml", "externalwebapp-ephemeral-teardown.yml"]
+        names += [
+            "externalwebapp-ephemeral.yml",
+            "externalwebapp-ephemeral-teardown.yml",
+        ]
     for name in names:
         (workflows / name).write_text(f"name: {name}\n")
     return repo

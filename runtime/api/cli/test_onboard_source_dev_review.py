@@ -22,7 +22,9 @@ def test_source_dev_source_choice_names_project_not_checkout() -> None:
     # F6: the core DB records the PROJECT, not this checkout's path (the path is
     # registered in config.json by the separate project-checkout-register step).
     line = onboard_plan_labels.friendly_line(
-        "project-source-choice", "source-dev-admin", "Yoke",
+        "project-source-choice",
+        "source-dev-admin",
+        "Yoke",
     )
     assert line == "Register the Yoke project in the Yoke core database"
     assert "checkout" not in line
@@ -30,19 +32,22 @@ def test_source_dev_source_choice_names_project_not_checkout() -> None:
 
 def test_source_dev_github_auth_target_and_label() -> None:
     # F7: source-dev gets Yoke's origin remote from the clone.
-    assert onboard_project._github_auth_target(
-        {}, mode=onboard_project.PROJECT_MODE_SOURCE_DEV_ADMIN,
-    ) == "source-dev"
-    assert onboard_project._github_auth_target({}) == "backlog-only"
+    assert (
+        onboard_project._github_auth_target(
+            {},
+            mode=onboard_project.PROJECT_MODE_SOURCE_DEV_ADMIN,
+        )
+        == "source-dev"
+    )
+    assert onboard_project._github_auth_target({}) == "disabled"
     remote_line = onboard_plan_labels.friendly_line(
-        "project-github-auth-choice", "source-dev",
+        "project-github-auth-choice",
+        "source-dev",
     )
     assert "origin" in remote_line and "clone" in remote_line
 
 
-def test_build_plan_source_dev_github_auth_step_is_source_dev(
-    tmp_path: Path
-) -> None:
+def test_build_plan_source_dev_github_auth_step_is_source_dev(tmp_path: Path) -> None:
     # F7 regression: the REVIEW plan (build_plan) — not only the apply path —
     # must render the source-dev github-auth target. The inline ternary used to
     # drop it to "skip"; build_plan now shares onboard_project._github_auth_target.
@@ -63,7 +68,8 @@ def test_build_plan_source_dev_github_auth_step_is_source_dev(
 
 def test_source_dev_next_steps_open_new_shell(tmp_path: Path) -> None:
     steps = onboard_report.next_steps(
-        tmp_path / "config.json", onboard_project.PROJECT_MODE_SOURCE_DEV_ADMIN,
+        tmp_path / "config.json",
+        onboard_project.PROJECT_MODE_SOURCE_DEV_ADMIN,
     )
     assert any("new terminal" in step.lower() for step in steps)
     # The editable install now happens during apply, not as a manual next step.
@@ -115,7 +121,8 @@ def test_project_report_clones_yoke_repo_for_source_dev(
     # short-lived GitHub App user access, so a fresh folder is cloned (not git-init'd empty).
     captured: dict = {}
     monkeypatch.setattr(
-        onboard_project.project_onboard, "onboard_existing",
+        onboard_project.project_onboard,
+        "onboard_existing",
         lambda **kw: captured.update(kw) or {"ok": True},
     )
     token_scope: dict = {}

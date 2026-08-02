@@ -32,18 +32,19 @@ def _verified_binding() -> VerifiedProjectGitHubBinding:
         repository_id="4567",
         github_repo="example-org/externalwebapp",
         default_branch="trunk",
+        repository_is_private=True,
         installation_status="active",
     )
 
 
-def test_bind_preserves_intentional_backlog_only(monkeypatch):
+def test_bind_preserves_intentional_disabled(monkeypatch):
     db_name = pg_testdb.create_test_database()
     try:
         conn = pg_testdb.connect_test_database(db_name)
         try:
             apply_fixture_schema(conn)
             conn.execute(
-                "UPDATE projects SET github_sync_mode='backlog_only' "
+                "UPDATE projects SET github_sync_mode='disabled' "
                 "WHERE slug='externalwebapp'"
             )
             conn.commit()
@@ -66,7 +67,7 @@ def test_bind_preserves_intentional_backlog_only(monkeypatch):
 
         assert status["bound"] is True
         assert status["binding"]["status"] == "active"
-        assert status["github_sync_mode"] == "backlog_only"
+        assert status["github_sync_mode"] == "disabled"
         assert status["automation"] == {"available": True, "reason": "bound"}
     finally:
         pg_testdb.drop_test_database(db_name)

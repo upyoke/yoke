@@ -99,7 +99,7 @@ REVIEW_FRAME = terminal_case(
     "terminal-inspection",
     instructions=(
         "Approve the live Stage machine authorization in the browser, stay "
-        "backlog-only for GitHub, and inspect the machine-only Review frame "
+        "disabled for GitHub, and inspect the machine-only Review frame "
         "without choosing Apply."
     ),
     expected_outcome=(

@@ -26,7 +26,8 @@ def read_github_issue(universe, item_id: int):
     conn = pg_testdb.connect_test_database(universe.db_name)
     try:
         row = conn.execute(
-            "SELECT github_issue FROM items WHERE id = %s", (item_id,),
+            "SELECT github_issue FROM items WHERE id = %s",
+            (item_id,),
         ).fetchone()
     finally:
         conn.close()
@@ -44,6 +45,7 @@ def seed_project_github_binding(conn, transient_user_token: str) -> None:
         repository_id="4567",
         github_repo=PROJECT_REPO,
         default_branch="main",
+        repository_is_private=True,
     )
     cmd_bind_project_repo(
         "yoke",
@@ -54,6 +56,10 @@ def seed_project_github_binding(conn, transient_user_token: str) -> None:
         github_user_access_token=transient_user_token,
         verifier=lambda **_kwargs: verified,
         conn=conn,
+    )
+    conn.execute(
+        "UPDATE projects SET github_sync_mode=%s WHERE slug=%s",
+        ("enabled", "yoke"),
     )
 
 

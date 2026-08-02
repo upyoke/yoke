@@ -12,7 +12,7 @@ from yoke_core.domain.project_github_binding_payload import (
     installation_payload,
     permission_status,
 )
-from yoke_core.domain.schema_common import _table_exists
+from yoke_core.domain.schema_common import _column_exists, _table_exists
 
 
 def project_has_active_verified_github_binding(
@@ -64,4 +64,30 @@ def project_has_active_verified_github_binding(
     )
 
 
-__all__ = ["project_has_active_verified_github_binding"]
+def project_has_private_verified_github_binding(
+    conn: Any,
+    project_id: int,
+) -> bool:
+    """Return whether a usable binding is verified as private."""
+    if not project_has_active_verified_github_binding(conn, project_id):
+        return False
+    if not _column_exists(
+        conn,
+        "project_github_repo_bindings",
+        "repository_is_private",
+    ):
+        return False
+    p = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    binding = query_one(
+        conn,
+        "SELECT repository_is_private FROM project_github_repo_bindings "
+        f"WHERE project_id={p}",
+        (project_id,),
+    )
+    return bool(binding and binding["repository_is_private"])
+
+
+__all__ = [
+    "project_has_active_verified_github_binding",
+    "project_has_private_verified_github_binding",
+]

@@ -224,15 +224,28 @@ produce a diff.
 
 ### 5. Verify and close review
 
-Run the project's implementation-time verification and an agent self-check.
-Prefer the change-scoped check — impacted-test selection over the branch
-diff — to a local full sweep: the full-suite authority is CI on the
-protected merge path, which runs on the pull request and again on the
-merged commit. Fall back to a local full sweep only when CI is unavailable,
-and record that substitution in the verification evidence. If CI fails a
-test the impacted run skipped, that is a selector defect: fix the
-selection model in the same response, not just the code. Then execute
-each selected posture knob through its shared authority:
+Iterate with the change-scoped check — impacted-test selection over the
+branch diff (`yoke watch pytest --impacted main --bounded` for this
+project) plus the individual failing tests — as often as the work needs.
+`--bounded` keeps an unbounded selection from widening to the full sweep:
+it reports `selection unbounded (<rule>) — deferring full coverage to the
+final QA gate` and runs the subset it could still compute. Read that as
+*keep testing what you judge relevant*, not as a signal to run everything
+now. The full-suite authority is CI on the protected merge path, which
+runs on the pull request and again on the merged commit. Fall back to a
+local full sweep only when CI is unavailable, and record that
+substitution in the verification evidence. If CI fails a test the
+impacted run skipped, that is a selector defect: fix the selection model
+in the same response, not just the code.
+
+**The QA case run is the one full execution.** Do not run the project's
+full sweep by hand and then hand the same tree to QA — the case executor
+re-runs the identical registered command, so the verdict-producing run is
+the only one that needs to happen. It streams live to stderr and prints
+its raw capture path before starting, so you can follow it without a
+second copy. Re-running after the tree changes is a different execution
+and stays required. Then execute each selected posture knob through its
+shared authority:
 
 - `verification.kind=plan` — materialize the attached plan cases for
   `reviewing-implementation`, execute each requirement with

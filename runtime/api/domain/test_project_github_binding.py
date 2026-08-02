@@ -58,6 +58,7 @@ def _verified(
         repository_id="4567",
         github_repo=github_repo,
         default_branch="trunk",
+        repository_is_private=True,
         installation_status=installation_status,
     )
 
@@ -112,7 +113,7 @@ def test_bind_status_and_unbind_round_trip(monkeypatch):
             "available": False,
             "reason": "repo_not_bound",
         }
-        assert unbound["github_sync_mode"] == "backlog_only"
+        assert unbound["github_sync_mode"] == "disabled"
     finally:
         pg_testdb.drop_test_database(db_name)
 
@@ -150,7 +151,7 @@ def test_status_reports_missing_permissions(monkeypatch):
         assert "contents" in status["permission_status"]["missing"]
         assert "Grant the GitHub App" in status["permission_status"]["hint"]
         assert status["binding"]["status"] == "pending"
-        assert status["github_sync_mode"] == "enabled"
+        assert status["github_sync_mode"] == "disabled"
         assert status["automation"] == {
             "available": False,
             "reason": "missing_permissions",
@@ -163,12 +164,14 @@ def test_status_reports_missing_permissions(monkeypatch):
             repository_id="4567",
             expected_api_url="https://api.github.com",
             github_user_access_token="github-user-token",
-            verifier=lambda **kwargs: _verified(github_repo="example-org/externalwebapp"),
+            verifier=lambda **kwargs: _verified(
+                github_repo="example-org/externalwebapp"
+            ),
         )
 
         assert promoted["binding"]["status"] == "active"
         assert promoted["permission_status"]["status"] == "satisfied"
-        assert promoted["github_sync_mode"] == "enabled"
+        assert promoted["github_sync_mode"] == "disabled"
         assert promoted["automation"] == {"available": True, "reason": "bound"}
     finally:
         pg_testdb.drop_test_database(db_name)
@@ -202,7 +205,7 @@ def test_suspended_installation_persists_unavailable_binding(monkeypatch):
 
         assert status["installation"]["status"] == "suspended"
         assert status["binding"]["status"] == "unavailable"
-        assert status["github_sync_mode"] == "enabled"
+        assert status["github_sync_mode"] == "disabled"
         assert status["automation"] == {
             "available": False,
             "reason": "installation_suspended",
@@ -291,17 +294,24 @@ def test_repo_normalization_accepts_common_clone_urls():
     assert normalize_github_repo("git@github.com:Example-Org/ExternalWebapp.git") == (
         "example-org/externalwebapp"
     )
-    assert normalize_github_repo("https://github.com/Example-Org/ExternalWebapp.git") == (
-        "example-org/externalwebapp"
+    assert normalize_github_repo(
+        "https://github.com/Example-Org/ExternalWebapp.git"
+    ) == ("example-org/externalwebapp")
+    assert (
+        normalize_github_repo("example-org/externalwebapp")
+        == "example-org/externalwebapp"
     )
-    assert normalize_github_repo("example-org/externalwebapp") == "example-org/externalwebapp"
     assert normalize_github_repo("missing-owner") == ""
     assert (
-        normalize_github_repo("https://github.enterprise.example/Example-Org/ExternalWebapp.git")
+        normalize_github_repo(
+            "https://github.enterprise.example/Example-Org/ExternalWebapp.git"
+        )
         == "example-org/externalwebapp"
     )
     assert (
-        normalize_github_repo("git@github.enterprise.example:Example-Org/ExternalWebapp.git")
+        normalize_github_repo(
+            "git@github.enterprise.example:Example-Org/ExternalWebapp.git"
+        )
         == "example-org/externalwebapp"
     )
     assert (

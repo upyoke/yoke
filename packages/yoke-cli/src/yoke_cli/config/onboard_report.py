@@ -27,6 +27,8 @@ _PROJECT_ACTION = {
     onboard_project.PROJECT_MODE_LOCAL_CHECKOUT: "project-onboard-local-checkout",
     onboard_project.PROJECT_MODE_SOURCE_DEV_ADMIN: "project-source-dev-admin",
 }
+
+
 def build_plan(
     cfg_path: Path,
     env_name: str,
@@ -45,46 +47,55 @@ def build_plan(
     reuse = dict(reuse or {})
     steps = []
     if not reuse.get("yoke_home"):
-        steps.append({
-            "action": "create-or-validate-dir",
-            "target": str(cfg_path.parent),
-        })
+        steps.append(
+            {
+                "action": "create-or-validate-dir",
+                "target": str(cfg_path.parent),
+            }
+        )
     if local_destination:
         # The universe birth replaces the sign-in writes: it records the
         # local connection (DSN reference) itself and verifies idempotently
         # on rerun, so it is always planned.
-        steps.append({
-            "action": "local-universe-init",
-            "target": str(reuse.get("local_universe") or "create"),
-        })
+        steps.append(
+            {
+                "action": "local-universe-init",
+                "target": str(reuse.get("local_universe") or "create"),
+            }
+        )
     if not reuse.get("active_env"):
         steps.append({"action": "set-active-env", "target": env_name})
     if not local_destination and not reuse.get("connection"):
         steps.append({"action": "set-https-api-url", "target": api_url})
     if not local_destination and not reuse.get("token_reference"):
-        steps.append({
-            "action": "store-token-reference",
-            "target": _credential_target(credential_source),
-        })
+        steps.append(
+            {
+                "action": "store-token-reference",
+                "target": _credential_target(credential_source),
+            }
+        )
     if not reuse.get("machine_github"):
-        steps.append({
-            "action": "machine-github-connection",
-            "target": str(machine_github.get("choice") or "skip"),
-        })
+        steps.append(
+            {
+                "action": "machine-github-connection",
+                "target": str(machine_github.get("choice") or "skip"),
+            }
+        )
     # The hosting credential belongs to a project Yoke deploys for, so only
     # those modes plan one. When it is already on this machine the reuse block
     # names it instead — the wizard stores it before Review, the same way the
     # machine GitHub authorization is saved before Review.
-    if (
-        onboard_project_modes.offers_hosting_credential(project_mode)
-        and not reuse.get("aws_admin")
+    if onboard_project_modes.offers_hosting_credential(project_mode) and not reuse.get(
+        "aws_admin"
     ):
-        steps.append({
-            "action": aws_admin_capability.HOSTING_CAPABILITY_ACTION,
-            "target": str(
-                hosting_choice or aws_admin_capability.HOSTING_CHOICE_SKIP
-            ),
-        })
+        steps.append(
+            {
+                "action": aws_admin_capability.HOSTING_CAPABILITY_ACTION,
+                "target": str(
+                    hosting_choice or aws_admin_capability.HOSTING_CHOICE_SKIP
+                ),
+            }
+        )
     if not reuse.get("temp_root"):
         steps.append({"action": "create-runtime-dir", "target": "temp_root"})
     if not reuse.get("cache_dir"):
@@ -93,19 +104,25 @@ def build_plan(
         steps.append({"action": "stop-before-project-or-github", "target": mode})
     else:
         if not reuse.get("project_identity"):
-            steps.append({
-                "action": "project-source-choice",
-                "target": _source_choice_target(project_mode, project_inputs),
-            })
+            steps.append(
+                {
+                    "action": "project-source-choice",
+                    "target": _source_choice_target(project_mode, project_inputs),
+                }
+            )
         if not reuse.get("project_checkout"):
-            steps.append({
-                "action": _PROJECT_ACTION.get(project_mode, "project-onboard"),
-                "target": str(project_inputs.get("checkout") or ""),
-            })
-            steps.append({
-                "action": "project-checkout-register",
-                "target": str(project_inputs.get("checkout") or ""),
-            })
+            steps.append(
+                {
+                    "action": _PROJECT_ACTION.get(project_mode, "project-onboard"),
+                    "target": str(project_inputs.get("checkout") or ""),
+                }
+            )
+            steps.append(
+                {
+                    "action": "project-checkout-register",
+                    "target": str(project_inputs.get("checkout") or ""),
+                }
+            )
         # Post-checkout work onboard runs once the folder exists: the clone-only
         # remote re-home/fork choreography (clone modes only), the project
         # scaffold install (every mode), and the board-art + initial BOARD.md
@@ -114,15 +131,18 @@ def build_plan(
         # is not just the clone line.
         steps.extend(_post_checkout_steps(project_mode, project_inputs, reuse=reuse))
         if not reuse.get("project_github_auth"):
-            steps.append({
-                "action": "project-github-auth-choice",
-                # Single source of truth with the apply path — deriving the
-                # target inline here (missing the source-dev case) is what made
-                # the review render "skip" instead of the origin-remote line.
-                "target": onboard_project._github_auth_target(
-                    project_inputs, mode=project_mode,
-                ),
-            })
+            steps.append(
+                {
+                    "action": "project-github-auth-choice",
+                    # Single source of truth with the apply path — deriving the
+                    # target inline here (missing the source-dev case) is what made
+                    # the review render "skip" instead of the origin-remote line.
+                    "target": onboard_project._github_auth_target(
+                        project_inputs,
+                        mode=project_mode,
+                    ),
+                }
+            )
     return {
         "config_path": str(cfg_path),
         "active_env": env_name,
@@ -137,11 +157,10 @@ def build_plan(
             "cache_dir": str(cfg_path.parent / "cache"),
         },
         "project_mutation": project_mode != PROJECT_MODE_MACHINE_ONLY,
-        "machine_github_mutation": bool(
-            machine_github.get("writes_machine_secret")
-        ) and not bool(reuse.get("machine_github")),
+        "machine_github_mutation": bool(machine_github.get("writes_machine_secret"))
+        and not bool(reuse.get("machine_github")),
         "github_mutation": bool(
-            project_inputs.get("github_adoption") not in (None, "backlog-only")
+            project_inputs.get("github_adoption") not in (None, "disabled")
         ),
         "reuse": reuse,
         "project": _public_project_inputs(project_inputs) if project_inputs else None,
@@ -199,12 +218,14 @@ def source_choice_target(project_mode: str, project_inputs: dict[str, Any]) -> s
 # ``install_runner.install`` and then writes board art + the initial BOARD.md.
 # Source-dev-admin takes a separate ``yoke dev setup`` path and never reaches
 # the board-art design flow, so it is excluded; machine-only has no checkout.
-_SCAFFOLD_PROJECT_MODES = frozenset({
-    onboard_project.PROJECT_MODE_CREATE_REPO,
-    onboard_project.PROJECT_MODE_CLONE_REMOTE,
-    onboard_project.PROJECT_MODE_IMPORT_REMOTE,
-    onboard_project.PROJECT_MODE_LOCAL_CHECKOUT,
-})
+_SCAFFOLD_PROJECT_MODES = frozenset(
+    {
+        onboard_project.PROJECT_MODE_CREATE_REPO,
+        onboard_project.PROJECT_MODE_CLONE_REMOTE,
+        onboard_project.PROJECT_MODE_IMPORT_REMOTE,
+        onboard_project.PROJECT_MODE_LOCAL_CHECKOUT,
+    }
+)
 
 
 def _post_checkout_steps(
@@ -236,9 +257,8 @@ def _post_checkout_steps(
       ``BOARD.md``.
     """
     steps: list[dict[str, Any]] = []
-    if (
-        project_mode == onboard_project.PROJECT_MODE_CLONE_REMOTE
-        and not reuse.get("project_checkout")
+    if project_mode == onboard_project.PROJECT_MODE_CLONE_REMOTE and not reuse.get(
+        "project_checkout"
     ):
         clone = project_inputs.get("clone") if project_inputs else None
         outcome = getattr(clone, "outcome", None)
@@ -247,14 +267,16 @@ def _post_checkout_steps(
         elif outcome == CLONE_OUTCOME_FORK:
             steps.append({"action": "project-fork-remotes", "target": ""})
     if project_mode in _SCAFFOLD_PROJECT_MODES:
-        steps.append({
-            "action": (
-                "project-refresh-scaffold"
-                if reuse.get("project_scaffold") else
-                "project-install-scaffold"
-            ),
-            "target": "",
-        })
+        steps.append(
+            {
+                "action": (
+                    "project-refresh-scaffold"
+                    if reuse.get("project_scaffold")
+                    else "project-install-scaffold"
+                ),
+                "target": "",
+            }
+        )
         # The scaffold install (and refresh) also writes the Yoke rules blocks,
         # the managed tool-permission region, and the git commit-guard hooks.
         # Name each so the review screen's repo group is explicit about the

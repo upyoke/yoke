@@ -21,9 +21,7 @@ from yoke_cli.config.project_github_adoption import (
 )
 from yoke_cli.project_install.files import ProjectInstallError
 
-GITHUB_ADOPTION_FLAGS = (
-    "[--github-adoption app-binding|backlog-only]"
-)
+GITHUB_ADOPTION_FLAGS = "[--github-adoption app-binding|disabled]"
 PROJECT_CREATE_USAGE = (
     "yoke project create CHECKOUT --slug SLUG --name NAME "
     "[--org ORG] --github-repo OWNER/REPO --default-branch BRANCH "
@@ -151,7 +149,9 @@ def _project_parser(prog: str, usage: str) -> argparse.ArgumentParser:
     parser.add_argument("--github-repo", dest="github_repo", default=None)
     parser.add_argument("--default-branch", dest="default_branch", required=True)
     parser.add_argument(
-        "--public-item-prefix", dest="public_item_prefix", required=True,
+        "--public-item-prefix",
+        dest="public_item_prefix",
+        required=True,
     )
     parser.add_argument("--config", dest="config_path", required=True)
     mode = parser.add_mutually_exclusive_group()

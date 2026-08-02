@@ -14,10 +14,9 @@ the machine's GitHub App authorization once that flow is connected.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import Any
 
 from yoke_cli.config import existing_project_lookup
-from yoke_cli.config import github_publish
 from yoke_cli.config import onboard_existing_project
 from yoke_cli.config import onboard_github_copy
 from yoke_cli.config import onboard_input_validation as input_validation
@@ -39,7 +38,11 @@ from yoke_cli.config.onboard_wizard_finish_flow import FinishBodyFlow
 from yoke_cli.config.onboard_wizard_stored_project import StoredProjectFlow
 from yoke_cli.config.onboard_wizard_widgets import STEP_FINISH, STEP_PROJECT
 from yoke_cli.config.project_publish_support import is_existing_project_dir
-from yoke_cli.config.project_github_adoption import GITHUB_ADOPTION_BACKLOG_ONLY
+from yoke_cli.config.project_github_adoption import GITHUB_ADOPTION_DISABLED
+from yoke_cli.config.onboard_wizard_flow_support import WizardShell as _Shell
+from yoke_cli.config.onboard_wizard_flow_support import (
+    fetch_repo_owners as _fetch_repo_owners,
+)
 
 # Modes that offer the "Also publish to GitHub?" follow-up. A clone always
 # brings its own remote and source-dev/admin develops Yoke itself, so neither
@@ -51,34 +54,8 @@ PUBLISH_MODES = (
 
 
 def fetch_repo_owners(api_url: str, token: str) -> list:
-    """Owner-list seam for the picker — patched in tests so none hit GitHub."""
-    return github_publish.list_repo_owners(api_url, token)
-
-if TYPE_CHECKING:  # pragma: no cover - typing only
-    from yoke_cli.config.onboard_wizard_app import _View
-
-
-class _Shell(Protocol):  # pragma: no cover - structural typing only
-    result: Any
-    _pending_stored_project_checkout: str | None
-    _project_mode_preset: bool
-    _project_preset_attempted: bool
-    _stored_project_attempted: bool
-    _stored_project_checkouts: list[Any]
-
-    def _goto(self, view: "_View") -> None: ...
-    def _selection_view(self, step, title, subtitle, rows, on_select) -> "_View": ...
-    def _goto_input(self, step, title, subtitle, *, placeholder, on_done,
-                    password: bool = False,
-                    allow_placeholder: bool = True,
-                    validate=None,
-                    initial_value: str = "") -> None: ...
-    def _start_dev_flow(self) -> None: ...
-    def _check_project_git(self, mode: str) -> None: ...
-    def _run_checking(self, **kwargs) -> None: ...
-    def _goto_hosting(self) -> None: ...
-    def _goto_board_art_intro(self) -> None: ...
-    def _goto_stored_project_picker(self) -> None: ...
+    """Owner-list seam that tests patch instead of calling GitHub."""
+    return _fetch_repo_owners(api_url, token)
 
 
 class WizardFlow(
@@ -138,15 +115,24 @@ class WizardFlow(
         # Folder-prompt copy: create-new makes a fresh folder; local-checkout
         # points at code already on disk.
         if mode == onboard_project.PROJECT_MODE_CREATE_REPO:
-            title, subtitle = "Name your new project folder.", "Where should Yoke create it? It makes the folder and a git repo."
+            title, subtitle = (
+                "Name your new project folder.",
+                "Where should Yoke create it? It makes the folder and a git repo.",
+            )
         else:
-            title, subtitle = "Point at your project folder.", "Where's the code on this machine? Yoke makes it a git repo if it isn't."
+            title, subtitle = (
+                "Point at your project folder.",
+                "Where's the code on this machine? Yoke makes it a git repo if it isn't.",
+            )
         # Validate inline: a plain file or an unwritable parent is rejected here,
         # not at Apply. An existing non-empty dir is fine — create-new redirects
         # it to adopt-the-existing-folder in _after_checkout.
         self._goto_input(
-            STEP_PROJECT, title, subtitle,
-            placeholder="~/code/my-project", on_done=self._after_checkout,
+            STEP_PROJECT,
+            title,
+            subtitle,
+            placeholder="~/code/my-project",
+            on_done=self._after_checkout,
             validate=input_validation.validate_create_target_folder,
         )
 
@@ -171,27 +157,31 @@ class WizardFlow(
     def _goto_existing_dir_redirect(self: _Shell, path: str) -> None:
         from yoke_cli.config.onboard_wizard_app import _View
 
-        self._goto(_View(
-            STEP_PROJECT,
-            lambda: steps.verification_body(
-                "That folder already exists.",
-                f"Yoke will set up {path} as an existing project instead of "
-                "creating a new one.",
-                [],
-                steps.VERIFY_OK_ROWS,
-                ok=True,
-            ),
-            lambda _choice: self._after_local_checkout_source(path),
-        ))
+        self._goto(
+            _View(
+                STEP_PROJECT,
+                lambda: steps.verification_body(
+                    "That folder already exists.",
+                    f"Yoke will set up {path} as an existing project instead of "
+                    "creating a new one.",
+                    [],
+                    steps.VERIFY_OK_ROWS,
+                    ok=True,
+                ),
+                lambda _choice: self._after_local_checkout_source(path),
+            )
+        )
 
     def _after_local_checkout_source(self: _Shell, value: str) -> None:
         try:
             remote, web_url = onboard_local_checkout_identity.inspect(
-                self.result, value,
+                self.result,
+                value,
             )
         except RuntimeError as exc:
             self._goto_existing_project_lookup_error(
-                exc, retry=lambda: self._after_local_checkout_source(value),
+                exc,
+                retry=lambda: self._after_local_checkout_source(value),
             )
             return
         try:
@@ -247,8 +237,7 @@ class WizardFlow(
                 step=STEP_PROJECT,
                 title="Checking Yoke project.",
                 message=(
-                    f"Verifying project {local_ref.project_id} from "
-                    f"{local_ref.source}."
+                    f"Verifying project {local_ref.project_id} from {local_ref.source}."
                 ),
                 work=lambda: existing_project_lookup.find_by_project_id(
                     api_url=self.result.api_url,
@@ -302,7 +291,8 @@ class WizardFlow(
     def _goto_slug(self: _Shell) -> None:
         suggested_slug = steps.slug_from_checkout(self.result.project_checkout)
         self._goto_input(
-            STEP_PROJECT, "Name your project.",
+            STEP_PROJECT,
+            "Name your project.",
             "Short ID — lowercase and hyphens (e.g. my-project).",
             placeholder=suggested_slug,
             initial_value=suggested_slug,
@@ -314,7 +304,8 @@ class WizardFlow(
     def _after_slug(self: _Shell, value: str) -> None:
         self.result.project_slug = value
         self._goto_input(
-            STEP_PROJECT, "Give it a friendly name.",
+            STEP_PROJECT,
+            "Give it a friendly name.",
             "The display name people read — anything you like.",
             placeholder=value,
             initial_value=value,
@@ -355,17 +346,14 @@ class WizardFlow(
             self._goto_slug()
             return
         if (
-            self.result.project_mode
-            == onboard_project.PROJECT_MODE_LOCAL_CHECKOUT
+            self.result.project_mode == onboard_project.PROJECT_MODE_LOCAL_CHECKOUT
             and project.github_repo
         ):
             try:
                 onboard_local_checkout_identity.require_matching_origin(
                     self.result.project_checkout or "",
                     github_repo=project.github_repo,
-                    web_url=(
-                        onboard_wizard_github_state.clone_web_url(self.result)
-                    ),
+                    web_url=(onboard_wizard_github_state.clone_web_url(self.result)),
                 )
             except RuntimeError as exc:
                 self._goto_existing_project_lookup_error(
@@ -380,19 +368,19 @@ class WizardFlow(
             match_source=match_source,
             local_source=local_source,
         )
-        # A backlog-only project can predate GitHub binding while its checkout
+        # A disabled project can predate GitHub binding while its checkout
         # already has a canonical GitHub origin. Preserve the server project,
         # but retain that detected repository so a connected run can offer an
         # explicit in-place binding upgrade.
         if (
             not self.result.project_github_repo
             and self.result.project_checkout
-            and self.result.project_mode
-            == onboard_project.PROJECT_MODE_LOCAL_CHECKOUT
+            and self.result.project_mode == onboard_project.PROJECT_MODE_LOCAL_CHECKOUT
         ):
             try:
                 onboard_local_checkout_identity.inspect(
-                    self.result, self.result.project_checkout,
+                    self.result,
+                    self.result.project_checkout,
                 )
             except RuntimeError:
                 # Existing project identity remains authoritative even if the
@@ -424,22 +412,23 @@ class WizardFlow(
         branch = self.result.project_default_branch
         if branch:
             details.append(f"Default branch: {branch}")
-        self._goto(_View(
-            STEP_PROJECT,
-            lambda: steps.verification_body(
-                "Existing Yoke project found.",
-                onboard_existing_project.match_summary(self.result),
-                details,
-                steps.VERIFY_OK_ROWS,
-                ok=True,
-            ),
-            lambda _choice: self._after_existing_project_ready(),
-        ))
+        self._goto(
+            _View(
+                STEP_PROJECT,
+                lambda: steps.verification_body(
+                    "Existing Yoke project found.",
+                    onboard_existing_project.match_summary(self.result),
+                    details,
+                    steps.VERIFY_OK_ROWS,
+                    ok=True,
+                ),
+                lambda _choice: self._after_existing_project_ready(),
+            )
+        )
 
     def _after_existing_project_ready(self: _Shell) -> None:
         if (
-            self.result.project_github_adoption
-            == GITHUB_ADOPTION_BACKLOG_ONLY
+            self.result.project_github_adoption == GITHUB_ADOPTION_DISABLED
             and self.result.project_github_repo
             and github_connected(self.result)
         ):
@@ -465,7 +454,8 @@ class WizardFlow(
     def _after_branch(self: _Shell, value: str) -> None:
         self.result.project_default_branch = value
         self._goto_input(
-            STEP_PROJECT, "Pick the issue ID prefix.",
+            STEP_PROJECT,
+            "Pick the issue ID prefix.",
             "The PROJ in PROJ-123 — Yoke suggests one from your project name.",
             placeholder=steps.prefix_from_slug(self.result.project_slug),
             on_done=self._after_prefix,
@@ -484,12 +474,15 @@ class WizardFlow(
             rows = steps.PROJECT_GITHUB_ROWS
         else:
             rows = steps.PROJECT_GITHUB_ROWS_NO_MACHINE
-        self._goto(self._selection_view(
-            STEP_PROJECT,
-            onboard_github_copy.PROJECT_GITHUB_PROMPT_TITLE,
-            onboard_github_copy.PROJECT_GITHUB_PROMPT_SUBTITLE,
-            rows, self._on_project_github,
-        ))
+        self._goto(
+            self._selection_view(
+                STEP_PROJECT,
+                onboard_github_copy.PROJECT_GITHUB_PROMPT_TITLE,
+                onboard_github_copy.PROJECT_GITHUB_PROMPT_SUBTITLE,
+                rows,
+                self._on_project_github,
+            )
+        )
 
     # ── Finish step ─────────────────────────────────────────
 
@@ -533,10 +526,12 @@ class WizardFlow(
     def _goto_finish_error(self: _Shell, exc: BaseException) -> None:
         from yoke_cli.config.onboard_wizard_app import _View
 
-        self._goto(_View(
-            STEP_FINISH,
-            lambda: steps.error_body(str(exc)),
-        ))
+        self._goto(
+            _View(
+                STEP_FINISH,
+                lambda: steps.error_body(str(exc)),
+            )
+        )
 
     def _review_preflight(self: _Shell):
         """Run the Review pre-flight once, returning problems and advisory notes.

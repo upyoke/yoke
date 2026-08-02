@@ -20,7 +20,7 @@ not currently store a GitHub user authorization on an actor. A Yoke actor token
 signs the machine into Yoke; the GitHub App user authorization separately lets
 the local CLI prove a GitHub user identity and perform local repository work.
 
-GitHub integration is optional. A local universe running backlog-only installs
+GitHub integration is optional. A local universe running disabled installs
 no App and grants upyoke no repository access. For users who choose GitHub
 automation, the CLI contains the non-secret public identity of **Yoke by
 upyoke.com**, so the convenience path needs no App flags:
@@ -70,7 +70,7 @@ issue sync, pull requests, Actions, and other project automation.
 The server uses the App installation to mint a short-lived installation token
 when project automation runs. It does not store a long-lived project GitHub
 token. `projects.github_repo` is only a display projection of the verified
-binding, and `projects.github_sync_mode` stays `backlog_only` until the binding
+binding, and `projects.github_sync_mode` stays `disabled` until the binding
 is active and verified.
 
 ## Disconnecting the right layer
@@ -91,7 +91,7 @@ project.
 
 Project unbind deletes the project's binding, `github` capability, and any
 retired project GitHub credential residue; clears the display projection; and
-puts the project in `backlog_only` mode. It leaves the GitHub installation
+puts the project in `disabled` mode. It leaves the GitHub installation
 record intact so another project or a later rebind can use it. Rebinding
 requires selecting and live-verifying the exact repository; GitHub sync can be
 enabled only after that binding is active.

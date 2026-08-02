@@ -121,6 +121,7 @@ def test_user_installation_collection_allows_a_valid_page_over_64_kib():
                         "id": 4567,
                         "full_name": "Example-Org/ExternalWebapp",
                         "default_branch": "trunk",
+                        "private": True,
                         "owner": {"id": 9988},
                     }
                 ]

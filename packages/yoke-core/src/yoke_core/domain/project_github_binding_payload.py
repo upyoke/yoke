@@ -63,7 +63,9 @@ def permission_status(
         return {
             "status": "unknown",
             "missing": [],
-            "hint": ("Reconnect the GitHub App so Yoke can verify its required repository permissions."),
+            "hint": (
+                "Reconnect the GitHub App so Yoke can verify its required repository permissions."
+            ),
         }
     missing: list[str] = []
     required = required_permissions or REQUIRED_GITHUB_APP_REPOSITORY_PERMISSION_LEVELS
@@ -71,7 +73,9 @@ def permission_status(
         actual = _permission_level(permissions.get(permission))
         normalized_required = str(required_level or "").strip().lower()
         if normalized_required not in {ACCESS_READ, ACCESS_WRITE}:
-            raise ValueError("required GitHub permission levels must be exactly read or write")
+            raise ValueError(
+                "required GitHub permission levels must be exactly read or write"
+            )
         required_value = _PERMISSION_LEVELS[normalized_required]
         if actual < required_value:
             missing.append(permission)
@@ -80,7 +84,9 @@ def permission_status(
     return {
         "status": "missing",
         "missing": missing,
-        "hint": (f"Grant the GitHub App the required permissions, then retry the binding: {', '.join(missing)}."),
+        "hint": (
+            f"Grant the GitHub App the required permissions, then retry the binding: {', '.join(missing)}."
+        ),
     }
 
 
@@ -94,6 +100,7 @@ def binding_payload(row: Any) -> Optional[dict[str, Any]]:
         "api_url": str(row["api_url"] or ""),
         "github_repo": str(row["github_repo"] or ""),
         "default_branch": str(row["default_branch"] or ""),
+        "repository_is_private": _row_bool(row, "repository_is_private"),
         "status": str(row["status"] or ""),
         "permissions": permissions_dict(row["permissions"]),
         "last_verified_at": str(row["last_verified_at"] or ""),
@@ -124,7 +131,13 @@ def installation_payload(row: Any) -> Optional[dict[str, Any]]:
 def permissions_text(value: Optional[Mapping[str, Any]]) -> str:
     if value is None:
         return "{}"
-    return json_helper.dumps_compact({str(key): str(raw_value) for key, raw_value in value.items() if str(key).strip()})
+    return json_helper.dumps_compact(
+        {
+            str(key): str(raw_value)
+            for key, raw_value in value.items()
+            if str(key).strip()
+        }
+    )
 
 
 def permissions_dict(value: Any) -> dict[str, Any]:
@@ -136,6 +149,10 @@ def permissions_dict(value: Any) -> dict[str, Any]:
     if not isinstance(loaded, dict):
         return {}
     return {str(key): raw_value for key, raw_value in loaded.items()}
+
+
+def _row_bool(row: Any, column: str) -> bool:
+    return bool(row[column]) if column in row.keys() else False
 
 
 def _permission_level(value: Any) -> int:

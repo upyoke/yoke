@@ -30,22 +30,40 @@ def _seed_project(
     prefix = public_item_prefix or {"yoke": "YOK", "externalwebapp": "EXT"}.get(
         slug, slug.upper()
     )
-    conn.execute(
-        "INSERT INTO projects "
-        "(id, slug, name, default_branch, created_at, "
-        "github_repo, public_item_prefix) "
-        f"VALUES ({p}, {p}, {p}, 'main', '2026-01-01T00:00:00Z', {p}, {p}) "
-        "ON CONFLICT(id) DO UPDATE SET "
-        "slug=excluded.slug, name=excluded.name, "
-        "github_repo=excluded.github_repo, "
-        "public_item_prefix=excluded.public_item_prefix",
+    from yoke_core.domain.schema_common import _column_exists
+
+    mode_column = _column_exists(conn, "projects", "github_sync_mode")
+    mode_columns = ", github_sync_mode" if mode_column else ""
+    mode_values = f", {p}" if mode_column else ""
+    mode_update = ", github_sync_mode=excluded.github_sync_mode" if mode_column else ""
+    values = (
         (
             project_id,
             slug,
             name or slug.title(),
             github_repo,
             prefix,
-        ),
+            "enabled",
+        )
+        if mode_column
+        else (
+            project_id,
+            slug,
+            name or slug.title(),
+            github_repo,
+            prefix,
+        )
+    )
+    conn.execute(
+        "INSERT INTO projects "
+        "(id, slug, name, default_branch, created_at, "
+        f"github_repo, public_item_prefix{mode_columns}) "
+        f"VALUES ({p}, {p}, {p}, 'main', '2026-01-01T00:00:00Z', {p}, {p}{mode_values}) "
+        "ON CONFLICT(id) DO UPDATE SET "
+        "slug=excluded.slug, name=excluded.name, "
+        "github_repo=excluded.github_repo, "
+        f"public_item_prefix=excluded.public_item_prefix{mode_update}",
+        values,
     )
 
 

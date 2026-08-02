@@ -7,7 +7,7 @@ from typing import Any, Optional
 from yoke_core.domain.db_helpers import connect, iso8601_now, query_one, query_scalar
 from yoke_core.domain.project_identity import DEFAULT_PUBLIC_ITEM_PREFIX
 from yoke_core.domain.project_github_binding_payload import normalize_github_repo
-from yoke_core.domain.projects_github_sync_mode import GITHUB_SYNC_BACKLOG_ONLY
+from yoke_core.domain.projects_github_sync_mode import GITHUB_SYNC_DISABLED
 
 
 def cmd_upsert(
@@ -21,6 +21,7 @@ def cmd_upsert(
     public_item_prefix: Optional[str] = None,
     emoji: Optional[str] = None,
     github_sync_mode: Optional[str] = None,
+    allow_public_github_sync: bool = False,
     db_path: Optional[str] = None,
     mode: str = "create",
 ) -> dict[str, Any]:
@@ -58,7 +59,8 @@ def cmd_upsert(
         by_id = _row_by_id(conn, selected_id) if selected_id is not None else None
         target_org_id = (
             _resolve_org_id(conn, selected_org)
-            if selected_org is not None else _default_org_id(conn)
+            if selected_org is not None
+            else _default_org_id(conn)
         )
         if by_id is not None and selected_org is None and by_id["org_id"] is not None:
             target_org_id = int(by_id["org_id"])
@@ -87,22 +89,36 @@ def cmd_upsert(
             )
         now = iso8601_now()
         if created:
-            inserted_sync_mode = selected_sync_mode or GITHUB_SYNC_BACKLOG_ONLY
-            if inserted_sync_mode != GITHUB_SYNC_BACKLOG_ONLY:
+            inserted_sync_mode = selected_sync_mode or GITHUB_SYNC_DISABLED
+            if inserted_sync_mode != GITHUB_SYNC_DISABLED:
                 raise ValueError(
                     "github_sync_mode=enabled requires an active, verified "
                     "GitHub App repository binding; create the project as "
-                    "backlog_only, bind it, then enable issue sync"
+                    "disabled, bind it, then enable issue sync"
                 )
             numeric_id = _insert(
-                conn, selected_id, target_org_id, selected_slug, selected_name,
-                default_branch, github_repo, public_item_prefix, emoji, now,
+                conn,
+                selected_id,
+                target_org_id,
+                selected_slug,
+                selected_name,
+                default_branch,
+                github_repo,
+                public_item_prefix,
+                emoji,
+                now,
                 inserted_sync_mode,
             )
         else:
             numeric_id = _update(
-                conn, existing, selected_slug, selected_name, default_branch,
-                github_repo, public_item_prefix, emoji,
+                conn,
+                existing,
+                selected_slug,
+                selected_name,
+                default_branch,
+                github_repo,
+                public_item_prefix,
+                emoji,
             )
         if selected_sync_mode is not None and not created:
             from yoke_core.domain.projects_github_sync_mode import (
@@ -113,6 +129,7 @@ def cmd_upsert(
                 selected_sync_mode,
                 conn=conn,
                 project_id=numeric_id,
+                allow_public_github_sync=allow_public_github_sync,
             )
             conn.execute(
                 "UPDATE projects SET github_sync_mode=%s WHERE id=%s",
@@ -160,10 +177,16 @@ def _insert(
         "public_item_prefix, created_at, org_id, github_sync_mode) "
         "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
         (
-            numeric_id, slug, name, _clean_optional(emoji) or "",
-            _clean_optional(default_branch) or "main", _clean_optional(github_repo),
-            _clean_optional(public_item_prefix) or DEFAULT_PUBLIC_ITEM_PREFIX, now,
-            org_id, github_sync_mode,
+            numeric_id,
+            slug,
+            name,
+            _clean_optional(emoji) or "",
+            _clean_optional(default_branch) or "main",
+            _clean_optional(github_repo),
+            _clean_optional(public_item_prefix) or DEFAULT_PUBLIC_ITEM_PREFIX,
+            now,
+            org_id,
+            github_sync_mode,
         ),
     )
     return numeric_id
@@ -189,11 +212,13 @@ def _update(
         "UPDATE projects SET slug=%s, name=%s, emoji=%s, "
         "default_branch=%s, github_repo=%s, public_item_prefix=%s WHERE id=%s",
         (
-            slug, name,
+            slug,
+            name,
             _clean_optional(emoji) if emoji is not None else existing["emoji"],
             _clean_optional(default_branch) or existing["default_branch"] or "main",
             selected_github_repo,
-            _clean_optional(public_item_prefix) or existing["public_item_prefix"]
+            _clean_optional(public_item_prefix)
+            or existing["public_item_prefix"]
             or DEFAULT_PUBLIC_ITEM_PREFIX,
             numeric_id,
         ),

@@ -15,6 +15,25 @@ from yoke_core.domain.qa_case_execution import (
 WAITING_RETRY_EXIT = 3
 
 
+def _report_outcome(result: dict) -> None:
+    """Restate the verdict on stderr, naming where to re-read the run.
+
+    The JSON on stdout is for machines. A human or agent reading the
+    terminal after a long gate run needs the verdict, the exit code, and
+    the capture path without parsing it — especially on a failure, where
+    the alternative is re-running the same command by hand to see why.
+    """
+    fields = [
+        f"verdict={result.get('verdict')}",
+        f"outcome={result.get('case_outcome')}",
+    ]
+    if result.get("exit_code") is not None:
+        fields.append(f"exit_code={result['exit_code']}")
+    if result.get("output_capture"):
+        fields.append(f"capture={result['output_capture']}")
+    print(f"# qa case run: {' '.join(fields)}", file=sys.stderr, flush=True)
+
+
 def run(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa case run",
@@ -47,6 +66,7 @@ def run(args: List[str]) -> int:
     except QaCaseExecutionError as exc:
         print(f"yoke qa case run: {exc}", file=sys.stderr)
         return 2
+    _report_outcome(result)
     print(json.dumps(result, sort_keys=True))
     if result.get("case_outcome") == "waiting":
         return WAITING_RETRY_EXIT

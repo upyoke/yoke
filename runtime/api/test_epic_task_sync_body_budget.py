@@ -47,6 +47,11 @@ def epic_conn(tmp_path):
             project="yoke",
             workflow_id="epic",
         )
+        conn.execute(
+            "UPDATE projects SET github_sync_mode=%s WHERE slug=%s",
+            ("enabled", "yoke"),
+        )
+        conn.commit()
         try:
             yield conn
         finally:
@@ -59,14 +64,18 @@ def _record_create():
     captured: list[dict] = []
 
     def fake_create(*, project, title, body, labels, **_):
-        captured.append({
-            "project": project,
-            "title": title,
-            "body": body,
-            "labels": list(labels),
-        })
+        captured.append(
+            {
+                "project": project,
+                "title": title,
+                "body": body,
+                "labels": list(labels),
+            }
+        )
         return github_rest.Issue(
-            number=999, title=title, state="OPEN",
+            number=999,
+            title=title,
+            state="OPEN",
             html_url="https://github.com/owner/repo/issues/999",
         )
 
@@ -78,12 +87,14 @@ def _record_update():
     captured: list[dict] = []
 
     def fake_update(*, project, number, body=None, title=None, **_):
-        captured.append({
-            "project": project,
-            "number": number,
-            "body": body,
-            "title": title,
-        })
+        captured.append(
+            {
+                "project": project,
+                "number": number,
+                "body": body,
+                "title": title,
+            }
+        )
         return github_rest.Issue(number=number, title=title or "t", state="OPEN")
 
     return captured, fake_update
@@ -116,7 +127,8 @@ def test_resolve_or_create_epic_issue_compacts_oversized_body(monkeypatch, epic_
         gh_project="yoke",
         dry_run=False,
         conn=epic_conn,
-        stdout=stdout, stderr=stderr,
+        stdout=stdout,
+        stderr=stderr,
     )
 
     assert num == "999"
@@ -147,7 +159,8 @@ def test_dedup_or_create_task_issue_compacts_oversized_body(monkeypatch):
         task_body=_OVER_BUDGET,
         labels=["type:task", "status:planned"],
         gh_project="yoke",
-        stdout=stdout, stderr=stderr,
+        stdout=stdout,
+        stderr=stderr,
         conn=None,
         epic_id="4242",
         task_num=7,
@@ -164,7 +177,8 @@ def test_dedup_or_create_task_issue_compacts_oversized_body(monkeypatch):
 def test_sync_task_body_compacts_oversized_body(monkeypatch, epic_conn):
     captured, fake_update = _record_update()
     monkeypatch.setattr(
-        "yoke_core.domain.github_rest.update_issue", fake_update,
+        "yoke_core.domain.github_rest.update_issue",
+        fake_update,
     )
     monkeypatch.setattr(
         "yoke_core.domain.epic_task_sync_github._is_dry_run",
@@ -182,7 +196,11 @@ def test_sync_task_body_compacts_oversized_body(monkeypatch, epic_conn):
     stdout = io.StringIO()
     stderr = io.StringIO()
     rc = epic_task_sync_github.sync_task_body(
-        "4242", 7, conn=epic_conn, stdout=stdout, stderr=stderr,
+        "4242",
+        7,
+        conn=epic_conn,
+        stdout=stdout,
+        stderr=stderr,
     )
 
     assert rc == 0
@@ -190,7 +208,9 @@ def test_sync_task_body_compacts_oversized_body(monkeypatch, epic_conn):
     assert _budget.body_exceeds_budget(captured[0]["body"]) is False
     assert "YOK-4242 task 7" in captured[0]["body"]
     assert "epic task-get-body 4242 7" in captured[0]["body"]
-    assert "compact mirror" in stdout.getvalue() or "compact mirror" in stderr.getvalue()
+    assert (
+        "compact mirror" in stdout.getvalue() or "compact mirror" in stderr.getvalue()
+    )
 
 
 def test_dedup_or_create_task_issue_keeps_full_body_under_budget(monkeypatch):
@@ -215,7 +235,8 @@ def test_dedup_or_create_task_issue_keeps_full_body_under_budget(monkeypatch):
         task_body=body,
         labels=["type:task"],
         gh_project="yoke",
-        stdout=stdout, stderr=stderr,
+        stdout=stdout,
+        stderr=stderr,
         conn=None,
         epic_id="4242",
         task_num=1,

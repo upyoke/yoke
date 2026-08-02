@@ -83,16 +83,10 @@ def _transport_failure_sentinel(
 
 def _project_unavailable(per_project_value: Dict) -> bool:
     """True when GitHub state was not completely available for a project."""
-    return (
-        isinstance(per_project_value, dict)
-        and UNAVAILABLE_KEY in per_project_value
-    )
+    return isinstance(per_project_value, dict) and UNAVAILABLE_KEY in per_project_value
 
 
-# Per-project sentinel key marking a project whose GitHub sync mode is
-# backlog_only. Mirrors the unavailable sentinel shape: downstream
-# consumers skip classification for the project entirely — its items are
-# never orphans, never drift, never repaired.
+# Per-project sentinel that excludes disabled projects from classification.
 SYNC_DISABLED_KEY = "_sync_disabled"
 
 
@@ -104,8 +98,7 @@ def _sync_disabled_sentinel(mode: str) -> Dict[str, str]:
 def _project_sync_disabled(per_project_value: Dict) -> bool:
     """True when ``per_project_value`` carries the sync-disabled sentinel."""
     return (
-        isinstance(per_project_value, dict)
-        and SYNC_DISABLED_KEY in per_project_value
+        isinstance(per_project_value, dict) and SYNC_DISABLED_KEY in per_project_value
     )
 
 
@@ -140,7 +133,9 @@ def _list_issues_via_rest(
         )
         body = resp.body
         if not isinstance(body, list):
-            raise RestTransportError("GitHub issues endpoint returned an invalid payload")
+            raise RestTransportError(
+                "GitHub issues endpoint returned an invalid payload"
+            )
         if not body:
             break
         for entry in body:
@@ -155,17 +150,19 @@ def _list_issues_via_rest(
                 raise RestTransportError(
                     "GitHub issues endpoint returned an issue without a valid number"
                 )
-            collected.append({
-                "number": number,
-                "title": entry.get("title") or "",
-                "labels": [
-                    {"name": lab.get("name", "")}
-                    for lab in (entry.get("labels") or [])
-                    if isinstance(lab, dict)
-                ],
-                "state": str(entry.get("state") or "").upper(),
-                "body": entry.get("body") or "",
-            })
+            collected.append(
+                {
+                    "number": number,
+                    "title": entry.get("title") or "",
+                    "labels": [
+                        {"name": lab.get("name", "")}
+                        for lab in (entry.get("labels") or [])
+                        if isinstance(lab, dict)
+                    ],
+                    "state": str(entry.get("state") or "").upper(),
+                    "body": entry.get("body") or "",
+                }
+            )
         if len(body) < per_page:
             break
         if len(collected) >= limit:
@@ -185,16 +182,16 @@ def _fetch_gh_issues_per_project(projects: Iterable[str]) -> Dict[str, Dict]:
     by_project: Dict[str, Dict] = {}
     project_slugs = tuple(sorted(set(projects)))
 
-    # Yoke fetch -- fail-closed at the engine boundary, so let
-    # ProjectGithubAuthError propagate. Skipped entirely when the caller
-    # excluded yoke from the map (its GitHub sync mode is backlog_only).
+    # Yoke auth failures propagate at the engine boundary.
     if "yoke" in project_slugs:
         yoke_auth = resolve_project_github_auth(
-            "yoke", required_permissions=GITHUB_ISSUES_READ_PERMISSION_LEVELS,
+            "yoke",
+            required_permissions=GITHUB_ISSUES_READ_PERMISSION_LEVELS,
         )
         try:
             yoke_issues = _list_issues_via_rest(
-                yoke_auth.repo, token=yoke_auth.token,
+                yoke_auth.repo,
+                token=yoke_auth.token,
             )
         except RestAuthError as exc:
             raise InvalidToken(
@@ -227,7 +224,9 @@ def _fetch_gh_issues_per_project(projects: Iterable[str]) -> Dict[str, Dict]:
             continue
         except RestTransportError as exc:
             by_project[proj] = _transport_failure_sentinel(
-                proj, exc, stage="issues",
+                proj,
+                exc,
+                stage="issues",
             )
             continue
         by_project[proj] = {i["number"]: i for i in issues}
@@ -264,7 +263,7 @@ def _graphql_batch_fetch(
         )
     owner, repo = parts
 
-    batches = [nums[i:i + batch_size] for i in range(0, len(nums), batch_size)]
+    batches = [nums[i : i + batch_size] for i in range(0, len(nums), batch_size)]
 
     def fetch_batch(batch: List[int]) -> Dict[int, Dict]:
         fields = []
@@ -284,7 +283,8 @@ def _graphql_batch_fetch(
         query = (
             "{\n"
             f'  repository(owner: "{owner}", name: "{repo}") {{\n'
-            + "\n".join(fields) + "\n"
+            + "\n".join(fields)
+            + "\n"
             + "  }\n"
             + "}"
         )

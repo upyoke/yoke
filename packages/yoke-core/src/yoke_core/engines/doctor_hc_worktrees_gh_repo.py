@@ -63,7 +63,9 @@ def hc_wrong_repo_issues(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     """
     if not _wt._github_auth_configured("yoke", db_path=args.db_path):
         rec.record(
-            "HC-wrong-repo-issues", "Wrong-repo GitHub issues", "SKIP",
+            "HC-wrong-repo-issues",
+            "Wrong-repo GitHub issues",
+            "SKIP",
             GH_APP_AUTH_UNAVAILABLE_SKIP_REASON.format(project="yoke"),
         )
         return
@@ -87,7 +89,9 @@ def hc_wrong_repo_issues(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         )
     except ProjectGithubAuthError as err:
         rec.record(
-            "HC-wrong-repo-issues", "Wrong-repo GitHub issues", "FAIL",
+            "HC-wrong-repo-issues",
+            "Wrong-repo GitHub issues",
+            "FAIL",
             f"Cannot resolve Yoke GitHub auth: {err}\n"
             f"Repair: {repair_command_hint(err, 'yoke')}",
         )
@@ -112,7 +116,7 @@ def hc_wrong_repo_issues(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     # not once per item — the live DB at investigation time carried
     # ~1.8k linked Yoke rows where this collapses to a single resolve.
     project_auth_cache: dict[str, object] = {"yoke": yoke_auth}
-    # Backlog-only projects are out of scope: their linked issue refs are
+    # Disabled projects are out of scope: their linked issue refs are
     # historical records, not wrong-repo violations.
     sync_enabled_cache: dict[str, bool] = {}
     sync_disabled_notes: List[str] = []
@@ -129,9 +133,13 @@ def hc_wrong_repo_issues(conn, args: DoctorArgs, rec: RecordCollector) -> None:
             enabled = github_sync_enabled(project, conn=conn)
             sync_enabled_cache[project] = enabled
             if not enabled:
-                sync_disabled_notes.append("- " + github_sync_disabled_notice(
-                    project, "wrong-repo issue validation",
-                ))
+                sync_disabled_notes.append(
+                    "- "
+                    + github_sync_disabled_notice(
+                        project,
+                        "wrong-repo issue validation",
+                    )
+                )
         if not enabled:
             continue
 
@@ -174,7 +182,11 @@ def hc_wrong_repo_issues(conn, args: DoctorArgs, rec: RecordCollector) -> None:
             if default_state:
                 if args.fix:
                     if _migrate_issue(
-                        conn, item_id, num, yoke_repo, target_repo,
+                        conn,
+                        item_id,
+                        num,
+                        yoke_repo,
+                        target_repo,
                         project_token=project_auth.token,
                         yoke_token=yoke_token,
                     ):
@@ -200,21 +212,33 @@ def hc_wrong_repo_issues(conn, args: DoctorArgs, rec: RecordCollector) -> None:
                     f"issue #{num} not found in {target_repo} or {yoke_repo}"
                 )
 
-    notes_suffix = (
-        "\n" + "\n".join(sync_disabled_notes) if sync_disabled_notes else ""
-    )
+    notes_suffix = "\n" + "\n".join(sync_disabled_notes) if sync_disabled_notes else ""
     if issues:
         if args.fix and fixed_count > 0 and fixed_count == count:
-            rec.record("HC-wrong-repo-issues", "Wrong-repo GitHub issues", "PASS",
-                        f"Fixed: migrated {fixed_count} issue(s) to correct repo:\n"
-                        + "\n".join(issues) + notes_suffix)
+            rec.record(
+                "HC-wrong-repo-issues",
+                "Wrong-repo GitHub issues",
+                "PASS",
+                f"Fixed: migrated {fixed_count} issue(s) to correct repo:\n"
+                + "\n".join(issues)
+                + notes_suffix,
+            )
         else:
-            rec.record("HC-wrong-repo-issues", "Wrong-repo GitHub issues", "WARN",
-                        f"{count} item(s) with GitHub issues in the wrong repo:\n"
-                        + "\n".join(issues) + notes_suffix)
+            rec.record(
+                "HC-wrong-repo-issues",
+                "Wrong-repo GitHub issues",
+                "WARN",
+                f"{count} item(s) with GitHub issues in the wrong repo:\n"
+                + "\n".join(issues)
+                + notes_suffix,
+            )
     else:
-        rec.record("HC-wrong-repo-issues", "Wrong-repo GitHub issues", "PASS",
-                    notes_suffix.lstrip("\n"))
+        rec.record(
+            "HC-wrong-repo-issues",
+            "Wrong-repo GitHub issues",
+            "PASS",
+            notes_suffix.lstrip("\n"),
+        )
 
 
 def _migrate_issue(
@@ -247,7 +271,10 @@ def _migrate_issue(
 
     # 2. Create new issue in target repo (target-project auth)
     r = issue_create(
-        repo=target_repo, title=title, body=body or "", labels=labels,
+        repo=target_repo,
+        title=title,
+        body=body or "",
+        labels=labels,
         token=project_token,
     )
     if r.returncode != 0 or not r.stdout.strip():
@@ -267,9 +294,13 @@ def _migrate_issue(
             date = c.get("createdAt", "")
             c_body = c.get("body", "")
             if c_body:
-                comment_text = f"> *Migrated comment from @{author} ({date}):*\n\n{c_body}"
+                comment_text = (
+                    f"> *Migrated comment from @{author} ({date}):*\n\n{c_body}"
+                )
                 issue_comment(
-                    repo=target_repo, num=new_num, body=comment_text,
+                    repo=target_repo,
+                    num=new_num,
+                    body=comment_text,
                     token=project_token,
                 )
 

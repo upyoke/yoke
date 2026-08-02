@@ -20,7 +20,7 @@ from yoke_cli.config.onboard_wizard import (
 from yoke_cli.config.onboard_wizard_widgets import STEP_PROJECT
 from yoke_cli.config.project_github_adoption import (
     GITHUB_ADOPTION_APP_BINDING,
-    GITHUB_ADOPTION_BACKLOG_ONLY,
+    GITHUB_ADOPTION_DISABLED,
 )
 from yoke_cli.config.project_clone_support import CLONE_OUTCOME_FORK
 from yoke_cli.config.project_clone_support import CLONE_OUTCOME_MAKE_IT_MINE
@@ -28,7 +28,7 @@ from yoke_cli.config.onboard_project import PROJECT_MODE_CLONE_REMOTE
 
 
 class ProjectGithubAccessFlow:
-    """Bind an exact App-visible repository or choose backlog-only mode."""
+    """Bind an exact App-visible repository or choose disabled mode."""
 
     def _route_future_project_github_binding(self) -> bool:
         """Defer identity selection for a repository created during Apply."""
@@ -80,7 +80,10 @@ class ProjectGithubAccessFlow:
             return None
         config = machine_config.github_config(self.result.config_path)
         for raw in config.get("repositories") or []:
-            if isinstance(raw, dict) and str(raw.get("full_name") or "").casefold() == repo:
+            if (
+                isinstance(raw, dict)
+                and str(raw.get("full_name") or "").casefold() == repo
+            ):
                 return raw
         return None
 
@@ -118,17 +121,19 @@ class ProjectGithubAccessFlow:
         repository = self._connected_project_repository()
         if repository is not None:
             details.extend(self._project_installation_status(repository)[1])
-        self._goto(_View(
-            STEP_PROJECT,
-            lambda: steps.verification_body(
-                "Give the Yoke GitHub App access to this repo.",
-                onboard_github_copy.PROJECT_GITHUB_ACCESS_SUBTITLE,
-                details,
-                steps.PROJECT_GITHUB_ACCESS_ROWS,
-                ok=False,
-            ),
-            self._on_project_github_access,
-        ))
+        self._goto(
+            _View(
+                STEP_PROJECT,
+                lambda: steps.verification_body(
+                    "Give the Yoke GitHub App access to this repo.",
+                    onboard_github_copy.PROJECT_GITHUB_ACCESS_SUBTITLE,
+                    details,
+                    steps.PROJECT_GITHUB_ACCESS_ROWS,
+                    ok=False,
+                ),
+                self._on_project_github_access,
+            )
+        )
 
     def _on_project_github_access(self, choice: str) -> None:
         if choice == "refresh":
@@ -137,7 +142,8 @@ class ProjectGithubAccessFlow:
                 title="Refreshing GitHub App access.",
                 message="Checking installations and repositories from GitHub.",
                 work=lambda: github_machine.status(
-                    config_path=self.result.config_path, check=True,
+                    config_path=self.result.config_path,
+                    check=True,
                     **github_state.connection_scope(self.result),
                 ),
                 on_success=self._after_project_github_access_refresh,
@@ -148,7 +154,7 @@ class ProjectGithubAccessFlow:
             )
             return
         if choice == "backlog":
-            self.result.project_github_adoption = GITHUB_ADOPTION_BACKLOG_ONLY
+            self.result.project_github_adoption = GITHUB_ADOPTION_DISABLED
             self.result.project_github_adoption_preserve = False
             self.result.project_github_repository_id = None
             self.result.project_github_installation_id = None
@@ -180,12 +186,15 @@ class ProjectGithubAccessFlow:
         ):
             return None
         expected = str(self.result.project_github_repo or "").casefold()
-        return next((
-            dict(item)
-            for item in access.get("repositories") or []
-            if isinstance(item, dict)
-            and str(item.get("full_name") or "").casefold() == expected
-        ), None)
+        return next(
+            (
+                dict(item)
+                for item in access.get("repositories") or []
+                if isinstance(item, dict)
+                and str(item.get("full_name") or "").casefold() == expected
+            ),
+            None,
+        )
 
     def _show_project_github_access(self, repository: dict[str, Any]) -> None:
         from yoke_cli.config.onboard_wizard_app import _View
@@ -208,27 +217,35 @@ class ProjectGithubAccessFlow:
         self.result.project_github_adoption_preserve = False
         self.result.project_github_repository_id = repository_id
         self.result.project_github_installation_id = installation_id
-        self._goto(_View(
-            STEP_PROJECT,
-            lambda: steps.verification_body(
-                "GitHub App repository access found.",
-                "This project can use the selected App installation.",
-                details,
-                steps.VERIFY_OK_ROWS,
-                ok=True,
-            ),
-            lambda _choice: self._goto_board_art_intro(),
-        ))
+        self._goto(
+            _View(
+                STEP_PROJECT,
+                lambda: steps.verification_body(
+                    "GitHub App repository access found.",
+                    "This project can use the selected App installation.",
+                    details,
+                    steps.VERIFY_OK_ROWS,
+                    ok=True,
+                ),
+                lambda _choice: self._goto_board_art_intro(),
+            )
+        )
 
     def _project_installation_status(
-        self, repository: dict[str, Any],
+        self,
+        repository: dict[str, Any],
     ) -> tuple[bool, list[str]]:
         installation_id = repository.get("installation_id")
         config = machine_config.github_config(self.result.config_path)
-        installation = next((
-            row for row in config.get("installations") or []
-            if isinstance(row, dict) and row.get("installation_id") == installation_id
-        ), None)
+        installation = next(
+            (
+                row
+                for row in config.get("installations") or []
+                if isinstance(row, dict)
+                and row.get("installation_id") == installation_id
+            ),
+            None,
+        )
         if installation is None:
             return False, ["The repository's App installation metadata is unavailable."]
         if installation.get("suspended"):

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
-from yoke_cli.config.project_github_adoption import GITHUB_ADOPTION_BACKLOG_ONLY
+from yoke_cli.config.project_github_adoption import GITHUB_ADOPTION_DISABLED
 
 
 def authorization_source(kwargs: Mapping[str, Any]) -> dict[str, Any]:
@@ -21,16 +21,14 @@ def binding(kwargs: Mapping[str, Any]) -> dict[str, Any]:
     status = str(kwargs.get("project_github_binding_status") or "")
     if not status:
         status = (
-            "backlog_only"
-            if adoption == GITHUB_ADOPTION_BACKLOG_ONLY or not repo
+            "disabled"
+            if adoption == GITHUB_ADOPTION_DISABLED or not repo
             else "pending_app_connection"
         )
     return {
         "adoption": adoption,
         "repo": repo,
-        "installation_id": _positive_int(
-            kwargs.get("project_github_installation_id")
-        ),
+        "installation_id": _positive_int(kwargs.get("project_github_installation_id")),
         "repository_id": _positive_int(kwargs.get("project_github_repository_id")),
         "status": status,
         "permission_status": _mapping(kwargs.get("project_github_permission_status")),

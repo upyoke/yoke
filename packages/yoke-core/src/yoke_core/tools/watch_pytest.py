@@ -145,6 +145,14 @@ def _parse_args(
         "iteration — merge still runs the full sweep.",
     )
     parser.add_argument(
+        "--bounded",
+        action="store_true",
+        help="With --impacted, never widen to the full sweep: run the "
+        "subset reachability can still compute and report why coverage "
+        "is partial. The iteration shape when a QA case run will be the "
+        "one full execution for this tree.",
+    )
+    parser.add_argument(
         "passthrough",
         nargs=argparse.REMAINDER,
         help=(
@@ -180,15 +188,19 @@ def _extract_print_streaming_pair(argv: list[str]) -> tuple[list[str], bool]:
     return filtered, found
 
 
-def _impacted_selection(base: str) -> "list[str] | None":
+def _impacted_selection(base: str, *, bounded: bool = False) -> "list[str] | None":
     """Pytest path arguments for the current change, or None when there are none."""
     from yoke_core.tools import impacted_tests
 
     selection = impacted_tests.selection_for(
-        _source_pythonpath.repo_root(Path.cwd()), base
+        _source_pythonpath.repo_root(Path.cwd()), base, bounded=bounded
     )
     scope = "full sweep" if selection.full_sweep else "impacted"
     print(f"watch_pytest {scope}: {selection.reason}", flush=True)
+    # Structured companion to the prose reason above. Both land in the run's
+    # captures; only this one can be grouped across runs to tell legitimate
+    # core churn from a file kind reachability never modelled.
+    print(f"watch_pytest {selection.telemetry()}", flush=True)
     paths = list(selection.pytest_paths())
     return paths or None
 
@@ -202,10 +214,16 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
     pytest_args = _strip_separator(list(ns.passthrough))
 
     if ns.impacted is not None:
-        selected = _impacted_selection(ns.impacted)
+        selected = _impacted_selection(ns.impacted, bounded=ns.bounded)
         if selected is None:
             return 0
         pytest_args = [*selected, *pytest_args]
+    elif ns.bounded:
+        print(
+            "watch_pytest: --bounded only applies with --impacted",
+            file=sys.stderr,
+        )
+        return 2
 
     if _watch_pytest_args.is_nested_pytest_invocation(pytest_args):
         print(

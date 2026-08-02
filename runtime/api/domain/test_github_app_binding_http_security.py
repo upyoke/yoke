@@ -73,6 +73,7 @@ class _GitHubBindingTransport:
                         "id": 4567,
                         "full_name": "Example-Org/ExternalWebapp",
                         "default_branch": "trunk",
+                        "private": True,
                         "owner": {"id": 9988},
                     }
                 ]
