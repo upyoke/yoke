@@ -51,8 +51,8 @@ class TestHarnessUniverseExport:
     fixture both consume this constant so the universe is named in exactly
     one place."""
 
-    def test_harness_universe_names_both_harnesses(self):
-        assert HARNESS_UNIVERSE == ("claude-code", "codex")
+    def test_harness_universe_names_every_harness(self):
+        assert HARNESS_UNIVERSE == ("claude-code", "codex", "cursor")
 
     def test_default_harness_support_matches_universe(self):
         # OperatorCommand.harness_support defaults to HARNESS_UNIVERSE so a

@@ -96,7 +96,7 @@ def test_non_shell_tool_names_pass_through(container_env: None) -> None:
     assert parse_payload(payload)["tool_name"] == "Read"
 
 
-def test_subagent_event_resolves_container_from_env(container_env: None) -> None:
+def test_subagent_event_folds_into_container(container_env: None) -> None:
     payload = json.dumps(
         {
             "hook_event_name": "preToolUse",
@@ -108,6 +108,10 @@ def test_subagent_event_resolves_container_from_env(container_env: None) -> None
     data = parse_payload(payload)
     assert data["container_session_id"] == MAIN
     assert data["is_subagent_session"] is True
+    # session_id rewrites to the container so downstream consumers
+    # attribute to the top-level session; the subagent's own id survives.
+    assert data["session_id"] == MAIN
+    assert data["subagent_session_id"] == SUB
 
 
 def test_parent_conversation_id_wins_without_env(bare_env: None) -> None:

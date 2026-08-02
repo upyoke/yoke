@@ -107,6 +107,13 @@ def parse_payload(payload: str) -> Dict[str, Any]:
         data["container_session_id"] = container
         own = str(data.get("session_id", ""))
         data["is_subagent_session"] = bool(own) and own != container
+        if data["is_subagent_session"]:
+            # Container model: the top-level session owns all activity, so
+            # every downstream consumer (telemetry, registration, policy)
+            # reads the container id from ``session_id``; the subagent's
+            # own id stays available for correlation.
+            data["subagent_session_id"] = own
+            data["session_id"] = container
 
     return data
 
