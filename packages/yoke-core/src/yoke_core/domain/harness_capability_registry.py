@@ -15,7 +15,7 @@ from typing import Any
 # `harness_support` value on `OperatorCommand` rows and consumed by the
 # capability renderer plus capability-consistency tests so the universe is
 # named in exactly one place.
-HARNESS_UNIVERSE: tuple[str, ...] = ("claude-code", "codex")
+HARNESS_UNIVERSE: tuple[str, ...] = ("claude-code", "codex", "cursor")
 
 
 @dataclass(frozen=True)
